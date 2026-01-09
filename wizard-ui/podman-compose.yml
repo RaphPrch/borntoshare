@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  wizard-ui:
+    container_name: wizard-ui
+    build:
+      context: .
+      dockerfile: Containerfile
+
+    environment:
+      TZ: Europe/Paris
+
+    volumes:
+      - ./wizard:/opt/wizard/wizard:ro
+
+    ports:
+      - "8080:8080"
+
+    restart: "no"
+
+    networks:
+      - app_net
+      - db_net
+
+networks:
+  app_net:
+    external: true
+
+  db_net:
+    driver: bridge
+    external: true
