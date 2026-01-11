@@ -11,23 +11,6 @@ services:
     environment:
       # Mode de l'application
       - APP_ENV=dev
-
-      # 👉 BornToShare IAM Mode
-      - IAM_PROVIDER=local
-      - LOCAL_FALLBACK_ENABLED=true
-
-      # 🔐 Sécurité JWT
-      - JWT_SECRET_KEY=CHANGE_ME_JWT_SECRET
-
-      # 🔐 Configuration Keycloak (si utilisé)
-      - KEYCLOAK_SERVER=http://keycloak:8080
-      - KEYCLOAK_REALM=b2s
-      - KEYCLOAK_CLIENT_ID=b2s-auth
-      - KEYCLOAK_CLIENT_SECRET=CHANGE_ME_CLIENT_SECRET
-
-      # 👉 Communication interne avec DAL-Service
-      - DAL_AUTH_BASE_URL=http://dal-service:8000/internal/auth
-
       # 👉 Logs BornToShare
       - B2S_DEBUG=true
       - B2S_LOG_LEVEL=trace
