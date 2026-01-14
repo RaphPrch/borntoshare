@@ -66,6 +66,8 @@ flowchart LR
     GOV --> RUN
     RUN --> INFRA
 
+```
+
 Design principles:
 - Only runners interact with target infrastructures (SMB, AD, etc.)
 - Gateway and Governance are network-agnostic
