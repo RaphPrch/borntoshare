@@ -50,13 +50,13 @@ without any enterprise-only feature.
 
 ```mermaid
 flowchart LR
-    UI["Web UI<br/>(Svelte)"]
-    GW["API Gateway<br/>(FastAPI)"]
-    GOV["Governance Engine<br/>(Workflows & Rules)"]
-    DAL["Data Access Layer<br/>(DAL)"]
-    DB["Database<br/>(SQL)"]
-    RUN["Runner / Capsule<br/>(SMB / AD)"]
-    INFRA["File Server / Active Directory"]
+    UI["Web UI (Svelte)"]
+    GW["API Gateway (FastAPI)"]
+    GOV["Governance Engine"]
+    DAL["Data Access Layer"]
+    DB["Database"]
+    RUN["Runner / Capsule"]
+    INFRA["File Server and Active Directory"]
 
     UI --> GW
     GW --> GOV
