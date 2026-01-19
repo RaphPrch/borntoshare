@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.core.providers.base import AuthProvider
+from app.core.providers.base import AuthProvider, AuthUnavailable, InvalidCredentials
 from app.schemas.auth import UserInfo
 
 settings = get_settings()
@@ -73,13 +73,13 @@ class ADLDAPProvider(AuthProvider):
 
     async def authenticate(self, username: str, password: str) -> UserInfo:
         if not settings.AD_ENABLED:
-            raise ValueError("AD/LDAP authentication is disabled (AD_ENABLED=false)")
+            raise AuthUnavailable("AD/LDAP authentication is disabled")
 
         if Connection is None or Server is None:
-            raise RuntimeError("ldap3 is not installed. Add 'ldap3' to requirements to enable AD auth.")
+            raise AuthUnavailable("ldap3 is not installed in auth-service")
 
         if not username or not password:
-            raise ValueError("Invalid credentials")
+            raise InvalidCredentials("Invalid credentials")
 
         server = Server(self.cfg.url, get_info=ALL)
 
@@ -89,12 +89,12 @@ class ADLDAPProvider(AuthProvider):
         if self.cfg.user_dn_template:
             user_dn = self.cfg.user_dn_template.format(username=username)
             if not Connection(server, user=user_dn, password=password, auto_bind=True):
-                raise ValueError("Invalid credentials")
+                raise InvalidCredentials("Invalid credentials")
 
             # Optional: fetch attributes via a service bind if available
             display_name = None
             email = None
-            roles: List[str] = []
+            groups: List[str] = []
             if self.cfg.bind_user and self.cfg.bind_password:
                 with Connection(server, user=self.cfg.bind_user, password=self.cfg.bind_password, auto_bind=True) as c:
                     flt = self.cfg.user_filter.format(username=username)
@@ -108,15 +108,17 @@ class ADLDAPProvider(AuthProvider):
                             groups = list(getattr(e, self.cfg.groups_attr).values)  # type: ignore
                         except Exception:
                             groups = []
-                        roles = [_cn_from_dn(g) for g in groups]
+                        groups = [str(g) for g in groups if g]
 
             return UserInfo(
                 user_id=username,
                 username=username,
                 display_name=display_name,
                 email=email,
-                roles=roles,
+                roles=[],
                 permissions=[],
+                groups=groups,
+                external_id=user_dn,
                 auth_source="ad",
             )
 
@@ -124,8 +126,8 @@ class ADLDAPProvider(AuthProvider):
         # Mode 1: search DN using bind account, then bind as user
         # ----------------------------
         if not (self.cfg.bind_user and self.cfg.bind_password):
-            raise RuntimeError(
-                "AD_BIND_USER/AD_BIND_PASSWORD must be configured when AD_USER_DN_TEMPLATE is empty."
+            raise AuthUnavailable(
+                "AD bind account not configured (set AD_BIND_USER/AD_BIND_PASSWORD or AD_USER_DN_TEMPLATE)"
             )
 
         with Connection(server, user=self.cfg.bind_user, password=self.cfg.bind_password, auto_bind=True) as search_conn:
@@ -140,7 +142,7 @@ class ADLDAPProvider(AuthProvider):
             )
             if not ok or not search_conn.entries:
                 logger.warning("AD user not found | username=%s | filter=%s", username, flt)
-                raise ValueError("Invalid credentials")
+                raise InvalidCredentials("Invalid credentials")
 
             entry = search_conn.entries[0]
             user_dn = str(getattr(entry, "distinguishedName").value)  # type: ignore
@@ -150,24 +152,26 @@ class ADLDAPProvider(AuthProvider):
                 with Connection(server, user=user_dn, password=password, auto_bind=True):
                     pass
             except Exception:
-                raise ValueError("Invalid credentials")
+                raise InvalidCredentials("Invalid credentials")
 
             display_name = str(getattr(entry, "displayName", "") or "") or None
             email = str(getattr(entry, "mail", "") or "") or None
 
+            # Raw groups are kept for governance mapping.
             try:
                 groups = list(getattr(entry, self.cfg.groups_attr).values)  # type: ignore
             except Exception:
                 groups = []
-            roles = [_cn_from_dn(g) for g in groups]
 
             return UserInfo(
                 user_id=username,
                 username=username,
                 display_name=display_name,
                 email=email,
-                roles=roles,
+                roles=[],
                 permissions=[],
+                groups=[str(g) for g in groups if g],
+                external_id=user_dn,
                 auth_source="ad",
             )
 

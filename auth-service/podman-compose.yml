@@ -14,7 +14,8 @@ services:
       # 👉 Logs BornToShare
       - B2S_DEBUG=true
       - B2S_LOG_LEVEL=trace
-
+    env_file:
+      - .env
     # 🔥 Auth-service NE DOIT PAS être exposé au public
     expose:
       - "8000"

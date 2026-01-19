@@ -1,6 +1,15 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+
 from app.schemas.auth import UserInfo
+
+
+class AuthUnavailable(Exception):
+    """Provider is enabled but currently unreachable (network, timeout, etc.)."""
+
+
+class InvalidCredentials(Exception):
+    """Credentials were checked and are invalid."""
 
 class AuthProvider(ABC):
     name: str

@@ -52,14 +52,21 @@ async def fetch_userinfo(access_token: str | None) -> UserInfo:
         ur = await client.get(userinfo_url, headers={"Authorization": f"Bearer {access_token}"})
     payload = ur.json() if ur.content else {}
     roles: List[str] = []
+    groups: List[str] = []
     realm_access = payload.get("realm_access")
     if isinstance(realm_access, dict):
         roles = realm_access.get("roles") or []
+
+    g = payload.get("groups")
+    if isinstance(g, list):
+        groups = [str(x) for x in g if x]
     return UserInfo(
         user_id=str(payload.get("sub") or payload.get("preferred_username") or "unknown"),
         username=payload.get("preferred_username") or payload.get("email") or "unknown",
         display_name=payload.get("name"),
         email=payload.get("email"),
         roles=roles,
+        groups=groups,
+        external_id=str(payload.get("sub") or "") or None,
         auth_source="keycloak",
     )

@@ -64,6 +64,21 @@ class UserInfo(BaseModel):
         description="Computed permissions",
     )
 
+    # Raw external groups as returned by identity sources.
+    # - AD: distinguishedName strings from memberOf
+    # - OIDC/Keycloak: group paths or names
+    # Used by governance to map to BornToShare roles.
+    groups: List[str] = Field(
+        default_factory=list,
+        description="External groups (raw) used for governance mapping",
+    )
+
+    # Optional stable external identifier (DN, subject, etc.)
+    external_id: Optional[str] = Field(
+        default=None,
+        description="External stable id (DN/sub/etc.)",
+    )
+
     # Source of authentication
     auth_source: str = Field(
         ...,

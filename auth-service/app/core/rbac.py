@@ -2,26 +2,42 @@ from __future__ import annotations
 from typing import Iterable, List, Set
 
 # Central RBAC map (permissive default: unknown roles => no perms)
+#
+# BornToShare (current scope): only 3 platform roles exist.
+# - admin: platform administration
+# - user: standard portal user
+# - audit: read-only + audit views
 ROLE_PERMISSIONS = {
     "admin": [
-        "dataspace:read","dataspace:write",
-        "policy:read","policy:write",
-        "pack:read","pack:write",
-        "tag:read","tag:write",
-        "site:read","site:write",
-        "zone:read","zone:write",
-        "user:read","user:write",
+        # Admin UI / configuration
+        "identity:read",
+        "identity:write",
+        "storage_endpoint:read",
+        "storage_endpoint:write",
+        "storage_root:read",
+        "storage_root:write",
+        "site:read",
+        "site:write",
+        "zone:read",
+        "zone:write",
+        "access_profile:read",
+        "access_profile:write",
+        "access_request:read",
+        "access_request:write",
         "access_request:approve",
-        "guardian:take","guardian:release",
+        "audit:read",
     ],
-    "readonly": [
-        "dataspace:read","policy:read","pack:read","tag:read",
-        "site:read","zone:read","user:read"
+    "user": [
+        "storage_root:read",
+        "access_request:read",
+        "access_request:write",
     ],
-    "guardian": [
-        "dataspace:read",
-        "access_request:approve",
-        "guardian:take","guardian:release",
+    "audit": [
+        "audit:read",
+        "storage_endpoint:read",
+        "storage_root:read",
+        "access_request:read",
+        "identity:read",
     ],
 }
 
