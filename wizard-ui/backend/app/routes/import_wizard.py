@@ -22,7 +22,6 @@ router = APIRouter(prefix="/import", tags=["import"])
 WIZARD_MODE = os.getenv("WIZARD_MODE", os.getenv("APP_ENV", "dev")).lower()
 
 logger = logging.getLogger("wizard.import")
-logger.setLevel(logging.INFO)
 
 
 # ----------------------------------------------------------------------
@@ -56,6 +55,10 @@ def _parse_bool(value, default=False) -> bool:
     return default
 
 
+def _is_prod() -> bool:
+    return WIZARD_MODE == "prod"
+
+
 # ----------------------------------------------------------------------
 # Import principal
 # ----------------------------------------------------------------------
@@ -67,12 +70,13 @@ async def import_config(payload: dict):
     DEV:
       - création DB
       - comptes SQL
-      - schema + views + indexes
+      - schéma + vues + indexes
       - seed AUTO
       - admin local
 
     PROD:
-      - aucune action destructive
+      - BLOQUÉ par défaut
+      - AUTORISÉ uniquement si force_import=true
     """
 
     # ------------------------------------------------------------------
@@ -83,10 +87,11 @@ async def import_config(payload: dict):
     admin = payload.get("admin") or {}
     services = payload.get("services") or []
 
-    app_sql_user = payload.get("app_sql_user") or "app_user"
+    app_sql_user = payload.get("app_sql_user") or "b2s_app"
     app_sql_password = payload.get("app_user_password") or "change_me_app"
 
     apply_seed_flag = _parse_bool(payload.get("apply_seed"), default=False)
+    force_import = _parse_bool(payload.get("force_import"), default=False)
 
     if not db_name or not root_cfg:
         raise HTTPException(status_code=400, detail="db_name et db_root sont requis.")
@@ -95,20 +100,28 @@ async def import_config(payload: dict):
     _validate_sql_identifier(app_sql_user, "Compte SQL applicatif")
 
     logger.info(
-        "[WIZARD] mode=%s apply_seed_flag=%s",
+        "[WIZARD] mode=%s apply_seed=%s force_import=%s",
         WIZARD_MODE,
         apply_seed_flag,
+        force_import,
     )
 
     # ------------------------------------------------------------------
-    # MODE PROD (SAFE EXIT)
+    # MODE PROD — SÉCURITÉ
     # ------------------------------------------------------------------
-    if WIZARD_MODE == "prod":
-        logger.warning("[WIZARD] PROD mode – import skipped")
+    if _is_prod() and not force_import:
+        logger.warning("[WIZARD] PROD mode – import skipped (force_import required)")
         return {
-            "ok": True,
-            "message": "Mode PROD : aucune modification directe.",
+            "ok": False,
+            "skipped": True,
+            "reason": "prod",
+            "message": "Mode PROD : import bloqué (force_import=false).",
         }
+
+    if _is_prod() and force_import:
+        logger.warning(
+            "[WIZARD] ⚠️ FORCED IMPORT in PROD – database will be created"
+        )
 
     # ==================================================================
     # 1. Création de la base
@@ -116,6 +129,7 @@ async def import_config(payload: dict):
     conn = get_connection(database=False, root_cfg=root_cfg)
     cur = conn.cursor()
     try:
+        logger.info("[WIZARD] Creating database %s", db_name)
         cur.execute(
             f"""
             CREATE DATABASE IF NOT EXISTS `{db_name}`
@@ -126,6 +140,7 @@ async def import_config(payload: dict):
         conn.commit()
     except Error as e:
         conn.rollback()
+        logger.exception("[WIZARD] Database creation failed")
         raise HTTPException(status_code=500, detail=f"Erreur création base : {e}")
     finally:
         cur.close()
@@ -137,6 +152,9 @@ async def import_config(payload: dict):
     conn = get_connection(database=False, root_cfg=root_cfg)
     cur = conn.cursor()
     try:
+        logger.info("[WIZARD] Creating SQL users")
+
+        # App user principal
         cur.execute(
             f"CREATE USER IF NOT EXISTS `{app_sql_user}`@'%' IDENTIFIED BY %s",
             (app_sql_password,),
@@ -145,6 +163,7 @@ async def import_config(payload: dict):
             f"GRANT ALL PRIVILEGES ON `{db_name}`.* TO `{app_sql_user}`@'%'"
         )
 
+        # Services optionnels
         for svc in services:
             db_user = svc.get("db_user")
             db_password = svc.get("db_password")
@@ -167,6 +186,7 @@ async def import_config(payload: dict):
 
     except Exception as e:
         conn.rollback()
+        logger.exception("[WIZARD] SQL user creation failed")
         raise HTTPException(status_code=500, detail=f"Erreur comptes SQL : {e}")
     finally:
         cur.close()
@@ -178,7 +198,7 @@ async def import_config(payload: dict):
     logger.info("[WIZARD] Running schema pack")
     run_initial_schema(db_name=db_name, root_cfg=root_cfg)
 
-    if WIZARD_MODE == "dev" or apply_seed_flag:
+    if apply_seed_flag:
         logger.info("[WIZARD] Running seed pack")
         run_seed_sql(db_name=db_name, root_cfg=root_cfg)
     else:
@@ -196,6 +216,7 @@ async def import_config(payload: dict):
 
     validate_password_complexity(raw_password)
 
+    logger.info("[WIZARD] Creating local admin account")
     create_local_admin_if_needed(
         db_name=db_name,
         root_cfg=root_cfg,
@@ -204,7 +225,11 @@ async def import_config(payload: dict):
         password=raw_password,
     )
 
+    logger.info("[WIZARD] Import completed successfully")
+
     return {
         "ok": True,
-        "message": "Import terminé : base, schéma, seed et admin local créés.",
+        "message": "Import terminé : base, schéma, comptes SQL et admin local créés.",
+        "prod": _is_prod(),
+        "forced": force_import,
     }

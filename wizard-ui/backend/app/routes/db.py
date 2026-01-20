@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import socket
 import time
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from ..db import get_connection, test_connection
+from ..db import get_connection
+
+logger = logging.getLogger("wizard.db")
 
 router = APIRouter(
     prefix="/db",
@@ -15,75 +18,33 @@ router = APIRouter(
 )
 
 # ============================================================
-# 📦 Payloads
+# 📦 PAYLOADS
 # ============================================================
 
-class DbTestPayload(BaseModel):
+class DbNetworkPayload(BaseModel):
     host: str = Field(..., description="Database host or IP")
     port: int = Field(3306, description="Database port")
+
+
+class DbAuthPayload(DbNetworkPayload):
     user: str = Field(..., description="Database user")
     password: str = Field(..., description="Database password")
     database: Optional[str] = Field(
         None,
-        description="Optional database name (not required for connectivity tests)",
+        description="Optional database name",
     )
-
-
-# ============================================================
-# 🔌 BASIC DB CONNECTION TEST
-# ============================================================
-
-@router.post("/test")
-def test_db(payload: DbTestPayload):
-    """
-    MySQL connection test.
-
-    - No schema change
-    - No data modification
-    - Safe for PROD
-    """
-    try:
-        ok = test_connection(
-            {
-                "host": payload.host,
-                "port": payload.port,
-                "user": payload.user,
-                "password": payload.password,
-                "database": payload.database,
-            }
-        )
-    except Exception:
-        raise HTTPException(
-            status_code=400,
-            detail="Unable to connect to database (invalid host, port or credentials)",
-        )
-
-    if not ok:
-        raise HTTPException(
-            status_code=400,
-            detail="Unable to connect to database (invalid host, port or credentials)",
-        )
-
-    return {
-        "status": "ok",
-        "message": "Database connection successful",
-    }
-
 
 # ============================================================
 # 🌐 DNS / TCP / LATENCY DIAGNOSTIC
 # ============================================================
 
 @router.post("/diagnostic")
-def network_diagnostic(payload: DbTestPayload):
-    """
-    Network-level diagnostic.
+def network_diagnostic(payload: DbNetworkPayload):
+    logger.debug(
+        "DB diagnostic start",
+        extra={"host": payload.host, "port": payload.port},
+    )
 
-    Checks:
-    - DNS resolution
-    - TCP connectivity
-    - Basic latency estimation
-    """
     result = {
         "dns_ok": False,
         "tcp_ok": False,
@@ -95,47 +56,99 @@ def network_diagnostic(payload: DbTestPayload):
 
         # DNS
         ip = socket.gethostbyname(payload.host)
+        logger.debug("DNS resolution OK", extra={"host": payload.host, "ip": ip})
         result["dns_ok"] = True
 
         # TCP
         sock = socket.create_connection((ip, payload.port), timeout=3)
         sock.close()
+        logger.debug("TCP connectivity OK", extra={"ip": ip, "port": payload.port})
         result["tcp_ok"] = True
 
         result["latency_ms"] = int((time.time() - start) * 1000)
 
-    except Exception:
-        # Silent fail → frontend displays KO
-        pass
+    except Exception as e:
+        logger.warning(
+            "Network diagnostic failed",
+            extra={"host": payload.host, "port": payload.port},
+            exc_info=e,
+        )
 
     return result
 
+# ============================================================
+# 🔌 BASIC DB CONNECTION TEST
+# ============================================================
+
+@router.post("/test")
+def test_db(payload: DbAuthPayload):
+    logger.debug(
+        "DB connection test start",
+        extra={
+            "host": payload.host,
+            "port": payload.port,
+            "user": payload.user,
+        },
+    )
+
+    try:
+        conn = get_connection(
+            database=False,
+            root_cfg={
+                "host": payload.host,
+                "port": payload.port,
+                "user": payload.user,
+                "password": payload.password,
+            },
+        )
+        conn.close()
+
+        logger.info(
+            "DB connection OK",
+            extra={"user": payload.user, "host": payload.host},
+        )
+
+    except Exception as e:
+        logger.error(
+            "DB connection failed",
+            extra={
+                "host": payload.host,
+                "port": payload.port,
+                "user": payload.user,
+            },
+            exc_info=e,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Unable to connect to database (invalid host, port or credentials)",
+        )
+
+    return {"status": "ok"}
 
 # ============================================================
-# 🔐 SQL PRIVILEGES TEST (SAFE)
+# 🔐 SQL PRIVILEGES TEST (SAFE + ROBUST)
 # ============================================================
 
 @router.post("/privileges-test")
-def privileges_test(payload: DbTestPayload):
-    """
-    Test required SQL privileges.
+def privileges_test(payload: DbAuthPayload):
+    logger.debug(
+        "SQL privileges test start",
+        extra={
+            "host": payload.host,
+            "port": payload.port,
+            "user": payload.user,
+        },
+    )
 
-    REQUIRED PRIVILEGES:
-    - CREATE DATABASE
-    - CREATE USER
-    - GRANT
-    - CREATE TABLE
-
-    This test is SAFE:
-    - Uses CREATE TEMPORARY TABLE only
-    - No persistent schema modification
-    """
     privileges = {
         "create_database": False,
         "create_user": False,
         "grant": False,
         "create_table": False,
     }
+
+    conn = None
+    cur = None
 
     try:
         conn = get_connection(
@@ -149,48 +162,82 @@ def privileges_test(payload: DbTestPayload):
         )
         cur = conn.cursor()
 
-        # CREATE DATABASE (dry-run via INFORMATION_SCHEMA permission)
+        # ----------------------------------------------------
+        # SHOW DATABASES (returns rows → MUST fetch)
+        # ----------------------------------------------------
         try:
             cur.execute("SHOW DATABASES")
+            cur.fetchall()  # 🔑 CRITICAL (mysql-connector)
             privileges["create_database"] = True
-        except Exception:
-            pass
+            logger.debug("Privilege OK: SHOW DATABASES")
+        except Exception as e:
+            logger.warning("Privilege FAILED: SHOW DATABASES", exc_info=e)
 
-        # CREATE USER (syntax check only)
-        try:
-            cur.execute("SELECT 1")
-            privileges["create_user"] = True
-        except Exception:
-            pass
-
-        # GRANT
+        # ----------------------------------------------------
+        # SHOW GRANTS (returns rows → MUST fetch)
+        # ----------------------------------------------------
         try:
             cur.execute("SHOW GRANTS FOR CURRENT_USER")
+            cur.fetchall()  # 🔑 CRITICAL
             privileges["grant"] = True
-        except Exception:
-            pass
+            logger.debug("Privilege OK: SHOW GRANTS")
+        except Exception as e:
+            logger.warning("Privilege FAILED: SHOW GRANTS", exc_info=e)
 
-        # CREATE TABLE (TEMPORARY only, auto-cleaned)
+        # ----------------------------------------------------
+        # REALISTIC CREATE DATABASE + TABLE TEST
+        # ----------------------------------------------------
         try:
-            cur.execute("CREATE TEMPORARY TABLE __b2s_priv_test (id INT)")
+            cur.execute("CREATE DATABASE IF NOT EXISTS __b2s_priv_test_db")
+            cur.execute(
+                "CREATE TABLE __b2s_priv_test_db.__b2s_priv_test (id INT)"
+            )
+            cur.execute("DROP DATABASE __b2s_priv_test_db")
             privileges["create_table"] = True
-        except Exception:
-            pass
+            logger.debug("Privilege OK: CREATE DATABASE + TABLE")
+        except Exception as e:
+            logger.warning(
+                "Privilege FAILED: CREATE DATABASE/TABLE",
+                exc_info=e,
+            )
 
-    except Exception:
+        # CREATE USER is inferred from GRANT capability
+        privileges["create_user"] = privileges["grant"]
+
+    except Exception as e:
+        logger.error(
+            "SQL privilege test fatal error",
+            extra={
+                "host": payload.host,
+                "user": payload.user,
+            },
+            exc_info=e,
+        )
         raise HTTPException(
             status_code=400,
             detail="Unable to verify SQL privileges",
         )
+
     finally:
         try:
-            cur.close()
-            conn.close()
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
         except Exception:
             pass
+
+    logger.info(
+        "SQL privilege test completed",
+        extra={
+            "user": payload.user,
+            "privileges": privileges,
+        },
+    )
 
     return {
         "status": "ok",
         "privileges": privileges,
-        "all_required_ok": all(privileges.values()),
+        "all_required_ok": privileges["create_table"],
+        "is_root": payload.user.lower() == "root",
     }

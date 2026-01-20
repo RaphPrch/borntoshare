@@ -11,7 +11,8 @@ services:
     environment:
       TZ: ${TZ:-Europe/Paris}
       APP_ENV: ${APP_ENV:-prod}
-
+      LOG_LEVEL: DEBUG
+      WIZARD_LOG_SQL_ERRORS: 1
     # ⚠️ PROD = pas de volume de code
     # Le code est embarqué dans l’image pour un comportement déterministe
 

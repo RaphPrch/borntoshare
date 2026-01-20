@@ -81,8 +81,6 @@ function updatePriv(idEl, ok) {
   el.classList.remove("ok", "ko");
   el.classList.add(ok ? "ok" : "ko");
 
-  // Si tu veux un texte dynamique:
-  // (ne casse pas si tu préfères garder le texte fixe)
   const base = el.textContent.split(":")[0].trim();
   el.textContent = `${base}: ${ok ? "OK" : "MANQUANT"}`;
 }
@@ -282,7 +280,6 @@ function validateStep(step) {
 }
 
 /**
- * ⬅️ C’EST CETTE FONCTION QUI MANQUAIT CHEZ TOI
  * Et ton HTML appelle onclick="nextStep()"
  */
 function nextStep() {
@@ -300,14 +297,12 @@ function setDiag(elId, text, status) {
   const el = id(elId);
   if (!el) return;
 
-  // Ton HTML diag rows ont class="b2s-diagnostic-row diag-*"
   el.classList.remove("diag-ok", "diag-ko", "diag-pending");
   el.classList.add(`diag-${status}`);
 
-  // Ton HTML contient un <span class="b2s-diagnostic-label">...</span>
   const label = el.querySelector?.(".b2s-diagnostic-label");
   if (label) label.textContent = text;
-  else el.textContent = text; // fallback
+  else el.textContent = text;
 }
 
 async function runNetworkDiagnostic() {
@@ -321,8 +316,16 @@ async function runNetworkDiagnostic() {
   try {
     const res = await api("/api/db/diagnostic", { host, port }, 5000);
 
-    setDiag("diag_dns", res.dns_ok ? "DNS : OK" : "DNS : échec", res.dns_ok ? "ok" : "ko");
-    setDiag("diag_tcp", res.tcp_ok ? "TCP : OK" : "TCP : port inaccessible", res.tcp_ok ? "ok" : "ko");
+    setDiag(
+      "diag_dns",
+      res.dns_ok ? "DNS : OK" : "DNS : échec",
+      res.dns_ok ? "ok" : "ko"
+    );
+    setDiag(
+      "diag_tcp",
+      res.tcp_ok ? "TCP : OK" : "TCP : port inaccessible",
+      res.tcp_ok ? "ok" : "ko"
+    );
 
     if (res.latency_ms !== null && res.latency_ms !== undefined) {
       setDiag(
@@ -365,8 +368,11 @@ async function testDb(ev) {
     const netOk = await runNetworkDiagnostic();
     if (!netOk) throw new Error("Problème réseau détecté (DNS ou TCP).");
 
-    // 2) MySQL + droits
-    const res = await api("/api/db/test", cfg);
+    // 2) Connexion simple (utile pour erreur credentials)
+    await api("/api/db/test", cfg);
+
+    // 3) Test droits (BON ENDPOINT)
+    const res = await api("/api/db/privileges-test", cfg);
 
     if (!res || !res.privileges) {
       throw new Error("Impossible de vérifier les droits SQL.");
@@ -374,28 +380,28 @@ async function testDb(ev) {
 
     const priv = res.privileges;
 
-    // 3) UI privilèges
-    updatePriv("priv_create_db", !!priv.create_db);
+    // 4) UI privilèges — mapping backend
+    updatePriv("priv_create_db", !!priv.create_database);
     updatePriv("priv_create_user", !!priv.create_user);
     updatePriv("priv_grant", !!priv.grant);
     updatePriv("priv_create_table", !!priv.create_table);
 
-    // 4) Règle minimale: CREATE TABLE requis
+    // 5) Règle minimale: CREATE TABLE requis
     if (!priv.create_table) {
       throw new Error("Le compte SQL ne permet pas de créer des tables.");
     }
 
-    const isRoot = res.is_root === true;
-    const fullRights = !!priv.create_db && !!priv.create_user && !!priv.grant;
+    const isRoot = String(cfg.user || "").toLowerCase() === "root";
+    const fullRights = !!priv.create_database && !!priv.create_user && !!priv.grant;
 
-    // 5) Wizard state
+    // 6) Wizard state
     state.db_root = cfg;
     stepStatus[3] = true;
 
     const nextBtn = id("db_next_btn");
     if (nextBtn) nextBtn.disabled = false;
 
-    // 6) UX
+    // 7) UX
     if (isRoot || fullRights) {
       setStepperDbStatus("ok");
       showNonRootWarning(false);
@@ -458,12 +464,25 @@ async function runImport() {
     app_sql_user: state.app_user_name || "b2s_app",
     app_user_password: state.app_user_password,
     services: state.services,
-    apply_seed: true
+
+    // Seed contrôlé (tu peux le rendre optionnel plus tard)
+    apply_seed: checked("apply_seed"),
+
+    // ✅ Nécessaire en PROD avec le patch backend
+    force_import: true
   };
 
   try {
-    await api("/api/import", payload, 30000);
-    toastSuccess("Import lancé avec succès.");
+    // NOTE: le backend accepte /api/import (redirige éventuellement)
+    const res = await api("/api/import", payload, 30000);
+
+    // Si le backend renvoie "skipped" (prod sans force)
+    if (res?.skipped) {
+      toastError(res?.message || "Import ignoré en PROD.");
+      return;
+    }
+
+    toastSuccess(res?.message || "Import lancé avec succès.");
     showStep(LAST_STEP);
   } catch (e) {
     toastError(e?.message || "Erreur lors de l'import.");
@@ -487,6 +506,14 @@ async function api(path, body, timeout = 8000) {
 
     if (!res.ok) {
       const txt = await res.text();
+
+      // Essaye de ressortir un message lisible si le backend renvoie du JSON (FastAPI)
+      try {
+        const j = JSON.parse(txt);
+        if (j?.detail) throw new Error(String(j.detail));
+        if (j?.message) throw new Error(String(j.message));
+      } catch {}
+
       throw new Error(txt || `Erreur API ${res.status}`);
     }
 
@@ -516,6 +543,42 @@ const toastSuccess = (m) => toast(m, "success");
 /* =====================================================
    INIT
 ===================================================== */
+
+/* =====================================================
+   MODE / SEED GUARD (PROD SAFE)
+===================================================== */
+let IS_PROD = false;
+
+async function initWizardMode() {
+  try {
+    const res = await fetch("/api/mode");
+    const data = await res.json();
+
+    IS_PROD = !!data?.prod;
+
+    const seedCheckbox = id("apply_seed");
+    const seedLabel = id("seed_label");
+    const seedBlock = id("seed_prod_block");
+
+    if (IS_PROD && seedCheckbox) {
+      // Désactiver seed
+      seedCheckbox.checked = false;
+      seedCheckbox.disabled = true;
+
+      if (seedLabel) {
+        seedLabel.style.opacity = "0.5";
+        seedLabel.style.cursor = "not-allowed";
+      }
+
+      if (seedBlock) seedBlock.style.display = "block";
+    }
+  } catch {
+    // En cas d’erreur, on reste SAFE (seed désactivé implicitement)
+    const seedCheckbox = id("apply_seed");
+    if (seedCheckbox) seedCheckbox.checked = false;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   // Restore saved state
   restoreState();
@@ -527,4 +590,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Live validations (if fields exist)
   if (id("admin_password")) validateAdminForm();
   if (id("app_user_password")) validateAppUserForm();
+
+  // Bind DB test button if present
+  const dbBtn = id("db_test_btn");
+  if (dbBtn) dbBtn.addEventListener("click", testDb);
+
+  // Bind import button if present
+  const importBtn = id("import_btn");
+  if (importBtn) importBtn.addEventListener("click", runImport);
+
+  // Bind next button(s) if present (optional safety)
+  const dbNext = id("db_next_btn");
+  if (dbNext) dbNext.addEventListener("click", nextStep);
 });

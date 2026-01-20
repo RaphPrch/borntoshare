@@ -29,7 +29,6 @@
       <ol>
         <li data-step="1" class="active">1. Bienvenue</li>
         <li data-step="2">2. Administrateur</li>
-        <!-- ⬇️ Classe ajoutée dynamiquement : step-ok / step-warning -->
         <li data-step="3" id="stepper-db">3. Connexion DB</li>
         <li data-step="4">4. Base applicative</li>
         <li data-step="7">5. Résumé</li>
@@ -62,8 +61,7 @@
         <div class="b2s-info-box">
           <strong>Important :</strong><br>
           Ce wizard peut se connecter à une
-          <em>base de données externe existante</em>
-          (serveur distant, VM, cloud, autre cluster).
+          <em>base de données externe existante</em>.
         </div>
 
         <button class="b2s-btn b2s-btn-primary" onclick="nextStep()">
@@ -123,7 +121,7 @@
 
         <div class="form-field">
           <label>Adresse / Host</label>
-          <input id="db_host" placeholder="db.example.com ou 10.0.0.15" />
+          <input id="db_host" />
         </div>
 
         <div class="form-field">
@@ -133,7 +131,7 @@
 
         <div class="form-field">
           <label>Utilisateur DB</label>
-          <input id="db_user" value="root" />
+          <input id="db_user" value="wizard" />
         </div>
 
         <div class="form-field">
@@ -141,31 +139,10 @@
           <input id="db_password" type="password" />
         </div>
 
-        <!-- 🔍 DIAGNOSTIC VISUEL -->
-        <div class="b2s-diagnostic">
-
-          <div class="b2s-diagnostic-title">Diagnostic réseau</div>
-
-          <div id="diag_dns" class="b2s-diagnostic-row diag-pending">
-            <span class="b2s-diagnostic-dot"></span>
-            <span class="b2s-diagnostic-label">DNS : —</span>
-          </div>
-
-          <div id="diag_tcp" class="b2s-diagnostic-row diag-pending">
-            <span class="b2s-diagnostic-dot"></span>
-            <span class="b2s-diagnostic-label">TCP : —</span>
-          </div>
-
-          <div id="diag_latency" class="b2s-diagnostic-row diag-pending">
-            <span class="b2s-diagnostic-dot"></span>
-            <span class="b2s-diagnostic-label">Latence : —</span>
-          </div>
-
-          <!-- ⚠️ AVERTISSEMENT NON-ROOT -->
-          <div id="db_non_root_warning" class="b2s-warning-box" style="display:none;">
-            ℹ️ L’utilisateur DB n’est pas <strong>root</strong>, mais dispose
-            des droits suffisants pour l’installation.
-          </div>
+        <div id="db_non_root_warning"
+             class="b2s-warning-box"
+             style="display:none;">
+          ℹ️ Utilisateur DB non-root mais droits suffisants.
         </div>
 
         <button class="b2s-btn" onclick="testDb(event)">
@@ -186,7 +163,7 @@
 
         <div class="form-field">
           <label>Nom de la base</label>
-          <input id="db_name" placeholder="borntoshare" />
+          <input id="db_name" />
         </div>
 
         <div class="form-field">
@@ -199,16 +176,6 @@
           <input id="app_user_password"
                  type="password"
                  oninput="validateAppUserForm()" />
-        </div>
-
-        <div class="b2s-password-rules">
-          <ul>
-            <li id="app-rule-length">✖ 12 caractères minimum</li>
-            <li id="app-rule-lower">✖ minuscule</li>
-            <li id="app-rule-upper">✖ majuscule</li>
-            <li id="app-rule-digit">✖ chiffre</li>
-            <li id="app-rule-special">✖ caractère spécial</li>
-          </ul>
         </div>
 
         <button id="app_next_btn"
@@ -235,14 +202,38 @@
         </button>
       </section>
 
-      <!-- 🧩 STEP 8 -->
+      <!-- 🧩 STEP 8 — IMPORT + SEED -->
       <section class="b2s-step" data-step="8">
         <h2>Import</h2>
+
         <p>
-          Le wizard va créer le schéma et l’administrateur
+          Le wizard va créer la base, le schéma et l’administrateur
           sur la base sélectionnée.
         </p>
-        <button class="b2s-btn b2s-btn-primary" onclick="runImport()">
+
+        <!-- 🚫 WARNING PROD BLOQUANT -->
+        <div id="seed_prod_block"
+             class="b2s-warning-box"
+             style="display:none;">
+          🚫 <strong>Environnement PROD détecté</strong><br>
+          Les données de démonstration (seed) sont
+          <strong>interdites</strong>.
+        </div>
+
+        <!-- OPTION SEED -->
+        <div class="b2s-option-box">
+          <label class="b2s-checkbox" id="seed_label">
+            <input type="checkbox" id="apply_seed" />
+            <span>
+              Appliquer les données de démonstration (seed)
+              <small>(DEV / TEST uniquement)</small>
+            </span>
+          </label>
+        </div>
+
+        <button id="import_btn"
+                class="b2s-btn b2s-btn-primary"
+                onclick="runImport()">
           Lancer l’import
         </button>
       </section>

@@ -15,6 +15,26 @@ from .routes import (
     import_wizard as import_routes,
     runtime as runtime_routes,
 )
+import logging
+
+# ============================================================
+# 🔊 LOGGING CONFIGURATION (CRITICAL)
+# ============================================================
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+)
+
+logging.getLogger("uvicorn").setLevel(LOG_LEVEL)
+logging.getLogger("uvicorn.error").setLevel(LOG_LEVEL)
+logging.getLogger("uvicorn.access").setLevel(LOG_LEVEL)
+
+logger = logging.getLogger("wizard")
+
+logger.info("Logging initialized", extra={"level": LOG_LEVEL})
 
 # ============================================================
 # ⚙️ WIZARD MODE
@@ -32,6 +52,7 @@ def is_dev() -> bool:
 
 def is_prod() -> bool:
     return WIZARD_MODE == "prod"
+
 
 
 # ============================================================
