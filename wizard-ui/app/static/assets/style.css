@@ -1,0 +1,453 @@
+/* ---------------------------------------------------
+   Palette BornToShare (BLEU UNIFIÉ)
+--------------------------------------------------- */
+:root {
+  --b2s-primary: #0B1530;        /* Bleu maître (topbar / progress / boutons) */
+  --b2s-primary-dark: #070d1f;
+  --b2s-step-active: #0B1530;
+  --b2s-step-hover: #E8EEFA;
+
+  --b2s-bg: #F5F6FA;
+  --b2s-white: #FFFFFF;
+  --b2s-border: #E5E7EB;
+  --b2s-text: #111827;
+  --b2s-grey: #6B7280;
+
+  --radius: 12px;
+}
+
+/* ---------------------------------------------------
+   GLOBAL
+--------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--b2s-bg);
+  color: var(--b2s-text);
+}
+
+.b2s-app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------
+   TOPBAR
+--------------------------------------------------- */
+.b2s-topbar {
+  background: var(--b2s-primary);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 20px;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+}
+
+.b2s-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.b2s-logo {
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.b2s-topbar__title {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.b2s-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.b2s-env-badge {
+  background: rgba(255,255,255,0.15);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.b2s-topbar__json-btn {
+  background: rgba(255,255,255,0.1);
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.4);
+  color: #fff;
+  font-size: 13px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background .2s ease, box-shadow .2s ease;
+}
+
+.b2s-topbar__json-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* ---------------------------------------------------
+   LAYOUT
+--------------------------------------------------- */
+.b2s-main {
+  display: flex;
+  flex: 1;
+  min-height: calc(100vh - 64px);
+}
+
+/* ---------------------------------------------------
+   STEPPER
+--------------------------------------------------- */
+.b2s-stepper {
+  width: 250px;
+  background: var(--b2s-white);
+  border-right: 1px solid var(--b2s-border);
+  padding: 24px 0;
+}
+
+.b2s-stepper ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.b2s-stepper li {
+  padding: 14px 24px;
+  font-size: 15px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  color: var(--b2s-grey);
+  transition: background .25s ease, color .25s ease, border-color .25s ease;
+}
+
+.b2s-stepper li:hover {
+  background: var(--b2s-step-hover);
+  color: var(--b2s-primary);
+}
+
+.b2s-stepper li.active {
+  background: var(--b2s-step-hover);
+  color: var(--b2s-primary);
+  font-weight: 600;
+  border-left-color: var(--b2s-primary);
+}
+
+/* ---------------------------------------------------
+   WIZARD
+--------------------------------------------------- */
+.b2s-wizard {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ---------------------------------------------------
+   PROGRESS BAR
+--------------------------------------------------- */
+.b2s-progress {
+  width: 100%;
+  max-width: 620px;
+}
+
+.b2s-progress__track {
+  height: 6px;
+  background: #E5E7EB;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.b2s-progress__bar {
+  height: 100%;
+  width: 0%;
+  background: var(--b2s-primary);
+  transition: width .35s cubic-bezier(0.22,1,0.36,1);
+}
+
+.b2s-progress__label {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--b2s-grey);
+}
+
+/* ---------------------------------------------------
+   STEP CARD (ANIMATED)
+--------------------------------------------------- */
+.b2s-step {
+  display: none;
+  width: 100%;
+  max-width: 620px;
+  background: var(--b2s-white);
+  border-radius: var(--radius);
+  border: 1px solid var(--b2s-border);
+  padding: 34px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+
+.b2s-step.active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.b2s-step h1,
+.b2s-step h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  color: var(--b2s-primary);
+}
+
+/* ---------------------------------------------------
+   FORMS
+--------------------------------------------------- */
+.form-field {
+  margin-bottom: 20px;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.form-field input {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--b2s-border);
+  font-size: 15px;
+}
+
+.form-field input:focus {
+  outline: none;
+  border-color: var(--b2s-primary);
+  box-shadow: 0 0 0 1px rgba(11,21,48,.15);
+}
+
+/* ---------------------------------------------------
+   PASSWORD RULES (LIVE FEEDBACK)
+--------------------------------------------------- */
+.b2s-password-rules ul {
+  list-style: none;
+  padding: 0;
+  margin-top: 12px;
+}
+
+.b2s-password-rules li {
+  font-size: 14px;
+  display: flex;
+  gap: 6px;
+  transition: color .25s ease, transform .25s ease;
+}
+
+.b2s-password-rules li.ko { color: #b91c1c; }
+.b2s-password-rules li.ok {
+  color: #15803d;
+  transform: translateX(3px);
+}
+
+/* ---------------------------------------------------
+   BUTTONS
+--------------------------------------------------- */
+.b2s-btn {
+  padding: 11px 22px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  border: none;
+  transition: background .2s ease, box-shadow .2s ease, transform .1s ease;
+}
+
+.b2s-btn:active {
+  transform: translateY(1px);
+}
+
+.b2s-btn-primary {
+  background: var(--b2s-primary);
+  color: #fff;
+}
+
+.b2s-btn-primary:hover {
+  background: var(--b2s-primary-dark);
+  box-shadow: 0 4px 12px rgba(11,21,48,.35);
+}
+
+.b2s-btn-secondary {
+  background: #fff;
+  border: 1px solid var(--b2s-border);
+}
+
+/* Disabled */
+.b2s-btn[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------
+   SUMMARY
+--------------------------------------------------- */
+.b2s-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px,1fr));
+  gap: 16px;
+}
+
+.b2s-summary-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 6px 16px rgba(0,0,0,.06);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.b2s-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,.08);
+}
+
+/* ---------------------------------------------------
+   BADGES
+--------------------------------------------------- */
+.b2s-badge {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.b2s-badge--ok {
+  background: #e6f7ee;
+  color: #137333;
+  animation: badgePop .3s ease;
+}
+
+.b2s-badge--warning {
+  background: #fff4e5;
+  color: #b45309;
+  animation: badgePop .3s ease;
+}
+
+@keyframes badgePop {
+  from { opacity: 0; transform: scale(.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ---------------------------------------------------
+   WARNING BOX
+--------------------------------------------------- */
+.b2s-warning-box {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+  animation: fadeIn .3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------------------------------------------------
+   TOASTS
+--------------------------------------------------- */
+#toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 9999;
+}
+
+.toast {
+  padding: 14px 20px;
+  border-radius: 8px;
+  color: #fff;
+  animation: slideInRight .35s ease;
+}
+
+.toast-success { background: #2ECC71; }
+.toast-error   { background: #E63946; }
+.toast-info    { background: var(--b2s-primary); }
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(25px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ---------------------------------------------------
+   JSON PANEL
+--------------------------------------------------- */
+.b2s-json-panel {
+  position: fixed;
+  top: 64px;
+  right: -440px;
+  width: 420px;
+  height: calc(100vh - 64px);
+  background: #0F172A;
+  color: #E5E7EB;
+  transition: right .3s ease;
+}
+
+.b2s-json-panel.open {
+  right: 0;
+}
+
+/* Stepper status icons */
+.b2s-stepper li.step-ok::after {
+  content: "✔";
+  color: #15803d;
+  float: right;
+  font-weight: 700;
+}
+
+.b2s-stepper li.step-warning::after {
+  content: "⚠";
+  color: #b45309;
+  float: right;
+}
+
+/* Disabled button visual */
+.b2s-btn[disabled] {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* Global status bar */
+.b2s-status-bar {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  background: #15803d;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.2);
+  animation: slideInRight .4s ease;
+}
+
+.b2s-status-bar--error {
+  background: #b91c1c;
+}
