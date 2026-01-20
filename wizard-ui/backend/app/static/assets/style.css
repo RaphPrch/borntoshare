@@ -1,0 +1,508 @@
+
+/* ---------------------------------------------------
+   Palette BornToShare
+--------------------------------------------------- */
+:root {
+  --b2s-primary: #1450F5;
+  --b2s-primary-dark: #0B1530;
+  --b2s-topbar-bg: #0B1530;
+  --b2s-step-active: #1450F5;
+  --b2s-step-hover: #E8EEFA;
+
+  --b2s-bg: #F5F6FA;
+  --b2s-white: #FFFFFF;
+  --b2s-border: #E5E7EB;
+  --b2s-text: #111827;
+  --b2s-grey: #6B7280;
+
+  --radius: 12px;
+}
+
+/* ---------------------------------------------------
+   GLOBAL
+--------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--b2s-bg);
+  color: var(--b2s-text);
+}
+
+.b2s-app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------
+   TOPBAR
+--------------------------------------------------- */
+.b2s-topbar {
+  background: var(--b2s-topbar-bg);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 20px;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+}
+
+.b2s-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.b2s-logo {
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.b2s-topbar__title {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.b2s-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.b2s-env-badge {
+  background: rgba(255,255,255,0.15);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.b2s-topbar__json-btn {
+  background: rgba(255,255,255,0.1);
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.4);
+  color: #fff;
+  font-size: 13px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.b2s-topbar__json-btn:hover {
+  background: rgba(255,255,255,0.2);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.25);
+}
+
+/* ---------------------------------------------------
+   LAYOUT PRINCIPAL
+--------------------------------------------------- */
+.b2s-main {
+  display: flex;
+  flex: 1;
+  min-height: calc(100vh - 64px);
+  background: var(--b2s-bg);
+}
+
+/* ---------------------------------------------------
+   STEPPER LATERAL
+--------------------------------------------------- */
+.b2s-stepper {
+  width: 250px;
+  background: var(--b2s-white);
+  border-right: 1px solid var(--b2s-border);
+  padding: 24px 0;
+}
+
+.b2s-stepper ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.b2s-stepper li {
+  padding: 14px 24px;
+  font-size: 15px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  color: var(--b2s-grey);
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+.b2s-stepper li:hover {
+  background: var(--b2s-step-hover);
+  color: var(--b2s-primary-dark);
+}
+
+.b2s-stepper li.active {
+  background: var(--b2s-step-hover);
+  color: var(--b2s-primary-dark);
+  font-weight: 600;
+  border-left: 3px solid var(--b2s-step-active);
+}
+
+/* ---------------------------------------------------
+   ZONE WIZARD
+--------------------------------------------------- */
+.b2s-wizard {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ---------------------------------------------------
+   PROGRESS BAR
+--------------------------------------------------- */
+.b2s-progress {
+  width: 100%;
+  max-width: 620px;
+}
+
+.b2s-progress__track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #E5E7EB;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.b2s-progress__bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--b2s-primary);
+  transition: width 0.3s ease;
+}
+
+.b2s-progress__label {
+  font-size: 13px;
+  color: var(--b2s-grey);
+}
+
+/* ---------------------------------------------------
+   CARTE CENTRALE / STEP
+--------------------------------------------------- */
+.b2s-step {
+  display: none;
+  background: var(--b2s-white);
+  border-radius: var(--radius);
+  border: 1px solid var(--b2s-border);
+  width: 100%;
+  max-width: 620px;
+  padding: 34px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.b2s-step.active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.b2s-step h1,
+.b2s-step h2 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: var(--b2s-primary-dark);
+  font-weight: 600;
+  font-size: 22px;
+}
+
+.b2s-step p {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--b2s-grey);
+}
+
+/* ---------------------------------------------------
+   FORMULAIRES
+--------------------------------------------------- */
+.form-field {
+  margin-bottom: 20px;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--b2s-text);
+}
+
+.form-field input,
+.form-field select {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--b2s-border);
+  background: #fff;
+  font-size: 15px;
+  color: var(--b2s-text);
+}
+
+.form-field input:focus,
+.form-field select:focus {
+  outline: none;
+  border-color: var(--b2s-primary);
+  box-shadow: 0 0 0 1px rgba(20, 80, 245, 0.15);
+}
+
+/* ---------------------------------------------------
+   BOUTONS
+--------------------------------------------------- */
+.b2s-step-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.b2s-btn {
+  padding: 11px 22px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.b2s-btn:active {
+  transform: translateY(1px);
+}
+
+.b2s-btn-primary {
+  background: var(--b2s-primary);
+  color: #fff;
+}
+
+.b2s-btn-primary:hover {
+  background: #0f3ed5;
+  box-shadow: 0 3px 10px rgba(20,80,245,0.35);
+}
+
+.b2s-btn-secondary {
+  background: var(--b2s-white);
+  color: var(--b2s-text);
+  border: 1px solid var(--b2s-border);
+}
+
+.b2s-btn-secondary:hover {
+  background: #f3f4f6;
+}
+
+/* Bouton small pour + DC etc. */
+.b2s-btn-small {
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------
+   TOASTS (TOP RIGHT)
+--------------------------------------------------- */
+#toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.toast {
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  animation: slideInRight 0.35s ease-out;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 380px;
+}
+
+.toast-success  { background: #2ECC71; }
+.toast-error    { background: #E63946; }
+.toast-warning  { background: #F1A40B; }
+.toast-info     { background: #1450F5; }
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(25px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ---------------------------------------------------
+   BADGE ETAT BAS DROITE
+--------------------------------------------------- */
+.b2s-status-bar {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  background: #2ECC71;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+}
+
+.b2s-status-bar--error {
+  background: #E63946;
+}
+
+/* ---------------------------------------------------
+   JSON PANEL LATÉRAL
+--------------------------------------------------- */
+.b2s-json-panel {
+  position: fixed;
+  top: 64px;
+  right: -440px;
+  width: 420px;
+  height: calc(100vh - 64px);
+  background: #0F172A;
+  color: #E5E7EB;
+  box-shadow: -4px 0 20px rgba(15,23,42,0.6);
+  transition: right 0.3s ease;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+}
+
+.b2s-json-panel.open {
+  right: 0;
+}
+
+.b2s-json-panel__header {
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(148,163,184,0.5);
+  font-size: 14px;
+}
+
+.b2s-json-panel__close {
+  border: none;
+  background: transparent;
+  color: #E5E7EB;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.b2s-json-panel__body {
+  flex: 1;
+  margin: 0;
+  padding: 14px 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  overflow: auto;
+  white-space: pre;
+}
+
+/* ---------------------------------------------------
+   SKELETON SIMPLE
+--------------------------------------------------- */
+.b2s-skeleton {
+  background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 37%, #E5E7EB 63%);
+  background-size: 400% 100%;
+  border-radius: 6px;
+  animation: b2s-skeleton 1.4s ease infinite;
+}
+
+@keyframes b2s-skeleton {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+
+.b2s-mode-badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  margin-right: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+}
+
+.b2s-mode-badge--dev {
+  background: rgba(34, 197, 94, 0.1);
+  color: #bbf7d0;
+  border-color: rgba(34, 197, 94, 0.6);
+}
+
+.b2s-mode-badge--prod {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.7);
+}
+
+.b2s-editor-panel {
+  position: fixed;
+  right: -40%;
+  top: 0;
+  width: 40%;
+  height: 100%;
+  background: #f9fafb;
+  box-shadow: -4px 0 15px rgba(0,0,0,0.2);
+  transition: 0.35s ease;
+  z-index: 5000;
+  display: flex;
+  flex-direction: column;
+}
+
+.b2s-editor-panel.open { right: 0; }
+
+.b2s-editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 4999;
+  opacity: 0;
+  pointer-events: none;
+  transition: .3s;
+}
+.b2s-editor-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.b2s-editor-header {
+  padding: 1rem;
+  background: #0b1530;
+  color: white;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.b2s-editor-content {
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.svc-card {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: .75rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}

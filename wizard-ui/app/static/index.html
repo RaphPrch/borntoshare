@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>BornToShare Wizard v5.0</title>
+
+  <!-- Thème global BornToShare -->
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+
+<body>
+  <div class="b2s-app-root">
+
+    <!-- 🔵 TOPBAR B2S (MODE PROD) -->
+    <header class="b2s-topbar">
+      <div class="b2s-topbar__left">
+        <span class="b2s-logo">BornToShare</span>
+        <span class="b2s-topbar__title">Wizard d'initialisation</span>
+      </div>
+
+      <div class="b2s-topbar__right">
+        <span class="b2s-env-badge">Wizard v5.0</span>
+      </div>
+    </header>
+
+    <!-- 📌 CONTENU PRINCIPAL -->
+    <main class="b2s-main">
+
+      <!-- 🪜 STEPPER -->
+      <aside class="b2s-stepper">
+        <ol>
+          <li data-step="1" class="active">1. Welcome</li>
+          <li data-step="2">2. Admin par défaut</li>
+          <li data-step="3">3. Connexion DB (root)</li>
+          <li data-step="4">4. Base & compte applicatif</li>
+          <li data-step="7">5. Résumé</li>
+          <li data-step="8">6. Validation</li>
+        </ol>
+      </aside>
+
+      <!-- 🧙 WIZARD -->
+      <section class="b2s-wizard">
+
+        <!-- 🔁 PROGRESS -->
+        <div class="b2s-progress">
+          <div class="b2s-progress__track">
+            <div class="b2s-progress__bar" id="b2s_progress_bar"></div>
+          </div>
+          <div class="b2s-progress__label" id="b2s_progress_label">
+            Étape 1 sur 6
+          </div>
+        </div>
+
+        <!-- 🧩 STEP 1 -->
+        <section class="b2s-step" data-step="1">
+          <h1>Bienvenue dans BornToShare</h1>
+
+          <p class="b2s-step-intro">
+            Plateforme de <strong>gouvernance des accès aux données</strong>,
+            auditable, traçable et sécurisée.
+          </p>
+
+          <div class="b2s-info-box">
+            <p>
+              Approche <strong>Zero Trust</strong> :
+              chaque accès est explicite, justifié et limité dans le temps.
+            </p>
+          </div>
+
+          <button class="b2s-btn b2s-btn-primary" onclick="nextStep()">
+            Commencer l’initialisation
+          </button>
+        </section>
+
+        <!-- 🧩 STEP 2 — ADMIN -->
+        <section class="b2s-step" data-step="2">
+          <h2>Administrateur applicatif</h2>
+
+          <div class="form-field">
+            <label>Nom d'utilisateur</label>
+            <input id="admin_username" value="admin" oninput="validateAdminForm()" />
+          </div>
+
+          <div class="form-field">
+            <label>Email</label>
+            <input id="admin_email" value="admin@local" oninput="validateAdminForm()" />
+          </div>
+
+          <div class="form-field">
+            <label>Mot de passe</label>
+            <input
+              id="admin_password"
+              type="password"
+              autocomplete="new-password"
+              oninput="validateAdminForm()"
+            />
+          </div>
+
+          <div class="b2s-password-rules">
+            <strong>Exigences de sécurité :</strong>
+            <ul>
+              <li id="rule-length">✖ Minimum 12 caractères</li>
+              <li id="rule-lower">✖ Une lettre minuscule</li>
+              <li id="rule-upper">✖ Une lettre majuscule</li>
+              <li id="rule-digit">✖ Un chiffre</li>
+              <li id="rule-special">✖ Un caractère spécial</li>
+              <li id="rule-username">✖ Différent du nom d’utilisateur</li>
+            </ul>
+          </div>
+
+          <button
+            id="admin_next_btn"
+            class="b2s-btn b2s-btn-primary"
+            onclick="nextStep()"
+            disabled
+          >
+            Suivant
+          </button>
+        </section>
+
+        <!-- 🧩 STEP 3 — DB ROOT -->
+        <section class="b2s-step" data-step="3">
+          <h2>Connexion DB (root)</h2>
+
+          <div class="form-field">
+            <label>Host</label>
+            <input id="db_host" value="db_api" />
+          </div>
+
+          <div class="form-field">
+            <label>Port</label>
+            <input id="db_port" type="number" value="3306" />
+          </div>
+
+          <div class="form-field">
+            <label>Utilisateur</label>
+            <input id="db_user" value="root" />
+          </div>
+
+          <div class="form-field">
+            <label>Mot de passe</label>
+            <input id="db_password" type="password" />
+          </div>
+
+          <button class="b2s-btn" onclick="testDb(event)">
+            Tester la connexion
+          </button>
+
+          <div class="b2s-step-actions">
+            <button
+              id="db_next_btn"
+              class="b2s-btn b2s-btn-primary"
+              onclick="nextStep()"
+              disabled
+            >
+              Suivant
+            </button>
+          </div>
+        </section>
+
+        <!-- 🧩 STEP 4 — BASE & COMPTE APPLICATIF -->
+        <section class="b2s-step" data-step="4">
+          <h2>Base de Données</h2>
+
+          <div class="form-field">
+            <label>Nom de la base</label>
+            <input id="db_name" placeholder="borntoshare" />
+          </div>
+
+          <div class="form-field">
+            <label>Nom du compte SQL applicatif</label>
+            <input id="app_user_name" placeholder="b2s_app" />
+          </div>
+
+          <div class="form-field">
+            <label>Mot de passe du compte applicatif</label>
+            <input
+              id="app_user_password"
+              type="password"
+              autocomplete="new-password"
+              oninput="validateAppUserPassword()"
+            />
+          </div>
+
+          <div class="b2s-password-rules">
+            <strong>Exigences de sécurité :</strong>
+            <ul>
+              <li id="app-rule-length">✖ Minimum 12 caractères</li>
+              <li id="app-rule-lower">✖ Une lettre minuscule</li>
+              <li id="app-rule-upper">✖ Une lettre majuscule</li>
+              <li id="app-rule-digit">✖ Un chiffre</li>
+              <li id="app-rule-special">✖ Un caractère spécial</li>
+            </ul>
+          </div>
+
+          <button
+            id="app_next_btn"
+            class="b2s-btn b2s-btn-primary"
+            onclick="nextStep()"
+            disabled
+          >
+            Suivant
+          </button>
+        </section>
+
+        <!-- 🧩 STEP 7 — RÉSUMÉ -->
+        <section class="b2s-step" data-step="7">
+          <h2>Résumé de la configuration</h2>
+
+          <div class="b2s-summary-grid">
+            <div class="b2s-summary-card">
+              <h3>Administrateur</h3>
+              <ul>
+                <li><strong>Utilisateur :</strong> <span id="sum_admin_user">—</span></li>
+                <li><strong>Email :</strong> <span id="sum_admin_email">—</span></li>
+              </ul>
+            </div>
+
+            <div class="b2s-summary-card">
+              <h3>Base de données</h3>
+              <ul>
+                <li><strong>Base :</strong> <span id="sum_db_name">—</span></li>
+                <li><strong>Compte :</strong> <span id="sum_app_user">—</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="b2s-step-actions">
+            <button class="b2s-btn b2s-btn-primary" onclick="nextStep()">
+              Lancer l’import
+            </button>
+          </div>
+        </section>
+
+        <!-- 🧩 STEP 8 -->
+        <section class="b2s-step" data-step="8">
+          <h2>Validation & import</h2>
+          <p>Création de la base, du schéma et des comptes.</p>
+
+          <button class="b2s-btn b2s-btn-primary" onclick="runImport()">
+            Importer
+          </button>
+        </section>
+
+      </section>
+    </main>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script src="assets/wizard.js"></script>
+</body>
+</html>

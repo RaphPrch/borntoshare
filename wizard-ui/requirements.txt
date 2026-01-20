@@ -1,0 +1,19 @@
+# ==================================================
+# BornToShare Wizard UI – Runtime requirements
+# ==================================================
+
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+
+# Database connectivity (aligned with DAL)
+pymysql>=1.1
+
+# HTTP client
+httpx>=0.27
+
+# Configuration & validation
+pydantic>=2.6
+pydantic-settings>=2.2
+
+# Optional password hashing (only if wizard hashes)
+bcrypt>=4.1

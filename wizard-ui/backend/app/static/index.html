@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>BornToShare Wizard v5.0</title>
+
+  <!-- Thème global BornToShare -->
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+
+<body>
+  <div class="b2s-app-root">
+
+    <!-- 🔵 TOPBAR B2S UNIFIÉE -->
+    <header class="b2s-topbar">
+      <div class="b2s-topbar__left">
+        <span class="b2s-logo">BornToShare</span>
+        <span class="b2s-topbar__title">Wizard d'initialisation</span>
+      </div>
+
+      <div class="b2s-topbar__right">
+        <button class="b2s-topbar__json-btn" onclick="toggleJsonPanel()">Vue JSON en direct</button>
+        <span id="b2s_mode_badge" class="b2s-mode-badge b2s-mode-badge--dev">
+          Mode DEV – actions en live
+        </span>
+        <span class="b2s-env-badge">Wizard v5.0</span>
+      </div>
+    </header>
+
+    <!-- 📌 CONTENU PRINCIPAL -->
+    <main class="b2s-main">
+
+      <!-- 🪜 STEPPER -->
+      <aside class="b2s-stepper">
+        <ol>
+          <li data-step="1" class="active">1. Welcome</li>
+          <li data-step="2">2. Admin par défaut</li>
+          <li data-step="3">3. Connexion DB (root)</li>
+          <li data-step="4">4. Base & app_user</li>
+          <li data-step="5">5. Comptes services</li>
+          <li data-step="6">6. Services & ports</li>
+          <li data-step="7">7. Résumé</li>
+          <li data-step="8">8. Validation</li>
+        </ol>
+      </aside>
+
+      <!-- 🧙 WIZARD -->
+      <section class="b2s-wizard">
+
+        <!-- 🔁 BARRE DE PROGRESSION -->
+        <div class="b2s-progress">
+          <div class="b2s-progress__track">
+            <div class="b2s-progress__bar" id="b2s_progress_bar"></div>
+          </div>
+          <div class="b2s-progress__label" id="b2s_progress_label">
+            Étape 1 sur 8
+          </div>
+        </div>
+
+
+        <!-- 🧩 ÉTAPE 1 — Bienvenue -->
+        <section class="b2s-step" data-step="1">
+          <h1>Bienvenue</h1>
+
+          <button class="b2s-btn" onclick="nextStep()">Commencer</button>
+        </section>
+
+
+        <!-- 🧩 ÉTAPE 2 — Admin -->
+        <section class="b2s-step" data-step="2">
+          <h2>Admin applicatif par défaut</h2>
+
+          <div class="form-field">
+            <label>Nom d'utilisateur</label>
+            <input id="admin_username" value="admin" />
+          </div>
+
+          <div class="form-field">
+            <label>Email</label>
+            <input id="admin_email" value="admin@local" />
+          </div>
+
+          <div class="form-field">
+            <label>Mot de passe</label>
+            <input id="admin_password" type="password" />
+          </div>
+
+          <button class="b2s-btn" onclick="nextStep()">Suivant</button>
+        </section>
+
+
+        <!-- 🧩 ÉTAPE 3 — DB ROOT -->
+        <section class="b2s-step" data-step="3">
+          <h2>Connexion DB (root)</h2>
+
+          <div class="form-field">
+            <label>Host</label>
+            <input id="db_host" value="db_api" />
+          </div>
+
+          <div class="form-field">
+            <label>Port</label>
+            <input id="db_port" type="number" value="3306" />
+          </div>
+
+          <div class="form-field">
+            <label>Utilisateur (root)</label>
+            <input id="db_user" value="root" />
+          </div>
+
+          <div class="form-field">
+            <label>Mot de passe</label>
+            <input id="db_password" type="password" />
+          </div>
+
+          <button class="b2s-btn" onclick="testDb()">Tester la connexion</button>
+        </section>
+
+
+        <!-- 🧩 ÉTAPE 4 — DB & app_user -->
+        <section class="b2s-step" data-step="4">
+          <h2>Base & app_user</h2>
+
+          <div class="form-field">
+            <label>Nom de la base</label>
+            <input id="db_name" value="borntoshare" />
+          </div>
+
+          <div class="form-field">
+            <label>Nom du compte SQL applicatif</label>
+<input type="text" id="app_sql_user" value="app_user" />
+<label>Mot de passe app_user</label>
+            <input id="app_user_password" type="password" />
+          </div>
+
+          <button class="b2s-btn" onclick="nextStep()">Suivant</button>
+        </section>
+
+
+        <!-- 🧩 ÉTAPE 5 — Comptes Services -->
+        <section class="b2s-step" data-step="5">
+          <h2>Comptes services</h2>
+          <p>Définition des comptes DB pour les micro-services (auth, dal, gov...).</p>
+
+          <div id="services_accounts"></div>
+
+          <div class="b2s-flex">
+            <button class="b2s-btn" onclick="initServiceAccounts()">Init par défaut</button>
+            <button class="b2s-btn b2s-btn-secondary" onclick="openEditorPanel('services')">🛠️ Edition avancée</button>
+          </div>
+
+          <button class="b2s-btn b2s-btn-secondary" onclick="nextStep()">Suivant</button>
+        </section>
+
+
+        <!-- 🧩 ÉTAPE 6 — Services & ports -->
+        <section class="b2s-step" data-step="6">
+          <h2>Services & ports</h2>
+
+          <div id="services_ports"></div>
+
+          <div class="b2s-flex">
+            <button class="b2s-btn" onclick="initServicePorts()">Init par défaut</button>
+            <button class="b2s-btn b2s-btn-secondary" onclick="openEditorPanel('ports')">🛠️ Edition avancée</button>
+          </div>
+
+          <button class="b2s-btn b2s-btn-secondary" onclick="nextStep()">Suivant</button>
+        </section>
+
+
+        <!-- 🧩 ÉTAPE 7 — Résumé -->
+        <section class="b2s-step" data-step="7">
+          <h2>Résumé</h2>
+
+          <pre id="summary_json"></pre>
+
+          <button class="b2s-btn" onclick="updateSummary()">Actualiser le résumé</button>
+          <button class="b2s-btn b2s-btn-secondary" onclick="nextStep()">Suivant</button>
+        </section>
+
+
+        <!-- 🧩 ÉTAPE 8 — Import DB -->
+        <section class="b2s-step" data-step="8">
+          <h2>Validation & Import DB</h2>
+          <p>Création physique de la base, du schéma et de l’admin.</p>
+          <button class="b2s-btn" onclick="runImport()">Lancer l'import</button>
+        </section>
+
+
+        <section class="b2s-step" data-step="9">
+
+          <div class="form-field">
+            <label>Nom</label>
+            <input id="syslog_name" value="default" />
+          </div>
+
+          <div class="form-field">
+            <label>Host</label>
+            <input id="syslog_host" placeholder="10.0.0.20" />
+          </div>
+
+          <div class="form-field">
+            <label>Port</label>
+            <input id="syslog_port" type="number" value="514" />
+          </div>
+
+          <div class="form-field">
+            <label>Protocole</label>
+            <select id="syslog_proto">
+              <option value="udp">UDP</option>
+              <option value="tcp">TCP</option>
+            </select>
+          </div>
+
+          <div class="b2s-flex">
+            <button class="b2s-btn b2s-btn-secondary" onclick="openEditorPanel('syslog')">🛠️ Edition avancée</button>
+          </div>
+
+          <button class="b2s-btn b2s-btn-secondary" onclick="nextStep()">Suivant</button>
+        </section>
+
+
+        <section class="b2s-step" data-step="10">
+
+          <div class="form-field">
+            <label>Serveur</label>
+            <input id="smtp_host" />
+          </div>
+
+          <div class="form-field">
+            <label>Port</label>
+            <input id="smtp_port" type="number" value="587" />
+          </div>
+
+          <div class="form-field">
+            <label>From</label>
+            <input id="smtp_from" placeholder="noreply@example.com" />
+          </div>
+
+          <div class="form-field">
+            <label>Utilisateur</label>
+            <input id="smtp_user" />
+          </div>
+
+          <div class="form-field">
+            <label>Mot de passe</label>
+            <input id="smtp_pass" type="password" />
+          </div>
+
+          <div class="form-field">
+            <label>TLS</label>
+            <input id="smtp_tls" type="checkbox" checked />
+          </div>
+
+          <div class="b2s-flex">
+            <button class="b2s-btn b2s-btn-secondary" onclick="openEditorPanel('smtp')">🛠️ Edition avancée</button>
+          </div>
+
+          <button class="b2s-btn b2s-btn-secondary" onclick="nextStep()">Suivant</button>
+        </section>
+
+
+        <section class="b2s-step" data-step="11">
+
+          <div class="form-field">
+            <label>URL</label>
+            <input id="idp_url" placeholder="https://auth.example.com" />
+          </div>
+
+          <div class="form-field">
+            <label>Realm</label>
+            <input id="idp_realm" />
+          </div>
+
+          <div class="form-field">
+            <label>Client ID</label>
+            <input id="idp_client_id" />
+          </div>
+
+          <div class="form-field">
+            <label>Client Secret</label>
+            <input id="idp_client_secret" type="password" />
+          </div>
+
+          <div class="b2s-flex">
+            <button class="b2s-btn b2s-btn-secondary" onclick="openEditorPanel('idp')">🛠️ Edition avancée</button>
+          </div>
+
+          <button class="b2s-btn b2s-btn-secondary" onclick="nextStep()">Suivant</button>
+        </section>
+
+
+        <!-- 🧩 ÉTAPE 12 — Active Directory -->
+        <section class="b2s-step" data-step="12">
+
+          <div class="form-field">
+            <label>Nom du domaine</label>
+            <input id="dom_name" placeholder="corp.local" />
+          </div>
+
+          <div class="form-field">
+            <label>DNS du domaine</label>
+            <input id="dom_dns" placeholder="corp.local" />
+          </div>
+
+          <div class="form-field">
+            <label>Forêt</label>
+            <input id="dom_forest" placeholder="corp.local" />
+          </div>
+
+          <h3>Contrôleurs de domaine</h3>
+          <div id="dc_list"></div>
+
+          <button class="b2s-btn b2s-btn-small" onclick="addDC()">+ Ajouter un contrôleur</button>
+
+          <div class="b2s-flex">
+            <button class="b2s-btn b2s-btn-secondary" onclick="openEditorPanel('domain')">🛠️ Edition avancée</button>
+          </div>
+
+          <button class="b2s-btn b2s-btn-secondary" onclick="nextStep()">Suivant</button>
+        </section>
+
+
+        <!-- 🧩 ÉTAPE 13 — Fin -->
+        <section class="b2s-step" data-step="13">
+          <h2>BornToShare est prêt 🎉</h2>
+
+          <pre id="final_json"></pre>
+
+          <div class="b2s-step-actions">
+            <button class="b2s-btn b2s-btn-secondary" onclick="downloadAnsiblePack()">Générer le pack Ansible</button>
+            <button class="b2s-btn b2s-btn-primary" onclick="triggerAnsibleDeploy()">Déclencher le déploiement BornToShare</button>
+          </div>
+        </section>
+
+      </section>
+    </main>
+  </div>
+
+
+  <!-- 🧾 JSON Panel -->
+  <aside id="json_panel" class="b2s-json-panel">
+    <div class="b2s-json-panel__header">
+      <span>Configuration en temps réel</span>
+      <button class="b2s-json-panel__close" onclick="toggleJsonPanel()">✕</button>
+    </div>
+    <pre id="json_live" class="b2s-json-panel__body">{}</pre>
+  </aside>
+
+  <!-- 🛠️ PANEL LATÉRAL VERSION 5 -->
+  <div id="editor_panel" class="b2s-editor-panel">
+    <div class="b2s-editor-header">
+      <span id="editor_title">Édition</span>
+      <button class="b2s-editor-close" onclick="closeEditorPanel()">✕</button>
+    </div>
+    <div id="editor_content" class="b2s-editor-content"></div>
+  </div>
+
+  <!-- Overlay -->
+  <div id="editor_overlay" class="b2s-editor-overlay" onclick="closeEditorPanel()"></div>
+
+  <!-- Toasts -->
+  <div id="toast-container"></div>
+
+  <!-- Wizard runtime -->
+  <script src="assets/wizard.js"></script>
+</body>
+</html>
