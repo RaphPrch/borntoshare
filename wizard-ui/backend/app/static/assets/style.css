@@ -1,12 +1,10 @@
-
 /* ---------------------------------------------------
-   Palette BornToShare
+   Palette BornToShare (BLEU UNIFIÉ)
 --------------------------------------------------- */
 :root {
-  --b2s-primary: #1450F5;
-  --b2s-primary-dark: #0B1530;
-  --b2s-topbar-bg: #0B1530;
-  --b2s-step-active: #1450F5;
+  --b2s-primary: #0B1530;        /* Bleu maître (topbar / progress / boutons) */
+  --b2s-primary-dark: #070d1f;
+  --b2s-step-active: #0B1530;
   --b2s-step-hover: #E8EEFA;
 
   --b2s-bg: #F5F6FA;
@@ -44,7 +42,7 @@ body {
    TOPBAR
 --------------------------------------------------- */
 .b2s-topbar {
-  background: var(--b2s-topbar-bg);
+  background: var(--b2s-primary);
   height: 64px;
   display: flex;
   align-items: center;
@@ -91,26 +89,24 @@ body {
   font-size: 13px;
   padding: 6px 14px;
   cursor: pointer;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  transition: background .2s ease, box-shadow .2s ease;
 }
 
 .b2s-topbar__json-btn:hover {
   background: rgba(255,255,255,0.2);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.25);
 }
 
 /* ---------------------------------------------------
-   LAYOUT PRINCIPAL
+   LAYOUT
 --------------------------------------------------- */
 .b2s-main {
   display: flex;
   flex: 1;
   min-height: calc(100vh - 64px);
-  background: var(--b2s-bg);
 }
 
 /* ---------------------------------------------------
-   STEPPER LATERAL
+   STEPPER
 --------------------------------------------------- */
 .b2s-stepper {
   width: 250px;
@@ -131,23 +127,23 @@ body {
   cursor: pointer;
   border-left: 3px solid transparent;
   color: var(--b2s-grey);
-  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  transition: background .25s ease, color .25s ease, border-color .25s ease;
 }
 
 .b2s-stepper li:hover {
   background: var(--b2s-step-hover);
-  color: var(--b2s-primary-dark);
+  color: var(--b2s-primary);
 }
 
 .b2s-stepper li.active {
   background: var(--b2s-step-hover);
-  color: var(--b2s-primary-dark);
+  color: var(--b2s-primary);
   font-weight: 600;
-  border-left: 3px solid var(--b2s-step-active);
+  border-left-color: var(--b2s-primary);
 }
 
 /* ---------------------------------------------------
-   ZONE WIZARD
+   WIZARD
 --------------------------------------------------- */
 .b2s-wizard {
   flex: 1;
@@ -167,44 +163,40 @@ body {
 }
 
 .b2s-progress__track {
-  width: 100%;
   height: 6px;
-  border-radius: 999px;
   background: #E5E7EB;
+  border-radius: 999px;
   overflow: hidden;
-  margin-bottom: 6px;
 }
 
 .b2s-progress__bar {
   height: 100%;
   width: 0%;
-  border-radius: 999px;
   background: var(--b2s-primary);
-  transition: width 0.3s ease;
+  transition: width .35s cubic-bezier(0.22,1,0.36,1);
 }
 
 .b2s-progress__label {
+  margin-top: 6px;
   font-size: 13px;
   color: var(--b2s-grey);
 }
 
 /* ---------------------------------------------------
-   CARTE CENTRALE / STEP
+   STEP CARD (ANIMATED)
 --------------------------------------------------- */
 .b2s-step {
   display: none;
+  width: 100%;
+  max-width: 620px;
   background: var(--b2s-white);
   border-radius: var(--radius);
   border: 1px solid var(--b2s-border);
-  width: 100%;
-  max-width: 620px;
   padding: 34px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
   opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-              transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(12px);
+  transition: opacity .35s ease, transform .35s ease;
 }
 
 .b2s-step.active {
@@ -215,21 +207,13 @@ body {
 
 .b2s-step h1,
 .b2s-step h2 {
-  margin-top: 0;
-  margin-bottom: 12px;
-  color: var(--b2s-primary-dark);
-  font-weight: 600;
+  margin: 0 0 12px;
   font-size: 22px;
-}
-
-.b2s-step p {
-  margin-top: 0;
-  margin-bottom: 20px;
-  color: var(--b2s-grey);
+  color: var(--b2s-primary);
 }
 
 /* ---------------------------------------------------
-   FORMULAIRES
+   FORMS
 --------------------------------------------------- */
 .form-field {
   margin-bottom: 20px;
@@ -240,45 +224,54 @@ body {
   margin-bottom: 6px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--b2s-text);
 }
 
-.form-field input,
-.form-field select {
+.form-field input {
   width: 100%;
   padding: 11px 12px;
   border-radius: 8px;
   border: 1px solid var(--b2s-border);
-  background: #fff;
   font-size: 15px;
-  color: var(--b2s-text);
 }
 
-.form-field input:focus,
-.form-field select:focus {
+.form-field input:focus {
   outline: none;
   border-color: var(--b2s-primary);
-  box-shadow: 0 0 0 1px rgba(20, 80, 245, 0.15);
+  box-shadow: 0 0 0 1px rgba(11,21,48,.15);
 }
 
 /* ---------------------------------------------------
-   BOUTONS
+   PASSWORD RULES (LIVE FEEDBACK)
 --------------------------------------------------- */
-.b2s-step-actions {
-  margin-top: 24px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+.b2s-password-rules ul {
+  list-style: none;
+  padding: 0;
+  margin-top: 12px;
 }
 
+.b2s-password-rules li {
+  font-size: 14px;
+  display: flex;
+  gap: 6px;
+  transition: color .25s ease, transform .25s ease;
+}
+
+.b2s-password-rules li.ko { color: #b91c1c; }
+.b2s-password-rules li.ok {
+  color: #15803d;
+  transform: translateX(3px);
+}
+
+/* ---------------------------------------------------
+   BUTTONS
+--------------------------------------------------- */
 .b2s-btn {
   padding: 11px 22px;
   border-radius: 8px;
-  border: none;
-  cursor: pointer;
   font-size: 15px;
-  font-weight: 500;
-  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+  cursor: pointer;
+  border: none;
+  transition: background .2s ease, box-shadow .2s ease, transform .1s ease;
 }
 
 .b2s-btn:active {
@@ -291,56 +284,112 @@ body {
 }
 
 .b2s-btn-primary:hover {
-  background: #0f3ed5;
-  box-shadow: 0 3px 10px rgba(20,80,245,0.35);
+  background: var(--b2s-primary-dark);
+  box-shadow: 0 4px 12px rgba(11,21,48,.35);
 }
 
 .b2s-btn-secondary {
-  background: var(--b2s-white);
-  color: var(--b2s-text);
+  background: #fff;
   border: 1px solid var(--b2s-border);
 }
 
-.b2s-btn-secondary:hover {
-  background: #f3f4f6;
-}
-
-/* Bouton small pour + DC etc. */
-.b2s-btn-small {
-  padding: 7px 12px;
-  font-size: 13px;
+/* Disabled */
+.b2s-btn[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* ---------------------------------------------------
-   TOASTS (TOP RIGHT)
+   SUMMARY
+--------------------------------------------------- */
+.b2s-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px,1fr));
+  gap: 16px;
+}
+
+.b2s-summary-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 6px 16px rgba(0,0,0,.06);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.b2s-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,.08);
+}
+
+/* ---------------------------------------------------
+   BADGES
+--------------------------------------------------- */
+.b2s-badge {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.b2s-badge--ok {
+  background: #e6f7ee;
+  color: #137333;
+  animation: badgePop .3s ease;
+}
+
+.b2s-badge--warning {
+  background: #fff4e5;
+  color: #b45309;
+  animation: badgePop .3s ease;
+}
+
+@keyframes badgePop {
+  from { opacity: 0; transform: scale(.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ---------------------------------------------------
+   WARNING BOX
+--------------------------------------------------- */
+.b2s-warning-box {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+  animation: fadeIn .3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------------------------------------------------
+   TOASTS
 --------------------------------------------------- */
 #toast-container {
   position: fixed;
   top: 20px;
   right: 20px;
-  z-index: 9999;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  z-index: 9999;
 }
 
 .toast {
   padding: 14px 20px;
   border-radius: 8px;
-  font-size: 15px;
   color: #fff;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-  animation: slideInRight 0.35s ease-out;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 380px;
+  animation: slideInRight .35s ease;
 }
 
-.toast-success  { background: #2ECC71; }
-.toast-error    { background: #E63946; }
-.toast-warning  { background: #F1A40B; }
-.toast-info     { background: #1450F5; }
+.toast-success { background: #2ECC71; }
+.toast-error   { background: #E63946; }
+.toast-info    { background: var(--b2s-primary); }
 
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(25px); }
@@ -348,29 +397,7 @@ body {
 }
 
 /* ---------------------------------------------------
-   BADGE ETAT BAS DROITE
---------------------------------------------------- */
-.b2s-status-bar {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  background: #2ECC71;
-  color: #fff;
-  padding: 10px 18px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
-}
-
-.b2s-status-bar--error {
-  background: #E63946;
-}
-
-/* ---------------------------------------------------
-   JSON PANEL LATÉRAL
+   JSON PANEL
 --------------------------------------------------- */
 .b2s-json-panel {
   position: fixed;
@@ -380,129 +407,158 @@ body {
   height: calc(100vh - 64px);
   background: #0F172A;
   color: #E5E7EB;
-  box-shadow: -4px 0 20px rgba(15,23,42,0.6);
-  transition: right 0.3s ease;
-  z-index: 9000;
-  display: flex;
-  flex-direction: column;
+  transition: right .3s ease;
 }
 
 .b2s-json-panel.open {
   right: 0;
 }
 
-.b2s-json-panel__header {
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(148,163,184,0.5);
+/* Stepper status icons */
+.b2s-stepper li.step-ok::after {
+  content: "✔";
+  color: #15803d;
+  float: right;
+  font-weight: 700;
+}
+
+.b2s-stepper li.step-warning::after {
+  content: "⚠";
+  color: #b45309;
+  float: right;
+}
+
+/* Disabled button visual */
+.b2s-btn[disabled] {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* Global status bar */
+.b2s-status-bar {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  background: #15803d;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
   font-size: 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.2);
+  animation: slideInRight .4s ease;
 }
 
-.b2s-json-panel__close {
-  border: none;
-  background: transparent;
-  color: #E5E7EB;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.b2s-json-panel__body {
-  flex: 1;
-  margin: 0;
-  padding: 14px 16px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 12px;
-  overflow: auto;
-  white-space: pre;
+.b2s-status-bar--error {
+  background: #b91c1c;
 }
 
 /* ---------------------------------------------------
-   SKELETON SIMPLE
+   DIAGNOSTIC (DNS / TCP / SQL)
 --------------------------------------------------- */
-.b2s-skeleton {
-  background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 37%, #E5E7EB 63%);
-  background-size: 400% 100%;
-  border-radius: 6px;
-  animation: b2s-skeleton 1.4s ease infinite;
-}
 
-@keyframes b2s-skeleton {
-  0% { background-position: 100% 50%; }
-  100% { background-position: 0 50%; }
-}
-
-
-.b2s-mode-badge {
-  font-size: 0.75rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  margin-right: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.6);
-}
-
-.b2s-mode-badge--dev {
-  background: rgba(34, 197, 94, 0.1);
-  color: #bbf7d0;
-  border-color: rgba(34, 197, 94, 0.6);
-}
-
-.b2s-mode-badge--prod {
-  background: rgba(248, 113, 113, 0.12);
-  color: #fecaca;
-  border-color: rgba(248, 113, 113, 0.7);
-}
-
-.b2s-editor-panel {
-  position: fixed;
-  right: -40%;
-  top: 0;
-  width: 40%;
-  height: 100%;
-  background: #f9fafb;
-  box-shadow: -4px 0 15px rgba(0,0,0,0.2);
-  transition: 0.35s ease;
-  z-index: 5000;
+.b2s-diagnostic {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #F8FAFC;
+  border: 1px dashed var(--b2s-border);
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  animation: fadeIn .25s ease;
 }
 
-.b2s-editor-panel.open { right: 0; }
-
-.b2s-editor-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  z-index: 4999;
-  opacity: 0;
-  pointer-events: none;
-  transition: .3s;
-}
-.b2s-editor-overlay.open {
-  opacity: 1;
-  pointer-events: all;
+.b2s-diagnostic-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--b2s-grey);
 }
 
-.b2s-editor-header {
-  padding: 1rem;
-  background: #0b1530;
-  color: white;
-  font-size: 1.1rem;
+/* Ligne de diagnostic */
+.b2s-diagnostic-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
 }
 
-.b2s-editor-content {
-  padding: 1rem;
-  overflow-y: auto;
+/* Icône état */
+.b2s-diagnostic-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #CBD5E1;
+  flex-shrink: 0;
+  transition: background .25s ease, box-shadow .25s ease;
 }
 
-.svc-card {
-  background: white;
+/* Libellé */
+.b2s-diagnostic-label {
+  flex: 1;
+}
+
+/* États */
+.diag-ok .b2s-diagnostic-dot {
+  background: #22C55E;
+  box-shadow: 0 0 0 4px rgba(34,197,94,.18);
+}
+
+.diag-ko .b2s-diagnostic-dot {
+  background: #EF4444;
+  box-shadow: 0 0 0 4px rgba(239,68,68,.18);
+}
+
+.diag-pending .b2s-diagnostic-dot {
+  background: #F59E0B;
+  box-shadow: 0 0 0 4px rgba(245,158,11,.18);
+  animation: pulseDiag 1.2s infinite;
+}
+
+@keyframes pulseDiag {
+  0% { transform: scale(1); opacity: .9; }
+  50% { transform: scale(1.35); opacity: .6; }
+  100% { transform: scale(1); opacity: .9; }
+}
+
+/* ---------------------------------------------------
+   SQL PRIVILEGES
+--------------------------------------------------- */
+
+.b2s-privileges {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
+  gap: 10px;
+}
+
+.b2s-privilege {
+  padding: 10px 12px;
   border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: .75rem;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  background: #fff;
+  border: 1px solid var(--b2s-border);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.b2s-privilege.ok {
+  border-color: #86EFAC;
+  background: #ECFDF5;
+  color: #166534;
+}
+
+.b2s-privilege.ko {
+  border-color: #FCA5A5;
+  background: #FEF2F2;
+  color: #991B1B;
+}
+
+.b2s-privilege::before {
+  content: "✔";
+  font-weight: 700;
+}
+
+.b2s-privilege.ko::before {
+  content: "✖";
 }

@@ -1,40 +1,51 @@
 """
-BornToShare – Wizard Admin Creator
----------------------------------
-Création d’un administrateur LOCAL dans la DAL V1.
+BornToShare – Wizard Admin Bootstrap
+-----------------------------------
+Création / synchronisation d’un administrateur LOCAL
+via le Wizard uniquement.
 
-Compatible avec :
- - identity / local_credential
- - hash BornToShare versionné
- - wizard DEV uniquement
- - bcrypt (12 rounds)
+⚠️ ATTENTION
+- DEV / BOOTSTRAP ONLY
+- Ne doit JAMAIS être exposé comme API publique
+- À exécuter une seule fois (initialisation)
 """
 
+from __future__ import annotations
+
 import bcrypt
-from app.db import get_connection
+import logging
+
+from .db import get_connection
+
+logger = logging.getLogger("wizard.admin")
 
 BCRYPT_ROUNDS = 12
-MAX_BCRYPT_LEN = 72  # Limite bcrypt
+MAX_BCRYPT_LEN = 72  # Limite bcrypt stricte
 
 
 # ============================================================
-# 🧩 Normalisation bcrypt (72 bytes max)
+# 🔐 Password helpers
 # ============================================================
+
 def _normalize_password(password: str) -> bytes:
-    if not password:
+    """
+    Normalise le mot de passe pour bcrypt (72 bytes max).
+    """
+    if not password or not password.strip():
         raise ValueError("Password cannot be empty")
+
     raw = password.encode("utf-8")
     return raw[:MAX_BCRYPT_LEN]
 
 
-# ============================================================
-# 🔐 Hash BornToShare versionné
-# ============================================================
 def hash_password_b2s(password: str) -> str:
     """
-    Hash format BornToShare :
-        b2s$v=1$bcrypt$<bcrypt_hash>
-    Reconnu par auth-service.verify_password()
+    Hash BornToShare versionné.
+
+    Format :
+      b2s$v=1$bcrypt$<hash>
+
+    Compatible avec auth-service.verify_password()
     """
     raw = _normalize_password(password)
     hashed = bcrypt.hashpw(raw, bcrypt.gensalt(rounds=BCRYPT_ROUNDS))
@@ -42,29 +53,40 @@ def hash_password_b2s(password: str) -> str:
 
 
 # ============================================================
-# 👑 Création admin LOCAL (idempotent)
+# 👑 Admin bootstrap (WIZARD ONLY)
 # ============================================================
-def create_admin_if_needed(
+
+def create_local_admin_if_needed(
     *,
     db_name: str,
     root_cfg: dict,
     username: str,
     email: str,
     password: str,
-):
+) -> None:
     """
-    Crée un administrateur LOCAL si absent.
+    Crée ou synchronise un administrateur LOCAL.
 
-    - table : identity
-    - credentials : local_credential
-    - utilisé uniquement par le wizard
+    - identity.identity_type = 'local'
+    - local_credential (bcrypt)
+    - idempotent
+    - mot de passe TOUJOURS mis à jour
+
+    À utiliser UNIQUEMENT depuis le wizard.
     """
+
+    if not username:
+        raise ValueError("username is required")
 
     conn = get_connection(database=True, db_name=db_name, root_cfg=root_cfg)
     cur = conn.cursor()
 
     try:
-        # 1) Récupérer ou créer l'identité "admin" (local)
+        logger.info("[ADMIN] Ensuring local admin '%s'", username)
+
+        # ----------------------------------------------------
+        # Identity
+        # ----------------------------------------------------
         cur.execute(
             """
             SELECT id
@@ -79,7 +101,6 @@ def create_admin_if_needed(
 
         if row:
             identity_id = int(row[0])
-            # Optionnel : synchroniser quelques champs "profil"
             cur.execute(
                 """
                 UPDATE identity
@@ -90,6 +111,7 @@ def create_admin_if_needed(
                 """,
                 (email, username, identity_id),
             )
+            logger.info("[ADMIN] Existing identity updated (id=%s)", identity_id)
         else:
             cur.execute(
                 """
@@ -105,21 +127,24 @@ def create_admin_if_needed(
                 (username, email, username),
             )
             identity_id = int(cur.lastrowid)
+            logger.info("[ADMIN] New identity created (id=%s)", identity_id)
 
-        # 2) Upsert du credential local : on applique TOUJOURS le mot de passe choisi dans le wizard
+        # ----------------------------------------------------
+        # Credentials (always updated)
+        # ----------------------------------------------------
         pwd_hash = hash_password_b2s(password)
+
         cur.execute(
             """
-            SELECT identity_id
+            SELECT 1
             FROM local_credential
             WHERE identity_id = %s
             LIMIT 1
             """,
             (identity_id,),
         )
-        has_cred = cur.fetchone() is not None
 
-        if has_cred:
+        if cur.fetchone():
             cur.execute(
                 """
                 UPDATE local_credential
@@ -129,6 +154,7 @@ def create_admin_if_needed(
                 """,
                 (pwd_hash, identity_id),
             )
+            logger.info("[ADMIN] Credential updated")
         else:
             cur.execute(
                 """
@@ -141,8 +167,14 @@ def create_admin_if_needed(
                 """,
                 (identity_id, pwd_hash),
             )
+            logger.info("[ADMIN] Credential created")
 
         conn.commit()
+
+    except Exception:
+        conn.rollback()
+        logger.exception("[ADMIN] Failed to bootstrap admin")
+        raise
 
     finally:
         cur.close()

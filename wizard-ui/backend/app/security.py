@@ -1,75 +1,98 @@
-# backend/app/security.py
+"""
+BornToShare – Password Security Helpers (Wizard / Auth compatible)
 
+- UTF-8 normalization + 72 bytes truncation (bcrypt)
+- Versioned hash format: b2s$v=1$bcrypt$<bcrypt_hash>
+- Strong password policy (L2/L3 compatible)
+
+⚠️ This module MUST stay framework-agnostic
+(no FastAPI / HTTP dependency).
 """
-BornToShare – Wizard Password Service
-Compatible avec auth-service :
-- Normalisation UTF-8 + troncature 72 bytes (bcrypt)
-- Hash versionné :  b2s$v=1$bcrypt$<bcrypt_hash>
-- Complexité stricte (> L2)
-"""
+
+from __future__ import annotations
 
 import bcrypt
-from fastapi import HTTPException
 
 MAX_BCRYPT_LEN = 72
+BCRYPT_ROUNDS = 12
 
 
 # ============================================================
-# 🔐 COMPLEXITÉ (version wizard – stricte, L2/L3 compatible)
+# 🔐 PASSWORD COMPLEXITY
 # ============================================================
-def validate_password_complexity(password: str):
+def validate_password_complexity(password: str) -> None:
     """
-    Règles renforcées BornToShare (wizard) :
-    - Min 12 caractères
-    - 1 minuscule
-    - 1 majuscule
-    - 1 chiffre
-    - 1 spécial
+    BornToShare strong password policy (wizard):
+
+    - Minimum 12 characters
+    - At least 1 lowercase
+    - At least 1 uppercase
+    - At least 1 digit
+    - At least 1 special character
+
+    Raises:
+        ValueError if the password does not meet requirements.
     """
+    if not password or not password.strip():
+        raise ValueError("Password cannot be empty")
+
     if len(password) < 12:
-        raise HTTPException(400, "Le mot de passe doit contenir au moins 12 caractères.")
+        raise ValueError("Password must be at least 12 characters long")
+
     if not any(c.islower() for c in password):
-        raise HTTPException(400, "Le mot de passe doit contenir une minuscule.")
+        raise ValueError("Password must contain at least one lowercase letter")
+
     if not any(c.isupper() for c in password):
-        raise HTTPException(400, "Le mot de passe doit contenir une majuscule.")
+        raise ValueError("Password must contain at least one uppercase letter")
+
     if not any(c.isdigit() for c in password):
-        raise HTTPException(400, "Le mot de passe doit contenir un chiffre.")
+        raise ValueError("Password must contain at least one digit")
+
     if not any(not c.isalnum() for c in password):
-        raise HTTPException(400, "Le mot de passe doit contenir un caractère spécial.")
-    return True
+        raise ValueError("Password must contain at least one special character")
 
 
 # ============================================================
-# 🧩 NORMALISATION BCRYPT
+# 🧩 BCRYPT NORMALIZATION
 # ============================================================
-def _normalize(password: str) -> bytes:
+def _normalize_password(password: str) -> bytes:
     """
-    Normalise le password :
-    - UTF-8
-    - tronquage 72 bytes (limite bcrypt)
+    Normalize password for bcrypt:
+    - UTF-8 encoding
+    - 72 bytes truncation (bcrypt hard limit)
     """
-    if password is None:
-        raise ValueError("Password cannot be None")
+    if not password or not password.strip():
+        raise ValueError("Password cannot be empty")
 
     raw = password.encode("utf-8")
     return raw[:MAX_BCRYPT_LEN]
 
 
 # ============================================================
-# 🔐 HASH PASSWORD – FORMAT B2S OFFICIEL
+# 🔐 HASH PASSWORD – OFFICIAL B2S FORMAT
 # ============================================================
-def get_password_hash(password: str) -> str:
+def hash_password_b2s(password: str, *, validate: bool = True) -> str:
     """
-    Produit un hash NATIF 100 % compatible auth-service :
-        b2s$v=1$bcrypt$<hash bcrypt>
+    Generate a BornToShare versioned password hash.
+
+    Format:
+        b2s$v=1$bcrypt$<bcrypt_hash>
+
+    Args:
+        password: clear text password
+        validate: enforce complexity rules (default: True)
+
+    Returns:
+        Versioned B2S password hash
     """
+    if validate:
+        validate_password_complexity(password)
 
-    validate_password_complexity(password)
+    raw = _normalize_password(password)
 
-    raw = _normalize(password)
+    hashed = bcrypt.hashpw(
+        raw,
+        bcrypt.gensalt(rounds=BCRYPT_ROUNDS),
+    ).decode("utf-8")
 
-    # bcrypt avec cost=12
-    hashed = bcrypt.hashpw(raw, bcrypt.gensalt(rounds=12)).decode("utf-8")
-
-    # Format versionné BornToShare
     return f"b2s$v=1$bcrypt${hashed}"

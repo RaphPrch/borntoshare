@@ -2,30 +2,40 @@ version: "3.9"
 
 services:
   wizard-ui:
-    container_name: wizard-ui
     build:
       context: .
       dockerfile: Containerfile
+    # En PROD, on utilisera plutôt l’image publiée :
+    # image: ghcr.io/borntoshare/wizard-ui:latest
 
     environment:
-      TZ: Europe/Paris
+      TZ: ${TZ:-Europe/Paris}
+      APP_ENV: ${APP_ENV:-prod}
 
-    volumes:
-      - ./wizard:/opt/wizard/wizard:ro
+    # ⚠️ PROD = pas de volume de code
+    # Le code est embarqué dans l’image pour un comportement déterministe
 
     ports:
-      - "8080:8080"
+      - "${WIZARD_PORT:-8080}:8080"
 
-    restart: "no"
+    restart: unless-stopped
 
     networks:
       - app_net
       - db_net
 
+    # (Optionnel mais recommandé)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
 networks:
   app_net:
+    name: ${APP_NET:-b2s_app_net}
     external: true
 
   db_net:
-    driver: bridge
+    name: ${DB_NET:-b2s_db_net}
     external: true

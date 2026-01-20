@@ -4,6 +4,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 # 🔧 Infrastructure (DB helpers only, no router)
 from . import db  # noqa: F401
@@ -18,7 +19,11 @@ from .routes import (
 # ============================================================
 # ⚙️ WIZARD MODE
 # ============================================================
-WIZARD_MODE = os.getenv("WIZARD_MODE", "dev").lower()
+# Priority:
+# - WIZARD_MODE (explicit)
+# - APP_ENV (compose / container)
+# - default: dev
+WIZARD_MODE = os.getenv("WIZARD_MODE", os.getenv("APP_ENV", "dev")).lower()
 
 
 def is_dev() -> bool:
@@ -35,21 +40,32 @@ def is_prod() -> bool:
 app = FastAPI(
     title="BornToShare Wizard v1.0",
     description="Initial setup wizard for BornToShare platform",
-    openapi_url=None,   # wizard interne
-    docs_url=None,      # pas de swagger exposé
+    openapi_url=None,   # Wizard interne
+    docs_url=None,      # Pas de Swagger exposé
     redoc_url=None,
 )
 
 # ============================================================
 # 🌐 CORS (wizard standalone)
 # ============================================================
+# NOTE:
+# - Wizard interne
+# - En PROD publique, les origins devront être restreintes
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # wizard local
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ============================================================
+# 🟢 HEALTHCHECK (PROD / SUPERVISION)
+# ============================================================
+@app.get("/health", include_in_schema=False)
+def health():
+    return {"status": "ok"}
+
 
 # ============================================================
 # 🔧 MODE ENDPOINT (UI)
@@ -61,6 +77,7 @@ async def get_mode():
         "dev": is_dev(),
         "prod": is_prod(),
     }
+
 
 # ============================================================
 # 📌 API ROUTES (V1)
@@ -75,7 +92,7 @@ app.include_router(import_routes.router, prefix="/api")
 app.include_router(runtime_routes.router, prefix="/api")
 
 # ============================================================
-# 📁 STATIC UI
+# 📁 STATIC UI (PROD SAFE)
 # ============================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -83,10 +100,20 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 print(f"[WIZARD] Static directory: {STATIC_DIR}")
 
 if not os.path.isdir(STATIC_DIR):
-    print(f"[WIZARD][ERROR] Static directory does not exist: {STATIC_DIR}")
-else:
-    # Le wizard UI est servi à la racine
-    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+    raise RuntimeError(f"[WIZARD][FATAL] Static directory missing: {STATIC_DIR}")
+
+# Assets (CSS, JS, images…)
+app.mount(
+    "/static",
+    StaticFiles(directory=STATIC_DIR),
+    name="static",
+)
+
+# Root → index.html
+@app.get("/", include_in_schema=False)
+async def wizard_index():
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
 
 # ============================================================
 # 🟢 STARTUP LOG

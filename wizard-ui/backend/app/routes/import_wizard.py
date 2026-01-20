@@ -1,19 +1,25 @@
-from fastapi import APIRouter, HTTPException
-from mysql.connector import Error
+from __future__ import annotations
+
 import os
 import re
 import logging
 
+from fastapi import APIRouter, HTTPException
+from mysql.connector import Error
+
 from ..db import get_connection
 from ..migrations_runner import run_initial_schema, run_seed_sql
-from ..security import get_password_hash, validate_password_complexity
+from ..security import hash_password_b2s, validate_password_complexity
+from ..admin_logic import create_local_admin_if_needed
+
 
 # ------------------------------------------------------------
 # Router
 # ------------------------------------------------------------
 router = APIRouter(prefix="/import", tags=["import"])
 
-WIZARD_MODE = os.getenv("WIZARD_MODE", "dev").lower()
+# Aligné avec main.py / settings.py
+WIZARD_MODE = os.getenv("WIZARD_MODE", os.getenv("APP_ENV", "dev")).lower()
 
 logger = logging.getLogger("wizard.import")
 logger.setLevel(logging.INFO)
@@ -167,13 +173,11 @@ async def import_config(payload: dict):
         conn.close()
 
     # ==================================================================
-    # 3. Schéma / vues / indexes
+    # 3. Schéma / vues / indexes / seed
     # ==================================================================
     logger.info("[WIZARD] Running schema pack")
     run_initial_schema(db_name=db_name, root_cfg=root_cfg)
 
-    # 🔥 CORRECTION CLÉ 🔥
-    # En DEV → seed toujours appliqué
     if WIZARD_MODE == "dev" or apply_seed_flag:
         logger.info("[WIZARD] Running seed pack")
         run_seed_sql(db_name=db_name, root_cfg=root_cfg)
@@ -181,85 +185,24 @@ async def import_config(payload: dict):
         logger.info("[WIZARD] Seed skipped")
 
     # ==================================================================
-    # 4. Création admin local
+    # 4. Création admin local (idempotent, SAFE)
     # ==================================================================
-    app_conn = get_connection(database=True, db_name=db_name, root_cfg=root_cfg)
-    app_cur = app_conn.cursor()
+    username = admin.get("username") or "admin"
+    email = admin.get("email") or "admin@local"
+    raw_password = admin.get("password")
 
-    try:
-        username = admin.get("username") or "admin"
-        email = admin.get("email") or "admin@local"
-        raw_password = admin.get("password")
+    if not raw_password:
+        raise HTTPException(status_code=400, detail="Mot de passe admin requis.")
 
-        if not raw_password:
-            raise HTTPException(status_code=400, detail="Mot de passe admin requis.")
+    validate_password_complexity(raw_password)
 
-        validate_password_complexity(raw_password)
-        password_hash = get_password_hash(raw_password)
-
-        # Nettoyage idempotent
-        app_cur.execute(
-            """
-            DELETE FROM local_credential
-            WHERE identity_id IN (
-                SELECT id FROM identity
-                WHERE auth_source = 'local'
-                  AND (username = %s OR email = %s)
-            )
-            """,
-            (username, email),
-        )
-
-        app_cur.execute(
-            """
-            DELETE FROM identity
-            WHERE auth_source = 'local'
-              AND (username = %s OR email = %s)
-            """,
-            (username, email),
-        )
-
-        # Création identité
-        app_cur.execute(
-            """
-            INSERT INTO identity (
-                username,
-                email,
-                display_name,
-                auth_source,
-                is_active
-            )
-            VALUES (%s, %s, %s, 'local', 1)
-            """,
-            (username, email, username),
-        )
-
-        identity_id = app_cur.lastrowid
-
-        # Création credentials
-        app_cur.execute(
-            """
-            INSERT INTO local_credential (
-                identity_id,
-                password_hash,
-                password_version
-            )
-            VALUES (%s, %s, 'b2s$v=1$bcrypt')
-            """,
-            (identity_id, password_hash),
-        )
-
-        app_conn.commit()
-
-    except HTTPException:
-        app_conn.rollback()
-        raise
-    except Exception as e:
-        app_conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Erreur création admin : {e}")
-    finally:
-        app_cur.close()
-        app_conn.close()
+    create_local_admin_if_needed(
+        db_name=db_name,
+        root_cfg=root_cfg,
+        username=username,
+        email=email,
+        password=raw_password,
+    )
 
     return {
         "ok": True,

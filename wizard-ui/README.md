@@ -1,25 +1,90 @@
-# wizard-ui — BornToShare (dev)
+# 🧙 BornToShare – Wizard UI
 
-The wizard initializes the platform in development mode:
+Le **Wizard UI** est l’outil officiel d’initialisation de la plateforme **BornToShare**.
 
-- validates connectivity to `db_api:3306`
-- creates the **application database/user** (using a privileged DB connection)
-- applies the SQL schema from `backend/app/schema_initial.sql`
-- creates the initial local admin user (for dev)
-- stores optional settings (e.g. syslog target)
+Il permet de **préparer, valider et générer** l’ensemble des éléments nécessaires au premier démarrage de la plateforme, sans manipulation manuelle de fichiers sensibles.
 
-## DB env (backend)
+---
 
-- `DB_HOST` (default: `db_api`)
-- `DB_PORT` (default: `3306`)
-- `DB_NAME` (default: `b2s`)
-- `DB_USER` (default: `b2s_api`)
-- `DB_PASSWORD` (default: `b2s_api_password`)
+## 🎯 Objectif
 
-For database creation via the wizard (service account):
-- `DB_ROOT_USER` (default: `root`)
-- `DB_ROOT_PASSWORD` (**required** for create-db step)
+- Initialisation de la base de données
+- Déploiement du schéma SQL et des vues
+- Création des comptes applicatifs
+- Génération des fichiers `.env.*`
+- Validation des prérequis techniques
 
-## Schema
+Le Wizard est conçu pour être utilisé **une seule fois**, lors du bootstrap initial.
 
-The schema file is kept **MariaDB-compatible** (no placeholders, no `CREATE INDEX IF NOT EXISTS`).
+---
+
+## 🧩 Étapes couvertes
+
+1. Présentation
+2. Administrateur applicatif
+3. Connexion DB (root)
+4. Base & comptes applicatifs
+5. Comptes services
+6. Vérifications
+7. Résumé global
+8. Import final
+
+Chaque étape est bloquante si invalide.
+
+---
+
+## 🛡️ Sécurité
+
+- Aucun secret versionné
+- Aucune valeur par défaut sensible
+- Validation stricte des mots de passe
+- Génération locale des fichiers `.env`
+
+---
+
+## ⚙️ Prérequis
+
+- MariaDB / MySQL accessible
+- Droits root DB
+- Docker ou Podman
+- Services BornToShare arrêtés
+
+---
+
+## 🚀 Lancement
+
+```bash
+docker run -p 8080:8080 borntoshare/wizard-ui
+```
+
+Accès via http://localhost:8080
+
+---
+
+## 📄 Fichiers générés
+
+- `.env.dal`
+- `.env.auth`
+- `.env.governance`
+
+Ces fichiers ne doivent jamais être commités.
+
+---
+
+## 📘 Variables d’environnement
+
+Les variables possibles sont documentées dans le README principal du projet BornToShare sous forme de tableaux explicites.
+
+---
+
+## 🖼️ Captures d’écran
+
+Les images du Wizard peuvent être ajoutées dans le dossier `images/`.
+
+---
+
+## 🏁 Conclusion
+
+Le Wizard UI garantit une initialisation sécurisée, cohérente et reproductible de la plateforme BornToShare.
+
+© BornToShare
