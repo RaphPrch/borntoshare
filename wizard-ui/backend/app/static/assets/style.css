@@ -49,7 +49,7 @@ body {
   justify-content: space-between;
   padding-inline: 20px;
   color: #fff;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.16);
 }
 
 .b2s-topbar__left {
@@ -79,21 +79,6 @@ body {
   padding: 5px 12px;
   border-radius: 6px;
   font-size: 13px;
-}
-
-.b2s-topbar__json-btn {
-  background: rgba(255,255,255,0.1);
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.4);
-  color: #fff;
-  font-size: 13px;
-  padding: 6px 14px;
-  cursor: pointer;
-  transition: background .2s ease, box-shadow .2s ease;
-}
-
-.b2s-topbar__json-btn:hover {
-  background: rgba(255,255,255,0.2);
 }
 
 /* ---------------------------------------------------
@@ -142,6 +127,14 @@ body {
   border-left-color: var(--b2s-primary);
 }
 
+/* Step validated (see [`updateStepperUI()`](services/wizard-ui/backend/app/static/js/core.js:45)) */
+.b2s-stepper li.done::after {
+  content: "✔";
+  color: #15803d;
+  float: right;
+  font-weight: 700;
+}
+
 /* ---------------------------------------------------
    WIZARD
 --------------------------------------------------- */
@@ -183,6 +176,69 @@ body {
 }
 
 /* ---------------------------------------------------
+   DIVIDER
+---------------------------------------------------- */
+.b2s-divider {
+  height: 1px;
+  background: var(--b2s-border);
+  margin: 16px 0;
+}
+
+/* ---------------------------------------------------
+   PRECHECK (summary step)
+---------------------------------------------------- */
+.b2s-precheck {
+  background: #fff;
+  border: 1px solid var(--b2s-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.b2s-precheck__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.b2s-precheck__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--b2s-grey);
+}
+
+.b2s-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.b2s-pill--ok { background: #e6f7ee; color: #137333; }
+.b2s-pill--warn { background: #fff4e5; color: #b45309; }
+.b2s-pill--ko { background: #fee2e2; color: #b91c1c; }
+
+.b2s-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.12);
+  border-top-color: var(--b2s-primary);
+  display: inline-block;
+  animation: spin .8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------------------------------------------------
    STEP CARD (ANIMATED)
 --------------------------------------------------- */
 .b2s-step {
@@ -193,7 +249,7 @@ body {
   border-radius: var(--radius);
   border: 1px solid var(--b2s-border);
   padding: 34px;
-  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  box-shadow: 0 1px 10px rgba(0,0,0,.05);
   opacity: 0;
   transform: translateY(12px);
   transition: opacity .35s ease, transform .35s ease;
@@ -203,6 +259,7 @@ body {
   display: block;
   opacity: 1;
   transform: translateY(0);
+  animation: stepIn .22s ease-out;
 }
 
 .b2s-step h1,
@@ -285,12 +342,34 @@ body {
 
 .b2s-btn-primary:hover {
   background: var(--b2s-primary-dark);
-  box-shadow: 0 4px 12px rgba(11,21,48,.35);
+  box-shadow: 0 4px 10px rgba(11,21,48,.28);
 }
 
 .b2s-btn-secondary {
   background: #fff;
   border: 1px solid var(--b2s-border);
+}
+
+/* ---------------------------------------------------
+   ACTIONS LAYOUT
+---------------------------------------------------- */
+.b2s-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.b2s-actions-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.b2s-btn-icon {
+  padding: 11px 14px;
+  min-width: 44px;
 }
 
 /* Disabled */
@@ -300,26 +379,14 @@ body {
   box-shadow: none;
 }
 
-/* ---------------------------------------------------
-   SUMMARY
---------------------------------------------------- */
-.b2s-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px,1fr));
-  gap: 16px;
+.b2s-btn-primary[disabled] {
+  background: #9CA3AF;
+  color: #fff;
 }
 
-.b2s-summary-card {
-  background: #fff;
-  border-radius: 10px;
-  padding: 16px 18px;
-  box-shadow: 0 6px 16px rgba(0,0,0,.06);
-  transition: transform .25s ease, box-shadow .25s ease;
-}
-
-.b2s-summary-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.08);
+.b2s-btn-primary[disabled]:hover {
+  background: #9CA3AF;
+  box-shadow: none;
 }
 
 /* ---------------------------------------------------
@@ -397,168 +464,13 @@ body {
 }
 
 /* ---------------------------------------------------
-   JSON PANEL
+   STEP MICRO-ANIMATION
 --------------------------------------------------- */
-.b2s-json-panel {
-  position: fixed;
-  top: 64px;
-  right: -440px;
-  width: 420px;
-  height: calc(100vh - 64px);
-  background: #0F172A;
-  color: #E5E7EB;
-  transition: right .3s ease;
+@keyframes stepIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.b2s-json-panel.open {
-  right: 0;
-}
-
-/* Stepper status icons */
-.b2s-stepper li.step-ok::after {
-  content: "✔";
-  color: #15803d;
-  float: right;
-  font-weight: 700;
-}
-
-.b2s-stepper li.step-warning::after {
-  content: "⚠";
-  color: #b45309;
-  float: right;
-}
-
-/* Disabled button visual */
-.b2s-btn[disabled] {
-  opacity: .45;
-  cursor: not-allowed;
-}
-
-/* Global status bar */
-.b2s-status-bar {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  background: #15803d;
-  color: #fff;
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-size: 14px;
-  box-shadow: 0 6px 20px rgba(0,0,0,.2);
-  animation: slideInRight .4s ease;
-}
-
-.b2s-status-bar--error {
-  background: #b91c1c;
-}
-
-/* ---------------------------------------------------
-   DIAGNOSTIC (DNS / TCP / SQL)
---------------------------------------------------- */
-
-.b2s-diagnostic {
-  margin-top: 18px;
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: #F8FAFC;
-  border: 1px dashed var(--b2s-border);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  animation: fadeIn .25s ease;
-}
-
-.b2s-diagnostic-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--b2s-grey);
-}
-
-/* Ligne de diagnostic */
-.b2s-diagnostic-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-}
-
-/* Icône état */
-.b2s-diagnostic-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #CBD5E1;
-  flex-shrink: 0;
-  transition: background .25s ease, box-shadow .25s ease;
-}
-
-/* Libellé */
-.b2s-diagnostic-label {
-  flex: 1;
-}
-
-/* États */
-.diag-ok .b2s-diagnostic-dot {
-  background: #22C55E;
-  box-shadow: 0 0 0 4px rgba(34,197,94,.18);
-}
-
-.diag-ko .b2s-diagnostic-dot {
-  background: #EF4444;
-  box-shadow: 0 0 0 4px rgba(239,68,68,.18);
-}
-
-.diag-pending .b2s-diagnostic-dot {
-  background: #F59E0B;
-  box-shadow: 0 0 0 4px rgba(245,158,11,.18);
-  animation: pulseDiag 1.2s infinite;
-}
-
-@keyframes pulseDiag {
-  0% { transform: scale(1); opacity: .9; }
-  50% { transform: scale(1.35); opacity: .6; }
-  100% { transform: scale(1); opacity: .9; }
-}
-
-/* ---------------------------------------------------
-   SQL PRIVILEGES
---------------------------------------------------- */
-
-.b2s-privileges {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
-  gap: 10px;
-}
-
-.b2s-privilege {
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: #fff;
-  border: 1px solid var(--b2s-border);
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.b2s-privilege.ok {
-  border-color: #86EFAC;
-  background: #ECFDF5;
-  color: #166534;
-}
-
-.b2s-privilege.ko {
-  border-color: #FCA5A5;
-  background: #FEF2F2;
-  color: #991B1B;
-}
-
-.b2s-privilege::before {
-  content: "✔";
-  font-weight: 700;
-}
-
-.b2s-privilege.ko::before {
-  content: "✖";
+.b2s-step.active {
+  animation: stepIn .22s ease-out;
 }

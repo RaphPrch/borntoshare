@@ -8,16 +8,12 @@ services:
     # En PROD, on utilisera plutôt l’image publiée :
     # image: ghcr.io/borntoshare/wizard-ui:latest
 
-    environment:
-      TZ: ${TZ:-Europe/Paris}
-      APP_ENV: ${APP_ENV:-prod}
-      LOG_LEVEL: DEBUG
-      WIZARD_LOG_SQL_ERRORS: 1
-    # ⚠️ PROD = pas de volume de code
-    # Le code est embarqué dans l’image pour un comportement déterministe
-
+    # Charge l'environnement depuis un fichier .env local (non versionné)
+    # Voir: [`services/wizard-ui/.env.example`](services/wizard-ui/.env.example:1)
+    env_file:
+      - .env
     ports:
-      - "${WIZARD_PORT:-8080}:8080"
+      - "${WIZARD_PORT}:8080"
 
     restart: unless-stopped
 
@@ -34,9 +30,9 @@ services:
 
 networks:
   app_net:
-    name: ${APP_NET:-b2s_app_net}
+    name: ${APP_NET}
     external: true
 
   db_net:
-    name: ${DB_NET:-b2s_db_net}
+    name: ${DB_NET}
     external: true

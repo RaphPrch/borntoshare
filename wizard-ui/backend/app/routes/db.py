@@ -34,6 +34,11 @@ class DbAuthPayload(DbNetworkPayload):
         description="Optional database name",
     )
 
+
+class DbPrecheckPayload(DbAuthPayload):
+    db_name: str = Field(..., description="Target database name to check")
+    app_sql_user: str = Field(..., description="App SQL user to check")
+
 # ============================================================
 # 🌐 DNS / TCP / LATENCY DIAGNOSTIC
 # ============================================================
@@ -240,4 +245,73 @@ def privileges_test(payload: DbAuthPayload):
         "privileges": privileges,
         "all_required_ok": privileges["create_table"],
         "is_root": payload.user.lower() == "root",
+    }
+
+
+# ============================================================
+# 🔎 PRECHECK (DB exists / user exists)
+# ============================================================
+
+
+@router.post("/precheck")
+def precheck(payload: DbPrecheckPayload):
+    """
+    Vérifications légères, avant l'import final:
+    - La base `db_name` existe-t-elle ?
+    - L'utilisateur SQL applicatif existe-t-il déjà ?
+
+    Utilise les credentials fournis (généralement root DB) pour interroger.
+    """
+
+    db_exists = None
+    app_user_exists = None
+
+    conn = None
+    cur = None
+    try:
+        conn = get_connection(
+            database=False,
+            root_cfg={
+                "host": payload.host,
+                "port": payload.port,
+                "user": payload.user,
+                "password": payload.password,
+            },
+        )
+        cur = conn.cursor()
+
+        # DB exists?
+        try:
+            cur.execute(
+                "SELECT 1 FROM information_schema.schemata WHERE schema_name = %s LIMIT 1",
+                (payload.db_name,),
+            )
+            db_exists = cur.fetchone() is not None
+        except Exception as e:
+            logger.warning("Precheck DB exists failed", exc_info=e)
+
+        # User exists?
+        try:
+            # Works for MySQL/MariaDB with sufficient privileges
+            cur.execute(
+                "SELECT 1 FROM mysql.user WHERE user = %s LIMIT 1",
+                (payload.app_sql_user,),
+            )
+            app_user_exists = cur.fetchone() is not None
+        except Exception as e:
+            logger.warning("Precheck user exists failed", exc_info=e)
+
+    finally:
+        try:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
+    return {
+        "status": "ok",
+        "db_exists": db_exists,
+        "app_user_exists": app_user_exists,
     }

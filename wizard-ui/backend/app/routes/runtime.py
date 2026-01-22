@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 import socket
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +11,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/runtime", tags=["runtime"])
+
+# Configure logger
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(message)s")
+log = logging.getLogger("wizard")
 
 # ============================================================
 # 📦 PAYLOADS
@@ -200,3 +205,31 @@ async def test_port(payload: PortTestPayload):
             "ok": False,
             "error": str(exc),
         }
+
+
+# ============================================================
+# 📚 LOGGING
+# ============================================================
+
+class LogRequest(BaseModel):
+    level: str = Field(..., description="Log level (info, warning, error, etc.)")
+    message: str = Field(..., description="Message de log à enregistrer")
+
+@router.post("/api/log")
+async def log_event(log_data: LogRequest):
+    """
+    Route pour recevoir des logs et les enregistrer dans les fichiers ou les afficher.
+    """
+    level = log_data.level.lower()
+    message = log_data.message
+
+    if level == "info":
+        log.info(message)
+    elif level == "warning":
+        log.warning(message)
+    elif level == "error":
+        log.error(message)
+    else:
+        raise HTTPException(status_code=400, detail="Niveau de log invalide. Utilisez 'info', 'warning', ou 'error'.")
+
+    return {"message": "Log enregistré avec succès"}

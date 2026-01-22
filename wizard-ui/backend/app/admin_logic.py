@@ -67,8 +67,8 @@ def create_local_admin_if_needed(
     """
     Crée ou synchronise un administrateur LOCAL.
 
-    - identity.identity_type = 'local'
-    - local_credential (bcrypt)
+    - identities.auth_source = 'local'
+    - local_credentials (bcrypt)
     - idempotent
     - mot de passe TOUJOURS mis à jour
 
@@ -90,8 +90,8 @@ def create_local_admin_if_needed(
         cur.execute(
             """
             SELECT id
-            FROM identity
-            WHERE identity_type = 'local'
+            FROM identities
+            WHERE auth_source = 'local'
               AND username = %s
             LIMIT 1
             """,
@@ -103,10 +103,12 @@ def create_local_admin_if_needed(
             identity_id = int(row[0])
             cur.execute(
                 """
-                UPDATE identity
+                UPDATE identities
                 SET email = COALESCE(%s, email),
                     display_name = COALESCE(%s, display_name),
-                    is_active = 1
+                    is_active = 1,
+                    is_admin = 1,
+                    auth_source = 'local'
                 WHERE id = %s
                 """,
                 (email, username, identity_id),
@@ -115,14 +117,15 @@ def create_local_admin_if_needed(
         else:
             cur.execute(
                 """
-                INSERT INTO identity (
-                    identity_type,
+                INSERT INTO identities (
                     username,
                     email,
                     display_name,
-                    is_active
+                    auth_source,
+                    is_active,
+                    is_admin
                 )
-                VALUES ('local', %s, %s, %s, 1)
+                VALUES (%s, %s, %s, 'local', 1, 1)
                 """,
                 (username, email, username),
             )
@@ -137,7 +140,7 @@ def create_local_admin_if_needed(
         cur.execute(
             """
             SELECT 1
-            FROM local_credential
+            FROM local_credentials
             WHERE identity_id = %s
             LIMIT 1
             """,
@@ -147,9 +150,10 @@ def create_local_admin_if_needed(
         if cur.fetchone():
             cur.execute(
                 """
-                UPDATE local_credential
+                UPDATE local_credentials
                 SET password_hash = %s,
-                    password_algo = 'bcrypt'
+                    password_version = 'b2s$v=1$bcrypt',
+                    last_rotated_at = NOW(6)
                 WHERE identity_id = %s
                 """,
                 (pwd_hash, identity_id),
@@ -158,12 +162,13 @@ def create_local_admin_if_needed(
         else:
             cur.execute(
                 """
-                INSERT INTO local_credential (
+                INSERT INTO local_credentials (
                     identity_id,
                     password_hash,
-                    password_algo
+                    password_version,
+                    last_rotated_at
                 )
-                VALUES (%s, %s, 'bcrypt')
+                VALUES (%s, %s, 'b2s$v=1$bcrypt', NOW(6))
                 """,
                 (identity_id, pwd_hash),
             )

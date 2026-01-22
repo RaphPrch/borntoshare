@@ -120,6 +120,57 @@ conformes aux bonnes pratiques SecNumCloud (niveau L2/L3).
 podman-compose -f podman-compose.yml up --build
 ```
 
+---
+
+# 🌐 Gateway optionnelle (Community vs Enterprise)
+
+Le projet supporte désormais 2 modes d’exécution :
+
+- **Community (par défaut)** : pas de gateway requise.
+  Le `frontend-service` agit comme BFF et **proxy** `/api/*` directement vers :
+  - `auth-service`
+  - `dal-service`
+  - `governance-service`
+
+- **Enterprise** : la `gateway-service` devient **obligatoire**.
+  Le `frontend-service` proxy `/api/*` uniquement vers `gateway-service`.
+
+## Variable de bascule
+
+La bascule est pilotée par :
+
+```bash
+B2S_GATEWAY_ENABLED=true|false
+```
+
+- `false` = **Community** (défaut)
+- `true`  = **Enterprise** (gateway obligatoire)
+
+## Variables utilisées par `frontend-service`
+
+Ces variables sont déclarées dans [`frontend-service/podman-compose.yml`](frontend-service/podman-compose.yml:1).
+
+### Community (gateway désactivée)
+
+```bash
+B2S_GATEWAY_ENABLED=false
+B2S_AUTH_URL=http://auth-service:8000
+B2S_DAL_URL=http://dal-service:8000
+B2S_GOVERNANCE_URL=http://governance-service:8000
+```
+
+### Enterprise (gateway activée)
+
+```bash
+B2S_GATEWAY_ENABLED=true
+B2S_GATEWAY_URL=http://gateway-service:8000
+```
+
+## Notes
+
+- Le frontend continue d’appeler **une seule base**: `/api/...` (pas de refactor des appels frontend).
+- Certains endpoints « enterprise-only » (ex: `/api/settings/*`) retournent `501` en mode Community.
+
 ### Production
 
 ```
@@ -197,5 +248,4 @@ build/* linguist-generated=true
 
 # ❤️ BornToShare  
 "Made in France. Open Governance."
-
 
