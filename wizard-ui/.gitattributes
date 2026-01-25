@@ -1,0 +1,78 @@
+# ======================================================
+# BornToShare Wizard UI — .gitattributes
+# ======================================================
+
+# ------------------------------------------------------
+# Global text normalization
+# ------------------------------------------------------
+* text=auto eol=lf
+
+# ------------------------------------------------------
+# Source code — counted by GitHub Linguist
+# ------------------------------------------------------
+*.py        linguist-language=Python
+*.sql       linguist-language=SQL
+*.js        linguist-language=JavaScript
+*.ts        linguist-language=TypeScript
+*.css       linguist-language=CSS
+*.html      linguist-language=HTML
+*.json      linguist-language=JSON
+*.yml       linguist-language=YAML
+*.yaml      linguist-language=YAML
+*.toml      linguist-language=TOML
+
+# ------------------------------------------------------
+# Shell / Docker
+# ------------------------------------------------------
+Dockerfile  linguist-language=Dockerfile
+*.dockerfile linguist-language=Dockerfile
+*.sh        linguist-language=Shell
+
+# ------------------------------------------------------
+# Documentation
+# ------------------------------------------------------
+*.md        linguist-language=Markdown
+
+# ------------------------------------------------------
+# Generated / vendor files (NOT counted)
+# ------------------------------------------------------
+dist/**           linguist-generated=true
+build/**          linguist-generated=true
+node_modules/**   linguist-generated=true
+vendor/**         linguist-generated=true
+
+# ------------------------------------------------------
+# Database dumps / backups (NOT counted)
+# ------------------------------------------------------
+*.dump      linguist-generated=true
+*.bak       linguist-generated=true
+*.sql.gz    linguist-generated=true
+
+# ------------------------------------------------------
+# Runtime / state files (NOT counted)
+# ------------------------------------------------------
+logs/**           linguist-generated=true
+runtime/**        linguist-generated=true
+state/**          linguist-generated=true
+data/**           linguist-generated=true
+tmp/**            linguist-generated=true
+
+# ------------------------------------------------------
+# Secrets / env (ignored & not counted)
+# ------------------------------------------------------
+*.env      linguist-generated=true
+*.secret   linguist-generated=true
+*.key      linguist-generated=true
+*.pem      linguist-generated=true
+*.crt      linguist-generated=true
+*.pfx      linguist-generated=true
+
+# ------------------------------------------------------
+# Tests (optional — counted as code)
+# ------------------------------------------------------
+tests/**   linguist-language=Python
+
+# ------------------------------------------------------
+# SQL migrations / schema explicitly counted
+# ------------------------------------------------------
+app/sql/** linguist-language=SQL

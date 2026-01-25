@@ -1,201 +1,137 @@
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+# BornToShare — Alpha
 
-# BornToShare — Zero-Trust Data Governance Platform
+⚠️ **Status: ALPHA**
 
-<p align="center">
-  <img src="architecture.png" width="420">
-</p>
+BornToShare is an open-source platform for **data access governance**,  
+designed to manage **who can access what, why, and for how long** on
+enterprise storage systems.
 
-BornToShare est une plateforme **Zero Trust** de gouvernance des données,
-permettant la gestion des accès NTFS, l’orchestration des workflows d'approbation,
-une séparation stricte des responsabilités et des microservices sécurisés
-conformes aux bonnes pratiques SecNumCloud (niveau L2/L3).
+This repository contains the **Community Edition (CE)** core.  
+APIs, data models, and internal contracts are **subject to change**.
 
 ---
 
-# 🔥 Fonctionnalités principales
+## 🎯 Vision
 
-- Gestion des droits NTFS (ACL Windows)
-- Workflow de validation des accès
-- Authentification (local, Keycloak, LDAP)
-- FastAPI microservices
-- Audit, traçabilité, logs centralisés
-- Bases de données durcies (SecNumCloud L2/L3)
-- Exécution PowerShell en conteneur isolé
-- Architecture Zero-Trust / IAM dédié
-- Front-end statique moderne (Caddy)
-- Docker / Podman full stack
+In many organizations, access to shared data is:
+- granted permanently
+- approved informally
+- hard to audit
+- poorly documented
 
----
+BornToShare aims to change this by introducing:
+- explicit access requests
+- owner-based approval workflows
+- time-bound permissions
+- automated enforcement through runners
 
-# 🧱 Architecture globale
-
-```
-                              ┌─────────────────────────┐
-                              │      Front-end (UI)     │
-                              │    core-service (Caddy) │
-                              └──────────────▲──────────┘
-                                             │
-                                     Static HTML/CSS/JS
-                                             │
-                               ┌─────────────┴─────────────┐
-                               │        gateway-service     │
-                               │ Reverse Proxy + Routing    │
-                               └───────┬─────────┬─────────┘
-                                       │         │
-                      ┌────────────────┘         └──────────────────┐
-                      ▼                                             ▼
-         ┌───────────────────────────┐                 ┌────────────────────────────┐
-         │       auth-service        │                 │    governance-service       │
-         │  Login / CSRF / Tokens    │                 │ IAM / Roles / Permissions   │
-         └───────────────────────────┘                 └────────────────────────────┘
-                      │                                             │
-                      │                                             │
-                      ▼                                             ▼
-            ┌────────────────┐                           ┌──────────────────────┐
-            │ redis-service  │                           │       db_api         │
-            │ (Cache/Session)│                           │ SecNumCloud MariaDB  │
-            └────────────────┘                           └──────────────────────┘
-                                                                ▲
-                                                                │ SQLAlchemy
-                                                                │
-                                                        ┌───────────────┐
-                                                        │    db_iam      │
-                                                        │ IAM Hardening  │
-                                                        └───────────────┘
-
-                              ┌──────────────────────────────────────────┐
-                              │              first_run_service           │
-                              │  Bootstrapping, secrets, admin setup     │
-                              └──────────────────────────────────────────┘
-
-                              ┌──────────────────────────────────────────┐
-                              │         iam (Keycloak + Vault)           │
-                              │  Identity Providers / OAuth2 / OIDC      │
-                              └──────────────────────────────────────────┘
-
-                               ┌────────────────────────────────────────┐
-                               │              traefik                   │
-                               │    Edge reverse proxy / TLS / Router   │
-                               └────────────────────────────────────────┘
-```
+The goal is to make data access **visible, controlled, and auditable**.
 
 ---
 
-# 🗂 Microservices inclus
+## 🧩 What’s in this repository (Community Edition)
 
-| Service | Description |
-|--------|-------------|
-| **core-service** | UI statique, login, front-end Caddy |
-| **auth-service** | Authentification, CSRF, JWT, first-login |
-| **governance-service** | IAM, ACL, workflows, permissions, domaines |
-| **gateway-service** | Reverse API gateway |
-| **first_run_service** | Initialisation, configuration secure |
-| **db_api** | Base durcie SecNumCloud L3 |
-| **db_iam** | Base IAM L3 (triggers, audits, cosign) |
-| **iam** | Keycloak + Vault + OIDC |
-| **redis-service** | Cache sessions / tokens |
-| **traefik** | Edge proxy / routing |
-| **docs** | Documentation MkDocs (EN/FR) |
+The Community Edition provides a fully usable core:
 
----
+- API Gateway (FastAPI)
+- Governance engine (business rules & workflows)
+- Data Access Layer (DAL)
+- Web UI (Svelte)
+- SMB runner (Active Directory / NTFS)
+- Request → approval → ACL application workflow
+- Local / basic authentication
 
-# 🛡 Sécurité
-
-- Séparation stricte des microservices
-- Middlewares : CSRF, anti-replay, anti-forgery
-- Séparation IAM / API / gateway
-- Aucune donnée sensible dans Git (hook + règles anti-secrets)
-- Bases MariaDB durcies (L2/L3)
-- Logs sécurité centralisés
-- Option OPA / GitOps pour ACL futures
+Everything in this repository can be **used, tested, and deployed**
+without any enterprise-only feature.
 
 ---
 
-# ⚙️ Installation rapide (Podman ou Docker)
+## 🏗️ Architecture (Mermaid)
 
-### Développement
+```mermaid
+flowchart LR
+    UI["Web UI (Svelte)"]
+    GW["API Gateway (FastAPI)"]
+    GOV["Governance Engine"]
+    DAL["Data Access Layer"]
+    DB["Database"]
+    RUN["Runner / Capsule"]
+    INFRA["File Server and Active Directory"]
+
+    UI --> GW
+    GW --> GOV
+    GOV --> DAL
+    DAL --> DB
+
+    GOV --> RUN
+    RUN --> INFRA
 
 ```
-podman-compose -f podman-compose.yml up --build
-```
 
-### Production
-
-```
-docker compose -f compose/docker-compose.prod.yml up -d
-```
+Design principles:
+- Only runners interact with target infrastructures (SMB, AD, etc.)
+- Gateway and Governance are network-agnostic
+- Network access, DNS, and routing are managed outside the application
 
 ---
 
-# 🧩 Variables d’environnement
+## 🔐 Editions & Authentication
 
-Chaque microservice inclut un fichier :
+### Community Edition (this repository)
+- Local authentication
+- Core identity model
+- Standard governance workflows
+- Open REST APIs
 
-```
-example.env
-```
+### Enterprise Edition (not open-sourced)
+- External IdP integration (e.g. Keycloak)
+- Advanced audit & compliance features
+- Smart policies engine
+- Automation & scheduled enforcement
+- Multi-tenant and enterprise capabilities
 
-⚠️ **Ne jamais committer un `.env`**  
-Un hook Git empêche automatiquement les fuites de secrets.
-
----
-
-# 🧪 Tests
-
-```
-cd governance-service
-pytest -vv
-```
+The Community Edition remains **fully usable in production**.
 
 ---
 
-# 🤝 Contribuer
+## 🚀 Project status
 
-Voir :  
-➡ **CONTRIBUTING.md**
+- APIs are evolving
+- Database schema may change
+- UX is under active development
+- Feedback and contributions are welcome
 
----
-
-# 🔐 Politique de sécurité
-
-Voir :  
-➡ **SECURITY.md**
+This project is currently in **alpha stage**.
 
 ---
 
-# 📄 Licence
+## 🤝 Contributing
 
-Ce projet est sous licence **APACHE 2.0**.
+Contributions are welcome from:
+- FastAPI / backend developers
+- Svelte / frontend developers
+- DevOps & container specialists
+- Security and governance enthusiasts
 
----
+How to start:
+1. Check issues labeled **`good first issue`**
+2. Read `CONTRIBUTING.md`
+3. Open an issue or discussion if you have questions
 
-# 📦 `.gitattributes`
-
-```
-# Linguist language detection
-*.py linguist-detectable=true
-*.js linguist-detectable=true
-*.css linguist-detectable=true
-*.html linguist-detectable=true
-*.yml linguist-detectable=true
-*.json linguist-detectable=true
-*.sql linguist-detectable=true
-*.sh linguist-detectable=true
-
-# Ignore generated content
-site/* linguist-generated=true
-docs/site/* linguist-generated=true
-dist/* linguist-generated=true
-build/* linguist-generated=true
-
-# Normalize line endings
-* text=auto eol=lf
-```
+This project values **clear communication and collaboration**.
 
 ---
 
-# ❤️ BornToShare  
-"Made in France. Open Governance."
+## 📄 License
 
+This project is licensed under the **Apache License 2.0**.
 
+You are free to use, modify, and distribute the Community Edition
+according to the terms of the license.
+
+---
+
+## ⚠️ Disclaimer
+
+BornToShare is provided **as-is**, without warranty of any kind.
+Use in production is at your own discretion.
