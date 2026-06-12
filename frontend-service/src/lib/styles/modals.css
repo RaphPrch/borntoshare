@@ -1,0 +1,154 @@
+/* ============================================================
+   B2S — MODAL BACKDROP
+   ============================================================ */
+
+.b2s-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 1000;
+
+  /* Center modal + allow scroll when viewport is small */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: auto;
+}
+
+/* Allow custom backdrops to close clicks + prevent full-page blocking */
+.b2s-modal-backdrop.sr-modal-backdrop {
+  pointer-events: auto;
+}
+
+
+/* ============================================================
+   B2S — MODAL BASE (COMMON)
+   ============================================================ */
+
+.b2s-modal {
+  position: fixed;
+  top: 5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--b2s-color-surface, #ffffff);
+  border-radius: var(--b2s-modal-radius, 20px);
+  box-shadow: var(--b2s-modal-shadow, 0 40px 120px rgba(0, 0, 0, 0.35));
+  z-index: 1001;
+
+  display: flex;
+  flex-direction: column;
+
+  /* allow children to scroll properly inside flex container */
+  min-height: 0;
+
+  /* Safety: never overflow viewport */
+  max-height: calc(100vh - 40px);
+}
+
+
+/* ------------------------------------------------------------
+   Close button
+   ------------------------------------------------------------ */
+
+.b2s-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  background: transparent;
+  border: none;
+  font-size: 26px;
+  cursor: pointer;
+  color: #334155;
+  z-index: 2;
+}
+
+.b2s-modal-close:hover {
+  color: #0f172a;
+}
+
+
+/* ============================================================
+   B2S — FULLSCREEN MODAL (Wizard / Large forms)
+   ============================================================ */
+
+.b2s-modal--fullscreen {
+  top: 5vh;
+  width: min(1400px, 96vw);
+  height: 90vh;
+  overflow: hidden;
+}
+
+
+/* ------------------------------------------------------------
+   Modal content (NO GLOBAL SCROLL)
+   ------------------------------------------------------------ */
+
+.b2s-modal-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+
+  /* ✅ allow scroll for large wizard content */
+  min-height: 0;
+  overflow: auto;
+  padding: var(--b2s-modal-content-padding, 24px 28px);
+}
+
+.b2s-modal--sm { width: var(--b2s-modal-width-sm, min(420px, 92vw)); }
+.b2s-modal--md { width: var(--b2s-modal-width-md, min(560px, 94vw)); }
+.b2s-modal--lg { width: var(--b2s-modal-width-lg, min(720px, 96vw)); }
+.b2s-modal--xl { width: var(--b2s-modal-width-xl, min(820px, 96vw)); }
+
+
+/* ============================================================
+   B2S — DIALOG MODAL (Confirmation / Warning / Info)
+   ============================================================ */
+
+.b2s-modal--dialog {
+  top: 20vh;
+  width: min(420px, 92vw);
+  padding: 24px 28px;
+}
+
+
+/* ============================================================
+   B2S — WARNING DIALOG FLAVOR
+   ============================================================ */
+
+.b2s-modal--warning {
+  max-width: 460px;
+  padding: 24px 26px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 16px;
+  border-left: 4px solid #f59e0b;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+}
+
+.b2s-modal--warning h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #92400e;
+}
+
+.b2s-modal--warning p {
+  margin: 8px 0;
+  line-height: 1.5;
+  font-size: 14px;
+  color: #78350f;
+}
+
+.b2s-modal--warning .muted {
+  color: #92400e;
+  opacity: 0.85;
+  font-size: 13px;
+}
+
+.b2s-modal--warning .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}

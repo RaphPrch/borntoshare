@@ -7,10 +7,12 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/api/runtime", tags=["runtime"])
+from ..logging_db import logging_store, normalize_level
+
+router = APIRouter(prefix="/runtime", tags=["runtime"])
 
 # Configure logger
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(message)s")
@@ -105,7 +107,6 @@ b2s_db_password: "{db_app.get("password", "")}"
 # --------------------------
 b2s_port_auth: {ports.get("auth", 8001)}
 b2s_port_gov: {ports.get("governance", 8002)}
-b2s_port_gateway: {ports.get("gateway", 8080)}
 b2s_port_frontend: {ports.get("frontend", 8081)}
 """
 
@@ -215,7 +216,198 @@ class LogRequest(BaseModel):
     level: str = Field(..., description="Log level (info, warning, error, etc.)")
     message: str = Field(..., description="Message de log à enregistrer")
 
-@router.post("/api/log")
+
+class LoggingConfigPayload(BaseModel):
+    level: str = Field("INFO", description="DEBUG|INFO|WARN|ERROR")
+    retentionEnabled: bool = Field(True)
+    retentionDays: int = Field(180, ge=1)
+
+
+class LoggingPurgePayload(BaseModel):
+    all: bool = Field(False)
+    olderThanDays: Optional[int] = Field(None, ge=1)
+
+
+class ActivityEventPayload(BaseModel):
+    actor_type: str = Field("system", min_length=1, max_length=16)
+    actor_id: Optional[int] = None
+    actor_display: Optional[str] = None
+    action: str = Field(..., min_length=1, max_length=128)
+    outcome: str = Field("success", min_length=1, max_length=16)
+    result: Optional[str] = Field(None, min_length=1, max_length=20)
+    severity: Optional[str] = Field(None, min_length=1, max_length=20)
+    event_category: Optional[str] = Field(None, max_length=32)
+    event_scope: Optional[str] = Field(None, max_length=16)
+    target_type: Optional[str] = Field(None, max_length=64)
+    target_id: Optional[int] = None
+    target_display: Optional[str] = None
+    zone_id: Optional[int] = None
+    root_id: Optional[int] = None
+    endpoint_id: Optional[int] = None
+    storage_root_id: Optional[int] = None
+    entity_type: Optional[str] = Field(None, max_length=80)
+    entity_id: Optional[str] = None
+    context_json: Optional[dict] = None
+    metadata_json: Optional[dict] = None
+    correlation_id: Optional[str] = Field(None, max_length=64)
+
+
+def _apply_runtime_level(level: str) -> str:
+    normalized = normalize_level(level)
+    py_level_name = "WARNING" if normalized == "WARN" else normalized
+    py_level = getattr(logging, py_level_name, logging.INFO)
+    logging.getLogger().setLevel(py_level)
+    logging.getLogger("uvicorn").setLevel(py_level)
+    logging.getLogger("uvicorn.error").setLevel(py_level)
+    logging.getLogger("uvicorn.access").setLevel(py_level)
+    return normalized
+
+
+@router.get("/logging-config")
+async def get_logging_config():
+    try:
+        return logging_store.get_config()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Unable to load logging config: {exc}")
+
+
+@router.put("/logging-config")
+async def set_logging_config(payload: LoggingConfigPayload):
+    try:
+        saved = logging_store.save_config(
+            level=payload.level,
+            retention_enabled=payload.retentionEnabled,
+            retention_days=payload.retentionDays,
+        )
+        _apply_runtime_level(saved["level"])
+        return {"ok": True, **saved}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Unable to save logging config: {exc}")
+
+
+@router.get("/logs")
+async def list_logs(
+    limit: int = Query(default=100, ge=1, le=500),
+    level: Optional[str] = Query(default=None),
+):
+    try:
+        rows = logging_store.list_logs(limit=limit, level=level)
+        return {"logs": rows}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Unable to read logs: {exc}")
+
+
+@router.post("/logs/purge")
+async def purge_logs(payload: LoggingPurgePayload):
+    try:
+        deleted = logging_store.purge_logs(
+            older_than_days=payload.olderThanDays,
+            all_logs=payload.all,
+        )
+        return {"ok": True, "deleted": deleted}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Unable to purge logs: {exc}")
+
+
+@router.post("/activity/events")
+async def create_activity_event(payload: ActivityEventPayload):
+    try:
+        request_id = None
+        effective_target_type = payload.entity_type or payload.target_type
+        effective_target_id: Optional[int] = payload.target_id
+        if effective_target_id is None and payload.entity_id is not None:
+            try:
+                effective_target_id = int(payload.entity_id)
+            except Exception:
+                effective_target_id = None
+
+        event_id = logging_store.write_activity_event(
+            actor_type=payload.actor_type,
+            actor_id=payload.actor_id,
+            actor_display=payload.actor_display,
+            action=payload.action,
+            outcome=payload.result or payload.outcome,
+            event_category=payload.event_category,
+            event_scope=payload.event_scope,
+            target_type=effective_target_type,
+            target_id=effective_target_id,
+            target_display=payload.target_display,
+            metadata_json=payload.metadata_json or payload.context_json,
+            request_id=request_id,
+            correlation_id=payload.correlation_id,
+            zone_id=payload.zone_id,
+            root_id=payload.root_id if payload.root_id is not None else payload.storage_root_id,
+            endpoint_id=payload.endpoint_id,
+            severity=payload.severity,
+        )
+        return {"ok": True, "id": event_id}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Unable to write activity event: {exc}")
+
+
+@router.get("/activity/latest")
+async def list_activity_latest(
+    limit: int = Query(default=100, ge=1, le=500),
+    actor_id: Optional[int] = Query(default=None),
+    target_type: Optional[str] = Query(default=None),
+    target_id: Optional[int] = Query(default=None),
+    zone_id: Optional[int] = Query(default=None),
+    root_id: Optional[int] = Query(default=None),
+    endpoint_id: Optional[int] = Query(default=None),
+    storage_root_id: Optional[int] = Query(default=None),
+    event_category: Optional[str] = Query(default=None),
+    event_scope: Optional[str] = Query(default=None),
+    start_at: Optional[str] = Query(default=None),
+    end_at: Optional[str] = Query(default=None),
+):
+    try:
+        events = logging_store.list_activity_events(
+            limit=limit,
+            actor_id=actor_id,
+            target_type=target_type,
+            target_id=target_id,
+            zone_id=zone_id,
+            root_id=root_id if root_id is not None else storage_root_id,
+            endpoint_id=endpoint_id,
+            event_category=event_category,
+            event_scope=event_scope,
+            start_at=start_at,
+            end_at=end_at,
+        )
+        return {"events": events}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Unable to list activity events: {exc}")
+
+
+@router.get("/activity/by-target")
+async def list_activity_by_target(
+    target_type: str = Query(...),
+    target_id: Optional[int] = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=500),
+):
+    try:
+        events = logging_store.list_activity_events(
+            limit=limit,
+            target_type=target_type,
+            target_id=target_id,
+        )
+        return {"events": events}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Unable to list activity by target: {exc}")
+
+
+@router.get("/activity/by-actor")
+async def list_activity_by_actor(
+    actor_id: int = Query(...),
+    limit: int = Query(default=200, ge=1, le=500),
+):
+    try:
+        events = logging_store.list_activity_events(limit=limit, actor_id=actor_id)
+        return {"events": events}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Unable to list activity by actor: {exc}")
+
+@router.post("/log")
 async def log_event(log_data: LogRequest):
     """
     Route pour recevoir des logs et les enregistrer dans les fichiers ou les afficher.

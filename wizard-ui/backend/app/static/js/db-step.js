@@ -16,8 +16,10 @@ export async function testDb() {
   const password = document.getElementById("db_password")?.value || "";
 
   if (!host || !user) {
+    stepStatus[3] = false;
+    updateStepperUI();
     toastError("Host et utilisateur DB requis.");
-    return;
+    return false;
   }
 
   console.group("[WIZARD][DB TEST]");
@@ -31,18 +33,22 @@ export async function testDb() {
     ===================================================== */
     try {
       console.log("→ DNS / TCP diagnostic…");
-      const diag = await api("/api/db/diagnostic", { host, port }, 5000);
+      const diag = await api("/api/db/diagnostic", { host, port }, 12000);
 
       if (diag?.dns_ok === false) {
+        stepStatus[3] = false;
+        updateStepperUI();
         toastError("DNS introuvable pour le host.");
         console.error("DNS FAILED");
-        return;
+        return false;
       }
 
       if (diag?.tcp_ok === false) {
+        stepStatus[3] = false;
+        updateStepperUI();
         toastError(`Port ${port} inaccessible (TCP).`);
         console.error("TCP FAILED");
-        return;
+        return false;
       }
 
       console.log("DNS OK / TCP OK");
@@ -55,7 +61,7 @@ export async function testDb() {
        2️⃣ SQL AUTH
     ===================================================== */
     console.log("→ SQL auth test…");
-    await api("/api/db/test", { host, port, user, password }, 8000);
+    await api("/api/db/test", { host, port, user, password }, 20000);
     console.log("SQL AUTH OK");
 
     /* =====================================================
@@ -66,16 +72,18 @@ export async function testDb() {
       const res = await api(
         "/api/db/privileges-test",
         { host, port, user, password },
-        8000
+        20000
       );
 
       const priv = res?.privileges || res;
       if (priv?.create_table === false) {
+        stepStatus[3] = false;
+        updateStepperUI();
         toastError(
           "Connexion OK mais droits SQL insuffisants (CREATE TABLE requis)."
         );
         console.warn("PRIVILEGES INSUFFICIENTS");
-        return;
+        return false;
       }
 
       console.log("SQL PRIVILEGES OK");
@@ -94,6 +102,7 @@ export async function testDb() {
 
     toastSuccess("Connexion DB validée.");
     console.log("DB STEP VALIDATED");
+    return true;
 
   } catch (e) {
     console.error("DB TEST FAILED", e);
@@ -103,6 +112,7 @@ export async function testDb() {
     if (nextBtn) nextBtn.disabled = true;
 
     toastError(e?.message || "Connexion DB impossible.");
+    return false;
   } finally {
     updateStepperUI();
     console.groupEnd();

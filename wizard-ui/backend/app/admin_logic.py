@@ -85,6 +85,36 @@ def create_local_admin_if_needed(
         logger.info("[ADMIN] Ensuring local admin '%s'", username)
 
         # ----------------------------------------------------
+        # Identity source (local)
+        # ----------------------------------------------------
+        cur.execute(
+            """
+            SELECT id
+            FROM identity_sources
+            WHERE type = 'local'
+            LIMIT 1
+            """
+        )
+        src_row = cur.fetchone()
+        if src_row:
+            source_id = int(src_row[0])
+        else:
+            cur.execute(
+                """
+                INSERT INTO identity_sources (
+                    type,
+                    name,
+                    capabilities,
+                    is_active,
+                    status
+                )
+                VALUES ('local', %s, %s, 1, 'active')
+                """,
+                ("Local", '{"auth": true, "import_groups": false, "auth_mode": "local"}'),
+            )
+            source_id = int(cur.lastrowid)
+
+        # ----------------------------------------------------
         # Identity
         # ----------------------------------------------------
         cur.execute(
@@ -107,8 +137,8 @@ def create_local_admin_if_needed(
                 SET email = COALESCE(%s, email),
                     display_name = COALESCE(%s, display_name),
                     is_active = 1,
-                    is_admin = 1,
-                    auth_source = 'local'
+                    auth_source = 'local',
+                    provisioning_source = 'system'
                 WHERE id = %s
                 """,
                 (email, username, identity_id),
@@ -118,19 +148,75 @@ def create_local_admin_if_needed(
             cur.execute(
                 """
                 INSERT INTO identities (
+                    source_id,
                     username,
+                    type,
+                    external_id,
                     email,
                     display_name,
                     auth_source,
                     is_active,
-                    is_admin
+                    provisioning_source
                 )
-                VALUES (%s, %s, %s, 'local', 1, 1)
+                VALUES (%s, %s, 'user', %s, %s, %s, 'local', 1, 'system')
                 """,
-                (username, email, username),
+                (source_id, username, username, email, username),
             )
             identity_id = int(cur.lastrowid)
             logger.info("[ADMIN] New identity created (id=%s)", identity_id)
+
+        # ----------------------------------------------------
+        # RBAC bootstrap (platform_admin direct grant)
+        # ----------------------------------------------------
+        cur.execute(
+            """
+            INSERT INTO roles (code, label, description)
+            VALUES
+              ('user', 'User', 'Standard application access within BornToShare'),
+              ('platform_admin', 'Platform administrator', 'Full administrative access within BornToShare')
+            ON DUPLICATE KEY UPDATE
+              label = VALUES(label),
+              description = VALUES(description)
+            """
+        )
+
+        cur.execute(
+            """
+            SELECT id
+            FROM roles
+            WHERE code = 'platform_admin'
+            LIMIT 1
+            """
+        )
+        role_row = cur.fetchone()
+        if not role_row:
+            raise RuntimeError("platform_admin role missing after RBAC bootstrap")
+        platform_admin_role_id = int(role_row[0])
+
+        cur.execute(
+            """
+            SELECT 1
+            FROM identity_roles
+            WHERE identity_id = %s
+              AND role_id = %s
+            LIMIT 1
+            """,
+            (identity_id, platform_admin_role_id),
+        )
+        if not cur.fetchone():
+            cur.execute(
+                """
+                INSERT INTO identity_roles (
+                    identity_id,
+                    directory_group_id,
+                    role_id,
+                    source
+                )
+                VALUES (%s, NULL, %s, 'bootstrap')
+                """,
+                (identity_id, platform_admin_role_id),
+            )
+            logger.info("[ADMIN] platform_admin grant created for identity id=%s", identity_id)
 
         # ----------------------------------------------------
         # Credentials (always updated)

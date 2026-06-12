@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import socket
 import time
 import logging
@@ -35,9 +36,8 @@ class DbAuthPayload(DbNetworkPayload):
     )
 
 
-class DbPrecheckPayload(DbAuthPayload):
-    db_name: str = Field(..., description="Target database name to check")
-    app_sql_user: str = Field(..., description="App SQL user to check")
+class LoggingDbSavePayload(DbAuthPayload):
+    database: str = Field(..., description="Logging database name")
 
 # ============================================================
 # 🌐 DNS / TCP / LATENCY DIAGNOSTIC
@@ -249,25 +249,12 @@ def privileges_test(payload: DbAuthPayload):
 
 
 # ============================================================
-# 🔎 PRECHECK (DB exists / user exists)
+# 🧾 LOGGING DB (Wizard runtime logging storage)
 # ============================================================
 
 
-@router.post("/precheck")
-def precheck(payload: DbPrecheckPayload):
-    """
-    Vérifications légères, avant l'import final:
-    - La base `db_name` existe-t-elle ?
-    - L'utilisateur SQL applicatif existe-t-il déjà ?
-
-    Utilise les credentials fournis (généralement root DB) pour interroger.
-    """
-
-    db_exists = None
-    app_user_exists = None
-
-    conn = None
-    cur = None
+@router.post("/logging/test")
+def test_logging_db(payload: DbAuthPayload):
     try:
         conn = get_connection(
             database=False,
@@ -278,40 +265,24 @@ def precheck(payload: DbPrecheckPayload):
                 "password": payload.password,
             },
         )
-        cur = conn.cursor()
+        conn.close()
+    except Exception as e:
+        logger.error("Logging DB connection failed", exc_info=e)
+        raise HTTPException(status_code=400, detail="Unable to connect to logging DB")
 
-        # DB exists?
-        try:
-            cur.execute(
-                "SELECT 1 FROM information_schema.schemata WHERE schema_name = %s LIMIT 1",
-                (payload.db_name,),
-            )
-            db_exists = cur.fetchone() is not None
-        except Exception as e:
-            logger.warning("Precheck DB exists failed", exc_info=e)
+    return {"status": "ok"}
 
-        # User exists?
-        try:
-            # Works for MySQL/MariaDB with sufficient privileges
-            cur.execute(
-                "SELECT 1 FROM mysql.user WHERE user = %s LIMIT 1",
-                (payload.app_sql_user,),
-            )
-            app_user_exists = cur.fetchone() is not None
-        except Exception as e:
-            logger.warning("Precheck user exists failed", exc_info=e)
 
-    finally:
-        try:
-            if cur:
-                cur.close()
-            if conn:
-                conn.close()
-        except Exception:
-            pass
+@router.post("/logging/save")
+def save_logging_db_connection(payload: LoggingDbSavePayload):
+    if not payload.host or not payload.user or not payload.database:
+        raise HTTPException(status_code=400, detail="host/user/database are required")
 
-    return {
-        "status": "ok",
-        "db_exists": db_exists,
-        "app_user_exists": app_user_exists,
-    }
+    os.environ["WIZARD_LOG_DB_ENABLED"] = "true"
+    os.environ["WIZARD_LOG_DB_HOST"] = str(payload.host)
+    os.environ["WIZARD_LOG_DB_PORT"] = str(payload.port)
+    os.environ["WIZARD_LOG_DB_USER"] = str(payload.user)
+    os.environ["WIZARD_LOG_DB_PASSWORD"] = str(payload.password)
+    os.environ["WIZARD_LOG_DB_NAME"] = str(payload.database)
+
+    return {"ok": True}

@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - app
+
+  governance-service:
+    container_name: governance-service
+    image: b2s-governance-service:latest
+
+    build:
+      context: .
+      dockerfile: Containerfile
+
+    restart: unless-stopped
+
+    # --------------------------------------------------
+    # Environment
+    # --------------------------------------------------
+    env_file:
+      - .env
+
+    environment:
+      TZ: Europe/Paris
+      APP_ENV: ${APP_ENV:-dev}
+      B2S_ENV: ${B2S_ENV:-${APP_ENV:-dev}}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+
+      # 🔐 Internal service auth (V1 default = HMAC)
+      INTERNAL_TOKEN_MODE: ${INTERNAL_TOKEN_MODE:-hmac}
+      INTERNAL_TOKEN_KEYS: ${INTERNAL_TOKEN_KEYS}
+      INTERNAL_TOKEN_TTL_SEC: ${INTERNAL_TOKEN_TTL_SEC:-300}
+
+      # Dramatiq broker
+      CAPSULE_BROKER_URL: ${CAPSULE_BROKER_URL:-redis://redis:6379/2}
+
+      # Direct mode: frontend-service can call public governance routes directly.
+      B2S_ALLOW_PUBLIC_API: ${B2S_ALLOW_PUBLIC_API:-true}
+
+    # --------------------------------------------------
+    # Internal exposure ONLY
+    # --------------------------------------------------
+    expose:
+      - "8000"
+
+
+    # --------------------------------------------------
+    # Hardening
+    # --------------------------------------------------
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev
+      - /run:rw,noexec,nosuid,nodev
+
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    user: "10002:10002"
+
+    # --------------------------------------------------
+    # Networks (CRITICAL)
+    # --------------------------------------------------
+    networks:
+      - app
+
+networks:
+  app:
+    name: bts-app
+    external: true
+
+volumes:
+  redis-data:

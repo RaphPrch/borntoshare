@@ -9,8 +9,14 @@ from fastapi import APIRouter, HTTPException
 from mysql.connector import Error
 
 from ..db import get_connection
-from ..migrations_runner import run_initial_schema, run_seed_sql
+from ..migrations_runner import (
+    run_initial_schema,
+    run_seed_sql,
+    run_logging_schema_pack,
+    run_logging_seed_pack,
+)
 from ..security import validate_password_complexity
+from ..settings import settings
 from ..admin_logic import create_local_admin_if_needed
 
 # ------------------------------------------------------------
@@ -18,7 +24,6 @@ from ..admin_logic import create_local_admin_if_needed
 # ------------------------------------------------------------
 router = APIRouter(prefix="/import", tags=["import"])
 
-WIZARD_MODE = os.getenv("WIZARD_MODE", os.getenv("APP_ENV", "dev")).lower()
 logger = logging.getLogger("wizard.import")
 
 # Configure logger
@@ -28,7 +33,7 @@ logging.basicConfig(level=logging.DEBUG)  # Log level set to DEBUG for visibilit
 # Helpers
 # ----------------------------------------------------------------------
 def _is_prod() -> bool:
-    return WIZARD_MODE == "prod"
+    return settings.is_prod()
 
 
 def _validate_sql_identifier(value: str, label: str) -> None:
@@ -72,6 +77,26 @@ def _validate_root_cfg(cfg: Dict[str, Any]) -> None:
         )
 
 
+def _resolve_logging_root_cfg(logging_db: Dict[str, Any], default_root: Dict[str, Any]) -> Dict[str, Any]:
+    host = str(logging_db.get("host") or default_root.get("host") or "").strip()
+    port = int(logging_db.get("port") or default_root.get("port") or 3306)
+    user = str(logging_db.get("user") or default_root.get("user") or "").strip()
+    password = str(logging_db.get("password") or default_root.get("password") or "")
+
+    if not host or not user:
+        raise HTTPException(
+            status_code=400,
+            detail="logging_db host/user requis (ou hérité de db_root)"
+        )
+
+    return {
+        "host": host,
+        "port": port,
+        "user": user,
+        "password": password,
+    }
+
+
 # ----------------------------------------------------------------------
 # Import principal
 # ----------------------------------------------------------------------
@@ -106,6 +131,7 @@ async def import_config(payload: dict):
 
     app_sql_user = payload.get("app_sql_user") or "b2s_app"
     app_sql_password = payload.get("app_user_password")
+    logging_db = payload.get("logging_db") or {}
 
     apply_seed_flag = _parse_bool(payload.get("apply_seed"), default=False)
     force_import = _parse_bool(payload.get("force_import"), default=False)
@@ -128,9 +154,25 @@ async def import_config(payload: dict):
     _validate_sql_identifier(db_name, "Nom de base")
     _validate_sql_identifier(app_sql_user, "Compte SQL applicatif")
 
+    if logging_db:
+        if not isinstance(logging_db, dict):
+            raise HTTPException(status_code=400, detail="logging_db invalide")
+
+        required = {"db_name", "app_sql_user", "app_user_password"}
+        missing = [k for k in required if not logging_db.get(k)]
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"logging_db incomplet (manque: {', '.join(missing)})",
+            )
+
+        _validate_sql_identifier(str(logging_db.get("db_name")), "Nom de base logging")
+        _validate_sql_identifier(str(logging_db.get("app_sql_user")), "Compte SQL logging")
+        validate_password_complexity(str(logging_db.get("app_user_password") or ""))
+
     logger.info(
         "[WIZARD] mode=%s | apply_seed=%s | force_import=%s",
-        WIZARD_MODE,
+        settings.MODE,
         apply_seed_flag,
         force_import,
     )
@@ -138,15 +180,6 @@ async def import_config(payload: dict):
     # ------------------------------------------------------------------
     # MODE PROD — garde-fous
     # ------------------------------------------------------------------
-    if _is_prod() and not force_import:
-        logger.warning("[WIZARD] PROD mode – import bloqué (force_import requis)")  # Log warning here
-        return {
-            "ok": False,
-            "skipped": True,
-            "reason": "prod",
-            "message": "Mode PROD : import bloqué (force_import=false).",
-        }
-
     if _is_prod() and apply_seed_flag:
         logger.error("Seed interdit en environnement PROD.")  # Log error here
         raise HTTPException(
@@ -234,6 +267,25 @@ async def import_config(payload: dict):
             )
 
         cur.execute("FLUSH PRIVILEGES")
+
+        if logging_db:
+            logging_db_name = str(logging_db.get("db_name"))
+            logging_sql_user = str(logging_db.get("app_sql_user"))
+            logging_sql_password = str(logging_db.get("app_user_password"))
+
+            cur.execute(
+                f"CREATE DATABASE IF NOT EXISTS `{logging_db_name}` "
+                "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+            )
+
+            cur.execute(
+                f"CREATE USER IF NOT EXISTS `{logging_sql_user}`@'%' IDENTIFIED BY %s",
+                (logging_sql_password, )
+            )
+            cur.execute(
+                f"GRANT ALL PRIVILEGES ON `{logging_db_name}`.* TO `{logging_sql_user}`@'%'"
+            )
+
         conn.commit()
         logger.info("[WIZARD] SQL users ready")
 
@@ -250,6 +302,30 @@ async def import_config(payload: dict):
     # ==================================================================
     logger.info("[WIZARD] Running schema pack")
     run_initial_schema(db_name=db_name, root_cfg=root_cfg)
+
+    if logging_db:
+        logging_root_cfg = _resolve_logging_root_cfg(logging_db, root_cfg)
+        logging_db_name = str(logging_db.get("db_name"))
+        os.environ["WIZARD_LOG_DB_ENABLED"] = "true"
+        os.environ["WIZARD_LOG_DB_HOST"] = str(logging_root_cfg.get("host"))
+        os.environ["WIZARD_LOG_DB_PORT"] = str(logging_root_cfg.get("port"))
+        os.environ["WIZARD_LOG_DB_USER"] = str(logging_db.get("app_sql_user"))
+        os.environ["WIZARD_LOG_DB_PASSWORD"] = str(logging_db.get("app_user_password"))
+        os.environ["WIZARD_LOG_DB_NAME"] = logging_db_name
+
+        logging_app_cfg = {
+            "host": logging_root_cfg.get("host"),
+            "port": logging_root_cfg.get("port"),
+            "user": logging_db.get("app_sql_user"),
+            "password": logging_db.get("app_user_password"),
+        }
+
+        logger.info("[WIZARD] Running dedicated logging SQL pack")
+        run_logging_schema_pack(db_name=logging_db_name, root_cfg=logging_app_cfg)
+
+        if apply_seed_flag:
+            logger.info("[WIZARD] Running dedicated logging seed pack")
+            run_logging_seed_pack(db_name=logging_db_name, root_cfg=logging_app_cfg)
 
     if apply_seed_flag:
         logger.info("[WIZARD] Running DEV seed pack")

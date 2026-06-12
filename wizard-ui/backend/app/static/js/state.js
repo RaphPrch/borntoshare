@@ -18,6 +18,12 @@ export const state = {
   app_sql_user: "b2s_app",
   app_user_password: "", // in-memory only
 
+  logging_db: {
+    db_name: "",
+    app_sql_user: "app_user",
+    app_user_password: "" // in-memory only
+  },
+
   services: [] // reserved for future use
 };
 
@@ -26,6 +32,6 @@ export const stepStatus = {
   2: false, // Admin
   3: false, // DB connection
   4: false, // App DB
-  5: false, // Summary
-  6: false  // Import
+  5: false, // Logging DB
+  6: false  // Summary
 };

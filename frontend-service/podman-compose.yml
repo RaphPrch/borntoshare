@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  frontend-service:
+    container_name: frontend-service
+    image: b2s-frontend-service:latest
+
+    build:
+      context: .
+      dockerfile: Containerfile
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      NODE_ENV: "production"
+      PORT: "3000"
+
+      # -------------------------------------------------
+      # 🚪 DIRECT SERVICE ENTRYPOINTS (NO GATEWAY)
+      # -------------------------------------------------
+      B2S_AUTH_URL: "http://auth-service:8000"
+      B2S_DAL_URL: "http://dal-service:8000/api"
+      B2S_GOVERNANCE_URL: "http://governance-service:8000"
+
+      # Required for direct service-to-service calls.
+      INTERNAL_TOKEN_MODE: ${INTERNAL_TOKEN_MODE:-static}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-change-me-in-v1}
+      INTERNAL_TOKEN_KEYS: ${INTERNAL_TOKEN_KEYS:-}
+      INTERNAL_TOKEN_TTL_SEC: ${INTERNAL_TOKEN_TTL_SEC:-300}
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-}
+
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      VITE_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # Public URL used by SvelteKit adapter-node for direct access.
+      ORIGIN: ${FRONTEND_PUBLIC_ORIGIN:-http://localhost:3000}
+
+    # Direct browser access
+    ports:
+      - "${FRONTEND_PUBLISHED_PORT:-3000}:3000"
+
+    # --------------------------------------------------
+    # Network isolation
+    # --------------------------------------------------
+    networks:
+      - app
+
+    # --------------------------------------------------
+    # Hardening (optional but recommended)
+    # --------------------------------------------------
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+
+networks:
+  app:
+    name: bts-app
+    external: true

@@ -1,0 +1,72 @@
+###############################################
+# BornToShare — GITATTRIBUTES
+# Optimisé pour : Python, JS, YAML, SQL, MkDocs,
+# microservices Docker/Podman, multi-langages
+###############################################
+
+# --- Normalisation des fins de ligne ---
+* text=auto eol=lf
+
+# --- Détection linguistique GitHub (Linguist) ---
+*.py     linguist-detectable=true
+*.js     linguist-detectable=true
+*.jsx    linguist-detectable=true
+*.ts     linguist-detectable=true
+*.css    linguist-detectable=true
+*.html   linguist-detectable=true
+*.yml    linguist-detectable=true
+*.yaml   linguist-detectable=true
+*.json   linguist-detectable=true
+*.sql    linguist-detectable=true
+*.sh     linguist-detectable=true
+*.md     linguist-detectable=true
+*.toml   linguist-detectable=true
+*.ini    linguist-detectable=true
+
+# Comptabiliser Dockerfiles dans les langages
+Containerfile linguist-language=Dockerfile
+Dockerfile    linguist-language=Dockerfile
+
+# --- Exclure les fichiers générés des statistiques ---
+dist/*                 linguist-generated=true
+build/*                linguist-generated=true
+docs/site/*            linguist-generated=true
+site/*                 linguist-generated=true
+*/static/js/env.js     linguist-generated=true
+*/static/css/tailwind* linguist-generated=true
+
+# --- Cache / Bundles / Packages ---
+node_modules/*         linguist-generated=true
+*.min.js               linguist-generated=true
+*.min.css              linguist-generated=true
+
+# --- Police ou assets binaires ---
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.svg   text
+fonts/* linguist-generated=true
+
+# --- Scripts ---
+*.sh text eol=lf
+
+# --- Force LF dans YAML (compose, podman, actions CI/CD) ---
+*.yaml text eol=lf
+*.yml  text eol=lf
+
+# --- Documentation MkDocs ---
+mkdocs.yml text
+docs/**/*.md text
+
+# --- Sécurité : éviter les diffs bruités ---
+*.key  binary
+*.pem  binary
+*.crt  binary
+*.p12  binary
+*.jks  binary
+*.der  binary
+
+# --- SQL migrations ---
+alembic/versions/*.py linguist-detectable=true
+

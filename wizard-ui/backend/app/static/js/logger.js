@@ -32,12 +32,12 @@ function safeJson(x) {
 }
 
 async function tryServerAppend(line) {
-  // Optional: backend may expose /api/log
+  // Optional: backend may expose /api/runtime/log
   try {
-    await fetch("/api/log", {
+    await fetch("/api/runtime/log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ line })
+      body: JSON.stringify({ level: "info", message: line })
     });
   } catch {
     // ignore

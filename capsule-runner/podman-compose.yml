@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  capsule-runner:
+    container_name: capsule-runner
+    image: b2s-capsule-runner:1.0
+    build:
+      context: .
+      dockerfile: Containerfile
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      TZ: Europe/Paris
+
+      # 🔐 Runner → Secret Broker internal auth
+      # Must match secret-broker INTERNAL_TOKEN
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      B2S_SECRET_BROKER_URL: ${B2S_SECRET_BROKER_URL:-http://secret-broker:8010}
+
+      # DAL + Dramatiq broker
+      DAL_URL: ${DAL_URL:-http://dal-service:8000}
+      CAPSULE_BROKER_URL: ${CAPSULE_BROKER_URL:-redis://redis:6379/2}
+
+      # Least privilege (read | write)
+      RUNNER_MAX_SCOPE: ${RUNNER_MAX_SCOPE:-write}
+
+    extra_hosts:
+      - "AD01:192.168.100.40"
+      - "AD01.corp.local:192.168.100.40"
+
+    command: ["dramatiq", "app.jobs.tasks"]
+
+    # --------------------------------------------------
+    # Hardening (excellent, kept)
+    # --------------------------------------------------
+    read_only: true
+
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    user: "10001:10001"
+
+    # --------------------------------------------------
+    # Optional: Kerberos config (ONLY if needed)
+    # --------------------------------------------------
+    # volumes:
+    #   - ./krb5.conf:/etc/krb5.conf:ro
+
+    networks:
+      - app
+
+
+networks:
+  app:
+    name: bts-app
+    external: true

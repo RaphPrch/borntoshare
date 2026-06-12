@@ -7,7 +7,24 @@ Ce dossier contient des **seeds DEV/TEST uniquement**.
 
 ## Contrainte importante
 
-Les seeds doivent rester **compatibles avec le schéma** défini dans [`backend/app/sql/schema/001_schema.sql`](services/wizard-ui/backend/app/sql/schema/001_schema.sql:1).
+Les seeds doivent rester **compatibles avec le schéma SQL canonique** exécuté par le runner Wizard :
+
+- [`services/wizard-ui/backend/app/sql/schema`](services/wizard-ui/backend/app/sql/schema)
+- [`services/wizard-ui/backend/app/sql/views`](services/wizard-ui/backend/app/sql/views)
+- [`services/wizard-ui/backend/app/sql/logging/schema`](services/wizard-ui/backend/app/sql/logging/schema)
+
+La BDD est l’unique source de vérité. Les services ne doivent pas reconstruire le schéma au runtime.
+
+## Seed standard
+
+Le seed public standard est volontairement minimal : les fichiers SQL restent présents
+pour garder `apply_seed=true` idempotent, mais ils n'insèrent plus de jeux de
+démo riches par défaut.
+
+- `040_seed_demo_full.sql`
+
+Les anciens jeux demo publics sont conserves comme no-op dans les fichiers
+numerotes `050` a `073`.
 
 ## Seeds privés (non publiés)
 
@@ -24,4 +41,3 @@ Ce dossier est ignoré par git via [`.gitignore`](services/wizard-ui/.gitignore:
 - Ne pas insérer de données sensibles (identités réelles, mots de passe, chemins/hosts internes).
 - Éviter d’insérer des IDs explicites quand les tables utilisent `AUTO_INCREMENT`.
   Utiliser plutôt des colonnes uniques (`code`, etc.) + `INSERT IGNORE`.
-

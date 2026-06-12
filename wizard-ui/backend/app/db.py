@@ -18,6 +18,7 @@ def get_connection(
     database: bool = False,
     db_name: Optional[str] = None,
     root_cfg: Optional[dict] = None,
+    log_connection: bool = True,
 ):
     """
     Crée une connexion MySQL / MariaDB pour le Wizard UI.
@@ -60,7 +61,8 @@ def get_connection(
     if "password" in safe_cfg:
         safe_cfg["password"] = "***"
 
-    logger.info("[DB-CONNECT] %s", safe_cfg)
+    if log_connection:
+        logger.info("[DB-CONNECT] %s", safe_cfg)
 
     return mysql.connector.connect(**cfg)
 

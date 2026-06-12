@@ -6,9 +6,6 @@ import { computePasswordRules } from "./password.js";
 // --------------------------------------------------
 // Run final wizard import
 // --------------------------------------------------
-// --------------------------------------------------
-// Run final wizard import
-// --------------------------------------------------
 export async function runImport() {
   try {
     // ------------------------------------------------
@@ -25,25 +22,19 @@ export async function runImport() {
         toastError("Seed interdit en environnement PROD.");
         return;
       }
-
-      if (isProd && el("force_import")?.checked !== true) {
-        toastError("Mode PROD : coche ‘Forcer l’import’ pour continuer.");
-        return;
-      }
     } catch (e) {
-      // If /api/mode is unavailable, we continue without PROD guard.
-      // (backend will still enforce prod rules)
       console.warn("[WIZARD IMPORT] Unable to load /api/mode", e);
     }
 
-    if (!stepStatus[2] || !stepStatus[3] || !stepStatus[4]) {
-      toastError("Wizard incomplet : valide les étapes Admin / DB / Base applicative avant l’import.");
+    if (!stepStatus[2] || !stepStatus[3] || !stepStatus[4] || !stepStatus[5]) {
+      toastError(
+        "Wizard incomplet : valide les étapes Admin / DB / Base applicative / BDD Logging avant l’import."
+      );
       return;
     }
 
     // ------------------------------------------------
     // Collect values (source of truth = state)
-    // Fallback to DOM (correct IDs) if state is incomplete.
     // ------------------------------------------------
     const db_name = state.db_name || value("db_name");
 
@@ -58,29 +49,29 @@ export async function runImport() {
       db_name,
       db_root,
       app_sql_user: state.app_sql_user || value("app_sql_user") || "b2s_app",
-      app_user_password: state.app_user_password || value("app_user_password"),
+      app_user_password:
+        state.app_user_password || value("app_user_password"),
       admin: {
-        username: state.admin?.username || value("admin_username") || "admin",
-        // Email is optional: do not force a value from the UI.
-        // If empty, backend will fallback to its default.
+        username:
+          state.admin?.username || value("admin_username") || "admin",
         email: state.admin?.email || value("admin_email") || "",
         password: state.admin?.password || value("admin_password"),
       },
       apply_seed: el("apply_seed")?.checked === true,
       force_import: el("force_import")?.checked === true,
+      logging_db: {
+        db_name: state.logging_db?.db_name || value("logging_db_name"),
+        app_sql_user: state.logging_db?.app_sql_user || value("logging_sql_user") || "app_user",
+        app_user_password: state.logging_db?.app_user_password || value("logging_user_password")
+      }
     };
-
-    // Avoid logging secrets: payload logging disabled by default.
-    // If you need debug, log a masked version here.
 
     // ------------------------------------------------
     // Front validation (CRITICAL)
     // ------------------------------------------------
     if (!payload.db_name) {
       toastError("Nom de base de données requis.");
-      const dbNameElement = el("db_name");
-      if (dbNameElement) dbNameElement.focus();
-      console.log("[WIZARD IMPORT] Validation failed: db_name is missing");
+      el("db_name")?.focus();
       return;
     }
 
@@ -91,61 +82,73 @@ export async function runImport() {
       !payload.db_root.password
     ) {
       toastError("Configuration DB root incomplète.");
-      const dbHostElement = el("db_host");
-      if (dbHostElement) dbHostElement.focus();
-      console.log("[WIZARD IMPORT] Validation failed: db_root configuration incomplete", payload.db_root);
+      el("db_host")?.focus();
       return;
     }
 
-    // Other validations...
     if (!payload.app_user_password) {
       toastError("Mot de passe du compte SQL applicatif requis.");
-      const appSqlPasswordElement = el("app_user_password");
-      if (appSqlPasswordElement) appSqlPasswordElement.focus();
+      el("app_user_password")?.focus();
       return;
     }
 
     if (!payload.admin.password) {
       toastError("Mot de passe administrateur requis.");
-      const adminPasswordElement = el("admin_password");
-      if (adminPasswordElement) adminPasswordElement.focus();
+      el("admin_password")?.focus();
       return;
     }
 
-    // ------------------------------------------------
-    // Validation supplémentaire en temps réel
-    // ------------------------------------------------
-    // Validation du format du port
-    if (!Number.isFinite(payload.db_root.port) || payload.db_root.port <= 0) {
-      toastError("Port de la base de données doit être un nombre valide.");
-      const dbRootPortElement = el("db_port");
-      if (dbRootPortElement) dbRootPortElement.focus();
+    if (
+      !payload.logging_db?.db_name ||
+      !payload.logging_db?.app_sql_user ||
+      !payload.logging_db?.app_user_password
+    ) {
+      toastError("Configuration Base Logging incomplète.");
       return;
     }
 
-    // Validation du mot de passe administrateur (min 12 caractères, etc.)
-    const adminPwdRules = computePasswordRules(payload.admin.password, payload.admin.username);
+    if (
+      !Number.isFinite(payload.db_root.port) ||
+      payload.db_root.port <= 0
+    ) {
+      toastError("Port de la base de données invalide.");
+      el("db_port")?.focus();
+      return;
+    }
+
+    const adminPwdRules = computePasswordRules(
+      payload.admin.password,
+      payload.admin.username
+    );
     if (!Object.values(adminPwdRules).every(Boolean)) {
-      toastError("Le mot de passe administrateur ne respecte pas les critères.");
-      const adminPasswordElement = el("admin_password");
-      if (adminPasswordElement) adminPasswordElement.focus();
+      toastError(
+        "Le mot de passe administrateur ne respecte pas les critères."
+      );
+      el("admin_password")?.focus();
       return;
     }
 
-    // Validation du mot de passe de l'application
     const appPwdRules = computePasswordRules(payload.app_user_password);
     if (!Object.values(appPwdRules).every(Boolean)) {
-      toastError("Le mot de passe du compte applicatif ne respecte pas les critères.");
-      const appSqlPasswordElement = el("app_user_password");
-      if (appSqlPasswordElement) appSqlPasswordElement.focus();
+      toastError(
+        "Le mot de passe du compte applicatif ne respecte pas les critères."
+      );
+      el("app_user_password")?.focus();
       return;
     }
 
-    // Validation de l'email (optionnel)
+    const loggingPwdRules = computePasswordRules(payload.logging_db.app_user_password);
+    if (!Object.values(loggingPwdRules).every(Boolean)) {
+      toastError(
+        "Le mot de passe du compte logging ne respecte pas les critères."
+      );
+      el("logging_user_password")?.focus();
+      return;
+    }
+
     if (payload.admin.email && !isValidEmail(payload.admin.email)) {
       toastError("L'email administrateur n'est pas valide.");
-      const adminEmailElement = el("admin_email");
-      if (adminEmailElement) adminEmailElement.focus();
+      el("admin_email")?.focus();
       return;
     }
 
@@ -154,9 +157,7 @@ export async function runImport() {
     // ------------------------------------------------
     const response = await fetch("/api/import/", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
@@ -186,6 +187,9 @@ export async function runImport() {
   }
 }
 
+// --------------------------------------------------
+// Utils
+// --------------------------------------------------
 function isValidEmail(email) {
   const emailPattern =
     /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -193,7 +197,7 @@ function isValidEmail(email) {
 }
 
 // --------------------------------------------------
-// Real-time Validation: Hook it to input fields
+// Real-time Validation
 // --------------------------------------------------
 el("db_name")?.addEventListener("input", validateForm);
 el("db_host")?.addEventListener("input", validateForm);
@@ -207,9 +211,11 @@ el("admin_password_confirm")?.addEventListener("input", validateForm);
 el("admin_email")?.addEventListener("input", validateForm);
 
 function validateForm() {
-  // En temps réel, vérifie la validité des champs
   const appPwdRules = computePasswordRules(value("app_user_password"));
-  const adminPwdRules = computePasswordRules(value("admin_password"), value("admin_username"));
+  const adminPwdRules = computePasswordRules(
+    value("admin_password"),
+    value("admin_username")
+  );
 
   const isFormValid =
     value("db_name") &&
@@ -223,11 +229,15 @@ function validateForm() {
     value("admin_password") === value("admin_password_confirm") &&
     Object.values(appPwdRules).every(Boolean) &&
     Object.values(adminPwdRules).every(Boolean) &&
-    isValidEmail(value("admin_email"));
+    isValidEmail(value("admin_email") || "");
 
-  // Ne plus désactiver le bouton d'import
-  // const submitButton = el("import_btn");
-  // if (submitButton) {
-  //   submitButton.disabled = !isFormValid;
-  // }
+  // volontairement non bloquant (UX)
 }
+
+// --------------------------------------------------
+// 🔥 MISSING LINK FIX — Button binding
+// --------------------------------------------------
+el("import_btn")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  runImport();
+});

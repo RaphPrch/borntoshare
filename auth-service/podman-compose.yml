@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  auth-service:
+    container_name: auth-service
+    image: b2s-auth-service-vnext-stateless:latest
+
+    build:
+      context: .
+      dockerfile: Containerfile
+    restart: unless-stopped
+
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # 🔐 Auth-service -> secret-broker contract
+      B2S_SECRET_BROKER_URL: ${B2S_SECRET_BROKER_URL:-http://secret-broker:8010}
+      B2S_SECRET_BROKER_TIMEOUT_SECONDS: ${B2S_SECRET_BROKER_TIMEOUT_SECONDS:-5}
+      B2S_SECRET_WRITE_TOKEN: ${B2S_SECRET_WRITE_TOKEN}
+
+    env_file:
+      - .env
+
+    # --------------------------------------------------
+    # Network / exposure
+    # --------------------------------------------------
+    expose:
+      - "8000"
+
+    networks:
+      # Auth accessible directement depuis frontend-service et les services internes.
+      - app
+
+    # --------------------------------------------------
+    # Hardening
+    # --------------------------------------------------
+    read_only: true
+    volumes:
+      - ./secrets:/var/lib/b2s/secrets:rw
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+
+networks:
+  app:
+    name: bts-app
+    external: true

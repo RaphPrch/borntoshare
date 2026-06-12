@@ -1,6 +1,5 @@
 // wizard/js/core.js
 import { stepStatus } from "./state.js";
-import { renderSummaryUI } from "./summary-step.js";
 import { logInfo } from "./logger.js";
 
 const STEPS = [1, 2, 3, 4, 5, 6];
@@ -24,11 +23,6 @@ export function showStep(step) {
   document.querySelectorAll(".b2s-step").forEach((el) => {
     el.classList.toggle("active", Number(el.dataset.step) === s);
   });
-
-  // Render summary when entering step 5
-  if (s === 5) {
-    try { renderSummaryUI(); } catch (e) { console.warn("[WIZARD] renderSummaryUI failed", e); }
-  }
 
   updateStepperUI();
   updateProgress();

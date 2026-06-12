@@ -52,7 +52,8 @@ body {
   box-shadow: 0 1px 6px rgba(0,0,0,0.16);
 }
 
-.b2s-topbar__left {
+.b2s-topbar__left,
+.b2s-topbar__right {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -66,12 +67,6 @@ body {
 .b2s-topbar__title {
   font-size: 16px;
   opacity: 0.9;
-}
-
-.b2s-topbar__right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .b2s-env-badge {
@@ -150,14 +145,25 @@ body {
 /* ---------------------------------------------------
    PROGRESS BAR
 --------------------------------------------------- */
-.b2s-progress {
+.b2s-progress,
+.b2s-mode-banner,
+.b2s-step {
   width: 100%;
   max-width: 620px;
 }
 
+.b2s-mode-banner {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
 .b2s-progress__track {
   height: 6px;
-  background: #E5E7EB;
+  background: var(--b2s-border);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -184,30 +190,11 @@ body {
   margin: 16px 0;
 }
 
-/* ---------------------------------------------------
-   PRECHECK (summary step)
----------------------------------------------------- */
-.b2s-precheck {
-  background: #fff;
-  border: 1px solid var(--b2s-border);
-  border-radius: 10px;
-  padding: 12px 14px;
-}
-
-.b2s-precheck__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0;
-}
-
-.b2s-precheck__status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--b2s-grey);
+.b2s-pill,
+.b2s-badge {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
 }
 
 .b2s-pill {
@@ -215,36 +202,21 @@ body {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
 }
 
-.b2s-pill--ok { background: #e6f7ee; color: #137333; }
-.b2s-pill--warn { background: #fff4e5; color: #b45309; }
+.b2s-pill--ok,
+.b2s-badge--ok { background: #e6f7ee; color: #137333; }
+
+.b2s-pill--warn,
+.b2s-badge--warning { background: #fff4e5; color: #b45309; }
+
 .b2s-pill--ko { background: #fee2e2; color: #b91c1c; }
-
-.b2s-spinner {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid rgba(0,0,0,0.12);
-  border-top-color: var(--b2s-primary);
-  display: inline-block;
-  animation: spin .8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 
 /* ---------------------------------------------------
    STEP CARD (ANIMATED)
 --------------------------------------------------- */
 .b2s-step {
   display: none;
-  width: 100%;
-  max-width: 620px;
   background: var(--b2s-white);
   border-radius: var(--radius);
   border: 1px solid var(--b2s-border);
@@ -346,7 +318,7 @@ body {
 }
 
 .b2s-btn-secondary {
-  background: #fff;
+  background: var(--b2s-white);
   border: 1px solid var(--b2s-border);
 }
 
@@ -359,6 +331,13 @@ body {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.b2s-guard-msg {
+  display: block;
+  margin-top: 10px;
+  color: #b45309;
+  font-size: 13px;
 }
 
 .b2s-actions-right {
@@ -393,21 +372,14 @@ body {
    BADGES
 --------------------------------------------------- */
 .b2s-badge {
-  font-size: 12px;
   padding: 4px 12px;
-  border-radius: 999px;
-  font-weight: 600;
 }
 
 .b2s-badge--ok {
-  background: #e6f7ee;
-  color: #137333;
   animation: badgePop .3s ease;
 }
 
 .b2s-badge--warning {
-  background: #fff4e5;
-  color: #b45309;
   animation: badgePop .3s ease;
 }
 
@@ -419,12 +391,16 @@ body {
 /* ---------------------------------------------------
    WARNING BOX
 --------------------------------------------------- */
+.b2s-mode-banner,
+.b2s-warning-box {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
 .b2s-warning-box {
   margin-top: 12px;
   padding: 12px 14px;
   border-radius: 10px;
-  background: #fff7ed;
-  color: #9a3412;
   font-size: 13px;
   animation: fadeIn .3s ease;
 }
@@ -469,8 +445,4 @@ body {
 @keyframes stepIn {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
-}
-
-.b2s-step.active {
-  animation: stepIn .22s ease-out;
 }

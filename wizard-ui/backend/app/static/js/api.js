@@ -22,6 +22,11 @@ export async function api(path, body = {}, timeout = 8000) {
     }
 
     return res.json();
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new Error(`Timeout API (${timeout} ms) sur ${path}`);
+    }
+    throw err;
   } finally {
     clearTimeout(t);
   }

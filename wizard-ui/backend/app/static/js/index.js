@@ -2,6 +2,7 @@
 import { testDb } from "./db-step.js";
 import { validateAdminForm } from "./admin-step.js";
 import { validateAppUserForm } from "./appdb-step.js";
+import { validateLoggingDbForm } from "./loggingdb-step.js";
 import { runImport } from "./import-step.js";
 import { stepStatus } from "./state.js";
 import { showStep, nextStep, prevStep, getCurrentStep } from "./core.js";
@@ -18,15 +19,36 @@ function canGoNext() {
   if (s === 2) return !!stepStatus[2];
   if (s === 3) return !!stepStatus[3];
   if (s === 4) return !!stepStatus[4];
-  if (s === 5) return true;
+  if (s === 5) return !!stepStatus[5];
+  if (s === 6) return true;
   return false;
 }
 
+function guardMessageForStep(step) {
+  if (step === 2) return "Complète le formulaire administrateur pour continuer.";
+  if (step === 3) return "Teste d'abord la connexion DB avec des identifiants valides.";
+  if (step === 4) return "Renseigne une base applicative et un mot de passe conforme.";
+  if (step === 5) return "Renseigne la base logging et un mot de passe conforme.";
+  return "Étape incomplète.";
+}
+
+function setStepGuard(step, message) {
+  const el = document.getElementById(`step_guard_${step}`);
+  if (!el) return;
+  const msg = String(message || "").trim();
+  el.textContent = msg;
+  el.style.display = msg ? "block" : "none";
+}
+
 function goNext() {
+  const s = getCurrentStep();
   if (!canGoNext()) {
-    logWarn("Blocked nextStep()", { step: getCurrentStep(), stepStatus });
+    const msg = guardMessageForStep(s);
+    setStepGuard(s, msg);
+    logWarn("Blocked nextStep()", { step: s, stepStatus, reason: msg });
     return;
   }
+  setStepGuard(s, "");
   nextStep();
 }
 
@@ -71,8 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const applySeedBlock = document.getElementById("apply_seed_block");
       const applySeed = document.getElementById("apply_seed");
       const seedBlock = document.getElementById("seed_prod_block");
-      const forceBlock = document.getElementById("force_import_block");
-      const forceImport = document.getElementById("force_import");
+      const prodBanner = document.getElementById("prod_mode_banner");
 
       // In PROD:
       // - seed is forbidden → hide checkbox and show warning
@@ -85,11 +106,16 @@ document.addEventListener("DOMContentLoaded", () => {
         applySeed.disabled = isProd;
       }
 
-      if (forceBlock) forceBlock.style.display = isProd ? "block" : "none";
-      if (forceImport) {
-        // Reset on mode load
-        forceImport.checked = false;
+      if (prodBanner) {
+        if (isProd) {
+          prodBanner.textContent = "Mode PROD : seed désactivé, import contrôlé (force import requis si DB déjà initialisée).";
+          prodBanner.style.display = "block";
+        } else {
+          prodBanner.style.display = "none";
+          prodBanner.textContent = "";
+        }
       }
+
     } catch (e) {
       // Mode endpoint is best-effort
       logWarn("Unable to load /api/mode", { error: String(e) });
@@ -106,7 +132,12 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("btn_prev_2", prevStep);
   bindFormSubmit("form_admin", () => {
     // validateAdminForm already updates stepStatus[2]
-    if (validateAdminForm()) goNext();
+    if (validateAdminForm()) {
+      setStepGuard(2, "");
+      goNext();
+    } else {
+      setStepGuard(2, guardMessageForStep(2));
+    }
   });
 
   // Live password rules + enable/disable
@@ -120,15 +151,24 @@ document.addEventListener("DOMContentLoaded", () => {
   // STEP 3
   bindClick("btn_prev_3", prevStep);
   bindFormSubmit("form_db", async () => {
-    await testDb();
-    // do not auto-next, user clicks "Suivant"
+    const ok = await testDb();
+    if (ok) {
+      setStepGuard(3, "");
+      goNext();
+    } else {
+      setStepGuard(3, guardMessageForStep(3));
+    }
   });
-  bindClick("db_next_btn", goNext);
 
   // STEP 4
   bindClick("btn_prev_4", prevStep);
   bindFormSubmit("form_app_db", () => {
-    if (validateAppUserForm()) goNext();
+    if (validateAppUserForm()) {
+      setStepGuard(4, "");
+      goNext();
+    } else {
+      setStepGuard(4, guardMessageForStep(4));
+    }
   });
   ["db_name", "app_sql_user", "app_user_password", "app_user_password_confirm"].forEach((id) => {
     const el = document.getElementById(id);
@@ -136,13 +176,25 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   validateAppUserForm();
 
-  // STEP 5
+  // STEP 5 (Logging DB)
   bindClick("btn_prev_5", prevStep);
-  bindClick("btn_validate", goNext);
+  bindFormSubmit("form_logging_db", () => {
+    if (validateLoggingDbForm()) {
+      setStepGuard(5, "");
+      goNext();
+    } else {
+      setStepGuard(5, guardMessageForStep(5));
+    }
+  });
+  ["logging_db_name", "logging_sql_user", "logging_user_password", "logging_user_password_confirm"].forEach((id) => {
+    const el = document.getElementById(id);
+    el?.addEventListener("input", validateLoggingDbForm);
+  });
+  validateLoggingDbForm();
 
-  // STEP 6
+  // STEP 6 (Validation)
   bindClick("btn_prev_6", prevStep);
-  bindClick("import_btn", () => runImport());
+  bindClick("btn_validate", () => runImport());
 
   // Init
   showStep(1);

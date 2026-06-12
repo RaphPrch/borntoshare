@@ -18,8 +18,8 @@ services:
     restart: unless-stopped
 
     networks:
-      - app_net
-      - db_net
+      - app
+      - data
 
     # (Optionnel mais recommandé)
     healthcheck:
@@ -29,10 +29,10 @@ services:
       retries: 3
 
 networks:
-  app_net:
-    name: ${APP_NET}
+  app:
+    name: bts-app
     external: true
 
-  db_net:
-    name: ${DB_NET}
+  data:
+    name: bts-data
     external: true

@@ -1,0 +1,86 @@
+/* =======================================================
+   BornToShare – Activity (Gold)
+   ======================================================= */
+
+.b2s-badge{
+  display:inline-flex;
+  align-items:center;
+  height:20px;
+  padding:0 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.02em;
+  border:1px solid transparent;
+}
+
+.b2s-badge--info{
+  background:#eef2f7;
+  color:#334155;
+  border-color:#e2e8f0;
+}
+
+.b2s-badge--admin{
+  background:#fff4e6;
+  color:#b45309;
+  border-color:#fed7aa;
+}
+
+.b2s-badge--critical{
+  background:#ffe4e6;
+  color:#b91c1c;
+  border-color:#fecdd3;
+}
+
+.b2s-activity{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.b2s-activity__row{
+  display:grid;
+  grid-template-columns: 10px 1fr 20px;
+  gap:12px;
+  align-items:flex-start;
+  padding:10px 6px;
+  border-radius:10px;
+  width:100%;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  text-align:left;
+}
+
+.b2s-activity__row:hover{
+  background:#f7f8fc;
+}
+
+.b2s-activity__dot{
+  width:10px;
+  height:10px;
+  margin-top:5px;
+  border-radius:999px;
+  border:2px solid #cbd5e1;
+}
+
+.b2s-activity__dot.is-info{ border-color:#94a3b8; }
+.b2s-activity__dot.is-admin{ border-color:#f59e0b; }
+.b2s-activity__dot.is-critical{ border-color:#ef4444; }
+
+.b2s-activity__headline{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.b2s-activity__chev{
+  font-size:18px;
+  line-height:18px;
+  margin-top:2px;
+}
+
+.b2s-activity--compact .b2s-activity__row{
+  padding:6px 4px;
+}

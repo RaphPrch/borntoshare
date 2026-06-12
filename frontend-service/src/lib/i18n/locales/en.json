@@ -1,0 +1,399 @@
+{
+  "activity": {
+    "zone": {
+      "created": {
+        "title": "Zone created",
+        "description": "Zone \"{zone}\" has been created"
+      },
+      "updated": {
+        "title": "Zone updated",
+        "description": "Zone \"{zone}\" settings were updated"
+      },
+      "deleted": {
+        "title": "Zone deleted",
+        "description": "Zone \"{zone}\" has been permanently removed"
+      },
+      "policy_saved": {
+        "title": "Provisioning policy updated",
+        "description": "Provisioning policy has been saved for zone \"{zone}\""
+      },
+      "provisioning_settings_saved": {
+        "title": "Provisioning settings saved",
+        "description": "Provisioning settings for zone \"{zone}\" have been saved"
+      },
+      "profile_attached": {
+        "title": "Access profile attached",
+        "description": "Profile \"{profile}\" was attached to zone \"{zone}\""
+      },
+      "profile_detached": {
+        "title": "Access profile detached",
+        "description": "Profile \"{profile}\" was detached from zone \"{zone}\""
+      },
+      "probe_rerun": {
+        "title": "Probe re-run",
+        "description": "Connectivity probe was re-run for zone \"{zone}\""
+      }
+    },
+    "storage_endpoint": {
+      "created": {
+        "title": "Endpoint created",
+        "description": "Endpoint \"{endpoint}\" was created in zone \"{zone}\""
+      },
+      "updated": {
+        "title": "Endpoint updated",
+        "description": "Endpoint \"{endpoint}\" was updated{changes}"
+      },
+      "deleted": {
+        "title": "Endpoint removed",
+        "description": "Endpoint \"{endpoint}\" was removed from zone \"{zone}\""
+      }
+    },
+    "tag": {
+      "created": {
+        "title": "Tag created",
+        "description": "Tag \"{target}\" was created"
+      },
+      "updated": {
+        "title": "Tag updated",
+        "description": "Tag \"{target}\" was updated"
+      },
+      "deleted": {
+        "title": "Tag deleted",
+        "description": "Tag \"{target}\" was deleted"
+      },
+      "attached": {
+        "title": "Tag attached",
+        "description": "Tag \"{tag}\" was attached to resource \"{resource}\""
+      },
+      "detached": {
+        "title": "Tag detached",
+        "description": "Tag \"{tag}\" was detached from resource \"{resource}\""
+      }
+    },
+    "storage_root": {
+      "created": {
+        "title": "Storage root created",
+        "description": "Storage root \"{root}\" is now governed in zone \"{zone}\""
+      },
+      "updated": {
+        "title": "Storage root updated",
+        "description": "Storage root \"{root}\" was updated"
+      },
+      "deleted": {
+        "title": "Storage root removed",
+        "description": "Storage root \"{root}\" was removed from governance"
+      },
+      "probe_rerun": {
+        "title": "Storage root probe re-run",
+        "description": "Connectivity probe was re-run for storage root \"{root}\""
+      },
+      "owners": {
+        "replaced": {
+          "title": "Storage root owners replaced",
+          "description": "Owners list was replaced for storage root \"{root}\" ({owners_count} total)"
+        }
+      },
+      "role": {
+        "assigned": {
+          "title": "Storage root role assigned",
+          "description": "Role \"{role}\" was assigned on storage root \"{root}\""
+        },
+        "removed": {
+          "title": "Storage root role removed",
+          "description": "Role \"{role}\" was removed from storage root \"{root}\""
+        }
+      }
+    },
+    "access_profile": {
+      "created": {
+        "title": "Access profile created",
+        "description": "Access profile \"{profile}\" was created"
+      },
+      "updated": {
+        "title": "Access profile updated",
+        "description": "Access profile \"{profile}\" was updated"
+      },
+      "deleted": {
+        "title": "Access profile removed",
+        "description": "Access profile \"{profile}\" was removed"
+      },
+      "subject": {
+        "added": {
+          "title": "Access profile member added",
+          "description": "Identity \"{user}\" was added to access profile \"{profile}\""
+        },
+        "removed": {
+          "title": "Access profile member removed",
+          "description": "Identity \"{user}\" was removed from access profile \"{profile}\""
+        }
+      }
+    },
+    "access_profile_created": {
+      "title": "Access profile created",
+      "description": "An access profile was created"
+    },
+    "access_profile_deleted": {
+      "title": "Access profile deleted",
+      "description": "An access profile was deleted"
+    },
+    "access_profile_provisioning_started": {
+      "title": "Access profile provisioning started",
+      "description": "Provisioning for the access profile has started"
+    },
+    "access_profile_provisioning_succeeded": {
+      "title": "Access profile provisioning succeeded",
+      "description": "Provisioning for the access profile completed successfully"
+    },
+    "access_profile_provisioning_failed": {
+      "title": "Access profile provisioning failed",
+      "description": "Provisioning for the access profile failed"
+    },
+    "access_profile_provisioning_retry": {
+      "title": "Provisioning retry started",
+      "description": "A retry of access profile provisioning has been started"
+    },
+    "access_profile_provisioning_reconcile": {
+      "title": "Provisioning reconciliation",
+      "description": "A reconciliation run was performed for access profile provisioning"
+    },
+    "access_request": {
+      "created": {
+        "title": "Access request submitted",
+        "description": "{user} requested {profile} on \"{root}\""
+      },
+      "approved": {
+        "title": "Access request approved",
+        "description": "{user} has been granted {profile} on \"{root}\""
+      },
+      "rejected": {
+        "title": "Access request rejected",
+        "description": "Request for {user} on \"{root}\" was rejected"
+      },
+      "executed": {
+        "title": "Access applied",
+        "description": "Provisioning completed for {user} on \"{root}\""
+      },
+      "failed": {
+        "title": "Access provisioning failed",
+        "description": "Provisioning failed for {user} on \"{root}\""
+      }
+    },
+    "identity_source": {
+      "created": {
+        "title": "Identity source created",
+        "description": "Identity source \"{source}\" has been added"
+      },
+      "updated": {
+        "title": "Identity source updated",
+        "description": "Identity source \"{source}\" configuration was modified"
+      },
+      "deleted": {
+        "title": "Identity source removed",
+        "description": "Identity source \"{source}\" has been deleted"
+      },
+      "sync_started": {
+        "title": "Sync started",
+        "description": "Sync started for \"{source}\""
+      },
+      "sync_failed": {
+        "title": "Sync failed",
+        "description": "Sync failed for \"{source}\""
+      }
+    },
+    "acl_template": {
+      "created": {
+        "title": "ACL template created",
+        "description": "ACL template \"{target}\" was created"
+      },
+      "updated": {
+        "title": "ACL template updated",
+        "description": "ACL template \"{target}\" was updated"
+      },
+      "deleted": {
+        "title": "ACL template deleted",
+        "description": "ACL template \"{target}\" was deleted"
+      },
+      "cloned": {
+        "title": "ACL template cloned",
+        "description": "ACL template \"{target}\" was cloned"
+      }
+    },
+    "ad_group_ensure_queued": {
+      "title": "AD group creation queued",
+      "description": "AD group creation task has been queued"
+    },
+    "member_added": {
+      "title": "Member added",
+      "description": "A member was added to the access scope"
+    },
+    "member_removed": {
+      "title": "Member removed",
+      "description": "A member was removed from the access scope"
+    },
+    "access_policy_updated": {
+      "title": "Access policy updated",
+      "description": "Access policy has been updated"
+    },
+    "profile_created": {
+      "title": "Access profile created",
+      "description": "The access profile was created and linked to the target scope"
+    },
+    "profile_provisioning_success": {
+      "title": "Profile provisioning succeeded",
+      "description": "Provisioning for the access profile completed successfully"
+    },
+    "profile_provisioning_failed": {
+      "title": "Profile provisioning failed",
+      "description": "Provisioning for the access profile failed"
+    },
+    "ensure_ad_group": {
+      "title": "AD group ensured",
+      "description": "The expected AD group was created or confirmed for \"{target}\""
+    },
+    "ensure_ad_group_member": {
+      "title": "AD member added",
+      "description": "A member was added to the target AD group \"{target}\""
+    },
+    "remove_ad_group_member": {
+      "title": "AD member removed",
+      "description": "A member was removed from the target AD group \"{target}\""
+    },
+    "acl_apply_via_group": {
+      "title": "ACL applied via group",
+      "description": "ACL changes were applied using the AD group model"
+    },
+    "provisioning_job_cancelled": {
+      "title": "Provisioning job cancelled",
+      "description": "The provisioning job was cancelled"
+    },
+    "provisioning_job_watchdog_republish": {
+      "title": "Provisioning job republished",
+      "description": "A queued provisioning job was republished by watchdog"
+    },
+    "collect_directory_snapshot": {
+      "title": "Directory snapshot started",
+      "description": "A directory snapshot collection has been triggered"
+    },
+    "discover_group_users_recursive": {
+      "title": "Recursive group discovery started",
+      "description": "Recursive group users discovery has been started"
+    },
+    "search_ldap_principals": {
+      "title": "LDAP search executed",
+      "description": "An LDAP principals search has been executed"
+    },
+    "search_ldaps_principals": {
+      "title": "LDAPS search executed",
+      "description": "An LDAPS principals search has been executed"
+    },
+    "test_ldap": {
+      "title": "LDAP test executed",
+      "description": "An LDAP connectivity test has been executed"
+    },
+    "test_ldaps": {
+      "title": "LDAPS test executed",
+      "description": "An LDAPS connectivity test has been executed"
+    },
+    "test_kerberos": {
+      "title": "Kerberos test executed",
+      "description": "A Kerberos authentication test has been executed"
+    },
+    "test_smb_ntlm": {
+      "title": "SMB/NTLM test executed",
+      "description": "An SMB/NTLM connectivity test has been executed"
+    },
+    "secret_resolve": {
+      "title": "Secret resolved",
+      "description": "The required secret was resolved for the operation"
+    },
+    "identity_source_create_snapshot_trigger": {
+      "title": "Identity source snapshot trigger",
+      "description": "Snapshot trigger was requested for identity source \"{source}\""
+    },
+    "governance_get": {
+      "title": "Governance read",
+      "description": "A Governance read operation was executed on \"{target}\""
+    },
+    "governance_post": {
+      "title": "Governance write",
+      "description": "A Governance write operation was executed on \"{target}\""
+    },
+    "activity_create": {
+      "title": "Activity event created",
+      "description": "An activity event has been recorded"
+    },
+    "activity_write": {
+      "title": "Activity write",
+      "description": "An activity log write operation was executed"
+    },
+    "activity_list_latest": {
+      "title": "Latest activity read",
+      "description": "Latest activity events were queried"
+    },
+    "activity_list_by_target": {
+      "title": "Activity by target read",
+      "description": "Activity events were queried for target \"{target}\""
+    },
+    "activity_list_by_actor": {
+      "title": "Activity by actor read",
+      "description": "Activity events were queried for a specific actor"
+    },
+    "validate_internal_headers": {
+      "title": "Internal headers validated",
+      "description": "Inter-service internal headers validation was executed"
+    },
+    "validate_service_token": {
+      "title": "Service token validated",
+      "description": "Internal service token validation was executed"
+    },
+    "validation_error": {
+      "title": "Validation error",
+      "description": "The request was rejected due to validation errors"
+    },
+    "http_exception": {
+      "title": "HTTP exception",
+      "description": "An HTTP exception was raised during request handling"
+    },
+    "unhandled_exception": {
+      "title": "Unhandled exception",
+      "description": "An unhandled exception was captured"
+    },
+    "role": {
+      "assigned": {
+        "title": "Role assigned",
+        "description": "Role \"{role}\" was assigned to {user}"
+      },
+      "revoked": {
+        "title": "Role revoked",
+        "description": "Role \"{role}\" was revoked from {user}"
+      }
+    },
+    "security": {
+      "policy_changed": {
+        "title": "Security policy changed",
+        "description": "A security policy has been modified"
+      },
+      "config_updated": {
+        "title": "Security settings updated",
+        "description": "Advanced security settings were updated"
+      }
+    },
+    "api": {
+      "write": {
+        "fallback": {
+          "title": "API write logged",
+          "description": "An API write operation was logged on \"{target}\""
+        }
+      }
+    },
+    "generic": {
+      "fallback_title": "{action}",
+      "fallback_description": "{target}"
+    }
+  },
+  "badges": {
+    "info": "INFO",
+    "admin": "ADMIN",
+    "critical": "CRITICAL"
+  }
+}

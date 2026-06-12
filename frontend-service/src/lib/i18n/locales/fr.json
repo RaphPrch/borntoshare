@@ -1,0 +1,399 @@
+{
+  "activity": {
+    "zone": {
+      "created": {
+        "title": "Zone créée",
+        "description": "La zone « {zone} » a été créée"
+      },
+      "updated": {
+        "title": "Zone modifiée",
+        "description": "Les paramètres de la zone « {zone} » ont été mis à jour"
+      },
+      "deleted": {
+        "title": "Zone supprimée",
+        "description": "La zone « {zone} » a été supprimée"
+      },
+      "policy_saved": {
+        "title": "Politique de provisioning modifiée",
+        "description": "La politique de provisioning a été enregistrée pour la zone « {zone} »"
+      },
+      "provisioning_settings_saved": {
+        "title": "Paramètres de provisioning enregistrés",
+        "description": "Les paramètres de provisioning de la zone « {zone} » ont été enregistrés"
+      },
+      "profile_attached": {
+        "title": "Profil d’accès rattaché",
+        "description": "Le profil « {profile} » a été rattaché à la zone « {zone} »"
+      },
+      "profile_detached": {
+        "title": "Profil d’accès détaché",
+        "description": "Le profil « {profile} » a été détaché de la zone « {zone} »"
+      },
+      "probe_rerun": {
+        "title": "Probe relancée",
+        "description": "La probe de connectivité a été relancée pour la zone « {zone} »"
+      }
+    },
+    "storage_endpoint": {
+      "created": {
+        "title": "Endpoint créé",
+        "description": "L’endpoint « {endpoint} » a été créé dans la zone « {zone} »"
+      },
+      "updated": {
+        "title": "Endpoint modifié",
+        "description": "L’endpoint « {endpoint} » a été mis à jour"
+      },
+      "deleted": {
+        "title": "Endpoint supprimé",
+        "description": "L’endpoint « {endpoint} » a été supprimé de la zone « {zone} »"
+      }
+    },
+    "tag": {
+      "created": {
+        "title": "Tag créé",
+        "description": "Le tag « {target} » a été créé"
+      },
+      "updated": {
+        "title": "Tag modifié",
+        "description": "Le tag « {target} » a été mis à jour"
+      },
+      "deleted": {
+        "title": "Tag supprimé",
+        "description": "Le tag « {target} » a été supprimé"
+      },
+      "attached": {
+        "title": "Tag rattaché",
+        "description": "Le tag « {tag} » a été rattaché à la ressource « {resource} »"
+      },
+      "detached": {
+        "title": "Tag détaché",
+        "description": "Le tag « {tag} » a été détaché de la ressource « {resource} »"
+      }
+    },
+    "storage_root": {
+      "created": {
+        "title": "Storage root ajouté",
+        "description": "Le storage root « {root} » est maintenant gouverné dans la zone « {zone} »"
+      },
+      "updated": {
+        "title": "Storage root modifié",
+        "description": "Le storage root « {root} » a été mis à jour"
+      },
+      "deleted": {
+        "title": "Storage root retiré",
+        "description": "Le storage root « {root} » a été retiré de la gouvernance"
+      },
+      "probe_rerun": {
+        "title": "Probe storage root relancée",
+        "description": "La probe de connectivité a été relancée pour le storage root « {root} »"
+      },
+      "owners": {
+        "replaced": {
+          "title": "Owners du storage root mis à jour",
+          "description": "La liste des owners du storage root « {root} » a été remplacée ({owners_count} au total)"
+        }
+      },
+      "role": {
+        "assigned": {
+          "title": "Rôle attribué sur le storage root",
+          "description": "Le rôle « {role} » a été attribué sur le storage root « {root} »"
+        },
+        "removed": {
+          "title": "Rôle retiré du storage root",
+          "description": "Le rôle « {role} » a été retiré du storage root « {root} »"
+        }
+      }
+    },
+    "access_profile": {
+      "created": {
+        "title": "Profil d’accès créé",
+        "description": "Le profil d’accès « {profile} » a été créé"
+      },
+      "updated": {
+        "title": "Profil d’accès modifié",
+        "description": "Le profil d’accès « {profile} » a été modifié"
+      },
+      "deleted": {
+        "title": "Profil d’accès supprimé",
+        "description": "Le profil d’accès « {profile} » a été supprimé"
+      },
+      "subject": {
+        "added": {
+          "title": "Membre ajouté au profil d’accès",
+          "description": "L’identité « {user} » a été ajoutée au profil d’accès « {profile} »"
+        },
+        "removed": {
+          "title": "Membre retiré du profil d’accès",
+          "description": "L’identité « {user} » a été retirée du profil d’accès « {profile} »"
+        }
+      }
+    },
+    "access_profile_created": {
+      "title": "Profil d’accès créé",
+      "description": "Un profil d’accès a été créé"
+    },
+    "access_profile_deleted": {
+      "title": "Profil d’accès supprimé",
+      "description": "Un profil d’accès a été supprimé"
+    },
+    "access_profile_provisioning_started": {
+      "title": "Provisioning de profil démarré",
+      "description": "Le provisioning du profil d’accès a démarré"
+    },
+    "access_profile_provisioning_succeeded": {
+      "title": "Provisioning de profil réussi",
+      "description": "Le provisioning du profil d’accès est terminé avec succès"
+    },
+    "access_profile_provisioning_failed": {
+      "title": "Provisioning de profil échoué",
+      "description": "Le provisioning du profil d’accès a échoué"
+    },
+    "access_profile_provisioning_retry": {
+      "title": "Provisioning relancé",
+      "description": "Une nouvelle tentative de provisioning du profil d’accès a été lancée"
+    },
+    "access_profile_provisioning_reconcile": {
+      "title": "Reconciliation du provisioning",
+      "description": "Une reconciliation du provisioning du profil d’accès a été effectuée"
+    },
+    "access_request": {
+      "created": {
+        "title": "Demande d’accès envoyée",
+        "description": "{user} a demandé {profile} sur « {root} »"
+      },
+      "approved": {
+        "title": "Demande approuvée",
+        "description": "{user} a obtenu {profile} sur « {root} »"
+      },
+      "rejected": {
+        "title": "Demande refusée",
+        "description": "La demande de {user} sur « {root} » a été refusée"
+      },
+      "executed": {
+        "title": "Accès appliqué",
+        "description": "Le provisioning est terminé pour {user} sur « {root} »"
+      },
+      "failed": {
+        "title": "Provisioning échoué",
+        "description": "Le provisioning a échoué pour {user} sur « {root} »"
+      }
+    },
+    "identity_source": {
+      "created": {
+        "title": "Source d’identité ajoutée",
+        "description": "La source d’identité « {source} » a été ajoutée"
+      },
+      "updated": {
+        "title": "Source d’identité modifiée",
+        "description": "La configuration de « {source} » a été mise à jour"
+      },
+      "deleted": {
+        "title": "Source d’identité supprimée",
+        "description": "La source d’identité « {source} » a été supprimée"
+      },
+      "sync_started": {
+        "title": "Synchronisation démarrée",
+        "description": "Synchronisation démarrée pour « {source} »"
+      },
+      "sync_failed": {
+        "title": "Synchronisation échouée",
+        "description": "Synchronisation échouée pour « {source} »"
+      }
+    },
+    "acl_template": {
+      "created": {
+        "title": "Modèle ACL créé",
+        "description": "Le modèle ACL « {target} » a été créé"
+      },
+      "updated": {
+        "title": "Modèle ACL modifié",
+        "description": "Le modèle ACL « {target} » a été mis à jour"
+      },
+      "deleted": {
+        "title": "Modèle ACL supprimé",
+        "description": "Le modèle ACL « {target} » a été supprimé"
+      },
+      "cloned": {
+        "title": "Modèle ACL cloné",
+        "description": "Le modèle ACL « {target} » a été cloné"
+      }
+    },
+    "ad_group_ensure_queued": {
+      "title": "Création de groupe AD mise en file",
+      "description": "La tâche de création de groupe AD a été mise en file"
+    },
+    "member_added": {
+      "title": "Membre ajouté",
+      "description": "Un membre a été ajouté au périmètre d’accès"
+    },
+    "member_removed": {
+      "title": "Membre retiré",
+      "description": "Un membre a été retiré du périmètre d’accès"
+    },
+    "access_policy_updated": {
+      "title": "Politique d’accès modifiée",
+      "description": "La politique d’accès a été mise à jour"
+    },
+    "profile_created": {
+      "title": "Profil d’accès créé",
+      "description": "Le profil d’accès a été créé et rattaché au périmètre cible"
+    },
+    "profile_provisioning_success": {
+      "title": "Provisioning du profil réussi",
+      "description": "Le provisioning du profil d’accès est terminé avec succès"
+    },
+    "profile_provisioning_failed": {
+      "title": "Provisioning du profil en échec",
+      "description": "Le provisioning du profil d’accès a échoué"
+    },
+    "ensure_ad_group": {
+      "title": "Groupe AD assuré",
+      "description": "Le groupe AD attendu a été créé ou confirmé pour « {target} »"
+    },
+    "ensure_ad_group_member": {
+      "title": "Membre AD ajouté",
+      "description": "Un membre a été ajouté au groupe AD cible « {target} »"
+    },
+    "remove_ad_group_member": {
+      "title": "Membre AD retiré",
+      "description": "Un membre a été retiré du groupe AD cible « {target} »"
+    },
+    "acl_apply_via_group": {
+      "title": "ACL appliquée via groupe",
+      "description": "Les ACL ont été appliquées en s’appuyant sur le groupe AD "
+    },
+    "provisioning_job_cancelled": {
+      "title": "Job de provisioning annulé",
+      "description": "Le job de provisioning a été annulé"
+    },
+    "provisioning_job_watchdog_republish": {
+      "title": "Job de provisioning republié",
+      "description": "Le watchdog a republié un job de provisioning en attente"
+    },
+    "collect_directory_snapshot": {
+      "title": "Snapshot annuaire lancé",
+      "description": "Une collecte de snapshot annuaire a été déclenchée"
+    },
+    "discover_group_users_recursive": {
+      "title": "Découverte des membres récursive",
+      "description": "La découverte récursive des membres de groupe a été lancée"
+    },
+    "search_ldap_principals": {
+      "title": "Recherche LDAP lancée",
+      "description": "Une recherche de principals LDAP a été exécutée"
+    },
+    "search_ldaps_principals": {
+      "title": "Recherche LDAPS lancée",
+      "description": "Une recherche de principals LDAPS a été exécutée"
+    },
+    "test_ldap": {
+      "title": "Test LDAP exécuté",
+      "description": "Un test de connectivité LDAP a été exécuté"
+    },
+    "test_ldaps": {
+      "title": "Test LDAPS exécuté",
+      "description": "Un test de connectivité LDAPS a été exécuté"
+    },
+    "test_kerberos": {
+      "title": "Test Kerberos exécuté",
+      "description": "Un test d’authentification Kerberos a été exécuté"
+    },
+    "test_smb_ntlm": {
+      "title": "Test SMB/NTLM exécuté",
+      "description": "Un test de connectivité SMB/NTLM a été exécuté"
+    },
+    "secret_resolve": {
+      "title": "Secret résolu",
+      "description": "La résolution du secret requis pour l’action a été effectuée"
+    },
+    "identity_source_create_snapshot_trigger": {
+      "title": "Déclenchement snapshot source d’identité",
+      "description": "Le déclenchement de snapshot a été demandé pour la source d’identité « {source} »"
+    },
+    "governance_get": {
+      "title": "Lecture Governance",
+      "description": "Une lecture Governance a été effectuée sur « {target} »"
+    },
+    "governance_post": {
+      "title": "Écriture Governance",
+      "description": "Une écriture Governance a été effectuée sur « {target} »"
+    },
+    "activity_create": {
+      "title": "Événement d’activité créé",
+      "description": "Un événement d’activité a été enregistré"
+    },
+    "activity_write": {
+      "title": "Écriture activité",
+      "description": "Une écriture de log d’activité a été effectuée"
+    },
+    "activity_list_latest": {
+      "title": "Lecture activité récente",
+      "description": "La liste des événements d’activité récents a été consultée"
+    },
+    "activity_list_by_target": {
+      "title": "Lecture activité par cible",
+      "description": "La liste d’activité a été consultée pour la cible « {target} »"
+    },
+    "activity_list_by_actor": {
+      "title": "Lecture activité par acteur",
+      "description": "La liste d’activité a été consultée pour un acteur spécifique"
+    },
+    "validate_internal_headers": {
+      "title": "Validation des en-têtes internes",
+      "description": "La validation des en-têtes internes inter-services a été exécutée"
+    },
+    "validate_service_token": {
+      "title": "Validation du service token",
+      "description": "La validation du jeton de service interne a été exécutée"
+    },
+    "validation_error": {
+      "title": "Erreur de validation",
+      "description": "La requête a été rejetée suite à une erreur de validation"
+    },
+    "http_exception": {
+      "title": "Exception HTTP",
+      "description": "Une exception HTTP a été levée pendant le traitement"
+    },
+    "unhandled_exception": {
+      "title": "Exception non gérée",
+      "description": "Une exception non gérée a été capturée"
+    },
+    "role": {
+      "assigned": {
+        "title": "Rôle attribué",
+        "description": "Le rôle « {role} » a été attribué à {user}"
+      },
+      "revoked": {
+        "title": "Rôle retiré",
+        "description": "Le rôle « {role} » a été retiré à {user}"
+      }
+    },
+    "security": {
+      "policy_changed": {
+        "title": "Politique de sécurité modifiée",
+        "description": "Une politique de sécurité a été modifiée"
+      },
+      "config_updated": {
+        "title": "Paramètres de sécurité modifiés",
+        "description": "Des paramètres avancés ont été modifiés"
+      }
+    },
+    "api": {
+      "write": {
+        "fallback": {
+          "title": "Écriture API enregistrée",
+          "description": "Une écriture API a été tracée sur « {target} »"
+        }
+      }
+    },
+    "generic": {
+      "fallback_title": "{action}",
+      "fallback_description": "{target}"
+    }
+  },
+  "badges": {
+    "info": "INFO",
+    "admin": "ADMIN",
+    "critical": "CRITIQUE"
+  }
+}
