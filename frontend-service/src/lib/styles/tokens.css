@@ -1,0 +1,248 @@
+/* BornToShare — tokens.css
+   Design tokens: colors, typography, spacing, radius, shadows.
+   Keep this file as the single source of truth.
+*/
+:root {
+  /* ===== Colors ===== */
+  --b2s-bg-app: #0f172a;
+  --b2s-bg-surface: #020617;
+  --b2s-bg-card: #020617;
+
+  --b2s-border-subtle: #1e293b;
+  --b2s-border-strong: #334155;
+
+  --b2s-text-primary: #e5e7eb;
+  --b2s-text-secondary: #94a3b8;
+  --b2s-text-muted: #64748b;
+
+  --b2s-accent-blue: #3b82f6;
+  --b2s-accent-orange: #f97316;
+  --b2s-accent-green: #22c55e;
+  --b2s-accent-red: #ef4444;
+
+  --b2s-text-title: #0f172a;
+  --b2s-text-body: #1f2937;
+  --b2s-text-subtle: #94a3b8;
+
+  /* ===== Typography ===== */
+  --b2s-font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --b2s-text-xs: 12px;
+  --b2s-text-sm: 14px;
+  --b2s-text-md: 15px;
+  --b2s-text-lg: 18px;
+  --b2s-text-xl: 22px;
+
+  /* Legacy typography scale aliases */
+  --b2s-font-size-xs: var(--b2s-text-xs);
+  --b2s-font-size-sm: var(--b2s-text-sm);
+  --b2s-font-size-md: var(--b2s-text-md);
+  --b2s-font-size-lg: var(--b2s-text-lg);
+  --b2s-font-size-xl: 24px;
+
+  --b2s-font-hero: 26px;
+  --b2s-font-h1: 20px;
+  --b2s-font-h2: 16px;
+  --b2s-font-body: 14px;
+  --b2s-font-small: 12px;
+  --b2s-font-micro: 11px;
+
+  --b2s-lh-tight: 1.2;
+  --b2s-lh-normal: 1.4;
+
+  /* ===== Spacing ===== */
+  --b2s-space-1: 4px;
+  --b2s-space-2: 8px;
+  --b2s-space-3: 12px;
+  --b2s-space-4: 16px;
+  --b2s-space-5: 20px;
+  --b2s-space-6: 24px;
+  --b2s-space-8: 32px;
+
+  /* Legacy spacing aliases */
+  --b2s-space-2xs: var(--b2s-space-1);
+  --b2s-space-xs: var(--b2s-space-2);
+  --b2s-space-sm: var(--b2s-space-3);
+  --b2s-space-md: var(--b2s-space-4);
+  --b2s-space-lg: var(--b2s-space-6);
+  --b2s-space-xl: var(--b2s-space-8);
+  --b2s-space-2xl: 40px;
+
+  /* ===== Radius ===== */
+  --b2s-radius-sm: 6px;
+  --b2s-radius-md: 10px;
+  --b2s-radius-lg: 14px;
+  --b2s-radius-xl: 18px;
+
+  /* ===== Shadows ===== */
+  --b2s-shadow-sm: 0 1px 2px rgba(0,0,0,.35);
+  --b2s-shadow-md: 0 6px 18px rgba(0,0,0,.55);
+
+  /* ===== Light semantic aliases (app-wide UI) ===== */
+  --b2s-color-surface: #ffffff;
+  --b2s-color-surface-soft: #f8fafc;
+  --b2s-color-border: #d7dbe3;
+  --b2s-color-border-strong: #cbd5f5;
+  --b2s-color-text: #0f172a;
+  --b2s-color-text-muted: #64748b;
+  --b2s-color-text-soft: #475569;
+
+  --b2s-topbar-bg: #111b3f;
+  --b2s-topbar-bg-strong: #0f1839;
+  --b2s-topbar-bg-hover: #1a2148;
+  --b2s-topbar-accent: #4da3ff;
+  --b2s-topbar-accent-hover: #2b6cff;
+
+  --b2s-color-primary: var(--b2s-topbar-bg-hover);
+  --b2s-color-primary-strong: var(--b2s-topbar-bg);
+  --b2s-color-primary-soft: #eef2ff;
+
+  --b2s-color-warning: #d97706;
+  --b2s-color-warning-strong: #b45309;
+  --b2s-color-warning-soft: #fff7ed;
+
+  --b2s-color-danger: #dc3545;
+  --b2s-color-danger-strong: #b91c1c;
+  --b2s-color-danger-soft: #fef2f2;
+
+  --b2s-focus-ring: 0 0 0 4px rgba(37, 99, 235, 0.18);
+
+  /* ===== Modal defaults ===== */
+  --b2s-modal-width-sm: min(420px, 92vw);
+  --b2s-modal-width-md: min(560px, 94vw);
+  --b2s-modal-width-lg: min(720px, 96vw);
+  --b2s-modal-width-xl: min(820px, 96vw);
+  --b2s-modal-content-padding: 24px 28px;
+  --b2s-modal-radius: 20px;
+
+  /* ===== Entity sidebars ===== */
+  --b2s-entity-sidebar-width: 320px;
+  --b2s-modal-shadow: 0 40px 120px rgba(0, 0, 0, 0.35);
+
+  /* ===== Button defaults ===== */
+  --b2s-btn-radius: 10px;
+  --b2s-btn-padding: 10px 14px;
+  --b2s-btn-font-size: 12px;
+  --b2s-btn-font-weight: 700;
+  --b2s-btn-disabled-opacity: 0.6;
+
+  --b2s-btn-primary-bg: var(--b2s-topbar-bg);
+  --b2s-btn-primary-bg-hover: var(--b2s-topbar-bg-hover);
+  --b2s-btn-primary-fg: var(--b2s-color-surface);
+  --b2s-btn-primary-border: var(--b2s-topbar-bg);
+
+  --b2s-btn-secondary-bg: var(--b2s-color-surface);
+  --b2s-btn-secondary-bg-hover: #f8fafc;
+  --b2s-btn-secondary-fg: var(--b2s-color-text);
+  --b2s-btn-secondary-border: rgba(15, 23, 42, 0.16);
+
+  --b2s-btn-ghost-bg: transparent;
+  --b2s-btn-ghost-bg-hover: rgba(15, 23, 42, 0.06);
+  --b2s-btn-ghost-fg: var(--b2s-color-text);
+  --b2s-btn-ghost-border: rgba(148, 163, 184, 0.45);
+
+  --b2s-btn-danger-bg: var(--b2s-color-danger);
+  --b2s-btn-danger-bg-hover: var(--b2s-color-danger-strong);
+  --b2s-btn-danger-fg: #ffffff;
+  --b2s-btn-danger-border: var(--b2s-color-danger-strong);
+
+  --b2s-btn-warning-bg: var(--b2s-color-warning);
+  --b2s-btn-warning-bg-hover: var(--b2s-color-warning-strong);
+  --b2s-btn-warning-fg: #ffffff;
+  --b2s-btn-warning-border: var(--b2s-color-warning-strong);
+
+  /* ===== Zone console tokens ===== */
+  --zc-color-primary: #3f51b5;
+  --zc-color-primary-soft: #e8ecff;
+  --zc-color-bg-page: #f4f6fc;
+  --zc-color-bg-surface: #ffffff;
+  --zc-color-border: #d6dbea;
+  --zc-color-text: #1f2a44;
+  --zc-color-text-muted: #6c7896;
+  --zc-color-success: #1f9d66;
+  --zc-color-warn: #d28a1a;
+  --zc-color-danger: #cb3a3a;
+
+  --zc-space-2xs: 4px;
+  --zc-space-xs: 8px;
+  --zc-space-sm: 12px;
+  --zc-space-md: 16px;
+  --zc-space-lg: 24px;
+  --zc-space-xl: 32px;
+
+  --zc-radius-sm: 8px;
+  --zc-radius-md: 12px;
+  --zc-radius-lg: 16px;
+
+  --zc-font-title: var(--b2s-font-hero);
+  --zc-font-section: var(--b2s-font-h2);
+  --zc-font-body: var(--b2s-font-body);
+  --zc-font-small: var(--b2s-font-small);
+
+  --zc-shadow-light: 0 8px 20px rgba(18, 31, 64, 0.06);
+  --zc-shadow-hover: 0 12px 26px rgba(18, 31, 64, 0.1);
+
+  --zc-border-width: 1px;
+  --zc-border: var(--zc-border-width) solid var(--zc-color-border);
+
+  --zc-tabs-height: 44px;
+  --zc-tabs-active-border: 3px;
+  --zc-section-padding: var(--zc-space-md);
+  --zc-section-gap: var(--zc-space-xl);
+  --zc-button-height: 40px;
+  --zc-table-row-height: 44px;
+
+  /* ===== Identity browser semantic tokens ===== */
+  --idb-shell-bg: var(--b2s-color-surface, #ffffff);
+  --idb-panel-bg: #ffffff;
+  --idb-panel-soft-bg: #f7f9fc;
+  --idb-panel-head-bg: #f4f7fb;
+  --idb-border: #e3e9f3;
+  --idb-border-strong: #d6deeb;
+  --idb-heading: #20324d;
+  --idb-text: #30435f;
+  --idb-text-muted: #6b7f98;
+  --idb-accent: var(--b2s-primary, #204c87);
+  --idb-hover-bg: #f3f7fc;
+  --idb-selected-bg: #eaf2fb;
+  --idb-selected-border: #b8cee8;
+  --idb-success: #2d7f4f;
+  --idb-warning: #c1761f;
+  --idb-danger: #b94a48;
+  --idb-user-badge-bg: #eef4fb;
+  --idb-user-badge-text: #35557f;
+  --idb-group-badge-bg: #f3f1fb;
+  --idb-group-badge-text: #5d4b90;
+  --idb-shadow: 0 20px 40px rgba(20, 41, 72, 0.12);
+
+  /* =========================================================
+     Legacy aliases (from removed design.tokens.css)
+     Keep these to avoid breaking existing selectors.
+     ========================================================= */
+  --b2s-bg-sidebar: var(--b2s-color-surface-soft);
+  --b2s-bg-hover: rgba(15, 23, 42, 0.04);
+
+  --b2s-card-radius: var(--b2s-radius-lg);
+  --b2s-card-radius-sm: var(--b2s-radius-md);
+  --b2s-card-shadow: var(--b2s-shadow-md);
+
+  --b2s-border-color: var(--b2s-color-border);
+  --b2s-border-color-soft: rgba(15, 23, 42, 0.06);
+  --b2s-border-radius: var(--b2s-radius-md);
+
+  --b2s-primary: var(--b2s-color-primary);
+  --b2s-primary-hover: var(--b2s-color-primary-strong);
+
+  --b2s-success-bg: #dcfce7;
+  --b2s-success-text: #166534;
+  --b2s-danger-bg: #fee2e2;
+  --b2s-danger-text: #991b1b;
+  --b2s-warning-bg: #fef3c7;
+  --b2s-warning-text: #92400e;
+
+  --b2s-pill-bg: #f1f5f9;
+  --b2s-pill-text: #334155;
+
+  --b2s-transition-fast: 120ms ease;
+  --b2s-transition-base: 180ms ease;
+}

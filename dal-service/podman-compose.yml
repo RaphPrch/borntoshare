@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+  dal-service:
+    container_name: dal-service
+
+    image: b2s-dal-service:1.0
+    build:
+      context: .
+      dockerfile: Containerfile
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      TZ: Europe/Paris
+      APP_ENV: ${APP_ENV:-dev}
+      B2S_ENV: ${B2S_ENV:-${APP_ENV:-dev}}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # Direct mode: CSRF is not enforced by the DAL in this deployment.
+      B2S_DISABLE_CSRF: "false"
+
+    # --------------------------------------------------
+    # Network exposure (INTERNAL ONLY)
+    # --------------------------------------------------
+    expose:
+      - "8000"
+
+    # --------------------------------------------------
+    # Filesystem
+    # --------------------------------------------------
+    # DAL SHOULD NOT write to disk in v1
+    read_only: true
+
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev
+      - /run:rw,noexec,nosuid,nodev
+
+
+    # --------------------------------------------------
+    # Security hardening
+    # --------------------------------------------------
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    # --------------------------------------------------
+    # Runtime user (must match Containerfile)
+    # --------------------------------------------------
+    user: "10002:10002"
+
+    # --------------------------------------------------
+    # Networks
+    # --------------------------------------------------
+    networks:
+      - app
+      - data
+
+
+networks:
+  app:
+    name: bts-app
+    external: true
+
+  data:
+    name: bts-data
+    external: true

@@ -1,0 +1,448 @@
+/* ---------------------------------------------------
+   Palette BornToShare (BLEU UNIFIÉ)
+--------------------------------------------------- */
+:root {
+  --b2s-primary: #0B1530;        /* Bleu maître (topbar / progress / boutons) */
+  --b2s-primary-dark: #070d1f;
+  --b2s-step-active: #0B1530;
+  --b2s-step-hover: #E8EEFA;
+
+  --b2s-bg: #F5F6FA;
+  --b2s-white: #FFFFFF;
+  --b2s-border: #E5E7EB;
+  --b2s-text: #111827;
+  --b2s-grey: #6B7280;
+
+  --radius: 12px;
+}
+
+/* ---------------------------------------------------
+   GLOBAL
+--------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--b2s-bg);
+  color: var(--b2s-text);
+}
+
+.b2s-app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------
+   TOPBAR
+--------------------------------------------------- */
+.b2s-topbar {
+  background: var(--b2s-primary);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 20px;
+  color: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.16);
+}
+
+.b2s-topbar__left,
+.b2s-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.b2s-logo {
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.b2s-topbar__title {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.b2s-env-badge {
+  background: rgba(255,255,255,0.15);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------
+   LAYOUT
+--------------------------------------------------- */
+.b2s-main {
+  display: flex;
+  flex: 1;
+  min-height: calc(100vh - 64px);
+}
+
+/* ---------------------------------------------------
+   STEPPER
+--------------------------------------------------- */
+.b2s-stepper {
+  width: 250px;
+  background: var(--b2s-white);
+  border-right: 1px solid var(--b2s-border);
+  padding: 24px 0;
+}
+
+.b2s-stepper ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.b2s-stepper li {
+  padding: 14px 24px;
+  font-size: 15px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  color: var(--b2s-grey);
+  transition: background .25s ease, color .25s ease, border-color .25s ease;
+}
+
+.b2s-stepper li:hover {
+  background: var(--b2s-step-hover);
+  color: var(--b2s-primary);
+}
+
+.b2s-stepper li.active {
+  background: var(--b2s-step-hover);
+  color: var(--b2s-primary);
+  font-weight: 600;
+  border-left-color: var(--b2s-primary);
+}
+
+/* Step validated (see [`updateStepperUI()`](services/wizard-ui/backend/app/static/js/core.js:45)) */
+.b2s-stepper li.done::after {
+  content: "✔";
+  color: #15803d;
+  float: right;
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------
+   WIZARD
+--------------------------------------------------- */
+.b2s-wizard {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ---------------------------------------------------
+   PROGRESS BAR
+--------------------------------------------------- */
+.b2s-progress,
+.b2s-mode-banner,
+.b2s-step {
+  width: 100%;
+  max-width: 620px;
+}
+
+.b2s-mode-banner {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.b2s-progress__track {
+  height: 6px;
+  background: var(--b2s-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.b2s-progress__bar {
+  height: 100%;
+  width: 0%;
+  background: var(--b2s-primary);
+  transition: width .35s cubic-bezier(0.22,1,0.36,1);
+}
+
+.b2s-progress__label {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--b2s-grey);
+}
+
+/* ---------------------------------------------------
+   DIVIDER
+---------------------------------------------------- */
+.b2s-divider {
+  height: 1px;
+  background: var(--b2s-border);
+  margin: 16px 0;
+}
+
+.b2s-pill,
+.b2s-badge {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+}
+
+.b2s-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+}
+
+.b2s-pill--ok,
+.b2s-badge--ok { background: #e6f7ee; color: #137333; }
+
+.b2s-pill--warn,
+.b2s-badge--warning { background: #fff4e5; color: #b45309; }
+
+.b2s-pill--ko { background: #fee2e2; color: #b91c1c; }
+
+/* ---------------------------------------------------
+   STEP CARD (ANIMATED)
+--------------------------------------------------- */
+.b2s-step {
+  display: none;
+  background: var(--b2s-white);
+  border-radius: var(--radius);
+  border: 1px solid var(--b2s-border);
+  padding: 34px;
+  box-shadow: 0 1px 10px rgba(0,0,0,.05);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+
+.b2s-step.active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+  animation: stepIn .22s ease-out;
+}
+
+.b2s-step h1,
+.b2s-step h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  color: var(--b2s-primary);
+}
+
+/* ---------------------------------------------------
+   FORMS
+--------------------------------------------------- */
+.form-field {
+  margin-bottom: 20px;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.form-field input {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--b2s-border);
+  font-size: 15px;
+}
+
+.form-field input:focus {
+  outline: none;
+  border-color: var(--b2s-primary);
+  box-shadow: 0 0 0 1px rgba(11,21,48,.15);
+}
+
+/* ---------------------------------------------------
+   PASSWORD RULES (LIVE FEEDBACK)
+--------------------------------------------------- */
+.b2s-password-rules ul {
+  list-style: none;
+  padding: 0;
+  margin-top: 12px;
+}
+
+.b2s-password-rules li {
+  font-size: 14px;
+  display: flex;
+  gap: 6px;
+  transition: color .25s ease, transform .25s ease;
+}
+
+.b2s-password-rules li.ko { color: #b91c1c; }
+.b2s-password-rules li.ok {
+  color: #15803d;
+  transform: translateX(3px);
+}
+
+/* ---------------------------------------------------
+   BUTTONS
+--------------------------------------------------- */
+.b2s-btn {
+  padding: 11px 22px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  border: none;
+  transition: background .2s ease, box-shadow .2s ease, transform .1s ease;
+}
+
+.b2s-btn:active {
+  transform: translateY(1px);
+}
+
+.b2s-btn-primary {
+  background: var(--b2s-primary);
+  color: #fff;
+}
+
+.b2s-btn-primary:hover {
+  background: var(--b2s-primary-dark);
+  box-shadow: 0 4px 10px rgba(11,21,48,.28);
+}
+
+.b2s-btn-secondary {
+  background: var(--b2s-white);
+  border: 1px solid var(--b2s-border);
+}
+
+/* ---------------------------------------------------
+   ACTIONS LAYOUT
+---------------------------------------------------- */
+.b2s-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.b2s-guard-msg {
+  display: block;
+  margin-top: 10px;
+  color: #b45309;
+  font-size: 13px;
+}
+
+.b2s-actions-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.b2s-btn-icon {
+  padding: 11px 14px;
+  min-width: 44px;
+}
+
+/* Disabled */
+.b2s-btn[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.b2s-btn-primary[disabled] {
+  background: #9CA3AF;
+  color: #fff;
+}
+
+.b2s-btn-primary[disabled]:hover {
+  background: #9CA3AF;
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------
+   BADGES
+--------------------------------------------------- */
+.b2s-badge {
+  padding: 4px 12px;
+}
+
+.b2s-badge--ok {
+  animation: badgePop .3s ease;
+}
+
+.b2s-badge--warning {
+  animation: badgePop .3s ease;
+}
+
+@keyframes badgePop {
+  from { opacity: 0; transform: scale(.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ---------------------------------------------------
+   WARNING BOX
+--------------------------------------------------- */
+.b2s-mode-banner,
+.b2s-warning-box {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.b2s-warning-box {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  animation: fadeIn .3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------------------------------------------------
+   TOASTS
+--------------------------------------------------- */
+#toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 9999;
+}
+
+.toast {
+  padding: 14px 20px;
+  border-radius: 8px;
+  color: #fff;
+  animation: slideInRight .35s ease;
+}
+
+.toast-success { background: #2ECC71; }
+.toast-error   { background: #E63946; }
+.toast-info    { background: var(--b2s-primary); }
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(25px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ---------------------------------------------------
+   STEP MICRO-ANIMATION
+--------------------------------------------------- */
+@keyframes stepIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

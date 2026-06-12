@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  wizard-ui:
+    build:
+      context: .
+      dockerfile: Containerfile
+    # En PROD, on utilisera plutôt l’image publiée :
+    # image: ghcr.io/borntoshare/wizard-ui:latest
+
+    # Charge l'environnement depuis un fichier .env local (non versionné)
+    # Voir: [`services/wizard-ui/.env.example`](services/wizard-ui/.env.example:1)
+    env_file:
+      - .env
+    ports:
+      - "${WIZARD_PORT}:8080"
+
+    restart: unless-stopped
+
+    networks:
+      - app
+      - data
+
+    # (Optionnel mais recommandé)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+networks:
+  app:
+    name: bts-app
+    external: true
+
+  data:
+    name: bts-data
+    external: true

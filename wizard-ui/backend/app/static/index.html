@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>BornToShare Wizard v5.0</title>
+  <link rel="stylesheet" href="/static/assets/style.css" />
+</head>
+
+<body>
+<div class="b2s-app-root">
+
+  <!-- TOPBAR -->
+  <header class="b2s-topbar">
+    <div class="b2s-topbar__left">
+      <span class="b2s-logo">BornToShare</span>
+      <span class="b2s-topbar__title">Wizard d'initialisation</span>
+    </div>
+    <div class="b2s-topbar__right">
+      <span class="b2s-env-badge" id="wizard_env_badge" style="display:none;"></span>
+    </div>
+  </header>
+
+  <main class="b2s-main">
+    <!-- STEPPER -->
+    <aside class="b2s-stepper">
+      <ol>
+        <li data-step="1" class="active">1. Bienvenue</li>
+        <li data-step="2">2. Administrateur</li>
+        <li data-step="3">3. Connexion DB</li>
+        <li data-step="4">4. Base applicative</li>
+        <li data-step="5">5. Base Logging</li>
+        <li data-step="6">6. Validation</li>
+      </ol>
+    </aside>
+
+    <!-- WIZARD -->
+    <section class="b2s-wizard">
+
+      <div id="prod_mode_banner" class="b2s-mode-banner" style="display:none;"></div>
+
+      <!-- Progress -->
+      <div class="b2s-progress">
+        <div class="b2s-progress__track">
+          <div class="b2s-progress__bar" id="b2s_progress_bar"></div>
+        </div>
+        <div class="b2s-progress__label" id="b2s_progress_label">Étape 1 sur 6</div>
+      </div>
+
+      <!-- STEP 1 -->
+      <section class="b2s-step active" data-step="1">
+        <div class="b2s-step-inner">
+          <h1>Bienvenue dans BornToShare</h1>
+          <p class="b2s-step-intro">
+            Plateforme de <strong>gouvernance des accès aux données</strong>, auditable, traçable et sécurisée.
+          </p>
+          <div class="b2s-info-box">
+            <strong>Important :</strong><br />
+            Connexion à une <em>base de données externe existante</em>.
+          </div>
+          <div class="b2s-actions" style="justify-content:center;">
+            <button id="btn_start" type="button" class="b2s-btn b2s-btn-primary">Commencer</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2 -->
+      <section class="b2s-step" data-step="2">
+        <form id="form_admin">
+          <h2>Administrateur applicatif</h2>
+          <div class="form-field">
+            <label>Nom d'utilisateur</label>
+            <input id="admin_username" type="text" value="admin" required autocomplete="username" />
+          </div>
+          <div class="form-field">
+            <label>Email (optionnel)</label>
+            <input id="admin_email" type="email" placeholder="admin@example.com" autocomplete="email" />
+            <small class="b2s-hint">Utilisé pour notifications si renseigné</small>
+          </div>
+          <div class="form-field">
+            <label>Mot de passe</label>
+            <input id="admin_password" type="password" autocomplete="new-password" required />
+          </div>
+
+          <div class="form-field">
+            <label>Confirmer le mot de passe</label>
+            <input id="admin_password_confirm" type="password" autocomplete="new-password" required />
+            <small id="admin_password_mismatch" class="b2s-hint" style="display:none;">Les mots de passe ne correspondent pas.</small>
+          </div>
+
+          <div class="b2s-password-rules">
+            <ul>
+              <li id="rule-length">✖ 12 caractères minimum</li>
+              <li id="rule-lower">✖ minuscule</li>
+              <li id="rule-upper">✖ majuscule</li>
+              <li id="rule-digit">✖ chiffre</li>
+              <li id="rule-special">✖ caractère spécial</li>
+              <li id="rule-forbidden">✖ différent du nom</li>
+            </ul>
+          </div>
+
+          <div class="b2s-actions">
+            <button type="button" id="btn_prev_2" class="b2s-btn b2s-btn-icon" aria-label="Retour">←</button>
+            <button id="admin_next_btn" type="submit" class="b2s-btn b2s-btn-primary b2s-btn-icon" aria-label="Suivant">→</button>
+          </div>
+          <small id="step_guard_2" class="b2s-guard-msg" style="display:none;"></small>
+        </form>
+      </section>
+
+      <!-- STEP 3 -->
+      <section class="b2s-step" data-step="3">
+        <form id="form_db">
+          <h2>Connexion à la base</h2>
+          <div class="form-field">
+            <label>Host</label>
+            <input id="db_host" required autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label>Port</label>
+            <input id="db_port" type="number" value="3306" required autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label>Utilisateur DB</label>
+            <input id="db_user" value="wizard" required autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label>Mot de passe</label>
+            <input id="db_password" type="password" required autocomplete="current-password" />
+          </div>
+          <div class="b2s-actions">
+            <button type="button" id="btn_prev_3" class="b2s-btn b2s-btn-icon" aria-label="Retour">←</button>
+            <div class="b2s-actions-right">
+              <button id="db_next_btn" type="submit" class="b2s-btn b2s-btn-primary">Tester et continuer</button>
+            </div>
+          </div>
+          <small id="step_guard_3" class="b2s-guard-msg" style="display:none;"></small>
+        </form>
+      </section>
+
+      <!-- STEP 4 -->
+      <section class="b2s-step" data-step="4">
+        <form id="form_app_db">
+          <h2>Base applicative</h2>
+          <div class="form-field">
+            <label>Nom de la base</label>
+            <input id="db_name" required autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label>Compte SQL applicatif</label>
+            <input id="app_sql_user" value="b2s_app" required autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label>Mot de passe</label>
+            <input id="app_user_password" type="password" required autocomplete="new-password" />
+          </div>
+
+          <div class="form-field">
+            <label>Confirmer le mot de passe</label>
+            <input id="app_user_password_confirm" type="password" required autocomplete="new-password" />
+            <small id="app_password_mismatch" class="b2s-hint" style="display:none;">Les mots de passe ne correspondent pas.</small>
+          </div>
+
+          <div class="b2s-password-rules">
+            <ul>
+              <li id="app-rule-length">✖ 12 caractères minimum</li>
+              <li id="app-rule-lower">✖ minuscule</li>
+              <li id="app-rule-upper">✖ majuscule</li>
+              <li id="app-rule-digit">✖ chiffre</li>
+              <li id="app-rule-special">✖ caractère spécial</li>
+            </ul>
+          </div>
+
+          <div class="b2s-actions">
+            <button type="button" id="btn_prev_4" class="b2s-btn b2s-btn-icon" aria-label="Retour">←</button>
+            <button id="app_next_btn" type="submit" class="b2s-btn b2s-btn-primary b2s-btn-icon" aria-label="Suivant">→</button>
+          </div>
+          <small id="step_guard_4" class="b2s-guard-msg" style="display:none;"></small>
+        </form>
+      </section>
+
+      <!-- STEP 5 -->
+      <section class="b2s-step" data-step="5">
+        <form id="form_logging_db">
+          <h2>Base Logging</h2>
+          <div class="form-field">
+            <label>Nom de la base</label>
+            <input id="logging_db_name" value="borntoshare_logging" required autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label>Compte SQL logging</label>
+            <input id="logging_sql_user" value="app_user" required autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label>Mot de passe</label>
+            <input id="logging_user_password" type="password" required autocomplete="new-password" />
+          </div>
+          <div class="form-field">
+            <label>Confirmer le mot de passe</label>
+            <input id="logging_user_password_confirm" type="password" required autocomplete="new-password" />
+            <small id="logging_password_mismatch" class="b2s-hint" style="display:none;">Les mots de passe ne correspondent pas.</small>
+          </div>
+
+          <div class="b2s-password-rules">
+            <ul>
+              <li id="logging-rule-length">✖ 12 caractères minimum</li>
+              <li id="logging-rule-lower">✖ minuscule</li>
+              <li id="logging-rule-upper">✖ majuscule</li>
+              <li id="logging-rule-digit">✖ chiffre</li>
+              <li id="logging-rule-special">✖ caractère spécial</li>
+            </ul>
+          </div>
+
+          <div class="b2s-actions">
+            <button type="button" id="btn_prev_5" class="b2s-btn b2s-btn-icon" aria-label="Retour">←</button>
+            <button id="logging_next_btn" type="submit" class="b2s-btn b2s-btn-primary b2s-btn-icon" aria-label="Suivant">→</button>
+          </div>
+          <small id="step_guard_5" class="b2s-guard-msg" style="display:none;"></small>
+        </form>
+      </section>
+
+      <!-- STEP 6 -->
+      <section class="b2s-step" data-step="6">
+        <h2>Validation</h2>
+        <!-- Visible uniquement en DEV/TEST -->
+        <div id="apply_seed_block" class="b2s-option-box" style="display:none;">
+          <label class="b2s-checkbox">
+            <input type="checkbox" id="apply_seed" />
+            <span>Données de démonstration (DEV / TEST)</span>
+          </label>
+        </div>
+
+        <div class="b2s-actions">
+          <button id="btn_prev_6" class="b2s-btn b2s-btn-icon" aria-label="Retour">←</button>
+          <button id="import_btn" class="b2s-btn b2s-btn-primary">Créer la base</button>
+        </div>
+      </section>
+
+    </section>
+  </main>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- ES MODULE ENTRYPOINT -->
+<script type="module" src="/static/js/index.js"></script>
+</body>
+</html>

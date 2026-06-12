@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  secret-broker:
+    container_name: secret-broker
+    image: b2s-secret-broker:latest
+
+    build:
+      context: .
+      dockerfile: Containerfile
+
+    restart: unless-stopped
+
+    # --------------------------------------------------
+    # Environment (NO PLAINTEXT SECRETS)
+    # --------------------------------------------------
+    env_file:
+      - .env
+
+    environment:
+      TZ: Europe/Paris
+      APP_ENV: ${APP_ENV:-dev}
+
+      # 🔐 Internal auth (service-to-service)
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+
+      # 🔐 Secret broker policy (DEV ONLY)
+      B2S_SECRET_ALLOW_WRITE: ${B2S_SECRET_ALLOW_WRITE:-true}
+      B2S_SECRET_WRITE_TOKEN: ${B2S_SECRET_WRITE_TOKEN}
+
+      # 📄 Secret storage (V1)
+      B2S_SECRET_PROVIDER: "filesystem"
+      B2S_SECRETS_DIR: "/data/secrets"
+      B2S_SECRET_MASTER_KEY: ${B2S_SECRET_MASTER_KEY}
+
+      # ❌ NEVER define secrets here
+      # AD_BIND_PASSWORD → injected via env / vault / CI
+
+    # --------------------------------------------------
+    # Internal exposure ONLY
+    # --------------------------------------------------
+    expose:
+      - "8010"
+
+    # --------------------------------------------------
+    # Networks (CRITICAL)
+    # --------------------------------------------------
+    networks:
+      - app
+
+    # --------------------------------------------------
+    # Hardening
+    # --------------------------------------------------
+    read_only: true
+    volumes:
+      # NOTE:
+      # - Avoid :U (recursive chown may fail on host filesystem)
+      # - Avoid :Z here as well (xattr relabel can fail with "operation not permitted")
+      # Keep a simple writable bind mount for broad compatibility.
+      - ./secrets:/data/secrets:rw
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev
+
+
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      # Rootless Podman + bind mount on this host requires SELinux label disable,
+      # otherwise /data/secrets becomes inaccessible from the container process.
+      - label=disable
+
+    user: "10004:10004"
+
+networks:
+  app:
+    name: bts-app
+    external: true

@@ -1,0 +1,210 @@
+.b2s-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 1.25rem;
+  min-height: 44px;
+  border-bottom: 1px solid var(--b2s-border, #e5e7eb);
+  padding: 0 .25rem;
+}
+
+.b2s-tabs__item {
+  height: 44px;
+  padding: 0 .15rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--b2s-muted, #64748b);
+  font-weight: 500;
+}
+
+.b2s-tabs__item.is-active {
+  color: var(--b2s-primary, #2563eb);
+  border-bottom-color: var(--b2s-primary, #2563eb);
+  font-weight: 600;
+}
+
+.b2s-card {
+  border: 1px solid var(--b2s-border, #e5e7eb);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(18, 31, 64, 0.05);
+}
+
+.b2s-card__header,
+.b2s-card__body,
+.b2s-card__footer {
+  padding: 1rem;
+}
+
+.b2s-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+.b2s-card__header:empty,
+.b2s-card__footer:empty {
+  display: none;
+}
+
+.b2s-section-title {
+  margin: 0;
+  font-size: var(--b2s-font-h2, 1rem);
+  font-weight: 600;
+}
+
+.b2s-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.b2s-actions--sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: linear-gradient(to top, #fff 70%, rgba(255, 255, 255, 0.85));
+  padding-top: .5rem;
+}
+
+.b2s-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.b2s-table-wrap.is-sticky {
+  max-height: 72vh;
+  overflow: auto;
+}
+
+.b2s-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--b2s-border, #e5e7eb);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.b2s-table th,
+.b2s-table td {
+  text-align: left;
+  vertical-align: middle;
+  padding: .6rem .75rem;
+  border-bottom: 1px solid var(--b2s-border, #e5e7eb);
+}
+
+.b2s-table th {
+  color: var(--b2s-muted, #64748b);
+  background: #f8fafc;
+  font-size: var(--b2s-font-micro, .75rem);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.b2s-table-wrap.is-sticky .b2s-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.b2s-table.is-compact th,
+.b2s-table.is-compact td {
+  padding: .42rem .55rem;
+}
+
+.b2s-table th.is-sortable {
+  cursor: pointer;
+}
+
+.b2s-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.b2s-table__empty {
+  color: var(--b2s-muted, #64748b);
+}
+
+.b2s-status {
+  display: inline-flex;
+  align-items: center;
+   gap: .38rem;
+  border-radius: 999px;
+  padding: .22rem .6rem;
+  font-size: .78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.b2s-status.is-compact {
+  font-size: .72rem;
+  padding: .14rem .5rem;
+}
+
+.b2s-status__dot {
+  width: .44rem;
+  height: .44rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.b2s-status.is-succeeded {
+  background: var(--b2s-success-bg, #dcfce7);
+  color: var(--b2s-success, #166534);
+  border-color: rgba(22, 101, 52, .25);
+}
+
+.b2s-status.is-running {
+  background: var(--b2s-warning-bg, #fef3c7);
+  color: var(--b2s-warning, #92400e);
+  border-color: rgba(146, 64, 14, .25);
+}
+
+.b2s-status.is-failed {
+  background: var(--b2s-danger-bg, #fee2e2);
+  color: var(--b2s-danger, #991b1b);
+  border-color: rgba(153, 27, 27, .25);
+}
+
+.b2s-status.is-retrying {
+  background: var(--b2s-primary-light, #eff6ff);
+  color: var(--b2s-primary, #2563eb);
+  border-color: rgba(37, 99, 235, .25);
+}
+
+.b2s-status.is-success {
+  background: var(--b2s-success-bg, #dcfce7);
+  color: var(--b2s-success-text, #166534);
+  border-color: rgba(22, 101, 52, .25);
+}
+
+.b2s-status.is-warning {
+  background: var(--b2s-warning-bg, #fef3c7);
+  color: var(--b2s-warning-text, #92400e);
+  border-color: rgba(146, 64, 14, .25);
+}
+
+.b2s-status.is-info {
+  background: var(--b2s-primary-light, #eff6ff);
+  color: var(--b2s-primary, #2563eb);
+  border-color: rgba(37, 99, 235, .25);
+}
+
+.b2s-status.is-error {
+  background: var(--b2s-danger-bg, #fee2e2);
+  color: var(--b2s-danger-text, #991b1b);
+  border-color: rgba(153, 27, 27, .25);
+}
+
+.b2s-status.is-disabled {
+  background: rgba(148, 163, 184, .16);
+  color: #475569;
+  border-color: rgba(148, 163, 184, .3);
+}
+
+.b2s-status.is-muted {
+  background: rgba(148, 163, 184, .16);
+  color: #64748b;
+  border-color: rgba(148, 163, 184, .26);
+}
