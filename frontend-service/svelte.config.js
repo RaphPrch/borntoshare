@@ -21,12 +21,9 @@ const config = {
   },
 
   kit: {
-    adapter: adapter(),
-
-    csrf: {
-      // 🔥 DEV MODE : HTTP only
-      trustedOrigins: ['*']
-    }
+    // CSRF: SvelteKit only accepts form POSTs whose Origin matches the app origin,
+    // which adapter-node takes from the ORIGIN env var (see podman-compose.yml).
+    adapter: adapter()
   }
 };
 

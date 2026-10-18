@@ -33,10 +33,19 @@ const PRINCIPAL_COOKIE_SAMESITE = (() => {
   return 'lax';
 })();
 
+// Secure by default whenever the public origin is HTTPS; explicit env vars still win.
 const PRINCIPAL_COOKIE_SECURE =
-  (env.PRINCIPAL_COOKIE_SECURE ?? env.B2S_USE_HTTPS ?? 'false') === 'true';
+  (env.PRINCIPAL_COOKIE_SECURE ??
+    env.B2S_USE_HTTPS ??
+    String((env.ORIGIN ?? '').trim().toLowerCase().startsWith('https://'))) === 'true';
 
-const PRINCIPAL_SIGNING_KEY = env.PRINCIPAL_SIGNING_KEY ?? 'dev-principal-key';
+const DEV_PRINCIPAL_SIGNING_KEY = 'dev-principal-key';
+const PRINCIPAL_SIGNING_KEY = env.PRINCIPAL_SIGNING_KEY || DEV_PRINCIPAL_SIGNING_KEY;
+
+// The principal cookie carries the user's roles: a publicly known key would let anyone forge an admin.
+if ((env.APP_ENV ?? 'dev').trim().toLowerCase() === 'prod' && PRINCIPAL_SIGNING_KEY === DEV_PRINCIPAL_SIGNING_KEY) {
+  throw new Error('PRINCIPAL_SIGNING_KEY must be set when APP_ENV=prod');
+}
 
 export async function hydrateUserFromAuthMe(event: RequestEvent): Promise<Me | null> {
   const authUrl = getServiceBaseUrl('auth');

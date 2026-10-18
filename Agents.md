@@ -43,6 +43,7 @@ Gateway (frontend BFF):
 - Routing of `/api/*` to auth-service, DAL or governance lives in `frontend-service/src/lib/server/service-routes.ts`; service URLs come from `B2S_AUTH_URL`, `B2S_DAL_URL`, `B2S_GOVERNANCE_URL`.
 - `/api/auth/*` goes to auth-service; `/api/internal/*` is never exposed.
 - Preserve session cookie behavior.
+- `ORIGIN` must be the public URL of the app: SvelteKit rejects cross-site form POSTs (CSRF) against it, and the principal cookie is `Secure` when it is HTTPS.
 
 Governance service:
 - Governance contains business logic.
@@ -59,6 +60,7 @@ Auth:
 - Keep `b2s_session` cookie behavior.
 - Support local, AD, dev, and optional Keycloak.
 - Do not force Keycloak-only authentication.
+- Set `APP_ENV=prod` in production: auth-service and frontend refuse to start with the default `PRINCIPAL_SIGNING_KEY` (the principal cookie carries roles).
 
 Access model:
 - Use “Access Profiles”, not “Permission Packs”.
@@ -67,9 +69,9 @@ Access model:
 
 Capsules:
 - Capsules are agentless.
-- Windows execution uses WinRM.
-- Linux execution uses SSH or remote commands.
+- capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares and NTFS ACLs, Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
 - Capsule execution must remain isolated from the main application network.
+- Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
 
 ## Checks
 
