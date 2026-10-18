@@ -71,6 +71,7 @@ Capsules:
 - Capsules are agentless.
 - capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares and NTFS ACLs, Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
 - Capsule execution must remain isolated from the main application network.
+- Job queue: Dramatiq over Redis. Redis is a standalone service (`redis/podman-compose.yml`), password-protected (`REDIS_PASSWORD`), with no published port, on the `bts-jobs` network shared only by governance-service (publisher) and capsule-runner (Dramatiq worker).
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
 
 ## Checks
