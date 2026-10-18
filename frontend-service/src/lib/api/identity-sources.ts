@@ -203,15 +203,3 @@ export const browseIdentitySource = (
   sourceId: number,
   params?: { q?: string; limit?: number; principal_type?: 'all' | 'user' | 'group' | 'ou' }
 ) => apiGetData<IdentityBrowseResponse>(fetchFn, `/identity-sources/${sourceId}/browse`, params);
-
-export const listIdentitySourceGroups = (
-  fetchFn: FetchLike,
-  sourceId: number,
-  query: string
-) => apiGetList<any>(fetchFn, `/identity-sources/${sourceId}/groups`, { q: query });
-
-export const importIdentitySourceGroup = (
-  fetchFn: FetchLike,
-  sourceId: number,
-  dn: string
-) => apiGetData(fetchFn, `/identity-sources/${sourceId}/groups/import`, { dn });

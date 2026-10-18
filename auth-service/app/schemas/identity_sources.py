@@ -12,9 +12,3 @@ class IdentitySourcePayload(BaseModel):
 
 class ADSecretUpsertPayload(IdentitySourcePayload):
     bind_password: str | None = Field(default=None, repr=False)
-
-
-class ADIdentitySourceTestPayload(IdentitySourcePayload):
-    host: str
-    base_dn: str
-    bind_dn: str

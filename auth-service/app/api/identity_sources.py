@@ -11,7 +11,7 @@ from app.core.config import get_settings
 from app.core.internal_auth import require_internal_token
 from app.core.internal_token import build_internal_headers
 from app.core.logging import get_logger, log_event
-from app.schemas.identity_sources import ADIdentitySourceTestPayload, ADSecretUpsertPayload
+from app.schemas.identity_sources import ADSecretUpsertPayload
 from app.services.secret_broker_client import store_secret, SecretStoreUnavailable
 
 settings = get_settings()
@@ -111,12 +111,6 @@ def _to_upsert_payload(payload: ADSecretUpsertPayload | dict[str, Any]) -> ADSec
     return ADSecretUpsertPayload.model_validate(payload)
 
 
-def _to_test_payload(payload: ADIdentitySourceTestPayload | dict[str, Any]) -> ADIdentitySourceTestPayload:
-    if isinstance(payload, ADIdentitySourceTestPayload):
-        return payload
-    return ADIdentitySourceTestPayload.model_validate(payload)
-
-
 def _store_ad_bind_password(payload: ADSecretUpsertPayload | dict[str, Any]) -> tuple[dict[str, Any], str | None]:
     data = _to_upsert_payload(payload).model_dump(exclude_none=True)
 
@@ -157,12 +151,6 @@ def _store_ad_bind_password(payload: ADSecretUpsertPayload | dict[str, Any]) -> 
     # Persist ref only
     data["bind_password_ref"] = ref
     return data, ref
-
-
-def _sanitize_ad_test_payload(payload: ADIdentitySourceTestPayload | dict[str, Any]) -> dict[str, Any]:
-    data = _to_test_payload(payload).model_dump(exclude_none=True)
-    data.pop("bind_password", None)
-    return data
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, summary="Create identity source (internal)")
@@ -218,39 +206,3 @@ async def store_bind_password_ref(
             message="bind_password required",
         )
     return {"bind_password_ref": ref}
-
-
-@router.post("/test", summary="Test identity source configuration (internal)")
-async def test_identity_source_internal(
-    payload: ADIdentitySourceTestPayload | dict[str, Any],
-    x_internal_token: Optional[str] = Header(default=None, alias="X-Internal-Token"),
-):
-    require_internal_token(x_internal_token, source="identity_sources.test")
-    data = _sanitize_ad_test_payload(payload)
-    source_type = (data.get("type") or "").lower()
-    if source_type and source_type != "ad":
-        raise _http_error(
-            status.HTTP_400_BAD_REQUEST,
-            code="BAD_REQUEST",
-            message="Only AD is supported",
-        )
-
-    host = (data.get("host") or "").strip()
-    base_dn = (data.get("base_dn") or "").strip()
-    bind_dn = (data.get("bind_dn") or "").strip()
-    if not host or not base_dn or not bind_dn:
-        raise _http_error(
-            status.HTTP_400_BAD_REQUEST,
-            code="BAD_REQUEST",
-            message="Missing required AD fields",
-            details={"required": ["host", "base_dn", "bind_dn"]},
-        )
-
-    log_event(
-        logger,
-        logging.INFO,
-        "AUTH_IDENTITY_SOURCE_TEST",
-        target=host,
-        outcome="request",
-    )
-    return await _dal_request("POST", "/api/identity-sources/test", payload=data)

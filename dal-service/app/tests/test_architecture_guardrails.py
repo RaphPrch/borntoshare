@@ -166,3 +166,16 @@ def test_directory_snapshots_repo_create_run_has_integrity_retry_loop() -> None:
     assert "max_attempts" in normalized
     assert "except integrityerror" in normalized
     assert "continue" in normalized
+
+
+def test_dal_never_calls_governance() -> None:
+    # Governance calls the DAL, never the reverse (no circular dependency).
+    offenders: list[str] = []
+    for path in (ROOT / "app").rglob("*.py"):
+        rel = path.relative_to(ROOT).as_posix()
+        if rel.startswith("app/tests/"):
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        if "governance-service:" in text or "governance_url" in text or "governance_proxy" in text:
+            offenders.append(rel)
+    assert offenders == []

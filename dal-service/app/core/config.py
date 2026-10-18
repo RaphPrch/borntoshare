@@ -59,13 +59,6 @@ class Settings(BaseModel):
     ENABLE_DOCS: bool = Field(default=os.getenv("ENABLE_DOCS", "true").lower() == "true")
 
     # =================================================
-    # 🧾 Activity bridge (DAL -> wizard logging DB)
-    # =================================================
-    WIZARD_RUNTIME_BASE: str = Field(default=os.getenv("WIZARD_RUNTIME_BASE", "http://wizard-ui:8080/api/runtime"))
-    WIZARD_ACTIVITY_TIMEOUT_SECONDS: int = Field(default=int(os.getenv("WIZARD_ACTIVITY_TIMEOUT_SECONDS", "5")))
-    GOVERNANCE_URL: str = Field(default=os.getenv("GOVERNANCE_URL", "http://governance-service:8000"))
-
-    # =================================================
     # 🔐 Internal service-to-service authentication
     # =================================================
     # static | hmac
@@ -105,7 +98,7 @@ class Settings(BaseModel):
             raise ValueError("INTERNAL_TOKEN_MODE must be 'hmac' or 'static'")
         return normalized
 
-    @field_validator("WIZARD_ACTIVITY_TIMEOUT_SECONDS", "INTERNAL_TOKEN_TTL_SEC")
+    @field_validator("INTERNAL_TOKEN_TTL_SEC")
     @classmethod
     def _validate_positive_ints(cls, value: int) -> int:
         if int(value) <= 0:

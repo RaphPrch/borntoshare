@@ -101,14 +101,3 @@ class IdentitySourceUpdate(BaseModel):
     auth_enabled: Optional[bool] = None
     auth_priority: Optional[int] = Field(default=None, ge=0, le=10000)
     is_active: Optional[bool] = None
-
-
-class IdentitySourceTestCheck(BaseModel):
-    key: str
-    ok: bool
-    message: Optional[str] = None
-
-
-class IdentitySourceTestResult(BaseModel):
-    ok: bool
-    checks: list[IdentitySourceTestCheck]
