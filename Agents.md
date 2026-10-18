@@ -2,7 +2,7 @@
 
 ## Project: BornToShare
 
-BornToShare is a data governance application with a SvelteKit frontend, FastAPI services, a gateway, a governance service, a DAL service, MariaDB, Keycloak/AD/local authentication, and capsule-based execution.
+BornToShare is a data governance application with a SvelteKit frontend (which also acts as the API gateway), FastAPI services (auth, governance, DAL, secret-broker, capsule-runner, wizard), MariaDB, Keycloak/AD/local authentication, and capsule-based execution.
 
 ## Working rules
 
@@ -25,8 +25,8 @@ Coding rules:
 
 Frontend:
 - SvelteKit SSR.
-- Frontend must call the gateway using relative `/api/*` routes only.
-- Frontend must not call DAL, auth-service, or governance-service directly.
+- Browser code must call relative `/api/*` routes only.
+- Browser code must not call DAL, auth-service, or governance-service directly; the SvelteKit server (BFF) routes `/api/*` to them.
 - Keep login and change-password pages in the frontend.
 - Respect existing UI components and CSS tokens.
 - No glassmorphism.
@@ -38,12 +38,11 @@ Frontend:
   - Text: #0f172a
   - Topbar: deep blue gradient
 
-Gateway:
-- Gateway is the only public API entrypoint.
-- Proxy `/api/auth/*` to auth-service.
-- Proxy governance endpoints through `/api/governance/*`.
+Gateway (frontend BFF):
+- There is no separate gateway service: the SvelteKit server is the only public API entrypoint.
+- Routing of `/api/*` to auth-service, DAL or governance lives in `frontend-service/src/lib/server/service-routes.ts`; service URLs come from `B2S_AUTH_URL`, `B2S_DAL_URL`, `B2S_GOVERNANCE_URL`.
+- `/api/auth/*` goes to auth-service; `/api/internal/*` is never exposed.
 - Preserve session cookie behavior.
-- Do not bypass the gateway.
 
 Governance service:
 - Governance contains business logic.
@@ -52,7 +51,7 @@ Governance service:
 
 DAL service:
 - DAL owns database access.
-- Use SQLAlchemy 2.x and Alembic migrations.
+- Use SQLAlchemy 2.x. There is no Alembic: the SQL schema, views and seeds are owned by wizard-ui (`wizard-ui/backend/app/sql/`) and applied by its migrations runner.
 - Do not put business workflow logic in DAL.
 
 Auth:
@@ -70,6 +69,12 @@ Capsules:
 - Windows execution uses WinRM.
 - Linux execution uses SSH or remote commands.
 - Capsule execution must remain isolated from the main application network.
+
+## Checks
+
+Run before pushing (CI runs the same in `.github/workflows/ci.yml`):
+- Python services: `python -m pytest -q` in each service directory (`wizard-ui/backend` for the wizard; auth-service needs `INTERNAL_TOKEN` set).
+- Frontend (`frontend-service`): `npm run build`, the `npm run test:*` scripts, and `npm run check` (must not add type errors).
 
 ## Credit-saving behavior
 
