@@ -57,7 +57,7 @@ export type IdentitySourcePayload = {
   is_active?: boolean;
 };
 
-type IdentitySourceDalWritePayload = {
+type IdentitySourceApiWritePayload = {
   type: 'ad';
   name: string;
   issuer_url?: string | null;
@@ -73,7 +73,7 @@ type IdentitySourceDalWritePayload = {
   is_active?: boolean;
 };
 
-type IdentitySourceDalUpdatePayload = Partial<Omit<IdentitySourceDalWritePayload, 'type'>>;
+type IdentitySourceApiUpdatePayload = Partial<Omit<IdentitySourceApiWritePayload, 'type'>>;
 
 export type IdentitySourceListItem = {
   id: number;
@@ -117,7 +117,7 @@ function toNullableTrimmedString(value: string | null | undefined): string | nul
   return trimmed ? trimmed : null;
 }
 
-function toIdentitySourceCreateDalPayload(payload: IdentitySourcePayload): IdentitySourceDalWritePayload {
+function toIdentitySourceCreateApiPayload(payload: IdentitySourcePayload): IdentitySourceApiWritePayload {
   return {
     type: 'ad',
     name: payload.name,
@@ -135,8 +135,8 @@ function toIdentitySourceCreateDalPayload(payload: IdentitySourcePayload): Ident
   };
 }
 
-function toIdentitySourceUpdateDalPayload(payload: Partial<IdentitySourcePayload>): IdentitySourceDalUpdatePayload {
-  const data: IdentitySourceDalUpdatePayload = {};
+function toIdentitySourceUpdateApiPayload(payload: Partial<IdentitySourcePayload>): IdentitySourceApiUpdatePayload {
+  const data: IdentitySourceApiUpdatePayload = {};
 
   if (payload.name !== undefined) data.name = payload.name;
   if (payload.issuer_url !== undefined) data.issuer_url = toNullableTrimmedString(payload.issuer_url);
@@ -157,13 +157,13 @@ function toIdentitySourceUpdateDalPayload(payload: Partial<IdentitySourcePayload
 export const createIdentitySource = (
   fetchFn: FetchLike,
   payload: IdentitySourcePayload
-) => apiPostData(fetchFn, '/identity-sources', toIdentitySourceCreateDalPayload(payload));
+) => apiPostData(fetchFn, '/identity-sources', toIdentitySourceCreateApiPayload(payload));
 
 export const updateIdentitySource = (
   fetchFn: FetchLike,
   sourceId: number,
   payload: Partial<IdentitySourcePayload>
-) => apiPatchData(fetchFn, `/identity-sources/${sourceId}`, toIdentitySourceUpdateDalPayload(payload));
+) => apiPatchData(fetchFn, `/identity-sources/${sourceId}`, toIdentitySourceUpdateApiPayload(payload));
 
 export const deleteIdentitySource = (fetchFn: FetchLike, sourceId: number) =>
   apiDeleteData(fetchFn, `/identity-sources/${sourceId}`);

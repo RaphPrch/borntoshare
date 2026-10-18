@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 
 class IdentitySourceNotFound(Exception):
-    """Raised when no identity source is configured (404 from DAL)."""
+    """Raised when no identity source is configured (404 from core-service)."""
 
 
 def _internal_headers() -> Dict[str, str]:
@@ -26,9 +26,9 @@ def _internal_headers() -> Dict[str, str]:
     return {**headers, **build_internal_headers()}
 
 
-async def dal_post(path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    url = settings.DAL_URL.rstrip("/") + path
-    timeout = getattr(settings, "DAL_TIMEOUT_SECONDS", 5)
+async def core_post(path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    url = settings.CORE_URL.rstrip("/") + path
+    timeout = getattr(settings, "CORE_TIMEOUT_SECONDS", 5)
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -38,25 +38,25 @@ async def dal_post(path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
             logger,
             logging.ERROR,
             "AUTH_PROVIDER_UNAVAILABLE",
-            provider="dal",
+            provider="core",
             target=url,
             outcome="timeout",
             error_code="INTERNAL_ERROR",
             message=str(exc),
         )
-        raise AuthUnavailable("DAL timeout") from exc
+        raise AuthUnavailable("core-service timeout") from exc
     except httpx.RequestError as exc:
         log_event(
             logger,
             logging.ERROR,
             "AUTH_PROVIDER_UNAVAILABLE",
-            provider="dal",
+            provider="core",
             target=url,
             outcome="network_error",
             error_code="INTERNAL_ERROR",
             message=str(exc),
         )
-        raise AuthUnavailable("DAL unavailable") from exc
+        raise AuthUnavailable("core-service unavailable") from exc
 
     if res.status_code == 404:
         raise IdentitySourceNotFound()
@@ -66,40 +66,40 @@ async def dal_post(path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
             logger,
             logging.ERROR,
             "AUTH_PROVIDER_UNAVAILABLE",
-            provider="dal",
+            provider="core",
             target=url,
             outcome="server_error",
             status_code=res.status_code,
             error_code="INTERNAL_ERROR",
         )
-        raise AuthUnavailable("DAL unavailable")
+        raise AuthUnavailable("core-service unavailable")
 
     if res.status_code != 200:
         log_event(
             logger,
             logging.WARNING,
-            "AUTH_DAL_BAD_RESPONSE",
-            provider="dal",
+            "AUTH_CORE_BAD_RESPONSE",
+            provider="core",
             target=url,
             outcome="bad_response",
             status_code=res.status_code,
             error_code="BAD_REQUEST",
         )
-        raise AuthUnavailable("DAL bad response")
+        raise AuthUnavailable("core-service bad response")
 
     try:
         payload_data = res.json() if res.content else {}
     except ValueError as exc:
-        raise AuthUnavailable("DAL bad JSON response") from exc
+        raise AuthUnavailable("core-service bad JSON response") from exc
 
     if not isinstance(payload_data, dict):
-        raise AuthUnavailable("DAL bad response payload")
+        raise AuthUnavailable("core-service bad response payload")
     return payload_data
 
 
-async def dal_get(path: str, params: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    url = settings.DAL_URL.rstrip("/") + path
-    timeout = getattr(settings, "DAL_TIMEOUT_SECONDS", 5)
+async def core_get(path: str, params: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    url = settings.CORE_URL.rstrip("/") + path
+    timeout = getattr(settings, "CORE_TIMEOUT_SECONDS", 5)
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -109,25 +109,25 @@ async def dal_get(path: str, params: Dict[str, Any] | None = None) -> Dict[str, 
             logger,
             logging.ERROR,
             "AUTH_PROVIDER_UNAVAILABLE",
-            provider="dal",
+            provider="core",
             target=url,
             outcome="timeout",
             error_code="INTERNAL_ERROR",
             message=str(exc),
         )
-        raise AuthUnavailable("DAL timeout") from exc
+        raise AuthUnavailable("core-service timeout") from exc
     except httpx.RequestError as exc:
         log_event(
             logger,
             logging.ERROR,
             "AUTH_PROVIDER_UNAVAILABLE",
-            provider="dal",
+            provider="core",
             target=url,
             outcome="network_error",
             error_code="INTERNAL_ERROR",
             message=str(exc),
         )
-        raise AuthUnavailable("DAL unavailable") from exc
+        raise AuthUnavailable("core-service unavailable") from exc
 
     if res.status_code == 404:
         raise IdentitySourceNotFound()
@@ -137,65 +137,65 @@ async def dal_get(path: str, params: Dict[str, Any] | None = None) -> Dict[str, 
             logger,
             logging.ERROR,
             "AUTH_PROVIDER_UNAVAILABLE",
-            provider="dal",
+            provider="core",
             target=url,
             outcome="server_error",
             status_code=res.status_code,
             error_code="INTERNAL_ERROR",
         )
-        raise AuthUnavailable("DAL unavailable")
+        raise AuthUnavailable("core-service unavailable")
 
     if res.status_code != 200:
         log_event(
             logger,
             logging.WARNING,
-            "AUTH_DAL_BAD_RESPONSE",
-            provider="dal",
+            "AUTH_CORE_BAD_RESPONSE",
+            provider="core",
             target=url,
             outcome="bad_response",
             status_code=res.status_code,
             error_code="BAD_REQUEST",
         )
-        raise AuthUnavailable("DAL bad response")
+        raise AuthUnavailable("core-service bad response")
 
     try:
         payload_data = res.json() if res.content else {}
     except ValueError as exc:
-        raise AuthUnavailable("DAL bad JSON response") from exc
+        raise AuthUnavailable("core-service bad JSON response") from exc
 
     if not isinstance(payload_data, dict):
-        raise AuthUnavailable("DAL bad response payload")
+        raise AuthUnavailable("core-service bad response payload")
     return payload_data
 
 
-async def dal_get_active_identity_source(
+async def core_get_active_identity_source(
     source_type: str = "ad",
 ) -> Dict[str, Any]:
-    return await dal_get(
+    return await core_get(
         "/api/internal/identity-sources/active",
         params={"type": source_type},
     )
 
 
-async def dal_get_active_identity_source_by_domain(
+async def core_get_active_identity_source_by_domain(
     source_type: str,
     domain: str,
 ) -> Dict[str, Any]:
-    return await dal_get(
+    return await core_get(
         "/api/internal/identity-sources/resolve",
         params={"type": source_type, "domain": domain},
     )
 
 
-async def dal_get_identity_roles(identity_id: str) -> Dict[str, Any]:
-    return await dal_get(f"/api/internal/identities/{identity_id}/roles")
+async def core_get_identity_roles(identity_id: str) -> Dict[str, Any]:
+    return await core_get(f"/api/internal/identities/{identity_id}/roles")
 
 
-async def dal_get_identity_source_by_id(source_id: int) -> Dict[str, Any]:
-    return await dal_get(f"/api/internal/identity-sources/{int(source_id)}")
+async def core_get_identity_source_by_id(source_id: int) -> Dict[str, Any]:
+    return await core_get(f"/api/internal/identity-sources/{int(source_id)}")
 
 
-async def dal_resolve_login_identity(
+async def core_resolve_login_identity(
     *,
     login: str | None = None,
     username: str | None = None,
@@ -208,10 +208,10 @@ async def dal_resolve_login_identity(
         "upn_hint": upn_hint,
         "domain_hint": domain_hint,
     }
-    return await dal_post("/api/internal/identities/resolve-login", payload)
+    return await core_post("/api/internal/identities/resolve-login", payload)
 
 
-async def dal_resolve_ad_identity(
+async def core_resolve_ad_identity(
     *,
     external_id: str | None = None,
     username: str | None = None,
@@ -224,4 +224,4 @@ async def dal_resolve_ad_identity(
         "email": email,
         "identity_source_id": identity_source_id,
     }
-    return await dal_post("/api/internal/identities/resolve-ad", payload)
+    return await core_post("/api/internal/identities/resolve-ad", payload)

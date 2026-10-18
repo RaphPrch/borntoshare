@@ -9,7 +9,7 @@ from app.services.providers.base import (
     SecretResolutionError,
 )
 from app.services.providers.ad_ldap import _resolve_bind_password
-from app.services.providers.local_dal import DalLocalProvider
+from app.services.providers.local_core import CoreLocalProvider
 
 
 class _FakeResponse:
@@ -40,9 +40,9 @@ class _FakeClient:
 def test_local_provider_401_maps_to_invalid_credentials(monkeypatch):
     import asyncio
 
-    provider = DalLocalProvider()
+    provider = CoreLocalProvider()
 
-    import app.services.providers.local_dal as local_module
+    import app.services.providers.local_core as local_module
 
     monkeypatch.setattr(local_module.httpx, "AsyncClient", lambda **_kwargs: _FakeClient(_FakeResponse(401, {"detail": "invalid"})))
 
@@ -53,9 +53,9 @@ def test_local_provider_401_maps_to_invalid_credentials(monkeypatch):
 def test_local_provider_503_maps_to_unavailable(monkeypatch):
     import asyncio
 
-    provider = DalLocalProvider()
+    provider = CoreLocalProvider()
 
-    import app.services.providers.local_dal as local_module
+    import app.services.providers.local_core as local_module
 
     monkeypatch.setattr(local_module.httpx, "AsyncClient", lambda **_kwargs: _FakeClient(_FakeResponse(503, {"detail": "down"})))
 
@@ -81,9 +81,9 @@ def test_resolve_bind_password_failure_maps_to_secret_resolution(monkeypatch):
 
 def test_local_provider_does_not_map_401_to_provider_misconfigured(monkeypatch):
     import asyncio
-    import app.services.providers.local_dal as local_module
+    import app.services.providers.local_core as local_module
 
-    provider = DalLocalProvider()
+    provider = CoreLocalProvider()
     monkeypatch.setattr(local_module.httpx, "AsyncClient", lambda **_kwargs: _FakeClient(_FakeResponse(401, {"detail": "invalid"})))
 
     with pytest.raises(InvalidCredentials):

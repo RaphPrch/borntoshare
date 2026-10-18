@@ -24,7 +24,7 @@ type StorageProtocol =
  * ================================================== */
 
 /**
- * Context view (DAL / governance / sidebar)
+ * Context view (core-service / governance / sidebar)
  * Source of truth: SQL view (contractual)
  */
 export type StorageEndpointContext = {
@@ -297,7 +297,7 @@ type StorageEndpointCreatePayload = {
   last_probe_message?: string | null;
 };
 
-type StorageEndpointDalWritePayload = {
+type StorageEndpointApiWritePayload = {
   name: string;
   endpoint_type: StorageProtocol;
   zone_id: number;
@@ -323,11 +323,11 @@ export type StorageEndpointUpdatePayload =
     config_json?: Record<string, any> | null;
   };
 
-type StorageEndpointDalUpdatePayload = Partial<StorageEndpointDalWritePayload> & {
+type StorageEndpointApiUpdatePayload = Partial<StorageEndpointApiWritePayload> & {
   zone_id?: number | null;
 };
 
-function toStorageEndpointCreateDalPayload(payload: StorageEndpointCreatePayload): StorageEndpointDalWritePayload {
+function toStorageEndpointCreateApiPayload(payload: StorageEndpointCreatePayload): StorageEndpointApiWritePayload {
   const zoneId = Number(payload.zone_id);
   if (!Number.isInteger(zoneId) || zoneId <= 0) {
     throw new Error('A zone is required to create a storage endpoint.');
@@ -353,8 +353,8 @@ function toStorageEndpointCreateDalPayload(payload: StorageEndpointCreatePayload
   };
 }
 
-function toStorageEndpointUpdateDalPayload(payload: StorageEndpointUpdatePayload): StorageEndpointDalUpdatePayload {
-  const data: StorageEndpointDalUpdatePayload = {};
+function toStorageEndpointUpdateApiPayload(payload: StorageEndpointUpdatePayload): StorageEndpointApiUpdatePayload {
+  const data: StorageEndpointApiUpdatePayload = {};
 
   if (payload.name !== undefined) data.name = payload.name;
   if (payload.description !== undefined) data.description = payload.description;
@@ -386,7 +386,7 @@ export const createStorageEndpoint = (
     const data = await apiPostData<StorageEndpointCreateResponse>(
       fetchFn,
       '/storage-endpoints',
-      toStorageEndpointCreateDalPayload(payload)
+      toStorageEndpointCreateApiPayload(payload)
     );
 
     const id = Number(
@@ -408,7 +408,7 @@ export const updateStorageEndpoint = (
   id: number,
   payload: StorageEndpointUpdatePayload
 ): Promise<{ ok: true }> =>
-  apiPatchData<{ ok: true }>(fetchFn, `/storage-endpoints/${id}`, toStorageEndpointUpdateDalPayload(payload));
+  apiPatchData<{ ok: true }>(fetchFn, `/storage-endpoints/${id}`, toStorageEndpointUpdateApiPayload(payload));
 
 export const recordStorageEndpointProbeResult = (
   fetchFn: FetchLike,

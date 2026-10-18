@@ -2,7 +2,7 @@
 
 ## Project: BornToShare
 
-BornToShare is a data governance application with a SvelteKit frontend (which also acts as the API gateway), FastAPI services (auth, DAL with its governance module, secret-broker, capsule-runner, wizard), MariaDB, Keycloak/AD/local authentication, and capsule-based execution.
+BornToShare is a data governance application with a SvelteKit frontend (which also acts as the API gateway), FastAPI services (auth, core, secret-broker, capsule-runner, wizard), MariaDB, Keycloak/AD/local authentication, and capsule-based execution.
 
 ## Working rules
 
@@ -26,7 +26,7 @@ Coding rules:
 Frontend:
 - SvelteKit SSR.
 - Browser code must call relative `/api/*` routes only.
-- Browser code must not call DAL or auth-service directly; the SvelteKit server (BFF) routes `/api/*` to them.
+- Browser code must not call core-service or auth-service directly; the SvelteKit server (BFF) routes `/api/*` to them.
 - Keep login and change-password pages in the frontend.
 - Respect existing UI components and CSS tokens.
 - Follow the `src/lib` layout and shared helpers described in `frontend-service/docs/structure.md`.
@@ -41,21 +41,17 @@ Frontend:
 
 Gateway (frontend BFF):
 - There is no separate gateway service: the SvelteKit server is the only public API entrypoint.
-- Routing of `/api/*` to auth-service or DAL lives in `frontend-service/src/lib/server/service-routes.ts`; service URLs come from `B2S_AUTH_URL`, `B2S_DAL_URL`. Governance paths (`/access-requests/bulk`, `/identity/{search,import,snapshots,jobs,discover}`, `/admin/jobs`, `/probes`) go to the DAL under `/governance`.
+- Routing of `/api/*` to auth-service or core-service lives in `frontend-service/src/lib/server/service-routes.ts`; service URLs come from `B2S_AUTH_URL`, `B2S_CORE_URL`. Orchestration paths (`/access-requests/bulk`, `/identity/{search,import,snapshots,jobs,discover}`, `/admin/jobs`, `/probes`) go to core-service under `/governance`.
 - `/api/auth/*` goes to auth-service; `/api/internal/*` is never exposed.
 - Preserve session cookie behavior.
 - `ORIGIN` must be the public URL of the app: SvelteKit rejects cross-site form POSTs (CSRF) against it, and the principal cookie is `Secure` when it is HTTPS.
 
-Governance (`dal-service/app/governance/`, mounted at `/api/governance`):
-- Governance contains the orchestration logic (access requests, identity imports, probes, AD groups) and publishes provisioning jobs to Dramatiq.
-- It runs inside dal-service but calls DAL routes in-process (`governance/core/dal_client.py`, ASGI transport, same internal auth) or DAL services; it never imports repositories or opens DB sessions.
-- DAL code never imports governance; only `app/main.py` mounts it (both enforced by `test_architecture_guardrails.py`).
-- Its routes are guarded by `require_internal_token`; `B2S_ALLOW_PUBLIC_API` opens the non-`/internal/` ones to the BFF.
-
-DAL service:
-- DAL owns database access.
-- Use SQLAlchemy 2.x. There is no Alembic: the SQL schema, views and seeds are owned by wizard-ui (`wizard-ui/backend/app/sql/`) and applied by its migrations runner.
-- Do not put business workflow logic in DAL.
+core-service (`core-service/`, all business data and orchestration):
+- Layout of `app/`: `core/` (config, db, logging, errors, internal auth, `internal_client.py`), `data/` (`models/`, `repositories/`: all SQL), `services/` (business logic), `schemas/`, `api/` (routes, mounted under `/api`), `api/governance/` (orchestration routes, mounted under `/api/governance`), `jobs/` (Dramatiq broker, job contracts, QUEUED watchdog).
+- Only `data/` and services touch the database. Use SQLAlchemy 2.x. There is no Alembic: the SQL schema, views and seeds are owned by wizard-ui (`wizard-ui/backend/app/sql/`) and applied by its migrations runner.
+- Orchestration (`api/governance/`: access requests, identity imports, probes, AD groups) publishes provisioning jobs to Dramatiq. It calls the service's own routes in-process (`core/internal_client.py`, ASGI transport, same internal auth) or services; it never imports `app.data` or opens DB sessions, and only `app/main.py` mounts it (both enforced by `test_architecture_guardrails.py`).
+- Service-to-service auth lives in `core/internal_auth.py` only (`X-Internal-Token` static/HMAC, `X-Service-Token` + scopes). Orchestration routes use `require_orchestration_access`; `B2S_ALLOW_PUBLIC_API` opens the non-`/internal/` ones to the BFF.
+- Settings live in `core/config.py` only; `CAPSULE_BROKER_URL` is required at startup.
 
 Auth:
 - Keep `b2s_session` cookie behavior.
@@ -72,7 +68,7 @@ Capsules:
 - Capsules are agentless.
 - capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares and NTFS ACLs, Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
 - Capsule execution must remain isolated from the main application network.
-- Job queue: Dramatiq over Redis. Redis is a standalone service (`redis/podman-compose.yml`), password-protected (`REDIS_PASSWORD`), with no published port, on the `bts-jobs` network shared only by dal-service (governance publishes jobs) and capsule-runner (Dramatiq worker).
+- Job queue: Dramatiq over Redis. Redis is a standalone service (`redis/podman-compose.yml`), password-protected (`REDIS_PASSWORD`), with no published port, on the `bts-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
 
 ## Checks

@@ -25,7 +25,7 @@ type SecurityConfig = {
   passwordExpiryDays: number;
 };
 
-type SecuritySettingsDal = {
+type SecuritySettingsApi = {
   enable_strong_password?: boolean;
   password_min_length?: number;
   password_history?: number;
@@ -68,7 +68,7 @@ export async function purgeLogs(fetchFn: FetchLike) {
 }
 
 export async function saveSecurityConfig(fetchFn: FetchLike, security: SecurityConfig) {
-  const payload: SecuritySettingsDal = {
+  const payload: SecuritySettingsApi = {
     enable_strong_password: security.enforceStrongPasswords,
     password_min_length: security.passwordMinLength,
     password_history: security.passwordHistory,

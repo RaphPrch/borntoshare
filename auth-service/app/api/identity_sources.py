@@ -44,14 +44,14 @@ def _slugify(value: str) -> str:
     return value or "identity-source"
 
 
-async def _dal_request(method: str, path: str, payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-    url = settings.DAL_URL.rstrip("/") + path
+async def _core_request(method: str, path: str, payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    url = settings.CORE_URL.rstrip("/") + path
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
         **build_internal_headers(),
     }
-    timeout = getattr(settings, "DAL_TIMEOUT_SECONDS", 5)
+    timeout = getattr(settings, "CORE_TIMEOUT_SECONDS", 5)
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -60,13 +60,13 @@ async def _dal_request(method: str, path: str, payload: Optional[dict[str, Any]]
         raise _http_error(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             code="AUTH_UNAVAILABLE",
-            message="DAL timeout",
+            message="core-service timeout",
         ) from exc
     except httpx.RequestError as exc:
         raise _http_error(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             code="AUTH_UNAVAILABLE",
-            message="DAL unavailable",
+            message="core-service unavailable",
         ) from exc
 
     if res.status_code in (200, 201):
@@ -76,7 +76,7 @@ async def _dal_request(method: str, path: str, payload: Optional[dict[str, Any]]
         raise _http_error(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             code="AUTH_UNAVAILABLE",
-            message="DAL unavailable",
+            message="core-service unavailable",
             details={"status_code": int(res.status_code)},
         )
 
@@ -88,7 +88,7 @@ async def _dal_request(method: str, path: str, payload: Optional[dict[str, Any]]
     if isinstance(detail, dict) and isinstance(detail.get("error"), dict):
         nested = dict(detail.get("error") or {})
         return_code = str(nested.get("code") or "BAD_REQUEST").strip() or "BAD_REQUEST"
-        return_message = str(nested.get("message") or "DAL request failed").strip() or "DAL request failed"
+        return_message = str(nested.get("message") or "core-service request failed").strip() or "core-service request failed"
         return_details = nested.get("details") if isinstance(nested.get("details"), dict) else {}
         raise _http_error(
             int(res.status_code),
@@ -100,7 +100,7 @@ async def _dal_request(method: str, path: str, payload: Optional[dict[str, Any]]
     raise _http_error(
         int(res.status_code),
         code="BAD_REQUEST",
-        message="DAL request failed",
+        message="core-service request failed",
         details={"status_code": int(res.status_code)},
     )
 
@@ -133,7 +133,7 @@ def _store_ad_bind_password(payload: ADSecretUpsertPayload | dict[str, Any]) -> 
         if default_ref:
             ref = default_ref
         else:
-            # Broker-backed reference (not stored in DAL).
+            # Broker-backed reference (not stored in core-service).
             # Use name/host to generate a stable-ish key.
             name = data.get("name") or data.get("host") or "ad"
             ref = f"identity-sources/{_slugify(str(name))}/bind-password"
@@ -166,7 +166,7 @@ async def create_identity_source(
         "AUTH_IDENTITY_SOURCE_CREATE",
         outcome="request",
     )
-    return await _dal_request("POST", "/api/identity-sources", payload=data)
+    return await _core_request("POST", "/api/identity-sources", payload=data)
 
 
 @router.patch("/{source_id}", summary="Update identity source (internal)")
@@ -186,7 +186,7 @@ async def update_identity_source(
         target=source_id,
         outcome="request",
     )
-    return await _dal_request("PATCH", f"/api/identity-sources/{source_id}", payload=data)
+    return await _core_request("PATCH", f"/api/identity-sources/{source_id}", payload=data)
 
 
 @router.post("/secret-ref", summary="Store bind password and return ref (internal)")

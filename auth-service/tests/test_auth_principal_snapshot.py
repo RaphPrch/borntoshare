@@ -50,7 +50,7 @@ def test_login_sets_session_and_principal_cookie_and_no_session_in_body(monkeypa
     monkeypatch.setattr(auth_api, "_post_auth_enrich_user", _post_auth)
     monkeypatch.setattr(auth_api, "_attach_rbac_roles", _attach_roles)
     monkeypatch.setattr(auth_api, "_bind_ad_user_to_local_identity", _bind_ad)
-    monkeypatch.setattr(auth_api, "dal_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
+    monkeypatch.setattr(auth_api, "core_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
 
     with _new_client() as client:
         res = client.post(
@@ -133,7 +133,7 @@ def test_login_local_invalid_credentials_returns_401(monkeypatch) -> None:
             raise InvalidCredentials("Invalid credentials")
 
     monkeypatch.setattr(auth_api, "choose_provider", lambda _: _Provider())
-    monkeypatch.setattr(auth_api, "dal_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
+    monkeypatch.setattr(auth_api, "core_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
 
     with _new_client() as client:
         res = client.post(
@@ -157,7 +157,7 @@ def test_login_local_provider_unavailable_returns_503(monkeypatch) -> None:
             raise AuthUnavailable("provider down")
 
     monkeypatch.setattr(auth_api, "choose_provider", lambda _: _Provider())
-    monkeypatch.setattr(auth_api, "dal_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
+    monkeypatch.setattr(auth_api, "core_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
 
     with _new_client() as client:
         res = client.post(
@@ -268,7 +268,7 @@ def test_admin_sessions_contains_masked_session_id(monkeypatch) -> None:
     assert payload["sessions"][0]["id_masked"] == "1234...9abc"
 
 
-def test_admin_logging_contract_reads_and_persists_dal_config(monkeypatch) -> None:
+def test_admin_logging_contract_reads_and_persists_core_config(monkeypatch) -> None:
     monkeypatch.setenv("INTERNAL_TOKEN", "test-token")
     from app.api import auth as auth_api
     from app.schemas.auth import UserInfo
@@ -295,7 +295,7 @@ def test_admin_logging_contract_reads_and_persists_dal_config(monkeypatch) -> No
     monkeypatch.setattr(auth_api.store, "get", lambda sid: rec if sid == "sid-admin" else None)
     captured: dict[str, dict] = {}
 
-    async def _fake_dal_get(_path: str):
+    async def _fake_core_get(_path: str):
         return {
             "data": {
                 "logging": {
@@ -306,12 +306,12 @@ def test_admin_logging_contract_reads_and_persists_dal_config(monkeypatch) -> No
             }
         }
 
-    async def _fake_dal_post(_path: str, payload: dict):
+    async def _fake_core_post(_path: str, payload: dict):
         captured["payload"] = dict(payload or {})
         return {"data": {"ok": True}}
 
-    monkeypatch.setattr(auth_api, "dal_get", _fake_dal_get)
-    monkeypatch.setattr(auth_api, "dal_post", _fake_dal_post)
+    monkeypatch.setattr(auth_api, "core_get", _fake_core_get)
+    monkeypatch.setattr(auth_api, "core_post", _fake_core_post)
 
     with _new_client() as client:
         client.cookies.set("b2s_session", "sid-admin")
@@ -380,7 +380,7 @@ def test_login_ad_success(monkeypatch) -> None:
     monkeypatch.setattr(auth_api, "_bind_ad_user_to_local_identity", _bind_ad)
     monkeypatch.setattr(auth_api, "_post_auth_enrich_user", _post_auth)
     monkeypatch.setattr(auth_api, "_attach_rbac_roles", _attach_roles)
-    monkeypatch.setattr(auth_api, "dal_resolve_login_identity", _resolve_login_identity)
+    monkeypatch.setattr(auth_api, "core_resolve_login_identity", _resolve_login_identity)
 
     with _new_client() as client:
         res = client.post(
@@ -407,7 +407,7 @@ def test_login_ad_bind_failure_returns_401(monkeypatch) -> None:
     monkeypatch.setattr(auth_api, "choose_provider", lambda _: _Provider())
     monkeypatch.setattr(
         auth_api,
-        "dal_resolve_login_identity",
+        "core_resolve_login_identity",
         lambda **_kwargs: asyncio.sleep(
             0,
             result={
@@ -440,7 +440,7 @@ def test_login_ad_identity_inactive_returns_403(monkeypatch) -> None:
 
     monkeypatch.setattr(
         auth_api,
-        "dal_resolve_login_identity",
+        "core_resolve_login_identity",
         lambda **_kwargs: asyncio.sleep(
             0,
             result={
@@ -572,7 +572,7 @@ def test_login_provider_misconfigured_maps_to_500(monkeypatch) -> None:
     monkeypatch.setattr(auth_api, "choose_provider", lambda _: _Provider())
     monkeypatch.setattr(
         auth_api,
-        "dal_resolve_login_identity",
+        "core_resolve_login_identity",
         lambda **_kwargs: asyncio.sleep(
             0,
             result={
@@ -614,7 +614,7 @@ def test_login_secret_resolution_error_maps_to_503(monkeypatch) -> None:
     monkeypatch.setattr(auth_api, "choose_provider", lambda _: _Provider())
     monkeypatch.setattr(
         auth_api,
-        "dal_resolve_login_identity",
+        "core_resolve_login_identity",
         lambda **_kwargs: asyncio.sleep(
             0,
             result={
@@ -659,7 +659,7 @@ def test_bind_ad_user_to_local_identity_passes_identity_source_id(monkeypatch) -
             "email": "alice@corp.local",
         }
 
-    monkeypatch.setattr(auth_api, "dal_resolve_ad_identity", _fake_resolve_ad_identity)
+    monkeypatch.setattr(auth_api, "core_resolve_ad_identity", _fake_resolve_ad_identity)
 
     user = UserInfo(
         identity_id=None,

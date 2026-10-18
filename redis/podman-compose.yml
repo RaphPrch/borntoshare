@@ -1,11 +1,11 @@
 version: "3.9"
 
-# Dramatiq broker (job queue between dal-service, which publishes governance jobs, and capsule-runner).
+# Dramatiq broker (job queue between core-service, which publishes governance jobs, and capsule-runner).
 # Standalone so it can be started/stopped independently of any application service.
 #
 # Prerequisites (once per host):
 #   podman network create bts-jobs
-#   REDIS_PASSWORD=<long random value> in .env (same value for dal-service and capsule-runner).
+#   REDIS_PASSWORD=<long random value> in .env (same value for core-service and capsule-runner).
 #   Use letters and digits only: it is embedded in CAPSULE_BROKER_URL (redis://:<password>@redis:6379/2),
 #   where characters such as # @ / : would break the URL.
 
@@ -54,7 +54,7 @@ services:
       - no-new-privileges:true
 
     # --------------------------------------------------
-    # Networks: jobs network only (dal-service + capsule-runner)
+    # Networks: jobs network only (core-service + capsule-runner)
     # --------------------------------------------------
     networks:
       - jobs

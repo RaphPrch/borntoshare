@@ -7,7 +7,7 @@ import httpx
 
 from app.core.action_registry import CapsuleActionError, execute_action
 from app.core.scope_guard import ensure_action_scope_allowed
-from app.services.dal_client import dal_get, dal_post
+from app.services.core_client import core_get, core_post
 from app.shared.b2s_job_contracts.contracts import default_action_for_job_type
 
 
@@ -50,7 +50,7 @@ def _build_metrics(result: dict[str, Any] | None, retries: int, max_retries: int
 
 def run_job(job_id: int, *, retries: int = 0, max_retries: int = 5) -> None:
     numeric_job_id = int(job_id)
-    job = dal_get(f"/api/internal/provisioning/jobs/{numeric_job_id}")
+    job = core_get(f"/api/internal/provisioning/jobs/{numeric_job_id}")
     if not isinstance(job, dict):
         raise RuntimeError("job not found")
 
@@ -61,7 +61,7 @@ def run_job(job_id: int, *, retries: int = 0, max_retries: int = 5) -> None:
         return
 
     if status in {"CREATED", "QUEUED", "RETRYING"}:
-        dal_post(
+        core_post(
             f"/api/internal/provisioning/jobs/{numeric_job_id}/start",
             {
                 "correlation_id": correlation_id or f"job_{numeric_job_id}",
@@ -87,7 +87,7 @@ def run_job(job_id: int, *, retries: int = 0, max_retries: int = 5) -> None:
             "correlation_id": correlation_id or f"job_{numeric_job_id}",
         }
 
-        dal_post(
+        core_post(
             f"/api/internal/provisioning/jobs/{numeric_job_id}/complete",
             complete_payload,
         )
@@ -104,7 +104,7 @@ def run_job(job_id: int, *, retries: int = 0, max_retries: int = 5) -> None:
             }
         elif isinstance(exc, httpx.HTTPStatusError):
             status_code = int(getattr(exc.response, "status_code", 0) or 0)
-            final_error_code = f"CAPSULE_DAL_HTTP_{status_code}" if status_code > 0 else "CAPSULE_DAL_HTTP_ERROR"
+            final_error_code = f"CAPSULE_CORE_HTTP_{status_code}" if status_code > 0 else "CAPSULE_CORE_HTTP_ERROR"
 
             response_detail = ""
             try:
@@ -136,7 +136,7 @@ def run_job(job_id: int, *, retries: int = 0, max_retries: int = 5) -> None:
             "retryable": retryable,
         }
 
-        dal_post(
+        core_post(
             f"/api/internal/provisioning/jobs/{numeric_job_id}/fail",
             {
                 "action": action,

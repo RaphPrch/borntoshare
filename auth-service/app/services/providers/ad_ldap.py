@@ -18,9 +18,9 @@ from app.services.providers.base import (
     SecretResolutionError,
 )
 from app.services.internal_clients import (
-    dal_get_identity_source_by_id,
-    dal_get_active_identity_source,
-    dal_get_active_identity_source_by_domain,
+    core_get_identity_source_by_id,
+    core_get_active_identity_source,
+    core_get_active_identity_source_by_domain,
     IdentitySourceNotFound,
 )
 from app.schemas.auth import UserInfo
@@ -205,9 +205,9 @@ def _build_ad_config(src: dict, *, target: str | None) -> ADConfig:
 
 
 async def _load_active_config() -> ADConfig | None:
-    """Load AD identity source from DAL."""
+    """Load AD identity source from core-service."""
     try:
-        src = await dal_get_active_identity_source("ad")
+        src = await core_get_active_identity_source("ad")
     except IdentitySourceNotFound:
         log_event(
             logger,
@@ -239,7 +239,7 @@ async def _load_active_config_for_domain(domain_hint: str | None) -> ADConfig | 
         return await _load_active_config()
 
     try:
-        src = await dal_get_active_identity_source_by_domain("ad", domain)
+        src = await core_get_active_identity_source_by_domain("ad", domain)
     except IdentitySourceNotFound:
         log_event(
             logger,
@@ -269,7 +269,7 @@ async def _load_active_config_for_domain(domain_hint: str | None) -> ADConfig | 
 
 async def _load_active_config_for_source(source_id: int) -> ADConfig | None:
     try:
-        src = await dal_get_identity_source_by_id(int(source_id))
+        src = await core_get_identity_source_by_id(int(source_id))
     except IdentitySourceNotFound:
         log_event(
             logger,

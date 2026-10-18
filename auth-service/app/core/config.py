@@ -65,12 +65,12 @@ class Settings(BaseSettings):
     DEFAULT_AUTH_PROVIDER: str = "ad"
 
     # =================================================
-    # 🧠 Local provider (DAL)
+    # 🧠 Local provider (core-service)
     # =================================================
-    DAL_URL: str = "http://dal-service:8000"
-    DAL_VALIDATE_CREDENTIALS_PATH: str = "/internal/auth/local/verify"
-    DAL_CHANGE_PASSWORD_PATH: str = "/internal/auth/change-password"
-    DAL_TIMEOUT_SECONDS: int = 5
+    CORE_URL: str = "http://core-service:8000"
+    CORE_VALIDATE_CREDENTIALS_PATH: str = "/internal/auth/local/verify"
+    CORE_CHANGE_PASSWORD_PATH: str = "/internal/auth/change-password"
+    CORE_TIMEOUT_SECONDS: int = 5
 
     # =================================================
     # 🟩 Active Directory / LDAP
@@ -139,7 +139,7 @@ class Settings(BaseSettings):
         return normalized or ["local"]
 
     @field_validator(
-        "DAL_TIMEOUT_SECONDS",
+        "CORE_TIMEOUT_SECONDS",
         "AD_CONNECT_TIMEOUT_SECONDS",
         "B2S_SECRET_BROKER_TIMEOUT_SECONDS",
         "REDIS_TIMEOUT_SECONDS",

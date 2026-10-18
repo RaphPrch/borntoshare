@@ -64,7 +64,7 @@ type StorageRootActivityItem = {
 };
 
 type StorageRootAccessProfileSummary = {
-  /** @deprecated Legacy compatibility type for access-profile payloads still returned by the DAL. */
+  /** @deprecated Legacy compatibility type for access-profile payloads still returned by core-service. */
   id?: number | null;
   link_id?: number | null;
   access_profile_id?: number | null;
@@ -145,7 +145,7 @@ export type StorageRootDetailModel = {
   parent_root_path?: string | null;
   inherit_owners?: boolean | number | null;
   inherit_tags?: boolean | number | null;
-  /** @deprecated Legacy compatibility flag from the DAL. Active UI should use guardians, projected groups and effective access instead. */
+  /** @deprecated Legacy compatibility flag from core-service. Active UI should use guardians, projected groups and effective access instead. */
   inherit_access_profiles?: boolean | number | null;
   path?: string | null;
   zone_id?: number | null;
@@ -217,7 +217,7 @@ export const normalizeStorageRootDetailModel = (
     owners: toArray<StorageRootOwner>(source.owners),
     tags: toArray<StorageRootTagLike>(source.tags),
     recent_activity: toArray<StorageRootActivityItem>(source.recent_activity),
-    // Keep the legacy field normalized for DAL payload compatibility, but active UI
+    // Keep the legacy field normalized for core-service payload compatibility, but active UI
     // should rely on projected_ad_groups and effective_access instead.
     access_profiles: toArray<StorageRootAccessProfileSummary>(source.access_profiles),
     projected_ad_groups: toArray<StorageRootProjectedAdGroup>(source.projected_ad_groups),

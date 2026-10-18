@@ -31,11 +31,11 @@ from app.services.session_store import get_session_store
 from app.services.identity_enrich import enrich_user_flags
 from app.services.internal_clients import (
     IdentitySourceNotFound,
-    dal_get,
-    dal_get_identity_roles,
-    dal_post,
-    dal_resolve_login_identity,
-    dal_resolve_ad_identity,
+    core_get,
+    core_get_identity_roles,
+    core_post,
+    core_resolve_login_identity,
+    core_resolve_ad_identity,
 )
 
 from app.schemas.auth import (
@@ -69,8 +69,8 @@ def _request_id(request: Request) -> str:
     return str(get_request_id(request) or "-")
 
 
-async def _load_logging_config_from_dal() -> dict[str, Any]:
-    payload = await dal_get("/api/admin/config/advanced")
+async def _load_logging_config_from_core() -> dict[str, Any]:
+    payload = await core_get("/api/admin/config/advanced")
     raw = payload.get("data") if isinstance(payload, dict) else {}
     cfg = raw if isinstance(raw, dict) else {}
     logging_cfg = cfg.get("logging") if isinstance(cfg.get("logging"), dict) else {}
@@ -88,8 +88,8 @@ async def _load_logging_config_from_dal() -> dict[str, Any]:
     }
 
 
-async def _save_logging_config_to_dal(*, level: str, retention_enabled: bool, retention_days: int) -> dict[str, Any]:
-    await dal_post(
+async def _save_logging_config_to_core(*, level: str, retention_enabled: bool, retention_days: int) -> dict[str, Any]:
+    await core_post(
         "/api/admin/config/advanced",
         {
             "logging": {
@@ -118,7 +118,7 @@ async def _emit_activity_event(
     metadata_json: dict[str, Any] | None = None,
     correlation_id: str | None = None,
 ) -> None:
-    url = settings.DAL_URL.rstrip("/") + "/api/activity/events"
+    url = settings.CORE_URL.rstrip("/") + "/api/activity/events"
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -138,7 +138,7 @@ async def _emit_activity_event(
         "source_service": "auth-service",
     }
     try:
-        async with httpx.AsyncClient(timeout=int(settings.DAL_TIMEOUT_SECONDS)) as client:
+        async with httpx.AsyncClient(timeout=int(settings.CORE_TIMEOUT_SECONDS)) as client:
             await client.post(url, json=payload, headers=headers)
     except Exception as exc:
         log_event(
@@ -479,7 +479,7 @@ async def _attach_rbac_roles(user: UserInfo) -> UserInfo:
         )
 
     try:
-        data = await dal_get_identity_roles(user.identity_id)
+        data = await core_get_identity_roles(user.identity_id)
     except IdentitySourceNotFound:
         raise _http_error(
             status.HTTP_403_FORBIDDEN,
@@ -514,7 +514,7 @@ async def _bind_ad_user_to_local_identity(user: UserInfo) -> UserInfo:
     if (user.auth_source or "").strip().lower() != "ad":
         return user
 
-    data = await dal_resolve_ad_identity(
+    data = await core_resolve_ad_identity(
         external_id=user.external_id,
         username=user.username,
         email=user.email,
@@ -589,7 +589,7 @@ async def _authenticate_login(payload: LoginRequest, request: Request) -> tuple[
     resolved_identity: dict[str, Any] | None = None
 
     try:
-        resolved_identity = await dal_resolve_login_identity(
+        resolved_identity = await core_resolve_login_identity(
             login=normalized_login.get("login"),
             username=normalized_login.get("username"),
             upn_hint=normalized_login.get("upn_hint"),
@@ -1040,7 +1040,7 @@ async def get_admin_logging_config(user: UserInfo = Depends(get_current_user)) -
     global _runtime_logging_level, _runtime_logging_retention_enabled, _runtime_logging_retention_days
     _require_platform_admin(user)
     try:
-        cfg = await _load_logging_config_from_dal()
+        cfg = await _load_logging_config_from_core()
     except AuthUnavailable:
         cfg = {
             "level": _runtime_logging_level,
@@ -1066,7 +1066,7 @@ async def set_admin_logging_config(payload: dict[str, Any], user: UserInfo = Dep
     retention_enabled = bool(payload.get("retentionEnabled", _runtime_logging_retention_enabled))
 
     try:
-        cfg = await _save_logging_config_to_dal(
+        cfg = await _save_logging_config_to_core(
             level=level,
             retention_enabled=retention_enabled,
             retention_days=retention_days,
@@ -1242,7 +1242,7 @@ async def admin_change_password(
 ) -> ChangePasswordResponse:
     _require_platform_admin(user)
     rid = _request_id(request)
-    url = settings.DAL_URL.rstrip("/") + settings.DAL_CHANGE_PASSWORD_PATH
+    url = settings.CORE_URL.rstrip("/") + settings.CORE_CHANGE_PASSWORD_PATH
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -1254,7 +1254,7 @@ async def admin_change_password(
         headers["X-Actor-Display"] = str(user.display_name or user.username)
 
     try:
-        async with httpx.AsyncClient(timeout=int(settings.DAL_TIMEOUT_SECONDS)) as client:
+        async with httpx.AsyncClient(timeout=int(settings.CORE_TIMEOUT_SECONDS)) as client:
             response = await client.post(
                 url,
                 json={

@@ -14,7 +14,7 @@ export type StorageRootContext = {
   parent_root_path?: string | null;
   inherit_owners?: boolean | number | null;
   inherit_tags?: boolean | number | null;
-  /** @deprecated Legacy access-profile inheritance flag kept only for DAL payload compatibility. */
+  /** @deprecated Legacy access-profile inheritance flag kept only for core-service payload compatibility. */
   inherit_access_profiles?: boolean | number | null;
   storage_endpoint_id?: number | null;
   storage_endpoint_name?: string | null;
@@ -58,7 +58,7 @@ type StorageRootRecord = {
   parent_root_path?: string | null;
   inherit_owners?: boolean | number | null;
   inherit_tags?: boolean | number | null;
-  /** @deprecated Legacy access-profile inheritance flag kept only for DAL payload compatibility. */
+  /** @deprecated Legacy access-profile inheritance flag kept only for core-service payload compatibility. */
   inherit_access_profiles?: boolean | number | null;
   storage_endpoint_id?: number | null;
   storage_endpoint_name?: string | null;
@@ -117,7 +117,7 @@ export type StorageRootCreatePayload = {
   root_path: string;
   inherit_owners?: boolean;
   inherit_tags?: boolean;
-  /** @deprecated Still forwarded to the DAL for compatibility. New UI should not depend on this flag. */
+  /** @deprecated Still forwarded to core-service for compatibility. New UI should not depend on this flag. */
   inherit_access_profiles?: boolean;
   status?: string;
 };
@@ -129,7 +129,7 @@ export type StorageRootUpdatePayload = {
   root_path?: string;
   inherit_owners?: boolean;
   inherit_tags?: boolean;
-  /** @deprecated Still forwarded to the DAL for compatibility. New UI should not depend on this flag. */
+  /** @deprecated Still forwarded to core-service for compatibility. New UI should not depend on this flag. */
   inherit_access_profiles?: boolean;
   status?: string;
   last_probe_status?: string | null;
@@ -139,26 +139,26 @@ export type StorageRootUpdatePayload = {
   revalidation_reason?: string | null;
 };
 
-type StorageRootDalCreatePayload = {
+type StorageRootApiCreatePayload = {
   storage_endpoint_id: number;
   parent_storage_root_id?: number;
   name: string;
   root_path: string;
   inherit_owners?: boolean;
   inherit_tags?: boolean;
-  /** @deprecated DAL compatibility only. */
+  /** @deprecated core-service compatibility only. */
   inherit_access_profiles?: boolean;
   status?: string;
 };
 
-type StorageRootDalUpdatePayload = {
+type StorageRootApiUpdatePayload = {
   storage_endpoint_id?: number;
   parent_storage_root_id?: number | null;
   name?: string;
   root_path?: string;
   inherit_owners?: boolean;
   inherit_tags?: boolean;
-  /** @deprecated DAL compatibility only. */
+  /** @deprecated core-service compatibility only. */
   inherit_access_profiles?: boolean;
   status?: string;
   last_probe_status?: string | null;
@@ -186,7 +186,7 @@ function optionalTrimmed(value: string | null | undefined): string | undefined {
   return trimmed || undefined;
 }
 
-function toStorageRootCreateDalPayload(payload: StorageRootCreatePayload): StorageRootDalCreatePayload {
+function toStorageRootCreateApiPayload(payload: StorageRootCreatePayload): StorageRootApiCreatePayload {
   const endpointId = positiveInteger(payload.storage_endpoint_id);
   if (!endpointId) {
     throw new Error('A storage endpoint is required to create a storage root.');
@@ -194,7 +194,7 @@ function toStorageRootCreateDalPayload(payload: StorageRootCreatePayload): Stora
 
   const parentId = positiveInteger(payload.parent_storage_root_id);
   const hasParent = parentId > 0;
-  const data: StorageRootDalCreatePayload = {
+  const data: StorageRootApiCreatePayload = {
     storage_endpoint_id: endpointId,
     name: requiredTrimmed(payload.name, 'Storage root name'),
     root_path: requiredTrimmed(payload.root_path, 'Storage root path'),
@@ -211,8 +211,8 @@ function toStorageRootCreateDalPayload(payload: StorageRootCreatePayload): Stora
   return data;
 }
 
-function toStorageRootUpdateDalPayload(payload: StorageRootUpdatePayload): StorageRootDalUpdatePayload {
-  const data: StorageRootDalUpdatePayload = {};
+function toStorageRootUpdateApiPayload(payload: StorageRootUpdatePayload): StorageRootApiUpdatePayload {
+  const data: StorageRootApiUpdatePayload = {};
 
   if (payload.storage_endpoint_id !== undefined) {
     const endpointId = positiveInteger(payload.storage_endpoint_id);
@@ -253,7 +253,7 @@ export const createStorageRoot = (
     const data = await apiPostData<StorageRootWriteResponse>(
       fetchFn,
       "/storage-roots",
-      toStorageRootCreateDalPayload(payload)
+      toStorageRootCreateApiPayload(payload)
     );
 
     const id = Number(data?.id ?? 0);
@@ -273,7 +273,7 @@ export const updateStorageRoot = async (
   const data = await apiPatchData<StorageRootWriteResponse>(
     fetchFn,
     `/storage-roots/${storageRootId}`,
-    toStorageRootUpdateDalPayload(payload)
+    toStorageRootUpdateApiPayload(payload)
   );
   return {
     id: Number(data?.id ?? 0)
