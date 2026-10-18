@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import megaConfig, { type MegaMenuKey } from '$lib/components/mega-config.ts';
+  import megaConfig, { type MegaMenuKey } from '$lib/components/mega-config';
 
 
   export let activeMega: MegaMenuKey | null = null;

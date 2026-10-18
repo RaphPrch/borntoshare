@@ -1,10 +1,12 @@
-<script lang="ts">
+<script module lang="ts">
   export type EntityTabItem<Key extends string = string> = {
     key: Key;
     label: string;
     icon?: string | null;
   };
+</script>
 
+<script lang="ts">
   export let tabs: EntityTabItem[] = [];
   export let activeKey = '';
   export let onChange: ((key: string) => void) | null = null;

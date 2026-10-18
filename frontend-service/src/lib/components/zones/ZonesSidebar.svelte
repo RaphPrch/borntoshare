@@ -1,8 +1,4 @@
-<script lang="ts">
-  import EntitySidebarTree, {
-    type EntitySidebarGroup
-  } from "$lib/components/common/EntitySidebarTree.svelte";
-
+<script module lang="ts">
   export type ZonesSidebarZone = {
     id: number;
     name: string;
@@ -10,6 +6,12 @@
     is_active?: boolean;
     healthLabel?: "ok" | "warning";
   };
+</script>
+
+<script lang="ts">
+  import EntitySidebarTree, {
+    type EntitySidebarGroup
+  } from "$lib/components/common/EntitySidebarTree.svelte";
 
   export let zones: ZonesSidebarZone[] = [];
   export let selectedZoneId: number | null = null;

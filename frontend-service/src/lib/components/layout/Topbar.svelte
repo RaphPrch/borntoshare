@@ -1,6 +1,6 @@
 <script lang="ts">
   export let user: unknown = null;
-  import { type MegaMenuKey } from '$lib/components/mega-config.ts';
+  import { type MegaMenuKey } from '$lib/components/mega-config';
   import { normalizeMe } from '$lib/auth/me';
   import { initialsFromLabel } from '$lib/utils/initials';
 

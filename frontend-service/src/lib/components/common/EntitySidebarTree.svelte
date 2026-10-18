@@ -1,7 +1,4 @@
-<script lang="ts">
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
-  import SearchField from '$lib/components/common/SearchField.svelte';
-
+<script module lang="ts">
   export type EntitySidebarItem = {
     id: string | number;
     label: string;
@@ -18,6 +15,11 @@
     warningCount?: number;
     items: EntitySidebarItem[];
   };
+</script>
+
+<script lang="ts">
+  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  import SearchField from '$lib/components/common/SearchField.svelte';
 
   export let ariaLabel = 'Entity sidebar';
   export let createLabel = 'New item';

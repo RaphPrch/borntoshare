@@ -1,4 +1,4 @@
-<script lang="ts">
+<script module lang="ts">
   export type EntityActionVariant = 'primary' | 'secondary' | 'probe' | 'danger' | 'ghost';
 
   export type EntityActionItem = {
@@ -12,7 +12,9 @@
     ariaLabel?: string;
     onClick?: () => void;
   };
+</script>
 
+<script lang="ts">
   export let actions: EntityActionItem[] = [];
   export let ariaLabel = 'Entity actions';
   export let align: 'start' | 'end' = 'end';
