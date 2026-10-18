@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "svelte-kit sync || echo \"\"",
     "dev": "node ./node_modules/vite/bin/vite.js dev",
     "build": "LC_ALL=C LANG=C node ./node_modules/vite/bin/vite.js build --logLevel error",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
