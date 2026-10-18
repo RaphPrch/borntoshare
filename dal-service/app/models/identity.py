@@ -10,7 +10,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from .local_credential import LocalCredential
     from .access_request import AccessRequest
 
 
@@ -122,17 +121,6 @@ class Identity(Base, TimestampMixin):
     # ============================================================
     # Relationships
     # ============================================================
-
-    # 1–1 local authentication
-    local_credential: Mapped[Optional["LocalCredential"]] = relationship(
-        "LocalCredential",
-        back_populates="identity",
-        uselist=False,
-        cascade="all, delete-orphan",
-        lazy="selectin",
-    )
-
-    
 
     # Access requests initiated by this identity
     access_requests: Mapped[list["AccessRequest"]] = relationship(
