@@ -3,7 +3,7 @@
   import { getRequestStatusMeta, isProvisioningInFlight } from '$lib/utils/access-request-status';
   import { bulkDecision } from '$lib/api/access-requests';
   import { apiGetData } from '$lib/api/client';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
   import { initialsFromLabel } from '$lib/utils/initials';
   import { mapAccessRequestDecisionErrorFromBulk, type AccessRequestDecisionUiError } from '$lib/utils/request-decision-errors';
   import {

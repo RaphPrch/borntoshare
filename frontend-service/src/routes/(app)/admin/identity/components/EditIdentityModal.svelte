@@ -3,7 +3,7 @@
   import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
   import EntityDrawerShell from '$lib/components/common/EntityDrawerShell.svelte';
   import { adminChangePassword, updateIdentity } from '$lib/api/identity';
-  import { toasts } from '$lib/stores/toast';
+  import { toast } from '$lib/stores/toast';
   import { initialsFromLabel } from '$lib/utils/initials';
 
   export let open = false;
@@ -158,7 +158,7 @@
         });
       }
 
-      toasts.success('Identity updated.');
+      toast.success('Identity updated.');
       dispatch('done');
       close();
     } catch (err: any) {

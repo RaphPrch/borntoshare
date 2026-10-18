@@ -5,7 +5,7 @@
   import { normalizeMe } from '$lib/auth/me';
   import { bulkDecision, getAccessRequestDetails } from '$lib/api/access-requests';
   import NewAccessRequestModal from '$lib/components/access-requests/NewAccessRequestModal.svelte';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
   import { initialsFromLabel } from '$lib/utils/initials';
   import {
     mapAccessRequestDecisionError,

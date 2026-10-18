@@ -10,7 +10,7 @@
     principalLabel,
     principalSubtitle
   } from '$lib/utils/principal-search';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
 
   export let open = false;
   export let prefillStorageRootId: number | null = null;

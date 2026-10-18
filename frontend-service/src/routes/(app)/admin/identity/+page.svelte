@@ -20,7 +20,7 @@
   import { notifyError, toAppError } from '$lib/core/errors';
   import { showApiErrorToast } from '$lib/core/errors/api-toast';
   import { timeAgo } from '$lib/utils/timeAgo';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
 
   export let data: {
     users?: any[];
@@ -251,7 +251,7 @@
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
-      toasts.success('Sync started.');
+      toast.success('Sync started.');
       await refreshIdentityData();
     } catch (error) {
       notifyError(toAppError(error, { source: 'ui' }));

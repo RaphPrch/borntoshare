@@ -3,7 +3,7 @@
   import { createIdentity, type CreateIdentityPayload } from '$lib/api/identity';
   import { listIdentitySources, type IdentitySourceListItem } from '$lib/api/identity-sources';
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
-  import { toasts } from '$lib/stores/toast';
+  import { toast } from '$lib/stores/toast';
   import { presentErrorHint, presentErrorMessage, toAppError } from '$lib/core/errors';
   import { searchBrowserDirectory } from '$lib/components/identity/identity-browser.controller';
   import type { PrincipalSearchItem } from '$lib/utils/principal-search';
@@ -153,7 +153,7 @@
       adSources = activeAdSources(await listIdentitySources(fetch));
       if (!adSources.length) {
         onCancel();
-        toasts.warning("Import impossible: aucune identity source Active Directory active n'est definie.");
+        toast.warning("Import impossible: aucune identity source Active Directory active n'est definie.");
         return false;
       }
       if (!selectedSourceId) {
@@ -300,7 +300,7 @@
     const hasSources = await ensureAdSources();
     if (!hasSources) return;
     if (!selectedSourceId) {
-      toasts.warning("Impossible d'ouvrir le browser AD : aucune identity source Active Directory n'est selectionnee.");
+      toast.warning("Impossible d'ouvrir le browser AD : aucune identity source Active Directory n'est selectionnee.");
       return;
     }
     showAdBrowser = true;
@@ -309,7 +309,7 @@
   function onSelectFromAdBrowser(payload: IdentityBrowserSelectionPayload) {
     const selected = Array.isArray(payload?.selectedItems) ? payload.selectedItems[0] : null;
     if (!selected) {
-      toasts.warning('No directory identity selected.');
+      toast.warning('No directory identity selected.');
       return;
     }
 
@@ -399,19 +399,19 @@
     if (mode === 'local' && !localFormValid()) return;
     if (isDirectoryMode(mode)) {
       if (!resolvedDirectorySourceId) {
-        toasts.warning('Select an identity source first.');
+        toast.warning('Select an identity source first.');
         return;
       }
       if (!selectedPrincipal) {
-        toasts.warning('Select a user or group first.');
+        toast.warning('Select a user or group first.');
         return;
       }
       if (!applicationRole) {
-        toasts.warning('Select an application role first.');
+        toast.warning('Select an application role first.');
         return;
       }
       if (!directoryFormValid()) {
-        toasts.warning('Unable to import identity.');
+        toast.warning('Unable to import identity.');
         return;
       }
     }
@@ -419,13 +419,13 @@
     submitting = true;
     try {
       const created = await createIdentity(fetch, buildCreatePayload());
-      toasts.success(isSelectedGroup ? 'Group imported.' : 'Identity imported.');
+      toast.success(isSelectedGroup ? 'Group imported.' : 'Identity imported.');
       dispatch('done', { id: created?.id });
     } catch (error) {
       const appError = toAppError(error, { source: 'ui' });
       errorMessage = presentErrorMessage(appError);
       errorHint = presentErrorHint(appError) ?? '';
-      toasts.error('Unable to import identity.');
+      toast.error('Unable to import identity.');
     } finally {
       submitting = false;
     }

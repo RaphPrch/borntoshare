@@ -15,7 +15,7 @@
     type IdentityOverviewPayload,
     type OwnerBrowserPrincipal
   } from './storage-root-owners.browser';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
 
   export let open = false;
   export let storageRootId: number | null = null;

@@ -1,5 +1,5 @@
   <script lang="ts">
-  import { toast } from "$lib/utils/toast";
+  import { toast } from "$lib/stores/toast";
   import { runProbeWithPolling } from "$lib/probe/probe-runner";
   import {
     buildStorageEndpointProbeRequestFromEndpoint,

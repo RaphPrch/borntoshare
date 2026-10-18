@@ -2,7 +2,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import EmptyStateCard from '$lib/components/common/EmptyStateCard.svelte';
   import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
 
   export let data: {
     endpoints: any[];

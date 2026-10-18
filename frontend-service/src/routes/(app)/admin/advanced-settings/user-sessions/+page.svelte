@@ -1,7 +1,7 @@
 <script lang="ts">
   import ConfigCard from '$lib/components/advanced-settings/v3/ConfigCard.svelte';
   import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
-  import { toasts } from '$lib/stores/toast';
+  import { toast } from '$lib/stores/toast';
   import { notifyError, toAppError } from '$lib/core/errors';
   import { logAppError } from '$lib/core/logging';
   import { timeAgo } from '$lib/utils/timeAgo';
@@ -81,7 +81,7 @@
     try {
       const res = await revokeUserSession(fetch, sessionId);
       if (res?.ok) {
-        toasts.success('Session disconnected.');
+        toast.success('Session disconnected.');
         await refresh();
       } else {
         const appError = toAppError(new Error(String(res?.message ?? 'Unable to disconnect session.')), {

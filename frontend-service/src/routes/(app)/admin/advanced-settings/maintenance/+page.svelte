@@ -2,7 +2,7 @@
   import ConfigCard from '$lib/components/advanced-settings/v3/ConfigCard.svelte';
   import SettingRow from '$lib/components/advanced-settings/v3/SettingRow.svelte';
 
-  import { toasts } from '$lib/stores/toast';
+  import { toast } from '$lib/stores/toast';
   import { notifyError, toAppError } from '$lib/core/errors';
   import { logAppError } from '$lib/core/logging';
   import { saveMaintenanceConfig } from '$lib/api/admin-advanced-settings';
@@ -68,7 +68,7 @@
       form = { ...payload };
       allowedCidrsText = payload.allowedCidrs.join(', ');
       initialSnapshot = JSON.stringify(normalize(payload, allowedCidrsText));
-      toasts.success('Maintenance settings saved.');
+      toast.success('Maintenance settings saved.');
     } catch (e: unknown) {
       errorMsg = toUiErrorMessage(e, 'Unable to save right now.', 'advanced_settings.maintenance.save');
     } finally {

@@ -76,7 +76,7 @@
     storageRootAlertTone,
     storageRootOpenAlertSummary
   } from '$lib/services/mappers/storage-root-alerts.mapper';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
   import { dependencyDeleteMessage, isDependencyDeleteError } from '$lib/utils/delete-guard';
   import { apiGetData } from '$lib/api/client';
   import { selectionStore } from '$lib/stores/app/selection.store';

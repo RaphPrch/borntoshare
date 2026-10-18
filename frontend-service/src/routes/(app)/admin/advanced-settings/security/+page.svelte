@@ -2,7 +2,7 @@
   import ConfigCard from '$lib/components/advanced-settings/v3/ConfigCard.svelte';
   import SettingRow from '$lib/components/advanced-settings/v3/SettingRow.svelte';
 
-  import { toasts } from '$lib/stores/toast';
+  import { toast } from '$lib/stores/toast';
   import { notifyError, toAppError } from '$lib/core/errors';
   import { logAppError } from '$lib/core/logging';
   import { saveSecurityConfig } from '$lib/api/admin-advanced-settings';
@@ -65,7 +65,7 @@
       settings.security = { ...settings.security, ...payload };
       form = { ...payload };
       initialSnapshot = JSON.stringify(normalize(payload));
-      toasts.success('Security settings saved.');
+      toast.success('Security settings saved.');
     } catch (e: unknown) {
       errorMsg = toUiErrorMessage(e, 'Unable to save.', 'advanced_settings.security.save');
     } finally {

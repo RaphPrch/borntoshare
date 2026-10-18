@@ -76,7 +76,7 @@
   import { runProbeWithPolling } from '$lib/probe/probe-runner';
   import { notifyError, toAppError } from '$lib/core/errors';
   import { logAppError, logInfo, logWarning } from '$lib/core/logging';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
   import {
     dependencyCountDeleteMessage,
     dependencyDeleteMessage,

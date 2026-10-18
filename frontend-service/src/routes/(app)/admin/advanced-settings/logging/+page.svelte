@@ -4,7 +4,7 @@
   import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
   import SettingRow from '$lib/components/advanced-settings/v3/SettingRow.svelte';
 
-  import { toasts } from '$lib/stores/toast';
+  import { toast } from '$lib/stores/toast';
   import { notifyError, toAppError } from '$lib/core/errors';
   import { logAppError } from '$lib/core/logging';
   import type { LogLevel } from '$lib/api/admin-advanced-settings';
@@ -70,7 +70,7 @@
       settings.logging = { ...settings.logging, ...payload };
       form = { ...payload };
       initialSnapshot = JSON.stringify(normalize(payload));
-      toasts.success('Logging settings saved.');
+      toast.success('Logging settings saved.');
     } catch (e: unknown) {
       errorMsg = toUiErrorMessage(e, 'Failed to save logging settings.', 'advanced_settings.logging.save');
     } finally {
@@ -89,7 +89,7 @@
     purging = true;
     try {
       await purgeLogs(fetch);
-      toasts.success('Purge requested.');
+      toast.success('Purge requested.');
     } catch (e: unknown) {
       toUiErrorMessage(e, 'Backend not connected: simulated action (dev).', 'advanced_settings.logging.purge');
     } finally {

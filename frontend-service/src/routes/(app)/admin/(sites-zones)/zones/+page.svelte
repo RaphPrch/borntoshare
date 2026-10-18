@@ -5,7 +5,7 @@
   import { createZone } from "$lib/api/zones";
   import { notifyError, toAppError } from "$lib/core/errors";
   import { logAppError, logInfo } from "$lib/core/logging";
-  import { toast } from "$lib/utils/toast";
+  import { toast } from "$lib/stores/toast";
 
   export let data: {
     zones: { id: number; name: string }[];

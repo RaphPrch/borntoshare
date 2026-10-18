@@ -28,7 +28,7 @@
   import { buildIdentitySourceProbeRequest } from '$lib/probe/probe-runner';
   import { runProbeWithUi } from '$lib/probe/probe-ui';
   import { resolveCredentials } from '$lib/auth/credentials-service';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
   import { dependencyDeleteMessage, isDependencyDeleteError } from '$lib/utils/delete-guard';
   import { notifyError, toAppError, type AppError } from '$lib/core/errors';
   import { logAppError } from '$lib/core/logging';

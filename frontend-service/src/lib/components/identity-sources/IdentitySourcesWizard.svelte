@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
   import RunProbeButton from '$lib/components/common/RunProbeButton.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { buildIdentitySourceProbeRequest } from '$lib/probe/probe-builders';
