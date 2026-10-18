@@ -6,13 +6,15 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal, ensure_schema_contract_checked
 from app.core.errors import ensure_request_id, json_error_response, register_exception_handlers
 from app.core.logging import (
-    clear_request_id_context,
     get_logger,
+    get_request_id_context,
     init_logging,
     set_request_id_context,
 )
 from app.routers.internal_auth_local import router as internal_auth_local_router
 from app.routers import router as api_router
+from app.governance.router import router as governance_router
+from app.governance.router import start_jobs_watchdog
 from app.repositories.access_requests_views_repo import AccessRequestsReadModelContractError
 
 settings = get_settings()
@@ -47,6 +49,11 @@ def _startup_schema_contract_guard() -> None:
         db.close()
 
 
+@app.on_event("startup")
+async def _startup_jobs_watchdog() -> None:
+    start_jobs_watchdog()
+
+
 # ============================================================
 # Request ID middleware
 # ============================================================
@@ -54,11 +61,13 @@ def _startup_schema_contract_guard() -> None:
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     request_id = ensure_request_id(request)
+    # Restore (not clear): governance calls DAL routes in-process within the same request.
+    previous_request_id = get_request_id_context()
     set_request_id_context(request_id)
     try:
         response = await call_next(request)
     finally:
-        clear_request_id_context()
+        set_request_id_context(previous_request_id)
     response.headers["X-Request-ID"] = request_id
     return response
 
@@ -96,3 +105,6 @@ app.include_router(internal_auth_local_router)
 # 🌐 DAL API
 # - consommée directement par le frontend BFF en mode direct
 app.include_router(api_router, prefix=settings.API_PREFIX)
+
+# 🧭 Governance (orchestration → Dramatiq jobs), formerly governance-service
+app.include_router(governance_router, prefix=settings.API_PREFIX)

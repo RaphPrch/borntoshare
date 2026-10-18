@@ -2,7 +2,7 @@
 
 ## Project: BornToShare
 
-BornToShare is a data governance application with a SvelteKit frontend (which also acts as the API gateway), FastAPI services (auth, governance, DAL, secret-broker, capsule-runner, wizard), MariaDB, Keycloak/AD/local authentication, and capsule-based execution.
+BornToShare is a data governance application with a SvelteKit frontend (which also acts as the API gateway), FastAPI services (auth, DAL with its governance module, secret-broker, capsule-runner, wizard), MariaDB, Keycloak/AD/local authentication, and capsule-based execution.
 
 ## Working rules
 
@@ -26,7 +26,7 @@ Coding rules:
 Frontend:
 - SvelteKit SSR.
 - Browser code must call relative `/api/*` routes only.
-- Browser code must not call DAL, auth-service, or governance-service directly; the SvelteKit server (BFF) routes `/api/*` to them.
+- Browser code must not call DAL or auth-service directly; the SvelteKit server (BFF) routes `/api/*` to them.
 - Keep login and change-password pages in the frontend.
 - Respect existing UI components and CSS tokens.
 - Follow the `src/lib` layout and shared helpers described in `frontend-service/docs/structure.md`.
@@ -41,16 +41,16 @@ Frontend:
 
 Gateway (frontend BFF):
 - There is no separate gateway service: the SvelteKit server is the only public API entrypoint.
-- Routing of `/api/*` to auth-service, DAL or governance lives in `frontend-service/src/lib/server/service-routes.ts`; service URLs come from `B2S_AUTH_URL`, `B2S_DAL_URL`, `B2S_GOVERNANCE_URL`.
+- Routing of `/api/*` to auth-service or DAL lives in `frontend-service/src/lib/server/service-routes.ts`; service URLs come from `B2S_AUTH_URL`, `B2S_DAL_URL`. Governance paths (`/access-requests/bulk`, `/identity/{search,import,snapshots,jobs,discover}`, `/admin/jobs`, `/probes`) go to the DAL under `/governance`.
 - `/api/auth/*` goes to auth-service; `/api/internal/*` is never exposed.
 - Preserve session cookie behavior.
 - `ORIGIN` must be the public URL of the app: SvelteKit rejects cross-site form POSTs (CSRF) against it, and the principal cookie is `Secure` when it is HTTPS.
 
-Governance service:
-- Governance contains business logic.
-- Governance calls DAL for persistence.
-- DAL never calls governance (no circular dependency; enforced by `test_dal_never_calls_governance`).
-- Governance must not access the database directly.
+Governance (`dal-service/app/governance/`, mounted at `/api/governance`):
+- Governance contains the orchestration logic (access requests, identity imports, probes, AD groups) and publishes provisioning jobs to Dramatiq.
+- It runs inside dal-service but calls DAL routes in-process (`governance/core/dal_client.py`, ASGI transport, same internal auth) or DAL services; it never imports repositories or opens DB sessions.
+- DAL code never imports governance; only `app/main.py` mounts it (both enforced by `test_architecture_guardrails.py`).
+- Its routes are guarded by `require_internal_token`; `B2S_ALLOW_PUBLIC_API` opens the non-`/internal/` ones to the BFF.
 
 DAL service:
 - DAL owns database access.
@@ -72,7 +72,7 @@ Capsules:
 - Capsules are agentless.
 - capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares and NTFS ACLs, Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
 - Capsule execution must remain isolated from the main application network.
-- Job queue: Dramatiq over Redis. Redis is a standalone service (`redis/podman-compose.yml`), password-protected (`REDIS_PASSWORD`), with no published port, on the `bts-jobs` network shared only by governance-service (publisher) and capsule-runner (Dramatiq worker).
+- Job queue: Dramatiq over Redis. Redis is a standalone service (`redis/podman-compose.yml`), password-protected (`REDIS_PASSWORD`), with no published port, on the `bts-jobs` network shared only by dal-service (governance publishes jobs) and capsule-runner (Dramatiq worker).
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
 
 ## Checks

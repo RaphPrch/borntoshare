@@ -25,7 +25,6 @@ services:
       # -------------------------------------------------
       B2S_AUTH_URL: "http://auth-service:8000"
       B2S_DAL_URL: "http://dal-service:8000/api"
-      B2S_GOVERNANCE_URL: "http://governance-service:8000"
 
       # Required for direct service-to-service calls.
       INTERNAL_TOKEN_MODE: ${INTERNAL_TOKEN_MODE:-static}

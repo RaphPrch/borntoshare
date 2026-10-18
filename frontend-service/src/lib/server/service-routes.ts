@@ -2,7 +2,7 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
-type ServiceKind = 'auth' | 'dal' | 'governance';
+type ServiceKind = 'auth' | 'dal';
 
 type DirectRoute = {
   service: ServiceKind;
@@ -21,9 +21,12 @@ export function getServiceBaseUrl(service: ServiceKind): string | null {
       return normalizeBaseUrl(process.env.B2S_AUTH_URL);
     case 'dal':
       return normalizeBaseUrl(process.env.B2S_DAL_URL);
-    case 'governance':
-      return normalizeBaseUrl(process.env.B2S_GOVERNANCE_URL);
   }
+}
+
+// Governance (orchestration) routes are served by the DAL under /governance.
+function governanceRoute(path: string): DirectRoute {
+  return { service: 'dal', path: `/governance${path}`, internal: true };
 }
 
 function stripApiPrefix(pathname: string): string {
@@ -44,7 +47,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
   }
 
   if (path === '/access-requests/bulk') {
-    return { service: 'governance', path, internal: true };
+    return governanceRoute(path);
   }
 
   if (path === '/identity-sources/secret-ref') {
@@ -80,7 +83,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
         '/identity/discover'
       ];
       if (governanceIdentityPaths.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
-        return { service: 'governance', path, internal: true };
+        return governanceRoute(path);
       }
     }
 
@@ -88,7 +91,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
   }
 
   if (path.startsWith('/admin/jobs') || path.startsWith('/probes')) {
-    return { service: 'governance', path, internal: true };
+    return governanceRoute(path);
   }
 
   if (

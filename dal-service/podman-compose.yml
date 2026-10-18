@@ -23,6 +23,11 @@ services:
       # Direct mode: CSRF is not enforced by the DAL in this deployment.
       B2S_DISABLE_CSRF: "false"
 
+      # Governance (/api/governance/*): Dramatiq broker (redis/podman-compose.yml, password-protected)
+      CAPSULE_BROKER_URL: ${CAPSULE_BROKER_URL:-redis://:${REDIS_PASSWORD}@redis:6379/2}
+      # Direct mode: frontend-service can call public governance routes; /internal/ ones still need a token.
+      B2S_ALLOW_PUBLIC_API: ${B2S_ALLOW_PUBLIC_API:-true}
+
     # --------------------------------------------------
     # Network exposure (INTERNAL ONLY)
     # --------------------------------------------------
@@ -60,6 +65,7 @@ services:
     networks:
       - app
       - data
+      - jobs
 
 
 networks:
@@ -69,4 +75,8 @@ networks:
 
   data:
     name: bts-data
+    external: true
+
+  jobs:
+    name: bts-jobs
     external: true

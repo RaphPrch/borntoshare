@@ -168,14 +168,23 @@ def test_directory_snapshots_repo_create_run_has_integrity_retry_loop() -> None:
     assert "continue" in normalized
 
 
-def test_dal_never_calls_governance() -> None:
-    # Governance calls the DAL, never the reverse (no circular dependency).
+def test_dal_layers_never_import_governance() -> None:
+    # Governance depends on the DAL, never the reverse (only app/main.py mounts it).
     offenders: list[str] = []
     for path in (ROOT / "app").rglob("*.py"):
         rel = path.relative_to(ROOT).as_posix()
-        if rel.startswith("app/tests/"):
+        if rel.startswith(("app/tests/", "app/governance/")) or rel == "app/main.py":
             continue
-        text = path.read_text(encoding="utf-8").lower()
-        if "governance-service:" in text or "governance_url" in text or "governance_proxy" in text:
+        if "app.governance" in path.read_text(encoding="utf-8"):
             offenders.append(rel)
+    assert offenders == []
+
+
+def test_governance_never_touches_the_database_directly() -> None:
+    # Governance goes through DAL routes/services, never repositories or sessions.
+    offenders: list[str] = []
+    for path in (ROOT / "app" / "governance").rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        if "app.repositories" in text or "app.core.db" in text or "sqlalchemy" in text:
+            offenders.append(path.relative_to(ROOT).as_posix())
     assert offenders == []

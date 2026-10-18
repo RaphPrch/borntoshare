@@ -22,8 +22,6 @@ jobs:
             workdir: capsule-runner
           - service: dal-service
             workdir: dal-service
-          - service: governance-service
-            workdir: governance-service
           - service: secret-broker
             workdir: secret-broker
           - service: wizard-ui
