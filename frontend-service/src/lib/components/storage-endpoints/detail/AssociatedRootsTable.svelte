@@ -35,7 +35,7 @@
         {#each rows as row (row.id)}
           <tr>
             <td class="sed-cell-strong">
-              <a class="sed-root-link" href={`/storage-roots/${row.id}`}>
+              <a class="sed-root-link" href={`/storage-roots?selected=${row.id}`}>
                 <i class="bi bi-folder2"></i>
                 {row.name}
               </a>

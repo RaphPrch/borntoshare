@@ -648,7 +648,7 @@
         </div>
 
         {#if selectedRoot}
-          <a class="policy-link" href={`/storage-roots/${Number(selectedRoot.id)}/policies`}>
+          <a class="policy-link" href={`/storage-roots?selected=${Number(selectedRoot.id)}`}>
             Review policy <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
           </a>
         {:else}

@@ -1,0 +1,17 @@
+# Dépendances et builds
+node_modules/
+.svelte-kit/
+build/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Secrets locaux
+.env
+.env.*
+!.env.example
