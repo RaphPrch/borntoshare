@@ -1,10 +1,5 @@
 type JsonObject = Record<string, unknown>;
 
-export type DataEnvelope<T> = {
-  data: T;
-  meta?: Record<string, unknown>;
-};
-
 export function unwrapDataStrict<T>(payload: unknown, context = 'API response'): T {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error(`${context} must be an object envelope with a "data" field`);

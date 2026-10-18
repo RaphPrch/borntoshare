@@ -29,7 +29,7 @@ const PROBE_FAILED = new Set([
   'canceled'
 ]);
 
-export type NormalizedProbeStatus = 'success' | 'running' | 'failed' | 'unknown';
+type NormalizedProbeStatus = 'success' | 'running' | 'failed' | 'unknown';
 
 export function normalizeProbeStatus(status?: string | null): NormalizedProbeStatus {
   const key = asKey(status);
@@ -40,25 +40,14 @@ export function normalizeProbeStatus(status?: string | null): NormalizedProbeSta
   return 'unknown';
 }
 
-export type ProvisioningReadiness = 'ready' | 'warning' | 'incomplete' | 'unknown';
-
-export function normalizeProvisioningReadiness(status?: string | null): ProvisioningReadiness {
-  const key = asKey(status);
-  if (!key) return 'unknown';
-  if (key === 'ready') return 'ready';
-  if (key === 'warning') return 'warning';
-  if (key === 'incomplete') return 'incomplete';
-  return 'unknown';
-}
-
-export type BindingIntegrity =
+type BindingIntegrity =
   | 'materialized'
   | 'pending_materialization'
   | 'missing'
   | 'ambiguous'
   | 'unknown';
 
-export function normalizeBindingIntegrity(input: {
+function normalizeBindingIntegrity(input: {
   bindingStatus?: string | null;
   syntheticStatus?: string | null;
 }): BindingIntegrity {
@@ -77,7 +66,7 @@ export function normalizeBindingIntegrity(input: {
   return 'unknown';
 }
 
-export type ReachabilityState = 'reachable' | 'checking' | 'unreachable' | 'unknown';
+type ReachabilityState = 'reachable' | 'checking' | 'unreachable' | 'unknown';
 
 export function reachabilityFromProbeStatus(status: NormalizedProbeStatus): ReachabilityState {
   if (status === 'success') return 'reachable';
@@ -86,11 +75,11 @@ export function reachabilityFromProbeStatus(status: NormalizedProbeStatus): Reac
   return 'unknown';
 }
 
-export type RootAccessProfileAttachment = 'attached' | 'missing';
-export type RootOwnershipState = 'ok' | 'missing';
-export type RootOverallState = 'healthy' | 'attention' | 'critical' | 'unknown';
+type RootAccessProfileAttachment = 'attached' | 'missing';
+type RootOwnershipState = 'ok' | 'missing';
+type RootOverallState = 'healthy' | 'attention' | 'critical' | 'unknown';
 
-export type RootBusinessState = {
+type RootBusinessState = {
   endpointReachability: ReachabilityState;
   accessProfileAttachment: RootAccessProfileAttachment;
   bindingIntegrity: BindingIntegrity;
@@ -146,17 +135,17 @@ export function deriveRootBusinessState(input: {
   return { endpointReachability, accessProfileAttachment, bindingIntegrity, ownership, overall: 'attention' };
 }
 
-export type IdentitySourceHealth = 'healthy' | 'checking' | 'degraded' | 'issue' | 'disabled' | 'unknown';
-export type IdentitySnapshotHealth = 'fresh' | 'running' | 'stale' | 'failed' | 'never' | 'na' | 'unknown';
-export type IdentityOverallState = 'healthy' | 'attention' | 'critical' | 'disabled' | 'unknown';
+type IdentitySourceHealth = 'healthy' | 'checking' | 'degraded' | 'issue' | 'disabled' | 'unknown';
+type IdentitySnapshotHealth = 'fresh' | 'running' | 'stale' | 'failed' | 'never' | 'na' | 'unknown';
+type IdentityOverallState = 'healthy' | 'attention' | 'critical' | 'disabled' | 'unknown';
 
-export type IdentitySourceBusinessState = {
+type IdentitySourceBusinessState = {
   sourceHealth: IdentitySourceHealth;
   snapshotHealth: IdentitySnapshotHealth;
   overall: IdentityOverallState;
 };
 
-export function normalizeIdentitySourceHealth(input: {
+function normalizeIdentitySourceHealth(input: {
   status?: string | null;
   isEnabled?: boolean | null;
   probeJobStatus?: string | null;
@@ -176,7 +165,7 @@ export function normalizeIdentitySourceHealth(input: {
   return 'unknown';
 }
 
-export function normalizeIdentitySnapshotHealth(input: {
+function normalizeIdentitySnapshotHealth(input: {
   status?: string | null;
   lastSnapshotAt?: string | null;
   snapshotJobStatus?: string | null;
@@ -244,11 +233,11 @@ export function deriveIdentitySourceBusinessState(input: {
   return { sourceHealth, snapshotHealth, overall: 'unknown' };
 }
 
-export type RequestWorkflowState = 'pending' | 'approved' | 'enforced' | 'revoked' | 'rejected' | 'unknown';
-export type RequestProvisioningState = 'running' | 'queued' | 'success' | 'failed' | 'unknown';
-export type AccessRequestOverallState = 'pending' | 'success' | 'error' | 'unknown';
+type RequestWorkflowState = 'pending' | 'approved' | 'enforced' | 'revoked' | 'rejected' | 'unknown';
+type RequestProvisioningState = 'running' | 'queued' | 'success' | 'failed' | 'unknown';
+type AccessRequestOverallState = 'pending' | 'success' | 'error' | 'unknown';
 
-export function normalizeRequestWorkflowState(status?: string | null): RequestWorkflowState {
+function normalizeRequestWorkflowState(status?: string | null): RequestWorkflowState {
   const key = asKey(status);
   if (!key) return 'unknown';
   if (key === 'pending') return 'pending';
@@ -263,7 +252,7 @@ export function normalizeRequestWorkflowState(status?: string | null): RequestWo
   return 'unknown';
 }
 
-export function normalizeRequestProvisioningState(status?: string | null): RequestProvisioningState {
+function normalizeRequestProvisioningState(status?: string | null): RequestProvisioningState {
   const key = asKey(status);
   if (!key) return 'unknown';
   if (key === 'running') return 'running';

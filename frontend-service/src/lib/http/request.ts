@@ -4,7 +4,7 @@ import { ApiError, normalizeErrorMessage } from './errors';
 const LOG_LEVEL = String((import.meta as any).env?.VITE_LOG_LEVEL ?? 'INFO').trim().toUpperCase();
 const DEBUG_HTTP = LOG_LEVEL === 'DEBUG' || LOG_LEVEL === 'TRACE';
 
-export function normalizePath(path: string, basePath: string = '/api'): string {
+function normalizePath(path: string, basePath: string = '/api'): string {
   const normalizedBase = basePath.startsWith('/') ? basePath : '/api';
   const sanitizedBase = normalizedBase.endsWith('/') ? normalizedBase.slice(0, -1) : normalizedBase;
 
@@ -15,7 +15,7 @@ export function normalizePath(path: string, basePath: string = '/api'): string {
   return `${sanitizedBase}${p}`;
 }
 
-export function buildUrl(path: string, params?: Record<string, unknown>, basePath: string = '/api'): string {
+function buildUrl(path: string, params?: Record<string, unknown>, basePath: string = '/api'): string {
   const safePath = normalizePath(path, basePath);
   const url = new URL(safePath, 'http://local');
 
@@ -29,7 +29,7 @@ export function buildUrl(path: string, params?: Record<string, unknown>, basePat
   return url.pathname + (url.search ? url.search : '');
 }
 
-export async function parseJsonSafe(res: Response): Promise<unknown> {
+async function parseJsonSafe(res: Response): Promise<unknown> {
   const ct = res.headers.get('content-type') ?? '';
 
   if (ct.includes('application/json')) {

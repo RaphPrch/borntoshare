@@ -1,8 +1,8 @@
 import type { GovernanceAlert } from '$lib/api/governance-alerts';
 
-export type StorageRootAlertTone = 'warning' | 'error';
+type StorageRootAlertTone = 'warning' | 'error';
 
-export type StorageRootAlertSelectionContext = {
+type StorageRootAlertSelectionContext = {
   rootId: number | string | null | undefined;
   selectedRow?: Record<string, unknown> | null;
   overview?: Record<string, unknown> | null;
@@ -45,7 +45,7 @@ export const storageRootAlertTone = (alert: GovernanceAlert): StorageRootAlertTo
 export const storageRootAlertRootId = (alert: GovernanceAlert): number =>
   toPositiveId(alert?.storage_root_id ?? alert?.scope_id);
 
-export const isVisibleStorageRootAlert = (alert: GovernanceAlert): boolean => {
+const isVisibleStorageRootAlert = (alert: GovernanceAlert): boolean => {
   const type = String(alert?.alert_type ?? '').trim().toLowerCase();
   if (hiddenStorageRootAlertTypes.has(type)) return false;
   if (type.includes('access_profile') && (type.includes('missing') || type.includes('binding'))) return false;

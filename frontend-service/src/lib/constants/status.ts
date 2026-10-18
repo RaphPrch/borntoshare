@@ -42,7 +42,7 @@ export const STATUS_VARIANTS = {
   neutral: 'muted'
 } as const satisfies Record<string, StatusVariant>;
 
-export const normalizeStatusKey = (status?: string | null): string =>
+const normalizeStatusKey = (status?: string | null): string =>
   String(status ?? '')
     .trim()
     .toLowerCase()

@@ -1,6 +1,6 @@
 import type { BulkDecisionResponse } from '../api/access-requests';
 
-export type DecisionErrorSeverity = 'warning' | 'error';
+type DecisionErrorSeverity = 'warning' | 'error';
 
 export type AccessRequestDecisionUiError = {
   title: string;

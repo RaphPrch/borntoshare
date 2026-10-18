@@ -8,33 +8,6 @@ type Notify = {
   error: (message: string) => void;
 };
 
-export function updateProbeJobsMap(
-  current: Record<string, { status: string; ok?: boolean }>,
-  key: string | number,
-  snapshot: ProbeSnapshot
-) {
-  return {
-    ...current,
-    [String(key)]: {
-      status: snapshot.status,
-      ok: snapshot.ok
-    }
-  };
-}
-
-export function markProbeFailed(
-  current: Record<string, { status: string; ok?: boolean }>,
-  key: string | number
-) {
-  return {
-    ...current,
-    [String(key)]: {
-      status: 'failed',
-      ok: false
-    }
-  };
-}
-
 export async function runProbeWithUi<TPost = unknown>(input: {
   fetchFn: FetchLike;
   request: ProbeRunRequest;

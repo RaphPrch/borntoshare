@@ -1,7 +1,7 @@
 import en from './locales/en.json';
 import fr from './locales/fr.json';
 
-export type Locale = 'en' | 'fr';
+type Locale = 'en' | 'fr';
 
 const dictionaries: Record<Locale, any> = { en, fr };
 
@@ -12,14 +12,6 @@ function getNavigatorLocale(): Locale {
 }
 
 let currentLocale: Locale = getNavigatorLocale();
-
-export function setLocale(locale: Locale) {
-  currentLocale = locale;
-}
-
-export function getLocale(): Locale {
-  return currentLocale;
-}
 
 function getByPath(obj: any, path: string): any {
   return path.split('.').reduce((acc, k) => (acc && acc[k] != null ? acc[k] : null), obj);

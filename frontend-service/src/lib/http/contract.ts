@@ -3,7 +3,7 @@ export type FetchLike = (
   init?: RequestInit
 ) => Promise<Response>;
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
 
 export type HttpRequestOptions = {
   method: HttpMethod;
@@ -15,4 +15,3 @@ export type HttpRequestOptions = {
   credentials?: RequestCredentials;
   basePath?: string;
 };
-

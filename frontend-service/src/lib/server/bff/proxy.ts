@@ -155,7 +155,7 @@ async function readRequestBody(request: Request): Promise<ArrayBuffer | undefine
   return request.arrayBuffer();
 }
 
-export function buildUpstreamUrl(baseUrl: string, routePath: string, search: string = ''): URL {
+function buildUpstreamUrl(baseUrl: string, routePath: string, search: string = ''): URL {
   const target = new URL(baseUrl);
   const basePath = target.pathname.replace(/\/+$/, '');
   const path = routePath.startsWith('/') ? routePath : `/${routePath}`;

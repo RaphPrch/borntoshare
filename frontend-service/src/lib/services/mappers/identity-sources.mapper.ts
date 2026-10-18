@@ -38,18 +38,7 @@ export type IdentitySourceRowLike = {
   };
 };
 
-export type IdentitySourceUiRow = {
-  id: number;
-  name: string;
-  type: string;
-  status: string;
-  endpoint: string;
-  snapshot: string;
-  used: boolean;
-  raw: IdentitySourceRowLike;
-};
-
-export type IdentitySnapshotMetaLike = {
+type IdentitySnapshotMetaLike = {
   status?: 'idle' | 'running' | 'success' | 'error' | string;
   loading?: boolean;
   lastRunAt?: string | null;
@@ -89,14 +78,14 @@ export type IdentitySourceCardVM = {
   raw: IdentitySourceRowLike;
 };
 
-export type IdentitySourceSummary = {
+type IdentitySourceSummary = {
   total: number;
   healthy: number;
   issues: number;
   neverSynced: number;
 };
 
-export type IdentitySourceCardsComposition = {
+type IdentitySourceCardsComposition = {
   allCards: IdentitySourceCardVM[];
   filteredCards: IdentitySourceCardVM[];
   sortedCards: IdentitySourceCardVM[];
@@ -155,17 +144,14 @@ export const identitySourceTypeLabel = (value?: string): string => {
   return value ?? 'Identity source';
 };
 
-export const identitySourceDisplayLabel = (source: IdentitySourceRowLike): string =>
+const identitySourceDisplayLabel = (source: IdentitySourceRowLike): string =>
   source?.display_name ?? source?.name ?? 'Identity source';
 
-export const normalizeIdentitySourceStatus = (status?: string, isActive?: boolean): string => {
+const normalizeIdentitySourceStatus = (status?: string, isActive?: boolean): string => {
   const key = String(status ?? '').trim().toLowerCase();
   if (key === 'disabled' && isActive) return 'connected';
   return key || (isActive ? 'connected' : 'disabled');
 };
-
-export const identitySourceStatusVariant = (source: IdentitySourceRowLike): StatusVariant =>
-  resolveStatusVariant(normalizeIdentitySourceStatus(source?.status, source?.is_active));
 
 export const formatRelativeTimestamp = (value?: string | null): string => {
   const iso = toIsoDate(value);
@@ -206,7 +192,7 @@ export const formatAbsoluteTimestamp = (value?: string | null): string => {
   });
 };
 
-export const formatIdentitySourceSubtitle = (source: IdentitySourceRowLike): string => {
+const formatIdentitySourceSubtitle = (source: IdentitySourceRowLike): string => {
   if (asLower(source?.type) === 'local') {
     return 'Local identity provider';
   }
@@ -223,7 +209,7 @@ export const formatIdentitySourceSubtitle = (source: IdentitySourceRowLike): str
   return 'Directory source configuration';
 };
 
-export const getHealthTone = (status?: string | null, isEnabled = true): StatusVariant => {
+const getHealthTone = (status?: string | null, isEnabled = true): StatusVariant => {
   if (!isEnabled) return 'disabled';
   const normalized = asLower(status).replace(/[_\s-]+/g, '_');
   if (!normalized) return 'muted';
@@ -245,7 +231,7 @@ const healthLabelFromSource = (status?: string | null, isEnabled = true): string
   return statusLabel(status);
 };
 
-export const getSnapshotTone = (
+const getSnapshotTone = (
   status?: string | null,
   lastSnapshotAt?: string | null,
   snapshotJobStatus?: string | null
@@ -586,21 +572,3 @@ export const composeIdentitySourceCards = (
     selectedCard
   };
 };
-
-export const mapIdentitySourceRows = (
-  sources: IdentitySourceRowLike[],
-  sourceSnapshotLabel: (sourceId: number) => string
-): IdentitySourceUiRow[] =>
-  (Array.isArray(sources) ? sources : []).map((source) => {
-    const vm = mapIdentitySourceToCardVM(source);
-    return {
-      id: vm.id,
-      name: vm.name,
-      type: vm.typeLabel,
-      status: normalizeIdentitySourceStatus(source?.status, source?.is_active),
-      endpoint: vm.endpointLabel,
-      snapshot: sourceSnapshotLabel(Number(source?.id ?? 0)) || vm.snapshotLabel,
-      used: Boolean(source?.used),
-      raw: source
-    };
-  });

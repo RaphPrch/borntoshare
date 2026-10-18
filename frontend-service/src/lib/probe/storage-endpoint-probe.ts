@@ -1,9 +1,9 @@
 import type { ProbeRunRequest } from '$lib/api/probes';
 import { buildStorageEndpointProbeRequest } from './probe-runner';
 
-export type StorageEndpointProbeInput = Record<string, any>;
+type StorageEndpointProbeInput = Record<string, any>;
 
-export type StorageEndpointProbeConfig = {
+type StorageEndpointProbeConfig = {
   endpointId: number;
   protocol: string;
   host: string;
@@ -13,23 +13,23 @@ export type StorageEndpointProbeConfig = {
   secretRef: string | null;
 };
 
-export type StorageEndpointProbeValidation = {
+type StorageEndpointProbeValidation = {
   ok: boolean;
   message?: string;
   config?: StorageEndpointProbeConfig;
 };
 
-export function endpointIdOfProbeTarget(endpoint: StorageEndpointProbeInput | null | undefined): number {
+function endpointIdOfProbeTarget(endpoint: StorageEndpointProbeInput | null | undefined): number {
   return Number(endpoint?.storage_endpoint_id ?? endpoint?.id ?? 0);
 }
 
-export function endpointProtocolOfProbeTarget(endpoint: StorageEndpointProbeInput | null | undefined): string {
+function endpointProtocolOfProbeTarget(endpoint: StorageEndpointProbeInput | null | undefined): string {
   return String(endpoint?.protocol ?? endpoint?.type ?? endpoint?.storage_endpoint_type ?? 'smb')
     .trim()
     .toLowerCase();
 }
 
-export function endpointUsernameOfProbeTarget(endpoint: StorageEndpointProbeInput | null | undefined): string {
+function endpointUsernameOfProbeTarget(endpoint: StorageEndpointProbeInput | null | undefined): string {
   return String(
     endpoint?.auth_user ??
       endpoint?.auth_username ??
@@ -40,7 +40,7 @@ export function endpointUsernameOfProbeTarget(endpoint: StorageEndpointProbeInpu
   ).trim();
 }
 
-export function endpointSecretRefOfProbeTarget(endpoint: StorageEndpointProbeInput | null | undefined): string | null {
+function endpointSecretRefOfProbeTarget(endpoint: StorageEndpointProbeInput | null | undefined): string | null {
   const raw = String(endpoint?.auth_secret_ref ?? endpoint?.bind_password_ref ?? endpoint?.secret_ref ?? '').trim();
   return raw || null;
 }

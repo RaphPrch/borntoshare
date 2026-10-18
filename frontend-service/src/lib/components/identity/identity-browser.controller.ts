@@ -13,20 +13,20 @@ import { filterIdentityRowsByImportPolicy } from '../../utils/storage-root-gover
 
 type BrowserPrincipalType = 'all' | 'user' | 'group' | 'ou';
 
-export type BrowserBootstrapParams = {
+type BrowserBootstrapParams = {
   identitySources: IdentityBrowserSource[];
   initialSourceId: number | null;
   sourceId: number | null;
   storageRootId: number | null;
 };
 
-export type BrowserBootstrapResult = {
+type BrowserBootstrapResult = {
   sources: IdentityBrowserSource[];
   selectedSourceId: number | null;
   resolvedRootDn: string | null;
 };
 
-export type BrowserSearchParams = {
+type BrowserSearchParams = {
   selectedSourceId: number;
   query: string;
   activeDn: string | null;

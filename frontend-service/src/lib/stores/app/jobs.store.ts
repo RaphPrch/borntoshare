@@ -2,13 +2,13 @@ import { get, writable } from 'svelte/store';
 
 export type JobStatus = 'idle' | 'running' | 'success' | 'error';
 
-export type JobKeyInput = {
+type JobKeyInput = {
   entityType: string;
   entityId: string | number;
   action: string;
 };
 
-export type UiJob = JobKeyInput & {
+type UiJob = JobKeyInput & {
   key: string;
   status: JobStatus;
   ok?: boolean;
@@ -21,7 +21,7 @@ export type UiJob = JobKeyInput & {
   updatedAt: string;
 };
 
-export type JobsState = Record<string, UiJob>;
+type JobsState = Record<string, UiJob>;
 
 const nowIso = () => new Date().toISOString();
 
@@ -150,4 +150,3 @@ function createJobsStore() {
 }
 
 export const jobsStore = createJobsStore();
-

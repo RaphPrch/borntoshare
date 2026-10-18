@@ -1,8 +1,8 @@
 import { principalLabel, principalSubtitle } from '../../utils/principal-search';
 
-export type PrincipalLike = Record<string, unknown>;
+type PrincipalLike = Record<string, unknown>;
 
-export type PrincipalDisplayVM = {
+type PrincipalDisplayVM = {
   title: string;
   subtitle: string;
   typeLabel: string;

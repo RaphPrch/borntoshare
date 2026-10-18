@@ -12,7 +12,7 @@ export type ProbeSnapshot = {
   result?: any;
 };
 
-export type ProbeRunResult<TPost = unknown> = {
+type ProbeRunResult<TPost = unknown> = {
   jobId: string;
   status: string;
   ok: boolean;
@@ -21,7 +21,7 @@ export type ProbeRunResult<TPost = unknown> = {
   postCheck?: TPost;
 };
 
-export type RunProbeWithPollingOptions<TPost = unknown> = {
+type RunProbeWithPollingOptions<TPost = unknown> = {
   fetchFn: FetchLike;
   request: ProbeRunRequest;
   intervalMs?: number;
@@ -30,7 +30,7 @@ export type RunProbeWithPollingOptions<TPost = unknown> = {
   afterSuccess?: (result: any) => Promise<TPost>;
 };
 
-export type RunCapsuleProbeOptions<TPost = unknown> = {
+type RunCapsuleProbeOptions<TPost = unknown> = {
   fetchFn: FetchLike;
   request: ProbeRunRequest;
   intervalMs?: number;
@@ -39,13 +39,13 @@ export type RunCapsuleProbeOptions<TPost = unknown> = {
   afterSuccess?: (result: unknown) => Promise<TPost>;
 };
 
-export type RunCapsuleProbeSuccess<TPost = unknown> = {
+type RunCapsuleProbeSuccess<TPost = unknown> = {
   ok: true;
   result: ProbeRunResult<TPost>;
   error?: never;
 };
 
-export type RunCapsuleProbeFailure = {
+type RunCapsuleProbeFailure = {
   ok: false;
   error: NormalizedProbeError;
   result?: ProbeRunResult<unknown>;
@@ -190,7 +190,7 @@ export function buildStorageEndpointProbeRequest(input: {
   };
 }
 
-export type StorageRootAvailabilityRow = {
+type StorageRootAvailabilityRow = {
   storage_root_id: number;
   storage_root_name: string;
   root_path: string;
@@ -206,19 +206,19 @@ export type StorageRootAvailabilitySummary = {
   rows: StorageRootAvailabilityRow[];
 };
 
-export type StorageRootDiscoverySyncItem = {
+type StorageRootDiscoverySyncItem = {
   root_path: string;
   permissions: Record<string, any>[];
 };
 
-export type StorageRootDiscoverySyncPayload = {
+type StorageRootDiscoverySyncPayload = {
   storage_endpoint_id: number;
   discovered_at?: string;
   discovery_complete?: boolean;
   roots: StorageRootDiscoverySyncItem[];
 };
 
-export type StorageRootDiscoverySyncResponse = {
+type StorageRootDiscoverySyncResponse = {
   ok: boolean;
   storage_endpoint_id: number;
   updated: number;

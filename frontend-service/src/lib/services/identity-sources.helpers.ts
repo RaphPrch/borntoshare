@@ -30,7 +30,7 @@ export type IdentitySnapshotMeta = {
   memberships: number | null;
 };
 
-export type IdentitySnapshotStorePatch = {
+type IdentitySnapshotStorePatch = {
   lastRunAt: string | null;
   lastSnapshotStatus: string | null;
   lastSnapshotVersion: number | null;

@@ -1,17 +1,3 @@
-export type AccessRequestUiRow = {
-  id: number;
-  selected: boolean;
-  request: string;
-  target: string;
-  targetPath: string;
-  access: string;
-  expiry: string;
-  requester: string;
-  guardian: string;
-  status: string;
-  raw: any;
-};
-
 const firstNonEmpty = (values: any[]) => {
   for (const value of values) {
     if (value === null || value === undefined) continue;
@@ -59,16 +45,6 @@ export const accessRequestRequesterName = (row: any): string =>
     ]) ?? '—'
   );
 
-export const accessRequestGuardianLabel = (row: any): string =>
-  String(
-    firstNonEmpty([
-      row?.guardian_name,
-      row?.guardian_display,
-      row?.guardian,
-      row?.owner_guardian
-    ]) ?? '—'
-  );
-
 export const accessRequestAccessLabel = (row: any): string => {
   const raw = String(
     firstNonEmpty([
@@ -87,33 +63,3 @@ export const accessRequestAccessLabel = (row: any): string => {
   if (raw.includes('read') || raw.includes('lecture')) return 'Read (Read NTFS)';
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 };
-
-export const accessRequestExpiryLabel = (value: unknown): string => {
-  if (!value) return 'Permanent';
-  try {
-    return `Temporary until ${new Date(String(value)).toLocaleDateString('en-GB', {
-      month: 'short',
-      day: 'numeric'
-    })}`;
-  } catch {
-    return 'Temporary';
-  }
-};
-
-export const mapAccessRequestRows = (
-  requests: any[],
-  getStatusLabel: (row: any) => string
-): AccessRequestUiRow[] =>
-  (Array.isArray(requests) ? requests : []).map((row: any) => ({
-    id: accessRequestId(row),
-    selected: Boolean(row?.__selected),
-    request: row.request_code ?? `REQ-${String(accessRequestId(row)).padStart(3, '0')}`,
-    target: accessRequestTargetLabel(row),
-    targetPath: accessRequestTargetPath(row),
-    access: accessRequestAccessLabel(row),
-    expiry: accessRequestExpiryLabel(row.expires_at),
-    requester: accessRequestRequesterName(row),
-    guardian: accessRequestGuardianLabel(row),
-    status: getStatusLabel(row),
-    raw: row
-  }));

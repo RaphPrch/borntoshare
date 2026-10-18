@@ -19,13 +19,3 @@ export const rootLabelFromPath = (value: string): string => {
   const chunks = normalized.split(/[\\/]/).filter(Boolean);
   return chunks[chunks.length - 1] ?? normalized;
 };
-
-export const parseSnapshotRoots = (endpoint: any): string[] => {
-  const snapshot = endpoint?.capabilities?.discovered_roots_snapshot;
-  const roots = Array.isArray(snapshot?.roots) ? snapshot.roots : [];
-  const paths: string[] = roots
-    .map((row: any) => String(row?.root_path ?? row?.path ?? '').trim())
-    .filter(Boolean);
-
-  return [...new Set<string>(paths)];
-};

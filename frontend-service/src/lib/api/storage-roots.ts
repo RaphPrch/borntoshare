@@ -40,11 +40,9 @@ export type StorageRootOwner = {
 
 export type StorageRootOwnerRole = 'guardian';
 
-export type StorageRootOwnersUpdatePayload = {
+type StorageRootOwnersUpdatePayload = {
   guardian_ids: number[];
 };
-
-export type StorageRootRoleCode = StorageRootOwnerRole;
 
 type StorageRootRecord = {
   id?: number;
@@ -78,7 +76,7 @@ type StorageRootWriteResponse = {
   id?: number;
 };
 
-export type StorageRootProbeResultPayload = {
+type StorageRootProbeResultPayload = {
   last_probe_status: 'success' | 'failed' | 'running' | 'unknown' | string;
   last_probe_at?: string | null;
   last_probe_message?: string | null;
@@ -86,7 +84,7 @@ export type StorageRootProbeResultPayload = {
   source_type?: string | null;
 };
 
-export type StorageRootProbeResultResponse = {
+type StorageRootProbeResultResponse = {
   storage_root_id: number;
   last_probe_status: string;
   last_probe_at: string;
@@ -346,33 +344,6 @@ export const updateStorageRootOwners = async (
   payload: StorageRootOwnersUpdatePayload
 ): Promise<{ storage_root_id: number; owners: StorageRootOwner[] }> => {
   const data = await apiPutData<StorageRootOwnersResponse>(fetchFn, `/storage-roots/${storageRootId}/owners`, payload);
-  const owners = Array.isArray(data?.owners) ? data.owners : [];
-  return {
-    storage_root_id: Number(data?.storage_root_id ?? 0),
-    owners: owners.map(normalizeStorageRootOwner)
-  };
-};
-
-export const assignStorageRootRole = async (
-  fetchFn: FetchLike,
-  storageRootId: number,
-  payload: { identity_id: number; role: StorageRootRoleCode }
-): Promise<{ storage_root_id: number; owners: StorageRootOwner[] }> => {
-  const data = await apiPostData<StorageRootOwnersResponse>(fetchFn, `/storage-roots/${storageRootId}/roles`, payload);
-  const owners = Array.isArray(data?.owners) ? data.owners : [];
-  return {
-    storage_root_id: Number(data?.storage_root_id ?? 0),
-    owners: owners.map(normalizeStorageRootOwner)
-  };
-};
-
-export const removeStorageRootRole = async (
-  fetchFn: FetchLike,
-  storageRootId: number,
-  role: StorageRootRoleCode,
-  identityId: number
-): Promise<{ storage_root_id: number; owners: StorageRootOwner[] }> => {
-  const data = await apiDeleteData<StorageRootOwnersResponse>(fetchFn, `/storage-roots/${storageRootId}/roles/${role}/${identityId}`);
   const owners = Array.isArray(data?.owners) ? data.owners : [];
   return {
     storage_root_id: Number(data?.storage_root_id ?? 0),

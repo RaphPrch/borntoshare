@@ -1,11 +1,9 @@
-export type MegaMenuItem = {
+type MegaMenuItem = {
   title: string;
   description: string;
   href: string;
   icon?: string;
 };
-
-export type MegaMenuConfig = Record<string, MegaMenuItem[]>;
 
 // Single source of truth for the mega-menu keys
 // (Topbar + MegaMenu must stay aligned)

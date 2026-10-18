@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-export type SelectionState = {
+type SelectionState = {
   selectedStorageRootId: number | null;
   selectedStorageEndpointId: number | null;
   selectedIdentitySourceId: number | null;
@@ -72,4 +72,3 @@ function createSelectionStore() {
 }
 
 export const selectionStore = createSelectionStore();
-

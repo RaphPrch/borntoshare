@@ -47,7 +47,7 @@ if ((env.APP_ENV ?? 'dev').trim().toLowerCase() === 'prod' && PRINCIPAL_SIGNING_
   throw new Error('PRINCIPAL_SIGNING_KEY must be set when APP_ENV=prod');
 }
 
-export async function hydrateUserFromAuthMe(event: RequestEvent): Promise<Me | null> {
+async function hydrateUserFromAuthMe(event: RequestEvent): Promise<Me | null> {
   const authUrl = getServiceBaseUrl('auth');
   if (!authUrl) {
     return null;

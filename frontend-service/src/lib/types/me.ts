@@ -1,5 +1,3 @@
-import type { Role } from './identity';
-
 export type Me = {
   id: number;
   username: string;
@@ -46,13 +44,4 @@ export function normalizeMe(raw: unknown): Me {
     roles,
     is_admin: isAdminRole
   };
-}
-
-export function isAdmin(me: Me | null | undefined): boolean {
-  return me?.is_admin === true;
-}
-
-export function hasRole(me: Me | null | undefined, role: Role | string): boolean {
-  if (!me) return false;
-  return me.roles.some((r) => r.toLowerCase() === String(role).toLowerCase());
 }

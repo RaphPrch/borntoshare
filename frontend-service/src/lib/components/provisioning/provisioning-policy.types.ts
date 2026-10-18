@@ -1,4 +1,4 @@
-export type ProvisioningScope = 'zone' | 'storage-endpoint';
+type ProvisioningScope = 'zone' | 'storage-endpoint';
 
 export type ProvisioningConfigurationModel = {
   scope: ProvisioningScope;

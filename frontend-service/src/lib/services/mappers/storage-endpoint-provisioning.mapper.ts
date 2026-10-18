@@ -3,7 +3,7 @@ import type {
   StorageEndpointProvisioningUpdatePayload
 } from '$lib/api/storage-endpoints';
 
-export type EndpointProvisioningDraft = {
+type EndpointProvisioningDraft = {
   policyMode: 'inherit' | 'override';
   ouDn: string;
   namingTemplate: string;

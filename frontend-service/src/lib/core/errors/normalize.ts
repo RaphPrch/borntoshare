@@ -1,5 +1,3 @@
-import { ApiError } from '../../http/errors';
-
 import type { AppError, ErrorKind, LogLevel } from './types';
 
 type ApiErrorLike = {

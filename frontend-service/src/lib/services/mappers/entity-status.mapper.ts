@@ -1,36 +1,20 @@
 import type { StatusVariant } from '$lib/constants/status';
 import {
   endpointOperationalStateLabel,
-  endpointOperationalStateVariant,
-  normalizeEndpointOperationalState,
-  type EndpointOperationalState
+  endpointOperationalStateVariant
 } from './endpoint-operational-state.mapper';
 import {
-  normalizeProbeStatus,
-  type NormalizedProbeStatus
+  normalizeProbeStatus
 } from './visual-state.mapper';
 import {
   normalizeStorageRootAvailability,
   storageRootToneFromAvailability,
-  type RootAvailability,
-  type RootTone
+  type RootAvailability
 } from './storage-root-detail.mapper';
 
-export {
-  endpointOperationalStateLabel,
-  endpointOperationalStateVariant,
-  normalizeEndpointOperationalState,
-  normalizeProbeStatus,
-  normalizeStorageRootAvailability,
-  storageRootToneFromAvailability
-};
+export { endpointOperationalStateLabel, endpointOperationalStateVariant, normalizeProbeStatus, normalizeStorageRootAvailability };
 
-export type {
-  EndpointOperationalState,
-  NormalizedProbeStatus,
-  RootAvailability,
-  RootTone
-};
+export type { RootAvailability };
 
 export function probeStatusLabel(value: unknown): string {
   const probe = normalizeProbeStatus(String(value ?? ''));

@@ -8,7 +8,7 @@ type TransportHttpOptions = {
 const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
 const DEV = env?.DEV === true || String(env?.MODE ?? '') === 'development';
 
-export function toSyslogSeverity(level: FrontendLogLevel): SyslogSeverity {
+function toSyslogSeverity(level: FrontendLogLevel): SyslogSeverity {
   if (level === 'error') return 'err';
   return level;
 }

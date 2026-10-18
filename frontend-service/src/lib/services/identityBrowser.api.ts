@@ -1,5 +1,5 @@
 import type { FetchLike } from '../api/client';
-import { apiGet, apiGetData, apiPostData } from '../api/client';
+import { apiGetData, apiPostData } from '../api/client';
 import type {
   IdentityBrowserSource,
   IdentityPreview,
@@ -9,8 +9,6 @@ import type {
 import { toAdSourceOptions } from '../utils/ad-browse';
 import { normalizePrincipalList } from '../utils/principal-search';
 import { getIdentitySourceInternal, listIdentitySources } from '../api/identity-sources';
-
-const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
 
 const MAX_DIRECTORY_BROWSE_LIMIT = 200;
 const IDENTITY_SOURCE_INTERNAL_CACHE_TTL_MS = 4000;
@@ -278,7 +276,7 @@ const collectImmediateChildOusFromDescendants = (
     .sort((a, b) => String(a.name).localeCompare(String(b.name), 'en'));
 };
 
-export type IdentityBrowserResolvedContext = {
+type IdentityBrowserResolvedContext = {
   sourceId: number | null;
   rootDn: string | null;
   rootDnResolution: 'storage_endpoint_sub_ou_dn' | 'storage_root_effective_ou' | 'identity_source_base_dn' | 'none';

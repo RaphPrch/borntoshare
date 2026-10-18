@@ -1,10 +1,8 @@
-import { ApiError } from '../http/errors';
-import { type DataEnvelope, unwrapDataStrict, unwrapListStrict } from '../http/envelopes';
+import { unwrapDataStrict, unwrapListStrict } from '../http/envelopes';
 import type { FetchLike, HttpRequestOptions } from '../http/contract';
 import { httpRequest } from '../http/request';
 
-export type { FetchLike, DataEnvelope };
-export { ApiError, unwrapDataStrict, unwrapListStrict };
+export type { FetchLike };
 
 const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? '/api';
 
@@ -57,7 +55,7 @@ export const apiPut = <T>(
     body
   });
 
-export const apiPatch = <T>(
+const apiPatch = <T>(
   fetchFn: FetchLike,
   path: string,
   body?: unknown

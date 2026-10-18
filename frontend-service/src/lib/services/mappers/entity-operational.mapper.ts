@@ -1,6 +1,6 @@
-export type OperationalHeaderTone = 'success' | 'warning' | 'danger' | 'neutral' | 'info';
+type OperationalHeaderTone = 'success' | 'warning' | 'danger' | 'neutral' | 'info';
 
-export type ZoneOperationalAttentionInput = {
+type ZoneOperationalAttentionInput = {
   endpointCount: number;
   reachableCount: number;
   nonRunnableCount: number;
@@ -8,7 +8,7 @@ export type ZoneOperationalAttentionInput = {
   healthLabel?: 'ok' | 'warning';
 };
 
-export type StorageEndpointOperationalAttentionInput = {
+type StorageEndpointOperationalAttentionInput = {
   healthLabel: string;
   healthDetail?: string | null;
   hostReady: boolean;

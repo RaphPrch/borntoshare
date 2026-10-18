@@ -20,7 +20,7 @@ import { apiDeleteData, apiGetData, apiPatchData, apiPost, apiPostData } from '.
  * - Should NOT be exposed as a core feature
  * - Can be removed entirely in V2+
  */
-export type AdminChangePasswordPayload = {
+type AdminChangePasswordPayload = {
   username: string;
   new_password: string;
   current_password?: string;
@@ -32,14 +32,14 @@ export const adminChangePassword = (
 ) =>
   apiPost<{ detail?: string }>(fetchFn, '/auth/admin/change-password', payload);
 
-export type UpdateIdentityPayload = {
+type UpdateIdentityPayload = {
   identity_type?: 'user' | 'group';
   display_name?: string;
   is_active?: boolean;
   application_role?: 'user' | 'platform_admin';
 };
 
-export type CreateIdentityPrincipalPayload = {
+type CreateIdentityPrincipalPayload = {
   type?: 'user' | 'group' | string;
   external_id?: string | null;
   dn?: string | null;
@@ -62,7 +62,7 @@ export type CreateIdentityPayload = {
   principal?: CreateIdentityPrincipalPayload;
 };
 
-export type IdentityOverviewItem = {
+type IdentityOverviewItem = {
   id: string | number;
   type?: 'user' | 'group' | string;
   username?: string | null;
@@ -83,22 +83,15 @@ export type IdentityOverviewItem = {
   last_snapshot_at?: string | null;
 };
 
-export type IdentityOverviewResponse = {
+type IdentityOverviewResponse = {
   users?: IdentityOverviewItem[];
   groups?: IdentityOverviewItem[];
   items?: IdentityOverviewItem[];
 };
 
-export type IdentitySearchPayload = {
-  query?: string;
-  limit?: number;
-  identity_source_id?: number;
-  principal_type?: 'all' | 'user' | 'group' | 'ou';
-};
-
 export type ADImportRole = 'admin' | 'user';
 
-export type ImportIdentityAdBatchPayload = {
+type ImportIdentityAdBatchPayload = {
   identity_source_id?: number;
   snapshot_source?: string;
   items: Array<

@@ -25,8 +25,6 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
-const env = process.env;
-
 /* ============================================================
  * MAIN HANDLE
  * ============================================================ */

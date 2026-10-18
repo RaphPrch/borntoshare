@@ -1,4 +1,4 @@
-export type OwnerAssignedRole = 'guardian';
+type OwnerAssignedRole = 'guardian';
 
 export type OwnerBrowserPrincipal = {
   id?: string | number;
@@ -12,7 +12,7 @@ export type OwnerBrowserPrincipal = {
   upn?: string | null;
 };
 
-export type IdentityOverviewRow = {
+type IdentityOverviewRow = {
   id?: number | string;
   identity_id?: number | string;
   type?: string | null;
@@ -42,37 +42,37 @@ export type IdentityImportBatchResult = {
   failures?: Array<{ index?: number }>;
 };
 
-export type OwnerPrincipalSelection = {
+type OwnerPrincipalSelection = {
   item: OwnerBrowserPrincipal;
   selectionIndex: number;
 };
 
-export type OwnersSelectionNormalizationResult = {
+type OwnersSelectionNormalizationResult = {
   principalSelections: OwnerPrincipalSelection[];
   selectedPrincipalItems: OwnerBrowserPrincipal[];
   ignoredUnsupportedCount: number;
 };
 
-export type OwnersOverviewResolution = {
+type OwnersOverviewResolution = {
   resolvedMatches: Array<{ principalIndex: number; identityId: number }>;
   unresolved: string[];
   metadataByIdentityId: Record<number, Record<string, unknown>>;
 };
 
-export type MergeOwnersSelectionInput = {
+type MergeOwnersSelectionInput = {
   initialGuardianIds: number[];
   assignedRole: OwnerAssignedRole;
   resolvedIdentityIds: number[];
 };
 
-export type MergeOwnersSelectionResult = {
+type MergeOwnersSelectionResult = {
   guardianIds: number[];
   addedCount: number;
   resolvedCount: number;
   alreadyAssignedCount: number;
 };
 
-export type OwnersBrowserConfirmPayload = {
+type OwnersBrowserConfirmPayload = {
   storageRootId: number;
   guardianIds: number[];
   assignedRole: OwnerAssignedRole;
@@ -88,7 +88,7 @@ export type OwnersBrowserSelectionEvent = {
   unresolvedPrincipalLabels?: string[];
 };
 
-export type ApplyOwnersSelectionToDraftParams = {
+type ApplyOwnersSelectionToDraftParams = {
   currentDraft: {
     guardianIds: number[];
     metadataByIdentityId?: Record<number, Record<string, unknown>>;
@@ -97,7 +97,7 @@ export type ApplyOwnersSelectionToDraftParams = {
   selectedStorageRootId: number | null;
 };
 
-export type ApplyOwnersSelectionToDraftResult = {
+type ApplyOwnersSelectionToDraftResult = {
   rootId: number | null;
   hasValidRootId: boolean;
   guardianIds: number[];

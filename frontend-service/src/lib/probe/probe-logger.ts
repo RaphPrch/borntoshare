@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 import type { ProbeRunRequest } from '$lib/api/probes';
 
-export type ProbeLogEntry = {
+type ProbeLogEntry = {
   id: string;
   timestamp: number;
   kind: string;
@@ -14,7 +14,7 @@ export type ProbeLogEntry = {
   details?: any;
 };
 
-export const probeLogs = writable<ProbeLogEntry[]>([]);
+const probeLogs = writable<ProbeLogEntry[]>([]);
 
 const uuid = () => {
   try {
@@ -24,7 +24,7 @@ const uuid = () => {
   }
 };
 
-export function pushProbeLog(entry: Omit<ProbeLogEntry, 'id' | 'timestamp'>) {
+function pushProbeLog(entry: Omit<ProbeLogEntry, 'id' | 'timestamp'>) {
   probeLogs.update((logs) => [
     { id: uuid(), timestamp: Date.now(), ...entry },
     ...logs

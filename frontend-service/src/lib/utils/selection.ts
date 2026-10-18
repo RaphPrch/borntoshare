@@ -9,12 +9,3 @@ export const toggleSetValue = <T>(current: Set<T>, value: T, checked?: boolean):
   else next.add(value);
   return next;
 };
-
-export const prefixedIdSet = (ids: Array<string | number>, prefix = 'id:'): Set<string> =>
-  new Set(
-    ids
-      .map((value) => Number(value))
-      .filter((value) => Number.isFinite(value) && value > 0)
-      .map((value) => `${prefix}${value}`)
-  );
-

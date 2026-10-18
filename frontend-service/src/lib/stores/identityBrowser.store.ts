@@ -8,7 +8,7 @@ import type {
 } from '../types/identityBrowser';
 import type { PrincipalSearchItem } from '../utils/principal-search';
 
-export type IdentityBrowserState = {
+type IdentityBrowserState = {
   loadingSources: boolean;
   loadingTree: boolean;
   loadingSearch: boolean;
@@ -245,5 +245,3 @@ export function createIdentityBrowserStore() {
     }
   };
 }
-
-export const identityBrowserStore = createIdentityBrowserStore();

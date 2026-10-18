@@ -5,7 +5,7 @@ import { badgeClass } from './severity';
 /**
  * Shared activity formatter used across the app.
  */
-export type ActivityCardItem = {
+type ActivityCardItem = {
   title: string;
   subtitle1?: string | null;
   subtitle2?: string | null;

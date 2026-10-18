@@ -1,4 +1,4 @@
-export type ProbeErrorType =
+type ProbeErrorType =
   | 'VALIDATION'
   | 'NETWORK'
   | 'SECRET'

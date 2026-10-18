@@ -1,13 +1,13 @@
 import type { StatusVariant } from '$lib/constants/status';
 
-export type EndpointOperationalState =
+type EndpointOperationalState =
   | 'reachable'
   | 'checking'
   | 'unreachable'
   | 'disabled'
   | 'unknown';
 
-export function normalizeEndpointOperationalState(value: unknown): EndpointOperationalState {
+function normalizeEndpointOperationalState(value: unknown): EndpointOperationalState {
   const state = String(value ?? '').trim().toLowerCase();
   if (state === 'reachable') return 'reachable';
   if (state === 'checking') return 'checking';

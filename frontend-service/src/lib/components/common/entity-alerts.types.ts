@@ -1,4 +1,4 @@
-export type EntityAlertTone = 'warning' | 'error';
+type EntityAlertTone = 'warning' | 'error';
 
 export type EntityAlertStripItem = {
   key: string;

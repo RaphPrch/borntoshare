@@ -1,9 +1,9 @@
 import { writable } from 'svelte/store';
 
 export type StorageRootsDetailTab = 'overview' | 'effective-access' | 'activity';
-export type StorageRootsQuickFilter = 'all' | 'alerts' | 'no_owner' | 'unreachable';
+type StorageRootsQuickFilter = 'all' | 'alerts' | 'no_owner' | 'unreachable';
 
-export type StorageRootsUiState = {
+type StorageRootsUiState = {
   query: string;
   selectedStorageRootId: number | null;
   openZoneById: Record<number, boolean>;

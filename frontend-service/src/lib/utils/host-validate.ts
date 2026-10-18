@@ -43,22 +43,3 @@ export function isValidHostname(input?: string | null): boolean {
 
   return true;
 }
-
-/**
- * Returns a canonical "target host" or null if invalid.
- */
-export function resolveHostTarget(input?: string | null): string | null {
-  const s = (input ?? '').trim();
-  if (!s) return null;
-  if (isValidIPv4(s)) return s;
-  if (isValidHostname(s)) return s;
-  return null;
-}
-
-export function resolveHostHint(input?: string | null): string | null {
-  const s = (input ?? '').trim();
-  if (!s) return null;
-  if (isValidIPv4(s)) return 'Looks like an IPv4 address';
-  if (isValidHostname(s)) return 'Looks like a hostname';
-  return 'Invalid host: use a hostname (e.g. dc01.example.local) or IPv4 (e.g. 10.0.0.12)';
-}

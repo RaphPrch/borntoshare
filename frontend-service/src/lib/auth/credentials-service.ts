@@ -2,7 +2,7 @@ import type { FetchLike } from '$lib/api/client';
 import { apiPost } from '$lib/api/client';
 import type { CredentialsInput, CredentialsMode, ResolvedCredentials } from './credentials-types';
 
-export type ResolveCredentialsOptions = {
+type ResolveCredentialsOptions = {
   /**
    * Human-readable backend secret name. The frontend sends it to auth-service,
    * which stores the value and returns a secret_ref.

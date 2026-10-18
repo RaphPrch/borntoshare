@@ -1,8 +1,8 @@
 import { get, writable } from 'svelte/store';
 
-export type SnapshotStatus = 'idle' | 'running' | 'success' | 'error';
+type SnapshotStatus = 'idle' | 'running' | 'success' | 'error';
 
-export type IdentitySnapshotEntry = {
+type IdentitySnapshotEntry = {
   identitySourceId: number;
   status: SnapshotStatus;
   loading: boolean;
@@ -18,7 +18,7 @@ export type IdentitySnapshotEntry = {
   updatedAt: string;
 };
 
-export type SnapshotState = Record<number, IdentitySnapshotEntry>;
+type SnapshotState = Record<number, IdentitySnapshotEntry>;
 
 const nowIso = () => new Date().toISOString();
 

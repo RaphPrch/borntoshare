@@ -1,7 +1,7 @@
 import type { StorageRootDetailModel } from '$lib/types/storage-roots';
 import type { StorageRootRow, StorageRootTagLike } from '$lib/utils/storage-roots';
 
-export type StorageRootAccessModelRow = {
+type StorageRootAccessModelRow = {
   level: 'read' | 'write';
   code: string;
   label: string;
@@ -25,9 +25,9 @@ export type RootAvailability =
   | 'root_unreachable'
   | 'needs_root_probe'
   | 'not_provisioned';
-export type RootTone = 'healthy' | 'warning' | 'error';
+type RootTone = 'healthy' | 'warning' | 'error';
 
-export const storageRootIdOf = (row: unknown): number => {
+const storageRootIdOf = (row: unknown): number => {
   const source = (row && typeof row === 'object' ? row : {}) as Record<string, unknown>;
   return Number(source.storage_root_id ?? source.id ?? 0);
 };
@@ -123,7 +123,7 @@ export const storageRootPendingCount = (
   return Number(row?.pending_validation_count ?? row?.pending_requests ?? row?.requests_pending ?? 0);
 };
 
-export const effectiveAccessUsers = (overview: StorageRootDetailModel | null): Array<Record<string, unknown>> =>
+const effectiveAccessUsers = (overview: StorageRootDetailModel | null): Array<Record<string, unknown>> =>
   Array.isArray(overview?.effective_access) ? (overview.effective_access as Array<Record<string, unknown>>) : [];
 
 export const effectiveAccessUsersByLevel = (
@@ -150,7 +150,7 @@ const isGroupLikeEffectiveRow = (row: Record<string, unknown>): boolean => {
   return Boolean(row?.is_acl_group) || principalType.includes('group') || Array.isArray(row?.members);
 };
 
-export const effectiveAccessCount = (overview: StorageRootDetailModel | null, level: 'read' | 'write'): number => {
+const effectiveAccessCount = (overview: StorageRootDetailModel | null, level: 'read' | 'write'): number => {
   const seen = new Set<string>();
 
   for (const row of effectiveAccessUsersByLevel(overview, level)) {
@@ -185,16 +185,16 @@ type ProjectedAdGroup = {
   acl_principal?: string | null;
 };
 
-export const projectedAdGroupsRows = (overview: StorageRootDetailModel | null): ProjectedAdGroup[] =>
+const projectedAdGroupsRows = (overview: StorageRootDetailModel | null): ProjectedAdGroup[] =>
   Array.isArray(overview?.projected_ad_groups) ? overview.projected_ad_groups : [];
 
-export const projectedGroupForLevel = (
+const projectedGroupForLevel = (
   overview: StorageRootDetailModel | null,
   level: 'READ' | 'WRITE'
 ): ProjectedAdGroup | null =>
   projectedAdGroupsRows(overview).find((row) => String(row?.access_level ?? '').trim().toUpperCase() === level) ?? null;
 
-export const projectedGroupCreated = (row: ProjectedAdGroup | null | undefined): boolean => {
+const projectedGroupCreated = (row: ProjectedAdGroup | null | undefined): boolean => {
   if (!row) return false;
   const status = String(row.profile_status ?? '').trim().toUpperCase();
   if (status === 'CREATED' || status === 'SUCCEEDED' || status === 'PROVISIONED') return true;
@@ -203,7 +203,7 @@ export const projectedGroupCreated = (row: ProjectedAdGroup | null | undefined):
   return Boolean(String(row.group_external_id ?? '').trim());
 };
 
-export const adGroupStatusForLevel = (overview: StorageRootDetailModel | null, level: 'READ' | 'WRITE'): string => {
+const adGroupStatusForLevel = (overview: StorageRootDetailModel | null, level: 'READ' | 'WRITE'): string => {
   const row = projectedGroupForLevel(overview, level);
   if (!row) return 'No group linked';
   const alignment = String(row?.acl_alignment ?? '').trim().toLowerCase();
@@ -215,7 +215,7 @@ export const adGroupStatusForLevel = (overview: StorageRootDetailModel | null, l
   return 'No group linked';
 };
 
-export const adGroupStatusTone = (overview: StorageRootDetailModel | null, level: 'READ' | 'WRITE'): 'success' | 'pending' | 'warning' => {
+const adGroupStatusTone = (overview: StorageRootDetailModel | null, level: 'READ' | 'WRITE'): 'success' | 'pending' | 'warning' => {
   const status = adGroupStatusForLevel(overview, level);
   if (status === 'ACL present' || status === 'Created') return 'success';
   if (status === 'Provisioning') return 'pending';

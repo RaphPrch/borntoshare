@@ -1,6 +1,6 @@
-export type GovernanceOwnerLike = Record<string, unknown>;
+type GovernanceOwnerLike = Record<string, unknown>;
 
-export type GovernanceOwnerCardVM = {
+type GovernanceOwnerCardVM = {
   title: string;
   subtitle: string | null;
   tertiary: string | null;
@@ -66,4 +66,3 @@ export const mapGovernanceOwnerToCardVM = (
     iconClass: iconKind === 'group' ? 'bi-people' : 'bi-person'
   };
 };
-

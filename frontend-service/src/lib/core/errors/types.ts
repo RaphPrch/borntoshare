@@ -11,7 +11,7 @@ export type ErrorKind =
 
 export type LogLevel = 'debug' | 'info' | 'warning' | 'error';
 
-export type ErrorSource = 'http' | 'ui' | 'runtime' | 'auth' | 'ssr' | 'unknown';
+type ErrorSource = 'http' | 'ui' | 'runtime' | 'auth' | 'ssr' | 'unknown';
 
 export type AppError = {
   message: string;
@@ -25,4 +25,3 @@ export type AppError = {
   details?: unknown;
   source: ErrorSource;
 };
-

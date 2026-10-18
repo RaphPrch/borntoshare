@@ -1,41 +1,9 @@
 import type { ProbeRunRequest } from '$lib/api/probes';
 import {
-  buildIdentitySourceProbeRequest,
-  buildStorageEndpointProbeRequest
+  buildIdentitySourceProbeRequest
 } from './probe-runner';
 
-export { buildIdentitySourceProbeRequest, buildStorageEndpointProbeRequest };
-
-/**
- * Optional generic ACL/StorageRoot probe builder.
- * Aligns with backend ProbeKind 'acl' and protocol 'acl_push'.
- */
-export function buildAclProbeRequest(input: {
-  zoneId?: number | null;
-  storageEndpointId?: number | null;
-  storageRootName?: string | null;
-  dryRun?: boolean;
-  uiOrigin?: 'wizard' | 'admin';
-  target: Record<string, any>;
-}): ProbeRunRequest {
-  return {
-    kind: 'acl',
-    protocol: 'acl_push',
-    scope: 'write',
-    target: input.target,
-    options: {
-      dry_run: input.dryRun ?? true,
-      timeout_sec: 20
-    },
-    context: {
-      zone_id: input.zoneId ?? undefined,
-      storage_endpoint_id: input.storageEndpointId ?? undefined,
-      storage_root_name: input.storageRootName ?? undefined,
-      ui_origin: input.uiOrigin ?? 'admin'
-    }
-  };
-}
-
+export { buildIdentitySourceProbeRequest };
 
 export function buildStorageEndpointConnectProbeRequest(input: {
   protocol?: 'smb' | string;

@@ -1,6 +1,6 @@
 import type { StorageRootOwner, StorageRootOwnerRole } from '../api/storage-roots';
 
-export type IdentityImportCandidateRow = {
+type IdentityImportCandidateRow = {
   is_import_candidate?: boolean | null;
 };
 
@@ -9,7 +9,7 @@ export type GovernanceOwnerDraft = {
   metadataByIdentityId: Record<number, Partial<StorageRootOwner>>;
 };
 
-export type GovernanceBrowserSelection = {
+type GovernanceBrowserSelection = {
   guardianIds: number[];
   assignedRole?: StorageRootOwnerRole;
   metadataByIdentityId?: Record<number, Partial<StorageRootOwner>>;
@@ -22,7 +22,7 @@ const asPositiveInt = (value: unknown): number | null => {
   return Math.trunc(parsed);
 };
 
-export const normalizeOwnerRole = (value: unknown): StorageRootOwnerRole =>
+const normalizeOwnerRole = (value: unknown): StorageRootOwnerRole =>
   'guardian';
 
 export const normalizeAssignedRole = (value: unknown): StorageRootOwnerRole => normalizeOwnerRole(value);
@@ -44,7 +44,7 @@ export const sameOwnerIdSet = (left: unknown[], right: unknown[]): boolean => {
   return a.every((id) => rightSet.has(id));
 };
 
-export const splitOwnersByRole = (owners: Array<Partial<StorageRootOwner>>): {
+const splitOwnersByRole = (owners: Array<Partial<StorageRootOwner>>): {
   guardians: StorageRootOwner[];
 } => {
   const guardians: StorageRootOwner[] = [];
@@ -71,7 +71,7 @@ export const splitOwnersByRole = (owners: Array<Partial<StorageRootOwner>>): {
   };
 };
 
-export const deduplicateOwners = (owners: StorageRootOwner[]): StorageRootOwner[] => {
+const deduplicateOwners = (owners: StorageRootOwner[]): StorageRootOwner[] => {
   const seen = new Set<string>();
   const out: StorageRootOwner[] = [];
   for (const owner of owners ?? []) {
@@ -189,15 +189,6 @@ export const governanceOwnersDraftForRole = (
     ...(persistedById.get(identityId) ?? {})
   }));
 };
-
-export const normalizeUnresolvedPrincipalLabels = (labels: unknown[]): string[] =>
-  Array.from(
-    new Set(
-      (labels ?? [])
-        .map((value) => String(value ?? '').trim())
-        .filter(Boolean)
-    )
-  );
 
 export const shouldResetGovernanceDraftFromOwners = (draftDirty: boolean): boolean => !draftDirty;
 

@@ -21,11 +21,7 @@ const DEFAULT_SOURCE_BY_LEVEL: Record<FrontendLogLevel, FrontendLogSource> = {
   error: 'runtime'
 };
 
-type LoggerOptions = {
-  transports?: LoggerTransport[];
-};
-
-export const frontendLogs = writable<FrontendLogEvent[]>([]);
+const frontendLogs = writable<FrontendLogEvent[]>([]);
 
 const DEFAULT_TRANSPORTS: LoggerTransport[] = [
   createConsoleTransport()
@@ -82,16 +78,6 @@ function buildEvent(
     route: routeFromLocation(),
     context: toContextObject(context)
   };
-}
-
-export function configureLogger(options: LoggerOptions): void {
-  activeTransports = options.transports && options.transports.length > 0
-    ? [...options.transports]
-    : [...DEFAULT_TRANSPORTS];
-}
-
-export function logDebug(message: string, context?: Record<string, unknown>): void {
-  dispatch(buildEvent('debug', message, context));
 }
 
 export function logInfo(message: string, context?: Record<string, unknown>): void {
