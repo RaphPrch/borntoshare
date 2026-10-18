@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { normalizeText } from '$lib/utils/values';
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
@@ -69,7 +70,6 @@
   let meId: string | number | null = null;
   $: meId = $page.data?.me?.id ?? null;
 
-  const normalizeText = (value: unknown) => String(value ?? '').trim().toLowerCase();
   const displayText = (value: unknown, fallback = 'Unknown') => String(value ?? '').trim() || fallback;
   const asNumberOrNull = (value: unknown): number | null => {
     const n = Number(value);

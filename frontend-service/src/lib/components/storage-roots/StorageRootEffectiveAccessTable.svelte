@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDate, initials } from '$lib/utils/format';
   import type {
     StorageRootEffectiveAccessUser,
     StorageRootProjectedAdGroup
@@ -24,11 +25,6 @@
   const displayName = (user: StorageRootEffectiveAccessUser): string =>
     text(user.display_name) || text(user.username) || text(user.upn) || text(user.principal) || `Identity ${user.identity_id ?? 'unknown'}`;
 
-  const initials = (name: string): string => {
-    const words = name.split(/\s+/).filter(Boolean);
-    const letters = words.length > 1 ? `${words[0][0]}${words[1][0]}` : name.slice(0, 2);
-    return letters.toUpperCase();
-  };
 
   const accessLevel = (user: StorageRootEffectiveAccessUser): 'read' | 'write' | 'unknown' => {
     const level = norm(user.access_level);
@@ -80,18 +76,6 @@
     if (level === 'read') return 'Read';
     if (level === 'write') return 'Write';
     return 'Unknown';
-  };
-
-  const formatDate = (value: unknown): string => {
-    const raw = text(value);
-    if (!raw) return '—';
-    const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return raw;
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    }).format(date);
   };
 
   const grantedAtLabel = (user: StorageRootEffectiveAccessUser): string => {

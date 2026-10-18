@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { sleep } from '$lib/utils/values';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
@@ -30,8 +31,7 @@
   import { resolveCredentials } from '$lib/auth/credentials-service';
   import { toast } from '$lib/stores/toast';
   import { dependencyDeleteMessage, isDependencyDeleteError } from '$lib/utils/delete-guard';
-  import { notifyError, toAppError, type AppError } from '$lib/core/errors';
-  import { logAppError } from '$lib/core/logging';
+  import { notifyError, toAppError, isGenericErrorMessage, toUiAppError } from '$lib/core/errors';
   import {
     extractSnapshotMeta,
     toSnapshotStorePatch,
@@ -525,8 +525,6 @@
     fetchError = data.fetch_error;
   }
 
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
   const normalizeDebugValue = (value: unknown): string | null => {
     const normalized = String(value ?? '').trim();
     return normalized.length > 0 ? normalized : null;
@@ -606,7 +604,7 @@
       if (selectedSourceId !== null && Number(selectedSourceId) !== normalizedSourceId) {
         return;
       }
-      const appError = normalizeIdentityError(e, 'Unable to load snapshot debug rows.', 'ui', {
+      const appError = toUiAppError(e, 'Unable to load snapshot debug rows.', 'ui', {
         action: 'identity_sources.load_snapshot_debug_rows',
         sourceId: normalizedSourceId
       });
@@ -622,26 +620,10 @@
     }
   };
 
-  const GENERIC_ERROR_MESSAGES = new Set(['Unexpected error', 'Backend error', 'Network error', 'Request timeout']);
-
-  const normalizeIdentityError = (
-    error: unknown,
-    fallback: string,
-    source: AppError['source'],
-    context?: Record<string, unknown>
-  ): AppError => {
-    const normalized = toAppError(error, { source });
-    const appError = GENERIC_ERROR_MESSAGES.has(normalized.message)
-      ? { ...normalized, message: fallback }
-      : normalized;
-    logAppError(appError, context);
-    return appError;
-  };
-
   const dependencyMessageFromError = (error: unknown, fallback: string): string => {
     const appError = toAppError(error, { source: 'ui' });
     const message = String(appError.message ?? '').trim();
-    return GENERIC_ERROR_MESSAGES.has(message) || !message ? fallback : message;
+    return isGenericErrorMessage(message) ? fallback : message;
   };
 
   const identityProbeJobInput = (sourceId: number) => ({
@@ -701,7 +683,7 @@
         selectedSource = refreshedSelected;
       }
     } catch (e: unknown) {
-      const appError = normalizeIdentityError(e, 'Unable to load identity sources.', 'ui', {
+      const appError = toUiAppError(e, 'Unable to load identity sources.', 'ui', {
         action: 'identity_sources.refresh_list'
       });
       fetchError = appError.message;
@@ -727,7 +709,7 @@
         }, { secretName: `identity-source/${protocol}/${payload.host || 'ad'}`, mode: 'create' });
         secretRef = resolved.secret_ref ?? null;
       } catch (e: unknown) {
-        const appError = normalizeIdentityError(e, 'Unable to store secret.', 'auth', {
+        const appError = toUiAppError(e, 'Unable to store secret.', 'auth', {
           action: 'identity_sources.resolve_bind_secret'
         });
         notifyError(appError);
@@ -880,7 +862,7 @@
         await loadInternal(source.id, true);
       }
     } catch (e: unknown) {
-      const appError = normalizeIdentityError(e, 'Probe impossible', 'ui', {
+      const appError = toUiAppError(e, 'Probe impossible', 'ui', {
         action: 'identity_sources.run_probe',
         sourceId: source.id
       });
@@ -1024,7 +1006,7 @@
         await loadInternal(source.id, true);
       }
     } catch (e: unknown) {
-      const appError = normalizeIdentityError(e, 'Snapshot impossible', 'ui', {
+      const appError = toUiAppError(e, 'Snapshot impossible', 'ui', {
         action: 'identity_sources.run_snapshot',
         sourceId: source.id
       });
@@ -1086,7 +1068,7 @@
       const internal = (await getIdentitySourceInternal(fetch, Number(source.id))) as IdentitySourceRow;
       sourceForEdit = { ...source, ...internal };
     } catch (e: unknown) {
-      const appError = normalizeIdentityError(e, 'Unable to load source metadata.', 'ui', {
+      const appError = toUiAppError(e, 'Unable to load source metadata.', 'ui', {
         action: 'identity_sources.open_edit',
         sourceId: source.id
       });
@@ -1268,7 +1250,7 @@
         await loadInternal(selectedSource.id, true);
       }
     } catch (e: unknown) {
-      const appError = normalizeIdentityError(e, 'Unable to update', 'ui', {
+      const appError = toUiAppError(e, 'Unable to update', 'ui', {
         action: 'identity_sources.update_source',
         sourceId: selectedSource.id
       });
@@ -1336,7 +1318,7 @@
         toast.error(editProbeResult.message);
       }
     } catch (e: unknown) {
-      const appError = normalizeIdentityError(e, 'Connection test failed.', 'ui', {
+      const appError = toUiAppError(e, 'Connection test failed.', 'ui', {
         action: 'identity_sources.edit_test_connection',
         sourceId: selectedSource.id
       });
@@ -1370,7 +1352,7 @@
         await loadInternal(source.id, true);
       }
     } catch (e: unknown) {
-      const appError = normalizeIdentityError(e, 'Action impossible', 'ui', {
+      const appError = toUiAppError(e, 'Action impossible', 'ui', {
         action: 'identity_sources.toggle_source_active',
         sourceId: source.id,
         nextActive
@@ -1395,7 +1377,7 @@
         await loadInternal(pendingToggleSource.id, true);
       }
     } catch (e: unknown) {
-      const appError = normalizeIdentityError(e, 'Action impossible', 'ui', {
+      const appError = toUiAppError(e, 'Action impossible', 'ui', {
         action: 'identity_sources.confirm_disable_used_source',
         sourceId: pendingToggleSource.id
       });
@@ -1430,7 +1412,7 @@
         closeDelete();
         return;
       }
-      const appError = normalizeIdentityError(e, 'Unable to delete', 'ui', {
+      const appError = toUiAppError(e, 'Unable to delete', 'ui', {
         action: 'identity_sources.delete_source',
         sourceId: selectedSource.id,
         status
@@ -1466,7 +1448,7 @@
     } catch (e: unknown) {
       selectedInternal = null;
       snapshotDebugVersion = null;
-      const appError = normalizeIdentityError(e, 'Unable to load internal metadata.', 'ui', {
+      const appError = toUiAppError(e, 'Unable to load internal metadata.', 'ui', {
         action: 'identity_sources.load_internal_metadata',
         sourceId
       });

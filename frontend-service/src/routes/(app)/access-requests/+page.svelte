@@ -6,7 +6,7 @@
   import { bulkDecision, getAccessRequestDetails } from '$lib/api/access-requests';
   import NewAccessRequestModal from '$lib/components/access-requests/NewAccessRequestModal.svelte';
   import { toast } from '$lib/stores/toast';
-  import { initialsFromLabel } from '$lib/utils/initials';
+  import { initials } from '$lib/utils/format';
   import {
     mapAccessRequestDecisionError,
     mapAccessRequestDecisionErrorFromBulk
@@ -555,7 +555,7 @@
                 <tr class:selected on:click={() => selectRequest(request)} tabindex="0" on:keydown={(event) => event.key === 'Enter' && selectRequest(request)}>
                   <td>
                     <div class="ar-person">
-                      <span>{initialsFromLabel(requesterName(request), '??')}</span>
+                      <span>{initials(requesterName(request), '??')}</span>
                       <div><strong>{requesterName(request)}</strong><small>{requesterDepartment(request)}</small></div>
                     </div>
                   </td>

@@ -1,4 +1,5 @@
 import type { AppError, ErrorKind, LogLevel } from './types';
+import { asRecord } from '../../utils/values';
 
 type ApiErrorLike = {
   name: 'ApiError';
@@ -40,13 +41,6 @@ const DEFAULT_MESSAGES: Record<ErrorKind, string> = {
   backend: 'Backend error',
   unknown: 'Unexpected error'
 };
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-  return value as Record<string, unknown>;
-}
 
 function isApiErrorLike(value: unknown): value is ApiErrorLike {
   const rec = asRecord(value);

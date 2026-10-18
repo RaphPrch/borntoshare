@@ -1,8 +1,8 @@
 <script lang="ts">
+  import { formatDateTime, initials } from '$lib/utils/format';
   import DashboardShell from './DashboardShell.svelte';
   import { accessRequestAccessLabel, accessRequestId, accessRequestRequesterName, accessRequestTargetLabel } from '$lib/services/mappers/access-requests.mapper';
   import { getRequestStatusMeta } from '$lib/utils/access-request-status';
-  import { initialsFromLabel } from '$lib/utils/initials';
 
   export let data: any;
 
@@ -19,34 +19,6 @@
   };
 
   const lower = (value: unknown): string => String(value ?? '').trim().toLowerCase();
-
-  const formatDateTime = (value: unknown): string => {
-    const raw = String(value ?? '').trim();
-    if (!raw) return '—';
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return raw;
-    return d.toLocaleString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-  };
-
-  const formatDateTimeCompact = (value: unknown): string => {
-    const raw = String(value ?? '').trim();
-    if (!raw) return '—';
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return raw;
-    return d.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-  };
 
   const requestCode = (row: any): string =>
     String(row?.request_code ?? `REQ-${String(accessRequestId(row)).padStart(6, '0')}`);
@@ -213,7 +185,7 @@
                     <td><a class="request-link" href={requestHref(row, 'pending')}>{requestCode(row)}</a></td>
                     <td>
                       <div class="requester-cell">
-                        <span class="avatar">{initialsFromLabel(accessRequestRequesterName(row), 'U')}</span>
+                        <span class="avatar">{initials(accessRequestRequesterName(row), 'U')}</span>
                         <span>{accessRequestRequesterName(row)}</span>
                       </div>
                     </td>
@@ -286,7 +258,7 @@
                     <td>{normalizedAccess(row)}</td>
                     <td><span class={`status-badge ${statusMeta(row).tone}`}>{statusMeta(row).label}</span></td>
                     <td><span class={`role-badge ${roleTone(row)}`}>{roleLabel(row)}</span></td>
-                    <td>{formatDateTimeCompact(row?.updated_at ?? row?.created_at)}</td>
+                    <td>{formatDateTime(row?.updated_at ?? row?.created_at)}</td>
                     <td><a class="table-action-link" href={requestHref(row)}>View details</a></td>
                   </tr>
                 {/each}

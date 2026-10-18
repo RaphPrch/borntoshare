@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
   import { onDestroy } from 'svelte';
   import { cancelAdminJob, listAdminJobs, type AdminProvisioningJob } from '$lib/api/admin-jobs';
   import { toast } from '$lib/stores/toast';
@@ -25,19 +26,6 @@
     if (!raw) return null;
     const parsed = new Date(raw);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
-  };
-
-  const formatDate = (value: unknown): string => {
-    const parsed = toDate(value);
-    if (!parsed) return '—';
-    return parsed.toLocaleString('fr-FR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
   };
 
   const normalizeStatus = (raw: unknown): string => {
@@ -162,7 +150,7 @@
       <h1 class="jobs-title">Jobs</h1>
       <div class="jobs-subtitle">Monitoring provisioning jobs and operator cancellations</div>
     </div>
-    <div class="jobs-updated">Updated {formatDate(updatedAt)}</div>
+    <div class="jobs-updated">Updated {formatDateTime(updatedAt, { seconds: true })}</div>
   </div>
 
   <div class="card b2s-card jobs-summary">
@@ -238,7 +226,7 @@
                   <td>{String(job.action ?? '—')}</td>
                   <td class="mono">{job.queue_age_seconds ?? '—'}</td>
                   <td class="mono">{job.watchdog_republish_count ?? 0}</td>
-                  <td class="mono">{formatDate(job.updated_at ?? job.created_at)}</td>
+                  <td class="mono">{formatDateTime(job.updated_at ?? job.created_at, { seconds: true })}</td>
                   <td>
                     {#if job.error_code || job.error_message}
                       <div class="error-block">

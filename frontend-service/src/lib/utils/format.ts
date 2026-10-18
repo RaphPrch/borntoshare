@@ -1,0 +1,45 @@
+// Display formatting shared by every screen (dates, initials).
+
+const DATE_OPTIONS: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' };
+const TIME_OPTIONS: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+
+const toValidDate = (value: unknown): Date | null => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+/** dd/mm/yyyy hh:mm (optionally :ss). Empty input -> `empty`; unparsable input is shown as-is. */
+export function formatDateTime(
+  value: unknown,
+  { seconds = false, empty = '—' }: { seconds?: boolean; empty?: string } = {}
+): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return empty;
+  const date = toValidDate(raw);
+  if (!date) return raw;
+  return date.toLocaleString('en-GB', {
+    ...DATE_OPTIONS,
+    ...TIME_OPTIONS,
+    ...(seconds ? { second: '2-digit' } : {})
+  });
+}
+
+/** dd/mm/yyyy. Empty input -> `empty`; unparsable input is shown as-is. */
+export function formatDate(value: unknown, { empty = '—' }: { empty?: string } = {}): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return empty;
+  const date = toValidDate(raw);
+  return date ? date.toLocaleDateString('en-GB', DATE_OPTIONS) : raw;
+}
+
+/** Two-letter initials: "Jane Doe" -> "JD", "john.doe" -> "JD", "System" -> "SY". */
+export function initials(value?: string | null, fallback = '??'): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return fallback;
+  const parts = raw.split(/[\s._-]+/).filter(Boolean);
+  const first = (parts[0]?.[0] ?? '').toUpperCase();
+  const second = (parts[1]?.[0] ?? parts[0]?.[1] ?? '').toUpperCase();
+  return `${first}${second}`.trim() || fallback;
+}

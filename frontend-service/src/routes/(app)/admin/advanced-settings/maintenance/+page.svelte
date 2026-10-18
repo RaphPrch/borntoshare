@@ -3,8 +3,7 @@
   import SettingRow from '$lib/components/advanced-settings/v3/SettingRow.svelte';
 
   import { toast } from '$lib/stores/toast';
-  import { notifyError, toAppError } from '$lib/core/errors';
-  import { logAppError } from '$lib/core/logging';
+  import { reportUiError } from '$lib/core/errors';
   import { saveMaintenanceConfig } from '$lib/api/admin-advanced-settings';
 
   export let data: any;
@@ -20,18 +19,6 @@
   let allowedCidrsText = initialMaintenance.allowedCidrs.join(', ');
   let saving = false;
   let errorMsg: string | null = null;
-
-  const GENERIC_ERROR_MESSAGES = new Set(['Unexpected error', 'Backend error', 'Network error', 'Request timeout']);
-
-  const toUiErrorMessage = (error: unknown, fallback: string, action: string): string => {
-    const normalized = toAppError(error, { source: 'ui' });
-    const appError = GENERIC_ERROR_MESSAGES.has(normalized.message)
-      ? { ...normalized, message: fallback }
-      : normalized;
-    logAppError(appError, { action });
-    notifyError(appError);
-    return appError.message;
-  };
 
   const cidrRegex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}\/(3[0-2]|[12]?\d)$/;
 
@@ -70,7 +57,7 @@
       initialSnapshot = JSON.stringify(normalize(payload, allowedCidrsText));
       toast.success('Maintenance settings saved.');
     } catch (e: unknown) {
-      errorMsg = toUiErrorMessage(e, 'Unable to save right now.', 'advanced_settings.maintenance.save');
+      errorMsg = reportUiError(e, 'Unable to save right now.', 'advanced_settings.maintenance.save');
     } finally {
       saving = false;
     }

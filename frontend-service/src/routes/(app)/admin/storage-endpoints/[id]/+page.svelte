@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
   import { goto, invalidateAll } from '$app/navigation';
@@ -239,27 +240,13 @@
   const endpointManualHealthRefreshBusy = (ep: any): boolean =>
     Boolean(manualHealthRefreshByEndpointId[String(endpointId(ep))]);
 
-  const formatDate = (value: unknown): string => {
-    const text = String(value ?? '').trim();
-    if (!text) return 'Unavailable';
-    const date = new Date(text);
-    if (!Number.isFinite(date.getTime())) return 'Unavailable';
-    return date.toLocaleString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   const formatRelativeDate = (value: unknown, fallback = 'Unavailable'): string => {
     const text = String(value ?? '').trim();
     if (!text) return fallback;
     const date = new Date(text);
     if (!Number.isFinite(date.getTime())) return fallback;
     const diffMs = Date.now() - date.getTime();
-    if (diffMs < 0) return formatDate(text);
+    if (diffMs < 0) return formatDateTime(text, { empty: 'Unavailable' });
     const seconds = Math.floor(diffMs / 1000);
     if (seconds < 60) return 'Just now';
     const minutes = Math.floor(seconds / 60);
@@ -268,7 +255,7 @@
     if (hours < 24) return `${hours} h ago`;
     const days = Math.floor(hours / 24);
     if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
-    return formatDate(text);
+    return formatDateTime(text, { empty: 'Unavailable' });
   };
 
   function handleEndpointTabChange(key: string) {
@@ -883,7 +870,7 @@
 
   const endpointLastCommunicationLabel = (ep: any): string => {
     const raw = endpointLastProbeRaw(ep);
-    return raw ? formatDate(raw) : 'No probe data';
+    return raw ? formatDateTime(raw, { empty: 'Unavailable' }) : 'No probe data';
   };
 
   const endpointLastResultLabel = (ep: any): string => {

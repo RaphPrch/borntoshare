@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
   /**
    * Generic probe result display.
    * Accepts either ProbeRunResult or job.result payload.
@@ -34,15 +35,6 @@
     if (rawStatus === 'failed' || rawStatus === 'error') return false;
     return null;
   };
-  const formatDateTime = (value: string | null) => {
-    if (!value) return null;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return new Intl.DateTimeFormat('fr-FR', {
-      dateStyle: 'short',
-      timeStyle: 'short'
-    }).format(date);
-  };
   const formatDuration = (value: number | null) => {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null;
     if (value < 1000) return `${Math.round(value)} ms`;
@@ -53,7 +45,7 @@
   $: banner = ok === true ? 'success' : ok === false ? 'danger' : 'info';
   $: title = ok === true ? 'Probe OK' : ok === false ? 'Probe failed' : 'Probe';
   $: iconClass = ok === true ? 'bi-check2-circle' : ok === false ? 'bi-x-circle' : 'bi-activity';
-  $: lastRunLabel = formatDateTime(lastRunAt);
+  $: lastRunLabel = lastRunAt ? formatDateTime(lastRunAt) : null;
   $: durationLabel = formatDuration(durationMs);
 </script>
 

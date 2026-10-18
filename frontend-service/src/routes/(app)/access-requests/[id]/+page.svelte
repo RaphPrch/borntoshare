@@ -4,7 +4,7 @@
   import { bulkDecision } from '$lib/api/access-requests';
   import { apiGetData } from '$lib/api/client';
   import { toast } from '$lib/stores/toast';
-  import { initialsFromLabel } from '$lib/utils/initials';
+  import { initials } from '$lib/utils/format';
   import { mapAccessRequestDecisionErrorFromBulk, type AccessRequestDecisionUiError } from '$lib/utils/request-decision-errors';
   import {
     accessProfileLabel,
@@ -30,7 +30,6 @@
   let actionMenuOpen = false;
   let decisionInlineError: AccessRequestDecisionUiError | null = null;
 
-  const initials = (value?: string | null) => initialsFromLabel(value, '??');
 
   $: requestStatus = String(req?.status ?? '').toLowerCase();
   $: canApprove = requestStatus === 'pending';

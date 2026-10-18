@@ -1,3 +1,5 @@
+import { asRecord } from '../utils/values';
+
 export class ApiError extends Error {
   status?: number;
   code?: string;
@@ -23,13 +25,6 @@ export class ApiError extends Error {
     this.details = options?.details;
     this.transport = options?.transport;
   }
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-  return value as Record<string, unknown>;
 }
 
 function asString(value: unknown): string | null {

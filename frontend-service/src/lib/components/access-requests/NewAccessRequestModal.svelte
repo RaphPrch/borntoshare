@@ -3,7 +3,7 @@
   import AppModal from '$lib/components/common/AppModal.svelte';
   import { checkExistingAccess, createAccessRequest, type CheckExistingAccessResponse } from '$lib/api/access-requests';
   import { getStorageRootOverview, listStorageRootsContext, type StorageRootContext } from '$lib/api/storage-roots';
-  import { initialsFromLabel } from '$lib/utils/initials';
+  import { initials } from '$lib/utils/format';
   import {
     type PrincipalSearchItem,
     principalKey,
@@ -72,7 +72,6 @@
     !existingAccessBlocking &&
     !existingAccessCheckLoading;
 
-  const initials = (value: string) => initialsFromLabel(value, '??');
   const compact = (value: unknown, fallback = '—') => String(value ?? '').trim() || fallback;
 
   function normalizePrefillAccessChoice(value: unknown): AccessChoice {

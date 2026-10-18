@@ -1,12 +1,12 @@
 <script lang="ts">
+  import { clamp } from '$lib/utils/values';
   import ConfigCard from '$lib/components/advanced-settings/v3/ConfigCard.svelte';
   import DangerZone from '$lib/components/advanced-settings/v3/DangerZone.svelte';
   import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
   import SettingRow from '$lib/components/advanced-settings/v3/SettingRow.svelte';
 
   import { toast } from '$lib/stores/toast';
-  import { notifyError, toAppError } from '$lib/core/errors';
-  import { logAppError } from '$lib/core/logging';
+  import { reportUiError } from '$lib/core/errors';
   import type { LogLevel } from '$lib/api/admin-advanced-settings';
   import { saveLoggingConfig, purgeLogs } from '$lib/api/admin-advanced-settings';
 
@@ -25,20 +25,7 @@
   let purgeConfirmOpen = false;
   let errorMsg: string | null = null;
 
-  const GENERIC_ERROR_MESSAGES = new Set(['Unexpected error', 'Backend error', 'Network error', 'Request timeout']);
-
-  const toUiErrorMessage = (error: unknown, fallback: string, action: string): string => {
-    const normalized = toAppError(error, { source: 'ui' });
-    const appError = GENERIC_ERROR_MESSAGES.has(normalized.message)
-      ? { ...normalized, message: fallback }
-      : normalized;
-    logAppError(appError, { action });
-    notifyError(appError);
-    return appError.message;
-  };
-
   const levels: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-  const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
   const normalize = (input: typeof form) => ({
     level: (levels.includes(input.level as LogLevel) ? input.level : 'INFO') as LogLevel,
     retentionEnabled: Boolean(input.retentionEnabled),
@@ -72,7 +59,7 @@
       initialSnapshot = JSON.stringify(normalize(payload));
       toast.success('Logging settings saved.');
     } catch (e: unknown) {
-      errorMsg = toUiErrorMessage(e, 'Failed to save logging settings.', 'advanced_settings.logging.save');
+      errorMsg = reportUiError(e, 'Failed to save logging settings.', 'advanced_settings.logging.save');
     } finally {
       saving = false;
     }
@@ -91,7 +78,7 @@
       await purgeLogs(fetch);
       toast.success('Purge requested.');
     } catch (e: unknown) {
-      toUiErrorMessage(e, 'Backend not connected: simulated action (dev).', 'advanced_settings.logging.purge');
+      reportUiError(e, 'Backend not connected: simulated action (dev).', 'advanced_settings.logging.purge');
     } finally {
       purging = false;
     }

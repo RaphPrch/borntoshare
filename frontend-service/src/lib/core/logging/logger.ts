@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 
 import type { AppError } from '../errors/types';
-import { toAppError } from '../errors';
+import { toAppError } from '../errors/normalize';
 
 import { createConsoleTransport, createHttpTransport } from './transports';
 import type {

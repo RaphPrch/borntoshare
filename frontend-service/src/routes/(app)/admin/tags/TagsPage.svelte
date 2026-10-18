@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { normalizeText } from '$lib/utils/values';
   import { invalidateAll } from "$app/navigation";
 
   import ConfirmDeleteDialog from "$lib/components/common/ConfirmDeleteDialog.svelte";
@@ -93,8 +94,6 @@
     if (!Number.isFinite(d.getTime())) return "—";
     return d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   };
-
-  const normalizeText = (value: unknown) => String(value ?? "").toLowerCase().trim();
 
   $: hasNameError = !form.name.trim();
   $: hasColorError = !isValidHexColor(form.color_rgb);

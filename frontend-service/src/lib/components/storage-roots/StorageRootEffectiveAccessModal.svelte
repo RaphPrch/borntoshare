@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { initials } from '$lib/utils/format';
   import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
   import StorageRootDrawerShell from '$lib/components/storage-roots/StorageRootDrawerShell.svelte';
   import { timeAgo } from '$lib/utils/timeAgo';
@@ -24,13 +25,6 @@
   const label = (u: any) => String(u?.display_name ?? u?.username ?? u?.email ?? u?.upn ?? `Identity #${u?.identity_id ?? '?'}`);
   const mail = (u: any) => String(u?.email ?? u?.upn ?? '—');
 
-  const initials = (value: string) =>
-    value
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase() ?? '')
-      .join('') || 'U';
 
   const toneClass = (index: number) => ['indigo', 'violet', 'rose', 'orange', 'cyan'][index % 5];
 

@@ -1,3 +1,5 @@
+import { asRecord } from '../utils/values';
+
 type ProbeErrorType =
   | 'VALIDATION'
   | 'NETWORK'
@@ -14,13 +16,6 @@ export type NormalizedProbeError = {
 
 const contains = (msg: string, needle: string) =>
   msg.toLowerCase().includes(needle.toLowerCase());
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-  return value as Record<string, unknown>;
-}
 
 function pickString(record: Record<string, unknown> | null, key: string): string | null {
   if (!record) return null;
