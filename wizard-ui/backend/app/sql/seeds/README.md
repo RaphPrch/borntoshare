@@ -9,9 +9,9 @@ Ce dossier contient des **seeds DEV/TEST uniquement**.
 
 Les seeds doivent rester **compatibles avec le schéma SQL canonique** exécuté par le runner Wizard :
 
-- [`services/wizard-ui/backend/app/sql/schema`](services/wizard-ui/backend/app/sql/schema)
-- [`services/wizard-ui/backend/app/sql/views`](services/wizard-ui/backend/app/sql/views)
-- [`services/wizard-ui/backend/app/sql/logging/schema`](services/wizard-ui/backend/app/sql/logging/schema)
+- `wizard-ui/backend/app/sql/schema`
+- `wizard-ui/backend/app/sql/views`
+- `wizard-ui/backend/app/sql/logging/schema`
 
 La BDD est l’unique source de vérité. Les services ne doivent pas reconstruire le schéma au runtime.
 
@@ -31,10 +31,10 @@ numerotes `050` a `073`.
 Si tu veux un seed "gros volume" **personnel** (non publié sur GitHub) :
 
 1) place tes fichiers `.sql` dans : `backend/app/sql/seeds_private/`
-2) assure-toi que `WIZARD_PRIVATE_SEEDS_DIR=seeds_private` (voir [`services/wizard-ui/.env.example`](services/wizard-ui/.env.example:1))
+2) assure-toi que `WIZARD_PRIVATE_SEEDS_DIR=seeds_private` (voir `wizard-ui/.env.example`)
 3) en mode DEV, cocher "Données de démonstration" déclenchera aussi ces seeds privés.
 
-Ce dossier est ignoré par git via [`.gitignore`](services/wizard-ui/.gitignore:1).
+Ce dossier est ignoré par git via `.gitignore`.
 
 ### Bonnes pratiques
 

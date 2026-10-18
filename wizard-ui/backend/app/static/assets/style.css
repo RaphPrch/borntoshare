@@ -122,7 +122,7 @@ body {
   border-left-color: var(--b2s-primary);
 }
 
-/* Step validated (see [`updateStepperUI()`](services/wizard-ui/backend/app/static/js/core.js:45)) */
+/* Step validated (see [`updateStepperUI()`](backend/app/static/js/core.js)) */
 .b2s-stepper li.done::after {
   content: "✔";
   color: #15803d;

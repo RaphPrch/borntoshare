@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import socket
 import time
 import logging
@@ -35,9 +34,6 @@ class DbAuthPayload(DbNetworkPayload):
         description="Optional database name",
     )
 
-
-class LoggingDbSavePayload(DbAuthPayload):
-    database: str = Field(..., description="Logging database name")
 
 # ============================================================
 # 🌐 DNS / TCP / LATENCY DIAGNOSTIC
@@ -247,42 +243,3 @@ def privileges_test(payload: DbAuthPayload):
         "is_root": payload.user.lower() == "root",
     }
 
-
-# ============================================================
-# 🧾 LOGGING DB (Wizard runtime logging storage)
-# ============================================================
-
-
-@router.post("/logging/test")
-def test_logging_db(payload: DbAuthPayload):
-    try:
-        conn = get_connection(
-            database=False,
-            root_cfg={
-                "host": payload.host,
-                "port": payload.port,
-                "user": payload.user,
-                "password": payload.password,
-            },
-        )
-        conn.close()
-    except Exception as e:
-        logger.error("Logging DB connection failed", exc_info=e)
-        raise HTTPException(status_code=400, detail="Unable to connect to logging DB")
-
-    return {"status": "ok"}
-
-
-@router.post("/logging/save")
-def save_logging_db_connection(payload: LoggingDbSavePayload):
-    if not payload.host or not payload.user or not payload.database:
-        raise HTTPException(status_code=400, detail="host/user/database are required")
-
-    os.environ["WIZARD_LOG_DB_ENABLED"] = "true"
-    os.environ["WIZARD_LOG_DB_HOST"] = str(payload.host)
-    os.environ["WIZARD_LOG_DB_PORT"] = str(payload.port)
-    os.environ["WIZARD_LOG_DB_USER"] = str(payload.user)
-    os.environ["WIZARD_LOG_DB_PASSWORD"] = str(payload.password)
-    os.environ["WIZARD_LOG_DB_NAME"] = str(payload.database)
-
-    return {"ok": True}
