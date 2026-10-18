@@ -108,7 +108,7 @@ def test_resolve_ad_identity_batch_aggregates_results(monkeypatch) -> None:
 def test_resolve_ad_identity_create_if_missing_creates_from_snapshot_user() -> None:
     db = _CaptureDB(
         [
-            [],
+            # one existing-identity lookup per candidate (external_id only here)
             [],
             [{
                 "external_id": "CN=Alice,OU=Users,DC=example,DC=com",

@@ -1,12 +1,14 @@
-<script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-
+<script module lang="ts">
   export type DataTableColumn = {
     key: string;
     label: string;
     className?: string;
     sortable?: boolean;
   };
+</script>
+
+<script lang="ts">
+  import { createEventDispatcher } from 'svelte';
 
   export let columns: DataTableColumn[] = [];
   export let rows: Record<string, unknown>[] = [];

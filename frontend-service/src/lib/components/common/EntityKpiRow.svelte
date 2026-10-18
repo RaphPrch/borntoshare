@@ -1,4 +1,4 @@
-<script lang="ts">
+<script module lang="ts">
   export type EntityKpiItem = {
     key: string;
     label: string;
@@ -7,7 +7,9 @@
     tone?: 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent';
     icon?: string;
   };
+</script>
 
+<script lang="ts">
   export let items: EntityKpiItem[] = [];
   export let ariaLabel = 'Entity KPIs';
 </script>

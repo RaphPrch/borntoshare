@@ -1,6 +1,8 @@
-<script lang="ts">
+<script module lang="ts">
   export type TabItem = { key: string; label: string };
+</script>
 
+<script lang="ts">
   export let tabs: TabItem[] = [];
   export let activeKey = "";
   export let onChange: ((key: string) => void) | null = null;

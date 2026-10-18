@@ -17,7 +17,8 @@
     "test:storage-root-detail-mapper": "npx tsx ./src/lib/services/mappers/storage-root-detail.mapper.test.ts",
     "test:storage-endpoint-provisioning-mapper": "npx tsx ./src/lib/services/mappers/storage-endpoint-provisioning.mapper.test.ts",
     "test:visual-state-mapper": "npx tsx ./src/lib/services/mappers/visual-state.mapper.test.ts",
-    "test:delete-guard": "npx tsx ./src/lib/utils/delete-guard.test.ts"
+    "test:delete-guard": "npx tsx ./src/lib/utils/delete-guard.test.ts",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
     "@sveltejs/adapter-node": "^5.4.0",
@@ -28,5 +29,10 @@
   },
   "overrides": {
     "cookie": "0.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "svelte-check": "^4.1.4",
+    "typescript": "^5.6.3"
   }
 }

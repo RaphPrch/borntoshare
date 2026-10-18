@@ -1,4 +1,4 @@
-<script lang="ts">
+<script module lang="ts">
   export type NavItem = {
     key: string;
     label: string;
@@ -6,7 +6,9 @@
     badge?: string;
     badgeVariant?: 'default' | 'new';
   };
+</script>
 
+<script lang="ts">
   export let current: string;
   export let items: NavItem[];
   export let basePath: string = '/admin/advanced-settings';

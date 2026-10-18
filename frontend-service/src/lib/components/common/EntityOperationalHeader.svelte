@@ -1,4 +1,4 @@
-<script lang="ts">
+<script module lang="ts">
   export type OperationalHeaderTone = 'success' | 'warning' | 'danger' | 'neutral' | 'info';
 
   export type OperationalHeaderMetaItem = {
@@ -6,7 +6,9 @@
     label: string;
     tone?: OperationalHeaderTone;
   };
+</script>
 
+<script lang="ts">
   export let eyebrow = '';
   export let title = '';
   export let subtitle = '';
