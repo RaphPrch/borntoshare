@@ -769,8 +769,7 @@
     padding: 16px 18px 0;
   }
 
-  .ar-step h3,
-  .summary-panel h3 {
+  .ar-step h3 {
     margin: 0 0 9px;
     color: #061849;
     font-size: 16px;
@@ -805,8 +804,7 @@
   }
 
   .target-card strong,
-  .principal-card strong,
-  .summary-list strong {
+  .principal-card strong {
     display: block;
     color: #061849;
     font-weight: 730;
@@ -1100,127 +1098,11 @@
     overflow: hidden;
   }
 
-  .summary-list > div {
-    min-height: 70px;
-    display: grid;
-    grid-template-columns: 31px minmax(0, 1fr);
-    gap: 12px;
-    align-items: center;
-    padding: 11px 14px;
-    border-bottom: 1px solid #e8edf5;
-  }
-
-  .summary-list > div:last-child {
-    border-bottom: 0;
-  }
-
-  .summary-list i {
-    color: #061849;
-    font-size: 20px;
-  }
-
-  .summary-list i.folder {
-    color: #f9ad1b;
-  }
-
-  .summary-list small {
-    display: block;
-    color: #405178;
-    font-size: 12px;
-    font-weight: 650;
-  }
-
-  .summary-list strong {
-    margin-top: 3px;
-    font-size: 14px;
-    font-weight: 540;
-  }
-
-  .result-card h3,
-  .validation-card h3 {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .result-card h3 i,
-  .validation-card h3 i {
-    color: #1559ff;
-  }
-
-  .result-card p {
-    margin: 0;
-    color: #071b4a;
-    font-size: 14px;
-    line-height: 1.45;
-  }
-
-  .result-card small {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 16px;
-    color: #071b4a;
-    font-size: 13px;
-  }
-
-  .validation-card > div {
-    display: grid;
-    gap: 8px;
-  }
-
   .validation-row {
     display: grid;
     grid-template-columns: 28px minmax(0, 1fr);
     gap: 10px;
     align-items: flex-start;
-  }
-
-  .validation-row > span {
-    width: 26px;
-    height: 26px;
-    border-radius: 7px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-  }
-
-  .validation-row.is-success > span {
-    background: #e7f6e8;
-    color: #08721b;
-  }
-
-  .validation-row.is-warning > span,
-  .validation-row.is-pending > span {
-    background: #fff6e9;
-    color: #b76700;
-  }
-
-  .validation-row.is-error > span {
-    background: #fff0f0;
-    color: #db1f1f;
-  }
-
-  .validation-row div {
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-  }
-
-  .validation-row strong {
-    overflow: hidden;
-    color: #071b4a;
-    font-size: 13px;
-    font-weight: 720;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .validation-row small {
-    color: #405178;
-    font-size: 12px;
-    line-height: 1.35;
   }
 
   .ready-state {

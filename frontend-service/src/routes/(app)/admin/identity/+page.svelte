@@ -947,16 +947,10 @@
   }
 
   .identity-detail-grid dd,
-  .identity-detail-grid li,
   .identity-detail-grid p {
     margin: 0;
     color: #071638;
     font-size: 0.86rem;
-  }
-
-  .identity-detail-grid ul {
-    margin: 10px 0 0;
-    padding-left: 18px;
   }
 
   .identity-members-list article {

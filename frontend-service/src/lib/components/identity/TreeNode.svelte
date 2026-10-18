@@ -65,10 +65,6 @@
 </div>
 
 <style>
-  .idb-tree-node-wrap + .idb-tree-node-wrap {
-    border-top: 1px solid var(--idb-border, #e3e9f3);
-  }
-
   .idb-tree-node {
     min-height: 34px;
     width: 100%;

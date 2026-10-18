@@ -225,11 +225,6 @@
     text-overflow: ellipsis;
   }
 
-  .sr-ea-main strong span {
-    font-weight: 600;
-    color: #304770;
-  }
-
   .sr-ea-main small {
     color: #53698e;
     font-size: 12px;

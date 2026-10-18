@@ -192,40 +192,6 @@
     color: #5f6f8b;
   }
 
-  .governance-drawer__context {
-    margin: 4px 0 0;
-    font-size: 12px;
-    line-height: 1.4;
-    color: #667085;
-  }
-
-  .governance-drawer__tabs {
-    display: inline-flex;
-    align-self: flex-start;
-    gap: 12px;
-    margin-top: 22px;
-  }
-
-  .governance-drawer__tab {
-    height: 44px;
-    border: 1px solid #d9e1ef;
-    border-radius: 13px;
-    background: #f8fafd;
-    color: #475467;
-    font-size: 15px;
-    font-weight: 600;
-    padding: 0 20px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .governance-drawer__tab.is-active {
-    background: #edf3ff;
-    border-color: #cfe0ff;
-    color: #2154d0;
-  }
-
   .governance-drawer__section {
     padding-top: 26px;
   }
@@ -313,16 +279,6 @@
     }
 
     :global(.governance-drawer__browse) {
-      width: 100%;
-    }
-
-    .governance-drawer__tabs {
-      width: 100%;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .governance-drawer__tab {
       width: 100%;
     }
 

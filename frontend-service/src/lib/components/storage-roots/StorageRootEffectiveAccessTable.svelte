@@ -357,37 +357,6 @@
     background: #fbfdff;
   }
 
-  .sr-effective-access-table__summary div {
-    min-width: 0;
-    padding: 12px 16px;
-    border-right: 1px solid #e7eef8;
-    display: grid;
-    gap: 2px;
-  }
-
-  .sr-effective-access-table__summary div:last-child {
-    border-right: 0;
-  }
-
-  .sr-effective-access-table__summary strong {
-    color: #102243;
-    font-size: 18px;
-    font-weight: 760;
-  }
-
-  .sr-effective-access-table__summary span {
-    overflow: hidden;
-    color: #607087;
-    font-size: 12px;
-    font-weight: 650;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .sr-effective-access-table__summary .has-warning strong {
-    color: #a65300;
-  }
-
   .sr-effective-access-table__freshness {
     display: flex;
     align-items: center;
@@ -396,29 +365,6 @@
     padding: 12px 16px;
     border-bottom: 1px solid #e4ebf5;
     background: #f8fbff;
-  }
-
-  .sr-effective-access-table__freshness div {
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-  }
-
-  .sr-effective-access-table__freshness strong {
-    color: #102243;
-    font-size: 13px;
-    font-weight: 760;
-  }
-
-  .sr-effective-access-table__freshness span {
-    color: #607087;
-    font-size: 12px;
-    font-weight: 620;
-  }
-
-  .sr-effective-access-table__freshness.is-stale strong,
-  .sr-effective-access-table__freshness.is-not_scanned strong {
-    color: #a65300;
   }
 
   .sr-effective-access-table__freshness button {
@@ -494,50 +440,6 @@
     gap: 12px;
     align-items: flex-start;
     padding: 12px;
-  }
-
-  .sr-effective-access-table__difference > i {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-  }
-
-  .sr-effective-access-table__difference div {
-    min-width: 0;
-    display: grid;
-    gap: 3px;
-  }
-
-  .sr-effective-access-table__difference strong {
-    color: #102243;
-    font-size: 13px;
-    font-weight: 760;
-  }
-
-  .sr-effective-access-table__difference span {
-    color: #607087;
-    font-size: 12px;
-    font-weight: 620;
-  }
-
-  .sr-effective-access-table__difference.is-danger > i {
-    background: #fff1f1;
-    color: #d11212;
-  }
-
-  .sr-effective-access-table__difference.is-warning > i,
-  .sr-effective-access-table__difference.is-neutral > i {
-    background: #fff5e8;
-    color: #a65300;
-  }
-
-  .sr-effective-access-table__difference.is-success > i {
-    background: #e9f8ee;
-    color: #087b3a;
   }
 
   .sr-effective-access-table__select-label {

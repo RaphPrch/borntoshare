@@ -168,18 +168,6 @@
     gap: 6px;
   }
 
-  .storage-root-access-cell strong.is-success {
-    color: #087b3a;
-  }
-
-  .storage-root-access-cell strong.is-warning {
-    color: #a65300;
-  }
-
-  .storage-root-access-cell strong.is-pending {
-    color: #607087;
-  }
-
   .storage-root-access-actions {
     min-width: 0;
     display: flex;
