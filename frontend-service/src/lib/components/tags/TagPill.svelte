@@ -8,7 +8,7 @@
    * - Presentation only
    * - No business logic
    * - Color comes from backend
-   * - Styled via `admin-entities.css`
+   * - Styled via `app.css`
    */
 
   export let label: string;
