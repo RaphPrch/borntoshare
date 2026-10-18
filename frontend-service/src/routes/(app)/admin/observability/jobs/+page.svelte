@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { cancelAdminJob, listAdminJobs, type AdminProvisioningJob } from '$lib/api/admin-jobs';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
   import { toAppError } from '$lib/core/errors';
 
   export let data: {

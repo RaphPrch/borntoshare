@@ -65,7 +65,7 @@ Accès via http://localhost:8080
 
 Le Wizard UI **ne génère pas** de fichiers `.env.*`.
 
-- La configuration du Wizard se fait via un fichier `.env` local (non versionné) — voir [`services/wizard-ui/.env.example`](services/wizard-ui/.env.example:1).
+- La configuration du Wizard se fait via un fichier `.env` local (non versionné) — voir [`.env.example`](.env.example).
 - Les fichiers `.env` applicatifs (DAL/Auth/Governance/…) sont gérés par le déploiement de la plateforme (hors scope du Wizard UI).
 
 ---
@@ -90,10 +90,10 @@ Le Wizard UI **ne génère pas** de fichiers `.env.*`.
 
 En mode DEV (`WIZARD_MODE=dev`), cocher **"Données de démonstration"** à l’étape Import exécute :
 
-- les seeds publics : [`backend/app/sql/seeds/`](services/wizard-ui/backend/app/sql/seeds/README.md:1)
+- les seeds publics : [`backend/app/sql/seeds/`](backend/app/sql/seeds/README.md)
 - + (optionnel) les seeds privés non publiés si `WIZARD_PRIVATE_SEEDS_DIR` est configuré.
 
-Un seed démo (public) est fourni : [`backend/app/sql/seeds/040_seed_demo_full.sql`](services/wizard-ui/backend/app/sql/seeds/040_seed_demo_full.sql:1).
+Un seed démo (public) est fourni : [`backend/app/sql/seeds/040_seed_demo_full.sql`](backend/app/sql/seeds/040_seed_demo_full.sql).
 
 ### Mode (DEV/PROD)
 
@@ -108,14 +108,14 @@ Variables côté backend :
 - ou `APP_ENV=dev|prod`
 
 Pour un lancement local, la façon la plus simple est d’utiliser un fichier `.env` (non versionné) + l’option uvicorn `--env-file`.
-Un exemple est fourni : [`services/wizard-ui/.env.example`](services/wizard-ui/.env.example).
+Un exemple est fourni : [`.env.example`](.env.example).
 
 ### podman-compose
 
-Le fichier [`services/wizard-ui/podman-compose.yml`](services/wizard-ui/podman-compose.yml:1) charge les variables via `env_file: .env`.
+Le fichier [`podman-compose.yml`](podman-compose.yml) charge les variables via `env_file: .env`.
 Donc :
 
-1) copier [`services/wizard-ui/.env.example`](services/wizard-ui/.env.example:1) → `.env`
+1) copier [`.env.example`](.env.example) → `.env`
 2) exécuter `podman-compose up --build`
 
 ---

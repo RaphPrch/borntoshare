@@ -18,7 +18,7 @@
   import { pollProbeJob } from '$lib/features/jobs/probe-polling';
   import { showApiErrorToast } from '$lib/core/errors/api-toast';
   import { isValidHostname, isValidIPv4 } from '$lib/utils/host-validate';
-  import { toast } from "$lib/utils/toast";
+  import { toast } from "$lib/stores/toast";
 
   export let open = false;
   type EditableEndpoint = {

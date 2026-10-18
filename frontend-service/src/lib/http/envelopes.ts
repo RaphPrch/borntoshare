@@ -25,14 +25,3 @@ export function unwrapListStrict<T>(payload: unknown, context = 'API list respon
   }
   return data as T[];
 }
-
-export function unwrapObjectStrict<T extends Record<string, unknown>>(
-  payload: unknown,
-  context = 'API object response'
-): T {
-  const data = unwrapDataStrict<unknown>(payload, context);
-  if (!data || typeof data !== 'object' || Array.isArray(data)) {
-    throw new Error(`${context} "data" field must be an object`);
-  }
-  return data as T;
-}

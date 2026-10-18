@@ -9,7 +9,7 @@ services:
     # image: ghcr.io/borntoshare/wizard-ui:latest
 
     # Charge l'environnement depuis un fichier .env local (non versionné)
-    # Voir: [`services/wizard-ui/.env.example`](services/wizard-ui/.env.example:1)
+    # Voir: [`.env.example`](.env.example)
     env_file:
       - .env
     ports:

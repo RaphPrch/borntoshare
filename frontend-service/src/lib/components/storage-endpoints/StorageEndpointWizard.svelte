@@ -2,7 +2,7 @@
   import { fade, fly } from 'svelte/transition';
   import { goto } from '$app/navigation';
   import { createEventDispatcher, onMount } from 'svelte';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
 
   import { runProbeJob, type ProbeRunRequest } from '$lib/api/probes';
   import { pollProbeJob } from '$lib/features/jobs/probe-polling';

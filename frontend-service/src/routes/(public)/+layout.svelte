@@ -9,7 +9,7 @@
   import TopProgress from '$lib/components/ui/TopProgress.svelte';
   import Toaster from '$lib/components/ui/Toaster.svelte';
   import { page } from '$app/stores';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
   import { browser } from '$app/environment';
   import { bootstrapFrontendCore } from '$lib/core/bootstrap.client';
 
@@ -46,12 +46,12 @@
     if (key && key !== lastUrlToastKey) {
       lastUrlToastKey = key;
 
-      const toast = toastMap[key] ?? {
+      const entry = toastMap[key] ?? {
         type: 'info',
         message: key
       };
 
-      toast.show(toast.type, toast.message);
+      toast.show(entry.type, entry.message);
 
       // Nettoyage URL (CSR uniquement)
       const url = new URL($page.url);

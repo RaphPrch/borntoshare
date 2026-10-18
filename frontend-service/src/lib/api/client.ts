@@ -1,15 +1,22 @@
-import { clientRequest } from '../http/client-request';
 import { ApiError } from '../http/errors';
-import {
-  type DataEnvelope,
-  unwrapDataStrict,
-  unwrapListStrict,
-  unwrapObjectStrict
-} from '../http/envelopes';
-import type { FetchLike } from '../http/contract';
+import { type DataEnvelope, unwrapDataStrict, unwrapListStrict } from '../http/envelopes';
+import type { FetchLike, HttpRequestOptions } from '../http/contract';
+import { httpRequest } from '../http/request';
 
 export type { FetchLike, DataEnvelope };
-export { ApiError, unwrapDataStrict, unwrapListStrict, unwrapObjectStrict };
+export { ApiError, unwrapDataStrict, unwrapListStrict };
+
+const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? '/api';
+
+async function clientRequest<T>(
+  fetchFn: FetchLike,
+  options: Omit<HttpRequestOptions, 'basePath' | 'credentials'>
+): Promise<T> {
+  if (!API_BASE.startsWith('/')) {
+    throw new Error('Invalid API_BASE configuration');
+  }
+  return httpRequest<T>(fetchFn, { ...options, basePath: API_BASE, credentials: 'include' });
+}
 
 type TimeoutOptions = { timeoutMs?: number };
 

@@ -2,7 +2,7 @@
   import ConfigCard from '$lib/components/advanced-settings/v3/ConfigCard.svelte';
   import SettingRow from '$lib/components/advanced-settings/v3/SettingRow.svelte';
 
-  import { toasts } from '$lib/stores/toast';
+  import { toast } from '$lib/stores/toast';
   import { notifyError, toAppError } from '$lib/core/errors';
   import { logAppError } from '$lib/core/logging';
   import {
@@ -130,7 +130,7 @@
       replaceMapText = stringifyReplaceMap(policy.replace_map_json);
       initialSnapshot = JSON.stringify(normalizePolicy(policy));
       initialReplaceMapSnapshot = replaceMapText;
-      toasts.success('Global naming policy saved.');
+      toast.success('Global naming policy saved.');
     } catch (e: unknown) {
       errorMsg = toUiErrorMessage(e, 'Failed to save global naming policy.', 'advanced_settings.naming_policy.save');
     } finally {

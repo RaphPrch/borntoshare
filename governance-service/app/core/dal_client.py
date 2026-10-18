@@ -149,17 +149,6 @@ async def dal_post(
     )
 
 
-async def dal_put(
-    path: str,
-    payload: Dict[str, Any],
-    timeout: int = 5,
-    request_id: Optional[str] = None,
-    retries: int = 0,
-    extra_headers: Optional[Dict[str, str]] = None,
-) -> Any:
-    return await _request("PUT", path, payload, timeout=timeout, request_id=request_id, retries=retries, extra_headers=extra_headers)
-
-
 async def dal_patch(
     path: str,
     payload: Dict[str, Any],
@@ -169,16 +158,6 @@ async def dal_patch(
     extra_headers: Optional[Dict[str, str]] = None,
 ) -> Any:
     return await _request("PATCH", path, payload, timeout=timeout, request_id=request_id, retries=retries, extra_headers=extra_headers)
-
-
-async def dal_delete(
-    path: str,
-    timeout: int = 5,
-    request_id: Optional[str] = None,
-    retries: int = 0,
-    extra_headers: Optional[Dict[str, str]] = None,
-) -> Any:
-    return await _request("DELETE", path, timeout=timeout, request_id=request_id, retries=retries, extra_headers=extra_headers)
 
 
 # Capsules, probes, and advanced settings are not used in V1 governance.

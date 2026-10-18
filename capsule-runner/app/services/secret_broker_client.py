@@ -63,11 +63,3 @@ def resolve_secret_refs(secret_refs: Iterable[str]) -> Dict[str, str]:
                 )
             out[ref] = str(val)
     return out
-
-
-def materialize_secrets_for_runner(resolved: Dict[str, str]) -> Dict[str, Any]:
-    """Build the Runner v1 secrets payload from resolved secret values."""
-    items: Dict[str, Any] = {}
-    for k, v in (resolved or {}).items():
-        items[k] = {"value": v}
-    return {"items": items}

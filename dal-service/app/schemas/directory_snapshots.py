@@ -33,24 +33,6 @@ class DirectorySnapshotStatusPatchRequest(BaseModel):
     error_message: str | None = None
 
 
-class DirectorySnapshotItem(BaseModel):
-    id: int
-    identity_source_id: int
-    version: int
-    status: str
-    snapshot_source: str | None = None
-    initiated_by: str | None = None
-    correlation_id: str | None = None
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    activated_at: datetime | None = None
-    archived_at: datetime | None = None
-    summary_json: dict | None = None
-    error_message: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-
-
 class DirectorySnapshotUserUpsert(BaseModel):
     external_id: str = Field(..., min_length=1, max_length=255)
     object_guid: str | None = Field(default=None, max_length=36)

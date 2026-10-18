@@ -10,7 +10,7 @@
   import PageHeader from "$lib/components/ui/PageHeader.svelte";
   import { createTag, updateTag, deleteTag, type TagOverview } from "$lib/api/tags";
   import { showApiErrorToast } from "$lib/core/errors/api-toast";
-  import { toast } from "$lib/utils/toast";
+  import { toast } from "$lib/stores/toast";
   import {
     dependencyCountDeleteMessage,
     dependencyDeleteMessage,

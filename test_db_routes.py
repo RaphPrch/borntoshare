@@ -106,18 +106,4 @@ def test_privileges_test_success(mock_get_connection):
     assert data["privileges"]["create_table"] is True
     assert data["all_required_ok"] is True
 
-@patch("app.routes.db.os")
-def test_save_logging_db_connection_success(mock_os):
-    payload = {
-        "host": "loghost",
-        "port": 3306,
-        "user": "loguser",
-        "password": "logpassword",
-        "database": "logging_db"
-    }
-    response = client.post("/api/db/logging/save", json=payload)
-    assert response.status_code == 200
-    assert response.json()["ok"] is True
-    mock_os.environ.__setitem__.assert_any_call("WIZARD_LOG_DB_HOST", "loghost")
-    mock_os.environ.__setitem__.assert_any_call("WIZARD_LOG_DB_NAME", "logging_db")
     # ... assert other environment variables

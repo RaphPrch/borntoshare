@@ -27,7 +27,7 @@
   import { getIdentityJob, type ADImportRole, type IdentityJobStatusResponse } from '../../api/identity';
   import { runIdentitySnapshot } from '../../api/identity-sources';
   import { buildIdentitySourceProbeRequest, runProbeWithPolling } from '../../probe/probe-runner';
-  import { toast } from '../../utils/toast';
+  import { toast } from '../../stores/toast';
 
   type DirectoryMode = 'single' | 'multiple';
 

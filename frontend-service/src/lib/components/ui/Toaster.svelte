@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fly, fade } from "svelte/transition";
-  import { toasts } from "$lib/stores/toast";
+  import { toast } from "$lib/stores/toast";
 
   const icon = (type: string) => {
     switch (type) {
@@ -22,7 +22,7 @@
 </script>
 
 <div class="b2s-toaster">
-  {#each $toasts as t (t.id)}
+  {#each $toast as t (t.id)}
     <div
       class="toast show shadow-sm {cls(t.type)}"
       role="alert"

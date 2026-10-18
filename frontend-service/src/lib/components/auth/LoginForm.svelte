@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
 
   export let form: unknown = {};
 

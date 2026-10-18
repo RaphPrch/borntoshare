@@ -76,7 +76,7 @@
     storageRootAlertTone,
     storageRootOpenAlertSummary
   } from '$lib/services/mappers/storage-root-alerts.mapper';
-  import { toast } from '$lib/utils/toast';
+  import { toast } from '$lib/stores/toast';
   import { dependencyDeleteMessage, isDependencyDeleteError } from '$lib/utils/delete-guard';
   import { apiGetData } from '$lib/api/client';
   import { selectionStore } from '$lib/stores/app/selection.store';
@@ -2160,35 +2160,6 @@
       toast.error(governanceError);
     } finally {
       governanceSaving = false;
-    }
-  }
-
-  let lastHandledStorageRootsQuery = '';
-  $: if (browser && selectedStorageRootId) {
-    const queryRaw = $page.url.searchParams.toString();
-    const queryKey = `${Number(selectedStorageRootId)}::${queryRaw}`;
-    if (queryKey !== lastHandledStorageRootsQuery) {
-      lastHandledStorageRootsQuery = queryKey;
-
-      const openGovernance = String($page.url.searchParams.get('openGovernance') ?? '').toLowerCase();
-      if (openGovernance === '1' || openGovernance === 'true') {
-        openGovernanceDrawer('guardian');
-      }
-
-      const openTags = String($page.url.searchParams.get('openTags') ?? '').toLowerCase();
-      if (openTags === '1' || openTags === 'true') {
-        openTagsModal();
-      }
-
-      const openEdit = String($page.url.searchParams.get('openEdit') ?? '').toLowerCase();
-      if (openEdit === '1' || openEdit === 'true') {
-        openEditRoot();
-      }
-
-      const openCreate = String($page.url.searchParams.get('create') ?? '').toLowerCase();
-      if (openCreate === '1' || openCreate === 'true') {
-        openCreateRoot();
-      }
     }
   }
 </script>

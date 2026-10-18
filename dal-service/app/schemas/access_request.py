@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from .access_request_item import AccessRequestItemCreate
 
@@ -40,15 +40,3 @@ class AccessRequestCreate(WriteSchema):
 # ============================================================
 # UPDATE (PATCH semantics)
 # ============================================================
-
-class AccessRequestUpdate(BaseModel):
-    """
-    Partial update for an access request.
-
-    Allowed transitions handled by governance layer.
-    """
-
-    status: Optional[str] = Field(
-        default=None,
-        max_length=32,
-    )

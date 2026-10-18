@@ -1,5 +1,5 @@
 import { toAppError, type AppError } from '$lib/core/errors';
-import { toast } from '$lib/utils/toast';
+import { toast } from '$lib/stores/toast';
 
 const STATUS_MESSAGES: Record<number, string> = {
   400: 'Invalid request.',
