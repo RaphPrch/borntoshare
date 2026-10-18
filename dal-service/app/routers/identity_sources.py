@@ -8,6 +8,7 @@ from app.core.db import get_db
 from app.core.logging import get_logger, log_event
 from app.models.identity_sources import IdentitySource
 from app.models.storage_endpoint import StorageEndpoint
+from app.repositories.identity_source_purge_repo import purge_identity_source_related_records
 from app.repositories.identity_sources_views_repo import IdentitySourcesViewsRepo
 from app.routers._helpers import ui_action, ui_data, ui_list
 from app.schemas.identity_sources import (
@@ -189,143 +190,6 @@ def _identity_source_dependency_message(counts: dict[str, int]) -> str:
     return "Identity source cannot be deleted while related records exist: " + ", ".join(parts)
 
 
-def _purge_identity_source_related_records(db: Session, source_id: int) -> None:
-    source_key = int(source_id or 0)
-    if source_key <= 0:
-        return
-
-    statements = [
-        """
-        DELETE arie
-        FROM access_request_item_executions arie
-        JOIN access_requests ar
-          ON ar.id = arie.access_request_id
-        JOIN identities i
-          ON i.id = ar.requester_identity_id
-        WHERE i.source_id = :source_id
-        """,
-        """
-        DELETE ari
-        FROM access_request_items ari
-        JOIN access_requests ar
-          ON ar.id = ari.access_request_id
-        JOIN identities i
-          ON i.id = ar.requester_identity_id
-        WHERE i.source_id = :source_id
-        """,
-        """
-        DELETE ar
-        FROM access_requests ar
-        JOIN identities i
-          ON i.id = ar.requester_identity_id
-        WHERE i.source_id = :source_id
-        """,
-        """
-        DELETE sr
-        FROM storage_root_roles sr
-        JOIN identities i
-          ON i.id = sr.identity_id
-        WHERE i.source_id = :source_id
-        """,
-        """
-        DELETE ir
-        FROM identity_roles ir
-        LEFT JOIN identities i
-          ON i.id = ir.identity_id
-        LEFT JOIN directory_groups dg
-          ON dg.id = ir.directory_group_id
-        WHERE i.source_id = :source_id
-           OR dg.identity_source_id = :source_id
-        """,
-        """
-        DELETE lc
-        FROM local_credentials lc
-        JOIN identities i
-          ON i.id = lc.identity_id
-        WHERE i.source_id = :source_id
-        """,
-        """
-        DELETE ib
-        FROM identity_bindings ib
-        LEFT JOIN identities i
-          ON i.id = ib.identity_id
-        LEFT JOIN directory_users du
-          ON du.id = ib.directory_user_id
-        WHERE i.source_id = :source_id
-           OR du.identity_source_id = :source_id
-        """,
-        """
-        DELETE dem
-        FROM directory_effective_memberships dem
-        LEFT JOIN directory_users du
-          ON du.id = dem.directory_user_id
-        LEFT JOIN directory_groups dg
-          ON dg.id = dem.directory_group_id
-        WHERE dem.identity_source_id = :source_id
-           OR du.identity_source_id = :source_id
-           OR dg.identity_source_id = :source_id
-           OR dem.snapshot_id IN (
-             SELECT ds.id
-             FROM directory_snapshots ds
-             WHERE ds.identity_source_id = :source_id
-           )
-        """,
-        """
-        DELETE dsm
-        FROM directory_snapshot_memberships dsm
-        JOIN directory_snapshots ds
-          ON ds.id = dsm.snapshot_id
-        WHERE ds.identity_source_id = :source_id
-        """,
-        """
-        DELETE dsg
-        FROM directory_snapshot_groups dsg
-        JOIN directory_snapshots ds
-          ON ds.id = dsg.snapshot_id
-        WHERE ds.identity_source_id = :source_id
-        """,
-        """
-        DELETE dsu
-        FROM directory_snapshot_users dsu
-        JOIN directory_snapshots ds
-          ON ds.id = dsu.snapshot_id
-        WHERE ds.identity_source_id = :source_id
-        """,
-        """
-        DELETE dgm
-        FROM directory_group_members dgm
-        LEFT JOIN directory_groups dg
-          ON dg.id = dgm.group_id
-        LEFT JOIN directory_users du
-          ON du.id = dgm.directory_user_id
-        WHERE dg.identity_source_id = :source_id
-           OR du.identity_source_id = :source_id
-        """,
-        """
-        DELETE FROM directory_snapshots
-        WHERE identity_source_id = :source_id
-        """,
-        """
-        DELETE FROM directory_ous
-        WHERE identity_source_id = :source_id
-        """,
-        """
-        DELETE FROM directory_groups
-        WHERE identity_source_id = :source_id
-        """,
-        """
-        DELETE FROM directory_users
-        WHERE identity_source_id = :source_id
-        """,
-        """
-        DELETE FROM identities
-        WHERE source_id = :source_id
-        """,
-    ]
-    for statement in statements:
-        db.execute(text(statement), {"source_id": source_key})
-
-
 @router.get("", summary="List identity sources")
 def list_identity_sources(db: Session = Depends(get_db)):
     query = db.query(IdentitySource)
@@ -492,7 +356,7 @@ def delete_identity_source(source_id: int, request: Request, db: Session = Depen
     src = _get_identity_source(db, source_id)
     if not src:
         raise HTTPException(status_code=404, detail="Identity source not found")
-    _purge_identity_source_related_records(db, int(src.id))
+    purge_identity_source_related_records(db, int(src.id))
     dependency_counts = _identity_source_dependency_counts(db, int(src.id))
     if dependency_counts:
         db.rollback()
