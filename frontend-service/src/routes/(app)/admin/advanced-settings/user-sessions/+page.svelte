@@ -1,11 +1,11 @@
 <script lang="ts">
   import { normalizeText } from '$lib/utils/values';
-  import ConfigCard from '$lib/components/advanced-settings/v3/ConfigCard.svelte';
-  import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
+  import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { toast } from '$lib/stores/toast';
-  import { notifyError, reportUiError, toAppError } from '$lib/core/errors';
-  import { logAppError } from '$lib/core/logging';
-  import { timeAgo } from '$lib/utils/timeAgo';
+  import { notifyError, reportUiError, toAppError } from '$lib/errors';
+  import { logAppError } from '$lib/logging';
+  import { timeAgo } from '$lib/utils/format';
   import type { UserSession } from '$lib/api/admin-advanced-settings';
   import { listUserSessions, revokeUserSession } from '$lib/api/admin-advanced-settings';
 

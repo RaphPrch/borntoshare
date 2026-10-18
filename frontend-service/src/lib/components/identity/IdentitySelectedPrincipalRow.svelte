@@ -1,7 +1,7 @@
 <script lang="ts">
   import EntityRowCard from '../ui/EntityRowCard.svelte';
   import IconTile from '../ui/IconTile.svelte';
-  import { mapPrincipalToDisplayVM } from '../../services/mappers/principals.mapper';
+  import { mapPrincipalToDisplayVM } from '../../mappers/principals.mapper';
   import { principalLabel, type PrincipalSearchItem } from '../../utils/principal-search';
 
   export let item: PrincipalSearchItem | undefined;

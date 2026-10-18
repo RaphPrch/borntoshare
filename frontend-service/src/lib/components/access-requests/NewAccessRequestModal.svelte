@@ -1,6 +1,6 @@
 <script lang="ts">
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
-  import AppModal from '$lib/components/common/AppModal.svelte';
+  import AppModal from '$lib/components/ui/AppModal.svelte';
   import { checkExistingAccess, createAccessRequest, type CheckExistingAccessResponse } from '$lib/api/access-requests';
   import { getStorageRootOverview, listStorageRootsContext, type StorageRootContext } from '$lib/api/storage-roots';
   import { initials } from '$lib/utils/format';

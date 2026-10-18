@@ -1,7 +1,7 @@
 <script lang="ts">
-  import EntityDrawerShell from "$lib/components/common/EntityDrawerShell.svelte";
-  import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
-  import EntityActionButton from "$lib/components/common/EntityActionButton.svelte";
+  import EntityDrawerShell from "$lib/components/entity/EntityDrawerShell.svelte";
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import ActionFooter from "$lib/components/ui/ActionFooter.svelte";
 
   import {
@@ -11,12 +11,12 @@
     type StorageEndpointUpdatePayload
   } from '$lib/api/storage-endpoints';
   import { runProbeJob } from "$lib/api/probes";
-  import { resolveCredentials } from "$lib/auth/credentials-service";
+  import { resolveCredentials } from "$lib/api/credentials";
   import { createStorageRoot } from '$lib/api/storage-roots';
   import { listZones, type ZoneOverview } from "$lib/api/zones";
   import { listIdentitySources, type IdentitySourceListItem } from '$lib/api/identity-sources';
-  import { pollProbeJob } from '$lib/features/jobs/probe-polling';
-  import { showApiErrorToast } from '$lib/core/errors/api-toast';
+  import { pollProbeJob } from '$lib/jobs/probe-polling';
+  import { showApiErrorToast } from '$lib/errors/api-toast';
   import { isValidHostname, isValidIPv4 } from '$lib/utils/host-validate';
   import { toast } from "$lib/stores/toast";
 

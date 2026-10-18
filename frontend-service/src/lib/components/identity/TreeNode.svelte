@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { IdentityTreeNode } from '../../types/identityBrowser';
+  import type { IdentityTreeNode } from '../../types/identity-browser';
 
   export let node: IdentityTreeNode;
   export let level = 0;

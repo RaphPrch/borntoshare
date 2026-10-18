@@ -1,12 +1,12 @@
 <script lang="ts">
   import { clamp } from '$lib/utils/values';
-  import ConfigCard from '$lib/components/advanced-settings/v3/ConfigCard.svelte';
-  import DangerZone from '$lib/components/advanced-settings/v3/DangerZone.svelte';
-  import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
-  import SettingRow from '$lib/components/advanced-settings/v3/SettingRow.svelte';
+  import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
+  import DangerZone from '$lib/components/settings/DangerZone.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import SettingRow from '$lib/components/settings/SettingRow.svelte';
 
   import { toast } from '$lib/stores/toast';
-  import { reportUiError } from '$lib/core/errors';
+  import { reportUiError } from '$lib/errors';
   import type { LogLevel } from '$lib/api/admin-advanced-settings';
   import { saveLoggingConfig, purgeLogs } from '$lib/api/admin-advanced-settings';
 

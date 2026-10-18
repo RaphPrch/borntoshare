@@ -2,15 +2,15 @@
   import { normalizeText } from '$lib/utils/values';
   import { invalidateAll } from "$app/navigation";
 
-  import ConfirmDeleteDialog from "$lib/components/common/ConfirmDeleteDialog.svelte";
-  import EntityActionButton from "$lib/components/common/EntityActionButton.svelte";
-  import EntityActionGroup, { type EntityActionItem } from "$lib/components/common/EntityActionGroup.svelte";
-  import SearchField from "$lib/components/common/SearchField.svelte";
+  import ConfirmDeleteDialog from "$lib/components/ui/ConfirmDeleteDialog.svelte";
+  import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
+  import EntityActionGroup, { type EntityActionItem } from "$lib/components/entity/EntityActionGroup.svelte";
+  import SearchField from "$lib/components/ui/SearchField.svelte";
   import TagPill from "$lib/components/tags/TagPill.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import PageHeader from "$lib/components/ui/PageHeader.svelte";
   import { createTag, updateTag, deleteTag, type TagOverview } from "$lib/api/tags";
-  import { showApiErrorToast } from "$lib/core/errors/api-toast";
+  import { showApiErrorToast } from "$lib/errors/api-toast";
   import { toast } from "$lib/stores/toast";
   import {
     dependencyCountDeleteMessage,

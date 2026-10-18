@@ -1,10 +1,10 @@
 <script lang="ts">
-  import EntityConsoleHeader from '$lib/components/common/EntityConsoleHeader.svelte';
-  import type { EntityActionItem } from '$lib/components/common/EntityActionGroup.svelte';
+  import EntityConsoleHeader from '$lib/components/entity/EntityConsoleHeader.svelte';
+  import type { EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import type {
     OperationalHeaderMetaItem,
     OperationalHeaderTone
-  } from '$lib/components/common/EntityOperationalHeader.svelte';
+  } from '$lib/components/entity/EntityOperationalHeader.svelte';
 
   type HeaderTone = 'success' | 'warning' | 'error' | 'neutral';
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
 
   type AccessModelRow = {
     level: 'read' | 'write';

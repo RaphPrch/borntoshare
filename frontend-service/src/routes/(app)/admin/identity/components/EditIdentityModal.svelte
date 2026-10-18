@@ -1,8 +1,8 @@
 <script lang="ts">
   import { normalizeText } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
-  import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
-  import EntityDrawerShell from '$lib/components/common/EntityDrawerShell.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import EntityDrawerShell from '$lib/components/entity/EntityDrawerShell.svelte';
   import { adminChangePassword, updateIdentity } from '$lib/api/identity';
   import { toast } from '$lib/stores/toast';
   import { initials } from '$lib/utils/format';

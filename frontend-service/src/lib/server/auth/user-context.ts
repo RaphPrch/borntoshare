@@ -1,6 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 
-import { unwrapDataStrict } from '../../http/envelopes';
+import { unwrapDataStrict } from '../../api/http/envelopes';
 import { normalizeMe, type Me } from '../../types/me';
 import { getServiceBaseUrl } from '../service-routes';
 import {

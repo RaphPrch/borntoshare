@@ -1,13 +1,13 @@
   <script lang="ts">
   import { toast } from "$lib/stores/toast";
-  import { runProbeWithPolling } from "$lib/probe/probe-runner";
+  import { runProbeWithPolling } from "$lib/jobs/probe-runner";
   import {
     buildStorageEndpointProbeRequestFromEndpoint,
     parseStorageEndpointProbeRoots,
     resolveStorageEndpointProbeConfig,
     validateStorageEndpointProbeConfig
-  } from "$lib/probe/storage-endpoint-probe";
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  } from "$lib/jobs/storage-endpoint-probe";
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import StorageRootDrawerShell from '$lib/components/storage-roots/StorageRootDrawerShell.svelte';
 
   type StorageRootForm = {

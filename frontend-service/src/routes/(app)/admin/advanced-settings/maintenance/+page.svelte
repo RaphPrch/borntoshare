@@ -1,9 +1,9 @@
 <script lang="ts">
-  import ConfigCard from '$lib/components/advanced-settings/v3/ConfigCard.svelte';
-  import SettingRow from '$lib/components/advanced-settings/v3/SettingRow.svelte';
+  import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
+  import SettingRow from '$lib/components/settings/SettingRow.svelte';
 
   import { toast } from '$lib/stores/toast';
-  import { reportUiError } from '$lib/core/errors';
+  import { reportUiError } from '$lib/errors';
   import { saveMaintenanceConfig } from '$lib/api/admin-advanced-settings';
 
   export let data: any;

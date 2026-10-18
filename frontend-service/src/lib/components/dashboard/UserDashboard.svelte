@@ -1,7 +1,7 @@
 <script lang="ts">
   import { formatDateTime, initials } from '$lib/utils/format';
   import DashboardShell from './DashboardShell.svelte';
-  import { accessRequestAccessLabel, accessRequestId, accessRequestRequesterName, accessRequestTargetLabel } from '$lib/services/mappers/access-requests.mapper';
+  import { accessRequestAccessLabel, accessRequestId, accessRequestRequesterName, accessRequestTargetLabel } from '$lib/mappers/access-requests.mapper';
   import { getRequestStatusMeta } from '$lib/utils/access-request-status';
 
   export let data: any;

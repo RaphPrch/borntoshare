@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { requireAuth } from '$lib/utils/requireAuth.server';
+import { requireAuth } from '$lib/server/require-auth';
 import { apiServerGetList } from '$lib/server/api-server';
 
 export const load: PageServerLoad = async (event) => {

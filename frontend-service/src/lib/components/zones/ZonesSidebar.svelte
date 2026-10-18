@@ -11,7 +11,7 @@
 <script lang="ts">
   import EntitySidebarTree, {
     type EntitySidebarGroup
-  } from "$lib/components/common/EntitySidebarTree.svelte";
+  } from "$lib/components/entity/EntitySidebarTree.svelte";
 
   export let zones: ZonesSidebarZone[] = [];
   export let selectedZoneId: number | null = null;

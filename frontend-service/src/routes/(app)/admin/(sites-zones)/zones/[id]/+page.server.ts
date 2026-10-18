@@ -1,7 +1,7 @@
 import type { PageServerLoad, PageServerLoadEvent } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { apiServerGetData, apiServerGetList } from '$lib/server/api-server';
-import { requireAuth } from '$lib/utils/requireAuth.server';
+import { requireAuth } from '$lib/server/require-auth';
 
 export const load: PageServerLoad = async (event: PageServerLoadEvent) => {
   const zoneId = Number(event.params.id);

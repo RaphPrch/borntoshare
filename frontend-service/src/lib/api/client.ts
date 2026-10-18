@@ -1,6 +1,6 @@
-import { unwrapDataStrict, unwrapListStrict } from '../http/envelopes';
-import type { FetchLike, HttpRequestOptions } from '../http/contract';
-import { httpRequest } from '../http/request';
+import { unwrapDataStrict, unwrapListStrict } from './http/envelopes';
+import type { FetchLike, HttpRequestOptions } from './http/contract';
+import { httpRequest } from './http/request';
 
 export type { FetchLike };
 

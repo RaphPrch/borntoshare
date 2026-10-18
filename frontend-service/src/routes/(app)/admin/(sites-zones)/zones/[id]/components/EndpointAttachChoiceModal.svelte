@@ -1,5 +1,5 @@
 <script lang="ts">
-  import AppModal from '$lib/components/common/AppModal.svelte';
+  import AppModal from '$lib/components/ui/AppModal.svelte';
 
   type EndpointChoiceItem = {
     id: number;

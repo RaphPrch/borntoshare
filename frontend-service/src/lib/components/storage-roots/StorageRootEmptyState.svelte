@@ -1,5 +1,5 @@
 <script lang="ts">
-  import EmptyStateCard from '$lib/components/common/EmptyStateCard.svelte';
+  import EmptyStateCard from '$lib/components/ui/EmptyStateCard.svelte';
 
   export let onConfigureEndpoint: () => void = () => {};
 </script>

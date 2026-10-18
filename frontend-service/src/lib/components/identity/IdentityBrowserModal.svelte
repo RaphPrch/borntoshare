@@ -2,14 +2,14 @@
   import { createEventDispatcher } from 'svelte';
   import { onDestroy } from 'svelte';
   import TreeNode from './TreeNode.svelte';
-  import SearchField from '../common/SearchField.svelte';
+  import SearchField from '../ui/SearchField.svelte';
   import StatusBadge from '../ui/StatusBadge.svelte';
   import IdentitySelectedPrincipalRow from './IdentitySelectedPrincipalRow.svelte';
   import {
     invalidateIdentitySourceInternalCache,
     loadIdentitySourceInternalCached,
     loadIdentitySourceLastSync,
-  } from '../../services/identityBrowser.api';
+  } from '../../api/identity-browser';
   import {
     bootstrapIdentityBrowser,
     loadBrowserPreviewForRow,
@@ -17,8 +17,8 @@
     loadBrowserSubtree,
     searchBrowserDirectory
   } from './identity-browser.controller';
-  import { createIdentityBrowserStore } from '../../stores/identityBrowser.store';
-  import type { IdentityBrowserSource, IdentityBrowserSelectionPayload } from '../../types/identityBrowser';
+  import { createIdentityBrowserStore } from '../../stores/identity-browser.store';
+  import type { IdentityBrowserSource, IdentityBrowserSelectionPayload } from '../../types/identity-browser';
   import {
     principalKey as sharedPrincipalKey,
     principalLabel,
@@ -26,7 +26,7 @@
   } from '../../utils/principal-search';
   import { getIdentityJob, type ADImportRole, type IdentityJobStatusResponse } from '../../api/identity';
   import { runIdentitySnapshot } from '../../api/identity-sources';
-  import { buildIdentitySourceProbeRequest, runProbeWithPolling } from '../../probe/probe-runner';
+  import { buildIdentitySourceProbeRequest, runProbeWithPolling } from '../../jobs/probe-runner';
   import { toast } from '../../stores/toast';
 
   type DirectoryMode = 'single' | 'multiple';

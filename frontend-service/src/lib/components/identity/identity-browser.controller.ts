@@ -6,8 +6,8 @@ import {
   loadOuContent,
   resolveIdentityBrowserContext,
   searchIdentityDirectory
-} from '../../services/identityBrowser.api';
-import type { IdentityBrowserSource, IdentityPreview, IdentityTreeNode } from '../../types/identityBrowser';
+} from '../../api/identity-browser';
+import type { IdentityBrowserSource, IdentityPreview, IdentityTreeNode } from '../../types/identity-browser';
 import type { PrincipalSearchItem } from '../../utils/principal-search';
 import { filterIdentityRowsByImportPolicy } from '../../utils/storage-root-governance';
 

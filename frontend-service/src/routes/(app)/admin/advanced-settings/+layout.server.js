@@ -1,7 +1,7 @@
 // src/routes/(app)/admin/advanced-settings/+layout.server.js
 
 import { apiServerGet, apiServerGetData } from '$lib/server/api-server';
-import { requireAuth } from '$lib/utils/requireAuth.server';
+import { requireAuth } from '$lib/server/require-auth';
 
 export async function load(event) {
   await requireAuth(event);

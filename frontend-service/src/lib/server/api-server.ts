@@ -7,8 +7,8 @@
 
 import type { RequestEvent } from '@sveltejs/kit';
 
-import { httpRequest } from '$lib/http/request';
-import { unwrapDataStrict, unwrapListStrict } from '$lib/http/envelopes';
+import { httpRequest } from '$lib/api/http/request';
+import { unwrapDataStrict, unwrapListStrict } from '$lib/api/http/envelopes';
 
 export function apiServerGet<T = unknown>(path: string, event?: RequestEvent): Promise<T> {
   const headers = new Headers();

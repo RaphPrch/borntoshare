@@ -5,15 +5,15 @@
   import { toast } from '$lib/stores/toast';
 
   import { runProbeJob, type ProbeRunRequest } from '$lib/api/probes';
-  import { pollProbeJob } from '$lib/features/jobs/probe-polling';
-  import RunProbeButton from '$lib/components/common/RunProbeButton.svelte';
-  import CredentialsFields from '$lib/components/common/CredentialsFields.svelte';
-  import { resolveCredentials } from '$lib/auth/credentials-service';
+  import { pollProbeJob } from '$lib/jobs/probe-polling';
+  import RunProbeButton from '$lib/components/jobs/RunProbeButton.svelte';
+  import CredentialsFields from '$lib/components/ui/CredentialsFields.svelte';
+  import { resolveCredentials } from '$lib/api/credentials';
   import { isValidHostname, isValidIPv4 } from '$lib/utils/host-validate';
-  import { buildStorageEndpointConnectProbeRequest } from '$lib/probe/probe-builders';
-  import { syncStorageRootDiscoveryForEndpoint } from '$lib/probe/probe-runner';
-  import { extractDomainFromUsername } from '$lib/probe/storage-endpoint-probe';
-  import { jobsStore } from '$lib/stores/app/jobs.store';
+  import { buildStorageEndpointConnectProbeRequest } from '$lib/jobs/probe-builders';
+  import { syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
+  import { extractDomainFromUsername } from '$lib/jobs/storage-endpoint-probe';
+  import { jobsStore } from '$lib/stores/jobs.store';
 
   import {
     createStorageEndpoint,

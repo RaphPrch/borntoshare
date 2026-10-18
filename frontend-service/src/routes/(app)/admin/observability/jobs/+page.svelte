@@ -3,7 +3,7 @@
   import { onDestroy } from 'svelte';
   import { cancelAdminJob, listAdminJobs, type AdminProvisioningJob } from '$lib/api/admin-jobs';
   import { toast } from '$lib/stores/toast';
-  import { toAppError } from '$lib/core/errors';
+  import { toAppError } from '$lib/errors';
 
   export let data: {
     initialJobs?: AdminProvisioningJob[];

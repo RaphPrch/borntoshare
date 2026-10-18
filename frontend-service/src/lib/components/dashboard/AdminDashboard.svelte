@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import DashboardShell from './DashboardShell.svelte';
-  import EmptyStateInline from '$lib/components/common/EmptyStateInline.svelte';
+  import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import { formatActivityItem } from '$lib/activity/format';
 
   // Expected (safe) shape:

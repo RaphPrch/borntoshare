@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
 import { apiServerGetList } from '$lib/server/api-server';
-import { requireAuth } from '$lib/utils/requireAuth.server';
+import { requireAuth } from '$lib/server/require-auth';
 
 type UserLike = {
   id?: string | number;

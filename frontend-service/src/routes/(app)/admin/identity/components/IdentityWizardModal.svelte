@@ -1,7 +1,7 @@
 
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import WizardModalShell from '$lib/components/common/WizardModalShell.svelte';
+  import WizardModalShell from '$lib/components/ui/WizardModalShell.svelte';
   import IdentityWizard from './IdentityWizard.svelte';
 
   export let open = false;

@@ -3,14 +3,14 @@
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import IdentityWizardModal from './components/IdentityWizardModal.svelte';
   import EditIdentityModal from './components/EditIdentityModal.svelte';
-  import ConfirmDeleteDialog from '$lib/components/common/ConfirmDeleteDialog.svelte';
-  import EmptyStateInline from '$lib/components/common/EmptyStateInline.svelte';
+  import ConfirmDeleteDialog from '$lib/components/ui/ConfirmDeleteDialog.svelte';
+  import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import {
     deleteIdentity,
     getIdentityJob,
@@ -18,9 +18,9 @@
     type IdentityGroupMember
   } from '$lib/api/identity';
   import { runIdentitySnapshot } from '$lib/api/identity-sources';
-  import { notifyError, toAppError } from '$lib/core/errors';
-  import { showApiErrorToast } from '$lib/core/errors/api-toast';
-  import { timeAgo } from '$lib/utils/timeAgo';
+  import { notifyError, toAppError } from '$lib/errors';
+  import { showApiErrorToast } from '$lib/errors/api-toast';
+  import { timeAgo } from '$lib/utils/format';
   import { toast } from '$lib/stores/toast';
 
   export let data: {

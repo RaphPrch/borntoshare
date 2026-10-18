@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import type { RequestEvent } from '@sveltejs/kit';
 
 import { apiServerGetData, apiServerGetList } from '$lib/server/api-server';
-import { requireAuth } from '$lib/utils/requireAuth.server';
+import { requireAuth } from '$lib/server/require-auth';
 
 const TABS = ['pending', 'approved', 'enforced', 'revoked', 'rejected'] as const;
 

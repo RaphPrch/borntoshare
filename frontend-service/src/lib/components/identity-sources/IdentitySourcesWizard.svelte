@@ -2,13 +2,13 @@
   import { sleep } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
   import { toast } from '$lib/stores/toast';
-  import RunProbeButton from '$lib/components/common/RunProbeButton.svelte';
+  import RunProbeButton from '$lib/components/jobs/RunProbeButton.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
-  import { buildIdentitySourceProbeRequest } from '$lib/probe/probe-builders';
-  import { resolveCredentials } from '$lib/auth/credentials-service';
+  import { buildIdentitySourceProbeRequest } from '$lib/jobs/probe-builders';
+  import { resolveCredentials } from '$lib/api/credentials';
   import { isValidHostname, isValidIPv4 } from '$lib/utils/host-validate';
-  import { resolveStatusVariant } from '$lib/constants/status';
-  import { notifyError, toUiAppError } from '$lib/core/errors';
+  import { resolveStatusVariant } from '$lib/utils/status';
+  import { notifyError, toUiAppError } from '$lib/errors';
   import type { ProbeRunRequest } from '$lib/api/probes';
   import {
     getIdentitySourceInternal,
@@ -20,9 +20,9 @@
     type IdentitySourceCreateResult,
     type IdentitySnapshotMeta,
     type IdentitySourceInternalMeta
-  } from '$lib/services/identity-sources.helpers';
-  import { jobsStore } from '$lib/stores/app/jobs.store';
-  import { snapshotStore } from '$lib/stores/features/snapshot.store';
+  } from '$lib/utils/identity-sources';
+  import { jobsStore } from '$lib/stores/jobs.store';
+  import { snapshotStore } from '$lib/stores/snapshot.store';
 
   export let onTest: (payload: IdentitySourcePayload & { _secret?: string; bind_password?: string | null }) => Promise<{
     ok: boolean;

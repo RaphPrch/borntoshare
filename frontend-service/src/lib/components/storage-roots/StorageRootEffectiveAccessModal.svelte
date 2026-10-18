@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { initials } from '$lib/utils/format';
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  import { initials, timeAgo } from '$lib/utils/format';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import StorageRootDrawerShell from '$lib/components/storage-roots/StorageRootDrawerShell.svelte';
-  import { timeAgo } from '$lib/utils/timeAgo';
 
   export let open = false;
   export let title = 'Users with Access';

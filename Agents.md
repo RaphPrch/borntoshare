@@ -29,6 +29,7 @@ Frontend:
 - Browser code must not call DAL, auth-service, or governance-service directly; the SvelteKit server (BFF) routes `/api/*` to them.
 - Keep login and change-password pages in the frontend.
 - Respect existing UI components and CSS tokens.
+- Follow the `src/lib` layout and shared helpers described in `frontend-service/docs/structure.md`.
 - No glassmorphism.
 - Keep the BornToShare theme:
   - Background: #F5F7FB

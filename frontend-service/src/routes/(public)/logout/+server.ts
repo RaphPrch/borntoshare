@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { toAppError } from '$lib/core/errors';
-import { logAppError } from '$lib/core/logging';
+import { toAppError } from '$lib/errors';
+import { logAppError } from '$lib/logging';
 
 export const POST: RequestHandler = async ({ fetch }) => {
   let res: Response;

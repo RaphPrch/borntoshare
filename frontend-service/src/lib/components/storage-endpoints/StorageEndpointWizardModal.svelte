@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import RemoteConnectorWizardModal from '$lib/components/common/RemoteConnectorWizardModal.svelte';
+  import RemoteConnectorWizardModal from '$lib/components/ui/RemoteConnectorWizardModal.svelte';
   import StorageEndpointWizard from '$lib/components/storage-endpoints/StorageEndpointWizard.svelte';
 
   export let open = false;

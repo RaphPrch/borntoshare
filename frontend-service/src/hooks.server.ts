@@ -19,7 +19,7 @@ import { redirect } from '@sveltejs/kit';
 import { isPublicPath, shouldSkipHydration } from './lib/server/routing/public-paths';
 import { proxyApi } from './lib/server/bff/proxy';
 import { hydrateUserContext } from './lib/server/auth/user-context';
-import { logError } from './lib/core/logging';
+import { logError } from './lib/logging';
 
 declare const process: {
   env: Record<string, string | undefined>;

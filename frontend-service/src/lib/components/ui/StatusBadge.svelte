@@ -2,7 +2,7 @@
   import {
     resolveStatusVariant,
     type StatusVariant,
-  } from '$lib/constants/status';
+  } from '$lib/utils/status';
 
   export let status: string | null | undefined = 'running';
   export let label: string | null = null;

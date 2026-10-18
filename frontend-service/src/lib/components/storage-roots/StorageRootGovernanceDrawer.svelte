@@ -3,8 +3,8 @@
   import StorageRootAssignedPrincipalCard from './StorageRootAssignedPrincipalCard.svelte';
   import SectionHeaderRow from '../ui/SectionHeaderRow.svelte';
   import ActionFooter from '../ui/ActionFooter.svelte';
-  import EmptyStateCard from '../common/EmptyStateCard.svelte';
-  import EntityActionButton from '../common/EntityActionButton.svelte';
+  import EmptyStateCard from '../ui/EmptyStateCard.svelte';
+  import EntityActionButton from '../entity/EntityActionButton.svelte';
 
   export let open = false;
   export let onClose: () => void = () => {};

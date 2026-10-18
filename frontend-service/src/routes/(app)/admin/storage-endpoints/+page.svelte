@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
-  import EmptyStateCard from '$lib/components/common/EmptyStateCard.svelte';
+  import EmptyStateCard from '$lib/components/ui/EmptyStateCard.svelte';
   import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
   import { toast } from '$lib/stores/toast';
 

@@ -2,9 +2,9 @@
   import { sleep } from '$lib/utils/values';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
-  import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import IdentitySourcesWizardModal from '$lib/components/identity-sources/IdentitySourcesWizardModal.svelte';
-  import EmptyStateCard from '$lib/components/common/EmptyStateCard.svelte';
+  import EmptyStateCard from '$lib/components/ui/EmptyStateCard.svelte';
   import IdentitySourceDrawer from '$lib/components/identity-sources/IdentitySourceDrawer.svelte';
   import {
     browseIdentitySource,
@@ -25,24 +25,24 @@
     identitySourceTypeLabel,
     type IdentitySourceCardVM,
     type IdentitySourceSortKey
-  } from '$lib/services/mappers/identity-sources.mapper';
-  import { buildIdentitySourceProbeRequest } from '$lib/probe/probe-runner';
-  import { runProbeWithUi } from '$lib/probe/probe-ui';
-  import { resolveCredentials } from '$lib/auth/credentials-service';
+  } from '$lib/mappers/identity-sources.mapper';
+  import { buildIdentitySourceProbeRequest } from '$lib/jobs/probe-runner';
+  import { runProbeWithUi } from '$lib/jobs/probe-ui';
+  import { resolveCredentials } from '$lib/api/credentials';
   import { toast } from '$lib/stores/toast';
   import { dependencyDeleteMessage, isDependencyDeleteError } from '$lib/utils/delete-guard';
-  import { notifyError, toAppError, isGenericErrorMessage, toUiAppError } from '$lib/core/errors';
+  import { notifyError, toAppError, isGenericErrorMessage, toUiAppError } from '$lib/errors';
   import {
     extractSnapshotMeta,
     toSnapshotStorePatch,
     toFiniteCount,
     type IdentitySourceInternalMeta
-  } from '$lib/services/identity-sources.helpers';
-  import { pollJobUntilTerminal } from '$lib/features/jobs/polling';
-  import type { JobUiStatus } from '$lib/features/jobs/types';
-  import { jobsStore, type JobStatus } from '$lib/stores/app/jobs.store';
-  import { selectionStore } from '$lib/stores/app/selection.store';
-  import { snapshotStore } from '$lib/stores/features/snapshot.store';
+  } from '$lib/utils/identity-sources';
+  import { pollJobUntilTerminal } from '$lib/jobs/polling';
+  import type { JobUiStatus } from '$lib/jobs/types';
+  import { jobsStore, type JobStatus } from '$lib/stores/jobs.store';
+  import { selectionStore } from '$lib/stores/selection.store';
+  import { snapshotStore } from '$lib/stores/snapshot.store';
 
   type IdentitySourceRow = {
     id: number;

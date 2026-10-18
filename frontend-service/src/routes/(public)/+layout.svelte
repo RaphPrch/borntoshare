@@ -11,7 +11,7 @@
   import { page } from '$app/stores';
   import { toast } from '$lib/stores/toast';
   import { browser } from '$app/environment';
-  import { bootstrapFrontendCore } from '$lib/core/bootstrap.client';
+  import { bootstrapFrontendCore } from '$lib/bootstrap.client';
 
   bootstrapFrontendCore();
 

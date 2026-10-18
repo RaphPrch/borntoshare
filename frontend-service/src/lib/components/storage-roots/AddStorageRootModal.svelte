@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import type { AddRootEndpoint, AddRootFolder, AddRootZone } from './add-storage-root.types';
 
   export let open = false;

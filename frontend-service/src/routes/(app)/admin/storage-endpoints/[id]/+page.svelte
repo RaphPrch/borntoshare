@@ -3,12 +3,12 @@
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
   import { goto, invalidateAll } from '$app/navigation';
-  import EntityAlertDrawer from '$lib/components/common/EntityAlertDrawer.svelte';
-  import EntityAlertStrip from '$lib/components/common/EntityAlertStrip.svelte';
-  import type { EntityAlertStripItem } from '$lib/components/common/entity-alerts.types';
-  import EntityTabs from '$lib/components/common/EntityTabs.svelte';
-  import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
-  import EmptyStateCard from '$lib/components/common/EmptyStateCard.svelte';
+  import EntityAlertDrawer from '$lib/components/entity/EntityAlertDrawer.svelte';
+  import EntityAlertStrip from '$lib/components/entity/EntityAlertStrip.svelte';
+  import type { EntityAlertStripItem } from '$lib/components/entity/entity-alerts.types';
+  import EntityTabs from '$lib/components/entity/EntityTabs.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import EmptyStateCard from '$lib/components/ui/EmptyStateCard.svelte';
   import StorageEndpointsSidebar from '$lib/components/storage-endpoints/StorageEndpointsSidebar.svelte';
   import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
   import StorageEndpointEditModal from '$lib/components/storage-endpoints/StorageEndpointEditModal.svelte';
@@ -17,19 +17,19 @@
     buildStorageEndpointProvisioningViewModel,
     type ProvisioningPolicyViewModel
   } from '$lib/components/provisioning/provisioning-policy.adapter';
-  import EntityConsoleHeader from '$lib/components/common/EntityConsoleHeader.svelte';
+  import EntityConsoleHeader from '$lib/components/entity/EntityConsoleHeader.svelte';
   import {
     type OperationalHeaderMetaItem
-  } from '$lib/components/common/EntityOperationalHeader.svelte';
-  import { type EntityActionItem } from '$lib/components/common/EntityActionGroup.svelte';
+  } from '$lib/components/entity/EntityOperationalHeader.svelte';
+  import { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
-  import EntityKpiRow from '$lib/components/common/EntityKpiRow.svelte';
-  import EntityOverviewLayout from '$lib/components/common/EntityOverviewLayout.svelte';
-  import AssociatedRootsTable from '$lib/components/storage-endpoints/detail/AssociatedRootsTable.svelte';
+  import EntityKpiRow from '$lib/components/entity/EntityKpiRow.svelte';
+  import EntityOverviewLayout from '$lib/components/entity/EntityOverviewLayout.svelte';
+  import AssociatedRootsTable from '$lib/components/storage-endpoints/AssociatedRootsTable.svelte';
   import ActivityDetailsDrawer from '$lib/components/activity/ActivityDetailsDrawer.svelte';
-  import EntityOverviewPanel from '$lib/components/common/EntityOverviewPanel.svelte';
-  import EntityConsoleShell from '$lib/components/common/EntityConsoleShell.svelte';
+  import EntityOverviewPanel from '$lib/components/entity/EntityOverviewPanel.svelte';
+  import EntityConsoleShell from '$lib/components/entity/EntityConsoleShell.svelte';
 
   import {
     deleteStorageEndpoint,
@@ -43,40 +43,40 @@
   import {
     buildProvisioningUpdatePayload,
     createProvisioningDraft
-  } from '$lib/services/mappers/storage-endpoint-provisioning.mapper';
+  } from '$lib/mappers/storage-endpoint-provisioning.mapper';
   import {
     mapBusinessOverallToVariant,
     normalizeProbeStatus,
     reachabilityFromProbeStatus
-  } from '$lib/services/mappers/visual-state.mapper';
+  } from '$lib/mappers/visual-state.mapper';
   import {
     endpointOperationalStateLabel,
     endpointOperationalStateStatus
-  } from '$lib/services/mappers/endpoint-operational-state.mapper';
+  } from '$lib/mappers/endpoint-operational-state.mapper';
   import {
     buildStorageEndpointOperationalAttentionItems,
     endpointHealthToOperationalTone
-  } from '$lib/services/mappers/entity-operational.mapper';
+  } from '$lib/mappers/entity-operational.mapper';
   import type { GovernanceAlert } from '$lib/api/governance-alerts';
   import {
     selectVisibleStorageRootAlertsForRootIds,
     storageRootAlertRootId,
     storageRootAlertSummarySubtitle,
     storageRootAlertTone
-  } from '$lib/services/mappers/storage-root-alerts.mapper';
+  } from '$lib/mappers/storage-root-alerts.mapper';
   import {
     collectStorageRootsAvailabilityByEndpoint,
     syncStorageRootDiscoveryForEndpoint,
     type StorageRootAvailabilitySummary
-  } from '$lib/probe/probe-runner';
+  } from '$lib/jobs/probe-runner';
   import {
     buildStorageEndpointProbeRequestFromEndpoint,
     resolveStorageEndpointProbeConfig,
     validateStorageEndpointProbeConfig
-  } from '$lib/probe/storage-endpoint-probe';
-  import { runProbeWithPolling } from '$lib/probe/probe-runner';
-  import { notifyError, toAppError } from '$lib/core/errors';
-  import { logAppError, logInfo, logWarning } from '$lib/core/logging';
+  } from '$lib/jobs/storage-endpoint-probe';
+  import { runProbeWithPolling } from '$lib/jobs/probe-runner';
+  import { notifyError, toAppError } from '$lib/errors';
+  import { logAppError, logInfo, logWarning } from '$lib/logging';
   import { toast } from '$lib/stores/toast';
   import {
     dependencyCountDeleteMessage,

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import EntityConsoleHeader from "$lib/components/common/EntityConsoleHeader.svelte";
+  import EntityConsoleHeader from "$lib/components/entity/EntityConsoleHeader.svelte";
   import {
     type OperationalHeaderMetaItem
-  } from "$lib/components/common/EntityOperationalHeader.svelte";
-  import { type EntityActionItem } from "$lib/components/common/EntityActionGroup.svelte";
-  import { healthLabelToOperationalTone } from "$lib/services/mappers/entity-operational.mapper";
+  } from "$lib/components/entity/EntityOperationalHeader.svelte";
+  import { type EntityActionItem } from "$lib/components/entity/EntityActionGroup.svelte";
+  import { healthLabelToOperationalTone } from "$lib/mappers/entity-operational.mapper";
 
   export let zone: any;
   export let endpointCount = 0;

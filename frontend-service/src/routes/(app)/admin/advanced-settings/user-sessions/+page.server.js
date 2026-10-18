@@ -1,4 +1,4 @@
-import { requireAuth } from '$lib/utils/requireAuth.server';
+import { requireAuth } from '$lib/server/require-auth';
 import { apiServerGet } from '$lib/server/api-server';
 
 export const load = async (event) => {

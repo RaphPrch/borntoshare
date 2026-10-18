@@ -27,7 +27,7 @@
   import TopProgress from "$lib/components/ui/TopProgress.svelte";
   import Topbar from "$lib/components/layout/Topbar.svelte";
   import MegaMenu from "$lib/components/layout/MegaMenu.svelte";
-  import { bootstrapFrontendCore } from "$lib/core/bootstrap.client";
+  import { bootstrapFrontendCore } from "$lib/bootstrap.client";
 
   // ---------------------------------------------------------
   // Data from layout.server.ts
@@ -49,7 +49,7 @@
     theme: string;
   };
 
-  let activeMega: import('$lib/components/mega-config').MegaMenuKey | null = null;
+  let activeMega: import('$lib/components/layout/mega-config').MegaMenuKey | null = null;
 
   bootstrapFrontendCore();
 

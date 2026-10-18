@@ -1,6 +1,6 @@
 <script lang="ts">
   import { formatActivityItem } from '$lib/activity/format';
-  import { timeAgo } from '$lib/utils/timeAgo';
+  import { timeAgo } from '$lib/utils/format';
 
   export let title = 'Recent activity';
   export let items: any[] = [];
