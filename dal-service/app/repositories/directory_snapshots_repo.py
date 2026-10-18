@@ -14,16 +14,6 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def _extract_parent_ou_dn(dn: str | None) -> str | None:
-    raw = str(dn or "").strip()
-    if not raw or "," not in raw:
-        return None
-    parent = raw.split(",", 1)[1].strip()
-    if not parent or not parent.lower().startswith("ou="):
-        return None
-    return parent
-
-
 def _iter_ou_ancestor_dns(dn: str | None) -> list[str]:
     raw = str(dn or "").strip()
     if not raw or "," not in raw:

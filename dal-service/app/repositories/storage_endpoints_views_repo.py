@@ -128,21 +128,6 @@ class StorageEndpointsViewsRepo(SQLViewRepo):
     # OVERVIEW — LIST (UI)
     # ============================================================
 
-    def list_overview(self) -> list[dict]:
-        """
-        List storage endpoints for UI pages.
-
-        Wizard-UI does not define `v_storage_endpoints_overview`.
-        For V1, the UI list is backed by `v_storage_endpoints_context`.
-        """
-        sql = """
-            SELECT *
-            FROM v_storage_endpoints_context
-            ORDER BY zone_name, storage_endpoint_name
-        """
-
-        return self._all(sql)
-
     # ============================================================
     # OVERVIEW — SINGLE (DETAIL / POLLING)
     # ============================================================

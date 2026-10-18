@@ -48,7 +48,3 @@ def dal_get(path: str, timeout: int = 10) -> Any:
 
 def dal_post(path: str, payload: Dict[str, Any], timeout: int = 10) -> Any:
     return _request("POST", path, payload=payload, timeout=timeout)
-
-
-def dal_patch(path: str, payload: Dict[str, Any], timeout: int = 10) -> Any:
-    return _request("PATCH", path, payload=payload, timeout=timeout)

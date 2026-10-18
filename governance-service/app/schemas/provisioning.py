@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -61,10 +61,3 @@ class DiscoverGroupUsersRecursiveIn(BaseModel):
     max_depth: int = Field(default=10, ge=1, le=30)
     timeout: Optional[int] = Field(default=None, ge=1, le=30)
     verify_tls: Optional[bool] = None
-
-
-class GovernanceEnvelope(BaseModel):
-    status: str
-    message: str
-    data: Dict[str, object] = Field(default_factory=dict)
-    error_code: Optional[str] = None

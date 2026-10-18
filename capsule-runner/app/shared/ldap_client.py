@@ -54,31 +54,3 @@ def search(
     for entry in conn.entries:
         out.append(dict(getattr(entry, "entry_attributes_as_dict", {}) or {}))
     return out
-
-
-def create_group(
-    conn: Connection,
-    *,
-    group_dn: str,
-    group_name: str,
-    description_text: str | None = None,
-) -> bool:
-    attrs: dict[str, Any] = {
-        "sAMAccountName": str(group_name or "").strip(),
-        "groupType": -2147483646,
-    }
-    description = str(description_text or "").strip()
-    if description:
-        attrs["description"] = description
-    return bool(conn.add(str(group_dn or "").strip(), ["top", "group"], attrs))
-
-
-def add_membership(conn: Connection, *, group_dn: str, member_dn: str) -> bool:
-    from ldap3 import MODIFY_ADD
-
-    return bool(
-        conn.modify(
-            str(group_dn or "").strip(),
-            {"member": [(MODIFY_ADD, [str(member_dn or "").strip()])]},
-        )
-    )

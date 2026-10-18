@@ -5,7 +5,6 @@ import logging
 from typing import Optional
 
 import mysql.connector
-from mysql.connector import Error
 
 logger = logging.getLogger("wizard.db")
 logger.setLevel(logging.INFO)
@@ -70,29 +69,3 @@ def get_connection(
 # ============================================================
 # 🧪 DB TEST
 # ============================================================
-
-def test_connection(root_cfg: dict) -> bool:
-    """
-    Teste la connexion MySQL avec une configuration fournie par le wizard.
-    Ne sélectionne PAS de base (test réseau + auth uniquement).
-    """
-    try:
-        safe_cfg = root_cfg.copy()
-        if "password" in safe_cfg:
-            safe_cfg["password"] = "***"
-
-        logger.info("[DB-TEST] Testing connection → %s", safe_cfg)
-
-        conn = get_connection(database=False, root_cfg=root_cfg)
-        conn.close()
-
-        logger.info("[DB-TEST] SUCCESS → DB connection OK")
-        return True
-
-    except Error as e:
-        logger.error("[DB-TEST] FAILED → MySQL error: %s", e)
-        return False
-
-    except Exception:
-        logger.exception("[DB-TEST] FAILED → Unexpected error")
-        return False

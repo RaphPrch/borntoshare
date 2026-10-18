@@ -141,24 +141,6 @@ class ZonesViewsRepo(SQLViewRepo):
             {"zone_id": int(zone_id)},
         )
 
-    def list_console_access_profiles(self, zone_id: int) -> list[dict]:
-        # Legacy console helper kept only while /zones/{id}/access-profiles still exists.
-        return self._all_dicts(
-            """
-            SELECT
-              id,
-              code,
-              name,
-              permission,
-              access_level_code,
-              zone_id
-            FROM v_zone_console_access_profiles
-            WHERE zone_id = :zone_id
-            ORDER BY code, name
-            """,
-            {"zone_id": int(zone_id)},
-        )
-
     def get_effective_provisioning_policy(self, zone_id: int) -> dict | None:
         return self._one_dict(
             """
