@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDate, initials } from '$lib/utils/format';
   import type {
     StorageRootEffectiveAccessUser,
     StorageRootProjectedAdGroup
@@ -24,11 +25,6 @@
   const displayName = (user: StorageRootEffectiveAccessUser): string =>
     text(user.display_name) || text(user.username) || text(user.upn) || text(user.principal) || `Identity ${user.identity_id ?? 'unknown'}`;
 
-  const initials = (name: string): string => {
-    const words = name.split(/\s+/).filter(Boolean);
-    const letters = words.length > 1 ? `${words[0][0]}${words[1][0]}` : name.slice(0, 2);
-    return letters.toUpperCase();
-  };
 
   const accessLevel = (user: StorageRootEffectiveAccessUser): 'read' | 'write' | 'unknown' => {
     const level = norm(user.access_level);
@@ -80,18 +76,6 @@
     if (level === 'read') return 'Read';
     if (level === 'write') return 'Write';
     return 'Unknown';
-  };
-
-  const formatDate = (value: unknown): string => {
-    const raw = text(value);
-    if (!raw) return '—';
-    const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return raw;
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    }).format(date);
   };
 
   const grantedAtLabel = (user: StorageRootEffectiveAccessUser): string => {
@@ -357,37 +341,6 @@
     background: #fbfdff;
   }
 
-  .sr-effective-access-table__summary div {
-    min-width: 0;
-    padding: 12px 16px;
-    border-right: 1px solid #e7eef8;
-    display: grid;
-    gap: 2px;
-  }
-
-  .sr-effective-access-table__summary div:last-child {
-    border-right: 0;
-  }
-
-  .sr-effective-access-table__summary strong {
-    color: #102243;
-    font-size: 18px;
-    font-weight: 760;
-  }
-
-  .sr-effective-access-table__summary span {
-    overflow: hidden;
-    color: #607087;
-    font-size: 12px;
-    font-weight: 650;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .sr-effective-access-table__summary .has-warning strong {
-    color: #a65300;
-  }
-
   .sr-effective-access-table__freshness {
     display: flex;
     align-items: center;
@@ -396,29 +349,6 @@
     padding: 12px 16px;
     border-bottom: 1px solid #e4ebf5;
     background: #f8fbff;
-  }
-
-  .sr-effective-access-table__freshness div {
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-  }
-
-  .sr-effective-access-table__freshness strong {
-    color: #102243;
-    font-size: 13px;
-    font-weight: 760;
-  }
-
-  .sr-effective-access-table__freshness span {
-    color: #607087;
-    font-size: 12px;
-    font-weight: 620;
-  }
-
-  .sr-effective-access-table__freshness.is-stale strong,
-  .sr-effective-access-table__freshness.is-not_scanned strong {
-    color: #a65300;
   }
 
   .sr-effective-access-table__freshness button {
@@ -494,50 +424,6 @@
     gap: 12px;
     align-items: flex-start;
     padding: 12px;
-  }
-
-  .sr-effective-access-table__difference > i {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-  }
-
-  .sr-effective-access-table__difference div {
-    min-width: 0;
-    display: grid;
-    gap: 3px;
-  }
-
-  .sr-effective-access-table__difference strong {
-    color: #102243;
-    font-size: 13px;
-    font-weight: 760;
-  }
-
-  .sr-effective-access-table__difference span {
-    color: #607087;
-    font-size: 12px;
-    font-weight: 620;
-  }
-
-  .sr-effective-access-table__difference.is-danger > i {
-    background: #fff1f1;
-    color: #d11212;
-  }
-
-  .sr-effective-access-table__difference.is-warning > i,
-  .sr-effective-access-table__difference.is-neutral > i {
-    background: #fff5e8;
-    color: #a65300;
-  }
-
-  .sr-effective-access-table__difference.is-success > i {
-    background: #e9f8ee;
-    color: #087b3a;
   }
 
   .sr-effective-access-table__select-label {

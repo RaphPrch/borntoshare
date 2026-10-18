@@ -1,10 +1,5 @@
 import type { FetchLike } from './client';
-import { apiGetList, apiGetData, apiPostData } from './client';
-
-type AccessRequestContextResponse = {
-  requests: unknown[];
-  tabCounts: Record<string, number>;
-};
+import { apiGetData, apiPostData } from './client';
 
 type AccessRequestRecord = Record<string, unknown>;
 
@@ -86,7 +81,7 @@ const normalizeBulkDecisionResponse = (raw: unknown): BulkDecisionResponse => {
   };
 };
 
-export type CreateAccessRequestPayload = {
+type CreateAccessRequestPayload = {
   code?: string;
   requester_identity_id?: number;
   storage_root_id: number;
@@ -106,7 +101,7 @@ export type CreateAccessRequestPayload = {
   };
 };
 
-export type CheckExistingAccessPayload = {
+type CheckExistingAccessPayload = {
   storage_root_id: number;
   permission?: string;
   access_level?: string;
@@ -123,41 +118,6 @@ export type CheckExistingAccessResponse = {
   source?: 'DB' | 'IDENTITY_SNAPSHOT' | 'EFFECTIVE_ACCESS' | 'AD' | 'UNKNOWN' | string;
   access_request_id?: number | null;
   access_request_code?: string | null;
-};
-
-/**
- * LIST access requests (optionnellement filtrées par status)
- */
-export const listAccessRequests = (
-  fetchFn: FetchLike,
-  q?: {
-    status?: string;
-    my_action?: number;
-    overdue?: number;
-    high_impact?: number;
-    query?: string;
-  }
-) => {
-  const params = new URLSearchParams();
-
-  if (q?.status) {
-    params.set('status', q.status);
-  }
-  if (q?.my_action !== undefined) {
-    params.set('my_action', String(q.my_action));
-  }
-  if (q?.overdue !== undefined) {
-    params.set('overdue', String(q.overdue));
-  }
-  if (q?.high_impact !== undefined) {
-    params.set('high_impact', String(q.high_impact));
-  }
-  if (q?.query) {
-    params.set('q', q.query);
-  }
-
-  const qs = params.toString();
-  return apiGetList<AccessRequestRecord>(fetchFn, `/access-requests${qs ? `?${qs}` : ''}`);
 };
 
 /**
@@ -194,74 +154,6 @@ export const bulkDecision = async (
   });
 
   return normalizeBulkDecisionResponse(response);
-};
-
-export const getAccessRequestCountsByStatus = (
-  fetchFn: FetchLike,
-  q?: {
-    my_action?: number;
-    overdue?: number;
-    high_impact?: number;
-    query?: string;
-  }
-) => {
-  const params = new URLSearchParams();
-
-  if (q?.my_action !== undefined) {
-    params.set('my_action', String(q.my_action));
-  }
-  if (q?.overdue !== undefined) {
-    params.set('overdue', String(q.overdue));
-  }
-  if (q?.high_impact !== undefined) {
-    params.set('high_impact', String(q.high_impact));
-  }
-  if (q?.query) {
-    params.set('q', q.query);
-  }
-
-  const qs = params.toString();
-  return apiGetData<Record<string, number>>(
-    fetchFn,
-    `/access-requests/counts-by-status${qs ? `?${qs}` : ''}`
-  );
-};
-
-/**
- * Context endpoint (backend BFF)
- * Retourne en un seul appel la liste et les compteurs d'onglets.
- */
-export const getAccessRequestsContext = (
-  fetchFn: FetchLike,
-  q?: {
-    status?: string;
-    my_action?: number;
-    overdue?: number;
-    high_impact?: number;
-    query?: string;
-  }
-) => {
-  const params = new URLSearchParams();
-
-  if (q?.status) params.set('status', q.status);
-  if (q?.my_action !== undefined) params.set('my_action', String(q.my_action));
-  if (q?.overdue !== undefined) params.set('overdue', String(q.overdue));
-  if (q?.high_impact !== undefined) params.set('high_impact', String(q.high_impact));
-  if (q?.query) params.set('q', q.query);
-
-  const requestQs = params.toString();
-
-  const countsParams = new URLSearchParams(params);
-  countsParams.delete('status');
-  const countsQs = countsParams.toString();
-
-  return Promise.all([
-    apiGetList<AccessRequestRecord>(fetchFn, `/access-requests${requestQs ? `?${requestQs}` : ''}`),
-    apiGetData<Record<string, number>>(
-      fetchFn,
-      `/access-requests/counts-by-status${countsQs ? `?${countsQs}` : ''}`
-    )
-  ]).then(([requests, tabCounts]) => ({ requests, tabCounts }));
 };
 
 /**

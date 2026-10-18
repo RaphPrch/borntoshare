@@ -1,6 +1,6 @@
 import { apiGetList, type FetchLike } from './client';
 
-export type HealthEntityType = 'identity_source' | 'storage_endpoint' | 'storage_root';
+type HealthEntityType = 'identity_source' | 'storage_endpoint' | 'storage_root';
 
 export type HealthSummaryDay = {
   date: string;

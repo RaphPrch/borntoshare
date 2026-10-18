@@ -1,15 +1,16 @@
 <script lang="ts">
+  import { normalizeText } from '$lib/utils/values';
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import IdentityWizardModal from './components/IdentityWizardModal.svelte';
   import EditIdentityModal from './components/EditIdentityModal.svelte';
-  import ConfirmDeleteDialog from '$lib/components/common/ConfirmDeleteDialog.svelte';
-  import EmptyStateInline from '$lib/components/common/EmptyStateInline.svelte';
+  import ConfirmDeleteDialog from '$lib/components/ui/ConfirmDeleteDialog.svelte';
+  import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import {
     deleteIdentity,
     getIdentityJob,
@@ -17,9 +18,9 @@
     type IdentityGroupMember
   } from '$lib/api/identity';
   import { runIdentitySnapshot } from '$lib/api/identity-sources';
-  import { notifyError, toAppError } from '$lib/core/errors';
-  import { showApiErrorToast } from '$lib/core/errors/api-toast';
-  import { timeAgo } from '$lib/utils/timeAgo';
+  import { notifyError, toAppError } from '$lib/errors';
+  import { showApiErrorToast } from '$lib/errors/api-toast';
+  import { timeAgo } from '$lib/utils/format';
   import { toast } from '$lib/stores/toast';
 
   export let data: {
@@ -69,7 +70,6 @@
   let meId: string | number | null = null;
   $: meId = $page.data?.me?.id ?? null;
 
-  const normalizeText = (value: unknown) => String(value ?? '').trim().toLowerCase();
   const displayText = (value: unknown, fallback = 'Unknown') => String(value ?? '').trim() || fallback;
   const asNumberOrNull = (value: unknown): number | null => {
     const n = Number(value);
@@ -947,16 +947,10 @@
   }
 
   .identity-detail-grid dd,
-  .identity-detail-grid li,
   .identity-detail-grid p {
     margin: 0;
     color: #071638;
     font-size: 0.86rem;
-  }
-
-  .identity-detail-grid ul {
-    margin: 10px 0 0;
-    padding-left: 18px;
   }
 
   .identity-members-list article {

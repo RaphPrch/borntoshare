@@ -2,10 +2,10 @@
   import { env } from '$env/dynamic/public';
 
   import LoginForm from '$lib/components/auth/LoginForm.svelte';
-  import ErrorNotice from '$lib/components/common/ErrorNotice.svelte';
+  import ErrorNotice from '$lib/components/ui/ErrorNotice.svelte';
 
-  import { notifyError, toAppError, type AppError } from '$lib/core/errors';
-  import { logAppError } from '$lib/core/logging';
+  import { notifyError, toAppError, type AppError } from '$lib/errors';
+  import { logAppError } from '$lib/logging';
 
   export let data: {
     providers?: unknown;

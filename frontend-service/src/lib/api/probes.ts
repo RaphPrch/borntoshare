@@ -5,19 +5,19 @@ import { apiGetData, apiPostData } from './client';
  * Enums alignés backend (UnifiedProbeRequest)
  * ========================================================= */
 
-export type ProbeKind =
+type ProbeKind =
   | 'identity-source'
   | 'storage-endpoint'
   | 'storage-root'
   | 'acl';
 
-export type ProbeProtocol =
+type ProbeProtocol =
   | 'ldap'
   | 'ldaps'
   | 'smb'
   | 'acl_push';
 
-export type ProbeScope =
+type ProbeScope =
   | 'connect'
   | 'read'
   | 'write';
@@ -65,7 +65,7 @@ export type ProbeRunRequest = {
  * Probe job (governance → frontend)
  * ========================================================= */
 
-export type ProbeJobStatus =
+type ProbeJobStatus =
   | 'queued'
   | 'running'
   | 'retrying'

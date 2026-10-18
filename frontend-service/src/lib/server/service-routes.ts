@@ -2,9 +2,9 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
-export type ServiceKind = 'auth' | 'dal' | 'governance';
+type ServiceKind = 'auth' | 'dal' | 'governance';
 
-export type DirectRoute = {
+type DirectRoute = {
   service: ServiceKind;
   path: string;
   internal: boolean;

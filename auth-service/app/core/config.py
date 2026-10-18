@@ -7,6 +7,9 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+DEV_PRINCIPAL_SIGNING_KEY = "dev_principal_signing_key_change_me"
+
+
 class Settings(BaseSettings):
     # =================================================
     # 🧩 Application
@@ -37,7 +40,7 @@ class Settings(BaseSettings):
 
     PRINCIPAL_COOKIE_NAME: str = "b2s_principal"
     PRINCIPAL_TTL_SECONDS: int = 15 * 60
-    PRINCIPAL_SIGNING_KEY: str = "dev_principal_signing_key_change_me"
+    PRINCIPAL_SIGNING_KEY: str = DEV_PRINCIPAL_SIGNING_KEY
     PRINCIPAL_COOKIE_SAMESITE: str = "lax"  # lax | strict | none
     PRINCIPAL_COOKIE_SECURE: bool = False
 
@@ -176,6 +179,13 @@ def get_settings() -> Settings:
         raise RuntimeError(
             "Misconfiguration: INTERNAL_TOKEN is required (V1 static mode)"
         )
+
+    # ---- Principal cookie carries roles: a publicly known key lets anyone forge an admin
+    if (settings.APP_ENV or "").strip().lower() == "prod" and settings.PRINCIPAL_SIGNING_KEY in {
+        "",
+        DEV_PRINCIPAL_SIGNING_KEY,
+    }:
+        raise RuntimeError("Misconfiguration: PRINCIPAL_SIGNING_KEY must be set when APP_ENV=prod")
 
     # ---- Provider sanity
     default_provider = (settings.DEFAULT_AUTH_PROVIDER or "").strip().lower()

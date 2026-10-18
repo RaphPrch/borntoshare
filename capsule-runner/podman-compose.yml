@@ -23,7 +23,7 @@ services:
 
       # DAL + Dramatiq broker
       DAL_URL: ${DAL_URL:-http://dal-service:8000}
-      CAPSULE_BROKER_URL: ${CAPSULE_BROKER_URL:-redis://redis:6379/2}
+      CAPSULE_BROKER_URL: ${CAPSULE_BROKER_URL:-redis://:${REDIS_PASSWORD}@redis:6379/2}
 
       # Least privilege (read | write)
       RUNNER_MAX_SCOPE: ${RUNNER_MAX_SCOPE:-write}
@@ -56,11 +56,16 @@ services:
     # volumes:
     #   - ./krb5.conf:/etc/krb5.conf:ro
 
+    # app: DAL + secret-broker ; jobs: Redis (Dramatiq broker)
     networks:
       - app
+      - jobs
 
 
 networks:
   app:
     name: bts-app
+    external: true
+  jobs:
+    name: bts-jobs
     external: true

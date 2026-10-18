@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { initials } from '$lib/utils/format';
   import { createEventDispatcher } from 'svelte';
   import { formatActivityItem } from '$lib/activity/format';
 
@@ -125,12 +126,6 @@
     return humanize(role);
   };
 
-  const initials = (label: string) => {
-    if (!label || label === 'System') return 'SY';
-    const parts = label.split(/[\s._-]+/).filter(Boolean);
-    const chars = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : label.slice(0, 2);
-    return chars.toUpperCase();
-  };
 
   const sourceLabel = (entry: any, ctx: Record<string, unknown>, action: string) => {
     const explicit = firstString(

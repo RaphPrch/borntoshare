@@ -154,23 +154,6 @@ export function parsePrincipalCookie(raw: string): PrincipalSnapshot | null {
   }
 }
 
-export async function verifyPrincipalCookie(raw: string): Promise<PrincipalSnapshot | null> {
-  if (!raw || typeof raw !== 'string') return null;
-
-  const parts = raw.split('.');
-  if (parts.length !== 2) return null;
-
-  const [payloadB64, sig] = parts;
-  if (!payloadB64 || !sig) return null;
-
-  const ok = await verifySignature(payloadB64, sig, DEFAULT_SIGNING_KEY);
-  if (!ok) {
-    return null;
-  }
-
-  return parsePrincipalCookie(raw);
-}
-
 export function isPrincipalExpired(snapshot: PrincipalSnapshot): boolean {
   const now = Math.floor(Date.now() / 1000);
   return snapshot.exp <= now;
@@ -189,11 +172,6 @@ export function principalToMe(snapshot: PrincipalSnapshot): Me {
     roles: [...snapshot.roles],
     is_admin: isAdmin
   };
-}
-
-export function clearAuthCookies(cookies: Cookies): void {
-  cookies.delete(DEFAULT_SESSION_COOKIE_NAME, { path: '/' });
-  cookies.delete(DEFAULT_PRINCIPAL_COOKIE_NAME, { path: '/' });
 }
 
 export async function issuePrincipalCookieFromMe(

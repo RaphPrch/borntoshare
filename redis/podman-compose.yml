@@ -1,0 +1,68 @@
+version: "3.9"
+
+# Dramatiq broker (job queue between governance-service and capsule-runner).
+# Standalone so it can be started/stopped independently of any application service.
+#
+# Prerequisites (once per host):
+#   podman network create bts-jobs
+#   REDIS_PASSWORD=<long random value> in .env (same value for governance-service and capsule-runner).
+#   Use letters and digits only: it is embedded in CAPSULE_BROKER_URL (redis://:<password>@redis:6379/2),
+#   where characters such as # @ / : would break the URL.
+
+services:
+  redis:
+    container_name: redis
+    image: redis:7
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      # Lets redis-cli (healthcheck) authenticate without a password on its command line.
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+
+    # Password read from the environment at start-up so it is not stored in the image or compose command.
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --appendfsync everysec --requirepass "$$REDIS_PASSWORD"
+
+    volumes:
+      - redis-data:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+    # --------------------------------------------------
+    # Internal exposure ONLY (no published port)
+    # --------------------------------------------------
+    expose:
+      - "6379"
+
+    # --------------------------------------------------
+    # Hardening
+    # --------------------------------------------------
+    user: "999:999"   # "redis" user of the official image
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    # --------------------------------------------------
+    # Networks: jobs network only (governance-service + capsule-runner)
+    # --------------------------------------------------
+    networks:
+      - jobs
+
+networks:
+  jobs:
+    name: bts-jobs
+    external: true
+
+volumes:
+  redis-data:

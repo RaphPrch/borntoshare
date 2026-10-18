@@ -1,5 +1,5 @@
 <script lang="ts">
-  import EntityDrawerShell from '$lib/components/common/EntityDrawerShell.svelte';
+  import EntityDrawerShell from '$lib/components/entity/EntityDrawerShell.svelte';
 
   export let open = false;
   export let title = 'Details';

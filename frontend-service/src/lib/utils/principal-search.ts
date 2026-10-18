@@ -18,7 +18,7 @@ export type PrincipalSearchItem = {
   is_import_candidate?: boolean;
 };
 
-export type PrincipalType = 'user' | 'group' | 'ou' | 'all' | string;
+type PrincipalType = 'user' | 'group' | 'ou' | 'all' | string;
 
 type RawPrincipalRow = Record<string, unknown>;
 
@@ -109,14 +109,6 @@ const toPrincipalSearchItem = (row: RawPrincipalRow): PrincipalSearchItem | null
   };
 };
 
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-
 export const principalKey = (item: Record<string, unknown>) =>
   asText(
     item.external_id ??
@@ -156,18 +148,6 @@ export const principalSubtitle = (item: Record<string, unknown>): string => {
   return kind;
 };
 
-export const highlightMatch = (value: unknown, query: string): string => {
-  const raw = asText(value);
-  if (!raw) return '-';
-  const safeRaw = escapeHtml(raw);
-  const q = asText(query);
-  if (!q) return safeRaw;
-
-  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(escaped, 'ig');
-  return safeRaw.replace(re, (m) => `<mark>${m}</mark>`);
-};
-
 export const normalizePrincipalList = (payload: unknown): PrincipalSearchItem[] => {
   if (Array.isArray(payload)) {
     return payload
@@ -189,18 +169,4 @@ export const normalizePrincipalList = (payload: unknown): PrincipalSearchItem[] 
       .map((item) => toPrincipalSearchItem(item as RawPrincipalRow))
       .filter((item): item is PrincipalSearchItem => Boolean(item))
     .filter((item: PrincipalSearchItem) => String(item.id ?? '').trim().length > 0);
-};
-
-export const filterPrincipals = (rows: PrincipalSearchItem[], q: string, limit = 24): PrincipalSearchItem[] => {
-  const query = asText(q).toLowerCase();
-  if (!query) return rows.slice(0, limit);
-
-  return rows
-    .filter((item) => {
-      const haystack = [item.display_name, item.username, item.email, item.auth_source]
-        .map((v) => String(v ?? '').toLowerCase())
-        .join(' ');
-      return haystack.includes(query);
-    })
-    .slice(0, limit);
 };

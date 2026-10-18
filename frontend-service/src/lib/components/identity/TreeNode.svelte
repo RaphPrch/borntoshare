@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { IdentityTreeNode } from '../../types/identityBrowser';
+  import type { IdentityTreeNode } from '../../types/identity-browser';
 
   export let node: IdentityTreeNode;
   export let level = 0;
@@ -65,10 +65,6 @@
 </div>
 
 <style>
-  .idb-tree-node-wrap + .idb-tree-node-wrap {
-    border-top: 1px solid var(--idb-border, #e3e9f3);
-  }
-
   .idb-tree-node {
     min-height: 34px;
     width: 100%;

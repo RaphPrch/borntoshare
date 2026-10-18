@@ -138,7 +138,7 @@ function varsFromEvent(ev: any) {
   };
 }
 
-export type ActivityRender = {
+type ActivityRender = {
   title: string;
   description: string;
   badge: { label: string; kind: 'info' | 'admin' | 'critical' };

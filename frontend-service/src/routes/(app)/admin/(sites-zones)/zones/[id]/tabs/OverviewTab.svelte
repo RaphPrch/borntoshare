@@ -1,7 +1,7 @@
 <script lang="ts">
-  import EntityOverviewPanel from "$lib/components/common/EntityOverviewPanel.svelte";
-  import EntityKpiRow from "$lib/components/common/EntityKpiRow.svelte";
-  import EntityOverviewLayout from "$lib/components/common/EntityOverviewLayout.svelte";
+  import EntityOverviewPanel from "$lib/components/entity/EntityOverviewPanel.svelte";
+  import EntityKpiRow from "$lib/components/entity/EntityKpiRow.svelte";
+  import EntityOverviewLayout from "$lib/components/entity/EntityOverviewLayout.svelte";
   import ZoneEndpointsTable from "../components/ZoneEndpointsTable.svelte";
   import RecentActivityCard from "$lib/components/activity/RecentActivityCard.svelte";
 

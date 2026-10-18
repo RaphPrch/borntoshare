@@ -1,6 +1,5 @@
 import {
   apiDeleteData,
-  apiGetData,
   apiGetList,
   apiPatchData,
   apiPostData,
@@ -33,19 +32,6 @@ export type ZoneOverview = {
  * ZONE CONSOLE
  * ================================================== */
 
-export type ZoneConsole = {
-  zone: ZoneOverview;
-  endpoints: any[];
-  storageRoots: any[];
-  /** @deprecated Legacy access-profile payload kept only for DAL response compatibility. */
-  accessProfiles: any[];
-  provisioningPolicy: ZoneProvisioningPolicy;
-  kpis?: { endpoints: number; roots: number; profiles: number } | null;
-};
-
-export const getZoneConsole = (fetchFn: FetchLike, zoneId: number): Promise<ZoneConsole> =>
-  apiGetData(fetchFn, `/zones/${zoneId}/console`);
-
 /* ==================================================
  * WRITE MODELS (CRUD – modals only)
  * ================================================== */
@@ -56,7 +42,7 @@ export type ZoneCreatePayload = {
   description?: string | null;
 };
 
-export type ZoneUpdatePayload = Partial<ZoneCreatePayload>;
+type ZoneUpdatePayload = Partial<ZoneCreatePayload>;
 
 /* ==================================================
  * READ (UI)
@@ -64,21 +50,6 @@ export type ZoneUpdatePayload = Partial<ZoneCreatePayload>;
 
 export const listZones = (fetchFn: FetchLike, params: Record<string, any> = {}): Promise<ZoneOverview[]> =>
   apiGetList(fetchFn, "/zones", params);
-
-export const getZoneOverview = (fetchFn: FetchLike, id: number): Promise<ZoneOverview> =>
-  apiGetData(fetchFn, `/zones/${id}/overview`);
-
-/** @deprecated Legacy zone access-profile helper kept temporarily for compatibility. */
-export const listZoneAccessProfiles = (fetchFn: FetchLike, zoneId: number): Promise<any[]> =>
-  apiGetData<any[]>(fetchFn, `/zones/${zoneId}/access-profiles`);
-
-/** @deprecated Legacy zone access-profile helper kept temporarily for compatibility. */
-export const attachZoneAccessProfile = (fetchFn: FetchLike, zoneId: number, profileId: number): Promise<{ ok: boolean }> =>
-  apiPostData(fetchFn, `/zones/${zoneId}/access-profiles/${profileId}`, {});
-
-/** @deprecated Legacy zone access-profile helper kept temporarily for compatibility. */
-export const detachZoneAccessProfile = (fetchFn: FetchLike, zoneId: number, profileId: number): Promise<{ ok: boolean }> =>
-  apiDeleteData(fetchFn, `/zones/${zoneId}/access-profiles/${profileId}`);
 
 /* ==================================================
  * WRITE (ADMIN / MODALS)
@@ -113,9 +84,6 @@ export type ZoneProvisioningPolicy = {
     warnings: string[];
   } | null;
 };
-
-export const getZoneProvisioningPolicy = (fetchFn: FetchLike, zoneId: number): Promise<ZoneProvisioningPolicy> =>
-  apiGetData<ZoneProvisioningPolicy>(fetchFn, `/zones/${zoneId}/provisioning-policy`);
 
 export const putZoneProvisioningPolicy = (
   fetchFn: FetchLike,

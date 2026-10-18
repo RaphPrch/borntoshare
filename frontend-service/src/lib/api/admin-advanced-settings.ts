@@ -6,7 +6,6 @@
 import {
   apiDelete,
   apiGet,
-  apiGetData,
   apiPost,
   apiPostData,
   apiPut,
@@ -19,9 +18,7 @@ import {
 // -----------------------
 
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
-export type CookieSameSite = 'Lax' | 'Strict' | 'None';
-
-export type SecurityConfig = {
+type SecurityConfig = {
   enforceStrongPasswords: boolean;
   passwordMinLength: number;
   passwordHistory: number;
@@ -35,19 +32,19 @@ type SecuritySettingsDal = {
   password_expiry_days?: number;
 };
 
-export type LoggingConfig = {
+type LoggingConfig = {
   level: LogLevel;
   retentionEnabled?: boolean;
   retentionDays?: number;
 };
 
-export type MaintenanceConfig = {
+type MaintenanceConfig = {
   enabled: boolean;
   message: string;
   allowedCidrs: string[];
 };
 
-export type ActionResult = {
+type ActionResult = {
   ok: boolean;
   message?: string;
   // Optional async job fields

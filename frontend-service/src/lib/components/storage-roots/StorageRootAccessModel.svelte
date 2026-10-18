@@ -1,5 +1,5 @@
 <script lang="ts">
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
 
   type AccessModelRow = {
     level: 'read' | 'write';
@@ -166,18 +166,6 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-  }
-
-  .storage-root-access-cell strong.is-success {
-    color: #087b3a;
-  }
-
-  .storage-root-access-cell strong.is-warning {
-    color: #a65300;
-  }
-
-  .storage-root-access-cell strong.is-pending {
-    color: #607087;
   }
 
   .storage-root-access-actions {

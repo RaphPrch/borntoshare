@@ -1,7 +1,7 @@
 <script lang="ts">
   import EntityRowCard from '../ui/EntityRowCard.svelte';
   import IconTile from '../ui/IconTile.svelte';
-  import { mapGovernanceOwnerToCardVM } from '../../services/mappers/governance-owners.mapper';
+  import { mapGovernanceOwnerToCardVM } from '../../mappers/governance-owners.mapper';
 
   export let owner: Record<string, unknown> = {};
   export let role: 'guardian' = 'guardian';

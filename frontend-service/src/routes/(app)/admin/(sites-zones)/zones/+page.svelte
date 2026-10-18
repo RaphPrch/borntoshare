@@ -1,10 +1,10 @@
 <script lang="ts">
   import { goto, invalidateAll } from "$app/navigation";
-  import EmptyStateCard from "$lib/components/common/EmptyStateCard.svelte";
-  import ZoneFormModal from "$lib/components/sites/modals/ZoneFormModal.svelte";
+  import EmptyStateCard from "$lib/components/ui/EmptyStateCard.svelte";
+  import ZoneFormModal from "$lib/components/zones/ZoneFormModal.svelte";
   import { createZone } from "$lib/api/zones";
-  import { notifyError, toAppError } from "$lib/core/errors";
-  import { logAppError, logInfo } from "$lib/core/logging";
+  import { notifyError, toAppError } from "$lib/errors";
+  import { logAppError, logInfo } from "$lib/logging";
   import { toast } from "$lib/stores/toast";
 
   export let data: {

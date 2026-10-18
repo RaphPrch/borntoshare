@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { normalizeText } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
-  import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
-  import EntityDrawerShell from '$lib/components/common/EntityDrawerShell.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import EntityDrawerShell from '$lib/components/entity/EntityDrawerShell.svelte';
   import { adminChangePassword, updateIdentity } from '$lib/api/identity';
   import { toast } from '$lib/stores/toast';
-  import { initialsFromLabel } from '$lib/utils/initials';
+  import { initials } from '$lib/utils/format';
 
   export let open = false;
   export let identity: any = null;
@@ -23,9 +24,6 @@
   let initKey = '';
   let closeConfirmOpen = false;
   let attemptedSubmit = false;
-
-  const normalizeText = (value: unknown) => String(value ?? '').trim().toLowerCase();
-  const initials = (value?: string | null) => initialsFromLabel(value, '?');
 
   $: isGroup = identity?.type === 'group';
   $: isUser = identity?.type !== 'group';

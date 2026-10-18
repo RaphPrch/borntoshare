@@ -1,7 +1,7 @@
 <script lang="ts">
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  import { initials, timeAgo } from '$lib/utils/format';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import StorageRootDrawerShell from '$lib/components/storage-roots/StorageRootDrawerShell.svelte';
-  import { timeAgo } from '$lib/utils/timeAgo';
 
   export let open = false;
   export let title = 'Users with Access';
@@ -24,13 +24,6 @@
   const label = (u: any) => String(u?.display_name ?? u?.username ?? u?.email ?? u?.upn ?? `Identity #${u?.identity_id ?? '?'}`);
   const mail = (u: any) => String(u?.email ?? u?.upn ?? '—');
 
-  const initials = (value: string) =>
-    value
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase() ?? '')
-      .join('') || 'U';
 
   const toneClass = (index: number) => ['indigo', 'violet', 'rose', 'orange', 'cyan'][index % 5];
 
@@ -223,11 +216,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .sr-ea-main strong span {
-    font-weight: 600;
-    color: #304770;
   }
 
   .sr-ea-main small {

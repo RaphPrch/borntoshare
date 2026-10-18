@@ -23,7 +23,7 @@ export type AdminProvisioningJob = {
   watchdog_republish_count?: number | null;
 };
 
-export type AdminJobsListParams = {
+type AdminJobsListParams = {
   status?: string;
   job_type?: string;
   identity_source_id?: number;
@@ -33,27 +33,9 @@ export type AdminJobsListParams = {
   limit?: number;
 };
 
-export type AdminJobCancelPayload = {
+type AdminJobCancelPayload = {
   reason?: string;
   source?: string;
-};
-
-export type AdminWatchdogRunPayload = {
-  queued_timeout_seconds?: number;
-  max_republish_count?: number;
-  limit?: number;
-};
-
-export type AdminWatchdogRunResult = {
-  ok?: boolean;
-  queued_timeout_seconds?: number;
-  max_republish_count?: number;
-  inspected_count?: number;
-  republished_count?: number;
-  republished_job_ids?: number[];
-  failed_count?: number;
-  failed_job_ids?: number[];
-  skipped?: Array<{ job_id?: number; error?: string }>;
 };
 
 export const listAdminJobs = (
@@ -80,14 +62,3 @@ export const cancelAdminJob = (
     `/admin/jobs/${Number(jobId)}/cancel`,
     payload ?? {}
   );
-
-export const runAdminJobsWatchdog = (
-  fetchFn: FetchLike,
-  payload?: AdminWatchdogRunPayload
-) =>
-  apiPostData<AdminWatchdogRunResult>(
-    fetchFn,
-    '/admin/jobs/watchdog/run',
-    payload ?? {}
-  );
-

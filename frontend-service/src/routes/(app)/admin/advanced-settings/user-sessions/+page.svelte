@@ -1,10 +1,11 @@
 <script lang="ts">
-  import ConfigCard from '$lib/components/advanced-settings/v3/ConfigCard.svelte';
-  import ConfirmActionModal from '$lib/components/common/ConfirmActionModal.svelte';
+  import { normalizeText } from '$lib/utils/values';
+  import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { toast } from '$lib/stores/toast';
-  import { notifyError, toAppError } from '$lib/core/errors';
-  import { logAppError } from '$lib/core/logging';
-  import { timeAgo } from '$lib/utils/timeAgo';
+  import { notifyError, reportUiError, toAppError } from '$lib/errors';
+  import { logAppError } from '$lib/logging';
+  import { timeAgo } from '$lib/utils/format';
   import type { UserSession } from '$lib/api/admin-advanced-settings';
   import { listUserSessions, revokeUserSession } from '$lib/api/admin-advanced-settings';
 
@@ -19,19 +20,6 @@
   let confirmDisconnectOpen = false;
   let pendingSessionId: string | null = null;
 
-  const GENERIC_ERROR_MESSAGES = new Set(['Unexpected error', 'Backend error', 'Network error', 'Request timeout']);
-
-  const toUiErrorMessage = (error: unknown, fallback: string, action: string): string => {
-    const normalized = toAppError(error, { source: 'ui' });
-    const appError = GENERIC_ERROR_MESSAGES.has(normalized.message)
-      ? { ...normalized, message: fallback }
-      : normalized;
-    logAppError(appError, { action });
-    notifyError(appError);
-    return appError.message;
-  };
-
-  const normalizeText = (value: unknown) => String(value ?? '').trim().toLowerCase();
   const toTimestamp = (value: unknown) => {
     const t = new Date(String(value ?? '')).getTime();
     return Number.isFinite(t) ? t : 0;
@@ -59,7 +47,7 @@
       const res = await listUserSessions(fetch);
       sessions = res.sessions ?? [];
     } catch (e: unknown) {
-      toUiErrorMessage(e, 'Unable to refresh sessions.', 'advanced_settings.user_sessions.refresh');
+      reportUiError(e, 'Unable to refresh sessions.', 'advanced_settings.user_sessions.refresh');
     } finally {
       isLoading = false;
     }
@@ -92,7 +80,7 @@
         notifyError(appError);
       }
     } catch (e: unknown) {
-      toUiErrorMessage(e, 'Unable to disconnect session.', 'advanced_settings.user_sessions.revoke');
+      reportUiError(e, 'Unable to disconnect session.', 'advanced_settings.user_sessions.revoke');
     } finally {
       revokingId = null;
     }

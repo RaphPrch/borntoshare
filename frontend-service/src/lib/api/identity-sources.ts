@@ -6,11 +6,10 @@ import {
   apiPatchData,
   apiPostData
 } from './client';
-import { runProbeJob, getProbeJob } from './probes';
 
-export type IdentityBrowseStatus = 'up_to_date' | 'needs_refresh';
+type IdentityBrowseStatus = 'up_to_date' | 'needs_refresh';
 
-export type IdentityBrowseItem = {
+type IdentityBrowseItem = {
   username?: string | null;
   display_name?: string | null;
   upn?: string | null;
@@ -20,7 +19,7 @@ export type IdentityBrowseItem = {
   status?: IdentityBrowseStatus;
 };
 
-export type IdentityBrowseResponse = {
+type IdentityBrowseResponse = {
   identity_source_id: number;
   count: number;
   items: IdentityBrowseItem[];
@@ -160,8 +159,6 @@ export const createIdentitySource = (
   payload: IdentitySourcePayload
 ) => apiPostData(fetchFn, '/identity-sources', toIdentitySourceCreateDalPayload(payload));
 
-export { runProbeJob, getProbeJob };
-
 export const updateIdentitySource = (
   fetchFn: FetchLike,
   sourceId: number,
@@ -174,7 +171,7 @@ export const deleteIdentitySource = (fetchFn: FetchLike, sourceId: number) =>
 export const getIdentitySourceInternal = (fetchFn: FetchLike, sourceId: number) =>
   apiGetData(fetchFn, `/identity-sources/${sourceId}/internal`);
 
-export type IdentitySnapshotRunResponse = {
+type IdentitySnapshotRunResponse = {
   job_id?: number;
   snapshot_id?: number;
   status?: string;

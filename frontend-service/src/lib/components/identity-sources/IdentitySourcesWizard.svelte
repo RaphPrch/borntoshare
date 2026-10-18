@@ -1,14 +1,14 @@
 <script lang="ts">
+  import { sleep } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
   import { toast } from '$lib/stores/toast';
-  import RunProbeButton from '$lib/components/common/RunProbeButton.svelte';
+  import RunProbeButton from '$lib/components/jobs/RunProbeButton.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
-  import { buildIdentitySourceProbeRequest } from '$lib/probe/probe-builders';
-  import { resolveCredentials } from '$lib/auth/credentials-service';
+  import { buildIdentitySourceProbeRequest } from '$lib/jobs/probe-builders';
+  import { resolveCredentials } from '$lib/api/credentials';
   import { isValidHostname, isValidIPv4 } from '$lib/utils/host-validate';
-  import { resolveStatusVariant } from '$lib/constants/status';
-  import { notifyError, toAppError, type AppError } from '$lib/core/errors';
-  import { logAppError } from '$lib/core/logging';
+  import { resolveStatusVariant } from '$lib/utils/status';
+  import { notifyError, toUiAppError } from '$lib/errors';
   import type { ProbeRunRequest } from '$lib/api/probes';
   import {
     getIdentitySourceInternal,
@@ -20,9 +20,9 @@
     type IdentitySourceCreateResult,
     type IdentitySnapshotMeta,
     type IdentitySourceInternalMeta
-  } from '$lib/services/identity-sources.helpers';
-  import { jobsStore } from '$lib/stores/app/jobs.store';
-  import { snapshotStore } from '$lib/stores/features/snapshot.store';
+  } from '$lib/utils/identity-sources';
+  import { jobsStore } from '$lib/stores/jobs.store';
+  import { snapshotStore } from '$lib/stores/snapshot.store';
 
   export let onTest: (payload: IdentitySourcePayload & { _secret?: string; bind_password?: string | null }) => Promise<{
     ok: boolean;
@@ -34,22 +34,6 @@
   export let existingNames: string[] = [];
 
   const dispatch = createEventDispatcher();
-
-  const GENERIC_ERROR_MESSAGES = new Set(['Unexpected error', 'Backend error', 'Network error', 'Request timeout']);
-
-  function normalizeWizardError(
-    error: unknown,
-    fallback: string,
-    source: AppError['source'],
-    context?: Record<string, unknown>
-  ): AppError {
-    const normalized = toAppError(error, { source });
-    const appError = GENERIC_ERROR_MESSAGES.has(normalized.message)
-      ? { ...normalized, message: fallback }
-      : normalized;
-    logAppError(appError, context);
-    return appError;
-  }
 
   type WizardStepKey = 'type' | 'capabilities' | 'connection' | 'snapshot' | 'review';
   type WizardStepItem = { key: WizardStepKey; label: string };
@@ -272,8 +256,6 @@
     showStep3Errors = false;
   }
 
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
   function updateSnapshotInitStep(key: SnapshotInitStep['key'], state: SnapshotInitStepState) {
     snapshotInitSteps = snapshotInitSteps.map((step) =>
       step.key === key ? { ...step, state } : step
@@ -384,7 +366,7 @@
         lastSnapshotMembershipsCount: 0
       });
     } catch (e: unknown) {
-      const appError = normalizeWizardError(e, 'Lecture du snapshot impossible.', 'ui', {
+      const appError = toUiAppError(e, 'Lecture du snapshot impossible.', 'ui', {
         action: 'identity_sources_wizard.load_snapshot_counts',
         sourceId
       });
@@ -515,7 +497,7 @@
       failSnapshotInitRunningStep();
       snapshotInitState = 'failed';
       snapshotInitProgress = Math.max(snapshotInitProgress, 34);
-      const appError = normalizeWizardError(e, 'Unable to initialize first snapshot.', 'ui', {
+      const appError = toUiAppError(e, 'Unable to initialize first snapshot.', 'ui', {
         action: 'identity_sources_wizard.start_initial_snapshot_sync',
         sourceId: createdSourceId
       });
@@ -566,7 +548,7 @@
       }
       createDone = true;
     } catch (e: unknown) {
-      const appError = normalizeWizardError(e, 'Creation failed', 'ui', {
+      const appError = toUiAppError(e, 'Creation failed', 'ui', {
         action: 'identity_sources_wizard.finish_create'
       });
       createError = appError.message;
@@ -684,7 +666,6 @@
     currentStepKey === 'snapshot' ||
     currentStepKey === 'review';
 </script>
-
 
 <div class="is-wizard b2s-wizard is-wizard--modal" class:is-wizard--ldaps={protocolChoice === 'ldaps'}>
   <div class="is-wizard-shell">
@@ -1138,7 +1119,7 @@
 
               if (ok) toast.success('Probe OK');
               else {
-                const appError = normalizeWizardError(
+                const appError = toUiAppError(
                   e.detail.error ?? new Error(message),
                   message,
                   'ui',
@@ -1652,7 +1633,6 @@
     background: #f8fafc;
     margin-bottom: 12px;
   }
-
 
   .protocol-btn {
     border: none;

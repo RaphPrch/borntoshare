@@ -1,7 +1,7 @@
 // src/routes/+layout.server.ts
 
 import type { LayoutServerLoad } from './$types';
-import { requireAuth } from '$lib/utils/requireAuth.server';
+import { requireAuth } from '$lib/server/require-auth';
 import { apiServerGetData, apiServerGetList } from '$lib/server/api-server';
 import { normalizeMe } from '$lib/types/me';
 

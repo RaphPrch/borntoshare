@@ -1,7 +1,7 @@
 <script lang="ts">
   import StorageRootAccessModel from '$lib/components/storage-roots/StorageRootAccessModel.svelte';
-  import EntityAlertStrip from '$lib/components/common/EntityAlertStrip.svelte';
-  import EntityTabs from '$lib/components/common/EntityTabs.svelte';
+  import EntityAlertStrip from '$lib/components/entity/EntityAlertStrip.svelte';
+  import EntityTabs from '$lib/components/entity/EntityTabs.svelte';
   import StorageRootHeader from '$lib/components/storage-roots/StorageRootHeader.svelte';
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
   import StorageRootEffectiveAccessTable from '$lib/components/storage-roots/StorageRootEffectiveAccessTable.svelte';

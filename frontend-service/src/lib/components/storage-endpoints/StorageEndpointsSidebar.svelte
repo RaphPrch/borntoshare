@@ -2,7 +2,7 @@
   import EntitySidebarTree, {
     type EntitySidebarGroup,
     type EntitySidebarItem
-  } from '$lib/components/common/EntitySidebarTree.svelte';
+  } from '$lib/components/entity/EntitySidebarTree.svelte';
 
   type EndpointRow = Record<string, unknown>;
   type EndpointZoneGroup = {

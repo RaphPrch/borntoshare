@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import { renderActivity } from '$lib/activity/formatter';
 
@@ -41,21 +42,6 @@
       });
   }
 
-  const formatDateTime = (value: unknown): string => {
-    const raw = String(value ?? '').trim();
-    if (!raw) return '—';
-    const d = new Date(raw);
-    if (!Number.isFinite(d.getTime())) return raw;
-    return d.toLocaleString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
   const contextOf = (activityEntry: any): Record<string, unknown> | null => {
     const candidates = [activityEntry?.context_json, activityEntry?.metadata_json];
     for (const candidate of candidates) {
@@ -90,7 +76,7 @@
     <div class="activity-details-drawer__meta">
       <div><strong>Action</strong><span>{String(entry?.action ?? '—')}</span></div>
       <div><strong>Severity</strong><span>{String(entry?.severity ?? entry?.outcome ?? 'info')}</span></div>
-      <div><strong>Date & time</strong><span>{formatDateTime(entry?.created_at ?? entry?.event_time)}</span></div>
+      <div><strong>Date & time</strong><span>{formatDateTime(entry?.created_at ?? entry?.event_time, { seconds: true })}</span></div>
       <div><strong>Target</strong><span>{String(entry?.target_display ?? '—')}</span></div>
     </div>
 

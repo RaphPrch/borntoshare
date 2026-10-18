@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.db import SessionLocal, ensure_schema_contract_checked
@@ -71,19 +70,7 @@ async def request_id_middleware(request: Request, call_next):
 register_exception_handlers(app, logger)
 
 
-# ============================================================
-# CORS
-# DAL can be reached directly by frontend-service in direct mode.
-# Browser access is expected to go through the frontend BFF.
-# ============================================================
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # filtrage réel assuré par frontend-service
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# No CORS: browsers never call the DAL directly, only the frontend BFF and services do.
 
 
 # ============================================================

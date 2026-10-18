@@ -3,7 +3,7 @@
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
-  import type { IdentitySourceCardVM } from '$lib/services/mappers/identity-sources.mapper';
+  import type { IdentitySourceCardVM } from '$lib/mappers/identity-sources.mapper';
 
   export let open = false;
   export let source: IdentitySourceCardVM | null = null;

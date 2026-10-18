@@ -1,7 +1,7 @@
 import { t } from '$lib/i18n';
 import type { ActivityTemplate } from './templates';
 
-export type Badge = 'info' | 'admin' | 'critical';
+type Badge = 'info' | 'admin' | 'critical';
 
 export function resolveBadgeLabel(badge: Badge) {
   // Activity/event badges must always be displayed in English.

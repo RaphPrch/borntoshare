@@ -17,7 +17,7 @@ export type ActivityEvent = {
   [k: string]: unknown;
 };
 
-export type ActivityEventCreatePayload = {
+type ActivityEventCreatePayload = {
   action: string;
   outcome?: 'success' | 'failed' | 'warning' | string;
   severity?: 'info' | 'admin' | 'critical' | string;
@@ -31,7 +31,7 @@ export type ActivityEventCreatePayload = {
   metadata_json?: Record<string, unknown>;
 };
 
-export type ActivityEventCreateResponse = {
+type ActivityEventCreateResponse = {
   id?: number | string;
   ok?: boolean;
 };
@@ -46,16 +46,6 @@ export const listActivityByTarget = async (
     target_type: targetType,
     target_id: targetId,
     limit
-  });
-
-export const listActivityLatest = async (
-  fetchFn: FetchLike,
-  limit = 200,
-  businessOnly = false
-): Promise<ActivityEvent[]> =>
-  apiGetList<ActivityEvent>(fetchFn, '/activity/latest', {
-    limit,
-    business_only: businessOnly
   });
 
 export const createActivityEvent = async (

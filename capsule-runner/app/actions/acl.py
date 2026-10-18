@@ -7,6 +7,8 @@ import subprocess
 import time
 from typing import Any, Dict
 
+from app.shared.samba_auth import run_samba
+
 logger = logging.getLogger(__name__)
 
 NTFS_MASK_READ_EXECUTE = "0x001200a9"
@@ -81,13 +83,18 @@ def _lookup_sid_via_rpcclient(
     cmd = [
         "rpcclient",
         host,
-        "-U",
-        f"{auth_user}%{password}",
         "-c",
         f"lookupnames {lookup}",
     ]
     try:
-        proc = subprocess.run(cmd, capture_output=True, timeout=max(1, min(timeout, 10)), check=True)
+        proc = run_samba(
+            cmd,
+            username=auth_user,
+            password=password,
+            capture_output=True,
+            timeout=max(1, min(timeout, 10)),
+            check=True,
+        )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return None
 
@@ -284,8 +291,6 @@ def apply_acl_via_group(params: Dict[str, Any]):
                     "smbcacls",
                     share_path,
                     rel_path,
-                    "-U",
-                    f"{auth_user}%{password}",
                     "--add",
                     ace,
                 ]
@@ -293,8 +298,6 @@ def apply_acl_via_group(params: Dict[str, Any]):
                     "smbcacls",
                     share_path,
                     rel_path,
-                    "-U",
-                    f"{auth_user}%***",
                     "--add",
                     ace,
                 ]
@@ -317,7 +320,7 @@ def apply_acl_via_group(params: Dict[str, Any]):
                 )
 
                 try:
-                    p = subprocess.run(cmd, capture_output=True, timeout=timeout, check=True)
+                    p = run_samba(cmd, username=auth_user, password=password, capture_output=True, timeout=timeout, check=True)
                     details["applied"] = True
                     details["resolved_rel_path"] = rel_path
                     details["resolved_principal"] = ace_principal

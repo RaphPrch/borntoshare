@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from '$app/stores';
 
-  import SectionHeader from '$lib/components/advanced-settings/v3/SectionHeader.svelte';
-  import AdvancedSidebar, { type NavItem } from '$lib/components/advanced-settings/v3/AdvancedSidebar.svelte';
+  import SectionHeader from '$lib/components/settings/SectionHeader.svelte';
+  import AdvancedSidebar, { type NavItem } from '$lib/components/settings/AdvancedSidebar.svelte';
 
   export let data: any;
 

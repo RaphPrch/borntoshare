@@ -1,8 +1,8 @@
 <script lang="ts">
   export let user: unknown = null;
-  import { type MegaMenuKey } from '$lib/components/mega-config';
-  import { normalizeMe } from '$lib/auth/me';
-  import { initialsFromLabel } from '$lib/utils/initials';
+  import { type MegaMenuKey } from '$lib/components/layout/mega-config';
+  import { normalizeMe } from '$lib/types/me';
+  import { initials } from '$lib/utils/format';
 
   export let activeMega: MegaMenuKey | null = null;
   export let currentPath: string | undefined = undefined;
@@ -92,7 +92,7 @@
 
     return {
       label,
-      initials: initialsFromLabel(label, 'U')
+      initials: initials(label, 'U')
     };
   }
 

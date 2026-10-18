@@ -1,6 +1,6 @@
 <script lang="ts">
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
-  import SearchField from '$lib/components/common/SearchField.svelte';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
+  import SearchField from '$lib/components/ui/SearchField.svelte';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
 
   type AlertTone = 'warning' | 'error';

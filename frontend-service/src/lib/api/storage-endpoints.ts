@@ -12,7 +12,7 @@ import {
  * TYPES
  * ================================================== */
 
-export type StorageProtocol =
+type StorageProtocol =
   | 'smb'
   | 'nfs'
   | 's3'
@@ -168,18 +168,12 @@ export type StorageEndpointProvisioningUpdatePayload = {
   };
 };
 
-export type StorageEndpointDetail = StorageEndpointOverview & {
-  description?: string | null;
-  identity_source_id?: number | null;
-  config_json?: Record<string, unknown> | null;
-};
-
 type StorageEndpointCreateResponse = {
   id?: number;
   storage_endpoint_id?: number;
 };
 
-export type StorageEndpointProbeResultPayload = {
+type StorageEndpointProbeResultPayload = {
   last_probe_status: 'success' | 'failed' | 'running' | 'unknown' | string;
   last_probe_at?: string | null;
   last_probe_message?: string | null;
@@ -187,7 +181,7 @@ export type StorageEndpointProbeResultPayload = {
   source_type?: string | null;
 };
 
-export type StorageEndpointProbeResultResponse = {
+type StorageEndpointProbeResultResponse = {
   storage_endpoint_id: number;
   last_probe_status: string;
   last_probe_at: string;
@@ -252,27 +246,6 @@ export const listStorageEndpoints = async (
   }
 };
 
-/**
- * Single endpoint overview
- *
- * ⚠️ 404 must be handled by caller (detail page)
- */
-export const getStorageEndpointOverview = async (
-  fetchFn: FetchLike,
-  id: number
-): Promise<StorageEndpointOverview> => {
-  return apiGetData<StorageEndpointOverview>(fetchFn, `/storage-endpoints/${id}/overview`);
-};
-
-/**
- * Full storage endpoint detail (edit page)
- */
-export const getStorageEndpoint = async (
-  fetchFn: FetchLike,
-  id: number
-): Promise<StorageEndpointDetail> =>
-  apiGetData<StorageEndpointDetail>(fetchFn, `/storage-endpoints/${id}`);
-
 export const getStorageEndpointProvisioningPolicy = async (
   fetchFn: FetchLike,
   id: number
@@ -299,7 +272,7 @@ export const putStorageEndpointProvisioningPolicy = async (
  * WRITE (CRUD — GOVERNANCE SCOPE)
  * ================================================== */
 
-export type StorageEndpointCreatePayload = {
+type StorageEndpointCreatePayload = {
   name: string;
   description?: string | null;
   endpoint_type: StorageProtocol;
@@ -324,7 +297,7 @@ export type StorageEndpointCreatePayload = {
   last_probe_message?: string | null;
 };
 
-export type StorageEndpointDalWritePayload = {
+type StorageEndpointDalWritePayload = {
   name: string;
   endpoint_type: StorageProtocol;
   zone_id: number;

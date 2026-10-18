@@ -6,27 +6,27 @@ import {
   loadOuContent,
   resolveIdentityBrowserContext,
   searchIdentityDirectory
-} from '../../services/identityBrowser.api';
-import type { IdentityBrowserSource, IdentityPreview, IdentityTreeNode } from '../../types/identityBrowser';
+} from '../../api/identity-browser';
+import type { IdentityBrowserSource, IdentityPreview, IdentityTreeNode } from '../../types/identity-browser';
 import type { PrincipalSearchItem } from '../../utils/principal-search';
 import { filterIdentityRowsByImportPolicy } from '../../utils/storage-root-governance';
 
 type BrowserPrincipalType = 'all' | 'user' | 'group' | 'ou';
 
-export type BrowserBootstrapParams = {
+type BrowserBootstrapParams = {
   identitySources: IdentityBrowserSource[];
   initialSourceId: number | null;
   sourceId: number | null;
   storageRootId: number | null;
 };
 
-export type BrowserBootstrapResult = {
+type BrowserBootstrapResult = {
   sources: IdentityBrowserSource[];
   selectedSourceId: number | null;
   resolvedRootDn: string | null;
 };
 
-export type BrowserSearchParams = {
+type BrowserSearchParams = {
   selectedSourceId: number;
   query: string;
   activeDn: string | null;

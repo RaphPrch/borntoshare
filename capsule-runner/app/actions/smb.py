@@ -6,6 +6,8 @@ import shutil
 import subprocess
 from datetime import datetime, timezone
 
+from app.shared.samba_auth import run_samba
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,8 +47,6 @@ def _discover_smb_shares(*, host: str, port: int, username: str, password: str, 
         "smbclient",
         "-L",
         host,
-        "-U",
-        f"{username}%{password}",
         "-m",
         "SMB3",
         "-p",
@@ -54,7 +54,7 @@ def _discover_smb_shares(*, host: str, port: int, username: str, password: str, 
         "-g",
     ]
 
-    p = subprocess.run(cmd, capture_output=True, timeout=timeout, check=True)
+    p = run_samba(cmd, username=username, password=password, capture_output=True, timeout=timeout, check=True)
     # smbclient can write useful listing output to stderr depending on version/build.
     out = ((p.stdout or b"") + b"\n" + (p.stderr or b"")).decode(errors="ignore")
 
@@ -133,11 +133,9 @@ def _discover_share_permissions(
             "smbcacls",
             share_path,
             rel_path,
-            "-U",
-            f"{username}%{password}",
         ]
         try:
-            p = subprocess.run(cmd, capture_output=True, timeout=timeout, check=True)
+            p = run_samba(cmd, username=username, password=password, capture_output=True, timeout=timeout, check=True)
             out = ((p.stdout or b"") + b"\n" + (p.stderr or b"")).decode(errors="ignore")
             if out.strip():
                 break
@@ -217,8 +215,6 @@ def _discover_share_content_size(
     cmd = [
         "smbclient",
         f"//{host}/{share}",
-        "-U",
-        f"{username}%{password}",
         "-m",
         "SMB3",
         "-p",
@@ -228,7 +224,7 @@ def _discover_share_content_size(
     ]
 
     try:
-        proc = subprocess.run(cmd, capture_output=True, timeout=timeout, check=True)
+        proc = run_samba(cmd, username=username, password=password, capture_output=True, timeout=timeout, check=True)
         output = ((proc.stdout or b"") + b"\n" + (proc.stderr or b"")).decode(errors="ignore")
         size_bytes = _parse_smbclient_du_bytes(output)
         if size_bytes is None:
@@ -275,14 +271,13 @@ def test_smb_ntlm(params: dict):
     cmd = [
         "smbclient",
         f"//{host}/IPC$",
-        "-U", f"{username}%{password}",
         "-m", "SMB3",
         "-p", str(port),
         "-c", "exit",
     ]
 
     try:
-        subprocess.run(cmd, capture_output=True, timeout=timeout, check=True)
+        run_samba(cmd, username=username, password=password, capture_output=True, timeout=timeout, check=True)
         details = {
             "host": host,
             "port": port,
@@ -420,8 +415,6 @@ def test_smb_root_access(params: dict):
     cmd = [
         "smbclient",
         smb_path,
-        "-U",
-        f"{username}%{password}",
         "-m",
         "SMB3",
         "-p",
@@ -432,8 +425,6 @@ def test_smb_root_access(params: dict):
     safe_cmd = [
         "smbclient",
         smb_path,
-        "-U",
-        f"{username}%***",
         "-m",
         "SMB3",
         "-p",
@@ -468,7 +459,7 @@ def test_smb_root_access(params: dict):
     )
 
     try:
-        subprocess.run(cmd, capture_output=True, timeout=timeout, check=True)
+        run_samba(cmd, username=username, password=password, capture_output=True, timeout=timeout, check=True)
         details["reachable"] = True
         details["authenticated"] = True
         details["root_accessible"] = True

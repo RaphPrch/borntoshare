@@ -5,12 +5,12 @@
   import { page } from "$app/stores";
   import { invalidateAll } from "$app/navigation";
 
-  import ZoneFormModal from "$lib/components/sites/modals/ZoneFormModal.svelte";
+  import ZoneFormModal from "$lib/components/zones/ZoneFormModal.svelte";
   import StorageEndpointWizardModal from "$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte";
   import { listStorageEndpoints, updateStorageEndpoint } from "$lib/api/storage-endpoints";
-  import PlanPreviewModal from "$lib/modals/PlanPreviewModal.svelte";
+  import PlanPreviewModal from "$lib/components/provisioning/PlanPreviewModal.svelte";
   import ActivityDetailsDrawer from "$lib/components/activity/ActivityDetailsDrawer.svelte";
-  import ConfirmActionModal from "$lib/components/common/ConfirmActionModal.svelte";
+  import ConfirmActionModal from "$lib/components/ui/ConfirmActionModal.svelte";
   import EndpointAttachChoiceModal from "./components/EndpointAttachChoiceModal.svelte";
 
   import {
@@ -25,32 +25,32 @@
   import { createActivityEvent } from "$lib/api/activity";
   import {
     runProbeWithPolling,
-  } from "$lib/probe/probe-runner";
+  } from "$lib/jobs/probe-runner";
   import {
     buildStorageEndpointProbeRequestFromEndpoint,
     resolveStorageEndpointProbeConfig,
     validateStorageEndpointProbeConfig
-  } from "$lib/probe/storage-endpoint-probe";
+  } from "$lib/jobs/storage-endpoint-probe";
   import {
     normalizeProbeStatus,
-  } from "$lib/services/mappers/visual-state.mapper";
-  import { buildZoneOperationalAttentionItems } from "$lib/services/mappers/entity-operational.mapper";
+  } from "$lib/mappers/visual-state.mapper";
+  import { buildZoneOperationalAttentionItems } from "$lib/mappers/entity-operational.mapper";
   import {
     selectVisibleStorageRootAlertsForRootIds,
     storageRootAlertRootId,
     storageRootAlertSummarySubtitle,
     storageRootAlertTone,
     visibleStorageRootAlerts
-  } from "$lib/services/mappers/storage-root-alerts.mapper";
+  } from "$lib/mappers/storage-root-alerts.mapper";
   import { toast } from "$lib/stores/toast";
   import { dependencyDeleteMessage, isDependencyDeleteError } from "$lib/utils/delete-guard";
 
   import ZoneHeader from "./components/ZoneHeader.svelte";
-  import EntityConsoleShell from "$lib/components/common/EntityConsoleShell.svelte";
-  import EntityAlertDrawer from "$lib/components/common/EntityAlertDrawer.svelte";
-  import EntityAlertStrip from "$lib/components/common/EntityAlertStrip.svelte";
-  import type { EntityAlertStripItem } from "$lib/components/common/entity-alerts.types";
-  import EntityTabs from "$lib/components/common/EntityTabs.svelte";
+  import EntityConsoleShell from "$lib/components/entity/EntityConsoleShell.svelte";
+  import EntityAlertDrawer from "$lib/components/entity/EntityAlertDrawer.svelte";
+  import EntityAlertStrip from "$lib/components/entity/EntityAlertStrip.svelte";
+  import type { EntityAlertStripItem } from "$lib/components/entity/entity-alerts.types";
+  import EntityTabs from "$lib/components/entity/EntityTabs.svelte";
 
   const PROBE_SYNC_EVENT = "b2s:storage-endpoint-probe-updated";
 

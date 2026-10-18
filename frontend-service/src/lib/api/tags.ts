@@ -1,6 +1,5 @@
 import {
   apiDeleteData,
-  apiGetList,
   apiPatchData,
   apiPostData,
   type FetchLike
@@ -15,7 +14,7 @@ export type TagOverview = {
   value_text?: string | null;
 };
 
-export type TagWritePayload = {
+type TagWritePayload = {
   name: string;
   label?: string;
   code?: string;
@@ -24,16 +23,13 @@ export type TagWritePayload = {
   value_text?: string | null;
 };
 
-export type TagWriteResponse = {
+type TagWriteResponse = {
   id: number;
 };
 
-export type TagDeleteResponse = {
+type TagDeleteResponse = {
   ok: boolean;
 };
-
-export const listTags = (fetchFn: FetchLike) =>
-  apiGetList<TagOverview>(fetchFn, "/tags");
 
 // Existing CRUD (may depend on DAL capabilities)
 export const createTag = (fetchFn: FetchLike, payload: TagWritePayload) =>
@@ -42,27 +38,6 @@ export const updateTag = (fetchFn: FetchLike, id: string | number, payload: TagW
   apiPatchData<TagWriteResponse>(fetchFn, `/tags/${id}`, payload);
 export const deleteTag = (fetchFn: FetchLike, id: string | number) =>
   apiDeleteData<TagDeleteResponse>(fetchFn, `/tags/${id}`);
-
-// Tag attachment for storage endpoints (DAL: /tags/attach + /tags/detach)
-export const attachTagToStorageEndpoint = (
-  fetchFn: FetchLike,
-  payload: { tag_id: number; resource_id: number }
-) =>
-  apiPostData<{ ok: true }>(fetchFn, "/tags/attach", {
-    tag_id: payload.tag_id,
-    resource_type: "storage_endpoint",
-    resource_id: payload.resource_id
-  });
-
-export const detachTagFromStorageEndpoint = (
-  fetchFn: FetchLike,
-  payload: { tag_id: number; resource_id: number }
-) =>
-  apiPostData<{ ok: true }>(fetchFn, "/tags/detach", {
-    tag_id: payload.tag_id,
-    resource_type: "storage_endpoint",
-    resource_id: payload.resource_id
-  });
 
 export const attachTagToStorageRoot = (
   fetchFn: FetchLike,

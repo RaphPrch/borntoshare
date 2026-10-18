@@ -64,18 +64,3 @@ export async function buildInternalHeaders(): Promise<HeadersInit> {
 
   return headers;
 }
-
-export async function buildStaticInternalHeaders(): Promise<HeadersInit> {
-  const headers: Record<string, string> = {};
-  const token = (process.env.INTERNAL_TOKEN ?? '').trim();
-  if (token) {
-    headers['X-Internal-Token'] = token;
-  }
-
-  const serviceToken = (process.env.SERVICE_TOKEN ?? '').trim();
-  if (serviceToken) {
-    headers['X-Service-Token'] = serviceToken;
-  }
-
-  return headers;
-}

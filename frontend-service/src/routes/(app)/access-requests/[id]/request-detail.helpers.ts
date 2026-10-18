@@ -1,15 +1,7 @@
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+import { formatDateTime } from '$lib/utils/format';
+import { clamp } from '$lib/utils/values';
 
-export const formatDateTime = (value?: string) =>
-  value
-    ? new Date(value).toLocaleString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : '—';
+export { formatDateTime };
 
 export const toBoolean = (value: unknown): boolean | null => {
   if (typeof value === 'boolean') return value;

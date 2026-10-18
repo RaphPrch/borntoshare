@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import type { AddRootEndpoint, AddRootFolder, AddRootZone } from './add-storage-root.types';
 
   export let open = false;
@@ -1202,15 +1202,13 @@
     border-left: 1px solid #e1e7f0;
   }
 
-  .sr-add-metrics small,
-  .sr-add-review-card small {
+  .sr-add-metrics small {
     color: #536990;
     font-size: 12px;
     font-weight: 500;
   }
 
-  .sr-add-metrics strong,
-  .sr-add-review-card strong {
+  .sr-add-metrics strong {
     min-width: 0;
     display: flex;
     align-items: center;
@@ -1227,8 +1225,7 @@
   }
 
   .sr-add-next h4,
-  .sr-add-discovery-card h4,
-  .sr-add-governance-choice h4 {
+  .sr-add-discovery-card h4 {
     margin: 0;
     color: #0d214f;
     font-size: 15px;
@@ -1911,17 +1908,6 @@
     font-weight: 500;
   }
 
-  .sr-add-review-governance-row button {
-    min-height: 36px;
-    border: 1px solid #d7dfed;
-    border-radius: 7px;
-    color: #11295a;
-    background: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
   .sr-add-review-governance p {
     margin: 0;
     border-top: 1px solid #eef2f8;
@@ -2063,28 +2049,6 @@
     background: #f7fbff;
   }
 
-  .sr-add-folder-card > i:first-child {
-    color: #216be8;
-    font-size: 22px;
-  }
-
-  .sr-add-folder-card span {
-    min-width: 0;
-    display: grid;
-    gap: 4px;
-  }
-
-  .sr-add-folder-card strong {
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  .sr-add-folder-card small {
-    color: #5b7095;
-    font-size: 12px;
-    overflow-wrap: anywhere;
-  }
-
   .sr-add-selected-mark {
     color: #216be8;
   }
@@ -2098,51 +2062,9 @@
     background: #fbfdff;
   }
 
-  .sr-add-review-card div {
-    display: grid;
-    gap: 6px;
-  }
-
   .sr-add-governance-choice {
     display: grid;
     gap: 12px;
-  }
-
-  .sr-add-governance-choice label {
-    border: 1px solid #dfe7f2;
-    border-radius: 10px;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 12px;
-    padding: 14px;
-    cursor: pointer;
-    background: #fff;
-  }
-
-  .sr-add-governance-choice label.active {
-    border-color: #216be8;
-    background: #f7fbff;
-  }
-
-  .sr-add-governance-choice input {
-    margin-top: 4px;
-  }
-
-  .sr-add-governance-choice span {
-    display: grid;
-    gap: 4px;
-  }
-
-  .sr-add-governance-choice strong {
-    color: #102754;
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  .sr-add-governance-choice small {
-    color: #566d91;
-    font-size: 12px;
-    line-height: 1.45;
   }
 
   .sr-add-empty-state,

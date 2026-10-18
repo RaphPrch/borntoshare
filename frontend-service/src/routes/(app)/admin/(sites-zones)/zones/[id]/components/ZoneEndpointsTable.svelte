@@ -1,14 +1,14 @@
 <script lang="ts">
   import DataTable from "$lib/components/ui/DataTable.svelte";
   import StatusBadge from "$lib/components/ui/StatusBadge.svelte";
-  import EntityActionButton from "$lib/components/common/EntityActionButton.svelte";
+  import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import {
     endpointOperationalStateLabel,
     endpointOperationalStateVariant,
     normalizeProbeStatus,
     probeStatusLabel,
     probeStatusVariant
-  } from "$lib/services/mappers/entity-status.mapper";
+  } from "$lib/mappers/entity-status.mapper";
 
   export let endpoints: any[] = [];
   export let probeResultsByEndpoint: Record<string, string> = {};

@@ -4,10 +4,10 @@
   import { listIdentitySources, type IdentitySourceListItem } from '$lib/api/identity-sources';
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
   import { toast } from '$lib/stores/toast';
-  import { presentErrorHint, presentErrorMessage, toAppError } from '$lib/core/errors';
+  import { presentErrorHint, presentErrorMessage, toAppError } from '$lib/errors';
   import { searchBrowserDirectory } from '$lib/components/identity/identity-browser.controller';
   import type { PrincipalSearchItem } from '$lib/utils/principal-search';
-  import type { IdentityBrowserSelectionPayload } from '$lib/types/identityBrowser';
+  import type { IdentityBrowserSelectionPayload } from '$lib/types/identity-browser';
 
   export let open = false;
   export let onCancel: () => void;

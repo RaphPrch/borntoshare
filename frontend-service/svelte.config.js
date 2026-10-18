@@ -12,8 +12,7 @@ const config = {
       'a11y_click_events_have_key_events',
       'a11y_consider_explicit_label',
       'a11y_role_supports_aria_props',
-      'export_let_unused',
-      'css_unused_selector'
+      'export_let_unused'
     ]);
 
     if (ignoredCodes.has(warning?.code)) return;
@@ -21,12 +20,9 @@ const config = {
   },
 
   kit: {
-    adapter: adapter(),
-
-    csrf: {
-      // 🔥 DEV MODE : HTTP only
-      trustedOrigins: ['*']
-    }
+    // CSRF: SvelteKit only accepts form POSTs whose Origin matches the app origin,
+    // which adapter-node takes from the ORIGIN env var (see podman-compose.yml).
+    adapter: adapter()
   }
 };
 

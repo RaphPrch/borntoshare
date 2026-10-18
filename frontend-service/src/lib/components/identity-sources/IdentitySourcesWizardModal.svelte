@@ -1,9 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import RemoteConnectorWizardModal from '$lib/components/common/RemoteConnectorWizardModal.svelte';
+  import RemoteConnectorWizardModal from '$lib/components/ui/RemoteConnectorWizardModal.svelte';
   import IdentitySourcesWizard from '$lib/components/identity-sources/IdentitySourcesWizard.svelte';
   import type { IdentitySourcePayload } from '$lib/api/identity-sources';
-  import type { IdentitySourceCreateResult } from '$lib/services/identity-sources.helpers';
+  import type { IdentitySourceCreateResult } from '$lib/utils/identity-sources';
 
   export let open = false;
   export let onClose: () => void;

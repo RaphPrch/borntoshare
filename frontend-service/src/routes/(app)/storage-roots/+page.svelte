@@ -3,10 +3,10 @@
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import { goto, invalidate } from '$app/navigation';
-  import SearchField from '$lib/components/common/SearchField.svelte';
-  import DualListPicker from '$lib/components/common/DualListPicker.svelte';
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
-  import EntityAlertDrawer from '$lib/components/common/EntityAlertDrawer.svelte';
+  import SearchField from '$lib/components/ui/SearchField.svelte';
+  import DualListPicker from '$lib/components/ui/DualListPicker.svelte';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
+  import EntityAlertDrawer from '$lib/components/entity/EntityAlertDrawer.svelte';
   import TagPill from '$lib/components/tags/TagPill.svelte';
   import { attachTagToStorageRoot, detachTagFromStorageRoot } from '$lib/api/tags';
   import { createActivityEvent, listActivityByTarget } from '$lib/api/activity';
@@ -52,7 +52,7 @@
     endpointProtocolOf,
     endpointZoneIdOf,
     rootLabelFromPath
-  } from '$lib/services/mappers/storage-roots.mapper';
+  } from '$lib/mappers/storage-roots.mapper';
   import {
     buildStorageRootAccessModelRows,
     displayStorageRootTags,
@@ -61,13 +61,13 @@
     isSelectedStorageRootRow,
     ownerDisplayName,
     storageRootEndpointLabel,
-  } from '$lib/services/mappers/storage-root-detail.mapper';
+  } from '$lib/mappers/storage-root-detail.mapper';
   import {
     normalizeStorageRootAvailability,
     rootAvailabilityLabel,
     rootAvailabilityVariant,
     type RootAvailability
-  } from '$lib/services/mappers/entity-status.mapper';
+  } from '$lib/mappers/entity-status.mapper';
   import {
     visibleStorageRootAlerts,
     selectOpenStorageRootAlerts,
@@ -75,27 +75,27 @@
     storageRootAlertRootId,
     storageRootAlertTone,
     storageRootOpenAlertSummary
-  } from '$lib/services/mappers/storage-root-alerts.mapper';
+  } from '$lib/mappers/storage-root-alerts.mapper';
   import { toast } from '$lib/stores/toast';
   import { dependencyDeleteMessage, isDependencyDeleteError } from '$lib/utils/delete-guard';
   import { apiGetData } from '$lib/api/client';
-  import { selectionStore } from '$lib/stores/app/selection.store';
+  import { selectionStore } from '$lib/stores/selection.store';
   import {
     storageRootsUiStore,
     type StorageRootsDetailTab
-  } from '$lib/stores/features/storageRootsUi.store';
+  } from '$lib/stores/storage-roots-ui.store';
   import StorageRootEffectiveAccessModal from '$lib/components/storage-roots/StorageRootEffectiveAccessModal.svelte';
   import StorageRootOwnersAdModal from '$lib/components/storage-roots/StorageRootOwnersAdModal.svelte';
   import AddStorageRootModal from '$lib/components/storage-roots/AddStorageRootModal.svelte';
-  import { runProbeWithPolling, syncStorageRootDiscoveryForEndpoint } from '$lib/probe/probe-runner';
+  import { runProbeWithPolling, syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
   import {
     buildStorageEndpointProbeRequestFromEndpoint,
     buildStorageRootProbeRequest,
     parseStorageEndpointProbeRoots,
     resolveStorageEndpointProbeConfig,
     validateStorageEndpointProbeConfig
-  } from '$lib/probe/storage-endpoint-probe';
-  import { runProbeWithUi } from '$lib/probe/probe-ui';
+  } from '$lib/jobs/storage-endpoint-probe';
+  import { runProbeWithUi } from '$lib/jobs/probe-ui';
   import StorageRootFormModal from '$lib/components/storage-roots/StorageRootFormModal.svelte';
   import StorageRootDrawerShell from '$lib/components/storage-roots/StorageRootDrawerShell.svelte';
   import StorageRootGovernanceDrawer from '$lib/components/storage-roots/StorageRootGovernanceDrawer.svelte';
@@ -103,8 +103,8 @@
   import StorageRootDetailView from '$lib/components/storage-roots/StorageRootDetailView.svelte';
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
   import StorageRootEmptyState from '$lib/components/storage-roots/StorageRootEmptyState.svelte';
-  import ConfirmDeleteDialog from '$lib/components/common/ConfirmDeleteDialog.svelte';
-  import { showApiErrorToast } from '$lib/core/errors/api-toast';
+  import ConfirmDeleteDialog from '$lib/components/ui/ConfirmDeleteDialog.svelte';
+  import { showApiErrorToast } from '$lib/errors/api-toast';
   import type { AddRootFolder, AddRootZone } from '$lib/components/storage-roots/add-storage-root.types';
   import { canDeleteManagedObject } from '$lib/utils/permissions';
 

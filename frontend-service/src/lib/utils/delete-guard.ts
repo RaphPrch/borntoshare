@@ -1,3 +1,5 @@
+import { asRecord } from './values';
+
 type ErrorLike = {
   status?: unknown;
   message?: unknown;
@@ -20,11 +22,6 @@ const DEPENDENCY_DELETE_MARKERS = [
   'still attached',
   'still referenced'
 ];
-
-const asRecord = (value: unknown): Record<string, unknown> | null => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-};
 
 const collectText = (value: unknown, depth = 0): string => {
   if (depth > 3 || value === null || value === undefined) return '';

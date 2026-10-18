@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 
 import type { StorageEndpointContext, StorageEndpointOverview } from '$lib/api/storage-endpoints';
 import { apiServerGetList } from '$lib/server/api-server';
-import { requireAuth } from '$lib/utils/requireAuth.server';
+import { requireAuth } from '$lib/server/require-auth';
 import { redirect } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async (event) => {

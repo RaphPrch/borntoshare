@@ -1,7 +1,7 @@
 import type { StorageRootOwner } from '../api/storage-roots';
 import type { StorageRootTagLike } from '../utils/storage-roots';
 
-export type StorageRootAccessLevel = 'read' | 'write';
+type StorageRootAccessLevel = 'read' | 'write';
 
 export type StorageRootProjectedAdGroup = {
   group_name?: string;
@@ -47,7 +47,7 @@ export type StorageRootEffectiveAccessUser = {
   raw_acl?: string | null;
 };
 
-export type StorageRootActivityItem = {
+type StorageRootActivityItem = {
   id?: number | string;
   action?: string;
   actor_display_name?: string | null;
@@ -63,7 +63,7 @@ export type StorageRootActivityItem = {
   [key: string]: unknown;
 };
 
-export type StorageRootAccessProfileSummary = {
+type StorageRootAccessProfileSummary = {
   /** @deprecated Legacy compatibility type for access-profile payloads still returned by the DAL. */
   id?: number | null;
   link_id?: number | null;
@@ -87,7 +87,7 @@ export type StorageRootAccessProfileSummary = {
   acl_raw?: string | null;
 };
 
-export type StorageRootEndpointSummary = {
+type StorageRootEndpointSummary = {
   storage_endpoint_id?: number | null;
   id?: number | null;
   name?: string | null;
@@ -109,13 +109,13 @@ export type StorageRootEndpointSummary = {
   };
 };
 
-export type StorageRootProvisioningSummary = {
+type StorageRootProvisioningSummary = {
   identity_source_id?: number | null;
   identity_source_name?: string | null;
   group_ou?: string | null;
 };
 
-export type StorageRootPolicySummary = {
+type StorageRootPolicySummary = {
   resolved_identity_source_id?: number | null;
   resolved_identity_source_name?: string | null;
   resolved_group_ou?: string | null;

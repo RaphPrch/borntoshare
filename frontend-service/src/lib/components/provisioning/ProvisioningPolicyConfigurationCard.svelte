@@ -1,5 +1,5 @@
 <script lang="ts">
-  import EntityActionButton from '$lib/components/common/EntityActionButton.svelte';
+  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import type { ProvisioningConfigurationModel } from './provisioning-policy.types';
 
   export let model: ProvisioningConfigurationModel;
