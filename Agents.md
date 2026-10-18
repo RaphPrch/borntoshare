@@ -47,6 +47,7 @@ Gateway (frontend BFF):
 Governance service:
 - Governance contains business logic.
 - Governance calls DAL for persistence.
+- DAL never calls governance (no circular dependency; enforced by `test_dal_never_calls_governance`).
 - Governance must not access the database directly.
 
 DAL service:

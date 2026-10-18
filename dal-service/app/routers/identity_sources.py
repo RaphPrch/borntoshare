@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session, load_only
 
 from app.core.db import get_db
-from app.core.logging import get_logger, log_event
+from app.core.logging import get_logger
 from app.models.identity_sources import IdentitySource
 from app.models.storage_endpoint import StorageEndpoint
 from app.repositories.identity_source_purge_repo import purge_identity_source_related_records
@@ -14,10 +14,7 @@ from app.routers._helpers import ui_action, ui_data, ui_list
 from app.schemas.identity_sources import (
     IdentitySourceCreate,
     IdentitySourceUpdate,
-    IdentitySourceTestResult,
-    IdentitySourceTestCheck,
 )
-from app.services.governance_proxy import gov_post
 from app.services.activity_log import log_activity
 from app.services.authorization import actor_from_request
 
@@ -62,19 +59,6 @@ def _source_auth_priority(src: IdentitySource) -> int:
         except Exception:
             return 100
     return 100
-
-
-async def _trigger_initial_snapshot_via_governance(request: Request, source_id: int) -> None:
-    """Dispatch initial directory snapshot job through Governance/Capsule path (best effort)."""
-    await gov_post(
-        request=request,
-        path="/identity/snapshots/run",
-        payload={
-            "identity_source_id": int(source_id),
-            "mode": "auto",
-            "force_full": True,
-        },
-    )
 
 
 def _identity_source_load_only(db: Session):
@@ -303,24 +287,7 @@ def create_identity_source(payload: IdentitySourceCreate, request: Request, db: 
     db.commit()
     db.refresh(src)
 
-    # Trigger initial snapshot asynchronously via Governance/Capsule (best effort)
-    # only when snapshot capability is explicitly enabled.
-    source_caps = src.capabilities if isinstance(src.capabilities, dict) else {}
-    if str(src.type or "").lower() == "ad" and bool(source_caps.get("snapshot_enabled", False)):
-        try:
-            import asyncio
-
-            asyncio.run(_trigger_initial_snapshot_via_governance(request, int(src.id)))
-        except Exception as exc:
-            log_event(
-                logger,
-                30,
-                "DAL_IDENTITY_SOURCE_SNAPSHOT_TRIGGER_FAILED",
-                action="identity_source_create_snapshot_trigger",
-                outcome="error",
-                identity_source_id=int(src.id),
-                message=str(exc),
-            )
+    # The initial snapshot is started by the caller (UI wizard) through Governance.
 
     actor_id, actor_display = _actor_from_headers(request)
     created_auth_enabled = _source_auth_enabled(src)
@@ -557,55 +524,3 @@ def update_identity_source(
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     return ui_action(action_id=int(source_id), message="identity_source.updated")
-
-
-@router.post("/test", summary="Test identity source configuration (no persistence)")
-async def test_identity_source(payload: IdentitySourceCreate, request: Request):
-    res = await gov_post(
-        request=request,
-        path="/identity-sources/test",
-        payload=payload.model_dump(exclude={"bind_password"}, exclude_none=True),
-    )
-
-    checks = [IdentitySourceTestCheck(**c) for c in (res.get("checks") or [])]
-    result = IdentitySourceTestResult(ok=bool(res.get("ok")), checks=checks)
-    return ui_data(result.model_dump())
-
-
-@router.get("/{source_id}/groups", summary="Search AD groups")
-async def get_groups(request: Request, source_id: int, q: str = Query(default="", max_length=190), db: Session = Depends(get_db)):
-    src = _get_identity_source(db, source_id)
-    if not src:
-        raise HTTPException(status_code=404, detail="Identity source not found")
-    if src.type != "ad":
-        raise HTTPException(status_code=400, detail="This identity source is not AD")
-
-    payload = {
-        "identity_source_id": int(source_id),
-        "query": str(q or "").strip(),
-        "limit": 25,
-        "principal_type": "group",
-        "search_scope": "subtree",
-    }
-    result = await gov_post(
-        request=request,
-        path="/identity/search",
-        payload=payload,
-    )
-
-    groups = []
-    for row in (result or {}).get("groups") if isinstance(result, dict) else []:
-        if not isinstance(row, dict):
-            continue
-        dn = str(row.get("dn") or row.get("external_id") or "").strip()
-        if not dn:
-            continue
-        name = str(row.get("display_name") or row.get("username") or dn).strip()
-        groups.append(
-            {
-                "name": name,
-                "dn": dn,
-                "samaccountname": str(row.get("username") or "").strip() or None,
-            }
-        )
-    return ui_list(groups, meta={"source_id": int(source_id), "query": str(q or "").strip(), "count": int(len(groups))})

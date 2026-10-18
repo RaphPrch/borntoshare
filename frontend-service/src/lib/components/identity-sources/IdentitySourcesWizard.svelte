@@ -80,6 +80,8 @@
   let creating = false;
   let createDone = false;
   let createdSourceId: number | null = null;
+  // Set while the "Initialize snapshot" button creates the source: it starts the snapshot itself.
+  let snapshotStartedByCaller = false;
   let snapshotCountNote: string | null = null;
   let lastSnapshotAt: string | null = null;
   let lastSnapshotStatus: string | null = null;
@@ -408,7 +410,12 @@
         return;
       }
 
-      await finish();
+      snapshotStartedByCaller = true;
+      try {
+        await finish();
+      } finally {
+        snapshotStartedByCaller = false;
+      }
       if (!createdSourceId) {
         snapshotInitError = createError ?? 'Unable to create source before snapshot initialization.';
         snapshotInitStatusText = 'Snapshot initialization failed.';
@@ -552,6 +559,10 @@
           note: 'Identity source created from wizard'
         });
         await loadSnapshotCounts(sourceId);
+        // Initial snapshot for AD sources with snapshots enabled (best effort).
+        if (!snapshotStartedByCaller && payload.type === 'ad' && snapshotEnabledSummary) {
+          runIdentitySnapshot(fetch, sourceId, 'auto').catch(() => undefined);
+        }
       }
       createDone = true;
     } catch (e: unknown) {

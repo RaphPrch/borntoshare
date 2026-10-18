@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 import json
 from typing import Any
@@ -26,7 +25,6 @@ from app.services.authorization import (
     require_access_request_access,
     require_access_request_review,
 )
-from app.services.governance_proxy import gov_post
 from app.services.naming_policy import resolve_group_name
 from app.services.storage_root_access_profile_resolution import normalize_requested_permission
 
@@ -69,10 +67,6 @@ internal_router = APIRouter(
 def _actor_from_headers(request: Request) -> tuple[int | None, str | None]:
     actor = actor_from_request(request)
     return actor.identity_id, actor.display_name
-
-
-def _normalize_access_level_from_permission(value: str | None) -> str:
-    return normalize_requested_permission(value) or "READ"
 
 
 def _resolve_implicit_governed_group(
@@ -852,191 +846,6 @@ def _summarize_visibility_sources_for_request(
     }
 
 
-def _extract_request_payload(
-    *,
-    db: Session,
-    access_request_id: int,
-) -> tuple[dict[str, Any] | None, list[dict[str, Any]], str | None, str | None, str | None]:
-    req_row = db.execute(
-        text(
-            """
-            SELECT id, requester_identity_id, requested_principal_json
-            FROM access_requests
-            WHERE id = :id
-            LIMIT 1
-            """
-        ),
-        {"id": int(access_request_id)},
-    ).mappings().first()
-    if not req_row:
-        return None, [], None, None, None
-
-    principal_dn, principal_username, principal_display = _resolve_request_principal(
-        db=db,
-        requested_principal_payload=req_row.get("requested_principal_json"),
-        requester_identity_id=req_row.get("requester_identity_id"),
-    )
-    items = db.execute(
-        text(
-            """
-            SELECT id, target_type, target_id, permission
-            FROM access_request_items
-            WHERE access_request_id = :id
-            ORDER BY id ASC
-            """
-        ),
-        {"id": int(access_request_id)},
-    ).mappings().all()
-    return dict(req_row), [dict(x) for x in items], principal_dn, principal_username, principal_display
-
-
-def _remove_ad_groups_for_request(
-    *,
-    db: Session,
-    access_request_id: int,
-    request: Request,
-) -> tuple[bool, str | None]:
-    req_row, items, principal_dn, principal_username, principal_display = _extract_request_payload(
-        db=db,
-        access_request_id=int(access_request_id),
-    )
-    if not req_row:
-        return False, "Access request not found"
-    if not principal_dn and not principal_username:
-        return False, "requested_principal_json missing dn/username"
-    if not items:
-        return False, "No access-request items found"
-
-    failures: list[str] = []
-    for item in items:
-        item_id = int(item.get("id") or 0)
-        target_type = str(item.get("target_type") or "").strip().lower()
-        target_id = int(item.get("target_id") or 0)
-        permission = str(item.get("permission") or "").strip().lower()
-
-        if target_type != "storage_root" or target_id <= 0:
-            _insert_item_execution(
-                db=db,
-                access_request_id=int(access_request_id),
-                access_request_item_id=item_id,
-                status_value="FAILED",
-                requested_payload_json={
-                    "target_type": target_type,
-                    "target_id": target_id,
-                    "permission": permission,
-                    "operation": "revoke",
-                },
-                result_json=None,
-                error_message="Unsupported target_type for AD membership revoke",
-            )
-            failures.append(f"item#{item_id}: unsupported target")
-            continue
-
-        access_level_code = _normalize_access_level_from_permission(permission)
-        resolution = _resolve_implicit_governed_group(
-            db=db,
-            storage_root_id=int(target_id),
-            requested_permission=permission,
-            target_type=target_type,
-        )
-
-        if resolution.get("error"):
-            detail = dict(resolution.get("error") or {})
-            detail["item_id"] = int(item_id or 0) or None
-            _insert_item_execution(
-                db=db,
-                access_request_id=int(access_request_id),
-                access_request_item_id=item_id,
-                status_value="FAILED",
-                requested_payload_json={
-                    "storage_root_id": int(target_id),
-                    "access_level_code": str(detail.get("requested_permission") or access_level_code),
-                    "permission": permission,
-                    "operation": "revoke",
-                    "resolution_error": detail,
-                },
-                result_json=None,
-                error_message=str(detail.get("message") or "Unable to resolve governed group for this permission"),
-            )
-            failures.append(_resolution_detail_to_message(item_id=item_id, detail=detail))
-            continue
-
-        group_ref = str(resolution.get("group_ref") or "").strip()
-        source_id = int(resolution.get("identity_source_id") or 0) or None
-        if not group_ref:
-            _insert_item_execution(
-                db=db,
-                access_request_id=int(access_request_id),
-                access_request_item_id=item_id,
-                status_value="FAILED",
-                requested_payload_json={
-                    "storage_root_id": int(target_id),
-                    "access_level_code": access_level_code,
-                    "group_ref": group_ref or None,
-                    "identity_source_id": source_id,
-                    "operation": "revoke",
-                },
-                result_json=None,
-                error_message="Missing AD group reference",
-            )
-            failures.append(f"item#{item_id}: missing group_ref")
-            continue
-
-        try:
-            membership_payload: dict[str, Any] = {
-                "group_ref": group_ref,
-                "principal_dn": principal_dn,
-                "principal_username": principal_username,
-            }
-            if source_id:
-                membership_payload["identity_source_id"] = int(source_id)
-            result = asyncio.run(
-                gov_post(
-                    request=request,
-                    path="/ad-groups/members/remove",
-                    payload=membership_payload,
-                )
-            )
-            _insert_item_execution(
-                db=db,
-                access_request_id=int(access_request_id),
-                access_request_item_id=item_id,
-                status_value="DONE",
-                requested_payload_json={
-                    "storage_root_id": int(target_id),
-                    "access_level_code": access_level_code,
-                    "group_ref": group_ref,
-                    "principal_dn": principal_dn,
-                    "principal_username": principal_username,
-                    "operation": "revoke",
-                },
-                result_json=result,
-                error_message=None,
-            )
-        except Exception as exc:
-            _insert_item_execution(
-                db=db,
-                access_request_id=int(access_request_id),
-                access_request_item_id=item_id,
-                status_value="FAILED",
-                requested_payload_json={
-                    "storage_root_id": int(target_id),
-                    "access_level_code": access_level_code,
-                    "group_ref": group_ref,
-                    "principal_dn": principal_dn,
-                    "principal_username": principal_username,
-                    "operation": "revoke",
-                },
-                result_json=None,
-                error_message=str(exc),
-            )
-            failures.append(f"item#{item_id}: {str(exc)[:250]}")
-
-    if failures:
-        return False, "; ".join(failures)
-    return True, principal_display
-
-
 def _create_revoke_access_request(
     *,
     db: Session,
@@ -1520,36 +1329,10 @@ def bulk_decision(
         updated_ids = requested_ids
         executions_started = int(updated_count)
     elif decision == "revoke":
+        # Governance removes the AD memberships before calling this; DAL only persists the revocation.
         updated_ids = []
         for req_id in requested_ids:
             try:
-                ok, detail = _remove_ad_groups_for_request(db=db, access_request_id=int(req_id), request=request)
-                if not ok:
-                    failed_ids.append(int(req_id))
-                    failed_reasons[int(req_id)] = str(detail or "AD group membership revoke failed")
-                    failed_details[int(req_id)] = {
-                        "item_id": None,
-                        "code": "AD_GROUP_MEMBERSHIP_REVOKE_FAILED",
-                        "message": str(detail or "AD group membership revoke failed"),
-                        "hint": "Verify AD group membership and storage-root binding configuration.",
-                        "storage_root_id": None,
-                        "requested_permission": None,
-                        "candidates_count": 0,
-                    }
-                    db.execute(
-                        text(
-                            """
-                            UPDATE access_requests
-                            SET status = 'approved',
-                                updated_at = CURRENT_TIMESTAMP
-                            WHERE id = :id
-                            """
-                        ),
-                        {"id": int(req_id)},
-                    )
-                    db.commit()
-                    continue
-
                 requester_identity_id = actor_id
                 if requester_identity_id is None:
                     req_owner = db.execute(
@@ -1558,7 +1341,7 @@ def bulk_decision(
                     ).mappings().first()
                     requester_identity_id = int((req_owner or {}).get("requester_identity_id") or 0) or None
 
-                new_req_id = _create_revoke_access_request(
+                _create_revoke_access_request(
                     db=db,
                     source_request_id=int(req_id),
                     requester_identity_id=requester_identity_id,

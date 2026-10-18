@@ -343,3 +343,102 @@ def test_bulk_decision_rejects_missing_reviewer_identity() -> None:
         assert exc.detail.get("error_code") == "REVIEWER_CONTEXT_REQUIRED"
 
     assert raised is True
+
+
+def _revoke_plan(items: list[dict]) -> dict:
+    return {
+        "access_request_id": 101,
+        "principal": {"dn": "CN=Jane,OU=Users,DC=example,DC=com", "username": "jane"},
+        "items": items,
+    }
+
+
+def test_bulk_decision_revoke_removes_memberships_then_persists_in_dal(monkeypatch) -> None:
+    post_calls: list[tuple[str, dict]] = []
+    removed: list[tuple[str, str | None, int | None]] = []
+
+    async def _fake_dal_get(path: str, timeout: int = 5, request_id=None, retries: int = 0, extra_headers=None):
+        assert path == "/api/internal/access-requests/101/provisioning-plan"
+        assert dict(extra_headers or {}).get("x-identity-id") == "7"
+        return _revoke_plan([
+            {
+                "id": 201,
+                "target_type": "storage_root",
+                "target_id": 77,
+                "permission": "read",
+                "access_level_code": "READ",
+                "group_ref": "B2S_ROOT_77_READ",
+                "identity_source_id": 9,
+                "error": None,
+            }
+        ])
+
+    async def _fake_dal_post(path: str, payload: dict, timeout: int = 5, request_id=None, retries: int = 0, extra_headers=None):
+        post_calls.append((path, dict(payload)))
+        if path == "/api/internal/access-requests/item-executions":
+            return {"ok": True}
+        if path == "/api/access-requests/bulk":
+            return {"data": {"ok": True, "updated_ids": [101], "failed_ids": []}}
+        raise AssertionError(path)
+
+    async def _fake_remove_member(payload, request=None, response=None):
+        _ = response
+        removed.append((payload.group_ref, payload.principal_username, payload.identity_source_id))
+        assert request.headers["x-request-id"] == "ar_101_201_revoke"
+        return {"data": {"ok": True, "job_id": 9001, "status": "QUEUED"}}
+
+    monkeypatch.setattr(api, "dal_get", _fake_dal_get)
+    monkeypatch.setattr(api, "dal_post", _fake_dal_post)
+    monkeypatch.setattr(api, "remove_ad_group_member", _fake_remove_member)
+
+    out = asyncio.run(api.bulk_decision(_Req({"ids": [101], "decision": "revoke"})))
+
+    assert out["data"]["ok"] is True
+    assert out["data"]["decision"] == "revoke"
+    assert out["data"]["updated_ids"] == [101]
+    assert out["data"]["failed_ids"] == []
+    assert removed == [("B2S_ROOT_77_READ", "jane", 9)]
+    assert post_calls[0][0] == "/api/internal/access-requests/item-executions"
+    assert post_calls[0][1]["status"] == "DONE"
+    assert post_calls[0][1]["requested_payload_json"]["operation"] == "revoke"
+    assert post_calls[1] == ("/api/access-requests/bulk", {"ids": [101], "decision": "revoke"})
+
+
+def test_bulk_decision_revoke_failure_records_item_and_skips_dal_persist(monkeypatch) -> None:
+    post_calls: list[tuple[str, dict]] = []
+
+    async def _fake_dal_get(path: str, timeout: int = 5, request_id=None, retries: int = 0, extra_headers=None):
+        return _revoke_plan([
+            {
+                "id": 201,
+                "target_type": "storage_root",
+                "target_id": 77,
+                "permission": "read",
+                "access_level_code": "READ",
+                "group_ref": None,
+                "identity_source_id": None,
+                "error": "No governed group bound",
+                "error_detail": {"message": "No governed group bound to READ"},
+            }
+        ])
+
+    async def _fake_dal_post(path: str, payload: dict, timeout: int = 5, request_id=None, retries: int = 0, extra_headers=None):
+        post_calls.append((path, dict(payload)))
+        return {"ok": True}
+
+    async def _fail_remove_member(payload, request=None, response=None):
+        raise AssertionError("must not remove a membership for an unresolved item")
+
+    monkeypatch.setattr(api, "dal_get", _fake_dal_get)
+    monkeypatch.setattr(api, "dal_post", _fake_dal_post)
+    monkeypatch.setattr(api, "remove_ad_group_member", _fail_remove_member)
+
+    out = asyncio.run(api.bulk_decision(_Req({"ids": [101], "decision": "revoke"})))
+
+    assert out["data"]["ok"] is False
+    assert out["data"]["updated_ids"] == []
+    assert out["data"]["failed_ids"] == [101]
+    assert out["data"]["failed_details"][101]["code"] == "AD_GROUP_MEMBERSHIP_REVOKE_FAILED"
+    assert "No governed group bound to READ" in out["data"]["failed_reasons"][101]
+    assert [p for p, _ in post_calls] == ["/api/internal/access-requests/item-executions"]
+    assert post_calls[0][1]["status"] == "FAILED"

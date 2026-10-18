@@ -7,8 +7,13 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from app.core.dal_client import dal_get, dal_post
 from app.schemas.api_envelopes import data_envelope
-from app.schemas.provisioning import EnsureAdGroupContextIn, EnsureAdGroupIn, EnsureAdGroupMemberIn
-from app.api.provisioning import ensure_ad_group_member, ensure_ad_group_via_name
+from app.schemas.provisioning import (
+    EnsureAdGroupContextIn,
+    EnsureAdGroupIn,
+    EnsureAdGroupMemberIn,
+    RemoveAdGroupMemberIn,
+)
+from app.api.provisioning import ensure_ad_group_member, ensure_ad_group_via_name, remove_ad_group_member
 from app.services.probe_service import fetch_probe_job, submit_probe_run
 
 
@@ -136,6 +141,206 @@ async def _wait_acl_apply_result(acl_out: dict[str, Any], *, timeout_sec: int = 
     raise RuntimeError(f"ACL apply job did not complete within {timeout_sec} seconds")
 
 
+async def _revoke_request_memberships(
+    *,
+    req_id: int,
+    request: Request,
+    request_id: str | None,
+    actor_headers: dict[str, str],
+) -> str | None:
+    """Remove the requester from every governed AD group of an access request.
+
+    Records one item execution per item and returns None on success, or the
+    failure message (items are all attempted, failures are joined).
+    """
+    plan = await dal_get(
+        f"/api/internal/access-requests/{int(req_id)}/provisioning-plan",
+        timeout=8,
+        request_id=request_id,
+        retries=1,
+        extra_headers=actor_headers,
+    )
+    if not isinstance(plan, dict):
+        return "Invalid provisioning plan payload"
+
+    principal = dict(plan.get("principal") or {})
+    principal_dn = str(principal.get("dn") or "").strip() or None
+    principal_username = str(principal.get("username") or "").strip() or None
+    items = [x for x in list(plan.get("items") or []) if isinstance(x, dict)]
+    if not principal_dn and not principal_username:
+        return "requested_principal_json missing dn/username"
+    if not items:
+        return "No access-request items found"
+
+    failures: list[str] = []
+    for item in items:
+        item_id = int(item.get("id") or 0) or None
+        target_type = str(item.get("target_type") or "").strip().lower()
+        target_id = int(item.get("target_id") or 0)
+        permission = str(item.get("permission") or "").strip().lower()
+        access_level_code = str(item.get("access_level_code") or "READ").strip().upper() or "READ"
+        group_ref = str(item.get("group_ref") or "").strip()
+        source_id = int(item.get("identity_source_id") or 0) or None
+        base_payload = {
+            "storage_root_id": int(target_id),
+            "access_level_code": access_level_code,
+            "operation": "revoke",
+        }
+
+        error_message: str | None = None
+        requested_payload: dict[str, Any] = dict(base_payload)
+        if target_type != "storage_root" or target_id <= 0:
+            error_message = "Unsupported target_type for AD membership revoke"
+            requested_payload = {
+                "target_type": target_type,
+                "target_id": target_id,
+                "permission": permission,
+                "operation": "revoke",
+            }
+        elif item.get("error"):
+            detail = dict(item.get("error_detail") or {}) if isinstance(item.get("error_detail"), dict) else {}
+            error_message = str(detail.get("message") or item.get("error"))
+            requested_payload = {**base_payload, "permission": permission, "resolution_error": detail}
+        elif not group_ref:
+            error_message = "Missing AD group reference"
+            requested_payload = {**base_payload, "group_ref": None, "identity_source_id": source_id}
+
+        if error_message:
+            await _record_item_execution(
+                request_id=request_id,
+                access_request_id=int(req_id),
+                access_request_item_id=item_id,
+                status="FAILED",
+                requested_payload_json=requested_payload,
+                result_json=None,
+                error_message=error_message,
+            )
+            failures.append(f"item#{item_id or 0}: {error_message}")
+            continue
+
+        requested_payload = {
+            **base_payload,
+            "group_ref": group_ref,
+            "principal_dn": principal_dn,
+            "principal_username": principal_username,
+        }
+        try:
+            removed = await remove_ad_group_member(
+                RemoveAdGroupMemberIn(
+                    identity_source_id=source_id,
+                    group_ref=group_ref,
+                    principal_dn=principal_dn,
+                    principal_username=principal_username,
+                ),
+                request=_request_with_id(request, f"ar_{int(req_id)}_{int(item_id or 0)}_revoke"),
+            )
+            await _record_item_execution(
+                request_id=request_id,
+                access_request_id=int(req_id),
+                access_request_item_id=item_id,
+                status="DONE",
+                requested_payload_json=requested_payload,
+                result_json=_unwrap_data(removed) if isinstance(removed, dict) else None,
+                error_message=None,
+            )
+        except Exception as exc:
+            await _record_item_execution(
+                request_id=request_id,
+                access_request_id=int(req_id),
+                access_request_item_id=item_id,
+                status="FAILED",
+                requested_payload_json=requested_payload,
+                result_json=None,
+                error_message=str(exc),
+            )
+            failures.append(f"item#{item_id or 0}: {str(exc)[:250]}")
+
+    return "; ".join(failures) if failures else None
+
+
+async def _bulk_revoke(
+    *,
+    payload: dict[str, Any],
+    requested_ids: list[int],
+    request: Request,
+    request_id: str | None,
+    actor_headers: dict[str, str],
+) -> dict[str, Any]:
+    """Revoke: Governance removes AD memberships, then DAL persists the revocation."""
+    failed_reasons: dict[int, str] = {}
+    failed_details: dict[int, dict[str, Any]] = {}
+    revoked_ids: list[int] = []
+
+    for req_id in requested_ids:
+        try:
+            failure = await _revoke_request_memberships(
+                req_id=int(req_id),
+                request=request,
+                request_id=request_id,
+                actor_headers=actor_headers,
+            )
+        except Exception as exc:
+            failed_reasons[int(req_id)] = str(exc)
+            failed_details[int(req_id)] = {
+                "item_id": None,
+                "code": "REVOKE_RUNTIME_ERROR",
+                "message": str(exc),
+                "hint": "Check DAL/Governance logs for revoke execution details.",
+            }
+            continue
+        if failure:
+            failed_reasons[int(req_id)] = failure
+            failed_details[int(req_id)] = {
+                "item_id": None,
+                "code": "AD_GROUP_MEMBERSHIP_REVOKE_FAILED",
+                "message": failure,
+                "hint": "Verify AD group membership and storage-root binding configuration.",
+            }
+            continue
+        revoked_ids.append(int(req_id))
+
+    dal_data: dict[str, Any] = {}
+    if revoked_ids:
+        decision_comment = str(payload.get("decision_comment") or "").strip()
+        result = await dal_post(
+            "/api/access-requests/bulk",
+            {
+                "ids": revoked_ids,
+                "decision": "revoke",
+                **({"decision_comment": decision_comment} if decision_comment else {}),
+            },
+            timeout=30,
+            request_id=request_id,
+            retries=2,
+            extra_headers=actor_headers,
+        )
+        dal_data = _unwrap_data(result) if isinstance(result, dict) else {}
+
+    # JSON object keys come back as strings
+    dal_reasons = {str(k): v for k, v in dict(dal_data.get("failed_reasons") or {}).items()}
+    dal_details = {str(k): v for k, v in dict(dal_data.get("failed_details") or {}).items()}
+    for raw_id in list(dal_data.get("failed_ids") or []):
+        req_id = int(raw_id)
+        failed_reasons[req_id] = str(dal_reasons.get(str(req_id)) or "Revoke failed")
+        failed_details[req_id] = dict(dal_details.get(str(req_id)) or {"message": failed_reasons[req_id]})
+
+    failed_ids = [int(x) for x in requested_ids if int(x) in failed_reasons]
+    updated_ids = [int(x) for x in revoked_ids if int(x) not in failed_reasons]
+    return data_envelope({
+        "ok": len(failed_ids) == 0,
+        "decision": "revoke",
+        "requested_ids": requested_ids,
+        "updated_ids": updated_ids,
+        "failed_ids": failed_ids,
+        "failed_reasons": {int(k): v for k, v in failed_reasons.items() if int(k) in failed_ids},
+        "failed_details": {
+            int(k): _normalize_failed_detail(v) for k, v in failed_details.items() if int(k) in failed_ids
+        },
+        "updated_count": int(len(updated_ids)),
+        "executions_started": int(len(updated_ids)),
+    })
+
+
 @router.post("/bulk")
 async def bulk_decision(request: Request) -> dict[str, Any]:
     payload = await request.json()
@@ -152,6 +357,15 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
                 "error_code": "REVIEWER_CONTEXT_REQUIRED",
                 "message": "Reviewer identity is required for access-request decisions.",
             },
+        )
+
+    if decision == "revoke":
+        return await _bulk_revoke(
+            payload=payload or {},
+            requested_ids=requested_ids,
+            request=request,
+            request_id=request_id,
+            actor_headers=actor_headers,
         )
 
     if decision != "approve":
