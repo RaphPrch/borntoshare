@@ -4,8 +4,6 @@
 
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
-
-DROP VIEW IF EXISTS v_storage_root_effective_access_expiring_soon;
 DROP VIEW IF EXISTS v_storage_root_effective_access;
 DROP VIEW IF EXISTS v_effective_access_current;
 
@@ -73,21 +71,3 @@ SELECT
   expires_at,
   source
 FROM v_effective_access_current;
-
-CREATE OR REPLACE VIEW v_storage_root_effective_access_expiring_soon AS
-SELECT
-  storage_root_id,
-  storage_root_name,
-  identity_source_id,
-  directory_snapshot_id,
-  actor_id,
-  actor_external_id,
-  actor_display_name,
-  access_level,
-  granted_at,
-  expires_at,
-  source
-FROM v_storage_root_effective_access
-WHERE expires_at IS NOT NULL
-  AND expires_at >= UTC_TIMESTAMP()
-  AND expires_at < UTC_TIMESTAMP() + INTERVAL 30 DAY;

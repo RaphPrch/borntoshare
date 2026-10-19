@@ -90,7 +90,6 @@ SELECT
   COALESCE(e.finished_at, e.started_at, e.created_at) AS created_at
 FROM access_request_item_executions e;
 
-
 DROP VIEW IF EXISTS v_access_request_provisioning;
 CREATE OR REPLACE VIEW v_access_request_provisioning AS
 SELECT

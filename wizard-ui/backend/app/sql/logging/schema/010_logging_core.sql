@@ -30,3 +30,7 @@ CREATE TABLE IF NOT EXISTS audit_event (
   hash_prev CHAR(64) NULL,
   hash_current CHAR(64) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Wizard log tables (written, never read): removed.
+DROP TABLE IF EXISTS wizard_logs;
+DROP TABLE IF EXISTS wizard_logging_settings;

@@ -48,18 +48,3 @@ SELECT DISTINCT
   from_group_external_id
 FROM v_storage_root_access_profile_members
 WHERE identity_id > 0;
-
-DROP VIEW IF EXISTS v_storage_roots_access;
-CREATE OR REPLACE VIEW v_storage_roots_access AS
-SELECT
-  sr.id AS storage_root_id,
-  sr.name AS storage_root_name,
-  CAST(COUNT(DISTINCT srap.id) AS UNSIGNED) AS profiles_count,
-  CAST(SUM(CASE WHEN UPPER(COALESCE(NULLIF(srap.access_level_code, ''), NULLIF(ap.code, ''), NULLIF(ap.permission, ''), 'READ')) = 'READ' THEN 1 ELSE 0 END) AS UNSIGNED) AS read_profiles_count,
-  CAST(SUM(CASE WHEN UPPER(COALESCE(NULLIF(srap.access_level_code, ''), NULLIF(ap.code, ''), NULLIF(ap.permission, ''), 'READ')) = 'WRITE' THEN 1 ELSE 0 END) AS UNSIGNED) AS write_profiles_count
-FROM storage_roots sr
-LEFT JOIN storage_root_access_profiles srap
-  ON srap.storage_root_id = sr.id
-LEFT JOIN access_profiles ap
-  ON ap.id = srap.access_profile_id
-GROUP BY sr.id, sr.name;

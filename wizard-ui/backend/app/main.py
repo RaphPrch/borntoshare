@@ -15,7 +15,6 @@ from .routes import (
     import_wizard as import_routes,
     runtime as runtime_routes,
 )
-from .logging_db import DBLogHandler, logging_store
 
 # ============================================================
 # 🔊 LOGGING CONFIGURATION (CRITICAL)
@@ -36,39 +35,6 @@ logger = logging.getLogger("wizard")
 
 logger.info("Logging initialized", extra={"level": LOG_LEVEL})
 
-
-def _is_missing_database_error(exc: Exception) -> bool:
-    errno = getattr(exc, "errno", None)
-    if errno == 1049:
-        return True
-
-    msg = str(exc).lower()
-    return "unknown database" in msg
-
-db_logging_ready = False
-
-try:
-    logging_store.ensure_schema()
-    db_cfg = logging_store.get_config()
-    configured_level = (db_cfg.get("level") or LOG_LEVEL).upper()
-    if configured_level == "WARN":
-        configured_level = "WARNING"
-
-    root_level = getattr(logging, configured_level, getattr(logging, LOG_LEVEL, logging.INFO))
-    logging.getLogger().setLevel(root_level)
-    db_logging_ready = True
-except Exception as exc:
-    if _is_missing_database_error(exc):
-        logger.warning("Logging DB not initialized yet (missing database), fallback to env LOG_LEVEL")
-    else:
-        logger.warning("DB logging config unavailable, fallback to env LOG_LEVEL", exc_info=exc)
-
-if db_logging_ready:
-    db_handler = DBLogHandler(logging_store)
-    db_handler.setLevel(logging.DEBUG)
-    logging.getLogger().addHandler(db_handler)
-else:
-    logger.info("DB log handler disabled until logging DB is initialized")
 
 # ============================================================
 # ⚙️ WIZARD MODE

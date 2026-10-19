@@ -1,37 +1,23 @@
+# BornToShare auth-service
 FROM python:3.12-slim
 
-# --------------------------------------------------
-# Runtime environment
-# --------------------------------------------------
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
 
-# --------------------------------------------------
-# Create unprivileged user
-# --------------------------------------------------
-RUN useradd -r -u 10001 -g nogroup appuser && \
-    mkdir -p /run/secrets && \
-    chown -R appuser:nogroup /run/secrets
-
-# --------------------------------------------------
-# Install Python dependencies (no build tools)
-# --------------------------------------------------
+# Dependencies first (cached while requirements.txt is unchanged)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --------------------------------------------------
-# Copy application
-# --------------------------------------------------
+# Application code: owned by root, read-only for the runtime user
 COPY app ./app
 
-# --------------------------------------------------
-# Drop privileges
-# --------------------------------------------------
+# Non-root runtime user (same UID as "user:" in podman-compose.yml, when set)
+RUN useradd -r -u 10001 -g nogroup appuser && \
+    mkdir -p /run/secrets && chown appuser:nogroup /run/secrets
 USER 10001
 
 EXPOSE 8000
-
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

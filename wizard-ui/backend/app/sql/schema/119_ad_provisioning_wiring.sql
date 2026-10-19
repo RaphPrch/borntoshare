@@ -39,7 +39,3 @@ CREATE TABLE IF NOT EXISTS governance_events (
   CONSTRAINT fk_governance_events_srap_id FOREIGN KEY (storage_root_access_profile_id) REFERENCES storage_root_access_profiles(id) ON DELETE SET NULL,
   CONSTRAINT fk_governance_events_job_id FOREIGN KEY (provisioning_job_id) REFERENCES provisioning_jobs(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- V1 strict cleanup: transient legacy provisioning tables removed.
-DROP TABLE IF EXISTS ad_group_instances;
-DROP TABLE IF EXISTS provisioning_groups;

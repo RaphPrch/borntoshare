@@ -25,8 +25,6 @@ CREATE TABLE IF NOT EXISTS storage_root_access_profiles (
   CONSTRAINT uq_srap_root_permission_hash UNIQUE (storage_root_id, permission_hash),
   CONSTRAINT fk_srap_storage_root_id FOREIGN KEY (storage_root_id) REFERENCES storage_roots(id) ON DELETE CASCADE,
   CONSTRAINT fk_srap_access_profile_id FOREIGN KEY (access_profile_id) REFERENCES access_profiles(id) ON DELETE RESTRICT,
-  KEY idx_srap_root (storage_root_id),
-  KEY idx_srap_status (status),
   KEY idx_srap_source (source),
   KEY idx_srap_retry (status, next_retry_at),
   KEY idx_srap_locked (status, locked_at)

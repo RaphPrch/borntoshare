@@ -13,8 +13,6 @@ CREATE TABLE IF NOT EXISTS storage_root_roles (
   assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   UNIQUE KEY uq_root_identity_role (root_id, identity_id, role),
-
-  KEY idx_root_roles_root (root_id),
   KEY idx_root_roles_identity (identity_id),
 
   CONSTRAINT fk_root_roles_root

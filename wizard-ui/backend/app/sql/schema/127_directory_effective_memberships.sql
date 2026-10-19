@@ -19,8 +19,6 @@ CREATE TABLE IF NOT EXISTS directory_effective_memberships (
   CONSTRAINT fk_dem_directory_group_id FOREIGN KEY (directory_group_id) REFERENCES directory_groups(id) ON DELETE CASCADE,
 
   KEY idx_dem_identity_source (identity_source_id),
-  KEY idx_dem_snapshot (snapshot_id),
-  KEY idx_dem_user (directory_user_id),
   KEY idx_dem_group (directory_group_id),
   KEY idx_dem_user_group (directory_user_id, directory_group_id),
   KEY idx_dem_snapshot_user (snapshot_id, directory_user_id),

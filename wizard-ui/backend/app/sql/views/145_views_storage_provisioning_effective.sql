@@ -28,7 +28,6 @@ FROM storage_endpoints se
 LEFT JOIN zone_provisioning_policy zpp ON zpp.zone_id = se.zone_id
 LEFT JOIN identity_sources ids ON ids.id = se.identity_source_id;
 
-
 CREATE OR REPLACE VIEW v_storage_root_provisioning_effective AS
 SELECT
   sr.id AS storage_root_id,

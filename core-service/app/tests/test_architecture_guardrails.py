@@ -128,7 +128,8 @@ def test_directory_snapshots_schema_keeps_source_version_uniqueness_contract() -
     normalized = schema.lower()
     assert "uq_directory_snapshots_source_version" in normalized
     assert "unique (identity_source_id, version)" in normalized
-    assert "idx_directory_snapshots_source_status_created" in normalized
+    indexes = _read("../wizard-ui/backend/app/sql/indexes/020_indexes.sql").lower()
+    assert "idx_directory_snapshots_source_status_created" in indexes
 
 
 def test_directory_snapshots_repo_create_run_has_integrity_retry_loop() -> None:

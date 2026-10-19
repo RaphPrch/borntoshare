@@ -60,11 +60,6 @@ JOIN storage_roots sr ON sr.id = srap.storage_root_id
 JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
 WHERE se.external_id LIKE 'DEMO-%';
 
-DELETE srg
-FROM storage_root_governed_groups srg
-JOIN storage_roots sr ON sr.id = srg.storage_root_id
-JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-WHERE se.external_id LIKE 'DEMO-%';
 
 DELETE srt
 FROM storage_root_tags srt
@@ -1317,32 +1312,6 @@ SET @srap_shared_write_id := (SELECT id FROM storage_root_access_profiles WHERE 
 SET @srap_legal_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_legal_id AND access_profile_id = @profile_read_id LIMIT 1);
 SET @srap_lab_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_lab_id AND access_profile_id = @profile_read_id LIMIT 1);
 
-INSERT INTO storage_root_governed_groups (
-  storage_root_id,
-  identity_source_id,
-  permission_level,
-  group_dn,
-  group_sid,
-  group_sam_account_name,
-  group_display_name,
-  managed_by,
-  provisioning_status,
-  is_active,
-  created_from,
-  metadata_json,
-  last_verified_at
-)
-VALUES
-  (@root_finance_id, @demo_ad_source_id, 'READ', 'CN=B2S_FINANCE_READ,OU=BornToShare,OU=Groups,DC=corp,DC=demo', 'S-1-5-21-1000-1000-1000-2101', 'B2S_FINANCE_READ', 'Finance read group', 'borntoshare', 'provisioned', 1, 'seed', JSON_OBJECT('access_profile_id', @profile_read_id), UTC_TIMESTAMP() - INTERVAL 5 MINUTE),
-  (@root_finance_id, @demo_ad_source_id, 'WRITE', 'CN=B2S_FINANCE_WRITE,OU=BornToShare,OU=Groups,DC=corp,DC=demo', 'S-1-5-21-1000-1000-1000-2102', 'B2S_FINANCE_WRITE', 'Finance write group', 'borntoshare', 'provisioned', 1, 'seed', JSON_OBJECT('access_profile_id', @profile_write_id), UTC_TIMESTAMP() - INTERVAL 5 MINUTE),
-  (@root_hr_id, @demo_ad_source_id, 'READ', 'CN=B2S_HR_READ,OU=BornToShare,OU=Groups,DC=corp,DC=demo', 'S-1-5-21-1000-1000-1000-2201', 'B2S_HR_READ', 'HR read group', 'borntoshare', 'provisioned', 1, 'seed', JSON_OBJECT('access_profile_id', @profile_read_id), UTC_TIMESTAMP() - INTERVAL 30 MINUTE),
-  (@root_hr_id, @demo_ad_source_id, 'WRITE', NULL, NULL, 'B2S_HR_WRITE', 'HR write group', 'borntoshare', 'failed', 1, 'seed', JSON_OBJECT('error_code', 'AD_GROUP_CREATE_FAILED'), NULL),
-  (@root_engineering_id, @demo_ad_source_id, 'READ', 'CN=B2S_ENG_READ,OU=BornToShare,OU=Groups,DC=corp,DC=demo', 'S-1-5-21-1000-1000-1000-2301', 'B2S_ENG_READ', 'Engineering read group', 'borntoshare', 'provisioned', 1, 'seed', JSON_OBJECT('access_profile_id', @profile_read_id), UTC_TIMESTAMP() - INTERVAL 8 MINUTE),
-  (@root_engineering_id, @demo_ad_source_id, 'WRITE', 'CN=B2S_ENG_WRITE,OU=BornToShare,OU=Groups,DC=corp,DC=demo', 'S-1-5-21-1000-1000-1000-2302', 'B2S_ENG_WRITE', 'Engineering write group', 'borntoshare', 'provisioned', 1, 'seed', JSON_OBJECT('access_profile_id', @profile_write_id), UTC_TIMESTAMP() - INTERVAL 8 MINUTE),
-  (@root_shared_id, @demo_ad_source_id, 'READ', 'CN=B2S_SHARED_READ,OU=BornToShare,OU=Groups,DC=corp,DC=demo', 'S-1-5-21-1000-1000-1000-2401', 'B2S_SHARED_READ', 'Shared projects read group', 'borntoshare', 'provisioned', 1, 'seed', JSON_OBJECT('access_profile_id', @profile_read_id), UTC_TIMESTAMP() - INTERVAL 7 MINUTE),
-  (@root_shared_id, @demo_ad_source_id, 'WRITE', 'CN=B2S_SHARED_WRITE,OU=BornToShare,OU=Groups,DC=corp,DC=demo', 'S-1-5-21-1000-1000-1000-2402', 'B2S_SHARED_WRITE', 'Shared projects write group', 'borntoshare', 'pending', 1, 'seed', JSON_OBJECT('access_profile_id', @profile_write_id), UTC_TIMESTAMP() - INTERVAL 7 MINUTE),
-  (@root_legal_id, @demo_ad_source_id, 'READ', 'CN=B2S_LEGAL_READ,OU=BornToShare,OU=Groups,DC=corp,DC=demo', 'S-1-5-21-1000-1000-1000-2501', 'B2S_LEGAL_READ', 'Legal read group', 'borntoshare', 'provisioned', 1, 'seed', JSON_OBJECT('access_profile_id', @profile_read_id), UTC_TIMESTAMP() - INTERVAL 3 MINUTE),
-  (@root_lab_id, @demo_ad_source_id, 'READ', NULL, NULL, 'B2S_LAB_READ', 'Lab read group', 'borntoshare', 'pending', 1, 'seed', JSON_OBJECT('access_profile_id', @profile_read_id), NULL);
 
 -- ------------------------------------------------------------
 -- Large demo expansion: extra zones, endpoints and policies.
@@ -1667,52 +1636,6 @@ CROSS JOIN (
 ) ap
 WHERE se.external_id LIKE 'DEMO-%';
 
-INSERT INTO storage_root_governed_groups (
-  storage_root_id,
-  identity_source_id,
-  permission_level,
-  group_dn,
-  group_sid,
-  group_sam_account_name,
-  group_display_name,
-  managed_by,
-  provisioning_status,
-  is_active,
-  created_from,
-  metadata_json,
-  last_verified_at
-)
-SELECT
-  srap.storage_root_id,
-  @demo_ad_source_id AS identity_source_id,
-  srap.access_level_code AS permission_level,
-  CASE WHEN srap.group_external_id IS NULL THEN NULL ELSE CONCAT('CN=', srap.group_name, ',OU=BornToShare,OU=Groups,DC=corp,DC=demo') END AS group_dn,
-  CASE
-    WHEN srap.group_external_id IS NULL THEN NULL
-    ELSE CONCAT('S-1-5-21-1000-1000-1000-', LPAD(1000 + MOD(srap.storage_root_id * 17 + CASE WHEN srap.access_level_code = 'WRITE' THEN 1 ELSE 0 END, 8000), 4, '0'))
-  END AS group_sid,
-  CASE WHEN srap.group_external_id IS NULL THEN NULL ELSE srap.group_name END AS group_sam_account_name,
-  srap.group_name AS group_display_name,
-  'borntoshare' AS managed_by,
-  CASE
-    WHEN srap.group_external_id IS NULL AND srap.access_level_code = 'WRITE' THEN 'pending'
-    WHEN srap.status = 'FAILED' THEN 'failed'
-    WHEN srap.status IN ('QUEUED', 'RETRYING') THEN 'pending'
-    ELSE 'provisioned'
-  END AS provisioning_status,
-  1 AS is_active,
-  'seed' AS created_from,
-  JSON_OBJECT(
-    'access_profile_id', srap.access_profile_id,
-    'storage_root_access_profile_id', srap.id,
-    'group_external_id', srap.group_external_id,
-    'status', srap.status
-  ) AS metadata_json,
-  UTC_TIMESTAMP() - INTERVAL (5 + MOD(srap.storage_root_id, 120)) MINUTE AS last_verified_at
-FROM storage_root_access_profiles srap
-JOIN storage_roots sr ON sr.id = srap.storage_root_id
-JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-WHERE se.external_id LIKE 'DEMO-%';
 
 INSERT IGNORE INTO storage_root_tags (storage_root_id, tag_id)
 SELECT DISTINCT

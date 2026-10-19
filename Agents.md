@@ -48,7 +48,7 @@ Gateway (frontend BFF):
 
 core-service (`core-service/`, all business data and orchestration):
 - Layout of `app/`: `core/` (config, db, logging, errors, internal auth, `direct_call.py`, `values.py`), `data/` (`models/`, `repositories/`: all SQL), `services/` (business logic), `schemas/`, `api/` (routes, mounted under `/api`), `api/governance/` (orchestration routes, mounted under `/api/governance`), `jobs/` (Dramatiq broker, job contracts, QUEUED watchdog).
-- Only `data/` and services touch the database. Use SQLAlchemy 2.x. There is no Alembic: the SQL schema, views and seeds are owned by wizard-ui (`wizard-ui/backend/app/sql/`) and applied by its migrations runner.
+- Only `data/` and services touch the database. Use SQLAlchemy 2.x.
 - Orchestration (`api/governance/`: access requests, identity imports, probes, AD groups) publishes provisioning jobs to Dramatiq. It calls route handlers directly (`core/direct_call.call_route`: own DB session, payload validated into the handler's model, no HTTP) or services; it never imports `app.data` or opens DB sessions, and only `app/main.py` mounts it (both enforced by `test_architecture_guardrails.py`).
 - Service-to-service auth lives in `core/internal_auth.py` only (`X-Internal-Token` static/HMAC, `X-Service-Token` + scopes). Orchestration routes use `require_orchestration_access`; `B2S_ALLOW_PUBLIC_API` opens the non-`/internal/` ones to the BFF.
 - Settings live in `core/config.py` only; `CAPSULE_BROKER_URL` is required at startup.
@@ -72,6 +72,16 @@ Capsules:
 - Capsule execution must remain isolated from the main application network.
 - Job queue: Dramatiq over Redis. Redis is a standalone service (`redis/podman-compose.yml`), password-protected (`REDIS_PASSWORD`), with no published port, on the `bts-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
+
+Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
+- There is no Alembic. `wizard-ui/backend/app/migrations_runner.py` applies `schema/` → `views/` → `indexes/` (and `seeds/` in dev); the logging DB has its own `logging/schema` + `logging/indexes`. Every file must be idempotent: the runner re-applies the whole pack.
+- Tables: `CREATE TABLE IF NOT EXISTS`; columns added later go through an idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in the same file. Indexes: `CREATE INDEX IF NOT EXISTS` in `indexes/020_indexes.sql`.
+- Removing an object: delete its definition and add a `DROP ... IF EXISTS` to `schema/900_drop_unused_tables.sql`, `views/900_drop_unused_views.sql` or the "Removed indexes" section of `indexes/020_indexes.sql`, so existing databases converge. No one-shot migration scripts.
+- Only create a view that code reads; `core-service/app/core/db.py` lists the views and columns checked at startup.
+- Directory snapshots: only the active one and the previous archived one keep their user/group/membership rows (`DirectorySnapshotsRepo.purge_archived_details`).
+
+Containers:
+- One `Containerfile` per service; Python images follow the same template (`python:3.12-slim`, no venv, code owned by root, fixed non-root UID). `make build` / `make up` (root `Makefile`) start redis, then auth/secret-broker/core, then capsule-runner, then the frontend.
 
 ## Checks
 

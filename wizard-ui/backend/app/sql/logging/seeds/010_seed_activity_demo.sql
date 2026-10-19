@@ -47,7 +47,7 @@ VALUES
     'success',
     'info',
     'demo-access-request-pending',
-    'dal-service',
+    'core-service',
     JSON_OBJECT('request_code', 'DEMO-AR-PENDING-001', 'requested_level', 'read'),
     NULL,
     SHA2('demo-audit-1', 256)
@@ -66,7 +66,7 @@ VALUES
     'success',
     'info',
     'demo-access-request-approved',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('request_code', 'DEMO-AR-APPROVED-001', 'decision', 'approved'),
     SHA2('demo-audit-1', 256),
     SHA2('demo-audit-2', 256)
@@ -85,7 +85,7 @@ VALUES
     'success',
     'warning',
     'demo-access-request-rejected',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('request_code', 'DEMO-AR-REJECTED-001', 'reason', 'disabled principal'),
     SHA2('demo-audit-2', 256),
     SHA2('demo-audit-3', 256)
@@ -104,7 +104,7 @@ VALUES
     'success',
     'info',
     'demo-provisioning-succeeded',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('group', 'B2S_FINANCE_READ', 'operation', 'acl_apply_via_group'),
     SHA2('demo-audit-3', 256),
     SHA2('demo-audit-4', 256)
@@ -123,7 +123,7 @@ VALUES
     'failure',
     'critical',
     'demo-provisioning-failed',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('group', 'B2S_HR_WRITE', 'error_code', 'AD_GROUP_CREATE_FAILED'),
     SHA2('demo-audit-4', 256),
     SHA2('demo-audit-5', 256)
@@ -142,7 +142,7 @@ VALUES
     'success',
     'warning',
     'demo-access-request-revoked',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('request_code', 'DEMO-AR-REVOKED-001', 'operation', 'revoke'),
     SHA2('demo-audit-5', 256),
     SHA2('demo-audit-6', 256)
@@ -161,7 +161,7 @@ VALUES
     'success',
     'info',
     'demo-directory-snapshot-active',
-    'dal-service',
+    'core-service',
     JSON_OBJECT('snapshot_version', 7, 'users', 4, 'groups', 9, 'memberships', 12),
     SHA2('demo-audit-6', 256),
     SHA2('demo-audit-7', 256)
@@ -180,7 +180,7 @@ VALUES
     'success',
     'info',
     'demo-access-request-pending-2',
-    'dal-service',
+    'core-service',
     JSON_OBJECT('request_code', 'DEMO-AR-PENDING-002', 'requested_level', 'write', 'root_path', '/corp/engineering/builds'),
     SHA2('demo-audit-7', 256),
     SHA2('demo-audit-8', 256)
@@ -199,7 +199,7 @@ VALUES
     'success',
     'info',
     'demo-access-request-pending-3',
-    'dal-service',
+    'core-service',
     JSON_OBJECT('request_code', 'DEMO-AR-PENDING-003', 'requested_level', 'read', 'root_path', '/corp/labs/sandbox'),
     SHA2('demo-audit-8', 256),
     SHA2('demo-audit-9', 256)
@@ -218,7 +218,7 @@ VALUES
     'success',
     'info',
     'demo-access-request-approved-2',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('request_code', 'DEMO-AR-APPROVED-002', 'decision', 'approved'),
     SHA2('demo-audit-9', 256),
     SHA2('demo-audit-10', 256)
@@ -237,7 +237,7 @@ VALUES
     'success',
     'warning',
     'demo-access-request-rejected-2',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('request_code', 'DEMO-AR-REJECTED-002', 'reason', 'disabled principal'),
     SHA2('demo-audit-10', 256),
     SHA2('demo-audit-11', 256)
@@ -256,7 +256,7 @@ VALUES
     'success',
     'info',
     'demo-provisioning-succeeded-shared',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('group', 'B2S_SHARED_READ', 'operation', 'acl_apply_via_group'),
     SHA2('demo-audit-11', 256),
     SHA2('demo-audit-12', 256)
@@ -275,7 +275,7 @@ VALUES
     'pending',
     'warning',
     'demo-provisioning-retrying-shared-write',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('group', 'B2S_SHARED_WRITE', 'retry_count', 2),
     SHA2('demo-audit-12', 256),
     SHA2('demo-audit-13', 256)
@@ -294,7 +294,7 @@ VALUES
     'pending',
     'info',
     'demo-provisioning-running-legal',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('group', 'B2S_LEGAL_READ', 'progress', 65),
     SHA2('demo-audit-13', 256),
     SHA2('demo-audit-14', 256)
@@ -313,7 +313,7 @@ VALUES
     'pending',
     'warning',
     'demo-provisioning-queued-lab',
-    'governance-service',
+    'core-service',
     JSON_OBJECT('group', 'B2S_LAB_READ', 'operation', 'ensure_ad_group'),
     SHA2('demo-audit-14', 256),
     SHA2('demo-audit-15', 256)
@@ -480,9 +480,9 @@ SELECT
     WHEN 7 THEN 'identity-service'
     WHEN 8 THEN 'identity-service'
     WHEN 9 THEN 'identity-service'
-    WHEN 3 THEN 'governance-service'
-    WHEN 4 THEN 'governance-service'
-    ELSE 'governance-service'
+    WHEN 3 THEN 'core-service'
+    WHEN 4 THEN 'core-service'
+    ELSE 'core-service'
   END AS source_service,
   JSON_OBJECT(
     'batch', n,
@@ -642,10 +642,10 @@ FROM (
     WHERE code LIKE 'DEMO-%'
   ),
   zone_templates AS (
-    SELECT 1 AS ord, 'zone.created' AS action, 'success' AS result, 'info' AS severity, 'system' AS actor_type, 'directory-sync' AS actor_id, 'dal-service' AS source_service
-    UNION ALL SELECT 2, 'zone.updated', 'success', 'info', 'user', 'DEMO-ADMIN', 'governance-service'
-    UNION ALL SELECT 3, 'zone.profile_attached', 'success', 'info', 'user', 'DEMO-ADMIN', 'governance-service'
-    UNION ALL SELECT 4, 'zone.profile_detached', 'denied', 'warning', 'user', 'DEMO-ADMIN', 'governance-service'
+    SELECT 1 AS ord, 'zone.created' AS action, 'success' AS result, 'info' AS severity, 'system' AS actor_type, 'directory-sync' AS actor_id, 'core-service' AS source_service
+    UNION ALL SELECT 2, 'zone.updated', 'success', 'info', 'user', 'DEMO-ADMIN', 'core-service'
+    UNION ALL SELECT 3, 'zone.profile_attached', 'success', 'info', 'user', 'DEMO-ADMIN', 'core-service'
+    UNION ALL SELECT 4, 'zone.profile_detached', 'denied', 'warning', 'user', 'DEMO-ADMIN', 'core-service'
     UNION ALL SELECT 5, 'zone.probe_rerun', 'in_progress', 'info', 'system', 'scanner', 'scanner-service'
   ),
   zone_events AS (
@@ -776,10 +776,10 @@ FROM (
     WHERE external_id LIKE 'DEMO-%'
   ),
   endpoint_templates AS (
-    SELECT 1 AS ord, 'storage_endpoint.created' AS action, 'success' AS result, 'info' AS severity, 'system' AS actor_type, 'provisioning' AS actor_id, 'governance-service' AS source_service
-    UNION ALL SELECT 2, 'storage_endpoint.updated', 'success', 'info', 'user', 'DEMO-ADMIN', 'governance-service'
+    SELECT 1 AS ord, 'storage_endpoint.created' AS action, 'success' AS result, 'info' AS severity, 'system' AS actor_type, 'provisioning' AS actor_id, 'core-service' AS source_service
+    UNION ALL SELECT 2, 'storage_endpoint.updated', 'success', 'info', 'user', 'DEMO-ADMIN', 'core-service'
     UNION ALL SELECT 3, 'storage_endpoint.probe', 'success', 'info', 'system', 'scanner', 'scanner-service'
-    UNION ALL SELECT 4, 'validation_error', 'failure', 'critical', 'system', 'validation', 'governance-service'
+    UNION ALL SELECT 4, 'validation_error', 'failure', 'critical', 'system', 'validation', 'core-service'
   ),
   endpoint_events AS (
     SELECT
@@ -916,9 +916,9 @@ FROM (
     WHERE se.external_id LIKE 'DEMO-%'
   ),
   root_templates AS (
-    SELECT 1 AS ord, 'storage_root.created' AS action, 'success' AS result, 'info' AS severity, 'system' AS actor_type, 'provisioning' AS actor_id, 'governance-service' AS source_service
-    UNION ALL SELECT 2, 'storage_root.updated', 'success', 'info', 'user', 'DEMO-ADMIN', 'governance-service'
-    UNION ALL SELECT 3, 'storage_root.owners.replaced', 'success', 'info', 'user', 'DEMO-ADMIN', 'governance-service'
+    SELECT 1 AS ord, 'storage_root.created' AS action, 'success' AS result, 'info' AS severity, 'system' AS actor_type, 'provisioning' AS actor_id, 'core-service' AS source_service
+    UNION ALL SELECT 2, 'storage_root.updated', 'success', 'info', 'user', 'DEMO-ADMIN', 'core-service'
+    UNION ALL SELECT 3, 'storage_root.owners.replaced', 'success', 'info', 'user', 'DEMO-ADMIN', 'core-service'
     UNION ALL SELECT 4, 'storage_root.probe_rerun', 'in_progress', 'info', 'system', 'scanner', 'scanner-service'
   ),
   root_events AS (
@@ -1053,8 +1053,8 @@ FROM (
     WHERE code LIKE 'DEMO-AR-%'
   ),
   request_templates AS (
-    SELECT 1 AS ord, 'access_request.created' AS action, 'success' AS result, 'info' AS severity, 'user' AS actor_type, 'requester' AS actor_id, 'dal-service' AS source_service
-    UNION ALL SELECT 2, 'access_request.reviewed', 'success', 'info', 'user', 'DEMO-ADMIN', 'governance-service'
+    SELECT 1 AS ord, 'access_request.created' AS action, 'success' AS result, 'info' AS severity, 'user' AS actor_type, 'requester' AS actor_id, 'core-service' AS source_service
+    UNION ALL SELECT 2, 'access_request.reviewed', 'success', 'info', 'user', 'DEMO-ADMIN', 'core-service'
   ),
   request_events AS (
     SELECT
@@ -1188,10 +1188,10 @@ FROM (
     WHERE external_id IN ('DEMO-LOCAL', 'DEMO-AD', 'DEMO-OPENLDAP')
   ),
   source_templates AS (
-    SELECT 1 AS ord, 'identity_source.created' AS action, 'success' AS result, 'info' AS severity, 'system' AS actor_type, 'directory-sync' AS actor_id, 'dal-service' AS source_service
-    UNION ALL SELECT 2, 'identity_source.sync_started', 'in_progress', 'info', 'system', 'directory-sync', 'dal-service'
-    UNION ALL SELECT 3, 'identity_source.sync_completed', 'success', 'info', 'system', 'directory-sync', 'dal-service'
-    UNION ALL SELECT 4, 'identity_source.sync_failed', 'failure', 'critical', 'system', 'directory-sync', 'dal-service'
+    SELECT 1 AS ord, 'identity_source.created' AS action, 'success' AS result, 'info' AS severity, 'system' AS actor_type, 'directory-sync' AS actor_id, 'core-service' AS source_service
+    UNION ALL SELECT 2, 'identity_source.sync_started', 'in_progress', 'info', 'system', 'directory-sync', 'core-service'
+    UNION ALL SELECT 3, 'identity_source.sync_completed', 'success', 'info', 'system', 'directory-sync', 'core-service'
+    UNION ALL SELECT 4, 'identity_source.sync_failed', 'failure', 'critical', 'system', 'directory-sync', 'core-service'
   ),
   source_events AS (
     SELECT

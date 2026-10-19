@@ -9,22 +9,22 @@ ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 # ------------------------------------------------------------
 # Services directories (ORDER MATTERS)
 # ------------------------------------------------------------
+REDIS_DIR          := $(ROOT_DIR)/redis
 AUTH_DIR           := $(ROOT_DIR)/auth-service
-GOVERNANCE_DIR     := $(ROOT_DIR)/governance-service
 SECRET_BROKER_DIR  := $(ROOT_DIR)/secret-broker
-DAL_DIR            := $(ROOT_DIR)/dal-service
+CORE_DIR           := $(ROOT_DIR)/core-service
 
 CAPSULE_RUNNER_DIR := $(ROOT_DIR)/capsule-runner
 FRONTEND_DIR       := $(ROOT_DIR)/frontend-service
 FRONTEND_SKIP_FILE := /tmp/borntoshare-skip-frontend-up
 
-INFRA_SERVICES :=
+INFRA_SERVICES := \
+	$(REDIS_DIR)
 
 BACKEND_SERVICES := \
 	$(AUTH_DIR) \
 	$(SECRET_BROKER_DIR) \
-	$(DAL_DIR) \
-	$(GOVERNANCE_DIR)
+	$(CORE_DIR)
 
 WORKER_SERVICES := \
 	$(CAPSULE_RUNNER_DIR)
@@ -43,18 +43,13 @@ ALL_SERVICES := \
 # ------------------------------------------------------------
 NETWORK_APP  := bts-app
 NETWORK_DATA := bts-data
+NETWORK_JOBS := bts-jobs
 
 # ------------------------------------------------------------
 # Podman
 # ------------------------------------------------------------
 COMPOSE_CMD := podman-compose
 PODMAN_CMD  := podman
-
-# ------------------------------------------------------------
-# Permissions
-# ------------------------------------------------------------
-APP_UID := 10002
-APP_GID := 10002
 
 # ------------------------------------------------------------
 # Colors
@@ -87,6 +82,7 @@ create-networks:
 
 	@$(PODMAN_CMD) network exists $(NETWORK_APP)  || $(PODMAN_CMD) network create $(NETWORK_APP)
 	@$(PODMAN_CMD) network exists $(NETWORK_DATA) || $(PODMAN_CMD) network create --internal $(NETWORK_DATA)
+	@$(PODMAN_CMD) network exists $(NETWORK_JOBS) || $(PODMAN_CMD) network create --internal $(NETWORK_JOBS)
 
 	@echo "$(GREEN)✔ Réseaux prêts$(NC)"
 
@@ -145,8 +141,8 @@ stop-frontend:
 
 build: check-compose create-networks
 	@echo "$(YELLOW)🏗️  Build BornToShare$(NC)"
-	@echo "$(YELLOW)📦 Préparation Redis broker (gouvernance)$(NC)"
-	@cd $(GOVERNANCE_DIR) && $(COMPOSE_CMD) pull redis || true
+	@echo "$(YELLOW)📦 Préparation Redis (broker Dramatiq)$(NC)"
+	@cd $(REDIS_DIR) && $(COMPOSE_CMD) pull || true
 	@for d in $(ALL_SERVICES); do \
 		if [ -f $$d/Containerfile ]; then \
 			echo "➡️  Build $$d"; \
@@ -208,23 +204,20 @@ up-ui: prepare-frontend-port
 		for d in $(UI_SERVICES); do cd $$d && $(COMPOSE_CMD) up -d; done; \
 	fi
 
-up-redis:
-	@echo "$(YELLOW)🚀 Démarrage Redis (b2s-redis)$(NC)"
-	@cd $(GOVERNANCE_DIR) && $(COMPOSE_CMD) up -d redis || true
-	@$(PODMAN_CMD) start b2s-redis >/dev/null 2>&1 || true
+up-redis: create-networks
+	@echo "$(YELLOW)🚀 Démarrage Redis$(NC)"
+	@cd $(REDIS_DIR) && $(COMPOSE_CMD) up -d
 	@echo "$(GREEN)✔ Redis démarré$(NC)"
 
 down-redis:
-	@echo "$(YELLOW)🛑 Arrêt Redis (b2s-redis)$(NC)"
-	@cd $(GOVERNANCE_DIR) && $(COMPOSE_CMD) stop redis || true
-	@$(PODMAN_CMD) stop b2s-redis >/dev/null 2>&1 || true
+	@echo "$(YELLOW)🛑 Arrêt Redis$(NC)"
+	@cd $(REDIS_DIR) && $(COMPOSE_CMD) down || true
 	@echo "$(GREEN)✔ Redis arrêté$(NC)"
 
 clear-redis: down-redis
-	@echo "$(YELLOW)🧼 Suppression Redis (conteneur + volumes dédiés)$(NC)"
-	@$(PODMAN_CMD) rm -f governance-service_redis_1 >/dev/null 2>&1 || true
-	@$(PODMAN_CMD) rm -f b2s-redis >/dev/null 2>&1 || true
-	@$(PODMAN_CMD) volume ls --format '{{.Name}}' | grep -E 'redis|governance-service' | xargs -r $(PODMAN_CMD) volume rm -f >/dev/null 2>&1 || true
+	@echo "$(YELLOW)🧼 Suppression Redis (conteneurs + volumes, y compris les anciens de governance-service)$(NC)"
+	@$(PODMAN_CMD) rm -f redis b2s-redis governance-service_redis_1 >/dev/null 2>&1 || true
+	@$(PODMAN_CMD) volume ls --format '{{.Name}}' | grep -E 'redis' | xargs -r $(PODMAN_CMD) volume rm -f >/dev/null 2>&1 || true
 	@echo "$(GREEN)✔ Redis nettoyé$(NC)"
 
 restart-redis: down-redis up-redis
@@ -236,8 +229,8 @@ restart-redis: down-redis up-redis
 ps:
 	@$(PODMAN_CMD) ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
-logs-governance:
-	@$(PODMAN_CMD) logs -f governance-service
+logs-core:
+	@$(PODMAN_CMD) logs -f core-service
 
 logs:
 	@echo "$(YELLOW)📋 Logs des services (CTRL+C pour quitter)$(NC)"
@@ -274,5 +267,5 @@ help:
 	@echo "  make up-infra | up-backend | up-ui"
 	@echo "  make up-redis | down-redis | restart-redis | clear-redis"
 	@echo "  make ps | doctor"
-	@echo "  make logs-governance | logs"
+	@echo "  make logs-core | logs"
 	@echo "  make clean"

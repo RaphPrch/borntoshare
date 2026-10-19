@@ -15,6 +15,17 @@ CREATE TABLE IF NOT EXISTS access_profiles (
   CONSTRAINT uq_access_profiles_code UNIQUE (code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Reference rows: core-service resolves READ/WRITE access levels to these
+-- (storage_root_access_profiles.access_profile_id). Without them, creating a
+-- governed group fails with "No access_profiles template found".
+INSERT INTO access_profiles (code, name, description, permission, active)
+VALUES
+  ('READ', 'Read access', 'Read-only access', 'READ', 1),
+  ('WRITE', 'Write access', 'Read and write access', 'WRITE', 1)
+ON DUPLICATE KEY UPDATE
+  permission = VALUES(permission),
+  active = 1;
+
 CREATE TABLE IF NOT EXISTS access_requests (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   code VARCHAR(32) NOT NULL,
