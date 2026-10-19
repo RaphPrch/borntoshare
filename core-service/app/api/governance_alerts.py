@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.data.repositories.governance_alerts_repo import GovernanceAlertsRepo
-from app.api._helpers import ui_action, ui_list
+from app.api._helpers import ui_list
 
 router = APIRouter(prefix="/governance-alerts", tags=["governance_alerts"])
 
@@ -61,31 +61,3 @@ def list_storage_root_alerts(
         meta={"storage_root_id": int(storage_root_id), "status": status, "count": int(len(rows))},
     )
 
-
-@router.post("/reconcile/storage-roots/{storage_root_id}")
-def reconcile_storage_root_alerts(
-    storage_root_id: int,
-    db: Session = Depends(get_db),
-):
-    repo = GovernanceAlertsRepo(db)
-    rows = repo.reconcile_storage_root(int(storage_root_id), commit=True)
-    return ui_action(
-        ok=True,
-        action_id=int(storage_root_id),
-        message="governance_alerts.storage_root_reconciled",
-        details={"alerts_count": int(len(rows))},
-    )
-
-
-@router.post("/reconcile/storage-roots")
-def reconcile_all_storage_root_alerts(
-    db: Session = Depends(get_db),
-):
-    repo = GovernanceAlertsRepo(db)
-    count = repo.reconcile_all_storage_roots(commit=True)
-    return ui_action(
-        ok=True,
-        action_id="storage_roots",
-        message="governance_alerts.storage_roots_reconciled",
-        details={"storage_roots_count": int(count)},
-    )

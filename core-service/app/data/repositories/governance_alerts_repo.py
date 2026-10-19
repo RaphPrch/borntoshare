@@ -562,16 +562,3 @@ class GovernanceAlertsRepo(SQLViewRepo):
             self.db.commit()
 
         return self.list_for_storage_root(root_id)
-
-    def reconcile_all_storage_roots(self, *, commit: bool = False) -> int:
-        rows = self._all(
-            "SELECT id FROM storage_roots WHERE deleted_at IS NULL ORDER BY id",
-            {},
-        )
-        count = 0
-        for row in rows:
-            self.reconcile_storage_root(int(row.get("id")), commit=False)
-            count += 1
-        if commit:
-            self.db.commit()
-        return count

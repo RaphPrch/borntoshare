@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.data.repositories.directory_snapshots_repo import DirectorySnapshotsRepo
-from app.services.directory_effective_memberships_service import DirectoryEffectiveMembershipsService
 from app.schemas.directory_snapshots import DirectorySnapshotRunRequest, DirectorySnapshotRunResponse
 from app.core.internal_auth import require_internal
 
@@ -83,23 +82,6 @@ def list_snapshot_runs(
         status=status_value,
         limit=limit,
     )
-
-
-@router.post(
-    "/rebuild-effective-memberships",
-    dependencies=[require_internal({"jobs:write", "profiles:write"})],
-)
-def rebuild_effective_memberships(
-    identity_source_id: int | None = Query(default=None, gt=0),
-    snapshot_id: int | None = Query(default=None, gt=0),
-    db: Session = Depends(get_db),
-):
-    svc = DirectoryEffectiveMembershipsService(db)
-    if snapshot_id is not None:
-        return svc.rebuild_for_snapshot(snapshot_id=int(snapshot_id))
-    if identity_source_id is not None:
-        return svc.rebuild_for_identity_source(identity_source_id=int(identity_source_id))
-    return {"results": svc.rebuild_all_active()}
 
 
 @router.get("/runs/{snapshot_id}/search", dependencies=[require_internal({"jobs:read"})])

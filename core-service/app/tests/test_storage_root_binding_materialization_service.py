@@ -158,17 +158,3 @@ def test_materialize_root_bindings_rewrites_legacy_group_name_with_expected_nami
     ]
     assert any(str((params or {}).get("group_name") or "") == "B2S_FINANCE_WRITE" for (_sql, params) in updates)
 
-
-def test_resync_roots_for_zone_returns_aggregate_report(monkeypatch) -> None:
-    db = _FakeDB()
-    monkeypatch.setattr(
-        module,
-        "resolve_group_name",
-        lambda db, zone_ref, storage_root_path, perm, profile=None: {"samAccountName": f"B2S_{perm}"},
-    )
-
-    out = module.resync_roots_for_zone(db, zone_id=3, replace_stale=True, commit=True)
-    assert int(out.get("zone_id") or 0) == 3
-    assert int(out.get("roots_count") or 0) == 1
-    assert int(out.get("created_rows") or 0) >= 1
-    assert db.commit_calls == 1

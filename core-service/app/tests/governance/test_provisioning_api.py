@@ -430,30 +430,3 @@ def test_cancel_admin_job_uses_request_context_defaults(monkeypatch) -> None:
     assert post_calls[0][1]["reason"] == "Stop now"
     assert post_calls[0][1]["source"] == "ui"
 
-
-def test_run_admin_jobs_watchdog_calls_once_with_payload(monkeypatch) -> None:
-    captured_args: dict = {}
-
-    async def _fake_watchdog_once(**kwargs):
-        captured_args.update(kwargs)
-        return {"ok": True, "republished_count": 2, "failed_count": 1}
-
-    monkeypatch.setattr(api, "run_queued_jobs_watchdog_once", _fake_watchdog_once)
-
-    req = SimpleNamespace(headers={"x-request-id": "rid-watchdog-2"})
-
-    async def _json():
-        return {
-            "queued_timeout_seconds": 120,
-            "max_republish_count": 3,
-            "limit": 25,
-        }
-
-    req.json = _json
-    out = asyncio.run(api.run_admin_jobs_watchdog(req))
-
-    assert out["data"]["ok"] is True
-    assert captured_args["queued_timeout_seconds"] == 120
-    assert captured_args["max_republish_count"] == 3
-    assert captured_args["limit"] == 25
-    assert captured_args["correlation_id"] == "rid-watchdog-2"

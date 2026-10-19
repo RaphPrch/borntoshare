@@ -27,7 +27,6 @@ from app.api.internal_identity_roles import router as internal_identity_roles_ro
 from app.api.internal_identities import router as internal_identities_router
 from app.api.provisioning_internal import router as provisioning_internal_router
 from app.api.internal_directory_snapshots import router as internal_directory_snapshots_router
-from app.api.storage_root_bindings_internal import router as storage_root_bindings_internal_router
 from .identity_list import router as identity_list_router
 
 
@@ -60,5 +59,4 @@ router.include_router(internal_identity_roles_router)
 router.include_router(internal_identities_router)
 router.include_router(provisioning_internal_router)
 router.include_router(internal_directory_snapshots_router)
-router.include_router(storage_root_bindings_internal_router)
 router.include_router(identity_list_router)
