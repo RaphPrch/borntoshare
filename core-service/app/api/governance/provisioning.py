@@ -132,7 +132,7 @@ async def ensure_ad_group_via_name(
     secret_ref = str(payload.secret_ref or "").strip() or None
     domain_name = str(payload.domain_name or "").strip() or None
     identity_source_id = int(payload.identity_source_id or 0) or None
-    profile_id = int((payload.context.access_profile_id if payload.context else 0) or 0) or None
+    access_group_id = int((payload.context.storage_root_access_profile_id if payload.context else 0) or 0) or None
     resolved_host = str(payload.directory_server_hint or "").strip() or None
     resolved_port: int | None = None
     resolved_protocol: str | None = None
@@ -177,14 +177,16 @@ async def ensure_ad_group_via_name(
     if not secret_ref:
         raise HTTPException(status_code=422, detail="secret_ref is required (or provide context.storage_root_id)")
 
-    if profile_id:
-        existing_job = None
-        try:
-            existing_job = await call_route(provisioning_internal.get_latest_provisioning_job_by_profile, profile_id=int(profile_id))
-        except HTTPException as exc:
-            if exc.status_code != 404:
-                raise
-
+    if access_group_id:
+        # A creation job is already in flight for this access group: do not queue another one.
+        active_jobs = await call_route(
+            provisioning_internal.list_provisioning_jobs,
+            storage_root_access_profile_id=int(access_group_id),
+            job_type="AD_GROUP_ENSURE",
+            active_only=True,
+            limit=1,
+        )
+        existing_job = active_jobs[0] if isinstance(active_jobs, list) and active_jobs else None
         if isinstance(existing_job, dict):
             existing_status = _normalize_job_status(str(existing_job.get("status") or "QUEUED"))
             if existing_status in {"QUEUED", "RUNNING", "RETRYING"}:
@@ -207,6 +209,7 @@ async def ensure_ad_group_via_name(
                 "action": "ensure_ad_group",
                 "status": "QUEUED",
                 "identity_source_id": identity_source_id,
+                "storage_root_access_profile_id": access_group_id,
                 "payload_json": _job_envelope(
                     action="ensure_ad_group",
                     payload={
@@ -223,7 +226,7 @@ async def ensure_ad_group_via_name(
                     "secret_ref": secret_ref,
                     "context": {
                         "storage_root_id": root_id or None,
-                        "access_profile_id": profile_id,
+                        "storage_root_access_profile_id": access_group_id,
                         "zone_id": int((payload.context.zone_id if payload.context else 0) or 0) or None,
                         "correlation_id": correlation_id,
                     },

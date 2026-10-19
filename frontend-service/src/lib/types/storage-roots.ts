@@ -63,30 +63,6 @@ type StorageRootActivityItem = {
   [key: string]: unknown;
 };
 
-type StorageRootAccessProfileSummary = {
-  /** @deprecated Legacy compatibility type for access-profile payloads still returned by core-service. */
-  id?: number | null;
-  link_id?: number | null;
-  access_profile_id?: number | null;
-  access_level?: 'READ' | 'WRITE' | string;
-  access_level_code?: 'READ' | 'WRITE' | string;
-  code?: string | null;
-  label?: string | null;
-  name?: string | null;
-  status?: string | null;
-  members_count?: number;
-  members?: number;
-  profile_source?: string | null;
-  source?: string | null;
-  binding_status?: 'materialized' | 'inherited_candidate' | 'missing' | 'ambiguous' | string;
-  is_materialized_on_root?: boolean;
-  approval_ready?: boolean;
-  acl_alignment?: 'present' | 'missing' | 'unknown' | string | null;
-  acl_principal?: string | null;
-  acl_access_level?: string | null;
-  acl_raw?: string | null;
-};
-
 type StorageRootEndpointSummary = {
   storage_endpoint_id?: number | null;
   id?: number | null;
@@ -145,8 +121,6 @@ export type StorageRootDetailModel = {
   parent_root_path?: string | null;
   inherit_owners?: boolean | number | null;
   inherit_tags?: boolean | number | null;
-  /** @deprecated Legacy compatibility flag from core-service. Active UI should use guardians, projected groups and effective access instead. */
-  inherit_access_profiles?: boolean | number | null;
   path?: string | null;
   zone_id?: number | null;
   zone_name?: string | null;
@@ -158,8 +132,6 @@ export type StorageRootDetailModel = {
   owners: StorageRootOwner[];
   tags: StorageRootTagLike[];
   recent_activity: StorageRootActivityItem[];
-  /** @deprecated Legacy compatibility payload. Active UI should use projected_ad_groups and effective_access instead. */
-  access_profiles: StorageRootAccessProfileSummary[];
   projected_ad_groups: StorageRootProjectedAdGroup[];
   effective_access: StorageRootEffectiveAccessUser[];
   effective_access_counts: {
@@ -217,9 +189,6 @@ export const normalizeStorageRootDetailModel = (
     owners: toArray<StorageRootOwner>(source.owners),
     tags: toArray<StorageRootTagLike>(source.tags),
     recent_activity: toArray<StorageRootActivityItem>(source.recent_activity),
-    // Keep the legacy field normalized for core-service payload compatibility, but active UI
-    // should rely on projected_ad_groups and effective_access instead.
-    access_profiles: toArray<StorageRootAccessProfileSummary>(source.access_profiles),
     projected_ad_groups: toArray<StorageRootProjectedAdGroup>(source.projected_ad_groups),
     effective_access: toArray<StorageRootEffectiveAccessUser>(source.effective_access),
     effective_access_counts: {

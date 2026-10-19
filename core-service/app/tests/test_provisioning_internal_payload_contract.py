@@ -2,204 +2,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
 from fastapi import HTTPException
-from pydantic import ValidationError
 
 from app.api import provisioning_internal as module
-from app.api.provisioning_internal import UpsertStorageRootAccessProfilePayload
-
-
-def test_upsert_payload_accepts_read_permission_hash() -> None:
-    payload = UpsertStorageRootAccessProfilePayload(
-        storage_root_id=1,
-        access_level_code="READ",
-        permission_hash="READ",
-        status="CREATED",
-    )
-    assert payload.permission_hash == "READ"
-
-
-def test_upsert_payload_rejects_empty_permission_hash() -> None:
-    try:
-        _ = UpsertStorageRootAccessProfilePayload(
-            storage_root_id=1,
-            access_level_code="WRITE",
-            permission_hash="",
-            status="CREATED",
-        )
-        assert False, "Expected ValidationError"
-    except ValidationError:
-        pass
-
-
-def test_upsert_resolves_access_profile_id_when_missing(monkeypatch) -> None:
-    created_data: dict = {}
-
-    class _FakeResult:
-        def __init__(self, row):
-            self._row = row
-
-        def mappings(self):
-            return self
-
-        def first(self):
-            return self._row
-
-    class _FakeDB:
-        def execute(self, statement, params):
-            sql = str(statement).lower()
-            if "from storage_root_access_profiles" in sql:
-                return _FakeResult(None)
-            if "from access_profiles" in sql:
-                assert params["access_level_code"] == "READ"
-                return _FakeResult({"id": 9001})
-            return _FakeResult(None)
-
-    class _FakeRepo:
-        def __init__(self, _db):
-            pass
-
-        def find_by_root_and_permission_hash(self, *, storage_root_id: int, permission_hash: str):
-            assert storage_root_id == 1
-            assert permission_hash == "READ"
-            return None
-
-        def create(self, *, data: dict):
-            created_data.update(data)
-            return SimpleNamespace(id=321, status="CREATED")
-
-        @staticmethod
-        def to_dict(obj) -> dict:
-            return {
-                "id": int(getattr(obj, "id", 0)),
-                "status": str(getattr(obj, "status", "CREATED")),
-                "access_profile_id": int(created_data.get("access_profile_id") or 0),
-            }
-
-    monkeypatch.setattr(module, "StorageRootAccessProfilesRepo", _FakeRepo)
-    monkeypatch.setattr(module, "_write_governance_event", lambda *_args, **_kwargs: None)
-
-    out = module.upsert_storage_root_access_profile(
-        UpsertStorageRootAccessProfilePayload(
-            storage_root_id=1,
-            access_level_code="READ",
-            permission_hash="READ",
-            group_name="B2S_FINANCE_READ",
-            status="CREATED",
-        ),
-        db=_FakeDB(),
-    )
-
-    assert out["created"] is True
-    assert created_data["access_profile_id"] == 9001
-    assert out["data"]["access_profile_id"] == 9001
-
-
-def test_upsert_returns_422_when_no_template_matches_level(monkeypatch) -> None:
-    class _FakeResult:
-        def __init__(self, row):
-            self._row = row
-
-        def mappings(self):
-            return self
-
-        def first(self):
-            return self._row
-
-    class _FakeDB:
-        def execute(self, statement, _params):
-            sql = str(statement).lower()
-            if "from storage_root_access_profiles" in sql:
-                return _FakeResult(None)
-            if "from access_profiles" in sql:
-                return _FakeResult(None)
-            return _FakeResult(None)
-
-    class _FakeRepo:
-        def __init__(self, _db):
-            pass
-
-        def find_by_root_and_permission_hash(self, *, storage_root_id: int, permission_hash: str):
-            return None
-
-        def create(self, *, data: dict):
-            return SimpleNamespace(id=1, status="CREATED")
-
-        @staticmethod
-        def to_dict(obj) -> dict:
-            return {"id": int(getattr(obj, "id", 0))}
-
-    monkeypatch.setattr(module, "StorageRootAccessProfilesRepo", _FakeRepo)
-    monkeypatch.setattr(module, "_write_governance_event", lambda *_args, **_kwargs: None)
-
-    try:
-        _ = module.upsert_storage_root_access_profile(
-            UpsertStorageRootAccessProfilePayload(
-                storage_root_id=1,
-                access_level_code="WRITE",
-                permission_hash="WRITE",
-                group_name="B2S_FINANCE_WRITE",
-                status="CREATED",
-            ),
-            db=_FakeDB(),
-        )
-        assert False, "Expected HTTPException"
-    except HTTPException as exc:
-        assert exc.status_code == 422
-        assert "No access_profiles template found" in str(exc.detail)
-
-
-def test_upsert_returns_422_when_group_name_missing(monkeypatch) -> None:
-    class _FakeResult:
-        def __init__(self, row):
-            self._row = row
-
-        def mappings(self):
-            return self
-
-        def first(self):
-            return self._row
-
-    class _FakeDB:
-        def execute(self, statement, _params):
-            sql = str(statement).lower()
-            if "from storage_root_access_profiles" in sql:
-                return _FakeResult(None)
-            if "from access_profiles" in sql:
-                return _FakeResult({"id": 9002})
-            return _FakeResult(None)
-
-    class _FakeRepo:
-        def __init__(self, _db):
-            pass
-
-        def find_by_root_and_permission_hash(self, *, storage_root_id: int, permission_hash: str):
-            return None
-
-        def create(self, *, data: dict):
-            return SimpleNamespace(id=1, status="CREATED")
-
-        @staticmethod
-        def to_dict(obj) -> dict:
-            return {"id": int(getattr(obj, "id", 0))}
-
-    monkeypatch.setattr(module, "StorageRootAccessProfilesRepo", _FakeRepo)
-    monkeypatch.setattr(module, "_write_governance_event", lambda *_args, **_kwargs: None)
-
-    try:
-        _ = module.upsert_storage_root_access_profile(
-            UpsertStorageRootAccessProfilePayload(
-                storage_root_id=1,
-                access_level_code="WRITE",
-                permission_hash="WRITE",
-                status="CREATED",
-            ),
-            db=_FakeDB(),
-        )
-        assert False, "Expected HTTPException"
-    except HTTPException as exc:
-        assert exc.status_code == 422
-        assert "group_name is required" in str(exc.detail)
+from app.api.provisioning_internal import EnsureAccessGroupPayload
 
 
 def test_write_governance_event_accepts_empty_chain(monkeypatch) -> None:
@@ -239,3 +46,84 @@ def test_write_governance_event_accepts_empty_chain(monkeypatch) -> None:
 
     assert captured.get("prev_hash") is None
     assert captured.get("event_hash") == "h" * 64
+
+
+class _FakeAccessGroups:
+    rows: dict[tuple[int, str], dict] = {}
+    outcomes: list[tuple] = []
+
+    def __init__(self, db):
+        self.db = db
+
+    def ensure(self, *, storage_root_id, access_level_code, group_name):
+        key = (storage_root_id, access_level_code)
+        if key in self.rows:
+            return self.rows[key], False
+        self.rows[key] = {"id": len(self.rows) + 1, "group_name": group_name, "status": "PENDING"}
+        return self.rows[key], True
+
+    def record_outcome(self, profile_id, **kwargs):
+        self.outcomes.append((profile_id, kwargs))
+
+
+class _FakeDB:
+    def __init__(self, root_exists=True):
+        self.root_exists = root_exists
+        self.commits = 0
+
+    def get(self, _model, _id):
+        return object() if self.root_exists else None
+
+    def commit(self):
+        self.commits += 1
+
+
+@pytest.fixture
+def access_groups(monkeypatch):
+    _FakeAccessGroups.rows = {}
+    _FakeAccessGroups.outcomes = []
+    monkeypatch.setattr(module, "StorageRootAccessProfilesRepo", _FakeAccessGroups)
+    monkeypatch.setattr(module, "_write_governance_event", lambda *_a, **_k: None)
+    return _FakeAccessGroups
+
+
+def test_ensure_access_group_creates_once_then_keeps_the_first_name(access_groups) -> None:
+    db = _FakeDB()
+    first = module.ensure_storage_root_access_group(
+        EnsureAccessGroupPayload(storage_root_id=7, access_level_code="write", group_name="B2S_FIN_WRITE"), db=db
+    )
+    again = module.ensure_storage_root_access_group(
+        EnsureAccessGroupPayload(storage_root_id=7, access_level_code="WRITE", group_name="B2S_RENAMED_WRITE"), db=db
+    )
+    assert first["created"] is True and again["created"] is False
+    assert again["data"]["group_name"] == "B2S_FIN_WRITE"
+    assert db.commits == 2
+
+
+def test_ensure_access_group_rejects_unknown_level_and_root(access_groups) -> None:
+    with pytest.raises(HTTPException) as exc:
+        module.ensure_storage_root_access_group(
+            EnsureAccessGroupPayload(storage_root_id=7, access_level_code="OWNER", group_name="G"), db=_FakeDB()
+        )
+    assert exc.value.status_code == 422
+    with pytest.raises(HTTPException) as exc:
+        module.ensure_storage_root_access_group(
+            EnsureAccessGroupPayload(storage_root_id=7, access_level_code="READ", group_name="G"), db=_FakeDB(root_exists=False)
+        )
+    assert exc.value.status_code == 404
+
+
+def test_group_job_outcome_is_recorded_on_its_access_group(access_groups) -> None:
+    job = SimpleNamespace(job_type="AD_GROUP_ENSURE", storage_root_access_profile_id=3)
+    module._record_access_group_outcome(
+        None, job_row=job, succeeded=True, result_json={"details": {"group_guid": "guid-1", "group_dn": "CN=G"}}
+    )
+    module._record_access_group_outcome(None, job_row=job, succeeded=False, result_json=None, error_message="boom")
+    # Jobs not tied to an access group, or of another type, are ignored
+    module._record_access_group_outcome(None, job_row=SimpleNamespace(job_type="ACL_APPLY", storage_root_access_profile_id=3), succeeded=True, result_json=None)
+    module._record_access_group_outcome(None, job_row=SimpleNamespace(job_type="AD_GROUP_ENSURE", storage_root_access_profile_id=None), succeeded=True, result_json=None)
+
+    assert access_groups.outcomes == [
+        (3, {"succeeded": True, "group_external_id": "guid-1", "error_message": None}),
+        (3, {"succeeded": False, "group_external_id": None, "error_message": "boom"}),
+    ]

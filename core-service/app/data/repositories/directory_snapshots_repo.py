@@ -4,7 +4,7 @@ import datetime as dt
 import json
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -99,6 +99,10 @@ def _coerce_mysql_datetime(value: Any) -> tuple[dt.datetime | None, bool]:
         return parsed, False
     except Exception:
         return None, True
+
+
+# Archived snapshots whose detail rows are kept (rollback / comparison); older ones are purged.
+SNAPSHOT_DETAIL_KEEP_ARCHIVED = 1
 
 
 class DirectorySnapshotsRepo:
@@ -968,8 +972,38 @@ class DirectorySnapshotsRepo:
             {"snapshot_id": sid},
         )
 
+        self.purge_archived_details(identity_source_id=source_id)
         self.db.commit()
         return self.get(sid)
+
+    def purge_archived_details(self, *, identity_source_id: int, keep_archived: int = SNAPSHOT_DETAIL_KEEP_ARCHIVED) -> int:
+        """Delete users/groups/memberships of old ARCHIVED snapshots (retention).
+
+        Keeps the snapshot header rows (access requests reference them) and the detail of the
+        ACTIVE snapshot plus the `keep_archived` most recent archived ones. Returns the number
+        of snapshots purged. The caller commits.
+        """
+        rows = self.db.execute(
+            text(
+                """
+                SELECT id
+                FROM directory_snapshots
+                WHERE identity_source_id = :identity_source_id
+                  AND status = 'ARCHIVED'
+                ORDER BY COALESCE(archived_at, updated_at) DESC, id DESC
+                """
+            ),
+            {"identity_source_id": int(identity_source_id)},
+        ).scalars().all()
+        purge_ids = [int(x) for x in rows[max(0, int(keep_archived)):]]
+        if not purge_ids:
+            return 0
+        for table in ("directory_snapshot_memberships", "directory_snapshot_users", "directory_snapshot_groups"):
+            self.db.execute(
+                text(f"DELETE FROM {table} WHERE snapshot_id IN :ids").bindparams(bindparam("ids", expanding=True)),
+                {"ids": purge_ids},
+            )
+        return len(purge_ids)
 
     def search(
         self,

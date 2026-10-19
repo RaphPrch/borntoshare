@@ -1,7 +1,7 @@
 """Service-to-service authentication (inbound checks).
 
 - X-Internal-Token: static (INTERNAL_TOKEN) or short-lived HMAC token (INTERNAL_TOKEN_KEYS), see internal_token.py
-- X-Service-Token: shared SERVICE_TOKEN, plus X-Service-Name / X-Service-Scope for scoped internal routes
+- X-Service-Name / X-Service-Scope: caller identity and scopes for scoped internal routes (with X-Internal-Token)
 """
 from __future__ import annotations
 
@@ -31,10 +31,9 @@ def _token_ttl() -> int:
 # X-Internal-Token
 # ============================================================
 
-def require_internal_token(request: Request) -> None:
-    """Protect internal endpoints (static or hmac)."""
-    provided = request.headers.get("X-Internal-Token")
-
+def _verify_internal_token(provided: str | None) -> tuple[str, int] | None:
+    """Check X-Internal-Token (static or hmac); returns (kid, exp) in hmac mode."""
+    provided = str(provided or "").strip()
     if not provided:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,7 +47,7 @@ def require_internal_token(request: Request) -> None:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid internal token",
             )
-        return
+        return None
 
     keyring = parse_keyring(os.getenv("INTERNAL_TOKEN_KEYS", ""))
     if not keyring:
@@ -59,7 +58,7 @@ def require_internal_token(request: Request) -> None:
         )
 
     try:
-        kid, exp = verify_internal_token(provided, keyring, ttl_sec=_token_ttl())
+        return verify_internal_token(provided, keyring, ttl_sec=_token_ttl())
     except InternalTokenError:
         # Do not leak details to client
         raise HTTPException(
@@ -67,8 +66,12 @@ def require_internal_token(request: Request) -> None:
             detail="Invalid internal token",
         )
 
-    request.state.internal_kid = kid
-    request.state.internal_exp = exp
+
+def require_internal_token(request: Request) -> None:
+    """Protect internal endpoints (static or hmac)."""
+    verified = _verify_internal_token(request.headers.get("X-Internal-Token"))
+    if verified:
+        request.state.internal_kid, request.state.internal_exp = verified
 
 
 def require_orchestration_access(request: Request) -> None:
@@ -83,7 +86,7 @@ def require_orchestration_access(request: Request) -> None:
 
 
 # ============================================================
-# X-Service-Token / X-Service-Name / X-Service-Scope
+# X-Service-Name / X-Service-Scope (scoped internal routes)
 # ============================================================
 
 def _parse_scopes(raw: str | None) -> set[str]:
@@ -96,63 +99,16 @@ def _parse_scopes(raw: str | None) -> set[str]:
     }
 
 
-def _validate_service_token(x_service_token: str, x_internal_token: str) -> None:
-    expected = (os.getenv("SERVICE_TOKEN", "") or "").strip()
-    provided_service = x_service_token if isinstance(x_service_token, str) else ""
-    provided_service = provided_service.strip()
-
-    if expected:
-        if hmac.compare_digest(provided_service, expected):
-            return
-        log_event(
-            logger,
-            30,
-            "CORE_INTERNAL_AUTH_INVALID_SERVICE_TOKEN",
-            action="validate_service_token",
-            outcome="forbidden",
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "error_code": "INVALID_SERVICE_TOKEN",
-                "message": "invalid service token",
-            },
-        )
-
-    log_event(
-        logger,
-        30,
-        "CORE_INTERNAL_AUTH_SERVICE_TOKEN_NOT_CONFIGURED",
-        action="validate_service_token",
-        outcome="forbidden",
-    )
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail={
-            "error_code": "INVALID_SERVICE_TOKEN",
-            "message": "invalid service token",
-        },
-    )
-
-
-def require_service_token(
-    x_service_token: str = Header(default=""),
-    x_internal_token: str = Header(default=""),
-):
-    _validate_service_token(x_service_token=x_service_token, x_internal_token=x_internal_token)
-
-
 def require_internal(scopes: set[str]) -> Callable:
     required = {str(s).strip().lower() for s in (scopes or set()) if str(s).strip()}
 
     def _dep(
         request: Request,
-        x_service_token: str = Header(default=""),
         x_internal_token: str = Header(default=""),
         x_service_name: str = Header(default=""),
         x_service_scope: str = Header(default=""),
     ) -> None:
-        _validate_service_token(x_service_token=x_service_token, x_internal_token=x_internal_token)
+        _verify_internal_token(x_internal_token)
 
         service_name = str(x_service_name or "").strip().lower()
         if not service_name:

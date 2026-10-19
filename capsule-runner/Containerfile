@@ -1,0 +1,26 @@
+# BornToShare capsule-runner (Dramatiq worker: LDAP, SMB, Kerberos)
+# Alpine 3.20 ships Python 3.12 (same version as CI).
+FROM alpine:3.20
+
+RUN apk add --no-cache \
+    samba-client \
+    krb5 \
+    ca-certificates \
+    python3 \
+    py3-pip
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Application code: owned by root, read-only for the runtime user
+COPY app ./app
+
+# Non-root runtime user (UID matches "user:" in podman-compose.yml)
+RUN addgroup -S -g 10001 b2s && adduser -S -D -H -h /app -s /sbin/nologin -u 10001 -G b2s b2s
+USER b2s:b2s
+
+CMD ["dramatiq", "app.jobs.tasks"]

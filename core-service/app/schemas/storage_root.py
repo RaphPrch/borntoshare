@@ -66,11 +66,6 @@ class StorageRootCreate(BaseModel):
         description="Whether tags may be inherited from parent storage root.",
     )
 
-    inherit_access_profiles: bool = Field(
-        default=False,
-        description="Whether access profile bindings may be inherited from parent storage root.",
-    )
-
     # --------------------------------------------------
     # Lifecycle
     # --------------------------------------------------
@@ -131,8 +126,6 @@ class StorageRootUpdate(ProbeStatusRules):
     inherit_owners: Optional[bool] = Field(default=None)
 
     inherit_tags: Optional[bool] = Field(default=None)
-
-    inherit_access_profiles: Optional[bool] = Field(default=None)
 
     # --------------------------------------------------
     # Lifecycle

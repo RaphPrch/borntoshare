@@ -65,8 +65,6 @@ def run_job(job_id: int, *, retries: int = 0, max_retries: int = 5) -> None:
             f"/api/internal/provisioning/jobs/{numeric_job_id}/start",
             {
                 "correlation_id": correlation_id or f"job_{numeric_job_id}",
-                "lock_owner": f"capsule-job-{numeric_job_id}",
-                "capsule_execution_id": numeric_job_id,
             },
         )
 

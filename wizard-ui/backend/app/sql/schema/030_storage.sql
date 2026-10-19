@@ -1,0 +1,72 @@
+CREATE TABLE IF NOT EXISTS storage_endpoints (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  zone_id BIGINT UNSIGNED NOT NULL,
+  identity_source_id BIGINT UNSIGNED NULL,
+  name VARCHAR(255) NOT NULL,
+  endpoint_type VARCHAR(64) NOT NULL,
+  protocol VARCHAR(16) NULL,
+  host VARCHAR(190) NULL,
+  port INT NULL,
+  base_path VARCHAR(512) NULL,
+  auth_type VARCHAR(32) NULL,
+  bind_dn VARCHAR(512) NULL,
+  bind_password_ref VARCHAR(512) NULL,
+  capabilities JSON NOT NULL DEFAULT (JSON_OBJECT()),
+  description TEXT NULL,
+  external_id VARCHAR(255) NULL,
+  sub_ou_dn VARCHAR(512) NULL,
+  naming_template VARCHAR(190) NULL,
+  last_probe_job_id BIGINT NULL,
+  last_probe_status VARCHAR(32) NULL,
+  last_probe_at TIMESTAMP NULL,
+  last_probe_message VARCHAR(512) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  status VARCHAR(32) NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL,
+  CONSTRAINT ck_storage_endpoints_last_probe_status
+    CHECK (last_probe_status IS NULL OR last_probe_status IN ('success', 'running', 'failed', 'unknown')),
+  CONSTRAINT fk_storage_endpoints_zone_id FOREIGN KEY (zone_id) REFERENCES zones(id),
+  CONSTRAINT fk_storage_endpoints_identity_source_id FOREIGN KEY (identity_source_id) REFERENCES identity_sources(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS storage_roots (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  storage_endpoint_id BIGINT UNSIGNED NOT NULL,
+  parent_storage_root_id BIGINT UNSIGNED NULL,
+  name VARCHAR(255) NOT NULL,
+  root_path VARCHAR(512) NOT NULL,
+  normalized_root_path VARCHAR(512) NULL,
+  inherit_owners TINYINT(1) NOT NULL DEFAULT 0,
+  inherit_tags TINYINT(1) NOT NULL DEFAULT 0,
+  status VARCHAR(32) NOT NULL DEFAULT 'active',
+  last_probe_status VARCHAR(32) NULL,
+  last_probe_at DATETIME NULL,
+  last_probe_message VARCHAR(512) NULL,
+  last_discovery_at DATETIME NULL,
+  discovered_permissions_json JSON NULL,
+  discovered_tree_json JSON NULL,
+  needs_revalidation TINYINT(1) NOT NULL DEFAULT 0,
+  revalidation_reason VARCHAR(512) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL,
+  CONSTRAINT ck_storage_roots_last_probe_status
+    CHECK (last_probe_status IS NULL OR last_probe_status IN ('success', 'running', 'failed', 'unknown')),
+  CONSTRAINT fk_storage_roots_storage_endpoint_id FOREIGN KEY (storage_endpoint_id) REFERENCES storage_endpoints(id),
+  CONSTRAINT fk_storage_roots_parent_storage_root_id FOREIGN KEY (parent_storage_root_id) REFERENCES storage_roots(id) ON DELETE RESTRICT,
+  CONSTRAINT uq_storage_roots_endpoint_normalized_path UNIQUE (storage_endpoint_id, normalized_root_path)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS storage_root_tags (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  storage_root_id BIGINT UNSIGNED NOT NULL,
+  tag_id BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL,
+  CONSTRAINT fk_storage_root_tags_storage_root_id FOREIGN KEY (storage_root_id) REFERENCES storage_roots(id),
+  CONSTRAINT fk_storage_root_tags_tag_id FOREIGN KEY (tag_id) REFERENCES tags(id),
+  CONSTRAINT uq_storage_root_tags_storage_root_id_tag_id UNIQUE (storage_root_id, tag_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

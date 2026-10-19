@@ -8,11 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.data.repositories.sql_view_repo import SQLViewRepo
 from app.services.activity_bridge import list_activity_by_target
-from app.services.naming_policy import resolve_effective_policy, resolve_group_name_from_effective_policy
-from app.services.storage_root_binding_materialization_service import (
-    CANONICAL_PERMISSIONS,
-    compute_effective_root_bindings,
-)
+from app.services.naming_policy import resolve_storage_root_group_name
+
+
+ACCESS_LEVELS: tuple[str, str] = ("READ", "WRITE")
 
 
 class StorageRootsViewsRepo(SQLViewRepo):
@@ -25,11 +24,6 @@ class StorageRootsViewsRepo(SQLViewRepo):
 
     def __init__(self, db: Session):
         super().__init__(db)
-
-    @staticmethod
-    def _extract_sam_account_name(naming_payload: dict[str, Any] | None) -> str | None:
-        value = str((naming_payload or {}).get("samAccountName") or "").strip()
-        return value or None
 
     def _load_tags_map(self, storage_root_ids: list[int]) -> dict[int, list[dict]]:
         normalized_ids = sorted({int(v) for v in (storage_root_ids or []) if int(v) > 0})
@@ -412,7 +406,6 @@ class StorageRootsViewsRepo(SQLViewRepo):
               parent_root_path,
               inherit_owners,
               inherit_tags,
-              inherit_access_profiles,
               storage_root_status AS status,
               created_at,
               last_probe_status,
@@ -492,7 +485,6 @@ class StorageRootsViewsRepo(SQLViewRepo):
               c.parent_root_path,
               c.inherit_owners,
               c.inherit_tags,
-              c.inherit_access_profiles,
               c.storage_root_status AS status,
               c.created_at,
               c.last_probe_status,
@@ -976,219 +968,32 @@ class StorageRootsViewsRepo(SQLViewRepo):
             {"storage_root_id": int(storage_root_id)},
         )
 
-    def serialize_access_profiles(self, *, storage_root_id: int) -> dict:
-        acl_index = self._acl_principal_index(int(storage_root_id))
-        rows = self._all_dicts(
+    def list_access_groups(self, *, storage_root_id: int) -> list[dict[str, Any]]:
+        """AD groups already created for this storage root (at most one per access level)."""
+        return self._all_dicts(
             """
             SELECT
               srap.id,
-              srap.access_profile_id,
-              srap.source,
-              srap.group_name AS group_dn,
-              srap.group_name AS group_name,
+              srap.access_level_code,
+              srap.group_name,
               srap.group_external_id,
-              UPPER(COALESCE(NULLIF(srap.access_level_code, ''), NULLIF(ap.code, ''), NULLIF(ap.permission, ''), 'READ')) AS access_level_code,
               srap.status,
+              srap.error_message,
               srap.created_at,
               srap.updated_at,
-              srap.error_message,
-              ap.name AS profile_name,
-              ap.code AS profile_code,
-              ap.permission AS profile_permission,
-              pj.correlation_id,
-              pj.error_message AS job_error_message,
-              pj.updated_at AS job_updated_at,
-              COALESCE((
-                SELECT COUNT(DISTINCT ib.identity_id)
-                FROM directory_groups dg
-                JOIN directory_effective_memberships dem
-                  ON dem.directory_group_id = dg.id
-                 AND dem.identity_source_id = dg.identity_source_id
-                JOIN identity_bindings ib
-                  ON ib.directory_user_id = dem.directory_user_id
-                 AND ib.deleted_at IS NULL
-                WHERE dg.deleted_at IS NULL
-                  AND (
-                    LOWER(dg.name) = LOWER(COALESCE(NULLIF(srap.group_name, ''), ''))
-                    OR LOWER(COALESCE(dg.external_id, '')) = LOWER(COALESCE(NULLIF(srap.group_external_id, ''), ''))
-                    OR LOWER(COALESCE(dg.external_id, '')) = LOWER(COALESCE(NULLIF(srap.group_name, ''), ''))
-                    OR LOWER(COALESCE(dg.dn, '')) = LOWER(COALESCE(NULLIF(srap.group_name, ''), ''))
-                  )
-              ), 0) AS members_count
-            FROM storage_root_access_profiles srap
-            LEFT JOIN access_profiles ap ON ap.id = srap.access_profile_id
-            LEFT JOIN provisioning_jobs pj
-              ON pj.id = (
-                SELECT p2.id
-                FROM provisioning_jobs p2
-                WHERE p2.storage_root_access_profile_id = srap.id
-                ORDER BY p2.id DESC
+              (
+                SELECT pj.correlation_id
+                FROM provisioning_jobs pj
+                WHERE pj.storage_root_access_profile_id = srap.id
+                ORDER BY pj.id DESC
                 LIMIT 1
-              )
+              ) AS correlation_id
+            FROM storage_root_access_profiles srap
             WHERE srap.storage_root_id = :storage_root_id
-              AND srap.deleted_at IS NULL
-            ORDER BY srap.id ASC
+            ORDER BY srap.access_level_code ASC
             """,
             {"storage_root_id": int(storage_root_id)},
         )
-
-        items: list[dict[str, Any]] = []
-        for row in rows:
-            access_profile_id = int(row.get("access_profile_id") or 0)
-            normalized_status = str(row.get("status") or "PENDING").strip().upper()
-            if normalized_status == "FAILED":
-                normalized_status = "ERROR"
-            items.append(
-                {
-                    "id": access_profile_id or int(row.get("id") or 0),
-                    "link_id": int(row.get("id") or 0),
-                    "access_profile_id": access_profile_id or None,
-                    "group_name": str(row.get("group_name") or "").strip() or None,
-                    "group_dn": str(row.get("group_dn") or "").strip() or None,
-                    "group_external_id": str(row.get("group_external_id") or "").strip() or None,
-                    "code": row.get("profile_code"),
-                    "source": str(row.get("source") or "LOCAL").upper(),
-                    "name": row.get("profile_name"),
-                    "permission": row.get("profile_permission"),
-                    "access_level": row.get("access_level_code") or "READ",
-                    "status": normalized_status,
-                    "members_count": int(row.get("members_count") or 0),
-                    "error_message": (str(row.get("error_message") or "").strip() or None)
-                    or (str(row.get("job_error_message") or "").strip() or None),
-                    "created_at": row.get("created_at"),
-                    "updated_at": row.get("job_updated_at") or row.get("updated_at"),
-                    "last_error_message": (str(row.get("error_message") or "").strip() or None)
-                    or (str(row.get("job_error_message") or "").strip() or None),
-                    "correlation_id": row.get("correlation_id"),
-                }
-            )
-
-        items_by_level: dict[str, list[dict[str, Any]]] = {"READ": [], "WRITE": []}
-        for item in items:
-            level = str(item.get("access_level") or "READ").strip().upper()
-            if level not in items_by_level:
-                level = "READ"
-            items_by_level[level].append(item)
-
-        inherited_status = compute_effective_root_bindings(self.db, storage_root_id=int(storage_root_id))
-        approval_readiness: dict[str, bool] = {}
-        binding_status: dict[str, str] = {}
-
-        for permission in CANONICAL_PERMISSIONS:
-            rows = items_by_level.get(permission, [])
-            inherited = inherited_status.get(permission)
-            has_materialized = len(rows) > 0
-            inherited_state = str((inherited.status if inherited else "missing") or "missing")
-
-            if has_materialized and len(rows) > 1:
-                status_value = "ambiguous"
-            elif has_materialized:
-                status_value = "materialized"
-            elif inherited_state == "resolved":
-                status_value = "inherited_candidate"
-            elif inherited_state == "ambiguous":
-                status_value = "ambiguous"
-            else:
-                status_value = "missing"
-
-            approval_readiness[permission] = status_value == "materialized"
-            binding_status[permission] = status_value
-
-            if status_value == "inherited_candidate" and inherited and inherited.resolved is not None:
-                candidate = inherited.resolved
-                items.append(
-                    {
-                        "id": int(candidate.access_profile_id),
-                        "link_id": None,
-                        "access_profile_id": int(candidate.access_profile_id),
-                        "group_name": None,
-                        "group_dn": None,
-                        "group_external_id": None,
-                        "code": candidate.profile_code,
-                        "source": "INHERITED",
-                        "name": candidate.profile_name,
-                        "permission": permission,
-                        "access_level": permission,
-                        "status": "PENDING_MATERIALIZATION",
-                        "members_count": 0,
-                        "error_message": None,
-                        "created_at": None,
-                        "updated_at": None,
-                        "last_error_message": None,
-                        "correlation_id": None,
-                        "is_materialized_on_root": False,
-                        "binding_status": "inherited_candidate",
-                    }
-                )
-
-            if status_value == "missing":
-                items.append(
-                    {
-                        "id": None,
-                        "link_id": None,
-                        "access_profile_id": None,
-                        "group_name": None,
-                        "group_dn": None,
-                        "group_external_id": None,
-                        "code": permission,
-                        "source": "NONE",
-                        "name": None,
-                        "permission": permission,
-                        "access_level": permission,
-                        "status": "BINDING_MISSING",
-                        "members_count": 0,
-                        "error_message": None,
-                        "created_at": None,
-                        "updated_at": None,
-                        "last_error_message": None,
-                        "correlation_id": None,
-                        "is_materialized_on_root": False,
-                        "binding_status": "missing",
-                    }
-                )
-
-            if status_value == "ambiguous":
-                items.append(
-                    {
-                        "id": None,
-                        "link_id": None,
-                        "access_profile_id": None,
-                        "group_name": None,
-                        "group_dn": None,
-                        "group_external_id": None,
-                        "code": permission,
-                        "source": "MIXED",
-                        "name": None,
-                        "permission": permission,
-                        "access_level": permission,
-                        "status": "AMBIGUOUS_BINDING",
-                        "members_count": 0,
-                        "error_message": None,
-                        "created_at": None,
-                        "updated_at": None,
-                        "last_error_message": None,
-                        "correlation_id": None,
-                        "is_materialized_on_root": False,
-                        "binding_status": "ambiguous",
-                    }
-                )
-
-        for item in items:
-            level = str(item.get("access_level") or "READ").strip().upper()
-            if level not in {"READ", "WRITE"}:
-                level = "READ"
-            item.setdefault("is_materialized_on_root", bool(item.get("link_id")))
-            item.setdefault("binding_status", binding_status.get(level, "missing"))
-            item.setdefault("approval_ready", bool(item.get("is_materialized_on_root")))
-            item.update(self._acl_alignment_for_group(str(item.get("group_name") or ""), acl_index))
-
-        return {
-            "storage_root_id": int(storage_root_id),
-            "items": items,
-            "attached_profiles": [row for row in items if bool(row.get("is_materialized_on_root"))],
-            "binding_status": binding_status,
-            "approval_ready": all(bool(approval_readiness.get(p, False)) for p in CANONICAL_PERMISSIONS),
-        }
 
     def _active_snapshot_id_for_source(self, *, identity_source_id: int | None) -> int | None:
         if identity_source_id is None or int(identity_source_id) <= 0:
@@ -1485,42 +1290,18 @@ class StorageRootsViewsRepo(SQLViewRepo):
         deduped = self._dedupe_group_member_rows(rows)
         return deduped, active_snapshot_id, source
 
-    @staticmethod
-    def _compute_expected_group_name_from_policy(
-        *,
-        effective_policy: dict[str, Any],
-        zone_code: str,
-        root_path: str,
-        access_level: str,
-        storage_root_id: int,
-    ) -> str | None:
-        level = str(access_level or "READ").strip().upper() or "READ"
-
-        computed_name = ""
-        try:
-            naming = resolve_group_name_from_effective_policy(
-                effective_policy=effective_policy,
-                zone_code=zone_code,
-                storage_root_path=root_path,
-                perm=level,
-            )
-            computed_name = StorageRootsViewsRepo._extract_sam_account_name(naming) or ""
-        except Exception:
-            computed_name = ""
-
-        if computed_name:
-            return computed_name[:128]
-
-        return None
-
     def project_ad_groups(
         self,
         *,
         storage_root_id: int,
-        access_profiles_state: dict[str, Any],
         include_members: bool = False,
         include_expected: bool = False,
     ) -> list[dict[str, Any]]:
+        """AD groups of a storage root for the UI.
+
+        Created groups come from storage_root_access_profiles; with include_expected, levels
+        without a group yet are shown with the name the naming policy will give them.
+        """
         root_row = self._one_dict(
             """
             SELECT
@@ -1541,232 +1322,70 @@ class StorageRootsViewsRepo(SQLViewRepo):
         if root_row is None:
             return []
 
-        zone_id = int(root_row.get("zone_id") or 0) or None
-        storage_endpoint_id = int(root_row.get("storage_endpoint_id") or 0) or None
         identity_source_id = int(root_row.get("identity_source_id") or 0) or None
-        zone_code = str(root_row.get("zone_code") or "").strip()
-        root_path = str(root_row.get("root_path") or "").strip()
         acl_index = self._acl_principal_index(int(storage_root_id))
 
-        effective_policy = resolve_effective_policy(
-            self.db,
-            zone_id,
-            storage_endpoint_id=storage_endpoint_id,
-            storage_root_id=int(storage_root_id),
-        )
-
-        items = access_profiles_state.get("attached_profiles") or []
-        if not isinstance(items, list):
-            items = []
-
-        attached_profile_ids: set[int] = set()
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            profile_id = int(item.get("access_profile_id") or item.get("id") or 0)
-            if profile_id > 0:
-                attached_profile_ids.add(profile_id)
-
-        if zone_id is not None:
-            inherited_profiles = self._all_dicts(
-                """
-                SELECT
-                  zap.access_profile_id,
-                  ap.code,
-                  ap.name,
-                  ap.permission,
-                  UPPER(
-                    COALESCE(
-                      NULLIF(ap.code, ''),
-                      NULLIF(ap.permission, ''),
-                      'READ'
-                    )
-                  ) AS access_level_code
-                FROM zone_access_profiles zap
-                JOIN access_profiles ap ON ap.id = zap.access_profile_id
-                WHERE zap.zone_id = :zone_id
-                  AND zap.is_active = 1
-                  AND UPPER(
-                    COALESCE(
-                      NULLIF(ap.code, ''),
-                      NULLIF(ap.permission, ''),
-                      'READ'
-                    )
-                  ) IN ('READ', 'WRITE')
-                ORDER BY zap.access_profile_id ASC
-                """,
-                {"zone_id": int(zone_id)},
-            )
-
-            for inherited in inherited_profiles:
-                profile_id = int(inherited.get("access_profile_id") or 0)
-                if profile_id <= 0 or profile_id in attached_profile_ids:
-                    continue
-
-                access_level = str(inherited.get("access_level_code") or "READ").strip().upper() or "READ"
-                items.append(
-                    {
-                        "id": profile_id,
-                        "access_profile_id": profile_id,
-                        "code": str(inherited.get("code") or "").strip() or None,
-                        "name": str(inherited.get("name") or "").strip() or None,
-                        "permission": str(inherited.get("permission") or "").strip() or None,
-                        "access_level": access_level,
-                        "status": "NOT_CREATED",
-                        "source": "INHERITED",
-                        "is_materialized_on_root": False,
-                        "binding_status": "inherited_candidate",
-                        "approval_ready": False,
-                        "group_name": None,
-                        "group_external_id": None,
-                        "members_count": 0,
-                    }
-                )
-
-        out: list[dict[str, Any]] = []
-        seen: set[str] = set()
-        for row in items:
-            if not isinstance(row, dict):
-                continue
-
-            access_level = str(row.get("access_level") or row.get("access_level_code") or "READ").strip().upper() or "READ"
-            profile_id = int(row.get("access_profile_id") or row.get("id") or 0) or None
-            profile_code = str(row.get("code") or row.get("name") or "").strip() or None
-            profile_status = str(row.get("status") or "QUEUED").strip().upper() or "QUEUED"
-            group_external_id = str(row.get("group_external_id") or "").strip() or None
-            configured_group = str(row.get("group_name") or "").strip() or None
-
-            projected_group = configured_group
-            projection_source = "configured"
-
-            if not projected_group:
-                try:
-                    naming = resolve_group_name_from_effective_policy(
-                        effective_policy=effective_policy,
-                        zone_code=zone_code,
-                        storage_root_path=root_path,
-                        perm=access_level,
-                        profile=profile_code,
-                    )
-                    projected_group = self._extract_sam_account_name(naming)
-                    projection_source = "template_preview"
-                except Exception:
-                    projected_group = None
-
-            if not projected_group:
-                continue
-
-            dedupe_key = projected_group.lower()
-            if dedupe_key in seen:
-                continue
-            seen.add(dedupe_key)
-
+        def _entry(*, group_name: str, level: str, status: str, created: bool, expected_only: bool, row: dict) -> dict:
             members, active_snapshot_id, members_source = self.list_ad_group_members(
                 storage_root_id=int(storage_root_id),
-                group_ref=projected_group,
+                group_ref=group_name,
             )
+            return {
+                "group_name": group_name,
+                "access_level": level,
+                "profile_id": int(row.get("id") or 0) or None,
+                "profile_status": status,
+                "error_message": str(row.get("error_message") or "").strip() or None,
+                "correlation_id": row.get("correlation_id"),
+                "group_external_id": str(row.get("group_external_id") or "").strip() or None,
+                "is_created": created,
+                "expected_only": expected_only,
+                "members_count": len(members),
+                "active_snapshot_id": active_snapshot_id,
+                "members_source": members_source,
+                "members": members if include_members else None,
+                **self._acl_alignment_for_group(group_name, acl_index),
+            }
 
-            discovered_exists = self._ad_group_exists_for_identity_source(
-                group_ref=projected_group,
-                identity_source_id=identity_source_id,
+        out: list[dict[str, Any]] = []
+        present_levels: set[str] = set()
+        for row in self.list_access_groups(storage_root_id=int(storage_root_id)):
+            group_name = str(row.get("group_name") or "").strip()
+            level = str(row.get("access_level_code") or "").upper()
+            if not group_name or level not in ACCESS_LEVELS:
+                continue
+            present_levels.add(level)
+            status_value = str(row.get("status") or "PENDING").upper()
+            created = status_value == "SUCCEEDED" or (
+                status_value != "FAILED"
+                and self._ad_group_exists_for_identity_source(group_ref=group_name, identity_source_id=identity_source_id)
             )
-            failed_or_pending_statuses = {"FAILED", "ERROR", "CANCELLED", "RETRYING", "RUNNING", "QUEUED", "NOT_CREATED"}
-            if profile_status in failed_or_pending_statuses:
-                created = False
-            else:
-                created = bool(
-                    discovered_exists
-                    or group_external_id
-                    or profile_status in {"CREATED", "SUCCEEDED", "PROVISIONED"}
-                )
-
-            group_acl_alignment = self._acl_alignment_for_group(projected_group, acl_index)
-
-            out.append(
-                {
-                    "group_name": projected_group,
-                    "access_level": access_level,
-                    "profile_id": profile_id,
-                    "profile_code": profile_code,
-                    "profile_status": profile_status,
-                    "error_message": (str(row.get("error_message") or "").strip() or None)
-                    or (str(row.get("last_error_message") or "").strip() or None),
-                    "correlation_id": row.get("correlation_id"),
-                    "group_external_id": group_external_id,
-                    "is_created": created,
-                    "projection_source": projection_source,
-                    "expected_only": False,
-                    "materialized_binding_present": bool(profile_id),
-                    "approval_ready": bool(profile_id),
-                    "effective_profile_source": "materialized" if profile_id else "inherited_candidate",
-                    "members_count": len(members),
-                    "active_snapshot_id": active_snapshot_id,
-                    "members_source": members_source,
-                    "members": members if include_members else None,
-                    **group_acl_alignment,
-                }
-            )
-
-        present_levels = {
-            str(row.get("access_level") or "").strip().upper()
-            for row in out
-            if str(row.get("access_level") or "").strip().upper() in {"READ", "WRITE"}
-        }
+            out.append(_entry(group_name=group_name, level=level, status=status_value, created=created, expected_only=False, row=row))
 
         if include_expected:
-            for level in ("READ", "WRITE"):
+            for level in ACCESS_LEVELS:
                 if level in present_levels:
                     continue
-
-                expected_group_name = self._compute_expected_group_name_from_policy(
-                    effective_policy=effective_policy,
-                    zone_code=zone_code,
-                    root_path=root_path,
-                    access_level=level,
+                expected_group_name = resolve_storage_root_group_name(
+                    self.db,
                     storage_root_id=int(storage_root_id),
+                    access_level=level,
                 )
                 if not expected_group_name:
                     continue
-
-                dedupe_key = expected_group_name.lower()
-                if dedupe_key in seen:
-                    continue
-                seen.add(dedupe_key)
-
-                discovered_exists = self._ad_group_exists_for_identity_source(
+                created = self._ad_group_exists_for_identity_source(
                     group_ref=expected_group_name,
                     identity_source_id=identity_source_id,
                 )
-                members, active_snapshot_id, members_source = self.list_ad_group_members(
-                    storage_root_id=int(storage_root_id),
-                    group_ref=expected_group_name,
-                )
-
-                created = bool(discovered_exists or members)
-                expected_acl_alignment = self._acl_alignment_for_group(expected_group_name, acl_index)
-
                 out.append(
-                    {
-                        "group_name": expected_group_name,
-                        "access_level": level,
-                        "profile_id": None,
-                        "profile_code": level,
-                        "profile_status": "SUCCEEDED" if created else "NOT_CREATED",
-                        "error_message": None,
-                        "correlation_id": None,
-                        "group_external_id": None,
-                        "is_created": created,
-                        "projection_source": "template_preview_default",
-                        "expected_only": True,
-                        "materialized_binding_present": False,
-                        "approval_ready": False,
-                        "effective_profile_source": "inherited_candidate",
-                        "members_count": len(members),
-                        "active_snapshot_id": active_snapshot_id,
-                        "members_source": members_source,
-                        "members": members if include_members else None,
-                        **expected_acl_alignment,
-                    }
+                    _entry(
+                        group_name=expected_group_name,
+                        level=level,
+                        status="SUCCEEDED" if created else "NOT_CREATED",
+                        created=created,
+                        expected_only=True,
+                        row={},
+                    )
                 )
 
         out.sort(key=lambda item: (str(item.get("access_level") or ""), str(item.get("group_name") or "").lower()))

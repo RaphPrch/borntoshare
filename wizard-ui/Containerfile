@@ -1,0 +1,22 @@
+# BornToShare wizard-ui (database initialization: SQL packs in backend/app/sql)
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /opt/wizard
+
+# Dependencies first (cached while requirements.txt is unchanged)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Application code: owned by root, read-only for the runtime user
+COPY backend ./backend
+
+# Non-root runtime user (same UID as "user:" in podman-compose.yml, when set)
+RUN useradd -r -u 10005 -g nogroup appuser
+USER 10005
+
+EXPOSE 8080
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8080"]

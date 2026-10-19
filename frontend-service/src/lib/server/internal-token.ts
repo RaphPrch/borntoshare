@@ -57,10 +57,5 @@ export async function buildInternalHeaders(): Promise<HeadersInit> {
     }
   }
 
-  const serviceToken = (env.SERVICE_TOKEN ?? '').trim();
-  if (serviceToken) {
-    headers['X-Service-Token'] = serviceToken;
-  }
-
   return headers;
 }

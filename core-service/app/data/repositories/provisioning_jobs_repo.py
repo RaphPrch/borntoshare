@@ -45,14 +45,6 @@ class ProvisioningJobsRepo:
             .first()
         )
 
-    def get_latest_by_profile(self, profile_id: int) -> ProvisioningJob | None:
-        return (
-            self.db.query(ProvisioningJob)
-            .filter(ProvisioningJob.storage_root_access_profile_id == int(profile_id))
-            .order_by(ProvisioningJob.id.desc())
-            .first()
-        )
-
     def update(self, *, obj: ProvisioningJob, updates: dict) -> ProvisioningJob:
         payload = dict(updates)
         now = datetime.now(timezone.utc).replace(tzinfo=None)

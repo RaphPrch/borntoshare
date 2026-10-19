@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 import logging
 from typing import Dict, Any
@@ -306,12 +305,6 @@ async def import_config(payload: dict):
     if logging_db:
         logging_root_cfg = _resolve_logging_root_cfg(logging_db, root_cfg)
         logging_db_name = str(logging_db.get("db_name"))
-        os.environ["WIZARD_LOG_DB_ENABLED"] = "true"
-        os.environ["WIZARD_LOG_DB_HOST"] = str(logging_root_cfg.get("host"))
-        os.environ["WIZARD_LOG_DB_PORT"] = str(logging_root_cfg.get("port"))
-        os.environ["WIZARD_LOG_DB_USER"] = str(logging_db.get("app_sql_user"))
-        os.environ["WIZARD_LOG_DB_PASSWORD"] = str(logging_db.get("app_user_password"))
-        os.environ["WIZARD_LOG_DB_NAME"] = logging_db_name
 
         logging_app_cfg = {
             "host": logging_root_cfg.get("host"),

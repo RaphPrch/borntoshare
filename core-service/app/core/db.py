@@ -49,7 +49,6 @@ _REQUIRED_TABLE_COLUMNS: dict[str, set[str]] = {
         "normalized_root_path",
         "inherit_owners",
         "inherit_tags",
-        "inherit_access_profiles",
         "discovered_tree_json",
         "needs_revalidation",
         "revalidation_reason",
@@ -75,10 +74,13 @@ _REQUIRED_TABLE_COLUMNS: dict[str, set[str]] = {
         "severity",
         "checked_at",
     },
-    "zone_access_profiles": {
-        "zone_id",
-        "access_profile_id",
-        "updated_at",
+    "storage_root_access_profiles": {
+        "id",
+        "storage_root_id",
+        "access_level_code",
+        "group_name",
+        "group_external_id",
+        "status",
     },
 }
 
@@ -92,7 +94,6 @@ _REQUIRED_VIEWS: set[str] = {
     "v_access_request_timeline",
     "v_access_request_provisioning",
     "v_identity_source_latest_snapshot",
-    "v_storage_root_access_profile_users",
 }
 
 

@@ -1,0 +1,188 @@
+# ============================================================
+# BornToShare — every service in one file
+# Configuration: .env (same directory, see .env.example). Each service only
+# receives the variables it reads, never the whole file.
+#
+#   make up        build if needed and start everything
+#   make down      stop everything
+# ============================================================
+
+x-hardening: &hardening
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+
+x-common-env: &common-env
+  TZ: Europe/Paris
+  APP_ENV: ${APP_ENV:-dev}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  INTERNAL_TOKEN_MODE: ${INTERNAL_TOKEN_MODE:-static}
+  INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN must be set}
+
+services:
+  # Dramatiq broker (job queue between core-service and capsule-runner)
+  redis:
+    <<: *hardening
+    container_name: redis
+    image: docker.io/library/redis:7
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --appendfsync everysec --requirepass "$$REDIS_PASSWORD"
+    read_only: false              # writes its append-only file to /data
+    volumes:
+      - redis-data:/data
+    user: "999:999"               # "redis" user of the official image
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [jobs]
+
+  secret-broker:
+    <<: *hardening
+    container_name: secret-broker
+    image: b2s-secret-broker:latest
+    build: ./secret-broker
+    environment:
+      <<: *common-env
+      B2S_SECRET_PROVIDER: filesystem
+      B2S_SECRETS_DIR: /data/secrets
+      B2S_SECRET_MASTER_KEY: ${B2S_SECRET_MASTER_KEY:?B2S_SECRET_MASTER_KEY must be set}
+      B2S_SECRET_WRITE_TOKEN: ${B2S_SECRET_WRITE_TOKEN}
+      B2S_SECRET_ALLOW_WRITE: ${B2S_SECRET_ALLOW_WRITE:-true}
+    volumes:
+      # No :Z / :U — relabel or recursive chown can fail on the host filesystem
+      - ./secret-broker/secrets:/data/secrets:rw
+    security_opt:
+      - no-new-privileges:true
+      - label=disable
+    networks: [app]
+
+  auth-service:
+    <<: *hardening
+    container_name: auth-service
+    image: b2s-auth-service:latest
+    build: ./auth-service
+    environment:
+      <<: *common-env
+      PRINCIPAL_SIGNING_KEY: ${PRINCIPAL_SIGNING_KEY}
+      PRINCIPAL_TTL_SECONDS: ${PRINCIPAL_TTL_SECONDS}
+      PRINCIPAL_COOKIE_NAME: ${PRINCIPAL_COOKIE_NAME}
+      PRINCIPAL_COOKIE_SAMESITE: ${PRINCIPAL_COOKIE_SAMESITE}
+      PRINCIPAL_COOKIE_SECURE: ${PRINCIPAL_COOKIE_SECURE}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS}
+      SESSION_IDLE_TIMEOUT: ${SESSION_IDLE_TIMEOUT}
+      ENABLED_PROVIDERS: ${ENABLED_PROVIDERS}
+      DEFAULT_AUTH_PROVIDER: ${DEFAULT_AUTH_PROVIDER}
+      AD_ENABLED: ${AD_ENABLED}
+      AD_USER_FILTER: ${AD_USER_FILTER}
+      AD_USER_DN_TEMPLATE: ${AD_USER_DN_TEMPLATE}
+      DEFAULT_AD_BIND_PASSWORD_REF: ${DEFAULT_AD_BIND_PASSWORD_REF}
+      B2S_SECRET_WRITE_TOKEN: ${B2S_SECRET_WRITE_TOKEN}
+    expose: ["8000"]
+    networks: [app]
+
+  core-service:
+    <<: *hardening
+    container_name: core-service
+    image: b2s-core-service:latest
+    build: ./core-service
+    environment:
+      <<: *common-env
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      LOGGING_DB_HOST: ${DB_HOST}
+      LOGGING_DB_PORT: ${DB_PORT:-3306}
+      LOGGING_DB_NAME: ${LOGGING_DB_NAME}
+      LOGGING_DB_USER: ${DB_USER}
+      LOGGING_DB_PASSWORD: ${DB_PASSWORD}
+      CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
+      # The BFF may call the non-/internal/ orchestration routes without a token
+      B2S_ALLOW_PUBLIC_API: "true"
+    expose: ["8000"]
+    networks: [app, data, jobs]
+
+  capsule-runner:
+    <<: *hardening
+    container_name: capsule-runner
+    image: b2s-capsule-runner:latest
+    build: ./capsule-runner
+    environment:
+      <<: *common-env
+      LOG_LEVEL: ${CAPSULE_LOG_LEVEL:-INFO}
+      CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
+      RUNNER_MAX_SCOPE: ${RUNNER_MAX_SCOPE:-write}
+    extra_hosts:
+      - "${AD_DC_NAME}:${AD_DC_IP}"
+      - "${AD_DC_FQDN}:${AD_DC_IP}"
+    user: "10001:10001"
+    networks: [app, jobs]
+
+  frontend-service:
+    <<: *hardening
+    container_name: frontend-service
+    image: b2s-frontend-service:latest
+    build: ./frontend-service
+    environment:
+      <<: *common-env
+      ORIGIN: ${FRONTEND_PUBLIC_ORIGIN:-http://localhost:3000}
+      B2S_USE_HTTPS: ${B2S_USE_HTTPS:-false}
+      PRINCIPAL_SIGNING_KEY: ${PRINCIPAL_SIGNING_KEY}
+      PRINCIPAL_TTL_SECONDS: ${PRINCIPAL_TTL_SECONDS}
+      PRINCIPAL_COOKIE_NAME: ${PRINCIPAL_COOKIE_NAME}
+      PRINCIPAL_COOKIE_SAMESITE: ${PRINCIPAL_COOKIE_SAMESITE}
+      PRINCIPAL_COOKIE_SECURE: ${PRINCIPAL_COOKIE_SECURE}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
+    ports:
+      - "${FRONTEND_PUBLISHED_PORT:-3000}:3000"
+    networks: [app]
+
+  # Database initialization (run once, then stop it: make wizard / make wizard-down)
+  wizard-ui:
+    <<: *hardening
+    container_name: wizard-ui
+    image: b2s-wizard-ui:latest
+    build: ./wizard-ui
+    profiles: [wizard]
+    environment:
+      TZ: Europe/Paris
+      APP_ENV: ${APP_ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      WIZARD_MODE: ${WIZARD_MODE:-dev}
+    ports:
+      - "${WIZARD_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [app, data]
+
+networks:
+  app:
+    name: bts-app
+  data:
+    name: bts-data
+    internal: true
+  jobs:
+    name: bts-jobs
+    internal: true
+
+volumes:
+  redis-data:
+    name: b2s-redis-data

@@ -83,17 +83,3 @@ def validate_job_invariants(*, status_value: str | None, finished_at: datetime |
             detail="finished_at is required for terminal job status",
         )
 
-
-def validate_profile_invariants(*, status_value: str | None, group_external_id: str | None, error_code: str | None) -> None:
-    st = normalize_status(status_value)
-    if st == "SUCCEEDED" and not str(group_external_id or "").strip():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="group_external_id is required when profile status=SUCCEEDED",
-        )
-    if st == "FAILED" and not str(error_code or "").strip():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="error_code is required when profile status=FAILED",
-        )
-

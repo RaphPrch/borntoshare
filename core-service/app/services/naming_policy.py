@@ -415,22 +415,54 @@ def resolve_zone_context(db: Session, zone_ref: Any) -> tuple[int | None, str]:
     return None, raw
 
 
-def resolve_group_name(
-    db: Session,
-    *,
-    zone_ref: Any,
-    storage_root_path: str,
-    perm: str,
-    suffix: str | None = None,
-    profile: str | None = None,
-) -> dict[str, str]:
-    zone_id, zone_code = resolve_zone_context(db, zone_ref)
-    effective = resolve_effective_policy(db, zone_id)
-    return resolve_group_name_from_effective_policy(
+def resolve_storage_root_naming(db: Session, storage_root_id: int) -> tuple[dict[str, Any], str, str] | None:
+    """(effective policy, zone code, root path) used to name the AD groups of a storage root.
+
+    Precedence: global < zone < storage endpoint (override, then its naming_template) < storage root.
+    """
+    row = db.execute(
+        text(
+            """
+            SELECT sr.root_path, sr.name, sr.storage_endpoint_id, se.zone_id, se.naming_template, z.code AS zone_code
+            FROM storage_roots sr
+            JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
+            LEFT JOIN zones z ON z.id = se.zone_id
+            WHERE sr.id = :storage_root_id
+            """
+        ),
+        {"storage_root_id": int(storage_root_id)},
+    ).mappings().first()
+    if row is None:
+        return None
+    zone_id = int(row.get("zone_id") or 0) or None
+    endpoint_id = int(row.get("storage_endpoint_id") or 0) or None
+    effective = resolve_effective_policy(db, zone_id, storage_endpoint_id=endpoint_id)
+    endpoint_template = str(row.get("naming_template") or "").strip()
+    if endpoint_template:
+        effective = {**effective, "template": endpoint_template}
+    effective = _apply_override_policy(
+        effective,
+        _load_scope_override_policy(db, scope_type="storage_root", scope_id=int(storage_root_id)),
+    )
+    root_path = str(row.get("root_path") or row.get("name") or "").strip()
+    return effective, str(row.get("zone_code") or ""), root_path
+
+
+def resolve_storage_root_group_name(db: Session, *, storage_root_id: int, access_level: str) -> str | None:
+    """sAMAccountName of the AD group for this storage root and level (READ/WRITE).
+
+    Single naming rule shared by approvals (group creation) and the UI preview.
+    """
+    naming = resolve_storage_root_naming(db, int(storage_root_id))
+    if naming is None:
+        return None
+    effective, zone_code, root_path = naming
+    level = str(access_level or "").strip().upper()
+    group = resolve_group_name_from_effective_policy(
         effective_policy=effective,
         zone_code=zone_code,
-        storage_root_path=storage_root_path,
-        perm=perm,
-        suffix=suffix,
-        profile=profile,
+        storage_root_path=root_path,
+        perm=level,
     )
+    name = str((group or {}).get("samAccountName") or "").strip()
+    return name[:128] or None

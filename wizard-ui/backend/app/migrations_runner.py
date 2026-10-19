@@ -41,7 +41,6 @@ SEEDS_DIR = SQL_DIR / "seeds"
 
 LOGGING_SQL_DIR = SQL_DIR / "logging"
 LOGGING_SCHEMA_DIR = LOGGING_SQL_DIR / "schema"
-LOGGING_VIEWS_DIR = LOGGING_SQL_DIR / "views"
 LOGGING_INDEXES_DIR = LOGGING_SQL_DIR / "indexes"
 LOGGING_SEEDS_DIR = LOGGING_SQL_DIR / "seeds"
 
@@ -91,14 +90,13 @@ def _iter_sql_files(directory: Path) -> Iterable[Path]:
 def _sort_view_files(paths: Iterable[Path]) -> list[Path]:
     """
     Ensure deterministic and dependency-safe view order.
-    Base/context/dashboard views must be created before compat aliases.
+    Base/context/dashboard views first, then the others by name.
     """
     order = [
         "010_views_base.sql",
         "011_views_context.sql",
         "011b_views_effective_access.sql",
         "012_views_dashboard.sql",
-        "013_views_storage_endpoint_tags.sql",
     ]
     order_index = {name: idx for idx, name in enumerate(order)}
 
@@ -258,15 +256,13 @@ def run_seed_pack(db_name: str, root_cfg: Optional[dict] = None) -> None:
 
 def run_logging_schema_pack(db_name: str, root_cfg: Optional[dict] = None) -> None:
     """
-    Run dedicated Logging DB SQL pack (schema + views + indexes).
+    Run dedicated Logging DB SQL pack (schema + indexes).
     Files are isolated from application DB packs under:
       - sql/logging/schema/*.sql
-      - sql/logging/views/*.sql
       - sql/logging/indexes/*.sql
     """
     paths = (
         list(_iter_sql_files(LOGGING_SCHEMA_DIR))
-        + list(_iter_sql_files(LOGGING_VIEWS_DIR))
         + list(_iter_sql_files(LOGGING_INDEXES_DIR))
     )
 

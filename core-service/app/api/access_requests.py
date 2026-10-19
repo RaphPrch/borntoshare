@@ -25,7 +25,8 @@ from app.services.authorization import (
     require_access_request_access,
     require_access_request_review,
 )
-from app.services.naming_policy import resolve_group_name
+from app.services.naming_policy import resolve_storage_root_group_name
+from app.data.repositories.storage_root_access_profiles_repo import StorageRootAccessProfilesRepo
 from app.services.storage_root_access_profile_resolution import normalize_requested_permission
 
 
@@ -107,12 +108,7 @@ def _resolve_implicit_governed_group(
     row = db.execute(
         text(
             """
-            SELECT
-              sr.id AS storage_root_id,
-              sr.root_path,
-              sr.name AS storage_root_name,
-              se.zone_id,
-              se.identity_source_id
+            SELECT sr.id AS storage_root_id, se.identity_source_id
             FROM storage_roots sr
             JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
             WHERE sr.id = :storage_root_id
@@ -135,14 +131,7 @@ def _resolve_implicit_governed_group(
             },
         }
 
-    naming = resolve_group_name(
-        db,
-        zone_ref=int(row.get("zone_id") or 0) or None,
-        storage_root_path=str(row.get("root_path") or row.get("storage_root_name") or "").strip(),
-        perm="RW" if access_level_code == "WRITE" else "RX",
-        profile=access_level_code,
-    )
-    group_ref = str((naming or {}).get("samAccountName") or "").strip()
+    group_ref = resolve_storage_root_group_name(db, storage_root_id=int(storage_root_id), access_level=access_level_code) or ""
     if not group_ref:
         return {
             "status": "group_name_missing",
@@ -725,11 +714,8 @@ def _build_access_request_provisioning_plan(
             "access_level_code": access_level_code,
             "resolution_status": None,
             "storage_root_access_profile_id": None,
-            "access_profile_id": None,
-            "access_profile_code": None,
             "group_ref": None,
             "group_name": None,
-            "effective_group_ou_dn": None,
             "profile_status": None,
             "group_external_id": None,
             "identity_source_id": None,
@@ -771,16 +757,20 @@ def _build_access_request_provisioning_plan(
             items.append(item_plan)
             continue
 
+        # A level's group is created once (first approved request), then reused as is.
+        existing_group = StorageRootAccessProfilesRepo(db).get_for_level(
+            storage_root_id=int(target_id),
+            access_level_code=access_level_code,
+        )
+        if existing_group:
+            group_ref = str(existing_group.get("group_name") or group_ref)
         item_plan.update(
             {
-                "storage_root_access_profile_id": None,
-                "access_profile_id": None,
-                "access_profile_code": None,
+                "storage_root_access_profile_id": int(existing_group["id"]) if existing_group else None,
                 "group_ref": group_ref,
-                "group_name": str(resolution.get("group_name") or "").strip() or None,
-                "effective_group_ou_dn": None,
-                "profile_status": None,
-                "group_external_id": None,
+                "group_name": group_ref,
+                "profile_status": str(existing_group.get("status") or "").upper() if existing_group else None,
+                "group_external_id": (existing_group.get("group_external_id") or None) if existing_group else None,
                 "identity_source_id": int(resolution.get("identity_source_id") or 0) or None,
             }
         )

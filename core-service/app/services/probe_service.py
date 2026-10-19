@@ -206,8 +206,8 @@ async def _resolve_profile_row(
     *,
     storage_root_id: int,
     access_level_code: str | None,
-    access_profile_id: int | None,
 ) -> dict[str, Any] | None:
+    """Access group of the storage root for this level (first one when no level is given)."""
     rows = await call_route(
         provisioning_internal.list_storage_root_access_profiles,
         storage_root_id=int(storage_root_id),
@@ -215,15 +215,6 @@ async def _resolve_profile_row(
     )
     if not isinstance(rows, list):
         return None
-
-    if access_profile_id:
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            row_profile_id = positive_int(row.get("access_profile_id"))
-            row_link_id = positive_int(row.get("id"))
-            if access_profile_id in {row_profile_id, row_link_id}:
-                return row
 
     for row in rows:
         if isinstance(row, dict):
@@ -280,12 +271,10 @@ async def _enrich_acl_probe_payload(
             },
         )
 
-    access_profile_id = positive_int(target.get("access_profile_id"))
     raw_level = str(target.get("access_level_code") or "").strip().upper() or None
     profile_row = await _resolve_profile_row(
         storage_root_id=int(storage_root_id),
         access_level_code=raw_level,
-        access_profile_id=access_profile_id,
     )
 
     resolved_level = raw_level or (
@@ -359,10 +348,8 @@ async def _enrich_acl_probe_payload(
         options["timeout_sec"] = int(options.get("timeout_sec") or 20)
 
     context["storage_root_id"] = int(storage_root_id)
-    if access_profile_id:
-        context["access_profile_id"] = int(access_profile_id)
-    elif profile_row and positive_int(profile_row.get("access_profile_id")):
-        context["access_profile_id"] = int(positive_int(profile_row.get("access_profile_id")) or 0)
+    if profile_row and positive_int(profile_row.get("id")):
+        context["storage_root_access_profile_id"] = int(positive_int(profile_row.get("id")) or 0)
     if resolved_level:
         context["access_level_code"] = resolved_level
 

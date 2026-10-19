@@ -48,7 +48,7 @@ class CoreLocalProvider(AuthProvider):
             outcome="attempt",
         )
 
-        # 🔐 Service-to-service auth headers (X-Internal-Token + X-Service-Token when configured)
+        # 🔐 Service-to-service auth headers (X-Internal-Token)
         headers = build_internal_headers()
 
         try:

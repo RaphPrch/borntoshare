@@ -1019,7 +1019,6 @@
           root_path: selectedFolder.rootPath,
           inherit_owners: inheritGovernance,
           inherit_tags: inheritGovernance,
-          inherit_access_profiles: inheritGovernance,
           status: 'active'
         });
         createdRoots.push(created);

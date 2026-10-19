@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -13,22 +12,20 @@ if str(_ROOT) not in sys.path:
 from app.services import core_client
 
 
-def test_headers_require_service_and_internal_tokens(monkeypatch) -> None:
-    monkeypatch.delenv("SERVICE_TOKEN", raising=False)
+def test_headers_require_internal_token(monkeypatch) -> None:
     monkeypatch.delenv("INTERNAL_TOKEN", raising=False)
 
     with pytest.raises(RuntimeError) as exc:
         core_client._headers()
-    assert "SERVICE_TOKEN" in str(exc.value)
+    assert "INTERNAL_TOKEN" in str(exc.value)
 
 
-def test_headers_use_strict_token_sources(monkeypatch) -> None:
-    monkeypatch.setenv("SERVICE_TOKEN", "svc-token")
+def test_headers_send_internal_token_and_caller_identity(monkeypatch) -> None:
     monkeypatch.setenv("INTERNAL_TOKEN", "internal-token")
 
     headers = core_client._headers()
 
-    assert headers["X-Service-Token"] == "svc-token"
+    assert "X-Service-Token" not in headers
     assert headers["X-Internal-Token"] == "internal-token"
     assert headers["X-Service-Name"] == "capsule"
     assert headers["X-Service-Scope"] == "jobs:read,jobs:write,events:write,profiles:write"

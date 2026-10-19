@@ -71,7 +71,6 @@ def test_storage_roots_schema_declares_hierarchy_columns() -> None:
     assert "normalized_root_path varchar(512) null" in storage_roots
     assert "inherit_owners tinyint(1) not null default 0" in storage_roots
     assert "inherit_tags tinyint(1) not null default 0" in storage_roots
-    assert "inherit_access_profiles tinyint(1) not null default 0" in storage_roots
     assert "fk_storage_roots_parent_storage_root_id" in storage_roots
     assert "references storage_roots(id) on delete restrict" in storage_roots
 
@@ -128,7 +127,8 @@ def test_directory_snapshots_schema_keeps_source_version_uniqueness_contract() -
     normalized = schema.lower()
     assert "uq_directory_snapshots_source_version" in normalized
     assert "unique (identity_source_id, version)" in normalized
-    assert "idx_directory_snapshots_source_status_created" in normalized
+    indexes = _read("../wizard-ui/backend/app/sql/indexes/020_indexes.sql").lower()
+    assert "idx_directory_snapshots_source_status_created" in indexes
 
 
 def test_directory_snapshots_repo_create_run_has_integrity_retry_loop() -> None:

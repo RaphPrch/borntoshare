@@ -84,6 +84,9 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
         post_calls.append((path, dict(payload)))
         if path == "/api/internal/access-requests/item-executions":
             return {"ok": True}
+        if path == "/api/internal/provisioning/storage-root-access-profiles":
+            # First approval for this level: the access group is recorded before the AD job
+            return {"created": True, "data": {"id": 55, "group_name": payload["group_name"], "status": "PENDING"}}
         if path == "/api/access-requests/bulk":
             return {"data": {"ok": True}}
         raise AssertionError(path)
@@ -91,6 +94,7 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
     async def _fake_ensure_group(payload, request=None, response=None):
         _ = request, response
         assert payload.group_name == "B2S_ROOT_77_READ"
+        assert payload.context.storage_root_access_profile_id == 55
         return {"data": {"ok": True, "job_id": 7001, "status": "QUEUED"}}
 
     async def _fake_ensure_member(payload, request=None, response=None):
@@ -122,11 +126,16 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
     assert out["data"]["updated_ids"] == [101]
     assert out["data"]["failed_ids"] == []
     assert out["data"]["executions_started"] == 1
-    assert post_calls[0][0] == "/api/internal/access-requests/item-executions"
-    assert str(post_calls[0][1].get("status") or "").upper() == "DONE"
-    req_payload = dict(post_calls[0][1].get("requested_payload_json") or {})
+    # First approval for READ on this root: the access group is recorded, then the item executes
+    assert post_calls[0] == (
+        "/api/internal/provisioning/storage-root-access-profiles",
+        {"storage_root_id": 77, "access_level_code": "READ", "group_name": "B2S_ROOT_77_READ"},
+    )
+    assert post_calls[1][0] == "/api/internal/access-requests/item-executions"
+    assert str(post_calls[1][1].get("status") or "").upper() == "DONE"
+    req_payload = dict(post_calls[1][1].get("requested_payload_json") or {})
     assert str(req_payload.get("correlation_id") or "").startswith("ar_101_201_")
-    assert post_calls[1] == (
+    assert post_calls[2] == (
         "/api/access-requests/bulk",
         {"ids": [101], "decision": "approve", "decision_comment": "Validated by guardian"},
     )
@@ -232,6 +241,9 @@ def test_bulk_decision_approve_uses_implicit_governed_group_without_profile_bind
         post_calls.append((path, dict(payload)))
         if path == "/api/internal/access-requests/item-executions":
             return {"ok": True}
+        if path == "/api/internal/provisioning/storage-root-access-profiles":
+            # First approval for this level: the access group is recorded before the AD job
+            return {"created": True, "data": {"id": 55, "group_name": payload["group_name"], "status": "PENDING"}}
         if path == "/api/access-requests/bulk":
             return {"data": {"ok": True}}
         raise AssertionError(path)

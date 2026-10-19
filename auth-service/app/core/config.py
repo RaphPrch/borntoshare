@@ -86,7 +86,6 @@ class Settings(BaseSettings):
     # =================================================
     # V1: static shared token only
     INTERNAL_TOKEN: str
-    SERVICE_TOKEN: Optional[str] = None
     INTERNAL_SERVICE_NAME: str = "auth"
     INTERNAL_SERVICE_SCOPE: str = "jobs:read"
 

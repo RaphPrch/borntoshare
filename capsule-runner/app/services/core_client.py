@@ -9,23 +9,11 @@ from app.core import settings
 
 
 def _headers() -> Dict[str, str]:
-    service_token = (
-        os.getenv("SERVICE_TOKEN")
-        or ""
-    ).strip()
-
-    # Security hardening:
-    # - X-Service-Token is only sourced from SERVICE_TOKEN (strict separation)
-    # - X-Internal-Token is only sourced from INTERNAL_TOKEN
     internal_token = (os.getenv("INTERNAL_TOKEN") or "").strip()
-
-    if not service_token:
-        raise RuntimeError("Missing SERVICE_TOKEN for core-service internal calls")
     if not internal_token:
         raise RuntimeError("Missing INTERNAL_TOKEN for core-service internal calls")
 
     return {
-        "X-Service-Token": service_token,
         "X-Internal-Token": internal_token,
         "X-Service-Name": "capsule",
         "X-Service-Scope": "jobs:read,jobs:write,events:write,profiles:write",

@@ -48,9 +48,9 @@ Gateway (frontend BFF):
 
 core-service (`core-service/`, all business data and orchestration):
 - Layout of `app/`: `core/` (config, db, logging, errors, internal auth, `direct_call.py`, `values.py`), `data/` (`models/`, `repositories/`: all SQL), `services/` (business logic), `schemas/`, `api/` (routes, mounted under `/api`), `api/governance/` (orchestration routes, mounted under `/api/governance`), `jobs/` (Dramatiq broker, job contracts, QUEUED watchdog).
-- Only `data/` and services touch the database. Use SQLAlchemy 2.x. There is no Alembic: the SQL schema, views and seeds are owned by wizard-ui (`wizard-ui/backend/app/sql/`) and applied by its migrations runner.
+- Only `data/` and services touch the database. Use SQLAlchemy 2.x.
 - Orchestration (`api/governance/`: access requests, identity imports, probes, AD groups) publishes provisioning jobs to Dramatiq. It calls route handlers directly (`core/direct_call.call_route`: own DB session, payload validated into the handler's model, no HTTP) or services; it never imports `app.data` or opens DB sessions, and only `app/main.py` mounts it (both enforced by `test_architecture_guardrails.py`).
-- Service-to-service auth lives in `core/internal_auth.py` only (`X-Internal-Token` static/HMAC, `X-Service-Token` + scopes). Orchestration routes use `require_orchestration_access`; `B2S_ALLOW_PUBLIC_API` opens the non-`/internal/` ones to the BFF.
+- Service-to-service auth lives in `core/internal_auth.py` only (one shared `X-Internal-Token`, static or HMAC; scoped routes also read `X-Service-Name` / `X-Service-Scope`). Orchestration routes use `require_orchestration_access`; `B2S_ALLOW_PUBLIC_API` opens the non-`/internal/` ones to the BFF.
 - Settings live in `core/config.py` only; `CAPSULE_BROKER_URL` is required at startup.
 - Shared helpers: response envelopes `ui_data`/`ui_list`/`ui_action` (`api/_helpers.py`), value helpers (`core/values.py`), shared pydantic rules `SecretRefRules`/`ProbeStatusRules` (`schemas/common.py`). Reuse them instead of re-implementing.
 - core-service never talks LDAP or SMB: directory and file-server work runs as capsule-runner jobs.
@@ -70,8 +70,21 @@ Capsules:
 - Capsules are agentless.
 - capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares and NTFS ACLs, Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
 - Capsule execution must remain isolated from the main application network.
-- Job queue: Dramatiq over Redis. Redis is a standalone service (`redis/podman-compose.yml`), password-protected (`REDIS_PASSWORD`), with no published port, on the `bts-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
+- Job queue: Dramatiq over Redis. Redis is a service of the root `podman-compose.yml`, password-protected (`REDIS_PASSWORD`), with no published port, on the `bts-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
+
+Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
+- There is no Alembic. `wizard-ui/backend/app/migrations_runner.py` applies `schema/` → `views/` → `indexes/` (and `seeds/` in dev); the logging DB has its own `logging/schema` + `logging/indexes`. Every file must be idempotent: the runner re-applies the whole pack.
+- Tables: `CREATE TABLE IF NOT EXISTS`; indexes: `CREATE INDEX IF NOT EXISTS` in `indexes/020_indexes.sql`.
+- Before v1 there are no migrations: the pack describes the whole schema and the database is recreated from it (re-run the wizard on an empty database). Removing an object = deleting its definition.
+- Only create a view that code reads; `core-service/app/core/db.py` lists the views and columns checked at startup.
+- Access groups (`storage_root_access_profiles`): one AD group per storage root and level (READ/WRITE), created on the first approved request for that level, then reused (only members are added). No `access_profiles` catalog, no zone-level templates.
+- Directory snapshots: only the active one and the previous archived one keep their user/group/membership rows (`DirectorySnapshotsRepo.purge_archived_details`).
+
+Containers:
+- One `Containerfile` per service; Python images follow the same template (`python:3.12-slim`, no venv, code owned by root, fixed non-root UID).
+- One root `podman-compose.yml` (all services, shared hardening via `x-hardening`) and one root `.env` (model: `.env.example`). Each service lists only the variables it reads in `environment:` — no `env_file`, so secrets are not spread to every container. Topology URLs (`http://core-service:8000`…) are code defaults, not configuration.
+- `make up` / `make down` / `make logs` / `make logs-<service>`; the database wizard runs on demand (`make wizard`, profile `wizard`).
 
 ## Checks
 

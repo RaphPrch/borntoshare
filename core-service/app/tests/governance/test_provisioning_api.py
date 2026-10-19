@@ -57,10 +57,11 @@ def test_ensure_ad_group_via_name_uses_payload_secret_ref_and_returns_202(monkey
     assert "ad_group_ensure_queued" in log_calls
 
 
-def test_ensure_ad_group_via_name_idempotent_with_profile(monkeypatch) -> None:
+def test_ensure_ad_group_via_name_reuses_active_job_of_access_group(monkeypatch) -> None:
     async def _fake_internal_get(path: str):
-        if path == "/api/internal/provisioning/jobs/by-profile/77":
-            return {"id": 701, "status": "RUNNING", "correlation_id": "corr-existing"}
+        if path.startswith("/api/internal/provisioning/jobs?") and "storage_root_access_profile_id=77" in path:
+            assert "active_only=true" in path and "job_type=AD_GROUP_ENSURE" in path
+            return [{"id": 701, "status": "RUNNING", "correlation_id": "corr-existing"}]
         raise AssertionError(path)
 
     async def _fake_internal_post(path: str, payload: dict):
@@ -79,7 +80,7 @@ def test_ensure_ad_group_via_name_idempotent_with_profile(monkeypatch) -> None:
         group_name="B2S_FINANCE_READ",
         target_ou_dn="OU=Groups,DC=corp,DC=local",
         secret_ref="sm://ad/writer",
-        context=EnsureAdGroupContextIn(access_profile_id=77),
+        context=EnsureAdGroupContextIn(storage_root_access_profile_id=77),
     )
     response = SimpleNamespace(status_code=None)
     out = asyncio.run(api.ensure_ad_group_via_name(payload=payload, request=None, response=response))
