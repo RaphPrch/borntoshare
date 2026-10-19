@@ -37,15 +37,16 @@ SELECT
   ib.identity_id AS actor_id,
   CAST(COALESCE(iu.external_id, du.external_id) AS CHAR(255)) COLLATE utf8mb4_unicode_ci AS actor_external_id,
   CAST(COALESCE(iu.display_name, iu.username, du.display_name, du.username, du.external_id) AS CHAR(255)) COLLATE utf8mb4_unicode_ci AS actor_display_name,
-  LOWER(COALESCE(NULLIF(srap.access_level_code, ''), NULLIF(ap.code, ''), NULLIF(ap.permission, ''), 'READ')) AS access_level,
+  LOWER(srap.access_level_code) AS access_level,
   COALESCE(ds.activated_at, ds.completed_at, ds.finished_at, ds.started_at, dem.created_at, dem.updated_at) AS granted_at,
   CAST(NULL AS DATETIME) AS expires_at,
   CAST('inherited' AS CHAR(32)) AS source
 FROM storage_root_access_profiles srap
 LEFT JOIN storage_roots sr ON sr.id = srap.storage_root_id
 LEFT JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-LEFT JOIN access_profiles ap ON ap.id = srap.access_profile_id
-JOIN directory_groups dg ON dg.external_id = srap.group_external_id
+JOIN directory_groups dg
+  ON LOWER(dg.code) = LOWER(srap.group_name)  -- sAMAccountName, independent of GUID formatting
+ AND dg.deleted_at IS NULL
 JOIN directory_effective_memberships dem
   ON dem.directory_group_id = dg.id
  AND dem.identity_source_id = dg.identity_source_id
@@ -53,8 +54,7 @@ JOIN directory_users du ON du.id = dem.directory_user_id
 LEFT JOIN identity_bindings ib ON ib.directory_user_id = du.id
 LEFT JOIN identities iu ON iu.id = ib.identity_id
 LEFT JOIN directory_snapshots ds ON ds.id = dem.snapshot_id
-WHERE COALESCE(ap.active, 1) = 1
-  AND COALESCE(NULLIF(TRIM(srap.group_external_id), ''), NULL) IS NOT NULL
+WHERE srap.status = 'SUCCEEDED'
   AND (se.identity_source_id IS NULL OR dg.identity_source_id = se.identity_source_id);
 
 CREATE OR REPLACE VIEW v_storage_root_effective_access AS

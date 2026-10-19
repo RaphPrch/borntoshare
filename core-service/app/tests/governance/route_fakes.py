@@ -24,22 +24,15 @@ _P = "/api/internal/provisioning"
 
 ROUTES: dict[Callable[..., Any], tuple[str, str]] = {
     provisioning_internal.get_storage_root_provisioning_context: ("GET", _P + "/storage-roots/{storage_root_id}/context"),
-    provisioning_internal.upsert_storage_root_access_profile: ("POST", _P + "/storage-root-access-profiles"),
-    provisioning_internal.queue_storage_root_access_profile: ("POST", _P + "/storage-root-access-profiles/{profile_id}/queue"),
-    provisioning_internal.get_storage_root_access_profile: ("GET", _P + "/storage-root-access-profiles/{profile_id}"),
+    provisioning_internal.ensure_storage_root_access_group: ("POST", _P + "/storage-root-access-profiles"),
     provisioning_internal.list_storage_root_access_profiles: ("GET", _P + "/storage-root-access-profiles"),
     provisioning_internal.create_provisioning_job: ("POST", _P + "/jobs"),
     provisioning_internal.list_provisioning_jobs: ("GET", _P + "/jobs"),
-    provisioning_internal.get_provisioning_job_by_correlation: ("GET", _P + "/jobs/by-correlation/{correlation_id}"),
-    provisioning_internal.get_latest_provisioning_job_by_profile: ("GET", _P + "/jobs/by-profile/{profile_id}"),
     provisioning_internal.get_provisioning_job_by_id: ("GET", _P + "/jobs/{job_id}"),
-    provisioning_internal.requeue_provisioning_job: ("POST", _P + "/jobs/{job_id}/requeue"),
     provisioning_internal.cancel_provisioning_job: ("POST", _P + "/jobs/{job_id}/cancel"),
     provisioning_internal.mark_watchdog_republish: ("POST", _P + "/jobs/{job_id}/watchdog-republish-mark"),
     provisioning_internal.complete_provisioning_job: ("POST", _P + "/jobs/{job_id}/complete"),
     provisioning_internal.fail_provisioning_job: ("POST", _P + "/jobs/{job_id}/fail"),
-    provisioning_internal.complete_and_apply_provisioning: ("POST", _P + "/jobs/{job_id}/complete-and-apply"),
-    provisioning_internal.list_reconcile_candidates: ("GET", _P + "/reconcile-candidates"),
     access_requests.get_access_request_provisioning_plan_internal: (
         "GET",
         "/api/internal/access-requests/{access_request_id}/provisioning-plan",

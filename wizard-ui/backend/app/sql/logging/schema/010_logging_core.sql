@@ -3,13 +3,6 @@
 -- Logging/activity schema used by production services.
 -- ============================================================
 
-DROP VIEW IF EXISTS v_audit_journey;
-DROP VIEW IF EXISTS v_audit_by_action;
-DROP VIEW IF EXISTS v_audit_by_actor;
-DROP VIEW IF EXISTS v_audit_by_service;
-
-DROP TRIGGER IF EXISTS audit_no_update;
-DROP TRIGGER IF EXISTS audit_no_delete;
 
 CREATE TABLE IF NOT EXISTS audit_event (
   id BINARY(16) NOT NULL PRIMARY KEY,
@@ -30,7 +23,3 @@ CREATE TABLE IF NOT EXISTS audit_event (
   hash_prev CHAR(64) NULL,
   hash_current CHAR(64) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Wizard log tables (written, never read): removed.
-DROP TABLE IF EXISTS wizard_logs;
-DROP TABLE IF EXISTS wizard_logging_settings;

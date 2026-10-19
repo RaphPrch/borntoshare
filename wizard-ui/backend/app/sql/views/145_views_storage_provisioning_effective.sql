@@ -36,7 +36,6 @@ SELECT
   sr.name AS storage_root_name,
   sr.root_path,
   sr.normalized_root_path,
-  COALESCE(sr.inherit_access_profiles, 0) AS inherit_access_profiles,
   se.zone_id,
   se.endpoint_type,
   se.protocol,

@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.api import access_requests as access_requests_routes
+from app.api import provisioning_internal
 from app.core.direct_call import call_route
 from app.api._helpers import ui_data
 from app.schemas.provisioning import (
@@ -447,14 +448,27 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
                 try:
                     ensure_request = _request_with_id(request, f"{item_correlation}_group")
                     ensured_group: dict[str, Any] | None = None
-                    profile_already_provisioned = profile_status in {"SUCCEEDED"} and bool(group_external_id)
+                    profile_already_provisioned = profile_status == "SUCCEEDED" and bool(group_external_id)
                     if not profile_already_provisioned:
+                        # First request for this level: record the group, then create it in AD.
+                        access_group = unwrap_data(
+                            await call_route(
+                                provisioning_internal.ensure_storage_root_access_group,
+                                payload={
+                                    "storage_root_id": int(target_id),
+                                    "access_level_code": access_level_code,
+                                    "group_name": group_ref,
+                                },
+                            )
+                        )
+                        group_ref = str(access_group.get("group_name") or group_ref)
                         ensure_out = await ensure_ad_group_via_name(
                             EnsureAdGroupIn(
                                 group_name=group_ref,
                                 identity_source_id=source_id,
                                 context=EnsureAdGroupContextIn(
                                     storage_root_id=int(target_id),
+                                    storage_root_access_profile_id=int(access_group.get("id") or 0) or None,
                                 ),
                             ),
                             request=ensure_request,

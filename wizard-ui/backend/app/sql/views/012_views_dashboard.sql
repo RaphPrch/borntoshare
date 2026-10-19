@@ -39,6 +39,5 @@ SELECT
   (SELECT COUNT(*) FROM storage_roots)     AS storage_roots_count,
   0                                                                 AS admins_count,
   (SELECT COUNT(*) FROM tags)                                       AS tags_count,
-  (SELECT COUNT(*) FROM access_profiles)                            AS access_profiles_count,
   (SELECT COUNT(*) FROM access_requests)                             AS access_requests_count,
   (SELECT COUNT(*) FROM access_requests WHERE status = 'pending')    AS pending_requests_count;

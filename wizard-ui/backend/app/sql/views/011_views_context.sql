@@ -132,7 +132,6 @@ SELECT
   psr.root_path     AS parent_root_path,
   COALESCE(sr.inherit_owners, 0) AS inherit_owners,
   COALESCE(sr.inherit_tags, 0) AS inherit_tags,
-  COALESCE(sr.inherit_access_profiles, 0) AS inherit_access_profiles,
   sr.status = 'active' AS is_active,
   sr.status         AS storage_root_status,
   CASE
@@ -227,7 +226,6 @@ SELECT
   psr.root_path AS parent_root_path,
   COALESCE(sr.inherit_owners, 0) AS inherit_owners,
   COALESCE(sr.inherit_tags, 0) AS inherit_tags,
-  COALESCE(sr.inherit_access_profiles, 0) AS inherit_access_profiles,
   sr.status AS status,
   sr.storage_endpoint_id AS storage_endpoint_id
 FROM storage_roots sr

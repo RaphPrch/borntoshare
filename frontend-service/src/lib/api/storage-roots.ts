@@ -14,8 +14,6 @@ export type StorageRootContext = {
   parent_root_path?: string | null;
   inherit_owners?: boolean | number | null;
   inherit_tags?: boolean | number | null;
-  /** @deprecated Legacy access-profile inheritance flag kept only for core-service payload compatibility. */
-  inherit_access_profiles?: boolean | number | null;
   storage_endpoint_id?: number | null;
   storage_endpoint_name?: string | null;
   endpoint_name?: string | null;
@@ -58,8 +56,6 @@ type StorageRootRecord = {
   parent_root_path?: string | null;
   inherit_owners?: boolean | number | null;
   inherit_tags?: boolean | number | null;
-  /** @deprecated Legacy access-profile inheritance flag kept only for core-service payload compatibility. */
-  inherit_access_profiles?: boolean | number | null;
   storage_endpoint_id?: number | null;
   storage_endpoint_name?: string | null;
   endpoint_name?: string | null;
@@ -117,8 +113,6 @@ export type StorageRootCreatePayload = {
   root_path: string;
   inherit_owners?: boolean;
   inherit_tags?: boolean;
-  /** @deprecated Still forwarded to core-service for compatibility. New UI should not depend on this flag. */
-  inherit_access_profiles?: boolean;
   status?: string;
 };
 
@@ -129,8 +123,6 @@ export type StorageRootUpdatePayload = {
   root_path?: string;
   inherit_owners?: boolean;
   inherit_tags?: boolean;
-  /** @deprecated Still forwarded to core-service for compatibility. New UI should not depend on this flag. */
-  inherit_access_profiles?: boolean;
   status?: string;
   last_probe_status?: string | null;
   last_probe_at?: string | null;
@@ -146,8 +138,6 @@ type StorageRootApiCreatePayload = {
   root_path: string;
   inherit_owners?: boolean;
   inherit_tags?: boolean;
-  /** @deprecated core-service compatibility only. */
-  inherit_access_profiles?: boolean;
   status?: string;
 };
 
@@ -158,8 +148,6 @@ type StorageRootApiUpdatePayload = {
   root_path?: string;
   inherit_owners?: boolean;
   inherit_tags?: boolean;
-  /** @deprecated core-service compatibility only. */
-  inherit_access_profiles?: boolean;
   status?: string;
   last_probe_status?: string | null;
   last_probe_at?: string | null;
@@ -200,7 +188,6 @@ function toStorageRootCreateApiPayload(payload: StorageRootCreatePayload): Stora
     root_path: requiredTrimmed(payload.root_path, 'Storage root path'),
     inherit_owners: hasParent ? Boolean(payload.inherit_owners) : false,
     inherit_tags: hasParent ? Boolean(payload.inherit_tags) : false,
-    inherit_access_profiles: hasParent ? Boolean(payload.inherit_access_profiles) : false,
     status: optionalTrimmed(payload.status) ?? 'active'
   };
 
@@ -230,7 +217,6 @@ function toStorageRootUpdateApiPayload(payload: StorageRootUpdatePayload): Stora
   if (payload.root_path !== undefined) data.root_path = requiredTrimmed(payload.root_path, 'Storage root path');
   if (payload.inherit_owners !== undefined) data.inherit_owners = Boolean(payload.inherit_owners);
   if (payload.inherit_tags !== undefined) data.inherit_tags = Boolean(payload.inherit_tags);
-  if (payload.inherit_access_profiles !== undefined) data.inherit_access_profiles = Boolean(payload.inherit_access_profiles);
   if (payload.status !== undefined) data.status = optionalTrimmed(payload.status);
   if (payload.last_probe_status !== undefined) data.last_probe_status = optionalTrimmed(payload.last_probe_status) ?? null;
   if (payload.last_probe_at !== undefined) data.last_probe_at = payload.last_probe_at;

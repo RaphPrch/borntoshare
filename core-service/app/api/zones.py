@@ -114,9 +114,7 @@ def list_zones(db: Session = Depends(get_db)):
 def get_zone_console(zone_id: int, db: Session = Depends(get_db)):
     """Ultra Gold console read-model for a zone (V1++).
 
-    Legacy note:
-    - access_profiles were removed from the active frontend console
-    - this payload now focuses on zone, endpoints, roots and provisioning policy
+    Zone, endpoints, roots and provisioning policy.
     """
 
     repo = ZonesViewsRepo(db)

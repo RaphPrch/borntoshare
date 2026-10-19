@@ -90,8 +90,7 @@ def _iter_sql_files(directory: Path) -> Iterable[Path]:
 def _sort_view_files(paths: Iterable[Path]) -> list[Path]:
     """
     Ensure deterministic and dependency-safe view order.
-    Base/context/dashboard views first, then the others by name
-    (900_drop_unused_views.sql last).
+    Base/context/dashboard views first, then the others by name.
     """
     order = [
         "010_views_base.sql",

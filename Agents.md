@@ -75,9 +75,10 @@ Capsules:
 
 Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
 - There is no Alembic. `wizard-ui/backend/app/migrations_runner.py` applies `schema/` → `views/` → `indexes/` (and `seeds/` in dev); the logging DB has its own `logging/schema` + `logging/indexes`. Every file must be idempotent: the runner re-applies the whole pack.
-- Tables: `CREATE TABLE IF NOT EXISTS`; columns added later go through an idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in the same file. Indexes: `CREATE INDEX IF NOT EXISTS` in `indexes/020_indexes.sql`.
-- Removing an object: delete its definition and add a `DROP ... IF EXISTS` to `schema/900_drop_unused_tables.sql`, `views/900_drop_unused_views.sql` or the "Removed indexes" section of `indexes/020_indexes.sql`, so existing databases converge. No one-shot migration scripts.
+- Tables: `CREATE TABLE IF NOT EXISTS`; indexes: `CREATE INDEX IF NOT EXISTS` in `indexes/020_indexes.sql`.
+- Before v1 there are no migrations: the pack describes the whole schema and the database is recreated from it (re-run the wizard on an empty database). Removing an object = deleting its definition.
 - Only create a view that code reads; `core-service/app/core/db.py` lists the views and columns checked at startup.
+- Access groups (`storage_root_access_profiles`): one AD group per storage root and level (READ/WRITE), created on the first approved request for that level, then reused (only members are added). No `access_profiles` catalog, no zone-level templates.
 - Directory snapshots: only the active one and the previous archived one keep their user/group/membership rows (`DirectorySnapshotsRepo.purge_archived_details`).
 
 Containers:

@@ -13,8 +13,6 @@ from app.core.values import utcnow_naive
 OPEN_STATUS = "open"
 RESOLVED_STATUS = "resolved"
 ACKNOWLEDGED_STATUS = "acknowledged"
-FAILED_OR_PENDING_PROFILE_STATUSES = {"FAILED", "ERROR", "CANCELLED", "RETRYING", "RUNNING", "QUEUED", "NOT_CREATED"}
-CREATED_PROFILE_STATUSES = {"CREATED", "SUCCEEDED", "PROVISIONED"}
 
 
 class GovernanceAlertsRepo(SQLViewRepo):
@@ -392,18 +390,13 @@ class GovernanceAlertsRepo(SQLViewRepo):
             """
             SELECT
               srap.id,
-              UPPER(COALESCE(NULLIF(srap.access_level_code, ''), NULLIF(ap.code, ''), NULLIF(ap.permission, ''), 'READ')) AS access_level,
+              srap.access_level_code AS access_level,
               srap.group_name,
               srap.group_external_id,
-              UPPER(COALESCE(srap.status, 'NOT_CREATED')) AS status,
-              srap.error_code,
-              srap.error_message,
-              srap.next_retry_at
+              UPPER(srap.status) AS status,
+              srap.error_message
             FROM storage_root_access_profiles srap
-            LEFT JOIN access_profiles ap ON ap.id = srap.access_profile_id
             WHERE srap.storage_root_id = :storage_root_id
-              AND COALESCE(srap.active, 1) = 1
-              AND srap.deleted_at IS NULL
             ORDER BY access_level, srap.id
             """,
             {"storage_root_id": root_id},
@@ -431,32 +424,15 @@ class GovernanceAlertsRepo(SQLViewRepo):
             if isinstance(permission, dict) and normalize_principal(permission.get("principal"))
         }
         expected_groups: set[str] = set()
-        if len(profile_rows) <= 0:
-            alerts.append(
-                {
-                    **base("missing_access_profile"),
-                    "severity": "warning",
-                    "title": "Access profile missing",
-                    "message": "No access profile linked to this storage root",
-                    "source_type": "governance_policy",
-                    "source_id": str(root_id),
-                    "metadata_json": {"storage_root_name": root_label},
-                }
-            )
         for row in profile_rows:
             profile_status = str(row.get("status") or "").strip().upper()
-            group_external_id = str(row.get("group_external_id") or "").strip()
             access_level = str(row.get("access_level") or "READ").strip().upper()
             group_name = str(row.get("group_name") or "").strip() or None
             normalized_group = normalize_principal(group_name)
             if normalized_group:
                 expected_groups.add(normalized_group)
-            if profile_status in CREATED_PROFILE_STATUSES:
-                pass
-            elif profile_status not in FAILED_OR_PENDING_PROFILE_STATUSES and group_external_id:
-                pass
-            else:
-                is_pending = profile_status in {"RETRYING", "RUNNING", "QUEUED"}
+            if profile_status != "SUCCEEDED":
+                is_pending = profile_status == "PENDING"
                 alert_type = f"ad_group_{access_level.lower()}_{'pending' if is_pending else 'not_created'}"
                 profile_id = int(row.get("id") or 0)
                 alert = {
@@ -474,8 +450,6 @@ class GovernanceAlertsRepo(SQLViewRepo):
                         "access_level": access_level,
                         "group_name": group_name,
                         "profile_status": profile_status,
-                        "error_code": row.get("error_code"),
-                        "next_retry_at": str(row.get("next_retry_at")) if row.get("next_retry_at") else None,
                     },
                 }
                 alerts.append(alert)

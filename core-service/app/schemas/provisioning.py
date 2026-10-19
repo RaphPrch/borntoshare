@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class EnsureAdGroupContextIn(BaseModel):
     storage_root_id: Optional[int] = Field(default=None, gt=0)
-    access_profile_id: Optional[int] = Field(default=None, gt=0)
+    storage_root_access_profile_id: Optional[int] = Field(default=None, gt=0)
     zone_id: Optional[int] = Field(default=None, gt=0)
 
 

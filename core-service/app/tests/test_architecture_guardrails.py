@@ -71,7 +71,6 @@ def test_storage_roots_schema_declares_hierarchy_columns() -> None:
     assert "normalized_root_path varchar(512) null" in storage_roots
     assert "inherit_owners tinyint(1) not null default 0" in storage_roots
     assert "inherit_tags tinyint(1) not null default 0" in storage_roots
-    assert "inherit_access_profiles tinyint(1) not null default 0" in storage_roots
     assert "fk_storage_roots_parent_storage_root_id" in storage_roots
     assert "references storage_roots(id) on delete restrict" in storage_roots
 

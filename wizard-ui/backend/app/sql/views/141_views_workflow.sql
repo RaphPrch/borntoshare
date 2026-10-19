@@ -2,7 +2,6 @@
 -- Vues UI pour écran Requests
 -- IMPORTANT: requiert tables core:
 -- identities (id, display_name, type, source_id, external_id)
--- access_profiles (id, name)
 -- storage_roots (id, name) ; zones (id, name)
 
 SET NAMES utf8mb4;

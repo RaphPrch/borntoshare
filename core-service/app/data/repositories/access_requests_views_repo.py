@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.sql import to_dicts
 from app.services.activity_bridge import list_activity_by_target
-from app.services.naming_policy import resolve_group_name
+from app.services.naming_policy import resolve_storage_root_group_name
 
 
 class AccessRequestsReadModelContractError(RuntimeError):
@@ -415,8 +415,7 @@ class AccessRequestsViewsRepo:
                               COALESCE(NULLIF(srap.group_name, '')) AS group_name
                             FROM storage_root_access_profiles srap
                             WHERE srap.storage_root_id = :storage_root_id
-                              AND UPPER(COALESCE(srap.access_level_code, 'READ')) = :access_level_code
-                              AND srap.deleted_at IS NULL
+                              AND srap.access_level_code = :access_level_code
                             ORDER BY srap.id DESC
                             LIMIT 1
                             """
@@ -436,16 +435,11 @@ class AccessRequestsViewsRepo:
         expected_group_name = None
         if storage_root_id > 0:
             try:
-                zone_ref = (context_row or {}).get("zone_id") or (context_row or {}).get("zone_name")
-                storage_path = str(base.get("target_path") or base.get("scope_display") or "")
-                naming = resolve_group_name(
+                expected_group_name = resolve_storage_root_group_name(
                     self.db,
-                    zone_ref=zone_ref,
-                    storage_root_path=storage_path,
-                    perm=str(access_level_code or "READ"),
-                    profile=str(base.get("access_profile_name") or "").strip() or None,
+                    storage_root_id=int(storage_root_id),
+                    access_level=str(access_level_code or "READ"),
                 )
-                expected_group_name = str((naming or {}).get("samAccountName") or "").strip() or None
             except Exception:
                 expected_group_name = None
 

@@ -32,7 +32,6 @@ function testAccessModelRows(): void {
     owners: [],
     tags: [],
     recent_activity: [],
-    access_profiles: [{ access_level: 'READ', members_count: 4 }],
     projected_ad_groups: [{ access_level: 'READ', is_created: true }],
     effective_access: [
       {

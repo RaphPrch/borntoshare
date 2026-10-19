@@ -14,6 +14,7 @@ from app.services.naming_policy import (
     load_zone_policy,
     resolve_effective_policy,
     resolve_group_name_from_effective_policy,
+    resolve_storage_root_naming,
     resolve_zone_context,
     serialize_rootcode_strategy_for_storage,
     validate_template_tokens,
@@ -199,43 +200,24 @@ def put_zone_naming_policy(
 @router.post("/preview")
 def preview_group_name(payload: NamingPreviewPayload, db: Session = Depends(get_db)):
     try:
-        zone_id, zone_code = resolve_zone_context(db, payload.zone_id)
-        effective_policy = resolve_effective_policy(db, zone_id)
-
-        endpoint_template: str | None = None
-        endpoint_id = int(payload.storage_endpoint_id or 0) or None
-        storage_root_id = int(payload.storage_root_id or 0) or None
-
-        if endpoint_id is not None:
-            row = db.execute(
-                text(
-                    """
-                    SELECT naming_template
-                    FROM storage_endpoints
-                    WHERE id = :endpoint_id
-                    LIMIT 1
-                    """
-                ),
-                {"endpoint_id": int(endpoint_id)},
-            ).mappings().first()
-            endpoint_template = str((row or {}).get("naming_template") or "").strip() or None
-        elif storage_root_id is not None:
-            row = db.execute(
-                text(
-                    """
-                    SELECT se.naming_template
-                    FROM storage_roots sr
-                    JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-                    WHERE sr.id = :storage_root_id
-                    LIMIT 1
-                    """
-                ),
-                {"storage_root_id": int(storage_root_id)},
-            ).mappings().first()
-            endpoint_template = str((row or {}).get("naming_template") or "").strip() or None
-
-        if endpoint_template:
-            effective_policy = {**effective_policy, "template": endpoint_template}
+        storage_root_naming = (
+            resolve_storage_root_naming(db, int(payload.storage_root_id)) if payload.storage_root_id else None
+        )
+        if storage_root_naming is not None:
+            # Same rule as the groups actually created for this storage root
+            effective_policy, zone_code, _root_path = storage_root_naming
+        else:
+            zone_id, zone_code = resolve_zone_context(db, payload.zone_id)
+            effective_policy = resolve_effective_policy(db, zone_id)
+            endpoint_id = int(payload.storage_endpoint_id or 0) or None
+            if endpoint_id is not None:
+                row = db.execute(
+                    text("SELECT naming_template FROM storage_endpoints WHERE id = :endpoint_id LIMIT 1"),
+                    {"endpoint_id": int(endpoint_id)},
+                ).mappings().first()
+                endpoint_template = str((row or {}).get("naming_template") or "").strip() or None
+                if endpoint_template:
+                    effective_policy = {**effective_policy, "template": endpoint_template}
 
         group = resolve_group_name_from_effective_policy(
             effective_policy=effective_policy,

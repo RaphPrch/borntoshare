@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS storage_roots (
   normalized_root_path VARCHAR(512) NULL,
   inherit_owners TINYINT(1) NOT NULL DEFAULT 0,
   inherit_tags TINYINT(1) NOT NULL DEFAULT 0,
-  inherit_access_profiles TINYINT(1) NOT NULL DEFAULT 0,
   status VARCHAR(32) NOT NULL DEFAULT 'active',
   last_probe_status VARCHAR(32) NULL,
   last_probe_at DATETIME NULL,

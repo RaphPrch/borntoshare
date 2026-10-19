@@ -53,7 +53,6 @@ from .tag import Tag  # noqa: F401
 # ============================================================
 # Access Management
 # ============================================================
-from .access_profile import AccessProfile  # noqa: F401
 from .access_request import AccessRequest  # noqa: F401
 from .access_request_item import AccessRequestItem  # noqa: F401
 from .storage_root_access_profile import StorageRootAccessProfile  # noqa: F401

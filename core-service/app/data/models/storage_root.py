@@ -37,7 +37,6 @@ class StorageRoot(Base, TimestampMixin):
     normalized_root_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     inherit_owners: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     inherit_tags: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    inherit_access_profiles: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     last_probe_status: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)

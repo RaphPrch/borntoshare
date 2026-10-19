@@ -51,27 +51,6 @@ CREATE INDEX IF NOT EXISTS idx_storage_roots_endpoint
   ON storage_roots(storage_endpoint_id);
 
 -- ============================================================
--- access_profiles
--- NOTE: uq_access_profile_code already exists → no extra index
--- ============================================================
-
-CREATE INDEX IF NOT EXISTS idx_ap_active ON access_profiles(active);
-
--- ============================================================
--- storage_root_access_profiles
--- ============================================================
--- FK fk_srap_access_profile_id requires an index on access_profile_id.
--- Do not drop idx_srap_access_profile: dropping can fail with 1553 when bound to FK.
--- Add a dedicated composite index for query performance in an idempotent way.
-CREATE INDEX IF NOT EXISTS idx_srap_access_profile_root
-  ON storage_root_access_profiles(access_profile_id, storage_root_id);
-
--- ============================================================
--- storage_root_access_profiles (new model)
--- ============================================================
--- indexes provided in schema/116_storage_root_profile_groups.sql
-
--- ============================================================
 -- access_requests (dashboard hot paths)
 -- ============================================================
 
@@ -166,22 +145,3 @@ CREATE INDEX IF NOT EXISTS idx_governance_health_events_check_time
   ON governance_health_events(entity_type, check_type, checked_at);
 CREATE INDEX IF NOT EXISTS idx_governance_health_events_job
   ON governance_health_events(job_id);
-
--- ============================================================
--- Removed indexes (legacy, or covered by a wider index/unique key)
--- ============================================================
-DROP INDEX IF EXISTS idx_ar_expires_status ON access_requests;
-DROP INDEX IF EXISTS idx_ar_profile ON access_requests;
-DROP INDEX IF EXISTS idx_ar_sla_status_created ON access_requests;
-DROP INDEX IF EXISTS idx_ar_storage_status ON access_requests;
-DROP INDEX IF EXISTS idx_dem_snapshot ON directory_effective_memberships;
-DROP INDEX IF EXISTS idx_dem_user ON directory_effective_memberships;
-DROP INDEX IF EXISTS idx_identity_sources_type ON identity_sources;
-DROP INDEX IF EXISTS idx_jobs_status ON provisioning_jobs;
-DROP INDEX IF EXISTS idx_storage_endpoint_active ON storage_endpoints;
-DROP INDEX IF EXISTS idx_srap_root ON storage_root_access_profiles;
-DROP INDEX IF EXISTS idx_srap_status ON storage_root_access_profiles;
-DROP INDEX IF EXISTS idx_root_roles_root ON storage_root_roles;
-DROP INDEX IF EXISTS idx_storage_root_active ON storage_roots;
-DROP INDEX IF EXISTS idx_zap_zone ON zone_access_profiles;
-DROP INDEX IF EXISTS idx_zone_active ON zones;

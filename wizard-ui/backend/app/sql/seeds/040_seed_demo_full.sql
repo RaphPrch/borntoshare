@@ -60,7 +60,6 @@ JOIN storage_roots sr ON sr.id = srap.storage_root_id
 JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
 WHERE se.external_id LIKE 'DEMO-%';
 
-
 DELETE srt
 FROM storage_root_tags srt
 JOIN storage_roots sr ON sr.id = srt.storage_root_id
@@ -76,11 +75,6 @@ LEFT JOIN storage_endpoints ser ON npo.scope_type = 'storage_root' AND ser.id = 
 WHERE z.code LIKE 'DEMO-%'
    OR se.external_id LIKE 'DEMO-%'
    OR ser.external_id LIKE 'DEMO-%';
-
-DELETE zap
-FROM zone_access_profiles zap
-JOIN zones z ON z.id = zap.zone_id
-WHERE z.code LIKE 'DEMO-%';
 
 DELETE zpp
 FROM zone_provisioning_policy zpp
@@ -240,16 +234,6 @@ ON DUPLICATE KEY UPDATE
   replace_map_json = VALUES(replace_map_json),
   rootcode_strategy = VALUES(rootcode_strategy);
 
-INSERT INTO access_profiles (code, name, description, permission, active)
-VALUES
-  ('READ', 'Read access', 'Demo read-only access profile', 'READ', 1),
-  ('WRITE', 'Write access', 'Demo contributor access profile', 'WRITE', 1)
-ON DUPLICATE KEY UPDATE
-  name = VALUES(name),
-  description = VALUES(description),
-  permission = VALUES(permission),
-  active = VALUES(active);
-
 INSERT INTO identity_sources (
   type,
   name,
@@ -380,8 +364,6 @@ SET @demo_ad_source_id := (SELECT id FROM identity_sources WHERE external_id = '
 SET @demo_openldap_source_id := (SELECT id FROM identity_sources WHERE external_id = 'DEMO-OPENLDAP' ORDER BY id DESC LIMIT 1);
 SET @role_user_id := (SELECT id FROM roles WHERE code = 'user' LIMIT 1);
 SET @role_admin_id := (SELECT id FROM roles WHERE code = 'platform_admin' LIMIT 1);
-SET @profile_read_id := (SELECT id FROM access_profiles WHERE code = 'READ' LIMIT 1);
-SET @profile_write_id := (SELECT id FROM access_profiles WHERE code = 'WRITE' LIMIT 1);
 
 INSERT INTO identities (
   source_id,
@@ -1129,17 +1111,6 @@ SET @endpoint_marseille_id := (SELECT id FROM storage_endpoints WHERE external_i
 SET @endpoint_nantes_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-NANTES' ORDER BY id DESC LIMIT 1);
 SET @endpoint_paris_lab_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-PARIS-LAB' ORDER BY id DESC LIMIT 1);
 
-INSERT INTO zone_access_profiles (zone_id, access_profile_id, is_active)
-VALUES
-  (@zone_paris_id, @profile_read_id, 1),
-  (@zone_paris_id, @profile_write_id, 1),
-  (@zone_lyon_id, @profile_read_id, 1),
-  (@zone_lyon_id, @profile_write_id, 0),
-  (@zone_marseille_id, @profile_read_id, 1),
-  (@zone_marseille_id, @profile_write_id, 1),
-  (@zone_nantes_id, @profile_read_id, 1),
-  (@zone_nantes_id, @profile_write_id, 1);
-
 INSERT INTO zone_provisioning_policy (zone_id, enabled, policy_mode, ou_strategy, static_ou_dn, base_ou_dn)
 VALUES
   (@zone_paris_id, 1, 'ON_FIRST_ACCESS_REQUEST', 'ZONE_STATIC', 'OU=BornToShare,OU=Groups,DC=corp,DC=demo', 'OU=Groups,DC=corp,DC=demo'),
@@ -1161,7 +1132,6 @@ INSERT INTO storage_roots (
   normalized_root_path,
   inherit_owners,
   inherit_tags,
-  inherit_access_profiles,
   status,
   last_probe_status,
   last_probe_at,
@@ -1173,12 +1143,12 @@ INSERT INTO storage_roots (
   revalidation_reason
 )
 VALUES
-  (@endpoint_paris_id, NULL, 'Finance', '\\\\fs01\\corp\\finance', '/corp/finance', 0, 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, 'ACL inventory matched expected groups', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_FINANCE_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_FINANCE_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 4 MINUTE), JSON_OBJECT('children', JSON_ARRAY('AP', 'AR')), 0, NULL),
-  (@endpoint_lyon_id, NULL, 'HR', '\\\\fs02\\corp\\hr', '/corp/hr', 0, 0, 0, 'warning', 'failed', UTC_TIMESTAMP() - INTERVAL 35 MINUTE, 'Probe latency over threshold', UTC_TIMESTAMP() - INTERVAL 40 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_HR_READ', 'permission', 'READ')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 40 MINUTE), JSON_OBJECT('children', JSON_ARRAY('Onboarding')), 1, 'Probe warning requires review'),
-  (@endpoint_marseille_id, NULL, 'Engineering', '/srv/shares/engineering', '/corp/engineering', 0, 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, 'Engineering share inventory succeeded', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_ENG_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_ENG_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 8 MINUTE), JSON_OBJECT('children', JSON_ARRAY('Builds')), 0, NULL),
-  (@endpoint_marseille_id, NULL, 'Shared Projects', '/srv/shares/projects/shared', '/corp/projects/shared', 0, 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 7 MINUTE, 'Shared projects probe succeeded', UTC_TIMESTAMP() - INTERVAL 7 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_SHARED_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_SHARED_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 7 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
-  (@endpoint_nantes_id, NULL, 'Legal', '\\\\fs03\\records\\legal', '/corp/legal', 0, 0, 0, 'active', 'running', UTC_TIMESTAMP() - INTERVAL 2 MINUTE, 'Probe running for legal endpoint', UTC_TIMESTAMP() - INTERVAL 20 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_LEGAL_READ', 'permission', 'READ')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 20 MINUTE), JSON_OBJECT('children', JSON_ARRAY('Contracts')), 0, NULL),
-  (@endpoint_paris_lab_id, NULL, 'Lab Sandbox', '\\\\labfs01\\sandbox', '/corp/labs/sandbox', 0, 0, 0, 'maintenance', 'unknown', UTC_TIMESTAMP() - INTERVAL 3 HOUR, 'Lab endpoint has no fresh probe', UTC_TIMESTAMP() - INTERVAL 1 DAY, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 1 DAY), JSON_OBJECT('children', JSON_ARRAY()), 1, 'Awaiting fresh probe');
+  (@endpoint_paris_id, NULL, 'Finance', '\\\\fs01\\corp\\finance', '/corp/finance', 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, 'ACL inventory matched expected groups', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_FINANCE_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_FINANCE_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 4 MINUTE), JSON_OBJECT('children', JSON_ARRAY('AP', 'AR')), 0, NULL),
+  (@endpoint_lyon_id, NULL, 'HR', '\\\\fs02\\corp\\hr', '/corp/hr', 0, 0, 'warning', 'failed', UTC_TIMESTAMP() - INTERVAL 35 MINUTE, 'Probe latency over threshold', UTC_TIMESTAMP() - INTERVAL 40 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_HR_READ', 'permission', 'READ')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 40 MINUTE), JSON_OBJECT('children', JSON_ARRAY('Onboarding')), 1, 'Probe warning requires review'),
+  (@endpoint_marseille_id, NULL, 'Engineering', '/srv/shares/engineering', '/corp/engineering', 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, 'Engineering share inventory succeeded', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_ENG_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_ENG_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 8 MINUTE), JSON_OBJECT('children', JSON_ARRAY('Builds')), 0, NULL),
+  (@endpoint_marseille_id, NULL, 'Shared Projects', '/srv/shares/projects/shared', '/corp/projects/shared', 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 7 MINUTE, 'Shared projects probe succeeded', UTC_TIMESTAMP() - INTERVAL 7 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_SHARED_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_SHARED_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 7 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
+  (@endpoint_nantes_id, NULL, 'Legal', '\\\\fs03\\records\\legal', '/corp/legal', 0, 0, 'active', 'running', UTC_TIMESTAMP() - INTERVAL 2 MINUTE, 'Probe running for legal endpoint', UTC_TIMESTAMP() - INTERVAL 20 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_LEGAL_READ', 'permission', 'READ')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 20 MINUTE), JSON_OBJECT('children', JSON_ARRAY('Contracts')), 0, NULL),
+  (@endpoint_paris_lab_id, NULL, 'Lab Sandbox', '\\\\labfs01\\sandbox', '/corp/labs/sandbox', 0, 0, 'maintenance', 'unknown', UTC_TIMESTAMP() - INTERVAL 3 HOUR, 'Lab endpoint has no fresh probe', UTC_TIMESTAMP() - INTERVAL 1 DAY, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 1 DAY), JSON_OBJECT('children', JSON_ARRAY()), 1, 'Awaiting fresh probe');
 
 SET @root_finance_id := (SELECT id FROM storage_roots WHERE storage_endpoint_id = @endpoint_paris_id AND normalized_root_path = '/corp/finance' LIMIT 1);
 SET @root_hr_id := (SELECT id FROM storage_roots WHERE storage_endpoint_id = @endpoint_lyon_id AND normalized_root_path = '/corp/hr' LIMIT 1);
@@ -1195,7 +1165,6 @@ INSERT INTO storage_roots (
   normalized_root_path,
   inherit_owners,
   inherit_tags,
-  inherit_access_profiles,
   status,
   last_probe_status,
   last_probe_at,
@@ -1207,11 +1176,11 @@ INSERT INTO storage_roots (
   revalidation_reason
 )
 VALUES
-  (@endpoint_paris_id, @root_finance_id, 'Finance AP', '\\\\fs01\\corp\\finance\\ap', '/corp/finance/ap', 1, 1, 1, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, 'Inherited controls verified', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 4 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
-  (@endpoint_paris_id, @root_finance_id, 'Finance AR', '\\\\fs01\\corp\\finance\\ar', '/corp/finance/ar', 1, 1, 1, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, 'Inherited controls verified', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 4 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
-  (@endpoint_lyon_id, @root_hr_id, 'HR Onboarding', '\\\\fs02\\corp\\hr\\onboarding', '/corp/hr/onboarding', 1, 1, 1, 'warning', 'failed', UTC_TIMESTAMP() - INTERVAL 35 MINUTE, 'Inherited controls need review', UTC_TIMESTAMP() - INTERVAL 40 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 40 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 1, 'Parent endpoint probe warning'),
-  (@endpoint_marseille_id, @root_engineering_id, 'Engineering Builds', '/srv/shares/engineering/builds', '/corp/engineering/builds', 1, 1, 1, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, 'Builds subtree verified', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 8 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
-  (@endpoint_nantes_id, @root_legal_id, 'Legal Contracts', '\\\\fs03\\records\\legal\\contracts', '/corp/legal/contracts', 1, 1, 1, 'active', 'running', UTC_TIMESTAMP() - INTERVAL 2 MINUTE, 'Contracts subtree scan in progress', UTC_TIMESTAMP() - INTERVAL 20 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 20 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL);
+  (@endpoint_paris_id, @root_finance_id, 'Finance AP', '\\\\fs01\\corp\\finance\\ap', '/corp/finance/ap', 1, 1, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, 'Inherited controls verified', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 4 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
+  (@endpoint_paris_id, @root_finance_id, 'Finance AR', '\\\\fs01\\corp\\finance\\ar', '/corp/finance/ar', 1, 1, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, 'Inherited controls verified', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 4 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
+  (@endpoint_lyon_id, @root_hr_id, 'HR Onboarding', '\\\\fs02\\corp\\hr\\onboarding', '/corp/hr/onboarding', 1, 1, 'warning', 'failed', UTC_TIMESTAMP() - INTERVAL 35 MINUTE, 'Inherited controls need review', UTC_TIMESTAMP() - INTERVAL 40 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 40 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 1, 'Parent endpoint probe warning'),
+  (@endpoint_marseille_id, @root_engineering_id, 'Engineering Builds', '/srv/shares/engineering/builds', '/corp/engineering/builds', 1, 1, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, 'Builds subtree verified', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 8 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
+  (@endpoint_nantes_id, @root_legal_id, 'Legal Contracts', '\\\\fs03\\records\\legal\\contracts', '/corp/legal/contracts', 1, 1, 'active', 'running', UTC_TIMESTAMP() - INTERVAL 2 MINUTE, 'Contracts subtree scan in progress', UTC_TIMESTAMP() - INTERVAL 20 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 20 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL);
 
 SET @root_fin_ap_id := (SELECT id FROM storage_roots WHERE storage_endpoint_id = @endpoint_paris_id AND normalized_root_path = '/corp/finance/ap' LIMIT 1);
 SET @root_fin_ar_id := (SELECT id FROM storage_roots WHERE storage_endpoint_id = @endpoint_paris_id AND normalized_root_path = '/corp/finance/ar' LIMIT 1);
@@ -1276,42 +1245,34 @@ ON DUPLICATE KEY UPDATE
 
 INSERT IGNORE INTO storage_root_access_profiles (
   storage_root_id,
-  access_profile_id,
   access_level_code,
-  permission_hash,
-  source,
   group_name,
   group_external_id,
-  name,
   status,
-  attempt_count,
-  error_code,
-  error_message,
-  active
+  error_message
 )
 VALUES
-  (@root_finance_id, @profile_read_id, 'READ', SHA2(CONCAT(@root_finance_id, ':READ'), 256), 'LOCAL', 'B2S_FINANCE_READ', 'G-B2S-FINANCE-READ', 'Finance read group', 'CREATED', 1, NULL, NULL, 1),
-  (@root_finance_id, @profile_write_id, 'WRITE', SHA2(CONCAT(@root_finance_id, ':WRITE'), 256), 'LOCAL', 'B2S_FINANCE_WRITE', 'G-B2S-FINANCE-WRITE', 'Finance write group', 'CREATED', 1, NULL, NULL, 1),
-  (@root_hr_id, @profile_read_id, 'READ', SHA2(CONCAT(@root_hr_id, ':READ'), 256), 'LOCAL', 'B2S_HR_READ', 'G-B2S-HR-READ', 'HR read group', 'CREATED', 2, NULL, NULL, 1),
-  (@root_hr_id, @profile_write_id, 'WRITE', SHA2(CONCAT(@root_hr_id, ':WRITE'), 256), 'LOCAL', 'B2S_HR_WRITE', NULL, 'HR write group pending provisioning', 'FAILED', 3, 'AD_GROUP_CREATE_FAILED', 'Demo failure: write group could not be created', 1),
-  (@root_engineering_id, @profile_read_id, 'READ', SHA2(CONCAT(@root_engineering_id, ':READ'), 256), 'LOCAL', 'B2S_ENG_READ', 'G-B2S-ENG-READ', 'Engineering read group', 'CREATED', 1, NULL, NULL, 1),
-  (@root_engineering_id, @profile_write_id, 'WRITE', SHA2(CONCAT(@root_engineering_id, ':WRITE'), 256), 'LOCAL', 'B2S_ENG_WRITE', 'G-B2S-ENG-WRITE', 'Engineering write group', 'CREATED', 1, NULL, NULL, 1),
-  (@root_shared_id, @profile_read_id, 'READ', SHA2(CONCAT(@root_shared_id, ':READ'), 256), 'LOCAL', 'B2S_SHARED_READ', 'G-B2S-SHARED-READ', 'Shared read group', 'CREATED', 1, NULL, NULL, 1),
-  (@root_shared_id, @profile_write_id, 'WRITE', SHA2(CONCAT(@root_shared_id, ':WRITE'), 256), 'LOCAL', 'B2S_SHARED_WRITE', 'G-B2S-SHARED-WRITE', 'Shared write group', 'RETRYING', 2, NULL, 'Provisioning retry scheduled after ACL drift.', 1),
-  (@root_legal_id, @profile_read_id, 'READ', SHA2(CONCAT(@root_legal_id, ':READ'), 256), 'LOCAL', 'B2S_LEGAL_READ', 'G-B2S-LEGAL-READ', 'Legal read group', 'CREATED', 1, NULL, NULL, 1),
-  (@root_lab_id, @profile_read_id, 'READ', SHA2(CONCAT(@root_lab_id, ':READ'), 256), 'LOCAL', 'B2S_LAB_READ', NULL, 'Lab read group pending creation', 'QUEUED', 0, NULL, NULL, 1);
+  (@root_finance_id, 'READ', 'B2S_FINANCE_READ', 'G-B2S-FINANCE-READ', 'SUCCEEDED', NULL),
+  (@root_finance_id, 'WRITE', 'B2S_FINANCE_WRITE', 'G-B2S-FINANCE-WRITE', 'SUCCEEDED', NULL),
+  (@root_hr_id, 'READ', 'B2S_HR_READ', 'G-B2S-HR-READ', 'SUCCEEDED', NULL),
+  (@root_hr_id, 'WRITE', 'B2S_HR_WRITE', NULL, 'FAILED', 'Demo failure: write group could not be created'),
+  (@root_engineering_id, 'READ', 'B2S_ENG_READ', 'G-B2S-ENG-READ', 'SUCCEEDED', NULL),
+  (@root_engineering_id, 'WRITE', 'B2S_ENG_WRITE', 'G-B2S-ENG-WRITE', 'SUCCEEDED', NULL),
+  (@root_shared_id, 'READ', 'B2S_SHARED_READ', 'G-B2S-SHARED-READ', 'SUCCEEDED', NULL),
+  (@root_shared_id, 'WRITE', 'B2S_SHARED_WRITE', 'G-B2S-SHARED-WRITE', 'SUCCEEDED', NULL),
+  (@root_legal_id, 'READ', 'B2S_LEGAL_READ', 'G-B2S-LEGAL-READ', 'SUCCEEDED', NULL),
+  (@root_lab_id, 'READ', 'B2S_LAB_READ', NULL, 'PENDING', NULL);
 
-SET @srap_fin_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_finance_id AND access_profile_id = @profile_read_id LIMIT 1);
-SET @srap_fin_write_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_finance_id AND access_profile_id = @profile_write_id LIMIT 1);
-SET @srap_hr_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_hr_id AND access_profile_id = @profile_read_id LIMIT 1);
-SET @srap_hr_write_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_hr_id AND access_profile_id = @profile_write_id LIMIT 1);
-SET @srap_eng_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_engineering_id AND access_profile_id = @profile_read_id LIMIT 1);
-SET @srap_eng_write_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_engineering_id AND access_profile_id = @profile_write_id LIMIT 1);
-SET @srap_shared_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_shared_id AND access_profile_id = @profile_read_id LIMIT 1);
-SET @srap_shared_write_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_shared_id AND access_profile_id = @profile_write_id LIMIT 1);
-SET @srap_legal_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_legal_id AND access_profile_id = @profile_read_id LIMIT 1);
-SET @srap_lab_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_lab_id AND access_profile_id = @profile_read_id LIMIT 1);
-
+SET @srap_fin_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_finance_id AND access_level_code = 'READ' LIMIT 1);
+SET @srap_fin_write_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_finance_id AND access_level_code = 'WRITE' LIMIT 1);
+SET @srap_hr_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_hr_id AND access_level_code = 'READ' LIMIT 1);
+SET @srap_hr_write_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_hr_id AND access_level_code = 'WRITE' LIMIT 1);
+SET @srap_eng_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_engineering_id AND access_level_code = 'READ' LIMIT 1);
+SET @srap_eng_write_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_engineering_id AND access_level_code = 'WRITE' LIMIT 1);
+SET @srap_shared_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_shared_id AND access_level_code = 'READ' LIMIT 1);
+SET @srap_shared_write_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_shared_id AND access_level_code = 'WRITE' LIMIT 1);
+SET @srap_legal_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_legal_id AND access_level_code = 'READ' LIMIT 1);
+SET @srap_lab_read_id := (SELECT id FROM storage_root_access_profiles WHERE storage_root_id = @root_lab_id AND access_level_code = 'READ' LIMIT 1);
 
 -- ------------------------------------------------------------
 -- Large demo expansion: extra zones, endpoints and policies.
@@ -1332,21 +1293,6 @@ SET @zone_toulouse_id := (SELECT id FROM zones WHERE code = 'DEMO-TOULOUSE' ORDE
 SET @zone_nice_id := (SELECT id FROM zones WHERE code = 'DEMO-NICE' ORDER BY id DESC LIMIT 1);
 SET @zone_strasbourg_id := (SELECT id FROM zones WHERE code = 'DEMO-STRASBOURG' ORDER BY id DESC LIMIT 1);
 SET @zone_rennes_id := (SELECT id FROM zones WHERE code = 'DEMO-RENNES' ORDER BY id DESC LIMIT 1);
-
-INSERT INTO zone_access_profiles (zone_id, access_profile_id, is_active)
-VALUES
-  (@zone_lille_id, @profile_read_id, 1),
-  (@zone_lille_id, @profile_write_id, 1),
-  (@zone_bordeaux_id, @profile_read_id, 1),
-  (@zone_bordeaux_id, @profile_write_id, 1),
-  (@zone_toulouse_id, @profile_read_id, 1),
-  (@zone_toulouse_id, @profile_write_id, 1),
-  (@zone_nice_id, @profile_read_id, 1),
-  (@zone_nice_id, @profile_write_id, 1),
-  (@zone_strasbourg_id, @profile_read_id, 1),
-  (@zone_strasbourg_id, @profile_write_id, 1),
-  (@zone_rennes_id, @profile_read_id, 1),
-  (@zone_rennes_id, @profile_write_id, 1);
 
 INSERT INTO zone_provisioning_policy (zone_id, enabled, policy_mode, ou_strategy, static_ou_dn, base_ou_dn)
 VALUES
@@ -1423,7 +1369,6 @@ INSERT INTO storage_roots (
   normalized_root_path,
   inherit_owners,
   inherit_tags,
-  inherit_access_profiles,
   status,
   last_probe_status,
   last_probe_at,
@@ -1448,7 +1393,6 @@ SELECT
   END AS normalized_root_path,
   CASE WHEN rt.suffix_slug = '' THEN 0 ELSE 1 END AS inherit_owners,
   1 AS inherit_tags,
-  1 AS inherit_access_profiles,
   rt.status,
   rt.probe_status,
   UTC_TIMESTAMP() - INTERVAL (10 + em.endpoint_ord * 5 + rt.template_ord) MINUTE AS last_probe_at,
@@ -1517,125 +1461,6 @@ SELECT
 FROM storage_roots sr
 JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
 WHERE se.external_id LIKE 'DEMO-%';
-
-INSERT IGNORE INTO storage_root_access_profiles (
-  storage_root_id,
-  access_profile_id,
-  access_level_code,
-  permission_hash,
-  source,
-  group_name,
-  group_external_id,
-  name,
-  status,
-  attempt_count,
-  error_code,
-  error_message,
-  active
-)
-SELECT
-  sr.id AS storage_root_id,
-  ap.access_profile_id,
-  ap.access_level_code,
-  SHA2(CONCAT(sr.id, ':', ap.access_level_code), 256) AS permission_hash,
-  'LOCAL' AS source,
-  CASE
-    WHEN sr.normalized_root_path LIKE '/corp/finance-dr%' OR sr.normalized_root_path LIKE '/corp/finance%' THEN CONCAT('B2S_FINANCE_', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/hr-archive%' OR sr.normalized_root_path LIKE '/corp/hr%' THEN CONCAT('B2S_HR_', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/engineering-dr%' OR sr.normalized_root_path LIKE '/corp/engineering%' THEN CONCAT('B2S_ENG_', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/legal-dr%' OR sr.normalized_root_path LIKE '/corp/legal%' THEN CONCAT('B2S_LEGAL_', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/projects/shared%' THEN CONCAT('B2S_SHARED_', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/compliance%' THEN CONCAT('B2S_COMPLIANCE_', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/archive%' THEN CONCAT('B2S_ARCHIVE_', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/sales%' THEN CONCAT('B2S_SALES_', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/operations%' THEN CONCAT('B2S_OPS_', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/labs/sandbox%' OR sr.normalized_root_path LIKE '/corp/sandbox%' THEN CONCAT('B2S_SANDBOX_', ap.access_level_code)
-    ELSE CONCAT('B2S_', ap.access_level_code)
-  END AS group_name,
-  CASE
-    WHEN ap.access_level_code = 'WRITE' AND (
-      sr.normalized_root_path LIKE '%/restricted'
-      OR sr.normalized_root_path LIKE '%/temp'
-      OR sr.normalized_root_path LIKE '%/monitoring'
-      OR sr.normalized_root_path LIKE '%/legal-hold'
-      OR sr.normalized_root_path LIKE '%/disposable'
-    ) THEN NULL
-    WHEN sr.normalized_root_path LIKE '/corp/finance-dr%' OR sr.normalized_root_path LIKE '/corp/finance%' THEN CONCAT('G-B2S-FINANCE-', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/hr-archive%' OR sr.normalized_root_path LIKE '/corp/hr%' THEN CONCAT('G-B2S-HR-', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/engineering-dr%' OR sr.normalized_root_path LIKE '/corp/engineering%' THEN CONCAT('G-B2S-ENG-', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/legal-dr%' OR sr.normalized_root_path LIKE '/corp/legal%' THEN CONCAT('G-B2S-LEGAL-', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/projects/shared%' THEN CONCAT('G-B2S-SHARED-', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/compliance%' THEN CONCAT('G-B2S-COMPLIANCE-', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/archive%' THEN CONCAT('G-B2S-ARCHIVE-', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/sales%' THEN CONCAT('G-B2S-SALES-', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/operations%' THEN CONCAT('G-B2S-OPS-', ap.access_level_code)
-    WHEN sr.normalized_root_path LIKE '/corp/labs/sandbox%' OR sr.normalized_root_path LIKE '/corp/sandbox%' THEN CONCAT('G-B2S-SANDBOX-', ap.access_level_code)
-    ELSE NULL
-  END AS group_external_id,
-  CONCAT(
-    CASE
-      WHEN sr.normalized_root_path LIKE '/corp/finance-dr%' OR sr.normalized_root_path LIKE '/corp/finance%' THEN 'Finance'
-      WHEN sr.normalized_root_path LIKE '/corp/hr-archive%' OR sr.normalized_root_path LIKE '/corp/hr%' THEN 'HR'
-      WHEN sr.normalized_root_path LIKE '/corp/engineering-dr%' OR sr.normalized_root_path LIKE '/corp/engineering%' THEN 'Engineering'
-      WHEN sr.normalized_root_path LIKE '/corp/legal-dr%' OR sr.normalized_root_path LIKE '/corp/legal%' THEN 'Legal'
-      WHEN sr.normalized_root_path LIKE '/corp/projects/shared%' THEN 'Shared'
-      WHEN sr.normalized_root_path LIKE '/corp/compliance%' THEN 'Compliance'
-      WHEN sr.normalized_root_path LIKE '/corp/archive%' THEN 'Archive'
-      WHEN sr.normalized_root_path LIKE '/corp/sales%' THEN 'Sales'
-      WHEN sr.normalized_root_path LIKE '/corp/operations%' THEN 'Operations'
-      WHEN sr.normalized_root_path LIKE '/corp/labs/sandbox%' OR sr.normalized_root_path LIKE '/corp/sandbox%' THEN 'Sandbox'
-      ELSE 'Demo'
-    END,
-    ' ',
-    LOWER(ap.access_level_code),
-    ' group'
-  ) AS name,
-  CASE
-    WHEN ap.access_level_code = 'READ' THEN 'CREATED'
-    WHEN sr.normalized_root_path LIKE '%/restricted' THEN 'FAILED'
-    WHEN sr.normalized_root_path LIKE '%/temp' THEN 'RETRYING'
-    WHEN sr.normalized_root_path LIKE '%/monitoring' THEN 'QUEUED'
-    WHEN sr.normalized_root_path LIKE '%/legal-hold' THEN 'QUEUED'
-    WHEN sr.normalized_root_path LIKE '%/disposable' THEN 'RETRYING'
-    ELSE 'CREATED'
-  END AS status,
-  CASE
-    WHEN ap.access_level_code = 'READ' THEN 1
-    WHEN sr.normalized_root_path LIKE '%/restricted' THEN 3
-    WHEN sr.normalized_root_path LIKE '%/temp' THEN 2
-    WHEN sr.normalized_root_path LIKE '%/monitoring' THEN 2
-    WHEN sr.normalized_root_path LIKE '%/legal-hold' THEN 2
-    WHEN sr.normalized_root_path LIKE '%/disposable' THEN 2
-    ELSE 1
-  END AS attempt_count,
-  CASE
-    WHEN ap.access_level_code = 'WRITE' AND (
-      sr.normalized_root_path LIKE '%/restricted'
-      OR sr.normalized_root_path LIKE '%/temp'
-      OR sr.normalized_root_path LIKE '%/monitoring'
-      OR sr.normalized_root_path LIKE '%/legal-hold'
-      OR sr.normalized_root_path LIKE '%/disposable'
-    ) THEN 'AD_GROUP_CREATE_FAILED'
-    ELSE NULL
-  END AS error_code,
-  CASE
-    WHEN ap.access_level_code = 'WRITE' AND sr.normalized_root_path LIKE '%/restricted' THEN 'Restricted subtree requires guardian approval before write group provisioning.'
-    WHEN ap.access_level_code = 'WRITE' AND sr.normalized_root_path LIKE '%/temp' THEN 'Temporary subtree is queued for later provisioning.'
-    WHEN ap.access_level_code = 'WRITE' AND sr.normalized_root_path LIKE '%/monitoring' THEN 'Monitoring subtree provisioning is in progress.'
-    WHEN ap.access_level_code = 'WRITE' AND sr.normalized_root_path LIKE '%/legal-hold' THEN 'Legal hold subtree provisioning is queued.'
-    WHEN ap.access_level_code = 'WRITE' AND sr.normalized_root_path LIKE '%/disposable' THEN 'Disposable subtree provisioning will retry automatically.'
-    ELSE NULL
-  END AS error_message,
-  1 AS active
-FROM storage_roots sr
-JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-CROSS JOIN (
-  SELECT @profile_read_id AS access_profile_id, 'READ' AS access_level_code
-  UNION ALL
-  SELECT @profile_write_id AS access_profile_id, 'WRITE' AS access_level_code
-) ap
-WHERE se.external_id LIKE 'DEMO-%';
-
 
 INSERT IGNORE INTO storage_root_tags (storage_root_id, tag_id)
 SELECT DISTINCT

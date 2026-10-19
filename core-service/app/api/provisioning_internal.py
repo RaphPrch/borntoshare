@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,26 +21,16 @@ from app.services.probe_results import ProbeResultService
 from app.services.provisioning_ou_sql import effective_group_ou_case_sql
 from app.core.audit_hash import compute_event_hash, scrub_secrets
 from app.core.internal_auth import require_internal
-from app.utils.status_validation import ensure_transition, normalize_status, validate_profile_invariants
+from app.utils.status_validation import ensure_transition, normalize_status
 from app.core.values import positive_int, utcnow_naive
 
 
 router = APIRouter(prefix="/internal/provisioning", tags=["internal-provisioning"])
 
-MAX_RETRY_ATTEMPTS = 5
-
-
-class UpsertStorageRootAccessProfilePayload(BaseModel):
+class EnsureAccessGroupPayload(BaseModel):
     storage_root_id: int = Field(..., gt=0)
-    access_level_code: str = Field(..., min_length=1, max_length=32)
-    permission_hash: str = Field(..., min_length=1, max_length=64)
-    name: str | None = Field(default=None, max_length=190)
-    access_profile_id: int | None = Field(default=None, gt=0)
-    group_name: str | None = Field(default=None, max_length=128)
-    status: str = Field(default="CREATED", max_length=32)
-    actor_ip: str | None = Field(default=None, max_length=64)
-    user_agent: str | None = Field(default=None, max_length=256)
-    correlation_id: str | None = Field(default=None, max_length=128)
+    access_level_code: str = Field(..., min_length=1, max_length=16)
+    group_name: str = Field(..., min_length=1, max_length=128)
 
 
 class CreateProvisioningJobPayload(BaseModel):
@@ -65,14 +54,6 @@ class JobStartPayload(BaseModel):
     actor_ip: str | None = Field(default=None, max_length=64)
     user_agent: str | None = Field(default=None, max_length=256)
     correlation_id: str = Field(..., min_length=8, max_length=128)
-    lock_owner: str | None = Field(default=None, max_length=100)
-    capsule_execution_id: int | None = Field(default=None, gt=0)
-
-
-class JobRequeuePayload(BaseModel):
-    correlation_id: str = Field(..., min_length=8, max_length=128)
-    reason: str | None = Field(default=None, max_length=128)
-    force: bool = False
 
 
 class JobCancelPayload(BaseModel):
@@ -108,36 +89,6 @@ class JobFailPayload(BaseModel):
     correlation_id: str = Field(..., min_length=8, max_length=128)
 
 
-class CompleteAndApplyPayload(BaseModel):
-    outcome: str = Field(..., min_length=1, max_length=16)
-    action: str | None = Field(default=None, max_length=64)
-    result_json: dict | None = None
-    metrics_json: dict | None = None
-    error_json: dict | None = None
-    error_code: str | None = Field(default=None, max_length=64)
-    error_message: str | None = None
-
-    profile_id: int = Field(..., gt=0)
-    group_external_id: str | None = Field(default=None, max_length=190)
-
-    event_type: str = Field(..., min_length=1, max_length=64)
-    event_payload_json: dict | None = None
-
-    actor_ip: str | None = Field(default=None, max_length=64)
-    user_agent: str | None = Field(default=None, max_length=256)
-    correlation_id: str = Field(..., min_length=8, max_length=128)
-
-
-def _retry_backoff_minutes(attempt_count: int) -> int:
-    table = [1, 5, 15, 60]
-    idx = max(0, min(int(attempt_count) - 1, len(table) - 1))
-    return table[idx]
-
-
-def _next_retry_attempt_count(job_attempt_count: int | None, profile_attempt_count: int | None) -> int:
-    return max(int(job_attempt_count or 0), int(profile_attempt_count or 0)) + 1
-
-
 def _require_correlation(correlation_id: str) -> str:
     value = str(correlation_id or "").strip()
     if not value:
@@ -150,37 +101,6 @@ def _normalize_access_level(raw: str) -> str:
     if value not in {"READ", "WRITE"}:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="access_level must be READ or WRITE")
     return value
-
-
-def _resolve_access_profile_id_for_level(db: Session, *, access_level_code: str) -> int:
-    level = _normalize_access_level(access_level_code)
-    row = db.execute(
-        text(
-            """
-            SELECT ap.id
-            FROM access_profiles ap
-            WHERE UPPER(
-              COALESCE(
-                NULLIF(ap.code, ''),
-                NULLIF(ap.permission, ''),
-                'READ'
-              )
-            ) = :access_level_code
-            ORDER BY
-              CASE WHEN UPPER(COALESCE(NULLIF(ap.code, ''), '')) = :access_level_code THEN 0 ELSE 1 END,
-              CASE WHEN COALESCE(ap.active, 1) = 1 THEN 0 ELSE 1 END,
-              ap.id ASC
-            LIMIT 1
-            """
-        ),
-        {"access_level_code": level},
-    ).mappings().first()
-    if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"No access_profiles template found for access_level={level}",
-        )
-    return int(row.get("id") or 0)
 
 
 def _write_governance_event(
@@ -766,111 +686,32 @@ def get_storage_root_provisioning_context(storage_root_id: int, db: Session = De
 
 
 @router.post("/storage-root-access-profiles", dependencies=[require_internal({"profiles:write"})])
-def upsert_storage_root_access_profile(payload: UpsertStorageRootAccessProfilePayload, db: Session = Depends(get_db)):
+def ensure_storage_root_access_group(payload: EnsureAccessGroupPayload, db: Session = Depends(get_db)):
+    """Return the AD group of a storage root for a level, creating it (PENDING) on first use."""
     access_level_code = _normalize_access_level(payload.access_level_code)
-    repo = StorageRootAccessProfilesRepo(db)
-    resolved_access_profile_id = int(payload.access_profile_id or 0)
-    if resolved_access_profile_id <= 0:
-        resolved_access_profile_id = _resolve_access_profile_id_for_level(db, access_level_code=access_level_code)
-    resolved_group_name = str(payload.group_name or "").strip()
-    if not resolved_group_name:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="group_name is required for provisioning profile upsert",
-        )
-
-    if access_level_code in {"READ", "WRITE"}:
-        existing_level = db.execute(
-            text(
-                """
-                SELECT id
-                FROM storage_root_access_profiles
-                WHERE storage_root_id = :storage_root_id
-                  AND access_level_code = :access_level_code
-                  AND deleted_at IS NULL
-                LIMIT 1
-                """
-            ),
-            {
+    if db.get(StorageRoot, int(payload.storage_root_id)) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    row, created = StorageRootAccessProfilesRepo(db).ensure(
+        storage_root_id=int(payload.storage_root_id),
+        access_level_code=access_level_code,
+        group_name=payload.group_name,
+    )
+    if created:
+        _write_governance_event(
+            db,
+            event_type="access_group_created",
+            target_type="storage_root_access_profile",
+            target_id=int(row["id"]),
+            storage_root_access_profile_id=int(row["id"]),
+            status_value=str(row.get("status") or "PENDING"),
+            payload_json={
                 "storage_root_id": int(payload.storage_root_id),
                 "access_level_code": access_level_code,
+                "group_name": row.get("group_name"),
             },
-        ).mappings().first()
-        if existing_level:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"{access_level_code} profile already exists for this storage root",
-            )
-
-    existing = repo.find_by_root_and_permission_hash(
-        storage_root_id=int(payload.storage_root_id),
-        permission_hash=str(payload.permission_hash),
-    )
-    if existing:
-        return {"created": False, "data": repo.to_dict(existing)}
-
-    created = repo.create(
-        data={
-            "storage_root_id": int(payload.storage_root_id),
-            "access_profile_id": resolved_access_profile_id,
-            "group_name": resolved_group_name,
-            "name": payload.name,
-            "access_level_code": access_level_code,
-            "permission_hash": payload.permission_hash,
-            "status": payload.status,
-            "active": True,
-        }
-    )
-
-    _write_governance_event(
-        db,
-        event_type="profile_created",
-        target_type="storage_root_access_profile",
-        target_id=int(created.id),
-        storage_root_access_profile_id=int(created.id),
-        status_value=str(created.status),
-        payload_json={
-            "storage_root_id": int(payload.storage_root_id),
-            "access_level_code": access_level_code,
-            "permission_hash": payload.permission_hash,
-        },
-        actor_ip=payload.actor_ip,
-        user_agent=payload.user_agent,
-    )
-    if hasattr(db, "commit"):
-        db.commit()
-    return {"created": True, "data": repo.to_dict(created)}
-
-
-@router.post("/storage-root-access-profiles/{profile_id}/queue", dependencies=[require_internal({"profiles:write"})])
-def queue_storage_root_access_profile(
-    profile_id: int,
-    payload: JobStartPayload,
-    db: Session = Depends(get_db),
-):
-    _ = _require_correlation(payload.correlation_id)
-    repo = StorageRootAccessProfilesRepo(db)
-    row = repo.get_by_id(int(profile_id))
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root access profile not found")
-
-    row = repo.update(
-        obj=row,
-        updates={
-            "status": "QUEUED",
-            "next_retry_at": None,
-        },
-    )
-    return repo.to_dict(row)
-
-
-@router.get("/storage-root-access-profiles/{profile_id}", dependencies=[require_internal({"profiles:write"})])
-def get_storage_root_access_profile(profile_id: int, db: Session = Depends(get_db)):
-    repo = StorageRootAccessProfilesRepo(db)
-    row = repo.get_by_id(int(profile_id))
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root access profile not found")
-    return repo.to_dict(row)
+        )
+    db.commit()
+    return {"created": created, "data": row}
 
 
 @router.get("/storage-root-access-profiles", dependencies=[require_internal({"profiles:write"})])
@@ -879,9 +720,10 @@ def list_storage_root_access_profiles(
     access_level_code: str | None = None,
     db: Session = Depends(get_db),
 ):
-    repo = StorageRootAccessProfilesRepo(db)
-    rows = repo.list_by_root(storage_root_id=int(storage_root_id), access_level_code=access_level_code)
-    return [repo.to_dict(r) for r in rows]
+    return StorageRootAccessProfilesRepo(db).list_by_root(
+        storage_root_id=int(storage_root_id),
+        access_level_code=access_level_code,
+    )
 
 
 @router.post("/jobs", dependencies=[require_internal({"jobs:write"})])
@@ -999,24 +841,6 @@ def list_provisioning_jobs(
     return [dict(row) for row in rows]
 
 
-@router.get("/jobs/by-correlation/{correlation_id}", dependencies=[require_internal({"jobs:read"})])
-def get_provisioning_job_by_correlation(correlation_id: str, db: Session = Depends(get_db)):
-    repo = ProvisioningJobsRepo(db)
-    row = repo.get_by_correlation(correlation_id)
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provisioning job not found")
-    return repo.to_dict(row)
-
-
-@router.get("/jobs/by-profile/{profile_id}", dependencies=[require_internal({"jobs:read"})])
-def get_latest_provisioning_job_by_profile(profile_id: int, db: Session = Depends(get_db)):
-    repo = ProvisioningJobsRepo(db)
-    row = repo.get_latest_by_profile(int(profile_id))
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provisioning job not found")
-    return repo.to_dict(row)
-
-
 @router.get("/jobs/{job_id}", dependencies=[require_internal({"jobs:read"})])
 def get_provisioning_job_by_id(job_id: int, db: Session = Depends(get_db)):
     repo = ProvisioningJobsRepo(db)
@@ -1038,60 +862,6 @@ def start_provisioning_job(job_id: int, payload: JobStartPayload, db: Session = 
     if current_status in {"RUNNING", "SUCCEEDED", "CANCELLED"}:
         return repo.to_dict(row)
 
-    profile_id = int(getattr(row, "storage_root_access_profile_id", 0) or 0)
-    if profile_id > 0:
-        profile = db.execute(
-            text(
-                """
-                SELECT id, status, locked_by, locked_at
-                FROM storage_root_access_profiles
-                WHERE id = :id AND deleted_at IS NULL
-                FOR UPDATE
-                """
-            ),
-            {"id": profile_id},
-        ).mappings().first()
-        if not profile:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root access profile not found")
-
-        now = utcnow_naive()
-        lock_owner = str(payload.lock_owner or f"capsule-job-{int(job_id)}").strip()[:100]
-        current_lock_owner = str(profile.get("locked_by") or "").strip()
-        locked_at = profile.get("locked_at")
-        is_stale = bool(locked_at and isinstance(locked_at, datetime) and locked_at <= (now - timedelta(minutes=10)))
-        if (
-            str(profile.get("status") or "").upper() == "RUNNING"
-            and locked_at
-            and not is_stale
-            and current_lock_owner
-            and current_lock_owner != lock_owner
-        ):
-            raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Provisioning lock is active")
-
-        db.execute(
-            text(
-                """
-                UPDATE storage_root_access_profiles
-                SET status = 'RUNNING',
-                    locked_by = :locked_by,
-                    locked_at = :locked_at,
-                    capsule_execution_id = :capsule_execution_id,
-                    next_retry_at = NULL,
-                    error_code = NULL,
-                    error_message = NULL,
-                    updated_at = :updated_at
-                WHERE id = :id
-                """
-            ),
-            {
-                "id": profile_id,
-                "locked_by": lock_owner,
-                "locked_at": now,
-                "capsule_execution_id": int(payload.capsule_execution_id or 0) or int(job_id),
-                "updated_at": now,
-            },
-        )
-
     row = repo.update(
         obj=row,
         updates={
@@ -1102,54 +872,6 @@ def start_provisioning_job(job_id: int, payload: JobStartPayload, db: Session = 
             "error_message": None,
         },
     )
-    return repo.to_dict(row)
-
-
-@router.post("/jobs/{job_id}/requeue", dependencies=[require_internal({"jobs:write", "profiles:write"})])
-def requeue_provisioning_job(job_id: int, payload: JobRequeuePayload, db: Session = Depends(get_db)):
-    _ = _require_correlation(payload.correlation_id)
-    repo = ProvisioningJobsRepo(db)
-    row = repo.get_by_id(int(job_id))
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provisioning job not found")
-
-    current_status = str(row.status or "").upper()
-    if current_status == "RUNNING" and not payload.force:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot requeue RUNNING job without force=true")
-
-    next_status = "QUEUED" if payload.force else ensure_transition(current=current_status, next_status="QUEUED")
-    row = repo.update(
-        obj=row,
-        updates={
-            "status": next_status,
-            "finished_at": None,
-            "error_code": None,
-            "error_message": None,
-        },
-    )
-
-    profile_id = int(getattr(row, "storage_root_access_profile_id", 0) or 0)
-    if profile_id > 0:
-        db.execute(
-            text(
-                """
-                UPDATE storage_root_access_profiles
-                SET status = 'QUEUED',
-                    locked_by = NULL,
-                    locked_at = NULL,
-                    next_retry_at = NULL,
-                    capsule_execution_id = NULL,
-                    updated_at = :updated_at
-                WHERE id = :id AND deleted_at IS NULL
-                """
-            ),
-            {
-                "id": profile_id,
-                "updated_at": utcnow_naive(),
-            },
-        )
-        db.commit()
-
     return repo.to_dict(row)
 
 
@@ -1279,6 +1001,27 @@ def mark_watchdog_republish(job_id: int, payload: JobWatchdogRepublishPayload, d
     return repo.to_dict(row)
 
 
+def _record_access_group_outcome(
+    db: Session,
+    *,
+    job_row: Any,
+    succeeded: bool,
+    result_json: dict | None,
+    error_message: str | None = None,
+) -> None:
+    """Report an AD group creation job on the storage root access group it was created for."""
+    profile_id = int(getattr(job_row, "storage_root_access_profile_id", 0) or 0)
+    if profile_id <= 0 or str(getattr(job_row, "job_type", "") or "").upper() != "AD_GROUP_ENSURE":
+        return
+    details = _as_dict(_as_dict(result_json).get("details"))
+    StorageRootAccessProfilesRepo(db).record_outcome(
+        profile_id,
+        succeeded=succeeded,
+        group_external_id=details.get("group_guid") or details.get("group_external_id") or details.get("group_dn"),
+        error_message=error_message,
+    )
+
+
 @router.post("/jobs/{job_id}/complete", dependencies=[require_internal({"jobs:write"})])
 def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Session = Depends(get_db)):
     correlation_id = _require_correlation(payload.correlation_id)
@@ -1349,6 +1092,8 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
         status_value="success",
         correlation_id=correlation_id,
     )
+
+    _record_access_group_outcome(db, job_row=row, succeeded=True, result_json=payload.result_json)
 
     _write_governance_event(
         db,
@@ -1453,6 +1198,14 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
         correlation_id=correlation_id,
     )
 
+    _record_access_group_outcome(
+        db,
+        job_row=row,
+        succeeded=False,
+        result_json=payload.result_json,
+        error_message=payload.error_message or payload.error_code,
+    )
+
     _write_governance_event(
         db,
         event_type="provisioning_job_failed",
@@ -1479,237 +1232,3 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
     db.commit()
     return repo.to_dict(row)
 
-
-@router.post("/jobs/{job_id}/complete-and-apply", dependencies=[require_internal({"jobs:write", "events:write"})])
-def complete_and_apply_provisioning(job_id: int, payload: CompleteAndApplyPayload, db: Session = Depends(get_db)):
-    _ = _require_correlation(payload.correlation_id)
-    now = utcnow_naive()
-    outcome = normalize_status(payload.outcome)
-    if outcome not in {"SUCCEEDED", "FAILED"}:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="outcome must be SUCCEEDED or FAILED")
-    if outcome == "FAILED" and not str(payload.error_code or "").strip():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="error_code is required when outcome=FAILED")
-    if outcome == "SUCCEEDED" and not str(payload.group_external_id or "").strip():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="group_external_id is required when outcome=SUCCEEDED")
-
-    idem_row = db.execute(
-        text(
-            """
-            SELECT id
-            FROM governance_events
-            WHERE provisioning_job_id = :job_id
-              AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.correlation_id')) = :correlation_id
-            ORDER BY id DESC
-            LIMIT 1
-            """
-        ),
-        {
-            "job_id": int(job_id),
-            "correlation_id": payload.correlation_id,
-        },
-    ).mappings().first()
-    if idem_row:
-        repo = ProvisioningJobsRepo(db)
-        existing = repo.get_by_id(int(job_id))
-        return repo.to_dict(existing) if existing else {"id": int(job_id)}
-
-    job_row = db.execute(
-        text(
-            """
-            SELECT id, status, storage_root_access_profile_id
-            FROM provisioning_jobs
-            WHERE id = :id
-            LIMIT 1
-            """
-        ),
-        {"id": int(job_id)},
-    ).mappings().first()
-    if not job_row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provisioning job not found")
-
-    profile_row = db.execute(
-        text(
-            """
-            SELECT id, status, group_external_id, attempt_count
-            FROM storage_root_access_profiles
-            WHERE id = :id AND deleted_at IS NULL
-            LIMIT 1
-            """
-        ),
-        {"id": int(payload.profile_id)},
-    ).mappings().first()
-    if not profile_row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root access profile not found")
-
-    job_next = ensure_transition(current=str(job_row.get("status") or "QUEUED"), next_status=outcome)
-    profile_next = ensure_transition(current=str(profile_row.get("status") or "QUEUED"), next_status=outcome)
-
-    retry_next_at: datetime | None = None
-    next_attempt_count = int(profile_row.get("attempt_count") or 0)
-    job_attempt_count = int((payload.metrics_json or {}).get("retries") or 0)
-    if outcome == "FAILED":
-        next_attempt_count = _next_retry_attempt_count(job_attempt_count, next_attempt_count)
-        if next_attempt_count < MAX_RETRY_ATTEMPTS:
-            profile_next = "RETRYING"
-            retry_next_at = now + timedelta(minutes=_retry_backoff_minutes(next_attempt_count))
-
-    validate_profile_invariants(
-        status_value=profile_next,
-        group_external_id=payload.group_external_id if profile_next == "SUCCEEDED" else profile_row.get("group_external_id"),
-        error_code=payload.error_code if profile_next == "FAILED" else None,
-    )
-
-    db.execute(
-        text(
-            """
-            UPDATE provisioning_jobs
-            SET status = :status,
-                action = :action,
-                result_json = :result_json,
-                metrics_json = :metrics_json,
-                error_json = :error_json,
-                error_code = :error_code,
-                error_message = :error_message,
-                finished_at = :finished_at,
-                updated_at = :updated_at
-            WHERE id = :id
-            """
-        ),
-        {
-            "id": int(job_id),
-            "status": job_next,
-            "action": payload.action,
-            "result_json": json.dumps(payload.result_json or {}, ensure_ascii=False),
-            "metrics_json": json.dumps(payload.metrics_json or {}, ensure_ascii=False),
-            "error_json": json.dumps(
-                payload.error_json
-                or (
-                    {"code": payload.error_code, "message": payload.error_message}
-                    if outcome == "FAILED"
-                    else {}
-                ),
-                ensure_ascii=False,
-            ),
-            "error_code": payload.error_code if outcome == "FAILED" else None,
-            "error_message": payload.error_message if outcome == "FAILED" else None,
-            "finished_at": now,
-            "updated_at": now,
-        },
-    )
-
-    db.execute(
-        text(
-            """
-            UPDATE storage_root_access_profiles
-            SET status = :status,
-                group_external_id = :group_external_id,
-                attempt_count = :attempt_count,
-                locked_by = NULL,
-                locked_at = NULL,
-                capsule_execution_id = NULL,
-                next_retry_at = :next_retry_at,
-                error_code = :error_code,
-                error_message = :error_message,
-                updated_at = :updated_at
-            WHERE id = :id
-            """
-        ),
-        {
-                "id": int(payload.profile_id),
-                "status": profile_next,
-                "group_external_id": payload.group_external_id if profile_next == "SUCCEEDED" else profile_row.get("group_external_id"),
-                "attempt_count": next_attempt_count,
-                "next_retry_at": retry_next_at,
-                "error_code": payload.error_code if outcome == "FAILED" else None,
-                "error_message": payload.error_message if outcome == "FAILED" else None,
-                "updated_at": now,
-            },
-        )
-
-    _write_governance_event(
-        db,
-        event_type=payload.event_type,
-        target_type="storage_root_access_profile",
-        target_id=int(payload.profile_id),
-        storage_root_access_profile_id=int(payload.profile_id),
-        provisioning_job_id=int(job_id),
-        status_value=profile_next,
-        payload_json={
-            **(payload.event_payload_json or {}),
-            "correlation_id": payload.correlation_id,
-            "result_json": payload.result_json,
-            "error_code": payload.error_code,
-            "error_message": payload.error_message,
-        },
-        actor_ip=payload.actor_ip,
-        user_agent=payload.user_agent,
-    )
-    db.commit()
-
-    repo = ProvisioningJobsRepo(db)
-    updated = repo.get_by_id(int(job_id))
-    out = repo.to_dict(updated) if updated else {"id": int(job_id), "status": job_next}
-    out["profile_status"] = profile_next
-    out["attempt_count"] = next_attempt_count
-    out["next_retry_at"] = retry_next_at
-    return out
-
-
-@router.get("/reconcile-candidates", dependencies=[require_internal({"jobs:read", "profiles:write"})])
-def list_reconcile_candidates(limit: int = 200, db: Session = Depends(get_db)):
-    lim = max(1, min(int(limit), 1000))
-    rows = db.execute(
-        text(
-            """
-            SELECT
-              srap.id AS storage_root_access_profile_id,
-              srap.storage_root_id,
-              srap.status,
-              srap.attempt_count,
-              srap.locked_at,
-              srap.next_retry_at,
-              (
-                SELECT pj.id
-                FROM provisioning_jobs pj
-                WHERE pj.storage_root_access_profile_id = srap.id
-                ORDER BY pj.id DESC
-                LIMIT 1
-              ) AS job_id
-            FROM storage_root_access_profiles srap
-            WHERE srap.deleted_at IS NULL
-              AND (
-                (
-                  UPPER(COALESCE(srap.status, '')) = 'RUNNING'
-                  AND srap.locked_at IS NOT NULL
-                  AND srap.locked_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)
-                )
-                OR (
-                  UPPER(COALESCE(srap.status, '')) = 'RETRYING'
-                  AND srap.next_retry_at IS NOT NULL
-                  AND srap.next_retry_at <= UTC_TIMESTAMP()
-                )
-              )
-            ORDER BY srap.id ASC
-            LIMIT :lim
-            """
-        ),
-        {"lim": lim},
-    ).mappings().all()
-
-    out: list[dict] = []
-    for row in rows:
-        job_id = int(row.get("job_id") or 0)
-        if job_id <= 0:
-            continue
-        out.append(
-            {
-                "storage_root_access_profile_id": int(row.get("storage_root_access_profile_id") or 0),
-                "storage_root_id": int(row.get("storage_root_id") or 0),
-                "status": str(row.get("status") or "").upper(),
-                "attempt_count": int(row.get("attempt_count") or 0),
-                "locked_at": row.get("locked_at"),
-                "next_retry_at": row.get("next_retry_at"),
-                "job_id": job_id,
-            }
-        )
-    return out

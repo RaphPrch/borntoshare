@@ -32,9 +32,6 @@ from app.services.authorization import (
 )
 from app.services.naming_policy import resolve_effective_policy
 from app.services.probe_results import ProbeResultService, normalize_probe_status_value
-from app.services.storage_root_binding_materialization_service import (
-    materialize_root_bindings,
-)
 
 router = APIRouter(
     prefix="/storage-roots",
@@ -339,14 +336,6 @@ def _get_effective_provisioning_policy(
     }
 
 
-def _serialize_root_access_profiles(
-    *,
-    db: Session,
-    storage_root_id: int,
-) -> dict:
-    return StorageRootsViewsRepo(db).serialize_access_profiles(storage_root_id=int(storage_root_id))
-
-
 def _active_snapshot_id_for_source(
     db: Session,
     *,
@@ -411,13 +400,11 @@ def _project_storage_root_ad_groups(
     *,
     db: Session,
     storage_root_id: int,
-    access_profiles_state: dict[str, Any],
     include_members: bool = False,
     include_expected: bool = False,
 ) -> list[dict[str, Any]]:
     return StorageRootsViewsRepo(db).project_ad_groups(
         storage_root_id=int(storage_root_id),
-        access_profiles_state=access_profiles_state,
         include_members=bool(include_members),
         include_expected=bool(include_expected),
     )
@@ -680,9 +667,8 @@ def get_storage_root_overview(
 
     Backed by base tables.
 
-    Legacy note:
-    - access_profiles are no longer part of the active public UI contract
-    - governed groups remain exposed through projected_ad_groups
+    AD groups (created ones, plus the names levels will get on first request)
+    are exposed through projected_ad_groups.
     """
     require_storage_root_access(db, actor_from_request(request), int(storage_root_id))
     repo = StorageRootsViewsRepo(db)
@@ -695,12 +681,10 @@ def get_storage_root_overview(
         )
 
     effective_access = repo.get_effective_access_details(storage_root_id)
-    access_profiles_state = _serialize_root_access_profiles(db=db, storage_root_id=int(storage_root_id))
     provisioning_policy = _get_effective_provisioning_policy(db=db, storage_root_id=int(storage_root_id))
     projected_groups = _project_storage_root_ad_groups(
         db=db,
         storage_root_id=int(storage_root_id),
-        access_profiles_state=access_profiles_state,
     )
     row["owners"] = repo.list_owners(storage_root_id)
     row["projected_ad_groups"] = projected_groups
@@ -737,11 +721,9 @@ def get_storage_root_ad_groups(
             detail="Storage root not found",
         )
 
-    access_profiles_state = _serialize_root_access_profiles(db=db, storage_root_id=int(storage_root_id))
     groups = _project_storage_root_ad_groups(
         db=db,
         storage_root_id=int(storage_root_id),
-        access_profiles_state=access_profiles_state,
         include_members=bool(include_members),
         include_expected=bool(include_expected),
     )
@@ -778,27 +760,6 @@ def get_storage_root_owners(
             "owners": owners,
         },
         meta={"storage_root_id": int(storage_root_id), "count": int(len(owners))},
-    )
-
-
-@router.get("/{storage_root_id}/access-profiles")
-def list_storage_root_access_profiles(
-    storage_root_id: int,
-    db: Session = Depends(get_db),
-):
-    """Legacy compatibility endpoint for storage-root access-profile bindings."""
-    root = db.get(StorageRoot, int(storage_root_id))
-    if root is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
-    payload = _serialize_root_access_profiles(db=db, storage_root_id=int(storage_root_id))
-    count = int(len(payload.get("items") or []))
-    return ui_data(
-        payload,
-        meta={
-            "storage_root_id": int(storage_root_id),
-            "count": count,
-            "deprecated": True,
-        },
     )
 
 
@@ -1019,9 +980,8 @@ def get_storage_root(
     Includes current effective access so the UI can display permissions
     immediately after creation.
 
-    Legacy note:
-    - access_profiles are no longer part of the active public UI contract
-    - governed groups remain exposed through projected_ad_groups
+    AD groups (created ones, plus the names levels will get on first request)
+    are exposed through projected_ad_groups.
     """
     require_storage_root_access(db, actor_from_request(request), int(storage_root_id))
     repo = StorageRootsViewsRepo(db)
@@ -1034,12 +994,10 @@ def get_storage_root(
         )
 
     effective_access = repo.get_effective_access_details(storage_root_id)
-    access_profiles_state = _serialize_root_access_profiles(db=db, storage_root_id=int(storage_root_id))
     row["owners"] = repo.list_owners(storage_root_id)
     row["projected_ad_groups"] = _project_storage_root_ad_groups(
         db=db,
         storage_root_id=int(storage_root_id),
-        access_profiles_state=access_profiles_state,
     )
     row["acl_freshness"] = repo.get_acl_freshness(storage_root_id)
     row["effective_access"] = effective_access.get("users", [])
@@ -1142,22 +1100,12 @@ async def create_root(
             "parent_storage_root_id": root.parent_storage_root_id,
             "inherit_owners": bool(root.inherit_owners),
             "inherit_tags": bool(root.inherit_tags),
-            "inherit_access_profiles": bool(root.inherit_access_profiles),
             "is_active": _root_is_active(root),
             "zone_id": _root_zone_id(root),
         },
         correlation_id=(request.headers.get("x-request-id") or None),
         background=False,
     )
-
-    zone_id = int(endpoint.zone_id) if endpoint and endpoint.zone_id is not None else None
-    if zone_id:
-        materialize_root_bindings(
-            db,
-            storage_root_id=int(root.id),
-            replace_stale=True,
-            commit=True,
-        )
 
     _reconcile_storage_root_alerts(db, int(root.id))
 
@@ -1192,7 +1140,6 @@ def update_root(
         "parent_storage_root_id": root.parent_storage_root_id,
         "inherit_owners": bool(root.inherit_owners),
         "inherit_tags": bool(root.inherit_tags),
-        "inherit_access_profiles": bool(root.inherit_access_profiles),
         "is_active": _root_is_active(root),
         "zone_id": _root_zone_id(root),
     }
@@ -1269,14 +1216,6 @@ def update_root(
             detail="Storage root already exists for this endpoint/path",
         )
 
-    if any(k in updates for k in {"storage_endpoint_id", "root_path", "name"}):
-        materialize_root_bindings(
-            db,
-            storage_root_id=int(root.id),
-            replace_stale=True,
-            commit=True,
-        )
-
     after = {
         "name": root.name,
         "root_path": root.root_path,
@@ -1285,7 +1224,6 @@ def update_root(
         "parent_storage_root_id": root.parent_storage_root_id,
         "inherit_owners": bool(root.inherit_owners),
         "inherit_tags": bool(root.inherit_tags),
-        "inherit_access_profiles": bool(root.inherit_access_profiles),
         "is_active": _root_is_active(root),
         "zone_id": _root_zone_id(root),
     }
