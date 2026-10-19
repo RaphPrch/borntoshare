@@ -11,6 +11,7 @@ from app.core.logging import (
     clear_request_id_context,
     get_logger,
     log_event,
+    set_client_ip_context,
     set_request_id_context,
     setup_logging,
 )
@@ -42,7 +43,7 @@ async def lifespan(app: FastAPI):
             methods = ",".join(sorted(route.methods))
             log_event(
                 logger,
-                logging.INFO,
+                logging.DEBUG,
                 "AUTH_ROUTE_EXPOSED",
                 methods=methods,
                 path=route.path,
@@ -66,6 +67,7 @@ app = FastAPI(
 async def _request_id_middleware(request: Request, call_next):
     request_id = ensure_request_id(request)
     set_request_id_context(request_id)
+    set_client_ip_context(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
     try:
         resp = await call_next(request)
     finally:
