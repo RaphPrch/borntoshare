@@ -45,10 +45,10 @@ Si le dossier hôte monté sur `/data/secrets` n'est pas inscriptible,
 le service échoue explicitement (`SECRET_PERSISTENCE_FAILURE`) et ne démarre pas
 en mode semi-fonctionnel.
 
-Dans [`podman-compose.yml`](services/secret-broker/podman-compose.yml), le volume doit inclure:
+Dans le [`podman-compose.yml`](../podman-compose.yml) racine, le volume est :
 
 ```yaml
-./secrets:/data/secrets:rw,Z,U
+./secret-broker/secrets:/data/secrets:rw
 ```
 
 - `Z` : relabel SELinux
@@ -88,7 +88,7 @@ En cas d’échec, le service crash explicitement.
 Après modification :
 
 ```bash
-podman compose -f podman-compose.yml up -d --build
+make up   # depuis la racine du dépôt
 ```
 
 Puis recréer les secrets DEV nécessaires (les secrets non persistés précédemment ne sont pas récupérables).

@@ -15,8 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 
 # Non-root runtime user (same UID as "user:" in podman-compose.yml, when set)
-RUN useradd -r -u 10001 -g nogroup appuser && \
-    mkdir -p /run/secrets && chown appuser:nogroup /run/secrets
+RUN useradd -r -u 10001 -g nogroup appuser
 USER 10001
 
 EXPOSE 8000

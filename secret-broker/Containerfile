@@ -18,8 +18,7 @@ COPY routers ./routers
 COPY schemas.py main.py ./
 
 # Non-root runtime user (same UID as "user:" in podman-compose.yml, when set)
-RUN useradd -r -u 10004 -g nogroup appuser && \
-    mkdir -p /run/secrets && chown appuser:nogroup /run/secrets
+RUN useradd -r -u 10004 -g nogroup appuser
 USER 10004
 
 EXPOSE 8010

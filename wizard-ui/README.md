@@ -65,8 +65,7 @@ Accès via http://localhost:8080
 
 Le Wizard UI **ne génère pas** de fichiers `.env.*`.
 
-- La configuration du Wizard se fait via un fichier `.env` local (non versionné) — voir [`.env.example`](.env.example).
-- Les fichiers `.env` applicatifs (core-service/Auth/Governance/…) sont gérés par le déploiement de la plateforme (hors scope du Wizard UI).
+- Toute la plateforme (Wizard compris) est configurée par un seul fichier `.env` à la racine du dépôt — voir [`.env.example`](../.env.example).
 
 ---
 
@@ -107,16 +106,12 @@ Variables côté backend :
 - `WIZARD_MODE=dev|prod` (prioritaire)
 - ou `APP_ENV=dev|prod`
 
-Pour un lancement local, la façon la plus simple est d’utiliser un fichier `.env` (non versionné) + l’option uvicorn `--env-file`.
-Un exemple est fourni : [`.env.example`](.env.example).
-
 ### podman-compose
 
-Le fichier [`podman-compose.yml`](podman-compose.yml) charge les variables via `env_file: .env`.
-Donc :
+Le Wizard est décrit dans le [`podman-compose.yml`](../podman-compose.yml) racine (profil `wizard`) :
 
-1) copier [`.env.example`](.env.example) → `.env`
-2) exécuter `podman-compose up --build`
+1) copier [`.env.example`](../.env.example) → `.env` à la racine
+2) `make wizard` (puis `make wizard-down` une fois la base initialisée)
 
 ---
 

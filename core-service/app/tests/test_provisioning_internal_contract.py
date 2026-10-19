@@ -20,7 +20,8 @@ def test_job_failed_requires_error_code() -> None:
 
 
 def test_scoped_auth_missing_scope_forbidden(monkeypatch) -> None:
-    monkeypatch.setenv("SERVICE_TOKEN", "svc-token")
+    monkeypatch.setenv("INTERNAL_TOKEN_MODE", "static")
+    monkeypatch.setenv("INTERNAL_TOKEN", "svc-token")
     dep = require_internal({"profiles:write"}).dependency
 
     class _Req:
@@ -29,8 +30,7 @@ def test_scoped_auth_missing_scope_forbidden(monkeypatch) -> None:
     with pytest.raises(HTTPException) as exc:
         dep(
             request=_Req(),
-            x_service_token="svc-token",
-            x_internal_token="",
+            x_internal_token="svc-token",
             x_service_name="capsule",
             x_service_scope="jobs:read,jobs:write,events:write",
         )
@@ -38,7 +38,8 @@ def test_scoped_auth_missing_scope_forbidden(monkeypatch) -> None:
 
 
 def test_scoped_auth_invalid_token_unauthorized(monkeypatch) -> None:
-    monkeypatch.setenv("SERVICE_TOKEN", "svc-token")
+    monkeypatch.setenv("INTERNAL_TOKEN_MODE", "static")
+    monkeypatch.setenv("INTERNAL_TOKEN", "svc-token")
     dep = require_internal({"jobs:read"}).dependency
 
     class _Req:
@@ -47,10 +48,9 @@ def test_scoped_auth_invalid_token_unauthorized(monkeypatch) -> None:
     with pytest.raises(HTTPException) as exc:
         dep(
             request=_Req(),
-            x_service_token="wrong",
-            x_internal_token="",
+            x_internal_token="wrong",
             x_service_name="governance",
             x_service_scope="jobs:read,jobs:write,profiles:write,events:write",
         )
-    assert exc.value.status_code == 401
+    assert exc.value.status_code == 403
 

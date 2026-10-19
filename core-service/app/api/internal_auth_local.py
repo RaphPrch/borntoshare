@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.core.internal_auth import require_service_token
+from app.core.internal_auth import require_internal_token
 from app.services.activity_log import log_activity
 from app.services.authorization import actor_from_request
 
@@ -62,7 +62,7 @@ class LocalChangePasswordPayload(BaseModel):
     new_password: str = Field(..., min_length=1, max_length=512)
 
 
-@router.post("/local/verify", dependencies=[Depends(require_service_token)])
+@router.post("/local/verify", dependencies=[Depends(require_internal_token)])
 def verify_local_credentials(payload: LocalVerifyPayload, db: Session = Depends(get_db)):
     row = db.execute(
         text(
@@ -102,7 +102,7 @@ def verify_local_credentials(payload: LocalVerifyPayload, db: Session = Depends(
     }
 
 
-@router.post("/change-password", dependencies=[Depends(require_service_token)])
+@router.post("/change-password", dependencies=[Depends(require_internal_token)])
 def change_local_password(
     payload: LocalChangePasswordPayload,
     request: Request,
