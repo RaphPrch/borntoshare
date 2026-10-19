@@ -141,6 +141,9 @@ services:
     environment:
       <<: *common-env
       ORIGIN: ${FRONTEND_PUBLIC_ORIGIN:-http://localhost:3000}
+      # Upstreams of the BFF (no default in the frontend code)
+      B2S_AUTH_URL: http://auth-service:8000
+      B2S_CORE_URL: http://core-service:8000/api
       B2S_USE_HTTPS: ${B2S_USE_HTTPS:-false}
       PRINCIPAL_SIGNING_KEY: ${PRINCIPAL_SIGNING_KEY}
       PRINCIPAL_TTL_SECONDS: ${PRINCIPAL_TTL_SECONDS}

@@ -25,6 +25,11 @@ _REQUEST_ID_CTX: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "auth_request_id",
     default=None,
 )
+# Browser IP of the request being served (X-Forwarded-For set by the frontend BFF)
+_CLIENT_IP_CTX: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "auth_client_ip",
+    default=None,
+)
 
 
 def _normalize_level(raw_level: str) -> str:
@@ -86,6 +91,13 @@ def get_request_id_context() -> str | None:
 
 def clear_request_id_context() -> None:
     _REQUEST_ID_CTX.set(None)
+    _CLIENT_IP_CTX.set(None)
+
+
+def set_client_ip_context(forwarded_for: str | None, peer: str | None = None) -> None:
+    """First X-Forwarded-For entry (the browser, as seen by the BFF), else the TCP peer."""
+    first = str(forwarded_for or "").split(",")[0].strip()
+    _CLIENT_IP_CTX.set(first or (str(peer or "").strip() or None))
 
 
 def mask_session_id(value: str | None) -> str:
@@ -116,6 +128,10 @@ def log_event(
         request_id = get_request_id_context()
         if request_id:
             enriched["request_id"] = request_id
+    if not enriched.get("client_ip"):
+        client_ip = _CLIENT_IP_CTX.get()
+        if client_ip:
+            enriched["client_ip"] = client_ip
 
     parts: list[str] = []
     ordered_first = [
@@ -123,6 +139,7 @@ def log_event(
         "module",
         "action",
         "request_id",
+        "client_ip",
         "user_id",
         "actor",
         "provider",

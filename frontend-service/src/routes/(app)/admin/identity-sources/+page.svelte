@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { sleep } from '$lib/utils/values';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
@@ -1513,7 +1514,8 @@
   $: pageStart = sortedCards.length === 0 ? 0 : (currentPage - 1) * rowsPerPage;
   $: pageEnd = Math.min(sortedCards.length, pageStart + rowsPerPage);
   $: paginatedCards = sortedCards.slice(pageStart, pageEnd);
-  $: if (detailCard?.id) {
+  // Browser only: during SSR the component fetch cannot resolve relative /api URLs
+  $: if (browser && detailCard?.id) {
     void loadHealthSummaryForSource(detailCard.id);
   }
   $: selectedRecentHealth = buildRecentHealth(
