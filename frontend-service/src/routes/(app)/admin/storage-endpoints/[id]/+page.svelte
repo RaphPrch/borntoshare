@@ -485,12 +485,14 @@
     void refreshEndpointHealth(selected, { manual: true });
   }
 
-  $: if (selected && selectedId > 0 && healthLoadedForEndpointId !== selectedId) {
+  // Browser only: during SSR the component fetch cannot resolve relative /api URLs
+  $: if (browser && selected && selectedId > 0 && healthLoadedForEndpointId !== selectedId) {
     healthLoadedForEndpointId = selectedId;
     void refreshEndpointHealth(selected);
   }
 
   $: if (
+    browser &&
     selectedEndpointId() > 0 &&
     activeEndpointTab === 'provisioning' &&
     !endpointProvisioningBusy &&

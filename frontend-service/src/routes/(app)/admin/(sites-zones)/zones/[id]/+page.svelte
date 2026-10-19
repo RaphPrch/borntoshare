@@ -980,7 +980,8 @@
       handledCreateQuery = false;
     }
   }
-  $: void ensureTabLoaded(activeTab);
+  // Browser only: during SSR the component fetch cannot resolve relative /api URLs
+  $: if (browser) void ensureTabLoaded(activeTab);
   $: tabProps = {
     overview: {
       zone: data.zone,

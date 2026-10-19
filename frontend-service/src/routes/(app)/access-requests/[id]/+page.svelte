@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { onDestroy, onMount } from 'svelte';
   import { getRequestStatusMeta, isProvisioningInFlight } from '$lib/utils/access-request-status';
   import { bulkDecision } from '$lib/api/access-requests';
@@ -152,7 +153,8 @@
     }
   }
 
-  $: if (req && isProvisioningInFlight(req?.provisioning ?? [])) {
+  // Browser only: a server-side interval would never be cleared
+  $: if (browser && req && isProvisioningInFlight(req?.provisioning ?? [])) {
     if (!pollTimer) {
       pollTimer = setInterval(() => {
         refreshRequest();

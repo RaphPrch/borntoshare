@@ -10,7 +10,7 @@
  * Assumptions:
  * - HTTP only
  * - Cookie-based session
- * - CSRF disabled
+ * - CSRF checked by SvelteKit against ORIGIN
  * - Direct backend service routing
  */
 
@@ -23,7 +23,16 @@ import { logError } from './lib/logging';
 
 declare const process: {
   env: Record<string, string | undefined>;
+  on?: (event: 'unhandledRejection', listener: (reason: unknown) => void) => void;
 };
+
+// Node exits on an unhandled rejection: one failed background call (e.g. a fetch started
+// during SSR) would take the whole frontend down for every user. Log it instead.
+process.on?.('unhandledRejection', (reason) => {
+  logError('Unhandled promise rejection', {
+    reason: reason instanceof Error ? reason.message : String(reason)
+  });
+});
 
 /* ============================================================
  * MAIN HANDLE

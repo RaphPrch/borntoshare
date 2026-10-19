@@ -1675,6 +1675,7 @@
   }
 
   $: if (
+    browser &&
     selectedStorageRootId &&
     activityLoadedForRootId !== Number(selectedStorageRootId)
   ) {
