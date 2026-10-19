@@ -3,7 +3,7 @@
   import StorageRootAssignedPrincipalCard from './StorageRootAssignedPrincipalCard.svelte';
   import SectionHeaderRow from '../ui/SectionHeaderRow.svelte';
   import ActionFooter from '../ui/ActionFooter.svelte';
-  import EmptyStateCard from '../ui/EmptyStateCard.svelte';
+  import EmptyState from '../ui/EmptyState.svelte';
   import EntityActionButton from '../entity/EntityActionButton.svelte';
 
   export let open = false;
@@ -101,7 +101,7 @@
         <div class="governance-drawer__loading" role="status" aria-live="polite">Loading assignments…</div>
       {:else if roleRows.length === 0}
         <div class="governance-drawer__empty">
-          <EmptyStateCard
+          <EmptyState
             iconClass="bi bi-shield"
             title={emptyTitle}
             description={helperText}

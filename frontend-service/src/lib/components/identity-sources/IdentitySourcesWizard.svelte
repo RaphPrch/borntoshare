@@ -1,4 +1,5 @@
 <script lang="ts">
+  import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
   import { sleep } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
   import { toast } from '$lib/stores/toast';
@@ -674,17 +675,7 @@
       <p>Configure Active Directory (LDAP) or an OIDC provider to import identities.</p>
     </div>
 
-    <div class="is-stepper b2s-wizard-stepper" aria-label="Wizard progress">
-      {#each activeSteps as wizardStep, idx}
-        <div class="is-step b2s-wizard-step">
-          <div class="num" class:active={step >= idx + 1}>{idx + 1}</div>
-          <div class="label" class:active={step >= idx + 1}>{wizardStep.label}</div>
-        </div>
-        {#if idx < activeSteps.length - 1}
-          <div class="line" class:active={step >= idx + 2}></div>
-        {/if}
-      {/each}
-    </div>
+    <WizardSteps steps={activeSteps.map((s) => ({ label: s.label }))} current={step} />
 
     <div class="is-card">
       {#if currentStepKey === 'type'}
@@ -1395,76 +1386,6 @@
     background: transparent;
   }
 
-  .is-stepper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    margin: 16px 0 22px;
-  }
-
-  .is-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 88px;
-  }
-
-  .num {
-    width: 30px;
-    height: 30px;
-    border-radius: 999px;
-    border: 2px solid #cbd5e1;
-    color: #64748b;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    background: transparent;
-    transition: background 180ms ease, color 180ms ease, transform 180ms ease;
-  }
-
-  .num.active {
-    background: var(--b2s-topbar-bg, #0b1530);
-    border-color: var(--b2s-topbar-bg, #0b1530);
-    color: #ffffff;
-    transform: translateY(-1px);
-  }
-
-  .label {
-    margin-top: 6px;
-    font-weight: 700;
-    font-size: 12px;
-    color: #94a3b8;
-  }
-
-  .label.active {
-    color: var(--b2s-topbar-bg, #0b1530);
-  }
-
-  .line {
-    width: 120px;
-    height: 2px;
-    background: #cbd5e1;
-    border-radius: 999px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .line::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: var(--b2s-topbar-bg, #0b1530);
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform 220ms ease;
-  }
-
-  .line.active::after {
-    transform: scaleX(1);
-  }
-
   h2 {
     margin: 0 0 16px;
     font-size: 18px;
@@ -2109,10 +2030,6 @@
     .actions {
       flex-direction: column;
       align-items: stretch;
-    }
-
-    .line {
-      width: 60px;
     }
   }
 </style>

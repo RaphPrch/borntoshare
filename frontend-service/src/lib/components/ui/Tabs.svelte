@@ -1,24 +1,60 @@
 <script module lang="ts">
-  export type TabItem = { key: string; label: string };
+  export type TabItem<Key extends string = string> = {
+    key: Key;
+    label: string;
+    icon?: string | null;
+  };
 </script>
 
 <script lang="ts">
   export let tabs: TabItem[] = [];
-  export let activeKey = "";
+  export let activeKey = '';
   export let onChange: ((key: string) => void) | null = null;
+  export let ariaLabel = 'Sections';
 </script>
 
-<nav class="b2s-tabs" aria-label="Tabs">
+<nav class="b2s-tabs" aria-label={ariaLabel}>
   {#each tabs as tab (tab.key)}
     <button
       type="button"
-      class="b2s-tabs__item"
       class:is-active={tab.key === activeKey}
+      aria-current={tab.key === activeKey ? 'page' : undefined}
       on:click={() => onChange?.(tab.key)}
-      aria-current={tab.key === activeKey ? "page" : undefined}
     >
+      {#if tab.icon}
+        <i class={`bi ${tab.icon}`} aria-hidden="true"></i>
+      {/if}
       {tab.label}
     </button>
   {/each}
 </nav>
 
+<style>
+  .b2s-tabs {
+    border-bottom: 1px solid var(--b2s-border, #dce5f2);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    overflow-x: auto;
+  }
+
+  .b2s-tabs button {
+    min-height: 49px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--b2s-text-muted, #60718f);
+    font-size: 15px;
+    font-weight: 650;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 4px;
+    white-space: nowrap;
+  }
+
+  .b2s-tabs button.is-active {
+    color: var(--b2s-topbar-bg, #111b3f);
+    border-bottom-color: var(--b2s-topbar-accent, #4da3ff);
+  }
+</style>

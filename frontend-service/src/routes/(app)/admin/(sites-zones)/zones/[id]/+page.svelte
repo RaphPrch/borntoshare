@@ -50,7 +50,7 @@
   import EntityAlertDrawer from "$lib/components/entity/EntityAlertDrawer.svelte";
   import EntityAlertStrip from "$lib/components/entity/EntityAlertStrip.svelte";
   import type { EntityAlertStripItem } from "$lib/components/entity/entity-alerts.types";
-  import EntityTabs from "$lib/components/entity/EntityTabs.svelte";
+  import Tabs from "$lib/components/ui/Tabs.svelte";
 
   const PROBE_SYNC_EVENT = "b2s:storage-endpoint-probe-updated";
 
@@ -1036,7 +1036,7 @@
   </svelte:fragment>
 
   <svelte:fragment slot="tabs">
-    <EntityTabs
+    <Tabs
       {tabs}
       activeKey={activeTab}
       ariaLabel="Zone sections"

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import EntityDrawerShell from '$lib/components/entity/EntityDrawerShell.svelte';
+  import Drawer from '$lib/components/ui/Drawer.svelte';
 
   export let open = false;
   export let title = 'Details';
@@ -14,7 +14,7 @@
   export let showFooter = true;
 </script>
 
-<EntityDrawerShell
+<Drawer
   {open}
   {title}
   {subtitle}
@@ -32,4 +32,4 @@
   <svelte:fragment slot="footer">
     <slot name="footer" />
   </svelte:fragment>
-</EntityDrawerShell>
+</Drawer>

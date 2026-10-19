@@ -1343,65 +1343,6 @@ button.danger:hover {
 }
 
 /* ============================================================
-   STEPPER
-   ============================================================ */
-
-.se-stepper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  margin: 32px 0 48px;
-}
-
-/* Step block */
-.se-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 90px;
-}
-
-/* Number */
-.se-step .num {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  /* No grey fill on steps (requested) */
-  background: transparent;
-  border: 2px solid #cbd5e1;
-  color: #64748b;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    background 180ms ease,
-    color 180ms ease,
-    transform 180ms ease;
-}
-
-/* Active step */
-.se-step .num.active {
-  border-color: var(--b2s-topbar-bg, #0b1530);
-  background: var(--b2s-topbar-bg, #0b1530);
-  color: #ffffff;
-  transform: translateY(-1px);
-}
-
-/* Label */
-.se-step .label {
-  margin-top: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #94a3b8;
-}
-
-.se-step .label.active {
-  color: var(--b2s-topbar-bg, #0b1530);
-}
-
-/* ============================================================
    STEP 1 — TYPE GRID
    ============================================================ */
 
@@ -1520,16 +1461,6 @@ button.danger:hover {
   color: #b91c1c;
 }
 
-.se-line {
-  width: 120px;
-  height: 2px;
-  /* keep subtle but not a “grey block” */
-  background: #cbd5e1;
-  border-radius: 999px;
-  position: relative;
-  overflow: hidden;
-}
-
 /* ============================================================
    WIZARD — MODAL COMPACTNESS
    Reduce chances of needing to scroll on Step 2.
@@ -1548,10 +1479,6 @@ button.danger:hover {
 .se-wizard.se-wizard--modal .se-wizard-header p {
   margin-top: 4px;
   font-size: 13px;
-}
-
-.se-wizard.se-wizard--modal .se-stepper {
-  margin: 8px 0 12px;
 }
 
 .se-wizard.se-wizard--modal .se-selected-type {
@@ -1623,30 +1550,6 @@ button.danger:hover {
     grid-template-columns: 1fr;
   }
 }
-
-/* Animated fill */
-.se-line::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--b2s-topbar-bg, #0b1530);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 220ms ease;
-}
-
-/* Activated segment */
-.se-line.active::after {
-  transform: scaleX(1);
-}
-
-  .se-step .num {
-    transition: transform 160ms ease, background 160ms ease, color 160ms ease;
-  }
-
-  .se-step .num.active {
-    transform: translateY(-1px);
-  }
 
 /* ============================================================
    STEP 2 — SELECTED TYPE SUMMARY
@@ -3517,9 +3420,7 @@ button.primary.ghost:hover {
   padding: 28px 32px 30px;
 }
 
-/* Responsive: when the viewport becomes narrow, allow the stepper to wrap
-   instead of forcing horizontal overflow which can hide fields (e.g. Name). */
-:global(.b2s-wizard-stepper) {
+/* Responsive: when the viewport becomes narrow {
   flex-wrap: wrap;
   row-gap: 10px;
 }
@@ -3528,27 +3429,6 @@ button.primary.ghost:hover {
   :global(.b2s-wizard-shell) {
     padding: 18px 16px 18px;
   }
-
-  :global(.b2s-wizard-step) {
-    min-width: 0;
-  }
-
-  :global(.b2s-wizard-step .label) {
-    font-size: 12px;
-  }
-}
-
-:global(.b2s-wizard-step) {
-  min-width: 96px;
-}
-
-:global(.b2s-wizard-step .num) {
-  width: 34px;
-  height: 34px;
-}
-
-:global(.b2s-wizard-stepper) {
-  margin: 18px 0 22px;
 }
 
 :global(.b2s-wizard h2) {

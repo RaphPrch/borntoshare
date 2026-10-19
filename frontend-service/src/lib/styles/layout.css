@@ -1,28 +1,3 @@
-.b2s-tabs {
-  display: flex;
-  align-items: stretch;
-  gap: 1.25rem;
-  min-height: 44px;
-  border-bottom: 1px solid var(--b2s-border, #e5e7eb);
-  padding: 0 .25rem;
-}
-
-.b2s-tabs__item {
-  height: 44px;
-  padding: 0 .15rem;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--b2s-muted, #64748b);
-  font-weight: 500;
-}
-
-.b2s-tabs__item.is-active {
-  color: var(--b2s-primary, #2563eb);
-  border-bottom-color: var(--b2s-primary, #2563eb);
-  font-weight: 600;
-}
-
 .b2s-card {
   border: 1px solid var(--b2s-border, #e5e7eb);
   border-radius: 12px;

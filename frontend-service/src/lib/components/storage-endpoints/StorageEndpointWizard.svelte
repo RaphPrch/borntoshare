@@ -1,4 +1,5 @@
 <script lang="ts">
+  import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
   import { fade, fly } from 'svelte/transition';
   import { goto } from '$app/navigation';
   import { createEventDispatcher, onMount } from 'svelte';
@@ -618,27 +619,7 @@
       </p>
     </div>
 
-    <!-- STEPPER (short + dynamic segments) -->
-    <div class="se-stepper b2s-wizard-stepper" aria-label="Wizard progress">
-      <div class="se-step b2s-wizard-step">
-        <div class="num" class:active={step >= 1}>1</div>
-        <div class="label" class:active={step >= 1}>Type</div>
-      </div>
-
-      <div class="se-line" class:active={step >= 2} aria-hidden="true"></div>
-
-      <div class="se-step b2s-wizard-step">
-        <div class="num" class:active={step >= 2}>2</div>
-        <div class="label" class:active={step >= 2}>Connection</div>
-      </div>
-
-      <div class="se-line" class:active={step >= 3} aria-hidden="true"></div>
-
-      <div class="se-step b2s-wizard-step">
-        <div class="num" class:active={step >= 3}>3</div>
-        <div class="label" class:active={step >= 3}>Governance</div>
-      </div>
-    </div>
+    <WizardSteps steps={[{ label: 'Type' }, { label: 'Connection' }, { label: 'Governance' }]} current={step} />
 
     <!-- CARD -->
     <div class="se-card">

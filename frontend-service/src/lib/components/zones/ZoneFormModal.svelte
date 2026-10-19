@@ -1,5 +1,5 @@
 <script lang="ts">
-  import EntityDrawerShell from "$lib/components/entity/EntityDrawerShell.svelte";
+  import Drawer from "$lib/components/ui/Drawer.svelte";
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import ZoneFormFields from "$lib/components/zones/ZoneFormFields.svelte";
 
@@ -105,7 +105,7 @@
   };
 </script>
 
-<EntityDrawerShell
+<Drawer
   {open}
   title={drawerTitle}
   subtitle={drawerSubtitle}
@@ -164,7 +164,7 @@
       />
     </div>
   </svelte:fragment>
-</EntityDrawerShell>
+</Drawer>
 
 <style>
   .zone-form-drawer__content {

@@ -1,8 +1,8 @@
 <script lang="ts">
-  import EntityConsoleHeader from "$lib/components/entity/EntityConsoleHeader.svelte";
+  import EntityHeader from "$lib/components/entity/EntityHeader.svelte";
   import {
     type OperationalHeaderMetaItem
-  } from "$lib/components/entity/EntityOperationalHeader.svelte";
+  } from "$lib/components/entity/EntityHeader.svelte";
   import { type EntityActionItem } from "$lib/components/entity/EntityActionGroup.svelte";
   import { healthLabelToOperationalTone } from "$lib/mappers/entity-operational.mapper";
 
@@ -39,7 +39,7 @@
   ] satisfies EntityActionItem[];
 </script>
 
-<EntityConsoleHeader
+<EntityHeader
   eyebrow=""
   title={`${zone?.name ?? "Zone"} Console`}
   subtitle={String(zone?.site_name ?? "")}

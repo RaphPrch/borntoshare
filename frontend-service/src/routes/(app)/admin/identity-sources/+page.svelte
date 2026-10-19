@@ -5,7 +5,7 @@
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import IdentitySourcesWizardModal from '$lib/components/identity-sources/IdentitySourcesWizardModal.svelte';
-  import EmptyStateCard from '$lib/components/ui/EmptyStateCard.svelte';
+  import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import IdentitySourceDrawer from '$lib/components/identity-sources/IdentitySourceDrawer.svelte';
   import {
     browseIdentitySource,
@@ -1557,7 +1557,7 @@
     {/if}
 
     {#if !hasSources && !listLoading && !fetchError}
-      <EmptyStateCard
+      <EmptyState
         containerClass="storage-endpoints-empty identity-empty-state"
         iconClass="bi bi-people"
         title="No identity sources yet"

@@ -362,8 +362,8 @@
             iconClass="bi bi-tags"
             title="No tags found"
             description="Create a tag or adjust your search."
-            actionLabel="Create tag"
-            onAction={openCreate}
+            ctaLabel="Create tag"
+            onCta={openCreate}
           />
         </div>
       {/if}

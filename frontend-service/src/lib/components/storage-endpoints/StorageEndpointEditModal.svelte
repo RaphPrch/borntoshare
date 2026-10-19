@@ -1,5 +1,5 @@
 <script lang="ts">
-  import EntityDrawerShell from "$lib/components/entity/EntityDrawerShell.svelte";
+  import Drawer from "$lib/components/ui/Drawer.svelte";
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import ActionFooter from "$lib/components/ui/ActionFooter.svelte";
@@ -513,7 +513,7 @@
 </script>
 
 {#if open}
-<EntityDrawerShell
+<Drawer
   {open}
   onClose={requestClose}
   title="Edit storage endpoint"
@@ -810,7 +810,7 @@
       {/if}
     </ActionFooter>
   </svelte:fragment>
-</EntityDrawerShell>
+</Drawer>
 {/if}
 
 <ConfirmActionModal

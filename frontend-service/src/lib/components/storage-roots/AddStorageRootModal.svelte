@@ -1,4 +1,5 @@
 <script lang="ts">
+  import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
   import { createEventDispatcher } from 'svelte';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import type { AddRootEndpoint, AddRootFolder, AddRootZone } from './add-storage-root.types';
@@ -246,29 +247,17 @@
         </button>
       </div>
 
-      <ol class="sr-add-stepper" aria-label="Creation steps">
-        <li class:active={currentStep === 1} class:done={currentStep > 1}>
-          <span>{#if currentStep > 1}<i class="bi bi-check-lg" aria-hidden="true"></i>{:else}1{/if}</span>
-          <div>
-            <strong>Select source</strong>
-            <small>Choose zone and endpoint</small>
-          </div>
-        </li>
-        <li class:active={currentStep === 2} class:done={currentStep > 2}>
-          <span>{#if currentStep > 2}<i class="bi bi-check-lg" aria-hidden="true"></i>{:else}2{/if}</span>
-          <div>
-            <strong>Select storage roots</strong>
-            <small>Discover and select folders</small>
-          </div>
-        </li>
-        <li class:active={currentStep === 3}>
-          <span>3</span>
-          <div>
-            <strong>Review & import</strong>
-            <small>Set governance and confirm</small>
-          </div>
-        </li>
-      </ol>
+      <div class="sr-add-steps">
+        <WizardSteps
+          ariaLabel="Creation steps"
+          current={currentStep}
+          steps={[
+            { label: 'Select source', hint: 'Choose zone and endpoint' },
+            { label: 'Select storage roots', hint: 'Discover and select folders' },
+            { label: 'Review & import', hint: 'Set governance and confirm' }
+          ]}
+        />
+      </div>
     </header>
 
     <div class="sr-add-body">
@@ -773,6 +762,10 @@
 {/if}
 
 <style>
+  .sr-add-steps {
+    margin-top: 28px;
+  }
+
   .sr-add-backdrop {
     position: fixed;
     inset: 68px 0 0;
@@ -835,68 +828,6 @@
 
   .sr-add-icon-btn:hover {
     background: #f3f6fb;
-  }
-
-  .sr-add-stepper {
-    list-style: none;
-    margin: 28px 0 0;
-    padding: 0 0 24px;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 26px;
-  }
-
-  .sr-add-stepper li {
-    position: relative;
-    display: grid;
-    grid-template-columns: 40px 1fr;
-    align-items: center;
-    gap: 12px;
-    color: #2d4168;
-  }
-
-  .sr-add-stepper li:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    top: 20px;
-    left: calc(100% + 2px);
-    width: 24px;
-    height: 1px;
-    background: #cfd9eb;
-  }
-
-  .sr-add-stepper span {
-    width: 40px;
-    height: 40px;
-    border: 1px solid #cdd8ec;
-    border-radius: 999px;
-    display: grid;
-    place-items: center;
-    color: #304a78;
-    background: #fff;
-    font-weight: 700;
-  }
-
-  .sr-add-stepper .active span,
-  .sr-add-stepper .done span {
-    border-color: #216be8;
-    color: #fff;
-    background: #216be8;
-    box-shadow: 0 10px 22px rgba(33, 107, 232, .24);
-  }
-
-  .sr-add-stepper strong {
-    display: block;
-    font-size: 13px;
-    font-weight: 700;
-    color: #0d214f;
-  }
-
-  .sr-add-stepper small {
-    display: block;
-    margin-top: 2px;
-    font-size: 12px;
-    color: #52688f;
   }
 
   .sr-add-body {
@@ -2176,15 +2107,6 @@
 
     .sr-add-main {
       overflow: visible;
-    }
-
-    .sr-add-stepper {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-
-    .sr-add-stepper li:not(:last-child)::after {
-      display: none;
     }
 
     .sr-add-metrics {

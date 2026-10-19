@@ -9,6 +9,8 @@
 </script>
 
 <script lang="ts">
+  import EntityActionGroup, { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
+
   export let eyebrow = '';
   export let title = '';
   export let subtitle = '';
@@ -23,6 +25,10 @@
   export let attentionIconClass = 'bi bi-exclamation-triangle-fill';
   export let maxAttentionItems = 2;
   export let containerClass = '';
+  // Header buttons: pass `actions`, or fill the "actions" slot for custom content
+  export let actions: EntityActionItem[] = [];
+  export let actionsAriaLabel = 'Entity actions';
+  export let actionsAlign: 'start' | 'end' = 'end';
 
   $: resolvedStatusIcon =
     statusIconClass ??
@@ -75,7 +81,11 @@
       {/if}
 
       <div class="b2s-operational-header__actions">
-        <slot name="actions" />
+        {#if $$slots.actions}
+          <slot name="actions" />
+        {:else if actions.length > 0}
+          <EntityActionGroup {actions} ariaLabel={actionsAriaLabel} align={actionsAlign} />
+        {/if}
       </div>
     </div>
   </div>

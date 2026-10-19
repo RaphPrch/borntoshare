@@ -6,9 +6,9 @@
   import EntityAlertDrawer from '$lib/components/entity/EntityAlertDrawer.svelte';
   import EntityAlertStrip from '$lib/components/entity/EntityAlertStrip.svelte';
   import type { EntityAlertStripItem } from '$lib/components/entity/entity-alerts.types';
-  import EntityTabs from '$lib/components/entity/EntityTabs.svelte';
+  import Tabs from '$lib/components/ui/Tabs.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
-  import EmptyStateCard from '$lib/components/ui/EmptyStateCard.svelte';
+  import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import StorageEndpointsSidebar from '$lib/components/storage-endpoints/StorageEndpointsSidebar.svelte';
   import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
   import StorageEndpointEditModal from '$lib/components/storage-endpoints/StorageEndpointEditModal.svelte';
@@ -17,10 +17,10 @@
     buildStorageEndpointProvisioningViewModel,
     type ProvisioningPolicyViewModel
   } from '$lib/components/provisioning/provisioning-policy.adapter';
-  import EntityConsoleHeader from '$lib/components/entity/EntityConsoleHeader.svelte';
+  import EntityHeader from '$lib/components/entity/EntityHeader.svelte';
   import {
     type OperationalHeaderMetaItem
-  } from '$lib/components/entity/EntityOperationalHeader.svelte';
+  } from '$lib/components/entity/EntityHeader.svelte';
   import { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
@@ -1218,7 +1218,7 @@
 
   <main class="sed-main">
     {#if !hasEndpoints}
-      <EmptyStateCard
+      <EmptyState
         containerClass="storage-endpoints-empty"
         iconClass="bi bi-hdd-stack"
         title="No storage endpoint"
@@ -1230,7 +1230,7 @@
     {:else if selected}
       <EntityConsoleShell>
         <svelte:fragment slot="header">
-          <EntityConsoleHeader
+          <EntityHeader
             eyebrow="Storage endpoint"
             title={`${endpointName(selected)} Console`}
             subtitle={endpointHost(selected) || endpointZone(selected)}
@@ -1249,7 +1249,7 @@
         </svelte:fragment>
 
         <svelte:fragment slot="tabs">
-          <EntityTabs
+          <Tabs
             tabs={endpointTabs}
             activeKey={activeEndpointTab}
             ariaLabel="Storage endpoint sections"

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import EntityDrawerShell from '$lib/components/entity/EntityDrawerShell.svelte';
+  import Drawer from '$lib/components/ui/Drawer.svelte';
   import type { EntityAlertStripItem } from '$lib/components/entity/entity-alerts.types';
 
   export let open = false;
@@ -13,7 +13,7 @@
   export let topOffset = '70px';
 </script>
 
-<EntityDrawerShell
+<Drawer
   {open}
   {title}
   {subtitle}
@@ -42,4 +42,4 @@
       {/each}
     </div>
   {/if}
-</EntityDrawerShell>
+</Drawer>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
   import { createEventDispatcher } from 'svelte';
   import { createIdentity, type CreateIdentityPayload } from '$lib/api/identity';
   import { listIdentitySources, type IdentitySourceListItem } from '$lib/api/identity-sources';
@@ -467,17 +468,7 @@
     </div>
   </header>
 
-  <div class="identity-wizard__stepper" aria-label="Add identity steps">
-    <div class:active={step === 1} class:complete={step > 1}>
-      <span>1</span>
-      <strong>Choose type</strong>
-    </div>
-    <i></i>
-    <div class:active={step === 2}>
-      <span>2</span>
-      <strong>Configure</strong>
-    </div>
-  </div>
+  <WizardSteps ariaLabel="Add identity steps" steps={[{ label: 'Choose type' }, { label: 'Configure' }]} current={step} />
 
   {#if errorMessage}
     <div class="identity-wizard__error" role="alert">
@@ -765,45 +756,6 @@
   .identity-wizard__footer-reason {
     color: var(--b2s-color-text-muted, #64748b);
     text-align: right;
-  }
-
-  .identity-wizard__stepper {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 18px 0 18px;
-  }
-
-  .identity-wizard__stepper > div {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: #5d708f;
-    font-weight: 600;
-  }
-
-  .identity-wizard__stepper > div span {
-    width: 34px;
-    height: 34px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    border: 1px solid #ced8e6;
-    background: #fff;
-  }
-
-  .identity-wizard__stepper > div.active span,
-  .identity-wizard__stepper > div.complete span {
-    border-color: #2268f4;
-    background: #2268f4;
-    color: #fff;
-  }
-
-  .identity-wizard__stepper > i {
-    flex: 1 1 auto;
-    height: 1px;
-    background: #dbe4f0;
   }
 
   .identity-wizard__error {

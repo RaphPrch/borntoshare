@@ -2,7 +2,7 @@
   import { normalizeText } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
-  import EntityDrawerShell from '$lib/components/entity/EntityDrawerShell.svelte';
+  import Drawer from '$lib/components/ui/Drawer.svelte';
   import { adminChangePassword, updateIdentity } from '$lib/api/identity';
   import { toast } from '$lib/stores/toast';
   import { initials } from '$lib/utils/format';
@@ -167,7 +167,7 @@
   }
 </script>
 
-<EntityDrawerShell
+<Drawer
   {open}
   onClose={handleBackdropClose}
   title={title}
@@ -334,7 +334,7 @@
       </button>
     </div>
   </svelte:fragment>
-</EntityDrawerShell>
+</Drawer>
 
 <ConfirmActionModal
   open={closeConfirmOpen}

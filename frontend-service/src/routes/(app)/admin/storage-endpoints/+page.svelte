@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
-  import EmptyStateCard from '$lib/components/ui/EmptyStateCard.svelte';
+  import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
   import { toast } from '$lib/stores/toast';
 
@@ -13,7 +13,7 @@
 </script>
 
 {#if !hasEndpoints}
-  <EmptyStateCard
+  <EmptyState
     containerClass="storage-endpoints-empty"
     iconClass="bi bi-hdd-stack"
     title="No storage endpoints yet"

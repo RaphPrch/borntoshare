@@ -1,10 +1,10 @@
 <script lang="ts">
-  import EntityConsoleHeader from '$lib/components/entity/EntityConsoleHeader.svelte';
+  import EntityHeader from '$lib/components/entity/EntityHeader.svelte';
   import type { EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import type {
     OperationalHeaderMetaItem,
     OperationalHeaderTone
-  } from '$lib/components/entity/EntityOperationalHeader.svelte';
+  } from '$lib/components/entity/EntityHeader.svelte';
 
   type HeaderTone = 'success' | 'warning' | 'error' | 'neutral';
 
@@ -63,7 +63,7 @@
   ] satisfies EntityActionItem[];
 </script>
 
-<EntityConsoleHeader
+<EntityHeader
   eyebrow=""
   {title}
   statusLabel={showStatusBadge ? statusLabel : ''}

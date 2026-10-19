@@ -501,34 +501,6 @@
   color: var(--b2s-topbar-bg-hover, #1a2148);
 }
 
-.sr-clean-tabs {
-  border-bottom: 1px solid #dce5f2;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  overflow-x: auto;
-}
-
-.sr-clean-tabs button {
-  min-height: 49px;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: #60718f;
-  font-size: 15px;
-  font-weight: 650;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 4px;
-  white-space: nowrap;
-}
-
-.sr-clean-tabs button.active {
-  color: var(--b2s-topbar-bg, #111b3f);
-  border-bottom-color: var(--b2s-topbar-accent, #4da3ff);
-}
-
 .sr-clean-overview {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
