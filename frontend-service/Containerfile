@@ -1,0 +1,42 @@
+# ============================================
+# BornToShare — Frontend (SvelteKit)
+# ============================================
+
+# ---------- Build ----------
+FROM node:20-alpine AS build
+WORKDIR /app
+
+ARG NPM_VERSION=11.16.0
+ENV NODE_ENV=production
+
+RUN npm install -g "npm@${NPM_VERSION}"
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+
+# ---------- Runtime ----------
+FROM node:20-alpine
+WORKDIR /app
+
+ARG NPM_VERSION=11.16.0
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=3000
+
+RUN npm install -g "npm@${NPM_VERSION}"
+
+# User non-root
+RUN addgroup -g 10001 app && adduser -D -u 10001 -G app app
+USER app
+
+# Runtime artifacts only
+COPY --from=build /app/build ./build
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/node_modules ./node_modules
+
+EXPOSE 3000
+CMD ["node", "build/index.js"]

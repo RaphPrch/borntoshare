@@ -1,0 +1,46 @@
+FROM python:3.12-slim
+
+# --------------------------------------------------
+# Runtime env (minimal & deterministic)
+# --------------------------------------------------
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PATH="/venv/bin:$PATH"
+
+WORKDIR /app
+
+# --------------------------------------------------
+# Python virtualenv (NO update / NO upgrade)
+# --------------------------------------------------
+RUN python -m venv /venv
+
+# --------------------------------------------------
+# Dependencies
+# --------------------------------------------------
+COPY requirements.txt .
+RUN /venv/bin/pip install --no-cache-dir -r requirements.txt
+
+# --------------------------------------------------
+# Application code (STRICT)
+# --------------------------------------------------
+COPY core ./core
+COPY providers ./providers
+COPY routers ./routers
+COPY schemas.py ./schemas.py
+COPY main.py ./main.py
+
+# --------------------------------------------------
+# Non-root user (static UID/GID)
+# --------------------------------------------------
+RUN useradd -r -u 10004 -g nogroup appuser && \
+    mkdir -p /run/secrets && \
+    chown -R appuser:nogroup /app /venv /run/secrets
+
+USER 10004
+
+# --------------------------------------------------
+# Runtime
+# --------------------------------------------------
+EXPOSE 8010
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8010"]

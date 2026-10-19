@@ -1,0 +1,7 @@
+# Local env
+.env
+
+# Node / build
+node_modules
+.svelte-kit
+build

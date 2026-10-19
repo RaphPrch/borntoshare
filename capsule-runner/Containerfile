@@ -1,0 +1,22 @@
+FROM alpine:3.19
+
+# smbclient + krb déjà dans l’image
+RUN apk add --no-cache \
+    samba-client \
+    krb5 \
+    ca-certificates \
+    python3 \
+    py3-pip
+
+RUN addgroup -S b2s && adduser -S -D -H -h /app -s /sbin/nologin -u 10001 -G b2s b2s
+
+WORKDIR /app
+COPY requirements.txt .
+RUN python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+ENV PATH="/opt/venv/bin:$PATH"
+COPY app ./app
+
+USER b2s:b2s
+
+CMD ["/opt/venv/bin/dramatiq", "app.jobs.tasks"]
