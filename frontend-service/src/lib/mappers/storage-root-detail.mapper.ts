@@ -9,7 +9,7 @@ type StorageRootAccessModelRow = {
   tone: 'read' | 'write';
   users: number;
   adGroup: string;
-  adGroupTone: 'success' | 'pending' | 'warning';
+  adGroupTone: 'success' | 'pending' | 'warning' | 'neutral';
   groupName?: string | null;
   aclAlignment?: string | null;
   aclPrincipal?: string | null;
@@ -194,31 +194,29 @@ const projectedGroupForLevel = (
 ): ProjectedAdGroup | null =>
   projectedAdGroupsRows(overview).find((row) => String(row?.access_level ?? '').trim().toUpperCase() === level) ?? null;
 
-const projectedGroupCreated = (row: ProjectedAdGroup | null | undefined): boolean => {
-  if (!row) return false;
-  const status = String(row.profile_status ?? '').trim().toUpperCase();
-  if (status === 'CREATED' || status === 'SUCCEEDED' || status === 'PROVISIONED') return true;
-  if (['FAILED', 'ERROR', 'CANCELLED', 'RETRYING', 'RUNNING', 'QUEUED', 'NOT_CREATED'].includes(status)) return false;
-  if (typeof row.is_created === 'boolean') return row.is_created;
-  return Boolean(String(row.group_external_id ?? '').trim());
-};
+// A level's AD group is created on the first approved request for that level (PENDING -> SUCCEEDED | FAILED).
+const ON_FIRST_REQUEST = 'Created on first request';
 
 const adGroupStatusForLevel = (overview: StorageRootDetailModel | null, level: 'READ' | 'WRITE'): string => {
   const row = projectedGroupForLevel(overview, level);
-  if (!row) return 'No group linked';
-  const alignment = String(row?.acl_alignment ?? '').trim().toLowerCase();
-  if (alignment === 'present') return 'ACL present';
-  if (projectedGroupCreated(row)) return 'Created';
   const status = String(row?.profile_status ?? '').trim().toUpperCase();
-  if (status === 'RUNNING' || status === 'QUEUED' || status === 'RETRYING') return 'Provisioning';
+  if (!row || status === 'NOT_CREATED') return ON_FIRST_REQUEST;
+  if (status === 'PENDING') return 'Being created';
+  if (status === 'FAILED') return 'Creation failed';
+  const alignment = String(row.acl_alignment ?? '').trim().toLowerCase();
+  if (alignment === 'present') return 'ACL present';
   if (alignment === 'missing') return 'ACL missing';
-  return 'No group linked';
+  return 'Created';
 };
 
-const adGroupStatusTone = (overview: StorageRootDetailModel | null, level: 'READ' | 'WRITE'): 'success' | 'pending' | 'warning' => {
+const adGroupStatusTone = (
+  overview: StorageRootDetailModel | null,
+  level: 'READ' | 'WRITE'
+): 'success' | 'pending' | 'warning' | 'neutral' => {
   const status = adGroupStatusForLevel(overview, level);
   if (status === 'ACL present' || status === 'Created') return 'success';
-  if (status === 'Provisioning') return 'pending';
+  if (status === 'Being created') return 'pending';
+  if (status === ON_FIRST_REQUEST) return 'neutral';
   return 'warning';
 };
 

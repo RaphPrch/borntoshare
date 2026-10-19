@@ -66,7 +66,7 @@
 
   const sourceLabel = (source: string): string => {
     if (source === 'request') return 'Request';
-    if (source === 'inherited') return 'Inherited';
+    if (source === 'inherited') return 'AD group';
     if (source === 'manual') return 'Manual';
     if (source === 'acl') return 'ACL';
     return 'Unknown';
@@ -79,7 +79,7 @@
   };
 
   const grantedAtLabel = (user: StorageRootEffectiveAccessUser): string => {
-    if (sourceKey(user) === 'inherited') return 'From parent folder';
+    if (sourceKey(user) === 'inherited') return 'AD group membership';
     if (sourceKey(user) === 'acl') return 'Filesystem ACL';
     return formatDate(user.granted_at ?? user.assigned_at ?? user.created_at);
   };
@@ -183,7 +183,7 @@
         <option value="all">All sources</option>
         <option value="request">Request</option>
         <option value="manual">Manual</option>
-        <option value="inherited">Inherited</option>
+        <option value="inherited">AD group</option>
         <option value="acl">Filesystem ACL</option>
         <option value="unknown">Unknown</option>
       </select>

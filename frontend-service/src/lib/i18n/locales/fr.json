@@ -104,58 +104,6 @@
         }
       }
     },
-    "access_profile": {
-      "created": {
-        "title": "Profil d’accès créé",
-        "description": "Le profil d’accès « {profile} » a été créé"
-      },
-      "updated": {
-        "title": "Profil d’accès modifié",
-        "description": "Le profil d’accès « {profile} » a été modifié"
-      },
-      "deleted": {
-        "title": "Profil d’accès supprimé",
-        "description": "Le profil d’accès « {profile} » a été supprimé"
-      },
-      "subject": {
-        "added": {
-          "title": "Membre ajouté au profil d’accès",
-          "description": "L’identité « {user} » a été ajoutée au profil d’accès « {profile} »"
-        },
-        "removed": {
-          "title": "Membre retiré du profil d’accès",
-          "description": "L’identité « {user} » a été retirée du profil d’accès « {profile} »"
-        }
-      }
-    },
-    "access_profile_created": {
-      "title": "Profil d’accès créé",
-      "description": "Un profil d’accès a été créé"
-    },
-    "access_profile_deleted": {
-      "title": "Profil d’accès supprimé",
-      "description": "Un profil d’accès a été supprimé"
-    },
-    "access_profile_provisioning_started": {
-      "title": "Provisioning de profil démarré",
-      "description": "Le provisioning du profil d’accès a démarré"
-    },
-    "access_profile_provisioning_succeeded": {
-      "title": "Provisioning de profil réussi",
-      "description": "Le provisioning du profil d’accès est terminé avec succès"
-    },
-    "access_profile_provisioning_failed": {
-      "title": "Provisioning de profil échoué",
-      "description": "Le provisioning du profil d’accès a échoué"
-    },
-    "access_profile_provisioning_retry": {
-      "title": "Provisioning relancé",
-      "description": "Une nouvelle tentative de provisioning du profil d’accès a été lancée"
-    },
-    "access_profile_provisioning_reconcile": {
-      "title": "Reconciliation du provisioning",
-      "description": "Une reconciliation du provisioning du profil d’accès a été effectuée"
-    },
     "access_request": {
       "created": {
         "title": "Demande d’accès envoyée",

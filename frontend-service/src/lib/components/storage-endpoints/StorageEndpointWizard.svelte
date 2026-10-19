@@ -1280,8 +1280,8 @@
               <div class="se-governance-note">
                 <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
                 <span>
-                  Governance will be initialized after endpoint creation. Access profiles and
-                  guardians can be configured next.
+                  Add storage roots and guardians next. Each root's READ and WRITE AD groups are
+                  created on the first approved access request.
                 </span>
               </div>
 

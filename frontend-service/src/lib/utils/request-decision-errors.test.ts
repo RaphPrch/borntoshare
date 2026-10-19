@@ -9,10 +9,10 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message);
 }
 
-function testStructuredMissingBindingMappedToFriendlyMessage(): void {
+function testGroupNameMissingMappedToFriendlyMessage(): void {
   const mapped = mapAccessRequestDecisionError({
     detail: {
-      code: 'STORAGE_ROOT_ACCESS_PROFILE_MISSING',
+      code: 'GOVERNED_GROUP_NAME_MISSING',
       requested_permission: 'READ',
       storage_root_id: 42
     },
@@ -20,22 +20,14 @@ function testStructuredMissingBindingMappedToFriendlyMessage(): void {
   });
 
   assert(mapped.title === 'Decision blocked', 'title should be Decision blocked');
-  assert(mapped.severity === 'warning', 'missing binding should be warning severity');
-  assert(mapped.message.includes('no READ access profile binding'), 'message should mention READ binding');
+  assert(mapped.severity === 'warning', 'missing group name should be warning severity');
+  assert(mapped.message.includes('naming policy'), 'message should point to the naming policy');
   assert(mapped.actionHref === '/storage-roots?selected=42', 'actionHref should target storage root page');
 }
 
-function testStructuredAmbiguousBindingMappedToFriendlyMessage(): void {
-  const mapped = mapAccessRequestDecisionError({
-    detail: {
-      code: 'STORAGE_ROOT_ACCESS_PROFILE_AMBIGUOUS'
-    },
-    reason: null
-  });
-
-  assert(mapped.title === 'Decision blocked', 'title should be Decision blocked');
-  assert(mapped.severity === 'error', 'ambiguous binding should be error severity');
-  assert(mapped.message.includes('More than one active access profile binding'), 'message should explain ambiguity');
+function testInvalidAccessLevelIsBlocked(): void {
+  const mapped = mapAccessRequestDecisionError({ detail: { code: 'INVALID_ACCESS_LEVEL' }, reason: null });
+  assert(mapped.title === 'Decision blocked', 'invalid level should block the decision');
 }
 
 function testReasonOnlyFallsBackToBackendMessage(): void {
@@ -84,8 +76,8 @@ function testBulkMapperUsesFirstFailedItem(): void {
 }
 
 async function run(): Promise<void> {
-  testStructuredMissingBindingMappedToFriendlyMessage();
-  testStructuredAmbiguousBindingMappedToFriendlyMessage();
+  testGroupNameMissingMappedToFriendlyMessage();
+  testInvalidAccessLevelIsBlocked();
   testReasonOnlyFallsBackToBackendMessage();
   testUnknownErrorFallsBackToGenericMessage();
   testBulkMapperUsesFirstFailedItem();

@@ -104,58 +104,6 @@
         }
       }
     },
-    "access_profile": {
-      "created": {
-        "title": "Access profile created",
-        "description": "Access profile \"{profile}\" was created"
-      },
-      "updated": {
-        "title": "Access profile updated",
-        "description": "Access profile \"{profile}\" was updated"
-      },
-      "deleted": {
-        "title": "Access profile removed",
-        "description": "Access profile \"{profile}\" was removed"
-      },
-      "subject": {
-        "added": {
-          "title": "Access profile member added",
-          "description": "Identity \"{user}\" was added to access profile \"{profile}\""
-        },
-        "removed": {
-          "title": "Access profile member removed",
-          "description": "Identity \"{user}\" was removed from access profile \"{profile}\""
-        }
-      }
-    },
-    "access_profile_created": {
-      "title": "Access profile created",
-      "description": "An access profile was created"
-    },
-    "access_profile_deleted": {
-      "title": "Access profile deleted",
-      "description": "An access profile was deleted"
-    },
-    "access_profile_provisioning_started": {
-      "title": "Access profile provisioning started",
-      "description": "Provisioning for the access profile has started"
-    },
-    "access_profile_provisioning_succeeded": {
-      "title": "Access profile provisioning succeeded",
-      "description": "Provisioning for the access profile completed successfully"
-    },
-    "access_profile_provisioning_failed": {
-      "title": "Access profile provisioning failed",
-      "description": "Provisioning for the access profile failed"
-    },
-    "access_profile_provisioning_retry": {
-      "title": "Provisioning retry started",
-      "description": "A retry of access profile provisioning has been started"
-    },
-    "access_profile_provisioning_reconcile": {
-      "title": "Provisioning reconciliation",
-      "description": "A reconciliation run was performed for access profile provisioning"
-    },
     "access_request": {
       "created": {
         "title": "Access request submitted",

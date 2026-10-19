@@ -38,12 +38,6 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'storage_root.role.removed': { titleKey: 'activity.storage_root.role.removed.title', descriptionKey: 'activity.storage_root.role.removed.description', badge: 'admin', icon: 'person-dash' },
   'storage_root.probe_rerun': { titleKey: 'activity.storage_root.probe_rerun.title', descriptionKey: 'activity.storage_root.probe_rerun.description', badge: 'info', icon: 'arrow-repeat' },
 
-  // Access profiles
-  'access_profile.created': { titleKey: 'activity.access_profile.created.title', descriptionKey: 'activity.access_profile.created.description', badge: 'admin', icon: 'badge-ad' },
-  'access_profile.updated': { titleKey: 'activity.access_profile.updated.title', descriptionKey: 'activity.access_profile.updated.description', badge: 'admin', icon: 'badge-ad' },
-  'access_profile.deleted': { titleKey: 'activity.access_profile.deleted.title', descriptionKey: 'activity.access_profile.deleted.description', badge: 'admin', icon: 'badge-ad' },
-  'access_profile.subject.added': { titleKey: 'activity.access_profile.subject.added.title', descriptionKey: 'activity.access_profile.subject.added.description', badge: 'admin', icon: 'person-plus' },
-  'access_profile.subject.removed': { titleKey: 'activity.access_profile.subject.removed.title', descriptionKey: 'activity.access_profile.subject.removed.description', badge: 'admin', icon: 'person-dash' },
 
   // Requests
   'access_request.created': { titleKey: 'activity.access_request.created.title', descriptionKey: 'activity.access_request.created.description', badge: 'info', icon: 'inbox' },
@@ -64,13 +58,6 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
 
   // Provisioning (governance / audit)
   'ad_group_ensure_queued': { titleKey: 'activity.ad_group_ensure_queued.title', descriptionKey: 'activity.ad_group_ensure_queued.description', badge: 'info', icon: 'clock-history' },
-  'access_profile_created': { titleKey: 'activity.access_profile_created.title', descriptionKey: 'activity.access_profile_created.description', badge: 'admin', icon: 'badge-ad' },
-  'access_profile_deleted': { titleKey: 'activity.access_profile_deleted.title', descriptionKey: 'activity.access_profile_deleted.description', badge: 'critical', scope: 'security', icon: 'badge-ad' },
-  'access_profile_provisioning_started': { titleKey: 'activity.access_profile_provisioning_started.title', descriptionKey: 'activity.access_profile_provisioning_started.description', badge: 'info', icon: 'play-circle' },
-  'access_profile_provisioning_succeeded': { titleKey: 'activity.access_profile_provisioning_succeeded.title', descriptionKey: 'activity.access_profile_provisioning_succeeded.description', badge: 'info', icon: 'check2-circle' },
-  'access_profile_provisioning_failed': { titleKey: 'activity.access_profile_provisioning_failed.title', descriptionKey: 'activity.access_profile_provisioning_failed.description', badge: 'critical', scope: 'security', icon: 'exclamation-triangle' },
-  'access_profile_provisioning_retry': { titleKey: 'activity.access_profile_provisioning_retry.title', descriptionKey: 'activity.access_profile_provisioning_retry.description', badge: 'admin', icon: 'arrow-repeat' },
-  'access_profile_provisioning_reconcile': { titleKey: 'activity.access_profile_provisioning_reconcile.title', descriptionKey: 'activity.access_profile_provisioning_reconcile.description', badge: 'admin', icon: 'diagram-3' },
   'profile_created': { titleKey: 'activity.profile_created.title', descriptionKey: 'activity.profile_created.description', badge: 'admin', icon: 'badge-ad' },
   'profile_provisioning_success': { titleKey: 'activity.profile_provisioning_success.title', descriptionKey: 'activity.profile_provisioning_success.description', badge: 'info', icon: 'check2-circle' },
   'profile_provisioning_failed': { titleKey: 'activity.profile_provisioning_failed.title', descriptionKey: 'activity.profile_provisioning_failed.description', badge: 'critical', scope: 'security', icon: 'exclamation-triangle' },

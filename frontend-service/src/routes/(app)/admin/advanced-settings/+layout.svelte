@@ -8,15 +8,13 @@
 
   const nav: NavItem[] = [
     { key: 'naming-policies', label: 'Naming policy', icon: 'bi-input-cursor-text' },
-    { key: 'security', label: 'Security', icon: 'bi-shield-lock' },
     { key: 'logging', label: 'Logging', icon: 'bi-journal-text' },
-    { key: 'user-sessions', label: 'User sessions', icon: 'bi-person-lines-fill' },
-    { key: 'maintenance', label: 'Maintenance', icon: 'bi-tools' }
+    { key: 'user-sessions', label: 'User sessions', icon: 'bi-person-lines-fill' }
   ];
 
   const defaultHeader = {
     title: 'Advanced Settings',
-    subtitle: 'Advanced technical settings and maintenance operations.'
+    subtitle: 'Advanced technical settings.'
   };
 
   const headersBySection: Record<string, { title: string; subtitle: string }> = {};

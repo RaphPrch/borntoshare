@@ -21,7 +21,7 @@
     tone: 'read' | 'write';
     users: number;
     adGroup: string;
-    adGroupTone: 'success' | 'pending' | 'warning';
+    adGroupTone: 'success' | 'pending' | 'warning' | 'neutral';
   };
 
   type StorageRootTag = Record<string, unknown>;
@@ -84,7 +84,6 @@
   export let onRunRootProbe: () => void = () => {};
   export let onNewAccessRequest: () => void = () => {};
   export let onOpenEffectiveAccess: (level: 'read' | 'write') => void = () => {};
-  export let onOpenAccessProfiles: () => void = () => {};
   export let onOpenGovernanceDrawer: (role?: 'guardian') => void = () => {};
   export let onOpenTagsModal: () => void = () => {};
   export let onViewAllActivity: () => void = () => {};
@@ -206,7 +205,6 @@
           <StorageRootAccessModel
             rows={accessModelRows}
             {onOpenEffectiveAccess}
-            onConfigureAccessProfile={onOpenAccessProfiles}
           />
         </article>
 

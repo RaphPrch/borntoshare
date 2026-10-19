@@ -79,48 +79,24 @@ const mapByCode = (args: {
   const fallbackMessage = args.fallbackMessage;
   const actionHref = storageRootHref(storageRootId);
 
-  if (code === 'STORAGE_ROOT_ACCESS_PROFILE_MISSING') {
-    const perm = permission ?? 'READ/WRITE';
-    const message =
-      permission === 'READ' || permission === 'WRITE'
-        ? `This storage root has no ${permission} access profile binding. Attach a ${permission} profile before applying this request.`
-        : 'This storage root has no READ or WRITE access profile binding. Attach the missing profile before applying this request.';
-
+  if (code === 'GOVERNED_GROUP_NAME_MISSING') {
     return {
       title: 'Decision blocked',
-      message,
+      message: 'No AD group name can be computed for this storage root. Check the naming policy of its zone or endpoint.',
       severity: 'warning',
       code,
       permission,
       hint,
       storageRootId,
-      actionLabel: actionHref ? 'Open storage root access' : null,
+      actionLabel: actionHref ? 'Open storage root' : null,
       actionHref,
       showInlineNotice: true,
-      inlinePrimary: `Technical configuration missing: this request cannot be applied because the target storage root has no ${perm} access profile binding.`,
-      inlineSecondary: 'Attach the missing profile in the storage root configuration, then retry the decision.'
+      inlinePrimary: 'Technical configuration missing: the AD group for this access level cannot be named.',
+      inlineSecondary: 'Fix the naming policy (zone, endpoint or storage root), then retry the decision.'
     };
   }
 
-  if (code === 'STORAGE_ROOT_ACCESS_PROFILE_AMBIGUOUS') {
-    return {
-      title: 'Decision blocked',
-      message:
-        'More than one active access profile binding matches this permission. Keep only one active binding for this storage root and permission.',
-      severity: 'error',
-      code,
-      permission,
-      hint,
-      storageRootId,
-      actionLabel: actionHref ? 'Open storage root access' : null,
-      actionHref,
-      showInlineNotice: false,
-      inlinePrimary: null,
-      inlineSecondary: null
-    };
-  }
-
-  if (code === 'INVALID_REQUEST_PERMISSION') {
+  if (code === 'INVALID_ACCESS_LEVEL' || code === 'INVALID_REQUEST_PERMISSION') {
     return {
       title: 'Decision blocked',
       message: 'The request permission could not be resolved to a supported READ or WRITE access level.',

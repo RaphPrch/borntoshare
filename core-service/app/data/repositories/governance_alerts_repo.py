@@ -433,13 +433,13 @@ class GovernanceAlertsRepo(SQLViewRepo):
                 expected_groups.add(normalized_group)
             if profile_status != "SUCCEEDED":
                 is_pending = profile_status == "PENDING"
-                alert_type = f"ad_group_{access_level.lower()}_{'pending' if is_pending else 'not_created'}"
+                alert_type = f"ad_group_{access_level.lower()}_{'pending' if is_pending else 'failed'}"
                 profile_id = int(row.get("id") or 0)
                 alert = {
                     **base(alert_type),
                     "alert_key": f"storage_root:{root_id}:{alert_type}:{profile_id}",
                     "severity": "warning" if is_pending else "high",
-                    "title": f"{access_level} group {'pending' if is_pending else 'not created'}",
+                    "title": f"{access_level} group {'being created' if is_pending else 'creation failed'}",
                     "message": row.get("error_message") or (
                         f"{group_name} · {profile_status}" if group_name else "No AD group linked"
                     ),

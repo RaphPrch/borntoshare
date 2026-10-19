@@ -7,9 +7,7 @@ import {
   apiDelete,
   apiGet,
   apiPost,
-  apiPostData,
   apiPut,
-  apiPutData,
   type FetchLike
 } from './client';
 
@@ -18,30 +16,10 @@ import {
 // -----------------------
 
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
-type SecurityConfig = {
-  enforceStrongPasswords: boolean;
-  passwordMinLength: number;
-  passwordHistory: number;
-  passwordExpiryDays: number;
-};
-
-type SecuritySettingsApi = {
-  enable_strong_password?: boolean;
-  password_min_length?: number;
-  password_history?: number;
-  password_expiry_days?: number;
-};
-
 type LoggingConfig = {
   level: LogLevel;
   retentionEnabled?: boolean;
   retentionDays?: number;
-};
-
-type MaintenanceConfig = {
-  enabled: boolean;
-  message: string;
-  allowedCidrs: string[];
 };
 
 type ActionResult = {
@@ -67,16 +45,6 @@ export async function purgeLogs(fetchFn: FetchLike) {
   return apiPost<ActionResult>(fetchFn, '/auth/admin/logs/purge', {});
 }
 
-export async function saveSecurityConfig(fetchFn: FetchLike, security: SecurityConfig) {
-  const payload: SecuritySettingsApi = {
-    enable_strong_password: security.enforceStrongPasswords,
-    password_min_length: security.passwordMinLength,
-    password_history: security.passwordHistory,
-    password_expiry_days: security.passwordExpiryDays
-  };
-  return apiPutData<ActionResult>(fetchFn, '/admin/advanced-settings/security', payload);
-}
-
 export async function saveLoggingConfig(fetchFn: FetchLike, logging: LoggingConfig) {
   const payload = {
     level: logging.level,
@@ -84,10 +52,6 @@ export async function saveLoggingConfig(fetchFn: FetchLike, logging: LoggingConf
     retentionDays: logging.retentionDays ?? 180
   };
   return apiPut<ActionResult>(fetchFn, '/auth/admin/logging', payload);
-}
-
-export async function saveMaintenanceConfig(fetchFn: FetchLike, maintenance: MaintenanceConfig) {
-  return apiPostData<ActionResult>(fetchFn, '/admin/config/advanced', { maintenance });
 }
 
 // -----------------------

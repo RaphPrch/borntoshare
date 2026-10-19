@@ -53,8 +53,8 @@ function testAccessModelRows(): void {
   assert(rows[0].users === 2, 'READ row should count unique effective users from group members');
   assert(rows[1].users === 1, 'WRITE row should count direct effective users');
   assert(rows[0].adGroupTone === 'success', 'created READ group should be success');
-  assert(rows[1].adGroupTone === 'warning', 'missing WRITE group should be warning');
-  assert(rows[1].adGroup === 'No group linked', 'missing WRITE group should not display Access Not Created');
+  assert(rows[1].adGroupTone === 'neutral', 'WRITE group not created yet is expected, not a warning');
+  assert(rows[1].adGroup === 'Created on first request', 'WRITE group is created on the first approved request');
 }
 
 function testOwnerSummary(): void {

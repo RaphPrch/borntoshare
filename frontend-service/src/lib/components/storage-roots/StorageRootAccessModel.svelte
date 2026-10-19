@@ -9,7 +9,7 @@
     tone: 'read' | 'write';
     users: number;
     adGroup: string;
-    adGroupTone: 'success' | 'pending' | 'warning';
+    adGroupTone: 'success' | 'pending' | 'warning' | 'neutral';
     groupName?: string | null;
     aclAlignment?: string | null;
     aclPrincipal?: string | null;
@@ -17,7 +17,6 @@
 
   export let rows: AccessModelRow[] = [];
   export let onOpenEffectiveAccess: (level: 'read' | 'write') => void = () => {};
-  export let onConfigureAccessProfile: () => void = () => {};
 
   const alignmentLabel = (profile: AccessModelRow): string => {
     const alignment = String(profile.aclAlignment ?? '').trim().toLowerCase();

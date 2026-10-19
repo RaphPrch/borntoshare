@@ -47,11 +47,11 @@ function testGlobalAlertsAreFilteredByRootId(): void {
     globalAlerts: [
       { id: 1, storage_root_id: 10, status: 'open', alert_type: 'root_probe_failed', severity: 'critical' },
       { id: 2, storage_root_id: 30, status: 'open', alert_type: 'missing_guardian', severity: 'warning' },
-      { id: 4, scope_id: 30, status: 'open', alert_type: 'ad_group_read_not_created', severity: 'high' }
+      { id: 4, scope_id: 30, status: 'open', alert_type: 'ad_group_read_failed', severity: 'high' }
     ]
   });
 
-  assert(alerts.length === 1, 'global alerts should include only visible open alerts for the selected root');
+  assert(alerts.length === 2, 'global alerts should include the open alerts of the selected root (failed group creation included)');
   assert(alerts.every((alert) => Number(alert.storage_root_id ?? alert.scope_id) === 30), 'global alert filter leaked another root');
 }
 
@@ -74,7 +74,7 @@ function testVisibleAlertsForRootIdsHideLegacyAlerts(): void {
     [50],
     [
       { id: 1, storage_root_id: 50, status: 'open', alert_type: 'missing_guardian', severity: 'warning' },
-      { id: 2, storage_root_id: 50, status: 'open', alert_type: 'access_profiles_missing', severity: 'high' }
+      { id: 2, storage_root_id: 50, status: 'open', alert_type: 'probe_issues', severity: 'high' }
     ]
   );
 
@@ -86,7 +86,7 @@ function testSummaryIgnoresDirectCountWhenVisibleGlobalAlertsAreClean(): void {
   const summary = storageRootOpenAlertSummary(
     { storage_root_id: 60, open_alerts_count: 3, open_alerts_error_count: 1 },
     [
-      { id: 1, storage_root_id: 60, status: 'open', alert_type: 'access_profiles_missing', severity: 'high' },
+      { id: 1, storage_root_id: 60, status: 'open', alert_type: 'probe_issues', severity: 'high' },
       { id: 2, storage_root_id: 60, status: 'resolved', alert_type: 'root_probe_failed', severity: 'critical' }
     ]
   );
