@@ -5,28 +5,6 @@
   box-shadow: 0 3px 10px rgba(18, 31, 64, 0.05);
 }
 
-.b2s-card__header,
-.b2s-card__body {
-  padding: 1rem;
-}
-
-.b2s-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .75rem;
-}
-
-.b2s-card__header:empty {
-  display: none;
-}
-
-.b2s-section-title {
-  margin: 0;
-  font-size: var(--b2s-font-h2, 1rem);
-  font-weight: 600;
-}
-
 .b2s-table-wrap {
   width: 100%;
   overflow-x: auto;

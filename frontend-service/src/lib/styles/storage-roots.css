@@ -770,62 +770,6 @@
   }
 }
 
-.sr-access-profiles-shell {
-  display: grid;
-  gap: 16px;
-}
-
-.sr-access-profiles-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.sr-access-profile-stat {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #f8fbff;
-  padding: 12px 14px;
-  display: grid;
-  gap: 4px;
-}
-
-.sr-access-profile-stat span {
-  color: #667085;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.sr-access-profile-stat strong {
-  color: #172033;
-  font-size: 24px;
-  line-height: 1;
-}
-
-.sr-access-profiles-attach {
-  align-self: center;
-  min-width: 190px;
-}
-
-.sr-access-profiles-card {
-  padding: 16px;
-}
-
-.sr-access-profiles-table-wrap {
-  margin-top: 10px;
-  border-radius: 12px;
-}
-
-.sr-access-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .sr-tags-modal-body {
   display: grid;
   gap: 10px;
@@ -913,13 +857,6 @@
 }
 
 @media (max-width: 992px) {
-  .sr-access-profiles-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .sr-access-profiles-attach {
-    width: 100%;
-  }
 
   .sr-tags-dual {
     grid-template-columns: 1fr;

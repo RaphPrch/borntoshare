@@ -388,7 +388,7 @@ body.dark {
 .mega-header p {
   margin: 0.35rem 0 0;
   font-size: 0.92rem;
-  color: var(--b2s-text-muted);
+  color: var(--b2s-color-text-muted);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -618,48 +618,9 @@ body.dark {
   background: #b71c1c; /* rouge */
 }
 
-/* ========================================================================== */
-/* ADMIN / DOMAINS PAGE                                                       */
-/* ========================================================================== */
-
-/* Summary strip (controllers / health / offline / unknown) */
-
-/* Domain details panel */
-
-/* Controllers section */
-
-.b2s-section {
-  margin-top: 2rem;
-}
-
-.b2s-section .section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.9rem;
-}
-
-.b2s-section .section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.b2s-section .section-title h2 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--b2s-text);
-}
-
-.b2s-section .actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .empty-state {
   font-size: 0.9rem;
-  color: var(--b2s-text-muted);
+  color: var(--b2s-color-text-muted);
 }
 
 /* Buttons variants used on domains */
@@ -792,13 +753,6 @@ body.dark {
   filter: none;
 }
 
-.b2s-btn-orange {
-  background: var(--b2s-accent-orange);
-  color: var(--b2s-bg-card);
-}
-
-.b2s-btn-orange:hover { filter: brightness(1.05); }
-
 .b2s-btn-test {
   border: none;
   border-radius: 12px;
@@ -831,8 +785,8 @@ body.dark {
 
 /* ---------- Cards ---------- */
 .b2s-card {
-  background: var(--b2s-bg-card);
-  border: 1px solid var(--b2s-border-subtle);
+  background: var(--b2s-color-surface);
+  border: 1px solid var(--b2s-color-border);
   border-radius: var(--b2s-radius-lg);
   box-shadow: var(--b2s-shadow-sm);
   padding: var(--b2s-space-4);
@@ -841,15 +795,15 @@ body.dark {
 .b2s-input {
   width: 100%;
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--b2s-border-subtle);
+  border: 1px solid var(--b2s-color-border);
   border-radius: var(--b2s-radius-md);
   padding: var(--b2s-space-2) var(--b2s-space-3);
-  color: var(--b2s-text-primary);
+  color: var(--b2s-color-text);
   outline: none;
 }
 
 .b2s-input:focus {
-  border-color: var(--b2s-accent-blue);
+  border-color: var(--b2s-color-primary);
 }
 
 .b2s-input-with-action {
@@ -892,8 +846,8 @@ body.dark {
   gap: var(--b2s-space-1);
   padding: 2px var(--b2s-space-2);
   border-radius: 999px;
-  border: 1px solid var(--b2s-border-subtle);
-  color: var(--b2s-text-secondary);
+  border: 1px solid var(--b2s-color-border);
+  color: var(--b2s-color-text-soft);
   font-size: var(--b2s-text-xs);
   background: rgba(255,255,255,0.02);
 }
@@ -1126,48 +1080,6 @@ button.danger:hover {
   gap: 8px;
 }
 
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  background: rgba(148, 163, 184, 0.2);
-  color: #475569;
-  width: fit-content;
-}
-
-.pill i {
-  font-size: 12px;
-}
-
-.pill.pending { background: rgba(245, 158, 11, 0.15); color: #9a3412; }
-.pill.approved { background: rgba(34, 197, 94, 0.16); color: #166534; }
-.pill.enforced { background: rgba(16, 185, 129, 0.16); color: #065f46; }
-.pill.revoked { background: rgba(249, 115, 22, 0.16); color: #9a3412; }
-.pill.rejected { background: rgba(239, 68, 68, 0.16); color: #991b1b; }
-
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  background: #fff;
-  font-weight: 600;
-  color: #334155;
-  text-decoration: none;
-}
-
-.action-btn:hover {
-  border-color: rgba(91, 111, 201, 0.45);
-  color: #2d3a76;
-  box-shadow: 0 8px 16px rgba(30, 41, 59, 0.08);
-}
-
 /* ============================================================
    NEW ACCESS REQUEST MODAL
    ============================================================ */
@@ -1176,24 +1088,6 @@ button.danger:hover {
   color: #b91c1c !important;
   font-size: 12px;
   font-weight: 600;
-}
-
-.search-input {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  border-radius: 10px;
-  padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.search-input input {
-  border: none;
-  outline: none;
-  background: transparent;
-  min-width: 220px;
-  color: #1f2937;
 }
 
 .ar-card {
@@ -2326,119 +2220,15 @@ button.primary.ghost:hover {
   font-size: .9rem;
 }
 
-/* -----------------------------------------------------------
-   Storage Roots — V2 (list interactions)
------------------------------------------------------------ */
-
-/* -----------------------------------------------------------
-   Storage Roots — Pixel perfect layout (dashboard style)
------------------------------------------------------------ */
-
-/* -----------------------------------------------------------
-   Storage Root Overview (target mock)
------------------------------------------------------------ */
-
-.activity-row .line .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #1fab69;
-  display: inline-block;
-}
-
 .root-summary-body {
   padding: 16px;
   display: grid;
   gap: 16px;
 }
 
-.activity-row {
-  display: grid;
-  grid-template-columns: 10px 1fr auto;
-  gap: 12px;
-}
-
-.activity-row .line {
-  padding-top: 7px;
-}
-
-.activity-row .txt .title {
-  color: #102349;
-  font-size: 18px;
-  line-height: 1.05;
-  font-weight: 600;
-}
-
-.activity-row .txt .sub {
-  color: #1f355f;
-  font-size: 18px;
-}
-
-.activity-row .ago {
-  color: #5b7098;
-  font-size: 18px;
-}
-
-@media (max-width: 1200px) {
-
-  .activity-row .txt .title {
-    font-size: 32px;
-  }
-}
-
-.sr-discovery {
-  color: #3a4f78;
-  font-size: 20px;
-  margin-bottom: 12px;
-}
-
 .sr-muted {
   color: #64748b;
   font-weight: 600;
-}
-
-@media (max-width: 1680px) {
-
-  .sr-discovery {
-    font-size: 17px;
-  }
-
-}
-
-/* -----------------------------------------------------------
-   Storage Roots — Empty state enhancements
------------------------------------------------------------ */
-
-/* -----------------------------------------------------------
-   Storage Root Modal — Pixel perfect
------------------------------------------------------------ */
-
-.sr-modal-backdrop {
-  align-items: center;
-  justify-content: center;
-  background: rgba(15, 23, 42, 0.56);
-  backdrop-filter: blur(3px);
-  z-index: 2000;
-  pointer-events: auto;
-}
-
-.sr-modal {
-  position: relative;
-  top: auto;
-  left: auto;
-  transform: none;
-  width: min(760px, 96vw);
-  max-height: calc(100vh - 40px);
-  overflow: hidden;
-  border-radius: 16px;
-}
-
-.sr-modal--floating {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2001;
 }
 
 .sr-modal-content {
@@ -2693,14 +2483,9 @@ button.primary.ghost:hover {
    --------------------------------------------------------- */
 
 /* ============================================================
-   Identity Admin — Grid, Filters, Cards, Wizard Modal
-   ============================================================ */
-
-/* ============================================================
-   Identity Page — Visual refresh (English)
-   ============================================================ */
-
-.identity-toolbar {
+   Identity Admin — Grid,
+  Filters,
+  Cards {
   margin: 14px 0 18px;
   display: flex;
   align-items: center;
@@ -2745,24 +2530,6 @@ button.primary.ghost:hover {
   background: rgba(59, 130, 246, 0.08);
 }
 
-.identity-card {
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
-}
-
-.identity-card__top {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 12px;
-}
-
 .identity-avatar {
   width: 46px;
   height: 46px;
@@ -2778,13 +2545,6 @@ button.primary.ghost:hover {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .75);
 }
 
-.identity-card__badges {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .identity-pill {
   display: inline-flex;
   align-items: center;
@@ -2793,23 +2553,6 @@ button.primary.ghost:hover {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-}
-
-.identity-pill--source.is-ad {
-  background: rgba(59, 130, 246, 0.16);
-  color: #1d4ed8;
-}
-
-.identity-pill--source.is-local {
-  background: rgba(16, 185, 129, 0.16);
-  color: #047857;
-}
-
-.identity-pill--role {
-  background: rgba(148, 163, 184, 0.2);
-  color: #334155;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .identity-status {
@@ -2827,34 +2570,6 @@ button.primary.ghost:hover {
 .identity-status.inactive {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
-}
-
-.identity-card__title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.identity-card__meta {
-  font-size: 12px;
-  font-weight: 700;
-  color: #475569;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.identity-card__meta .meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.identity-card__actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 4px;
 }
 
 .identity-btn {
@@ -2971,20 +2686,6 @@ button.primary.ghost:hover {
   box-shadow: none;
 }
 
-/* Align modal primary action with wizard/topbar blue */
-.identity-modal .identity-btn.primary {
-  background: var(--b2s-topbar-bg, #0b1530);
-  border-color: var(--b2s-topbar-bg, #0b1530);
-  color: #ffffff;
-  box-shadow: 0 12px 24px rgba(11, 21, 48, 0.28);
-}
-
-.identity-modal .identity-btn.primary:hover {
-  background: #101b39;
-  border-color: #101b39;
-  box-shadow: 0 16px 28px rgba(11, 21, 48, 0.32);
-}
-
 /* Empty state CTA should match topbar blue */
 .identity-sources-page .empty-card .primary {
   background: var(--b2s-topbar-bg, #0b1530);
@@ -3017,21 +2718,6 @@ button.primary.ghost:hover {
   background: #ffffff;
   border: 1px solid rgba(148, 163, 184, 0.28);
   margin-top: 12px;
-}
-
-.identity-badge {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: #e0f2fe;
-  color: var(--b2s-topbar-accent, #4da3ff);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.identity-modal {
-  max-width: 760px;
 }
 
 .identity-status {
@@ -3144,71 +2830,6 @@ button.primary.ghost:hover {
   }
 }
 
-/* ============================================================
-   Access Profiles + ACL Templates (V1 pixel style)
-   ============================================================ */
-
-/* ============================================================
-   Permission Types list table (pixel target)
-   ============================================================ */
-
-.ap-card {
-  border: 1px solid #d3dbf1;
-  background: #fff;
-  border-radius: 10px;
-  padding: 14px;
-  box-shadow: 0 2px 10px rgba(42, 54, 96, 0.08);
-}
-
-.ap-card.is-selected {
-  border-color: #91a6e4;
-  box-shadow: 0 0 0 2px rgba(88, 110, 186, 0.18);
-}
-
-.ap-card h3 {
-  margin: 0;
-  color: #24366f;
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.ap-switch .form-check-input {
-  width: 2.2rem;
-  height: 1.2rem;
-}
-
-.ap-desc {
-  margin: 4px 0;
-  color: #3b4a77;
-  font-size: 12px;
-}
-
-/* ======================================================
- * ACCESS EXPIRATION PILLS
- * ====================================================== */
-.pill.expire {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 8px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.pill.expire.warning {
-  background: rgba(245,196,76,0.22);
-  border: 1px solid rgba(245,196,76,0.35);
-  color: #5a3a00;
-}
-
-.pill.expire.critical {
-  background: rgba(244,67,54,0.18);
-  border: 1px solid rgba(244,67,54,0.35);
-  color: #7a1c17;
-}
-
 /* ======================================================
  * LAYOUT
  * ====================================================== */
@@ -3300,10 +2921,6 @@ button.primary.ghost:hover {
   box-shadow: 0 10px 20px rgba(31,102,209,0.24);
 }
 
-/* ======================================================
- * EMPTY STATES
- * ====================================================== */
-.b2s-empty,
 .b2s-empty-state {
   padding: 22px 18px;
   text-align: center;
@@ -4061,7 +3678,7 @@ button.primary.ghost:hover {
 
 .adv-card .adv-card-header .muted {
   margin: 0;
-  color: var(--b2s-text-muted);
+  color: var(--b2s-color-text-muted);
   font-size: 0.85rem;
 }
 
@@ -4096,7 +3713,7 @@ button.primary.ghost:hover {
 
 .adv-field .help {
   margin-top: 6px;
-  color: var(--b2s-text-muted);
+  color: var(--b2s-color-text-muted);
   font-size: 0.85rem;
 }
 
@@ -4156,7 +3773,7 @@ button.primary.ghost:hover {
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--b2s-text-muted);
+  color: var(--b2s-color-text-muted);
   pointer-events: none;
 }
 
@@ -4173,7 +3790,7 @@ button.primary.ghost:hover {
 
 .adv-hint {
   margin-top: 8px;
-  color: var(--b2s-text-muted);
+  color: var(--b2s-color-text-muted);
   font-size: 0.85rem;
 }
 
@@ -4411,13 +4028,6 @@ button.primary.ghost:hover {
   font-weight: 600;
 }
 
-.section-title,
-.b2s-section .section-title h2 {
-  font-size: var(--b2s-font-h2);
-  font-weight: 600;
-  line-height: var(--b2s-lh-normal);
-}
-
 body,
 .zone-console,
 .storage-root {
@@ -4429,15 +4039,6 @@ table th {
   text-transform: uppercase;
   letter-spacing: 0.4px;
   font-weight: 600;
-}
-
-.kpi-value {
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.kpi-label {
-  font-size: var(--b2s-font-small);
 }
 
 .card {

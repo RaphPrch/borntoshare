@@ -1,7 +1,7 @@
 <script lang="ts">
   // Global styles for public routes (/login, /logout, ...)
   import '$lib/styles/tokens.css';
-  import '$lib/styles/bootstrap.min.css';
+  import '$lib/styles/bootstrap-subset.css';
   import '$lib/styles/bootstrap-icons.min.css';
   import '$lib/styles/modals.css';
   import '$lib/styles/app.css';

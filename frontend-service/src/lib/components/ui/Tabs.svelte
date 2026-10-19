@@ -43,7 +43,7 @@
     border: none;
     border-bottom: 2px solid transparent;
     background: transparent;
-    color: var(--b2s-text-muted, #60718f);
+    color: var(--b2s-color-text-muted, #60718f);
     font-size: 15px;
     font-weight: 650;
     display: inline-flex;

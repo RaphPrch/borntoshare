@@ -16,11 +16,6 @@
   overflow: auto;
 }
 
-/* Allow custom backdrops to close clicks + prevent full-page blocking */
-.b2s-modal-backdrop.sr-modal-backdrop {
-  pointer-events: auto;
-}
-
 /* ============================================================
    B2S — MODAL BASE (COMMON)
    ============================================================ */

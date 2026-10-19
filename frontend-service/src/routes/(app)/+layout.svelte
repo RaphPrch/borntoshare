@@ -12,7 +12,7 @@
   import "$lib/styles/tokens.css";
 
   // 2️⃣ Bootstrap (kept for grid/utilities only)
-  import "$lib/styles/bootstrap.min.css";
+  import "$lib/styles/bootstrap-subset.css";
   import "$lib/styles/bootstrap-icons.min.css";
   import "$lib/styles/modals.css";
 
