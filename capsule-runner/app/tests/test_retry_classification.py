@@ -16,7 +16,7 @@ import app.shared.b2s_job_contracts.actors as actors
 def test_non_retryable_error_is_acked_and_persisted(monkeypatch) -> None:
     post_calls: list[tuple[str, dict]] = []
 
-    def _fake_dal_get(path: str):
+    def _fake_core_get(path: str):
         return {
             "id": 99,
             "status": "CREATED",
@@ -28,7 +28,7 @@ def test_non_retryable_error_is_acked_and_persisted(monkeypatch) -> None:
             },
         }
 
-    def _fake_dal_post(path: str, payload: dict):
+    def _fake_core_post(path: str, payload: dict):
         post_calls.append((path, payload))
         return {"ok": True}
 
@@ -39,8 +39,8 @@ def test_non_retryable_error_is_acked_and_persisted(monkeypatch) -> None:
             retryable=False,
         )
 
-    monkeypatch.setattr(dispatcher, "dal_get", _fake_dal_get)
-    monkeypatch.setattr(dispatcher, "dal_post", _fake_dal_post)
+    monkeypatch.setattr(dispatcher, "core_get", _fake_core_get)
+    monkeypatch.setattr(dispatcher, "core_post", _fake_core_post)
     monkeypatch.setattr(dispatcher, "execute_action", _fake_execute)
     monkeypatch.setattr(
         actors.CurrentMessage,
@@ -48,7 +48,7 @@ def test_non_retryable_error_is_acked_and_persisted(monkeypatch) -> None:
         staticmethod(lambda: SimpleNamespace(options={"retries": 0, "max_retries": 5})),
     )
 
-    # Must not raise: non-retryable is acknowledged after DAL fail write.
+    # Must not raise: non-retryable is acknowledged after core-service fail write.
     actors.run_provisioning_job(99)
 
     assert post_calls[0][0] == "/api/internal/provisioning/jobs/99/start"
@@ -59,7 +59,7 @@ def test_non_retryable_error_is_acked_and_persisted(monkeypatch) -> None:
 def test_action_resolution_failure_is_non_retryable_and_persisted(monkeypatch) -> None:
     post_calls: list[tuple[str, dict]] = []
 
-    def _fake_dal_get(path: str):
+    def _fake_core_get(path: str):
         return {
             "id": 101,
             "status": "CREATED",
@@ -68,12 +68,12 @@ def test_action_resolution_failure_is_non_retryable_and_persisted(monkeypatch) -
             "payload_json": {},
         }
 
-    def _fake_dal_post(path: str, payload: dict):
+    def _fake_core_post(path: str, payload: dict):
         post_calls.append((path, payload))
         return {"ok": True}
 
-    monkeypatch.setattr(dispatcher, "dal_get", _fake_dal_get)
-    monkeypatch.setattr(dispatcher, "dal_post", _fake_dal_post)
+    monkeypatch.setattr(dispatcher, "core_get", _fake_core_get)
+    monkeypatch.setattr(dispatcher, "core_post", _fake_core_post)
     monkeypatch.setattr(
         actors.CurrentMessage,
         "get_current_message",
@@ -91,7 +91,7 @@ def test_action_resolution_failure_is_non_retryable_and_persisted(monkeypatch) -
 def test_directory_snapshot_success_completes_without_snapshot_side_effects(monkeypatch) -> None:
     post_calls: list[tuple[str, dict]] = []
 
-    def _fake_dal_get(path: str):
+    def _fake_core_get(path: str):
         return {
             "id": 202,
             "status": "CREATED",
@@ -110,7 +110,7 @@ def test_directory_snapshot_success_completes_without_snapshot_side_effects(monk
             },
         }
 
-    def _fake_dal_post(path: str, payload: dict):
+    def _fake_core_post(path: str, payload: dict):
         post_calls.append((path, payload))
         return {"ok": True}
 
@@ -129,8 +129,8 @@ def test_directory_snapshot_success_completes_without_snapshot_side_effects(monk
             },
         }
 
-    monkeypatch.setattr(dispatcher, "dal_get", _fake_dal_get)
-    monkeypatch.setattr(dispatcher, "dal_post", _fake_dal_post)
+    monkeypatch.setattr(dispatcher, "core_get", _fake_core_get)
+    monkeypatch.setattr(dispatcher, "core_post", _fake_core_post)
     monkeypatch.setattr(dispatcher, "execute_action", _fake_execute)
     monkeypatch.setattr(
         actors.CurrentMessage,
@@ -150,7 +150,7 @@ def test_directory_snapshot_success_completes_without_snapshot_side_effects(monk
 def test_directory_snapshot_failure_fails_without_snapshot_side_effects(monkeypatch) -> None:
     post_calls: list[tuple[str, dict]] = []
 
-    def _fake_dal_get(path: str):
+    def _fake_core_get(path: str):
         return {
             "id": 203,
             "status": "CREATED",
@@ -169,7 +169,7 @@ def test_directory_snapshot_failure_fails_without_snapshot_side_effects(monkeypa
             },
         }
 
-    def _fake_dal_post(path: str, payload: dict):
+    def _fake_core_post(path: str, payload: dict):
         post_calls.append((path, payload))
         return {"ok": True}
 
@@ -180,8 +180,8 @@ def test_directory_snapshot_failure_fails_without_snapshot_side_effects(monkeypa
             retryable=False,
         )
 
-    monkeypatch.setattr(dispatcher, "dal_get", _fake_dal_get)
-    monkeypatch.setattr(dispatcher, "dal_post", _fake_dal_post)
+    monkeypatch.setattr(dispatcher, "core_get", _fake_core_get)
+    monkeypatch.setattr(dispatcher, "core_post", _fake_core_post)
     monkeypatch.setattr(dispatcher, "execute_action", _fake_execute)
     monkeypatch.setattr(
         actors.CurrentMessage,
@@ -204,7 +204,7 @@ def test_directory_snapshot_failure_fails_without_snapshot_side_effects(monkeypa
 def test_ad_group_ensure_success_uses_complete_not_complete_and_apply(monkeypatch) -> None:
     post_calls: list[tuple[str, dict]] = []
 
-    def _fake_dal_get(path: str):
+    def _fake_core_get(path: str):
         return {
             "id": 204,
             "status": "CREATED",
@@ -222,7 +222,7 @@ def test_ad_group_ensure_success_uses_complete_not_complete_and_apply(monkeypatc
             },
         }
 
-    def _fake_dal_post(path: str, payload: dict):
+    def _fake_core_post(path: str, payload: dict):
         post_calls.append((path, payload))
         return {"ok": True}
 
@@ -234,8 +234,8 @@ def test_ad_group_ensure_success_uses_complete_not_complete_and_apply(monkeypatc
             "details": {"group_dn": "CN=B2S_TEST_GROUP,OU=Groups,DC=corp,DC=local"},
         }
 
-    monkeypatch.setattr(dispatcher, "dal_get", _fake_dal_get)
-    monkeypatch.setattr(dispatcher, "dal_post", _fake_dal_post)
+    monkeypatch.setattr(dispatcher, "core_get", _fake_core_get)
+    monkeypatch.setattr(dispatcher, "core_post", _fake_core_post)
     monkeypatch.setattr(dispatcher, "execute_action", _fake_execute)
     monkeypatch.setattr(
         actors.CurrentMessage,

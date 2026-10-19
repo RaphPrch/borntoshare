@@ -20,10 +20,8 @@ jobs:
             workdir: auth-service
           - service: capsule-runner
             workdir: capsule-runner
-          - service: dal-service
-            workdir: dal-service
-          - service: governance-service
-            workdir: governance-service
+          - service: core-service
+            workdir: core-service
           - service: secret-broker
             workdir: secret-broker
           - service: wizard-ui
@@ -41,7 +39,7 @@ jobs:
       - name: Run tests
         working-directory: ${{ matrix.workdir }}
         run: |
-          # auth-service settings require INTERNAL_TOKEN; dal-service refuses it in hmac mode
+          # auth-service settings require INTERNAL_TOKEN; core-service refuses it in hmac mode
           if [ "${{ matrix.service }}" = "auth-service" ]; then export INTERNAL_TOKEN=ci-internal-token; fi
           python -m pytest -q
 

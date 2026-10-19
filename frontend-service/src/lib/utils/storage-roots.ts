@@ -22,7 +22,7 @@ export type StorageRootRow = {
   parent_root_path?: string | null;
   inherit_owners?: boolean | number | null;
   inherit_tags?: boolean | number | null;
-  /** @deprecated Legacy compatibility flag still accepted from DAL payloads. */
+  /** @deprecated Legacy compatibility flag still accepted from core-service payloads. */
   inherit_access_profiles?: boolean | number | null;
   pending_validation_count?: number | null;
   effective_availability?: string | null;

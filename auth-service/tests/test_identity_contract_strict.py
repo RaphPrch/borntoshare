@@ -7,7 +7,7 @@ import pytest
 from app.core.principal_snapshot import principal_payload_from_user
 from app.schemas.auth import UserInfo
 from app.services.providers.base import AuthUnavailable
-from app.services.providers.local_dal import DalLocalProvider
+from app.services.providers.local_core import CoreLocalProvider
 
 
 class _FakeResponse:
@@ -51,9 +51,9 @@ def test_principal_snapshot_requires_identity_id() -> None:
 
 
 def test_local_provider_rejects_contract_without_identity_id(monkeypatch) -> None:
-    import app.services.providers.local_dal as local_module
+    import app.services.providers.local_core as local_module
 
-    provider = DalLocalProvider()
+    provider = CoreLocalProvider()
     monkeypatch.setattr(
         local_module.httpx,
         "AsyncClient",

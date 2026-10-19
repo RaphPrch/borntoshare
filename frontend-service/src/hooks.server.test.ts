@@ -46,7 +46,7 @@ async function createHandleDeps() {
   process.env.PRINCIPAL_COOKIE_SAMESITE = 'lax';
   process.env.PRINCIPAL_COOKIE_SECURE = 'false';
   process.env.B2S_AUTH_URL = 'http://auth-service:8000';
-  process.env.B2S_DAL_URL = 'http://dal-service:8000/api';
+  process.env.B2S_CORE_URL = 'http://core-service:8000/api';
   process.env.B2S_USE_HTTPS = 'false';
 
   const hooksModule = await import('./hooks.server');

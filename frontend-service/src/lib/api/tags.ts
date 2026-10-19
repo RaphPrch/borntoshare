@@ -31,7 +31,7 @@ type TagDeleteResponse = {
   ok: boolean;
 };
 
-// Existing CRUD (may depend on DAL capabilities)
+// Existing CRUD (may depend on core-service capabilities)
 export const createTag = (fetchFn: FetchLike, payload: TagWritePayload) =>
   apiPostData<TagWriteResponse>(fetchFn, "/tags", payload);
 export const updateTag = (fetchFn: FetchLike, id: string | number, payload: TagWritePayload) =>

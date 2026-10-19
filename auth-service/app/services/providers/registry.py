@@ -5,7 +5,7 @@ from typing import Dict, List
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.services.providers.base import AuthProvider
-from app.services.providers.local_dal import DalLocalProvider
+from app.services.providers.local_core import CoreLocalProvider
 from app.services.providers.ad_ldap import ADLDAPProvider
 
 settings = get_settings()
@@ -16,13 +16,13 @@ def build_registry() -> Dict[str, AuthProvider]:
     """Build provider registry.
 
     Providers:
-      - local: local users stored in DAL
+      - local: local users stored in core-service
       - ad: AD/LDAP direct bind (optional, disabled by default)
     """
     reg: Dict[str, AuthProvider] = {}
 
     # Local provider is always available
-    reg["local"] = DalLocalProvider()
+    reg["local"] = CoreLocalProvider()
 
     # AD/LDAP (only if enabled)
     if getattr(settings, "AD_ENABLED", False):

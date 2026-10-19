@@ -24,8 +24,7 @@ services:
       # 🚪 DIRECT SERVICE ENTRYPOINTS (NO GATEWAY)
       # -------------------------------------------------
       B2S_AUTH_URL: "http://auth-service:8000"
-      B2S_DAL_URL: "http://dal-service:8000/api"
-      B2S_GOVERNANCE_URL: "http://governance-service:8000"
+      B2S_CORE_URL: "http://core-service:8000/api"
 
       # Required for direct service-to-service calls.
       INTERNAL_TOKEN_MODE: ${INTERNAL_TOKEN_MODE:-static}

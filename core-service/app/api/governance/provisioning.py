@@ -1,0 +1,516 @@
+from __future__ import annotations
+
+import re
+import uuid
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
+
+from app.api import provisioning_internal
+from app.core.direct_call import call_route
+from app.api._helpers import ui_data, ui_list
+from app.jobs.b2s_job_contracts.actors import publish_job, run_provisioning_job
+from app.jobs.b2s_job_contracts.contracts import queue_job_types_csv
+from app.schemas.provisioning import EnsureAdGroupIn, EnsureAdGroupMemberIn, RemoveAdGroupMemberIn
+from app.services.identity_capsule_payloads import (
+    build_identity_source_capsule_context,
+    infer_identity_source_id_from_group_ref,
+)
+from app.services.audit_logger import log_event
+from app.services.provisioning_context import build_provisioning_context
+from app.services.provisioning_jobs import create_and_publish_job
+
+
+router = APIRouter(tags=["provisioning"])
+
+
+def _normalize_job_status(raw: str | None) -> str:
+    value = str(raw or "").strip().upper()
+    aliases = {
+        "PENDING": "QUEUED",
+        "QUEUE": "QUEUED",
+        "SUCCESS": "SUCCEEDED",
+        "DONE": "SUCCEEDED",
+        "OK": "SUCCEEDED",
+        "ACTIVE": "SUCCEEDED",
+        "CANCELED": "CANCELLED",
+    }
+    return aliases.get(value, value)
+
+
+def _normalize_access_level(value: str) -> str:
+    level = str(value or "").strip().upper()
+    if level not in {"READ", "WRITE"}:
+        raise HTTPException(status_code=422, detail="access_level must be READ or WRITE")
+    return level
+
+
+def _request_actor_context(request: Request | None) -> tuple[str | None, str | None]:
+    if request is None:
+        return None, None
+    actor_ip = request.headers.get("x-forwarded-for") or (request.client.host if request.client else None)
+    user_agent = request.headers.get("user-agent")
+    return actor_ip, user_agent
+
+
+_DN_RDN_RE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9-]*)\s*=\s*(.+?)\s*$")
+
+
+def _collapse_repeated_dc_suffix(segments: list[str]) -> list[str]:
+    dc_start = next((idx for idx, segment in enumerate(segments) if segment.upper().startswith("DC=")), -1)
+    if dc_start < 0:
+        return segments
+
+    prefix = list(segments[:dc_start])
+    dc_suffix = list(segments[dc_start:])
+    while len(dc_suffix) >= 2 and (len(dc_suffix) % 2 == 0):
+        half = len(dc_suffix) // 2
+        if dc_suffix[:half] != dc_suffix[half:]:
+            break
+        dc_suffix = dc_suffix[:half]
+    return [*prefix, *dc_suffix]
+
+
+def _canonicalize_target_ou_dn(value: str | None) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        raise ValueError("DN is empty")
+
+    raw_segments = [part.strip() for part in re.split(r"(?<!\\),", raw)]
+    if not raw_segments or any(not part for part in raw_segments):
+        raise ValueError("DN contains empty segment(s)")
+
+    normalized: list[str] = []
+    for segment in raw_segments:
+        match = _DN_RDN_RE.match(segment)
+        if not match:
+            raise ValueError(f"Invalid DN segment: {segment}")
+        attr = str(match.group(1) or "").strip().upper()
+        rdn_value = str(match.group(2) or "").strip()
+        if not attr or not rdn_value:
+            raise ValueError(f"Invalid DN segment: {segment}")
+        normalized.append(f"{attr}={rdn_value}")
+
+    normalized = _collapse_repeated_dc_suffix(normalized)
+    if not any(part.startswith("DC=") for part in normalized):
+        raise ValueError("DN must include at least one DC segment")
+
+    return ",".join(normalized)
+
+
+def _job_envelope(*, action: str, payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "action": action,
+        "payload": payload,
+    }
+
+
+async def _resolve_identity_source_id_for_group_operation(
+    *,
+    identity_source_id: int | None,
+    group_ref: str,
+) -> int:
+    resolved_id = int(identity_source_id or 0) or None
+    if resolved_id:
+        return int(resolved_id)
+    return int(await infer_identity_source_id_from_group_ref(group_ref))
+
+
+async def ensure_ad_group_via_name(
+    payload: EnsureAdGroupIn,
+    request: Request = None,
+    response: Response = None,
+):
+    correlation_id = (request.headers.get("x-request-id") if request else None) or f"adg_{uuid.uuid4().hex}"
+
+    group_name = str(payload.group_name or "").strip()
+    if not group_name:
+        raise HTTPException(status_code=422, detail="group_name is required")
+
+    root_id = int((payload.context.storage_root_id if payload.context else 0) or 0)
+    target_ou_dn = str(payload.target_ou_dn or "").strip() or None
+    secret_ref = str(payload.secret_ref or "").strip() or None
+    domain_name = str(payload.domain_name or "").strip() or None
+    identity_source_id = int(payload.identity_source_id or 0) or None
+    profile_id = int((payload.context.access_profile_id if payload.context else 0) or 0) or None
+    resolved_host = str(payload.directory_server_hint or "").strip() or None
+    resolved_port: int | None = None
+    resolved_protocol: str | None = None
+    resolved_bind_dn: str | None = None
+
+    if root_id > 0:
+        ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(root_id))
+        pctx = build_provisioning_context(ctx)
+
+        secret_ref = secret_ref or pctx.effective_secret_ref
+        identity_source_id = identity_source_id or pctx.identity_source_id
+        domain_name = domain_name or pctx.domain_name
+        resolved_host = resolved_host or pctx.resolved_host
+        resolved_port = resolved_port or pctx.resolved_port
+        resolved_protocol = resolved_protocol or pctx.resolved_protocol
+        resolved_bind_dn = resolved_bind_dn or pctx.resolved_bind_dn
+        target_ou_dn = target_ou_dn or pctx.effective_group_ou_dn
+
+    if not target_ou_dn:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "target_ou_dn is required",
+                "hint": "Configure zone provisioning base_ou_dn and/or identity_sources.default_group_ou_dn",
+                "storage_root_id": root_id or None,
+            },
+        )
+    try:
+        target_ou_dn = _canonicalize_target_ou_dn(target_ou_dn)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "INVALID_TARGET_OU_DN",
+                "message": "target_ou_dn is invalid",
+                "hint": "Expected LDAP DN, e.g. OU=Groups,DC=corp,DC=local",
+                "reason": str(exc),
+                "target_ou_dn": str(target_ou_dn or "").strip() or None,
+                "storage_root_id": root_id or None,
+            },
+        ) from exc
+    if not secret_ref:
+        raise HTTPException(status_code=422, detail="secret_ref is required (or provide context.storage_root_id)")
+
+    if profile_id:
+        existing_job = None
+        try:
+            existing_job = await call_route(provisioning_internal.get_latest_provisioning_job_by_profile, profile_id=int(profile_id))
+        except HTTPException as exc:
+            if exc.status_code != 404:
+                raise
+
+        if isinstance(existing_job, dict):
+            existing_status = _normalize_job_status(str(existing_job.get("status") or "QUEUED"))
+            if existing_status in {"QUEUED", "RUNNING", "RETRYING"}:
+                if response is not None:
+                    response.status_code = status.HTTP_202_ACCEPTED
+                return ui_data({
+                    "ok": True,
+                    "job_id": int(existing_job.get("id") or 0),
+                    "status": existing_status,
+                    "correlation_id": existing_job.get("correlation_id"),
+                    "group_name": group_name,
+                    "target_ou_dn": target_ou_dn,
+                })
+
+    try:
+        created = await create_and_publish_job(
+            payload={
+                "correlation_id": correlation_id,
+                "job_type": "AD_GROUP_ENSURE",
+                "action": "ensure_ad_group",
+                "status": "QUEUED",
+                "identity_source_id": identity_source_id,
+                "payload_json": _job_envelope(
+                    action="ensure_ad_group",
+                    payload={
+                    "template": {"slug": "ensure_ad_group", "version": "v1"},
+                    "group_name": group_name,
+                    "target_ou_dn": target_ou_dn,
+                    "directory_server_hint": resolved_host or payload.directory_server_hint,
+                    "host": resolved_host,
+                    "port": resolved_port,
+                    "protocol": resolved_protocol,
+                    "bind_dn": resolved_bind_dn,
+                    "description_text": payload.description_text,
+                    "domain_name": domain_name,
+                    "secret_ref": secret_ref,
+                    "context": {
+                        "storage_root_id": root_id or None,
+                        "access_profile_id": profile_id,
+                        "zone_id": int((payload.context.zone_id if payload.context else 0) or 0) or None,
+                        "correlation_id": correlation_id,
+                    },
+                    },
+                ),
+            },
+            actor=run_provisioning_job,
+        )
+        job_id = int(created.get("job_id") or 0)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={"error_code": str(exc), "message": "Failed to create AD group ensure job"},
+        ) from exc
+
+    actor_id = (
+        (request.headers.get("x-identity-id") if request else None)
+        or (request.headers.get("x-service-name") if request else None)
+        or "system"
+    )
+    actor_ip, user_agent = _request_actor_context(request)
+    log_event(
+        action="ad_group_ensure_queued",
+        event_category="PROVISIONING",
+        event_scope="business",
+        actor_type="user" if str(actor_id).isdigit() else "service",
+        actor_id=actor_id,
+        entity_type="ad_group",
+        entity_id=None,
+        zone_id=int((payload.context.zone_id if payload.context else 0) or 0) or None,
+        storage_root_id=root_id or None,
+        correlation_id=correlation_id,
+        result="in_progress",
+        severity="info",
+        metadata_json={
+            "before": None,
+            "after": {"status": "QUEUED"},
+            "details": {
+                "job_id": job_id,
+                "group_name": group_name,
+                "target_ou_dn": target_ou_dn,
+            },
+        },
+        actor_ip=actor_ip,
+        user_agent=user_agent,
+    )
+
+    if response is not None:
+        response.status_code = status.HTTP_202_ACCEPTED
+
+    return ui_data({
+        "ok": True,
+        "job_id": job_id,
+        "status": "QUEUED",
+        "correlation_id": correlation_id,
+        "group_name": group_name,
+        "target_ou_dn": target_ou_dn,
+    })
+
+
+async def _queue_group_membership_job(
+    payload: EnsureAdGroupMemberIn | RemoveAdGroupMemberIn,
+    request: Request | None,
+    response: Response | None,
+    *,
+    job_type: str,
+    action: str,
+    correlation_prefix: str,
+    failure_message: str,
+) -> dict[str, Any]:
+    correlation_id = (request.headers.get("x-request-id") if request else None) or f"{correlation_prefix}_{uuid.uuid4().hex}"
+
+    identity_source_id = await _resolve_identity_source_id_for_group_operation(
+        identity_source_id=payload.identity_source_id,
+        group_ref=payload.group_ref,
+    )
+    capsule_ctx = await build_identity_source_capsule_context(identity_source_id)
+
+    capsule_payload: dict[str, Any] = {
+        **capsule_ctx,
+        "group_ref": str(payload.group_ref or "").strip(),
+        "principal_dn": str(payload.principal_dn or "").strip() or None,
+        "principal_username": str(payload.principal_username or "").strip() or None,
+    }
+    if payload.timeout is not None:
+        capsule_payload["timeout"] = int(payload.timeout)
+    if payload.verify_tls is not None:
+        capsule_payload["verify_tls"] = bool(payload.verify_tls)
+
+    try:
+        created = await create_and_publish_job(
+            payload={
+                "correlation_id": correlation_id,
+                "job_type": job_type,
+                "action": action,
+                "status": "QUEUED",
+                "identity_source_id": int(identity_source_id),
+                "payload_json": _job_envelope(action=action, payload=capsule_payload),
+            },
+            actor=run_provisioning_job,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={"error_code": str(exc), "message": failure_message},
+        ) from exc
+
+    job_id = int(created.get("job_id") or 0)
+    if response is not None:
+        response.status_code = status.HTTP_202_ACCEPTED
+    return ui_data({
+        "ok": True,
+        "job_id": job_id,
+        "status": "QUEUED",
+        "correlation_id": correlation_id,
+        "identity_source_id": int(identity_source_id),
+        "group_ref": capsule_payload.get("group_ref"),
+    })
+
+
+async def ensure_ad_group_member(
+    payload: EnsureAdGroupMemberIn,
+    request: Request = None,
+    response: Response = None,
+):
+    return await _queue_group_membership_job(
+        payload,
+        request,
+        response,
+        job_type="AD_GROUP_MEMBERSHIP",
+        action="ensure_ad_group_member",
+        correlation_prefix="adgm",
+        failure_message="Failed to create AD group membership ensure job",
+    )
+
+
+async def remove_ad_group_member(
+    payload: RemoveAdGroupMemberIn,
+    request: Request = None,
+    response: Response = None,
+):
+    return await _queue_group_membership_job(
+        payload,
+        request,
+        response,
+        job_type="AD_GROUP_MEMBERSHIP_REMOVE",
+        action="remove_ad_group_member",
+        correlation_prefix="adrm",
+        failure_message="Failed to create AD group membership remove job",
+    )
+
+
+async def run_queued_jobs_watchdog_once(
+    *,
+    queued_timeout_seconds: int,
+    max_republish_count: int,
+    limit: int,
+    correlation_id: str,
+) -> dict[str, Any]:
+    timeout_seconds = max(30, int(queued_timeout_seconds))
+    max_republish = max(0, int(max_republish_count))
+    lim = max(1, min(int(limit), 1000))
+
+    rows = await call_route(
+        provisioning_internal.list_provisioning_jobs,
+        status="QUEUED",
+        active_only=True,
+        updated_before_seconds=timeout_seconds,
+        limit=lim,
+        job_type=queue_job_types_csv(),
+    )
+    if not isinstance(rows, list):
+        rows = []
+
+    republished: list[int] = []
+    failed: list[int] = []
+    skipped: list[dict[str, Any]] = []
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        job_id = int(row.get("id") or 0)
+        if job_id <= 0:
+            continue
+
+        try:
+            metrics_json = row.get("metrics_json") if isinstance(row.get("metrics_json"), dict) else {}
+            republish_count = int((metrics_json or {}).get("watchdog_republish_count") or 0)
+            job_type = str(row.get("job_type") or "").strip().upper()
+
+            if republish_count < max_republish:
+                await call_route(
+                    provisioning_internal.mark_watchdog_republish,
+                    job_id=int(job_id),
+                    payload={
+                        "correlation_id": correlation_id,
+                        "reason": f"queued_timeout_{timeout_seconds}s",
+                    },
+                )
+                publish_job(job_type, job_id)
+                republished.append(job_id)
+                continue
+
+            await call_route(
+                provisioning_internal.fail_provisioning_job,
+                job_id=int(job_id),
+                payload={
+                    "action": row.get("action"),
+                    "error_code": "JOB_QUEUED_TIMEOUT",
+                    "error_message": f"Job stayed QUEUED for more than {timeout_seconds}s",
+                    "result_json": {},
+                    "metrics_json": metrics_json,
+                    "error_json": {
+                        "code": "JOB_QUEUED_TIMEOUT",
+                        "message": f"Job stayed QUEUED for more than {timeout_seconds}s",
+                        "watchdog": True,
+                    },
+                    "correlation_id": correlation_id,
+                },
+            )
+            failed.append(job_id)
+        except Exception as exc:
+            skipped.append({
+                "job_id": job_id,
+                "error": str(exc)[:500],
+            })
+
+    return {
+        "ok": True,
+        "queued_timeout_seconds": timeout_seconds,
+        "max_republish_count": max_republish,
+        "inspected_count": len(rows),
+        "republished_count": len(republished),
+        "republished_job_ids": republished,
+        "failed_count": len(failed),
+        "failed_job_ids": failed,
+        "skipped": skipped,
+    }
+
+
+@router.get("/admin/jobs")
+async def list_admin_jobs(
+    status_filter: str | None = Query(default=None, alias="status"),
+    job_type: str | None = None,
+    identity_source_id: int | None = None,
+    storage_root_access_profile_id: int | None = None,
+    active_only: bool = False,
+    updated_before_seconds: int | None = None,
+    limit: int = 200,
+):
+    rows = await call_route(
+        provisioning_internal.list_provisioning_jobs,
+        status=status_filter,
+        job_type=job_type,
+        identity_source_id=identity_source_id,
+        storage_root_access_profile_id=storage_root_access_profile_id,
+        active_only=active_only,
+        updated_before_seconds=updated_before_seconds,
+        limit=limit,
+    )
+    items = rows if isinstance(rows, list) else []
+    return ui_list(items)
+
+
+@router.post("/admin/jobs/{job_id}/cancel")
+async def cancel_admin_job(job_id: int, request: Request):
+    incoming = await request.json()
+    payload = dict(incoming) if isinstance(incoming, dict) else {}
+
+    correlation_id = request.headers.get("x-request-id") or f"jobcancel_{uuid.uuid4().hex}"
+    requested_by = (
+        request.headers.get("x-identity-id")
+        or request.headers.get("x-service-name")
+        or "system"
+    )
+    reason = str(payload.get("reason") or "Cancelled by operator").strip() or "Cancelled by operator"
+    source = str(payload.get("source") or "ui").strip().lower() or "ui"
+
+    data = await call_route(
+        provisioning_internal.cancel_provisioning_job,
+        job_id=int(job_id),
+        payload={
+            "correlation_id": correlation_id,
+            "reason": reason,
+            "requested_by": requested_by,
+            "source": source,
+        },
+    )
+    return ui_data(data)
+

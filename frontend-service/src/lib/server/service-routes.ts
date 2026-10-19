@@ -2,7 +2,7 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
-type ServiceKind = 'auth' | 'dal' | 'governance';
+type ServiceKind = 'auth' | 'core';
 
 type DirectRoute = {
   service: ServiceKind;
@@ -19,11 +19,14 @@ export function getServiceBaseUrl(service: ServiceKind): string | null {
   switch (service) {
     case 'auth':
       return normalizeBaseUrl(process.env.B2S_AUTH_URL);
-    case 'dal':
-      return normalizeBaseUrl(process.env.B2S_DAL_URL);
-    case 'governance':
-      return normalizeBaseUrl(process.env.B2S_GOVERNANCE_URL);
+    case 'core':
+      return normalizeBaseUrl(process.env.B2S_CORE_URL);
   }
+}
+
+// Governance (orchestration) routes are served by core-service under /governance.
+function governanceRoute(path: string): DirectRoute {
+  return { service: 'core', path: `/governance${path}`, internal: true };
 }
 
 function stripApiPrefix(pathname: string): string {
@@ -44,7 +47,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
   }
 
   if (path === '/access-requests/bulk') {
-    return { service: 'governance', path, internal: true };
+    return governanceRoute(path);
   }
 
   if (path === '/identity-sources/secret-ref') {
@@ -56,14 +59,14 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
   }
 
   if (path === '/storage-roots/discovery-sync' || path === '/storage-roots/discovery-sync/') {
-    return { service: 'dal', path: '/storage-roots/discovery-sync', internal: true };
+    return { service: 'core', path: '/storage-roots/discovery-sync', internal: true };
   }
 
   if (
     /^\/storage-endpoints\/\d+\/probe-result\/?$/.test(path) ||
     /^\/storage-roots\/\d+\/probe-result\/?$/.test(path)
   ) {
-    return { service: 'dal', path: path.replace(/\/$/, ''), internal: true };
+    return { service: 'core', path: path.replace(/\/$/, ''), internal: true };
   }
 
   if (
@@ -80,15 +83,15 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
         '/identity/discover'
       ];
       if (governanceIdentityPaths.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
-        return { service: 'governance', path, internal: true };
+        return governanceRoute(path);
       }
     }
 
-    return { service: 'dal', path, internal: false };
+    return { service: 'core', path, internal: false };
   }
 
   if (path.startsWith('/admin/jobs') || path.startsWith('/probes')) {
-    return { service: 'governance', path, internal: true };
+    return governanceRoute(path);
   }
 
   if (
@@ -106,7 +109,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
     path.startsWith('/tags') ||
     path.startsWith('/zones')
   ) {
-    return { service: 'dal', path, internal: false };
+    return { service: 'core', path, internal: false };
   }
 
   return null;

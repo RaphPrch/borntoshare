@@ -267,7 +267,7 @@
         {
           key: 'loading',
           label: 'Validation en cours',
-          detail: 'Chargement du contexte DAL du storage root.',
+          detail: 'Chargement du contexte du storage root.',
           tone: 'pending',
           blocking: true
         }
@@ -321,7 +321,7 @@
         storageRootId = String(candidate);
       } else if (candidate > 0) {
         storageRootId = '';
-        errors.storageRootId = 'Selected storage root is not available in the DAL context';
+        errors.storageRootId = 'Selected storage root is not available';
       } else if (!storageRootId && roots.length > 0) {
         storageRootId = String(roots[0].id);
       }

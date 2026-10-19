@@ -263,7 +263,7 @@ def store_secret(name: str, value: str) -> str:
     V1 rules:
       - Only auth-service may call this
       - Secret value is NEVER returned
-      - Returned ref is persisted in DAL
+      - Returned ref is persisted in core-service
       - Broker decides storage backend & ref format
 
     Example returned ref:

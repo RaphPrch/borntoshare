@@ -22,7 +22,7 @@
     ttlCountdownLabel
   } from './request-detail.helpers';
 
-  export let data: { mode: 'dal'; request: any };
+  export let data: { mode: 'core'; request: any };
 
   let req: any = data.request;
   let pollTimer: ReturnType<typeof setInterval> | null = null;

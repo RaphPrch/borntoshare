@@ -4,7 +4,7 @@
 
 These views are deprecated:
 - active UI pages were removed
-- DAL compatibility routes were retired or downgraded
+- core-service compatibility routes were retired or downgraded
 - SQL source view files no longer recreate them
 
 The script:

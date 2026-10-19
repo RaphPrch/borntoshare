@@ -69,7 +69,7 @@ Dans [`podman-compose.yml`](services/secret-broker/podman-compose.yml), le volum
 
 Les services appelants doivent utiliser le broker comme source de vérité des `sm://`:
 
-- `frontend-service`, `auth-service`, `capsule-runner`, `governance-service` doivent appeler `POST /resolve` avec `X-Internal-Token`.
+- `frontend-service`, `auth-service`, `capsule-runner` doivent appeler `POST /resolve` avec `X-Internal-Token`.
 - Les refs recommandées sont de la forme :
   - `sm://storage-endpoint/smb/<endpoint-key>`
   - `sm://identity-source/ldap/<identity-key>`

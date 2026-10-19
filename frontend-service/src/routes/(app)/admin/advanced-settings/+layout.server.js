@@ -22,7 +22,7 @@ export async function load(event) {
     advancedResult.status === 'fulfilled' && advancedResult.value && typeof advancedResult.value === 'object'
       ? advancedResult.value
       : {};
-  const dalSecurity =
+  const storedSecurity =
     securityResult.status === 'fulfilled' && securityResult.value && typeof securityResult.value === 'object'
       ? securityResult.value
       : {};
@@ -44,10 +44,10 @@ export async function load(event) {
 
   const settings = {
     security: {
-      enforceStrongPasswords: Boolean(dalSecurity.enable_strong_password),
-      passwordMinLength: asOptionalNumber(dalSecurity.password_min_length) ?? 10,
-      passwordHistory: asOptionalNumber(dalSecurity.password_history) ?? 5,
-      passwordExpiryDays: asOptionalNumber(dalSecurity.password_expiry_days) ?? 90
+      enforceStrongPasswords: Boolean(storedSecurity.enable_strong_password),
+      passwordMinLength: asOptionalNumber(storedSecurity.password_min_length) ?? 10,
+      passwordHistory: asOptionalNumber(storedSecurity.password_history) ?? 5,
+      passwordExpiryDays: asOptionalNumber(storedSecurity.password_expiry_days) ?? 90
     },
     logging: {
       level: typeof authLogging.level === 'string' ? authLogging.level : 'INFO',

@@ -24,7 +24,7 @@
 
   const getUsage = (tag: any) => (typeof tag?.usage === "number" ? tag.usage : 0);
 
-  // Normalize DAL shape (id,name,color,usage) into UI shape (label,color_rgb)
+  // Normalize core-service shape (id,name,color,usage) into UI shape (label,color_rgb)
   // so TagPill + modal edition always work.
   $: tagsNorm = (data.tags ?? []).map((t: any) => ({
     ...t,

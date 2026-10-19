@@ -28,9 +28,9 @@ if RUNNER_MAX_SCOPE not in {"read", "write", "admin"}:
 
 
 # ==========================================================
-# 🗄️ DAL + broker (Dramatiq)
+# 🗄️ core-service + broker (Dramatiq)
 # ==========================================================
-DAL_URL: str = (_env("DAL_URL", "http://dal-service:8000") or "").rstrip("/")
+CORE_URL: str = (_env("CORE_URL", "http://core-service:8000") or "").rstrip("/")
 CAPSULE_BROKER_URL: str = (_env("CAPSULE_BROKER_URL") or "").strip()
 
 if not CAPSULE_BROKER_URL:

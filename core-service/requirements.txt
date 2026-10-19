@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pymysql
+pydantic
+eval_type_backport
+bcrypt
+httpx
+dramatiq
+redis

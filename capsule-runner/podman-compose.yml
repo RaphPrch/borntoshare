@@ -21,8 +21,8 @@ services:
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
       B2S_SECRET_BROKER_URL: ${B2S_SECRET_BROKER_URL:-http://secret-broker:8010}
 
-      # DAL + Dramatiq broker
-      DAL_URL: ${DAL_URL:-http://dal-service:8000}
+      # core-service + Dramatiq broker
+      CORE_URL: ${CORE_URL:-http://core-service:8000}
       CAPSULE_BROKER_URL: ${CAPSULE_BROKER_URL:-redis://:${REDIS_PASSWORD}@redis:6379/2}
 
       # Least privilege (read | write)
@@ -56,7 +56,7 @@ services:
     # volumes:
     #   - ./krb5.conf:/etc/krb5.conf:ro
 
-    # app: DAL + secret-broker ; jobs: Redis (Dramatiq broker)
+    # app: core-service + secret-broker ; jobs: Redis (Dramatiq broker)
     networks:
       - app
       - jobs

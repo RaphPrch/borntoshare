@@ -47,7 +47,7 @@ export const load: PageServerLoad = async (event) => {
     };
   }
 
-  // ADMIN MODE: platform KPI (DAL is the source of truth)
+  // ADMIN MODE: platform KPI (core-service is the source of truth)
   const stats = await getDashboardPlatformOverviewServer(event);
 
   return {

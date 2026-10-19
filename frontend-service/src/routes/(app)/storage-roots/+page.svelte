@@ -1954,7 +1954,7 @@
   const selectedRootIdentitySourceId = (): number | null => {
     const endpoint = selectedEndpoint();
     // Governance owners must resolve against the storage endpoint identity source
-    // (the same one DAL validates on PUT /storage-roots/{id}/owners).
+    // (the same one core-service validates on PUT /storage-roots/{id}/owners).
     const candidates = [
       overview?.storage_endpoint?.identity_source_id,
       endpoint?.identity_source_id,

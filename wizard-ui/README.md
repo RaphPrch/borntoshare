@@ -66,7 +66,7 @@ Accès via http://localhost:8080
 Le Wizard UI **ne génère pas** de fichiers `.env.*`.
 
 - La configuration du Wizard se fait via un fichier `.env` local (non versionné) — voir [`.env.example`](.env.example).
-- Les fichiers `.env` applicatifs (DAL/Auth/Governance/…) sont gérés par le déploiement de la plateforme (hors scope du Wizard UI).
+- Les fichiers `.env` applicatifs (core-service/Auth/Governance/…) sont gérés par le déploiement de la plateforme (hors scope du Wizard UI).
 
 ---
 
