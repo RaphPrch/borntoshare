@@ -47,11 +47,13 @@ Gateway (frontend BFF):
 - `ORIGIN` must be the public URL of the app: SvelteKit rejects cross-site form POSTs (CSRF) against it, and the principal cookie is `Secure` when it is HTTPS.
 
 core-service (`core-service/`, all business data and orchestration):
-- Layout of `app/`: `core/` (config, db, logging, errors, internal auth, `internal_client.py`), `data/` (`models/`, `repositories/`: all SQL), `services/` (business logic), `schemas/`, `api/` (routes, mounted under `/api`), `api/governance/` (orchestration routes, mounted under `/api/governance`), `jobs/` (Dramatiq broker, job contracts, QUEUED watchdog).
+- Layout of `app/`: `core/` (config, db, logging, errors, internal auth, `direct_call.py`, `values.py`), `data/` (`models/`, `repositories/`: all SQL), `services/` (business logic), `schemas/`, `api/` (routes, mounted under `/api`), `api/governance/` (orchestration routes, mounted under `/api/governance`), `jobs/` (Dramatiq broker, job contracts, QUEUED watchdog).
 - Only `data/` and services touch the database. Use SQLAlchemy 2.x. There is no Alembic: the SQL schema, views and seeds are owned by wizard-ui (`wizard-ui/backend/app/sql/`) and applied by its migrations runner.
-- Orchestration (`api/governance/`: access requests, identity imports, probes, AD groups) publishes provisioning jobs to Dramatiq. It calls the service's own routes in-process (`core/internal_client.py`, ASGI transport, same internal auth) or services; it never imports `app.data` or opens DB sessions, and only `app/main.py` mounts it (both enforced by `test_architecture_guardrails.py`).
+- Orchestration (`api/governance/`: access requests, identity imports, probes, AD groups) publishes provisioning jobs to Dramatiq. It calls route handlers directly (`core/direct_call.call_route`: own DB session, payload validated into the handler's model, no HTTP) or services; it never imports `app.data` or opens DB sessions, and only `app/main.py` mounts it (both enforced by `test_architecture_guardrails.py`).
 - Service-to-service auth lives in `core/internal_auth.py` only (`X-Internal-Token` static/HMAC, `X-Service-Token` + scopes). Orchestration routes use `require_orchestration_access`; `B2S_ALLOW_PUBLIC_API` opens the non-`/internal/` ones to the BFF.
 - Settings live in `core/config.py` only; `CAPSULE_BROKER_URL` is required at startup.
+- Shared helpers: response envelopes `ui_data`/`ui_list`/`ui_action` (`api/_helpers.py`), value helpers (`core/values.py`), shared pydantic rules `SecretRefRules`/`ProbeStatusRules` (`schemas/common.py`). Reuse them instead of re-implementing.
+- core-service never talks LDAP or SMB: directory and file-server work runs as capsule-runner jobs.
 
 Auth:
 - Keep `b2s_session` cookie behavior.

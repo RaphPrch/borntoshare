@@ -5,6 +5,7 @@ import asyncio
 from fastapi import HTTPException
 
 from app.api.governance import access_requests as api
+from app.tests.governance.route_fakes import fake_routes
 
 
 class _Req:
@@ -22,12 +23,8 @@ def test_bulk_decision_non_approve_proxies_to_core(monkeypatch) -> None:
     async def _fake_internal_post(
         path: str,
         payload: dict,
-        timeout: int = 5,
-        request_id: str | None = None,
-        retries: int = 0,
-        extra_headers: dict | None = None,
     ):
-        calls.append((path, dict(payload), int(timeout), request_id, int(retries), dict(extra_headers or {})))
+        calls.append((path, dict(payload)))
         return {
             "data": {
                 "ok": True,
@@ -41,7 +38,7 @@ def test_bulk_decision_non_approve_proxies_to_core(monkeypatch) -> None:
             }
         }
 
-    monkeypatch.setattr(api, "internal_post", _fake_internal_post)
+    fakes = fake_routes(monkeypatch, api, post=_fake_internal_post)
 
     out = asyncio.run(api.bulk_decision(_Req({"ids": [1], "decision": "reject"})))
 
@@ -49,10 +46,8 @@ def test_bulk_decision_non_approve_proxies_to_core(monkeypatch) -> None:
     assert out["data"]["decision"] == "reject"
     assert calls[0][0] == "/api/access-requests/bulk"
     assert calls[0][1] == {"ids": [1], "decision": "reject"}
-    assert calls[0][2] == 30
-    assert calls[0][3] == "req_test_123"
-    assert calls[0][4] == 2
-    assert calls[0][5]["x-identity-id"] == "7"
+    # The reviewer's request (and its actor headers) reaches the persisting route
+    assert fakes.requests[0].headers["x-identity-id"] == "7"
 
 
 def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> None:
@@ -60,14 +55,8 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
 
     async def _fake_internal_get(
         path: str,
-        timeout: int = 5,
-        request_id: str | None = None,
-        retries: int = 0,
-        extra_headers: dict | None = None,
     ):
-        _ = timeout, request_id, retries
         assert path == "/api/internal/access-requests/101/provisioning-plan"
-        assert dict(extra_headers or {}).get("x-identity-id") == "7"
         return {
             "access_request_id": 101,
             "principal": {"dn": "CN=Jane,OU=Users,DC=example,DC=com", "username": "jane"},
@@ -91,12 +80,7 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
     async def _fake_internal_post(
         path: str,
         payload: dict,
-        timeout: int = 5,
-        request_id: str | None = None,
-        retries: int = 0,
-        extra_headers: dict | None = None,
     ):
-        _ = timeout, request_id, retries, extra_headers
         post_calls.append((path, dict(payload)))
         if path == "/api/internal/access-requests/item-executions":
             return {"ok": True}
@@ -123,8 +107,8 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
         assert str(job_id) == "8001"
         return {"job_id": "8001", "status": "succeeded", "result": {"message": "ACL applied"}}
 
-    monkeypatch.setattr(api, "internal_get", _fake_internal_get)
-    monkeypatch.setattr(api, "internal_post", _fake_internal_post)
+    fake_routes(monkeypatch, api, get=_fake_internal_get)
+    fake_routes(monkeypatch, api, post=_fake_internal_post)
     monkeypatch.setattr(api, "ensure_ad_group_via_name", _fake_ensure_group)
     monkeypatch.setattr(api, "ensure_ad_group_member", _fake_ensure_member)
     monkeypatch.setattr(api, "submit_probe_run", _fake_submit_probe_run)
@@ -153,12 +137,7 @@ def test_bulk_decision_approve_records_failure_and_skips_mark_approved(monkeypat
 
     async def _fake_internal_get(
         path: str,
-        timeout: int = 5,
-        request_id: str | None = None,
-        retries: int = 0,
-        extra_headers: dict | None = None,
     ):
-        _ = timeout, request_id, retries, extra_headers
         assert path == "/api/internal/access-requests/202/provisioning-plan"
         return {
             "access_request_id": 202,
@@ -183,19 +162,14 @@ def test_bulk_decision_approve_records_failure_and_skips_mark_approved(monkeypat
     async def _fake_internal_post(
         path: str,
         payload: dict,
-        timeout: int = 5,
-        request_id: str | None = None,
-        retries: int = 0,
-        extra_headers: dict | None = None,
     ):
-        _ = timeout, request_id, retries, extra_headers
         post_calls.append((path, dict(payload)))
         if path == "/api/internal/access-requests/item-executions":
             return {"ok": True}
         raise AssertionError(path)
 
-    monkeypatch.setattr(api, "internal_get", _fake_internal_get)
-    monkeypatch.setattr(api, "internal_post", _fake_internal_post)
+    fake_routes(monkeypatch, api, get=_fake_internal_get)
+    fake_routes(monkeypatch, api, post=_fake_internal_post)
 
     out = asyncio.run(api.bulk_decision(_Req({"ids": [202], "decision": "approve"})))
 
@@ -228,12 +202,7 @@ def test_bulk_decision_approve_uses_implicit_governed_group_without_profile_bind
 
     async def _fake_internal_get(
         path: str,
-        timeout: int = 5,
-        request_id: str | None = None,
-        retries: int = 0,
-        extra_headers: dict | None = None,
     ):
-        _ = timeout, request_id, retries, extra_headers
         get_calls.append(path)
         assert path == "/api/internal/access-requests/303/provisioning-plan"
         return {
@@ -259,12 +228,7 @@ def test_bulk_decision_approve_uses_implicit_governed_group_without_profile_bind
     async def _fake_internal_post(
         path: str,
         payload: dict,
-        timeout: int = 5,
-        request_id: str | None = None,
-        retries: int = 0,
-        extra_headers: dict | None = None,
     ):
-        _ = timeout, request_id, retries, extra_headers
         post_calls.append((path, dict(payload)))
         if path == "/api/internal/access-requests/item-executions":
             return {"ok": True}
@@ -291,8 +255,8 @@ def test_bulk_decision_approve_uses_implicit_governed_group_without_profile_bind
         assert str(job_id) == "8001"
         return {"job_id": "8001", "status": "succeeded", "result": {"message": "ACL applied"}}
 
-    monkeypatch.setattr(api, "internal_get", _fake_internal_get)
-    monkeypatch.setattr(api, "internal_post", _fake_internal_post)
+    fake_routes(monkeypatch, api, get=_fake_internal_get)
+    fake_routes(monkeypatch, api, post=_fake_internal_post)
     monkeypatch.setattr(api, "ensure_ad_group_via_name", _fake_ensure_group)
     monkeypatch.setattr(api, "ensure_ad_group_member", _fake_ensure_member)
     monkeypatch.setattr(api, "submit_probe_run", _fake_submit_probe_run)
@@ -310,15 +274,11 @@ def test_bulk_decision_non_approve_preserves_core_http_exception(monkeypatch) ->
     async def _fake_internal_post(
         path: str,
         payload: dict,
-        timeout: int = 5,
-        request_id: str | None = None,
-        retries: int = 0,
-        extra_headers: dict | None = None,
     ):
-        _ = path, payload, timeout, request_id, retries, extra_headers
+        _ = path, payload
         raise HTTPException(status_code=502, detail={"error_code": "INTERNAL_CALL_FAILURE"})
 
-    monkeypatch.setattr(api, "internal_post", _fake_internal_post)
+    fake_routes(monkeypatch, api, post=_fake_internal_post)
 
     try:
         asyncio.run(api.bulk_decision(_Req({"ids": [1], "decision": "reject"}, request_id="req_test_502")))
@@ -357,9 +317,8 @@ def test_bulk_decision_revoke_removes_memberships_then_persists_in_core(monkeypa
     post_calls: list[tuple[str, dict]] = []
     removed: list[tuple[str, str | None, int | None]] = []
 
-    async def _fake_internal_get(path: str, timeout: int = 5, request_id=None, retries: int = 0, extra_headers=None):
+    async def _fake_internal_get(path: str):
         assert path == "/api/internal/access-requests/101/provisioning-plan"
-        assert dict(extra_headers or {}).get("x-identity-id") == "7"
         return _revoke_plan([
             {
                 "id": 201,
@@ -373,7 +332,7 @@ def test_bulk_decision_revoke_removes_memberships_then_persists_in_core(monkeypa
             }
         ])
 
-    async def _fake_internal_post(path: str, payload: dict, timeout: int = 5, request_id=None, retries: int = 0, extra_headers=None):
+    async def _fake_internal_post(path: str, payload: dict):
         post_calls.append((path, dict(payload)))
         if path == "/api/internal/access-requests/item-executions":
             return {"ok": True}
@@ -387,8 +346,8 @@ def test_bulk_decision_revoke_removes_memberships_then_persists_in_core(monkeypa
         assert request.headers["x-request-id"] == "ar_101_201_revoke"
         return {"data": {"ok": True, "job_id": 9001, "status": "QUEUED"}}
 
-    monkeypatch.setattr(api, "internal_get", _fake_internal_get)
-    monkeypatch.setattr(api, "internal_post", _fake_internal_post)
+    fake_routes(monkeypatch, api, get=_fake_internal_get)
+    fake_routes(monkeypatch, api, post=_fake_internal_post)
     monkeypatch.setattr(api, "remove_ad_group_member", _fake_remove_member)
 
     out = asyncio.run(api.bulk_decision(_Req({"ids": [101], "decision": "revoke"})))
@@ -407,7 +366,7 @@ def test_bulk_decision_revoke_removes_memberships_then_persists_in_core(monkeypa
 def test_bulk_decision_revoke_failure_records_item_and_skips_core_persist(monkeypatch) -> None:
     post_calls: list[tuple[str, dict]] = []
 
-    async def _fake_internal_get(path: str, timeout: int = 5, request_id=None, retries: int = 0, extra_headers=None):
+    async def _fake_internal_get(path: str):
         return _revoke_plan([
             {
                 "id": 201,
@@ -422,15 +381,15 @@ def test_bulk_decision_revoke_failure_records_item_and_skips_core_persist(monkey
             }
         ])
 
-    async def _fake_internal_post(path: str, payload: dict, timeout: int = 5, request_id=None, retries: int = 0, extra_headers=None):
+    async def _fake_internal_post(path: str, payload: dict):
         post_calls.append((path, dict(payload)))
         return {"ok": True}
 
     async def _fail_remove_member(payload, request=None, response=None):
         raise AssertionError("must not remove a membership for an unresolved item")
 
-    monkeypatch.setattr(api, "internal_get", _fake_internal_get)
-    monkeypatch.setattr(api, "internal_post", _fake_internal_post)
+    fake_routes(monkeypatch, api, get=_fake_internal_get)
+    fake_routes(monkeypatch, api, post=_fake_internal_post)
     monkeypatch.setattr(api, "remove_ad_group_member", _fail_remove_member)
 
     out = asyncio.run(api.bulk_decision(_Req({"ids": [101], "decision": "revoke"})))

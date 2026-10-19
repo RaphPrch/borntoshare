@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from app.api.governance import access_requests as api
+from app.tests.governance.route_fakes import fake_routes
 
 
 class _Req:
@@ -17,12 +18,7 @@ class _Req:
 def test_bulk_decision_approve_exposes_failed_details_from_plan_error(monkeypatch) -> None:
     async def _fake_internal_get(
         path: str,
-        timeout: int = 5,
-        request_id: str | None = None,
-        retries: int = 0,
-        extra_headers: dict | None = None,
     ):
-        _ = timeout, request_id, retries, extra_headers
         assert path == "/api/internal/access-requests/303/provisioning-plan"
         return {
             "access_request_id": 303,
@@ -58,18 +54,13 @@ def test_bulk_decision_approve_exposes_failed_details_from_plan_error(monkeypatc
     async def _fake_internal_post(
         path: str,
         payload: dict,
-        timeout: int = 5,
-        request_id: str | None = None,
-        retries: int = 0,
-        extra_headers: dict | None = None,
     ):
-        _ = timeout, request_id, retries, extra_headers
         if path == "/api/internal/access-requests/item-executions":
             return {"ok": True}
         raise AssertionError(path)
 
-    monkeypatch.setattr(api, "internal_get", _fake_internal_get)
-    monkeypatch.setattr(api, "internal_post", _fake_internal_post)
+    fake_routes(monkeypatch, api, get=_fake_internal_get)
+    fake_routes(monkeypatch, api, post=_fake_internal_post)
 
     out = asyncio.run(api.bulk_decision(_Req({"ids": [303], "decision": "approve"})))
 

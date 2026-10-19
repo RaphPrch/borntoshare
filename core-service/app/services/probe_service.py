@@ -4,14 +4,15 @@ import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import quote
 
 from fastapi import HTTPException, status
 
-from app.core.internal_client import internal_get, internal_post
+from app.api import provisioning_internal
+from app.core.direct_call import call_route
 from app.core.logging import get_logger
 from app.services.job_run_service import build_job_run_data
 from app.jobs.b2s_job_contracts.actors import publish_job
+from app.core.values import positive_int
 
 
 logger = get_logger("gov-probe-service")
@@ -26,14 +27,6 @@ _PROBE_JOB_TYPE_BY_TEMPLATE = {
     "search_ldaps_principals": "IDENTITY_SEARCH",
     "acl_apply_via_group": "ACL_APPLY",
 }
-
-
-def _as_int(value: Any) -> int | None:
-    try:
-        parsed = int(value or 0)
-    except (TypeError, ValueError):
-        return None
-    return parsed if parsed > 0 else None
 
 
 def _normalize_acl_permission(value: Any) -> str | None:
@@ -63,16 +56,16 @@ def _parse_dt(value: Any) -> datetime | None:
 
 def _target_key(template_slug: str, target: dict[str, Any], context: dict[str, Any]) -> tuple[str, int | str] | None:
     if template_slug == "test_smb_root_access":
-        root_id = _as_int(target.get("storage_root_id")) or _as_int(context.get("storage_root_id"))
+        root_id = positive_int(target.get("storage_root_id")) or positive_int(context.get("storage_root_id"))
         return ("storage_root_id", int(root_id)) if root_id else None
     if template_slug == "test_smb_ntlm":
-        endpoint_id = _as_int(target.get("storage_endpoint_id")) or _as_int(context.get("storage_endpoint_id"))
+        endpoint_id = positive_int(target.get("storage_endpoint_id")) or positive_int(context.get("storage_endpoint_id"))
         if endpoint_id:
             return ("storage_endpoint_id", int(endpoint_id))
         host = str(target.get("host") or "").strip().lower()
         return ("host", host) if host else None
     if template_slug in {"test_ldap", "test_ldaps", "search_ldap_principals", "search_ldaps_principals"}:
-        source_id = _as_int(context.get("identity_source_id")) or _as_int(target.get("identity_source_id"))
+        source_id = positive_int(context.get("identity_source_id")) or positive_int(target.get("identity_source_id"))
         return ("identity_source_id", int(source_id)) if source_id else None
     return None
 
@@ -104,7 +97,7 @@ def _payload_matches_probe_target(
     if key == "host":
         actual = str(target.get("host") or "").strip().lower()
         return actual == str(expected)
-    actual = _as_int(target.get(key)) or _as_int(context.get(key))
+    actual = positive_int(target.get(key)) or positive_int(context.get(key))
     return actual == int(expected)
 
 
@@ -146,9 +139,11 @@ async def _find_equivalent_active_probe(
     if not target_key:
         return None
 
-    rows = await internal_get(
-        f"/api/internal/provisioning/jobs?job_type={job_type}&active_only=true&limit=100",
-        timeout=5,
+    rows = await call_route(
+        provisioning_internal.list_provisioning_jobs,
+        job_type=job_type,
+        active_only=True,
+        limit=100,
     )
     if not isinstance(rows, list):
         return None
@@ -162,12 +157,13 @@ async def _find_equivalent_active_probe(
 
 
 async def _fail_stale_probe_job(row: dict[str, Any], *, template_slug: str, max_age_seconds: int) -> None:
-    job_id = _as_int(row.get("id"))
+    job_id = positive_int(row.get("id"))
     if not job_id:
         return
-    await internal_post(
-        f"/api/internal/provisioning/jobs/{int(job_id)}/fail",
-        {
+    await call_route(
+        provisioning_internal.fail_provisioning_job,
+        job_id=int(job_id),
+        payload={
             "action": template_slug,
             "error_code": "PROBE_JOB_TIMEOUT",
             "error_message": f"Probe job exceeded {int(max_age_seconds)} seconds",
@@ -187,7 +183,6 @@ async def _fail_stale_probe_job(row: dict[str, Any], *, template_slug: str, max_
             },
             "correlation_id": f"probe_timeout_{uuid.uuid4().hex}",
         },
-        timeout=8,
     )
 
 
@@ -213,11 +208,11 @@ async def _resolve_profile_row(
     access_level_code: str | None,
     access_profile_id: int | None,
 ) -> dict[str, Any] | None:
-    path = f"/api/internal/provisioning/storage-root-access-profiles?storage_root_id={int(storage_root_id)}"
-    if access_level_code:
-        path += f"&access_level_code={quote(access_level_code)}"
-
-    rows = await internal_get(path, timeout=5)
+    rows = await call_route(
+        provisioning_internal.list_storage_root_access_profiles,
+        storage_root_id=int(storage_root_id),
+        access_level_code=access_level_code or None,
+    )
     if not isinstance(rows, list):
         return None
 
@@ -225,8 +220,8 @@ async def _resolve_profile_row(
         for row in rows:
             if not isinstance(row, dict):
                 continue
-            row_profile_id = _as_int(row.get("access_profile_id"))
-            row_link_id = _as_int(row.get("id"))
+            row_profile_id = positive_int(row.get("access_profile_id"))
+            row_link_id = positive_int(row.get("id"))
             if access_profile_id in {row_profile_id, row_link_id}:
                 return row
 
@@ -234,6 +229,25 @@ async def _resolve_profile_row(
         if isinstance(row, dict):
             return row
     return None
+
+
+def _probe_credentials(auth: dict[str, Any], ctx: dict[str, Any]) -> tuple[str, str]:
+    """Username and secret ref for an SMB probe: explicit auth first, then endpoint, then identity source."""
+    username = str(
+        auth.get("username")
+        or auth.get("bind_dn")
+        or ctx.get("endpoint_bind_dn")
+        or ctx.get("identity_source_bind_dn")
+        or ""
+    ).strip()
+    secret_ref = str(
+        auth.get("secret_ref")
+        or ctx.get("endpoint_bind_password_ref")
+        or ctx.get("identity_source_bind_password_ref")
+        or ctx.get("secret_ref")
+        or ""
+    ).strip()
+    return username, secret_ref
 
 
 async def _enrich_acl_probe_payload(
@@ -244,7 +258,7 @@ async def _enrich_acl_probe_payload(
     options = dict(payload.get("options") or {})
     context = dict(payload.get("context") or {})
 
-    storage_root_id = _as_int(target.get("storage_root_id")) or _as_int(context.get("storage_root_id"))
+    storage_root_id = positive_int(target.get("storage_root_id")) or positive_int(context.get("storage_root_id"))
     if not storage_root_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -255,7 +269,7 @@ async def _enrich_acl_probe_payload(
             },
         )
 
-    ctx = await internal_get(f"/api/internal/provisioning/storage-roots/{int(storage_root_id)}/context", timeout=5)
+    ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(storage_root_id))
     if not isinstance(ctx, dict):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -266,7 +280,7 @@ async def _enrich_acl_probe_payload(
             },
         )
 
-    access_profile_id = _as_int(target.get("access_profile_id"))
+    access_profile_id = positive_int(target.get("access_profile_id"))
     raw_level = str(target.get("access_level_code") or "").strip().upper() or None
     profile_row = await _resolve_profile_row(
         storage_root_id=int(storage_root_id),
@@ -293,20 +307,7 @@ async def _enrich_acl_probe_payload(
     if not group_name and profile_row:
         group_name = str(profile_row.get("group_name") or profile_row.get("ad_group_name") or "").strip()
 
-    username = str(
-        auth.get("username")
-        or auth.get("bind_dn")
-        or ctx.get("endpoint_bind_dn")
-        or ctx.get("identity_source_bind_dn")
-        or ""
-    ).strip()
-    secret_ref = str(
-        auth.get("secret_ref")
-        or ctx.get("endpoint_bind_password_ref")
-        or ctx.get("identity_source_bind_password_ref")
-        or ctx.get("secret_ref")
-        or ""
-    ).strip()
+    username, secret_ref = _probe_credentials(auth, ctx)
     domain_name = str(auth.get("domain") or ctx.get("domain_name") or "").strip()
 
     missing_fields: list[str] = []
@@ -344,8 +345,8 @@ async def _enrich_acl_probe_payload(
             "permission": permission,
         }
     )
-    endpoint_port = _as_int(ctx.get("endpoint_port"))
-    if endpoint_port and not _as_int(target.get("port")):
+    endpoint_port = positive_int(ctx.get("endpoint_port"))
+    if endpoint_port and not positive_int(target.get("port")):
         target["port"] = endpoint_port
 
     auth["mode"] = str(auth.get("mode") or "ntlm")
@@ -360,8 +361,8 @@ async def _enrich_acl_probe_payload(
     context["storage_root_id"] = int(storage_root_id)
     if access_profile_id:
         context["access_profile_id"] = int(access_profile_id)
-    elif profile_row and _as_int(profile_row.get("access_profile_id")):
-        context["access_profile_id"] = int(_as_int(profile_row.get("access_profile_id")) or 0)
+    elif profile_row and positive_int(profile_row.get("access_profile_id")):
+        context["access_profile_id"] = int(positive_int(profile_row.get("access_profile_id")) or 0)
     if resolved_level:
         context["access_level_code"] = resolved_level
 
@@ -376,7 +377,7 @@ async def _enrich_storage_root_probe_payload(
     options = dict(payload.get("options") or {})
     context = dict(payload.get("context") or {})
 
-    storage_root_id = _as_int(target.get("storage_root_id")) or _as_int(context.get("storage_root_id"))
+    storage_root_id = positive_int(target.get("storage_root_id")) or positive_int(context.get("storage_root_id"))
     if not storage_root_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -387,7 +388,7 @@ async def _enrich_storage_root_probe_payload(
             },
         )
 
-    ctx = await internal_get(f"/api/internal/provisioning/storage-roots/{int(storage_root_id)}/context", timeout=5)
+    ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(storage_root_id))
     if not isinstance(ctx, dict):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -402,20 +403,7 @@ async def _enrich_storage_root_probe_payload(
     host = str(target.get("host") or parsed_host or ctx.get("host") or "").strip()
     share = str(target.get("share") or parsed_share or "").strip()
     rel_path = str(target.get("path") or parsed_rel or "").strip().strip("/\\")
-    username = str(
-        auth.get("username")
-        or auth.get("bind_dn")
-        or ctx.get("endpoint_bind_dn")
-        or ctx.get("identity_source_bind_dn")
-        or ""
-    ).strip()
-    secret_ref = str(
-        auth.get("secret_ref")
-        or ctx.get("endpoint_bind_password_ref")
-        or ctx.get("identity_source_bind_password_ref")
-        or ctx.get("secret_ref")
-        or ""
-    ).strip()
+    username, secret_ref = _probe_credentials(auth, ctx)
 
     missing_fields: list[str] = []
     if not host:
@@ -445,12 +433,12 @@ async def _enrich_storage_root_probe_payload(
             "storage_root_id": int(storage_root_id),
         }
     )
-    endpoint_id = _as_int(ctx.get("storage_endpoint_id"))
+    endpoint_id = positive_int(ctx.get("storage_endpoint_id"))
     if endpoint_id:
         target["storage_endpoint_id"] = int(endpoint_id)
         context["storage_endpoint_id"] = int(endpoint_id)
-    endpoint_port = _as_int(ctx.get("endpoint_port"))
-    if endpoint_port and not _as_int(target.get("port")):
+    endpoint_port = positive_int(ctx.get("endpoint_port"))
+    if endpoint_port and not positive_int(target.get("port")):
         target["port"] = endpoint_port
 
     auth["mode"] = str(auth.get("mode") or "ntlm")
@@ -528,7 +516,7 @@ async def submit_probe_run(payload: dict[str, Any]) -> dict[str, Any]:
     if template_slug == "test_smb_root_access":
         target, auth, options, context = await _enrich_storage_root_probe_payload(payload)
 
-    identity_source_id = _as_int(context.get("identity_source_id"))
+    identity_source_id = positive_int(context.get("identity_source_id"))
     timeout_sec = int(options.get("timeout_sec") or 30)
     active_job = await _find_equivalent_active_probe(
         template_slug=template_slug,
@@ -553,9 +541,9 @@ async def submit_probe_run(payload: dict[str, Any]) -> dict[str, Any]:
             max_age_seconds=max_age_seconds,
         )
 
-    create_job = await internal_post(
-        "/api/internal/provisioning/jobs",
-        {
+    create_job = await call_route(
+        provisioning_internal.create_provisioning_job,
+        payload={
             "correlation_id": correlation_id,
             "job_type": job_type,
             "action": template_slug,
@@ -602,7 +590,7 @@ async def submit_probe_run(payload: dict[str, Any]) -> dict[str, Any]:
 
 async def fetch_probe_job(job_id: int | str) -> dict[str, Any]:
     numeric_job_id = int(job_id)
-    row = await internal_get(f"/api/internal/provisioning/jobs/{numeric_job_id}")
+    row = await call_route(provisioning_internal.get_provisioning_job_by_id, job_id=numeric_job_id)
     if not isinstance(row, dict):
         raise HTTPException(status_code=404, detail="Probe job not found")
 
@@ -616,7 +604,7 @@ async def fetch_probe_job(job_id: int | str) -> dict[str, Any]:
                 template_slug=str(row.get("action") or "probe").strip() or "probe",
                 max_age_seconds=max_age_seconds,
             )
-            refreshed = await internal_get(f"/api/internal/provisioning/jobs/{numeric_job_id}")
+            refreshed = await call_route(provisioning_internal.get_provisioning_job_by_id, job_id=numeric_job_id)
             if isinstance(refreshed, dict):
                 row = refreshed
 

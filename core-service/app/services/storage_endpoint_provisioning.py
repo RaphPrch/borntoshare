@@ -16,19 +16,12 @@ from app.services.naming_policy import (
     resolve_effective_policy,
     resolve_group_name_from_effective_policy,
 )
+from app.core.values import positive_int
 
 
 def _clean_text(value: Any) -> str | None:
     text = str(value or "").strip()
     return text or None
-
-
-def _safe_int(value: Any) -> int | None:
-    try:
-        parsed = int(value)
-    except Exception:
-        return None
-    return parsed if parsed > 0 else None
 
 
 def _safe_bool(value: Any) -> bool:
@@ -228,7 +221,7 @@ def _resolve_warning_list(
 def build_storage_endpoint_provisioning_payload(db: Session, endpoint: StorageEndpoint) -> dict[str, Any]:
     effective_row = StorageEndpointsViewsRepo(db).get_effective_provisioning_policy(int(endpoint.id)) or {}
 
-    zone_id = _safe_int(effective_row.get("zone_id") or getattr(endpoint, "zone_id", None))
+    zone_id = positive_int(effective_row.get("zone_id") or getattr(endpoint, "zone_id", None))
     zone_name = _clean_text(effective_row.get("zone_name")) or (f"Zone #{zone_id}" if zone_id else None)
 
     global_naming_policy = load_global_policy(db)
@@ -270,7 +263,7 @@ def build_storage_endpoint_provisioning_payload(db: Session, endpoint: StorageEn
         effective_template=effective_template,
     )
 
-    effective_identity_source_id = _safe_int(
+    effective_identity_source_id = positive_int(
         effective_row.get("effective_identity_source_id")
         or getattr(endpoint, "identity_source_id", None)
     )
@@ -353,7 +346,7 @@ def build_storage_endpoint_provisioning_payload(db: Session, endpoint: StorageEn
                 if effective_naming_policy.get("normalize_uppercase") is not None
                 else True
             ),
-            "max_sam_length": _safe_int(effective_naming_policy.get("max_sam_length")) or 64,
+            "max_sam_length": positive_int(effective_naming_policy.get("max_sam_length")) or 64,
             "rootcode_strategy": _clean_text(effective_naming_policy.get("rootcode_strategy")) or "BASENAME",
         },
         "effective_identity_source": {

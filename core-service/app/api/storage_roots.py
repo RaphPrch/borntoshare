@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
@@ -14,8 +14,6 @@ from app.core.internal_auth import require_internal_token
 from app.data.models.identity import Identity
 from app.data.models.storage_endpoint import StorageEndpoint
 from app.data.models.storage_root import StorageRoot
-from app.data.models.storage_root_access_profile import StorageRootAccessProfile
-from app.data.models.storage_root_role import StorageRootRole
 from app.schemas.storage_root import (
     StorageRootCreate,
     StorageRootUpdate,
@@ -32,7 +30,6 @@ from app.services.authorization import (
     require_storage_root_access,
     require_storage_roots_index,
 )
-from app.services.access_profiles_v1 import SYSTEM_MANAGED_ERROR
 from app.services.naming_policy import resolve_effective_policy
 from app.services.probe_results import ProbeResultService, normalize_probe_status_value
 from app.services.storage_root_binding_materialization_service import (
@@ -201,11 +198,6 @@ def _root_zone_id(root: StorageRoot) -> int | None:
 
 class StorageRootOwnersUpdatePayload(BaseModel):
     guardian_ids: list[int] = Field(default_factory=list)
-
-
-class StorageRootRoleAssignPayload(BaseModel):
-    identity_id: int = Field(..., ge=1)
-    role: Literal["guardian"]
 
 
 class StorageRootDiscoveryItem(BaseModel):
@@ -412,18 +404,6 @@ def _list_group_members_from_active_snapshot_payload(
     return StorageRootsViewsRepo(db)._list_group_members_from_active_snapshot_payload(
         group_ref=group_ref,
         identity_source_id=identity_source_id,
-    )
-
-
-def _list_ad_group_members_for_storage_root(
-    db: Session,
-    *,
-    storage_root_id: int,
-    group_ref: str,
-) -> tuple[list[dict[str, Any]], int | None, str]:
-    return StorageRootsViewsRepo(db).list_ad_group_members(
-        storage_root_id=int(storage_root_id),
-        group_ref=group_ref,
     )
 
 
@@ -776,68 +756,6 @@ def get_storage_root_ad_groups(
     )
 
 
-@router.get("/{storage_root_id}/ad-groups/members")
-def get_storage_root_ad_group_members(
-    storage_root_id: int,
-    request: Request,
-    group_name: str = Query(..., min_length=1, max_length=256),
-    db: Session = Depends(get_db),
-):
-    require_storage_root_access(db, actor_from_request(request), int(storage_root_id))
-    root = db.get(StorageRoot, int(storage_root_id))
-    if root is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Storage root not found",
-        )
-
-    normalized_group = str(group_name or "").strip()
-    if not normalized_group:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="group_name is required",
-        )
-
-    members, active_snapshot_id, members_source = _list_ad_group_members_for_storage_root(
-        db,
-        storage_root_id=int(storage_root_id),
-        group_ref=normalized_group,
-    )
-
-    return ui_data(
-        {
-            "storage_root_id": int(storage_root_id),
-            "group_name": normalized_group,
-            "active_snapshot_id": active_snapshot_id,
-            "members_source": members_source,
-            "members_count": len(members),
-            "members": members,
-        },
-        meta={"storage_root_id": int(storage_root_id), "count": int(len(members))},
-    )
-
-@router.get("/{storage_root_id}/effective-access")
-def get_storage_root_effective_access(
-    storage_root_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    require_storage_root_access(db, actor_from_request(request), int(storage_root_id))
-    root = db.get(StorageRoot, storage_root_id)
-    if root is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Storage root not found",
-        )
-
-    repo = StorageRootsViewsRepo(db)
-    payload = {
-        "storage_root_id": storage_root_id,
-        **repo.get_effective_access_details(storage_root_id),
-    }
-    return ui_data(payload, meta={"storage_root_id": int(storage_root_id)})
-
-
 @router.get("/{storage_root_id}/owners")
 def get_storage_root_owners(
     storage_root_id: int,
@@ -872,69 +790,6 @@ def list_storage_root_access_profiles(
     root = db.get(StorageRoot, int(storage_root_id))
     if root is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
-    payload = _serialize_root_access_profiles(db=db, storage_root_id=int(storage_root_id))
-    count = int(len(payload.get("items") or []))
-    return ui_data(
-        payload,
-        meta={
-            "storage_root_id": int(storage_root_id),
-            "count": count,
-            "deprecated": True,
-        },
-    )
-
-
-@router.post("/{storage_root_id}/access-profiles/{access_profile_id:int}")
-async def attach_storage_root_access_profile(
-    storage_root_id: int,
-    access_profile_id: int,
-):
-    """Legacy system-managed endpoint kept temporarily for compatibility."""
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail={
-            "error_code": "SYSTEM_MANAGED_ROUTE",
-            "message": SYSTEM_MANAGED_ERROR,
-            "details": {
-                "storage_root_id": int(storage_root_id),
-                "access_profile_id": int(access_profile_id),
-            },
-        },
-    )
-
-
-@router.delete("/{storage_root_id}/access-profiles/{access_profile_id:int}")
-def detach_storage_root_access_profile(
-    storage_root_id: int,
-    access_profile_id: int,
-    db: Session = Depends(get_db),
-):
-    """Legacy compatibility endpoint for detaching a local access-profile binding."""
-    root = db.get(StorageRoot, int(storage_root_id))
-    if root is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
-
-    link = (
-        db.query(StorageRootAccessProfile)
-        .filter(
-            StorageRootAccessProfile.storage_root_id == int(storage_root_id),
-            StorageRootAccessProfile.access_profile_id == int(access_profile_id),
-            StorageRootAccessProfile.deleted_at.is_(None),
-        )
-        .first()
-    )
-    if link:
-        if str(getattr(link, "source", "LOCAL") or "LOCAL").upper() in {"ZONE", "INHERITED"}:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Inherited zone profile is read-only on storage root",
-            )
-        link.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
-        link.active = False
-        db.add(link)
-
-    db.commit()
-    _reconcile_storage_root_alerts(db, int(storage_root_id))
     payload = _serialize_root_access_profiles(db=db, storage_root_id=int(storage_root_id))
     count = int(len(payload.get("items") or []))
     return ui_data(
@@ -1030,164 +885,6 @@ def replace_storage_root_owners(
         },
         meta={"storage_root_id": int(storage_root_id), "count": int(len(owners))},
     )
-
-
-@router.post("/{storage_root_id}/roles")
-def assign_storage_root_role(
-    storage_root_id: int,
-    payload: StorageRootRoleAssignPayload,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    _require_platform_admin(request)
-
-    root = db.get(StorageRoot, int(storage_root_id))
-    if root is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
-
-    identity = db.get(Identity, int(payload.identity_id))
-    if identity is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
-
-    _guardians_in_active_snapshot_enabled(
-        db,
-        storage_root_id=int(storage_root_id),
-        guardian_ids=[int(payload.identity_id)],
-    )
-
-    actor = actor_from_request(request)
-    actor_id, actor_display = actor.identity_id, actor.display_name
-
-    row = StorageRootRole(
-        root_id=int(storage_root_id),
-        identity_id=int(payload.identity_id),
-        role=str(payload.role).lower(),
-        assigned_by=actor_id,
-    )
-    db.add(row)
-
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-
-    repo = StorageRootsViewsRepo(db)
-    owners = repo.list_owners(int(storage_root_id))
-
-    log_activity(
-        db,
-        actor_type="user" if actor_id is not None else "system",
-        actor_id=actor_id,
-        actor_display=actor_display,
-        action="storage_root.role.assigned",
-        outcome="success",
-        target_type="storage_root",
-        target_id=int(storage_root_id),
-        target_display=str(root.name or root.root_path or root.id),
-        context_json={
-            "identity_id": int(payload.identity_id),
-            "role": str(payload.role).lower(),
-            "owners_count": len(owners),
-        },
-        correlation_id=(request.headers.get("x-request-id") or None),
-    )
-
-    _reconcile_storage_root_alerts(db, int(storage_root_id))
-
-    return ui_data(
-        {
-            "storage_root_id": int(storage_root_id),
-            "owners": owners,
-        },
-        meta={"storage_root_id": int(storage_root_id), "count": int(len(owners))},
-    )
-
-
-@router.delete("/{storage_root_id}/roles/{role}/{identity_id}")
-def remove_storage_root_role(
-    storage_root_id: int,
-    role: str,
-    identity_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    _require_platform_admin(request)
-
-    normalized_role = str(role or "").strip().lower()
-    if normalized_role != "guardian":
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="role must be guardian")
-
-    root = db.get(StorageRoot, int(storage_root_id))
-    if root is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
-
-    actor = actor_from_request(request)
-    actor_id, actor_display = actor.identity_id, actor.display_name
-
-    db.execute(
-        text(
-            """
-            DELETE FROM storage_root_roles
-            WHERE root_id = :root_id
-              AND identity_id = :identity_id
-              AND LOWER(role) = :role
-            """
-        ),
-        {
-            "root_id": int(storage_root_id),
-            "identity_id": int(identity_id),
-            "role": normalized_role,
-        },
-    )
-    db.commit()
-
-    repo = StorageRootsViewsRepo(db)
-    owners = repo.list_owners(int(storage_root_id))
-
-    log_activity(
-        db,
-        actor_type="user" if actor_id is not None else "system",
-        actor_id=actor_id,
-        actor_display=actor_display,
-        action="storage_root.role.removed",
-        outcome="success",
-        target_type="storage_root",
-        target_id=int(storage_root_id),
-        target_display=str(root.name or root.root_path or root.id),
-        context_json={
-            "identity_id": int(identity_id),
-            "role": normalized_role,
-            "owners_count": len(owners),
-        },
-        correlation_id=(request.headers.get("x-request-id") or None),
-    )
-
-    _reconcile_storage_root_alerts(db, int(storage_root_id))
-
-    return ui_data(
-        {
-            "storage_root_id": int(storage_root_id),
-            "owners": owners,
-        },
-        meta={"storage_root_id": int(storage_root_id), "count": int(len(owners))},
-    )
-
-
-@router.get("/applied-access")
-def list_storage_roots_applied_access(
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    """
-    READ MODEL — Applied access (GLOBAL).
-    Backed by table: storage_root_roles
-    """
-    actor = actor_from_request(request)
-    require_storage_roots_index(db, actor)
-    repo = StorageRootsViewsRepo(db)
-    rows = repo.list_applied_access()
-    rows = filter_storage_root_rows(db, actor, rows)
-    return ui_list(rows, meta={"count": int(len(rows))})
 
 
 @router.get("/effective-access")

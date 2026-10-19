@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -23,15 +23,12 @@ from app.services.provisioning_ou_sql import effective_group_ou_case_sql
 from app.core.audit_hash import compute_event_hash, scrub_secrets
 from app.core.internal_auth import require_internal
 from app.utils.status_validation import ensure_transition, normalize_status, validate_profile_invariants
+from app.core.values import positive_int, utcnow_naive
 
 
 router = APIRouter(prefix="/internal/provisioning", tags=["internal-provisioning"])
 
 MAX_RETRY_ATTEMPTS = 5
-
-
-def _utcnow_naive() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class UpsertStorageRootAccessProfilePayload(BaseModel):
@@ -109,21 +106,6 @@ class JobFailPayload(BaseModel):
     actor_ip: str | None = Field(default=None, max_length=64)
     user_agent: str | None = Field(default=None, max_length=256)
     correlation_id: str = Field(..., min_length=8, max_length=128)
-
-
-class ProfileProvisionedPayload(BaseModel):
-    group_external_id: str = Field(..., min_length=1, max_length=190)
-    correlation_id: str = Field(..., min_length=8, max_length=128)
-    actor_ip: str | None = Field(default=None, max_length=64)
-    user_agent: str | None = Field(default=None, max_length=256)
-
-
-class ProfileFailedPayload(BaseModel):
-    error_code: str = Field(..., min_length=1, max_length=64)
-    error_message: str | None = None
-    correlation_id: str = Field(..., min_length=8, max_length=128)
-    actor_ip: str | None = Field(default=None, max_length=64)
-    user_agent: str | None = Field(default=None, max_length=256)
 
 
 class CompleteAndApplyPayload(BaseModel):
@@ -309,7 +291,7 @@ def _persist_identity_source_probe_result(
     if source_id <= 0:
         return
 
-    checked_at = _utcnow_naive()
+    checked_at = utcnow_naive()
     message = _probe_result_message(result_json, fallback_message)
     result_success = result_json.get("success") if isinstance(result_json, dict) else None
     health_status = (
@@ -372,14 +354,6 @@ def _as_dict(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, dict) else {}
 
 
-def _as_int(value: Any) -> int | None:
-    try:
-        parsed = int(value or 0)
-    except (TypeError, ValueError):
-        return None
-    return parsed if parsed > 0 else None
-
-
 def _as_list_of_dict(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
@@ -416,9 +390,9 @@ def _extract_storage_endpoint_id_from_probe(
     details = _as_dict(_as_dict(result_json).get("details"))
 
     return (
-        _as_int(details.get("storage_endpoint_id"))
-        or _as_int(target.get("storage_endpoint_id"))
-        or _as_int(context.get("storage_endpoint_id"))
+        positive_int(details.get("storage_endpoint_id"))
+        or positive_int(target.get("storage_endpoint_id"))
+        or positive_int(context.get("storage_endpoint_id"))
     )
 
 
@@ -434,9 +408,9 @@ def _extract_storage_root_id_from_probe(
     details = _as_dict(_as_dict(result_json).get("details"))
 
     return (
-        _as_int(details.get("storage_root_id"))
-        or _as_int(target.get("storage_root_id"))
-        or _as_int(context.get("storage_root_id"))
+        positive_int(details.get("storage_root_id"))
+        or positive_int(target.get("storage_root_id"))
+        or positive_int(context.get("storage_root_id"))
     )
 
 
@@ -480,7 +454,7 @@ def _persist_storage_endpoint_probe_result(
     ProbeResultService(db).record_storage_endpoint_probe(
         endpoint,
         status_value=normalized_status,
-        checked_at=_utcnow_naive(),
+        checked_at=utcnow_naive(),
         message=message,
         source_type="provisioning_job",
         source_id=str(int(getattr(job_row, "id", 0) or 0)),
@@ -499,7 +473,7 @@ def _persist_storage_endpoint_probe_result(
         source_id=str(int(getattr(job_row, "id", 0) or 0)),
         job_id=int(getattr(job_row, "id", 0) or 0) or None,
         correlation_id=correlation_id,
-        checked_at=_utcnow_naive(),
+        checked_at=utcnow_naive(),
         metadata_json={
             "job_type": "SMB_PROBE",
             "checks": details.get("checks") if isinstance(details.get("checks"), list) else [],
@@ -543,7 +517,7 @@ def _persist_storage_root_probe_result(
         else str(status_value or "unknown").strip().lower()
     )
     message = _probe_result_message(result, fallback_message)
-    checked_at = _utcnow_naive()
+    checked_at = utcnow_naive()
 
     root.last_probe_status = normalized_status
     root.last_probe_at = checked_at
@@ -910,87 +884,6 @@ def list_storage_root_access_profiles(
     return [repo.to_dict(r) for r in rows]
 
 
-@router.post("/storage-root-access-profiles/{profile_id}/mark-provisioned", dependencies=[require_internal({"profiles:write", "events:write"})])
-def mark_storage_root_access_profile_provisioned(
-    profile_id: int,
-    payload: ProfileProvisionedPayload,
-    db: Session = Depends(get_db),
-):
-    repo = StorageRootAccessProfilesRepo(db)
-    row = repo.get_by_id(int(profile_id))
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root access profile not found")
-
-    next_status = ensure_transition(current=row.status, next_status="SUCCEEDED")
-    validate_profile_invariants(status_value=next_status, group_external_id=payload.group_external_id, error_code=None)
-
-    row = repo.update(
-        obj=row,
-        updates={
-            "status": next_status,
-            "group_external_id": payload.group_external_id,
-            "error_code": None,
-            "error_message": None,
-        },
-    )
-
-    _write_governance_event(
-        db,
-        event_type="profile_provisioning_success",
-        target_type="storage_root_access_profile",
-        target_id=int(profile_id),
-        storage_root_access_profile_id=int(profile_id),
-        status_value="SUCCEEDED",
-        payload_json={"group_external_id": payload.group_external_id, "correlation_id": payload.correlation_id},
-        actor_ip=payload.actor_ip,
-        user_agent=payload.user_agent,
-    )
-    db.commit()
-    return repo.to_dict(row)
-
-
-@router.post("/storage-root-access-profiles/{profile_id}/mark-failed", dependencies=[require_internal({"profiles:write", "events:write"})])
-def mark_storage_root_access_profile_failed(
-    profile_id: int,
-    payload: ProfileFailedPayload,
-    db: Session = Depends(get_db),
-):
-    repo = StorageRootAccessProfilesRepo(db)
-    row = repo.get_by_id(int(profile_id))
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root access profile not found")
-
-    next_status = ensure_transition(current=row.status, next_status="FAILED")
-    validate_profile_invariants(status_value=next_status, group_external_id=row.group_external_id, error_code=payload.error_code)
-
-    row = repo.update(
-        obj=row,
-        updates={
-            "status": next_status,
-            "error_code": payload.error_code,
-            "error_message": payload.error_message,
-        },
-    )
-
-    _write_governance_event(
-        db,
-        event_type="profile_provisioning_failed",
-        target_type="storage_root_access_profile",
-        target_id=int(profile_id),
-        storage_root_access_profile_id=int(profile_id),
-        status_value="FAILED",
-        payload_json={
-            "error_code": payload.error_code,
-            "error_message": payload.error_message,
-            "correlation_id": payload.correlation_id,
-        },
-        actor_ip=payload.actor_ip,
-        user_agent=payload.user_agent,
-    )
-    db.commit()
-    return repo.to_dict(row)
-
-
 @router.post("/jobs", dependencies=[require_internal({"jobs:write"})])
 def create_provisioning_job(payload: CreateProvisioningJobPayload, db: Session = Depends(get_db)):
     repo = ProvisioningJobsRepo(db)
@@ -1161,7 +1054,7 @@ def start_provisioning_job(job_id: int, payload: JobStartPayload, db: Session = 
         if not profile:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root access profile not found")
 
-        now = _utcnow_naive()
+        now = utcnow_naive()
         lock_owner = str(payload.lock_owner or f"capsule-job-{int(job_id)}").strip()[:100]
         current_lock_owner = str(profile.get("locked_by") or "").strip()
         locked_at = profile.get("locked_at")
@@ -1203,7 +1096,7 @@ def start_provisioning_job(job_id: int, payload: JobStartPayload, db: Session = 
         obj=row,
         updates={
             "status": ensure_transition(current=row.status, next_status="RUNNING"),
-            "started_at": row.started_at or _utcnow_naive(),
+            "started_at": row.started_at or utcnow_naive(),
             "finished_at": None,
             "error_code": None,
             "error_message": None,
@@ -1252,7 +1145,7 @@ def requeue_provisioning_job(job_id: int, payload: JobRequeuePayload, db: Sessio
             ),
             {
                 "id": profile_id,
-                "updated_at": _utcnow_naive(),
+                "updated_at": utcnow_naive(),
             },
         )
         db.commit()
@@ -1274,7 +1167,7 @@ def cancel_provisioning_job(job_id: int, payload: JobCancelPayload, db: Session 
     if current_status == "CANCELLED":
         return repo.to_dict(row)
 
-    now = _utcnow_naive()
+    now = utcnow_naive()
     reason = str(payload.reason or "").strip() or "Cancelled by operator"
     requested_by = str(payload.requested_by or "").strip() or "operator"
     source = str(payload.source or "ui").strip().lower() or "ui"
@@ -1357,7 +1250,7 @@ def mark_watchdog_republish(job_id: int, payload: JobWatchdogRepublishPayload, d
     metrics = dict(getattr(row, "metrics_json", {}) or {})
     next_count = int(metrics.get("watchdog_republish_count") or 0) + 1
     metrics["watchdog_republish_count"] = next_count
-    metrics["last_republish_at"] = _utcnow_naive().isoformat() + "Z"
+    metrics["last_republish_at"] = utcnow_naive().isoformat() + "Z"
     metrics["last_republish_reason"] = str(payload.reason or "").strip() or "watchdog"
     metrics["last_republish_correlation_id"] = correlation_id
 
@@ -1400,7 +1293,7 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
         updates={
             "action": payload.action,
             "status": ensure_transition(current=row.status, next_status="SUCCEEDED"),
-            "finished_at": _utcnow_naive(),
+            "finished_at": utcnow_naive(),
             "result_json": payload.result_json,
             "metrics_json": payload.metrics_json,
             "error_json": {},
@@ -1426,7 +1319,7 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
             source_id=str(int(getattr(row, "id", 0) or 0)),
             job_id=int(getattr(row, "id", 0) or 0) or None,
             correlation_id=correlation_id,
-            checked_at=_utcnow_naive(),
+            checked_at=utcnow_naive(),
             metadata_json={
                 "job_type": "DIRECTORY_SNAPSHOT",
                 "result": payload.result_json or {},
@@ -1494,7 +1387,7 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
         updates={
             "action": payload.action,
             "status": ensure_transition(current=row.status, next_status="FAILED"),
-            "finished_at": _utcnow_naive(),
+            "finished_at": utcnow_naive(),
             "result_json": payload.result_json,
             "metrics_json": payload.metrics_json,
             "error_json": payload.error_json
@@ -1525,7 +1418,7 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
             source_id=str(int(getattr(row, "id", 0) or 0)),
             job_id=int(getattr(row, "id", 0) or 0) or None,
             correlation_id=correlation_id,
-            checked_at=_utcnow_naive(),
+            checked_at=utcnow_naive(),
             metadata_json={
                 "job_type": "DIRECTORY_SNAPSHOT",
                 "error_code": payload.error_code,
@@ -1590,7 +1483,7 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
 @router.post("/jobs/{job_id}/complete-and-apply", dependencies=[require_internal({"jobs:write", "events:write"})])
 def complete_and_apply_provisioning(job_id: int, payload: CompleteAndApplyPayload, db: Session = Depends(get_db)):
     _ = _require_correlation(payload.correlation_id)
-    now = _utcnow_naive()
+    now = utcnow_naive()
     outcome = normalize_status(payload.outcome)
     if outcome not in {"SUCCEEDED", "FAILED"}:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="outcome must be SUCCEEDED or FAILED")

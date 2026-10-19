@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from app.services import identity_orchestration_service as svc
+from app.tests.governance.route_fakes import fake_routes
 
 
 def test_search_identity_includes_group_and_excludes_ou_from_items(monkeypatch) -> None:
@@ -10,8 +11,7 @@ def test_search_identity_includes_group_and_excludes_ou_from_items(monkeypatch) 
         assert source_id == 12
         return 55, "ACTIVE"
 
-    async def _fake_internal_get(path: str, timeout: int = 10):
-        _ = timeout
+    async def _fake_internal_get(path: str):
         assert "/api/internal/directory-snapshots/runs/55/search" in path
         return {
             "items": [
@@ -45,8 +45,7 @@ def test_search_identity_includes_group_and_excludes_ou_from_items(monkeypatch) 
             ]
         }
 
-    async def _fake_internal_post(path: str, payload: dict, timeout: int = 8):
-        _ = timeout
+    async def _fake_internal_post(path: str, payload: dict):
         assert path == "/api/internal/identities/resolve-ad/batch"
         assert payload.get("identity_source_id") == 12
         assert len(payload.get("items") or []) == 3
@@ -59,8 +58,8 @@ def test_search_identity_includes_group_and_excludes_ou_from_items(monkeypatch) 
         }
 
     monkeypatch.setattr(svc, "_resolve_searchable_snapshot", _fake_resolve_searchable_snapshot)
-    monkeypatch.setattr(svc, "internal_get", _fake_internal_get)
-    monkeypatch.setattr(svc, "internal_post", _fake_internal_post)
+    fake_routes(monkeypatch, svc, get=_fake_internal_get)
+    fake_routes(monkeypatch, svc, post=_fake_internal_post)
 
     out = asyncio.run(svc.search_identity({"identity_source_id": 12, "query": "*"}))
 

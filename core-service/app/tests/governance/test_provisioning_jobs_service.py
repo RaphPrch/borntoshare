@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 
 from app.services import provisioning_jobs as svc
+from app.tests.governance.route_fakes import fake_routes
 
 
-def test_create_and_publish_job_dispatches_when_created_false_and_existing_job_is_queueable() -> None:
+def test_create_and_publish_job_dispatches_when_created_false_and_existing_job_is_queueable(monkeypatch) -> None:
     calls: dict[str, list] = {"post": [], "actor": []}
 
-    async def _fake_post(path: str, payload: dict, timeout: int = 8):
-        calls["post"].append((path, payload, timeout))
+    async def _fake_post(path: str, payload: dict):
+        calls["post"].append((path, payload))
         return {
             "created": False,
             "data": {
@@ -23,6 +24,7 @@ def test_create_and_publish_job_dispatches_when_created_false_and_existing_job_i
         def send(job_id: int):
             calls["actor"].append(job_id)
 
+    fake_routes(monkeypatch, svc, post=_fake_post)
     out = asyncio.run(
         svc.create_and_publish_job(
             payload={
@@ -31,7 +33,6 @@ def test_create_and_publish_job_dispatches_when_created_false_and_existing_job_i
                 "status": "QUEUED",
                 "payload_json": {"payload": {"group_name": "B2S_FINANCE_READ"}},
             },
-            internal_post_fn=_fake_post,
             actor=_Actor(),
         )
     )
@@ -41,11 +42,11 @@ def test_create_and_publish_job_dispatches_when_created_false_and_existing_job_i
     assert calls["actor"] == [1234]
 
 
-def test_create_and_publish_job_skips_dispatch_when_created_false_and_terminal_status() -> None:
+def test_create_and_publish_job_skips_dispatch_when_created_false_and_terminal_status(monkeypatch) -> None:
     calls: dict[str, list] = {"post": [], "actor": []}
 
-    async def _fake_post(path: str, payload: dict, timeout: int = 8):
-        calls["post"].append((path, payload, timeout))
+    async def _fake_post(path: str, payload: dict):
+        calls["post"].append((path, payload))
         return {
             "created": False,
             "data": {
@@ -59,6 +60,7 @@ def test_create_and_publish_job_skips_dispatch_when_created_false_and_terminal_s
         def send(job_id: int):
             calls["actor"].append(job_id)
 
+    fake_routes(monkeypatch, svc, post=_fake_post)
     out = asyncio.run(
         svc.create_and_publish_job(
             payload={
@@ -67,7 +69,6 @@ def test_create_and_publish_job_skips_dispatch_when_created_false_and_terminal_s
                 "status": "QUEUED",
                 "payload_json": {"payload": {"group_name": "B2S_FINANCE_READ"}},
             },
-            internal_post_fn=_fake_post,
             actor=_Actor(),
         )
     )
@@ -77,11 +78,11 @@ def test_create_and_publish_job_skips_dispatch_when_created_false_and_terminal_s
     assert calls["actor"] == []
 
 
-def test_create_and_publish_job_normalizes_payload_to_envelope_and_default_metrics() -> None:
+def test_create_and_publish_job_normalizes_payload_to_envelope_and_default_metrics(monkeypatch) -> None:
     calls: dict[str, list] = {"post": [], "actor": []}
 
-    async def _fake_post(path: str, payload: dict, timeout: int = 8):
-        calls["post"].append((path, payload, timeout))
+    async def _fake_post(path: str, payload: dict):
+        calls["post"].append((path, payload))
         return {
             "created": True,
             "data": {
@@ -95,6 +96,7 @@ def test_create_and_publish_job_normalizes_payload_to_envelope_and_default_metri
         def send(job_id: int):
             calls["actor"].append(job_id)
 
+    fake_routes(monkeypatch, svc, post=_fake_post)
     out = asyncio.run(
         svc.create_and_publish_job(
             payload={
@@ -107,7 +109,6 @@ def test_create_and_publish_job_normalizes_payload_to_envelope_and_default_metri
                     },
                 },
             },
-            internal_post_fn=_fake_post,
             actor=_Actor(),
         )
     )
@@ -127,11 +128,12 @@ def test_create_and_publish_job_normalizes_payload_to_envelope_and_default_metri
     assert metrics["action"] == "ensure_ad_group"
 
 
-def test_create_and_publish_job_rejects_legacy_flat_payload_json() -> None:
-    async def _fake_post(path: str, payload: dict, timeout: int = 8):  # pragma: no cover - should not be called
-        _ = path, payload, timeout
-        raise AssertionError("internal_post must not be called when payload envelope is invalid")
+def test_create_and_publish_job_rejects_legacy_flat_payload_json(monkeypatch) -> None:
+    async def _fake_post(path: str, payload: dict):  # pragma: no cover - should not be called
+        _ = path, payload
+        raise AssertionError("the job must not be created when payload envelope is invalid")
 
+    fake_routes(monkeypatch, svc, post=_fake_post)
     try:
         asyncio.run(
             svc.create_and_publish_job(
@@ -143,7 +145,6 @@ def test_create_and_publish_job_rejects_legacy_flat_payload_json() -> None:
                         "group_name": "B2S_FINANCE_READ",
                     },
                 },
-                internal_post_fn=_fake_post,
                 actor=None,
             )
         )
@@ -152,11 +153,12 @@ def test_create_and_publish_job_rejects_legacy_flat_payload_json() -> None:
         assert str(exc) == "GOVERNANCE_JOB_PAYLOAD_ENVELOPE_REQUIRED"
 
 
-def test_create_and_publish_job_rejects_unknown_job_type_before_core_write() -> None:
-    async def _fake_post(path: str, payload: dict, timeout: int = 8):  # pragma: no cover - should not be called
-        _ = path, payload, timeout
-        raise AssertionError("internal_post must not be called when job_type is unsupported")
+def test_create_and_publish_job_rejects_unknown_job_type_before_core_write(monkeypatch) -> None:
+    async def _fake_post(path: str, payload: dict):  # pragma: no cover - should not be called
+        _ = path, payload
+        raise AssertionError("the job must not be created when job_type is unsupported")
 
+    fake_routes(monkeypatch, svc, post=_fake_post)
     try:
         asyncio.run(
             svc.create_and_publish_job(
@@ -167,7 +169,6 @@ def test_create_and_publish_job_rejects_unknown_job_type_before_core_write() -> 
                     "status": "QUEUED",
                     "payload_json": {"payload": {"group_name": "B2S_FINANCE_READ"}},
                 },
-                internal_post_fn=_fake_post,
                 actor=None,
             )
         )

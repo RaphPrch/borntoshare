@@ -12,7 +12,6 @@ from app.api.access_requests import internal_router as access_requests_internal_
 from app.api.access_requests import router as access_requests_router
 
 # Directory / bindings / misc
-from app.api.access_profiles import router as access_profiles_router
 from app.api.activity_views import router as activity_views_router
 from app.api.activity_events import router as activity_events_router
 from app.api.dashboard import router as dashboard_router
@@ -54,7 +53,6 @@ router.include_router(health_events_router)
 
 
 # Directory / bindings / misc
-router.include_router(access_profiles_router)
 # Identity sources
 router.include_router(identity_sources_router)
 router.include_router(internal_identity_sources_router)

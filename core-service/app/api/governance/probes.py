@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app.schemas.api_envelopes import data_envelope
+from app.api._helpers import ui_data
 from app.services.probe_service import fetch_probe_job, submit_probe_run
 
 
@@ -26,11 +26,11 @@ class ProbeRunRequest(BaseModel):
 @router.post("/run")
 async def run_probe(payload: ProbeRunRequest) -> dict[str, Any]:
     data = await submit_probe_run(payload.model_dump())
-    return data_envelope(data)
+    return ui_data(data)
 
 
 @router.get("/jobs/{job_id}")
 async def get_probe_job(job_id: str) -> dict[str, Any]:
     data = await fetch_probe_job(job_id)
-    return data_envelope(data)
+    return ui_data(data)
 

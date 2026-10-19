@@ -4,15 +4,9 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from app.core.internal_client import internal_get
-
-
-def _as_int(value: Any) -> int | None:
-    try:
-        parsed = int(value or 0)
-    except (TypeError, ValueError):
-        return None
-    return parsed if parsed > 0 else None
+from app.api import identity_sources
+from app.core.direct_call import call_route
+from app.core.values import positive_int, unwrap_data_dict, unwrap_list
 
 
 def _norm_protocol(value: Any) -> str:
@@ -30,32 +24,9 @@ def _norm_port(port: Any, protocol: str) -> int:
     return 636 if protocol == "ldaps" else 389
 
 
-def _unwrap_data_envelope(payload: Any) -> dict[str, Any] | None:
-    if not isinstance(payload, dict):
-        return None
-    data = payload.get("data")
-    if isinstance(data, dict):
-        return data
-    return payload
-
-
-def _unwrap_list_envelope(payload: Any) -> list[dict[str, Any]]:
-    if isinstance(payload, list):
-        return [row for row in payload if isinstance(row, dict)]
-    if not isinstance(payload, dict):
-        return []
-    items = payload.get("items")
-    if isinstance(items, list):
-        return [row for row in items if isinstance(row, dict)]
-    data = payload.get("data")
-    if isinstance(data, list):
-        return [row for row in data if isinstance(row, dict)]
-    return []
-
-
 async def build_identity_source_capsule_context(identity_source_id: int) -> dict[str, Any]:
-    source = _unwrap_data_envelope(
-        await internal_get(f"/api/identity-sources/{int(identity_source_id)}/internal", timeout=5)
+    source = unwrap_data_dict(
+        await call_route(identity_sources.get_identity_source_internal, source_id=int(identity_source_id))
     )
     if source is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity source not found")
@@ -96,13 +67,13 @@ async def build_identity_source_capsule_context(identity_source_id: int) -> dict
 
 
 async def infer_identity_source_id_from_group_ref(group_ref: str) -> int:
-    rows = _unwrap_list_envelope(await internal_get("/api/identity-sources", timeout=5))
+    rows = unwrap_list(await call_route(identity_sources.list_identity_sources))
     for row in rows:
         if not isinstance(row, dict):
             continue
         if str(row.get("type") or "").strip().lower() != "ad":
             continue
-        candidate = _as_int(row.get("id"))
+        candidate = positive_int(row.get("id"))
         if candidate:
             return candidate
     raise HTTPException(

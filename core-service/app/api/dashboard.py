@@ -13,12 +13,11 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.data.repositories.access_requests_views_repo import AccessRequestsViewsRepo
 from app.data.repositories.dashboard_views_repo import DashboardViewsRepo
-from app.api._helpers import ui_data, ui_list
+from app.api._helpers import ui_data
 from app.services.authorization import (
     actor_from_request,
     filter_access_request_rows,
     get_guardian_storage_root_ids,
-    is_platform_administrator,
     require_admin,
 )
 
@@ -133,84 +132,6 @@ def get_user_dashboard_me(
     )
 
 
-@router.get("/summary")
-def get_summary(
-    request: Request,
-    requester_identity_id: int | None = None,
-    db: Session = Depends(get_db),
-):
-    """Dashboard summary (global KPI).
-
-    Backed by Wizard view:
-      - v_dashboard_user_summary
-    """
-
-    actor = actor_from_request(request)
-    effective_requester_identity_id = requester_identity_id if is_platform_administrator(actor) else actor.identity_id
-    payload = DashboardViewsRepo(db).get_summary(requester_identity_id=effective_requester_identity_id)
-    return ui_data(payload, meta={"requester_identity_id": effective_requester_identity_id})
-
-
-@router.get("/latest-requests")
-def list_latest_requests(
-    request: Request,
-    requester_identity_id: int | None = None,
-    limit: int | None = None,
-    db: Session = Depends(get_db),
-):
-    """Latest user requests.
-
-    Backed by Wizard view:
-      - v_dashboard_user_latest_requests
-    """
-
-    actor = actor_from_request(request)
-    effective_requester_identity_id = requester_identity_id if is_platform_administrator(actor) else actor.identity_id
-    lim = max(1, min(int(limit or 10), 100))
-    payload = DashboardViewsRepo(db).list_latest_requests(
-        requester_identity_id=effective_requester_identity_id,
-        limit=lim,
-    )
-    return ui_list(
-        payload,
-        meta={
-            "requester_identity_id": effective_requester_identity_id,
-            "limit": lim,
-            "count": int(len(payload)),
-        },
-    )
-
-
-@router.get("/effective-access")
-def list_effective_access(
-    request: Request,
-    requester_identity_id: int | None = None,
-    limit: int | None = None,
-    db: Session = Depends(get_db),
-):
-    """Effective access (user).
-
-    Backed by Wizard view:
-      - v_dashboard_user_effective_access
-    """
-
-    actor = actor_from_request(request)
-    effective_requester_identity_id = requester_identity_id if is_platform_administrator(actor) else actor.identity_id
-    lim = max(1, min(int(limit or 20), 200))
-    payload = DashboardViewsRepo(db).list_effective_access(
-        requester_identity_id=effective_requester_identity_id,
-        limit=lim,
-    )
-    return ui_list(
-        payload,
-        meta={
-            "requester_identity_id": effective_requester_identity_id,
-            "limit": lim,
-            "count": int(len(payload)),
-        },
-    )
-
-
 @router.get("/platform-overview")
 def get_platform_overview(request: Request, db: Session = Depends(get_db)):
     """Platform overview KPI (admin).
@@ -224,32 +145,3 @@ def get_platform_overview(request: Request, db: Session = Depends(get_db)):
 
     return ui_data(payload)
 
-
-@router.get("/access-requests/expiring-soon")
-def list_access_requests_expiring_soon(
-    request: Request,
-    requester_identity_id: int | None = None,
-    limit: int | None = None,
-    db: Session = Depends(get_db),
-):
-    """Expiring soon access requests.
-
-    Backed by Wizard view:
-      - v_access_requests_expiring_soon
-    """
-
-    actor = actor_from_request(request)
-    effective_requester_identity_id = requester_identity_id if is_platform_administrator(actor) else actor.identity_id
-    lim = max(1, min(int(limit or 200), 1000))
-    payload = DashboardViewsRepo(db).list_access_requests_expiring_soon(
-        requester_identity_id=effective_requester_identity_id,
-        limit=lim,
-    )
-    return ui_list(
-        payload,
-        meta={
-            "requester_identity_id": effective_requester_identity_id,
-            "limit": lim,
-            "count": int(len(payload)),
-        },
-    )

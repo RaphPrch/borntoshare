@@ -17,7 +17,8 @@ from app.schemas.storage_endpoint import (
 from app.data.repositories.storage_endpoints_views_repo import (
     StorageEndpointsViewsRepo,
 )
-from app.api._helpers import to_dicts, ui_action, ui_data, ui_list
+from app.api._helpers import ui_action, ui_data, ui_list
+from app.core.sql import to_dicts
 from app.services.activity_log import log_activity
 from app.services.authorization import actor_from_request, require_admin
 from app.services.probe_results import (
@@ -291,40 +292,6 @@ def list_storage_endpoints_context(
 
 
 @router.get(
-    "/{storage_endpoint_id}/overview",
-    summary="Storage endpoint overview",
-)
-def storage_endpoint_overview(
-    storage_endpoint_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    """
-    Overview for a single storage endpoint.
-
-    Backed by SQL view:
-      - v_storage_endpoint_detail
-    """
-    _require_platform_admin(request)
-    repo = StorageEndpointsViewsRepo(db)
-
-    row = repo.get_overview(storage_endpoint_id)
-    if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Storage endpoint not found",
-        )
-
-    if not isinstance(row, dict):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Invalid storage endpoint overview format",
-        )
-
-    return ui_data(_enrich_probe_fields(row), meta={"storage_endpoint_id": int(storage_endpoint_id)})
-
-
-@router.get(
     "/{endpoint_id}",
     summary="Get storage endpoint detail",
 )
@@ -364,42 +331,6 @@ def get_storage_endpoint(
 
     return ui_data(payload, meta={"storage_endpoint_id": int(endpoint_id)})
 
-
-
-@router.get(
-    "/{storage_endpoint_id}/console",
-    summary="Storage endpoint console (GOLD)",
-)
-def storage_endpoint_console(
-    storage_endpoint_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    """Consolidated read-model for the Storage Endpoint admin page.
-
-    Includes:
-    - endpoint overview (v_storage_endpoint_detail)
-    - attached storage roots (v_storage_roots_context filtered)
-    - KPIs
-    """
-    _require_platform_admin(request)
-    se_repo = StorageEndpointsViewsRepo(db)
-
-    payload = se_repo.get_console(storage_endpoint_id)
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Storage endpoint not found",
-        )
-
-    return ui_data(
-        {
-            "endpoint": _enrich_probe_fields(payload.get("endpoint") or {}),
-            "storageRoots": payload.get("storageRoots") or [],
-            "kpis": payload.get("kpis") or {"roots_count": 0},
-        },
-        meta={"storage_endpoint_id": int(storage_endpoint_id)},
-    )
 
 
 @router.get("/{endpoint_id}/provisioning-policy", summary="Storage endpoint provisioning policy")

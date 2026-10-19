@@ -1,4 +1,4 @@
-"""Service-to-service authentication (inbound checks and outbound headers).
+"""Service-to-service authentication (inbound checks).
 
 - X-Internal-Token: static (INTERNAL_TOKEN) or short-lived HMAC token (INTERNAL_TOKEN_KEYS), see internal_token.py
 - X-Service-Token: shared SERVICE_TOKEN, plus X-Service-Name / X-Service-Scope for scoped internal routes
@@ -12,7 +12,7 @@ from collections.abc import Callable
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from app.core.config import get_settings
-from app.core.internal_token import InternalTokenError, parse_keyring, sign_internal_token, verify_internal_token
+from app.core.internal_token import InternalTokenError, parse_keyring, verify_internal_token
 from app.core.logging import get_logger, log_event
 
 
@@ -80,23 +80,6 @@ def require_orchestration_access(request: Request) -> None:
     if get_settings().ALLOW_PUBLIC_API and "/internal/" not in request.url.path:
         return
     require_internal_token(request)
-
-
-def build_internal_headers() -> dict[str, str]:
-    """Headers for an outbound internal call (internal token + service token)."""
-    headers: dict[str, str] = {}
-    if _token_mode() == "static":
-        token = os.getenv("INTERNAL_TOKEN", "")
-    else:
-        keyring = parse_keyring(os.getenv("INTERNAL_TOKEN_KEYS", ""))
-        kid, secret = next(iter(keyring.items()), ("", ""))
-        token = sign_internal_token(kid=kid, secret=secret, ttl_sec=_token_ttl()) if kid else ""
-    if token:
-        headers["X-Internal-Token"] = token
-    service_token = (os.getenv("SERVICE_TOKEN", "") or "").strip()
-    if service_token:
-        headers["X-Service-Token"] = service_token
-    return headers
 
 
 # ============================================================

@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from app.api.governance import probes as api
 from app.services import probe_service
+from app.tests.governance.route_fakes import fake_routes
 
 
 def test_run_probe_returns_data_envelope(monkeypatch) -> None:
@@ -71,9 +72,8 @@ def test_storage_root_probe_maps_to_smb_root_template() -> None:
 
 
 def test_storage_root_probe_enrichment_defaults_to_permissions_and_size(monkeypatch) -> None:
-    async def _fake_internal_get(path: str, timeout: int = 5):
+    async def _fake_internal_get(path: str):
         assert path == "/api/internal/provisioning/storage-roots/8015/context"
-        _ = timeout
         return {
             "storage_root_id": 8015,
             "storage_root_name": "FINANCE",
@@ -85,7 +85,7 @@ def test_storage_root_probe_enrichment_defaults_to_permissions_and_size(monkeypa
             "domain_name": "CORP",
         }
 
-    monkeypatch.setattr(probe_service, "internal_get", _fake_internal_get)
+    fake_routes(monkeypatch, probe_service, get=_fake_internal_get)
 
     target, auth, options, context = asyncio.run(
         probe_service._enrich_storage_root_probe_payload(

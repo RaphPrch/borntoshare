@@ -1,20 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.services.naming_policy import resolve_group_name
+from app.core.values import utcnow_naive
 
 
 CANONICAL_PERMISSIONS: tuple[str, str] = ("READ", "WRITE")
-
-
-def _utcnow_naive() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def normalize_permission(value: str | None) -> str | None:
@@ -375,7 +371,7 @@ def materialize_root_bindings(
         ambiguity_warnings=[],
     )
 
-    now = _utcnow_naive()
+    now = utcnow_naive()
 
     for permission in expected_permissions:
         result = computation.get(permission)
@@ -550,6 +546,51 @@ def repair_missing_root_bindings(
     )
 
 
+def _materialize_roots(db: Session, rows: Any, *, replace_stale: bool, commit: bool) -> dict[str, Any]:
+    """Materialize bindings of each storage root in `rows` (id column) and sum the reports."""
+    reports: list[dict[str, Any]] = []
+    total_created = 0
+    total_updated = 0
+    total_deactivated = 0
+    total_unchanged = 0
+    total_repaired = 0
+    root_ids: list[int] = []
+
+    for row in rows:
+        root_id = int(row.get("id") or 0)
+        if root_id <= 0:
+            continue
+        root_ids.append(root_id)
+        report = materialize_root_bindings(
+            db,
+            storage_root_id=root_id,
+            replace_stale=replace_stale,
+            commit=False,
+        )
+        payload = report.to_dict()
+        reports.append(payload)
+        total_created += int(payload.get("created_rows") or 0)
+        total_updated += int(payload.get("updated_rows") or 0)
+        total_deactivated += int(payload.get("deactivated_rows") or 0)
+        total_unchanged += int(payload.get("unchanged_rows") or 0)
+        if bool(payload.get("repaired")):
+            total_repaired += 1
+
+    if commit:
+        db.commit()
+
+    return {
+        "roots_count": len(root_ids),
+        "root_ids": root_ids,
+        "reports": reports,
+        "created_rows": total_created,
+        "updated_rows": total_updated,
+        "deactivated_rows": total_deactivated,
+        "unchanged_rows": total_unchanged,
+        "repaired_roots": total_repaired,
+    }
+
+
 def resync_roots_for_zone(
     db: Session,
     *,
@@ -569,48 +610,9 @@ def resync_roots_for_zone(
         ),
         {"zone_id": int(zone_id)},
     ).mappings().all()
-
-    reports: list[dict[str, Any]] = []
-    total_created = 0
-    total_updated = 0
-    total_deactivated = 0
-    total_unchanged = 0
-    total_repaired = 0
-    root_ids: list[int] = []
-
-    for row in rows:
-        root_id = int(row.get("id") or 0)
-        if root_id <= 0:
-            continue
-        root_ids.append(root_id)
-        report = materialize_root_bindings(
-            db,
-            storage_root_id=root_id,
-            replace_stale=replace_stale,
-            commit=False,
-        )
-        payload = report.to_dict()
-        reports.append(payload)
-        total_created += int(payload.get("created_rows") or 0)
-        total_updated += int(payload.get("updated_rows") or 0)
-        total_deactivated += int(payload.get("deactivated_rows") or 0)
-        total_unchanged += int(payload.get("unchanged_rows") or 0)
-        if bool(payload.get("repaired")):
-            total_repaired += 1
-
-    if commit:
-        db.commit()
-
     return {
         "zone_id": int(zone_id),
-        "roots_count": len(root_ids),
-        "root_ids": root_ids,
-        "reports": reports,
-        "created_rows": total_created,
-        "updated_rows": total_updated,
-        "deactivated_rows": total_deactivated,
-        "unchanged_rows": total_unchanged,
-        "repaired_roots": total_repaired,
+        **_materialize_roots(db, rows, replace_stale=replace_stale, commit=commit),
     }
 
 
@@ -621,44 +623,4 @@ def repair_all_root_bindings(
     commit: bool = True,
 ) -> dict[str, Any]:
     rows = db.execute(text("SELECT id FROM storage_roots ORDER BY id ASC")).mappings().all()
-    reports: list[dict[str, Any]] = []
-    total_created = 0
-    total_updated = 0
-    total_deactivated = 0
-    total_unchanged = 0
-    total_repaired = 0
-    root_ids: list[int] = []
-
-    for row in rows:
-        root_id = int(row.get("id") or 0)
-        if root_id <= 0:
-            continue
-        root_ids.append(root_id)
-        report = materialize_root_bindings(
-            db,
-            storage_root_id=root_id,
-            replace_stale=replace_stale,
-            commit=False,
-        )
-        payload = report.to_dict()
-        reports.append(payload)
-        total_created += int(payload.get("created_rows") or 0)
-        total_updated += int(payload.get("updated_rows") or 0)
-        total_deactivated += int(payload.get("deactivated_rows") or 0)
-        total_unchanged += int(payload.get("unchanged_rows") or 0)
-        if bool(payload.get("repaired")):
-            total_repaired += 1
-
-    if commit:
-        db.commit()
-
-    return {
-        "roots_count": len(root_ids),
-        "root_ids": root_ids,
-        "reports": reports,
-        "created_rows": total_created,
-        "updated_rows": total_updated,
-        "deactivated_rows": total_deactivated,
-        "unchanged_rows": total_unchanged,
-        "repaired_roots": total_repaired,
-    }
+    return _materialize_roots(db, rows, replace_stale=replace_stale, commit=commit)

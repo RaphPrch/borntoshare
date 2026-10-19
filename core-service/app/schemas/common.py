@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class WriteSchema(BaseModel):
@@ -32,11 +32,42 @@ class TimestampMixin(BaseModel):
     )
 
 
-class ApiMeta(BaseModel):
-    """Standard metadata block for UI envelopes."""
+# Validation rules shared by several schemas (check_fields=False: each model declares its own fields)
 
-    model_config = ConfigDict(extra="allow")
+class SecretRefRules(BaseModel):
+    """Secrets are only accepted as sm:// references, never as plaintext."""
 
-    count: int | None = Field(default=None, description="Number of elements in current payload")
-    total: int | None = Field(default=None, description="Total number of elements available")
-    request_id: str | None = Field(default=None, description="Request identifier propagated by middleware")
+    @field_validator("bind_password", check_fields=False)
+    @classmethod
+    def forbid_bind_password_plaintext(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if str(value).strip():
+            raise ValueError("Plaintext secrets are not allowed. Use bind_password_ref.")
+        return None
+
+    @field_validator("bind_password_ref", check_fields=False)
+    @classmethod
+    def validate_bind_password_ref(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        v = str(value).strip()
+        if not v:
+            return None
+        if not v.startswith("sm://"):
+            raise ValueError("bind_password_ref must start with sm://")
+        return v
+
+
+class ProbeStatusRules(BaseModel):
+    @field_validator("last_probe_status", check_fields=False)
+    @classmethod
+    def validate_last_probe_status(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        key = str(value).strip().lower()
+        if not key:
+            return None
+        if key in {"success", "running", "failed", "unknown"}:
+            return key
+        raise ValueError("last_probe_status must be one of: success, running, failed, unknown")

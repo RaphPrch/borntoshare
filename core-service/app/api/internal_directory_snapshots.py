@@ -6,14 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.data.repositories.directory_snapshots_repo import DirectorySnapshotsRepo
 from app.services.directory_effective_memberships_service import DirectoryEffectiveMembershipsService
-from app.services.directory_projection_service import DirectoryProjectionService
-from app.schemas.directory_snapshots import (
-    DirectorySnapshotActivateRequest,
-    DirectorySnapshotBulkUpsertRequest,
-    DirectorySnapshotRunRequest,
-    DirectorySnapshotRunResponse,
-    DirectorySnapshotStatusPatchRequest,
-)
+from app.schemas.directory_snapshots import DirectorySnapshotRunRequest, DirectorySnapshotRunResponse
 from app.core.internal_auth import require_internal
 
 
@@ -90,67 +83,6 @@ def list_snapshot_runs(
         status=status_value,
         limit=limit,
     )
-
-
-@router.get("/runs/{snapshot_id}", dependencies=[require_internal({"jobs:read"})])
-def get_snapshot_run(snapshot_id: int, db: Session = Depends(get_db)):
-    repo = DirectorySnapshotsRepo(db)
-    row = repo.get(snapshot_id)
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Snapshot not found")
-    return row
-
-
-@router.patch("/runs/{snapshot_id}/status", dependencies=[require_internal({"jobs:write"})])
-def patch_snapshot_status(
-    snapshot_id: int,
-    payload: DirectorySnapshotStatusPatchRequest,
-    db: Session = Depends(get_db),
-):
-    repo = DirectorySnapshotsRepo(db)
-    row = repo.patch_status(
-        snapshot_id=snapshot_id,
-        status=payload.status,
-        summary_json=payload.summary_json,
-        error_message=payload.error_message,
-    )
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Snapshot not found")
-    return row
-
-
-@router.post("/runs/{snapshot_id}/bulk", dependencies=[require_internal({"jobs:write"})])
-def bulk_upsert_snapshot_payload(
-    snapshot_id: int,
-    payload: DirectorySnapshotBulkUpsertRequest,
-    db: Session = Depends(get_db),
-):
-    repo = DirectorySnapshotsRepo(db)
-    snapshot = repo.get(snapshot_id)
-    if not snapshot:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Snapshot not found")
-    return repo.bulk_upsert(
-        snapshot_id=snapshot_id,
-        users=[item.model_dump() for item in payload.users],
-        groups=[item.model_dump() for item in payload.groups],
-        memberships=[item.model_dump() for item in payload.memberships],
-    )
-
-
-@router.post("/runs/{snapshot_id}/activate", dependencies=[require_internal({"jobs:write", "profiles:write"})])
-def activate_snapshot_run(
-    snapshot_id: int,
-    payload: DirectorySnapshotActivateRequest,
-    db: Session = Depends(get_db),
-):
-    row = DirectoryProjectionService(db).activate_snapshot(snapshot_id=snapshot_id, activated_by=payload.activated_by)
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Snapshot not found")
-
-    if bool(payload.rebuild_effective_memberships):
-        DirectoryEffectiveMembershipsService(db).rebuild_for_snapshot(snapshot_id=int(snapshot_id))
-
-    return row
 
 
 @router.post(

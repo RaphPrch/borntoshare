@@ -192,20 +192,6 @@ class StorageEndpointsViewsRepo(SQLViewRepo):
             {"storage_endpoint_id": int(storage_endpoint_id)},
         )
 
-    def get_console(self, storage_endpoint_id: int) -> dict | None:
-        endpoint = self.get_overview(storage_endpoint_id)
-        if endpoint is None or not isinstance(endpoint, dict):
-            return None
-
-        roots = self.list_console_roots(storage_endpoint_id)
-        return {
-            "endpoint": endpoint,
-            "storageRoots": roots,
-            "kpis": {
-                "roots_count": int(endpoint.get("roots_count") or len(roots)),
-            },
-        }
-
     def get_effective_provisioning_policy(self, storage_endpoint_id: int) -> dict | None:
         return self._one_dict(
             """

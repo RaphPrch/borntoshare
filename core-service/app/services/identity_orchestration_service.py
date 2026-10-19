@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import uuid
 from typing import Any
-from urllib.parse import urlencode
+from fastapi import HTTPException, Request, status
 
-from fastapi import HTTPException, status
-
-from app.core.internal_client import internal_get, internal_patch, internal_post
+from app.api import identity_list, identity_sources, internal_directory_snapshots, internal_identities, provisioning_internal
+from app.core.direct_call import call_route
 from app.core.logging import get_logger
 from app.services.job_run_service import build_job_run_data
 from app.services.provisioning_jobs import create_and_publish_job
+from app.core.values import unwrap_data_dict
 
 
 MAX_SNAPSHOT_SEARCH_LIMIT = 200
@@ -24,13 +24,6 @@ _RESOLVE_REASON_TO_ERROR: dict[str, tuple[str, str]] = {
         "Identity not found in active imported snapshot",
     ),
 }
-
-
-def _with_query(path: str, params: dict[str, Any] | None) -> str:
-    query = {k: v for k, v in (params or {}).items() if v is not None and str(v) != ""}
-    if not query:
-        return path
-    return f"{path}?{urlencode(query, doseq=True)}"
 
 
 def _normalize_candidate(value: Any) -> str | None:
@@ -100,26 +93,14 @@ def _map_resolve_reason_to_error(reason_code: str | None) -> dict[str, Any]:
     }
 
 
-def _unwrap_data_envelope(payload: Any) -> dict[str, Any] | None:
-    if not isinstance(payload, dict):
-        return None
-    data = payload.get("data")
-    if isinstance(data, dict):
-        return data
-    return payload
-
-
 async def _resolve_snapshot_id_for_status(source_id: int | None, status_value: str) -> int | None:
-    path = _with_query(
-        "/api/internal/directory-snapshots/runs",
-        {
-            "status": str(status_value or "").strip().upper() or None,
-            "limit": 1,
-            "identity_source_id": int(source_id) if source_id else None,
-        },
-    )
     try:
-        rows = await internal_get(path, timeout=5)
+        rows = await call_route(
+            internal_directory_snapshots.list_snapshot_runs,
+            status_value=str(status_value or "").strip().upper() or None,
+            limit=1,
+            identity_source_id=int(source_id) if source_id else None,
+        )
     except Exception:
         return None
     if not isinstance(rows, list) or not rows:
@@ -160,11 +141,7 @@ async def _resolve_ad_identity_id(
     if not external_id and not username and not email:
         return None
 
-    resolved = await internal_post(
-        "/api/internal/identities/resolve-ad",
-        payload,
-        timeout=5,
-    )
+    resolved = await call_route(internal_identities.resolve_ad_identity, payload=payload)
     if not isinstance(resolved, dict) or not bool(resolved.get("found")):
         return None
     return _normalize_candidate(resolved.get("identity_id"))
@@ -189,7 +166,7 @@ async def _resolve_ad_identity_ids_batch(
     }
 
     try:
-        batch_result = await internal_post("/api/internal/identities/resolve-ad/batch", batch_payload, timeout=8)
+        batch_result = await call_route(internal_identities.resolve_ad_identity_batch, payload=batch_payload)
     except Exception as exc:
         logger.debug(
             "identity.search.resolve_batch_failed",
@@ -241,8 +218,8 @@ async def run_identity_snapshot(incoming: dict[str, Any], request_id: str | None
             detail="identity_source_id is required",
         )
 
-    source = _unwrap_data_envelope(
-        await internal_get(f"/api/identity-sources/{int(source_id)}/internal", timeout=5)
+    source = unwrap_data_dict(
+        await call_route(identity_sources.get_identity_source_internal, source_id=int(source_id))
     )
     if source is None:
         raise HTTPException(status_code=404, detail="Identity source not found")
@@ -263,9 +240,9 @@ async def run_identity_snapshot(incoming: dict[str, Any], request_id: str | None
     requested_mode = str(incoming.get("mode") or "auto").strip().lower() or "auto"
     force_full = bool(incoming.get("force_full", True))
 
-    snapshot_run = await internal_post(
-        "/api/internal/directory-snapshots/runs",
-        {
+    snapshot_run = await call_route(
+        internal_directory_snapshots.create_snapshot_run,
+        payload={
             "identity_source_id": int(source_id),
             "initiated_by": "governance.identity.snapshots.run",
             "snapshot_source": "governance",
@@ -274,7 +251,6 @@ async def run_identity_snapshot(incoming: dict[str, Any], request_id: str | None
             "force_full": force_full,
             "deferred": True,
         },
-        timeout=8,
     )
 
     snapshot_id = int((snapshot_run or {}).get("snapshot_id") or (snapshot_run or {}).get("id") or 0)
@@ -320,7 +296,6 @@ async def run_identity_snapshot(incoming: dict[str, Any], request_id: str | None
                 "force_full": force_full,
             },
         },
-        internal_post_fn=internal_post,
     )
 
     return {
@@ -347,19 +322,15 @@ async def search_identity(incoming: dict[str, Any]) -> dict[str, Any]:
             "snapshot_status": None,
         }
 
-    result = await internal_get(
-        _with_query(
-            f"/api/internal/directory-snapshots/runs/{int(snapshot_id)}/search",
-            {
-                "q": str(query_payload.get("query") or "").strip(),
-                "principal_type": str(query_payload.get("principal_type") or "all").strip().lower(),
-                "limit": int(query_payload.get("limit") or 50),
-                "dn": base_dn,
-                "search_scope": search_scope,
-                "enabled_only": bool(query_payload.get("enabled_only", False)),
-            },
-        ),
-        timeout=10,
+    result = await call_route(
+        internal_directory_snapshots.search_snapshot_principals,
+        snapshot_id=int(snapshot_id),
+        q=str(query_payload.get("query") or "").strip() or None,
+        principal_type=str(query_payload.get("principal_type") or "all").strip().lower(),
+        limit=min(int(query_payload.get("limit") or 50), 200),
+        dn=base_dn or None,
+        search_scope=search_scope or "subtree",
+        enabled_only=bool(query_payload.get("enabled_only", False)),
     )
     rows = (result or {}).get("items") if isinstance(result, dict) else result
     snapshot_rows = rows if isinstance(rows, list) else []
@@ -429,8 +400,7 @@ async def search_identity(incoming: dict[str, Any]) -> dict[str, Any]:
 
 
 async def list_identity_overview(query_params: dict[str, Any]) -> list[dict[str, Any]]:
-    path = _with_query("/api/identity", query_params)
-    data = await internal_get(path, timeout=10)
+    data = await call_route(identity_list.list_identity_overview, scope=query_params.get("scope") or None)
     if isinstance(data, dict):
         rows = data.get("items")
     else:
@@ -453,8 +423,8 @@ async def list_identity_overview(query_params: dict[str, Any]) -> list[dict[str,
     return normalized
 
 
-async def update_identity(identity_id: int, payload: dict[str, Any]) -> dict[str, Any]:
-    data = await internal_patch(f"/api/identity/{int(identity_id)}", payload, timeout=10)
+async def update_identity(identity_id: int, payload: dict[str, Any], request: Request) -> dict[str, Any]:
+    data = await call_route(identity_list.update_identity, identity_id=int(identity_id), payload=payload, request=request)
     if isinstance(data, dict):
         return data
     return {"ok": True}
@@ -525,7 +495,7 @@ async def import_identity_ad_batch(incoming: dict[str, Any]) -> dict[str, Any]:
             for principal in principals
         ],
     }
-    batch_result = await internal_post("/api/internal/identities/resolve-ad/batch", batch_payload, timeout=8)
+    batch_result = await call_route(internal_identities.resolve_ad_identity_batch, payload=batch_payload)
     resolved_rows = (batch_result or {}).get("items") if isinstance(batch_result, dict) else None
 
     resolved_items: list[dict[str, Any]] = []
@@ -575,8 +545,8 @@ async def discover_identity(incoming: dict[str, Any], request_id: str | None = N
             detail="identity_source_id is required",
         )
 
-    source = _unwrap_data_envelope(
-        await internal_get(f"/api/identity-sources/{int(source_id)}/internal", timeout=5)
+    source = unwrap_data_dict(
+        await call_route(identity_sources.get_identity_source_internal, source_id=int(source_id))
     )
     if source is None:
         raise HTTPException(status_code=404, detail="Identity source not found")
@@ -619,7 +589,7 @@ async def discover_identity(incoming: dict[str, Any], request_id: str | None = N
 
 
 async def get_identity_job(job_id: int) -> dict[str, Any]:
-    row = await internal_get(f"/api/internal/provisioning/jobs/{int(job_id)}", timeout=5)
+    row = await call_route(provisioning_internal.get_provisioning_job_by_id, job_id=int(job_id))
     if not isinstance(row, dict):
         raise HTTPException(status_code=404, detail="Job not found")
     return build_job_run_data(job_id, row)

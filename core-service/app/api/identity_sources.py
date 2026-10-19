@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy import inspect, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session, load_only
 
 from app.core.db import get_db
 from app.core.logging import get_logger
 from app.data.models.identity_sources import IdentitySource
+from app.services.identity_source_fields import (
+    identity_source_columns,
+    source_auth_enabled,
+    source_auth_priority,
+    source_capabilities,
+)
 from app.data.models.storage_endpoint import StorageEndpoint
 from app.data.repositories.identity_source_purge_repo import purge_identity_source_related_records
 from app.data.repositories.identity_sources_views_repo import IdentitySourcesViewsRepo
@@ -29,41 +35,9 @@ def _status_from_active(is_active: bool | None) -> str:
     return "active" if bool(is_active) else "disabled"
 
 
-def _identity_source_available_columns(db: Session) -> set[str]:
-    try:
-        inspector = inspect(db.get_bind())
-        return {col["name"] for col in inspector.get_columns(IdentitySource.__tablename__)}
-    except Exception:
-        return set()
-
-
-def _source_capabilities(src: IdentitySource) -> dict[str, object]:
-    raw = src.__dict__.get("capabilities")
-    if isinstance(raw, dict):
-        return dict(raw)
-    return {}
-
-
-def _source_auth_enabled(src: IdentitySource, caps: dict[str, object] | None = None) -> bool:
-    if "auth_enabled" in src.__dict__:
-        return bool(src.__dict__.get("auth_enabled"))
-    effective_caps = caps if isinstance(caps, dict) else _source_capabilities(src)
-    return bool(effective_caps.get("auth", False))
-
-
-def _source_auth_priority(src: IdentitySource) -> int:
-    if "auth_priority" in src.__dict__:
-        raw = src.__dict__.get("auth_priority")
-        try:
-            return int(raw or 100)
-        except Exception:
-            return 100
-    return 100
-
-
 def _identity_source_load_only(db: Session):
     try:
-        available = _identity_source_available_columns(db)
+        available = identity_source_columns(db)
         if not available:
             return None
         attrs = [
@@ -85,9 +59,9 @@ def _get_identity_source(db: Session, source_id: int) -> IdentitySource | None:
 
 
 def _public_row(src: IdentitySource) -> dict:
-    caps = _source_capabilities(src)
-    auth_enabled = _source_auth_enabled(src, caps)
-    auth_priority = _source_auth_priority(src)
+    caps = source_capabilities(src)
+    auth_enabled = source_auth_enabled(src, caps)
+    auth_priority = source_auth_priority(src)
     return {
         "id": src.id,
         "type": src.type,
@@ -198,9 +172,9 @@ def get_identity_source_internal(source_id: int, db: Session = Depends(get_db)):
     src = _get_identity_source(db, source_id)
     if not src:
         raise HTTPException(status_code=404, detail="Identity source not found")
-    caps = _source_capabilities(src)
-    auth_enabled = _source_auth_enabled(src, caps)
-    auth_priority = _source_auth_priority(src)
+    caps = source_capabilities(src)
+    auth_enabled = source_auth_enabled(src, caps)
+    auth_priority = source_auth_priority(src)
     snapshot_meta = _latest_snapshot_meta(db, int(src.id))
     payload = {
         "id": src.id,
@@ -238,7 +212,7 @@ def get_identity_source_internal(source_id: int, db: Session = Depends(get_db)):
 
 @router.post("", status_code=status.HTTP_201_CREATED, summary="Create identity source")
 def create_identity_source(payload: IdentitySourceCreate, request: Request, db: Session = Depends(get_db)):
-    available_columns = _identity_source_available_columns(db)
+    available_columns = identity_source_columns(db)
     has_auth_enabled_col = "auth_enabled" in available_columns
     has_auth_priority_col = "auth_priority" in available_columns
 
@@ -290,8 +264,8 @@ def create_identity_source(payload: IdentitySourceCreate, request: Request, db: 
     # The initial snapshot is started by the caller (UI wizard) through Governance.
 
     actor_id, actor_display = _actor_from_headers(request)
-    created_auth_enabled = _source_auth_enabled(src)
-    created_auth_priority = _source_auth_priority(src)
+    created_auth_enabled = source_auth_enabled(src)
+    created_auth_priority = source_auth_priority(src)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",
@@ -371,7 +345,7 @@ def update_identity_source(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    available_columns = _identity_source_available_columns(db)
+    available_columns = identity_source_columns(db)
     has_auth_enabled_col = "auth_enabled" in available_columns
     has_auth_priority_col = "auth_priority" in available_columns
 
@@ -387,7 +361,7 @@ def update_identity_source(
 
     if src.type == "ad" and payload.bind_dn is not None:
         next_ref = payload.bind_password_ref or src.bind_password_ref
-        if not next_ref and _source_auth_enabled(src):
+        if not next_ref and source_auth_enabled(src):
             raise HTTPException(
                 status_code=400,
                 detail="bind_password_ref is required for AD identity sources.",
@@ -395,7 +369,7 @@ def update_identity_source(
 
     if src.type == "ad":
         payload_auth_enabled = payload.auth_enabled
-        next_auth_enabled = _source_auth_enabled(src) if payload_auth_enabled is None else bool(payload_auth_enabled)
+        next_auth_enabled = source_auth_enabled(src) if payload_auth_enabled is None else bool(payload_auth_enabled)
         next_ref = payload.bind_password_ref if payload.bind_password_ref is not None else src.bind_password_ref
         next_ref = str(next_ref or "").strip() or None
         if next_auth_enabled and not next_ref:
@@ -447,10 +421,10 @@ def update_identity_source(
         updates["auth_priority"] = int(updates.get("auth_priority") or 100)
 
     if "capabilities" in updates or "auth_enabled" in updates:
-        next_caps = _source_capabilities(src)
+        next_caps = source_capabilities(src)
         if "capabilities" in updates and isinstance(updates.get("capabilities"), dict):
             next_caps.update(updates.get("capabilities") or {})
-        next_caps["auth"] = bool(requested_auth_enabled) if requested_auth_enabled is not None else _source_auth_enabled(src)
+        next_caps["auth"] = bool(requested_auth_enabled) if requested_auth_enabled is not None else source_auth_enabled(src)
         updates["capabilities"] = next_caps
 
     if not has_auth_enabled_col:
@@ -482,8 +456,8 @@ def update_identity_source(
         "host": src.host,
         "protocol": src.protocol,
         "port": src.port,
-        "auth_enabled": _source_auth_enabled(src),
-        "auth_priority": _source_auth_priority(src),
+        "auth_enabled": source_auth_enabled(src),
+        "auth_priority": source_auth_priority(src),
         "is_active": bool(src.is_active),
         "status": src.status,
     }
@@ -500,8 +474,8 @@ def update_identity_source(
         "host": src.host,
         "protocol": src.protocol,
         "port": src.port,
-        "auth_enabled": _source_auth_enabled(src),
-        "auth_priority": _source_auth_priority(src),
+        "auth_enabled": source_auth_enabled(src),
+        "auth_priority": source_auth_priority(src),
         "is_active": bool(src.is_active),
         "status": src.status,
     }

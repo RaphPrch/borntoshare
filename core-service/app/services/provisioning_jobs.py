@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
-from app.core.internal_client import internal_post
+from app.api import provisioning_internal
+from app.core.direct_call import call_route
 from app.jobs.b2s_job_contracts.actors import publish_job
 from app.jobs.b2s_job_contracts.contracts import contract_for_job_type
 
@@ -83,16 +84,14 @@ def _normalize_create_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
 async def create_and_publish_job(
     *,
     payload: Dict[str, Any],
-    internal_post_fn: Optional[Callable[[str, Dict[str, Any], int], Awaitable[Any]]] = None,
     actor: Optional[Any] = None,
 ) -> Dict[str, Any]:
-    post_fn = internal_post_fn or internal_post
     try:
         create_payload = _normalize_create_payload(payload)
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
 
-    create_job = await post_fn("/api/internal/provisioning/jobs", create_payload, 8)
+    create_job = await call_route(provisioning_internal.create_provisioning_job, payload=create_payload)
     job = (create_job or {}).get("data") or {}
     created = bool((create_job or {}).get("created"))
     job_id = int(job.get("id") or 0)

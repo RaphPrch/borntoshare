@@ -1,23 +1,8 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
-
-
-class AccessProfileCreateIn(BaseModel):
-    access_level: str = Field(..., min_length=1, max_length=32)
-    rights: List[str] = Field(default_factory=list)
-
-
-class ProvisioningCompleteIn(BaseModel):
-    stage: str = Field(..., min_length=1, max_length=32)
-    status: str = Field(..., min_length=1, max_length=32)
-    group_external_id: Optional[str] = None
-    group_dn: Optional[str] = None
-    result_json: Optional[dict] = None
-    error_code: Optional[str] = None
-    error_message: Optional[str] = None
 
 
 class EnsureAdGroupContextIn(BaseModel):
@@ -54,10 +39,3 @@ class RemoveAdGroupMemberIn(BaseModel):
     timeout: Optional[int] = Field(default=None, ge=1, le=30)
     verify_tls: Optional[bool] = None
 
-
-class DiscoverGroupUsersRecursiveIn(BaseModel):
-    identity_source_id: Optional[int] = Field(default=None, gt=0)
-    root_group_dn: str = Field(..., min_length=1, max_length=1024)
-    max_depth: int = Field(default=10, ge=1, le=30)
-    timeout: Optional[int] = Field(default=None, ge=1, le=30)
-    verify_tls: Optional[bool] = None

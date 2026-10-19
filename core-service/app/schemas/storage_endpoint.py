@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field
 
-from .common import WriteSchema
+from .common import ProbeStatusRules, SecretRefRules, WriteSchema
 
 
 # ============================================================
 # CREATE
 # ============================================================
 
-class StorageEndpointCreate(WriteSchema):
+class StorageEndpointCreate(SecretRefRules, ProbeStatusRules, WriteSchema):
     """
     Payload for creating a StorageEndpoint.
     """
@@ -54,18 +54,6 @@ class StorageEndpointCreate(WriteSchema):
     bind_dn: Optional[str] = Field(default=None, max_length=512)
     bind_password_ref: Optional[str] = Field(default=None, max_length=512)
 
-    @field_validator("bind_password_ref")
-    @classmethod
-    def validate_bind_password_ref(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return value
-        v = str(value).strip()
-        if not v:
-            return None
-        if not v.startswith("sm://"):
-            raise ValueError("bind_password_ref must start with sm://")
-        return v
-
     capabilities: Optional[dict] = Field(default_factory=dict)
     description: Optional[str] = None
     external_id: Optional[str] = Field(default=None, max_length=255)
@@ -85,24 +73,13 @@ class StorageEndpointCreate(WriteSchema):
     last_probe_at: Optional[datetime] = None
     last_probe_message: Optional[str] = Field(default=None, max_length=512)
 
-    @field_validator("last_probe_status")
-    @classmethod
-    def validate_last_probe_status(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        key = str(value).strip().lower()
-        if not key:
-            return None
-        if key in {"success", "running", "failed", "unknown"}:
-            return key
-        raise ValueError("last_probe_status must be one of: success, running, failed, unknown")
 
 
 # ============================================================
 # UPDATE (PATCH semantics)
 # ============================================================
 
-class StorageEndpointUpdate(BaseModel):
+class StorageEndpointUpdate(SecretRefRules, ProbeStatusRules):
     """
     Partial update for a StorageEndpoint (PATCH semantics).
     All fields are optional.
@@ -144,18 +121,6 @@ class StorageEndpointUpdate(BaseModel):
     bind_dn: Optional[str] = Field(default=None, max_length=512)
     bind_password_ref: Optional[str] = Field(default=None, max_length=512)
 
-    @field_validator("bind_password_ref")
-    @classmethod
-    def validate_bind_password_ref(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return value
-        v = str(value).strip()
-        if not v:
-            return None
-        if not v.startswith("sm://"):
-            raise ValueError("bind_password_ref must start with sm://")
-        return v
-
     capabilities: Optional[dict] = None
     description: Optional[str] = None
     external_id: Optional[str] = Field(default=None, max_length=255)
@@ -175,14 +140,3 @@ class StorageEndpointUpdate(BaseModel):
     last_probe_at: Optional[datetime] = None
     last_probe_message: Optional[str] = Field(default=None, max_length=512)
 
-    @field_validator("last_probe_status")
-    @classmethod
-    def validate_last_probe_status(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        key = str(value).strip().lower()
-        if not key:
-            return None
-        if key in {"success", "running", "failed", "unknown"}:
-            return key
-        raise ValueError("last_probe_status must be one of: success, running, failed, unknown")

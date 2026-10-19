@@ -21,52 +21,23 @@ def _extract_function_source(module_text: str, func_name: str) -> str:
     return match.group(0)
 
 
-def test_ldap_client_import_is_confined_to_snapshot_service() -> None:
-    app_dir = ROOT / "app"
-    allowed = {"app/services/directory_snapshot_service.py"}
-    offenders: list[str] = []
-
-    for path in app_dir.rglob("*.py"):
-        rel = path.relative_to(ROOT).as_posix()
-        if rel.startswith("app/tests/"):
-            continue
-        if rel in {"app/services/ldap_client.py"}:
-            continue
-        text = path.read_text(encoding="utf-8")
-        if "from app.services.ldap_client import" in text and rel not in allowed:
-            offenders.append(rel)
-
-    assert offenders == []
-
-
-def test_identity_list_router_has_no_direct_ldap_import() -> None:
-    src = _read("app/api/identity_list.py")
-    assert "from app.services.ldap_client import" not in src
-
-
-def test_directory_snapshot_service_uses_only_open_connection_from_ldap_client() -> None:
-    src = _read("app/services/directory_snapshot_service.py")
-    assert "from app.services.ldap_client import _open_connection" in src
-    forbidden_tokens = [
-        "ensure_group_member(",
-        "ensure_group_exists(",
-        "remove_group_member(",
-        "search_principals(",
-        "discover_group_users_recursive(",
+def test_core_service_never_talks_ldap() -> None:
+    # Directory access (snapshots, AD groups) runs in capsule-runner jobs, never in core-service.
+    offenders = [
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "app").rglob("*.py")
+        if not path.relative_to(ROOT).as_posix().startswith("app/tests/")
+        and re.search(r"^\s*(from|import) ldap3", path.read_text(encoding="utf-8"), flags=re.MULTILINE)
     ]
-    for token in forbidden_tokens:
-        assert token not in src
+    assert offenders == []
 
 
 def test_zones_get_routes_do_not_contain_write_sql() -> None:
     src = _read("app/api/zones.py")
     get_functions = [
         "list_zones",
-        "get_zone_overview",
         "get_zone_console",
         "get_zone_provisioning_policy",
-        "get_zone_provisioning_drift",
-        "list_zone_access_profiles",
         "get_zone",
     ]
     forbidden_markers = [
@@ -181,7 +152,7 @@ def test_only_main_mounts_orchestration_routes() -> None:
 
 
 def test_orchestration_never_touches_the_database_directly() -> None:
-    # Orchestration goes through routes (core/internal_client.py) or services, never repositories or sessions.
+    # Orchestration goes through route handlers (core/direct_call.py) or services, never repositories or sessions.
     offenders: list[str] = []
     for path in (ROOT / "app" / "api" / "governance").rglob("*.py"):
         text = path.read_text(encoding="utf-8")

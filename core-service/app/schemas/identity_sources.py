@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from typing import Literal, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
+
+from app.schemas.common import SecretRefRules
 
 
 IdentitySourceType = Literal["ad"]
@@ -14,7 +16,7 @@ class IdentitySourceCapabilities(BaseModel):
     auth_mode: Literal["ntlm", "kerberos"] = "ntlm"
 
 
-class IdentitySourceCreate(BaseModel):
+class IdentitySourceCreate(SecretRefRules):
     type: IdentitySourceType
     name: str = Field(..., min_length=1, max_length=190)
     domain_name: Optional[str] = Field(default=None, max_length=255)
@@ -29,27 +31,6 @@ class IdentitySourceCreate(BaseModel):
     bind_password: Optional[str] = None
     bind_password_ref: Optional[str] = Field(default=None, max_length=512)
 
-    @field_validator("bind_password")
-    @classmethod
-    def forbid_bind_password_plaintext(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        if str(value).strip():
-            raise ValueError("Plaintext secrets are not allowed. Use bind_password_ref.")
-        return None
-
-    @field_validator("bind_password_ref")
-    @classmethod
-    def validate_bind_password_ref(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return value
-        v = str(value).strip()
-        if not v:
-            return None
-        if not v.startswith("sm://"):
-            raise ValueError("bind_password_ref must start with sm://")
-        return v
-
     # OIDC
     issuer_url: Optional[str] = Field(default=None, max_length=512)
 
@@ -59,7 +40,7 @@ class IdentitySourceCreate(BaseModel):
     is_active: bool = True
 
 
-class IdentitySourceUpdate(BaseModel):
+class IdentitySourceUpdate(SecretRefRules):
     name: Optional[str] = Field(default=None, min_length=1, max_length=190)
     domain_name: Optional[str] = Field(default=None, max_length=255)
     external_id: Optional[str] = Field(default=None, max_length=255)
@@ -72,27 +53,6 @@ class IdentitySourceUpdate(BaseModel):
     bind_dn: Optional[str] = Field(default=None, max_length=512)
     bind_password: Optional[str] = None
     bind_password_ref: Optional[str] = Field(default=None, max_length=512)
-
-    @field_validator("bind_password")
-    @classmethod
-    def forbid_bind_password_plaintext(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        if str(value).strip():
-            raise ValueError("Plaintext secrets are not allowed. Use bind_password_ref.")
-        return None
-
-    @field_validator("bind_password_ref")
-    @classmethod
-    def validate_bind_password_ref(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return value
-        v = str(value).strip()
-        if not v:
-            return None
-        if not v.startswith("sm://"):
-            raise ValueError("bind_password_ref must start with sm://")
-        return v
 
     # OIDC
     issuer_url: Optional[str] = Field(default=None, max_length=512)

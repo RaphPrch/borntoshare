@@ -12,7 +12,6 @@ from app.api._helpers import ui_action, ui_data, ui_list
 from app.schemas.zone import ZoneCreate, ZoneUpdate
 from app.data.repositories.zones_views_repo import ZonesViewsRepo
 from app.services.activity_log import log_activity
-from app.services.access_profiles_v1 import SYSTEM_MANAGED_ERROR
 
 router = APIRouter(prefix="/zones", tags=["zones"])
 
@@ -111,25 +110,6 @@ def list_zones(db: Session = Depends(get_db)):
     return ui_list([dict(r) for r in rows])
 
 
-@router.get("/{zone_id}/overview")
-def get_zone_overview(zone_id: int, db: Session = Depends(get_db)):
-    """
-    Zone overview (READ MODEL).
-
-    Backed by SQL view:
-    - v_zones
-    """
-    row = ZonesViewsRepo(db).get(zone_id)
-    if not row:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Zone not found",
-        )
-    return ui_data(dict(row), meta={"zone_id": int(zone_id)})
-
-
-
-
 @router.get("/{zone_id}/console")
 def get_zone_console(zone_id: int, db: Session = Depends(get_db)):
     """Ultra Gold console read-model for a zone (V1++).
@@ -195,20 +175,6 @@ def get_zone_provisioning_policy(zone_id: int, db: Session = Depends(get_db)):
     return ui_data(dict(row), meta={"zone_id": int(zone_id)})
 
 
-@router.get("/{zone_id}/provisioning-drift")
-def get_zone_provisioning_drift(zone_id: int, db: Session = Depends(get_db)):
-    _ = zone_id
-    _ = db
-    return ui_data(
-        {
-            "zone_id": int(zone_id),
-            "drift_detected": False,
-            "items": [],
-        },
-        meta={"zone_id": int(zone_id), "count": 0},
-    )
-
-
 @router.put("/{zone_id}/provisioning-policy")
 def put_zone_provisioning_policy(zone_id: int, payload: dict, db: Session = Depends(get_db)):
     if "naming_template" in (payload or {}):
@@ -252,31 +218,6 @@ def put_zone_provisioning_policy(zone_id: int, payload: dict, db: Session = Depe
     return get_zone_provisioning_policy(zone_id, db)
 
 
-@router.get("/{zone_id}/access-profiles")
-def list_zone_access_profiles(zone_id: int, db: Session = Depends(get_db)):
-    """Legacy compatibility endpoint for access-profile bindings by zone."""
-    zone = ZonesViewsRepo(db).get(zone_id)
-    if not zone:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found")
-
-    return ui_data(
-        {
-            "zone_id": int(zone_id),
-            "access_profiles": [],
-            "count": 0,
-        },
-        meta={"zone_id": int(zone_id), "count": 0, "deprecated": True},
-    )
-
-
-@router.post("/{zone_id}/access-profiles/{profile_id}", status_code=status.HTTP_201_CREATED)
-def attach_zone_access_profile(zone_id: int, profile_id: int, db: Session = Depends(get_db)):
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SYSTEM_MANAGED_ERROR)
-
-
-@router.delete("/{zone_id}/access-profiles/{profile_id}")
-def detach_zone_access_profile(zone_id: int, profile_id: int, db: Session = Depends(get_db)):
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SYSTEM_MANAGED_ERROR)
 @router.get("/{zone_id}")
 def get_zone(zone_id: int, db: Session = Depends(get_db)):
     """

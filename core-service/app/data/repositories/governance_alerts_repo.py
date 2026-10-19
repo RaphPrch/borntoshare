@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.data.repositories.sql_view_repo import SQLViewRepo
+from app.core.values import utcnow_naive
 
 
 OPEN_STATUS = "open"
@@ -26,10 +26,6 @@ class GovernanceAlertsRepo(SQLViewRepo):
 
     def __init__(self, db: Session):
         super().__init__(db)
-
-    @staticmethod
-    def _utcnow_naive() -> datetime:
-        return datetime.now(timezone.utc).replace(tzinfo=None)
 
     @staticmethod
     def _parse_metadata(value: Any) -> Any:
@@ -136,7 +132,7 @@ class GovernanceAlertsRepo(SQLViewRepo):
     def _upsert_alert(self, alert: dict[str, Any]) -> None:
         metadata_json = alert.get("metadata_json")
         metadata_text = json.dumps(metadata_json, ensure_ascii=False, sort_keys=True) if metadata_json is not None else None
-        now = self._utcnow_naive()
+        now = utcnow_naive()
         params = {
             "alert_key": alert["alert_key"],
             "scope_type": alert["scope_type"],
@@ -234,7 +230,7 @@ class GovernanceAlertsRepo(SQLViewRepo):
                     "storage_root_id": int(storage_root_id),
                     "open_status": OPEN_STATUS,
                     "resolved_status": RESOLVED_STATUS,
-                    "now": self._utcnow_naive(),
+                    "now": utcnow_naive(),
                 },
             )
             return
@@ -244,7 +240,7 @@ class GovernanceAlertsRepo(SQLViewRepo):
             "storage_root_id": int(storage_root_id),
             "open_status": OPEN_STATUS,
             "resolved_status": RESOLVED_STATUS,
-            "now": self._utcnow_naive(),
+            "now": utcnow_naive(),
         }
         params.update({key: value for key, value in zip(bind_keys, sorted(active_keys))})
         in_clause = ", ".join(f":{key}" for key in bind_keys)

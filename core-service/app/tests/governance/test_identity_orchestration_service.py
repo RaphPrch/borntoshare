@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from app.services import identity_orchestration_service as svc
+from app.tests.governance.route_fakes import fake_routes
 
 
 def test_search_identity_enriches_identity_id_from_batch_resolution(monkeypatch) -> None:
@@ -10,8 +11,7 @@ def test_search_identity_enriches_identity_id_from_batch_resolution(monkeypatch)
         assert source_id == 5
         return 77, "ACTIVE"
 
-    async def _fake_internal_get(path: str, timeout: int = 10):
-        _ = timeout
+    async def _fake_internal_get(path: str):
         assert "/api/internal/directory-snapshots/runs/77/search" in path
         return {
             "items": [
@@ -36,8 +36,7 @@ def test_search_identity_enriches_identity_id_from_batch_resolution(monkeypatch)
             ]
         }
 
-    async def _fake_internal_post(path: str, payload: dict, timeout: int = 8):
-        _ = timeout
+    async def _fake_internal_post(path: str, payload: dict):
         assert path == "/api/internal/identities/resolve-ad/batch"
         assert payload["identity_source_id"] == 5
         assert payload["create_if_missing"] is False
@@ -50,8 +49,8 @@ def test_search_identity_enriches_identity_id_from_batch_resolution(monkeypatch)
         }
 
     monkeypatch.setattr(svc, "_resolve_searchable_snapshot", _fake_resolve_searchable_snapshot)
-    monkeypatch.setattr(svc, "internal_get", _fake_internal_get)
-    monkeypatch.setattr(svc, "internal_post", _fake_internal_post)
+    fake_routes(monkeypatch, svc, get=_fake_internal_get)
+    fake_routes(monkeypatch, svc, post=_fake_internal_post)
 
     out = asyncio.run(svc.search_identity({"identity_source_id": 5, "query": "ali"}))
 
@@ -69,15 +68,14 @@ def test_search_identity_enriches_identity_id_from_batch_resolution(monkeypatch)
 
 
 def test_list_identity_overview_normalizes_identity_id_from_id_fallback(monkeypatch) -> None:
-    async def _fake_internal_get(path: str, timeout: int = 10):
-        _ = timeout
+    async def _fake_internal_get(path: str):
         assert path == "/api/identity"
         return [
             {"id": "42", "display_name": "Alice"},
             {"id": 7, "identity_id": 9, "display_name": "Bob"},
         ]
 
-    monkeypatch.setattr(svc, "internal_get", _fake_internal_get)
+    fake_routes(monkeypatch, svc, get=_fake_internal_get)
 
     rows = asyncio.run(svc.list_identity_overview({}))
 

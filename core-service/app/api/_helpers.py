@@ -1,20 +1,7 @@
+"""Response envelopes shared by every route: {"data": ..., "meta": {...}}."""
 from __future__ import annotations
 
 from typing import Any
-
-from sqlalchemy.orm import Session
-
-from app.core.sql import fetch_all as _fetch_all
-from app.core.sql import fetch_one as _fetch_one
-from app.core.sql import to_dicts
-
-
-def fetch_all(db: Session, sql: str, params: dict | None = None):
-    return _fetch_all(db, sql, params)
-
-
-def fetch_one(db: Session, sql: str, params: dict | None = None):
-    return _fetch_one(db, sql, params)
 
 
 def ui_data(data: Any, *, meta: dict[str, Any] | None = None) -> dict[str, Any]:

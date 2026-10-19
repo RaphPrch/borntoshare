@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import inspect
 from sqlalchemy.orm import load_only
 from sqlalchemy.orm import Session
 
@@ -9,6 +8,12 @@ from app.core.db import get_db
 from app.core.logging import get_logger
 from app.core.internal_auth import require_internal
 from app.data.models.identity_sources import IdentitySource
+from app.services.identity_source_fields import (
+    identity_source_columns,
+    source_auth_enabled,
+    source_auth_priority,
+    source_capabilities,
+)
 
 router = APIRouter(
     prefix="/internal/identity-sources",
@@ -16,38 +21,6 @@ router = APIRouter(
     dependencies=[require_internal({"jobs:read"})],
 )
 logger = get_logger("core-identity-sources")
-
-
-def _identity_source_available_columns(db: Session) -> set[str]:
-    try:
-        inspector = inspect(db.get_bind())
-        return {col["name"] for col in inspector.get_columns(IdentitySource.__tablename__)}
-    except Exception:
-        return set()
-
-
-def _source_capabilities(src: IdentitySource) -> dict[str, object]:
-    raw = src.__dict__.get("capabilities")
-    if isinstance(raw, dict):
-        return dict(raw)
-    return {}
-
-
-def _source_auth_enabled(src: IdentitySource, caps: dict[str, object] | None = None) -> bool:
-    if "auth_enabled" in src.__dict__:
-        return bool(src.__dict__.get("auth_enabled"))
-    effective_caps = caps if isinstance(caps, dict) else _source_capabilities(src)
-    return bool(effective_caps.get("auth", False))
-
-
-def _source_auth_priority(src: IdentitySource) -> int:
-    if "auth_priority" in src.__dict__:
-        raw = src.__dict__.get("auth_priority")
-        try:
-            return int(raw or 100)
-        except Exception:
-            return 100
-    return 100
 
 
 def _source_is_active(src: IdentitySource) -> bool:
@@ -60,7 +33,7 @@ def _source_is_active(src: IdentitySource) -> bool:
 
 
 def _query_identity_sources(db: Session, source_type: str) -> list[IdentitySource]:
-    available = _identity_source_available_columns(db)
+    available = identity_source_columns(db)
     query = db.query(IdentitySource)
     if available:
         attrs = [
@@ -85,7 +58,7 @@ def _query_identity_sources(db: Session, source_type: str) -> list[IdentitySourc
     if "is_active" not in available:
         rows = [row for row in rows if _source_is_active(row)]
     if "auth_enabled" not in available:
-        rows = [row for row in rows if _source_auth_enabled(row)]
+        rows = [row for row in rows if source_auth_enabled(row)]
     return rows
 
 
@@ -104,9 +77,9 @@ def _domain_aliases(value: str | None) -> set[str]:
 
 
 def _to_payload(src: IdentitySource) -> dict:
-    caps = _source_capabilities(src)
-    auth_enabled = _source_auth_enabled(src, caps)
-    auth_priority = _source_auth_priority(src)
+    caps = source_capabilities(src)
+    auth_enabled = source_auth_enabled(src, caps)
+    auth_priority = source_auth_priority(src)
     return {
         "id": src.id,
         "type": src.type,
@@ -150,7 +123,7 @@ def resolve_active_identity_source_by_domain(
 
     src = None
     for row in rows:
-        if not _source_auth_enabled(row):
+        if not source_auth_enabled(row):
             continue
         row_aliases = _domain_aliases(row.domain_name)
         if row_aliases and (domain_aliases & row_aliases):
@@ -183,7 +156,7 @@ def get_identity_source_by_id(
     src = db.get(IdentitySource, int(source_id))
     if not src:
         raise HTTPException(status_code=404, detail="Identity source not found")
-    if not _source_is_active(src) or not _source_auth_enabled(src):
+    if not _source_is_active(src) or not source_auth_enabled(src):
         raise HTTPException(status_code=404, detail="Identity source not active for authentication")
     return _to_payload(src)
 
@@ -201,7 +174,7 @@ def get_active_identity_source(
 
     logger.debug("identity source candidates", extra={"count": len(rows)})
 
-    src = next((row for row in rows if _source_auth_enabled(row)), None)
+    src = next((row for row in rows if source_auth_enabled(row)), None)
 
     if not src:
         logger.warning("identity source not found", extra={"type": type})

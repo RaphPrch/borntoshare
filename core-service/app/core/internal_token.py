@@ -29,11 +29,6 @@ def _b64url_encode(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
 
 
-def _b64url_decode(s: str) -> bytes:
-    pad = "=" * ((4 - (len(s) % 4)) % 4)
-    return base64.urlsafe_b64decode((s + pad).encode("ascii"))
-
-
 # ============================================================
 # Keyring
 # ============================================================
@@ -62,25 +57,6 @@ def parse_keyring(keys_csv: str) -> Dict[str, str]:
 # ============================================================
 # Sign / Verify
 # ============================================================
-
-def sign_internal_token(kid: str, secret: str, ttl_sec: int) -> str:
-    """
-    Generate a short-lived internal token.
-
-    Format:
-      v1.<kid>.<exp_unix>.<sig>
-
-    sig = b64url(HMAC-SHA256(secret, "v1.<kid>.<exp>"))
-    """
-    now = int(time.time())
-    exp = now + int(ttl_sec)
-
-    msg = f"{TOKEN_PREFIX}.{kid}.{exp}".encode("utf-8")
-    mac = hmac.new(secret.encode("utf-8"), msg, hashlib.sha256).digest()
-    sig = _b64url_encode(mac)
-
-    return f"{TOKEN_PREFIX}.{kid}.{exp}.{sig}"
-
 
 def verify_internal_token(
     token: str,

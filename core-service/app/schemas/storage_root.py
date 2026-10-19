@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
+
+from app.schemas.common import ProbeStatusRules
 
 
 # ============================================================
@@ -83,7 +85,7 @@ class StorageRootCreate(BaseModel):
 # UPDATE (PATCH semantics)
 # ============================================================
 
-class StorageRootUpdate(BaseModel):
+class StorageRootUpdate(ProbeStatusRules):
     """
     Partial update for a StorageRoot (PATCH semantics).
     WRITE MODEL ONLY.
@@ -144,18 +146,6 @@ class StorageRootUpdate(BaseModel):
         default=None,
         max_length=32,
     )
-
-    @field_validator("last_probe_status")
-    @classmethod
-    def validate_last_probe_status(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        key = str(value).strip().lower()
-        if not key:
-            return None
-        if key in {"success", "running", "failed", "unknown"}:
-            return key
-        raise ValueError("last_probe_status must be one of: success, running, failed, unknown")
 
     last_probe_at: Optional[datetime] = None
 

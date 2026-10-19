@@ -169,25 +169,3 @@ class ZonesViewsRepo(SQLViewRepo):
             """,
             {"zone_id": int(zone_id)},
         )
-
-    def list_zone_access_profiles(self, zone_id: int) -> list[dict]:
-        return self._all_dicts(
-            """
-            SELECT
-              zap.zone_id,
-              zap.access_profile_id,
-              zap.is_active,
-              zap.created_at,
-              ap.code,
-              ap.name,
-              ap.description,
-              ap.permission,
-              UPPER(COALESCE(NULLIF(ap.code, ''), NULLIF(ap.permission, ''), 'READ')) AS access_level_code
-            FROM zone_access_profiles zap
-            JOIN access_profiles ap ON ap.id = zap.access_profile_id
-            WHERE zap.zone_id = :zone_id
-              AND zap.is_active = 1
-            ORDER BY ap.code, ap.name
-            """,
-            {"zone_id": int(zone_id)},
-        )

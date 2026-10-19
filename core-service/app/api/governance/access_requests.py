@@ -5,8 +5,9 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 
-from app.core.internal_client import internal_get, internal_post
-from app.schemas.api_envelopes import data_envelope
+from app.api import access_requests as access_requests_routes
+from app.core.direct_call import call_route
+from app.api._helpers import ui_data
 from app.schemas.provisioning import (
     EnsureAdGroupContextIn,
     EnsureAdGroupIn,
@@ -15,15 +16,10 @@ from app.schemas.provisioning import (
 )
 from app.api.governance.provisioning import ensure_ad_group_member, ensure_ad_group_via_name, remove_ad_group_member
 from app.services.probe_service import fetch_probe_job, submit_probe_run
+from app.core.values import unwrap_data
 
 
 router = APIRouter(prefix="/access-requests", tags=["access-requests"])
-
-
-def _unwrap_data(payload: Any) -> Any:
-    if isinstance(payload, dict) and "data" in payload:
-        return payload.get("data")
-    return payload
 
 
 def _normalize_ids(raw: Any) -> list[int]:
@@ -83,19 +79,8 @@ def _request_with_id(request: Request, request_id: str) -> Request:
     return _ReqProxy(request, request_id)  # type: ignore[return-value]
 
 
-def _actor_forward_headers(request: Request) -> dict[str, str]:
-    headers = getattr(request, "headers", {}) or {}
-    out: dict[str, str] = {}
-    for key in ("x-identity-id", "x-roles", "x-actor-display"):
-        value = str(headers.get(key) or "").strip()
-        if value:
-            out[key] = value
-    return out
-
-
 async def _record_item_execution(
     *,
-    request_id: str | None,
     access_request_id: int,
     access_request_item_id: int | None,
     status: str,
@@ -103,9 +88,9 @@ async def _record_item_execution(
     result_json: dict[str, Any] | None,
     error_message: str | None,
 ) -> None:
-    await internal_post(
-        "/api/internal/access-requests/item-executions",
-        {
+    await call_route(
+        access_requests_routes.create_access_request_item_execution_internal,
+        payload={
             "access_request_id": int(access_request_id),
             "access_request_item_id": int(access_request_item_id) if access_request_item_id else None,
             "status": str(status or "DONE").upper(),
@@ -113,9 +98,6 @@ async def _record_item_execution(
             "result_json": dict(result_json) if isinstance(result_json, dict) else None,
             "error_message": str(error_message or "").strip() or None,
         },
-        timeout=8,
-        request_id=request_id,
-        retries=1,
     )
 
 
@@ -145,20 +127,16 @@ async def _revoke_request_memberships(
     *,
     req_id: int,
     request: Request,
-    request_id: str | None,
-    actor_headers: dict[str, str],
 ) -> str | None:
     """Remove the requester from every governed AD group of an access request.
 
     Records one item execution per item and returns None on success, or the
     failure message (items are all attempted, failures are joined).
     """
-    plan = await internal_get(
-        f"/api/internal/access-requests/{int(req_id)}/provisioning-plan",
-        timeout=8,
-        request_id=request_id,
-        retries=1,
-        extra_headers=actor_headers,
+    plan = await call_route(
+        access_requests_routes.get_access_request_provisioning_plan_internal,
+        access_request_id=int(req_id),
+        request=request,
     )
     if not isinstance(plan, dict):
         return "Invalid provisioning plan payload"
@@ -207,7 +185,6 @@ async def _revoke_request_memberships(
 
         if error_message:
             await _record_item_execution(
-                request_id=request_id,
                 access_request_id=int(req_id),
                 access_request_item_id=item_id,
                 status="FAILED",
@@ -235,17 +212,15 @@ async def _revoke_request_memberships(
                 request=_request_with_id(request, f"ar_{int(req_id)}_{int(item_id or 0)}_revoke"),
             )
             await _record_item_execution(
-                request_id=request_id,
                 access_request_id=int(req_id),
                 access_request_item_id=item_id,
                 status="DONE",
                 requested_payload_json=requested_payload,
-                result_json=_unwrap_data(removed) if isinstance(removed, dict) else None,
+                result_json=unwrap_data(removed) if isinstance(removed, dict) else None,
                 error_message=None,
             )
         except Exception as exc:
             await _record_item_execution(
-                request_id=request_id,
                 access_request_id=int(req_id),
                 access_request_item_id=item_id,
                 status="FAILED",
@@ -263,8 +238,6 @@ async def _bulk_revoke(
     payload: dict[str, Any],
     requested_ids: list[int],
     request: Request,
-    request_id: str | None,
-    actor_headers: dict[str, str],
 ) -> dict[str, Any]:
     """Revoke: remove AD memberships, then persist the revocation (internal route)."""
     failed_reasons: dict[int, str] = {}
@@ -276,8 +249,6 @@ async def _bulk_revoke(
             failure = await _revoke_request_memberships(
                 req_id=int(req_id),
                 request=request,
-                request_id=request_id,
-                actor_headers=actor_headers,
             )
         except Exception as exc:
             failed_reasons[int(req_id)] = str(exc)
@@ -302,19 +273,16 @@ async def _bulk_revoke(
     persisted_data: dict[str, Any] = {}
     if revoked_ids:
         decision_comment = str(payload.get("decision_comment") or "").strip()
-        result = await internal_post(
-            "/api/access-requests/bulk",
-            {
+        result = await call_route(
+            access_requests_routes.bulk_decision,
+            payload={
                 "ids": revoked_ids,
                 "decision": "revoke",
                 **({"decision_comment": decision_comment} if decision_comment else {}),
             },
-            timeout=30,
-            request_id=request_id,
-            retries=2,
-            extra_headers=actor_headers,
+            request=request,
         )
-        persisted_data = _unwrap_data(result) if isinstance(result, dict) else {}
+        persisted_data = unwrap_data(result) if isinstance(result, dict) else {}
 
     # JSON object keys come back as strings
     persisted_reasons = {str(k): v for k, v in dict(persisted_data.get("failed_reasons") or {}).items()}
@@ -326,7 +294,7 @@ async def _bulk_revoke(
 
     failed_ids = [int(x) for x in requested_ids if int(x) in failed_reasons]
     updated_ids = [int(x) for x in revoked_ids if int(x) not in failed_reasons]
-    return data_envelope({
+    return ui_data({
         "ok": len(failed_ids) == 0,
         "decision": "revoke",
         "requested_ids": requested_ids,
@@ -344,13 +312,10 @@ async def _bulk_revoke(
 @router.post("/bulk")
 async def bulk_decision(request: Request) -> dict[str, Any]:
     payload = await request.json()
-    request_headers = getattr(request, "headers", {})
-    request_id = request_headers.get("x-request-id") or None
-    actor_headers = _actor_forward_headers(request)
     decision = str((payload or {}).get("decision") or "").strip().lower()
     requested_ids = _normalize_ids((payload or {}).get("ids"))
 
-    if "x-identity-id" not in actor_headers:
+    if not str(request.headers.get("x-identity-id") or "").strip():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
@@ -364,20 +329,11 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
             payload=payload or {},
             requested_ids=requested_ids,
             request=request,
-            request_id=request_id,
-            actor_headers=actor_headers,
         )
 
     if decision != "approve":
-        result = await internal_post(
-            "/api/access-requests/bulk",
-            payload,
-            timeout=30,
-            request_id=request_id,
-            retries=2,
-            extra_headers=actor_headers,
-        )
-        return data_envelope(_unwrap_data(result))
+        result = await call_route(access_requests_routes.bulk_decision, payload=payload, request=request)
+        return ui_data(unwrap_data(result))
 
     failed_ids: list[int] = []
     failed_reasons: dict[int, str] = {}
@@ -387,12 +343,10 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
 
     for req_id in requested_ids:
         try:
-            plan = await internal_get(
-                f"/api/internal/access-requests/{int(req_id)}/provisioning-plan",
-                timeout=8,
-                request_id=request_id,
-                retries=1,
-                extra_headers=actor_headers,
+            plan = await call_route(
+                access_requests_routes.get_access_request_provisioning_plan_internal,
+                access_request_id=int(req_id),
+                request=request,
             )
             if not isinstance(plan, dict):
                 failed_ids.append(int(req_id))
@@ -418,7 +372,6 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
                     item_id = int(item.get("id") or 0) or None
                     item_correlation = f"ar_{int(req_id)}_{int(item_id or 0)}"
                     await _record_item_execution(
-                        request_id=request_id,
                         access_request_id=int(req_id),
                         access_request_item_id=item_id,
                         status="FAILED",
@@ -475,7 +428,6 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
                         "repair_result": str(item_error_detail.get("repair_result") or "").strip() or None,
                     }
                     await _record_item_execution(
-                        request_id=request_id,
                         access_request_id=int(req_id),
                         access_request_item_id=item_id,
                         status="FAILED",
@@ -507,7 +459,7 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
                             ),
                             request=ensure_request,
                         )
-                        ensured_group = _unwrap_data(ensure_out) if isinstance(ensure_out, dict) else None
+                        ensured_group = unwrap_data(ensure_out) if isinstance(ensure_out, dict) else None
 
                     member_request = _request_with_id(request, f"{item_correlation}_member")
                     member_out = await ensure_ad_group_member(
@@ -519,7 +471,7 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
                         ),
                         request=member_request,
                     )
-                    ensured_member = _unwrap_data(member_out) if isinstance(member_out, dict) else None
+                    ensured_member = unwrap_data(member_out) if isinstance(member_out, dict) else None
 
                     acl_out = await submit_probe_run(
                         {
@@ -557,7 +509,6 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
                         "identity_source_id": source_id,
                     }
                     await _record_item_execution(
-                        request_id=request_id,
                         access_request_id=int(req_id),
                         access_request_item_id=item_id,
                         status="DONE",
@@ -584,7 +535,6 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
                         "candidates_count": 0,
                     }
                     await _record_item_execution(
-                        request_id=request_id,
                         access_request_id=int(req_id),
                         access_request_item_id=item_id,
                         status="FAILED",
@@ -648,17 +598,14 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
 
     if approved_ids:
         decision_comment = str((payload or {}).get("decision_comment") or "").strip()
-        await internal_post(
-            "/api/access-requests/bulk",
-            {
+        await call_route(
+            access_requests_routes.bulk_decision,
+            payload={
                 "ids": approved_ids,
                 "decision": "approve",
                 **({"decision_comment": decision_comment} if decision_comment else {}),
             },
-            timeout=30,
-            request_id=request_id,
-            retries=2,
-            extra_headers=actor_headers,
+            request=request,
         )
 
     normalized_failed_ids = [int(x) for x in failed_ids if int(x) > 0]
@@ -684,4 +631,4 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
         "updated_count": int(len(approved_ids)),
         "executions_started": int(executions_started),
     }
-    return data_envelope(result_payload)
+    return ui_data(result_payload)

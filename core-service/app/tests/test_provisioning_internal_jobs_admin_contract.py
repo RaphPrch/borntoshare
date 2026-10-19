@@ -172,7 +172,7 @@ def test_cancel_job_updates_status_metrics_and_error_payload(monkeypatch) -> Non
             }
 
     monkeypatch.setattr(module, "ProvisioningJobsRepo", _Repo)
-    monkeypatch.setattr(module, "_utcnow_naive", lambda: fixed_now)
+    monkeypatch.setattr(module, "utcnow_naive", lambda: fixed_now)
     monkeypatch.setattr(module, "_persist_identity_source_probe_result", lambda *_a, **_k: None)
     monkeypatch.setattr(module, "_write_governance_event", lambda *_a, **k: event_calls.append(dict(k)))
 
@@ -228,7 +228,7 @@ def test_watchdog_mark_increments_republish_counter(monkeypatch) -> None:
             }
 
     monkeypatch.setattr(module, "ProvisioningJobsRepo", _Repo)
-    monkeypatch.setattr(module, "_utcnow_naive", lambda: fixed_now)
+    monkeypatch.setattr(module, "utcnow_naive", lambda: fixed_now)
     monkeypatch.setattr(module, "_write_governance_event", lambda *_a, **_k: write_events.__setitem__("count", write_events["count"] + 1))
 
     out = module.mark_watchdog_republish(

@@ -6,6 +6,5 @@ pydantic
 eval_type_backport
 bcrypt
 httpx
-ldap3>=2.9.1
 dramatiq
 redis
