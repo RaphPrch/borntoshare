@@ -294,7 +294,7 @@ VALUES
     0
   ),
   (
-    'active_directory',
+    'ad',
     'Demo Active Directory',
     'corp.demo',
     'ldap',
@@ -327,7 +327,7 @@ VALUES
     1
   ),
   (
-    'openldap',
+    'ad',
     'Demo OpenLDAP',
     'ldap.demo',
     'ldap',
