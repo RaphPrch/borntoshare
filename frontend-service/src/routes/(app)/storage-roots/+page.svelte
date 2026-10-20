@@ -9,7 +9,6 @@
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import EntityAlertDrawer from '$lib/components/entity/EntityAlertDrawer.svelte';
   import TagPill from '$lib/components/tags/TagPill.svelte';
-  import { attachTagToStorageRoot, detachTagFromStorageRoot } from '$lib/api/tags';
   import { createActivityEvent, listActivityByTarget } from '$lib/api/activity';
   import { listStorageRootGovernanceAlerts, type GovernanceAlert } from '$lib/api/governance-alerts';
   import {
@@ -39,8 +38,7 @@
     applyOwnersBrowserSelectionToDraft,
     type OwnersBrowserSelectionEvent
   } from '$lib/components/storage-roots/storage-root-owners.browser';
-  import { toggleSetValue } from '$lib/utils/selection';
-  import { normalizeTagsCatalog, tagColor, tagId, tagLabel, type UiTag } from '$lib/utils/tags';
+  import { tagColor, tagId, tagLabel } from '$lib/utils/tags';
   import { normalizeStorageRootDetailModel, type StorageRootDetailModel } from '$lib/types/storage-roots';
   import {
     normalizeStorageRootRow,
@@ -61,7 +59,7 @@
     formatDateTimeLabel,
     isSelectedStorageRootRow,
     ownerDisplayName,
-    storageRootEndpointLabel,
+    storageRootEndpointLabel
   } from '$lib/mappers/storage-root-detail.mapper';
   import {
     normalizeStorageRootAvailability,
@@ -99,6 +97,7 @@
   import { runProbeWithUi } from '$lib/jobs/probe-ui';
   import StorageRootFormModal from '$lib/components/storage-roots/StorageRootFormModal.svelte';
   import StorageRootDrawerShell from '$lib/components/storage-roots/StorageRootDrawerShell.svelte';
+  import StorageRootTagsDrawer from '$lib/components/storage-roots/StorageRootTagsDrawer.svelte';
   import StorageRootGovernanceDrawer from '$lib/components/storage-roots/StorageRootGovernanceDrawer.svelte';
   import StorageRootTreePanel from '$lib/components/storage-roots/StorageRootTreePanel.svelte';
   import StorageRootDetailView from '$lib/components/storage-roots/StorageRootDetailView.svelte';
@@ -1669,145 +1668,16 @@
   /* -------------------------------------------------------------------------- */
 
   let showTagsModal = false;
-  let selectedTagIds: number[] = [];
-  let tagsSearch = '';
-  let tagsSaving = false;
-  let selectedTagIdSet = new Set<number>();
-  let attachedTagIdSet = new Set<number>();
-  let tagsModalWasOpen = false;
-  let tagsSearchNorm = '';
-  let catalogTags: UiTag[] = [];
-  let availableTags: UiTag[] = [];
-  let selectedTags: UiTag[] = [];
-
-  const normalizedCatalogTags = () => normalizeTagsCatalog((data.tags ?? []) as StorageRootTagLike[]);
 
   const openTagsModal = () => {
     showTagsModal = true;
   };
 
-  const attachedTagIds = (): number[] =>
-    (overview?.tags ?? selectedRow?.tags ?? [])
-      .map((t: any) => Number(t?.id ?? t?.tag_id ?? 0))
-      .filter((id: number) => Number.isFinite(id) && id > 0);
-
-  $: if (showTagsModal && !tagsModalWasOpen) {
-    tagsModalWasOpen = true;
-    selectedTagIds = attachedTagIds();
-    tagsSearch = '';
-  }
-
-  $: if (!showTagsModal && tagsModalWasOpen) {
-    tagsModalWasOpen = false;
-  }
-
-  $: selectedTagIdSet = new Set(selectedTagIds);
-  $: tagsSearchNorm = tagsSearch.trim().toLowerCase();
-  $: catalogTags = normalizedCatalogTags();
-  $: attachedTagIdSet = new Set(attachedTagIds());
-
-  $: availableTags = catalogTags
-    .filter((t: any) => !selectedTagIdSet.has(Number(t.id)))
-    .filter((t: any) => {
-      if (!tagsSearchNorm) return true;
-      const hay = [t.label, t.name, t.code]
-        .map((v: any) => String(v ?? '').toLowerCase())
-        .join(' ');
-      return hay.includes(tagsSearchNorm);
-    });
-
-  $: selectedTags = catalogTags
-    .filter((t: any) => selectedTagIdSet.has(Number(t.id)))
-    .filter((t: any) => {
-      if (!tagsSearchNorm) return true;
-      const hay = [t.label, t.name, t.code]
-        .map((v: any) => String(v ?? '').toLowerCase())
-        .join(' ');
-      return hay.includes(tagsSearchNorm);
-    });
-
-  function toggleTagSelection(tagId: number, checked: boolean) {
-    const normalized = Number(tagId);
-    if (!Number.isFinite(normalized) || normalized <= 0) return;
-    const next = toggleSetValue(new Set(selectedTagIds), normalized, checked);
-    selectedTagIds = [...next];
-  }
-
-  function addTagToSelection(tagId: number) {
-    toggleTagSelection(tagId, true);
-  }
-
-  function removeTagFromSelection(tagId: number) {
-    toggleTagSelection(tagId, false);
-  }
-
-  async function saveTags() {
-    if (tagsSaving) return;
-    const selectedId = selectedRow?.storage_root_id;
-    if (!selectedId) {
-      toast.warning('No storage root selected');
-      return;
-    }
-
-    tagsSaving = true;
-    try {
-      const selectedIds = new Set(
-        selectedTagIds
-          .map((id) => Number(id))
-          .filter((id) => Number.isFinite(id) && id > 0)
-      );
-
-      const tagsCatalog = (data.tags ?? []) as StorageRootTagLike[];
-
-      const currentTags = (overview?.tags ?? selectedRow?.tags ?? []) as StorageRootTagLike[];
-      const currentIds = new Set(
-        currentTags
-          .map((t) => tagId(t))
-          .filter((id) => Number.isFinite(id) && id > 0)
-      );
-      const toAttachIds = [...selectedIds].filter((id) => !currentIds.has(id));
-      const toDetachIds = [...currentIds].filter((id) => !selectedIds.has(id));
-
-      if (toAttachIds.length === 0 && toDetachIds.length === 0) {
-        toast.warning('No tag changes to save');
-        return;
-      }
-
-      for (const toAttachId of toAttachIds) {
-        await attachTagToStorageRoot(fetch, { tag_id: toAttachId, resource_id: selectedId });
-      }
-      for (const toDetachId of toDetachIds) {
-        await detachTagFromStorageRoot(fetch, { tag_id: toDetachId, resource_id: selectedId });
-      }
-
-      const targetTags = tagsCatalog.filter((t: any) => {
-        const id = tagId(t);
-        return Number.isFinite(id) && selectedIds.has(id);
-      });
-
-      const normalizedTargetTags = targetTags.map((t) => ({
-        ...t,
-        id: tagId(t),
-        label: tagLabel(t),
-        name: t?.name ?? t?.label ?? '',
-        color_rgb: tagColor(t)
-      }));
-
-      const updatedOverview = setOverviewForRoot(selectedId, {
-        ...(overview ?? {}),
-        tags: normalizedTargetTags
-      });
-
-      await refreshStorageRootsLoad();
-
-      showTagsModal = false;
-      toast.success('Tags updated');
-    } catch {
-      toast.error('Unable to save tag changes');
-    } finally {
-      tagsSaving = false;
-    }
-  }
+  const handleTagsSaved = async (tags: StorageRootTagLike[]) => {
+    const rootId = Number(selectedRow?.storage_root_id ?? 0);
+    if (rootId > 0) setOverviewForRoot(rootId, { ...(overview ?? {}), tags });
+    await refreshStorageRootsLoad();
+  };
 
   /* -------------------------------------------------------------------------- */
   /* Governance                                                                  */
@@ -2237,48 +2107,14 @@
   deleteLabel="Delete"
 />
 
-<StorageRootDrawerShell
+<StorageRootTagsDrawer
   open={showTagsModal}
+  storageRootId={selectedRow?.storage_root_id ?? null}
+  catalog={(data.tags ?? []) as StorageRootTagLike[]}
+  currentTags={(overview?.tags ?? selectedRow?.tags ?? []) as StorageRootTagLike[]}
   onClose={() => (showTagsModal = false)}
-  title="Manage tags"
-  subtitle="Attach and detach taxonomy tags for the selected storage root."
-  ariaLabelledby="sr-tags-drawer-title"
-  width="560px"
-  topOffset="70px"
-  showFooter={true}
->
-  <div class="sr-tags-modal-body">
-    <p class="b2s-muted">Select the final tag set for this storage root.</p>
-    <SearchField
-      wrapperClass="sr-tag-search"
-      placeholder="Search tags..."
-      ariaLabel="Search tags"
-      bind:value={tagsSearch}
-    />
-
-    <DualListPicker
-      availableItems={availableTags}
-      selectedItems={selectedTags}
-      availableTitle="Available tags"
-      selectedTitle="Assigned tags"
-      getItemKey={(item) => Number(item?.id ?? 0)}
-      itemLabel={(item) => String(item?.label ?? item?.name ?? item?.code ?? '-')}
-      on:add={(event) => addTagToSelection(Number(event.detail.item?.id ?? 0))}
-      on:remove={(event) => removeTagFromSelection(Number(event.detail.item?.id ?? 0))}
-    >
-      <svelte:fragment slot="item" let:item>
-        <TagPill label={item.label} color={item.color_rgb ?? null} />
-      </svelte:fragment>
-    </DualListPicker>
-  </div>
-
-  <svelte:fragment slot="footer">
-    <div class="sr-modal-actions sr-tags-modal-actions">
-      <EntityActionButton variant="secondary" label="Cancel" disabled={tagsSaving} onClick={() => (showTagsModal = false)} />
-      <EntityActionButton variant="primary" icon={tagsSaving ? 'bi-arrow-repeat' : 'bi-check2'} busy={tagsSaving} label={tagsSaving ? 'Saving…' : 'Save tag changes'} disabled={tagsSaving} onClick={saveTags} />
-    </div>
-  </svelte:fragment>
-</StorageRootDrawerShell>
+  onSaved={handleTagsSaved}
+/>
 
 <EntityAlertDrawer
   open={showAlertsDrawer}
