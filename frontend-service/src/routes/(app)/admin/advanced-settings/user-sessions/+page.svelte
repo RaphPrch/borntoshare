@@ -73,7 +73,7 @@
         toast.success(t('Session disconnected.'));
         await refresh();
       } else {
-        const appError = toAppError(new Error(String(res?.message ?? 'Unable to disconnect session.')), {
+        const appError = toAppError(new Error(String(res?.message ?? t('Unable to disconnect session.'))), {
           source: 'ui',
           details: res
         });

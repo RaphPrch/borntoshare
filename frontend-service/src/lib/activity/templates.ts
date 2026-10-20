@@ -44,6 +44,8 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'access_request.approved': { titleKey: 'activity.access_request.approved.title', descriptionKey: 'activity.access_request.approved.description', badge: 'admin', icon: 'check2-circle' },
   'access_request.rejected': { titleKey: 'activity.access_request.rejected.title', descriptionKey: 'activity.access_request.rejected.description', badge: 'admin', icon: 'x-circle' },
   'access_request.executed': { titleKey: 'activity.access_request.executed.title', descriptionKey: 'activity.access_request.executed.description', badge: 'info', icon: 'check2-circle' },
+  'access_request.revoked': { titleKey: 'activity.access_request.revoked.title', descriptionKey: 'activity.access_request.revoked.description', badge: 'admin', icon: 'person-x' },
+  'auth.login': { titleKey: 'activity.auth.login.title', descriptionKey: 'activity.auth.login.description', badge: 'info', icon: 'box-arrow-in-right' },
   'access_request.failed': { titleKey: 'activity.access_request.failed.title', descriptionKey: 'activity.access_request.failed.description', badge: 'critical', scope: 'security', icon: 'exclamation-triangle' },
 
   // Identity sources / RBAC
@@ -51,6 +53,7 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'identity_source.updated': { titleKey: 'activity.identity_source.updated.title', descriptionKey: 'activity.identity_source.updated.description', badge: 'admin', scope: 'security', icon: 'person-badge' },
   'identity_source.deleted': { titleKey: 'activity.identity_source.deleted.title', descriptionKey: 'activity.identity_source.deleted.description', badge: 'critical', scope: 'security', icon: 'person-x' },
   'identity_source.sync_started': { titleKey: 'activity.identity_source.sync_started.title', descriptionKey: 'activity.identity_source.sync_started.description', badge: 'info', icon: 'arrow-repeat' },
+  'identity_source.sync_completed': { titleKey: 'activity.identity_source.sync_completed.title', descriptionKey: 'activity.identity_source.sync_completed.description', badge: 'info', icon: 'arrow-repeat' },
   'identity_source.sync_failed': { titleKey: 'activity.identity_source.sync_failed.title', descriptionKey: 'activity.identity_source.sync_failed.description', badge: 'critical', scope: 'security', icon: 'exclamation-triangle' },
 
   'role.assigned': { titleKey: 'activity.role.assigned.title', descriptionKey: 'activity.role.assigned.description', badge: 'critical', scope: 'security', icon: 'key' },

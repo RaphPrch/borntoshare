@@ -5,10 +5,10 @@
 
   export let model: ProvisioningConfigurationModel;
 
-  const isZoneScope = () => model.scope === 'zone';
-  const mode = () => model.inheritanceMode ?? (isZoneScope() ? 'override' : 'inherit');
-  const isLocked = () => model.scope === 'storage-endpoint' && Boolean(model.inheritanceModeLocked);
-  const canEdit = () => (isZoneScope() ? true : Boolean(model.canEditOverrideFields) && !isLocked());
+  $: zoneScope = model.scope === 'zone';
+  $: mode = model.inheritanceMode ?? (zoneScope ? 'override' : 'inherit');
+  $: locked = model.scope === 'storage-endpoint' && Boolean(model.inheritanceModeLocked);
+  $: editable = zoneScope ? true : Boolean(model.canEditOverrideFields) && !locked;
 
   const triggerSave = () => model.onSavePolicy?.();
   const changeOu = (event: Event) => {
@@ -21,9 +21,9 @@
   };
 
   const tokenExamples = [
-    { token: '{PREFIX}', meaning: 'Préfixe de convention (ex: B2S)' },
-    { token: '{ROOTCODE}', meaning: 'Code du storage root (ex: finance_rw)' },
-    { token: '{PERM}', meaning: 'Niveau de permission (ex: RX / RW)' }
+    { token: '{PREFIX}', meaning: t('Préfixe de convention (ex: B2S)') },
+    { token: '{ROOTCODE}', meaning: t('Code du storage root (ex: finance_rw)') },
+    { token: '{PERM}', meaning: t('Niveau de permission (ex: RX / RW)') }
   ];
 </script>
 
@@ -35,14 +35,14 @@
   <div class="provisioning-card__body">
     {#if model.scope === 'storage-endpoint'}
       <div class="provisioning-mode-group" role="radiogroup" aria-label={t('Provisioning mode')}>
-        <section class={`provisioning-mode-option ${mode() === 'inherit' ? 'provisioning-mode-option--active' : ''}`}>
+        <section class={`provisioning-mode-option ${mode === 'inherit' ? 'provisioning-mode-option--active' : ''}`}>
           <label class="provisioning-mode-option__header">
             <input
               type="radio"
               name="endpoint-provisioning-mode"
-              checked={mode() === 'inherit'}
+              checked={mode === 'inherit'}
               on:change={() => model.onChangeInheritanceMode?.('inherit')}
-              disabled={isLocked()}
+              disabled={locked}
             />
             <span>{t('Inherit zone policy')}</span>
           </label>
@@ -51,13 +51,13 @@
           </p>
         </section>
 
-        {#if !isLocked()}
-          <section class={`provisioning-mode-option ${mode() === 'override' ? 'provisioning-mode-option--active' : ''}`}>
+        {#if !locked}
+          <section class={`provisioning-mode-option ${mode === 'override' ? 'provisioning-mode-option--active' : ''}`}>
             <label class="provisioning-mode-option__header">
               <input
                 type="radio"
                 name="endpoint-provisioning-mode"
-                checked={mode() === 'override'}
+                checked={mode === 'override'}
                 on:change={() => model.onChangeInheritanceMode?.('override')}
               />
               <span>{t('Endpoint override')}</span>
@@ -70,7 +70,7 @@
                   type="text"
                   value={model.organizationalUnit}
                   on:input={changeOu}
-                  disabled={!canEdit()}
+                  disabled={!editable}
                 />
               </label>
 
@@ -80,7 +80,7 @@
                   type="text"
                   value={model.namingTemplate}
                   on:input={changeNaming}
-                  disabled={!canEdit()}
+                  disabled={!editable}
                 />
               </label>
 
@@ -106,7 +106,7 @@
                   type="button"
                   class="provisioning-link"
                   on:click={() => model.onUseZoneValues?.()}
-                  disabled={!canEdit()}
+                  disabled={!editable}
                 >
                   {t('Use zone values')}
                 </button>

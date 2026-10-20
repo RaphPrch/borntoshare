@@ -29,7 +29,7 @@
     {
       id: 'local',
       label: t('Local user'),
-      badge: 'Local',
+      badge: t('Local'),
       icon: 'bi-person',
       description: [
         'Create a BornToShare account that is managed locally.',
@@ -49,7 +49,7 @@
     {
       id: 'directory_group',
       label: t('Directory group'),
-      badge: 'Group',
+      badge: t('Group'),
       icon: 'bi-people-fill',
       description: [
         'Allow all members of an AD/LDAP group to sign in.',
@@ -155,7 +155,7 @@
       adSources = activeAdSources(await listIdentitySources(fetch));
       if (!adSources.length) {
         onCancel();
-        toast.warning("Import impossible: aucune identity source Active Directory active n'est definie.");
+        toast.warning(t('Import impossible: aucune identity source Active Directory active n\'est definie.'));
         return false;
       }
       if (!selectedSourceId) {
@@ -298,7 +298,7 @@
     const hasSources = await ensureAdSources();
     if (!hasSources) return;
     if (!selectedSourceId) {
-      toast.warning("Impossible d'ouvrir le browser AD : aucune identity source Active Directory n'est selectionnee.");
+      toast.warning(t('Impossible d\'ouvrir le browser AD : aucune identity source Active Directory n\'est selectionnee.'));
       return;
     }
     showAdBrowser = true;
@@ -353,8 +353,8 @@
     : '';
   $: roleError = attemptedSubmit && !applicationRole ? t('Select an application role first.') : '';
   $: submitDisabledReason = mode === 'local'
-    ? localUsernameError || localDisplayNameError || localPasswordError || roleError || 'Complete required fields first.'
-    : sourceError || principalError || roleError || 'Complete required fields first.';
+    ? localUsernameError || localDisplayNameError || localPasswordError || roleError || t('Complete required fields first.')
+    : sourceError || principalError || roleError || t('Complete required fields first.');
 
   function buildCreatePayload(): CreateIdentityPayload {
     if (mode === 'local') {

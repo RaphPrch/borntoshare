@@ -4,7 +4,7 @@
 
   export let model: ProvisioningPreviewModel;
 
-  const statusClass = () => `provisioning-status-badge provisioning-status-badge--${model.status}`;
+  $: statusClass = `provisioning-status-badge provisioning-status-badge--${model.status}`;
 </script>
 
 <article class="provisioning-card">
@@ -13,7 +13,7 @@
   </header>
 
   <div class="provisioning-card__body">
-    <div class={statusClass()}>{model.statusLabel}</div>
+    <div class={statusClass}>{model.statusLabel}</div>
 
     <div class="provisioning-preview-table" role="table" aria-label={t('Provisioning preview values')}>
       <div class="provisioning-preview-row" role="row">

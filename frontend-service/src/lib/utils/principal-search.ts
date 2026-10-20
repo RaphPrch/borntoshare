@@ -123,7 +123,7 @@ export const principalKey = (item: Record<string, unknown>) =>
   ).toLowerCase();
 
 export const principalLabel = (item: Record<string, unknown>): string =>
-  asText(item.display_name ?? item.username ?? item.dn ?? item.id ?? 'Identity');
+  asText(item.display_name ?? item.username ?? item.dn ?? item.id ?? t('Identity'));
 
 export const principalSubtitle = (item: Record<string, unknown>): string => {
   const normalizedType = String(item.type ?? 'user').toLowerCase();

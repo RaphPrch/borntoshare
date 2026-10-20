@@ -41,21 +41,21 @@
   $: kpis = [
     {
       key: "endpoints",
-      label: "Endpoints",
+      label: t('Endpoints'),
       value: String(endpoints.length),
       tone: "info",
       icon: "bi-hdd-network"
     },
     {
       key: "roots",
-      label: "Storage roots",
+      label: t('Storage roots'),
       value: String(storageRootCount),
       tone: "neutral",
       icon: "bi-diagram-3"
     },
     {
       key: "reachability",
-      label: "Reachability",
+      label: t('Reachability'),
       value: availabilityRate,
       hint: t('{reachableCount}/{value} reachable', { reachableCount: healthSummary.reachableCount, value: (healthSummary.endpointCount || 0) }),
       tone: reachabilityTone,

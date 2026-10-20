@@ -306,7 +306,7 @@
           lastSnapshotGroupsCount = groups;
           lastSnapshotMembershipsCount = memberships;
           snapshotStore.setSuccess(sourceId, {
-            note: 'Snapshot metadata loaded',
+            note: t('Snapshot metadata loaded'),
             lastRunAt: meta.at,
             lastSnapshotStatus: meta.status,
             lastSnapshotVersion: meta.version,
@@ -370,7 +370,7 @@
         snapshotStartedByCaller = false;
       }
       if (!createdSourceId) {
-        snapshotInitError = createError ?? 'Unable to create source before snapshot initialization.';
+        snapshotInitError = createError ?? t('Unable to create source before snapshot initialization.');
         snapshotInitStatusText = t('Snapshot initialization failed.');
         return;
       }
@@ -509,7 +509,7 @@
       if (Number.isFinite(sourceId) && sourceId > 0) {
         createdSourceId = sourceId;
         snapshotStore.upsert(sourceId, {
-          note: 'Identity source created from wizard'
+          note: t('Identity source created from wizard')
         });
         await loadSnapshotCounts(sourceId);
         // Initial snapshot for AD sources with snapshots enabled (best effort).

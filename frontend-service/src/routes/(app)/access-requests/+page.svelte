@@ -74,10 +74,10 @@
   $: sidebarCounts = buildSidebarCounts(requests, tabCounts);
   $: kpis = buildKpis(requests, tabCounts);
   $: canReviewSelectedRequest = Boolean(selectedRequest) && isReviewAllowed(selectedRequest);
-  $: pageTitle = canReviewAny ? "Validation des requêtes d'accès" : "Mes demandes d'accès";
+  $: pageTitle = canReviewAny ? t('Validation des requêtes d\'accès') : t('Mes demandes d\'accès');
   $: pageSubtitle = canReviewAny
-    ? "Examinez et décidez les demandes d'accès gouvernées."
-    : "Consultez l'état et l'historique de vos demandes d'accès.";
+    ? t('Examinez et décidez les demandes d\'accès gouvernées.')
+    : t('Consultez l\'état et l\'historique de vos demandes d\'accès.');
   $: {
     const openCreate = String($page.url.searchParams.get('create') ?? '').toLowerCase();
     showCreateRequestModal = openCreate === '1' || openCreate === 'true';
@@ -208,9 +208,11 @@
 
   function accessShort(row: any): string {
     const label = accessRequestAccessLabel(row);
-    if (norm(label).includes('write')) return t('Écriture');
-    if (norm(label).includes('contributor') || norm(label).includes('contribution')) return t('Contributeur');
-    if (norm(label).includes('read')) return t('Lecture');
+    // label is translated (FR or EN): test both languages
+    const value = norm(label);
+    if (value.includes('write') || value.includes('écriture')) return t('Écriture');
+    if (value.includes('contributor') || value.includes('contribution') || value.includes('contributeur')) return t('Contributeur');
+    if (value.includes('read') || value.includes('lecture')) return t('Lecture');
     return label;
   }
 
@@ -346,7 +348,7 @@
       decisionComment = '';
       await invalidateAll();
     } catch {
-      toast.error(decision === 'approve' ? "L'approbation a échoué." : 'Le refus a échoué.');
+      toast.error(decision === 'approve' ? t('L\'approbation a échoué.') : t('Le refus a échoué.'));
     } finally {
       decisionRunning = null;
     }
@@ -419,8 +421,8 @@
 
     return [
       { label: t('Soumise'), meta: t('{requestedAt} par {requesterName}', { requestedAt: requestedAt(row), requesterName: requesterName(row) }), state: 'done' },
-      { label: t('Validation Guardian'), meta: 'En cours', state: 'current' },
-      { label: t('Provisioning capsule'), meta: 'En attente', state: 'waiting' }
+      { label: t('Validation Guardian'), meta: t('En cours'), state: 'current' },
+      { label: t('Provisioning capsule'), meta: t('En attente'), state: 'waiting' }
     ];
   }
 

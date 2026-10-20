@@ -39,7 +39,7 @@
     form.retentionEnabled && !(Number(form.retentionDays) >= 1 && Number(form.retentionDays) <= 3650)
       ? t('Retention must be between 1 and 3650 days.')
       : null;
-  $: levelError = levels.includes(form.level as LogLevel) ? null : 'Invalid log level.';
+  $: levelError = levels.includes(form.level as LogLevel) ? null : t('Invalid log level.');
   $: hasErrors = Boolean(retentionError || levelError);
   $: isDirty = JSON.stringify(normalize(form)) !== initialSnapshot;
   $: canSave = !saving && isDirty && !hasErrors;

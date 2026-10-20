@@ -22,7 +22,7 @@
   export let onQueryChange: (value: string) => void = () => {};
   export let showToneDot = true;
   export let endpointId: (ep: EndpointRow) => number = () => 0;
-  export let endpointName: (ep: EndpointRow) => string = () => 'Endpoint';
+  export let endpointName: (ep: EndpointRow) => string = () => t('Endpoint');
   export let endpointTone: (ep: EndpointRow) => 'healthy' | 'warning' | 'error' = () => 'warning';
   export let endpointAlertCount: (ep: EndpointRow) => number = () => 0;
   export let endpointAlertIndicator: (ep: EndpointRow) => { kind: 'warning' | 'error'; label: string } | null = () => null;

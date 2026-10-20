@@ -74,9 +74,9 @@
   export let activityRemainder: Array<Record<string, unknown>> = [];
   export let activityLoading = false;
   export let tagId: (tag: StorageRootTag) => number = () => 0;
-  export let tagLabel: (tag: StorageRootTag) => string = () => 'Tag';
+  export let tagLabel: (tag: StorageRootTag) => string = () => t('Tag');
   export let tagColor: (tag: StorageRootTag) => string | null = () => null;
-  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => 'Unknown';
+  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => t('Unknown');
 
   export let onSelectTab: (tab: StorageRootTabKey) => void = () => {};
   export let onEditRoot: () => void = () => {};
@@ -103,7 +103,7 @@
       ? t('ACL stale · snapshot {value}', { value: (aclSnapshotId || 'newer') })
       : aclScannedAt
         ? t('{aclPermissionsCount} ACL entries · {value}', { aclPermissionsCount, value: (aclState || 'fresh') })
-        : 'No ACL scan yet';
+        : t('No ACL scan yet');
 
   const tabs: Array<{ key: StorageRootTabKey; label: string; icon: string }> = [
     { key: 'overview', label: t('Overview'), icon: 'bi-grid' },

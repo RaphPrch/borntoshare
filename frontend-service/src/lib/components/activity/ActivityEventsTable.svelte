@@ -202,8 +202,8 @@
     const item = formatActivityItem(entry);
     const ctx = eventContext(entry);
     const action = firstString(entry?.action, entry?.type, entry?.event) || 'event';
-    const title = firstString(item?.title, action) || 'Activity recorded';
-    const description = firstString(item?.subtitle1, entry?.description, ctx.description, ctx.message) || 'Activity recorded';
+    const title = firstString(item?.title, action) || t('Activity recorded');
+    const description = firstString(item?.subtitle1, entry?.description, ctx.description, ctx.message) || t('Activity recorded');
     const type = classify(entry, title, action, (item as any)?.badgeKind);
     const actor = actorLabel(entry, ctx);
     const timestampMs = parseTimestamp(entry);

@@ -80,20 +80,20 @@
       return null;
     }
   })();
-  $: replaceMapError = parsedReplaceMap ? null : 'JSON invalide pour Replace map.';
-  $: groupPrefixError = normalizedCurrent.group_prefix ? null : 'Prefix is required.';
+  $: replaceMapError = parsedReplaceMap ? null : t('JSON invalide pour Replace map.');
+  $: groupPrefixError = normalizedCurrent.group_prefix ? null : t('Prefix is required.');
   $: templateError =
     !normalizedCurrent.template
       ? t('Le template est requis.')
       : hasKnownToken
         ? null
-        : 'Template must contain at least one supported token.';
+        : t('Template must contain at least one supported token.');
   $: maxSamError =
     Number.isFinite(Number(policy.max_sam_length)) &&
     Number(policy.max_sam_length) >= 8 &&
     Number(policy.max_sam_length) <= 256
       ? null
-      : 'Max sAM length must be between 8 and 256.';
+      : t('Max sAM length must be between 8 and 256.');
   $: formHasErrors = Boolean(replaceMapError || groupPrefixError || templateError || maxSamError);
   $: isDirty = JSON.stringify(normalizedCurrent) !== initialSnapshot || replaceMapText !== initialReplaceMapSnapshot;
   $: canSave = !saving && isDirty && !formHasErrors;

@@ -109,7 +109,7 @@
     const status = String(src?.snapshotStatus ?? '').trim().toUpperCase();
     const users = Number(src?.usersCount ?? 0) || 0;
     const groups = Number(src?.groupsCount ?? 0) || 0;
-    const suffix = status ? t('{status} · {users} users · {groups} groups', { status, users, groups }) : 'No searchable snapshot';
+    const suffix = status ? t('{status} · {users} users · {groups} groups', { status, users, groups }) : t('No searchable snapshot');
     return `${name} · ${suffix}`;
   };
 
@@ -260,7 +260,7 @@
 
       await handleSourceChange(selectedSourceId, { rootDnOverride: resolvedRootDn });
     } catch (e) {
-      store.setError(e?.message ?? 'Unable to load identity sources');
+      store.setError(e?.message ?? t('Unable to load identity sources'));
     } finally {
       store.setLoading('loadingSources', false);
     }
@@ -308,7 +308,7 @@
       }
     } catch (e) {
       if (!controller.signal.aborted) {
-        store.setError(e?.message ?? 'Unable to load directory tree');
+        store.setError(e?.message ?? t('Unable to load directory tree'));
       }
     } finally {
       releaseController(controller);
@@ -350,7 +350,7 @@
       store.mergeChildren(dn, children);
     } catch (e) {
       if (!controller.signal.aborted) {
-        store.setError(e?.message ?? 'Unable to load sub-units');
+        store.setError(e?.message ?? t('Unable to load sub-units'));
       }
     } finally {
       releaseController(controller);
@@ -409,7 +409,7 @@
       store.setRows(response.rows, response.total);
     } catch (e) {
       if (!controller.signal.aborted) {
-        store.setError(e?.message ?? 'Search failed');
+        store.setError(e?.message ?? t('Search failed'));
       }
     } finally {
       releaseController(controller);
@@ -443,7 +443,7 @@
         maxAttempts: 15
       });
       if (!probe.ok) {
-        throw new Error(probe.errorMessage || 'Refresh probe failed');
+        throw new Error(probe.errorMessage || t('Refresh probe failed'));
       }
 
       invalidateIdentitySourceInternalCache(selectedSourceId);
@@ -452,7 +452,7 @@
       lastSyncAt = await loadIdentitySourceLastSync(fetch, selectedSourceId, { force: true });
       toast.success(t('AD tree and objects refreshed'));
     } catch (e) {
-      store.setError(e?.message ?? 'Unable to refresh directory');
+      store.setError(e?.message ?? t('Unable to refresh directory'));
     } finally {
       refreshBusy = false;
     }
@@ -487,7 +487,7 @@
         }
         if (status === 'failed' || status === 'error') {
           const message = String((state?.error as any)?.message ?? '').trim();
-          throw new Error(message || 'Snapshot regeneration failed');
+          throw new Error(message || t('Snapshot regeneration failed'));
         }
         await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
@@ -505,7 +505,7 @@
       toast.success(t('Snapshot regenerated and browser refreshed'));
     } catch (e) {
       snapshotStatusLabel = t('Snapshot regeneration failed');
-      store.setError(e?.message ?? 'Snapshot regeneration failed');
+      store.setError(e?.message ?? t('Snapshot regeneration failed'));
     } finally {
       snapshotBusy = false;
     }

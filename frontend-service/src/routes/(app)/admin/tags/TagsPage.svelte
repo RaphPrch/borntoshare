@@ -29,7 +29,7 @@
   // so TagPill + modal edition always work.
   $: tagsNorm = (data.tags ?? []).map((tag: any) => ({
     ...tag,
-    label: tag.label ?? tag.name ?? tag.code ?? "Tag",
+    label: tag.label ?? tag.name ?? tag.code ?? t('Tag'),
     color_rgb: tag.color_rgb ?? tag.color ?? null
   }));
 
@@ -123,14 +123,14 @@
   $: tagActions = [
     {
       key: "new",
-      label: "Create tag",
+      label: t('Create tag'),
       icon: "bi-plus-lg",
       variant: "primary",
       onClick: openCreate
     },
     {
       key: "edit",
-      label: "Edit tag",
+      label: t('Edit tag'),
       icon: "bi-pencil-square",
       variant: "secondary",
       disabled: !selectedTag,
@@ -138,7 +138,7 @@
     },
     {
       key: "delete",
-      label: "Delete tag",
+      label: t('Delete tag'),
       icon: "bi-trash",
       variant: "danger",
       disabled: !selectedTag || getUsage(selectedTag) > 0,
@@ -232,16 +232,16 @@
 
       if (modalMode === "create") {
         await createTag(fetch, { name, label, code, color_rgb, color, value_text });
-        toast.success("Tag created.");
+        toast.success(t('Tag created.'));
       } else if (modalMode === "edit" && selectedTag) {
         await updateTag(fetch, selectedTag.id, { name, label, code, color_rgb, color, value_text });
-        toast.success("Tag updated.");
+        toast.success(t('Tag updated.'));
       }
 
       modalOpen = false;
       await invalidateAll();
     } catch (e) {
-      errorMsg = e?.message ?? "Operation failed.";
+      errorMsg = e?.message ?? t('Operation failed.');
       showApiErrorToast(e, "Unable to save tag.");
     } finally {
       busy = false;
@@ -262,12 +262,12 @@
 
     try {
       await deleteTag(fetch, selectedTag.id);
-      toast.success("Tag deleted.");
+      toast.success(t('Tag deleted.'));
       showDeleteConfirm = false;
       selectedId = null;
       await invalidateAll();
     } catch (e) {
-      const msg = e?.message ?? "Delete failed.";
+      const msg = e?.message ?? t('Delete failed.');
       errorMsg = msg;
       if (isDependencyDeleteError(e)) {
         const usage = getUsage(selectedTag);

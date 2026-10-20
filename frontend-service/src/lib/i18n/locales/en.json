@@ -7,15 +7,23 @@
   "Approuver": "Approve",
   "Approuvée": "Approved",
   "Approuvées": "Approved",
+  "Aucun acces existant bloquant detecte.": "No blocking existing access detected.",
+  "Aucun probe récent ne confirme la joignabilité.": "No recent probe confirms reachability.",
   "Aucune requête à valider.": "No request to review.",
   "avec template": "with template",
   "Bind secret introuvable": "Bind secret not found",
   "Bind secret introuvable. Configurez un bind_password_ref valide avant de lancer le probe.": "Bind secret not found. Configure a valid bind_password_ref before running the probe.",
+  "Cette demande ne peut pas etre soumise.": "This request cannot be submitted.",
+  "Cette demande sera traitee comme une elevation.": "This request will be handled as an elevation.",
+  "Champs manquants.": "Missing fields.",
+  "Chargement du contexte du storage root.": "Loading the storage root context.",
   "Chargement du détail complet...": "Loading full details...",
+  "Code du storage root (ex: finance_rw)": "Storage root code (e.g. finance_rw)",
   "Collecte": "Collection",
   "Collecte LDAP et projection snapshot": "LDAP collection and snapshot projection",
   "Commentaire de validation (optionnel)": "Decision comment (optional)",
   "Configuration globale de nommage des groupes AD": "Global AD group naming configuration",
+  "Consultez l'état et l'historique de vos demandes d'accès.": "Review the status and history of your access requests.",
   "Contributeur": "Contributor",
   "Copier": "Copy",
   "Copier le Request ID": "Copy the Request ID",
@@ -31,8 +39,11 @@
   "Détail de la requête": "Request details",
   "En attente": "Pending",
   "En attente — {stageText}": "Pending — {stageText}",
+  "En cours": "In progress",
   "En cours…": "In progress…",
   "en cours…": "in progress…",
+  "Endpoint id invalide.": "Invalid endpoint id.",
+  "Examinez et décidez les demandes d'accès gouvernées.": "Review and decide governed access requests.",
   "Exemple:": "Example:",
   "Fermer le détail": "Close details",
   "Files de validation": "Review queues",
@@ -43,18 +54,28 @@
   "Historique de la requête": "Request history",
   "Hostname valide.": "Valid hostname.",
   "Identifiant de job invalide": "Invalid job identifier",
+  "Import impossible: aucune identity source Active Directory active n'est definie.": "Import impossible: no active Active Directory identity source is defined.",
+  "Impossible d'ouvrir le browser AD : aucune identity source Active Directory n'est selectionnee.": "Cannot open the AD browser: no Active Directory identity source is selected.",
   "IP valide.": "Valid IP.",
+  "JSON invalide pour Replace map.": "Invalid JSON for Replace map.",
+  "L'approbation a échoué.": "Approval failed.",
+  "La demande ne peut pas être provisionnée.": "The request cannot be provisioned.",
   "Laissez vide pour conserver le secret actuel.": "Leave empty to keep the current secret.",
   "Lance le premier snapshot pour hydrater la BDD (date, version, objets).": "Runs the first snapshot to populate the database (date, version, objects).",
+  "Le dernier probe indique un root non joignable.": "The last probe reports an unreachable root.",
+  "Le refus a échoué.": "Rejection failed.",
   "Le template est requis.": "The template is required.",
   "Lecture": "Read",
   "Lecture du snapshot impossible.": "Unable to read the snapshot.",
   "Les approbations sont appliquées via des profils gouvernés et l'exécution de capsules.": "Approvals are applied through governed profiles and capsule execution.",
+  "Mes demandes d'accès": "My access requests",
   "Mes validations": "My reviews",
   "Navigation des requêtes": "Request navigation",
+  "Niveau de permission (ex: RX / RW)": "Permission level (e.g. RX / RW)",
   "Nom": "Name",
   "Profil d'accès": "Access profile",
   "Profil d'accès demandé": "Requested access profile",
+  "Préfixe de convention (ex: B2S)": "Naming prefix (e.g. B2S)",
   "Rechercher": "Search",
   "Rechercher...": "Search...",
   "Refus...": "Rejecting...",
@@ -79,6 +100,8 @@
   "Trier: Nom": "Sort: Name",
   "Trier: Usage": "Sort: Usage",
   "Type un hostname ou une IP.": "Type a hostname or an IP.",
+  "Une erreur inattendue est survenue.": "An unexpected error occurred.",
+  "Validation des requêtes d'accès": "Access request review",
   "Validation des requêtes d'accès · BornToShare": "Access request review · BornToShare",
   "Validation en cours": "Review in progress",
   "Validation indisponible": "Validation unavailable",
@@ -219,6 +242,10 @@
       "failed": {
         "title": "Access provisioning failed",
         "description": "Provisioning failed for {user} on \"{root}\""
+      },
+      "revoked": {
+        "title": "Access revoked",
+        "description": "Access of {user} on \"{root}\" was revoked"
       }
     },
     "identity_source": {
@@ -241,6 +268,10 @@
       "sync_failed": {
         "title": "Sync failed",
         "description": "Sync failed for \"{source}\""
+      },
+      "sync_completed": {
+        "title": "Directory synchronized",
+        "description": "Snapshot of \"{source}\" completed"
       }
     },
     "acl_template": {
@@ -432,6 +463,12 @@
     "generic": {
       "fallback_title": "{action}",
       "fallback_description": "{target}"
+    },
+    "auth": {
+      "login": {
+        "title": "Sign-in",
+        "description": "{user} signed in"
+      }
     }
   },
   "badges": {

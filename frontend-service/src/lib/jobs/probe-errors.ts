@@ -32,7 +32,7 @@ export function normalizeProbeError(e: unknown): NormalizedProbeError {
     pickString(rec, 'message') ??
     pickString(rec, 'errorMessage') ??
     pickString(rec, 'error') ??
-    'Unknown error';
+    t('Unknown error');
   const technical = pickString(rec, 'technical') ?? raw;
 
   if (contains(raw, 'missing required') || contains(raw, 'required field') || contains(raw, 'invalid')) {

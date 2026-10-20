@@ -69,14 +69,14 @@
   let deleteConfirmation = "";
 
   const DELETE_CONFIRM_TOKEN = "DELETE";
-  const drawerTitle = () =>
+  $: drawerTitle =
     mode === 'edit'
       ? t('Edit storage root')
       : mode === 'delete'
         ? t('Delete storage root')
         : t('Create storage root');
 
-  const drawerSubtitle = () =>
+  $: drawerSubtitle =
     mode === 'delete'
       ? t('This action is irreversible. Confirm the deletion of this storage root.')
       : mode === 'edit'
@@ -93,7 +93,7 @@
     const id = endpointIdOf(endpoint);
     const code = String(endpoint?.code ?? "").trim();
     const name = String(endpoint?.name ?? endpoint?.storage_endpoint_name ?? endpoint?.label ?? "").trim();
-    const base = name || (id > 0 ? t('Endpoint #{id}', { id }) : "Endpoint");
+    const base = name || (id > 0 ? t('Endpoint #{id}', { id }) : t('Endpoint'));
     return code ? `${code} — ${base}` : base;
   };
 
@@ -144,14 +144,14 @@
   async function probeConnection() {
     const endpoint: any = selectedEndpoint();
     if (!endpoint) {
-      toast.warning("Select an endpoint first");
+      toast.warning(t('Select an endpoint first'));
       return;
     }
 
     const probeConfig = resolveStorageEndpointProbeConfig(endpoint);
     const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Storage endpoint') });
     if (!validation.ok) {
-      toast.error(validation.message ?? 'Endpoint must have SMB/CIFS host, username and bind_password_ref to run probe');
+      toast.error(validation.message ?? t('Endpoint must have SMB/CIFS host, username and bind_password_ref to run probe'));
       return;
     }
 
@@ -172,11 +172,11 @@
         maxAttempts: 80
       });
 
-      if (!final.ok) throw new Error(final.errorMessage || 'Probe failed');
+      if (!final.ok) throw new Error(final.errorMessage || t('Probe failed'));
       probeOk = true;
       toast.success(t('Connection probe successful'));
     } catch (e) {
-      probeError = e?.message ?? 'Probe failed';
+      probeError = e?.message ?? t('Probe failed');
       toast.error(probeError);
     } finally {
       probeBusy = false;
@@ -186,14 +186,14 @@
   async function discoverRoots() {
     const endpoint: any = selectedEndpoint();
     if (!endpoint) {
-      toast.warning("Select an endpoint first");
+      toast.warning(t('Select an endpoint first'));
       return;
     }
 
     const probeConfig = resolveStorageEndpointProbeConfig(endpoint);
     const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Storage endpoint') });
     if (!validation.ok) {
-      toast.error(validation.message ?? 'Endpoint must have SMB/CIFS host, username and bind_password_ref to discover roots');
+      toast.error(validation.message ?? t('Endpoint must have SMB/CIFS host, username and bind_password_ref to discover roots'));
       return;
     }
 
@@ -213,7 +213,7 @@
         maxAttempts: 80
       });
 
-      if (!final.ok) throw new Error(final.errorMessage || 'Discovery failed');
+      if (!final.ok) throw new Error(final.errorMessage || t('Discovery failed'));
       detectedRoots = parseStorageEndpointProbeRoots(final.result);
       if (detectedRoots.length === 0) {
         toast.warning(t('No roots discovered'));
@@ -223,7 +223,7 @@
         toast.success(t('{count} roots discovered', { count: detectedRoots.length }));
       }
     } catch (e) {
-      probeError = e?.message ?? 'Discovery failed';
+      probeError = e?.message ?? t('Discovery failed');
       toast.error(probeError);
     } finally {
       discoverBusy = false;
@@ -249,11 +249,11 @@
 
     if (mode === "edit") {
       if (!displayName || !rootPath) {
-        toast.warning("Please fill required fields");
+        toast.warning(t('Please fill required fields'));
         return;
       }
     } else if (!form.storage_endpoint_id || discoveryRoots.length === 0) {
-      toast.warning("Please fill required fields");
+      toast.warning(t('Please fill required fields'));
       return;
     }
 
@@ -284,8 +284,8 @@
   <StorageRootDrawerShell
     open={open}
     onClose={onClose}
-    title={drawerTitle()}
-    subtitle={drawerSubtitle()}
+    title={drawerTitle}
+    subtitle={drawerSubtitle}
     ariaLabelledby="sr-edit-root-drawer-title"
     width="560px"
     topOffset="70px"

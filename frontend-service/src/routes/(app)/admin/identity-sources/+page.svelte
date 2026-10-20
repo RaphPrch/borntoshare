@@ -146,13 +146,13 @@
   const compactProbeLabel = (card: IdentitySourceCardVM | null): string => {
     if (!card) return '—';
     if (!card.supportsProbe) return t('Not applicable');
-    return card.lastProbeLabel || 'Never';
+    return card.lastProbeLabel || t('Never');
   };
 
   const compactSnapshotLabel = (card: IdentitySourceCardVM | null): string => {
     if (!card) return '—';
     if (!card.supportsSnapshot) return t('Not applicable');
-    return card.lastSnapshotLabel || 'No snapshot yet';
+    return card.lastSnapshotLabel || t('No snapshot yet');
   };
 
 
@@ -482,7 +482,7 @@
         toast.error(t('Bind secret introuvable. Configurez un bind_password_ref valide avant de lancer le probe.'));
         jobsStore.failJob(identityProbeJobInput(source.id), {
           message: t('Bind secret introuvable'),
-          error: 'Bind secret introuvable'
+          error: t('Bind secret introuvable')
         });
         return;
       }
@@ -536,13 +536,13 @@
         },
         notify: toast,
         successMessage: t('Probe OK.'),
-        failureMessage: ({ errorMessage }) => errorMessage ?? 'Probe failed.'
+        failureMessage: ({ errorMessage }) => errorMessage ?? t('Probe failed.')
       });
 
       if (!final.ok) {
         jobsStore.failJob(identityProbeJobInput(source.id), {
-          message: final.errorMessage ?? 'Probe failed',
-          error: final.errorMessage ?? 'Probe failed'
+          message: final.errorMessage ?? t('Probe failed'),
+          error: final.errorMessage ?? t('Probe failed')
         });
         await loadHealthSummaryForSource(source.id, true);
         await refreshList();
@@ -560,7 +560,7 @@
         status: 'success',
         loading: false,
         error: null,
-        note: 'Snapshot metadata refreshed after probe',
+        note: t('Snapshot metadata refreshed after probe'),
         ...toSnapshotStorePatch(refreshedMeta)
       });
       patchSourceRuntimeMeta(source.id, {
@@ -598,7 +598,7 @@
       status: 'running',
       loading: true,
       error: null,
-      note: 'Snapshot sync running'
+      note: t('Snapshot sync running')
     });
 
     try {
@@ -606,7 +606,7 @@
       const jobId = Number(run?.job_id ?? 0);
       jobsStore.upsertJob(identitySnapshotJobInput(source.id), {
         status: 'running',
-        message: jobId > 0 ? t('Snapshot queued · job #{jobId}', { jobId }) : 'Snapshot queued'
+        message: jobId > 0 ? t('Snapshot queued · job #{jobId}', { jobId }) : t('Snapshot queued')
       });
 
       if (jobId > 0) {
@@ -632,13 +632,13 @@
             const backendStatus = String(rawJob?.status ?? '').trim().toLowerCase();
             jobsStore.upsertJob(identitySnapshotJobInput(source.id), {
               status: nextStatus,
-              message: backendStatus ? t('Snapshot {backendStatus}', { backendStatus }) : 'Snapshot running'
+              message: backendStatus ? t('Snapshot {backendStatus}', { backendStatus }) : t('Snapshot running')
             });
           }
         });
 
         if (polled.status === 'error' || polled.status === 'timeout') {
-          throw new Error(polled.errorMessage ?? 'Snapshot failed');
+          throw new Error(polled.errorMessage ?? t('Snapshot failed'));
         }
       }
 
@@ -709,8 +709,8 @@
             ? membershipsCount !== null
               ? t('Snapshot synchronized · {importedCount} objet(s) · {membershipsCount} membership(s).', { importedCount, membershipsCount })
               : t('Snapshot synchronized · {importedCount} objet(s).', { importedCount })
-            : 'Snapshot synchronized.'
-          : 'Snapshot started. Synchronization in progress.'
+            : t('Snapshot synchronized.')
+          : t('Snapshot started. Synchronization in progress.')
       );
       await refreshList();
       await loadHealthSummaryForSource(source.id, true);

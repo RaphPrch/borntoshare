@@ -123,7 +123,7 @@
         model.zone_id = initialZoneId;
       }
     } catch (e) {
-      const message = e?.message ?? 'Unable to load wizard data.';
+      const message = e?.message ?? t('Unable to load wizard data.');
       zonesError = message;
       identitySourcesError = message;
     } finally {
@@ -420,7 +420,7 @@
   $: rootRangeEnd = Math.min(rootPage * rootsPerPage, rootRows.length);
   $: selectedPreviewRoots = governedRoots.slice(0, 4);
   $: hiddenSelectedCount = Math.max(0, governedRoots.length - selectedPreviewRoots.length);
-  $: endpointHostLabel = String(model.host ?? '').trim() || 'Storage endpoint';
+  $: endpointHostLabel = String(model.host ?? '').trim() || t('Storage endpoint');
   $: lastScanLabel =
     discoverStatus === 'running'
       ? 'running'
@@ -501,7 +501,7 @@
         });
       } else {
         discoverStatus = 'failed';
-        discoverError = polled.errorMessage ?? 'Discovery failed';
+        discoverError = polled.errorMessage ?? t('Discovery failed');
         jobsStore.failJob(wizardDiscoveryJobInput(), {
           message: discoverError,
           error: discoverError,
@@ -510,7 +510,7 @@
       }
     } catch (e) {
       discoverStatus = 'failed';
-      discoverError = e?.message ?? 'Unable to run discovery';
+      discoverError = e?.message ?? t('Unable to run discovery');
       jobsStore.failJob(wizardDiscoveryJobInput(), {
         message: discoverError,
         error: discoverError
@@ -587,7 +587,7 @@
       if (onDone) onDone();
       else if (isPage) goto('/admin/storage-endpoints');
     } catch (e) {
-      toast.error(e?.message ?? 'Creation failed');
+      toast.error(e?.message ?? t('Creation failed'));
     }
   }
 </script>

@@ -101,16 +101,16 @@
 
   const norm = (v?: string | null) => (v ?? '').toLowerCase().trim();
   const endpointId = (ep: any) => Number(ep?.id ?? ep?.storage_endpoint_id ?? 0);
-  const endpointName = (ep: any) => String(ep?.name ?? ep?.storage_endpoint_name ?? 'Unavailable');
-  const endpointHost = (ep: any) => String(ep?.host ?? 'Unavailable');
+  const endpointName = (ep: any) => String(ep?.name ?? ep?.storage_endpoint_name ?? t('Unavailable'));
+  const endpointHost = (ep: any) => String(ep?.host ?? t('Unavailable'));
   const endpointHasHost = (ep: any): boolean => {
     const host = String(ep?.host ?? '').trim();
     return Boolean(host) && host.toLowerCase() !== 'unavailable';
   };
-  const endpointZone = (ep: any) => String(ep?.zone?.name ?? ep?.zone_name ?? 'Unavailable');
+  const endpointZone = (ep: any) => String(ep?.zone?.name ?? ep?.zone_name ?? t('Unavailable'));
   const rootId = (row: any) => Number(row?.id ?? row?.storage_root_id ?? 0);
-  const rootName = (row: any) => String(row?.name ?? row?.storage_root_name ?? 'Unavailable');
-  const rootPath = (row: any) => String(row?.root_path ?? row?.path ?? row?.location ?? 'Unavailable');
+  const rootName = (row: any) => String(row?.name ?? row?.storage_root_name ?? t('Unavailable'));
+  const rootPath = (row: any) => String(row?.root_path ?? row?.path ?? row?.location ?? t('Unavailable'));
   const rootsForEndpoint = (ep: any): any[] =>
     roots.filter((row) => Number(row?.storage_endpoint_id ?? 0) === endpointId(ep));
 
@@ -220,7 +220,7 @@
     const date = new Date(text);
     if (!Number.isFinite(date.getTime())) return fallback;
     const diffMs = Date.now() - date.getTime();
-    if (diffMs < 0) return formatDateTime(text, { empty: 'Unavailable' });
+    if (diffMs < 0) return formatDateTime(text, { empty: t('Unavailable') });
     const seconds = Math.floor(diffMs / 1000);
     if (seconds < 60) return t('Just now');
     const minutes = Math.floor(seconds / 60);
@@ -229,7 +229,7 @@
     if (hours < 24) return t('{hours} h ago', { hours });
     const days = Math.floor(hours / 24);
     if (days < 30) return t('{days} day{value} ago', { days, value: (days > 1 ? 's' : '') });
-    return formatDateTime(text, { empty: 'Unavailable' });
+    return formatDateTime(text, { empty: t('Unavailable') });
   };
 
   function handleEndpointTabChange(key: string) {
@@ -280,7 +280,7 @@
   $: sidebarGroups = (() => {
     const map = new Map<string, { zone_id: string | number; zone_name: string; endpoints: any[] }>();
     for (const ep of sidebarEndpoints) {
-      const zoneName = endpointZone(ep) || 'Unavailable';
+      const zoneName = endpointZone(ep) || t('Unavailable');
       const rawZoneId = Number(ep?.zone_id ?? ep?.zone?.id ?? 0);
       const resolvedZoneId = Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId(ep)}`;
       const key = String(resolvedZoneId);
@@ -509,7 +509,7 @@
       endpointProvisioningError = null;
       endpointProvisioningLoadedForId = id;
     } catch (e) {
-      endpointProvisioningError = String((e as any)?.message ?? 'Unable to load endpoint provisioning policy.');
+      endpointProvisioningError = String((e as any)?.message ?? t('Unable to load endpoint provisioning policy.'));
       endpointProvisioningLoadedForId = null;
     }
   }
@@ -529,7 +529,7 @@
       toast.success(t('Endpoint provisioning policy updated.'));
       await invalidateAll();
     } catch (e) {
-      endpointProvisioningError = String((e as any)?.message ?? 'Unable to save endpoint provisioning policy.');
+      endpointProvisioningError = String((e as any)?.message ?? t('Unable to save endpoint provisioning policy.'));
       toast.error(endpointProvisioningError);
     } finally {
       endpointProvisioningBusy = false;
@@ -602,7 +602,7 @@
         protocol: probeConfig.protocol,
         message: validation.message
       });
-      toast.error(validation.message ?? 'Invalid endpoint probe configuration.');
+      toast.error(validation.message ?? t('Invalid endpoint probe configuration.'));
       return;
     }
 
@@ -678,7 +678,7 @@
         await persistEndpointProbeSnapshot(id, {
           last_probe_status: 'failed',
           last_probe_at: probeAt,
-          last_probe_message: String(final.errorMessage ?? 'Probe failed')
+          last_probe_message: String(final.errorMessage ?? t('Probe failed'))
         });
 
         applyAvailabilityHealth(
@@ -695,7 +695,7 @@
       await persistEndpointProbeSnapshot(id, {
         last_probe_status: 'failed',
         last_probe_at: new Date().toISOString(),
-        last_probe_message: String(err?.message ?? 'Probe failed')
+        last_probe_message: String(err?.message ?? t('Probe failed'))
       });
 
       applyAvailabilityHealth(
@@ -757,7 +757,7 @@
         closeDeleteModal();
         return;
       }
-      toast.error((e as any)?.message ?? 'Unable to delete endpoint.');
+      toast.error((e as any)?.message ?? t('Unable to delete endpoint.'));
     } finally {
       deleteBusy = false;
     }
@@ -800,12 +800,12 @@
 
   const endpointLastProbeLabel = (ep: any): string => {
     const raw = endpointLastProbeRaw(ep);
-    return raw ? formatRelativeDate(raw, 'No probe data') : 'No probe data';
+    return raw ? formatRelativeDate(raw, 'No probe data') : t('No probe data');
   };
 
   const endpointLastCommunicationLabel = (ep: any): string => {
     const raw = endpointLastProbeRaw(ep);
-    return raw ? formatDateTime(raw, { empty: 'Unavailable' }) : 'No probe data';
+    return raw ? formatDateTime(raw, { empty: t('Unavailable') }) : t('No probe data');
   };
 
   const endpointLastResultLabel = (ep: any): string => {
@@ -830,15 +830,15 @@
     const lastResult = endpointLastResultLabel(ep);
 
     if (health === 'healthy') return null;
-    if (health === 'unknown') return 'run a probe or refresh status to collect the latest result';
-    if (health === 'unhealthy') return lastResult || 'last probe failed';
+    if (health === 'unknown') return t('run a probe or refresh status to collect the latest result');
+    if (health === 'unhealthy') return lastResult || t('last probe failed');
 
     const unavailableRoots = unavailableRootDetails(endpointId(ep));
     if (unavailableRoots.length > 0) {
       return t('endpoint probe is reachable, but unavailable roots need review ({join})', { join: unavailableRoots.join(', ') });
     }
 
-    return lastResult || 'probe or configuration needs review';
+    return lastResult || t('probe or configuration needs review');
   };
 
   let kpiItems: EntityKpiItem[] = [];
@@ -874,7 +874,7 @@
       label: t('{endpointPendingCount} pending request{value}', { endpointPendingCount: endpointPendingCount(ep), value: (endpointPendingCount(ep) > 1 ? 's' : '') }),
       tone: endpointPendingCount(ep) > 0 ? 'warning' : 'neutral'
     },
-    { icon: 'bi-hdd-network', label: endpointHasHost(ep) ? endpointHost(ep) : 'No host configured', tone: endpointHasHost(ep) ? 'neutral' : 'warning' },
+    { icon: 'bi-hdd-network', label: endpointHasHost(ep) ? endpointHost(ep) : t('No host configured'), tone: endpointHasHost(ep) ? 'neutral' : 'warning' },
     { icon: 'bi-clock-history', label: endpointLastProbeLabel(ep), tone: endpointHealth(ep) === 'healthy' ? 'success' : 'warning' }
   ];
 
@@ -888,11 +888,12 @@
       provisioningWarnings: options?.includeProvisioningWarnings ? provisioningWarnings : []
     });
 
+  // Attention items are translated sentences: compare with the translated error sentences
   const endpointAlertToneFromText = (value: string): 'warning' | 'error' => {
-    const text = String(value ?? '').toLowerCase();
-    return text.includes('unreachable') || text.includes('failed') || text.includes('missing host')
-      ? 'error'
-      : 'warning';
+    const text = String(value ?? '');
+    const errors = [t('Endpoint is currently unreachable.'), healthLabel('unhealthy'), t('Endpoint host is missing.'),
+                    t('Endpoint host is missing: {hostLabel}', { hostLabel: '' })];
+    return errors.some((prefix) => prefix && text.startsWith(prefix.replace(/[.:]\s*$/, ''))) ? 'error' : 'warning';
   };
 
   const operationalAlertItemsForEndpoint = (ep: any, options?: { includeProvisioningWarnings?: boolean }): EntityAlertStripItem[] =>
@@ -913,7 +914,7 @@
       const detail = storageRootAlertSummarySubtitle(alert);
       return {
         key: `endpoint-root-alert-${endpointId(ep)}-${String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${alertRootId}`)}`,
-        title: String(alert?.title ?? 'Attention required'),
+        title: String(alert?.title ?? t('Attention required')),
         subtitle: detail ? `${rootLabel} · ${detail}` : rootLabel,
         tone: storageRootAlertTone(alert)
       };
@@ -949,9 +950,11 @@
     };
   };
 
-  $: endpointAlertItems = selected
-    ? buildStorageEndpointAlerts(selected, { includeProvisioningWarnings: true })
-    : [];
+  // Health, probe and refresh state are read inside the helpers: list them so Svelte recomputes
+  $: healthState = [endpointHealthById, rootHealthByEndpointId, healthLoadingByEndpointId,
+                    manualHealthRefreshByEndpointId, probingEndpointId];
+  $: endpointAlertItems = ((..._deps: unknown[]) =>
+    selected ? buildStorageEndpointAlerts(selected, { includeProvisioningWarnings: true }) : [])(healthState);
 
   const endpointHeaderActions = (ep: any): EntityActionItem[] => [
     {
@@ -1166,8 +1169,9 @@
     {:else if selected}
       <EntityConsoleShell>
         <svelte:fragment slot="header">
+          {#key healthState}
           <EntityHeader
-            eyebrow="Storage endpoint"
+            eyebrow={t('Storage endpoint')}
             title={t('{endpointName} Console', { endpointName: endpointName(selected) })}
             subtitle={endpointHost(selected) || endpointZone(selected)}
             metaItems={endpointHeaderMetaItems(selected)}
@@ -1182,6 +1186,7 @@
             onViewAll={() => (showEndpointAlertsDrawer = true)}
             ariaLabel={t('Storage endpoint alerts')}
           />
+          {/key}
         </svelte:fragment>
 
         <svelte:fragment slot="tabs">

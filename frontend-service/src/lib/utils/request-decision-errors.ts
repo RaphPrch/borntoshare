@@ -92,8 +92,8 @@ const mapByCode = (args: {
       actionLabel: actionHref ? t('Open storage root') : null,
       actionHref,
       showInlineNotice: true,
-      inlinePrimary: 'Technical configuration missing: the AD group for this access level cannot be named.',
-      inlineSecondary: 'Fix the naming policy (zone, endpoint or storage root), then retry the decision.'
+      inlinePrimary: t('Technical configuration missing: the AD group for this access level cannot be named.'),
+      inlineSecondary: t('Fix the naming policy (zone, endpoint or storage root), then retry the decision.')
     };
   }
 
@@ -133,7 +133,7 @@ const mapByCode = (args: {
 
   return {
     title: t('Decision failed'),
-    message: fallbackMessage ?? 'The request could not be applied. Review the request configuration and try again.',
+    message: fallbackMessage ?? t('The request could not be applied. Review the request configuration and try again.'),
     severity: 'error',
     code,
     permission,

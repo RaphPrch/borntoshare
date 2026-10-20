@@ -172,7 +172,7 @@
       if (seq === overviewLoadSeq) {
         overviewByRootId = {
           ...overviewByRootId,
-          [String(rootId)]: { _load_error: 'Unable to load storage root validation details' }
+          [String(rootId)]: { _load_error: t('Unable to load storage root validation details') }
         };
       }
     } finally {
@@ -215,14 +215,14 @@
       if (blockingResult) {
         existingAccessBlocking = true;
         existingAccessCheckTone = 'error';
-        existingAccessCheckMessage = `${principalLabel(blockingResult.principal)} · ${blockingResult.result.message || 'Cette demande ne peut pas etre soumise.'}`;
+        existingAccessCheckMessage = `${principalLabel(blockingResult.principal)} · ${blockingResult.result.message || t('Cette demande ne peut pas etre soumise.')}`;
         return;
       }
 
       const elevationResult = results.find(({ result }) => result?.code === 'ELEVATION_ALLOWED' || result?.reason === 'ELEVATION_ALLOWED');
       if (elevationResult) {
         existingAccessCheckTone = 'warning';
-        existingAccessCheckMessage = `${principalLabel(elevationResult.principal)} · ${elevationResult.result.message || 'Cette demande sera traitee comme une elevation.'}`;
+        existingAccessCheckMessage = `${principalLabel(elevationResult.principal)} · ${elevationResult.result.message || t('Cette demande sera traitee comme une elevation.')}`;
         return;
       }
 
@@ -230,7 +230,7 @@
       existingAccessCheckMessage =
         results.length > 1
           ? t('{count} beneficiaires peuvent recevoir cette demande.', { count: results.length })
-          : 'Aucun acces existant bloquant detecte.';
+          : t('Aucun acces existant bloquant detecte.');
     } catch {
       if (seq !== existingAccessCheckSeq) return;
       existingAccessCheckTone = 'neutral';
@@ -256,7 +256,7 @@
         {
           key: 'loading',
           label: t('Validation en cours'),
-          detail: 'Chargement du contexte du storage root.',
+          detail: t('Chargement du contexte du storage root.'),
           tone: 'pending',
           blocking: true
         }
@@ -289,8 +289,8 @@
       detail: reachable
         ? t('Dernier probe OK.')
         : unreachable
-          ? String(overview?.last_probe_message ?? overview?.revalidation_reason ?? 'Le dernier probe indique un root non joignable.')
-          : 'Aucun probe récent ne confirme la joignabilité.',
+          ? String(overview?.last_probe_message ?? overview?.revalidation_reason ?? t('Le dernier probe indique un root non joignable.'))
+          : t('Aucun probe récent ne confirme la joignabilité.'),
       tone: reachable ? 'success' : 'error',
       blocking: !reachable
     });
@@ -357,10 +357,10 @@
       errors.justification = 'La justification est obligatoire';
     }
     if (blockingProvisioningChecks.length > 0) {
-      errors.permissions = blockingProvisioningChecks[0]?.detail || 'La demande ne peut pas être provisionnée.';
+      errors.permissions = blockingProvisioningChecks[0]?.detail || t('La demande ne peut pas être provisionnée.');
     }
     if (existingAccessBlocking && !errors.principal) {
-      errors.principal = existingAccessCheckMessage || "Cette demande ne peut pas etre soumise.";
+      errors.principal = existingAccessCheckMessage || t('Cette demande ne peut pas etre soumise.');
     }
     return !errors.storageRootId && !errors.permissions && !errors.principal && !errors.ttl && !errors.justification;
   }
@@ -460,7 +460,7 @@
         if (!precheck?.can_request) {
           existingAccessBlocking = true;
           existingAccessCheckTone = 'error';
-          existingAccessCheckMessage = `${principalLabel(principal)} · ${precheck?.message || 'Cette demande ne peut pas etre soumise.'}`;
+          existingAccessCheckMessage = `${principalLabel(principal)} · ${precheck?.message || t('Cette demande ne peut pas etre soumise.')}`;
           throw new Error(existingAccessCheckMessage);
         }
         await createAccessRequest(fetch, {
@@ -475,12 +475,12 @@
       toast.success(
         selectedPrincipalsCount > 1
           ? t('{selectedPrincipalsCount} access requests created', { selectedPrincipalsCount })
-          : 'Access request created'
+          : t('Access request created')
       );
       onCreated();
       onClose();
     } catch (error: any) {
-      toast.error(String(error?.message || 'Failed to create request'));
+      toast.error(String(error?.message || t('Failed to create request')));
     } finally {
       submitting = false;
     }

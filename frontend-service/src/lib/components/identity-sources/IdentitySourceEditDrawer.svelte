@@ -118,7 +118,7 @@
     ? t('Checking')
     : probeResult
       ? (probeResult.ok ? t('Healthy') : t('Unhealthy'))
-      : sourceCard?.healthLabel ?? 'Unknown';
+      : sourceCard?.healthLabel ?? t('Unknown');
 
   $: healthTone = probeRunning
     ? 'info'
@@ -129,7 +129,7 @@
   $: checkedLabel = (() => {
     if (probeRunning) return t('Testing now');
     const checked = probeResult?.checkedAt ?? source?.last_probe_at ?? null;
-    return checked ? t('Last tested {formatRelativeTimestamp}', { formatRelativeTimestamp: formatRelativeTimestamp(checked) }) : 'No test yet';
+    return checked ? t('Last tested {formatRelativeTimestamp}', { formatRelativeTimestamp: formatRelativeTimestamp(checked) }) : t('No test yet');
   })();
 
   const probeResultValue = (keys: string[]): unknown => {

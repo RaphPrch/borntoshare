@@ -35,7 +35,7 @@ export const mapPrincipalToDisplayVM = (principal: PrincipalLike): PrincipalDisp
           ? 'OU'
           : normalizedType === 'user'
             ? t('User')
-            : toText(principal?.type) || 'Identity',
+            : toText(principal?.type) || t('Identity'),
     iconKind,
     iconClass:
       normalizedType === 'group'

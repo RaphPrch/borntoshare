@@ -11,7 +11,10 @@ const REQUEST_STATUS_MAP: Record<string, AccessRequestStatusMeta> = {
   approved: { label: 'Approved', tone: 'approved' },
   enforced: { label: 'Enforced', tone: 'enforced' },
   revoked: { label: 'Revoked', tone: 'revoked' },
-  rejected: { label: 'Rejected', tone: 'rejected' }
+  rejected: { label: 'Rejected', tone: 'rejected' },
+  executed: { label: 'Applied', tone: 'enforced' },
+  expired: { label: 'Expired', tone: 'neutral' },
+  failed: { label: 'Failed', tone: 'rejected' }
 };
 
 const resolveRequestStatusMeta = (status?: string | null): AccessRequestStatusMeta => {

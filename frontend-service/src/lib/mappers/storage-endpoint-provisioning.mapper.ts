@@ -52,9 +52,9 @@ export function computeProvisioningSummary(
 } {
   return {
     modeLabel: policy?.policy_mode === 'override' ? t('Endpoint override') : t('Inherited from zone/global'),
-    policySource: policy?.policy_source_label ?? 'Policy not configured',
-    effectiveOu: txt(policy?.effective_values?.ou_dn) || 'Not configured',
-    namingTemplate: txt(policy?.effective_values?.naming_template) || 'Not configured',
+    policySource: policy?.policy_source_label ?? t('Policy not configured'),
+    effectiveOu: txt(policy?.effective_values?.ou_dn) || t('Not configured'),
+    namingTemplate: txt(policy?.effective_values?.naming_template) || t('Not configured'),
     adProvisioningLabel:
       policy?.example_groups?.read && policy?.example_groups?.write
         ? t('Sample groups generated')

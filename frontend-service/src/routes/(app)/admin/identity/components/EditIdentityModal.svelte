@@ -46,7 +46,7 @@
   }
 
   $: title = isGroup ? t('Edit group') : t('Edit account');
-  $: subtitle = String(identity?.display_name ?? identity?.username ?? '').trim() || 'Unknown identity';
+  $: subtitle = String(identity?.display_name ?? identity?.username ?? '').trim() || t('Unknown identity');
   $: roleLabel = selectedRole === 'platform_admin' ? t('Platform administrator') : t('User');
   $: canEditPassword = isLocalUser;
   $: canToggleActive = isUser;
@@ -162,7 +162,7 @@
       dispatch('done');
       close();
     } catch (err: any) {
-      error = err?.message ?? 'Failed to save changes.';
+      error = err?.message ?? t('Failed to save changes.');
     } finally {
       loading = false;
     }

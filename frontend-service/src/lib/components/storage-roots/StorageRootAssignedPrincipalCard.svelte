@@ -7,8 +7,8 @@
   export let owner: Record<string, unknown> = {};
   export let role: 'guardian' = 'guardian';
   export let saving = false;
-  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => 'Unknown';
-  export let ownerTypeLabel: (owner: Record<string, unknown>) => string = () => 'User';
+  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => t('Unknown');
+  export let ownerTypeLabel: (owner: Record<string, unknown>) => string = () => t('User');
   export let onRemove: (owner: Record<string, unknown>) => void = () => {};
 
   $: vm = mapGovernanceOwnerToCardVM(owner, {

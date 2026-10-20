@@ -68,7 +68,7 @@
               </span>
             </div>
             <div class="activity__meta">
-              <span>{a.actor_display_name ?? '—'}</span>
+              <span>{a.actor_display_name ?? a.actor_display ?? (a.actor_type === 'system' ? t('System') : a.actor_id ?? '—')}</span>
               <span class="dot">•</span>
               <span>{timeLabel(a.created_at)}</span>
             </div>

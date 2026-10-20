@@ -26,7 +26,7 @@ const resolveTitle = (row: GovernanceOwnerLike, fallbackDisplayName?: string): s
     toText(row?.name) ||
     toText(row?.username) ||
     toText(row?.email) ||
-    'Unknown user'
+    t('Unknown user')
   );
 };
 

@@ -39,10 +39,10 @@
   const norm = (value: unknown): string => String(value ?? '').trim().toLowerCase();
   const rootId = (row: StorageRootRow): number => Number(row?.storage_root_id ?? row?.id ?? 0);
   const rootLabel = (row: StorageRootRow): string =>
-    String(row?.storage_root_name ?? row?.storage_root_code ?? 'Storage root').trim() || 'Storage root';
+    String(row?.storage_root_name ?? row?.storage_root_code ?? t('Storage root')).trim() || t('Storage root');
   const zoneId = (row: StorageRootRow): string => String(row?.zone_id ?? 'unassigned-zone');
   const zoneLabel = (row: StorageRootRow): string =>
-    String(row?.zone_name ?? 'Unassigned zone').trim() || 'Unassigned zone';
+    String(row?.zone_name ?? t('Unassigned zone')).trim() || t('Unassigned zone');
 
   const depthClass = (depth: number): string => `is-depth-${Math.min(Math.max(0, depth), 5)}`;
 
@@ -234,7 +234,7 @@
                         type="button"
                         class="sr-clean-tree__root-caret"
                         class:is-empty={!hasChildren}
-                        aria-label={hasChildren ? `${rootCollapsed ? 'Expand' : 'Collapse'} ${rootLabel(entry.row)}` : undefined}
+                        aria-label={hasChildren ? `${rootCollapsed ? t('Expand') : t('Collapse')} ${rootLabel(entry.row)}` : undefined}
                         aria-expanded={hasChildren ? !rootCollapsed : undefined}
                         disabled={!hasChildren}
                         on:click={() => toggleRoot(entry.node!.id)}

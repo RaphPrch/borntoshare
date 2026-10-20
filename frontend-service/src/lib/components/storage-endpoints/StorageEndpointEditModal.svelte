@@ -178,7 +178,7 @@
         .then((z) => (zones = z))
         .catch((e: unknown) => {
           zones = [];
-          zonesError = String((e as { message?: string })?.message ?? "Unable to load zones.");
+          zonesError = String((e as { message?: string })?.message ?? t('Unable to load zones.'));
         })
         .finally(() => (zonesLoading = false));
     }
@@ -192,7 +192,7 @@
         })
         .catch((e: unknown) => {
           identitySources = [];
-          identitySourcesError = String((e as { message?: string })?.message ?? "Unable to load identity sources.");
+          identitySourcesError = String((e as { message?: string })?.message ?? t('Unable to load identity sources.'));
         })
         .finally(() => (identitySourcesLoading = false));
     }
@@ -215,18 +215,18 @@
   function resolveHostInput() {
     const value = host.trim();
     if (!value) {
-      resolveHint = { ok: false, message: "Type un hostname ou une IP." };
+      resolveHint = { ok: false, message: t('Type un hostname ou une IP.') };
       return;
     }
     if (isValidIPv4(value)) {
-      resolveHint = { ok: true, message: "IP valide." };
+      resolveHint = { ok: true, message: t('IP valide.') };
       return;
     }
     if (isValidHostname(value)) {
-      resolveHint = { ok: true, message: "Hostname valide." };
+      resolveHint = { ok: true, message: t('Hostname valide.') };
       return;
     }
-    resolveHint = { ok: false, message: "Format hostname/IP invalide." };
+    resolveHint = { ok: false, message: t('Format hostname/IP invalide.') };
   }
 
   const required = (v?: string | number | null) =>
@@ -301,17 +301,17 @@
 
     const endpointNumericId = Number(pick(endpoint, "id", "storage_endpoint_id") ?? 0);
     if (!endpointNumericId) {
-      toast.error("Endpoint id invalide.");
+      toast.error(t('Endpoint id invalide.'));
       return;
     }
 
     if (!canSave) {
-      toast.error("Champs manquants.");
+      toast.error(t('Champs manquants.'));
       return;
     }
 
     if (duplicateEndpoint) {
-      toast.error("A file server with the same IP/hostname already exists.");
+      toast.error(t('A file server with the same IP/hostname already exists.'));
       return;
     }
 
@@ -324,7 +324,7 @@
 
       if (password.trim()) {
         if (!current.username) {
-          toast.error("Username required to update password.");
+          toast.error(t('Username required to update password.'));
           saving = false;
           return;
         }
@@ -375,17 +375,17 @@
       password = "";
       showPassword = false;
 
-      toast.success("Storage endpoint updated.");
+      toast.success(t('Storage endpoint updated.'));
       onClose?.();
       onSaved?.();
     } catch (e) {
       const code = String(e?.code ?? e?.details?.error?.code ?? "").trim();
       if (code === "SECRET_PERSISTENCE_FAILURE") {
-        toast.error("Secret could not be persisted. Endpoint was not saved.");
+        toast.error(t('Secret could not be persisted. Endpoint was not saved.'));
       } else if (code === "SECRET_DECRYPT_FAILED") {
-        toast.error("Broker could not encrypt or store the password.");
+        toast.error(t('Broker could not encrypt or store the password.'));
       } else if (code === "SECRET_NOT_FOUND") {
-        toast.error("The secure password for this endpoint was not found. Re-save credentials.");
+        toast.error(t('The secure password for this endpoint was not found. Re-save credentials.'));
       } else {
         showApiErrorToast(e, "Unable to save storage endpoint.");
       }
@@ -396,7 +396,7 @@
 
   async function discoverStorageRoots() {
     if (!canSave) {
-      toast.error("Complete endpoint fields before running discovery.");
+      toast.error(t('Complete endpoint fields before running discovery.'));
       return;
     }
 
@@ -469,7 +469,7 @@
         discoverStatus = "success";
       } else {
         discoverStatus = "failed";
-        discoverError = polled.errorMessage ?? "Discovery failed";
+        discoverError = polled.errorMessage ?? t('Discovery failed');
       }
     } catch (e) {
       discoverStatus = "failed";
@@ -480,11 +480,11 @@
   async function saveSelectedRoots() {
     const endpointNumericId = Number(pick(endpoint, "id", "storage_endpoint_id") ?? 0);
     if (!endpointNumericId) {
-      toast.error("Endpoint id invalide.");
+      toast.error(t('Endpoint id invalide.'));
       return;
     }
     if (selectedRoots.length === 0) {
-      toast.error("No storage root selected.");
+      toast.error(t('No storage root selected.'));
       return;
     }
 

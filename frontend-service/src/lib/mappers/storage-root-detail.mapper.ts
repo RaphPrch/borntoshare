@@ -261,7 +261,7 @@ export const ownerDisplayName = (owner: Record<string, unknown>): string =>
     owner?.name ??
     owner?.username ??
     owner?.email ??
-    'Unknown user'
+    t('Unknown user')
   );
 
 export const ownersInlineSummary = (owners: Array<Record<string, unknown>>, emptyLabel: string): string => {

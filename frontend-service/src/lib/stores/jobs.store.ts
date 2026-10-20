@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import { get, writable } from 'svelte/store';
 
 export type JobStatus = 'idle' | 'running' | 'success' | 'error';
@@ -98,7 +99,7 @@ function createJobsStore() {
     upsertJob(input, {
       status: 'error',
       ok: false,
-      error: options?.error ?? options?.message ?? 'Unknown error',
+      error: options?.error ?? options?.message ?? t('Unknown error'),
       message: options?.message ?? null,
       payload: options?.payload,
       finishedAt: nowIso()

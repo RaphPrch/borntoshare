@@ -28,10 +28,10 @@
   export let emptyTitle = t('No guardian assigned yet');
   export let roleRows: Array<Record<string, unknown>> = [];
 
-  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => 'Unknown';
-  export let ownerTypeLabel: (owner: Record<string, unknown>) => string = () => 'User';
+  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => t('Unknown');
+  export let ownerTypeLabel: (owner: Record<string, unknown>) => string = () => t('User');
 
-  const assignedSectionTitle = () => 'Assigned guardians';
+  const assignedSectionTitle = () => t('Assigned guardians');
 
   const unsavedLabel = () =>
     Math.max(1, Math.trunc(unsavedChangesCount || 0)) === 1

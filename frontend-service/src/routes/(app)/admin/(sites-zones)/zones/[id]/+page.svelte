@@ -75,9 +75,9 @@
   $: globalNamingTemplateDefault = String(data?.namingPolicyGlobal?.template ?? "").trim();
 
   const tabs: { key: ZoneTabKey; label: string; icon: string }[] = [
-    { key: "overview", label: "Overview", icon: "bi-grid" },
-    { key: "activity", label: "Activity", icon: "bi-activity" },
-    { key: "provisioning", label: "Provisioning", icon: "bi-shield-check" },
+    { key: "overview", label: t('Overview'), icon: "bi-grid" },
+    { key: "activity", label: t('Activity'), icon: "bi-activity" },
+    { key: "provisioning", label: t('Provisioning'), icon: "bi-shield-check" },
   ];
 
   const tabLoaders: Record<ZoneTabKey, () => Promise<{ default: any }>> = {
@@ -177,7 +177,7 @@
   $: policyValidationErrors = {
     base_ou_dn:
       normalizedPolicyDraft.base_ou_dn && !isLikelyDn(normalizedPolicyDraft.base_ou_dn)
-        ? "Invalid DN format (example: OU=Groups,DC=corp,DC=local)"
+        ? t('Invalid DN format (example: OU=Groups,DC=corp,DC=local)')
         : undefined,
     static_ou_dn: undefined,
   };
@@ -193,7 +193,7 @@
     t('Naming template (managed in Naming Policies): {value}', { value: (resolveZoneNamingTemplate() || "(empty)") }),
   ];
   $: zoneProvisioningOverview = {
-    namingPolicy: resolveZoneNamingTemplate() || "Not configured",
+    namingPolicy: resolveZoneNamingTemplate() || t('Not configured'),
     guardians: Number((data.zone as any)?.guardians_count ?? (data.zone as any)?.guardian_count ?? 0),
     rootsTotal: storageRoots.length,
     rootsBroken: storageRoots.filter((root) => {
@@ -401,9 +401,9 @@
 
   const formatZoneProbeDate = (value: string | null | undefined): string => {
     const text = String(value ?? "").trim();
-    if (!text) return "Never run";
+    if (!text) return t('Never run');
     const date = new Date(text);
-    if (!Number.isFinite(date.getTime())) return "Never run";
+    if (!Number.isFinite(date.getTime())) return t('Never run');
     return date.toLocaleString(intlLocale(), {
       day: "2-digit",
       month: "2-digit",
@@ -445,7 +445,7 @@
       const detail = storageRootAlertSummarySubtitle(alert);
       return {
         key: `zone-root-alert-${String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${rootId}`)}`,
-        title: String(alert?.title ?? 'Attention required'),
+        title: String(alert?.title ?? t('Attention required')),
         subtitle: detail ? `${rootLabel} · ${detail}` : rootLabel,
         tone: storageRootAlertTone(alert),
       };
@@ -529,7 +529,7 @@
     const epName = String(endpoint?.name ?? endpoint?.storage_endpoint_name ?? t('Endpoint #{value}', { value: (id || "-") }));
 
     if (!id) {
-      toast.error("Invalid storage endpoint for probe run.");
+      toast.error(t('Invalid storage endpoint for probe run.'));
       return;
     }
 
@@ -537,9 +537,9 @@
       return;
     }
 
-    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: "Storage endpoint" });
+    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Storage endpoint') });
     if (!validation.ok) {
-      toast.error(validation.message ?? "Storage endpoint credentials are required before running a probe.");
+      toast.error(validation.message ?? t('Storage endpoint credentials are required before running a probe.'));
       return;
     }
 
@@ -547,7 +547,7 @@
       discover: false,
       timeoutSec: 20,
       uiOrigin: "admin",
-      label: "Storage endpoint",
+      label: t('Storage endpoint'),
     });
 
     probeResultsByEndpoint = { ...probeResultsByEndpoint, [String(id)]: "running" };
@@ -563,7 +563,7 @@
       const finalStatus = String(final?.status ?? (final?.ok ? "success" : "failed")).toLowerCase();
       const persistedProbeStatus = canonicalProbeStatus(finalStatus);
       const persistedProbeAt = new Date().toISOString();
-      const message = final?.ok ? "endpoint probe completed" : String(final?.errorMessage ?? "Probe failed");
+      const message = final?.ok ? "endpoint probe completed" : String(final?.errorMessage ?? t('Probe failed'));
 
       probeResultsByEndpoint = {
         ...probeResultsByEndpoint,
@@ -601,7 +601,7 @@
       if (browser) await invalidateAll();
     } catch (e) {
       const persistedProbeAt = new Date().toISOString();
-      const message = String(e?.message ?? "Probe failed");
+      const message = String(e?.message ?? t('Probe failed'));
       probeResultsByEndpoint = {
         ...probeResultsByEndpoint,
         [String(id)]: "failed",
@@ -666,9 +666,9 @@
           naming_template_source: "naming-policies",
         },
       });
-      toast.success("Provisioning policy saved.");
+      toast.success(t('Provisioning policy saved.'));
     } catch (e) {
-      policyError = e?.message ?? "Unable to save policy";
+      policyError = e?.message ?? t('Unable to save policy');
       toast.error(policyError);
     } finally {
       policySaving = false;
@@ -729,7 +729,7 @@
     try {
       if (zoneModalMode === "edit" && editingZone?.id) {
         await updateZone(fetch, editingZone.id, payload);
-        toast.success("Zone updated");
+        toast.success(t('Zone updated'));
         zoneModalOpen = false;
         if (browser && currentZoneId) goto(`/admin/zones/${currentZoneId}`, { invalidateAll: true });
         return;
@@ -744,30 +744,30 @@
         };
 
         if (!payloadWithName.name || !payloadWithName.code) {
-          toast.error("Zone name and code are required.");
+          toast.error(t('Zone name and code are required.'));
           return;
         }
 
         const { id } = await createZone(fetch, payloadWithName);
-        toast.success("Zone created");
+        toast.success(t('Zone created'));
         zoneModalOpen = false;
         if (browser) goto(`/admin/zones/${id}`, { invalidateAll: true });
       }
     } catch (e) {
-      toast.error(e?.message ?? "Zone operation failed");
+      toast.error(e?.message ?? t('Zone operation failed'));
     }
   }
 
   async function confirmDeleteZone() {
     if (!editingZone?.id) return;
     if (hasAttachedEndpoints || hasAttachedStorageRoots) {
-      toast.error("Remove all storage endpoints and storage roots attached to this zone before deleting it.");
+      toast.error(t('Remove all storage endpoints and storage roots attached to this zone before deleting it.'));
       zoneModalOpen = false;
       return;
     }
     try {
       await deleteZone(fetch, editingZone.id);
-      toast.success("Zone deleted");
+      toast.success(t('Zone deleted'));
       zoneModalOpen = false;
       await goto("/admin/zones");
     } catch (e) {
@@ -776,7 +776,7 @@
         toast.error(dependencyDeleteMessage("zone", "storage endpoints or storage roots"));
         return;
       }
-      toast.error(e?.message ?? "Zone delete failed");
+      toast.error(e?.message ?? t('Zone delete failed'));
     }
   }
 
@@ -802,7 +802,7 @@
         .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
     } catch (e: any) {
       attachableEndpoints = [];
-      toast.error(String(e?.message ?? 'Unable to load existing endpoints.'));
+      toast.error(String(e?.message ?? t('Unable to load existing endpoints.')));
     } finally {
       attachEndpointsLoading = false;
     }
@@ -827,7 +827,7 @@
       showEndpointAttachChoice = false;
       await invalidateAll();
     } catch (e: any) {
-      toast.error(String(e?.message ?? 'Unable to attach endpoint.'));
+      toast.error(String(e?.message ?? t('Unable to attach endpoint.')));
     } finally {
       attachEndpointBusyId = null;
     }

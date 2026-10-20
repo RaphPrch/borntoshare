@@ -43,28 +43,28 @@
 
   $: drawerTitle =
     mode === "create"
-      ? "Create zone"
+      ? t('Create zone')
       : mode === "edit"
-        ? "Edit zone"
-        : "Delete zone";
+        ? t('Edit zone')
+        : t('Delete zone');
   $: drawerSubtitle =
     mode === "delete"
-      ? "This action is permanent."
+      ? t('This action is permanent.')
       : mode === "create"
-        ? "Define the zone identity and default governance context."
-        : "Update the zone identity and default governance context.";
+        ? t('Define the zone identity and default governance context.')
+        : t('Update the zone identity and default governance context.');
   $: confirmLabel =
     mode === "delete"
-      ? "Delete"
+      ? t('Delete')
       : mode === "create"
-        ? "Create"
-        : "Save changes";
+        ? t('Create')
+        : t('Save changes');
   $: busyLabel =
     mode === "delete"
-      ? "Deleting..."
+      ? t('Deleting...')
       : mode === "create"
-        ? "Creating..."
-        : "Saving...";
+        ? t('Creating...')
+        : t('Saving...');
 
   async function submit() {
     errorMsg = null;
@@ -77,7 +77,7 @@
         description: form.description?.trim() || null,
       });
     } catch (e) {
-      errorMsg = e?.message ?? "Operation failed";
+      errorMsg = e?.message ?? t('Operation failed');
     } finally {
       busy = false;
     }
@@ -90,7 +90,7 @@
     try {
       await onDelete();
     } catch (e) {
-      errorMsg = e?.message ?? "Delete failed";
+      errorMsg = e?.message ?? t('Delete failed');
     } finally {
       busy = false;
     }

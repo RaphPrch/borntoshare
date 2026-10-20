@@ -28,7 +28,7 @@
 
   const text = (value: unknown) => String(value ?? '').trim();
   const checkKey = (check: any, index: number) => text(check?.key) || text(check?.name) || `check-${index}`;
-  const checkLabel = (check: any) => (text(check?.label) || text(check?.name) || text(check?.key) || 'Probe step').replaceAll('_', ' ');
+  const checkLabel = (check: any) => (text(check?.label) || text(check?.name) || text(check?.key) || t('Probe step')).replaceAll('_', ' ');
   const checkOk = (check: any) => {
     const rawStatus = text(check?.status).toLowerCase();
     if (typeof check?.ok === 'boolean') return check.ok;

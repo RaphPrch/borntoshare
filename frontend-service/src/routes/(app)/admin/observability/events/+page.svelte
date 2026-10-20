@@ -7,7 +7,7 @@
 
   type EventRow = {
     id: string | number;
-    timestampModule: string;
+    time: string;
     severityLabel: UiSeverity;
     severityTone: SeverityTone;
     severityIcon: string;
@@ -80,7 +80,7 @@
     const type = String(entry?.target_type ?? entry?.entity_type ?? '').trim();
     const display = String(entry?.target_display ?? '').trim();
     const id = String(entry?.target_id ?? entry?.entity_id ?? '').trim();
-    const left = type ? prettyToken(type) : 'Platform';
+    const left = type ? prettyToken(type) : t('Platform');
     if (display) return `${left} · ${display}`;
     if (id) return `${left} #${id}`;
     return left;
@@ -159,7 +159,7 @@
 
       return {
         id: entry?.id ?? `${entry?.created_at ?? ''}-${entry?.action ?? ''}`,
-        timestampModule: `${time} · ${module}`,
+        time,
         severityLabel: sev.label,
         severityTone: sev.tone,
         severityIcon: sev.icon,
@@ -230,7 +230,10 @@
             {:else}
               {#each filtered as row (row.id)}
                 <tr>
-                  <td class="events-col-time-module">{row.timestampModule}</td>
+                  <td class="events-col-time-module">
+                    <span class="events-time">{row.time}</span>
+                    <small class="events-module" title={row.module}>{row.module}</small>
+                  </td>
                   <td class="events-col-severity">
                     <span class={`events-severity events-severity--${row.severityTone}`}>
                       <i class={`bi ${row.severityIcon}`} aria-hidden="true"></i>
@@ -340,8 +343,21 @@
   .events-col-time-module {
     width: 240px;
     color: #334155;
-    white-space: nowrap;
     font-weight: 500;
+  }
+
+  .events-time,
+  .events-module {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .events-module {
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: #64748b;
   }
 
   .events-col-severity {

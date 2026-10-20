@@ -567,7 +567,7 @@
 
   const alertItemFromRow = (alert: GovernanceAlert): StorageRootDetailAlertItem => ({
     key: String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${alert?.scope_id ?? ''}`),
-    title: String(alert?.title ?? 'Attention required'),
+    title: String(alert?.title ?? t('Attention required')),
     subtitle: storageRootAlertSummarySubtitle(alert),
     tone: storageRootAlertTone(alert)
   });
@@ -754,7 +754,7 @@
       const rawZoneId = endpointZoneIdOf(endpoint);
       const zoneId = Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId}`;
       const key = String(zoneId);
-      const zoneName = String(endpoint?.zone_name ?? endpoint?.zone?.name ?? 'Unassigned zone');
+      const zoneName = String(endpoint?.zone_name ?? endpoint?.zone?.name ?? t('Unassigned zone'));
 
       if (!byZone.has(key)) {
         byZone.set(key, {
@@ -882,11 +882,11 @@
         ...endpointDiscoveryStateById,
         [endpointId]: {
           status: 'failed',
-          message: String(e?.message ?? 'Endpoint discovery failed'),
+          message: String(e?.message ?? t('Endpoint discovery failed')),
           lastRefreshAt: new Date().toISOString()
         }
       };
-      toast.error(e?.message ?? 'Endpoint discovery failed');
+      toast.error(e?.message ?? t('Endpoint discovery failed'));
     } finally {
       endpointDiscoveryBusyById = { ...endpointDiscoveryBusyById, [String(endpointId)]: false };
     }
@@ -966,8 +966,8 @@
       .map(({ row }) => row)[0] ?? null;
   };
 
-  const managedRootKeysForAddWizard = (): string[] =>
-    ctxRows.map((row) => `${Number(row?.storage_endpoint_id ?? 0)}:${normalizeRootPathForParentLookup(row?.normalized_root_path ?? row?.root_path)}`);
+  const managedRootKeysForAddWizard = (rows: typeof ctxRows): string[] =>
+    rows.map((row) => `${Number(row?.storage_endpoint_id ?? 0)}:${normalizeRootPathForParentLookup(row?.normalized_root_path ?? row?.root_path)}`);
 
   async function createStorageRootFromSelection(options: { inheritGovernance?: boolean; folderIds?: Array<string | number> } = {}) {
     const selectedFolders = selectedAddRootFolders(options.folderIds ?? addRootSelectedFolderIds);
@@ -1249,11 +1249,11 @@
             }
           };
         },
-        failureMessage: ({ errorMessage }) => errorMessage ?? 'Root probe failed'
+        failureMessage: ({ errorMessage }) => errorMessage ?? t('Root probe failed')
       });
 
       if (!final.ok) {
-        throw new Error(storageRootProbeMessage(final.result, final.errorMessage || 'Root probe failed', 'failed'));
+        throw new Error(storageRootProbeMessage(final.result, final.errorMessage || t('Root probe failed'), 'failed'));
       }
 
       const completedAt = new Date().toISOString();
@@ -1342,7 +1342,7 @@
         const probeConfig = resolveStorageEndpointProbeConfig({ ...endpoint, storage_endpoint_id: endpointId });
         const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Root endpoint') });
         if (!validation.ok) {
-          throw new Error(validation.message ?? 'Invalid endpoint for discovery run');
+          throw new Error(validation.message ?? t('Invalid endpoint for discovery run'));
         }
         const discoveryRequest = buildStorageEndpointProbeRequestFromEndpoint(endpoint, {
           discover: true,
@@ -1354,7 +1354,7 @@
           request: discoveryRequest,
           intervalMs: 1500,
           maxAttempts: 80,
-          failureMessage: ({ errorMessage }) => errorMessage ?? 'Endpoint discovery failed'
+          failureMessage: ({ errorMessage }) => errorMessage ?? t('Endpoint discovery failed')
         });
         if (discoveryFinal.ok) {
           await syncStorageRootDiscoveryForEndpoint(fetch, endpointId, discoveryFinal.result);
@@ -1394,7 +1394,7 @@
       await reloadStorageRootActivity(rootId);
     } catch (e: any) {
       const completedAt = new Date().toISOString();
-      const failureMessage = String(e?.message ?? 'Root probe failed');
+      const failureMessage = String(e?.message ?? t('Root probe failed'));
       const persistProbeFailure = async (message: string) => {
         try {
           await recordStorageRootProbeResult(fetch, Number(rootId), {
@@ -1487,7 +1487,7 @@
       await runRootProbe(true);
       toast.success(t('Root probe OK: storage root is reachable'));
     } catch (e: any) {
-      toast.error(e?.message ?? 'Root probe failed');
+      toast.error(e?.message ?? t('Root probe failed'));
     }
   };
 
@@ -1703,10 +1703,10 @@
   let ownersBrowserDefaultRole: 'guardian' = 'guardian';
 
   const GOVERNANCE_HELPER_TEXT = {
-    guardian: 'Guardians manage access governance for this storage root.'
+    guardian: t('Guardians manage access governance for this storage root.')
   } as const;
 
-  const governanceEmptyTitleForRole = (role: 'guardian') => 'No guardian assigned yet';
+  const governanceEmptyTitleForRole = (role: 'guardian') => t('No guardian assigned yet');
 
   const governanceForRole = (role: 'guardian') =>
     governanceOwners.filter((owner) => String(owner?.role ?? '').toLowerCase() === role);
@@ -1762,9 +1762,6 @@
       owners
     });
   };
-
-  const governanceBrowseDisabled = () =>
-    governanceSaving || !selectedStorageRootId;
 
   const governanceOwnerTypeLabel = (owner: Record<string, any>) => {
     const value = String(owner?.identity_type ?? owner?.type ?? '').trim().toLowerCase();
@@ -1826,7 +1823,7 @@
       }
     } catch (e: any) {
       if (token !== governanceOwnersLoadToken) return;
-      governanceError = e?.message ?? 'Unable to load guardians';
+      governanceError = e?.message ?? t('Unable to load guardians');
       governanceOwners = Array.isArray(overview?.owners) ? overview.owners : [];
       if (shouldResetGovernanceDraftFromOwners(governanceDraftDirty)) {
         resetGovernanceDraftFromOwners();
@@ -1994,12 +1991,31 @@
       const hasSnapshotConstraint = /active snapshot|enabled users|invalid identity ids/i.test(rawMessage);
       governanceError = hasSnapshotConstraint
         ? t('Some selected users are not eligible in the active identity snapshot. Re-open Browse directory and select enabled users from the current snapshot.')
-        : rawMessage || 'Unable to update guardians';
+        : rawMessage || t('Unable to update guardians');
       toast.error(governanceError);
     } finally {
       governanceSaving = false;
     }
   }
+  $: rootIdentitySourceId = ((..._deps: unknown[]) => selectedRootIdentitySourceId())(overview, selectedRow, data);
+
+  // Values shown by StorageRootDetailView. The helpers read overview, selectedRow, probe and
+  // activity state themselves; listing those here makes Svelte recompute when any of them changes
+  // (a call like {accessModelRows()} in the markup would only run once).
+  $: detailView = ((..._deps: unknown[]) => ({
+    probeState: selectedProbeState(),
+    aclFreshness: aclFreshnessFromOverview(),
+    endpointLabel: endpointLabel(),
+    endpointAddress: endpointAddressLabel(),
+    accessModelRows: accessModelRows(),
+    rootAvailabilityText: rootAvailabilityText(),
+    rootAvailabilityTone: rootAvailabilityTone(),
+    showStatusBadge: showSelectedStatusBadge(),
+    lastProbeText: lastProbeLabel(),
+    tags: displayTags(selectedRow),
+    recentActivity: recentActivityRows(),
+    activityRemainder: activityRowsForSelectedRoot()
+  }))(overview, selectedRow, selectedStorageRootId, rootProbeStateByRootId, activityRows, activityLoadedForRootId, data);
 </script>
 
 {#if !hasRoots()}
@@ -2031,25 +2047,25 @@
       selectedRootCodeOrName={String(selectedRow?.storage_root_code ?? selectedRow?.storage_root_name ?? '—').toUpperCase()}
       activeTab={$storageRootsUiStore.detailTab}
       {rootProbeBusy}
-      probeState={selectedProbeState()}
-      aclFreshness={aclFreshnessFromOverview()}
+      probeState={detailView.probeState}
+      aclFreshness={detailView.aclFreshness}
       alertItems={selectedRootAlerts}
-      endpointLabel={endpointLabel()}
-      endpointAddress={endpointAddressLabel()}
+      endpointLabel={detailView.endpointLabel}
+      endpointAddress={detailView.endpointAddress}
       pathLabel={selectedRow?.root_path ?? '—'}
       contentSizeLabel={String((overview as any)?.estimated_size_label ?? (overview as any)?.content_size_label ?? '—')}
       contentUpdatedLabel={formatDateTimeLabel((overview as any)?.content_updated_at ?? (overview as any)?.last_content_scan_at ?? (overview as any)?.last_scan_at ?? selectedRow?.last_scan_at ?? null)}
-      accessModelRows={accessModelRows()}
+      accessModelRows={detailView.accessModelRows}
       projectedGroups={overview?.projected_ad_groups ?? []}
       {guardians}
-      rootAvailabilityText={rootAvailabilityText()}
-      rootAvailabilityTone={rootAvailabilityTone()}
-      showStatusBadge={showSelectedStatusBadge()}
-      lastProbeText={lastProbeLabel()}
-      tags={displayTags(selectedRow)}
+      rootAvailabilityText={detailView.rootAvailabilityText}
+      rootAvailabilityTone={detailView.rootAvailabilityTone}
+      showStatusBadge={detailView.showStatusBadge}
+      lastProbeText={detailView.lastProbeText}
+      tags={detailView.tags}
       effectiveAccessUsers={overview?.effective_access ?? []}
-      recentActivity={recentActivityRows()}
-      activityRemainder={activityRowsForSelectedRoot()}
+      recentActivity={detailView.recentActivity}
+      activityRemainder={detailView.activityRemainder}
       activityLoading={activityLoading}
       {tagId}
       {tagLabel}
@@ -2086,7 +2102,7 @@
   selectedEndpointId={addRootSelectedEndpointId}
   selectedFolderId={addRootSelectedFolderId}
   selectedFolderIds={addRootSelectedFolderIds}
-  managedRootKeys={managedRootKeysForAddWizard()}
+  managedRootKeys={managedRootKeysForAddWizard(ctxRows)}
   loading={addRootLoading}
   on:close={closeAddRootModal}
   on:selectZone={(event) => handleSelectAddRootZone(event.detail.zoneId)}
@@ -2170,7 +2186,7 @@
   draftDirty={governanceDraftDirty}
   selectedRootLabel={String(selectedRow?.storage_root_code ?? selectedRow?.storage_root_name ?? t('Storage root')).trim().toUpperCase()}
   helperText={GOVERNANCE_HELPER_TEXT[governanceRoleTab]}
-  browseDisabled={governanceBrowseDisabled()}
+  browseDisabled={governanceSaving || !selectedStorageRootId}
   errorMessage={governanceError}
   unresolvedPrincipalLabels={governanceUnresolvedPrincipalLabels}
   emptyTitle={governanceEmptyTitleForRole(governanceRoleTab)}
@@ -2184,7 +2200,7 @@
 <StorageRootOwnersAdModal
   open={showOwnersBrowserModal}
   storageRootId={selectedStorageRootId}
-  initialSourceId={selectedRootIdentitySourceId()}
+  initialSourceId={rootIdentitySourceId}
   initialGuardianIds={governanceDraftIdentityIds('guardian')}
   defaultAssignedRole={ownersBrowserDefaultRole}
   onClose={closeOwnersBrowserModal}

@@ -9,7 +9,7 @@
   export let saveBusy = false;
   export let showSaveAction = true;
 
-  const sourceClass = () => `provisioning-source-badge provisioning-source-badge--${model.sourceVariant}`;
+  $: sourceClass = `provisioning-source-badge provisioning-source-badge--${model.sourceVariant}`;
 </script>
 
 <article class="provisioning-card">
@@ -21,7 +21,7 @@
     <div class="provisioning-kv">
       <section class="provisioning-kv__item">
         <span class="provisioning-kv__key">{t('Policy source')}</span>
-        <span class={sourceClass()}>{model.sourceLabel}</span>
+        <span class={sourceClass}>{model.sourceLabel}</span>
       </section>
 
       <section class="provisioning-kv__item">

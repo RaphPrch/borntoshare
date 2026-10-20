@@ -79,7 +79,7 @@
       const appError = toAppError(error, { source: 'ui' });
       loadError = appError.message;
       if (!silent) {
-        toast.error(appError.message || 'Unable to load jobs');
+        toast.error(appError.message || t('Unable to load jobs'));
       }
     } finally {
       if (!silent) isLoading = false;

@@ -28,7 +28,7 @@
         route: "/admin/zones",
         zoneId: id
       });
-      toast.success("Zone created");
+      toast.success(t('Zone created'));
       zoneModalOpen = false;
       await invalidateAll();
       await goto(`/admin/zones/${id}`);

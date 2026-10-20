@@ -17,7 +17,7 @@
   export let onDelete: (() => void) | null = null;
 
   $: statusTone = healthLabelToOperationalTone(healthLabel);
-  $: statusLabel = healthLabel === "ok" ? "Health OK" : "Health Warning";
+  $: statusLabel = healthLabel === "ok" ? t('Health OK') : t('Health Warning');
   $: zoneMetaItems = [
     { icon: "bi-hash", label: String(zone?.code ?? "-") },
     { icon: "bi-hdd-network", label: t('{endpointCount} endpoint{value}', { endpointCount, value: (endpointCount > 1 ? "s" : "") }) }
@@ -25,14 +25,14 @@
   $: actions = [
     {
       key: "edit",
-      label: "Edit zone",
+      label: t('Edit zone'),
       icon: "bi-pencil-square",
       variant: "secondary",
       onClick: () => onEdit?.()
     },
     {
       key: "delete",
-      label: "Delete zone",
+      label: t('Delete zone'),
       icon: "bi-trash",
       variant: "danger",
       onClick: () => onDelete?.()

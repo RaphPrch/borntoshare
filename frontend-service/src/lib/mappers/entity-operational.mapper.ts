@@ -64,7 +64,7 @@ export function buildZoneOperationalAttentionItems(input: ZoneOperationalAttenti
     nonRunnableCount > 0
       ? t('{nonRunnableCount} endpoint{value} missing host and/or credentials.', { nonRunnableCount, value: (nonRunnableCount > 1 ? 's are' : ' is') })
       : null,
-    input.provisioningReady ? null : 'Provisioning policy is incomplete.'
+    input.provisioningReady ? null : t('Provisioning policy is incomplete.')
   ].filter(Boolean) as string[];
 
   if (items.length === 0 && input.healthLabel === 'warning') {
@@ -86,12 +86,13 @@ export function buildStorageEndpointOperationalAttentionItems(
     .filter(Boolean);
 
   const items = [
-    healthLabel.toLowerCase() === 'reachable'
+    // healthLabel is already translated: compare with the translated labels
+    healthLabel === t('Reachable')
       ? null
-      : healthLabel.toLowerCase() === 'unreachable'
+      : healthLabel === t('Unreachable')
         ? t('Endpoint is currently unreachable.')
-      : `${healthLabel || 'Endpoint status unknown'}${healthDetail ? `: ${healthDetail}` : '.'}`,
-    input.hostReady ? null : `Endpoint host is missing${hostLabel ? `: ${hostLabel}` : '.'}`,
+      : `${healthLabel || t('Endpoint status unknown')}${healthDetail ? `: ${healthDetail}` : '.'}`,
+    input.hostReady ? null : hostLabel ? t('Endpoint host is missing: {hostLabel}', { hostLabel }) : t('Endpoint host is missing.'),
     pendingRequestCount > 0
       ? t('{pendingRequestCount} access request{value} waiting for review.', { pendingRequestCount, value: (pendingRequestCount > 1 ? 's are' : ' is') })
       : null,

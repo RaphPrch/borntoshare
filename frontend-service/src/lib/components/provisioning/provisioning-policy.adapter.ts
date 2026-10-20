@@ -81,7 +81,7 @@ export function buildZoneProvisioningViewModel(input: unknown): ProvisioningPoli
     sourceLabel: t('Zone policy'),
     sourceVariant: 'zone',
     effectivePrefix: 'B2S',
-    effectiveOu: organizationalUnit || txt(policy?.effective_preview?.effective_ou_dn) || 'Not configured',
+    effectiveOu: organizationalUnit || txt(policy?.effective_preview?.effective_ou_dn) || t('Not configured'),
     effectiveNaming: namingTemplate,
     rootcodeStrategy: 'BASENAME',
     exampleReadGroup: readGroup,
@@ -129,18 +129,18 @@ export function buildStorageEndpointProvisioningViewModel(input: unknown): Provi
 
   const preview: ProvisioningPreviewModel = {
     status: resolvePreviewStatus(policy?.configuration_status),
-    statusLabel: txt(policy?.configuration_message) || 'Ready to provision',
+    statusLabel: txt(policy?.configuration_message) || t('Ready to provision'),
     rootCode,
     readGroup,
     writeGroup
   };
 
   const effective: EffectiveProvisioningModel = {
-    sourceLabel: txt(policy?.policy_source_label) || 'Inherited',
+    sourceLabel: txt(policy?.policy_source_label) || t('Inherited'),
     sourceVariant: resolveSourceVariant(policy?.policy_source),
     effectivePrefix: txt(effectiveNamingPolicy?.group_prefix) || 'B2S',
-    effectiveOu: txt(policy?.effective_values?.ou_dn) || 'Not configured',
-    effectiveNaming: txt(effectiveNamingPolicy?.template) || txt(policy?.effective_values?.naming_template) || 'Not configured',
+    effectiveOu: txt(policy?.effective_values?.ou_dn) || t('Not configured'),
+    effectiveNaming: txt(effectiveNamingPolicy?.template) || txt(policy?.effective_values?.naming_template) || t('Not configured'),
     rootcodeStrategy: txt(effectiveNamingPolicy?.rootcode_strategy) || 'BASENAME',
     maxSamLength: txt(effectiveNamingPolicy?.max_sam_length) || '64',
     exampleReadGroup: readGroup,

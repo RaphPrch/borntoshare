@@ -142,11 +142,11 @@ export const identitySourceTypeLabel = (value?: string): string => {
   if (key === 'oidc') return 'OIDC';
   if (key === 'local') return t('Local');
   if (key === 'scim') return t('SCIM 2.0');
-  return value ?? 'Identity source';
+  return value ?? t('Identity source');
 };
 
 const identitySourceDisplayLabel = (source: IdentitySourceRowLike): string =>
-  source?.display_name ?? source?.name ?? 'Identity source';
+  source?.display_name ?? source?.name ?? t('Identity source');
 
 const normalizeIdentitySourceStatus = (status?: string, isActive?: boolean): string => {
   const key = String(status ?? '').trim().toLowerCase();
@@ -340,7 +340,7 @@ export const mapIdentitySourceToCardVM = (
   const snapshotLabel =
     supportsSnapshot
       ? snapshotLabelFromSource(snapshotStatus, snapshotAt, options?.snapshotJobStatus ?? null)
-      : 'Not applicable';
+      : t('Not applicable');
 
   const usersCount =
     toCount(snapshotMeta?.lastSnapshotUsersCount) ?? toCount(source?.last_snapshot_users_count);
@@ -361,11 +361,11 @@ export const mapIdentitySourceToCardVM = (
       ? t('Probe in progress')
       : lastProbeAt
         ? `${formatAbsoluteTimestamp(lastProbeAt)} (${formatRelativeTimestamp(lastProbeAt)})`
-        : 'Never';
+        : t('Never');
 
   const lastSnapshotLabel = snapshotAt
     ? `${formatAbsoluteTimestamp(snapshotAt)} (${formatRelativeTimestamp(snapshotAt)})`
-    : 'No snapshot yet';
+    : t('No snapshot yet');
 
   return {
     id: Number(source?.id ?? 0),

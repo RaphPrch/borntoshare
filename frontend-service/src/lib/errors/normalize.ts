@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { AppError, ErrorKind, LogLevel } from './types';
 import { asRecord } from '../utils/values';
 
@@ -105,16 +106,16 @@ function defaultsForKind(kind: ErrorKind): ErrorDefaults {
   switch (kind) {
     case 'network':
     case 'timeout':
-      return { level: 'warning', retryable: true, hint: DEFAULT_HINTS[kind] };
+      return { level: 'warning', retryable: true, hint: DEFAULT_HINTS[kind] ? t(DEFAULT_HINTS[kind] as string) : undefined };
     case 'auth':
     case 'forbidden':
     case 'validation':
-      return { level: 'warning', retryable: false, hint: DEFAULT_HINTS[kind] };
+      return { level: 'warning', retryable: false, hint: DEFAULT_HINTS[kind] ? t(DEFAULT_HINTS[kind] as string) : undefined };
     case 'not_found':
     case 'conflict':
-      return { level: 'warning', retryable: true, hint: DEFAULT_HINTS[kind] };
+      return { level: 'warning', retryable: true, hint: DEFAULT_HINTS[kind] ? t(DEFAULT_HINTS[kind] as string) : undefined };
     case 'backend':
-      return { level: 'error', retryable: true, hint: DEFAULT_HINTS[kind] };
+      return { level: 'error', retryable: true, hint: DEFAULT_HINTS[kind] ? t(DEFAULT_HINTS[kind] as string) : undefined };
     default:
       return { level: 'error', retryable: false, hint: DEFAULT_HINTS.unknown };
   }
@@ -162,7 +163,7 @@ function mergeWithContext(base: AppError, context?: Partial<AppError>): AppError
   }
 
   if (!merged.message?.trim()) {
-    merged.message = DEFAULT_MESSAGES[merged.kind];
+    merged.message = t(DEFAULT_MESSAGES[merged.kind]);
   }
 
   return merged;
@@ -234,7 +235,7 @@ export function toAppError(error: unknown, context?: Partial<AppError>): AppErro
   const defaults = defaultsForKind(kind);
 
   const base: AppError = {
-    message: message?.trim() || DEFAULT_MESSAGES[kind],
+    message: message?.trim() || t(DEFAULT_MESSAGES[kind]),
     kind,
     level: defaults.level,
     status,

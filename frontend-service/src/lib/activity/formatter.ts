@@ -60,7 +60,7 @@ function varsFromEvent(ev: any) {
     asStr((ctx as any)?.after?.zone?.name) ??
     asStr(ev?.zone_name) ??
     asStr(ev?.zone) ??
-    (zoneIdRaw ? t('Zone #{zoneIdRaw}', { zoneIdRaw }) : 'Unknown');
+    (zoneIdRaw ? t('Zone #{zoneIdRaw}', { zoneIdRaw }) : t('Unknown'));
   const updatedFields = Array.isArray((ctx as any)?.updated_fields)
     ? (ctx as any).updated_fields
         .map((v: unknown) => String(v ?? '').trim())
@@ -150,16 +150,16 @@ function humanizeAction(value: string): string {
   if (!normalized) return t('Activity recorded');
 
   const known: Record<string, string> = {
-    'storage_root.created': 'Storage root created',
-    'storage_root.updated': 'Storage root updated',
-    'storage_root.deleted': 'Storage root removed',
-    'storage_root.owners.replaced': 'Owners updated',
-    'storage_root.role.assigned': 'Owner assigned',
-    'storage_root.role.removed': 'Owner removed',
-    'storage_root.probe_rerun': 'Storage root probe run',
-    storage_root_created: 'Storage root created',
-    storage_root_updated: 'Storage root updated',
-    storage_root_deleted: 'Storage root removed'
+    'storage_root.created': t('Storage root created'),
+    'storage_root.updated': t('Storage root updated'),
+    'storage_root.deleted': t('Storage root removed'),
+    'storage_root.owners.replaced': t('Owners updated'),
+    'storage_root.role.assigned': t('Owner assigned'),
+    'storage_root.role.removed': t('Owner removed'),
+    'storage_root.probe_rerun': t('Storage root probe run'),
+    storage_root_created: t('Storage root created'),
+    storage_root_updated: t('Storage root updated'),
+    storage_root_deleted: t('Storage root removed')
   };
 
   if (known[normalized]) return known[normalized];
@@ -178,7 +178,7 @@ export function renderActivity(ev: any): ActivityRender {
   const title = tpl ? t(tpl.titleKey, vars) : humanizeAction(action);
   const description = tpl
     ? t(tpl.descriptionKey, vars)
-    : (vars.target ? `Activity recorded on ${vars.target}` : 'Activity recorded');
+    : (vars.target ? `Activity recorded on ${vars.target}` : t('Activity recorded'));
 
   const badgeKind = badgeFromEvent(ev, tpl);
   const badgeLabel = resolveBadgeLabel(badgeKind);
