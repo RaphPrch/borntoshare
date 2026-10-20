@@ -180,7 +180,7 @@
     gap: 6px;
     padding: 10px 12px;
     border: 1px solid #dbe5f2;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #f8fbff;
   }
 
@@ -199,10 +199,10 @@
   }
 
   .provisioning-token-legend__list code {
-    font-size: 0.78rem;
+    font-size: var(--b2s-fs-xs);
     color: #1e3a8a;
     background: #e8f0ff;
-    border-radius: 6px;
+    border-radius: var(--b2s-radius-sm);
     padding: 1px 6px;
   }
 </style>

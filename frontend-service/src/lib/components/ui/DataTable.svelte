@@ -172,7 +172,7 @@
 
   .b2s-table__loading-line {
     height: 14px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: linear-gradient(
       90deg,
       rgba(148, 163, 184, 0.24) 0%,

@@ -98,20 +98,20 @@
   .storage-root-access-profile strong {
     display: block;
     color: var(--b2s-color-text, #1f2a44);
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
   }
 
   .storage-root-access-profile small {
     display: block;
     color: var(--b2s-color-text-muted, #667085);
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .storage-root-access-icon {
     width: 38px;
     height: 38px;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -137,13 +137,13 @@
 
   .storage-root-access-cell span {
     color: #64748b;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 650;
   }
 
   .storage-root-access-cell strong {
     color: #10203f;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 650;
     min-width: 0;
     max-width: 100%;
@@ -167,7 +167,7 @@
   .storage-root-access-row :global(.b2s-btn) {
     min-height: 36px;
     padding: 7px 11px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     min-width: 0;
     white-space: normal;
     flex: 1 1 100%;

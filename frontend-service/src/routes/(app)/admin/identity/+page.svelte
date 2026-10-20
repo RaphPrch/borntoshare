@@ -582,17 +582,13 @@
 </section>
 
 <style>
-  :global(.b2s-page--admin:has(.identity-page)) {
-    padding: 0;
-  }
 
   .identity-page {
     --identity-navy: #061a44;
     --identity-blue: #0b59d1;
     min-height: calc(100vh - 68px);
-    padding: 24px 28px 30px;
+    padding: var(--b2s-page-padding);
     color: #071638;
-    background: #f8fbff;
   }
 
   .identity-note {
@@ -600,7 +596,7 @@
     align-items: center;
     gap: 9px;
     color: #465b78;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     margin-top: 12px;
   }
 
@@ -677,7 +673,7 @@
   .identity-kpi span {
     display: block;
     color: #596985;
-    font-size: 1rem;
+    font-size: var(--b2s-fs-lg);
     line-height: 1.2;
     font-weight: 500;
   }
@@ -686,7 +682,7 @@
     display: block;
     margin-top: 3px;
     color: #071638;
-    font-size: 1.45rem;
+    font-size: var(--b2s-fs-2xl);
     line-height: 1;
     font-weight: 650;
   }
@@ -695,7 +691,7 @@
     display: block;
     margin-top: 6px;
     color: #596985;
-    font-size: 0.86rem;
+    font-size: var(--b2s-fs-md);
   }
 
   .identity-toolbar-card {
@@ -715,7 +711,7 @@
     gap: 10px;
     padding: 0 14px;
     border: 1px solid #d8e2ef;
-    border-radius: 7px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #526682;
   }
@@ -727,7 +723,7 @@
     outline: 0;
     background: transparent;
     color: #071638;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
   }
 
   .identity-tabs {
@@ -735,7 +731,7 @@
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     border: 1px solid #d8e2ef;
-    border-radius: 7px;
+    border-radius: var(--b2s-radius-sm);
     overflow: hidden;
   }
 
@@ -744,7 +740,7 @@
     border-right: 1px solid #d8e2ef;
     background: #fff;
     color: #223552;
-    font-size: 0.86rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 650;
   }
 
@@ -773,7 +769,7 @@
   .identity-table th {
     padding: 18px 20px;
     color: #344664;
-    font-size: 0.76rem;
+    font-size: var(--b2s-fs-xs);
     font-weight: 750;
     text-align: left;
     border-bottom: 1px solid #dfe7f2;
@@ -783,7 +779,7 @@
     height: 62px;
     padding: 0 20px;
     color: #071638;
-    font-size: 0.88rem;
+    font-size: var(--b2s-fs-md);
     border-bottom: 1px solid #e3eaf3;
   }
 
@@ -806,13 +802,13 @@
   .identity-avatar {
     width: 22px;
     height: 22px;
-    font-size: 1.2rem;
+    font-size: var(--b2s-fs-xl);
   }
 
   .identity-avatar--large {
     width: 22px;
     height: 22px;
-    font-size: 1.35rem;
+    font-size: var(--b2s-fs-xl);
   }
 
   .identity-dot {
@@ -839,7 +835,7 @@
     width: 34px;
     height: 34px;
     border: 0;
-    border-radius: 7px;
+    border-radius: var(--b2s-radius-sm);
     background: transparent;
     color: #071638;
   }
@@ -851,7 +847,7 @@
     justify-content: space-between;
     padding: 0 22px;
     color: #536783;
-    font-size: 0.86rem;
+    font-size: var(--b2s-fs-md);
   }
 
   .identity-pagination {
@@ -881,7 +877,7 @@
   .identity-detail-head h2 {
     margin: 0 0 10px;
     color: #071638;
-    font-size: 1.32rem;
+    font-size: var(--b2s-fs-xl);
     line-height: 1.15;
     font-weight: 650;
   }
@@ -898,7 +894,7 @@
     align-items: center;
     min-height: 26px;
     padding: 0 12px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     color: #0b59d1;
     background: #eaf2ff;
     font-size: 0.76rem;
@@ -936,7 +932,7 @@
   .identity-detail-grid h3 {
     margin: 0;
     color: #344664;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
     font-weight: 760;
   }
 
@@ -944,7 +940,7 @@
   .identity-detail-grid p {
     margin: 0;
     color: #071638;
-    font-size: 0.86rem;
+    font-size: var(--b2s-fs-md);
   }
 
   .identity-members-list article {
@@ -961,7 +957,7 @@
   .identity-members-list small,
   .identity-muted {
     color: #5d6f8a;
-    font-size: 0.8rem;
+    font-size: var(--b2s-fs-sm);
   }
 
   .identity-detail-actions {
@@ -983,13 +979,13 @@
   }
 
   .identity-danger-zone h3 {
-    font-size: 0.95rem;
+    font-size: var(--b2s-fs-lg);
     color: var(--b2s-color-danger, #dc3545);
   }
 
   .identity-danger-zone p,
   .identity-danger-zone__hint {
-    font-size: 0.86rem;
+    font-size: var(--b2s-fs-md);
     color: #64748b;
   }
 

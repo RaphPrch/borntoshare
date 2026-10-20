@@ -96,7 +96,7 @@
     max-width: 480px;
     width: 100%;
     background: #020617;
-    border-radius: 1.2rem;
+    border-radius: var(--b2s-radius-lg);
     padding: 2rem 1.8rem;
     box-shadow: 0 25px 60px rgba(15, 23, 42, 0.95);
     border: 1px solid rgba(148, 163, 184, 0.4);
@@ -112,21 +112,21 @@
 
   .error-card h2 {
     margin: 0.5rem 0 0.4rem;
-    font-size: 1.3rem;
+    font-size: var(--b2s-fs-xl);
     font-weight: 600;
   }
 
   .error-card p {
     margin: 0 0 0.9rem;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     color: #9ca3af;
   }
 
   .error-message {
     background: #020617;
-    border-radius: 0.75rem;
+    border-radius: var(--b2s-radius-md);
     padding: 0.7rem 0.8rem;
-    font-size: 0.8rem;
+    font-size: var(--b2s-fs-sm);
     color: #e5e7eb;
     border: 1px solid rgba(148, 163, 184, 0.4);
     max-height: 160px;
@@ -145,8 +145,8 @@
   .btn-secondary {
     text-decoration: none;
     padding: 0.45rem 0.9rem;
-    border-radius: 999px;
-    font-size: 0.85rem;
+    border-radius: var(--b2s-radius-pill);
+    font-size: var(--b2s-fs-md);
     font-weight: 500;
     cursor: pointer;
   }

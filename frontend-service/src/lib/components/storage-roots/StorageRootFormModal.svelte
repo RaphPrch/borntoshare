@@ -453,13 +453,13 @@
   .sr-discovered-roots {
     margin-top: 10px;
     border: 1px solid rgba(148, 163, 184, 0.35);
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 10px;
     background: rgba(248, 250, 252, 0.55);
   }
 
   .sr-discovered-title {
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #334155;
     margin-bottom: 8px;
     font-weight: 600;
@@ -478,7 +478,7 @@
     align-items: center;
     gap: 8px;
     border: 1px solid rgba(148, 163, 184, 0.35);
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #0f172a;
     padding: 7px 9px;

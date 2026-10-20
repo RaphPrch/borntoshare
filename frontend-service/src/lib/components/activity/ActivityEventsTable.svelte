@@ -435,7 +435,7 @@
 <style>
   .activity-log-card {
     border: 1px solid #dbe5f2;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.03);
     padding: 16px 18px 18px;
@@ -454,7 +454,7 @@
   .activity-select {
     min-height: 42px;
     border: 1px solid #d8e2f0;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #0f1f3d;
     display: inline-flex;
@@ -489,7 +489,7 @@
     background: transparent;
     color: #0f1f3d;
     font: inherit;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     min-width: 0;
   }
 
@@ -523,7 +523,7 @@
     padding: 14px 10px;
     border-bottom: 1px solid #dfe7f3;
     color: #50627f;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     text-align: left;
   }
@@ -532,7 +532,7 @@
     padding: 14px 10px;
     border-bottom: 1px solid #e7edf6;
     color: #182744;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     vertical-align: middle;
   }
 
@@ -625,14 +625,14 @@
   .activity-description strong,
   .activity-actor strong {
     color: #0f1f3d;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
   }
 
   .activity-description span,
   .activity-actor small {
     color: #526580;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .activity-actor {
@@ -651,12 +651,12 @@
   .activity-avatar {
     width: 30px;
     height: 30px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: rgba(77, 163, 255, 0.12);
     color: var(--b2s-topbar-bg, #111b3f);
     display: inline-grid;
     place-items: center;
-    font-size: 11px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     flex: 0 0 auto;
   }
@@ -665,7 +665,7 @@
     width: 32px;
     height: 32px;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: transparent;
     color: #0f1f3d;
     display: inline-grid;
@@ -692,7 +692,7 @@
     gap: 14px;
     padding: 12px 2px 0;
     color: #526580;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     flex-wrap: wrap;
   }
 
@@ -706,7 +706,7 @@
     width: 36px;
     height: 36px;
     border: 1px solid #d8e2f0;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #0f1f3d;
     font-weight: 700;

@@ -28,7 +28,7 @@
 
 .provisioning-card {
   border: 1px solid #d5dcec;
-  border-radius: 16px;
+  border-radius: var(--b2s-radius-lg);
   background: #f9fbff;
   box-shadow: 0 1px 10px rgba(30, 49, 84, 0.04);
   overflow: hidden;
@@ -63,7 +63,7 @@
   display: grid;
   gap: 12px;
   border: 1px solid #d6ddeb;
-  border-radius: 14px;
+  border-radius: var(--b2s-radius-lg);
   background: #f4f7fd;
   padding: 16px;
 }
@@ -75,7 +75,7 @@
 
 .provisioning-field__label {
   color: #1f2c48;
-  font-size: 1.02rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 550;
 }
 
@@ -83,11 +83,11 @@
   width: 100%;
   min-height: 48px;
   border: 1px solid #c9d3e6;
-  border-radius: 10px;
+  border-radius: var(--b2s-radius-md);
   background: #f7f9fd;
   padding: 0 14px;
   color: #1f2d4a;
-  font-size: 1.02rem;
+  font-size: var(--b2s-fs-lg);
 }
 
 .provisioning-field input:focus-visible {
@@ -103,7 +103,7 @@
 
 .provisioning-field__help {
   color: #617092;
-  font-size: 0.97rem;
+  font-size: var(--b2s-fs-lg);
 }
 
 .provisioning-mode-group {
@@ -113,7 +113,7 @@
 
 .provisioning-mode-option {
   border: 1px solid #d6ddeb;
-  border-radius: 14px;
+  border-radius: var(--b2s-radius-lg);
   background: #f4f7fd;
   padding: 14px 16px;
   display: grid;
@@ -129,7 +129,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1.05rem;
+  font-size: var(--b2s-fs-lg);
   color: #1f2b46;
   font-weight: 650;
 }
@@ -144,7 +144,7 @@
 .provisioning-mode-option__help {
   margin: 0;
   color: #607093;
-  font-size: 0.96rem;
+  font-size: var(--b2s-fs-lg);
   padding-left: 34px;
 }
 
@@ -156,7 +156,7 @@
 
 .provisioning-preview-table {
   border: 1px solid #d6ddeb;
-  border-radius: 14px;
+  border-radius: var(--b2s-radius-lg);
   overflow: hidden;
   background: #f4f7fd;
 }
@@ -177,12 +177,12 @@
 
 .provisioning-preview-key {
   color: #273654;
-  font-size: 1.03rem;
+  font-size: var(--b2s-fs-lg);
 }
 
 .provisioning-preview-value {
   color: #1b2e57;
-  font-size: 1.15rem;
+  font-size: var(--b2s-fs-xl);
   font-weight: 700;
 }
 
@@ -192,16 +192,16 @@
   align-items: center;
   gap: 10px;
   border: 1px solid #cfdae6;
-  border-radius: 12px;
+  border-radius: var(--b2s-radius-md);
   padding: 0 16px;
   width: fit-content;
-  font-size: 1.05rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 650;
 }
 
 .provisioning-status-badge::before {
   content: '⚙';
-  font-size: 1rem;
+  font-size: var(--b2s-fs-lg);
 }
 
 .provisioning-status-badge--ready {
@@ -224,7 +224,7 @@
 
 .provisioning-source-badge {
   min-height: 40px;
-  border-radius: 10px;
+  border-radius: var(--b2s-radius-md);
   border: 1px solid #d0d9e7;
   background: #eef2fa;
   color: #243757;
@@ -232,7 +232,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 14px;
-  font-size: 0.99rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 650;
 }
 
@@ -265,13 +265,13 @@
 .provisioning-chip {
   min-height: 42px;
   border: 1px solid #ced8e8;
-  border-radius: 12px;
+  border-radius: var(--b2s-radius-md);
   background: #e8edf8;
   color: #1f315a;
   display: inline-flex;
   align-items: center;
   padding: 0 14px;
-  font-size: 0.99rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 700;
 }
 
@@ -283,9 +283,9 @@
 
 .provisioning-btn {
   min-height: 52px;
-  border-radius: 14px;
+  border-radius: var(--b2s-radius-lg);
   padding: 0 20px;
-  font-size: 1.05rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 650;
   display: inline-flex;
   align-items: center;
@@ -308,7 +308,7 @@
   background: transparent;
   padding: 0;
   color: #2f54ab;
-  font-size: 1.03rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 550;
   display: inline-flex;
   align-items: center;
@@ -317,7 +317,7 @@
 
 .provisioning-link::after {
   content: '›';
-  font-size: 1.2rem;
+  font-size: var(--b2s-fs-xl);
   line-height: 1;
 }
 
@@ -328,7 +328,7 @@
 
 .provisioning-kv__item {
   border: 1px solid #d6ddeb;
-  border-radius: 12px;
+  border-radius: var(--b2s-radius-md);
   background: #f4f7fd;
   padding: 14px;
   display: grid;
@@ -337,19 +337,19 @@
 
 .provisioning-kv__key {
   color: #304260;
-  font-size: 1.02rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 550;
 }
 
 .provisioning-kv__value {
   color: #1f2b44;
-  font-size: 1.15rem;
+  font-size: var(--b2s-fs-xl);
   line-height: 1.3;
 }
 
 .provisioning-error {
   color: #8f2c3b;
-  font-size: 0.95rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 550;
 }
 
@@ -374,14 +374,14 @@
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-card,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-card {
-  border-radius: 18px;
+  border-radius: var(--b2s-radius-lg);
   border-color: #d4dceb;
   background: #f8faff;
 }
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-card__title,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-card__title {
-  font-size: 1.45rem;
+  font-size: var(--b2s-fs-2xl);
   line-height: 1.15;
   letter-spacing: -0.015em;
   font-weight: 650;
@@ -408,7 +408,7 @@
 .provisioning-policy-screen[data-scope='zone'] .provisioning-mode-option,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-mode-option {
   background: #f3f6fc;
-  border-radius: 14px;
+  border-radius: var(--b2s-radius-lg);
   border-color: #d5dcec;
   padding: 12px 14px;
   gap: 8px;
@@ -422,7 +422,7 @@
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-mode-option__header,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-mode-option__header {
-  font-size: 0.95rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 650;
   color: #1f2c48;
   gap: 10px;
@@ -431,7 +431,7 @@
 .provisioning-policy-screen[data-scope='zone'] .provisioning-mode-option__help,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-mode-option__help {
   color: #607193;
-  font-size: 0.86rem;
+  font-size: var(--b2s-fs-md);
 }
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-mode-option__body,
@@ -446,7 +446,7 @@
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-form-stack,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-kv__item,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-preview-table {
-  border-radius: 14px;
+  border-radius: var(--b2s-radius-lg);
   border-color: #d5dcec;
   background: #f3f6fc;
 }
@@ -458,7 +458,7 @@
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-field__label,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-field__label {
-  font-size: 1.04rem;
+  font-size: var(--b2s-fs-lg);
   color: #1f2c48;
   font-weight: 550;
 }
@@ -466,31 +466,31 @@
 .provisioning-policy-screen[data-scope='zone'] .provisioning-field input,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-field input {
   min-height: 38px;
-  border-radius: 10px;
+  border-radius: var(--b2s-radius-md);
   border-color: #c8d2e4;
   background: #f7f9fd;
-  font-size: 0.9rem;
+  font-size: var(--b2s-fs-md);
   color: #1f2e4b;
 }
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-field__help,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-field__help {
-  font-size: 0.97rem;
+  font-size: var(--b2s-fs-lg);
   color: #607193;
 }
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-link,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-link {
-  font-size: 0.9rem;
+  font-size: var(--b2s-fs-md);
   color: #2f54ab;
 }
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-status-badge,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-status-badge {
   min-height: 46px;
-  border-radius: 12px;
+  border-radius: var(--b2s-radius-md);
   padding: 0 15px;
-  font-size: 1.04rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 650;
 }
 
@@ -502,12 +502,12 @@
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-preview-key,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-preview-key {
-  font-size: 1.04rem;
+  font-size: var(--b2s-fs-lg);
 }
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-preview-value,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-preview-value {
-  font-size: 1.11rem;
+  font-size: var(--b2s-fs-xl);
   font-weight: 700;
 }
 
@@ -524,12 +524,12 @@
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-kv__key,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-kv__key {
-  font-size: 1.02rem;
+  font-size: var(--b2s-fs-lg);
 }
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-kv__value,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-kv__value {
-  font-size: 1.03rem;
+  font-size: var(--b2s-fs-lg);
   line-height: 1.35;
   color: #1f2d49;
 }
@@ -537,9 +537,9 @@
 .provisioning-policy-screen[data-scope='zone'] .provisioning-source-badge,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-source-badge {
   min-height: 38px;
-  border-radius: 10px;
+  border-radius: var(--b2s-radius-md);
   padding: 0 14px;
-  font-size: 0.99rem;
+  font-size: var(--b2s-fs-lg);
   font-weight: 650;
 }
 
@@ -551,8 +551,8 @@
 .provisioning-policy-screen[data-scope='zone'] .provisioning-chip,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-chip {
   min-height: 40px;
-  border-radius: 11px;
-  font-size: 0.97rem;
+  border-radius: var(--b2s-radius-md);
+  font-size: var(--b2s-fs-lg);
   font-weight: 700;
 }
 
@@ -560,8 +560,8 @@
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-btn {
   min-height: 40px;
   min-width: 140px;
-  border-radius: 10px;
-  font-size: 0.9rem;
+  border-radius: var(--b2s-radius-md);
+  font-size: var(--b2s-fs-md);
   letter-spacing: -0.01em;
   font-weight: 650;
   padding: 0 14px;
@@ -569,7 +569,7 @@
 
 .provisioning-policy-screen[data-scope='zone'] .provisioning-error,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-error {
-  font-size: 0.95rem;
+  font-size: var(--b2s-fs-lg);
   color: #8f2d3b;
 }
 
@@ -582,7 +582,7 @@
   .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-btn {
     min-height: 50px;
     min-width: 160px;
-    font-size: 1.05rem;
+    font-size: var(--b2s-fs-lg);
   }
 }
 

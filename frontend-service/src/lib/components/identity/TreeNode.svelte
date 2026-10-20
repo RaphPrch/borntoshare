@@ -76,7 +76,7 @@
     align-items: center;
     gap: 10px;
     padding-right: 10px;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     text-align: left;
   }
 
@@ -111,7 +111,7 @@
   }
 
   .idb-tree-label {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 500;
   }
 
@@ -133,6 +133,6 @@
   .idb-tree-select:focus-visible {
     outline: none;
     box-shadow: var(--b2s-focus-ring, 0 0 0 4px rgba(37, 99, 235, 0.18));
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
   }
 </style>

@@ -8,16 +8,28 @@
   --b2s-accent-orange: #f97316;
 
   /* ===== Typography ===== */
+  --b2s-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --b2s-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
-  --b2s-text-xs: 12px;
-  --b2s-text-sm: 14px;
+  /* Type scale: every font-size should use one of these */
+  --b2s-fs-xs: 12px;
+  --b2s-fs-sm: 13px;
+  --b2s-fs-md: 14px;
+  --b2s-fs-lg: 16px;
+  --b2s-fs-xl: 20px;
+  --b2s-fs-2xl: 24px;
+  --b2s-fs-page-title: 28px;
+  --b2s-fs-console-title: 32px;
+
+  --b2s-text-xs: var(--b2s-fs-xs);
+  --b2s-text-sm: var(--b2s-fs-md);
 
   /* Legacy typography scale aliases */
 
-  --b2s-font-hero: 26px;
-  --b2s-font-h2: 16px;
-  --b2s-font-body: 14px;
-  --b2s-font-micro: 11px;
+  --b2s-font-hero: var(--b2s-fs-2xl);
+  --b2s-font-h2: var(--b2s-fs-lg);
+  --b2s-font-body: var(--b2s-fs-md);
+  --b2s-font-micro: var(--b2s-fs-xs);
 
   --b2s-lh-tight: 1.2;
 
@@ -30,12 +42,18 @@
   /* Legacy spacing aliases */
 
   /* ===== Radius ===== */
-  --b2s-radius-sm: 6px;
-  --b2s-radius-md: 10px;
-  --b2s-radius-lg: 14px;
+  --b2s-radius-sm: 8px;
+  --b2s-radius-md: 12px;
+  --b2s-radius-lg: 16px;
+  --b2s-radius-pill: 999px;
 
   /* ===== Shadows ===== */
   --b2s-shadow-sm: 0 1px 2px rgba(0,0,0,.35);
+
+  /* ===== Page ===== */
+  --b2s-bg: #f5f7fb;
+  --b2s-text: #0f172a;
+  --b2s-page-padding: 28px 32px 40px;
 
   /* ===== Light semantic aliases (app-wide UI) ===== */
   --b2s-color-surface: #ffffff;
@@ -73,7 +91,7 @@
   --b2s-modal-shadow: 0 40px 120px rgba(0, 0, 0, 0.35);
 
   /* ===== Button defaults ===== */
-  --b2s-btn-radius: 10px;
+  --b2s-btn-radius: var(--b2s-radius-md);
   --b2s-btn-padding: 10px 14px;
   --b2s-btn-font-size: 12px;
   --b2s-btn-font-weight: 700;

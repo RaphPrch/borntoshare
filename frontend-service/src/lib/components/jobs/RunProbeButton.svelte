@@ -133,10 +133,10 @@
 
   .probe-error {
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid rgba(0, 0, 0, 0.08);
     background: rgba(0, 0, 0, 0.02);
-    font-size: 0.92rem;
+    font-size: var(--b2s-fs-md);
   }
 
   .run-probe button {

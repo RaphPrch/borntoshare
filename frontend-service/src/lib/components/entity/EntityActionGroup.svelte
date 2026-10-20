@@ -110,7 +110,7 @@
     min-width: 190px;
     padding: 6px;
     border: 1px solid #dde5f1;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
     box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
   }
@@ -119,14 +119,14 @@
     width: 100%;
     min-height: 38px;
     border: none;
-    border-radius: 9px;
+    border-radius: var(--b2s-radius-sm);
     background: transparent;
     color: #253b5d;
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 0 10px;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
     text-align: left;
   }

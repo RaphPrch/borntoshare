@@ -53,7 +53,7 @@
     width: 34px;
     height: 34px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #eef2f8;
     color: #667085;
     display: inline-flex;

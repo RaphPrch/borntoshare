@@ -40,7 +40,7 @@
 <style>
   .idb-selected-row__remove {
     border: 1px solid var(--idb-border-strong, #d6deeb);
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     width: 24px;
     height: 24px;
     display: inline-flex;

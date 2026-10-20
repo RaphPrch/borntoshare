@@ -83,7 +83,7 @@
 
   .sr-ea-context {
     color: #667085;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 500;
   }
 
@@ -96,7 +96,7 @@
 
   .sr-ea-topline strong {
     color: #1f2a44;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
 
@@ -105,7 +105,7 @@
     align-items: center;
     gap: 6px;
     color: #157f57;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
@@ -116,7 +116,7 @@
   .sr-ea-panel {
     margin-top: 14px;
     border: 1px solid #dfe6f2;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
   }
 
@@ -127,7 +127,7 @@
 
   .sr-ea-panel-title {
     color: #2e436b;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
   }
 
@@ -151,12 +151,12 @@
   .sr-ea-avatar {
     width: 36px;
     height: 36px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
 
@@ -188,7 +188,7 @@
 
   .sr-ea-main strong {
     color: #1f3156;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
@@ -197,7 +197,7 @@
 
   .sr-ea-main small {
     color: #53698e;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -208,14 +208,14 @@
     align-items: center;
     gap: 8px;
     color: #4a618c;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     white-space: nowrap;
   }
 
   .sr-ea-empty {
     padding: 14px;
     color: #61759d;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 

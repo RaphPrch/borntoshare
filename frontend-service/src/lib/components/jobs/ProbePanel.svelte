@@ -111,7 +111,7 @@
     flex-direction: column;
     gap: 10px;
     border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     padding: 12px;
     background: white;
   }
@@ -140,10 +140,10 @@
   .probe-actions button {
     height: 30px;
     border: 1px solid #d5e0ef;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #102243;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     padding: 0 10px;
   }
@@ -151,19 +151,19 @@
   .probe-status {
     font-weight: 500;
     opacity: 0.75;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
   }
   .probe-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 8px 14px;
     color: #5d6f89;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
   .probe-error {
     color: #991b1b;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
   }
   .probe-checks { display: grid; gap: 8px; }
   .probe-check { display: flex; gap: 10px; align-items: baseline; }
@@ -171,11 +171,11 @@
   .probe-check.is-danger { color: #991b1b; }
   .probe-check.is-info { color: #475569; }
   .probe-check-key { font-weight: 600; min-width: 140px; }
-  .probe-check-msg { opacity: 0.8; font-size: 0.9rem; }
+  .probe-check-msg { opacity: 0.8; font-size: var(--b2s-fs-md); }
   .probe-technical-link {
     width: fit-content;
     color: #0a5de8;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
     text-decoration: none;
   }
@@ -184,6 +184,6 @@
     overflow: auto;
     background: rgba(0,0,0,0.03);
     padding: 10px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
   }
 </style>

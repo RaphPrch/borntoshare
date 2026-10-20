@@ -32,7 +32,7 @@
   .b2s-lang {
     display: inline-flex;
     padding: 2px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     border: 1px solid rgba(255, 255, 255, 0.28);
   }
 
@@ -46,10 +46,10 @@
     height: 26px;
     padding: 0 8px;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: transparent;
     color: rgba(255, 255, 255, 0.78);
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     cursor: pointer;
   }

@@ -78,18 +78,18 @@
 
   .z-ep-choice__head h2 {
     margin: 0;
-    font-size: 1.15rem;
+    font-size: var(--b2s-fs-xl);
   }
 
   .z-ep-choice__head p {
     margin: 6px 0 0;
     color: #64748b;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
   }
 
   .z-ep-choice__existing h3 {
     margin: 0 0 8px;
-    font-size: 1rem;
+    font-size: var(--b2s-fs-lg);
   }
 
   .z-ep-choice__list {
@@ -104,7 +104,7 @@
 
   .z-ep-choice__list li {
     border: 1px solid #dbe5f2;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 10px 12px;
     display: flex;
     align-items: center;
@@ -120,6 +120,6 @@
 
   .z-ep-choice__meta span {
     color: #64748b;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
   }
 </style>

@@ -1302,14 +1302,14 @@
 
   .se-field-error {
     margin-top: 6px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     line-height: 1.2;
     color: rgba(220, 53, 69, 0.95);
   }
 
   .se-field-hint {
     margin-top: 6px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #64748b;
     font-weight: 600;
   }

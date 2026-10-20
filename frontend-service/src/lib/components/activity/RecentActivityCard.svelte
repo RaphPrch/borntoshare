@@ -77,7 +77,7 @@
     min-width: 0;
     min-height: 166px;
     border: 1px solid #dfe7f3;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     padding: 16px 18px;
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.025);
@@ -96,7 +96,7 @@
   .activity-summary-card__head h2 {
     margin: 0;
     color: #0f1f3d;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
     letter-spacing: 0;
     display: inline-flex;
@@ -115,12 +115,12 @@
 
   .activity-summary-card__empty strong {
     color: #637493;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
   }
 
   .activity-summary-card__empty span {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .activity-summary-card__list {
@@ -154,7 +154,7 @@
   .activity-summary-card__icon {
     width: 22px;
     height: 22px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: inline-grid;
     place-items: center;
     font-size: 14px;
@@ -197,7 +197,7 @@
 
   .activity-summary-card__copy strong {
     color: #142747;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 650;
   }
 
@@ -205,7 +205,7 @@
   .activity-summary-card__row time,
   .activity-summary-card__actor {
     color: #687a98;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .activity-summary-card__row time,
@@ -219,7 +219,7 @@
     border: none;
     background: transparent;
     color: var(--b2s-topbar-bg, #111b3f);
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 650;
     display: inline-flex;
     align-items: center;

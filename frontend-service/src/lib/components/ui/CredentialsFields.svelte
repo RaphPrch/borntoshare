@@ -178,7 +178,7 @@
   }
 
   .field label {
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     color: #475569;
     text-transform: uppercase;
@@ -188,9 +188,9 @@
   .field input {
     width: 100%;
     padding: 12px 14px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid #cbd5e1;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
     color: #0f172a;
   }
@@ -220,7 +220,7 @@
   .eye {
     border: 1px solid rgba(0, 0, 0, 0.12);
     background: transparent;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     padding: 6px 10px;
     cursor: pointer;
   }
@@ -229,7 +229,7 @@
   }
   .hint {
     margin-top: 6px;
-    font-size: 0.85rem;
+    font-size: var(--b2s-fs-md);
     opacity: 0.8;
   }
 
@@ -242,7 +242,7 @@
   .se-eye {
     border: 1px solid rgba(0, 0, 0, 0.12);
     background: transparent;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 6px 10px;
     cursor: pointer;
   }

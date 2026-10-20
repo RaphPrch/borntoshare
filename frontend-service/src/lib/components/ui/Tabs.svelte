@@ -45,7 +45,7 @@
     border-bottom: 2px solid transparent;
     background: transparent;
     color: var(--b2s-color-text-muted, #60718f);
-    font-size: 15px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 650;
     display: inline-flex;
     align-items: center;

@@ -319,7 +319,7 @@
 <style>
   .sr-effective-access-table {
     border: 1px solid #dde6f3;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
     box-shadow: 0 14px 34px rgba(15, 31, 61, 0.05);
     overflow: hidden;
@@ -338,13 +338,13 @@
   .sr-effective-access-table__freshness button {
     height: 34px;
     border: 1px solid #c9dcff;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #0a5de8;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     padding: 0 12px;
     white-space: nowrap;
@@ -368,7 +368,7 @@
   .sr-effective-access-table__select-label select {
     height: 42px;
     border: 1px solid #dce5f2;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #142747;
   }
@@ -391,7 +391,7 @@
     outline: 0;
     background: transparent;
     color: #142747;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
   }
 
   .sr-effective-access-table__select-label {
@@ -399,14 +399,14 @@
     align-items: center;
     gap: 10px;
     color: #415574;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
   }
 
   .sr-effective-access-table__select-label select {
     min-width: 126px;
     padding: 0 34px 0 13px;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
@@ -425,7 +425,7 @@
     padding: 13px 16px;
     border-bottom: 1px solid #e8eef7;
     color: #162747;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     text-align: left;
     vertical-align: middle;
   }
@@ -433,7 +433,7 @@
   .sr-effective-access-table th {
     background: #fbfcff;
     color: #445878;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
   }
 
@@ -456,7 +456,7 @@
     width: 26px;
     height: 26px;
     border: 1px solid #dbe5f2;
-    border-radius: 7px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #12345f;
     display: inline-flex;
@@ -472,13 +472,13 @@
   .sr-effective-access-table__identity span {
     width: 30px;
     height: 30px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: rgba(77, 163, 255, 0.12);
     color: var(--b2s-topbar-bg, #111b3f);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     flex: 0 0 auto;
   }
@@ -498,7 +498,7 @@
     max-width: 260px;
     overflow: hidden;
     color: #657895;
-    font-size: 11px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -507,12 +507,12 @@
   .sr-effective-access-table__pill {
     min-width: 64px;
     min-height: 24px;
-    border-radius: 6px;
+    border-radius: var(--b2s-radius-sm);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0 10px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
   }
 
@@ -563,7 +563,7 @@
     width: 32px;
     height: 32px;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: transparent;
     color: #102243;
   }
@@ -611,14 +611,14 @@
   .sr-effective-access-table__drawer h3 {
     margin: 0;
     color: #102243;
-    font-size: 18px;
+    font-size: var(--b2s-fs-xl);
     font-weight: 800;
   }
 
   .sr-effective-access-table__drawer p {
     margin: 4px 0 0;
     color: #607087;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 650;
   }
 
@@ -626,7 +626,7 @@
     width: 36px;
     height: 36px;
     border: 1px solid #dbe5f2;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #12345f;
   }
@@ -634,7 +634,7 @@
   .sr-effective-access-table__drawer-avatar {
     width: 42px;
     height: 42px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #eef5ff;
     color: #0a5de8;
     display: inline-flex;
@@ -654,7 +654,7 @@
 
   .sr-effective-access-table__drawer-member {
     border: 1px solid #e4ebf5;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     display: flex;
     gap: 12px;
@@ -665,20 +665,20 @@
   .sr-effective-access-table__drawer-member > span {
     width: 34px;
     height: 34px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #edf5ff;
     color: #17437a;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     flex: 0 0 auto;
   }
 
   .sr-effective-access-table__drawer-member strong {
     color: #102243;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 800;
   }
 
@@ -696,7 +696,7 @@
 
   .sr-effective-access-table__drawer-member dt {
     color: #607087;
-    font-size: 11px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 750;
   }
 
@@ -704,7 +704,7 @@
     margin: 0;
     min-width: 0;
     color: #162747;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 650;
     overflow-wrap: anywhere;
   }
@@ -712,7 +712,7 @@
   .sr-effective-access-table__drawer-empty {
     margin: 28px 18px;
     border: 1px dashed #d6e2f2;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     min-height: 180px;
     display: grid;
     place-items: center;
@@ -730,7 +730,7 @@
 
   .sr-effective-access-table__drawer-empty strong {
     color: #102243;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
   }
 
   @media (max-width: 840px) {
@@ -759,7 +759,7 @@
     justify-content: space-between;
     gap: 12px;
     color: #526782;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .sr-effective-access-table__pagination {
@@ -773,7 +773,7 @@
     width: 36px;
     height: 36px;
     border: 1px solid #dbe5f2;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #173259;
     display: inline-flex;

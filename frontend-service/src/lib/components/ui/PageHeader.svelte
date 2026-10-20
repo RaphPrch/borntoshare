@@ -28,28 +28,33 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 16px;
     flex-wrap: wrap;
+    width: 100%;
   }
 
   .b2s-page-header__text h1 {
     margin: 0;
-    font-size: clamp(1.35rem, 2vw, 1.8rem);
+    font-size: var(--b2s-fs-page-title);
+    line-height: 1.2;
     color: var(--b2s-color-text, #0f172a);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: -0.01em;
   }
 
   .b2s-page-header__text p {
-    margin: 0.3rem 0 0;
+    margin: 6px 0 0;
     color: var(--b2s-color-text-muted, #64748b);
-    font-size: 0.94rem;
+    font-size: var(--b2s-fs-md);
   }
 
   .b2s-page-header__actions {
     display: inline-flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 8px;
     flex-wrap: wrap;
+    margin-left: auto;
+    color: var(--b2s-color-text-muted, #64748b);
+    font-size: var(--b2s-fs-sm);
   }
 </style>

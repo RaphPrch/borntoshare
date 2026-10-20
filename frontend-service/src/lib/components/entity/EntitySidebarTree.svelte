@@ -182,13 +182,13 @@
   .b2s-entity-sidebar__search {
     height: 40px;
     border: 1px solid var(--b2s-color-border, #dbe2ef);
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: var(--b2s-color-surface, #fff);
     padding: 0 10px;
   }
 
   .b2s-entity-sidebar__search-input {
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
   }
 
   .b2s-entity-tree {
@@ -221,8 +221,8 @@
   .b2s-entity-tree__group-warning,
   .b2s-entity-tree__group-count,
   .b2s-entity-tree__secondary {
-    border-radius: 999px;
-    font-size: 11px;
+    border-radius: var(--b2s-radius-pill);
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     display: inline-flex;
     align-items: center;
@@ -239,7 +239,7 @@
   }
 
   .b2s-entity-tree__group-title {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
   }
 
@@ -249,7 +249,7 @@
     border: 1px solid var(--b2s-color-border, #d7dfef);
     background: #edf2fa;
     color: #425c8f;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     padding: 0 6px;
   }
 
@@ -265,7 +265,7 @@
     width: 100%;
     height: 40px;
     border: 1px solid transparent;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: transparent;
     display: flex;
     align-items: center;
@@ -292,7 +292,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
     text-align: left;
   }

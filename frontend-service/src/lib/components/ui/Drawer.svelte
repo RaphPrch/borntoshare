@@ -190,7 +190,7 @@
   .b2s-entity-drawer__icon {
     width: 40px;
     height: 40px;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid #d7e1f0;
     background: #edf4ff;
     color: var(--b2s-topbar-bg, #0b1530);
@@ -206,7 +206,7 @@
 
   .b2s-entity-drawer__header-copy h2 {
     margin: 0;
-    font-size: 20px;
+    font-size: var(--b2s-fs-xl);
     line-height: 1.2;
     font-weight: 700;
     color: #0f172a;
@@ -214,7 +214,7 @@
 
   .b2s-entity-drawer__header-copy p {
     margin: 6px 0 0;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     color: #667085;
   }
 
@@ -222,7 +222,7 @@
     width: 36px;
     height: 36px;
     border: none;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: transparent;
     color: #667085;
     display: inline-flex;

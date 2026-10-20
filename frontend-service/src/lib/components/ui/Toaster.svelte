@@ -54,7 +54,7 @@
 
   .toast {
     pointer-events: auto;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
   }
 
   /* Override bootstrap-ish toast variants for dark topbar context */

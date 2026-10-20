@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { formatActivityItem } from '$lib/activity/format';
 
@@ -178,14 +179,12 @@
   $: updatedAt = toTimeLabel(data?.generatedAt ?? null);
 </script>
 
-<div class="container-fluid events-page">
-  <div class="events-head">
-    <div>
-      <h1 class="events-title">{t('Events')}</h1>
-      <div class="events-subtitle">{t('All platform actions from activity logs')}</div>
-    </div>
-    <div class="events-updated">{t('Updated {updatedAt}', { updatedAt })}</div>
-  </div>
+<div class="events-page">
+  <PageHeader title={t('Events')} subtitle={t('All platform actions from activity logs')}>
+    <svelte:fragment slot="actions">
+      <span>{t('Updated {updatedAt}', { updatedAt })}</span>
+    </svelte:fragment>
+  </PageHeader>
 
   <div class="events-toolbar card b2s-card">
     <div class="card-body d-flex align-items-center justify-content-between gap-3 flex-wrap">
@@ -257,42 +256,20 @@
 <style>
   .events-page {
     display: grid;
-    gap: 12px;
+    gap: 16px;
+    padding: var(--b2s-page-padding);
   }
 
-  .events-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-  }
 
-  .events-title {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #0f172a;
-  }
 
-  .events-subtitle {
-    color: #64748b;
-    font-size: 0.9rem;
-    margin-top: 2px;
-  }
 
-  .events-updated {
-    color: #64748b;
-    font-size: 0.87rem;
-    white-space: nowrap;
-    margin-top: 8px;
-  }
 
   .events-toolbar .card-body {
     padding: 0.7rem 0.9rem;
   }
 
   .events-label {
-    font-size: 0.86rem;
+    font-size: var(--b2s-fs-md);
     color: #334155;
     font-weight: 600;
   }
@@ -325,7 +302,7 @@
   }
 
   .events-table thead th {
-    font-size: 0.86rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
     color: #334155;
     background: #f8fafc;
@@ -334,7 +311,7 @@
   }
 
   .events-table tbody td {
-    font-size: 0.87rem;
+    font-size: var(--b2s-fs-md);
     color: #0f172a;
     border-color: #e2e8f0;
     vertical-align: middle;
@@ -355,7 +332,7 @@
   }
 
   .events-module {
-    font-size: 0.78rem;
+    font-size: var(--b2s-fs-xs);
     font-weight: 400;
     color: #64748b;
   }
@@ -394,7 +371,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
     line-height: 1;
   }

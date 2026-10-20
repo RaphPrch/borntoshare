@@ -686,7 +686,7 @@
     width: min(1136px, calc(100vw - 40px));
     max-height: calc(100vh - 92px);
     overflow: hidden;
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     border: 1px solid #dfe6f2;
     box-shadow: 0 24px 70px rgba(6, 24, 73, 0.24);
     background: #fff;
@@ -695,7 +695,7 @@
   .ar-create {
     color: #071b4a;
     background: #fff;
-    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: var(--b2s-font-sans);
   }
 
   .ar-create__header {
@@ -707,7 +707,7 @@
 
   .ar-create__header h2 {
     margin: 0;
-    font-size: 34px;
+    font-size: var(--b2s-fs-console-title);
     line-height: 1.08;
     letter-spacing: 0;
     font-weight: 830;
@@ -717,18 +717,18 @@
   .ar-create__header p {
     margin: 8px 0 0;
     color: #405178;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 450;
   }
 
   .ar-close {
     width: 43px;
     height: 43px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid #dce4f1;
     background: #fff;
     color: #071b4a;
-    font-size: 20px;
+    font-size: var(--b2s-fs-xl);
   }
 
   .ar-create__content {
@@ -743,7 +743,7 @@
   .ar-form-card,
   .summary-card {
     border: 1px solid #dfe6f2;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
   }
 
@@ -758,7 +758,7 @@
   .ar-step h3 {
     margin: 0 0 9px;
     color: #061849;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 760;
   }
 
@@ -769,7 +769,7 @@
     align-items: center;
     gap: 16px;
     border: 1px solid #d9e2ef;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 14px 18px;
   }
 
@@ -781,7 +781,7 @@
   .target-icon {
     width: 42px;
     height: 42px;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: grid;
     place-items: center;
     background: #fff4d9;
@@ -801,7 +801,7 @@
     display: block;
     margin-top: 3px;
     color: #405178;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .approval-badge {
@@ -809,11 +809,11 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #e7f6e8;
     color: #0b7a1e;
     padding: 0 12px;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 650;
     white-space: nowrap;
   }
@@ -828,7 +828,7 @@
     position: relative;
     min-height: 140px;
     border: 1px solid #d9e2ef;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
     color: #071b4a;
     text-align: center;
@@ -844,7 +844,7 @@
     width: 40px;
     height: 40px;
     margin: 0 auto 9px;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: grid;
     place-items: center;
     font-size: 24px;
@@ -856,7 +856,7 @@
 
   .access-grid strong {
     display: block;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 760;
   }
 
@@ -865,7 +865,7 @@
     min-height: 36px;
     margin-top: 8px;
     color: #405178;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     line-height: 1.35;
   }
 
@@ -875,12 +875,12 @@
     justify-content: center;
     min-height: 28px;
     margin-top: 10px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #061849;
     color: #fff;
     padding: 0 15px;
     font-style: normal;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
 
@@ -900,7 +900,7 @@
     top: 11px;
     right: 11px;
     color: #061849;
-    font-size: 19px;
+    font-size: var(--b2s-fs-xl);
   }
 
   .principal-card {
@@ -910,7 +910,7 @@
     gap: 13px;
     align-items: center;
     border: 1px solid #d9e2ef;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 9px 12px 9px 16px;
   }
 
@@ -933,11 +933,11 @@
   .principal-card > button {
     width: 41px;
     height: 41px;
-    border-radius: 9px;
+    border-radius: var(--b2s-radius-sm);
     border: 1px solid #d9e2ef;
     background: #fff;
     color: #061849;
-    font-size: 20px;
+    font-size: var(--b2s-fs-xl);
   }
 
   .principal-list {
@@ -952,10 +952,10 @@
     align-items: center;
     gap: 8px;
     border: 1px solid #d9e2ef;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     padding: 4px 9px 4px 12px;
     color: #071b4a;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .principal-list button {
@@ -974,7 +974,7 @@
   .ttl-row button {
     height: 36px;
     border: 1px solid #d9e2ef;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #fff;
     color: #071b4a;
     padding: 0 20px;
@@ -994,7 +994,7 @@
     width: 130px;
     height: 36px;
     border: 1px solid #d9e2ef;
-    border-radius: 9px;
+    border-radius: var(--b2s-radius-sm);
     padding: 0 12px;
     color: #071b4a;
   }
@@ -1003,14 +1003,14 @@
     display: block;
     margin-bottom: 7px;
     color: #405178;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .justification textarea {
     width: 100%;
     height: 61px;
     border: 1px solid #d9e2ef;
-    border-radius: 9px;
+    border-radius: var(--b2s-radius-sm);
     resize: vertical;
     padding: 13px 15px;
     color: #071b4a;
@@ -1025,7 +1025,7 @@
     display: block;
     margin-top: 6px;
     color: #c22323;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 620;
   }
 
@@ -1033,7 +1033,7 @@
     display: block;
     margin-top: 6px;
     color: #44506b;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 520;
   }
 
@@ -1059,7 +1059,7 @@
     border-top: 1px solid #dfe6f2;
     background: #f7f9fd;
     color: #2c3d65;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .info-strip i {
@@ -1078,7 +1078,7 @@
 
   .ready-state {
     height: 44px;
-    border-radius: 9px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff6e9;
     color: #b76700;
     display: flex;
@@ -1118,9 +1118,9 @@
 
   .ar-create__footer button {
     height: 48px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 0 22px;
-    font-size: 15px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 760;
   }
 

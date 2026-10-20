@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
   import { onDestroy } from 'svelte';
@@ -145,14 +146,12 @@
     });
 </script>
 
-<div class="container-fluid jobs-page">
-  <div class="jobs-head">
-    <div>
-      <h1 class="jobs-title">{t('Jobs')}</h1>
-      <div class="jobs-subtitle">{t('Monitoring provisioning jobs and operator cancellations')}</div>
-    </div>
-    <div class="jobs-updated">{t('Updated {formatDateTime}', { formatDateTime: formatDateTime(updatedAt, { seconds: true }) })}</div>
-  </div>
+<div class="jobs-page">
+  <PageHeader title={t('Jobs')} subtitle={t('Monitoring provisioning jobs and operator cancellations')}>
+    <svelte:fragment slot="actions">
+      <span>{t('Updated {formatDateTime}', { formatDateTime: formatDateTime(updatedAt, { seconds: true }) })}</span>
+    </svelte:fragment>
+  </PageHeader>
 
   <div class="card b2s-card jobs-summary">
     <div class="card-body d-flex flex-wrap align-items-center gap-3">
@@ -225,9 +224,9 @@
                   </td>
                   <td class="mono">{String(job.job_type ?? '—')}</td>
                   <td>{String(job.action ?? '—')}</td>
-                  <td class="mono">{job.queue_age_seconds ?? '—'}</td>
-                  <td class="mono">{job.watchdog_republish_count ?? 0}</td>
-                  <td class="mono">{formatDateTime(job.updated_at ?? job.created_at, { seconds: true })}</td>
+                  <td class="num">{job.queue_age_seconds ?? '—'}</td>
+                  <td class="num">{job.watchdog_republish_count ?? 0}</td>
+                  <td class="num">{formatDateTime(job.updated_at ?? job.created_at, { seconds: true })}</td>
                   <td>
                     {#if job.error_code || job.error_message}
                       <div class="error-block">
@@ -260,33 +259,17 @@
 <style>
   .jobs-page {
     display: grid;
-    gap: 12px;
+    gap: 16px;
+    padding: var(--b2s-page-padding);
   }
 
-  .jobs-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-  }
 
-  .jobs-title {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #0f172a;
-  }
 
-  .jobs-subtitle,
-  .jobs-updated {
-    color: #64748b;
-    font-size: 0.88rem;
-  }
 
   .summary-pill {
     padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 0.8rem;
+    border-radius: var(--b2s-radius-pill);
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
     border: 1px solid transparent;
   }
@@ -312,12 +295,12 @@
   .jobs-table thead th {
     background: #f8fafc;
     color: #334155;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
     white-space: nowrap;
   }
 
   .jobs-table tbody td {
-    font-size: 0.84rem;
+    font-size: var(--b2s-fs-sm);
     color: #0f172a;
     vertical-align: middle;
   }
@@ -328,16 +311,21 @@
     padding: 22px;
   }
 
+  .num {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
   .mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-    font-size: 0.78rem;
+    font-family: var(--b2s-font-mono);
+    font-size: var(--b2s-fs-xs);
   }
 
   .status-badge {
     display: inline-block;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     padding: 2px 8px;
-    font-size: 0.74rem;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     border: 1px solid transparent;
   }

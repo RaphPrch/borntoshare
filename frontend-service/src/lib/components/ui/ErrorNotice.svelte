@@ -59,10 +59,10 @@
 
 <style>
   .error-notice {
-    border-radius: 6px;
+    border-radius: var(--b2s-radius-sm);
     padding: 12px 14px;
     margin: 12px 0;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
   }
 
   .error-error {
@@ -92,7 +92,7 @@
     background: none;
     border: none;
     color: inherit;
-    font-size: 0.8rem;
+    font-size: var(--b2s-fs-sm);
     cursor: pointer;
     text-decoration: underline;
   }
@@ -102,7 +102,7 @@
   }
 
   .error-hint {
-    font-size: 0.85rem;
+    font-size: var(--b2s-fs-md);
     opacity: 0.9;
     margin-top: 4px;
   }
@@ -112,20 +112,20 @@
     align-items: center;
     gap: 6px;
     margin-top: 8px;
-    font-size: 0.8rem;
+    font-size: var(--b2s-fs-sm);
   }
 
   .error-meta code {
     background: rgba(0, 0, 0, 0.05);
     padding: 2px 4px;
-    border-radius: 4px;
+    border-radius: var(--b2s-radius-sm);
   }
 
   .copy-btn {
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: var(--b2s-fs-sm);
     text-decoration: underline;
     color: inherit;
   }

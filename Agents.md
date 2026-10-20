@@ -33,9 +33,11 @@ Frontend:
 - Texts go through `t()` from `$lib/i18n` (French and English): `t('Save changes')`, `t('{count} roots', { count })`. The English text is the key; add its French translation to `lib/i18n/locales/fr.json` (a source text written in French goes to `en.json` instead). Never translate data sent to the API (activity messages, codes) or values compared in code; translate labels at render time, not in module-level constants.
 - Follow the `src/lib` layout and shared helpers described in `frontend-service/docs/structure.md`.
 - No glassmorphism.
+- Page titles go through `PageHeader` (list pages) or `EntityHeader` (entity consoles); pages use `padding: var(--b2s-page-padding)`.
+- Typography and radius only from `lib/styles/tokens.css`: system font (`--b2s-font-sans`, `--b2s-font-mono` for paths, DNs and IDs only), sizes `--b2s-fs-xs|sm|md|lg|xl|2xl|page-title|console-title`, radius `--b2s-radius-sm|md|lg|pill`.
 - Keep the BornToShare theme:
   - Background: #F5F7FB
-  - Primary: #2F6FED to #1D4ED8
+  - Primary actions: navy #111B3F (same as the topbar); links and focus: blue #2563EB
   - Success: #2EB88A
   - Border: #E5EAF3
   - Text: #0f172a

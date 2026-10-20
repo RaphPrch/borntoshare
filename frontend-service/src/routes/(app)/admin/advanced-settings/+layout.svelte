@@ -2,7 +2,7 @@
   import { t } from '$lib/i18n';
   import { page } from '$app/stores';
 
-  import SectionHeader from '$lib/components/settings/SectionHeader.svelte';
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import AdvancedSidebar, { type NavItem } from '$lib/components/settings/AdvancedSidebar.svelte';
 
   export let data: any;
@@ -25,11 +25,7 @@
 </script>
 
 <div class="b2s-adv">
-  <SectionHeader title={header.title} subtitle={header.subtitle}>
-    <div slot="actions">
-      <!-- Reserved for future global actions (export config, etc.) -->
-    </div>
-  </SectionHeader>
+  <PageHeader title={header.title} subtitle={header.subtitle} />
 
   <div class="b2s-adv-grid">
     <AdvancedSidebar {current} items={nav} />

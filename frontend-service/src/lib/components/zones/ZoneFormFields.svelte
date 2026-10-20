@@ -62,7 +62,7 @@
   .zone-form-field label {
     margin: 0;
     color: #1f2c48;
-    font-size: 0.92rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 720;
   }
 
@@ -75,11 +75,11 @@
     width: 100%;
     min-height: 42px;
     border: 1px solid #c8d2e4;
-    border-radius: 11px;
+    border-radius: var(--b2s-radius-md);
     background: #f8fbff;
     color: #1f2e4b;
     padding: 0 12px;
-    font-size: 0.92rem;
+    font-size: var(--b2s-fs-md);
     outline: none;
     transition:
       border-color 0.16s ease,
@@ -95,14 +95,14 @@
 
   .zone-form-note {
     border: 1px solid #d7e1f0;
-    border-radius: 13px;
+    border-radius: var(--b2s-radius-md);
     background: #f4f8ff;
     color: #304867;
     padding: 11px 12px;
     display: flex;
     align-items: flex-start;
     gap: 9px;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 620;
   }
 

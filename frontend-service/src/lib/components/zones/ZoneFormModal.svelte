@@ -174,7 +174,7 @@
 
   .zone-form-drawer__warning {
     border: 1px solid #efd39c;
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     background: #fff8ea;
     color: #684a1e;
     padding: 14px;
@@ -196,7 +196,7 @@
   }
 
   .zone-form-drawer__safe-notes {
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: rgba(255, 255, 255, 0.7);
     padding: 10px 12px;
     color: #475569;
@@ -210,7 +210,7 @@
 
   .zone-form-drawer__error {
     border: 1px solid #f0c1c1;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff5f5;
     color: #a12e2e;
     padding: 10px 12px;

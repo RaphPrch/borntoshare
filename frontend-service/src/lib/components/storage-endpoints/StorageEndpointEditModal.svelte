@@ -854,7 +854,7 @@
   .se-edit :global(label) {
     display: inline-block;
     margin-bottom: 6px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     color: #475569;
     text-transform: uppercase;
@@ -872,14 +872,14 @@
 
   .se-edit :global(.se-field-error) {
     margin-top: 6px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     line-height: 1.2;
     color: rgba(220, 53, 69, 0.95);
   }
 
   .se-edit :global(.se-field-hint) {
     margin-top: 6px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #64748b;
     font-weight: 600;
   }
@@ -905,7 +905,7 @@
   .se-edit-disabled-reason {
     width: 100%;
     text-align: right;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
 

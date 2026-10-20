@@ -1,6 +1,6 @@
 .b2s-card {
   border: 1px solid var(--b2s-border, #e5e7eb);
-  border-radius: 12px;
+  border-radius: var(--b2s-radius-md);
   background: #fff;
   box-shadow: 0 3px 10px rgba(18, 31, 64, 0.05);
 }
@@ -19,7 +19,7 @@
   width: 100%;
   border-collapse: collapse;
   border: 1px solid var(--b2s-border, #e5e7eb);
-  border-radius: 10px;
+  border-radius: var(--b2s-radius-md);
   overflow: hidden;
 }
 
@@ -66,22 +66,22 @@
   display: inline-flex;
   align-items: center;
    gap: .38rem;
-  border-radius: 999px;
+  border-radius: var(--b2s-radius-pill);
   padding: .22rem .6rem;
-  font-size: .78rem;
+  font-size: var(--b2s-fs-xs);
   font-weight: 600;
   border: 1px solid transparent;
 }
 
 .b2s-status.is-compact {
-  font-size: .72rem;
+  font-size: var(--b2s-fs-xs);
   padding: .14rem .5rem;
 }
 
 .b2s-status__dot {
   width: .44rem;
   height: .44rem;
-  border-radius: 999px;
+  border-radius: var(--b2s-radius-pill);
   background: currentColor;
 }
 

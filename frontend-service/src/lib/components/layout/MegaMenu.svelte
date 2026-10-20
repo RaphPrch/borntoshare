@@ -153,14 +153,14 @@ onDestroy(() => {
      =============================== */
   .mega-header h2 {
     margin: 0;
-    font-size: 1.6rem;
+    font-size: var(--b2s-fs-2xl);
     font-weight: 700;
     letter-spacing: -0.02em;
   }
 
   .mega-header p {
     margin-top: 0.35rem;
-    font-size: 0.95rem;
+    font-size: var(--b2s-fs-lg);
     opacity: 0.75;
   }
 
@@ -181,7 +181,7 @@ onDestroy(() => {
     display: flex;
     gap: 1rem;
     padding: 1.25rem 1.35rem;
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     text-decoration: none;
     color: inherit;
     background: rgba(255, 255, 255, 0.04);
@@ -201,7 +201,7 @@ onDestroy(() => {
   .mega-icon {
     width: 42px;
     height: 42px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -216,14 +216,14 @@ onDestroy(() => {
 
   .mega-content strong {
     display: block;
-    font-size: 0.95rem;
+    font-size: var(--b2s-fs-lg);
     font-weight: 600;
   }
 
   .mega-content span {
     display: block;
     margin-top: 0.2rem;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
     opacity: 0.75;
     line-height: 1.25;
   }

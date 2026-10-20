@@ -367,13 +367,13 @@
   .identity-edit-head__avatar {
     width: 48px;
     height: 48px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     background: #2f6df6;
     color: #fff;
-    font-size: 1.05rem;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
 
@@ -383,7 +383,7 @@
 
   .identity-edit-section {
     border: 1px solid #e5eaf3;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
     padding: 18px;
     display: grid;
@@ -398,7 +398,7 @@
 
   .identity-edit-section__heading h3 {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
     color: #0f172a;
   }
@@ -406,14 +406,14 @@
   .identity-edit-section__index {
     width: 28px;
     height: 28px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid #d8e3f4;
     background: #f4f8ff;
     color: #2f6df6;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.88rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
   }
 
@@ -425,7 +425,7 @@
   .identity-edit-field label,
   .identity-edit-field > span {
     color: #0f172a;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
   }
 
@@ -433,11 +433,11 @@
     width: 100%;
     min-height: 44px;
     border: 1px solid #d7dfec;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 0 14px;
     background: #fff;
     color: #071638;
-    font-size: 0.92rem;
+    font-size: var(--b2s-fs-md);
   }
 
   .identity-edit-input:focus {
@@ -466,7 +466,7 @@
   .identity-edit-toggle__track {
     width: 42px;
     height: 24px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #cfd8e6;
     position: relative;
     transition: background 0.2s ease;
@@ -478,7 +478,7 @@
     left: 3px;
     width: 18px;
     height: 18px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #fff;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
     transition: transform 0.2s ease;
@@ -504,7 +504,7 @@
 
   .identity-edit-role-card {
     border: 1px solid #dbe3f0;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
     padding: 14px 16px;
     display: grid;
@@ -522,12 +522,12 @@
     display: block;
     margin: 0 0 4px;
     color: #0f172a;
-    font-size: 0.95rem;
+    font-size: var(--b2s-fs-lg);
   }
 
   .identity-edit-role-card small {
     color: #5d6f8a;
-    font-size: 0.83rem;
+    font-size: var(--b2s-fs-sm);
   }
 
   .identity-edit-role-card.is-selected {
@@ -544,13 +544,13 @@
   .identity-edit-helper {
     margin: 0;
     color: #5d6f8a;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
     line-height: 1.5;
   }
 
   .identity-edit-field-error {
     margin: 0;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     color: var(--b2s-color-danger, #dc3545);
   }
@@ -559,9 +559,9 @@
     border: 1px solid rgba(185, 28, 28, 0.18);
     background: rgba(254, 242, 242, 0.95);
     color: #991b1b;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 12px 14px;
-    font-size: 0.85rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
   }
 
@@ -576,16 +576,16 @@
 
   .identity-edit-unsaved {
     margin-right: auto;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     color: var(--b2s-color-warning-strong, #b45309);
   }
 
   .identity-edit-btn {
     min-height: 42px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 0 18px;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 650;
     display: inline-flex;
     align-items: center;

@@ -124,7 +124,7 @@
     overflow: visible;
     z-index: 1;
     border: 1px solid #dde5f1;
-    border-radius: 16px;
+    border-radius: var(--b2s-radius-lg);
     background:
       linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.94)),
       #ffffff;
@@ -174,7 +174,7 @@
 
   .b2s-operational-header__eyebrow {
     color: #64748b;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     text-transform: uppercase;
   }
@@ -182,9 +182,9 @@
   .b2s-operational-header h1 {
     margin: 0;
     color: #10203f;
-    font-size: 32px;
+    font-size: var(--b2s-fs-console-title);
     line-height: 1.05;
-    font-weight: 760;
+    font-weight: 700;
   }
 
   .b2s-operational-header p {
@@ -193,7 +193,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     color: #475569;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
     white-space: nowrap;
   }
@@ -209,14 +209,14 @@
   .b2s-operational-header__status {
     min-height: 30px;
     border: 1px solid #d7dfec;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #f7faff;
     color: #304867;
     padding: 0 11px;
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
     line-height: 1;
   }
@@ -265,7 +265,7 @@
 
   .b2s-operational-header__attention {
     border: 1px solid #dbe3ef;
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     background:
       linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.94)),
       #ffffff;
@@ -281,7 +281,7 @@
     width: 38px;
     height: 38px;
     border: 1px solid #f1d69d;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background:
       radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.88), transparent 34%),
       linear-gradient(180deg, #fff7e7 0%, #ffedd0 100%);
@@ -308,13 +308,13 @@
 
   .b2s-operational-header__attention-head strong {
     color: #10203f;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 800;
   }
 
   .b2s-operational-header__attention-head span {
     color: #64748b;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 650;
   }
 
@@ -329,11 +329,11 @@
 
   .b2s-operational-header li {
     border: 1px solid #d7dfec;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #f7faff;
     color: #334155;
     padding: 6px 10px;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 650;
   }
 
@@ -355,13 +355,13 @@
     }
 
     .b2s-operational-header h1 {
-      font-size: 28px;
+      font-size: var(--b2s-fs-page-title);
     }
   }
 
   @media (max-width: 620px) {
     .b2s-operational-header h1 {
-      font-size: 24px;
+      font-size: var(--b2s-fs-2xl);
     }
 
     .b2s-operational-header__attention {

@@ -345,7 +345,7 @@
 
   .identity-drawer-grid h4 {
     margin: 0;
-    font-size: 0.74rem;
+    font-size: var(--b2s-fs-xs);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #475569;
@@ -354,7 +354,7 @@
 
   .identity-drawer-grid p {
     margin: 0.2rem 0 0;
-    font-size: 0.86rem;
+    font-size: var(--b2s-fs-md);
     color: #0f172a;
   }
 
@@ -362,13 +362,13 @@
     border: 1px solid rgba(148, 163, 184, 0.4);
     background: #fff;
     color: #334155;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     height: 34px;
     padding: 0 0.72rem;
     display: inline-flex;
     align-items: center;
     gap: 0.42rem;
-    font-size: 0.78rem;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
 
@@ -386,18 +386,18 @@
   .identity-drawer-loading {
     margin-top: 0.68rem;
     color: #64748b;
-    font-size: 0.84rem;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
   .identity-drawer-error {
     margin-top: 0.68rem;
     padding: 0.56rem 0.64rem;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid rgba(185, 28, 28, 0.24);
     background: rgba(254, 242, 242, 0.8);
     color: #991b1b;
-    font-size: 0.8rem;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
@@ -410,13 +410,13 @@
   .snapshot-debug-subtitle {
     margin: 0.2rem 0 0.45rem;
     color: #475569;
-    font-size: 0.78rem;
+    font-size: var(--b2s-fs-xs);
     font-weight: 600;
   }
 
   .snapshot-debug-empty {
     color: #64748b;
-    font-size: 0.8rem;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
@@ -424,14 +424,14 @@
     max-height: 280px;
     overflow: auto;
     border: 1px solid rgba(148, 163, 184, 0.32);
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
   }
 
   .snapshot-debug-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.75rem;
+    font-size: var(--b2s-fs-xs);
     color: #0f172a;
   }
 

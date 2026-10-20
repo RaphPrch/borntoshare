@@ -50,7 +50,7 @@
   right: 18px;
   background: transparent;
   border: none;
-  font-size: 26px;
+  font-size: var(--b2s-fs-page-title);
   cursor: pointer;
   color: #334155;
   z-index: 2;

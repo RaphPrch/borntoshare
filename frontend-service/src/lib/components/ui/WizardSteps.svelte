@@ -57,7 +57,7 @@
     width: 40px;
     height: 40px;
     border: 1px solid #cdd8ec;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: grid;
     place-items: center;
     color: #304a78;
@@ -75,7 +75,7 @@
 
   .b2s-steps strong {
     display: block;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
     color: #0d214f;
   }
@@ -83,7 +83,7 @@
   .b2s-steps small {
     display: block;
     margin-top: 2px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #52688f;
   }
 
