@@ -1,4 +1,6 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
@@ -210,7 +212,7 @@
           disabled={loading}
         />
         {#if displayNameError}
-          <p class="identity-edit-field-error">{displayNameError}</p>
+          <FieldError>{displayNameError}</FieldError>
         {/if}
       </div>
 
@@ -280,7 +282,7 @@
             disabled={loading}
           />
           {#if currentPasswordError}
-            <p class="identity-edit-field-error">{currentPasswordError}</p>
+            <FieldError>{currentPasswordError}</FieldError>
           {/if}
         </div>
 
@@ -296,7 +298,7 @@
               disabled={loading}
             />
             {#if newPasswordError}
-              <p class="identity-edit-field-error">{newPasswordError}</p>
+              <FieldError>{newPasswordError}</FieldError>
             {/if}
           </div>
 
@@ -311,7 +313,7 @@
               disabled={loading}
             />
             {#if confirmPasswordError}
-              <p class="identity-edit-field-error">{confirmPasswordError}</p>
+              <FieldError>{confirmPasswordError}</FieldError>
             {/if}
           </div>
         </div>
@@ -321,7 +323,7 @@
     {/if}
 
     {#if error}
-      <div class="identity-edit-error">{error}</div>
+      <InlineAlert tone="error">{error}</InlineAlert>
     {/if}
   </div>
 
@@ -546,23 +548,6 @@
     color: #5d6f8a;
     font-size: var(--b2s-fs-sm);
     line-height: 1.5;
-  }
-
-  .identity-edit-field-error {
-    margin: 0;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 700;
-    color: var(--b2s-color-danger, #dc3545);
-  }
-
-  .identity-edit-error {
-    border: 1px solid rgba(185, 28, 28, 0.18);
-    background: rgba(254, 242, 242, 0.95);
-    color: #991b1b;
-    border-radius: var(--b2s-radius-md);
-    padding: 12px 14px;
-    font-size: var(--b2s-fs-md);
-    font-weight: 600;
   }
 
   .identity-edit-actions {

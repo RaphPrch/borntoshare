@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
   import AppModal from '$lib/components/ui/AppModal.svelte';
@@ -524,7 +525,7 @@
             {/if}
           </div>
           {#if errors.storageRootId}
-            <small class="field-error">{errors.storageRootId}</small>
+            <FieldError>{errors.storageRootId}</FieldError>
           {/if}
         </div>
 
@@ -554,7 +555,7 @@
             </button>
           </div>
           {#if errors.permissions}
-            <small class="field-error">{errors.permissions}</small>
+            <FieldError>{errors.permissions}</FieldError>
           {/if}
         </div>
 
@@ -589,7 +590,7 @@
             </div>
           {/if}
           {#if errors.principal}
-            <small class="field-error">{errors.principal}</small>
+            <FieldError>{errors.principal}</FieldError>
           {/if}
           {#if existingAccessCheckLoading}
             <small class="field-hint">{t('Verification des acces existants…')}</small>
@@ -612,14 +613,14 @@
             <input class="custom-ttl" type="number" min="1" max="365" bind:value={customTtlDays} aria-label={t('Custom duration in days')} />
           {/if}
           {#if errors.ttl}
-            <small class="field-error">{errors.ttl}</small>
+            <FieldError>{errors.ttl}</FieldError>
           {/if}
           <label class="justification">
             <span>{t('Justification')}</span>
             <textarea bind:value={justification} maxlength="230" placeholder={t('Explain why this access is needed...')}></textarea>
           </label>
           {#if errors.justification}
-            <small class="field-error">{errors.justification}</small>
+            <FieldError>{errors.justification}</FieldError>
           {/if}
         </div>
 
@@ -1019,14 +1020,6 @@
 
   .justification textarea::placeholder {
     color: #66779c;
-  }
-
-  .field-error {
-    display: block;
-    margin-top: 6px;
-    color: #c22323;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 620;
   }
 
   .field-hint {

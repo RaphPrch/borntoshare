@@ -1,4 +1,5 @@
 import { t } from '$lib/i18n';
+import type { StatusVariant } from '$lib/utils/status';
 type AccessRequestTone = 'pending' | 'approved' | 'rejected' | 'revoked' | 'enforced' | 'neutral';
 
 type AccessRequestStatusMeta = {
@@ -36,6 +37,18 @@ export const getRequestStatusMeta = (status?: string | null): AccessRequestStatu
   const meta = resolveRequestStatusMeta(status);
   return { ...meta, label: t(meta.label) };
 };
+
+const REQUEST_TONE_VARIANTS: Record<string, StatusVariant> = {
+  pending: 'warning',
+  approved: 'success',
+  enforced: 'success',
+  rejected: 'error',
+  revoked: 'disabled',
+  neutral: 'muted'
+};
+
+export const requestToneVariant = (tone?: string | null): StatusVariant =>
+  REQUEST_TONE_VARIANTS[String(tone ?? '')] ?? 'muted';
 
 export const isProvisioningInFlight = (items: any[]): boolean =>
   (items ?? []).some((p: any) => {

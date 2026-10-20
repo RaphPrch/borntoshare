@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
@@ -109,7 +110,7 @@
     {#if loading}
       <div class="identity-drawer-loading">{t('Loading metadata…')}</div>
     {:else if loadError}
-      <div class="identity-drawer-error" role="alert">{loadError}</div>
+      <InlineAlert tone="error">{loadError}</InlineAlert>
     {/if}
 
     {#if activeTab === 'overview'}
@@ -224,7 +225,7 @@
           {#if snapshotDebugLoading}
             <div class="identity-drawer-loading">{t('Loading snapshot rows…')}</div>
           {:else if snapshotDebugError}
-            <div class="identity-drawer-error" role="alert">{snapshotDebugError}</div>
+            <InlineAlert tone="error">{snapshotDebugError}</InlineAlert>
           {:else if snapshotDebugRows.length === 0}
             <div class="snapshot-debug-empty">{t('No snapshot row available for debug.')}</div>
           {:else}
@@ -386,17 +387,6 @@
   .identity-drawer-loading {
     margin-top: 0.68rem;
     color: #64748b;
-    font-size: var(--b2s-fs-sm);
-    font-weight: 600;
-  }
-
-  .identity-drawer-error {
-    margin-top: 0.68rem;
-    padding: 0.56rem 0.64rem;
-    border-radius: var(--b2s-radius-md);
-    border: 1px solid rgba(185, 28, 28, 0.24);
-    background: rgba(254, 242, 242, 0.8);
-    color: #991b1b;
     font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }

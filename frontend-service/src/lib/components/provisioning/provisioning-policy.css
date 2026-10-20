@@ -347,12 +347,6 @@
   line-height: 1.3;
 }
 
-.provisioning-error {
-  color: #8f2c3b;
-  font-size: var(--b2s-fs-lg);
-  font-weight: 550;
-}
-
 .provisioning-policy-screen[data-scope='zone'] .provisioning-policy-grid,
 .provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-policy-grid {
   grid-template-columns: minmax(0, 1.95fr) minmax(350px, 1fr);
@@ -565,12 +559,6 @@
   letter-spacing: -0.01em;
   font-weight: 650;
   padding: 0 14px;
-}
-
-.provisioning-policy-screen[data-scope='zone'] .provisioning-error,
-.provisioning-policy-screen[data-scope='storage-endpoint'] .provisioning-error {
-  font-size: var(--b2s-fs-lg);
-  color: #8f2d3b;
 }
 
 @media (max-width: 1320px) {

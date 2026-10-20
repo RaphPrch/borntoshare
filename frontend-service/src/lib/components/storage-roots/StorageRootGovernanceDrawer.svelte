@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import StorageRootDrawerShell from './StorageRootDrawerShell.svelte';
   import StorageRootAssignedPrincipalCard from './StorageRootAssignedPrincipalCard.svelte';
@@ -77,14 +78,15 @@
       <p class="governance-drawer__helper">{helperText}</p>
 
       {#if errorMessage}
-        <div class="governance-drawer__error" role="status" aria-live="polite">{errorMessage}</div>
+        <InlineAlert tone="error">{errorMessage}</InlineAlert>
       {/if}
 
       {#if unresolvedPrincipalLabels.length > 0}
-        <article class="governance-drawer__warning" role="status" aria-live="polite">
-          <strong>
-            {t('{unresolvedPrincipalLabelsCount} selected identit{value} not resolved. You can still save resolved assignments.', { unresolvedPrincipalLabelsCount: unresolvedPrincipalLabels.length, value: (unresolvedPrincipalLabels.length > 1 ? 'ies were' : 'y was') })}
-          </strong>
+        <InlineAlert
+          tone="warning"
+          class="governance-drawer__warning"
+          title={t('{unresolvedPrincipalLabelsCount} selected identit{value} not resolved. You can still save resolved assignments.', { unresolvedPrincipalLabelsCount: unresolvedPrincipalLabels.length, value: (unresolvedPrincipalLabels.length > 1 ? 'ies were' : 'y was') })}
+        >
           <ul>
             {#each unresolvedPrincipalLabels.slice(0, 6) as label}
               <li>{label}</li>
@@ -93,7 +95,7 @@
               <li>{t('+{value} more', { value: (unresolvedPrincipalLabels.length - 6) })}</li>
             {/if}
           </ul>
-        </article>
+        </InlineAlert>
       {/if}
 
       {#if loading && roleRows.length === 0}
@@ -210,36 +212,12 @@
     max-width: 52ch;
   }
 
-  .governance-drawer__error {
-    margin-top: 12px;
-    padding: 10px 12px;
-    border: 1px solid #f5cbc8;
-    border-radius: var(--b2s-radius-md);
-    background: #fff1f1;
-    color: #b42318;
-    font-size: var(--b2s-fs-sm);
-    line-height: 1.45;
-  }
-
-  .governance-drawer__warning {
+  :global(.governance-drawer__warning) {
     margin-top: 14px;
-    border: 1px solid #f5d08a;
-    border-radius: var(--b2s-radius-md);
-    background: #fffaeb;
-    color: #8a4b00;
-    padding: 12px 14px;
-    font-size: var(--b2s-fs-sm);
-    line-height: 1.45;
   }
 
-  .governance-drawer__warning strong {
-    display: block;
-    font-size: var(--b2s-fs-sm);
-    font-weight: 700;
-  }
-
-  .governance-drawer__warning ul {
-    margin: 8px 0 0;
+  :global(.governance-drawer__warning ul) {
+    margin: 4px 0 0;
     padding-left: 18px;
   }
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
@@ -44,6 +46,8 @@
     const status = normalizeStatus(job?.status);
     return !isTerminal(status) && status !== 'UNKNOWN';
   };
+
+  const JOB_STATUS_VARIANTS = { running: 'info', success: 'success', error: 'error', neutral: 'muted' } as const;
 
   const statusTone = (status: string): 'running' | 'success' | 'error' | 'neutral' => {
     const s = normalizeStatus(status);
@@ -155,9 +159,9 @@
 
   <div class="card b2s-card jobs-summary">
     <div class="card-body d-flex flex-wrap align-items-center gap-3">
-      <span class="summary-pill summary-pill--running">{t('Active: {activeCount}', { activeCount })}</span>
-      <span class="summary-pill summary-pill--neutral">{t('Total: {jobsCount}', { jobsCount: jobs.length })}</span>
-      <span class="summary-pill summary-pill--error">{t('Terminaux: {terminalCount}', { terminalCount })}</span>
+      <StatusBadge variant="info" label={t('Active: {activeCount}', { activeCount })} />
+      <StatusBadge variant="muted" showDot={false} label={t('Total: {jobsCount}', { jobsCount: jobs.length })} />
+      <StatusBadge variant="muted" showDot={false} label={t('Terminaux: {terminalCount}', { terminalCount })} />
     </div>
   </div>
 
@@ -188,7 +192,7 @@
   </div>
 
   {#if loadError}
-    <div class="alert alert-danger mb-0">{loadError}</div>
+    <InlineAlert tone="error">{loadError}</InlineAlert>
   {/if}
 
   <div class="card b2s-card jobs-table-card">
@@ -218,9 +222,7 @@
                 <tr>
                   <td class="mono">#{job.id}</td>
                   <td>
-                    <span class={`status-badge status-badge--${statusTone(normalizeStatus(job.status))}`}>
-                      {normalizeStatus(job.status)}
-                    </span>
+                    <StatusBadge compact label={normalizeStatus(job.status)} variant={JOB_STATUS_VARIANTS[statusTone(job.status)]} />
                   </td>
                   <td class="mono">{String(job.job_type ?? '—')}</td>
                   <td>{String(job.action ?? '—')}</td>
@@ -263,35 +265,6 @@
     padding: var(--b2s-page-padding);
   }
 
-
-
-
-  .summary-pill {
-    padding: 4px 10px;
-    border-radius: var(--b2s-radius-pill);
-    font-size: var(--b2s-fs-sm);
-    font-weight: 600;
-    border: 1px solid transparent;
-  }
-
-  .summary-pill--running {
-    background: #dbeafe;
-    color: #1d4ed8;
-    border-color: #bfdbfe;
-  }
-
-  .summary-pill--neutral {
-    background: #f1f5f9;
-    color: #334155;
-    border-color: #e2e8f0;
-  }
-
-  .summary-pill--error {
-    background: #fee2e2;
-    color: #b91c1c;
-    border-color: #fecaca;
-  }
-
   .jobs-table thead th {
     background: #f8fafc;
     color: #334155;
@@ -319,39 +292,6 @@
   .mono {
     font-family: var(--b2s-font-mono);
     font-size: var(--b2s-fs-xs);
-  }
-
-  .status-badge {
-    display: inline-block;
-    border-radius: var(--b2s-radius-pill);
-    padding: 2px 8px;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 700;
-    border: 1px solid transparent;
-  }
-
-  .status-badge--running {
-    background: #dbeafe;
-    color: #1e40af;
-    border-color: #bfdbfe;
-  }
-
-  .status-badge--success {
-    background: #dcfce7;
-    color: #166534;
-    border-color: #bbf7d0;
-  }
-
-  .status-badge--error {
-    background: #fee2e2;
-    color: #b91c1c;
-    border-color: #fecaca;
-  }
-
-  .status-badge--neutral {
-    background: #f1f5f9;
-    color: #334155;
-    border-color: #e2e8f0;
   }
 
   .error-block {

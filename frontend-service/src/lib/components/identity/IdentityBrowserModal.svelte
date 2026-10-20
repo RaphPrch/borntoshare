@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy } from 'svelte';
@@ -662,9 +663,6 @@
     onSelect?.(payload);
   }
 
-
-
-
   $: {
     const activeDn = String($store.activeDn ?? '').trim();
     if (principalTypeFilter === 'user') {
@@ -974,7 +972,7 @@
     </div>
 
     {#if $store.error}
-      <div class="idb-error" role="status">{$store.error}</div>
+      <InlineAlert tone="error">{$store.error}</InlineAlert>
     {/if}
   </div>
 
@@ -1435,16 +1433,6 @@
 
   .idb-role-row input {
     accent-color: var(--idb-accent);
-  }
-
-  .idb-error {
-    margin-top: 16px;
-    padding: 8px 12px;
-    border: 1px solid #ffe69c;
-    border-radius: var(--b2s-radius-sm);
-    background: #fff3cd;
-    color: #664d03;
-    font-size: var(--b2s-fs-sm);
   }
 
   .idb-footer {

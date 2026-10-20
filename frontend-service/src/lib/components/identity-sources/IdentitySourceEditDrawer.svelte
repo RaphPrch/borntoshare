@@ -1,4 +1,6 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -374,7 +376,7 @@
           <span>{t('Display name')}</span>
           <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.display_name)} bind:value={form.display_name} />
           {#if showErrors && !normalize(form.display_name)}
-            <small class="identity-field-error">{t('Required')}</small>
+            <FieldError>{t('Required')}</FieldError>
           {/if}
         </label>
         <label class="identity-edit-field">
@@ -388,7 +390,7 @@
           <span>{t('Hostname / IP')}</span>
           <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.host)} bind:value={form.host} />
           {#if showErrors && !normalize(form.host)}
-            <small class="identity-field-error">{t('Required')}</small>
+            <FieldError>{t('Required')}</FieldError>
           {/if}
         </label>
         <label class="identity-edit-field">
@@ -399,7 +401,7 @@
           <span>{t('Base DN')}</span>
           <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.base_dn)} bind:value={form.base_dn} />
           {#if showErrors && !normalize(form.base_dn)}
-            <small class="identity-field-error">{t('Required')}</small>
+            <FieldError>{t('Required')}</FieldError>
           {/if}
         </label>
         <div class="identity-edit-note identity-edit-field--full">
@@ -421,7 +423,7 @@
           <span>{t('Bind DN')}</span>
           <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.bind_dn)} bind:value={form.bind_dn} />
           {#if showErrors && !normalize(form.bind_dn)}
-            <small class="identity-field-error">{t('Required')}</small>
+            <FieldError>{t('Required')}</FieldError>
           {/if}
         </label>
         <label class="identity-edit-field">
@@ -504,7 +506,7 @@
     </section>
 
     {#if actionError}
-      <div class="identity-edit-error" role="alert">{actionError}</div>
+      <InlineAlert tone="error">{actionError}</InlineAlert>
     {/if}
   </div>
 
@@ -529,16 +531,6 @@
 </Drawer>
 
 <style>
-  .identity-edit-error {
-    margin-top: 14px;
-    padding: 10px 12px;
-    border: 1px solid #fecaca;
-    border-radius: var(--b2s-radius-md);
-    background: var(--b2s-color-danger-soft);
-    color: var(--b2s-color-danger-strong);
-    font-size: var(--b2s-fs-sm);
-    font-weight: 600;
-  }
 
   :global(.identity-edit-drawer .b2s-drawer__backdrop) {
     background: rgba(15, 23, 42, 0.46);

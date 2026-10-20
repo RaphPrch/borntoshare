@@ -103,7 +103,6 @@
   $: hasAlerts = Number(alertsCount ?? 0) > 0;
 </script>
 
-
 <nav class="b2s-topbar">
   <!-- LEFT -->
   <div class="topbar-left">

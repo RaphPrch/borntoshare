@@ -1,4 +1,6 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
   import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
   import { createEventDispatcher } from 'svelte';
@@ -468,12 +470,7 @@
   <WizardSteps ariaLabel={t('Add identity steps')} steps={[{ label: t('Choose type') }, { label: t('Configure') }]} current={step} />
 
   {#if errorMessage}
-    <div class="identity-wizard__error" role="alert">
-      <strong>{errorMessage}</strong>
-      {#if errorHint}
-        <span>{errorHint}</span>
-      {/if}
-    </div>
+    <InlineAlert tone="error" title={errorMessage}>{errorHint ?? ''}</InlineAlert>
   {/if}
 
   {#if step === 1}
@@ -525,12 +522,12 @@
           <label>
             <span>{t('Username *')}</span>
             <input bind:value={localUsername} maxlength="255" placeholder={t('e.g., jdoe')} />
-            {#if localUsernameError}<small class="identity-wizard__field-error">{localUsernameError}</small>{/if}
+            {#if localUsernameError}<FieldError>{localUsernameError}</FieldError>{/if}
           </label>
           <label>
             <span>{t('Display name *')}</span>
             <input bind:value={localDisplayName} maxlength="255" placeholder={t('e.g., John Doe')} />
-            {#if localDisplayNameError}<small class="identity-wizard__field-error">{localDisplayNameError}</small>{/if}
+            {#if localDisplayNameError}<FieldError>{localDisplayNameError}</FieldError>{/if}
           </label>
           <label>
             <span>{t('Email')}</span>
@@ -539,7 +536,7 @@
           <label>
             <span>{t('Temporary password *')}</span>
             <input bind:value={localPassword} type="password" maxlength="255" placeholder={t('Enter a strong password')} />
-            {#if localPasswordError}<small class="identity-wizard__field-error">{localPasswordError}</small>{/if}
+            {#if localPasswordError}<FieldError>{localPasswordError}</FieldError>{/if}
           </label>
         </div>
 
@@ -559,7 +556,7 @@
                 <option value={source.id}>{source.name ?? t('Identity source #{id}', { id: source.id })}</option>
               {/each}
             </select>
-            {#if sourceError}<small class="identity-wizard__field-error">{sourceError}</small>{/if}
+            {#if sourceError}<FieldError>{sourceError}</FieldError>{/if}
           </label>
           <label>
             <span>{mode === 'directory_group' ? t('Search group *') : t('Search user *')}</span>
@@ -576,7 +573,7 @@
                 {t('Browse directory')}
               </button>
             </div>
-            {#if principalError}<small class="identity-wizard__field-error">{principalError}</small>{/if}
+            {#if principalError}<FieldError>{principalError}</FieldError>{/if}
           </label>
         </div>
 
@@ -666,7 +663,7 @@
           </button>
         </div>
         {#if roleError}
-          <small class="identity-wizard__field-error">{roleError}</small>
+          <FieldError>{roleError}</FieldError>
         {/if}
       </div>
     </section>
@@ -741,29 +738,9 @@
     font-size: var(--b2s-fs-lg);
   }
 
-  .identity-wizard__field-error,
-  .identity-wizard__footer-reason {
-    display: block;
-    margin-top: 6px;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 700;
-    color: var(--b2s-color-danger, #dc3545);
-  }
-
   .identity-wizard__footer-reason {
     color: var(--b2s-color-text-muted, #64748b);
     text-align: right;
-  }
-
-  .identity-wizard__error {
-    display: grid;
-    gap: 4px;
-    padding: 14px 16px;
-    margin-bottom: 14px;
-    border: 1px solid #f0c7c7;
-    border-radius: var(--b2s-radius-sm);
-    background: #fff4f4;
-    color: #8d1f1f;
   }
 
   .identity-wizard__step h3 {

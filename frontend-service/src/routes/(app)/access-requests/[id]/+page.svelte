@@ -32,7 +32,6 @@
   let actionMenuOpen = false;
   let decisionInlineError: AccessRequestDecisionUiError | null = null;
 
-
   $: requestStatus = String(req?.status ?? '').toLowerCase();
   $: canApprove = requestStatus === 'pending';
   $: canReject = requestStatus === 'pending';

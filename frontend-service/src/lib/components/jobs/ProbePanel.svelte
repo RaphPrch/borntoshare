@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
   /**
@@ -75,7 +76,7 @@
   {/if}
 
   {#if errorMessage}
-    <div class="probe-error">{errorMessage}</div>
+    <InlineAlert tone="error" compact>{errorMessage}</InlineAlert>
   {/if}
 
   {#if mode === 'detailed' && checks.length}
@@ -160,10 +161,6 @@
     color: #5d6f89;
     font-size: var(--b2s-fs-sm);
     font-weight: 600;
-  }
-  .probe-error {
-    color: #991b1b;
-    font-size: var(--b2s-fs-md);
   }
   .probe-checks { display: grid; gap: 8px; }
   .probe-check { display: flex; gap: 10px; align-items: baseline; }

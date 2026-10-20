@@ -127,7 +127,6 @@
     return humanize(role);
   };
 
-
   const sourceLabel = (entry: any, ctx: Record<string, unknown>, action: string) => {
     const explicit = firstString(
       entry?.source_display,

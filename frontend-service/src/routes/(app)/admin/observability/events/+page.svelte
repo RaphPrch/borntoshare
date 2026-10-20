@@ -260,10 +260,6 @@
     padding: var(--b2s-page-padding);
   }
 
-
-
-
-
   .events-toolbar .card-body {
     padding: 0.7rem 0.9rem;
   }

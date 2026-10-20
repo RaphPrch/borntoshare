@@ -921,12 +921,6 @@ button.danger:hover {
    NEW ACCESS REQUEST MODAL
    ============================================================ */
 
-.field-error {
-  color: #b91c1c !important;
-  font-size: var(--b2s-fs-xs);
-  font-weight: 600;
-}
-
 .ar-card {
   background: rgba(255, 255, 255, 0.8);
   border-radius: var(--b2s-radius-lg);
@@ -2584,26 +2578,10 @@ button.primary.ghost:hover {
   margin-top: 12px;
 }
 
-.identity-field-error {
-  font-size: var(--b2s-fs-xs);
-  color: #b91c1c;
-  font-weight: 700;
-}
-
 .identity-field-help {
   font-size: var(--b2s-fs-xs);
   color: #64748b;
   font-weight: 600;
-}
-
-.identity-error {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: var(--b2s-radius-md);
-  background: #fef2f2;
-  color: #991b1b;
-  font-weight: 700;
-  font-size: var(--b2s-fs-sm);
 }
 
 .identity-btn.danger {
@@ -3405,21 +3383,6 @@ button.primary.ghost:hover {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 14px;
-}
-
-.adv-inline-error {
-  margin-top: 6px;
-  font-size: var(--b2s-fs-sm);
-  color: #b91c1c;
-  font-weight: 600;
-}
-
-.adv-inline-error--block {
-  padding: 10px 12px;
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  background: rgba(239, 68, 68, 0.08);
-  border-radius: var(--b2s-radius-md);
-  margin-top: 10px;
 }
 
 .adv-toolbar {

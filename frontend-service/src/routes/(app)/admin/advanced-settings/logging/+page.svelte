@@ -1,4 +1,6 @@
 <script lang="ts">
+  import FieldError from '$lib/components/ui/FieldError.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import { clamp } from '$lib/utils/values';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
@@ -96,7 +98,7 @@
         <option value="ERROR">ERROR</option>
       </select>
       {#if levelError}
-        <div class="adv-inline-error">{levelError}</div>
+        <FieldError>{levelError}</FieldError>
       {/if}
     </SettingRow>
 
@@ -110,7 +112,7 @@
         disabled={!form.retentionEnabled}
       />
       {#if retentionError}
-        <div class="adv-inline-error">{retentionError}</div>
+        <FieldError>{retentionError}</FieldError>
       {/if}
     </SettingRow>
 
@@ -128,7 +130,7 @@
   </div>
 
   {#if errorMsg}
-    <div class="adv-inline-error adv-inline-error--block">{errorMsg}</div>
+    <InlineAlert tone="error">{errorMsg}</InlineAlert>
   {/if}
 
   <div class="adv-actions">

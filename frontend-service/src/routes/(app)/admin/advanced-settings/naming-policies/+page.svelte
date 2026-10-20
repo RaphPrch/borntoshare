@@ -1,4 +1,6 @@
 <script lang="ts">
+  import FieldError from '$lib/components/ui/FieldError.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import { clamp } from '$lib/utils/values';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
@@ -131,7 +133,7 @@
     <SettingRow label={t('Prefix')} help="Global prefix added to generated groups.">
       <input class="form-control" bind:value={policy.group_prefix} />
       {#if groupPrefixError}
-        <div class="adv-inline-error">{groupPrefixError}</div>
+        <FieldError>{groupPrefixError}</FieldError>
       {/if}
     </SettingRow>
 
@@ -141,14 +143,14 @@
     >
       <input class="form-control" bind:value={policy.template} />
       {#if templateError}
-        <div class="adv-inline-error">{templateError}</div>
+        <FieldError>{templateError}</FieldError>
       {/if}
     </SettingRow>
 
     <SettingRow label={t('Max sAM length')}>
       <input class="form-control" type="number" min="8" max="256" bind:value={policy.max_sam_length} />
       {#if maxSamError}
-        <div class="adv-inline-error">{maxSamError}</div>
+        <FieldError>{maxSamError}</FieldError>
       {/if}
     </SettingRow>
 
@@ -169,13 +171,13 @@
     <SettingRow label={t('Replace map (JSON)')}>
       <textarea class="form-control" rows="4" bind:value={replaceMapText}></textarea>
       {#if replaceMapError}
-        <div class="adv-inline-error">{replaceMapError}</div>
+        <FieldError>{replaceMapError}</FieldError>
       {/if}
     </SettingRow>
   </div>
 
   {#if errorMsg}
-    <div class="adv-inline-error adv-inline-error--block">{errorMsg}</div>
+    <InlineAlert tone="error">{errorMsg}</InlineAlert>
   {/if}
 
   <div class="adv-actions">

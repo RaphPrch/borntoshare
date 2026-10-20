@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
@@ -136,15 +137,13 @@
           <tr>
             <td><strong>{s.user}</strong></td>
             <td>
-              <span class="badge text-bg-primary">
-                {s.roles?.length ? s.roles.join(', ') : 'user'}
-              </span>
+              <StatusBadge compact showDot={false} variant="info" label={s.roles?.length ? s.roles.join(', ') : 'user'} />
             </td>
             <td>
               {#if s.status === 'active'}
-                <span class="badge text-bg-success">active</span>
+                <StatusBadge compact variant="success" label={t('Active')} />
               {:else}
-                <span class="badge text-bg-secondary">{s.status}</span>
+                <StatusBadge compact status={s.status} />
               {/if}
             </td>
             <td>{timeAgo(s.last_seen)}</td>

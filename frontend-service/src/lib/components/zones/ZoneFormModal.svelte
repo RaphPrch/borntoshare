@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import Drawer from "$lib/components/ui/Drawer.svelte";
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
@@ -120,12 +121,7 @@
 >
   <div class="zone-form-drawer__content">
     {#if mode === "delete"}
-      <div class="zone-form-drawer__warning">
-        <div class="zone-form-drawer__warning-title">
-          <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-          {t('Deleting a zone has consequences')}
-        </div>
-
+      <InlineAlert tone="warning" title={t('Deleting a zone has consequences')} class="zone-form-drawer__warning">
         <p>{t('Deleting this zone is irreversible.')}</p>
 
         <ul>
@@ -139,15 +135,13 @@
             <li>{t('No storage data will be modified')}</li>
           </ul>
         </div>
-      </div>
+      </InlineAlert>
     {:else}
       <ZoneFormFields bind:form mode={mode} />
     {/if}
 
     {#if errorMsg}
-      <div class="zone-form-drawer__error">
-        {errorMsg}
-      </div>
+      <InlineAlert tone="error">{errorMsg}</InlineAlert>
     {/if}
   </div>
 
@@ -172,26 +166,13 @@
     gap: 14px;
   }
 
-  .zone-form-drawer__warning {
-    border: 1px solid #efd39c;
-    border-radius: var(--b2s-radius-lg);
-    background: #fff8ea;
-    color: #684a1e;
-    padding: 14px;
+  .zone-form-drawer__content :global(.zone-form-drawer__warning .b2s-inline-alert__text) {
     display: grid;
     gap: 10px;
   }
 
-  .zone-form-drawer__warning-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: #995f00;
-    font-weight: 760;
-  }
-
-  .zone-form-drawer__warning p,
-  .zone-form-drawer__warning ul {
+  .zone-form-drawer__content :global(.zone-form-drawer__warning p),
+  .zone-form-drawer__content :global(.zone-form-drawer__warning ul) {
     margin: 0;
   }
 
@@ -206,15 +187,6 @@
     display: block;
     margin-bottom: 6px;
     color: #334155;
-  }
-
-  .zone-form-drawer__error {
-    border: 1px solid #f0c1c1;
-    border-radius: var(--b2s-radius-md);
-    background: #fff5f5;
-    color: #a12e2e;
-    padding: 10px 12px;
-    font-weight: 650;
   }
 
   .zone-form-drawer__actions {

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import FieldError from '$lib/components/ui/FieldError.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
   import { sleep } from '$lib/utils/values';
@@ -759,9 +761,9 @@
                 autocomplete="off"
               />
               {#if showStep3Errors && !payload.name?.trim()}
-                <span class="error">{t('Required')}</span>
+                <FieldError>{t('Required')}</FieldError>
               {:else if showStep3Errors && isDuplicateSourceName()}
-                <span class="error">{t('This name already exists')}</span>
+                <FieldError>{t('This name already exists')}</FieldError>
               {/if}
             </div>
 
@@ -783,9 +785,9 @@
                 </button>
               </div>
               {#if showStep3Errors && !adHostInput}
-                <span class="error">{t('Required')}</span>
+                <FieldError>{t('Required')}</FieldError>
               {:else if showStep3Errors && adHostInput && !isValidIPv4(adHostInput) && !isValidHostname(adHostInput)}
-                <span class="error">{t('Invalid hostname / IP')}</span>
+                <FieldError>{t('Invalid hostname / IP')}</FieldError>
               {/if}
               {#if resolveHint}
                 <span class={resolveHint.ok ? 'hint ok' : 'hint'}>{resolveHint.message}</span>
@@ -820,7 +822,7 @@
                 bind:value={payload.port}
               />
               {#if showStep3Errors && !payload.port}
-                <span class="error">{t('Required')}</span>
+                <FieldError>{t('Required')}</FieldError>
               {/if}
             </div>
             <div class="field">
@@ -831,7 +833,7 @@
                 placeholder="DC=corp,DC=local"
               />
               {#if showStep3Errors && !payload.base_dn}
-                <span class="error">{t('Required')}</span>
+                <FieldError>{t('Required')}</FieldError>
               {/if}
             </div>
             <div class="field">
@@ -842,7 +844,7 @@
                 placeholder="svc_ad_bind"
               />
               {#if showStep3Errors && !payload.bind_dn}
-                <span class="error">{t('Required')}</span>
+                <FieldError>{t('Required')}</FieldError>
               {/if}
             </div>
 
@@ -865,7 +867,7 @@
                 </button>
               </div>
               {#if showStep3Errors && !uiBindPassword && !payload.bind_password_ref}
-                <span class="error">{t('Required')}</span>
+                <FieldError>{t('Required')}</FieldError>
               {/if}
             </div>
 
@@ -1043,7 +1045,7 @@
               </div>
 
               {#if snapshotInitError}
-                <div class="test-alert">{snapshotInitError}</div>
+                <InlineAlert tone="error">{snapshotInitError}</InlineAlert>
               {/if}
             {/if}
           </div>
@@ -1089,7 +1091,7 @@
           </div>
 
           {#if testError}
-            <div class="test-alert">{testError}</div>
+            <InlineAlert tone="error">{testError}</InlineAlert>
           {/if}
 
           <div class="test-summary">
@@ -1598,16 +1600,6 @@
 
   .test-status.err {
     color: #b91c1c;
-  }
-
-  .test-alert {
-    margin-top: 12px;
-    padding: 10px 12px;
-    border-radius: var(--b2s-radius-md);
-    background: #fef3c7;
-    color: #92400e;
-    border: 1px solid #fde68a;
-    font-weight: 700;
   }
 
   .test-summary {

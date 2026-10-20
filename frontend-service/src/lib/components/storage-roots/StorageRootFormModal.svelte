@@ -45,7 +45,6 @@
   }> = [];
   export let endpointId: number | null = null;
 
-
   export let onClose: () => void;
   export let onSubmit: (payload: StorageRootForm) => void;
   export let onDelete: () => void;

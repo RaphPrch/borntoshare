@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
   import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
   import { fade, fly } from 'svelte/transition';
@@ -725,7 +726,7 @@
                    on:blur={() => touch('name')}
                  />
                 {#if errName}
-                  <div class="se-field-error">{t('Name is required.')}</div>
+                  <FieldError>{t('Name is required.')}</FieldError>
                 {/if}
               </div>
 
@@ -765,13 +766,13 @@
                   <div class="se-field-hint">{t('Loading zones…')}</div>
                 {/if}
                 {#if zonesError}
-                  <div class="se-field-error">{zonesError}</div>
+                  <FieldError>{zonesError}</FieldError>
                 {/if}
                 {#if errZone}
-                  <div class="se-field-error">{t('Zone is required.')}</div>
+                  <FieldError>{t('Zone is required.')}</FieldError>
                 {/if}
                 {#if !zonesLoading && !zonesError && zones.length === 0}
-                  <div class="se-field-error">{t('Create a zone before adding a storage endpoint.')}</div>
+                  <FieldError>{t('Create a zone before adding a storage endpoint.')}</FieldError>
                 {/if}
               </div>
 
@@ -794,13 +795,13 @@
                   <div class="se-field-hint">{t('Loading identity sources…')}</div>
                 {/if}
                 {#if identitySourcesError}
-                  <div class="se-field-error">{identitySourcesError}</div>
+                  <FieldError>{identitySourcesError}</FieldError>
                 {/if}
                 {#if !identitySourcesLoading && !identitySourcesError && activeAdIdentitySources.length === 0}
                   <div class="se-field-hint">{t('No active AD identity source available (optional field).')}</div>
                 {/if}
                 {#if errIdentitySource}
-                  <div class="se-field-error">{t('Identity source is required.')}</div>
+                  <FieldError>{t('Identity source is required.')}</FieldError>
                 {/if}
               </div>
             </div>
@@ -832,13 +833,13 @@
                  </button>
                </div>
                {#if errHost}
-                 <div class="se-field-error">{t('Hostname/IP is required.')}</div>
+                 <FieldError>{t('Hostname/IP is required.')}</FieldError>
                {/if}
                {#if errHostFormat}
-                 <div class="se-field-error">{t('Invalid hostname/IP.')}</div>
+                 <FieldError>{t('Invalid hostname/IP.')}</FieldError>
                {/if}
                {#if duplicateEndpoint}
-                 <div class="se-field-error">{t('A file server with the same IP/hostname already exists.')}</div>
+                 <FieldError>{t('A file server with the same IP/hostname already exists.')}</FieldError>
                {/if}
                {#if resolveHint}
                  <div class={`se-field-hint ${resolveHint.ok ? 'ok' : ''}`}>{resolveHint.message}</div>
@@ -856,7 +857,7 @@
                   on:blur={() => touch('port')}
                 />
                 {#if errPort}
-                  <div class="se-field-error">{t('Port is required.')}</div>
+                  <FieldError>{t('Port is required.')}</FieldError>
                 {/if}
               </div>
             </div>
@@ -878,7 +879,7 @@
                    on:blur={() => touch('username')}
                  />
                 {#if errUsername}
-                  <div class="se-field-error">{t('Username is required.')}</div>
+                  <FieldError>{t('Username is required.')}</FieldError>
                 {/if}
               </div>
 
@@ -904,7 +905,7 @@
                   </button>
                 </div>
                 {#if errPassword}
-                  <div class="se-field-error">{t('Password is required.')}</div>
+                  <FieldError>{t('Password is required.')}</FieldError>
                 {/if}
               </div>
             </div>
@@ -1298,13 +1299,6 @@
   .se-input.invalid {
     border-color: rgba(220, 53, 69, 0.75) !important;
     box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.12);
-  }
-
-  .se-field-error {
-    margin-top: 6px;
-    font-size: var(--b2s-fs-xs);
-    line-height: 1.2;
-    color: rgba(220, 53, 69, 0.95);
   }
 
   .se-field-hint {

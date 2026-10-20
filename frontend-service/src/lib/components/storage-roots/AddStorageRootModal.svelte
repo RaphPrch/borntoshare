@@ -1,6 +1,9 @@
 <script lang="ts">
+  const ENDPOINT_STATE_VARIANTS = { success: 'success', warning: 'info', danger: 'error', muted: 'muted' } as const;
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { createEventDispatcher } from 'svelte';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import type { AddRootEndpoint, AddRootFolder, AddRootZone } from './add-storage-root.types';
@@ -349,7 +352,7 @@
                   <span>{selectedEndpoint?.protocol ?? '—'}</span>
                 </div>
               </div>
-              <span class={`sr-add-status sr-add-status--${state.tone}`}>{state.label}</span>
+              <StatusBadge compact variant={ENDPOINT_STATE_VARIANTS[state.tone]} label={state.label} />
             </div>
 
             <div class="sr-add-sidebar-facts">
@@ -395,7 +398,7 @@
                     <span>{selectedEndpoint?.protocol ?? '—'}</span>
                   </div>
                 </div>
-                <span class={`sr-add-status sr-add-status--${state.tone}`}>{state.label}</span>
+                <StatusBadge compact variant={ENDPOINT_STATE_VARIANTS[state.tone]} label={state.label} />
               </div>
 
               <div class="sr-add-sidebar-facts sr-add-sidebar-facts--review">
@@ -456,7 +459,7 @@
                     </div>
                   </div>
                 </div>
-                <span class={`sr-add-status sr-add-status--${state.tone}`}>{state.label}</span>
+                <StatusBadge compact variant={ENDPOINT_STATE_VARIANTS[state.tone]} label={state.label} />
               </div>
 
               <div class="sr-add-metrics" aria-label={t('Endpoint summary')}>
@@ -723,10 +726,9 @@
                 <li>{t('Governance can be completed now or later')}</li>
               </ul>
 
-              <div class="sr-add-import-warning">
-                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-                <span>{t('Storage roots will be created immediately. Governed groups and effective permissions are finalized on first approved access request.')}</span>
-              </div>
+              <InlineAlert tone="warning" compact>
+                {t('Storage roots will be created immediately. Governed groups and effective permissions are finalized on first approved access request.')}
+              </InlineAlert>
             </aside>
           </section>
         {/if}
@@ -1081,37 +1083,6 @@
     font-weight: 600;
   }
 
-  .sr-add-status {
-    border-radius: var(--b2s-radius-pill);
-    padding: 6px 12px;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 700;
-  }
-
-  .sr-add-status--success {
-    border: 1px solid #afe6c2;
-    color: #087b37;
-    background: #eafaf0;
-  }
-
-  .sr-add-status--warning {
-    border: 1px solid #f5d58b;
-    color: #945d00;
-    background: #fff7df;
-  }
-
-  .sr-add-status--danger {
-    border: 1px solid #f0b5b5;
-    color: #bd1f2b;
-    background: #fff0f0;
-  }
-
-  .sr-add-status--muted {
-    border: 1px solid #d9e1ee;
-    color: #5d6f8d;
-    background: #f5f7fb;
-  }
-
   .sr-add-metrics {
     border: 1px solid #e0e7f2;
     border-radius: var(--b2s-radius-sm);
@@ -1364,12 +1335,6 @@
     color: #0f2657;
     font-size: var(--b2s-fs-lg);
     font-weight: 700;
-  }
-
-  .sr-add-endpoint-summary-head .sr-add-status {
-    align-self: start;
-    padding: 4px 10px;
-    font-size: var(--b2s-fs-xs);
   }
 
   .sr-add-sidebar-facts {
@@ -1919,25 +1884,6 @@
     color: #132958;
     font-size: var(--b2s-fs-md);
     line-height: 1.55;
-  }
-
-  .sr-add-import-warning {
-    border: 1px solid #f1cf88;
-    border-radius: var(--b2s-radius-sm);
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 12px;
-    padding: 16px;
-    color: #1d3158;
-    background: #fff8e8;
-    font-size: var(--b2s-fs-sm);
-    line-height: 1.6;
-  }
-
-  .sr-add-import-warning i {
-    color: #f09b15;
-    font-size: 20px;
-    margin-top: 2px;
   }
 
   .sr-add-empty-state,

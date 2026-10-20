@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import './provisioning-policy.css';
   import ProvisioningPolicyConfigurationCard from './ProvisioningPolicyConfigurationCard.svelte';
@@ -51,7 +52,7 @@
         {/if}
 
         {#if errorMessage}
-          <div class="provisioning-error" aria-live="polite">{errorMessage}</div>
+          <InlineAlert tone="error">{errorMessage}</InlineAlert>
         {/if}
 
         {#if showUnsaved}

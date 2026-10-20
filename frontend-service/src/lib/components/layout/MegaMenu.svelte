@@ -3,7 +3,6 @@
   import { onMount, onDestroy } from 'svelte';
   import megaConfig, { type MegaMenuKey } from '$lib/components/layout/mega-config';
 
-
   export let activeMega: MegaMenuKey | null = null;
   export let permissions: {
     canSeeStorageRoots?: boolean;
@@ -40,7 +39,6 @@ onDestroy(() => {
     window.removeEventListener('keydown', onKeydown);
   }
 });
-
 
   /* ---------------- Titles / subtitles ---------------- */
   const titles: Record<MegaMenuKey, { title: string; subtitle: string }> = {

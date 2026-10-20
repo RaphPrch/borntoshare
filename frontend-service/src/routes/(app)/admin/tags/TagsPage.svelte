@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
   import { invalidateAll } from "$app/navigation";
@@ -485,7 +486,7 @@
       </section>
 
       {#if errorMsg}
-        <div class="tag-modal__error">{errorMsg}</div>
+        <InlineAlert tone="error">{errorMsg}</InlineAlert>
       {/if}
 
       <footer class="tag-modal__footer">
@@ -878,16 +879,6 @@
     color: #64748b;
     font-weight: 800;
     font-size: var(--b2s-fs-xs);
-  }
-
-  .tag-modal__error {
-    margin: 14px 20px 0;
-    padding: 10px 12px;
-    border-radius: var(--b2s-radius-md);
-    background: rgba(239, 68, 68, 0.10);
-    color: #b91c1c;
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    font-weight: 800;
   }
 
   .tag-modal__footer {

@@ -17,7 +17,6 @@
   const label = (u: any) => String(u?.display_name ?? u?.username ?? u?.email ?? u?.upn ?? t('Identity #{value}', { value: (u?.identity_id ?? '?') }));
   const mail = (u: any) => String(u?.email ?? u?.upn ?? '—');
 
-
   const toneClass = (index: number) => ['indigo', 'violet', 'rose', 'orange', 'cyan'][index % 5];
 
 </script>

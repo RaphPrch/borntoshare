@@ -26,7 +26,6 @@
   const displayName = (user: StorageRootEffectiveAccessUser): string =>
     text(user.display_name) || text(user.username) || text(user.upn) || text(user.principal) || t('Identity {value}', { value: (user.identity_id ?? 'unknown') });
 
-
   const accessLevel = (user: StorageRootEffectiveAccessUser): 'read' | 'write' | 'unknown' => {
     const level = norm(user.access_level);
     if (level === 'read' || level === 'write') return level;

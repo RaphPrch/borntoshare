@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { goto, invalidateAll } from '$app/navigation';
@@ -564,7 +565,7 @@
                   <td><strong>{resourceName(request)}</strong><small>{resourceZone(request)}</small></td>
                   <td><span class="access-icon"><i class={`bi ${iconForAccess(request)}`} aria-hidden="true"></i></span>{accessShort(request)}</td>
                   <td>{ttlDays(request) > 0 ? `${ttlDays(request)} j` : '—'}</td>
-                  <td><span class="stage-pill">{stageText(request)}</span></td>
+                  <td><StatusBadge compact showDot={false} variant="info" label={stageText(request)} /></td>
                   <td><strong>{dateParts.date}</strong><small>{dateParts.time}</small></td>
                 </tr>
               {/each}
@@ -717,7 +718,6 @@
   .ar-person { display: flex; align-items: center; gap: 13px; }
   .ar-person > span { width: 39px; height: 39px; border-radius: 50%; background: #031951; color: #fff; display: grid; place-items: center; font-size: var(--b2s-fs-lg); font-weight: 900; }
   .access-icon { width: 22px; color: #0f60ff; display: inline-flex; justify-content: center; margin-right: 12px; font-size: 18px; vertical-align: middle; }
-  .stage-pill { min-height: 27px; border-radius: var(--b2s-radius-pill); display: inline-flex; align-items: center; padding: 0 11px; border: 1px solid #cfe0ff; background: #eff5ff; color: #0f55ee; font-size: var(--b2s-fs-xs); font-weight: 650; white-space: nowrap; }
   .ar-table-footer { min-height: 78px; display: flex; align-items: center; justify-content: space-between; padding: 15px 19px 20px; }
   .ar-info { min-height: 40px; border-radius: var(--b2s-radius-sm); background: #f4f6fb; color: #24365f; display: inline-flex; align-items: center; gap: 12px; padding: 0 18px; font-size: var(--b2s-fs-sm); font-weight: 550; }
   .ar-info i { color: #071f59; }

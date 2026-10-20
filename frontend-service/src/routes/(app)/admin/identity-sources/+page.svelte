@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { browser } from '$app/environment';
   import { sleep } from '$lib/utils/values';
@@ -46,7 +47,6 @@
   import { snapshotStore } from '$lib/stores/snapshot.store';
   import type { IdentitySourceRow } from '$lib/types/identity-sources';
   import { testIdentitySourceConnection, type IdentitySourceTestPayload } from '$lib/jobs/identity-source-test';
-
 
   type SnapshotDebugRow = {
     key: string;
@@ -136,8 +136,6 @@
     { value: 'running', label: t('Running') }
   ];
 
-
-
   const isAdIdentitySource = (source: IdentitySourceRow | null | undefined): boolean => {
     const type = String(source?.type ?? '').trim().toLowerCase();
     return type === 'ad' || type === 'ldap';
@@ -154,7 +152,6 @@
     if (!card.supportsSnapshot) return t('Not applicable');
     return card.lastSnapshotLabel || t('No snapshot yet');
   };
-
 
   const patchSourceRuntimeMeta = (sourceId: number, patch: Partial<IdentitySourceRow>) => {
     sources = sources.map((source) => (
@@ -825,7 +822,6 @@
     pendingToggleSource = null;
   };
 
-
   const handleToggleActive = async (source: IdentitySourceRow, nextActive: boolean) => {
     if (!source) return;
     if (!nextActive && source.used) {
@@ -1031,10 +1027,7 @@
     </PageHeader>
 
     {#if fetchError}
-      <div class="identity-fetch-error" role="alert">
-        <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-        <span>{fetchError}</span>
-      </div>
+      <InlineAlert tone="error">{fetchError}</InlineAlert>
     {/if}
 
     {#if !hasSources && !listLoading && !fetchError}
@@ -1374,7 +1367,7 @@
   <div class="identity-modal-body">
     <p>{t('This action is final. Confirm deletion.')}</p>
     {#if actionError}
-      <div class="identity-error">{actionError}</div>
+      <InlineAlert tone="error">{actionError}</InlineAlert>
     {/if}
   </div>
 </ConfirmActionModal>
@@ -1422,10 +1415,6 @@
   .identity-clean-shell :global(.b2s-page-header) {
     margin-bottom: 2px;
   }
-
-
-
-
 
   .identity-page-actions {
     display: inline-flex;
@@ -1477,19 +1466,6 @@
   .identity-cta:disabled {
     opacity: 0.62;
     cursor: not-allowed;
-  }
-
-  .identity-fetch-error {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.62rem 0.75rem;
-    border-radius: var(--b2s-radius-sm);
-    border: 1px solid rgba(185, 28, 28, 0.24);
-    background: rgba(254, 242, 242, 0.86);
-    color: #991b1b;
-    font-size: var(--b2s-fs-md);
-    font-weight: 600;
   }
 
   .identity-kpi-grid {

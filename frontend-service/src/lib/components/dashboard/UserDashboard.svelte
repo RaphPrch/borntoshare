@@ -1,9 +1,10 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
   import { formatDateTime, initials } from '$lib/utils/format';
   import DashboardShell from './DashboardShell.svelte';
   import { accessRequestAccessLabel, accessRequestId, accessRequestRequesterName, accessRequestTargetLabel } from '$lib/mappers/access-requests.mapper';
-  import { getRequestStatusMeta } from '$lib/utils/access-request-status';
+  import { getRequestStatusMeta, requestToneVariant } from '$lib/utils/access-request-status';
 
   export let data: any;
 
@@ -197,7 +198,7 @@
                       </div>
                     </td>
                     <td>{normalizedAccess(row)}</td>
-                    <td><span class="status-badge pending">{statusMeta(row).label}</span></td>
+                    <td><StatusBadge compact variant="warning" label={statusMeta(row).label} /></td>
                     <td>{formatDateTime(row?.created_at)}</td>
                     <td><a class="review-btn" href={requestHref(row, 'pending')}>{t('Review')}</a></td>
                   </tr>
@@ -257,7 +258,7 @@
                       </div>
                     </td>
                     <td>{normalizedAccess(row)}</td>
-                    <td><span class={`status-badge ${statusMeta(row).tone}`}>{statusMeta(row).label}</span></td>
+                    <td><StatusBadge compact variant={requestToneVariant(statusMeta(row).tone)} label={statusMeta(row).label} /></td>
                     <td><span class={`role-badge ${roleTone(row)}`}>{roleLabel(row)}</span></td>
                     <td>{formatDateTime(row?.updated_at ?? row?.created_at)}</td>
                     <td><a class="table-action-link" href={requestHref(row)}>{t('View details')}</a></td>
@@ -521,8 +522,6 @@
     font-weight: 700;
     flex: 0 0 30px;
   }
-
-  .status-badge,
   .role-badge {
     display: inline-flex;
     align-items: center;
@@ -533,13 +532,6 @@
     font-weight: 700;
     white-space: nowrap;
   }
-
-  .status-badge.pending { background: #fff4dd; color: #d97706; }
-  .status-badge.approved,
-  .status-badge.enforced { background: #e7f7eb; color: #2f855a; }
-  .status-badge.rejected,
-  .status-badge.revoked { background: #fdecec; color: #dc2626; }
-  .status-badge.neutral { background: #eef2f7; color: #64748b; }
 
   .role-badge.requester { background: #eef4ff; color: #2563eb; }
   .role-badge.guardian { background: #f3e8ff; color: #7c3aed; }
