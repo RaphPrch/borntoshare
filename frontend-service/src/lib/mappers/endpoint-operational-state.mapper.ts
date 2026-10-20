@@ -34,11 +34,3 @@ export function endpointOperationalStateVariant(value: unknown): StatusVariant {
   return 'muted';
 }
 
-export function endpointOperationalStateStatus(value: unknown): 'success' | 'running' | 'failed' | 'disabled' | 'unknown' {
-  const state = normalizeEndpointOperationalState(value);
-  if (state === 'reachable') return 'success';
-  if (state === 'checking') return 'running';
-  if (state === 'unreachable') return 'failed';
-  if (state === 'disabled') return 'disabled';
-  return 'unknown';
-}

@@ -36,7 +36,6 @@
     getStorageEndpointProvisioningPolicy,
     putStorageEndpointProvisioningPolicy,
     recordStorageEndpointProbeResult,
-    updateStorageEndpoint,
     type StorageEndpointProvisioningPolicy,
     type StorageEndpointProvisioningUpdatePayload
   } from '$lib/api/storage-endpoints';
@@ -45,14 +44,9 @@
     createProvisioningDraft
   } from '$lib/mappers/storage-endpoint-provisioning.mapper';
   import {
-    mapBusinessOverallToVariant,
     normalizeProbeStatus,
     reachabilityFromProbeStatus
   } from '$lib/mappers/visual-state.mapper';
-  import {
-    endpointOperationalStateLabel,
-    endpointOperationalStateStatus
-  } from '$lib/mappers/endpoint-operational-state.mapper';
   import {
     buildStorageEndpointOperationalAttentionItems,
     endpointHealthToOperationalTone
@@ -66,7 +60,6 @@
   } from '$lib/mappers/storage-root-alerts.mapper';
   import {
     collectStorageRootsAvailabilityByEndpoint,
-    syncStorageRootDiscoveryForEndpoint,
     type StorageRootAvailabilitySummary
   } from '$lib/jobs/probe-runner';
   import {
@@ -107,7 +100,6 @@
   const norm = (v?: string | null) => (v ?? '').toLowerCase().trim();
   const endpointId = (ep: any) => Number(ep?.id ?? ep?.storage_endpoint_id ?? 0);
   const endpointName = (ep: any) => String(ep?.name ?? ep?.storage_endpoint_name ?? 'Unavailable');
-  const endpointProtocol = (ep: any) => String(ep?.protocol ?? ep?.type ?? ep?.storage_endpoint_type ?? '').toLowerCase();
   const endpointHost = (ep: any) => String(ep?.host ?? 'Unavailable');
   const endpointHasHost = (ep: any): boolean => {
     const host = String(ep?.host ?? '').trim();
@@ -166,21 +158,11 @@
 
   const endpointHealth = (ep: any): HealthValue => endpointHealthById[String(endpointId(ep))] ?? 'unknown';
 
-  const rootHealth = (row: any): HealthValue => {
-    const endpointKey = String(selectedId || 0);
-    return rootHealthByEndpointId[endpointKey]?.[String(rootId(row))] ?? 'unknown';
-  };
-
   const healthLabel = (value: HealthValue): string => {
     if (value === 'healthy') return 'Reachable';
     if (value === 'degraded') return 'Needs review';
     if (value === 'unhealthy') return 'Probe failed';
     return 'No probe yet';
-  };
-
-  const healthToneClass = (value: HealthValue): string => {
-    if (value === 'healthy') return 'is-success';
-    return 'is-danger';
   };
 
   const setHealthLoading = (endpointIdValue: number, stage: string | null) => {
@@ -196,16 +178,6 @@
       ...healthLoadingByEndpointId,
       [key]: stage
     };
-  };
-
-  const endpointHealthLoadingStage = (ep: any): string =>
-    healthLoadingByEndpointId[String(endpointId(ep))] ?? '';
-
-  const endpointHealthLoadingLabel = (ep: any): string => {
-    const stage = endpointHealthLoadingStage(ep);
-    if (stage === 'testing_endpoint') return 'Testing endpoint…';
-    if (stage === 'syncing_roots') return 'Syncing roots…';
-    return '';
   };
 
   const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
@@ -798,47 +770,6 @@
   const endpointPendingCount = (ep: any): number => {
     const embedded = Number(ep?.pending_requests_count);
     return Number.isFinite(embedded) && embedded > 0 ? embedded : 0;
-  };
-
-  const rootStatusLabel = (row: any): string => {
-    const value = String(row?.status ?? row?.governance_status ?? '').trim();
-    return value || 'No data';
-  };
-
-  const rootAvailabilityRow = (row: any): StorageRootAvailabilitySummary['rows'][number] | null =>
-    (rootAvailabilityRowsByEndpointId[String(selectedId)] ?? []).find(
-      (candidate) => Number(candidate?.storage_root_id ?? 0) === rootId(row)
-    ) ?? null;
-
-  const rootAvailabilityLabel = (row: any): string => {
-    const health = rootHealth(row);
-    if (health === 'healthy') return 'Ready';
-    if (health === 'unhealthy') return 'Needs review';
-    return 'No status';
-  };
-
-  const rootAvailabilityTone = (row: any): 'success' | 'warning' | 'danger' | 'muted' => {
-    const health = rootHealth(row);
-    if (health === 'healthy') return 'success';
-    if (health === 'unhealthy') return 'danger';
-    return 'muted';
-  };
-
-  const rootAvailabilityDetail = (row: any): string => {
-    const availability = rootAvailabilityRow(row);
-    if (!availability) return 'Run or refresh endpoint status to load details.';
-
-    const provisioningStatus = String(availability.provisioning_status ?? '').trim();
-    const endpointStatus = String(availability.endpoint_status ?? '').trim();
-
-    if (availability.available) return 'Provisioning ready and endpoint probe succeeded.';
-    if (provisioningStatus && !['ready', 'success'].includes(provisioningStatus.toLowerCase())) {
-      return `Provisioning: ${provisioningStatus}`;
-    }
-    if (endpointStatus && normalizeProbeStatus(endpointStatus) !== 'success') {
-      return `Probe: ${endpointStatus}`;
-    }
-    return 'Availability could not be confirmed.';
   };
 
   $: rootsFilteredRows = selectedRoots

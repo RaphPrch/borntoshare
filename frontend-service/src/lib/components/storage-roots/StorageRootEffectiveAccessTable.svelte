@@ -129,15 +129,6 @@
 
   const projectedGroupName = (group: StorageRootProjectedAdGroup): string => text(group.group_name);
 
-  const aclPrincipalSet = (rows: StorageRootEffectiveAccessUser[]): Set<string> =>
-    new Set(rows.map((row) => normalizePrincipal(row.principal ?? row.display_name)).filter(Boolean));
-
-  const isAclGoverned = (row: StorageRootEffectiveAccessUser): boolean => {
-    const principal = normalizePrincipal(row.principal ?? row.display_name);
-    if (!principal) return false;
-    return governedGroupSet.has(principal);
-  };
-
   $: filteredUsers = users.filter(matches);
   $: pageCount = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   $: if (page > pageCount) page = pageCount;

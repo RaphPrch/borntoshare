@@ -26,10 +26,6 @@
   export let endpointAlertCount: (ep: EndpointRow) => number = () => 0;
   export let endpointAlertIndicator: (ep: EndpointRow) => { kind: 'warning' | 'error'; label: string } | null = () => null;
 
-  const hasWarningForEndpoint = (ep: EndpointRow): boolean => {
-    return endpointAlertCount(ep) > 0;
-  };
-
   const warningCountForZone = (zone: EndpointZoneGroup): number =>
     (Array.isArray(zone?.endpoints) ? zone.endpoints : []).reduce((total, ep) => total + endpointAlertCount(ep), 0);
 

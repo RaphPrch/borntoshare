@@ -446,35 +446,6 @@
   };
   const isSelectedRootRow = (row: any): boolean => isSelectedStorageRootRow(row, selectedStorageRootId, overview);
 
-  const endpointProbeStatusForRoot = (row: any) => {
-    const endpointId = Number(row?.storage_endpoint_id ?? row?.endpoint_id ?? 0);
-    const rows = Array.isArray(data.endpoints) ? data.endpoints : [];
-    const endpoint = Number.isFinite(endpointId) && endpointId > 0
-      ? rows.find((ep: any) => Number(ep?.storage_endpoint_id ?? ep?.id ?? 0) === endpointId)
-      : null;
-
-    const selectedScopedStatus = isSelectedRootRow(row)
-      ? String(
-        overview?.storage_endpoint?.last_probe_status ??
-        overview?.storage_endpoint?.probe_status ??
-        endpoint?.last_probe_status ??
-        endpoint?.probe_status ??
-        ''
-      )
-        .trim()
-        .toLowerCase()
-      : '';
-
-    const fallbackStatus =
-      row?.storage_endpoint_last_probe_status ??
-      row?.storage_endpoint_probe_status ??
-      '';
-
-    return String(selectedScopedStatus || fallbackStatus)
-      .trim()
-      .toLowerCase();
-  };
-
   const endpointProbeTimestampForRoot = (row: any): string | null => {
     const endpointId = Number(row?.storage_endpoint_id ?? row?.endpoint_id ?? 0);
     const rows = Array.isArray(data.endpoints) ? data.endpoints : [];
@@ -967,10 +938,6 @@
       }
     }
     return found.filter((folder, index, rows) => rows.findIndex((candidate) => String(candidate.id) === String(folder.id)) === index);
-  };
-
-  const selectedAddRootFolder = (): AddRootFolder | null => {
-    return selectedAddRootFolders()[0] ?? null;
   };
 
   const normalizeRootPathForParentLookup = (value: unknown): string =>
@@ -1930,9 +1897,6 @@
     if (value.includes('group')) return 'Group';
     return 'User';
   };
-
-  const governanceRoleRowsCount = (role: 'guardian') =>
-    governanceOwnersDraftForRole(role).length;
 
   $: governanceRoleRows = buildGovernanceOwnersDraftForRole(
     governanceRoleTab,

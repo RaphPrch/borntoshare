@@ -111,22 +111,10 @@
     return 0;
   }
 
-  function selectedAccessLabel(): string {
-    if (selectedAccess === 'contribution') return 'Write access';
-    if (selectedAccess === 'audit') return 'Audit access';
-    return 'Read access';
-  }
-
   function selectedAccessCode(): string {
     if (selectedAccess === 'contribution') return 'WRITE';
     if (selectedAccess === 'audit') return 'AUDIT';
     return 'READ';
-  }
-
-  function selectedAccessDescription(): string {
-    if (selectedAccess === 'contribution') return 'Create, update or delete content.';
-    if (selectedAccess === 'audit') return 'View access and security information.';
-    return 'View files and folders.';
   }
 
   function approvalLabel(): string {

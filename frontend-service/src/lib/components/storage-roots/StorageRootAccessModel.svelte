@@ -18,19 +18,6 @@
   export let rows: AccessModelRow[] = [];
   export let onOpenEffectiveAccess: (level: 'read' | 'write') => void = () => {};
 
-  const alignmentLabel = (profile: AccessModelRow): string => {
-    const alignment = String(profile.aclAlignment ?? '').trim().toLowerCase();
-    if (alignment === 'present') return 'ACL aligned';
-    if (alignment === 'missing') return 'ACL missing';
-    return 'No ACL scan';
-  };
-
-  const alignmentTone = (profile: AccessModelRow): 'success' | 'warning' | 'pending' => {
-    const alignment = String(profile.aclAlignment ?? '').trim().toLowerCase();
-    if (alignment === 'present') return 'success';
-    if (alignment === 'missing') return 'warning';
-    return 'pending';
-  };
 </script>
 
 <div class="storage-root-access-model">

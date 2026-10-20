@@ -177,7 +177,7 @@ export const formatRelativeTimestamp = (value?: string | null): string => {
   return diffMs >= 0 ? `${n}d ago` : `in ${n}d`;
 };
 
-export const formatAbsoluteTimestamp = (value?: string | null): string => {
+const formatAbsoluteTimestamp = (value?: string | null): string => {
   const iso = toIsoDate(value);
   if (!iso) return '—';
   const parsed = new Date(iso);

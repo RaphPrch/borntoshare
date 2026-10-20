@@ -21,7 +21,6 @@
   import { getHealthSummary, type HealthSummaryDay } from '$lib/api/health';
   import {
     composeIdentitySourceCards,
-    formatAbsoluteTimestamp,
     formatRelativeTimestamp,
     identitySourceTypeLabel,
     type IdentitySourceCardVM,
@@ -1458,15 +1457,6 @@
     } finally {
       internalLoading = false;
     }
-  };
-
-  const openDetailsById = async (sourceId: number) => {
-    const id = Number(sourceId ?? 0);
-    if (!Number.isFinite(id) || id <= 0) return;
-    selectedSourceId = id;
-    showDetailsDrawer = true;
-    selectionStore.setSelectedIdentitySourceId(id);
-    await loadInternal(id, true);
   };
 
   $: hasSources = sources.length > 0;

@@ -199,10 +199,6 @@
     }
   }
 
-  function roleLabel(role: ApplicationRole): string {
-    return role === 'platform_admin' ? 'Platform Administrator' : 'User';
-  }
-
   function principalTitle(item: PrincipalSearchItem | null): string {
     if (!item) return '';
     return trimmed(item.display_name ?? item.username ?? item.email ?? item.dn ?? item.external_id ?? item.id);

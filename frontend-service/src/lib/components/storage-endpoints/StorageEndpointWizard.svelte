@@ -392,17 +392,6 @@
     governedRoots = [];
   };
 
-  const invertSelection = () => {
-    const next = new Set(governedRoots);
-    for (const root of filteredDetectedRoots) {
-      if (isAlreadyGoverned(root) || isBlockedRoot(root)) continue;
-      const normalized = normalizeRoot(root);
-      if (next.has(normalized)) next.delete(normalized);
-      else next.add(normalized);
-    }
-    governedRoots = Array.from(next);
-  };
-
   type RootStatusFilter = 'all' | 'available' | 'selected' | 'already_governed';
   let rootStatusFilter: RootStatusFilter = 'available';
   let rootPage = 1;
