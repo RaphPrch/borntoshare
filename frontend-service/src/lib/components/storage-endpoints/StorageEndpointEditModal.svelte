@@ -233,7 +233,7 @@
 
   $: currentNormalizedHost = normalizedHost(host);
   $: duplicateEndpoint = existingEndpoints.find((ep) => {
-    const id = Number(ep?.id ?? ep?.storage_endpoint_id ?? 0);
+    const id = Number(ep?.id ?? 0);
     const currentId = Number(endpoint?.id ?? endpoint?.storage_endpoint_id ?? 0);
     if (id && currentId && id === currentId) return false;
     const candidateHost = normalizedHost(String(ep?.host ?? ""));

@@ -1,6 +1,7 @@
 <script lang="ts">
   import EntityOverviewPanel from "$lib/components/entity/EntityOverviewPanel.svelte";
   import EntityKpiRow from "$lib/components/entity/EntityKpiRow.svelte";
+  import type { EntityKpiItem } from '$lib/components/entity/EntityKpiRow.svelte';
   import EntityOverviewLayout from "$lib/components/entity/EntityOverviewLayout.svelte";
   import ZoneEndpointsTable from "../components/ZoneEndpointsTable.svelte";
   import RecentActivityCard from "$lib/components/activity/RecentActivityCard.svelte";
@@ -28,12 +29,14 @@
   $: availabilityRate = healthSummary.endpointCount > 0
     ? `${Math.round((healthSummary.reachableCount / healthSummary.endpointCount) * 100)}%`
     : "0%";
+  let reachabilityTone: EntityKpiItem["tone"] = "neutral";
   $: reachabilityTone = healthSummary.endpointCount === 0
     ? "neutral"
     : (healthSummary.unhealthyCount ?? 0) > 0
       ? "danger"
       : "success";
 
+  let kpis: EntityKpiItem[] = [];
   $: kpis = [
     {
       key: "endpoints",

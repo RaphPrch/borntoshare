@@ -10,7 +10,7 @@
   import TopProgress from '$lib/components/ui/TopProgress.svelte';
   import Toaster from '$lib/components/ui/Toaster.svelte';
   import { page } from '$app/stores';
-  import { toast } from '$lib/stores/toast';
+  import { toast, type ToastType } from '$lib/stores/toast';
   import { browser } from '$app/environment';
   import { bootstrapFrontendCore } from '$lib/bootstrap.client';
 
@@ -66,7 +66,7 @@
   // (SSR compatible)
   // ==================================================
   $: {
-    const ft = ($page as unknown).form?.toast;
+    const ft = ($page.form as { toast?: { message?: string; type?: ToastType; duration?: number } } | null)?.toast;
 
     if (ft?.message) {
       const key = `${ft.type ?? 'error'}:${ft.message}`;

@@ -63,7 +63,7 @@ type StorageRootActivityItem = {
   [key: string]: unknown;
 };
 
-type StorageRootEndpointSummary = {
+export type StorageRootEndpointSummary = {
   storage_endpoint_id?: number | null;
   id?: number | null;
   name?: string | null;
@@ -77,6 +77,16 @@ type StorageRootEndpointSummary = {
   identity_source_name?: string | null;
   resolved_identity_source_id?: number | null;
   resolved_identity_source_name?: string | null;
+  effective_identity_source_id?: number | null;
+  zone?: { id?: number | null; name?: string | null } | null;
+  host?: string | null;
+  hostname?: string | null;
+  status?: string | null;
+  operational_status?: string | null;
+  last_probe_at?: string | null;
+  probe_at?: string | null;
+  last_probe_status?: string | null;
+  probe_status?: string | null;
   effective_preview?: {
     effective_identity_source_id?: number | null;
     effective_identity_source_name?: string | null;

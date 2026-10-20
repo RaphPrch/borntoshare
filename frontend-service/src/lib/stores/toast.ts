@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 
 // Keep aligned with [`Toaster.svelte`](src/lib/components/ui/Toaster.svelte:1)
-type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading';
+export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading';
 
 interface Toast {
   id: number;

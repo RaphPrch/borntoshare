@@ -798,7 +798,7 @@
         baseDn: payload.base_dn,
         bindDn: payload.bind_dn,
         secretRef: payload.bind_password_ref || undefined,
-        authMode: payload?.capabilities?.auth_mode ?? 'ntlm',
+        authMode: payload?.capabilities?.auth_mode === 'kerberos' ? 'kerberos' : 'ntlm',
         identitySourceId: Number(source.id),
         uiOrigin: 'admin'
       });

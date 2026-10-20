@@ -25,6 +25,7 @@
   import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
   import EntityKpiRow from '$lib/components/entity/EntityKpiRow.svelte';
+  import type { EntityKpiItem } from '$lib/components/entity/EntityKpiRow.svelte';
   import EntityOverviewLayout from '$lib/components/entity/EntityOverviewLayout.svelte';
   import AssociatedRootsTable from '$lib/components/storage-endpoints/AssociatedRootsTable.svelte';
   import ActivityDetailsDrawer from '$lib/components/activity/ActivityDetailsDrawer.svelte';
@@ -839,6 +840,7 @@
     return lastResult || 'probe or configuration needs review';
   };
 
+  let kpiItems: EntityKpiItem[] = [];
   $: kpiItems = selected
     ? [
         {

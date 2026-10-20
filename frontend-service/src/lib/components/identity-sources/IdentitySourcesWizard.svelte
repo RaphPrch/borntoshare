@@ -129,17 +129,6 @@
   let showBindPassword = false;
 
   // LDAPS-only (UI-only) advanced settings
-  let ldapsVerifyTls = true;
-  let ldapsCaRef = '';
-  let ldapsServerName = '';
-  let ldapsMinTls: '1.2' | '1.3' = '1.2';
-  let ldapsChannelBinding: 'strict' | 'optional' | 'disabled' = 'strict';
-  let ldapsSigningRequired = true;
-  let ldapsBindType: 'simple' | 'gssapi' = 'gssapi';
-  let krbRealm = '';
-  let krbKdc = '';
-  let krbPrincipal = '';
-  let krbKeytabRef = '';
 
   /**
    * 🔐 UI ONLY — never persisted, never sent directly
@@ -205,26 +194,6 @@
       capabilities: normalizedCapabilities,
       auth_enabled: authEnabled,
       auth_priority: 100,
-      // UI-only LDAPS advanced settings (kept for client-side validation / future backend support)
-      _ldaps: payload.protocol === 'ldaps'
-        ? {
-            verify_tls: ldapsVerifyTls,
-            ca_ref: ldapsCaRef || null,
-            server_name: ldapsServerName || null,
-            min_tls: ldapsMinTls,
-            channel_binding: ldapsChannelBinding,
-            signing_required: ldapsSigningRequired,
-            bind_type: ldapsBindType,
-            kerberos: ldapsBindType === 'gssapi'
-              ? {
-                  realm: krbRealm || null,
-                  kdc: krbKdc || null,
-                  principal: krbPrincipal || null,
-                  keytab_ref: krbKeytabRef || null
-                }
-              : null
-          }
-        : null,
       /**
        * 🔐 INTERNAL ONLY
        * Used ONLY by onTest / onCreate to request a backend-managed secret_ref.
@@ -672,7 +641,7 @@
   <div class="is-wizard-shell">
     <div class="is-wizard-header">
       <h1 id="identity-sources-wizard-title">Connect Identity Source</h1>
-      <p>Configure Active Directory (LDAP) or an OIDC provider to import identities.</p>
+      <p>Configure Active Directory (LDAP) to import identities.</p>
     </div>
 
     <WizardSteps steps={activeSteps.map((s) => ({ label: s.label }))} current={step} />
@@ -907,147 +876,7 @@
                 <span class="hint ok">Kerberos detected. Prerequisites: DNS SRV Kerberos, synchronized NTP, ports 88/464 open, krb5.conf mounted in the runner.</span>
               {/if}
             </div>
-            {#if protocolChoice === 'ldaps'}
-              <div class="field">
-                <label>Bind type (LDAPS)</label>
-                <div class="protocol-switch">
-                  <button
-                    type="button"
-                    class="protocol-btn"
-                    class:active={ldapsBindType === 'gssapi'}
-                    on:click={() => (ldapsBindType = 'gssapi')}
-                  >
-                    Kerberos (GSSAPI)
-                  </button>
-                  <button
-                    type="button"
-                    class="protocol-btn"
-                    class:active={ldapsBindType === 'simple'}
-                    on:click={() => (ldapsBindType = 'simple')}
-                  >
-                    Simple Bind
-                  </button>
-                </div>
-                {#if ldapsBindType === 'gssapi'}
-                  <span class="hint ok">Recommended for Protected Users. Requires krb5.conf, keytab, DNS SRV, NTP.</span>
-                {:else}
-                  <span class="hint">Simple bind must be LDAPS only and may require LDAP signing + channel binding.</span>
-                {/if}
-              </div>
-
-              {#if ldapsBindType === 'gssapi'}
-                <div class="field">
-                  <label for="identity-source-krb-realm">Kerberos Realm</label>
-                  <input
-                    id="identity-source-krb-realm"
-                    placeholder="CORP.LOCAL"
-                    bind:value={krbRealm}
-                  />
-                </div>
-                <div class="field">
-                  <label for="identity-source-krb-kdc">KDC (optional)</label>
-                  <input
-                    id="identity-source-krb-kdc"
-                    placeholder="dc01.corp.local"
-                    bind:value={krbKdc}
-                  />
-                </div>
-                <div class="field">
-                  <label for="identity-source-krb-principal">Service Principal</label>
-                  <input
-                    id="identity-source-krb-principal"
-                    placeholder="svc_ldap@CORP.LOCAL"
-                    bind:value={krbPrincipal}
-                  />
-                </div>
-                <div class="field">
-                  <label for="identity-source-krb-keytab">Keytab secret ref</label>
-                  <input
-                    id="identity-source-krb-keytab"
-                    placeholder="secret://krb5/keytab/ldap"
-                    bind:value={krbKeytabRef}
-                  />
-                </div>
-              {/if}
-
-              <div class="field">
-                <label>TLS validation</label>
-                <label class="cap-item">
-                  <input class="cap-input" type="checkbox" bind:checked={ldapsVerifyTls} />
-                  <span class="cap-check" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
-                  <div class="cap-content">
-                    <div class="cap-title">Verify TLS chain</div>
-                    <div class="cap-desc">Required for production hardening.</div>
-                  </div>
-                </label>
-              </div>
-              <div class="field">
-                <label for="identity-source-ldaps-ca">CA bundle (secret ref)</label>
-                <input
-                  id="identity-source-ldaps-ca"
-                  placeholder="secret://pki/ca/ldap"
-                  bind:value={ldapsCaRef}
-                />
-              </div>
-              <div class="field">
-                <label for="identity-source-ldaps-server-name">Expected server name (SAN/CN)</label>
-                <input
-                  id="identity-source-ldaps-server-name"
-                  placeholder="dc01.corp.local"
-                  bind:value={ldapsServerName}
-                />
-              </div>
-              <div class="field">
-                <label for="identity-source-ldaps-min-tls">Minimum TLS</label>
-                <select id="identity-source-ldaps-min-tls" bind:value={ldapsMinTls}>
-                  <option value="1.3">TLS 1.3</option>
-                  <option value="1.2">TLS 1.2</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="identity-source-ldaps-channel-binding">Channel Binding</label>
-                <select id="identity-source-ldaps-channel-binding" bind:value={ldapsChannelBinding}>
-                  <option value="strict">Strict</option>
-                  <option value="optional">Optional</option>
-                  <option value="disabled">Disabled</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>LDAP signing required</label>
-                <label class="cap-item">
-                  <input class="cap-input" type="checkbox" bind:checked={ldapsSigningRequired} />
-                  <span class="cap-check" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
-                  <div class="cap-content">
-                    <div class="cap-title">Require signing (policy)</div>
-                    <div class="cap-desc">Aligns with hardened AD policies.</div>
-                  </div>
-                </label>
-              </div>
-            {/if}
           </div>
-        {:else}
-            <div class="grid">
-              <div class="field">
-              <label for="identity-source-issuer-url">Issuer URL</label>
-                <input
-                  id="identity-source-issuer-url"
-                  bind:value={payload.issuer_url}
-                  placeholder="https://issuer.example.com"
-                />
-              </div>
-              <div class="field">
-                <label for="identity-source-client-id">Client ID</label>
-                <input id="identity-source-client-id" bind:value={payload.client_id} />
-              </div>
-              <div class="field">
-              <label for="identity-source-client-secret">Client Secret</label>
-                <input
-                  id="identity-source-client-secret"
-                  type="password"
-                  bind:value={payload.client_secret}
-                />
-              </div>
-            </div>
         {/if}
 
         <div class="test-actions">

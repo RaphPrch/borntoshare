@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
 import { apiServerGetList } from '$lib/server/api-server';
+import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
 import { requireAuth } from '$lib/server/require-auth';
 
 type UserLike = {
@@ -149,7 +150,7 @@ export const load: PageServerLoad = async (event) => {
 
     storageRoots: scopedStorageRoots,
     tags: (tagsRaw as unknown[]) ?? [],
-    endpoints: (endpointsRaw as unknown[]) ?? [],
+    endpoints: (endpointsRaw as StorageRootEndpointSummary[]) ?? [],
     storageRootAlerts: (storageRootAlertsRaw as unknown[]) ?? [],
     storageRootActivity,
     storageRootActivityRootId: selectedStorageRootId > 0 ? selectedStorageRootId : null,

@@ -51,7 +51,6 @@
 
   export let alertItems: StorageRootAlertItem[] = [];
 
-  export let zoneLabel = '—';
   export let endpointLabel = '—';
   export let endpointAddress = '—';
   export let pathLabel = '—';
@@ -128,11 +127,7 @@
     statusLabel={rootAvailabilityText}
     statusTone={statusTone}
     {showStatusBadge}
-    {zoneLabel}
-    {endpointLabel}
-    {endpointAddress}
     {pathLabel}
-    lastProbeLabel={lastProbeText}
     {rootProbeBusy}
     {selectedStorageRootId}
     {onRunRootProbe}

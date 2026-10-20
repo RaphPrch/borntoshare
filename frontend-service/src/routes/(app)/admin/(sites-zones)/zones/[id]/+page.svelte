@@ -160,7 +160,7 @@
 
   $: normalizedPolicyDraft = {
     enabled: true,
-    ou_strategy: "identity_default",
+    ou_strategy: "identity_default" as const,
     base_ou_dn: String(policyDraft.base_ou_dn ?? "").trim() || null,
     static_ou_dn: null,
   };

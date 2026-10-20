@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { SvelteComponent } from 'svelte';
+  import type { ComponentType } from 'svelte';
   import AppModal from '$lib/components/ui/AppModal.svelte';
 
   export let open = false;
@@ -10,7 +10,7 @@
   export let backdropClass: string;
   export let modalClass: string;
 
-  export let WizardComponent: typeof SvelteComponent;
+  export let WizardComponent: ComponentType;
   export let wizardProps: Record<string, any> = {};
 
   const dispatch = createEventDispatcher<{ done: any }>();

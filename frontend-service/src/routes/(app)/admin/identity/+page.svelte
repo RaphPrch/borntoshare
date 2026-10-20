@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { StatusVariant } from '$lib/utils/status';
   import { normalizeText } from '$lib/utils/values';
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
@@ -200,7 +201,7 @@
   };
 
   const canDeleteIdentity = (identity: IdentityRow | null) => !isDefaultLocalAdmin(identity);
-  const roleBadgeVariant = (role: string) => normalizeText(role) === 'platform_admin' ? 'warning' : 'secondary';
+  const roleBadgeVariant = (role: string): StatusVariant => normalizeText(role) === 'platform_admin' ? 'warning' : 'muted';
 
   const lastActivityLabel = (identity: IdentityRow) =>
     identity.updated_at ? timeAgo(identity.updated_at) : identity.created_at ? timeAgo(identity.created_at) : '-';
@@ -360,8 +361,8 @@
                 <div class="identity-cell-stack">
                   <strong>{identity.display_name}</strong>
                   <div class="identity-badges">
-                    <StatusBadge status={typeLabel(identity)} label={typeLabel(identity)} compact={true} variant={identity.type === 'group' ? 'secondary' : 'neutral'} showDot={false} />
-                    <StatusBadge status={identity.source === 'local' ? 'local' : 'ad'} label={identity.source === 'local' ? 'Local' : 'AD / LDAP'} compact={true} variant={identity.source === 'local' ? 'neutral' : 'info'} showDot={false} />
+                    <StatusBadge status={typeLabel(identity)} label={typeLabel(identity)} compact={true} variant="muted" showDot={false} />
+                    <StatusBadge status={identity.source === 'local' ? 'local' : 'ad'} label={identity.source === 'local' ? 'Local' : 'AD / LDAP'} compact={true} variant={identity.source === 'local' ? 'muted' : 'info'} showDot={false} />
                     {#if isDefaultLocalAdmin(identity)}
                       <StatusBadge status="protected" label="Protected" compact={true} variant="warning" showDot={false} />
                     {/if}
@@ -370,7 +371,7 @@
               </td>
               <td>{typeLabel(identity)}</td>
               <td>{identity.sourceLabel}</td>
-              <td><StatusBadge status={identity.status === 'active' ? 'active' : 'disabled'} label={identity.status === 'active' ? 'Active' : 'Disabled'} compact={true} variant={identity.status === 'active' ? 'success' : 'secondary'} /></td>
+              <td><StatusBadge status={identity.status === 'active' ? 'active' : 'disabled'} label={identity.status === 'active' ? 'Active' : 'Disabled'} compact={true} variant={identity.status === 'active' ? 'success' : 'disabled'} /></td>
               <td>{lastActivityLabel(identity)}</td>
               <td class="identity-row-actions">
                 <EntityActionButton

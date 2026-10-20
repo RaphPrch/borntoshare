@@ -28,6 +28,7 @@
   $: isGroup = identity?.type === 'group';
   $: isUser = identity?.type !== 'group';
   $: isLocalUser = isUser && normalizeText(identity?.auth_source ?? identity?.source) === 'local';
+  let currentRole: 'platform_admin' | 'user' = 'user';
   $: currentRole = Array.isArray(identity?.roles) && identity.roles.some((role: string) => normalizeText(role) === 'platform_admin')
     ? 'platform_admin'
     : 'user';

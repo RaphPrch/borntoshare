@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
   import { onDestroy, onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
@@ -119,7 +120,7 @@
     };
     storageRoots: StorageRootRow[];
     tags: StorageRootTagLike[];
-    endpoints?: unknown[];
+    endpoints?: StorageRootEndpointSummary[];
     storageRootAlerts?: GovernanceAlert[];
     storageRootActivity?: Array<Record<string, unknown>>;
     storageRootActivityRootId?: number | null;
@@ -2155,7 +2156,6 @@
       probeState={selectedProbeState()}
       aclFreshness={aclFreshnessFromOverview()}
       alertItems={selectedRootAlerts}
-      zoneLabel={selectedRow?.zone_name ?? '—'}
       endpointLabel={endpointLabel()}
       endpointAddress={endpointAddressLabel()}
       pathLabel={selectedRow?.root_path ?? '—'}

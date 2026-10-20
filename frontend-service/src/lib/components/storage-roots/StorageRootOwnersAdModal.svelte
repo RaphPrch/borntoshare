@@ -181,7 +181,7 @@
             items: toImport.map(({ item }) => ({
               principal: {
                 type: String(item?.type ?? 'user').trim().toLowerCase() === 'group' ? 'group' : 'user',
-                external_id: item?.dn ?? item?.external_id ?? item?.id ?? null,
+                external_id: String(item?.dn ?? item?.external_id ?? item?.id ?? '') || null,
                 dn: item?.dn ?? null,
                 username: null,
                 display_name: item?.display_name ?? null,

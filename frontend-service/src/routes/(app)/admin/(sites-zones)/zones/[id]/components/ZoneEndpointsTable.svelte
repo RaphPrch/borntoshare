@@ -1,6 +1,7 @@
 <script lang="ts">
   import DataTable from "$lib/components/ui/DataTable.svelte";
   import StatusBadge from "$lib/components/ui/StatusBadge.svelte";
+  import type { StatusVariant } from "$lib/utils/status";
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import {
     endpointOperationalStateLabel,
@@ -59,7 +60,7 @@
       <StatusBadge
         status={String(row.status_label ?? "Unknown")}
         label={String(row.status_label ?? "Unknown")}
-        variant={row.status_variant ?? "muted"}
+        variant={(row.status_variant ?? "muted") as StatusVariant}
         showDot={false}
       />
     {:else if column.key === "last_probe"}

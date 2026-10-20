@@ -8,16 +8,8 @@
   export let contextLabel = 'Storage • — • —';
   export let membersCount = 0;
   export let level: 'read' | 'write' = 'read';
-  export let users: Array<{
-    identity_id: number;
-    display_name?: string | null;
-    username?: string | null;
-    email?: string | null;
-    upn?: string | null;
-    access_level?: 'read' | 'write' | string;
-    created_at?: string | null;
-    assigned_at?: string | null;
-  }> = [];
+  // Rows of effectiveAccessUsersByLevel (storage-root-detail.mapper); every field is optional
+  export let users: Array<Record<string, unknown>> = [];
   export let onAddUser: () => void = () => {};
   export let onClose: () => void = () => {};
 
@@ -61,10 +53,7 @@
               <small>{mail(u)}</small>
             </div>
             <div class="sr-ea-right">
-              <span>{timeAgo(u?.assigned_at ?? u?.created_at ?? null) || '—'}</span>
-              <button class="sr-ea-icon" type="button" aria-label="Remove" disabled>
-                <i class="bi bi-trash"></i>
-              </button>
+              <span>{timeAgo(String(u?.assigned_at ?? u?.created_at ?? '') || null) || '—'}</span>
             </div>
           </article>
         {/each}
@@ -233,15 +222,6 @@
     color: #4a618c;
     font-size: 12px;
     white-space: nowrap;
-  }
-
-  .sr-ea-icon {
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: #5c6f93;
   }
 
   .sr-ea-empty {

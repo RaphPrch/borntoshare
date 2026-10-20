@@ -1,5 +1,5 @@
 <script lang="ts">
-  export let error: unknown;
+  export let error: { message?: string } | null;
   export let status: number;
 
   const isNotFound = status === 404;
@@ -57,9 +57,9 @@
     <h2>{heading}</h2>
     <p>{description}</p>
 
-    {#if showDetails && error && (error as unknown)?.message}
+    {#if showDetails && error?.message}
       <pre class="error-message">
-{(error as unknown).message}
+{error.message}
       </pre>
     {/if}
 

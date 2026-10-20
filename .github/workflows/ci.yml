@@ -65,12 +65,5 @@ jobs:
             npm run -s "$script"
             echo "::endgroup::"
           done
-      - name: Type check (must not regress)
-        # Pre-existing type errors are tolerated up to this baseline; lower it as they get fixed.
-        env:
-          MAX_TYPE_ERRORS: 69
-        run: |
-          npx svelte-kit sync
-          errors=$(npx svelte-check --tsconfig ./tsconfig.json --output machine | grep -c ' ERROR ' || true)
-          echo "svelte-check errors: $errors (max $MAX_TYPE_ERRORS)"
-          test "$errors" -le "$MAX_TYPE_ERRORS"
+      - name: Type check
+        run: npm run check -- --threshold error

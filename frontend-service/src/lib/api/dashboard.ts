@@ -94,7 +94,7 @@ export async function getUserDashboardMe(
   fetchFn: FetchLike
 ): Promise<UserDashboardMePayload> {
   const raw = await apiGetData<Partial<UserDashboardMePayload>>(fetchFn, "/dashboard/me");
-  const summary = raw?.summary ?? {};
+  const summary: Partial<UserDashboardMeSummary> = raw?.summary ?? {};
   return {
     summary: {
       my_open_requests: Number(summary.my_open_requests ?? 0),

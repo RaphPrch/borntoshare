@@ -12,7 +12,7 @@
   export let preview: ProvisioningPolicyScreenProps['preview'];
   export let effective: ProvisioningPolicyScreenProps['effective'];
   export let showPreview = true;
-  export let onSave: ProvisioningPolicyScreenProps['onSave'];
+  export let onSave: ProvisioningPolicyScreenProps['onSave'] | null = null;
   export let saveDisabled: ProvisioningPolicyScreenProps['saveDisabled'] = false;
   export let saveBusy: ProvisioningPolicyScreenProps['saveBusy'] = false;
   export let errorMessage: ProvisioningPolicyScreenProps['errorMessage'] = null;
