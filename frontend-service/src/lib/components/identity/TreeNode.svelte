@@ -35,7 +35,7 @@
     {#if node.has_children}
       <button class="idb-tree-toggle" type="button" on:click={toggleNode} aria-label={t('Toggle node')}>
         {#if isLoading}
-          <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          <span class="b2s-spinner" aria-hidden="true"></span>
         {:else}
           <i class={`bi ${isExpanded ? 'bi-caret-down-fill' : 'bi-caret-right-fill'}`}></i>
         {/if}

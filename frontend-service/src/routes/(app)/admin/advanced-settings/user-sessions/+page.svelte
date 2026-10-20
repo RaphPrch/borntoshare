@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
@@ -90,19 +91,15 @@
 </script>
 
 <ConfigCard title={t('User sessions')} subtitle={t('Active sessions')} icon="bi-person-lines-fill">
-  <div class="adv-toolbar">
-    <div class="adv-toolbar-left">
-      <div class="adv-search">
-        <i class="bi bi-search"></i>
-        <input class="form-control" type="search" bind:value={query} placeholder={t('Search user, role, source…')} />
-      </div>
-      <select class="form-select" bind:value={statusFilter}>
+  <div class="b2s-toolbar is-plain">
+      <SearchField wrapperClass="b2s-toolbar__search" placeholder={t('Search user, role, source…')} ariaLabel={t('Search sessions')} bind:value={query} />
+      <select class="b2s-select" bind:value={statusFilter} aria-label={t('Status')}>
         <option value="all">{t('All statuses')}</option>
         <option value="active">{t('Active')}</option>
         <option value="expired">{t('Expired')}</option>
         <option value="revoked">{t('Revoked')}</option>
       </select>
-      <select class="form-select" bind:value={sortBy}>
+      <select class="b2s-select" bind:value={sortBy} aria-label={t('Sort')}>
         <option value="last_seen">{t('Sort: Last activity')}</option>
         <option value="created_at">{t('Sort: Created')}</option>
         <option value="user">{t('Sort: User')}</option>
@@ -111,15 +108,14 @@
       <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}>
         {sortDir === 'asc' ? `↑ ${t('Ascending')}` : `↓ ${t('Descending')}`}
       </button>
-    </div>
-    <button class="b2s-btn b2s-btn-secondary" type="button" on:click={refresh} disabled={isLoading || !!revokingId}>
+    <button class="b2s-btn b2s-btn-secondary b2s-toolbar__end" type="button" on:click={refresh} disabled={isLoading || !!revokingId}>
       {isLoading ? t('Loading…') : t('Refresh')}
     </button>
   </div>
 
   <div class="adv-hint">{t('{sortedSessionsCount} session{value} shown', { sortedSessionsCount: sortedSessions.length, value: (sortedSessions.length > 1 ? 's' : '') })}</div>
 
-  <div class="table-responsive">
+  <div class="b2s-table-wrap">
     <table class="table table-hover align-middle">
       <thead>
         <tr>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import StorageRootDrawerShell from './StorageRootDrawerShell.svelte';
@@ -99,7 +100,7 @@
       {/if}
 
       {#if loading && roleRows.length === 0}
-        <div class="governance-drawer__loading" role="status" aria-live="polite">{t('Loading assignments…')}</div>
+        <LoadingState block>{t('Loading assignments…')}</LoadingState>
       {:else if roleRows.length === 0}
         <div class="governance-drawer__empty">
           <EmptyState

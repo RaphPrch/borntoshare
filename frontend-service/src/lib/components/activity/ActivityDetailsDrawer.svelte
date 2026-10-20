@@ -76,7 +76,7 @@
     <div class="activity-details-drawer__meta">
       <div><strong>{t('Action')}</strong><span>{String(entry?.action ?? '—')}</span></div>
       <div><strong>{t('Severity')}</strong><span>{String(entry?.severity ?? entry?.outcome ?? 'info')}</span></div>
-      <div><strong>{t('Date & time')}</strong><span>{formatDateTime(entry?.created_at ?? entry?.event_time, { seconds: true })}</span></div>
+      <div><strong>{t('Date & time')}</strong><span>{formatDateTime(entry?.created_at ?? entry?.event_time)}</span></div>
       <div><strong>{t('Target')}</strong><span>{String(entry?.target_display ?? '—')}</span></div>
     </div>
 

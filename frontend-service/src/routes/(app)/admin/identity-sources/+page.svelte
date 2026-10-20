@@ -1,4 +1,5 @@
 <script lang="ts">
+  import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { browser } from '$app/environment';
@@ -1041,35 +1042,11 @@
         hint={t('You will be guided step by step.')}
       />
     {:else}
-      <div class="identity-kpi-grid" aria-label={t('Identity source summary')}>
-        <article class="identity-kpi-card">
-          <div class="identity-kpi-icon is-info"><i class="bi bi-diagram-3" aria-hidden="true"></i></div>
-          <div>
-            <span>{t('Sources')}</span>
-            <strong>{summary.total}</strong>
-          </div>
-        </article>
-        <article class="identity-kpi-card">
-          <div class="identity-kpi-icon is-success"><i class="bi bi-check-lg" aria-hidden="true"></i></div>
-          <div>
-            <span>{t('Healthy')}</span>
-            <strong>{summary.healthy}</strong>
-          </div>
-        </article>
-        <article class="identity-kpi-card">
-          <div class="identity-kpi-icon is-warning"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></div>
-          <div>
-            <span>{t('Issues')}</span>
-            <strong>{summary.issues}</strong>
-          </div>
-        </article>
-        <article class="identity-kpi-card">
-          <div class="identity-kpi-icon is-purple"><i class="bi bi-clock" aria-hidden="true"></i></div>
-          <div>
-            <span>{t('Never synced')}</span>
-            <strong>{summary.neverSynced}</strong>
-          </div>
-        </article>
+      <div class="b2s-kpi-grid" aria-label={t('Identity source summary')}>
+        <KpiCard label={t('Sources')} value={summary.total} icon="bi-diagram-3" tone="info" />
+        <KpiCard label={t('Healthy')} value={summary.healthy} icon="bi-check-lg" tone="success" />
+        <KpiCard label={t('Issues')} value={summary.issues} icon="bi-exclamation-triangle" tone="warning" />
+        <KpiCard label={t('Never synced')} value={summary.neverSynced} icon="bi-clock" tone="purple" />
       </div>
 
       <div class="identity-filter-card">
@@ -1428,66 +1405,6 @@
   .identity-pagination button {
     font-family: var(--b2s-font-sans);
     letter-spacing: 0;
-  }
-
-  .identity-kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 22px;
-  }
-
-  .identity-kpi-card,
-  .identity-filter-card,
-  .identity-table-card,
-  .identity-detail-card {
-    background: #ffffff;
-    border: 1px solid #dbe3ef;
-    border-radius: var(--b2s-radius-sm);
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
-  }
-
-  .identity-kpi-card {
-    min-height: 88px;
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    padding: 18px 28px;
-  }
-
-  .identity-kpi-card span {
-    display: block;
-    color: #596985;
-    font-size: var(--b2s-fs-lg);
-    line-height: 1.2;
-  }
-
-  .identity-kpi-card strong {
-    display: block;
-    margin-top: 3px;
-    color: #071638;
-    font-size: var(--b2s-fs-2xl);
-    line-height: 1;
-    font-weight: 650;
-  }
-
-  .identity-kpi-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    font-size: 1.35rem;
-  }
-
-  .identity-kpi-icon.is-info { color: #0b63f4; }
-  .identity-kpi-icon.is-success {
-    color: #0ca152;
-    font-size: 1.25rem;
-  }
-  .identity-kpi-icon.is-warning { color: #ea580c; }
-  .identity-kpi-icon.is-purple {
-    color: #7048e8;
-    font-size: 1.2rem;
   }
 
   .identity-filter-card {
@@ -1996,10 +1913,6 @@
       padding: 20px 16px 28px;
     }
 
-    .identity-kpi-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .identity-clean-table {
       min-width: 900px;
     }
@@ -2010,10 +1923,6 @@
   }
 
   @media (max-width: 640px) {
-    .identity-kpi-grid {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
 
     .identity-page-actions,
     .identity-selects,

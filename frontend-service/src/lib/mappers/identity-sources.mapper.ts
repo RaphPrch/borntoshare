@@ -1,4 +1,5 @@
-import { t, intlLocale } from '$lib/i18n';
+import { formatDateTime } from '$lib/utils/format';
+import { t } from '$lib/i18n';
 import { resolveStatusVariant, type StatusVariant } from '../utils/status';
 
 export type IdentitySourceRowLike = {
@@ -181,16 +182,7 @@ export const formatRelativeTimestamp = (value?: string | null): string => {
 const formatAbsoluteTimestamp = (value?: string | null): string => {
   const iso = toIsoDate(value);
   if (!iso) return '—';
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return '—';
-  return parsed.toLocaleString(intlLocale(), {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
+  return formatDateTime(iso);
 };
 
 const formatIdentitySourceSubtitle = (source: IdentitySourceRowLike): string => {
@@ -360,11 +352,11 @@ export const mapIdentitySourceToCardVM = (
     probeJobStatus === 'running'
       ? t('Probe in progress')
       : lastProbeAt
-        ? `${formatAbsoluteTimestamp(lastProbeAt)} (${formatRelativeTimestamp(lastProbeAt)})`
+        ? formatAbsoluteTimestamp(lastProbeAt)
         : t('Never');
 
   const lastSnapshotLabel = snapshotAt
-    ? `${formatAbsoluteTimestamp(snapshotAt)} (${formatRelativeTimestamp(snapshotAt)})`
+    ? formatAbsoluteTimestamp(snapshotAt)
     : t('No snapshot yet');
 
   return {

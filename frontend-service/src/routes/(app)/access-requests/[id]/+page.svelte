@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Breadcrumbs from '$lib/components/ui/Breadcrumbs.svelte';
   import { t } from '$lib/i18n';
   import { browser } from '$app/environment';
   import { onDestroy, onMount } from 'svelte';
@@ -188,6 +189,7 @@
   </section>
 {:else}
   <section class="ar-page">
+    <Breadcrumbs items={[{ label: t('Access requests'), href: '/access-requests' }, { label: requestCode }]} />
     <header class="ar-header-row">
       <div class={`ar-status-chip ${statusMeta.tone}`}>
         <i class="bi bi-shield-check"></i>

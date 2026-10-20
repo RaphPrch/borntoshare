@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t, intlLocale } from '$lib/i18n';
-  import { initials } from '$lib/utils/format';
+  import { t } from '$lib/i18n';
+  import { initials, formatDateTime } from '$lib/utils/format';
   import { createEventDispatcher } from 'svelte';
   import { formatActivityItem } from '$lib/activity/format';
 
@@ -81,15 +81,7 @@
 
   const formatTime = (timestampMs: number | null, entry: any) => {
     if (!timestampMs) return firstString(entry?.event_time, entry?.created_at, entry?.timestamp, entry?.time) || '-';
-    return new Date(timestampMs).toLocaleString(intlLocale(), {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
+    return formatDateTime(new Date(timestampMs).toISOString());
   };
 
   const humanize = (value: unknown) => {

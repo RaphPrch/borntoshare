@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
   const ENDPOINT_STATE_VARIANTS = { success: 'success', warning: 'info', danger: 'error', muted: 'muted' } as const;
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
-  import { t, intlLocale } from '$lib/i18n';
+  import { t } from '$lib/i18n';
   import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { createEventDispatcher } from 'svelte';
@@ -37,17 +38,7 @@
   let folderSort = 'name-asc';
 
   const fmt = (iso?: string | null) => {
-    const value = String(iso ?? '').trim();
-    if (!value) return '—';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '—';
-    return date.toLocaleString(intlLocale(), {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDateTime(iso);
   };
 
   const normalized = (value: unknown) => String(value ?? '').trim().toLowerCase();

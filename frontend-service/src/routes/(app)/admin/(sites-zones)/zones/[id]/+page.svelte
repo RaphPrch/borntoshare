@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { t, intlLocale } from '$lib/i18n';
+  import { formatDateTime } from '$lib/utils/format';
+  import { t } from '$lib/i18n';
   import { onDestroy, onMount } from "svelte";
   import { browser } from "$app/environment";
   import { goto } from "$app/navigation";
@@ -402,15 +403,7 @@
   const formatZoneProbeDate = (value: string | null | undefined): string => {
     const text = String(value ?? "").trim();
     if (!text) return t('Never run');
-    const date = new Date(text);
-    if (!Number.isFinite(date.getTime())) return t('Never run');
-    return date.toLocaleString(intlLocale(), {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return formatDateTime(text, { empty: t('Never run') });
   };
 
   $: zoneHeaderAttentionItems = buildZoneOperationalAttentionItems({

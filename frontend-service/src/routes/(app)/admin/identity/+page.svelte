@@ -1,4 +1,6 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
   import { t } from '$lib/i18n';
   import type { StatusVariant } from '$lib/utils/status';
@@ -297,19 +299,10 @@
   />
   <span class="identity-note"><i class="bi bi-info-circle" aria-hidden="true"></i> {t('This page governs application access only, not NTFS permissions.')}</span>
 
-  <section class="identity-kpis" aria-label={t('Identity summary')}>
-    <article class="identity-kpi">
-      <span class="identity-kpi__icon blue"><i class="bi bi-people-fill" aria-hidden="true"></i></span>
-      <div><span>{t('Total identities')}</span><strong>{stats.total}</strong><small>{t('All identities with access')}</small></div>
-    </article>
-    <article class="identity-kpi">
-      <span class="identity-kpi__icon green"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
-      <div><span>{t('Admin accounts')}</span><strong>{stats.adminAccounts}</strong><small>{t('Local and AD admin accounts')}</small></div>
-    </article>
-    <article class="identity-kpi">
-      <span class="identity-kpi__icon purple"><i class="bi bi-people" aria-hidden="true"></i></span>
-      <div><span>{t('AD groups')}</span><strong>{stats.adGroups}</strong><small>{t('Groups allowed to sign in')}</small></div>
-    </article>
+  <section class="b2s-kpi-grid identity-kpis" aria-label={t('Identity summary')}>
+    <KpiCard label={t('Total identities')} value={stats.total} hint={t('All identities with access')} icon="bi-people-fill" tone="info" />
+    <KpiCard label={t('Admin accounts')} value={stats.adminAccounts} hint={t('Local and AD admin accounts')} icon="bi-person-fill" tone="success" />
+    <KpiCard label={t('AD groups')} value={stats.adGroups} hint={t('Groups allowed to sign in')} icon="bi-people" tone="purple" />
   </section>
 
   <section class="identity-toolbar-card" aria-label={t('Identity filters')}>
@@ -535,7 +528,7 @@
     onClose={() => (showMembersDrawer = false)}
   >
     {#if membersLoading}
-      <p class="identity-muted">{t('Loading members...')}</p>
+      <LoadingState block>{t('Loading members...')}</LoadingState>
     {:else if members.length}
       <div class="identity-members-list">
         {#each members as member}
@@ -593,36 +586,7 @@
   }
 
   .identity-kpis {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 22px;
     margin: 22px 0 24px;
-  }
-
-  .identity-kpi,
-  .identity-toolbar-card,
-  .identity-list-card,
-  .identity-detail-card {
-    background: var(--b2s-color-surface, #ffffff);
-    border: 1px solid var(--b2s-color-border, #dbe3ef);
-    border-radius: var(--b2s-radius-sm, 8px);
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
-  }
-
-  .identity-kpi {
-    min-height: 88px;
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    padding: 18px 28px;
-  }
-
-  .identity-kpi__icon,
-  .identity-avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
   }
 
   .identity-cell-stack {
@@ -635,55 +599,6 @@
     gap: 6px;
     flex-wrap: wrap;
     align-items: center;
-  }
-
-  .identity-kpi__icon {
-    width: 22px;
-    height: 22px;
-    font-size: 1.35rem;
-  }
-
-  .identity-kpi__icon.blue,
-  .identity-avatar.blue {
-    color: #0b59d1;
-    background: transparent;
-  }
-
-  .identity-kpi__icon.green,
-  .identity-avatar.green {
-    color: #059669;
-    background: transparent;
-  }
-
-  .identity-kpi__icon.purple,
-  .identity-avatar.purple,
-  .identity-avatar.violet {
-    color: #7c3aed;
-    background: transparent;
-  }
-
-  .identity-kpi span {
-    display: block;
-    color: #596985;
-    font-size: var(--b2s-fs-lg);
-    line-height: 1.2;
-    font-weight: 500;
-  }
-
-  .identity-kpi strong {
-    display: block;
-    margin-top: 3px;
-    color: #071638;
-    font-size: var(--b2s-fs-2xl);
-    line-height: 1;
-    font-weight: 650;
-  }
-
-  .identity-kpi small {
-    display: block;
-    margin-top: 6px;
-    color: #596985;
-    font-size: var(--b2s-fs-md);
   }
 
   .identity-toolbar-card {

@@ -1953,5 +1953,8 @@
   "user": "utilisateur",
   "The user will be signed out from this session.": "L'utilisateur sera déconnecté de cette session.",
   "A new login will be required to continue.": "Une nouvelle connexion sera nécessaire pour continuer.",
-  "All unsaved edits in this drawer will be lost.": "Toutes les modifications non enregistrées de ce panneau seront perdues."
+  "All unsaved edits in this drawer will be lost.": "Toutes les modifications non enregistrées de ce panneau seront perdues.",
+  "Pending guardian review": "En attente du guardian",
+  "Breadcrumb": "Fil d'Ariane",
+  "Access requests": "Demandes d'accès"
 }

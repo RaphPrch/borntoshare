@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -158,28 +159,24 @@
 <div class="jobs-page">
   <PageHeader title={t('Jobs')} subtitle={t('Monitoring provisioning jobs and operator cancellations')}>
     <svelte:fragment slot="actions">
-      <span>{t('Updated {formatDateTime}', { formatDateTime: formatDateTime(updatedAt, { seconds: true }) })}</span>
+      <span>{t('Updated {formatDateTime}', { formatDateTime: formatDateTime(updatedAt) })}</span>
     </svelte:fragment>
   </PageHeader>
 
-  <div class="card b2s-card jobs-summary">
-    <div class="card-body d-flex flex-wrap align-items-center gap-3">
-      <StatusBadge variant="info" label={t('Active: {activeCount}', { activeCount })} />
-      <StatusBadge variant="muted" showDot={false} label={t('Total: {jobsCount}', { jobsCount: jobs.length })} />
-      <StatusBadge variant="muted" showDot={false} label={t('Finished: {terminalCount}', { terminalCount })} />
-    </div>
+  <div class="jobs-summary">
+    <StatusBadge variant="info" label={t('Active: {activeCount}', { activeCount })} />
+    <StatusBadge variant="muted" showDot={false} label={t('Total: {jobsCount}', { jobsCount: jobs.length })} />
+    <StatusBadge variant="muted" showDot={false} label={t('Finished: {terminalCount}', { terminalCount })} />
   </div>
 
-  <div class="card b2s-card jobs-toolbar">
-    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2">
-      <div class="d-flex align-items-center gap-2 flex-wrap">
-        <input
-          class="form-control form-control-sm"
-          style="min-width: 280px"
+  <div class="b2s-toolbar">
+        <SearchField
+          wrapperClass="b2s-toolbar__search"
           placeholder={t('Filtrer par id/correlation/type/action/erreur')}
+          ariaLabel={t('Filter jobs')}
           bind:value={query}
         />
-        <select class="form-select form-select-sm" style="width: 190px" bind:value={statusFilter}>
+        <select class="b2s-select" bind:value={statusFilter} aria-label={t('Status')}>
           <option value="all">{t('All statuses')}</option>
           <option value="QUEUED">QUEUED</option>
           <option value="RUNNING">RUNNING</option>
@@ -188,12 +185,10 @@
           <option value="FAILED">FAILED</option>
           <option value="CANCELLED">CANCELLED</option>
         </select>
-      </div>
-
-      <button class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => refreshJobs(false)} disabled={isLoading || isCancelling}>
-        {t('Refresh')}
-      </button>
-    </div>
+        <button class="b2s-btn b2s-btn-secondary b2s-toolbar__end" on:click={() => refreshJobs(false)} disabled={isLoading || isCancelling}>
+          <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+          {t('Refresh')}
+        </button>
   </div>
 
   {#if loadError}
@@ -233,7 +228,7 @@
                   <td>{String(job.action ?? '—')}</td>
                   <td class="num">{job.queue_age_seconds ?? '—'}</td>
                   <td class="num">{job.watchdog_republish_count ?? 0}</td>
-                  <td class="num">{formatDateTime(job.updated_at ?? job.created_at, { seconds: true })}</td>
+                  <td class="num">{formatDateTime(job.updated_at ?? job.created_at)}</td>
                   <td>
                     {#if job.error_code || job.error_message}
                       <div class="error-block">
@@ -269,6 +264,12 @@
 </div>
 
 <style>
+  .jobs-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
   .jobs-page {
     display: grid;
     gap: 16px;

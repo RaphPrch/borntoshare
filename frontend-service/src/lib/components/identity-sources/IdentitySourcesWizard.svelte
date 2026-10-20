@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
@@ -262,10 +263,7 @@
   };
 
   function formatSnapshotDate(value?: string | null): string {
-    if (!value) return '—';
-    const parsed = new Date(value);
-    if (!Number.isFinite(parsed.getTime())) return String(value);
-    return parsed.toLocaleString();
+    return formatDateTime(value);
   }
 
   async function fetchSnapshotMeta(sourceId: number): Promise<IdentitySnapshotMeta> {

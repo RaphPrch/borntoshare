@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { t } from '$lib/i18n';
   import AppModal from '$lib/components/ui/AppModal.svelte';
 
@@ -40,7 +41,7 @@
       <h3>{t('Attach existing endpoint')}</h3>
 
       {#if loading}
-        <div class="text-muted">{t('Loading endpoints…')}</div>
+        <LoadingState>{t('Loading endpoints…')}</LoadingState>
       {:else if existingEndpoints.length === 0}
         <div class="text-muted">{t('No existing endpoint available.')}</div>
       {:else}

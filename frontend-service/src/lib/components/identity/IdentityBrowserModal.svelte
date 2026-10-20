@@ -1,6 +1,8 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import { formatDateTime } from '$lib/utils/format';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
-  import { t, intlLocale } from '$lib/i18n';
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy } from 'svelte';
   import TreeNode from './TreeNode.svelte';
@@ -99,10 +101,7 @@
   };
 
   const formatLastSync = (raw: string | null): string => {
-    if (!raw) return '—';
-    const dt = new Date(raw);
-    if (!Number.isFinite(dt.getTime())) return '—';
-    return dt.toLocaleString(intlLocale());
+    return formatDateTime(raw);
   };
 
   const sourceOptionLabel = (src: any): string => {
@@ -899,7 +898,7 @@
 
         <div class="idb-scroll idb-preview-scroll">
           {#if $store.loadingPreview}
-            <div class="idb-hint">{t('Loading preview…')}</div>
+            <LoadingState>{t('Loading preview…')}</LoadingState>
           {:else if !$store.preview}
             <div class="idb-preview-empty">
               <strong>{t('Select a user or group')}</strong>

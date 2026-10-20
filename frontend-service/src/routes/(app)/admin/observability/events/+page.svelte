@@ -1,6 +1,8 @@
 <script lang="ts">
+  import SearchField from '$lib/components/ui/SearchField.svelte';
+  import { formatDateTime } from '$lib/utils/format';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import { t, intlLocale } from '$lib/i18n';
+  import { t } from '$lib/i18n';
   import { formatActivityItem } from '$lib/activity/format';
 
   type UiSeverity = string;  // translated label
@@ -53,18 +55,7 @@
   };
 
   const toTimeLabel = (value: unknown): string => {
-    const text = String(value ?? '').trim();
-    if (!text) return '—';
-    const d = new Date(text);
-    if (Number.isNaN(d.getTime())) return text;
-    return d.toLocaleString(intlLocale(), {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    return formatDateTime(value);
   };
 
   const actionLabel = (entry: any): string => {
@@ -186,25 +177,8 @@
     </svelte:fragment>
   </PageHeader>
 
-  <div class="events-toolbar card b2s-card">
-    <div class="card-body d-flex align-items-center justify-content-between gap-3 flex-wrap">
-      <div class="d-flex align-items-center gap-2">
-        <label class="events-label" for="events-time-range">{t('Time Period')}</label>
-        <select id="events-time-range" class="form-select form-select-sm" style="width: 140px" disabled>
-          <option>{t('Last 2 days')}</option>
-        </select>
-      </div>
-
-      <div class="events-filter-wrap">
-        <i class="bi bi-funnel" aria-hidden="true"></i>
-        <input
-          class="form-control"
-          placeholder={t('Filter')}
-          aria-label={t('Filter events')}
-          bind:value={q}
-        />
-      </div>
-    </div>
+  <div class="b2s-toolbar">
+    <SearchField wrapperClass="b2s-toolbar__search" placeholder={t('Filter')} ariaLabel={t('Filter events')} bind:value={q} />
   </div>
 
   <div class="card b2s-card events-table-card">
@@ -258,35 +232,6 @@
     display: grid;
     gap: 16px;
     padding: var(--b2s-page-padding);
-  }
-
-  .events-toolbar .card-body {
-    padding: 0.7rem 0.9rem;
-  }
-
-  .events-label {
-    font-size: var(--b2s-fs-md);
-    color: #334155;
-    font-weight: 600;
-  }
-
-  .events-filter-wrap {
-    min-width: 260px;
-    width: min(420px, 100%);
-    position: relative;
-  }
-
-  .events-filter-wrap i {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #64748b;
-    pointer-events: none;
-  }
-
-  .events-filter-wrap input {
-    padding-left: 32px;
   }
 
   .events-table-card {

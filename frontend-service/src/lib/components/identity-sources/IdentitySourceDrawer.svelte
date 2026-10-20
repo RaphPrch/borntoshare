@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
@@ -109,7 +110,7 @@
     <Tabs tabs={tabs} activeKey={activeTab} onChange={(key) => (activeTab = key)} />
 
     {#if loading}
-      <div class="identity-drawer-loading">{t('Loading metadata…')}</div>
+      <LoadingState block>{t('Loading metadata…')}</LoadingState>
     {:else if loadError}
       <InlineAlert tone="error">{loadError}</InlineAlert>
     {/if}
@@ -224,7 +225,7 @@
           </p>
 
           {#if snapshotDebugLoading}
-            <div class="identity-drawer-loading">{t('Loading snapshot rows…')}</div>
+            <LoadingState block>{t('Loading snapshot rows…')}</LoadingState>
           {:else if snapshotDebugError}
             <InlineAlert tone="error">{snapshotDebugError}</InlineAlert>
           {:else if snapshotDebugRows.length === 0}
@@ -358,13 +359,6 @@
     margin: 0.2rem 0 0;
     font-size: var(--b2s-fs-md);
     color: #0f172a;
-  }
-
-  .identity-drawer-loading {
-    margin-top: 0.68rem;
-    color: #64748b;
-    font-size: var(--b2s-fs-sm);
-    font-weight: 600;
   }
 
   .snapshot-debug-wrap {

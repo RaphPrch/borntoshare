@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { t, intlLocale } from '$lib/i18n';
-  import { goto } from '$app/navigation';
+  import KpiCard from '$lib/components/ui/KpiCard.svelte';
+  import { formatDateTime } from '$lib/utils/format';
+  import { t } from '$lib/i18n';
   import DashboardShell from './DashboardShell.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import { formatActivityItem } from '$lib/activity/format';
@@ -14,37 +15,23 @@
   const activities = Array.isArray(data?.activities) ? data.activities : [];
 
   const kpi = [
-    { key: 'storage_roots', label: t('Storage Roots'), href: '/storage-roots' },
-    { key: 'storage_endpoints', label: t('Storage Endpoints'), href: '/admin/storage-endpoints' },
-    { key: 'admins', label: t('Admins'), href: '/admin/identity' },
-    { key: 'pending_requests', label: t('Pending Requests'), href: '/access-requests' }
-  ];
+    { key: 'storage_roots', label: t('Storage Roots'), href: '/storage-roots', icon: 'bi-folder2-open', tone: 'info' },
+    { key: 'storage_endpoints', label: t('Storage Endpoints'), href: '/admin/storage-endpoints', icon: 'bi-hdd-network', tone: 'purple' },
+    { key: 'admins', label: t('Admins'), href: '/admin/identity', icon: 'bi-person-gear', tone: 'success' },
+    { key: 'pending_requests', label: t('Pending Requests'), href: '/access-requests', icon: 'bi-hourglass-split', tone: 'warning' }
+  ] as const;
 
   const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
   const timeLabel = (value: unknown): string => {
-    const text = String(value ?? '').trim();
-    if (!text) return '—';
-    const d = new Date(text);
-    if (Number.isNaN(d.getTime())) return text;
-    return d.toLocaleString(intlLocale(), {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDateTime(value);
   };
 </script>
 
 <DashboardShell title={t('Admin Dashboard')} subtitle={t('Platform Operations Overview')}>
-  <div class="kpi-grid">
+  <div class="b2s-kpi-grid">
     {#each kpi as item}
-      <button class="kpi" on:click={() => goto(item.href)}>
-        <div class="kpi__label">{item.label}</div>
-        <div class="kpi__value">{num(stats[item.key])}</div>
-        <div class="kpi__hint">{t('Open')}</div>
-      </button>
+      <KpiCard label={item.label} value={num(stats[item.key])} icon={item.icon} tone={item.tone} href={item.href} />
     {/each}
   </div>
 
@@ -80,29 +67,10 @@
 </DashboardShell>
 
 <style>
-  .kpi-grid{
-    display:grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-  }
   @media (max-width: 1100px){
-    .kpi-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
   }
   @media (max-width: 640px){
-    .kpi-grid{ grid-template-columns: 1fr; }
   }
-  .kpi{
-    text-align:left;
-    border: 1px solid #e5e7eb;
-    border-radius: var(--b2s-radius-lg);
-    padding: 12px 12px 10px;
-    background: #fff;
-    cursor: pointer;
-  }
-  .kpi:hover{ border-color:#c7d2fe; box-shadow: 0 1px 10px rgba(15,23,42,.06); }
-  .kpi__label{ color:#475569; font-weight:600; font-size:var(--b2s-fs-md); }
-  .kpi__value{ font-size: var(--b2s-fs-2xl); font-weight:800; margin-top: 6px; }
-  .kpi__hint{ margin-top: 8px; color:#64748b; font-size:var(--b2s-fs-md); }
 
   .panel{
     border: 1px solid #e5e7eb;

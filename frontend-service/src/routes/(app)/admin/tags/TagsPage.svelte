@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
-  import { t, intlLocale } from '$lib/i18n';
+  import { t } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
   import { invalidateAll } from "$app/navigation";
 
@@ -92,10 +93,7 @@
   const uniqueValues = (values: string[]) => Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
 
   const formatUpdatedAt = (raw: unknown) => {
-    if (!raw) return "—";
-    const d = new Date(String(raw));
-    if (!Number.isFinite(d.getTime())) return "—";
-    return d.toLocaleString(intlLocale(), { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return formatDateTime(raw);
   };
 
   $: hasNameError = !form.name.trim();

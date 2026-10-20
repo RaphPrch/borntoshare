@@ -1,4 +1,6 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -10,7 +12,7 @@
   import { bulkDecision, getAccessRequestDetails } from '$lib/api/access-requests';
   import NewAccessRequestModal from '$lib/components/access-requests/NewAccessRequestModal.svelte';
   import { toast } from '$lib/stores/toast';
-  import { initials } from '$lib/utils/format';
+  import { initials, formatDateTime } from '$lib/utils/format';
   import {
     mapAccessRequestDecisionError,
     mapAccessRequestDecisionErrorFromBulk
@@ -239,9 +241,7 @@
 
   function requestedAt(row: any): string {
     const raw = row?.created_at ?? row?.requested_at ?? row?.submitted_at;
-    const date = raw ? new Date(String(raw)) : null;
-    if (!date || !Number.isFinite(date.getTime())) return '—';
-    return `${date.toLocaleDateString(intlLocale())} à ${date.toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })}`;
+    return formatDateTime(raw);
   }
 
   function requestedDateParts(row: any): { date: string; time: string } {
@@ -520,15 +520,9 @@
       </div>
     {/if}
 
-    <section class="ar-kpis" aria-label={t('Synthèse des validations')}>
-      <article class="ar-kpi warning">
-        <span><i class="bi bi-hourglass-split" aria-hidden="true"></i></span>
-        <div><strong>{kpis.guardian}</strong><small>{t('En attente')}<br />{t('Guardian')}</small></div>
-      </article>
-      <article class="ar-kpi success">
-        <span><i class="bi bi-check2-circle" aria-hidden="true"></i></span>
-        <div><strong>{kpis.approved}</strong><small>{t('Approuvées')}</small></div>
-      </article>
+    <section class="b2s-kpi-grid ar-kpis" aria-label={t('Synthèse des validations')}>
+      <KpiCard label={t('Pending guardian review')} value={kpis.guardian} icon="bi-hourglass-split" tone="warning" />
+      <KpiCard label={t('Approuvées')} value={kpis.approved} icon="bi-check2-circle" tone="success" />
     </section>
 
     <section class="ar-table-card">
@@ -593,7 +587,7 @@
 
       <div class="status-pill"><i class="bi bi-hourglass-split" aria-hidden="true"></i>{t('En attente — {stageText}', { stageText: stageText(selectedRequest) })}</div>
       {#if detailLoading}
-        <p class="detail-state">{t('Chargement du détail complet...')}</p>
+        <LoadingState>{t('Chargement du détail complet...')}</LoadingState>
       {:else if detailError}
         <p class="detail-state error">{detailError}</p>
       {/if}
@@ -698,13 +692,7 @@
   .ar-tabs button { border: 0; background: transparent; padding: 0 10px; color: #0c1f4d; font-size: var(--b2s-fs-lg); font-weight: 650; position: relative; }
   .ar-tabs button.active { color: #0e50f5; }
   .ar-tabs button.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: #1155ff; border-radius: 4px 4px 0 0; }
-  .ar-kpis { margin-top: 26px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px; }
-  .ar-kpi { height: 126px; border: 1px solid #dfe5ef; border-radius: var(--b2s-radius-md); background: #fff; display: flex; align-items: center; gap: 24px; padding: 0 22px; box-shadow: 0 12px 32px rgba(6, 24, 73, 0.03); }
-  .ar-kpi > span { width: 70px; height: 70px; border-radius: var(--b2s-radius-pill); display: grid; place-items: center; font-size: var(--b2s-fs-console-title); }
-  .ar-kpi.warning > span { color: #ff9500; background: #fff0d6; }
-  .ar-kpi.success > span { color: #069a2e; background: #ddf5df; }
-  .ar-kpi strong { display: block; font-size: var(--b2s-fs-console-title); line-height: 1; font-weight: 900; color: #081a4d; }
-  .ar-kpi small { display: block; margin-top: 10px; color: #183064; font-size: var(--b2s-fs-lg); font-weight: 500; line-height: 1.35; }
+  .ar-kpis { margin-top: 24px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
   .ar-table-card { margin-top: 22px; border: 1px solid #dfe5ef; border-radius: var(--b2s-radius-md); background: #fff; overflow: hidden; box-shadow: 0 16px 40px rgba(6, 24, 73, 0.04); }
   .ar-table-head { height: 55px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px 0 21px; }
   .ar-table-head h2 { margin: 0; font-size: var(--b2s-fs-xl); font-weight: 760; color: #061849; }

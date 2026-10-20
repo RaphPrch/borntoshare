@@ -1,4 +1,5 @@
-import { t, intlLocale } from '$lib/i18n';
+import { formatDateTime } from '$lib/utils/format';
+import { t } from '$lib/i18n';
 import type { StorageRootDetailModel } from '$lib/types/storage-roots';
 import type { StorageRootRow, StorageRootTagLike } from '$lib/utils/storage-roots';
 
@@ -50,13 +51,7 @@ export const formatDateTimeLabel = (value: unknown): string => {
   if (!value) return '—';
   const d = parseUtcLikeDate(value);
   if (!d) return '—';
-  return d.toLocaleString(intlLocale(), {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  return formatDateTime(d.toISOString());
 };
 
 export const storageRootEndpointLabel = (

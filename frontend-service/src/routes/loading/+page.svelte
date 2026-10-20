@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { t } from '$lib/i18n';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
@@ -10,7 +11,6 @@
 
 <div class="d-flex align-items-center justify-content-center" style="height: 100vh;">
   <div class="text-center">
-    <div class="spinner-border text-primary mb-3"></div>
-    <div class="text-muted">{t('Loading your workspace…')}</div>
+    <LoadingState block>{t('Loading your workspace…')}</LoadingState>
   </div>
 </div>
