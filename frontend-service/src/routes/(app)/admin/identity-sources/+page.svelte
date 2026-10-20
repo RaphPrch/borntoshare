@@ -1042,10 +1042,10 @@
         containerClass="storage-endpoints-empty identity-empty-state"
         iconClass="bi bi-people"
         title={t('No identity sources yet')}
-        description={t('Identity sources let you connect LDAP or OIDC providers to authenticate users and import identities into BornToShare.')}
+        description={t('Identity sources connect an LDAP directory to authenticate users and import identities.')}
         ctaLabel={t('Create your first identity source')}
         onCta={() => (showWizard = true)}
-        hint={t('The wizard will guide you step by step.')}
+        hint={t('You will be guided step by step.')}
       />
     {:else}
       <div class="identity-kpi-grid" aria-label={t('Identity source summary')}>

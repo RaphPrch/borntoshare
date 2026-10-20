@@ -46,11 +46,11 @@
 <EmptyState
   containerClass="storage-endpoints-empty"
   iconClass="bi bi-diagram-2"
-  title={t('No zones defined yet')}
+  title={t('No zones yet')}
   description={t('Zones organize governance policies and scope for storage endpoints and storage roots.')}
   ctaLabel={t('Create your first zone')}
   onCta={() => (zoneModalOpen = true)}
-  hint={t('The wizard-style modal will guide you step by step.')}
+  hint={t('You will be guided step by step.')}
 />
 
 <ZoneFormModal

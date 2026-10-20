@@ -87,6 +87,7 @@
   import StorageRootEffectiveAccessModal from '$lib/components/storage-roots/StorageRootEffectiveAccessModal.svelte';
   import StorageRootOwnersAdModal from '$lib/components/storage-roots/StorageRootOwnersAdModal.svelte';
   import AddStorageRootModal from '$lib/components/storage-roots/AddStorageRootModal.svelte';
+  import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
   import { runProbeWithPolling, syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
   import {
     buildStorageEndpointProbeRequestFromEndpoint,
@@ -707,6 +708,7 @@
   /* -------------------------------------------------------------------------- */
 
   let addRootModalOpen = false;
+  let showEndpointWizard = false;
   let addRootLoading = false;
   let addRootSelectedZoneId: string | number | null = null;
   let addRootSelectedEndpointId: string | number | null = null;
@@ -2001,7 +2003,12 @@
 </script>
 
 {#if !hasRoots()}
-  <StorageRootEmptyState onConfigureEndpoint={() => goto('/admin/storage-endpoints')} />
+  <StorageRootEmptyState
+    canManage={data.user?.is_admin === true}
+    hasEndpoints={(data.endpoints ?? []).length > 0}
+    onCreateRoot={openCreateRoot}
+    onCreateEndpoint={() => (showEndpointWizard = true)}
+  />
 {:else}
   <div class="sr-clean-layout">
     <StorageRootTreePanel
@@ -2061,6 +2068,16 @@
     />
   </div>
 {/if}
+
+<StorageEndpointWizardModal
+  open={showEndpointWizard}
+  onClose={() => (showEndpointWizard = false)}
+  on:done={async () => {
+    showEndpointWizard = false;
+    toast.success(t('Storage endpoint created.'));
+    await refreshStorageRootsLoad();
+  }}
+/>
 
 <AddStorageRootModal
   open={addRootModalOpen}

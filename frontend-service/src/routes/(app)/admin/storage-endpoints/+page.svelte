@@ -18,10 +18,10 @@
     containerClass="storage-endpoints-empty"
     iconClass="bi bi-hdd-stack"
     title={t('No storage endpoints yet')}
-    description={t('Storage endpoints are required to discover storage roots, apply governance rules and manage access requests.')}
+    description={t('Storage endpoints connect your file servers to discover and govern storage roots.')}
     ctaLabel={t('Create your first storage endpoint')}
     onCta={() => (showWizard = true)}
-    hint={t('The wizard will guide you step by step.')}
+    hint={t('You will be guided step by step.')}
   />
 {/if}
 

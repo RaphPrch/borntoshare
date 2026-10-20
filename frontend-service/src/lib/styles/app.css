@@ -816,8 +816,22 @@ body.dark {
   background: transparent;
 }
 
+/* Empty zones list: same placement and background as the other empty pages */
+.b2s-zones-layout.empty {
+  background: transparent;
+}
+
+.b2s-zones-layout.empty .b2s-sites-content {
+  padding: 0;
+}
+
 .empty-card {
   margin-top: 48px;
+  min-height: 346px;   /* same size for every empty page, even when a text wraps */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: 56px 48px;
   border-radius: 20px;
   background: #ffffff;
