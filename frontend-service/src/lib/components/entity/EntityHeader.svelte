@@ -9,17 +9,18 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityActionGroup, { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
 
   export let eyebrow = '';
   export let title = '';
   export let subtitle = '';
   export let metaItems: OperationalHeaderMetaItem[] = [];
-  export let statusLabel = 'Unknown';
+  export let statusLabel = t('Unknown');
   export let statusTone: OperationalHeaderTone = 'neutral';
   export let statusIconClass: string | null = null;
   export let showAttention = false;
-  export let attentionTitle = 'Attention required';
+  export let attentionTitle = t('Attention required');
   export let attentionItems: string[] = [];
   export let attentionMeta: string | null = null;
   export let attentionIconClass = 'bi bi-exclamation-triangle-fill';
@@ -27,7 +28,7 @@
   export let containerClass = '';
   // Header buttons: pass `actions`, or fill the "actions" slot for custom content
   export let actions: EntityActionItem[] = [];
-  export let actionsAriaLabel = 'Entity actions';
+  export let actionsAriaLabel = t('Entity actions');
   export let actionsAlign: 'start' | 'end' = 'end';
 
   $: resolvedStatusIcon =
@@ -57,7 +58,7 @@
       {/if}
 
       {#if metaItems.length > 0}
-        <div class="b2s-operational-header__meta" aria-label="Context">
+        <div class="b2s-operational-header__meta" aria-label={t('Context')}>
           {#each metaItems as item, idx (idx)}
             <span class={`b2s-operational-header__chip is-${item.tone ?? 'neutral'}`}>
               {#if item.icon}
@@ -109,7 +110,7 @@
             <li>{item}</li>
           {/each}
           {#if hiddenAttentionCount > 0}
-            <li>{hiddenAttentionCount} more item{hiddenAttentionCount > 1 ? 's' : ''} to review.</li>
+            <li>{t('{hiddenAttentionCount} more item{value} to review.', { hiddenAttentionCount, value: (hiddenAttentionCount > 1 ? 's' : '') })}</li>
           {/if}
         </ul>
       </div>

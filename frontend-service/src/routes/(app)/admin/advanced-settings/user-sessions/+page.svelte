@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -21,8 +22,8 @@
   let pendingSessionId: string | null = null;
 
   const toTimestamp = (value: unknown) => {
-    const t = new Date(String(value ?? '')).getTime();
-    return Number.isFinite(t) ? t : 0;
+    const time = new Date(String(value ?? '')).getTime();
+    return Number.isFinite(time) ? time : 0;
   };
 
   $: filteredSessions = sessions.filter((s) => {
@@ -69,7 +70,7 @@
     try {
       const res = await revokeUserSession(fetch, sessionId);
       if (res?.ok) {
-        toast.success('Session disconnected.');
+        toast.success(t('Session disconnected.'));
         await refresh();
       } else {
         const appError = toAppError(new Error(String(res?.message ?? 'Unable to disconnect session.')), {
@@ -87,46 +88,46 @@
   }
 </script>
 
-<ConfigCard title="User sessions" subtitle="Active sessions" icon="bi-person-lines-fill">
+<ConfigCard title={t('User sessions')} subtitle={t('Active sessions')} icon="bi-person-lines-fill">
   <div class="adv-toolbar">
     <div class="adv-toolbar-left">
       <div class="adv-search">
         <i class="bi bi-search"></i>
-        <input class="form-control" type="search" bind:value={query} placeholder="Search user, role, source…" />
+        <input class="form-control" type="search" bind:value={query} placeholder={t('Search user, role, source…')} />
       </div>
       <select class="form-select" bind:value={statusFilter}>
-        <option value="all">All statuses</option>
-        <option value="active">Active</option>
-        <option value="expired">Expired</option>
-        <option value="revoked">Revoked</option>
+        <option value="all">{t('All statuses')}</option>
+        <option value="active">{t('Active')}</option>
+        <option value="expired">{t('Expired')}</option>
+        <option value="revoked">{t('Revoked')}</option>
       </select>
       <select class="form-select" bind:value={sortBy}>
-        <option value="last_seen">Sort: Last activity</option>
-        <option value="created_at">Sort: Created</option>
-        <option value="user">Sort: User</option>
-        <option value="status">Sort: Status</option>
+        <option value="last_seen">{t('Sort: Last activity')}</option>
+        <option value="created_at">{t('Sort: Created')}</option>
+        <option value="user">{t('Sort: User')}</option>
+        <option value="status">{t('Sort: Status')}</option>
       </select>
       <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}>
         {sortDir === 'asc' ? '↑ Ascending' : '↓ Descending'}
       </button>
     </div>
     <button class="b2s-btn b2s-btn-secondary" type="button" on:click={refresh} disabled={isLoading || !!revokingId}>
-      {isLoading ? 'Loading…' : 'Refresh'}
+      {isLoading ? t('Loading…') : t('Refresh')}
     </button>
   </div>
 
-  <div class="adv-hint">{sortedSessions.length} session{sortedSessions.length > 1 ? 's' : ''} shown</div>
+  <div class="adv-hint">{t('{sortedSessionsCount} session{value} shown', { sortedSessionsCount: sortedSessions.length, value: (sortedSessions.length > 1 ? 's' : '') })}</div>
 
   <div class="table-responsive">
     <table class="table table-hover align-middle">
       <thead>
         <tr>
-          <th>User</th>
-          <th>Role</th>
-          <th>Status</th>
-          <th>Last seen</th>
-          <th>Auth</th>
-          <th>Created</th>
+          <th>{t('User')}</th>
+          <th>{t('Role')}</th>
+          <th>{t('Status')}</th>
+          <th>{t('Last seen')}</th>
+          <th>{t('Auth')}</th>
+          <th>{t('Created')}</th>
           <th></th>
         </tr>
       </thead>
@@ -156,13 +157,13 @@
                 on:click={() => requestRevoke(s.id)}
                 disabled={isLoading || !!revokingId}
               >
-                {revokingId === s.id ? 'Disconnecting…' : 'Disconnect'}
+                {revokingId === s.id ? t('Disconnecting…') : t('Disconnect')}
               </button>
             </td>
           </tr>
         {:else}
           <tr>
-            <td colspan="7" class="text-center text-muted">No active sessions.</td>
+            <td colspan="7" class="text-center text-muted">{t('No active sessions.')}</td>
           </tr>
         {/each}
       </tbody>
@@ -177,16 +178,16 @@
     pendingSessionId = null;
   }}
   onConfirm={revokeConfirmed}
-  title="Disconnect session"
-  subtitle="This will immediately revoke this active session."
-  impactTitle="Impact"
+  title={t('Disconnect session')}
+  subtitle={t('This will immediately revoke this active session.')}
+  impactTitle={t('Impact')}
   impactItems={[
     'The user will be signed out from this session.',
     'A new login will be required to continue.'
   ]}
-  cancelLabel="Cancel"
-  confirmLabel="Disconnect"
-  confirmBusyLabel="Disconnecting…"
+  cancelLabel={t('Cancel')}
+  confirmLabel={t('Disconnect')}
+  confirmBusyLabel={t('Disconnecting…')}
   busy={Boolean(revokingId)}
   severity="warning"
 />

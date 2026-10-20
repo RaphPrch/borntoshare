@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { clamp } from '$lib/utils/values';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
   import SettingRow from '$lib/components/settings/SettingRow.svelte';
@@ -83,7 +84,7 @@
   $: groupPrefixError = normalizedCurrent.group_prefix ? null : 'Prefix is required.';
   $: templateError =
     !normalizedCurrent.template
-      ? 'Le template est requis.'
+      ? t('Le template est requis.')
       : hasKnownToken
         ? null
         : 'Template must contain at least one supported token.';
@@ -116,7 +117,7 @@
       replaceMapText = stringifyReplaceMap(policy.replace_map_json);
       initialSnapshot = JSON.stringify(normalizePolicy(policy));
       initialReplaceMapSnapshot = replaceMapText;
-      toast.success('Global naming policy saved.');
+      toast.success(t('Global naming policy saved.'));
     } catch (e: unknown) {
       errorMsg = reportUiError(e, 'Failed to save global naming policy.', 'advanced_settings.naming_policy.save');
     } finally {
@@ -125,9 +126,9 @@
   }
 </script>
 
-<ConfigCard title="Naming policy" subtitle="Configuration globale de nommage des groupes AD" icon="bi-input-cursor-text">
+<ConfigCard title={t('Naming policy')} subtitle={t('Configuration globale de nommage des groupes AD')} icon="bi-input-cursor-text">
   <div class="adv-form-grid">
-    <SettingRow label="Prefix" help="Global prefix added to generated groups.">
+    <SettingRow label={t('Prefix')} help="Global prefix added to generated groups.">
       <input class="form-control" bind:value={policy.group_prefix} />
       {#if groupPrefixError}
         <div class="adv-inline-error">{groupPrefixError}</div>
@@ -135,7 +136,7 @@
     </SettingRow>
 
     <SettingRow
-      label="Template"
+      label={t('Template')}
       help="Tokens disponibles : &#123;PREFIX&#125;, &#123;ROOTCODE&#125;, &#123;PERM&#125;."
     >
       <input class="form-control" bind:value={policy.template} />
@@ -144,28 +145,28 @@
       {/if}
     </SettingRow>
 
-    <SettingRow label="Max sAM length">
+    <SettingRow label={t('Max sAM length')}>
       <input class="form-control" type="number" min="8" max="256" bind:value={policy.max_sam_length} />
       {#if maxSamError}
         <div class="adv-inline-error">{maxSamError}</div>
       {/if}
     </SettingRow>
 
-    <SettingRow label="Uppercase normalization">
+    <SettingRow label={t('Uppercase normalization')}>
       <label class="checkbox">
         <input type="checkbox" bind:checked={policy.normalize_uppercase} />
-        <span>Enabled</span>
+        <span>{t('Enabled')}</span>
       </label>
     </SettingRow>
 
-    <SettingRow label="Rootcode strategy">
+    <SettingRow label={t('Rootcode strategy')}>
       <select class="form-select" bind:value={policy.rootcode_strategy}>
         <option value="BASENAME">BASENAME</option>
         <option value="PATH_ALL">PATH_ALL</option>
       </select>
     </SettingRow>
 
-    <SettingRow label="Replace map (JSON)">
+    <SettingRow label={t('Replace map (JSON)')}>
       <textarea class="form-control" rows="4" bind:value={replaceMapText}></textarea>
       {#if replaceMapError}
         <div class="adv-inline-error">{replaceMapError}</div>
@@ -179,7 +180,7 @@
 
   <div class="adv-actions">
     <button class="b2s-btn b2s-btn-primary" type="button" on:click={saveGlobal} disabled={!canSave}>
-      {saving ? 'Saving…' : 'Save changes'}
+      {saving ? t('Saving…') : t('Save changes')}
     </button>
   </div>
 </ConfigCard>

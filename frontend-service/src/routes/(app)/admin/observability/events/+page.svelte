@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { t, intlLocale } from '$lib/i18n';
   import { formatActivityItem } from '$lib/activity/format';
 
-  type UiSeverity = 'Info' | 'Warning' | 'Error' | 'Audit success';
+  type UiSeverity = string;  // translated label
   type SeverityTone = 'info' | 'warning' | 'error' | 'success';
 
   type EventRow = {
@@ -25,7 +26,7 @@
 
   const prettyToken = (value: unknown): string => {
     const raw = String(value ?? '').trim();
-    if (!raw) return 'Platform';
+    if (!raw) return t('Platform');
     return raw
       .replace(/[._-]+/g, ' ')
       .replace(/\s+/g, ' ')
@@ -38,7 +39,7 @@
     if (targetType) return prettyToken(targetType);
 
     const action = String(entry?.action ?? '').trim();
-    if (!action) return 'Platform';
+    if (!action) return t('Platform');
 
     if (action.includes('.')) return prettyToken(action.split('.')[0]);
 
@@ -55,7 +56,7 @@
     if (!text) return '—';
     const d = new Date(text);
     if (Number.isNaN(d.getTime())) return text;
-    return d.toLocaleString('en-GB', {
+    return d.toLocaleString(intlLocale(), {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -108,7 +109,7 @@
     const rendered = formatActivityItem(entry);
     const details = String(rendered?.subtitle1 ?? '').trim();
     if (details) return details;
-    return 'No field change';
+    return t('No field change');
   };
 
   const severityMeta = (
@@ -126,18 +127,18 @@
       outcome === 'failed' ||
       badgeKind === 'critical'
     ) {
-      return { label: 'Error', tone: 'error', icon: 'bi-x-circle-fill' };
+      return { label: t('Error'), tone: 'error', icon: 'bi-x-circle-fill' };
     }
 
     if (raw === 'warning' || raw === 'warn' || raw === 'medium') {
-      return { label: 'Warning', tone: 'warning', icon: 'bi-exclamation-triangle-fill' };
+      return { label: t('Warning'), tone: 'warning', icon: 'bi-exclamation-triangle-fill' };
     }
 
     if (raw === 'audit_success' || raw === 'audit' || (badgeKind === 'admin' && outcome !== 'failed')) {
-      return { label: 'Audit success', tone: 'success', icon: 'bi-check-circle-fill' };
+      return { label: t('Audit success'), tone: 'success', icon: 'bi-check-circle-fill' };
     }
 
-    return { label: 'Info', tone: 'info', icon: 'bi-info-circle-fill' };
+    return { label: t('Info'), tone: 'info', icon: 'bi-info-circle-fill' };
   };
 
   $: rows = (Array.isArray(data?.items) ? data.items : [])
@@ -180,18 +181,18 @@
 <div class="container-fluid events-page">
   <div class="events-head">
     <div>
-      <h1 class="events-title">Events</h1>
-      <div class="events-subtitle">All platform actions from activity logs</div>
+      <h1 class="events-title">{t('Events')}</h1>
+      <div class="events-subtitle">{t('All platform actions from activity logs')}</div>
     </div>
-    <div class="events-updated">Updated {updatedAt}</div>
+    <div class="events-updated">{t('Updated {updatedAt}', { updatedAt })}</div>
   </div>
 
   <div class="events-toolbar card b2s-card">
     <div class="card-body d-flex align-items-center justify-content-between gap-3 flex-wrap">
       <div class="d-flex align-items-center gap-2">
-        <label class="events-label" for="events-time-range">Time Period</label>
+        <label class="events-label" for="events-time-range">{t('Time Period')}</label>
         <select id="events-time-range" class="form-select form-select-sm" style="width: 140px" disabled>
-          <option>Last 2 days</option>
+          <option>{t('Last 2 days')}</option>
         </select>
       </div>
 
@@ -199,8 +200,8 @@
         <i class="bi bi-funnel" aria-hidden="true"></i>
         <input
           class="form-control"
-          placeholder="Filter"
-          aria-label="Filter events"
+          placeholder={t('Filter')}
+          aria-label={t('Filter events')}
           bind:value={q}
         />
       </div>
@@ -213,18 +214,18 @@
         <table class="table events-table mb-0 align-middle">
           <thead>
             <tr>
-              <th>Timestamp / Module</th>
-              <th>Severity</th>
-              <th>Action</th>
-              <th>Actor</th>
-              <th>Target</th>
-              <th>Details</th>
+              <th>{t('Timestamp / Module')}</th>
+              <th>{t('Severity')}</th>
+              <th>{t('Action')}</th>
+              <th>{t('Actor')}</th>
+              <th>{t('Target')}</th>
+              <th>{t('Details')}</th>
             </tr>
           </thead>
           <tbody>
             {#if filtered.length === 0}
               <tr>
-                <td colspan={6} class="events-empty">No events found.</td>
+                <td colspan={6} class="events-empty">{t('No events found.')}</td>
               </tr>
             {:else}
               {#each filtered as row (row.id)}

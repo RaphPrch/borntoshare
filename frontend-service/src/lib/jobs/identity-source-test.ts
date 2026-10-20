@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { IdentitySourcePayload } from '$lib/api/identity-sources';
 import { resolveCredentials } from '$lib/api/credentials';
 import { notifyError, toUiAppError } from '$lib/errors';
@@ -43,7 +44,7 @@ export async function testIdentitySourceConnection(
       }, { secretName: `identity-source/${protocol}/${payload.host || 'ad'}`, mode: 'create' });
       secretRef = resolved.secret_ref ?? undefined;
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Unable to store secret.', 'auth', {
+      const appError = toUiAppError(e, t('Unable to store secret.'), 'auth', {
         action: 'identity_sources.resolve_bind_secret'
       });
       notifyError(appError);
@@ -52,7 +53,7 @@ export async function testIdentitySourceConnection(
   }
 
   if (!secretRef && payload.bind_dn) {
-    toast.error('Password is required to test the connection (no secret_ref available).');
+    toast.error(t('Password is required to test the connection (no secret_ref available).'));
     throw new Error('Missing secret_ref for bind_dn');
   }
 
@@ -80,7 +81,7 @@ export async function testIdentitySourceConnection(
       {
         key: 'probe',
         ok,
-        message: finalStatus?.result?.message || finalStatus?.errorMessage || (ok ? 'Probe OK' : 'Probe failed')
+        message: finalStatus?.result?.message || finalStatus?.errorMessage || (ok ? t('Probe OK') : t('Probe failed'))
       }
     ],
     status: finalStatus?.status,

@@ -1,12 +1,13 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { formatActivityItem } from '$lib/activity/format';
   import { timeAgo } from '$lib/utils/format';
 
-  export let title = 'Recent activity';
+  export let title = t('Recent activity');
   export let items: any[] = [];
   export let max: number | null = 5;
-  export let emptyLabel = 'No recent activity';
-  export let emptyText = 'Activity related to this item will appear here.';
+  export let emptyLabel = t('No recent activity');
+  export let emptyText = t('Activity related to this item will appear here.');
   export let onViewAll: (() => void) | null = null;
   export let onSelect: ((entry: any) => void) | null = null;
 
@@ -26,7 +27,7 @@
     <h2>{title}</h2>
     {#if onViewAll}
       <button type="button" class="activity-summary-card__link" on:click={() => onViewAll?.()}>
-        View all activity
+        {t('View all activity')}
       </button>
     {/if}
   </div>
@@ -46,11 +47,11 @@
               <i class={`bi bi-${rendered.icon ?? 'info-circle'}`}></i>
             </span>
             <span class="activity-summary-card__copy">
-              <strong>{rendered.title ?? String(entry.action ?? 'Activity')}</strong>
-              <small>{rendered.subtitle1 ?? String(entry.actor_display_name ?? entry.actor_name ?? 'System')}</small>
+              <strong>{rendered.title ?? String(entry.action ?? t('Activity'))}</strong>
+              <small>{rendered.subtitle1 ?? String(entry.actor_display_name ?? entry.actor_name ?? t('System'))}</small>
             </span>
             <time>{timeAgo(entry.created_at ?? entry.event_time ?? entry.timestamp ?? null) || '—'}</time>
-            <span class="activity-summary-card__actor">{String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? 'System')}</span>
+            <span class="activity-summary-card__actor">{String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? t('System'))}</span>
           </button>
         {:else}
         <div class="activity-summary-card__row">
@@ -58,11 +59,11 @@
             <i class={`bi bi-${rendered.icon ?? 'info-circle'}`}></i>
           </span>
           <span class="activity-summary-card__copy">
-            <strong>{rendered.title ?? String(entry.action ?? 'Activity')}</strong>
-            <small>{rendered.subtitle1 ?? String(entry.actor_display_name ?? entry.actor_name ?? 'System')}</small>
+            <strong>{rendered.title ?? String(entry.action ?? t('Activity'))}</strong>
+            <small>{rendered.subtitle1 ?? String(entry.actor_display_name ?? entry.actor_name ?? t('System'))}</small>
           </span>
           <time>{timeAgo(entry.created_at ?? entry.event_time ?? entry.timestamp ?? null) || '—'}</time>
-          <span class="activity-summary-card__actor">{String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? 'System')}</span>
+          <span class="activity-summary-card__actor">{String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? t('System'))}</span>
         </div>
         {/if}
       {/each}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityRowCard from '../ui/EntityRowCard.svelte';
   import IconTile from '../ui/IconTile.svelte';
   import { mapPrincipalToDisplayVM } from '../../mappers/principals.mapper';
@@ -28,7 +29,7 @@
     <button
       type="button"
       class="idb-selected-row__remove"
-      aria-label={`Remove ${removeLabel}`}
+      aria-label={t('Remove {removeLabel}', { removeLabel })}
       on:click={() => onRemove(selectionKey)}
     >
       <i class="bi bi-x-lg"></i>

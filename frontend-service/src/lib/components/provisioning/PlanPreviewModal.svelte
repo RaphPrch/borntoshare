@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import AppModal from '$lib/components/ui/AppModal.svelte';
 
   export let open = false;
-  export let title = 'Preview changes';
+  export let title = t('Preview changes');
   export let items: string[] = [];
   export let onClose: (() => void) | null = null;
 
@@ -15,7 +16,7 @@
   </div>
   <div class="b2s-confirm-body">
     {#if items.length === 0}
-      <p>No staged changes.</p>
+      <p>{t('No staged changes.')}</p>
     {:else}
       <ul>
         {#each items as item}
@@ -25,6 +26,6 @@
     {/if}
   </div>
   <div class="b2s-confirm-actions">
-    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={close}>Close</button>
+    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={close}>{t('Close')}</button>
   </div>
 </AppModal>

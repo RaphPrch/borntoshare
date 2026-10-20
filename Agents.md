@@ -29,6 +29,8 @@ Frontend:
 - Browser code must not call core-service or auth-service directly; the SvelteKit server (BFF) routes `/api/*` to them.
 - Keep login and change-password pages in the frontend.
 - Respect existing UI components and CSS tokens.
+- Buttons: `b2s-btn` + one variant (`b2s-btn-primary|secondary|ghost|danger|danger-outline|warning`, sizes `b2s-btn-sm`, `b2s-btn-icon`) from `lib/styles/buttons.css`, or `EntityActionButton`. Modals on `AppModal`, side panels on `Drawer`, tabs on `Tabs`. No new Bootstrap classes (`bootstrap-subset.css` only keeps what is still used).
+- Texts go through `t()` from `$lib/i18n` (French and English): `t('Save changes')`, `t('{count} roots', { count })`. The English text is the key; add its French translation to `lib/i18n/locales/fr.json` (a source text written in French goes to `en.json` instead). Never translate data sent to the API (activity messages, codes) or values compared in code; translate labels at render time, not in module-level constants.
 - Follow the `src/lib` layout and shared helpers described in `frontend-service/docs/structure.md`.
 - No glassmorphism.
 - Keep the BornToShare theme:
@@ -90,7 +92,7 @@ Containers:
 
 Run before pushing (CI runs the same in `.github/workflows/ci.yml`):
 - Python services: `python -m pytest -q` in each service directory (`wizard-ui/backend` for the wizard; auth-service needs `INTERNAL_TOKEN` set).
-- Frontend (`frontend-service`): `npm run build`, the `npm run test:*` scripts, and `npm run check` (must not add type errors).
+- Frontend (`frontend-service`): `npm run build`, the `npm run test:*` scripts, and `npm run check` (must report 0 errors, enforced by CI).
 
 ## Credit-saving behavior
 

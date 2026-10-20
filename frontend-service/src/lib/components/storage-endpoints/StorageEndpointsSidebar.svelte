@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntitySidebarTree, {
     type EntitySidebarGroup,
     type EntitySidebarItem
@@ -48,11 +49,11 @@
 </script>
 
 <EntitySidebarTree
-  ariaLabel="Storage endpoints sidebar"
-  createLabel="New endpoint"
-  searchPlaceholder="Search endpoint or zone"
-  searchAriaLabel="Search endpoint or zone"
-  emptyLabel="No endpoint matches your search."
+  ariaLabel={t('Storage endpoints sidebar')}
+  createLabel={t('New endpoint')}
+  searchPlaceholder={t('Search endpoint or zone')}
+  searchAriaLabel={t('Search endpoint or zone')}
+  emptyLabel={t('No endpoint matches your search.')}
   {query}
   groups={treeGroups}
   selectedId={selectedEndpointId}

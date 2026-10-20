@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import Drawer from "$lib/components/ui/Drawer.svelte";
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
@@ -266,19 +267,19 @@
   $: rootsDirty = selectedRoots.length > 0;
   $: isDirty = endpointDirty || rootsDirty || Boolean(password.trim());
   $: endpointSaveReason = !required(name)
-    ? 'Name is required.'
+    ? t('Name is required.')
     : !required(host)
-      ? 'Hostname or IP is required.'
+      ? t('Hostname or IP is required.')
       : (!isValidIPv4(host) && !isValidHostname(host))
-        ? 'Enter a valid hostname or IP.'
+        ? t('Enter a valid hostname or IP.')
         : !required(port) || Number(port) < 1 || Number(port) > 65535
-          ? 'Port must be between 1 and 65535.'
+          ? t('Port must be between 1 and 65535.')
           : zoneId === null
-            ? 'Select a zone first.'
+            ? t('Select a zone first.')
             : !required(username)
-              ? 'Username is required.'
+              ? t('Username is required.')
               : duplicateEndpoint
-                ? 'A storage endpoint with the same host already exists.'
+                ? t('A storage endpoint with the same host already exists.')
                 : null;
 
   function requestClose() {
@@ -516,8 +517,8 @@
 <Drawer
   {open}
   onClose={requestClose}
-  title="Edit storage endpoint"
-  subtitle="Update identity, target and credentials."
+  title={t('Edit storage endpoint')}
+  subtitle={t('Update identity, target and credentials.')}
   iconClass="bi bi-hdd-network"
   ariaLabelledby="se-edit-title"
   width="720px"
@@ -532,14 +533,14 @@
         class={`secondary ${activeTab === "endpoint" ? "is-active" : ""}`}
         on:click={() => (activeTab = "endpoint")}
       >
-        Endpoint
+        {t('Endpoint')}
       </button>
       <button
         type="button"
         class={`secondary ${activeTab === "roots" ? "is-active" : ""}`}
         on:click={() => (activeTab = "roots")}
       >
-        Storage roots
+        {t('Storage roots')}
       </button>
     </div>
 
@@ -549,53 +550,53 @@
       <i class="bi bi-display icon smb" aria-hidden="true"></i>
       <div>
         <strong>SMB</strong>
-        <span>Windows / Samba shares</span>
+        <span>{t('Windows / Samba shares')}</span>
       </div>
     </div>
 
     <div class="se-form-block">
-      <h3>Identity</h3>
+      <h3>{t('Identity')}</h3>
       <div class="se-form-grid se-form-grid--identity">
         <div>
-          <label for="se-edit-name">Name <span class="req">*</span></label>
+          <label for="se-edit-name">{t('Name')} <span class="req">*</span></label>
           <input
             id="se-edit-name"
             class="se-input"
             class:invalid={errName}
             bind:value={name}
-            placeholder="Main file server"
+            placeholder={t('Main file server')}
             on:blur={() => touch("name")}
           />
           {#if errName}
-            <div class="se-field-error">Name is required.</div>
+            <div class="se-field-error">{t('Name is required.')}</div>
           {/if}
         </div>
 
         <div>
-          <label for="se-edit-description">Description</label>
+          <label for="se-edit-description">{t('Description')}</label>
           <input
             id="se-edit-description"
             class="se-input"
             bind:value={description}
-            placeholder="Production SMB storage"
+            placeholder={t('Production SMB storage')}
           />
         </div>
       </div>
     </div>
 
     <div class="se-form-block">
-      <h3>Zone</h3>
+      <h3>{t('Zone')}</h3>
       <div class="se-form-grid se-form-grid--identity">
         <div>
-          <label for="se-edit-zone">Existing zone <span class="req">*</span></label>
+          <label for="se-edit-zone">{t('Existing zone')} <span class="req">*</span></label>
           <select id="se-edit-zone" class="se-input" bind:value={zoneId} disabled={zonesLoading}>
-            <option value="">Select zone</option>
+            <option value="">{t('Select zone')}</option>
             {#each zones as z (z.id)}
               <option value={z.id}>{z.name}</option>
             {/each}
           </select>
           {#if zonesLoading}
-            <div class="se-field-hint">Loading zones…</div>
+            <div class="se-field-hint">{t('Loading zones…')}</div>
           {/if}
           {#if zonesError}
             <div class="se-field-error">{zonesError}</div>
@@ -603,58 +604,58 @@
         </div>
 
         <div>
-          <label for="se-edit-identity-source">Identity source (AD)</label>
+          <label for="se-edit-identity-source">{t('Identity source (AD)')}</label>
           <select id="se-edit-identity-source" class="se-input" bind:value={identitySourceId}>
-            <option value="">No identity source (optional)</option>
+            <option value="">{t('No identity source (optional)')}</option>
             {#each activeAdIdentitySources as src (src.id)}
-              <option value={src.id}>{src.name ?? `Source #${src.id}`}</option>
+              <option value={src.id}>{src.name ?? t('Source #{id}', { id: src.id })}</option>
             {/each}
           </select>
           {#if identitySourcesLoading}
-            <div class="se-field-hint">Loading identity sources…</div>
+            <div class="se-field-hint">{t('Loading identity sources…')}</div>
           {/if}
           {#if identitySourcesError}
             <div class="se-field-error">{identitySourcesError}</div>
           {/if}
           {#if !identitySourcesLoading && !identitySourcesError && activeAdIdentitySources.length === 0}
-            <div class="se-field-hint">No active AD identity source available (optional field).</div>
+            <div class="se-field-hint">{t('No active AD identity source available (optional field).')}</div>
           {/if}
         </div>
       </div>
     </div>
 
     <div class="se-form-block">
-      <h3>Target</h3>
+      <h3>{t('Target')}</h3>
       <div class="se-form-grid se-form-grid--target">
         <div>
-          <label for="se-edit-host">Hostname / IP <span class="req">*</span></label>
+          <label for="se-edit-host">{t('Hostname / IP')} <span class="req">*</span></label>
           <div class="b2s-input-with-action">
             <input
               id="se-edit-host"
               class="se-input"
               class:invalid={errHost || errHostFormat}
               bind:value={host}
-              placeholder="fileserver.domain.local ou 10.0.0.12"
+              placeholder={t('fileserver.domain.local ou 10.0.0.12')}
               on:blur={() => touch("host")}
             />
             <button
               class="b2s-input-action"
               type="button"
               tabindex="-1"
-              aria-label="Resolve host"
+              aria-label={t('Resolve host')}
               on:click={resolveHostInput}
             >
               <i class="bi bi-search" aria-hidden="true"></i>
             </button>
           </div>
           {#if errHost}
-            <div class="se-field-error">Hostname/IP is required.</div>
+            <div class="se-field-error">{t('Hostname/IP is required.')}</div>
           {/if}
           {#if errHostFormat}
-            <div class="se-field-error">Invalid hostname/IP.</div>
+            <div class="se-field-error">{t('Invalid hostname/IP.')}</div>
           {/if}
           {#if duplicateEndpoint}
-            <div class="se-field-error">A file server with the same IP/hostname already exists.</div>
+            <div class="se-field-error">{t('A file server with the same IP/hostname already exists.')}</div>
           {/if}
           {#if resolveHint}
             <div class={`se-field-hint ${resolveHint.ok ? "ok" : ""}`}>{resolveHint.message}</div>
@@ -662,7 +663,7 @@
         </div>
 
         <div>
-          <label for="se-edit-port">Port <span class="req">*</span></label>
+          <label for="se-edit-port">{t('Port')} <span class="req">*</span></label>
           <input
             id="se-edit-port"
             class="se-input"
@@ -674,77 +675,77 @@
             on:blur={() => touch("port")}
           />
           {#if errPort}
-            <div class="se-field-error">Port must be between 1 and 65535.</div>
+            <div class="se-field-error">{t('Port must be between 1 and 65535.')}</div>
           {/if}
         </div>
       </div>
     </div>
 
     <div class="se-form-block">
-      <h3>Credentials</h3>
+      <h3>{t('Credentials')}</h3>
       <div class="se-form-grid se-form-grid--creds">
         <div>
-          <label for="se-edit-username">Username <span class="req">*</span></label>
+          <label for="se-edit-username">{t('Username')} <span class="req">*</span></label>
           <input
             id="se-edit-username"
             class="se-input"
             class:invalid={errUsername}
             bind:value={username}
-            placeholder="DOMAIN\\service-account"
+            placeholder={t('DOMAIN\\\\service-account')}
             on:blur={() => touch("username")}
           />
           {#if errUsername}
-            <div class="se-field-error">Username is required.</div>
+            <div class="se-field-error">{t('Username is required.')}</div>
           {/if}
         </div>
 
         <div>
-          <label for="se-edit-password">Password</label>
+          <label for="se-edit-password">{t('Password')}</label>
           <div class="b2s-input-with-action">
             <input
               id="se-edit-password"
               class="se-input"
               type={showPassword ? "text" : "password"}
               bind:value={password}
-              placeholder="Leave empty to keep current"
+              placeholder={t('Leave empty to keep current')}
             />
             <button
               class="b2s-input-action"
               type="button"
               tabindex="-1"
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? t('Hide password') : t('Show password')}
               on:click={() => (showPassword = !showPassword)}
             >
               <i class={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`} aria-hidden="true"></i>
             </button>
           </div>
-          <div class="se-field-hint">Laissez vide pour conserver le secret actuel.</div>
+          <div class="se-field-hint">{t('Laissez vide pour conserver le secret actuel.')}</div>
         </div>
       </div>
     </div>
 
     <div class="form-check">
       <input class="form-check-input" id="se-active" type="checkbox" bind:checked={isActive} />
-      <label class="form-check-label" for="se-active">Enabled</label>
+      <label class="form-check-label" for="se-active">{t('Enabled')}</label>
     </div>
 
     {:else}
     <div class="se-form-block">
-      <h3>Storage roots discovery (Step 3)</h3>
-      <p class="se-field-hint">Run SMB share discovery and select roots to govern.</p>
+      <h3>{t('Storage roots discovery (Step 3)')}</h3>
+      <p class="se-field-hint">{t('Run SMB share discovery and select roots to govern.')}</p>
 
       {#if discoverStatus === "failed"}
-        <div class="se-field-error">{discoverError ?? "Discovery failed"}</div>
+        <div class="se-field-error">{discoverError ?? t('Discovery failed')}</div>
       {/if}
 
       <div class="se-form-block">
-        <label for="se-edit-roots-filter">Filter roots</label>
-        <input id="se-edit-roots-filter" class="se-input" bind:value={rootsQuery} placeholder="Filter discovered roots…" />
+        <label for="se-edit-roots-filter">{t('Filter roots')}</label>
+        <input id="se-edit-roots-filter" class="se-input" bind:value={rootsQuery} placeholder={t('Filter discovered roots…')} />
       </div>
 
       <div class="se-root-rows">
         {#if filteredDetectedRoots.length === 0}
-          <div class="se-field-hint">No discovered roots yet.</div>
+          <div class="se-field-hint">{t('No discovered roots yet.')}</div>
         {:else}
           {#each filteredDetectedRoots as r}
             <button type="button" class={`se-root-row ${isSelectedRoot(r) ? 'selected' : ''}`} on:click={() => toggleRoot(r)}>
@@ -761,7 +762,7 @@
         {/if}
       </div>
 
-      <div class="se-field-hint">Selected: {selectedRoots.length}</div>
+      <div class="se-field-hint">{t('Selected: {selectedRootsCount}', { selectedRootsCount: selectedRoots.length })}</div>
     </div>
     {/if}
   </div>
@@ -769,12 +770,12 @@
   <svelte:fragment slot="footer">
     <ActionFooter align="end" className="se-edit-drawer__actions">
       {#if activeTab === "endpoint"}
-        <EntityActionButton variant="secondary" label="Cancel" disabled={saving} onClick={requestClose} />
+        <EntityActionButton variant="secondary" label={t('Cancel')} disabled={saving} onClick={requestClose} />
         <EntityActionButton
           variant="primary"
           icon={saving ? "bi-arrow-repeat" : "bi-check2"}
           busy={saving}
-          label={saving ? "Saving…" : "Save changes"}
+          label={saving ? t('Saving…') : t('Save changes')}
           disabled={saving || !canSave}
           onClick={save}
         />
@@ -786,7 +787,7 @@
           variant="secondary"
           icon={discoverStatus === "running" ? "bi-arrow-repeat" : "bi-search"}
           busy={discoverStatus === "running"}
-          label={discoverStatus === "running" ? "Discovering…" : "Discover"}
+          label={discoverStatus === "running" ? t('Discovering…') : t('Discover')}
           disabled={discoverStatus === "running" || saving}
           onClick={discoverStorageRoots}
         />
@@ -794,16 +795,16 @@
           variant="primary"
           icon={saving ? "bi-arrow-repeat" : "bi-folder-plus"}
           busy={saving}
-          label={saving ? "Saving…" : "Create selected roots"}
+          label={saving ? t('Saving…') : t('Create selected roots')}
           disabled={saving || selectedRoots.length === 0}
           onClick={saveSelectedRoots}
         />
         {#if selectedRoots.length === 0}
-          <div class="se-edit-disabled-reason">Select at least one storage root first.</div>
+          <div class="se-edit-disabled-reason">{t('Select at least one storage root first.')}</div>
         {/if}
       {/if}
       {#if isDirty}
-        <div class="se-edit-unsaved">Unsaved changes</div>
+        <div class="se-edit-unsaved">{t('Unsaved changes')}</div>
       {/if}
     </ActionFooter>
   </svelte:fragment>
@@ -814,9 +815,9 @@
   open={closeConfirmOpen}
   onClose={() => (closeConfirmOpen = false)}
   onConfirm={discardAndClose}
-  title="Discard unsaved changes"
-  subtitle="Your edits have not been saved."
-  confirmLabel="Discard changes"
+  title={t('Discard unsaved changes')}
+  subtitle={t('Your edits have not been saved.')}
+  confirmLabel={t('Discard changes')}
   confirmVariant="warning"
   severity="warning"
   impactItems={['All unsaved edits in this drawer will be lost.']}

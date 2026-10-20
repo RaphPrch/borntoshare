@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { env } from '$env/dynamic/public';
 
   import LoginForm from '$lib/components/auth/LoginForm.svelte';
@@ -46,7 +47,7 @@
   <button
     class="b2s-org-btn"
     type="button"
-    aria-label="Sign in with your organization"
+    aria-label={t('Sign in with your organization')}
   >
     <span class="b2s-org-ico" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none">
@@ -57,6 +58,6 @@
         />
       </svg>
     </span>
-    <span class="b2s-org-text">Sign in with your organization</span>
+    <span class="b2s-org-text">{t('Sign in with your organization')}</span>
   </button>
 {/if}

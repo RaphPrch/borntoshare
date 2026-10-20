@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   export let error: { message?: string } | null;
   export let status: number;
 
@@ -11,36 +12,36 @@
 
   const title =
     isNotFound
-      ? 'Page not found'
+      ? t('Page not found')
       : isUnauthenticated
-      ? 'Session expired'
+      ? t('Session expired')
       : isForbidden
-      ? 'Access denied'
+      ? t('Access denied')
       : isServiceUnavailable
-      ? 'Service unavailable'
-      : 'Unexpected error';
+      ? t('Service unavailable')
+      : t('Unexpected error');
 
   const heading =
     isNotFound
-      ? 'Page not found'
+      ? t('Page not found')
       : isUnauthenticated
-      ? 'Your session has expired'
+      ? t('Your session has expired')
       : isForbidden
-      ? 'Access denied'
+      ? t('Access denied')
       : isServiceUnavailable
-      ? 'Service temporarily unavailable'
-      : 'Something went wrong';
+      ? t('Service temporarily unavailable')
+      : t('Something went wrong');
 
   const description =
     isNotFound
-      ? 'The page you are looking for does not exist or has been moved.'
+      ? t('The page you are looking for does not exist or has been moved.')
       : isUnauthenticated
-      ? 'Please sign in again to continue.'
+      ? t('Please sign in again to continue.')
       : isForbidden
-      ? 'You do not have permission to access this resource.'
+      ? t('You do not have permission to access this resource.')
       : isServiceUnavailable
-      ? 'Authentication services are temporarily unavailable. Please try again later.'
-      : 'An unexpected error occurred while rendering the application.';
+      ? t('Authentication services are temporarily unavailable. Please try again later.')
+      : t('An unexpected error occurred while rendering the application.');
 
   function reload() {
     location.reload();
@@ -48,7 +49,7 @@
 </script>
 
 <svelte:head>
-  <title>{title} — Born To Share</title>
+  <title>{t('{title} — Born To Share', { title })}</title>
 </svelte:head>
 
 <div class="error-root">
@@ -65,18 +66,18 @@
 
     <div class="error-actions">
       {#if isUnauthenticated}
-        <a href="/login" class="btn-primary">Sign in</a>
+        <a href="/login" class="btn-primary">{t('Sign in')}</a>
       {:else if isForbidden}
-        <a href="/dashboard" class="btn-primary">Back to dashboard</a>
+        <a href="/dashboard" class="btn-primary">{t('Back to dashboard')}</a>
       {:else if isServiceUnavailable}
         <button class="btn-primary" on:click={reload}>
-          Retry
+          {t('Retry')}
         </button>
       {:else if isNotFound}
-        <a href="/dashboard" class="btn-primary">Go to dashboard</a>
+        <a href="/dashboard" class="btn-primary">{t('Go to dashboard')}</a>
       {/if}
 
-      <a href="/dashboard" class="btn-secondary">Home</a>
+      <a href="/dashboard" class="btn-secondary">{t('Home')}</a>
     </div>
   </div>
 </div>

@@ -5,9 +5,9 @@ type Badge = 'info' | 'admin' | 'critical';
 
 export function resolveBadgeLabel(badge: Badge) {
   // Activity/event badges must always be displayed in English.
-  if (badge === 'critical') return t('badges.critical', {}, 'en');
-  if (badge === 'admin') return t('badges.admin', {}, 'en');
-  return t('badges.info', {}, 'en');
+  if (badge === 'critical') return t('badges.critical');
+  if (badge === 'admin') return t('badges.admin');
+  return t('badges.info');
 }
 
 // If backend provides severity, it wins.

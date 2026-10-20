@@ -1,6 +1,7 @@
 <script lang="ts">
-  export let cancelLabel = 'Cancel';
-  export let confirmLabel = 'Confirm';
+  import { t } from '$lib/i18n';
+  export let cancelLabel = t('Cancel');
+  export let confirmLabel = t('Confirm');
   export let confirmBusyLabel: string | null = null;
   export let busy = false;
   export let cancelDisabled = false;

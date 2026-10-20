@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import { renderActivity } from '$lib/activity/formatter';
@@ -74,20 +75,20 @@
 >
   {#if entry}
     <div class="activity-details-drawer__meta">
-      <div><strong>Action</strong><span>{String(entry?.action ?? '—')}</span></div>
-      <div><strong>Severity</strong><span>{String(entry?.severity ?? entry?.outcome ?? 'info')}</span></div>
-      <div><strong>Date & time</strong><span>{formatDateTime(entry?.created_at ?? entry?.event_time, { seconds: true })}</span></div>
-      <div><strong>Target</strong><span>{String(entry?.target_display ?? '—')}</span></div>
+      <div><strong>{t('Action')}</strong><span>{String(entry?.action ?? '—')}</span></div>
+      <div><strong>{t('Severity')}</strong><span>{String(entry?.severity ?? entry?.outcome ?? 'info')}</span></div>
+      <div><strong>{t('Date & time')}</strong><span>{formatDateTime(entry?.created_at ?? entry?.event_time, { seconds: true })}</span></div>
+      <div><strong>{t('Target')}</strong><span>{String(entry?.target_display ?? '—')}</span></div>
     </div>
 
     {#if changeRows.length > 0}
       <div class="activity-details-drawer__section">
-        <h3>Changed values</h3>
-        <div class="activity-details-drawer__table" role="table" aria-label="Changed values">
+        <h3>{t('Changed values')}</h3>
+        <div class="activity-details-drawer__table" role="table" aria-label={t('Changed values')}>
           <div role="row" class="head">
-            <span role="columnheader">Field</span>
-            <span role="columnheader">Before</span>
-            <span role="columnheader">After</span>
+            <span role="columnheader">{t('Field')}</span>
+            <span role="columnheader">{t('Before')}</span>
+            <span role="columnheader">{t('After')}</span>
           </div>
           {#each changeRows as row}
             <div role="row">
@@ -101,7 +102,7 @@
     {/if}
 
     <div class="activity-details-drawer__section">
-      <h3>Raw context</h3>
+      <h3>{t('Raw context')}</h3>
       <pre>{JSON.stringify(context ?? {}, null, 2)}</pre>
     </div>
   {/if}

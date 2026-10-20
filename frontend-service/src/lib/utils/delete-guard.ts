@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import { asRecord } from './values';
 
 type ErrorLike = {
@@ -68,7 +69,7 @@ export const isDependencyDeleteError = (error: unknown): boolean => {
 export const dependencyDeleteMessage = (
   entityLabel: string,
   relatedLabel = 'related records'
-): string => `This ${entityLabel} cannot be deleted while ${relatedLabel} are still attached.`;
+): string => t('This {entityLabel} cannot be deleted while {relatedLabel} are still attached.', { entityLabel, relatedLabel });
 
 export const dependencyCountDeleteMessage = (
   entityLabel: string,
@@ -79,5 +80,5 @@ export const dependencyCountDeleteMessage = (
   const safeCount = Math.max(0, Number.isFinite(count) ? Number(count) : 0);
   const related = safeCount === 1 ? relatedSingular : relatedPlural;
   const verb = safeCount === 1 ? 'is' : 'are';
-  return `This ${entityLabel} cannot be deleted while ${safeCount} ${related} ${verb} still attached.`;
+  return t('This {entityLabel} cannot be deleted while {safeCount} {related} {verb} still attached.', { entityLabel, safeCount, related, verb });
 };

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
   /**
    * Generic probe result display.
@@ -13,8 +14,8 @@
   export let durationMs: number | null = null;
   export let jobId: string | number | null = null;
   export let technicalHref: string | null = null;
-  export let technicalLabel = 'Technical details';
-  export let retryLabel = 'Retry';
+  export let technicalLabel = t('Technical details');
+  export let retryLabel = t('Retry');
   export let onRetry: (() => void) | null = null;
 
   const asChecks = (r: any) => {
@@ -43,7 +44,7 @@
 
   $: checks = asChecks(result);
   $: banner = ok === true ? 'success' : ok === false ? 'danger' : 'info';
-  $: title = ok === true ? 'Probe OK' : ok === false ? 'Probe failed' : 'Probe';
+  $: title = ok === true ? t('Probe OK') : ok === false ? t('Probe failed') : t('Probe');
   $: iconClass = ok === true ? 'bi-check2-circle' : ok === false ? 'bi-x-circle' : 'bi-activity';
   $: lastRunLabel = lastRunAt ? formatDateTime(lastRunAt) : null;
   $: durationLabel = formatDuration(durationMs);
@@ -67,9 +68,9 @@
 
   {#if lastRunLabel || durationLabel || jobId}
     <div class="probe-meta">
-      {#if lastRunLabel}<span>Dernier run {lastRunLabel}</span>{/if}
-      {#if durationLabel}<span>Durée {durationLabel}</span>{/if}
-      {#if jobId}<span>Job #{jobId}</span>{/if}
+      {#if lastRunLabel}<span>{t('Dernier run {lastRunLabel}', { lastRunLabel })}</span>{/if}
+      {#if durationLabel}<span>{t('Durée {durationLabel}', { durationLabel })}</span>{/if}
+      {#if jobId}<span>{t('Job #{jobId}', { jobId })}</span>{/if}
     </div>
   {/if}
 

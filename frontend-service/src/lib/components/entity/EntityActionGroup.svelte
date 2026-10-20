@@ -15,8 +15,9 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   export let actions: EntityActionItem[] = [];
-  export let ariaLabel = 'Entity actions';
+  export let ariaLabel = t('Entity actions');
   export let align: 'start' | 'end' = 'end';
 
   const buttonClass = (action: EntityActionItem): string => {
@@ -47,7 +48,7 @@
 
   {#if overflowActions.length > 0}
     <details class="b2s-action-menu">
-      <summary class="b2s-btn b2s-btn-secondary b2s-btn-icon" aria-label="More actions">
+      <summary class="b2s-btn b2s-btn-secondary b2s-btn-icon" aria-label={t('More actions')}>
         <i class="bi bi-three-dots" aria-hidden="true"></i>
       </summary>
 

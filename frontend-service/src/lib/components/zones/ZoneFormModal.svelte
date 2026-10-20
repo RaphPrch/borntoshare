@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import Drawer from "$lib/components/ui/Drawer.svelte";
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import ZoneFormFields from "$lib/components/zones/ZoneFormFields.svelte";
@@ -122,20 +123,20 @@
       <div class="zone-form-drawer__warning">
         <div class="zone-form-drawer__warning-title">
           <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-          Deleting a zone has consequences
+          {t('Deleting a zone has consequences')}
         </div>
 
-        <p>Deleting this zone is irreversible.</p>
+        <p>{t('Deleting this zone is irreversible.')}</p>
 
         <ul>
-          <li>The zone will be permanently removed</li>
-          <li>Associated links will be deleted</li>
+          <li>{t('The zone will be permanently removed')}</li>
+          <li>{t('Associated links will be deleted')}</li>
         </ul>
 
         <div class="zone-form-drawer__safe-notes">
-          <strong>Will NOT be affected:</strong>
+          <strong>{t('Will NOT be affected:')}</strong>
           <ul>
-            <li>No storage data will be modified</li>
+            <li>{t('No storage data will be modified')}</li>
           </ul>
         </div>
       </div>
@@ -152,7 +153,7 @@
 
   <svelte:fragment slot="footer">
     <div class="zone-form-drawer__actions">
-      <EntityActionButton variant="secondary" label="Cancel" disabled={busy} onClick={onClose} />
+      <EntityActionButton variant="secondary" label={t('Cancel')} disabled={busy} onClick={onClose} />
       <EntityActionButton
         variant={mode === "delete" ? "danger" : "primary"}
         icon={busy ? "bi-arrow-repeat" : mode === "delete" ? "bi-trash" : "bi-check2"}

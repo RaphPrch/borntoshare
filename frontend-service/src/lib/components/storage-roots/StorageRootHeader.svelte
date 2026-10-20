@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityHeader from '$lib/components/entity/EntityHeader.svelte';
   import type { EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import type {
@@ -8,7 +9,7 @@
 
   type HeaderTone = 'success' | 'warning' | 'error' | 'neutral';
 
-  export let title = 'Storage root';
+  export let title = t('Storage root');
   export let statusLabel = '';
   export let statusTone: HeaderTone = 'neutral';
   export let showStatusBadge = false;
@@ -28,7 +29,7 @@
   $: actions = [
     {
       key: 'probe',
-      label: rootProbeBusy ? 'Probe running...' : 'Run probe',
+      label: rootProbeBusy ? t('Probe running...') : t('Run probe'),
       icon: rootProbeBusy ? 'bi-arrow-repeat sed-spin' : 'bi-broadcast-pin',
       variant: 'probe',
       disabled: actionsDisabled || rootProbeBusy,
@@ -36,7 +37,7 @@
     },
     {
       key: 'access-request',
-      label: 'New access request',
+      label: t('New access request'),
       icon: 'bi-plus-lg',
       variant: 'primary',
       disabled: actionsDisabled,
@@ -44,7 +45,7 @@
     },
     {
       key: 'edit',
-      label: 'Edit storage root',
+      label: t('Edit storage root'),
       icon: 'bi-pencil-square',
       variant: 'secondary',
       overflow: true,
@@ -53,7 +54,7 @@
     },
     {
       key: 'delete',
-      label: 'Delete storage root',
+      label: t('Delete storage root'),
       icon: 'bi-trash',
       variant: 'danger',
       overflow: true,
@@ -70,5 +71,5 @@
   statusTone={showStatusBadge ? resolvedStatusTone : 'neutral'}
   {metaItems}
   {actions}
-  actionsAriaLabel="Storage root actions"
+  actionsAriaLabel={t('Storage root actions')}
 />

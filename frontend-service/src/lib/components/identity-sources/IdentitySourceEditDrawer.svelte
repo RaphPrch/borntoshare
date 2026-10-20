@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { updateIdentitySource, type IdentitySourcePayload } from '$lib/api/identity-sources';
@@ -114,9 +115,9 @@
   })();
 
   $: healthLabel = probeRunning
-    ? 'Checking'
+    ? t('Checking')
     : probeResult
-      ? (probeResult.ok ? 'Healthy' : 'Unhealthy')
+      ? (probeResult.ok ? t('Healthy') : t('Unhealthy'))
       : sourceCard?.healthLabel ?? 'Unknown';
 
   $: healthTone = probeRunning
@@ -126,9 +127,9 @@
       : sourceCard?.healthTone ?? 'muted';
 
   $: checkedLabel = (() => {
-    if (probeRunning) return 'Testing now';
+    if (probeRunning) return t('Testing now');
     const checked = probeResult?.checkedAt ?? source?.last_probe_at ?? null;
-    return checked ? `Last tested ${formatRelativeTimestamp(checked)}` : 'No test yet';
+    return checked ? t('Last tested {formatRelativeTimestamp}', { formatRelativeTimestamp: formatRelativeTimestamp(checked) }) : 'No test yet';
   })();
 
   const probeResultValue = (keys: string[]): unknown => {
@@ -156,19 +157,19 @@
     return [
       {
         key: 'connection',
-        title: ok ? 'Connection successful' : 'Connection failed',
-        description: lastMessage || (ok ? 'The server responded successfully.' : 'The server did not validate the connection.'),
+        title: ok ? t('Connection successful') : t('Connection failed'),
+        description: lastMessage || (ok ? t('The server responded successfully.') : t('The server did not validate the connection.')),
         tone: ok ? 'success' : 'error',
         icon: ok ? 'bi-check-lg' : 'bi-x-lg'
       },
       {
         key: 'bind',
-        title: bindOk === true ? 'LDAP bind succeeded' : bindOk === false ? 'LDAP bind failed' : 'LDAP bind',
+        title: bindOk === true ? t('LDAP bind succeeded') : bindOk === false ? t('LDAP bind failed') : t('LDAP bind'),
         description:
           bindOk === true
-            ? 'The service account bind was successful.'
+            ? t('The service account bind was successful.')
             : bindOk === false
-              ? 'The service account bind failed.'
+              ? t('The service account bind failed.')
               : notReported,
         tone: checkTone(bindOk),
         icon: checkIcon(bindOk)
@@ -176,25 +177,25 @@
       {
         key: 'certificate',
         title: !isLdaps
-          ? 'TLS certificate'
+          ? t('TLS certificate')
           : tlsOk === true
-            ? 'Server certificate valid'
+            ? t('Server certificate valid')
             : tlsOk === false
-              ? 'Server certificate invalid'
-              : 'Server certificate',
+              ? t('Server certificate invalid')
+              : t('Server certificate'),
         description: !isLdaps
-          ? 'Not applicable for LDAP.'
+          ? t('Not applicable for LDAP.')
           : tlsOk === true
-            ? 'The server certificate is trusted and valid.'
+            ? t('The server certificate is trusted and valid.')
             : tlsOk === false
-              ? 'The server certificate could not be validated.'
+              ? t('The server certificate could not be validated.')
               : notReported,
         tone: checkTone(tlsOk),
         icon: checkIcon(tlsOk)
       },
       {
         key: 'response',
-        title: 'Response time',
+        title: t('Response time'),
         description: normalize(duration) ? `${normalize(duration)} ms` : notReported,
         tone: 'muted',
         icon: 'bi-speedometer2'
@@ -241,12 +242,12 @@
         payload.bind_password = null;
       }
       await updateIdentitySource(fetch, source.id, payload as Partial<IdentitySourcePayload>);
-      toast.success('Source updated.');
+      toast.success(t('Source updated.'));
       const savedId = source.id;
       onClose();
       await onSaved(savedId);
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Unable to update', 'ui', {
+      const appError = toUiAppError(e, t('Unable to update'), 'ui', {
         action: 'identity_sources.update_source',
         sourceId: source.id
       });
@@ -279,14 +280,14 @@
         ok: result.ok,
         status: result.status ?? null,
         jobId: result.job_id ?? null,
-        message: normalize(firstCheck?.message) || (result.ok ? 'Probe OK' : 'Probe failed'),
+        message: normalize(firstCheck?.message) || (result.ok ? t('Probe OK') : t('Probe failed')),
         result: null,
         checkedAt: new Date().toISOString()
       };
-      if (result.ok) toast.success('Connection validated.');
+      if (result.ok) toast.success(t('Connection validated.'));
       else toast.error(probeResult.message);
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Connection test failed.', 'ui', {
+      const appError = toUiAppError(e, t('Connection test failed.'), 'ui', {
         action: 'identity_sources.edit_test_connection',
         sourceId: source.id
       });
@@ -321,157 +322,157 @@
           <i class={`bi ${sourceIconClass(sourceCard)}`} aria-hidden="true"></i>
         </span>
         <div class="identity-edit-title">
-          <h2>Edit identity source</h2>
-          <p>{source?.display_name ?? source?.name ?? 'Identity source'}</p>
+          <h2>{t('Edit identity source')}</h2>
+          <p>{source?.display_name ?? source?.name ?? t('Identity source')}</p>
           <div class="identity-edit-badges">
             <StatusBadge
               status={form.is_active ? 'active' : 'disabled'}
-              label={form.is_active ? 'Active' : 'Disabled'}
+              label={form.is_active ? t('Active') : t('Disabled')}
               variant={form.is_active ? 'success' : 'disabled'}
               compact={true}
             />
             {#if source?.used}
-              <StatusBadge status="in-use" label="In use" variant="info" compact={true} />
+              <StatusBadge status="in-use" label={t('In use')} variant="info" compact={true} />
             {/if}
           </div>
         </div>
       </div>
-      <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-icon" aria-label="Close" on:click={onClose}>
+      <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-icon" aria-label={t('Close')} on:click={onClose}>
         <i class="bi bi-x-lg" aria-hidden="true"></i>
       </button>
     </header>
 
-    <section class="identity-edit-summary" aria-label="Identity source summary">
+    <section class="identity-edit-summary" aria-label={t('Identity source summary')}>
       <div>
-        <span>Type</span>
+        <span>{t('Type')}</span>
         <strong>{sourceCard?.typeLabel ?? identitySourceTypeLabel('ad')}</strong>
       </div>
       <div>
-        <span>Endpoint</span>
+        <span>{t('Endpoint')}</span>
         <strong>{endpointLabel}</strong>
       </div>
       <div>
-        <span>Status</span>
+        <span>{t('Status')}</span>
         <strong class={`identity-edit-status ${toneClass(healthTone)}`}>
           <i class="bi bi-circle-fill" aria-hidden="true"></i>
           {healthLabel}
         </strong>
       </div>
       <div>
-        <span>Last sync</span>
+        <span>{t('Last sync')}</span>
         <strong>{lastSyncLabel(source)}</strong>
       </div>
     </section>
 
     <section class="identity-edit-card">
       <div class="identity-edit-section-head">
-        <h3>Connection</h3>
-        <p>Core settings required to validate the source.</p>
+        <h3>{t('Connection')}</h3>
+        <p>{t('Core settings required to validate the source.')}</p>
       </div>
       <div class="identity-edit-grid">
         <label class="identity-edit-field">
-          <span>Display name</span>
+          <span>{t('Display name')}</span>
           <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.display_name)} bind:value={form.display_name} />
           {#if showErrors && !normalize(form.display_name)}
-            <small class="identity-field-error">Required</small>
+            <small class="identity-field-error">{t('Required')}</small>
           {/if}
         </label>
         <label class="identity-edit-field">
-          <span>Protocol</span>
-          <div class="identity-edit-segmented" role="group" aria-label="LDAP protocol">
+          <span>{t('Protocol')}</span>
+          <div class="identity-edit-segmented" role="group" aria-label={t('LDAP protocol')}>
             <button type="button" class:active={form.protocol === 'ldap'} on:click={() => setProtocol('ldap')}>LDAP</button>
             <button type="button" class:active={form.protocol === 'ldaps'} on:click={() => setProtocol('ldaps')}>LDAPS</button>
           </div>
         </label>
         <label class="identity-edit-field">
-          <span>Hostname / IP</span>
+          <span>{t('Hostname / IP')}</span>
           <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.host)} bind:value={form.host} />
           {#if showErrors && !normalize(form.host)}
-            <small class="identity-field-error">Required</small>
+            <small class="identity-field-error">{t('Required')}</small>
           {/if}
         </label>
         <label class="identity-edit-field">
-          <span>Port</span>
+          <span>{t('Port')}</span>
           <input class="identity-edit-input" type="number" min="1" max="65535" bind:value={form.port} />
         </label>
         <label class="identity-edit-field identity-edit-field--full">
-          <span>Base DN</span>
+          <span>{t('Base DN')}</span>
           <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.base_dn)} bind:value={form.base_dn} />
           {#if showErrors && !normalize(form.base_dn)}
-            <small class="identity-field-error">Required</small>
+            <small class="identity-field-error">{t('Required')}</small>
           {/if}
         </label>
         <div class="identity-edit-note identity-edit-field--full">
           <i class="bi bi-info-circle" aria-hidden="true"></i>
           {form.protocol === 'ldaps'
-            ? 'LDAPS selected: port set to 636 automatically.'
-            : 'LDAP selected: port set to 389 automatically.'}
+            ? t('LDAPS selected: port set to 636 automatically.')
+            : t('LDAP selected: port set to 389 automatically.')}
         </div>
       </div>
     </section>
 
     <section class="identity-edit-card">
       <div class="identity-edit-section-head">
-        <h3>Credentials</h3>
-        <p>Service account used to bind to the directory.</p>
+        <h3>{t('Credentials')}</h3>
+        <p>{t('Service account used to bind to the directory.')}</p>
       </div>
       <div class="identity-edit-grid">
         <label class="identity-edit-field">
-          <span>Bind DN</span>
+          <span>{t('Bind DN')}</span>
           <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.bind_dn)} bind:value={form.bind_dn} />
           {#if showErrors && !normalize(form.bind_dn)}
-            <small class="identity-field-error">Required</small>
+            <small class="identity-field-error">{t('Required')}</small>
           {/if}
         </label>
         <label class="identity-edit-field">
-          <span>Bind password</span>
+          <span>{t('Bind password')}</span>
           <div class="identity-edit-input-action">
             <input
               class="identity-edit-input"
               type={showPassword ? 'text' : 'password'}
               bind:value={form.bind_password}
-              placeholder={form.bind_password_ref ? 'Stored secret unchanged' : 'AD account password'}
+              placeholder={form.bind_password_ref ? t('Stored secret unchanged') : t('AD account password')}
             />
             <button
               type="button"
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? t('Hide password') : t('Show password')}
               on:click={() => (showPassword = !showPassword)}
             >
               <i class={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
             </button>
           </div>
-          <small class="identity-field-help">Stored securely in Secret Broker.</small>
+          <small class="identity-field-help">{t('Stored securely in Secret Broker.')}</small>
         </label>
       </div>
     </section>
 
     <section class="identity-edit-card">
       <div class="identity-edit-section-head">
-        <h3>Capabilities</h3>
-        <p>Enable features available for this source.</p>
+        <h3>{t('Capabilities')}</h3>
+        <p>{t('Enable features available for this source.')}</p>
       </div>
       <div class="identity-edit-capabilities">
         <label class="identity-edit-capability">
           <span class="identity-edit-capability-icon"><i class="bi bi-person-check" aria-hidden="true"></i></span>
           <span>
-            <strong>Authenticate users</strong>
-            <small>Allow this source to authenticate users.</small>
+            <strong>{t('Authenticate users')}</strong>
+            <small>{t('Allow this source to authenticate users.')}</small>
           </span>
           <input type="checkbox" bind:checked={form.capabilities.auth} />
         </label>
         <label class="identity-edit-capability">
           <span class="identity-edit-capability-icon"><i class="bi bi-diagram-3" aria-hidden="true"></i></span>
           <span>
-            <strong>Import groups</strong>
-            <small>Import groups from this source.</small>
+            <strong>{t('Import groups')}</strong>
+            <small>{t('Import groups from this source.')}</small>
           </span>
           <input type="checkbox" bind:checked={form.capabilities.import_groups} />
         </label>
         <label class="identity-edit-capability">
           <span class="identity-edit-capability-icon"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
           <span>
-            <strong>Source active</strong>
-            <small>Enable this source across the system.</small>
+            <strong>{t('Source active')}</strong>
+            <small>{t('Enable this source across the system.')}</small>
           </span>
           <input type="checkbox" bind:checked={form.is_active} />
         </label>
@@ -481,8 +482,8 @@
     <section class="identity-edit-card">
       <div class="identity-edit-section-head identity-edit-section-head--inline">
         <div>
-          <h3>Validation</h3>
-          <p>Results from the most recent connection test.</p>
+          <h3>{t('Validation')}</h3>
+          <p>{t('Results from the most recent connection test.')}</p>
         </div>
         <span class={`identity-edit-tested ${toneClass(healthTone)}`}>
           <i class="bi bi-circle-fill" aria-hidden="true"></i>
@@ -509,19 +510,19 @@
 
   <svelte:fragment slot="footer">
     <div class="identity-edit-footer-state">
-      <strong>{canSave ? 'Unsaved changes' : 'No unsaved changes'}</strong>
+      <strong>{canSave ? t('Unsaved changes') : t('No unsaved changes')}</strong>
       <span class={probeResult?.ok === false ? 'is-error' : 'is-success'}>
         <i class="bi bi-circle-fill" aria-hidden="true"></i>
         {checkedLabel}
       </span>
     </div>
     <div class="identity-edit-drawer-footer">
-      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={onClose} disabled={saving || probeRunning}>Cancel</button>
+      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={onClose} disabled={saving || probeRunning}>{t('Cancel')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary" on:click={handleTestConnection} disabled={saving || probeRunning}>
-        {probeRunning ? 'Testing…' : 'Test connection'}
+        {probeRunning ? t('Testing…') : t('Test connection')}
       </button>
       <button type="button" class="b2s-btn b2s-btn-primary" on:click={handleSave} disabled={saving || !canSave || probeRunning}>
-        {saving ? 'Saving…' : 'Save changes'}
+        {saving ? t('Saving…') : t('Save changes')}
       </button>
     </div>
   </svelte:fragment>

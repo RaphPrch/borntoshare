@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { StatusVariant } from '$lib/utils/status';
 import {
   endpointOperationalStateLabel,
@@ -18,10 +19,10 @@ export type { RootAvailability };
 
 export function probeStatusLabel(value: unknown): string {
   const probe = normalizeProbeStatus(String(value ?? ''));
-  if (probe === 'running') return 'Running';
-  if (probe === 'success') return 'Success';
-  if (probe === 'failed') return 'Failed';
-  return 'Unknown';
+  if (probe === 'running') return t('Running');
+  if (probe === 'success') return t('Success');
+  if (probe === 'failed') return t('Failed');
+  return t('Unknown');
 }
 
 export function probeStatusVariant(value: unknown): StatusVariant {
@@ -34,15 +35,15 @@ export function probeStatusVariant(value: unknown): StatusVariant {
 
 export function rootAvailabilityLabel(value: unknown): string {
   const availability = normalizeStorageRootAvailability(value);
-  if (availability === 'reachable') return 'Reachable';
-  if (availability === 'checking') return 'Checking';
-  if (availability === 'unreachable') return 'Unreachable';
-  if (availability === 'blocked_by_endpoint') return 'Endpoint blocked';
-  if (availability === 'needs_revalidation') return 'Revalidation needed';
-  if (availability === 'root_unreachable') return 'Root unreachable';
-  if (availability === 'needs_root_probe') return 'Root probe needed';
-  if (availability === 'not_provisioned') return 'Not provisioned';
-  return 'Unknown';
+  if (availability === 'reachable') return t('Reachable');
+  if (availability === 'checking') return t('Checking');
+  if (availability === 'unreachable') return t('Unreachable');
+  if (availability === 'blocked_by_endpoint') return t('Endpoint blocked');
+  if (availability === 'needs_revalidation') return t('Revalidation needed');
+  if (availability === 'root_unreachable') return t('Root unreachable');
+  if (availability === 'needs_root_probe') return t('Root probe needed');
+  if (availability === 'not_provisioned') return t('Not provisioned');
+  return t('Unknown');
 }
 
 export function rootAvailabilityVariant(value: unknown): StatusVariant {

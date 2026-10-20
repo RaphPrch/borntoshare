@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { browser } from '$app/environment';
   import { onDestroy, onMount } from 'svelte';
   import { getRequestStatusMeta, isProvisioningInFlight } from '$lib/utils/access-request-status';
@@ -37,7 +38,7 @@
   $: canReject = requestStatus === 'pending';
   $: canRevoke = requestStatus === 'approved' || requestStatus === 'enforced';
   $: statusMeta = getRequestStatusMeta(req?.status);
-  $: requestCode = req?.request_code ?? `REQ-${requestId(req, data?.request)}`;
+  $: requestCode = req?.request_code ?? t('REQ-{requestId}', { requestId: requestId(req, data?.request) });
   $: userLabel = String(displayName(req));
   $: storageLabel = String(storageRootLabel(req));
   $: accessLabel = String(accessProfileLabel(req));
@@ -136,17 +137,17 @@
             toast.info(`Open storage root access: ${mapped.actionHref}`);
           }
         } else {
-          const actionLabel = `Action ${decision}`;
-          toast.error(`${actionLabel} failed`);
+          const actionLabel = t('Action {decision}', { decision });
+          toast.error(t('{actionLabel} failed', { actionLabel }));
         }
       } else {
         decisionInlineError = null;
-        const capsuleMsg = decision === 'approve' ? ` · ${started} capsule(s) started` : '';
-        toast.success(`Action ${decision} applied${capsuleMsg}`);
+        const capsuleMsg = decision === 'approve' ? t(' · {started} capsule(s) started', { started }) : '';
+        toast.success(t('Action {decision} applied{capsuleMsg}', { decision, capsuleMsg }));
       }
       await refreshRequest();
     } catch {
-      toast.error(`Action ${decision} failed`);
+      toast.error(t('Action {decision} failed', { decision }));
     } finally {
       actionRunning = null;
       actionMenuOpen = false;
@@ -178,13 +179,13 @@
 </script>
 
 <svelte:head>
-  <title>Access request details</title>
+  <title>{t('Access request details')}</title>
 </svelte:head>
 
 {#if !req}
   <section class="b2s-page">
-    <h1 class="b2s-title">Request not found</h1>
-    <a class="b2s-btn b2s-btn-secondary" href="/access-requests">Back</a>
+    <h1 class="b2s-title">{t('Request not found')}</h1>
+    <a class="b2s-btn b2s-btn-secondary" href="/access-requests">{t('Back')}</a>
   </section>
 {:else}
   <section class="ar-page">
@@ -198,44 +199,44 @@
         <div class="menu-wrap">
           <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (actionMenuOpen = !actionMenuOpen)}>
             <i class="bi bi-three-dots-vertical"></i>
-            Actions
+            {t('Actions')}
             <i class="bi bi-chevron-down"></i>
           </button>
           {#if actionMenuOpen}
             <div class="menu-popover">
               <button type="button" on:click={() => runDecision('revoke')} disabled={!canRevoke || Boolean(actionRunning)}>
                 <i class="bi bi-file-earmark-lock2"></i>
-                Revoke Access
+                {t('Revoke Access')}
               </button>
               <button type="button" disabled>
                 <i class="bi bi-envelope-paper"></i>
-                Extend TTL
+                {t('Extend TTL')}
               </button>
               <button type="button" disabled>
                 <i class="bi bi-terminal"></i>
-                Rerun capsule
+                {t('Rerun capsule')}
               </button>
               <button type="button" disabled>
                 <i class="bi bi-search"></i>
-                View audit log
+                {t('View audit log')}
               </button>
               <button type="button" disabled>
                 <i class="bi bi-file-earmark-text"></i>
-                Export audit (PDF)
+                {t('Export audit (PDF)')}
               </button>
             </div>
           {/if}
         </div>
         {#if canRevoke}
           <button class="b2s-btn b2s-btn-danger" type="button" disabled={Boolean(actionRunning)} on:click={() => runDecision('revoke')}>
-            Revoke Access
+            {t('Revoke Access')}
           </button>
         {:else if canApprove || canReject}
           <button class="b2s-btn b2s-btn-primary" type="button" disabled={!canApprove || Boolean(actionRunning)} on:click={() => runDecision('approve')}>
-            Approve
+            {t('Approve')}
           </button>
           <button class="b2s-btn b2s-btn-danger" type="button" disabled={!canReject || Boolean(actionRunning)} on:click={() => runDecision('reject')}>
-            Reject
+            {t('Reject')}
           </button>
         {/if}
       </div>
@@ -252,7 +253,7 @@
         {/if}
         {#if decisionInlineError.actionHref}
           <a class="ar-inline-alert__link" href={decisionInlineError.actionHref}>
-            {decisionInlineError.actionLabel ?? 'Open storage root'}
+            {decisionInlineError.actionLabel ?? t('Open storage root')}
           </a>
         {/if}
       </section>
@@ -267,41 +268,41 @@
             <i class="bi bi-arrow-right"></i>
             <div class="scope-pill"><i class="bi bi-folder2"></i> {storageLabel}</div>
           </div>
-          <div class="ttl-tag">{daysRemaining} days</div>
+          <div class="ttl-tag">{t('{daysRemaining} days', { daysRemaining })}</div>
         </div>
         <div class="journey-bar-wrap">
           <div class="journey-bar">
             <span class="fill" style={`width:${progressPercent}%`}></span>
           </div>
-          <div class="journey-end">{daysRemaining} days</div>
+          <div class="journey-end">{t('{daysRemaining} days', { daysRemaining })}</div>
         </div>
         <div class="journey-meta">
           <span>{formatDateTime(req?.created_at)}</span>
-          <span>Expired at</span>
+          <span>{t('Expired at')}</span>
           <span class="pct">{progressPercent}%</span>
         </div>
       </section>
 
       <section class="ar-card ar-left">
-        <h3>Request Summary</h3>
+        <h3>{t('Request Summary')}</h3>
         <div class="sub-card">
-          <div class="sub-title">Access granted</div>
+          <div class="sub-title">{t('Access granted')}</div>
           <div class="soft-box">
             <div class="strong">{accessLabel}</div>
-            <div class="muted-row">Expected AD group: <strong>{expectedAdGroup}</strong></div>
-            <div class="muted-row">Applied via AD group: <strong>{appliedViaGroup}</strong></div>
+            <div class="muted-row">{t('Expected AD group:')} <strong>{expectedAdGroup}</strong></div>
+            <div class="muted-row">{t('Applied via AD group:')} <strong>{appliedViaGroup}</strong></div>
           </div>
         </div>
 
         <div class="sub-card">
-          <div class="sub-title">Time-to-Live (TTL)</div>
-          <div class="muted-row">Expires: <strong>{expiresAtLabel}</strong></div>
+          <div class="sub-title">{t('Time-to-Live (TTL)')}</div>
+          <div class="muted-row">{t('Expires:')} <strong>{expiresAtLabel}</strong></div>
           <div class="ttl-bar">{ttlCountdown} <i class="bi bi-chevron-right"></i></div>
-          <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled>Extend TTL</button>
+          <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled>{t('Extend TTL')}</button>
         </div>
 
         <div class="sub-card requester">
-          <div class="sub-title">Requestor</div>
+          <div class="sub-title">{t('Requestor')}</div>
           <div class="identity-row">
             <span class="mini-avatar b2s-persona b2s-persona--xs">{initials(userLabel)}</span>
             <strong>{userLabel}</strong>
@@ -311,14 +312,14 @@
 
       <div class="ar-center-col">
         <section class="ar-card">
-          <h3>Governance Summary</h3>
+          <h3>{t('Governance Summary')}</h3>
           <div class="governance-box">
-            <div class="line"><span>{boolLabel(justificationRequired, 'Justification required', 'Justification optional')}</span>{#if justificationRequired === true}<i class="bi bi-check2"></i>{/if}</div>
-            <div class="line"><span>{boolLabel(ttlEnforced, 'TTL enforced', 'TTL not enforced')}</span>{#if ttlEnforced === true}<i class="bi bi-check2"></i>{/if}</div>
-            <div class="line"><span>Sensitivity zone</span><strong>{sensitivityZone}</strong></div>
-            <div class="line line-last"><span>Risk level</span><strong class="warn">{riskLevel}</strong></div>
+            <div class="line"><span>{boolLabel(justificationRequired, t('Justification required'), t('Justification optional'))}</span>{#if justificationRequired === true}<i class="bi bi-check2"></i>{/if}</div>
+            <div class="line"><span>{boolLabel(ttlEnforced, t('TTL enforced'), t('TTL not enforced'))}</span>{#if ttlEnforced === true}<i class="bi bi-check2"></i>{/if}</div>
+            <div class="line"><span>{t('Sensitivity zone')}</span><strong>{sensitivityZone}</strong></div>
+            <div class="line line-last"><span>{t('Risk level')}</span><strong class="warn">{riskLevel}</strong></div>
             <div class="actions-row">
-              <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled>Extend TTL</button>
+              <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled>{t('Extend TTL')}</button>
             </div>
           </div>
         </section>
@@ -327,7 +328,7 @@
 
       <div class="ar-right-col">
         <section class="ar-card">
-          <h3>Request Timeline</h3>
+          <h3>{t('Request Timeline')}</h3>
           <div class="timeline-v2">
             {#each requestTimeline as step}
               <div class="step">

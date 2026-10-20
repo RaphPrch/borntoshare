@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
 
   export let columns: DataTableColumn[] = [];
@@ -16,7 +17,7 @@
   export let selectedRowId: string | number | null = null;
   export let loading = false;
   export let loadingRows = 5;
-  export let emptyLabel = 'No data';
+  export let emptyLabel = t('No data');
   export let stickyHeader = false;
   export let density: 'standard' | 'compact' = 'standard';
   export let sortBy: string | null = null;

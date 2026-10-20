@@ -18,14 +18,15 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
 
-  export let ariaLabel = 'Entity sidebar';
-  export let createLabel = 'New item';
+  export let ariaLabel = t('Entity sidebar');
+  export let createLabel = t('New item');
   export let searchPlaceholder = 'Search';
-  export let searchAriaLabel = 'Search';
-  export let emptyLabel = 'No item matches your search.';
+  export let searchAriaLabel = t('Search');
+  export let emptyLabel = t('No item matches your search.');
   export let query = '';
   export let groups: EntitySidebarGroup[] = [];
   export let selectedId: string | number | null = null;
@@ -81,7 +82,7 @@
             <span class="b2s-entity-tree__group-title">{group.label}</span>
             <span class="b2s-entity-tree__group-trailing">
               {#if warningCount > 0}
-                <span class="b2s-entity-tree__group-warning" title={`${warningCount} warning${warningCount > 1 ? 's' : ''}`}>
+                <span class="b2s-entity-tree__group-warning" title={t('{warningCount} warning{value}', { warningCount, value: (warningCount > 1 ? 's' : '') })}>
                   <i class="bi bi-exclamation-triangle-fill"></i>
                   {warningCount}
                 </span>
@@ -99,7 +100,7 @@
                     class={`b2s-entity-tree__item ${showToneDot ? '' : 'has-no-dot'} ${String(item.id) === String(selectedId) ? 'is-active' : ''}`}
                     on:click={() => onSelect(item.id, item)}
                     aria-current={String(item.id) === String(selectedId) ? 'page' : undefined}
-                    aria-label={`Select ${item.label}`}
+                    aria-label={t('Select {label}', { label: item.label })}
                   >
                     {#if showToneDot}
                       <span class={`b2s-entity-tree__dot is-${itemTone(item)}`}></span>
@@ -133,7 +134,7 @@
               class={`b2s-entity-tree__item ${showToneDot ? '' : 'has-no-dot'} ${String(item.id) === String(selectedId) ? 'is-active' : ''}`}
               on:click={() => onSelect(item.id, item)}
               aria-current={String(item.id) === String(selectedId) ? 'page' : undefined}
-              aria-label={`Select ${item.label}`}
+              aria-label={t('Select {label}', { label: item.label })}
             >
               {#if showToneDot}
                 <span class={`b2s-entity-tree__dot is-${itemTone(item)}`}></span>

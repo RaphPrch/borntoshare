@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { formatDateTime, initials } from '$lib/utils/format';
   import DashboardShell from './DashboardShell.svelte';
   import { accessRequestAccessLabel, accessRequestId, accessRequestRequesterName, accessRequestTargetLabel } from '$lib/mappers/access-requests.mapper';
@@ -21,7 +22,7 @@
   const lower = (value: unknown): string => String(value ?? '').trim().toLowerCase();
 
   const requestCode = (row: any): string =>
-    String(row?.request_code ?? `REQ-${String(accessRequestId(row)).padStart(6, '0')}`);
+    String(row?.request_code ?? t('REQ-{value}', { value: (String(accessRequestId(row)).padStart(6, '0')) }));
 
   const requestHref = (row: any, status: 'pending' | 'all' = 'all'): string => {
     const id = accessRequestId(row);
@@ -34,9 +35,9 @@
   const normalizedAccess = (row: any): string => {
     const label = accessRequestAccessLabel(row);
     const raw = lower(label);
-    if (raw.includes('write') || raw.includes('contribution')) return 'Read & Write';
-    if (raw.includes('read')) return 'Read Only';
-    return label === '—' ? 'Read Only' : label;
+    if (raw.includes('write') || raw.includes('contribution')) return t('Read & Write');
+    if (raw.includes('read')) return t('Read Only');
+    return label === '—' ? t('Read Only') : label;
   };
 
   const statusMeta = (row: any) => {
@@ -44,15 +45,15 @@
     const raw = lower(row?.status);
     if (raw.includes('pending')) {
       return {
-        label: row?.is_guardian ? 'Pending guardian' : 'Pending',
+        label: row?.is_guardian ? t('Pending guardian') : t('Pending'),
         tone: 'pending'
       };
     }
     if (raw.includes('review')) {
-      return { label: 'Needs review', tone: 'pending' };
+      return { label: t('Needs review'), tone: 'pending' };
     }
     if (raw.includes('closed') || raw.includes('revoked')) {
-      return { label: 'Closed', tone: 'neutral' };
+      return { label: t('Closed'), tone: 'neutral' };
     }
     return base;
   };
@@ -60,9 +61,9 @@
   const roleLabel = (row: any): string => {
     const isRequester = row?.is_requester === true;
     const isGuardian = row?.is_guardian === true;
-    if (isRequester && isGuardian) return 'Requester + Guardian';
-    if (isGuardian) return 'Guardian';
-    return 'Requester';
+    if (isRequester && isGuardian) return t('Requester + Guardian');
+    if (isGuardian) return t('Guardian');
+    return t('Requester');
   };
 
   const roleTone = (row: any): 'requester' | 'guardian' | 'mixed' => {
@@ -102,54 +103,54 @@
 </script>
 
 <DashboardShell
-  title="User Dashboard"
-  subtitle="This page shows only requests where you are the requester or guardian."
+  title={t('User Dashboard')}
+  subtitle={t('This page shows only requests where you are the requester or guardian.')}
 >
   <div slot="actions" class="dashboard-actions">
-    <a class="new-request-btn" href="/access-requests?create=1">+ New Request</a>
+    <a class="new-request-btn" href="/access-requests?create=1">{t('+ New Request')}</a>
   </div>
 
   <div class="scope-pill">
     <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
-    <span>Visible requests: requester or guardian</span>
+    <span>{t('Visible requests: requester or guardian')}</span>
   </div>
 
   <div class="user-dashboard-layout">
     <div class="user-dashboard-main">
-      <section class="summary-grid" aria-label="Request summary">
+      <section class="summary-grid" aria-label={t('Request summary')}>
         <article class="summary-card">
           <div class="summary-icon blue"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></div>
           <div class="summary-copy">
-            <div class="summary-title">My Open Requests</div>
+            <div class="summary-title">{t('My Open Requests')}</div>
             <div class="summary-value">{num(summary.my_open_requests)}</div>
-            <div class="summary-subtitle">Awaiting action or decision</div>
+            <div class="summary-subtitle">{t('Awaiting action or decision')}</div>
           </div>
         </article>
 
         <article class="summary-card">
           <div class="summary-icon amber"><i class="bi bi-clock-history" aria-hidden="true"></i></div>
           <div class="summary-copy">
-            <div class="summary-title">Awaiting My Review</div>
+            <div class="summary-title">{t('Awaiting My Review')}</div>
             <div class="summary-value">{num(summary.awaiting_my_review)}</div>
-            <div class="summary-subtitle">Requests need your review</div>
+            <div class="summary-subtitle">{t('Requests need your review')}</div>
           </div>
         </article>
 
         <article class="summary-card">
           <div class="summary-icon green"><i class="bi bi-check-circle" aria-hidden="true"></i></div>
           <div class="summary-copy">
-            <div class="summary-title">Approved</div>
+            <div class="summary-title">{t('Approved')}</div>
             <div class="summary-value">{num(summary.approved)}</div>
-            <div class="summary-subtitle">Access grants approved</div>
+            <div class="summary-subtitle">{t('Access grants approved')}</div>
           </div>
         </article>
 
         <article class="summary-card">
           <div class="summary-icon red"><i class="bi bi-x-circle" aria-hidden="true"></i></div>
           <div class="summary-copy">
-            <div class="summary-title">Rejected / Closed</div>
+            <div class="summary-title">{t('Rejected / Closed')}</div>
             <div class="summary-value">{num(summary.rejected_or_closed)}</div>
-            <div class="summary-subtitle">Requests rejected or closed</div>
+            <div class="summary-subtitle">{t('Requests rejected or closed')}</div>
           </div>
         </article>
       </section>
@@ -157,26 +158,26 @@
       <section class="panel-card">
         <div class="panel-head">
           <div>
-            <h2>Requests requiring your action</h2>
-            <p>You are listed as guardian for the following requests.</p>
+            <h2>{t('Requests requiring your action')}</h2>
+            <p>{t('You are listed as guardian for the following requests.')}</p>
           </div>
-          <a class="panel-link" href="/access-requests?status=pending">View all <i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+          <a class="panel-link" href="/access-requests?status=pending">{t('View all')} <i class="bi bi-chevron-right" aria-hidden="true"></i></a>
         </div>
 
         {#if requiresAction.length === 0}
-          <div class="empty-state">No request requires your action right now.</div>
+          <div class="empty-state">{t('No request requires your action right now.')}</div>
         {:else}
           <div class="table-wrap">
             <table class="dashboard-table">
               <thead>
                 <tr>
-                  <th>Request ID</th>
-                  <th>Requester</th>
-                  <th>Storage Root</th>
-                  <th>Access</th>
-                  <th>Status</th>
-                  <th>Submitted</th>
-                  <th>Action</th>
+                  <th>{t('Request ID')}</th>
+                  <th>{t('Requester')}</th>
+                  <th>{t('Storage Root')}</th>
+                  <th>{t('Access')}</th>
+                  <th>{t('Status')}</th>
+                  <th>{t('Submitted')}</th>
+                  <th>{t('Action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -198,7 +199,7 @@
                     <td>{normalizedAccess(row)}</td>
                     <td><span class="status-badge pending">{statusMeta(row).label}</span></td>
                     <td>{formatDateTime(row?.created_at)}</td>
-                    <td><a class="review-btn" href={requestHref(row, 'pending')}>Review</a></td>
+                    <td><a class="review-btn" href={requestHref(row, 'pending')}>{t('Review')}</a></td>
                   </tr>
                 {/each}
               </tbody>
@@ -210,19 +211,19 @@
       <section class="panel-card">
         <div class="panel-head panel-head--stack">
           <div>
-            <h2>My submitted requests</h2>
+            <h2>{t('My submitted requests')}</h2>
           </div>
           <div class="submitted-toolbar">
-            <div class="request-tabs" role="tablist" aria-label="Submitted request filters">
-              <button type="button" class:active={submittedFilter === 'all'} on:click={() => (submittedFilter = 'all')}>All</button>
-              <button type="button" class:active={submittedFilter === 'pending'} on:click={() => (submittedFilter = 'pending')}>Pending</button>
-              <button type="button" class:active={submittedFilter === 'approved'} on:click={() => (submittedFilter = 'approved')}>Approved</button>
-              <button type="button" class:active={submittedFilter === 'rejected'} on:click={() => (submittedFilter = 'rejected')}>Rejected</button>
+            <div class="request-tabs" role="tablist" aria-label={t('Submitted request filters')}>
+              <button type="button" class:active={submittedFilter === 'all'} on:click={() => (submittedFilter = 'all')}>{t('All')}</button>
+              <button type="button" class:active={submittedFilter === 'pending'} on:click={() => (submittedFilter = 'pending')}>{t('Pending')}</button>
+              <button type="button" class:active={submittedFilter === 'approved'} on:click={() => (submittedFilter = 'approved')}>{t('Approved')}</button>
+              <button type="button" class:active={submittedFilter === 'rejected'} on:click={() => (submittedFilter = 'rejected')}>{t('Rejected')}</button>
             </div>
 
             <label class="search-box">
               <i class="bi bi-search" aria-hidden="true"></i>
-              <input bind:value={searchText} placeholder="Search requests..." aria-label="Search requests" />
+              <input bind:value={searchText} placeholder={t('Search requests...')} aria-label={t('Search requests')} />
             </label>
           </div>
         </div>
@@ -231,19 +232,19 @@
           <table class="dashboard-table">
             <thead>
               <tr>
-                <th>Request ID</th>
-                <th>Storage Root</th>
-                <th>Access level</th>
-                <th>Status</th>
-                <th>Role</th>
-                <th>Last update</th>
-                <th>Actions</th>
+                <th>{t('Request ID')}</th>
+                <th>{t('Storage Root')}</th>
+                <th>{t('Access level')}</th>
+                <th>{t('Status')}</th>
+                <th>{t('Role')}</th>
+                <th>{t('Last update')}</th>
+                <th>{t('Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {#if filteredSubmittedRequests.length === 0}
                 <tr>
-                  <td colspan="7" class="empty-row">No submitted request matches the current filter.</td>
+                  <td colspan="7" class="empty-row">{t('No submitted request matches the current filter.')}</td>
                 </tr>
               {:else}
                 {#each filteredSubmittedRequests.slice(0, 8) as row}
@@ -259,7 +260,7 @@
                     <td><span class={`status-badge ${statusMeta(row).tone}`}>{statusMeta(row).label}</span></td>
                     <td><span class={`role-badge ${roleTone(row)}`}>{roleLabel(row)}</span></td>
                     <td>{formatDateTime(row?.updated_at ?? row?.created_at)}</td>
-                    <td><a class="table-action-link" href={requestHref(row)}>View details</a></td>
+                    <td><a class="table-action-link" href={requestHref(row)}>{t('View details')}</a></td>
                   </tr>
                 {/each}
               {/if}
@@ -271,44 +272,44 @@
 
     <aside class="user-dashboard-sidebar">
       <section class="side-card">
-        <h3>Quick actions</h3>
+        <h3>{t('Quick actions')}</h3>
         <a class="side-action" href="/access-requests?create=1">
           <span class="side-action-icon blue"><i class="bi bi-plus-square" aria-hidden="true"></i></span>
-          <span class="side-action-copy"><strong>Create request</strong><small>Request access to a storage root</small></span>
+          <span class="side-action-copy"><strong>{t('Create request')}</strong><small>{t('Request access to a storage root')}</small></span>
           <i class="bi bi-chevron-right" aria-hidden="true"></i>
         </a>
         <a class="side-action" href="/access-requests">
           <span class="side-action-icon blue"><i class="bi bi-list-task" aria-hidden="true"></i></span>
-          <span class="side-action-copy"><strong>Open all requests</strong><small>View all your requests</small></span>
+          <span class="side-action-copy"><strong>{t('Open all requests')}</strong><small>{t('View all your requests')}</small></span>
           <i class="bi bi-chevron-right" aria-hidden="true"></i>
         </a>
         <a class="side-action" href="/storage-roots">
           <span class="side-action-icon blue"><i class="bi bi-folder2-open" aria-hidden="true"></i></span>
-          <span class="side-action-copy"><strong>View storage roots</strong><small>Browse available storage roots</small></span>
+          <span class="side-action-copy"><strong>{t('View storage roots')}</strong><small>{t('Browse available storage roots')}</small></span>
           <i class="bi bi-chevron-right" aria-hidden="true"></i>
         </a>
       </section>
 
       <section class="side-card">
-        <h3>Helpful links</h3>
+        <h3>{t('Helpful links')}</h3>
         <a class="help-link" href="/access-requests">
-          <span><strong>How access requests work</strong><small>Learn about the request lifecycle</small></span>
+          <span><strong>{t('How access requests work')}</strong><small>{t('Learn about the request lifecycle')}</small></span>
           <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
         </a>
         <a class="help-link" href="/access-requests">
-          <span><strong>Access levels explained</strong><small>Understand access levels</small></span>
+          <span><strong>{t('Access levels explained')}</strong><small>{t('Understand access levels')}</small></span>
           <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
         </a>
         <a class="help-link" href="/access-requests">
-          <span><strong>Need help?</strong><small>Contact support team</small></span>
+          <span><strong>{t('Need help?')}</strong><small>{t('Contact support team')}</small></span>
           <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
         </a>
       </section>
 
       <section class="side-card">
-        <h3>Dashboard scope</h3>
-        <p>You are viewing requests where you are the requester or a listed guardian.</p>
-        <a class="scope-link" href="/access-requests">Learn more about request visibility <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>
+        <h3>{t('Dashboard scope')}</h3>
+        <p>{t('You are viewing requests where you are the requester or a listed guardian.')}</p>
+        <a class="scope-link" href="/access-requests">{t('Learn more about request visibility')} <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>
       </section>
     </aside>
   </div>

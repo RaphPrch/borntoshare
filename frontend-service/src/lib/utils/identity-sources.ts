@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { IdentitySourceRow } from '$lib/types/identity-sources';
 import { formatRelativeTimestamp, type IdentitySourceCardVM } from '$lib/mappers/identity-sources.mapper';
 
@@ -92,5 +93,5 @@ export const sourceIconClass = (card: IdentitySourceCardVM | null): string => {
 export const lastSyncLabel = (source: IdentitySourceRow | null | undefined): string => {
   const raw = String(source?.last_snapshot_at ?? '').trim();
   if (raw) return formatRelativeTimestamp(raw);
-  return source?.capabilities?.snapshot_enabled ? 'Never synced' : 'Not applicable';
+  return source?.capabilities?.snapshot_enabled ? t('Never synced') : t('Not applicable');
 };

@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { enhance } from '$app/forms';
   import { toast } from '$lib/stores/toast';
+  import LanguageSwitcher from '$lib/components/ui/LanguageSwitcher.svelte';
 
   export let form: { error?: string } | null = {};
 
@@ -13,13 +15,16 @@
 </script>
 
 <div class="login-page">
+  <div class="login-lang">
+    <LanguageSwitcher />
+  </div>
   <div class="login-card">
     <div class="login-card-inner">
 
       <!-- BRAND -->
       <h1 class="login-brand">BornToShare</h1>
 
-      <h2 class="login-title">Sign in</h2>
+      <h2 class="login-title">{t('Sign in')}</h2>
 
       <!-- ========================= -->
       <!-- SSO / ORGANIZATION (PRIMARY) -->
@@ -45,9 +50,9 @@
           disabled={loading}
         >
           <span class="sso-text">
-            <strong>Sign in with your organization</strong>
+            <strong>{t('Sign in with your organization')}</strong>
             <span class="sso-sub">
-              Enterprise SSO · Active Directory · Keycloak
+              {t('Enterprise SSO · Active Directory · Keycloak')}
             </span>
           </span>
         </button>
@@ -96,7 +101,7 @@
             type="text"
             class="login-input"
             name="username"
-            placeholder="Username"
+            placeholder={t('Username')}
             autocomplete="username"
             required
           />
@@ -107,7 +112,7 @@
             type={showPassword ? 'text' : 'password'}
             class="login-input"
             name="password"
-            placeholder="Password"
+            placeholder={t('Password')}
             autocomplete="current-password"
             required
           />
@@ -116,7 +121,7 @@
             type="button"
             class="toggle-password"
             on:click={togglePassword}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            aria-label={showPassword ? t('Hide password') : t('Show password')}
           >
             <i
               class="bi {showPassword ? 'bi-eye-slash' : 'bi-eye'}"
@@ -134,10 +139,19 @@
           class="login-submit"
           disabled={loading}
         >
-          {#if loading} Signing in… {:else} Sign in locally {/if}
+          {#if loading} {t('Signing in…')} {:else} {t('Sign in locally')} {/if}
         </button>
       </form>
 
     </div>
   </div>
 </div>
+
+<style>
+  .login-lang {
+    position: fixed;
+    top: calc(20px + env(safe-area-inset-top, 0px));
+    right: 24px;
+    z-index: 2;
+  }
+</style>

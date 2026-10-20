@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, intlLocale } from '$lib/i18n';
   import { browser } from '$app/environment';
   import { sleep } from '$lib/utils/values';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -113,26 +114,26 @@
   let sources: IdentitySourceRow[] = data.identity_sources ?? [];
 
   const typeOptions = [
-    { value: 'all', label: 'Type' },
-    { value: 'ad', label: 'Active Directory / LDAP' },
+    { value: 'all', label: t('Type') },
+    { value: 'ad', label: t('Active Directory / LDAP') },
     { value: 'oidc', label: 'OIDC' },
-    { value: 'local', label: 'Local' }
+    { value: 'local', label: t('Local') }
   ];
 
   const healthOptions = [
-    { value: 'all', label: 'Health' },
-    { value: 'healthy', label: 'Healthy' },
-    { value: 'issues', label: 'Issues' },
-    { value: 'disabled', label: 'Disabled' },
-    { value: 'unknown', label: 'Unknown' }
+    { value: 'all', label: t('Health') },
+    { value: 'healthy', label: t('Healthy') },
+    { value: 'issues', label: t('Issues') },
+    { value: 'disabled', label: t('Disabled') },
+    { value: 'unknown', label: t('Unknown') }
   ];
 
   const snapshotOptions = [
-    { value: 'all', label: 'Snapshots' },
-    { value: 'synced', label: 'Synced' },
-    { value: 'never', label: 'Never synced' },
-    { value: 'failed', label: 'Failed' },
-    { value: 'running', label: 'Running' }
+    { value: 'all', label: t('Snapshots') },
+    { value: 'synced', label: t('Synced') },
+    { value: 'never', label: t('Never synced') },
+    { value: 'failed', label: t('Failed') },
+    { value: 'running', label: t('Running') }
   ];
 
 
@@ -144,13 +145,13 @@
 
   const compactProbeLabel = (card: IdentitySourceCardVM | null): string => {
     if (!card) return '—';
-    if (!card.supportsProbe) return 'Not applicable';
+    if (!card.supportsProbe) return t('Not applicable');
     return card.lastProbeLabel || 'Never';
   };
 
   const compactSnapshotLabel = (card: IdentitySourceCardVM | null): string => {
     if (!card) return '—';
-    if (!card.supportsSnapshot) return 'Not applicable';
+    if (!card.supportsSnapshot) return t('Not applicable');
     return card.lastSnapshotLabel || 'No snapshot yet';
   };
 
@@ -191,10 +192,10 @@
   };
 
   const healthDateLabel = (value: string, index: number, total: number): string => {
-    if (index === total - 1) return 'Today';
+    if (index === total - 1) return t('Today');
     const parsed = new Date(`${value}T00:00:00`);
     if (Number.isNaN(parsed.getTime())) return value;
-    return parsed.toLocaleDateString('en-US', {
+    return parsed.toLocaleDateString(intlLocale(), {
       month: 'short',
       day: 'numeric'
     });
@@ -210,7 +211,7 @@
         tone: healthStatusTone(row.status),
         title:
           String(row.message ?? '').trim() ||
-          `${String(row.status ?? 'unknown')} · ${Number(row.checks ?? 0)} check${Number(row.checks ?? 0) === 1 ? '' : 's'}`,
+          t('{String} · {Number} check{value}', { String: String(row.status ?? 'unknown'), Number: Number(row.checks ?? 0), value: (Number(row.checks ?? 0) === 1 ? '' : 's') }),
         icon: healthStatusIcon(row.status)
       }));
     }
@@ -223,13 +224,13 @@
         key: `${card.id}-${index}`,
         label:
           index === 6
-            ? 'Today'
-            : date.toLocaleDateString('en-US', {
+            ? t('Today')
+            : date.toLocaleDateString(intlLocale(), {
                 month: 'short',
                 day: 'numeric'
               }),
         tone: 'is-muted',
-        title: healthSummaryLoadingSourceId === card.id ? 'Loading health history' : 'No health check history',
+        title: healthSummaryLoadingSourceId === card.id ? t('Loading health history') : t('No health check history'),
         icon: 'bi-dash'
       };
     });
@@ -374,7 +375,7 @@
       if (selectedSourceId !== null && Number(selectedSourceId) !== normalizedSourceId) {
         return;
       }
-      const appError = toUiAppError(e, 'Unable to load snapshot debug rows.', 'ui', {
+      const appError = toUiAppError(e, t('Unable to load snapshot debug rows.'), 'ui', {
         action: 'identity_sources.load_snapshot_debug_rows',
         sourceId: normalizedSourceId
       });
@@ -453,7 +454,7 @@
         selectedSource = refreshedSelected;
       }
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Unable to load identity sources.', 'ui', {
+      const appError = toUiAppError(e, t('Unable to load identity sources.'), 'ui', {
         action: 'identity_sources.refresh_list'
       });
       fetchError = appError.message;
@@ -469,7 +470,7 @@
     if (!source) return;
     if (identityProbeRunning(source.id)) return;
 
-    jobsStore.startJob(identityProbeJobInput(source.id), { message: 'Probe running' });
+    jobsStore.startJob(identityProbeJobInput(source.id), { message: t('Probe running') });
     try {
       const internal = (await getIdentitySourceInternal(fetch, Number(source.id))) as IdentitySourceInternalMeta;
       syncSnapshotMetaFromInternal(source.id, internal);
@@ -478,9 +479,9 @@
       ).trim();
 
       if (source.type === 'ad' && !bindSecretRef) {
-        toast.error('Bind secret introuvable. Configurez un bind_password_ref valide avant de lancer le probe.');
+        toast.error(t('Bind secret introuvable. Configurez un bind_password_ref valide avant de lancer le probe.'));
         jobsStore.failJob(identityProbeJobInput(source.id), {
-          message: 'Bind secret introuvable',
+          message: t('Bind secret introuvable'),
           error: 'Bind secret introuvable'
         });
         return;
@@ -534,7 +535,7 @@
           });
         },
         notify: toast,
-        successMessage: 'Probe OK.',
+        successMessage: t('Probe OK.'),
         failureMessage: ({ errorMessage }) => errorMessage ?? 'Probe failed.'
       });
 
@@ -549,7 +550,7 @@
       }
 
       jobsStore.succeedJob(identityProbeJobInput(source.id), {
-        message: 'Probe OK'
+        message: t('Probe OK')
       });
 
       const refreshed = (await getIdentitySourceInternal(fetch, Number(source.id))) as IdentitySourceInternalMeta;
@@ -573,7 +574,7 @@
         await loadInternal(source.id, true);
       }
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Probe impossible', 'ui', {
+      const appError = toUiAppError(e, t('Probe impossible'), 'ui', {
         action: 'identity_sources.run_probe',
         sourceId: source.id
       });
@@ -592,7 +593,7 @@
     if (!source) return;
     if (identitySnapshotRunning(source.id)) return;
 
-    jobsStore.startJob(identitySnapshotJobInput(source.id), { message: 'Snapshot sync running' });
+    jobsStore.startJob(identitySnapshotJobInput(source.id), { message: t('Snapshot sync running') });
     snapshotStore.upsert(source.id, {
       status: 'running',
       loading: true,
@@ -605,7 +606,7 @@
       const jobId = Number(run?.job_id ?? 0);
       jobsStore.upsertJob(identitySnapshotJobInput(source.id), {
         status: 'running',
-        message: jobId > 0 ? `Snapshot queued · job #${jobId}` : 'Snapshot queued'
+        message: jobId > 0 ? t('Snapshot queued · job #{jobId}', { jobId }) : 'Snapshot queued'
       });
 
       if (jobId > 0) {
@@ -631,7 +632,7 @@
             const backendStatus = String(rawJob?.status ?? '').trim().toLowerCase();
             jobsStore.upsertJob(identitySnapshotJobInput(source.id), {
               status: nextStatus,
-              message: backendStatus ? `Snapshot ${backendStatus}` : 'Snapshot running'
+              message: backendStatus ? t('Snapshot {backendStatus}', { backendStatus }) : 'Snapshot running'
             });
           }
         });
@@ -649,7 +650,7 @@
 
         const status = String(internalMeta.status ?? '').trim().toUpperCase();
         if (['FAILED', 'ERROR', 'CANCELED', 'CANCELLED'].includes(status)) {
-          throw new Error(`Snapshot ${status.toLowerCase()}.`);
+          throw new Error(t('Snapshot {toLowerCase}.', { toLowerCase: status.toLowerCase() }));
         }
 
         const hasMetadata =
@@ -682,8 +683,8 @@
         loading: false,
         error: null,
         note: finalized
-          ? 'Snapshot metadata refreshed after snapshot sync'
-          : 'Snapshot dispatched, metadata will refresh soon',
+          ? t('Snapshot metadata refreshed after snapshot sync')
+          : t('Snapshot dispatched, metadata will refresh soon'),
         ...toSnapshotStorePatch(refreshedMeta)
       });
       patchSourceRuntimeMeta(source.id, {
@@ -700,14 +701,14 @@
       });
 
       jobsStore.succeedJob(identitySnapshotJobInput(source.id), {
-        message: finalized ? 'Snapshot synced' : 'Snapshot dispatched'
+        message: finalized ? t('Snapshot synced') : t('Snapshot dispatched')
       });
       toast.success(
         finalized
           ? importedCount !== null
             ? membershipsCount !== null
-              ? `Snapshot synchronized · ${importedCount} objet(s) · ${membershipsCount} membership(s).`
-              : `Snapshot synchronized · ${importedCount} objet(s).`
+              ? t('Snapshot synchronized · {importedCount} objet(s) · {membershipsCount} membership(s).', { importedCount, membershipsCount })
+              : t('Snapshot synchronized · {importedCount} objet(s).', { importedCount })
             : 'Snapshot synchronized.'
           : 'Snapshot started. Synchronization in progress.'
       );
@@ -717,7 +718,7 @@
         await loadInternal(source.id, true);
       }
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Snapshot impossible', 'ui', {
+      const appError = toUiAppError(e, t('Snapshot impossible'), 'ui', {
         action: 'identity_sources.run_snapshot',
         sourceId: source.id
       });
@@ -736,7 +737,7 @@
       const hint = appError.code
         ? `Code: ${String(appError.code)}${appError.requestId ? ` · requestId: ${String(appError.requestId)}` : ''}`
         : appError.requestId
-          ? `requestId: ${String(appError.requestId)}`
+          ? t('requestId: {String}', { String: String(appError.requestId) })
           : null;
       toast.error(hint ? `${message} (${hint})` : message);
       await loadHealthSummaryForSource(source.id, true);
@@ -771,7 +772,7 @@
   const openEdit = async (source: IdentitySourceRow) => {
     if (!source) return;
     if (!isAdIdentitySource(source)) {
-      toast.error('Only Active Directory / LDAP identity sources can be edited in V1.');
+      toast.error(t('Only Active Directory / LDAP identity sources can be edited in V1.'));
       return;
     }
     let sourceForEdit: IdentitySourceRow = source;
@@ -779,7 +780,7 @@
       const internal = (await getIdentitySourceInternal(fetch, Number(source.id))) as IdentitySourceRow;
       sourceForEdit = { ...source, ...internal };
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Unable to load source metadata.', 'ui', {
+      const appError = toUiAppError(e, t('Unable to load source metadata.'), 'ui', {
         action: 'identity_sources.open_edit',
         sourceId: source.id
       });
@@ -836,13 +837,13 @@
     actionError = null;
     try {
       await updateIdentitySource(fetch, source.id, { is_active: nextActive });
-      toast.success(nextActive ? 'Source enabled.' : 'Source disabled.');
+      toast.success(nextActive ? t('Source enabled.') : t('Source disabled.'));
       await refreshList();
       if (showDetailsDrawer && selectedSourceId === source.id) {
         await loadInternal(source.id, true);
       }
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Action impossible', 'ui', {
+      const appError = toUiAppError(e, t('Action impossible'), 'ui', {
         action: 'identity_sources.toggle_source_active',
         sourceId: source.id,
         nextActive
@@ -860,14 +861,14 @@
     actionError = null;
     try {
       await updateIdentitySource(fetch, pendingToggleSource.id, { is_active: false });
-      toast.success('Source disabled.');
+      toast.success(t('Source disabled.'));
       closeDisableUsedConfirm();
       await refreshList();
       if (showDetailsDrawer && selectedSourceId === pendingToggleSource.id) {
         await loadInternal(pendingToggleSource.id, true);
       }
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Action impossible', 'ui', {
+      const appError = toUiAppError(e, t('Action impossible'), 'ui', {
         action: 'identity_sources.confirm_disable_used_source',
         sourceId: pendingToggleSource.id
       });
@@ -889,7 +890,7 @@
     actionError = null;
     try {
       await deleteIdentitySource(fetch, selectedSource.id);
-      toast.success('Source deleted.');
+      toast.success(t('Source deleted.'));
       if (selectedSourceId === selectedSource.id) {
         closeDetails();
       }
@@ -902,7 +903,7 @@
         closeDelete();
         return;
       }
-      const appError = toUiAppError(e, 'Unable to delete', 'ui', {
+      const appError = toUiAppError(e, t('Unable to delete'), 'ui', {
         action: 'identity_sources.delete_source',
         sourceId: selectedSource.id,
         status
@@ -938,7 +939,7 @@
     } catch (e: unknown) {
       selectedInternal = null;
       snapshotDebugVersion = null;
-      const appError = toUiAppError(e, 'Unable to load internal metadata.', 'ui', {
+      const appError = toUiAppError(e, t('Unable to load internal metadata.'), 'ui', {
         action: 'identity_sources.load_internal_metadata',
         sourceId
       });
@@ -1014,16 +1015,16 @@
 
 <section class="b2s-page b2s-page--admin identity-sources-page">
   <div class="identity-clean-shell">
-    <PageHeader title="Identity Sources" subtitle="Manage LDAP / OIDC identity sources and monitor operational health.">
+    <PageHeader title={t('Identity Sources')} subtitle={t('Manage LDAP / OIDC identity sources and monitor operational health.')}>
       <svelte:fragment slot="actions">
         <div class="identity-page-actions">
           <button class="identity-cta" type="button" on:click={() => (showWizard = true)}>
             <i class="bi bi-plus-lg" aria-hidden="true"></i>
-            New Identity Source
+            {t('New Identity Source')}
           </button>
           <button class="identity-cta ghost" type="button" on:click={refreshList} disabled={listLoading}>
             <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-            Refresh
+            {t('Refresh')}
           </button>
         </div>
       </svelte:fragment>
@@ -1040,39 +1041,39 @@
       <EmptyState
         containerClass="storage-endpoints-empty identity-empty-state"
         iconClass="bi bi-people"
-        title="No identity sources yet"
-        description="Identity sources let you connect LDAP or OIDC providers to authenticate users and import identities into BornToShare."
-        ctaLabel="Create your first identity source"
+        title={t('No identity sources yet')}
+        description={t('Identity sources let you connect LDAP or OIDC providers to authenticate users and import identities into BornToShare.')}
+        ctaLabel={t('Create your first identity source')}
         onCta={() => (showWizard = true)}
-        hint="The wizard will guide you step by step."
+        hint={t('The wizard will guide you step by step.')}
       />
     {:else}
-      <div class="identity-kpi-grid" aria-label="Identity source summary">
+      <div class="identity-kpi-grid" aria-label={t('Identity source summary')}>
         <article class="identity-kpi-card">
           <div class="identity-kpi-icon is-info"><i class="bi bi-diagram-3" aria-hidden="true"></i></div>
           <div>
-            <span>Sources</span>
+            <span>{t('Sources')}</span>
             <strong>{summary.total}</strong>
           </div>
         </article>
         <article class="identity-kpi-card">
           <div class="identity-kpi-icon is-success"><i class="bi bi-check-lg" aria-hidden="true"></i></div>
           <div>
-            <span>Healthy</span>
+            <span>{t('Healthy')}</span>
             <strong>{summary.healthy}</strong>
           </div>
         </article>
         <article class="identity-kpi-card">
           <div class="identity-kpi-icon is-warning"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></div>
           <div>
-            <span>Issues</span>
+            <span>{t('Issues')}</span>
             <strong>{summary.issues}</strong>
           </div>
         </article>
         <article class="identity-kpi-card">
           <div class="identity-kpi-icon is-purple"><i class="bi bi-clock" aria-hidden="true"></i></div>
           <div>
-            <span>Never synced</span>
+            <span>{t('Never synced')}</span>
             <strong>{summary.neverSynced}</strong>
           </div>
         </article>
@@ -1085,34 +1086,34 @@
             type="search"
             bind:value={listQuery}
             on:input={resetListPage}
-            placeholder="Search identity sources..."
-            aria-label="Search identity sources"
+            placeholder={t('Search identity sources...')}
+            aria-label={t('Search identity sources')}
           />
         </label>
         <div class="identity-selects">
-          <select bind:value={typeFilter} on:change={resetListPage} aria-label="Filter by type">
+          <select bind:value={typeFilter} on:change={resetListPage} aria-label={t('Filter by type')}>
             {#each typeOptions as option}
               <option value={option.value}>{option.label}</option>
             {/each}
           </select>
-          <select bind:value={statusFilter} on:change={resetListPage} aria-label="Filter by health">
+          <select bind:value={statusFilter} on:change={resetListPage} aria-label={t('Filter by health')}>
             {#each healthOptions as option}
               <option value={option.value}>{option.label}</option>
             {/each}
           </select>
-          <select bind:value={snapshotFilter} on:change={resetListPage} aria-label="Filter by snapshot status">
+          <select bind:value={snapshotFilter} on:change={resetListPage} aria-label={t('Filter by snapshot status')}>
             {#each snapshotOptions as option}
               <option value={option.value}>{option.label}</option>
             {/each}
           </select>
         </div>
-        <div class="identity-status-tabs" role="group" aria-label="Health quick filters">
-          <button type="button" class:active={statusFilter === 'all'} on:click={() => selectStatusFilter('all')}>All</button>
-          <button type="button" class:active={statusFilter === 'healthy'} on:click={() => selectStatusFilter('healthy')}>Healthy</button>
-          <button type="button" class:active={statusFilter === 'issues'} on:click={() => selectStatusFilter('issues')}>Issues</button>
-          <button type="button" class:active={statusFilter === 'disabled'} on:click={() => selectStatusFilter('disabled')}>Disabled</button>
+        <div class="identity-status-tabs" role="group" aria-label={t('Health quick filters')}>
+          <button type="button" class:active={statusFilter === 'all'} on:click={() => selectStatusFilter('all')}>{t('All')}</button>
+          <button type="button" class:active={statusFilter === 'healthy'} on:click={() => selectStatusFilter('healthy')}>{t('Healthy')}</button>
+          <button type="button" class:active={statusFilter === 'issues'} on:click={() => selectStatusFilter('issues')}>{t('Issues')}</button>
+          <button type="button" class:active={statusFilter === 'disabled'} on:click={() => selectStatusFilter('disabled')}>{t('Disabled')}</button>
         </div>
-        <strong class="identity-result-count">{sortedCards.length} result{sortedCards.length === 1 ? '' : 's'}</strong>
+        <strong class="identity-result-count">{t('{sortedCardsCount} result{value}', { sortedCardsCount: sortedCards.length, value: (sortedCards.length === 1 ? '' : 's') })}</strong>
       </div>
 
       {#if listLoading}
@@ -1129,20 +1130,20 @@
           </div>
         </div>
       {:else if sortedCards.length === 0}
-        <div class="identity-no-result" role="status">No identity source matches current filters.</div>
+        <div class="identity-no-result" role="status">{t('No identity source matches current filters.')}</div>
       {:else}
         <div class="identity-main-grid">
           <div class="identity-table-card">
             <table class="identity-clean-table">
               <thead>
                 <tr>
-                  <th>Source</th>
-                  <th>Type</th>
-                  <th>Endpoint</th>
-                  <th>Health</th>
-                  <th>Last probe</th>
-                  <th>Snapshot</th>
-                  <th class="text-end">Actions</th>
+                  <th>{t('Source')}</th>
+                  <th>{t('Type')}</th>
+                  <th>{t('Endpoint')}</th>
+                  <th>{t('Health')}</th>
+                  <th>{t('Last probe')}</th>
+                  <th>{t('Snapshot')}</th>
+                  <th class="text-end">{t('Actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1173,7 +1174,7 @@
                       <button
                         class="identity-icon-btn"
                         type="button"
-                        aria-label={`Edit ${card.name}`}
+                        aria-label={t('Edit {name}', { name: card.name })}
                         disabled={!isAdIdentitySource(card.raw)}
                         on:click|stopPropagation={() => openEdit(card.raw)}
                       >
@@ -1187,7 +1188,7 @@
 
             <div class="identity-table-footer">
               <label>
-                Rows per page:
+                {t('Rows per page:')}
                 <select bind:value={rowsPerPage} on:change={resetListPage}>
                   <option value={10}>10</option>
                   <option value={25}>25</option>
@@ -1195,18 +1196,18 @@
                 </select>
               </label>
               <div class="identity-pagination">
-                <span>{pageStart + 1}&ndash;{pageEnd} of {sortedCards.length}</span>
-                <button type="button" aria-label="First page" disabled={currentPage === 1} on:click={() => goToPage(1)}>
+                <span>{t('{value}–{pageEnd} of {sortedCardsCount}', { value: (pageStart + 1), pageEnd, sortedCardsCount: sortedCards.length })}</span>
+                <button type="button" aria-label={t('First page')} disabled={currentPage === 1} on:click={() => goToPage(1)}>
                   <i class="bi bi-chevron-bar-left" aria-hidden="true"></i>
                 </button>
-                <button type="button" aria-label="Previous page" disabled={currentPage === 1} on:click={() => goToPage(currentPage - 1)}>
+                <button type="button" aria-label={t('Previous page')} disabled={currentPage === 1} on:click={() => goToPage(currentPage - 1)}>
                   <i class="bi bi-chevron-left" aria-hidden="true"></i>
                 </button>
                 <strong>{currentPage}</strong>
-                <button type="button" aria-label="Next page" disabled={currentPage === totalPages} on:click={() => goToPage(currentPage + 1)}>
+                <button type="button" aria-label={t('Next page')} disabled={currentPage === totalPages} on:click={() => goToPage(currentPage + 1)}>
                   <i class="bi bi-chevron-right" aria-hidden="true"></i>
                 </button>
-                <button type="button" aria-label="Last page" disabled={currentPage === totalPages} on:click={() => goToPage(totalPages)}>
+                <button type="button" aria-label={t('Last page')} disabled={currentPage === totalPages} on:click={() => goToPage(totalPages)}>
                   <i class="bi bi-chevron-bar-right" aria-hidden="true"></i>
                 </button>
               </div>
@@ -1233,19 +1234,19 @@
 
               <dl class="identity-detail-list">
                 <div>
-                  <dt>Endpoint</dt>
+                  <dt>{t('Endpoint')}</dt>
                   <dd>{detailCard.endpointLabel}</dd>
                 </div>
                 <div>
-                  <dt>Base DN</dt>
+                  <dt>{t('Base DN')}</dt>
                   <dd>{baseDnLabel(detailCard)}</dd>
                 </div>
                 <div>
-                  <dt>Last probe</dt>
+                  <dt>{t('Last probe')}</dt>
                   <dd>{compactProbeLabel(detailCard)}</dd>
                 </div>
                 <div>
-                  <dt>Snapshot</dt>
+                  <dt>{t('Snapshot')}</dt>
                   <dd><span class={`identity-pill ${toneClass(detailCard.snapshotTone)}`}>{compactSnapshotLabel(detailCard)}</span></dd>
                 </div>
               </dl>
@@ -1259,16 +1260,16 @@
                     on:click={() => runTestOnSource(detailCard.raw)}
                   >
                     <i class="bi bi-activity" aria-hidden="true"></i>
-                    Test connection
+                    {t('Test connection')}
                   </button>
                 {/if}
                 <button type="button" class="identity-secondary-btn" disabled={!isAdIdentitySource(detailCard.raw)} on:click={() => openEdit(detailCard.raw)}>
                   <i class="bi bi-pencil" aria-hidden="true"></i>
-                  Edit
+                  {t('Edit')}
                 </button>
                 <button type="button" class="identity-danger-btn" on:click={() => openDelete(detailCard.raw)}>
                   <i class="bi bi-trash3" aria-hidden="true"></i>
-                  Delete
+                  {t('Delete')}
                 </button>
                 {#if detailCard.supportsSnapshot}
                   <button
@@ -1278,17 +1279,17 @@
                     on:click={() => runSnapshotOnSource(detailCard.raw)}
                   >
                     <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-                    Sync now
+                    {t('Sync now')}
                   </button>
                 {/if}
               </div>
 
               <div class="identity-health-card">
                 <div class="identity-health-head">
-                  <h3>Recent health</h3>
-                  <span>Last 7 days</span>
+                  <h3>{t('Recent health')}</h3>
+                  <span>{t('Last 7 days')}</span>
                 </div>
-                <div class="identity-health-line" aria-label="Recent health status">
+                <div class="identity-health-line" aria-label={t('Recent health status')}>
                   {#each selectedRecentHealth as point (point.key)}
                     <div class="identity-health-point">
                       <span class={`identity-health-dot ${point.tone}`} title={point.title}>
@@ -1352,26 +1353,26 @@
   onClose={closeDelete}
   ariaLabelledby="identity-delete-title"
   severity="danger"
-  title="Delete identity source"
+  title={t('Delete identity source')}
   subtitle={selectedSource?.name ?? null}
-  impactTitle="Consequences"
+  impactTitle={t('Consequences')}
   impactItems={[
     'Irreversible deletion of this identity source.',
-    'Authentication and identity import workflows linked to this source will stop.',
+    t('Authentication and identity import workflows linked to this source will stop.'),
     'Storage endpoints must be reassigned if needed.'
   ]}
   onConfirm={handleDelete}
-  cancelLabel="Cancel"
-  confirmLabel="Delete"
-  confirmBusyLabel="Deleting…"
+  cancelLabel={t('Cancel')}
+  confirmLabel={t('Delete')}
+  confirmBusyLabel={t('Deleting…')}
   busy={busy}
   requireTextConfirm={true}
-  requiredText="DELETE"
-  textConfirmLabel="Type"
-  textConfirmPlaceholder="DELETE"
+  requiredText=DELETE
+  textConfirmLabel={t('Type')}
+  textConfirmPlaceholder=DELETE
 >
   <div class="identity-modal-body">
-    <p>This action is final. Confirm deletion.</p>
+    <p>{t('This action is final. Confirm deletion.')}</p>
     {#if actionError}
       <div class="identity-error">{actionError}</div>
     {/if}
@@ -1383,17 +1384,17 @@
   onClose={closeDisableUsedConfirm}
   ariaLabelledby="identity-disable-used-title"
   severity="warning"
-  title="Disable identity source"
+  title={t('Disable identity source')}
   subtitle={pendingToggleSource?.display_name ?? pendingToggleSource?.name ?? null}
-  impactTitle="Consequences"
+  impactTitle={t('Consequences')}
   impactItems={[
     'Imports linked to this source may stop.',
     'Authentication flows depending on this source may be impacted.'
   ]}
   onConfirm={confirmDisableUsedSource}
-  cancelLabel="Cancel"
-  confirmLabel="Disable"
-  confirmBusyLabel="En cours…"
+  cancelLabel={t('Cancel')}
+  confirmLabel={t('Disable')}
+  confirmBusyLabel={t('En cours…')}
   busy={busy}
 >
 </ConfirmActionModal>

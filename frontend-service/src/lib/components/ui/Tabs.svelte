@@ -7,10 +7,11 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   export let tabs: TabItem[] = [];
   export let activeKey = '';
   export let onChange: ((key: string) => void) | null = null;
-  export let ariaLabel = 'Sections';
+  export let ariaLabel = t('Sections');
 </script>
 
 <nav class="b2s-tabs" aria-label={ariaLabel}>

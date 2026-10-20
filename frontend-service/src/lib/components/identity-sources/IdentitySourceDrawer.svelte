@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
@@ -46,10 +47,10 @@
   export let snapshotRunning = false;
 
   const allTabs = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'health', label: 'Health' },
-    { key: 'snapshot', label: 'Snapshot' },
-    { key: 'advanced', label: 'Advanced' }
+    { key: 'overview', label: t('Overview') },
+    { key: 'health', label: t('Health') },
+    { key: 'snapshot', label: t('Snapshot') },
+    { key: 'advanced', label: t('Advanced') }
   ];
   let tabs = allTabs;
 
@@ -88,7 +89,7 @@
 
 <Drawer
   open={open}
-  title={source?.name ?? 'Identity source'}
+  title={source?.name ?? t('Identity source')}
   subtitle={source?.typeLabel ?? null}
   width="640px"
   onClose={() => dispatch('close')}
@@ -99,14 +100,14 @@
       <StatusBadge status={source.snapshotLabel} label={source.snapshotLabel} variant={source.snapshotTone} compact={true} showDot={false} />
       <button type="button" class="identity-inline-btn" on:click={() => dispatch('refresh')} disabled={loading}>
         <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-        Refresh
+        {t('Refresh')}
       </button>
     </div>
 
     <Tabs tabs={tabs} activeKey={activeTab} onChange={(key) => (activeTab = key)} />
 
     {#if loading}
-      <div class="identity-drawer-loading">Loading metadata…</div>
+      <div class="identity-drawer-loading">{t('Loading metadata…')}</div>
     {:else if loadError}
       <div class="identity-drawer-error" role="alert">{loadError}</div>
     {/if}
@@ -114,31 +115,31 @@
     {#if activeTab === 'overview'}
       <div class="identity-drawer-grid">
         <div>
-          <h4>Type</h4>
+          <h4>{t('Type')}</h4>
           <p>{source.typeLabel}</p>
         </div>
         <div>
-          <h4>Status</h4>
+          <h4>{t('Status')}</h4>
           <p>{source.healthLabel}</p>
         </div>
         <div>
-          <h4>Endpoint / Issuer</h4>
+          <h4>{t('Endpoint / Issuer')}</h4>
           <p>{source.endpointLabel}</p>
         </div>
         <div>
-          <h4>Protocol</h4>
+          <h4>{t('Protocol')}</h4>
           <p>{valueOrDash(source.raw?.protocol)}</p>
         </div>
         <div>
-          <h4>Bind DN</h4>
+          <h4>{t('Bind DN')}</h4>
           <p>{source.bindDn}</p>
         </div>
         <div>
-          <h4>Issuer</h4>
+          <h4>{t('Issuer')}</h4>
           <p>{source.issuer}</p>
         </div>
         <div class="full">
-          <h4>Configuration summary</h4>
+          <h4>{t('Configuration summary')}</h4>
           <p>{source.subtitle}</p>
         </div>
       </div>
@@ -148,25 +149,25 @@
       <div class="identity-drawer-grid">
         {#if source.supportsProbe}
           <div>
-            <h4>Last probe</h4>
+            <h4>{t('Last probe')}</h4>
             <p>{source.lastProbeLabel}</p>
           </div>
         {/if}
         <div>
-          <h4>Probe status</h4>
-          <p>{source.supportsProbe ? (probeRunning ? 'Running' : source.healthLabel) : 'Not applicable'}</p>
+          <h4>{t('Probe status')}</h4>
+          <p>{source.supportsProbe ? (probeRunning ? t('Running') : source.healthLabel) : t('Not applicable')}</p>
         </div>
         <div>
-          <h4>TLS / Transport</h4>
-          <p>{String(source.raw?.protocol ?? '').toLowerCase() === 'ldaps' ? 'TLS enabled (LDAPS)' : 'Plain LDAP / n/a'}</p>
+          <h4>{t('TLS / Transport')}</h4>
+          <p>{String(source.raw?.protocol ?? '').toLowerCase() === 'ldaps' ? t('TLS enabled (LDAPS)') : t('Plain LDAP / n/a')}</p>
         </div>
         <div>
-          <h4>Authentication mode</h4>
-          <p>{valueOrDash(source.raw?.capabilities?.auth_mode, 'Unknown')}</p>
+          <h4>{t('Authentication mode')}</h4>
+          <p>{valueOrDash(source.raw?.capabilities?.auth_mode, t('Unknown'))}</p>
         </div>
         <div class="full">
-          <h4>Error / message</h4>
-          <p>{valueOrDash(internal?.last_probe_message ?? source.raw?.last_probe_message, 'Unknown')}</p>
+          <h4>{t('Error / message')}</h4>
+          <p>{valueOrDash(internal?.last_probe_message ?? source.raw?.last_probe_message, t('Unknown'))}</p>
         </div>
       </div>
     {/if}
@@ -174,31 +175,31 @@
     {#if activeTab === 'snapshot'}
       <div class="identity-drawer-grid">
         <div>
-          <h4>Snapshot status</h4>
+          <h4>{t('Snapshot status')}</h4>
           <p>{source.snapshotLabel}</p>
         </div>
         <div>
-          <h4>Last run</h4>
+          <h4>{t('Last run')}</h4>
           <p>{source.lastSnapshotLabel}</p>
         </div>
         <div>
-          <h4>Users</h4>
+          <h4>{t('Users')}</h4>
           <p>{source.usersCount ?? '—'}</p>
         </div>
         <div>
-          <h4>Groups</h4>
+          <h4>{t('Groups')}</h4>
           <p>{source.groupsCount ?? '—'}</p>
         </div>
         <div>
-          <h4>Memberships</h4>
+          <h4>{t('Memberships')}</h4>
           <p>{source.membershipsCount ?? internal?.last_snapshot_memberships_count ?? source.raw?.last_snapshot_memberships_count ?? '—'}</p>
         </div>
         <div>
-          <h4>Version</h4>
+          <h4>{t('Version')}</h4>
           <p>{internal?.last_snapshot_version ?? source.raw?.last_snapshot_version ?? '—'}</p>
         </div>
         <div>
-          <h4>Objects</h4>
+          <h4>{t('Objects')}</h4>
           <p>{internal?.last_snapshot_objects_count ?? source.raw?.last_snapshot_objects_count ?? '—'}</p>
         </div>
         <div class="full">
@@ -209,37 +210,37 @@
               disabled={busy || snapshotRunning}
               on:click={() => dispatch('runSnapshot')}
             >
-              {snapshotRunning ? 'Snapshot running…' : 'Run Snapshot'}
+              {snapshotRunning ? t('Snapshot running…') : t('Run Snapshot')}
             </button>
           {/if}
         </div>
 
         <div class="full snapshot-debug-wrap">
-          <h4>Snapshot debug rows</h4>
+          <h4>{t('Snapshot debug rows')}</h4>
           <p class="snapshot-debug-subtitle">
-            Last snapshot version: {snapshotDebugVersion ?? internal?.last_snapshot_version ?? source.raw?.last_snapshot_version ?? '—'}
+            {t('Last snapshot version: {value}', { value: (snapshotDebugVersion ?? internal?.last_snapshot_version ?? source.raw?.last_snapshot_version ?? '—') })}
           </p>
 
           {#if snapshotDebugLoading}
-            <div class="identity-drawer-loading">Loading snapshot rows…</div>
+            <div class="identity-drawer-loading">{t('Loading snapshot rows…')}</div>
           {:else if snapshotDebugError}
             <div class="identity-drawer-error" role="alert">{snapshotDebugError}</div>
           {:else if snapshotDebugRows.length === 0}
-            <div class="snapshot-debug-empty">No snapshot row available for debug.</div>
+            <div class="snapshot-debug-empty">{t('No snapshot row available for debug.')}</div>
           {:else}
             <div class="snapshot-debug-table-wrap">
               <table class="snapshot-debug-table">
                 <thead>
                   <tr>
-                    <th>Version</th>
-                    <th>Type</th>
-                    <th>First name</th>
-                    <th>Nom</th>
-                    <th>Display</th>
-                    <th>Username</th>
-                    <th>Email</th>
+                    <th>{t('Version')}</th>
+                    <th>{t('Type')}</th>
+                    <th>{t('First name')}</th>
+                    <th>{t('Nom')}</th>
+                    <th>{t('Display')}</th>
+                    <th>{t('Username')}</th>
+                    <th>{t('Email')}</th>
                     <th>UPN</th>
-                    <th>Enabled</th>
+                    <th>{t('Enabled')}</th>
                     <th>DN</th>
                   </tr>
                 </thead>
@@ -269,24 +270,24 @@
     {#if activeTab === 'advanced'}
       <div class="identity-drawer-grid">
         <div>
-          <h4>Enabled</h4>
-          <p>{boolLabel(source.isEnabled, 'Enabled', 'Disabled')}</p>
+          <h4>{t('Enabled')}</h4>
+          <p>{boolLabel(source.isEnabled, t('Enabled'), t('Disabled'))}</p>
         </div>
         <div>
-          <h4>Used by endpoints</h4>
-          <p>{boolLabel(source.raw?.used, 'Yes', 'No')}</p>
+          <h4>{t('Used by endpoints')}</h4>
+          <p>{boolLabel(source.raw?.used, t('Yes'), t('No'))}</p>
         </div>
         <div>
-          <h4>Auth capability</h4>
-          <p>{boolLabel(source.raw?.capabilities?.auth, 'Enabled', 'Disabled')}</p>
+          <h4>{t('Auth capability')}</h4>
+          <p>{boolLabel(source.raw?.capabilities?.auth, t('Enabled'), t('Disabled'))}</p>
         </div>
         <div>
-          <h4>Import groups</h4>
-          <p>{boolLabel(source.raw?.capabilities?.import_groups, 'Enabled', 'Disabled')}</p>
+          <h4>{t('Import groups')}</h4>
+          <p>{boolLabel(source.raw?.capabilities?.import_groups, t('Enabled'), t('Disabled'))}</p>
         </div>
         <div class="full">
-          <h4>Security transport details</h4>
-          <p>{String(source.raw?.protocol ?? '').toLowerCase() === 'ldaps' ? 'Encrypted LDAP transport (LDAPS).' : 'No explicit TLS transport metadata.'}</p>
+          <h4>{t('Security transport details')}</h4>
+          <p>{String(source.raw?.protocol ?? '').toLowerCase() === 'ldaps' ? t('Encrypted LDAP transport (LDAPS).') : t('No explicit TLS transport metadata.')}</p>
         </div>
       </div>
     {/if}
@@ -296,7 +297,7 @@
     {#if source}
       <button type="button" class="identity-inline-btn" disabled={busy} on:click={() => dispatch('edit')}>
         <i class="bi bi-pencil-square" aria-hidden="true"></i>
-        Edit
+        {t('Edit')}
       </button>
       {#if source.supportsProbe}
         <button
@@ -306,7 +307,7 @@
           on:click={() => dispatch('runProbe')}
         >
           <i class="bi bi-activity" aria-hidden="true"></i>
-          {probeRunning ? 'Probe running…' : 'Run Probe'}
+          {probeRunning ? t('Probe running…') : t('Run Probe')}
         </button>
       {/if}
       <button
@@ -316,7 +317,7 @@
         on:click={() => dispatch('toggle')}
       >
         <i class={`bi ${source.isEnabled ? 'bi-toggle-on' : 'bi-toggle-off'}`} aria-hidden="true"></i>
-        {source.isEnabled ? 'Disable' : 'Enable'}
+        {source.isEnabled ? t('Disable') : t('Enable')}
       </button>
     {/if}
   </svelte:fragment>

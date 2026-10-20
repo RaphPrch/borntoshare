@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
 
   type AccessModelRow = {
@@ -32,12 +33,12 @@
       </div>
 
       <div class="storage-root-access-cell">
-        <span>Members</span>
+        <span>{t('Members')}</span>
         <strong>{profile.users} {profile.users === 1 ? 'user' : 'users'}</strong>
       </div>
 
       <div class="storage-root-access-cell">
-        <span>Access</span>
+        <span>{t('Access')}</span>
         <strong><i class="bi bi-diagram-3" aria-hidden="true"></i> {profile.groupName ?? profile.adGroup}</strong>
       </div>
 
@@ -45,7 +46,7 @@
         <EntityActionButton
           variant="secondary"
           icon="bi-people"
-          label="Review members"
+          label={t('Review members')}
           onClick={() => onOpenEffectiveAccess(profile.level)}
         />
       </div>

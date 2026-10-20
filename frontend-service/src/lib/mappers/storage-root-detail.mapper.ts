@@ -1,3 +1,4 @@
+import { t, intlLocale } from '$lib/i18n';
 import type { StorageRootDetailModel } from '$lib/types/storage-roots';
 import type { StorageRootRow, StorageRootTagLike } from '$lib/utils/storage-roots';
 
@@ -49,7 +50,7 @@ export const formatDateTimeLabel = (value: unknown): string => {
   if (!value) return '—';
   const d = parseUtcLikeDate(value);
   if (!d) return '—';
-  return d.toLocaleString('en-GB', {
+  return d.toLocaleString(intlLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -195,36 +196,40 @@ const projectedGroupForLevel = (
   projectedAdGroupsRows(overview).find((row) => String(row?.access_level ?? '').trim().toUpperCase() === level) ?? null;
 
 // A level's AD group is created on the first approved request for that level (PENDING -> SUCCEEDED | FAILED).
-const ON_FIRST_REQUEST = 'Created on first request';
+type AdGroupStatus = 'on_first_request' | 'pending' | 'failed' | 'acl_present' | 'acl_missing' | 'created';
 
-const adGroupStatusForLevel = (overview: StorageRootDetailModel | null, level: 'READ' | 'WRITE'): string => {
+const AD_GROUP_STATUS: Record<AdGroupStatus, { label: string; tone: 'success' | 'pending' | 'warning' | 'neutral' }> = {
+  on_first_request: { label: 'Created on first request', tone: 'neutral' },
+  pending: { label: 'Being created', tone: 'pending' },
+  failed: { label: 'Creation failed', tone: 'warning' },
+  acl_present: { label: 'ACL present', tone: 'success' },
+  acl_missing: { label: 'ACL missing', tone: 'warning' },
+  created: { label: 'Created', tone: 'success' }
+};
+
+const adGroupStatus = (overview: StorageRootDetailModel | null, level: 'READ' | 'WRITE'): AdGroupStatus => {
   const row = projectedGroupForLevel(overview, level);
   const status = String(row?.profile_status ?? '').trim().toUpperCase();
-  if (!row || status === 'NOT_CREATED') return ON_FIRST_REQUEST;
-  if (status === 'PENDING') return 'Being created';
-  if (status === 'FAILED') return 'Creation failed';
+  if (!row || status === 'NOT_CREATED') return 'on_first_request';
+  if (status === 'PENDING') return 'pending';
+  if (status === 'FAILED') return 'failed';
   const alignment = String(row.acl_alignment ?? '').trim().toLowerCase();
-  if (alignment === 'present') return 'ACL present';
-  if (alignment === 'missing') return 'ACL missing';
-  return 'Created';
+  if (alignment === 'present') return 'acl_present';
+  if (alignment === 'missing') return 'acl_missing';
+  return 'created';
 };
 
-const adGroupStatusTone = (
-  overview: StorageRootDetailModel | null,
-  level: 'READ' | 'WRITE'
-): 'success' | 'pending' | 'warning' | 'neutral' => {
-  const status = adGroupStatusForLevel(overview, level);
-  if (status === 'ACL present' || status === 'Created') return 'success';
-  if (status === 'Being created') return 'pending';
-  if (status === ON_FIRST_REQUEST) return 'neutral';
-  return 'warning';
-};
+const adGroupStatusForLevel = (overview: StorageRootDetailModel | null, level: 'READ' | 'WRITE'): string =>
+  t(AD_GROUP_STATUS[adGroupStatus(overview, level)].label);
+
+const adGroupStatusTone = (overview: StorageRootDetailModel | null, level: 'READ' | 'WRITE') =>
+  AD_GROUP_STATUS[adGroupStatus(overview, level)].tone;
 
 export const buildStorageRootAccessModelRows = (overview: StorageRootDetailModel | null): StorageRootAccessModelRow[] => [
   {
     level: 'read',
     code: 'READ',
-    label: 'Read',
+    label: t('Read'),
     icon: 'bi bi-book',
     tone: 'read',
     users: effectiveAccessCount(overview, 'read'),
@@ -237,7 +242,7 @@ export const buildStorageRootAccessModelRows = (overview: StorageRootDetailModel
   {
     level: 'write',
     code: 'WRITE',
-    label: 'Write',
+    label: t('Write'),
     icon: 'bi bi-pencil-square',
     tone: 'write',
     users: effectiveAccessCount(overview, 'write'),

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 type OperationalHeaderTone = 'success' | 'warning' | 'danger' | 'neutral' | 'info';
 
 type ZoneOperationalAttentionInput = {
@@ -54,14 +55,14 @@ export function buildZoneOperationalAttentionItems(input: ZoneOperationalAttenti
 
   const items = [
     endpointCount === 0
-      ? 'No storage endpoint attached to this zone yet.'
+      ? t('No storage endpoint attached to this zone yet.')
       : reachableCount === 0
-        ? 'No endpoint is currently reachable in this zone.'
+        ? t('No endpoint is currently reachable in this zone.')
         : unhealthyCount > 0
-          ? `${unhealthyCount} endpoint${unhealthyCount > 1 ? 's are' : ' is'} not reachable.`
+          ? t('{unhealthyCount} endpoint{value} not reachable.', { unhealthyCount, value: (unhealthyCount > 1 ? 's are' : ' is') })
           : null,
     nonRunnableCount > 0
-      ? `${nonRunnableCount} endpoint${nonRunnableCount > 1 ? 's are' : ' is'} missing host and/or credentials.`
+      ? t('{nonRunnableCount} endpoint{value} missing host and/or credentials.', { nonRunnableCount, value: (nonRunnableCount > 1 ? 's are' : ' is') })
       : null,
     input.provisioningReady ? null : 'Provisioning policy is incomplete.'
   ].filter(Boolean) as string[];
@@ -88,11 +89,11 @@ export function buildStorageEndpointOperationalAttentionItems(
     healthLabel.toLowerCase() === 'reachable'
       ? null
       : healthLabel.toLowerCase() === 'unreachable'
-        ? 'Endpoint is currently unreachable.'
+        ? t('Endpoint is currently unreachable.')
       : `${healthLabel || 'Endpoint status unknown'}${healthDetail ? `: ${healthDetail}` : '.'}`,
     input.hostReady ? null : `Endpoint host is missing${hostLabel ? `: ${hostLabel}` : '.'}`,
     pendingRequestCount > 0
-      ? `${pendingRequestCount} access request${pendingRequestCount > 1 ? 's are' : ' is'} waiting for review.`
+      ? t('{pendingRequestCount} access request{value} waiting for review.', { pendingRequestCount, value: (pendingRequestCount > 1 ? 's are' : ' is') })
       : null,
     ...provisioningWarnings
   ].filter(Boolean) as string[];

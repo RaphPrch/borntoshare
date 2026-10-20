@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import type { FetchLike } from '$lib/api/client';
   import type { ProbeRunRequest } from '$lib/api/probes';
@@ -11,8 +12,8 @@
   export let requestFactory: (() => ProbeRunRequest | null | Promise<ProbeRunRequest | null>) | null = null;
 
   export let mode: 'inline' | 'detailed' = 'inline';
-  export let label = 'Run probe';
-  export let busyLabel = 'Running…';
+  export let label = t('Run probe');
+  export let busyLabel = t('Running…');
   export let disabled = false;
   export let fullWidth = false;
   export let showIcon = false;
@@ -46,7 +47,7 @@
       if (beforeRun) await beforeRun();
       const resolvedRequest = requestFactory ? await requestFactory() : request;
       if (!resolvedRequest) {
-        error = { type: 'VALIDATION', message: 'Missing required fields.' };
+        error = { type: 'VALIDATION', message: t('Missing required fields.') };
         dispatch('done', { ok: false, status: 'failed', error });
         return;
       }
@@ -102,7 +103,7 @@
       <strong>{error.message}</strong>
       {#if error.technical}
         <details>
-          <summary>Technical details</summary>
+          <summary>{t('Technical details')}</summary>
           <pre>{error.technical}</pre>
         </details>
       {/if}

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import { asRecord } from '../../utils/values';
 
 export class ApiError extends Error {
@@ -72,7 +73,7 @@ export function normalizeErrorMessage(status: number, payload: unknown, statusTe
 
   if (isGenericHttpMessage(msg)) {
     msg = status === 400
-      ? 'The request was rejected by the service. Check the form values and try again.'
+      ? t('The request was rejected by the service. Check the form values and try again.')
       : `Request failed with status ${status}`;
   }
 

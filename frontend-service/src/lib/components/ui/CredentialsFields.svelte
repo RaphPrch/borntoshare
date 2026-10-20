@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
 
-  export let usernameLabel = 'Username';
-  export let passwordLabel = 'Password';
+  export let usernameLabel = t('Username');
+  export let passwordLabel = t('Password');
   export let usernamePlaceholder = '';
   export let passwordPlaceholder = '';
 
@@ -65,19 +66,19 @@
         class="eye"
         type="button"
         on:click={() => (reveal = !reveal)}
-        aria-label={reveal ? 'Hide password' : 'Show password'}
+        aria-label={reveal ? t('Hide password') : t('Show password')}
       >
         <i class={`bi ${reveal ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
       </button>
     </div>
 
     {#if showSecretRef}
-      <div class="hint">or use an existing secret reference</div>
+      <div class="hint">{t('or use an existing secret reference')}</div>
       <input
         class="secret-ref"
         type="text"
         bind:value={secret_ref}
-        placeholder="vault://…"
+        placeholder={t('vault://…')}
         on:blur={onBlurSecretRef}
       />
     {/if}
@@ -113,19 +114,19 @@
           class="se-eye"
           type="button"
           on:click={() => (reveal = !reveal)}
-          aria-label={reveal ? 'Hide password' : 'Show password'}
+          aria-label={reveal ? t('Hide password') : t('Show password')}
         >
           <i class={`bi ${reveal ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
         </button>
       </div>
 
       {#if showSecretRef}
-        <small class="se-muted">or existing secret_ref</small>
+        <small class="se-muted">{t('or existing secret_ref')}</small>
         <input
           class="se-input"
           type="text"
           bind:value={secret_ref}
-          placeholder="vault://…"
+          placeholder={t('vault://…')}
           on:blur={onBlurSecretRef}
         />
       {/if}
@@ -155,13 +156,13 @@
           class="eye"
           type="button"
           on:click={() => (reveal = !reveal)}
-          aria-label={reveal ? 'Hide password' : 'Show password'}
+          aria-label={reveal ? t('Hide password') : t('Show password')}
         >
           <i class={`bi ${reveal ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
         </button>
       </div>
       {#if showSecretRef}
-        <input type="text" bind:value={secret_ref} placeholder="vault://…" on:blur={onBlurSecretRef} />
+        <input type="text" bind:value={secret_ref} placeholder={t('vault://…')} on:blur={onBlurSecretRef} />
       {/if}
       <slot name="afterPassword" />
     </div>

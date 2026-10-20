@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   /**
    * Side panel opening from the right (single drawer component of the app).
    * Header: icon + title + subtitle + close button; pass showHeader={false} for a custom header.
@@ -41,7 +42,7 @@
     <button
       type="button"
       class={`b2s-drawer__backdrop ${backdropClass}`.trim()}
-      aria-label="Close drawer"
+      aria-label={t('Close drawer')}
       on:click={() => closeOnBackdrop && onClose?.()}
     ></button>
 
@@ -50,7 +51,7 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby={showHeader ? ariaLabelledby : undefined}
-      aria-label={showHeader ? undefined : (title ?? 'Details')}
+      aria-label={showHeader ? undefined : (title ?? t('Details'))}
     >
       <div class={`b2s-drawer__content ${contentClass}`.trim()}>
         {#if showHeader}
@@ -71,7 +72,7 @@
                   {/if}
                 </div>
               </div>
-              <button type="button" class="b2s-entity-drawer__close" aria-label="Close drawer" on:click={() => onClose?.()}>
+              <button type="button" class="b2s-entity-drawer__close" aria-label={t('Close drawer')} on:click={() => onClose?.()}>
                 <i class="bi bi-x-lg" aria-hidden="true"></i>
               </button>
             </header>

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { BulkDecisionResponse } from '../api/access-requests';
 
 type DecisionErrorSeverity = 'warning' | 'error';
@@ -81,14 +82,14 @@ const mapByCode = (args: {
 
   if (code === 'GOVERNED_GROUP_NAME_MISSING') {
     return {
-      title: 'Decision blocked',
-      message: 'No AD group name can be computed for this storage root. Check the naming policy of its zone or endpoint.',
+      title: t('Decision blocked'),
+      message: t('No AD group name can be computed for this storage root. Check the naming policy of its zone or endpoint.'),
       severity: 'warning',
       code,
       permission,
       hint,
       storageRootId,
-      actionLabel: actionHref ? 'Open storage root' : null,
+      actionLabel: actionHref ? t('Open storage root') : null,
       actionHref,
       showInlineNotice: true,
       inlinePrimary: 'Technical configuration missing: the AD group for this access level cannot be named.',
@@ -98,8 +99,8 @@ const mapByCode = (args: {
 
   if (code === 'INVALID_ACCESS_LEVEL' || code === 'INVALID_REQUEST_PERMISSION') {
     return {
-      title: 'Decision blocked',
-      message: 'The request permission could not be resolved to a supported READ or WRITE access level.',
+      title: t('Decision blocked'),
+      message: t('The request permission could not be resolved to a supported READ or WRITE access level.'),
       severity: 'error',
       code,
       permission,
@@ -115,8 +116,8 @@ const mapByCode = (args: {
 
   if (code === 'UNSUPPORTED_TARGET_TYPE') {
     return {
-      title: 'Decision blocked',
-      message: 'This request target type is not supported for this action.',
+      title: t('Decision blocked'),
+      message: t('This request target type is not supported for this action.'),
       severity: 'error',
       code,
       permission,
@@ -131,7 +132,7 @@ const mapByCode = (args: {
   }
 
   return {
-    title: 'Decision failed',
+    title: t('Decision failed'),
     message: fallbackMessage ?? 'The request could not be applied. Review the request configuration and try again.',
     severity: 'error',
     code,

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import AppModal from '$lib/components/ui/AppModal.svelte';
 
   type EndpointChoiceItem = {
@@ -26,24 +27,24 @@
 >
   <section class="z-ep-choice">
     <header class="z-ep-choice__head">
-      <h2 id="zone-endpoint-choice-title">Add endpoint</h2>
-      <p>Choose whether to create a new endpoint or attach an existing one to this zone.</p>
+      <h2 id="zone-endpoint-choice-title">{t('Add endpoint')}</h2>
+      <p>{t('Choose whether to create a new endpoint or attach an existing one to this zone.')}</p>
     </header>
 
     <div class="z-ep-choice__actions">
       <button type="button" class="zone-console__btn" on:click={onCreateNew}>
         <i class="bi bi-plus-lg"></i>
-        Create new endpoint
+        {t('Create new endpoint')}
       </button>
     </div>
 
     <div class="z-ep-choice__existing">
-      <h3>Attach existing endpoint</h3>
+      <h3>{t('Attach existing endpoint')}</h3>
 
       {#if loading}
-        <div class="text-muted">Loading endpoints…</div>
+        <div class="text-muted">{t('Loading endpoints…')}</div>
       {:else if existingEndpoints.length === 0}
-        <div class="text-muted">No existing endpoint available.</div>
+        <div class="text-muted">{t('No existing endpoint available.')}</div>
       {:else}
         <ul class="z-ep-choice__list">
           {#each existingEndpoints as ep (ep.id)}
@@ -51,7 +52,7 @@
               <div class="z-ep-choice__meta">
                 <strong>{ep.name}</strong>
                 <span>{ep.host ?? '—'}</span>
-                <span>{ep.zoneName ? `Current zone: ${ep.zoneName}` : 'No zone'}</span>
+                <span>{ep.zoneName ? t('Current zone: {zoneName}', { zoneName: ep.zoneName }) : t('No zone')}</span>
               </div>
               <button
                 type="button"
@@ -59,7 +60,7 @@
                 on:click={() => onAttachExisting(ep.id)}
                 disabled={busyAttachId === ep.id}
               >
-                {busyAttachId === ep.id ? 'Attaching…' : 'Attach'}
+                {busyAttachId === ep.id ? t('Attaching…') : t('Attach')}
               </button>
             </li>
           {/each}

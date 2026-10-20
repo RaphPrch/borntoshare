@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 const firstNonEmpty = (values: any[]) => {
   for (const value of values) {
     if (value === null || value === undefined) continue;
@@ -58,8 +59,8 @@ export const accessRequestAccessLabel = (row: any): string => {
     .toLowerCase();
 
   if (!raw) return '—';
-  if (raw.includes('contribution') || raw.includes('write')) return 'Write (Write NTFS)';
-  if (raw.includes('audit') || raw.includes('security')) return 'Audit (Read Security)';
-  if (raw.includes('read') || raw.includes('lecture')) return 'Read (Read NTFS)';
+  if (raw.includes('contribution') || raw.includes('write')) return t('Write (Write NTFS)');
+  if (raw.includes('audit') || raw.includes('security')) return t('Audit (Read Security)');
+  if (raw.includes('read') || raw.includes('lecture')) return t('Read (Read NTFS)');
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 };

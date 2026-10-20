@@ -60,14 +60,14 @@ function varsFromEvent(ev: any) {
     asStr((ctx as any)?.after?.zone?.name) ??
     asStr(ev?.zone_name) ??
     asStr(ev?.zone) ??
-    (zoneIdRaw ? `Zone #${zoneIdRaw}` : 'Unknown');
+    (zoneIdRaw ? t('Zone #{zoneIdRaw}', { zoneIdRaw }) : 'Unknown');
   const updatedFields = Array.isArray((ctx as any)?.updated_fields)
     ? (ctx as any).updated_fields
         .map((v: unknown) => String(v ?? '').trim())
         .filter(Boolean)
     : [];
   const changes = updatedFields.length
-    ? ` — updated fields: ${updatedFields.map((f: string) => f.replaceAll('_', ' ')).join(', ')}`
+    ? t(' — updated fields: {value}', { value: (updatedFields.map((f: string) => f.replaceAll('_', ' ')).join(', ')) })
     : '';
   const actor =
     asStr(ev?.actor_display_name) ??
@@ -147,7 +147,7 @@ type ActivityRender = {
 
 function humanizeAction(value: string): string {
   const normalized = String(value ?? '').trim();
-  if (!normalized) return 'Activity recorded';
+  if (!normalized) return t('Activity recorded');
 
   const known: Record<string, string> = {
     'storage_root.created': 'Storage root created',
@@ -175,10 +175,9 @@ export function renderActivity(ev: any): ActivityRender {
   const tpl = activityTemplates[action];
   const vars = varsFromEvent(ev);
 
-  // Activity labels must be rendered in English regardless of browser locale.
-  const title = tpl ? t(tpl.titleKey, vars, 'en') : humanizeAction(action);
+  const title = tpl ? t(tpl.titleKey, vars) : humanizeAction(action);
   const description = tpl
-    ? t(tpl.descriptionKey, vars, 'en')
+    ? t(tpl.descriptionKey, vars)
     : (vars.target ? `Activity recorded on ${vars.target}` : 'Activity recorded');
 
   const badgeKind = badgeFromEvent(ev, tpl);

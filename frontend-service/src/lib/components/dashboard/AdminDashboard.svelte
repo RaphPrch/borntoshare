@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, intlLocale } from '$lib/i18n';
   import { goto } from '$app/navigation';
   import DashboardShell from './DashboardShell.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
@@ -13,10 +14,10 @@
   const activities = Array.isArray(data?.activities) ? data.activities : [];
 
   const kpi = [
-    { key: 'storage_roots', label: 'Storage Roots', href: '/storage-roots' },
-    { key: 'storage_endpoints', label: 'Storage Endpoints', href: '/admin/storage-endpoints' },
-    { key: 'admins', label: 'Admins', href: '/admin/identity' },
-    { key: 'pending_requests', label: 'Pending Requests', href: '/access-requests' }
+    { key: 'storage_roots', label: t('Storage Roots'), href: '/storage-roots' },
+    { key: 'storage_endpoints', label: t('Storage Endpoints'), href: '/admin/storage-endpoints' },
+    { key: 'admins', label: t('Admins'), href: '/admin/identity' },
+    { key: 'pending_requests', label: t('Pending Requests'), href: '/access-requests' }
   ];
 
   const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -26,7 +27,7 @@
     if (!text) return '—';
     const d = new Date(text);
     if (Number.isNaN(d.getTime())) return text;
-    return d.toLocaleString('fr-FR', {
+    return d.toLocaleString(intlLocale(), {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -36,32 +37,32 @@
   };
 </script>
 
-<DashboardShell title="Admin Dashboard" subtitle="Platform Operations Overview">
+<DashboardShell title={t('Admin Dashboard')} subtitle={t('Platform Operations Overview')}>
   <div class="kpi-grid">
     {#each kpi as item}
       <button class="kpi" on:click={() => goto(item.href)}>
         <div class="kpi__label">{item.label}</div>
         <div class="kpi__value">{num(stats[item.key])}</div>
-        <div class="kpi__hint">Open</div>
+        <div class="kpi__hint">{t('Open')}</div>
       </button>
     {/each}
   </div>
 
   <section class="panel">
     <div class="panel__header">
-      <h2>Latest admin activity</h2>
-      <div class="panel__hint">Recent actions across the platform</div>
+      <h2>{t('Latest admin activity')}</h2>
+      <div class="panel__hint">{t('Recent actions across the platform')}</div>
     </div>
 
     {#if activities.length === 0}
-      <EmptyStateInline message="No recent activity." />
+      <EmptyStateInline message={t('No recent activity.')} />
     {:else}
       <ul class="activity">
         {#each activities.slice(0, 8) as a}
           {@const rendered = formatActivityItem(a)}
           <li>
             <div class="activity__main">
-              <span class="activity__action">{rendered.title ?? 'Event'}</span>
+              <span class="activity__action">{rendered.title ?? t('Event')}</span>
               <span class="activity__target">
                 {rendered.subtitle1 ?? ((a.target_type ?? 'target') + (a.target_name ? ` • ${a.target_name}` : ''))}
               </span>

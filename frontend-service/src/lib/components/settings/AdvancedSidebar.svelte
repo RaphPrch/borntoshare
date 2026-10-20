@@ -9,6 +9,7 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   export let current: string;
   export let items: NavItem[];
   export let basePath: string = '/admin/advanced-settings';
@@ -19,7 +20,7 @@
 </script>
 
 <aside class="b2s-adv-sidebar">
-  <div class="title">Sections</div>
+  <div class="title">{t('Sections')}</div>
   <nav>
     {#each items as item}
       <a class:active={current === item.key} href={href(item.key)} aria-current={current === item.key ? 'page' : undefined}>

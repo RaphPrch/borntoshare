@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { onMount, onDestroy } from 'svelte';
   import megaConfig, { type MegaMenuKey } from '$lib/components/layout/mega-config';
 
@@ -44,16 +45,16 @@ onDestroy(() => {
   /* ---------------- Titles / subtitles ---------------- */
   const titles: Record<MegaMenuKey, { title: string; subtitle: string }> = {
     storageRoots: {
-      title: 'Storage Roots',
-      subtitle: 'Manage governed storage roots inventory.'
+      title: t('Storage Roots'),
+      subtitle: t('Manage governed storage roots inventory.')
     },
     observability: {
-      title: 'Observability',
-      subtitle: 'Capsules, jobs and platform monitoring.'
+      title: t('Observability'),
+      subtitle: t('Capsules, jobs and platform monitoring.')
     },
     admin: {
-      title: 'Administration',
-      subtitle: 'Identity, sources and advanced settings.'
+      title: t('Administration'),
+      subtitle: t('Identity, sources and advanced settings.')
     }
   };
 </script>
@@ -64,7 +65,7 @@ onDestroy(() => {
     class="mega-overlay animate-overlay"
     role="button"
     tabindex="0"
-    aria-label="Close menu"
+    aria-label={t('Close menu')}
     on:click={close}
     on:keydown={(e) =>
       (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), close())
@@ -82,7 +83,7 @@ onDestroy(() => {
     <div class="mega-inner">
       <header class="mega-header">
         <h2>{titles[activeMega]?.title ?? activeMega}</h2>
-        <p>{titles[activeMega]?.subtitle ?? 'Navigate your workspace.'}</p>
+        <p>{titles[activeMega]?.subtitle ?? t('Navigate your workspace.')}</p>
       </header>
 
       <div class="mega-grid">
@@ -100,8 +101,8 @@ onDestroy(() => {
             {/if}
 
             <div class="mega-content">
-              <strong>{item.title}</strong>
-              <span>{item.description}</span>
+              <strong>{t(item.title)}</strong>
+              <span>{t(item.description)}</span>
             </div>
           </a>
         {/each}

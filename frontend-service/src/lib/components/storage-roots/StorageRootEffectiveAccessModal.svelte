@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { initials, timeAgo } from '$lib/utils/format';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import StorageRootDrawerShell from '$lib/components/storage-roots/StorageRootDrawerShell.svelte';
 
   export let open = false;
-  export let title = 'Users with Access';
-  export let contextLabel = 'Storage • — • —';
+  export let title = t('Users with Access');
+  export let contextLabel = t('Storage • — • —');
   export let membersCount = 0;
   export let level: 'read' | 'write' = 'read';
   // Rows of effectiveAccessUsersByLevel (storage-root-detail.mapper); every field is optional
@@ -13,7 +14,7 @@
   export let onAddUser: () => void = () => {};
   export let onClose: () => void = () => {};
 
-  const label = (u: any) => String(u?.display_name ?? u?.username ?? u?.email ?? u?.upn ?? `Identity #${u?.identity_id ?? '?'}`);
+  const label = (u: any) => String(u?.display_name ?? u?.username ?? u?.email ?? u?.upn ?? t('Identity #{value}', { value: (u?.identity_id ?? '?') }));
   const mail = (u: any) => String(u?.email ?? u?.upn ?? '—');
 
 
@@ -32,17 +33,17 @@
   showFooter={true}
 >
   <section class="sr-ea-topbar">
-    <div class="sr-ea-context">{membersCount} members resolved in effective access ({level.toUpperCase()})</div>
+    <div class="sr-ea-context">{t('{membersCount} members resolved in effective access ({toUpperCase})', { membersCount, toUpperCase: level.toUpperCase() })}</div>
     <div class="sr-ea-topline">
-      <strong>{membersCount} Members</strong>
-      <span class="sr-ea-operational"><i class="bi bi-check-circle-fill"></i> Operational</span>
+      <strong>{t('{membersCount} Members', { membersCount })}</strong>
+      <span class="sr-ea-operational"><i class="bi bi-check-circle-fill"></i> {t('Operational')}</span>
     </div>
   </section>
 
   <section class="sr-ea-panel">
-    <div class="sr-ea-panel-title">{membersCount} Members</div>
+    <div class="sr-ea-panel-title">{t('{membersCount} Members', { membersCount })}</div>
     {#if users.length === 0}
-      <div class="sr-ea-empty">No resolved users.</div>
+      <div class="sr-ea-empty">{t('No resolved users.')}</div>
     {:else}
       <div class="sr-ea-list">
         {#each users as u, idx}
@@ -63,8 +64,8 @@
 
   <svelte:fragment slot="footer">
     <div class="sr-modal-actions sr-ea-footer-actions">
-      <EntityActionButton variant="secondary" label="Close" onClick={onClose} />
-      <EntityActionButton variant="primary" icon="bi-plus-lg" label="Add user" onClick={onAddUser} />
+      <EntityActionButton variant="secondary" label={t('Close')} onClick={onClose} />
+      <EntityActionButton variant="primary" icon="bi-plus-lg" label={t('Add user')} onClick={onAddUser} />
     </div>
   </svelte:fragment>
 </StorageRootDrawerShell>

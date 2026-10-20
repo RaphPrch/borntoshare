@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { t, intlLocale } from '$lib/i18n';
   import { initials } from '$lib/utils/format';
   import { createEventDispatcher } from 'svelte';
   import { formatActivityItem } from '$lib/activity/format';
 
   export let items: any[] = [];
-  export let emptyLabel = 'No activity available';
+  export let emptyLabel = t('No activity available');
   export let clickableRows = false;
 
   type ActivityTone = 'critical' | 'warning' | 'success' | 'info' | 'sync' | 'neutral' | 'access';
@@ -80,7 +81,7 @@
 
   const formatTime = (timestampMs: number | null, entry: any) => {
     if (!timestampMs) return firstString(entry?.event_time, entry?.created_at, entry?.timestamp, entry?.time) || '-';
-    return new Date(timestampMs).toLocaleString('en-US', {
+    return new Date(timestampMs).toLocaleString(intlLocale(), {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -93,7 +94,7 @@
 
   const humanize = (value: unknown) => {
     const text = firstString(value);
-    if (!text) return 'Activity';
+    if (!text) return t('Activity');
     return text
       .replace(/^[a-z0-9]+[._-]/i, '')
       .replace(/[._-]+/g, ' ')
@@ -116,7 +117,7 @@
       ctx.deleted_by
     );
 
-    if (!label || label.toLowerCase() === 'system') return 'System';
+    if (!label || label.toLowerCase() === 'system') return t('System');
     return label;
   };
 
@@ -141,13 +142,13 @@
     if (explicit) return humanize(explicit);
 
     const normalized = action.toLowerCase();
-    if (normalized.includes('probe') || normalized.startsWith('test_')) return 'Probe';
-    if (normalized.includes('provision') || normalized.includes('ad_group')) return 'Provisioning job';
-    if (normalized.includes('policy') || normalized.includes('config')) return 'Configuration check';
-    if (normalized.includes('access_request')) return 'Access request';
-    if (normalized.includes('sync') || normalized.includes('snapshot')) return 'Sync job';
-    if (actorLabel(entry, ctx) === 'System') return 'System';
-    return 'Manual action';
+    if (normalized.includes('probe') || normalized.startsWith('test_')) return t('Probe');
+    if (normalized.includes('provision') || normalized.includes('ad_group')) return t('Provisioning job');
+    if (normalized.includes('policy') || normalized.includes('config')) return t('Configuration check');
+    if (normalized.includes('access_request')) return t('Access request');
+    if (normalized.includes('sync') || normalized.includes('snapshot')) return t('Sync job');
+    if (actorLabel(entry, ctx) === t('System')) return t('System');
+    return t('Manual action');
   };
 
   const classify = (entry: any, title: string, action: string, badgeKind?: string): { typeLabel: string; tone: ActivityTone; icon: string } => {
@@ -164,23 +165,23 @@
       normalized.includes('failed') ||
       normalized.includes('unreachable')
     ) {
-      return { typeLabel: 'Alert', tone: 'critical', icon: 'exclamation-triangle-fill' };
+      return { typeLabel: t('Alert'), tone: 'critical', icon: 'exclamation-triangle-fill' };
     }
 
     if (normalized.includes('revoke') || normalized.includes('removed')) {
-      return { typeLabel: 'Access revoked', tone: 'access', icon: 'people' };
+      return { typeLabel: t('Access revoked'), tone: 'access', icon: 'people' };
     }
 
     if (normalized.includes('access_request.approved') || normalized.includes('granted') || normalized.includes('approved')) {
-      return { typeLabel: 'Access granted', tone: 'success', icon: 'check-circle' };
+      return { typeLabel: t('Access granted'), tone: 'success', icon: 'check-circle' };
     }
 
     if (normalized.includes('sync') || normalized.includes('snapshot')) {
-      return { typeLabel: 'Sync', tone: 'sync', icon: 'arrow-repeat' };
+      return { typeLabel: t('Sync'), tone: 'sync', icon: 'arrow-repeat' };
     }
 
     if (normalized.includes('probe') || normalized.startsWith('test_')) {
-      return { typeLabel: 'Probe', tone: 'info', icon: 'activity' };
+      return { typeLabel: t('Probe'), tone: 'info', icon: 'activity' };
     }
 
     if (
@@ -190,11 +191,11 @@
       normalized.includes('group') ||
       badgeKind === 'admin'
     ) {
-      return { typeLabel: 'Configuration', tone: 'warning', icon: 'exclamation-triangle-fill' };
+      return { typeLabel: t('Configuration'), tone: 'warning', icon: 'exclamation-triangle-fill' };
     }
 
-    if (badgeKind === 'critical') return { typeLabel: 'Alert', tone: 'critical', icon: 'exclamation-triangle-fill' };
-    return { typeLabel: 'Activity', tone: 'info', icon: 'info-circle' };
+    if (badgeKind === 'critical') return { typeLabel: t('Alert'), tone: 'critical', icon: 'exclamation-triangle-fill' };
+    return { typeLabel: t('Activity'), tone: 'info', icon: 'info-circle' };
   };
 
   const buildRow = (entry: any, index: number): ActivityRow => {
@@ -280,31 +281,31 @@
 </script>
 
 <article class="activity-log-card">
-  <div class="activity-log-toolbar" aria-label="Activity filters">
+  <div class="activity-log-toolbar" aria-label={t('Activity filters')}>
     <label class="activity-search">
       <i class="bi bi-search" aria-hidden="true"></i>
       <input
         bind:value={query}
         type="search"
-        placeholder="Search activity..."
-        aria-label="Search activity"
+        placeholder={t('Search activity...')}
+        aria-label={t('Search activity')}
         on:input={resetPage}
       />
     </label>
 
     <label class="activity-select activity-select--date">
       <i class="bi bi-calendar3" aria-hidden="true"></i>
-      <select bind:value={dateFilter} aria-label="Filter by date" on:change={resetPage}>
-        <option value="all">All dates</option>
-        <option value="today">Today</option>
-        <option value="7d">Last 7 days</option>
-        <option value="30d">Last 30 days</option>
+      <select bind:value={dateFilter} aria-label={t('Filter by date')} on:change={resetPage}>
+        <option value="all">{t('All dates')}</option>
+        <option value="today">{t('Today')}</option>
+        <option value="7d">{t('Last 7 days')}</option>
+        <option value="30d">{t('Last 30 days')}</option>
       </select>
     </label>
 
     <label class="activity-select">
-      <select bind:value={typeFilter} aria-label="Filter by activity type" on:change={resetPage}>
-        <option value="all">All types</option>
+      <select bind:value={typeFilter} aria-label={t('Filter by activity type')} on:change={resetPage}>
+        <option value="all">{t('All types')}</option>
         {#each typeOptions as option}
           <option value={option}>{option}</option>
         {/each}
@@ -313,8 +314,8 @@
     </label>
 
     <label class="activity-select">
-      <select bind:value={actorFilter} aria-label="Filter by actor" on:change={resetPage}>
-        <option value="all">All actors</option>
+      <select bind:value={actorFilter} aria-label={t('Filter by actor')} on:change={resetPage}>
+        <option value="all">{t('All actors')}</option>
         {#each actorOptions as option}
           <option value={option}>{option}</option>
         {/each}
@@ -327,12 +328,12 @@
     <table class="activity-table">
       <thead>
         <tr>
-          <th scope="col" class="col-time">Time <i class="bi bi-chevron-expand" aria-hidden="true"></i></th>
-          <th scope="col" class="col-type">Type</th>
-          <th scope="col">Description</th>
-          <th scope="col" class="col-actor">Actor</th>
-          <th scope="col" class="col-source">Source</th>
-          <th scope="col" class="col-actions"><span class="visually-hidden">Actions</span></th>
+          <th scope="col" class="col-time">{t('Time')} <i class="bi bi-chevron-expand" aria-hidden="true"></i></th>
+          <th scope="col" class="col-type">{t('Type')}</th>
+          <th scope="col">{t('Description')}</th>
+          <th scope="col" class="col-actor">{t('Actor')}</th>
+          <th scope="col" class="col-source">{t('Source')}</th>
+          <th scope="col" class="col-actions"><span class="visually-hidden">{t('Actions')}</span></th>
         </tr>
       </thead>
       <tbody>
@@ -382,7 +383,7 @@
                   <button
                     type="button"
                     class="activity-more"
-                    aria-label="Open activity details"
+                    aria-label={t('Open activity details')}
                     on:click|stopPropagation={() => selectRow(row, pageStart + index)}
                   >
                     <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
@@ -399,15 +400,15 @@
   <footer class="activity-log-footer">
     <span>
       {#if filteredRows.length === 0}
-        Showing 0 entries
+        {t('Showing 0 entries')}
       {:else}
-        Showing {pageStart + 1} to {pageEnd} of {filteredRows.length} entries
+        {t('Showing {value} to {pageEnd} of {filteredRowsCount} entries', { value: (pageStart + 1), pageEnd, filteredRowsCount: filteredRows.length })}
       {/if}
     </span>
 
     {#if totalPages > 1}
-      <nav class="activity-pagination" aria-label="Activity pagination">
-        <button type="button" disabled={currentPage === 1} on:click={() => (currentPage -= 1)} aria-label="Previous page">
+      <nav class="activity-pagination" aria-label={t('Activity pagination')}>
+        <button type="button" disabled={currentPage === 1} on:click={() => (currentPage -= 1)} aria-label={t('Previous page')}>
           <i class="bi bi-chevron-left" aria-hidden="true"></i>
         </button>
         {#each Array(totalPages) as _, pageIndex}
@@ -423,7 +424,7 @@
             <span>...</span>
           {/if}
         {/each}
-        <button type="button" disabled={currentPage === totalPages} on:click={() => (currentPage += 1)} aria-label="Next page">
+        <button type="button" disabled={currentPage === totalPages} on:click={() => (currentPage += 1)} aria-label={t('Next page')}>
           <i class="bi bi-chevron-right" aria-hidden="true"></i>
         </button>
       </nav>

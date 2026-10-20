@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import StorageRootDrawerShell from './StorageRootDrawerShell.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import DualListPicker from '$lib/components/ui/DualListPicker.svelte';
@@ -26,7 +27,7 @@
   let wasOpen = false;
 
   const validIds = (tags: StorageRootTagLike[]): number[] =>
-    tags.map((t) => tagId(t)).filter((id) => Number.isFinite(id) && id > 0);
+    tags.map((tag) => tagId(tag)).filter((id) => Number.isFinite(id) && id > 0);
 
   $: if (open && !wasOpen) {
     wasOpen = true;
@@ -41,8 +42,8 @@
   $: selectedSet = new Set(selectedTagIds);
   $: needle = search.trim().toLowerCase();
   $: catalogTags = normalizeTagsCatalog(catalog);
-  $: availableTags = catalogTags.filter((t) => !selectedSet.has(Number(t.id)) && matches(t, needle));
-  $: selectedTags = catalogTags.filter((t) => selectedSet.has(Number(t.id)) && matches(t, needle));
+  $: availableTags = catalogTags.filter((tag) => !selectedSet.has(Number(tag.id)) && matches(tag, needle));
+  $: selectedTags = catalogTags.filter((tag) => selectedSet.has(Number(tag.id)) && matches(tag, needle));
 
   function toggleTag(id: number, checked: boolean) {
     if (!Number.isFinite(id) || id <= 0) return;
@@ -52,7 +53,7 @@
   async function save() {
     if (saving) return;
     if (!storageRootId) {
-      toast.warning('No storage root selected');
+      toast.warning(t('No storage root selected'));
       return;
     }
     const wanted = new Set(selectedTagIds.filter((id) => Number.isFinite(id) && id > 0));
@@ -60,7 +61,7 @@
     const toAttach = [...wanted].filter((id) => !current.has(id));
     const toDetach = [...current].filter((id) => !wanted.has(id));
     if (toAttach.length === 0 && toDetach.length === 0) {
-      toast.warning('No tag changes to save');
+      toast.warning(t('No tag changes to save'));
       return;
     }
 
@@ -73,13 +74,13 @@
         await detachTagFromStorageRoot(fetch, { tag_id: id, resource_id: storageRootId });
       }
       const tags = catalog
-        .filter((t) => wanted.has(tagId(t)))
-        .map((t) => ({ ...t, id: tagId(t), label: tagLabel(t), name: t?.name ?? t?.label ?? '', color_rgb: tagColor(t) }));
+        .filter((tag) => wanted.has(tagId(tag)))
+        .map((tag) => ({ ...tag, id: tagId(tag), label: tagLabel(tag), name: tag?.name ?? tag?.label ?? '', color_rgb: tagColor(tag) }));
       await onSaved(tags);
       onClose();
-      toast.success('Tags updated');
+      toast.success(t('Tags updated'));
     } catch {
-      toast.error('Unable to save tag changes');
+      toast.error(t('Unable to save tag changes'));
     } finally {
       saving = false;
     }
@@ -89,27 +90,27 @@
 <StorageRootDrawerShell
   {open}
   {onClose}
-  title="Manage tags"
-  subtitle="Attach and detach taxonomy tags for the selected storage root."
+  title={t('Manage tags')}
+  subtitle={t('Attach and detach taxonomy tags for the selected storage root.')}
   ariaLabelledby="sr-tags-drawer-title"
   width="560px"
   topOffset="70px"
   showFooter={true}
 >
   <div class="sr-tags-modal-body">
-    <p class="b2s-muted">Select the final tag set for this storage root.</p>
+    <p class="b2s-muted">{t('Select the final tag set for this storage root.')}</p>
     <SearchField
       wrapperClass="sr-tag-search"
-      placeholder="Search tags..."
-      ariaLabel="Search tags"
+      placeholder={t('Search tags...')}
+      ariaLabel={t('Search tags')}
       bind:value={search}
     />
 
     <DualListPicker
       availableItems={availableTags}
       selectedItems={selectedTags}
-      availableTitle="Available tags"
-      selectedTitle="Assigned tags"
+      availableTitle={t('Available tags')}
+      selectedTitle={t('Assigned tags')}
       getItemKey={(item) => Number(item?.id ?? 0)}
       itemLabel={(item) => String(item?.label ?? item?.name ?? item?.code ?? '-')}
       on:add={(event) => toggleTag(Number(event.detail.item?.id ?? 0), true)}
@@ -123,12 +124,12 @@
 
   <svelte:fragment slot="footer">
     <div class="sr-modal-actions sr-tags-modal-actions">
-      <EntityActionButton variant="secondary" label="Cancel" disabled={saving} onClick={onClose} />
+      <EntityActionButton variant="secondary" label={t('Cancel')} disabled={saving} onClick={onClose} />
       <EntityActionButton
         variant="primary"
         icon={saving ? 'bi-arrow-repeat' : 'bi-check2'}
         busy={saving}
-        label={saving ? 'Saving…' : 'Save tag changes'}
+        label={saving ? t('Saving…') : t('Save tag changes')}
         disabled={saving}
         onClick={save}
       />

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, intlLocale } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy } from 'svelte';
   import TreeNode from './TreeNode.svelte';
@@ -39,11 +40,11 @@
   export let identitySources: IdentityBrowserSource[] = [];
   export let initialSourceId: number | null = null;
 
-  export let title = 'Browse Active Directory';
-  export let subtitle = 'Select users or groups to add to this governance role.';
-  export let previewTitle = 'Preview';
-  export let selectedItemsTitle = 'Selected items';
-  export let roleAssignmentTitle = 'Role assignment';
+  export let title = t('Browse Active Directory');
+  export let subtitle = t('Select users or groups to add to this governance role.');
+  export let previewTitle = t('Preview');
+  export let selectedItemsTitle = t('Selected items');
+  export let roleAssignmentTitle = t('Role assignment');
   export let mode: DirectoryMode = 'multiple';
   export let allowRoleAssignment = false;
   export let allowedPrincipalType: 'all' | 'user' | 'group' | 'ou' = 'all';
@@ -59,12 +60,12 @@
   export let storageRootId: number | null = null;
 
   export let busy = false;
-  export let confirmLabel = 'Use Selected';
-  export let confirmBusyLabel = 'Applying…';
+  export let confirmLabel = t('Use Selected');
+  export let confirmBusyLabel = t('Applying…');
   export let defaultAssignedRole: 'guardian' = 'guardian';
   export let showImportButton = false;
-  export let importButtonLabel = 'Import Selected';
-  export let importButtonBusyLabel = 'Importing…';
+  export let importButtonLabel = t('Import Selected');
+  export let importButtonBusyLabel = t('Importing…');
 
   const dispatch = createEventDispatcher<{
     close: void;
@@ -83,8 +84,8 @@
   let refreshBusy = false;
   let snapshotBusy = false;
   let lastSyncAt: string | null = null;
-  let snapshotStatusLabel = 'Using latest active snapshot';
-  let enabledOnlyStatusLabel = 'Filter: mixed principals (users may include disabled accounts)';
+  let snapshotStatusLabel = t('Using latest active snapshot');
+  let enabledOnlyStatusLabel = t('Filter: mixed principals (users may include disabled accounts)');
 
   const canRunSnapshotForSelectedSource = (): boolean => {
     const source = ($store.sources ?? []).find((row) => Number(row?.id ?? 0) === Number(selectedSourceId ?? 0));
@@ -100,27 +101,27 @@
     if (!raw) return '—';
     const dt = new Date(raw);
     if (!Number.isFinite(dt.getTime())) return '—';
-    return dt.toLocaleString('en-GB');
+    return dt.toLocaleString(intlLocale());
   };
 
   const sourceOptionLabel = (src: any): string => {
-    const name = String(src?.name ?? '').trim() || `Source #${String(src?.id ?? '')}`;
+    const name = String(src?.name ?? '').trim() || t('Source #{String}', { String: String(src?.id ?? '') });
     const status = String(src?.snapshotStatus ?? '').trim().toUpperCase();
     const users = Number(src?.usersCount ?? 0) || 0;
     const groups = Number(src?.groupsCount ?? 0) || 0;
-    const suffix = status ? `${status} · ${users} users · ${groups} groups` : 'No searchable snapshot';
+    const suffix = status ? t('{status} · {users} users · {groups} groups', { status, users, groups }) : 'No searchable snapshot';
     return `${name} · ${suffix}`;
   };
 
   const selectedSourceSnapshotSummary = (): string => {
     const source = ($store.sources ?? []).find((row) => Number(row?.id ?? 0) === Number(selectedSourceId ?? 0));
-    if (!source) return 'No active snapshot source selected';
-    if (snapshotStatusLabel !== 'Using latest active snapshot') return snapshotStatusLabel;
+    if (!source) return t('No active snapshot source selected');
+    if (snapshotStatusLabel !== t('Using latest active snapshot')) return snapshotStatusLabel;
     const status = String(source.snapshotStatus ?? '').trim().toUpperCase() || 'UNKNOWN';
     const users = Number(source.usersCount ?? 0) || 0;
     const groups = Number(source.groupsCount ?? 0) || 0;
     const objects = Number(source.objectsCount ?? 0) || users + groups;
-    return `${status} snapshot · ${users} users · ${groups} groups · ${objects} objects`;
+    return t('{status} snapshot · {users} users · {groups} groups · {objects} objects', { status, users, groups, objects });
   };
 
   const activeControllers = new Set<AbortController>();
@@ -165,9 +166,9 @@
 
   const principalTypeLabel = (value: unknown): string => {
     const normalized = String(value ?? 'user').trim().toLowerCase();
-    if (normalized === 'group') return 'Group';
+    if (normalized === 'group') return t('Group');
     if (normalized === 'ou') return 'OU';
-    return 'User';
+    return t('User');
   };
 
   const resultSecondaryInfo = (row: PrincipalSearchItem): string => {
@@ -178,7 +179,7 @@
     if (login) return login;
     if (email) return email;
     if (path) return path;
-    return 'No additional details';
+    return t('No additional details');
   };
 
   const humanizeStatus = (value: unknown): string => {
@@ -188,19 +189,19 @@
   };
 
   const previewImportStatus = (preview: Record<string, unknown>): string => {
-    if (Boolean(preview?.is_import_candidate)) return 'Import candidate';
-    if (preview?.is_import_candidate === false) return 'Imported';
-    if (Boolean(preview?.is_imported)) return 'Imported';
+    if (Boolean(preview?.is_import_candidate)) return t('Import candidate');
+    if (preview?.is_import_candidate === false) return t('Imported');
+    if (Boolean(preview?.is_imported)) return t('Imported');
     return '—';
   };
 
   const syncStatusLabel = (value: unknown): string => {
     const normalized = String(value ?? '').trim().toLowerCase();
-    if (!normalized) return 'Unknown';
-    if (normalized === 'up_to_date') return 'Up to date';
-    if (normalized === 'needs_refresh') return 'Needs refresh';
-    if (normalized === 'active') return 'Active';
-    if (normalized === 'inactive') return 'Inactive';
+    if (!normalized) return t('Unknown');
+    if (normalized === 'up_to_date') return t('Up to date');
+    if (normalized === 'needs_refresh') return t('Needs refresh');
+    if (normalized === 'active') return t('Active');
+    if (normalized === 'inactive') return t('Inactive');
     return humanizeStatus(normalized);
   };
 
@@ -281,7 +282,7 @@
       resolvedRootDn = selectedSourceBaseDn(nextSourceId);
     }
 
-    snapshotStatusLabel = 'Using latest active snapshot';
+    snapshotStatusLabel = t('Using latest active snapshot');
 
     if (!nextSourceId) return;
     await loadRootTree(nextSourceId, resolvedRootDn ?? selectedSourceBaseDn(nextSourceId));
@@ -376,7 +377,7 @@
 
   async function executeSearch(reset = true) {
     if (!selectedSourceId) {
-      toast.warning('Select an AD source');
+      toast.warning(t('Select an AD source'));
       return;
     }
 
@@ -449,7 +450,7 @@
       await loadRootTree(selectedSourceId, resolvedRootDn);
       await executeSearch(true);
       lastSyncAt = await loadIdentitySourceLastSync(fetch, selectedSourceId, { force: true });
-      toast.success('AD tree and objects refreshed');
+      toast.success(t('AD tree and objects refreshed'));
     } catch (e) {
       store.setError(e?.message ?? 'Unable to refresh directory');
     } finally {
@@ -469,7 +470,7 @@
         throw new Error('Snapshot job not created');
       }
 
-      snapshotStatusLabel = 'Snapshot regeneration in progress…';
+      snapshotStatusLabel = t('Snapshot regeneration in progress…');
 
       let attempts = 0;
       const maxAttempts = 40;
@@ -500,10 +501,10 @@
       await loadRootTree(Number(selectedSourceId), resolvedRootDn);
       await executeSearch(true);
       lastSyncAt = await loadIdentitySourceLastSync(fetch, Number(selectedSourceId), { force: true });
-      snapshotStatusLabel = 'Snapshot regenerated';
-      toast.success('Snapshot regenerated and browser refreshed');
+      snapshotStatusLabel = t('Snapshot regenerated');
+      toast.success(t('Snapshot regenerated and browser refreshed'));
     } catch (e) {
-      snapshotStatusLabel = 'Snapshot regeneration failed';
+      snapshotStatusLabel = t('Snapshot regeneration failed');
       store.setError(e?.message ?? 'Snapshot regeneration failed');
     } finally {
       snapshotBusy = false;
@@ -512,7 +513,7 @@
 
   function updateSelection(item: PrincipalSearchItem, checked: boolean) {
     if (!includeImportCandidates && checked && Boolean(item?.is_import_candidate)) {
-      toast.warning('Import candidates are not selectable in this context');
+      toast.warning(t('Import candidates are not selectable in this context'));
       return;
     }
 
@@ -667,11 +668,11 @@
   $: {
     const activeDn = String($store.activeDn ?? '').trim();
     if (principalTypeFilter === 'user') {
-      enabledOnlyStatusLabel = 'Filter: Enabled users only';
+      enabledOnlyStatusLabel = t('Filter: Enabled users only');
     } else if (activeDn && principalTypeFilter !== 'ou') {
-      enabledOnlyStatusLabel = 'Filter: Disabled users hidden · Groups unchanged';
+      enabledOnlyStatusLabel = t('Filter: Disabled users hidden · Groups unchanged');
     } else {
-      enabledOnlyStatusLabel = 'Filter: Mixed principals (users and groups)';
+      enabledOnlyStatusLabel = t('Filter: Mixed principals (users and groups)');
     }
   }
 
@@ -706,7 +707,7 @@
       <h2 id="idb-title" class="idb-title">{title}</h2>
       <div class="idb-subtitle">{subtitle}</div>
     </div>
-    <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm b2s-btn-icon" aria-label="Close" on:click={closeModal}>
+    <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm b2s-btn-icon" aria-label={t('Close')} on:click={closeModal}>
       <i class="bi bi-x-lg" aria-hidden="true"></i>
     </button>
   </header>
@@ -715,7 +716,7 @@
     <div class="idb-toolbar-card">
       <div class="idb-toolbar-grid">
         <div>
-          <label class="idb-label" for="idb-source-select">Identity Source:</label>
+          <label class="idb-label" for="idb-source-select">{t('Identity Source:')}</label>
           <select
             id="idb-source-select"
             class="idb-select"
@@ -724,7 +725,7 @@
             on:change={onSourceSelectChange}
           >
             {#if $store.sources.length === 0}
-              <option value={0}>No active source</option>
+              <option value={0}>{t('No active source')}</option>
             {/if}
             {#each $store.sources as src}
               <option value={src.id}>{sourceOptionLabel(src)}</option>
@@ -733,13 +734,13 @@
         </div>
 
         <div>
-          <div class="idb-label">Search users or groups</div>
+          <div class="idb-label">{t('Search users or groups')}</div>
           <div class="idb-search-row">
             <SearchField
               wrapperClass="idb-search-field"
               inputClass="idb-search-input"
-              placeholder="Search users or groups..."
-              ariaLabel="Search users or groups"
+              placeholder={t('Search users or groups...')}
+              ariaLabel={t('Search users or groups')}
               value={$store.query}
               disabled={$store.loadingSources || busy || !selectedSourceId}
               onChange={(next) => store.setQuery(next)}
@@ -748,7 +749,7 @@
             <button
               type="button"
               class="b2s-btn b2s-btn-secondary b2s-btn-icon idb-search-btn"
-              aria-label="Search"
+              aria-label={t('Search')}
               on:click={() => executeSearch(true)}
               disabled={$store.loadingSearch || busy || !selectedSourceId}
             >
@@ -759,14 +760,14 @@
 
         <div>
           {#if showImportRole}
-            <label class="idb-label" for="idb-import-role">Import role</label>
+            <label class="idb-label" for="idb-import-role">{t('Import role')}</label>
             <select id="idb-import-role" class="idb-select" bind:value={importRole}>
               <option value="user">user</option>
               <option value="group">group</option>
             </select>
           {:else}
             <div class="idb-top-pagination">
-              <span>Last Sync: {formatLastSync(lastSyncAt)}</span>
+              <span>{t('Last Sync: {formatLastSync}', { formatLastSync: formatLastSync(lastSyncAt) })}</span>
               <span class="idb-snapshot-status">{selectedSourceSnapshotSummary()}</span>
             </div>
           {/if}
@@ -781,7 +782,7 @@
               disabled={busy || refreshBusy || snapshotBusy || !selectedSourceId}
             >
               <i class={`bi ${refreshBusy ? 'bi-arrow-repeat' : 'bi-arrow-clockwise'}`}></i>
-              {refreshBusy ? 'Refreshing…' : 'Refresh'}
+              {refreshBusy ? t('Refreshing…') : t('Refresh')}
             </button>
             {#if canRunSnapshotForSelectedSource()}
               <button
@@ -791,7 +792,7 @@
                 disabled={busy || refreshBusy || snapshotBusy || !selectedSourceId}
               >
                 <i class={`bi ${snapshotBusy ? 'bi-hourglass-split' : 'bi-database-gear'}`}></i>
-                {snapshotBusy ? 'Snapshot…' : 'Regenerate snapshot'}
+                {snapshotBusy ? t('Snapshot…') : t('Regenerate snapshot')}
               </button>
             {/if}
           </div>
@@ -802,11 +803,11 @@
     <div class="idb-layout">
       <section class="idb-panel idb-tree-panel">
         <div class="idb-panel-head">
-          <div class="idb-panel-title">Directory tree</div>
+          <div class="idb-panel-title">{t('Directory tree')}</div>
         </div>
         <div class="idb-scroll idb-tree-scroll">
           {#if $store.tree.length === 0}
-            <div class="idb-hint">No OU tree found for this snapshot. Search still uses the active snapshot.</div>
+            <div class="idb-hint">{t('No OU tree found for this snapshot. Search still uses the active snapshot.')}</div>
           {:else}
             {#each $store.tree as node (node.dn)}
               <TreeNode
@@ -825,7 +826,7 @@
       <section class="idb-panel idb-results-panel">
         <div class="idb-results-head">
           <div class="idb-results-filter">{enabledOnlyStatusLabel}</div>
-          <div class="idb-results-loaded">Showing {$store.rows.length} item{$store.rows.length > 1 ? 's' : ''}</div>
+          <div class="idb-results-loaded">{t('Showing {rowsCount} item{value}', { rowsCount: $store.rows.length, value: ($store.rows.length > 1 ? 's' : '') })}</div>
         </div>
 
         <div class="idb-scroll">
@@ -833,11 +834,11 @@
             <thead>
               <tr>
                 <th style="width:3rem;"></th>
-                <th>Name</th>
-                <th>Details</th>
-                <th>Type</th>
-                <th>Import status</th>
-                <th>Sync status</th>
+                <th>{t('Name')}</th>
+                <th>{t('Details')}</th>
+                <th>{t('Type')}</th>
+                <th>{t('Import status')}</th>
+                <th>{t('Sync status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -846,8 +847,8 @@
                   <td colspan="6" class="idb-results-empty-cell">
                     <div class="idb-results-empty">
                       <i class="bi bi-search" aria-hidden="true"></i>
-                      <strong>No identities found</strong>
-                      <span>Try a search, select another OU, or regenerate the snapshot.</span>
+                      <strong>{t('No identities found')}</strong>
+                      <span>{t('Try a search, select another OU, or regenerate the snapshot.')}</span>
                     </div>
                   </td>
                 </tr>
@@ -878,9 +879,9 @@
                     </td>
                     <td>
                       {#if row?.is_import_candidate}
-                        <span class="idb-import-badge is-candidate"><i class="bi bi-cloud-arrow-up"></i> Import candidate</span>
+                        <span class="idb-import-badge is-candidate"><i class="bi bi-cloud-arrow-up"></i> {t('Import candidate')}</span>
                       {:else}
-                        <span class="idb-import-badge is-imported"><i class="bi bi-check-circle-fill"></i> Imported</span>
+                        <span class="idb-import-badge is-imported"><i class="bi bi-check-circle-fill"></i> {t('Imported')}</span>
                       {/if}
                     </td>
                     <td class="idb-muted">{syncStatusLabel(row?.browse_status ?? (row?.is_active ? 'active' : 'inactive'))}</td>
@@ -899,11 +900,11 @@
 
         <div class="idb-scroll idb-preview-scroll">
           {#if $store.loadingPreview}
-            <div class="idb-hint">Loading preview…</div>
+            <div class="idb-hint">{t('Loading preview…')}</div>
           {:else if !$store.preview}
             <div class="idb-preview-empty">
-              <strong>Select a user or group</strong>
-              <span>View details and confirm before adding it to governance.</span>
+              <strong>{t('Select a user or group')}</strong>
+              <span>{t('View details and confirm before adding it to governance.')}</span>
             </div>
           {:else}
             {@const p = $store.preview}
@@ -929,7 +930,7 @@
 
             {#if $store.snapshot}
               <div class="idb-snapshot-delta">
-                <div class="idb-hint">Snapshot delta</div>
+                <div class="idb-hint">{t('Snapshot delta')}</div>
                 <div class="idb-badges">
                   <StatusBadge status="success" label={`+${Number($store.snapshot.added ?? 0)}`} compact={true} />
                   <StatusBadge status="error" label={`-${Number($store.snapshot.removed ?? 0)}`} compact={true} />
@@ -978,7 +979,7 @@
   </div>
 
   <footer class="idb-footer">
-    <div class="idb-hint idb-footer-count">Selected: {$store.selectedKeys.length}</div>
+    <div class="idb-hint idb-footer-count">{t('Selected: {selectedKeysCount}', { selectedKeysCount: $store.selectedKeys.length })}</div>
 
     {#if showImportButton}
       <button
@@ -991,7 +992,7 @@
       </button>
     {/if}
 
-    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={closeModal} disabled={busy}>Cancel</button>
+    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={closeModal} disabled={busy}>{t('Cancel')}</button>
     <button
       type="button"
       class="b2s-btn b2s-btn-primary"

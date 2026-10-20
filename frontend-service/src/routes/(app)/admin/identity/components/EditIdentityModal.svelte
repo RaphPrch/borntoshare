@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -44,9 +45,9 @@
     initKey = currentKey;
   }
 
-  $: title = isGroup ? 'Edit group' : 'Edit account';
+  $: title = isGroup ? t('Edit group') : t('Edit account');
   $: subtitle = String(identity?.display_name ?? identity?.username ?? '').trim() || 'Unknown identity';
-  $: roleLabel = selectedRole === 'platform_admin' ? 'Platform administrator' : 'User';
+  $: roleLabel = selectedRole === 'platform_admin' ? t('Platform administrator') : t('User');
   $: canEditPassword = isLocalUser;
   $: canToggleActive = isUser;
   $: baselineDisplayName = String(identity?.display_name ?? identity?.username ?? '').trim();
@@ -56,18 +57,18 @@
     active !== baselineActive ||
     selectedRole !== currentRole ||
     Boolean(currentPassword || newPassword || confirmPassword);
-  $: displayNameError = attemptedSubmit && !displayName.trim() ? 'Display name is required.' : '';
+  $: displayNameError = attemptedSubmit && !displayName.trim() ? t('Display name is required.') : '';
   $: currentPasswordError =
     attemptedSubmit && canEditPassword && Boolean(newPassword || confirmPassword) && !currentPassword.trim()
-      ? 'Current password is required.'
+      ? t('Current password is required.')
       : '';
   $: newPasswordError =
     attemptedSubmit && canEditPassword && Boolean(currentPassword || confirmPassword) && !newPassword.trim()
-      ? 'New password is required.'
+      ? t('New password is required.')
       : '';
   $: confirmPasswordError =
     attemptedSubmit && canEditPassword && Boolean(newPassword) && newPassword !== confirmPassword
-      ? 'Password confirmation must match.'
+      ? t('Password confirmation must match.')
       : '';
 
   function close() {
@@ -157,7 +158,7 @@
         });
       }
 
-      toast.success('Identity updated.');
+      toast.success(t('Identity updated.'));
       dispatch('done');
       close();
     } catch (err: any) {
@@ -194,12 +195,12 @@
       <div class="identity-edit-section__heading">
         <span class="identity-edit-section__index">1</span>
         <div>
-          <h3>Account profile</h3>
+          <h3>{t('Account profile')}</h3>
         </div>
       </div>
 
       <div class="identity-edit-field">
-        <label for="identity-display-name">Display name</label>
+        <label for="identity-display-name">{t('Display name')}</label>
         <input
           id="identity-display-name"
           class="identity-edit-input"
@@ -214,13 +215,13 @@
       </div>
 
       <div class="identity-edit-field">
-        <span>Active account</span>
+        <span>{t('Active account')}</span>
         <label class={`identity-edit-toggle ${!canToggleActive ? 'is-disabled' : ''}`}>
           <input type="checkbox" bind:checked={active} disabled={!canToggleActive || loading} />
           <span class="identity-edit-toggle__track"><span class="identity-edit-toggle__thumb"></span></span>
         </label>
         {#if !canToggleActive}
-          <p class="identity-edit-helper">Only user accounts can be disabled.</p>
+          <p class="identity-edit-helper">{t('Only user accounts can be disabled.')}</p>
         {/if}
       </div>
     </section>
@@ -229,32 +230,32 @@
       <div class="identity-edit-section__heading">
         <span class="identity-edit-section__index">2</span>
         <div>
-          <h3>Application access</h3>
+          <h3>{t('Application access')}</h3>
         </div>
       </div>
 
       <div class="identity-edit-field">
-        <label>Application role</label>
+        <label>{t('Application role')}</label>
         <div class="identity-edit-role-grid">
           <label class={`identity-edit-role-card ${selectedRole === 'user' ? 'is-selected' : ''}`}>
             <input type="radio" bind:group={selectedRole} value="user" disabled={loading} />
             <div>
-              <strong>User</strong>
-              <small>Basic access to application features</small>
+              <strong>{t('User')}</strong>
+              <small>{t('Basic access to application features')}</small>
             </div>
           </label>
 
           <label class={`identity-edit-role-card ${selectedRole === 'platform_admin' ? 'is-selected' : ''}`}>
             <input type="radio" bind:group={selectedRole} value="platform_admin" disabled={loading} />
             <div>
-              <strong>Platform administrator</strong>
-              <small>Full administrative access within the application</small>
+              <strong>{t('Platform administrator')}</strong>
+              <small>{t('Full administrative access within the application')}</small>
             </div>
           </label>
         </div>
-        <p class="identity-edit-helper">Currently selected: {roleLabel}</p>
+        <p class="identity-edit-helper">{t('Currently selected: {roleLabel}', { roleLabel })}</p>
         <p class="identity-edit-helper">
-          Application roles control access within BornToShare only and do not grant NTFS or file system permissions.
+          {t('Application roles control access within BornToShare only and do not grant NTFS or file system permissions.')}
         </p>
       </div>
     </section>
@@ -264,12 +265,12 @@
         <div class="identity-edit-section__heading">
           <span class="identity-edit-section__index">3</span>
           <div>
-            <h3>Security</h3>
+            <h3>{t('Security')}</h3>
           </div>
         </div>
 
         <div class="identity-edit-field">
-          <label for="identity-current-password">Current password</label>
+          <label for="identity-current-password">{t('Current password')}</label>
           <input
             id="identity-current-password"
             class="identity-edit-input"
@@ -285,7 +286,7 @@
 
         <div class="identity-edit-password-grid">
           <div class="identity-edit-field">
-            <label for="identity-new-password">New password optional</label>
+            <label for="identity-new-password">{t('New password optional')}</label>
             <input
               id="identity-new-password"
               class="identity-edit-input"
@@ -300,7 +301,7 @@
           </div>
 
           <div class="identity-edit-field">
-            <label for="identity-confirm-password">Confirm password</label>
+            <label for="identity-confirm-password">{t('Confirm password')}</label>
             <input
               id="identity-confirm-password"
               class="identity-edit-input"
@@ -315,7 +316,7 @@
           </div>
         </div>
 
-        <p class="identity-edit-helper">Leave password fields empty to keep the current password.</p>
+        <p class="identity-edit-helper">{t('Leave password fields empty to keep the current password.')}</p>
       </section>
     {/if}
 
@@ -327,11 +328,11 @@
   <svelte:fragment slot="footer">
     <div class="identity-edit-actions">
       {#if isDirty}
-        <span class="identity-edit-unsaved">Unsaved changes</span>
+        <span class="identity-edit-unsaved">{t('Unsaved changes')}</span>
       {/if}
-      <button type="button" class="identity-edit-btn secondary" on:click={close} disabled={loading}>Cancel</button>
+      <button type="button" class="identity-edit-btn secondary" on:click={close} disabled={loading}>{t('Cancel')}</button>
       <button type="button" class="identity-edit-btn primary" on:click={submit} disabled={loading}>
-        {loading ? 'Saving changes…' : 'Save changes'}
+        {loading ? t('Saving changes…') : t('Save changes')}
       </button>
     </div>
   </svelte:fragment>
@@ -341,9 +342,9 @@
   open={closeConfirmOpen}
   onClose={() => (closeConfirmOpen = false)}
   onConfirm={discardAndClose}
-  title="Discard unsaved changes"
-  subtitle="Your edits have not been saved."
-  confirmLabel="Discard changes"
+  title={t('Discard unsaved changes')}
+  subtitle={t('Your edits have not been saved.')}
+  confirmLabel={t('Discard changes')}
   confirmVariant="warning"
   severity="warning"
   impactItems={['All unsaved edits in this drawer will be lost.']}

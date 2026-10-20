@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { formatDate, initials } from '$lib/utils/format';
   import type {
     StorageRootEffectiveAccessUser,
@@ -23,7 +24,7 @@
   const norm = (value: unknown): string => text(value).toLowerCase();
 
   const displayName = (user: StorageRootEffectiveAccessUser): string =>
-    text(user.display_name) || text(user.username) || text(user.upn) || text(user.principal) || `Identity ${user.identity_id ?? 'unknown'}`;
+    text(user.display_name) || text(user.username) || text(user.upn) || text(user.principal) || t('Identity {value}', { value: (user.identity_id ?? 'unknown') });
 
 
   const accessLevel = (user: StorageRootEffectiveAccessUser): 'read' | 'write' | 'unknown' => {
@@ -65,22 +66,22 @@
   };
 
   const sourceLabel = (source: string): string => {
-    if (source === 'request') return 'Request';
-    if (source === 'inherited') return 'AD group';
-    if (source === 'manual') return 'Manual';
+    if (source === 'request') return t('Request');
+    if (source === 'inherited') return t('AD group');
+    if (source === 'manual') return t('Manual');
     if (source === 'acl') return 'ACL';
-    return 'Unknown';
+    return t('Unknown');
   };
 
   const accessLabel = (level: string): string => {
-    if (level === 'read') return 'Read';
-    if (level === 'write') return 'Write';
-    return 'Unknown';
+    if (level === 'read') return t('Read');
+    if (level === 'write') return t('Write');
+    return t('Unknown');
   };
 
   const grantedAtLabel = (user: StorageRootEffectiveAccessUser): string => {
-    if (sourceKey(user) === 'inherited') return 'AD group membership';
-    if (sourceKey(user) === 'acl') return 'Filesystem ACL';
+    if (sourceKey(user) === 'inherited') return t('AD group membership');
+    if (sourceKey(user) === 'acl') return t('Filesystem ACL');
     return formatDate(user.granted_at ?? user.assigned_at ?? user.created_at);
   };
 
@@ -92,8 +93,8 @@
 
   const memberSource = (member: StorageRootEffectiveAccessUser): string => {
     if (text(member.identity_source_name)) return text(member.identity_source_name);
-    if (text(member.identity_source_id)) return `AD source #${text(member.identity_source_id)}`;
-    if (text(member.snapshot_id ?? member.directory_snapshot_id)) return `AD snapshot #${text(member.snapshot_id ?? member.directory_snapshot_id)}`;
+    if (text(member.identity_source_id)) return t('AD source #{text}', { text: text(member.identity_source_id) });
+    if (text(member.snapshot_id ?? member.directory_snapshot_id)) return t('AD snapshot #{text}', { text: text(member.snapshot_id ?? member.directory_snapshot_id) });
     return sourceLabel(sourceKey(member));
   };
 
@@ -152,12 +153,12 @@
   $: aclSnapshotId = text(aclFreshness?.active_snapshot_id);
 </script>
 
-<article class="sr-effective-access-table" aria-label="Effective access table">
+<article class="sr-effective-access-table" aria-label={t('Effective access table')}>
   <div class={`sr-effective-access-table__freshness is-${aclState || 'unknown'}`}>
     {#if onRescanAcl}
       <button type="button" on:click={onRescanAcl} disabled={rescanBusy}>
         <i class={`bi ${rescanBusy ? 'bi-hourglass-split' : 'bi-arrow-repeat'}`} aria-hidden="true"></i>
-        {rescanBusy ? 'Scanning...' : 'Rescan ACL'}
+        {rescanBusy ? t('Scanning...') : t('Rescan ACL')}
       </button>
     {/if}
   </div>
@@ -165,28 +166,28 @@
   <div class="sr-effective-access-table__toolbar">
     <label class="sr-effective-access-table__search">
       <i class="bi bi-search" aria-hidden="true"></i>
-      <input bind:value={search} type="search" placeholder="Search users or teams..." aria-label="Search users or teams" />
+      <input bind:value={search} type="search" placeholder={t('Search users or teams...')} aria-label={t('Search users or teams')} />
     </label>
 
     <label class="sr-effective-access-table__select-label">
-      Source
-      <select bind:value={sourceFilter} aria-label="Filter by source">
-        <option value="all">All sources</option>
-        <option value="request">Request</option>
-        <option value="manual">Manual</option>
-        <option value="inherited">AD group</option>
-        <option value="acl">Filesystem ACL</option>
-        <option value="unknown">Unknown</option>
+      {t('Source')}
+      <select bind:value={sourceFilter} aria-label={t('Filter by source')}>
+        <option value="all">{t('All sources')}</option>
+        <option value="request">{t('Request')}</option>
+        <option value="manual">{t('Manual')}</option>
+        <option value="inherited">{t('AD group')}</option>
+        <option value="acl">{t('Filesystem ACL')}</option>
+        <option value="unknown">{t('Unknown')}</option>
       </select>
     </label>
 
     <label class="sr-effective-access-table__select-label">
-      Access level
-      <select bind:value={accessFilter} aria-label="Filter by access level">
-        <option value="all">All levels</option>
-        <option value="read">Read</option>
-        <option value="write">Write</option>
-        <option value="unknown">Unknown</option>
+      {t('Access level')}
+      <select bind:value={accessFilter} aria-label={t('Filter by access level')}>
+        <option value="all">{t('All levels')}</option>
+        <option value="read">{t('Read')}</option>
+        <option value="write">{t('Write')}</option>
+        <option value="unknown">{t('Unknown')}</option>
       </select>
     </label>
   </div>
@@ -195,18 +196,18 @@
     <table>
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Access level</th>
-          <th>Source</th>
-          <th>Access granted</th>
-          <th>Granted by</th>
-          <th class="is-actions">Actions</th>
+          <th>{t('Name')}</th>
+          <th>{t('Access level')}</th>
+          <th>{t('Source')}</th>
+          <th>{t('Access granted')}</th>
+          <th>{t('Granted by')}</th>
+          <th class="is-actions">{t('Actions')}</th>
         </tr>
       </thead>
       <tbody>
         {#if visibleUsers.length === 0}
           <tr>
-            <td colspan="6" class="sr-effective-access-table__empty">No effective access found for this storage root.</td>
+            <td colspan="6" class="sr-effective-access-table__empty">{t('No effective access found for this storage root.')}</td>
           </tr>
         {:else}
           {#each visibleUsers as user, index (rowKey(user, index))}
@@ -220,7 +221,7 @@
                     <button
                       type="button"
                       class="sr-effective-access-table__expand"
-                      aria-label={`Show members for ${name}`}
+                      aria-label={t('Show members for {name}', { name })}
                       on:click={() => openMembersDrawer(user)}
                     >
                       <i class="bi bi-chevron-right" aria-hidden="true"></i>
@@ -244,7 +245,7 @@
               <td>{grantedAtLabel(user)}</td>
               <td>{grantedByLabel(user)}</td>
               <td class="is-actions">
-                <button type="button" aria-label={`More actions for ${name}`}>
+                <button type="button" aria-label={t('More actions for {name}', { name })}>
                   <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
                 </button>
               </td>
@@ -256,13 +257,13 @@
   </div>
 
   <footer class="sr-effective-access-table__footer">
-      <span>Showing {startIndex} to {endIndex} of {filteredUsers.length} entries</span>
-      <div class="sr-effective-access-table__pagination" aria-label="Effective access pagination">
-        <button type="button" disabled={page <= 1} on:click={() => (page -= 1)} aria-label="Previous page">
+      <span>{t('Showing {startIndex} to {endIndex} of {filteredUsersCount} entries', { startIndex, endIndex, filteredUsersCount: filteredUsers.length })}</span>
+      <div class="sr-effective-access-table__pagination" aria-label={t('Effective access pagination')}>
+        <button type="button" disabled={page <= 1} on:click={() => (page -= 1)} aria-label={t('Previous page')}>
           <i class="bi bi-chevron-left" aria-hidden="true"></i>
         </button>
         <strong>{page}</strong>
-        <button type="button" disabled={page >= pageCount} on:click={() => (page += 1)} aria-label="Next page">
+        <button type="button" disabled={page >= pageCount} on:click={() => (page += 1)} aria-label={t('Next page')}>
           <i class="bi bi-chevron-right" aria-hidden="true"></i>
         </button>
       </div>
@@ -272,16 +273,16 @@
     {@const groupMembers = members(selectedGroupRow)}
     {@const groupName = displayName(selectedGroupRow)}
     <div class="sr-effective-access-table__drawer-backdrop" role="presentation" on:click={closeMembersDrawer}></div>
-    <aside class="sr-effective-access-table__drawer" aria-label={`Members of ${groupName}`}>
+    <aside class="sr-effective-access-table__drawer" aria-label={t('Members of {groupName}', { groupName })}>
       <header>
         <div>
           <span class="sr-effective-access-table__drawer-avatar"><i class="bi bi-people" aria-hidden="true"></i></span>
           <div>
             <h3>{groupName}</h3>
-            <p>{text(selectedGroupRow.principal) || 'Directory group'} · {groupMembers.length} {groupMembers.length === 1 ? 'user' : 'users'}</p>
+            <p>{text(selectedGroupRow.principal) || t('Directory group')} · {groupMembers.length} {groupMembers.length === 1 ? 'user' : 'users'}</p>
           </div>
         </div>
-        <button type="button" aria-label="Close group members" on:click={closeMembersDrawer}>
+        <button type="button" aria-label={t('Close group members')} on:click={closeMembersDrawer}>
           <i class="bi bi-x-lg" aria-hidden="true"></i>
         </button>
       </header>
@@ -289,8 +290,8 @@
       {#if groupMembers.length === 0}
         <div class="sr-effective-access-table__drawer-empty">
           <i class="bi bi-person-x" aria-hidden="true"></i>
-          <strong>No effective users found</strong>
-          <span>This group has no resolved user members in the current snapshot data.</span>
+          <strong>{t('No effective users found')}</strong>
+          <span>{t('This group has no resolved user members in the current snapshot data.')}</span>
         </div>
       {:else}
         <div class="sr-effective-access-table__drawer-list">
@@ -301,10 +302,10 @@
               <div>
                 <strong>{memberName}</strong>
                 <dl>
-                  <div><dt>Login</dt><dd>{memberLogin(member)}</dd></div>
-                  <div><dt>Type</dt><dd>User</dd></div>
-                  <div><dt>Source</dt><dd>{memberSource(member)}</dd></div>
-                  <div><dt>Path</dt><dd>{groupPath(member, selectedGroupRow)}</dd></div>
+                  <div><dt>{t('Login')}</dt><dd>{memberLogin(member)}</dd></div>
+                  <div><dt>{t('Type')}</dt><dd>{t('User')}</dd></div>
+                  <div><dt>{t('Source')}</dt><dd>{memberSource(member)}</dd></div>
+                  <div><dt>{t('Path')}</dt><dd>{groupPath(member, selectedGroupRow)}</dd></div>
                 </dl>
               </div>
             </article>

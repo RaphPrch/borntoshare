@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { GovernanceAlert } from '$lib/api/governance-alerts';
 
 type StorageRootAlertTone = 'warning' | 'error';
@@ -70,12 +71,12 @@ export const selectVisibleStorageRootAlertsForRootIds = (
 export const storageRootAlertSummarySubtitle = (alert: GovernanceAlert): string | null => {
   const type = String(alert?.alert_type ?? '').trim().toLowerCase();
   if (type.includes('ad_group') && (type.includes('not_created') || type.includes('pending'))) {
-    return 'No AD group linked';
+    return t('No AD group linked');
   }
-  if (type === 'endpoint_unreachable') return 'Storage endpoint failed';
-  if (type === 'root_probe_failed') return 'Root probe failed';
-  if (type.includes('missing_guardian')) return 'No guardian assigned';
-  if (type.includes('pending_access_validation')) return 'Access validation pending';
+  if (type === 'endpoint_unreachable') return t('Storage endpoint failed');
+  if (type === 'root_probe_failed') return t('Root probe failed');
+  if (type.includes('missing_guardian')) return t('No guardian assigned');
+  if (type.includes('pending_access_validation')) return t('Access validation pending');
   return null;
 };
 

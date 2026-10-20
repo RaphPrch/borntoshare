@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
   import { createEventDispatcher } from 'svelte';
   import { createIdentity, type CreateIdentityPayload } from '$lib/api/identity';
@@ -27,7 +28,7 @@
   }> = [
     {
       id: 'local',
-      label: 'Local user',
+      label: t('Local user'),
       badge: 'Local',
       icon: 'bi-person',
       description: [
@@ -37,7 +38,7 @@
     },
     {
       id: 'directory_user',
-      label: 'Directory user',
+      label: t('Directory user'),
       badge: 'AD/LDAP',
       icon: 'bi-people',
       description: [
@@ -47,7 +48,7 @@
     },
     {
       id: 'directory_group',
-      label: 'Directory group',
+      label: t('Directory group'),
       badge: 'Group',
       icon: 'bi-people-fill',
       description: [
@@ -213,7 +214,7 @@
     if (!item) return '';
     if (String(item.type ?? '').toLowerCase() === 'group') {
       const count = Number(item.group_count ?? 0);
-      return count > 0 ? `${count} members` : trimmed(item.dn ?? item.external_id);
+      return count > 0 ? t('{count} members', { count }) : trimmed(item.dn ?? item.external_id);
     }
     return trimmed(item.dn ?? item.external_id);
   }
@@ -306,7 +307,7 @@
   function onSelectFromAdBrowser(payload: IdentityBrowserSelectionPayload) {
     const selected = Array.isArray(payload?.selectedItems) ? payload.selectedItems[0] : null;
     if (!selected) {
-      toast.warning('No directory identity selected.');
+      toast.warning(t('No directory identity selected.'));
       return;
     }
 
@@ -341,16 +342,16 @@
     Boolean(applicationRole);
 
   const directoryFormValid = () => canImportDirectoryPrincipal;
-  $: localUsernameError = attemptedSubmit && !trimmed(localUsername) ? 'Username is required.' : '';
-  $: localDisplayNameError = attemptedSubmit && !trimmed(localDisplayName) ? 'Display name is required.' : '';
-  $: localPasswordError = attemptedSubmit && !trimmed(localPassword) ? 'Temporary password is required.' : '';
-  $: sourceError = attemptedSubmit && isDirectoryMode(mode) && !resolvedDirectorySourceId ? 'Select an identity source first.' : '';
+  $: localUsernameError = attemptedSubmit && !trimmed(localUsername) ? t('Username is required.') : '';
+  $: localDisplayNameError = attemptedSubmit && !trimmed(localDisplayName) ? t('Display name is required.') : '';
+  $: localPasswordError = attemptedSubmit && !trimmed(localPassword) ? t('Temporary password is required.') : '';
+  $: sourceError = attemptedSubmit && isDirectoryMode(mode) && !resolvedDirectorySourceId ? t('Select an identity source first.') : '';
   $: principalError = attemptedSubmit && isDirectoryMode(mode) && !selectedPrincipal
     ? mode === 'directory_group'
-      ? 'Select a directory group first.'
-      : 'Select a directory user first.'
+      ? t('Select a directory group first.')
+      : t('Select a directory user first.')
     : '';
-  $: roleError = attemptedSubmit && !applicationRole ? 'Select an application role first.' : '';
+  $: roleError = attemptedSubmit && !applicationRole ? t('Select an application role first.') : '';
   $: submitDisabledReason = mode === 'local'
     ? localUsernameError || localDisplayNameError || localPasswordError || roleError || 'Complete required fields first.'
     : sourceError || principalError || roleError || 'Complete required fields first.';
@@ -396,19 +397,19 @@
     if (mode === 'local' && !localFormValid()) return;
     if (isDirectoryMode(mode)) {
       if (!resolvedDirectorySourceId) {
-        toast.warning('Select an identity source first.');
+        toast.warning(t('Select an identity source first.'));
         return;
       }
       if (!selectedPrincipal) {
-        toast.warning('Select a user or group first.');
+        toast.warning(t('Select a user or group first.'));
         return;
       }
       if (!applicationRole) {
-        toast.warning('Select an application role first.');
+        toast.warning(t('Select an application role first.'));
         return;
       }
       if (!directoryFormValid()) {
-        toast.warning('Unable to import identity.');
+        toast.warning(t('Unable to import identity.'));
         return;
       }
     }
@@ -416,55 +417,55 @@
     submitting = true;
     try {
       const created = await createIdentity(fetch, buildCreatePayload());
-      toast.success(isSelectedGroup ? 'Group imported.' : 'Identity imported.');
+      toast.success(isSelectedGroup ? t('Group imported.') : t('Identity imported.'));
       dispatch('done', { id: created?.id });
     } catch (error) {
       const appError = toAppError(error, { source: 'ui' });
       errorMessage = presentErrorMessage(appError);
       errorHint = presentErrorHint(appError) ?? '';
-      toast.error('Unable to import identity.');
+      toast.error(t('Unable to import identity.'));
     } finally {
       submitting = false;
     }
   }
 
   function submitLabel(): string {
-    if (mode === 'local') return submitting ? 'Creating...' : 'Create local user';
-    if (effectiveDirectoryPrincipalType === 'group') return submitting ? 'Importing...' : 'Import group';
-    if (effectiveDirectoryPrincipalType === 'user') return submitting ? 'Importing...' : 'Import user';
-    return submitting ? 'Importing...' : 'Import identity';
+    if (mode === 'local') return submitting ? t('Creating...') : t('Create local user');
+    if (effectiveDirectoryPrincipalType === 'group') return submitting ? t('Importing...') : t('Import group');
+    if (effectiveDirectoryPrincipalType === 'user') return submitting ? t('Importing...') : t('Import user');
+    return submitting ? t('Importing...') : t('Import identity');
   }
 
   function helperText(): string {
     if (effectiveDirectoryPrincipalType === 'group') {
-      return 'Define the application role that will be applied to all members.';
+      return t('Define the application role that will be applied to all members.');
     }
-    return 'Define the application role for this user.';
+    return t('Define the application role for this user.');
   }
 
   function currentDirectoryTitle(): string {
-    if (effectiveDirectoryPrincipalType === 'group') return 'Directory group';
-    if (effectiveDirectoryPrincipalType === 'user') return 'Directory user';
-    return mode === 'directory_group' ? 'Directory group' : 'Directory user';
+    if (effectiveDirectoryPrincipalType === 'group') return t('Directory group');
+    if (effectiveDirectoryPrincipalType === 'user') return t('Directory user');
+    return mode === 'directory_group' ? t('Directory group') : t('Directory user');
   }
 
   function currentDirectoryBadge(): string {
-    if (effectiveDirectoryPrincipalType === 'group') return 'Group';
-    if (effectiveDirectoryPrincipalType === 'user') return 'AD/LDAP';
-    return mode === 'directory_group' ? 'Group' : 'AD/LDAP';
+    if (effectiveDirectoryPrincipalType === 'group') return t('Group');
+    if (effectiveDirectoryPrincipalType === 'user') return t('AD/LDAP');
+    return mode === 'directory_group' ? t('Group') : t('AD/LDAP');
   }
 </script>
 
 <div class="identity-wizard">
   <header class="identity-wizard__header">
     <div>
-      <h2 id="identity-wizard-title">Add identity</h2>
-      <p>Grant application access to a local account, AD user, or AD group.</p>
-      <p>This does not modify NTFS permissions.</p>
+      <h2 id="identity-wizard-title">{t('Add identity')}</h2>
+      <p>{t('Grant application access to a local account, AD user, or AD group.')}</p>
+      <p>{t('This does not modify NTFS permissions.')}</p>
     </div>
   </header>
 
-  <WizardSteps ariaLabel="Add identity steps" steps={[{ label: 'Choose type' }, { label: 'Configure' }]} current={step} />
+  <WizardSteps ariaLabel={t('Add identity steps')} steps={[{ label: t('Choose type') }, { label: t('Configure') }]} current={step} />
 
   {#if errorMessage}
     <div class="identity-wizard__error" role="alert">
@@ -477,7 +478,7 @@
 
   {#if step === 1}
     <section class="identity-wizard__step">
-      <h3>How do you want to add access?</h3>
+      <h3>{t('How do you want to add access?')}</h3>
       <div class="identity-wizard__cards">
         {#each modeCards as card}
           <button
@@ -505,39 +506,39 @@
     <section class="identity-wizard__step">
       <div class="identity-wizard__section-head">
         <div>
-          <h3>{mode === 'local' ? 'Local user' : currentDirectoryTitle()}</h3>
+          <h3>{mode === 'local' ? t('Local user') : currentDirectoryTitle()}</h3>
           <p>
             {#if mode === 'local'}
-              Create a new local account that is managed within BornToShare.
+              {t('Create a new local account that is managed within BornToShare.')}
             {:else if isSelectedGroup || mode === 'directory_group'}
-              Allow all members of an AD/LDAP group to sign in.
+              {t('Allow all members of an AD/LDAP group to sign in.')}
             {:else}
-              Import one user from a configured identity source.
+              {t('Import one user from a configured identity source.')}
             {/if}
           </p>
         </div>
-        <span class="identity-wizard__badge">{mode === 'local' ? 'Local' : currentDirectoryBadge()}</span>
+        <span class="identity-wizard__badge">{mode === 'local' ? t('Local') : currentDirectoryBadge()}</span>
       </div>
 
       {#if mode === 'local'}
         <div class="identity-wizard__form-grid">
           <label>
-            <span>Username *</span>
-            <input bind:value={localUsername} maxlength="255" placeholder="e.g., jdoe" />
+            <span>{t('Username *')}</span>
+            <input bind:value={localUsername} maxlength="255" placeholder={t('e.g., jdoe')} />
             {#if localUsernameError}<small class="identity-wizard__field-error">{localUsernameError}</small>{/if}
           </label>
           <label>
-            <span>Display name *</span>
-            <input bind:value={localDisplayName} maxlength="255" placeholder="e.g., John Doe" />
+            <span>{t('Display name *')}</span>
+            <input bind:value={localDisplayName} maxlength="255" placeholder={t('e.g., John Doe')} />
             {#if localDisplayNameError}<small class="identity-wizard__field-error">{localDisplayNameError}</small>{/if}
           </label>
           <label>
-            <span>Email</span>
-            <input bind:value={localEmail} maxlength="255" placeholder="e.g., john.doe@example.com" />
+            <span>{t('Email')}</span>
+            <input bind:value={localEmail} maxlength="255" placeholder={t('e.g., john.doe@example.com')} />
           </label>
           <label>
-            <span>Temporary password *</span>
-            <input bind:value={localPassword} type="password" maxlength="255" placeholder="Enter a strong password" />
+            <span>{t('Temporary password *')}</span>
+            <input bind:value={localPassword} type="password" maxlength="255" placeholder={t('Enter a strong password')} />
             {#if localPasswordError}<small class="identity-wizard__field-error">{localPasswordError}</small>{/if}
           </label>
         </div>
@@ -545,34 +546,34 @@
         <label class="identity-wizard__checkbox">
           <input bind:checked={requirePasswordChange} type="checkbox" />
           <span>
-            <strong>Require password change at first login</strong>
-            <small>User will be forced to change their password on first sign-in.</small>
+            <strong>{t('Require password change at first login')}</strong>
+            <small>{t('User will be forced to change their password on first sign-in.')}</small>
           </span>
         </label>
       {:else}
         <div class="identity-wizard__form-grid">
           <label>
-            <span>Identity source *</span>
+            <span>{t('Identity source *')}</span>
             <select bind:value={selectedSourceId} on:change={handleSourceChange}>
               {#each adSources as source}
-                <option value={source.id}>{source.name ?? `Identity source #${source.id}`}</option>
+                <option value={source.id}>{source.name ?? t('Identity source #{id}', { id: source.id })}</option>
               {/each}
             </select>
             {#if sourceError}<small class="identity-wizard__field-error">{sourceError}</small>{/if}
           </label>
           <label>
-            <span>{mode === 'directory_group' ? 'Search group *' : 'Search user *'}</span>
+            <span>{mode === 'directory_group' ? t('Search group *') : t('Search user *')}</span>
             <div class="identity-wizard__search-row">
               <div class="identity-wizard__search">
                 <input
                   bind:value={searchQuery}
-                  placeholder={mode === 'directory_group' ? 'Search by group name or DN' : 'Search by name, username or email'}
+                  placeholder={mode === 'directory_group' ? t('Search by group name or DN') : t('Search by name, username or email')}
                   on:input={scheduleSearch}
                 />
                 <i class="bi bi-search" aria-hidden="true"></i>
               </div>
               <button type="button" class="identity-wizard__browse" on:click={() => void openAdBrowser()}>
-                Browse directory
+                {t('Browse directory')}
               </button>
             </div>
             {#if principalError}<small class="identity-wizard__field-error">{principalError}</small>{/if}
@@ -580,7 +581,7 @@
         </div>
 
         {#if searchLoading}
-          <div class="identity-wizard__search-state">Searching directory...</div>
+          <div class="identity-wizard__search-state">{t('Searching directory...')}</div>
         {:else if searchResults.length}
           <div class="identity-wizard__results">
             {#each searchResults as item}
@@ -588,7 +589,7 @@
                 <span class="identity-wizard__result-avatar">{principalAvatar(item)}</span>
                 <span class="identity-wizard__result-body">
                   <strong>{principalTitle(item)}</strong>
-                  <small>{principalSubline(item) || (mode === 'directory_group' ? 'Directory group' : 'Directory user')}</small>
+                  <small>{principalSubline(item) || (mode === 'directory_group' ? t('Directory group') : t('Directory user'))}</small>
                   {#if principalThirdLine(item)}
                     <small>{principalThirdLine(item)}</small>
                   {/if}
@@ -598,13 +599,13 @@
           </div>
         {:else if !selectedPrincipal}
           <div class="identity-wizard__empty-state">
-            No directory {mode === 'directory_group' ? 'group' : 'user'} selected yet.
+            {t('No directory {value} selected yet.', { value: (mode === 'directory_group' ? 'group' : 'user') })}
           </div>
         {/if}
 
         {#if selectedPrincipal}
           <div class="identity-wizard__selection">
-            <div class="identity-wizard__selection-head">Selected {isSelectedGroup ? 'group' : 'user'}</div>
+            <div class="identity-wizard__selection-head">{t('Selected {value}', { value: (isSelectedGroup ? 'group' : 'user') })}</div>
             <div class="identity-wizard__selection-card">
               <span class="identity-wizard__result-avatar">{principalAvatar(selectedPrincipal)}</span>
               <div>
@@ -614,7 +615,7 @@
                   <small>{principalThirdLine(selectedPrincipal)}</small>
                 {/if}
               </div>
-              <button type="button" aria-label="Clear selection" on:click={clearSelection}>
+              <button type="button" aria-label={t('Clear selection')} on:click={clearSelection}>
                 <i class="bi bi-x-lg"></i>
               </button>
             </div>
@@ -625,9 +626,9 @@
           <i class={`bi ${isSelectedGroup || mode === 'directory_group' ? 'bi-exclamation-triangle' : 'bi-info-circle'}`} aria-hidden="true"></i>
           <span>
             {#if isSelectedGroup || mode === 'directory_group'}
-              Members of this group will inherit the selected application role. NTFS permissions are not modified.
+              {t('Members of this group will inherit the selected application role. NTFS permissions are not modified.')}
             {:else}
-              The user will be able to sign in to BornToShare using their directory credentials.
+              {t('The user will be able to sign in to BornToShare using their directory credentials.')}
             {/if}
           </span>
         </div>
@@ -635,7 +636,7 @@
 
       <div class="identity-wizard__role-section">
         <div class="identity-wizard__role-head">
-          <h4>{isSelectedGroup || mode === 'directory_group' ? 'Application role for group members *' : 'Application role *'}</h4>
+          <h4>{isSelectedGroup || mode === 'directory_group' ? t('Application role for group members *') : t('Application role *')}</h4>
           <p>{helperText()}</p>
         </div>
         <div class="identity-wizard__roles">
@@ -646,8 +647,8 @@
           >
             <span class="identity-wizard__role-icon"><i class="bi bi-person"></i></span>
             <span>
-              <strong>User</strong>
-              <small>Standard platform access.</small>
+              <strong>{t('User')}</strong>
+              <small>{t('Standard platform access.')}</small>
             </span>
             <i class={`bi ${applicationRole === 'user' ? 'bi-record-circle-fill' : 'bi-circle'}`}></i>
           </button>
@@ -658,8 +659,8 @@
           >
             <span class="identity-wizard__role-icon"><i class="bi bi-shield"></i></span>
             <span>
-              <strong>Platform Administrator</strong>
-              <small>Full platform administration.</small>
+              <strong>{t('Platform Administrator')}</strong>
+              <small>{t('Full platform administration.')}</small>
             </span>
             <i class={`bi ${applicationRole === 'platform_admin' ? 'bi-record-circle-fill' : 'bi-circle'}`}></i>
           </button>
@@ -675,15 +676,15 @@
     {#if step === 1}
       <div class="identity-wizard__footer-note">
         <i class="bi bi-info-circle" aria-hidden="true"></i>
-        <span>Application roles only: User and Platform Administrator. NTFS permissions are managed from Storage Roots.</span>
+        <span>{t('Application roles only: User and Platform Administrator. NTFS permissions are managed from Storage Roots.')}</span>
       </div>
       <div class="identity-wizard__footer-actions">
-        <button class="identity-wizard__ghost" type="button" on:click={onCancel}>Cancel</button>
+        <button class="identity-wizard__ghost" type="button" on:click={onCancel}>{t('Cancel')}</button>
       </div>
     {:else}
       <div class="identity-wizard__footer-actions">
-        <button class="identity-wizard__ghost" type="button" on:click={onCancel}>Cancel</button>
-        <button class="identity-wizard__ghost" type="button" on:click={handleBack}>Back</button>
+        <button class="identity-wizard__ghost" type="button" on:click={onCancel}>{t('Cancel')}</button>
+        <button class="identity-wizard__ghost" type="button" on:click={handleBack}>{t('Back')}</button>
         <button
           class="identity-wizard__primary"
           type="button"
@@ -707,15 +708,15 @@
   onSelect={onSelectFromAdBrowser}
   identitySources={[]}
   initialSourceId={selectedSourceId}
-  title="Browse Active Directory"
-  subtitle="Select a directory user or group to grant application access."
+  title={t('Browse Active Directory')}
+  subtitle={t('Select a directory user or group to grant application access.')}
   mode="single"
   allowRoleAssignment={false}
   allowedPrincipalType="all"
   includeImportCandidates={true}
   busy={submitting}
-  confirmLabel="Use selected"
-  confirmBusyLabel="Applying..."
+  confirmLabel={t('Use selected')}
+  confirmBusyLabel={t('Applying...')}
 />
 
 <style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
   import { onDestroy, onMount } from 'svelte';
   import { browser } from '$app/environment';
@@ -503,7 +504,7 @@
   };
 
   const rootAvailabilityText = () => {
-    if (!selectedRow) return 'Unknown';
+    if (!selectedRow) return t('Unknown');
     return rootAvailabilityLabel(effectiveAvailabilityForRow(selectedRow));
   };
 
@@ -527,7 +528,7 @@
       selectedEndpoint()?.last_probe_at ??
       (selectedRow ? endpointProbeTimestampForRoot(selectedRow) : null) ??
       null;
-    if (!raw) return 'Never run';
+    if (!raw) return t('Never run');
     return formatDateTimeLabel(raw);
   };
 
@@ -595,7 +596,7 @@
 
   const showSelectedStatusBadge = () => {
     const status = rootAvailabilityText();
-    return status !== 'Reachable' && status !== 'Unknown';
+    return status !== t('Reachable') && status !== t('Unknown');
   };
 
   const selectDetailTab = (tab: StorageRootsDetailTab) => {
@@ -619,7 +620,7 @@
 
   function openEditRoot() {
     if (!selectedRow) {
-      toast.warning('Select a storage root first');
+      toast.warning(t('Select a storage root first'));
       return;
     }
     editingRoot = selectedRow;
@@ -629,7 +630,7 @@
 
   function openDeleteRoot(root: any) {
     if (!canDeleteStorageRoot()) {
-      toast.error('Only administrators can delete storage roots');
+      toast.error(t('Only administrators can delete storage roots'));
       return;
     }
     editingRoot = root;
@@ -640,11 +641,11 @@
     try {
       if (rootModalMode === 'edit' && editingRoot?.storage_root_id) {
         await updateStorageRoot(fetch, Number(editingRoot.storage_root_id), payload as StorageRootUpdatePayload);
-        toast.success('Storage root updated');
+        toast.success(t('Storage root updated'));
         await goto(`/storage-roots?selected=${Number(editingRoot.storage_root_id)}`, { replaceState: true });
       } else {
         const created = await createStorageRoot(fetch, payload as StorageRootCreatePayload);
-        toast.success('Storage root created');
+        toast.success(t('Storage root created'));
         await goto(`/storage-roots?selected=${created.id}`, { replaceState: true });
       }
 
@@ -655,14 +656,14 @@
         await invalidateAndReloadDetailsForRoot(selectedStorageRootId);
       }
     } catch {
-      toast.error('Storage root operation failed');
+      toast.error(t('Storage root operation failed'));
     }
   }
 
   async function confirmDeleteRoot() {
     if (!editingRoot?.storage_root_id) return;
     if (!canDeleteStorageRoot()) {
-      toast.error('Only administrators can delete storage roots');
+      toast.error(t('Only administrators can delete storage roots'));
       return;
     }
 
@@ -688,7 +689,7 @@
       storageRootsUiStore.setSelectedStorageRootId(null);
       await goto('/storage-roots', { replaceState: true });
       await refreshStorageRootsLoad();
-      toast.success('Storage root deleted');
+      toast.success(t('Storage root deleted'));
     } catch (e) {
       if (isDependencyDeleteError(e)) {
         rootModalOpen = false;
@@ -719,7 +720,7 @@
   function openCreateRoot() {
     const endpointRows = Array.isArray(data.endpoints) ? data.endpoints : [];
     if (endpointRows.length === 0) {
-      toast.warning('No storage endpoint available to create a storage root');
+      toast.warning(t('No storage endpoint available to create a storage root'));
       return;
     }
 
@@ -796,7 +797,7 @@
     const protocolRaw = String(endpoint?.protocol ?? endpoint?.type ?? endpoint?.storage_endpoint_type ?? '').trim().toLowerCase();
     const protocol = endpointProtocolOf(endpoint);
     const probeConfig = resolveStorageEndpointProbeConfig(endpoint);
-    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: 'Storage endpoint' });
+    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Storage endpoint') });
 
     if (!Number.isFinite(endpointId) || endpointId <= 0 || (protocolRaw !== 'smb' && protocolRaw !== 'cifs') || !validation.ok) {
       return discoveredFoldersByEndpointId[endpointId] ?? [];
@@ -816,7 +817,7 @@
     });
 
     if (!final.ok) {
-      throw new Error(final.errorMessage || `Discovery failed for endpoint ${endpointNameOf(endpoint)}`);
+      throw new Error(final.errorMessage || t('Discovery failed for endpoint {endpointNameOf}', { endpointNameOf: endpointNameOf(endpoint) }));
     }
 
     await syncStorageRootDiscoveryForEndpoint(fetch, endpointId, final.result);
@@ -835,13 +836,13 @@
   async function handleTriggerEndpointDiscovery(zoneId: string | number, endpointIdRaw: string | number) {
     const endpointId = Number(endpointIdRaw ?? 0);
     if (!Number.isFinite(endpointId) || endpointId <= 0) {
-      toast.warning('Invalid storage endpoint selected');
+      toast.warning(t('Invalid storage endpoint selected'));
       return;
     }
 
     const endpoint = (Array.isArray(data.endpoints) ? data.endpoints : []).find((row: any) => endpointIdOf(row) === endpointId);
     if (!endpoint) {
-      toast.warning('Storage endpoint not found');
+      toast.warning(t('Storage endpoint not found'));
       return;
     }
 
@@ -873,7 +874,7 @@
       addRootSelectedZoneId = zoneId;
       addRootSelectedEndpointId = endpointId;
       addRootSelectedFolderId = null;
-      toast.success(`${discovered.length} storage root(s) found`);
+      toast.success(t('{count} storage root(s) found', { count: discovered.length }));
     } catch (e: any) {
       endpointDiscoveryStateById = {
         ...endpointDiscoveryStateById,
@@ -969,7 +970,7 @@
   async function createStorageRootFromSelection(options: { inheritGovernance?: boolean; folderIds?: Array<string | number> } = {}) {
     const selectedFolders = selectedAddRootFolders(options.folderIds ?? addRootSelectedFolderIds);
     if (selectedFolders.length === 0) {
-      toast.warning('Select a discovered folder first');
+      toast.warning(t('Select a discovered folder first'));
       return;
     }
 
@@ -991,14 +992,14 @@
         createdRoots.push(created);
       }
 
-      toast.success(`${createdRoots.length} storage root${createdRoots.length > 1 ? 's' : ''} created`);
+      toast.success(t('{count} storage root{value} created', { count: createdRoots.length, value: (createdRoots.length > 1 ? 's' : '') }));
       detailsCache.clear();
       closeAddRootModal();
       const selectedCreatedId = createdRoots[0]?.id;
       await goto(selectedCreatedId ? `/storage-roots?selected=${selectedCreatedId}` : '/storage-roots', { replaceState: true });
       await refreshStorageRootsLoad();
     } catch {
-      toast.error('Storage root operation failed');
+      toast.error(t('Storage root operation failed'));
     } finally {
       addRootLoading = false;
     }
@@ -1171,11 +1172,11 @@
     fallback: string,
     status: 'success' | 'failed'
   ): string => {
-    const base = String(result?.message ?? fallback ?? '').trim() || (status === 'success' ? 'Probe completed' : 'Root probe failed');
+    const base = String(result?.message ?? fallback ?? '').trim() || (status === 'success' ? t('Probe completed') : t('Root probe failed'));
     const failureCode = String(result?.details?.failure_code ?? '').trim();
     const rootPath = String(result?.details?.root_path ?? '').trim();
     if (status === 'success') {
-      return base === 'SMB storage root reachable' ? 'Probe completed · SMB storage root reachable' : base;
+      return base === 'SMB storage root reachable' ? t('Probe completed · SMB storage root reachable') : base;
     }
     let message = base;
     if (failureCode && !message.includes(failureCode)) {
@@ -1205,13 +1206,13 @@
     rootProbeBusy = true;
     const startedAt = Date.now();
     const previousAclPermissionsCount = Number((overview as any)?.acl_freshness?.permissions_count ?? 0) || 0;
-    const rootDisplayName = String(selectedRow?.storage_root_name ?? selectedRow?.name ?? `Root #${rootId}`);
+    const rootDisplayName = String(selectedRow?.storage_root_name ?? selectedRow?.name ?? t('Root #{rootId}', { rootId }));
     const previousProbeState = rootProbeState(rootId);
     rootProbeStateByRootId = {
       ...rootProbeStateByRootId,
       [rootId]: {
         status: 'running',
-        message: discover ? 'Probe + ACL scan + discovery running' : 'Probe + ACL scan running',
+        message: discover ? t('Probe + ACL scan + discovery running') : t('Probe + ACL scan running'),
         lastRunAt: previousProbeState.lastRunAt,
         durationMs: null,
         jobId: null,
@@ -1241,7 +1242,7 @@
             [rootId]: {
               ...rootProbeState(rootId),
               status: snapshot.status === 'running' || snapshot.status === 'queued' ? 'running' : rootProbeState(rootId).status,
-              message: checks.length > 0 ? 'Probe steps received' : rootProbeState(rootId).message,
+              message: checks.length > 0 ? t('Probe steps received') : rootProbeState(rootId).message,
               checks
             }
           };
@@ -1337,7 +1338,7 @@
 
       if (discover) {
         const probeConfig = resolveStorageEndpointProbeConfig({ ...endpoint, storage_endpoint_id: endpointId });
-        const validation = validateStorageEndpointProbeConfig(probeConfig, { label: 'Root endpoint' });
+        const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Root endpoint') });
         if (!validation.ok) {
           throw new Error(validation.message ?? 'Invalid endpoint for discovery run');
         }
@@ -1482,7 +1483,7 @@
   const runSelectedRootProbe = async () => {
     try {
       await runRootProbe(true);
-      toast.success('Root probe OK: storage root is reachable');
+      toast.success(t('Root probe OK: storage root is reachable'));
     } catch (e: any) {
       toast.error(e?.message ?? 'Root probe failed');
     }
@@ -1490,7 +1491,7 @@
 
   const openAccessRequestModal = () => {
     if (!selectedStorageRootId) {
-      toast.warning('Select a storage root first');
+      toast.warning(t('Select a storage root first'));
       return;
     }
     void goto(`/access-requests?create=1&root=${encodeURIComponent(String(selectedStorageRootId))}`);
@@ -1543,7 +1544,7 @@
         severity: payload.severity ?? 'info',
         target_type: 'storage_root',
         target_id: rootId,
-        target_display: payload.targetDisplay ?? String(selectedRow?.storage_root_name ?? selectedRow?.name ?? `Root #${rootId}`),
+        target_display: payload.targetDisplay ?? String(selectedRow?.storage_root_name ?? selectedRow?.name ?? t('Root #{rootId}', { rootId })),
         context_json: payload.context ?? {},
         created_at: new Date().toISOString()
       },
@@ -1573,7 +1574,7 @@
         ...(payload.context ?? {}),
         message: payload.message,
         storage_root_id: rootId,
-        storage_root_name: String(selectedRow?.storage_root_name ?? selectedRow?.name ?? `Root #${rootId}`)
+        storage_root_name: String(selectedRow?.storage_root_name ?? selectedRow?.name ?? t('Root #{rootId}', { rootId }))
       }
     });
 
@@ -1590,7 +1591,7 @@
           ...(payload.context ?? {}),
           message: payload.message,
           storage_root_id: rootId,
-          storage_root_name: String(selectedRow?.storage_root_name ?? selectedRow?.name ?? `Root #${rootId}`)
+          storage_root_name: String(selectedRow?.storage_root_name ?? selectedRow?.name ?? t('Root #{rootId}', { rootId }))
         }
       });
     } catch {
@@ -1616,7 +1617,7 @@
       activityRows = [];
       activityLoadedForRootId = rootId;
       if ($storageRootsUiStore.detailTab === 'activity') {
-        toast.error('Unable to load storage root activity');
+        toast.error(t('Unable to load storage root activity'));
       }
     } finally {
       if (token === activityRequestToken) {
@@ -1655,7 +1656,7 @@
 
   async function openActivityTab() {
     if (!selectedStorageRootId) {
-      toast.warning('Select a storage root first');
+      toast.warning(t('Select a storage root first'));
       return;
     }
 
@@ -1765,8 +1766,8 @@
 
   const governanceOwnerTypeLabel = (owner: Record<string, any>) => {
     const value = String(owner?.identity_type ?? owner?.type ?? '').trim().toLowerCase();
-    if (value.includes('group')) return 'Group';
-    return 'User';
+    if (value.includes('group')) return t('Group');
+    return t('User');
   };
 
   $: governanceRoleRows = buildGovernanceOwnersDraftForRole(
@@ -1846,7 +1847,7 @@
 
   function openGovernanceDrawer(role: 'guardian' = 'guardian') {
     if (!selectedStorageRootId) {
-      toast.warning('Select a storage root first');
+      toast.warning(t('Select a storage root first'));
       return;
     }
     governanceRoleTab = role;
@@ -1861,7 +1862,7 @@
 
   async function openOwnersBrowser(role: 'guardian') {
     if (!selectedStorageRootId) {
-      toast.warning('Select a storage root first');
+      toast.warning(t('Select a storage root first'));
       return;
     }
     governanceRoleTab = role;
@@ -1927,7 +1928,7 @@
           unresolved_principal_labels: governanceUnresolvedPrincipalLabels
         }
       });
-      toast.success('Selection updated. Save changes to persist.');
+      toast.success(t('Selection updated. Save changes to persist.'));
     }
   }
 
@@ -1970,7 +1971,7 @@
   async function saveGovernanceChanges() {
     if (!selectedStorageRootId || governanceSaving) return;
     if (!governanceHasDraftChanges()) {
-      toast.info('No pending governance changes');
+      toast.info(t('No pending governance changes'));
       return;
     }
     governanceSaving = true;
@@ -1985,12 +1986,12 @@
       showOwnersBrowserModal = false;
       showGovernanceDrawer = false;
       await invalidateAndReloadDetailsForRoot(selectedStorageRootId);
-      toast.success('Governance changes saved');
+      toast.success(t('Governance changes saved'));
     } catch (e: any) {
       const rawMessage = String(e?.message ?? '').trim();
       const hasSnapshotConstraint = /active snapshot|enabled users|invalid identity ids/i.test(rawMessage);
       governanceError = hasSnapshotConstraint
-        ? 'Some selected users are not eligible in the active identity snapshot. Re-open Browse directory and select enabled users from the current snapshot.'
+        ? t('Some selected users are not eligible in the active identity snapshot. Re-open Browse directory and select enabled users from the current snapshot.')
         : rawMessage || 'Unable to update guardians';
       toast.error(governanceError);
     } finally {
@@ -2096,15 +2097,15 @@
     editingRoot = null;
   }}
   onConfirm={confirmDeleteRoot}
-  title="Delete storage root"
-  description="This will remove the storage root from governance."
-  impactTitle="Storage root"
+  title={t('Delete storage root')}
+  description={t('This will remove the storage root from governance.')}
+  impactTitle={t('Storage root')}
   impactItems={[
-    `Name: ${String(editingRoot?.display_name ?? editingRoot?.storage_root_name ?? editingRoot?.name ?? 'Storage root')}`,
-    `Path: ${String(editingRoot?.root_path ?? editingRoot?.locator ?? editingRoot?.path ?? '—')}`,
+    t('Name: {String}', { String: String(editingRoot?.display_name ?? editingRoot?.storage_root_name ?? editingRoot?.name ?? t('Storage root')) }),
+    t('Path: {String}', { String: String(editingRoot?.root_path ?? editingRoot?.locator ?? editingRoot?.path ?? '—') }),
     'The storage root governance record will be permanently deleted.'
   ]}
-  deleteLabel="Delete"
+  deleteLabel={t('Delete')}
 />
 
 <StorageRootTagsDrawer
@@ -2119,10 +2120,10 @@
 <EntityAlertDrawer
   open={showAlertsDrawer}
   onClose={() => (showAlertsDrawer = false)}
-  title="Storage root alerts"
-  subtitle={`Storage root · ${String(selectedRow?.storage_root_name ?? selectedRow?.storage_root_code ?? '—')}`}
+  title={t('Storage root alerts')}
+  subtitle={t('Storage root · {String}', { String: String(selectedRow?.storage_root_name ?? selectedRow?.storage_root_code ?? '—') })}
   items={selectedRootAlerts}
-  emptyLabel="No alert found for this storage root."
+  emptyLabel={t('No alert found for this storage root.')}
   ariaLabelledby="sr-alerts-drawer-title"
   width="640px"
   topOffset="70px"
@@ -2130,8 +2131,8 @@
 
 <StorageRootEffectiveAccessModal
   open={showEffectiveAccessModal}
-  title={effectiveAccessModalLevel === 'write' ? 'Users with WRITE access' : 'Users with READ access'}
-  contextLabel={`Storage • ${selectedRow?.zone_name ?? '—'} • ${selectedRow?.storage_root_name ?? '—'}`}
+  title={effectiveAccessModalLevel === 'write' ? t('Users with WRITE access') : t('Users with READ access')}
+  contextLabel={t('Storage • {value} • {value2}', { value: (selectedRow?.zone_name ?? '—'), value2: (selectedRow?.storage_root_name ?? '—') })}
   membersCount={effectiveUsersByLevel(effectiveAccessModalLevel).length}
   level={effectiveAccessModalLevel}
   users={effectiveUsersByLevel(effectiveAccessModalLevel)}
@@ -2150,7 +2151,7 @@
   loading={governanceLoading}
   roleTab={governanceRoleTab}
   draftDirty={governanceDraftDirty}
-  selectedRootLabel={String(selectedRow?.storage_root_code ?? selectedRow?.storage_root_name ?? 'Storage root').trim().toUpperCase()}
+  selectedRootLabel={String(selectedRow?.storage_root_code ?? selectedRow?.storage_root_name ?? t('Storage root')).trim().toUpperCase()}
   helperText={GOVERNANCE_HELPER_TEXT[governanceRoleTab]}
   browseDisabled={governanceBrowseDisabled()}
   errorMessage={governanceError}

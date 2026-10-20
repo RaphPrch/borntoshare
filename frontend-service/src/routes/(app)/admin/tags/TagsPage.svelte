@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, intlLocale } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
   import { invalidateAll } from "$app/navigation";
 
@@ -26,14 +27,14 @@
 
   // Normalize core-service shape (id,name,color,usage) into UI shape (label,color_rgb)
   // so TagPill + modal edition always work.
-  $: tagsNorm = (data.tags ?? []).map((t: any) => ({
-    ...t,
-    label: t.label ?? t.name ?? t.code ?? "Tag",
-    color_rgb: t.color_rgb ?? t.color ?? null
+  $: tagsNorm = (data.tags ?? []).map((tag: any) => ({
+    ...tag,
+    label: tag.label ?? tag.name ?? tag.code ?? "Tag",
+    color_rgb: tag.color_rgb ?? tag.color ?? null
   }));
 
   let selectedId: number | null = null;
-  $: selectedTag = tagsNorm.find((t) => t.id === selectedId) ?? null;
+  $: selectedTag = tagsNorm.find((tag) => tag.id === selectedId) ?? null;
 
   let modalOpen = false;
   let modalMode: "create" | "edit" = "create";
@@ -92,17 +93,17 @@
     if (!raw) return "—";
     const d = new Date(String(raw));
     if (!Number.isFinite(d.getTime())) return "—";
-    return d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleString(intlLocale(), { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   };
 
   $: hasNameError = !form.name.trim();
   $: hasColorError = !isValidHexColor(form.color_rgb);
   $: canSubmit = !busy && !hasNameError && !hasColorError;
 
-  $: filteredTags = tagsNorm.filter((t: any) => {
+  $: filteredTags = tagsNorm.filter((tag: any) => {
     const q = normalizeText(searchQuery);
     if (!q) return true;
-    const haystack = [t?.label, t?.name, t?.code, t?.value_text]
+    const haystack = [tag?.label, tag?.name, tag?.code, tag?.value_text]
       .map((v) => normalizeText(v))
       .join(" ");
     return haystack.includes(q);
@@ -142,7 +143,7 @@
       variant: "danger",
       disabled: !selectedTag || getUsage(selectedTag) > 0,
       title: !selectedTag
-        ? 'Select a tag first'
+        ? t('Select a tag first')
         : getUsage(selectedTag) > 0
           ? dependencyCountDeleteMessage("tag", getUsage(selectedTag), "resource")
           : undefined,
@@ -282,29 +283,29 @@
 </script>
 
 <section class="tags-page">
-  <PageHeader title="Tags" subtitle="All created tags are listed here.">
+  <PageHeader title={t('Tags')} subtitle={t('All created tags are listed here.')}>
     <svelte:fragment slot="actions">
-      <EntityActionGroup actions={tagActions} ariaLabel="Tag actions" />
+      <EntityActionGroup actions={tagActions} ariaLabel={t('Tag actions')} />
     </svelte:fragment>
   </PageHeader>
 
   <section class="tags-toolbar">
     <SearchField
       wrapperClass="tags-search"
-      placeholder="Search by name, code, or value"
-      ariaLabel="Search for a tag"
+      placeholder={t('Search by name, code, or value')}
+      ariaLabel={t('Search for a tag')}
       bind:value={searchQuery}
     />
     <div class="tags-sort">
       <select bind:value={sortBy}>
-        <option value="name">Trier: Nom</option>
-        <option value="usage">Trier: Usage</option>
-        <option value="updated">Sort: Last updated</option>
+        <option value="name">{t('Trier: Nom')}</option>
+        <option value="usage">{t('Trier: Usage')}</option>
+        <option value="updated">{t('Sort: Last updated')}</option>
       </select>
       <EntityActionButton
         variant="secondary"
         icon={sortDir === 'asc' ? 'bi-sort-down' : 'bi-sort-up'}
-        label={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+        label={sortDir === 'asc' ? t('Ascending') : t('Descending')}
         className="tags-sort-dir-btn"
         onClick={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}
       />
@@ -313,10 +314,10 @@
 
   <section class="tags-table">
     <div class="tags-table-head">
-      <span>Tag</span>
-      <span>Code</span>
-      <span>Usage</span>
-      <span>Updated</span>
+      <span>{t('Tag')}</span>
+      <span>{t('Code')}</span>
+      <span>{t('Usage')}</span>
+      <span>{t('Updated')}</span>
     </div>
 
     <div class="tags-table-body">
@@ -349,7 +350,7 @@
             }}
           >
             <div class="tag-cell">
-              <TagPill label={tag.label ?? tag.name ?? tag.code ?? 'Tag'} color={tag.color_rgb ?? null} />
+              <TagPill label={tag.label ?? tag.name ?? tag.code ?? t('Tag')} color={tag.color_rgb ?? null} />
             </div>
             <div class="tag-code">{tag.code ?? '—'}</div>
             <div class="tag-usage">{getUsage(tag)}</div>
@@ -360,9 +361,9 @@
         <div class="tags-empty">
           <EmptyState
             iconClass="bi bi-tags"
-            title="No tags found"
-            description="Create a tag or adjust your search."
-            ctaLabel="Create tag"
+            title={t('No tags found')}
+            description={t('Create a tag or adjust your search.')}
+            ctaLabel={t('Create tag')}
             onCta={openCreate}
           />
         </div>
@@ -376,7 +377,7 @@
     class="tag-modal-backdrop"
     role="button"
     tabindex="0"
-    aria-label="Close dialog"
+    aria-label={t('Close dialog')}
     on:click={() => (modalOpen = false)}
     on:keydown={(e) =>
       (e.key === "Enter" || e.key === " ") && (e.preventDefault(), (modalOpen = false))
@@ -392,13 +393,13 @@
     >
       <header class="tag-modal__header">
         <div>
-          <h2>{modalMode === "create" ? "Create tag" : "Edit tag"}</h2>
-          <p>Define and create a customizable tag for your resources.</p>
+          <h2>{modalMode === "create" ? t('Create tag') : t('Edit tag')}</h2>
+          <p>{t('Define and create a customizable tag for your resources.')}</p>
         </div>
         <button
           class="tag-modal__close"
           type="button"
-          aria-label="Close"
+          aria-label={t('Close')}
           on:click={() => (modalOpen = false)}
         >
           ×
@@ -406,18 +407,18 @@
       </header>
 
       <section class="tag-modal__section">
-          <label for="tag-name">Tag name</label>
+          <label for="tag-name">{t('Tag name')}</label>
           <input
             id="tag-name"
             class="tag-input"
-            placeholder="e.g. Sensitive"
+            placeholder={t('e.g. Sensitive')}
             bind:value={form.name}
           />
       </section>
 
       <section class="tag-modal__grid">
           <div class="tag-card">
-            <div class="tag-card__title">Tag color</div>
+            <div class="tag-card__title">{t('Tag color')}</div>
             <div class="tag-palette">
               {#each palette as color}
                 <button
@@ -426,12 +427,12 @@
                   class:active={form.color_rgb === color}
                   style={`background:${color}`}
                   on:click={() => (form.color_rgb = color)}
-                  aria-label={`Color ${color}`}
+                  aria-label={t('Color {color}', { color })}
                 ></button>
               {/each}
             </div>
             <div class="tag-custom">
-              <span class="tag-custom__label">Custom…</span>
+              <span class="tag-custom__label">{t('Custom…')}</span>
               <input
                 class="tag-input tag-input--compact"
                 placeholder="#3fa9f5"
@@ -442,12 +443,12 @@
       </section>
 
       <section class="tag-card tag-card--wide">
-          <div class="tag-card__title">Value</div>
-          <p class="tag-card__subtitle">Create one or more predefined values for this tag</p>
+          <div class="tag-card__title">{t('Value')}</div>
+          <p class="tag-card__subtitle">{t('Create one or more predefined values for this tag')}</p>
           <div class="tag-value-row">
             <input
               class="tag-input"
-              placeholder="e.g. Confidential"
+              placeholder={t('e.g. Confidential')}
               bind:value={valueInput}
               on:keydown={(e) => {
                 if (e.key === "Enter") {
@@ -461,7 +462,7 @@
               type="button"
               on:click={addValueItem}
             >
-              Add value
+              {t('Add value')}
             </button>
           </div>
           {#if valueItems.length > 0}
@@ -471,7 +472,7 @@
                   {item}
                   <button
                     type="button"
-                    aria-label="Remove value"
+                    aria-label={t('Remove value')}
                     on:click={() => removeValueItem(item)}
                   >
                     ×
@@ -480,7 +481,7 @@
               {/each}
             </div>
           {/if}
-          <div class="tag-card__hint">Suggested: Public, Sensitive, Private, Archived</div>
+          <div class="tag-card__hint">{t('Suggested: Public, Sensitive, Private, Archived')}</div>
       </section>
 
       {#if errorMsg}
@@ -488,11 +489,11 @@
       {/if}
 
       <footer class="tag-modal__footer">
-        <EntityActionButton variant="ghost" label="Cancel" onClick={() => (modalOpen = false)} />
+        <EntityActionButton variant="ghost" label={t('Cancel')} onClick={() => (modalOpen = false)} />
         <EntityActionButton
           variant="primary"
           busy={busy}
-          label={modalMode === "create" ? "Create" : "Save changes"}
+          label={modalMode === "create" ? t('Create') : t('Save changes')}
           onClick={handleSubmit}
         />
       </footer>
@@ -505,20 +506,20 @@
   onClose={closeDeleteConfirm}
   onConfirm={handleDelete}
   ariaLabelledby="tags-delete-modal-title"
-  title="Delete tag"
+  title={t('Delete tag')}
   description={selectedTag?.label ?? selectedTag?.name ?? null}
-  impactTitle="Consequences"
+  impactTitle={t('Consequences')}
   impactItems={[
     'Irreversible deletion of this tag.',
     'Associated governance references must be recreated if needed.'
   ]}
-  deleteLabel="Delete"
-  deleteBusyLabel="Deleting…"
+  deleteLabel={t('Delete')}
+  deleteBusyLabel={t('Deleting…')}
   busy={busy}
   requireTextConfirm={true}
-  requiredText="DELETE"
-  textConfirmLabel="Type"
-  textConfirmPlaceholder="DELETE"
+  requiredText=DELETE
+  textConfirmLabel={t('Type')}
+  textConfirmPlaceholder=DELETE
 />
 
 <style>

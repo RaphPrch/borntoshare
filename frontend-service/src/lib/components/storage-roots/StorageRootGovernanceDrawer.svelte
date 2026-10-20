@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import StorageRootDrawerShell from './StorageRootDrawerShell.svelte';
   import StorageRootAssignedPrincipalCard from './StorageRootAssignedPrincipalCard.svelte';
   import SectionHeaderRow from '../ui/SectionHeaderRow.svelte';
@@ -19,12 +20,12 @@
   export let draftDirty = false;
   export let canSave = false;
   export let unsavedChangesCount = 0;
-  export let selectedRootLabel = 'Storage root';
+  export let selectedRootLabel = t('Storage root');
   export let helperText = '';
   export let browseDisabled = false;
   export let errorMessage: string | null = null;
   export let unresolvedPrincipalLabels: string[] = [];
-  export let emptyTitle = 'No guardian assigned yet';
+  export let emptyTitle = t('No guardian assigned yet');
   export let roleRows: Array<Record<string, unknown>> = [];
 
   export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => 'Unknown';
@@ -35,13 +36,13 @@
   const unsavedLabel = () =>
     Math.max(1, Math.trunc(unsavedChangesCount || 0)) === 1
       ? '1 unsaved change'
-      : `${Math.max(1, Math.trunc(unsavedChangesCount || 0))} unsaved changes`;
+      : t('{value} unsaved changes', { value: (Math.max(1, Math.trunc(unsavedChangesCount || 0))) });
 </script>
 
 <StorageRootDrawerShell
   {open}
   {onClose}
-  title="Guardians"
+  title={t('Guardians')}
   subtitle={selectedRootLabel}
   ariaLabelledby="sr-governance-drawer-title"
   width="660px"
@@ -51,21 +52,21 @@
 >
   <div class="governance-drawer">
     <div class="governance-drawer__supporting-block">
-      <p class="governance-drawer__supporting-line">Manage governance owners</p>
+      <p class="governance-drawer__supporting-line">{t('Manage governance owners')}</p>
     </div>
 
     <div
       id="sr-governance-assigned-section"
       class="governance-drawer__section"
       role="tabpanel"
-      aria-label="Assigned guardians"
+      aria-label={t('Assigned guardians')}
     >
       <SectionHeaderRow title={assignedSectionTitle()} count={roleRows.length} compact={true}>
         <svelte:fragment slot="actions">
           <EntityActionButton
             variant="primary"
             icon="bi-search"
-            label="Browse directory"
+            label={t('Browse directory')}
             className="governance-drawer__browse"
             disabled={browseDisabled}
             onClick={() => onBrowse(roleTab)}
@@ -82,22 +83,21 @@
       {#if unresolvedPrincipalLabels.length > 0}
         <article class="governance-drawer__warning" role="status" aria-live="polite">
           <strong>
-            {unresolvedPrincipalLabels.length} selected identit{unresolvedPrincipalLabels.length > 1 ? 'ies were' : 'y was'} not resolved.
-            You can still save resolved assignments.
+            {t('{unresolvedPrincipalLabelsCount} selected identit{value} not resolved. You can still save resolved assignments.', { unresolvedPrincipalLabelsCount: unresolvedPrincipalLabels.length, value: (unresolvedPrincipalLabels.length > 1 ? 'ies were' : 'y was') })}
           </strong>
           <ul>
             {#each unresolvedPrincipalLabels.slice(0, 6) as label}
               <li>{label}</li>
             {/each}
             {#if unresolvedPrincipalLabels.length > 6}
-              <li>+{unresolvedPrincipalLabels.length - 6} more</li>
+              <li>{t('+{value} more', { value: (unresolvedPrincipalLabels.length - 6) })}</li>
             {/if}
           </ul>
         </article>
       {/if}
 
       {#if loading && roleRows.length === 0}
-        <div class="governance-drawer__loading" role="status" aria-live="polite">Loading assignments…</div>
+        <div class="governance-drawer__loading" role="status" aria-live="polite">{t('Loading assignments…')}</div>
       {:else if roleRows.length === 0}
         <div class="governance-drawer__empty">
           <EmptyState
@@ -109,7 +109,7 @@
       {:else}
         {#if loading}
           <div class="governance-drawer__loading governance-drawer__loading--inline" role="status" aria-live="polite">
-            Refreshing assignments…
+            {t('Refreshing assignments…')}
           </div>
         {/if}
         <div class="governance-drawer__list">
@@ -134,10 +134,10 @@
         infoText={draftDirty ? unsavedLabel() : null}
         showInfoDot={draftDirty}
       >
-        <EntityActionButton variant="secondary" label="Cancel" disabled={saving} onClick={onClose} />
+        <EntityActionButton variant="secondary" label={t('Cancel')} disabled={saving} onClick={onClose} />
         <EntityActionButton
           variant="primary"
-          label={saving ? 'Saving…' : 'Save changes'}
+          label={saving ? t('Saving…') : t('Save changes')}
           icon={saving ? 'bi-arrow-repeat' : 'bi-check2'}
           busy={saving}
           disabled={saving || !canSave}

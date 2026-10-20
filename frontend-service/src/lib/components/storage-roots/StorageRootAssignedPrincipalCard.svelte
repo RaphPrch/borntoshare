@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityRowCard from '../ui/EntityRowCard.svelte';
   import IconTile from '../ui/IconTile.svelte';
   import { mapGovernanceOwnerToCardVM } from '../../mappers/governance-owners.mapper';
@@ -38,8 +39,8 @@
         class="assigned-principal-card__remove"
         on:click={() => onRemove(owner)}
         disabled={saving}
-        aria-label={`Remove ${role}`}
-        title={`Remove ${role}`}
+        aria-label={t('Remove {role}', { role })}
+        title={t('Remove {role}', { role })}
       >
         <i class="bi bi-x-lg"></i>
       </button>

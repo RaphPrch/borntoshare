@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
   import { onDestroy } from 'svelte';
   import { cancelAdminJob, listAdminJobs, type AdminProvisioningJob } from '$lib/api/admin-jobs';
@@ -88,11 +89,11 @@
   const cancelJob = async (job: AdminProvisioningJob) => {
     const jobId = Number(job?.id ?? 0);
     if (!Number.isFinite(jobId) || jobId <= 0) {
-      toast.warning('Identifiant de job invalide');
+      toast.warning(t('Identifiant de job invalide'));
       return;
     }
     if (!canCancel(job)) {
-      toast.warning('This job is already terminal');
+      toast.warning(t('This job is already terminal'));
       return;
     }
 
@@ -102,11 +103,11 @@
         reason: 'Cancelled by operator from observability/jobs',
         source: 'ui'
       });
-      toast.success(`Job #${jobId} canceled`);
+      toast.success(t('Job #{jobId} canceled', { jobId }));
       await refreshJobs(true);
     } catch (error: unknown) {
       const appError = toAppError(error, { source: 'ui' });
-      toast.error(appError.message || `Unable to cancel job #${jobId}`);
+      toast.error(appError.message || t('Unable to cancel job #{jobId}', { jobId }));
     } finally {
       isCancelling = false;
     }
@@ -147,17 +148,17 @@
 <div class="container-fluid jobs-page">
   <div class="jobs-head">
     <div>
-      <h1 class="jobs-title">Jobs</h1>
-      <div class="jobs-subtitle">Monitoring provisioning jobs and operator cancellations</div>
+      <h1 class="jobs-title">{t('Jobs')}</h1>
+      <div class="jobs-subtitle">{t('Monitoring provisioning jobs and operator cancellations')}</div>
     </div>
-    <div class="jobs-updated">Updated {formatDateTime(updatedAt, { seconds: true })}</div>
+    <div class="jobs-updated">{t('Updated {formatDateTime}', { formatDateTime: formatDateTime(updatedAt, { seconds: true }) })}</div>
   </div>
 
   <div class="card b2s-card jobs-summary">
     <div class="card-body d-flex flex-wrap align-items-center gap-3">
-      <span class="summary-pill summary-pill--running">Active: {activeCount}</span>
-      <span class="summary-pill summary-pill--neutral">Total: {jobs.length}</span>
-      <span class="summary-pill summary-pill--error">Terminaux: {terminalCount}</span>
+      <span class="summary-pill summary-pill--running">{t('Active: {activeCount}', { activeCount })}</span>
+      <span class="summary-pill summary-pill--neutral">{t('Total: {jobsCount}', { jobsCount: jobs.length })}</span>
+      <span class="summary-pill summary-pill--error">{t('Terminaux: {terminalCount}', { terminalCount })}</span>
     </div>
   </div>
 
@@ -167,11 +168,11 @@
         <input
           class="form-control form-control-sm"
           style="min-width: 280px"
-          placeholder="Filtrer par id/correlation/type/action/erreur"
+          placeholder={t('Filtrer par id/correlation/type/action/erreur')}
           bind:value={query}
         />
         <select class="form-select form-select-sm" style="width: 190px" bind:value={statusFilter}>
-          <option value="all">All statuses</option>
+          <option value="all">{t('All statuses')}</option>
           <option value="QUEUED">QUEUED</option>
           <option value="RUNNING">RUNNING</option>
           <option value="RETRYING">RETRYING</option>
@@ -182,7 +183,7 @@
       </div>
 
       <button class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => refreshJobs(false)} disabled={isLoading || isCancelling}>
-        Refresh
+        {t('Refresh')}
       </button>
     </div>
   </div>
@@ -198,20 +199,20 @@
           <thead>
             <tr>
               <th>ID</th>
-              <th>Statut</th>
-              <th>Type</th>
-              <th>Action</th>
-              <th>Queue age (s)</th>
-              <th>Republish</th>
-              <th>Updated</th>
-              <th>Error</th>
-              <th class="text-end">Control</th>
+              <th>{t('Statut')}</th>
+              <th>{t('Type')}</th>
+              <th>{t('Action')}</th>
+              <th>{t('Queue age (s)')}</th>
+              <th>{t('Republish')}</th>
+              <th>{t('Updated')}</th>
+              <th>{t('Error')}</th>
+              <th class="text-end">{t('Control')}</th>
             </tr>
           </thead>
           <tbody>
             {#if filtered.length === 0}
               <tr>
-                <td colspan={9} class="jobs-empty">No job found.</td>
+                <td colspan={9} class="jobs-empty">{t('No job found.')}</td>
               </tr>
             {:else}
               {#each filtered as job (job.id)}
@@ -243,7 +244,7 @@
                       disabled={!canCancel(job) || isCancelling}
                       on:click={() => cancelJob(job)}
                     >
-                      Kill
+                      {t('Kill')}
                     </button>
                   </td>
                 </tr>

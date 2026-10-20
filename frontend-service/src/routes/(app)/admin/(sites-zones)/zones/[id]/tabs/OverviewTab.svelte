@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityOverviewPanel from "$lib/components/entity/EntityOverviewPanel.svelte";
   import EntityKpiRow from "$lib/components/entity/EntityKpiRow.svelte";
   import type { EntityKpiItem } from '$lib/components/entity/EntityKpiRow.svelte';
@@ -56,7 +57,7 @@
       key: "reachability",
       label: "Reachability",
       value: availabilityRate,
-      hint: `${healthSummary.reachableCount}/${healthSummary.endpointCount || 0} reachable`,
+      hint: t('{reachableCount}/{value} reachable', { reachableCount: healthSummary.reachableCount, value: (healthSummary.endpointCount || 0) }),
       tone: reachabilityTone,
       icon: "bi-heart-pulse"
     }
@@ -68,14 +69,14 @@
 <div class="zone-console__stack">
   <EntityOverviewLayout>
     <svelte:fragment slot="main">
-      <EntityOverviewPanel title="Overview KPIs" bodyClass="p-3">
-        <EntityKpiRow items={kpis} ariaLabel="Zone KPIs" />
+      <EntityOverviewPanel title={t('Overview KPIs')} bodyClass="p-3">
+        <EntityKpiRow items={kpis} ariaLabel={t('Zone KPIs')} />
       </EntityOverviewPanel>
 
-      <EntityOverviewPanel title="Endpoints" headClass="sed-panel__head--toolbar" bodyClass="p-3 pt-2">
+      <EntityOverviewPanel title={t('Endpoints')} headClass="sed-panel__head--toolbar" bodyClass="p-3 pt-2">
         <svelte:fragment slot="actions">
           <button type="button" class="zone-console__btn-ghost" on:click={() => onCreateEndpoint?.()}>
-            Add endpoint
+            {t('Add endpoint')}
           </button>
         </svelte:fragment>
         <ZoneEndpointsTable {endpoints} {probeResultsByEndpoint} onRunProbe={onRunEndpointProbe} />
@@ -84,7 +85,7 @@
 
     <svelte:fragment slot="side">
       <RecentActivityCard
-        title="Recent activity"
+        title={t('Recent activity')}
         items={latestActivity}
         max={5}
         onViewAll={onViewAllActivity}

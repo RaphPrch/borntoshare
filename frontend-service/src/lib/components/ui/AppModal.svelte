@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { fade, fly } from 'svelte/transition';
   import { onDestroy, tick } from 'svelte';
   import { browser } from '$app/environment';
@@ -11,7 +12,7 @@
   export let contentClass = 'b2s-modal-content';
   export let ariaLabelledby: string | null = null;
   export let role: 'dialog' | 'alertdialog' = 'dialog';
-  export let closeLabel = 'Close';
+  export let closeLabel = t('Close');
   export let showClose = true;
   export let closeClass = 'b2s-modal-close';
   export let closeOnBackdrop = true;

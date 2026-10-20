@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { StatusVariant } from '$lib/utils/status';
 
 type EndpointOperationalState =
@@ -18,11 +19,11 @@ function normalizeEndpointOperationalState(value: unknown): EndpointOperationalS
 
 export function endpointOperationalStateLabel(value: unknown): string {
   const state = normalizeEndpointOperationalState(value);
-  if (state === 'reachable') return 'Reachable';
-  if (state === 'checking') return 'Checking';
-  if (state === 'unreachable') return 'Unreachable';
-  if (state === 'disabled') return 'Disabled';
-  return 'Unknown';
+  if (state === 'reachable') return t('Reachable');
+  if (state === 'checking') return t('Checking');
+  if (state === 'unreachable') return t('Unreachable');
+  if (state === 'disabled') return t('Disabled');
+  return t('Unknown');
 }
 
 export function endpointOperationalStateVariant(value: unknown): StatusVariant {

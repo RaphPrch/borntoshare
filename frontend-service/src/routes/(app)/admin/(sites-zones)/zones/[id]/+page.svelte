@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, intlLocale } from '$lib/i18n';
   import { onDestroy, onMount } from "svelte";
   import { browser } from "$app/environment";
   import { goto } from "$app/navigation";
@@ -187,9 +188,9 @@
     resolveZoneBaseOu(data.provisioningPolicy) && resolveZoneNamingTemplate()
   );
   $: previewItems = [
-    `Zone OU source: enabled`,
-    `Zone OU: ${(normalizedPolicyDraft.base_ou_dn ?? "(empty)")}`,
-    `Naming template (managed in Naming Policies): ${resolveZoneNamingTemplate() || "(empty)"}`,
+    t('Zone OU source: enabled'),
+    t('Zone OU: {value}', { value: ((normalizedPolicyDraft.base_ou_dn ?? "(empty)")) }),
+    t('Naming template (managed in Naming Policies): {value}', { value: (resolveZoneNamingTemplate() || "(empty)") }),
   ];
   $: zoneProvisioningOverview = {
     namingPolicy: resolveZoneNamingTemplate() || "Not configured",
@@ -273,9 +274,9 @@
   $: hasAttachedEndpoints = endpoints.length > 0;
   $: hasAttachedStorageRoots = storageRoots.length > 0;
 
-  const zoneLabel = () => String(data.zone?.name ?? data.zone?.code ?? `Zone #${currentZoneId ?? "-"}`);
+  const zoneLabel = () => String(data.zone?.name ?? data.zone?.code ?? t('Zone #{value}', { value: (currentZoneId ?? "-") }));
   const storageRootId = (root: any) => Number(root?.storage_root_id ?? root?.id ?? 0);
-  const storageRootName = (root: any) => String(root?.name ?? root?.storage_root_name ?? `Storage root #${storageRootId(root)}`);
+  const storageRootName = (root: any) => String(root?.name ?? root?.storage_root_name ?? t('Storage root #{storageRootId}', { storageRootId: storageRootId(root) }));
 
   onMount(() => {
     if (!browser) return;
@@ -403,7 +404,7 @@
     if (!text) return "Never run";
     const date = new Date(text);
     if (!Number.isFinite(date.getTime())) return "Never run";
-    return date.toLocaleString("en-GB", {
+    return date.toLocaleString(intlLocale(), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -420,7 +421,7 @@
     healthLabel: healthSummary.healthLabel,
   });
   $: zoneHasAttention = zoneHeaderAttentionItems.length > 0;
-  $: zoneAttentionMeta = `Last probe: ${formatZoneProbeDate(healthSummary.lastProbeAt)}`;
+  $: zoneAttentionMeta = t('Last probe: {formatZoneProbeDate}', { formatZoneProbeDate: formatZoneProbeDate(healthSummary.lastProbeAt) });
   const alertToneFromText = (value: string): "warning" | "error" => {
     const text = String(value ?? "").toLowerCase();
     return text.includes("unreachable") || text.includes("failed") || text.includes("down")
@@ -440,7 +441,7 @@
     const rootLabels = new Map(storageRoots.map((root) => [storageRootId(root), storageRootName(root)]));
     return selectVisibleStorageRootAlertsForRootIds(rootIds, data.storageRootAlerts ?? []).map((alert) => {
       const rootId = storageRootAlertRootId(alert);
-      const rootLabel = rootLabels.get(rootId) ?? `Storage root #${rootId}`;
+      const rootLabel = rootLabels.get(rootId) ?? t('Storage root #{rootId}', { rootId });
       const detail = storageRootAlertSummarySubtitle(alert);
       return {
         key: `zone-root-alert-${String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${rootId}`)}`,
@@ -525,7 +526,7 @@
   async function runEndpointProbe(endpoint: any) {
     const probeConfig = resolveStorageEndpointProbeConfig(endpoint);
     const id = probeConfig.endpointId;
-    const epName = String(endpoint?.name ?? endpoint?.storage_endpoint_name ?? `Endpoint #${id || "-"}`);
+    const epName = String(endpoint?.name ?? endpoint?.storage_endpoint_name ?? t('Endpoint #{value}', { value: (id || "-") }));
 
     if (!id) {
       toast.error("Invalid storage endpoint for probe run.");
@@ -592,9 +593,9 @@
       });
 
       if (final?.ok) {
-        toast.success(`Probe OK for ${epName}.`);
+        toast.success(t('Probe OK for {epName}.', { epName }));
       } else {
-        toast.error(`Probe failed for ${epName}.`);
+        toast.error(t('Probe failed for {epName}.', { epName }));
       }
 
       if (browser) await invalidateAll();
@@ -709,13 +710,13 @@
     if (hasAttachedEndpoints || hasAttachedStorageRoots) {
       const blockers = [
         hasAttachedEndpoints
-          ? `${endpoints.length} storage endpoint${endpoints.length > 1 ? "s" : ""}`
+          ? t('{count} storage endpoint{value}', { count: endpoints.length, value: (endpoints.length > 1 ? "s" : "") })
           : null,
         hasAttachedStorageRoots
-          ? `${storageRoots.length} storage root${storageRoots.length > 1 ? "s" : ""}`
+          ? t('{count} storage root{value}', { count: storageRoots.length, value: (storageRoots.length > 1 ? "s" : "") })
           : null,
       ].filter(Boolean);
-      toast.error(`This zone cannot be deleted while ${blockers.join(" and ")} remain attached.`);
+      toast.error(t('This zone cannot be deleted while {join} remain attached.', { join: blockers.join(" and ") }));
       return;
     }
 
@@ -735,7 +736,7 @@
       }
 
       if (zoneModalMode === "create") {
-        const fallbackName = `Zone ${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")}`;
+        const fallbackName = t('Zone {value}', { value: (new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")) });
         const payloadWithName: ZoneCreatePayload = {
           name: String(payload?.name ?? "").trim() || fallbackName,
           code: String(payload?.code ?? "").trim() || fallbackName,
@@ -793,7 +794,7 @@
         .filter((ep) => Number(ep?.zone_id ?? 0) !== Number(currentZoneId))
         .map((ep) => ({
           id: Number(ep?.id ?? 0),
-          name: String(ep?.name ?? `Endpoint #${ep?.id ?? '-'}`),
+          name: String(ep?.name ?? t('Endpoint #{value}', { value: (ep?.id ?? '-') })),
           host: String(ep?.host ?? '').trim() || null,
           zoneName: String(ep?.zone_name ?? '').trim() || null
         }))
@@ -822,7 +823,7 @@
     attachEndpointBusyId = endpointId;
     try {
       await updateStorageEndpoint(fetch, endpointId, { zone_id: currentZoneId });
-      toast.success('Endpoint attached to this zone.');
+      toast.success(t('Endpoint attached to this zone.'));
       showEndpointAttachChoice = false;
       await invalidateAll();
     } catch (e: any) {
@@ -900,7 +901,7 @@
     <EntityAlertStrip
       items={zoneAlertItems}
       onViewAll={() => (showZoneAlertsDrawer = true)}
-      ariaLabel="Zone alerts"
+      ariaLabel={t('Zone alerts')}
     />
   </svelte:fragment>
 
@@ -908,13 +909,13 @@
     <Tabs
       {tabs}
       activeKey={activeTab}
-      ariaLabel="Zone sections"
+      ariaLabel={t('Zone sections')}
       onChange={(key) => setTab(normalizeTab(String(key ?? 'overview')))}
     />
   </svelte:fragment>
 
   {#if loadingTab || !activeComponent}
-    <div class="zone-console__skeleton" aria-label="Loading tab content"></div>
+    <div class="zone-console__skeleton" aria-label={t('Loading tab content')}></div>
   {:else}
     <svelte:component this={activeComponent} {...tabProps[activeTab]} />
   {/if}
@@ -925,10 +926,10 @@
 <EntityAlertDrawer
   open={showZoneAlertsDrawer}
   onClose={() => (showZoneAlertsDrawer = false)}
-  title="Zone alerts"
-  subtitle={`Zone · ${zoneLabel()}`}
+  title={t('Zone alerts')}
+  subtitle={t('Zone · {zoneLabel}', { zoneLabel: zoneLabel() })}
   items={zoneAlertItems}
-  emptyLabel="No alert found for this zone."
+  emptyLabel={t('No alert found for this zone.')}
   ariaLabelledby="zone-alerts-drawer-title"
 />
 
@@ -968,7 +969,7 @@
 
 <PlanPreviewModal
   open={showPreviewModal}
-  title="Provisioning policy changes preview"
+  title={t('Provisioning policy changes preview')}
   items={previewItems}
   onClose={() => (showPreviewModal = false)}
 />
@@ -988,12 +989,12 @@
   }}
   onConfirm={confirmLeaveProvisioningTab}
   severity="warning"
-  title="Leave provisioning tab?"
-  subtitle="You have unsaved changes."
-  impactTitle="Impact"
+  title={t('Leave provisioning tab?')}
+  subtitle={t('You have unsaved changes.')}
+  impactTitle={t('Impact')}
   impactItems={[
     'Any unsaved provisioning changes will be lost.'
   ]}
-  cancelLabel="Stay"
-  confirmLabel="Leave tab"
+  cancelLabel={t('Stay')}
+  confirmLabel={t('Leave tab')}
 />

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, intlLocale } from '$lib/i18n';
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { onDestroy } from 'svelte';
@@ -69,7 +70,7 @@
   $: pageRequests = visibleRequests.slice(0, 6);
   $: rangeLabel = visibleRequests.length === 0
     ? '0–0 sur 0'
-    : `1–${Math.min(6, visibleRequests.length)} sur ${visibleRequests.length}`;
+    : t('1–{min} sur {count}', { min: Math.min(6, visibleRequests.length), count: visibleRequests.length });
   $: sidebarCounts = buildSidebarCounts(requests, tabCounts);
   $: kpis = buildKpis(requests, tabCounts);
   $: canReviewSelectedRequest = Boolean(selectedRequest) && isReviewAllowed(selectedRequest);
@@ -119,7 +120,7 @@
   }
 
   function stageText(_row: any): string {
-    return 'Guardian review';
+    return t('Guardian review');
   }
 
   function filterRequestsForTab(rows: any[], tab: ReviewTab): any[] {
@@ -194,7 +195,7 @@
   function resourceZone(row: any): string {
     const zone = compactText(row?.zone_name ?? row?.zone_code ?? row?.storage_zone_name ?? row?.site_name, '');
     if (!zone) return '—';
-    return zone.startsWith('Zone') ? zone : `Zone ${zone}`;
+    return zone.startsWith('Zone') ? zone : t('Zone {zone}', { zone });
   }
 
   function resourcePath(row: any): string {
@@ -207,9 +208,9 @@
 
   function accessShort(row: any): string {
     const label = accessRequestAccessLabel(row);
-    if (norm(label).includes('write')) return 'Écriture';
-    if (norm(label).includes('contributor') || norm(label).includes('contribution')) return 'Contributeur';
-    if (norm(label).includes('read')) return 'Lecture';
+    if (norm(label).includes('write')) return t('Écriture');
+    if (norm(label).includes('contributor') || norm(label).includes('contribution')) return t('Contributeur');
+    if (norm(label).includes('read')) return t('Lecture');
     return label;
   }
 
@@ -225,17 +226,17 @@
   function expiryLabel(row: any): string {
     const expires = row?.expires_at ? new Date(String(row.expires_at)) : null;
     if (expires && Number.isFinite(expires.getTime())) {
-      return `${ttlDays(row)} jours (jusqu'au ${expires.toLocaleDateString('fr-FR')})`;
+      return t('{ttlDays} jours (jusqu\'au {value})', { ttlDays: ttlDays(row), value: (expires.toLocaleDateString(intlLocale())) });
     }
     const ttl = ttlDays(row);
-    return ttl > 0 ? `${ttl} jours` : '—';
+    return ttl > 0 ? t('{ttl} jours', { ttl }) : '—';
   }
 
   function requestedAt(row: any): string {
     const raw = row?.created_at ?? row?.requested_at ?? row?.submitted_at;
     const date = raw ? new Date(String(raw)) : null;
     if (!date || !Number.isFinite(date.getTime())) return '—';
-    return `${date.toLocaleDateString('fr-FR')} à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+    return `${date.toLocaleDateString(intlLocale())} à ${date.toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })}`;
   }
 
   function requestedDateParts(row: any): { date: string; time: string } {
@@ -340,7 +341,7 @@
       }
 
       detailError = '';
-      toast.success(decision === 'approve' ? 'Requête approuvée.' : 'Requête refusée.');
+      toast.success(decision === 'approve' ? t('Requête approuvée.') : t('Requête refusée.'));
       selectedRequestId = null;
       decisionComment = '';
       await invalidateAll();
@@ -393,18 +394,18 @@
       });
       return [
         {
-          label: 'Soumise',
+          label: t('Soumise'),
           meta: requestedAt(row),
           state: 'done'
         },
         ...validationEvents.map((event: any, index: number) => {
         const eventType = norm(event?.event_type ?? event?.type ?? event?.action);
         const label = eventType.includes('approve')
-          ? 'Approuvée'
+          ? t('Approuvée')
           : eventType.includes('reject')
-            ? 'Refusée'
+            ? t('Refusée')
             : eventType.includes('revoke')
-                ? 'Révoquée'
+                ? t('Révoquée')
                 : compactText(event?.label ?? event?.event_type ?? event?.action, 'Événement');
         const date = event?.created_at ? requestedAt({ created_at: event.created_at }) : '';
         return {
@@ -417,9 +418,9 @@
     }
 
     return [
-      { label: 'Soumise', meta: `${requestedAt(row)} par ${requesterName(row)}`, state: 'done' },
-      { label: 'Validation Guardian', meta: 'En cours', state: 'current' },
-      { label: 'Provisioning capsule', meta: 'En attente', state: 'waiting' }
+      { label: t('Soumise'), meta: t('{requestedAt} par {requesterName}', { requestedAt: requestedAt(row), requesterName: requesterName(row) }), state: 'done' },
+      { label: t('Validation Guardian'), meta: 'En cours', state: 'current' },
+      { label: t('Provisioning capsule'), meta: 'En attente', state: 'waiting' }
     ];
   }
 
@@ -450,46 +451,46 @@
 </script>
 
 <svelte:head>
-  <title>Validation des requêtes d'accès · BornToShare</title>
+  <title>{t('Validation des requêtes d\'accès · BornToShare')}</title>
 </svelte:head>
 
 <section class="ar-shell" class:has-detail={Boolean(selectedRequest)}>
-  <aside class="ar-sidebar" aria-label="Navigation des requêtes">
+  <aside class="ar-sidebar" aria-label={t('Navigation des requêtes')}>
     <label class="ar-search">
       <i class="bi bi-search" aria-hidden="true"></i>
       <input
         value={searchText}
         on:input={(event) => onSearchInput((event.currentTarget as HTMLInputElement).value)}
-        placeholder="Rechercher..."
-        aria-label="Rechercher"
+        placeholder={t('Rechercher...')}
+        aria-label={t('Rechercher')}
       />
     </label>
 
     <nav class="ar-nav">
       <section class="ar-nav-section">
-        <h2><i class="bi bi-clipboard-check" aria-hidden="true"></i>Demandes d'accès</h2>
+        <h2><i class="bi bi-clipboard-check" aria-hidden="true"></i>{t('Demandes d\'accès')}</h2>
         <button type="button" class:active={activeQueue === 'mine'} on:click={() => openQueue('mine')}>
-          <span><i class="bi bi-file-earmark-lock" aria-hidden="true"></i>À valider par moi</span>
+          <span><i class="bi bi-file-earmark-lock" aria-hidden="true"></i>{t('À valider par moi')}</span>
           <strong>{sidebarCounts.mine}</strong>
         </button>
         <button type="button" class:active={activeQueue === 'guardians'} on:click={() => openQueue('guardians')}>
-          <span><i class="bi bi-person" aria-hidden="true"></i>Guardians</span>
+          <span><i class="bi bi-person" aria-hidden="true"></i>{t('Guardians')}</span>
           <strong>{sidebarCounts.guardians}</strong>
         </button>
         <button type="button" class:active={activeQueue === 'all'} on:click={() => openQueue('all')}>
-          <span><i class="bi bi-file-earmark-text" aria-hidden="true"></i>Toutes les demandes</span>
+          <span><i class="bi bi-file-earmark-text" aria-hidden="true"></i>{t('Toutes les demandes')}</span>
           <strong>{sidebarCounts.all}</strong>
         </button>
       </section>
 
       <section class="ar-nav-section">
-        <h2><i class="bi bi-people" aria-hidden="true"></i>Mes validations</h2>
+        <h2><i class="bi bi-people" aria-hidden="true"></i>{t('Mes validations')}</h2>
         <button type="button" class:active={activeQueue === 'todo'} on:click={() => openQueue('todo')}>
-          <span><i class="bi bi-hourglass-split" aria-hidden="true"></i>À traiter</span>
+          <span><i class="bi bi-hourglass-split" aria-hidden="true"></i>{t('À traiter')}</span>
           <strong>{sidebarCounts.todo}</strong>
         </button>
         <button type="button" class:active={activeQueue === 'done'} on:click={() => openQueue('done')}>
-          <span><i class="bi bi-check-circle" aria-hidden="true"></i>Terminées</span>
+          <span><i class="bi bi-check-circle" aria-hidden="true"></i>{t('Terminées')}</span>
           <strong>{sidebarCounts.done}</strong>
         </button>
       </section>
@@ -505,49 +506,49 @@
       </div>
       <button type="button" class="ar-primary-action" on:click={openCreateRequestModal}>
         <i class="bi bi-plus-lg" aria-hidden="true"></i>
-        <span>Create request</span>
+        <span>{t('Create request')}</span>
       </button>
     </header>
 
     {#if canReviewAny}
-      <div class="ar-tabs" role="tablist" aria-label="Files de validation">
-        <button type="button" class:active={activeTab === 'mine'} on:click={() => switchTab('mine')}>À valider par moi</button>
-        <button type="button" class:active={activeTab === 'guardians'} on:click={() => switchTab('guardians')}>Guardians</button>
+      <div class="ar-tabs" role="tablist" aria-label={t('Files de validation')}>
+        <button type="button" class:active={activeTab === 'mine'} on:click={() => switchTab('mine')}>{t('À valider par moi')}</button>
+        <button type="button" class:active={activeTab === 'guardians'} on:click={() => switchTab('guardians')}>{t('Guardians')}</button>
       </div>
     {/if}
 
-    <section class="ar-kpis" aria-label="Synthèse des validations">
+    <section class="ar-kpis" aria-label={t('Synthèse des validations')}>
       <article class="ar-kpi warning">
         <span><i class="bi bi-hourglass-split" aria-hidden="true"></i></span>
-        <div><strong>{kpis.guardian}</strong><small>En attente<br />Guardian</small></div>
+        <div><strong>{kpis.guardian}</strong><small>{t('En attente')}<br />{t('Guardian')}</small></div>
       </article>
       <article class="ar-kpi success">
         <span><i class="bi bi-check2-circle" aria-hidden="true"></i></span>
-        <div><strong>{kpis.approved}</strong><small>Approuvées</small></div>
+        <div><strong>{kpis.approved}</strong><small>{t('Approuvées')}</small></div>
       </article>
     </section>
 
     <section class="ar-table-card">
       <header class="ar-table-head">
-        <h2>{canReviewAny ? "Requêtes d'accès à valider" : "Requêtes d'accès"} ({visibleRequests.length})</h2>
-        <button type="button"><i class="bi bi-funnel" aria-hidden="true"></i>Filtres</button>
+        <h2>{canReviewAny ? t('Requêtes d\'accès à valider') : t('Requêtes d\'accès')} ({visibleRequests.length})</h2>
+        <button type="button"><i class="bi bi-funnel" aria-hidden="true"></i>{t('Filtres')}</button>
       </header>
 
       <div class="ar-table-scroll">
         <table class="ar-table">
           <thead>
             <tr>
-              <th>Demandeur</th>
-              <th>Ressource</th>
-              <th>Profil d'accès</th>
+              <th>{t('Demandeur')}</th>
+              <th>{t('Ressource')}</th>
+              <th>{t('Profil d\'accès')}</th>
               <th>TTL</th>
-              <th>Étape</th>
-              <th>Demandé le <i class="bi bi-arrow-down-up" aria-hidden="true"></i></th>
+              <th>{t('Étape')}</th>
+              <th>{t('Demandé le')} <i class="bi bi-arrow-down-up" aria-hidden="true"></i></th>
             </tr>
           </thead>
           <tbody>
             {#if pageRequests.length === 0}
-              <tr><td colspan="6" class="ar-empty">Aucune requête à valider.</td></tr>
+              <tr><td colspan="6" class="ar-empty">{t('Aucune requête à valider.')}</td></tr>
             {:else}
               {#each pageRequests as request (accessRequestId(request))}
                 {@const selected = selectedRequestId === accessRequestId(request)}
@@ -572,54 +573,54 @@
       </div>
 
       <footer class="ar-table-footer">
-        <div class="ar-info"><i class="bi bi-info-circle-fill" aria-hidden="true"></i>Les approbations sont appliquées via des profils gouvernés et l'exécution de capsules.</div>
+        <div class="ar-info"><i class="bi bi-info-circle-fill" aria-hidden="true"></i>{t('Les approbations sont appliquées via des profils gouvernés et l\'exécution de capsules.')}</div>
         <div class="ar-pager"><span>{rangeLabel}</span><button disabled><i class="bi bi-chevron-left"></i></button><button><i class="bi bi-chevron-right"></i></button></div>
       </footer>
     </section>
   </main>
 
   {#if selectedRequest}
-    <aside class="ar-detail" aria-label="Détail de la requête">
+    <aside class="ar-detail" aria-label={t('Détail de la requête')}>
       <header>
-        <h2>Détail de la requête</h2>
-        <button type="button" class="close-detail" aria-label="Fermer le détail" on:click={closeDetail}><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        <h2>{t('Détail de la requête')}</h2>
+        <button type="button" class="close-detail" aria-label={t('Fermer le détail')} on:click={closeDetail}><i class="bi bi-x-lg" aria-hidden="true"></i></button>
       </header>
 
-      <div class="status-pill"><i class="bi bi-hourglass-split" aria-hidden="true"></i>En attente — {stageText(selectedRequest)}</div>
+      <div class="status-pill"><i class="bi bi-hourglass-split" aria-hidden="true"></i>{t('En attente — {stageText}', { stageText: stageText(selectedRequest) })}</div>
       {#if detailLoading}
-        <p class="detail-state">Chargement du détail complet...</p>
+        <p class="detail-state">{t('Chargement du détail complet...')}</p>
       {:else if detailError}
         <p class="detail-state error">{detailError}</p>
       {/if}
 
       <section class="detail-section summary">
-        <h3>Résumé de la requête</h3>
+        <h3>{t('Résumé de la requête')}</h3>
         <dl>
-          <div><dt>Demandeur</dt><dd>{requesterName(selectedRequest)} ({requesterDepartment(selectedRequest)})</dd></div>
-          <div><dt>Ressource</dt><dd>{resourceName(selectedRequest)} ({resourceZone(selectedRequest)})</dd></div>
-          <div><dt>Profil d'accès demandé</dt><dd>{accessShort(selectedRequest)}</dd></div>
-          <div><dt>Demandé le</dt><dd>{requestedAt(selectedRequest)}</dd></div>
+          <div><dt>{t('Demandeur')}</dt><dd>{requesterName(selectedRequest)} ({requesterDepartment(selectedRequest)})</dd></div>
+          <div><dt>{t('Ressource')}</dt><dd>{resourceName(selectedRequest)} ({resourceZone(selectedRequest)})</dd></div>
+          <div><dt>{t('Profil d\'accès demandé')}</dt><dd>{accessShort(selectedRequest)}</dd></div>
+          <div><dt>{t('Demandé le')}</dt><dd>{requestedAt(selectedRequest)}</dd></div>
         </dl>
-        <h4>Justification</h4>
+        <h4>{t('Justification')}</h4>
         <p>{justification(selectedRequest)}</p>
       </section>
 
       <section class="detail-section effective">
-        <h3>Aperçu de l'accès effectif</h3>
+        <h3>{t('Aperçu de l\'accès effectif')}</h3>
         <p class="folder"><i class="bi bi-folder-fill" aria-hidden="true"></i><strong>{resourceName(selectedRequest)}</strong> ({resourcePath(selectedRequest)})</p>
-        <p>Accès en {accessShort(selectedRequest).toLowerCase()} aux fichiers et dossiers de la ressource.</p>
+        <p>{t('Accès en {value} aux fichiers et dossiers de la ressource.', { value: (accessShort(selectedRequest).toLowerCase()) })}</p>
         {#if selectedRequest.group_name || selectedRequest.expected_group_name}
           <p class="group-line"><i class="bi bi-people-fill" aria-hidden="true"></i>{selectedRequest.group_name || selectedRequest.expected_group_name}</p>
         {/if}
       </section>
 
       <section class="detail-section ttl">
-        <h3>Durée d'accès demandée (TTL)</h3>
+        <h3>{t('Durée d\'accès demandée (TTL)')}</h3>
         <p><i class="bi bi-calendar4-week" aria-hidden="true"></i><strong>{expiryLabel(selectedRequest)}</strong></p>
       </section>
 
       <section class="detail-section history">
-        <h3>Historique de la requête</h3>
+        <h3>{t('Historique de la requête')}</h3>
         <ol>
           {#each timelineEvents(selectedRequest) as event}
             <li class:done={event.state === 'done'} class:current={event.state === 'current'}>
@@ -631,18 +632,18 @@
 
       {#if canReviewSelectedRequest}
         <section class="decision-box">
-          <label for="decision-comment">Commentaire de validation (optionnel)</label>
-          <textarea id="decision-comment" bind:value={decisionComment} placeholder="Ajouter un commentaire..."></textarea>
+          <label for="decision-comment">{t('Commentaire de validation (optionnel)')}</label>
+          <textarea id="decision-comment" bind:value={decisionComment} placeholder={t('Ajouter un commentaire...')}></textarea>
         </section>
 
         <footer class="detail-actions">
-          <button type="button" class="reject" disabled={Boolean(decisionRunning)} on:click={() => runDecision('reject')}>{decisionRunning === 'reject' ? 'Refus...' : 'Refuser'}</button>
-          <button type="button" class="approve" disabled={Boolean(decisionRunning)} on:click={() => runDecision('approve')}>{decisionRunning === 'approve' ? 'Approbation...' : 'Approuver'}</button>
+          <button type="button" class="reject" disabled={Boolean(decisionRunning)} on:click={() => runDecision('reject')}>{decisionRunning === 'reject' ? t('Refus...') : t('Refuser')}</button>
+          <button type="button" class="approve" disabled={Boolean(decisionRunning)} on:click={() => runDecision('approve')}>{decisionRunning === 'approve' ? t('Approbation...') : t('Approuver')}</button>
         </footer>
       {:else}
-        <section class="detail-readonly-note" aria-label="Demande visible en lecture seule">
+        <section class="detail-readonly-note" aria-label={t('Demande visible en lecture seule')}>
           <i class="bi bi-eye" aria-hidden="true"></i>
-          <span>Visible en lecture seule. Cette demande est traitée par un guardian ou un administrateur de plateforme.</span>
+          <span>{t('Visible en lecture seule. Cette demande est traitée par un guardian ou un administrateur de plateforme.')}</span>
         </section>
       {/if}
     </aside>

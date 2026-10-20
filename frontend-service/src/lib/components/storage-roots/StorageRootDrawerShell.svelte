@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import Drawer from '$lib/components/ui/Drawer.svelte';
 
   export let open = false;
-  export let title = 'Details';
+  export let title = t('Details');
   export let subtitle: string | null = null;
   export let onClose: () => void = () => {};
   export let ariaLabelledby = 'storage-root-drawer-title';

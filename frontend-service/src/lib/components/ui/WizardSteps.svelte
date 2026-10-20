@@ -3,10 +3,11 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   /** Step indicator shared by every wizard. `current` is 1-based. */
   export let steps: WizardStep[] = [];
   export let current = 1;
-  export let ariaLabel = 'Wizard progress';
+  export let ariaLabel = t('Wizard progress');
 </script>
 
 <ol class="b2s-steps" aria-label={ariaLabel} style={`--b2s-steps-count:${Math.max(1, steps.length)}`}>

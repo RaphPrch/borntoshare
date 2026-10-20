@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { FetchLike } from './client';
 import { apiGetData, apiPostData } from './client';
 import type {

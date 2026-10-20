@@ -1,4 +1,5 @@
   <script lang="ts">
+  import { t } from '$lib/i18n';
   import { toast } from "$lib/stores/toast";
   import { runProbeWithPolling } from "$lib/jobs/probe-runner";
   import {
@@ -70,17 +71,17 @@
   const DELETE_CONFIRM_TOKEN = "DELETE";
   const drawerTitle = () =>
     mode === 'edit'
-      ? 'Edit storage root'
+      ? t('Edit storage root')
       : mode === 'delete'
-        ? 'Delete storage root'
-        : 'Create storage root';
+        ? t('Delete storage root')
+        : t('Create storage root');
 
   const drawerSubtitle = () =>
     mode === 'delete'
-      ? 'This action is irreversible. Confirm the deletion of this storage root.'
+      ? t('This action is irreversible. Confirm the deletion of this storage root.')
       : mode === 'edit'
-        ? 'Update identity and root path of the selected storage root.'
-        : 'Register a new governed storage root.';
+        ? t('Update identity and root path of the selected storage root.')
+        : t('Register a new governed storage root.');
 
   $: entityName = root?.display_name ?? root?.storage_root_name ?? root?.name ?? null;
   $: entityPath = root?.root_path ?? root?.locator ?? root?.path ?? null;
@@ -92,7 +93,7 @@
     const id = endpointIdOf(endpoint);
     const code = String(endpoint?.code ?? "").trim();
     const name = String(endpoint?.name ?? endpoint?.storage_endpoint_name ?? endpoint?.label ?? "").trim();
-    const base = name || (id > 0 ? `Endpoint #${id}` : "Endpoint");
+    const base = name || (id > 0 ? t('Endpoint #{id}', { id }) : "Endpoint");
     return code ? `${code} — ${base}` : base;
   };
 
@@ -148,7 +149,7 @@
     }
 
     const probeConfig = resolveStorageEndpointProbeConfig(endpoint);
-    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: 'Storage endpoint' });
+    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Storage endpoint') });
     if (!validation.ok) {
       toast.error(validation.message ?? 'Endpoint must have SMB/CIFS host, username and bind_password_ref to run probe');
       return;
@@ -173,7 +174,7 @@
 
       if (!final.ok) throw new Error(final.errorMessage || 'Probe failed');
       probeOk = true;
-      toast.success('Connection probe successful');
+      toast.success(t('Connection probe successful'));
     } catch (e) {
       probeError = e?.message ?? 'Probe failed';
       toast.error(probeError);
@@ -190,7 +191,7 @@
     }
 
     const probeConfig = resolveStorageEndpointProbeConfig(endpoint);
-    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: 'Storage endpoint' });
+    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Storage endpoint') });
     if (!validation.ok) {
       toast.error(validation.message ?? 'Endpoint must have SMB/CIFS host, username and bind_password_ref to discover roots');
       return;
@@ -215,11 +216,11 @@
       if (!final.ok) throw new Error(final.errorMessage || 'Discovery failed');
       detectedRoots = parseStorageEndpointProbeRoots(final.result);
       if (detectedRoots.length === 0) {
-        toast.warning('No roots discovered');
+        toast.warning(t('No roots discovered'));
       } else {
         discoveryRootsText = detectedRoots.join('\n');
         if (!form.root_path) form.root_path = detectedRoots[0];
-        toast.success(`${detectedRoots.length} roots discovered`);
+        toast.success(t('{count} roots discovered', { count: detectedRoots.length }));
       }
     } catch (e) {
       probeError = e?.message ?? 'Discovery failed';
@@ -272,7 +273,7 @@
 
   function confirmDelete() {
     if (deleteConfirmation.trim() !== DELETE_CONFIRM_TOKEN) {
-      toast.warning('Type DELETE to confirm removal');
+      toast.warning(t('Type DELETE to confirm removal'));
       return;
     }
     onDelete();
@@ -295,21 +296,21 @@
         <div class="sr-modal-info">
           <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
           <div>
-            <strong>This deletion is irreversible.</strong>
-            <div>The selected storage root will be permanently deleted.</div>
+            <strong>{t('This deletion is irreversible.')}</strong>
+            <div>{t('The selected storage root will be permanently deleted.')}</div>
           </div>
         </div>
 
         <div class="sr-modal-field">
-          <label>Storage Root</label>
+          <label>{t('Storage Root')}</label>
           <div class="sr-input-icon">
             <i class="bi bi-folder2-open" aria-hidden="true"></i>
-            <input value={entityName ?? "Storage Root"} readonly />
+            <input value={entityName ?? t('Storage Root')} readonly />
           </div>
         </div>
 
         <div class="sr-modal-field">
-          <label>Root Path</label>
+          <label>{t('Root Path')}</label>
           <div class="sr-input-icon">
             <i class="bi bi-diagram-3" aria-hidden="true"></i>
             <input value={entityPath ?? "—"} readonly />
@@ -317,35 +318,35 @@
         </div>
 
         <div class="sr-modal-field">
-          <label for="sr-delete-confirm">Type DELETE to confirm</label>
+          <label for="sr-delete-confirm">{t('Type DELETE to confirm')}</label>
           <input
             id="sr-delete-confirm"
             bind:value={deleteConfirmation}
-            placeholder="DELETE"
+            placeholder=DELETE
             autocomplete="off"
             spellcheck="false"
           />
-          <small class="sr-muted">Deletion is enabled only when the exact keyword is entered.</small>
+          <small class="sr-muted">{t('Deletion is enabled only when the exact keyword is entered.')}</small>
         </div>
       {:else}
         <div class="sr-modal-info">
           <i class="bi bi-info-circle" aria-hidden="true"></i>
           <div>
-            <strong>Register a new governed storage root.</strong>
+            <strong>{t('Register a new governed storage root.')}</strong>
             <div>
               {mode === "edit"
-                ? "Only display name and path can be edited here."
-                : "No access will be modified at this stage. Fill endpoint name and discovery roots."}
+                ? t('Only display name and path can be edited here.')
+                : t('No access will be modified at this stage. Fill endpoint name and discovery roots.')}
             </div>
           </div>
         </div>
 
         <div class="sr-modal-field">
-          <label for="sr-endpoint">Endpoint Name</label>
+          <label for="sr-endpoint">{t('Endpoint Name')}</label>
           <div class="sr-input-icon">
             <i class="bi bi-hdd" aria-hidden="true"></i>
             <select id="sr-endpoint" bind:value={form.storage_endpoint_id} disabled={mode === "edit"}>
-              <option value={0}>Select…</option>
+              <option value={0}>{t('Select…')}</option>
               {#each endpoints as e (endpointIdOf(e))}
                 {@const id = endpointIdOf(e)}
                 <option value={id}>{endpointLabel(e)}</option>
@@ -353,24 +354,24 @@
             </select>
           </div>
           {#if mode === "edit"}
-            <small class="sr-muted">Endpoint is read-only in edit mode.</small>
+            <small class="sr-muted">{t('Endpoint is read-only in edit mode.')}</small>
           {/if}
         </div>
 
         {#if mode === "edit"}
           <div class="sr-modal-field">
-            <label for="sr-locator">Root Path</label>
+            <label for="sr-locator">{t('Root Path')}</label>
             <input id="sr-locator" bind:value={form.root_path} placeholder="/mnt/finance" />
           </div>
         {:else}
           <div class="sr-modal-field">
-            <label>Connection checks</label>
+            <label>{t('Connection checks')}</label>
             <div class="sr-modal-inline-actions">
-              <EntityActionButton variant="secondary" icon="bi-activity" label={probeBusy ? 'Running probe…' : 'Probe connection'} busy={probeBusy} disabled={probeBusy || discoverBusy || !form.storage_endpoint_id} onClick={probeConnection} />
-              <EntityActionButton variant="secondary" icon="bi-search" label={discoverBusy ? 'Discovering…' : 'Discover roots'} busy={discoverBusy} disabled={discoverBusy || probeBusy || !form.storage_endpoint_id} onClick={discoverRoots} />
+              <EntityActionButton variant="secondary" icon="bi-activity" label={probeBusy ? t('Running probe…') : t('Probe connection')} busy={probeBusy} disabled={probeBusy || discoverBusy || !form.storage_endpoint_id} onClick={probeConnection} />
+              <EntityActionButton variant="secondary" icon="bi-search" label={discoverBusy ? t('Discovering…') : t('Discover roots')} busy={discoverBusy} disabled={discoverBusy || probeBusy || !form.storage_endpoint_id} onClick={discoverRoots} />
             </div>
             {#if probeOk}
-              <small class="sr-muted" style="color: #15803d;">Connection successful.</small>
+              <small class="sr-muted" style="color: #15803d;">{t('Connection successful.')}</small>
             {/if}
             {#if probeError}
               <small class="sr-muted" style="color: #b91c1c;">{probeError}</small>
@@ -378,18 +379,18 @@
           </div>
 
           <div class="sr-modal-field">
-            <label for="sr-discovery-roots">Discovery Roots</label>
+            <label for="sr-discovery-roots">{t('Discovery Roots')}</label>
             <textarea
               id="sr-discovery-roots"
               bind:value={discoveryRootsText}
               placeholder="\\\\server\\finance&#10;\\\\server\\hr"
               rows="4"
             ></textarea>
-            <small class="sr-muted">One root path per line (or separated by comma/semicolon).</small>
+            <small class="sr-muted">{t('One root path per line (or separated by comma/semicolon).')}</small>
 
             {#if detectedRoots.length > 0}
               <div class="sr-discovered-roots">
-                <div class="sr-discovered-title">Roots available on selected endpoint</div>
+                <div class="sr-discovered-title">{t('Roots available on selected endpoint')}</div>
                 <div class="sr-discovered-list">
                   {#each detectedRoots as rootPath}
                     <button class="sr-discovered-item" type="button" on:click={() => useDiscoveredRoot(rootPath)} title={rootPath}>
@@ -404,18 +405,18 @@
         {/if}
 
         <div class="sr-modal-field">
-          <label for="sr-name">{mode === "edit" ? "Display Name" : "Name"}</label>
-          <input id="sr-name" bind:value={form.display_name} placeholder="Enter name" />
+          <label for="sr-name">{mode === "edit" ? t('Display Name') : t('Name')}</label>
+          <input id="sr-name" bind:value={form.display_name} placeholder={t('Enter name')} />
         </div>
 
         <div class="sr-modal-field">
-          <label for="sr-status">Status</label>
+          <label for="sr-status">{t('Status')}</label>
           <select id="sr-status" bind:value={form.status} disabled={mode === "edit"}>
-            <option value="active">Active</option>
-            <option value="disabled">Disabled</option>
+            <option value="active">{t('Active')}</option>
+            <option value="disabled">{t('Disabled')}</option>
           </select>
           {#if mode === "edit"}
-            <small class="sr-muted">Status is managed from the action buttons.</small>
+            <small class="sr-muted">{t('Status is managed from the action buttons.')}</small>
           {/if}
         </div>
       {/if}
@@ -423,19 +424,19 @@
 
     <svelte:fragment slot="footer">
       <div class="sr-modal-actions">
-        <EntityActionButton variant="secondary" label="Cancel" onClick={onClose} />
+        <EntityActionButton variant="secondary" label={t('Cancel')} onClick={onClose} />
         {#if mode === "delete"}
           <EntityActionButton
             variant="danger"
             icon="bi-trash"
-            label="Delete storage root"
+            label={t('Delete storage root')}
             disabled={deleteConfirmation.trim() !== DELETE_CONFIRM_TOKEN}
             onClick={confirmDelete}
           />
         {:else if mode === "edit"}
-          <EntityActionButton variant="primary" icon="bi-check2" label="Save changes" onClick={submit} />
+          <EntityActionButton variant="primary" icon="bi-check2" label={t('Save changes')} onClick={submit} />
         {:else}
-          <EntityActionButton variant="primary" icon="bi-plus-lg" label="Create storage root" onClick={submit} />
+          <EntityActionButton variant="primary" icon="bi-plus-lg" label={t('Create storage root')} onClick={submit} />
         {/if}
       </div>
     </svelte:fragment>

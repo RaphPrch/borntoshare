@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { goto, invalidateAll } from "$app/navigation";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import ZoneFormModal from "$lib/components/zones/ZoneFormModal.svelte";
@@ -45,11 +46,11 @@
 <EmptyState
   containerClass="storage-endpoints-empty"
   iconClass="bi bi-diagram-2"
-  title="No zones defined yet"
-  description="Zones organize governance policies and scope for storage endpoints and storage roots."
-  ctaLabel="Create your first zone"
+  title={t('No zones defined yet')}
+  description={t('Zones organize governance policies and scope for storage endpoints and storage roots.')}
+  ctaLabel={t('Create your first zone')}
   onCta={() => (zoneModalOpen = true)}
-  hint="The wizard-style modal will guide you step by step."
+  hint={t('The wizard-style modal will guide you step by step.')}
 />
 
 <ZoneFormModal

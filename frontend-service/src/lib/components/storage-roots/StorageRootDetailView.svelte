@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import StorageRootAccessModel from '$lib/components/storage-roots/StorageRootAccessModel.svelte';
   import EntityAlertStrip from '$lib/components/entity/EntityAlertStrip.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
@@ -62,10 +63,10 @@
   export let projectedGroups: StorageRootProjectedAdGroup[] = [];
   export let guardians: Array<Record<string, unknown>> = [];
 
-  export let rootAvailabilityText = 'Unknown';
+  export let rootAvailabilityText = t('Unknown');
   export let rootAvailabilityTone: 'success' | 'warning' | 'error' = 'warning';
   export let showStatusBadge = false;
-  export let lastProbeText = 'Never run';
+  export let lastProbeText = t('Never run');
 
   export let tags: StorageRootTag[] = [];
   export let effectiveAccessUsers: StorageRootEffectiveAccessUser[] = [];
@@ -99,15 +100,15 @@
   $: aclSnapshotId = String(aclFreshness?.active_snapshot_id ?? '').trim();
   $: aclFreshnessLabel =
     aclState === 'stale'
-      ? `ACL stale · snapshot ${aclSnapshotId || 'newer'}`
+      ? t('ACL stale · snapshot {value}', { value: (aclSnapshotId || 'newer') })
       : aclScannedAt
-        ? `${aclPermissionsCount} ACL entries · ${aclState || 'fresh'}`
+        ? t('{aclPermissionsCount} ACL entries · {value}', { aclPermissionsCount, value: (aclState || 'fresh') })
         : 'No ACL scan yet';
 
   const tabs: Array<{ key: StorageRootTabKey; label: string; icon: string }> = [
-    { key: 'overview', label: 'Overview', icon: 'bi-grid' },
-    { key: 'effective-access', label: 'Effective Access', icon: 'bi-people' },
-    { key: 'activity', label: 'Activity', icon: 'bi-activity' }
+    { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
+    { key: 'effective-access', label: t('Effective Access'), icon: 'bi-people' },
+    { key: 'activity', label: t('Activity'), icon: 'bi-activity' }
   ];
 
   const normalizeTabKey = (key: string): StorageRootTabKey => {
@@ -119,7 +120,7 @@
 
 <main class="sr-clean-main">
   {#if showBlockingLoading}
-    <StorageRootLoadingState label="Loading storage root data…" />
+    <StorageRootLoadingState label={t('Loading storage root data…')} />
   {/if}
 
   <StorageRootHeader
@@ -136,22 +137,22 @@
     {onDeleteRoot}
   />
 
-  <EntityAlertStrip items={alertItems} onViewAll={onViewAllAlerts} ariaLabel="Storage root alerts" />
+  <EntityAlertStrip items={alertItems} onViewAll={onViewAllAlerts} ariaLabel={t('Storage root alerts')} />
 
-  <section class="sr-overview-kpis" aria-label="Storage root summary">
+  <section class="sr-overview-kpis" aria-label={t('Storage root summary')}>
     <article class="sr-overview-kpi">
       <span class="sr-overview-kpi__icon is-access"><i class="bi bi-people" aria-hidden="true"></i></span>
       <div>
-        <small>Effective access</small>
+        <small>{t('Effective access')}</small>
         <strong>{effectiveUsersCount}</strong>
-        <span>{configuredGroupsCount} Groups</span>
+        <span>{t('{configuredGroupsCount} Groups', { configuredGroupsCount })}</span>
       </div>
     </article>
 
     <article class="sr-overview-kpi">
       <span class="sr-overview-kpi__icon is-endpoint"><i class="bi bi-hdd-network" aria-hidden="true"></i></span>
       <div>
-        <small>Endpoint</small>
+        <small>{t('Endpoint')}</small>
         <strong>{endpointDisplay}</strong>
         <span>{endpointLabel}</span>
       </div>
@@ -160,25 +161,25 @@
     <article class="sr-overview-kpi">
       <span class="sr-overview-kpi__icon is-probe"><i class="bi bi-calendar3" aria-hidden="true"></i></span>
       <div>
-        <small>Last probe</small>
+        <small>{t('Last probe')}</small>
         <strong>{lastProbeText}</strong>
         <span>{aclFreshnessLabel}</span>
       </div>
-      {#if rootAvailabilityText === 'Unreachable'}
-        <em class="sr-overview-kpi__badge is-error">Failed</em>
+      {#if rootAvailabilityText === t('Unreachable')}
+        <em class="sr-overview-kpi__badge is-error">{t('Failed')}</em>
       {:else if aclState === 'stale'}
-        <em class="sr-overview-kpi__badge is-warning">ACL stale</em>
+        <em class="sr-overview-kpi__badge is-warning">{t('ACL stale')}</em>
       {:else if aclScannedAt}
-        <em class="sr-overview-kpi__badge is-success">ACL scanned</em>
+        <em class="sr-overview-kpi__badge is-success">{t('ACL scanned')}</em>
       {/if}
     </article>
 
     <article class="sr-overview-kpi">
       <span class="sr-overview-kpi__icon is-content"><i class="bi bi-folder2-open" aria-hidden="true"></i></span>
       <div>
-        <small>Content</small>
+        <small>{t('Content')}</small>
         <strong>{contentSizeLabel}</strong>
-        <span>Updated: {contentUpdatedLabel}</span>
+        <span>{t('Updated: {contentUpdatedLabel}', { contentUpdatedLabel })}</span>
       </div>
     </article>
   </section>
@@ -186,7 +187,7 @@
   <Tabs
     {tabs}
     activeKey={activeTab}
-    ariaLabel="Storage root sections"
+    ariaLabel={t('Storage root sections')}
     onChange={(key) => onSelectTab(normalizeTabKey(key))}
   />
 
@@ -195,7 +196,7 @@
       <div class="sr-clean-overview__main">
         <article class="sr-clean-card">
           <div class="sr-clean-card__head">
-            <h2>Governed access</h2>
+            <h2>{t('Governed access')}</h2>
           </div>
           <StorageRootAccessModel
             rows={accessModelRows}
@@ -204,10 +205,10 @@
         </article>
 
         <RecentActivityCard
-          title="Recent activity"
+          title={t('Recent activity')}
           items={recentActivity}
           max={5}
-          emptyText="Activity related to this storage root will appear here."
+          emptyText={t('Activity related to this storage root will appear here.')}
           onViewAll={onViewAllActivity}
         />
       </div>
@@ -216,12 +217,12 @@
         <article class="sr-overview-side-card">
           <span class="sr-overview-side-card__icon is-governance"><i class="bi bi-person-gear" aria-hidden="true"></i></span>
           <div>
-            <h2>Governance</h2>
+            <h2>{t('Governance')}</h2>
             <dl>
-              <div><dt>Guardians</dt><dd>{guardians.length}</dd></div>
+              <div><dt>{t('Guardians')}</dt><dd>{guardians.length}</dd></div>
             </dl>
             <button type="button" on:click={() => onOpenGovernanceDrawer('guardian')}>
-              View governance <i class="bi bi-chevron-right" aria-hidden="true"></i>
+              {t('View governance')} <i class="bi bi-chevron-right" aria-hidden="true"></i>
             </button>
           </div>
         </article>
@@ -229,7 +230,7 @@
         <article class="sr-overview-side-card">
           <span class="sr-overview-side-card__icon is-tags"><i class="bi bi-tag" aria-hidden="true"></i></span>
           <div>
-            <h2>Tags</h2>
+            <h2>{t('Tags')}</h2>
             {#if tags.length > 0}
               <div class="sr-overview-tags">
                 {#each tags as tag (tagId(tag))}
@@ -237,10 +238,10 @@
                 {/each}
               </div>
             {:else}
-              <p>No tags attached</p>
+              <p>{t('No tags attached')}</p>
             {/if}
             <button type="button" on:click={onOpenTagsModal}>
-              Manage tags <i class="bi bi-chevron-right" aria-hidden="true"></i>
+              {t('Manage tags')} <i class="bi bi-chevron-right" aria-hidden="true"></i>
             </button>
           </div>
         </article>
@@ -248,12 +249,12 @@
         <article class="sr-overview-side-card">
           <span class="sr-overview-side-card__icon is-health"><i class="bi bi-heart-pulse" aria-hidden="true"></i></span>
           <div>
-            <h2>Reachability</h2>
+            <h2>{t('Reachability')}</h2>
             <dl>
-              <div><dt>Status</dt><dd class={`is-${statusTone}`}>{rootAvailabilityText}</dd></div>
+              <div><dt>{t('Status')}</dt><dd class={`is-${statusTone}`}>{rootAvailabilityText}</dd></div>
             </dl>
             <button type="button" on:click={onViewAllAlerts}>
-              View alerts <i class="bi bi-chevron-right" aria-hidden="true"></i>
+              {t('View alerts')} <i class="bi bi-chevron-right" aria-hidden="true"></i>
             </button>
           </div>
         </article>
@@ -272,11 +273,11 @@
   {:else if activeTab === 'activity'}
     <section class="sr-clean-tab-panel">
       {#if activityLoading}
-        <StorageRootLoadingState label="Loading activity..." />
+        <StorageRootLoadingState label={t('Loading activity...')} />
       {:else}
         <ActivityTabPanel
           items={activityRemainder}
-          emptyLabel="No activity found for this storage root."
+          emptyLabel={t('No activity found for this storage root.')}
         />
       {/if}
     </section>

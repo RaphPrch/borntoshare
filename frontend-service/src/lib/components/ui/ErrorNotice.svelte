@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import type { AppError } from '$lib/errors';
 
   export let error: AppError | null = null;
@@ -27,7 +28,7 @@
           class="error-toggle"
           on:click={() => (showDetails = !showDetails)}
         >
-          {showDetails ? 'Hide details' : 'View details'}
+          {showDetails ? t('Hide details') : t('View details')}
         </button>
       {/if}
     </div>
@@ -42,14 +43,14 @@
 
     {#if error.requestId}
       <div class="error-meta">
-        <span>Request ID :</span>
+        <span>{t('Request ID :')}</span>
         <code>{error.requestId}</code>
         <button
           class="copy-btn"
           on:click={copyRequestId}
-          title="Copier le Request ID"
+          title={t('Copier le Request ID')}
         >
-          Copier
+          {t('Copier')}
         </button>
       </div>
     {/if}

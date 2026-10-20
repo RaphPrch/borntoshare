@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { page } from '$app/stores';
 
   import SectionHeader from '$lib/components/settings/SectionHeader.svelte';
@@ -7,14 +8,14 @@
   export let data: any;
 
   const nav: NavItem[] = [
-    { key: 'naming-policies', label: 'Naming policy', icon: 'bi-input-cursor-text' },
-    { key: 'logging', label: 'Logging', icon: 'bi-journal-text' },
-    { key: 'user-sessions', label: 'User sessions', icon: 'bi-person-lines-fill' }
+    { key: 'naming-policies', label: t('Naming policy'), icon: 'bi-input-cursor-text' },
+    { key: 'logging', label: t('Logging'), icon: 'bi-journal-text' },
+    { key: 'user-sessions', label: t('User sessions'), icon: 'bi-person-lines-fill' }
   ];
 
   const defaultHeader = {
-    title: 'Advanced Settings',
-    subtitle: 'Advanced technical settings.'
+    title: t('Advanced Settings'),
+    subtitle: t('Advanced technical settings.')
   };
 
   const headersBySection: Record<string, { title: string; subtitle: string }> = {};

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 type AccessRequestTone = 'pending' | 'approved' | 'rejected' | 'revoked' | 'enforced' | 'neutral';
 
 type AccessRequestStatusMeta = {
@@ -13,7 +14,7 @@ const REQUEST_STATUS_MAP: Record<string, AccessRequestStatusMeta> = {
   rejected: { label: 'Rejected', tone: 'rejected' }
 };
 
-export const getRequestStatusMeta = (status?: string | null): AccessRequestStatusMeta => {
+const resolveRequestStatusMeta = (status?: string | null): AccessRequestStatusMeta => {
   const raw = String(status ?? '').toLowerCase().trim();
   if (REQUEST_STATUS_MAP[raw]) return REQUEST_STATUS_MAP[raw];
 
@@ -25,6 +26,12 @@ export const getRequestStatusMeta = (status?: string | null): AccessRequestStatu
   }
 
   return { label: 'Unknown', tone: 'neutral' };
+};
+
+// Labels of the table above are translated when read (the table is built once per module)
+export const getRequestStatusMeta = (status?: string | null): AccessRequestStatusMeta => {
+  const meta = resolveRequestStatusMeta(status);
+  return { ...meta, label: t(meta.label) };
 };
 
 export const isProvisioningInFlight = (items: any[]): boolean =>

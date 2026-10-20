@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import './provisioning-policy.css';
   import ProvisioningPolicyConfigurationCard from './ProvisioningPolicyConfigurationCard.svelte';
   import ProvisioningPreviewCard from './ProvisioningPreviewCard.svelte';
@@ -54,7 +55,7 @@
         {/if}
 
         {#if showUnsaved}
-          <div class="provisioning-field__help" aria-live="polite">Unsaved changes</div>
+          <div class="provisioning-field__help" aria-live="polite">{t('Unsaved changes')}</div>
         {/if}
       </aside>
     {/if}

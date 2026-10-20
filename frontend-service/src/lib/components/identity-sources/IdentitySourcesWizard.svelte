@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
   import { sleep } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
@@ -39,17 +40,17 @@
   type WizardStepKey = 'type' | 'capabilities' | 'connection' | 'snapshot' | 'review';
   type WizardStepItem = { key: WizardStepKey; label: string };
   const stepsWithoutSnapshot: WizardStepItem[] = [
-    { key: 'type', label: 'Select Type' },
-    { key: 'capabilities', label: 'Capabilities' },
-    { key: 'connection', label: 'Connection' },
-    { key: 'review', label: 'Review' }
+    { key: 'type', label: t('Select Type') },
+    { key: 'capabilities', label: t('Capabilities') },
+    { key: 'connection', label: t('Connection') },
+    { key: 'review', label: t('Review') }
   ];
   const stepsWithSnapshot: WizardStepItem[] = [
-    { key: 'type', label: 'Select Type' },
-    { key: 'capabilities', label: 'Capabilities' },
-    { key: 'connection', label: 'Connection' },
-    { key: 'snapshot', label: 'Snapshot' },
-    { key: 'review', label: 'Review' }
+    { key: 'type', label: t('Select Type') },
+    { key: 'capabilities', label: t('Capabilities') },
+    { key: 'connection', label: t('Connection') },
+    { key: 'snapshot', label: t('Snapshot') },
+    { key: 'review', label: t('Review') }
   ];
 
   let step = 1;
@@ -88,26 +89,26 @@
   const createSnapshotInitSteps = (): SnapshotInitStep[] => [
     {
       key: 'dispatch',
-      label: 'Dispatch',
-      description: 'Request sent to orchestrator',
+      label: t('Dispatch'),
+      description: t('Request sent to orchestrator'),
       state: 'pending'
     },
     {
       key: 'queued',
-      label: 'Queue',
-      description: 'Job scheduled on backend',
+      label: t('Queue'),
+      description: t('Job scheduled on backend'),
       state: 'pending'
     },
     {
       key: 'collect',
-      label: 'Collecte',
-      description: 'Collecte LDAP et projection snapshot',
+      label: t('Collecte'),
+      description: t('Collecte LDAP et projection snapshot'),
       state: 'pending'
     },
     {
       key: 'persist',
-      label: 'Persist',
-      description: 'Date/version/accounts persisted in DB',
+      label: t('Persist'),
+      description: t('Date/version/accounts persisted in DB'),
       state: 'pending'
     }
   ];
@@ -204,7 +205,7 @@
 
   function next() {
     if ((currentStepKey === 'type' || currentStepKey === 'connection') && isDuplicateSourceName()) {
-      toast.error('This name already exists. Please choose another one.');
+      toast.error(t('This name already exists. Please choose another one.'));
       return;
     }
     if (currentStepKey === 'connection' && !canContinueStep3) {
@@ -336,7 +337,7 @@
         lastSnapshotMembershipsCount: 0
       });
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Lecture du snapshot impossible.', 'ui', {
+      const appError = toUiAppError(e, t('Lecture du snapshot impossible.'), 'ui', {
         action: 'identity_sources_wizard.load_snapshot_counts',
         sourceId
       });
@@ -358,7 +359,7 @@
     if (!createdSourceId) {
       if (createDone) {
         snapshotInitError = 'Source created, but identifier not found to start synchronization.';
-        snapshotInitStatusText = 'Snapshot initialization failed.';
+        snapshotInitStatusText = t('Snapshot initialization failed.');
         return;
       }
 
@@ -370,20 +371,20 @@
       }
       if (!createdSourceId) {
         snapshotInitError = createError ?? 'Unable to create source before snapshot initialization.';
-        snapshotInitStatusText = 'Snapshot initialization failed.';
+        snapshotInitStatusText = t('Snapshot initialization failed.');
         return;
       }
     }
 
     jobsStore.startJob(snapshotJobInput(Number(createdSourceId)), {
-      message: 'Snapshot sync running'
+      message: t('Snapshot sync running')
     });
     snapshotStore.setRunning(Number(createdSourceId), 'Initial snapshot sync running');
 
     snapshotInitState = 'running';
     snapshotInitProgress = 6;
     snapshotInitError = null;
-    snapshotInitStatusText = 'Dispatching snapshot request…';
+    snapshotInitStatusText = t('Dispatching snapshot request…');
     snapshotInitSteps = createSnapshotInitSteps();
     updateSnapshotInitStep('dispatch', 'running');
 
@@ -408,12 +409,12 @@
         if (meta.version !== null) lastSnapshotVersion = meta.version;
 
         const normalized = String(meta.status ?? '').trim().toUpperCase();
-        if (normalized) snapshotInitStatusText = `Snapshot status: ${normalized}`;
+        if (normalized) snapshotInitStatusText = t('Snapshot status: {normalized}', { normalized });
 
         snapshotInitProgress = Math.min(84, 42 + i * 1.1);
 
         if (['FAILED', 'ERROR', 'CANCELED', 'CANCELLED'].includes(normalized)) {
-          throw new Error(`Snapshot ${normalized.toLowerCase()}.`);
+          throw new Error(t('Snapshot {toLowerCase}.', { toLowerCase: normalized.toLowerCase() }));
         }
 
         const hasPersistedMetadata = Boolean(meta.at) || (meta.version ?? 0) > 0;
@@ -433,16 +434,16 @@
       updateSnapshotInitStep('collect', 'done');
       updateSnapshotInitStep('persist', 'running');
       snapshotInitProgress = 90;
-      snapshotInitStatusText = 'Refreshing persisted metadata…';
+      snapshotInitStatusText = t('Refreshing persisted metadata…');
 
       await loadSnapshotCounts(Number(createdSourceId));
 
       updateSnapshotInitStep('persist', 'done');
       snapshotInitProgress = 100;
       snapshotInitState = 'success';
-      snapshotInitStatusText = 'Initial snapshot persisted in database.';
+      snapshotInitStatusText = t('Initial snapshot persisted in database.');
       jobsStore.succeedJob(snapshotJobInput(Number(createdSourceId)), {
-        message: 'Initial snapshot persisted',
+        message: t('Initial snapshot persisted'),
         summary: {
           status: lastSnapshotStatus,
           version: lastSnapshotVersion,
@@ -462,17 +463,17 @@
         lastSnapshotGroupsCount,
         lastSnapshotMembershipsCount
       });
-      toast.success('Snapshot synchronized.');
+      toast.success(t('Snapshot synchronized.'));
     } catch (e: unknown) {
       failSnapshotInitRunningStep();
       snapshotInitState = 'failed';
       snapshotInitProgress = Math.max(snapshotInitProgress, 34);
-      const appError = toUiAppError(e, 'Unable to initialize first snapshot.', 'ui', {
+      const appError = toUiAppError(e, t('Unable to initialize first snapshot.'), 'ui', {
         action: 'identity_sources_wizard.start_initial_snapshot_sync',
         sourceId: createdSourceId
       });
       snapshotInitError = appError.message;
-      snapshotInitStatusText = 'Snapshot initialization failed.';
+      snapshotInitStatusText = t('Snapshot initialization failed.');
       jobsStore.failJob(snapshotJobInput(Number(createdSourceId)), {
         message: snapshotInitError,
         error: snapshotInitError
@@ -518,7 +519,7 @@
       }
       createDone = true;
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Creation failed', 'ui', {
+      const appError = toUiAppError(e, t('Creation failed'), 'ui', {
         action: 'identity_sources_wizard.finish_create'
       });
       createError = appError.message;
@@ -531,18 +532,18 @@
   function resolveHostInput() {
     const value = adHostInput.trim();
     if (!value) {
-      resolveHint = { ok: false, message: 'Enter a hostname or an IP.' };
+      resolveHint = { ok: false, message: t('Enter a hostname or an IP.') };
       return;
     }
     if (isValidIPv4(value)) {
-      resolveHint = { ok: true, message: 'Valid IP.' };
+      resolveHint = { ok: true, message: t('Valid IP.') };
       return;
     }
     if (isValidHostname(value)) {
-      resolveHint = { ok: true, message: 'Valid hostname.' };
+      resolveHint = { ok: true, message: t('Valid hostname.') };
       return;
     }
-    resolveHint = { ok: false, message: 'Invalid hostname/IP format.' };
+    resolveHint = { ok: false, message: t('Invalid hostname/IP format.') };
   }
 
   function resolveProbeHost(): string | null {
@@ -640,22 +641,22 @@
 <div class="is-wizard b2s-wizard is-wizard--modal" class:is-wizard--ldaps={protocolChoice === 'ldaps'}>
   <div class="is-wizard-shell">
     <div class="is-wizard-header">
-      <h1 id="identity-sources-wizard-title">Connect Identity Source</h1>
-      <p>Configure Active Directory (LDAP) to import identities.</p>
+      <h1 id="identity-sources-wizard-title">{t('Connect Identity Source')}</h1>
+      <p>{t('Configure Active Directory (LDAP) to import identities.')}</p>
     </div>
 
     <WizardSteps steps={activeSteps.map((s) => ({ label: s.label }))} current={step} />
 
     <div class="is-card">
       {#if currentStepKey === 'type'}
-        <h2>Select Type</h2>
+        <h2>{t('Select Type')}</h2>
 
         <div class="field">
-          <label for="identity-source-name">Name</label>
+          <label for="identity-source-name">{t('Name')}</label>
           <input
             id="identity-source-name"
             bind:value={payload.name}
-            placeholder="AD Corp (prod)"
+            placeholder={t('AD Corp (prod)')}
             autocomplete="off"
           />
         </div>
@@ -663,41 +664,41 @@
         <div class="cards">
           <button type="button" class="card" class:selected={payload.type === 'ad'} on:click={() => selectType('ad')}>
             <div class="card__icon"><i class="bi bi-diagram-3"></i></div>
-            <div class="card__title">Active Directory / LDAP</div>
-            <div class="card__desc">LDAP server for Microsoft Active Directory or generic LDAP</div>
+            <div class="card__title">{t('Active Directory / LDAP')}</div>
+            <div class="card__desc">{t('LDAP server for Microsoft Active Directory or generic LDAP')}</div>
           </button>
           <button
             type="button"
             class="card disabled"
             disabled
             aria-disabled="true"
-            title="Coming soon"
+            title={t('Coming soon')}
           >
             <div class="card__icon"><i class="bi bi-key"></i></div>
-            <div class="card__title">OIDC / SCIM 2.0</div>
-            <div class="card__desc">Provision identities via OIDC / SCIM</div>
+            <div class="card__title">{t('OIDC / SCIM 2.0')}</div>
+            <div class="card__desc">{t('Provision identities via OIDC / SCIM')}</div>
           </button>
           <button
             type="button"
             class="card disabled"
             disabled
             aria-disabled="true"
-            title="Coming soon"
+            title={t('Coming soon')}
           >
             <div class="card__icon"><i class="bi bi-cloud"></i></div>
-            <div class="card__title">Azure AD</div>
-            <div class="card__desc">Microsoft Entra ID connector</div>
+            <div class="card__title">{t('Azure AD')}</div>
+            <div class="card__desc">{t('Microsoft Entra ID connector')}</div>
           </button>
           <button
             type="button"
             class="card disabled"
             disabled
             aria-disabled="true"
-            title="Coming soon"
+            title={t('Coming soon')}
           >
             <div class="card__icon"><i class="bi bi-amazon"></i></div>
-            <div class="card__title">Amazon IAM</div>
-            <div class="card__desc">AWS identity source</div>
+            <div class="card__title">{t('Amazon IAM')}</div>
+            <div class="card__desc">{t('AWS identity source')}</div>
           </button>
         </div>
       {/if}
@@ -705,16 +706,16 @@
       {#if currentStepKey === 'capabilities'}
         <div class="capabilities">
           <div class="capabilities-head">
-            <h2>Capabilities</h2>
-            <p class="capabilities-sub">Enable features available for this source.</p>
+            <h2>{t('Capabilities')}</h2>
+            <p class="capabilities-sub">{t('Enable features available for this source.')}</p>
           </div>
 
           <div class="cap-card">
             <label class="cap-option">
               <span class="cap-option-icon"><i class="bi bi-person-check" aria-hidden="true"></i></span>
               <span class="cap-option-copy">
-                <strong>Authenticate users</strong>
-                <small>Allow this source to authenticate users.</small>
+                <strong>{t('Authenticate users')}</strong>
+                <small>{t('Allow this source to authenticate users.')}</small>
               </span>
               <input class="cap-switch" type="checkbox" bind:checked={payload.capabilities.auth} />
             </label>
@@ -722,8 +723,8 @@
             <label class="cap-option">
               <span class="cap-option-icon"><i class="bi bi-diagram-3" aria-hidden="true"></i></span>
               <span class="cap-option-copy">
-                <strong>Import groups</strong>
-                <small>Import groups from this source.</small>
+                <strong>{t('Import groups')}</strong>
+                <small>{t('Import groups from this source.')}</small>
               </span>
               <input class="cap-switch" type="checkbox" bind:checked={payload.capabilities.import_groups} />
             </label>
@@ -731,67 +732,67 @@
             <label class="cap-option">
               <span class="cap-option-icon"><i class="bi bi-cloud-arrow-down" aria-hidden="true"></i></span>
               <span class="cap-option-copy">
-                <strong>Snapshot inventory</strong>
-                <small>Synchronize directory inventory and health metadata.</small>
+                <strong>{t('Snapshot inventory')}</strong>
+                <small>{t('Synchronize directory inventory and health metadata.')}</small>
               </span>
               <input class="cap-switch" type="checkbox" bind:checked={payload.capabilities.snapshot_enabled} />
             </label>
           </div>
 
           {#if payload.capabilities.snapshot_enabled}
-            <div class="hint ok">Snapshot inventory will add one additional configuration step.</div>
+            <div class="hint ok">{t('Snapshot inventory will add one additional configuration step.')}</div>
           {/if}
         </div>
       {/if}
 
       {#if currentStepKey === 'connection'}
-      <h2>Connection</h2>
-      <p class="step-hint">Provide LDAP/LDAPS parameters. Fields marked “Required” must be filled in.</p>
+      <h2>{t('Connection')}</h2>
+      <p class="step-hint">{t('Provide LDAP/LDAPS parameters. Fields marked “Required” must be filled in.')}</p>
       {#if payload.type === 'ad'}
         <div class="grid">
             <div class="field field--full">
-              <label for="identity-source-name-step3">Name</label>
+              <label for="identity-source-name-step3">{t('Name')}</label>
               <input
                 id="identity-source-name-step3"
                 bind:value={payload.name}
-                placeholder="AD Corp (prod)"
+                placeholder={t('AD Corp (prod)')}
                 autocomplete="off"
               />
               {#if showStep3Errors && !payload.name?.trim()}
-                <span class="error">Required</span>
+                <span class="error">{t('Required')}</span>
               {:else if showStep3Errors && isDuplicateSourceName()}
-                <span class="error">This name already exists</span>
+                <span class="error">{t('This name already exists')}</span>
               {/if}
             </div>
 
             <div class="field">
-              <label for="identity-source-host">Hostname / IP</label>
+              <label for="identity-source-host">{t('Hostname / IP')}</label>
               <div class="b2s-input-with-action">
                 <input
                   id="identity-source-host"
                   bind:value={adHostInput}
-                  placeholder="dc1.corp.local or 192.168.10.10"
+                  placeholder={t('dc1.corp.local or 192.168.10.10')}
                 />
                 <button
                   class="b2s-input-action"
                   type="button"
-                  aria-label="Resolve host"
+                  aria-label={t('Resolve host')}
                   on:click={resolveHostInput}
                 >
                   <i class="bi bi-search" aria-hidden="true"></i>
                 </button>
               </div>
               {#if showStep3Errors && !adHostInput}
-                <span class="error">Required</span>
+                <span class="error">{t('Required')}</span>
               {:else if showStep3Errors && adHostInput && !isValidIPv4(adHostInput) && !isValidHostname(adHostInput)}
-                <span class="error">Invalid hostname / IP</span>
+                <span class="error">{t('Invalid hostname / IP')}</span>
               {/if}
               {#if resolveHint}
                 <span class={resolveHint.ok ? 'hint ok' : 'hint'}>{resolveHint.message}</span>
               {/if}
             </div>
             <div class="field">
-              <label>Protocol</label>
+              <label>{t('Protocol')}</label>
               <div class="protocol-switch">
                 <button
                   type="button"
@@ -812,41 +813,41 @@
               </div>
             </div>
             <div class="field">
-              <label for="identity-source-port">Port</label>
+              <label for="identity-source-port">{t('Port')}</label>
               <input
                 id="identity-source-port"
                 type="number"
                 bind:value={payload.port}
               />
               {#if showStep3Errors && !payload.port}
-                <span class="error">Required</span>
+                <span class="error">{t('Required')}</span>
               {/if}
             </div>
             <div class="field">
-              <label for="identity-source-base-dn">Base DN</label>
+              <label for="identity-source-base-dn">{t('Base DN')}</label>
               <input
                 id="identity-source-base-dn"
                 bind:value={payload.base_dn}
                 placeholder="DC=corp,DC=local"
               />
               {#if showStep3Errors && !payload.base_dn}
-                <span class="error">Required</span>
+                <span class="error">{t('Required')}</span>
               {/if}
             </div>
             <div class="field">
-              <label for="identity-source-bind-dn">Bind DN</label>
+              <label for="identity-source-bind-dn">{t('Bind DN')}</label>
               <input
                 id="identity-source-bind-dn"
                 bind:value={payload.bind_dn}
                 placeholder="svc_ad_bind"
               />
               {#if showStep3Errors && !payload.bind_dn}
-                <span class="error">Required</span>
+                <span class="error">{t('Required')}</span>
               {/if}
             </div>
 
             <div class="field">
-              <label for="identity-source-bind-password">Bind password</label>
+              <label for="identity-source-bind-password">{t('Bind password')}</label>
               <div class="b2s-input-with-action">
                 <input
                   id="identity-source-bind-password"
@@ -857,23 +858,23 @@
                 <button
                   class="b2s-input-action"
                   type="button"
-                  aria-label={showBindPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showBindPassword ? t('Hide password') : t('Show password')}
                   on:click={() => (showBindPassword = !showBindPassword)}
                 >
                   <i class={`bi ${showBindPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
                 </button>
               </div>
               {#if showStep3Errors && !uiBindPassword && !payload.bind_password_ref}
-                <span class="error">Required</span>
+                <span class="error">{t('Required')}</span>
               {/if}
             </div>
 
             <div class="field field--full">
               {#if isNtlmAuth}
-                <span class="hint">⚠️ In hardened environments (CIS), Kerberos is recommended. Suggested format: user@realm.</span>
+                <span class="hint">{t('⚠️ In hardened environments (CIS), Kerberos is recommended. Suggested format: user@realm.')}</span>
               {/if}
               {#if isKerberosAuth}
-                <span class="hint ok">Kerberos detected. Prerequisites: DNS SRV Kerberos, synchronized NTP, ports 88/464 open, krb5.conf mounted in the runner.</span>
+                <span class="hint ok">{t('Kerberos detected. Prerequisites: DNS SRV Kerberos, synchronized NTP, ports 88/464 open, krb5.conf mounted in the runner.')}</span>
               {/if}
             </div>
           </div>
@@ -886,8 +887,8 @@
               const secretRef = await ensureBindSecretRef();
               return buildWizardProbeRequest(secretRef);
             }}
-            label="Run Probe"
-            busyLabel="Running probe…"
+            label={t('Run Probe')}
+            busyLabel={t('Running probe…')}
             fullWidth={true}
             showIcon={true}
             iconClass="bi bi-activity"
@@ -900,22 +901,22 @@
               showStep3Errors = false;
               testError = null;
               jobsStore.startJob(probeWizardJobInput(), {
-                message: 'Probe running'
+                message: t('Probe running')
               });
               if (!canContinueStep3) {
                 showStep3Errors = true;
-                throw new Error('Complete the required connection fields first.');
+                throw new Error(t('Complete the required connection fields first.'));
               }
               const secretRef = await ensureBindSecretRef();
               if (!secretRef && payload.bind_dn?.trim()) {
-                throw new Error('Password is required to test the connection (no secret_ref available).');
+                throw new Error(t('Password is required to test the connection (no secret_ref available).'));
               }
             }}
             on:done={(e) => {
               const ok = Boolean(e.detail.ok);
               const message = ok
-                ? 'Probe OK'
-                : (e.detail.error?.message ?? 'Probe failed');
+                ? t('Probe OK')
+                : (e.detail.error?.message ?? t('Probe failed'));
 
               probeStatus = ok ? 'success' : 'failed';
 
@@ -927,7 +928,7 @@
 
               if (ok) {
                 jobsStore.succeedJob(probeWizardJobInput(), {
-                  message: 'Probe OK',
+                  message: t('Probe OK'),
                   summary: { message }
                 });
               } else {
@@ -937,7 +938,7 @@
                 });
               }
 
-              if (ok) toast.success('Probe OK');
+              if (ok) toast.success(t('Probe OK'));
               else {
                 const appError = toUiAppError(
                   e.detail.error ?? new Error(message),
@@ -954,14 +955,14 @@
 
       {#if currentStepKey === 'snapshot'}
         <div class="test-step">
-          <h2>Snapshot</h2>
-          <p class="test-sub">Snapshot Activation, Import Scope and Snapshot Test Run.</p>
+          <h2>{t('Snapshot')}</h2>
+          <p class="test-sub">{t('Snapshot Activation, Import Scope and Snapshot Test Run.')}</p>
 
           <div class="test-summary">
-            <div class="summary-row"><strong>Snapshot Activation:</strong> {snapshotEnabledSummary ? 'Enabled' : 'Disabled'}</div>
-            <div class="summary-row"><strong>Import Scope:</strong> {payload.capabilities.import_groups ? 'Users + groups' : 'Users only'}</div>
+            <div class="summary-row"><strong>{t('Snapshot Activation:')}</strong> {snapshotEnabledSummary ? t('Enabled') : t('Disabled')}</div>
+            <div class="summary-row"><strong>{t('Import Scope:')}</strong> {payload.capabilities.import_groups ? t('Users + groups') : t('Users only')}</div>
             <div class="summary-row">
-              <strong>Snapshot status:</strong>
+              <strong>{t('Snapshot status:')}</strong>
               <StatusBadge
                 status={snapshotStatusLabel(lastSnapshotStatus)}
                 label={snapshotStatusLabel(lastSnapshotStatus)}
@@ -969,25 +970,25 @@
                 compact={true}
               />
             </div>
-            <div class="summary-row"><strong>Snapshot date:</strong> {formatSnapshotDate(lastSnapshotAt)}</div>
-            <div class="summary-row"><strong>Snapshot version:</strong> {lastSnapshotVersion ?? '—'}</div>
+            <div class="summary-row"><strong>{t('Snapshot date:')}</strong> {formatSnapshotDate(lastSnapshotAt)}</div>
+            <div class="summary-row"><strong>{t('Snapshot version:')}</strong> {lastSnapshotVersion ?? '—'}</div>
             <div class="summary-row">
-              <strong>Synchronized objects (snapshot):</strong>
+              <strong>{t('Synchronized objects (snapshot):')}</strong>
               {#if creating || loadingSnapshotCount}
-                en cours…
+                {t('en cours…')}
               {:else if !createDone}
-                available after creation
+                {t('available after creation')}
               {:else if lastSnapshotObjectsCount !== null}
                 {lastSnapshotObjectsCount}
                 {#if lastSnapshotUsersCount !== null || lastSnapshotGroupsCount !== null || lastSnapshotMembershipsCount !== null}
-                  <span class="test-desc">(users: {lastSnapshotUsersCount ?? 0}, groups: {lastSnapshotGroupsCount ?? 0}, memberships: {lastSnapshotMembershipsCount ?? 0})</span>
+                  <span class="test-desc">{t('(users: {value}, groups: {value2}, memberships: {value3})', { value: (lastSnapshotUsersCount ?? 0), value2: (lastSnapshotGroupsCount ?? 0), value3: (lastSnapshotMembershipsCount ?? 0) })}</span>
                 {/if}
               {:else}
                 —
               {/if}
             </div>
             {#if createdSourceId}
-              <div class="summary-row"><strong>Source ID:</strong> {createdSourceId}</div>
+              <div class="summary-row"><strong>{t('Source ID:')}</strong> {createdSourceId}</div>
             {/if}
             {#if snapshotCountNote}
               <div class="summary-row test-desc">{snapshotCountNote}</div>
@@ -997,9 +998,9 @@
           <div class="snapshot-sync-card">
             <div class="snapshot-sync-head">
               <div>
-                <div class="snapshot-sync-title">Snapshot Test Run</div>
+                <div class="snapshot-sync-title">{t('Snapshot Test Run')}</div>
                 <div class="snapshot-sync-sub">
-                  Lance le premier snapshot pour hydrater la BDD (date, version, objets).
+                  {t('Lance le premier snapshot pour hydrater la BDD (date, version, objets).')}
                 </div>
               </div>
               <button
@@ -1009,14 +1010,14 @@
                 disabled={creating || snapshotInitState === 'running' || (createDone && !createdSourceId)}
                 on:click={startInitialSnapshotSync}
               >
-                {#if creating}Creating…{:else if snapshotInitState === 'running'}Synchronizing…{:else if snapshotInitState === 'success'}Resync snapshot{:else}Initialize snapshot{/if}
+                {#if creating}{t('Creating…')}{:else if snapshotInitState === 'running'}{t('Synchronizing…')}{:else if snapshotInitState === 'success'}{t('Resync snapshot')}{:else}{t('Initialize snapshot')}{/if}
               </button>
             </div>
 
             {#if !createDone}
-              <div class="snapshot-sync-placeholder">The first click creates the source and starts the initial snapshot.</div>
+              <div class="snapshot-sync-placeholder">{t('The first click creates the source and starts the initial snapshot.')}</div>
             {:else if !createdSourceId}
-              <div class="snapshot-sync-placeholder">Source created, but identifier not found to start synchronization.</div>
+              <div class="snapshot-sync-placeholder">{t('Source created, but identifier not found to start synchronization.')}</div>
             {:else}
               <div class="snapshot-progress-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(snapshotInitProgress)}>
                 <div class="snapshot-progress-track">
@@ -1051,11 +1052,11 @@
 
       {#if currentStepKey === 'review'}
         <div class="test-step">
-          <h2>Review</h2>
-          <p class="test-sub">Review configuration summary before final creation.</p>
+          <h2>{t('Review')}</h2>
+          <p class="test-sub">{t('Review configuration summary before final creation.')}</p>
           {#if testResult}
             <div class={`test-banner ${testResult.ok ? 'ok' : 'err'}`}>
-              {testResult.ok ? 'Test OK' : 'Test failed'}
+              {testResult.ok ? t('Test OK') : t('Test failed')}
             </div>
           {/if}
 
@@ -1074,7 +1075,7 @@
                   </div>
                 </div>
                 <div class={`test-status ${c.ok ? 'ok' : 'err'}`}>
-                  {c.ok ? 'OK' : 'Error'}
+                  {c.ok ? 'OK' : t('Error')}
                   {#if !c.ok}
                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
                   {/if}
@@ -1083,7 +1084,7 @@
             {/each}
 
             {#if !testResult}
-              <div class="test-row empty">No tests have been run yet.</div>
+              <div class="test-row empty">{t('No tests have been run yet.')}</div>
             {/if}
           </div>
 
@@ -1092,13 +1093,13 @@
           {/if}
 
           <div class="test-summary">
-            <div class="summary-row"><strong>Name:</strong> {payload.name || resolveName()}</div>
-            <div class="summary-row"><strong>Identity source:</strong> Active Directory - {payload.host || 'corp.local'}</div>
-            <div class="summary-row"><strong>Host / IP:</strong> {payload.host || adHostInput || 'dc1.corp.local'}</div>
-            <div class="summary-row"><strong>Base DN:</strong> {payload.base_dn || 'DC=corp,DC=local'}</div>
-            <div class="summary-row"><strong>Bind DN:</strong> {payload.bind_dn || 'svc_ad_bind'}</div>
+            <div class="summary-row"><strong>{t('Name:')}</strong> {payload.name || resolveName()}</div>
+            <div class="summary-row"><strong>{t('Identity source:')}</strong> {t('Active Directory - {value}', { value: (payload.host || 'corp.local') })}</div>
+            <div class="summary-row"><strong>{t('Host / IP:')}</strong> {payload.host || adHostInput || 'dc1.corp.local'}</div>
+            <div class="summary-row"><strong>{t('Base DN:')}</strong> {payload.base_dn || 'DC=corp,DC=local'}</div>
+            <div class="summary-row"><strong>{t('Bind DN:')}</strong> {payload.bind_dn || 'svc_ad_bind'}</div>
             <div class="summary-row">
-              <strong>Snapshot:</strong>
+              <strong>{t('Snapshot:')}</strong>
               <StatusBadge
                 status={snapshotEnabledSummary ? 'enabled' : 'disabled'}
                 label={snapshotEnabledSummary ? 'enabled' : 'disabled'}
@@ -1106,10 +1107,10 @@
                 compact={true}
               />
             </div>
-            <div class="summary-row"><strong>First snapshot automatic after creation:</strong> {firstSnapshotAutomaticSummary ? 'yes' : 'no'}</div>
-            <div class="summary-row"><strong>Import scope:</strong> {payload.capabilities.import_groups ? 'Users + groups' : 'Users only'}</div>
+            <div class="summary-row"><strong>{t('First snapshot automatic after creation:')}</strong> {firstSnapshotAutomaticSummary ? 'yes' : 'no'}</div>
+            <div class="summary-row"><strong>{t('Import scope:')}</strong> {payload.capabilities.import_groups ? t('Users + groups') : t('Users only')}</div>
             <div class="summary-row">
-              <strong>Probe result:</strong>
+              <strong>{t('Probe result:')}</strong>
               <StatusBadge
                 status={probeSummaryStatus}
                 label={probeSummaryStatus}
@@ -1118,7 +1119,7 @@
               />
             </div>
             <div class="summary-row">
-              <strong>Snapshot test status:</strong>
+              <strong>{t('Snapshot test status:')}</strong>
               <StatusBadge
                 status={snapshotTestSummaryStatus}
                 label={snapshotTestSummaryStatus}
@@ -1128,7 +1129,7 @@
             </div>
             {#if snapshotEnabledSummary}
               <div class="summary-row">
-                <strong>Snapshot status:</strong>
+                <strong>{t('Snapshot status:')}</strong>
                 <StatusBadge
                   status={snapshotStatusLabel(lastSnapshotStatus)}
                   label={snapshotStatusLabel(lastSnapshotStatus)}
@@ -1136,8 +1137,8 @@
                   compact={true}
                 />
               </div>
-              <div class="summary-row"><strong>Snapshot date:</strong> {formatSnapshotDate(lastSnapshotAt)}</div>
-              <div class="summary-row"><strong>Snapshot version:</strong> {lastSnapshotVersion ?? '—'}</div>
+              <div class="summary-row"><strong>{t('Snapshot date:')}</strong> {formatSnapshotDate(lastSnapshotAt)}</div>
+              <div class="summary-row"><strong>{t('Snapshot version:')}</strong> {lastSnapshotVersion ?? '—'}</div>
               {#if snapshotCountNote}
                 <div class="summary-row test-desc">{snapshotCountNote}</div>
               {/if}
@@ -1152,18 +1153,18 @@
 
       <div class="actions" class:actions--centered={currentStepKey === 'type'}>
         {#if step > 1}
-          <button class="b2s-btn b2s-btn-secondary" type="button" on:click={back}>Back</button>
+          <button class="b2s-btn b2s-btn-secondary" type="button" on:click={back}>{t('Back')}</button>
         {/if}
         {#if step < maxStep}
-          <button class="b2s-btn b2s-btn-primary" type="button" disabled={!canContinue} on:click={next}>Continue</button>
+          <button class="b2s-btn b2s-btn-primary" type="button" disabled={!canContinue} on:click={next}>{t('Continue')}</button>
         {:else}
           <button class="b2s-btn b2s-btn-primary" type="button" on:click={finish} disabled={creating}>
             {#if creating}
-              Creating…
+              {t('Creating…')}
             {:else if createDone}
-              Close
+              {t('Close')}
             {:else}
-              Finish
+              {t('Finish')}
             {/if}
           </button>
         {/if}
