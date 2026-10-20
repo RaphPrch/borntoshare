@@ -23,7 +23,7 @@
   export let busy = false;
   export let confirmVariant: 'primary' | 'secondary' | 'ghost' | 'danger' | 'warning' | null = null;
   export let actionsClass = 'b2s-confirm-actions';
-  export let cancelClass = 'sed-btn sed-btn--secondary';
+  export let cancelClass = 'b2s-btn b2s-btn-secondary';
   export let confirmClass: string | null = null;
 
   export let requireTextConfirm = false;

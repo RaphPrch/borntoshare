@@ -159,7 +159,6 @@
 
         <div class="provisioning-actions">
           <EntityActionButton
-            compact={true}
             variant="primary"
             icon={model.savePolicyBusy ? 'bi-arrow-repeat' : 'bi-check2'}
             busy={model.savePolicyBusy}

@@ -45,7 +45,6 @@
 <aside class="b2s-entity-sidebar" aria-label={ariaLabel}>
   {#if onCreate}
     <EntityActionButton
-      compact={true}
       variant="primary"
       icon="bi-plus-lg"
       label={createLabel}

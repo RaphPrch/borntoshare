@@ -68,7 +68,7 @@
     <footer class="provisioning-card__footer">
       <button
         type="button"
-        class="sed-btn sed-btn--primary provisioning-btn"
+        class="b2s-btn b2s-btn-primary provisioning-btn"
         on:click={() => onSave?.()}
         disabled={saveDisabled || saveBusy}
       >

@@ -152,9 +152,8 @@
 
   <svelte:fragment slot="footer">
     <div class="zone-form-drawer__actions">
-      <EntityActionButton compact={true} variant="secondary" label="Cancel" disabled={busy} onClick={onClose} />
+      <EntityActionButton variant="secondary" label="Cancel" disabled={busy} onClick={onClose} />
       <EntityActionButton
-        compact={true}
         variant={mode === "delete" ? "danger" : "primary"}
         icon={busy ? "bi-arrow-repeat" : mode === "delete" ? "bi-trash" : "bi-check2"}
         busy={busy}

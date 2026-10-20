@@ -178,7 +178,7 @@
   {/if}
 
   <div class="adv-actions">
-    <button class="btn btn-primary" type="button" on:click={saveGlobal} disabled={!canSave}>
+    <button class="b2s-btn b2s-btn-primary" type="button" on:click={saveGlobal} disabled={!canSave}>
       {saving ? 'Saving…' : 'Save changes'}
     </button>
   </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition';
   import { onDestroy, tick } from 'svelte';
+  import { browser } from '$app/environment';
 
   export let open = false;
   export let onClose: () => void;
@@ -66,7 +67,8 @@
     lastFocusedElement = null;
   }
 
-  $: if (open && !wasOpen) {
+  // Focus handling only exists in the browser (a modal can be open at SSR, e.g. ?create=1)
+  $: if (browser && open && !wasOpen) {
     wasOpen = true;
     lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     focusFirstElementInModal();
@@ -80,6 +82,13 @@
   onDestroy(() => {
     if (wasOpen) restorePreviousFocus();
   });
+
+  // Render at the end of <body>: a transformed ancestor would otherwise become the
+  // containing block of the fixed backdrop, and stacked modals would not overlap.
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return { destroy: () => node.remove() };
+  }
 
   function handleBackdropClick() {
     if (closeOnBackdrop) onClose?.();
@@ -130,83 +139,33 @@
 {#if open}
   <div
     class={backdropClass}
+    use:portal
     role="presentation"
     on:click={handleBackdropClick}
   >
-    {#if useFly}
-      {#if useFade}
-        <div
-          class={modalClass}
-          bind:this={modalEl}
-          in:fly={flyConfig}
-          out:fade
-          role={role}
-          aria-modal="true"
-          aria-labelledby={ariaLabelledby}
-          tabindex="-1"
-          on:click={handleModalClick}
-          on:keydown={handleKeydown}
-        >
-          {#if showClose}
-            <button class={closeClass} aria-label={closeLabel} on:click={onClose}>×</button>
-          {/if}
+    <div
+      class={modalClass}
+      bind:this={modalEl}
+      in:fly={useFly ? flyConfig : { duration: 0 }}
+      out:fade={{ duration: useFly && useFade ? 400 : 0 }}
+      role={role}
+      aria-modal="true"
+      aria-labelledby={ariaLabelledby}
+      tabindex="-1"
+      on:click={handleModalClick}
+      on:keydown={handleKeydown}
+    >
+      {#if showClose}
+        <button class={closeClass} aria-label={closeLabel} on:click={onClose}>×</button>
+      {/if}
 
-          {#if wrapContent}
-            <div class={contentClass}>
-              <slot />
-            </div>
-          {:else}
-            <slot />
-          {/if}
+      {#if wrapContent}
+        <div class={contentClass}>
+          <slot />
         </div>
       {:else}
-        <div
-          class={modalClass}
-          bind:this={modalEl}
-          in:fly={flyConfig}
-          role={role}
-          aria-modal="true"
-          aria-labelledby={ariaLabelledby}
-          tabindex="-1"
-          on:click={handleModalClick}
-          on:keydown={handleKeydown}
-        >
-          {#if showClose}
-            <button class={closeClass} aria-label={closeLabel} on:click={onClose}>×</button>
-          {/if}
-
-          {#if wrapContent}
-            <div class={contentClass}>
-              <slot />
-            </div>
-          {:else}
-            <slot />
-          {/if}
-        </div>
+        <slot />
       {/if}
-    {:else}
-      <div
-        class={modalClass}
-        bind:this={modalEl}
-        role={role}
-        aria-modal="true"
-        aria-labelledby={ariaLabelledby}
-        tabindex="-1"
-        on:click={handleModalClick}
-        on:keydown={handleKeydown}
-      >
-        {#if showClose}
-          <button class={closeClass} aria-label={closeLabel} on:click={onClose}>×</button>
-        {/if}
-
-        {#if wrapContent}
-          <div class={contentClass}>
-            <slot />
-          </div>
-        {:else}
-          <slot />
-        {/if}
-      </div>
-    {/if}
+    </div>
   </div>
 {/if}

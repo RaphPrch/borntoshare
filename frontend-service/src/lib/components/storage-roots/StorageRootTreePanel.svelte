@@ -178,7 +178,6 @@
   </div>
 
   <EntityActionButton
-    compact={true}
     variant="primary"
     icon="bi-plus-lg"
     label="New storage root"

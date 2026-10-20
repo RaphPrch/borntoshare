@@ -733,13 +733,12 @@
     </div>
 
     <footer class="sr-add-footer">
-      <EntityActionButton compact={true} variant="secondary" label="Cancel" onClick={close} />
+      <EntityActionButton variant="secondary" label="Cancel" onClick={close} />
       {#if currentStep > 1}
-        <EntityActionButton compact={true} variant="secondary" icon="bi-arrow-left" label="Back" onClick={goBack} />
+        <EntityActionButton variant="secondary" icon="bi-arrow-left" label="Back" onClick={goBack} />
       {/if}
       {#if currentStep < 3}
         <EntityActionButton
-          compact={true}
           variant="primary"
           icon="bi-arrow-right"
           label="Continue"
@@ -748,7 +747,6 @@
         />
       {:else}
         <EntityActionButton
-          compact={true}
           variant="primary"
           icon={loading ? "bi-arrow-repeat" : "bi-plus-lg"}
           busy={loading}

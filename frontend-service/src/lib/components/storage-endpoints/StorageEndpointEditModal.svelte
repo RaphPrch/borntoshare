@@ -769,9 +769,8 @@
   <svelte:fragment slot="footer">
     <ActionFooter align="end" className="se-edit-drawer__actions">
       {#if activeTab === "endpoint"}
-        <EntityActionButton compact={true} variant="secondary" label="Cancel" disabled={saving} onClick={requestClose} />
+        <EntityActionButton variant="secondary" label="Cancel" disabled={saving} onClick={requestClose} />
         <EntityActionButton
-          compact={true}
           variant="primary"
           icon={saving ? "bi-arrow-repeat" : "bi-check2"}
           busy={saving}
@@ -784,7 +783,6 @@
         {/if}
       {:else}
         <EntityActionButton
-          compact={true}
           variant="secondary"
           icon={discoverStatus === "running" ? "bi-arrow-repeat" : "bi-search"}
           busy={discoverStatus === "running"}
@@ -793,7 +791,6 @@
           onClick={discoverStorageRoots}
         />
         <EntityActionButton
-          compact={true}
           variant="primary"
           icon={saving ? "bi-arrow-repeat" : "bi-folder-plus"}
           busy={saving}

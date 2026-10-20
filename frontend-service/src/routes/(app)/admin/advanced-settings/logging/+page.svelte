@@ -131,7 +131,7 @@
   {/if}
 
   <div class="adv-actions">
-    <button class="btn btn-primary" type="button" on:click={save} disabled={!canSave}>
+    <button class="b2s-btn b2s-btn-primary" type="button" on:click={save} disabled={!canSave}>
       {saving ? 'Saving…' : 'Save changes'}
     </button>
   </div>
@@ -139,7 +139,7 @@
 
 <DangerZone title="Danger zone" subtitle="Cleanup / purge">
   <div class="adv-btn-row">
-    <button class="btn btn-danger" type="button" on:click={purge} disabled={purging}>
+    <button class="b2s-btn b2s-btn-danger" type="button" on:click={purge} disabled={purging}>
       <i class="bi bi-trash"></i> Purge old logs
     </button>
   </div>

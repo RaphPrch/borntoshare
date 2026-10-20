@@ -946,7 +946,7 @@
               showIcon={true}
               iconClass="bi bi-activity"
               busyIconClass="bi bi-hourglass-split"
-              buttonClass={`se-run-probe-btn sed-btn sed-btn--secondary ${testStatus === 'success' ? 'is-success' : ''}`}
+              buttonClass={`se-run-probe-btn b2s-btn b2s-btn-secondary ${testStatus === 'success' ? 'is-success' : ''}`}
               hideSuccessPanel={true}
               disabled={!canTestConnection}
               beforeRun={async () => {

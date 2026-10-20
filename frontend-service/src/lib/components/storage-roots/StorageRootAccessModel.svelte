@@ -176,7 +176,7 @@
     width: 100%;
   }
 
-  .storage-root-access-row :global(.sed-btn) {
+  .storage-root-access-row :global(.b2s-btn) {
     min-height: 36px;
     padding: 7px 11px;
     font-size: 12px;
@@ -187,7 +187,7 @@
     justify-content: center;
   }
 
-  .storage-root-access-row :global(.sed-btn--secondary) {
+  .storage-root-access-row :global(.b2s-btn-secondary) {
     border-color: #ccd8ea;
     color: #233f66;
     background: #fff;

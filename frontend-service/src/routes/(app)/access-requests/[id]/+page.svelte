@@ -184,7 +184,7 @@
 {#if !req}
   <section class="b2s-page">
     <h1 class="b2s-title">Request not found</h1>
-    <a class="b2s-btn-secondary" href="/access-requests">Back</a>
+    <a class="b2s-btn b2s-btn-secondary" href="/access-requests">Back</a>
   </section>
 {:else}
   <section class="ar-page">
@@ -196,7 +196,7 @@
       <h1>{requestCode}</h1>
       <div class="ar-actions">
         <div class="menu-wrap">
-          <button class="btn btn-action" type="button" on:click={() => (actionMenuOpen = !actionMenuOpen)}>
+          <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (actionMenuOpen = !actionMenuOpen)}>
             <i class="bi bi-three-dots-vertical"></i>
             Actions
             <i class="bi bi-chevron-down"></i>
@@ -227,14 +227,14 @@
           {/if}
         </div>
         {#if canRevoke}
-          <button class="btn btn-danger" type="button" disabled={Boolean(actionRunning)} on:click={() => runDecision('revoke')}>
+          <button class="b2s-btn b2s-btn-danger" type="button" disabled={Boolean(actionRunning)} on:click={() => runDecision('revoke')}>
             Revoke Access
           </button>
         {:else if canApprove || canReject}
-          <button class="btn btn-primary" type="button" disabled={!canApprove || Boolean(actionRunning)} on:click={() => runDecision('approve')}>
+          <button class="b2s-btn b2s-btn-primary" type="button" disabled={!canApprove || Boolean(actionRunning)} on:click={() => runDecision('approve')}>
             Approve
           </button>
-          <button class="btn btn-danger" type="button" disabled={!canReject || Boolean(actionRunning)} on:click={() => runDecision('reject')}>
+          <button class="b2s-btn b2s-btn-danger" type="button" disabled={!canReject || Boolean(actionRunning)} on:click={() => runDecision('reject')}>
             Reject
           </button>
         {/if}
@@ -297,7 +297,7 @@
           <div class="sub-title">Time-to-Live (TTL)</div>
           <div class="muted-row">Expires: <strong>{expiresAtLabel}</strong></div>
           <div class="ttl-bar">{ttlCountdown} <i class="bi bi-chevron-right"></i></div>
-          <button class="btn btn-primary small" type="button" disabled>Extend TTL</button>
+          <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled>Extend TTL</button>
         </div>
 
         <div class="sub-card requester">
@@ -318,7 +318,7 @@
             <div class="line"><span>Sensitivity zone</span><strong>{sensitivityZone}</strong></div>
             <div class="line line-last"><span>Risk level</span><strong class="warn">{riskLevel}</strong></div>
             <div class="actions-row">
-              <button class="btn btn-primary small" type="button" disabled>Extend TTL</button>
+              <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled>Extend TTL</button>
             </div>
           </div>
         </section>
@@ -416,47 +416,6 @@
     align-items: center;
     gap: 12px;
     position: relative;
-  }
-
-  .btn {
-    border-radius: 14px;
-    border: 1px solid #c9d3e1;
-    background: #f8fafc;
-    color: #1f2a44;
-    padding: 8px 14px;
-    font-size: 14px;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    line-height: 1.25;
-  }
-
-  .btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .btn-action {
-    background: linear-gradient(180deg, #fbfcfe, #eef3f8);
-  }
-
-  .btn-primary {
-    background: linear-gradient(180deg, #4a8ddf, #2f72c9);
-    border-color: #2f72c9;
-    color: #ffffff;
-  }
-
-  .btn-danger {
-    background: linear-gradient(180deg, #df6768, #cd5455);
-    border-color: #bf4c4d;
-    color: #ffffff;
-  }
-
-  .btn.small {
-    font-size: 13px;
-    padding: 6px 12px;
-    border-radius: 10px;
   }
 
   .menu-wrap {
@@ -880,10 +839,6 @@
 
     .ar-header-row h1 {
       font-size: 24px;
-    }
-
-    .btn {
-      font-size: 13px;
     }
 
     .sub-title,

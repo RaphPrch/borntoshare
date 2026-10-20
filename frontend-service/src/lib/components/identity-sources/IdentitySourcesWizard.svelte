@@ -1063,7 +1063,7 @@
             showIcon={true}
             iconClass="bi bi-activity"
             busyIconClass="bi bi-hourglass-split"
-            buttonClass={`se-run-probe-btn sed-btn sed-btn--secondary ${probeStatus === 'success' ? 'is-success' : ''}`}
+            buttonClass={`se-run-probe-btn b2s-btn b2s-btn-secondary ${probeStatus === 'success' ? 'is-success' : ''}`}
             hideSuccessPanel={true}
             disabled={!canContinueStep3}
             beforeRun={async () => {
@@ -1323,12 +1323,12 @@
 
       <div class="actions" class:actions--centered={currentStepKey === 'type'}>
         {#if step > 1}
-          <button class="b2s-btn-secondary" type="button" on:click={back}>Back</button>
+          <button class="b2s-btn b2s-btn-secondary" type="button" on:click={back}>Back</button>
         {/if}
         {#if step < maxStep}
-          <button class="b2s-btn-primary" type="button" disabled={!canContinue} on:click={next}>Continue</button>
+          <button class="b2s-btn b2s-btn-primary" type="button" disabled={!canContinue} on:click={next}>Continue</button>
         {:else}
-          <button class="b2s-btn-primary" type="button" on:click={finish} disabled={creating}>
+          <button class="b2s-btn b2s-btn-primary" type="button" on:click={finish} disabled={creating}>
             {#if creating}
               Creating…
             {:else if createDone}
@@ -1971,41 +1971,8 @@
     width: 100%;
   }
 
-  .b2s-btn-test {
-    /* uses shared .b2s-btn-test styles */
-  }
-
-  .actions .b2s-btn-primary,
-  .actions .b2s-btn-secondary {
-    border-radius: 12px;
-    padding: 12px 18px;
-    font-weight: 800;
-    font-size: 14px;
+  .actions .b2s-btn {
     flex: 1 1 160px;
-  }
-
-  .actions .b2s-btn-primary {
-    background: var(--b2s-topbar-bg, #0b1530);
-    border-color: var(--b2s-topbar-bg, #0b1530);
-    color: #ffffff;
-    box-shadow: 0 12px 24px rgba(11, 21, 48, 0.28);
-  }
-
-  .actions .b2s-btn-primary:hover {
-    background: #101b39;
-    border-color: #101b39;
-    box-shadow: 0 16px 28px rgba(11, 21, 48, 0.32);
-    transform: translateY(-1px);
-  }
-
-  .actions .b2s-btn-secondary {
-    background: rgba(11, 21, 48, 0.06);
-    border-color: rgba(11, 21, 48, 0.22);
-    color: #0b1530;
-  }
-
-  .actions .b2s-btn-secondary:hover {
-    background: rgba(11, 21, 48, 0.12);
   }
 
   .alert {

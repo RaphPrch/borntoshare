@@ -1,0 +1,158 @@
+/* BornToShare — buttons.css
+   The only button styles of the app:
+     <button class="b2s-btn b2s-btn-primary">       primary action (one per screen area)
+     b2s-btn-secondary                               default action
+     b2s-btn-ghost                                   low-emphasis action, toolbars
+     b2s-btn-danger                                  destructive action, confirmed
+     b2s-btn-danger-outline                          destructive action in a list row
+     b2s-btn-warning                                 action needing attention
+   Sizes: b2s-btn-sm (dense rows, toolbars), b2s-btn-icon (square, icon only).
+   Components: EntityActionButton / EntityActionGroup / ModalActionBar use these classes.
+*/
+
+.b2s-btn {
+  appearance: none;
+  min-height: 42px;
+  height: 42px;
+  border: 1px solid var(--b2s-btn-secondary-border);
+  border-radius: var(--b2s-btn-radius);
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: var(--b2s-text-sm);
+  font-weight: var(--b2s-btn-font-weight);
+  line-height: 1;
+  white-space: nowrap;
+  background: var(--b2s-btn-secondary-bg);
+  color: var(--b2s-btn-secondary-fg);
+  box-shadow: 0 1px 2px rgba(17, 32, 62, 0.06);
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.12s ease;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.b2s-btn > i {
+  font-size: 0.88rem;
+  line-height: 1;
+}
+
+.b2s-btn:hover:not(:disabled) {
+  background: var(--b2s-btn-secondary-bg-hover);
+  border-color: var(--b2s-color-border-strong);
+  color: var(--b2s-btn-secondary-fg);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(20, 43, 84, 0.09);
+}
+
+.b2s-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(17, 32, 62, 0.08);
+}
+
+.b2s-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(77, 163, 255, 0.28),
+    0 2px 8px rgba(20, 43, 84, 0.12);
+}
+
+.b2s-btn:disabled {
+  opacity: var(--b2s-btn-disabled-opacity);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---------- Variants ---------- */
+.b2s-btn-primary {
+  border-color: var(--b2s-btn-primary-border);
+  background: var(--b2s-btn-primary-bg);
+  color: var(--b2s-btn-primary-fg);
+  box-shadow: 0 5px 14px rgba(17, 27, 63, 0.22);
+}
+
+.b2s-btn-primary:hover:not(:disabled) {
+  color: var(--b2s-btn-primary-fg);
+  border-color: var(--b2s-btn-primary-bg-hover);
+  background: var(--b2s-btn-primary-bg-hover);
+}
+
+.b2s-btn-secondary {
+  border-color: var(--b2s-btn-secondary-border);
+  background: var(--b2s-btn-secondary-bg);
+  color: var(--b2s-btn-secondary-fg);
+}
+
+.b2s-btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.b2s-btn-ghost:hover:not(:disabled) {
+  background: #edf4ff;
+  border-color: #d2e0f3;
+}
+
+.b2s-btn-danger {
+  border-color: var(--b2s-btn-danger-border);
+  background: var(--b2s-btn-danger-bg);
+  color: var(--b2s-btn-danger-fg);
+  box-shadow: 0 1px 2px rgba(116, 28, 37, 0.08);
+}
+
+.b2s-btn-danger:hover:not(:disabled) {
+  border-color: var(--b2s-btn-danger-border);
+  background: var(--b2s-btn-danger-bg-hover);
+  color: var(--b2s-btn-danger-fg);
+}
+
+.b2s-btn-danger-outline {
+  border-color: rgba(220, 53, 69, 0.45);
+  background: var(--b2s-color-surface);
+  color: var(--b2s-color-danger-strong);
+}
+
+.b2s-btn-danger-outline:hover:not(:disabled) {
+  border-color: var(--b2s-color-danger);
+  background: var(--b2s-color-danger-soft);
+  color: var(--b2s-color-danger-strong);
+}
+
+.b2s-btn-warning {
+  border-color: var(--b2s-btn-warning-border);
+  background: var(--b2s-btn-warning-bg);
+  color: var(--b2s-btn-warning-fg);
+}
+
+.b2s-btn-warning:hover:not(:disabled) {
+  border-color: var(--b2s-btn-warning-border);
+  background: var(--b2s-btn-warning-bg-hover);
+  color: var(--b2s-btn-warning-fg);
+}
+
+/* ---------- Sizes ---------- */
+.b2s-btn-sm {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: var(--b2s-text-xs);
+}
+
+.b2s-btn-icon {
+  width: 42px;
+  min-width: 42px;
+  padding-inline: 0;
+}
+
+.b2s-btn-sm.b2s-btn-icon {
+  width: 32px;
+  min-width: 32px;
+}

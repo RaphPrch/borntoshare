@@ -181,7 +181,7 @@
         </select>
       </div>
 
-      <button class="btn btn-sm btn-outline-primary" on:click={() => refreshJobs(false)} disabled={isLoading || isCancelling}>
+      <button class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => refreshJobs(false)} disabled={isLoading || isCancelling}>
         Refresh
       </button>
     </div>
@@ -239,7 +239,7 @@
                   </td>
                   <td class="text-end">
                     <button
-                      class="btn btn-sm btn-outline-danger"
+                      class="b2s-btn b2s-btn-sm b2s-btn-danger-outline"
                       disabled={!canCancel(job) || isCancelling}
                       on:click={() => cancelJob(job)}
                     >

@@ -106,11 +106,11 @@
         <option value="user">Sort: User</option>
         <option value="status">Sort: Status</option>
       </select>
-      <button class="btn btn-outline-secondary" type="button" on:click={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}>
+      <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}>
         {sortDir === 'asc' ? '↑ Ascending' : '↓ Descending'}
       </button>
     </div>
-    <button class="btn btn-secondary" type="button" on:click={refresh} disabled={isLoading || !!revokingId}>
+    <button class="b2s-btn b2s-btn-secondary" type="button" on:click={refresh} disabled={isLoading || !!revokingId}>
       {isLoading ? 'Loading…' : 'Refresh'}
     </button>
   </div>
@@ -151,7 +151,7 @@
             <td>{timeAgo(s.created_at)}</td>
             <td class="text-end">
               <button
-                class="btn btn-outline-danger btn-sm"
+                class="b2s-btn b2s-btn-danger-outline b2s-btn-sm"
                 type="button"
                 on:click={() => requestRevoke(s.id)}
                 disabled={isLoading || !!revokingId}

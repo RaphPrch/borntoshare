@@ -366,8 +366,8 @@
           <div class="sr-modal-field">
             <label>Connection checks</label>
             <div class="sr-modal-inline-actions">
-              <EntityActionButton compact={true} variant="secondary" icon="bi-activity" label={probeBusy ? 'Running probe…' : 'Probe connection'} busy={probeBusy} disabled={probeBusy || discoverBusy || !form.storage_endpoint_id} onClick={probeConnection} />
-              <EntityActionButton compact={true} variant="secondary" icon="bi-search" label={discoverBusy ? 'Discovering…' : 'Discover roots'} busy={discoverBusy} disabled={discoverBusy || probeBusy || !form.storage_endpoint_id} onClick={discoverRoots} />
+              <EntityActionButton variant="secondary" icon="bi-activity" label={probeBusy ? 'Running probe…' : 'Probe connection'} busy={probeBusy} disabled={probeBusy || discoverBusy || !form.storage_endpoint_id} onClick={probeConnection} />
+              <EntityActionButton variant="secondary" icon="bi-search" label={discoverBusy ? 'Discovering…' : 'Discover roots'} busy={discoverBusy} disabled={discoverBusy || probeBusy || !form.storage_endpoint_id} onClick={discoverRoots} />
             </div>
             {#if probeOk}
               <small class="sr-muted" style="color: #15803d;">Connection successful.</small>
@@ -423,10 +423,9 @@
 
     <svelte:fragment slot="footer">
       <div class="sr-modal-actions">
-        <EntityActionButton compact={true} variant="secondary" label="Cancel" onClick={onClose} />
+        <EntityActionButton variant="secondary" label="Cancel" onClick={onClose} />
         {#if mode === "delete"}
           <EntityActionButton
-            compact={true}
             variant="danger"
             icon="bi-trash"
             label="Delete storage root"
@@ -434,9 +433,9 @@
             onClick={confirmDelete}
           />
         {:else if mode === "edit"}
-          <EntityActionButton compact={true} variant="primary" icon="bi-check2" label="Save changes" onClick={submit} />
+          <EntityActionButton variant="primary" icon="bi-check2" label="Save changes" onClick={submit} />
         {:else}
-          <EntityActionButton compact={true} variant="primary" icon="bi-plus-lg" label="Create storage root" onClick={submit} />
+          <EntityActionButton variant="primary" icon="bi-plus-lg" label="Create storage root" onClick={submit} />
         {/if}
       </div>
     </svelte:fragment>

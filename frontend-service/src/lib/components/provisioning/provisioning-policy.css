@@ -292,7 +292,7 @@
   justify-content: center;
 }
 
-.provisioning-btn:not(.sed-btn):not(.b2s-btn) {
+.provisioning-btn:not(.b2s-btn) {
   border: 1px solid var(--b2s-topbar-bg, #111b3f);
   background: var(--b2s-topbar-bg, #111b3f);
   color: #fff;

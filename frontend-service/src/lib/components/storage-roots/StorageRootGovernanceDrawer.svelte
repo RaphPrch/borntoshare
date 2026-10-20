@@ -63,7 +63,6 @@
       <SectionHeaderRow title={assignedSectionTitle()} count={roleRows.length} compact={true}>
         <svelte:fragment slot="actions">
           <EntityActionButton
-            compact={true}
             variant="primary"
             icon="bi-search"
             label="Browse directory"
@@ -135,9 +134,8 @@
         infoText={draftDirty ? unsavedLabel() : null}
         showInfoDot={draftDirty}
       >
-        <EntityActionButton compact={true} variant="secondary" label="Cancel" disabled={saving} onClick={onClose} />
+        <EntityActionButton variant="secondary" label="Cancel" disabled={saving} onClick={onClose} />
         <EntityActionButton
-          compact={true}
           variant="primary"
           label={saving ? 'Saving…' : 'Save changes'}
           icon={saving ? 'bi-arrow-repeat' : 'bi-check2'}
@@ -282,7 +280,7 @@
       width: 100%;
     }
 
-    .governance-drawer__footer :global(.b2s-action-footer__actions .sed-btn) {
+    .governance-drawer__footer :global(.b2s-action-footer__actions .b2s-btn) {
       width: 100%;
     }
   }

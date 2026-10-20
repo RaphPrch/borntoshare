@@ -74,8 +74,8 @@
 
   <svelte:fragment slot="footer">
     <div class="sr-modal-actions sr-ea-footer-actions">
-      <EntityActionButton compact={true} variant="secondary" label="Close" onClick={onClose} />
-      <EntityActionButton compact={true} variant="primary" icon="bi-plus-lg" label="Add user" onClick={onAddUser} />
+      <EntityActionButton variant="secondary" label="Close" onClick={onClose} />
+      <EntityActionButton variant="primary" icon="bi-plus-lg" label="Add user" onClick={onAddUser} />
     </div>
   </svelte:fragment>
 </StorageRootDrawerShell>
@@ -258,7 +258,7 @@
     gap: 10px;
   }
 
-  .sr-ea-footer-actions :global(.sed-btn) {
+  .sr-ea-footer-actions :global(.b2s-btn) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -276,7 +276,7 @@
       grid-template-columns: 1fr;
     }
 
-    .sr-ea-footer-actions :global(.sed-btn) {
+    .sr-ea-footer-actions :global(.b2s-btn) {
       width: 100%;
     }
   }

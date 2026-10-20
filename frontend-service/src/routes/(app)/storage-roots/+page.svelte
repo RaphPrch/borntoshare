@@ -2310,8 +2310,8 @@
 
   <svelte:fragment slot="footer">
     <div class="sr-modal-actions sr-tags-modal-actions">
-      <EntityActionButton compact={true} variant="secondary" label="Cancel" disabled={tagsSaving} onClick={() => (showTagsModal = false)} />
-      <EntityActionButton compact={true} variant="primary" icon={tagsSaving ? 'bi-arrow-repeat' : 'bi-check2'} busy={tagsSaving} label={tagsSaving ? 'Saving…' : 'Save tag changes'} disabled={tagsSaving} onClick={saveTags} />
+      <EntityActionButton variant="secondary" label="Cancel" disabled={tagsSaving} onClick={() => (showTagsModal = false)} />
+      <EntityActionButton variant="primary" icon={tagsSaving ? 'bi-arrow-repeat' : 'bi-check2'} busy={tagsSaving} label={tagsSaving ? 'Saving…' : 'Save tag changes'} disabled={tagsSaving} onClick={saveTags} />
     </div>
   </svelte:fragment>
 </StorageRootDrawerShell>

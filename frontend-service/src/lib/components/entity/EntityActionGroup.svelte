@@ -21,11 +21,7 @@
 
   const buttonClass = (action: EntityActionItem): string => {
     const variant = action.variant ?? 'secondary';
-    if (variant === 'primary') return 'sed-btn sed-btn--primary';
-    if (variant === 'probe') return 'sed-btn sed-btn--probe';
-    if (variant === 'danger') return 'sed-btn sed-btn--danger';
-    if (variant === 'ghost') return 'sed-btn sed-btn--ghost';
-    return 'sed-btn sed-btn--secondary';
+    return `b2s-btn b2s-btn-${variant === 'probe' ? 'primary' : variant}`;
   };
 
   $: visibleActions = actions.filter((action) => !action.overflow);
@@ -51,7 +47,7 @@
 
   {#if overflowActions.length > 0}
     <details class="b2s-action-menu">
-      <summary class="sed-btn sed-btn--secondary sed-btn--icon" aria-label="More actions">
+      <summary class="b2s-btn b2s-btn-secondary b2s-btn-icon" aria-label="More actions">
         <i class="bi bi-three-dots" aria-hidden="true"></i>
       </summary>
 

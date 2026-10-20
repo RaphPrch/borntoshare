@@ -5,6 +5,7 @@
   import '$lib/styles/bootstrap-icons.min.css';
   import '$lib/styles/modals.css';
   import '$lib/styles/app.css';
+  import '$lib/styles/buttons.css';
 
   import TopProgress from '$lib/components/ui/TopProgress.svelte';
   import Toaster from '$lib/components/ui/Toaster.svelte';
