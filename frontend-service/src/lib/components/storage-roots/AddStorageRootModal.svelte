@@ -1215,8 +1215,7 @@
     font-size: 22px;
   }
 
-  .sr-add-discovery-btn,
-  .sr-add-secondary-btn {
+  .sr-add-discovery-btn {
     min-height: 42px;
     border: 1px solid #216be8;
     border-radius: 8px;
@@ -1231,18 +1230,6 @@
     font-weight: 700;
     cursor: pointer;
     box-shadow: 0 10px 24px rgba(33, 107, 232, .22);
-  }
-
-  .sr-add-secondary-btn {
-    border-color: #d6dfed;
-    color: #152b5b;
-    background: #fff;
-    box-shadow: none;
-  }
-
-  .sr-add-folder-grid {
-    display: grid;
-    gap: 12px;
   }
 
   .sr-add-endpoint-summary {
@@ -1746,11 +1733,6 @@
     background: #f3f8ff;
   }
 
-  .sr-add-review-list {
-    display: grid;
-    gap: 10px;
-  }
-
   .sr-add-review-step--final {
     height: 100%;
     min-height: 0;
@@ -1957,45 +1939,6 @@
     margin-top: 2px;
   }
 
-  .sr-add-folder-card {
-    min-height: 72px;
-    border: 1px solid #dfe7f2;
-    border-radius: 10px;
-    display: grid;
-    grid-template-columns: 34px 1fr auto;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    text-align: left;
-    background: #fff;
-    color: #122858;
-    cursor: pointer;
-  }
-
-  .sr-add-folder-card:hover,
-  .sr-add-folder-card.selected {
-    border-color: #216be8;
-    background: #f7fbff;
-  }
-
-  .sr-add-selected-mark {
-    color: #216be8;
-  }
-
-  .sr-add-review-card {
-    border: 1px solid #dfe7f2;
-    border-radius: 10px;
-    display: grid;
-    gap: 16px;
-    padding: 18px;
-    background: #fbfdff;
-  }
-
-  .sr-add-governance-choice {
-    display: grid;
-    gap: 12px;
-  }
-
   .sr-add-empty-state,
   .sr-add-empty-compact {
     border: 1px dashed #ced8ea;
@@ -2041,7 +1984,6 @@
   }
 
   .sr-add-discovery-btn:disabled,
-  .sr-add-secondary-btn:disabled,
   .sr-add-refresh-all:disabled {
     cursor: not-allowed;
     opacity: .55;

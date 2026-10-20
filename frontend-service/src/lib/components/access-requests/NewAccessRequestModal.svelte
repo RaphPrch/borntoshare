@@ -740,9 +740,7 @@
   }
 
   .ar-form-card,
-  .summary-card,
-  .result-card,
-  .validation-card {
+  .summary-card {
     border: 1px solid #dfe6f2;
     border-radius: 12px;
     background: #fff;
@@ -1073,23 +1071,8 @@
     align-content: start;
   }
 
-  .summary-card,
-  .result-card,
-  .validation-card {
+  .summary-card {
     padding: 20px;
-  }
-
-  .summary-list {
-    border: 1px solid #dfe6f2;
-    border-radius: 10px;
-    overflow: hidden;
-  }
-
-  .validation-row {
-    display: grid;
-    grid-template-columns: 28px minmax(0, 1fr);
-    gap: 10px;
-    align-items: flex-start;
   }
 
   .ready-state {

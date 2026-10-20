@@ -63,12 +63,4 @@
     overflow-wrap: anywhere;
     word-break: break-word;
   }
-
-  .sed-cell-detail {
-    min-width: 180px;
-    color: #52627a;
-    font-size: 12px;
-    line-height: 1.35;
-    white-space: normal;
-  }
 </style>

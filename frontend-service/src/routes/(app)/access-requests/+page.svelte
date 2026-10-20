@@ -680,7 +680,6 @@
   .ar-search input::placeholder { color: #6677a0; }
   .ar-nav { margin-top: 32px; display: grid; gap: 28px; }
   .ar-nav-section { display: grid; gap: 7px; padding: 0 0 26px; border-bottom: 1px solid #e5ebf4; }
-  .ar-nav-section.reports { border-bottom: 0; }
   .ar-nav-section h2 { margin: 0 0 10px; display: flex; align-items: center; gap: 11px; font-size: 16px; font-weight: 750; color: var(--ink); }
   .ar-nav-section h2 i { font-size: 19px; color: #0c255d; }
   .ar-nav button { height: 50px; border: 1px solid transparent; border-radius: 9px; background: transparent; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 28px; color: #102452; font-weight: 560; font-size: 14px; text-align: left; }

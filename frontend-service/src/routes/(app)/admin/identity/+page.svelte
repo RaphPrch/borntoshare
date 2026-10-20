@@ -814,28 +814,15 @@
     font-size: 1.35rem;
   }
 
-  .identity-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 12px;
-    border-radius: 7px;
-    font-size: 0.76rem;
-    font-weight: 700;
-  }
-
-  .identity-status i,
   .identity-dot {
     font-size: 0.42rem;
   }
 
-  .identity-status.active,
   .identity-pills .active {
     color: #047857;
     background: #dff8ec;
   }
 
-  .identity-status.inactive,
   .identity-pills .inactive {
     color: #64748b;
     background: #edf2f7;

@@ -130,19 +130,6 @@
     font-weight: 700;
   }
 
-  .sr-ea-link {
-    border: none;
-    background: transparent;
-    padding: 0;
-    color: #255ac2;
-    font-size: 13px;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-  }
-
   .sr-ea-list {
     display: grid;
   }

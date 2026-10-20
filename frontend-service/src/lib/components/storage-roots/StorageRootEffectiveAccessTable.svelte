@@ -324,14 +324,6 @@
     overflow: hidden;
   }
 
-  .sr-effective-access-table__summary {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(120px, 1fr));
-    gap: 0;
-    border-bottom: 1px solid #e4ebf5;
-    background: #fbfdff;
-  }
-
   .sr-effective-access-table__freshness {
     display: flex;
     align-items: center;
@@ -399,22 +391,6 @@
     background: transparent;
     color: #142747;
     font-size: 14px;
-  }
-
-  .sr-effective-access-table__differences {
-    padding: 16px;
-    display: grid;
-    gap: 10px;
-  }
-
-  .sr-effective-access-table__difference {
-    border: 1px solid #e1e9f5;
-    border-radius: 10px;
-    background: #fff;
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    padding: 12px;
   }
 
   .sr-effective-access-table__select-label {
@@ -757,9 +733,6 @@
   }
 
   @media (max-width: 840px) {
-    .sr-effective-access-table__summary {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
 
     .sr-effective-access-table__freshness {
       align-items: stretch;
