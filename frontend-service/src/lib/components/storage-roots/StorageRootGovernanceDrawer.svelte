@@ -41,13 +41,13 @@
 </script>
 
 <StorageRootDrawerShell
+  iconClass="bi bi-shield-lock"
   {open}
   {onClose}
   title={t('Guardians')}
   subtitle={selectedRootLabel}
   ariaLabelledby="sr-governance-drawer-title"
-  width="660px"
-  topOffset="64px"
+  size="lg"
   rootClass="governance-drawer-shell"
   showFooter={true}
 >

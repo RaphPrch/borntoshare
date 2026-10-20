@@ -10,10 +10,7 @@
   const close = () => onClose?.();
 </script>
 
-<AppModal {open} onClose={close} ariaLabelledby="plan-preview-title">
-  <div class="b2s-confirm-head">
-    <h3 id="plan-preview-title">{title}</h3>
-  </div>
+<AppModal {open} onClose={close} size="md" {title} iconClass="bi bi-list-check">
   <div class="b2s-confirm-body">
     {#if items.length === 0}
       <p>{t('No staged changes.')}</p>
@@ -25,7 +22,7 @@
       </ul>
     {/if}
   </div>
-  <div class="b2s-confirm-actions">
+  <svelte:fragment slot="footer">
     <button type="button" class="b2s-btn b2s-btn-secondary" on:click={close}>{t('Close')}</button>
-  </div>
+  </svelte:fragment>
 </AppModal>

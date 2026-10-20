@@ -22,17 +22,15 @@
 <AppModal
   {open}
   {onClose}
-  ariaLabelledby="zone-endpoint-choice-title"
-  showClose={true}
+  size="md"
+  title={t('Add endpoint')}
+  subtitle={t('Choose whether to create a new endpoint or attach an existing one to this zone.')}
+  iconClass="bi bi-hdd-network"
 >
   <section class="z-ep-choice">
-    <header class="z-ep-choice__head">
-      <h2 id="zone-endpoint-choice-title">{t('Add endpoint')}</h2>
-      <p>{t('Choose whether to create a new endpoint or attach an existing one to this zone.')}</p>
-    </header>
 
     <div class="z-ep-choice__actions">
-      <button type="button" class="zone-console__btn" on:click={onCreateNew}>
+      <button type="button" class="b2s-btn b2s-btn-primary" on:click={onCreateNew}>
         <i class="bi bi-plus-lg"></i>
         {t('Create new endpoint')}
       </button>
@@ -56,7 +54,7 @@
               </div>
               <button
                 type="button"
-                class="zone-console__btn-ghost"
+                class="b2s-btn b2s-btn-secondary b2s-btn-sm"
                 on:click={() => onAttachExisting(ep.id)}
                 disabled={busyAttachId === ep.id}
               >
@@ -76,16 +74,7 @@
     gap: 14px;
   }
 
-  .z-ep-choice__head h2 {
-    margin: 0;
-    font-size: var(--b2s-fs-xl);
-  }
 
-  .z-ep-choice__head p {
-    margin: 6px 0 0;
-    color: #64748b;
-    font-size: var(--b2s-fs-md);
-  }
 
   .z-ep-choice__existing h3 {
     margin: 0 0 8px;

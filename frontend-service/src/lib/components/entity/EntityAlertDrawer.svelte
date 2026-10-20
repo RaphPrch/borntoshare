@@ -10,18 +10,17 @@
   export let emptyLabel = t('No alert found.');
   export let onClose: () => void = () => {};
   export let ariaLabelledby = 'entity-alerts-drawer-title';
-  export let width = '640px';
-  export let topOffset = '70px';
+  export let size: 'md' | 'lg' = 'md';
 </script>
 
 <Drawer
+  iconClass="bi bi-exclamation-triangle"
   {open}
   {title}
   {subtitle}
   {onClose}
   {ariaLabelledby}
-  {width}
-  {topOffset}
+  {size}
   showFooter={false}
 >
   {#if items.length === 0}

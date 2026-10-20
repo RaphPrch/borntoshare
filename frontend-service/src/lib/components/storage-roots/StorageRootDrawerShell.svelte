@@ -7,8 +7,8 @@
   export let subtitle: string | null = null;
   export let onClose: () => void = () => {};
   export let ariaLabelledby = 'storage-root-drawer-title';
-  export let width = '560px';
-  export let topOffset = '70px';
+  export let size: 'md' | 'lg' = 'md';
+  export let iconClass: string | null = null;
   export let rootClass = '';
   export let bodyClass = '';
   export let footerClass = '';
@@ -21,8 +21,8 @@
   {subtitle}
   {onClose}
   {ariaLabelledby}
-  {width}
-  {topOffset}
+  {size}
+  {iconClass}
   {rootClass}
   {bodyClass}
   {footerClass}

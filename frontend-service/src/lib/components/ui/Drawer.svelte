@@ -2,15 +2,15 @@
   import { t } from '$lib/i18n';
   /**
    * Side panel opening from the right (single drawer component of the app).
-   * Header: icon + title + subtitle + close button; pass showHeader={false} for a custom header.
-   * Slots: default (body), "header-icon", "footer".
+   * Header: icon + title + subtitle (+ "header-meta" badges) + close button.
+   * Sizes: md = 560px (lists, simple actions), lg = 760px (rich forms).
+   * Footer: "footer-start" (state, left) and "footer" (buttons, right).
    */
   export let open = false;
   export let title: string | null = null;
   export let subtitle: string | null = null;
   export let iconClass: string | null = null;
-  export let width = '560px';
-  export let topOffset = '70px';
+  export let size: 'md' | 'lg' = 'md';
   export let closeOnBackdrop = true;
   export let closeOnEscape = true;
   export let showHeader = true;
@@ -23,6 +23,8 @@
   export let bodyClass = '';
   export let footerClass = '';
   export let onClose: (() => void) | null = null;
+
+  $: width = size === 'lg' ? '760px' : '560px';
 
   const handleKeydown = (event: KeyboardEvent) => {
     if (!open || !closeOnEscape || event.key !== 'Escape') return;
@@ -37,7 +39,7 @@
   <div
     class={`b2s-drawer b2s-entity-drawer ${rootClass}`.trim()}
     role="presentation"
-    style={`--b2s-drawer-width:${width};--b2s-drawer-top:${topOffset};`}
+    style={`--b2s-drawer-width:${width};--b2s-drawer-top:70px;`}
   >
     <button
       type="button"
@@ -70,6 +72,9 @@
                   {#if subtitle}
                     <p>{subtitle}</p>
                   {/if}
+                  {#if $$slots['header-meta']}
+                    <div class="b2s-entity-drawer__meta"><slot name="header-meta" /></div>
+                  {/if}
                 </div>
               </div>
               <button type="button" class="b2s-entity-drawer__close" aria-label={t('Close drawer')} on:click={() => onClose?.()}>
@@ -87,6 +92,9 @@
 
       {#if showFooter}
         <footer class={`b2s-drawer__footer b2s-entity-drawer__footer ${footerClass}`.trim()}>
+          {#if $$slots['footer-start']}
+            <div class="b2s-drawer__footer-start"><slot name="footer-start" /></div>
+          {/if}
           <slot name="footer" />
         </footer>
       {/if}
@@ -133,9 +141,12 @@
     display: none;
   }
 
-    .b2s-drawer__backdrop {
-    background: rgba(15, 23, 42, 0.22);
-    backdrop-filter: none;
+  .b2s-drawer__footer-start {
+    flex: 1 1 auto;
+    margin-right: auto;
+    min-width: 0;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-sm);
   }
 
   .b2s-drawer__panel {
@@ -216,6 +227,14 @@
     margin: 6px 0 0;
     font-size: var(--b2s-fs-md);
     color: #667085;
+  }
+
+  .b2s-entity-drawer__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
   }
 
   .b2s-entity-drawer__close {

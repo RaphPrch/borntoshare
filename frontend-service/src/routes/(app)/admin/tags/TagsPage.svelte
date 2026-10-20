@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AppModal from '$lib/components/ui/AppModal.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
@@ -373,40 +374,15 @@
   </section>
 </section>
 
-{#if modalOpen}
-  <div
-    class="tag-modal-backdrop"
-    role="button"
-    tabindex="0"
-    aria-label={t('Close dialog')}
-    on:click={() => (modalOpen = false)}
-    on:keydown={(e) =>
-      (e.key === "Enter" || e.key === " ") && (e.preventDefault(), (modalOpen = false))
-    }
-  >
-    <div
-      class="tag-modal"
-      role="dialog"
-      aria-modal="true"
-      tabindex="-1"
-      on:click|stopPropagation
-      on:keydown|stopPropagation
-    >
-      <header class="tag-modal__header">
-        <div>
-          <h2>{modalMode === "create" ? t('Create tag') : t('Edit tag')}</h2>
-          <p>{t('Define and create a customizable tag for your resources.')}</p>
-        </div>
-        <button
-          class="tag-modal__close"
-          type="button"
-          aria-label={t('Close')}
-          on:click={() => (modalOpen = false)}
-        >
-          ×
-        </button>
-      </header>
-
+<AppModal
+  open={modalOpen}
+  onClose={() => (modalOpen = false)}
+  size="lg"
+  title={modalMode === "create" ? t('Create tag') : t('Edit tag')}
+  subtitle={t('Define and create a customizable tag for your resources.')}
+  iconClass="bi bi-tag"
+  contentClass="b2s-modal-content tag-modal__body"
+>
       <section class="tag-modal__section">
           <label for="tag-name">{t('Tag name')}</label>
           <input
@@ -489,18 +465,16 @@
         <InlineAlert tone="error">{errorMsg}</InlineAlert>
       {/if}
 
-      <footer class="tag-modal__footer">
-        <EntityActionButton variant="ghost" label={t('Cancel')} onClick={() => (modalOpen = false)} />
-        <EntityActionButton
-          variant="primary"
-          busy={busy}
-          label={modalMode === "create" ? t('Create') : t('Save changes')}
-          onClick={handleSubmit}
-        />
-      </footer>
-    </div>
-  </div>
-{/if}
+  <svelte:fragment slot="footer">
+    <EntityActionButton variant="ghost" label={t('Cancel')} onClick={() => (modalOpen = false)} />
+    <EntityActionButton
+      variant="primary"
+      busy={busy}
+      label={modalMode === "create" ? t('Create') : t('Save changes')}
+      onClick={handleSubmit}
+    />
+  </svelte:fragment>
+</AppModal>
 
 <ConfirmDeleteDialog
   open={showDeleteConfirm}
@@ -680,67 +654,20 @@
   }
 
   /* ---- Modal ---- */
-  .tag-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(2, 6, 23, 0.55);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
 
-  .tag-modal {
-    width: min(760px, 100%);
-    background: #ffffff;
-    border-radius: var(--b2s-radius-lg);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
-    overflow: hidden;
-  }
 
-  .tag-modal__header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+
+
+
+
+
+  :global(.tag-modal__body) {
+    display: grid;
     gap: 16px;
-    padding: 18px 20px;
-    background: #f8fafc;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-  }
-
-  .tag-modal__header h2 {
-    margin: 0;
-    font-size: var(--b2s-fs-xl);
-    font-weight: 900;
-    color: #0b1530;
-  }
-
-  .tag-modal__header p {
-    margin: 6px 0 0;
-    color: #64748b;
-    font-weight: 700;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .tag-modal__close {
-    border: none;
-    background: transparent;
-    width: 36px;
-    height: 36px;
-    border-radius: var(--b2s-radius-md);
-    font-size: var(--b2s-fs-2xl);
-    line-height: 1;
-    color: #64748b;
-  }
-
-  .tag-modal__close:hover {
-    background: rgba(37, 99, 235, 0.10);
   }
 
   .tag-modal__section {
-    padding: 18px 20px 0;
+    padding: 0;
     display: grid;
     gap: 8px;
   }
@@ -766,7 +693,7 @@
   }
 
   .tag-modal__grid {
-    padding: 14px 20px 0;
+    padding: 0;
   }
 
   .tag-card {
@@ -783,7 +710,7 @@
   }
 
   .tag-card--wide {
-    margin: 14px 20px 0;
+    margin: 0;
   }
 
   .tag-card__subtitle {
@@ -881,12 +808,6 @@
     font-size: var(--b2s-fs-xs);
   }
 
-  .tag-modal__footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 16px 20px 18px;
-  }
 
   @media (max-width: 840px) {
     .tags-page {

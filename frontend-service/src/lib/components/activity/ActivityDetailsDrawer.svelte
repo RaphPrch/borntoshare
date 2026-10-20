@@ -7,8 +7,7 @@
   export let open = false;
   export let entry: any | null = null;
   export let onClose: (() => void) | null = null;
-  export let width = '620px';
-  export let topOffset = '0px';
+  export let size: 'md' | 'lg' = 'lg';
   export let titleFallback = 'Activity details';
   export let subtitleFallback = 'Detailed payload from current logging data';
 
@@ -65,11 +64,11 @@
 </script>
 
 <Drawer
+  iconClass="bi bi-clock-history"
   {open}
   title={rendered?.title ?? titleFallback}
   subtitle={rendered?.description ?? subtitleFallback}
-  {width}
-  {topOffset}
+  {size}
   showFooter={false}
   onClose={() => onClose?.()}
 >

@@ -309,41 +309,26 @@
 
 <Drawer
   {open}
-  width="760px"
-  showHeader={false}
-  rootClass="identity-edit-drawer"
-  panelClass="identity-edit-drawer__panel"
-  contentClass="identity-edit-drawer__content"
-  footerClass="identity-edit-drawer__footer"
+  size="lg"
+  title={t('Edit identity source')}
+  subtitle={source?.display_name ?? source?.name ?? t('Identity source')}
+  iconClass={`bi ${sourceIconClass(sourceCard)}`}
+  ariaLabelledby="identity-source-edit-title"
   {onClose}
 >
-  <div class="identity-edit-shell">
-    <header class="identity-edit-header">
-      <div class="identity-edit-title-row">
-        <span class="identity-edit-icon">
-          <i class={`bi ${sourceIconClass(sourceCard)}`} aria-hidden="true"></i>
-        </span>
-        <div class="identity-edit-title">
-          <h2>{t('Edit identity source')}</h2>
-          <p>{source?.display_name ?? source?.name ?? t('Identity source')}</p>
-          <div class="identity-edit-badges">
-            <StatusBadge
-              status={form.is_active ? 'active' : 'disabled'}
-              label={form.is_active ? t('Active') : t('Disabled')}
-              variant={form.is_active ? 'success' : 'disabled'}
-              compact={true}
-            />
-            {#if source?.used}
-              <StatusBadge status="in-use" label={t('In use')} variant="info" compact={true} />
-            {/if}
-          </div>
-        </div>
-      </div>
-      <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-icon" aria-label={t('Close')} on:click={onClose}>
-        <i class="bi bi-x-lg" aria-hidden="true"></i>
-      </button>
-    </header>
+  <svelte:fragment slot="header-meta">
+    <StatusBadge
+      status={form.is_active ? 'active' : 'disabled'}
+      label={form.is_active ? t('Active') : t('Disabled')}
+      variant={form.is_active ? 'success' : 'disabled'}
+      compact={true}
+    />
+    {#if source?.used}
+      <StatusBadge status="in-use" label={t('In use')} variant="info" compact={true} />
+    {/if}
+  </svelte:fragment>
 
+  <div class="identity-edit-shell">
     <section class="identity-edit-summary" aria-label={t('Identity source summary')}>
       <div>
         <span>{t('Type')}</span>
@@ -510,7 +495,7 @@
     {/if}
   </div>
 
-  <svelte:fragment slot="footer">
+  <svelte:fragment slot="footer-start">
     <div class="identity-edit-footer-state">
       <strong>{canSave ? t('Unsaved changes') : t('No unsaved changes')}</strong>
       <span class={probeResult?.ok === false ? 'is-error' : 'is-success'}>
@@ -518,6 +503,8 @@
         {checkedLabel}
       </span>
     </div>
+  </svelte:fragment>
+  <svelte:fragment slot="footer">
     <div class="identity-edit-drawer-footer">
       <button type="button" class="b2s-btn b2s-btn-ghost" on:click={onClose} disabled={saving || probeRunning}>{t('Cancel')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary" on:click={handleTestConnection} disabled={saving || probeRunning}>
@@ -531,91 +518,16 @@
 </Drawer>
 
 <style>
-
-  :global(.identity-edit-drawer .b2s-drawer__backdrop) {
-    background: rgba(15, 23, 42, 0.46);
-    backdrop-filter: blur(3px);
-  }
-
-  :global(.identity-edit-drawer__panel) {
-    border-left: 1px solid #d8e2f0;
-    border-radius: 8px 0 0 8px;
-    box-shadow: -28px 0 64px rgba(15, 23, 42, 0.18);
-  }
-
-  :global(.identity-edit-drawer__content) {
-    padding: 0;
-    background: #ffffff;
-  }
-
-  :global(.identity-edit-drawer__footer) {
-    min-height: 76px;
-    padding: 14px 28px;
-    justify-content: space-between;
-    background: #ffffff;
-    border-top: 1px solid #dce5f2;
-  }
-
   .identity-edit-shell {
-    min-height: 100%;
-    padding: 26px 28px 18px;
     color: #071638;
   }
 
-  .identity-edit-header,
-  .identity-edit-title-row,
-  .identity-edit-badges,
   .identity-edit-tested,
   .identity-edit-note,
   .identity-edit-drawer-footer,
   .identity-edit-footer-state span {
     display: flex;
     align-items: center;
-  }
-
-  .identity-edit-header {
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 18px;
-    margin-bottom: 22px;
-  }
-
-  .identity-edit-title-row {
-    align-items: flex-start;
-    gap: 14px;
-    min-width: 0;
-  }
-
-  .identity-edit-icon {
-    width: 56px;
-    height: 56px;
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--b2s-radius-md);
-    background: #edf4ff;
-    color: #0b63f4;
-    font-size: 1.7rem;
-  }
-
-  .identity-edit-title h2 {
-    margin: 0;
-    color: #071638;
-    font-size: var(--b2s-fs-xl);
-    line-height: 1.1;
-    font-weight: 700;
-  }
-
-  .identity-edit-title p {
-    margin: 4px 0 10px;
-    color: #596985;
-    font-size: var(--b2s-fs-md);
-  }
-
-  .identity-edit-badges {
-    gap: 8px;
-    flex-wrap: wrap;
   }
 
   .identity-edit-summary,

@@ -677,7 +677,6 @@ body.dark {
 
 /* ---------- Confirm action modal ---------- */
 .b2s-confirm-modal {
-  width: min(560px, calc(100vw - 24px));
 }
 
 .b2s-confirm-modal--danger {

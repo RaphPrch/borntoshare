@@ -24,6 +24,12 @@
   export let useFade = true;
   export let flyConfig: { y?: number; duration?: number } = { y: 24, duration: 180 };
   export let wrapContent = true;
+  /** md = 560px (confirmations), lg = 760px (forms), xl = 1180px (browsers, multi-column forms) */
+  export let size: 'md' | 'lg' | 'xl' | null = null;
+  /** Standard header (icon + title + subtitle + close); omit title to render a custom header */
+  export let title: string | null = null;
+  export let subtitle: string | null = null;
+  export let iconClass: string | null = null;
 
   let modalEl: HTMLDivElement | null = null;
   let wasOpen = false;
@@ -145,18 +151,33 @@
     on:click={handleBackdropClick}
   >
     <div
-      class={modalClass}
+      class={`${modalClass}${size ? ` b2s-modal--${size}` : ''}${title ? ' b2s-modal--standard' : ''}`}
       bind:this={modalEl}
       in:fly={useFly ? flyConfig : { duration: 0 }}
       out:fade={{ duration: useFly && useFade ? 400 : 0 }}
       role={role}
       aria-modal="true"
-      aria-labelledby={ariaLabelledby}
+      aria-labelledby={ariaLabelledby ?? (title ? 'b2s-modal-title' : null)}
       tabindex="-1"
       on:click={handleModalClick}
       on:keydown={handleKeydown}
     >
-      {#if showClose}
+      {#if title}
+        <header class="b2s-modal__header">
+          {#if iconClass}
+            <span class="b2s-modal__icon" aria-hidden="true"><i class={iconClass}></i></span>
+          {/if}
+          <div class="b2s-modal__heading">
+            <h2 id={ariaLabelledby ?? 'b2s-modal-title'}>{title}</h2>
+            {#if subtitle}<p>{subtitle}</p>{/if}
+          </div>
+          {#if showClose}
+            <button type="button" class="b2s-modal__close" aria-label={closeLabel} on:click={onClose}>
+              <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+          {/if}
+        </header>
+      {:else if showClose}
         <button class={closeClass} aria-label={closeLabel} on:click={onClose}>×</button>
       {/if}
 
@@ -166,6 +187,15 @@
         </div>
       {:else}
         <slot />
+      {/if}
+
+      {#if $$slots.footer}
+        <footer class="b2s-modal__footer">
+          {#if $$slots['footer-start']}
+            <div class="b2s-modal__footer-start"><slot name="footer-start" /></div>
+          {/if}
+          <slot name="footer" />
+        </footer>
       {/if}
     </div>
   </div>

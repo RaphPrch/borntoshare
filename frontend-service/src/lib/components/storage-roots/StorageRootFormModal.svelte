@@ -281,13 +281,12 @@
 
 {#if open}
   <StorageRootDrawerShell
+    iconClass="bi bi-folder2-open"
     open={open}
     onClose={onClose}
     title={drawerTitle}
     subtitle={drawerSubtitle}
     ariaLabelledby="sr-edit-root-drawer-title"
-    width="560px"
-    topOffset="70px"
     showFooter={true}
   >
     <div class="sr-modal-content" style="padding: 0;">

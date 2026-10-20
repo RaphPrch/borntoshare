@@ -2158,8 +2158,6 @@
   items={selectedRootAlerts}
   emptyLabel={t('No alert found for this storage root.')}
   ariaLabelledby="sr-alerts-drawer-title"
-  width="640px"
-  topOffset="70px"
 />
 
 <StorageRootEffectiveAccessModal

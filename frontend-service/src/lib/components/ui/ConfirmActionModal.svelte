@@ -49,6 +49,7 @@
   onClose={onClose}
   {backdropClass}
   modalClass={resolvedModalClass}
+  size="md"
   {ariaLabelledby}
   {role}
 >

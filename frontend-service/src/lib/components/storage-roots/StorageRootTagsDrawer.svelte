@@ -88,13 +88,12 @@
 </script>
 
 <StorageRootDrawerShell
+  iconClass="bi bi-tags"
   {open}
   {onClose}
   title={t('Manage tags')}
   subtitle={t('Attach and detach taxonomy tags for the selected storage root.')}
   ariaLabelledby="sr-tags-drawer-title"
-  width="560px"
-  topOffset="70px"
   showFooter={true}
 >
   <div class="sr-tags-modal-body">

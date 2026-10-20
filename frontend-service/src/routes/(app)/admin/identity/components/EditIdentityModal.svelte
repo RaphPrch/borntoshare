@@ -176,8 +176,6 @@
   onClose={handleBackdropClose}
   title={title}
   subtitle={subtitle}
-  width="560px"
-  topOffset="0px"
   rootClass="identity-edit-drawer"
   bodyClass="identity-edit-drawer__body"
   footerClass="identity-edit-drawer__footer"
@@ -349,17 +347,11 @@
   confirmLabel={t('Discard changes')}
   confirmVariant="warning"
   severity="warning"
-  impactItems={['All unsaved edits in this drawer will be lost.']}
+  impactItems={[t('All unsaved edits in this drawer will be lost.')]}
 />
 
 <style>
-  :global(.identity-edit-drawer .b2s-entity-drawer__header) {
-    padding: 20px 24px 16px;
-  }
 
-  :global(.identity-edit-drawer .b2s-entity-drawer__title-row) {
-    align-items: center;
-  }
 
   .identity-edit-shell {
     display: grid;

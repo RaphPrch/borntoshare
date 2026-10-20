@@ -22,13 +22,12 @@
 </script>
 
 <StorageRootDrawerShell
+  iconClass="bi bi-people"
   open={open}
   onClose={onClose}
   title={title}
   subtitle={`${contextLabel} · ${level.toUpperCase()}`}
   ariaLabelledby="sr-effective-access-title"
-  width="560px"
-  topOffset="70px"
   showFooter={true}
 >
   <section class="sr-ea-topbar">

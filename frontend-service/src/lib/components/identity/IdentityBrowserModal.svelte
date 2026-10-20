@@ -695,6 +695,7 @@
   onClose={closeModal}
   backdropClass="b2s-modal-backdrop idb-backdrop"
   modalClass="b2s-modal idb-dialog"
+  size="xl"
   contentClass="idb-content"
   ariaLabelledby="idb-title"
   showClose={false}
@@ -1014,7 +1015,6 @@
     top: auto;
     left: auto;
     transform: none;
-    width: min(1180px, 92vw);
     max-height: calc(100vh - 32px);
     border: 1px solid var(--idb-border-strong);
     border-radius: var(--b2s-card-radius);

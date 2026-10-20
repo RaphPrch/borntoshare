@@ -522,8 +522,7 @@
   subtitle={t('Update identity, target and credentials.')}
   iconClass="bi bi-hdd-network"
   ariaLabelledby="se-edit-title"
-  width="720px"
-  topOffset="70px"
+  size="lg"
   rootClass="se-edit-drawer"
   showFooter={true}
 >
@@ -821,7 +820,7 @@
   confirmLabel={t('Discard changes')}
   confirmVariant="warning"
   severity="warning"
-  impactItems={['All unsaved edits in this drawer will be lost.']}
+  impactItems={[t('All unsaved edits in this drawer will be lost.')]}
 />
 
 <style>

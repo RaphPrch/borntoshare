@@ -978,7 +978,6 @@
   open={activityDetailsOpen}
   entry={selectedActivityEntry}
   onClose={closeActivityDetails}
-  width="620px"
 />
 
 <ConfirmActionModal

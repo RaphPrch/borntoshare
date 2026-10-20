@@ -114,8 +114,6 @@
   iconClass="bi bi-diagram-2"
   onClose={onClose}
   ariaLabelledby="zone-form-drawer-title"
-  width="560px"
-  topOffset="70px"
   rootClass="zone-form-drawer"
   showFooter={true}
 >

@@ -89,10 +89,11 @@
 </script>
 
 <Drawer
+  iconClass="bi bi-person-vcard"
   open={open}
   title={source?.name ?? t('Identity source')}
   subtitle={source?.typeLabel ?? null}
-  width="640px"
+  size="lg"
   onClose={() => dispatch('close')}
 >
   {#if source}

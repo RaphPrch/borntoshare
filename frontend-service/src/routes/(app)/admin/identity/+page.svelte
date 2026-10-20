@@ -530,10 +530,10 @@
   />
 
   <Drawer
+    iconClass="bi bi-people"
     open={showMembersDrawer}
     title={t('Group members')}
     subtitle={selectedIdentity?.display_name ?? null}
-    width="520px"
     onClose={() => (showMembersDrawer = false)}
   >
     {#if membersLoading}

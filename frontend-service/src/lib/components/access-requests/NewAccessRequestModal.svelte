@@ -493,6 +493,7 @@
   onClose={close}
   backdropClass="b2s-modal-backdrop ar-governed-backdrop"
   modalClass="b2s-modal ar-governed-modal"
+  size="xl"
   ariaLabelledby="ar-governed-title"
   showClose={false}
   wrapContent={false}
@@ -684,7 +685,6 @@
   }
 
   :global(.ar-governed-modal) {
-    width: min(1136px, calc(100vw - 40px));
     max-height: calc(100vh - 92px);
     overflow: hidden;
     border-radius: var(--b2s-radius-lg);
