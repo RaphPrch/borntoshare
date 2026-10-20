@@ -357,15 +357,17 @@
           {#each pagedIdentities as identity}
             <tr class:active={selectedIdentity && String(selectedIdentity.id) === String(identity.id)} on:click={() => (selectedId = String(identity.id))}>
               <td>
-                <span class={`identity-avatar ${identityTone(identity)}`}><i class={`bi ${identityIcon(identity)}`} aria-hidden="true"></i></span>
-                <div class="identity-cell-stack">
-                  <strong>{identity.display_name}</strong>
-                  <div class="identity-badges">
-                    <StatusBadge status={typeLabel(identity)} label={typeLabel(identity)} compact={true} variant="muted" showDot={false} />
-                    <StatusBadge status={identity.source === 'local' ? 'local' : 'ad'} label={identity.source === 'local' ? 'Local' : 'AD / LDAP'} compact={true} variant={identity.source === 'local' ? 'muted' : 'info'} showDot={false} />
-                    {#if isDefaultLocalAdmin(identity)}
-                      <StatusBadge status="protected" label="Protected" compact={true} variant="warning" showDot={false} />
-                    {/if}
+                <div class="identity-cell">
+                  <span class={`identity-avatar ${identityTone(identity)}`}><i class={`bi ${identityIcon(identity)}`} aria-hidden="true"></i></span>
+                  <div class="identity-cell-stack">
+                    <strong>{identity.display_name}</strong>
+                    <div class="identity-badges">
+                      <StatusBadge status={typeLabel(identity)} label={typeLabel(identity)} compact={true} variant="muted" showDot={false} />
+                      <StatusBadge status={identity.source === 'local' ? 'local' : 'ad'} label={identity.source === 'local' ? 'Local' : 'AD / LDAP'} compact={true} variant={identity.source === 'local' ? 'muted' : 'info'} showDot={false} />
+                      {#if isDefaultLocalAdmin(identity)}
+                        <StatusBadge status="protected" label="Protected" compact={true} variant="warning" showDot={false} />
+                      {/if}
+                    </div>
                   </div>
                 </div>
               </td>
@@ -373,34 +375,36 @@
               <td>{identity.sourceLabel}</td>
               <td><StatusBadge status={identity.status === 'active' ? 'active' : 'disabled'} label={identity.status === 'active' ? 'Active' : 'Disabled'} compact={true} variant={identity.status === 'active' ? 'success' : 'disabled'} /></td>
               <td>{lastActivityLabel(identity)}</td>
-              <td class="identity-row-actions">
-                <EntityActionButton
-                  variant="secondary"
-                  icon="bi-pencil"
-                  label="Edit identity"
-                  iconOnly={true}
-                  stopPropagation={true}
-                  onClick={() => openEdit(identity)}
-                />
-                {#if canDeleteIdentity(identity)}
+              <td>
+                <div class="identity-row-actions">
                   <EntityActionButton
-                    variant="danger"
-                    icon="bi-trash"
-                    label="Delete identity"
+                    variant="secondary"
+                    icon="bi-pencil"
+                    label="Edit identity"
                     iconOnly={true}
                     stopPropagation={true}
-                    onClick={() => requestDeleteIdentity(identity)}
+                    onClick={() => openEdit(identity)}
                   />
-                {:else}
-                  <EntityActionButton
-                    variant="danger"
-                    icon="bi-trash"
-                    label="Delete identity"
-                    iconOnly={true}
-                    disabled={true}
-                    title="Default local admin cannot be deleted"
-                  />
-                {/if}
+                  {#if canDeleteIdentity(identity)}
+                    <EntityActionButton
+                      variant="danger"
+                      icon="bi-trash"
+                      label="Delete identity"
+                      iconOnly={true}
+                      stopPropagation={true}
+                      onClick={() => requestDeleteIdentity(identity)}
+                    />
+                  {:else}
+                    <EntityActionButton
+                      variant="danger"
+                      icon="bi-trash"
+                      label="Delete identity"
+                      iconOnly={true}
+                      disabled={true}
+                      title="Default local admin cannot be deleted"
+                    />
+                  {/if}
+                </div>
               </td>
             </tr>
           {:else}
@@ -791,10 +795,11 @@
     box-shadow: inset 3px 0 0 #0b63f4;
   }
 
-  .identity-table td:first-child {
+  .identity-cell {
     display: flex;
     align-items: center;
     gap: 14px;
+    padding-block: 10px;
   }
 
   .identity-avatar {
