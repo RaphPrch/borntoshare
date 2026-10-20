@@ -329,7 +329,7 @@
             class:selected={tag.id === selectedId}
             role="button"
             tabindex="0"
-            aria-selected={tag.id === selectedId}
+            aria-pressed={tag.id === selectedId}
             on:click={() => (selectedId = tag.id)}
             on:dblclick={() => openEditTag(tag)}
             on:keydown={(e) => {

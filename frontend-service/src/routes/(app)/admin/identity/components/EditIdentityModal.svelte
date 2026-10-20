@@ -237,8 +237,8 @@
       </div>
 
       <div class="identity-edit-field">
-        <label>{t('Application role')}</label>
-        <div class="identity-edit-role-grid">
+        <span class="identity-edit-label" id="identity-edit-role">{t('Application role')}</span>
+        <div class="identity-edit-role-grid" role="radiogroup" aria-labelledby="identity-edit-role">
           <label class={`identity-edit-role-card ${selectedRole === 'user' ? 'is-selected' : ''}`}>
             <input type="radio" bind:group={selectedRole} value="user" disabled={loading} />
             <div>
@@ -425,6 +425,7 @@
   }
 
   .identity-edit-field label,
+  .identity-edit-field .identity-edit-label,
   .identity-edit-field > span {
     color: #0f172a;
     font-size: var(--b2s-fs-md);

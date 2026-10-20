@@ -1,3 +1,7 @@
+<script context="module" lang="ts">
+  let instanceCounter = 0;
+</script>
+
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
@@ -27,6 +31,7 @@
   }>();
 
   let reveal = false;
+  const uid = `credentials-${++instanceCounter}`;
   $: passwordDisabled = Boolean(disablePasswordWhenSecretRef && (secret_ref ?? '').trim());
 
   function onBlurUsername() {
@@ -42,10 +47,11 @@
 
 {#if variant === 'identity'}
   <div class="field">
-    <label>{usernameLabel}</label>
+    <label for={`${uid}-username`}>{usernameLabel}</label>
     <input
       type="text"
       bind:value={username}
+        id={`${uid}-username`}
       placeholder={usernamePlaceholder}
       on:blur={onBlurUsername}
     />
@@ -53,11 +59,12 @@
   </div>
 
   <div class="field">
-    <label>{passwordLabel}</label>
+    <label for={`${uid}-password`}>{passwordLabel}</label>
     <div class="password-row">
       <input
         type={reveal ? 'text' : 'password'}
         bind:value={password}
+        id={`${uid}-password`}
         placeholder={passwordPlaceholder}
         disabled={passwordDisabled}
         on:blur={onBlurPassword}
@@ -88,11 +95,12 @@
 {:else if variant === 'storage'}
   <div class="se-form-grid se-form-grid--creds">
     <div class="se-form-item">
-      <label>{usernameLabel}</label>
+      <label for={`${uid}-username`}>{usernameLabel}</label>
       <input
         class="se-input"
         type="text"
         bind:value={username}
+        id={`${uid}-username`}
         placeholder={usernamePlaceholder}
         on:blur={onBlurUsername}
       />
@@ -100,12 +108,13 @@
     </div>
 
     <div class="se-form-item">
-      <label>{passwordLabel}</label>
+      <label for={`${uid}-password`}>{passwordLabel}</label>
       <div class="se-password">
         <input
           class="se-input"
           type={reveal ? 'text' : 'password'}
           bind:value={password}
+        id={`${uid}-password`}
           placeholder={passwordPlaceholder}
           disabled={passwordDisabled}
           on:blur={onBlurPassword}
@@ -137,17 +146,19 @@
 {:else}
   <div class="b2s-form-grid">
     <div>
-      <label>{usernameLabel}</label>
-      <input type="text" bind:value={username} placeholder={usernamePlaceholder} on:blur={onBlurUsername} />
+      <label for={`${uid}-username`}>{usernameLabel}</label>
+      <input type="text" bind:value={username}
+        id={`${uid}-username`} placeholder={usernamePlaceholder} on:blur={onBlurUsername} />
       <slot name="afterUsername" />
     </div>
 
     <div>
-      <label>{passwordLabel}</label>
+      <label for={`${uid}-password`}>{passwordLabel}</label>
       <div class="password-row">
         <input
           type={reveal ? 'text' : 'password'}
           bind:value={password}
+        id={`${uid}-password`}
           placeholder={passwordPlaceholder}
           disabled={passwordDisabled}
           on:blur={onBlurPassword}

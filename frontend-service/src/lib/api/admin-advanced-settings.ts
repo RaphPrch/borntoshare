@@ -39,6 +39,7 @@ export type UserSession = {
   last_seen: string;
   auth_source?: string;
   is_admin?: boolean;
+  is_current?: boolean;
 };
 
 export async function purgeLogs(fetchFn: FetchLike) {

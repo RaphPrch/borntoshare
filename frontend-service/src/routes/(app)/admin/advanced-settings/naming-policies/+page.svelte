@@ -139,7 +139,7 @@
 
     <SettingRow
       label={t('Template')}
-      help="Tokens disponibles : &#123;PREFIX&#125;, &#123;ROOTCODE&#125;, &#123;PERM&#125;."
+      help={t('Available tokens: {tokens}.', { tokens: '{PREFIX}, {ROOTCODE}, {PERM}' })}
     >
       <input class="form-control" bind:value={policy.template} />
       {#if templateError}

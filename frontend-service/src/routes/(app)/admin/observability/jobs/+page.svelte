@@ -2,6 +2,7 @@
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import Pagination from '$lib/components/ui/Pagination.svelte';
   import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
   import { onDestroy } from 'svelte';
@@ -24,6 +25,8 @@
   let jobs: AdminProvisioningJob[] = Array.isArray(data?.initialJobs) ? data.initialJobs : [];
   let updatedAt = String(data?.generatedAt ?? new Date().toISOString());
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let page = 1;
+  let pageSize = 25;
 
   const toDate = (value: unknown): Date | null => {
     const raw = String(value ?? '').trim();
@@ -148,6 +151,8 @@
       const db = toDate(b?.updated_at ?? b?.created_at)?.getTime() ?? 0;
       return db - da;
     });
+  $: query, statusFilter, (page = 1);
+  $: pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
 </script>
 
 <div class="jobs-page">
@@ -161,7 +166,7 @@
     <div class="card-body d-flex flex-wrap align-items-center gap-3">
       <StatusBadge variant="info" label={t('Active: {activeCount}', { activeCount })} />
       <StatusBadge variant="muted" showDot={false} label={t('Total: {jobsCount}', { jobsCount: jobs.length })} />
-      <StatusBadge variant="muted" showDot={false} label={t('Terminaux: {terminalCount}', { terminalCount })} />
+      <StatusBadge variant="muted" showDot={false} label={t('Finished: {terminalCount}', { terminalCount })} />
     </div>
   </div>
 
@@ -218,7 +223,7 @@
                 <td colspan={9} class="jobs-empty">{t('No job found.')}</td>
               </tr>
             {:else}
-              {#each filtered as job (job.id)}
+              {#each pageRows as job (job.id)}
                 <tr>
                   <td class="mono">#{job.id}</td>
                   <td>
@@ -240,13 +245,15 @@
                     {/if}
                   </td>
                   <td class="text-end">
-                    <button
-                      class="b2s-btn b2s-btn-sm b2s-btn-danger-outline"
-                      disabled={!canCancel(job) || isCancelling}
-                      on:click={() => cancelJob(job)}
-                    >
-                      {t('Kill')}
-                    </button>
+                    {#if canCancel(job)}
+                      <button
+                        class="b2s-btn b2s-btn-sm b2s-btn-danger-outline"
+                        disabled={isCancelling}
+                        on:click={() => cancelJob(job)}
+                      >
+                        {t('Kill')}
+                      </button>
+                    {/if}
                   </td>
                 </tr>
               {/each}
@@ -254,6 +261,9 @@
           </tbody>
         </table>
       </div>
+      {#if filtered.length > 0}
+        <Pagination total={filtered.length} bind:page bind:pageSize />
+      {/if}
     </div>
   </div>
 </div>

@@ -980,6 +980,7 @@ async def logout(
 async def list_admin_sessions(request: Request, user: UserInfo = Depends(get_current_user)) -> dict:
     _require_platform_admin(user)
 
+    current_sid = request.cookies.get(settings.SESSION_COOKIE_NAME)
     sessions = []
     for rec in store.list():
         session_user = getattr(rec, "user", None)
@@ -994,6 +995,7 @@ async def list_admin_sessions(request: Request, user: UserInfo = Depends(get_cur
                 "last_seen": rec.last_seen.isoformat(),
                 "auth_source": getattr(session_user, "auth_source", None),
                 "is_admin": "platform_admin" in list(getattr(session_user, "roles", []) or []),
+                "is_current": bool(current_sid) and rec.session_id == current_sid,
             }
         )
 

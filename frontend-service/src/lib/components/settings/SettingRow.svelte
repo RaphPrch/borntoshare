@@ -4,7 +4,7 @@
 </script>
 
 <div class="adv-field adv-row">
-  <label>{label}</label>
+  <span class="adv-field-label">{label}</span>
   <slot />
   {#if help}<p class="help">{help}</p>{/if}
 </div>

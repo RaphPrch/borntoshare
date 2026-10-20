@@ -2087,7 +2087,8 @@ button.primary.ghost:hover {
   margin-bottom: 12px;
 }
 
-.sr-modal-field label {
+.sr-modal-field label,
+.sr-modal-field .sr-modal-label {
   font-size: var(--b2s-fs-xs);
   font-weight: 800;
   color: #475569;
@@ -3361,7 +3362,8 @@ button.primary.ghost:hover {
   .adv-form-grid { grid-template-columns: 1fr; }
 }
 
-.adv-field label {
+.adv-field label,
+.adv-field .adv-field-label {
   display: block;
   font-weight: 600;
   margin-bottom: 6px;

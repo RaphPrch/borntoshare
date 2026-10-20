@@ -301,18 +301,18 @@
         </div>
 
         <div class="sr-modal-field">
-          <label>{t('Storage Root')}</label>
+          <label for="sr-form-entity-name">{t('Storage Root')}</label>
           <div class="sr-input-icon">
             <i class="bi bi-folder2-open" aria-hidden="true"></i>
-            <input value={entityName ?? t('Storage Root')} readonly />
+            <input id="sr-form-entity-name" value={entityName ?? t('Storage Root')} readonly />
           </div>
         </div>
 
         <div class="sr-modal-field">
-          <label>{t('Root Path')}</label>
+          <label for="sr-form-entity-path">{t('Root Path')}</label>
           <div class="sr-input-icon">
             <i class="bi bi-diagram-3" aria-hidden="true"></i>
-            <input value={entityPath ?? "—"} readonly />
+            <input id="sr-form-entity-path" value={entityPath ?? "—"} readonly />
           </div>
         </div>
 
@@ -364,7 +364,7 @@
           </div>
         {:else}
           <div class="sr-modal-field">
-            <label>{t('Connection checks')}</label>
+            <span class="sr-modal-label">{t('Connection checks')}</span>
             <div class="sr-modal-inline-actions">
               <EntityActionButton variant="secondary" icon="bi-activity" label={probeBusy ? t('Running probe…') : t('Probe connection')} busy={probeBusy} disabled={probeBusy || discoverBusy || !form.storage_endpoint_id} onClick={probeConnection} />
               <EntityActionButton variant="secondary" icon="bi-search" label={discoverBusy ? t('Discovering…') : t('Discover roots')} busy={discoverBusy} disabled={discoverBusy || probeBusy || !form.storage_endpoint_id} onClick={discoverRoots} />

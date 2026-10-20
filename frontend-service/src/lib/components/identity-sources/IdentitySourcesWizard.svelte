@@ -794,8 +794,8 @@
               {/if}
             </div>
             <div class="field">
-              <label>{t('Protocol')}</label>
-              <div class="protocol-switch">
+              <span class="field-label" id="is-wizard-protocol">{t('Protocol')}</span>
+              <div class="protocol-switch" role="group" aria-labelledby="is-wizard-protocol">
                 <button
                   type="button"
                   class="protocol-btn"
@@ -1310,7 +1310,8 @@
     margin-bottom: 12px;
   }
 
-  .field label {
+  .field label,
+  .field .field-label {
     font-size: var(--b2s-fs-xs);
     font-weight: 800;
     color: #475569;

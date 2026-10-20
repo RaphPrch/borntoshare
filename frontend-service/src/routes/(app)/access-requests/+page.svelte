@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Pagination from '$lib/components/ui/Pagination.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import { t, intlLocale } from '$lib/i18n';
@@ -69,10 +70,10 @@
   $: selectedRequest = selectedRequestId
     ? selectedRequestDetail ?? requests.find((request) => accessRequestId(request) === selectedRequestId) ?? null
     : null;
-  $: pageRequests = visibleRequests.slice(0, 6);
-  $: rangeLabel = visibleRequests.length === 0
-    ? '0–0 sur 0'
-    : t('1–{min} sur {count}', { min: Math.min(6, visibleRequests.length), count: visibleRequests.length });
+  let listPage = 1;
+  let listPageSize = 10;
+  $: activeQueue, activeTab, searchText, (listPage = 1);
+  $: pageRequests = visibleRequests.slice((listPage - 1) * listPageSize, listPage * listPageSize);
   $: sidebarCounts = buildSidebarCounts(requests, tabCounts);
   $: kpis = buildKpis(requests, tabCounts);
   $: canReviewSelectedRequest = Boolean(selectedRequest) && isReviewAllowed(selectedRequest);
@@ -186,7 +187,7 @@
         row?.department ??
         row?.requested_principal_json?.department ??
         row?.requested_principal?.department,
-      '—'
+      ''
     );
   }
 
@@ -196,7 +197,7 @@
 
   function resourceZone(row: any): string {
     const zone = compactText(row?.zone_name ?? row?.zone_code ?? row?.storage_zone_name ?? row?.site_name, '');
-    if (!zone) return '—';
+    if (!zone) return '';
     return zone.startsWith('Zone') ? zone : t('Zone {zone}', { zone });
   }
 
@@ -559,12 +560,12 @@
                   <td>
                     <div class="ar-person">
                       <span>{initials(requesterName(request), '??')}</span>
-                      <div><strong>{requesterName(request)}</strong><small>{requesterDepartment(request)}</small></div>
+                      <div><strong>{requesterName(request)}</strong>{#if requesterDepartment(request)}<small>{requesterDepartment(request)}</small>{/if}</div>
                     </div>
                   </td>
-                  <td><strong>{resourceName(request)}</strong><small>{resourceZone(request)}</small></td>
+                  <td><strong>{resourceName(request)}</strong>{#if resourceZone(request)}<small>{resourceZone(request)}</small>{/if}</td>
                   <td><span class="access-icon"><i class={`bi ${iconForAccess(request)}`} aria-hidden="true"></i></span>{accessShort(request)}</td>
-                  <td>{ttlDays(request) > 0 ? `${ttlDays(request)} j` : '—'}</td>
+                  <td>{ttlDays(request) > 0 ? t('{days} d', { days: ttlDays(request) }) : '—'}</td>
                   <td><StatusBadge compact showDot={false} variant="info" label={stageText(request)} /></td>
                   <td><strong>{dateParts.date}</strong><small>{dateParts.time}</small></td>
                 </tr>
@@ -576,8 +577,10 @@
 
       <footer class="ar-table-footer">
         <div class="ar-info"><i class="bi bi-info-circle-fill" aria-hidden="true"></i>{t('Les approbations sont appliquées via des profils gouvernés et l\'exécution de capsules.')}</div>
-        <div class="ar-pager"><span>{rangeLabel}</span><button disabled><i class="bi bi-chevron-left"></i></button><button><i class="bi bi-chevron-right"></i></button></div>
       </footer>
+      {#if visibleRequests.length > 0}
+        <Pagination total={visibleRequests.length} bind:page={listPage} bind:pageSize={listPageSize} pageSizes={[10, 25, 50]} />
+      {/if}
     </section>
   </main>
 
@@ -598,8 +601,8 @@
       <section class="detail-section summary">
         <h3>{t('Résumé de la requête')}</h3>
         <dl>
-          <div><dt>{t('Demandeur')}</dt><dd>{requesterName(selectedRequest)} ({requesterDepartment(selectedRequest)})</dd></div>
-          <div><dt>{t('Ressource')}</dt><dd>{resourceName(selectedRequest)} ({resourceZone(selectedRequest)})</dd></div>
+          <div><dt>{t('Demandeur')}</dt><dd>{requesterName(selectedRequest)}{requesterDepartment(selectedRequest) ? ` (${requesterDepartment(selectedRequest)})` : ''}</dd></div>
+          <div><dt>{t('Ressource')}</dt><dd>{resourceName(selectedRequest)}{resourceZone(selectedRequest) ? ` (${resourceZone(selectedRequest)})` : ''}</dd></div>
           <div><dt>{t('Profil d\'accès demandé')}</dt><dd>{accessShort(selectedRequest)}</dd></div>
           <div><dt>{t('Demandé le')}</dt><dd>{requestedAt(selectedRequest)}</dd></div>
         </dl>
@@ -721,9 +724,6 @@
   .ar-table-footer { min-height: 78px; display: flex; align-items: center; justify-content: space-between; padding: 15px 19px 20px; }
   .ar-info { min-height: 40px; border-radius: var(--b2s-radius-sm); background: #f4f6fb; color: #24365f; display: inline-flex; align-items: center; gap: 12px; padding: 0 18px; font-size: var(--b2s-fs-sm); font-weight: 550; }
   .ar-info i { color: #071f59; }
-  .ar-pager { display: flex; align-items: center; gap: 12px; color: #43537c; font-size: var(--b2s-fs-sm); font-weight: 650; }
-  .ar-pager button { width: 35px; height: 35px; border-radius: var(--b2s-radius-sm); border: 1px solid #dfe6f2; background: #fff; color: #0b1c4c; }
-  .ar-pager button:disabled { opacity: .42; }
   .ar-detail { border-left: 1px solid #dfe5f0; background: #fff; padding: 20px 20px 18px; min-width: 0; }
   .ar-detail > header { height: 40px; display: flex; align-items: center; justify-content: space-between; }
   .ar-detail h2 { margin: 0; color: #061849; font-size: var(--b2s-fs-xl); font-weight: 760; }

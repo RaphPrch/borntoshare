@@ -109,7 +109,7 @@
         <option value="status">{t('Sort: Status')}</option>
       </select>
       <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}>
-        {sortDir === 'asc' ? '↑ Ascending' : '↓ Descending'}
+        {sortDir === 'asc' ? `↑ ${t('Ascending')}` : `↓ ${t('Descending')}`}
       </button>
     </div>
     <button class="b2s-btn b2s-btn-secondary" type="button" on:click={refresh} disabled={isLoading || !!revokingId}>
@@ -135,9 +135,12 @@
       <tbody>
         {#each sortedSessions as s}
           <tr>
-            <td><strong>{s.user}</strong></td>
             <td>
-              <StatusBadge compact showDot={false} variant="info" label={s.roles?.length ? s.roles.join(', ') : 'user'} />
+              <strong>{s.user}</strong>
+              {#if s.is_current}<span class="adv-current-session">{t('This session')}</span>{/if}
+            </td>
+            <td>
+              <StatusBadge compact showDot={false} variant="info" label={s.roles?.length ? s.roles.join(', ') : t('user')} />
             </td>
             <td>
               {#if s.status === 'active'}
@@ -150,6 +153,7 @@
             <td>{s.auth_source ?? '-'}</td>
             <td>{timeAgo(s.created_at)}</td>
             <td class="text-end">
+              {#if !s.is_current}
               <button
                 class="b2s-btn b2s-btn-danger-outline b2s-btn-sm"
                 type="button"
@@ -158,6 +162,7 @@
               >
                 {revokingId === s.id ? t('Disconnecting…') : t('Disconnect')}
               </button>
+              {/if}
             </td>
           </tr>
         {:else}
@@ -181,8 +186,8 @@
   subtitle={t('This will immediately revoke this active session.')}
   impactTitle={t('Impact')}
   impactItems={[
-    'The user will be signed out from this session.',
-    'A new login will be required to continue.'
+    t('The user will be signed out from this session.'),
+    t('A new login will be required to continue.')
   ]}
   cancelLabel={t('Cancel')}
   confirmLabel={t('Disconnect')}
@@ -190,3 +195,11 @@
   busy={Boolean(revokingId)}
   severity="warning"
 />
+
+<style>
+  .adv-current-session {
+    margin-left: 8px;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+  }
+</style>

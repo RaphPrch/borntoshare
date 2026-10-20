@@ -1944,5 +1944,13 @@
     "info": "INFO",
     "admin": "ADMIN",
     "critical": "CRITIQUE"
-  }
+  },
+  "{days} d": "{days} j",
+  "Available tokens: {tokens}.": "Jetons disponibles : {tokens}.",
+  "Finished: {terminalCount}": "Terminés : {terminalCount}",
+  "{start}–{end} of {total}": "{start}–{end} sur {total}",
+  "This session": "Cette session",
+  "user": "utilisateur",
+  "The user will be signed out from this session.": "L'utilisateur sera déconnecté de cette session.",
+  "A new login will be required to continue.": "Une nouvelle connexion sera nécessaire pour continuer."
 }

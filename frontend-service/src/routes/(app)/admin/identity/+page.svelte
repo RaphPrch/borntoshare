@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Pagination from '$lib/components/ui/Pagination.svelte';
   import { t } from '$lib/i18n';
   import type { StatusVariant } from '$lib/utils/status';
   import { normalizeText } from '$lib/utils/values';
@@ -61,7 +62,7 @@
   let tab: 'all' | 'local_admins' | 'ad_admins' | 'ad_groups' = 'all';
   let statusSourceFilter = 'all';
   let pageIndex = 1;
-  const pageSize = 6;
+  let pageSize = 10;
 
   let members: IdentityGroupMember[] = [];
   let membersLoading = false;
@@ -413,16 +414,9 @@
           {/each}
         </tbody>
       </table>
-      <footer class="identity-table-footer">
-        <span>{t('Showing {value}-{min} of {filteredIdentitiesCount} identities', { value: (filteredIdentities.length ? (pageIndex - 1) * pageSize + 1 : 0), min: Math.min(pageIndex * pageSize, filteredIdentities.length), filteredIdentitiesCount: filteredIdentities.length })}</span>
-        <div class="identity-pagination">
-          <button type="button" disabled={pageIndex <= 1} on:click={() => (pageIndex -= 1)}><i class="bi bi-chevron-left"></i></button>
-          {#each Array(totalPages) as _, idx}
-            <button type="button" class:active={pageIndex === idx + 1} on:click={() => (pageIndex = idx + 1)}>{idx + 1}</button>
-          {/each}
-          <button type="button" disabled={pageIndex >= totalPages} on:click={() => (pageIndex += 1)}><i class="bi bi-chevron-right"></i></button>
-        </div>
-      </footer>
+      {#if filteredIdentities.length > 0}
+        <Pagination total={filteredIdentities.length} bind:page={pageIndex} bind:pageSize pageSizes={[10, 25, 50]} />
+      {/if}
     </section>
 
     <aside class="identity-detail-card">
@@ -829,37 +823,6 @@
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-  }
-
-  .identity-pagination button {
-    width: 34px;
-    height: 34px;
-    border: 0;
-    border-radius: var(--b2s-radius-sm);
-    background: transparent;
-    color: #071638;
-  }
-
-  .identity-table-footer {
-    min-height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 22px;
-    color: #536783;
-    font-size: var(--b2s-fs-md);
-  }
-
-  .identity-pagination {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .identity-pagination button.active {
-    border: 1px solid #8bb7ff;
-    color: #0b59d1;
-    background: #f4f9ff;
   }
 
   .identity-detail-card {
