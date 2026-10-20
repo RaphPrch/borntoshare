@@ -324,7 +324,7 @@
   </div>
 
   <div class="activity-table-wrap">
-    <table class="activity-table">
+    <table class="b2s-table activity-table">
       <thead>
         <tr>
           <th scope="col" class="col-time">{t('Time')} <i class="bi bi-chevron-expand" aria-hidden="true"></i></th>
@@ -516,27 +516,6 @@
     min-width: 860px;
     border-collapse: collapse;
     color: #0f1f3d;
-  }
-
-  .activity-table th {
-    padding: 14px 10px;
-    border-bottom: 1px solid #dfe7f3;
-    color: #50627f;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 700;
-    text-align: left;
-  }
-
-  .activity-table td {
-    padding: 14px 10px;
-    border-bottom: 1px solid #e7edf6;
-    color: #182744;
-    font-size: var(--b2s-fs-sm);
-    vertical-align: middle;
-  }
-
-  .activity-table tbody tr:last-child td {
-    border-bottom: 0;
   }
 
   .activity-row--clickable {

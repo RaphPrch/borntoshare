@@ -25,7 +25,7 @@
     {/if}
 
     {#if ctaLabel && onCta}
-      <button class="primary large b2s-empty-cta" type="button" on:click={onCta}>
+      <button class="b2s-btn b2s-btn-primary b2s-empty-cta" type="button" on:click={onCta}>
         {ctaLabel}
       </button>
     {/if}

@@ -203,7 +203,7 @@
   <div class="card b2s-card jobs-table-card">
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table jobs-table mb-0 align-middle">
+        <table class="b2s-table jobs-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -276,16 +276,7 @@
   }
 
   .jobs-table thead th {
-    background: #f8fafc;
-    color: #334155;
-    font-size: var(--b2s-fs-sm);
     white-space: nowrap;
-  }
-
-  .jobs-table tbody td {
-    font-size: var(--b2s-fs-sm);
-    color: #0f172a;
-    vertical-align: middle;
   }
 
   .jobs-empty {

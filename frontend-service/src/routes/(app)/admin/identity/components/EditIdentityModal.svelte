@@ -330,8 +330,8 @@
       {#if isDirty}
         <span class="identity-edit-unsaved">{t('Unsaved changes')}</span>
       {/if}
-      <button type="button" class="identity-edit-btn secondary" on:click={close} disabled={loading}>{t('Cancel')}</button>
-      <button type="button" class="identity-edit-btn primary" on:click={submit} disabled={loading}>
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={close} disabled={loading}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary" on:click={submit} disabled={loading}>
         {loading ? t('Saving changes…') : t('Save changes')}
       </button>
     </div>
@@ -351,7 +351,6 @@
 />
 
 <style>
-
 
   .identity-edit-shell {
     display: grid;
@@ -557,34 +556,6 @@
     font-size: var(--b2s-fs-xs);
     font-weight: 700;
     color: var(--b2s-color-warning-strong, #b45309);
-  }
-
-  .identity-edit-btn {
-    min-height: 42px;
-    border-radius: var(--b2s-radius-md);
-    padding: 0 18px;
-    font-size: var(--b2s-fs-md);
-    font-weight: 650;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .identity-edit-btn.secondary {
-    border: 1px solid #d7dfec;
-    background: #fff;
-    color: #0f172a;
-  }
-
-  .identity-edit-btn.primary {
-    border: 1px solid #0b1530;
-    background: #0b1530;
-    color: #fff;
-  }
-
-  .identity-edit-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
   }
 
   @media (max-width: 640px) {

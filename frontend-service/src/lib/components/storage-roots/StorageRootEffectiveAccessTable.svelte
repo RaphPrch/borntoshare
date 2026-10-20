@@ -192,7 +192,7 @@
   </div>
 
   <div class="sr-effective-access-table__frame">
-    <table>
+    <table class="b2s-table">
       <thead>
         <tr>
           <th>{t('Name')}</th>
@@ -417,31 +417,6 @@
     width: 100%;
     min-width: 820px;
     border-collapse: collapse;
-  }
-
-  .sr-effective-access-table th,
-  .sr-effective-access-table td {
-    padding: 13px 16px;
-    border-bottom: 1px solid #e8eef7;
-    color: #162747;
-    font-size: var(--b2s-fs-sm);
-    text-align: left;
-    vertical-align: middle;
-  }
-
-  .sr-effective-access-table th {
-    background: #fbfcff;
-    color: #445878;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 800;
-  }
-
-  .sr-effective-access-table tbody tr:hover {
-    background: #f8fbff;
-  }
-
-  .sr-effective-access-table tbody tr.has-children {
-    background: #fbfdff;
   }
 
   .sr-effective-access-table__identity {

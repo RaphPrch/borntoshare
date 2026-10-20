@@ -1,5 +1,5 @@
 <script module lang="ts">
-  export type EntityActionVariant = 'primary' | 'secondary' | 'probe' | 'danger' | 'ghost';
+  export type EntityActionVariant = 'primary' | 'secondary' | 'probe' | 'danger' | 'danger-outline' | 'ghost';
 
   export type EntityActionItem = {
     key: string;

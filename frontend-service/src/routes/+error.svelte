@@ -66,18 +66,18 @@
 
     <div class="error-actions">
       {#if isUnauthenticated}
-        <a href="/login" class="btn-primary">{t('Sign in')}</a>
+        <a href="/login" class="b2s-btn b2s-btn-primary">{t('Sign in')}</a>
       {:else if isForbidden}
-        <a href="/dashboard" class="btn-primary">{t('Back to dashboard')}</a>
+        <a href="/dashboard" class="b2s-btn b2s-btn-primary">{t('Back to dashboard')}</a>
       {:else if isServiceUnavailable}
-        <button class="btn-primary" on:click={reload}>
+        <button class="b2s-btn b2s-btn-primary" on:click={reload}>
           {t('Retry')}
         </button>
       {:else if isNotFound}
-        <a href="/dashboard" class="btn-primary">{t('Go to dashboard')}</a>
+        <a href="/dashboard" class="b2s-btn b2s-btn-primary">{t('Go to dashboard')}</a>
       {/if}
 
-      <a href="/dashboard" class="btn-secondary">{t('Home')}</a>
+      <a href="/dashboard" class="b2s-btn b2s-btn-secondary">{t('Home')}</a>
     </div>
   </div>
 </div>
@@ -139,35 +139,5 @@
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  .btn-primary,
-  .btn-secondary {
-    text-decoration: none;
-    padding: 0.45rem 0.9rem;
-    border-radius: var(--b2s-radius-pill);
-    font-size: var(--b2s-fs-md);
-    font-weight: 500;
-    cursor: pointer;
-  }
-
-  .btn-primary {
-    background: #2563eb;
-    color: white;
-    border: none;
-  }
-
-  .btn-primary:hover {
-    background: #1d4ed8;
-  }
-
-  .btn-secondary {
-    border: 1px solid #4b5563;
-    color: #e5e7eb;
-    background: transparent;
-  }
-
-  .btn-secondary:hover {
-    background: #0b1120;
   }
 </style>

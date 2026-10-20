@@ -435,7 +435,7 @@
               }}
             />
             <button
-              class="tag-value-btn"
+              class="b2s-btn b2s-btn-secondary"
               type="button"
               on:click={addValueItem}
             >
@@ -655,12 +655,6 @@
 
   /* ---- Modal ---- */
 
-
-
-
-
-
-
   :global(.tag-modal__body) {
     display: grid;
     gap: 16px;
@@ -763,16 +757,6 @@
     gap: 10px;
   }
 
-  .tag-value-btn {
-    height: 44px;
-    border-radius: var(--b2s-radius-md);
-    border: 1px solid rgba(37, 99, 235, 0.35);
-    background: rgba(37, 99, 235, 0.12);
-    color: #0b1530;
-    font-weight: 900;
-    padding: 0 14px;
-  }
-
   .tag-value-pill {
     margin-top: 12px;
     display: inline-flex;
@@ -807,7 +791,6 @@
     font-weight: 800;
     font-size: var(--b2s-fs-xs);
   }
-
 
   @media (max-width: 840px) {
     .tags-page {

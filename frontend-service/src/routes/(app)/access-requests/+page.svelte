@@ -538,7 +538,7 @@
       </header>
 
       <div class="ar-table-scroll">
-        <table class="ar-table">
+        <table class="b2s-table ar-table">
           <thead>
             <tr>
               <th>{t('Demandeur')}</th>
@@ -710,11 +710,10 @@
   .ar-table-head h2 { margin: 0; font-size: var(--b2s-fs-xl); font-weight: 760; color: #061849; }
   .ar-table-head button { height: 38px; border: 1px solid #dfe6f3; border-radius: var(--b2s-radius-sm); background: #fff; color: #132653; display: inline-flex; align-items: center; gap: 9px; padding: 0 18px; font-size: var(--b2s-fs-md); font-weight: 650; }
   .ar-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .ar-table th { height: 47px; border-top: 1px solid #edf1f7; border-bottom: 2px solid #98b6ff; padding: 0 14px; text-align: left; color: #0c1f4d; font-size: var(--b2s-fs-sm); font-weight: 700; }
   .ar-table th:nth-child(1) { width: 20%; } .ar-table th:nth-child(2) { width: 18%; } .ar-table th:nth-child(3) { width: 17%; } .ar-table th:nth-child(4) { width: 9%; } .ar-table th:nth-child(5) { width: 19%; } .ar-table th:nth-child(6) { width: 17%; }
-  .ar-table td { height: 68px; border-bottom: 1px solid #e5e9f1; padding: 0 14px; color: #102452; font-size: var(--b2s-fs-md); font-weight: 500; vertical-align: middle; }
-  .ar-table tbody tr { cursor: pointer; }
-  .ar-table tbody tr:hover, .ar-table tbody tr.selected { background: #f8fbff; }
+  .ar-table tbody tr {
+  cursor: pointer;
+}
   .ar-table td strong { display: block; font-weight: 680; color: #081a4d; }
   .ar-table td small { display: block; margin-top: 3px; color: #243a70; font-size: var(--b2s-fs-xs); font-weight: 450; }
   .ar-empty { text-align: center; color: #6677a0 !important; }

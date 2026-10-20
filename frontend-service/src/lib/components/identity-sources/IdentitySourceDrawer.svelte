@@ -100,7 +100,7 @@
     <div class="identity-drawer-v2-head">
       <StatusBadge status={source.healthLabel} label={source.healthLabel} variant={source.healthTone} compact={true} />
       <StatusBadge status={source.snapshotLabel} label={source.snapshotLabel} variant={source.snapshotTone} compact={true} showDot={false} />
-      <button type="button" class="identity-inline-btn" on:click={() => dispatch('refresh')} disabled={loading}>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => dispatch('refresh')} disabled={loading}>
         <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
         {t('Refresh')}
       </button>
@@ -208,7 +208,7 @@
           {#if source.supportsSnapshot}
             <button
               type="button"
-              class="identity-inline-btn primary"
+              class="b2s-btn b2s-btn-primary b2s-btn-sm"
               disabled={busy || snapshotRunning}
               on:click={() => dispatch('runSnapshot')}
             >
@@ -297,14 +297,14 @@
 
   <svelte:fragment slot="footer">
     {#if source}
-      <button type="button" class="identity-inline-btn" disabled={busy} on:click={() => dispatch('edit')}>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} on:click={() => dispatch('edit')}>
         <i class="bi bi-pencil-square" aria-hidden="true"></i>
         {t('Edit')}
       </button>
       {#if source.supportsProbe}
         <button
           type="button"
-          class="identity-inline-btn"
+          class="b2s-btn b2s-btn-secondary b2s-btn-sm"
           disabled={busy || probeRunning}
           on:click={() => dispatch('runProbe')}
         >
@@ -314,7 +314,7 @@
       {/if}
       <button
         type="button"
-        class="identity-inline-btn"
+        class="b2s-btn b2s-btn-secondary b2s-btn-sm"
         disabled={busy}
         on:click={() => dispatch('toggle')}
       >
@@ -358,31 +358,6 @@
     margin: 0.2rem 0 0;
     font-size: var(--b2s-fs-md);
     color: #0f172a;
-  }
-
-  .identity-inline-btn {
-    border: 1px solid rgba(148, 163, 184, 0.4);
-    background: #fff;
-    color: #334155;
-    border-radius: var(--b2s-radius-md);
-    height: 34px;
-    padding: 0 0.72rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.42rem;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 700;
-  }
-
-  .identity-inline-btn.primary {
-    border-color: #0b1530;
-    background: #0b1530;
-    color: #fff;
-  }
-
-  .identity-inline-btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
   }
 
   .identity-drawer-loading {

@@ -829,7 +829,7 @@
         </div>
 
         <div class="idb-scroll">
-          <table class="idb-table">
+          <table class="b2s-table idb-table">
             <thead>
               <tr>
                 <th style="width:3rem;"></th>
@@ -1228,25 +1228,7 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    padding: 8px 10px;
-    text-align: left;
     white-space: nowrap;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 700;
-    color: var(--idb-text-muted);
-    background: var(--idb-panel-head-bg);
-    border-bottom: 1px solid var(--idb-border);
-  }
-
-  .idb-table tbody td {
-    padding: 8px 10px;
-    vertical-align: middle;
-    border-bottom: 1px solid var(--idb-border);
-  }
-
-  .idb-table tbody tr:hover,
-  .idb-table tbody tr.is-selected {
-    background: var(--idb-selected-bg);
   }
 
   .idb-results-empty-cell {

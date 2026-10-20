@@ -344,7 +344,7 @@
 
   <div class="identity-layout">
     <section class="identity-list-card">
-      <table class="identity-table">
+      <table class="b2s-table identity-table">
         <thead>
           <tr>
             <th>{t('Identity')}</th>
@@ -363,13 +363,11 @@
                   <span class={`identity-avatar ${identityTone(identity)}`}><i class={`bi ${identityIcon(identity)}`} aria-hidden="true"></i></span>
                   <div class="identity-cell-stack">
                     <strong>{identity.display_name}</strong>
-                    <div class="identity-badges">
-                      <StatusBadge status={typeLabel(identity)} label={typeLabel(identity)} compact={true} variant="muted" showDot={false} />
-                      <StatusBadge status={identity.source === 'local' ? 'local' : 'ad'} label={identity.source === 'local' ? t('Local') : t('AD / LDAP')} compact={true} variant={identity.source === 'local' ? 'muted' : 'info'} showDot={false} />
-                      {#if isDefaultLocalAdmin(identity)}
+                    {#if isDefaultLocalAdmin(identity)}
+                      <div class="identity-badges">
                         <StatusBadge status="protected" label={t('Protected')} compact={true} variant="warning" showDot={false} />
-                      {/if}
-                    </div>
+                      </div>
+                    {/if}
                   </div>
                 </div>
               </td>
@@ -389,7 +387,7 @@
                   />
                   {#if canDeleteIdentity(identity)}
                     <EntityActionButton
-                      variant="danger"
+                      variant="danger-outline"
                       icon="bi-trash"
                       label={t('Delete identity')}
                       iconOnly={true}
@@ -398,7 +396,7 @@
                     />
                   {:else}
                     <EntityActionButton
-                      variant="danger"
+                      variant="danger-outline"
                       icon="bi-trash"
                       label={t('Delete identity')}
                       iconOnly={true}
@@ -492,9 +490,9 @@
           <h3>{t('Danger zone')}</h3>
           <p>{t('Delete removes application access only.')}</p>
           {#if canDeleteIdentity(selectedIdentity)}
-            <EntityActionButton variant="danger" icon="bi-trash" label={t('Delete')} onClick={() => requestDeleteIdentity()} />
+            <EntityActionButton variant="danger-outline" icon="bi-trash" label={t('Delete')} onClick={() => requestDeleteIdentity()} />
           {:else}
-            <EntityActionButton variant="danger" icon="bi-trash" label={t('Delete')} disabled={true} title={t('Default local admin cannot be deleted')} />
+            <EntityActionButton variant="danger-outline" icon="bi-trash" label={t('Delete')} disabled={true} title={t('Default local admin cannot be deleted')} />
             <p class="identity-danger-zone__hint">{t('Default local admin cannot be deleted.')}</p>
           {/if}
         </section>
@@ -760,29 +758,11 @@
     border-collapse: collapse;
   }
 
-  .identity-table th {
-    padding: 18px 20px;
-    color: #344664;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 750;
-    text-align: left;
-    border-bottom: 1px solid #dfe7f2;
-  }
-
-  .identity-table td {
-    height: 62px;
-    padding: 0 20px;
-    color: #071638;
-    font-size: var(--b2s-fs-md);
-    border-bottom: 1px solid #e3eaf3;
-  }
-
   .identity-table tr {
     cursor: pointer;
   }
 
   .identity-table tr.active {
-    background: #eef6ff;
     box-shadow: inset 3px 0 0 #0b63f4;
   }
 

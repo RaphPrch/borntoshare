@@ -2138,39 +2138,6 @@ button.primary.ghost:hover {
   margin-top: 16px;
 }
 
-/* -----------------------------------------------------------
-   Storage Roots — Right side drawers (governance / members)
------------------------------------------------------------ */
-
-/* =========================================================
-   B2S – Sites / Zones (FINAL – LOCKED)
-   ========================================================= */
-
-/* ---------------------------------------------------------
-   Layout global (HARD LOCK)
-   --------------------------------------------------------- */
-
-/* ---------------------------------------------------------
-   Sidebar (Sites / Zones tree)
-   --------------------------------------------------------- */
-
-/* ---------------------------------------------------------
-   Tree nodes (compatibilité sidebar)
-   --------------------------------------------------------- */
-
-.b2s-sites-content .btn-primary,
-.b2s-sites-content .btn-primary:hover,
-.b2s-sites-content .btn-primary:active,
-.b2s-sites-content .btn-primary:focus {
-  background-color: #0b1530;
-  border-color: #0b1530;
-}
-
-.b2s-sites-content .btn-primary:focus,
-.b2s-sites-content .btn-primary:focus-visible {
-  box-shadow: 0 0 0 0.2rem rgba(11, 21, 48, 0.25);
-}
-
 /* =========================================================
    B2S – Zones (standalone /zones)
    - pixel-perfect layout (sidebar + content)
@@ -2339,28 +2306,6 @@ button.primary.ghost:hover {
   font-size: var(--b2s-fs-sm);
 }
 
-.identity-table thead th {
-  text-align: left;
-  padding: 12px 16px;
-  text-transform: uppercase;
-  font-size: var(--b2s-fs-xs);
-  letter-spacing: 0.05em;
-  color: #64748b;
-  background: rgba(248, 250, 252, 0.9);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-}
-
-.identity-table tbody td {
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.identity-table tbody tr:hover {
-  background: rgba(59, 130, 246, 0.08);
-}
-
 .identity-avatar {
   width: 46px;
   height: 46px;
@@ -2476,44 +2421,11 @@ button.primary.ghost:hover {
   width: 100%;
 }
 
-.zone-console__btn,
-  .zone-console__btn-ghost,
-  .identity-cta {
+.zone-console__btn{
   font-family: var(--b2s-font-sans);
   font-size: var(--b2s-fs-md);
   font-weight: 600;
   letter-spacing: 0;
-}
-
-.identity-cta {
-  appearance: none;
-  border: none;
-  border-radius: var(--b2s-radius-md);
-  padding: 12px 18px;
-  color: #ffffff;
-  background: var(--b2s-topbar-bg, #0b1530);
-  box-shadow: 0 12px 24px rgba(11, 21, 48, 0.28);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.identity-cta:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 28px rgba(11, 21, 48, 0.32);
-}
-
-.identity-cta:disabled,
-.identity-cta[aria-disabled="true"] {
-  background: #dbe3f0;
-  color: #64748b;
-  box-shadow: none;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.identity-cta:disabled:hover,
-.identity-cta[aria-disabled="true"]:hover {
-  transform: none;
-  box-shadow: none;
 }
 
 /* Empty state CTA should match topbar blue */
@@ -2679,28 +2591,6 @@ button.primary.ghost:hover {
   border-collapse: collapse;
 }
 
-.b2s-table thead th {
-  text-align:left;
-  color: var(--b2s-color-text-muted);
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--b2s-color-border);
-  white-space:nowrap;
-}
-
-.b2s-table tbody td {
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(18,48,90,0.08);
-  vertical-align: middle;
-}
-
-.b2s-table tbody tr {
-  transition: background-color 120ms ease;
-}
-
-.b2s-table tbody tr:hover {
-  background: rgba(31,102,209,0.06);
-}
-
 .b2s-empty-state {
   padding: 22px 18px;
   text-align: center;
@@ -2736,8 +2626,7 @@ button.primary.ghost:hover {
 
 /* BUTTONS */
 
-.zone-console__btn,
-.zone-console__btn-ghost {
+.zone-console__btn{
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2754,19 +2643,11 @@ button.primary.ghost:hover {
   color: var(--zc-color-bg-surface);
 }
 
-.zone-console__btn-ghost {
-  border: var(--zc-border);
-  background: var(--zc-color-bg-surface);
-  color: var(--zc-color-text);
-}
-
-.zone-console__btn:hover,
-.zone-console__btn-ghost:hover {
+.zone-console__btn:hover{
   box-shadow: 0 6px 16px rgba(18, 31, 64, 0.12);
 }
 
-.zone-console__btn:disabled,
-.zone-console__btn-ghost:disabled {
+.zone-console__btn:disabled{
   opacity: 0.65;
   cursor: not-allowed;
   box-shadow: none;
@@ -3054,32 +2935,7 @@ button.primary.ghost:hover {
 }
 
 .sed-table thead th {
-  background: #f3f7ff;
-  color: #51668a;
-  border-bottom: 1px solid #dfe7f3;
-  border-top: 0;
-  padding: 10px 12px;
   white-space: nowrap;
-  font-size: var(--b2s-fs-sm);
-  font-weight: 640;
-  letter-spacing: 0.016em;
-  text-transform: uppercase;
-}
-
-.sed-table td {
-  border-color: #e8edf6;
-  padding: 12px 12px;
-  vertical-align: middle;
-  font-size: var(--b2s-fs-md);
-  color: #253b5f;
-}
-
-.sed-table tbody tr:hover > td {
-  background: #f9fbff;
-}
-
-.sed-table tbody tr:last-child > td {
-  border-bottom: 0;
 }
 
 .sed-table-wrap.is-dense .sed-table td,

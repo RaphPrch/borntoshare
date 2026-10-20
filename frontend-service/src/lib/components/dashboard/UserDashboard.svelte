@@ -108,7 +108,7 @@
   subtitle={t('This page shows only requests where you are the requester or guardian.')}
 >
   <div slot="actions" class="dashboard-actions">
-    <a class="new-request-btn" href="/access-requests?create=1">{t('+ New Request')}</a>
+    <a class="b2s-btn b2s-btn-primary" href="/access-requests?create=1">{t('+ New Request')}</a>
   </div>
 
   <div class="scope-pill">
@@ -169,7 +169,7 @@
           <div class="empty-state">{t('No request requires your action right now.')}</div>
         {:else}
           <div class="table-wrap">
-            <table class="dashboard-table">
+            <table class="b2s-table dashboard-table">
               <thead>
                 <tr>
                   <th>{t('Request ID')}</th>
@@ -200,7 +200,7 @@
                     <td>{normalizedAccess(row)}</td>
                     <td><StatusBadge compact variant="warning" label={statusMeta(row).label} /></td>
                     <td>{formatDateTime(row?.created_at)}</td>
-                    <td><a class="review-btn" href={requestHref(row, 'pending')}>{t('Review')}</a></td>
+                    <td><a class="b2s-btn b2s-btn-secondary b2s-btn-sm" href={requestHref(row, 'pending')}>{t('Review')}</a></td>
                   </tr>
                 {/each}
               </tbody>
@@ -230,7 +230,7 @@
         </div>
 
         <div class="table-wrap">
-          <table class="dashboard-table">
+          <table class="b2s-table dashboard-table">
             <thead>
               <tr>
                 <th>{t('Request ID')}</th>
@@ -326,20 +326,6 @@
     display: flex;
     align-items: center;
     gap: 12px;
-  }
-
-  .new-request-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 42px;
-    padding: 0 16px;
-    border-radius: var(--b2s-radius-md);
-    background: #0b1d63;
-    color: #fff;
-    text-decoration: none;
-    font-weight: 700;
-    border: 1px solid #0b1d63;
   }
 
   .scope-pill {
@@ -479,25 +465,6 @@
     min-width: 760px;
   }
 
-  .dashboard-table th,
-  .dashboard-table td {
-    padding: 14px 12px;
-    border-bottom: 1px solid #edf1f7;
-    text-align: left;
-    vertical-align: middle;
-  }
-
-  .dashboard-table th {
-    color: #475569;
-    font-size: var(--b2s-fs-md);
-    font-weight: 700;
-  }
-
-  .dashboard-table td {
-    color: #1f2937;
-    font-size: var(--b2s-fs-md);
-  }
-
   .requester-cell,
   .root-cell {
     display: flex;
@@ -536,20 +503,6 @@
   .role-badge.requester { background: #eef4ff; color: #2563eb; }
   .role-badge.guardian { background: #f3e8ff; color: #7c3aed; }
   .role-badge.mixed { background: #ede9fe; color: #5b21b6; }
-
-  .review-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 34px;
-    padding: 0 14px;
-    border-radius: var(--b2s-radius-md);
-    background: #2563eb;
-    color: #fff;
-    text-decoration: none;
-    font-size: var(--b2s-fs-md);
-    font-weight: 700;
-  }
 
   .empty-state,
   .empty-row {

@@ -210,7 +210,7 @@
   <div class="card b2s-card events-table-card">
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table events-table mb-0 align-middle">
+        <table class="b2s-table events-table">
           <thead>
             <tr>
               <th>{t('Timestamp / Module')}</th>
@@ -298,19 +298,7 @@
   }
 
   .events-table thead th {
-    font-size: var(--b2s-fs-md);
-    font-weight: 700;
-    color: #334155;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
     white-space: nowrap;
-  }
-
-  .events-table tbody td {
-    font-size: var(--b2s-fs-md);
-    color: #0f172a;
-    border-color: #e2e8f0;
-    vertical-align: middle;
   }
 
   .events-col-time-module {

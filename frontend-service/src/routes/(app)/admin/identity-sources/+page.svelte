@@ -1014,11 +1014,11 @@
     <PageHeader title={t('Identity Sources')} subtitle={t('Manage LDAP / OIDC identity sources and monitor operational health.')}>
       <svelte:fragment slot="actions">
         <div class="identity-page-actions">
-          <button class="identity-cta" type="button" on:click={() => (showWizard = true)}>
+          <button class="b2s-btn b2s-btn-primary" type="button" on:click={() => (showWizard = true)}>
             <i class="bi bi-plus-lg" aria-hidden="true"></i>
             {t('New Identity Source')}
           </button>
-          <button class="identity-cta ghost" type="button" on:click={refreshList} disabled={listLoading}>
+          <button class="b2s-btn b2s-btn-secondary" type="button" on:click={refreshList} disabled={listLoading}>
             <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
             {t('Refresh')}
           </button>
@@ -1127,7 +1127,7 @@
       {:else}
         <div class="identity-main-grid">
           <div class="identity-table-card">
-            <table class="identity-clean-table">
+            <table class="b2s-table identity-clean-table">
               <thead>
                 <tr>
                   <th>{t('Source')}</th>
@@ -1165,7 +1165,7 @@
                     <td><span class={`identity-pill ${toneClass(card.snapshotTone)}`}>{card.snapshotLabel}</span></td>
                     <td class="text-end">
                       <button
-                        class="identity-icon-btn"
+                        class="b2s-btn b2s-btn-secondary b2s-btn-sm b2s-btn-icon"
                         type="button"
                         aria-label={t('Edit {name}', { name: card.name })}
                         disabled={!isAdIdentitySource(card.raw)}
@@ -1248,7 +1248,7 @@
                 {#if detailCard.supportsProbe}
                   <button
                     type="button"
-                    class="identity-secondary-btn"
+                    class="b2s-btn b2s-btn-secondary"
                     disabled={identityProbeRunning(detailCard.id)}
                     on:click={() => runTestOnSource(detailCard.raw)}
                   >
@@ -1256,18 +1256,18 @@
                     {t('Test connection')}
                   </button>
                 {/if}
-                <button type="button" class="identity-secondary-btn" disabled={!isAdIdentitySource(detailCard.raw)} on:click={() => openEdit(detailCard.raw)}>
+                <button type="button" class="b2s-btn b2s-btn-secondary" disabled={!isAdIdentitySource(detailCard.raw)} on:click={() => openEdit(detailCard.raw)}>
                   <i class="bi bi-pencil" aria-hidden="true"></i>
                   {t('Edit')}
                 </button>
-                <button type="button" class="identity-danger-btn" on:click={() => openDelete(detailCard.raw)}>
+                <button type="button" class="b2s-btn b2s-btn-danger-outline" on:click={() => openDelete(detailCard.raw)}>
                   <i class="bi bi-trash3" aria-hidden="true"></i>
                   {t('Delete')}
                 </button>
                 {#if detailCard.supportsSnapshot}
                   <button
                     type="button"
-                    class="identity-primary-btn"
+                    class="b2s-btn b2s-btn-primary"
                     disabled={identitySnapshotRunning(detailCard.id)}
                     on:click={() => runSnapshotOnSource(detailCard.raw)}
                   >
@@ -1424,48 +1424,10 @@
     margin-left: auto;
     flex-wrap: wrap;
   }
-
-  .identity-cta,
-  .identity-primary-btn,
-  .identity-secondary-btn,
-  .identity-icon-btn,
-  .identity-danger-btn,
   .identity-status-tabs button,
   .identity-pagination button {
     font-family: var(--b2s-font-sans);
     letter-spacing: 0;
-  }
-
-  .identity-cta {
-    min-height: 46px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 9px;
-    border: 1px solid rgba(5, 20, 55, 0.14);
-    border-radius: var(--b2s-radius-sm);
-    padding: 0 18px;
-    color: #ffffff;
-    background: #071638;
-    box-shadow: 0 10px 20px rgba(7, 22, 56, 0.18);
-    font-size: var(--b2s-fs-md);
-    font-weight: 650;
-  }
-
-  .identity-cta.ghost {
-    background: #ffffff;
-    color: #071638;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
-    border-color: #d5deeb;
-  }
-
-  .identity-cta:hover:not(:disabled) {
-    transform: translateY(-1px);
-  }
-
-  .identity-cta:disabled {
-    opacity: 0.62;
-    cursor: not-allowed;
   }
 
   .identity-kpi-grid {
@@ -1649,35 +1611,12 @@
   }
 
   .identity-clean-table th {
-    padding: 18px 16px;
-    color: #253b5f;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 650;
-    text-transform: uppercase;
-    border-bottom: 1px solid #dce4ef;
     white-space: nowrap;
-  }
-
-  .identity-clean-table td {
-    height: 66px;
-    padding: 12px 16px;
-    color: #071638;
-    border-bottom: 1px solid #dce4ef;
-    vertical-align: middle;
   }
 
   .identity-clean-table tbody tr {
     cursor: pointer;
     transition: background 0.14s ease;
-  }
-
-  .identity-clean-table tbody tr:hover,
-  .identity-clean-table tbody tr.selected {
-    background: #eef5ff;
-  }
-
-  .identity-clean-table tbody tr:last-child td {
-    border-bottom: 0;
   }
 
   .identity-source-cell {
@@ -1785,22 +1724,6 @@
   .identity-health-label i,
   .identity-pill i {
     font-size: 0.5rem;
-  }
-
-  .identity-icon-btn {
-    width: 32px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    border-radius: var(--b2s-radius-sm);
-    background: transparent;
-    color: #071638;
-  }
-
-  .identity-icon-btn:hover {
-    background: #eaf1fb;
   }
 
   .identity-table-footer {
@@ -1925,48 +1848,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     margin-bottom: 24px;
-  }
-
-  .identity-secondary-btn,
-  .identity-primary-btn,
-  .identity-danger-btn {
-    min-height: 42px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 9px;
-    border-radius: var(--b2s-radius-sm);
-    padding: 0 14px;
-    font-size: var(--b2s-fs-md);
-    font-weight: 650;
-    white-space: nowrap;
-  }
-
-  .identity-secondary-btn {
-    border: 1px solid #d5deeb;
-    background: #ffffff;
-    color: #071638;
-  }
-
-  .identity-primary-btn {
-    border: 1px solid #071638;
-    background: #071638;
-    color: #ffffff;
-    box-shadow: 0 10px 18px rgba(7, 22, 56, 0.16);
-  }
-
-  .identity-danger-btn {
-    border: 1px solid #fecaca;
-    background: #fff7f7;
-    color: #b42318;
-  }
-
-  .identity-secondary-btn:disabled,
-  .identity-primary-btn:disabled,
-  .identity-danger-btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    box-shadow: none;
   }
 
   .identity-health-card {

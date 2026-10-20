@@ -19,7 +19,7 @@
 </script>
 
 <div class={`sed-table-wrap ${dense ? 'is-dense' : ''}`}>
-  <table class="sed-table">
+  <table class="b2s-table sed-table">
     <thead>
       <tr>
         <th>{t('Name')}</th>

@@ -75,7 +75,7 @@
 
       <EntityOverviewPanel title={t('Endpoints')} headClass="sed-panel__head--toolbar" bodyClass="p-3 pt-2">
         <svelte:fragment slot="actions">
-          <button type="button" class="zone-console__btn-ghost" on:click={() => onCreateEndpoint?.()}>
+          <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => onCreateEndpoint?.()}>
             {t('Add endpoint')}
           </button>
         </svelte:fragment>
