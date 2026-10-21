@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from fastapi import HTTPException
 
 from app.api.governance import access_requests as api
@@ -15,6 +17,184 @@ class _Req:
 
     async def json(self):
         return dict(self._payload)
+
+
+@pytest.fixture(autouse=True)
+def _no_activity_log(monkeypatch):
+    """The provisioning log goes to the logging database: tests that check it capture it."""
+    monkeypatch.setattr(api, "log_event", lambda **kw: None)
+
+
+def _capture_journal(monkeypatch) -> list[tuple[str, dict]]:
+    entries: list[tuple[str, dict]] = []
+    monkeypatch.setattr(api, "log_event", lambda **kw: entries.append((kw["action"], kw)))
+    return entries
+
+
+def _fake_grant(monkeypatch, *, job: dict | None = None, still_running: bool = False) -> list[dict]:
+    """Grant job queued then finished with `job` (default: group created + member added)."""
+    calls: list[dict] = []
+
+    async def _queue(**kw):
+        calls.append({k: kw[k] for k in (
+            "storage_root_id", "access_profile_id", "group_name", "group_external_id", "adopt_group_dn", "principal_username",
+        )})
+        return {"job_id": 7001, "identity_source_id": 9, "target_ou_dn": "OU=Groups,DC=example,DC=com", "zone_id": 3}
+
+    async def _wait(job_id, *, timeout_sec=60, interval_sec=1.0):
+        assert job_id == 7001
+        if still_running:
+            return None
+        return job or {
+            "id": 7001,
+            "status": "SUCCEEDED",
+            "result_json": {"success": True, "details": {
+                "group_name": calls[-1]["group_name"],
+                "group_dn": f"CN={calls[-1]['group_name']},OU=Groups,DC=example,DC=com",
+                "group_outcome": "created",
+                "member_outcome": "added",
+                "principal_dn": "CN=Jane,OU=Users,DC=example,DC=com",
+            }},
+        }
+
+    monkeypatch.setattr(api, "queue_ad_access_grant", _queue)
+    monkeypatch.setattr(api, "wait_provisioning_job", _wait)
+    return calls
+
+
+def _single_item_plan(req_id: int) -> dict:
+    return {
+        "access_request_id": req_id,
+        "principal": {"dn": "CN=Jane,OU=Users,DC=example,DC=com", "username": "jane"},
+        "items": [{
+            "id": 201,
+            "target_type": "storage_root",
+            "target_id": 77,
+            "permission": "write",
+            "access_level_code": "WRITE",
+            "group_ref": "B2S_ROOT_77_RW",
+            "identity_source_id": 9,
+            "error": None,
+        }],
+    }
+
+
+def _approval_posts(profile: dict, calls: list[tuple[str, dict]]):
+    async def _post(path: str, payload: dict):
+        calls.append((path, dict(payload)))
+        if path == "/api/internal/provisioning/storage-root-access-profiles":
+            return {"created": False, "data": profile}
+        if path == "/api/internal/access-requests/item-executions":
+            return {"ok": True}
+        if path == "/api/access-requests/bulk":
+            return {"data": {"ok": True}}
+        raise AssertionError(path)
+
+    return _post
+
+
+def test_bulk_decision_approve_group_name_conflict_offers_adoption(monkeypatch) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    async def _get(path: str):
+        return _single_item_plan(404)
+
+    fake_routes(monkeypatch, api, get=_get)
+    fake_routes(monkeypatch, api, post=_approval_posts({"id": 56, "group_name": "B2S_ROOT_77_RW", "status": "PENDING"}, calls))
+    _fake_grant(monkeypatch, job={
+        "id": 7001,
+        "status": "FAILED",
+        "error_code": "AD_GROUP_NAME_CONFLICT",
+        "error_message": "A group with this name already exists outside the organizational unit of the zone",
+        "result_json": {"success": False, "details": {"existing_dn": "CN=B2S_ROOT_77_RW,OU=Legacy,DC=example,DC=com"}},
+    })
+    journal = _capture_journal(monkeypatch)
+
+    out = asyncio.run(api.bulk_decision(_Req({"ids": [404], "decision": "approve"})))
+
+    assert out["data"]["failed_ids"] == [404]
+    detail = out["data"]["failed_details"][404]
+    assert detail["code"] == "AD_GROUP_NAME_CONFLICT"
+    assert detail["existing_dn"] == "CN=B2S_ROOT_77_RW,OU=Legacy,DC=example,DC=com"
+    assert detail["access_profile_id"] == 56
+    assert detail["job_id"] == 7001
+    # Not approved: the request stays pending
+    assert "/api/access-requests/bulk" not in [path for path, _ in calls]
+    actions = [action for action, _ in journal]
+    assert actions[-2:] == ["access_request_step_failed", "access_request_approval_failed"]
+    assert journal[-2][1]["metadata_json"]["code"] == "AD_GROUP_NAME_CONFLICT"
+
+
+def test_bulk_decision_approve_adopts_the_group_chosen_by_an_admin(monkeypatch) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    async def _get(path: str):
+        return _single_item_plan(405)
+
+    async def _probe(payload: dict):
+        return {"job_id": "8002", "status": "queued"}
+
+    async def _probe_job(job_id):
+        return {"job_id": "8002", "status": "succeeded"}
+
+    fake_routes(monkeypatch, api, get=_get)
+    adopting = {"id": 56, "group_name": "B2S_ROOT_77_RW", "status": "ADOPTING", "group_external_id": "CN=B2S_ROOT_77_RW,OU=Legacy,DC=example,DC=com"}
+    fake_routes(monkeypatch, api, post=_approval_posts(adopting, calls))
+    grants = _fake_grant(monkeypatch)
+    _capture_journal(monkeypatch)
+    monkeypatch.setattr(api, "submit_probe_run", _probe)
+    monkeypatch.setattr(api, "fetch_probe_job", _probe_job)
+
+    out = asyncio.run(api.bulk_decision(_Req({"ids": [405], "decision": "approve"})))
+
+    assert out["data"]["updated_ids"] == [405]
+    assert grants[0]["adopt_group_dn"] == "CN=B2S_ROOT_77_RW,OU=Legacy,DC=example,DC=com"
+    assert grants[0]["group_external_id"] is None
+
+
+def test_bulk_decision_approve_reuses_the_known_group(monkeypatch) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    async def _get(path: str):
+        return _single_item_plan(406)
+
+    async def _probe(payload: dict):
+        return {"job_id": "8003", "status": "queued"}
+
+    async def _probe_job(job_id):
+        return {"job_id": "8003", "status": "succeeded"}
+
+    fake_routes(monkeypatch, api, get=_get)
+    known = {"id": 56, "group_name": "B2S_ROOT_77_RW", "status": "SUCCEEDED", "group_external_id": "6f1c0a52-8f8e-4c51-9a3b-1f2d3c4b5a69"}
+    fake_routes(monkeypatch, api, post=_approval_posts(known, calls))
+    grants = _fake_grant(monkeypatch)
+    _capture_journal(monkeypatch)
+    monkeypatch.setattr(api, "submit_probe_run", _probe)
+    monkeypatch.setattr(api, "fetch_probe_job", _probe_job)
+
+    out = asyncio.run(api.bulk_decision(_Req({"ids": [406], "decision": "approve"})))
+
+    assert out["data"]["updated_ids"] == [406]
+    assert grants[0]["group_external_id"] == "6f1c0a52-8f8e-4c51-9a3b-1f2d3c4b5a69"
+    assert grants[0]["adopt_group_dn"] is None
+
+
+def test_bulk_decision_approve_reports_a_job_still_running(monkeypatch) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    async def _get(path: str):
+        return _single_item_plan(407)
+
+    fake_routes(monkeypatch, api, get=_get)
+    fake_routes(monkeypatch, api, post=_approval_posts({"id": 56, "group_name": "B2S_ROOT_77_RW", "status": "PENDING"}, calls))
+    _fake_grant(monkeypatch, still_running=True)
+    _capture_journal(monkeypatch)
+
+    out = asyncio.run(api.bulk_decision(_Req({"ids": [407], "decision": "approve"})))
+
+    assert out["data"]["failed_ids"] == [407]
+    assert out["data"]["failed_details"][407]["code"] == "AD_JOB_STILL_RUNNING"
+    assert "/api/access-requests/bulk" not in [path for path, _ in calls]
 
 
 def test_bulk_decision_non_approve_proxies_to_core(monkeypatch) -> None:
@@ -91,20 +271,9 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
             return {"data": {"ok": True}}
         raise AssertionError(path)
 
-    async def _fake_ensure_group(payload, request=None, response=None):
-        _ = request, response
-        assert payload.group_name == "B2S_ROOT_77_READ"
-        assert payload.context.storage_root_access_profile_id == 55
-        return {"data": {"ok": True, "job_id": 7001, "status": "QUEUED"}}
-
-    async def _fake_ensure_member(payload, request=None, response=None):
-        _ = request, response
-        assert payload.group_ref == "B2S_ROOT_77_READ"
-        assert payload.principal_username == "jane"
-        return {"data": {"ok": True, "job_id": 7002, "status": "QUEUED"}}
-
     async def _fake_submit_probe_run(payload: dict):
         assert payload["kind"] == "acl"
+        assert payload["target"]["group_name"] == "B2S_ROOT_77_READ"
         return {"job_id": "8001", "status": "queued", "poll_url": "/api/probes/jobs/8001"}
 
     async def _fake_fetch_probe_job(job_id: int | str):
@@ -113,8 +282,8 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
 
     fake_routes(monkeypatch, api, get=_fake_internal_get)
     fake_routes(monkeypatch, api, post=_fake_internal_post)
-    monkeypatch.setattr(api, "ensure_ad_group_via_name", _fake_ensure_group)
-    monkeypatch.setattr(api, "ensure_ad_group_member", _fake_ensure_member)
+    grants = _fake_grant(monkeypatch)
+    journal = _capture_journal(monkeypatch)
     monkeypatch.setattr(api, "submit_probe_run", _fake_submit_probe_run)
     monkeypatch.setattr(api, "fetch_probe_job", _fake_fetch_probe_job)
 
@@ -134,11 +303,32 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
     assert post_calls[1][0] == "/api/internal/access-requests/item-executions"
     assert str(post_calls[1][1].get("status") or "").upper() == "DONE"
     req_payload = dict(post_calls[1][1].get("requested_payload_json") or {})
-    assert str(req_payload.get("correlation_id") or "").startswith("ar_101_201_")
+    assert str(req_payload.get("correlation_id") or "").startswith("apr_101_")
     assert post_calls[2] == (
         "/api/access-requests/bulk",
         {"ids": [101], "decision": "approve", "decision_comment": "Validated by guardian"},
     )
+    # One grant job (group + member) for the access group of the level, created at this first approval
+    assert grants == [{
+        "storage_root_id": 77,
+        "access_profile_id": 55,
+        "group_name": "B2S_ROOT_77_READ",
+        "group_external_id": None,
+        "adopt_group_dn": None,
+        "principal_username": "jane",
+    }]
+    # Every step leaves a log entry on the request
+    assert [action for action, _ in journal] == [
+        "access_request_approval_started",
+        "ad_access_grant_queued",
+        "ad_group_created",
+        "ad_group_member_added",
+        "acl_apply_queued",
+        "acl_applied",
+        "access_request_applied",
+    ]
+    assert all(kw["entity_type"] == "access_request" and kw["entity_id"] == 101 for _, kw in journal)
+    assert len({kw["correlation_id"] for _, kw in journal}) == 1
 
 
 def test_bulk_decision_approve_records_failure_and_skips_mark_approved(monkeypatch) -> None:
@@ -248,17 +438,6 @@ def test_bulk_decision_approve_uses_implicit_governed_group_without_profile_bind
             return {"data": {"ok": True}}
         raise AssertionError(path)
 
-    async def _fake_ensure_group(payload, request=None, response=None):
-        _ = request, response
-        assert payload.group_name == "B2S_RH_RX"
-        return {"data": {"ok": True, "job_id": 7001, "status": "QUEUED"}}
-
-    async def _fake_ensure_member(payload, request=None, response=None):
-        _ = request, response
-        assert payload.group_ref == "B2S_RH_RX"
-        assert payload.principal_username == "jane"
-        return {"data": {"ok": True, "job_id": 7002, "status": "QUEUED"}}
-
     async def _fake_submit_probe_run(payload: dict):
         assert payload["kind"] == "acl"
         return {"job_id": "8001", "status": "queued", "poll_url": "/api/probes/jobs/8001"}
@@ -269,8 +448,8 @@ def test_bulk_decision_approve_uses_implicit_governed_group_without_profile_bind
 
     fake_routes(monkeypatch, api, get=_fake_internal_get)
     fake_routes(monkeypatch, api, post=_fake_internal_post)
-    monkeypatch.setattr(api, "ensure_ad_group_via_name", _fake_ensure_group)
-    monkeypatch.setattr(api, "ensure_ad_group_member", _fake_ensure_member)
+    grants = _fake_grant(monkeypatch)
+    _capture_journal(monkeypatch)
     monkeypatch.setattr(api, "submit_probe_run", _fake_submit_probe_run)
     monkeypatch.setattr(api, "fetch_probe_job", _fake_fetch_probe_job)
 
@@ -280,6 +459,7 @@ def test_bulk_decision_approve_uses_implicit_governed_group_without_profile_bind
     assert out["data"]["updated_ids"] == [303]
     assert out["data"]["failed_ids"] == []
     assert get_calls == ["/api/internal/access-requests/303/provisioning-plan"]
+    assert grants[0]["group_name"] == "B2S_RH_RX"
 
 
 def test_bulk_decision_non_approve_preserves_core_http_exception(monkeypatch) -> None:
@@ -355,12 +535,19 @@ def test_bulk_decision_revoke_removes_memberships_then_persists_in_core(monkeypa
     async def _fake_remove_member(payload, request=None, response=None):
         _ = response
         removed.append((payload.group_ref, payload.principal_username, payload.identity_source_id))
-        assert request.headers["x-request-id"] == "ar_101_201_revoke"
+        assert request.headers["x-request-id"].startswith("rev_101_")
+        assert request.headers["x-request-id"].endswith("_201_revoke")
         return {"data": {"ok": True, "job_id": 9001, "status": "QUEUED"}}
+
+    async def _fake_wait(job_id, *, timeout_sec=60, interval_sec=1.0):
+        assert job_id == 9001
+        return {"id": 9001, "status": "SUCCEEDED", "result_json": {"details": {"reason": "removed", "principal_dn": "CN=Jane"}}}
 
     fake_routes(monkeypatch, api, get=_fake_internal_get)
     fake_routes(monkeypatch, api, post=_fake_internal_post)
     monkeypatch.setattr(api, "remove_ad_group_member", _fake_remove_member)
+    monkeypatch.setattr(api, "wait_provisioning_job", _fake_wait)
+    journal = _capture_journal(monkeypatch)
 
     out = asyncio.run(api.bulk_decision(_Req({"ids": [101], "decision": "revoke"})))
 
@@ -373,6 +560,14 @@ def test_bulk_decision_revoke_removes_memberships_then_persists_in_core(monkeypa
     assert post_calls[0][1]["status"] == "DONE"
     assert post_calls[0][1]["requested_payload_json"]["operation"] == "revoke"
     assert post_calls[1] == ("/api/access-requests/bulk", {"ids": [101], "decision": "revoke"})
+    # The user leaves the group, the group itself is kept
+    assert [action for action, _ in journal] == [
+        "access_request_revocation_started",
+        "ad_group_member_removal_queued",
+        "ad_group_member_removed",
+        "access_request_revoked",
+    ]
+    assert journal[2][1]["metadata_json"]["group_kept"] is True
 
 
 def test_bulk_decision_revoke_failure_records_item_and_skips_core_persist(monkeypatch) -> None:

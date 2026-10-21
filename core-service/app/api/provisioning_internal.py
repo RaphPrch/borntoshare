@@ -714,6 +714,16 @@ def ensure_storage_root_access_group(payload: EnsureAccessGroupPayload, db: Sess
     return {"created": created, "data": row}
 
 
+def mark_access_group_adoption(profile_id: int, group_dn: str, db: Session = Depends(get_db)):
+    """The next approval adopts this existing AD group instead of creating one (status ADOPTING)."""
+    repo = StorageRootAccessProfilesRepo(db)
+    if repo.get(int(profile_id)) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root access group not found")
+    repo.mark_adoption(int(profile_id), group_dn=group_dn)
+    db.commit()
+    return repo.get(int(profile_id))
+
+
 @router.get("/storage-root-access-profiles", dependencies=[require_internal({"profiles:write"})])
 def list_storage_root_access_profiles(
     storage_root_id: int,
@@ -1009,12 +1019,19 @@ def _record_access_group_outcome(
     result_json: dict | None,
     error_message: str | None = None,
 ) -> None:
-    """Report an AD group creation job on the storage root access group it was created for."""
+    """Report an AD group job (creation, or grant = find/create + member) on its storage root access group."""
     profile_id = int(getattr(job_row, "storage_root_access_profile_id", 0) or 0)
-    if profile_id <= 0 or str(getattr(job_row, "job_type", "") or "").upper() != "AD_GROUP_ENSURE":
+    job_type = str(getattr(job_row, "job_type", "") or "").upper()
+    if profile_id <= 0 or job_type not in {"AD_GROUP_ENSURE", "AD_ACCESS_GRANT"}:
         return
     details = _as_dict(_as_dict(result_json).get("details"))
-    StorageRootAccessProfilesRepo(db).record_outcome(
+    repo = StorageRootAccessProfilesRepo(db)
+    if job_type == "AD_ACCESS_GRANT" and not succeeded:
+        # A grant can fail on the requester (not found…) while the group is fine: keep a working group as is,
+        # and an adoption stays pending until it succeeds
+        if str((repo.get(profile_id) or {}).get("status") or "").upper() in {"SUCCEEDED", "ADOPTING"}:
+            return
+    repo.record_outcome(
         profile_id,
         succeeded=succeeded,
         group_external_id=details.get("group_guid") or details.get("group_external_id") or details.get("group_dn"),

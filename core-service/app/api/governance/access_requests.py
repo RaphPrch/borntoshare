@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -9,13 +10,14 @@ from app.api import access_requests as access_requests_routes
 from app.api import provisioning_internal
 from app.core.direct_call import call_route
 from app.api._helpers import ui_data
-from app.schemas.provisioning import (
-    EnsureAdGroupContextIn,
-    EnsureAdGroupIn,
-    EnsureAdGroupMemberIn,
-    RemoveAdGroupMemberIn,
+from app.schemas.provisioning import RemoveAdGroupMemberIn
+from app.api.governance.provisioning import (
+    ProvisioningStepError,
+    queue_ad_access_grant,
+    remove_ad_group_member,
+    wait_provisioning_job,
 )
-from app.api.governance.provisioning import ensure_ad_group_member, ensure_ad_group_via_name, remove_ad_group_member
+from app.services.audit_logger import log_event
 from app.services.probe_service import fetch_probe_job, submit_probe_run
 from app.core.values import unwrap_data
 
@@ -64,6 +66,11 @@ def _normalize_failed_detail(raw: Any) -> dict[str, Any]:
         "candidates_count": int(detail.get("candidates_count") or 0),
         "repair_attempted": bool(detail.get("repair_attempted") or False),
         "repair_result": repair_result,
+        # AD group conflict: the existing group a platform admin can adopt
+        "access_profile_id": _to_int_or_none(detail.get("access_profile_id")),
+        "group_name": str(detail.get("group_name") or "").strip() or None,
+        "existing_dn": str(detail.get("existing_dn") or "").strip() or None,
+        "job_id": _to_int_or_none(detail.get("job_id")),
     }
 
 
@@ -78,6 +85,189 @@ def _request_with_id(request: Request, request_id: str) -> Request:
             return getattr(self._base, name)
 
     return _ReqProxy(request, request_id)  # type: ignore[return-value]
+
+
+# Waiting times of the approval call (the capsule retries network errors within them)
+GRANT_TIMEOUT_SEC = 90
+ACL_TIMEOUT_SEC = 60
+REVOKE_TIMEOUT_SEC = 60
+
+
+def _journal(
+    action: str,
+    *,
+    req_id: int,
+    request: Request,
+    correlation_id: str,
+    storage_root_id: int | None = None,
+    result: str = "success",
+    severity: str = "info",
+    **details: Any,
+) -> None:
+    """One entry of the provisioning log of an access request (activity log, filtered by request)."""
+    actor_id = str(request.headers.get("x-identity-id") or "").strip() or None
+    log_event(
+        action=action,
+        event_category="PROVISIONING",
+        actor_type="user" if actor_id and actor_id.isdigit() else "service",
+        actor_id=actor_id or "system",
+        entity_type="access_request",
+        entity_id=int(req_id),
+        storage_root_id=int(storage_root_id or 0) or None,
+        correlation_id=correlation_id,
+        result=result,
+        severity=severity,
+        metadata_json={k: v for k, v in details.items() if v is not None},
+    )
+
+
+def _job_failure(job: dict[str, Any], *, job_id: int, step: str) -> ProvisioningStepError:
+    result = dict(job.get("result_json") or {}) if isinstance(job.get("result_json"), dict) else {}
+    details = dict(result.get("details") or {}) if isinstance(result.get("details"), dict) else {}
+    return ProvisioningStepError(
+        str(job.get("error_code") or details.get("failure_code") or f"{step.upper()}_FAILED"),
+        str(job.get("error_message") or result.get("message") or f"{step} failed"),
+        job_id=job_id,
+        **{k: details.get(k) for k in ("existing_dn", "group_name", "target_ou_dn", "directory_server") if details.get(k)},
+    )
+
+
+async def _grant_item(
+    *,
+    req_id: int,
+    item: dict[str, Any],
+    principal_dn: str | None,
+    principal_username: str | None,
+    request: Request,
+    correlation_id: str,
+) -> dict[str, Any]:
+    """AD group (found, adopted or created at the first approval) + membership + NTFS ACL, in this order.
+
+    Each step waits for the previous one and writes its log entry; raises ProvisioningStepError.
+    """
+    target_id = int(item.get("target_id") or 0)
+    access_level_code = str(item.get("access_level_code") or "READ").strip().upper() or "READ"
+    journal = lambda action, **kw: _journal(  # noqa: E731
+        action, req_id=req_id, request=request, correlation_id=correlation_id, storage_root_id=target_id,
+        access_level=access_level_code, **kw,
+    )
+
+    # 1. Access group of the level (database): the name comes from the naming template at the first approval
+    access_group = unwrap_data(
+        await call_route(
+            provisioning_internal.ensure_storage_root_access_group,
+            payload={
+                "storage_root_id": target_id,
+                "access_level_code": access_level_code,
+                "group_name": str(item.get("group_ref") or "").strip(),
+            },
+        )
+    )
+    profile_id = int(access_group.get("id") or 0) or None
+    group_name = str(access_group.get("group_name") or item.get("group_ref") or "").strip()
+    profile_status = str(access_group.get("status") or "").strip().upper()
+    external_id = str(access_group.get("group_external_id") or "").strip() or None
+    adopting = profile_status == "ADOPTING"
+
+    # 2. Group + member, on one domain controller
+    try:
+        queued = await queue_ad_access_grant(
+            storage_root_id=target_id,
+            access_profile_id=profile_id,
+            identity_source_id=int(item.get("identity_source_id") or 0) or None,
+            group_name=group_name,
+            group_external_id=None if adopting else external_id,
+            adopt_group_dn=external_id if adopting else None,
+            principal_dn=principal_dn,
+            principal_username=principal_username,
+            description_text=f"BornToShare · {access_level_code} · storage root #{target_id}",
+            correlation_id=f"{correlation_id}_{int(item.get('id') or 0)}_grant",
+        )
+    except ProvisioningStepError as exc:
+        exc.details.setdefault("access_profile_id", profile_id)
+        raise
+    job_id = int(queued["job_id"])
+    journal(
+        "ad_access_grant_queued",
+        result="in_progress",
+        job_id=job_id,
+        group_name=group_name,
+        target_ou_dn=queued.get("target_ou_dn"),
+        adopt_group_dn=external_id if adopting else None,
+    )
+    job = await wait_provisioning_job(job_id, timeout_sec=GRANT_TIMEOUT_SEC)
+    if job is None:
+        raise ProvisioningStepError(
+            "AD_JOB_STILL_RUNNING",
+            "Active Directory has not answered yet.",
+            hint="The job keeps running; approve again in a few minutes (nothing is done twice).",
+            job_id=job_id,
+            access_profile_id=profile_id,
+        )
+    if str(job.get("status") or "").upper() != "SUCCEEDED":
+        failure = _job_failure(job, job_id=job_id, step="ad_access_grant")
+        failure.details.setdefault("access_profile_id", profile_id)
+        failure.details.setdefault("group_name", group_name)
+        raise failure
+    grant = dict(unwrap_data(job.get("result_json") or {}).get("details") or {})
+    group_name = str(grant.get("group_name") or group_name)
+    journal(
+        f"ad_group_{grant.get('group_outcome') or 'reused'}",
+        job_id=job_id,
+        group_name=group_name,
+        group_dn=grant.get("group_dn"),
+        target_ou_dn=grant.get("target_ou_dn"),
+        directory_server=grant.get("directory_server"),
+    )
+    journal(
+        "ad_group_member_added" if grant.get("member_outcome") == "added" else "ad_group_member_already_present",
+        job_id=job_id,
+        group_name=group_name,
+        principal_dn=grant.get("principal_dn"),
+    )
+
+    # 3. NTFS ACL of the group on the share (idempotent: re-applied at each approval, which also repairs it)
+    acl_out = await submit_probe_run(
+        {
+            "kind": "acl",
+            "protocol": "acl_push",
+            "scope": "storage_root",
+            "target": {
+                "storage_root_id": target_id,
+                "access_level_code": access_level_code,
+                "group_name": group_name,
+                "permission": access_level_code,
+            },
+            "auth": {},
+            "options": {},
+            "context": {
+                "storage_root_id": target_id,
+                "access_level_code": access_level_code,
+                "correlation_id": f"{correlation_id}_{int(item.get('id') or 0)}_acl",
+            },
+        }
+    )
+    journal("acl_apply_queued", result="in_progress", group_name=group_name, job_id=int((acl_out or {}).get("job_id") or 0) or None)
+    try:
+        acl_result = await _wait_acl_apply_result(acl_out, timeout_sec=ACL_TIMEOUT_SEC)
+    except RuntimeError as exc:
+        raise ProvisioningStepError(
+            "ACL_APPLY_FAILED",
+            str(exc),
+            hint="The requester is in the AD group; approve again to re-apply the NTFS permissions.",
+            group_name=group_name,
+            access_profile_id=profile_id,
+        ) from exc
+    journal("acl_applied", group_name=group_name, permission=access_level_code)
+
+    return {
+        "group": grant,
+        "acl": {"planned": acl_out, "result": acl_result},
+        "group_ref": group_name,
+        "access_profile_id": profile_id,
+        "identity_source_id": queued.get("identity_source_id"),
+        "grant_job_id": job_id,
+    }
 
 
 async def _record_item_execution(
@@ -128,11 +318,12 @@ async def _revoke_request_memberships(
     *,
     req_id: int,
     request: Request,
+    correlation_id: str,
 ) -> str | None:
-    """Remove the requester from every governed AD group of an access request.
+    """Remove the requester from every governed AD group of an access request (the groups are kept, even empty).
 
-    Records one item execution per item and returns None on success, or the
-    failure message (items are all attempted, failures are joined).
+    Waits for each removal, records one item execution and log entries per item, and returns
+    None on success, or the failure message (items are all attempted, failures are joined).
     """
     plan = await call_route(
         access_requests_routes.get_access_request_provisioning_plan_internal,
@@ -202,25 +393,56 @@ async def _revoke_request_memberships(
             "principal_dn": principal_dn,
             "principal_username": principal_username,
         }
+        journal = lambda action, **kw: _journal(  # noqa: E731
+            action, req_id=req_id, request=request, correlation_id=correlation_id, storage_root_id=target_id,
+            access_level=access_level_code, group_name=group_ref, **kw,
+        )
         try:
-            removed = await remove_ad_group_member(
-                RemoveAdGroupMemberIn(
-                    identity_source_id=source_id,
-                    group_ref=group_ref,
-                    principal_dn=principal_dn,
-                    principal_username=principal_username,
-                ),
-                request=_request_with_id(request, f"ar_{int(req_id)}_{int(item_id or 0)}_revoke"),
+            removed = unwrap_data(
+                await remove_ad_group_member(
+                    RemoveAdGroupMemberIn(
+                        identity_source_id=source_id,
+                        group_ref=group_ref,
+                        principal_dn=principal_dn,
+                        principal_username=principal_username,
+                    ),
+                    request=_request_with_id(request, f"{correlation_id}_{int(item_id or 0)}_revoke"),
+                )
+            )
+            job_id = int((removed or {}).get("job_id") or 0)
+            journal("ad_group_member_removal_queued", result="in_progress", job_id=job_id)
+            job = await wait_provisioning_job(job_id, timeout_sec=REVOKE_TIMEOUT_SEC)
+            if job is None:
+                raise ProvisioningStepError(
+                    "AD_JOB_STILL_RUNNING",
+                    "Active Directory has not answered yet; revoke again in a few minutes.",
+                    job_id=job_id,
+                )
+            if str(job.get("status") or "").upper() != "SUCCEEDED":
+                raise _job_failure(job, job_id=job_id, step="ad_group_member_removal")
+            details = dict(unwrap_data(job.get("result_json") or {}).get("details") or {})
+            journal(
+                "ad_group_member_removed" if details.get("reason") != "already_absent" else "ad_group_member_already_absent",
+                job_id=job_id,
+                principal_dn=details.get("principal_dn"),
+                group_kept=True,
             )
             await _record_item_execution(
                 access_request_id=int(req_id),
                 access_request_item_id=item_id,
                 status="DONE",
                 requested_payload_json=requested_payload,
-                result_json=unwrap_data(removed) if isinstance(removed, dict) else None,
+                result_json={"job_id": job_id, **details},
                 error_message=None,
             )
         except Exception as exc:
+            journal(
+                "access_request_step_failed",
+                result="failure",
+                severity="warning",
+                code=getattr(exc, "code", "REVOKE_FAILED"),
+                message=str(getattr(exc, "message", exc))[:500],
+            )
             await _record_item_execution(
                 access_request_id=int(req_id),
                 access_request_item_id=item_id,
@@ -245,11 +467,16 @@ async def _bulk_revoke(
     failed_details: dict[int, dict[str, Any]] = {}
     revoked_ids: list[int] = []
 
+    revoke_correlations: dict[int, str] = {}
     for req_id in requested_ids:
+        revoke_correlation = f"rev_{int(req_id)}_{uuid.uuid4().hex[:10]}"
+        revoke_correlations[int(req_id)] = revoke_correlation
+        _journal("access_request_revocation_started", req_id=int(req_id), request=request, correlation_id=revoke_correlation, result="in_progress")
         try:
             failure = await _revoke_request_memberships(
                 req_id=int(req_id),
                 request=request,
+                correlation_id=revoke_correlation,
             )
         except Exception as exc:
             failed_reasons[int(req_id)] = str(exc)
@@ -295,6 +522,17 @@ async def _bulk_revoke(
 
     failed_ids = [int(x) for x in requested_ids if int(x) in failed_reasons]
     updated_ids = [int(x) for x in revoked_ids if int(x) not in failed_reasons]
+    for req_id in requested_ids:
+        ok = int(req_id) in updated_ids
+        _journal(
+            "access_request_revoked" if ok else "access_request_revocation_failed",
+            req_id=int(req_id),
+            request=request,
+            correlation_id=revoke_correlations[int(req_id)],
+            result="success" if ok else "failure",
+            severity="info" if ok else "warning",
+            message=None if ok else str(failed_reasons.get(int(req_id)) or "")[:500],
+        )
     return ui_data({
         "ok": len(failed_ids) == 0,
         "decision": "revoke",
@@ -342,7 +580,11 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
     approved_ids: list[int] = []
     executions_started = 0
 
+    approval_correlations: dict[int, str] = {}
     for req_id in requested_ids:
+        # One correlation per approval attempt: a new attempt runs new jobs (retry after a failure)
+        approval_correlation = f"apr_{int(req_id)}_{uuid.uuid4().hex[:10]}"
+        _journal("access_request_approval_started", req_id=int(req_id), request=request, correlation_id=approval_correlation, result="in_progress")
         try:
             plan = await call_route(
                 access_requests_routes.get_access_request_provisioning_plan_internal,
@@ -445,129 +687,80 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
                     request_failure_details.append(detail_payload)
                     continue
 
+                requested_payload = {
+                    "correlation_id": f"{approval_correlation}_{int(item_id or 0)}",
+                    "storage_root_id": int(target_id),
+                    "access_level_code": access_level_code,
+                    "group_ref": group_ref,
+                    "identity_source_id": source_id,
+                    "principal_dn": principal_dn,
+                    "principal_username": principal_username,
+                }
                 try:
-                    ensure_request = _request_with_id(request, f"{item_correlation}_group")
-                    ensured_group: dict[str, Any] | None = None
-                    profile_already_provisioned = profile_status == "SUCCEEDED" and bool(group_external_id)
-                    if not profile_already_provisioned:
-                        # First request for this level: record the group, then create it in AD.
-                        access_group = unwrap_data(
-                            await call_route(
-                                provisioning_internal.ensure_storage_root_access_group,
-                                payload={
-                                    "storage_root_id": int(target_id),
-                                    "access_level_code": access_level_code,
-                                    "group_name": group_ref,
-                                },
-                            )
-                        )
-                        group_ref = str(access_group.get("group_name") or group_ref)
-                        ensure_out = await ensure_ad_group_via_name(
-                            EnsureAdGroupIn(
-                                group_name=group_ref,
-                                identity_source_id=source_id,
-                                context=EnsureAdGroupContextIn(
-                                    storage_root_id=int(target_id),
-                                    storage_root_access_profile_id=int(access_group.get("id") or 0) or None,
-                                ),
-                            ),
-                            request=ensure_request,
-                        )
-                        ensured_group = unwrap_data(ensure_out) if isinstance(ensure_out, dict) else None
-
-                    member_request = _request_with_id(request, f"{item_correlation}_member")
-                    member_out = await ensure_ad_group_member(
-                        EnsureAdGroupMemberIn(
-                            identity_source_id=source_id,
-                            group_ref=group_ref,
-                            principal_dn=principal_dn,
-                            principal_username=principal_username,
-                        ),
-                        request=member_request,
+                    result = await _grant_item(
+                        req_id=int(req_id),
+                        item=item,
+                        principal_dn=principal_dn,
+                        principal_username=principal_username,
+                        request=request,
+                        correlation_id=approval_correlation,
                     )
-                    ensured_member = unwrap_data(member_out) if isinstance(member_out, dict) else None
-
-                    acl_out = await submit_probe_run(
-                        {
-                            "kind": "acl",
-                            "protocol": "acl_push",
-                            "scope": "storage_root",
-                                "target": {
-                                    "storage_root_id": int(target_id),
-                                    "access_level_code": access_level_code,
-                                    "group_name": group_ref,
-                                    "permission": access_level_code,
-                                },
-                            "auth": {},
-                            "options": {},
-                            "context": {
-                                "storage_root_id": int(target_id),
-                                "access_level_code": access_level_code,
-                                "correlation_id": f"{item_correlation}_acl",
-                            },
-                        }
-                    )
-                    acl_result = await _wait_acl_apply_result(acl_out)
-
-                    result = {
-                        "group": ensured_group,
-                        "membership": ensured_member,
-                        "acl": {
-                            "planned": acl_out,
-                            "result": acl_result,
-                        },
-                        "group_ref": group_ref,
-                        "profile_status": profile_status,
-                        "group_external_id": group_external_id,
-                        "group_create_skipped": profile_already_provisioned,
-                        "identity_source_id": source_id,
-                    }
                     await _record_item_execution(
                         access_request_id=int(req_id),
                         access_request_item_id=item_id,
                         status="DONE",
-                        requested_payload_json={
-                            "correlation_id": f"{item_correlation}_done",
-                            "storage_root_id": int(target_id),
-                            "access_level_code": access_level_code,
-                            "group_ref": group_ref,
-                            "identity_source_id": source_id,
-                            "principal_dn": principal_dn,
-                            "principal_username": principal_username,
-                        },
+                        requested_payload_json={**requested_payload, "group_ref": result.get("group_ref")},
                         result_json=result,
                         error_message=None,
                     )
                 except Exception as exc:
+                    step_error = exc if isinstance(exc, ProvisioningStepError) else ProvisioningStepError(
+                        "APPROVAL_EXECUTION_FAILED", str(exc), hint="Check provisioning traces and retry approval."
+                    )
                     detail_payload = {
                         "item_id": int(item_id or 0) or None,
-                        "code": "APPROVAL_EXECUTION_FAILED",
-                        "message": str(exc),
-                        "hint": "Check provisioning traces and retry approval.",
+                        "code": step_error.code,
+                        "message": step_error.message,
+                        "hint": step_error.hint or "Check provisioning traces and retry approval.",
                         "storage_root_id": int(target_id or 0) or None,
                         "requested_permission": access_level_code,
                         "candidates_count": 0,
+                        **step_error.details,
                     }
+                    _journal(
+                        "access_request_step_failed",
+                        req_id=int(req_id),
+                        request=request,
+                        correlation_id=approval_correlation,
+                        storage_root_id=int(target_id or 0) or None,
+                        result="failure",
+                        severity="warning",
+                        code=step_error.code,
+                        message=step_error.message,
+                        hint=step_error.hint,
+                        **{k: v for k, v in step_error.details.items() if isinstance(v, (str, int))},
+                    )
                     await _record_item_execution(
                         access_request_id=int(req_id),
                         access_request_item_id=item_id,
                         status="FAILED",
-                        requested_payload_json={
-                            "correlation_id": f"{item_correlation}_failed",
-                            "storage_root_id": int(target_id),
-                            "access_level_code": access_level_code,
-                            "group_ref": group_ref,
-                            "identity_source_id": source_id,
-                            "principal_dn": principal_dn,
-                            "principal_username": principal_username,
-                        },
+                        requested_payload_json={**requested_payload, "error_code": step_error.code},
                         result_json=None,
-                        error_message=str(exc),
+                        error_message=step_error.message,
                     )
-                    request_failures.append(f"item#{item_id or 0}: {str(exc)[:250]}")
+                    request_failures.append(f"item#{item_id or 0}: {step_error.message[:250]}")
                     request_failure_details.append(detail_payload)
 
             if request_failures:
+                _journal(
+                    "access_request_approval_failed",
+                    req_id=int(req_id),
+                    request=request,
+                    correlation_id=approval_correlation,
+                    result="failure",
+                    severity="warning",
+                    message="; ".join(request_failures)[:500],
+                )
                 failed_ids.append(int(req_id))
                 normalized_messages = [
                     str((d or {}).get("message") or "").strip()
@@ -596,8 +789,18 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
                 continue
 
             approved_ids.append(int(req_id))
+            approval_correlations[int(req_id)] = approval_correlation
             executions_started += 1
         except Exception as exc:
+            _journal(
+                "access_request_approval_failed",
+                req_id=int(req_id),
+                request=request,
+                correlation_id=approval_correlation,
+                result="failure",
+                severity="warning",
+                message=str(exc)[:500],
+            )
             failed_ids.append(int(req_id))
             failed_reasons[int(req_id)] = str(exc)
             failed_details[int(req_id)] = {
@@ -621,6 +824,8 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
             },
             request=request,
         )
+        for req_id in approved_ids:
+            _journal("access_request_applied", req_id=int(req_id), request=request, correlation_id=approval_correlations[int(req_id)])
 
     normalized_failed_ids = [int(x) for x in failed_ids if int(x) > 0]
     normalized_failed_details = {

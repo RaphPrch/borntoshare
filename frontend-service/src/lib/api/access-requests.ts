@@ -20,6 +20,11 @@ export type BulkDecisionResponse = {
       storage_root_id?: number | null;
       requested_permission?: string | null;
       candidates_count?: number;
+      /** AD group conflict: the existing group a platform admin can adopt */
+      access_profile_id?: number | null;
+      group_name?: string | null;
+      existing_dn?: string | null;
+      job_id?: number | null;
     }
   >;
   updated_count: number;
@@ -155,6 +160,15 @@ export const bulkDecision = async (
 
   return normalizeBulkDecisionResponse(response);
 };
+
+/**
+ * Use an existing AD group (found outside the zone OU) for a storage root level; the next approval adopts it.
+ * Platform admins only.
+ */
+export const adoptAccessGroup = (fetchFn: FetchLike, accessProfileId: number, groupDn: string) =>
+  apiPostData<Record<string, unknown>>(fetchFn, `/storage-root-access-profiles/${accessProfileId}/adopt`, {
+    group_dn: groupDn
+  });
 
 /**
  * CREATE a new access request

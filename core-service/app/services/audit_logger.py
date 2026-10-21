@@ -119,8 +119,11 @@ def log_event(
         # Map audit payload → activity write model
         event = ActivityEventCreate(
             action=payload["action"],
+            outcome=payload["result"],
             actor_type=payload["actor_type"],
             actor_id=payload["actor_id"],
+            target_type=payload["entity_type"],
+            target_id=payload["entity_id"],
             zone_id=payload["zone_id"],
             root_id=payload["storage_root_id"],
             severity=payload["severity"],

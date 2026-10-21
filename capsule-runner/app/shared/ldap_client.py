@@ -6,8 +6,18 @@ from typing import Any
 from ldap3 import ALL, BASE, LEVEL, SIMPLE, SUBTREE, Connection, Server, Tls
 
 
+def tls_config(verify_tls: bool) -> Tls:
+    """Certificate check when asked by the job or enforced by LDAP_TLS_VERIFY (with LDAP_CA_FILE when set)."""
+    from app.core import settings  # lazy: settings require the broker configuration
+
+    verify = bool(verify_tls) or settings.LDAP_TLS_VERIFY
+    if not verify:
+        return Tls(validate=ssl.CERT_NONE)
+    return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=settings.LDAP_CA_FILE)
+
+
 def connect(*, host: str, port: int, use_ssl: bool, verify_tls: bool, timeout: int) -> Connection:
-    tls = Tls(validate=ssl.CERT_REQUIRED if verify_tls else ssl.CERT_NONE) if use_ssl else None
+    tls = tls_config(verify_tls) if use_ssl else None
     server = Server(
         str(host or "").strip(),
         port=int(port),

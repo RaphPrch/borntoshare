@@ -46,7 +46,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
     return { service: 'auth', path, internal: false };
   }
 
-  if (path === '/access-requests/bulk') {
+  if (path === '/access-requests/bulk' || /^\/storage-root-access-profiles\/\d+\/adopt$/.test(path)) {
     return governanceRoute(path);
   }
 

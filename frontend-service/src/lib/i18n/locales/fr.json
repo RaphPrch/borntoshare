@@ -1948,6 +1948,86 @@
         "title": "Alerte résolue",
         "description": "L'alerte « {target} » a été résolue"
       }
+    },
+    "access_request_approval_started": {
+      "title": "Approbation lancée",
+      "description": "Mise en place de l'accès dans Active Directory"
+    },
+    "ad_access_grant_queued": {
+      "title": "Tâche AD en file",
+      "description": "Groupe {group} dans {ou}"
+    },
+    "ad_group_created": {
+      "title": "Groupe AD créé",
+      "description": "Groupe global de sécurité {group} créé dans {ou}"
+    },
+    "ad_group_reused": {
+      "title": "Groupe AD réutilisé",
+      "description": "Groupe existant {group}"
+    },
+    "ad_group_adopted": {
+      "title": "Groupe AD adopté",
+      "description": "Le groupe existant {group} est désormais géré par BornToShare"
+    },
+    "ad_group_recreated": {
+      "title": "Groupe AD recréé",
+      "description": "{group} avait été supprimé d'Active Directory et a été recréé dans {ou}"
+    },
+    "ad_group_member_added": {
+      "title": "Membre ajouté",
+      "description": "Le demandeur a été ajouté à {group}"
+    },
+    "ad_group_member_already_present": {
+      "title": "Déjà membre",
+      "description": "Le demandeur était déjà dans {group}"
+    },
+    "acl_apply_queued": {
+      "title": "Permissions NTFS en file",
+      "description": "Permissions de {group} sur le partage"
+    },
+    "acl_applied": {
+      "title": "Permissions NTFS appliquées",
+      "description": "{group} a ses permissions sur le partage"
+    },
+    "access_request_applied": {
+      "title": "Accès accordé",
+      "description": "La demande est appliquée"
+    },
+    "access_request_step_failed": {
+      "title": "Étape en échec",
+      "description": "{message}"
+    },
+    "access_request_approval_failed": {
+      "title": "Approbation non appliquée",
+      "description": "La demande reste en attente"
+    },
+    "access_request_revocation_started": {
+      "title": "Révocation lancée",
+      "description": "Retrait de l'accès dans Active Directory"
+    },
+    "ad_group_member_removal_queued": {
+      "title": "Tâche AD en file",
+      "description": "Retrait de {group}"
+    },
+    "ad_group_member_removed": {
+      "title": "Membre retiré",
+      "description": "Le demandeur a quitté {group} ; le groupe est conservé"
+    },
+    "ad_group_member_already_absent": {
+      "title": "Déjà retiré",
+      "description": "Le demandeur n'était plus dans {group}"
+    },
+    "access_request_revoked": {
+      "title": "Accès révoqué",
+      "description": "La demande est révoquée"
+    },
+    "access_request_revocation_failed": {
+      "title": "Révocation non appliquée",
+      "description": "{message}"
+    },
+    "ad_group_adoption_requested": {
+      "title": "Adoption d'un groupe AD",
+      "description": "{group} sera adopté à la prochaine approbation"
     }
   },
   "badges": {
@@ -2155,5 +2235,39 @@
   "Unknown server": "Serveur inconnu",
   "{count} pending requests": "{count} demandes en attente",
   "{count} storage roots": "{count} racines de stockage",
-  "{path} · open in storage roots": "{path} · ouvrir dans les racines de stockage"
+  "{path} · open in storage roots": "{path} · ouvrir dans les racines de stockage",
+  "A group with this name already exists elsewhere in Active Directory.": "Un groupe portant ce nom existe déjà ailleurs dans Active Directory.",
+  "A platform administrator can adopt it for this storage root.": "Un administrateur de la plateforme peut l'adopter pour cette racine.",
+  "Active Directory did not answer.": "Active Directory n'a pas répondu.",
+  "Active Directory has not answered yet.": "Active Directory n'a pas encore répondu.",
+  "Adopt this group and approve": "Adopter ce groupe et approuver",
+  "Adopting…": "Adoption…",
+  "Approve again in a few minutes: nothing is done twice.": "Approuvez à nouveau dans quelques minutes : rien n'est fait deux fois.",
+  "Approve again to re-apply them.": "Approuvez à nouveau pour les réappliquer.",
+  "Delegate “Create group objects” and “Write members” on the organizational unit to the service account.": "Déléguez « Créer des objets Groupe » et « Écrire l'attribut member » sur l'unité d'organisation au compte de service.",
+  "Fix it in Zones › Provisioning.": "Corrigez-la dans Zones › Provisionnement.",
+  "No organizational unit is set for the groups of this zone.": "Aucune unité d'organisation n'est définie pour les groupes de cette zone.",
+  "Provisioning log": "Journal de provisionnement",
+  "Set it in Zones › Provisioning.": "Définissez-la dans Zones › Provisionnement.",
+  "Still in progress": "Toujours en cours",
+  "The Active Directory identity source is incomplete (host, account, password or base DN).": "La source d'identité Active Directory est incomplète (hôte, compte, mot de passe ou DN de base).",
+  "The group chosen for adoption no longer exists in Active Directory.": "Le groupe choisi pour l'adoption n'existe plus dans Active Directory.",
+  "The group could not be adopted.": "Le groupe n'a pas pu être adopté.",
+  "The naming template produces an invalid group name (64 characters at most, no special characters).": "Le modèle de nommage produit un nom de groupe invalide (64 caractères maximum, sans caractères spéciaux).",
+  "The organizational unit of the zone does not exist in Active Directory.": "L'unité d'organisation de la zone n'existe pas dans Active Directory.",
+  "The organizational unit of the zone is not a valid LDAP DN.": "L'unité d'organisation de la zone n'est pas un DN LDAP valide.",
+  "The requester is in the AD group but the NTFS permissions could not be applied.": "Le demandeur est dans le groupe AD mais les permissions NTFS n'ont pas pu être appliquées.",
+  "The requester was not found in Active Directory.": "Le demandeur est introuvable dans Active Directory.",
+  "The service account could not sign in to Active Directory.": "Le compte de service n'a pas pu se connecter à Active Directory.",
+  "The service account may not create groups or change members in this organizational unit.": "Le compte de service n'a pas le droit de créer des groupes ou de modifier les membres dans cette unité d'organisation.",
+  "The storage endpoint has no Active Directory identity source.": "Le endpoint de stockage n'a pas de source d'identité Active Directory.",
+  "Waiting for Active Directory…": "En attente d'Active Directory…",
+  "the AD group": "le groupe AD",
+  "the zone organizational unit": "l'unité d'organisation de la zone",
+  "The service account may not create groups in the organizational unit of the zone.": "Le compte de service n'a pas le droit de créer des groupes dans l'unité d'organisation de la zone.",
+  "Delegate “Create group objects” on the organizational unit to the service account.": "Déléguez « Créer des objets Groupe » sur l'unité d'organisation au compte de service.",
+  "The service account may not change the members of this group.": "Le compte de service n'a pas le droit de modifier les membres de ce groupe.",
+  "Delegate “Write members” on the group, or on the organizational unit that contains it, to the service account.": "Déléguez « Écrire l'attribut member » sur le groupe, ou sur l'unité d'organisation qui le contient, au compte de service.",
+  "The certificate of the domain controller was refused.": "Le certificat du contrôleur de domaine a été refusé.",
+  "Check the AD certificate authority given to capsule-runner (LDAP_CA_FILE) and the host name of the identity source.": "Vérifiez l'autorité de certification AD fournie à capsule-runner (LDAP_CA_FILE) et le nom d'hôte de la source d'identité."
 }

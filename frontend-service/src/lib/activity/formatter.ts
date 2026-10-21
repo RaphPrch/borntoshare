@@ -1,4 +1,5 @@
 import { t } from '$lib/i18n';
+import { provisioningErrorMessage } from '$lib/utils/request-decision-errors';
 import { activityTemplates } from './templates';
 import { badgeFromEvent, resolveBadgeLabel } from './severity';
 
@@ -107,8 +108,14 @@ function varsFromEvent(ev: any) {
     asStr((ctx as any)?.identity_id) ??
     null;
 
+  // Provisioning log entries keep their facts under metadata.details
+  const details = ((ctx as any)?.details && typeof (ctx as any).details === 'object' ? (ctx as any).details : ctx) as Record<string, unknown>;
+
   return {
     action: asStr(ev?.action) ?? 'event',
+    group: asStr(details?.group_name) ?? asStr((ctx as any)?.group_name) ?? t('the AD group'),
+    ou: asStr(details?.target_ou_dn) ?? t('the zone organizational unit'),
+    message: provisioningErrorMessage(details?.code) ?? asStr(details?.message) ?? '',
     zone: zoneLabel,
     root: rootLabel,
     endpoint:

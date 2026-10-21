@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.api._helpers import ui_action, ui_list
-from app.services.authorization import actor_from_request, require_observability, require_storage_root_access
+from app.services.authorization import (
+    actor_from_request,
+    require_access_request_access,
+    require_observability,
+    require_storage_root_access,
+)
 from app.services.activity_bridge import (
     create_activity_event,
     list_activity_by_actor,
@@ -43,7 +48,10 @@ def get_activity_by_target(
     normalized_target_type = str(target_type or "").strip().lower()
     if normalized_target_type == "storage_root" and int(target_id or 0) > 0:
         require_storage_root_access(db, actor, int(target_id))
-    elif normalized_target_type in {"zone", "storage_endpoint"}:
+    elif normalized_target_type == "access_request" and int(target_id or 0) > 0:
+        # Provisioning log of a request: whoever may see the request
+        require_access_request_access(db, actor, int(target_id))
+    elif normalized_target_type in {"zone", "storage_endpoint", "access_request", "storage_root_access_profile"}:
         require_observability(actor)
     rows = list_activity_by_target(
         target_type=target_type,

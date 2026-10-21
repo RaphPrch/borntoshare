@@ -54,6 +54,12 @@ JOB_CONTRACTS: dict[str, JobContract] = {
         queue_name=QUEUE_PROVISIONING,
         actor_name="run_provisioning_job",
     ),
+    "AD_ACCESS_GRANT": JobContract(
+        job_type="AD_ACCESS_GRANT",
+        default_action="grant_ad_access",
+        queue_name=QUEUE_PROVISIONING,
+        actor_name="run_provisioning_job",
+    ),
     "AD_GROUP_MEMBERSHIP_REMOVE": JobContract(
         job_type="AD_GROUP_MEMBERSHIP_REMOVE",
         default_action="remove_ad_group_member",

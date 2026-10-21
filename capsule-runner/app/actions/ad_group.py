@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import ssl
 from typing import Any, Dict
 from uuid import UUID
 
-from ldap3 import ALL, Connection, Server, Tls
+from ldap3 import ALL, Connection, Server
+
+from app.shared import ldap_client
 
 
 def _escape_dn_value(value: str) -> str:
@@ -70,9 +71,7 @@ def ensure_ad_group(params: Dict[str, Any]):
     escaped_cn = _escape_dn_value(group_name)
     group_dn = f"CN={escaped_cn},{target_ou_dn}"
 
-    tls = None
-    if use_ssl:
-        tls = Tls(validate=ssl.CERT_REQUIRED if verify_tls else ssl.CERT_NONE)
+    tls = ldap_client.tls_config(verify_tls) if use_ssl else None
 
     conn = None
     try:

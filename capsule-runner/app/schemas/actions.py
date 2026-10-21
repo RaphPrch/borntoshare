@@ -178,6 +178,37 @@ class ADGroupMemberPayload(BaseModel):
         return self
 
 
+class ADAccessGrantPayload(BaseModel):
+    """Find or create the AD group of a storage root level, then add the requester (one connection)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    host: str = Field(min_length=1, max_length=255)
+    bind_dn: str = Field(min_length=1, max_length=1024)
+    password: Optional[str] = Field(default=None, min_length=1, max_length=1024)
+    secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)
+    protocol: str = Field(default="ldaps", min_length=4, max_length=16)
+    port: int = Field(default=636, ge=1, le=65535)
+    timeout: int = Field(default=15, ge=1, le=30)
+    verify_tls: bool = False
+    base_dn: str = Field(min_length=1, max_length=1024)
+    target_ou_dn: str = Field(min_length=1, max_length=1024)
+    group_name: str = Field(min_length=1, max_length=128)
+    group_external_id: Optional[str] = Field(default=None, max_length=1024)
+    adopt_group_dn: Optional[str] = Field(default=None, max_length=1024)
+    description_text: Optional[str] = Field(default=None, max_length=1024)
+    principal_dn: Optional[str] = Field(default=None, max_length=1024)
+    principal_username: Optional[str] = Field(default=None, max_length=320)
+
+    @model_validator(mode="after")
+    def _check_identity_and_secret(self) -> "ADAccessGrantPayload":
+        if not self.password and not self.secret_ref:
+            raise ValueError("password or secret_ref is required")
+        if not self.principal_dn and not self.principal_username:
+            raise ValueError("principal_dn or principal_username is required")
+        return self
+
+
 class LDAPRecursiveGroupUsersPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

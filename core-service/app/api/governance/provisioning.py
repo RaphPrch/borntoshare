@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import re
+import time
 import uuid
 from typing import Any
 
@@ -17,6 +19,7 @@ from app.services.identity_capsule_payloads import (
     infer_identity_source_id_from_group_ref,
 )
 from app.services.audit_logger import log_event
+from app.services.authorization import actor_from_request, require_admin
 from app.services.provisioning_context import build_provisioning_context
 from app.services.provisioning_jobs import create_and_publish_job
 
@@ -285,6 +288,144 @@ async def ensure_ad_group_via_name(
         "group_name": group_name,
         "target_ou_dn": target_ou_dn,
     })
+
+
+class ProvisioningStepError(RuntimeError):
+    """A provisioning step that cannot run or failed, with what the reviewer needs to fix it."""
+
+    def __init__(self, code: str, message: str, *, hint: str | None = None, **details: Any) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.hint = hint
+        self.details = details
+
+
+TERMINAL_JOB_STATUSES = {"SUCCEEDED", "FAILED", "CANCELLED"}
+
+
+async def wait_provisioning_job(job_id: int, *, timeout_sec: float = 60, interval_sec: float = 1.0) -> dict[str, Any] | None:
+    """Final state of a provisioning job, or None if it is still running after timeout_sec."""
+    deadline = time.monotonic() + max(0.0, float(timeout_sec))
+    while True:
+        job = await call_route(provisioning_internal.get_provisioning_job_by_id, job_id=int(job_id))
+        job = dict(job or {})
+        if _normalize_job_status(str(job.get("status") or "")) in TERMINAL_JOB_STATUSES:
+            return job
+        if time.monotonic() >= deadline:
+            return None
+        await asyncio.sleep(interval_sec)
+
+
+async def queue_ad_access_grant(
+    *,
+    storage_root_id: int,
+    access_profile_id: int | None,
+    identity_source_id: int | None,
+    group_name: str,
+    group_external_id: str | None,
+    adopt_group_dn: str | None,
+    principal_dn: str | None,
+    principal_username: str | None,
+    description_text: str | None,
+    correlation_id: str,
+) -> dict[str, Any]:
+    """Queue the capsule job that finds/creates the AD group of the level and adds the requester.
+
+    The configuration is checked first so that nothing reaches AD when the zone is not ready.
+    """
+    ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(storage_root_id))
+    pctx = build_provisioning_context(ctx)
+    source_id = int(identity_source_id or 0) or pctx.identity_source_id
+    if not source_id:
+        raise ProvisioningStepError(
+            "IDENTITY_SOURCE_REQUIRED",
+            "The storage endpoint of this root has no Active Directory identity source.",
+            hint="Link an Active Directory identity source to the storage endpoint.",
+        )
+    if not pctx.effective_group_ou_dn:
+        raise ProvisioningStepError(
+            "ZONE_GROUP_OU_MISSING",
+            "No organizational unit is configured for the groups of this zone.",
+            hint="Set the organizational unit in Zones › Provisioning.",
+            zone_id=pctx.zone_id,
+        )
+    try:
+        target_ou_dn = _canonicalize_target_ou_dn(pctx.effective_group_ou_dn)
+    except ValueError as exc:
+        raise ProvisioningStepError(
+            "INVALID_TARGET_OU_DN",
+            "The organizational unit of the zone is not a valid LDAP DN.",
+            hint="Expected e.g. OU=Groups,DC=example,DC=org (Zones › Provisioning).",
+            target_ou_dn=pctx.effective_group_ou_dn,
+            reason=str(exc),
+        ) from exc
+    try:
+        capsule_ctx = await build_identity_source_capsule_context(int(source_id))
+    except HTTPException as exc:
+        raise ProvisioningStepError(
+            "IDENTITY_SOURCE_INCOMPLETE",
+            "The Active Directory identity source is not usable for provisioning.",
+            hint="Check host, bind account, password and base DN of the identity source.",
+            identity_source_id=int(source_id),
+            reason=exc.detail,
+        ) from exc
+
+    capsule_payload = {
+        **capsule_ctx,
+        "timeout": 15,
+        "target_ou_dn": target_ou_dn,
+        "group_name": str(group_name or "").strip(),
+        "group_external_id": str(group_external_id or "").strip() or None,
+        "adopt_group_dn": str(adopt_group_dn or "").strip() or None,
+        "description_text": str(description_text or "").strip() or None,
+        "principal_dn": principal_dn,
+        "principal_username": principal_username,
+    }
+    try:
+        created = await create_and_publish_job(
+            payload={
+                "correlation_id": correlation_id,
+                "job_type": "AD_ACCESS_GRANT",
+                "action": "grant_ad_access",
+                "status": "QUEUED",
+                "identity_source_id": int(source_id),
+                "storage_root_access_profile_id": int(access_profile_id or 0) or None,
+                "payload_json": _job_envelope(action="grant_ad_access", payload=capsule_payload),
+            },
+            actor=run_provisioning_job,
+        )
+    except RuntimeError as exc:
+        raise ProvisioningStepError("JOB_SUBMIT_FAILED", "The provisioning job could not be queued.", reason=str(exc)) from exc
+    return {
+        "job_id": int(created.get("job_id") or 0),
+        "identity_source_id": int(source_id),
+        "target_ou_dn": target_ou_dn,
+        "zone_id": pctx.zone_id,
+    }
+
+
+@router.post("/storage-root-access-profiles/{profile_id}/adopt")
+async def adopt_access_group(profile_id: int, request: Request) -> dict[str, Any]:
+    """Use an existing AD group (found outside the zone OU) for this storage root level. Platform admins only."""
+    require_admin(actor_from_request(request))
+    payload = await request.json()
+    try:
+        group_dn = _canonicalize_target_ou_dn(str((payload or {}).get("group_dn") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"code": "INVALID_GROUP_DN", "message": str(exc)}) from exc
+    profile = await call_route(provisioning_internal.mark_access_group_adoption, profile_id=int(profile_id), group_dn=group_dn)
+    log_event(
+        action="ad_group_adoption_requested",
+        event_category="PROVISIONING",
+        actor_type="user",
+        actor_id=request.headers.get("x-identity-id"),
+        entity_type="storage_root_access_profile",
+        entity_id=int(profile_id),
+        storage_root_id=int(profile.get("storage_root_id") or 0) or None,
+        metadata_json={"group_name": profile.get("group_name"), "group_dn": group_dn},
+    )
+    return ui_data(profile)
 
 
 async def _queue_group_membership_job(

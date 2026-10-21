@@ -28,6 +28,14 @@ if RUNNER_MAX_SCOPE not in {"read", "write", "admin"}:
 
 
 # ==========================================================
+# 🔒 LDAP TLS
+# ==========================================================
+# Production: LDAP_TLS_VERIFY=true and LDAP_CA_FILE pointing to the AD certificate authority (PEM)
+LDAP_TLS_VERIFY: bool = (_env("LDAP_TLS_VERIFY", "false") or "false").strip().lower() in {"1", "true", "yes", "on"}
+LDAP_CA_FILE: str | None = (_env("LDAP_CA_FILE") or "").strip() or None
+
+
+# ==========================================================
 # 🗄️ core-service + broker (Dramatiq)
 # ==========================================================
 CORE_URL: str = (_env("CORE_URL", "http://core-service:8000") or "").rstrip("/")

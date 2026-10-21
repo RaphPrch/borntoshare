@@ -13,7 +13,10 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { normalizeMe } from '$lib/types/me';
-  import { bulkDecision, getAccessRequestDetails } from '$lib/api/access-requests';
+  import { adoptAccessGroup, bulkDecision, getAccessRequestDetails } from '$lib/api/access-requests';
+  import { listActivityByTarget, type ActivityEvent } from '$lib/api/activity';
+  import { renderActivity } from '$lib/activity/formatter';
+  import { onDestroy } from 'svelte';
   import NewAccessRequestModal from '$lib/components/access-requests/NewAccessRequestModal.svelte';
   import { toast } from '$lib/stores/toast';
   import { initials, formatDateTime, formatDate, timeAgo } from '$lib/utils/format';
@@ -57,6 +60,12 @@
   let decisionComment = '';
   let decisionRunning: 'approve' | 'reject' | 'revoke' | null = null;
   let showRevokeConfirm = false;
+  // Provisioning log of the open request (one entry per step, written by the server as it goes)
+  let provisioningLog: ActivityEvent[] = [];
+  let logTimer: ReturnType<typeof setInterval> | null = null;
+  // Last failed decision: code, hint and, for a name conflict, the group an admin can adopt
+  let decisionFailure: { code?: string | null; hint?: string | null; access_profile_id?: number | null; existing_dn?: string | null } | null = null;
+  let adopting = false;
   let showCreateRequestModal = false;
   let createPrefillStorageRootId: number | null = null;
   let createPrefillAccessLevel: string | null = null;
@@ -198,8 +207,28 @@
     selectedRequestId = id;
     detailError = '';
     decisionComment = '';
+    decisionFailure = null;
+    provisioningLog = [];
     void loadRequestDetail(id);
+    void loadProvisioningLog(id);
   }
+
+  async function loadProvisioningLog(id: number): Promise<void> {
+    try {
+      const rows = await listActivityByTarget(fetch, 'access_request', id, 100);
+      if (selectedRequestId === id) provisioningLog = [...rows].reverse();
+    } catch {
+      // The log is a convenience: the request stays usable without it
+    }
+  }
+
+  // Live progress while the server runs the steps (the approval call waits for AD)
+  function followLog(id: number, on: boolean): void {
+    if (logTimer) clearInterval(logTimer);
+    logTimer = on ? setInterval(() => void loadProvisioningLog(id), 2000) : null;
+  }
+
+  onDestroy(() => followLog(0, false));
 
   async function loadRequestDetail(id: number): Promise<void> {
     const token = ++detailLoadToken;
@@ -218,6 +247,8 @@
     selectedRequestId = null;
     selectedRequestDetail = null;
     detailError = '';
+    decisionFailure = null;
+    provisioningLog = [];
     detailLoading = false;
     decisionComment = '';
     detailLoadToken += 1;
@@ -229,10 +260,14 @@
     const id = accessRequestId(selectedRequest);
     if (!id) return;
     decisionRunning = decision;
+    detailError = '';
+    decisionFailure = null;
+    if (decision !== 'reject') followLog(id, true);
     try {
       const comment = decisionComment.trim();
       const result = await bulkDecision(fetch, [id], decision, comment || undefined);
       if (Number(result?.failed_ids?.length ?? 0) > 0) {
+        decisionFailure = result?.failed_details?.[id] ?? null;
         const mapped = decision === 'approve'
           ? mapAccessRequestDecisionErrorFromBulk(result, { fallbackStorageRootId: storageRootIdFromRow(selectedRequest) })
           : mapAccessRequestDecisionError({
@@ -241,8 +276,8 @@
               fallbackStorageRootId: storageRootIdFromRow(selectedRequest)
             });
         detailError = mapped.message;
+        decisionFailure = { ...(decisionFailure ?? {}), hint: mapped.hint };
         toast.error(mapped.message);
-        if (mapped.hint) toast.info(mapped.hint);
         return;
       }
       showRevokeConfirm = false;
@@ -252,9 +287,33 @@
     } catch {
       toast.error({ approve: t('Approval failed.'), reject: t('Rejection failed.'), revoke: t('Revocation failed.') }[decision]);
     } finally {
+      followLog(id, false);
       decisionRunning = null;
+      if (selectedRequestId === id) void loadProvisioningLog(id);
     }
   }
+
+  // Name conflict: a platform admin takes over the existing group, then the approval runs again
+  async function adoptAndApprove(): Promise<void> {
+    const profileId = Number(decisionFailure?.access_profile_id ?? 0);
+    const groupDn = String(decisionFailure?.existing_dn ?? '');
+    if (!profileId || !groupDn || adopting) return;
+    adopting = true;
+    try {
+      await adoptAccessGroup(fetch, profileId, groupDn);
+      await runDecision('approve');
+    } catch {
+      toast.error(t('The group could not be adopted.'));
+    } finally {
+      adopting = false;
+    }
+  }
+
+  const LOG_ICONS: Record<string, string> = { success: 'bi-check-circle-fill', in_progress: 'bi-clock', failure: 'bi-x-octagon-fill' };
+  const logState = (event: ActivityEvent): string => {
+    const value = String(event?.result ?? event?.outcome ?? 'success').toLowerCase();
+    return value in LOG_ICONS ? value : 'success';
+  };
 
   function exportRequests(): void {
     downloadCsv(csvFilename('access-requests'), [
@@ -463,7 +522,23 @@
   {#if selectedRequest}
     <div class="ar-detail">
       {#if detailLoading}<LoadingState>{t('Loading full details…')}</LoadingState>{/if}
-      {#if detailError}<InlineAlert tone="error">{detailError}</InlineAlert>{/if}
+      {#if detailError}
+        <InlineAlert tone={decisionFailure?.code === 'AD_JOB_STILL_RUNNING' ? 'warning' : 'error'}>
+          <strong>{detailError}</strong>
+          {#if decisionFailure?.hint}<div>{decisionFailure.hint}</div>{/if}
+          {#if decisionFailure?.code === 'AD_GROUP_NAME_CONFLICT' && decisionFailure?.existing_dn}
+            <div class="ar-conflict">
+              <span class="ar-mono">{decisionFailure.existing_dn}</span>
+              {#if me?.is_admin === true && decisionFailure?.access_profile_id}
+                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={adopting || Boolean(decisionRunning)} on:click={adoptAndApprove}>
+                  <i class="bi bi-link-45deg" aria-hidden="true"></i>
+                  {adopting ? t('Adopting…') : t('Adopt this group and approve')}
+                </button>
+              {/if}
+            </div>
+          {/if}
+        </InlineAlert>
+      {/if}
 
       <ol class="ar-progress" aria-label={t('Request progress')}>
         {#each progress as step}
@@ -508,7 +583,30 @@
         <blockquote class="ar-quote">{justification(selectedRequest) || t('No justification provided.')}</blockquote>
       </section>
 
-      {#if timeline.length > 0}
+      {#if provisioningLog.length > 0 || decisionRunning === 'approve' || decisionRunning === 'revoke'}
+        <section>
+          <h3>{t('Provisioning log')}</h3>
+          <ol class="ar-log" aria-live="polite">
+            {#each provisioningLog as event (event.id ?? `${event.action}-${event.event_time}`)}
+              {@const rendered = renderActivity(event)}
+              <li class={`is-${logState(event)}`}>
+                <i class={`bi ${LOG_ICONS[logState(event)]}`} aria-hidden="true"></i>
+                <div>
+                  <strong>{rendered.title}</strong>
+                  {#if rendered.description}<span>{rendered.description}</span>{/if}
+                </div>
+                <small>{formatDateTime(event.event_time ?? event.created_at)}</small>
+              </li>
+            {/each}
+            {#if decisionRunning === 'approve' || decisionRunning === 'revoke'}
+              <li class="is-in_progress">
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                <div><strong>{t('Waiting for Active Directory…')}</strong></div>
+              </li>
+            {/if}
+          </ol>
+        </section>
+      {:else if timeline.length > 0}
         <section>
           <h3>{t('History')}</h3>
           <ul class="ar-history">
@@ -823,6 +921,59 @@
   .ar-history small {
     color: var(--b2s-color-text-muted);
     white-space: nowrap;
+  }
+
+  .ar-log {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .ar-log li {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: start;
+    padding: 8px 10px;
+    border-radius: var(--b2s-radius-sm);
+  }
+
+  .ar-log li > i,
+  .ar-log li > .spinner-border {
+    margin-top: 2px;
+  }
+
+  .ar-log li.is-success > i { color: #16a34a; }
+  .ar-log li.is-in_progress > i { color: #2563eb; }
+  .ar-log li.is-failure { background: var(--b2s-color-danger-soft); }
+  .ar-log li.is-failure > i { color: #dc2626; }
+
+  .ar-log strong {
+    display: block;
+    font-weight: 500;
+  }
+
+  .ar-log span {
+    display: block;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+    overflow-wrap: anywhere;
+  }
+
+  .ar-log small {
+    color: var(--b2s-color-text-muted);
+    white-space: nowrap;
+  }
+
+  .ar-conflict {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-top: 8px;
   }
 
   .ar-label {

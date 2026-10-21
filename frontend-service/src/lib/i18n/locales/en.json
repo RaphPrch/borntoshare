@@ -478,6 +478,86 @@
         "title": "Alert resolved",
         "description": "Alert \"{target}\" was resolved"
       }
+    },
+    "access_request_approval_started": {
+      "title": "Approval started",
+      "description": "Provisioning of the access in Active Directory"
+    },
+    "ad_access_grant_queued": {
+      "title": "AD job queued",
+      "description": "Group {group} in {ou}"
+    },
+    "ad_group_created": {
+      "title": "AD group created",
+      "description": "Global security group {group} created in {ou}"
+    },
+    "ad_group_reused": {
+      "title": "AD group reused",
+      "description": "Existing group {group}"
+    },
+    "ad_group_adopted": {
+      "title": "AD group adopted",
+      "description": "Existing group {group} is now managed by BornToShare"
+    },
+    "ad_group_recreated": {
+      "title": "AD group recreated",
+      "description": "{group} had been deleted from Active Directory and was created again in {ou}"
+    },
+    "ad_group_member_added": {
+      "title": "Member added",
+      "description": "The requester was added to {group}"
+    },
+    "ad_group_member_already_present": {
+      "title": "Already a member",
+      "description": "The requester was already in {group}"
+    },
+    "acl_apply_queued": {
+      "title": "NTFS permissions queued",
+      "description": "Permissions of {group} on the share"
+    },
+    "acl_applied": {
+      "title": "NTFS permissions applied",
+      "description": "{group} has its permissions on the share"
+    },
+    "access_request_applied": {
+      "title": "Access granted",
+      "description": "The request is applied"
+    },
+    "access_request_step_failed": {
+      "title": "Step failed",
+      "description": "{message}"
+    },
+    "access_request_approval_failed": {
+      "title": "Approval not applied",
+      "description": "The request stays pending"
+    },
+    "access_request_revocation_started": {
+      "title": "Revocation started",
+      "description": "Removal of the access in Active Directory"
+    },
+    "ad_group_member_removal_queued": {
+      "title": "AD job queued",
+      "description": "Removal from {group}"
+    },
+    "ad_group_member_removed": {
+      "title": "Member removed",
+      "description": "The requester left {group}; the group is kept"
+    },
+    "ad_group_member_already_absent": {
+      "title": "Already removed",
+      "description": "The requester was no longer in {group}"
+    },
+    "access_request_revoked": {
+      "title": "Access revoked",
+      "description": "The request is revoked"
+    },
+    "access_request_revocation_failed": {
+      "title": "Revocation not applied",
+      "description": "{message}"
+    },
+    "ad_group_adoption_requested": {
+      "title": "AD group adoption",
+      "description": "{group} will be adopted at the next approval"
     }
   },
   "badges": {

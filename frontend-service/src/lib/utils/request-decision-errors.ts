@@ -66,6 +66,77 @@ const extractPermissionFromText = (value: unknown): 'READ' | 'WRITE' | null => {
 const storageRootHref = (storageRootId: number | null): string | null =>
   storageRootId && storageRootId > 0 ? `/storage-roots?selected=${storageRootId}` : null;
 
+// Messages are functions: translated when shown
+const AD_PROVISIONING_ERRORS: Record<string, { message: () => string; hint?: () => string }> = {
+  AD_GROUP_NAME_CONFLICT: {
+    message: () => t('A group with this name already exists elsewhere in Active Directory.'),
+    hint: () => t('A platform administrator can adopt it for this storage root.')
+  },
+  AD_ADOPT_TARGET_NOT_FOUND: {
+    message: () => t('The group chosen for adoption no longer exists in Active Directory.')
+  },
+  ZONE_GROUP_OU_MISSING: {
+    message: () => t('No organizational unit is set for the groups of this zone.'),
+    hint: () => t('Set it in Zones › Provisioning.')
+  },
+  INVALID_TARGET_OU_DN: {
+    message: () => t('The organizational unit of the zone is not a valid LDAP DN.'),
+    hint: () => t('Fix it in Zones › Provisioning.')
+  },
+  AD_TARGET_OU_NOT_FOUND: {
+    message: () => t('The organizational unit of the zone does not exist in Active Directory.'),
+    hint: () => t('Fix it in Zones › Provisioning.')
+  },
+  IDENTITY_SOURCE_REQUIRED: {
+    message: () => t('The storage endpoint has no Active Directory identity source.')
+  },
+  IDENTITY_SOURCE_INCOMPLETE: {
+    message: () => t('The Active Directory identity source is incomplete (host, account, password or base DN).')
+  },
+  AD_BIND_FAILED: {
+    message: () => t('The service account could not sign in to Active Directory.')
+  },
+  AD_GROUP_CREATE_DENIED: {
+    message: () => t('The service account may not create groups in the organizational unit of the zone.'),
+    hint: () => t('Delegate “Create group objects” on the organizational unit to the service account.')
+  },
+  AD_MEMBER_WRITE_DENIED: {
+    message: () => t('The service account may not change the members of this group.'),
+    hint: () => t('Delegate “Write members” on the group, or on the organizational unit that contains it, to the service account.')
+  },
+  AD_PERMISSION_DENIED: {
+    message: () => t('The service account may not create groups or change members in this organizational unit.'),
+    hint: () => t('Delegate “Create group objects” and “Write members” on the organizational unit to the service account.')
+  },
+  AD_TLS_FAILED: {
+    message: () => t('The certificate of the domain controller was refused.'),
+    hint: () => t('Check the AD certificate authority given to capsule-runner (LDAP_CA_FILE) and the host name of the identity source.')
+  },
+  AD_UNREACHABLE: {
+    message: () => t('Active Directory did not answer.')
+  },
+  AD_PRINCIPAL_NOT_FOUND: {
+    message: () => t('The requester was not found in Active Directory.')
+  },
+  AD_GROUP_NAME_INVALID: {
+    message: () => t('The naming template produces an invalid group name (64 characters at most, no special characters).')
+  },
+  AD_JOB_STILL_RUNNING: {
+    message: () => t('Active Directory has not answered yet.'),
+    hint: () => t('Approve again in a few minutes: nothing is done twice.')
+  },
+  ACL_APPLY_FAILED: {
+    message: () => t('The requester is in the AD group but the NTFS permissions could not be applied.'),
+    hint: () => t('Approve again to re-apply them.')
+  }
+};
+
+/** Translated message of a provisioning error code (log entries, decisions), null when unknown */
+export const provisioningErrorMessage = (code: unknown): string | null => {
+  const key = textOrNull(code)?.toUpperCase();
+  return key && AD_PROVISIONING_ERRORS[key] ? AD_PROVISIONING_ERRORS[key].message() : null;
+};
+
 const mapByCode = (args: {
   code: string | null;
   permission: 'READ' | 'WRITE' | null;
@@ -122,6 +193,25 @@ const mapByCode = (args: {
       code,
       permission,
       hint,
+      storageRootId,
+      actionLabel: null,
+      actionHref: null,
+      showInlineNotice: false,
+      inlinePrimary: null,
+      inlineSecondary: null
+    };
+  }
+
+  // Provisioning in Active Directory (group of the level, membership, NTFS ACL)
+  const provisioning = code ? AD_PROVISIONING_ERRORS[code] : undefined;
+  if (provisioning) {
+    return {
+      title: code === 'AD_JOB_STILL_RUNNING' ? t('Still in progress') : t('Decision blocked'),
+      message: provisioning.message(),
+      severity: code === 'AD_JOB_STILL_RUNNING' ? 'warning' : 'error',
+      code,
+      permission,
+      hint: provisioning.hint?.() ?? hint,
       storageRootId,
       actionLabel: null,
       actionHref: null,

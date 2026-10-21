@@ -78,6 +78,19 @@ class StorageRootAccessProfilesRepo:
             raise RuntimeError("storage root access group could not be created")
         return row, True
 
+    def mark_adoption(self, profile_id: int, *, group_dn: str) -> None:
+        """Point the level at an existing AD group; the next grant job adopts it. The caller commits."""
+        self.db.execute(
+            text(
+                """
+                UPDATE storage_root_access_profiles
+                SET status = 'ADOPTING', group_external_id = :group_dn, error_message = NULL
+                WHERE id = :id
+                """
+            ),
+            {"id": int(profile_id), "group_dn": str(group_dn).strip()},
+        )
+
     def record_outcome(
         self,
         profile_id: int,

@@ -26,6 +26,7 @@ ACTION_MIN_SCOPE: dict[str, str] = {
     "ensure_ad_group": "write",
     "ensure_ad_group_member": "write",
     "remove_ad_group_member": "write",
+    "grant_ad_access": "write",
     "acl_apply_via_group": "write",
 }
 

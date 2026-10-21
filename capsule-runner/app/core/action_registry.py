@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Sequence
 
 from app.actions.acl import apply_acl_via_group
+from app.actions.ad_access import grant_ad_access
 from app.actions.ad_group import ensure_ad_group
 from app.actions.ad_group_member import ensure_ad_group_member, remove_ad_group_member
 from app.actions.directory_snapshot import collect_directory_snapshot
@@ -17,6 +18,7 @@ from app.actions.smb import test_smb_ntlm, test_smb_root_access
 from app.middleware.resolve_secrets import CapsuleSecretResolutionError, resolve_secret_fields
 from app.schemas.actions import (
     ACLApplyPayload,
+    ADAccessGrantPayload,
     ADGroupCreatePayload,
     ADGroupMemberPayload,
     DirectorySnapshotPayload,
@@ -128,6 +130,13 @@ ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
         runner=remove_ad_group_member,
         secret_fields=("secret_ref",),
         target_field="group_ref",
+    ),
+    "grant_ad_access": ActionSpec(
+        action="grant_ad_access",
+        schema=ADAccessGrantPayload,
+        runner=grant_ad_access,
+        secret_fields=("secret_ref",),
+        target_field="group_name",
     ),
     "discover_group_users_recursive": ActionSpec(
         action="discover_group_users_recursive",
@@ -288,7 +297,8 @@ def execute_action(slug: str, inputs: dict, *, job_id: Optional[int] = None) -> 
         msg = str(message or "")
         details_payload = details if isinstance(details, dict) else {}
         code = _error_code_from_action_failure(spec.action, msg, details_payload)
-        retryable = code == "CAPSULE_TIMEOUT"
+        # The action may say itself whether a retry makes sense (network error vs configuration)
+        retryable = code == "CAPSULE_TIMEOUT" or details_payload.get("retryable") is True
         logger.warning(
             "CAPSULE_JOB_FAILED",
             extra={

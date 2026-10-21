@@ -149,6 +149,11 @@ services:
       LOG_LEVEL: ${CAPSULE_LOG_LEVEL:-INFO}
       CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
       RUNNER_MAX_SCOPE: ${RUNNER_MAX_SCOPE:-write}
+      # LDAPS certificate check of the domain controllers (production: true + CA of the AD)
+      LDAP_TLS_VERIFY: ${LDAP_TLS_VERIFY:-false}
+      LDAP_CA_FILE: ${LDAP_CA_FILE:-}
+    volumes:
+      - ./capsule-runner/certs:/etc/b2s/certs:ro,Z
     extra_hosts:
       - "${AD_DC_NAME}:${AD_DC_IP}"
       - "${AD_DC_FQDN}:${AD_DC_IP}"
