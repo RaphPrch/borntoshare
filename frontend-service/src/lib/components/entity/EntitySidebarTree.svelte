@@ -1,58 +1,301 @@
 <script module lang="ts">
-  export type EntitySidebarItem = {
-    id: string | number;
+  export type EntityTreeBadge = {
     label: string;
-    /** Second line under the name (path, host, code…) */
-    subtitle?: string | null;
-    /** @deprecated use subtitle */
-    secondary?: string | null;
+    tone?: 'neutral' | 'info' | 'warning' | 'error';
     icon?: string | null;
-    /** Nesting level inside its group (0 = top level) */
-    depth?: number;
-    tone?: 'healthy' | 'warning' | 'error' | 'neutral';
-    indicator?: { kind: 'pending' | 'warning' | 'error'; label: string } | null;
-    raw?: unknown;
+    title?: string | null;
   };
 
-  export type EntitySidebarGroup = {
-    id: string | number;
+  export type EntityTreeNode = {
+    /** Unique key of the node in the tree (stable across reloads: it keys the expanded state) */
+    key: string;
     label: string;
-    count?: number;
-    warningCount?: number;
-    items: EntitySidebarItem[];
+    /** Small muted text after the label (endpoint name, code…) */
+    hint?: string | null;
+    /** Second line under the label (path, host…) */
+    subtitle?: string | null;
+    /** Tooltip (full path…) */
+    title?: string | null;
+    icon?: string | null;
+    iconTone?: 'zone' | 'server' | 'folder' | 'root' | 'neutral';
+    /** Navigation-only node (folder of a path that is not an entity) */
+    muted?: boolean;
+    /** Id passed to onSelect; nodes without one only expand/collapse */
+    selectId?: string | number | null;
+    /** Health dot shown at the end of the row */
+    dot?: 'healthy' | 'warning' | 'error' | 'neutral' | null;
+    badges?: EntityTreeBadge[];
+    /** Badges shown only while the node is collapsed (alerts of hidden children) */
+    collapsedBadges?: EntityTreeBadge[];
+    /** Extra text matched by the search */
+    searchText?: string | null;
+    children?: EntityTreeNode[];
   };
 
   export type EntitySidebarFilter = { key: string; label: string; count?: number };
 </script>
 
 <script lang="ts">
+  import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n';
   import SearchField from '$lib/components/ui/SearchField.svelte';
 
+  type Row = { node: EntityTreeNode; depth: number; parent: string | null; hasChildren: boolean; expanded: boolean };
+
   /**
    * List pane of the entity workspaces (zones, storage endpoints, storage roots):
-   * search, quick filters, collapsible groups and selectable rows.
+   * search, quick filters and a tree in the style of a file explorer
+   * (collapsible levels, guides, keyboard navigation, remembered expanded nodes).
    */
   export let ariaLabel = t('Entity list');
   export let searchPlaceholder = t('Search');
   export let searchAriaLabel = t('Search');
   export let emptyLabel = t('No item matches your search.');
   export let query = '';
-  export let groups: EntitySidebarGroup[] = [];
+  export let nodes: EntityTreeNode[] = [];
   export let selectedId: string | number | null = null;
-  export let grouped = true;
-  export let showToneDot = true;
-  export let itemIcon = 'bi-circle';
   export let filters: EntitySidebarFilter[] = [];
   export let activeFilter = '';
   export let onFilter: (key: string) => void = () => {};
-  export let isOpenGroup: (groupId: string | number) => boolean = () => true;
-  export let onToggleGroup: (groupId: string | number) => void = () => {};
-  export let onSelect: (id: string | number, item: EntitySidebarItem) => void = () => {};
+  export let onSelect: (id: string | number, node: EntityTreeNode) => void = () => {};
   export let onQueryChange: (value: string) => void = () => {};
+  /** localStorage key of the expanded nodes (none: not remembered) */
+  export let storageKey: string | null = null;
+  /** Levels expanded the first time (before anything is remembered) */
+  export let defaultExpandDepth = 1;
+  /** Optional Tree / List switch */
+  export let viewMode: 'tree' | 'list' | null = null;
+  export let onViewMode: (mode: 'tree' | 'list') => void = () => {};
 
-  const itemId = (item: EntitySidebarItem): string => String(item.id);
-  $: flatItems = groups.flatMap((group) => group.items ?? []);
+  let expanded = new Set<string>();
+  /** Branches opened only to reveal the selection: closed again when the selection moves elsewhere */
+  let autoOpened = new Set<string>();
+  let initialized = false;
+  let focusedKey: string | null = null;
+  let treeEl: HTMLDivElement;
+
+  const norm = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+  const hasChildren = (node: EntityTreeNode): boolean => Array.isArray(node.children) && node.children.length > 0;
+
+  // Index of the full tree: parent of each key, keys of the containers, key of the selected entity
+  $: index = (() => {
+    const parents = new Map<string, string | null>();
+    const containers: string[] = [];
+    let selectedKey: string | null = null;
+    const walk = (items: EntityTreeNode[], parent: string | null, depth: number) => {
+      for (const node of items) {
+        parents.set(node.key, parent);
+        if (hasChildren(node)) {
+          containers.push(node.key);
+          walk(node.children ?? [], node.key, depth + 1);
+        }
+        if (node.selectId != null && selectedId != null && String(node.selectId) === String(selectedId)) selectedKey = node.key;
+      }
+    };
+    walk(nodes, null, 0);
+    return { parents, containers, selectedKey };
+  })();
+  $: isTree = index.containers.length > 0;
+
+  function ancestors(key: string | null): string[] {
+    const out: string[] = [];
+    let current = key ? index.parents.get(key) ?? null : null;
+    while (current) {
+      out.push(current);
+      current = index.parents.get(current) ?? null;
+    }
+    return out;
+  }
+
+  function persist(): void {
+    if (!storageKey) return;
+    try {
+      // Branches opened automatically are not remembered: the next selection decides
+      localStorage.setItem(storageKey, JSON.stringify([...expanded].filter((key) => !autoOpened.has(key))));
+    } catch {
+      // Private mode or blocked storage: the tree still works, it is just not remembered
+    }
+  }
+
+  function setExpanded(next: Set<string>): void {
+    expanded = next;
+    persist();
+  }
+
+  function toggle(key: string, open?: boolean): void {
+    autoOpened.delete(key);
+    const next = new Set(expanded);
+    const shouldOpen = open ?? !next.has(key);
+    if (shouldOpen) next.add(key);
+    else next.delete(key);
+    setExpanded(next);
+  }
+
+  function expandAll(): void {
+    setExpanded(new Set(index.containers));
+  }
+
+  function collapseAll(): void {
+    autoOpened = new Set();
+    setExpanded(new Set());
+  }
+
+  // Scrolls the list only (never the page) so that the row is visible
+  function scrollToRow(key: string | null): void {
+    const row = rowEl(key);
+    const body = row?.closest<HTMLElement>('.b2s-list-pane__body');
+    if (!row || !body) return;
+    const top = row.offsetTop - body.offsetTop;
+    if (top < body.scrollTop) body.scrollTop = top - 8;
+    else if (top + row.offsetHeight > body.scrollTop + body.clientHeight) body.scrollTop = top + row.offsetHeight - body.clientHeight + 8;
+  }
+
+  async function revealSelection(): Promise<void> {
+    if (!index.selectedKey) return;
+    setExpanded(new Set([...expanded, ...ancestors(index.selectedKey)]));
+    focusedKey = index.selectedKey;
+    await tick();
+    scrollToRow(index.selectedKey);
+  }
+
+  onMount(() => {
+    let stored: string[] | null = null;
+    if (storageKey) {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        stored = raw ? JSON.parse(raw) : null;
+      } catch {
+        stored = null;
+      }
+    }
+    if (Array.isArray(stored)) {
+      expanded = new Set(stored.map(String));
+    } else {
+      const next = new Set<string>();
+      const walk = (items: EntityTreeNode[], depth: number) => {
+        for (const node of items) {
+          if (!hasChildren(node) || depth >= defaultExpandDepth) continue;
+          next.add(node.key);
+          walk(node.children ?? [], depth + 1);
+        }
+      };
+      walk(nodes, 0);
+      expanded = next;
+    }
+    initialized = true;
+  });
+
+  // The selected entity is always visible (deep link, Ctrl+K search, selection from another page)
+  let revealedFor: string | null = null;
+  $: if (initialized && index.selectedKey && index.selectedKey !== revealedFor) {
+    revealedFor = index.selectedKey;
+    const path = ancestors(index.selectedKey);
+    const next = new Set(expanded);
+    for (const key of autoOpened) {
+      if (!path.includes(key)) next.delete(key);
+    }
+    const missing = path.filter((key) => !next.has(key));
+    autoOpened = new Set([...[...autoOpened].filter((key) => path.includes(key)), ...missing]);
+    for (const key of missing) next.add(key);
+    setExpanded(next);
+    tick().then(() => scrollToRow(index.selectedKey));
+  }
+
+  // Search: keeps matching nodes and their ancestors, and opens the branches that lead to them
+  $: q = norm(query);
+  const matches = (node: EntityTreeNode): boolean =>
+    [node.label, node.hint, node.subtitle, node.searchText].map(norm).join(' ').includes(q);
+
+  function filterTree(items: EntityTreeNode[]): EntityTreeNode[] {
+    if (!q) return items;
+    const out: EntityTreeNode[] = [];
+    for (const node of items) {
+      if (matches(node)) {
+        out.push(node);
+        continue;
+      }
+      const children = filterTree(node.children ?? []);
+      if (children.length > 0) out.push({ ...node, children });
+    }
+    return out;
+  }
+
+  $: rows = (() => {
+    const out: Row[] = [];
+    const walk = (items: EntityTreeNode[], depth: number, parent: string | null) => {
+      for (const node of items) {
+        const children = hasChildren(node);
+        const open = children && (q ? true : expanded.has(node.key));
+        out.push({ node, depth, parent, hasChildren: children, expanded: open });
+        if (open) walk(node.children ?? [], depth + 1, node.key);
+      }
+    };
+    walk(filterTree(nodes), 0, null);
+    return out;
+  })();
+
+  $: if (rows.length > 0 && (!focusedKey || !rows.some((row) => row.node.key === focusedKey))) {
+    focusedKey = index.selectedKey && rows.some((row) => row.node.key === index.selectedKey) ? index.selectedKey : rows[0].node.key;
+  }
+
+  function highlight(label: string): Array<{ text: string; hit: boolean }> {
+    if (!q) return [{ text: label, hit: false }];
+    const parts: Array<{ text: string; hit: boolean }> = [];
+    const lower = label.toLowerCase();
+    let from = 0;
+    let at = lower.indexOf(q);
+    while (at >= 0) {
+      if (at > from) parts.push({ text: label.slice(from, at), hit: false });
+      parts.push({ text: label.slice(at, at + q.length), hit: true });
+      from = at + q.length;
+      at = lower.indexOf(q, from);
+    }
+    if (from < label.length) parts.push({ text: label.slice(from), hit: false });
+    return parts;
+  }
+
+  const rowEl = (key: string | null): HTMLElement | null =>
+    key && treeEl ? treeEl.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`) : null;
+
+  async function focusRow(key: string | null): Promise<void> {
+    if (!key) return;
+    focusedKey = key;
+    await tick();
+    rowEl(key)?.focus({ preventScroll: true });
+    scrollToRow(key);
+  }
+
+  function activate(row: Row): void {
+    focusedKey = row.node.key;
+    if (row.node.selectId != null) onSelect(row.node.selectId, row.node);
+    else if (row.hasChildren) toggle(row.node.key);
+  }
+
+  function onKeydown(event: KeyboardEvent): void {
+    const position = rows.findIndex((row) => row.node.key === focusedKey);
+    const row = rows[position];
+    if (!row) return;
+    const keyActions: Record<string, () => void> = {
+      ArrowDown: () => focusRow(rows[Math.min(rows.length - 1, position + 1)].node.key),
+      ArrowUp: () => focusRow(rows[Math.max(0, position - 1)].node.key),
+      Home: () => focusRow(rows[0].node.key),
+      End: () => focusRow(rows[rows.length - 1].node.key),
+      ArrowRight: () => {
+        if (row.hasChildren && !row.expanded) toggle(row.node.key, true);
+        else if (row.hasChildren) focusRow(rows[position + 1]?.node.key ?? null);
+      },
+      ArrowLeft: () => {
+        if (row.hasChildren && row.expanded && !q) toggle(row.node.key, false);
+        else focusRow(row.parent);
+      },
+      Enter: () => activate(row),
+      ' ': () => activate(row)
+    };
+    const action = keyActions[event.key];
+    if (!action) return;
+    event.preventDefault();
+    action();
+  }
 </script>
 
 <aside class="b2s-list-pane" aria-label={ariaLabel}>
@@ -80,64 +323,96 @@
         {/each}
       </div>
     {/if}
+    {#if viewMode || isTree}
+      <div class="b2s-list-pane__tools">
+        {#if viewMode}
+          <div class="b2s-list-pane__views" role="group" aria-label={t('Display')}>
+            <button type="button" class:is-active={viewMode === 'tree'} aria-pressed={viewMode === 'tree'} on:click={() => onViewMode('tree')}>
+              <i class="bi bi-diagram-3" aria-hidden="true"></i>{t('Tree')}
+            </button>
+            <button type="button" class:is-active={viewMode === 'list'} aria-pressed={viewMode === 'list'} on:click={() => onViewMode('list')}>
+              <i class="bi bi-list-ul" aria-hidden="true"></i>{t('List')}
+            </button>
+          </div>
+        {/if}
+        {#if isTree}
+          <div class="b2s-list-pane__actions">
+            <button type="button" title={t('Expand all')} aria-label={t('Expand all')} on:click={expandAll} disabled={Boolean(q)}>
+              <i class="bi bi-arrows-expand" aria-hidden="true"></i>
+            </button>
+            <button type="button" title={t('Collapse all')} aria-label={t('Collapse all')} on:click={collapseAll} disabled={Boolean(q)}>
+              <i class="bi bi-arrows-collapse" aria-hidden="true"></i>
+            </button>
+            <button type="button" title={t('Reveal selection')} aria-label={t('Reveal selection')} on:click={revealSelection} disabled={!index.selectedKey}>
+              <i class="bi bi-crosshair" aria-hidden="true"></i>
+            </button>
+          </div>
+        {/if}
+      </div>
+    {/if}
   </div>
 
   <div class="b2s-list-pane__body">
-    {#if flatItems.length === 0}
+    {#if rows.length === 0}
       <div class="b2s-list-pane__empty" role="status" aria-live="polite">{emptyLabel}</div>
     {:else}
-      {#each grouped ? groups : [{ id: '__all', label: '', items: flatItems }] as group (String(group.id))}
-        {@const open = !grouped || isOpenGroup(group.id)}
-        {#if grouped}
-          <button
-            type="button"
-            class="b2s-list-pane__group"
-            on:click={() => onToggleGroup(group.id)}
-            aria-expanded={open}
+      <div class="b2s-tree" role="tree" tabindex="-1" aria-label={ariaLabel} bind:this={treeEl}>
+        {#each rows as row (row.node.key)}
+          {@const node = row.node}
+          {@const active = node.selectId != null && String(node.selectId) === String(selectedId)}
+          <div
+            class="b2s-tree__row"
+            class:is-active={active}
+            class:is-muted={node.muted}
+            class:is-top={row.depth === 0 && isTree}
+            class:has-sub={Boolean(node.subtitle)}
+            role="treeitem"
+            aria-level={row.depth + 1}
+            aria-expanded={row.hasChildren ? row.expanded : undefined}
+            aria-selected={active}
+            tabindex={node.key === focusedKey ? 0 : -1}
+            title={node.title ?? undefined}
+            data-key={node.key}
+            on:click={() => activate(row)}
+            on:keydown={onKeydown}
+            on:focus={() => (focusedKey = node.key)}
           >
-            <i class={`bi ${open ? 'bi-chevron-down' : 'bi-chevron-right'}`} aria-hidden="true"></i>
-            <span class="b2s-list-pane__group-label">{group.label}</span>
-            {#if Number(group.warningCount ?? 0) > 0}
-              <span class="b2s-list-pane__group-alerts" title={t('{count} alerts', { count: Number(group.warningCount) })}>
-                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>{group.warningCount}
-              </span>
-            {/if}
-            <span class="b2s-list-pane__group-count">{group.count ?? group.items.length}</span>
-          </button>
-        {/if}
-        {#if open}
-          <ul class="b2s-list-pane__list">
-            {#each group.items as item (itemId(item))}
-              {@const active = String(item.id) === String(selectedId)}
-              <li>
+            {#each Array(row.depth) as _}<span class="b2s-tree__guide" aria-hidden="true"></span>{/each}
+            {#if isTree}
+              {#if row.hasChildren}
                 <button
                   type="button"
-                  class="b2s-list-pane__item"
-                  class:is-active={active}
-                  style={`--depth:${Math.min(4, Number(item.depth ?? 0))}`}
-                  on:click={() => onSelect(item.id, item)}
-                  aria-current={active ? 'page' : undefined}
+                  class="b2s-tree__twisty"
+                  tabindex="-1"
+                  aria-label={row.expanded ? t('Collapse') : t('Expand')}
+                  disabled={Boolean(q)}
+                  on:click|stopPropagation={() => toggle(node.key)}
                 >
-                  <span class="b2s-list-pane__icon" aria-hidden="true"><i class={`bi ${item.icon ?? itemIcon}`}></i></span>
-                  <span class="b2s-list-pane__text">
-                    <span class="b2s-list-pane__name">{item.label}</span>
-                    {#if item.subtitle ?? item.secondary}
-                      <span class="b2s-list-pane__sub">{item.subtitle ?? item.secondary}</span>
-                    {/if}
-                  </span>
-                  {#if item.indicator}
-                    <span class={`b2s-list-pane__count is-${item.indicator.kind}`} title={item.indicator.label}>
-                      {item.indicator.label.replace(/\D+/g, '') || '!'}
-                    </span>
-                  {:else if showToneDot}
-                    <span class={`b2s-list-pane__dot is-${item.tone ?? 'healthy'}`} aria-hidden="true"></span>
-                  {/if}
+                  <i class={`bi ${row.expanded ? 'bi-chevron-down' : 'bi-chevron-right'}`} aria-hidden="true"></i>
                 </button>
-              </li>
+              {:else}
+                <span class="b2s-tree__twisty" aria-hidden="true"></span>
+              {/if}
+            {/if}
+            {#if node.icon}
+              <i class={`bi ${node.icon} b2s-tree__icon is-${node.iconTone ?? 'neutral'}`} aria-hidden="true"></i>
+            {/if}
+            <span class="b2s-tree__text">
+              <span class="b2s-tree__label">
+                {#each highlight(node.label) as part}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}
+                {#if node.hint}<small>{node.hint}</small>{/if}
+              </span>
+              {#if node.subtitle}<span class="b2s-tree__sub">{node.subtitle}</span>{/if}
+            </span>
+            {#each [...(node.badges ?? []), ...(row.hasChildren && !row.expanded ? node.collapsedBadges ?? [] : [])] as badge}
+              <span class={`b2s-tree__badge is-${badge.tone ?? 'neutral'}`} title={badge.title ?? undefined}>
+                {#if badge.icon}<i class={`bi ${badge.icon}`} aria-hidden="true"></i>{/if}{badge.label}
+              </span>
             {/each}
-          </ul>
-        {/if}
-      {/each}
+            {#if node.dot}<span class={`b2s-tree__dot is-${node.dot}`} aria-hidden="true"></span>{/if}
+          </div>
+        {/each}
+      </div>
     {/if}
   </div>
 </aside>
@@ -207,11 +482,74 @@
     color: #fff;
   }
 
+  .b2s-list-pane__tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .b2s-list-pane__views {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 9px;
+    background: #f1f5f9;
+  }
+
+  .b2s-list-pane__views button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #475569;
+    font-size: var(--b2s-fs-xs);
+    cursor: pointer;
+  }
+
+  .b2s-list-pane__views button.is-active {
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-text);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+  }
+
+  .b2s-list-pane__actions {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: auto;
+  }
+
+  .b2s-list-pane__actions button {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+  }
+
+  .b2s-list-pane__actions button:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: var(--b2s-color-text);
+  }
+
+  .b2s-list-pane__actions button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
   .b2s-list-pane__body {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-    padding: 0 0 12px;
+    padding: 0 8px 12px;
   }
 
   .b2s-list-pane__empty {
@@ -221,114 +559,153 @@
     text-align: center;
   }
 
-  .b2s-list-pane__group {
-    width: 100%;
+  .b2s-tree {
+    display: flex;
+    flex-direction: column;
+    outline: none;
+  }
+
+  .b2s-tree__row {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 12px 16px 4px;
-    border: none;
-    background: transparent;
-    color: #64748b;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .b2s-list-pane__group-label {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .b2s-list-pane__group-alerts {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    color: #c2410c;
-    letter-spacing: 0;
-  }
-
-  .b2s-list-pane__group-count {
-    letter-spacing: 0;
-  }
-
-  .b2s-list-pane__list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .b2s-list-pane__item {
-    width: calc(100% - 16px);
-    margin: 2px 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 10px 7px calc(10px + var(--depth, 0) * 16px);
-    border: none;
-    border-radius: 10px;
-    background: transparent;
+    min-height: 32px;
+    padding: 0 8px 0 4px;
+    border-radius: 8px;
     color: var(--b2s-color-text);
-    text-align: left;
+    font-size: var(--b2s-fs-sm);
     cursor: pointer;
+    user-select: none;
   }
 
-  .b2s-list-pane__item:hover {
+  .b2s-tree__row.has-sub {
+    min-height: 46px;
+  }
+
+  .b2s-tree__row:hover {
     background: #f5f8fc;
   }
 
-  .b2s-list-pane__item.is-active {
-    background: #eef4ff;
+  .b2s-tree__row:focus-visible {
+    outline: 2px solid #93c5fd;
+    outline-offset: -2px;
+  }
+
+  .b2s-tree__row.is-active {
+    background: #e8efff;
     box-shadow: inset 3px 0 0 var(--b2s-topbar-bg);
   }
 
-  .b2s-list-pane__icon {
-    width: 30px;
-    height: 30px;
+  .b2s-tree__row.is-active .b2s-tree__label {
+    font-weight: 600;
+  }
+
+  .b2s-tree__row.is-top .b2s-tree__label {
+    font-weight: 600;
+  }
+
+  .b2s-tree__row.is-muted .b2s-tree__label {
+    color: #94a3b8;
+    font-style: italic;
+  }
+
+  .b2s-tree__guide {
     flex: 0 0 auto;
+    align-self: stretch;
+    width: 10px;
+    margin-left: 9px;
+    border-left: 1px solid #e2e8f0;
+  }
+
+  .b2s-tree__twisty {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
     display: grid;
     place-items: center;
-    border-radius: 8px;
-    background: #f1f5f9;
-    color: #475569;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 11px;
+    cursor: pointer;
   }
 
-  .b2s-list-pane__item.is-active .b2s-list-pane__icon {
-    background: #dbe7ff;
-    color: var(--b2s-topbar-bg);
+  button.b2s-tree__twisty:hover:not(:disabled) {
+    background: #e2e8f0;
+    color: var(--b2s-color-text);
   }
 
-  .b2s-list-pane__text {
+  button.b2s-tree__twisty:disabled {
+    cursor: inherit;
+  }
+
+  .b2s-tree__icon {
+    flex: 0 0 auto;
+    font-size: 15px;
+    color: #64748b;
+  }
+
+  .b2s-tree__icon.is-zone { color: #6366f1; }
+  .b2s-tree__icon.is-server { color: #0ea5e9; }
+  .b2s-tree__icon.is-folder { color: #cbd5e1; }
+  .b2s-tree__icon.is-root { color: #d4a017; }
+
+  .b2s-tree__text {
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
     flex-direction: column;
   }
 
-  .b2s-list-pane__name,
-  .b2s-list-pane__sub {
+  .b2s-tree__label,
+  .b2s-tree__sub {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .b2s-list-pane__name {
-    font-size: var(--b2s-fs-md);
-    font-weight: 500;
+  .b2s-tree__label small {
+    margin-left: 6px;
+    color: #94a3b8;
+    font-size: 11.5px;
+    font-weight: 400;
+    font-style: normal;
   }
 
-  .b2s-list-pane__sub {
+  .b2s-tree__label mark {
+    padding: 0 1px;
+    border-radius: 3px;
+    background: #fef08a;
+    color: inherit;
+  }
+
+  .b2s-tree__sub {
     color: #64748b;
     font-size: var(--b2s-fs-xs);
   }
 
-  .b2s-list-pane__dot {
+  .b2s-tree__badge {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 20px;
+    justify-content: center;
+    padding: 1px 7px;
+    border-radius: var(--b2s-radius-pill);
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .b2s-tree__badge.is-warning { background: #fff4e5; color: #c2410c; font-weight: 600; }
+  .b2s-tree__badge.is-error { background: #fdecec; color: #b91c1c; font-weight: 600; }
+  .b2s-tree__badge.is-info { background: #eaf2ff; color: #1d4ed8; font-weight: 600; }
+
+  .b2s-tree__dot {
     width: 8px;
     height: 8px;
     flex: 0 0 auto;
@@ -336,29 +713,7 @@
     background: #16a34a;
   }
 
-  .b2s-list-pane__dot.is-warning { background: #ea580c; }
-  .b2s-list-pane__dot.is-error { background: #dc2626; }
-  .b2s-list-pane__dot.is-neutral { background: #94a3b8; }
-
-  .b2s-list-pane__count {
-    flex: 0 0 auto;
-    min-width: 20px;
-    padding: 1px 7px;
-    border-radius: var(--b2s-radius-pill);
-    background: #fff4e5;
-    color: #c2410c;
-    font-size: 11px;
-    font-weight: 600;
-    text-align: center;
-  }
-
-  .b2s-list-pane__count.is-error {
-    background: #fdecec;
-    color: #b91c1c;
-  }
-
-  .b2s-list-pane__count.is-pending {
-    background: #eaf2ff;
-    color: #1d4ed8;
-  }
+  .b2s-tree__dot.is-warning { background: #ea580c; }
+  .b2s-tree__dot.is-error { background: #dc2626; }
+  .b2s-tree__dot.is-neutral { background: #94a3b8; }
 </style>

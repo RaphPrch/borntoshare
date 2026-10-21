@@ -267,16 +267,9 @@
   }
 
   let search = '';
-  let openSidebarZones = new Set<string>();
 
-  $: query = norm(search);
-  $: sidebarEndpoints = endpoints.filter((ep) => {
-    if (!query) return true;
-    const target = [endpointName(ep), endpointZone(ep)]
-      .map((v) => norm(v))
-      .join(' ');
-    return target.includes(query);
-  });
+  // The list pane searches by itself (name, host, roots) and highlights the matches
+  $: sidebarEndpoints = endpoints;
 
   $: sidebarGroups = (() => {
     const map = new Map<string, { zone_id: string | number; zone_name: string; endpoints: any[] }>();
@@ -298,38 +291,6 @@
       a.zone_name.localeCompare(b.zone_name, 'en', { sensitivity: 'base' })
     );
   })();
-
-  $: {
-    let changed = false;
-    const next = new Set(openSidebarZones);
-
-    for (const zone of sidebarGroups) {
-      const zoneKey = String(zone.zone_id);
-      if (!next.has(zoneKey)) {
-        next.add(zoneKey);
-        changed = true;
-      }
-    }
-
-    for (const zoneName of Array.from(next)) {
-      if (!sidebarGroups.some((zone) => String(zone.zone_id) === zoneName)) {
-        next.delete(zoneName);
-        changed = true;
-      }
-    }
-
-    if (changed) openSidebarZones = next;
-  }
-
-  const isSidebarZoneOpen = (zoneId: string | number): boolean => openSidebarZones.has(String(zoneId));
-
-  const toggleSidebarZone = (zoneId: string | number): void => {
-    const key = String(zoneId);
-    const next = new Set(openSidebarZones);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    openSidebarZones = next;
-  };
 
   const selectSidebarEndpoint = (id: number): void => {
     if (id > 0) goto(`/admin/storage-endpoints/${id}`);
@@ -1174,8 +1135,7 @@
       query={search}
       groups={sidebarGroups}
       selectedEndpointId={selectedId}
-      isOpenZone={isSidebarZoneOpen}
-      onToggleZone={toggleSidebarZone}
+      {roots}
       onSelectEndpoint={selectSidebarEndpoint}
       onQueryChange={(value) => (search = value)}
       {endpointId}

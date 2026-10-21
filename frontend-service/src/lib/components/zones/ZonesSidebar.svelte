@@ -12,7 +12,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import EntitySidebarTree, {
-    type EntitySidebarGroup
+    type EntityTreeNode
   } from "$lib/components/entity/EntitySidebarTree.svelte";
 
   export let zones: ZonesSidebarZone[] = [];
@@ -22,8 +22,6 @@
   let q = "";
   let filter = "all";
 
-  const norm = (v?: string | null) => (v ?? "").toLowerCase().trim();
-
   $: sortedZones = [...zones].sort((a, b) => {
     const byName = String(a?.name ?? "").localeCompare(String(b?.name ?? ""), "fr", {
       sensitivity: "base",
@@ -32,11 +30,7 @@
     return Number(a?.id ?? 0) - Number(b?.id ?? 0);
   });
 
-  $: query = norm(q);
-  $: filtered = sortedZones.filter((z) => {
-    const haystack = [norm(z.name), norm(z.code)].join(" ");
-    return (query === "" || haystack.includes(query)) && (filter === "all" || z.healthLabel === "warning");
-  });
+  $: filtered = sortedZones.filter((z) => filter === "all" || z.healthLabel === "warning");
   $: warningCount = zones.filter((z) => z.healthLabel === "warning").length;
   $: filters = [
     { key: "all", label: t("All"), count: zones.length },
@@ -45,19 +39,16 @@
   const endpointsLabel = (count: number) =>
     count === 1 ? t("1 endpoint") : t("{count} endpoints", { count });
 
-  $: treeGroups = [{
-    id: 'zones',
-    label: t('Zones'),
-    items: filtered.map((zone) => ({
-      id: zone.id,
-      label: zone.name,
-      subtitle: [zone.code, endpointsLabel(Number(zone.endpointCount ?? 0))].filter(Boolean).join(" · "),
-      icon: "bi-diagram-2",
-      tone: zone.healthLabel === 'warning' ? 'warning' : 'healthy',
-      indicator: null,
-      raw: zone
-    }))
-  }] satisfies EntitySidebarGroup[];
+  $: nodes = filtered.map((zone): EntityTreeNode => ({
+    key: `zone:${zone.id}`,
+    label: zone.name,
+    subtitle: [zone.code, endpointsLabel(Number(zone.endpointCount ?? 0))].filter(Boolean).join(" · "),
+    icon: "bi-geo-alt",
+    iconTone: "zone",
+    selectId: zone.id,
+    dot: zone.healthLabel === "warning" ? "warning" : "healthy",
+    searchText: zone.code ?? null
+  }));
 </script>
 
 <EntitySidebarTree
@@ -66,9 +57,8 @@
   searchAriaLabel={t('Search zone or code')}
   emptyLabel={t('No zone matches your search.')}
   query={q}
-  groups={treeGroups}
+  {nodes}
   selectedId={selectedZoneId}
-  grouped={false}
   {filters}
   activeFilter={filter}
   onFilter={(key) => (filter = key)}

@@ -33,7 +33,7 @@
 </script>
 
 <EntityHeader
-  iconClass="bi-diagram-2"
+  iconClass="bi-geo-alt"
   eyebrow={t('Zone')}
   title={zone?.name ?? t('Zone')}
   metaItems={zoneMetaItems}

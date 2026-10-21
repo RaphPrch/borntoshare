@@ -2142,5 +2142,18 @@
   "The requester must submit a new request to get access back.": "Le demandeur devra soumettre une nouvelle demande pour retrouver l'accès.",
   "Revoking…": "Révocation…",
   "AD group change failed": "Échec de la modification du groupe AD",
-  "AD group change in progress": "Modification du groupe AD en cours"
+  "AD group change in progress": "Modification du groupe AD en cours",
+  "Collapse all": "Tout replier",
+  "Drag to resize · double-click to reset": "Glisser pour redimensionner · double-clic pour réinitialiser",
+  "Expand all": "Tout déplier",
+  "List": "Liste",
+  "Resize the list": "Redimensionner la liste",
+  "Reveal selection": "Afficher la sélection",
+  "Search endpoint, host or path…": "Rechercher un endpoint, un hôte ou un chemin…",
+  "Search name or path…": "Rechercher un nom ou un chemin…",
+  "Tree": "Arborescence",
+  "Unknown server": "Serveur inconnu",
+  "{count} pending requests": "{count} demandes en attente",
+  "{count} storage roots": "{count} racines de stockage",
+  "{path} · open in storage roots": "{path} · ouvrir dans les racines de stockage"
 }

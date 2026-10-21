@@ -1,16 +1,22 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
   import EntitySidebarTree, {
-    type EntitySidebarGroup,
-    type EntitySidebarItem
+    type EntityTreeBadge,
+    type EntityTreeNode
   } from '$lib/components/entity/EntitySidebarTree.svelte';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
 
   type AlertTone = 'warning' | 'error';
   type RootAlertSummary = { count: number; tone: AlertTone; label?: string } | null;
-  type RootNode = { id: number; row: StorageRootRow; children: RootNode[] };
+  /** Folder of a server path; `rows` are the storage roots whose path ends here */
+  type PathNode = { key: string; segment: string; children: Map<string, PathNode>; rows: StorageRootRow[] };
+  type Alerts = { count: number; tone: AlertTone | null };
 
-  /** List pane of the storage roots page: roots grouped by zone, sub-folders indented under their parent. */
+  /**
+   * List pane of the storage roots page, like a file explorer:
+   * zone > server > folders of the UNC path > storage roots (or a flat list per zone).
+   */
   export let rows: StorageRootRow[] = [];
   export let query = '';
   export let selectedStorageRootId: number | null = null;
@@ -18,109 +24,214 @@
   export let onQueryChange: (value: string) => void = () => {};
   export let onSelectRoot: (id: number) => void = () => {};
 
+  const VIEW_KEY = 'b2s.storageRoots.view';
   let filter = 'all';
-  let collapsedZones: Record<string, boolean> = {};
+  let viewMode: 'tree' | 'list' = 'tree';
 
-  const norm = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+  onMount(() => {
+    try {
+      if (localStorage.getItem(VIEW_KEY) === 'list') viewMode = 'list';
+    } catch {
+      // Storage unavailable: tree by default
+    }
+  });
+
+  function setViewMode(mode: 'tree' | 'list'): void {
+    viewMode = mode;
+    try {
+      localStorage.setItem(VIEW_KEY, mode);
+    } catch {
+      // Not remembered
+    }
+  }
+
+  const byLabel = (a: { label: string }, b: { label: string }): number =>
+    a.label.localeCompare(b.label, 'fr', { sensitivity: 'base', numeric: true });
   const rootId = (row: StorageRootRow): number => Number(row?.storage_root_id ?? row?.id ?? 0);
   const rootLabel = (row: StorageRootRow): string =>
     String(row?.storage_root_name ?? row?.storage_root_code ?? t('Storage root')).trim() || t('Storage root');
+  const rootPath = (row: StorageRootRow): string => String(row?.root_path ?? row?.normalized_root_path ?? '').trim();
   const zoneKey = (row: StorageRootRow): string => String(row?.zone_id ?? 'unassigned-zone');
   const zoneLabel = (row: StorageRootRow): string => String(row?.zone_name ?? t('Unassigned zone')).trim() || t('Unassigned zone');
+  const endpointLabel = (row: StorageRootRow): string => String(row?.storage_endpoint_name ?? '').trim();
   const alertCount = (row: StorageRootRow): number => Number(rootAlertSummary(row)?.count ?? 0);
+  const pendingCount = (row: StorageRootRow): number => Number(row?.pending_validation_count ?? 0);
+  // \\server\share\folder (or /server/share/folder) -> [server, share, folder]
+  const pathSegments = (path: string): string[] => path.split(/[\\/]+/).filter(Boolean);
 
-  const matchesQuery = (row: StorageRootRow): boolean => {
-    const q = norm(query);
-    if (!q) return true;
-    return [
-      row?.zone_name,
-      row?.storage_endpoint_name,
-      row?.storage_root_name,
-      row?.storage_root_code,
-      (row as any)?.root_path,
-      ...(Array.isArray(row?.tags) ? row.tags.map((tag: any) => tag?.label ?? tag?.name ?? tag?.code) : [])
-    ]
-      .map(norm)
-      .join(' ')
-      .includes(q);
-  };
+  const countLabel = (count: number): EntityTreeBadge => ({ label: String(count), title: t('{count} storage roots', { count }) });
 
-  const buildRootNodes = (inputRows: StorageRootRow[]): RootNode[] => {
-    const nodes = new Map<number, RootNode>();
-    for (const row of inputRows) {
-      const id = rootId(row);
-      if (id > 0) nodes.set(id, { id, row, children: [] });
+  function rowBadges(row: StorageRootRow): EntityTreeBadge[] {
+    const badges: EntityTreeBadge[] = [];
+    const alert = rootAlertSummary(row);
+    if (alert && alert.count > 0) {
+      badges.push({ label: String(alert.count), tone: alert.tone, icon: 'bi-exclamation-triangle-fill', title: alert.label ?? t('{count} alerts', { count: alert.count }) });
     }
-    const top: RootNode[] = [];
-    for (const node of nodes.values()) {
-      const parent = nodes.get(Number(node.row?.parent_storage_root_id ?? 0));
-      if (parent) parent.children.push(node);
-      else top.push(node);
+    if (pendingCount(row) > 0) {
+      badges.push({ label: String(pendingCount(row)), tone: 'info', icon: 'bi-hourglass-split', title: t('{count} pending requests', { count: pendingCount(row) }) });
     }
-    const sortNodes = (items: RootNode[]): RootNode[] =>
-      items
-        .map((node) => ({ ...node, children: sortNodes(node.children) }))
-        .sort((a, b) => rootLabel(a.row).localeCompare(rootLabel(b.row), 'fr', { sensitivity: 'base', numeric: true }));
-    return sortNodes(top);
-  };
+    return badges;
+  }
 
-  const flatten = (nodes: RootNode[], depth = 0): EntitySidebarItem[] =>
-    nodes.flatMap((node) => {
-      const alert = rootAlertSummary(node.row);
-      const item: EntitySidebarItem = {
-        id: node.id,
-        label: rootLabel(node.row),
-        subtitle: String((node.row as any)?.root_path ?? (node.row as any)?.normalized_root_path ?? '') || null,
-        icon: node.children.length > 0 ? 'bi-folder2-open' : 'bi-folder2',
-        depth,
-        tone: 'healthy',
-        indicator: alert && alert.count > 0
-          ? { kind: alert.tone, label: alert.label ?? t('{count} alerts', { count: alert.count }) }
-          : null,
-        raw: node.row
-      };
-      return [item, ...flatten(node.children, depth + 1)];
-    });
+  function sumAlerts(items: StorageRootRow[]): Alerts {
+    let count = 0;
+    let tone: AlertTone | null = null;
+    for (const row of items) {
+      const alert = rootAlertSummary(row);
+      if (!alert || alert.count <= 0) continue;
+      count += alert.count;
+      tone = tone === 'error' || alert.tone === 'error' ? 'error' : 'warning';
+    }
+    return { count, tone };
+  }
 
-  $: visibleRows = rows.filter((row) => matchesQuery(row) && (filter === 'all' || alertCount(row) > 0));
-  $: groups = (() => {
-    const byZone = new Map<string, { label: string; rows: StorageRootRow[] }>();
+  const alertBadges = ({ count, tone }: Alerts): EntityTreeBadge[] =>
+    count > 0 && tone ? [{ label: String(count), tone, icon: 'bi-exclamation-triangle-fill', title: t('{count} alerts', { count }) }] : [];
+
+  function rootNode(row: StorageRootRow, key: string, subtitle: string | null = null): EntityTreeNode {
+    return {
+      key,
+      label: rootLabel(row),
+      subtitle,
+      title: rootPath(row) || null,
+      icon: 'bi-folder2',
+      iconTone: 'root',
+      selectId: rootId(row),
+      badges: rowBadges(row),
+      searchText: [
+        rootPath(row),
+        row?.storage_root_code,
+        endpointLabel(row),
+        ...(Array.isArray(row?.tags) ? row.tags.map((tag: any) => tag?.label ?? tag?.name ?? tag?.code) : [])
+      ].filter(Boolean).join(' ')
+    };
+  }
+
+  const descendantRows = (node: PathNode): StorageRootRow[] => [
+    ...node.rows,
+    ...[...node.children.values()].flatMap(descendantRows)
+  ];
+
+  // Folder of the path -> tree node; a root keeps its own entry, single-child plain folders are merged (corp\hr)
+  function folderNode(node: PathNode, label = node.segment): EntityTreeNode[] {
+    const children = [...node.children.values()];
+    if (node.rows.length === 0 && children.length === 1 && children[0].rows.length === 0) {
+      return folderNode(children[0], `${label}\\${children[0].segment}`);
+    }
+    const childNodes = children.flatMap((child) => folderNode(child)).sort(byLabel);
+    if (node.rows.length === 0) {
+      return [{
+        key: node.key,
+        label,
+        icon: 'bi-folder2',
+        iconTone: 'folder',
+        muted: true,
+        collapsedBadges: alertBadges(sumAlerts(descendantRows(node))),
+        children: childNodes
+      }];
+    }
+    // Usually one root per path; duplicates are listed side by side
+    return node.rows.map((row, position) => ({
+      ...rootNode(row, position === 0 ? node.key : `${node.key}#${rootId(row)}`),
+      children: position === 0 ? childNodes : [],
+      collapsedBadges: position === 0 ? alertBadges(sumAlerts(children.flatMap(descendantRows))) : []
+    }));
+  }
+
+  function serverNodes(zoneId: string, zoneRows: StorageRootRow[]): EntityTreeNode[] {
+    const servers = new Map<string, { label: string; endpoints: Set<string>; tree: PathNode; rows: StorageRootRow[] }>();
+    for (const row of zoneRows) {
+      const segments = pathSegments(rootPath(row));
+      const server = segments[0] ?? (endpointLabel(row) || t('Unknown server'));
+      const serverKey = `z:${zoneId}|s:${server.toLowerCase()}`;
+      if (!servers.has(serverKey)) {
+        servers.set(serverKey, {
+          label: server,
+          endpoints: new Set(),
+          tree: { key: serverKey, segment: server, children: new Map(), rows: [] },
+          rows: []
+        });
+      }
+      const entry = servers.get(serverKey)!;
+      if (endpointLabel(row)) entry.endpoints.add(endpointLabel(row));
+      entry.rows.push(row);
+      let cursor = entry.tree;
+      for (const segment of segments.slice(1)) {
+        const id = segment.toLowerCase();
+        if (!cursor.children.has(id)) {
+          cursor.children.set(id, { key: `${cursor.key}\\${id}`, segment, children: new Map(), rows: [] });
+        }
+        cursor = cursor.children.get(id)!;
+      }
+      cursor.rows.push(row);
+    }
+    return [...servers.entries()]
+      .map(([key, server]): EntityTreeNode => ({
+        key,
+        label: server.label,
+        hint: [...server.endpoints].join(' · ') || null,
+        icon: 'bi-hdd-network',
+        iconTone: 'server',
+        badges: [countLabel(server.rows.length)],
+        collapsedBadges: alertBadges(sumAlerts(server.rows)),
+        // A root on the share itself (\\server only) stays directly under the server
+        children: [
+          ...server.tree.rows.map((row) => rootNode(row, `${key}#${rootId(row)}`)),
+          ...[...server.tree.children.values()].flatMap((child) => folderNode(child)).sort(byLabel)
+        ]
+      }))
+      .sort(byLabel);
+  }
+
+  $: visibleRows = rows.filter((row) =>
+    filter === 'all' || (filter === 'alerts' ? alertCount(row) > 0 : pendingCount(row) > 0)
+  );
+
+  $: nodes = (() => {
+    const zones = new Map<string, { label: string; rows: StorageRootRow[] }>();
     for (const row of visibleRows) {
       const key = zoneKey(row);
-      if (!byZone.has(key)) byZone.set(key, { label: zoneLabel(row), rows: [] });
-      byZone.get(key)!.rows.push(row);
+      if (!zones.has(key)) zones.set(key, { label: zoneLabel(row), rows: [] });
+      zones.get(key)!.rows.push(row);
     }
-    return [...byZone.entries()]
-      .map(([id, zone]): EntitySidebarGroup => ({
-        id,
+    return [...zones.entries()]
+      .map(([id, zone]): EntityTreeNode => ({
+        key: `z:${id}`,
         label: zone.label,
-        count: zone.rows.length,
-        warningCount: zone.rows.reduce((total, row) => total + alertCount(row), 0),
-        items: flatten(buildRootNodes(zone.rows))
+        icon: 'bi-geo-alt',
+        iconTone: 'zone',
+        badges: [countLabel(zone.rows.length)],
+        collapsedBadges: alertBadges(sumAlerts(zone.rows)),
+        children:
+          viewMode === 'tree'
+            ? serverNodes(id, zone.rows)
+            : zone.rows.map((row) => rootNode(row, `z:${id}|r:${rootId(row)}`, rootPath(row) || null)).sort(byLabel)
       }))
-      .sort((a, b) => a.label.localeCompare(b.label, 'fr', { sensitivity: 'base', numeric: true }));
+      .sort(byLabel);
   })();
-  $: rootsWithAlerts = rows.filter((row) => alertCount(row) > 0).length;
+
   $: filters = [
     { key: 'all', label: t('All'), count: rows.length },
-    { key: 'alerts', label: t('With alerts'), count: rootsWithAlerts }
+    { key: 'alerts', label: t('With alerts'), count: rows.filter((row) => alertCount(row) > 0).length },
+    { key: 'pending', label: t('Pending requests'), count: rows.filter((row) => pendingCount(row) > 0).length }
   ];
 </script>
 
 <EntitySidebarTree
   ariaLabel={t('Storage roots')}
-  searchPlaceholder={t('Search storage roots…')}
+  searchPlaceholder={t('Search name or path…')}
   searchAriaLabel={t('Search storage roots')}
   emptyLabel={t('No storage root matches your search.')}
   {query}
-  {groups}
+  {nodes}
   selectedId={selectedStorageRootId}
-  itemIcon="bi-folder2"
   {filters}
   activeFilter={filter}
   onFilter={(key) => (filter = key)}
-  isOpenGroup={(id) => collapsedZones[String(id)] !== true}
-  onToggleGroup={(id) => (collapsedZones = { ...collapsedZones, [String(id)]: collapsedZones[String(id)] !== true })}
-  onQueryChange={onQueryChange}
+  storageKey="b2s.storageRoots.tree"
+  defaultExpandDepth={0}
+  {viewMode}
+  onViewMode={setViewMode}
+  {onQueryChange}
   onSelect={(id) => onSelectRoot(Number(id))}
 />
