@@ -51,6 +51,7 @@
   import EntityConsoleShell from "$lib/components/entity/EntityConsoleShell.svelte";
   import EntityAlertDrawer from "$lib/components/entity/EntityAlertDrawer.svelte";
   import EntityAlertStrip from "$lib/components/entity/EntityAlertStrip.svelte";
+  import EntityKpiRow, { type EntityKpiItem } from "$lib/components/entity/EntityKpiRow.svelte";
   import type { EntityAlertStripItem } from "$lib/components/entity/entity-alerts.types";
   import Tabs from "$lib/components/ui/Tabs.svelte";
 
@@ -464,6 +465,26 @@
     ]);
 
   $: zoneAlertItems = buildZoneAlerts();
+  $: zoneKpis = [
+    { key: "endpoints", label: t('Storage endpoints'), value: String(endpoints.length), tone: "info", icon: "bi-hdd-network" },
+    { key: "roots", label: t('Storage roots'), value: String(storageRoots.length), tone: "accent", icon: "bi-folder2" },
+    {
+      key: "reachability",
+      label: t('Reachability'),
+      value: healthSummary.endpointCount > 0 ? `${Math.round((healthSummary.reachableCount / healthSummary.endpointCount) * 100)} %` : "—",
+      hint: t('{reachableCount}/{value} reachable', { reachableCount: healthSummary.reachableCount, value: healthSummary.endpointCount || 0 }),
+      tone: healthSummary.endpointCount === 0 ? "neutral" : (healthSummary.unhealthyCount ?? 0) > 0 ? "danger" : "success",
+      icon: "bi-heart-pulse"
+    },
+    {
+      key: "alerts",
+      label: t('Open alerts'),
+      value: String(zoneAlertItems.length),
+      hint: zoneAlertItems.length > 0 ? t('Review them in the alert list') : t('Nothing to review'),
+      tone: zoneAlertItems.length > 0 ? "warning" : "success",
+      icon: zoneAlertItems.length > 0 ? "bi-exclamation-triangle" : "bi-check2-circle"
+    }
+  ] satisfies EntityKpiItem[];
 
   async function ensureTabLoaded(tab: ZoneTabKey) {
     if (loadedComponents[tab]) {
@@ -849,6 +870,8 @@
       zone: data.zone,
       endpoints,
       storageRootCount: storageRoots.length,
+      namingTemplateLabel: resolveZoneNamingTemplate(),
+      provisioningOu: String((policyDraft as any)?.base_ou_dn ?? '').trim(),
       probeResultsByEndpoint,
       activity,
       healthSummary,
@@ -890,12 +913,14 @@
       showAttention={false}
       onEdit={openEditZone}
       onDelete={openDeleteZone}
+      onAddEndpoint={openEndpointAttachChoice}
     />
     <EntityAlertStrip
       items={zoneAlertItems}
       onViewAll={() => (showZoneAlertsDrawer = true)}
       ariaLabel={t('Zone alerts')}
     />
+    <EntityKpiRow items={zoneKpis} ariaLabel={t('Zone KPIs')} />
   </svelte:fragment>
 
   <svelte:fragment slot="tabs">

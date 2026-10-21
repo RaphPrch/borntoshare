@@ -58,3 +58,8 @@ export function timeAgo(iso?: string | null): string {
   if (hr < 24) return t('{hr}h ago', { hr });
   return t('{floor}d ago', { floor: Math.floor(hr / 24) });
 }
+
+/** Long technical values (DN, templates, paths): allow line breaks after , } \\ / only, never inside words. */
+export function breakable(value: unknown): string {
+  return String(value ?? '').replace(/([,}\\/])/g, '$1\u200b');
+}

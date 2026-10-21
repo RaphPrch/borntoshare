@@ -39,7 +39,7 @@
   columns={[
     { key: "name", label: t('Name') },
     { key: "address", label: t('Address') },
-    { key: "status", label: t('Status'), sortable: true },
+    { key: "status", label: t('Status') },
     { key: "last_probe", label: t('Last probe') },
     { key: "actions", label: "", className: "zone-endpoints__actions-col" },
   ]}
@@ -74,7 +74,8 @@
     {:else if column.key === "actions"}
       <EntityActionButton
         iconOnly={true}
-        variant="probe"
+        variant="secondary"
+        className="b2s-btn-sm"
         icon="bi-activity"
         busyIcon="bi-hourglass-split"
         busy={Boolean(row.probe_running)}

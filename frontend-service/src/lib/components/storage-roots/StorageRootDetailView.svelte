@@ -9,6 +9,8 @@
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
   import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import TagPill from '$lib/components/tags/TagPill.svelte';
+  import KpiCard from '$lib/components/ui/KpiCard.svelte';
+  import { initials } from '$lib/utils/format';
   import type {
     StorageRootEffectiveAccessUser,
     StorageRootProjectedAdGroup
@@ -44,6 +46,7 @@
   export let detailsLoading = false;
   export let selectedStorageRootId: number | null = null;
   export let selectedRootCodeOrName = '—';
+  export let zoneLabel = '';
   export let activeTab: StorageRootTabKey = 'overview';
 
   export let rootProbeBusy = false;
@@ -105,11 +108,13 @@
         ? t('{aclPermissionsCount} ACL entries · {value}', { aclPermissionsCount, value: (aclState || 'fresh') })
         : t('No ACL scan yet');
 
-  const tabs: Array<{ key: StorageRootTabKey; label: string; icon: string }> = [
+  $: tabs = [
     { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
-    { key: 'effective-access', label: t('Effective Access'), icon: 'bi-people' },
-    { key: 'activity', label: t('Activity'), icon: 'bi-activity' }
+    { key: 'effective-access', label: t('Effective access'), icon: 'bi-people', count: effectiveAccessUsers.length },
+    { key: 'activity', label: t('Activity'), icon: 'bi-clock-history' }
   ];
+  $: guardianNames = guardians.map((owner) => ownerDisplayName(owner)).filter(Boolean);
+  $: openAlerts = alertItems.length;
 
   const normalizeTabKey = (key: string): StorageRootTabKey => {
     if (key === 'effective-access') return 'effective-access';
@@ -118,17 +123,21 @@
   };
 </script>
 
-<main class="sr-clean-main">
+<div class="sr-detail">
   {#if showBlockingLoading}
     <StorageRootLoadingState label={t('Loading storage root data…')} />
   {/if}
 
   <StorageRootHeader
     title={selectedRootCodeOrName}
+    {zoneLabel}
     statusLabel={rootAvailabilityText}
     statusTone={statusTone}
     {showStatusBadge}
     {pathLabel}
+    endpointLabel={endpointLabel}
+    aclLabel={aclState === 'stale' ? t('ACL stale') : aclScannedAt ? t('ACL fresh') : ''}
+    aclTone={aclState === 'stale' ? 'warning' : 'info'}
     {rootProbeBusy}
     {selectedStorageRootId}
     {onRunRootProbe}
@@ -139,49 +148,35 @@
 
   <EntityAlertStrip items={alertItems} onViewAll={onViewAllAlerts} ariaLabel={t('Storage root alerts')} />
 
-  <section class="sr-overview-kpis" aria-label={t('Storage root summary')}>
-    <article class="sr-overview-kpi">
-      <span class="sr-overview-kpi__icon is-access"><i class="bi bi-people" aria-hidden="true"></i></span>
-      <div>
-        <small>{t('Effective access')}</small>
-        <strong>{effectiveUsersCount}</strong>
-        <span>{t('{configuredGroupsCount} Groups', { configuredGroupsCount })}</span>
-      </div>
-    </article>
-
-    <article class="sr-overview-kpi">
-      <span class="sr-overview-kpi__icon is-endpoint"><i class="bi bi-hdd-network" aria-hidden="true"></i></span>
-      <div>
-        <small>{t('Endpoint')}</small>
-        <strong>{endpointDisplay}</strong>
-        <span>{endpointLabel}</span>
-      </div>
-    </article>
-
-    <article class="sr-overview-kpi">
-      <span class="sr-overview-kpi__icon is-probe"><i class="bi bi-calendar3" aria-hidden="true"></i></span>
-      <div>
-        <small>{t('Last probe')}</small>
-        <strong>{lastProbeText}</strong>
-        <span>{aclFreshnessLabel}</span>
-      </div>
-      {#if rootAvailabilityText === t('Unreachable')}
-        <em class="sr-overview-kpi__badge is-error">{t('Failed')}</em>
-      {:else if aclState === 'stale'}
-        <em class="sr-overview-kpi__badge is-warning">{t('ACL stale')}</em>
-      {:else if aclScannedAt}
-        <em class="sr-overview-kpi__badge is-success">{t('ACL scanned')}</em>
-      {/if}
-    </article>
-
-    <article class="sr-overview-kpi">
-      <span class="sr-overview-kpi__icon is-content"><i class="bi bi-folder2-open" aria-hidden="true"></i></span>
-      <div>
-        <small>{t('Content')}</small>
-        <strong>{contentSizeLabel}</strong>
-        <span>{t('Updated: {contentUpdatedLabel}', { contentUpdatedLabel })}</span>
-      </div>
-    </article>
+  <section class="b2s-kpi-grid sr-detail__kpis" aria-label={t('Storage root summary')}>
+    <KpiCard
+      label={t('Effective access')}
+      value={effectiveUsersCount}
+      hint={t('{configuredGroupsCount} Groups', { configuredGroupsCount })}
+      icon="bi-people"
+      tone="info"
+    />
+    <KpiCard
+      label={t('Guardians')}
+      value={guardians.length}
+      hint={guardianNames.slice(0, 2).join(', ') || t('No guardian yet')}
+      icon="bi-shield-check"
+      tone={guardians.length > 0 ? 'purple' : 'warning'}
+    />
+    <KpiCard
+      label={t('Last probe')}
+      value={lastProbeText}
+      hint={aclFreshnessLabel}
+      icon="bi-activity"
+      tone={rootAvailabilityText === t('Unreachable') ? 'danger' : aclState === 'stale' ? 'warning' : 'success'}
+    />
+    <KpiCard
+      label={t('Open alerts')}
+      value={openAlerts}
+      hint={openAlerts > 0 ? t('Review them in the alert list') : t('Nothing to review')}
+      icon={openAlerts > 0 ? 'bi-exclamation-triangle' : 'bi-check2-circle'}
+      tone={openAlerts > 0 ? 'warning' : 'success'}
+    />
   </section>
 
   <Tabs
@@ -192,16 +187,16 @@
   />
 
   {#if activeTab === 'overview'}
-    <section class="sr-clean-overview">
-      <div class="sr-clean-overview__main">
-        <article class="sr-clean-card">
-          <div class="sr-clean-card__head">
-            <h2>{t('Governed access')}</h2>
+    <section class="b2s-detail-columns">
+      <div>
+        <article class="b2s-panel">
+          <div class="b2s-panel__head">
+            <h2>{t('Access profiles')}</h2>
+            <button type="button" class="b2s-panel__link" on:click={() => onOpenGovernanceDrawer('guardian')}>
+              {t('Manage guardians')}
+            </button>
           </div>
-          <StorageRootAccessModel
-            rows={accessModelRows}
-            {onOpenEffectiveAccess}
-          />
+          <StorageRootAccessModel rows={accessModelRows} {onOpenEffectiveAccess} />
         </article>
 
         <RecentActivityCard
@@ -213,49 +208,52 @@
         />
       </div>
 
-      <aside class="sr-overview-side">
-        <article class="sr-overview-side-card">
-          <span class="sr-overview-side-card__icon is-governance"><i class="bi bi-person-gear" aria-hidden="true"></i></span>
-          <div>
-            <h2>{t('Governance')}</h2>
-            <dl>
-              <div><dt>{t('Guardians')}</dt><dd>{guardians.length}</dd></div>
-            </dl>
-            <button type="button" on:click={() => onOpenGovernanceDrawer('guardian')}>
-              {t('View governance')} <i class="bi bi-chevron-right" aria-hidden="true"></i>
-            </button>
+      <aside>
+        <article class="b2s-panel">
+          <div class="b2s-panel__head">
+            <h2>{t('Guardians')}</h2>
+            <button type="button" class="b2s-panel__link" on:click={() => onOpenGovernanceDrawer('guardian')}>{t('Manage')}</button>
+          </div>
+          <div class="b2s-panel__body">
+            {#if guardianNames.length > 0}
+              <ul class="sr-detail__people">
+                {#each guardianNames as name}
+                  <li><span class="sr-detail__avatar">{initials(name)}</span>{name}</li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="sr-detail__empty">{t('No guardian assigned. Access requests cannot be approved yet.')}</p>
+            {/if}
           </div>
         </article>
 
-        <article class="sr-overview-side-card">
-          <span class="sr-overview-side-card__icon is-tags"><i class="bi bi-tag" aria-hidden="true"></i></span>
-          <div>
+        <article class="b2s-panel">
+          <div class="b2s-panel__head">
             <h2>{t('Tags')}</h2>
+            <button type="button" class="b2s-panel__link" on:click={onOpenTagsModal}>{t('Manage')}</button>
+          </div>
+          <div class="b2s-panel__body">
             {#if tags.length > 0}
-              <div class="sr-overview-tags">
+              <div class="sr-detail__tags">
                 {#each tags as tag (tagId(tag))}
                   <TagPill label={tagLabel(tag)} color={tagColor(tag)} small={true} />
                 {/each}
               </div>
             {:else}
-              <p>{t('No tags attached')}</p>
+              <p class="sr-detail__empty">{t('No tags attached')}</p>
             {/if}
-            <button type="button" on:click={onOpenTagsModal}>
-              {t('Manage tags')} <i class="bi bi-chevron-right" aria-hidden="true"></i>
-            </button>
           </div>
         </article>
 
-        <article class="sr-overview-side-card">
-          <span class="sr-overview-side-card__icon is-health"><i class="bi bi-heart-pulse" aria-hidden="true"></i></span>
-          <div>
-            <h2>{t('Reachability')}</h2>
-            <dl>
-              <div><dt>{t('Status')}</dt><dd class={`is-${statusTone}`}>{rootAvailabilityText}</dd></div>
+        <article class="b2s-panel">
+          <div class="b2s-panel__head"><h2>{t('Details')}</h2></div>
+          <div class="b2s-panel__body">
+            <dl class="b2s-kv">
+              <dt>{t('Endpoint')}</dt><dd>{endpointDisplay}</dd>
+              <dt>{t('Path')}</dt><dd class="sr-detail__mono">{pathLabel}</dd>
+              <dt>{t('Reachability')}</dt><dd>{rootAvailabilityText}</dd>
+              <dt>{t('Content')}</dt><dd>{contentSizeLabel === '—' ? t('Not measured') : contentSizeLabel}</dd>
             </dl>
-            <button type="button" on:click={onViewAllAlerts}>
-              {t('View alerts')} <i class="bi bi-chevron-right" aria-hidden="true"></i>
-            </button>
           </div>
         </article>
       </aside>
@@ -282,4 +280,68 @@
       {/if}
     </section>
   {/if}
-</main>
+</div>
+
+<style>
+  .sr-detail {
+    min-width: 0;
+    display: grid;
+    gap: 20px;
+    align-content: start;
+  }
+
+  .sr-detail__kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  @media (max-width: 1280px) {
+    .sr-detail__kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .sr-detail__people {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .sr-detail__people li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .sr-detail__avatar {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border-radius: var(--b2s-radius-pill);
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .sr-detail__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .sr-detail__empty {
+    margin: 0;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .sr-detail__mono {
+    font-family: var(--b2s-font-mono);
+    font-size: var(--b2s-fs-xs);
+  }
+</style>

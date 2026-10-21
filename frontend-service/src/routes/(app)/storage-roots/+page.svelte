@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { timeAgo } from '$lib/utils/format';
   import { t } from '$lib/i18n';
   import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
   import { onDestroy, onMount } from 'svelte';
@@ -102,6 +103,7 @@
   import StorageRootTagsDrawer from '$lib/components/storage-roots/StorageRootTagsDrawer.svelte';
   import StorageRootGovernanceDrawer from '$lib/components/storage-roots/StorageRootGovernanceDrawer.svelte';
   import StorageRootTreePanel from '$lib/components/storage-roots/StorageRootTreePanel.svelte';
+  import EntityWorkspace from '$lib/components/entity/EntityWorkspace.svelte';
   import StorageRootDetailView from '$lib/components/storage-roots/StorageRootDetailView.svelte';
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
   import StorageRootEmptyState from '$lib/components/storage-roots/StorageRootEmptyState.svelte';
@@ -530,7 +532,7 @@
       (selectedRow ? endpointProbeTimestampForRoot(selectedRow) : null) ??
       null;
     if (!raw) return t('Never run');
-    return formatDateTimeLabel(raw);
+    return timeAgo(String(raw)) || formatDateTimeLabel(raw);
   };
 
   const accessModelRows = () => buildStorageRootAccessModelRows(overview);
@@ -2026,25 +2028,42 @@
     onCreateEndpoint={() => (showEndpointWizard = true)}
   />
 {:else}
-  <div class="sr-clean-layout">
-    <StorageRootTreePanel
-      rows={ctxRows}
-      query={$storageRootsUiStore.query}
-      {selectedStorageRootId}
-      onSelectRoot={selectRoot}
-      onCreateRoot={openCreateRoot}
-      onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
-      onRefresh={() => {
-        void refreshStorageRootsLoad();
-        if (selectedStorageRootId) void invalidateAndReloadDetailsForRoot(selectedStorageRootId);
-      }}
-      {rootAlertSummary}
-    />
+  <EntityWorkspace title={t('Storage roots')} subtitle={t('Governed shares, who can access them and who approves.')}>
+    <svelte:fragment slot="actions">
+      <button
+        type="button"
+        class="b2s-btn b2s-btn-secondary"
+        on:click={() => {
+          void refreshStorageRootsLoad();
+          if (selectedStorageRootId) void invalidateAndReloadDetailsForRoot(selectedStorageRootId);
+        }}
+      >
+        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+        {t('Refresh')}
+      </button>
+      {#if data.user?.is_admin === true}
+        <button type="button" class="b2s-btn b2s-btn-primary" on:click={openCreateRoot}>
+          <i class="bi bi-plus-lg" aria-hidden="true"></i>
+          {t('Add storage roots')}
+        </button>
+      {/if}
+    </svelte:fragment>
+    <svelte:fragment slot="list">
+      <StorageRootTreePanel
+        rows={ctxRows}
+        query={$storageRootsUiStore.query}
+        {selectedStorageRootId}
+        onSelectRoot={selectRoot}
+        onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
+        {rootAlertSummary}
+      />
+    </svelte:fragment>
 
     <StorageRootDetailView
       {detailsLoading}
       {selectedStorageRootId}
-      selectedRootCodeOrName={String(selectedRow?.storage_root_code ?? selectedRow?.storage_root_name ?? '—').toUpperCase()}
+      selectedRootCodeOrName={String(selectedRow?.storage_root_name ?? selectedRow?.storage_root_code ?? '—')}
+      zoneLabel={String(selectedRow?.zone_name ?? '')}
       activeTab={$storageRootsUiStore.detailTab}
       {rootProbeBusy}
       probeState={detailView.probeState}
@@ -2082,7 +2101,7 @@
       onViewAllActivity={openActivityTab}
       onViewAllAlerts={openAlertsDrawer}
     />
-  </div>
+  </EntityWorkspace>
 {/if}
 
 <StorageEndpointWizardModal

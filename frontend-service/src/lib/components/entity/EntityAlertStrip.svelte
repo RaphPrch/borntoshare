@@ -2,38 +2,93 @@
   import { t } from '$lib/i18n';
   import type { EntityAlertStripItem } from '$lib/components/entity/entity-alerts.types';
 
+  /** Alerts of the selected entity, shown under its header (first ones + link to the full list). */
   export let items: EntityAlertStripItem[] = [];
   export let onViewAll: () => void = () => {};
   export let ariaLabel = t('Entity alerts');
 
-  $: visibleItems = items.slice(0, 4);
-  $: hiddenCount = Math.max(0, items.length - visibleItems.length);
+  $: visibleItems = items.slice(0, 2);
+  $: hasError = items.some((item) => item.tone === 'error');
 </script>
 
 {#if items.length > 0}
-  <section class="sr-clean-alert-strip" aria-label={ariaLabel}>
-    <div class="sr-clean-alert-strip__items">
+  <section class="entity-alerts" class:is-error={hasError} aria-label={ariaLabel}>
+    <i class={`bi ${hasError ? 'bi-exclamation-octagon' : 'bi-exclamation-triangle'} entity-alerts__icon`} aria-hidden="true"></i>
+    <ul class="entity-alerts__items">
       {#each visibleItems as item (item.key)}
-        <article class={`sr-clean-alert-strip__item is-${item.tone ?? 'warning'}`}>
-          <span class="sr-clean-alert-strip__icon">
-            <i class={`bi ${item.tone === 'error' ? 'bi-x-circle-fill' : 'bi-exclamation-triangle-fill'}`} aria-hidden="true"></i>
-          </span>
-          <div>
-            <strong>{item.title}</strong>
-            {#if item.subtitle}
-              <small>{item.subtitle}</small>
-            {/if}
-          </div>
-        </article>
+        <li>
+          <strong>{item.title}</strong>
+          {#if item.subtitle}<span>{item.subtitle}</span>{/if}
+        </li>
       {/each}
-    </div>
-
-    <button type="button" class="sr-clean-alert-strip__link" on:click={onViewAll}>
-      {t('View all alerts ({itemsCount})', { itemsCount: items.length })}
-      {#if hiddenCount > 0}
-        <span class="visually-hidden">{t(', including {hiddenCount} hidden alerts', { hiddenCount })}</span>
-      {/if}
+    </ul>
+    <button type="button" class="entity-alerts__link" on:click={onViewAll}>
+      {items.length > visibleItems.length
+        ? t('View all alerts ({itemsCount})', { itemsCount: items.length })
+        : t('Details')}
       <i class="bi bi-chevron-right" aria-hidden="true"></i>
     </button>
   </section>
 {/if}
+
+<style>
+  .entity-alerts {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid #fed7aa;
+    border-radius: var(--b2s-radius-md);
+    background: var(--b2s-color-warning-soft);
+    color: #9a3412;
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .entity-alerts.is-error {
+    border-color: #fecaca;
+    background: var(--b2s-color-danger-soft);
+    color: #991b1b;
+  }
+
+  .entity-alerts__icon {
+    font-size: var(--b2s-fs-lg);
+    line-height: 1.3;
+  }
+
+  .entity-alerts__items {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .entity-alerts__items strong {
+    font-weight: 600;
+  }
+
+  .entity-alerts__items span {
+    margin-left: 8px;
+    opacity: 0.8;
+  }
+
+  .entity-alerts__link {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: var(--b2s-fs-sm);
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .entity-alerts__link:hover {
+    text-decoration: underline;
+  }
+</style>

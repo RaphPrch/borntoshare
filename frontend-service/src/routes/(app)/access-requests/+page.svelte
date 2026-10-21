@@ -5,15 +5,19 @@
   import Pagination from '$lib/components/ui/Pagination.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import { t, intlLocale } from '$lib/i18n';
+  import SearchField from '$lib/components/ui/SearchField.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import Drawer from '$lib/components/ui/Drawer.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import { t } from '$lib/i18n';
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
-  import { onDestroy } from 'svelte';
   import { normalizeMe } from '$lib/types/me';
   import { bulkDecision, getAccessRequestDetails } from '$lib/api/access-requests';
   import NewAccessRequestModal from '$lib/components/access-requests/NewAccessRequestModal.svelte';
   import { toast } from '$lib/stores/toast';
-  import { initials, formatDateTime } from '$lib/utils/format';
+  import { initials, formatDateTime, formatDate, timeAgo } from '$lib/utils/format';
+  import { getRequestStatusMeta, requestToneVariant } from '$lib/utils/access-request-status';
   import {
     mapAccessRequestDecisionError,
     mapAccessRequestDecisionErrorFromBulk
@@ -26,19 +30,24 @@
     accessRequestTargetPath
   } from '$lib/mappers/access-requests.mapper';
 
+  type Segment = 'pending' | 'applied' | 'closed' | 'all';
+  type AccessKind = 'read' | 'write' | 'other';
+
   export let data: {
     requests: any[];
-    tabCounts?: Record<string, number>;
-    statusFilter?: string;
+    segment?: Segment;
     query?: string;
     me?: unknown;
-    navigation?: {
-      guardianRootIds?: number[];
-    };
+    navigation?: { guardianRootIds?: number[] };
   };
 
-  type ReviewTab = 'mine' | 'guardians';
-  type QueueKey = 'mine' | 'guardians' | 'all' | 'todo' | 'waiting' | 'done';
+  const DAY = 86_400_000;
+
+  let segment: Segment = data.segment ?? 'pending';
+  let searchText = data.query ?? '';
+  let accessFilter: 'all' | AccessKind = 'all';
+  let listPage = 1;
+  let listPageSize = 10;
 
   let selectedRequestId: number | null = null;
   let selectedRequestDetail: any | null = null;
@@ -46,305 +55,184 @@
   let detailError = '';
   let detailLoadToken = 0;
   let decisionComment = '';
-  let decisionRunning: 'approve' | 'reject' | null = null;
+  let decisionRunning: 'approve' | 'reject' | 'revoke' | null = null;
+  let showRevokeConfirm = false;
   let showCreateRequestModal = false;
   let createPrefillStorageRootId: number | null = null;
   let createPrefillAccessLevel: string | null = null;
   let requestParamId: number | null = null;
   let lastAutoSelectedRequestId: number | null = null;
-  let searchTimer: ReturnType<typeof setTimeout> | null = null;
-  let searchText = data.query ?? '';
-  let activeTab: ReviewTab = data.statusFilter === 'pending' || !data.statusFilter ? 'mine' : 'mine';
-  let activeQueue: QueueKey = data.statusFilter === 'all'
-    ? 'all'
-    : ['approved', 'enforced', 'rejected', 'revoked'].includes(data.statusFilter || '')
-      ? 'done'
-      : 'mine';
-
-  $: requests = data.requests ?? [];
-  $: me = normalizeMe(data.me);
-  $: guardianRootIds = Array.isArray(data.navigation?.guardianRootIds)
-    ? data.navigation?.guardianRootIds.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0)
-    : [];
-  $: canReviewAny = me?.is_admin === true || guardianRootIds.length > 0;
-  $: tabCounts = data.tabCounts ?? {};
-  $: pendingRequests = requests.filter((request) => isPending(request));
-  $: visibleRequests = visibleRowsForQueue(requests, pendingRequests, activeQueue, activeTab).filter(matchesSearch);
-  $: selectedRequest = selectedRequestId
-    ? selectedRequestDetail ?? requests.find((request) => accessRequestId(request) === selectedRequestId) ?? null
-    : null;
-  let listPage = 1;
-  let listPageSize = 10;
-  $: activeQueue, activeTab, searchText, (listPage = 1);
-  $: pageRequests = visibleRequests.slice((listPage - 1) * listPageSize, listPage * listPageSize);
-  $: sidebarCounts = buildSidebarCounts(requests, tabCounts);
-  $: kpis = buildKpis(requests, tabCounts);
-  $: canReviewSelectedRequest = Boolean(selectedRequest) && isReviewAllowed(selectedRequest);
-  $: pageTitle = canReviewAny ? t('Validation des requêtes d\'accès') : t('Mes demandes d\'accès');
-  $: pageSubtitle = canReviewAny
-    ? t('Examinez et décidez les demandes d\'accès gouvernées.')
-    : t('Consultez l\'état et l\'historique de vos demandes d\'accès.');
-  $: {
-    const openCreate = String($page.url.searchParams.get('create') ?? '').toLowerCase();
-    showCreateRequestModal = openCreate === '1' || openCreate === 'true';
-    const prefillRootId = Number($page.url.searchParams.get('root') ?? 0);
-    createPrefillStorageRootId = Number.isFinite(prefillRootId) && prefillRootId > 0 ? prefillRootId : null;
-    const prefillAccessLevel = String($page.url.searchParams.get('permission') ?? '').trim();
-    createPrefillAccessLevel = prefillAccessLevel || null;
-    const targetRequestId = Number($page.url.searchParams.get('request') ?? 0);
-    requestParamId = Number.isFinite(targetRequestId) && targetRequestId > 0 ? targetRequestId : null;
-  }
-
-  $: if (!requestParamId) {
-    lastAutoSelectedRequestId = null;
-  }
-
-  $: if (
-    requestParamId &&
-    requestParamId !== lastAutoSelectedRequestId
-  ) {
-    const target = requests.find((request) => accessRequestId(request) === requestParamId);
-    if (target) {
-      lastAutoSelectedRequestId = requestParamId;
-      selectRequest(target);
-    } else {
-      lastAutoSelectedRequestId = requestParamId;
-      selectedRequestId = requestParamId;
-      selectedRequestDetail = null;
-      detailError = '';
-      decisionComment = '';
-      void loadRequestDetail(requestParamId);
-    }
-  }
 
   const norm = (value: unknown): string => String(value ?? '').trim().toLowerCase();
-  const compactText = (value: unknown, fallback = '—'): string => String(value ?? '').trim() || fallback;
+  const statusOf = (row: any): string => norm(row?.status ?? row?.workflow_status ?? row?.decision_status) || 'pending';
+  const isPending = (row: any): boolean => ['pending', 'waiting', 'review'].some((key) => statusOf(row).includes(key));
+  const isApplied = (row: any): boolean => ['executed', 'approved', 'enforced', 'applied'].includes(statusOf(row));
+  const createdMs = (row: any): number => new Date(String(row?.created_at ?? row?.requested_at ?? '')).getTime() || 0;
+  const expiresMs = (row: any): number => new Date(String(row?.expires_at ?? '')).getTime() || 0;
 
-  function isPending(row: any): boolean {
-    const status = norm(row?.status ?? row?.workflow_status ?? row?.decision_status);
-    return !status || status.includes('pending') || status.includes('waiting') || status.includes('review');
+  function segmentOf(row: any): Exclude<Segment, 'all'> {
+    if (isPending(row)) return 'pending';
+    if (isApplied(row)) return 'applied';
+    return 'closed';
   }
 
-  function stageText(_row: any): string {
-    return t('Guardian review');
+  function accessKind(row: any): AccessKind {
+    const label = norm(accessRequestAccessLabel(row));
+    if (label.includes('write') || label.includes('écriture') || label.includes('contrib')) return 'write';
+    if (label.includes('read') || label.includes('lecture')) return 'read';
+    return 'other';
   }
 
-  function filterRequestsForTab(rows: any[], tab: ReviewTab): any[] {
-    if (tab === 'guardians') return rows;
-    return rows;
-  }
+  const accessLabel = (row: any): string =>
+    ({ read: t('Read'), write: t('Write'), other: accessRequestAccessLabel(row) })[accessKind(row)];
 
-  function visibleRowsForQueue(rows: any[], pendingRows: any[], queue: QueueKey, tab: ReviewTab): any[] {
-    if (queue === 'all') return rows;
-    if (queue === 'done') return rows.filter((row) => !isPending(row));
-    return filterRequestsForTab(pendingRows, tab);
-  }
-
-  function matchesSearch(row: any): boolean {
-    const q = norm(searchText);
-    if (!q) return true;
-    return [requesterName(row), requesterDepartment(row), resourceName(row), resourceZone(row), accessShort(row), stageText(row)]
-      .map(norm)
-      .join(' ')
-      .includes(q);
-  }
-
-  function buildSidebarCounts(rows: any[], counts: Record<string, number>) {
-    const pending = rows.filter(isPending);
-    const guardian = pending.length;
-    const approved = Number(counts.approved ?? 0) + Number(counts.enforced ?? 0);
-    const rejected = Number(counts.rejected ?? 0) + Number(counts.revoked ?? 0);
-    return {
-      mine: pending.length || Number(counts.pending ?? 0),
-      guardians: guardian,
-      all: rows.length,
-      todo: pending.length || Number(counts.pending ?? 0),
-      waiting: 0,
-      done: approved + rejected
-    };
-  }
-
-  function buildKpis(rows: any[], counts: Record<string, number>) {
-    const pending = rows.filter(isPending);
-    const guardian = pending.length;
-    return {
-      guardian: guardian || Number(counts.pending ?? 0),
-      approved: Number(counts.approved ?? 0) + Number(counts.enforced ?? 0)
-    };
-  }
-
-  function isReviewAllowed(row: any): boolean {
-    if (me?.is_admin === true) return true;
-    const storageRootId = storageRootIdFromRow(row);
-    return storageRootId != null && guardianRootIds.includes(storageRootId);
-  }
-
-  function exportRequests(): void {
-    downloadCsv(csvFilename('access-requests'), [
-      { header: t('Requester'), value: requesterName },
-      { header: t('Resource'), value: resourceName },
-      { header: t('Path'), value: resourcePath },
-      { header: t('Access profile'), value: accessShort },
-      { header: t('TTL (days)'), value: ttlDays },
-      { header: t('Step'), value: stageText },
-      { header: t('Requested on'), value: requestedAt }
-    ], visibleRequests);
-  }
-
-  function requesterName(row: any): string {
-    return accessRequestRequesterName(row);
-  }
-
-  function requesterDepartment(row: any): string {
-    return compactText(
-      row?.requested_for_department ??
-        row?.requester_department ??
-        row?.department ??
-        row?.requested_principal_json?.department ??
-        row?.requested_principal?.department,
-      ''
-    );
-  }
-
-  function resourceName(row: any): string {
-    return accessRequestTargetLabel(row);
-  }
-
-  function resourceZone(row: any): string {
-    const zone = compactText(row?.zone_name ?? row?.zone_code ?? row?.storage_zone_name ?? row?.site_name, '');
-    if (!zone) return '';
-    return zone.startsWith('Zone') ? zone : t('Zone {zone}', { zone });
-  }
-
-  function resourcePath(row: any): string {
-    const explicit = compactText(row?.root_path ?? row?.target_path ?? row?.resource_path, '');
-    if (explicit && explicit !== '—') return explicit;
-    const targetPath = accessRequestTargetPath(row);
-    if (targetPath && targetPath !== '—') return targetPath;
-    return '—';
-  }
-
-  function accessShort(row: any): string {
-    const label = accessRequestAccessLabel(row);
-    // label is translated (FR or EN): test both languages
-    const value = norm(label);
-    if (value.includes('write') || value.includes('écriture')) return t('Écriture');
-    if (value.includes('contributor') || value.includes('contribution') || value.includes('contributeur')) return t('Contributeur');
-    if (value.includes('read') || value.includes('lecture')) return t('Lecture');
-    return label;
-  }
-
-  function ttlDays(row: any): number {
+  function durationDays(row: any): number {
     const direct = Number(row?.ttl_days ?? row?.duration_days ?? 0);
     if (Number.isFinite(direct) && direct > 0) return Math.round(direct);
-    const expires = row?.expires_at ? new Date(String(row.expires_at)).getTime() : NaN;
-    const created = row?.created_at ? new Date(String(row.created_at)).getTime() : Date.now();
-    if (Number.isFinite(expires)) return Math.max(1, Math.ceil((expires - created) / 86400000));
-    return 0;
+    const expires = expiresMs(row);
+    return expires ? Math.max(1, Math.ceil((expires - (createdMs(row) || Date.now())) / DAY)) : 0;
   }
 
-  function expiryLabel(row: any): string {
-    const expires = row?.expires_at ? new Date(String(row.expires_at)) : null;
-    if (expires && Number.isFinite(expires.getTime())) {
-      return t('{ttlDays} jours (jusqu\'au {value})', { ttlDays: ttlDays(row), value: (expires.toLocaleDateString(intlLocale())) });
-    }
-    const ttl = ttlDays(row);
-    return ttl > 0 ? t('{ttl} jours', { ttl }) : '—';
+  const durationLabel = (row: any): string => {
+    const days = durationDays(row);
+    return days === 0 ? '—' : days === 1 ? t('1 day') : t('{count} days', { count: days });
+  };
+
+  const requesterName = (row: any): string => accessRequestRequesterName(row);
+  const requesterDepartment = (row: any): string =>
+    String(row?.requested_for_department ?? row?.requester_department ?? row?.department ?? row?.requested_principal_json?.department ?? '').trim();
+  const resourceName = (row: any): string => accessRequestTargetLabel(row);
+  const resourcePath = (row: any): string => {
+    const path = String(row?.root_path ?? row?.target_path ?? row?.resource_path ?? accessRequestTargetPath(row) ?? '').trim();
+    return path && path !== '—' ? path : '';
+  };
+  const requestCode = (row: any): string => String(row?.request_code ?? row?.code ?? `#${accessRequestId(row)}`);
+  const justification = (row: any): string => String(row?.justification ?? row?.business_justification ?? row?.reason ?? '').trim();
+  const statusMeta = (row: any) => {
+    const meta = getRequestStatusMeta(statusOf(row));
+    return isPending(row) ? { ...meta, label: t('Guardian review') } : meta;
+  };
+  const storageRootIdFromRow = (row: any): number | null => {
+    const value = Number(row?.storage_root_id ?? row?.target_id ?? 0);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  };
+
+  $: requests = Array.isArray(data.requests) ? data.requests : [];
+  $: me = normalizeMe(data.me);
+  $: guardianRootIds = (data.navigation?.guardianRootIds ?? []).map(Number).filter((value) => value > 0);
+  $: canReviewAny = me?.is_admin === true || guardianRootIds.length > 0;
+  $: isReviewAllowed = (row: any): boolean =>
+    me?.is_admin === true || (storageRootIdFromRow(row) !== null && guardianRootIds.includes(storageRootIdFromRow(row) as number));
+
+  // Counters (computed on every request the user can see)
+  $: now = Date.now();
+  $: pendingRows = requests.filter(isPending);
+  $: oldestPendingMs = pendingRows.reduce((min, row) => Math.min(min, createdMs(row) || now), now);
+  $: appliedRows = requests.filter(isApplied);
+  $: appliedRecent = appliedRows.filter((row) => now - createdMs(row) <= 30 * DAY).length;
+  $: closedRows = requests.filter((row) => segmentOf(row) === 'closed');
+  $: rejectedCount = closedRows.filter((row) => ['rejected', 'failed'].includes(statusOf(row))).length;
+  $: expiringSoon = appliedRows.filter((row) => expiresMs(row) > now && expiresMs(row) - now <= 7 * DAY).length;
+  $: segmentCounts = { pending: pendingRows.length, applied: appliedRows.length, closed: closedRows.length, all: requests.length };
+
+  $: visibleRequests = requests
+    .filter((row) => segment === 'all' || segmentOf(row) === segment)
+    .filter((row) => accessFilter === 'all' || accessKind(row) === accessFilter)
+    .filter((row) => {
+      const q = norm(searchText);
+      if (!q) return true;
+      return [requesterName(row), requesterDepartment(row), resourceName(row), resourcePath(row), requestCode(row)].map(norm).join(' ').includes(q);
+    })
+    .sort((a, b) => createdMs(b) - createdMs(a));
+  $: segment, accessFilter, searchText, (listPage = 1);
+  $: pageRequests = visibleRequests.slice((listPage - 1) * listPageSize, listPage * listPageSize);
+
+  $: selectedRequest = selectedRequestId
+    ? selectedRequestDetail ?? requests.find((row) => accessRequestId(row) === selectedRequestId) ?? null
+    : null;
+  $: canReviewSelected = Boolean(selectedRequest) && isPending(selectedRequest) && isReviewAllowed(selectedRequest);
+  $: canRevokeSelected =
+    Boolean(selectedRequest) && isApplied(selectedRequest) && isReviewAllowed(selectedRequest) &&
+    (!expiresMs(selectedRequest) || expiresMs(selectedRequest) > now);
+
+  $: {
+    const openCreate = norm($page.url.searchParams.get('create'));
+    showCreateRequestModal = openCreate === '1' || openCreate === 'true';
+    const prefillRootId = Number($page.url.searchParams.get('root') ?? 0);
+    createPrefillStorageRootId = prefillRootId > 0 ? prefillRootId : null;
+    createPrefillAccessLevel = String($page.url.searchParams.get('permission') ?? '').trim() || null;
+    const targetRequestId = Number($page.url.searchParams.get('request') ?? 0);
+    requestParamId = targetRequestId > 0 ? targetRequestId : null;
+  }
+  $: if (!requestParamId) lastAutoSelectedRequestId = null;
+  $: if (requestParamId && requestParamId !== lastAutoSelectedRequestId) {
+    lastAutoSelectedRequestId = requestParamId;
+    const target = requests.find((row) => accessRequestId(row) === requestParamId);
+    if (target) selectRequest(target);
+    else openRequest(requestParamId);
   }
 
-  function requestedAt(row: any): string {
-    const raw = row?.created_at ?? row?.requested_at ?? row?.submitted_at;
-    return formatDateTime(raw);
+  const SEGMENTS: Segment[] = ['pending', 'applied', 'closed', 'all'];
+  // Labels are translated when read
+  const segmentLabel = (key: Segment): string =>
+    ({ pending: t('To review'), applied: t('Applied'), closed: t('Closed'), all: t('All') })[key];
+
+  function setUrl(update: (params: URLSearchParams) => void): void {
+    const params = new URLSearchParams($page.url.searchParams);
+    update(params);
+    const qs = params.toString();
+    goto(`/access-requests${qs ? `?${qs}` : ''}`, { replaceState: true, noScroll: true, keepFocus: true });
   }
 
-  function requestedDateParts(row: any): { date: string; time: string } {
-    const label = requestedAt(row);
-    if (label === '—') return { date: '—', time: '' };
-    const [date, timeRaw] = label.split(' à ');
-    return { date: date || '—', time: timeRaw || '' };
-  }
-
-  function justification(row: any): string {
-    return compactText(
-      row?.justification ?? row?.business_justification ?? row?.reason,
-      '—'
-    );
+  function selectSegment(key: Segment): void {
+    segment = key;
+    setUrl((params) => params.set('status', key));
   }
 
   function selectRequest(row: any): void {
-    const id = accessRequestId(row);
-    selectedRequestId = id;
     selectedRequestDetail = row;
+    openRequest(accessRequestId(row));
+  }
+
+  function openRequest(id: number): void {
+    selectedRequestId = id;
     detailError = '';
     decisionComment = '';
     void loadRequestDetail(id);
   }
 
   async function loadRequestDetail(id: number): Promise<void> {
-    if (!id) return;
     const token = ++detailLoadToken;
     detailLoading = true;
     try {
       const detail = await getAccessRequestDetails(fetch, id);
-      if (token === detailLoadToken && selectedRequestId === id) {
-        selectedRequestDetail = detail;
-      }
+      if (token === detailLoadToken && selectedRequestId === id) selectedRequestDetail = detail;
     } catch {
-      if (token === detailLoadToken) {
-        detailError = "Le détail complet n'a pas pu être chargé.";
-      }
+      if (token === detailLoadToken) detailError = t('The full details could not be loaded.');
     } finally {
-      if (token === detailLoadToken) {
-        detailLoading = false;
-      }
+      if (token === detailLoadToken) detailLoading = false;
     }
   }
 
-  function openQueue(key: QueueKey): void {
-    activeQueue = key;
-    if (key === 'guardians') activeTab = 'guardians';
-    if (key === 'mine' || key === 'todo') activeTab = 'mine';
-    const statusByQueue: Partial<Record<QueueKey, string>> = {
-      all: 'all',
-      done: 'approved',
-      mine: 'pending',
-      todo: 'pending',
-      guardians: 'pending',
-      waiting: 'pending'
-    };
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set('status', statusByQueue[key] ?? 'pending');
-    const qs = params.toString();
-    goto(`/access-requests${qs ? `?${qs}` : ''}`, { replaceState: true, noScroll: true, keepFocus: true });
+  function closeDetail(): void {
+    selectedRequestId = null;
+    selectedRequestDetail = null;
+    detailError = '';
+    detailLoading = false;
+    decisionComment = '';
+    detailLoadToken += 1;
+    if (requestParamId) setUrl((params) => params.delete('request'));
   }
 
-  function switchTab(tab: ReviewTab): void {
-    activeTab = tab;
-    activeQueue = tab === 'mine' ? 'mine' : tab;
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set('status', 'pending');
-    const qs = params.toString();
-    goto(`/access-requests${qs ? `?${qs}` : ''}`, { replaceState: true, noScroll: true, keepFocus: true });
-  }
-
-  function iconForAccess(row: any): string {
-    const access = norm(accessShort(row));
-    if (access.includes('écriture') || access.includes('write')) return 'bi-shield-check';
-    if (access.includes('contrib')) return 'bi-person-gear';
-    return 'bi-file-earmark-lock';
-  }
-
-  async function runDecision(decision: 'approve' | 'reject'): Promise<void> {
+  async function runDecision(decision: 'approve' | 'reject' | 'revoke'): Promise<void> {
     if (!selectedRequest || decisionRunning) return;
     const id = accessRequestId(selectedRequest);
     if (!id) return;
-
     decisionRunning = decision;
     try {
       const comment = decisionComment.trim();
       const result = await bulkDecision(fetch, [id], decision, comment || undefined);
-      const failed = Number(result?.failed_ids?.length ?? 0);
-      if (failed > 0) {
+      if (Number(result?.failed_ids?.length ?? 0) > 0) {
         const mapped = decision === 'approve'
           ? mapAccessRequestDecisionErrorFromBulk(result, { fallbackStorageRootId: storageRootIdFromRow(selectedRequest) })
           : mapAccessRequestDecisionError({
@@ -357,40 +245,37 @@
         if (mapped.hint) toast.info(mapped.hint);
         return;
       }
-
-      detailError = '';
-      toast.success(decision === 'approve' ? t('Requête approuvée.') : t('Requête refusée.'));
-      selectedRequestId = null;
-      decisionComment = '';
+      showRevokeConfirm = false;
+      toast.success({ approve: t('Request approved.'), reject: t('Request rejected.'), revoke: t('Access revoked.') }[decision]);
+      closeDetail();
       await invalidateAll();
     } catch {
-      toast.error(decision === 'approve' ? t('L\'approbation a échoué.') : t('Le refus a échoué.'));
+      toast.error({ approve: t('Approval failed.'), reject: t('Rejection failed.'), revoke: t('Revocation failed.') }[decision]);
     } finally {
       decisionRunning = null;
     }
   }
 
-  function storageRootIdFromRow(row: any): number | null {
-    const direct = Number(row?.storage_root_id ?? row?.target_id ?? 0);
-    if (Number.isFinite(direct) && direct > 0) return direct;
-    return null;
+  function exportRequests(): void {
+    downloadCsv(csvFilename('access-requests'), [
+      { header: t('Code'), value: requestCode },
+      { header: t('Requester'), value: requesterName },
+      { header: t('Resource'), value: resourceName },
+      { header: t('Path'), value: resourcePath },
+      { header: t('Access'), value: accessLabel },
+      { header: t('Duration (days)'), value: durationDays },
+      { header: t('Status'), value: (row: any) => statusMeta(row).label },
+      { header: t('Requested on'), value: (row: any) => formatDateTime(row?.created_at) }
+    ], visibleRequests);
   }
 
-  function closeDetail(): void {
-    selectedRequestId = null;
-    selectedRequestDetail = null;
-    detailError = '';
-    detailLoading = false;
-    decisionComment = '';
-    detailLoadToken += 1;
+  async function openCreateRequestModal(): Promise<void> {
+    setUrl((params) => params.set('create', '1'));
   }
 
   async function closeCreateRequestModal(): Promise<void> {
     showCreateRequestModal = false;
-    const params = new URLSearchParams($page.url.searchParams);
-    params.delete('create');
-    const qs = params.toString();
-    await goto(`/access-requests${qs ? `?${qs}` : ''}`, { replaceState: true, noScroll: true, keepFocus: true });
+    setUrl((params) => params.delete('create'));
   }
 
   async function handleAccessRequestCreated(): Promise<void> {
@@ -398,268 +283,299 @@
     await invalidateAll();
   }
 
-  function timelineEvents(row: any): Array<{ label: string; meta: string; state: 'done' | 'current' | 'waiting' }> {
-    const raw = Array.isArray(row?.timeline) ? row.timeline : [];
-    if (raw.length > 0) {
-      const validationEvents = raw.filter((event: any, index: number) => {
-        const eventType = norm(event?.event_type ?? event?.type ?? event?.action);
-        const message = typeof event?.message === 'string' ? event.message.trim() : '';
-        const isTechnicalSubmit = index === 0 && eventType === 'event' && (message.startsWith('{') || message.startsWith("{'"));
-        return !isTechnicalSubmit &&
-          !eventType.includes('submit') &&
-          !eventType.includes('enforce') &&
-          !eventType.includes('provision');
-      });
-      return [
+  // Progress of the selected request: submitted -> guardian review -> applied -> ends
+  $: progress = selectedRequest
+    ? [
+        { label: t('Submitted'), value: formatDateTime(selectedRequest.created_at), state: 'done' },
+        isPending(selectedRequest)
+          ? { label: t('Guardian review'), value: t('In progress'), state: 'current' }
+          : { label: statusMeta(selectedRequest).label, value: formatDateTime(selectedRequest.decided_at ?? selectedRequest.updated_at), state: isApplied(selectedRequest) ? 'done' : 'stopped' },
         {
-          label: t('Soumise'),
-          meta: requestedAt(row),
-          state: 'done'
+          label: t('Applied'),
+          value: isApplied(selectedRequest) ? t('AD group membership') : '—',
+          state: isApplied(selectedRequest) ? 'done' : 'waiting'
         },
-        ...validationEvents.map((event: any, index: number) => {
-        const eventType = norm(event?.event_type ?? event?.type ?? event?.action);
-        const label = eventType.includes('approve')
-          ? t('Approuvée')
-          : eventType.includes('reject')
-            ? t('Refusée')
-            : eventType.includes('revoke')
-                ? t('Révoquée')
-                : compactText(event?.label ?? event?.event_type ?? event?.action, 'Événement');
-        const date = event?.created_at ? requestedAt({ created_at: event.created_at }) : '';
-        return {
-          label,
-          meta: date,
-          state: index === validationEvents.length - 1 && isPending(row) ? 'current' : 'done'
-        };
-      })
-      ];
-    }
+        {
+          label: t('Ends'),
+          value: expiresMs(selectedRequest) ? formatDate(selectedRequest.expires_at) : durationLabel(selectedRequest),
+          state: expiresMs(selectedRequest) && expiresMs(selectedRequest) < now ? 'done' : 'waiting'
+        }
+      ]
+    : [];
 
-    return [
-      { label: t('Soumise'), meta: t('{requestedAt} par {requesterName}', { requestedAt: requestedAt(row), requesterName: requesterName(row) }), state: 'done' },
-      { label: t('Validation Guardian'), meta: t('En cours'), state: 'current' },
-      { label: t('Provisioning capsule'), meta: t('En attente'), state: 'waiting' }
-    ];
+  $: timeline = selectedRequest && Array.isArray(selectedRequest.timeline) ? selectedRequest.timeline : [];
+
+  // Workflow event types -> readable labels (unknown types keep their own label)
+  // (v_access_request_timeline: provision = execution queued or running, enforce = done, enforce_failed = failed)
+  const EVENT_LABELS: Array<[string, string]> = [
+    ['submit', 'Submitted'],
+    ['approve', 'Approved'],
+    ['reject', 'Rejected'],
+    ['fail', 'AD group change failed'],
+    ['provision', 'AD group change in progress'],
+    ['enforce', 'AD group membership applied'],
+    ['revoke', 'Revoked'],
+    ['expire', 'Expired'],
+    ['comment', 'Comment']
+  ];
+  function eventLabel(event: any): string {
+    const type = norm(event?.event_type ?? event?.type ?? event?.action);
+    const known = EVENT_LABELS.find(([key]) => type.includes(key));
+    return known ? t(known[1]) : String(event?.label ?? event?.event_type ?? t('Event'));
   }
-
-  function onSearchInput(value: string): void {
-    searchText = value;
-    if (searchTimer) clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      const params = new URLSearchParams($page.url.searchParams);
-      const q = value.trim();
-      if (q) params.set('q', q);
-      else params.delete('q');
-      params.set('status', 'pending');
-      const qs = params.toString();
-      goto(`/access-requests${qs ? `?${qs}` : ''}`, { replaceState: true, noScroll: true, keepFocus: true });
-    }, 250);
-  }
-
-  onDestroy(() => {
-    if (searchTimer) clearTimeout(searchTimer);
-  });
-
-  async function openCreateRequestModal(): Promise<void> {
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set('create', '1');
-    const qs = params.toString();
-    await goto(`/access-requests${qs ? `?${qs}` : ''}`, { replaceState: true, noScroll: true, keepFocus: true });
-  }
+  const eventActor = (event: any): string =>
+    String(event?.actor_display ?? event?.actor_name ?? event?.actor ?? '').trim();
 </script>
 
-<section class="ar-shell" class:has-detail={Boolean(selectedRequest)}>
-  <aside class="ar-sidebar" aria-label={t('Navigation des requêtes')}>
-    <label class="ar-search">
-      <i class="bi bi-search" aria-hidden="true"></i>
-      <input
-        value={searchText}
-        on:input={(event) => onSearchInput((event.currentTarget as HTMLInputElement).value)}
-        placeholder={t('Rechercher...')}
-        aria-label={t('Rechercher')}
+<div class="ar-page">
+  <PageHeader
+    title={t('Access requests')}
+    subtitle={canReviewAny ? t('Review, approve and follow governed access to storage roots.') : t('Follow the status of your access requests.')}
+  >
+    <svelte:fragment slot="actions">
+      <button type="button" class="b2s-btn b2s-btn-primary" on:click={openCreateRequestModal}>
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        {t('New request')}
+      </button>
+    </svelte:fragment>
+  </PageHeader>
+
+  <section class="b2s-kpi-grid ar-kpis" aria-label={t('Access requests summary')}>
+    <KpiCard
+      label={canReviewAny ? t('Awaiting review') : t('Pending')}
+      value={pendingRows.length}
+      hint={pendingRows.length > 0 ? t('Oldest: {age}', { age: timeAgo(new Date(oldestPendingMs).toISOString()) }) : t('Nothing to review')}
+      icon="bi-inbox"
+      tone="warning"
+    />
+    <KpiCard label={t('Applied')} value={appliedRows.length} hint={t('{count} in the last 30 days', { count: appliedRecent })} icon="bi-check2-circle" tone="success" />
+    <KpiCard label={t('Rejected or failed')} value={rejectedCount} hint={t('{count} closed in total', { count: closedRows.length })} icon="bi-x-circle" tone="danger" />
+    <KpiCard label={t('Expiring within 7 days')} value={expiringSoon} hint={t('Access ends soon')} icon="bi-clock-history" tone="purple" />
+  </section>
+
+  <section class="b2s-panel ar-list">
+    <div class="ar-toolbar">
+      <div class="ar-segments" role="tablist" aria-label={t('Request status')}>
+        {#each SEGMENTS as key}
+          <button type="button" role="tab" aria-selected={segment === key} class:is-active={segment === key} on:click={() => selectSegment(key)}>
+            {segmentLabel(key)} <span>{segmentCounts[key]}</span>
+          </button>
+        {/each}
+      </div>
+      <SearchField
+        wrapperClass="ar-search"
+        placeholder={t('Search requester, resource, path…')}
+        ariaLabel={t('Search access requests')}
+        bind:value={searchText}
       />
-    </label>
+      <select class="b2s-select" bind:value={accessFilter} aria-label={t('Access')}>
+        <option value="all">{t('All access')}</option>
+        <option value="read">{t('Read')}</option>
+        <option value="write">{t('Write')}</option>
+      </select>
+      <button type="button" class="b2s-btn b2s-btn-secondary ar-export" on:click={exportRequests} disabled={visibleRequests.length === 0}>
+        <i class="bi bi-download" aria-hidden="true"></i>
+        {t('Export')}
+      </button>
+    </div>
 
-    <nav class="ar-nav">
-      <section class="ar-nav-section">
-        <h2><i class="bi bi-clipboard-check" aria-hidden="true"></i>{t('Demandes d\'accès')}</h2>
-        <button type="button" class:active={activeQueue === 'mine'} on:click={() => openQueue('mine')}>
-          <span><i class="bi bi-file-earmark-lock" aria-hidden="true"></i>{t('À valider par moi')}</span>
-          <strong>{sidebarCounts.mine}</strong>
-        </button>
-        <button type="button" class:active={activeQueue === 'guardians'} on:click={() => openQueue('guardians')}>
-          <span><i class="bi bi-person" aria-hidden="true"></i>{t('Guardians')}</span>
-          <strong>{sidebarCounts.guardians}</strong>
-        </button>
-        <button type="button" class:active={activeQueue === 'all'} on:click={() => openQueue('all')}>
-          <span><i class="bi bi-file-earmark-text" aria-hidden="true"></i>{t('Toutes les demandes')}</span>
-          <strong>{sidebarCounts.all}</strong>
-        </button>
-      </section>
-
-      <section class="ar-nav-section">
-        <h2><i class="bi bi-people" aria-hidden="true"></i>{t('Mes validations')}</h2>
-        <button type="button" class:active={activeQueue === 'todo'} on:click={() => openQueue('todo')}>
-          <span><i class="bi bi-hourglass-split" aria-hidden="true"></i>{t('À traiter')}</span>
-          <strong>{sidebarCounts.todo}</strong>
-        </button>
-        <button type="button" class:active={activeQueue === 'done'} on:click={() => openQueue('done')}>
-          <span><i class="bi bi-check-circle" aria-hidden="true"></i>{t('Terminées')}</span>
-          <strong>{sidebarCounts.done}</strong>
-        </button>
-      </section>
-
-    </nav>
-  </aside>
-
-  <main class="ar-main">
-    <PageHeader title={pageTitle} subtitle={pageSubtitle}>
-      <svelte:fragment slot="actions">
-        <button type="button" class="b2s-btn b2s-btn-primary" on:click={openCreateRequestModal}>
-          <i class="bi bi-plus-lg" aria-hidden="true"></i>
-          <span>{t('Create request')}</span>
-        </button>
-      </svelte:fragment>
-    </PageHeader>
-
-    {#if canReviewAny}
-      <div class="ar-tabs" role="tablist" aria-label={t('Files de validation')}>
-        <button type="button" class:active={activeTab === 'mine'} on:click={() => switchTab('mine')}>{t('À valider par moi')}</button>
-        <button type="button" class:active={activeTab === 'guardians'} on:click={() => switchTab('guardians')}>{t('Guardians')}</button>
-      </div>
-    {/if}
-
-    <section class="b2s-kpi-grid ar-kpis" aria-label={t('Synthèse des validations')}>
-      <KpiCard label={t('Pending guardian review')} value={kpis.guardian} icon="bi-hourglass-split" tone="warning" />
-      <KpiCard label={t('Approuvées')} value={kpis.approved} icon="bi-check2-circle" tone="success" />
-    </section>
-
-    <section class="ar-table-card">
-      <header class="ar-table-head">
-        <h2>{canReviewAny ? t('Requêtes d\'accès à valider') : t('Requêtes d\'accès')} ({visibleRequests.length})</h2>
-        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={exportRequests} disabled={visibleRequests.length === 0}>
-          <i class="bi bi-download" aria-hidden="true"></i>
-          {t('Export CSV')}
-        </button>
-      </header>
-
-      <div class="ar-table-scroll">
-        <table class="b2s-table ar-table">
-          <thead>
+    <div class="b2s-table-wrap">
+      <table class="b2s-table ar-table">
+        <thead>
+          <tr>
+            <th>{t('Requester')}</th>
+            <th>{t('Resource')}</th>
+            <th>{t('Access')}</th>
+            <th>{t('Duration')}</th>
+            <th>{t('Status')}</th>
+            <th>{t('Requested')}</th>
+            <th><span class="visually-hidden">{t('Open')}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#if pageRequests.length === 0}
             <tr>
-              <th>{t('Demandeur')}</th>
-              <th>{t('Ressource')}</th>
-              <th>{t('Profil d\'accès')}</th>
-              <th>TTL</th>
-              <th>{t('Étape')}</th>
-              <th>{t('Demandé le')} <i class="bi bi-arrow-down-up" aria-hidden="true"></i></th>
+              <td colspan="7" class="ar-empty">
+                {segment === 'pending' ? t('No request is waiting for a review.') : t('No request matches these filters.')}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {#if pageRequests.length === 0}
-              <tr><td colspan="6" class="ar-empty">{t('Aucune requête à valider.')}</td></tr>
-            {:else}
-              {#each pageRequests as request (accessRequestId(request))}
-                {@const selected = selectedRequestId === accessRequestId(request)}
-                {@const dateParts = requestedDateParts(request)}
-                <tr class:selected on:click={() => selectRequest(request)} tabindex="0" on:keydown={(event) => event.key === 'Enter' && selectRequest(request)}>
-                  <td>
-                    <div class="ar-person">
-                      <span>{initials(requesterName(request), '??')}</span>
-                      <div><strong>{requesterName(request)}</strong>{#if requesterDepartment(request)}<small>{requesterDepartment(request)}</small>{/if}</div>
+          {:else}
+            {#each pageRequests as request (accessRequestId(request))}
+              {@const meta = statusMeta(request)}
+              <tr
+                class:selected={selectedRequestId === accessRequestId(request)}
+                tabindex="0"
+                on:click={() => selectRequest(request)}
+                on:keydown={(event) => event.key === 'Enter' && selectRequest(request)}
+              >
+                <td>
+                  <div class="ar-person">
+                    <span class="ar-avatar">{initials(requesterName(request), '??')}</span>
+                    <div>
+                      <strong>{requesterName(request)}</strong>
+                      {#if requesterDepartment(request)}<small>{requesterDepartment(request)}</small>{/if}
                     </div>
-                  </td>
-                  <td><strong>{resourceName(request)}</strong>{#if resourceZone(request)}<small>{resourceZone(request)}</small>{/if}</td>
-                  <td><span class="access-icon"><i class={`bi ${iconForAccess(request)}`} aria-hidden="true"></i></span>{accessShort(request)}</td>
-                  <td>{ttlDays(request) > 0 ? t('{days} d', { days: ttlDays(request) }) : '—'}</td>
-                  <td><StatusBadge compact showDot={false} variant="info" label={stageText(request)} /></td>
-                  <td><strong>{dateParts.date}</strong><small>{dateParts.time}</small></td>
-                </tr>
-              {/each}
-            {/if}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+                </td>
+                <td>
+                  <strong>{resourceName(request)}</strong>
+                  {#if resourcePath(request)}<small class="ar-mono">{resourcePath(request)}</small>{/if}
+                </td>
+                <td>
+                  <StatusBadge compact showDot={false} variant={accessKind(request) === 'write' ? 'warning' : 'info'} label={accessLabel(request)} />
+                </td>
+                <td class="ar-nowrap">{durationLabel(request)}</td>
+                <td><StatusBadge compact variant={requestToneVariant(meta.tone)} label={meta.label} /></td>
+                <td class="ar-nowrap">
+                  {formatDateTime(request.created_at)}
+                  <small>{timeAgo(request.created_at)}</small>
+                </td>
+                <td class="ar-chevron"><i class="bi bi-chevron-right" aria-hidden="true"></i></td>
+              </tr>
+            {/each}
+          {/if}
+        </tbody>
+      </table>
+    </div>
+    {#if visibleRequests.length > 0}
+      <Pagination total={visibleRequests.length} bind:page={listPage} bind:pageSize={listPageSize} pageSizes={[10, 25, 50]} />
+    {/if}
+  </section>
+</div>
 
-      <footer class="ar-table-footer">
-        <div class="ar-info"><i class="bi bi-info-circle-fill" aria-hidden="true"></i>{t('Les approbations sont appliquées via des profils gouvernés et l\'exécution de capsules.')}</div>
-      </footer>
-      {#if visibleRequests.length > 0}
-        <Pagination total={visibleRequests.length} bind:page={listPage} bind:pageSize={listPageSize} pageSizes={[10, 25, 50]} />
-      {/if}
-    </section>
-  </main>
+<Drawer
+  open={Boolean(selectedRequest)}
+  size="lg"
+  iconClass="bi bi-file-earmark-lock"
+  title={selectedRequest ? `${requesterName(selectedRequest)} → ${resourceName(selectedRequest)}` : ''}
+  subtitle={selectedRequest ? t('Access request {code}', { code: requestCode(selectedRequest) }) : null}
+  ariaLabelledby="access-request-drawer-title"
+  onClose={closeDetail}
+>
+  <svelte:fragment slot="header-meta">
+    {#if selectedRequest}
+      <StatusBadge compact variant={requestToneVariant(statusMeta(selectedRequest).tone)} label={statusMeta(selectedRequest).label} />
+      <StatusBadge compact showDot={false} variant={accessKind(selectedRequest) === 'write' ? 'warning' : 'info'} label={accessLabel(selectedRequest)} />
+      <StatusBadge compact showDot={false} variant="muted" label={durationLabel(selectedRequest)} />
+    {/if}
+  </svelte:fragment>
 
   {#if selectedRequest}
-    <aside class="ar-detail" aria-label={t('Détail de la requête')}>
-      <header>
-        <h2>{t('Détail de la requête')}</h2>
-        <button type="button" class="close-detail" aria-label={t('Fermer le détail')} on:click={closeDetail}><i class="bi bi-x-lg" aria-hidden="true"></i></button>
-      </header>
+    <div class="ar-detail">
+      {#if detailLoading}<LoadingState>{t('Loading full details…')}</LoadingState>{/if}
+      {#if detailError}<InlineAlert tone="error">{detailError}</InlineAlert>{/if}
 
-      <div class="status-pill"><i class="bi bi-hourglass-split" aria-hidden="true"></i>{t('En attente — {stageText}', { stageText: stageText(selectedRequest) })}</div>
-      {#if detailLoading}
-        <LoadingState>{t('Chargement du détail complet...')}</LoadingState>
-      {:else if detailError}
-        <p class="detail-state error">{detailError}</p>
-      {/if}
+      <ol class="ar-progress" aria-label={t('Request progress')}>
+        {#each progress as step}
+          <li class={`is-${step.state}`}>
+            <span>{step.label}</span>
+            <strong>{step.value}</strong>
+          </li>
+        {/each}
+      </ol>
 
-      <section class="detail-section summary">
-        <h3>{t('Résumé de la requête')}</h3>
-        <dl>
-          <div><dt>{t('Demandeur')}</dt><dd>{requesterName(selectedRequest)}{requesterDepartment(selectedRequest) ? ` (${requesterDepartment(selectedRequest)})` : ''}</dd></div>
-          <div><dt>{t('Ressource')}</dt><dd>{resourceName(selectedRequest)}{resourceZone(selectedRequest) ? ` (${resourceZone(selectedRequest)})` : ''}</dd></div>
-          <div><dt>{t('Profil d\'accès demandé')}</dt><dd>{accessShort(selectedRequest)}</dd></div>
-          <div><dt>{t('Demandé le')}</dt><dd>{requestedAt(selectedRequest)}</dd></div>
+      <section>
+        <h3>{t('Request')}</h3>
+        <dl class="b2s-kv">
+          <dt>{t('Requester')}</dt>
+          <dd>
+            <span class="ar-person">
+              <span class="ar-avatar">{initials(requesterName(selectedRequest), '??')}</span>
+              <span>
+                <strong>{requesterName(selectedRequest)}</strong>
+                {#if requesterDepartment(selectedRequest)}<small>{requesterDepartment(selectedRequest)}</small>{/if}
+              </span>
+            </span>
+          </dd>
+          <dt>{t('Resource')}</dt>
+          <dd>{resourceName(selectedRequest)} {#if resourcePath(selectedRequest)}<span class="ar-mono">{resourcePath(selectedRequest)}</span>{/if}</dd>
+          <dt>{t('Access')}</dt>
+          <dd>
+            {accessLabel(selectedRequest)}
+            {#if selectedRequest.group_name || selectedRequest.expected_group_name}
+              · <span class="ar-mono">{selectedRequest.group_name || selectedRequest.expected_group_name}</span>
+            {/if}
+          </dd>
+          <dt>{t('Duration')}</dt>
+          <dd>{durationLabel(selectedRequest)}{expiresMs(selectedRequest) ? ` · ${t('until {date}', { date: formatDate(selectedRequest.expires_at) })}` : ''}</dd>
+          <dt>{t('Requested')}</dt>
+          <dd>{formatDateTime(selectedRequest.created_at)}</dd>
         </dl>
-        <h4>{t('Justification')}</h4>
-        <p>{justification(selectedRequest)}</p>
       </section>
 
-      <section class="detail-section effective">
-        <h3>{t('Aperçu de l\'accès effectif')}</h3>
-        <p class="folder"><i class="bi bi-folder-fill" aria-hidden="true"></i><strong>{resourceName(selectedRequest)}</strong> ({resourcePath(selectedRequest)})</p>
-        <p>{t('Accès en {value} aux fichiers et dossiers de la ressource.', { value: (accessShort(selectedRequest).toLowerCase()) })}</p>
-        {#if selectedRequest.group_name || selectedRequest.expected_group_name}
-          <p class="group-line"><i class="bi bi-people-fill" aria-hidden="true"></i>{selectedRequest.group_name || selectedRequest.expected_group_name}</p>
-        {/if}
+      <section>
+        <h3>{t('Justification')}</h3>
+        <blockquote class="ar-quote">{justification(selectedRequest) || t('No justification provided.')}</blockquote>
       </section>
 
-      <section class="detail-section ttl">
-        <h3>{t('Durée d\'accès demandée (TTL)')}</h3>
-        <p><i class="bi bi-calendar4-week" aria-hidden="true"></i><strong>{expiryLabel(selectedRequest)}</strong></p>
-      </section>
-
-      <section class="detail-section history">
-        <h3>{t('Historique de la requête')}</h3>
-        <ol>
-          {#each timelineEvents(selectedRequest) as event}
-            <li class:done={event.state === 'done'} class:current={event.state === 'current'}>
-              <span></span><strong>{event.label}</strong><small>{event.meta}</small>
-            </li>
-          {/each}
-        </ol>
-      </section>
-
-      {#if canReviewSelectedRequest}
-        <section class="decision-box">
-          <label for="decision-comment">{t('Commentaire de validation (optionnel)')}</label>
-          <textarea id="decision-comment" bind:value={decisionComment} placeholder={t('Ajouter un commentaire...')}></textarea>
-        </section>
-
-        <footer class="detail-actions">
-          <button type="button" class="reject" disabled={Boolean(decisionRunning)} on:click={() => runDecision('reject')}>{decisionRunning === 'reject' ? t('Refus...') : t('Refuser')}</button>
-          <button type="button" class="approve" disabled={Boolean(decisionRunning)} on:click={() => runDecision('approve')}>{decisionRunning === 'approve' ? t('Approbation...') : t('Approuver')}</button>
-        </footer>
-      {:else}
-        <section class="detail-readonly-note" aria-label={t('Demande visible en lecture seule')}>
-          <i class="bi bi-eye" aria-hidden="true"></i>
-          <span>{t('Visible en lecture seule. Cette demande est traitée par un guardian ou un administrateur de plateforme.')}</span>
+      {#if timeline.length > 0}
+        <section>
+          <h3>{t('History')}</h3>
+          <ul class="ar-history">
+            {#each timeline as event}
+              <li>
+                <span>
+                  <strong>{eventLabel(event)}</strong>
+                  {#if eventActor(event)}<small>{t('by {name}', { name: eventActor(event) })}</small>{/if}
+                </span>
+                <small>{formatDateTime(event?.created_at)}</small>
+              </li>
+            {/each}
+          </ul>
         </section>
       {/if}
-    </aside>
+
+      {#if canReviewSelected}
+        <section>
+          <label for="decision-comment" class="ar-label">{t('Comment (optional)')}</label>
+          <textarea id="decision-comment" class="ar-textarea" bind:value={decisionComment} placeholder={t('Explain your decision to the requester…')}></textarea>
+        </section>
+      {/if}
+    </div>
   {/if}
-</section>
+
+  <svelte:fragment slot="footer-start">
+    {#if selectedRequest && canReviewSelected}
+      {t('You can decide on this request.')}
+    {:else if selectedRequest && isPending(selectedRequest)}
+      {t('A guardian of this storage root or a platform administrator decides.')}
+    {:else if canRevokeSelected}
+      {t('Revoking removes the AD group membership now.')}
+    {/if}
+  </svelte:fragment>
+  <svelte:fragment slot="footer">
+    {#if canReviewSelected}
+      <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={Boolean(decisionRunning)} on:click={() => runDecision('reject')}>
+        <i class="bi bi-x-lg" aria-hidden="true"></i>
+        {decisionRunning === 'reject' ? t('Rejecting…') : t('Reject')}
+      </button>
+      <button type="button" class="b2s-btn b2s-btn-primary" disabled={Boolean(decisionRunning)} on:click={() => runDecision('approve')}>
+        <i class="bi bi-check2" aria-hidden="true"></i>
+        {decisionRunning === 'approve' ? t('Approving…') : t('Approve')}
+      </button>
+    {:else}
+      {#if canRevokeSelected}
+        <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={Boolean(decisionRunning)} on:click={() => (showRevokeConfirm = true)}>
+          <i class="bi bi-person-x" aria-hidden="true"></i>
+          {t('Revoke access')}
+        </button>
+      {/if}
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={closeDetail}>{t('Close')}</button>
+    {/if}
+  </svelte:fragment>
+</Drawer>
+
+<ConfirmActionModal
+  open={showRevokeConfirm}
+  onClose={() => (showRevokeConfirm = false)}
+  onConfirm={() => runDecision('revoke')}
+  title={t('Revoke this access?')}
+  subtitle={selectedRequest ? `${requesterName(selectedRequest)} → ${resourceName(selectedRequest)}` : null}
+  impactItems={[t('The AD group membership is removed.'), t('The requester must submit a new request to get access back.')]}
+  confirmLabel={t('Revoke access')}
+  confirmBusyLabel={t('Revoking…')}
+  busy={decisionRunning === 'revoke'}
+/>
 
 <NewAccessRequestModal
   open={showCreateRequestModal}
@@ -670,103 +586,260 @@
 />
 
 <style>
-  :global(.b2s-app-main) { background: #fff; }
-
-  .ar-shell {
-    --ink: #061849;
-    --muted: #53638a;
-    --line: #dfe6f2;
-    --blue: #1155ff;
-    min-height: calc(100vh - 70px);
+  .ar-page {
     display: grid;
-    grid-template-columns: 390px minmax(720px, 1fr);
-    background: var(--b2s-bg);
-    color: var(--ink);
-    font-family: var(--b2s-font-sans);
+    gap: 20px;
+    padding: var(--b2s-page-padding);
   }
 
-  .ar-shell.has-detail { grid-template-columns: 390px minmax(0, 1fr) 400px; }
-  .ar-sidebar { border-right: 1px solid #dfe5f0; background: #fbfcff; padding: 26px 16px 24px; min-width: 0; }
-  .ar-search { height: 52px; border: 1px solid #d7dfef; border-radius: var(--b2s-radius-md); background: #fff; display: flex; align-items: center; gap: 13px; padding: 0 16px; color: #5f73a6; box-shadow: 0 8px 24px rgba(8, 20, 52, 0.03); }
-  .ar-search input { border: 0; outline: 0; width: 100%; color: #172a58; font-weight: 500; font-size: var(--b2s-fs-lg); background: transparent; }
-  .ar-search input::placeholder { color: #6677a0; }
-  .ar-nav { margin-top: 32px; display: grid; gap: 28px; }
-  .ar-nav-section { display: grid; gap: 7px; padding: 0 0 26px; border-bottom: 1px solid #e5ebf4; }
-  .ar-nav-section h2 { margin: 0 0 10px; display: flex; align-items: center; gap: 11px; font-size: var(--b2s-fs-lg); font-weight: 750; color: var(--ink); }
-  .ar-nav-section h2 i { font-size: 19px; color: #0c255d; }
-  .ar-nav button { height: 50px; border: 1px solid transparent; border-radius: var(--b2s-radius-sm); background: transparent; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 28px; color: #102452; font-weight: 560; font-size: var(--b2s-fs-md); text-align: left; }
-  .ar-nav button span { display: flex; align-items: center; gap: 14px; min-width: 0; }
-  .ar-nav button i { font-size: 17px; color: #0b2a68; }
-  .ar-nav button strong { min-width: 28px; height: 28px; border-radius: var(--b2s-radius-pill); background: #f3f6fb; border: 1px solid #dbe3f0; display: inline-flex; align-items: center; justify-content: center; color: #0d45dd; font-size: var(--b2s-fs-sm); }
-  .ar-nav button.active { border-color: #2f66ff; background: #edf4ff; box-shadow: inset 0 0 0 1px rgba(47, 102, 255, 0.08); }
-  .ar-main { padding: var(--b2s-page-padding); min-width: 0; }
-  .ar-tabs { margin-top: 28px; height: 45px; display: flex; gap: 44px; border-bottom: 1px solid #dfe6f2; }
-  .ar-tabs button { border: 0; background: transparent; padding: 0 10px; color: #0c1f4d; font-size: var(--b2s-fs-lg); font-weight: 650; position: relative; }
-  .ar-tabs button.active { color: #0e50f5; }
-  .ar-tabs button.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: #1155ff; border-radius: 4px 4px 0 0; }
-  .ar-kpis { margin-top: 24px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-  .ar-table-card { margin-top: 22px; border: 1px solid #dfe5ef; border-radius: var(--b2s-radius-md); background: #fff; overflow: hidden; box-shadow: 0 16px 40px rgba(6, 24, 73, 0.04); }
-  .ar-table-head { height: 55px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px 0 21px; }
-  .ar-table-head h2 { margin: 0; font-size: var(--b2s-fs-xl); font-weight: 760; color: #061849; }
-  .ar-table-head button { height: 38px; border: 1px solid #dfe6f3; border-radius: var(--b2s-radius-sm); background: #fff; color: #132653; display: inline-flex; align-items: center; gap: 9px; padding: 0 18px; font-size: var(--b2s-fs-md); font-weight: 650; }
-  .ar-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .ar-table th:nth-child(1) { width: 20%; } .ar-table th:nth-child(2) { width: 18%; } .ar-table th:nth-child(3) { width: 17%; } .ar-table th:nth-child(4) { width: 9%; } .ar-table th:nth-child(5) { width: 19%; } .ar-table th:nth-child(6) { width: 17%; }
+  .ar-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  @media (max-width: 1100px) {
+    .ar-kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .ar-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #eef2f7;
+  }
+
+  .ar-segments {
+    display: inline-flex;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 10px;
+    background: #f1f5f9;
+  }
+
+  .ar-segments button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #475569;
+    font-size: var(--b2s-fs-sm);
+    cursor: pointer;
+  }
+
+  .ar-segments button span {
+    padding: 0 6px;
+    border-radius: var(--b2s-radius-pill);
+    background: #e2e8f0;
+    font-size: 11px;
+  }
+
+  .ar-segments button.is-active {
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-text);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+  }
+
+  .ar-toolbar :global(.ar-search) {
+    flex: 1 1 260px;
+    max-width: 360px;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: var(--b2s-radius-sm);
+  }
+
+  .ar-toolbar :global(.ar-search input) {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .ar-export {
+    margin-left: auto;
+  }
+
   .ar-table tbody tr {
-  cursor: pointer;
-}
-  .ar-table td strong { display: block; font-weight: 680; color: #081a4d; }
-  .ar-table td small { display: block; margin-top: 3px; color: #243a70; font-size: var(--b2s-fs-xs); font-weight: 450; }
-  .ar-empty { text-align: center; color: #6677a0 !important; }
-  .ar-person { display: flex; align-items: center; gap: 13px; }
-  .ar-person > span { width: 39px; height: 39px; border-radius: 50%; background: #031951; color: #fff; display: grid; place-items: center; font-size: var(--b2s-fs-lg); font-weight: 900; }
-  .access-icon { width: 22px; color: #0f60ff; display: inline-flex; justify-content: center; margin-right: 12px; font-size: 18px; vertical-align: middle; }
-  .ar-table-footer { min-height: 78px; display: flex; align-items: center; justify-content: space-between; padding: 15px 19px 20px; }
-  .ar-info { min-height: 40px; border-radius: var(--b2s-radius-sm); background: #f4f6fb; color: #24365f; display: inline-flex; align-items: center; gap: 12px; padding: 0 18px; font-size: var(--b2s-fs-sm); font-weight: 550; }
-  .ar-info i { color: #071f59; }
-  .ar-detail { border-left: 1px solid #dfe5f0; background: #fff; padding: 20px 20px 18px; min-width: 0; }
-  .ar-detail > header { height: 40px; display: flex; align-items: center; justify-content: space-between; }
-  .ar-detail h2 { margin: 0; color: #061849; font-size: var(--b2s-fs-xl); font-weight: 760; }
-  .ar-detail header button { border: 0; background: transparent; color: #12306c; font-size: var(--b2s-fs-lg); }
-  .status-pill { width: max-content; margin: 18px auto 16px; height: 38px; border-radius: var(--b2s-radius-pill); border: 1px solid #f2cc90; background: #fff4e2; color: #081a4d; display: flex; align-items: center; gap: 10px; padding: 0 18px; font-size: var(--b2s-fs-md); font-weight: 620; }
-  .status-pill i { color: #f59a00; }
-  .detail-state { margin: -4px 0 8px; color: #4e5f8a; font-size: var(--b2s-fs-sm); font-weight: 700; text-align: center; }
-  .detail-state.error { color: #c22323; }
-  .detail-section { border-bottom: 1px solid #dfe5ef; padding: 14px 0 16px; }
-  .detail-section h3 { margin: 0 0 14px; color: #071b4a; font-size: var(--b2s-fs-lg); font-weight: 720; }
-  .detail-section h4 { margin: 12px 0 5px; font-size: var(--b2s-fs-sm); font-weight: 720; color: #071b4a; }
-  .detail-section p { margin: 0; color: #0f2558; font-size: var(--b2s-fs-md); line-height: 1.45; font-weight: 450; }
-  .summary dl { margin: 0; display: grid; gap: 11px; }
-  .summary dl div { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 12px; }
-  .summary dt { color: #0f2558; font-size: var(--b2s-fs-sm); font-weight: 500; }
-  .summary dd { margin: 0; color: #071b4a; font-size: var(--b2s-fs-sm); font-weight: 650; }
-  .folder { display: flex; align-items: center; gap: 8px; }
-  .folder i { color: #ffb22d; }
-  .group-line { margin-top: 8px !important; display: flex; align-items: center; gap: 8px; color: #12306c !important; font-weight: 620 !important; }
-  .ttl p { display: flex; align-items: center; gap: 10px; }
-  .history ol { list-style: none; margin: 0; padding: 0 0 0 13px; display: grid; gap: 0; }
-  .history li { position: relative; min-height: 46px; padding-left: 31px; color: #0b1d4f; }
-  .history li::before { content: ""; position: absolute; left: 5px; top: 18px; bottom: -18px; width: 2px; background: #c5cfdf; }
-  .history li:last-child::before { display: none; }
-  .history li > span { position: absolute; left: 0; top: 1px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid #9ba8bd; background: #fff; }
-  .history li.done > span { background: #13a538; border-color: #13a538; }
-  .history li.current > span { border-color: #ff9900; }
-  .history strong, .history small { display: block; }
-  .history strong { font-size: var(--b2s-fs-sm); font-weight: 680; }
-  .history small { margin-top: 3px; font-size: var(--b2s-fs-xs); color: #162c63; font-weight: 450; }
-  .decision-box { padding-top: 15px; }
-  .decision-box label { display: block; margin-bottom: 9px; color: #061849; font-size: var(--b2s-fs-sm); font-weight: 680; }
-  .decision-box textarea { width: 100%; height: 65px; border: 1px solid #d8e0ec; border-radius: var(--b2s-radius-sm); resize: vertical; padding: 13px; color: #132653; font-size: var(--b2s-fs-sm); outline: none; }
-  .decision-box textarea::placeholder { color: #63749b; }
-  .detail-readonly-note { margin-top: 18px; min-height: 48px; border-radius: var(--b2s-radius-md); border: 1px solid #d9e3f3; background: #f7faff; color: #17305e; display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: var(--b2s-fs-sm); font-weight: 600; line-height: 1.4; }
-  .detail-readonly-note i { color: #1155ff; font-size: 15px; }
-  .detail-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; }
-  .detail-actions button { flex: 1 1 0; min-width: 0; width: auto; height: 46px; border-radius: var(--b2s-radius-sm); font-size: var(--b2s-fs-md); font-weight: 900; }
-  .detail-actions .reject { border: 1px solid #ff6f6f; background: #fff; color: #ff1f1f; }
-  .detail-actions .approve { border: 1px solid #061849; background: #061849; color: #fff; box-shadow: 0 8px 18px rgba(6, 24, 73, 0.25); }
-
-  @media (max-width: 1300px) {
-    .ar-shell, .ar-shell.has-detail { grid-template-columns: 320px minmax(0, 1fr); }
-    .ar-detail { grid-column: 2; border-left: 0; border-top: 1px solid #dfe5f0; }
+    cursor: pointer;
   }
 
+  .ar-table td small {
+    display: block;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .ar-table td strong {
+    font-weight: 500;
+  }
+
+  .ar-mono {
+    font-family: var(--b2s-font-mono);
+    font-size: var(--b2s-fs-xs);
+    color: var(--b2s-color-text-muted);
+    overflow-wrap: anywhere;
+  }
+
+  .ar-nowrap {
+    white-space: nowrap;
+  }
+
+  .ar-chevron {
+    width: 1%;
+    color: #94a3b8;
+    text-align: right;
+  }
+
+  .ar-empty {
+    padding: 32px 16px;
+    color: var(--b2s-color-text-muted);
+    text-align: center;
+    cursor: default;
+  }
+
+  .ar-person {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .ar-person small {
+    display: block;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .ar-avatar {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border-radius: var(--b2s-radius-pill);
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .ar-detail {
+    display: grid;
+    gap: 22px;
+  }
+
+  .ar-detail h3 {
+    margin: 0 0 10px;
+    font-size: var(--b2s-fs-lg);
+    font-weight: 600;
+  }
+
+  .ar-progress {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid #e5eaf3;
+    border-radius: var(--b2s-radius-md);
+    overflow: hidden;
+  }
+
+  .ar-progress li {
+    display: grid;
+    gap: 2px;
+    padding: 12px 14px;
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .ar-progress li + li {
+    border-left: 1px solid #eef2f7;
+  }
+
+  .ar-progress span {
+    color: var(--b2s-color-text-muted);
+  }
+
+  .ar-progress strong {
+    font-size: var(--b2s-fs-sm);
+    font-weight: 600;
+  }
+
+  .ar-progress li.is-current {
+    background: var(--b2s-color-warning-soft);
+  }
+
+  .ar-progress li.is-current span {
+    color: #c2410c;
+  }
+
+  .ar-progress li.is-stopped {
+    background: var(--b2s-color-danger-soft);
+  }
+
+  .ar-progress li.is-waiting strong {
+    color: #94a3b8;
+  }
+
+  .ar-quote {
+    margin: 0;
+    padding: 12px 14px;
+    border-left: 3px solid #c7d2fe;
+    border-radius: var(--b2s-radius-sm);
+    background: #f8fafc;
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .ar-history {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .ar-history li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ar-history strong {
+    font-weight: 500;
+  }
+
+  .ar-history span small {
+    margin-left: 6px;
+  }
+
+  .ar-history small {
+    color: var(--b2s-color-text-muted);
+    white-space: nowrap;
+  }
+
+  .ar-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: var(--b2s-fs-sm);
+    font-weight: 500;
+  }
+
+  .ar-textarea {
+    width: 100%;
+    min-height: 84px;
+    padding: 10px 12px;
+    border: 1px solid var(--b2s-color-border);
+    border-radius: var(--b2s-radius-sm);
+    font: inherit;
+    font-size: var(--b2s-fs-sm);
+    resize: vertical;
+  }
 </style>

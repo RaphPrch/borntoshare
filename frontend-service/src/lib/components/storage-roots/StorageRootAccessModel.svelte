@@ -1,6 +1,5 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
 
   type AccessModelRow = {
     level: 'read' | 'write';
@@ -18,173 +17,68 @@
 
   export let rows: AccessModelRow[] = [];
   export let onOpenEffectiveAccess: (level: 'read' | 'write') => void = () => {};
-
 </script>
 
-<div class="storage-root-access-model">
-  {#each rows as profile (profile.level)}
-    <div class="storage-root-access-row">
-      <div class="storage-root-access-profile">
-        <span class={`storage-root-access-icon is-${profile.tone}`}><i class={profile.icon}></i></span>
-        <div>
-          <strong>{profile.code}</strong>
-          <small>{profile.label}</small>
-        </div>
-      </div>
-
-      <div class="storage-root-access-cell">
-        <span>{t('Members')}</span>
-        <strong>{profile.users} {profile.users === 1 ? 'user' : 'users'}</strong>
-      </div>
-
-      <div class="storage-root-access-cell">
-        <span>{t('Access')}</span>
-        <strong><i class="bi bi-diagram-3" aria-hidden="true"></i> {profile.groupName ?? profile.adGroup}</strong>
-      </div>
-
-      <div class="storage-root-access-actions">
-        <EntityActionButton
-          variant="secondary"
-          icon="bi-people"
-          label={t('Review members')}
-          onClick={() => onOpenEffectiveAccess(profile.level)}
-        />
-      </div>
-    </div>
-  {/each}
-</div>
+<table class="b2s-table access-model">
+  <thead>
+    <tr>
+      <th>{t('Profile')}</th>
+      <th>{t('AD group')}</th>
+      <th>{t('Members')}</th>
+      <th><span class="visually-hidden">{t('Actions')}</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    {#each rows as profile (profile.level)}
+      <tr>
+        <td>
+          <span class={`access-model__profile is-${profile.tone}`}>
+            <i class={profile.icon} aria-hidden="true"></i>
+            {profile.label}
+          </span>
+        </td>
+        <td class="access-model__group">{profile.groupName ?? profile.adGroup}</td>
+        <td>{profile.users === 1 ? t('1 user') : t('{count} users', { count: profile.users })}</td>
+        <td class="access-model__action">
+          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => onOpenEffectiveAccess(profile.level)}>
+            {t('Review members')}
+          </button>
+        </td>
+      </tr>
+    {/each}
+  </tbody>
+</table>
 
 <style>
-  .storage-root-access-model {
-    max-width: 100%;
-    min-width: 0;
-    display: grid;
-    gap: 0;
-  }
-
-  .storage-root-access-row {
-    box-sizing: border-box;
-    width: 100%;
-    min-width: 0;
-    min-height: 74px;
-    display: grid;
-    grid-template-columns: minmax(170px, 1fr) minmax(88px, 0.4fr) minmax(150px, 0.8fr) minmax(140px, 0.55fr);
-    align-items: center;
-    gap: 14px;
-    border: 1px solid #edf1f7;
-    padding: 12px 14px;
-    background: #fff;
-  }
-
-  .storage-root-access-row:first-child {
-    border-radius: 8px 8px 0 0;
-  }
-
-  .storage-root-access-row:last-child {
-    border-radius: 0 0 8px 8px;
-  }
-
-  .storage-root-access-row + .storage-root-access-row {
-    border-top: 0;
-  }
-
-  .storage-root-access-profile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-  }
-
-  .storage-root-access-profile strong {
-    display: block;
-    color: var(--b2s-color-text, #1f2a44);
-    font-size: var(--b2s-fs-md);
-    font-weight: 700;
-  }
-
-  .storage-root-access-profile small {
-    display: block;
-    color: var(--b2s-color-text-muted, #667085);
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .storage-root-access-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: var(--b2s-radius-sm);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    flex: 0 0 auto;
-  }
-
-  .storage-root-access-icon.is-read {
-    color: #3168d4;
-    background: #e8effd;
-  }
-
-  .storage-root-access-icon.is-write {
-    color: #bf7a1a;
-    background: #fff0dc;
-  }
-
-  .storage-root-access-cell {
-    min-width: 0;
-    display: grid;
-    gap: 3px;
-  }
-
-  .storage-root-access-cell span {
-    color: #64748b;
-    font-size: var(--b2s-fs-sm);
-    font-weight: 650;
-  }
-
-  .storage-root-access-cell strong {
-    color: #10203f;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 650;
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .access-model__profile {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-  }
-
-  .storage-root-access-actions {
-    min-width: 0;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 8px;
-    width: 100%;
-  }
-
-  .storage-root-access-row :global(.b2s-btn) {
-    min-height: 36px;
-    padding: 7px 11px;
+    height: 24px;
+    padding: 0 10px;
+    border: 1px solid #bfdbfe;
+    border-radius: var(--b2s-radius-pill);
+    background: #eff6ff;
+    color: #1d4ed8;
     font-size: var(--b2s-fs-xs);
-    min-width: 0;
-    white-space: normal;
-    flex: 1 1 100%;
-    max-width: 100%;
-    justify-content: center;
+    font-weight: 500;
+    white-space: nowrap;
   }
 
-  .storage-root-access-row :global(.b2s-btn-secondary) {
-    border-color: #ccd8ea;
-    color: #233f66;
-    background: #fff;
+  .access-model__profile.is-write {
+    border-color: #fed7aa;
+    background: #fff7ed;
+    color: #c2410c;
   }
 
-  @media (max-width: 760px) {
-    .storage-root-access-row {
-      grid-template-columns: minmax(0, 1fr);
-      align-items: start;
-    }
+  .access-model__group {
+    font-family: var(--b2s-font-mono);
+    font-size: var(--b2s-fs-xs);
+    overflow-wrap: anywhere;
+  }
+
+  .access-model__action {
+    text-align: right;
+    white-space: nowrap;
   }
 </style>

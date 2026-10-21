@@ -11,6 +11,7 @@
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import StorageEndpointsSidebar from '$lib/components/storage-endpoints/StorageEndpointsSidebar.svelte';
+  import EntityWorkspace from '$lib/components/entity/EntityWorkspace.svelte';
   import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
   import StorageEndpointEditModal from '$lib/components/storage-endpoints/StorageEndpointEditModal.svelte';
   import ProvisioningPolicyScreen from '$lib/components/provisioning/ProvisioningPolicyScreen.svelte';
@@ -848,8 +849,8 @@
           key: 'roots',
           label: t('Governed storage roots'),
           value: String(selectedRoots.length),
-          tone: 'info',
-          icon: 'bi-diagram-3'
+          tone: 'accent',
+          icon: 'bi-folder2'
         },
         {
           key: 'pending',
@@ -857,7 +858,23 @@
           value: String(endpointPendingCount(selected)),
           hint: endpointPendingCount(selected) > 0 ? t('Requests awaiting review') : t('No pending requests'),
           tone: endpointPendingCount(selected) > 0 ? 'warning' : 'neutral',
-          icon: 'bi-inbox'
+          icon: 'bi-hourglass-split'
+        },
+        {
+          key: 'probe',
+          label: t('Last probe'),
+          value: endpointLastProbeLabel(selected),
+          hint: healthLabel(endpointHealth(selected)),
+          tone: endpointHealth(selected) === 'healthy' ? 'success' : 'warning',
+          icon: 'bi-heart-pulse'
+        },
+        {
+          key: 'alerts',
+          label: t('Open alerts'),
+          value: String(endpointAlertItems.length),
+          hint: endpointAlertItems.length > 0 ? t('Review them in the alert list') : t('Nothing to review'),
+          tone: endpointAlertItems.length > 0 ? 'warning' : 'success',
+          icon: endpointAlertItems.length > 0 ? 'bi-exclamation-triangle' : 'bi-check2-circle'
         }
       ]
     : [];
@@ -867,15 +884,8 @@
   const endpointOperationalTone = (ep: any) => endpointHealthToOperationalTone(endpointHealth(ep));
 
   const endpointHeaderMetaItems = (ep: any): OperationalHeaderMetaItem[] => [
-    { icon: 'bi-folder2-open', label: endpointZone(ep) },
-    { icon: 'bi-diagram-3', label: t('{count} governed root{value}', { count: selectedRoots.length, value: (selectedRoots.length > 1 ? 's' : '') }) },
-    {
-      icon: 'bi-inbox',
-      label: t('{endpointPendingCount} pending request{value}', { endpointPendingCount: endpointPendingCount(ep), value: (endpointPendingCount(ep) > 1 ? 's' : '') }),
-      tone: endpointPendingCount(ep) > 0 ? 'warning' : 'neutral'
-    },
-    { icon: 'bi-hdd-network', label: endpointHasHost(ep) ? endpointHost(ep) : t('No host configured'), tone: endpointHasHost(ep) ? 'neutral' : 'warning' },
-    { icon: 'bi-clock-history', label: endpointLastProbeLabel(ep), tone: endpointHealth(ep) === 'healthy' ? 'success' : 'warning' }
+    { icon: 'bi-hdd', label: endpointHasHost(ep) ? endpointHost(ep) : t('No host configured'), tone: endpointHasHost(ep) ? 'neutral' : 'warning', mono: endpointHasHost(ep) },
+    { icon: 'bi-clock-history', label: endpointLastProbeLabel(ep) }
   ];
 
   const endpointAttentionItems = (ep: any, options?: { includeProvisioningWarnings?: boolean }): string[] =>
@@ -958,33 +968,35 @@
 
   const endpointHeaderActions = (ep: any): EntityActionItem[] => [
     {
+      key: 'edit',
+      label: t('Edit'),
+      icon: 'bi-pencil',
+      variant: 'secondary',
+      onClick: () => (showEditModal = true)
+    },
+    {
       key: 'probe',
       label: probingEndpointId === endpointId(ep) ? t('Probe running...') : t('Run probe'),
-      icon: probingEndpointId === endpointId(ep) ? 'bi-arrow-repeat sed-spin' : 'bi-broadcast-pin',
-      variant: 'probe',
+      icon: probingEndpointId === endpointId(ep) ? 'bi-arrow-repeat sed-spin' : 'bi-activity',
+      variant: 'primary',
       disabled: probingEndpointId === endpointId(ep),
       onClick: () => runEndpointProbe(ep)
     },
     {
       key: 'refresh-status',
       label: endpointManualHealthRefreshBusy(ep) ? t('Refreshing...') : t('Refresh status'),
-      icon: endpointManualHealthRefreshBusy(ep) ? 'bi-arrow-repeat sed-spin' : 'bi-arrow-clockwise',
+      icon: 'bi-arrow-clockwise',
       variant: 'secondary',
+      overflow: true,
       disabled: endpointManualHealthRefreshBusy(ep),
       onClick: refreshSelectedEndpointStatus
-    },
-    {
-      key: 'edit',
-      label: t('Edit storage endpoint'),
-      icon: 'bi-pencil-square',
-      variant: 'secondary',
-      onClick: () => (showEditModal = true)
     },
     {
       key: 'delete',
       label: t('Delete storage endpoint'),
       icon: 'bi-trash',
       variant: 'danger',
+      overflow: true,
       onClick: () => openDeleteModal(ep)
     }
   ];
@@ -1135,28 +1147,9 @@
   }
 </script>
 
-<div class="sed-layout" class:sed-layout--empty={!hasEndpoints}>
-  {#if hasEndpoints}
-    <StorageEndpointsSidebar
-      query={search}
-      groups={sidebarGroups}
-      selectedEndpointId={selectedId}
-      isOpenZone={isSidebarZoneOpen}
-      onToggleZone={toggleSidebarZone}
-      onSelectEndpoint={selectSidebarEndpoint}
-      onCreateEndpoint={() => (showWizard = true)}
-      onQueryChange={(value) => (search = value)}
-      showToneDot={false}
-      {endpointId}
-      {endpointName}
-      {endpointTone}
-      {endpointAlertCount}
-      {endpointAlertIndicator}
-    />
-  {/if}
-
+{#if !hasEndpoints}
+<div class="sed-layout sed-layout--empty">
   <main class="sed-main">
-    {#if !hasEndpoints}
       <EmptyState
         containerClass="storage-endpoints-empty"
         iconClass="bi bi-hdd-stack"
@@ -1166,14 +1159,41 @@
         onCta={() => (showWizard = true)}
         hint={t('The wizard guides you step by step.')}
       />
-    {:else if selected}
+  </main>
+</div>
+{:else}
+<EntityWorkspace title={t('Storage endpoints')} subtitle={t('File servers connected to BornToShare and the storage roots they expose.')}>
+  <svelte:fragment slot="actions">
+    <button type="button" class="b2s-btn b2s-btn-primary" on:click={() => (showWizard = true)}>
+      <i class="bi bi-plus-lg" aria-hidden="true"></i>
+      {t('New endpoint')}
+    </button>
+  </svelte:fragment>
+  <svelte:fragment slot="list">
+    <StorageEndpointsSidebar
+      query={search}
+      groups={sidebarGroups}
+      selectedEndpointId={selectedId}
+      isOpenZone={isSidebarZoneOpen}
+      onToggleZone={toggleSidebarZone}
+      onSelectEndpoint={selectSidebarEndpoint}
+      onQueryChange={(value) => (search = value)}
+      {endpointId}
+      {endpointName}
+      {endpointHost}
+      {endpointTone}
+      {endpointAlertCount}
+      {endpointAlertIndicator}
+    />
+  </svelte:fragment>
+    {#if selected}
       <EntityConsoleShell>
         <svelte:fragment slot="header">
           {#key healthState}
           <EntityHeader
-            eyebrow={t('Storage endpoint')}
-            title={t('{endpointName} Console', { endpointName: endpointName(selected) })}
-            subtitle={endpointHost(selected) || endpointZone(selected)}
+            iconClass="bi-hdd-network"
+            eyebrow={t('Storage endpoint · Zone {zone}', { zone: endpointZone(selected) })}
+            title={endpointName(selected)}
             metaItems={endpointHeaderMetaItems(selected)}
             statusLabel={healthLabel(endpointHealth(selected))}
             statusTone={endpointOperationalTone(selected)}
@@ -1186,6 +1206,7 @@
             onViewAll={() => (showEndpointAlertsDrawer = true)}
             ariaLabel={t('Storage endpoint alerts')}
           />
+          <EntityKpiRow items={kpiItems} ariaLabel={t('Storage endpoint KPIs')} />
           {/key}
         </svelte:fragment>
 
@@ -1201,14 +1222,23 @@
         {#if activeEndpointTab === 'overview'}
           <EntityOverviewLayout>
             <svelte:fragment slot="main">
-              <EntityKpiRow items={kpiItems} ariaLabel={t('Storage endpoint KPIs')} />
-
               <EntityOverviewPanel title={t('Governed storage roots')} panelClass="sed-panel--governed">
                 <AssociatedRootsTable rows={rootsFilteredRows.slice(0, 10)} dense={true} emptyLabel={t('No associated roots')} />
               </EntityOverviewPanel>
             </svelte:fragment>
 
             <svelte:fragment slot="side">
+              <article class="b2s-panel">
+                <div class="b2s-panel__head"><h2>{t('Connection')}</h2></div>
+                <div class="b2s-panel__body">
+                  <dl class="b2s-kv">
+                    <dt>{t('Host')}</dt><dd>{endpointHasHost(selected) ? endpointHost(selected) : '—'}</dd>
+                    <dt>{t('Protocol')}</dt><dd>{String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase()}</dd>
+                    <dt>{t('Share')}</dt><dd>{String(selected?.base_path ?? '—')}</dd>
+                    <dt>{t('Zone')}</dt><dd>{endpointZone(selected)}</dd>
+                  </dl>
+                </div>
+              </article>
               <RecentActivityCard
                 title={t('Recent activity')}
                 items={activity}
@@ -1243,8 +1273,8 @@
         {/if}
       </EntityConsoleShell>
     {/if}
-  </main>
-</div>
+</EntityWorkspace>
+{/if}
 
 <ActivityDetailsDrawer
   open={activityDetailsOpen}

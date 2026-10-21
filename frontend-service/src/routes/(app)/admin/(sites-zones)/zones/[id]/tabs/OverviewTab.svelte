@@ -1,8 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
+  import { breakable } from '$lib/utils/format';
   import EntityOverviewPanel from "$lib/components/entity/EntityOverviewPanel.svelte";
-  import EntityKpiRow from "$lib/components/entity/EntityKpiRow.svelte";
-  import type { EntityKpiItem } from '$lib/components/entity/EntityKpiRow.svelte';
   import EntityOverviewLayout from "$lib/components/entity/EntityOverviewLayout.svelte";
   import ZoneEndpointsTable from "../components/ZoneEndpointsTable.svelte";
   import RecentActivityCard from "$lib/components/activity/RecentActivityCard.svelte";
@@ -10,6 +9,8 @@
   export let zone: any;
   export let endpoints: any[] = [];
   export let storageRootCount = 0;
+  export let namingTemplateLabel = '';
+  export let provisioningOu = '';
   export let probeResultsByEndpoint: Record<string, string> = {};
   export let activity: any[] = [];
   export let healthSummary: {
@@ -27,41 +28,6 @@
   export let onViewAllActivity: (() => void) | null = null;
   export let onSelectActivity: ((entry: any) => void) | null = null;
 
-  $: availabilityRate = healthSummary.endpointCount > 0
-    ? `${Math.round((healthSummary.reachableCount / healthSummary.endpointCount) * 100)}%`
-    : "0%";
-  let reachabilityTone: EntityKpiItem["tone"] = "neutral";
-  $: reachabilityTone = healthSummary.endpointCount === 0
-    ? "neutral"
-    : (healthSummary.unhealthyCount ?? 0) > 0
-      ? "danger"
-      : "success";
-
-  let kpis: EntityKpiItem[] = [];
-  $: kpis = [
-    {
-      key: "endpoints",
-      label: t('Endpoints'),
-      value: String(endpoints.length),
-      tone: "info",
-      icon: "bi-hdd-network"
-    },
-    {
-      key: "roots",
-      label: t('Storage roots'),
-      value: String(storageRootCount),
-      tone: "neutral",
-      icon: "bi-diagram-3"
-    },
-    {
-      key: "reachability",
-      label: t('Reachability'),
-      value: availabilityRate,
-      hint: t('{reachableCount}/{value} reachable', { reachableCount: healthSummary.reachableCount, value: (healthSummary.endpointCount || 0) }),
-      tone: reachabilityTone,
-      icon: "bi-heart-pulse"
-    }
-  ];
 
   $: latestActivity = activity.slice(0, 5);
 </script>
@@ -69,13 +35,9 @@
 <div class="zone-console__stack">
   <EntityOverviewLayout>
     <svelte:fragment slot="main">
-      <EntityOverviewPanel title={t('Overview KPIs')} bodyClass="p-3">
-        <EntityKpiRow items={kpis} ariaLabel={t('Zone KPIs')} />
-      </EntityOverviewPanel>
-
-      <EntityOverviewPanel title={t('Endpoints')} headClass="sed-panel__head--toolbar" bodyClass="p-3 pt-2">
+      <EntityOverviewPanel title={t('Storage endpoints')}>
         <svelte:fragment slot="actions">
-          <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => onCreateEndpoint?.()}>
+          <button type="button" class="b2s-panel__link" on:click={() => onCreateEndpoint?.()}>
             {t('Add endpoint')}
           </button>
         </svelte:fragment>
@@ -84,6 +46,17 @@
     </svelte:fragment>
 
     <svelte:fragment slot="side">
+      <article class="b2s-panel">
+        <div class="b2s-panel__head"><h2>{t('Details')}</h2></div>
+        <div class="b2s-panel__body">
+          <dl class="b2s-kv">
+            <dt>{t('Code')}</dt><dd>{zone?.code ?? '—'}</dd>
+            <dt>{t('Storage roots')}</dt><dd>{storageRootCount}</dd>
+            <dt>{t('Naming template')}</dt><dd class="zone-overview__mono">{breakable(namingTemplateLabel) || '—'}</dd>
+            <dt>{t('Provisioning OU')}</dt><dd>{breakable(provisioningOu) || '—'}</dd>
+          </dl>
+        </div>
+      </article>
       <RecentActivityCard
         title={t('Recent activity')}
         items={latestActivity}
@@ -94,3 +67,10 @@
     </svelte:fragment>
   </EntityOverviewLayout>
 </div>
+
+<style>
+  .zone-overview__mono {
+    font-family: var(--b2s-font-mono);
+    font-size: var(--b2s-fs-xs);
+  }
+</style>

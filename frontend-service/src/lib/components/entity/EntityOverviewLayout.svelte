@@ -1,9 +1,9 @@
-<section class="sed-overview-grid">
-  <div class="sed-overview-main">
+<section class="b2s-detail-columns">
+  <div>
     <slot name="main" />
   </div>
 
-  <aside class="sed-overview-side">
+  <aside>
     <slot name="side" />
   </aside>
 </section>

@@ -5,9 +5,9 @@
   export let panelClass = '';
 </script>
 
-<article class={`sed-panel ${panelClass}`.trim()}>
-  <div class={`sed-panel__head ${headClass}`.trim()}>
-    <h3>{title}</h3>
+<article class={`b2s-panel ${panelClass}`.trim()}>
+  <div class={`b2s-panel__head ${headClass}`.trim()}>
+    <h2>{title}</h2>
     <slot name="actions" />
   </div>
 
@@ -15,4 +15,3 @@
     <slot />
   </div>
 </article>
-

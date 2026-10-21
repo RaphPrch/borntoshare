@@ -27,9 +27,11 @@ export const load: LayoutServerLoad = async (event: LayoutServerLoadEvent) => {
 
   const endpointRows = Array.isArray(endpoints) ? endpoints : [];
   const zoneHealthById = new Map<number, "ok" | "warning">();
+  const endpointCountByZone = new Map<number, number>();
   for (const endpoint of endpointRows) {
     const zoneId = Number(endpoint?.zone_id ?? endpoint?.zone?.id ?? 0);
     if (!Number.isFinite(zoneId) || zoneId <= 0) continue;
+    endpointCountByZone.set(zoneId, (endpointCountByZone.get(zoneId) ?? 0) + 1);
     const operationalState = String(endpoint?.operational_state ?? '').trim().toLowerCase();
     const isWarning = operationalState !== 'reachable';
 
@@ -45,6 +47,7 @@ export const load: LayoutServerLoad = async (event: LayoutServerLoadEvent) => {
     const operationalSummary = String(zone?.operational_summary ?? '').trim().toLowerCase();
     return {
       ...zone,
+      endpointCount: endpointCountByZone.get(zoneId) ?? 0,
       // Keep sidebar health semantics aligned with zone page backend summary.
       healthLabel:
         operationalSummary === 'healthy'

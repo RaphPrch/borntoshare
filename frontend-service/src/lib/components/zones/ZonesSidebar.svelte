@@ -5,6 +5,7 @@
     code?: string | null;
     is_active?: boolean;
     healthLabel?: "ok" | "warning";
+    endpointCount?: number;
   };
 </script>
 
@@ -17,9 +18,9 @@
   export let zones: ZonesSidebarZone[] = [];
   export let selectedZoneId: number | null = null;
   export let onSelectZone: ((id: number) => void) | null = null;
-  export let onCreateZone: (() => void) | null = null;
 
   let q = "";
+  let filter = "all";
 
   const norm = (v?: string | null) => (v ?? "").toLowerCase().trim();
 
@@ -34,8 +35,15 @@
   $: query = norm(q);
   $: filtered = sortedZones.filter((z) => {
     const haystack = [norm(z.name), norm(z.code)].join(" ");
-    return query === "" || haystack.includes(query);
+    return (query === "" || haystack.includes(query)) && (filter === "all" || z.healthLabel === "warning");
   });
+  $: warningCount = zones.filter((z) => z.healthLabel === "warning").length;
+  $: filters = [
+    { key: "all", label: t("All"), count: zones.length },
+    { key: "warning", label: t("Needs attention"), count: warningCount }
+  ];
+  const endpointsLabel = (count: number) =>
+    count === 1 ? t("1 endpoint") : t("{count} endpoints", { count });
 
   $: treeGroups = [{
     id: 'zones',
@@ -43,7 +51,8 @@
     items: filtered.map((zone) => ({
       id: zone.id,
       label: zone.name,
-      secondary: zone.code ?? null,
+      subtitle: [zone.code, endpointsLabel(Number(zone.endpointCount ?? 0))].filter(Boolean).join(" · "),
+      icon: "bi-diagram-2",
       tone: zone.healthLabel === 'warning' ? 'warning' : 'healthy',
       indicator: null,
       raw: zone
@@ -52,8 +61,7 @@
 </script>
 
 <EntitySidebarTree
-  ariaLabel={t('Zones sidebar')}
-  createLabel={t('New zone')}
+  ariaLabel={t('Zones')}
   searchPlaceholder={t('Search zone or code')}
   searchAriaLabel={t('Search zone or code')}
   emptyLabel={t('No zone matches your search.')}
@@ -61,7 +69,9 @@
   groups={treeGroups}
   selectedId={selectedZoneId}
   grouped={false}
-  onCreate={onCreateZone}
+  {filters}
+  activeFilter={filter}
+  onFilter={(key) => (filter = key)}
   onQueryChange={(value) => (q = value)}
   onSelect={(id) => onSelectZone?.(Number(id))}
 />

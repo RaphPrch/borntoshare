@@ -1572,9 +1572,6 @@ INSERT INTO access_request_item_executions (
   finished_at
 )
 VALUES
-  (@ar_pending_id, @ari_pending_id, 'PENDING', NULL, JSON_OBJECT('access_level', 'read'), JSON_OBJECT(), NULL, NULL),
-  (@ar_pending_2_id, @ari_pending_2_id, 'PENDING', NULL, JSON_OBJECT('access_level', 'write'), JSON_OBJECT(), NULL, NULL),
-  (@ar_pending_3_id, @ari_pending_3_id, 'PENDING', NULL, JSON_OBJECT('access_level', 'read'), JSON_OBJECT(), NULL, NULL),
   (@ar_approved_id, @ari_approved_id, 'RUNNING', NULL, JSON_OBJECT('access_level', 'read', 'target_group', 'B2S_HR_READ'), JSON_OBJECT('job', 'membership_update'), UTC_TIMESTAMP() - INTERVAL 45 MINUTE, NULL),
   (@ar_approved_2_id, @ari_approved_2_id, 'RUNNING', NULL, JSON_OBJECT('access_level', 'read', 'target_group', 'B2S_LEGAL_READ'), JSON_OBJECT('job', 'membership_update'), UTC_TIMESTAMP() - INTERVAL 10 MINUTE, NULL),
   (@ar_executed_id, @ari_executed_id, 'DONE', NULL, JSON_OBJECT('access_level', 'read', 'target_group', 'B2S_FINANCE_READ'), JSON_OBJECT('membership_added', true), UTC_TIMESTAMP() - INTERVAL 3 DAY + INTERVAL 2 MINUTE, UTC_TIMESTAMP() - INTERVAL 3 DAY + INTERVAL 10 MINUTE),

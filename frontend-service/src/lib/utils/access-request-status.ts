@@ -49,9 +49,3 @@ const REQUEST_TONE_VARIANTS: Record<string, StatusVariant> = {
 
 export const requestToneVariant = (tone?: string | null): StatusVariant =>
   REQUEST_TONE_VARIANTS[String(tone ?? '')] ?? 'muted';
-
-export const isProvisioningInFlight = (items: any[]): boolean =>
-  (items ?? []).some((p: any) => {
-    const v = String(p?.status ?? '').toLowerCase();
-    return v === 'queued' || v === 'running';
-  });

@@ -14,6 +14,10 @@
   export let statusTone: HeaderTone = 'neutral';
   export let showStatusBadge = false;
   export let pathLabel = '—';
+  export let zoneLabel = '';
+  export let endpointLabel = '';
+  export let aclLabel = '';
+  export let aclTone: 'info' | 'warning' = 'info';
   export let rootProbeBusy = false;
   export let selectedStorageRootId: number | null = null;
   export let onRunRootProbe: () => void = () => {};
@@ -24,20 +28,22 @@
   $: actionsDisabled = !selectedStorageRootId;
   $: resolvedStatusTone = (statusTone === 'error' ? 'danger' : statusTone) as OperationalHeaderTone;
   $: metaItems = [
-    { icon: 'bi-folder2-open', label: pathLabel }
+    { icon: 'bi-hdd-network', label: pathLabel, mono: true },
+    ...(endpointLabel && endpointLabel !== '—' ? [{ icon: 'bi-server', label: endpointLabel }] : []),
+    ...(aclLabel ? [{ label: aclLabel, tone: aclTone }] : [])
   ] satisfies OperationalHeaderMetaItem[];
   $: actions = [
     {
       key: 'probe',
       label: rootProbeBusy ? t('Probe running...') : t('Run probe'),
-      icon: rootProbeBusy ? 'bi-arrow-repeat sed-spin' : 'bi-broadcast-pin',
-      variant: 'probe',
+      icon: rootProbeBusy ? 'bi-arrow-repeat sed-spin' : 'bi-activity',
+      variant: 'secondary',
       disabled: actionsDisabled || rootProbeBusy,
       onClick: onRunRootProbe
     },
     {
       key: 'access-request',
-      label: t('New access request'),
+      label: t('Request access'),
       icon: 'bi-plus-lg',
       variant: 'primary',
       disabled: actionsDisabled,
@@ -65,7 +71,8 @@
 </script>
 
 <EntityHeader
-  eyebrow=""
+  iconClass="bi-folder2-open"
+  eyebrow={zoneLabel ? t('Storage root · Zone {zone}', { zone: zoneLabel }) : t('Storage root')}
   {title}
   statusLabel={showStatusBadge ? statusLabel : ''}
   statusTone={showStatusBadge ? resolvedStatusTone : 'neutral'}

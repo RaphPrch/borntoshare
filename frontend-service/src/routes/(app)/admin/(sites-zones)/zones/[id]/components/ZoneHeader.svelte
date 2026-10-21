@@ -15,39 +15,30 @@
   export let showAttention = false;
   export let onEdit: (() => void) | null = null;
   export let onDelete: (() => void) | null = null;
+  export let onAddEndpoint: (() => void) | null = null;
 
   $: statusTone = healthLabelToOperationalTone(healthLabel);
-  $: statusLabel = healthLabel === "ok" ? t('Health OK') : t('Health Warning');
+  $: statusLabel = healthLabel === "ok" ? t('All endpoints reachable') : t('Needs attention');
   $: zoneMetaItems = [
-    { icon: "bi-hash", label: String(zone?.code ?? "-") },
-    { icon: "bi-hdd-network", label: t('{endpointCount} endpoint{value}', { endpointCount, value: (endpointCount > 1 ? "s" : "") }) }
+    { label: String(zone?.code ?? "-"), mono: true },
+    { icon: "bi-hdd-network", label: endpointCount === 1 ? t('1 endpoint') : t('{count} endpoints', { count: endpointCount }) }
   ] satisfies OperationalHeaderMetaItem[];
   $: actions = [
-    {
-      key: "edit",
-      label: t('Edit zone'),
-      icon: "bi-pencil-square",
-      variant: "secondary",
-      onClick: () => onEdit?.()
-    },
-    {
-      key: "delete",
-      label: t('Delete zone'),
-      icon: "bi-trash",
-      variant: "danger",
-      onClick: () => onDelete?.()
-    }
+    { key: "edit", label: t('Edit'), icon: "bi-pencil", variant: "secondary", onClick: () => onEdit?.() },
+    ...(onAddEndpoint
+      ? [{ key: "add-endpoint", label: t('Add endpoint'), icon: "bi-plus-lg", variant: "primary" as const, onClick: () => onAddEndpoint?.() }]
+      : []),
+    { key: "delete", label: t('Delete zone'), icon: "bi-trash", variant: "danger", overflow: true, onClick: () => onDelete?.() }
   ] satisfies EntityActionItem[];
 </script>
 
 <EntityHeader
-  eyebrow=""
-  title={t('{value} Console', { value: (zone?.name ?? t('Zone')) })}
-  subtitle={String(zone?.site_name ?? "")}
+  iconClass="bi-diagram-2"
+  eyebrow={t('Zone')}
+  title={zone?.name ?? t('Zone')}
   metaItems={zoneMetaItems}
   {statusTone}
-  statusLabel=""
-  statusIconClass=""
+  {statusLabel}
   {showAttention}
   attentionTitle={t('Attention required')}
   {attentionItems}

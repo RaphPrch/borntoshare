@@ -19,216 +19,140 @@
     return 'info';
   };
 
+  const actorOf = (entry: any): string =>
+    String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? t('System'));
+
   $: visible = max === null ? (Array.isArray(items) ? items : []) : (Array.isArray(items) ? items : []).slice(0, max);
 </script>
 
-<article class="activity-summary-card">
-  <div class="activity-summary-card__head">
+<article class="b2s-panel activity-card">
+  <div class="b2s-panel__head">
     <h2>{title}</h2>
     {#if onViewAll}
-      <button type="button" class="activity-summary-card__link" on:click={() => onViewAll?.()}>
-        {t('View all activity')}
-      </button>
+      <button type="button" class="b2s-panel__link" on:click={() => onViewAll?.()}>{t('View all')}</button>
     {/if}
   </div>
 
   {#if visible.length === 0}
-    <div class="activity-summary-card__empty">
+    <div class="activity-card__empty">
       <strong>{emptyLabel}</strong>
       <span>{emptyText}</span>
     </div>
   {:else}
-    <div class="activity-summary-card__list">
+    <ul class="activity-card__list">
       {#each visible as entry, idx (entry.id ?? `${entry.created_at ?? entry.event_time ?? entry.timestamp ?? ''}-${idx}`)}
         {@const rendered = formatActivityItem(entry)}
-        {#if onSelect}
-          <button type="button" class="activity-summary-card__row is-clickable" on:click={() => onSelect?.(entry)}>
-            <span class={`activity-summary-card__icon is-${iconTone(rendered)}`} aria-hidden="true">
+        <li>
+          <svelte:element
+            this={onSelect ? 'button' : 'div'}
+            type={onSelect ? 'button' : undefined}
+            class="activity-card__row"
+            class:is-clickable={Boolean(onSelect)}
+            role={onSelect ? undefined : 'group'}
+            on:click={() => onSelect?.(entry)}
+          >
+            <span class={`activity-card__icon is-${iconTone(rendered)}`} aria-hidden="true">
               <i class={`bi bi-${rendered.icon ?? 'info-circle'}`}></i>
             </span>
-            <span class="activity-summary-card__copy">
+            <span class="activity-card__copy">
               <strong>{rendered.title ?? String(entry.action ?? t('Activity'))}</strong>
-              <small>{rendered.subtitle1 ?? String(entry.actor_display_name ?? entry.actor_name ?? t('System'))}</small>
+              {#if rendered.subtitle1}<small>{rendered.subtitle1}</small>{/if}
+              <span class="activity-card__meta">
+                {actorOf(entry)} · {timeAgo(entry.created_at ?? entry.event_time ?? entry.timestamp ?? null) || '—'}
+              </span>
             </span>
-            <time>{timeAgo(entry.created_at ?? entry.event_time ?? entry.timestamp ?? null) || '—'}</time>
-            <span class="activity-summary-card__actor">{String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? t('System'))}</span>
-          </button>
-        {:else}
-        <div class="activity-summary-card__row">
-          <span class={`activity-summary-card__icon is-${iconTone(rendered)}`} aria-hidden="true">
-            <i class={`bi bi-${rendered.icon ?? 'info-circle'}`}></i>
-          </span>
-          <span class="activity-summary-card__copy">
-            <strong>{rendered.title ?? String(entry.action ?? t('Activity'))}</strong>
-            <small>{rendered.subtitle1 ?? String(entry.actor_display_name ?? entry.actor_name ?? t('System'))}</small>
-          </span>
-          <time>{timeAgo(entry.created_at ?? entry.event_time ?? entry.timestamp ?? null) || '—'}</time>
-          <span class="activity-summary-card__actor">{String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? t('System'))}</span>
-        </div>
-        {/if}
+          </svelte:element>
+        </li>
       {/each}
-    </div>
+    </ul>
   {/if}
-
 </article>
 
 <style>
-  .activity-summary-card {
-    min-width: 0;
-    min-height: 166px;
-    border: 1px solid #dfe7f3;
-    border-radius: var(--b2s-radius-sm);
-    background: #fff;
-    padding: 16px 18px;
-    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.025);
-    display: grid;
-    align-content: start;
-  }
-
-  .activity-summary-card__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-
-  .activity-summary-card__head h2 {
+  .activity-card__list {
     margin: 0;
-    color: #0f1f3d;
-    font-size: var(--b2s-fs-md);
-    font-weight: 700;
-    letter-spacing: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
+    padding: 0;
+    list-style: none;
   }
 
-  .activity-summary-card__empty {
-    min-height: 78px;
-    display: grid;
-    place-content: center;
-    gap: 4px;
-    text-align: center;
-    color: #637493;
+  .activity-card__list li + li {
+    border-top: 1px solid #f1f5f9;
   }
 
-  .activity-summary-card__empty strong {
-    color: #637493;
-    font-size: var(--b2s-fs-md);
-    font-weight: 600;
-  }
-
-  .activity-summary-card__empty span {
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .activity-summary-card__list {
-    display: grid;
-  }
-
-  .activity-summary-card__row {
-    min-width: 0;
+  .activity-card__row {
     width: 100%;
-    display: grid;
-    grid-template-columns: 24px minmax(0, 1fr) minmax(130px, auto) minmax(72px, auto);
+    display: flex;
+    align-items: flex-start;
     gap: 12px;
-    align-items: center;
-    border: 0;
-    border-top: 1px solid #edf1f7;
-    border-radius: 0;
-    background: #fff;
-    padding: 10px 0;
+    padding: 12px 20px;
+    border: none;
+    background: transparent;
+    color: inherit;
     text-align: left;
   }
 
-  .activity-summary-card__row:last-child {
-    border-bottom: 1px solid #edf1f7;
+  .activity-card__row.is-clickable {
+    cursor: pointer;
   }
 
-  .activity-summary-card__row.is-clickable:hover {
-    border-color: #d5e3fb;
-    background: #f7faff;
+  .activity-card__row.is-clickable:hover {
+    background: #f8fafc;
   }
 
-  .activity-summary-card__icon {
-    width: 22px;
-    height: 22px;
-    border-radius: var(--b2s-radius-pill);
-    display: inline-grid;
+  .activity-card__icon {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    display: grid;
     place-items: center;
-    font-size: 14px;
-    line-height: 1;
+    border-radius: var(--b2s-radius-pill);
+    font-size: var(--b2s-fs-md);
+    background: #eaf2ff;
+    color: #1d4ed8;
   }
 
-  .activity-summary-card__icon i {
-    display: block;
-    line-height: 1;
-  }
+  .activity-card__icon.is-success { background: #e8f8ef; color: #15803d; }
+  .activity-card__icon.is-warning { background: #fff4e5; color: #c2410c; }
+  .activity-card__icon.is-critical { background: #fdecec; color: #b91c1c; }
 
-  .activity-summary-card__icon.is-critical {
-    color: #ef3340;
-  }
-
-  .activity-summary-card__icon.is-warning {
-    color: #f5a524;
-  }
-
-  .activity-summary-card__icon.is-success {
-    color: #12a365;
-  }
-
-  .activity-summary-card__icon.is-info,
-  .activity-summary-card__icon.is-sync,
-  .activity-summary-card__icon.is-neutral,
-  .activity-summary-card__icon.is-access {
-    color: var(--b2s-topbar-bg, #111b3f);
-  }
-
-  .activity-summary-card__copy,
-  .activity-summary-card__copy strong,
-  .activity-summary-card__copy small {
-    display: block;
+  .activity-card__copy {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: grid;
+    gap: 2px;
   }
 
-  .activity-summary-card__copy strong {
-    color: #142747;
+  .activity-card__copy strong {
     font-size: var(--b2s-fs-sm);
-    font-weight: 650;
+    font-weight: 500;
+    color: var(--b2s-color-text);
   }
 
-  .activity-summary-card__copy small,
-  .activity-summary-card__row time,
-  .activity-summary-card__actor {
-    color: #687a98;
+  .activity-card__copy small {
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .activity-card__meta {
+    color: #94a3b8;
     font-size: var(--b2s-fs-xs);
   }
 
-  .activity-summary-card__row time,
-  .activity-summary-card__actor {
-    text-align: right;
-    white-space: nowrap;
+  .activity-card__empty {
+    display: grid;
+    gap: 4px;
+    padding: 20px;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-sm);
   }
 
-  .activity-summary-card__link {
-    justify-self: end;
-    border: none;
-    background: transparent;
-    color: var(--b2s-topbar-bg, #111b3f);
-    font-size: var(--b2s-fs-md);
-    font-weight: 650;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0;
-    text-decoration: none;
-  }
-
-  .activity-summary-card__link:hover {
-    color: #174a9e;
+  .activity-card__empty strong {
+    color: var(--b2s-color-text);
+    font-weight: 500;
   }
 </style>
