@@ -1,26 +1,34 @@
-# BornToShare capsule-runner (Dramatiq worker: LDAP, SMB, Kerberos)
-# Alpine 3.20 ships Python 3.12 (same version as CI).
-FROM alpine:3.20
+# BornToShare capsule-runner — Dramatiq worker running LDAP, SMB and Kerberos actions
+ARG BASE_IMAGE=docker.io/library/python:3.14-slim-trixie
+FROM ${BASE_IMAGE}
 
-RUN apk add --no-cache \
-    samba-client \
-    krb5 \
-    ca-certificates \
-    python3 \
-    py3-pip
+LABEL org.opencontainers.image.title="borntoshare-capsule-runner" \
+      org.opencontainers.image.description="Dramatiq worker running LDAP, SMB and Kerberos actions" \
+      org.opencontainers.image.source="https://github.com/RaphPrch/borntoshare"
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore
+
+# smbclient: smbclient, smbcacls, rpcclient - krb5-user: kinit
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends smbclient krb5-user ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# Dependencies first (cached while requirements.txt is unchanged)
 COPY requirements.txt .
-RUN python3 -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
-ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install -r requirements.txt
 
 # Application code: owned by root, read-only for the runtime user
 COPY app ./app
 
-# Non-root runtime user (UID matches "user:" in podman-compose.yml)
-RUN addgroup -S -g 10001 b2s && adduser -S -D -H -h /app -s /sbin/nologin -u 10001 -G b2s b2s
-USER b2s:b2s
+# Non-root runtime user, one UID per service
+RUN groupadd --system --gid 10003 app \
+    && useradd --system --uid 10003 --gid app --no-create-home --shell /usr/sbin/nologin app
+USER app
 
 CMD ["dramatiq", "app.jobs.tasks"]

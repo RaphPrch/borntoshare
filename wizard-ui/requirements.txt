@@ -1,23 +1,7 @@
-# ==================================================
-# BornToShare Wizard UI – Runtime requirements
-# ==================================================
-
-# Web framework
-fastapi>=0.110,<1.0
-uvicorn[standard]>=0.27,<1.0
-
-# --------------------------------------------------
-# Database connectivity (Wizard DB tests)
-# --------------------------------------------------
-# Official MySQL / MariaDB Python client
-mysql-connector-python>=9.0
-
-# --------------------------------------------------
-# Configuration & validation
-# --------------------------------------------------
-pydantic>=2.6
-
-# --------------------------------------------------
-# Security helpers
-# --------------------------------------------------
-bcrypt>=4.1
+# wizard-ui — runtime dependencies (Python 3.14)
+# Pinned: the same library has the same version in every service. Update them together.
+fastapi==0.156.5
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+mysql-connector-python==26.7.0
+bcrypt==5.0.0

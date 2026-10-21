@@ -74,7 +74,7 @@ Capsules:
 - Capsules are agentless.
 - capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares and NTFS ACLs, Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
 - Capsule execution must remain isolated from the main application network.
-- Job queue: Dramatiq over Redis. Redis is a service of the root `podman-compose.yml`, password-protected (`REDIS_PASSWORD`), with no published port, on the `bts-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
+- Job queue: Dramatiq over Redis. Redis is a service of the root `podman-compose.yml`, password-protected (`REDIS_PASSWORD`), with no published port, on the `b2s-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
 
 Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
@@ -86,7 +86,9 @@ Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
 - Directory snapshots: only the active one and the previous archived one keep their user/group/membership rows (`DirectorySnapshotsRepo.purge_archived_details`).
 
 Containers:
-- One `Containerfile` per service; Python images follow the same template (`python:3.12-slim`, no venv, code owned by root, fixed non-root UID).
+- One `Containerfile` and one `.containerignore` per service. Python services (capsule-runner included) share the same template: `python:3.14-slim-trixie`, no venv, code owned by root, non-root user `app` with one UID per service (auth 10001, core 10002, capsule 10003, secret-broker 10004, wizard 10005, frontend 10006). The frontend uses `node:26-alpine`.
+- Dependencies are pinned (`==` in `requirements.txt`, lockfile for npm); a library shared by several services has the same version everywhere.
+- Every HTTP service has a compose healthcheck (`/health`, frontend `/login`) and services start once their dependencies are healthy.
 - One root `podman-compose.yml` (all services, shared hardening via `x-hardening`) and one root `.env` (model: `.env.example`). Each service lists only the variables it reads in `environment:` — no `env_file`, so secrets are not spread to every container. Topology URLs are code defaults in the Python services; the frontend gets `B2S_AUTH_URL` / `B2S_CORE_URL` as fixed values in the compose file.
 - `make up` / `make down` / `make logs` / `make logs-<service>`; the database wizard runs on demand (`make wizard`, profile `wizard`).
 

@@ -1,0 +1,11 @@
+# Build context: sources and lockfile (dependencies are installed in the build stage)
+.git
+node_modules
+.svelte-kit
+build
+*.log
+.env
+.env.*
+!.env.example
+Containerfile
+.containerignore

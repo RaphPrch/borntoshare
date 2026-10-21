@@ -17,6 +17,13 @@ x-hardening: &hardening
   security_opt:
     - no-new-privileges:true
 
+# Health probes: Python services call their /health route, the frontend its login page
+x-healthcheck: &healthcheck
+  interval: 15s
+  timeout: 5s
+  retries: 5
+  start_period: 20s
+
 x-common-env: &common-env
   TZ: Europe/Paris
   APP_ENV: ${APP_ENV:-dev}
@@ -29,7 +36,7 @@ services:
   redis:
     <<: *hardening
     container_name: redis
-    image: docker.io/library/redis:7
+    image: docker.io/library/redis:8.10
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
       REDISCLI_AUTH: ${REDIS_PASSWORD}
@@ -42,10 +49,8 @@ services:
       - redis-data:/data
     user: "999:999"               # "redis" user of the official image
     healthcheck:
+      <<: *healthcheck
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
     networks: [jobs]
 
   secret-broker:
@@ -66,6 +71,9 @@ services:
     security_opt:
       - no-new-privileges:true
       - label=disable
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health', timeout=3)"]
     networks: [app]
 
   auth-service:
@@ -92,6 +100,12 @@ services:
       DEFAULT_AD_BIND_PASSWORD_REF: ${DEFAULT_AD_BIND_PASSWORD_REF}
       B2S_SECRET_WRITE_TOKEN: ${B2S_SECRET_WRITE_TOKEN}
     expose: ["8000"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+    depends_on:
+      secret-broker:
+        condition: service_healthy
     networks: [app]
 
   core-service:
@@ -115,6 +129,14 @@ services:
       # The BFF may call the non-/internal/ orchestration routes without a token
       B2S_ALLOW_PUBLIC_API: "true"
     expose: ["8000"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      secret-broker:
+        condition: service_healthy
     networks: [app, data, jobs]
 
   capsule-runner:
@@ -130,7 +152,9 @@ services:
     extra_hosts:
       - "${AD_DC_NAME}:${AD_DC_IP}"
       - "${AD_DC_FQDN}:${AD_DC_IP}"
-    user: "10001:10001"
+    depends_on:
+      redis:
+        condition: service_healthy
     networks: [app, jobs]
 
   frontend-service:
@@ -153,6 +177,14 @@ services:
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
     ports:
       - "${FRONTEND_PUBLISHED_PORT:-3000}:3000"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/login').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      core-service:
+        condition: service_healthy
     networks: [app]
 
   # Database initialization (run once, then stop it: make wizard / make wizard-down)
@@ -170,20 +202,18 @@ services:
     ports:
       - "${WIZARD_PORT:-8080}:8080"
     healthcheck:
+      <<: *healthcheck
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=3)"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
     networks: [app, data]
 
 networks:
   app:
-    name: bts-app
+    name: b2s-app
   data:
-    name: bts-data
+    name: b2s-data
     internal: true
   jobs:
-    name: bts-jobs
+    name: b2s-jobs
     internal: true
 
 volumes:
