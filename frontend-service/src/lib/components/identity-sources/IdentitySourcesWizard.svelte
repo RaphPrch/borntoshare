@@ -3,7 +3,8 @@
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
-  import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
+  import WizardShell from '$lib/components/ui/WizardShell.svelte';
+  import ChoiceCard from '$lib/components/ui/ChoiceCard.svelte';
   import { sleep } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
   import { toast } from '$lib/stores/toast';
@@ -37,6 +38,8 @@
   }>;
   export let onCreate: (payload: IdentitySourcePayload & { _secret?: string; bind_password?: string | null }) => Promise<IdentitySourceCreateResult>;
   export let existingNames: string[] = [];
+  export let open = true;
+  export let onClose: () => void = () => {};
 
   const dispatch = createEventDispatcher();
 
@@ -207,7 +210,7 @@
   }
 
   function next() {
-    if ((currentStepKey === 'type' || currentStepKey === 'connection') && isDuplicateSourceName()) {
+    if (currentStepKey === 'connection' && isDuplicateSourceName()) {
       toast.error(t('This name already exists. Please choose another one.'));
       return;
     }
@@ -615,6 +618,17 @@
   $: maxStep = activeSteps.length;
   $: if (step > maxStep) step = maxStep;
   $: currentStepKey = activeSteps[Math.max(0, step - 1)]?.key ?? 'type';
+  // The step indicator always lists the five steps; Snapshot is skipped when the option is off
+  $: displaySteps = stepsWithSnapshot.map((item) => ({
+    label: item.label,
+    hint: item.key === 'snapshot' && !snapshotEnabledSummary ? t('Not enabled') : null
+  }));
+  $: displayCurrent = stepsWithSnapshot.findIndex((item) => item.key === currentStepKey) + 1;
+
+  const checkLabel = (key: string): string => {
+    const text = String(key ?? '').replace(/[_-]+/g, ' ').trim();
+    return text ? text.charAt(0).toUpperCase() + text.slice(1) : '—';
+  };
   $: snapshotTestSummaryStatus =
     snapshotInitState === 'success'
       ? 'success'
@@ -638,69 +652,35 @@
     currentStepKey === 'review';
 </script>
 
-<div class="is-wizard b2s-wizard is-wizard--modal" class:is-wizard--ldaps={protocolChoice === 'ldaps'}>
-  <div class="is-wizard-shell">
-    <div class="is-wizard-header">
-      <h1 id="identity-sources-wizard-title">{t('Connect Identity Source')}</h1>
-      <p>{t('Configure Active Directory (LDAP) to import identities.')}</p>
-    </div>
-
-    <WizardSteps steps={activeSteps.map((s) => ({ label: s.label }))} current={step} />
-
+<WizardShell
+  {open}
+  {onClose}
+  title={t('Connect identity source')}
+  subtitle={t('Configure Active Directory (LDAP) to import identities.')}
+  iconClass="bi bi-diagram-3"
+  ariaLabelledby="identity-sources-wizard-title"
+  steps={displaySteps}
+  current={displayCurrent}
+>
+<div class="is-wizard is-wizard--modal" class:is-wizard--ldaps={protocolChoice === 'ldaps'}>
     <div class="is-card">
       {#if currentStepKey === 'type'}
-        <h2>{t('Select Type')}</h2>
-
-        <div class="field">
-          <label for="identity-source-name">{t('Name')}</label>
-          <input
-            id="identity-source-name"
-            bind:value={payload.name}
-            placeholder={t('AD Corp (prod)')}
-            autocomplete="off"
-          />
-        </div>
-
-        <div class="cards">
-          <button type="button" class="card" class:selected={payload.type === 'ad'} on:click={() => selectType('ad')}>
-            <div class="card__icon"><i class="bi bi-diagram-3"></i></div>
-            <div class="card__title">{t('Active Directory / LDAP')}</div>
-            <div class="card__desc">{t('LDAP server for Microsoft Active Directory or generic LDAP')}</div>
-          </button>
-          <button
-            type="button"
-            class="card disabled"
-            disabled
-            aria-disabled="true"
-            title={t('Coming soon')}
-          >
-            <div class="card__icon"><i class="bi bi-key"></i></div>
-            <div class="card__title">{t('OIDC / SCIM 2.0')}</div>
-            <div class="card__desc">{t('Provision identities via OIDC / SCIM')}</div>
-          </button>
-          <button
-            type="button"
-            class="card disabled"
-            disabled
-            aria-disabled="true"
-            title={t('Coming soon')}
-          >
-            <div class="card__icon"><i class="bi bi-cloud"></i></div>
-            <div class="card__title">{t('Azure AD')}</div>
-            <div class="card__desc">{t('Microsoft Entra ID connector')}</div>
-          </button>
-          <button
-            type="button"
-            class="card disabled"
-            disabled
-            aria-disabled="true"
-            title={t('Coming soon')}
-          >
-            <div class="card__icon"><i class="bi bi-amazon"></i></div>
-            <div class="card__title">{t('Amazon IAM')}</div>
-            <div class="card__desc">{t('AWS identity source')}</div>
-          </button>
-        </div>
+        <section class="b2s-wizard-section">
+          <h3>{t('Choose the source type')}</h3>
+          <p>{t('Only Active Directory / LDAP sources can be connected for now.')}</p>
+          <div class="b2s-choice-grid">
+            <ChoiceCard
+              icon="bi-diagram-3"
+              title={t('Active Directory / LDAP')}
+              description={t('LDAP server for Microsoft Active Directory or generic LDAP')}
+              selected={payload.type === 'ad'}
+              onSelect={() => selectType('ad')}
+            />
+            <ChoiceCard icon="bi-key" title={t('OIDC / SCIM 2.0')} description={t('Provision identities via OIDC / SCIM')} disabled />
+            <ChoiceCard icon="bi-cloud" title={t('Azure AD')} description={t('Microsoft Entra ID connector')} disabled />
+            <ChoiceCard icon="bi-amazon" title={t('Amazon IAM')} description={t('AWS identity source')} disabled />
+          </div>
+        </section>
       {/if}
 
       {#if currentStepKey === 'capabilities'}
@@ -1068,14 +1048,14 @@
                     <i class={`bi ${c.ok ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}`}></i>
                   </span>
                   <div>
-                    <div class="test-title">{c.key}</div>
+                    <div class="test-title">{checkLabel(c.key)}</div>
                     {#if c.message}
                       <div class="test-desc">{c.message}</div>
                     {/if}
                   </div>
                 </div>
                 <div class={`test-status ${c.ok ? 'ok' : 'err'}`}>
-                  {c.ok ? 'OK' : t('Error')}
+                  {c.ok ? t('OK') : t('Error')}
                   {#if !c.ok}
                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
                   {/if}
@@ -1094,20 +1074,20 @@
 
           <div class="test-summary">
             <div class="summary-row"><strong>{t('Name:')}</strong> {payload.name || resolveName()}</div>
-            <div class="summary-row"><strong>{t('Identity source:')}</strong> {t('Active Directory - {value}', { value: (payload.host || 'corp.local') })}</div>
-            <div class="summary-row"><strong>{t('Host / IP:')}</strong> {payload.host || adHostInput || 'dc1.corp.local'}</div>
-            <div class="summary-row"><strong>{t('Base DN:')}</strong> {payload.base_dn || 'DC=corp,DC=local'}</div>
-            <div class="summary-row"><strong>{t('Bind DN:')}</strong> {payload.bind_dn || 'svc_ad_bind'}</div>
+            <div class="summary-row"><strong>{t('Identity source:')}</strong> {t('Active Directory / LDAP')}</div>
+            <div class="summary-row"><strong>{t('Host / IP:')}</strong> {payload.host || adHostInput || '—'}</div>
+            <div class="summary-row"><strong>{t('Base DN:')}</strong> {payload.base_dn || '—'}</div>
+            <div class="summary-row"><strong>{t('Bind DN:')}</strong> {payload.bind_dn || '—'}</div>
             <div class="summary-row">
               <strong>{t('Snapshot:')}</strong>
               <StatusBadge
                 status={snapshotEnabledSummary ? 'enabled' : 'disabled'}
-                label={snapshotEnabledSummary ? 'enabled' : 'disabled'}
+                label={snapshotEnabledSummary ? t('Enabled') : t('Disabled')}
                 variant={snapshotEnabledSummary ? 'success' : 'disabled'}
                 compact={true}
               />
             </div>
-            <div class="summary-row"><strong>{t('First snapshot automatic after creation:')}</strong> {firstSnapshotAutomaticSummary ? 'yes' : 'no'}</div>
+            <div class="summary-row"><strong>{t('First snapshot automatic after creation:')}</strong> {firstSnapshotAutomaticSummary ? t('Yes') : t('No')}</div>
             <div class="summary-row"><strong>{t('Import scope:')}</strong> {payload.capabilities.import_groups ? t('Users + groups') : t('Users only')}</div>
             <div class="summary-row">
               <strong>{t('Probe result:')}</strong>
@@ -1146,41 +1126,39 @@
           </div>
 
           {#if createError}
-            <div class="alert error">{createError}</div>
+            <InlineAlert tone="error">{createError}</InlineAlert>
           {/if}
         </div>
       {/if}
 
-      <div class="actions" class:actions--centered={currentStepKey === 'type'}>
-        {#if step > 1}
-          <button class="b2s-btn b2s-btn-secondary" type="button" on:click={back}>{t('Back')}</button>
-        {/if}
-        {#if step < maxStep}
-          <button class="b2s-btn b2s-btn-primary" type="button" disabled={!canContinue} on:click={next}>{t('Continue')}</button>
-        {:else}
-          <button class="b2s-btn b2s-btn-primary" type="button" on:click={finish} disabled={creating}>
-            {#if creating}
-              {t('Creating…')}
-            {:else if createDone}
-              {t('Close')}
-            {:else}
-              {t('Finish')}
-            {/if}
-          </button>
-        {/if}
-      </div>
     </div>
-  </div>
 </div>
 
-  <style>
-   :global(.is-wizard-backdrop) {
-     /* uses shared .b2s-wizard-backdrop */
-   }
+  <svelte:fragment slot="footer">
+    <button class="b2s-btn b2s-btn-ghost" type="button" on:click={onClose} disabled={creating}>{t('Cancel')}</button>
+    {#if step > 1 && !createDone}
+      <button class="b2s-btn b2s-btn-secondary" type="button" on:click={back}>
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        {t('Back')}
+      </button>
+    {/if}
+    {#if step < maxStep}
+      <button class="b2s-btn b2s-btn-primary" type="button" disabled={!canContinue} on:click={next}>{t('Continue')}</button>
+    {:else}
+      <button class="b2s-btn b2s-btn-primary" type="button" on:click={finish} disabled={creating}>
+        {#if creating}
+          {t('Creating…')}
+        {:else if createDone}
+          {t('Close')}
+        {:else}
+          {t('Create identity source')}
+        {/if}
+      </button>
+    {/if}
+  </svelte:fragment>
+</WizardShell>
 
-   :global(.is-wizard-backdrop--clear) {
-     background: transparent;
-   }
+  <style>
 
   .is-wizard {
     width: 100%;
@@ -1199,27 +1177,14 @@
     margin-bottom: 24px;
   }
 
-  .is-wizard-header h1 {
-    margin: 0;
-    font-size: var(--b2s-fs-page-title);
-    font-weight: 900;
-    color: #0f172a;
-  }
-
-  .is-wizard-header p {
-    margin-top: 8px;
-    font-size: var(--b2s-fs-md);
-    color: #64748b;
-  }
-
   .is-card {
     background: transparent;
   }
 
   h2 {
-    margin: 0 0 16px;
-    font-size: var(--b2s-fs-xl);
-    font-weight: 800;
+    margin: 0 0 4px;
+    font-size: var(--b2s-fs-lg);
+    font-weight: 600;
     color: #0f172a;
   }
 
@@ -1310,32 +1275,20 @@
 
   .field label,
   .field .field-label {
-    font-size: var(--b2s-fs-xs);
-    font-weight: 800;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: var(--b2s-fs-sm);
+    font-weight: 500;
+    color: var(--b2s-color-text);
   }
 
   .field input {
     width: 100%;
-    padding: 12px 14px;
-    border-radius: var(--b2s-radius-md);
-    border: 1px solid #cbd5e1;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: var(--b2s-radius-sm);
+    border: 1px solid var(--b2s-color-border);
     font-size: var(--b2s-fs-md);
-    font-weight: 600;
+    font-weight: 400;
     color: #0f172a;
-  }
-
-  .field select {
-    width: 100%;
-    padding: 12px 14px;
-    border-radius: var(--b2s-radius-md);
-    border: 1px solid #cbd5e1;
-    font-size: var(--b2s-fs-md);
-    font-weight: 600;
-    color: #0f172a;
-    background: #ffffff;
   }
 
   .error {
@@ -1409,8 +1362,8 @@
   }
 
   .capabilities-sub {
-    margin: 2px 0 16px;
-    font-size: var(--b2s-fs-md);
+    margin: 0 0 16px;
+    font-size: var(--b2s-fs-sm);
     color: #64748b;
   }
 

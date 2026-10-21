@@ -2,7 +2,8 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
-  import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
+  import WizardShell from '$lib/components/ui/WizardShell.svelte';
+  import ChoiceCard from '$lib/components/ui/ChoiceCard.svelte';
   import { createEventDispatcher } from 'svelte';
   import { createIdentity, type CreateIdentityPayload } from '$lib/api/identity';
   import { listIdentitySources, type IdentitySourceListItem } from '$lib/api/identity-sources';
@@ -337,13 +338,14 @@
     Boolean(effectiveDirectoryPrincipalType) &&
     !submitting;
 
-  const localFormValid = () =>
+  // Reactive (not functions): template expressions must re-run when a field changes
+  $: localFormValid =
     trimmed(localUsername).length > 0 &&
     trimmed(localDisplayName).length > 0 &&
     trimmed(localPassword).length > 0 &&
     Boolean(applicationRole);
 
-  const directoryFormValid = () => canImportDirectoryPrincipal;
+  $: directoryFormValid = canImportDirectoryPrincipal;
   $: localUsernameError = attemptedSubmit && !trimmed(localUsername) ? t('Username is required.') : '';
   $: localDisplayNameError = attemptedSubmit && !trimmed(localDisplayName) ? t('Display name is required.') : '';
   $: localPasswordError = attemptedSubmit && !trimmed(localPassword) ? t('Temporary password is required.') : '';
@@ -396,7 +398,7 @@
     errorMessage = '';
     errorHint = '';
 
-    if (mode === 'local' && !localFormValid()) return;
+    if (mode === 'local' && !localFormValid) return;
     if (isDirectoryMode(mode)) {
       if (!resolvedDirectorySourceId) {
         toast.warning(t('Select an identity source first.'));
@@ -410,7 +412,7 @@
         toast.warning(t('Select an application role first.'));
         return;
       }
-      if (!directoryFormValid()) {
+      if (!directoryFormValid) {
         toast.warning(t('Unable to import identity.'));
         return;
       }
@@ -458,17 +460,20 @@
   }
 </script>
 
+<WizardShell
+  {open}
+  onClose={onCancel}
+  title={t('Add identity')}
+  subtitle={t('Grant application access to a local account, AD user, or AD group. NTFS permissions are not modified.')}
+  iconClass="bi bi-person-plus"
+  ariaLabelledby="identity-wizard-title"
+  steps={[
+    { label: t('Choose type'), hint: t('Local account, AD user or AD group') },
+    { label: t('Configure'), hint: t('Identity and application role') }
+  ]}
+  current={step}
+>
 <div class="identity-wizard">
-  <header class="identity-wizard__header">
-    <div>
-      <h2 id="identity-wizard-title">{t('Add identity')}</h2>
-      <p>{t('Grant application access to a local account, AD user, or AD group.')}</p>
-      <p>{t('This does not modify NTFS permissions.')}</p>
-    </div>
-  </header>
-
-  <WizardSteps ariaLabel={t('Add identity steps')} steps={[{ label: t('Choose type') }, { label: t('Configure') }]} current={step} />
-
   {#if errorMessage}
     <InlineAlert tone="error" title={errorMessage}>{errorHint ?? ''}</InlineAlert>
   {/if}
@@ -478,24 +483,15 @@
       <h3>{t('How do you want to add access?')}</h3>
       <div class="identity-wizard__cards">
         {#each modeCards as card}
-          <button
-            type="button"
-            class="identity-wizard__choice"
-            on:click={() => void chooseMode(card.id)}
+          <ChoiceCard
+            icon={card.icon}
+            title={card.label}
+            description={card.description.map((line) => t(line)).join(' ')}
+            badge={card.badge}
+            navigates
             disabled={loadingSources}
-          >
-            <span class="identity-wizard__choice-icon" aria-hidden="true"><i class={`bi ${card.icon}`}></i></span>
-            <span class="identity-wizard__choice-body">
-              <span class="identity-wizard__choice-head">
-                <strong>{card.label}</strong>
-                <em>{card.badge}</em>
-              </span>
-              {#each card.description as line}
-                <small>{line}</small>
-              {/each}
-            </span>
-            <span class="identity-wizard__choice-arrow" aria-hidden="true"><i class="bi bi-chevron-right"></i></span>
-          </button>
+            onSelect={() => void chooseMode(card.id)}
+          />
         {/each}
       </div>
     </section>
@@ -569,7 +565,7 @@
                 />
                 <i class="bi bi-search" aria-hidden="true"></i>
               </div>
-              <button type="button" class="identity-wizard__browse" on:click={() => void openAdBrowser()}>
+              <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => void openAdBrowser()}>
                 {t('Browse directory')}
               </button>
             </div>
@@ -596,13 +592,13 @@
           </div>
         {:else if !selectedPrincipal}
           <div class="identity-wizard__empty-state">
-            {t('No directory {value} selected yet.', { value: (mode === 'directory_group' ? 'group' : 'user') })}
+            {mode === 'directory_group' ? t('No directory group selected yet.') : t('No directory user selected yet.')}
           </div>
         {/if}
 
         {#if selectedPrincipal}
           <div class="identity-wizard__selection">
-            <div class="identity-wizard__selection-head">{t('Selected {value}', { value: (isSelectedGroup ? 'group' : 'user') })}</div>
+            <div class="identity-wizard__selection-head">{isSelectedGroup ? t('Selected group') : t('Selected user')}</div>
             <div class="identity-wizard__selection-card">
               <span class="identity-wizard__result-avatar">{principalAvatar(selectedPrincipal)}</span>
               <div>
@@ -619,16 +615,15 @@
           </div>
         {/if}
 
-        <div class:warning={isSelectedGroup || mode === 'directory_group'} class="identity-wizard__info">
-          <i class={`bi ${isSelectedGroup || mode === 'directory_group' ? 'bi-exclamation-triangle' : 'bi-info-circle'}`} aria-hidden="true"></i>
-          <span>
-            {#if isSelectedGroup || mode === 'directory_group'}
-              {t('Members of this group will inherit the selected application role. NTFS permissions are not modified.')}
-            {:else}
-              {t('The user will be able to sign in to BornToShare using their directory credentials.')}
-            {/if}
-          </span>
-        </div>
+        {#if isSelectedGroup || mode === 'directory_group'}
+          <InlineAlert tone="warning" compact>
+            {t('Members of this group will inherit the selected application role. NTFS permissions are not modified.')}
+          </InlineAlert>
+        {:else}
+          <InlineAlert tone="info" compact>
+            {t('The user will be able to sign in to BornToShare using their directory credentials.')}
+          </InlineAlert>
+        {/if}
       {/if}
 
       <div class="identity-wizard__role-section">
@@ -669,35 +664,34 @@
     </section>
   {/if}
 
-  <footer class="identity-wizard__footer">
-    {#if step === 1}
-      <div class="identity-wizard__footer-note">
-        <i class="bi bi-info-circle" aria-hidden="true"></i>
-        <span>{t('Application roles only: User and Platform Administrator. NTFS permissions are managed from Storage Roots.')}</span>
-      </div>
-      <div class="identity-wizard__footer-actions">
-        <button class="identity-wizard__ghost" type="button" on:click={onCancel}>{t('Cancel')}</button>
-      </div>
-    {:else}
-      <div class="identity-wizard__footer-actions">
-        <button class="identity-wizard__ghost" type="button" on:click={onCancel}>{t('Cancel')}</button>
-        <button class="identity-wizard__ghost" type="button" on:click={handleBack}>{t('Back')}</button>
-        <button
-          class="identity-wizard__primary"
-          type="button"
-          on:click={() => void submit()}
-          disabled={submitting || (mode === 'local' ? !localFormValid() : !directoryFormValid())}
-          title={submitting || (mode === 'local' ? localFormValid() : directoryFormValid()) ? undefined : submitDisabledReason}
-        >
-          {submitLabel()}
-        </button>
-      </div>
-      {#if !submitting && ((mode === 'local' && !localFormValid()) || (isDirectoryMode(mode) && !directoryFormValid()))}
-        <div class="identity-wizard__footer-reason">{submitDisabledReason}</div>
-      {/if}
-    {/if}
-  </footer>
 </div>
+
+  <svelte:fragment slot="footer-start">
+    {#if step === 1}
+      {t('Application roles only: User and Platform Administrator. NTFS permissions are managed from Storage Roots.')}
+    {:else if !submitting && ((mode === 'local' && !localFormValid) || (isDirectoryMode(mode) && !directoryFormValid))}
+      {submitDisabledReason}
+    {/if}
+  </svelte:fragment>
+
+  <svelte:fragment slot="footer">
+    <button class="b2s-btn b2s-btn-ghost" type="button" on:click={onCancel}>{t('Cancel')}</button>
+    {#if step > 1}
+      <button class="b2s-btn b2s-btn-secondary" type="button" on:click={handleBack}>
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        {t('Back')}
+      </button>
+      <button
+        class="b2s-btn b2s-btn-primary"
+        type="button"
+        on:click={() => void submit()}
+        disabled={submitting || (mode === 'local' ? !localFormValid : !directoryFormValid)}
+      >
+        {submitLabel()}
+      </button>
+    {/if}
+  </svelte:fragment>
+</WizardShell>
 
 <IdentityBrowserModal
   open={showAdBrowser}
@@ -718,64 +712,20 @@
 
 <style>
   .identity-wizard {
-    width: min(100%, 930px);
-    max-height: min(88vh, 920px);
-    overflow: auto;
-    padding: 24px 28px 18px;
-    color: #0d1b44;
-  }
-
-  .identity-wizard__header h2 {
-    margin: 0;
-    font-size: var(--b2s-fs-console-title);
-    line-height: 1.05;
-    font-weight: 760;
-  }
-
-  .identity-wizard__header p {
-    margin: 4px 0 0;
-    color: #465b78;
-    font-size: var(--b2s-fs-lg);
-  }
-
-  .identity-wizard__footer-reason {
-    color: var(--b2s-color-text-muted, #64748b);
-    text-align: right;
+    color: var(--b2s-color-text);
   }
 
   .identity-wizard__step h3 {
     margin: 0 0 12px;
-    font-size: var(--b2s-fs-2xl);
-    line-height: 1.1;
-    font-weight: 730;
+    font-size: var(--b2s-fs-lg);
+    line-height: 1.3;
+    font-weight: 600;
   }
 
   .identity-wizard__cards {
     display: grid;
     gap: 12px;
   }
-
-  .identity-wizard__choice {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 60px minmax(0, 1fr) 20px;
-    gap: 18px;
-    align-items: center;
-    padding: 14px 16px;
-    border: 1px solid #d8e1ef;
-    border-radius: var(--b2s-radius-md);
-    background: #fff;
-    text-align: left;
-    transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
-  }
-
-  .identity-wizard__choice:hover {
-    border-color: #2268f4;
-    background: #f7faff;
-    box-shadow: 0 10px 24px rgba(34, 104, 244, 0.08);
-  }
-
-  .identity-wizard__choice-icon,
   .identity-wizard__result-avatar {
     width: 48px;
     height: 48px;
@@ -788,24 +738,6 @@
     font-size: 1.35rem;
     font-weight: 700;
   }
-
-  .identity-wizard__choice-body {
-    display: grid;
-    gap: 4px;
-  }
-
-  .identity-wizard__choice-head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  .identity-wizard__choice-head strong {
-    font-size: var(--b2s-fs-xl);
-  }
-
-  .identity-wizard__choice-head em,
   .identity-wizard__badge {
     display: inline-flex;
     align-items: center;
@@ -818,23 +750,13 @@
     font-size: var(--b2s-fs-sm);
     font-weight: 700;
   }
-
-  .identity-wizard__choice-body small,
   .identity-wizard__section-head p,
   .identity-wizard__role-head p,
   .identity-wizard__checkbox small,
-  .identity-wizard__info span,
-  .identity-wizard__footer-note span,
   .identity-wizard__search-state {
-    color: #546881;
-    font-size: var(--b2s-fs-lg);
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-sm);
     line-height: 1.45;
-  }
-
-  .identity-wizard__choice-arrow {
-    justify-self: end;
-    color: #6d7f99;
-    font-size: var(--b2s-fs-xl);
   }
 
   .identity-wizard__section-head {
@@ -860,19 +782,19 @@
   .identity-wizard__form-grid label span,
   .identity-wizard__selection-head,
   .identity-wizard__role-head h4 {
-    font-size: var(--b2s-fs-lg);
-    font-weight: 700;
-    color: #10214f;
+    font-size: var(--b2s-fs-sm);
+    font-weight: 500;
+    color: var(--b2s-color-text);
   }
 
   .identity-wizard__form-grid input,
   .identity-wizard__form-grid select,
   .identity-wizard__search input {
     width: 100%;
-    min-height: 46px;
-    border: 1px solid #d8e1ef;
-    border-radius: var(--b2s-radius-md);
-    padding: 0 16px;
+    min-height: 40px;
+    border: 1px solid var(--b2s-color-border);
+    border-radius: var(--b2s-radius-sm);
+    padding: 0 12px;
     background: #fff;
     color: #10214f;
     font-size: var(--b2s-fs-lg);
@@ -899,29 +821,6 @@
     top: 50%;
     transform: translateY(-50%);
     color: #687c98;
-  }
-
-  .identity-wizard__browse {
-    min-height: 46px;
-    padding: 0 16px;
-    border: 1px solid #d8e1ef;
-    border-radius: var(--b2s-radius-md);
-    background: #fff;
-    color: #10214f;
-    font-size: var(--b2s-fs-lg);
-    font-weight: 700;
-    transition: border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
-  }
-
-  .identity-wizard__browse:hover {
-    border-color: #2268f4;
-    color: #2268f4;
-  }
-
-  .identity-wizard__browse:focus-visible {
-    outline: none;
-    border-color: #2268f4;
-    box-shadow: 0 0 0 3px rgba(34, 104, 244, 0.14);
   }
 
   .identity-wizard__checkbox {
@@ -1020,22 +919,6 @@
     color: #4e617b;
   }
 
-  .identity-wizard__info {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    padding: 12px 14px;
-    border-radius: var(--b2s-radius-md);
-    background: #eef5ff;
-    color: #2268f4;
-    margin-bottom: 14px;
-  }
-
-  .identity-wizard__info.warning {
-    background: #fff7e7;
-    color: #c67b00;
-  }
-
   .identity-wizard__role-section {
     padding-top: 2px;
   }
@@ -1094,61 +977,6 @@
     color: #2268f4;
   }
 
-  .identity-wizard__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding-top: 16px;
-    margin-top: 16px;
-    border-top: 1px solid #e3eaf4;
-    position: sticky;
-    bottom: 0;
-    background: #fff;
-  }
-
-  .identity-wizard__footer-note {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    max-width: 560px;
-    color: #2268f4;
-  }
-
-  .identity-wizard__footer-actions {
-    margin-left: auto;
-    display: flex;
-    gap: 12px;
-    align-items: center;
-  }
-
-  .identity-wizard__ghost,
-  .identity-wizard__primary {
-    min-width: 120px;
-    min-height: 44px;
-    padding: 0 18px;
-    border-radius: var(--b2s-radius-md);
-    font-size: var(--b2s-fs-lg);
-    font-weight: 700;
-  }
-
-  .identity-wizard__ghost {
-    border: 1px solid #d8e1ef;
-    background: #fff;
-    color: #10214f;
-  }
-
-  .identity-wizard__primary {
-    border: 1px solid #0a4fcb;
-    background: #2268f4;
-    color: #fff;
-  }
-
-  .identity-wizard__primary:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
   @media (max-width: 900px) {
     .identity-wizard {
       width: 100%;
@@ -1164,17 +992,9 @@
       grid-template-columns: 1fr;
     }
 
-    .identity-wizard__section-head,
-    .identity-wizard__footer {
+    .identity-wizard__section-head{
       flex-direction: column;
       align-items: stretch;
-    }
-
-    .identity-wizard__footer-actions {
-      margin-left: 0;
-      width: 100%;
-      justify-content: flex-end;
-      flex-wrap: wrap;
     }
   }
 </style>

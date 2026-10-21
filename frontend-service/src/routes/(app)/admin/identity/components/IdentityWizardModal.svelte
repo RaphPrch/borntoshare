@@ -1,7 +1,6 @@
 
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import WizardModalShell from '$lib/components/ui/WizardModalShell.svelte';
   import IdentityWizard from './IdentityWizard.svelte';
 
   export let open = false;
@@ -10,16 +9,14 @@
   const dispatch = createEventDispatcher<{ done: { id?: string | number } }>();
 </script>
 
-<WizardModalShell
-  {open}
-  onClose={onClose}
-  ariaLabelledby="identity-wizard-title"
-  backdropClass="b2s-modal-backdrop b2s-wizard-backdrop is-wizard-backdrop--clear"
-  modalClass="b2s-modal b2s-wizard-modal is-wizard-modal"
-  WizardComponent={IdentityWizard}
-  wizardProps={{
-    open,
-    onCancel: onClose
-  }}
-  on:done={(event) => dispatch('done', event.detail)}
-/>
+<!-- Mounted only while open so each opening starts from a clean state -->
+{#if open}
+  <IdentityWizard
+    open
+    onCancel={onClose}
+    on:done={(event) => {
+      dispatch('done', event.detail);
+      onClose();
+    }}
+  />
+{/if}

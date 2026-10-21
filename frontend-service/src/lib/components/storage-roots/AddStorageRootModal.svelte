@@ -3,7 +3,7 @@
   const ENDPOINT_STATE_VARIANTS = { success: 'success', warning: 'info', danger: 'error', muted: 'muted' } as const;
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
-  import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
+  import WizardShell from '$lib/components/ui/WizardShell.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { createEventDispatcher } from 'svelte';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
@@ -231,30 +231,21 @@
   }
 </script>
 
-{#if open}
-  <div class="sr-add-backdrop" aria-hidden="true"></div>
-  <div class="sr-add-drawer" role="dialog" aria-modal="true" aria-labelledby="sr-add-title">
-    <header class="sr-add-header">
-      <div class="sr-add-title-row">
-        <h2 id="sr-add-title">{t('Add storage roots')}</h2>
-        <button type="button" class="sr-add-icon-btn" aria-label={t('Close')} on:click={close}>
-          <i class="bi bi-x-lg" aria-hidden="true"></i>
-        </button>
-      </div>
-
-      <div class="sr-add-steps">
-        <WizardSteps
-          ariaLabel={t('Creation steps')}
-          current={currentStep}
-          steps={[
-            { label: t('Select source'), hint: t('Choose zone and endpoint') },
-            { label: t('Select storage roots'), hint: t('Discover and select folders') },
-            { label: t('Review & import'), hint: t('Set governance and confirm') }
-          ]}
-        />
-      </div>
-    </header>
-
+<WizardShell
+  {open}
+  onClose={close}
+  flush
+  title={t('Add storage roots')}
+  subtitle={t('Discover folders on a storage endpoint and govern them as storage roots.')}
+  iconClass="bi bi-folder-plus"
+  ariaLabelledby="sr-add-title"
+  current={currentStep}
+  steps={[
+    { label: t('Select source'), hint: t('Choose zone and endpoint') },
+    { label: t('Select storage roots'), hint: t('Discover and select folders') },
+    { label: t('Review & import'), hint: t('Set governance and confirm') }
+  ]}
+>
     <div class="sr-add-body">
       <aside class="sr-add-source-panel">
         {#if currentStep === 1}
@@ -726,103 +717,41 @@
       </main>
     </div>
 
-    <footer class="sr-add-footer">
-      <EntityActionButton variant="secondary" label={t('Cancel')} onClick={close} />
-      {#if currentStep > 1}
-        <EntityActionButton variant="secondary" icon="bi-arrow-left" label={t('Back')} onClick={goBack} />
-      {/if}
-      {#if currentStep < 3}
-        <EntityActionButton
-          variant="primary"
-          icon="bi-arrow-right"
-          label={t('Continue')}
-          disabled={(currentStep === 1 && !selectedEndpoint) || (currentStep === 2 && selectedFolderRows.length === 0) || loading}
-          onClick={goNext}
-        />
-      {:else}
-        <EntityActionButton
-          variant="primary"
-          icon={loading ? "bi-arrow-repeat" : "bi-plus-lg"}
-          busy={loading}
-          label={loading ? t('Creating...') : t('Create {count} storage {value}', { count: selectedFolderRows.length, value: (selectedFolderRows.length === 1 ? 'root' : 'roots') })}
-          disabled={selectedFolderRows.length === 0 || loading}
-          onClick={create}
-        />
-      {/if}
-    </footer>
-  </div>
-{/if}
+  <svelte:fragment slot="footer">
+    <button type="button" class="b2s-btn b2s-btn-ghost" on:click={close}>{t('Cancel')}</button>
+    {#if currentStep > 1}
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={goBack}>
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        {t('Back')}
+      </button>
+    {/if}
+    {#if currentStep < 3}
+      <button
+        type="button"
+        class="b2s-btn b2s-btn-primary"
+        disabled={(currentStep === 1 && !selectedEndpoint) || (currentStep === 2 && selectedFolderRows.length === 0) || loading}
+        on:click={goNext}
+      >
+        {t('Continue')}
+      </button>
+    {:else}
+      <button type="button" class="b2s-btn b2s-btn-primary" disabled={selectedFolderRows.length === 0 || loading} on:click={create}>
+        {#if loading}
+          {t('Creating...')}
+        {:else if selectedFolderRows.length === 1}
+          {t('Create 1 storage root')}
+        {:else}
+          {t('Create {count} storage roots', { count: selectedFolderRows.length })}
+        {/if}
+      </button>
+    {/if}
+  </svelte:fragment>
+</WizardShell>
 
 <style>
-  .sr-add-steps {
-    margin-top: 28px;
-  }
-
-  .sr-add-backdrop {
-    position: fixed;
-    inset: 68px 0 0;
-    z-index: 1050;
-    background: rgba(8, 15, 32, .66);
-    backdrop-filter: blur(2px);
-  }
-
-  .sr-add-drawer {
-    position: fixed;
-    top: 68px;
-    right: 16px;
-    bottom: 16px;
-    z-index: 1051;
-    width: min(1120px, calc(100vw - 390px));
-    min-width: min(980px, calc(100vw - 32px));
-    display: grid;
-    grid-template-rows: auto 1fr auto;
-    overflow: hidden;
-    color: #0b1d46;
-    background: #fff;
-    border: 1px solid #e1e7f2;
-    border-radius: var(--b2s-radius-md);
-    box-shadow: 0 28px 80px rgba(3, 13, 36, .36);
-  }
-
-  .sr-add-header {
-    padding: 28px 34px 0;
-    border-bottom: 1px solid #e6ebf4;
-    background: #fff;
-  }
-
-  .sr-add-title-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .sr-add-title-row h2 {
-    margin: 0;
-    color: #0b1d46;
-    font-size: var(--b2s-fs-page-title);
-    line-height: 1;
-    font-weight: 700;
-    letter-spacing: 0;
-  }
-
-  .sr-add-icon-btn {
-    width: 36px;
-    height: 36px;
-    border: 0;
-    border-radius: var(--b2s-radius-md);
-    display: grid;
-    place-items: center;
-    color: #0b1d46;
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .sr-add-icon-btn:hover {
-    background: #f3f6fb;
-  }
 
   .sr-add-body {
+    flex: 1 1 auto;
     display: grid;
     grid-template-columns: 318px 1fr;
     min-height: 0;
@@ -1910,17 +1839,6 @@
     font-size: var(--b2s-fs-sm);
   }
 
-  .sr-add-footer {
-    min-height: 74px;
-    border-top: 1px solid #e6ebf4;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
-    padding: 16px 30px;
-    background: #fff;
-  }
-
   .sr-add-discovery-btn:disabled,
   .sr-add-refresh-all:disabled {
     cursor: not-allowed;
@@ -1954,23 +1872,9 @@
   }
 
   @media (max-width: 1180px) {
-    .sr-add-drawer {
-      left: 16px;
-      width: auto;
-      min-width: 0;
-    }
   }
 
   @media (max-width: 760px) {
-    .sr-add-backdrop {
-      inset: 0;
-    }
-
-    .sr-add-drawer {
-      inset: 10px;
-      width: auto;
-      min-width: 0;
-    }
 
     .sr-add-body {
       grid-template-columns: 1fr;

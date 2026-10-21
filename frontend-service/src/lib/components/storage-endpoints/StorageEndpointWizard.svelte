@@ -1,9 +1,11 @@
 <script lang="ts">
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
-  import WizardSteps from '$lib/components/ui/WizardSteps.svelte';
+  import WizardShell from '$lib/components/ui/WizardShell.svelte';
+  import ChoiceCard from '$lib/components/ui/ChoiceCard.svelte';
+  import Pagination from '$lib/components/ui/Pagination.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { fade, fly } from 'svelte/transition';
-  import { goto } from '$app/navigation';
   import { createEventDispatcher, onMount } from 'svelte';
   import { toast } from '$lib/stores/toast';
 
@@ -30,10 +32,9 @@
   /* =========================================================
      CONFIGURATION
   ========================================================= */
-  export let variant: 'page' | 'modal' = 'modal';
+  export let open = true;
+  export let onClose: () => void = () => {};
   export let onDone: (() => void) | null = null;
-  let isPage = variant === 'page';
-  $: isPage = variant === 'page';
 
   // Optional prefill from parent pages (ex: /admin/zones)
   export let initialZoneId: number | null = null;
@@ -228,6 +229,14 @@
     duration: 220
   });
 
+  // Create the endpoint without importing any of the detected roots
+  function skipRoots() {
+    governedRoots = [];
+    void finish();
+  }
+
+  let showAllSelected = false;
+
   function goStep2() {
     if (!canContinueStep1) return;
     go(2);
@@ -419,7 +428,7 @@
   $: paginatedRootRows = rootRows.slice((rootPage - 1) * rootsPerPage, rootPage * rootsPerPage);
   $: rootRangeStart = rootRows.length === 0 ? 0 : (rootPage - 1) * rootsPerPage + 1;
   $: rootRangeEnd = Math.min(rootPage * rootsPerPage, rootRows.length);
-  $: selectedPreviewRoots = governedRoots.slice(0, 4);
+  $: selectedPreviewRoots = showAllSelected ? governedRoots : governedRoots.slice(0, 4);
   $: hiddenSelectedCount = Math.max(0, governedRoots.length - selectedPreviewRoots.length);
   $: endpointHostLabel = String(model.host ?? '').trim() || t('Storage endpoint');
   $: lastScanLabel =
@@ -586,109 +595,50 @@
       dispatch('done', { id: created.id, created_roots: createdRoots, failed_roots: failedRoots });
 
       if (onDone) onDone();
-      else if (isPage) goto('/admin/storage-endpoints');
     } catch (e) {
       toast.error(e?.message ?? t('Creation failed'));
     }
   }
 </script>
 
-<!-- =========================================================
-     WIZARD ROOT
-========================================================= -->
- <div class="se-wizard b2s-wizard" class:page={isPage} class:se-wizard--modal={!isPage}>
-   <div class="se-wizard-shell b2s-wizard-shell">
-    <!-- HEADER -->
-    <div class="se-wizard-header">
-      <h1 id="storage-endpoint-wizard-title">
-        {isPage ? t('Create your first storage endpoint') : t('Create storage endpoint')}
-      </h1>
-      <p>
-        {isPage
-          ? t('This wizard will guide you step by step to connect your first storage system.')
-          : t('Connect a storage system and select governed roots.')}
-      </p>
-    </div>
-
-    <WizardSteps steps={[{ label: t('Type') }, { label: t('Connection') }, { label: t('Governance') }]} current={step} />
-
-    <!-- CARD -->
-    <div class="se-card">
+<WizardShell
+  {open}
+  {onClose}
+  title={t('Create storage endpoint')}
+  subtitle={t('Connect a storage system and select governed roots.')}
+  iconClass="bi bi-hdd-network"
+  ariaLabelledby="storage-endpoint-wizard-title"
+  steps={[
+    { label: t('Type'), hint: t('Storage protocol') },
+    { label: t('Connection'), hint: t('Zone, target and credentials') },
+    { label: t('Governance'), hint: t('Roots to govern') }
+  ]}
+  current={step}
+>
+  <div class="se-wizard se-wizard--modal">
       <!-- STEP 1 -->
       {#if step === 1}
         <div
-          class="se-step-panel se-step-panel--intro"
+          class="se-step-panel"
           in:fly={panelIn()}
           out:fade={{ duration: 120 }}
         >
-          <h2>{t('Choose Your Provider')}</h2>
-
-          <div class="se-type-grid">
-            <!-- SMB (enabled) -->
-            <button
-              type="button"
-              class="se-type-card"
-              class:selected={selectedProtocol === 'smb'}
-              on:click={() => selectProtocol('smb')}
-            >
-              <i class="bi bi-display icon smb" aria-hidden="true"></i>
-              <strong>SMB</strong>
-              <span>{t('Windows / Samba shares')}</span>
-            </button>
-
-            <!-- S3 (disabled) -->
-            <button
-              type="button"
-              class="se-type-card disabled"
-              disabled
-              aria-disabled="true"
-              title={t('Coming soon')}
-            >
-              <i class="bi bi-box-seam icon s3" aria-hidden="true"></i>
-              <strong>S3</strong>
-              <span>{t('Coming soon')}</span>
-            </button>
-
-            <!-- Azure Blob (disabled) -->
-            <button
-              type="button"
-              class="se-type-card disabled"
-              disabled
-              aria-disabled="true"
-              title={t('Coming soon')}
-            >
-              <i class="bi bi-cloud icon azure" aria-hidden="true"></i>
-              <strong>{t('Azure Blob')}</strong>
-              <span>{t('Coming soon')}</span>
-            </button>
-
-            <!-- NFS (disabled) -->
-            <button
-              type="button"
-              class="se-type-card disabled"
-              disabled
-              aria-disabled="true"
-              title={t('Coming soon')}
-            >
-              <i class="bi bi-hdd-network icon nfs" aria-hidden="true"></i>
-              <strong>NFS</strong>
-              <span>{t('Coming soon')}</span>
-            </button>
-          </div>
-
-          <div class="se-actions center">
-            <button
-              class="primary"
-              disabled={!canContinueStep1}
-              on:click={goStep2}
-            >
-              {t('Continue')}
-            </button>
-          </div>
-
-          {#if !canContinueStep1}
-            <p class="se-hint">{t('Select a type to continue.')}</p>
-          {/if}
+          <section class="b2s-wizard-section">
+            <h3>{t('Choose the storage type')}</h3>
+            <p>{t('Only SMB file servers can be connected for now.')}</p>
+            <div class="b2s-choice-grid">
+              <ChoiceCard
+                icon="bi-display"
+                title="SMB"
+                description={t('Windows / Samba shares')}
+                selected={selectedProtocol === 'smb'}
+                onSelect={() => selectProtocol('smb')}
+              />
+              <ChoiceCard icon="bi-box-seam" title="S3" description={t('Object storage buckets')} disabled />
+              <ChoiceCard icon="bi-cloud" title={t('Azure Blob')} description={t('Azure storage containers')} disabled />
+              <ChoiceCard icon="bi-hdd-network" title="NFS" description={t('Linux / Unix exports')} disabled />
+            </div>
+          </section>
         </div>
       {/if}
 
@@ -699,19 +649,9 @@
           in:fly={{ x: direction === 'forward' ? 40 : -40, duration: 220 }}
           out:fade
         >
-          <h2>{t('Connection')}</h2>
-
-          <!-- SELECTED TYPE SUMMARY -->
-          <div class="se-selected-type">
-            <i class="bi bi-display icon smb"></i>
-            <div>
-              <strong>SMB</strong>
-              <span>{t('Windows / Samba shares')}</span>
-            </div>
-          </div>
 
           <!-- IDENTITY -->
-           <div class="se-form-block">
+           <section class="b2s-wizard-section">
              <h3>{t('Identity')}</h3>
   
               <div class="se-form-grid se-form-grid--identity">
@@ -740,10 +680,10 @@
                 />
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- ZONE -->
-          <div class="se-form-block">
+          <section class="b2s-wizard-section">
             <h3>{t('Zone')}</h3>
 
             <div class="se-form-grid se-form-grid--identity">
@@ -805,10 +745,10 @@
                 {/if}
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- TARGET -->
-           <div class="se-form-block">
+           <section class="b2s-wizard-section">
              <h3>{t('Target')}</h3>
  
               <div class="se-form-grid se-form-grid--target">
@@ -861,10 +801,10 @@
                 {/if}
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- CREDENTIALS -->
-           <div class="se-form-block">
+           <section class="b2s-wizard-section">
              <h3>{t('Credentials')}</h3>
  
               <div class="se-form-grid se-form-grid--creds">
@@ -921,7 +861,7 @@
                 {t('Name, zone and Hostname/IP are required to continue.')}
               </p>
             {/if}
-          </div>
+          </section>
 
           <!-- TEST CONNECTION -->
           <div class="se-test-connection">
@@ -979,26 +919,6 @@
             />
           </div>
 
-          <!-- ACTIONS -->
-          <div class="se-actions between">
-            <button class="secondary" on:click={() => go(1)}>
-              {t('Back')}
-            </button>
-
-            <div class="se-actions-right">
-              <button
-                class="primary"
-                disabled={!connectionTested || !canContinueStep2}
-                on:click={() => {
-                  touchAllStep2();
-                  if (!canContinueStep2) return;
-                  go(3);
-                }}
-              >
-                {t('Continue')}
-              </button>
-            </div>
-          </div>
         </div>
       {/if}
 
@@ -1009,13 +929,10 @@
           in:fly={panelIn()}
           out:fade={{ duration: 120 }}
         >
-          <h2>{t('Select governed roots')}</h2>
-
           {#if !connectionTested}
-            <div class="se-info-block warning">
-              <strong>{t('Connection not tested')}</strong><br />
+            <InlineAlert tone="warning" title={t('Connection not tested')}>
               {t('Discovery will be executed during final validation.')}
-            </div>
+            </InlineAlert>
           {/if}
 
           <div class="se-gov-topline" aria-live="polite">
@@ -1045,10 +962,7 @@
           </div>
 
           {#if discoverStatus === 'failed'}
-            <div class="se-info-block warning">
-              <strong>{t('Discovery failed')}</strong><br />
-              {discoverError ?? t('Discovery failed')}
-            </div>
+            <InlineAlert tone="error" title={t('Discovery failed')}>{discoverError ?? t('Discovery failed')}</InlineAlert>
           {/if}
 
           <div class="se-governance-layout">
@@ -1163,50 +1077,9 @@
                     </div>
                 {/if}
 
-                <div class="se-shares-pagination">
-                  <span>{t('{rootRangeStart}-{rootRangeEnd} of {rootRowsCount}', { rootRangeStart, rootRangeEnd, rootRowsCount: rootRows.length })}</span>
-                  <div class="se-shares-pages" aria-label={t('Shares pagination')}>
-                    <button
-                      type="button"
-                      disabled={rootPage === 1}
-                      on:click={() => (rootPage = Math.max(1, rootPage - 1))}
-                      aria-label={t('Previous page')}
-                    >
-                      <i class="bi bi-chevron-left" aria-hidden="true"></i>
-                    </button>
-                    <button type="button" class:active={rootPage === 1} on:click={() => (rootPage = 1)}>1</button>
-                    {#if totalRootPages > 1}
-                      <button type="button" class:active={rootPage === 2} on:click={() => (rootPage = Math.min(2, totalRootPages))}>2</button>
-                    {/if}
-                    {#if totalRootPages > 2}
-                      <button type="button" class:active={rootPage === 3} on:click={() => (rootPage = Math.min(3, totalRootPages))}>3</button>
-                    {/if}
-                    {#if totalRootPages > 4}
-                      <span>...</span>
-                      <button type="button" class:active={rootPage === totalRootPages} on:click={() => (rootPage = totalRootPages)}>{totalRootPages}</button>
-                    {/if}
-                    <button
-                      type="button"
-                      disabled={rootPage === totalRootPages}
-                      on:click={() => (rootPage = Math.min(totalRootPages, rootPage + 1))}
-                      aria-label={t('Next page')}
-                    >
-                      <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                    </button>
-                  </div>
-                  <select
-                    class="se-shares-page-size"
-                    value={rootsPerPage}
-                    on:change={(event) => {
-                      rootsPerPage = Number((event.currentTarget as HTMLSelectElement).value);
-                      rootPage = 1;
-                    }}
-                  >
-                    <option value="8">{t('8 per page')}</option>
-                    <option value="12">{t('12 per page')}</option>
-                    <option value="20">{t('20 per page')}</option>
-                  </select>
-                </div>
+                {#if rootRows.length > 0}
+                  <Pagination total={rootRows.length} bind:page={rootPage} bind:pageSize={rootsPerPage} pageSizes={[8, 12, 20]} />
+                {/if}
               {/if}
             </section>
 
@@ -1214,7 +1087,7 @@
               <h3>{t('Selection summary')}</h3>
               <div class="se-selection-count">
                 <strong>{governedRoots.length}</strong>
-                <span>selected</span>
+                <span>{t('selected')}</span>
                 {#if governedRoots.length > 0}
                   <button type="button" on:click={clearSelection}>{t('Clear all')}</button>
                 {/if}
@@ -1241,7 +1114,7 @@
                 </div>
 
                 {#if hiddenSelectedCount > 0}
-                  <button type="button" class="se-selection-more">
+                  <button type="button" class="se-selection-more" on:click={() => (showAllSelected = true)}>
                     <i class="bi bi-plus" aria-hidden="true"></i>
                     {t('{hiddenSelectedCount} more', { hiddenSelectedCount })}
                     <i class="bi bi-chevron-down" aria-hidden="true"></i>
@@ -1249,12 +1122,9 @@
                 {/if}
               {/if}
 
-              <div class="se-governance-note">
-                <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
-                <span>
-                  {t('Add storage roots and guardians next. Each root\'s READ and WRITE AD groups are created on the first approved access request.')}
-                </span>
-              </div>
+              <InlineAlert tone="info" compact>
+                {t('Add storage roots and guardians next. Each root\'s READ and WRITE AD groups are created on the first approved access request.')}
+              </InlineAlert>
 
               <div class="se-created-box">
                 <h4>{t('What will be created')}</h4>
@@ -1272,23 +1142,55 @@
             </aside>
           </div>
 
-          <div class="se-actions split se-governance-footer">
-            <button class="secondary" on:click={() => go(2)}>{t('Back')}</button>
-            <div class="se-actions-right">
-              <button class="secondary se-skip-roots-btn" on:click={finish}>
-                {t('Skip roots')}
-              </button>
-              <button class="primary se-create-endpoint-btn" on:click={finish}>
-                {t('Create storage endpoint{value}', { value: (governedRoots.length > 0 ? t(' with {count} roots', { count: governedRoots.length }) : '') })}
-                <i class="bi bi-chevron-right" aria-hidden="true"></i>
-              </button>
-            </div>
-          </div>
         </div>
       {/if}
-    </div>
   </div>
-</div>
+
+  <svelte:fragment slot="footer-start">
+    {#if step === 1 && !canContinueStep1}
+      {t('Select a type to continue.')}
+    {:else if step === 2 && !connectionTested}
+      {t('Run the probe to check the connection before continuing.')}
+    {:else if step === 3}
+      {t('{governedRootsCount} selected', { governedRootsCount: governedRoots.length })}
+    {/if}
+  </svelte:fragment>
+
+  <svelte:fragment slot="footer">
+    <button type="button" class="b2s-btn b2s-btn-ghost" on:click={onClose}>{t('Cancel')}</button>
+    {#if step > 1}
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => go(step - 1)}>
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        {t('Back')}
+      </button>
+    {/if}
+    {#if step === 1}
+      <button type="button" class="b2s-btn b2s-btn-primary" disabled={!canContinueStep1} on:click={goStep2}>{t('Continue')}</button>
+    {:else if step === 2}
+      <button
+        type="button"
+        class="b2s-btn b2s-btn-primary"
+        disabled={!connectionTested || !canContinueStep2}
+        on:click={() => {
+          touchAllStep2();
+          if (!canContinueStep2) return;
+          go(3);
+        }}
+      >
+        {t('Continue')}
+      </button>
+    {:else}
+      {#if governedRoots.length > 0}
+        <button type="button" class="b2s-btn b2s-btn-secondary" on:click={skipRoots}>{t('Create without roots')}</button>
+      {/if}
+      <button type="button" class="b2s-btn b2s-btn-primary" on:click={finish}>
+        {governedRoots.length > 0
+          ? t('Create endpoint and {count} roots', { count: governedRoots.length })
+          : t('Create storage endpoint')}
+      </button>
+    {/if}
+  </svelte:fragment>
+</WizardShell>
 
 <style>
   /* minimal, non-invasive visual validation */

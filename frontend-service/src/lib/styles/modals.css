@@ -181,3 +181,67 @@
   color: var(--b2s-color-text-muted);
   font-size: var(--b2s-fs-sm);
 }
+
+/* ============================================================
+   B2S — WIZARDS (WizardShell): same size for every step
+   ============================================================ */
+
+.b2s-modal.b2s-wizard {
+  height: min(820px, calc(100vh - 40px));
+}
+
+.b2s-modal-content.b2s-wizard__body {
+  padding: 0 24px 24px;
+}
+
+.b2s-wizard__steps {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -24px 20px;
+  padding: 16px 24px;
+  border-bottom: 1px solid #eef2f7;
+  background: var(--b2s-color-surface);
+}
+
+.b2s-wizard__steps .b2s-steps {
+  padding-bottom: 0;
+}
+
+/* Section inside a wizard step: title + optional description */
+.b2s-wizard-section + .b2s-wizard-section {
+  margin-top: 24px;
+}
+
+.b2s-wizard-section > h3 {
+  margin: 0 0 4px;
+  color: var(--b2s-color-text);
+  font-size: var(--b2s-fs-lg);
+  font-weight: 600;
+}
+
+.b2s-wizard-section > p {
+  margin: 0 0 12px;
+  color: var(--b2s-color-text-muted);
+  font-size: var(--b2s-fs-sm);
+}
+
+/* Field labels inside wizards: sentence case, 13px */
+.b2s-wizard__body .b2s-wizard-section label:not(.b2s-choice):not([class*="switch"]) {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--b2s-color-text);
+  font-size: var(--b2s-fs-sm);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.b2s-modal-content.b2s-wizard__body.is-flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.b2s-wizard__body.is-flush .b2s-wizard__steps {
+  margin: 0;
+}

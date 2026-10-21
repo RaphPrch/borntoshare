@@ -28,7 +28,7 @@
   .b2s-steps {
     list-style: none;
     margin: 0;
-    padding: 0 0 24px;
+    padding: 0;
     display: grid;
     grid-template-columns: repeat(var(--b2s-steps-count), 1fr);
     gap: 26px;
@@ -37,7 +37,7 @@
   .b2s-steps li {
     position: relative;
     display: grid;
-    grid-template-columns: 40px 1fr;
+    grid-template-columns: 32px 1fr;
     align-items: center;
     gap: 12px;
     color: #2d4168;
@@ -46,7 +46,7 @@
   .b2s-steps li:not(:last-child)::after {
     content: '';
     position: absolute;
-    top: 20px;
+    top: 16px;
     left: calc(100% + 2px);
     width: 24px;
     height: 1px;
@@ -54,8 +54,8 @@
   }
 
   .b2s-steps span {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border: 1px solid #cdd8ec;
     border-radius: var(--b2s-radius-pill);
     display: grid;
@@ -67,10 +67,9 @@
 
   .b2s-steps .active span,
   .b2s-steps .done span {
-    border-color: #216be8;
+    border-color: var(--b2s-topbar-bg);
     color: #fff;
-    background: #216be8;
-    box-shadow: 0 10px 22px rgba(33, 107, 232, 0.24);
+    background: var(--b2s-topbar-bg);
   }
 
   .b2s-steps strong {
