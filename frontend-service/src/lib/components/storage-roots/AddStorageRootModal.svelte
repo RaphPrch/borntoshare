@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
+  const ENDPOINT_STATE_VARIANTS = { success: 'success', warning: 'info', danger: 'error', muted: 'muted' } as const;
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
+  import { t } from '$lib/i18n';
+  import WizardShell from '$lib/components/ui/WizardShell.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { createEventDispatcher } from 'svelte';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import type { AddRootEndpoint, AddRootFolder, AddRootZone } from './add-storage-root.types';
@@ -32,17 +38,7 @@
   let folderSort = 'name-asc';
 
   const fmt = (iso?: string | null) => {
-    const value = String(iso ?? '').trim();
-    if (!value) return '—';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '—';
-    return date.toLocaleString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDateTime(iso);
   };
 
   const normalized = (value: unknown) => String(value ?? '').trim().toLowerCase();
@@ -202,14 +198,14 @@
     tone: 'success' | 'warning' | 'danger' | 'muted';
   } {
     const raw = normalized(endpoint?.status ?? endpoint?.lastProbeStatus ?? endpoint?.refreshStatus);
-    if (raw === 'disabled' || raw === 'inactive') return { label: 'Disabled', tone: 'muted' };
-    if (raw.includes('fail') || raw.includes('unreach') || raw.includes('error')) return { label: 'Unreachable', tone: 'danger' };
-    if (raw === 'running') return { label: 'Running', tone: 'warning' };
+    if (raw === 'disabled' || raw === 'inactive') return { label: t('Disabled'), tone: 'muted' };
+    if (raw.includes('fail') || raw.includes('unreach') || raw.includes('error')) return { label: t('Unreachable'), tone: 'danger' };
+    if (raw === 'running') return { label: t('Running'), tone: 'warning' };
     if (raw.includes('success') || raw.includes('ok') || raw.includes('reach') || raw.includes('healthy')) {
-      return { label: 'Reachable', tone: 'success' };
+      return { label: t('Reachable'), tone: 'success' };
     }
-    if (endpoint?.refreshStatus === 'success' || endpoint?.discoveryCount > 0) return { label: 'Reachable', tone: 'success' };
-    return { label: 'Unknown', tone: 'muted' };
+    if (endpoint?.refreshStatus === 'success' || endpoint?.discoveryCount > 0) return { label: t('Reachable'), tone: 'success' };
+    return { label: t('Unknown'), tone: 'muted' };
   }
 
   function statusDotClass(endpoint: AddRootEndpoint | null): string {
@@ -235,42 +231,21 @@
   }
 </script>
 
-{#if open}
-  <div class="sr-add-backdrop" aria-hidden="true"></div>
-  <div class="sr-add-drawer" role="dialog" aria-modal="true" aria-labelledby="sr-add-title">
-    <header class="sr-add-header">
-      <div class="sr-add-title-row">
-        <h2 id="sr-add-title">Add storage roots</h2>
-        <button type="button" class="sr-add-icon-btn" aria-label="Close" on:click={close}>
-          <i class="bi bi-x-lg" aria-hidden="true"></i>
-        </button>
-      </div>
-
-      <ol class="sr-add-stepper" aria-label="Creation steps">
-        <li class:active={currentStep === 1} class:done={currentStep > 1}>
-          <span>{#if currentStep > 1}<i class="bi bi-check-lg" aria-hidden="true"></i>{:else}1{/if}</span>
-          <div>
-            <strong>Select source</strong>
-            <small>Choose zone and endpoint</small>
-          </div>
-        </li>
-        <li class:active={currentStep === 2} class:done={currentStep > 2}>
-          <span>{#if currentStep > 2}<i class="bi bi-check-lg" aria-hidden="true"></i>{:else}2{/if}</span>
-          <div>
-            <strong>Select storage roots</strong>
-            <small>Discover and select folders</small>
-          </div>
-        </li>
-        <li class:active={currentStep === 3}>
-          <span>3</span>
-          <div>
-            <strong>Review & import</strong>
-            <small>Set governance and confirm</small>
-          </div>
-        </li>
-      </ol>
-    </header>
-
+<WizardShell
+  {open}
+  onClose={close}
+  flush
+  title={t('Add storage roots')}
+  subtitle={t('Discover folders on a storage endpoint and govern them as storage roots.')}
+  iconClass="bi bi-folder-plus"
+  ariaLabelledby="sr-add-title"
+  current={currentStep}
+  steps={[
+    { label: t('Select source'), hint: t('Choose zone and endpoint') },
+    { label: t('Select storage roots'), hint: t('Discover and select folders') },
+    { label: t('Review & import'), hint: t('Set governance and confirm') }
+  ]}
+>
     <div class="sr-add-body">
       <aside class="sr-add-source-panel">
         {#if currentStep === 1}
@@ -279,14 +254,14 @@
             <input
               type="search"
               bind:value={search}
-              placeholder="Search zones or endpoints..."
-              aria-label="Search zones or endpoints"
+              placeholder={t('Search zones or endpoints...')}
+              aria-label={t('Search zones or endpoints')}
             />
           </label>
 
           <div class="sr-add-zone-list">
             {#if filteredZones().length === 0}
-              <div class="sr-add-empty-compact">No source matches your search.</div>
+              <div class="sr-add-empty-compact">{t('No source matches your search.')}</div>
             {:else}
               {#each filteredZones() as zone (zone.id)}
                 <article class="sr-add-zone">
@@ -315,7 +290,7 @@
                           <span class="sr-add-endpoint-main">
                             <strong>{endpoint.name}</strong>
                             <small><span class={statusDotClass(endpoint)}></span>{state.label}</small>
-                            <em>{endpoint.discoveryCount} {endpoint.discoveryCount === 1 ? 'root' : 'roots'} discovered</em>
+                            <em>{t('{discoveryCount} {value} discovered', { discoveryCount: endpoint.discoveryCount, value: (endpoint.discoveryCount === 1 ? 'root' : 'roots') })}</em>
                           </span>
                           <i class="bi bi-chevron-right sr-add-chevron" aria-hidden="true"></i>
                         </button>
@@ -330,11 +305,11 @@
           <footer class="sr-add-source-footer">
             <button type="button" class="sr-add-refresh-all" disabled={loading} on:click={refreshAllEndpoints}>
               <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-              Refresh all endpoints
+              {t('Refresh all endpoints')}
             </button>
             <div class="sr-add-last-refresh">
               <span class="sr-add-dot sr-add-dot--success"></span>
-              Last refresh: {fmt(lastRefreshAt)}
+              {t('Last refresh: {fmt}', { fmt: fmt(lastRefreshAt) })}
             </div>
           </footer>
         {:else if currentStep === 2}
@@ -344,8 +319,8 @@
             <input
               type="search"
               bind:value={folderSearch}
-              placeholder="Search discovered roots..."
-              aria-label="Search discovered roots"
+              placeholder={t('Search discovered roots...')}
+              aria-label={t('Search discovered roots')}
             />
           </label>
 
@@ -353,83 +328,83 @@
             <div class="sr-add-endpoint-summary-head">
               <span class="sr-add-server-icon sr-add-server-icon--sm"><i class="bi bi-hdd-network" aria-hidden="true"></i></span>
               <div>
-                <h3>{selectedEndpoint?.name ?? 'Endpoint'}</h3>
+                <h3>{selectedEndpoint?.name ?? t('Endpoint')}</h3>
                 <div class="sr-add-pills">
-                  <span>Zone {selectedEndpoint?.zoneName ?? selectedZone?.name ?? '—'}</span>
+                  <span>{t('Zone {value}', { value: (selectedEndpoint?.zoneName ?? selectedZone?.name ?? '—') })}</span>
                   <span>{selectedEndpoint?.protocol ?? '—'}</span>
                 </div>
               </div>
-              <span class={`sr-add-status sr-add-status--${state.tone}`}>{state.label}</span>
+              <StatusBadge compact variant={ENDPOINT_STATE_VARIANTS[state.tone]} label={state.label} />
             </div>
 
             <div class="sr-add-sidebar-facts">
               <div>
                 <i class="bi bi-clock" aria-hidden="true"></i>
-                <span>Last discovery</span>
+                <span>{t('Last discovery')}</span>
                 <strong>{fmt(selectedEndpoint?.lastRefreshAt ?? selectedEndpoint?.lastProbeAt)}</strong>
               </div>
               <div>
                 <i class="bi bi-folder2-open" aria-hidden="true"></i>
-                <span>{selectedEndpoint?.discoveryCount ?? 0} discovered roots</span>
+                <span>{t('{value} discovered roots', { value: (selectedEndpoint?.discoveryCount ?? 0) })}</span>
               </div>
             </div>
 
-            <div class="sr-add-filter-chips" aria-label="Discovery filters">
-              <button type="button" class:active={folderFilter === 'all'} on:click={() => (folderFilter = 'all')}>All <span>{folderCounts.all}</span></button>
-              <button type="button" class:active={folderFilter === 'new'} on:click={() => (folderFilter = 'new')}>New <span>{folderCounts.new}</span></button>
-              <button type="button" class:active={folderFilter === 'managed'} on:click={() => (folderFilter = 'managed')}>Already managed <span>{folderCounts.managed}</span></button>
-              <button type="button" class:active={folderFilter === 'alerts'} on:click={() => (folderFilter = 'alerts')}>Alerts <span>{folderCounts.alerts}</span></button>
+            <div class="sr-add-filter-chips" aria-label={t('Discovery filters')}>
+              <button type="button" class:active={folderFilter === 'all'} on:click={() => (folderFilter = 'all')}>{t('All')} <span>{folderCounts.all}</span></button>
+              <button type="button" class:active={folderFilter === 'new'} on:click={() => (folderFilter = 'new')}>{t('New')} <span>{folderCounts.new}</span></button>
+              <button type="button" class:active={folderFilter === 'managed'} on:click={() => (folderFilter = 'managed')}>{t('Already managed')} <span>{folderCounts.managed}</span></button>
+              <button type="button" class:active={folderFilter === 'alerts'} on:click={() => (folderFilter = 'alerts')}>{t('Alerts')} <span>{folderCounts.alerts}</span></button>
             </div>
 
             <button type="button" class="sr-add-refresh-all" disabled={Boolean(selectedEndpoint?.refreshing) || loading} on:click={() => runDiscovery()}>
               <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-              Run discovery again
+              {t('Run discovery again')}
             </button>
 
             <p class="sr-add-sidebar-note">
               <i class="bi bi-info-circle" aria-hidden="true"></i>
-              Folders that are already managed cannot be selected again.
+              {t('Folders that are already managed cannot be selected again.')}
             </p>
           </div>
         {:else}
           {@const state = endpointState(selectedEndpoint)}
           <div class="sr-add-review-sidebar">
             <section class="sr-add-review-side-card">
-              <h3>Selected endpoint</h3>
+              <h3>{t('Selected endpoint')}</h3>
               <div class="sr-add-endpoint-summary-head">
                 <span class="sr-add-server-icon sr-add-server-icon--sm"><i class="bi bi-hdd-network" aria-hidden="true"></i></span>
                 <div>
-                  <h4>{selectedEndpoint?.name ?? 'Endpoint'}</h4>
+                  <h4>{selectedEndpoint?.name ?? t('Endpoint')}</h4>
                   <div class="sr-add-pills">
-                    <span>Zone {selectedEndpoint?.zoneName ?? selectedZone?.name ?? '—'}</span>
+                    <span>{t('Zone {value}', { value: (selectedEndpoint?.zoneName ?? selectedZone?.name ?? '—') })}</span>
                     <span>{selectedEndpoint?.protocol ?? '—'}</span>
                   </div>
                 </div>
-                <span class={`sr-add-status sr-add-status--${state.tone}`}>{state.label}</span>
+                <StatusBadge compact variant={ENDPOINT_STATE_VARIANTS[state.tone]} label={state.label} />
               </div>
 
               <div class="sr-add-sidebar-facts sr-add-sidebar-facts--review">
                 <div>
                   <i class="bi bi-clock" aria-hidden="true"></i>
-                  <span>Last discovery</span>
+                  <span>{t('Last discovery')}</span>
                   <strong>{fmt(selectedEndpoint?.lastRefreshAt ?? selectedEndpoint?.lastProbeAt)}</strong>
                 </div>
                 <div>
                   <i class="bi bi-folder2" aria-hidden="true"></i>
-                  <span>Base path</span>
+                  <span>{t('Base path')}</span>
                   <strong>{selectedEndpoint?.basePath || '—'}</strong>
                 </div>
                 <div>
                   <i class="bi bi-folder2-open" aria-hidden="true"></i>
-                  <span>Discovered roots</span>
+                  <span>{t('Discovered roots')}</span>
                   <strong>{selectedEndpoint?.discoveryCount ?? 0}</strong>
                 </div>
               </div>
             </section>
 
             <section class="sr-add-review-side-card sr-add-review-side-card--roots">
-              <h3>Selected storage roots</h3>
-              <p>{selectedFolderRows.length} selected</p>
+              <h3>{t('Selected storage roots')}</h3>
+              <p>{t('{selectedFolderRowsCount} selected', { selectedFolderRowsCount: selectedFolderRows.length })}</p>
               <div class="sr-add-review-side-roots">
                 {#each selectedFolderRows as folder (folder.id)}
                   <div>
@@ -438,7 +413,7 @@
                       <strong>{folder.folderName}</strong>
                       <small>{folder.rootPath}</small>
                     </span>
-                    <em>New</em>
+                    <em>{t('New')}</em>
                   </div>
                 {/each}
               </div>
@@ -454,69 +429,69 @@
             <section class="sr-add-selected">
               <div class="sr-add-selected-head">
                 <div>
-                  <p class="sr-add-kicker">Selected endpoint</p>
+                  <p class="sr-add-kicker">{t('Selected endpoint')}</p>
                   <div class="sr-add-endpoint-title">
                     <span class="sr-add-server-icon"><i class="bi bi-hdd-network" aria-hidden="true"></i></span>
                     <div>
                       <h3>{selectedEndpoint.name}</h3>
                       <div class="sr-add-pills">
-                        <span>Zone {selectedEndpoint.zoneName ?? selectedZone?.name ?? '—'}</span>
-                        <span>Protocol {selectedEndpoint.protocol ?? '—'}</span>
+                        <span>{t('Zone {value}', { value: (selectedEndpoint.zoneName ?? selectedZone?.name ?? '—') })}</span>
+                        <span>{t('Protocol {value}', { value: (selectedEndpoint.protocol ?? '—') })}</span>
                       </div>
                     </div>
                   </div>
                 </div>
-                <span class={`sr-add-status sr-add-status--${state.tone}`}>{state.label}</span>
+                <StatusBadge compact variant={ENDPOINT_STATE_VARIANTS[state.tone]} label={state.label} />
               </div>
 
-              <div class="sr-add-metrics" aria-label="Endpoint summary">
+              <div class="sr-add-metrics" aria-label={t('Endpoint summary')}>
                 <div>
-                  <small>Last discovery</small>
+                  <small>{t('Last discovery')}</small>
                   <strong>{fmt(selectedEndpoint.lastRefreshAt ?? selectedEndpoint.lastProbeAt)}</strong>
                 </div>
                 <div>
-                  <small>Base path</small>
+                  <small>{t('Base path')}</small>
                   <strong>{selectedEndpoint.basePath || '—'}</strong>
                 </div>
                 <div>
-                  <small>Discovered roots</small>
+                  <small>{t('Discovered roots')}</small>
                   <strong>{selectedEndpoint.discoveryCount}</strong>
                 </div>
                 <div>
-                  <small>Status</small>
+                  <small>{t('Status')}</small>
                   <strong><span class={statusDotClass(selectedEndpoint)}></span>{state.label}</strong>
                 </div>
               </div>
 
               <section class="sr-add-next">
-                <h4>What happens next?</h4>
-                <p>We will scan the configured base paths on this endpoint and list eligible folders that can be managed as storage roots.</p>
+                <h4>{t('What happens next?')}</h4>
+                <p>{t('We will scan the configured base paths on this endpoint and list eligible folders that can be managed as storage roots.')}</p>
                 <ul>
-                  <li><i class="bi bi-check-circle-fill" aria-hidden="true"></i>You will be able to review and select folders.</li>
-                  <li><i class="bi bi-check-circle-fill" aria-hidden="true"></i>No storage root will be created until you confirm.</li>
+                  <li><i class="bi bi-check-circle-fill" aria-hidden="true"></i>{t('You will be able to review and select folders.')}</li>
+                  <li><i class="bi bi-check-circle-fill" aria-hidden="true"></i>{t('No storage root will be created until you confirm.')}</li>
                 </ul>
               </section>
 
               <section class="sr-add-discovery-card">
                 <span><i class="bi bi-info-circle" aria-hidden="true"></i></span>
                 {#if selectedEndpoint.discoveryCount > 0}
-                  <h4>{selectedEndpoint.discoveryCount} storage {selectedEndpoint.discoveryCount === 1 ? 'root' : 'roots'} discovered</h4>
-                  <p>Continue to review the discovered folders for this endpoint.</p>
+                  <h4>{t('{discoveryCount} storage {value} discovered', { discoveryCount: selectedEndpoint.discoveryCount, value: (selectedEndpoint.discoveryCount === 1 ? 'root' : 'roots') })}</h4>
+                  <p>{t('Continue to review the discovered folders for this endpoint.')}</p>
                 {:else}
-                  <h4>No storage roots discovered yet</h4>
-                  <p>Run a discovery to scan this endpoint and detect eligible folders.</p>
+                  <h4>{t('No storage roots discovered yet')}</h4>
+                  <p>{t('Run a discovery to scan this endpoint and detect eligible folders.')}</p>
                 {/if}
                 <button type="button" class="sr-add-discovery-btn" disabled={Boolean(selectedEndpoint.refreshing) || loading} on:click={() => runDiscovery()}>
                   <i class={`bi ${selectedEndpoint.refreshing ? 'bi-arrow-repeat' : 'bi-broadcast-pin'}`} aria-hidden="true"></i>
-                  {selectedEndpoint.refreshing ? 'Discovery running...' : `Run discovery on ${selectedEndpoint.name}`}
+                  {selectedEndpoint.refreshing ? t('Discovery running...') : t('Run discovery on {name}', { name: selectedEndpoint.name })}
                 </button>
               </section>
             </section>
           {:else}
             <div class="sr-add-empty-state">
               <i class="bi bi-hdd-network" aria-hidden="true"></i>
-              <strong>Select an endpoint</strong>
-              <span>Choose a file server from the left panel.</span>
+              <strong>{t('Select an endpoint')}</strong>
+              <span>{t('Choose a file server from the left panel.')}</span>
             </div>
           {/if}
         {:else if currentStep === 2}
@@ -525,8 +500,8 @@
               <div class="sr-add-folder-browser-main">
                 <div class="sr-add-step-head">
                   <div>
-                    <h3>Select storage roots from {selectedEndpoint?.name ?? 'endpoint'}</h3>
-                    <p>Choose one or more folders to manage as storage roots.</p>
+                    <h3>{t('Select storage roots from {value}', { value: (selectedEndpoint?.name ?? 'endpoint') })}</h3>
+                    <p>{t('Choose one or more folders to manage as storage roots.')}</p>
                   </div>
                 </div>
 
@@ -538,7 +513,7 @@
                       disabled={eligibleFolders.length === 0}
                       on:change={selectAllEligible}
                     />
-                    <span>Select all eligible</span>
+                    <span>{t('Select all eligible')}</span>
                   </label>
 
                   <label class="sr-add-folder-search">
@@ -546,38 +521,38 @@
                     <input
                       type="search"
                       bind:value={folderSearch}
-                      placeholder="Search path or folder name..."
-                      aria-label="Search path or folder name"
+                      placeholder={t('Search path or folder name...')}
+                      aria-label={t('Search path or folder name')}
                     />
                   </label>
 
-                  <select bind:value={folderSort} aria-label="Sort discovered roots">
-                    <option value="name-asc">Name A-Z</option>
-                    <option value="path-asc">Path A-Z</option>
+                  <select bind:value={folderSort} aria-label={t('Sort discovered roots')}>
+                    <option value="name-asc">{t('Name A-Z')}</option>
+                    <option value="path-asc">{t('Path A-Z')}</option>
                   </select>
                 </div>
 
-                <p class="sr-add-found-count">{visibleFolders.length} {visibleFolders.length === 1 ? 'root' : 'roots'} found</p>
+                <p class="sr-add-found-count">{t('{visibleFoldersCount} {value} found', { visibleFoldersCount: visibleFolders.length, value: (visibleFolders.length === 1 ? 'root' : 'roots') })}</p>
 
                 {#if !selectedEndpoint}
                   <div class="sr-add-empty-state">
                     <i class="bi bi-hdd-network" aria-hidden="true"></i>
-                    <strong>Select an endpoint first</strong>
+                    <strong>{t('Select an endpoint first')}</strong>
                   </div>
                 {:else if selectedFolders.length === 0}
                   <div class="sr-add-empty-state">
                     <i class="bi bi-folder-x" aria-hidden="true"></i>
-                    <strong>No discovered folder</strong>
-                    <span>Run discovery on this endpoint before importing a storage root.</span>
+                    <strong>{t('No discovered folder')}</strong>
+                    <span>{t('Run discovery on this endpoint before importing a storage root.')}</span>
                   </div>
                 {:else if visibleFolders.length === 0}
                   <div class="sr-add-empty-state">
                     <i class="bi bi-search" aria-hidden="true"></i>
-                    <strong>No matching storage root</strong>
-                    <span>Adjust your search or filters.</span>
+                    <strong>{t('No matching storage root')}</strong>
+                    <span>{t('Adjust your search or filters.')}</span>
                   </div>
                 {:else}
-                  <div class="sr-add-discovered-list" role="listbox" aria-label="Discovered storage roots">
+                  <div class="sr-add-discovered-list" role="listbox" aria-label={t('Discovered storage roots')}>
                     {#each visibleFolders as folder (folder.id)}
                       {@const managed = isManagedFolder(folder)}
                       {@const tone = folderTone(folder)}
@@ -597,7 +572,7 @@
                         <strong>{folder.folderName}</strong>
                         <span class="sr-add-root-path">{folder.rootPath}</span>
                         <em class={`sr-add-root-state sr-add-root-state--${tone}`}>
-                          {#if tone === 'managed'}Already managed{:else if tone === 'alert'}Unreachable{:else}New{/if}
+                          {#if tone === 'managed'}{t('Already managed')}{:else if tone === 'alert'}{t('Unreachable')}{:else}{t('New')}{/if}
                         </em>
                       </button>
                     {/each}
@@ -607,8 +582,8 @@
 
               <aside class="sr-add-selection-summary">
                 <section>
-                  <h4>Selection summary</h4>
-                  <strong>{selectedFolderRows.length} {selectedFolderRows.length === 1 ? 'root' : 'roots'} selected</strong>
+                  <h4>{t('Selection summary')}</h4>
+                  <strong>{t('{selectedFolderRowsCount} {value} selected', { selectedFolderRowsCount: selectedFolderRows.length, value: (selectedFolderRows.length === 1 ? 'root' : 'roots') })}</strong>
                   {#if selectedFolderRows.length > 0}
                     <ul>
                       {#each selectedFolderRows as folder (folder.id)}
@@ -616,19 +591,19 @@
                       {/each}
                     </ul>
                   {:else}
-                    <p>No storage root selected.</p>
+                    <p>{t('No storage root selected.')}</p>
                   {/if}
                 </section>
 
                 <section class="sr-add-default-governance">
-                  <h4>Default governance</h4>
+                  <h4>{t('Default governance')}</h4>
                   <dl>
                     <div>
-                      <dt><i class="bi bi-person" aria-hidden="true"></i>Guardians:</dt>
+                      <dt><i class="bi bi-person" aria-hidden="true"></i>{t('Guardians:')}</dt>
                       <dd>none</dd>
                     </div>
                     <div>
-                      <dt><i class="bi bi-tag" aria-hidden="true"></i>Tags:</dt>
+                      <dt><i class="bi bi-tag" aria-hidden="true"></i>{t('Tags:')}</dt>
                       <dd>none</dd>
                     </div>
                   </dl>
@@ -636,12 +611,12 @@
 
                 <div class="sr-add-summary-info sr-add-summary-info--strong">
                   <i class="bi bi-info-circle" aria-hidden="true"></i>
-                  <span>READ and WRITE governed groups will be prepared. Effective permissions are applied on first approved access request.</span>
+                  <span>{t('READ and WRITE governed groups will be prepared. Effective permissions are applied on first approved access request.')}</span>
                 </div>
 
                 <div class="sr-add-summary-info">
                   <i class="bi bi-info-circle" aria-hidden="true"></i>
-                  <span>You’ll review governance and import settings on the next step.</span>
+                  <span>{t('You’ll review governance and import settings on the next step.')}</span>
                 </div>
               </aside>
             </div>
@@ -649,257 +624,134 @@
         {:else}
           <section class="sr-add-review-step sr-add-review-step--final">
             <div class="sr-add-review-center">
-              <h3>Review import configuration</h3>
+              <h3>{t('Review import configuration')}</h3>
 
               <div class="sr-add-review-info">
                 <i class="bi bi-info-circle" aria-hidden="true"></i>
-                <span>{selectedFolderRows.length} storage {selectedFolderRows.length === 1 ? 'root is' : 'roots are'} ready to be imported into BornToShare.</span>
+                <span>{t('{selectedFolderRowsCount} storage {value} ready to be imported into BornToShare.', { selectedFolderRowsCount: selectedFolderRows.length, value: (selectedFolderRows.length === 1 ? 'root is' : 'roots are') })}</span>
               </div>
 
               <section class="sr-add-review-panel sr-add-review-governance">
-                <h4>Default governance</h4>
+                <h4>{t('Default governance')}</h4>
                 <div class="sr-add-review-governance-row">
                   <i class="bi bi-person" aria-hidden="true"></i>
-                  <span>Guardians:</span>
-                  <strong>none assigned</strong>
+                  <span>{t('Guardians:')}</span>
+                  <strong>{t('none assigned')}</strong>
                 </div>
                 <div class="sr-add-review-governance-row">
                   <i class="bi bi-tag" aria-hidden="true"></i>
-                  <span>Tags:</span>
+                  <span>{t('Tags:')}</span>
                   <strong>none</strong>
                 </div>
                 <p>
                   <i class="bi bi-info-circle" aria-hidden="true"></i>
-                  Guardians and tags can be assigned after import from the storage root governance panel.
+                  {t('Guardians and tags can be assigned after import from the storage root governance panel.')}
                 </p>
               </section>
 
               <section class="sr-add-review-panel sr-add-access-provisioning">
-                <h4>Access provisioning</h4>
+                <h4>{t('Access provisioning')}</h4>
                 <div>
                   <input type="checkbox" checked disabled />
-                  <span>READ access:</span>
-                  <strong>governed group prepared</strong>
+                  <span>{t('READ access:')}</span>
+                  <strong>{t('governed group prepared')}</strong>
                 </div>
                 <div>
                   <input type="checkbox" checked disabled />
-                  <span>WRITE access:</span>
-                  <strong>governed group prepared</strong>
+                  <span>{t('WRITE access:')}</span>
+                  <strong>{t('governed group prepared')}</strong>
                 </div>
                 <div>
                   <input type="checkbox" checked disabled />
-                  <span>Effective permissions:</span>
-                  <strong>applied on first approved access request</strong>
+                  <span>{t('Effective permissions:')}</span>
+                  <strong>{t('applied on first approved access request')}</strong>
                 </div>
               </section>
 
               <section class="sr-add-review-panel sr-add-import-validation">
-                <h4>Import validation</h4>
+                <h4>{t('Import validation')}</h4>
                 <div>
                   <i class="bi bi-check-circle" aria-hidden="true"></i>
-                  <span>{selectedFolderRows.length} new storage {selectedFolderRows.length === 1 ? 'root' : 'roots'} selected</span>
+                  <span>{t('{selectedFolderRowsCount} new storage {value} selected', { selectedFolderRowsCount: selectedFolderRows.length, value: (selectedFolderRows.length === 1 ? 'root' : 'roots') })}</span>
                 </div>
                 <div>
                   <i class="bi bi-check-circle" aria-hidden="true"></i>
-                  <span>0 duplicates detected</span>
+                  <span>{t('0 duplicates detected')}</span>
                 </div>
                 <div class="warning">
                   <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-                  <span>No guardians assigned yet</span>
+                  <span>{t('No guardians assigned yet')}</span>
                 </div>
               </section>
             </div>
 
             <aside class="sr-add-import-summary">
-              <h4>Import summary</h4>
+              <h4>{t('Import summary')}</h4>
               <div class="sr-add-import-summary-facts">
                 <div>
                   <i class="bi bi-folder2-open" aria-hidden="true"></i>
-                  <strong>{selectedFolderRows.length} storage {selectedFolderRows.length === 1 ? 'root' : 'roots'}</strong>
+                  <strong>{t('{selectedFolderRowsCount} storage {value}', { selectedFolderRowsCount: selectedFolderRows.length, value: (selectedFolderRows.length === 1 ? 'root' : 'roots') })}</strong>
                 </div>
                 <div>
                   <i class="bi bi-hdd-network" aria-hidden="true"></i>
-                  <strong>1 endpoint</strong>
+                  <strong>{t('1 endpoint')}</strong>
                 </div>
                 <div>
                   <i class="bi bi-geo-alt" aria-hidden="true"></i>
-                  <strong>Zone {selectedEndpoint?.zoneName ?? selectedZone?.name ?? '—'}</strong>
+                  <strong>{t('Zone {value}', { value: (selectedEndpoint?.zoneName ?? selectedZone?.name ?? '—') })}</strong>
                 </div>
               </div>
 
               <ul>
-                <li>Import {selectedFolderRows.map((folder) => folder.folderName).join(' and ')}</li>
-                <li>Prepare READ and WRITE governed groups</li>
-                <li>Governance can be completed now or later</li>
+                <li>{t('Import {value}', { value: (selectedFolderRows.map((folder) => folder.folderName).join(' and ')) })}</li>
+                <li>{t('Prepare READ and WRITE governed groups')}</li>
+                <li>{t('Governance can be completed now or later')}</li>
               </ul>
 
-              <div class="sr-add-import-warning">
-                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-                <span>Storage roots will be created immediately. Governed groups and effective permissions are finalized on first approved access request.</span>
-              </div>
+              <InlineAlert tone="warning" compact>
+                {t('Storage roots will be created immediately. Governed groups and effective permissions are finalized on first approved access request.')}
+              </InlineAlert>
             </aside>
           </section>
         {/if}
       </main>
     </div>
 
-    <footer class="sr-add-footer">
-      <EntityActionButton compact={true} variant="secondary" label="Cancel" onClick={close} />
-      {#if currentStep > 1}
-        <EntityActionButton compact={true} variant="secondary" icon="bi-arrow-left" label="Back" onClick={goBack} />
-      {/if}
-      {#if currentStep < 3}
-        <EntityActionButton
-          compact={true}
-          variant="primary"
-          icon="bi-arrow-right"
-          label="Continue"
-          disabled={(currentStep === 1 && !selectedEndpoint) || (currentStep === 2 && selectedFolderRows.length === 0) || loading}
-          onClick={goNext}
-        />
-      {:else}
-        <EntityActionButton
-          compact={true}
-          variant="primary"
-          icon={loading ? "bi-arrow-repeat" : "bi-plus-lg"}
-          busy={loading}
-          label={loading ? 'Creating...' : `Create ${selectedFolderRows.length} storage ${selectedFolderRows.length === 1 ? 'root' : 'roots'}`}
-          disabled={selectedFolderRows.length === 0 || loading}
-          onClick={create}
-        />
-      {/if}
-    </footer>
-  </div>
-{/if}
+  <svelte:fragment slot="footer">
+    <button type="button" class="b2s-btn b2s-btn-ghost" on:click={close}>{t('Cancel')}</button>
+    {#if currentStep > 1}
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={goBack}>
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        {t('Back')}
+      </button>
+    {/if}
+    {#if currentStep < 3}
+      <button
+        type="button"
+        class="b2s-btn b2s-btn-primary"
+        disabled={(currentStep === 1 && !selectedEndpoint) || (currentStep === 2 && selectedFolderRows.length === 0) || loading}
+        on:click={goNext}
+      >
+        {t('Continue')}
+      </button>
+    {:else}
+      <button type="button" class="b2s-btn b2s-btn-primary" disabled={selectedFolderRows.length === 0 || loading} on:click={create}>
+        {#if loading}
+          {t('Creating...')}
+        {:else if selectedFolderRows.length === 1}
+          {t('Create 1 storage root')}
+        {:else}
+          {t('Create {count} storage roots', { count: selectedFolderRows.length })}
+        {/if}
+      </button>
+    {/if}
+  </svelte:fragment>
+</WizardShell>
 
 <style>
-  .sr-add-backdrop {
-    position: fixed;
-    inset: 68px 0 0;
-    z-index: 1050;
-    background: rgba(8, 15, 32, .66);
-    backdrop-filter: blur(2px);
-  }
-
-  .sr-add-drawer {
-    position: fixed;
-    top: 68px;
-    right: 16px;
-    bottom: 16px;
-    z-index: 1051;
-    width: min(1120px, calc(100vw - 390px));
-    min-width: min(980px, calc(100vw - 32px));
-    display: grid;
-    grid-template-rows: auto 1fr auto;
-    overflow: hidden;
-    color: #0b1d46;
-    background: #fff;
-    border: 1px solid #e1e7f2;
-    border-radius: 10px;
-    box-shadow: 0 28px 80px rgba(3, 13, 36, .36);
-  }
-
-  .sr-add-header {
-    padding: 28px 34px 0;
-    border-bottom: 1px solid #e6ebf4;
-    background: #fff;
-  }
-
-  .sr-add-title-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .sr-add-title-row h2 {
-    margin: 0;
-    color: #0b1d46;
-    font-size: 29px;
-    line-height: 1;
-    font-weight: 700;
-    letter-spacing: 0;
-  }
-
-  .sr-add-icon-btn {
-    width: 36px;
-    height: 36px;
-    border: 0;
-    border-radius: 10px;
-    display: grid;
-    place-items: center;
-    color: #0b1d46;
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .sr-add-icon-btn:hover {
-    background: #f3f6fb;
-  }
-
-  .sr-add-stepper {
-    list-style: none;
-    margin: 28px 0 0;
-    padding: 0 0 24px;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 26px;
-  }
-
-  .sr-add-stepper li {
-    position: relative;
-    display: grid;
-    grid-template-columns: 40px 1fr;
-    align-items: center;
-    gap: 12px;
-    color: #2d4168;
-  }
-
-  .sr-add-stepper li:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    top: 20px;
-    left: calc(100% + 2px);
-    width: 24px;
-    height: 1px;
-    background: #cfd9eb;
-  }
-
-  .sr-add-stepper span {
-    width: 40px;
-    height: 40px;
-    border: 1px solid #cdd8ec;
-    border-radius: 999px;
-    display: grid;
-    place-items: center;
-    color: #304a78;
-    background: #fff;
-    font-weight: 700;
-  }
-
-  .sr-add-stepper .active span,
-  .sr-add-stepper .done span {
-    border-color: #216be8;
-    color: #fff;
-    background: #216be8;
-    box-shadow: 0 10px 22px rgba(33, 107, 232, .24);
-  }
-
-  .sr-add-stepper strong {
-    display: block;
-    font-size: 13px;
-    font-weight: 700;
-    color: #0d214f;
-  }
-
-  .sr-add-stepper small {
-    display: block;
-    margin-top: 2px;
-    font-size: 12px;
-    color: #52688f;
-  }
 
   .sr-add-body {
+    flex: 1 1 auto;
     display: grid;
     grid-template-columns: 318px 1fr;
     min-height: 0;
@@ -920,7 +772,7 @@
     align-items: center;
     gap: 10px;
     border: 1px solid #d8e0ee;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     padding: 0 12px;
     background: #fff;
     color: #6d7f9c;
@@ -933,7 +785,7 @@
     outline: 0;
     color: #253a64;
     background: transparent;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .sr-add-zone-list {
@@ -955,7 +807,7 @@
     gap: 8px;
     padding: 2px 0 8px;
     color: #1b315d;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
     text-align: left;
     cursor: pointer;
@@ -977,7 +829,7 @@
     width: 100%;
     min-height: 84px;
     border: 1px solid #dbe4f1;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: grid;
     grid-template-columns: 22px 1fr auto;
     align-items: center;
@@ -1011,7 +863,7 @@
 
   .sr-add-endpoint-main strong {
     color: #0f2657;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
   }
 
@@ -1021,7 +873,7 @@
     align-items: center;
     gap: 6px;
     color: #516891;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-style: normal;
     font-weight: 500;
   }
@@ -1042,14 +894,14 @@
   .sr-add-refresh-all {
     min-height: 44px;
     border: 1px solid #d8e0ee;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     color: #152b5b;
     background: #fff;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
     cursor: pointer;
   }
@@ -1059,7 +911,7 @@
     align-items: center;
     gap: 6px;
     color: #586d91;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .sr-add-main {
@@ -1089,7 +941,7 @@
   .sr-add-kicker {
     margin: 0 0 14px;
     color: #1d335f;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
   }
 
@@ -1110,7 +962,7 @@
   .sr-add-server-icon {
     width: 56px;
     height: 56px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: grid;
     place-items: center;
     color: #226ceb;
@@ -1129,7 +981,7 @@
   .sr-add-review-step h3 {
     margin: 0;
     color: #0b1d46;
-    font-size: 22px;
+    font-size: var(--b2s-fs-2xl);
     font-weight: 700;
     line-height: 1.15;
   }
@@ -1143,48 +995,17 @@
 
   .sr-add-pills span {
     border: 1px solid #dbe5f4;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     padding: 3px 9px;
     color: #3e557d;
     background: #f8fbff;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 600;
-  }
-
-  .sr-add-status {
-    border-radius: 999px;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .sr-add-status--success {
-    border: 1px solid #afe6c2;
-    color: #087b37;
-    background: #eafaf0;
-  }
-
-  .sr-add-status--warning {
-    border: 1px solid #f5d58b;
-    color: #945d00;
-    background: #fff7df;
-  }
-
-  .sr-add-status--danger {
-    border: 1px solid #f0b5b5;
-    color: #bd1f2b;
-    background: #fff0f0;
-  }
-
-  .sr-add-status--muted {
-    border: 1px solid #d9e1ee;
-    color: #5d6f8d;
-    background: #f5f7fb;
   }
 
   .sr-add-metrics {
     border: 1px solid #e0e7f2;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     padding: 16px 0;
@@ -1204,7 +1025,7 @@
 
   .sr-add-metrics small {
     color: #536990;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 500;
   }
 
@@ -1214,7 +1035,7 @@
     align-items: center;
     gap: 7px;
     color: #0d214f;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
     overflow-wrap: anywhere;
   }
@@ -1228,7 +1049,7 @@
   .sr-add-discovery-card h4 {
     margin: 0;
     color: #0d214f;
-    font-size: 15px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
 
@@ -1237,7 +1058,7 @@
     margin: 0;
     max-width: 610px;
     color: #2e4169;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     line-height: 1.6;
   }
 
@@ -1254,7 +1075,7 @@
     align-items: center;
     gap: 9px;
     color: #1f345f;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .sr-add-next li i {
@@ -1264,7 +1085,7 @@
   .sr-add-discovery-card {
     min-height: 206px;
     border: 1px solid #d7e4f8;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: grid;
     justify-items: center;
     align-content: center;
@@ -1277,20 +1098,19 @@
   .sr-add-discovery-card > span {
     width: 46px;
     height: 46px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: grid;
     place-items: center;
     color: #216be8;
     background: #e5f0ff;
     border: 1px solid #c8dcff;
-    font-size: 22px;
+    font-size: var(--b2s-fs-2xl);
   }
 
-  .sr-add-discovery-btn,
-  .sr-add-secondary-btn {
+  .sr-add-discovery-btn {
     min-height: 42px;
     border: 1px solid #216be8;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1298,28 +1118,16 @@
     padding: 0 18px;
     color: #fff;
     background: #216be8;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
     cursor: pointer;
     box-shadow: 0 10px 24px rgba(33, 107, 232, .22);
   }
 
-  .sr-add-secondary-btn {
-    border-color: #d6dfed;
-    color: #152b5b;
-    background: #fff;
-    box-shadow: none;
-  }
-
-  .sr-add-folder-grid {
-    display: grid;
-    gap: 12px;
-  }
-
   .sr-add-endpoint-summary {
     margin: 0 20px 20px;
     border: 1px solid #dde6f2;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     display: grid;
     gap: 18px;
     padding: 16px;
@@ -1338,7 +1146,7 @@
 
   .sr-add-review-side-card {
     border: 1px solid #dde6f2;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     display: grid;
     gap: 18px;
     padding: 16px;
@@ -1349,14 +1157,14 @@
   .sr-add-review-side-card h3 {
     margin: 0;
     color: #102754;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
 
   .sr-add-review-side-card h4 {
     margin: 0;
     color: #102754;
-    font-size: 17px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
 
@@ -1373,7 +1181,7 @@
   .sr-add-review-side-card--roots p {
     margin: -12px 0 0;
     color: #46618b;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 600;
   }
 
@@ -1385,7 +1193,7 @@
   .sr-add-review-side-roots div {
     min-height: 66px;
     border: 1px solid #dfe7f2;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: grid;
     grid-template-columns: 34px 1fr auto;
     align-items: center;
@@ -1408,7 +1216,7 @@
   .sr-add-review-side-roots strong {
     min-width: 0;
     color: #102754;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -1418,7 +1226,7 @@
   .sr-add-review-side-roots small {
     min-width: 0;
     color: #536990;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1426,11 +1234,11 @@
 
   .sr-add-review-side-roots em {
     border: 1px solid #bceacb;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     padding: 4px 9px;
     color: #09803b;
     background: #ecfbf1;
-    font-size: 11px;
+    font-size: var(--b2s-fs-xs);
     font-style: normal;
     font-weight: 700;
   }
@@ -1445,14 +1253,8 @@
   .sr-add-endpoint-summary-head h3 {
     margin: 0;
     color: #0f2657;
-    font-size: 17px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
-  }
-
-  .sr-add-endpoint-summary-head .sr-add-status {
-    align-self: start;
-    padding: 4px 10px;
-    font-size: 11px;
   }
 
   .sr-add-sidebar-facts {
@@ -1469,7 +1271,7 @@
     align-items: center;
     gap: 10px;
     color: #536990;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .sr-add-sidebar-facts i {
@@ -1478,7 +1280,7 @@
 
   .sr-add-sidebar-facts strong {
     color: #162d5a;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
 
@@ -1491,14 +1293,14 @@
   .sr-add-filter-chips button {
     min-height: 31px;
     border: 1px solid #dbe3f1;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: inline-flex;
     align-items: center;
     gap: 7px;
     padding: 0 11px;
     color: #243a66;
     background: #fff;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     cursor: pointer;
   }
@@ -1512,12 +1314,12 @@
   .sr-add-filter-chips span {
     min-width: 19px;
     height: 19px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: grid;
     place-items: center;
     color: #1a5ee5;
     background: #eef4ff;
-    font-size: 11px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .sr-add-sidebar-note {
@@ -1526,7 +1328,7 @@
     grid-template-columns: auto 1fr;
     gap: 8px;
     color: #536990;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     line-height: 1.55;
   }
 
@@ -1566,7 +1368,7 @@
   .sr-add-step-head p {
     margin: 6px 0 0;
     color: #52688f;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .sr-add-folder-toolbar {
@@ -1581,7 +1383,7 @@
     align-items: center;
     gap: 10px;
     color: #213862;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
@@ -1595,7 +1397,7 @@
   .sr-add-folder-search {
     min-height: 44px;
     border: 1px solid #d8e0ee;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1611,24 +1413,24 @@
     outline: 0;
     color: #253a64;
     background: transparent;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .sr-add-folder-toolbar select {
     min-height: 44px;
     border: 1px solid #d8e0ee;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     padding: 0 12px;
     color: #172d5a;
     background: #fff;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
   .sr-add-found-count {
     margin: 0;
     color: #52688f;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .sr-add-discovered-list {
@@ -1643,7 +1445,7 @@
   .sr-add-discovered-row {
     min-height: 56px;
     border: 1px solid #dde6f2;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: grid;
     grid-template-columns: 22px 32px minmax(120px, 1fr) minmax(150px, 1.2fr) auto;
     align-items: center;
@@ -1675,7 +1477,7 @@
   .sr-add-discovered-row strong {
     min-width: 0;
     color: #102754;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -1685,16 +1487,16 @@
   .sr-add-root-path {
     min-width: 0;
     color: #4f6488;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .sr-add-root-state {
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     padding: 4px 9px;
-    font-size: 11px;
+    font-size: var(--b2s-fs-xs);
     font-style: normal;
     font-weight: 700;
     white-space: nowrap;
@@ -1721,7 +1523,7 @@
   .sr-add-selection-summary {
     min-height: 0;
     border: 1px solid #dde6f2;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     display: grid;
     align-content: start;
     gap: 20px;
@@ -1743,13 +1545,13 @@
   .sr-add-selection-summary h4 {
     margin: 0;
     color: #102754;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
   }
 
   .sr-add-selection-summary section > strong {
     color: #1f6bea;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
   }
 
@@ -1759,14 +1561,14 @@
     display: grid;
     gap: 8px;
     color: #152d5b;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
   .sr-add-selection-summary p {
     margin: 0;
     color: #667899;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .sr-add-default-governance dl {
@@ -1786,23 +1588,23 @@
     align-items: center;
     gap: 9px;
     color: #41577b;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 500;
   }
 
   .sr-add-default-governance dd {
     margin: 0;
     color: #52688f;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .sr-add-summary-info {
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 8px;
     color: #3e557d;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     line-height: 1.45;
   }
 
@@ -1815,11 +1617,6 @@
     border: 1px solid #d7e4f8;
     padding: 13px;
     background: #f3f8ff;
-  }
-
-  .sr-add-review-list {
-    display: grid;
-    gap: 10px;
   }
 
   .sr-add-review-step--final {
@@ -1844,21 +1641,21 @@
   .sr-add-review-center h3 {
     margin: 0;
     color: #102754;
-    font-size: 18px;
+    font-size: var(--b2s-fs-xl);
     font-weight: 700;
   }
 
   .sr-add-review-info {
     min-height: 50px;
     border: 1px solid #cfe0fb;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
     color: #1b3769;
     background: #eef5ff;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .sr-add-review-info i {
@@ -1868,7 +1665,7 @@
 
   .sr-add-review-panel {
     border: 1px solid #dde6f2;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     display: grid;
     gap: 16px;
     padding: 18px;
@@ -1879,7 +1676,7 @@
   .sr-add-import-summary h4 {
     margin: 0;
     color: #102754;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
 
@@ -1889,7 +1686,7 @@
     align-items: center;
     gap: 12px;
     color: #314a73;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .sr-add-review-governance-row i {
@@ -1904,7 +1701,7 @@
 
   .sr-add-review-governance-row strong {
     color: #52688f;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 500;
   }
 
@@ -1916,7 +1713,7 @@
     gap: 9px;
     padding-top: 14px;
     color: #52688f;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .sr-add-review-governance p i {
@@ -1930,7 +1727,7 @@
     align-items: center;
     gap: 12px;
     color: #213862;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .sr-add-access-provisioning input {
@@ -1945,7 +1742,7 @@
 
   .sr-add-access-provisioning strong {
     color: #52688f;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 500;
   }
 
@@ -1965,7 +1762,7 @@
   .sr-add-import-summary {
     min-height: 0;
     border: 1px solid #dde6f2;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     display: grid;
     align-content: start;
     gap: 22px;
@@ -1995,7 +1792,7 @@
 
   .sr-add-import-summary-facts strong {
     color: #152d5b;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
   }
 
@@ -2005,72 +1802,14 @@
     display: grid;
     gap: 18px;
     color: #132958;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     line-height: 1.55;
-  }
-
-  .sr-add-import-warning {
-    border: 1px solid #f1cf88;
-    border-radius: 8px;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 12px;
-    padding: 16px;
-    color: #1d3158;
-    background: #fff8e8;
-    font-size: 13px;
-    line-height: 1.6;
-  }
-
-  .sr-add-import-warning i {
-    color: #f09b15;
-    font-size: 20px;
-    margin-top: 2px;
-  }
-
-  .sr-add-folder-card {
-    min-height: 72px;
-    border: 1px solid #dfe7f2;
-    border-radius: 10px;
-    display: grid;
-    grid-template-columns: 34px 1fr auto;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    text-align: left;
-    background: #fff;
-    color: #122858;
-    cursor: pointer;
-  }
-
-  .sr-add-folder-card:hover,
-  .sr-add-folder-card.selected {
-    border-color: #216be8;
-    background: #f7fbff;
-  }
-
-  .sr-add-selected-mark {
-    color: #216be8;
-  }
-
-  .sr-add-review-card {
-    border: 1px solid #dfe7f2;
-    border-radius: 10px;
-    display: grid;
-    gap: 16px;
-    padding: 18px;
-    background: #fbfdff;
-  }
-
-  .sr-add-governance-choice {
-    display: grid;
-    gap: 12px;
   }
 
   .sr-add-empty-state,
   .sr-add-empty-compact {
     border: 1px dashed #ced8ea;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     display: grid;
     justify-items: center;
     align-content: center;
@@ -2092,27 +1831,15 @@
 
   .sr-add-empty-state strong {
     color: #213862;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
   }
 
   .sr-add-empty-state span,
   .sr-add-empty-compact {
-    font-size: 13px;
-  }
-
-  .sr-add-footer {
-    min-height: 74px;
-    border-top: 1px solid #e6ebf4;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
-    padding: 16px 30px;
-    background: #fff;
+    font-size: var(--b2s-fs-sm);
   }
 
   .sr-add-discovery-btn:disabled,
-  .sr-add-secondary-btn:disabled,
   .sr-add-refresh-all:disabled {
     cursor: not-allowed;
     opacity: .55;
@@ -2122,7 +1849,7 @@
   .sr-add-dot {
     width: 7px;
     height: 7px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: inline-block;
     flex: 0 0 auto;
     background: #98a7bf;
@@ -2145,23 +1872,9 @@
   }
 
   @media (max-width: 1180px) {
-    .sr-add-drawer {
-      left: 16px;
-      width: auto;
-      min-width: 0;
-    }
   }
 
   @media (max-width: 760px) {
-    .sr-add-backdrop {
-      inset: 0;
-    }
-
-    .sr-add-drawer {
-      inset: 10px;
-      width: auto;
-      min-width: 0;
-    }
 
     .sr-add-body {
       grid-template-columns: 1fr;
@@ -2176,15 +1889,6 @@
 
     .sr-add-main {
       overflow: visible;
-    }
-
-    .sr-add-stepper {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-
-    .sr-add-stepper li:not(:last-child)::after {
-      display: none;
     }
 
     .sr-add-metrics {

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import { t } from '$lib/i18n';
   import AppModal from '$lib/components/ui/AppModal.svelte';
 
   type EndpointChoiceItem = {
@@ -21,29 +23,27 @@
 <AppModal
   {open}
   {onClose}
-  ariaLabelledby="zone-endpoint-choice-title"
-  showClose={true}
+  size="md"
+  title={t('Add endpoint')}
+  subtitle={t('Choose whether to create a new endpoint or attach an existing one to this zone.')}
+  iconClass="bi bi-hdd-network"
 >
   <section class="z-ep-choice">
-    <header class="z-ep-choice__head">
-      <h2 id="zone-endpoint-choice-title">Add endpoint</h2>
-      <p>Choose whether to create a new endpoint or attach an existing one to this zone.</p>
-    </header>
 
     <div class="z-ep-choice__actions">
-      <button type="button" class="zone-console__btn" on:click={onCreateNew}>
+      <button type="button" class="b2s-btn b2s-btn-primary" on:click={onCreateNew}>
         <i class="bi bi-plus-lg"></i>
-        Create new endpoint
+        {t('Create new endpoint')}
       </button>
     </div>
 
     <div class="z-ep-choice__existing">
-      <h3>Attach existing endpoint</h3>
+      <h3>{t('Attach existing endpoint')}</h3>
 
       {#if loading}
-        <div class="text-muted">Loading endpoints…</div>
+        <LoadingState>{t('Loading endpoints…')}</LoadingState>
       {:else if existingEndpoints.length === 0}
-        <div class="text-muted">No existing endpoint available.</div>
+        <div class="text-muted">{t('No existing endpoint available.')}</div>
       {:else}
         <ul class="z-ep-choice__list">
           {#each existingEndpoints as ep (ep.id)}
@@ -51,15 +51,15 @@
               <div class="z-ep-choice__meta">
                 <strong>{ep.name}</strong>
                 <span>{ep.host ?? '—'}</span>
-                <span>{ep.zoneName ? `Current zone: ${ep.zoneName}` : 'No zone'}</span>
+                <span>{ep.zoneName ? t('Current zone: {zoneName}', { zoneName: ep.zoneName }) : t('No zone')}</span>
               </div>
               <button
                 type="button"
-                class="zone-console__btn-ghost"
+                class="b2s-btn b2s-btn-secondary b2s-btn-sm"
                 on:click={() => onAttachExisting(ep.id)}
                 disabled={busyAttachId === ep.id}
               >
-                {busyAttachId === ep.id ? 'Attaching…' : 'Attach'}
+                {busyAttachId === ep.id ? t('Attaching…') : t('Attach')}
               </button>
             </li>
           {/each}
@@ -75,20 +75,9 @@
     gap: 14px;
   }
 
-  .z-ep-choice__head h2 {
-    margin: 0;
-    font-size: 1.15rem;
-  }
-
-  .z-ep-choice__head p {
-    margin: 6px 0 0;
-    color: #64748b;
-    font-size: 0.9rem;
-  }
-
   .z-ep-choice__existing h3 {
     margin: 0 0 8px;
-    font-size: 1rem;
+    font-size: var(--b2s-fs-lg);
   }
 
   .z-ep-choice__list {
@@ -103,7 +92,7 @@
 
   .z-ep-choice__list li {
     border: 1px solid #dbe5f2;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 10px 12px;
     display: flex;
     align-items: center;
@@ -119,6 +108,6 @@
 
   .z-ep-choice__meta span {
     color: #64748b;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
   }
 </style>

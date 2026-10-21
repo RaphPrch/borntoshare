@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Breadcrumbs from '$lib/components/ui/Breadcrumbs.svelte';
+  import { t } from '$lib/i18n';
+  import { browser } from '$app/environment';
   import { onDestroy, onMount } from 'svelte';
   import { getRequestStatusMeta, isProvisioningInFlight } from '$lib/utils/access-request-status';
   import { bulkDecision } from '$lib/api/access-requests';
@@ -30,13 +33,12 @@
   let actionMenuOpen = false;
   let decisionInlineError: AccessRequestDecisionUiError | null = null;
 
-
   $: requestStatus = String(req?.status ?? '').toLowerCase();
   $: canApprove = requestStatus === 'pending';
   $: canReject = requestStatus === 'pending';
   $: canRevoke = requestStatus === 'approved' || requestStatus === 'enforced';
   $: statusMeta = getRequestStatusMeta(req?.status);
-  $: requestCode = req?.request_code ?? `REQ-${requestId(req, data?.request)}`;
+  $: requestCode = req?.request_code ?? t('REQ-{requestId}', { requestId: requestId(req, data?.request) });
   $: userLabel = String(displayName(req));
   $: storageLabel = String(storageRootLabel(req));
   $: accessLabel = String(accessProfileLabel(req));
@@ -135,24 +137,25 @@
             toast.info(`Open storage root access: ${mapped.actionHref}`);
           }
         } else {
-          const actionLabel = `Action ${decision}`;
-          toast.error(`${actionLabel} failed`);
+          const actionLabel = t('Action {decision}', { decision });
+          toast.error(t('{actionLabel} failed', { actionLabel }));
         }
       } else {
         decisionInlineError = null;
-        const capsuleMsg = decision === 'approve' ? ` · ${started} capsule(s) started` : '';
-        toast.success(`Action ${decision} applied${capsuleMsg}`);
+        const capsuleMsg = decision === 'approve' ? t(' · {started} capsule(s) started', { started }) : '';
+        toast.success(t('Action {decision} applied{capsuleMsg}', { decision, capsuleMsg }));
       }
       await refreshRequest();
     } catch {
-      toast.error(`Action ${decision} failed`);
+      toast.error(t('Action {decision} failed', { decision }));
     } finally {
       actionRunning = null;
       actionMenuOpen = false;
     }
   }
 
-  $: if (req && isProvisioningInFlight(req?.provisioning ?? [])) {
+  // Browser only: a server-side interval would never be cleared
+  $: if (browser && req && isProvisioningInFlight(req?.provisioning ?? [])) {
     if (!pollTimer) {
       pollTimer = setInterval(() => {
         refreshRequest();
@@ -175,17 +178,14 @@
   });
 </script>
 
-<svelte:head>
-  <title>Access request details</title>
-</svelte:head>
-
 {#if !req}
   <section class="b2s-page">
-    <h1 class="b2s-title">Request not found</h1>
-    <a class="b2s-btn-secondary" href="/access-requests">Back</a>
+    <h1 class="b2s-title">{t('Request not found')}</h1>
+    <a class="b2s-btn b2s-btn-secondary" href="/access-requests">{t('Back')}</a>
   </section>
 {:else}
   <section class="ar-page">
+    <Breadcrumbs items={[{ label: t('Access requests'), href: '/access-requests' }, { label: requestCode }]} />
     <header class="ar-header-row">
       <div class={`ar-status-chip ${statusMeta.tone}`}>
         <i class="bi bi-shield-check"></i>
@@ -194,46 +194,46 @@
       <h1>{requestCode}</h1>
       <div class="ar-actions">
         <div class="menu-wrap">
-          <button class="btn btn-action" type="button" on:click={() => (actionMenuOpen = !actionMenuOpen)}>
+          <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (actionMenuOpen = !actionMenuOpen)}>
             <i class="bi bi-three-dots-vertical"></i>
-            Actions
+            {t('Actions')}
             <i class="bi bi-chevron-down"></i>
           </button>
           {#if actionMenuOpen}
             <div class="menu-popover">
               <button type="button" on:click={() => runDecision('revoke')} disabled={!canRevoke || Boolean(actionRunning)}>
                 <i class="bi bi-file-earmark-lock2"></i>
-                Revoke Access
+                {t('Revoke Access')}
               </button>
               <button type="button" disabled>
                 <i class="bi bi-envelope-paper"></i>
-                Extend TTL
+                {t('Extend TTL')}
               </button>
               <button type="button" disabled>
                 <i class="bi bi-terminal"></i>
-                Rerun capsule
+                {t('Rerun capsule')}
               </button>
               <button type="button" disabled>
                 <i class="bi bi-search"></i>
-                View audit log
+                {t('View audit log')}
               </button>
               <button type="button" disabled>
                 <i class="bi bi-file-earmark-text"></i>
-                Export audit (PDF)
+                {t('Export audit (PDF)')}
               </button>
             </div>
           {/if}
         </div>
         {#if canRevoke}
-          <button class="btn btn-danger" type="button" disabled={Boolean(actionRunning)} on:click={() => runDecision('revoke')}>
-            Revoke Access
+          <button class="b2s-btn b2s-btn-danger" type="button" disabled={Boolean(actionRunning)} on:click={() => runDecision('revoke')}>
+            {t('Revoke Access')}
           </button>
         {:else if canApprove || canReject}
-          <button class="btn btn-primary" type="button" disabled={!canApprove || Boolean(actionRunning)} on:click={() => runDecision('approve')}>
-            Approve
+          <button class="b2s-btn b2s-btn-primary" type="button" disabled={!canApprove || Boolean(actionRunning)} on:click={() => runDecision('approve')}>
+            {t('Approve')}
           </button>
-          <button class="btn btn-danger" type="button" disabled={!canReject || Boolean(actionRunning)} on:click={() => runDecision('reject')}>
-            Reject
+          <button class="b2s-btn b2s-btn-danger" type="button" disabled={!canReject || Boolean(actionRunning)} on:click={() => runDecision('reject')}>
+            {t('Reject')}
           </button>
         {/if}
       </div>
@@ -250,7 +250,7 @@
         {/if}
         {#if decisionInlineError.actionHref}
           <a class="ar-inline-alert__link" href={decisionInlineError.actionHref}>
-            {decisionInlineError.actionLabel ?? 'Open storage root'}
+            {decisionInlineError.actionLabel ?? t('Open storage root')}
           </a>
         {/if}
       </section>
@@ -265,41 +265,41 @@
             <i class="bi bi-arrow-right"></i>
             <div class="scope-pill"><i class="bi bi-folder2"></i> {storageLabel}</div>
           </div>
-          <div class="ttl-tag">{daysRemaining} days</div>
+          <div class="ttl-tag">{t('{daysRemaining} days', { daysRemaining })}</div>
         </div>
         <div class="journey-bar-wrap">
           <div class="journey-bar">
             <span class="fill" style={`width:${progressPercent}%`}></span>
           </div>
-          <div class="journey-end">{daysRemaining} days</div>
+          <div class="journey-end">{t('{daysRemaining} days', { daysRemaining })}</div>
         </div>
         <div class="journey-meta">
           <span>{formatDateTime(req?.created_at)}</span>
-          <span>Expired at</span>
+          <span>{t('Expired at')}</span>
           <span class="pct">{progressPercent}%</span>
         </div>
       </section>
 
       <section class="ar-card ar-left">
-        <h3>Request Summary</h3>
+        <h3>{t('Request Summary')}</h3>
         <div class="sub-card">
-          <div class="sub-title">Access granted</div>
+          <div class="sub-title">{t('Access granted')}</div>
           <div class="soft-box">
             <div class="strong">{accessLabel}</div>
-            <div class="muted-row">Expected AD group: <strong>{expectedAdGroup}</strong></div>
-            <div class="muted-row">Applied via AD group: <strong>{appliedViaGroup}</strong></div>
+            <div class="muted-row">{t('Expected AD group:')} <strong>{expectedAdGroup}</strong></div>
+            <div class="muted-row">{t('Applied via AD group:')} <strong>{appliedViaGroup}</strong></div>
           </div>
         </div>
 
         <div class="sub-card">
-          <div class="sub-title">Time-to-Live (TTL)</div>
-          <div class="muted-row">Expires: <strong>{expiresAtLabel}</strong></div>
+          <div class="sub-title">{t('Time-to-Live (TTL)')}</div>
+          <div class="muted-row">{t('Expires:')} <strong>{expiresAtLabel}</strong></div>
           <div class="ttl-bar">{ttlCountdown} <i class="bi bi-chevron-right"></i></div>
-          <button class="btn btn-primary small" type="button" disabled>Extend TTL</button>
+          <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled>{t('Extend TTL')}</button>
         </div>
 
         <div class="sub-card requester">
-          <div class="sub-title">Requestor</div>
+          <div class="sub-title">{t('Requestor')}</div>
           <div class="identity-row">
             <span class="mini-avatar b2s-persona b2s-persona--xs">{initials(userLabel)}</span>
             <strong>{userLabel}</strong>
@@ -309,14 +309,14 @@
 
       <div class="ar-center-col">
         <section class="ar-card">
-          <h3>Governance Summary</h3>
+          <h3>{t('Governance Summary')}</h3>
           <div class="governance-box">
-            <div class="line"><span>{boolLabel(justificationRequired, 'Justification required', 'Justification optional')}</span>{#if justificationRequired === true}<i class="bi bi-check2"></i>{/if}</div>
-            <div class="line"><span>{boolLabel(ttlEnforced, 'TTL enforced', 'TTL not enforced')}</span>{#if ttlEnforced === true}<i class="bi bi-check2"></i>{/if}</div>
-            <div class="line"><span>Sensitivity zone</span><strong>{sensitivityZone}</strong></div>
-            <div class="line line-last"><span>Risk level</span><strong class="warn">{riskLevel}</strong></div>
+            <div class="line"><span>{boolLabel(justificationRequired, t('Justification required'), t('Justification optional'))}</span>{#if justificationRequired === true}<i class="bi bi-check2"></i>{/if}</div>
+            <div class="line"><span>{boolLabel(ttlEnforced, t('TTL enforced'), t('TTL not enforced'))}</span>{#if ttlEnforced === true}<i class="bi bi-check2"></i>{/if}</div>
+            <div class="line"><span>{t('Sensitivity zone')}</span><strong>{sensitivityZone}</strong></div>
+            <div class="line line-last"><span>{t('Risk level')}</span><strong class="warn">{riskLevel}</strong></div>
             <div class="actions-row">
-              <button class="btn btn-primary small" type="button" disabled>Extend TTL</button>
+              <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled>{t('Extend TTL')}</button>
             </div>
           </div>
         </section>
@@ -325,7 +325,7 @@
 
       <div class="ar-right-col">
         <section class="ar-card">
-          <h3>Request Timeline</h3>
+          <h3>{t('Request Timeline')}</h3>
           <div class="timeline-v2">
             {#each requestTimeline as step}
               <div class="step">
@@ -351,9 +351,9 @@
 
   .ar-page {
     min-height: calc(100vh - 64px);
-    background: #edf1f7;
+    background: var(--b2s-bg);
     color: #1f2a44;
-    padding: 14px 18px 18px;
+    padding: var(--b2s-page-padding);
   }
 
   .ar-header-row {
@@ -366,20 +366,21 @@
 
   .ar-header-row h1 {
     margin: 0;
-    font-size: 30px;
-    letter-spacing: -0.02em;
-    font-weight: 600;
-    color: #2a3652;
+    font-size: var(--b2s-fs-console-title);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    color: var(--b2s-color-text);
   }
 
   .ar-status-chip {
     display: inline-flex;
     align-items: center;
     gap: 12px;
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     padding: 10px 16px;
     border: 1px solid rgba(15, 23, 42, 0.1);
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 800;
     line-height: 1;
     background: #dbeafe;
@@ -416,47 +417,6 @@
     position: relative;
   }
 
-  .btn {
-    border-radius: 14px;
-    border: 1px solid #c9d3e1;
-    background: #f8fafc;
-    color: #1f2a44;
-    padding: 8px 14px;
-    font-size: 14px;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    line-height: 1.25;
-  }
-
-  .btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .btn-action {
-    background: linear-gradient(180deg, #fbfcfe, #eef3f8);
-  }
-
-  .btn-primary {
-    background: linear-gradient(180deg, #4a8ddf, #2f72c9);
-    border-color: #2f72c9;
-    color: #ffffff;
-  }
-
-  .btn-danger {
-    background: linear-gradient(180deg, #df6768, #cd5455);
-    border-color: #bf4c4d;
-    color: #ffffff;
-  }
-
-  .btn.small {
-    font-size: 13px;
-    padding: 6px 12px;
-    border-radius: 10px;
-  }
-
   .menu-wrap {
     position: relative;
   }
@@ -467,7 +427,7 @@
     right: 0;
     width: 272px;
     border: 1px solid #d4dbe7;
-    border-radius: 16px;
+    border-radius: var(--b2s-radius-lg);
     background: #ffffff;
     box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
     z-index: 40;
@@ -480,12 +440,12 @@
     background: transparent;
     text-align: left;
     padding: 12px 10px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     display: flex;
     align-items: center;
     gap: 10px;
     color: #1f2a44;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
   }
 
   .menu-popover button + button {
@@ -509,20 +469,20 @@
   .ar-inline-alert {
     margin: 0 0 12px;
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid rgba(180, 83, 9, 0.32);
     background: rgba(251, 191, 36, 0.12);
     color: #78350f;
   }
 
   .ar-inline-alert__title {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 800;
     margin-bottom: 4px;
   }
 
   .ar-inline-alert__text {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     line-height: 1.35;
   }
 
@@ -534,7 +494,7 @@
   .ar-inline-alert__link {
     margin-top: 6px;
     display: inline-flex;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     color: #1d4ed8;
     text-decoration: underline;
     text-underline-offset: 2px;
@@ -543,7 +503,7 @@
   .ar-card {
     background: rgba(255, 255, 255, 0.92);
     border: 1px solid #d7deeb;
-    border-radius: 18px;
+    border-radius: var(--b2s-radius-lg);
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
     overflow: hidden;
     height: fit-content;
@@ -551,7 +511,7 @@
 
   .ar-card h3 {
     margin: 0;
-    font-size: 15px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
     line-height: 1.2;
     color: #1f2a44;
@@ -575,7 +535,7 @@
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
 
@@ -587,8 +547,8 @@
     background: #edf1f6;
     border: 1px solid #dce3ef;
     padding: 7px 12px;
-    border-radius: 10px;
-    font-size: 14px;
+    border-radius: var(--b2s-radius-md);
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
     display: inline-flex;
     align-items: center;
@@ -596,7 +556,7 @@
   }
 
   .ttl-tag {
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     color: #5b6f8c;
     font-weight: 500;
   }
@@ -608,7 +568,7 @@
 
   .journey-bar {
     height: 6px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #d9e8de;
     overflow: hidden;
   }
@@ -616,7 +576,7 @@
   .journey-bar .fill {
     display: block;
     height: 100%;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #9ccfb3;
   }
 
@@ -626,16 +586,16 @@
     top: -12px;
     background: #edf1f6;
     border: 1px solid #dce3ef;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     padding: 5px 12px;
     color: #364962;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
   }
 
   .journey-meta {
     color: #617492;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     display: inline-flex;
     align-items: center;
     gap: 12px;
@@ -644,7 +604,7 @@
   .journey-meta .pct {
     border: 1px solid #cfd8e6;
     background: #f0f4f9;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     padding: 1px 7px;
     color: #334155;
     font-weight: 600;
@@ -664,7 +624,7 @@
   }
 
   .sub-title {
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
     margin-bottom: 10px;
     color: #1f2a44;
@@ -672,19 +632,19 @@
 
   .soft-box {
     border: 1px solid #dde4f0;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fbfcfe;
     padding: 10px 12px;
   }
 
   .strong {
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     color: #243552;
     margin-bottom: 8px;
   }
 
   .muted-row {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     color: #5c6f8b;
     margin-top: 6px;
     display: flex;
@@ -695,13 +655,13 @@
   .ttl-bar {
     margin-top: 8px;
     border: 1px solid #dde4f0;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #eef2f7;
     padding: 7px 10px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     color: #31425d;
     margin-bottom: 8px;
   }
@@ -710,12 +670,12 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     color: #1f2a44;
   }
 
   .mini-avatar {
-    font-size: 10px;
+    font-size: var(--b2s-fs-xs);
     box-shadow: none;
   }
 
@@ -736,7 +696,7 @@
     justify-content: space-between;
     gap: 10px;
     color: #2d3d58;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     padding: 5px 0;
     line-height: 1.3;
   }
@@ -819,14 +779,14 @@
 
   .step-card {
     border: 1px solid #dde4f0;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #fbfcfe;
     padding: 8px 10px;
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     gap: 10px;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     color: #334861;
   }
 
@@ -836,7 +796,7 @@
 
   .step-card span {
     color: #334861;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   @media (max-width: 1320px) {
@@ -849,7 +809,7 @@
     }
 
     .ar-header-row h1 {
-      font-size: 26px;
+      font-size: var(--b2s-fs-page-title);
     }
   }
 
@@ -873,15 +833,11 @@
     }
 
     .ar-status-chip {
-      font-size: 13px;
+      font-size: var(--b2s-fs-sm);
     }
 
     .ar-header-row h1 {
-      font-size: 24px;
-    }
-
-    .btn {
-      font-size: 13px;
+      font-size: var(--b2s-fs-2xl);
     }
 
     .sub-title,
@@ -895,7 +851,7 @@
     .scope-pill,
     .journey-end,
     .journey-meta {
-      font-size: 13px;
+      font-size: var(--b2s-fs-sm);
     }
   }
 </style>

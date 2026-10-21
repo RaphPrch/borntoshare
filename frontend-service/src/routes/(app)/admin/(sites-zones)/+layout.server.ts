@@ -19,7 +19,11 @@ const parseZoneIdFromPath = (pathname: string): number | null => {
 
 export const load: LayoutServerLoad = async (event: LayoutServerLoadEvent) => {
   const zones = await apiServerGetList('/zones', event);
-  const endpoints = await apiServerGetList('/storage-endpoints/context', event);
+  const endpoints = await apiServerGetList<{
+    zone_id?: number | null;
+    zone?: { id?: number | null } | null;
+    operational_state?: string | null;
+  }>('/storage-endpoints/context', event);
 
   const endpointRows = Array.isArray(endpoints) ? endpoints : [];
   const zoneHealthById = new Map<number, "ok" | "warning">();

@@ -1,36 +1,28 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
+  import AppModal from '$lib/components/ui/AppModal.svelte';
+
   export let open = false;
-  export let title = "Preview changes";
+  export let title = t('Preview changes');
   export let items: string[] = [];
   export let onClose: (() => void) | null = null;
+
+  const close = () => onClose?.();
 </script>
 
-{#if open}
-  <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">{title}</h5>
-          <button type="button" class="btn-close" aria-label="Close" on:click={() => onClose?.()}></button>
-        </div>
-        <div class="modal-body">
-          <p class="text-muted mb-3">Plan/Apply preview skeleton (V2-ready)</p>
-          <ul class="mb-0">
-            {#if items.length === 0}
-              <li>No staged changes.</li>
-            {:else}
-              {#each items as item}
-                <li>{item}</li>
-              {/each}
-            {/if}
-          </ul>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" on:click={() => onClose?.()}>Close</button>
-        </div>
-      </div>
-    </div>
+<AppModal {open} onClose={close} size="md" {title} iconClass="bi bi-list-check">
+  <div class="b2s-confirm-body">
+    {#if items.length === 0}
+      <p>{t('No staged changes.')}</p>
+    {:else}
+      <ul>
+        {#each items as item}
+          <li>{item}</li>
+        {/each}
+      </ul>
+    {/if}
   </div>
-  <div class="modal-backdrop show"></div>
-{/if}
-
+  <svelte:fragment slot="footer">
+    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={close}>{t('Close')}</button>
+  </svelte:fragment>
+</AppModal>

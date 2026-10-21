@@ -1,6 +1,11 @@
 <script lang="ts">
+  import FieldError from '$lib/components/ui/FieldError.svelte';
+  import { t } from '$lib/i18n';
+  import WizardShell from '$lib/components/ui/WizardShell.svelte';
+  import ChoiceCard from '$lib/components/ui/ChoiceCard.svelte';
+  import Pagination from '$lib/components/ui/Pagination.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { fade, fly } from 'svelte/transition';
-  import { goto } from '$app/navigation';
   import { createEventDispatcher, onMount } from 'svelte';
   import { toast } from '$lib/stores/toast';
 
@@ -27,18 +32,17 @@
   /* =========================================================
      CONFIGURATION
   ========================================================= */
-  export let variant: 'page' | 'modal' = 'modal';
+  export let open = true;
+  export let onClose: () => void = () => {};
   export let onDone: (() => void) | null = null;
-  let isPage = variant === 'page';
-  $: isPage = variant === 'page';
 
   // Optional prefill from parent pages (ex: /admin/zones)
   export let initialZoneId: number | null = null;
   export let lockZone = false;
 
   const requiresIdentitySource = false;
-  const managedRootBadgeLabel = 'Integrated';
-  const availableRootBadgeLabel = 'Available';
+  const managedRootBadgeLabel = t('Integrated');
+  const availableRootBadgeLabel = t('Available');
 
   const dispatch = createEventDispatcher<{
     done: { id: number; created_roots: number; failed_roots: number };
@@ -121,7 +125,7 @@
         model.zone_id = initialZoneId;
       }
     } catch (e) {
-      const message = e?.message ?? 'Unable to load wizard data.';
+      const message = e?.message ?? t('Unable to load wizard data.');
       zonesError = message;
       identitySourcesError = message;
     } finally {
@@ -169,18 +173,18 @@
   function resolveHostInput() {
     const value = (model.host ?? '').trim();
     if (!value) {
-      resolveHint = { ok: false, message: 'Type un hostname ou une IP.' };
+      resolveHint = { ok: false, message: t('Type un hostname ou une IP.') };
       return;
     }
     if (isValidIPv4(value)) {
-      resolveHint = { ok: true, message: 'IP valide.' };
+      resolveHint = { ok: true, message: t('IP valide.') };
       return;
     }
     if (isValidHostname(value)) {
-      resolveHint = { ok: true, message: 'Hostname valide.' };
+      resolveHint = { ok: true, message: t('Hostname valide.') };
       return;
     }
-    resolveHint = { ok: false, message: 'Format hostname/IP invalide.' };
+    resolveHint = { ok: false, message: t('Format hostname/IP invalide.') };
   }
 
   function resolveTestTarget(): string | null {
@@ -224,6 +228,14 @@
     x: direction === 'forward' ? 40 : -40,
     duration: 220
   });
+
+  // Create the endpoint without importing any of the detected roots
+  function skipRoots() {
+    governedRoots = [];
+    void finish();
+  }
+
+  let showAllSelected = false;
 
   function goStep2() {
     if (!canContinueStep1) return;
@@ -391,17 +403,6 @@
     governedRoots = [];
   };
 
-  const invertSelection = () => {
-    const next = new Set(governedRoots);
-    for (const root of filteredDetectedRoots) {
-      if (isAlreadyGoverned(root) || isBlockedRoot(root)) continue;
-      const normalized = normalizeRoot(root);
-      if (next.has(normalized)) next.delete(normalized);
-      else next.add(normalized);
-    }
-    governedRoots = Array.from(next);
-  };
-
   type RootStatusFilter = 'all' | 'available' | 'selected' | 'already_governed';
   let rootStatusFilter: RootStatusFilter = 'available';
   let rootPage = 1;
@@ -427,9 +428,9 @@
   $: paginatedRootRows = rootRows.slice((rootPage - 1) * rootsPerPage, rootPage * rootsPerPage);
   $: rootRangeStart = rootRows.length === 0 ? 0 : (rootPage - 1) * rootsPerPage + 1;
   $: rootRangeEnd = Math.min(rootPage * rootsPerPage, rootRows.length);
-  $: selectedPreviewRoots = governedRoots.slice(0, 4);
+  $: selectedPreviewRoots = showAllSelected ? governedRoots : governedRoots.slice(0, 4);
   $: hiddenSelectedCount = Math.max(0, governedRoots.length - selectedPreviewRoots.length);
-  $: endpointHostLabel = String(model.host ?? '').trim() || 'Storage endpoint';
+  $: endpointHostLabel = String(model.host ?? '').trim() || t('Storage endpoint');
   $: lastScanLabel =
     discoverStatus === 'running'
       ? 'running'
@@ -447,7 +448,7 @@
     detectedRoots = [];
     alreadyGovernedRoots = [];
     jobsStore.startJob(wizardDiscoveryJobInput(), {
-      message: 'Discovery running'
+      message: t('Discovery running')
     });
 
     try {
@@ -502,7 +503,7 @@
         lastSuccessfulProbeAt = new Date().toISOString();
         lastSuccessfulProbeMessage = `discovery_ok:${detectedRoots.length}`;
         jobsStore.succeedJob(wizardDiscoveryJobInput(), {
-          message: 'Discovery success',
+          message: t('Discovery success'),
           summary: {
             rootsCount: detectedRoots.length
           },
@@ -510,7 +511,7 @@
         });
       } else {
         discoverStatus = 'failed';
-        discoverError = polled.errorMessage ?? 'Discovery failed';
+        discoverError = polled.errorMessage ?? t('Discovery failed');
         jobsStore.failJob(wizardDiscoveryJobInput(), {
           message: discoverError,
           error: discoverError,
@@ -519,7 +520,7 @@
       }
     } catch (e) {
       discoverStatus = 'failed';
-      discoverError = e?.message ?? 'Unable to run discovery';
+      discoverError = e?.message ?? t('Unable to run discovery');
       jobsStore.failJob(wizardDiscoveryJobInput(), {
         message: discoverError,
         error: discoverError
@@ -534,7 +535,7 @@
     if (!model.name) return;
     if (!required(model.zone_id)) {
       touch('zone');
-      toast.error('A zone is required to create a storage endpoint.');
+      toast.error(t('A zone is required to create a storage endpoint.'));
       return;
     }
 
@@ -586,137 +587,58 @@
           });
         } catch (syncError) {
           console.warn('storage_endpoint_wizard.discovery_sync_failed', syncError);
-          toast.warning('Storage roots were created, but discovery sync must be refreshed.');
+          toast.warning(t('Storage roots were created, but discovery sync must be refreshed.'));
         }
       }
 
-      toast.success('Storage endpoint created.');
+      toast.success(t('Storage endpoint created.'));
       dispatch('done', { id: created.id, created_roots: createdRoots, failed_roots: failedRoots });
 
       if (onDone) onDone();
-      else if (isPage) goto('/admin/storage-endpoints');
     } catch (e) {
-      toast.error(e?.message ?? 'Creation failed');
+      toast.error(e?.message ?? t('Creation failed'));
     }
   }
 </script>
 
-<!-- =========================================================
-     WIZARD ROOT
-========================================================= -->
- <div class="se-wizard b2s-wizard" class:page={isPage} class:se-wizard--modal={!isPage}>
-   <div class="se-wizard-shell b2s-wizard-shell">
-    <!-- HEADER -->
-    <div class="se-wizard-header">
-      <h1 id="storage-endpoint-wizard-title">
-        {isPage ? 'Create your first storage endpoint' : 'Create storage endpoint'}
-      </h1>
-      <p>
-        {isPage
-          ? 'This wizard will guide you step by step to connect your first storage system.'
-          : 'Connect a storage system and select governed roots.'}
-      </p>
-    </div>
-
-    <!-- STEPPER (short + dynamic segments) -->
-    <div class="se-stepper b2s-wizard-stepper" aria-label="Wizard progress">
-      <div class="se-step b2s-wizard-step">
-        <div class="num" class:active={step >= 1}>1</div>
-        <div class="label" class:active={step >= 1}>Type</div>
-      </div>
-
-      <div class="se-line" class:active={step >= 2} aria-hidden="true"></div>
-
-      <div class="se-step b2s-wizard-step">
-        <div class="num" class:active={step >= 2}>2</div>
-        <div class="label" class:active={step >= 2}>Connection</div>
-      </div>
-
-      <div class="se-line" class:active={step >= 3} aria-hidden="true"></div>
-
-      <div class="se-step b2s-wizard-step">
-        <div class="num" class:active={step >= 3}>3</div>
-        <div class="label" class:active={step >= 3}>Governance</div>
-      </div>
-    </div>
-
-    <!-- CARD -->
-    <div class="se-card">
+<WizardShell
+  {open}
+  {onClose}
+  title={t('Create storage endpoint')}
+  subtitle={t('Connect a storage system and select governed roots.')}
+  iconClass="bi bi-hdd-network"
+  ariaLabelledby="storage-endpoint-wizard-title"
+  steps={[
+    { label: t('Type'), hint: t('Storage protocol') },
+    { label: t('Connection'), hint: t('Zone, target and credentials') },
+    { label: t('Governance'), hint: t('Roots to govern') }
+  ]}
+  current={step}
+>
+  <div class="se-wizard se-wizard--modal">
       <!-- STEP 1 -->
       {#if step === 1}
         <div
-          class="se-step-panel se-step-panel--intro"
+          class="se-step-panel"
           in:fly={panelIn()}
           out:fade={{ duration: 120 }}
         >
-          <h2>Choose Your Provider</h2>
-
-          <div class="se-type-grid">
-            <!-- SMB (enabled) -->
-            <button
-              type="button"
-              class="se-type-card"
-              class:selected={selectedProtocol === 'smb'}
-              on:click={() => selectProtocol('smb')}
-            >
-              <i class="bi bi-display icon smb" aria-hidden="true"></i>
-              <strong>SMB</strong>
-              <span>Windows / Samba shares</span>
-            </button>
-
-            <!-- S3 (disabled) -->
-            <button
-              type="button"
-              class="se-type-card disabled"
-              disabled
-              aria-disabled="true"
-              title="Coming soon"
-            >
-              <i class="bi bi-box-seam icon s3" aria-hidden="true"></i>
-              <strong>S3</strong>
-              <span>Coming soon</span>
-            </button>
-
-            <!-- Azure Blob (disabled) -->
-            <button
-              type="button"
-              class="se-type-card disabled"
-              disabled
-              aria-disabled="true"
-              title="Coming soon"
-            >
-              <i class="bi bi-cloud icon azure" aria-hidden="true"></i>
-              <strong>Azure Blob</strong>
-              <span>Coming soon</span>
-            </button>
-
-            <!-- NFS (disabled) -->
-            <button
-              type="button"
-              class="se-type-card disabled"
-              disabled
-              aria-disabled="true"
-              title="Coming soon"
-            >
-              <i class="bi bi-hdd-network icon nfs" aria-hidden="true"></i>
-              <strong>NFS</strong>
-              <span>Coming soon</span>
-            </button>
-          </div>
-
-          <div class="se-actions center">
-            <button
-              class="primary"
-              disabled={!canContinueStep1}
-              on:click={goStep2}
-            >
-              Continue
-            </button>
-          </div>
-
-          {#if !canContinueStep1}
-            <p class="se-hint">Select a type to continue.</p>
-          {/if}
+          <section class="b2s-wizard-section">
+            <h3>{t('Choose the storage type')}</h3>
+            <p>{t('Only SMB file servers can be connected for now.')}</p>
+            <div class="b2s-choice-grid">
+              <ChoiceCard
+                icon="bi-display"
+                title="SMB"
+                description={t('Windows / Samba shares')}
+                selected={selectedProtocol === 'smb'}
+                onSelect={() => selectProtocol('smb')}
+              />
+              <ChoiceCard icon="bi-box-seam" title="S3" description={t('Object storage buckets')} disabled />
+              <ChoiceCard icon="bi-cloud" title={t('Azure Blob')} description={t('Azure storage containers')} disabled />
+              <ChoiceCard icon="bi-hdd-network" title="NFS" description={t('Linux / Unix exports')} disabled />
+            </div>
+          </section>
         </div>
       {/if}
 
@@ -727,56 +649,46 @@
           in:fly={{ x: direction === 'forward' ? 40 : -40, duration: 220 }}
           out:fade
         >
-          <h2>Connection</h2>
-
-          <!-- SELECTED TYPE SUMMARY -->
-          <div class="se-selected-type">
-            <i class="bi bi-display icon smb"></i>
-            <div>
-              <strong>SMB</strong>
-              <span>Windows / Samba shares</span>
-            </div>
-          </div>
 
           <!-- IDENTITY -->
-           <div class="se-form-block">
-             <h3>Identity</h3>
+           <section class="b2s-wizard-section">
+             <h3>{t('Identity')}</h3>
   
               <div class="se-form-grid se-form-grid--identity">
                 <div>
-                  <label for="se-name">Name <span class="req">*</span></label>
+                  <label for="se-name">{t('Name')} <span class="req">*</span></label>
                  <input
                    id="se-name"
                    class="se-input"
                    class:invalid={errName}
                    bind:value={model.name}
-                   placeholder="Main file server"
+                   placeholder={t('Main file server')}
                    on:blur={() => touch('name')}
                  />
                 {#if errName}
-                  <div class="se-field-error">Name is required.</div>
+                  <FieldError>{t('Name is required.')}</FieldError>
                 {/if}
               </div>
 
               <div>
-                <label for="se-description">Description</label>
+                <label for="se-description">{t('Description')}</label>
                 <input
                   id="se-description"
                   class="se-input"
                   bind:value={model.description}
-                  placeholder={'Production SMB storage'}
+                  placeholder={t('Production SMB storage')}
                 />
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- ZONE -->
-          <div class="se-form-block">
-            <h3>Zone</h3>
+          <section class="b2s-wizard-section">
+            <h3>{t('Zone')}</h3>
 
             <div class="se-form-grid se-form-grid--identity">
               <div>
-                 <label for="se-zone">Existing zone <span class="req">*</span></label>
+                 <label for="se-zone">{t('Existing zone')} <span class="req">*</span></label>
                  <select
                    id="se-zone"
                    class="se-input"
@@ -785,27 +697,27 @@
                    disabled={lockZone}
                    on:blur={() => touch('zone')}
                  >
-                  <option value={null} disabled>Select a zone</option>
+                  <option value={null} disabled>{t('Select a zone')}</option>
                   {#each zones as z (z.id)}
                     <option value={z.id}>{z.name}</option>
                   {/each}
                 </select>
                 {#if zonesLoading}
-                  <div class="se-field-hint">Loading zones…</div>
+                  <div class="se-field-hint">{t('Loading zones…')}</div>
                 {/if}
                 {#if zonesError}
-                  <div class="se-field-error">{zonesError}</div>
+                  <FieldError>{zonesError}</FieldError>
                 {/if}
                 {#if errZone}
-                  <div class="se-field-error">Zone is required.</div>
+                  <FieldError>{t('Zone is required.')}</FieldError>
                 {/if}
                 {#if !zonesLoading && !zonesError && zones.length === 0}
-                  <div class="se-field-error">Create a zone before adding a storage endpoint.</div>
+                  <FieldError>{t('Create a zone before adding a storage endpoint.')}</FieldError>
                 {/if}
               </div>
 
               <div>
-                <label for="se-identity-source">Identity source (AD)</label>
+                <label for="se-identity-source">{t('Identity source (AD)')}</label>
                 <select
                   id="se-identity-source"
                   class="se-input"
@@ -814,60 +726,60 @@
                   on:change={onIdentitySourceChange}
                   on:blur={() => touch('identity_source')}
                 >
-                  <option value="">No identity source (optional)</option>
+                  <option value="">{t('No identity source (optional)')}</option>
                   {#each activeAdIdentitySources as src (src.id)}
-                    <option value={src.id}>{src.name ?? `Source #${src.id}`}</option>
+                    <option value={src.id}>{src.name ?? t('Source #{id}', { id: src.id })}</option>
                   {/each}
                 </select>
                 {#if identitySourcesLoading}
-                  <div class="se-field-hint">Loading identity sources…</div>
+                  <div class="se-field-hint">{t('Loading identity sources…')}</div>
                 {/if}
                 {#if identitySourcesError}
-                  <div class="se-field-error">{identitySourcesError}</div>
+                  <FieldError>{identitySourcesError}</FieldError>
                 {/if}
                 {#if !identitySourcesLoading && !identitySourcesError && activeAdIdentitySources.length === 0}
-                  <div class="se-field-hint">No active AD identity source available (optional field).</div>
+                  <div class="se-field-hint">{t('No active AD identity source available (optional field).')}</div>
                 {/if}
                 {#if errIdentitySource}
-                  <div class="se-field-error">Identity source is required.</div>
+                  <FieldError>{t('Identity source is required.')}</FieldError>
                 {/if}
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- TARGET -->
-           <div class="se-form-block">
-             <h3>Target</h3>
+           <section class="b2s-wizard-section">
+             <h3>{t('Target')}</h3>
  
               <div class="se-form-grid se-form-grid--target">
               <div>
-                <label for="se-host">Hostname / IP <span class="req">*</span></label>
+                <label for="se-host">{t('Hostname / IP')} <span class="req">*</span></label>
                <div class="b2s-input-with-action">
                  <input
                    id="se-host"
                    class="se-input"
                    class:invalid={errHost || errHostFormat}
                    bind:value={model.host}
-                   placeholder="fileserver.domain.local ou 10.0.0.12"
+                   placeholder={t('fileserver.domain.local ou 10.0.0.12')}
                    on:blur={() => touch('host')}
                  />
                  <button
                    class="b2s-input-action"
                    type="button"
-                   aria-label="Resolve host"
+                   aria-label={t('Resolve host')}
                    on:click={resolveHostInput}
                  >
                    <i class="bi bi-search" aria-hidden="true"></i>
                  </button>
                </div>
                {#if errHost}
-                 <div class="se-field-error">Hostname/IP is required.</div>
+                 <FieldError>{t('Hostname/IP is required.')}</FieldError>
                {/if}
                {#if errHostFormat}
-                 <div class="se-field-error">Invalid hostname/IP.</div>
+                 <FieldError>{t('Invalid hostname/IP.')}</FieldError>
                {/if}
                {#if duplicateEndpoint}
-                 <div class="se-field-error">A file server with the same IP/hostname already exists.</div>
+                 <FieldError>{t('A file server with the same IP/hostname already exists.')}</FieldError>
                {/if}
                {#if resolveHint}
                  <div class={`se-field-hint ${resolveHint.ok ? 'ok' : ''}`}>{resolveHint.message}</div>
@@ -875,7 +787,7 @@
              </div>
 
               <div>
-                <label for="se-port">Port <span class="req">*</span></label>
+                <label for="se-port">{t('Port')} <span class="req">*</span></label>
                 <input
                   id="se-port"
                   class="se-input"
@@ -885,34 +797,34 @@
                   on:blur={() => touch('port')}
                 />
                 {#if errPort}
-                  <div class="se-field-error">Port is required.</div>
+                  <FieldError>{t('Port is required.')}</FieldError>
                 {/if}
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- CREDENTIALS -->
-           <div class="se-form-block">
-             <h3>Credentials</h3>
+           <section class="b2s-wizard-section">
+             <h3>{t('Credentials')}</h3>
  
               <div class="se-form-grid se-form-grid--creds">
                 <div>
-                  <label for="se-username">Username <span class="req">*</span></label>
+                  <label for="se-username">{t('Username')} <span class="req">*</span></label>
                  <input
                    id="se-username"
                    class="se-input"
                    class:invalid={errUsername}
                    bind:value={model.username}
-                   placeholder="DOMAIN\\service-account"
+                   placeholder={t('DOMAIN\\\\service-account')}
                    on:blur={() => touch('username')}
                  />
                 {#if errUsername}
-                  <div class="se-field-error">Username is required.</div>
+                  <FieldError>{t('Username is required.')}</FieldError>
                 {/if}
               </div>
 
               <div>
-                <label for="se-password">Password <span class="req">*</span></label>
+                <label for="se-password">{t('Password')} <span class="req">*</span></label>
                 <div class="b2s-input-with-action">
                   <input
                     id="se-password"
@@ -926,30 +838,30 @@
                     class="b2s-input-action"
                     type="button"
                     tabindex="-1"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? t('Hide password') : t('Show password')}
                     on:click={() => (showPassword = !showPassword)}
                   >
                     <i class={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
                   </button>
                 </div>
                 {#if errPassword}
-                  <div class="se-field-error">Password is required.</div>
+                  <FieldError>{t('Password is required.')}</FieldError>
                 {/if}
               </div>
             </div>
 
             {#if showTestHint}
               <p class="se-hint error">
-                Fill all fields (except description) to test the connection.
+                {t('Fill all fields (except description) to test the connection.')}
               </p>
             {/if}
 
             {#if showContinueHint}
               <p class="se-hint error">
-                Name, zone and Hostname/IP are required to continue.
+                {t('Name, zone and Hostname/IP are required to continue.')}
               </p>
             {/if}
-          </div>
+          </section>
 
           <!-- TEST CONNECTION -->
           <div class="se-test-connection">
@@ -959,13 +871,13 @@
                 const secretRef = await ensureSecretRef('create', { clearPassword: false });
                 return buildConnectProbeRequest(secretRef);
               }}
-              label="Run Probe"
-              busyLabel="Running probe…"
+              label={t('Run Probe')}
+              busyLabel={t('Running probe…')}
               fullWidth={true}
               showIcon={true}
               iconClass="bi bi-activity"
               busyIconClass="bi bi-hourglass-split"
-              buttonClass={`se-run-probe-btn sed-btn sed-btn--secondary ${testStatus === 'success' ? 'is-success' : ''}`}
+              buttonClass={`se-run-probe-btn b2s-btn b2s-btn-secondary ${testStatus === 'success' ? 'is-success' : ''}`}
               hideSuccessPanel={true}
               disabled={!canTestConnection}
               beforeRun={async () => {
@@ -974,19 +886,19 @@
                 lastSuccessfulProbeAt = null;
                 lastSuccessfulProbeMessage = null;
                 jobsStore.startJob(wizardProbeJobInput(), {
-                  message: 'Probe running'
+                  message: t('Probe running')
                 });
               }}
               on:done={(e) => {
                 testStatus = e.detail.ok ? 'success' : 'failed';
                 connectionTested = Boolean(e.detail.ok);
-                testError = e.detail.ok ? null : (e.detail.error?.message ?? 'Connection test failed');
+                testError = e.detail.ok ? null : (e.detail.error?.message ?? t('Connection test failed'));
 
                 if (e.detail.ok) {
                   lastSuccessfulProbeAt = new Date().toISOString();
                   lastSuccessfulProbeMessage = 'probe_ok';
                   jobsStore.succeedJob(wizardProbeJobInput(), {
-                    message: 'Probe OK',
+                    message: t('Probe OK'),
                     summary: {
                       status: e.detail.status,
                       jobId: e.detail.jobId
@@ -1001,32 +913,12 @@
                 }
 
                 if (e.detail.ok) {
-                  toast.success('Probe OK');
+                  toast.success(t('Probe OK'));
                 }
               }}
             />
           </div>
 
-          <!-- ACTIONS -->
-          <div class="se-actions between">
-            <button class="secondary" on:click={() => go(1)}>
-              Back
-            </button>
-
-            <div class="se-actions-right">
-              <button
-                class="primary"
-                disabled={!connectionTested || !canContinueStep2}
-                on:click={() => {
-                  touchAllStep2();
-                  if (!canContinueStep2) return;
-                  go(3);
-                }}
-              >
-                Continue
-              </button>
-            </div>
-          </div>
         </div>
       {/if}
 
@@ -1037,29 +929,26 @@
           in:fly={panelIn()}
           out:fade={{ duration: 120 }}
         >
-          <h2>Select governed roots</h2>
-
           {#if !connectionTested}
-            <div class="se-info-block warning">
-              <strong>Connection not tested</strong><br />
-              Discovery will be executed during final validation.
-            </div>
+            <InlineAlert tone="warning" title={t('Connection not tested')}>
+              {t('Discovery will be executed during final validation.')}
+            </InlineAlert>
           {/if}
 
           <div class="se-gov-topline" aria-live="polite">
             <div class="se-gov-topline__item">
               <i class="bi bi-folder" aria-hidden="true"></i>
-              <span>{visibleDetectedRoots.length} detected</span>
+              <span>{t('{visibleDetectedRootsCount} detected', { visibleDetectedRootsCount: visibleDetectedRoots.length })}</span>
             </div>
             <span class="se-gov-topline__dot" aria-hidden="true"></span>
             <div class="se-gov-topline__item">
               <i class="bi bi-check-circle" aria-hidden="true"></i>
-              <span>{governedRoots.length} selected</span>
+              <span>{t('{governedRootsCount} selected', { governedRootsCount: governedRoots.length })}</span>
             </div>
             <span class="se-gov-topline__dot" aria-hidden="true"></span>
             <div class="se-gov-topline__item">
               <i class="bi bi-clock" aria-hidden="true"></i>
-              <span>Last scan: {lastScanLabel}</span>
+              <span>{t('Last scan: {lastScanLabel}', { lastScanLabel })}</span>
             </div>
             <button
               class="se-gov-refresh"
@@ -1068,24 +957,21 @@
               on:click={startDiscovery}
             >
               <i class={`bi ${discoverStatus === 'running' ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} aria-hidden="true"></i>
-              {discoverStatus === 'running' ? 'Refreshing…' : 'Refresh'}
+              {discoverStatus === 'running' ? t('Refreshing…') : t('Refresh')}
             </button>
           </div>
 
           {#if discoverStatus === 'failed'}
-            <div class="se-info-block warning">
-              <strong>Discovery failed</strong><br />
-              {discoverError ?? 'Discovery failed'}
-            </div>
+            <InlineAlert tone="error" title={t('Discovery failed')}>{discoverError ?? t('Discovery failed')}</InlineAlert>
           {/if}
 
           <div class="se-governance-layout">
-            <section class="se-shares-card" aria-label="Detected shares">
+            <section class="se-shares-card" aria-label={t('Detected shares')}>
               <div class="se-shares-toolbar">
                 <div class="se-shares-search">
                   <i class="bi bi-search" aria-hidden="true"></i>
                   <input
-                    placeholder="Search shares..."
+                    placeholder={t('Search shares...')}
                     value={rootsQuery}
                     on:input={(event) => {
                       rootsQuery = (event.currentTarget as HTMLInputElement).value;
@@ -1102,25 +988,25 @@
                     rootPage = 1;
                   }}
                 >
-                  <option value="available">Availability: Available</option>
-                  <option value="all">Availability: All</option>
-                  <option value="selected">Availability: Selected</option>
-                  <option value="already_governed">Availability: Integrated</option>
+                  <option value="available">{t('Availability: Available')}</option>
+                  <option value="all">{t('Availability: All')}</option>
+                  <option value="selected">{t('Availability: Selected')}</option>
+                  <option value="already_governed">{t('Availability: Integrated')}</option>
                 </select>
 
                 <button class="se-link se-link--quiet" type="button" on:click={clearSelection}>
-                  Clear all
+                  {t('Clear all')}
                 </button>
 
                 <button class="se-link se-link--right" type="button" on:click={selectAllFiltered}>
-                  Select all {selectableDetectedRoots.length}
+                  {t('Select all {selectableDetectedRootsCount}', { selectableDetectedRootsCount: selectableDetectedRoots.length })}
                 </button>
               </div>
 
               {#if discoverStatus === 'success' && visibleDetectedRoots.length === 0 && alreadyGovernedRoots.length === 0}
                 <div class="se-empty">
-                  <strong>No root detected.</strong>
-                  <div class="se-muted">Run discovery again or continue without roots.</div>
+                  <strong>{t('No root detected.')}</strong>
+                  <div class="se-muted">{t('Run discovery again or continue without roots.')}</div>
                 </div>
               {:else}
                 <div class="se-shares-table-wrap">
@@ -1130,7 +1016,7 @@
                         <th class="se-shares-table__check">
                           <input
                             type="checkbox"
-                            aria-label="Select all eligible shares"
+                            aria-label={t('Select all eligible shares')}
                             checked={selectableDetectedRoots.length > 0 && selectableDetectedRoots.every((root) => isSelected(root))}
                             on:change={(event) => {
                               if ((event.currentTarget as HTMLInputElement).checked) selectAllFiltered();
@@ -1138,9 +1024,9 @@
                             }}
                           />
                         </th>
-                        <th class="se-shares-table__badge">State</th>
-                        <th>Name <i class="bi bi-arrow-down-up" aria-hidden="true"></i></th>
-                        <th>Path</th>
+                        <th class="se-shares-table__badge">{t('State')}</th>
+                        <th>{t('Name')} <i class="bi bi-arrow-down-up" aria-hidden="true"></i></th>
+                        <th>{t('Path')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1149,7 +1035,7 @@
                           <td class="se-shares-table__check">
                             <input
                               type="checkbox"
-                              aria-label={`Select ${rootLabel(root)}`}
+                              aria-label={t('Select {rootLabel}', { rootLabel: rootLabel(root) })}
                               checked={isSelected(root)}
                               disabled={isAlreadyGoverned(root) || isBlockedRoot(root)}
                               on:change={() => toggleGovern(root)}
@@ -1186,71 +1072,30 @@
 
                 {#if rootRows.length === 0}
                     <div class="se-empty">
-                      <strong>No match.</strong>
-                      <div class="se-muted">Change the filter or clear it.</div>
+                      <strong>{t('No match.')}</strong>
+                      <div class="se-muted">{t('Change the filter or clear it.')}</div>
                     </div>
                 {/if}
 
-                <div class="se-shares-pagination">
-                  <span>{rootRangeStart}-{rootRangeEnd} of {rootRows.length}</span>
-                  <div class="se-shares-pages" aria-label="Shares pagination">
-                    <button
-                      type="button"
-                      disabled={rootPage === 1}
-                      on:click={() => (rootPage = Math.max(1, rootPage - 1))}
-                      aria-label="Previous page"
-                    >
-                      <i class="bi bi-chevron-left" aria-hidden="true"></i>
-                    </button>
-                    <button type="button" class:active={rootPage === 1} on:click={() => (rootPage = 1)}>1</button>
-                    {#if totalRootPages > 1}
-                      <button type="button" class:active={rootPage === 2} on:click={() => (rootPage = Math.min(2, totalRootPages))}>2</button>
-                    {/if}
-                    {#if totalRootPages > 2}
-                      <button type="button" class:active={rootPage === 3} on:click={() => (rootPage = Math.min(3, totalRootPages))}>3</button>
-                    {/if}
-                    {#if totalRootPages > 4}
-                      <span>...</span>
-                      <button type="button" class:active={rootPage === totalRootPages} on:click={() => (rootPage = totalRootPages)}>{totalRootPages}</button>
-                    {/if}
-                    <button
-                      type="button"
-                      disabled={rootPage === totalRootPages}
-                      on:click={() => (rootPage = Math.min(totalRootPages, rootPage + 1))}
-                      aria-label="Next page"
-                    >
-                      <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                    </button>
-                  </div>
-                  <select
-                    class="se-shares-page-size"
-                    value={rootsPerPage}
-                    on:change={(event) => {
-                      rootsPerPage = Number((event.currentTarget as HTMLSelectElement).value);
-                      rootPage = 1;
-                    }}
-                  >
-                    <option value="8">8 per page</option>
-                    <option value="12">12 per page</option>
-                    <option value="20">20 per page</option>
-                  </select>
-                </div>
+                {#if rootRows.length > 0}
+                  <Pagination total={rootRows.length} bind:page={rootPage} bind:pageSize={rootsPerPage} pageSizes={[8, 12, 20]} />
+                {/if}
               {/if}
             </section>
 
-            <aside class="se-selection-card" aria-label="Selection summary">
-              <h3>Selection summary</h3>
+            <aside class="se-selection-card" aria-label={t('Selection summary')}>
+              <h3>{t('Selection summary')}</h3>
               <div class="se-selection-count">
                 <strong>{governedRoots.length}</strong>
-                <span>selected</span>
+                <span>{t('selected')}</span>
                 {#if governedRoots.length > 0}
-                  <button type="button" on:click={clearSelection}>Clear all</button>
+                  <button type="button" on:click={clearSelection}>{t('Clear all')}</button>
                 {/if}
               </div>
 
               {#if governedRoots.length === 0}
                 <div class="se-selection-empty">
-                  No governed root selected.
+                  {t('No governed root selected.')}
                 </div>
               {:else}
                 <div class="se-selected-list">
@@ -1261,7 +1106,7 @@
                         <strong>{rootLabel(root)}</strong>
                         <span class="mono">{root}</span>
                       </div>
-                      <button type="button" aria-label={`Remove ${rootLabel(root)}`} on:click={() => ungovern(root)}>
+                      <button type="button" aria-label={t('Remove {rootLabel}', { rootLabel: rootLabel(root) })} on:click={() => ungovern(root)}>
                         <i class="bi bi-x" aria-hidden="true"></i>
                       </button>
                     </div>
@@ -1269,55 +1114,83 @@
                 </div>
 
                 {#if hiddenSelectedCount > 0}
-                  <button type="button" class="se-selection-more">
+                  <button type="button" class="se-selection-more" on:click={() => (showAllSelected = true)}>
                     <i class="bi bi-plus" aria-hidden="true"></i>
-                    {hiddenSelectedCount} more
+                    {t('{hiddenSelectedCount} more', { hiddenSelectedCount })}
                     <i class="bi bi-chevron-down" aria-hidden="true"></i>
                   </button>
                 {/if}
               {/if}
 
-              <div class="se-governance-note">
-                <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
-                <span>
-                  Governance will be initialized after endpoint creation. Access profiles and
-                  guardians can be configured next.
-                </span>
-              </div>
+              <InlineAlert tone="info" compact>
+                {t('Add storage roots and guardians next. Each root\'s READ and WRITE AD groups are created on the first approved access request.')}
+              </InlineAlert>
 
               <div class="se-created-box">
-                <h4>What will be created</h4>
+                <h4>{t('What will be created')}</h4>
                 <div class="se-created-row">
                   <i class="bi bi-hdd-rack" aria-hidden="true"></i>
-                  <span>Storage endpoint</span>
+                  <span>{t('Storage endpoint')}</span>
                   <strong>{endpointHostLabel}</strong>
                 </div>
                 <div class="se-created-row">
                   <i class="bi bi-folder" aria-hidden="true"></i>
-                  <span>Governed roots</span>
-                  <strong>{governedRoots.length} roots</strong>
+                  <span>{t('Governed roots')}</span>
+                  <strong>{t('{governedRootsCount} roots', { governedRootsCount: governedRoots.length })}</strong>
                 </div>
               </div>
             </aside>
           </div>
 
-          <div class="se-actions split se-governance-footer">
-            <button class="secondary" on:click={() => go(2)}>Back</button>
-            <div class="se-actions-right">
-              <button class="secondary se-skip-roots-btn" on:click={finish}>
-                Skip roots
-              </button>
-              <button class="primary se-create-endpoint-btn" on:click={finish}>
-                Create storage endpoint{governedRoots.length > 0 ? ` with ${governedRoots.length} roots` : ''}
-                <i class="bi bi-chevron-right" aria-hidden="true"></i>
-              </button>
-            </div>
-          </div>
         </div>
       {/if}
-    </div>
   </div>
-</div>
+
+  <svelte:fragment slot="footer-start">
+    {#if step === 1 && !canContinueStep1}
+      {t('Select a type to continue.')}
+    {:else if step === 2 && !connectionTested}
+      {t('Run the probe to check the connection before continuing.')}
+    {:else if step === 3}
+      {t('{governedRootsCount} selected', { governedRootsCount: governedRoots.length })}
+    {/if}
+  </svelte:fragment>
+
+  <svelte:fragment slot="footer">
+    <button type="button" class="b2s-btn b2s-btn-ghost" on:click={onClose}>{t('Cancel')}</button>
+    {#if step > 1}
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => go(step - 1)}>
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        {t('Back')}
+      </button>
+    {/if}
+    {#if step === 1}
+      <button type="button" class="b2s-btn b2s-btn-primary" disabled={!canContinueStep1} on:click={goStep2}>{t('Continue')}</button>
+    {:else if step === 2}
+      <button
+        type="button"
+        class="b2s-btn b2s-btn-primary"
+        disabled={!connectionTested || !canContinueStep2}
+        on:click={() => {
+          touchAllStep2();
+          if (!canContinueStep2) return;
+          go(3);
+        }}
+      >
+        {t('Continue')}
+      </button>
+    {:else}
+      {#if governedRoots.length > 0}
+        <button type="button" class="b2s-btn b2s-btn-secondary" on:click={skipRoots}>{t('Create without roots')}</button>
+      {/if}
+      <button type="button" class="b2s-btn b2s-btn-primary" on:click={finish}>
+        {governedRoots.length > 0
+          ? t('Create endpoint and {count} roots', { count: governedRoots.length })
+          : t('Create storage endpoint')}
+      </button>
+    {/if}
+  </svelte:fragment>
+</WizardShell>
 
 <style>
   /* minimal, non-invasive visual validation */
@@ -1330,16 +1203,9 @@
     box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.12);
   }
 
-  .se-field-error {
-    margin-top: 6px;
-    font-size: 12px;
-    line-height: 1.2;
-    color: rgba(220, 53, 69, 0.95);
-  }
-
   .se-field-hint {
     margin-top: 6px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #64748b;
     font-weight: 600;
   }

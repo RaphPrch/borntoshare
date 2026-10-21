@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import {
     resolveStatusVariant,
     type StatusVariant,
@@ -12,7 +13,7 @@
 
   const toBadgeLabel = (value: unknown): string => {
     const raw = String(value ?? '').trim();
-    if (!raw) return 'Unknown';
+    if (!raw) return t('Unknown');
     return raw.replace(/[_-]+/g, ' ');
   };
 

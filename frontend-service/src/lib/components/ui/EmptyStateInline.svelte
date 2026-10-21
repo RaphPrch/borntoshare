@@ -9,6 +9,6 @@
   .b2s-empty-inline {
     color: #64748b;
     padding: 10px 2px;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
   }
 </style>

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import { principalLabel, principalSubtitle } from '../utils/principal-search';
 
 type PrincipalLike = Record<string, unknown>;
@@ -29,12 +30,12 @@ export const mapPrincipalToDisplayVM = (principal: PrincipalLike): PrincipalDisp
     subtitle: principalSubtitle(principal),
     typeLabel:
       normalizedType === 'group'
-        ? 'Group'
+        ? t('Group')
         : normalizedType === 'ou'
           ? 'OU'
           : normalizedType === 'user'
-            ? 'User'
-            : toText(principal?.type) || 'Identity',
+            ? t('User')
+            : toText(principal?.type) || t('Identity'),
     iconKind,
     iconClass:
       normalizedType === 'group'

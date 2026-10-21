@@ -1,3 +1,4 @@
+import { apiServerGetList } from '$lib/server/api-server';
 import type { PageServerLoad } from './$types';
 import { requireAuth } from '$lib/server/require-auth';
 
@@ -48,14 +49,19 @@ export const load: PageServerLoad = async (event) => {
   }
 
   // ADMIN MODE: platform KPI (core-service is the source of truth)
-  const stats = await getDashboardPlatformOverviewServer(event);
+  const [stats, activities] = await Promise.all([
+    getDashboardPlatformOverviewServer(event),
+    // The card shows the last business actions; the dashboard stays usable if the activity log is down
+    apiServerGetList<Record<string, unknown>>('/activity/latest?limit=100&business_only=true', event).catch(() => [])
+  ]);
 
   return {
     mode,
     payload: {
       stats: {
         ...stats
-      }
+      },
+      activities
     },
     me
   };

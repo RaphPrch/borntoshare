@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import { formatDateTime } from '$lib/utils/format';
 import { clamp } from '$lib/utils/values';
 
@@ -64,9 +65,9 @@ export const accessProfileLabel = (req: any) => {
     .toLowerCase();
 
   if (!raw) return '—';
-  if (raw.includes('contribution') || raw.includes('write')) return 'Write (Write NTFS)';
-  if (raw.includes('audit') || raw.includes('security')) return 'Audit (Read Security)';
-  if (raw.includes('read') || raw.includes('lecture')) return 'Read (Read NTFS)';
+  if (raw.includes('contribution') || raw.includes('write')) return t('Write (Write NTFS)');
+  if (raw.includes('audit') || raw.includes('security')) return t('Audit (Read Security)');
+  if (raw.includes('read') || raw.includes('lecture')) return t('Read (Read NTFS)');
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 };
 
@@ -83,7 +84,7 @@ export const ttlCountdownLabel = (req: any) => {
   const expiresAt = req?.expires_at;
   if (!expiresAt) {
     const days = daysLeft(req);
-    return `${days} days, 0 hours, 0 minutes`;
+    return t('{days} days, 0 hours, 0 minutes', { days });
   }
 
   const remainingMs = new Date(expiresAt).getTime() - Date.now();
@@ -92,7 +93,7 @@ export const ttlCountdownLabel = (req: any) => {
   const days = Math.floor(totalMinutes / (60 * 24));
   const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
   const minutes = totalMinutes % 60;
-  return `${days} days, ${hours} hours, ${minutes} minutes`;
+  return t('{days} days, {hours} hours, {minutes} minutes', { days, hours, minutes });
 };
 
 export const timelinePercent = (req: any) => {
@@ -105,7 +106,7 @@ export const timelinePercent = (req: any) => {
 export const requestEvents = (req: any) => {
   const events: Array<{ title: string; date?: string; success?: boolean }> = [
     {
-      title: 'Request created',
+      title: t('Request created'),
       date: req?.created_at,
       success: true
     }
@@ -116,7 +117,7 @@ export const requestEvents = (req: any) => {
     const pStatus = String(lastProvisioning?.status ?? '').toLowerCase();
     const ok = pStatus.includes('success') || pStatus.includes('approved') || pStatus.includes('enforced');
     events.push({
-      title: `Capsule executed${ok ? ' — Success' : ''}`,
+      title: t('Capsule executed{value}', { value: (ok ? ' — Success' : '') }),
       date: lastProvisioning?.finished_at ?? lastProvisioning?.updated_at ?? lastProvisioning?.created_at,
       success: ok
     });

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import type { ZoneProvisioningPolicy } from "$lib/api/zones";
   import ProvisioningPolicyScreen from "$lib/components/provisioning/ProvisioningPolicyScreen.svelte";
   import { buildZoneProvisioningViewModel } from "$lib/components/provisioning/provisioning-policy.adapter";
@@ -29,7 +30,7 @@
       onSavePolicy: onSave ?? undefined,
       savePolicyBusy: saving,
       savePolicyDisabled: !canSave,
-      savePolicyLabel: "Save policy"
+      savePolicyLabel: t('Save policy')
     }
   };
 

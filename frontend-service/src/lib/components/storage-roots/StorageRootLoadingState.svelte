@@ -1,5 +1,6 @@
 <script lang="ts">
-  export let label = 'Loading storage root data…';
+  import { t } from '$lib/i18n';
+  export let label = t('Loading storage root data…');
   export let tone: 'default' | 'empty' = 'default';
 </script>
 

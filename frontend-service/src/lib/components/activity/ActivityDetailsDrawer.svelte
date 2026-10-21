@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import { renderActivity } from '$lib/activity/formatter';
@@ -6,8 +7,7 @@
   export let open = false;
   export let entry: any | null = null;
   export let onClose: (() => void) | null = null;
-  export let width = '620px';
-  export let topOffset = '0px';
+  export let size: 'md' | 'lg' = 'lg';
   export let titleFallback = 'Activity details';
   export let subtitleFallback = 'Detailed payload from current logging data';
 
@@ -64,30 +64,30 @@
 </script>
 
 <Drawer
+  iconClass="bi bi-clock-history"
   {open}
   title={rendered?.title ?? titleFallback}
   subtitle={rendered?.description ?? subtitleFallback}
-  {width}
-  {topOffset}
+  {size}
   showFooter={false}
   onClose={() => onClose?.()}
 >
   {#if entry}
     <div class="activity-details-drawer__meta">
-      <div><strong>Action</strong><span>{String(entry?.action ?? '—')}</span></div>
-      <div><strong>Severity</strong><span>{String(entry?.severity ?? entry?.outcome ?? 'info')}</span></div>
-      <div><strong>Date & time</strong><span>{formatDateTime(entry?.created_at ?? entry?.event_time, { seconds: true })}</span></div>
-      <div><strong>Target</strong><span>{String(entry?.target_display ?? '—')}</span></div>
+      <div><strong>{t('Action')}</strong><span>{String(entry?.action ?? '—')}</span></div>
+      <div><strong>{t('Severity')}</strong><span>{String(entry?.severity ?? entry?.outcome ?? 'info')}</span></div>
+      <div><strong>{t('Date & time')}</strong><span>{formatDateTime(entry?.created_at ?? entry?.event_time)}</span></div>
+      <div><strong>{t('Target')}</strong><span>{String(entry?.target_display ?? '—')}</span></div>
     </div>
 
     {#if changeRows.length > 0}
       <div class="activity-details-drawer__section">
-        <h3>Changed values</h3>
-        <div class="activity-details-drawer__table" role="table" aria-label="Changed values">
+        <h3>{t('Changed values')}</h3>
+        <div class="activity-details-drawer__table" role="table" aria-label={t('Changed values')}>
           <div role="row" class="head">
-            <span role="columnheader">Field</span>
-            <span role="columnheader">Before</span>
-            <span role="columnheader">After</span>
+            <span role="columnheader">{t('Field')}</span>
+            <span role="columnheader">{t('Before')}</span>
+            <span role="columnheader">{t('After')}</span>
           </div>
           {#each changeRows as row}
             <div role="row">
@@ -101,7 +101,7 @@
     {/if}
 
     <div class="activity-details-drawer__section">
-      <h3>Raw context</h3>
+      <h3>{t('Raw context')}</h3>
       <pre>{JSON.stringify(context ?? {}, null, 2)}</pre>
     </div>
   {/if}
@@ -120,18 +120,18 @@
     gap: 0.15rem;
     padding: 0.55rem 0.65rem;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #f8fafc;
   }
 
   .activity-details-drawer__meta strong {
-    font-size: 0.78rem;
+    font-size: var(--b2s-fs-xs);
     color: #64748b;
     font-weight: 700;
   }
 
   .activity-details-drawer__meta span {
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     color: #0f172a;
     word-break: break-word;
   }
@@ -142,14 +142,14 @@
 
   .activity-details-drawer__section h3 {
     margin: 0 0 0.45rem;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
     color: #334155;
   }
 
   .activity-details-drawer__table {
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     overflow: hidden;
   }
 
@@ -163,7 +163,7 @@
     padding: 0.5rem 0.6rem;
     border-bottom: 1px solid #edf2f7;
     border-right: 1px solid #edf2f7;
-    font-size: 0.84rem;
+    font-size: var(--b2s-fs-sm);
     color: #0f172a;
     word-break: break-word;
   }
@@ -185,10 +185,10 @@
     margin: 0;
     padding: 0.7rem;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #0f172a;
     color: #e2e8f0;
-    font-size: 0.78rem;
+    font-size: var(--b2s-fs-xs);
     max-height: 260px;
     overflow: auto;
   }

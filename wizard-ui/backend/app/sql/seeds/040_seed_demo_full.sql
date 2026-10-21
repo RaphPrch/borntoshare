@@ -294,7 +294,7 @@ VALUES
     0
   ),
   (
-    'active_directory',
+    'ad',
     'Demo Active Directory',
     'corp.demo',
     'ldap',
@@ -327,7 +327,7 @@ VALUES
     1
   ),
   (
-    'openldap',
+    'ad',
     'Demo OpenLDAP',
     'ldap.demo',
     'ldap',
@@ -1047,7 +1047,7 @@ INSERT INTO zones (name, code, description)
 VALUES
   ('Demo Paris', 'DEMO-PARIS', 'Primary demo zone for SMB storage'),
   ('Demo Lyon', 'DEMO-LYON', 'Secondary demo zone with a warning state'),
-  ('Demo Marseille', 'DEMO-MARSEILLE', 'Engineering-oriented NFS zone'),
+  ('Demo Marseille', 'DEMO-MARSEILLE', 'Engineering-oriented zone'),
   ('Demo Nantes', 'DEMO-NANTES', 'Legal and records management zone');
 
 SET @zone_paris_id := (SELECT id FROM zones WHERE code = 'DEMO-PARIS' ORDER BY id DESC LIMIT 1);
@@ -1101,13 +1101,13 @@ INSERT INTO storage_endpoints (
 VALUES
   (@zone_paris_id, @demo_ad_source_id, 'Demo SMB Paris', 'windows_file_server', 'smb', 'fs01.corp.demo', 445, '\\\\fs01\\corp', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs01-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Demo Windows file server', 'DEMO-ENDPOINT-SMB-PARIS', 'OU=BornToShare,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'success', UTC_TIMESTAMP() - INTERVAL 5 MINUTE, 'SMB probe succeeded', 1, 'active'),
   (@zone_lyon_id, @demo_ad_source_id, 'Demo SMB Lyon', 'windows_file_server', 'smb', 'fs02.corp.demo', 445, '\\\\fs02\\corp', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs02-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Demo endpoint with degraded probe', 'DEMO-ENDPOINT-SMB-LYON', 'OU=BornToShare-Lyon,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'failed', UTC_TIMESTAMP() - INTERVAL 35 MINUTE, 'Last probe returned a latency warning', 1, 'warning'),
-  (@zone_marseille_id, @demo_ad_source_id, 'Demo NFS Marseille', 'linux_file_server', 'nfs', 'nfs01.corp.demo', 2049, '/srv/shares', 'kerberos', NULL, NULL, JSON_OBJECT('acl_apply', false, 'probe', true, 'inventory', true), 'Demo Linux engineering server', 'DEMO-ENDPOINT-NFS-MARSEILLE', 'OU=BornToShare-Marseille,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'success', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, 'NFS probe succeeded', 1, 'active'),
+  (@zone_marseille_id, @demo_ad_source_id, 'Demo SMB Marseille', 'windows_file_server', 'smb', 'fs11.corp.demo', 445, '\\\\fs11\\shares', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs11-bind', JSON_OBJECT('acl_apply', true, 'probe', true, 'inventory', true), 'Demo engineering file server', 'DEMO-ENDPOINT-SMB-MARSEILLE', 'OU=BornToShare-Marseille,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'success', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, 'SMB probe succeeded', 1, 'active'),
   (@zone_nantes_id, @demo_ad_source_id, 'Demo SMB Nantes', 'windows_file_server', 'smb', 'fs03.corp.demo', 445, '\\\\fs03\\records', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs03-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Demo legal records server', 'DEMO-ENDPOINT-SMB-NANTES', 'OU=BornToShare-Nantes,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'running', UTC_TIMESTAMP() - INTERVAL 2 MINUTE, 'Probe currently running', 1, 'active'),
   (@zone_paris_id, @demo_ad_source_id, 'Demo SMB Paris Lab', 'windows_file_server', 'smb', 'labfs01.corp.demo', 445, '\\\\labfs01\\sandbox', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/lab-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Demo isolated lab server', 'DEMO-ENDPOINT-SMB-PARIS-LAB', 'OU=BornToShare-Lab,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'unknown', UTC_TIMESTAMP() - INTERVAL 3 HOUR, 'No recent probe result', 1, 'maintenance');
 
 SET @endpoint_paris_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-PARIS' ORDER BY id DESC LIMIT 1);
 SET @endpoint_lyon_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-LYON' ORDER BY id DESC LIMIT 1);
-SET @endpoint_marseille_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-NFS-MARSEILLE' ORDER BY id DESC LIMIT 1);
+SET @endpoint_marseille_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-MARSEILLE' ORDER BY id DESC LIMIT 1);
 SET @endpoint_nantes_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-NANTES' ORDER BY id DESC LIMIT 1);
 SET @endpoint_paris_lab_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-PARIS-LAB' ORDER BY id DESC LIMIT 1);
 
@@ -1145,8 +1145,8 @@ INSERT INTO storage_roots (
 VALUES
   (@endpoint_paris_id, NULL, 'Finance', '\\\\fs01\\corp\\finance', '/corp/finance', 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, 'ACL inventory matched expected groups', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_FINANCE_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_FINANCE_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 4 MINUTE), JSON_OBJECT('children', JSON_ARRAY('AP', 'AR')), 0, NULL),
   (@endpoint_lyon_id, NULL, 'HR', '\\\\fs02\\corp\\hr', '/corp/hr', 0, 0, 'warning', 'failed', UTC_TIMESTAMP() - INTERVAL 35 MINUTE, 'Probe latency over threshold', UTC_TIMESTAMP() - INTERVAL 40 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_HR_READ', 'permission', 'READ')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 40 MINUTE), JSON_OBJECT('children', JSON_ARRAY('Onboarding')), 1, 'Probe warning requires review'),
-  (@endpoint_marseille_id, NULL, 'Engineering', '/srv/shares/engineering', '/corp/engineering', 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, 'Engineering share inventory succeeded', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_ENG_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_ENG_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 8 MINUTE), JSON_OBJECT('children', JSON_ARRAY('Builds')), 0, NULL),
-  (@endpoint_marseille_id, NULL, 'Shared Projects', '/srv/shares/projects/shared', '/corp/projects/shared', 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 7 MINUTE, 'Shared projects probe succeeded', UTC_TIMESTAMP() - INTERVAL 7 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_SHARED_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_SHARED_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 7 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
+  (@endpoint_marseille_id, NULL, 'Engineering', '\\\\fs11\\shares\\engineering', '/corp/engineering', 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, 'Engineering share inventory succeeded', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_ENG_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_ENG_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 8 MINUTE), JSON_OBJECT('children', JSON_ARRAY('Builds')), 0, NULL),
+  (@endpoint_marseille_id, NULL, 'Shared Projects', '\\\\fs11\\shares\\projects\\shared', '/corp/projects/shared', 0, 0, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 7 MINUTE, 'Shared projects probe succeeded', UTC_TIMESTAMP() - INTERVAL 7 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_SHARED_READ', 'permission', 'READ'), JSON_OBJECT('group', 'B2S_SHARED_WRITE', 'permission', 'WRITE')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 7 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
   (@endpoint_nantes_id, NULL, 'Legal', '\\\\fs03\\records\\legal', '/corp/legal', 0, 0, 'active', 'running', UTC_TIMESTAMP() - INTERVAL 2 MINUTE, 'Probe running for legal endpoint', UTC_TIMESTAMP() - INTERVAL 20 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(JSON_OBJECT('group', 'B2S_LEGAL_READ', 'permission', 'READ')), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 20 MINUTE), JSON_OBJECT('children', JSON_ARRAY('Contracts')), 0, NULL),
   (@endpoint_paris_lab_id, NULL, 'Lab Sandbox', '\\\\labfs01\\sandbox', '/corp/labs/sandbox', 0, 0, 'maintenance', 'unknown', UTC_TIMESTAMP() - INTERVAL 3 HOUR, 'Lab endpoint has no fresh probe', UTC_TIMESTAMP() - INTERVAL 1 DAY, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 1 DAY), JSON_OBJECT('children', JSON_ARRAY()), 1, 'Awaiting fresh probe');
 
@@ -1179,7 +1179,7 @@ VALUES
   (@endpoint_paris_id, @root_finance_id, 'Finance AP', '\\\\fs01\\corp\\finance\\ap', '/corp/finance/ap', 1, 1, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, 'Inherited controls verified', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 4 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
   (@endpoint_paris_id, @root_finance_id, 'Finance AR', '\\\\fs01\\corp\\finance\\ar', '/corp/finance/ar', 1, 1, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, 'Inherited controls verified', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 4 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
   (@endpoint_lyon_id, @root_hr_id, 'HR Onboarding', '\\\\fs02\\corp\\hr\\onboarding', '/corp/hr/onboarding', 1, 1, 'warning', 'failed', UTC_TIMESTAMP() - INTERVAL 35 MINUTE, 'Inherited controls need review', UTC_TIMESTAMP() - INTERVAL 40 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 40 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 1, 'Parent endpoint probe warning'),
-  (@endpoint_marseille_id, @root_engineering_id, 'Engineering Builds', '/srv/shares/engineering/builds', '/corp/engineering/builds', 1, 1, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, 'Builds subtree verified', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 8 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
+  (@endpoint_marseille_id, @root_engineering_id, 'Engineering Builds', '\\\\fs11\\shares\\engineering\\builds', '/corp/engineering/builds', 1, 1, 'active', 'success', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, 'Builds subtree verified', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 8 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL),
   (@endpoint_nantes_id, @root_legal_id, 'Legal Contracts', '\\\\fs03\\records\\legal\\contracts', '/corp/legal/contracts', 1, 1, 'active', 'running', UTC_TIMESTAMP() - INTERVAL 2 MINUTE, 'Contracts subtree scan in progress', UTC_TIMESTAMP() - INTERVAL 20 MINUTE, JSON_OBJECT('permissions', JSON_ARRAY(), 'discovered_at', UTC_TIMESTAMP() - INTERVAL 20 MINUTE), JSON_OBJECT('children', JSON_ARRAY()), 0, NULL);
 
 SET @root_fin_ap_id := (SELECT id FROM storage_roots WHERE storage_endpoint_id = @endpoint_paris_id AND normalized_root_path = '/corp/finance/ap' LIMIT 1);
@@ -1334,25 +1334,25 @@ INSERT INTO storage_endpoints (
 )
 VALUES
   (@zone_lille_id, @demo_ad_source_id, 'Demo SMB Lille Sales', 'windows_file_server', 'smb', 'fs04.corp.demo', 445, '\\\\fs04\\sales', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs04-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Sales demo endpoint', 'DEMO-ENDPOINT-SMB-LILLE-SALES', 'OU=BornToShare-Lille,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'success', UTC_TIMESTAMP() - INTERVAL 11 MINUTE, 'SMB probe succeeded', 1, 'active'),
-  (@zone_bordeaux_id, @demo_ad_source_id, 'Demo NFS Bordeaux Operations', 'linux_file_server', 'nfs', 'nfs02.corp.demo', 2049, '/srv/ops', 'kerberos', NULL, NULL, JSON_OBJECT('acl_apply', false, 'probe', true), 'Operations demo endpoint', 'DEMO-ENDPOINT-NFS-BORDEAUX-OPS', 'OU=BornToShare-Bordeaux,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'failed', UTC_TIMESTAMP() - INTERVAL 23 MINUTE, 'Operations endpoint probe latency warning', 1, 'warning'),
+  (@zone_bordeaux_id, @demo_ad_source_id, 'Demo SMB Bordeaux Operations', 'windows_file_server', 'smb', 'fs12.corp.demo', 445, '\\\\fs12\\ops', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs12-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Operations demo endpoint', 'DEMO-ENDPOINT-SMB-BORDEAUX-OPS', 'OU=BornToShare-Bordeaux,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'failed', UTC_TIMESTAMP() - INTERVAL 23 MINUTE, 'Operations endpoint probe latency warning', 1, 'warning'),
   (@zone_toulouse_id, @demo_ad_source_id, 'Demo SMB Toulouse Shared', 'windows_file_server', 'smb', 'fs05.corp.demo', 445, '\\\\fs05\\shared', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs05-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Shared services endpoint', 'DEMO-ENDPOINT-SMB-TOULOUSE-SHARED', 'OU=BornToShare-Toulouse,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'success', UTC_TIMESTAMP() - INTERVAL 7 MINUTE, 'SMB probe succeeded', 1, 'active'),
   (@zone_nice_id, @demo_ad_source_id, 'Demo SMB Nice Compliance', 'windows_file_server', 'smb', 'fs06.corp.demo', 445, '\\\\fs06\\compliance', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs06-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Compliance endpoint', 'DEMO-ENDPOINT-SMB-NICE-COMPLIANCE', 'OU=BornToShare-Nice,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'failed', UTC_TIMESTAMP() - INTERVAL 44 MINUTE, 'Compliance endpoint probe failed', 1, 'warning'),
-  (@zone_strasbourg_id, @demo_ad_source_id, 'Demo NFS Strasbourg Archive', 'linux_file_server', 'nfs', 'nfs03.corp.demo', 2049, '/srv/archive', 'kerberos', NULL, NULL, JSON_OBJECT('acl_apply', false, 'probe', true), 'Archive endpoint', 'DEMO-ENDPOINT-NFS-STRASBOURG-ARCHIVE', 'OU=BornToShare-Strasbourg,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'success', UTC_TIMESTAMP() - INTERVAL 14 MINUTE, 'NFS probe succeeded', 1, 'active'),
+  (@zone_strasbourg_id, @demo_ad_source_id, 'Demo SMB Strasbourg Archive', 'windows_file_server', 'smb', 'fs13.corp.demo', 445, '\\\\fs13\\archive', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs13-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Archive endpoint', 'DEMO-ENDPOINT-SMB-STRASBOURG-ARCHIVE', 'OU=BornToShare-Strasbourg,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'success', UTC_TIMESTAMP() - INTERVAL 14 MINUTE, 'SMB probe succeeded', 1, 'active'),
   (@zone_rennes_id, @demo_ad_source_id, 'Demo SMB Rennes Sandbox', 'windows_file_server', 'smb', 'fs07.corp.demo', 445, '\\\\fs07\\sandbox', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs07-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Sandbox endpoint', 'DEMO-ENDPOINT-SMB-RENNES-SANDBOX', 'OU=BornToShare-Rennes,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'unknown', UTC_TIMESTAMP() - INTERVAL 3 HOUR, 'No fresh probe result yet', 1, 'maintenance'),
   (@zone_paris_id, @demo_ad_source_id, 'Demo SMB Paris Finance DR', 'windows_file_server', 'smb', 'fs08.corp.demo', 445, '\\\\fs08\\finance-dr', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs08-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Finance DR endpoint', 'DEMO-ENDPOINT-SMB-PARIS-FINANCE-DR', 'OU=BornToShare,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'success', UTC_TIMESTAMP() - INTERVAL 6 MINUTE, 'SMB probe succeeded', 1, 'active'),
   (@zone_lyon_id, @demo_ad_source_id, 'Demo SMB Lyon HR Archive', 'windows_file_server', 'smb', 'fs09.corp.demo', 445, '\\\\fs09\\hr-archive', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs09-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'HR archive endpoint', 'DEMO-ENDPOINT-SMB-LYON-HR-ARCHIVE', 'OU=BornToShare-Lyon,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'failed', UTC_TIMESTAMP() - INTERVAL 32 MINUTE, 'HR archive endpoint warning', 1, 'warning'),
-  (@zone_marseille_id, @demo_ad_source_id, 'Demo NFS Marseille Engineering DR', 'linux_file_server', 'nfs', 'nfs04.corp.demo', 2049, '/srv/eng-dr', 'kerberos', NULL, NULL, JSON_OBJECT('acl_apply', false, 'probe', true), 'Engineering DR endpoint', 'DEMO-ENDPOINT-NFS-MARSEILLE-ENG-DR', 'OU=BornToShare-Marseille,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'success', UTC_TIMESTAMP() - INTERVAL 9 MINUTE, 'NFS probe succeeded', 1, 'active'),
+  (@zone_marseille_id, @demo_ad_source_id, 'Demo SMB Marseille Engineering DR', 'windows_file_server', 'smb', 'fs14.corp.demo', 445, '\\\\fs14\\eng-dr', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs14-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Engineering DR endpoint', 'DEMO-ENDPOINT-SMB-MARSEILLE-ENG-DR', 'OU=BornToShare-Marseille,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'success', UTC_TIMESTAMP() - INTERVAL 9 MINUTE, 'SMB probe succeeded', 1, 'active'),
   (@zone_nantes_id, @demo_ad_source_id, 'Demo SMB Nantes Legal DR', 'windows_file_server', 'smb', 'fs10.corp.demo', 445, '\\\\fs10\\legal-dr', 'ntlm', 'CORP\\svc-borntoshare', 'secret://demo/fs10-bind', JSON_OBJECT('acl_apply', true, 'probe', true), 'Legal DR endpoint', 'DEMO-ENDPOINT-SMB-NANTES-LEGAL-DR', 'OU=BornToShare-Nantes,OU=Groups,DC=corp,DC=demo', '{PREFIX}_{ROOTCODE}_{PERM}', 'running', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, 'Probe currently running', 1, 'active');
 
 SET @endpoint_lille_sales_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-LILLE-SALES' ORDER BY id DESC LIMIT 1);
-SET @endpoint_bordeaux_ops_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-NFS-BORDEAUX-OPS' ORDER BY id DESC LIMIT 1);
+SET @endpoint_bordeaux_ops_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-BORDEAUX-OPS' ORDER BY id DESC LIMIT 1);
 SET @endpoint_toulouse_shared_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-TOULOUSE-SHARED' ORDER BY id DESC LIMIT 1);
 SET @endpoint_nice_compliance_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-NICE-COMPLIANCE' ORDER BY id DESC LIMIT 1);
-SET @endpoint_strasbourg_archive_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-NFS-STRASBOURG-ARCHIVE' ORDER BY id DESC LIMIT 1);
+SET @endpoint_strasbourg_archive_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-STRASBOURG-ARCHIVE' ORDER BY id DESC LIMIT 1);
 SET @endpoint_rennes_sandbox_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-RENNES-SANDBOX' ORDER BY id DESC LIMIT 1);
 SET @endpoint_paris_finance_dr_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-PARIS-FINANCE-DR' ORDER BY id DESC LIMIT 1);
 SET @endpoint_lyon_hr_archive_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-LYON-HR-ARCHIVE' ORDER BY id DESC LIMIT 1);
-SET @endpoint_marseille_eng_dr_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-NFS-MARSEILLE-ENG-DR' ORDER BY id DESC LIMIT 1);
+SET @endpoint_marseille_eng_dr_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-MARSEILLE-ENG-DR' ORDER BY id DESC LIMIT 1);
 SET @endpoint_nantes_legal_dr_id := (SELECT id FROM storage_endpoints WHERE external_id = 'DEMO-ENDPOINT-SMB-NANTES-LEGAL-DR' ORDER BY id DESC LIMIT 1);
 
 -- ------------------------------------------------------------
@@ -1385,7 +1385,7 @@ SELECT
   CONCAT(em.family_label, ' ', rt.suffix_label) AS name,
   CASE
     WHEN rt.suffix_slug = '' THEN em.base_path
-    ELSE CONCAT(em.base_path, CASE WHEN em.protocol = 'nfs' THEN '/' ELSE '\\\\' END, rt.suffix_slug)
+    ELSE CONCAT(em.base_path, '\\', rt.suffix_slug)
   END AS root_path,
   CASE
     WHEN rt.suffix_slug = '' THEN em.base_norm
@@ -1416,20 +1416,20 @@ SELECT
   rt.needs_revalidation,
   rt.revalidation_reason
 FROM (
-  SELECT 1 AS endpoint_ord, @endpoint_paris_id AS endpoint_id, 'finance' AS family_key, 'Finance' AS family_label, 'smb' AS protocol, '\\\\fs01\\corp' AS base_path, '/corp/finance' AS base_norm, 'B2S_FINANCE_READ' AS read_group, 'B2S_FINANCE_WRITE' AS write_group
-  UNION ALL SELECT 2, @endpoint_lyon_id, 'hr', 'HR', 'smb', '\\\\fs02\\corp', '/corp/hr', 'B2S_HR_READ', 'B2S_HR_WRITE'
-  UNION ALL SELECT 3, @endpoint_marseille_id, 'engineering', 'Engineering', 'nfs', '/srv/shares/engineering', '/corp/engineering', 'B2S_ENG_READ', 'B2S_ENG_WRITE'
-  UNION ALL SELECT 4, @endpoint_nantes_id, 'legal', 'Legal', 'smb', '\\\\fs03\\records', '/corp/legal', 'B2S_LEGAL_READ', 'B2S_LEGAL_WRITE'
+  SELECT 1 AS endpoint_ord, @endpoint_paris_id AS endpoint_id, 'finance' AS family_key, 'Finance' AS family_label, 'smb' AS protocol, '\\\\fs01\\corp\\finance' AS base_path, '/corp/finance' AS base_norm, 'B2S_FINANCE_READ' AS read_group, 'B2S_FINANCE_WRITE' AS write_group
+  UNION ALL SELECT 2, @endpoint_lyon_id, 'hr', 'HR', 'smb', '\\\\fs02\\corp\\hr', '/corp/hr', 'B2S_HR_READ', 'B2S_HR_WRITE'
+  UNION ALL SELECT 3, @endpoint_marseille_id, 'engineering', 'Engineering', 'smb', '\\\\fs11\\shares\\engineering', '/corp/engineering', 'B2S_ENG_READ', 'B2S_ENG_WRITE'
+  UNION ALL SELECT 4, @endpoint_nantes_id, 'legal', 'Legal', 'smb', '\\\\fs03\\records\\legal', '/corp/legal', 'B2S_LEGAL_READ', 'B2S_LEGAL_WRITE'
   UNION ALL SELECT 5, @endpoint_paris_lab_id, 'sandbox', 'Sandbox', 'smb', '\\\\labfs01\\sandbox', '/corp/labs/sandbox', 'B2S_SANDBOX_READ', 'B2S_SANDBOX_WRITE'
   UNION ALL SELECT 6, @endpoint_lille_sales_id, 'sales', 'Sales', 'smb', '\\\\fs04\\sales', '/corp/sales', 'B2S_SALES_READ', 'B2S_SALES_WRITE'
-  UNION ALL SELECT 7, @endpoint_bordeaux_ops_id, 'ops', 'Operations', 'nfs', '/srv/ops', '/corp/operations', 'B2S_OPS_READ', 'B2S_OPS_WRITE'
+  UNION ALL SELECT 7, @endpoint_bordeaux_ops_id, 'ops', 'Operations', 'smb', '\\\\fs12\\ops', '/corp/operations', 'B2S_OPS_READ', 'B2S_OPS_WRITE'
   UNION ALL SELECT 8, @endpoint_toulouse_shared_id, 'shared', 'Shared', 'smb', '\\\\fs05\\shared', '/corp/projects/shared', 'B2S_SHARED_READ', 'B2S_SHARED_WRITE'
   UNION ALL SELECT 9, @endpoint_nice_compliance_id, 'compliance', 'Compliance', 'smb', '\\\\fs06\\compliance', '/corp/compliance', 'B2S_COMPLIANCE_READ', 'B2S_COMPLIANCE_WRITE'
-  UNION ALL SELECT 10, @endpoint_strasbourg_archive_id, 'archive', 'Archive', 'nfs', '/srv/archive', '/corp/archive', 'B2S_ARCHIVE_READ', 'B2S_ARCHIVE_WRITE'
+  UNION ALL SELECT 10, @endpoint_strasbourg_archive_id, 'archive', 'Archive', 'smb', '\\\\fs13\\archive', '/corp/archive', 'B2S_ARCHIVE_READ', 'B2S_ARCHIVE_WRITE'
   UNION ALL SELECT 11, @endpoint_rennes_sandbox_id, 'sandbox', 'Sandbox', 'smb', '\\\\fs07\\sandbox', '/corp/sandbox', 'B2S_SANDBOX_READ', 'B2S_SANDBOX_WRITE'
   UNION ALL SELECT 12, @endpoint_paris_finance_dr_id, 'finance-dr', 'Finance DR', 'smb', '\\\\fs08\\finance-dr', '/corp/finance-dr', 'B2S_FINANCE_READ', 'B2S_FINANCE_WRITE'
   UNION ALL SELECT 13, @endpoint_lyon_hr_archive_id, 'hr-archive', 'HR Archive', 'smb', '\\\\fs09\\hr-archive', '/corp/hr-archive', 'B2S_HR_READ', 'B2S_HR_WRITE'
-  UNION ALL SELECT 14, @endpoint_marseille_eng_dr_id, 'engineering-dr', 'Engineering DR', 'nfs', '/srv/eng-dr', '/corp/engineering-dr', 'B2S_ENG_READ', 'B2S_ENG_WRITE'
+  UNION ALL SELECT 14, @endpoint_marseille_eng_dr_id, 'engineering-dr', 'Engineering DR', 'smb', '\\\\fs14\\eng-dr', '/corp/engineering-dr', 'B2S_ENG_READ', 'B2S_ENG_WRITE'
   UNION ALL SELECT 15, @endpoint_nantes_legal_dr_id, 'legal-dr', 'Legal DR', 'smb', '\\\\fs10\\legal-dr', '/corp/legal-dr', 'B2S_LEGAL_READ', 'B2S_LEGAL_WRITE'
 ) em
 CROSS JOIN (
@@ -1739,7 +1739,7 @@ VALUES
   ('storage_root', @root_finance_id, 'acl_alignment', 'success', 'info', 'Discovered ACLs match governed groups.', 'reconciliation', 'demo-provisioning-succeeded', @job_succeeded_id, 'demo-health-root-finance', UTC_TIMESTAMP() - INTERVAL 4 MINUTE, JSON_OBJECT('groups_checked', 2)),
   ('storage_root', @root_hr_id, 'provisioning', 'failed', 'critical', 'WRITE group provisioning failed.', 'provisioning_job', 'demo-provisioning-failed', @job_failed_id, 'demo-health-root-hr', UTC_TIMESTAMP() - INTERVAL 25 MINUTE, JSON_OBJECT('error_code', 'AD_GROUP_CREATE_FAILED')),
   ('identity_source', @demo_ad_source_id, 'snapshot', 'success', 'info', 'Active demo directory snapshot loaded.', 'snapshot', 'demo-directory-snapshot-active', NULL, 'demo-health-identity-source', UTC_TIMESTAMP() - INTERVAL 10 MINUTE, JSON_OBJECT('snapshot_version', 7)),
-  ('storage_endpoint', @endpoint_marseille_id, 'probe', 'success', 'info', 'NFS probe succeeded.', 'probe', 'demo-provisioning-succeeded-shared', @job_succeeded_shared_id, 'demo-health-endpoint-marseille', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('latency_ms', 42)),
+  ('storage_endpoint', @endpoint_marseille_id, 'probe', 'success', 'info', 'SMB probe succeeded.', 'probe', 'demo-provisioning-succeeded-shared', @job_succeeded_shared_id, 'demo-health-endpoint-marseille', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('latency_ms', 42)),
   ('storage_root', @root_engineering_id, 'acl_alignment', 'success', 'info', 'Engineering governed groups match expected inventory.', 'reconciliation', 'demo-provisioning-succeeded-shared', @job_succeeded_shared_id, 'demo-health-root-engineering', UTC_TIMESTAMP() - INTERVAL 8 MINUTE, JSON_OBJECT('groups_checked', 2)),
   ('storage_root', @root_shared_id, 'provisioning', 'warning', 'warning', 'Shared write provisioning is retrying.', 'provisioning_job', 'demo-provisioning-retrying-shared-write', @job_retrying_shared_write_id, 'demo-health-root-shared', UTC_TIMESTAMP() - INTERVAL 5 MINUTE, JSON_OBJECT('retry_count', 2)),
   ('storage_endpoint', @endpoint_nantes_id, 'probe', 'running', 'warning', 'Legal endpoint probe still running.', 'probe', 'demo-provisioning-running-legal', @job_running_legal_id, 'demo-health-endpoint-nantes', UTC_TIMESTAMP() - INTERVAL 2 MINUTE, JSON_OBJECT('progress', 65)),

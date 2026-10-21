@@ -1,8 +1,9 @@
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
-pydantic>=2.7.0
-pydantic-settings>=2.3.0
-httpx>=0.27.0
-ldap3>=2.9.1
-cryptography>=43.0.0
-redis>=5.0.0
+# auth-service — runtime dependencies (Python 3.14)
+# Pinned: the same library has the same version in every service. Update them together.
+fastapi==0.156.5
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+pydantic-settings==2.16.1
+httpx==0.28.1
+ldap3==2.9.1
+redis==8.1.0

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { GovernanceAlert } from '$lib/api/governance-alerts';
 
 type StorageRootAlertTone = 'warning' | 'error';
@@ -17,19 +18,11 @@ const toPositiveId = (value: unknown): number => {
 
 const hiddenStorageRootAlertTypes = new Set([
   'acl_principal_not_governed',
-  'access_profiles_missing',
-  'access_profile_missing',
-  'missing_access_profile_binding',
-  'ad_group_read_not_created',
-  'ad_group_write_not_created',
-  'ad_group_not_created',
   'probe_issues',
   'open_issues'
 ]);
 const hiddenStorageRootAlertTitles = new Set([
   'filesystem acl not governed',
-  'access profiles missing',
-  'access not created',
   'open issues',
   'probe issues'
 ]);
@@ -48,14 +41,9 @@ export const storageRootAlertRootId = (alert: GovernanceAlert): number =>
 const isVisibleStorageRootAlert = (alert: GovernanceAlert): boolean => {
   const type = String(alert?.alert_type ?? '').trim().toLowerCase();
   if (hiddenStorageRootAlertTypes.has(type)) return false;
-  if (type.includes('access_profile') && (type.includes('missing') || type.includes('binding'))) return false;
 
   const title = String(alert?.title ?? '').trim().toLowerCase();
   if (hiddenStorageRootAlertTitles.has(title)) return false;
-  if (title.includes('access profile') && (title.includes('missing') || title.includes('binding'))) return false;
-
-  const subtitle = String(alert?.subtitle ?? '').trim().toLowerCase();
-  if (subtitle.includes('access profile') && (subtitle.includes('missing') || subtitle.includes('binding'))) return false;
 
   return true;
 };
@@ -83,12 +71,12 @@ export const selectVisibleStorageRootAlertsForRootIds = (
 export const storageRootAlertSummarySubtitle = (alert: GovernanceAlert): string | null => {
   const type = String(alert?.alert_type ?? '').trim().toLowerCase();
   if (type.includes('ad_group') && (type.includes('not_created') || type.includes('pending'))) {
-    return 'No AD group linked';
+    return t('No AD group linked');
   }
-  if (type === 'endpoint_unreachable') return 'Storage endpoint failed';
-  if (type === 'root_probe_failed') return 'Root probe failed';
-  if (type.includes('missing_guardian')) return 'No guardian assigned';
-  if (type.includes('pending_access_validation')) return 'Access validation pending';
+  if (type === 'endpoint_unreachable') return t('Storage endpoint failed');
+  if (type === 'root_probe_failed') return t('Root probe failed');
+  if (type.includes('missing_guardian')) return t('No guardian assigned');
+  if (type.includes('pending_access_validation')) return t('Access validation pending');
   return null;
 };
 

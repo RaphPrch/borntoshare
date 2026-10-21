@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { FetchLike } from '../api/client';
 import type { ProbeRunRequest } from '../api/probes';
 import type { ProbeSnapshot } from './probe-runner';
@@ -45,7 +46,7 @@ export async function runProbeWithUi<TPost = unknown>(input: {
       const message =
         typeof successMessage === 'function'
           ? successMessage({ postCheck: final.postCheck })
-          : successMessage ?? 'Probe OK.';
+          : successMessage ?? t('Probe OK.');
       notify.success(message);
     }
     return final;
@@ -55,7 +56,7 @@ export async function runProbeWithUi<TPost = unknown>(input: {
     const message =
       typeof failureMessage === 'function'
         ? failureMessage({ errorMessage: final.errorMessage })
-        : failureMessage ?? final.errorMessage ?? 'Probe failed.';
+        : failureMessage ?? final.errorMessage ?? t('Probe failed.');
     notify.error(message);
   }
 

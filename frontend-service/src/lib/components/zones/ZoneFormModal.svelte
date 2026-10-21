@@ -1,5 +1,7 @@
 <script lang="ts">
-  import EntityDrawerShell from "$lib/components/entity/EntityDrawerShell.svelte";
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import { t } from '$lib/i18n';
+  import Drawer from "$lib/components/ui/Drawer.svelte";
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import ZoneFormFields from "$lib/components/zones/ZoneFormFields.svelte";
 
@@ -42,28 +44,28 @@
 
   $: drawerTitle =
     mode === "create"
-      ? "Create zone"
+      ? t('Create zone')
       : mode === "edit"
-        ? "Edit zone"
-        : "Delete zone";
+        ? t('Edit zone')
+        : t('Delete zone');
   $: drawerSubtitle =
     mode === "delete"
-      ? "This action is permanent."
+      ? t('This action is permanent.')
       : mode === "create"
-        ? "Define the zone identity and default governance context."
-        : "Update the zone identity and default governance context.";
+        ? t('Define the zone identity and default governance context.')
+        : t('Update the zone identity and default governance context.');
   $: confirmLabel =
     mode === "delete"
-      ? "Delete"
+      ? t('Delete')
       : mode === "create"
-        ? "Create"
-        : "Save changes";
+        ? t('Create')
+        : t('Save changes');
   $: busyLabel =
     mode === "delete"
-      ? "Deleting..."
+      ? t('Deleting...')
       : mode === "create"
-        ? "Creating..."
-        : "Saving...";
+        ? t('Creating...')
+        : t('Saving...');
 
   async function submit() {
     errorMsg = null;
@@ -76,7 +78,7 @@
         description: form.description?.trim() || null,
       });
     } catch (e) {
-      errorMsg = e?.message ?? "Operation failed";
+      errorMsg = e?.message ?? t('Operation failed');
     } finally {
       busy = false;
     }
@@ -89,7 +91,7 @@
     try {
       await onDelete();
     } catch (e) {
-      errorMsg = e?.message ?? "Delete failed";
+      errorMsg = e?.message ?? t('Delete failed');
     } finally {
       busy = false;
     }
@@ -105,56 +107,46 @@
   };
 </script>
 
-<EntityDrawerShell
+<Drawer
   {open}
   title={drawerTitle}
   subtitle={drawerSubtitle}
   iconClass="bi bi-diagram-2"
   onClose={onClose}
   ariaLabelledby="zone-form-drawer-title"
-  width="560px"
-  topOffset="70px"
   rootClass="zone-form-drawer"
   showFooter={true}
 >
   <div class="zone-form-drawer__content">
     {#if mode === "delete"}
-      <div class="zone-form-drawer__warning">
-        <div class="zone-form-drawer__warning-title">
-          <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-          Deleting a zone has consequences
-        </div>
-
-        <p>Deleting this zone is irreversible.</p>
+      <InlineAlert tone="warning" title={t('Deleting a zone has consequences')} class="zone-form-drawer__warning">
+        <p>{t('Deleting this zone is irreversible.')}</p>
 
         <ul>
-          <li>The zone will be permanently removed</li>
-          <li>Associated links will be deleted</li>
+          <li>{t('The zone will be permanently removed')}</li>
+          <li>{t('Associated links will be deleted')}</li>
         </ul>
 
         <div class="zone-form-drawer__safe-notes">
-          <strong>Will NOT be affected:</strong>
+          <strong>{t('Will NOT be affected:')}</strong>
           <ul>
-            <li>No storage data will be modified</li>
+            <li>{t('No storage data will be modified')}</li>
           </ul>
         </div>
-      </div>
+      </InlineAlert>
     {:else}
       <ZoneFormFields bind:form mode={mode} />
     {/if}
 
     {#if errorMsg}
-      <div class="zone-form-drawer__error">
-        {errorMsg}
-      </div>
+      <InlineAlert tone="error">{errorMsg}</InlineAlert>
     {/if}
   </div>
 
   <svelte:fragment slot="footer">
     <div class="zone-form-drawer__actions">
-      <EntityActionButton compact={true} variant="secondary" label="Cancel" disabled={busy} onClick={onClose} />
+      <EntityActionButton variant="secondary" label={t('Cancel')} disabled={busy} onClick={onClose} />
       <EntityActionButton
-        compact={true}
         variant={mode === "delete" ? "danger" : "primary"}
         icon={busy ? "bi-arrow-repeat" : mode === "delete" ? "bi-trash" : "bi-check2"}
         busy={busy}
@@ -164,7 +156,7 @@
       />
     </div>
   </svelte:fragment>
-</EntityDrawerShell>
+</Drawer>
 
 <style>
   .zone-form-drawer__content {
@@ -172,31 +164,18 @@
     gap: 14px;
   }
 
-  .zone-form-drawer__warning {
-    border: 1px solid #efd39c;
-    border-radius: 14px;
-    background: #fff8ea;
-    color: #684a1e;
-    padding: 14px;
+  .zone-form-drawer__content :global(.zone-form-drawer__warning .b2s-inline-alert__text) {
     display: grid;
     gap: 10px;
   }
 
-  .zone-form-drawer__warning-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: #995f00;
-    font-weight: 760;
-  }
-
-  .zone-form-drawer__warning p,
-  .zone-form-drawer__warning ul {
+  .zone-form-drawer__content :global(.zone-form-drawer__warning p),
+  .zone-form-drawer__content :global(.zone-form-drawer__warning ul) {
     margin: 0;
   }
 
   .zone-form-drawer__safe-notes {
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: rgba(255, 255, 255, 0.7);
     padding: 10px 12px;
     color: #475569;
@@ -206,15 +185,6 @@
     display: block;
     margin-bottom: 6px;
     color: #334155;
-  }
-
-  .zone-form-drawer__error {
-    border: 1px solid #f0c1c1;
-    border-radius: 12px;
-    background: #fff5f5;
-    color: #a12e2e;
-    padding: 10px 12px;
-    font-weight: 650;
   }
 
   .zone-form-drawer__actions {

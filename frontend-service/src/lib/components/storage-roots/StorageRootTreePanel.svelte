@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
@@ -38,10 +39,10 @@
   const norm = (value: unknown): string => String(value ?? '').trim().toLowerCase();
   const rootId = (row: StorageRootRow): number => Number(row?.storage_root_id ?? row?.id ?? 0);
   const rootLabel = (row: StorageRootRow): string =>
-    String(row?.storage_root_name ?? row?.storage_root_code ?? 'Storage root').trim() || 'Storage root';
+    String(row?.storage_root_name ?? row?.storage_root_code ?? t('Storage root')).trim() || t('Storage root');
   const zoneId = (row: StorageRootRow): string => String(row?.zone_id ?? 'unassigned-zone');
   const zoneLabel = (row: StorageRootRow): string =>
-    String(row?.zone_name ?? 'Unassigned zone').trim() || 'Unassigned zone';
+    String(row?.zone_name ?? t('Unassigned zone')).trim() || t('Unassigned zone');
 
   const depthClass = (depth: number): string => `is-depth-${Math.min(Math.max(0, depth), 5)}`;
 
@@ -172,16 +173,15 @@
   $: footerAlertCount = alertTotalCount(rows);
 </script>
 
-<aside class="sr-clean-tree-panel" aria-label="Managed storage roots">
+<aside class="sr-clean-tree-panel" aria-label={t('Managed storage roots')}>
   <div class="sr-clean-tree-panel__head">
-    <h2>Managed folders</h2>
+    <h2>{t('Managed folders')}</h2>
   </div>
 
   <EntityActionButton
-    compact={true}
     variant="primary"
     icon="bi-plus-lg"
-    label="New storage root"
+    label={t('New storage root')}
     className="sr-clean-tree-panel__create"
     onClick={onCreateRoot}
   />
@@ -189,15 +189,15 @@
   <SearchField
     wrapperClass="sr-clean-tree-panel__search"
     inputClass="sr-clean-tree-panel__search-input"
-    placeholder="Search storage root..."
-    ariaLabel="Search storage root"
+    placeholder={t('Search storage root...')}
+    ariaLabel={t('Search storage root')}
     value={query}
     onChange={onQueryChange}
   />
 
   <div class="sr-clean-tree" role="tree">
     {#if tree.length === 0}
-      <div class="sr-clean-tree__empty">No storage root matches your search.</div>
+      <div class="sr-clean-tree__empty">{t('No storage root matches your search.')}</div>
     {:else}
       {#each tree as zone (zone.id)}
         {@const zoneAlert = aggregateAlert(zone.rows)}
@@ -234,7 +234,7 @@
                         type="button"
                         class="sr-clean-tree__root-caret"
                         class:is-empty={!hasChildren}
-                        aria-label={hasChildren ? `${rootCollapsed ? 'Expand' : 'Collapse'} ${rootLabel(entry.row)}` : undefined}
+                        aria-label={hasChildren ? `${rootCollapsed ? t('Expand') : t('Collapse')} ${rootLabel(entry.row)}` : undefined}
                         aria-expanded={hasChildren ? !rootCollapsed : undefined}
                         disabled={!hasChildren}
                         on:click={() => toggleRoot(entry.node!.id)}
@@ -269,8 +269,8 @@
   </div>
 
   <footer class="sr-clean-tree-panel__footer">
-    <span>{footerRootCount} storage roots · {footerAlertCount} alerts</span>
-    <button type="button" aria-label="Refresh storage roots" on:click={onRefresh}>
+    <span>{t('{footerRootCount} storage roots · {footerAlertCount} alerts', { footerRootCount, footerAlertCount })}</span>
+    <button type="button" aria-label={t('Refresh storage roots')} on:click={onRefresh}>
       <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
     </button>
   </footer>

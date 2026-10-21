@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
+  import FieldError from '$lib/components/ui/FieldError.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import { t } from '$lib/i18n';
+  import WizardShell from '$lib/components/ui/WizardShell.svelte';
+  import ChoiceCard from '$lib/components/ui/ChoiceCard.svelte';
   import { sleep } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
   import { toast } from '$lib/stores/toast';
@@ -32,23 +38,25 @@
   }>;
   export let onCreate: (payload: IdentitySourcePayload & { _secret?: string; bind_password?: string | null }) => Promise<IdentitySourceCreateResult>;
   export let existingNames: string[] = [];
+  export let open = true;
+  export let onClose: () => void = () => {};
 
   const dispatch = createEventDispatcher();
 
   type WizardStepKey = 'type' | 'capabilities' | 'connection' | 'snapshot' | 'review';
   type WizardStepItem = { key: WizardStepKey; label: string };
   const stepsWithoutSnapshot: WizardStepItem[] = [
-    { key: 'type', label: 'Select Type' },
-    { key: 'capabilities', label: 'Capabilities' },
-    { key: 'connection', label: 'Connection' },
-    { key: 'review', label: 'Review' }
+    { key: 'type', label: t('Select Type') },
+    { key: 'capabilities', label: t('Capabilities') },
+    { key: 'connection', label: t('Connection') },
+    { key: 'review', label: t('Review') }
   ];
   const stepsWithSnapshot: WizardStepItem[] = [
-    { key: 'type', label: 'Select Type' },
-    { key: 'capabilities', label: 'Capabilities' },
-    { key: 'connection', label: 'Connection' },
-    { key: 'snapshot', label: 'Snapshot' },
-    { key: 'review', label: 'Review' }
+    { key: 'type', label: t('Select Type') },
+    { key: 'capabilities', label: t('Capabilities') },
+    { key: 'connection', label: t('Connection') },
+    { key: 'snapshot', label: t('Snapshot') },
+    { key: 'review', label: t('Review') }
   ];
 
   let step = 1;
@@ -87,26 +95,26 @@
   const createSnapshotInitSteps = (): SnapshotInitStep[] => [
     {
       key: 'dispatch',
-      label: 'Dispatch',
-      description: 'Request sent to orchestrator',
+      label: t('Dispatch'),
+      description: t('Request sent to orchestrator'),
       state: 'pending'
     },
     {
       key: 'queued',
-      label: 'Queue',
-      description: 'Job scheduled on backend',
+      label: t('Queue'),
+      description: t('Job scheduled on backend'),
       state: 'pending'
     },
     {
       key: 'collect',
-      label: 'Collecte',
-      description: 'Collecte LDAP et projection snapshot',
+      label: t('Collecte'),
+      description: t('Collecte LDAP et projection snapshot'),
       state: 'pending'
     },
     {
       key: 'persist',
-      label: 'Persist',
-      description: 'Date/version/accounts persisted in DB',
+      label: t('Persist'),
+      description: t('Date/version/accounts persisted in DB'),
       state: 'pending'
     }
   ];
@@ -128,17 +136,6 @@
   let showBindPassword = false;
 
   // LDAPS-only (UI-only) advanced settings
-  let ldapsVerifyTls = true;
-  let ldapsCaRef = '';
-  let ldapsServerName = '';
-  let ldapsMinTls: '1.2' | '1.3' = '1.2';
-  let ldapsChannelBinding: 'strict' | 'optional' | 'disabled' = 'strict';
-  let ldapsSigningRequired = true;
-  let ldapsBindType: 'simple' | 'gssapi' = 'gssapi';
-  let krbRealm = '';
-  let krbKdc = '';
-  let krbPrincipal = '';
-  let krbKeytabRef = '';
 
   /**
    * 🔐 UI ONLY — never persisted, never sent directly
@@ -204,26 +201,6 @@
       capabilities: normalizedCapabilities,
       auth_enabled: authEnabled,
       auth_priority: 100,
-      // UI-only LDAPS advanced settings (kept for client-side validation / future backend support)
-      _ldaps: payload.protocol === 'ldaps'
-        ? {
-            verify_tls: ldapsVerifyTls,
-            ca_ref: ldapsCaRef || null,
-            server_name: ldapsServerName || null,
-            min_tls: ldapsMinTls,
-            channel_binding: ldapsChannelBinding,
-            signing_required: ldapsSigningRequired,
-            bind_type: ldapsBindType,
-            kerberos: ldapsBindType === 'gssapi'
-              ? {
-                  realm: krbRealm || null,
-                  kdc: krbKdc || null,
-                  principal: krbPrincipal || null,
-                  keytab_ref: krbKeytabRef || null
-                }
-              : null
-          }
-        : null,
       /**
        * 🔐 INTERNAL ONLY
        * Used ONLY by onTest / onCreate to request a backend-managed secret_ref.
@@ -233,8 +210,8 @@
   }
 
   function next() {
-    if ((currentStepKey === 'type' || currentStepKey === 'connection') && isDuplicateSourceName()) {
-      toast.error('This name already exists. Please choose another one.');
+    if (currentStepKey === 'connection' && isDuplicateSourceName()) {
+      toast.error(t('This name already exists. Please choose another one.'));
       return;
     }
     if (currentStepKey === 'connection' && !canContinueStep3) {
@@ -289,10 +266,7 @@
   };
 
   function formatSnapshotDate(value?: string | null): string {
-    if (!value) return '—';
-    const parsed = new Date(value);
-    if (!Number.isFinite(parsed.getTime())) return String(value);
-    return parsed.toLocaleString();
+    return formatDateTime(value);
   }
 
   async function fetchSnapshotMeta(sourceId: number): Promise<IdentitySnapshotMeta> {
@@ -335,7 +309,7 @@
           lastSnapshotGroupsCount = groups;
           lastSnapshotMembershipsCount = memberships;
           snapshotStore.setSuccess(sourceId, {
-            note: 'Snapshot metadata loaded',
+            note: t('Snapshot metadata loaded'),
             lastRunAt: meta.at,
             lastSnapshotStatus: meta.status,
             lastSnapshotVersion: meta.version,
@@ -366,7 +340,7 @@
         lastSnapshotMembershipsCount: 0
       });
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Lecture du snapshot impossible.', 'ui', {
+      const appError = toUiAppError(e, t('Lecture du snapshot impossible.'), 'ui', {
         action: 'identity_sources_wizard.load_snapshot_counts',
         sourceId
       });
@@ -388,7 +362,7 @@
     if (!createdSourceId) {
       if (createDone) {
         snapshotInitError = 'Source created, but identifier not found to start synchronization.';
-        snapshotInitStatusText = 'Snapshot initialization failed.';
+        snapshotInitStatusText = t('Snapshot initialization failed.');
         return;
       }
 
@@ -399,21 +373,21 @@
         snapshotStartedByCaller = false;
       }
       if (!createdSourceId) {
-        snapshotInitError = createError ?? 'Unable to create source before snapshot initialization.';
-        snapshotInitStatusText = 'Snapshot initialization failed.';
+        snapshotInitError = createError ?? t('Unable to create source before snapshot initialization.');
+        snapshotInitStatusText = t('Snapshot initialization failed.');
         return;
       }
     }
 
     jobsStore.startJob(snapshotJobInput(Number(createdSourceId)), {
-      message: 'Snapshot sync running'
+      message: t('Snapshot sync running')
     });
     snapshotStore.setRunning(Number(createdSourceId), 'Initial snapshot sync running');
 
     snapshotInitState = 'running';
     snapshotInitProgress = 6;
     snapshotInitError = null;
-    snapshotInitStatusText = 'Dispatching snapshot request…';
+    snapshotInitStatusText = t('Dispatching snapshot request…');
     snapshotInitSteps = createSnapshotInitSteps();
     updateSnapshotInitStep('dispatch', 'running');
 
@@ -438,12 +412,12 @@
         if (meta.version !== null) lastSnapshotVersion = meta.version;
 
         const normalized = String(meta.status ?? '').trim().toUpperCase();
-        if (normalized) snapshotInitStatusText = `Snapshot status: ${normalized}`;
+        if (normalized) snapshotInitStatusText = t('Snapshot status: {normalized}', { normalized });
 
         snapshotInitProgress = Math.min(84, 42 + i * 1.1);
 
         if (['FAILED', 'ERROR', 'CANCELED', 'CANCELLED'].includes(normalized)) {
-          throw new Error(`Snapshot ${normalized.toLowerCase()}.`);
+          throw new Error(t('Snapshot {toLowerCase}.', { toLowerCase: normalized.toLowerCase() }));
         }
 
         const hasPersistedMetadata = Boolean(meta.at) || (meta.version ?? 0) > 0;
@@ -463,16 +437,16 @@
       updateSnapshotInitStep('collect', 'done');
       updateSnapshotInitStep('persist', 'running');
       snapshotInitProgress = 90;
-      snapshotInitStatusText = 'Refreshing persisted metadata…';
+      snapshotInitStatusText = t('Refreshing persisted metadata…');
 
       await loadSnapshotCounts(Number(createdSourceId));
 
       updateSnapshotInitStep('persist', 'done');
       snapshotInitProgress = 100;
       snapshotInitState = 'success';
-      snapshotInitStatusText = 'Initial snapshot persisted in database.';
+      snapshotInitStatusText = t('Initial snapshot persisted in database.');
       jobsStore.succeedJob(snapshotJobInput(Number(createdSourceId)), {
-        message: 'Initial snapshot persisted',
+        message: t('Initial snapshot persisted'),
         summary: {
           status: lastSnapshotStatus,
           version: lastSnapshotVersion,
@@ -492,17 +466,17 @@
         lastSnapshotGroupsCount,
         lastSnapshotMembershipsCount
       });
-      toast.success('Snapshot synchronized.');
+      toast.success(t('Snapshot synchronized.'));
     } catch (e: unknown) {
       failSnapshotInitRunningStep();
       snapshotInitState = 'failed';
       snapshotInitProgress = Math.max(snapshotInitProgress, 34);
-      const appError = toUiAppError(e, 'Unable to initialize first snapshot.', 'ui', {
+      const appError = toUiAppError(e, t('Unable to initialize first snapshot.'), 'ui', {
         action: 'identity_sources_wizard.start_initial_snapshot_sync',
         sourceId: createdSourceId
       });
       snapshotInitError = appError.message;
-      snapshotInitStatusText = 'Snapshot initialization failed.';
+      snapshotInitStatusText = t('Snapshot initialization failed.');
       jobsStore.failJob(snapshotJobInput(Number(createdSourceId)), {
         message: snapshotInitError,
         error: snapshotInitError
@@ -538,7 +512,7 @@
       if (Number.isFinite(sourceId) && sourceId > 0) {
         createdSourceId = sourceId;
         snapshotStore.upsert(sourceId, {
-          note: 'Identity source created from wizard'
+          note: t('Identity source created from wizard')
         });
         await loadSnapshotCounts(sourceId);
         // Initial snapshot for AD sources with snapshots enabled (best effort).
@@ -548,7 +522,7 @@
       }
       createDone = true;
     } catch (e: unknown) {
-      const appError = toUiAppError(e, 'Creation failed', 'ui', {
+      const appError = toUiAppError(e, t('Creation failed'), 'ui', {
         action: 'identity_sources_wizard.finish_create'
       });
       createError = appError.message;
@@ -561,18 +535,18 @@
   function resolveHostInput() {
     const value = adHostInput.trim();
     if (!value) {
-      resolveHint = { ok: false, message: 'Enter a hostname or an IP.' };
+      resolveHint = { ok: false, message: t('Enter a hostname or an IP.') };
       return;
     }
     if (isValidIPv4(value)) {
-      resolveHint = { ok: true, message: 'Valid IP.' };
+      resolveHint = { ok: true, message: t('Valid IP.') };
       return;
     }
     if (isValidHostname(value)) {
-      resolveHint = { ok: true, message: 'Valid hostname.' };
+      resolveHint = { ok: true, message: t('Valid hostname.') };
       return;
     }
-    resolveHint = { ok: false, message: 'Invalid hostname/IP format.' };
+    resolveHint = { ok: false, message: t('Invalid hostname/IP format.') };
   }
 
   function resolveProbeHost(): string | null {
@@ -644,6 +618,17 @@
   $: maxStep = activeSteps.length;
   $: if (step > maxStep) step = maxStep;
   $: currentStepKey = activeSteps[Math.max(0, step - 1)]?.key ?? 'type';
+  // The step indicator always lists the five steps; Snapshot is skipped when the option is off
+  $: displaySteps = stepsWithSnapshot.map((item) => ({
+    label: item.label,
+    hint: item.key === 'snapshot' && !snapshotEnabledSummary ? t('Not enabled') : null
+  }));
+  $: displayCurrent = stepsWithSnapshot.findIndex((item) => item.key === currentStepKey) + 1;
+
+  const checkLabel = (key: string): string => {
+    const text = String(key ?? '').replace(/[_-]+/g, ' ').trim();
+    return text ? text.charAt(0).toUpperCase() + text.slice(1) : '—';
+  };
   $: snapshotTestSummaryStatus =
     snapshotInitState === 'success'
       ? 'success'
@@ -667,94 +652,50 @@
     currentStepKey === 'review';
 </script>
 
-<div class="is-wizard b2s-wizard is-wizard--modal" class:is-wizard--ldaps={protocolChoice === 'ldaps'}>
-  <div class="is-wizard-shell">
-    <div class="is-wizard-header">
-      <h1 id="identity-sources-wizard-title">Connect Identity Source</h1>
-      <p>Configure Active Directory (LDAP) or an OIDC provider to import identities.</p>
-    </div>
-
-    <div class="is-stepper b2s-wizard-stepper" aria-label="Wizard progress">
-      {#each activeSteps as wizardStep, idx}
-        <div class="is-step b2s-wizard-step">
-          <div class="num" class:active={step >= idx + 1}>{idx + 1}</div>
-          <div class="label" class:active={step >= idx + 1}>{wizardStep.label}</div>
-        </div>
-        {#if idx < activeSteps.length - 1}
-          <div class="line" class:active={step >= idx + 2}></div>
-        {/if}
-      {/each}
-    </div>
-
+<WizardShell
+  {open}
+  {onClose}
+  title={t('Connect identity source')}
+  subtitle={t('Configure Active Directory (LDAP) to import identities.')}
+  iconClass="bi bi-diagram-3"
+  ariaLabelledby="identity-sources-wizard-title"
+  steps={displaySteps}
+  current={displayCurrent}
+>
+<div class="is-wizard is-wizard--modal" class:is-wizard--ldaps={protocolChoice === 'ldaps'}>
     <div class="is-card">
       {#if currentStepKey === 'type'}
-        <h2>Select Type</h2>
-
-        <div class="field">
-          <label for="identity-source-name">Name</label>
-          <input
-            id="identity-source-name"
-            bind:value={payload.name}
-            placeholder="AD Corp (prod)"
-            autocomplete="off"
-          />
-        </div>
-
-        <div class="cards">
-          <button type="button" class="card" class:selected={payload.type === 'ad'} on:click={() => selectType('ad')}>
-            <div class="card__icon"><i class="bi bi-diagram-3"></i></div>
-            <div class="card__title">Active Directory / LDAP</div>
-            <div class="card__desc">LDAP server for Microsoft Active Directory or generic LDAP</div>
-          </button>
-          <button
-            type="button"
-            class="card disabled"
-            disabled
-            aria-disabled="true"
-            title="Coming soon"
-          >
-            <div class="card__icon"><i class="bi bi-key"></i></div>
-            <div class="card__title">OIDC / SCIM 2.0</div>
-            <div class="card__desc">Provision identities via OIDC / SCIM</div>
-          </button>
-          <button
-            type="button"
-            class="card disabled"
-            disabled
-            aria-disabled="true"
-            title="Coming soon"
-          >
-            <div class="card__icon"><i class="bi bi-cloud"></i></div>
-            <div class="card__title">Azure AD</div>
-            <div class="card__desc">Microsoft Entra ID connector</div>
-          </button>
-          <button
-            type="button"
-            class="card disabled"
-            disabled
-            aria-disabled="true"
-            title="Coming soon"
-          >
-            <div class="card__icon"><i class="bi bi-amazon"></i></div>
-            <div class="card__title">Amazon IAM</div>
-            <div class="card__desc">AWS identity source</div>
-          </button>
-        </div>
+        <section class="b2s-wizard-section">
+          <h3>{t('Choose the source type')}</h3>
+          <p>{t('Only Active Directory / LDAP sources can be connected for now.')}</p>
+          <div class="b2s-choice-grid">
+            <ChoiceCard
+              icon="bi-diagram-3"
+              title={t('Active Directory / LDAP')}
+              description={t('LDAP server for Microsoft Active Directory or generic LDAP')}
+              selected={payload.type === 'ad'}
+              onSelect={() => selectType('ad')}
+            />
+            <ChoiceCard icon="bi-key" title={t('OIDC / SCIM 2.0')} description={t('Provision identities via OIDC / SCIM')} disabled />
+            <ChoiceCard icon="bi-cloud" title={t('Azure AD')} description={t('Microsoft Entra ID connector')} disabled />
+            <ChoiceCard icon="bi-amazon" title={t('Amazon IAM')} description={t('AWS identity source')} disabled />
+          </div>
+        </section>
       {/if}
 
       {#if currentStepKey === 'capabilities'}
         <div class="capabilities">
           <div class="capabilities-head">
-            <h2>Capabilities</h2>
-            <p class="capabilities-sub">Enable features available for this source.</p>
+            <h2>{t('Capabilities')}</h2>
+            <p class="capabilities-sub">{t('Enable features available for this source.')}</p>
           </div>
 
           <div class="cap-card">
             <label class="cap-option">
               <span class="cap-option-icon"><i class="bi bi-person-check" aria-hidden="true"></i></span>
               <span class="cap-option-copy">
-                <strong>Authenticate users</strong>
-                <small>Allow this source to authenticate users.</small>
+                <strong>{t('Authenticate users')}</strong>
+                <small>{t('Allow this source to authenticate users.')}</small>
               </span>
               <input class="cap-switch" type="checkbox" bind:checked={payload.capabilities.auth} />
             </label>
@@ -762,8 +703,8 @@
             <label class="cap-option">
               <span class="cap-option-icon"><i class="bi bi-diagram-3" aria-hidden="true"></i></span>
               <span class="cap-option-copy">
-                <strong>Import groups</strong>
-                <small>Import groups from this source.</small>
+                <strong>{t('Import groups')}</strong>
+                <small>{t('Import groups from this source.')}</small>
               </span>
               <input class="cap-switch" type="checkbox" bind:checked={payload.capabilities.import_groups} />
             </label>
@@ -771,68 +712,68 @@
             <label class="cap-option">
               <span class="cap-option-icon"><i class="bi bi-cloud-arrow-down" aria-hidden="true"></i></span>
               <span class="cap-option-copy">
-                <strong>Snapshot inventory</strong>
-                <small>Synchronize directory inventory and health metadata.</small>
+                <strong>{t('Snapshot inventory')}</strong>
+                <small>{t('Synchronize directory inventory and health metadata.')}</small>
               </span>
               <input class="cap-switch" type="checkbox" bind:checked={payload.capabilities.snapshot_enabled} />
             </label>
           </div>
 
           {#if payload.capabilities.snapshot_enabled}
-            <div class="hint ok">Snapshot inventory will add one additional configuration step.</div>
+            <div class="hint ok">{t('Snapshot inventory will add one additional configuration step.')}</div>
           {/if}
         </div>
       {/if}
 
       {#if currentStepKey === 'connection'}
-      <h2>Connection</h2>
-      <p class="step-hint">Provide LDAP/LDAPS parameters. Fields marked “Required” must be filled in.</p>
+      <h2>{t('Connection')}</h2>
+      <p class="step-hint">{t('Provide LDAP/LDAPS parameters. Fields marked “Required” must be filled in.')}</p>
       {#if payload.type === 'ad'}
         <div class="grid">
             <div class="field field--full">
-              <label for="identity-source-name-step3">Name</label>
+              <label for="identity-source-name-step3">{t('Name')}</label>
               <input
                 id="identity-source-name-step3"
                 bind:value={payload.name}
-                placeholder="AD Corp (prod)"
+                placeholder={t('AD Corp (prod)')}
                 autocomplete="off"
               />
               {#if showStep3Errors && !payload.name?.trim()}
-                <span class="error">Required</span>
+                <FieldError>{t('Required')}</FieldError>
               {:else if showStep3Errors && isDuplicateSourceName()}
-                <span class="error">This name already exists</span>
+                <FieldError>{t('This name already exists')}</FieldError>
               {/if}
             </div>
 
             <div class="field">
-              <label for="identity-source-host">Hostname / IP</label>
+              <label for="identity-source-host">{t('Hostname / IP')}</label>
               <div class="b2s-input-with-action">
                 <input
                   id="identity-source-host"
                   bind:value={adHostInput}
-                  placeholder="dc1.corp.local or 192.168.10.10"
+                  placeholder={t('dc1.corp.local or 192.168.10.10')}
                 />
                 <button
                   class="b2s-input-action"
                   type="button"
-                  aria-label="Resolve host"
+                  aria-label={t('Resolve host')}
                   on:click={resolveHostInput}
                 >
                   <i class="bi bi-search" aria-hidden="true"></i>
                 </button>
               </div>
               {#if showStep3Errors && !adHostInput}
-                <span class="error">Required</span>
+                <FieldError>{t('Required')}</FieldError>
               {:else if showStep3Errors && adHostInput && !isValidIPv4(adHostInput) && !isValidHostname(adHostInput)}
-                <span class="error">Invalid hostname / IP</span>
+                <FieldError>{t('Invalid hostname / IP')}</FieldError>
               {/if}
               {#if resolveHint}
                 <span class={resolveHint.ok ? 'hint ok' : 'hint'}>{resolveHint.message}</span>
               {/if}
             </div>
             <div class="field">
-              <label>Protocol</label>
-              <div class="protocol-switch">
+              <span class="field-label" id="is-wizard-protocol">{t('Protocol')}</span>
+              <div class="protocol-switch" role="group" aria-labelledby="is-wizard-protocol">
                 <button
                   type="button"
                   class="protocol-btn"
@@ -852,41 +793,41 @@
               </div>
             </div>
             <div class="field">
-              <label for="identity-source-port">Port</label>
+              <label for="identity-source-port">{t('Port')}</label>
               <input
                 id="identity-source-port"
                 type="number"
                 bind:value={payload.port}
               />
               {#if showStep3Errors && !payload.port}
-                <span class="error">Required</span>
+                <FieldError>{t('Required')}</FieldError>
               {/if}
             </div>
             <div class="field">
-              <label for="identity-source-base-dn">Base DN</label>
+              <label for="identity-source-base-dn">{t('Base DN')}</label>
               <input
                 id="identity-source-base-dn"
                 bind:value={payload.base_dn}
                 placeholder="DC=corp,DC=local"
               />
               {#if showStep3Errors && !payload.base_dn}
-                <span class="error">Required</span>
+                <FieldError>{t('Required')}</FieldError>
               {/if}
             </div>
             <div class="field">
-              <label for="identity-source-bind-dn">Bind DN</label>
+              <label for="identity-source-bind-dn">{t('Bind DN')}</label>
               <input
                 id="identity-source-bind-dn"
                 bind:value={payload.bind_dn}
                 placeholder="svc_ad_bind"
               />
               {#if showStep3Errors && !payload.bind_dn}
-                <span class="error">Required</span>
+                <FieldError>{t('Required')}</FieldError>
               {/if}
             </div>
 
             <div class="field">
-              <label for="identity-source-bind-password">Bind password</label>
+              <label for="identity-source-bind-password">{t('Bind password')}</label>
               <div class="b2s-input-with-action">
                 <input
                   id="identity-source-bind-password"
@@ -897,166 +838,26 @@
                 <button
                   class="b2s-input-action"
                   type="button"
-                  aria-label={showBindPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showBindPassword ? t('Hide password') : t('Show password')}
                   on:click={() => (showBindPassword = !showBindPassword)}
                 >
                   <i class={`bi ${showBindPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
                 </button>
               </div>
               {#if showStep3Errors && !uiBindPassword && !payload.bind_password_ref}
-                <span class="error">Required</span>
+                <FieldError>{t('Required')}</FieldError>
               {/if}
             </div>
 
             <div class="field field--full">
               {#if isNtlmAuth}
-                <span class="hint">⚠️ In hardened environments (CIS), Kerberos is recommended. Suggested format: user@realm.</span>
+                <span class="hint">{t('⚠️ In hardened environments (CIS), Kerberos is recommended. Suggested format: user@realm.')}</span>
               {/if}
               {#if isKerberosAuth}
-                <span class="hint ok">Kerberos detected. Prerequisites: DNS SRV Kerberos, synchronized NTP, ports 88/464 open, krb5.conf mounted in the runner.</span>
+                <span class="hint ok">{t('Kerberos detected. Prerequisites: DNS SRV Kerberos, synchronized NTP, ports 88/464 open, krb5.conf mounted in the runner.')}</span>
               {/if}
             </div>
-            {#if protocolChoice === 'ldaps'}
-              <div class="field">
-                <label>Bind type (LDAPS)</label>
-                <div class="protocol-switch">
-                  <button
-                    type="button"
-                    class="protocol-btn"
-                    class:active={ldapsBindType === 'gssapi'}
-                    on:click={() => (ldapsBindType = 'gssapi')}
-                  >
-                    Kerberos (GSSAPI)
-                  </button>
-                  <button
-                    type="button"
-                    class="protocol-btn"
-                    class:active={ldapsBindType === 'simple'}
-                    on:click={() => (ldapsBindType = 'simple')}
-                  >
-                    Simple Bind
-                  </button>
-                </div>
-                {#if ldapsBindType === 'gssapi'}
-                  <span class="hint ok">Recommended for Protected Users. Requires krb5.conf, keytab, DNS SRV, NTP.</span>
-                {:else}
-                  <span class="hint">Simple bind must be LDAPS only and may require LDAP signing + channel binding.</span>
-                {/if}
-              </div>
-
-              {#if ldapsBindType === 'gssapi'}
-                <div class="field">
-                  <label for="identity-source-krb-realm">Kerberos Realm</label>
-                  <input
-                    id="identity-source-krb-realm"
-                    placeholder="CORP.LOCAL"
-                    bind:value={krbRealm}
-                  />
-                </div>
-                <div class="field">
-                  <label for="identity-source-krb-kdc">KDC (optional)</label>
-                  <input
-                    id="identity-source-krb-kdc"
-                    placeholder="dc01.corp.local"
-                    bind:value={krbKdc}
-                  />
-                </div>
-                <div class="field">
-                  <label for="identity-source-krb-principal">Service Principal</label>
-                  <input
-                    id="identity-source-krb-principal"
-                    placeholder="svc_ldap@CORP.LOCAL"
-                    bind:value={krbPrincipal}
-                  />
-                </div>
-                <div class="field">
-                  <label for="identity-source-krb-keytab">Keytab secret ref</label>
-                  <input
-                    id="identity-source-krb-keytab"
-                    placeholder="secret://krb5/keytab/ldap"
-                    bind:value={krbKeytabRef}
-                  />
-                </div>
-              {/if}
-
-              <div class="field">
-                <label>TLS validation</label>
-                <label class="cap-item">
-                  <input class="cap-input" type="checkbox" bind:checked={ldapsVerifyTls} />
-                  <span class="cap-check" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
-                  <div class="cap-content">
-                    <div class="cap-title">Verify TLS chain</div>
-                    <div class="cap-desc">Required for production hardening.</div>
-                  </div>
-                </label>
-              </div>
-              <div class="field">
-                <label for="identity-source-ldaps-ca">CA bundle (secret ref)</label>
-                <input
-                  id="identity-source-ldaps-ca"
-                  placeholder="secret://pki/ca/ldap"
-                  bind:value={ldapsCaRef}
-                />
-              </div>
-              <div class="field">
-                <label for="identity-source-ldaps-server-name">Expected server name (SAN/CN)</label>
-                <input
-                  id="identity-source-ldaps-server-name"
-                  placeholder="dc01.corp.local"
-                  bind:value={ldapsServerName}
-                />
-              </div>
-              <div class="field">
-                <label for="identity-source-ldaps-min-tls">Minimum TLS</label>
-                <select id="identity-source-ldaps-min-tls" bind:value={ldapsMinTls}>
-                  <option value="1.3">TLS 1.3</option>
-                  <option value="1.2">TLS 1.2</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="identity-source-ldaps-channel-binding">Channel Binding</label>
-                <select id="identity-source-ldaps-channel-binding" bind:value={ldapsChannelBinding}>
-                  <option value="strict">Strict</option>
-                  <option value="optional">Optional</option>
-                  <option value="disabled">Disabled</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>LDAP signing required</label>
-                <label class="cap-item">
-                  <input class="cap-input" type="checkbox" bind:checked={ldapsSigningRequired} />
-                  <span class="cap-check" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
-                  <div class="cap-content">
-                    <div class="cap-title">Require signing (policy)</div>
-                    <div class="cap-desc">Aligns with hardened AD policies.</div>
-                  </div>
-                </label>
-              </div>
-            {/if}
           </div>
-        {:else}
-            <div class="grid">
-              <div class="field">
-              <label for="identity-source-issuer-url">Issuer URL</label>
-                <input
-                  id="identity-source-issuer-url"
-                  bind:value={payload.issuer_url}
-                  placeholder="https://issuer.example.com"
-                />
-              </div>
-              <div class="field">
-                <label for="identity-source-client-id">Client ID</label>
-                <input id="identity-source-client-id" bind:value={payload.client_id} />
-              </div>
-              <div class="field">
-              <label for="identity-source-client-secret">Client Secret</label>
-                <input
-                  id="identity-source-client-secret"
-                  type="password"
-                  bind:value={payload.client_secret}
-                />
-              </div>
-            </div>
         {/if}
 
         <div class="test-actions">
@@ -1066,13 +867,13 @@
               const secretRef = await ensureBindSecretRef();
               return buildWizardProbeRequest(secretRef);
             }}
-            label="Run Probe"
-            busyLabel="Running probe…"
+            label={t('Run Probe')}
+            busyLabel={t('Running probe…')}
             fullWidth={true}
             showIcon={true}
             iconClass="bi bi-activity"
             busyIconClass="bi bi-hourglass-split"
-            buttonClass={`se-run-probe-btn sed-btn sed-btn--secondary ${probeStatus === 'success' ? 'is-success' : ''}`}
+            buttonClass={`se-run-probe-btn b2s-btn b2s-btn-secondary ${probeStatus === 'success' ? 'is-success' : ''}`}
             hideSuccessPanel={true}
             disabled={!canContinueStep3}
             beforeRun={async () => {
@@ -1080,22 +881,22 @@
               showStep3Errors = false;
               testError = null;
               jobsStore.startJob(probeWizardJobInput(), {
-                message: 'Probe running'
+                message: t('Probe running')
               });
               if (!canContinueStep3) {
                 showStep3Errors = true;
-                throw new Error('Complete the required connection fields first.');
+                throw new Error(t('Complete the required connection fields first.'));
               }
               const secretRef = await ensureBindSecretRef();
               if (!secretRef && payload.bind_dn?.trim()) {
-                throw new Error('Password is required to test the connection (no secret_ref available).');
+                throw new Error(t('Password is required to test the connection (no secret_ref available).'));
               }
             }}
             on:done={(e) => {
               const ok = Boolean(e.detail.ok);
               const message = ok
-                ? 'Probe OK'
-                : (e.detail.error?.message ?? 'Probe failed');
+                ? t('Probe OK')
+                : (e.detail.error?.message ?? t('Probe failed'));
 
               probeStatus = ok ? 'success' : 'failed';
 
@@ -1107,7 +908,7 @@
 
               if (ok) {
                 jobsStore.succeedJob(probeWizardJobInput(), {
-                  message: 'Probe OK',
+                  message: t('Probe OK'),
                   summary: { message }
                 });
               } else {
@@ -1117,7 +918,7 @@
                 });
               }
 
-              if (ok) toast.success('Probe OK');
+              if (ok) toast.success(t('Probe OK'));
               else {
                 const appError = toUiAppError(
                   e.detail.error ?? new Error(message),
@@ -1134,14 +935,14 @@
 
       {#if currentStepKey === 'snapshot'}
         <div class="test-step">
-          <h2>Snapshot</h2>
-          <p class="test-sub">Snapshot Activation, Import Scope and Snapshot Test Run.</p>
+          <h2>{t('Snapshot')}</h2>
+          <p class="test-sub">{t('Snapshot Activation, Import Scope and Snapshot Test Run.')}</p>
 
           <div class="test-summary">
-            <div class="summary-row"><strong>Snapshot Activation:</strong> {snapshotEnabledSummary ? 'Enabled' : 'Disabled'}</div>
-            <div class="summary-row"><strong>Import Scope:</strong> {payload.capabilities.import_groups ? 'Users + groups' : 'Users only'}</div>
+            <div class="summary-row"><strong>{t('Snapshot Activation:')}</strong> {snapshotEnabledSummary ? t('Enabled') : t('Disabled')}</div>
+            <div class="summary-row"><strong>{t('Import Scope:')}</strong> {payload.capabilities.import_groups ? t('Users + groups') : t('Users only')}</div>
             <div class="summary-row">
-              <strong>Snapshot status:</strong>
+              <strong>{t('Snapshot status:')}</strong>
               <StatusBadge
                 status={snapshotStatusLabel(lastSnapshotStatus)}
                 label={snapshotStatusLabel(lastSnapshotStatus)}
@@ -1149,25 +950,25 @@
                 compact={true}
               />
             </div>
-            <div class="summary-row"><strong>Snapshot date:</strong> {formatSnapshotDate(lastSnapshotAt)}</div>
-            <div class="summary-row"><strong>Snapshot version:</strong> {lastSnapshotVersion ?? '—'}</div>
+            <div class="summary-row"><strong>{t('Snapshot date:')}</strong> {formatSnapshotDate(lastSnapshotAt)}</div>
+            <div class="summary-row"><strong>{t('Snapshot version:')}</strong> {lastSnapshotVersion ?? '—'}</div>
             <div class="summary-row">
-              <strong>Synchronized objects (snapshot):</strong>
+              <strong>{t('Synchronized objects (snapshot):')}</strong>
               {#if creating || loadingSnapshotCount}
-                en cours…
+                {t('en cours…')}
               {:else if !createDone}
-                available after creation
+                {t('available after creation')}
               {:else if lastSnapshotObjectsCount !== null}
                 {lastSnapshotObjectsCount}
                 {#if lastSnapshotUsersCount !== null || lastSnapshotGroupsCount !== null || lastSnapshotMembershipsCount !== null}
-                  <span class="test-desc">(users: {lastSnapshotUsersCount ?? 0}, groups: {lastSnapshotGroupsCount ?? 0}, memberships: {lastSnapshotMembershipsCount ?? 0})</span>
+                  <span class="test-desc">{t('(users: {value}, groups: {value2}, memberships: {value3})', { value: (lastSnapshotUsersCount ?? 0), value2: (lastSnapshotGroupsCount ?? 0), value3: (lastSnapshotMembershipsCount ?? 0) })}</span>
                 {/if}
               {:else}
                 —
               {/if}
             </div>
             {#if createdSourceId}
-              <div class="summary-row"><strong>Source ID:</strong> {createdSourceId}</div>
+              <div class="summary-row"><strong>{t('Source ID:')}</strong> {createdSourceId}</div>
             {/if}
             {#if snapshotCountNote}
               <div class="summary-row test-desc">{snapshotCountNote}</div>
@@ -1177,9 +978,9 @@
           <div class="snapshot-sync-card">
             <div class="snapshot-sync-head">
               <div>
-                <div class="snapshot-sync-title">Snapshot Test Run</div>
+                <div class="snapshot-sync-title">{t('Snapshot Test Run')}</div>
                 <div class="snapshot-sync-sub">
-                  Lance le premier snapshot pour hydrater la BDD (date, version, objets).
+                  {t('Lance le premier snapshot pour hydrater la BDD (date, version, objets).')}
                 </div>
               </div>
               <button
@@ -1189,14 +990,14 @@
                 disabled={creating || snapshotInitState === 'running' || (createDone && !createdSourceId)}
                 on:click={startInitialSnapshotSync}
               >
-                {#if creating}Creating…{:else if snapshotInitState === 'running'}Synchronizing…{:else if snapshotInitState === 'success'}Resync snapshot{:else}Initialize snapshot{/if}
+                {#if creating}{t('Creating…')}{:else if snapshotInitState === 'running'}{t('Synchronizing…')}{:else if snapshotInitState === 'success'}{t('Resync snapshot')}{:else}{t('Initialize snapshot')}{/if}
               </button>
             </div>
 
             {#if !createDone}
-              <div class="snapshot-sync-placeholder">The first click creates the source and starts the initial snapshot.</div>
+              <div class="snapshot-sync-placeholder">{t('The first click creates the source and starts the initial snapshot.')}</div>
             {:else if !createdSourceId}
-              <div class="snapshot-sync-placeholder">Source created, but identifier not found to start synchronization.</div>
+              <div class="snapshot-sync-placeholder">{t('Source created, but identifier not found to start synchronization.')}</div>
             {:else}
               <div class="snapshot-progress-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(snapshotInitProgress)}>
                 <div class="snapshot-progress-track">
@@ -1222,7 +1023,7 @@
               </div>
 
               {#if snapshotInitError}
-                <div class="test-alert">{snapshotInitError}</div>
+                <InlineAlert tone="error">{snapshotInitError}</InlineAlert>
               {/if}
             {/if}
           </div>
@@ -1231,11 +1032,11 @@
 
       {#if currentStepKey === 'review'}
         <div class="test-step">
-          <h2>Review</h2>
-          <p class="test-sub">Review configuration summary before final creation.</p>
+          <h2>{t('Review')}</h2>
+          <p class="test-sub">{t('Review configuration summary before final creation.')}</p>
           {#if testResult}
             <div class={`test-banner ${testResult.ok ? 'ok' : 'err'}`}>
-              {testResult.ok ? 'Test OK' : 'Test failed'}
+              {testResult.ok ? t('Test OK') : t('Test failed')}
             </div>
           {/if}
 
@@ -1247,14 +1048,14 @@
                     <i class={`bi ${c.ok ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}`}></i>
                   </span>
                   <div>
-                    <div class="test-title">{c.key}</div>
+                    <div class="test-title">{checkLabel(c.key)}</div>
                     {#if c.message}
                       <div class="test-desc">{c.message}</div>
                     {/if}
                   </div>
                 </div>
                 <div class={`test-status ${c.ok ? 'ok' : 'err'}`}>
-                  {c.ok ? 'OK' : 'Error'}
+                  {c.ok ? t('OK') : t('Error')}
                   {#if !c.ok}
                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
                   {/if}
@@ -1263,33 +1064,33 @@
             {/each}
 
             {#if !testResult}
-              <div class="test-row empty">No tests have been run yet.</div>
+              <div class="test-row empty">{t('No tests have been run yet.')}</div>
             {/if}
           </div>
 
           {#if testError}
-            <div class="test-alert">{testError}</div>
+            <InlineAlert tone="error">{testError}</InlineAlert>
           {/if}
 
           <div class="test-summary">
-            <div class="summary-row"><strong>Name:</strong> {payload.name || resolveName()}</div>
-            <div class="summary-row"><strong>Identity source:</strong> Active Directory - {payload.host || 'corp.local'}</div>
-            <div class="summary-row"><strong>Host / IP:</strong> {payload.host || adHostInput || 'dc1.corp.local'}</div>
-            <div class="summary-row"><strong>Base DN:</strong> {payload.base_dn || 'DC=corp,DC=local'}</div>
-            <div class="summary-row"><strong>Bind DN:</strong> {payload.bind_dn || 'svc_ad_bind'}</div>
+            <div class="summary-row"><strong>{t('Name:')}</strong> {payload.name || resolveName()}</div>
+            <div class="summary-row"><strong>{t('Identity source:')}</strong> {t('Active Directory / LDAP')}</div>
+            <div class="summary-row"><strong>{t('Host / IP:')}</strong> {payload.host || adHostInput || '—'}</div>
+            <div class="summary-row"><strong>{t('Base DN:')}</strong> {payload.base_dn || '—'}</div>
+            <div class="summary-row"><strong>{t('Bind DN:')}</strong> {payload.bind_dn || '—'}</div>
             <div class="summary-row">
-              <strong>Snapshot:</strong>
+              <strong>{t('Snapshot:')}</strong>
               <StatusBadge
                 status={snapshotEnabledSummary ? 'enabled' : 'disabled'}
-                label={snapshotEnabledSummary ? 'enabled' : 'disabled'}
+                label={snapshotEnabledSummary ? t('Enabled') : t('Disabled')}
                 variant={snapshotEnabledSummary ? 'success' : 'disabled'}
                 compact={true}
               />
             </div>
-            <div class="summary-row"><strong>First snapshot automatic after creation:</strong> {firstSnapshotAutomaticSummary ? 'yes' : 'no'}</div>
-            <div class="summary-row"><strong>Import scope:</strong> {payload.capabilities.import_groups ? 'Users + groups' : 'Users only'}</div>
+            <div class="summary-row"><strong>{t('First snapshot automatic after creation:')}</strong> {firstSnapshotAutomaticSummary ? t('Yes') : t('No')}</div>
+            <div class="summary-row"><strong>{t('Import scope:')}</strong> {payload.capabilities.import_groups ? t('Users + groups') : t('Users only')}</div>
             <div class="summary-row">
-              <strong>Probe result:</strong>
+              <strong>{t('Probe result:')}</strong>
               <StatusBadge
                 status={probeSummaryStatus}
                 label={probeSummaryStatus}
@@ -1298,7 +1099,7 @@
               />
             </div>
             <div class="summary-row">
-              <strong>Snapshot test status:</strong>
+              <strong>{t('Snapshot test status:')}</strong>
               <StatusBadge
                 status={snapshotTestSummaryStatus}
                 label={snapshotTestSummaryStatus}
@@ -1308,7 +1109,7 @@
             </div>
             {#if snapshotEnabledSummary}
               <div class="summary-row">
-                <strong>Snapshot status:</strong>
+                <strong>{t('Snapshot status:')}</strong>
                 <StatusBadge
                   status={snapshotStatusLabel(lastSnapshotStatus)}
                   label={snapshotStatusLabel(lastSnapshotStatus)}
@@ -1316,8 +1117,8 @@
                   compact={true}
                 />
               </div>
-              <div class="summary-row"><strong>Snapshot date:</strong> {formatSnapshotDate(lastSnapshotAt)}</div>
-              <div class="summary-row"><strong>Snapshot version:</strong> {lastSnapshotVersion ?? '—'}</div>
+              <div class="summary-row"><strong>{t('Snapshot date:')}</strong> {formatSnapshotDate(lastSnapshotAt)}</div>
+              <div class="summary-row"><strong>{t('Snapshot version:')}</strong> {lastSnapshotVersion ?? '—'}</div>
               {#if snapshotCountNote}
                 <div class="summary-row test-desc">{snapshotCountNote}</div>
               {/if}
@@ -1325,41 +1126,39 @@
           </div>
 
           {#if createError}
-            <div class="alert error">{createError}</div>
+            <InlineAlert tone="error">{createError}</InlineAlert>
           {/if}
         </div>
       {/if}
 
-      <div class="actions" class:actions--centered={currentStepKey === 'type'}>
-        {#if step > 1}
-          <button class="b2s-btn-secondary" type="button" on:click={back}>Back</button>
-        {/if}
-        {#if step < maxStep}
-          <button class="b2s-btn-primary" type="button" disabled={!canContinue} on:click={next}>Continue</button>
-        {:else}
-          <button class="b2s-btn-primary" type="button" on:click={finish} disabled={creating}>
-            {#if creating}
-              Creating…
-            {:else if createDone}
-              Close
-            {:else}
-              Finish
-            {/if}
-          </button>
-        {/if}
-      </div>
     </div>
-  </div>
 </div>
 
-  <style>
-   :global(.is-wizard-backdrop) {
-     /* uses shared .b2s-wizard-backdrop */
-   }
+  <svelte:fragment slot="footer">
+    <button class="b2s-btn b2s-btn-ghost" type="button" on:click={onClose} disabled={creating}>{t('Cancel')}</button>
+    {#if step > 1 && !createDone}
+      <button class="b2s-btn b2s-btn-secondary" type="button" on:click={back}>
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        {t('Back')}
+      </button>
+    {/if}
+    {#if step < maxStep}
+      <button class="b2s-btn b2s-btn-primary" type="button" disabled={!canContinue} on:click={next}>{t('Continue')}</button>
+    {:else}
+      <button class="b2s-btn b2s-btn-primary" type="button" on:click={finish} disabled={creating}>
+        {#if creating}
+          {t('Creating…')}
+        {:else if createDone}
+          {t('Close')}
+        {:else}
+          {t('Create identity source')}
+        {/if}
+      </button>
+    {/if}
+  </svelte:fragment>
+</WizardShell>
 
-   :global(.is-wizard-backdrop--clear) {
-     background: transparent;
-   }
+  <style>
 
   .is-wizard {
     width: 100%;
@@ -1378,97 +1177,14 @@
     margin-bottom: 24px;
   }
 
-  .is-wizard-header h1 {
-    margin: 0;
-    font-size: 26px;
-    font-weight: 900;
-    color: #0f172a;
-  }
-
-  .is-wizard-header p {
-    margin-top: 8px;
-    font-size: 14px;
-    color: #64748b;
-  }
-
   .is-card {
     background: transparent;
   }
 
-  .is-stepper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    margin: 16px 0 22px;
-  }
-
-  .is-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 88px;
-  }
-
-  .num {
-    width: 30px;
-    height: 30px;
-    border-radius: 999px;
-    border: 2px solid #cbd5e1;
-    color: #64748b;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    background: transparent;
-    transition: background 180ms ease, color 180ms ease, transform 180ms ease;
-  }
-
-  .num.active {
-    background: var(--b2s-topbar-bg, #0b1530);
-    border-color: var(--b2s-topbar-bg, #0b1530);
-    color: #ffffff;
-    transform: translateY(-1px);
-  }
-
-  .label {
-    margin-top: 6px;
-    font-weight: 700;
-    font-size: 12px;
-    color: #94a3b8;
-  }
-
-  .label.active {
-    color: var(--b2s-topbar-bg, #0b1530);
-  }
-
-  .line {
-    width: 120px;
-    height: 2px;
-    background: #cbd5e1;
-    border-radius: 999px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .line::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: var(--b2s-topbar-bg, #0b1530);
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform 220ms ease;
-  }
-
-  .line.active::after {
-    transform: scaleX(1);
-  }
-
   h2 {
-    margin: 0 0 16px;
-    font-size: 18px;
-    font-weight: 800;
+    margin: 0 0 4px;
+    font-size: var(--b2s-fs-lg);
+    font-weight: 600;
     color: #0f172a;
   }
 
@@ -1481,7 +1197,7 @@
 
   .card {
     border: 2px solid #e5e7eb;
-    border-radius: 18px;
+    border-radius: var(--b2s-radius-lg);
     padding: 20px 18px 18px;
     background: #ffffff;
     text-align: left;
@@ -1494,7 +1210,7 @@
   .card__icon {
     width: 44px;
     height: 44px;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: linear-gradient(135deg, rgba(11, 21, 48, 0.15), rgba(30, 58, 138, 0.2));
     display: flex;
     align-items: center;
@@ -1511,7 +1227,7 @@
     right: -30px;
     width: 90px;
     height: 90px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: radial-gradient(circle at center, rgba(11, 21, 48, 0.16), transparent 60%);
     pointer-events: none;
   }
@@ -1540,13 +1256,13 @@
 
   .card__title {
     font-weight: 800;
-    font-size: 15px;
+    font-size: var(--b2s-fs-lg);
     color: #0f172a;
   }
 
   .card__desc {
     color: #64748b;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     margin-top: 6px;
   }
 
@@ -1557,45 +1273,34 @@
     margin-bottom: 12px;
   }
 
-  .field label {
-    font-size: 12px;
-    font-weight: 800;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+  .field label,
+  .field .field-label {
+    font-size: var(--b2s-fs-sm);
+    font-weight: 500;
+    color: var(--b2s-color-text);
   }
 
   .field input {
     width: 100%;
-    padding: 12px 14px;
-    border-radius: 10px;
-    border: 1px solid #cbd5e1;
-    font-size: 14px;
-    font-weight: 600;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: var(--b2s-radius-sm);
+    border: 1px solid var(--b2s-color-border);
+    font-size: var(--b2s-fs-md);
+    font-weight: 400;
     color: #0f172a;
-  }
-
-  .field select {
-    width: 100%;
-    padding: 12px 14px;
-    border-radius: 10px;
-    border: 1px solid #cbd5e1;
-    font-size: 14px;
-    font-weight: 600;
-    color: #0f172a;
-    background: #ffffff;
   }
 
   .error {
     margin-top: 6px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #b91c1c;
     font-weight: 700;
   }
 
   .hint {
     margin-top: 6px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #64748b;
     font-weight: 600;
   }
@@ -1620,7 +1325,7 @@
 
   .step-hint {
     margin: 0 0 12px;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     color: #64748b;
   }
 
@@ -1628,7 +1333,7 @@
     display: inline-flex;
     gap: 6px;
     padding: 4px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     border: 1px solid #e2e8f0;
     background: #f8fafc;
     margin-bottom: 12px;
@@ -1638,9 +1343,9 @@
     border: none;
     background: transparent;
     padding: 6px 10px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     font-weight: 800;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #64748b;
     cursor: pointer;
   }
@@ -1657,8 +1362,8 @@
   }
 
   .capabilities-sub {
-    margin: 2px 0 16px;
-    font-size: 14px;
+    margin: 0 0 16px;
+    font-size: var(--b2s-fs-sm);
     color: #64748b;
   }
 
@@ -1681,7 +1386,7 @@
     align-items: center;
     padding: 12px;
     border: 1px solid #d9e2ef;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #ffffff;
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
     cursor: pointer;
@@ -1693,7 +1398,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 7px;
+    border-radius: var(--b2s-radius-sm);
     background: #eff6ff;
     color: #0b63f4;
     font-size: 1rem;
@@ -1710,14 +1415,14 @@
 
   .cap-option-copy strong {
     color: #071638;
-    font-size: 0.78rem;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
 
   .cap-option-copy small {
     margin-top: 4px;
     color: #596985;
-    font-size: 0.7rem;
+    font-size: var(--b2s-fs-xs);
     line-height: 1.25;
   }
 
@@ -1725,7 +1430,7 @@
     appearance: none;
     width: 34px;
     height: 19px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #cbd5e1;
     position: relative;
     cursor: pointer;
@@ -1758,7 +1463,7 @@
 
   .test-sub {
     margin: 4px 0 16px;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     color: #64748b;
   }
 
@@ -1767,8 +1472,8 @@
     align-items: center;
     gap: 8px;
     padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 12px;
+    border-radius: var(--b2s-radius-pill);
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     margin-bottom: 10px;
   }
@@ -1785,7 +1490,7 @@
 
   .test-list {
     background: #ffffff;
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     border: 1px solid #e2e8f0;
     box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
     padding: 8px 10px;
@@ -1796,7 +1501,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 8px;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
   }
 
   .test-row + .test-row {
@@ -1812,7 +1517,7 @@
   .test-icon {
     width: 22px;
     height: 22px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1832,7 +1537,7 @@
   }
 
   .test-desc {
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #64748b;
     margin-top: 2px;
   }
@@ -1849,23 +1554,13 @@
     color: #b91c1c;
   }
 
-  .test-alert {
-    margin-top: 12px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    background: #fef3c7;
-    color: #92400e;
-    border: 1px solid #fde68a;
-    font-weight: 700;
-  }
-
   .test-summary {
     margin-top: 14px;
     background: #f8fafc;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid #e2e8f0;
     padding: 12px 14px;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
     color: #0f172a;
   }
@@ -1877,7 +1572,7 @@
   .snapshot-sync-card {
     margin-top: 14px;
     border: 1px solid #e2e8f0;
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     background: #ffffff;
     padding: 12px;
   }
@@ -1891,14 +1586,14 @@
   }
 
   .snapshot-sync-title {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 900;
     color: #0f172a;
   }
 
   .snapshot-sync-sub {
     margin-top: 2px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #64748b;
   }
 
@@ -1907,7 +1602,7 @@
   }
 
   .snapshot-sync-placeholder {
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #64748b;
     padding: 6px 2px;
   }
@@ -1921,7 +1616,7 @@
 
   .snapshot-progress-track {
     height: 10px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     overflow: hidden;
     background: #e2e8f0;
   }
@@ -1933,7 +1628,7 @@
   }
 
   .snapshot-progress-value {
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     color: #334155;
     min-width: 40px;
@@ -1942,7 +1637,7 @@
 
   .snapshot-sync-status {
     margin-top: 8px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     color: #475569;
     font-weight: 700;
   }
@@ -1960,14 +1655,14 @@
     align-items: flex-start;
     padding: 8px 10px;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #f8fafc;
   }
 
   .snapshot-step-dot {
     width: 10px;
     height: 10px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     margin-top: 5px;
     background: #94a3b8;
   }
@@ -2000,14 +1695,14 @@
   }
 
   .snapshot-step-label {
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     color: #0f172a;
   }
 
   .snapshot-step-desc {
     margin-top: 1px;
-    font-size: 11px;
+    font-size: var(--b2s-fs-xs);
     color: #64748b;
   }
 
@@ -2050,49 +1745,16 @@
     width: 100%;
   }
 
-  .b2s-btn-test {
-    /* uses shared .b2s-btn-test styles */
-  }
-
-  .actions .b2s-btn-primary,
-  .actions .b2s-btn-secondary {
-    border-radius: 12px;
-    padding: 12px 18px;
-    font-weight: 800;
-    font-size: 14px;
+  .actions .b2s-btn {
     flex: 1 1 160px;
-  }
-
-  .actions .b2s-btn-primary {
-    background: var(--b2s-topbar-bg, #0b1530);
-    border-color: var(--b2s-topbar-bg, #0b1530);
-    color: #ffffff;
-    box-shadow: 0 12px 24px rgba(11, 21, 48, 0.28);
-  }
-
-  .actions .b2s-btn-primary:hover {
-    background: #101b39;
-    border-color: #101b39;
-    box-shadow: 0 16px 28px rgba(11, 21, 48, 0.32);
-    transform: translateY(-1px);
-  }
-
-  .actions .b2s-btn-secondary {
-    background: rgba(11, 21, 48, 0.06);
-    border-color: rgba(11, 21, 48, 0.22);
-    color: #0b1530;
-  }
-
-  .actions .b2s-btn-secondary:hover {
-    background: rgba(11, 21, 48, 0.12);
   }
 
   .alert {
     margin-top: 10px;
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     font-weight: 700;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .alert.error {
@@ -2109,10 +1771,6 @@
     .actions {
       flex-direction: column;
       align-items: stretch;
-    }
-
-    .line {
-      width: 60px;
     }
   }
 </style>

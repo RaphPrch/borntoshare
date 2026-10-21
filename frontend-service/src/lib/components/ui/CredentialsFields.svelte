@@ -1,8 +1,13 @@
+<script context="module" lang="ts">
+  let instanceCounter = 0;
+</script>
+
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
 
-  export let usernameLabel = 'Username';
-  export let passwordLabel = 'Password';
+  export let usernameLabel = t('Username');
+  export let passwordLabel = t('Password');
   export let usernamePlaceholder = '';
   export let passwordPlaceholder = '';
 
@@ -26,6 +31,7 @@
   }>();
 
   let reveal = false;
+  const uid = `credentials-${++instanceCounter}`;
   $: passwordDisabled = Boolean(disablePasswordWhenSecretRef && (secret_ref ?? '').trim());
 
   function onBlurUsername() {
@@ -41,10 +47,11 @@
 
 {#if variant === 'identity'}
   <div class="field">
-    <label>{usernameLabel}</label>
+    <label for={`${uid}-username`}>{usernameLabel}</label>
     <input
       type="text"
       bind:value={username}
+        id={`${uid}-username`}
       placeholder={usernamePlaceholder}
       on:blur={onBlurUsername}
     />
@@ -52,11 +59,12 @@
   </div>
 
   <div class="field">
-    <label>{passwordLabel}</label>
+    <label for={`${uid}-password`}>{passwordLabel}</label>
     <div class="password-row">
       <input
         type={reveal ? 'text' : 'password'}
         bind:value={password}
+        id={`${uid}-password`}
         placeholder={passwordPlaceholder}
         disabled={passwordDisabled}
         on:blur={onBlurPassword}
@@ -65,19 +73,19 @@
         class="eye"
         type="button"
         on:click={() => (reveal = !reveal)}
-        aria-label={reveal ? 'Hide password' : 'Show password'}
+        aria-label={reveal ? t('Hide password') : t('Show password')}
       >
         <i class={`bi ${reveal ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
       </button>
     </div>
 
     {#if showSecretRef}
-      <div class="hint">or use an existing secret reference</div>
+      <div class="hint">{t('or use an existing secret reference')}</div>
       <input
         class="secret-ref"
         type="text"
         bind:value={secret_ref}
-        placeholder="vault://…"
+        placeholder={t('vault://…')}
         on:blur={onBlurSecretRef}
       />
     {/if}
@@ -87,11 +95,12 @@
 {:else if variant === 'storage'}
   <div class="se-form-grid se-form-grid--creds">
     <div class="se-form-item">
-      <label>{usernameLabel}</label>
+      <label for={`${uid}-username`}>{usernameLabel}</label>
       <input
         class="se-input"
         type="text"
         bind:value={username}
+        id={`${uid}-username`}
         placeholder={usernamePlaceholder}
         on:blur={onBlurUsername}
       />
@@ -99,12 +108,13 @@
     </div>
 
     <div class="se-form-item">
-      <label>{passwordLabel}</label>
+      <label for={`${uid}-password`}>{passwordLabel}</label>
       <div class="se-password">
         <input
           class="se-input"
           type={reveal ? 'text' : 'password'}
           bind:value={password}
+        id={`${uid}-password`}
           placeholder={passwordPlaceholder}
           disabled={passwordDisabled}
           on:blur={onBlurPassword}
@@ -113,19 +123,19 @@
           class="se-eye"
           type="button"
           on:click={() => (reveal = !reveal)}
-          aria-label={reveal ? 'Hide password' : 'Show password'}
+          aria-label={reveal ? t('Hide password') : t('Show password')}
         >
           <i class={`bi ${reveal ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
         </button>
       </div>
 
       {#if showSecretRef}
-        <small class="se-muted">or existing secret_ref</small>
+        <small class="se-muted">{t('or existing secret_ref')}</small>
         <input
           class="se-input"
           type="text"
           bind:value={secret_ref}
-          placeholder="vault://…"
+          placeholder={t('vault://…')}
           on:blur={onBlurSecretRef}
         />
       {/if}
@@ -136,17 +146,19 @@
 {:else}
   <div class="b2s-form-grid">
     <div>
-      <label>{usernameLabel}</label>
-      <input type="text" bind:value={username} placeholder={usernamePlaceholder} on:blur={onBlurUsername} />
+      <label for={`${uid}-username`}>{usernameLabel}</label>
+      <input type="text" bind:value={username}
+        id={`${uid}-username`} placeholder={usernamePlaceholder} on:blur={onBlurUsername} />
       <slot name="afterUsername" />
     </div>
 
     <div>
-      <label>{passwordLabel}</label>
+      <label for={`${uid}-password`}>{passwordLabel}</label>
       <div class="password-row">
         <input
           type={reveal ? 'text' : 'password'}
           bind:value={password}
+        id={`${uid}-password`}
           placeholder={passwordPlaceholder}
           disabled={passwordDisabled}
           on:blur={onBlurPassword}
@@ -155,13 +167,13 @@
           class="eye"
           type="button"
           on:click={() => (reveal = !reveal)}
-          aria-label={reveal ? 'Hide password' : 'Show password'}
+          aria-label={reveal ? t('Hide password') : t('Show password')}
         >
           <i class={`bi ${reveal ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
         </button>
       </div>
       {#if showSecretRef}
-        <input type="text" bind:value={secret_ref} placeholder="vault://…" on:blur={onBlurSecretRef} />
+        <input type="text" bind:value={secret_ref} placeholder={t('vault://…')} on:blur={onBlurSecretRef} />
       {/if}
       <slot name="afterPassword" />
     </div>
@@ -177,7 +189,7 @@
   }
 
   .field label {
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     color: #475569;
     text-transform: uppercase;
@@ -187,9 +199,9 @@
   .field input {
     width: 100%;
     padding: 12px 14px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid #cbd5e1;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
     color: #0f172a;
   }
@@ -219,7 +231,7 @@
   .eye {
     border: 1px solid rgba(0, 0, 0, 0.12);
     background: transparent;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     padding: 6px 10px;
     cursor: pointer;
   }
@@ -228,7 +240,7 @@
   }
   .hint {
     margin-top: 6px;
-    font-size: 0.85rem;
+    font-size: var(--b2s-fs-md);
     opacity: 0.8;
   }
 
@@ -241,7 +253,7 @@
   .se-eye {
     border: 1px solid rgba(0, 0, 0, 0.12);
     background: transparent;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 6px 10px;
     cursor: pointer;
   }

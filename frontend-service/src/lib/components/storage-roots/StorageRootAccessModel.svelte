@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
 
   type AccessModelRow = {
@@ -9,7 +10,7 @@
     tone: 'read' | 'write';
     users: number;
     adGroup: string;
-    adGroupTone: 'success' | 'pending' | 'warning';
+    adGroupTone: 'success' | 'pending' | 'warning' | 'neutral';
     groupName?: string | null;
     aclAlignment?: string | null;
     aclPrincipal?: string | null;
@@ -17,21 +18,7 @@
 
   export let rows: AccessModelRow[] = [];
   export let onOpenEffectiveAccess: (level: 'read' | 'write') => void = () => {};
-  export let onConfigureAccessProfile: () => void = () => {};
 
-  const alignmentLabel = (profile: AccessModelRow): string => {
-    const alignment = String(profile.aclAlignment ?? '').trim().toLowerCase();
-    if (alignment === 'present') return 'ACL aligned';
-    if (alignment === 'missing') return 'ACL missing';
-    return 'No ACL scan';
-  };
-
-  const alignmentTone = (profile: AccessModelRow): 'success' | 'warning' | 'pending' => {
-    const alignment = String(profile.aclAlignment ?? '').trim().toLowerCase();
-    if (alignment === 'present') return 'success';
-    if (alignment === 'missing') return 'warning';
-    return 'pending';
-  };
 </script>
 
 <div class="storage-root-access-model">
@@ -46,12 +33,12 @@
       </div>
 
       <div class="storage-root-access-cell">
-        <span>Members</span>
+        <span>{t('Members')}</span>
         <strong>{profile.users} {profile.users === 1 ? 'user' : 'users'}</strong>
       </div>
 
       <div class="storage-root-access-cell">
-        <span>Access</span>
+        <span>{t('Access')}</span>
         <strong><i class="bi bi-diagram-3" aria-hidden="true"></i> {profile.groupName ?? profile.adGroup}</strong>
       </div>
 
@@ -59,7 +46,7 @@
         <EntityActionButton
           variant="secondary"
           icon="bi-people"
-          label="Review members"
+          label={t('Review members')}
           onClick={() => onOpenEffectiveAccess(profile.level)}
         />
       </div>
@@ -111,20 +98,20 @@
   .storage-root-access-profile strong {
     display: block;
     color: var(--b2s-color-text, #1f2a44);
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
   }
 
   .storage-root-access-profile small {
     display: block;
     color: var(--b2s-color-text-muted, #667085);
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .storage-root-access-icon {
     width: 38px;
     height: 38px;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -150,13 +137,13 @@
 
   .storage-root-access-cell span {
     color: #64748b;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 650;
   }
 
   .storage-root-access-cell strong {
     color: #10203f;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 650;
     min-width: 0;
     max-width: 100%;
@@ -177,10 +164,10 @@
     width: 100%;
   }
 
-  .storage-root-access-row :global(.sed-btn) {
+  .storage-root-access-row :global(.b2s-btn) {
     min-height: 36px;
     padding: 7px 11px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     min-width: 0;
     white-space: normal;
     flex: 1 1 100%;
@@ -188,7 +175,7 @@
     justify-content: center;
   }
 
-  .storage-root-access-row :global(.sed-btn--secondary) {
+  .storage-root-access-row :global(.b2s-btn-secondary) {
     border-color: #ccd8ea;
     color: #233f66;
     background: #fff;

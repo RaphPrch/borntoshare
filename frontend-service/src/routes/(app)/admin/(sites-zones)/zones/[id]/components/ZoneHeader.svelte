@@ -1,8 +1,9 @@
 <script lang="ts">
-  import EntityConsoleHeader from "$lib/components/entity/EntityConsoleHeader.svelte";
+  import { t } from '$lib/i18n';
+  import EntityHeader from "$lib/components/entity/EntityHeader.svelte";
   import {
     type OperationalHeaderMetaItem
-  } from "$lib/components/entity/EntityOperationalHeader.svelte";
+  } from "$lib/components/entity/EntityHeader.svelte";
   import { type EntityActionItem } from "$lib/components/entity/EntityActionGroup.svelte";
   import { healthLabelToOperationalTone } from "$lib/mappers/entity-operational.mapper";
 
@@ -16,22 +17,22 @@
   export let onDelete: (() => void) | null = null;
 
   $: statusTone = healthLabelToOperationalTone(healthLabel);
-  $: statusLabel = healthLabel === "ok" ? "Health OK" : "Health Warning";
+  $: statusLabel = healthLabel === "ok" ? t('Health OK') : t('Health Warning');
   $: zoneMetaItems = [
     { icon: "bi-hash", label: String(zone?.code ?? "-") },
-    { icon: "bi-hdd-network", label: `${endpointCount} endpoint${endpointCount > 1 ? "s" : ""}` }
+    { icon: "bi-hdd-network", label: t('{endpointCount} endpoint{value}', { endpointCount, value: (endpointCount > 1 ? "s" : "") }) }
   ] satisfies OperationalHeaderMetaItem[];
   $: actions = [
     {
       key: "edit",
-      label: "Edit zone",
+      label: t('Edit zone'),
       icon: "bi-pencil-square",
       variant: "secondary",
       onClick: () => onEdit?.()
     },
     {
       key: "delete",
-      label: "Delete zone",
+      label: t('Delete zone'),
       icon: "bi-trash",
       variant: "danger",
       onClick: () => onDelete?.()
@@ -39,19 +40,19 @@
   ] satisfies EntityActionItem[];
 </script>
 
-<EntityConsoleHeader
+<EntityHeader
   eyebrow=""
-  title={`${zone?.name ?? "Zone"} Console`}
+  title={t('{value} Console', { value: (zone?.name ?? t('Zone')) })}
   subtitle={String(zone?.site_name ?? "")}
   metaItems={zoneMetaItems}
   {statusTone}
   statusLabel=""
   statusIconClass=""
   {showAttention}
-  attentionTitle="Attention required"
+  attentionTitle={t('Attention required')}
   {attentionItems}
   attentionMeta={attentionMeta}
   containerClass="zone-console__operational-header"
   {actions}
-  actionsAriaLabel="Zone actions"
+  actionsAriaLabel={t('Zone actions')}
 />

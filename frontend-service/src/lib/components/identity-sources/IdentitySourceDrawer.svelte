@@ -1,4 +1,7 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
@@ -46,10 +49,10 @@
   export let snapshotRunning = false;
 
   const allTabs = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'health', label: 'Health' },
-    { key: 'snapshot', label: 'Snapshot' },
-    { key: 'advanced', label: 'Advanced' }
+    { key: 'overview', label: t('Overview') },
+    { key: 'health', label: t('Health') },
+    { key: 'snapshot', label: t('Snapshot') },
+    { key: 'advanced', label: t('Advanced') }
   ];
   let tabs = allTabs;
 
@@ -87,58 +90,59 @@
 </script>
 
 <Drawer
+  iconClass="bi bi-person-vcard"
   open={open}
-  title={source?.name ?? 'Identity source'}
+  title={source?.name ?? t('Identity source')}
   subtitle={source?.typeLabel ?? null}
-  width="640px"
+  size="lg"
   onClose={() => dispatch('close')}
 >
   {#if source}
     <div class="identity-drawer-v2-head">
       <StatusBadge status={source.healthLabel} label={source.healthLabel} variant={source.healthTone} compact={true} />
       <StatusBadge status={source.snapshotLabel} label={source.snapshotLabel} variant={source.snapshotTone} compact={true} showDot={false} />
-      <button type="button" class="identity-inline-btn" on:click={() => dispatch('refresh')} disabled={loading}>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => dispatch('refresh')} disabled={loading}>
         <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-        Refresh
+        {t('Refresh')}
       </button>
     </div>
 
     <Tabs tabs={tabs} activeKey={activeTab} onChange={(key) => (activeTab = key)} />
 
     {#if loading}
-      <div class="identity-drawer-loading">Loading metadata…</div>
+      <LoadingState block>{t('Loading metadata…')}</LoadingState>
     {:else if loadError}
-      <div class="identity-drawer-error" role="alert">{loadError}</div>
+      <InlineAlert tone="error">{loadError}</InlineAlert>
     {/if}
 
     {#if activeTab === 'overview'}
       <div class="identity-drawer-grid">
         <div>
-          <h4>Type</h4>
+          <h4>{t('Type')}</h4>
           <p>{source.typeLabel}</p>
         </div>
         <div>
-          <h4>Status</h4>
+          <h4>{t('Status')}</h4>
           <p>{source.healthLabel}</p>
         </div>
         <div>
-          <h4>Endpoint / Issuer</h4>
+          <h4>{t('Endpoint / Issuer')}</h4>
           <p>{source.endpointLabel}</p>
         </div>
         <div>
-          <h4>Protocol</h4>
+          <h4>{t('Protocol')}</h4>
           <p>{valueOrDash(source.raw?.protocol)}</p>
         </div>
         <div>
-          <h4>Bind DN</h4>
+          <h4>{t('Bind DN')}</h4>
           <p>{source.bindDn}</p>
         </div>
         <div>
-          <h4>Issuer</h4>
+          <h4>{t('Issuer')}</h4>
           <p>{source.issuer}</p>
         </div>
         <div class="full">
-          <h4>Configuration summary</h4>
+          <h4>{t('Configuration summary')}</h4>
           <p>{source.subtitle}</p>
         </div>
       </div>
@@ -148,25 +152,25 @@
       <div class="identity-drawer-grid">
         {#if source.supportsProbe}
           <div>
-            <h4>Last probe</h4>
+            <h4>{t('Last probe')}</h4>
             <p>{source.lastProbeLabel}</p>
           </div>
         {/if}
         <div>
-          <h4>Probe status</h4>
-          <p>{source.supportsProbe ? (probeRunning ? 'Running' : source.healthLabel) : 'Not applicable'}</p>
+          <h4>{t('Probe status')}</h4>
+          <p>{source.supportsProbe ? (probeRunning ? t('Running') : source.healthLabel) : t('Not applicable')}</p>
         </div>
         <div>
-          <h4>TLS / Transport</h4>
-          <p>{String(source.raw?.protocol ?? '').toLowerCase() === 'ldaps' ? 'TLS enabled (LDAPS)' : 'Plain LDAP / n/a'}</p>
+          <h4>{t('TLS / Transport')}</h4>
+          <p>{String(source.raw?.protocol ?? '').toLowerCase() === 'ldaps' ? t('TLS enabled (LDAPS)') : t('Plain LDAP / n/a')}</p>
         </div>
         <div>
-          <h4>Authentication mode</h4>
-          <p>{valueOrDash(source.raw?.capabilities?.auth_mode, 'Unknown')}</p>
+          <h4>{t('Authentication mode')}</h4>
+          <p>{valueOrDash(source.raw?.capabilities?.auth_mode, t('Unknown'))}</p>
         </div>
         <div class="full">
-          <h4>Error / message</h4>
-          <p>{valueOrDash(internal?.last_probe_message ?? source.raw?.last_probe_message, 'Unknown')}</p>
+          <h4>{t('Error / message')}</h4>
+          <p>{valueOrDash(internal?.last_probe_message ?? source.raw?.last_probe_message, t('Unknown'))}</p>
         </div>
       </div>
     {/if}
@@ -174,72 +178,72 @@
     {#if activeTab === 'snapshot'}
       <div class="identity-drawer-grid">
         <div>
-          <h4>Snapshot status</h4>
+          <h4>{t('Snapshot status')}</h4>
           <p>{source.snapshotLabel}</p>
         </div>
         <div>
-          <h4>Last run</h4>
+          <h4>{t('Last run')}</h4>
           <p>{source.lastSnapshotLabel}</p>
         </div>
         <div>
-          <h4>Users</h4>
+          <h4>{t('Users')}</h4>
           <p>{source.usersCount ?? '—'}</p>
         </div>
         <div>
-          <h4>Groups</h4>
+          <h4>{t('Groups')}</h4>
           <p>{source.groupsCount ?? '—'}</p>
         </div>
         <div>
-          <h4>Memberships</h4>
+          <h4>{t('Memberships')}</h4>
           <p>{source.membershipsCount ?? internal?.last_snapshot_memberships_count ?? source.raw?.last_snapshot_memberships_count ?? '—'}</p>
         </div>
         <div>
-          <h4>Version</h4>
+          <h4>{t('Version')}</h4>
           <p>{internal?.last_snapshot_version ?? source.raw?.last_snapshot_version ?? '—'}</p>
         </div>
         <div>
-          <h4>Objects</h4>
+          <h4>{t('Objects')}</h4>
           <p>{internal?.last_snapshot_objects_count ?? source.raw?.last_snapshot_objects_count ?? '—'}</p>
         </div>
         <div class="full">
           {#if source.supportsSnapshot}
             <button
               type="button"
-              class="identity-inline-btn primary"
+              class="b2s-btn b2s-btn-primary b2s-btn-sm"
               disabled={busy || snapshotRunning}
               on:click={() => dispatch('runSnapshot')}
             >
-              {snapshotRunning ? 'Snapshot running…' : 'Run Snapshot'}
+              {snapshotRunning ? t('Snapshot running…') : t('Run Snapshot')}
             </button>
           {/if}
         </div>
 
         <div class="full snapshot-debug-wrap">
-          <h4>Snapshot debug rows</h4>
+          <h4>{t('Snapshot debug rows')}</h4>
           <p class="snapshot-debug-subtitle">
-            Last snapshot version: {snapshotDebugVersion ?? internal?.last_snapshot_version ?? source.raw?.last_snapshot_version ?? '—'}
+            {t('Last snapshot version: {value}', { value: (snapshotDebugVersion ?? internal?.last_snapshot_version ?? source.raw?.last_snapshot_version ?? '—') })}
           </p>
 
           {#if snapshotDebugLoading}
-            <div class="identity-drawer-loading">Loading snapshot rows…</div>
+            <LoadingState block>{t('Loading snapshot rows…')}</LoadingState>
           {:else if snapshotDebugError}
-            <div class="identity-drawer-error" role="alert">{snapshotDebugError}</div>
+            <InlineAlert tone="error">{snapshotDebugError}</InlineAlert>
           {:else if snapshotDebugRows.length === 0}
-            <div class="snapshot-debug-empty">No snapshot row available for debug.</div>
+            <div class="snapshot-debug-empty">{t('No snapshot row available for debug.')}</div>
           {:else}
             <div class="snapshot-debug-table-wrap">
               <table class="snapshot-debug-table">
                 <thead>
                   <tr>
-                    <th>Version</th>
-                    <th>Type</th>
-                    <th>First name</th>
-                    <th>Nom</th>
-                    <th>Display</th>
-                    <th>Username</th>
-                    <th>Email</th>
+                    <th>{t('Version')}</th>
+                    <th>{t('Type')}</th>
+                    <th>{t('First name')}</th>
+                    <th>{t('Nom')}</th>
+                    <th>{t('Display')}</th>
+                    <th>{t('Username')}</th>
+                    <th>{t('Email')}</th>
                     <th>UPN</th>
-                    <th>Enabled</th>
+                    <th>{t('Enabled')}</th>
                     <th>DN</th>
                   </tr>
                 </thead>
@@ -269,24 +273,24 @@
     {#if activeTab === 'advanced'}
       <div class="identity-drawer-grid">
         <div>
-          <h4>Enabled</h4>
-          <p>{boolLabel(source.isEnabled, 'Enabled', 'Disabled')}</p>
+          <h4>{t('Enabled')}</h4>
+          <p>{boolLabel(source.isEnabled, t('Enabled'), t('Disabled'))}</p>
         </div>
         <div>
-          <h4>Used by endpoints</h4>
-          <p>{boolLabel(source.raw?.used, 'Yes', 'No')}</p>
+          <h4>{t('Used by endpoints')}</h4>
+          <p>{boolLabel(source.raw?.used, t('Yes'), t('No'))}</p>
         </div>
         <div>
-          <h4>Auth capability</h4>
-          <p>{boolLabel(source.raw?.capabilities?.auth, 'Enabled', 'Disabled')}</p>
+          <h4>{t('Auth capability')}</h4>
+          <p>{boolLabel(source.raw?.capabilities?.auth, t('Enabled'), t('Disabled'))}</p>
         </div>
         <div>
-          <h4>Import groups</h4>
-          <p>{boolLabel(source.raw?.capabilities?.import_groups, 'Enabled', 'Disabled')}</p>
+          <h4>{t('Import groups')}</h4>
+          <p>{boolLabel(source.raw?.capabilities?.import_groups, t('Enabled'), t('Disabled'))}</p>
         </div>
         <div class="full">
-          <h4>Security transport details</h4>
-          <p>{String(source.raw?.protocol ?? '').toLowerCase() === 'ldaps' ? 'Encrypted LDAP transport (LDAPS).' : 'No explicit TLS transport metadata.'}</p>
+          <h4>{t('Security transport details')}</h4>
+          <p>{String(source.raw?.protocol ?? '').toLowerCase() === 'ldaps' ? t('Encrypted LDAP transport (LDAPS).') : t('No explicit TLS transport metadata.')}</p>
         </div>
       </div>
     {/if}
@@ -294,29 +298,29 @@
 
   <svelte:fragment slot="footer">
     {#if source}
-      <button type="button" class="identity-inline-btn" disabled={busy} on:click={() => dispatch('edit')}>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} on:click={() => dispatch('edit')}>
         <i class="bi bi-pencil-square" aria-hidden="true"></i>
-        Edit
+        {t('Edit')}
       </button>
       {#if source.supportsProbe}
         <button
           type="button"
-          class="identity-inline-btn"
+          class="b2s-btn b2s-btn-secondary b2s-btn-sm"
           disabled={busy || probeRunning}
           on:click={() => dispatch('runProbe')}
         >
           <i class="bi bi-activity" aria-hidden="true"></i>
-          {probeRunning ? 'Probe running…' : 'Run Probe'}
+          {probeRunning ? t('Probe running…') : t('Run Probe')}
         </button>
       {/if}
       <button
         type="button"
-        class="identity-inline-btn"
+        class="b2s-btn b2s-btn-secondary b2s-btn-sm"
         disabled={busy}
         on:click={() => dispatch('toggle')}
       >
         <i class={`bi ${source.isEnabled ? 'bi-toggle-on' : 'bi-toggle-off'}`} aria-hidden="true"></i>
-        {source.isEnabled ? 'Disable' : 'Enable'}
+        {source.isEnabled ? t('Disable') : t('Enable')}
       </button>
     {/if}
   </svelte:fragment>
@@ -344,7 +348,7 @@
 
   .identity-drawer-grid h4 {
     margin: 0;
-    font-size: 0.74rem;
+    font-size: var(--b2s-fs-xs);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #475569;
@@ -353,51 +357,8 @@
 
   .identity-drawer-grid p {
     margin: 0.2rem 0 0;
-    font-size: 0.86rem;
+    font-size: var(--b2s-fs-md);
     color: #0f172a;
-  }
-
-  .identity-inline-btn {
-    border: 1px solid rgba(148, 163, 184, 0.4);
-    background: #fff;
-    color: #334155;
-    border-radius: 10px;
-    height: 34px;
-    padding: 0 0.72rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.42rem;
-    font-size: 0.78rem;
-    font-weight: 700;
-  }
-
-  .identity-inline-btn.primary {
-    border-color: #0b1530;
-    background: #0b1530;
-    color: #fff;
-  }
-
-  .identity-inline-btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .identity-drawer-loading {
-    margin-top: 0.68rem;
-    color: #64748b;
-    font-size: 0.84rem;
-    font-weight: 600;
-  }
-
-  .identity-drawer-error {
-    margin-top: 0.68rem;
-    padding: 0.56rem 0.64rem;
-    border-radius: 10px;
-    border: 1px solid rgba(185, 28, 28, 0.24);
-    background: rgba(254, 242, 242, 0.8);
-    color: #991b1b;
-    font-size: 0.8rem;
-    font-weight: 600;
   }
 
   .snapshot-debug-wrap {
@@ -409,13 +370,13 @@
   .snapshot-debug-subtitle {
     margin: 0.2rem 0 0.45rem;
     color: #475569;
-    font-size: 0.78rem;
+    font-size: var(--b2s-fs-xs);
     font-weight: 600;
   }
 
   .snapshot-debug-empty {
     color: #64748b;
-    font-size: 0.8rem;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
@@ -423,14 +384,14 @@
     max-height: 280px;
     overflow: auto;
     border: 1px solid rgba(148, 163, 184, 0.32);
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
   }
 
   .snapshot-debug-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.75rem;
+    font-size: var(--b2s-fs-xs);
     color: #0f172a;
   }
 

@@ -57,7 +57,7 @@ export type ProbeRunRequest = {
     storage_endpoint_id?: number;
     storage_root_id?: number;
     storage_root_name?: string;
-    ui_origin?: 'wizard' | 'admin';
+    ui_origin?: 'wizard' | 'admin' | 'edit-modal';
   };
 };
 

@@ -7,7 +7,6 @@
   export let busy = false;
   export let disabled = false;
   export let variant: EntityActionVariant = 'secondary';
-  export let compact = false;
   export let iconOnly = false;
   export let className = '';
   export let title: string | null = null;
@@ -15,20 +14,15 @@
   export let stopPropagation = false;
   export let onClick: () => void = () => {};
 
-  const variantClass = (value: EntityActionVariant): string => {
-    if (value === 'primary') return 'sed-btn--primary';
-    if (value === 'probe') return 'sed-btn--probe';
-    if (value === 'danger') return 'sed-btn--danger';
-    if (value === 'ghost') return 'sed-btn--ghost';
-    return 'sed-btn--secondary';
-  };
+  // 'probe' is kept for existing callers and looks like a primary action
+  const variantClass = (value: EntityActionVariant): string =>
+    `b2s-btn-${value === 'probe' ? 'primary' : value}`;
 
   $: resolvedIcon = busy ? busyIcon : icon;
   $: classes = [
-    'sed-btn',
+    'b2s-btn',
     variantClass(variant),
-    compact ? 'sed-btn--compact' : '',
-    iconOnly ? 'sed-btn--icon b2s-entity-action-button--icon' : '',
+    iconOnly ? 'b2s-btn-icon b2s-entity-action-button--icon' : '',
     className
   ]
     .filter(Boolean)

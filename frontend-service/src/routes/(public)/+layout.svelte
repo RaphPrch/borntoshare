@@ -1,15 +1,17 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   // Global styles for public routes (/login, /logout, ...)
   import '$lib/styles/tokens.css';
-  import '$lib/styles/bootstrap.min.css';
+  import '$lib/styles/bootstrap-subset.css';
   import '$lib/styles/bootstrap-icons.min.css';
   import '$lib/styles/modals.css';
   import '$lib/styles/app.css';
+  import '$lib/styles/buttons.css';
 
   import TopProgress from '$lib/components/ui/TopProgress.svelte';
   import Toaster from '$lib/components/ui/Toaster.svelte';
   import { page } from '$app/stores';
-  import { toast } from '$lib/stores/toast';
+  import { toast, type ToastType } from '$lib/stores/toast';
   import { browser } from '$app/environment';
   import { bootstrapFrontendCore } from '$lib/bootstrap.client';
 
@@ -22,14 +24,14 @@
     string,
     { type: 'success' | 'error' | 'warning' | 'info'; message: string }
   > = {
-    saved: { type: 'success', message: 'Changes saved.' },
-    created: { type: 'success', message: 'Creation successful.' },
-    deleted: { type: 'success', message: 'Deletion successful.' },
-    forbidden: { type: 'error', message: 'Action not authorized.' },
-    error: { type: 'error', message: 'An error occurred.' },
+    saved: { type: 'success', message: t('Changes saved.') },
+    created: { type: 'success', message: t('Creation successful.') },
+    deleted: { type: 'success', message: t('Deletion successful.') },
+    forbidden: { type: 'error', message: t('Action not authorized.') },
+    error: { type: 'error', message: t('An error occurred.') },
     session_expired: {
       type: 'warning',
-      message: 'Your session has expired. Please sign in again.'
+      message: t('Your session has expired. Please sign in again.')
     }
   };
 
@@ -65,7 +67,7 @@
   // (SSR compatible)
   // ==================================================
   $: {
-    const ft = ($page as unknown).form?.toast;
+    const ft = ($page.form as { toast?: { message?: string; type?: ToastType; duration?: number } } | null)?.toast;
 
     if (ft?.message) {
       const key = `${ft.type ?? 'error'}:${ft.message}`;

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import FieldError from '$lib/components/ui/FieldError.svelte';
+  import { t } from '$lib/i18n';
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import { checkExistingAccess, createAccessRequest, type CheckExistingAccessResponse } from '$lib/api/access-requests';
@@ -82,7 +84,7 @@
   }
 
   function rootName(root: any): string {
-    return compact(root?.name ?? root?.storage_root_name ?? root?.root_name, root?.id ? `Root #${root.id}` : '—');
+    return compact(root?.name ?? root?.storage_root_name ?? root?.root_name, root?.id ? t('Root #{id}', { id: root.id }) : '—');
   }
 
   function rootPath(root: any): string {
@@ -111,28 +113,16 @@
     return 0;
   }
 
-  function selectedAccessLabel(): string {
-    if (selectedAccess === 'contribution') return 'Write access';
-    if (selectedAccess === 'audit') return 'Audit access';
-    return 'Read access';
-  }
-
   function selectedAccessCode(): string {
     if (selectedAccess === 'contribution') return 'WRITE';
     if (selectedAccess === 'audit') return 'AUDIT';
     return 'READ';
   }
 
-  function selectedAccessDescription(): string {
-    if (selectedAccess === 'contribution') return 'Create, update or delete content.';
-    if (selectedAccess === 'audit') return 'View access and security information.';
-    return 'View files and folders.';
-  }
-
   function approvalLabel(): string {
     const count = guardianCount(selectedRoot);
-    if (count > 0) return `${count} approver${count > 1 ? 's' : ''} required`;
-    return 'Guardian review';
+    if (count > 0) return t('{count} approver{value} required', { count, value: (count > 1 ? 's' : '') });
+    return t('Guardian review');
   }
 
   function resetErrors() {
@@ -183,7 +173,7 @@
       if (seq === overviewLoadSeq) {
         overviewByRootId = {
           ...overviewByRootId,
-          [String(rootId)]: { _load_error: 'Unable to load storage root validation details' }
+          [String(rootId)]: { _load_error: t('Unable to load storage root validation details') }
         };
       }
     } finally {
@@ -226,22 +216,22 @@
       if (blockingResult) {
         existingAccessBlocking = true;
         existingAccessCheckTone = 'error';
-        existingAccessCheckMessage = `${principalLabel(blockingResult.principal)} · ${blockingResult.result.message || 'Cette demande ne peut pas etre soumise.'}`;
+        existingAccessCheckMessage = `${principalLabel(blockingResult.principal)} · ${blockingResult.result.message || t('Cette demande ne peut pas etre soumise.')}`;
         return;
       }
 
       const elevationResult = results.find(({ result }) => result?.code === 'ELEVATION_ALLOWED' || result?.reason === 'ELEVATION_ALLOWED');
       if (elevationResult) {
         existingAccessCheckTone = 'warning';
-        existingAccessCheckMessage = `${principalLabel(elevationResult.principal)} · ${elevationResult.result.message || 'Cette demande sera traitee comme une elevation.'}`;
+        existingAccessCheckMessage = `${principalLabel(elevationResult.principal)} · ${elevationResult.result.message || t('Cette demande sera traitee comme une elevation.')}`;
         return;
       }
 
       existingAccessCheckTone = 'success';
       existingAccessCheckMessage =
         results.length > 1
-          ? `${results.length} beneficiaires peuvent recevoir cette demande.`
-          : 'Aucun acces existant bloquant detecte.';
+          ? t('{count} beneficiaires peuvent recevoir cette demande.', { count: results.length })
+          : t('Aucun acces existant bloquant detecte.');
     } catch {
       if (seq !== existingAccessCheckSeq) return;
       existingAccessCheckTone = 'neutral';
@@ -266,8 +256,8 @@
       return [
         {
           key: 'loading',
-          label: 'Validation en cours',
-          detail: 'Chargement du contexte du storage root.',
+          label: t('Validation en cours'),
+          detail: t('Chargement du contexte du storage root.'),
           tone: 'pending',
           blocking: true
         }
@@ -277,7 +267,7 @@
       return [
         {
           key: 'overview_load',
-          label: 'Validation indisponible',
+          label: t('Validation indisponible'),
           detail: String(overview._load_error),
           tone: 'error',
           blocking: true
@@ -296,12 +286,12 @@
     const unreachable = ['unreachable', 'failed', 'error', 'blocked'].some((token) => availability.includes(token));
     checks.push({
       key: 'reachability',
-      label: 'Storage root joignable',
+      label: t('Storage root joignable'),
       detail: reachable
-        ? 'Dernier probe OK.'
+        ? t('Dernier probe OK.')
         : unreachable
-          ? String(overview?.last_probe_message ?? overview?.revalidation_reason ?? 'Le dernier probe indique un root non joignable.')
-          : 'Aucun probe récent ne confirme la joignabilité.',
+          ? String(overview?.last_probe_message ?? overview?.revalidation_reason ?? t('Le dernier probe indique un root non joignable.'))
+          : t('Aucun probe récent ne confirme la joignabilité.'),
       tone: reachable ? 'success' : 'error',
       blocking: !reachable
     });
@@ -326,7 +316,7 @@
         storageRootId = String(roots[0].id);
       }
     } catch {
-      toast.error('Unable to load storage roots');
+      toast.error(t('Unable to load storage roots'));
       roots = [];
     } finally {
       loadingRoots = false;
@@ -368,10 +358,10 @@
       errors.justification = 'La justification est obligatoire';
     }
     if (blockingProvisioningChecks.length > 0) {
-      errors.permissions = blockingProvisioningChecks[0]?.detail || 'La demande ne peut pas être provisionnée.';
+      errors.permissions = blockingProvisioningChecks[0]?.detail || t('La demande ne peut pas être provisionnée.');
     }
     if (existingAccessBlocking && !errors.principal) {
-      errors.principal = existingAccessCheckMessage || "Cette demande ne peut pas etre soumise.";
+      errors.principal = existingAccessCheckMessage || t('Cette demande ne peut pas etre soumise.');
     }
     return !errors.storageRootId && !errors.permissions && !errors.principal && !errors.ttl && !errors.justification;
   }
@@ -411,7 +401,7 @@
     );
 
     if (deduplicated.items.length === 0) {
-      toast.warning('No identity selected');
+      toast.warning(t('No identity selected'));
       return;
     }
 
@@ -471,7 +461,7 @@
         if (!precheck?.can_request) {
           existingAccessBlocking = true;
           existingAccessCheckTone = 'error';
-          existingAccessCheckMessage = `${principalLabel(principal)} · ${precheck?.message || 'Cette demande ne peut pas etre soumise.'}`;
+          existingAccessCheckMessage = `${principalLabel(principal)} · ${precheck?.message || t('Cette demande ne peut pas etre soumise.')}`;
           throw new Error(existingAccessCheckMessage);
         }
         await createAccessRequest(fetch, {
@@ -485,13 +475,13 @@
 
       toast.success(
         selectedPrincipalsCount > 1
-          ? `${selectedPrincipalsCount} access requests created`
-          : 'Access request created'
+          ? t('{selectedPrincipalsCount} access requests created', { selectedPrincipalsCount })
+          : t('Access request created')
       );
       onCreated();
       onClose();
     } catch (error: any) {
-      toast.error(String(error?.message || 'Failed to create request'));
+      toast.error(String(error?.message || t('Failed to create request')));
     } finally {
       submitting = false;
     }
@@ -503,6 +493,7 @@
   onClose={close}
   backdropClass="b2s-modal-backdrop ar-governed-backdrop"
   modalClass="b2s-modal ar-governed-modal"
+  size="xl"
   ariaLabelledby="ar-governed-title"
   showClose={false}
   wrapContent={false}
@@ -511,10 +502,10 @@
   <div class="ar-create">
     <header class="ar-create__header">
       <div>
-        <h2 id="ar-governed-title">Request governed access</h2>
-        <p>Create a governed access request in one simple form.</p>
+        <h2 id="ar-governed-title">{t('Request governed access')}</h2>
+        <p>{t('Create a governed access request in one simple form.')}</p>
       </div>
-      <button type="button" class="ar-close" aria-label="Close" on:click={close}>
+      <button type="button" class="ar-close" aria-label={t('Close')} on:click={close}>
         <i class="bi bi-x-lg" aria-hidden="true"></i>
       </button>
     </header>
@@ -522,55 +513,55 @@
     <div class="ar-create__content">
       <section class="ar-form-card">
         <div class="ar-step">
-          <h3>1. Target location</h3>
+          <h3>{t('1. Target location')}</h3>
           <div class="target-card" class:error={Boolean(errors.storageRootId)}>
             <span class="target-icon"><i class="bi bi-folder-fill" aria-hidden="true"></i></span>
             <div>
-              <strong>{selectedRoot ? rootName(selectedRoot) : loadingRoots ? 'Loading...' : '—'}</strong>
+              <strong>{selectedRoot ? rootName(selectedRoot) : loadingRoots ? t('Loading...') : '—'}</strong>
               <small>{rootZone(selectedRoot)}{endpointName(selectedRoot) !== '—' ? ` · ${endpointName(selectedRoot)}` : ''}</small>
-              <small>Path: {rootPath(selectedRoot)}</small>
+              <small>{t('Path: {rootPath}', { rootPath: rootPath(selectedRoot) })}</small>
             </div>
             {#if selectedRoot}
               <span class="approval-badge"><i class="bi bi-shield-check" aria-hidden="true"></i>{approvalLabel()}</span>
             {/if}
           </div>
           {#if errors.storageRootId}
-            <small class="field-error">{errors.storageRootId}</small>
+            <FieldError>{errors.storageRootId}</FieldError>
           {/if}
         </div>
 
         <div class="ar-step">
-          <h3>2. Access needed</h3>
+          <h3>{t('2. Access needed')}</h3>
           <div class="access-grid">
             <button type="button" class:active={selectedAccess === 'read'} on:click={() => (selectedAccess = 'read')}>
               <span class="choice-icon read"><i class="bi bi-file-earmark" aria-hidden="true"></i></span>
-              <strong>Read access</strong>
-              <small>View files and folders</small>
-              <em>Recommended</em>
+              <strong>{t('Read access')}</strong>
+              <small>{t('View files and folders')}</small>
+              <em>{t('Recommended')}</em>
               {#if selectedAccess === 'read'}<i class="bi bi-check-circle-fill choice-check" aria-hidden="true"></i>{/if}
             </button>
             <button type="button" class:active={selectedAccess === 'contribution'} on:click={() => (selectedAccess = 'contribution')}>
               <span class="choice-icon write"><i class="bi bi-pencil-square" aria-hidden="true"></i></span>
-              <strong>Write access</strong>
-              <small>Create, update or delete content</small>
-              <em class="warn">Approval required</em>
+              <strong>{t('Write access')}</strong>
+              <small>{t('Create, update or delete content')}</small>
+              <em class="warn">{t('Approval required')}</em>
               {#if selectedAccess === 'contribution'}<i class="bi bi-check-circle-fill choice-check" aria-hidden="true"></i>{/if}
             </button>
             <button type="button" class:active={selectedAccess === 'audit'} on:click={() => (selectedAccess = 'audit')}>
               <span class="choice-icon audit"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
-              <strong>Audit access</strong>
-              <small>View access and security information</small>
-              <em class="sensitive">Sensitive</em>
+              <strong>{t('Audit access')}</strong>
+              <small>{t('View access and security information')}</small>
+              <em class="sensitive">{t('Sensitive')}</em>
               {#if selectedAccess === 'audit'}<i class="bi bi-check-circle-fill choice-check" aria-hidden="true"></i>{/if}
             </button>
           </div>
           {#if errors.permissions}
-            <small class="field-error">{errors.permissions}</small>
+            <FieldError>{errors.permissions}</FieldError>
           {/if}
         </div>
 
         <div class="ar-step">
-          <h3>3. Who needs access?</h3>
+          <h3>{t('3. Who needs access?')}</h3>
           <div class="principal-card" class:error={Boolean(errors.principal)}>
             {#if selectedPrincipal}
               <span class="avatar">{initials(principalLabel(selectedPrincipal))}</span>
@@ -581,11 +572,11 @@
             {:else}
               <span class="avatar muted"><i class="bi bi-person" aria-hidden="true"></i></span>
               <div>
-                <strong>No beneficiary selected</strong>
-                <small>Select a user or group from the identity source.</small>
+                <strong>{t('No beneficiary selected')}</strong>
+                <small>{t('Select a user or group from the identity source.')}</small>
               </div>
             {/if}
-            <button type="button" aria-label="Browse identities" on:click={openAdBrowser} disabled={submitting}>
+            <button type="button" aria-label={t('Browse identities')} on:click={openAdBrowser} disabled={submitting}>
               <i class="bi bi-search" aria-hidden="true"></i>
             </button>
           </div>
@@ -594,74 +585,74 @@
               {#each selectedPrincipals as principal, idx (selectedPrincipalKeys[idx] ?? String(idx))}
                 <span>
                   {principalLabel(principal)}
-                  <button type="button" aria-label="Remove principal" on:click={() => removeSelectedPrincipalByKey(selectedPrincipalKeys[idx] ?? '')}>×</button>
+                  <button type="button" aria-label={t('Remove principal')} on:click={() => removeSelectedPrincipalByKey(selectedPrincipalKeys[idx] ?? '')}>×</button>
                 </span>
               {/each}
             </div>
           {/if}
           {#if errors.principal}
-            <small class="field-error">{errors.principal}</small>
+            <FieldError>{errors.principal}</FieldError>
           {/if}
           {#if existingAccessCheckLoading}
-            <small class="field-hint">Verification des acces existants…</small>
+            <small class="field-hint">{t('Verification des acces existants…')}</small>
           {:else if existingAccessCheckMessage}
             <small class={`field-hint field-hint--${existingAccessCheckTone}`}>{existingAccessCheckMessage}</small>
           {/if}
         </div>
 
         <div class="ar-step">
-          <h3>4. Duration &amp; reason</h3>
+          <h3>{t('4. Duration & reason')}</h3>
           <div class="ttl-row">
-            <button type="button" class:active={ttlPreset === '7'} on:click={() => (ttlPreset = '7')}>7 days</button>
-            <button type="button" class:active={ttlPreset === '30'} on:click={() => (ttlPreset = '30')}>30 days</button>
-            <button type="button" class:active={ttlPreset === '90'} on:click={() => (ttlPreset = '90')}>90 days</button>
+            <button type="button" class:active={ttlPreset === '7'} on:click={() => (ttlPreset = '7')}>{t('7 days')}</button>
+            <button type="button" class:active={ttlPreset === '30'} on:click={() => (ttlPreset = '30')}>{t('30 days')}</button>
+            <button type="button" class:active={ttlPreset === '90'} on:click={() => (ttlPreset = '90')}>{t('90 days')}</button>
             <button type="button" class:active={ttlPreset === 'custom'} on:click={() => (ttlPreset = 'custom')}>
-              <i class="bi bi-calendar4-week" aria-hidden="true"></i>Custom
+              <i class="bi bi-calendar4-week" aria-hidden="true"></i>{t('Custom')}
             </button>
           </div>
           {#if ttlPreset === 'custom'}
-            <input class="custom-ttl" type="number" min="1" max="365" bind:value={customTtlDays} aria-label="Custom duration in days" />
+            <input class="custom-ttl" type="number" min="1" max="365" bind:value={customTtlDays} aria-label={t('Custom duration in days')} />
           {/if}
           {#if errors.ttl}
-            <small class="field-error">{errors.ttl}</small>
+            <FieldError>{errors.ttl}</FieldError>
           {/if}
           <label class="justification">
-            <span>Justification</span>
-            <textarea bind:value={justification} maxlength="230" placeholder="Explain why this access is needed..."></textarea>
+            <span>{t('Justification')}</span>
+            <textarea bind:value={justification} maxlength="230" placeholder={t('Explain why this access is needed...')}></textarea>
           </label>
           {#if errors.justification}
-            <small class="field-error">{errors.justification}</small>
+            <FieldError>{errors.justification}</FieldError>
           {/if}
         </div>
 
         <footer class="info-strip">
           <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
-          <span>Access is requested through governed profiles. No AD group or NTFS details are exposed.</span>
+          <span>{t('Access is requested through governed profiles. No AD group or NTFS details are exposed.')}</span>
         </footer>
       </section>
 
       <aside class="summary-panel">
         <div class:ready={canSubmit} class="ready-state">
           <i class={`bi ${canSubmit ? 'bi-check-circle' : 'bi-exclamation-circle'}`} aria-hidden="true"></i>
-          {canSubmit ? 'Ready to submit' : blockingProvisioningChecks.length > 0 ? 'Cannot provision yet' : 'Missing required fields'}
+          {canSubmit ? t('Ready to submit') : blockingProvisioningChecks.length > 0 ? t('Cannot provision yet') : t('Missing required fields')}
         </div>
 
         {#if selectedRoot}
           <a class="policy-link" href={`/storage-roots?selected=${Number(selectedRoot.id)}`}>
-            Review policy <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+            {t('Review policy')} <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
           </a>
         {:else}
           <span class="policy-link disabled">
-            Review policy <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+            {t('Review policy')} <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
           </span>
         {/if}
       </aside>
     </div>
 
     <footer class="ar-create__footer">
-      <button type="button" class="cancel" on:click={close} disabled={submitting}>Cancel</button>
+      <button type="button" class="cancel" on:click={close} disabled={submitting}>{t('Cancel')}</button>
       <button type="button" class="submit" on:click={submit} disabled={submitting || !canSubmit}>
-        {submitting ? 'Submitting...' : 'Submit request'}
+        {submitting ? t('Submitting...') : t('Submit request')}
       </button>
     </footer>
   </div>
@@ -674,16 +665,16 @@
   onSelect={onSelectIdentity}
   identitySources={[]}
   initialSourceId={null}
-  title="Browse Active Directory"
-  subtitle="Select users and groups receiving the request."
+  title={t('Browse Active Directory')}
+  subtitle={t('Select users and groups receiving the request.')}
   mode="multiple"
   allowRoleAssignment={false}
   allowedPrincipalType="all"
   includeImportCandidates={true}
   initialSelectedKeys={selectedPrincipalKeys}
   busy={submitting}
-  confirmLabel="Valider"
-  confirmBusyLabel="Validation…"
+  confirmLabel={t('Valider')}
+  confirmBusyLabel={t('Validation…')}
 />
 
 <style>
@@ -694,10 +685,9 @@
   }
 
   :global(.ar-governed-modal) {
-    width: min(1136px, calc(100vw - 40px));
     max-height: calc(100vh - 92px);
     overflow: hidden;
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     border: 1px solid #dfe6f2;
     box-shadow: 0 24px 70px rgba(6, 24, 73, 0.24);
     background: #fff;
@@ -706,7 +696,7 @@
   .ar-create {
     color: #071b4a;
     background: #fff;
-    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: var(--b2s-font-sans);
   }
 
   .ar-create__header {
@@ -718,7 +708,7 @@
 
   .ar-create__header h2 {
     margin: 0;
-    font-size: 34px;
+    font-size: var(--b2s-fs-console-title);
     line-height: 1.08;
     letter-spacing: 0;
     font-weight: 830;
@@ -728,18 +718,18 @@
   .ar-create__header p {
     margin: 8px 0 0;
     color: #405178;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 450;
   }
 
   .ar-close {
     width: 43px;
     height: 43px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid #dce4f1;
     background: #fff;
     color: #071b4a;
-    font-size: 20px;
+    font-size: var(--b2s-fs-xl);
   }
 
   .ar-create__content {
@@ -752,11 +742,9 @@
   }
 
   .ar-form-card,
-  .summary-card,
-  .result-card,
-  .validation-card {
+  .summary-card {
     border: 1px solid #dfe6f2;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
   }
 
@@ -771,7 +759,7 @@
   .ar-step h3 {
     margin: 0 0 9px;
     color: #061849;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 760;
   }
 
@@ -782,7 +770,7 @@
     align-items: center;
     gap: 16px;
     border: 1px solid #d9e2ef;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 14px 18px;
   }
 
@@ -794,7 +782,7 @@
   .target-icon {
     width: 42px;
     height: 42px;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: grid;
     place-items: center;
     background: #fff4d9;
@@ -814,7 +802,7 @@
     display: block;
     margin-top: 3px;
     color: #405178;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .approval-badge {
@@ -822,11 +810,11 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #e7f6e8;
     color: #0b7a1e;
     padding: 0 12px;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 650;
     white-space: nowrap;
   }
@@ -841,7 +829,7 @@
     position: relative;
     min-height: 140px;
     border: 1px solid #d9e2ef;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
     color: #071b4a;
     text-align: center;
@@ -857,7 +845,7 @@
     width: 40px;
     height: 40px;
     margin: 0 auto 9px;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     display: grid;
     place-items: center;
     font-size: 24px;
@@ -869,7 +857,7 @@
 
   .access-grid strong {
     display: block;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 760;
   }
 
@@ -878,7 +866,7 @@
     min-height: 36px;
     margin-top: 8px;
     color: #405178;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     line-height: 1.35;
   }
 
@@ -888,12 +876,12 @@
     justify-content: center;
     min-height: 28px;
     margin-top: 10px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #061849;
     color: #fff;
     padding: 0 15px;
     font-style: normal;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
 
@@ -913,7 +901,7 @@
     top: 11px;
     right: 11px;
     color: #061849;
-    font-size: 19px;
+    font-size: var(--b2s-fs-xl);
   }
 
   .principal-card {
@@ -923,7 +911,7 @@
     gap: 13px;
     align-items: center;
     border: 1px solid #d9e2ef;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 9px 12px 9px 16px;
   }
 
@@ -946,11 +934,11 @@
   .principal-card > button {
     width: 41px;
     height: 41px;
-    border-radius: 9px;
+    border-radius: var(--b2s-radius-sm);
     border: 1px solid #d9e2ef;
     background: #fff;
     color: #061849;
-    font-size: 20px;
+    font-size: var(--b2s-fs-xl);
   }
 
   .principal-list {
@@ -965,10 +953,10 @@
     align-items: center;
     gap: 8px;
     border: 1px solid #d9e2ef;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     padding: 4px 9px 4px 12px;
     color: #071b4a;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .principal-list button {
@@ -987,7 +975,7 @@
   .ttl-row button {
     height: 36px;
     border: 1px solid #d9e2ef;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #fff;
     color: #071b4a;
     padding: 0 20px;
@@ -1007,7 +995,7 @@
     width: 130px;
     height: 36px;
     border: 1px solid #d9e2ef;
-    border-radius: 9px;
+    border-radius: var(--b2s-radius-sm);
     padding: 0 12px;
     color: #071b4a;
   }
@@ -1016,14 +1004,14 @@
     display: block;
     margin-bottom: 7px;
     color: #405178;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .justification textarea {
     width: 100%;
     height: 61px;
     border: 1px solid #d9e2ef;
-    border-radius: 9px;
+    border-radius: var(--b2s-radius-sm);
     resize: vertical;
     padding: 13px 15px;
     color: #071b4a;
@@ -1034,19 +1022,11 @@
     color: #66779c;
   }
 
-  .field-error {
-    display: block;
-    margin-top: 6px;
-    color: #c22323;
-    font-size: 12px;
-    font-weight: 620;
-  }
-
   .field-hint {
     display: block;
     margin-top: 6px;
     color: #44506b;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 520;
   }
 
@@ -1072,7 +1052,7 @@
     border-top: 1px solid #dfe6f2;
     background: #f7f9fd;
     color: #2c3d65;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .info-strip i {
@@ -1085,28 +1065,13 @@
     align-content: start;
   }
 
-  .summary-card,
-  .result-card,
-  .validation-card {
+  .summary-card {
     padding: 20px;
-  }
-
-  .summary-list {
-    border: 1px solid #dfe6f2;
-    border-radius: 10px;
-    overflow: hidden;
-  }
-
-  .validation-row {
-    display: grid;
-    grid-template-columns: 28px minmax(0, 1fr);
-    gap: 10px;
-    align-items: flex-start;
   }
 
   .ready-state {
     height: 44px;
-    border-radius: 9px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff6e9;
     color: #b76700;
     display: flex;
@@ -1146,9 +1111,9 @@
 
   .ar-create__footer button {
     height: 48px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 0 22px;
-    font-size: 15px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 760;
   }
 

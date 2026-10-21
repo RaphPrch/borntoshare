@@ -1,3 +1,5 @@
+import { t } from '$lib/i18n';
+import { intlLocale } from '$lib/i18n';
 // Display formatting shared by every screen (dates, initials).
 
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' };
@@ -19,7 +21,7 @@ export function formatDateTime(
   if (!raw) return empty;
   const date = toValidDate(raw);
   if (!date) return raw;
-  return date.toLocaleString('en-GB', {
+  return date.toLocaleString(intlLocale(), {
     ...DATE_OPTIONS,
     ...TIME_OPTIONS,
     ...(seconds ? { second: '2-digit' } : {})
@@ -31,7 +33,7 @@ export function formatDate(value: unknown, { empty = '—' }: { empty?: string }
   const raw = String(value ?? '').trim();
   if (!raw) return empty;
   const date = toValidDate(raw);
-  return date ? date.toLocaleDateString('en-GB', DATE_OPTIONS) : raw;
+  return date ? date.toLocaleDateString(intlLocale(), DATE_OPTIONS) : raw;
 }
 
 /** Two-letter initials: "Jane Doe" -> "JD", "john.doe" -> "JD", "System" -> "SY". */
@@ -49,10 +51,10 @@ export function timeAgo(iso?: string | null): string {
   if (!iso) return '';
   const diff = Date.now() - new Date(iso).getTime();
   const sec = Math.floor(diff / 1000);
-  if (sec < 60) return `${sec}s ago`;
+  if (sec < 60) return t('{sec}s ago', { sec });
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
+  if (min < 60) return t('{min}m ago', { min });
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  return `${Math.floor(hr / 24)}d ago`;
+  if (hr < 24) return t('{hr}h ago', { hr });
+  return t('{floor}d ago', { floor: Math.floor(hr / 24) });
 }

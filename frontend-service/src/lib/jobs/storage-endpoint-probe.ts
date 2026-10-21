@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { ProbeRunRequest } from '$lib/api/probes';
 import { buildStorageEndpointProbeRequest } from './probe-runner';
 
@@ -80,7 +81,7 @@ export function validateStorageEndpointProbeConfig(
     requireSecret?: boolean;
   }
 ): StorageEndpointProbeValidation {
-  const label = options?.label ?? 'Storage endpoint';
+  const label = options?.label ?? t('Storage endpoint');
   const requireSecret = options?.requireSecret ?? true;
 
   if (!Number.isFinite(config.endpointId) || config.endpointId <= 0) {
@@ -113,7 +114,7 @@ export function buildStorageEndpointProbeRequestFromEndpoint(
   const config = resolveStorageEndpointProbeConfig(endpoint);
   const validation = validateStorageEndpointProbeConfig(config, { label: options?.label });
   if (!validation.ok) {
-    throw new Error(validation.message ?? 'Invalid storage endpoint probe configuration');
+    throw new Error(validation.message ?? t('Invalid storage endpoint probe configuration'));
   }
 
   return buildStorageEndpointProbeRequest({

@@ -1,27 +1,28 @@
 <script lang="ts">
-  import EntityDrawerShell from '$lib/components/entity/EntityDrawerShell.svelte';
+  import { t } from '$lib/i18n';
+  import Drawer from '$lib/components/ui/Drawer.svelte';
 
   export let open = false;
-  export let title = 'Details';
+  export let title = t('Details');
   export let subtitle: string | null = null;
   export let onClose: () => void = () => {};
   export let ariaLabelledby = 'storage-root-drawer-title';
-  export let width = '560px';
-  export let topOffset = '70px';
+  export let size: 'md' | 'lg' = 'md';
+  export let iconClass: string | null = null;
   export let rootClass = '';
   export let bodyClass = '';
   export let footerClass = '';
   export let showFooter = true;
 </script>
 
-<EntityDrawerShell
+<Drawer
   {open}
   {title}
   {subtitle}
   {onClose}
   {ariaLabelledby}
-  {width}
-  {topOffset}
+  {size}
+  {iconClass}
   {rootClass}
   {bodyClass}
   {footerClass}
@@ -32,4 +33,4 @@
   <svelte:fragment slot="footer">
     <slot name="footer" />
   </svelte:fragment>
-</EntityDrawerShell>
+</Drawer>

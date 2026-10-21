@@ -30,6 +30,12 @@ const megaConfig: Record<MegaMenuKey, MegaMenuItem[]> = {
       description: 'Observe provisioning jobs, detect stale queued runs and cancel safely.',
       href: '/admin/observability/jobs',
       icon: 'bi-activity'
+    },
+    {
+      title: 'Alerts',
+      description: 'Review open issues on storage roots, endpoints and identity sources.',
+      href: '/admin/alerts',
+      icon: 'bi-exclamation-triangle'
     }
   ],
   admin: [

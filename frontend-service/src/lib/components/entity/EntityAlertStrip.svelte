@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import type { EntityAlertStripItem } from '$lib/components/entity/entity-alerts.types';
 
   export let items: EntityAlertStripItem[] = [];
   export let onViewAll: () => void = () => {};
-  export let ariaLabel = 'Entity alerts';
+  export let ariaLabel = t('Entity alerts');
 
   $: visibleItems = items.slice(0, 4);
   $: hiddenCount = Math.max(0, items.length - visibleItems.length);
@@ -28,9 +29,9 @@
     </div>
 
     <button type="button" class="sr-clean-alert-strip__link" on:click={onViewAll}>
-      View all alerts ({items.length})
+      {t('View all alerts ({itemsCount})', { itemsCount: items.length })}
       {#if hiddenCount > 0}
-        <span class="visually-hidden">, including {hiddenCount} hidden alerts</span>
+        <span class="visually-hidden">{t(', including {hiddenCount} hidden alerts', { hiddenCount })}</span>
       {/if}
       <i class="bi bi-chevron-right" aria-hidden="true"></i>
     </button>

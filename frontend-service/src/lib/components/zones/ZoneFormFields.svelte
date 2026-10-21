@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   export let form: {
     name: string;
     code?: string;
@@ -12,12 +13,12 @@
      NAME
 ===================================================== -->
 <div class="zone-form-field">
-  <label for="zone-name">Zone name <span aria-hidden="true">*</span></label>
+  <label for="zone-name">{t('Zone name')} <span aria-hidden="true">*</span></label>
   <input
     id="zone-name"
     class="zone-form-control"
     bind:value={form.name}
-    placeholder="Enter a zone name"
+    placeholder={t('Enter a zone name')}
     required
     autocomplete="off"
   />
@@ -27,12 +28,12 @@
      CODE
 ===================================================== -->
 <div class="zone-form-field">
-  <label for="zone-code">Zone code <span>(optional)</span></label>
+  <label for="zone-code">{t('Zone code')} <span>{t('(optional)')}</span></label>
   <input
     id="zone-code"
     class="zone-form-control"
     bind:value={form.code}
-    placeholder="Governance"
+    placeholder={t('Governance')}
     autocomplete="off"
   />
 </div>
@@ -40,15 +41,15 @@
 <div class="zone-form-note">
   <i class="bi bi-lightbulb" aria-hidden="true"></i>
   <div>
-    You can configure provisioning OU and naming policy from zone governance settings.
+    {t('You can configure provisioning OU and naming policy from zone governance settings.')}
   </div>
 </div>
 
 <div class="zone-form-note">
   <i class="bi bi-rocket" aria-hidden="true"></i>
   <div>
-    <strong>Next step:</strong>
-    You will be able to run a discovery probe to detect storage.
+    <strong>{t('Next step:')}</strong>
+    {t('You will be able to run a discovery probe to detect storage.')}
   </div>
 </div>
 
@@ -61,7 +62,7 @@
   .zone-form-field label {
     margin: 0;
     color: #1f2c48;
-    font-size: 0.92rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 720;
   }
 
@@ -74,11 +75,11 @@
     width: 100%;
     min-height: 42px;
     border: 1px solid #c8d2e4;
-    border-radius: 11px;
+    border-radius: var(--b2s-radius-md);
     background: #f8fbff;
     color: #1f2e4b;
     padding: 0 12px;
-    font-size: 0.92rem;
+    font-size: var(--b2s-fs-md);
     outline: none;
     transition:
       border-color 0.16s ease,
@@ -94,14 +95,14 @@
 
   .zone-form-note {
     border: 1px solid #d7e1f0;
-    border-radius: 13px;
+    border-radius: var(--b2s-radius-md);
     background: #f4f8ff;
     color: #304867;
     padding: 11px 12px;
     display: flex;
     align-items: flex-start;
     gap: 9px;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 620;
   }
 

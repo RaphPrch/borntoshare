@@ -14,38 +14,17 @@ from app.api._helpers import ui_action, ui_data
 router = APIRouter(prefix="/admin", tags=["advanced-settings"])
 
 
+# Only "logging" is read (by auth-service); other sections were stored but never applied.
 DEFAULT_ADVANCED_SETTINGS: dict = {
-    "security": {
-        "enforceStrongPasswords": False,
-        "passwordMinLength": 10,
-        "passwordHistory": 5,
-        "passwordExpiryDays": 90,
-        "mfaEnabled": False,
-        "mfaForAdmin": True,
-        "mfaForSensitive": True,
-    },
     "logging": {
         "level": "INFO",
         "retentionEnabled": True,
         "retentionDays": 180,
     },
-    "sessions": {
-        "sessionTtlSec": 3600,
-        "idleTimeoutSec": 900,
-        "cookieLifetimeSec": 3600,
-        "cookieHttpOnly": True,
-        "cookieSecure": False,
-        "cookieSameSite": "Lax",
-    },
-    "maintenance": {
-        "enabled": False,
-        "message": "Le système est en cours de maintenance, merci de réessayer plus tard.",
-        "allowedCidrs": ["10.0.0.0/24", "192.168.5.0/24"],
-    },
 }
 
 
-DEPRECATED_ADVANCED_SETTINGS_KEYS = {"platform", "discovery", "integrations"}
+DEPRECATED_ADVANCED_SETTINGS_KEYS = {"platform", "discovery", "integrations", "security", "sessions", "maintenance"}
 
 
 def _deep_merge(base: dict, patch: dict) -> dict:
@@ -124,33 +103,3 @@ def save_advanced_config(payload: dict, db: Session = Depends(get_db)):
     _write_payload(db, _sanitize_advanced_settings(merged))
     return ui_action(message="advanced settings saved")
 
-
-@router.get("/advanced-settings/security")
-def get_security_settings(db: Session = Depends(get_db)):
-    cfg = _read_payload(db)
-    sec = cfg.get("security") or {}
-    return ui_data(
-        {
-            "enable_strong_password": bool(sec.get("enforceStrongPasswords", False)),
-            "password_min_length": int(sec.get("passwordMinLength", 10)),
-            "password_history": int(sec.get("passwordHistory", 5)),
-            "password_expiry_days": int(sec.get("passwordExpiryDays", 90)),
-        }
-    )
-
-
-@router.put("/advanced-settings/security")
-def save_security_settings(payload: dict, db: Session = Depends(get_db)):
-    current = _read_payload(db)
-    sec = current.get("security") or {}
-    sec.update(
-        {
-            "enforceStrongPasswords": bool(payload.get("enable_strong_password", sec.get("enforceStrongPasswords", False))),
-            "passwordMinLength": int(payload.get("password_min_length", sec.get("passwordMinLength", 10))),
-            "passwordHistory": int(payload.get("password_history", sec.get("passwordHistory", 5))),
-            "passwordExpiryDays": int(payload.get("password_expiry_days", sec.get("passwordExpiryDays", 90))),
-        }
-    )
-    current["security"] = sec
-    _write_payload(db, current)
-    return ui_action(message="security settings saved")

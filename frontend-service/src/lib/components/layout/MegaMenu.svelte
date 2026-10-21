@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { onMount, onDestroy } from 'svelte';
   import megaConfig, { type MegaMenuKey } from '$lib/components/layout/mega-config';
-
 
   export let activeMega: MegaMenuKey | null = null;
   export let permissions: {
@@ -40,20 +40,19 @@ onDestroy(() => {
   }
 });
 
-
   /* ---------------- Titles / subtitles ---------------- */
   const titles: Record<MegaMenuKey, { title: string; subtitle: string }> = {
     storageRoots: {
-      title: 'Storage Roots',
-      subtitle: 'Manage governed storage roots inventory.'
+      title: t('Storage Roots'),
+      subtitle: t('Manage governed storage roots inventory.')
     },
     observability: {
-      title: 'Observability',
-      subtitle: 'Capsules, jobs and platform monitoring.'
+      title: t('Observability'),
+      subtitle: t('Capsules, jobs and platform monitoring.')
     },
     admin: {
-      title: 'Administration',
-      subtitle: 'Identity, sources and advanced settings.'
+      title: t('Administration'),
+      subtitle: t('Identity, sources and advanced settings.')
     }
   };
 </script>
@@ -64,7 +63,7 @@ onDestroy(() => {
     class="mega-overlay animate-overlay"
     role="button"
     tabindex="0"
-    aria-label="Close menu"
+    aria-label={t('Close menu')}
     on:click={close}
     on:keydown={(e) =>
       (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), close())
@@ -82,7 +81,7 @@ onDestroy(() => {
     <div class="mega-inner">
       <header class="mega-header">
         <h2>{titles[activeMega]?.title ?? activeMega}</h2>
-        <p>{titles[activeMega]?.subtitle ?? 'Navigate your workspace.'}</p>
+        <p>{titles[activeMega]?.subtitle ?? t('Navigate your workspace.')}</p>
       </header>
 
       <div class="mega-grid">
@@ -100,8 +99,8 @@ onDestroy(() => {
             {/if}
 
             <div class="mega-content">
-              <strong>{item.title}</strong>
-              <span>{item.description}</span>
+              <strong>{t(item.title)}</strong>
+              <span>{t(item.description)}</span>
             </div>
           </a>
         {/each}
@@ -152,14 +151,14 @@ onDestroy(() => {
      =============================== */
   .mega-header h2 {
     margin: 0;
-    font-size: 1.6rem;
+    font-size: var(--b2s-fs-2xl);
     font-weight: 700;
     letter-spacing: -0.02em;
   }
 
   .mega-header p {
     margin-top: 0.35rem;
-    font-size: 0.95rem;
+    font-size: var(--b2s-fs-lg);
     opacity: 0.75;
   }
 
@@ -180,7 +179,7 @@ onDestroy(() => {
     display: flex;
     gap: 1rem;
     padding: 1.25rem 1.35rem;
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     text-decoration: none;
     color: inherit;
     background: rgba(255, 255, 255, 0.04);
@@ -200,7 +199,7 @@ onDestroy(() => {
   .mega-icon {
     width: 42px;
     height: 42px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -215,14 +214,14 @@ onDestroy(() => {
 
   .mega-content strong {
     display: block;
-    font-size: 0.95rem;
+    font-size: var(--b2s-fs-lg);
     font-weight: 600;
   }
 
   .mega-content span {
     display: block;
     margin-top: 0.2rem;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
     opacity: 0.75;
     line-height: 1.25;
   }

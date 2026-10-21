@@ -10,8 +10,9 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   export let items: EntityKpiItem[] = [];
-  export let ariaLabel = 'Entity KPIs';
+  export let ariaLabel = t('Entity KPIs');
 </script>
 
 <section class="sed-kpi-row" aria-label={ariaLabel}>

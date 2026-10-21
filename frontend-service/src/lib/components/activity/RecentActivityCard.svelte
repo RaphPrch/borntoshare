@@ -1,12 +1,13 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { formatActivityItem } from '$lib/activity/format';
   import { timeAgo } from '$lib/utils/format';
 
-  export let title = 'Recent activity';
+  export let title = t('Recent activity');
   export let items: any[] = [];
   export let max: number | null = 5;
-  export let emptyLabel = 'No recent activity';
-  export let emptyText = 'Activity related to this item will appear here.';
+  export let emptyLabel = t('No recent activity');
+  export let emptyText = t('Activity related to this item will appear here.');
   export let onViewAll: (() => void) | null = null;
   export let onSelect: ((entry: any) => void) | null = null;
 
@@ -26,7 +27,7 @@
     <h2>{title}</h2>
     {#if onViewAll}
       <button type="button" class="activity-summary-card__link" on:click={() => onViewAll?.()}>
-        View all activity
+        {t('View all activity')}
       </button>
     {/if}
   </div>
@@ -46,11 +47,11 @@
               <i class={`bi bi-${rendered.icon ?? 'info-circle'}`}></i>
             </span>
             <span class="activity-summary-card__copy">
-              <strong>{rendered.title ?? String(entry.action ?? 'Activity')}</strong>
-              <small>{rendered.subtitle1 ?? String(entry.actor_display_name ?? entry.actor_name ?? 'System')}</small>
+              <strong>{rendered.title ?? String(entry.action ?? t('Activity'))}</strong>
+              <small>{rendered.subtitle1 ?? String(entry.actor_display_name ?? entry.actor_name ?? t('System'))}</small>
             </span>
             <time>{timeAgo(entry.created_at ?? entry.event_time ?? entry.timestamp ?? null) || '—'}</time>
-            <span class="activity-summary-card__actor">{String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? 'System')}</span>
+            <span class="activity-summary-card__actor">{String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? t('System'))}</span>
           </button>
         {:else}
         <div class="activity-summary-card__row">
@@ -58,11 +59,11 @@
             <i class={`bi bi-${rendered.icon ?? 'info-circle'}`}></i>
           </span>
           <span class="activity-summary-card__copy">
-            <strong>{rendered.title ?? String(entry.action ?? 'Activity')}</strong>
-            <small>{rendered.subtitle1 ?? String(entry.actor_display_name ?? entry.actor_name ?? 'System')}</small>
+            <strong>{rendered.title ?? String(entry.action ?? t('Activity'))}</strong>
+            <small>{rendered.subtitle1 ?? String(entry.actor_display_name ?? entry.actor_name ?? t('System'))}</small>
           </span>
           <time>{timeAgo(entry.created_at ?? entry.event_time ?? entry.timestamp ?? null) || '—'}</time>
-          <span class="activity-summary-card__actor">{String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? 'System')}</span>
+          <span class="activity-summary-card__actor">{String(entry.actor_display_name ?? entry.actor_name ?? entry.actor_display ?? t('System'))}</span>
         </div>
         {/if}
       {/each}
@@ -76,7 +77,7 @@
     min-width: 0;
     min-height: 166px;
     border: 1px solid #dfe7f3;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     padding: 16px 18px;
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.025);
@@ -95,7 +96,7 @@
   .activity-summary-card__head h2 {
     margin: 0;
     color: #0f1f3d;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
     letter-spacing: 0;
     display: inline-flex;
@@ -114,12 +115,12 @@
 
   .activity-summary-card__empty strong {
     color: #637493;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
   }
 
   .activity-summary-card__empty span {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .activity-summary-card__list {
@@ -153,7 +154,7 @@
   .activity-summary-card__icon {
     width: 22px;
     height: 22px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: inline-grid;
     place-items: center;
     font-size: 14px;
@@ -196,7 +197,7 @@
 
   .activity-summary-card__copy strong {
     color: #142747;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 650;
   }
 
@@ -204,7 +205,7 @@
   .activity-summary-card__row time,
   .activity-summary-card__actor {
     color: #687a98;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
   }
 
   .activity-summary-card__row time,
@@ -218,7 +219,7 @@
     border: none;
     background: transparent;
     color: var(--b2s-topbar-bg, #111b3f);
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 650;
     display: inline-flex;
     align-items: center;

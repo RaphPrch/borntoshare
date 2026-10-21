@@ -1,13 +1,14 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import type { ProvisioningConfigurationModel } from './provisioning-policy.types';
 
   export let model: ProvisioningConfigurationModel;
 
-  const isZoneScope = () => model.scope === 'zone';
-  const mode = () => model.inheritanceMode ?? (isZoneScope() ? 'override' : 'inherit');
-  const isLocked = () => model.scope === 'storage-endpoint' && Boolean(model.inheritanceModeLocked);
-  const canEdit = () => (isZoneScope() ? true : Boolean(model.canEditOverrideFields) && !isLocked());
+  $: zoneScope = model.scope === 'zone';
+  $: mode = model.inheritanceMode ?? (zoneScope ? 'override' : 'inherit');
+  $: locked = model.scope === 'storage-endpoint' && Boolean(model.inheritanceModeLocked);
+  $: editable = zoneScope ? true : Boolean(model.canEditOverrideFields) && !locked;
 
   const triggerSave = () => model.onSavePolicy?.();
   const changeOu = (event: Event) => {
@@ -20,71 +21,71 @@
   };
 
   const tokenExamples = [
-    { token: '{PREFIX}', meaning: 'Préfixe de convention (ex: B2S)' },
-    { token: '{ROOTCODE}', meaning: 'Code du storage root (ex: finance_rw)' },
-    { token: '{PERM}', meaning: 'Niveau de permission (ex: RX / RW)' }
+    { token: '{PREFIX}', meaning: t('Préfixe de convention (ex: B2S)') },
+    { token: '{ROOTCODE}', meaning: t('Code du storage root (ex: finance_rw)') },
+    { token: '{PERM}', meaning: t('Niveau de permission (ex: RX / RW)') }
   ];
 </script>
 
 <article class="provisioning-card">
   <header class="provisioning-card__header">
-    <h2 class="provisioning-card__title">Policy Configuration</h2>
+    <h2 class="provisioning-card__title">{t('Policy Configuration')}</h2>
   </header>
 
   <div class="provisioning-card__body">
     {#if model.scope === 'storage-endpoint'}
-      <div class="provisioning-mode-group" role="radiogroup" aria-label="Provisioning mode">
-        <section class={`provisioning-mode-option ${mode() === 'inherit' ? 'provisioning-mode-option--active' : ''}`}>
+      <div class="provisioning-mode-group" role="radiogroup" aria-label={t('Provisioning mode')}>
+        <section class={`provisioning-mode-option ${mode === 'inherit' ? 'provisioning-mode-option--active' : ''}`}>
           <label class="provisioning-mode-option__header">
             <input
               type="radio"
               name="endpoint-provisioning-mode"
-              checked={mode() === 'inherit'}
+              checked={mode === 'inherit'}
               on:change={() => model.onChangeInheritanceMode?.('inherit')}
-              disabled={isLocked()}
+              disabled={locked}
             />
-            <span>Inherit zone policy</span>
+            <span>{t('Inherit zone policy')}</span>
           </label>
           <p class="provisioning-mode-option__help">
-            Use policy defined in {model.zoneLabel ?? 'selected zone'}
+            {t('Use policy defined in {value}', { value: (model.zoneLabel ?? 'selected zone') })}
           </p>
         </section>
 
-        {#if !isLocked()}
-          <section class={`provisioning-mode-option ${mode() === 'override' ? 'provisioning-mode-option--active' : ''}`}>
+        {#if !locked}
+          <section class={`provisioning-mode-option ${mode === 'override' ? 'provisioning-mode-option--active' : ''}`}>
             <label class="provisioning-mode-option__header">
               <input
                 type="radio"
                 name="endpoint-provisioning-mode"
-                checked={mode() === 'override'}
+                checked={mode === 'override'}
                 on:change={() => model.onChangeInheritanceMode?.('override')}
               />
-              <span>Endpoint override</span>
+              <span>{t('Endpoint override')}</span>
             </label>
 
             <div class="provisioning-mode-option__body">
               <label class="provisioning-field">
-                <span class="provisioning-field__label">Organizational Unit (OU)</span>
+                <span class="provisioning-field__label">{t('Organizational Unit (OU)')}</span>
                 <input
                   type="text"
                   value={model.organizationalUnit}
                   on:input={changeOu}
-                  disabled={!canEdit()}
+                  disabled={!editable}
                 />
               </label>
 
               <label class="provisioning-field">
-                <span class="provisioning-field__label">Naming Template</span>
+                <span class="provisioning-field__label">{t('Naming Template')}</span>
                 <input
                   type="text"
                   value={model.namingTemplate}
                   on:input={changeNaming}
-                  disabled={!canEdit()}
+                  disabled={!editable}
                 />
               </label>
 
               {#if model.tokensHint}
-                <div class="provisioning-token-legend" role="note" aria-label="Token legend">
+                <div class="provisioning-token-legend" role="note" aria-label={t('Token legend')}>
                   <div class="provisioning-field__help">{model.tokensHint}</div>
                   <ul class="provisioning-token-legend__list">
                     {#each tokenExamples as item}
@@ -95,7 +96,7 @@
                     {/each}
                   </ul>
                   <div class="provisioning-field__help">
-                    Exemple: <code>B2S_FINANCE_RW_RX</code> avec template <code>{'{PREFIX}_{ROOTCODE}_{PERM}'}</code>
+                    {t('Exemple:')} <code>B2S_FINANCE_RW_RX</code> {t('avec template')} <code>{'{PREFIX}_{ROOTCODE}_{PERM}'}</code>
                   </div>
                 </div>
               {/if}
@@ -105,23 +106,23 @@
                   type="button"
                   class="provisioning-link"
                   on:click={() => model.onUseZoneValues?.()}
-                  disabled={!canEdit()}
+                  disabled={!editable}
                 >
-                  Use zone values
+                  {t('Use zone values')}
                 </button>
               {/if}
             </div>
           </section>
         {:else}
           <div class="provisioning-field__help">
-            This storage endpoint inherits provisioning policy from its zone.
+            {t('This storage endpoint inherits provisioning policy from its zone.')}
           </div>
         {/if}
       </div>
     {:else}
       <div class="provisioning-form-stack">
         <label class="provisioning-field">
-          <span class="provisioning-field__label">Organizational Unit (OU)</span>
+          <span class="provisioning-field__label">{t('Organizational Unit (OU)')}</span>
           <input
             type="text"
             value={model.organizationalUnit}
@@ -131,7 +132,7 @@
         </label>
 
         <label class="provisioning-field">
-          <span class="provisioning-field__label">Naming Template</span>
+          <span class="provisioning-field__label">{t('Naming Template')}</span>
           <input
             type="text"
             value={model.namingTemplate}
@@ -141,7 +142,7 @@
         </label>
 
         {#if model.tokensHint}
-          <div class="provisioning-token-legend" role="note" aria-label="Token legend">
+          <div class="provisioning-token-legend" role="note" aria-label={t('Token legend')}>
             <div class="provisioning-field__help">{model.tokensHint}</div>
             <ul class="provisioning-token-legend__list">
               {#each tokenExamples as item}
@@ -152,18 +153,17 @@
               {/each}
             </ul>
             <div class="provisioning-field__help">
-              Exemple: <code>B2S_FINANCE_RW_RX</code> avec template <code>{'{PREFIX}_{ROOTCODE}_{PERM}'}</code>
+              {t('Exemple:')} <code>B2S_FINANCE_RW_RX</code> {t('avec template')} <code>{'{PREFIX}_{ROOTCODE}_{PERM}'}</code>
             </div>
           </div>
         {/if}
 
         <div class="provisioning-actions">
           <EntityActionButton
-            compact={true}
             variant="primary"
             icon={model.savePolicyBusy ? 'bi-arrow-repeat' : 'bi-check2'}
             busy={model.savePolicyBusy}
-            label={model.savePolicyBusy ? 'Saving…' : model.savePolicyLabel ?? 'Save policy'}
+            label={model.savePolicyBusy ? t('Saving…') : model.savePolicyLabel ?? t('Save policy')}
             className="provisioning-btn"
             disabled={model.savePolicyDisabled || model.savePolicyBusy}
             onClick={triggerSave}
@@ -180,7 +180,7 @@
     gap: 6px;
     padding: 10px 12px;
     border: 1px solid #dbe5f2;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: #f8fbff;
   }
 
@@ -199,10 +199,10 @@
   }
 
   .provisioning-token-legend__list code {
-    font-size: 0.78rem;
+    font-size: var(--b2s-fs-xs);
     color: #1e3a8a;
     background: #e8f0ff;
-    border-radius: 6px;
+    border-radius: var(--b2s-radius-sm);
     padding: 1px 6px;
   }
 </style>

@@ -80,8 +80,8 @@ Le Wizard UI **ne génère pas** de fichiers `.env.*`.
 | `LOG_LEVEL` | Verbosité logs backend | `INFO`, `DEBUG`, … | `INFO` |
 | `TZ` | Fuseau horaire du conteneur | ex: `Europe/Paris` | `Europe/Paris` |
 | `WIZARD_PORT` | Port exposé côté host (podman-compose) | `1-65535` | `8080` |
-| réseau `bts-app` | Réseau Podman applicatif partagé | string | `bts-app` |
-| réseau `bts-data` | Réseau Podman DB partagé | string | `bts-data` |
+| réseau `b2s-app` | Réseau Podman applicatif partagé | string | `b2s-app` |
+| réseau `b2s-data` | Réseau Podman DB partagé | string | `b2s-data` |
 | `WIZARD_LOG_SQL_ERRORS` | Logs SQL plus verbeux | `0`, `1` | `0` |
 | `WIZARD_PRIVATE_SEEDS_DIR` | Dossier de seeds privés (non commit) relatif à `backend/app/sql/` ou absolu | ex: `seeds_private` | (vide) |
 

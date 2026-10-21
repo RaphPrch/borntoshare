@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
+  import AppModal from '$lib/components/ui/AppModal.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import { t } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
   import { invalidateAll } from "$app/navigation";
 
@@ -26,14 +30,14 @@
 
   // Normalize core-service shape (id,name,color,usage) into UI shape (label,color_rgb)
   // so TagPill + modal edition always work.
-  $: tagsNorm = (data.tags ?? []).map((t: any) => ({
-    ...t,
-    label: t.label ?? t.name ?? t.code ?? "Tag",
-    color_rgb: t.color_rgb ?? t.color ?? null
+  $: tagsNorm = (data.tags ?? []).map((tag: any) => ({
+    ...tag,
+    label: tag.label ?? tag.name ?? tag.code ?? t('Tag'),
+    color_rgb: tag.color_rgb ?? tag.color ?? null
   }));
 
   let selectedId: number | null = null;
-  $: selectedTag = tagsNorm.find((t) => t.id === selectedId) ?? null;
+  $: selectedTag = tagsNorm.find((tag) => tag.id === selectedId) ?? null;
 
   let modalOpen = false;
   let modalMode: "create" | "edit" = "create";
@@ -89,20 +93,17 @@
   const uniqueValues = (values: string[]) => Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
 
   const formatUpdatedAt = (raw: unknown) => {
-    if (!raw) return "—";
-    const d = new Date(String(raw));
-    if (!Number.isFinite(d.getTime())) return "—";
-    return d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return formatDateTime(raw);
   };
 
   $: hasNameError = !form.name.trim();
   $: hasColorError = !isValidHexColor(form.color_rgb);
   $: canSubmit = !busy && !hasNameError && !hasColorError;
 
-  $: filteredTags = tagsNorm.filter((t: any) => {
+  $: filteredTags = tagsNorm.filter((tag: any) => {
     const q = normalizeText(searchQuery);
     if (!q) return true;
-    const haystack = [t?.label, t?.name, t?.code, t?.value_text]
+    const haystack = [tag?.label, tag?.name, tag?.code, tag?.value_text]
       .map((v) => normalizeText(v))
       .join(" ");
     return haystack.includes(q);
@@ -122,14 +123,14 @@
   $: tagActions = [
     {
       key: "new",
-      label: "Create tag",
+      label: t('Create tag'),
       icon: "bi-plus-lg",
       variant: "primary",
       onClick: openCreate
     },
     {
       key: "edit",
-      label: "Edit tag",
+      label: t('Edit tag'),
       icon: "bi-pencil-square",
       variant: "secondary",
       disabled: !selectedTag,
@@ -137,12 +138,12 @@
     },
     {
       key: "delete",
-      label: "Delete tag",
+      label: t('Delete tag'),
       icon: "bi-trash",
       variant: "danger",
       disabled: !selectedTag || getUsage(selectedTag) > 0,
       title: !selectedTag
-        ? 'Select a tag first'
+        ? t('Select a tag first')
         : getUsage(selectedTag) > 0
           ? dependencyCountDeleteMessage("tag", getUsage(selectedTag), "resource")
           : undefined,
@@ -231,16 +232,16 @@
 
       if (modalMode === "create") {
         await createTag(fetch, { name, label, code, color_rgb, color, value_text });
-        toast.success("Tag created.");
+        toast.success(t('Tag created.'));
       } else if (modalMode === "edit" && selectedTag) {
         await updateTag(fetch, selectedTag.id, { name, label, code, color_rgb, color, value_text });
-        toast.success("Tag updated.");
+        toast.success(t('Tag updated.'));
       }
 
       modalOpen = false;
       await invalidateAll();
     } catch (e) {
-      errorMsg = e?.message ?? "Operation failed.";
+      errorMsg = e?.message ?? t('Operation failed.');
       showApiErrorToast(e, "Unable to save tag.");
     } finally {
       busy = false;
@@ -261,12 +262,12 @@
 
     try {
       await deleteTag(fetch, selectedTag.id);
-      toast.success("Tag deleted.");
+      toast.success(t('Tag deleted.'));
       showDeleteConfirm = false;
       selectedId = null;
       await invalidateAll();
     } catch (e) {
-      const msg = e?.message ?? "Delete failed.";
+      const msg = e?.message ?? t('Delete failed.');
       errorMsg = msg;
       if (isDependencyDeleteError(e)) {
         const usage = getUsage(selectedTag);
@@ -282,29 +283,29 @@
 </script>
 
 <section class="tags-page">
-  <PageHeader title="Tags" subtitle="All created tags are listed here.">
+  <PageHeader title={t('Tags')} subtitle={t('All created tags are listed here.')}>
     <svelte:fragment slot="actions">
-      <EntityActionGroup actions={tagActions} ariaLabel="Tag actions" />
+      <EntityActionGroup actions={tagActions} ariaLabel={t('Tag actions')} />
     </svelte:fragment>
   </PageHeader>
 
   <section class="tags-toolbar">
     <SearchField
       wrapperClass="tags-search"
-      placeholder="Search by name, code, or value"
-      ariaLabel="Search for a tag"
+      placeholder={t('Search by name, code, or value')}
+      ariaLabel={t('Search for a tag')}
       bind:value={searchQuery}
     />
     <div class="tags-sort">
       <select bind:value={sortBy}>
-        <option value="name">Trier: Nom</option>
-        <option value="usage">Trier: Usage</option>
-        <option value="updated">Sort: Last updated</option>
+        <option value="name">{t('Trier: Nom')}</option>
+        <option value="usage">{t('Trier: Usage')}</option>
+        <option value="updated">{t('Sort: Last updated')}</option>
       </select>
       <EntityActionButton
         variant="secondary"
         icon={sortDir === 'asc' ? 'bi-sort-down' : 'bi-sort-up'}
-        label={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+        label={sortDir === 'asc' ? t('Ascending') : t('Descending')}
         className="tags-sort-dir-btn"
         onClick={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}
       />
@@ -313,10 +314,10 @@
 
   <section class="tags-table">
     <div class="tags-table-head">
-      <span>Tag</span>
-      <span>Code</span>
-      <span>Usage</span>
-      <span>Updated</span>
+      <span>{t('Tag')}</span>
+      <span>{t('Code')}</span>
+      <span>{t('Usage')}</span>
+      <span>{t('Updated')}</span>
     </div>
 
     <div class="tags-table-body">
@@ -327,7 +328,7 @@
             class:selected={tag.id === selectedId}
             role="button"
             tabindex="0"
-            aria-selected={tag.id === selectedId}
+            aria-pressed={tag.id === selectedId}
             on:click={() => (selectedId = tag.id)}
             on:dblclick={() => openEditTag(tag)}
             on:keydown={(e) => {
@@ -349,7 +350,7 @@
             }}
           >
             <div class="tag-cell">
-              <TagPill label={tag.label ?? tag.name ?? tag.code ?? 'Tag'} color={tag.color_rgb ?? null} />
+              <TagPill label={tag.label ?? tag.name ?? tag.code ?? t('Tag')} color={tag.color_rgb ?? null} />
             </div>
             <div class="tag-code">{tag.code ?? '—'}</div>
             <div class="tag-usage">{getUsage(tag)}</div>
@@ -360,10 +361,10 @@
         <div class="tags-empty">
           <EmptyState
             iconClass="bi bi-tags"
-            title="No tags found"
-            description="Create a tag or adjust your search."
-            actionLabel="Create tag"
-            onAction={openCreate}
+            title={t('No tags found')}
+            description={t('Create a tag or adjust your search.')}
+            ctaLabel={t('Create tag')}
+            onCta={openCreate}
           />
         </div>
       {/if}
@@ -371,53 +372,28 @@
   </section>
 </section>
 
-{#if modalOpen}
-  <div
-    class="tag-modal-backdrop"
-    role="button"
-    tabindex="0"
-    aria-label="Close dialog"
-    on:click={() => (modalOpen = false)}
-    on:keydown={(e) =>
-      (e.key === "Enter" || e.key === " ") && (e.preventDefault(), (modalOpen = false))
-    }
-  >
-    <div
-      class="tag-modal"
-      role="dialog"
-      aria-modal="true"
-      tabindex="-1"
-      on:click|stopPropagation
-      on:keydown|stopPropagation
-    >
-      <header class="tag-modal__header">
-        <div>
-          <h2>{modalMode === "create" ? "Create tag" : "Edit tag"}</h2>
-          <p>Define and create a customizable tag for your resources.</p>
-        </div>
-        <button
-          class="tag-modal__close"
-          type="button"
-          aria-label="Close"
-          on:click={() => (modalOpen = false)}
-        >
-          ×
-        </button>
-      </header>
-
+<AppModal
+  open={modalOpen}
+  onClose={() => (modalOpen = false)}
+  size="lg"
+  title={modalMode === "create" ? t('Create tag') : t('Edit tag')}
+  subtitle={t('Define and create a customizable tag for your resources.')}
+  iconClass="bi bi-tag"
+  contentClass="b2s-modal-content tag-modal__body"
+>
       <section class="tag-modal__section">
-          <label for="tag-name">Tag name</label>
+          <label for="tag-name">{t('Tag name')}</label>
           <input
             id="tag-name"
             class="tag-input"
-            placeholder="e.g. Sensitive"
+            placeholder={t('e.g. Sensitive')}
             bind:value={form.name}
           />
       </section>
 
       <section class="tag-modal__grid">
           <div class="tag-card">
-            <div class="tag-card__title">Tag color</div>
+            <div class="tag-card__title">{t('Tag color')}</div>
             <div class="tag-palette">
               {#each palette as color}
                 <button
@@ -426,12 +402,12 @@
                   class:active={form.color_rgb === color}
                   style={`background:${color}`}
                   on:click={() => (form.color_rgb = color)}
-                  aria-label={`Color ${color}`}
+                  aria-label={t('Color {color}', { color })}
                 ></button>
               {/each}
             </div>
             <div class="tag-custom">
-              <span class="tag-custom__label">Custom…</span>
+              <span class="tag-custom__label">{t('Custom…')}</span>
               <input
                 class="tag-input tag-input--compact"
                 placeholder="#3fa9f5"
@@ -442,12 +418,12 @@
       </section>
 
       <section class="tag-card tag-card--wide">
-          <div class="tag-card__title">Value</div>
-          <p class="tag-card__subtitle">Create one or more predefined values for this tag</p>
+          <div class="tag-card__title">{t('Value')}</div>
+          <p class="tag-card__subtitle">{t('Create one or more predefined values for this tag')}</p>
           <div class="tag-value-row">
             <input
               class="tag-input"
-              placeholder="e.g. Confidential"
+              placeholder={t('e.g. Confidential')}
               bind:value={valueInput}
               on:keydown={(e) => {
                 if (e.key === "Enter") {
@@ -457,11 +433,11 @@
               }}
             />
             <button
-              class="tag-value-btn"
+              class="b2s-btn b2s-btn-secondary"
               type="button"
               on:click={addValueItem}
             >
-              Add value
+              {t('Add value')}
             </button>
           </div>
           {#if valueItems.length > 0}
@@ -471,7 +447,7 @@
                   {item}
                   <button
                     type="button"
-                    aria-label="Remove value"
+                    aria-label={t('Remove value')}
                     on:click={() => removeValueItem(item)}
                   >
                     ×
@@ -480,45 +456,43 @@
               {/each}
             </div>
           {/if}
-          <div class="tag-card__hint">Suggested: Public, Sensitive, Private, Archived</div>
+          <div class="tag-card__hint">{t('Suggested: Public, Sensitive, Private, Archived')}</div>
       </section>
 
       {#if errorMsg}
-        <div class="tag-modal__error">{errorMsg}</div>
+        <InlineAlert tone="error">{errorMsg}</InlineAlert>
       {/if}
 
-      <footer class="tag-modal__footer">
-        <EntityActionButton variant="ghost" label="Cancel" onClick={() => (modalOpen = false)} />
-        <EntityActionButton
-          variant="primary"
-          busy={busy}
-          label={modalMode === "create" ? "Create" : "Save changes"}
-          onClick={handleSubmit}
-        />
-      </footer>
-    </div>
-  </div>
-{/if}
+  <svelte:fragment slot="footer">
+    <EntityActionButton variant="ghost" label={t('Cancel')} onClick={() => (modalOpen = false)} />
+    <EntityActionButton
+      variant="primary"
+      busy={busy}
+      label={modalMode === "create" ? t('Create') : t('Save changes')}
+      onClick={handleSubmit}
+    />
+  </svelte:fragment>
+</AppModal>
 
 <ConfirmDeleteDialog
   open={showDeleteConfirm}
   onClose={closeDeleteConfirm}
   onConfirm={handleDelete}
   ariaLabelledby="tags-delete-modal-title"
-  title="Delete tag"
+  title={t('Delete tag')}
   description={selectedTag?.label ?? selectedTag?.name ?? null}
-  impactTitle="Consequences"
+  impactTitle={t('Consequences')}
   impactItems={[
     'Irreversible deletion of this tag.',
     'Associated governance references must be recreated if needed.'
   ]}
-  deleteLabel="Delete"
-  deleteBusyLabel="Deleting…"
+  deleteLabel={t('Delete')}
+  deleteBusyLabel={t('Deleting…')}
   busy={busy}
   requireTextConfirm={true}
-  requiredText="DELETE"
-  textConfirmLabel="Type"
-  textConfirmPlaceholder="DELETE"
+  requiredText=DELETE
+  textConfirmLabel={t('Type')}
+  textConfirmPlaceholder=DELETE
 />
 
 <style>
@@ -528,7 +502,7 @@
 
   .tags-page {
     min-height: calc(100vh - 64px);
-    padding: 28px 36px 40px;
+    padding: var(--b2s-page-padding);
     color: #0f172a;
   }
 
@@ -540,8 +514,8 @@
     display: inline-flex;
     align-items: center;
     padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 12px;
+    border-radius: var(--b2s-radius-pill);
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     letter-spacing: 0.01em;
     background: color-mix(
@@ -565,7 +539,7 @@
   .tags-table {
     background: rgba(255, 255, 255, 0.7);
     border: 1px solid rgba(148, 163, 184, 0.35);
-    border-radius: 18px;
+    border-radius: var(--b2s-radius-lg);
     box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
     backdrop-filter: blur(12px);
   }
@@ -588,7 +562,7 @@
 
   :global(.tags-search) {
     height: 40px;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid rgba(148, 163, 184, 0.35);
     background: rgba(255, 255, 255, 0.85);
   }
@@ -606,7 +580,7 @@
 
   .tags-sort select {
     height: 34px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid rgba(148, 163, 184, 0.35);
     background: rgba(255, 255, 255, 0.75);
     padding: 0 10px;
@@ -616,7 +590,7 @@
 
   .tags-table-head {
     padding: 16px 20px;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -655,7 +629,7 @@
   .tag-updated {
     color: #334155;
     font-weight: 700;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -663,7 +637,7 @@
   }
 
   .tag-code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: var(--b2s-font-mono);
     letter-spacing: 0.01em;
   }
 
@@ -678,67 +652,14 @@
   }
 
   /* ---- Modal ---- */
-  .tag-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(2, 6, 23, 0.55);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
 
-  .tag-modal {
-    width: min(760px, 100%);
-    background: #ffffff;
-    border-radius: 18px;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
-    overflow: hidden;
-  }
-
-  .tag-modal__header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+  :global(.tag-modal__body) {
+    display: grid;
     gap: 16px;
-    padding: 18px 20px;
-    background: #f8fafc;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-  }
-
-  .tag-modal__header h2 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 900;
-    color: #0b1530;
-  }
-
-  .tag-modal__header p {
-    margin: 6px 0 0;
-    color: #64748b;
-    font-weight: 700;
-    font-size: 13px;
-  }
-
-  .tag-modal__close {
-    border: none;
-    background: transparent;
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
-    font-size: 22px;
-    line-height: 1;
-    color: #64748b;
-  }
-
-  .tag-modal__close:hover {
-    background: rgba(37, 99, 235, 0.10);
   }
 
   .tag-modal__section {
-    padding: 18px 20px 0;
+    padding: 0;
     display: grid;
     gap: 8px;
   }
@@ -746,12 +667,12 @@
   .tag-modal__section label {
     font-weight: 900;
     color: #0b1530;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .tag-input {
     height: 44px;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid rgba(148, 163, 184, 0.35);
     padding: 0 14px;
     font-weight: 700;
@@ -764,12 +685,12 @@
   }
 
   .tag-modal__grid {
-    padding: 14px 20px 0;
+    padding: 0;
   }
 
   .tag-card {
     border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: 16px;
+    border-radius: var(--b2s-radius-lg);
     padding: 14px;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   }
@@ -781,14 +702,14 @@
   }
 
   .tag-card--wide {
-    margin: 14px 20px 0;
+    margin: 0;
   }
 
   .tag-card__subtitle {
     margin: -6px 0 12px;
     color: #64748b;
     font-weight: 700;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .tag-palette {
@@ -800,7 +721,7 @@
   .tag-swatch {
     width: 26px;
     height: 26px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     border: 2px solid rgba(255, 255, 255, 0.95);
     box-shadow: 0 8px 16px rgba(15, 23, 42, 0.10);
   }
@@ -821,7 +742,7 @@
   .tag-custom__label {
     color: #64748b;
     font-weight: 800;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
   }
 
   .tag-input--compact {
@@ -834,23 +755,13 @@
     gap: 10px;
   }
 
-  .tag-value-btn {
-    height: 44px;
-    border-radius: 12px;
-    border: 1px solid rgba(37, 99, 235, 0.35);
-    background: rgba(37, 99, 235, 0.12);
-    color: #0b1530;
-    font-weight: 900;
-    padding: 0 14px;
-  }
-
   .tag-value-pill {
     margin-top: 12px;
     display: inline-flex;
     align-items: center;
     gap: 10px;
     padding: 8px 10px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #eef2ff;
     border: 1px solid rgba(37, 99, 235, 0.25);
     color: #0b1530;
@@ -866,7 +777,7 @@
   .tag-value-pill button {
     width: 22px;
     height: 22px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     border: none;
     background: rgba(2, 6, 23, 0.12);
     color: #0b1530;
@@ -876,24 +787,7 @@
     margin-top: 12px;
     color: #64748b;
     font-weight: 800;
-    font-size: 12px;
-  }
-
-  .tag-modal__error {
-    margin: 14px 20px 0;
-    padding: 10px 12px;
-    border-radius: 12px;
-    background: rgba(239, 68, 68, 0.10);
-    color: #b91c1c;
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    font-weight: 800;
-  }
-
-  .tag-modal__footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 16px 20px 18px;
+    font-size: var(--b2s-fs-xs);
   }
 
   @media (max-width: 840px) {
@@ -933,7 +827,7 @@
     }
 
     .tag-updated {
-      font-size: 12px;
+      font-size: var(--b2s-fs-xs);
     }
   }
 </style>

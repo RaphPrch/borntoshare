@@ -1,40 +1,28 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import RemoteConnectorWizardModal from '$lib/components/ui/RemoteConnectorWizardModal.svelte';
   import StorageEndpointWizard from '$lib/components/storage-endpoints/StorageEndpointWizard.svelte';
 
   export let open = false;
   export let onClose: () => void;
 
   /**
-   * Optional props forwarded to the underlying wizard component.
+   * Optional props forwarded to the wizard.
    * Example: { initialZoneId: 12, lockZone: true }
    */
-  export let wizardProps: Record<string, any> = {};
+  export let wizardProps: { initialZoneId?: number | null; lockZone?: boolean } = {};
 
-  /**
-   * Events emitted:
-   * - done: { id: number, created_roots?: number, failed_roots?: number }
-   */
+  /** done: { id: number, created_roots?: number, failed_roots?: number } */
   const dispatch = createEventDispatcher<{
     done: { id: number; created_roots?: number; failed_roots?: number };
   }>();
 
-  function handleDone(
-    e: CustomEvent<{ id: number; created_roots?: number; failed_roots?: number }>
-  ) {
+  function handleDone(e: CustomEvent<{ id: number; created_roots?: number; failed_roots?: number }>) {
     dispatch('done', e.detail);
+    onClose();
   }
 </script>
 
-<RemoteConnectorWizardModal
-  {open}
-  onClose={onClose}
-  ariaLabelledby="storage-endpoint-wizard-title"
-  backdropClass="b2s-modal-backdrop b2s-wizard-backdrop b2s-storage-endpoint-wizard-backdrop"
-  modalClass="b2s-modal b2s-wizard-modal b2s-wizard-modal--storage-endpoint is-wizard-modal"
-  modalSize="wide"
-  WizardComponent={StorageEndpointWizard}
-  wizardProps={{ variant: 'modal', ...wizardProps }}
-  on:done={handleDone}
-/>
+<!-- Mounted only while open so each opening starts from a clean state -->
+{#if open}
+  <StorageEndpointWizard open {onClose} {...wizardProps} on:done={handleDone} />
+{/if}

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
+  import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
   import { onDestroy, onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
@@ -8,7 +10,6 @@
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import EntityAlertDrawer from '$lib/components/entity/EntityAlertDrawer.svelte';
   import TagPill from '$lib/components/tags/TagPill.svelte';
-  import { attachTagToStorageRoot, detachTagFromStorageRoot } from '$lib/api/tags';
   import { createActivityEvent, listActivityByTarget } from '$lib/api/activity';
   import { listStorageRootGovernanceAlerts, type GovernanceAlert } from '$lib/api/governance-alerts';
   import {
@@ -38,8 +39,7 @@
     applyOwnersBrowserSelectionToDraft,
     type OwnersBrowserSelectionEvent
   } from '$lib/components/storage-roots/storage-root-owners.browser';
-  import { toggleSetValue } from '$lib/utils/selection';
-  import { normalizeTagsCatalog, tagColor, tagId, tagLabel, type UiTag } from '$lib/utils/tags';
+  import { tagColor, tagId, tagLabel } from '$lib/utils/tags';
   import { normalizeStorageRootDetailModel, type StorageRootDetailModel } from '$lib/types/storage-roots';
   import {
     normalizeStorageRootRow,
@@ -60,7 +60,7 @@
     formatDateTimeLabel,
     isSelectedStorageRootRow,
     ownerDisplayName,
-    storageRootEndpointLabel,
+    storageRootEndpointLabel
   } from '$lib/mappers/storage-root-detail.mapper';
   import {
     normalizeStorageRootAvailability,
@@ -87,6 +87,7 @@
   import StorageRootEffectiveAccessModal from '$lib/components/storage-roots/StorageRootEffectiveAccessModal.svelte';
   import StorageRootOwnersAdModal from '$lib/components/storage-roots/StorageRootOwnersAdModal.svelte';
   import AddStorageRootModal from '$lib/components/storage-roots/AddStorageRootModal.svelte';
+  import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
   import { runProbeWithPolling, syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
   import {
     buildStorageEndpointProbeRequestFromEndpoint,
@@ -98,6 +99,7 @@
   import { runProbeWithUi } from '$lib/jobs/probe-ui';
   import StorageRootFormModal from '$lib/components/storage-roots/StorageRootFormModal.svelte';
   import StorageRootDrawerShell from '$lib/components/storage-roots/StorageRootDrawerShell.svelte';
+  import StorageRootTagsDrawer from '$lib/components/storage-roots/StorageRootTagsDrawer.svelte';
   import StorageRootGovernanceDrawer from '$lib/components/storage-roots/StorageRootGovernanceDrawer.svelte';
   import StorageRootTreePanel from '$lib/components/storage-roots/StorageRootTreePanel.svelte';
   import StorageRootDetailView from '$lib/components/storage-roots/StorageRootDetailView.svelte';
@@ -119,7 +121,7 @@
     };
     storageRoots: StorageRootRow[];
     tags: StorageRootTagLike[];
-    endpoints?: unknown[];
+    endpoints?: StorageRootEndpointSummary[];
     storageRootAlerts?: GovernanceAlert[];
     storageRootActivity?: Array<Record<string, unknown>>;
     storageRootActivityRootId?: number | null;
@@ -446,35 +448,6 @@
   };
   const isSelectedRootRow = (row: any): boolean => isSelectedStorageRootRow(row, selectedStorageRootId, overview);
 
-  const endpointProbeStatusForRoot = (row: any) => {
-    const endpointId = Number(row?.storage_endpoint_id ?? row?.endpoint_id ?? 0);
-    const rows = Array.isArray(data.endpoints) ? data.endpoints : [];
-    const endpoint = Number.isFinite(endpointId) && endpointId > 0
-      ? rows.find((ep: any) => Number(ep?.storage_endpoint_id ?? ep?.id ?? 0) === endpointId)
-      : null;
-
-    const selectedScopedStatus = isSelectedRootRow(row)
-      ? String(
-        overview?.storage_endpoint?.last_probe_status ??
-        overview?.storage_endpoint?.probe_status ??
-        endpoint?.last_probe_status ??
-        endpoint?.probe_status ??
-        ''
-      )
-        .trim()
-        .toLowerCase()
-      : '';
-
-    const fallbackStatus =
-      row?.storage_endpoint_last_probe_status ??
-      row?.storage_endpoint_probe_status ??
-      '';
-
-    return String(selectedScopedStatus || fallbackStatus)
-      .trim()
-      .toLowerCase();
-  };
-
   const endpointProbeTimestampForRoot = (row: any): string | null => {
     const endpointId = Number(row?.storage_endpoint_id ?? row?.endpoint_id ?? 0);
     const rows = Array.isArray(data.endpoints) ? data.endpoints : [];
@@ -532,7 +505,7 @@
   };
 
   const rootAvailabilityText = () => {
-    if (!selectedRow) return 'Unknown';
+    if (!selectedRow) return t('Unknown');
     return rootAvailabilityLabel(effectiveAvailabilityForRow(selectedRow));
   };
 
@@ -556,7 +529,7 @@
       selectedEndpoint()?.last_probe_at ??
       (selectedRow ? endpointProbeTimestampForRoot(selectedRow) : null) ??
       null;
-    if (!raw) return 'Never run';
+    if (!raw) return t('Never run');
     return formatDateTimeLabel(raw);
   };
 
@@ -594,7 +567,7 @@
 
   const alertItemFromRow = (alert: GovernanceAlert): StorageRootDetailAlertItem => ({
     key: String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${alert?.scope_id ?? ''}`),
-    title: String(alert?.title ?? 'Attention required'),
+    title: String(alert?.title ?? t('Attention required')),
     subtitle: storageRootAlertSummarySubtitle(alert),
     tone: storageRootAlertTone(alert)
   });
@@ -624,7 +597,7 @@
 
   const showSelectedStatusBadge = () => {
     const status = rootAvailabilityText();
-    return status !== 'Reachable' && status !== 'Unknown';
+    return status !== t('Reachable') && status !== t('Unknown');
   };
 
   const selectDetailTab = (tab: StorageRootsDetailTab) => {
@@ -648,7 +621,7 @@
 
   function openEditRoot() {
     if (!selectedRow) {
-      toast.warning('Select a storage root first');
+      toast.warning(t('Select a storage root first'));
       return;
     }
     editingRoot = selectedRow;
@@ -658,7 +631,7 @@
 
   function openDeleteRoot(root: any) {
     if (!canDeleteStorageRoot()) {
-      toast.error('Only administrators can delete storage roots');
+      toast.error(t('Only administrators can delete storage roots'));
       return;
     }
     editingRoot = root;
@@ -669,11 +642,11 @@
     try {
       if (rootModalMode === 'edit' && editingRoot?.storage_root_id) {
         await updateStorageRoot(fetch, Number(editingRoot.storage_root_id), payload as StorageRootUpdatePayload);
-        toast.success('Storage root updated');
+        toast.success(t('Storage root updated'));
         await goto(`/storage-roots?selected=${Number(editingRoot.storage_root_id)}`, { replaceState: true });
       } else {
         const created = await createStorageRoot(fetch, payload as StorageRootCreatePayload);
-        toast.success('Storage root created');
+        toast.success(t('Storage root created'));
         await goto(`/storage-roots?selected=${created.id}`, { replaceState: true });
       }
 
@@ -684,14 +657,14 @@
         await invalidateAndReloadDetailsForRoot(selectedStorageRootId);
       }
     } catch {
-      toast.error('Storage root operation failed');
+      toast.error(t('Storage root operation failed'));
     }
   }
 
   async function confirmDeleteRoot() {
     if (!editingRoot?.storage_root_id) return;
     if (!canDeleteStorageRoot()) {
-      toast.error('Only administrators can delete storage roots');
+      toast.error(t('Only administrators can delete storage roots'));
       return;
     }
 
@@ -717,7 +690,7 @@
       storageRootsUiStore.setSelectedStorageRootId(null);
       await goto('/storage-roots', { replaceState: true });
       await refreshStorageRootsLoad();
-      toast.success('Storage root deleted');
+      toast.success(t('Storage root deleted'));
     } catch (e) {
       if (isDependencyDeleteError(e)) {
         rootModalOpen = false;
@@ -735,6 +708,7 @@
   /* -------------------------------------------------------------------------- */
 
   let addRootModalOpen = false;
+  let showEndpointWizard = false;
   let addRootLoading = false;
   let addRootSelectedZoneId: string | number | null = null;
   let addRootSelectedEndpointId: string | number | null = null;
@@ -748,7 +722,7 @@
   function openCreateRoot() {
     const endpointRows = Array.isArray(data.endpoints) ? data.endpoints : [];
     if (endpointRows.length === 0) {
-      toast.warning('No storage endpoint available to create a storage root');
+      toast.warning(t('No storage endpoint available to create a storage root'));
       return;
     }
 
@@ -780,7 +754,7 @@
       const rawZoneId = endpointZoneIdOf(endpoint);
       const zoneId = Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId}`;
       const key = String(zoneId);
-      const zoneName = String(endpoint?.zone_name ?? endpoint?.zone?.name ?? 'Unassigned zone');
+      const zoneName = String(endpoint?.zone_name ?? endpoint?.zone?.name ?? t('Unassigned zone'));
 
       if (!byZone.has(key)) {
         byZone.set(key, {
@@ -825,7 +799,7 @@
     const protocolRaw = String(endpoint?.protocol ?? endpoint?.type ?? endpoint?.storage_endpoint_type ?? '').trim().toLowerCase();
     const protocol = endpointProtocolOf(endpoint);
     const probeConfig = resolveStorageEndpointProbeConfig(endpoint);
-    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: 'Storage endpoint' });
+    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Storage endpoint') });
 
     if (!Number.isFinite(endpointId) || endpointId <= 0 || (protocolRaw !== 'smb' && protocolRaw !== 'cifs') || !validation.ok) {
       return discoveredFoldersByEndpointId[endpointId] ?? [];
@@ -845,7 +819,7 @@
     });
 
     if (!final.ok) {
-      throw new Error(final.errorMessage || `Discovery failed for endpoint ${endpointNameOf(endpoint)}`);
+      throw new Error(final.errorMessage || t('Discovery failed for endpoint {endpointNameOf}', { endpointNameOf: endpointNameOf(endpoint) }));
     }
 
     await syncStorageRootDiscoveryForEndpoint(fetch, endpointId, final.result);
@@ -864,13 +838,13 @@
   async function handleTriggerEndpointDiscovery(zoneId: string | number, endpointIdRaw: string | number) {
     const endpointId = Number(endpointIdRaw ?? 0);
     if (!Number.isFinite(endpointId) || endpointId <= 0) {
-      toast.warning('Invalid storage endpoint selected');
+      toast.warning(t('Invalid storage endpoint selected'));
       return;
     }
 
     const endpoint = (Array.isArray(data.endpoints) ? data.endpoints : []).find((row: any) => endpointIdOf(row) === endpointId);
     if (!endpoint) {
-      toast.warning('Storage endpoint not found');
+      toast.warning(t('Storage endpoint not found'));
       return;
     }
 
@@ -902,17 +876,17 @@
       addRootSelectedZoneId = zoneId;
       addRootSelectedEndpointId = endpointId;
       addRootSelectedFolderId = null;
-      toast.success(`${discovered.length} storage root(s) found`);
+      toast.success(t('{count} storage root(s) found', { count: discovered.length }));
     } catch (e: any) {
       endpointDiscoveryStateById = {
         ...endpointDiscoveryStateById,
         [endpointId]: {
           status: 'failed',
-          message: String(e?.message ?? 'Endpoint discovery failed'),
+          message: String(e?.message ?? t('Endpoint discovery failed')),
           lastRefreshAt: new Date().toISOString()
         }
       };
-      toast.error(e?.message ?? 'Endpoint discovery failed');
+      toast.error(e?.message ?? t('Endpoint discovery failed'));
     } finally {
       endpointDiscoveryBusyById = { ...endpointDiscoveryBusyById, [String(endpointId)]: false };
     }
@@ -969,10 +943,6 @@
     return found.filter((folder, index, rows) => rows.findIndex((candidate) => String(candidate.id) === String(folder.id)) === index);
   };
 
-  const selectedAddRootFolder = (): AddRootFolder | null => {
-    return selectedAddRootFolders()[0] ?? null;
-  };
-
   const normalizeRootPathForParentLookup = (value: unknown): string =>
     String(value ?? '')
       .trim()
@@ -996,13 +966,13 @@
       .map(({ row }) => row)[0] ?? null;
   };
 
-  const managedRootKeysForAddWizard = (): string[] =>
-    ctxRows.map((row) => `${Number(row?.storage_endpoint_id ?? 0)}:${normalizeRootPathForParentLookup(row?.normalized_root_path ?? row?.root_path)}`);
+  const managedRootKeysForAddWizard = (rows: typeof ctxRows): string[] =>
+    rows.map((row) => `${Number(row?.storage_endpoint_id ?? 0)}:${normalizeRootPathForParentLookup(row?.normalized_root_path ?? row?.root_path)}`);
 
   async function createStorageRootFromSelection(options: { inheritGovernance?: boolean; folderIds?: Array<string | number> } = {}) {
     const selectedFolders = selectedAddRootFolders(options.folderIds ?? addRootSelectedFolderIds);
     if (selectedFolders.length === 0) {
-      toast.warning('Select a discovered folder first');
+      toast.warning(t('Select a discovered folder first'));
       return;
     }
 
@@ -1024,14 +994,14 @@
         createdRoots.push(created);
       }
 
-      toast.success(`${createdRoots.length} storage root${createdRoots.length > 1 ? 's' : ''} created`);
+      toast.success(t('{count} storage root{value} created', { count: createdRoots.length, value: (createdRoots.length > 1 ? 's' : '') }));
       detailsCache.clear();
       closeAddRootModal();
       const selectedCreatedId = createdRoots[0]?.id;
       await goto(selectedCreatedId ? `/storage-roots?selected=${selectedCreatedId}` : '/storage-roots', { replaceState: true });
       await refreshStorageRootsLoad();
     } catch {
-      toast.error('Storage root operation failed');
+      toast.error(t('Storage root operation failed'));
     } finally {
       addRootLoading = false;
     }
@@ -1204,11 +1174,11 @@
     fallback: string,
     status: 'success' | 'failed'
   ): string => {
-    const base = String(result?.message ?? fallback ?? '').trim() || (status === 'success' ? 'Probe completed' : 'Root probe failed');
+    const base = String(result?.message ?? fallback ?? '').trim() || (status === 'success' ? t('Probe completed') : t('Root probe failed'));
     const failureCode = String(result?.details?.failure_code ?? '').trim();
     const rootPath = String(result?.details?.root_path ?? '').trim();
     if (status === 'success') {
-      return base === 'SMB storage root reachable' ? 'Probe completed · SMB storage root reachable' : base;
+      return base === 'SMB storage root reachable' ? t('Probe completed · SMB storage root reachable') : base;
     }
     let message = base;
     if (failureCode && !message.includes(failureCode)) {
@@ -1238,13 +1208,13 @@
     rootProbeBusy = true;
     const startedAt = Date.now();
     const previousAclPermissionsCount = Number((overview as any)?.acl_freshness?.permissions_count ?? 0) || 0;
-    const rootDisplayName = String(selectedRow?.storage_root_name ?? selectedRow?.name ?? `Root #${rootId}`);
+    const rootDisplayName = String(selectedRow?.storage_root_name ?? selectedRow?.name ?? t('Root #{rootId}', { rootId }));
     const previousProbeState = rootProbeState(rootId);
     rootProbeStateByRootId = {
       ...rootProbeStateByRootId,
       [rootId]: {
         status: 'running',
-        message: discover ? 'Probe + ACL scan + discovery running' : 'Probe + ACL scan running',
+        message: discover ? t('Probe + ACL scan + discovery running') : t('Probe + ACL scan running'),
         lastRunAt: previousProbeState.lastRunAt,
         durationMs: null,
         jobId: null,
@@ -1274,16 +1244,16 @@
             [rootId]: {
               ...rootProbeState(rootId),
               status: snapshot.status === 'running' || snapshot.status === 'queued' ? 'running' : rootProbeState(rootId).status,
-              message: checks.length > 0 ? 'Probe steps received' : rootProbeState(rootId).message,
+              message: checks.length > 0 ? t('Probe steps received') : rootProbeState(rootId).message,
               checks
             }
           };
         },
-        failureMessage: ({ errorMessage }) => errorMessage ?? 'Root probe failed'
+        failureMessage: ({ errorMessage }) => errorMessage ?? t('Root probe failed')
       });
 
       if (!final.ok) {
-        throw new Error(storageRootProbeMessage(final.result, final.errorMessage || 'Root probe failed', 'failed'));
+        throw new Error(storageRootProbeMessage(final.result, final.errorMessage || t('Root probe failed'), 'failed'));
       }
 
       const completedAt = new Date().toISOString();
@@ -1370,9 +1340,9 @@
 
       if (discover) {
         const probeConfig = resolveStorageEndpointProbeConfig({ ...endpoint, storage_endpoint_id: endpointId });
-        const validation = validateStorageEndpointProbeConfig(probeConfig, { label: 'Root endpoint' });
+        const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Root endpoint') });
         if (!validation.ok) {
-          throw new Error(validation.message ?? 'Invalid endpoint for discovery run');
+          throw new Error(validation.message ?? t('Invalid endpoint for discovery run'));
         }
         const discoveryRequest = buildStorageEndpointProbeRequestFromEndpoint(endpoint, {
           discover: true,
@@ -1384,7 +1354,7 @@
           request: discoveryRequest,
           intervalMs: 1500,
           maxAttempts: 80,
-          failureMessage: ({ errorMessage }) => errorMessage ?? 'Endpoint discovery failed'
+          failureMessage: ({ errorMessage }) => errorMessage ?? t('Endpoint discovery failed')
         });
         if (discoveryFinal.ok) {
           await syncStorageRootDiscoveryForEndpoint(fetch, endpointId, discoveryFinal.result);
@@ -1424,7 +1394,7 @@
       await reloadStorageRootActivity(rootId);
     } catch (e: any) {
       const completedAt = new Date().toISOString();
-      const failureMessage = String(e?.message ?? 'Root probe failed');
+      const failureMessage = String(e?.message ?? t('Root probe failed'));
       const persistProbeFailure = async (message: string) => {
         try {
           await recordStorageRootProbeResult(fetch, Number(rootId), {
@@ -1515,15 +1485,15 @@
   const runSelectedRootProbe = async () => {
     try {
       await runRootProbe(true);
-      toast.success('Root probe OK: storage root is reachable');
+      toast.success(t('Root probe OK: storage root is reachable'));
     } catch (e: any) {
-      toast.error(e?.message ?? 'Root probe failed');
+      toast.error(e?.message ?? t('Root probe failed'));
     }
   };
 
   const openAccessRequestModal = () => {
     if (!selectedStorageRootId) {
-      toast.warning('Select a storage root first');
+      toast.warning(t('Select a storage root first'));
       return;
     }
     void goto(`/access-requests?create=1&root=${encodeURIComponent(String(selectedStorageRootId))}`);
@@ -1576,7 +1546,7 @@
         severity: payload.severity ?? 'info',
         target_type: 'storage_root',
         target_id: rootId,
-        target_display: payload.targetDisplay ?? String(selectedRow?.storage_root_name ?? selectedRow?.name ?? `Root #${rootId}`),
+        target_display: payload.targetDisplay ?? String(selectedRow?.storage_root_name ?? selectedRow?.name ?? t('Root #{rootId}', { rootId })),
         context_json: payload.context ?? {},
         created_at: new Date().toISOString()
       },
@@ -1606,7 +1576,7 @@
         ...(payload.context ?? {}),
         message: payload.message,
         storage_root_id: rootId,
-        storage_root_name: String(selectedRow?.storage_root_name ?? selectedRow?.name ?? `Root #${rootId}`)
+        storage_root_name: String(selectedRow?.storage_root_name ?? selectedRow?.name ?? t('Root #{rootId}', { rootId }))
       }
     });
 
@@ -1623,7 +1593,7 @@
           ...(payload.context ?? {}),
           message: payload.message,
           storage_root_id: rootId,
-          storage_root_name: String(selectedRow?.storage_root_name ?? selectedRow?.name ?? `Root #${rootId}`)
+          storage_root_name: String(selectedRow?.storage_root_name ?? selectedRow?.name ?? t('Root #{rootId}', { rootId }))
         }
       });
     } catch {
@@ -1649,7 +1619,7 @@
       activityRows = [];
       activityLoadedForRootId = rootId;
       if ($storageRootsUiStore.detailTab === 'activity') {
-        toast.error('Unable to load storage root activity');
+        toast.error(t('Unable to load storage root activity'));
       }
     } finally {
       if (token === activityRequestToken) {
@@ -1675,6 +1645,7 @@
   }
 
   $: if (
+    browser &&
     selectedStorageRootId &&
     activityLoadedForRootId !== Number(selectedStorageRootId)
   ) {
@@ -1687,7 +1658,7 @@
 
   async function openActivityTab() {
     if (!selectedStorageRootId) {
-      toast.warning('Select a storage root first');
+      toast.warning(t('Select a storage root first'));
       return;
     }
 
@@ -1700,145 +1671,16 @@
   /* -------------------------------------------------------------------------- */
 
   let showTagsModal = false;
-  let selectedTagIds: number[] = [];
-  let tagsSearch = '';
-  let tagsSaving = false;
-  let selectedTagIdSet = new Set<number>();
-  let attachedTagIdSet = new Set<number>();
-  let tagsModalWasOpen = false;
-  let tagsSearchNorm = '';
-  let catalogTags: UiTag[] = [];
-  let availableTags: UiTag[] = [];
-  let selectedTags: UiTag[] = [];
-
-  const normalizedCatalogTags = () => normalizeTagsCatalog((data.tags ?? []) as StorageRootTagLike[]);
 
   const openTagsModal = () => {
     showTagsModal = true;
   };
 
-  const attachedTagIds = (): number[] =>
-    (overview?.tags ?? selectedRow?.tags ?? [])
-      .map((t: any) => Number(t?.id ?? t?.tag_id ?? 0))
-      .filter((id: number) => Number.isFinite(id) && id > 0);
-
-  $: if (showTagsModal && !tagsModalWasOpen) {
-    tagsModalWasOpen = true;
-    selectedTagIds = attachedTagIds();
-    tagsSearch = '';
-  }
-
-  $: if (!showTagsModal && tagsModalWasOpen) {
-    tagsModalWasOpen = false;
-  }
-
-  $: selectedTagIdSet = new Set(selectedTagIds);
-  $: tagsSearchNorm = tagsSearch.trim().toLowerCase();
-  $: catalogTags = normalizedCatalogTags();
-  $: attachedTagIdSet = new Set(attachedTagIds());
-
-  $: availableTags = catalogTags
-    .filter((t: any) => !selectedTagIdSet.has(Number(t.id)))
-    .filter((t: any) => {
-      if (!tagsSearchNorm) return true;
-      const hay = [t.label, t.name, t.code]
-        .map((v: any) => String(v ?? '').toLowerCase())
-        .join(' ');
-      return hay.includes(tagsSearchNorm);
-    });
-
-  $: selectedTags = catalogTags
-    .filter((t: any) => selectedTagIdSet.has(Number(t.id)))
-    .filter((t: any) => {
-      if (!tagsSearchNorm) return true;
-      const hay = [t.label, t.name, t.code]
-        .map((v: any) => String(v ?? '').toLowerCase())
-        .join(' ');
-      return hay.includes(tagsSearchNorm);
-    });
-
-  function toggleTagSelection(tagId: number, checked: boolean) {
-    const normalized = Number(tagId);
-    if (!Number.isFinite(normalized) || normalized <= 0) return;
-    const next = toggleSetValue(new Set(selectedTagIds), normalized, checked);
-    selectedTagIds = [...next];
-  }
-
-  function addTagToSelection(tagId: number) {
-    toggleTagSelection(tagId, true);
-  }
-
-  function removeTagFromSelection(tagId: number) {
-    toggleTagSelection(tagId, false);
-  }
-
-  async function saveTags() {
-    if (tagsSaving) return;
-    const selectedId = selectedRow?.storage_root_id;
-    if (!selectedId) {
-      toast.warning('No storage root selected');
-      return;
-    }
-
-    tagsSaving = true;
-    try {
-      const selectedIds = new Set(
-        selectedTagIds
-          .map((id) => Number(id))
-          .filter((id) => Number.isFinite(id) && id > 0)
-      );
-
-      const tagsCatalog = (data.tags ?? []) as StorageRootTagLike[];
-
-      const currentTags = (overview?.tags ?? selectedRow?.tags ?? []) as StorageRootTagLike[];
-      const currentIds = new Set(
-        currentTags
-          .map((t) => tagId(t))
-          .filter((id) => Number.isFinite(id) && id > 0)
-      );
-      const toAttachIds = [...selectedIds].filter((id) => !currentIds.has(id));
-      const toDetachIds = [...currentIds].filter((id) => !selectedIds.has(id));
-
-      if (toAttachIds.length === 0 && toDetachIds.length === 0) {
-        toast.warning('No tag changes to save');
-        return;
-      }
-
-      for (const toAttachId of toAttachIds) {
-        await attachTagToStorageRoot(fetch, { tag_id: toAttachId, resource_id: selectedId });
-      }
-      for (const toDetachId of toDetachIds) {
-        await detachTagFromStorageRoot(fetch, { tag_id: toDetachId, resource_id: selectedId });
-      }
-
-      const targetTags = tagsCatalog.filter((t: any) => {
-        const id = tagId(t);
-        return Number.isFinite(id) && selectedIds.has(id);
-      });
-
-      const normalizedTargetTags = targetTags.map((t) => ({
-        ...t,
-        id: tagId(t),
-        label: tagLabel(t),
-        name: t?.name ?? t?.label ?? '',
-        color_rgb: tagColor(t)
-      }));
-
-      const updatedOverview = setOverviewForRoot(selectedId, {
-        ...(overview ?? {}),
-        tags: normalizedTargetTags
-      });
-
-      await refreshStorageRootsLoad();
-
-      showTagsModal = false;
-      toast.success('Tags updated');
-    } catch {
-      toast.error('Unable to save tag changes');
-    } finally {
-      tagsSaving = false;
-    }
-  }
+  const handleTagsSaved = async (tags: StorageRootTagLike[]) => {
+    const rootId = Number(selectedRow?.storage_root_id ?? 0);
+    if (rootId > 0) setOverviewForRoot(rootId, { ...(overview ?? {}), tags });
+    await refreshStorageRootsLoad();
+  };
 
   /* -------------------------------------------------------------------------- */
   /* Governance                                                                  */
@@ -1861,10 +1703,10 @@
   let ownersBrowserDefaultRole: 'guardian' = 'guardian';
 
   const GOVERNANCE_HELPER_TEXT = {
-    guardian: 'Guardians manage access governance for this storage root.'
+    guardian: t('Guardians manage access governance for this storage root.')
   } as const;
 
-  const governanceEmptyTitleForRole = (role: 'guardian') => 'No guardian assigned yet';
+  const governanceEmptyTitleForRole = (role: 'guardian') => t('No guardian assigned yet');
 
   const governanceForRole = (role: 'guardian') =>
     governanceOwners.filter((owner) => String(owner?.role ?? '').toLowerCase() === role);
@@ -1921,17 +1763,11 @@
     });
   };
 
-  const governanceBrowseDisabled = () =>
-    governanceSaving || !selectedStorageRootId;
-
   const governanceOwnerTypeLabel = (owner: Record<string, any>) => {
     const value = String(owner?.identity_type ?? owner?.type ?? '').trim().toLowerCase();
-    if (value.includes('group')) return 'Group';
-    return 'User';
+    if (value.includes('group')) return t('Group');
+    return t('User');
   };
-
-  const governanceRoleRowsCount = (role: 'guardian') =>
-    governanceOwnersDraftForRole(role).length;
 
   $: governanceRoleRows = buildGovernanceOwnersDraftForRole(
     governanceRoleTab,
@@ -1987,7 +1823,7 @@
       }
     } catch (e: any) {
       if (token !== governanceOwnersLoadToken) return;
-      governanceError = e?.message ?? 'Unable to load guardians';
+      governanceError = e?.message ?? t('Unable to load guardians');
       governanceOwners = Array.isArray(overview?.owners) ? overview.owners : [];
       if (shouldResetGovernanceDraftFromOwners(governanceDraftDirty)) {
         resetGovernanceDraftFromOwners();
@@ -2010,7 +1846,7 @@
 
   function openGovernanceDrawer(role: 'guardian' = 'guardian') {
     if (!selectedStorageRootId) {
-      toast.warning('Select a storage root first');
+      toast.warning(t('Select a storage root first'));
       return;
     }
     governanceRoleTab = role;
@@ -2025,7 +1861,7 @@
 
   async function openOwnersBrowser(role: 'guardian') {
     if (!selectedStorageRootId) {
-      toast.warning('Select a storage root first');
+      toast.warning(t('Select a storage root first'));
       return;
     }
     governanceRoleTab = role;
@@ -2091,7 +1927,7 @@
           unresolved_principal_labels: governanceUnresolvedPrincipalLabels
         }
       });
-      toast.success('Selection updated. Save changes to persist.');
+      toast.success(t('Selection updated. Save changes to persist.'));
     }
   }
 
@@ -2134,7 +1970,7 @@
   async function saveGovernanceChanges() {
     if (!selectedStorageRootId || governanceSaving) return;
     if (!governanceHasDraftChanges()) {
-      toast.info('No pending governance changes');
+      toast.info(t('No pending governance changes'));
       return;
     }
     governanceSaving = true;
@@ -2149,22 +1985,46 @@
       showOwnersBrowserModal = false;
       showGovernanceDrawer = false;
       await invalidateAndReloadDetailsForRoot(selectedStorageRootId);
-      toast.success('Governance changes saved');
+      toast.success(t('Governance changes saved'));
     } catch (e: any) {
       const rawMessage = String(e?.message ?? '').trim();
       const hasSnapshotConstraint = /active snapshot|enabled users|invalid identity ids/i.test(rawMessage);
       governanceError = hasSnapshotConstraint
-        ? 'Some selected users are not eligible in the active identity snapshot. Re-open Browse directory and select enabled users from the current snapshot.'
-        : rawMessage || 'Unable to update guardians';
+        ? t('Some selected users are not eligible in the active identity snapshot. Re-open Browse directory and select enabled users from the current snapshot.')
+        : rawMessage || t('Unable to update guardians');
       toast.error(governanceError);
     } finally {
       governanceSaving = false;
     }
   }
+  $: rootIdentitySourceId = ((..._deps: unknown[]) => selectedRootIdentitySourceId())(overview, selectedRow, data);
+
+  // Values shown by StorageRootDetailView. The helpers read overview, selectedRow, probe and
+  // activity state themselves; listing those here makes Svelte recompute when any of them changes
+  // (a call like {accessModelRows()} in the markup would only run once).
+  $: detailView = ((..._deps: unknown[]) => ({
+    probeState: selectedProbeState(),
+    aclFreshness: aclFreshnessFromOverview(),
+    endpointLabel: endpointLabel(),
+    endpointAddress: endpointAddressLabel(),
+    accessModelRows: accessModelRows(),
+    rootAvailabilityText: rootAvailabilityText(),
+    rootAvailabilityTone: rootAvailabilityTone(),
+    showStatusBadge: showSelectedStatusBadge(),
+    lastProbeText: lastProbeLabel(),
+    tags: displayTags(selectedRow),
+    recentActivity: recentActivityRows(),
+    activityRemainder: activityRowsForSelectedRoot()
+  }))(overview, selectedRow, selectedStorageRootId, rootProbeStateByRootId, activityRows, activityLoadedForRootId, data);
 </script>
 
 {#if !hasRoots()}
-  <StorageRootEmptyState onConfigureEndpoint={() => goto('/admin/storage-endpoints')} />
+  <StorageRootEmptyState
+    canManage={data.user?.is_admin === true}
+    hasEndpoints={(data.endpoints ?? []).length > 0}
+    onCreateRoot={openCreateRoot}
+    onCreateEndpoint={() => (showEndpointWizard = true)}
+  />
 {:else}
   <div class="sr-clean-layout">
     <StorageRootTreePanel
@@ -2187,26 +2047,25 @@
       selectedRootCodeOrName={String(selectedRow?.storage_root_code ?? selectedRow?.storage_root_name ?? '—').toUpperCase()}
       activeTab={$storageRootsUiStore.detailTab}
       {rootProbeBusy}
-      probeState={selectedProbeState()}
-      aclFreshness={aclFreshnessFromOverview()}
+      probeState={detailView.probeState}
+      aclFreshness={detailView.aclFreshness}
       alertItems={selectedRootAlerts}
-      zoneLabel={selectedRow?.zone_name ?? '—'}
-      endpointLabel={endpointLabel()}
-      endpointAddress={endpointAddressLabel()}
+      endpointLabel={detailView.endpointLabel}
+      endpointAddress={detailView.endpointAddress}
       pathLabel={selectedRow?.root_path ?? '—'}
       contentSizeLabel={String((overview as any)?.estimated_size_label ?? (overview as any)?.content_size_label ?? '—')}
       contentUpdatedLabel={formatDateTimeLabel((overview as any)?.content_updated_at ?? (overview as any)?.last_content_scan_at ?? (overview as any)?.last_scan_at ?? selectedRow?.last_scan_at ?? null)}
-      accessModelRows={accessModelRows()}
+      accessModelRows={detailView.accessModelRows}
       projectedGroups={overview?.projected_ad_groups ?? []}
       {guardians}
-      rootAvailabilityText={rootAvailabilityText()}
-      rootAvailabilityTone={rootAvailabilityTone()}
-      showStatusBadge={showSelectedStatusBadge()}
-      lastProbeText={lastProbeLabel()}
-      tags={displayTags(selectedRow)}
+      rootAvailabilityText={detailView.rootAvailabilityText}
+      rootAvailabilityTone={detailView.rootAvailabilityTone}
+      showStatusBadge={detailView.showStatusBadge}
+      lastProbeText={detailView.lastProbeText}
+      tags={detailView.tags}
       effectiveAccessUsers={overview?.effective_access ?? []}
-      recentActivity={recentActivityRows()}
-      activityRemainder={activityRowsForSelectedRoot()}
+      recentActivity={detailView.recentActivity}
+      activityRemainder={detailView.activityRemainder}
       activityLoading={activityLoading}
       {tagId}
       {tagLabel}
@@ -2226,6 +2085,16 @@
   </div>
 {/if}
 
+<StorageEndpointWizardModal
+  open={showEndpointWizard}
+  onClose={() => (showEndpointWizard = false)}
+  on:done={async () => {
+    showEndpointWizard = false;
+    toast.success(t('Storage endpoint created.'));
+    await refreshStorageRootsLoad();
+  }}
+/>
+
 <AddStorageRootModal
   open={addRootModalOpen}
   zones={addRootZones}
@@ -2233,7 +2102,7 @@
   selectedEndpointId={addRootSelectedEndpointId}
   selectedFolderId={addRootSelectedFolderId}
   selectedFolderIds={addRootSelectedFolderIds}
-  managedRootKeys={managedRootKeysForAddWizard()}
+  managedRootKeys={managedRootKeysForAddWizard(ctxRows)}
   loading={addRootLoading}
   on:close={closeAddRootModal}
   on:selectZone={(event) => handleSelectAddRootZone(event.detail.zoneId)}
@@ -2261,76 +2130,40 @@
     editingRoot = null;
   }}
   onConfirm={confirmDeleteRoot}
-  title="Delete storage root"
-  description="This will remove the storage root from governance."
-  impactTitle="Storage root"
+  title={t('Delete storage root')}
+  description={t('This will remove the storage root from governance.')}
+  impactTitle={t('Storage root')}
   impactItems={[
-    `Name: ${String(editingRoot?.display_name ?? editingRoot?.storage_root_name ?? editingRoot?.name ?? 'Storage root')}`,
-    `Path: ${String(editingRoot?.root_path ?? editingRoot?.locator ?? editingRoot?.path ?? '—')}`,
+    t('Name: {String}', { String: String(editingRoot?.display_name ?? editingRoot?.storage_root_name ?? editingRoot?.name ?? t('Storage root')) }),
+    t('Path: {String}', { String: String(editingRoot?.root_path ?? editingRoot?.locator ?? editingRoot?.path ?? '—') }),
     'The storage root governance record will be permanently deleted.'
   ]}
-  deleteLabel="Delete"
+  deleteLabel={t('Delete')}
 />
 
-<StorageRootDrawerShell
+<StorageRootTagsDrawer
   open={showTagsModal}
+  storageRootId={selectedRow?.storage_root_id ?? null}
+  catalog={(data.tags ?? []) as StorageRootTagLike[]}
+  currentTags={(overview?.tags ?? selectedRow?.tags ?? []) as StorageRootTagLike[]}
   onClose={() => (showTagsModal = false)}
-  title="Manage tags"
-  subtitle="Attach and detach taxonomy tags for the selected storage root."
-  ariaLabelledby="sr-tags-drawer-title"
-  width="560px"
-  topOffset="70px"
-  showFooter={true}
->
-  <div class="sr-tags-modal-body">
-    <p class="b2s-muted">Select the final tag set for this storage root.</p>
-    <SearchField
-      wrapperClass="sr-tag-search"
-      placeholder="Search tags..."
-      ariaLabel="Search tags"
-      bind:value={tagsSearch}
-    />
-
-    <DualListPicker
-      availableItems={availableTags}
-      selectedItems={selectedTags}
-      availableTitle="Available tags"
-      selectedTitle="Assigned tags"
-      getItemKey={(item) => Number(item?.id ?? 0)}
-      itemLabel={(item) => String(item?.label ?? item?.name ?? item?.code ?? '-')}
-      on:add={(event) => addTagToSelection(Number(event.detail.item?.id ?? 0))}
-      on:remove={(event) => removeTagFromSelection(Number(event.detail.item?.id ?? 0))}
-    >
-      <svelte:fragment slot="item" let:item>
-        <TagPill label={item.label} color={item.color_rgb ?? null} />
-      </svelte:fragment>
-    </DualListPicker>
-  </div>
-
-  <svelte:fragment slot="footer">
-    <div class="sr-modal-actions sr-tags-modal-actions">
-      <EntityActionButton compact={true} variant="secondary" label="Cancel" disabled={tagsSaving} onClick={() => (showTagsModal = false)} />
-      <EntityActionButton compact={true} variant="primary" icon={tagsSaving ? 'bi-arrow-repeat' : 'bi-check2'} busy={tagsSaving} label={tagsSaving ? 'Saving…' : 'Save tag changes'} disabled={tagsSaving} onClick={saveTags} />
-    </div>
-  </svelte:fragment>
-</StorageRootDrawerShell>
+  onSaved={handleTagsSaved}
+/>
 
 <EntityAlertDrawer
   open={showAlertsDrawer}
   onClose={() => (showAlertsDrawer = false)}
-  title="Storage root alerts"
-  subtitle={`Storage root · ${String(selectedRow?.storage_root_name ?? selectedRow?.storage_root_code ?? '—')}`}
+  title={t('Storage root alerts')}
+  subtitle={t('Storage root · {String}', { String: String(selectedRow?.storage_root_name ?? selectedRow?.storage_root_code ?? '—') })}
   items={selectedRootAlerts}
-  emptyLabel="No alert found for this storage root."
+  emptyLabel={t('No alert found for this storage root.')}
   ariaLabelledby="sr-alerts-drawer-title"
-  width="640px"
-  topOffset="70px"
 />
 
 <StorageRootEffectiveAccessModal
   open={showEffectiveAccessModal}
-  title={effectiveAccessModalLevel === 'write' ? 'Users with WRITE access' : 'Users with READ access'}
-  contextLabel={`Storage • ${selectedRow?.zone_name ?? '—'} • ${selectedRow?.storage_root_name ?? '—'}`}
+  title={effectiveAccessModalLevel === 'write' ? t('Users with WRITE access') : t('Users with READ access')}
+  contextLabel={t('Storage • {value} • {value2}', { value: (selectedRow?.zone_name ?? '—'), value2: (selectedRow?.storage_root_name ?? '—') })}
   membersCount={effectiveUsersByLevel(effectiveAccessModalLevel).length}
   level={effectiveAccessModalLevel}
   users={effectiveUsersByLevel(effectiveAccessModalLevel)}
@@ -2349,9 +2182,9 @@
   loading={governanceLoading}
   roleTab={governanceRoleTab}
   draftDirty={governanceDraftDirty}
-  selectedRootLabel={String(selectedRow?.storage_root_code ?? selectedRow?.storage_root_name ?? 'Storage root').trim().toUpperCase()}
+  selectedRootLabel={String(selectedRow?.storage_root_code ?? selectedRow?.storage_root_name ?? t('Storage root')).trim().toUpperCase()}
   helperText={GOVERNANCE_HELPER_TEXT[governanceRoleTab]}
-  browseDisabled={governanceBrowseDisabled()}
+  browseDisabled={governanceSaving || !selectedStorageRootId}
   errorMessage={governanceError}
   unresolvedPrincipalLabels={governanceUnresolvedPrincipalLabels}
   emptyTitle={governanceEmptyTitleForRole(governanceRoleTab)}
@@ -2365,7 +2198,7 @@
 <StorageRootOwnersAdModal
   open={showOwnersBrowserModal}
   storageRootId={selectedStorageRootId}
-  initialSourceId={selectedRootIdentitySourceId()}
+  initialSourceId={rootIdentitySourceId}
   initialGuardianIds={governanceDraftIdentityIds('guardian')}
   defaultAssignedRole={ownersBrowserDefaultRole}
   onClose={closeOwnersBrowserModal}

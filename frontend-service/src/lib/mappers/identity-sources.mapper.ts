@@ -1,3 +1,5 @@
+import { formatDateTime } from '$lib/utils/format';
+import { t } from '$lib/i18n';
 import { resolveStatusVariant, type StatusVariant } from '../utils/status';
 
 export type IdentitySourceRowLike = {
@@ -104,7 +106,7 @@ const asLower = (value: unknown): string => String(value ?? '').trim().toLowerCa
 
 const statusLabel = (value: unknown): string => {
   const normalized = String(value ?? '').trim();
-  if (!normalized) return 'Unknown';
+  if (!normalized) return t('Unknown');
   return normalized.replace(/[_-]+/g, ' ');
 };
 
@@ -137,15 +139,15 @@ const firstValidTimestamp = (...values: unknown[]): string | null => {
 
 export const identitySourceTypeLabel = (value?: string): string => {
   const key = String(value ?? '').trim().toLowerCase();
-  if (key === 'ad' || key === 'ldap') return 'Active Directory / LDAP';
+  if (key === 'ad' || key === 'ldap') return t('Active Directory / LDAP');
   if (key === 'oidc') return 'OIDC';
-  if (key === 'local') return 'Local';
-  if (key === 'scim') return 'SCIM 2.0';
-  return value ?? 'Identity source';
+  if (key === 'local') return t('Local');
+  if (key === 'scim') return t('SCIM 2.0');
+  return value ?? t('Identity source');
 };
 
 const identitySourceDisplayLabel = (source: IdentitySourceRowLike): string =>
-  source?.display_name ?? source?.name ?? 'Identity source';
+  source?.display_name ?? source?.name ?? t('Identity source');
 
 const normalizeIdentitySourceStatus = (status?: string, isActive?: boolean): string => {
   const key = String(status ?? '').trim().toLowerCase();
@@ -167,34 +169,25 @@ export const formatRelativeTimestamp = (value?: string | null): string => {
   if (Math.abs(diffMs) < minute) return 'just now';
   if (Math.abs(diffMs) < hour) {
     const n = Math.max(1, Math.round(Math.abs(diffMs) / minute));
-    return diffMs >= 0 ? `${n}m ago` : `in ${n}m`;
+    return diffMs >= 0 ? t('{n}m ago', { n }) : `in ${n}m`;
   }
   if (Math.abs(diffMs) < day) {
     const n = Math.max(1, Math.round(Math.abs(diffMs) / hour));
-    return diffMs >= 0 ? `${n}h ago` : `in ${n}h`;
+    return diffMs >= 0 ? t('{n}h ago', { n }) : `in ${n}h`;
   }
   const n = Math.max(1, Math.round(Math.abs(diffMs) / day));
-  return diffMs >= 0 ? `${n}d ago` : `in ${n}d`;
+  return diffMs >= 0 ? t('{n}d ago', { n }) : `in ${n}d`;
 };
 
-export const formatAbsoluteTimestamp = (value?: string | null): string => {
+const formatAbsoluteTimestamp = (value?: string | null): string => {
   const iso = toIsoDate(value);
   if (!iso) return '—';
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return '—';
-  return parsed.toLocaleString('fr-FR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
+  return formatDateTime(iso);
 };
 
 const formatIdentitySourceSubtitle = (source: IdentitySourceRowLike): string => {
   if (asLower(source?.type) === 'local') {
-    return 'Local identity provider';
+    return t('Local identity provider');
   }
 
   const baseDn = String(source?.base_dn ?? '').trim();
@@ -205,8 +198,8 @@ const formatIdentitySourceSubtitle = (source: IdentitySourceRowLike): string => 
   if (baseDn) return baseDn;
   if (bindDn && protocol) return `${protocol} · ${bindDn}`;
   if (bindDn) return bindDn;
-  if (protocol) return `${protocol} directory source`;
-  return 'Directory source configuration';
+  if (protocol) return t('{protocol} directory source', { protocol });
+  return t('Directory source configuration');
 };
 
 const getHealthTone = (status?: string | null, isEnabled = true): StatusVariant => {
@@ -221,13 +214,13 @@ const getHealthTone = (status?: string | null, isEnabled = true): StatusVariant 
 };
 
 const healthLabelFromSource = (status?: string | null, isEnabled = true): string => {
-  if (!isEnabled) return 'Disabled';
+  if (!isEnabled) return t('Disabled');
   const normalized = asLower(status).replace(/[_\s-]+/g, '_');
-  if (!normalized) return 'Unknown';
-  if (['active', 'healthy', 'connected', 'online', 'success', 'succeeded'].includes(normalized)) return 'Healthy';
-  if (['warning', 'stale', 'degraded'].includes(normalized)) return 'Degraded';
-  if (['running', 'probing', 'processing', 'in_progress'].includes(normalized)) return 'Checking';
-  if (['error', 'failed', 'offline', 'disconnected', 'timeout', 'unreachable'].includes(normalized)) return 'Unhealthy';
+  if (!normalized) return t('Unknown');
+  if (['active', 'healthy', 'connected', 'online', 'success', 'succeeded'].includes(normalized)) return t('Healthy');
+  if (['warning', 'stale', 'degraded'].includes(normalized)) return t('Degraded');
+  if (['running', 'probing', 'processing', 'in_progress'].includes(normalized)) return t('Checking');
+  if (['error', 'failed', 'offline', 'disconnected', 'timeout', 'unreachable'].includes(normalized)) return t('Unhealthy');
   return statusLabel(status);
 };
 
@@ -255,27 +248,27 @@ const snapshotLabelFromSource = (
   snapshotJobStatus?: string | null
 ): string => {
   const job = asLower(snapshotJobStatus);
-  if (job === 'running') return 'Snapshot in progress';
+  if (job === 'running') return t('Snapshot in progress');
 
   const normalized = String(status ?? '').trim();
   const relative = formatRelativeTimestamp(lastSnapshotAt);
 
-  if (!normalized && !toIsoDate(lastSnapshotAt)) return 'Never Synced';
+  if (!normalized && !toIsoDate(lastSnapshotAt)) return t('Never Synced');
   if (normalized && relative !== '—') return `${statusLabel(normalized)} · ${relative}`;
   if (normalized) return statusLabel(normalized);
-  if (relative !== '—') return `Synced ${relative}`;
-  return 'No snapshot metadata';
+  if (relative !== '—') return t('Synced {relative}', { relative });
+  return t('No snapshot metadata');
 };
 
 const endpointFromSource = (source: IdentitySourceRowLike): string => {
-  if (asLower(source?.type) === 'local') return 'Local provider';
+  if (asLower(source?.type) === 'local') return t('Local provider');
 
   const host = String(source?.host ?? '').trim();
   const issuer = String(source?.issuer_url ?? '').trim();
   const port = Number(source?.port ?? 0);
   if (host) return `${host}${Number.isFinite(port) && port > 0 ? `:${port}` : ''}`;
   if (issuer) return issuer;
-  return 'No endpoint';
+  return t('No endpoint');
 };
 
 const typeToneFromSource = (sourceType?: string): 'ad' | 'oidc' | 'neutral' => {
@@ -329,7 +322,7 @@ export const mapIdentitySourceToCardVM = (
       : getHealthTone(sourceStatus, isEnabled);
   const healthLabel =
     probeJobStatus === 'running'
-      ? 'Probe running'
+      ? t('Probe running')
       : healthLabelFromSource(sourceStatus, isEnabled);
 
   const snapshotTone =
@@ -339,7 +332,7 @@ export const mapIdentitySourceToCardVM = (
   const snapshotLabel =
     supportsSnapshot
       ? snapshotLabelFromSource(snapshotStatus, snapshotAt, options?.snapshotJobStatus ?? null)
-      : 'Not applicable';
+      : t('Not applicable');
 
   const usersCount =
     toCount(snapshotMeta?.lastSnapshotUsersCount) ?? toCount(source?.last_snapshot_users_count);
@@ -357,14 +350,14 @@ export const mapIdentitySourceToCardVM = (
 
   const lastProbeLabel =
     probeJobStatus === 'running'
-      ? 'Probe in progress'
+      ? t('Probe in progress')
       : lastProbeAt
-        ? `${formatAbsoluteTimestamp(lastProbeAt)} (${formatRelativeTimestamp(lastProbeAt)})`
-        : 'Never';
+        ? formatAbsoluteTimestamp(lastProbeAt)
+        : t('Never');
 
   const lastSnapshotLabel = snapshotAt
-    ? `${formatAbsoluteTimestamp(snapshotAt)} (${formatRelativeTimestamp(snapshotAt)})`
-    : 'No snapshot yet';
+    ? formatAbsoluteTimestamp(snapshotAt)
+    : t('No snapshot yet');
 
   return {
     id: Number(source?.id ?? 0),
@@ -382,10 +375,10 @@ export const mapIdentitySourceToCardVM = (
     endpointLabel: endpointFromSource(source),
     lastProbeLabel: supportsProbe
       ? lastProbeLabel
-      : 'Not applicable',
+      : t('Not applicable'),
     lastSnapshotLabel: supportsSnapshot
       ? lastSnapshotLabel
-      : 'Not applicable',
+      : t('Not applicable'),
     usersCount,
     groupsCount,
     membershipsCount,

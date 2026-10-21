@@ -1,3 +1,7 @@
+import { t } from '$lib/i18n';
+import type { IdentitySourceRow } from '$lib/types/identity-sources';
+import { formatRelativeTimestamp, type IdentitySourceCardVM } from '$lib/mappers/identity-sources.mapper';
+
 export type IdentitySourceInternalMeta = {
   id?: number;
   bind_dn?: string | null;
@@ -66,3 +70,28 @@ export const toSnapshotStorePatch = (meta: IdentitySnapshotMeta): IdentitySnapsh
   lastSnapshotGroupsCount: meta.groups,
   lastSnapshotMembershipsCount: meta.memberships
 });
+
+export const toneClass = (tone: string | null | undefined): string => {
+  const normalized = String(tone ?? '').trim().toLowerCase();
+  if (normalized === 'success') return 'is-success';
+  if (normalized === 'warning') return 'is-warning';
+  if (normalized === 'error') return 'is-error';
+  if (normalized === 'info') return 'is-info';
+  if (normalized === 'ad') return 'is-ad';
+  if (normalized === 'oidc') return 'is-oidc';
+  if (normalized === 'disabled') return 'is-disabled';
+  return 'is-muted';
+};
+
+export const sourceIconClass = (card: IdentitySourceCardVM | null): string => {
+  const type = String(card?.raw?.type ?? '').trim().toLowerCase();
+  if (type === 'oidc') return 'bi-shield-check';
+  if (type === 'local') return 'bi-people';
+  return 'bi-diagram-3';
+};
+
+export const lastSyncLabel = (source: IdentitySourceRow | null | undefined): string => {
+  const raw = String(source?.last_snapshot_at ?? '').trim();
+  if (raw) return formatRelativeTimestamp(raw);
+  return source?.capabilities?.snapshot_enabled ? t('Never synced') : t('Not applicable');
+};

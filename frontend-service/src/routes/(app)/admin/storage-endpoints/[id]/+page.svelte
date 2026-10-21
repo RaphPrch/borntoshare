@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
@@ -6,9 +7,9 @@
   import EntityAlertDrawer from '$lib/components/entity/EntityAlertDrawer.svelte';
   import EntityAlertStrip from '$lib/components/entity/EntityAlertStrip.svelte';
   import type { EntityAlertStripItem } from '$lib/components/entity/entity-alerts.types';
-  import EntityTabs from '$lib/components/entity/EntityTabs.svelte';
+  import Tabs from '$lib/components/ui/Tabs.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
-  import EmptyStateCard from '$lib/components/ui/EmptyStateCard.svelte';
+  import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import StorageEndpointsSidebar from '$lib/components/storage-endpoints/StorageEndpointsSidebar.svelte';
   import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
   import StorageEndpointEditModal from '$lib/components/storage-endpoints/StorageEndpointEditModal.svelte';
@@ -17,14 +18,15 @@
     buildStorageEndpointProvisioningViewModel,
     type ProvisioningPolicyViewModel
   } from '$lib/components/provisioning/provisioning-policy.adapter';
-  import EntityConsoleHeader from '$lib/components/entity/EntityConsoleHeader.svelte';
+  import EntityHeader from '$lib/components/entity/EntityHeader.svelte';
   import {
     type OperationalHeaderMetaItem
-  } from '$lib/components/entity/EntityOperationalHeader.svelte';
+  } from '$lib/components/entity/EntityHeader.svelte';
   import { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
   import EntityKpiRow from '$lib/components/entity/EntityKpiRow.svelte';
+  import type { EntityKpiItem } from '$lib/components/entity/EntityKpiRow.svelte';
   import EntityOverviewLayout from '$lib/components/entity/EntityOverviewLayout.svelte';
   import AssociatedRootsTable from '$lib/components/storage-endpoints/AssociatedRootsTable.svelte';
   import ActivityDetailsDrawer from '$lib/components/activity/ActivityDetailsDrawer.svelte';
@@ -36,7 +38,6 @@
     getStorageEndpointProvisioningPolicy,
     putStorageEndpointProvisioningPolicy,
     recordStorageEndpointProbeResult,
-    updateStorageEndpoint,
     type StorageEndpointProvisioningPolicy,
     type StorageEndpointProvisioningUpdatePayload
   } from '$lib/api/storage-endpoints';
@@ -45,14 +46,9 @@
     createProvisioningDraft
   } from '$lib/mappers/storage-endpoint-provisioning.mapper';
   import {
-    mapBusinessOverallToVariant,
     normalizeProbeStatus,
     reachabilityFromProbeStatus
   } from '$lib/mappers/visual-state.mapper';
-  import {
-    endpointOperationalStateLabel,
-    endpointOperationalStateStatus
-  } from '$lib/mappers/endpoint-operational-state.mapper';
   import {
     buildStorageEndpointOperationalAttentionItems,
     endpointHealthToOperationalTone
@@ -66,7 +62,6 @@
   } from '$lib/mappers/storage-root-alerts.mapper';
   import {
     collectStorageRootsAvailabilityByEndpoint,
-    syncStorageRootDiscoveryForEndpoint,
     type StorageRootAvailabilitySummary
   } from '$lib/jobs/probe-runner';
   import {
@@ -106,17 +101,16 @@
 
   const norm = (v?: string | null) => (v ?? '').toLowerCase().trim();
   const endpointId = (ep: any) => Number(ep?.id ?? ep?.storage_endpoint_id ?? 0);
-  const endpointName = (ep: any) => String(ep?.name ?? ep?.storage_endpoint_name ?? 'Unavailable');
-  const endpointProtocol = (ep: any) => String(ep?.protocol ?? ep?.type ?? ep?.storage_endpoint_type ?? '').toLowerCase();
-  const endpointHost = (ep: any) => String(ep?.host ?? 'Unavailable');
+  const endpointName = (ep: any) => String(ep?.name ?? ep?.storage_endpoint_name ?? t('Unavailable'));
+  const endpointHost = (ep: any) => String(ep?.host ?? t('Unavailable'));
   const endpointHasHost = (ep: any): boolean => {
     const host = String(ep?.host ?? '').trim();
     return Boolean(host) && host.toLowerCase() !== 'unavailable';
   };
-  const endpointZone = (ep: any) => String(ep?.zone?.name ?? ep?.zone_name ?? 'Unavailable');
+  const endpointZone = (ep: any) => String(ep?.zone?.name ?? ep?.zone_name ?? t('Unavailable'));
   const rootId = (row: any) => Number(row?.id ?? row?.storage_root_id ?? 0);
-  const rootName = (row: any) => String(row?.name ?? row?.storage_root_name ?? 'Unavailable');
-  const rootPath = (row: any) => String(row?.root_path ?? row?.path ?? row?.location ?? 'Unavailable');
+  const rootName = (row: any) => String(row?.name ?? row?.storage_root_name ?? t('Unavailable'));
+  const rootPath = (row: any) => String(row?.root_path ?? row?.path ?? row?.location ?? t('Unavailable'));
   const rootsForEndpoint = (ep: any): any[] =>
     roots.filter((row) => Number(row?.storage_endpoint_id ?? 0) === endpointId(ep));
 
@@ -166,21 +160,11 @@
 
   const endpointHealth = (ep: any): HealthValue => endpointHealthById[String(endpointId(ep))] ?? 'unknown';
 
-  const rootHealth = (row: any): HealthValue => {
-    const endpointKey = String(selectedId || 0);
-    return rootHealthByEndpointId[endpointKey]?.[String(rootId(row))] ?? 'unknown';
-  };
-
   const healthLabel = (value: HealthValue): string => {
-    if (value === 'healthy') return 'Reachable';
-    if (value === 'degraded') return 'Needs review';
-    if (value === 'unhealthy') return 'Probe failed';
-    return 'No probe yet';
-  };
-
-  const healthToneClass = (value: HealthValue): string => {
-    if (value === 'healthy') return 'is-success';
-    return 'is-danger';
+    if (value === 'healthy') return t('Reachable');
+    if (value === 'degraded') return t('Needs review');
+    if (value === 'unhealthy') return t('Probe failed');
+    return t('No probe yet');
   };
 
   const setHealthLoading = (endpointIdValue: number, stage: string | null) => {
@@ -196,16 +180,6 @@
       ...healthLoadingByEndpointId,
       [key]: stage
     };
-  };
-
-  const endpointHealthLoadingStage = (ep: any): string =>
-    healthLoadingByEndpointId[String(endpointId(ep))] ?? '';
-
-  const endpointHealthLoadingLabel = (ep: any): string => {
-    const stage = endpointHealthLoadingStage(ep);
-    if (stage === 'testing_endpoint') return 'Testing endpoint…';
-    if (stage === 'syncing_roots') return 'Syncing roots…';
-    return '';
   };
 
   const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
@@ -246,16 +220,16 @@
     const date = new Date(text);
     if (!Number.isFinite(date.getTime())) return fallback;
     const diffMs = Date.now() - date.getTime();
-    if (diffMs < 0) return formatDateTime(text, { empty: 'Unavailable' });
+    if (diffMs < 0) return formatDateTime(text, { empty: t('Unavailable') });
     const seconds = Math.floor(diffMs / 1000);
-    if (seconds < 60) return 'Just now';
+    if (seconds < 60) return t('Just now');
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} min ago`;
+    if (minutes < 60) return t('{minutes} min ago', { minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} h ago`;
+    if (hours < 24) return t('{hours} h ago', { hours });
     const days = Math.floor(hours / 24);
-    if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
-    return formatDateTime(text, { empty: 'Unavailable' });
+    if (days < 30) return t('{days} day{value} ago', { days, value: (days > 1 ? 's' : '') });
+    return formatDateTime(text, { empty: t('Unavailable') });
   };
 
   function handleEndpointTabChange(key: string) {
@@ -306,7 +280,7 @@
   $: sidebarGroups = (() => {
     const map = new Map<string, { zone_id: string | number; zone_name: string; endpoints: any[] }>();
     for (const ep of sidebarEndpoints) {
-      const zoneName = endpointZone(ep) || 'Unavailable';
+      const zoneName = endpointZone(ep) || t('Unavailable');
       const rawZoneId = Number(ep?.zone_id ?? ep?.zone?.id ?? 0);
       const resolvedZoneId = Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId(ep)}`;
       const key = String(resolvedZoneId);
@@ -364,9 +338,9 @@
 
   type EndpointTabKey = 'overview' | 'activity' | 'provisioning';
   const endpointTabs: { key: EndpointTabKey; label: string; icon: string }[] = [
-    { key: 'overview', label: 'Overview', icon: 'bi-grid' },
-    { key: 'activity', label: 'Activity', icon: 'bi-activity' },
-    { key: 'provisioning', label: 'Provisioning', icon: 'bi-shield-check' }
+    { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
+    { key: 'activity', label: t('Activity'), icon: 'bi-activity' },
+    { key: 'provisioning', label: t('Provisioning'), icon: 'bi-shield-check' }
   ];
   let activeEndpointTab: EndpointTabKey = 'overview';
 
@@ -485,12 +459,14 @@
     void refreshEndpointHealth(selected, { manual: true });
   }
 
-  $: if (selected && selectedId > 0 && healthLoadedForEndpointId !== selectedId) {
+  // Browser only: during SSR the component fetch cannot resolve relative /api URLs
+  $: if (browser && selected && selectedId > 0 && healthLoadedForEndpointId !== selectedId) {
     healthLoadedForEndpointId = selectedId;
     void refreshEndpointHealth(selected);
   }
 
   $: if (
+    browser &&
     selectedEndpointId() > 0 &&
     activeEndpointTab === 'provisioning' &&
     !endpointProvisioningBusy &&
@@ -533,7 +509,7 @@
       endpointProvisioningError = null;
       endpointProvisioningLoadedForId = id;
     } catch (e) {
-      endpointProvisioningError = String((e as any)?.message ?? 'Unable to load endpoint provisioning policy.');
+      endpointProvisioningError = String((e as any)?.message ?? t('Unable to load endpoint provisioning policy.'));
       endpointProvisioningLoadedForId = null;
     }
   }
@@ -550,10 +526,10 @@
       const updated = await putStorageEndpointProvisioningPolicy(fetch, selectedId, payload);
       endpointProvisioningPolicy = updated;
       resetEndpointProvisioningDraft(updated);
-      toast.success('Endpoint provisioning policy updated.');
+      toast.success(t('Endpoint provisioning policy updated.'));
       await invalidateAll();
     } catch (e) {
-      endpointProvisioningError = String((e as any)?.message ?? 'Unable to save endpoint provisioning policy.');
+      endpointProvisioningError = String((e as any)?.message ?? t('Unable to save endpoint provisioning policy.'));
       toast.error(endpointProvisioningError);
     } finally {
       endpointProvisioningBusy = false;
@@ -615,7 +591,7 @@
     if (!ep) return;
 
     const probeConfig = resolveStorageEndpointProbeConfig(ep);
-    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: 'Storage endpoint' });
+    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Storage endpoint') });
     const id = probeConfig.endpointId;
 
     if (!validation.ok) {
@@ -626,7 +602,7 @@
         protocol: probeConfig.protocol,
         message: validation.message
       });
-      toast.error(validation.message ?? 'Invalid endpoint probe configuration.');
+      toast.error(validation.message ?? t('Invalid endpoint probe configuration.'));
       return;
     }
 
@@ -696,13 +672,13 @@
           route: `/admin/storage-endpoints/${selectedId}`,
           endpointId: id
         });
-        toast.success(`Probe OK for ${endpointName(ep)}.`);
+        toast.success(t('Probe OK for {endpointName}.', { endpointName: endpointName(ep) }));
         await invalidateAll();
       } else {
         await persistEndpointProbeSnapshot(id, {
           last_probe_status: 'failed',
           last_probe_at: probeAt,
-          last_probe_message: String(final.errorMessage ?? 'Probe failed')
+          last_probe_message: String(final.errorMessage ?? t('Probe failed'))
         });
 
         applyAvailabilityHealth(
@@ -710,7 +686,7 @@
           { total: 0, available: 0, unavailable: 0, rows: [] },
           { probeOk: false }
         );
-        toast.error(`Probe failed for ${endpointName(ep)}.`);
+        toast.error(t('Probe failed for {endpointName}.', { endpointName: endpointName(ep) }));
         await invalidateAll();
       }
     } catch (e) {
@@ -719,7 +695,7 @@
       await persistEndpointProbeSnapshot(id, {
         last_probe_status: 'failed',
         last_probe_at: new Date().toISOString(),
-        last_probe_message: String(err?.message ?? 'Probe failed')
+        last_probe_message: String(err?.message ?? t('Probe failed'))
       });
 
       applyAvailabilityHealth(
@@ -772,7 +748,7 @@
     deleteBusy = true;
     try {
       await deleteStorageEndpoint(fetch, endpointId(endpointToDelete));
-      toast.success('Storage endpoint deleted.');
+      toast.success(t('Storage endpoint deleted.'));
       closeDeleteModal();
       await goto('/admin/storage-endpoints');
     } catch (e) {
@@ -781,7 +757,7 @@
         closeDeleteModal();
         return;
       }
-      toast.error((e as any)?.message ?? 'Unable to delete endpoint.');
+      toast.error((e as any)?.message ?? t('Unable to delete endpoint.'));
     } finally {
       deleteBusy = false;
     }
@@ -796,47 +772,6 @@
   const endpointPendingCount = (ep: any): number => {
     const embedded = Number(ep?.pending_requests_count);
     return Number.isFinite(embedded) && embedded > 0 ? embedded : 0;
-  };
-
-  const rootStatusLabel = (row: any): string => {
-    const value = String(row?.status ?? row?.governance_status ?? '').trim();
-    return value || 'No data';
-  };
-
-  const rootAvailabilityRow = (row: any): StorageRootAvailabilitySummary['rows'][number] | null =>
-    (rootAvailabilityRowsByEndpointId[String(selectedId)] ?? []).find(
-      (candidate) => Number(candidate?.storage_root_id ?? 0) === rootId(row)
-    ) ?? null;
-
-  const rootAvailabilityLabel = (row: any): string => {
-    const health = rootHealth(row);
-    if (health === 'healthy') return 'Ready';
-    if (health === 'unhealthy') return 'Needs review';
-    return 'No status';
-  };
-
-  const rootAvailabilityTone = (row: any): 'success' | 'warning' | 'danger' | 'muted' => {
-    const health = rootHealth(row);
-    if (health === 'healthy') return 'success';
-    if (health === 'unhealthy') return 'danger';
-    return 'muted';
-  };
-
-  const rootAvailabilityDetail = (row: any): string => {
-    const availability = rootAvailabilityRow(row);
-    if (!availability) return 'Run or refresh endpoint status to load details.';
-
-    const provisioningStatus = String(availability.provisioning_status ?? '').trim();
-    const endpointStatus = String(availability.endpoint_status ?? '').trim();
-
-    if (availability.available) return 'Provisioning ready and endpoint probe succeeded.';
-    if (provisioningStatus && !['ready', 'success'].includes(provisioningStatus.toLowerCase())) {
-      return `Provisioning: ${provisioningStatus}`;
-    }
-    if (endpointStatus && normalizeProbeStatus(endpointStatus) !== 'success') {
-      return `Probe: ${endpointStatus}`;
-    }
-    return 'Availability could not be confirmed.';
   };
 
   $: rootsFilteredRows = selectedRoots
@@ -865,18 +800,18 @@
 
   const endpointLastProbeLabel = (ep: any): string => {
     const raw = endpointLastProbeRaw(ep);
-    return raw ? formatRelativeDate(raw, 'No probe data') : 'No probe data';
+    return raw ? formatRelativeDate(raw, 'No probe data') : t('No probe data');
   };
 
   const endpointLastCommunicationLabel = (ep: any): string => {
     const raw = endpointLastProbeRaw(ep);
-    return raw ? formatDateTime(raw, { empty: 'Unavailable' }) : 'No probe data';
+    return raw ? formatDateTime(raw, { empty: t('Unavailable') }) : t('No probe data');
   };
 
   const endpointLastResultLabel = (ep: any): string => {
     const message = String(ep?.last_probe_message ?? '').trim();
     if (message) return message;
-    return endpointHealth(ep) === 'healthy' ? 'Reachable' : 'Unreachable';
+    return endpointHealth(ep) === 'healthy' ? t('Reachable') : t('Unreachable');
   };
 
   const unavailableRootDetails = (endpointIdValue: number): string[] => {
@@ -884,7 +819,7 @@
       .filter(([, health]) => health !== 'healthy')
       .map(([id]) => {
         const row = selectedRoots.find((candidate) => rootId(candidate) === Number(id));
-        return row ? rootName(row) : `Root #${id}`;
+        return row ? rootName(row) : t('Root #{id}', { id });
       });
 
     return rows.slice(0, 3);
@@ -895,31 +830,32 @@
     const lastResult = endpointLastResultLabel(ep);
 
     if (health === 'healthy') return null;
-    if (health === 'unknown') return 'run a probe or refresh status to collect the latest result';
-    if (health === 'unhealthy') return lastResult || 'last probe failed';
+    if (health === 'unknown') return t('run a probe or refresh status to collect the latest result');
+    if (health === 'unhealthy') return lastResult || t('last probe failed');
 
     const unavailableRoots = unavailableRootDetails(endpointId(ep));
     if (unavailableRoots.length > 0) {
-      return `endpoint probe is reachable, but unavailable roots need review (${unavailableRoots.join(', ')})`;
+      return t('endpoint probe is reachable, but unavailable roots need review ({join})', { join: unavailableRoots.join(', ') });
     }
 
-    return lastResult || 'probe or configuration needs review';
+    return lastResult || t('probe or configuration needs review');
   };
 
+  let kpiItems: EntityKpiItem[] = [];
   $: kpiItems = selected
     ? [
         {
           key: 'roots',
-          label: 'Governed storage roots',
+          label: t('Governed storage roots'),
           value: String(selectedRoots.length),
           tone: 'info',
           icon: 'bi-diagram-3'
         },
         {
           key: 'pending',
-          label: 'Pending requests',
+          label: t('Pending requests'),
           value: String(endpointPendingCount(selected)),
-          hint: endpointPendingCount(selected) > 0 ? 'Requests awaiting review' : 'No pending requests',
+          hint: endpointPendingCount(selected) > 0 ? t('Requests awaiting review') : t('No pending requests'),
           tone: endpointPendingCount(selected) > 0 ? 'warning' : 'neutral',
           icon: 'bi-inbox'
         }
@@ -932,13 +868,13 @@
 
   const endpointHeaderMetaItems = (ep: any): OperationalHeaderMetaItem[] => [
     { icon: 'bi-folder2-open', label: endpointZone(ep) },
-    { icon: 'bi-diagram-3', label: `${selectedRoots.length} governed root${selectedRoots.length > 1 ? 's' : ''}` },
+    { icon: 'bi-diagram-3', label: t('{count} governed root{value}', { count: selectedRoots.length, value: (selectedRoots.length > 1 ? 's' : '') }) },
     {
       icon: 'bi-inbox',
-      label: `${endpointPendingCount(ep)} pending request${endpointPendingCount(ep) > 1 ? 's' : ''}`,
+      label: t('{endpointPendingCount} pending request{value}', { endpointPendingCount: endpointPendingCount(ep), value: (endpointPendingCount(ep) > 1 ? 's' : '') }),
       tone: endpointPendingCount(ep) > 0 ? 'warning' : 'neutral'
     },
-    { icon: 'bi-hdd-network', label: endpointHasHost(ep) ? endpointHost(ep) : 'No host configured', tone: endpointHasHost(ep) ? 'neutral' : 'warning' },
+    { icon: 'bi-hdd-network', label: endpointHasHost(ep) ? endpointHost(ep) : t('No host configured'), tone: endpointHasHost(ep) ? 'neutral' : 'warning' },
     { icon: 'bi-clock-history', label: endpointLastProbeLabel(ep), tone: endpointHealth(ep) === 'healthy' ? 'success' : 'warning' }
   ];
 
@@ -952,18 +888,19 @@
       provisioningWarnings: options?.includeProvisioningWarnings ? provisioningWarnings : []
     });
 
+  // Attention items are translated sentences: compare with the translated error sentences
   const endpointAlertToneFromText = (value: string): 'warning' | 'error' => {
-    const text = String(value ?? '').toLowerCase();
-    return text.includes('unreachable') || text.includes('failed') || text.includes('missing host')
-      ? 'error'
-      : 'warning';
+    const text = String(value ?? '');
+    const errors = [t('Endpoint is currently unreachable.'), healthLabel('unhealthy'), t('Endpoint host is missing.'),
+                    t('Endpoint host is missing: {hostLabel}', { hostLabel: '' })];
+    return errors.some((prefix) => prefix && text.startsWith(prefix.replace(/[.:]\s*$/, ''))) ? 'error' : 'warning';
   };
 
   const operationalAlertItemsForEndpoint = (ep: any, options?: { includeProvisioningWarnings?: boolean }): EntityAlertStripItem[] =>
     endpointAttentionItems(ep, options).map((item, index) => ({
       key: `endpoint-operational-alert-${endpointId(ep)}-${index}-${item}`,
       title: item,
-      subtitle: index === 0 ? `Last probe: ${endpointLastCommunicationLabel(ep)}` : null,
+      subtitle: index === 0 ? t('Last probe: {endpointLastCommunicationLabel}', { endpointLastCommunicationLabel: endpointLastCommunicationLabel(ep) }) : null,
       tone: endpointAlertToneFromText(item)
     }));
 
@@ -973,11 +910,11 @@
     const rootLabels = new Map(endpointRoots.map((row) => [rootId(row), rootName(row)]));
     return selectVisibleStorageRootAlertsForRootIds(rootIds, data.storageRootAlerts ?? []).map((alert) => {
       const alertRootId = storageRootAlertRootId(alert);
-      const rootLabel = rootLabels.get(alertRootId) ?? `Storage root #${alertRootId}`;
+      const rootLabel = rootLabels.get(alertRootId) ?? t('Storage root #{alertRootId}', { alertRootId });
       const detail = storageRootAlertSummarySubtitle(alert);
       return {
         key: `endpoint-root-alert-${endpointId(ep)}-${String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${alertRootId}`)}`,
-        title: String(alert?.title ?? 'Attention required'),
+        title: String(alert?.title ?? t('Attention required')),
         subtitle: detail ? `${rootLabel} · ${detail}` : rootLabel,
         tone: storageRootAlertTone(alert)
       };
@@ -1009,18 +946,20 @@
     if (items.length <= 0) return null;
     return {
       kind: items.some((item) => item.tone === 'error') ? 'error' : 'warning',
-      label: `${items.length} alert${items.length > 1 ? 's' : ''}`
+      label: t('{count} alert{value}', { count: items.length, value: (items.length > 1 ? 's' : '') })
     };
   };
 
-  $: endpointAlertItems = selected
-    ? buildStorageEndpointAlerts(selected, { includeProvisioningWarnings: true })
-    : [];
+  // Health, probe and refresh state are read inside the helpers: list them so Svelte recomputes
+  $: healthState = [endpointHealthById, rootHealthByEndpointId, healthLoadingByEndpointId,
+                    manualHealthRefreshByEndpointId, probingEndpointId];
+  $: endpointAlertItems = ((..._deps: unknown[]) =>
+    selected ? buildStorageEndpointAlerts(selected, { includeProvisioningWarnings: true }) : [])(healthState);
 
   const endpointHeaderActions = (ep: any): EntityActionItem[] => [
     {
       key: 'probe',
-      label: probingEndpointId === endpointId(ep) ? 'Probe running...' : 'Run probe',
+      label: probingEndpointId === endpointId(ep) ? t('Probe running...') : t('Run probe'),
       icon: probingEndpointId === endpointId(ep) ? 'bi-arrow-repeat sed-spin' : 'bi-broadcast-pin',
       variant: 'probe',
       disabled: probingEndpointId === endpointId(ep),
@@ -1028,7 +967,7 @@
     },
     {
       key: 'refresh-status',
-      label: endpointManualHealthRefreshBusy(ep) ? 'Refreshing...' : 'Refresh status',
+      label: endpointManualHealthRefreshBusy(ep) ? t('Refreshing...') : t('Refresh status'),
       icon: endpointManualHealthRefreshBusy(ep) ? 'bi-arrow-repeat sed-spin' : 'bi-arrow-clockwise',
       variant: 'secondary',
       disabled: endpointManualHealthRefreshBusy(ep),
@@ -1036,14 +975,14 @@
     },
     {
       key: 'edit',
-      label: 'Edit storage endpoint',
+      label: t('Edit storage endpoint'),
       icon: 'bi-pencil-square',
       variant: 'secondary',
       onClick: () => (showEditModal = true)
     },
     {
       key: 'delete',
-      label: 'Delete storage endpoint',
+      label: t('Delete storage endpoint'),
       icon: 'bi-trash',
       variant: 'danger',
       onClick: () => openDeleteModal(ep)
@@ -1076,7 +1015,7 @@
           policy_mode: draft.policyMode,
           policy_source: draft.policyMode === 'override' ? 'endpoint' : policy.policy_source,
           policy_source_label:
-            draft.policyMode === 'override' ? 'Endpoint override' : policy.policy_source_label,
+            draft.policyMode === 'override' ? t('Endpoint override') : policy.policy_source_label,
           endpoint_values: {
             ...(policy.endpoint_values ?? { ou_dn: null, naming_template: null }),
             ou_dn: draft.policyMode === 'override' ? draft.ouDn : null,
@@ -1218,41 +1157,43 @@
 
   <main class="sed-main">
     {#if !hasEndpoints}
-      <EmptyStateCard
+      <EmptyState
         containerClass="storage-endpoints-empty"
         iconClass="bi bi-hdd-stack"
-        title="No storage endpoint"
-        description="Storage endpoints are required to discover roots, apply governance, and handle access requests."
-        ctaLabel="Create endpoint"
+        title={t('No storage endpoint')}
+        description={t('Storage endpoints are required to discover roots, apply governance, and handle access requests.')}
+        ctaLabel={t('Create endpoint')}
         onCta={() => (showWizard = true)}
-        hint="The wizard guides you step by step."
+        hint={t('The wizard guides you step by step.')}
       />
     {:else if selected}
       <EntityConsoleShell>
         <svelte:fragment slot="header">
-          <EntityConsoleHeader
-            eyebrow="Storage endpoint"
-            title={`${endpointName(selected)} Console`}
+          {#key healthState}
+          <EntityHeader
+            eyebrow={t('Storage endpoint')}
+            title={t('{endpointName} Console', { endpointName: endpointName(selected) })}
             subtitle={endpointHost(selected) || endpointZone(selected)}
             metaItems={endpointHeaderMetaItems(selected)}
             statusLabel={healthLabel(endpointHealth(selected))}
             statusTone={endpointOperationalTone(selected)}
             showAttention={false}
             actions={endpointHeaderActions(selected)}
-            actionsAriaLabel="Storage endpoint actions"
+            actionsAriaLabel={t('Storage endpoint actions')}
           />
           <EntityAlertStrip
             items={endpointAlertItems}
             onViewAll={() => (showEndpointAlertsDrawer = true)}
-            ariaLabel="Storage endpoint alerts"
+            ariaLabel={t('Storage endpoint alerts')}
           />
+          {/key}
         </svelte:fragment>
 
         <svelte:fragment slot="tabs">
-          <EntityTabs
+          <Tabs
             tabs={endpointTabs}
             activeKey={activeEndpointTab}
-            ariaLabel="Storage endpoint sections"
+            ariaLabel={t('Storage endpoint sections')}
             onChange={handleEndpointTabChange}
           />
         </svelte:fragment>
@@ -1260,16 +1201,16 @@
         {#if activeEndpointTab === 'overview'}
           <EntityOverviewLayout>
             <svelte:fragment slot="main">
-              <EntityKpiRow items={kpiItems} ariaLabel="Storage endpoint KPIs" />
+              <EntityKpiRow items={kpiItems} ariaLabel={t('Storage endpoint KPIs')} />
 
-              <EntityOverviewPanel title="Governed storage roots" panelClass="sed-panel--governed">
-                <AssociatedRootsTable rows={rootsFilteredRows.slice(0, 10)} dense={true} emptyLabel="No associated roots" />
+              <EntityOverviewPanel title={t('Governed storage roots')} panelClass="sed-panel--governed">
+                <AssociatedRootsTable rows={rootsFilteredRows.slice(0, 10)} dense={true} emptyLabel={t('No associated roots')} />
               </EntityOverviewPanel>
             </svelte:fragment>
 
             <svelte:fragment slot="side">
               <RecentActivityCard
-                title="Recent activity"
+                title={t('Recent activity')}
                 items={activity}
                 max={5}
                 onViewAll={() => (activeEndpointTab = 'activity')}
@@ -1280,14 +1221,14 @@
         {:else if activeEndpointTab === 'activity'}
           <ActivityTabPanel
             items={activity}
-            emptyLabel="No activity available for this endpoint"
+            emptyLabel={t('No activity available for this endpoint')}
             onSelect={openActivityDetails}
           />
         {:else}
           <ProvisioningPolicyScreen
             scope="storage-endpoint"
             title=""
-            saveLabel="Save changes"
+            saveLabel={t('Save changes')}
             configuration={endpointProvisioningViewModel.configuration}
             preview={endpointProvisioningViewModel.preview}
             effective={endpointProvisioningViewModel.effective}
@@ -1309,16 +1250,15 @@
   open={activityDetailsOpen}
   entry={selectedActivityEntry}
   onClose={closeActivityDetails}
-  width="620px"
 />
 
 <EntityAlertDrawer
   open={showEndpointAlertsDrawer}
   onClose={() => (showEndpointAlertsDrawer = false)}
-  title="Storage endpoint alerts"
-  subtitle={`Endpoint · ${selected ? endpointName(selected) : 'Unavailable'}`}
+  title={t('Storage endpoint alerts')}
+  subtitle={t('Endpoint · {value}', { value: (selected ? endpointName(selected) : t('Unavailable')) })}
   items={endpointAlertItems}
-  emptyLabel="No alert found for this storage endpoint."
+  emptyLabel={t('No alert found for this storage endpoint.')}
   ariaLabelledby="storage-endpoint-alerts-drawer-title"
 />
 
@@ -1327,7 +1267,7 @@
   onClose={() => (showWizard = false)}
   on:done={async () => {
     showWizard = false;
-    toast.success('Storage endpoint created.');
+    toast.success(t('Storage endpoint created.'));
     await invalidateAll();
     await goto('/admin/storage-endpoints');
   }}
@@ -1352,20 +1292,20 @@
   onConfirm={removeEndpoint}
   ariaLabelledby="se-detail-delete-modal-title"
   severity="danger"
-  title="Delete storage endpoint"
+  title={t('Delete storage endpoint')}
   subtitle={endpointName(endpointToDelete)}
-  impactTitle="Impact"
+  impactTitle={t('Impact')}
   impactItems={[
     'This endpoint will be permanently deleted.',
-    'Probe operations linked to this endpoint will stop.',
+    t('Probe operations linked to this endpoint will stop.'),
     'Dependent governance links will need to be recreated if required.'
   ]}
-  cancelLabel="Cancel"
-  confirmLabel="Delete"
-  confirmBusyLabel="Deleting…"
+  cancelLabel={t('Cancel')}
+  confirmLabel={t('Delete')}
+  confirmBusyLabel={t('Deleting…')}
   busy={deleteBusy}
   requireTextConfirm={true}
-  requiredText="DELETE"
-  textConfirmLabel="Type"
-  textConfirmPlaceholder="DELETE"
+  requiredText=DELETE
+  textConfirmLabel={t('Type')}
+  textConfirmPlaceholder=DELETE
 />

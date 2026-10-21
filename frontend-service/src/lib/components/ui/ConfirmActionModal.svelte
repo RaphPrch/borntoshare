@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import ModalActionBar from '$lib/components/ui/ModalActionBar.svelte';
 
@@ -12,23 +13,23 @@
   export let modalClass: string | null = null;
   export let severity: 'warning' | 'danger' = 'danger';
 
-  export let title = 'Confirm action';
+  export let title = t('Confirm action');
   export let subtitle: string | null = null;
-  export let impactTitle = 'Impact';
+  export let impactTitle = t('Impact');
   export let impactItems: string[] = [];
 
-  export let cancelLabel = 'Cancel';
-  export let confirmLabel = 'Confirm';
+  export let cancelLabel = t('Cancel');
+  export let confirmLabel = t('Confirm');
   export let confirmBusyLabel: string | null = null;
   export let busy = false;
   export let confirmVariant: 'primary' | 'secondary' | 'ghost' | 'danger' | 'warning' | null = null;
   export let actionsClass = 'b2s-confirm-actions';
-  export let cancelClass = 'sed-btn sed-btn--secondary';
+  export let cancelClass = 'b2s-btn b2s-btn-secondary';
   export let confirmClass: string | null = null;
 
   export let requireTextConfirm = false;
   export let requiredText = 'DELETE';
-  export let textConfirmLabel = 'Type confirmation text';
+  export let textConfirmLabel = t('Type confirmation text');
   export let textConfirmPlaceholder = 'Type text';
 
   let typedConfirm = '';
@@ -48,6 +49,7 @@
   onClose={onClose}
   {backdropClass}
   modalClass={resolvedModalClass}
+  size="md"
   {ariaLabelledby}
   {role}
 >

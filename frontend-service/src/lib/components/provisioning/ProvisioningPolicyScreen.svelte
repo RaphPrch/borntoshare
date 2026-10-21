@@ -1,4 +1,6 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import { t } from '$lib/i18n';
   import './provisioning-policy.css';
   import ProvisioningPolicyConfigurationCard from './ProvisioningPolicyConfigurationCard.svelte';
   import ProvisioningPreviewCard from './ProvisioningPreviewCard.svelte';
@@ -12,7 +14,7 @@
   export let preview: ProvisioningPolicyScreenProps['preview'];
   export let effective: ProvisioningPolicyScreenProps['effective'];
   export let showPreview = true;
-  export let onSave: ProvisioningPolicyScreenProps['onSave'];
+  export let onSave: ProvisioningPolicyScreenProps['onSave'] | null = null;
   export let saveDisabled: ProvisioningPolicyScreenProps['saveDisabled'] = false;
   export let saveBusy: ProvisioningPolicyScreenProps['saveBusy'] = false;
   export let errorMessage: ProvisioningPolicyScreenProps['errorMessage'] = null;
@@ -50,11 +52,11 @@
         {/if}
 
         {#if errorMessage}
-          <div class="provisioning-error" aria-live="polite">{errorMessage}</div>
+          <InlineAlert tone="error">{errorMessage}</InlineAlert>
         {/if}
 
         {#if showUnsaved}
-          <div class="provisioning-field__help" aria-live="polite">Unsaved changes</div>
+          <div class="provisioning-field__help" aria-live="polite">{t('Unsaved changes')}</div>
         {/if}
       </aside>
     {/if}

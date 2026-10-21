@@ -1,5 +1,5 @@
 <script module lang="ts">
-  export type EntityActionVariant = 'primary' | 'secondary' | 'probe' | 'danger' | 'ghost';
+  export type EntityActionVariant = 'primary' | 'secondary' | 'probe' | 'danger' | 'danger-outline' | 'ghost';
 
   export type EntityActionItem = {
     key: string;
@@ -15,17 +15,14 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   export let actions: EntityActionItem[] = [];
-  export let ariaLabel = 'Entity actions';
+  export let ariaLabel = t('Entity actions');
   export let align: 'start' | 'end' = 'end';
 
   const buttonClass = (action: EntityActionItem): string => {
     const variant = action.variant ?? 'secondary';
-    if (variant === 'primary') return 'sed-btn sed-btn--primary';
-    if (variant === 'probe') return 'sed-btn sed-btn--probe';
-    if (variant === 'danger') return 'sed-btn sed-btn--danger';
-    if (variant === 'ghost') return 'sed-btn sed-btn--ghost';
-    return 'sed-btn sed-btn--secondary';
+    return `b2s-btn b2s-btn-${variant === 'probe' ? 'primary' : variant}`;
   };
 
   $: visibleActions = actions.filter((action) => !action.overflow);
@@ -51,7 +48,7 @@
 
   {#if overflowActions.length > 0}
     <details class="b2s-action-menu">
-      <summary class="sed-btn sed-btn--secondary sed-btn--icon" aria-label="More actions">
+      <summary class="b2s-btn b2s-btn-secondary b2s-btn-icon" aria-label={t('More actions')}>
         <i class="bi bi-three-dots" aria-hidden="true"></i>
       </summary>
 
@@ -113,7 +110,7 @@
     min-width: 190px;
     padding: 6px;
     border: 1px solid #dde5f1;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
     box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
   }
@@ -122,14 +119,14 @@
     width: 100%;
     min-height: 38px;
     border: none;
-    border-radius: 9px;
+    border-radius: var(--b2s-radius-sm);
     background: transparent;
     color: #253b5d;
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 0 10px;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
     text-align: left;
   }

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 export type UiTag = {
   id: number;
   label: string;
@@ -9,7 +10,7 @@ export type UiTag = {
 export const tagId = (tag: any): number => Number(tag?.id ?? tag?.tag_id ?? 0);
 
 export const tagLabel = (tag: any): string =>
-  String(tag?.label ?? tag?.name ?? tag?.code ?? '').trim() || `Tag #${tagId(tag)}`;
+  String(tag?.label ?? tag?.name ?? tag?.code ?? '').trim() || t('Tag #{tagId}', { tagId: tagId(tag) });
 
 export const tagColor = (tag: any): string | null => {
   const raw = String(tag?.color_rgb ?? tag?.color ?? '').trim();

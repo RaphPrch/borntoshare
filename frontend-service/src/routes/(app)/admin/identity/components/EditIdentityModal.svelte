@@ -1,8 +1,11 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import FieldError from '$lib/components/ui/FieldError.svelte';
+  import { t } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
   import { createEventDispatcher } from 'svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
-  import EntityDrawerShell from '$lib/components/entity/EntityDrawerShell.svelte';
+  import Drawer from '$lib/components/ui/Drawer.svelte';
   import { adminChangePassword, updateIdentity } from '$lib/api/identity';
   import { toast } from '$lib/stores/toast';
   import { initials } from '$lib/utils/format';
@@ -28,6 +31,7 @@
   $: isGroup = identity?.type === 'group';
   $: isUser = identity?.type !== 'group';
   $: isLocalUser = isUser && normalizeText(identity?.auth_source ?? identity?.source) === 'local';
+  let currentRole: 'platform_admin' | 'user' = 'user';
   $: currentRole = Array.isArray(identity?.roles) && identity.roles.some((role: string) => normalizeText(role) === 'platform_admin')
     ? 'platform_admin'
     : 'user';
@@ -43,9 +47,9 @@
     initKey = currentKey;
   }
 
-  $: title = isGroup ? 'Edit group' : 'Edit account';
-  $: subtitle = String(identity?.display_name ?? identity?.username ?? '').trim() || 'Unknown identity';
-  $: roleLabel = selectedRole === 'platform_admin' ? 'Platform administrator' : 'User';
+  $: title = isGroup ? t('Edit group') : t('Edit account');
+  $: subtitle = String(identity?.display_name ?? identity?.username ?? '').trim() || t('Unknown identity');
+  $: roleLabel = selectedRole === 'platform_admin' ? t('Platform administrator') : t('User');
   $: canEditPassword = isLocalUser;
   $: canToggleActive = isUser;
   $: baselineDisplayName = String(identity?.display_name ?? identity?.username ?? '').trim();
@@ -55,18 +59,18 @@
     active !== baselineActive ||
     selectedRole !== currentRole ||
     Boolean(currentPassword || newPassword || confirmPassword);
-  $: displayNameError = attemptedSubmit && !displayName.trim() ? 'Display name is required.' : '';
+  $: displayNameError = attemptedSubmit && !displayName.trim() ? t('Display name is required.') : '';
   $: currentPasswordError =
     attemptedSubmit && canEditPassword && Boolean(newPassword || confirmPassword) && !currentPassword.trim()
-      ? 'Current password is required.'
+      ? t('Current password is required.')
       : '';
   $: newPasswordError =
     attemptedSubmit && canEditPassword && Boolean(currentPassword || confirmPassword) && !newPassword.trim()
-      ? 'New password is required.'
+      ? t('New password is required.')
       : '';
   $: confirmPasswordError =
     attemptedSubmit && canEditPassword && Boolean(newPassword) && newPassword !== confirmPassword
-      ? 'Password confirmation must match.'
+      ? t('Password confirmation must match.')
       : '';
 
   function close() {
@@ -156,24 +160,22 @@
         });
       }
 
-      toast.success('Identity updated.');
+      toast.success(t('Identity updated.'));
       dispatch('done');
       close();
     } catch (err: any) {
-      error = err?.message ?? 'Failed to save changes.';
+      error = err?.message ?? t('Failed to save changes.');
     } finally {
       loading = false;
     }
   }
 </script>
 
-<EntityDrawerShell
+<Drawer
   {open}
   onClose={handleBackdropClose}
   title={title}
   subtitle={subtitle}
-  width="560px"
-  topOffset="0px"
   rootClass="identity-edit-drawer"
   bodyClass="identity-edit-drawer__body"
   footerClass="identity-edit-drawer__footer"
@@ -193,12 +195,12 @@
       <div class="identity-edit-section__heading">
         <span class="identity-edit-section__index">1</span>
         <div>
-          <h3>Account profile</h3>
+          <h3>{t('Account profile')}</h3>
         </div>
       </div>
 
       <div class="identity-edit-field">
-        <label for="identity-display-name">Display name</label>
+        <label for="identity-display-name">{t('Display name')}</label>
         <input
           id="identity-display-name"
           class="identity-edit-input"
@@ -208,18 +210,18 @@
           disabled={loading}
         />
         {#if displayNameError}
-          <p class="identity-edit-field-error">{displayNameError}</p>
+          <FieldError>{displayNameError}</FieldError>
         {/if}
       </div>
 
       <div class="identity-edit-field">
-        <span>Active account</span>
+        <span>{t('Active account')}</span>
         <label class={`identity-edit-toggle ${!canToggleActive ? 'is-disabled' : ''}`}>
           <input type="checkbox" bind:checked={active} disabled={!canToggleActive || loading} />
           <span class="identity-edit-toggle__track"><span class="identity-edit-toggle__thumb"></span></span>
         </label>
         {#if !canToggleActive}
-          <p class="identity-edit-helper">Only user accounts can be disabled.</p>
+          <p class="identity-edit-helper">{t('Only user accounts can be disabled.')}</p>
         {/if}
       </div>
     </section>
@@ -228,32 +230,32 @@
       <div class="identity-edit-section__heading">
         <span class="identity-edit-section__index">2</span>
         <div>
-          <h3>Application access</h3>
+          <h3>{t('Application access')}</h3>
         </div>
       </div>
 
       <div class="identity-edit-field">
-        <label>Application role</label>
-        <div class="identity-edit-role-grid">
+        <span class="identity-edit-label" id="identity-edit-role">{t('Application role')}</span>
+        <div class="identity-edit-role-grid" role="radiogroup" aria-labelledby="identity-edit-role">
           <label class={`identity-edit-role-card ${selectedRole === 'user' ? 'is-selected' : ''}`}>
             <input type="radio" bind:group={selectedRole} value="user" disabled={loading} />
             <div>
-              <strong>User</strong>
-              <small>Basic access to application features</small>
+              <strong>{t('User')}</strong>
+              <small>{t('Basic access to application features')}</small>
             </div>
           </label>
 
           <label class={`identity-edit-role-card ${selectedRole === 'platform_admin' ? 'is-selected' : ''}`}>
             <input type="radio" bind:group={selectedRole} value="platform_admin" disabled={loading} />
             <div>
-              <strong>Platform administrator</strong>
-              <small>Full administrative access within the application</small>
+              <strong>{t('Platform administrator')}</strong>
+              <small>{t('Full administrative access within the application')}</small>
             </div>
           </label>
         </div>
-        <p class="identity-edit-helper">Currently selected: {roleLabel}</p>
+        <p class="identity-edit-helper">{t('Currently selected: {roleLabel}', { roleLabel })}</p>
         <p class="identity-edit-helper">
-          Application roles control access within BornToShare only and do not grant NTFS or file system permissions.
+          {t('Application roles control access within BornToShare only and do not grant NTFS or file system permissions.')}
         </p>
       </div>
     </section>
@@ -263,12 +265,12 @@
         <div class="identity-edit-section__heading">
           <span class="identity-edit-section__index">3</span>
           <div>
-            <h3>Security</h3>
+            <h3>{t('Security')}</h3>
           </div>
         </div>
 
         <div class="identity-edit-field">
-          <label for="identity-current-password">Current password</label>
+          <label for="identity-current-password">{t('Current password')}</label>
           <input
             id="identity-current-password"
             class="identity-edit-input"
@@ -278,13 +280,13 @@
             disabled={loading}
           />
           {#if currentPasswordError}
-            <p class="identity-edit-field-error">{currentPasswordError}</p>
+            <FieldError>{currentPasswordError}</FieldError>
           {/if}
         </div>
 
         <div class="identity-edit-password-grid">
           <div class="identity-edit-field">
-            <label for="identity-new-password">New password optional</label>
+            <label for="identity-new-password">{t('New password optional')}</label>
             <input
               id="identity-new-password"
               class="identity-edit-input"
@@ -294,12 +296,12 @@
               disabled={loading}
             />
             {#if newPasswordError}
-              <p class="identity-edit-field-error">{newPasswordError}</p>
+              <FieldError>{newPasswordError}</FieldError>
             {/if}
           </div>
 
           <div class="identity-edit-field">
-            <label for="identity-confirm-password">Confirm password</label>
+            <label for="identity-confirm-password">{t('Confirm password')}</label>
             <input
               id="identity-confirm-password"
               class="identity-edit-input"
@@ -309,53 +311,46 @@
               disabled={loading}
             />
             {#if confirmPasswordError}
-              <p class="identity-edit-field-error">{confirmPasswordError}</p>
+              <FieldError>{confirmPasswordError}</FieldError>
             {/if}
           </div>
         </div>
 
-        <p class="identity-edit-helper">Leave password fields empty to keep the current password.</p>
+        <p class="identity-edit-helper">{t('Leave password fields empty to keep the current password.')}</p>
       </section>
     {/if}
 
     {#if error}
-      <div class="identity-edit-error">{error}</div>
+      <InlineAlert tone="error">{error}</InlineAlert>
     {/if}
   </div>
 
   <svelte:fragment slot="footer">
     <div class="identity-edit-actions">
       {#if isDirty}
-        <span class="identity-edit-unsaved">Unsaved changes</span>
+        <span class="identity-edit-unsaved">{t('Unsaved changes')}</span>
       {/if}
-      <button type="button" class="identity-edit-btn secondary" on:click={close} disabled={loading}>Cancel</button>
-      <button type="button" class="identity-edit-btn primary" on:click={submit} disabled={loading}>
-        {loading ? 'Saving changes…' : 'Save changes'}
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={close} disabled={loading}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary" on:click={submit} disabled={loading}>
+        {loading ? t('Saving changes…') : t('Save changes')}
       </button>
     </div>
   </svelte:fragment>
-</EntityDrawerShell>
+</Drawer>
 
 <ConfirmActionModal
   open={closeConfirmOpen}
   onClose={() => (closeConfirmOpen = false)}
   onConfirm={discardAndClose}
-  title="Discard unsaved changes"
-  subtitle="Your edits have not been saved."
-  confirmLabel="Discard changes"
+  title={t('Discard unsaved changes')}
+  subtitle={t('Your edits have not been saved.')}
+  confirmLabel={t('Discard changes')}
   confirmVariant="warning"
   severity="warning"
-  impactItems={['All unsaved edits in this drawer will be lost.']}
+  impactItems={[t('All unsaved edits in this drawer will be lost.')]}
 />
 
 <style>
-  :global(.identity-edit-drawer .b2s-entity-drawer__header) {
-    padding: 20px 24px 16px;
-  }
-
-  :global(.identity-edit-drawer .b2s-entity-drawer__title-row) {
-    align-items: center;
-  }
 
   .identity-edit-shell {
     display: grid;
@@ -365,13 +360,13 @@
   .identity-edit-head__avatar {
     width: 48px;
     height: 48px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     background: #2f6df6;
     color: #fff;
-    font-size: 1.05rem;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
 
@@ -381,7 +376,7 @@
 
   .identity-edit-section {
     border: 1px solid #e5eaf3;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
     padding: 18px;
     display: grid;
@@ -396,7 +391,7 @@
 
   .identity-edit-section__heading h3 {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
     color: #0f172a;
   }
@@ -404,14 +399,14 @@
   .identity-edit-section__index {
     width: 28px;
     height: 28px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     border: 1px solid #d8e3f4;
     background: #f4f8ff;
     color: #2f6df6;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.88rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
   }
 
@@ -421,9 +416,10 @@
   }
 
   .identity-edit-field label,
+  .identity-edit-field .identity-edit-label,
   .identity-edit-field > span {
     color: #0f172a;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
   }
 
@@ -431,11 +427,11 @@
     width: 100%;
     min-height: 44px;
     border: 1px solid #d7dfec;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     padding: 0 14px;
     background: #fff;
     color: #071638;
-    font-size: 0.92rem;
+    font-size: var(--b2s-fs-md);
   }
 
   .identity-edit-input:focus {
@@ -464,7 +460,7 @@
   .identity-edit-toggle__track {
     width: 42px;
     height: 24px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #cfd8e6;
     position: relative;
     transition: background 0.2s ease;
@@ -476,7 +472,7 @@
     left: 3px;
     width: 18px;
     height: 18px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #fff;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
     transition: transform 0.2s ease;
@@ -502,7 +498,7 @@
 
   .identity-edit-role-card {
     border: 1px solid #dbe3f0;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
     padding: 14px 16px;
     display: grid;
@@ -520,12 +516,12 @@
     display: block;
     margin: 0 0 4px;
     color: #0f172a;
-    font-size: 0.95rem;
+    font-size: var(--b2s-fs-lg);
   }
 
   .identity-edit-role-card small {
     color: #5d6f8a;
-    font-size: 0.83rem;
+    font-size: var(--b2s-fs-sm);
   }
 
   .identity-edit-role-card.is-selected {
@@ -542,25 +538,8 @@
   .identity-edit-helper {
     margin: 0;
     color: #5d6f8a;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
     line-height: 1.5;
-  }
-
-  .identity-edit-field-error {
-    margin: 0;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--b2s-color-danger, #dc3545);
-  }
-
-  .identity-edit-error {
-    border: 1px solid rgba(185, 28, 28, 0.18);
-    background: rgba(254, 242, 242, 0.95);
-    color: #991b1b;
-    border-radius: 10px;
-    padding: 12px 14px;
-    font-size: 0.85rem;
-    font-weight: 600;
   }
 
   .identity-edit-actions {
@@ -574,37 +553,9 @@
 
   .identity-edit-unsaved {
     margin-right: auto;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     color: var(--b2s-color-warning-strong, #b45309);
-  }
-
-  .identity-edit-btn {
-    min-height: 42px;
-    border-radius: 10px;
-    padding: 0 18px;
-    font-size: 0.9rem;
-    font-weight: 650;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .identity-edit-btn.secondary {
-    border: 1px solid #d7dfec;
-    background: #fff;
-    color: #0f172a;
-  }
-
-  .identity-edit-btn.primary {
-    border: 1px solid #0b1530;
-    background: #0b1530;
-    color: #fff;
-  }
-
-  .identity-edit-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
   }
 
   @media (max-width: 640px) {

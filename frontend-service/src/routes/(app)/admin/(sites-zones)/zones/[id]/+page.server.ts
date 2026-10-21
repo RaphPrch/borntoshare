@@ -12,7 +12,14 @@ export const load: PageServerLoad = async (event: PageServerLoadEvent) => {
   const parentData = await event.parent();
   await requireAuth(event);
 
-  const consoleData = await apiServerGetData(`/zones/${zoneId}/console`, event);
+  const consoleData = await apiServerGetData<{
+    zone?: Record<string, unknown> | null;
+    endpoints?: Record<string, unknown>[];
+    storage_roots?: Record<string, unknown>[];
+    operational_summary?: string | null;
+    provisioning_policy?: Record<string, unknown> | null;
+    kpis?: Record<string, unknown> | null;
+  } | null>(`/zones/${zoneId}/console`, event);
   const zoneNamingPolicy = await apiServerGetData(`/naming-policies/zones/${zoneId}`, event);
   const storageRootAlerts = await apiServerGetList(
     `/governance-alerts?scope_type=storage_root&status=open&limit=2000`,

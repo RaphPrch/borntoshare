@@ -1,5 +1,6 @@
 <script lang="ts">
-  export let error: unknown;
+  import { t } from '$lib/i18n';
+  export let error: { message?: string } | null;
   export let status: number;
 
   const isNotFound = status === 404;
@@ -11,36 +12,36 @@
 
   const title =
     isNotFound
-      ? 'Page not found'
+      ? t('Page not found')
       : isUnauthenticated
-      ? 'Session expired'
+      ? t('Session expired')
       : isForbidden
-      ? 'Access denied'
+      ? t('Access denied')
       : isServiceUnavailable
-      ? 'Service unavailable'
-      : 'Unexpected error';
+      ? t('Service unavailable')
+      : t('Unexpected error');
 
   const heading =
     isNotFound
-      ? 'Page not found'
+      ? t('Page not found')
       : isUnauthenticated
-      ? 'Your session has expired'
+      ? t('Your session has expired')
       : isForbidden
-      ? 'Access denied'
+      ? t('Access denied')
       : isServiceUnavailable
-      ? 'Service temporarily unavailable'
-      : 'Something went wrong';
+      ? t('Service temporarily unavailable')
+      : t('Something went wrong');
 
   const description =
     isNotFound
-      ? 'The page you are looking for does not exist or has been moved.'
+      ? t('The page you are looking for does not exist or has been moved.')
       : isUnauthenticated
-      ? 'Please sign in again to continue.'
+      ? t('Please sign in again to continue.')
       : isForbidden
-      ? 'You do not have permission to access this resource.'
+      ? t('You do not have permission to access this resource.')
       : isServiceUnavailable
-      ? 'Authentication services are temporarily unavailable. Please try again later.'
-      : 'An unexpected error occurred while rendering the application.';
+      ? t('Authentication services are temporarily unavailable. Please try again later.')
+      : t('An unexpected error occurred while rendering the application.');
 
   function reload() {
     location.reload();
@@ -48,7 +49,7 @@
 </script>
 
 <svelte:head>
-  <title>{title} — Born To Share</title>
+  <title>{t('{title} — Born To Share', { title })}</title>
 </svelte:head>
 
 <div class="error-root">
@@ -57,26 +58,26 @@
     <h2>{heading}</h2>
     <p>{description}</p>
 
-    {#if showDetails && error && (error as unknown)?.message}
+    {#if showDetails && error?.message}
       <pre class="error-message">
-{(error as unknown).message}
+{error.message}
       </pre>
     {/if}
 
     <div class="error-actions">
       {#if isUnauthenticated}
-        <a href="/login" class="btn-primary">Sign in</a>
+        <a href="/login" class="b2s-btn b2s-btn-primary">{t('Sign in')}</a>
       {:else if isForbidden}
-        <a href="/dashboard" class="btn-primary">Back to dashboard</a>
+        <a href="/dashboard" class="b2s-btn b2s-btn-primary">{t('Back to dashboard')}</a>
       {:else if isServiceUnavailable}
-        <button class="btn-primary" on:click={reload}>
-          Retry
+        <button class="b2s-btn b2s-btn-primary" on:click={reload}>
+          {t('Retry')}
         </button>
       {:else if isNotFound}
-        <a href="/dashboard" class="btn-primary">Go to dashboard</a>
+        <a href="/dashboard" class="b2s-btn b2s-btn-primary">{t('Go to dashboard')}</a>
       {/if}
 
-      <a href="/dashboard" class="btn-secondary">Home</a>
+      <a href="/dashboard" class="b2s-btn b2s-btn-secondary">{t('Home')}</a>
     </div>
   </div>
 </div>
@@ -95,7 +96,7 @@
     max-width: 480px;
     width: 100%;
     background: #020617;
-    border-radius: 1.2rem;
+    border-radius: var(--b2s-radius-lg);
     padding: 2rem 1.8rem;
     box-shadow: 0 25px 60px rgba(15, 23, 42, 0.95);
     border: 1px solid rgba(148, 163, 184, 0.4);
@@ -111,21 +112,21 @@
 
   .error-card h2 {
     margin: 0.5rem 0 0.4rem;
-    font-size: 1.3rem;
+    font-size: var(--b2s-fs-xl);
     font-weight: 600;
   }
 
   .error-card p {
     margin: 0 0 0.9rem;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     color: #9ca3af;
   }
 
   .error-message {
     background: #020617;
-    border-radius: 0.75rem;
+    border-radius: var(--b2s-radius-md);
     padding: 0.7rem 0.8rem;
-    font-size: 0.8rem;
+    font-size: var(--b2s-fs-sm);
     color: #e5e7eb;
     border: 1px solid rgba(148, 163, 184, 0.4);
     max-height: 160px;
@@ -138,35 +139,5 @@
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  .btn-primary,
-  .btn-secondary {
-    text-decoration: none;
-    padding: 0.45rem 0.9rem;
-    border-radius: 999px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-  }
-
-  .btn-primary {
-    background: #2563eb;
-    color: white;
-    border: none;
-  }
-
-  .btn-primary:hover {
-    background: #1d4ed8;
-  }
-
-  .btn-secondary {
-    border: 1px solid #4b5563;
-    color: #e5e7eb;
-    background: transparent;
-  }
-
-  .btn-secondary:hover {
-    background: #0b1120;
   }
 </style>

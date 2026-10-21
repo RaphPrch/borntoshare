@@ -11,7 +11,7 @@
 
 <style>
   .b2s-icon-tile {
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -27,7 +27,7 @@
   .b2s-icon-tile.is-sm {
     width: 34px;
     height: 34px;
-    border-radius: 11px;
+    border-radius: var(--b2s-radius-md);
     font-size: 17px;
   }
 

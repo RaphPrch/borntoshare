@@ -1,9 +1,14 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import { formatDateTime } from '$lib/utils/format';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy } from 'svelte';
   import TreeNode from './TreeNode.svelte';
   import SearchField from '../ui/SearchField.svelte';
   import StatusBadge from '../ui/StatusBadge.svelte';
+  import AppModal from '../ui/AppModal.svelte';
   import IdentitySelectedPrincipalRow from './IdentitySelectedPrincipalRow.svelte';
   import {
     invalidateIdentitySourceInternalCache,
@@ -38,11 +43,11 @@
   export let identitySources: IdentityBrowserSource[] = [];
   export let initialSourceId: number | null = null;
 
-  export let title = 'Browse Active Directory';
-  export let subtitle = 'Select users or groups to add to this governance role.';
-  export let previewTitle = 'Preview';
-  export let selectedItemsTitle = 'Selected items';
-  export let roleAssignmentTitle = 'Role assignment';
+  export let title = t('Browse Active Directory');
+  export let subtitle = t('Select users or groups to add to this governance role.');
+  export let previewTitle = t('Preview');
+  export let selectedItemsTitle = t('Selected items');
+  export let roleAssignmentTitle = t('Role assignment');
   export let mode: DirectoryMode = 'multiple';
   export let allowRoleAssignment = false;
   export let allowedPrincipalType: 'all' | 'user' | 'group' | 'ou' = 'all';
@@ -58,12 +63,12 @@
   export let storageRootId: number | null = null;
 
   export let busy = false;
-  export let confirmLabel = 'Use Selected';
-  export let confirmBusyLabel = 'Applying…';
+  export let confirmLabel = t('Use Selected');
+  export let confirmBusyLabel = t('Applying…');
   export let defaultAssignedRole: 'guardian' = 'guardian';
   export let showImportButton = false;
-  export let importButtonLabel = 'Import Selected';
-  export let importButtonBusyLabel = 'Importing…';
+  export let importButtonLabel = t('Import Selected');
+  export let importButtonBusyLabel = t('Importing…');
 
   const dispatch = createEventDispatcher<{
     close: void;
@@ -82,8 +87,8 @@
   let refreshBusy = false;
   let snapshotBusy = false;
   let lastSyncAt: string | null = null;
-  let snapshotStatusLabel = 'Using latest active snapshot';
-  let enabledOnlyStatusLabel = 'Filter: mixed principals (users may include disabled accounts)';
+  let snapshotStatusLabel = t('Using latest active snapshot');
+  let enabledOnlyStatusLabel = t('Filter: mixed principals (users may include disabled accounts)');
 
   const canRunSnapshotForSelectedSource = (): boolean => {
     const source = ($store.sources ?? []).find((row) => Number(row?.id ?? 0) === Number(selectedSourceId ?? 0));
@@ -96,30 +101,27 @@
   };
 
   const formatLastSync = (raw: string | null): string => {
-    if (!raw) return '—';
-    const dt = new Date(raw);
-    if (!Number.isFinite(dt.getTime())) return '—';
-    return dt.toLocaleString('en-GB');
+    return formatDateTime(raw);
   };
 
   const sourceOptionLabel = (src: any): string => {
-    const name = String(src?.name ?? '').trim() || `Source #${String(src?.id ?? '')}`;
+    const name = String(src?.name ?? '').trim() || t('Source #{String}', { String: String(src?.id ?? '') });
     const status = String(src?.snapshotStatus ?? '').trim().toUpperCase();
     const users = Number(src?.usersCount ?? 0) || 0;
     const groups = Number(src?.groupsCount ?? 0) || 0;
-    const suffix = status ? `${status} · ${users} users · ${groups} groups` : 'No searchable snapshot';
+    const suffix = status ? t('{status} · {users} users · {groups} groups', { status, users, groups }) : t('No searchable snapshot');
     return `${name} · ${suffix}`;
   };
 
   const selectedSourceSnapshotSummary = (): string => {
     const source = ($store.sources ?? []).find((row) => Number(row?.id ?? 0) === Number(selectedSourceId ?? 0));
-    if (!source) return 'No active snapshot source selected';
-    if (snapshotStatusLabel !== 'Using latest active snapshot') return snapshotStatusLabel;
+    if (!source) return t('No active snapshot source selected');
+    if (snapshotStatusLabel !== t('Using latest active snapshot')) return snapshotStatusLabel;
     const status = String(source.snapshotStatus ?? '').trim().toUpperCase() || 'UNKNOWN';
     const users = Number(source.usersCount ?? 0) || 0;
     const groups = Number(source.groupsCount ?? 0) || 0;
     const objects = Number(source.objectsCount ?? 0) || users + groups;
-    return `${status} snapshot · ${users} users · ${groups} groups · ${objects} objects`;
+    return t('{status} snapshot · {users} users · {groups} groups · {objects} objects', { status, users, groups, objects });
   };
 
   const activeControllers = new Set<AbortController>();
@@ -164,9 +166,9 @@
 
   const principalTypeLabel = (value: unknown): string => {
     const normalized = String(value ?? 'user').trim().toLowerCase();
-    if (normalized === 'group') return 'Group';
+    if (normalized === 'group') return t('Group');
     if (normalized === 'ou') return 'OU';
-    return 'User';
+    return t('User');
   };
 
   const resultSecondaryInfo = (row: PrincipalSearchItem): string => {
@@ -177,7 +179,7 @@
     if (login) return login;
     if (email) return email;
     if (path) return path;
-    return 'No additional details';
+    return t('No additional details');
   };
 
   const humanizeStatus = (value: unknown): string => {
@@ -187,19 +189,19 @@
   };
 
   const previewImportStatus = (preview: Record<string, unknown>): string => {
-    if (Boolean(preview?.is_import_candidate)) return 'Import candidate';
-    if (preview?.is_import_candidate === false) return 'Imported';
-    if (Boolean(preview?.is_imported)) return 'Imported';
+    if (Boolean(preview?.is_import_candidate)) return t('Import candidate');
+    if (preview?.is_import_candidate === false) return t('Imported');
+    if (Boolean(preview?.is_imported)) return t('Imported');
     return '—';
   };
 
   const syncStatusLabel = (value: unknown): string => {
     const normalized = String(value ?? '').trim().toLowerCase();
-    if (!normalized) return 'Unknown';
-    if (normalized === 'up_to_date') return 'Up to date';
-    if (normalized === 'needs_refresh') return 'Needs refresh';
-    if (normalized === 'active') return 'Active';
-    if (normalized === 'inactive') return 'Inactive';
+    if (!normalized) return t('Unknown');
+    if (normalized === 'up_to_date') return t('Up to date');
+    if (normalized === 'needs_refresh') return t('Needs refresh');
+    if (normalized === 'active') return t('Active');
+    if (normalized === 'inactive') return t('Inactive');
     return humanizeStatus(normalized);
   };
 
@@ -258,7 +260,7 @@
 
       await handleSourceChange(selectedSourceId, { rootDnOverride: resolvedRootDn });
     } catch (e) {
-      store.setError(e?.message ?? 'Unable to load identity sources');
+      store.setError(e?.message ?? t('Unable to load identity sources'));
     } finally {
       store.setLoading('loadingSources', false);
     }
@@ -280,7 +282,7 @@
       resolvedRootDn = selectedSourceBaseDn(nextSourceId);
     }
 
-    snapshotStatusLabel = 'Using latest active snapshot';
+    snapshotStatusLabel = t('Using latest active snapshot');
 
     if (!nextSourceId) return;
     await loadRootTree(nextSourceId, resolvedRootDn ?? selectedSourceBaseDn(nextSourceId));
@@ -306,7 +308,7 @@
       }
     } catch (e) {
       if (!controller.signal.aborted) {
-        store.setError(e?.message ?? 'Unable to load directory tree');
+        store.setError(e?.message ?? t('Unable to load directory tree'));
       }
     } finally {
       releaseController(controller);
@@ -348,7 +350,7 @@
       store.mergeChildren(dn, children);
     } catch (e) {
       if (!controller.signal.aborted) {
-        store.setError(e?.message ?? 'Unable to load sub-units');
+        store.setError(e?.message ?? t('Unable to load sub-units'));
       }
     } finally {
       releaseController(controller);
@@ -375,7 +377,7 @@
 
   async function executeSearch(reset = true) {
     if (!selectedSourceId) {
-      toast.warning('Select an AD source');
+      toast.warning(t('Select an AD source'));
       return;
     }
 
@@ -407,7 +409,7 @@
       store.setRows(response.rows, response.total);
     } catch (e) {
       if (!controller.signal.aborted) {
-        store.setError(e?.message ?? 'Search failed');
+        store.setError(e?.message ?? t('Search failed'));
       }
     } finally {
       releaseController(controller);
@@ -441,16 +443,16 @@
         maxAttempts: 15
       });
       if (!probe.ok) {
-        throw new Error(probe.errorMessage || 'Refresh probe failed');
+        throw new Error(probe.errorMessage || t('Refresh probe failed'));
       }
 
       invalidateIdentitySourceInternalCache(selectedSourceId);
       await loadRootTree(selectedSourceId, resolvedRootDn);
       await executeSearch(true);
       lastSyncAt = await loadIdentitySourceLastSync(fetch, selectedSourceId, { force: true });
-      toast.success('AD tree and objects refreshed');
+      toast.success(t('AD tree and objects refreshed'));
     } catch (e) {
-      store.setError(e?.message ?? 'Unable to refresh directory');
+      store.setError(e?.message ?? t('Unable to refresh directory'));
     } finally {
       refreshBusy = false;
     }
@@ -468,7 +470,7 @@
         throw new Error('Snapshot job not created');
       }
 
-      snapshotStatusLabel = 'Snapshot regeneration in progress…';
+      snapshotStatusLabel = t('Snapshot regeneration in progress…');
 
       let attempts = 0;
       const maxAttempts = 40;
@@ -485,7 +487,7 @@
         }
         if (status === 'failed' || status === 'error') {
           const message = String((state?.error as any)?.message ?? '').trim();
-          throw new Error(message || 'Snapshot regeneration failed');
+          throw new Error(message || t('Snapshot regeneration failed'));
         }
         await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
@@ -499,11 +501,11 @@
       await loadRootTree(Number(selectedSourceId), resolvedRootDn);
       await executeSearch(true);
       lastSyncAt = await loadIdentitySourceLastSync(fetch, Number(selectedSourceId), { force: true });
-      snapshotStatusLabel = 'Snapshot regenerated';
-      toast.success('Snapshot regenerated and browser refreshed');
+      snapshotStatusLabel = t('Snapshot regenerated');
+      toast.success(t('Snapshot regenerated and browser refreshed'));
     } catch (e) {
-      snapshotStatusLabel = 'Snapshot regeneration failed';
-      store.setError(e?.message ?? 'Snapshot regeneration failed');
+      snapshotStatusLabel = t('Snapshot regeneration failed');
+      store.setError(e?.message ?? t('Snapshot regeneration failed'));
     } finally {
       snapshotBusy = false;
     }
@@ -511,7 +513,7 @@
 
   function updateSelection(item: PrincipalSearchItem, checked: boolean) {
     if (!includeImportCandidates && checked && Boolean(item?.is_import_candidate)) {
-      toast.warning('Import candidates are not selectable in this context');
+      toast.warning(t('Import candidates are not selectable in this context'));
       return;
     }
 
@@ -660,34 +662,14 @@
     onSelect?.(payload);
   }
 
-  function onEsc(event: KeyboardEvent) {
-    if (!open) return;
-    if (event.key !== 'Escape') return;
-    event.preventDefault();
-    closeModal();
-  }
-
-  function onBackdropClick(event: MouseEvent) {
-    if (event.target === event.currentTarget) {
-      closeModal();
-    }
-  }
-
-  function onBackdropKeydown(event: KeyboardEvent) {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    if (event.target !== event.currentTarget) return;
-    event.preventDefault();
-    closeModal();
-  }
-
   $: {
     const activeDn = String($store.activeDn ?? '').trim();
     if (principalTypeFilter === 'user') {
-      enabledOnlyStatusLabel = 'Filter: Enabled users only';
+      enabledOnlyStatusLabel = t('Filter: Enabled users only');
     } else if (activeDn && principalTypeFilter !== 'ou') {
-      enabledOnlyStatusLabel = 'Filter: Disabled users hidden · Groups unchanged';
+      enabledOnlyStatusLabel = t('Filter: Disabled users hidden · Groups unchanged');
     } else {
-      enabledOnlyStatusLabel = 'Filter: Mixed principals (users and groups)';
+      enabledOnlyStatusLabel = t('Filter: Mixed principals (users and groups)');
     }
   }
 
@@ -707,494 +689,443 @@
   }
 </script>
 
-<svelte:window on:keydown={onEsc} />
+<AppModal
+  {open}
+  onClose={closeModal}
+  backdropClass="b2s-modal-backdrop idb-backdrop"
+  modalClass="b2s-modal idb-dialog"
+  size="xl"
+  contentClass="idb-content"
+  ariaLabelledby="idb-title"
+  showClose={false}
+  useFly={false}
+>
+  <header class="idb-header">
+    <div>
+      <h2 id="idb-title" class="idb-title">{title}</h2>
+      <div class="idb-subtitle">{subtitle}</div>
+    </div>
+    <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm b2s-btn-icon" aria-label={t('Close')} on:click={closeModal}>
+      <i class="bi bi-x-lg" aria-hidden="true"></i>
+    </button>
+  </header>
 
-{#if open}
-  <div
-    class="modal fade show d-block idb-modal"
-    tabindex="-1"
-    role="dialog"
-    aria-modal="true"
-    on:click={onBackdropClick}
-    on:keydown={onBackdropKeydown}
-  >
-    <div class="modal-dialog modal-xl modal-dialog-centered idb-dialog">
-      <div class="modal-content rounded-4 shadow-sm border-0 idb-content">
-        <div class="modal-header border-0 pb-0 idb-header">
-          <div>
-            <h5 class="modal-title">{title}</h5>
-            <div class="small text-muted">{subtitle}</div>
-          </div>
-          <button type="button" class="btn-close" aria-label="Close" on:click={closeModal}></button>
+  <div class="idb-body">
+    <div class="idb-toolbar-card">
+      <div class="idb-toolbar-grid">
+        <div>
+          <label class="idb-label" for="idb-source-select">{t('Identity Source:')}</label>
+          <select
+            id="idb-source-select"
+            class="idb-select"
+            bind:value={selectedSourceId}
+            disabled={$store.loadingSources || busy}
+            on:change={onSourceSelectChange}
+          >
+            {#if $store.sources.length === 0}
+              <option value={0}>{t('No active source')}</option>
+            {/if}
+            {#each $store.sources as src}
+              <option value={src.id}>{sourceOptionLabel(src)}</option>
+            {/each}
+          </select>
         </div>
 
-        <div class="modal-body pt-2 idb-body">
-          <div class="card idb-toolbar-card">
-            <div class="card-body pb-2 idb-toolbar-inner">
-              <div class="row g-2 align-items-end idb-toolbar-grid">
-                <div class="col-md-4 idb-source-col">
-                  <label class="form-label small text-muted mb-1 idb-label" for="idb-source-select">Identity Source:</label>
-                  <select
-                    id="idb-source-select"
-                    class="form-select form-select-sm idb-source-select"
-                    bind:value={selectedSourceId}
-                    disabled={$store.loadingSources || busy}
-                    on:change={onSourceSelectChange}
-                  >
-                    {#if $store.sources.length === 0}
-                      <option value={0}>No active source</option>
-                    {/if}
-                    {#each $store.sources as src}
-                      <option value={src.id}>{sourceOptionLabel(src)}</option>
-                    {/each}
-                  </select>
-                </div>
-
-                <div class="col-md-5 idb-search-col">
-                  <div class="form-label small text-muted mb-1 idb-label">Search users or groups</div>
-                  <div class="idb-search-row">
-                    <SearchField
-                      wrapperClass="idb-search-field"
-                      inputClass="idb-search-input"
-                      placeholder="Search users or groups..."
-                      ariaLabel="Search users or groups"
-                      value={$store.query}
-                      disabled={$store.loadingSources || busy || !selectedSourceId}
-                      onChange={(next) => store.setQuery(next)}
-                      onEnter={() => void executeSearch(true)}
-                    />
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary idb-search-btn"
-                      aria-label="Search"
-                      on:click={() => executeSearch(true)}
-                      disabled={$store.loadingSearch || busy || !selectedSourceId}
-                    >
-                      <i class="bi bi-search"></i>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="col-md-3 idb-role-col">
-                  {#if showImportRole}
-                    <label class="form-label small text-muted mb-1 idb-label" for="idb-import-role">Import role</label>
-                    <select id="idb-import-role" class="form-select form-select-sm idb-role-select" bind:value={importRole}>
-                      <option value="user">user</option>
-                      <option value="group">group</option>
-                    </select>
-                  {:else}
-                    <div class="idb-top-pagination">
-                      <span>Last Sync: {formatLastSync(lastSyncAt)}</span>
-                      <span class="idb-snapshot-status">{selectedSourceSnapshotSummary()}</span>
-                    </div>
-                  {/if}
-                </div>
-
-                {#if !showImportRole}
-                  <div class="col-12 idb-toolbar-actions-wrap">
-                    <div class="idb-toolbar-actions">
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary btn-sm idb-toolbar-action-btn"
-                        on:click={refreshDirectory}
-                        disabled={busy || refreshBusy || snapshotBusy || !selectedSourceId}
-                      >
-                        <i class={`bi ${refreshBusy ? 'bi-arrow-repeat' : 'bi-arrow-clockwise'}`}></i>
-                        {refreshBusy ? 'Refreshing…' : 'Refresh'}
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary btn-sm idb-toolbar-action-btn"
-                        on:click={regenerateSnapshot}
-                        disabled={busy || refreshBusy || snapshotBusy || !selectedSourceId}
-                        class:d-none={!canRunSnapshotForSelectedSource()}
-                      >
-                        <i class={`bi ${snapshotBusy ? 'bi-hourglass-split' : 'bi-database-gear'}`}></i>
-                        {snapshotBusy ? 'Snapshot…' : 'Regenerate snapshot'}
-                      </button>
-                    </div>
-                  </div>
-                {/if}
-              </div>
-            </div>
-          </div>
-
-          <div class="row g-0 overflow-hidden mt-3 idb-layout">
-            <div class="col-3 d-flex flex-column idb-tree-panel">
-              <div class="p-3 border-bottom idb-panel-head">
-                <div class="d-flex align-items-center justify-content-between gap-2">
-                  <div class="small text-muted text-uppercase idb-panel-title">Directory tree</div>
-                </div>
-              </div>
-              <div class="p-2 overflow-auto idb-tree-scroll">
-                {#if $store.tree.length === 0}
-                  <div class="small text-muted px-2 py-1">No OU tree found for this snapshot. Search still uses the active snapshot.</div>
-                {:else}
-                  {#each $store.tree as node (node.dn)}
-                    <TreeNode
-                      {node}
-                      activeDn={$store.activeDn}
-                      {expandedDns}
-                      {loadingDns}
-                      on:toggle={toggleTreeNode}
-                      on:select={selectTreeNode}
-                    />
-                  {/each}
-                {/if}
-              </div>
-            </div>
-
-            <div class="col-6 d-flex flex-column idb-results-panel">
-                <div class="p-3 idb-results-head">
-                  <div class="d-flex justify-content-between align-items-center mb-2 idb-results-top">
-                    <div class="small text-muted idb-results-title idb-results-filter">{enabledOnlyStatusLabel}</div>
-                    <div class="small text-muted idb-results-loaded">Showing {$store.rows.length} item{$store.rows.length > 1 ? 's' : ''}</div>
-                  </div>
-                </div>
-
-              <div class="flex-grow-1 overflow-auto idb-table-wrap">
-                <table class="table table-hover align-middle mb-0 idb-table">
-                  <thead class="table-light" style="position:sticky;top:0;z-index:1;">
-                    <tr>
-                      <th style="width:3rem;"></th>
-                      <th>Name</th>
-                      <th>Details</th>
-                      <th>Type</th>
-                      <th>Import status</th>
-                      <th>Sync status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {#if $store.rows.length === 0}
-                      <tr>
-                        <td colspan="6" class="idb-results-empty-cell">
-                          <div class="idb-results-empty">
-                            <i class="bi bi-search" aria-hidden="true"></i>
-                            <strong>No identities found</strong>
-                            <span>Try a search, select another OU, or regenerate the snapshot.</span>
-                          </div>
-                        </td>
-                      </tr>
-                    {:else}
-                      {#each $store.rows as row (principalKey(row))}
-                        {@const key = principalKey(row)}
-                        <tr class={$store.selectedKey === key ? 'table-active' : ''}>
-                          <td>
-                            <input
-                              class="form-check-input"
-                              type={mode === 'single' ? 'radio' : 'checkbox'}
-                              checked={$store.selectedKeys.includes(key)}
-                              name={mode === 'single' ? 'identity-single' : undefined}
-                              disabled={busy || (!includeImportCandidates && Boolean(row?.is_import_candidate))}
-                              on:change={(event) => onResultSelectionChange(row, event)}
-                            />
-                          </td>
-                          <td>
-                            <button
-                              type="button"
-                              class="btn btn-link btn-sm text-decoration-none p-0 idb-name-btn"
-                              on:click={() => selectRow(row)}
-                            >
-                              <i class="bi bi-search me-2"></i>
-                              {labelForPrincipal(row)}
-                            </button>
-                          </td>
-                          <td class="small text-muted">{resultSecondaryInfo(row)}</td>
-                          <td>
-                            <span class={`idb-type-badge is-${String(row?.type ?? 'user').toLowerCase()}`}>
-                              {principalTypeLabel(row?.type)}
-                            </span>
-                          </td>
-                          <td class="small text-muted">
-                            {#if row?.is_import_candidate}
-                              <span class="idb-import-badge is-candidate"><i class="bi bi-cloud-arrow-up"></i> Import candidate</span>
-                            {:else}
-                              <span class="idb-import-badge is-imported"><i class="bi bi-check-circle-fill"></i> Imported</span>
-                            {/if}
-                          </td>
-                          <td class="small text-muted">{syncStatusLabel(row?.browse_status ?? (row?.is_active ? 'active' : 'inactive'))}</td>
-                        </tr>
-                      {/each}
-                    {/if}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="col-3 d-flex flex-column idb-preview-panel">
-              <div class="p-3 idb-panel-head">
-                <div class="small text-muted text-uppercase idb-preview-title">{previewTitle}</div>
-              </div>
-
-              <div class="p-3 overflow-auto idb-preview-scroll">
-                {#if $store.loadingPreview}
-                  <div class="small text-muted">Loading preview…</div>
-                {:else if !$store.preview}
-                  <div class="idb-preview-empty">
-                    <strong>Select a user or group</strong>
-                    <span>View details and confirm before adding it to governance.</span>
-                  </div>
-                {:else}
-                  <div class="mb-2">
-                    <div class="small text-muted">Display name</div>
-                    <div class="fw-semibold">{String($store.preview.display_name ?? '-')}</div>
-                  </div>
-                  <div class="mb-2">
-                    <div class="small text-muted">Type</div>
-                    <div class="fw-semibold">{principalTypeLabel($store.preview.type)}</div>
-                  </div>
-                  <div class="mb-2">
-                    <div class="small text-muted">Username / SAM</div>
-                    <div class="fw-semibold">{String($store.preview.username ?? '-')}</div>
-                  </div>
-                  <div class="mb-2">
-                    <div class="small text-muted">DN</div>
-                    <div class="fw-semibold text-break">{String($store.preview.dn ?? '-')}</div>
-                  </div>
-                  <div class="mb-2">
-                    <div class="small text-muted">UPN</div>
-                    <div class="fw-semibold">{String($store.preview.upn ?? '-')}</div>
-                  </div>
-                  <div class="mb-2">
-                    <div class="small text-muted">Email</div>
-                    <div class="fw-semibold">{String($store.preview.email ?? '-')}</div>
-                  </div>
-                  <div class="mb-2">
-                    <div class="small text-muted">OU / Path</div>
-                    <div class="fw-semibold text-break">{String($store.preview.ou ?? '-')}</div>
-                  </div>
-                  <div class="mb-2">
-                    <div class="small text-muted">Import status</div>
-                    <div class="fw-semibold">{previewImportStatus($store.preview)}</div>
-                  </div>
-                  <div class="mb-2">
-                    <div class="small text-muted">Sync status</div>
-                    <div class="fw-semibold">{syncStatusLabel($store.preview.browse_status ?? $store.preview.status)}</div>
-                  </div>
-                  <div class="mb-2">
-                    <div class="small text-muted">Group member count</div>
-                    <div class="fw-semibold">{String($store.preview.group_count ?? $store.preview.member_count ?? '-')}</div>
-                  </div>
-
-                  {#if $store.snapshot}
-                    <div class="mt-3">
-                      <div class="small text-muted mb-1">Snapshot delta</div>
-                      <div class="d-flex gap-2 flex-wrap">
-                        <StatusBadge
-                          status="success"
-                          label={`+${Number($store.snapshot.added ?? 0)}`}
-                          compact={true}
-                        />
-                        <StatusBadge
-                          status="error"
-                          label={`-${Number($store.snapshot.removed ?? 0)}`}
-                          compact={true}
-                        />
-                      </div>
-                    </div>
-                  {/if}
-                {/if}
-              </div>
-
-              {#if $store.selectedKeys.length > 0}
-                <div class="p-3 idb-selected-panel">
-                  <div class="small text-muted mb-2">{selectedItemsTitle}</div>
-                  <div class="idb-selected-list">
-                    {#each $store.selectedKeys as key}
-                      {@const item = $store.selectedCache[key]}
-                      <IdentitySelectedPrincipalRow
-                        {item}
-                        selectionKey={key}
-                        onRemove={removeSelectionByKey}
-                      />
-                    {/each}
-                  </div>
-                </div>
-              {/if}
-
-              {#if allowRoleAssignment && $store.selectedKeys.length > 0}
-                <div class="p-3 idb-role-panel">
-                  <div class="small text-muted mb-2">{roleAssignmentTitle}</div>
-                  {#each $store.selectedKeys as key}
-                    <div class="small d-flex justify-content-between align-items-center mb-1">
-                      <span class="text-truncate me-2">{key}</span>
-                      <span class="d-flex gap-2">
-                        <label class="form-check-label">
-                          <input
-                            class="form-check-input"
-                            type="checkbox"
-                            checked={$store.roleByKey[key]?.guardian === true}
-                            on:change={(event) => onRoleToggle(key, 'guardian', event)}
-                          />
-                          G
-                        </label>
-                      </span>
-                    </div>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          </div>
-
-          {#if $store.error}
-            <div class="alert alert-warning mt-3 mb-0 py-2 small" role="status">{$store.error}</div>
-          {/if}
-        </div>
-
-        <div class="modal-footer border-0 idb-footer">
-          <div class="me-auto small text-muted">Selected: {$store.selectedKeys.length}</div>
-
-          {#if showImportButton}
+        <div>
+          <div class="idb-label">{t('Search users or groups')}</div>
+          <div class="idb-search-row">
+            <SearchField
+              wrapperClass="idb-search-field"
+              inputClass="idb-search-input"
+              placeholder={t('Search users or groups...')}
+              ariaLabel={t('Search users or groups')}
+              value={$store.query}
+              disabled={$store.loadingSources || busy || !selectedSourceId}
+              onChange={(next) => store.setQuery(next)}
+              onEnter={() => void executeSearch(true)}
+            />
             <button
               type="button"
-              class="btn btn-outline-secondary idb-btn idb-btn-secondary"
-              on:click={importSelection}
-              disabled={busy || $store.loadingSearch || $store.selectedKeys.length === 0}
+              class="b2s-btn b2s-btn-secondary b2s-btn-icon idb-search-btn"
+              aria-label={t('Search')}
+              on:click={() => executeSearch(true)}
+              disabled={$store.loadingSearch || busy || !selectedSourceId}
             >
-              {busy || $store.loadingSearch ? importButtonBusyLabel : `${importButtonLabel} (${$store.selectedKeys.length})`}
+              <i class="bi bi-search"></i>
             </button>
-          {/if}
-
-          <button type="button" class="btn btn-outline-secondary idb-btn idb-btn-secondary" on:click={closeModal} disabled={busy}>Cancel</button>
-          <button
-            type="button"
-            class="btn btn-primary idb-btn idb-btn-primary"
-            on:click={confirmSelection}
-            disabled={busy || $store.selectedKeys.length === 0}
-          >
-            {busy ? confirmBusyLabel : `${confirmLabel === 'Use Selected' ? 'Use Selected' : confirmLabel} (${$store.selectedKeys.length})`}
-          </button>
+          </div>
         </div>
+
+        <div>
+          {#if showImportRole}
+            <label class="idb-label" for="idb-import-role">{t('Import role')}</label>
+            <select id="idb-import-role" class="idb-select" bind:value={importRole}>
+              <option value="user">user</option>
+              <option value="group">group</option>
+            </select>
+          {:else}
+            <div class="idb-top-pagination">
+              <span>{t('Last Sync: {formatLastSync}', { formatLastSync: formatLastSync(lastSyncAt) })}</span>
+              <span class="idb-snapshot-status">{selectedSourceSnapshotSummary()}</span>
+            </div>
+          {/if}
+        </div>
+
+        {#if !showImportRole}
+          <div class="idb-toolbar-actions">
+            <button
+              type="button"
+              class="b2s-btn b2s-btn-secondary b2s-btn-sm"
+              on:click={refreshDirectory}
+              disabled={busy || refreshBusy || snapshotBusy || !selectedSourceId}
+            >
+              <i class={`bi ${refreshBusy ? 'bi-arrow-repeat' : 'bi-arrow-clockwise'}`}></i>
+              {refreshBusy ? t('Refreshing…') : t('Refresh')}
+            </button>
+            {#if canRunSnapshotForSelectedSource()}
+              <button
+                type="button"
+                class="b2s-btn b2s-btn-secondary b2s-btn-sm"
+                on:click={regenerateSnapshot}
+                disabled={busy || refreshBusy || snapshotBusy || !selectedSourceId}
+              >
+                <i class={`bi ${snapshotBusy ? 'bi-hourglass-split' : 'bi-database-gear'}`}></i>
+                {snapshotBusy ? t('Snapshot…') : t('Regenerate snapshot')}
+              </button>
+            {/if}
+          </div>
+        {/if}
       </div>
     </div>
+
+    <div class="idb-layout">
+      <section class="idb-panel idb-tree-panel">
+        <div class="idb-panel-head">
+          <div class="idb-panel-title">{t('Directory tree')}</div>
+        </div>
+        <div class="idb-scroll idb-tree-scroll">
+          {#if $store.tree.length === 0}
+            <div class="idb-hint">{t('No OU tree found for this snapshot. Search still uses the active snapshot.')}</div>
+          {:else}
+            {#each $store.tree as node (node.dn)}
+              <TreeNode
+                {node}
+                activeDn={$store.activeDn}
+                {expandedDns}
+                {loadingDns}
+                on:toggle={toggleTreeNode}
+                on:select={selectTreeNode}
+              />
+            {/each}
+          {/if}
+        </div>
+      </section>
+
+      <section class="idb-panel idb-results-panel">
+        <div class="idb-results-head">
+          <div class="idb-results-filter">{enabledOnlyStatusLabel}</div>
+          <div class="idb-results-loaded">{t('Showing {rowsCount} item{value}', { rowsCount: $store.rows.length, value: ($store.rows.length > 1 ? 's' : '') })}</div>
+        </div>
+
+        <div class="idb-scroll">
+          <table class="b2s-table idb-table">
+            <thead>
+              <tr>
+                <th style="width:3rem;"></th>
+                <th>{t('Name')}</th>
+                <th>{t('Details')}</th>
+                <th>{t('Type')}</th>
+                <th>{t('Import status')}</th>
+                <th>{t('Sync status')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#if $store.rows.length === 0}
+                <tr>
+                  <td colspan="6" class="idb-results-empty-cell">
+                    <div class="idb-results-empty">
+                      <i class="bi bi-search" aria-hidden="true"></i>
+                      <strong>{t('No identities found')}</strong>
+                      <span>{t('Try a search, select another OU, or regenerate the snapshot.')}</span>
+                    </div>
+                  </td>
+                </tr>
+              {:else}
+                {#each $store.rows as row (principalKey(row))}
+                  {@const key = principalKey(row)}
+                  <tr class:is-selected={$store.selectedKey === key}>
+                    <td>
+                      <input
+                        type={mode === 'single' ? 'radio' : 'checkbox'}
+                        checked={$store.selectedKeys.includes(key)}
+                        name={mode === 'single' ? 'identity-single' : undefined}
+                        disabled={busy || (!includeImportCandidates && Boolean(row?.is_import_candidate))}
+                        on:change={(event) => onResultSelectionChange(row, event)}
+                      />
+                    </td>
+                    <td>
+                      <button type="button" class="idb-name-btn" on:click={() => selectRow(row)}>
+                        <i class="bi bi-search"></i>
+                        {labelForPrincipal(row)}
+                      </button>
+                    </td>
+                    <td class="idb-muted">{resultSecondaryInfo(row)}</td>
+                    <td>
+                      <span class={`idb-type-badge is-${String(row?.type ?? 'user').toLowerCase()}`}>
+                        {principalTypeLabel(row?.type)}
+                      </span>
+                    </td>
+                    <td>
+                      {#if row?.is_import_candidate}
+                        <span class="idb-import-badge is-candidate"><i class="bi bi-cloud-arrow-up"></i> {t('Import candidate')}</span>
+                      {:else}
+                        <span class="idb-import-badge is-imported"><i class="bi bi-check-circle-fill"></i> {t('Imported')}</span>
+                      {/if}
+                    </td>
+                    <td class="idb-muted">{syncStatusLabel(row?.browse_status ?? (row?.is_active ? 'active' : 'inactive'))}</td>
+                  </tr>
+                {/each}
+              {/if}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="idb-panel idb-preview-panel">
+        <div class="idb-panel-head">
+          <div class="idb-panel-title">{previewTitle}</div>
+        </div>
+
+        <div class="idb-scroll idb-preview-scroll">
+          {#if $store.loadingPreview}
+            <LoadingState>{t('Loading preview…')}</LoadingState>
+          {:else if !$store.preview}
+            <div class="idb-preview-empty">
+              <strong>{t('Select a user or group')}</strong>
+              <span>{t('View details and confirm before adding it to governance.')}</span>
+            </div>
+          {:else}
+            {@const p = $store.preview}
+            <dl class="idb-preview-fields">
+              {#each [
+                ['Display name', String(p.display_name ?? '-')],
+                ['Type', principalTypeLabel(p.type)],
+                ['Username / SAM', String(p.username ?? '-')],
+                ['DN', String(p.dn ?? '-')],
+                ['UPN', String(p.upn ?? '-')],
+                ['Email', String(p.email ?? '-')],
+                ['OU / Path', String(p.ou ?? '-')],
+                ['Import status', previewImportStatus(p)],
+                ['Sync status', syncStatusLabel(p.browse_status ?? p.status)],
+                ['Group member count', String(p.group_count ?? p.member_count ?? '-')]
+              ] as [label, value]}
+                <div>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              {/each}
+            </dl>
+
+            {#if $store.snapshot}
+              <div class="idb-snapshot-delta">
+                <div class="idb-hint">{t('Snapshot delta')}</div>
+                <div class="idb-badges">
+                  <StatusBadge status="success" label={`+${Number($store.snapshot.added ?? 0)}`} compact={true} />
+                  <StatusBadge status="error" label={`-${Number($store.snapshot.removed ?? 0)}`} compact={true} />
+                </div>
+              </div>
+            {/if}
+          {/if}
+        </div>
+
+        {#if $store.selectedKeys.length > 0}
+          <div class="idb-selected-panel">
+            <div class="idb-hint">{selectedItemsTitle}</div>
+            <div class="idb-selected-list">
+              {#each $store.selectedKeys as key}
+                {@const item = $store.selectedCache[key]}
+                <IdentitySelectedPrincipalRow {item} selectionKey={key} onRemove={removeSelectionByKey} />
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        {#if allowRoleAssignment && $store.selectedKeys.length > 0}
+          <div class="idb-role-panel">
+            <div class="idb-hint">{roleAssignmentTitle}</div>
+            {#each $store.selectedKeys as key}
+              <div class="idb-role-row">
+                <span class="idb-role-key">{key}</span>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={$store.roleByKey[key]?.guardian === true}
+                    on:change={(event) => onRoleToggle(key, 'guardian', event)}
+                  />
+                  G
+                </label>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </section>
+    </div>
+
+    {#if $store.error}
+      <InlineAlert tone="error">{$store.error}</InlineAlert>
+    {/if}
   </div>
-  <div class="modal-backdrop fade show"></div>
-{/if}
+
+  <footer class="idb-footer">
+    <div class="idb-hint idb-footer-count">{t('Selected: {selectedKeysCount}', { selectedKeysCount: $store.selectedKeys.length })}</div>
+
+    {#if showImportButton}
+      <button
+        type="button"
+        class="b2s-btn b2s-btn-secondary"
+        on:click={importSelection}
+        disabled={busy || $store.loadingSearch || $store.selectedKeys.length === 0}
+      >
+        {busy || $store.loadingSearch ? importButtonBusyLabel : `${importButtonLabel} (${$store.selectedKeys.length})`}
+      </button>
+    {/if}
+
+    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={closeModal} disabled={busy}>{t('Cancel')}</button>
+    <button
+      type="button"
+      class="b2s-btn b2s-btn-primary"
+      on:click={confirmSelection}
+      disabled={busy || $store.selectedKeys.length === 0}
+    >
+      {busy ? confirmBusyLabel : `${confirmLabel} (${$store.selectedKeys.length})`}
+    </button>
+  </footer>
+</AppModal>
 
 <style>
-  .idb-modal {
+  :global(.b2s-modal-backdrop.idb-backdrop) {
+    z-index: 1400;
     background: rgba(17, 24, 39, 0.2);
     backdrop-filter: blur(1.5px);
-    z-index: 1400;
   }
 
-  .idb-modal + .modal-backdrop {
-    z-index: 1390;
+  :global(.b2s-modal.idb-dialog) {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    max-height: calc(100vh - 32px);
+    border: 1px solid var(--idb-border-strong);
+    border-radius: var(--b2s-card-radius);
+    box-shadow: var(--idb-shadow);
+    background: var(--idb-shell-bg);
+    overflow: hidden;
   }
 
-  .idb-dialog {
-    max-width: min(1180px, 92vw);
-    margin: 0.8rem auto;
-  }
-
-  .idb-content {
-    border-radius: var(--b2s-card-radius, 10px);
-    border: 1px solid var(--idb-border-strong, #d6deeb);
-    box-shadow: var(--idb-shadow, 0 20px 40px rgba(20, 41, 72, 0.12));
-    background: var(--idb-shell-bg, #ffffff);
+  :global(.idb-content) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
   .idb-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    padding: 0.75rem 0.85rem 0.25rem;
-    border-bottom: 1px solid var(--idb-border, #e3e9f3);
-    background: var(--idb-panel-head-bg, #f4f7fb);
+    gap: 12px;
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--idb-border);
+    background: var(--idb-panel-head-bg);
   }
 
-  .idb-header :global(.modal-title) {
-    color: var(--idb-heading, #20324d);
+  .idb-title {
+    margin: 0;
+    font-size: var(--b2s-fs-xl);
+    font-weight: 500;
+    color: var(--idb-heading);
   }
 
-  .idb-header :global(.text-muted) {
-    color: var(--idb-text-muted, #6b7f98) !important;
+  .idb-subtitle,
+  .idb-hint,
+  .idb-muted {
+    font-size: var(--b2s-fs-sm);
+    color: var(--idb-text-muted);
   }
 
   .idb-body {
-    padding: 0.65rem;
-    background: var(--idb-panel-soft-bg, #f7f9fc);
+    padding: 10px;
+    overflow: auto;
+    background: var(--idb-panel-soft-bg);
   }
 
   .idb-toolbar-card {
-    background: var(--idb-panel-bg, #ffffff);
-    border: 1px solid var(--idb-border, #e3e9f3);
-    border-radius: var(--b2s-card-radius, 10px);
+    padding: 14px 16px 10px;
+    background: var(--idb-panel-bg);
+    border: 1px solid var(--idb-border);
+    border-radius: var(--b2s-card-radius);
   }
 
-  .idb-toolbar-inner {
-    padding-bottom: 0.35rem;
-  }
-
-  .idb-toolbar-actions-wrap {
-    margin-top: 0.25rem;
+  .idb-toolbar-grid {
+    display: grid;
+    grid-template-columns: 4fr 5fr 3fr;
+    gap: 8px;
+    align-items: end;
   }
 
   .idb-toolbar-actions {
+    grid-column: 1 / -1;
     display: flex;
     justify-content: flex-end;
-    gap: 0.5rem;
+    gap: 8px;
     flex-wrap: wrap;
   }
 
-  .idb-toolbar-action-btn {
-    border-color: var(--idb-border-strong, #d6deeb);
-    color: var(--idb-heading, #20324d);
-    background: var(--idb-panel-bg, #ffffff);
-    font-weight: 600;
-  }
-
-  .idb-toolbar-action-btn:hover {
-    border-color: var(--idb-selected-border, #b8cee8);
-    background: var(--idb-hover-bg, #f3f7fc);
-  }
-
   .idb-label {
-    font-size: 13px;
+    display: block;
+    margin-bottom: 4px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
-    color: var(--idb-heading, #20324d);
-    text-transform: none;
+    color: var(--idb-heading);
   }
 
-  .idb-source-select,
-  .idb-role-select,
-  .idb-search-btn {
-    border-color: var(--idb-border-strong, #d6deeb);
+  .idb-select {
+    width: 100%;
     min-height: 36px;
-    font-size: 14px;
-    color: var(--idb-text, #30435f);
-    background: var(--idb-panel-soft-bg, #f7f9fc);
+    padding: 4px 8px;
+    border: 1px solid var(--idb-border-strong);
+    border-radius: var(--b2s-radius-sm);
+    font-size: var(--b2s-fs-md);
+    color: var(--idb-text);
+    background: var(--idb-panel-soft-bg);
   }
 
   .idb-search-row {
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: 0.45rem;
+    gap: 7px;
     align-items: center;
   }
 
-  .idb-search-field {
-    --b2s-search-border: var(--idb-border-strong, #d6deeb);
-    --b2s-search-bg: var(--idb-panel-soft-bg, #f7f9fc);
-    --b2s-search-color: var(--idb-text, #30435f);
-    --b2s-search-icon-color: var(--idb-text-muted, #6b7f98);
-    --b2s-search-placeholder: var(--idb-text-muted, #6b7f98);
-    --b2s-search-focus-border: var(--idb-accent, #204c87);
-    --b2s-search-focus-ring: 0 0 0 3px color-mix(in srgb, var(--idb-accent, #204c87) 18%, transparent);
+  :global(.idb-search-field) {
+    --b2s-search-border: var(--idb-border-strong);
+    --b2s-search-bg: var(--idb-panel-soft-bg);
+    --b2s-search-color: var(--idb-text);
+    --b2s-search-icon-color: var(--idb-text-muted);
+    --b2s-search-placeholder: var(--idb-text-muted);
+    --b2s-search-focus-border: var(--idb-accent);
+    --b2s-search-focus-ring: 0 0 0 3px color-mix(in srgb, var(--idb-accent) 18%, transparent);
     min-height: 36px;
-    padding: 0.35rem 0.55rem;
-    border-radius: 8px;
+    padding: 6px 9px;
+    border-radius: var(--b2s-radius-sm);
   }
 
-  .idb-search-input {
-    font-size: 14px;
+  :global(.idb-search-input) {
+    font-size: var(--b2s-fs-md);
   }
 
   .idb-search-btn {
-    width: 40px;
-    padding: 0;
-    background: var(--idb-panel-head-bg, #f4f7fb);
-    color: var(--idb-text-muted, #6b7f98);
+    min-height: 36px;
+    height: 36px;
   }
 
   .idb-top-pagination {
@@ -1204,110 +1135,99 @@
     align-items: flex-end;
     justify-content: center;
     gap: 2px;
-    color: var(--idb-heading, #20324d);
+    color: var(--idb-heading);
     font-weight: 600;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     line-height: 1;
   }
 
   .idb-snapshot-status {
-    font-size: 11px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 500;
-    color: var(--idb-text-muted, #6b7f98);
+    color: var(--idb-text-muted);
   }
 
   .idb-layout {
-    margin-top: 0.6rem;
+    display: grid;
+    grid-template-columns: 24% 48% 28%;
+    margin-top: 10px;
     height: min(62vh, 640px);
-    border-radius: var(--b2s-card-radius, 10px);
-    border: 1px solid var(--idb-border-strong, #d6deeb);
-    background: var(--idb-panel-soft-bg, #f7f9fc);
+    overflow: hidden;
+    border-radius: var(--b2s-card-radius);
+    border: 1px solid var(--idb-border-strong);
+    background: var(--idb-panel-soft-bg);
   }
 
-  .idb-layout > .idb-tree-panel {
-    flex: 0 0 24%;
-    max-width: 24%;
+  .idb-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
   }
 
-  .idb-layout > .idb-results-panel {
-    flex: 0 0 48%;
-    max-width: 48%;
-  }
-
-  .idb-layout > .idb-preview-panel {
-    flex: 0 0 28%;
-    max-width: 28%;
+  .idb-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
   }
 
   .idb-panel-head {
-    background: var(--idb-panel-head-bg, #f4f7fb);
-    border-bottom: 1px solid var(--idb-border, #e3e9f3);
-    min-height: 44px;
     display: flex;
     align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    background: var(--idb-panel-head-bg);
+    border-bottom: 1px solid var(--idb-border);
   }
 
-  .idb-panel-title,
-  .idb-results-title,
-  .idb-preview-title {
-    color: var(--idb-heading, #20324d);
-    font-size: 13px;
+  .idb-panel-title {
+    color: var(--idb-heading);
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
-    letter-spacing: 0;
-    text-transform: none;
   }
 
-  .idb-tree-panel,
-  .idb-preview-panel {
-    background: var(--idb-panel-soft-bg, #f7f9fc);
+  .idb-tree-panel .idb-hint {
+    padding: 8px 12px;
   }
 
   .idb-results-panel {
-    border-inline: 1px solid var(--idb-border, #e3e9f3);
-    background: var(--idb-panel-bg, #ffffff);
-  }
-
-  .idb-tree-scroll {
-    padding: 0;
+    border-inline: 1px solid var(--idb-border);
+    background: var(--idb-panel-bg);
   }
 
   .idb-results-head {
-    background: var(--idb-panel-bg, #ffffff);
-    border-bottom: 1px solid var(--idb-border, #e3e9f3);
-    padding-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 16px 8px;
+    border-bottom: 1px solid var(--idb-border);
+  }
+
+  .idb-results-filter {
+    font-size: var(--b2s-fs-xs);
+    font-weight: 600;
+    color: var(--idb-text-muted);
   }
 
   .idb-results-loaded {
-    font-size: 12px;
-    color: var(--idb-text, #30435f);
+    font-size: var(--b2s-fs-xs);
     font-weight: 600;
+    color: var(--idb-text);
   }
 
   .idb-table {
-    font-size: 13px;
-    color: var(--idb-text, #30435f);
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--b2s-fs-sm);
+    color: var(--idb-text);
   }
 
   .idb-table thead th {
-    background: var(--idb-panel-head-bg, #f4f7fb);
-    border-bottom: 1px solid var(--idb-border, #e3e9f3);
-    color: var(--idb-text-muted, #6b7f98);
-    font-weight: 700;
-    font-size: 12px;
-    padding: 8px 10px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
     white-space: nowrap;
-  }
-
-  .idb-table tbody td {
-    border-color: var(--idb-border, #e3e9f3);
-    padding: 8px 10px;
-    vertical-align: middle;
-    font-size: 13px;
-  }
-
-  .idb-table tbody tr.table-active,
-  .idb-table tbody tr:hover {
-    --bs-table-bg-state: var(--idb-selected-bg, #eaf2fb);
   }
 
   .idb-results-empty-cell {
@@ -1322,25 +1242,26 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    gap: 0.5rem;
-    color: var(--idb-text-muted, #6b7f98);
+    gap: 8px;
+    color: var(--idb-text-muted);
   }
 
   .idb-results-empty i {
     font-size: 1.35rem;
-    color: var(--idb-accent, #204c87);
+    color: var(--idb-accent);
     opacity: 0.8;
   }
 
-  .idb-results-empty strong {
-    color: var(--idb-heading, #20324d);
-    font-size: 0.95rem;
+  .idb-results-empty strong,
+  .idb-preview-empty strong {
+    color: var(--idb-heading);
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
 
   .idb-results-empty span {
     max-width: 32ch;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
   }
 
   .idb-type-badge {
@@ -1348,36 +1269,40 @@
     align-items: center;
     justify-content: center;
     min-height: 22px;
-    border-radius: 999px;
-    border: 1px solid var(--idb-border, #e3e9f3);
-    padding: 0 0.55rem;
-    font-size: 0.7rem;
+    border-radius: var(--b2s-radius-pill);
+    border: 1px solid var(--idb-border);
+    padding: 0 9px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     letter-spacing: 0.01em;
     text-transform: uppercase;
-    background: var(--idb-user-badge-bg, #eef4fb);
-    color: var(--idb-user-badge-text, #35557f);
+    background: var(--idb-user-badge-bg);
+    color: var(--idb-user-badge-text);
   }
 
   .idb-type-badge.is-group {
-    background: var(--idb-group-badge-bg, #f3f1fb);
-    color: var(--idb-group-badge-text, #5d4b90);
+    background: var(--idb-group-badge-bg);
+    color: var(--idb-group-badge-text);
   }
 
   .idb-type-badge.is-ou {
-    background: var(--idb-panel-head-bg, #f4f7fb);
-    color: var(--idb-text-muted, #6b7f98);
+    background: var(--idb-panel-head-bg);
+    color: var(--idb-text-muted);
   }
 
   .idb-name-btn {
-    color: var(--idb-heading, #20324d);
-    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    color: var(--idb-heading);
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
     line-height: 1.1;
-  }
-
-  .idb-name-btn:hover {
-    color: var(--idb-heading, #20324d);
+    text-align: left;
   }
 
   .idb-import-badge {
@@ -1385,178 +1310,155 @@
     align-items: center;
     gap: 7px;
     font-weight: 700;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     line-height: 1;
   }
 
   .idb-import-badge.is-imported {
-    color: var(--idb-success, #2d7f4f);
+    color: var(--idb-success);
   }
 
   .idb-import-badge.is-candidate {
-    color: var(--idb-warning, #c1761f);
-  }
-
-  .idb-results-filter {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--idb-text-muted, #6b7f98);
+    color: var(--idb-warning);
   }
 
   .idb-preview-scroll {
-    color: var(--idb-text, #30435f);
-    font-size: 13px;
-    background: var(--idb-panel-soft-bg, #f7f9fc);
+    padding: 16px;
+    color: var(--idb-text);
+    font-size: var(--b2s-fs-sm);
   }
 
   .idb-preview-empty {
     min-height: 180px;
-    padding: 0.6rem;
-    border: 1px dashed var(--idb-border-strong, #d6deeb);
-    border-radius: 12px;
-    background: var(--idb-panel-bg, #ffffff);
+    padding: 10px;
+    border: 1px dashed var(--idb-border-strong);
+    border-radius: var(--b2s-radius-md);
+    background: var(--idb-panel-bg);
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 0.4rem;
-  }
-
-  .idb-preview-empty strong {
-    color: var(--idb-heading, #20324d);
-    font-size: 0.95rem;
-    font-weight: 700;
+    gap: 6px;
   }
 
   .idb-preview-empty span {
-    color: var(--idb-text-muted, #6b7f98);
-    font-size: 0.82rem;
+    color: var(--idb-text-muted);
+    font-size: var(--b2s-fs-sm);
     line-height: 1.35;
   }
 
-  .idb-preview-scroll .small.text-muted {
-    color: var(--idb-text-muted, #6b7f98);
-    font-size: 12px;
-    text-transform: none;
-    letter-spacing: 0;
+  .idb-preview-fields {
+    display: grid;
+    gap: 8px;
+    margin: 0;
   }
 
-  .idb-preview-scroll .fw-semibold {
-    font-size: 16px;
-    color: var(--idb-heading, #20324d);
+  .idb-preview-fields dt {
+    font-size: var(--b2s-fs-xs);
+    font-weight: 400;
+    color: var(--idb-text-muted);
+  }
+
+  .idb-preview-fields dd {
+    margin: 0;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
     line-height: 1.15;
+    color: var(--idb-heading);
+    overflow-wrap: anywhere;
+  }
+
+  .idb-snapshot-delta {
+    margin-top: 16px;
+  }
+
+  .idb-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .idb-selected-panel,
+  .idb-role-panel {
+    padding: 16px;
+    border-top: 1px solid var(--idb-border);
+    background: var(--idb-panel-head-bg);
   }
 
   .idb-selected-panel {
     max-height: 220px;
     overflow: auto;
-    border-top: 1px solid var(--idb-border, #e3e9f3);
-    background: var(--idb-panel-head-bg, #f4f7fb);
-  }
-
-  .idb-role-panel {
-    border-top: 1px solid var(--idb-border, #e3e9f3);
-    background: var(--idb-panel-head-bg, #f4f7fb);
   }
 
   .idb-selected-list {
     display: flex;
     flex-direction: column;
-    gap: 0.45rem;
+    gap: 7px;
+    margin-top: 8px;
+  }
+
+  .idb-role-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .idb-role-key {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .idb-role-row input {
+    accent-color: var(--idb-accent);
   }
 
   .idb-footer {
-    border-top: 1px solid var(--idb-border, #e3e9f3);
-    background: var(--idb-panel-head-bg, #f4f7fb);
-    padding: 0.65rem 0.85rem;
-    gap: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--idb-border);
+    background: var(--idb-panel-head-bg);
   }
 
-  .idb-btn {
-    min-height: 36px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 0.35rem 0.85rem;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  }
-
-  .idb-btn-secondary {
-    border-color: var(--idb-border-strong, #d6deeb);
-    color: var(--idb-heading, #20324d);
-    background: var(--idb-panel-bg, #ffffff);
-  }
-
-  .idb-btn-secondary:hover {
-    background: var(--idb-hover-bg, #f3f7fc);
-    border-color: var(--idb-selected-border, #b8cee8);
-  }
-
-  .idb-btn-primary {
-    border-color: var(--idb-accent, #204c87);
-    background: var(--idb-accent, #204c87);
-    color: #ffffff;
-  }
-
-  .idb-btn-primary:hover {
-    background: color-mix(in srgb, var(--idb-accent, #204c87) 88%, black 12%);
-    border-color: color-mix(in srgb, var(--idb-accent, #204c87) 88%, black 12%);
-  }
-
-  .idb-role-panel :global(.form-check-input:checked) {
-    background-color: var(--idb-accent, #204c87);
-    border-color: var(--idb-accent, #204c87);
+  .idb-footer-count {
+    margin-right: auto;
   }
 
   @media (max-width: 1180px) {
     .idb-layout {
+      grid-template-columns: 28% 44% 28%;
       height: auto;
       min-height: 56vh;
-    }
-
-    .idb-layout > .idb-tree-panel {
-      flex: 0 0 28%;
-      max-width: 28%;
-    }
-
-    .idb-layout > .idb-results-panel {
-      flex: 0 0 44%;
-      max-width: 44%;
-    }
-
-    .idb-layout > .idb-preview-panel {
-      flex: 0 0 28%;
-      max-width: 28%;
     }
   }
 
   @media (max-width: 920px) {
-    .idb-dialog {
-      max-width: min(1180px, 96vw);
+    :global(.b2s-modal.idb-dialog) {
+      width: 96vw;
     }
 
-    .idb-layout {
-      display: flex;
-      flex-direction: column;
-      max-height: none;
-      height: auto;
-    }
-
-    .idb-layout > .idb-tree-panel,
-    .idb-layout > .idb-results-panel,
-    .idb-layout > .idb-preview-panel {
-      max-width: 100%;
-      flex: 1 1 auto;
-      border-inline: 0;
-    }
-
-    .idb-layout > .idb-results-panel {
-      border-top: 1px solid var(--idb-border, #e3e9f3);
-      border-bottom: 1px solid var(--idb-border, #e3e9f3);
+    .idb-toolbar-grid {
+      grid-template-columns: 1fr;
     }
 
     .idb-toolbar-actions {
       justify-content: flex-start;
+    }
+
+    .idb-layout {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+
+    .idb-results-panel {
+      border-inline: 0;
+      border-block: 1px solid var(--idb-border);
     }
   }
 </style>

@@ -1,10 +1,11 @@
+import { t } from '$lib/i18n';
 type GovernanceOwnerLike = Record<string, unknown>;
 
 type GovernanceOwnerCardVM = {
   title: string;
   subtitle: string | null;
   tertiary: string | null;
-  typeLabel: 'User' | 'Group';
+  typeLabel: string;
   iconKind: 'user' | 'group';
   iconClass: string;
 };
@@ -25,7 +26,7 @@ const resolveTitle = (row: GovernanceOwnerLike, fallbackDisplayName?: string): s
     toText(row?.name) ||
     toText(row?.username) ||
     toText(row?.email) ||
-    'Unknown user'
+    t('Unknown user')
   );
 };
 
@@ -61,7 +62,7 @@ export const mapGovernanceOwnerToCardVM = (
     title: resolveTitle(owner, options?.displayName),
     subtitle,
     tertiary: resolveTertiary(owner, subtitle),
-    typeLabel: iconKind === 'group' ? 'Group' : 'User',
+    typeLabel: iconKind === 'group' ? t('Group') : t('User'),
     iconKind,
     iconClass: iconKind === 'group' ? 'bi-people' : 'bi-person'
   };

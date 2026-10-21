@@ -9,6 +9,7 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntitySidebarTree, {
     type EntitySidebarGroup
   } from "$lib/components/entity/EntitySidebarTree.svelte";
@@ -32,13 +33,13 @@
 
   $: query = norm(q);
   $: filtered = sortedZones.filter((z) => {
-    const t = [norm(z.name), norm(z.code)].join(" ");
-    return query === "" || t.includes(query);
+    const haystack = [norm(z.name), norm(z.code)].join(" ");
+    return query === "" || haystack.includes(query);
   });
 
   $: treeGroups = [{
     id: 'zones',
-    label: 'Zones',
+    label: t('Zones'),
     items: filtered.map((zone) => ({
       id: zone.id,
       label: zone.name,
@@ -51,11 +52,11 @@
 </script>
 
 <EntitySidebarTree
-  ariaLabel="Zones sidebar"
-  createLabel="New zone"
-  searchPlaceholder="Search zone or code"
-  searchAriaLabel="Search zone or code"
-  emptyLabel="No zone matches your search."
+  ariaLabel={t('Zones sidebar')}
+  createLabel={t('New zone')}
+  searchPlaceholder={t('Search zone or code')}
+  searchAriaLabel={t('Search zone or code')}
+  emptyLabel={t('No zone matches your search.')}
   query={q}
   groups={treeGroups}
   selectedId={selectedZoneId}

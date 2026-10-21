@@ -1,4 +1,4 @@
-import { apiGetList, type FetchLike } from './client';
+import { apiGetList, apiPost, type FetchLike } from './client';
 
 type GovernanceAlertSeverity = 'info' | 'warning' | 'high' | 'critical' | string;
 type GovernanceAlertStatus = 'open' | 'acknowledged' | 'resolved' | string;
@@ -38,3 +38,18 @@ export const listStorageRootGovernanceAlerts = async (
     status: params.status ?? 'open',
     reconcile: params.reconcile ?? true
   });
+
+export const listGovernanceAlerts = async (
+  fetchFn: FetchLike,
+  params: { status?: GovernanceAlertStatus | 'all'; limit?: number } = {}
+): Promise<GovernanceAlert[]> =>
+  apiGetList<GovernanceAlert>(fetchFn, '/governance-alerts', {
+    status: params.status ?? 'all',
+    limit: params.limit ?? 500
+  });
+
+export const acknowledgeGovernanceAlert = (fetchFn: FetchLike, alertId: number | string) =>
+  apiPost(fetchFn, `/governance-alerts/${alertId}/acknowledge`, {});
+
+export const resolveGovernanceAlert = (fetchFn: FetchLike, alertId: number | string) =>
+  apiPost(fetchFn, `/governance-alerts/${alertId}/resolve`, {});

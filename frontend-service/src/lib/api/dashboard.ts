@@ -63,6 +63,12 @@ type DashboardPlatformOverview = {
   admins_count?: number;
   pending_requests_count?: number;
 
+  open_alerts_count?: number;
+  critical_alerts_count?: number;
+  failed_jobs_24h_count?: number;
+  stale_pending_requests_count?: number;
+  requests_last_30_days?: { day: string; submitted: number; applied: number }[];
+
   // backend convenience mapping
   storage_roots?: number;
   storage_endpoints?: number;
@@ -94,7 +100,7 @@ export async function getUserDashboardMe(
   fetchFn: FetchLike
 ): Promise<UserDashboardMePayload> {
   const raw = await apiGetData<Partial<UserDashboardMePayload>>(fetchFn, "/dashboard/me");
-  const summary = raw?.summary ?? {};
+  const summary: Partial<UserDashboardMeSummary> = raw?.summary ?? {};
   return {
     summary: {
       my_open_requests: Number(summary.my_open_requests ?? 0),

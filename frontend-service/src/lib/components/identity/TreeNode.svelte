@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import type { IdentityTreeNode } from '../../types/identity-browser';
 
@@ -32,9 +33,9 @@
 <div class="idb-tree-node-wrap">
   <div class={`idb-tree-node ${isActive ? 'is-active' : ''}`} style={`padding-left:${12 + level * 24}px;`}>
     {#if node.has_children}
-      <button class="idb-tree-toggle" type="button" on:click={toggleNode} aria-label="Toggle node">
+      <button class="idb-tree-toggle" type="button" on:click={toggleNode} aria-label={t('Toggle node')}>
         {#if isLoading}
-          <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          <span class="b2s-spinner" aria-hidden="true"></span>
         {:else}
           <i class={`bi ${isExpanded ? 'bi-caret-down-fill' : 'bi-caret-right-fill'}`}></i>
         {/if}
@@ -75,7 +76,7 @@
     align-items: center;
     gap: 10px;
     padding-right: 10px;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     text-align: left;
   }
 
@@ -110,7 +111,7 @@
   }
 
   .idb-tree-label {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 500;
   }
 
@@ -132,6 +133,6 @@
   .idb-tree-select:focus-visible {
     outline: none;
     box-shadow: var(--b2s-focus-ring, 0 0 0 4px rgba(37, 99, 235, 0.18));
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
   }
 </style>

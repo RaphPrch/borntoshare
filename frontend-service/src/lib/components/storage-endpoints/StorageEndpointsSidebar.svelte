@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntitySidebarTree, {
     type EntitySidebarGroup,
     type EntitySidebarItem
@@ -21,14 +22,10 @@
   export let onQueryChange: (value: string) => void = () => {};
   export let showToneDot = true;
   export let endpointId: (ep: EndpointRow) => number = () => 0;
-  export let endpointName: (ep: EndpointRow) => string = () => 'Endpoint';
+  export let endpointName: (ep: EndpointRow) => string = () => t('Endpoint');
   export let endpointTone: (ep: EndpointRow) => 'healthy' | 'warning' | 'error' = () => 'warning';
   export let endpointAlertCount: (ep: EndpointRow) => number = () => 0;
   export let endpointAlertIndicator: (ep: EndpointRow) => { kind: 'warning' | 'error'; label: string } | null = () => null;
-
-  const hasWarningForEndpoint = (ep: EndpointRow): boolean => {
-    return endpointAlertCount(ep) > 0;
-  };
 
   const warningCountForZone = (zone: EndpointZoneGroup): number =>
     (Array.isArray(zone?.endpoints) ? zone.endpoints : []).reduce((total, ep) => total + endpointAlertCount(ep), 0);
@@ -52,11 +49,11 @@
 </script>
 
 <EntitySidebarTree
-  ariaLabel="Storage endpoints sidebar"
-  createLabel="New endpoint"
-  searchPlaceholder="Search endpoint or zone"
-  searchAriaLabel="Search endpoint or zone"
-  emptyLabel="No endpoint matches your search."
+  ariaLabel={t('Storage endpoints sidebar')}
+  createLabel={t('New endpoint')}
+  searchPlaceholder={t('Search endpoint or zone')}
+  searchAriaLabel={t('Search endpoint or zone')}
+  emptyLabel={t('No endpoint matches your search.')}
   {query}
   groups={treeGroups}
   selectedId={selectedEndpointId}

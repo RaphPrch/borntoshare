@@ -1,4 +1,11 @@
 <script lang="ts">
+  import { csvFilename, downloadCsv } from '$lib/utils/csv';
+  import SearchField from '$lib/components/ui/SearchField.svelte';
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import Pagination from '$lib/components/ui/Pagination.svelte';
+  import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
   import { onDestroy } from 'svelte';
   import { cancelAdminJob, listAdminJobs, type AdminProvisioningJob } from '$lib/api/admin-jobs';
@@ -20,6 +27,8 @@
   let jobs: AdminProvisioningJob[] = Array.isArray(data?.initialJobs) ? data.initialJobs : [];
   let updatedAt = String(data?.generatedAt ?? new Date().toISOString());
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let page = 1;
+  let pageSize = 25;
 
   const toDate = (value: unknown): Date | null => {
     const raw = String(value ?? '').trim();
@@ -42,6 +51,8 @@
     const status = normalizeStatus(job?.status);
     return !isTerminal(status) && status !== 'UNKNOWN';
   };
+
+  const JOB_STATUS_VARIANTS = { running: 'info', success: 'success', error: 'error', neutral: 'muted' } as const;
 
   const statusTone = (status: string): 'running' | 'success' | 'error' | 'neutral' => {
     const s = normalizeStatus(status);
@@ -78,7 +89,7 @@
       const appError = toAppError(error, { source: 'ui' });
       loadError = appError.message;
       if (!silent) {
-        toast.error(appError.message || 'Unable to load jobs');
+        toast.error(appError.message || t('Unable to load jobs'));
       }
     } finally {
       if (!silent) isLoading = false;
@@ -88,11 +99,11 @@
   const cancelJob = async (job: AdminProvisioningJob) => {
     const jobId = Number(job?.id ?? 0);
     if (!Number.isFinite(jobId) || jobId <= 0) {
-      toast.warning('Identifiant de job invalide');
+      toast.warning(t('Identifiant de job invalide'));
       return;
     }
     if (!canCancel(job)) {
-      toast.warning('This job is already terminal');
+      toast.warning(t('This job is already terminal'));
       return;
     }
 
@@ -102,15 +113,27 @@
         reason: 'Cancelled by operator from observability/jobs',
         source: 'ui'
       });
-      toast.success(`Job #${jobId} canceled`);
+      toast.success(t('Job #{jobId} canceled', { jobId }));
       await refreshJobs(true);
     } catch (error: unknown) {
       const appError = toAppError(error, { source: 'ui' });
-      toast.error(appError.message || `Unable to cancel job #${jobId}`);
+      toast.error(appError.message || t('Unable to cancel job #{jobId}', { jobId }));
     } finally {
       isCancelling = false;
     }
   };
+
+  const exportJobs = () =>
+    downloadCsv(csvFilename('jobs'), [
+      { header: 'ID', value: (job: AdminProvisioningJob) => job.id },
+      { header: t('Status'), value: (job: AdminProvisioningJob) => normalizeStatus(job.status) },
+      { header: t('Type'), value: (job: AdminProvisioningJob) => job.job_type },
+      { header: t('Action'), value: (job: AdminProvisioningJob) => job.action },
+      { header: t('Updated'), value: (job: AdminProvisioningJob) => formatDateTime(job.updated_at ?? job.created_at) },
+      { header: t('Error code'), value: (job: AdminProvisioningJob) => job.error_code },
+      { header: t('Error'), value: (job: AdminProvisioningJob) => job.error_message },
+      { header: t('Correlation ID'), value: (job: AdminProvisioningJob) => job.correlation_id }
+    ], filtered);
 
   const startPolling = () => {
     if (pollTimer) return;
@@ -142,36 +165,32 @@
       const db = toDate(b?.updated_at ?? b?.created_at)?.getTime() ?? 0;
       return db - da;
     });
+  $: query, statusFilter, (page = 1);
+  $: pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
 </script>
 
-<div class="container-fluid jobs-page">
-  <div class="jobs-head">
-    <div>
-      <h1 class="jobs-title">Jobs</h1>
-      <div class="jobs-subtitle">Monitoring provisioning jobs and operator cancellations</div>
-    </div>
-    <div class="jobs-updated">Updated {formatDateTime(updatedAt, { seconds: true })}</div>
+<div class="jobs-page">
+  <PageHeader title={t('Jobs')} subtitle={t('Monitoring provisioning jobs and operator cancellations')}>
+    <svelte:fragment slot="actions">
+      <span>{t('Updated {formatDateTime}', { formatDateTime: formatDateTime(updatedAt) })}</span>
+    </svelte:fragment>
+  </PageHeader>
+
+  <div class="jobs-summary">
+    <StatusBadge variant="info" label={t('Active: {activeCount}', { activeCount })} />
+    <StatusBadge variant="muted" showDot={false} label={t('Total: {jobsCount}', { jobsCount: jobs.length })} />
+    <StatusBadge variant="muted" showDot={false} label={t('Finished: {terminalCount}', { terminalCount })} />
   </div>
 
-  <div class="card b2s-card jobs-summary">
-    <div class="card-body d-flex flex-wrap align-items-center gap-3">
-      <span class="summary-pill summary-pill--running">Active: {activeCount}</span>
-      <span class="summary-pill summary-pill--neutral">Total: {jobs.length}</span>
-      <span class="summary-pill summary-pill--error">Terminaux: {terminalCount}</span>
-    </div>
-  </div>
-
-  <div class="card b2s-card jobs-toolbar">
-    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2">
-      <div class="d-flex align-items-center gap-2 flex-wrap">
-        <input
-          class="form-control form-control-sm"
-          style="min-width: 280px"
-          placeholder="Filtrer par id/correlation/type/action/erreur"
+  <div class="b2s-toolbar">
+        <SearchField
+          wrapperClass="b2s-toolbar__search"
+          placeholder={t('Filtrer par id/correlation/type/action/erreur')}
+          ariaLabel={t('Filter jobs')}
           bind:value={query}
         />
-        <select class="form-select form-select-sm" style="width: 190px" bind:value={statusFilter}>
-          <option value="all">All statuses</option>
+        <select class="b2s-select" bind:value={statusFilter} aria-label={t('Status')}>
+          <option value="all">{t('All statuses')}</option>
           <option value="QUEUED">QUEUED</option>
           <option value="RUNNING">RUNNING</option>
           <option value="RETRYING">RETRYING</option>
@@ -179,54 +198,54 @@
           <option value="FAILED">FAILED</option>
           <option value="CANCELLED">CANCELLED</option>
         </select>
-      </div>
-
-      <button class="btn btn-sm btn-outline-primary" on:click={() => refreshJobs(false)} disabled={isLoading || isCancelling}>
-        Refresh
-      </button>
-    </div>
+<button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" on:click={exportJobs} disabled={filtered.length === 0}>
+          <i class="bi bi-download" aria-hidden="true"></i>
+          {t('Export CSV')}
+        </button>
+        <button class="b2s-btn b2s-btn-secondary" on:click={() => refreshJobs(false)} disabled={isLoading || isCancelling}>
+          <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+          {t('Refresh')}
+        </button>
   </div>
 
   {#if loadError}
-    <div class="alert alert-danger mb-0">{loadError}</div>
+    <InlineAlert tone="error">{loadError}</InlineAlert>
   {/if}
 
   <div class="card b2s-card jobs-table-card">
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table jobs-table mb-0 align-middle">
+        <table class="b2s-table jobs-table">
           <thead>
             <tr>
               <th>ID</th>
-              <th>Statut</th>
-              <th>Type</th>
-              <th>Action</th>
-              <th>Queue age (s)</th>
-              <th>Republish</th>
-              <th>Updated</th>
-              <th>Error</th>
-              <th class="text-end">Control</th>
+              <th>{t('Statut')}</th>
+              <th>{t('Type')}</th>
+              <th>{t('Action')}</th>
+              <th>{t('Queue age (s)')}</th>
+              <th>{t('Republish')}</th>
+              <th>{t('Updated')}</th>
+              <th>{t('Error')}</th>
+              <th class="text-end">{t('Control')}</th>
             </tr>
           </thead>
           <tbody>
             {#if filtered.length === 0}
               <tr>
-                <td colspan={9} class="jobs-empty">No job found.</td>
+                <td colspan={9} class="jobs-empty">{t('No job found.')}</td>
               </tr>
             {:else}
-              {#each filtered as job (job.id)}
+              {#each pageRows as job (job.id)}
                 <tr>
                   <td class="mono">#{job.id}</td>
                   <td>
-                    <span class={`status-badge status-badge--${statusTone(normalizeStatus(job.status))}`}>
-                      {normalizeStatus(job.status)}
-                    </span>
+                    <StatusBadge compact label={normalizeStatus(job.status)} variant={JOB_STATUS_VARIANTS[statusTone(job.status)]} />
                   </td>
                   <td class="mono">{String(job.job_type ?? '—')}</td>
                   <td>{String(job.action ?? '—')}</td>
-                  <td class="mono">{job.queue_age_seconds ?? '—'}</td>
-                  <td class="mono">{job.watchdog_republish_count ?? 0}</td>
-                  <td class="mono">{formatDateTime(job.updated_at ?? job.created_at, { seconds: true })}</td>
+                  <td class="num">{job.queue_age_seconds ?? '—'}</td>
+                  <td class="num">{job.watchdog_republish_count ?? 0}</td>
+                  <td class="num">{formatDateTime(job.updated_at ?? job.created_at)}</td>
                   <td>
                     {#if job.error_code || job.error_message}
                       <div class="error-block">
@@ -238,13 +257,15 @@
                     {/if}
                   </td>
                   <td class="text-end">
-                    <button
-                      class="btn btn-sm btn-outline-danger"
-                      disabled={!canCancel(job) || isCancelling}
-                      on:click={() => cancelJob(job)}
-                    >
-                      Kill
-                    </button>
+                    {#if canCancel(job)}
+                      <button
+                        class="b2s-btn b2s-btn-sm b2s-btn-danger-outline"
+                        disabled={isCancelling}
+                        on:click={() => cancelJob(job)}
+                      >
+                        {t('Kill')}
+                      </button>
+                    {/if}
                   </td>
                 </tr>
               {/each}
@@ -252,73 +273,28 @@
           </tbody>
         </table>
       </div>
+      {#if filtered.length > 0}
+        <Pagination total={filtered.length} bind:page bind:pageSize />
+      {/if}
     </div>
   </div>
 </div>
 
 <style>
+  .jobs-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
   .jobs-page {
     display: grid;
-    gap: 12px;
-  }
-
-  .jobs-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .jobs-title {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #0f172a;
-  }
-
-  .jobs-subtitle,
-  .jobs-updated {
-    color: #64748b;
-    font-size: 0.88rem;
-  }
-
-  .summary-pill {
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    border: 1px solid transparent;
-  }
-
-  .summary-pill--running {
-    background: #dbeafe;
-    color: #1d4ed8;
-    border-color: #bfdbfe;
-  }
-
-  .summary-pill--neutral {
-    background: #f1f5f9;
-    color: #334155;
-    border-color: #e2e8f0;
-  }
-
-  .summary-pill--error {
-    background: #fee2e2;
-    color: #b91c1c;
-    border-color: #fecaca;
+    gap: 16px;
+    padding: var(--b2s-page-padding);
   }
 
   .jobs-table thead th {
-    background: #f8fafc;
-    color: #334155;
-    font-size: 0.82rem;
     white-space: nowrap;
-  }
-
-  .jobs-table tbody td {
-    font-size: 0.84rem;
-    color: #0f172a;
-    vertical-align: middle;
   }
 
   .jobs-empty {
@@ -327,42 +303,14 @@
     padding: 22px;
   }
 
+  .num {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
   .mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-    font-size: 0.78rem;
-  }
-
-  .status-badge {
-    display: inline-block;
-    border-radius: 999px;
-    padding: 2px 8px;
-    font-size: 0.74rem;
-    font-weight: 700;
-    border: 1px solid transparent;
-  }
-
-  .status-badge--running {
-    background: #dbeafe;
-    color: #1e40af;
-    border-color: #bfdbfe;
-  }
-
-  .status-badge--success {
-    background: #dcfce7;
-    color: #166534;
-    border-color: #bbf7d0;
-  }
-
-  .status-badge--error {
-    background: #fee2e2;
-    color: #b91c1c;
-    border-color: #fecaca;
-  }
-
-  .status-badge--neutral {
-    background: #f1f5f9;
-    color: #334155;
-    border-color: #e2e8f0;
+    font-family: var(--b2s-font-mono);
+    font-size: var(--b2s-fs-xs);
   }
 
   .error-block {

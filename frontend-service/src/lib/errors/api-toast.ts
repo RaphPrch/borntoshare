@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import { toAppError, type AppError } from '$lib/errors';
 import { toast } from '$lib/stores/toast';
 
@@ -12,10 +13,10 @@ const STATUS_MESSAGES: Record<number, string> = {
 
 function messageForError(error: AppError, fallback = 'Unexpected error.'): string {
   if (error.status && STATUS_MESSAGES[error.status]) {
-    return STATUS_MESSAGES[error.status];
+    return t(STATUS_MESSAGES[error.status]);
   }
-  if (error.kind === 'network') return 'Network error.';
-  if (error.kind === 'timeout') return 'Request timeout.';
+  if (error.kind === 'network') return t('Network error.');
+  if (error.kind === 'timeout') return t('Request timeout.');
   return fallback;
 }
 

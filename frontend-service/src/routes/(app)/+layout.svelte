@@ -12,16 +12,18 @@
   import "$lib/styles/tokens.css";
 
   // 2️⃣ Bootstrap (kept for grid/utilities only)
-  import "$lib/styles/bootstrap.min.css";
+  import "$lib/styles/bootstrap-subset.css";
   import "$lib/styles/bootstrap-icons.min.css";
   import "$lib/styles/modals.css";
 
   // 3️⃣ BornToShare global stylesheet (merged)
   import "$lib/styles/layout.css";
   import "$lib/styles/app.css";
+  import "$lib/styles/buttons.css";
   import "$lib/styles/storage-roots.css";
 
   import { page } from "$app/stores";
+  import { pageTitle } from "$lib/utils/page-title";
 
   import Toaster from "$lib/components/ui/Toaster.svelte";
   import TopProgress from "$lib/components/ui/TopProgress.svelte";
@@ -56,6 +58,10 @@
   // Reset mega-menu on navigation
   $: $page.url.pathname, activeMega = null;
 </script>
+
+<svelte:head>
+  <title>{pageTitle($page.url.pathname, Number(data.topbarAlertsCount ?? 0))}</title>
+</svelte:head>
 
 <div class="b2s-app-root">
   <Topbar

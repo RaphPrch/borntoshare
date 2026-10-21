@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import { logAppError } from '../logging/logger';
 import { toAppError } from './normalize';
 import { notifyError } from './notify';
@@ -8,7 +9,8 @@ const GENERIC_ERROR_MESSAGES = new Set(['Unexpected error', 'Backend error', 'Ne
 /** True for transport-level messages that say nothing about what failed. */
 export function isGenericErrorMessage(message: string | null | undefined): boolean {
   const text = String(message ?? '').trim();
-  return !text || GENERIC_ERROR_MESSAGES.has(text);
+  // Messages are translated when created: compare in both forms
+  return !text || GENERIC_ERROR_MESSAGES.has(text) || [...GENERIC_ERROR_MESSAGES].some((m) => t(m) === text);
 }
 
 /** Normalizes and logs a UI failure; generic transport messages are replaced by `fallback`. */

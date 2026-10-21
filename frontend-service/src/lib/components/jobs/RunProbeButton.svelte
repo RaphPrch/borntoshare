@@ -1,4 +1,6 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import type { FetchLike } from '$lib/api/client';
   import type { ProbeRunRequest } from '$lib/api/probes';
@@ -11,8 +13,8 @@
   export let requestFactory: (() => ProbeRunRequest | null | Promise<ProbeRunRequest | null>) | null = null;
 
   export let mode: 'inline' | 'detailed' = 'inline';
-  export let label = 'Run probe';
-  export let busyLabel = 'Running…';
+  export let label = t('Run probe');
+  export let busyLabel = t('Running…');
   export let disabled = false;
   export let fullWidth = false;
   export let showIcon = false;
@@ -46,7 +48,7 @@
       if (beforeRun) await beforeRun();
       const resolvedRequest = requestFactory ? await requestFactory() : request;
       if (!resolvedRequest) {
-        error = { type: 'VALIDATION', message: 'Missing required fields.' };
+        error = { type: 'VALIDATION', message: t('Missing required fields.') };
         dispatch('done', { ok: false, status: 'failed', error });
         return;
       }
@@ -98,15 +100,14 @@
   </button>
 
   {#if error}
-    <div class="probe-error {error.type}">
-      <strong>{error.message}</strong>
+    <InlineAlert tone={error.type === 'VALIDATION' ? 'warning' : 'error'} title={error.message}>
       {#if error.technical}
         <details>
-          <summary>Technical details</summary>
+          <summary>{t('Technical details')}</summary>
           <pre>{error.technical}</pre>
         </details>
       {/if}
-    </div>
+    </InlineAlert>
   {/if}
 
   {#if shouldShowProbePanel}
@@ -130,24 +131,11 @@
     justify-content: center;
   }
 
-  .probe-error {
-    padding: 10px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    background: rgba(0, 0, 0, 0.02);
-    font-size: 0.92rem;
-  }
-
   .run-probe button {
     display: inline-flex;
     align-items: center;
     gap: 8px;
   }
-  .probe-error.NETWORK { background: #fff3e0; }
-  .probe-error.TIMEOUT { background: #fff8e1; }
-  .probe-error.SECRET { background: #f3e5f5; }
-  .probe-error.CAPSULE { background: #ffebee; }
-  .probe-error.VALIDATION { background: #e8f0fe; }
 
   pre { white-space: pre-wrap; }
 </style>

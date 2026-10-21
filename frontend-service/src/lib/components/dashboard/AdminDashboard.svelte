@@ -1,8 +1,11 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+  import KpiCard from '$lib/components/ui/KpiCard.svelte';
+  import { formatDateTime } from '$lib/utils/format';
+  import { t } from '$lib/i18n';
   import DashboardShell from './DashboardShell.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import { formatActivityItem } from '$lib/activity/format';
+  import RequestsActivityChart from './RequestsActivityChart.svelte';
 
   // Expected (safe) shape:
   // data.stats: { storage_roots, storage_endpoints, admins, pending_requests }
@@ -10,64 +13,93 @@
   export let data: any;
 
   const stats = data?.stats ?? data?.summary ?? {};
-  const activities = Array.isArray(data?.activities) ? data.activities : [];
+  // Sign-ins are frequent and say little about platform changes: keep them out of this card
+  const activities = (Array.isArray(data?.activities) ? data.activities : []).filter(
+    (a: any) => String(a?.action ?? '') !== 'auth.login'
+  );
+  const requestsSeries = Array.isArray(stats?.requests_last_30_days) ? stats.requests_last_30_days : [];
+
+  const attention = [
+    {
+      key: 'open_alerts_count',
+      label: t('Open alerts'),
+      hint: t('{count} critical or high', { count: Number(stats?.critical_alerts_count ?? 0) }),
+      href: '/admin/alerts',
+      icon: 'bi-exclamation-octagon',
+      tone: 'danger'
+    },
+    { key: 'failed_jobs_24h_count', label: t('Failed jobs (24 h)'), hint: null, href: '/admin/observability/jobs', icon: 'bi-x-octagon', tone: 'warning' },
+    {
+      key: 'stale_pending_requests_count',
+      label: t('Requests waiting for more than 3 days'),
+      hint: null,
+      href: '/access-requests',
+      icon: 'bi-hourglass-bottom',
+      tone: 'warning'
+    }
+  ] as const;
 
   const kpi = [
-    { key: 'storage_roots', label: 'Storage Roots', href: '/storage-roots' },
-    { key: 'storage_endpoints', label: 'Storage Endpoints', href: '/admin/storage-endpoints' },
-    { key: 'admins', label: 'Admins', href: '/admin/identity' },
-    { key: 'pending_requests', label: 'Pending Requests', href: '/access-requests' }
-  ];
+    { key: 'storage_roots', label: t('Storage Roots'), href: '/storage-roots', icon: 'bi-folder2-open', tone: 'info' },
+    { key: 'storage_endpoints', label: t('Storage Endpoints'), href: '/admin/storage-endpoints', icon: 'bi-hdd-network', tone: 'purple' },
+    { key: 'admins', label: t('Admins'), href: '/admin/identity', icon: 'bi-person-gear', tone: 'success' },
+    { key: 'pending_requests', label: t('Pending Requests'), href: '/access-requests', icon: 'bi-hourglass-split', tone: 'warning' }
+  ] as const;
 
   const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
   const timeLabel = (value: unknown): string => {
-    const text = String(value ?? '').trim();
-    if (!text) return '—';
-    const d = new Date(text);
-    if (Number.isNaN(d.getTime())) return text;
-    return d.toLocaleString('fr-FR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDateTime(value);
   };
 </script>
 
-<DashboardShell title="Admin Dashboard" subtitle="Platform Operations Overview">
-  <div class="kpi-grid">
+<DashboardShell title={t('Admin Dashboard')} subtitle={t('Platform Operations Overview')}>
+  <div class="b2s-kpi-grid">
     {#each kpi as item}
-      <button class="kpi" on:click={() => goto(item.href)}>
-        <div class="kpi__label">{item.label}</div>
-        <div class="kpi__value">{num(stats[item.key])}</div>
-        <div class="kpi__hint">Open</div>
-      </button>
+      <KpiCard label={item.label} value={num(stats[item.key])} icon={item.icon} tone={item.tone} href={item.href} />
     {/each}
   </div>
 
+  <section class="dashboard-attention" aria-labelledby="dashboard-attention-title">
+    <h2 id="dashboard-attention-title">{t('Needs attention')}</h2>
+    <div class="b2s-kpi-grid">
+      {#each attention as item}
+        <KpiCard
+          label={item.label}
+          value={num(stats[item.key])}
+          hint={item.hint}
+          icon={num(stats[item.key]) > 0 ? item.icon : 'bi-check2-circle'}
+          tone={num(stats[item.key]) > 0 ? item.tone : 'success'}
+          href={item.href}
+        />
+      {/each}
+    </div>
+  </section>
+
+  <div class="dashboard-columns">
+  <RequestsActivityChart series={requestsSeries} />
+
   <section class="panel">
     <div class="panel__header">
-      <h2>Latest admin activity</h2>
-      <div class="panel__hint">Recent actions across the platform</div>
+      <h2>{t('Latest admin activity')}</h2>
+      <div class="panel__hint">{t('Recent actions across the platform')}</div>
     </div>
 
     {#if activities.length === 0}
-      <EmptyStateInline message="No recent activity." />
+      <EmptyStateInline message={t('No recent activity.')} />
     {:else}
       <ul class="activity">
         {#each activities.slice(0, 8) as a}
           {@const rendered = formatActivityItem(a)}
           <li>
             <div class="activity__main">
-              <span class="activity__action">{rendered.title ?? 'Event'}</span>
+              <span class="activity__action">{rendered.title ?? t('Event')}</span>
               <span class="activity__target">
                 {rendered.subtitle1 ?? ((a.target_type ?? 'target') + (a.target_name ? ` • ${a.target_name}` : ''))}
               </span>
             </div>
             <div class="activity__meta">
-              <span>{a.actor_display_name ?? '—'}</span>
+              <span>{a.actor_display_name ?? a.actor_display ?? (a.actor_type === 'system' ? t('System') : a.actor_id ?? '—')}</span>
               <span class="dot">•</span>
               <span>{timeLabel(a.created_at)}</span>
             </div>
@@ -76,48 +108,45 @@
       </ul>
     {/if}
   </section>
+  </div>
 </DashboardShell>
 
 <style>
-  .kpi-grid{
-    display:grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
+  .dashboard-attention h2 {
+    margin: 8px 0 12px;
+    color: var(--b2s-color-text);
+    font-size: var(--b2s-fs-lg);
+    font-weight: 600;
   }
-  @media (max-width: 1100px){
-    .kpi-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+
+  .dashboard-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 16px;
+    align-items: start;
   }
-  @media (max-width: 640px){
-    .kpi-grid{ grid-template-columns: 1fr; }
+
+  @media (max-width: 1100px) {
+    .dashboard-columns {
+      grid-template-columns: 1fr;
+    }
   }
-  .kpi{
-    text-align:left;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    padding: 12px 12px 10px;
-    background: #fff;
-    cursor: pointer;
-  }
-  .kpi:hover{ border-color:#c7d2fe; box-shadow: 0 1px 10px rgba(15,23,42,.06); }
-  .kpi__label{ color:#475569; font-weight:600; font-size:.9rem; }
-  .kpi__value{ font-size: 1.55rem; font-weight:800; margin-top: 6px; }
-  .kpi__hint{ margin-top: 8px; color:#64748b; font-size:.85rem; }
 
   .panel{
     border: 1px solid #e5e7eb;
-    border-radius: 14px;
+    border-radius: var(--b2s-radius-lg);
     background: #fff;
     padding: 12px;
   }
   .panel__header{ margin-bottom: 10px; }
-  h2{ margin: 0; font-size: 1.05rem; }
-  .panel__hint{ color:#64748b; font-size:.9rem; margin-top: 4px; }
+  h2{ margin: 0; font-size: var(--b2s-fs-lg); }
+  .panel__hint{ color:#64748b; font-size:var(--b2s-fs-md); margin-top: 4px; }
   .activity{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
   .activity li{ border-top:1px dashed #e5e7eb; padding-top:10px; }
   .activity li:first-child{ border-top: none; padding-top:0; }
   .activity__main{ display:flex; gap:8px; flex-wrap:wrap; }
   .activity__action{ font-weight:700; }
   .activity__target{ color:#475569; }
-  .activity__meta{ color:#64748b; font-size:.85rem; margin-top: 4px; display:flex; gap:6px; align-items:center; }
+  .activity__meta{ color:#64748b; font-size:var(--b2s-fs-md); margin-top: 4px; display:flex; gap:6px; align-items:center; }
   .dot{ opacity:.7; }
 </style>

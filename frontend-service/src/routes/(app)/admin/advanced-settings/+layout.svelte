@@ -1,22 +1,21 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { page } from '$app/stores';
 
-  import SectionHeader from '$lib/components/settings/SectionHeader.svelte';
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import AdvancedSidebar, { type NavItem } from '$lib/components/settings/AdvancedSidebar.svelte';
 
   export let data: any;
 
   const nav: NavItem[] = [
-    { key: 'naming-policies', label: 'Naming policy', icon: 'bi-input-cursor-text' },
-    { key: 'security', label: 'Security', icon: 'bi-shield-lock' },
-    { key: 'logging', label: 'Logging', icon: 'bi-journal-text' },
-    { key: 'user-sessions', label: 'User sessions', icon: 'bi-person-lines-fill' },
-    { key: 'maintenance', label: 'Maintenance', icon: 'bi-tools' }
+    { key: 'naming-policies', label: t('Naming policy'), icon: 'bi-input-cursor-text' },
+    { key: 'logging', label: t('Logging'), icon: 'bi-journal-text' },
+    { key: 'user-sessions', label: t('User sessions'), icon: 'bi-person-lines-fill' }
   ];
 
   const defaultHeader = {
-    title: 'Advanced Settings',
-    subtitle: 'Advanced technical settings and maintenance operations.'
+    title: t('Advanced Settings'),
+    subtitle: t('Advanced technical settings.')
   };
 
   const headersBySection: Record<string, { title: string; subtitle: string }> = {};
@@ -26,11 +25,7 @@
 </script>
 
 <div class="b2s-adv">
-  <SectionHeader title={header.title} subtitle={header.subtitle}>
-    <div slot="actions">
-      <!-- Reserved for future global actions (export config, etc.) -->
-    </div>
-  </SectionHeader>
+  <PageHeader title={header.title} subtitle={header.subtitle} />
 
   <div class="b2s-adv-grid">
     <AdvancedSidebar {current} items={nav} />

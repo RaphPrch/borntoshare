@@ -22,17 +22,17 @@
 </script>
 
 <div class="b2s-toaster">
-  {#each $toast as t (t.id)}
+  {#each $toast as item (item.id)}
     <div
-      class="toast show shadow-sm {cls(t.type)}"
+      class="toast show shadow-sm {cls(item.type)}"
       role="alert"
       in:fly={{ y: 10, duration: 150 }}
       out:fade={{ duration: 150 }}
     >
       <div class="d-flex align-items-start">
         <div class="toast-body d-flex align-items-center gap-2">
-          <i class="bi {icon(t.type)}"></i>
-          <span>{t.message}</span>
+          <i class="bi {icon(item.type)}"></i>
+          <span>{item.message}</span>
         </div>
       </div>
     </div>
@@ -54,7 +54,7 @@
 
   .toast {
     pointer-events: auto;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
   }
 
   /* Override bootstrap-ish toast variants for dark topbar context */

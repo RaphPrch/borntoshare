@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { BulkDecisionResponse } from '../api/access-requests';
 
 type DecisionErrorSeverity = 'warning' | 'error';
@@ -79,51 +80,27 @@ const mapByCode = (args: {
   const fallbackMessage = args.fallbackMessage;
   const actionHref = storageRootHref(storageRootId);
 
-  if (code === 'STORAGE_ROOT_ACCESS_PROFILE_MISSING') {
-    const perm = permission ?? 'READ/WRITE';
-    const message =
-      permission === 'READ' || permission === 'WRITE'
-        ? `This storage root has no ${permission} access profile binding. Attach a ${permission} profile before applying this request.`
-        : 'This storage root has no READ or WRITE access profile binding. Attach the missing profile before applying this request.';
-
+  if (code === 'GOVERNED_GROUP_NAME_MISSING') {
     return {
-      title: 'Decision blocked',
-      message,
+      title: t('Decision blocked'),
+      message: t('No AD group name can be computed for this storage root. Check the naming policy of its zone or endpoint.'),
       severity: 'warning',
       code,
       permission,
       hint,
       storageRootId,
-      actionLabel: actionHref ? 'Open storage root access' : null,
+      actionLabel: actionHref ? t('Open storage root') : null,
       actionHref,
       showInlineNotice: true,
-      inlinePrimary: `Technical configuration missing: this request cannot be applied because the target storage root has no ${perm} access profile binding.`,
-      inlineSecondary: 'Attach the missing profile in the storage root configuration, then retry the decision.'
+      inlinePrimary: t('Technical configuration missing: the AD group for this access level cannot be named.'),
+      inlineSecondary: t('Fix the naming policy (zone, endpoint or storage root), then retry the decision.')
     };
   }
 
-  if (code === 'STORAGE_ROOT_ACCESS_PROFILE_AMBIGUOUS') {
+  if (code === 'INVALID_ACCESS_LEVEL' || code === 'INVALID_REQUEST_PERMISSION') {
     return {
-      title: 'Decision blocked',
-      message:
-        'More than one active access profile binding matches this permission. Keep only one active binding for this storage root and permission.',
-      severity: 'error',
-      code,
-      permission,
-      hint,
-      storageRootId,
-      actionLabel: actionHref ? 'Open storage root access' : null,
-      actionHref,
-      showInlineNotice: false,
-      inlinePrimary: null,
-      inlineSecondary: null
-    };
-  }
-
-  if (code === 'INVALID_REQUEST_PERMISSION') {
-    return {
-      title: 'Decision blocked',
-      message: 'The request permission could not be resolved to a supported READ or WRITE access level.',
+      title: t('Decision blocked'),
+      message: t('The request permission could not be resolved to a supported READ or WRITE access level.'),
       severity: 'error',
       code,
       permission,
@@ -139,8 +116,8 @@ const mapByCode = (args: {
 
   if (code === 'UNSUPPORTED_TARGET_TYPE') {
     return {
-      title: 'Decision blocked',
-      message: 'This request target type is not supported for this action.',
+      title: t('Decision blocked'),
+      message: t('This request target type is not supported for this action.'),
       severity: 'error',
       code,
       permission,
@@ -155,8 +132,8 @@ const mapByCode = (args: {
   }
 
   return {
-    title: 'Decision failed',
-    message: fallbackMessage ?? 'The request could not be applied. Review the request configuration and try again.',
+    title: t('Decision failed'),
+    message: fallbackMessage ?? t('The request could not be applied. Review the request configuration and try again.'),
     severity: 'error',
     code,
     permission,

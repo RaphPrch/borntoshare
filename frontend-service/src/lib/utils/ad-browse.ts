@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 type AdSourceOption = {
   id: number;
   name: string;
@@ -31,7 +32,7 @@ export const toAdSourceOptions = (payload: unknown): AdSourceOption[] =>
     })
     .map((r: any) => ({
       id: Number(r?.id ?? 0),
-      name: String(r?.name ?? '').trim() || `Source #${String(r?.id ?? '')}`,
+      name: String(r?.name ?? '').trim() || t('Source #{String}', { String: String(r?.id ?? '') }),
       canImportGroups:
         r?.capabilities?.import_groups === undefined
           ? true

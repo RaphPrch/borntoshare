@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 export type PrincipalSearchItem = {
   id: string | number;
   identity_id?: number | null;
@@ -122,24 +123,24 @@ export const principalKey = (item: Record<string, unknown>) =>
   ).toLowerCase();
 
 export const principalLabel = (item: Record<string, unknown>): string =>
-  asText(item.display_name ?? item.username ?? item.dn ?? item.id ?? 'Identity');
+  asText(item.display_name ?? item.username ?? item.dn ?? item.id ?? t('Identity'));
 
 export const principalSubtitle = (item: Record<string, unknown>): string => {
   const normalizedType = String(item.type ?? 'user').toLowerCase();
   const kind =
     normalizedType === 'group'
-      ? 'AD Group'
+      ? t('AD Group')
       : normalizedType === 'ou'
         ? 'OU'
-        : 'User';
+        : t('User');
   const login = asText(item.username ?? item.upn);
   const source = asText(item.auth_source);
   const browseStatus = asText(item.browse_status ?? item.status).toLowerCase();
   const refreshPart =
     browseStatus === 'up_to_date'
-      ? 'Up-to-date'
+      ? t('Up-to-date')
       : browseStatus === 'needs_refresh'
-        ? 'Needs refresh'
+        ? t('Needs refresh')
         : '';
   if (login && source) return `${kind} · ${login} · ${source}`;
   if (login && refreshPart) return `${kind} · ${login} · ${refreshPart}`;

@@ -127,6 +127,31 @@ class GovernanceAlertsRepo(SQLViewRepo):
     def list_for_storage_root(self, storage_root_id: int, *, status: str = OPEN_STATUS, limit: int = 200) -> list[dict[str, Any]]:
         return self.list_alerts(storage_root_id=int(storage_root_id), status=status, limit=limit)
 
+    def get_alert(self, alert_id: int) -> dict[str, Any] | None:
+        return self._one_dict(
+            "SELECT id, title, alert_type, severity, status FROM governance_alerts WHERE id = :id", {"id": int(alert_id)}
+        )
+
+    def set_status(self, alert_id: int, status: str, *, actor_id: int | None = None) -> None:
+        """Operator action: acknowledge (still active, known) or resolve an alert."""
+        now = utcnow_naive()
+        if status == ACKNOWLEDGED_STATUS:
+            sql = """
+                UPDATE governance_alerts
+                SET status = :status, acknowledged_at = :now, acknowledged_by = :actor_id, updated_at = :now
+                WHERE id = :id
+            """
+        elif status == RESOLVED_STATUS:
+            sql = """
+                UPDATE governance_alerts
+                SET status = :status, resolved_at = :now, updated_at = :now
+                WHERE id = :id
+            """
+        else:
+            raise ValueError(f"unsupported alert status: {status}")
+        self.db.execute(text(sql), {"status": status, "now": now, "actor_id": actor_id, "id": int(alert_id)})
+        self.db.commit()
+
     def _upsert_alert(self, alert: dict[str, Any]) -> None:
         metadata_json = alert.get("metadata_json")
         metadata_text = json.dumps(metadata_json, ensure_ascii=False, sort_keys=True) if metadata_json is not None else None
@@ -194,7 +219,7 @@ class GovernanceAlertsRepo(SQLViewRepo):
                 )
                 ON DUPLICATE KEY UPDATE
                   severity = VALUES(severity),
-                  status = 'open',
+                  status = IF(status = 'acknowledged', 'acknowledged', 'open'),
                   title = VALUES(title),
                   message = VALUES(message),
                   source_type = VALUES(source_type),
@@ -433,13 +458,13 @@ class GovernanceAlertsRepo(SQLViewRepo):
                 expected_groups.add(normalized_group)
             if profile_status != "SUCCEEDED":
                 is_pending = profile_status == "PENDING"
-                alert_type = f"ad_group_{access_level.lower()}_{'pending' if is_pending else 'not_created'}"
+                alert_type = f"ad_group_{access_level.lower()}_{'pending' if is_pending else 'failed'}"
                 profile_id = int(row.get("id") or 0)
                 alert = {
                     **base(alert_type),
                     "alert_key": f"storage_root:{root_id}:{alert_type}:{profile_id}",
                     "severity": "warning" if is_pending else "high",
-                    "title": f"{access_level} group {'pending' if is_pending else 'not created'}",
+                    "title": f"{access_level} group {'being created' if is_pending else 'creation failed'}",
                     "message": row.get("error_message") or (
                         f"{group_name} · {profile_status}" if group_name else "No AD group linked"
                     ),

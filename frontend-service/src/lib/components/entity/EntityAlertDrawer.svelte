@@ -1,26 +1,26 @@
 <script lang="ts">
-  import EntityDrawerShell from '$lib/components/entity/EntityDrawerShell.svelte';
+  import { t } from '$lib/i18n';
+  import Drawer from '$lib/components/ui/Drawer.svelte';
   import type { EntityAlertStripItem } from '$lib/components/entity/entity-alerts.types';
 
   export let open = false;
-  export let title = 'Alerts';
+  export let title = t('Alerts');
   export let subtitle: string | null = null;
   export let items: EntityAlertStripItem[] = [];
-  export let emptyLabel = 'No alert found.';
+  export let emptyLabel = t('No alert found.');
   export let onClose: () => void = () => {};
   export let ariaLabelledby = 'entity-alerts-drawer-title';
-  export let width = '640px';
-  export let topOffset = '70px';
+  export let size: 'md' | 'lg' = 'md';
 </script>
 
-<EntityDrawerShell
+<Drawer
+  iconClass="bi bi-exclamation-triangle"
   {open}
   {title}
   {subtitle}
   {onClose}
   {ariaLabelledby}
-  {width}
-  {topOffset}
+  {size}
   showFooter={false}
 >
   {#if items.length === 0}
@@ -42,4 +42,4 @@
       {/each}
     </div>
   {/if}
-</EntityDrawerShell>
+</Drawer>

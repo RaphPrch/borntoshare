@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import type { ZoneProvisioningPolicy } from '../../api/zones';
 import type { StorageEndpointProvisioningPolicy } from '../../api/storage-endpoints';
 import type {
@@ -70,17 +71,17 @@ export function buildZoneProvisioningViewModel(input: unknown): ProvisioningPoli
 
   const preview: ProvisioningPreviewModel = {
     status: resolvePreviewStatus(policy?.effective_preview?.warnings?.length ? 'warning' : 'ready'),
-    statusLabel: policy?.effective_preview?.warnings?.length ? 'Review before provisioning' : 'Ready to provision',
+    statusLabel: policy?.effective_preview?.warnings?.length ? t('Review before provisioning') : t('Ready to provision'),
     rootCode,
     readGroup,
     writeGroup
   };
 
   const effective: EffectiveProvisioningModel = {
-    sourceLabel: 'Zone policy',
+    sourceLabel: t('Zone policy'),
     sourceVariant: 'zone',
     effectivePrefix: 'B2S',
-    effectiveOu: organizationalUnit || txt(policy?.effective_preview?.effective_ou_dn) || 'Not configured',
+    effectiveOu: organizationalUnit || txt(policy?.effective_preview?.effective_ou_dn) || t('Not configured'),
     effectiveNaming: namingTemplate,
     rootcodeStrategy: 'BASENAME',
     exampleReadGroup: readGroup,
@@ -120,7 +121,7 @@ export function buildStorageEndpointProvisioningViewModel(input: unknown): Provi
     inheritanceMode: mode,
     organizationalUnit,
     namingTemplate,
-    zoneLabel: txt(policy?.zone_name) || `Zone #${policy?.zone_id ?? '-'}`,
+    zoneLabel: txt(policy?.zone_name) || t('Zone #{value}', { value: (policy?.zone_id ?? '-') }),
     tokensHint: TOKENS_HINT,
     showUseZoneValuesLink: true,
     canEditOverrideFields: mode === 'override'
@@ -128,18 +129,18 @@ export function buildStorageEndpointProvisioningViewModel(input: unknown): Provi
 
   const preview: ProvisioningPreviewModel = {
     status: resolvePreviewStatus(policy?.configuration_status),
-    statusLabel: txt(policy?.configuration_message) || 'Ready to provision',
+    statusLabel: txt(policy?.configuration_message) || t('Ready to provision'),
     rootCode,
     readGroup,
     writeGroup
   };
 
   const effective: EffectiveProvisioningModel = {
-    sourceLabel: txt(policy?.policy_source_label) || 'Inherited',
+    sourceLabel: txt(policy?.policy_source_label) || t('Inherited'),
     sourceVariant: resolveSourceVariant(policy?.policy_source),
     effectivePrefix: txt(effectiveNamingPolicy?.group_prefix) || 'B2S',
-    effectiveOu: txt(policy?.effective_values?.ou_dn) || 'Not configured',
-    effectiveNaming: txt(effectiveNamingPolicy?.template) || txt(policy?.effective_values?.naming_template) || 'Not configured',
+    effectiveOu: txt(policy?.effective_values?.ou_dn) || t('Not configured'),
+    effectiveNaming: txt(effectiveNamingPolicy?.template) || txt(policy?.effective_values?.naming_template) || t('Not configured'),
     rootcodeStrategy: txt(effectiveNamingPolicy?.rootcode_strategy) || 'BASENAME',
     maxSamLength: txt(effectiveNamingPolicy?.max_sam_length) || '64',
     exampleReadGroup: readGroup,

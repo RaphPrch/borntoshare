@@ -1,6 +1,6 @@
 export type StatusVariant = 'success' | 'warning' | 'info' | 'error' | 'disabled' | 'muted';
 
-export const STATUS_VARIANTS = {
+const STATUS_VARIANTS = {
   active: 'success',
   enabled: 'success',
   connected: 'success',

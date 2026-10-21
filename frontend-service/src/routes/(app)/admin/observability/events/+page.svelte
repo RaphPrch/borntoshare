@@ -1,12 +1,17 @@
 <script lang="ts">
+  import { csvFilename, downloadCsv } from '$lib/utils/csv';
+  import SearchField from '$lib/components/ui/SearchField.svelte';
+  import { formatDateTime } from '$lib/utils/format';
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import { t } from '$lib/i18n';
   import { formatActivityItem } from '$lib/activity/format';
 
-  type UiSeverity = 'Info' | 'Warning' | 'Error' | 'Audit success';
+  type UiSeverity = string;  // translated label
   type SeverityTone = 'info' | 'warning' | 'error' | 'success';
 
   type EventRow = {
     id: string | number;
-    timestampModule: string;
+    time: string;
     severityLabel: UiSeverity;
     severityTone: SeverityTone;
     severityIcon: string;
@@ -25,7 +30,7 @@
 
   const prettyToken = (value: unknown): string => {
     const raw = String(value ?? '').trim();
-    if (!raw) return 'Platform';
+    if (!raw) return t('Platform');
     return raw
       .replace(/[._-]+/g, ' ')
       .replace(/\s+/g, ' ')
@@ -38,7 +43,7 @@
     if (targetType) return prettyToken(targetType);
 
     const action = String(entry?.action ?? '').trim();
-    if (!action) return 'Platform';
+    if (!action) return t('Platform');
 
     if (action.includes('.')) return prettyToken(action.split('.')[0]);
 
@@ -51,18 +56,7 @@
   };
 
   const toTimeLabel = (value: unknown): string => {
-    const text = String(value ?? '').trim();
-    if (!text) return '—';
-    const d = new Date(text);
-    if (Number.isNaN(d.getTime())) return text;
-    return d.toLocaleString('en-GB', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    return formatDateTime(value);
   };
 
   const actionLabel = (entry: any): string => {
@@ -79,7 +73,7 @@
     const type = String(entry?.target_type ?? entry?.entity_type ?? '').trim();
     const display = String(entry?.target_display ?? '').trim();
     const id = String(entry?.target_id ?? entry?.entity_id ?? '').trim();
-    const left = type ? prettyToken(type) : 'Platform';
+    const left = type ? prettyToken(type) : t('Platform');
     if (display) return `${left} · ${display}`;
     if (id) return `${left} #${id}`;
     return left;
@@ -108,7 +102,7 @@
     const rendered = formatActivityItem(entry);
     const details = String(rendered?.subtitle1 ?? '').trim();
     if (details) return details;
-    return 'No field change';
+    return t('No field change');
   };
 
   const severityMeta = (
@@ -126,18 +120,18 @@
       outcome === 'failed' ||
       badgeKind === 'critical'
     ) {
-      return { label: 'Error', tone: 'error', icon: 'bi-x-circle-fill' };
+      return { label: t('Error'), tone: 'error', icon: 'bi-x-circle-fill' };
     }
 
     if (raw === 'warning' || raw === 'warn' || raw === 'medium') {
-      return { label: 'Warning', tone: 'warning', icon: 'bi-exclamation-triangle-fill' };
+      return { label: t('Warning'), tone: 'warning', icon: 'bi-exclamation-triangle-fill' };
     }
 
     if (raw === 'audit_success' || raw === 'audit' || (badgeKind === 'admin' && outcome !== 'failed')) {
-      return { label: 'Audit success', tone: 'success', icon: 'bi-check-circle-fill' };
+      return { label: t('Audit success'), tone: 'success', icon: 'bi-check-circle-fill' };
     }
 
-    return { label: 'Info', tone: 'info', icon: 'bi-info-circle-fill' };
+    return { label: t('Info'), tone: 'info', icon: 'bi-info-circle-fill' };
   };
 
   $: rows = (Array.isArray(data?.items) ? data.items : [])
@@ -158,7 +152,7 @@
 
       return {
         id: entry?.id ?? `${entry?.created_at ?? ''}-${entry?.action ?? ''}`,
-        timestampModule: `${time} · ${module}`,
+        time,
         severityLabel: sev.label,
         severityTone: sev.tone,
         severityIcon: sev.icon,
@@ -175,61 +169,60 @@
 
   $: filtered = rows.filter((row) => !q.trim() || row.searchText.includes(q.toLowerCase().trim()));
   $: updatedAt = toTimeLabel(data?.generatedAt ?? null);
+
+  const exportEvents = () =>
+    downloadCsv(csvFilename('events'), [
+      { header: t('Time'), value: (row: EventRow) => row.time },
+      { header: t('Severity'), value: (row: EventRow) => row.severityLabel },
+      { header: t('Module'), value: (row: EventRow) => row.module },
+      { header: t('Action'), value: (row: EventRow) => row.action },
+      { header: t('Actor'), value: (row: EventRow) => row.actor },
+      { header: t('Target'), value: (row: EventRow) => row.target },
+      { header: t('Details'), value: (row: EventRow) => row.details }
+    ], filtered);
 </script>
 
-<div class="container-fluid events-page">
-  <div class="events-head">
-    <div>
-      <h1 class="events-title">Events</h1>
-      <div class="events-subtitle">All platform actions from activity logs</div>
-    </div>
-    <div class="events-updated">Updated {updatedAt}</div>
-  </div>
+<div class="events-page">
+  <PageHeader title={t('Events')} subtitle={t('All platform actions from activity logs')}>
+    <svelte:fragment slot="actions">
+      <span>{t('Updated {updatedAt}', { updatedAt })}</span>
+    </svelte:fragment>
+  </PageHeader>
 
-  <div class="events-toolbar card b2s-card">
-    <div class="card-body d-flex align-items-center justify-content-between gap-3 flex-wrap">
-      <div class="d-flex align-items-center gap-2">
-        <label class="events-label" for="events-time-range">Time Period</label>
-        <select id="events-time-range" class="form-select form-select-sm" style="width: 140px" disabled>
-          <option>Last 2 days</option>
-        </select>
-      </div>
-
-      <div class="events-filter-wrap">
-        <i class="bi bi-funnel" aria-hidden="true"></i>
-        <input
-          class="form-control"
-          placeholder="Filter"
-          aria-label="Filter events"
-          bind:value={q}
-        />
-      </div>
-    </div>
+  <div class="b2s-toolbar">
+    <SearchField wrapperClass="b2s-toolbar__search" placeholder={t('Filter')} ariaLabel={t('Filter events')} bind:value={q} />
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" on:click={exportEvents} disabled={filtered.length === 0}>
+          <i class="bi bi-download" aria-hidden="true"></i>
+          {t('Export CSV')}
+        </button>
   </div>
 
   <div class="card b2s-card events-table-card">
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table events-table mb-0 align-middle">
+        <table class="b2s-table events-table">
           <thead>
             <tr>
-              <th>Timestamp / Module</th>
-              <th>Severity</th>
-              <th>Action</th>
-              <th>Actor</th>
-              <th>Target</th>
-              <th>Details</th>
+              <th>{t('Timestamp / Module')}</th>
+              <th>{t('Severity')}</th>
+              <th>{t('Action')}</th>
+              <th>{t('Actor')}</th>
+              <th>{t('Target')}</th>
+              <th>{t('Details')}</th>
             </tr>
           </thead>
           <tbody>
             {#if filtered.length === 0}
               <tr>
-                <td colspan={6} class="events-empty">No events found.</td>
+                <td colspan={6} class="events-empty">{t('No events found.')}</td>
               </tr>
             {:else}
               {#each filtered as row (row.id)}
                 <tr>
-                  <td class="events-col-time-module">{row.timestampModule}</td>
+                  <td class="events-col-time-module">
+                    <span class="events-time">{row.time}</span>
+                    <small class="events-module" title={row.module}>{row.module}</small>
+                  </td>
                   <td class="events-col-severity">
                     <span class={`events-severity events-severity--${row.severityTone}`}>
                       <i class={`bi ${row.severityIcon}`} aria-hidden="true"></i>
@@ -253,63 +246,8 @@
 <style>
   .events-page {
     display: grid;
-    gap: 12px;
-  }
-
-  .events-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .events-title {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #0f172a;
-  }
-
-  .events-subtitle {
-    color: #64748b;
-    font-size: 0.9rem;
-    margin-top: 2px;
-  }
-
-  .events-updated {
-    color: #64748b;
-    font-size: 0.87rem;
-    white-space: nowrap;
-    margin-top: 8px;
-  }
-
-  .events-toolbar .card-body {
-    padding: 0.7rem 0.9rem;
-  }
-
-  .events-label {
-    font-size: 0.86rem;
-    color: #334155;
-    font-weight: 600;
-  }
-
-  .events-filter-wrap {
-    min-width: 260px;
-    width: min(420px, 100%);
-    position: relative;
-  }
-
-  .events-filter-wrap i {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #64748b;
-    pointer-events: none;
-  }
-
-  .events-filter-wrap input {
-    padding-left: 32px;
+    gap: 16px;
+    padding: var(--b2s-page-padding);
   }
 
   .events-table-card {
@@ -321,26 +259,27 @@
   }
 
   .events-table thead th {
-    font-size: 0.86rem;
-    font-weight: 700;
-    color: #334155;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
     white-space: nowrap;
-  }
-
-  .events-table tbody td {
-    font-size: 0.87rem;
-    color: #0f172a;
-    border-color: #e2e8f0;
-    vertical-align: middle;
   }
 
   .events-col-time-module {
     width: 240px;
     color: #334155;
-    white-space: nowrap;
     font-weight: 500;
+  }
+
+  .events-time,
+  .events-module {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .events-module {
+    font-size: var(--b2s-fs-xs);
+    font-weight: 400;
+    color: #64748b;
   }
 
   .events-col-severity {
@@ -377,7 +316,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
     line-height: 1;
   }

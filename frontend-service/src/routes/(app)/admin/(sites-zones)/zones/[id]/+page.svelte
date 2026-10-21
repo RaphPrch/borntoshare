@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatDateTime } from '$lib/utils/format';
+  import { t } from '$lib/i18n';
   import { onDestroy, onMount } from "svelte";
   import { browser } from "$app/environment";
   import { goto } from "$app/navigation";
@@ -50,7 +52,7 @@
   import EntityAlertDrawer from "$lib/components/entity/EntityAlertDrawer.svelte";
   import EntityAlertStrip from "$lib/components/entity/EntityAlertStrip.svelte";
   import type { EntityAlertStripItem } from "$lib/components/entity/entity-alerts.types";
-  import EntityTabs from "$lib/components/entity/EntityTabs.svelte";
+  import Tabs from "$lib/components/ui/Tabs.svelte";
 
   const PROBE_SYNC_EVENT = "b2s:storage-endpoint-probe-updated";
 
@@ -74,9 +76,9 @@
   $: globalNamingTemplateDefault = String(data?.namingPolicyGlobal?.template ?? "").trim();
 
   const tabs: { key: ZoneTabKey; label: string; icon: string }[] = [
-    { key: "overview", label: "Overview", icon: "bi-grid" },
-    { key: "activity", label: "Activity", icon: "bi-activity" },
-    { key: "provisioning", label: "Provisioning", icon: "bi-shield-check" },
+    { key: "overview", label: t('Overview'), icon: "bi-grid" },
+    { key: "activity", label: t('Activity'), icon: "bi-activity" },
+    { key: "provisioning", label: t('Provisioning'), icon: "bi-shield-check" },
   ];
 
   const tabLoaders: Record<ZoneTabKey, () => Promise<{ default: any }>> = {
@@ -160,7 +162,7 @@
 
   $: normalizedPolicyDraft = {
     enabled: true,
-    ou_strategy: "identity_default",
+    ou_strategy: "identity_default" as const,
     base_ou_dn: String(policyDraft.base_ou_dn ?? "").trim() || null,
     static_ou_dn: null,
   };
@@ -176,7 +178,7 @@
   $: policyValidationErrors = {
     base_ou_dn:
       normalizedPolicyDraft.base_ou_dn && !isLikelyDn(normalizedPolicyDraft.base_ou_dn)
-        ? "Invalid DN format (example: OU=Groups,DC=corp,DC=local)"
+        ? t('Invalid DN format (example: OU=Groups,DC=corp,DC=local)')
         : undefined,
     static_ou_dn: undefined,
   };
@@ -187,12 +189,12 @@
     resolveZoneBaseOu(data.provisioningPolicy) && resolveZoneNamingTemplate()
   );
   $: previewItems = [
-    `Zone OU source: enabled`,
-    `Zone OU: ${(normalizedPolicyDraft.base_ou_dn ?? "(empty)")}`,
-    `Naming template (managed in Naming Policies): ${resolveZoneNamingTemplate() || "(empty)"}`,
+    t('Zone OU source: enabled'),
+    t('Zone OU: {value}', { value: ((normalizedPolicyDraft.base_ou_dn ?? "(empty)")) }),
+    t('Naming template (managed in Naming Policies): {value}', { value: (resolveZoneNamingTemplate() || "(empty)") }),
   ];
   $: zoneProvisioningOverview = {
-    namingPolicy: resolveZoneNamingTemplate() || "Not configured",
+    namingPolicy: resolveZoneNamingTemplate() || t('Not configured'),
     guardians: Number((data.zone as any)?.guardians_count ?? (data.zone as any)?.guardian_count ?? 0),
     rootsTotal: storageRoots.length,
     rootsBroken: storageRoots.filter((root) => {
@@ -205,11 +207,6 @@
     }).length,
   };
 
-  const endpointEffectiveProbeStatus = (ep: any) => {
-    const id = endpointId(ep);
-    const runtime = id > 0 ? probeResultsByEndpoint[String(id)] : "";
-    return String(runtime || ep?.last_probe_status || ep?.probe_status || "unknown").toLowerCase();
-  };
   const endpointHost = (ep: any) => String(ep?.host ?? "").trim();
   const endpointAuthReady = (ep: any) => {
     const username = String(ep?.auth_username ?? ep?.username ?? ep?.bind_dn ?? "").trim();
@@ -278,9 +275,9 @@
   $: hasAttachedEndpoints = endpoints.length > 0;
   $: hasAttachedStorageRoots = storageRoots.length > 0;
 
-  const zoneLabel = () => String(data.zone?.name ?? data.zone?.code ?? `Zone #${currentZoneId ?? "-"}`);
+  const zoneLabel = () => String(data.zone?.name ?? data.zone?.code ?? t('Zone #{value}', { value: (currentZoneId ?? "-") }));
   const storageRootId = (root: any) => Number(root?.storage_root_id ?? root?.id ?? 0);
-  const storageRootName = (root: any) => String(root?.name ?? root?.storage_root_name ?? `Storage root #${storageRootId(root)}`);
+  const storageRootName = (root: any) => String(root?.name ?? root?.storage_root_name ?? t('Storage root #{storageRootId}', { storageRootId: storageRootId(root) }));
 
   onMount(() => {
     if (!browser) return;
@@ -405,16 +402,8 @@
 
   const formatZoneProbeDate = (value: string | null | undefined): string => {
     const text = String(value ?? "").trim();
-    if (!text) return "Never run";
-    const date = new Date(text);
-    if (!Number.isFinite(date.getTime())) return "Never run";
-    return date.toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    if (!text) return t('Never run');
+    return formatDateTime(text, { empty: t('Never run') });
   };
 
   $: zoneHeaderAttentionItems = buildZoneOperationalAttentionItems({
@@ -425,7 +414,7 @@
     healthLabel: healthSummary.healthLabel,
   });
   $: zoneHasAttention = zoneHeaderAttentionItems.length > 0;
-  $: zoneAttentionMeta = `Last probe: ${formatZoneProbeDate(healthSummary.lastProbeAt)}`;
+  $: zoneAttentionMeta = t('Last probe: {formatZoneProbeDate}', { formatZoneProbeDate: formatZoneProbeDate(healthSummary.lastProbeAt) });
   const alertToneFromText = (value: string): "warning" | "error" => {
     const text = String(value ?? "").toLowerCase();
     return text.includes("unreachable") || text.includes("failed") || text.includes("down")
@@ -445,11 +434,11 @@
     const rootLabels = new Map(storageRoots.map((root) => [storageRootId(root), storageRootName(root)]));
     return selectVisibleStorageRootAlertsForRootIds(rootIds, data.storageRootAlerts ?? []).map((alert) => {
       const rootId = storageRootAlertRootId(alert);
-      const rootLabel = rootLabels.get(rootId) ?? `Storage root #${rootId}`;
+      const rootLabel = rootLabels.get(rootId) ?? t('Storage root #{rootId}', { rootId });
       const detail = storageRootAlertSummarySubtitle(alert);
       return {
         key: `zone-root-alert-${String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${rootId}`)}`,
-        title: String(alert?.title ?? 'Attention required'),
+        title: String(alert?.title ?? t('Attention required')),
         subtitle: detail ? `${rootLabel} · ${detail}` : rootLabel,
         tone: storageRootAlertTone(alert),
       };
@@ -526,141 +515,14 @@
   }
 
   const endpointId = (ep: any) => Number(ep?.id ?? ep?.storage_endpoint_id ?? 0);
-  async function runDiscoveryProbe() {
-    if (!currentZoneId) return;
-    if (endpoints.length === 0) {
-      toast.warning("No storage endpoint is defined in this zone. Add one before running the discovery probe.");
-      return;
-    }
-
-    discoverRunning = true;
-    try {
-      const runnable = endpoints.filter((ep) => endpointHost(ep) && endpointAuthReady(ep));
-      if (runnable.length === 0) {
-        toast.warning("No runnable endpoint found (missing host or credentials).");
-        return;
-      }
-
-      let successCount = 0;
-      let failedCount = 0;
-
-      // Sequential execution in the current table display order (endpoints list order)
-      for (const endpoint of runnable) {
-        const probeConfig = resolveStorageEndpointProbeConfig(endpoint);
-        const id = probeConfig.endpointId;
-        const epName = String(endpoint?.name ?? endpoint?.storage_endpoint_name ?? `Endpoint #${id || "-"}`);
-        const validation = validateStorageEndpointProbeConfig(probeConfig, { label: 'Storage endpoint' });
-
-        if (!validation.ok) {
-          probeResultsByEndpoint = {
-            ...probeResultsByEndpoint,
-            [String(id || Math.random())]: "invalid-config",
-          };
-          continue;
-        }
-
-        const request = buildStorageEndpointProbeRequestFromEndpoint(endpoint, {
-          discover: true,
-          timeoutSec: 20,
-          uiOrigin: "admin",
-        });
-
-        probeResultsByEndpoint = { ...probeResultsByEndpoint, [String(id)]: "running" };
-
-        try {
-          const final = await runProbeWithPolling({
-            fetchFn: fetch,
-            request,
-            intervalMs: 1200,
-            maxAttempts: 25,
-          });
-
-          const finalStatus = String(final?.status ?? (final?.ok ? "success" : "failed")).toLowerCase();
-          const persistedProbeStatus = canonicalProbeStatus(finalStatus);
-          const persistedProbeAt = new Date().toISOString();
-          probeResultsByEndpoint = {
-            ...probeResultsByEndpoint,
-            [String(id)]: persistedProbeStatus,
-          };
-
-          try {
-            await updateStorageEndpoint(fetch, id, {
-              last_probe_status: persistedProbeStatus,
-              last_probe_at: persistedProbeAt,
-              last_probe_message: final?.ok
-                ? "probe completed"
-                : String(final?.errorMessage ?? "Probe failed"),
-            });
-          } catch {
-            // non-blocking: keep UI runtime state even if persistence fails
-          }
-
-          await logZoneActivity("zone.probe_rerun", {
-            outcome: final?.ok ? "success" : "failed",
-            severity: final?.ok ? "info" : "critical",
-            endpointId: id,
-            context: {
-              endpoint: epName,
-              protocol: probeConfig.protocol,
-              host: probeConfig.host,
-              probe_status: persistedProbeStatus,
-            },
-          });
-
-          if (final?.ok) {
-            successCount += 1;
-          } else {
-            failedCount += 1;
-          }
-        } catch {
-          failedCount += 1;
-          const persistedProbeAt = new Date().toISOString();
-          probeResultsByEndpoint = {
-            ...probeResultsByEndpoint,
-            [String(id)]: "failed",
-          };
-          try {
-            await updateStorageEndpoint(fetch, id, {
-              last_probe_status: "failed",
-              last_probe_at: persistedProbeAt,
-              last_probe_message: "Probe failed",
-            });
-          } catch {
-            // non-blocking
-          }
-          await logZoneActivity("zone.probe_rerun", {
-            outcome: "failed",
-            severity: "critical",
-            endpointId: id,
-            context: {
-              endpoint: epName,
-              protocol: probeConfig.protocol,
-              host: probeConfig.host,
-              probe_status: "failed",
-            },
-          });
-        }
-      }
-
-      if (failedCount > 0) {
-        toast.warning(`Discovery probes finished (${successCount} success, ${failedCount} warning/error).`);
-      } else {
-        toast.success(`Discovery probes finished (${successCount}/${runnable.length} successful).`);
-      }
-    } catch (e) {
-      toast.error(e?.message ?? "Discovery probe failed");
-    } finally {
-      discoverRunning = false;
-    }
-  }
 
   async function runEndpointProbe(endpoint: any) {
     const probeConfig = resolveStorageEndpointProbeConfig(endpoint);
     const id = probeConfig.endpointId;
-    const epName = String(endpoint?.name ?? endpoint?.storage_endpoint_name ?? `Endpoint #${id || "-"}`);
+    const epName = String(endpoint?.name ?? endpoint?.storage_endpoint_name ?? t('Endpoint #{value}', { value: (id || "-") }));
 
     if (!id) {
-      toast.error("Invalid storage endpoint for probe run.");
+      toast.error(t('Invalid storage endpoint for probe run.'));
       return;
     }
 
@@ -668,9 +530,9 @@
       return;
     }
 
-    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: "Storage endpoint" });
+    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Storage endpoint') });
     if (!validation.ok) {
-      toast.error(validation.message ?? "Storage endpoint credentials are required before running a probe.");
+      toast.error(validation.message ?? t('Storage endpoint credentials are required before running a probe.'));
       return;
     }
 
@@ -678,7 +540,7 @@
       discover: false,
       timeoutSec: 20,
       uiOrigin: "admin",
-      label: "Storage endpoint",
+      label: t('Storage endpoint'),
     });
 
     probeResultsByEndpoint = { ...probeResultsByEndpoint, [String(id)]: "running" };
@@ -694,7 +556,7 @@
       const finalStatus = String(final?.status ?? (final?.ok ? "success" : "failed")).toLowerCase();
       const persistedProbeStatus = canonicalProbeStatus(finalStatus);
       const persistedProbeAt = new Date().toISOString();
-      const message = final?.ok ? "endpoint probe completed" : String(final?.errorMessage ?? "Probe failed");
+      const message = final?.ok ? "endpoint probe completed" : String(final?.errorMessage ?? t('Probe failed'));
 
       probeResultsByEndpoint = {
         ...probeResultsByEndpoint,
@@ -724,15 +586,15 @@
       });
 
       if (final?.ok) {
-        toast.success(`Probe OK for ${epName}.`);
+        toast.success(t('Probe OK for {epName}.', { epName }));
       } else {
-        toast.error(`Probe failed for ${epName}.`);
+        toast.error(t('Probe failed for {epName}.', { epName }));
       }
 
       if (browser) await invalidateAll();
     } catch (e) {
       const persistedProbeAt = new Date().toISOString();
-      const message = String(e?.message ?? "Probe failed");
+      const message = String(e?.message ?? t('Probe failed'));
       probeResultsByEndpoint = {
         ...probeResultsByEndpoint,
         [String(id)]: "failed",
@@ -797,9 +659,9 @@
           naming_template_source: "naming-policies",
         },
       });
-      toast.success("Provisioning policy saved.");
+      toast.success(t('Provisioning policy saved.'));
     } catch (e) {
-      policyError = e?.message ?? "Unable to save policy";
+      policyError = e?.message ?? t('Unable to save policy');
       toast.error(policyError);
     } finally {
       policySaving = false;
@@ -841,13 +703,13 @@
     if (hasAttachedEndpoints || hasAttachedStorageRoots) {
       const blockers = [
         hasAttachedEndpoints
-          ? `${endpoints.length} storage endpoint${endpoints.length > 1 ? "s" : ""}`
+          ? t('{count} storage endpoint{value}', { count: endpoints.length, value: (endpoints.length > 1 ? "s" : "") })
           : null,
         hasAttachedStorageRoots
-          ? `${storageRoots.length} storage root${storageRoots.length > 1 ? "s" : ""}`
+          ? t('{count} storage root{value}', { count: storageRoots.length, value: (storageRoots.length > 1 ? "s" : "") })
           : null,
       ].filter(Boolean);
-      toast.error(`This zone cannot be deleted while ${blockers.join(" and ")} remain attached.`);
+      toast.error(t('This zone cannot be deleted while {join} remain attached.', { join: blockers.join(" and ") }));
       return;
     }
 
@@ -860,14 +722,14 @@
     try {
       if (zoneModalMode === "edit" && editingZone?.id) {
         await updateZone(fetch, editingZone.id, payload);
-        toast.success("Zone updated");
+        toast.success(t('Zone updated'));
         zoneModalOpen = false;
         if (browser && currentZoneId) goto(`/admin/zones/${currentZoneId}`, { invalidateAll: true });
         return;
       }
 
       if (zoneModalMode === "create") {
-        const fallbackName = `Zone ${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")}`;
+        const fallbackName = t('Zone {value}', { value: (new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")) });
         const payloadWithName: ZoneCreatePayload = {
           name: String(payload?.name ?? "").trim() || fallbackName,
           code: String(payload?.code ?? "").trim() || fallbackName,
@@ -875,30 +737,30 @@
         };
 
         if (!payloadWithName.name || !payloadWithName.code) {
-          toast.error("Zone name and code are required.");
+          toast.error(t('Zone name and code are required.'));
           return;
         }
 
         const { id } = await createZone(fetch, payloadWithName);
-        toast.success("Zone created");
+        toast.success(t('Zone created'));
         zoneModalOpen = false;
         if (browser) goto(`/admin/zones/${id}`, { invalidateAll: true });
       }
     } catch (e) {
-      toast.error(e?.message ?? "Zone operation failed");
+      toast.error(e?.message ?? t('Zone operation failed'));
     }
   }
 
   async function confirmDeleteZone() {
     if (!editingZone?.id) return;
     if (hasAttachedEndpoints || hasAttachedStorageRoots) {
-      toast.error("Remove all storage endpoints and storage roots attached to this zone before deleting it.");
+      toast.error(t('Remove all storage endpoints and storage roots attached to this zone before deleting it.'));
       zoneModalOpen = false;
       return;
     }
     try {
       await deleteZone(fetch, editingZone.id);
-      toast.success("Zone deleted");
+      toast.success(t('Zone deleted'));
       zoneModalOpen = false;
       await goto("/admin/zones");
     } catch (e) {
@@ -907,7 +769,7 @@
         toast.error(dependencyDeleteMessage("zone", "storage endpoints or storage roots"));
         return;
       }
-      toast.error(e?.message ?? "Zone delete failed");
+      toast.error(e?.message ?? t('Zone delete failed'));
     }
   }
 
@@ -925,7 +787,7 @@
         .filter((ep) => Number(ep?.zone_id ?? 0) !== Number(currentZoneId))
         .map((ep) => ({
           id: Number(ep?.id ?? 0),
-          name: String(ep?.name ?? `Endpoint #${ep?.id ?? '-'}`),
+          name: String(ep?.name ?? t('Endpoint #{value}', { value: (ep?.id ?? '-') })),
           host: String(ep?.host ?? '').trim() || null,
           zoneName: String(ep?.zone_name ?? '').trim() || null
         }))
@@ -933,7 +795,7 @@
         .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
     } catch (e: any) {
       attachableEndpoints = [];
-      toast.error(String(e?.message ?? 'Unable to load existing endpoints.'));
+      toast.error(String(e?.message ?? t('Unable to load existing endpoints.')));
     } finally {
       attachEndpointsLoading = false;
     }
@@ -954,11 +816,11 @@
     attachEndpointBusyId = endpointId;
     try {
       await updateStorageEndpoint(fetch, endpointId, { zone_id: currentZoneId });
-      toast.success('Endpoint attached to this zone.');
+      toast.success(t('Endpoint attached to this zone.'));
       showEndpointAttachChoice = false;
       await invalidateAll();
     } catch (e: any) {
-      toast.error(String(e?.message ?? 'Unable to attach endpoint.'));
+      toast.error(String(e?.message ?? t('Unable to attach endpoint.')));
     } finally {
       attachEndpointBusyId = null;
     }
@@ -980,7 +842,8 @@
       handledCreateQuery = false;
     }
   }
-  $: void ensureTabLoaded(activeTab);
+  // Browser only: during SSR the component fetch cannot resolve relative /api URLs
+  $: if (browser) void ensureTabLoaded(activeTab);
   $: tabProps = {
     overview: {
       zone: data.zone,
@@ -1031,21 +894,21 @@
     <EntityAlertStrip
       items={zoneAlertItems}
       onViewAll={() => (showZoneAlertsDrawer = true)}
-      ariaLabel="Zone alerts"
+      ariaLabel={t('Zone alerts')}
     />
   </svelte:fragment>
 
   <svelte:fragment slot="tabs">
-    <EntityTabs
+    <Tabs
       {tabs}
       activeKey={activeTab}
-      ariaLabel="Zone sections"
+      ariaLabel={t('Zone sections')}
       onChange={(key) => setTab(normalizeTab(String(key ?? 'overview')))}
     />
   </svelte:fragment>
 
   {#if loadingTab || !activeComponent}
-    <div class="zone-console__skeleton" aria-label="Loading tab content"></div>
+    <div class="zone-console__skeleton" aria-label={t('Loading tab content')}></div>
   {:else}
     <svelte:component this={activeComponent} {...tabProps[activeTab]} />
   {/if}
@@ -1056,10 +919,10 @@
 <EntityAlertDrawer
   open={showZoneAlertsDrawer}
   onClose={() => (showZoneAlertsDrawer = false)}
-  title="Zone alerts"
-  subtitle={`Zone · ${zoneLabel()}`}
+  title={t('Zone alerts')}
+  subtitle={t('Zone · {zoneLabel}', { zoneLabel: zoneLabel() })}
   items={zoneAlertItems}
-  emptyLabel="No alert found for this zone."
+  emptyLabel={t('No alert found for this zone.')}
   ariaLabelledby="zone-alerts-drawer-title"
 />
 
@@ -1099,7 +962,7 @@
 
 <PlanPreviewModal
   open={showPreviewModal}
-  title="Provisioning policy changes preview"
+  title={t('Provisioning policy changes preview')}
   items={previewItems}
   onClose={() => (showPreviewModal = false)}
 />
@@ -1108,7 +971,6 @@
   open={activityDetailsOpen}
   entry={selectedActivityEntry}
   onClose={closeActivityDetails}
-  width="620px"
 />
 
 <ConfirmActionModal
@@ -1119,12 +981,12 @@
   }}
   onConfirm={confirmLeaveProvisioningTab}
   severity="warning"
-  title="Leave provisioning tab?"
-  subtitle="You have unsaved changes."
-  impactTitle="Impact"
+  title={t('Leave provisioning tab?')}
+  subtitle={t('You have unsaved changes.')}
+  impactTitle={t('Impact')}
   impactItems={[
     'Any unsaved provisioning changes will be lost.'
   ]}
-  cancelLabel="Stay"
-  confirmLabel="Leave tab"
+  cancelLabel={t('Stay')}
+  confirmLabel={t('Leave tab')}
 />

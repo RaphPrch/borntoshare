@@ -1,6 +1,5 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import RemoteConnectorWizardModal from '$lib/components/ui/RemoteConnectorWizardModal.svelte';
   import IdentitySourcesWizard from '$lib/components/identity-sources/IdentitySourcesWizard.svelte';
   import type { IdentitySourcePayload } from '$lib/api/identity-sources';
   import type { IdentitySourceCreateResult } from '$lib/utils/identity-sources';
@@ -23,13 +22,7 @@
   }
 </script>
 
-<RemoteConnectorWizardModal
-  {open}
-  onClose={onClose}
-  ariaLabelledby="identity-sources-wizard-title"
-  backdropClass="b2s-modal-backdrop b2s-wizard-backdrop b2s-identity-source-wizard-backdrop"
-  modalClass="b2s-modal b2s-wizard-modal b2s-wizard-modal--identity-source is-wizard-modal"
-  WizardComponent={IdentitySourcesWizard}
-  wizardProps={{ onTest, onCreate, existingNames }}
-  on:done={handleDone}
-/>
+<!-- Mounted only while open so each opening starts from a clean state -->
+{#if open}
+  <IdentitySourcesWizard open {onClose} {onTest} {onCreate} {existingNames} on:done={() => { handleDone(); onClose(); }} />
+{/if}

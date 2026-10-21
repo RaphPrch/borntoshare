@@ -18,14 +18,15 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
 
-  export let ariaLabel = 'Entity sidebar';
-  export let createLabel = 'New item';
+  export let ariaLabel = t('Entity sidebar');
+  export let createLabel = t('New item');
   export let searchPlaceholder = 'Search';
-  export let searchAriaLabel = 'Search';
-  export let emptyLabel = 'No item matches your search.';
+  export let searchAriaLabel = t('Search');
+  export let emptyLabel = t('No item matches your search.');
   export let query = '';
   export let groups: EntitySidebarGroup[] = [];
   export let selectedId: string | number | null = null;
@@ -45,7 +46,6 @@
 <aside class="b2s-entity-sidebar" aria-label={ariaLabel}>
   {#if onCreate}
     <EntityActionButton
-      compact={true}
       variant="primary"
       icon="bi-plus-lg"
       label={createLabel}
@@ -82,7 +82,7 @@
             <span class="b2s-entity-tree__group-title">{group.label}</span>
             <span class="b2s-entity-tree__group-trailing">
               {#if warningCount > 0}
-                <span class="b2s-entity-tree__group-warning" title={`${warningCount} warning${warningCount > 1 ? 's' : ''}`}>
+                <span class="b2s-entity-tree__group-warning" title={t('{warningCount} warning{value}', { warningCount, value: (warningCount > 1 ? 's' : '') })}>
                   <i class="bi bi-exclamation-triangle-fill"></i>
                   {warningCount}
                 </span>
@@ -100,7 +100,7 @@
                     class={`b2s-entity-tree__item ${showToneDot ? '' : 'has-no-dot'} ${String(item.id) === String(selectedId) ? 'is-active' : ''}`}
                     on:click={() => onSelect(item.id, item)}
                     aria-current={String(item.id) === String(selectedId) ? 'page' : undefined}
-                    aria-label={`Select ${item.label}`}
+                    aria-label={t('Select {label}', { label: item.label })}
                   >
                     {#if showToneDot}
                       <span class={`b2s-entity-tree__dot is-${itemTone(item)}`}></span>
@@ -134,7 +134,7 @@
               class={`b2s-entity-tree__item ${showToneDot ? '' : 'has-no-dot'} ${String(item.id) === String(selectedId) ? 'is-active' : ''}`}
               on:click={() => onSelect(item.id, item)}
               aria-current={String(item.id) === String(selectedId) ? 'page' : undefined}
-              aria-label={`Select ${item.label}`}
+              aria-label={t('Select {label}', { label: item.label })}
             >
               {#if showToneDot}
                 <span class={`b2s-entity-tree__dot is-${itemTone(item)}`}></span>
@@ -182,13 +182,13 @@
   .b2s-entity-sidebar__search {
     height: 40px;
     border: 1px solid var(--b2s-color-border, #dbe2ef);
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: var(--b2s-color-surface, #fff);
     padding: 0 10px;
   }
 
   .b2s-entity-sidebar__search-input {
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
   }
 
   .b2s-entity-tree {
@@ -221,8 +221,8 @@
   .b2s-entity-tree__group-warning,
   .b2s-entity-tree__group-count,
   .b2s-entity-tree__secondary {
-    border-radius: 999px;
-    font-size: 11px;
+    border-radius: var(--b2s-radius-pill);
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     display: inline-flex;
     align-items: center;
@@ -239,7 +239,7 @@
   }
 
   .b2s-entity-tree__group-title {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 700;
   }
 
@@ -249,7 +249,7 @@
     border: 1px solid var(--b2s-color-border, #d7dfef);
     background: #edf2fa;
     color: #425c8f;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     padding: 0 6px;
   }
 
@@ -265,7 +265,7 @@
     width: 100%;
     height: 40px;
     border: 1px solid transparent;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
     background: transparent;
     display: flex;
     align-items: center;
@@ -292,7 +292,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
     text-align: left;
   }

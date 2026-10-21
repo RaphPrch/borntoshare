@@ -1,10 +1,10 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-pymysql
-pydantic
-eval_type_backport
-bcrypt
-httpx
-dramatiq
-redis
+# core-service — runtime dependencies (Python 3.14)
+# Pinned: the same library has the same version in every service. Update them together.
+fastapi==0.156.5
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+sqlalchemy==2.1.5
+pymysql==1.2.3
+bcrypt==5.0.0
+dramatiq==2.2.1
+redis==8.1.0

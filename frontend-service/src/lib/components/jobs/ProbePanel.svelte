@@ -1,4 +1,6 @@
 <script lang="ts">
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
   /**
    * Generic probe result display.
@@ -13,8 +15,8 @@
   export let durationMs: number | null = null;
   export let jobId: string | number | null = null;
   export let technicalHref: string | null = null;
-  export let technicalLabel = 'Technical details';
-  export let retryLabel = 'Retry';
+  export let technicalLabel = t('Technical details');
+  export let retryLabel = t('Retry');
   export let onRetry: (() => void) | null = null;
 
   const asChecks = (r: any) => {
@@ -27,7 +29,7 @@
 
   const text = (value: unknown) => String(value ?? '').trim();
   const checkKey = (check: any, index: number) => text(check?.key) || text(check?.name) || `check-${index}`;
-  const checkLabel = (check: any) => (text(check?.label) || text(check?.name) || text(check?.key) || 'Probe step').replaceAll('_', ' ');
+  const checkLabel = (check: any) => (text(check?.label) || text(check?.name) || text(check?.key) || t('Probe step')).replaceAll('_', ' ');
   const checkOk = (check: any) => {
     const rawStatus = text(check?.status).toLowerCase();
     if (typeof check?.ok === 'boolean') return check.ok;
@@ -43,7 +45,7 @@
 
   $: checks = asChecks(result);
   $: banner = ok === true ? 'success' : ok === false ? 'danger' : 'info';
-  $: title = ok === true ? 'Probe OK' : ok === false ? 'Probe failed' : 'Probe';
+  $: title = ok === true ? t('Probe OK') : ok === false ? t('Probe failed') : t('Probe');
   $: iconClass = ok === true ? 'bi-check2-circle' : ok === false ? 'bi-x-circle' : 'bi-activity';
   $: lastRunLabel = lastRunAt ? formatDateTime(lastRunAt) : null;
   $: durationLabel = formatDuration(durationMs);
@@ -67,14 +69,14 @@
 
   {#if lastRunLabel || durationLabel || jobId}
     <div class="probe-meta">
-      {#if lastRunLabel}<span>Dernier run {lastRunLabel}</span>{/if}
-      {#if durationLabel}<span>Durée {durationLabel}</span>{/if}
-      {#if jobId}<span>Job #{jobId}</span>{/if}
+      {#if lastRunLabel}<span>{t('Dernier run {lastRunLabel}', { lastRunLabel })}</span>{/if}
+      {#if durationLabel}<span>{t('Durée {durationLabel}', { durationLabel })}</span>{/if}
+      {#if jobId}<span>{t('Job #{jobId}', { jobId })}</span>{/if}
     </div>
   {/if}
 
   {#if errorMessage}
-    <div class="probe-error">{errorMessage}</div>
+    <InlineAlert tone="error" compact>{errorMessage}</InlineAlert>
   {/if}
 
   {#if mode === 'detailed' && checks.length}
@@ -110,7 +112,7 @@
     flex-direction: column;
     gap: 10px;
     border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     padding: 12px;
     background: white;
   }
@@ -139,10 +141,10 @@
   .probe-actions button {
     height: 30px;
     border: 1px solid #d5e0ef;
-    border-radius: 8px;
+    border-radius: var(--b2s-radius-sm);
     background: #fff;
     color: #102243;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
     padding: 0 10px;
   }
@@ -150,19 +152,15 @@
   .probe-status {
     font-weight: 500;
     opacity: 0.75;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
   }
   .probe-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 8px 14px;
     color: #5d6f89;
-    font-size: 0.82rem;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
-  }
-  .probe-error {
-    color: #991b1b;
-    font-size: 0.9rem;
   }
   .probe-checks { display: grid; gap: 8px; }
   .probe-check { display: flex; gap: 10px; align-items: baseline; }
@@ -170,11 +168,11 @@
   .probe-check.is-danger { color: #991b1b; }
   .probe-check.is-info { color: #475569; }
   .probe-check-key { font-weight: 600; min-width: 140px; }
-  .probe-check-msg { opacity: 0.8; font-size: 0.9rem; }
+  .probe-check-msg { opacity: 0.8; font-size: var(--b2s-fs-md); }
   .probe-technical-link {
     width: fit-content;
     color: #0a5de8;
-    font-size: 0.9rem;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
     text-decoration: none;
   }
@@ -183,6 +181,6 @@
     overflow: auto;
     background: rgba(0,0,0,0.03);
     padding: 10px;
-    border-radius: 10px;
+    border-radius: var(--b2s-radius-md);
   }
 </style>

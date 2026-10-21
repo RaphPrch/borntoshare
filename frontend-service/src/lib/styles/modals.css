@@ -16,11 +16,6 @@
   overflow: auto;
 }
 
-/* Allow custom backdrops to close clicks + prevent full-page blocking */
-.b2s-modal-backdrop.sr-modal-backdrop {
-  pointer-events: auto;
-}
-
 /* ============================================================
    B2S — MODAL BASE (COMMON)
    ============================================================ */
@@ -55,7 +50,7 @@
   right: 18px;
   background: transparent;
   border: none;
-  font-size: 26px;
+  font-size: var(--b2s-fs-page-title);
   cursor: pointer;
   color: #334155;
   z-index: 2;
@@ -92,3 +87,161 @@
    B2S — WARNING DIALOG FLAVOR
    ============================================================ */
 
+/* ============================================================
+   B2S — MODAL SIZES AND STANDARD HEADER / FOOTER (AppModal)
+   ============================================================ */
+
+.b2s-modal.b2s-modal--md {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.b2s-modal.b2s-modal--lg {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.b2s-modal.b2s-modal--xl {
+  width: min(1180px, calc(100vw - 32px));
+}
+
+.b2s-modal--standard {
+  border-radius: var(--b2s-radius-lg);
+  overflow: hidden;
+}
+
+.b2s-modal__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid #e8edf6;
+}
+
+.b2s-modal__icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d7e1f0;
+  border-radius: var(--b2s-radius-md);
+  background: #edf4ff;
+  color: var(--b2s-topbar-bg);
+}
+
+.b2s-modal__heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.b2s-modal__heading h2 {
+  margin: 0;
+  color: var(--b2s-color-text);
+  font-size: var(--b2s-fs-xl);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.b2s-modal__heading p {
+  margin: 6px 0 0;
+  color: var(--b2s-color-text-muted);
+  font-size: var(--b2s-fs-md);
+}
+
+.b2s-modal__close {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--b2s-radius-md);
+  background: transparent;
+  color: #667085;
+  cursor: pointer;
+}
+
+.b2s-modal__close:hover {
+  background: #f2f5fb;
+  color: #1f2a44;
+}
+
+.b2s-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e8edf6;
+}
+
+.b2s-modal__footer-start {
+  margin-right: auto;
+  color: var(--b2s-color-text-muted);
+  font-size: var(--b2s-fs-sm);
+}
+
+/* ============================================================
+   B2S — WIZARDS (WizardShell): same size for every step
+   ============================================================ */
+
+.b2s-modal.b2s-wizard {
+  height: min(820px, calc(100vh - 40px));
+}
+
+.b2s-modal-content.b2s-wizard__body {
+  padding: 0 24px 24px;
+}
+
+.b2s-wizard__steps {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -24px 20px;
+  padding: 16px 24px;
+  border-bottom: 1px solid #eef2f7;
+  background: var(--b2s-color-surface);
+}
+
+.b2s-wizard__steps .b2s-steps {
+  padding-bottom: 0;
+}
+
+/* Section inside a wizard step: title + optional description */
+.b2s-wizard-section + .b2s-wizard-section {
+  margin-top: 24px;
+}
+
+.b2s-wizard-section > h3 {
+  margin: 0 0 4px;
+  color: var(--b2s-color-text);
+  font-size: var(--b2s-fs-lg);
+  font-weight: 600;
+}
+
+.b2s-wizard-section > p {
+  margin: 0 0 12px;
+  color: var(--b2s-color-text-muted);
+  font-size: var(--b2s-fs-sm);
+}
+
+/* Field labels inside wizards: sentence case, 13px */
+.b2s-wizard__body .b2s-wizard-section label:not(.b2s-choice):not([class*="switch"]) {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--b2s-color-text);
+  font-size: var(--b2s-fs-sm);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.b2s-modal-content.b2s-wizard__body.is-flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.b2s-wizard__body.is-flush .b2s-wizard__steps {
+  margin: 0;
+}

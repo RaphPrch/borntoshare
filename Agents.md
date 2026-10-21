@@ -29,11 +29,15 @@ Frontend:
 - Browser code must not call core-service or auth-service directly; the SvelteKit server (BFF) routes `/api/*` to them.
 - Keep login and change-password pages in the frontend.
 - Respect existing UI components and CSS tokens.
+- Buttons: `b2s-btn` + one variant (`b2s-btn-primary|secondary|ghost|danger|danger-outline|warning`, sizes `b2s-btn-sm`, `b2s-btn-icon`) from `lib/styles/buttons.css`, or `EntityActionButton`. Modals on `AppModal`, side panels on `Drawer`, tabs on `Tabs`. No new Bootstrap classes (`bootstrap-subset.css` only keeps what is still used).
+- Texts go through `t()` from `$lib/i18n` (French and English): `t('Save changes')`, `t('{count} roots', { count })`. The English text is the key; add its French translation to `lib/i18n/locales/fr.json` (a source text written in French goes to `en.json` instead). Never translate data sent to the API (activity messages, codes) or values compared in code; translate labels at render time, not in module-level constants.
 - Follow the `src/lib` layout and shared helpers described in `frontend-service/docs/structure.md`.
 - No glassmorphism.
+- Page titles go through `PageHeader` (list pages) or `EntityHeader` (entity consoles); pages use `padding: var(--b2s-page-padding)`.
+- Typography and radius only from `lib/styles/tokens.css`: system font (`--b2s-font-sans`, `--b2s-font-mono` for paths, DNs and IDs only), sizes `--b2s-fs-xs|sm|md|lg|xl|2xl|page-title|console-title`, radius `--b2s-radius-sm|md|lg|pill`.
 - Keep the BornToShare theme:
   - Background: #F5F7FB
-  - Primary: #2F6FED to #1D4ED8
+  - Primary actions: navy #111B3F (same as the topbar); links and focus: blue #2563EB
   - Success: #2EB88A
   - Border: #E5EAF3
   - Text: #0f172a
@@ -70,7 +74,7 @@ Capsules:
 - Capsules are agentless.
 - capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares and NTFS ACLs, Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
 - Capsule execution must remain isolated from the main application network.
-- Job queue: Dramatiq over Redis. Redis is a service of the root `podman-compose.yml`, password-protected (`REDIS_PASSWORD`), with no published port, on the `bts-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
+- Job queue: Dramatiq over Redis. Redis is a service of the root `podman-compose.yml`, password-protected (`REDIS_PASSWORD`), with no published port, on the `b2s-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
 
 Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
@@ -82,7 +86,9 @@ Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
 - Directory snapshots: only the active one and the previous archived one keep their user/group/membership rows (`DirectorySnapshotsRepo.purge_archived_details`).
 
 Containers:
-- One `Containerfile` per service; Python images follow the same template (`python:3.12-slim`, no venv, code owned by root, fixed non-root UID).
+- One `Containerfile` and one `.containerignore` per service. Python services (capsule-runner included) share the same template: `python:3.14-slim-trixie`, no venv, code owned by root, non-root user `app` with one UID per service (auth 10001, core 10002, capsule 10003, secret-broker 10004, wizard 10005, frontend 10006). The frontend uses `node:26-alpine`.
+- Dependencies are pinned (`==` in `requirements.txt`, lockfile for npm); a library shared by several services has the same version everywhere.
+- Every HTTP service has a compose healthcheck (`/health`, frontend `/login`) and services start once their dependencies are healthy.
 - One root `podman-compose.yml` (all services, shared hardening via `x-hardening`) and one root `.env` (model: `.env.example`). Each service lists only the variables it reads in `environment:` — no `env_file`, so secrets are not spread to every container. Topology URLs are code defaults in the Python services; the frontend gets `B2S_AUTH_URL` / `B2S_CORE_URL` as fixed values in the compose file.
 - `make up` / `make down` / `make logs` / `make logs-<service>`; the database wizard runs on demand (`make wizard`, profile `wizard`).
 
@@ -90,7 +96,7 @@ Containers:
 
 Run before pushing (CI runs the same in `.github/workflows/ci.yml`):
 - Python services: `python -m pytest -q` in each service directory (`wizard-ui/backend` for the wizard; auth-service needs `INTERNAL_TOKEN` set).
-- Frontend (`frontend-service`): `npm run build`, the `npm run test:*` scripts, and `npm run check` (must not add type errors).
+- Frontend (`frontend-service`): `npm run build`, the `npm run test:*` scripts, and `npm run check` (must report 0 errors, enforced by CI).
 
 ## Credit-saving behavior
 

@@ -6,26 +6,11 @@ import { requireAuth } from '$lib/server/require-auth';
 export async function load(event) {
   await requireAuth(event);
 
-  const [
-    advancedResult,
-    securityResult,
-    loggingResult,
-    namingPolicyResult
-  ] = await Promise.allSettled([
-    apiServerGetData('/admin/config/advanced', event),
-    apiServerGetData('/admin/advanced-settings/security', event),
+  const [loggingResult, namingPolicyResult] = await Promise.allSettled([
     apiServerGet('/auth/admin/logging', event),
     apiServerGetData('/naming-policies/global', event)
   ]);
 
-  const advancedPayload =
-    advancedResult.status === 'fulfilled' && advancedResult.value && typeof advancedResult.value === 'object'
-      ? advancedResult.value
-      : {};
-  const storedSecurity =
-    securityResult.status === 'fulfilled' && securityResult.value && typeof securityResult.value === 'object'
-      ? securityResult.value
-      : {};
   const authLoggingRaw =
     loggingResult.status === 'fulfilled' && loggingResult.value && typeof loggingResult.value === 'object'
       ? loggingResult.value
@@ -34,7 +19,6 @@ export async function load(event) {
     namingPolicyResult.status === 'fulfilled' && namingPolicyResult.value && typeof namingPolicyResult.value === 'object'
       ? namingPolicyResult.value
       : {};
-  const advanced = advancedPayload;
   const authLogging = authLoggingRaw;
 
   const asOptionalNumber = (value) => {
@@ -43,12 +27,6 @@ export async function load(event) {
   };
 
   const settings = {
-    security: {
-      enforceStrongPasswords: Boolean(storedSecurity.enable_strong_password),
-      passwordMinLength: asOptionalNumber(storedSecurity.password_min_length) ?? 10,
-      passwordHistory: asOptionalNumber(storedSecurity.password_history) ?? 5,
-      passwordExpiryDays: asOptionalNumber(storedSecurity.password_expiry_days) ?? 90
-    },
     logging: {
       level: typeof authLogging.level === 'string' ? authLogging.level : 'INFO',
       retentionEnabled:
@@ -56,15 +34,7 @@ export async function load(event) {
           ? authLogging.retentionEnabled
           : true,
       retentionDays: asOptionalNumber(authLogging.retentionDays) ?? 180
-    },
-    maintenance:
-      advanced?.maintenance && typeof advanced.maintenance === 'object'
-        ? advanced.maintenance
-        : {
-            enabled: false,
-            message: 'Le système est en cours de maintenance, merci de réessayer plus tard.',
-            allowedCidrs: ['10.0.0.0/24', '192.168.5.0/24']
-          }
+    }
   };
 
   return {

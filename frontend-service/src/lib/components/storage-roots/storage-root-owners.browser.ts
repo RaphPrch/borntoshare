@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 type OwnerAssignedRole = 'guardian';
 
 export type OwnerBrowserPrincipal = {
@@ -204,7 +205,7 @@ export const resolveOwnersSelectionMetadata = (
 
     metadataByIdentityId[identityId] = {
       identity_id: identityId,
-      display_name: String(entry?.display_name ?? entry?.username ?? entry?.email ?? `Identity #${identityId}`).trim(),
+      display_name: String(entry?.display_name ?? entry?.username ?? entry?.email ?? t('Identity #{identityId}', { identityId })).trim(),
       username: String(entry?.username ?? '').trim() || null,
       upn: String(entry?.upn ?? '').trim() || null,
       email: String(entry?.email ?? '').trim() || null,

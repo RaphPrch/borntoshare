@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { goto, invalidateAll } from "$app/navigation";
-  import EmptyStateCard from "$lib/components/ui/EmptyStateCard.svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import ZoneFormModal from "$lib/components/zones/ZoneFormModal.svelte";
   import { createZone } from "$lib/api/zones";
   import { notifyError, toAppError } from "$lib/errors";
@@ -27,7 +28,7 @@
         route: "/admin/zones",
         zoneId: id
       });
-      toast.success("Zone created");
+      toast.success(t('Zone created'));
       zoneModalOpen = false;
       await invalidateAll();
       await goto(`/admin/zones/${id}`);
@@ -42,14 +43,14 @@
   }
 </script>
 
-<EmptyStateCard
+<EmptyState
   containerClass="storage-endpoints-empty"
   iconClass="bi bi-diagram-2"
-  title="No zones defined yet"
-  description="Zones organize governance policies and scope for storage endpoints and storage roots."
-  ctaLabel="Create your first zone"
+  title={t('No zones yet')}
+  description={t('Zones organize governance policies and scope for storage endpoints and storage roots.')}
+  ctaLabel={t('Create your first zone')}
   onCta={() => (zoneModalOpen = true)}
-  hint="The wizard-style modal will guide you step by step."
+  hint={t('You will be guided step by step.')}
 />
 
 <ZoneFormModal

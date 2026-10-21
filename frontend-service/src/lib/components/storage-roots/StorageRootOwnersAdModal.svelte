@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
   import { importIdentityAdBatch, listIdentityOverview } from '$lib/api/identity';
@@ -87,7 +88,7 @@
         severity: 'critical',
         message: 'Storage root not found'
       });
-      toast.warning('Storage root not found');
+      toast.warning(t('Storage root not found'));
       return;
     }
 
@@ -103,7 +104,7 @@
           severity: 'critical',
           message: 'AD source is required'
         });
-        toast.warning('AD source is required');
+        toast.warning(t('AD source is required'));
         return;
       }
 
@@ -128,8 +129,8 @@
               principal?.upn ??
               principal?.email ??
               current?.display_name ??
-              `Identity #${identityId}`
-            ).trim() || `Identity #${identityId}`,
+              t('Identity #{identityId}', { identityId })
+            ).trim() || t('Identity #{identityId}', { identityId }),
           username: String(principal?.username ?? current?.username ?? '').trim() || null,
           upn: String(principal?.upn ?? current?.upn ?? '').trim() || null,
           email: String(principal?.email ?? current?.email ?? '').trim() || null,
@@ -154,7 +155,7 @@
           severity: 'critical',
           message: 'No user/group entries selected.'
         });
-        toast.warning('No user/group entries selected.');
+        toast.warning(t('No user/group entries selected.'));
         return;
       }
 
@@ -181,7 +182,7 @@
             items: toImport.map(({ item }) => ({
               principal: {
                 type: String(item?.type ?? 'user').trim().toLowerCase() === 'group' ? 'group' : 'user',
-                external_id: item?.dn ?? item?.external_id ?? item?.id ?? null,
+                external_id: String(item?.dn ?? item?.external_id ?? item?.id ?? '') || null,
                 dn: item?.dn ?? null,
                 username: null,
                 display_name: item?.display_name ?? null,
@@ -305,7 +306,7 @@
           message:
             ignoredNonUserCount === 1
               ? '1 unsupported entry ignored'
-              : `${ignoredNonUserCount} unsupported entries ignored`,
+              : t('{ignoredNonUserCount} unsupported entries ignored', { ignoredNonUserCount }),
           context: {
             ignored_count: ignoredNonUserCount
           }
@@ -313,7 +314,7 @@
         toast.warning(
           ignoredNonUserCount === 1
             ? '1 unsupported entry ignored'
-            : `${ignoredNonUserCount} unsupported entries ignored`
+            : t('{ignoredNonUserCount} unsupported entries ignored', { ignoredNonUserCount })
         );
       }
 
@@ -324,13 +325,13 @@
           action: 'storage_root.guardian_selection_warning',
           outcome: 'warning',
           severity: 'critical',
-          message: `${addedCount} entries added, ${unresolvedCount} could not be resolved.`,
+          message: t('{addedCount} entries added, {unresolvedCount} could not be resolved.', { addedCount, unresolvedCount }),
           context: {
             added_count: addedCount,
             unresolved_count: unresolvedCount
           }
         });
-        toast.warning(`${addedCount} entries added, ${unresolvedCount} could not be resolved.`);
+        toast.warning(t('{addedCount} entries added, {unresolvedCount} could not be resolved.', { addedCount, unresolvedCount }));
       }
 
       if (!guardianChanged) {
@@ -345,7 +346,7 @@
               already_assigned_count: alreadyAssignedCount
             }
           });
-          toast.info('Selected entries are already assigned.');
+          toast.info(t('Selected entries are already assigned.'));
         } else if (resolvedCount === 0 && unresolvedCount > 0) {
           emitActivity({
             action: 'storage_root.guardian_selection_failed',
@@ -358,13 +359,13 @@
               unresolved_principal_labels: unresolvedPrincipalLabels
             }
           });
-          toast.error('The selected entries could not be added to the governance draft.');
+          toast.error(t('The selected entries could not be added to the governance draft.'));
         } else if (resolvedCount > 0 && unresolvedCount > 0) {
           emitActivity({
             action: 'storage_root.guardian_selection_warning',
             outcome: 'warning',
             severity: 'critical',
-            message: `${alreadyAssignedCount} entries already assigned, ${unresolvedCount} could not be resolved.`,
+            message: t('{alreadyAssignedCount} entries already assigned, {unresolvedCount} could not be resolved.', { alreadyAssignedCount, unresolvedCount }),
             context: {
               resolved_count: resolvedCount,
               unresolved_count: unresolvedCount,
@@ -372,7 +373,7 @@
               unresolved_principal_labels: unresolvedPrincipalLabels
             }
           });
-          toast.warning(`${alreadyAssignedCount} entries already assigned, ${unresolvedCount} could not be resolved.`);
+          toast.warning(t('{alreadyAssignedCount} entries already assigned, {unresolvedCount} could not be resolved.', { alreadyAssignedCount, unresolvedCount }));
         } else {
           emitActivity({
             action: 'storage_root.guardian_selection_failed',
@@ -380,7 +381,7 @@
             severity: 'critical',
             message: 'No entries added.'
           });
-          toast.warning('No entries added.');
+          toast.warning(t('No entries added.'));
         }
         return;
       }
@@ -405,9 +406,9 @@
   onClose={handleClose}
   identitySources={[]}
   {initialSourceId}
-  title="Browse Active Directory"
+  title={t('Browse Active Directory')}
   subtitle={
-    'Select users or groups to add as guardians.'
+    t('Select users or groups to add as guardians.')
   }
   mode="multiple"
   allowRoleAssignment={false}

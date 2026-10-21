@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n';
 import { asRecord } from '../utils/values';
 
 type ProbeErrorType =
@@ -31,23 +32,23 @@ export function normalizeProbeError(e: unknown): NormalizedProbeError {
     pickString(rec, 'message') ??
     pickString(rec, 'errorMessage') ??
     pickString(rec, 'error') ??
-    'Unknown error';
+    t('Unknown error');
   const technical = pickString(rec, 'technical') ?? raw;
 
   if (contains(raw, 'missing required') || contains(raw, 'required field') || contains(raw, 'invalid')) {
-    return { type: 'VALIDATION', message: 'Please check the required fields.', technical };
+    return { type: 'VALIDATION', message: t('Please check the required fields.'), technical };
   }
   if (contains(raw, 'timeout')) {
-    return { type: 'TIMEOUT', message: 'Probe timed out. Please try again.', technical };
+    return { type: 'TIMEOUT', message: t('Probe timed out. Please try again.'), technical };
   }
   if (contains(raw, 'network') || contains(raw, 'failed to fetch') || contains(raw, 'fetch')) {
-    return { type: 'NETWORK', message: 'Network connection failed.', technical };
+    return { type: 'NETWORK', message: t('Network connection failed.'), technical };
   }
   if (contains(raw, 'secret') || contains(raw, 'vault') || contains(raw, 'broker')) {
-    return { type: 'SECRET', message: 'Secret resolution failed.', technical };
+    return { type: 'SECRET', message: t('Secret resolution failed.'), technical };
   }
   if (contains(raw, 'capsule') || contains(raw, 'probe') || contains(raw, 'execution')) {
-    return { type: 'CAPSULE', message: 'Probe execution failed.', technical };
+    return { type: 'CAPSULE', message: t('Probe execution failed.'), technical };
   }
-  return { type: 'UNKNOWN', message: 'Unexpected error.', technical };
+  return { type: 'UNKNOWN', message: t('Unexpected error.'), technical };
 }

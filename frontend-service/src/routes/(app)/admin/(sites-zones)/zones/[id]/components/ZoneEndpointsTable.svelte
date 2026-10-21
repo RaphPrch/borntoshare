@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import DataTable from "$lib/components/ui/DataTable.svelte";
   import StatusBadge from "$lib/components/ui/StatusBadge.svelte";
+  import type { StatusVariant } from "$lib/utils/status";
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import {
     endpointOperationalStateLabel,
@@ -35,16 +37,16 @@
 
 <DataTable
   columns={[
-    { key: "name", label: "Name" },
-    { key: "address", label: "Address" },
-    { key: "status", label: "Status", sortable: true },
-    { key: "last_probe", label: "Last probe" },
+    { key: "name", label: t('Name') },
+    { key: "address", label: t('Address') },
+    { key: "status", label: t('Status'), sortable: true },
+    { key: "last_probe", label: t('Last probe') },
     { key: "actions", label: "", className: "zone-endpoints__actions-col" },
   ]}
   rows={endpoints.map((ep) => ({
     endpoint_raw: ep,
     id: ep.id ?? ep.storage_endpoint_id ?? ep.name,
-    name: ep.name ?? ep.storage_endpoint_name ?? `Endpoint #${ep.id ?? "-"}`,
+    name: ep.name ?? ep.storage_endpoint_name ?? t('Endpoint #{value}', { value: (ep.id ?? "-") }),
     address: ep.host ?? "-",
     last_probe: lastProbeResult(ep),
     probe_running: probeRunning(lastProbeResult(ep)),
@@ -57,9 +59,9 @@
       <span>{String(row?.name ?? "-")}</span>
     {:else if column.key === "status"}
       <StatusBadge
-        status={String(row.status_label ?? "Unknown")}
-        label={String(row.status_label ?? "Unknown")}
-        variant={row.status_variant ?? "muted"}
+        status={String(row.status_label ?? t('Unknown'))}
+        label={String(row.status_label ?? t('Unknown'))}
+        variant={(row.status_variant ?? "muted") as StatusVariant}
         showDot={false}
       />
     {:else if column.key === "last_probe"}
@@ -76,9 +78,9 @@
         icon="bi-activity"
         busyIcon="bi-hourglass-split"
         busy={Boolean(row.probe_running)}
-        label={row.probe_running ? "Probe in progress" : "Run probe"}
-        title={row.probe_running ? "Probe in progress" : "Run probe"}
-        ariaLabel={row.probe_running ? "Probe in progress" : `Run probe for ${String(row?.name ?? "endpoint")}`}
+        label={row.probe_running ? t('Probe in progress') : t('Run probe')}
+        title={row.probe_running ? t('Probe in progress') : t('Run probe')}
+        ariaLabel={row.probe_running ? t('Probe in progress') : t('Run probe for {String}', { String: String(row?.name ?? "endpoint") })}
         disabled={Boolean(row.probe_running)}
         stopPropagation={true}
         onClick={() => onRunProbe?.(row.endpoint_raw)}

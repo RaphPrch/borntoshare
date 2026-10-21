@@ -1,4 +1,7 @@
 <script lang="ts">
+  import FieldError from '$lib/components/ui/FieldError.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import { t } from '$lib/i18n';
   import { clamp } from '$lib/utils/values';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
   import DangerZone from '$lib/components/settings/DangerZone.svelte';
@@ -36,9 +39,9 @@
 
   $: retentionError =
     form.retentionEnabled && !(Number(form.retentionDays) >= 1 && Number(form.retentionDays) <= 3650)
-      ? 'Retention must be between 1 and 3650 days.'
+      ? t('Retention must be between 1 and 3650 days.')
       : null;
-  $: levelError = levels.includes(String(form.level)) ? null : 'Invalid log level.';
+  $: levelError = levels.includes(form.level as LogLevel) ? null : t('Invalid log level.');
   $: hasErrors = Boolean(retentionError || levelError);
   $: isDirty = JSON.stringify(normalize(form)) !== initialSnapshot;
   $: canSave = !saving && isDirty && !hasErrors;
@@ -57,7 +60,7 @@
       settings.logging = { ...settings.logging, ...payload };
       form = { ...payload };
       initialSnapshot = JSON.stringify(normalize(payload));
-      toast.success('Logging settings saved.');
+      toast.success(t('Logging settings saved.'));
     } catch (e: unknown) {
       errorMsg = reportUiError(e, 'Failed to save logging settings.', 'advanced_settings.logging.save');
     } finally {
@@ -76,7 +79,7 @@
     purging = true;
     try {
       await purgeLogs(fetch);
-      toast.success('Purge requested.');
+      toast.success(t('Purge requested.'));
     } catch (e: unknown) {
       reportUiError(e, 'Backend not connected: simulated action (dev).', 'advanced_settings.logging.purge');
     } finally {
@@ -85,9 +88,9 @@
   }
 </script>
 
-<ConfigCard title="Logging" subtitle="Persisted configuration" icon="bi-journal-text">
+<ConfigCard title={t('Logging')} subtitle={t('Persisted configuration')} icon="bi-journal-text">
   <div class="adv-form-grid">
-    <SettingRow label="Log level">
+    <SettingRow label={t('Log level')}>
       <select class="form-select" bind:value={form.level}>
         <option value="DEBUG">DEBUG</option>
         <option value="INFO">INFO</option>
@@ -95,11 +98,11 @@
         <option value="ERROR">ERROR</option>
       </select>
       {#if levelError}
-        <div class="adv-inline-error">{levelError}</div>
+        <FieldError>{levelError}</FieldError>
       {/if}
     </SettingRow>
 
-    <SettingRow label="Retention (days)">
+    <SettingRow label={t('Retention (days)')}>
       <input
         class="form-control"
         type="number"
@@ -109,11 +112,11 @@
         disabled={!form.retentionEnabled}
       />
       {#if retentionError}
-        <div class="adv-inline-error">{retentionError}</div>
+        <FieldError>{retentionError}</FieldError>
       {/if}
     </SettingRow>
 
-    <SettingRow label="Retention enabled">
+    <SettingRow label={t('Retention enabled')}>
       <div class="form-check form-switch">
         <input
           id="retention-enabled"
@@ -121,26 +124,26 @@
           type="checkbox"
           bind:checked={form.retentionEnabled}
         />
-        <label class="form-check-label" for="retention-enabled">Enable log retention</label>
+        <label class="form-check-label" for="retention-enabled">{t('Enable log retention')}</label>
       </div>
     </SettingRow>
   </div>
 
   {#if errorMsg}
-    <div class="adv-inline-error adv-inline-error--block">{errorMsg}</div>
+    <InlineAlert tone="error">{errorMsg}</InlineAlert>
   {/if}
 
   <div class="adv-actions">
-    <button class="btn btn-primary" type="button" on:click={save} disabled={!canSave}>
-      {saving ? 'Saving…' : 'Save changes'}
+    <button class="b2s-btn b2s-btn-primary" type="button" on:click={save} disabled={!canSave}>
+      {saving ? t('Saving…') : t('Save changes')}
     </button>
   </div>
 </ConfigCard>
 
-<DangerZone title="Danger zone" subtitle="Cleanup / purge">
+<DangerZone title={t('Danger zone')} subtitle={t('Cleanup / purge')}>
   <div class="adv-btn-row">
-    <button class="btn btn-danger" type="button" on:click={purge} disabled={purging}>
-      <i class="bi bi-trash"></i> Purge old logs
+    <button class="b2s-btn b2s-btn-danger" type="button" on:click={purge} disabled={purging}>
+      <i class="bi bi-trash"></i> {t('Purge old logs')}
     </button>
   </div>
 </DangerZone>
@@ -150,15 +153,15 @@
   onClose={() => (purgeConfirmOpen = false)}
   onConfirm={confirmPurge}
   severity="danger"
-  title="Purge logs"
-  subtitle="This action is irreversible."
-  impactTitle="Impact"
+  title={t('Purge logs')}
+  subtitle={t('This action is irreversible.')}
+  impactTitle={t('Impact')}
   impactItems={[
     'Historical logs will be removed according to backend retention purge rules.',
     'This cannot be undone.'
   ]}
-  cancelLabel="Cancel"
-  confirmLabel="Purge"
-  confirmBusyLabel="Purging…"
+  cancelLabel={t('Cancel')}
+  confirmLabel={t('Purge')}
+  confirmBusyLabel={t('Purging…')}
   busy={purging}
 />

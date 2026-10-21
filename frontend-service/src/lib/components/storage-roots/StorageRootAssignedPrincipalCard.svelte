@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import EntityRowCard from '../ui/EntityRowCard.svelte';
   import IconTile from '../ui/IconTile.svelte';
   import { mapGovernanceOwnerToCardVM } from '../../mappers/governance-owners.mapper';
@@ -6,8 +7,8 @@
   export let owner: Record<string, unknown> = {};
   export let role: 'guardian' = 'guardian';
   export let saving = false;
-  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => 'Unknown';
-  export let ownerTypeLabel: (owner: Record<string, unknown>) => string = () => 'User';
+  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => t('Unknown');
+  export let ownerTypeLabel: (owner: Record<string, unknown>) => string = () => t('User');
   export let onRemove: (owner: Record<string, unknown>) => void = () => {};
 
   $: vm = mapGovernanceOwnerToCardVM(owner, {
@@ -38,8 +39,8 @@
         class="assigned-principal-card__remove"
         on:click={() => onRemove(owner)}
         disabled={saving}
-        aria-label={`Remove ${role}`}
-        title={`Remove ${role}`}
+        aria-label={t('Remove {role}', { role })}
+        title={t('Remove {role}', { role })}
       >
         <i class="bi bi-x-lg"></i>
       </button>
@@ -52,7 +53,7 @@
     width: 34px;
     height: 34px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     background: #eef2f8;
     color: #667085;
     display: inline-flex;

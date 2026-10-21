@@ -10,10 +10,11 @@
  * Assumptions:
  * - HTTP only
  * - Cookie-based session
- * - CSRF disabled
+ * - CSRF checked by SvelteKit against ORIGIN
  * - Direct backend service routing
  */
 
+import { LOCALE_COOKIE, isLocale, localeFromAcceptLanguage, type Locale } from './lib/i18n';
 import type { Handle } from '@sveltejs/kit';
 import { redirect } from '@sveltejs/kit';
 import { isPublicPath, shouldSkipHydration } from './lib/server/routing/public-paths';
@@ -23,7 +24,16 @@ import { logError } from './lib/logging';
 
 declare const process: {
   env: Record<string, string | undefined>;
+  on?: (event: 'unhandledRejection', listener: (reason: unknown) => void) => void;
 };
+
+// Node exits on an unhandled rejection: one failed background call (e.g. a fetch started
+// during SSR) would take the whole frontend down for every user. Log it instead.
+process.on?.('unhandledRejection', (reason) => {
+  logError('Unhandled promise rejection', {
+    reason: reason instanceof Error ? reason.message : String(reason)
+  });
+});
 
 /* ============================================================
  * MAIN HANDLE
@@ -31,7 +41,15 @@ declare const process: {
 
 export const handle: Handle = async ({ event, resolve }) => {
   const { url } = event;
-  const locals = event.locals as { me: { id?: string | number | null } | null };
+  const locals = event.locals as { me: { id?: string | number | null } | null; locale: Locale };
+
+  // Interface language: explicit choice (cookie) first, then the browser preference
+  const cookieLocale = event.cookies.get(LOCALE_COOKIE);
+  locals.locale = isLocale(cookieLocale)
+    ? cookieLocale
+    : localeFromAcceptLanguage(event.request.headers.get('accept-language'));
+  const setHtmlLang = ({ html }: { html: string }) =>
+    html.replace('<html lang="fr">', `<html lang="${locals.locale}">`);
 
   const tryHydrateUserContext = async () => {
     try {
@@ -63,6 +81,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (shouldSkipHydration(url.pathname)) {
     locals.me = null;
     return resolve(event, {
+      transformPageChunk: setHtmlLang,
       filterSerializedResponseHeaders: (name) =>
         name === 'content-type' || name === 'set-cookie'
     });
@@ -79,6 +98,7 @@ export const handle: Handle = async ({ event, resolve }) => {
    * ====================================================== */
   if (isPublicPath(url.pathname)) {
     return resolve(event, {
+      transformPageChunk: setHtmlLang,
       filterSerializedResponseHeaders: (name) =>
         name === 'content-type' || name === 'set-cookie'
     });
@@ -99,6 +119,7 @@ export const handle: Handle = async ({ event, resolve }) => {
    * 5️⃣ Continue SSR
    * ====================================================== */
   return resolve(event, {
+    transformPageChunk: setHtmlLang,
     filterSerializedResponseHeaders: (name) =>
       name === 'content-type' || name === 'set-cookie'
   });

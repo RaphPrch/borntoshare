@@ -1,7 +1,8 @@
+import { t } from '$lib/i18n';
 import { writable } from 'svelte/store';
 
 // Keep aligned with [`Toaster.svelte`](src/lib/components/ui/Toaster.svelte:1)
-type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading';
+export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading';
 
 interface Toast {
   id: number;
@@ -26,7 +27,7 @@ const defaultTitles: Record<ToastType, string> = {
 };
 
 function formatMessage(type: ToastType, message: string) {
-  const title = defaultTitles[type];
+  const title = t(defaultTitles[type]);
   const clean = message?.trim() || '';
   return `${title} · ${clean}`;
 }

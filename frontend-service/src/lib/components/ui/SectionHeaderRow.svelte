@@ -54,14 +54,14 @@
     display: inline-flex;
     align-items: baseline;
     gap: 8px;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     line-height: 1.25;
     font-weight: 700;
     color: #101828;
   }
 
   .b2s-section-header-row__copy h3 span {
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     color: #667085;
     font-weight: 600;
   }
@@ -69,7 +69,7 @@
   .b2s-section-header-row__copy p,
   .b2s-section-header-row__copy small {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     line-height: 1.4;
     color: #667085;
   }

@@ -1,8 +1,11 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   export let user: unknown = null;
   import { type MegaMenuKey } from '$lib/components/layout/mega-config';
   import { normalizeMe } from '$lib/types/me';
   import { initials } from '$lib/utils/format';
+  import LanguageSwitcher from '$lib/components/ui/LanguageSwitcher.svelte';
+  import GlobalSearch from '$lib/components/layout/GlobalSearch.svelte';
 
   export let activeMega: MegaMenuKey | null = null;
   export let currentPath: string | undefined = undefined;
@@ -56,12 +59,12 @@
   };
 
   let viewUser: ViewUser = {
-    label: 'User',
+    label: t('User'),
     initials: 'U'
   };
 
   function normalizeUser(input: unknown): ViewUser {
-    let label = 'User';
+    let label = t('User');
 
     let u: any = null;
 
@@ -101,7 +104,6 @@
   $: hasAlerts = Number(alertsCount ?? 0) > 0;
 </script>
 
-
 <nav class="b2s-topbar">
   <!-- LEFT -->
   <div class="topbar-left">
@@ -118,7 +120,7 @@
         href="/dashboard"
         class="nav-item {isActive('dashboard') ? 'active' : ''}"
       >
-        Dashboard
+        {t('Dashboard')}
       </a>
 
       {#if canSeeStorageRoots}
@@ -126,7 +128,7 @@
           href="/storage-roots"
           class="nav-item {isActive('storageRoots') ? 'active' : ''}"
         >
-          Storage Roots
+          {t('Storage Roots')}
         </a>
       {/if}
 
@@ -134,7 +136,7 @@
         href="/access-requests"
         class="nav-item {isActive('requests') ? 'active' : ''}"
       >
-        Requests
+        {t('Requests')}
       </a>
 
       {#if canSeeObservability}
@@ -143,7 +145,7 @@
           class="nav-item {isActive('observability') ? 'active' : ''}"
           on:click={() => openMega('observability')}
         >
-          Observability
+          {t('Observability')}
         </button>
       {/if}
 
@@ -153,7 +155,7 @@
           class="nav-item {isActive('admin') ? 'active' : ''}"
           on:click={() => openMega('admin')}
         >
-          Admin
+          {t('Admin')}
         </button>
       {/if}
     </div>
@@ -162,14 +164,17 @@
   <!-- RIGHT -->
   <div class="topbar-right">
     <div class="user-menu-wrapper">
-      <a href="/access-requests?status=pending" class="topbar-alert-btn" aria-label="Notifications">
+      <GlobalSearch {canSeeAdmin} {canSeeStorageRoots} {canSeeObservability} />
+      <LanguageSwitcher />
+
+      <a href="/access-requests?status=pending" class="topbar-alert-btn" aria-label={t('Notifications')}>
         <i class="bi bi-bell" aria-hidden="true"></i>
         {#if hasAlerts}
-          <span class="topbar-alert-badge" aria-label={`${alertsCount} alertes`}>{alertsCount > 99 ? '99+' : alertsCount}</span>
+          <span class="topbar-alert-badge" aria-label={t('{alertsCount} alertes', { alertsCount })}>{alertsCount > 99 ? '99+' : alertsCount}</span>
         {/if}
       </a>
 
-      <div class="topbar-user-chip" aria-label={`Signed-in user ${viewUser.label}`}>
+      <div class="topbar-user-chip" aria-label={t('Signed-in user {label}', { label: viewUser.label })}>
         <span class="topbar-user-avatar">{viewUser.initials}</span>
         <span class="topbar-user-name">{viewUser.label}</span>
       </div>
@@ -177,7 +182,7 @@
       <form method="POST" action="/logout">
         <button type="submit" class="logout-btn">
         <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-        Logout
+        {t('Logout')}
         </button>
       </form>
     </div>

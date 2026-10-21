@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import ActivityEventsTable from '$lib/components/activity/ActivityEventsTable.svelte';
 
-  export let title = 'Activity';
+  export let title = t('Activity');
   export let items: any[] = [];
-  export let emptyLabel = 'No activity found for this selection.';
+  export let emptyLabel = t('No activity found for this selection.');
   export let onSelect: ((entry: any) => void) | null = null;
 </script>
 

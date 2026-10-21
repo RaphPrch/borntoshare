@@ -39,7 +39,7 @@
     align-items: center;
     gap: 8px;
     color: #9a6a05;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 

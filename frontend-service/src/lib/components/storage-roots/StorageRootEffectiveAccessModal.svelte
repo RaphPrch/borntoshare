@@ -1,56 +1,47 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { initials, timeAgo } from '$lib/utils/format';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
   import StorageRootDrawerShell from '$lib/components/storage-roots/StorageRootDrawerShell.svelte';
 
   export let open = false;
-  export let title = 'Users with Access';
-  export let contextLabel = 'Storage • — • —';
+  export let title = t('Users with Access');
+  export let contextLabel = t('Storage • — • —');
   export let membersCount = 0;
   export let level: 'read' | 'write' = 'read';
-  export let users: Array<{
-    identity_id: number;
-    display_name?: string | null;
-    username?: string | null;
-    email?: string | null;
-    upn?: string | null;
-    access_level?: 'read' | 'write' | string;
-    created_at?: string | null;
-    assigned_at?: string | null;
-  }> = [];
+  // Rows of effectiveAccessUsersByLevel (storage-root-detail.mapper); every field is optional
+  export let users: Array<Record<string, unknown>> = [];
   export let onAddUser: () => void = () => {};
   export let onClose: () => void = () => {};
 
-  const label = (u: any) => String(u?.display_name ?? u?.username ?? u?.email ?? u?.upn ?? `Identity #${u?.identity_id ?? '?'}`);
+  const label = (u: any) => String(u?.display_name ?? u?.username ?? u?.email ?? u?.upn ?? t('Identity #{value}', { value: (u?.identity_id ?? '?') }));
   const mail = (u: any) => String(u?.email ?? u?.upn ?? '—');
-
 
   const toneClass = (index: number) => ['indigo', 'violet', 'rose', 'orange', 'cyan'][index % 5];
 
 </script>
 
 <StorageRootDrawerShell
+  iconClass="bi bi-people"
   open={open}
   onClose={onClose}
   title={title}
   subtitle={`${contextLabel} · ${level.toUpperCase()}`}
   ariaLabelledby="sr-effective-access-title"
-  width="560px"
-  topOffset="70px"
   showFooter={true}
 >
   <section class="sr-ea-topbar">
-    <div class="sr-ea-context">{membersCount} members resolved in effective access ({level.toUpperCase()})</div>
+    <div class="sr-ea-context">{t('{membersCount} members resolved in effective access ({toUpperCase})', { membersCount, toUpperCase: level.toUpperCase() })}</div>
     <div class="sr-ea-topline">
-      <strong>{membersCount} Members</strong>
-      <span class="sr-ea-operational"><i class="bi bi-check-circle-fill"></i> Operational</span>
+      <strong>{t('{membersCount} Members', { membersCount })}</strong>
+      <span class="sr-ea-operational"><i class="bi bi-check-circle-fill"></i> {t('Operational')}</span>
     </div>
   </section>
 
   <section class="sr-ea-panel">
-    <div class="sr-ea-panel-title">{membersCount} Members</div>
+    <div class="sr-ea-panel-title">{t('{membersCount} Members', { membersCount })}</div>
     {#if users.length === 0}
-      <div class="sr-ea-empty">No resolved users.</div>
+      <div class="sr-ea-empty">{t('No resolved users.')}</div>
     {:else}
       <div class="sr-ea-list">
         {#each users as u, idx}
@@ -61,10 +52,7 @@
               <small>{mail(u)}</small>
             </div>
             <div class="sr-ea-right">
-              <span>{timeAgo(u?.assigned_at ?? u?.created_at ?? null) || '—'}</span>
-              <button class="sr-ea-icon" type="button" aria-label="Remove" disabled>
-                <i class="bi bi-trash"></i>
-              </button>
+              <span>{timeAgo(String(u?.assigned_at ?? u?.created_at ?? '') || null) || '—'}</span>
             </div>
           </article>
         {/each}
@@ -74,8 +62,8 @@
 
   <svelte:fragment slot="footer">
     <div class="sr-modal-actions sr-ea-footer-actions">
-      <EntityActionButton compact={true} variant="secondary" label="Close" onClick={onClose} />
-      <EntityActionButton compact={true} variant="primary" icon="bi-plus-lg" label="Add user" onClick={onAddUser} />
+      <EntityActionButton variant="secondary" label={t('Close')} onClick={onClose} />
+      <EntityActionButton variant="primary" icon="bi-plus-lg" label={t('Add user')} onClick={onAddUser} />
     </div>
   </svelte:fragment>
 </StorageRootDrawerShell>
@@ -93,7 +81,7 @@
 
   .sr-ea-context {
     color: #667085;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 500;
   }
 
@@ -106,7 +94,7 @@
 
   .sr-ea-topline strong {
     color: #1f2a44;
-    font-size: 16px;
+    font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
 
@@ -115,7 +103,7 @@
     align-items: center;
     gap: 6px;
     color: #157f57;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
@@ -126,7 +114,7 @@
   .sr-ea-panel {
     margin-top: 14px;
     border: 1px solid #dfe6f2;
-    border-radius: 12px;
+    border-radius: var(--b2s-radius-md);
     background: #fff;
   }
 
@@ -137,21 +125,8 @@
 
   .sr-ea-panel-title {
     color: #2e436b;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     font-weight: 700;
-  }
-
-  .sr-ea-link {
-    border: none;
-    background: transparent;
-    padding: 0;
-    color: #255ac2;
-    font-size: 13px;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
   }
 
   .sr-ea-list {
@@ -174,12 +149,12 @@
   .sr-ea-avatar {
     width: 36px;
     height: 36px;
-    border-radius: 999px;
+    border-radius: var(--b2s-radius-pill);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
 
@@ -211,7 +186,7 @@
 
   .sr-ea-main strong {
     color: #1f3156;
-    font-size: 14px;
+    font-size: var(--b2s-fs-md);
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
@@ -220,7 +195,7 @@
 
   .sr-ea-main small {
     color: #53698e;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -231,23 +206,14 @@
     align-items: center;
     gap: 8px;
     color: #4a618c;
-    font-size: 12px;
+    font-size: var(--b2s-fs-xs);
     white-space: nowrap;
-  }
-
-  .sr-ea-icon {
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: #5c6f93;
   }
 
   .sr-ea-empty {
     padding: 14px;
     color: #61759d;
-    font-size: 13px;
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
@@ -258,7 +224,7 @@
     gap: 10px;
   }
 
-  .sr-ea-footer-actions :global(.sed-btn) {
+  .sr-ea-footer-actions :global(.b2s-btn) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -276,7 +242,7 @@
       grid-template-columns: 1fr;
     }
 
-    .sr-ea-footer-actions :global(.sed-btn) {
+    .sr-ea-footer-actions :global(.b2s-btn) {
       width: 100%;
     }
   }

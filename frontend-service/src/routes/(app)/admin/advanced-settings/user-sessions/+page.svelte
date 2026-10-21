@@ -1,4 +1,7 @@
 <script lang="ts">
+  import SearchField from '$lib/components/ui/SearchField.svelte';
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
+  import { t } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -21,8 +24,8 @@
   let pendingSessionId: string | null = null;
 
   const toTimestamp = (value: unknown) => {
-    const t = new Date(String(value ?? '')).getTime();
-    return Number.isFinite(t) ? t : 0;
+    const time = new Date(String(value ?? '')).getTime();
+    return Number.isFinite(time) ? time : 0;
   };
 
   $: filteredSessions = sessions.filter((s) => {
@@ -69,10 +72,10 @@
     try {
       const res = await revokeUserSession(fetch, sessionId);
       if (res?.ok) {
-        toast.success('Session disconnected.');
+        toast.success(t('Session disconnected.'));
         await refresh();
       } else {
-        const appError = toAppError(new Error(String(res?.message ?? 'Unable to disconnect session.')), {
+        const appError = toAppError(new Error(String(res?.message ?? t('Unable to disconnect session.'))), {
           source: 'ui',
           details: res
         });
@@ -87,82 +90,80 @@
   }
 </script>
 
-<ConfigCard title="User sessions" subtitle="Active sessions" icon="bi-person-lines-fill">
-  <div class="adv-toolbar">
-    <div class="adv-toolbar-left">
-      <div class="adv-search">
-        <i class="bi bi-search"></i>
-        <input class="form-control" type="search" bind:value={query} placeholder="Search user, role, source…" />
-      </div>
-      <select class="form-select" bind:value={statusFilter}>
-        <option value="all">All statuses</option>
-        <option value="active">Active</option>
-        <option value="expired">Expired</option>
-        <option value="revoked">Revoked</option>
+<ConfigCard title={t('User sessions')} subtitle={t('Active sessions')} icon="bi-person-lines-fill">
+  <div class="b2s-toolbar is-plain">
+      <SearchField wrapperClass="b2s-toolbar__search" placeholder={t('Search user, role, source…')} ariaLabel={t('Search sessions')} bind:value={query} />
+      <select class="b2s-select" bind:value={statusFilter} aria-label={t('Status')}>
+        <option value="all">{t('All statuses')}</option>
+        <option value="active">{t('Active')}</option>
+        <option value="expired">{t('Expired')}</option>
+        <option value="revoked">{t('Revoked')}</option>
       </select>
-      <select class="form-select" bind:value={sortBy}>
-        <option value="last_seen">Sort: Last activity</option>
-        <option value="created_at">Sort: Created</option>
-        <option value="user">Sort: User</option>
-        <option value="status">Sort: Status</option>
+      <select class="b2s-select" bind:value={sortBy} aria-label={t('Sort')}>
+        <option value="last_seen">{t('Sort: Last activity')}</option>
+        <option value="created_at">{t('Sort: Created')}</option>
+        <option value="user">{t('Sort: User')}</option>
+        <option value="status">{t('Sort: Status')}</option>
       </select>
-      <button class="btn btn-outline-secondary" type="button" on:click={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}>
-        {sortDir === 'asc' ? '↑ Ascending' : '↓ Descending'}
+      <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}>
+        {sortDir === 'asc' ? `↑ ${t('Ascending')}` : `↓ ${t('Descending')}`}
       </button>
-    </div>
-    <button class="btn btn-secondary" type="button" on:click={refresh} disabled={isLoading || !!revokingId}>
-      {isLoading ? 'Loading…' : 'Refresh'}
+    <button class="b2s-btn b2s-btn-secondary b2s-toolbar__end" type="button" on:click={refresh} disabled={isLoading || !!revokingId}>
+      {isLoading ? t('Loading…') : t('Refresh')}
     </button>
   </div>
 
-  <div class="adv-hint">{sortedSessions.length} session{sortedSessions.length > 1 ? 's' : ''} shown</div>
+  <div class="adv-hint">{t('{sortedSessionsCount} session{value} shown', { sortedSessionsCount: sortedSessions.length, value: (sortedSessions.length > 1 ? 's' : '') })}</div>
 
-  <div class="table-responsive">
+  <div class="b2s-table-wrap">
     <table class="table table-hover align-middle">
       <thead>
         <tr>
-          <th>User</th>
-          <th>Role</th>
-          <th>Status</th>
-          <th>Last seen</th>
-          <th>Auth</th>
-          <th>Created</th>
+          <th>{t('User')}</th>
+          <th>{t('Role')}</th>
+          <th>{t('Status')}</th>
+          <th>{t('Last seen')}</th>
+          <th>{t('Auth')}</th>
+          <th>{t('Created')}</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {#each sortedSessions as s}
           <tr>
-            <td><strong>{s.user}</strong></td>
             <td>
-              <span class="badge text-bg-primary">
-                {s.roles?.length ? s.roles.join(', ') : 'user'}
-              </span>
+              <strong>{s.user}</strong>
+              {#if s.is_current}<span class="adv-current-session">{t('This session')}</span>{/if}
+            </td>
+            <td>
+              <StatusBadge compact showDot={false} variant="info" label={s.roles?.length ? s.roles.join(', ') : t('user')} />
             </td>
             <td>
               {#if s.status === 'active'}
-                <span class="badge text-bg-success">active</span>
+                <StatusBadge compact variant="success" label={t('Active')} />
               {:else}
-                <span class="badge text-bg-secondary">{s.status}</span>
+                <StatusBadge compact status={s.status} />
               {/if}
             </td>
             <td>{timeAgo(s.last_seen)}</td>
             <td>{s.auth_source ?? '-'}</td>
             <td>{timeAgo(s.created_at)}</td>
             <td class="text-end">
+              {#if !s.is_current}
               <button
-                class="btn btn-outline-danger btn-sm"
+                class="b2s-btn b2s-btn-danger-outline b2s-btn-sm"
                 type="button"
                 on:click={() => requestRevoke(s.id)}
                 disabled={isLoading || !!revokingId}
               >
-                {revokingId === s.id ? 'Disconnecting…' : 'Disconnect'}
+                {revokingId === s.id ? t('Disconnecting…') : t('Disconnect')}
               </button>
+              {/if}
             </td>
           </tr>
         {:else}
           <tr>
-            <td colspan="7" class="text-center text-muted">No active sessions.</td>
+            <td colspan="7" class="text-center text-muted">{t('No active sessions.')}</td>
           </tr>
         {/each}
       </tbody>
@@ -177,16 +178,24 @@
     pendingSessionId = null;
   }}
   onConfirm={revokeConfirmed}
-  title="Disconnect session"
-  subtitle="This will immediately revoke this active session."
-  impactTitle="Impact"
+  title={t('Disconnect session')}
+  subtitle={t('This will immediately revoke this active session.')}
+  impactTitle={t('Impact')}
   impactItems={[
-    'The user will be signed out from this session.',
-    'A new login will be required to continue.'
+    t('The user will be signed out from this session.'),
+    t('A new login will be required to continue.')
   ]}
-  cancelLabel="Cancel"
-  confirmLabel="Disconnect"
-  confirmBusyLabel="Disconnecting…"
+  cancelLabel={t('Cancel')}
+  confirmLabel={t('Disconnect')}
+  confirmBusyLabel={t('Disconnecting…')}
   busy={Boolean(revokingId)}
   severity="warning"
 />
+
+<style>
+  .adv-current-session {
+    margin-left: 8px;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+  }
+</style>

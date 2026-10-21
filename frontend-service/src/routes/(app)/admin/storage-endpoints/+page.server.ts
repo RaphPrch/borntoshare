@@ -34,7 +34,6 @@ export const load: PageServerLoad = async (event) => {
 
   const firstEndpointId = Number(
     (Array.isArray(endpoints) ? endpoints : [])[0]?.id ??
-    (Array.isArray(endpoints) ? endpoints : [])[0]?.storage_endpoint_id ??
     0
   );
 

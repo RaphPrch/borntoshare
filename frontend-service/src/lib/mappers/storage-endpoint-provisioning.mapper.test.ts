@@ -6,8 +6,6 @@ import {
 } from './storage-endpoint-provisioning.mapper';
 import { buildStorageEndpointProvisioningViewModel } from '../components/provisioning/provisioning-policy.adapter';
 
-declare const process: { exitCode?: number };
-
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message);
 }
@@ -17,6 +15,7 @@ function testCreateDraftAndPayload(): void {
     storage_endpoint_id: 9,
     zone_id: 2,
     policy_mode: 'override',
+    endpoint_override_enabled: true,
     policy_source: 'endpoint',
     policy_source_label: 'Storage endpoint override',
     endpoint_values: {
@@ -69,6 +68,7 @@ function testSummaryAndWarnings(): void {
     storage_endpoint_id: 1,
     zone_id: 1,
     policy_mode: 'inherit',
+    endpoint_override_enabled: false,
     policy_source: 'zone',
     policy_source_label: 'Zone policy (Z1)',
     endpoint_values: { ou_dn: null, naming_template: null },
@@ -98,6 +98,7 @@ function testSummaryAndWarnings(): void {
       storage_endpoint_id: 1,
       zone_id: 1,
       policy_mode: 'inherit',
+      endpoint_override_enabled: false,
       policy_source: 'zone',
       policy_source_label: 'Zone policy (Z1)',
       endpoint_values: { ou_dn: null, naming_template: null },

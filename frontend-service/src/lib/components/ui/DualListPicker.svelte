@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
 
   export let availableItems: any[] = [];
   export let selectedItems: any[] = [];
 
-  export let availableTitle = 'Disponibles';
-  export let selectedTitle = 'Selected';
+  export let availableTitle = t('Disponibles');
+  export let selectedTitle = t('Selected');
 
   export let getItemKey: (item: any) => string | number = (item: any) => String(item?.id ?? item ?? '');
   export let itemLabel: (item: any) => string = (item: any) => String(item?.label ?? item?.name ?? item ?? '-');
@@ -18,7 +19,7 @@
     <div class="sr-tags-col-head">{availableTitle} ({availableItems.length})</div>
     <div class="sr-tags-col-body">
       {#if availableItems.length === 0}
-        <div class="sr-muted">No item available.</div>
+        <div class="sr-muted">{t('No item available.')}</div>
       {:else}
         {#each availableItems as item (getItemKey(item))}
           <button type="button" class="sr-tag-transfer-row" on:click={() => dispatch('add', { item })}>
@@ -36,7 +37,7 @@
     <div class="sr-tags-col-head">{selectedTitle} ({selectedItems.length})</div>
     <div class="sr-tags-col-body">
       {#if selectedItems.length === 0}
-        <div class="sr-muted">No item selected.</div>
+        <div class="sr-muted">{t('No item selected.')}</div>
       {:else}
         {#each selectedItems as item (getItemKey(item))}
           <button type="button" class="sr-tag-transfer-row selected" on:click={() => dispatch('remove', { item })}>
