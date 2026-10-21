@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
@@ -176,6 +177,18 @@
     if (me?.is_admin === true) return true;
     const storageRootId = storageRootIdFromRow(row);
     return storageRootId != null && guardianRootIds.includes(storageRootId);
+  }
+
+  function exportRequests(): void {
+    downloadCsv(csvFilename('access-requests'), [
+      { header: t('Requester'), value: requesterName },
+      { header: t('Resource'), value: resourceName },
+      { header: t('Path'), value: resourcePath },
+      { header: t('Access profile'), value: accessShort },
+      { header: t('TTL (days)'), value: ttlDays },
+      { header: t('Step'), value: stageText },
+      { header: t('Requested on'), value: requestedAt }
+    ], visibleRequests);
   }
 
   function requesterName(row: any): string {
@@ -455,10 +468,6 @@
   }
 </script>
 
-<svelte:head>
-  <title>{t('Validation des requêtes d\'accès · BornToShare')}</title>
-</svelte:head>
-
 <section class="ar-shell" class:has-detail={Boolean(selectedRequest)}>
   <aside class="ar-sidebar" aria-label={t('Navigation des requêtes')}>
     <label class="ar-search">
@@ -528,7 +537,10 @@
     <section class="ar-table-card">
       <header class="ar-table-head">
         <h2>{canReviewAny ? t('Requêtes d\'accès à valider') : t('Requêtes d\'accès')} ({visibleRequests.length})</h2>
-        <button type="button"><i class="bi bi-funnel" aria-hidden="true"></i>{t('Filtres')}</button>
+        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={exportRequests} disabled={visibleRequests.length === 0}>
+          <i class="bi bi-download" aria-hidden="true"></i>
+          {t('Export CSV')}
+        </button>
       </header>
 
       <div class="ar-table-scroll">

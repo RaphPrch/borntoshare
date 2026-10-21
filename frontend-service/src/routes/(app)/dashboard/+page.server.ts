@@ -52,7 +52,7 @@ export const load: PageServerLoad = async (event) => {
   const [stats, activities] = await Promise.all([
     getDashboardPlatformOverviewServer(event),
     // The card shows the last business actions; the dashboard stays usable if the activity log is down
-    apiServerGetList<Record<string, unknown>>('/activity/latest?limit=8&business_only=true', event).catch(() => [])
+    apiServerGetList<Record<string, unknown>>('/activity/latest?limit=100&business_only=true', event).catch(() => [])
   ]);
 
   return {

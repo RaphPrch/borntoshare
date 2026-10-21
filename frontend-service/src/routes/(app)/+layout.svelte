@@ -23,6 +23,7 @@
   import "$lib/styles/storage-roots.css";
 
   import { page } from "$app/stores";
+  import { pageTitle } from "$lib/utils/page-title";
 
   import Toaster from "$lib/components/ui/Toaster.svelte";
   import TopProgress from "$lib/components/ui/TopProgress.svelte";
@@ -57,6 +58,10 @@
   // Reset mega-menu on navigation
   $: $page.url.pathname, activeMega = null;
 </script>
+
+<svelte:head>
+  <title>{pageTitle($page.url.pathname, Number(data.topbarAlertsCount ?? 0))}</title>
+</svelte:head>
 
 <div class="b2s-app-root">
   <Topbar

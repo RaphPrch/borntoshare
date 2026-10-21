@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -122,6 +123,18 @@
     }
   };
 
+  const exportJobs = () =>
+    downloadCsv(csvFilename('jobs'), [
+      { header: 'ID', value: (job: AdminProvisioningJob) => job.id },
+      { header: t('Status'), value: (job: AdminProvisioningJob) => normalizeStatus(job.status) },
+      { header: t('Type'), value: (job: AdminProvisioningJob) => job.job_type },
+      { header: t('Action'), value: (job: AdminProvisioningJob) => job.action },
+      { header: t('Updated'), value: (job: AdminProvisioningJob) => formatDateTime(job.updated_at ?? job.created_at) },
+      { header: t('Error code'), value: (job: AdminProvisioningJob) => job.error_code },
+      { header: t('Error'), value: (job: AdminProvisioningJob) => job.error_message },
+      { header: t('Correlation ID'), value: (job: AdminProvisioningJob) => job.correlation_id }
+    ], filtered);
+
   const startPolling = () => {
     if (pollTimer) return;
     pollTimer = setInterval(() => {
@@ -185,7 +198,11 @@
           <option value="FAILED">FAILED</option>
           <option value="CANCELLED">CANCELLED</option>
         </select>
-        <button class="b2s-btn b2s-btn-secondary b2s-toolbar__end" on:click={() => refreshJobs(false)} disabled={isLoading || isCancelling}>
+<button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" on:click={exportJobs} disabled={filtered.length === 0}>
+          <i class="bi bi-download" aria-hidden="true"></i>
+          {t('Export CSV')}
+        </button>
+        <button class="b2s-btn b2s-btn-secondary" on:click={() => refreshJobs(false)} disabled={isLoading || isCancelling}>
           <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
           {t('Refresh')}
         </button>

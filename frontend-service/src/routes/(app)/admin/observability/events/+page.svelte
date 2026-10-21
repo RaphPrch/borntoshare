@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import { formatDateTime } from '$lib/utils/format';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -168,6 +169,17 @@
 
   $: filtered = rows.filter((row) => !q.trim() || row.searchText.includes(q.toLowerCase().trim()));
   $: updatedAt = toTimeLabel(data?.generatedAt ?? null);
+
+  const exportEvents = () =>
+    downloadCsv(csvFilename('events'), [
+      { header: t('Time'), value: (row: EventRow) => row.time },
+      { header: t('Severity'), value: (row: EventRow) => row.severityLabel },
+      { header: t('Module'), value: (row: EventRow) => row.module },
+      { header: t('Action'), value: (row: EventRow) => row.action },
+      { header: t('Actor'), value: (row: EventRow) => row.actor },
+      { header: t('Target'), value: (row: EventRow) => row.target },
+      { header: t('Details'), value: (row: EventRow) => row.details }
+    ], filtered);
 </script>
 
 <div class="events-page">
@@ -179,6 +191,10 @@
 
   <div class="b2s-toolbar">
     <SearchField wrapperClass="b2s-toolbar__search" placeholder={t('Filter')} ariaLabel={t('Filter events')} bind:value={q} />
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" on:click={exportEvents} disabled={filtered.length === 0}>
+          <i class="bi bi-download" aria-hidden="true"></i>
+          {t('Export CSV')}
+        </button>
   </div>
 
   <div class="card b2s-card events-table-card">

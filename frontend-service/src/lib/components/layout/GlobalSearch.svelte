@@ -1,0 +1,293 @@
+<script lang="ts">
+  import { goto } from '$app/navigation';
+  import { tick } from 'svelte';
+  import { t } from '$lib/i18n';
+  import AppModal from '$lib/components/ui/AppModal.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import megaConfig from './mega-config';
+  import { listStorageRootsContext } from '$lib/api/storage-roots';
+  import { listZones } from '$lib/api/zones';
+  import { listStorageEndpoints } from '$lib/api/storage-endpoints';
+  import { normalizeText } from '$lib/utils/values';
+
+  /** Ctrl+K / ⌘K palette: jump to a page, storage root, zone or storage endpoint. */
+  export let canSeeAdmin = false;
+  export let canSeeStorageRoots = false;
+  export let canSeeObservability = false;
+
+  type Result = { group: string; label: string; detail: string; href: string; icon: string };
+
+  let open = false;
+  let query = '';
+  let loading = false;
+  let loaded = false;
+  let entities: Result[] = [];
+  let activeIndex = 0;
+  let inputEl: HTMLInputElement | null = null;
+
+  // Pages are translated when read
+  $: pages = [
+    { title: 'Dashboard', href: '/dashboard', icon: 'bi-speedometer2', show: true },
+    { title: 'Access requests', href: '/access-requests', icon: 'bi-clipboard-check', show: true },
+    ...megaConfig.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots })),
+    ...megaConfig.observability.map((item) => ({ ...item, show: canSeeObservability })),
+    ...megaConfig.admin.map((item) => ({ ...item, show: canSeeAdmin }))
+  ]
+    .filter((page) => page.show)
+    .map((page): Result => ({ group: t('Pages'), label: t(page.title), detail: '', href: page.href, icon: page.icon ?? 'bi-file-earmark' }));
+
+  async function loadEntities() {
+    if (loaded || loading) return;
+    loading = true;
+    const results: Result[] = [];
+    const [roots, zones, endpoints] = await Promise.all([
+      canSeeStorageRoots ? listStorageRootsContext(fetch).catch(() => []) : Promise.resolve([]),
+      canSeeAdmin ? listZones(fetch).catch(() => []) : Promise.resolve([]),
+      canSeeAdmin ? listStorageEndpoints(fetch).catch(() => []) : Promise.resolve([])
+    ]);
+    for (const root of roots) {
+      results.push({
+        group: t('Storage roots'),
+        label: String(root.storage_root_name ?? root.name ?? root.storage_root_id),
+        detail: String(root.normalized_root_path ?? root.root_path ?? root.path ?? ''),
+        href: `/storage-roots?selected=${root.storage_root_id}`,
+        icon: 'bi-folder2-open'
+      });
+    }
+    for (const zone of zones) {
+      results.push({ group: t('Zones'), label: zone.name, detail: zone.code ?? '', href: `/admin/zones/${zone.id}`, icon: 'bi-diagram-2' });
+    }
+    for (const endpoint of endpoints as any[]) {
+      results.push({
+        group: t('Storage endpoints'),
+        label: String(endpoint.name ?? endpoint.id),
+        detail: String(endpoint.host ?? endpoint.hostname ?? ''),
+        href: `/admin/storage-endpoints/${endpoint.id}`,
+        icon: 'bi-hdd-network'
+      });
+    }
+    entities = results;
+    loaded = true;
+    loading = false;
+  }
+
+  async function show() {
+    open = true;
+    query = '';
+    activeIndex = 0;
+    void loadEntities();
+    await tick();
+    inputEl?.focus();
+  }
+
+  function close() {
+    open = false;
+  }
+
+  function select(result: Result | undefined) {
+    if (!result) return;
+    close();
+    void goto(result.href);
+  }
+
+  $: q = normalizeText(query);
+  $: results = (q
+    ? [...pages, ...entities].filter((r) => normalizeText(`${r.label} ${r.detail}`).includes(q))
+    : pages
+  ).slice(0, 30);
+  $: if (activeIndex >= results.length) activeIndex = Math.max(0, results.length - 1);
+
+  function onWindowKeydown(event: KeyboardEvent) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      open ? close() : void show();
+    }
+  }
+
+  function onInputKeydown(event: KeyboardEvent) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      activeIndex = Math.min(results.length - 1, activeIndex + 1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      activeIndex = Math.max(0, activeIndex - 1);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      select(results[activeIndex]);
+    }
+  }
+</script>
+
+<svelte:window on:keydown={onWindowKeydown} />
+
+<button type="button" class="global-search-trigger" on:click={show} aria-label={t('Search (Ctrl+K)')}>
+  <i class="bi bi-search" aria-hidden="true"></i>
+  <span>{t('Search')}</span>
+  <kbd>Ctrl K</kbd>
+</button>
+
+<AppModal {open} onClose={close} size="lg" showClose={false} ariaLabelledby="global-search-label" contentClass="global-search">
+  <label class="global-search__field">
+    <span id="global-search-label" class="visually-hidden">{t('Search pages, storage roots, zones and endpoints')}</span>
+    <i class="bi bi-search" aria-hidden="true"></i>
+    <input
+      bind:this={inputEl}
+      bind:value={query}
+      on:keydown={onInputKeydown}
+      type="text"
+      placeholder={t('Search pages, storage roots, zones and endpoints…')}
+      role="combobox"
+      aria-expanded="true"
+      aria-controls="global-search-results"
+      aria-activedescendant={results.length ? `global-search-item-${activeIndex}` : undefined}
+      autocomplete="off"
+    />
+    <kbd>Esc</kbd>
+  </label>
+
+  <ul id="global-search-results" class="global-search__results" role="listbox">
+    {#each results as result, index}
+      {#if index === 0 || results[index - 1].group !== result.group}
+        <li class="global-search__group" role="presentation">{result.group}</li>
+      {/if}
+      <li
+        id={`global-search-item-${index}`}
+        role="option"
+        aria-selected={index === activeIndex}
+        class:is-active={index === activeIndex}
+        on:mousemove={() => (activeIndex = index)}
+        on:click={() => select(result)}
+        on:keydown={() => {}}
+      >
+        <i class={`bi ${result.icon}`} aria-hidden="true"></i>
+        <span class="global-search__label">{result.label}</span>
+        {#if result.detail}<span class="global-search__detail">{result.detail}</span>{/if}
+      </li>
+    {:else}
+      <li class="global-search__empty" role="presentation">{t('No result for “{query}”.', { query })}</li>
+    {/each}
+    {#if loading && q}
+      <li class="global-search__empty" role="presentation"><LoadingState>{t('Loading…')}</LoadingState></li>
+    {/if}
+  </ul>
+</AppModal>
+
+<style>
+  .global-search-trigger {
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px 0 12px;
+    border: 1px solid rgba(154, 175, 214, 0.35);
+    border-radius: var(--b2s-radius-pill);
+    background: rgba(255, 255, 255, 0.06);
+    color: #dbe4f5;
+    font-size: var(--b2s-fs-sm);
+    cursor: pointer;
+  }
+
+  .global-search-trigger:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  kbd {
+    padding: 1px 6px;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font-family: var(--b2s-font-sans);
+    font-size: var(--b2s-fs-xs);
+    opacity: 0.7;
+  }
+
+  :global(.global-search) {
+    padding: 0;
+  }
+
+  .global-search__field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e8edf6;
+    color: var(--b2s-color-text-muted);
+  }
+
+  .global-search__field input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--b2s-color-text);
+    font-size: var(--b2s-fs-lg);
+  }
+
+  .global-search__results {
+    max-height: min(60vh, 460px);
+    overflow: auto;
+    margin: 0;
+    padding: 8px;
+    list-style: none;
+  }
+
+  .global-search__group {
+    padding: 10px 10px 4px;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  [role='option'] {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: var(--b2s-radius-sm);
+    color: var(--b2s-color-text);
+    font-size: var(--b2s-fs-md);
+    cursor: pointer;
+  }
+
+  [role='option'].is-active {
+    background: #eef4ff;
+  }
+
+  [role='option'] i {
+    color: var(--b2s-color-text-muted);
+  }
+
+  .global-search__label {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .global-search__detail {
+    margin-left: auto;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 50%;
+  }
+
+  .global-search__empty {
+    padding: 16px 10px;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-sm);
+  }
+
+  @media (max-width: 1100px) {
+    .global-search-trigger span,
+    .global-search-trigger kbd {
+      display: none;
+    }
+  }
+</style>

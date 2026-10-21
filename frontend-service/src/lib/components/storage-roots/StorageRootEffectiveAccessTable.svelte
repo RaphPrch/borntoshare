@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import { t } from '$lib/i18n';
   import { formatDate, initials } from '$lib/utils/format';
   import type {
@@ -130,6 +131,14 @@
   const projectedGroupName = (group: StorageRootProjectedAdGroup): string => text(group.group_name);
 
   $: filteredUsers = users.filter(matches);
+
+  const exportAccess = () =>
+    downloadCsv(csvFilename('effective-access'), [
+      { header: t('Identity'), value: displayName },
+      { header: t('Type'), value: (user: StorageRootEffectiveAccessUser) => (isGroupRow(user) ? t('Group') : t('User')) },
+      { header: t('Access level'), value: (user: StorageRootEffectiveAccessUser) => accessLabel(accessLevel(user)) },
+      { header: t('Source'), value: (user: StorageRootEffectiveAccessUser) => sourceLabel(sourceKey(user)) }
+    ], filteredUsers);
   $: pageCount = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   $: if (page > pageCount) page = pageCount;
   $: if (page < 1) page = 1;
@@ -189,6 +198,13 @@
         <option value="unknown">{t('Unknown')}</option>
       </select>
     </label>
+  </div>
+
+  <div class="sr-effective-access-table__export">
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={exportAccess} disabled={filteredUsers.length === 0}>
+      <i class="bi bi-download" aria-hidden="true"></i>
+      {t('Export CSV')}
+    </button>
   </div>
 
   <div class="sr-effective-access-table__frame">
@@ -316,6 +332,12 @@
 </article>
 
 <style>
+  .sr-effective-access-table__export {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0 0 8px;
+  }
+
   .sr-effective-access-table {
     border: 1px solid #dde6f3;
     border-radius: var(--b2s-radius-md);

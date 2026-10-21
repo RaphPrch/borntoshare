@@ -5,6 +5,7 @@
   import DashboardShell from './DashboardShell.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import { formatActivityItem } from '$lib/activity/format';
+  import RequestsActivityChart from './RequestsActivityChart.svelte';
 
   // Expected (safe) shape:
   // data.stats: { storage_roots, storage_endpoints, admins, pending_requests }
@@ -12,7 +13,31 @@
   export let data: any;
 
   const stats = data?.stats ?? data?.summary ?? {};
-  const activities = Array.isArray(data?.activities) ? data.activities : [];
+  // Sign-ins are frequent and say little about platform changes: keep them out of this card
+  const activities = (Array.isArray(data?.activities) ? data.activities : []).filter(
+    (a: any) => String(a?.action ?? '') !== 'auth.login'
+  );
+  const requestsSeries = Array.isArray(stats?.requests_last_30_days) ? stats.requests_last_30_days : [];
+
+  const attention = [
+    {
+      key: 'open_alerts_count',
+      label: t('Open alerts'),
+      hint: t('{count} critical or high', { count: Number(stats?.critical_alerts_count ?? 0) }),
+      href: '/admin/alerts',
+      icon: 'bi-exclamation-octagon',
+      tone: 'danger'
+    },
+    { key: 'failed_jobs_24h_count', label: t('Failed jobs (24 h)'), hint: null, href: '/admin/observability/jobs', icon: 'bi-x-octagon', tone: 'warning' },
+    {
+      key: 'stale_pending_requests_count',
+      label: t('Requests waiting for more than 3 days'),
+      hint: null,
+      href: '/access-requests',
+      icon: 'bi-hourglass-bottom',
+      tone: 'warning'
+    }
+  ] as const;
 
   const kpi = [
     { key: 'storage_roots', label: t('Storage Roots'), href: '/storage-roots', icon: 'bi-folder2-open', tone: 'info' },
@@ -34,6 +59,25 @@
       <KpiCard label={item.label} value={num(stats[item.key])} icon={item.icon} tone={item.tone} href={item.href} />
     {/each}
   </div>
+
+  <section class="dashboard-attention" aria-labelledby="dashboard-attention-title">
+    <h2 id="dashboard-attention-title">{t('Needs attention')}</h2>
+    <div class="b2s-kpi-grid">
+      {#each attention as item}
+        <KpiCard
+          label={item.label}
+          value={num(stats[item.key])}
+          hint={item.hint}
+          icon={num(stats[item.key]) > 0 ? item.icon : 'bi-check2-circle'}
+          tone={num(stats[item.key]) > 0 ? item.tone : 'success'}
+          href={item.href}
+        />
+      {/each}
+    </div>
+  </section>
+
+  <div class="dashboard-columns">
+  <RequestsActivityChart series={requestsSeries} />
 
   <section class="panel">
     <div class="panel__header">
@@ -64,12 +108,28 @@
       </ul>
     {/if}
   </section>
+  </div>
 </DashboardShell>
 
 <style>
-  @media (max-width: 1100px){
+  .dashboard-attention h2 {
+    margin: 8px 0 12px;
+    color: var(--b2s-color-text);
+    font-size: var(--b2s-fs-lg);
+    font-weight: 600;
   }
-  @media (max-width: 640px){
+
+  .dashboard-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  @media (max-width: 1100px) {
+    .dashboard-columns {
+      grid-template-columns: 1fr;
+    }
   }
 
   .panel{

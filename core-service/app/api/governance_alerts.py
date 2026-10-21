@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.data.repositories.governance_alerts_repo import GovernanceAlertsRepo
-from app.api._helpers import ui_list
+from app.data.repositories.governance_alerts_repo import (
+    ACKNOWLEDGED_STATUS,
+    RESOLVED_STATUS,
+    GovernanceAlertsRepo,
+)
+from app.api._helpers import ui_action, ui_list
+from app.services.activity_log import log_activity
+from app.services.authorization import actor_from_request, can_access_admin
 
 router = APIRouter(prefix="/governance-alerts", tags=["governance_alerts"])
 
@@ -61,3 +67,38 @@ def list_storage_root_alerts(
         meta={"storage_root_id": int(storage_root_id), "status": status, "count": int(len(rows))},
     )
 
+
+
+def _change_alert_status(alert_id: int, new_status: str, action: str, request: Request, db: Session):
+    repo = GovernanceAlertsRepo(db)
+    alert = repo.get_alert(int(alert_id))
+    if alert is None:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    actor = actor_from_request(request)
+    if not can_access_admin(actor):
+        raise HTTPException(status_code=403, detail="Platform administrator required")
+    repo.set_status(int(alert_id), new_status, actor_id=actor.identity_id)
+    log_activity(
+        db,
+        actor_type="user" if actor.identity_id is not None else "system",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action=action,
+        outcome="success",
+        target_type="governance_alert",
+        target_id=int(alert_id),
+        target_display=str(alert.get("title") or alert.get("alert_type") or alert_id),
+        context_json={"alert_type": alert.get("alert_type"), "severity": alert.get("severity"), "previous_status": alert.get("status")},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_action(ok=True, message=f"Alert {new_status}", action_id=int(alert_id), details={"status": new_status})
+
+
+@router.post("/{alert_id}/acknowledge")
+def acknowledge_alert(alert_id: int, request: Request, db: Session = Depends(get_db)):
+    return _change_alert_status(alert_id, ACKNOWLEDGED_STATUS, "governance_alert.acknowledged", request, db)
+
+
+@router.post("/{alert_id}/resolve")
+def resolve_alert(alert_id: int, request: Request, db: Session = Depends(get_db)):
+    return _change_alert_status(alert_id, RESOLVED_STATUS, "governance_alert.resolved", request, db)

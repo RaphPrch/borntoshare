@@ -23,6 +23,8 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'storage_endpoint.deleted': { titleKey: 'activity.storage_endpoint.deleted.title', descriptionKey: 'activity.storage_endpoint.deleted.description', badge: 'critical', scope: 'security', icon: 'trash3' },
 
   // Tags
+  'governance_alert.acknowledged': { titleKey: 'activity.governance_alert.acknowledged.title', descriptionKey: 'activity.governance_alert.acknowledged.description', badge: 'info', icon: 'eye' },
+  'governance_alert.resolved': { titleKey: 'activity.governance_alert.resolved.title', descriptionKey: 'activity.governance_alert.resolved.description', badge: 'admin', icon: 'check2-circle' },
   'tag.created': { titleKey: 'activity.tag.created.title', descriptionKey: 'activity.tag.created.description', badge: 'admin', icon: 'tag' },
   'tag.updated': { titleKey: 'activity.tag.updated.title', descriptionKey: 'activity.tag.updated.description', badge: 'admin', icon: 'tag' },
   'tag.deleted': { titleKey: 'activity.tag.deleted.title', descriptionKey: 'activity.tag.deleted.description', badge: 'critical', scope: 'security', icon: 'tag' },

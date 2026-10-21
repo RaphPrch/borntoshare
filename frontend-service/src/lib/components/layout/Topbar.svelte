@@ -5,6 +5,7 @@
   import { normalizeMe } from '$lib/types/me';
   import { initials } from '$lib/utils/format';
   import LanguageSwitcher from '$lib/components/ui/LanguageSwitcher.svelte';
+  import GlobalSearch from '$lib/components/layout/GlobalSearch.svelte';
 
   export let activeMega: MegaMenuKey | null = null;
   export let currentPath: string | undefined = undefined;
@@ -163,6 +164,7 @@
   <!-- RIGHT -->
   <div class="topbar-right">
     <div class="user-menu-wrapper">
+      <GlobalSearch {canSeeAdmin} {canSeeStorageRoots} {canSeeObservability} />
       <LanguageSwitcher />
 
       <a href="/access-requests?status=pending" class="topbar-alert-btn" aria-label={t('Notifications')}>

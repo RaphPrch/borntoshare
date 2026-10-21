@@ -468,6 +468,16 @@
         "title": "Sign-in",
         "description": "{user} signed in"
       }
+    },
+    "governance_alert": {
+      "acknowledged": {
+        "title": "Alert acknowledged",
+        "description": "Alert \"{target}\" was acknowledged"
+      },
+      "resolved": {
+        "title": "Alert resolved",
+        "description": "Alert \"{target}\" was resolved"
+      }
     }
   },
   "badges": {

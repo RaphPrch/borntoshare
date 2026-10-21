@@ -32,6 +32,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>{t('Sign in')} · BornToShare</title>
+</svelte:head>
+
 <LoginForm form={data.form ?? {}} />
 
 <!-- Persistent error under the form (optional but recommended) -->

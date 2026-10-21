@@ -178,10 +178,6 @@
   });
 </script>
 
-<svelte:head>
-  <title>{t('Access request details')}</title>
-</svelte:head>
-
 {#if !req}
   <section class="b2s-page">
     <h1 class="b2s-title">{t('Request not found')}</h1>
