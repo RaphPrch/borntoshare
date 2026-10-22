@@ -142,7 +142,8 @@
     ).toLowerCase();
     host = String(pick(endpoint, "host") ?? "");
     port = pick(endpoint, "port") != null ? Number(pick(endpoint, "port")) : 445;
-    username = String(pick(endpoint, "auth_username") ?? "");
+    // The account is stored as bind_dn (auth_username only on older rows)
+    username = String(pick(endpoint, "auth_username", "bind_dn") ?? "");
     password = "";
     zoneId =
       pick(endpoint, "zone_id") != null
@@ -691,7 +692,7 @@
             class="se-input"
             class:invalid={errUsername}
             bind:value={username}
-            placeholder={t('DOMAIN\\\\service-account')}
+            placeholder="DOMAIN\service-account"
             on:blur={() => touch("username")}
           />
           {#if errUsername}

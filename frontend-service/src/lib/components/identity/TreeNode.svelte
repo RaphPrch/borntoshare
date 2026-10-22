@@ -31,17 +31,17 @@
 </script>
 
 <div class="idb-tree-node-wrap">
-  <div class={`idb-tree-node ${isActive ? 'is-active' : ''}`} style={`padding-left:${12 + level * 24}px;`}>
+  <div class={`idb-tree-node ${isActive ? 'is-active' : ''}`} style={`padding-left:${6 + level * 16}px;`}>
     {#if node.has_children}
       <button class="idb-tree-toggle" type="button" on:click={toggleNode} aria-label={t('Toggle node')}>
         {#if isLoading}
           <span class="b2s-spinner" aria-hidden="true"></span>
         {:else}
-          <i class={`bi ${isExpanded ? 'bi-caret-down-fill' : 'bi-caret-right-fill'}`}></i>
+          <i class={`bi ${isExpanded ? 'bi-chevron-down' : 'bi-chevron-right'}`}></i>
         {/if}
       </button>
     {:else}
-      <span class="idb-tree-leaf-dot"><i class="bi bi-caret-right-fill"></i></span>
+      <span class="idb-tree-leaf-dot" aria-hidden="true"></span>
     {/if}
 
     <button type="button" class="idb-tree-select" on:click={selectNode}>
@@ -67,7 +67,8 @@
 
 <style>
   .idb-tree-node {
-    min-height: 34px;
+    min-height: 32px;
+    border-radius: 8px;
     width: 100%;
     border: 0;
     background: transparent;
@@ -85,13 +86,21 @@
   }
 
   .idb-tree-node.is-active {
-    background: var(--idb-selected-bg, #eaf2fb);
+    background: #e8efff;
+    box-shadow: inset 3px 0 0 var(--b2s-topbar-bg);
+    font-weight: 600;
+  }
+
+  .idb-tree-node :global(.bi-folder2),
+  .idb-tree-node :global(.bi-folder2-open) {
+    color: #d4a017;
   }
 
   .idb-tree-toggle {
     border: 0;
     background: transparent;
-    color: var(--idb-text-muted, #6b7f98);
+    color: #94a3b8;
+    font-size: 11px;
     padding: 0;
     width: 20px;
     height: 20px;

@@ -14,6 +14,7 @@
   import ActivityDetailsDrawer from "$lib/components/activity/ActivityDetailsDrawer.svelte";
   import ConfirmActionModal from "$lib/components/ui/ConfirmActionModal.svelte";
   import EndpointAttachChoiceModal from "./components/EndpointAttachChoiceModal.svelte";
+  import { putZoneNamingPolicy } from "$lib/api/naming-policies";
 
   import {
     createZone,
@@ -67,13 +68,12 @@
     activity: any[];
     operationalSummary?: string;
     provisioningPolicy: ZoneProvisioningPolicy | null;
-    zoneNamingPolicy?: { template?: string | null } | null;
+    zoneNamingPolicy?: { template?: string | null; override_enabled?: boolean | number | null } | null;
     identitySources: any[];
     namingPolicyGlobal?: { template?: string | null } | null;
   };
 
   $: currentZoneId = Number(data.zone?.id ?? 0) || null;
-  $: zoneNamingTemplateDefault = String(data?.zoneNamingPolicy?.template ?? "").trim();
   $: globalNamingTemplateDefault = String(data?.namingPolicyGlobal?.template ?? "").trim();
 
   const tabs: { key: ZoneTabKey; label: string; icon: string }[] = [
@@ -130,12 +130,6 @@
     return null;
   };
 
-  const resolveZoneNamingTemplate = (): string => {
-    if (zoneNamingTemplateDefault) return zoneNamingTemplateDefault;
-    const fallbackEffectiveTemplate = String(data?.namingPolicyGlobal?.template ?? "").trim();
-    if (fallbackEffectiveTemplate) return fallbackEffectiveTemplate;
-    return globalNamingTemplateDefault;
-  };
 
   const buildPolicyDraftFromData = (incoming: ZoneProvisioningPolicy | null | undefined): ZoneProvisioningPolicy => ({
     enabled: true,
@@ -155,6 +149,16 @@
 
   let policyDraft: ZoneProvisioningPolicy = buildPolicyDraftFromData(data.provisioningPolicy);
 
+  // Naming template of the zone (naming policy override); empty or equal to the global one = inherit the global template
+  const initialNamingTemplate = (): string =>
+    (data?.zoneNamingPolicy?.override_enabled ? String(data?.zoneNamingPolicy?.template ?? "").trim() : "") ||
+    String(data?.namingPolicyGlobal?.template ?? "").trim();
+  let namingDraft = initialNamingTemplate();
+  let namingSaved = namingDraft;
+  function setNamingDraft(value: string): void {
+    namingDraft = value;
+  }
+
   let policySavedSnapshot = buildPolicySnapshot(data.provisioningPolicy);
 
   let policyDraftHydratedForZoneId: number | null = null;
@@ -172,6 +176,9 @@
     policyDraftHydratedForZoneId = currentZoneId;
     policyDraft = buildPolicyDraftFromData(data.provisioningPolicy);
     policySavedSnapshot = buildPolicySnapshot(data.provisioningPolicy);
+    const zoneTemplate = initialNamingTemplate();
+    namingDraft = zoneTemplate;
+    namingSaved = zoneTemplate;
     policyError = null;
     policyNotice = "";
   }
@@ -185,17 +192,17 @@
   };
 
   $: hasPolicyValidationError = Boolean(policyValidationErrors.base_ou_dn || policyValidationErrors.static_ou_dn);
-  $: isPolicyDirty = JSON.stringify(normalizedPolicyDraft) !== policySavedSnapshot;
+  $: isPolicyDirty = JSON.stringify(normalizedPolicyDraft) !== policySavedSnapshot || namingDraft.trim() !== namingSaved.trim();
   $: provisioningReady = Boolean(
-    resolveZoneBaseOu(data.provisioningPolicy) && resolveZoneNamingTemplate()
+    resolveZoneBaseOu(data.provisioningPolicy) && namingSaved.trim()
   );
   $: previewItems = [
     t('Zone OU source: enabled'),
     t('Zone OU: {value}', { value: ((normalizedPolicyDraft.base_ou_dn ?? "(empty)")) }),
-    t('Naming template (managed in Naming Policies): {value}', { value: (resolveZoneNamingTemplate() || "(empty)") }),
+    t('Naming template (managed in Naming Policies): {value}', { value: (namingSaved.trim() || "(empty)") }),
   ];
   $: zoneProvisioningOverview = {
-    namingPolicy: resolveZoneNamingTemplate() || t('Not configured'),
+    namingPolicy: namingSaved.trim() || t('Not configured'),
     guardians: Number((data.zone as any)?.guardians_count ?? (data.zone as any)?.guardian_count ?? 0),
     rootsTotal: storageRoots.length,
     rootsBroken: storageRoots.filter((root) => {
@@ -661,6 +668,12 @@
         static_ou_dn: normalizedPolicyDraft.static_ou_dn,
       });
 
+      const template = namingDraft.trim();
+      const globalTemplate = String(data?.namingPolicyGlobal?.template ?? "").trim();
+      const override = Boolean(template) && template !== globalTemplate;
+      await putZoneNamingPolicy(fetch, currentZoneId, { override_enabled: override, template: override ? template : null });
+      namingSaved = namingDraft;
+
       policyDraft = {
         ...policyDraft,
         ...updated,
@@ -678,6 +691,7 @@
         context: {
           ou_strategy: policyDraft.ou_strategy,
           naming_template_source: "naming-policies",
+          naming_template: namingDraft.trim() || null,
         },
       });
       toast.success(t('Provisioning policy saved.'));
@@ -870,7 +884,7 @@
       zone: data.zone,
       endpoints,
       storageRootCount: storageRoots.length,
-      namingTemplateLabel: resolveZoneNamingTemplate(),
+      namingTemplateLabel: namingSaved.trim(),
       provisioningOu: String((policyDraft as any)?.base_ou_dn ?? '').trim(),
       probeResultsByEndpoint,
       activity,
@@ -889,7 +903,8 @@
     },
     provisioning: {
       policy: policyDraft,
-      namingTemplateLabel: resolveZoneNamingTemplate(),
+      namingTemplateLabel: namingDraft,
+      onChangeNamingTemplate: setNamingDraft,
       saving: policySaving,
       error: policyError,
       isDirty: isPolicyDirty,

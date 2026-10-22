@@ -33,11 +33,16 @@ def _classify_smb_error(stderr: str) -> str:
     return "CAPSULE_SMB_FAILED"
 
 
+# Shares that are part of the system (domain controllers), never offered as storage roots
+SYSTEM_SHARES = {"SYSVOL", "NETLOGON", "PRINT$"}
+
+
 def _discover_smb_shares(*, host: str, port: int, username: str, password: str, timeout: int) -> list[str]:
     """Return a best-effort list of SMB shares as UNC paths.
 
     Notes:
-    - We intentionally filter out administrative shares (ending with $) and IPC$.
+    - We intentionally filter out administrative shares (ending with $), IPC$ and the
+      domain controller system shares (SYSVOL, NETLOGON).
     - Parsing is strict and machine-readable only (`smbclient -g`).
     """
 
@@ -94,6 +99,9 @@ def _discover_smb_shares(*, host: str, port: int, username: str, password: str, 
         if not share:
             continue
         if not share or share.upper() == "IPC$" or share.endswith("$"):
+            continue
+        # Domain controller system shares: replicated by AD, never governed by BornToShare
+        if share.upper() in SYSTEM_SHARES:
             continue
 
         shares.append(f"\\\\{host}\\{share}")

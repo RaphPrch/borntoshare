@@ -151,7 +151,8 @@
     base_dn: '',
     bind_dn: '',
     bind_password_ref: null,
-    capabilities: { auth: true, import_groups: true, snapshot_enabled: false, auth_mode: 'ntlm' },
+    // Snapshot on by default: importing users and groups searches the directory snapshot
+    capabilities: { auth: true, import_groups: true, snapshot_enabled: true, auth_mode: 'ntlm' },
     is_active: true
   };
 
@@ -772,25 +773,22 @@
               {/if}
             </div>
             <div class="field">
-              <span class="field-label" id="is-wizard-protocol">{t('Protocol')}</span>
-              <div class="protocol-switch" role="group" aria-labelledby="is-wizard-protocol">
-                <button
-                  type="button"
-                  class="protocol-btn"
-                  class:active={protocolChoice === 'ldap'}
-                  on:click={() => setProtocol('ldap')}
-                >
-                  LDAP
-                </button>
-                <button
-                  type="button"
-                  class="protocol-btn"
-                  class:active={protocolChoice === 'ldaps'}
-                  on:click={() => setProtocol('ldaps')}
-                >
-                  LDAPS
-                </button>
+              <span class="field-label">{t('Encryption')}</span>
+              <div class="form-check form-switch">
+                <input
+                  id="is-wizard-ldaps"
+                  class="form-check-input"
+                  type="checkbox"
+                  checked={protocolChoice === 'ldaps'}
+                  on:change={(event) => setProtocol(event.currentTarget.checked ? 'ldaps' : 'ldap')}
+                />
+                <label class="form-check-label" for="is-wizard-ldaps">{t('Use LDAPS (encrypted connection)')}</label>
               </div>
+              <span class="hint" class:ok={protocolChoice === 'ldaps'}>
+                {protocolChoice === 'ldaps'
+                  ? t('LDAPS · port 636. Recommended in production.')
+                  : t('LDAP · port 389. The password of the service account travels unencrypted.')}
+              </span>
             </div>
             <div class="field">
               <label for="identity-source-port">{t('Port')}</label>
@@ -1309,6 +1307,31 @@
     color: #15803d;
   }
 
+  /* LDAPS toggle: keep the Bootstrap switch, not the text input look */
+  .field .form-switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    margin: 0;
+    padding-left: 0;
+  }
+
+  .field .form-switch .form-check-input {
+    width: 2.4em;
+    height: 1.3em;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    flex: 0 0 auto;
+    border-radius: 2em;
+    float: none;
+  }
+
+  .field .form-switch .form-check-label {
+    font-size: var(--b2s-fs-sm);
+  }
+
   .field input:focus-visible {
     outline: none;
     border-color: var(--b2s-topbar-bg, #0b1530);
@@ -1329,37 +1352,9 @@
     color: #64748b;
   }
 
-  .protocol-switch {
-    display: inline-flex;
-    gap: 6px;
-    padding: 4px;
-    border-radius: var(--b2s-radius-pill);
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    margin-bottom: 12px;
-  }
 
-  .protocol-btn {
-    border: none;
-    background: transparent;
-    padding: 6px 10px;
-    border-radius: var(--b2s-radius-pill);
-    font-weight: 800;
-    font-size: var(--b2s-fs-xs);
-    color: #64748b;
-    cursor: pointer;
-  }
 
-  .protocol-btn.active {
-    background: var(--b2s-topbar-bg, #0b1530);
-    color: #ffffff;
-    box-shadow: 0 8px 16px rgba(11, 21, 48, 0.24);
-  }
 
-  .protocol-switch {
-    border-color: rgba(11, 21, 48, 0.2);
-    background: rgba(11, 21, 48, 0.06);
-  }
 
   .capabilities-sub {
     margin: 0 0 16px;

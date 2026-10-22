@@ -228,7 +228,8 @@ def grant_ad_access(params: dict[str, Any]):
         conn = ldap_client.connect(
             host=host,
             port=port,
-            use_ssl=protocol == "ldaps",
+            # Same rule as the other LDAP actions: sources saved as "ldap" on port 636 are LDAPS
+            use_ssl=protocol == "ldaps" or port == 636,
             verify_tls=bool(params.get("verify_tls")),
             timeout=timeout,
         )
@@ -293,6 +294,8 @@ def grant_ad_access(params: dict[str, Any]):
         }
     except _Failure as exc:
         return failure(exc.code, exc.message, retryable=exc.retryable, **exc.details)
+    except ldap_exceptions.LDAPSSLConfigurationError as exc:
+        return failure("AD_TLS_FAILED", "The TLS configuration of the capsule is invalid", error=str(exc)[:500])
     except _RETRYABLE_ERRORS as exc:
         if any(marker in str(exc).lower() for marker in ("certificate", "ssl", "tls")):
             # Certificate refused (CA, host name, expiry): retrying will not fix it

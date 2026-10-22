@@ -260,3 +260,16 @@ def test_registry_retries_only_what_the_action_marks_retryable(monkeypatch) -> N
             registry.execute_action("grant_ad_access", _params(secret_ref="sm://ad/svc"), job_id=1)
         assert exc.value.error_code == code
         assert exc.value.retryable is retryable
+
+
+def test_missing_ca_file_is_a_tls_configuration_error(monkeypatch, tmp_path) -> None:
+    from app.core import settings
+
+    monkeypatch.setattr(settings, "LDAP_TLS_VERIFY", True)
+    monkeypatch.setattr(settings, "LDAP_CA_FILE", str(tmp_path / "missing.pem"))
+
+    ok, _message, details = ad_access.grant_ad_access(_params())
+
+    assert ok is False
+    assert details["failure_code"] == "AD_TLS_FAILED"
+    assert "missing.pem" in details["error"]

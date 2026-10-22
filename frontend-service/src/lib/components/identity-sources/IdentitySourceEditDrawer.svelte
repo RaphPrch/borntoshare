@@ -62,7 +62,8 @@
     initializedFor = source;
     form = {
       display_name: normalize(source.display_name ?? source.name),
-      protocol: source.protocol === 'ldap' ? 'ldap' : 'ldaps',
+      // Sources saved as "ldap" on port 636 do use LDAPS
+      protocol: source.protocol === 'ldap' && Number(source.port) !== 636 ? 'ldap' : 'ldaps',
       host: source.host ?? '',
       port: source.port ?? defaultPort(source.protocol),
       base_dn: source.base_dn ?? '',
@@ -364,13 +365,24 @@
             <FieldError>{t('Required')}</FieldError>
           {/if}
         </label>
-        <label class="identity-edit-field">
-          <span>{t('Protocol')}</span>
-          <div class="identity-edit-segmented" role="group" aria-label={t('LDAP protocol')}>
-            <button type="button" class:active={form.protocol === 'ldap'} on:click={() => setProtocol('ldap')}>LDAP</button>
-            <button type="button" class:active={form.protocol === 'ldaps'} on:click={() => setProtocol('ldaps')}>LDAPS</button>
+        <div class="identity-edit-field">
+          <span>{t('Encryption')}</span>
+          <div class="form-check form-switch">
+            <input
+              id="identity-edit-ldaps"
+              class="form-check-input"
+              type="checkbox"
+              checked={form.protocol === 'ldaps'}
+              on:change={(event) => setProtocol(event.currentTarget.checked ? 'ldaps' : 'ldap')}
+            />
+            <label class="form-check-label" for="identity-edit-ldaps">{t('Use LDAPS (encrypted connection)')}</label>
           </div>
-        </label>
+          <small class="identity-edit-hint">
+            {form.protocol === 'ldaps'
+              ? t('LDAPS · port 636. Recommended in production.')
+              : t('LDAP · port 389. The password of the service account travels unencrypted.')}
+          </small>
+        </div>
         <label class="identity-edit-field">
           <span>{t('Hostname / IP')}</span>
           <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.host)} bind:value={form.host} />
@@ -454,6 +466,14 @@
             <small>{t('Import groups from this source.')}</small>
           </span>
           <input type="checkbox" bind:checked={form.capabilities.import_groups} />
+        </label>
+        <label class="identity-edit-capability">
+          <span class="identity-edit-capability-icon"><i class="bi bi-cloud-arrow-down" aria-hidden="true"></i></span>
+          <span>
+            <strong>{t('Snapshot inventory')}</strong>
+            <small>{t('Needed to search and import users and groups of this source.')}</small>
+          </span>
+          <input type="checkbox" bind:checked={form.capabilities.snapshot_enabled} />
         </label>
         <label class="identity-edit-capability">
           <span class="identity-edit-capability-icon"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
@@ -644,8 +664,7 @@
     grid-column: 1 / -1;
   }
 
-  .identity-edit-input,
-  .identity-edit-segmented {
+  .identity-edit-input {
     width: 100%;
     min-height: 38px;
     border: 1px solid #d9e2ef;
@@ -675,24 +694,31 @@
     background: #f8fafc;
   }
 
-  .identity-edit-segmented {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    overflow: hidden;
-    padding: 0;
+
+
+
+  .identity-edit-field .form-switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 38px;
+    margin: 0;
+    padding-left: 0;
   }
 
-  .identity-edit-segmented button {
-    border: 0;
-    background: #f8fafc;
-    color: #071638;
+  .identity-edit-field .form-switch .form-check-input {
+    margin: 0;
+    float: none;
+  }
+
+  .identity-edit-field .form-switch .form-check-label {
     font-size: var(--b2s-fs-sm);
-    font-weight: 650;
+    font-weight: 500;
   }
 
-  .identity-edit-segmented button.active {
-    background: #08256b;
-    color: #ffffff;
+  .identity-edit-hint {
+    color: #64748b;
+    font-size: var(--b2s-fs-xs);
   }
 
   .identity-edit-note {

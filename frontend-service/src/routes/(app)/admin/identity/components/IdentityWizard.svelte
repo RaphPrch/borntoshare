@@ -69,6 +69,10 @@
   let errorMessage = '';
   let errorHint = '';
   let adSources: IdentitySourceListItem[] = [];
+  // The directory search reads the last snapshot of the source: none yet means an empty search
+  $: selectedSourceHasSnapshot = Boolean(
+    (adSources.find((source) => Number(source.id) === Number(selectedSourceId)) as any)?.last_snapshot_at
+  );
   let selectedSourceId: number | null = null;
   let searchQuery = '';
   let searchResults: PrincipalSearchItem[] = [];
@@ -554,6 +558,14 @@
             </select>
             {#if sourceError}<FieldError>{sourceError}</FieldError>{/if}
           </label>
+          {#if selectedSourceId && !selectedSourceHasSnapshot}
+            <div class="identity-wizard__span">
+              <InlineAlert tone="warning">
+                {t('This source has no directory snapshot yet: search and browse stay empty.')}
+                <a href="/admin/identity-sources">{t('Run a sync in Identity sources')}</a>
+              </InlineAlert>
+            </div>
+          {/if}
           <label>
             <span>{mode === 'directory_group' ? t('Search group *') : t('Search user *')}</span>
             <div class="identity-wizard__search-row">
@@ -702,7 +714,6 @@
   title={t('Browse Active Directory')}
   subtitle={t('Select a directory user or group to grant application access.')}
   mode="single"
-  allowRoleAssignment={false}
   allowedPrincipalType="all"
   includeImportCandidates={true}
   busy={submitting}
@@ -765,6 +776,10 @@
     justify-content: space-between;
     gap: 16px;
     margin-bottom: 12px;
+  }
+
+  .identity-wizard__span {
+    grid-column: 1 / -1;
   }
 
   .identity-wizard__form-grid {

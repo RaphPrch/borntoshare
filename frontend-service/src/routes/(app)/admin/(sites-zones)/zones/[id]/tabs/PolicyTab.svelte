@@ -15,6 +15,7 @@
 
   export let onChange: ((next: ZoneProvisioningPolicy) => void) | null = null;
   export let onSave: (() => void) | null = null;
+  export let onChangeNamingTemplate: ((value: string) => void) | null = null;
 
   let viewModel: ProvisioningPolicyViewModel = buildZoneProvisioningViewModel(policy);
 
@@ -27,6 +28,7 @@
       onChangeOrganizationalUnit: (value: string) => {
         onChange?.({ ...policy, ou_strategy: "identity_default", base_ou_dn: value, static_ou_dn: null });
       },
+      onChangeNamingTemplate: onChangeNamingTemplate ?? undefined,
       onSavePolicy: onSave ?? undefined,
       savePolicyBusy: saving,
       savePolicyDisabled: !canSave,

@@ -411,8 +411,6 @@
     t('Select users or groups to add as guardians.')
   }
   mode="multiple"
-  allowRoleAssignment={false}
-  defaultAssignedRole="guardian"
   allowedPrincipalType="all"
   includeImportCandidates={true}
   initialSelectedKeys={initialSelectedKeys}

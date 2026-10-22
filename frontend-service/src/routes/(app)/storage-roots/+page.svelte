@@ -45,7 +45,8 @@
   import {
     normalizeStorageRootRow,
     type StorageRootRow,
-    type StorageRootTagLike
+    type StorageRootTagLike,
+    rootPathKey
   } from '$lib/utils/storage-roots';
   import {
     endpointIdOf,
@@ -945,12 +946,7 @@
     return found.filter((folder, index, rows) => rows.findIndex((candidate) => String(candidate.id) === String(folder.id)) === index);
   };
 
-  const normalizeRootPathForParentLookup = (value: unknown): string =>
-    String(value ?? '')
-      .trim()
-      .replace(/\\/g, '/')
-      .replace(/\/+$/, '')
-      .toLowerCase();
+  const normalizeRootPathForParentLookup = (value: unknown): string => rootPathKey(value);
 
   const managedParentForFolder = (folder: AddRootFolder): StorageRootRow | null => {
     const folderEndpointId = Number(folder?.endpointId ?? 0);

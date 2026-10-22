@@ -3,7 +3,10 @@ from __future__ import annotations
 import ssl
 from typing import Any
 
+import os
+
 from ldap3 import ALL, BASE, LEVEL, SIMPLE, SUBTREE, Connection, Server, Tls
+from ldap3.core.exceptions import LDAPSSLConfigurationError
 
 
 def tls_config(verify_tls: bool) -> Tls:
@@ -13,7 +16,10 @@ def tls_config(verify_tls: bool) -> Tls:
     verify = bool(verify_tls) or settings.LDAP_TLS_VERIFY
     if not verify:
         return Tls(validate=ssl.CERT_NONE)
-    return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=settings.LDAP_CA_FILE)
+    ca_file = settings.LDAP_CA_FILE
+    if ca_file and not os.path.isfile(ca_file):
+        raise LDAPSSLConfigurationError(f"LDAP CA certificate file not found: {ca_file} (LDAP_CA_FILE)")
+    return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=ca_file)
 
 
 def connect(*, host: str, port: int, use_ssl: bool, verify_tls: bool, timeout: int) -> Connection:

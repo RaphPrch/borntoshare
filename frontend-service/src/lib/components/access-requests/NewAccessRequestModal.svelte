@@ -1,5 +1,7 @@
 <script lang="ts">
   import FieldError from '$lib/components/ui/FieldError.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import ChoiceCard from '$lib/components/ui/ChoiceCard.svelte';
   import { t } from '$lib/i18n';
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
   import AppModal from '$lib/components/ui/AppModal.svelte';
@@ -20,7 +22,8 @@
   export let onClose: () => void = () => {};
   export let onCreated: () => void = () => {};
 
-  type AccessChoice = 'read' | 'contribution' | 'audit';
+  // Only READ and WRITE exist: an AD group per level of the storage root
+  type AccessChoice = 'read' | 'contribution';
   type TtlPreset = '7' | '30' | '90' | 'custom';
 
   let roots: StorageRootContext[] = [];
@@ -53,6 +56,14 @@
   };
 
   $: selectedRoot = roots.find((root) => Number(root.id) === Number(storageRootId)) ?? null;
+  $: rootsByZone = Object.entries(
+    roots.reduce((acc: Record<string, StorageRootContext[]>, root) => {
+      (acc[rootZone(root)] ??= []).push(root);
+      return acc;
+    }, {})
+  )
+    .map(([zone, items]) => [zone, [...items].sort((a, b) => rootName(a).localeCompare(rootName(b), 'fr', { numeric: true }))] as const)
+    .sort((a, b) => a[0].localeCompare(b[0], 'fr'));
   $: selectedRootOverview = selectedRoot ? (overviewByRootId[String(Number(selectedRoot.id))] ?? null) : null;
   $: selectedPermissions = [selectedAccess];
   $: selectedPrincipalsCount = selectedPrincipals.length;
@@ -61,6 +72,7 @@
     ? [storageRootId, selectedAccess, selectedPrincipalKeys.join('|')].join(':')
     : '';
   $: ttlDays = ttlPreset === 'custom' ? Number(customTtlDays) : Number(ttlPreset);
+  $: TTL_PRESETS = [['7', t('7 days')], ['30', t('30 days')], ['90', t('90 days')], ['custom', t('Custom')]] as Array<[TtlPreset, string]>;
   $: provisioningChecks = buildProvisioningChecks();
   $: blockingProvisioningChecks = provisioningChecks.filter((check) => check.blocking);
   $: canSubmit =
@@ -79,7 +91,6 @@
   function normalizePrefillAccessChoice(value: unknown): AccessChoice {
     const raw = String(value ?? '').trim().toLowerCase();
     if (raw === 'write' || raw === 'contribution' || raw === 'rw') return 'contribution';
-    if (raw === 'audit') return 'audit';
     return 'read';
   }
 
@@ -115,7 +126,6 @@
 
   function selectedAccessCode(): string {
     if (selectedAccess === 'contribution') return 'WRITE';
-    if (selectedAccess === 'audit') return 'AUDIT';
     return 'READ';
   }
 
@@ -216,26 +226,26 @@
       if (blockingResult) {
         existingAccessBlocking = true;
         existingAccessCheckTone = 'error';
-        existingAccessCheckMessage = `${principalLabel(blockingResult.principal)} · ${blockingResult.result.message || t('Cette demande ne peut pas etre soumise.')}`;
+        existingAccessCheckMessage = `${principalLabel(blockingResult.principal)} · ${blockingResult.result.message || t('This request cannot be submitted.')}`;
         return;
       }
 
       const elevationResult = results.find(({ result }) => result?.code === 'ELEVATION_ALLOWED' || result?.reason === 'ELEVATION_ALLOWED');
       if (elevationResult) {
         existingAccessCheckTone = 'warning';
-        existingAccessCheckMessage = `${principalLabel(elevationResult.principal)} · ${elevationResult.result.message || t('Cette demande sera traitee comme une elevation.')}`;
+        existingAccessCheckMessage = `${principalLabel(elevationResult.principal)} · ${elevationResult.result.message || t('This request will be handled as an elevation.')}`;
         return;
       }
 
       existingAccessCheckTone = 'success';
       existingAccessCheckMessage =
         results.length > 1
-          ? t('{count} beneficiaires peuvent recevoir cette demande.', { count: results.length })
-          : t('Aucun acces existant bloquant detecte.');
+          ? t('{count} beneficiaries can receive this request.', { count: results.length })
+          : t('No existing access blocks this request.');
     } catch {
       if (seq !== existingAccessCheckSeq) return;
       existingAccessCheckTone = 'neutral';
-      existingAccessCheckMessage = "Verification d'acces indisponible. La validation finale sera faite a la soumission.";
+      existingAccessCheckMessage = t('Existing access could not be checked; it will be checked on submission.');
     } finally {
       if (seq === existingAccessCheckSeq) existingAccessCheckLoading = false;
     }
@@ -256,8 +266,8 @@
       return [
         {
           key: 'loading',
-          label: t('Validation en cours'),
-          detail: t('Chargement du contexte du storage root.'),
+          label: t('Checking'),
+          detail: t('Loading the storage root context.'),
           tone: 'pending',
           blocking: true
         }
@@ -267,7 +277,7 @@
       return [
         {
           key: 'overview_load',
-          label: t('Validation indisponible'),
+          label: t('Check unavailable'),
           detail: String(overview._load_error),
           tone: 'error',
           blocking: true
@@ -286,12 +296,12 @@
     const unreachable = ['unreachable', 'failed', 'error', 'blocked'].some((token) => availability.includes(token));
     checks.push({
       key: 'reachability',
-      label: t('Storage root joignable'),
+      label: t('Storage root reachable'),
       detail: reachable
-        ? t('Dernier probe OK.')
+        ? t('Last probe OK.')
         : unreachable
-          ? String(overview?.last_probe_message ?? overview?.revalidation_reason ?? t('Le dernier probe indique un root non joignable.'))
-          : t('Aucun probe récent ne confirme la joignabilité.'),
+          ? String(overview?.last_probe_message ?? overview?.revalidation_reason ?? t('The last probe reports the storage root unreachable.'))
+          : t('No recent probe confirms that the storage root is reachable.'),
       tone: reachable ? 'success' : 'error',
       blocking: !reachable
     });
@@ -311,7 +321,7 @@
         storageRootId = String(candidate);
       } else if (candidate > 0) {
         storageRootId = '';
-        errors.storageRootId = 'Selected storage root is not available';
+        errors.storageRootId = t('This storage root is not available.');
       } else if (!storageRootId && roots.length > 0) {
         storageRootId = String(roots[0].id);
       }
@@ -343,25 +353,25 @@
     resetErrors();
     const rootId = Number(storageRootId);
     if (!Number.isFinite(rootId) || rootId <= 0) {
-      errors.storageRootId = 'Select a storage root';
+      errors.storageRootId = t('Select a storage root');
     }
     if (selectedPermissions.length === 0) {
-      errors.permissions = "Selectionne un niveau d'acces";
+      errors.permissions = t('Select an access level');
     }
     if (selectedPrincipals.length === 0) {
-      errors.principal = 'Select a beneficiary from the identity source';
+      errors.principal = t('Select a beneficiary from the identity source');
     }
     if (!Number.isFinite(ttlDays) || ttlDays <= 0) {
-      errors.ttl = 'TTL invalide';
+      errors.ttl = t('Invalid duration');
     }
     if (!justification.trim()) {
-      errors.justification = 'La justification est obligatoire';
+      errors.justification = t('A justification is required');
     }
     if (blockingProvisioningChecks.length > 0) {
-      errors.permissions = blockingProvisioningChecks[0]?.detail || t('La demande ne peut pas être provisionnée.');
+      errors.permissions = blockingProvisioningChecks[0]?.detail || t('The request cannot be provisioned.');
     }
     if (existingAccessBlocking && !errors.principal) {
-      errors.principal = existingAccessCheckMessage || t('Cette demande ne peut pas etre soumise.');
+      errors.principal = existingAccessCheckMessage || t('This request cannot be submitted.');
     }
     return !errors.storageRootId && !errors.permissions && !errors.principal && !errors.ttl && !errors.justification;
   }
@@ -461,7 +471,7 @@
         if (!precheck?.can_request) {
           existingAccessBlocking = true;
           existingAccessCheckTone = 'error';
-          existingAccessCheckMessage = `${principalLabel(principal)} · ${precheck?.message || t('Cette demande ne peut pas etre soumise.')}`;
+          existingAccessCheckMessage = `${principalLabel(principal)} · ${precheck?.message || t('This request cannot be submitted.')}`;
           throw new Error(existingAccessCheckMessage);
         }
         await createAccessRequest(fetch, {
@@ -491,171 +501,140 @@
 <AppModal
   {open}
   onClose={close}
-  backdropClass="b2s-modal-backdrop ar-governed-backdrop"
-  modalClass="b2s-modal ar-governed-modal"
-  size="xl"
-  ariaLabelledby="ar-governed-title"
-  showClose={false}
-  wrapContent={false}
+  size="lg"
+  iconClass="bi bi-folder-plus"
+  title={t('Request governed access')}
+  subtitle={t('Choose the storage root, the access level, who needs it and for how long.')}
   closeOnBackdrop={false}
 >
-  <div class="ar-create">
-    <header class="ar-create__header">
-      <div>
-        <h2 id="ar-governed-title">{t('Request governed access')}</h2>
-        <p>{t('Create a governed access request in one simple form.')}</p>
+  <div class="nar">
+    <section class="nar-step">
+      <h3><span>1</span>{t('Storage root')}</h3>
+      <select class="b2s-select" aria-label={t('Storage root')} bind:value={storageRootId} disabled={loadingRoots || submitting} class:is-invalid={Boolean(errors.storageRootId)}>
+        {#if loadingRoots}<option value="">{t('Loading...')}</option>{/if}
+        {#each rootsByZone as [zone, items] (zone)}
+          <optgroup label={zone}>
+            {#each items as root (root.id)}
+              <option value={String(root.id)}>{rootName(root)} — {rootPath(root)}</option>
+            {/each}
+          </optgroup>
+        {/each}
+      </select>
+      {#if selectedRoot}
+        <p class="nar-hint">
+          <i class="bi bi-shield-check" aria-hidden="true"></i>
+          {endpointName(selectedRoot)} · {approvalLabel()}
+          <a href={`/storage-roots?selected=${Number(selectedRoot.id)}`}>{t('Review policy')}</a>
+        </p>
+      {/if}
+      {#if errors.storageRootId}<FieldError>{errors.storageRootId}</FieldError>{/if}
+    </section>
+
+    <section class="nar-step">
+      <h3><span>2</span>{t('Access needed')}</h3>
+      <div class="nar-choices">
+        <ChoiceCard
+          icon="bi-eye"
+          title={t('Read access')}
+          description={t('View files and folders')}
+          badge={t('Recommended')}
+          selected={selectedAccess === 'read'}
+          onSelect={() => (selectedAccess = 'read')}
+        />
+        <ChoiceCard
+          icon="bi-pencil-square"
+          title={t('Write access')}
+          description={t('Create, update or delete content')}
+          selected={selectedAccess === 'contribution'}
+          onSelect={() => (selectedAccess = 'contribution')}
+        />
       </div>
-      <button type="button" class="ar-close" aria-label={t('Close')} on:click={close}>
-        <i class="bi bi-x-lg" aria-hidden="true"></i>
-      </button>
-    </header>
+      {#if errors.permissions}<FieldError>{errors.permissions}</FieldError>{/if}
+    </section>
 
-    <div class="ar-create__content">
-      <section class="ar-form-card">
-        <div class="ar-step">
-          <h3>{t('1. Target location')}</h3>
-          <div class="target-card" class:error={Boolean(errors.storageRootId)}>
-            <span class="target-icon"><i class="bi bi-folder-fill" aria-hidden="true"></i></span>
-            <div>
-              <strong>{selectedRoot ? rootName(selectedRoot) : loadingRoots ? t('Loading...') : '—'}</strong>
-              <small>{rootZone(selectedRoot)}{endpointName(selectedRoot) !== '—' ? ` · ${endpointName(selectedRoot)}` : ''}</small>
-              <small>{t('Path: {rootPath}', { rootPath: rootPath(selectedRoot) })}</small>
-            </div>
-            {#if selectedRoot}
-              <span class="approval-badge"><i class="bi bi-shield-check" aria-hidden="true"></i>{approvalLabel()}</span>
-            {/if}
-          </div>
-          {#if errors.storageRootId}
-            <FieldError>{errors.storageRootId}</FieldError>
-          {/if}
-        </div>
-
-        <div class="ar-step">
-          <h3>{t('2. Access needed')}</h3>
-          <div class="access-grid">
-            <button type="button" class:active={selectedAccess === 'read'} on:click={() => (selectedAccess = 'read')}>
-              <span class="choice-icon read"><i class="bi bi-file-earmark" aria-hidden="true"></i></span>
-              <strong>{t('Read access')}</strong>
-              <small>{t('View files and folders')}</small>
-              <em>{t('Recommended')}</em>
-              {#if selectedAccess === 'read'}<i class="bi bi-check-circle-fill choice-check" aria-hidden="true"></i>{/if}
-            </button>
-            <button type="button" class:active={selectedAccess === 'contribution'} on:click={() => (selectedAccess = 'contribution')}>
-              <span class="choice-icon write"><i class="bi bi-pencil-square" aria-hidden="true"></i></span>
-              <strong>{t('Write access')}</strong>
-              <small>{t('Create, update or delete content')}</small>
-              <em class="warn">{t('Approval required')}</em>
-              {#if selectedAccess === 'contribution'}<i class="bi bi-check-circle-fill choice-check" aria-hidden="true"></i>{/if}
-            </button>
-            <button type="button" class:active={selectedAccess === 'audit'} on:click={() => (selectedAccess = 'audit')}>
-              <span class="choice-icon audit"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
-              <strong>{t('Audit access')}</strong>
-              <small>{t('View access and security information')}</small>
-              <em class="sensitive">{t('Sensitive')}</em>
-              {#if selectedAccess === 'audit'}<i class="bi bi-check-circle-fill choice-check" aria-hidden="true"></i>{/if}
-            </button>
-          </div>
-          {#if errors.permissions}
-            <FieldError>{errors.permissions}</FieldError>
-          {/if}
-        </div>
-
-        <div class="ar-step">
-          <h3>{t('3. Who needs access?')}</h3>
-          <div class="principal-card" class:error={Boolean(errors.principal)}>
-            {#if selectedPrincipal}
-              <span class="avatar">{initials(principalLabel(selectedPrincipal))}</span>
-              <div>
-                <strong>{principalLabel(selectedPrincipal)}</strong>
-                <small>{principalSubtitle(selectedPrincipal)}</small>
-              </div>
-            {:else}
-              <span class="avatar muted"><i class="bi bi-person" aria-hidden="true"></i></span>
-              <div>
-                <strong>{t('No beneficiary selected')}</strong>
-                <small>{t('Select a user or group from the identity source.')}</small>
-              </div>
-            {/if}
-            <button type="button" aria-label={t('Browse identities')} on:click={openAdBrowser} disabled={submitting}>
-              <i class="bi bi-search" aria-hidden="true"></i>
-            </button>
-          </div>
-          {#if selectedPrincipalsCount > 1}
-            <div class="principal-list">
-              {#each selectedPrincipals as principal, idx (selectedPrincipalKeys[idx] ?? String(idx))}
-                <span>
-                  {principalLabel(principal)}
-                  <button type="button" aria-label={t('Remove principal')} on:click={() => removeSelectedPrincipalByKey(selectedPrincipalKeys[idx] ?? '')}>×</button>
-                </span>
-              {/each}
-            </div>
-          {/if}
-          {#if errors.principal}
-            <FieldError>{errors.principal}</FieldError>
-          {/if}
-          {#if existingAccessCheckLoading}
-            <small class="field-hint">{t('Verification des acces existants…')}</small>
-          {:else if existingAccessCheckMessage}
-            <small class={`field-hint field-hint--${existingAccessCheckTone}`}>{existingAccessCheckMessage}</small>
-          {/if}
-        </div>
-
-        <div class="ar-step">
-          <h3>{t('4. Duration & reason')}</h3>
-          <div class="ttl-row">
-            <button type="button" class:active={ttlPreset === '7'} on:click={() => (ttlPreset = '7')}>{t('7 days')}</button>
-            <button type="button" class:active={ttlPreset === '30'} on:click={() => (ttlPreset = '30')}>{t('30 days')}</button>
-            <button type="button" class:active={ttlPreset === '90'} on:click={() => (ttlPreset = '90')}>{t('90 days')}</button>
-            <button type="button" class:active={ttlPreset === 'custom'} on:click={() => (ttlPreset = 'custom')}>
-              <i class="bi bi-calendar4-week" aria-hidden="true"></i>{t('Custom')}
-            </button>
-          </div>
-          {#if ttlPreset === 'custom'}
-            <input class="custom-ttl" type="number" min="1" max="365" bind:value={customTtlDays} aria-label={t('Custom duration in days')} />
-          {/if}
-          {#if errors.ttl}
-            <FieldError>{errors.ttl}</FieldError>
-          {/if}
-          <label class="justification">
-            <span>{t('Justification')}</span>
-            <textarea bind:value={justification} maxlength="230" placeholder={t('Explain why this access is needed...')}></textarea>
-          </label>
-          {#if errors.justification}
-            <FieldError>{errors.justification}</FieldError>
-          {/if}
-        </div>
-
-        <footer class="info-strip">
-          <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
-          <span>{t('Access is requested through governed profiles. No AD group or NTFS details are exposed.')}</span>
-        </footer>
-      </section>
-
-      <aside class="summary-panel">
-        <div class:ready={canSubmit} class="ready-state">
-          <i class={`bi ${canSubmit ? 'bi-check-circle' : 'bi-exclamation-circle'}`} aria-hidden="true"></i>
-          {canSubmit ? t('Ready to submit') : blockingProvisioningChecks.length > 0 ? t('Cannot provision yet') : t('Missing required fields')}
-        </div>
-
-        {#if selectedRoot}
-          <a class="policy-link" href={`/storage-roots?selected=${Number(selectedRoot.id)}`}>
-            {t('Review policy')} <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
-          </a>
-        {:else}
-          <span class="policy-link disabled">
-            {t('Review policy')} <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+    <section class="nar-step">
+      <h3><span>3</span>{t('Who needs access?')}</h3>
+      <div class="nar-principal" class:is-invalid={Boolean(errors.principal)}>
+        {#if selectedPrincipals.length === 0}
+          <span class="nar-avatar is-empty"><i class="bi bi-person" aria-hidden="true"></i></span>
+          <span class="nar-principal__text">
+            <strong>{t('No beneficiary selected')}</strong>
+            <small>{t('Select a user or group from the identity source.')}</small>
           </span>
+        {:else}
+          <ul class="nar-principals">
+            {#each selectedPrincipals as principal, idx (selectedPrincipalKeys[idx] ?? String(idx))}
+              <li>
+                <span class="nar-avatar">{initials(principalLabel(principal))}</span>
+                <span class="nar-principal__text">
+                  <strong>{principalLabel(principal)}</strong>
+                  <small>{principalSubtitle(principal)}</small>
+                </span>
+                <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm b2s-btn-icon" aria-label={t('Remove principal')} disabled={submitting} on:click={() => removeSelectedPrincipalByKey(selectedPrincipalKeys[idx] ?? '')}>
+                  <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+              </li>
+            {/each}
+          </ul>
         {/if}
-      </aside>
-    </div>
+        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={openAdBrowser} disabled={submitting}>
+          <i class="bi bi-search" aria-hidden="true"></i>
+          {selectedPrincipals.length === 0 ? t('Choose') : t('Change')}
+        </button>
+      </div>
+      {#if errors.principal}<FieldError>{errors.principal}</FieldError>{/if}
+      {#if existingAccessCheckLoading}
+        <p class="nar-hint">{t('Checking existing access…')}</p>
+      {:else if existingAccessCheckMessage}
+        <InlineAlert tone={existingAccessCheckTone === 'error' ? 'error' : existingAccessCheckTone === 'warning' ? 'warning' : existingAccessCheckTone === 'success' ? 'success' : 'info'}>
+          {existingAccessCheckMessage}
+        </InlineAlert>
+      {/if}
+    </section>
 
-    <footer class="ar-create__footer">
-      <button type="button" class="cancel" on:click={close} disabled={submitting}>{t('Cancel')}</button>
-      <button type="button" class="submit" on:click={submit} disabled={submitting || !canSubmit}>
-        {submitting ? t('Submitting...') : t('Submit request')}
-      </button>
-    </footer>
+    <section class="nar-step">
+      <h3><span>4</span>{t('Duration & reason')}</h3>
+      <div class="nar-ttl">
+        <div class="nar-segments" role="group" aria-label={t('Duration')}>
+          {#each TTL_PRESETS as [value, label]}
+            <button type="button" class:is-active={ttlPreset === value} aria-pressed={ttlPreset === value} on:click={() => (ttlPreset = value)}>{label}</button>
+          {/each}
+        </div>
+        {#if ttlPreset === 'custom'}
+          <label class="nar-custom">
+            <input class="b2s-input" type="number" min="1" max="365" bind:value={customTtlDays} aria-label={t('Custom duration in days')} />
+            {t('days')}
+          </label>
+        {/if}
+      </div>
+      {#if errors.ttl}<FieldError>{errors.ttl}</FieldError>{/if}
+      <label class="nar-justification">
+        <span>{t('Justification')}</span>
+        <textarea bind:value={justification} maxlength="230" rows="3" placeholder={t('Explain why this access is needed...')} class:is-invalid={Boolean(errors.justification)}></textarea>
+        <small>{justification.length}/230</small>
+      </label>
+      {#if errors.justification}<FieldError>{errors.justification}</FieldError>{/if}
+    </section>
+
+    {#each blockingProvisioningChecks as check (check.key)}
+      <InlineAlert tone={check.tone === 'pending' ? 'info' : 'error'}>
+        <strong>{check.label}</strong> · {check.detail}
+      </InlineAlert>
+    {/each}
   </div>
+
+  <svelte:fragment slot="footer-start">
+    <span class="nar-ready" class:is-ready={canSubmit}>
+      <i class={`bi ${canSubmit ? 'bi-check-circle' : 'bi-info-circle'}`} aria-hidden="true"></i>
+      {canSubmit ? t('Ready to submit') : blockingProvisioningChecks.length > 0 ? t('Cannot provision yet') : t('Missing required fields')}
+    </span>
+  </svelte:fragment>
+  <svelte:fragment slot="footer">
+    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={close} disabled={submitting}>{t('Cancel')}</button>
+    <button type="button" class="b2s-btn b2s-btn-primary" on:click={submit} disabled={submitting || !canSubmit}>
+      {submitting ? t('Submitting...') : selectedPrincipalsCount > 1 ? t('Submit {count} requests', { count: selectedPrincipalsCount }) : t('Submit request')}
+    </button>
+  </svelte:fragment>
 </AppModal>
 
 <IdentityBrowserModal
@@ -668,494 +647,225 @@
   title={t('Browse Active Directory')}
   subtitle={t('Select users and groups receiving the request.')}
   mode="multiple"
-  allowRoleAssignment={false}
   allowedPrincipalType="all"
   includeImportCandidates={true}
   initialSelectedKeys={selectedPrincipalKeys}
   busy={submitting}
-  confirmLabel={t('Valider')}
-  confirmBusyLabel={t('Validation…')}
+  confirmLabel={t('Confirm')}
+  confirmBusyLabel={t('Confirming…')}
 />
 
 <style>
-  :global(.ar-governed-backdrop) {
-    background: rgba(7, 20, 50, 0.2);
-    align-items: flex-start;
-    padding-top: 70px;
+  .nar {
+    display: grid;
+    gap: 18px;
   }
 
-  :global(.ar-governed-modal) {
-    max-height: calc(100vh - 92px);
-    overflow: hidden;
-    border-radius: var(--b2s-radius-lg);
-    border: 1px solid #dfe6f2;
-    box-shadow: 0 24px 70px rgba(6, 24, 73, 0.24);
-    background: #fff;
+  .nar-step {
+    display: grid;
+    gap: 10px;
   }
 
-  .ar-create {
-    color: #071b4a;
-    background: #fff;
-    font-family: var(--b2s-font-sans);
-  }
-
-  .ar-create__header {
+  .nar-step h3 {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 28px 36px 12px;
-  }
-
-  .ar-create__header h2 {
-    margin: 0;
-    font-size: var(--b2s-fs-console-title);
-    line-height: 1.08;
-    letter-spacing: 0;
-    font-weight: 830;
-    color: #061849;
-  }
-
-  .ar-create__header p {
-    margin: 8px 0 0;
-    color: #405178;
-    font-size: var(--b2s-fs-lg);
-    font-weight: 450;
-  }
-
-  .ar-close {
-    width: 43px;
-    height: 43px;
-    border-radius: var(--b2s-radius-md);
-    border: 1px solid #dce4f1;
-    background: #fff;
-    color: #071b4a;
-    font-size: var(--b2s-fs-xl);
-  }
-
-  .ar-create__content {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
-    gap: 28px;
-    padding: 0 36px 22px;
-    overflow: auto;
-    max-height: calc(100vh - 230px);
-  }
-
-  .ar-form-card,
-  .summary-card {
-    border: 1px solid #dfe6f2;
-    border-radius: var(--b2s-radius-md);
-    background: #fff;
-  }
-
-  .ar-form-card {
-    overflow: hidden;
-  }
-
-  .ar-step {
-    padding: 16px 18px 0;
-  }
-
-  .ar-step h3 {
-    margin: 0 0 9px;
-    color: #061849;
-    font-size: var(--b2s-fs-lg);
-    font-weight: 760;
-  }
-
-  .target-card {
-    min-height: 92px;
-    display: grid;
-    grid-template-columns: 52px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 16px;
-    border: 1px solid #d9e2ef;
-    border-radius: var(--b2s-radius-md);
-    padding: 14px 18px;
+    gap: 10px;
+    margin: 0;
+    font-size: var(--b2s-fs-md);
+    font-weight: 600;
   }
 
-  .target-card.error,
-  .principal-card.error {
-    border-color: #ff9b9b;
-  }
-
-  .target-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: var(--b2s-radius-sm);
+  .nar-step h3 span {
+    width: 22px;
+    height: 22px;
     display: grid;
     place-items: center;
-    background: #fff4d9;
-    color: #f9ad1b;
-    font-size: 28px;
+    border-radius: var(--b2s-radius-pill);
+    background: var(--b2s-topbar-bg);
+    color: #fff;
+    font-size: 12px;
   }
 
-  .target-card strong,
-  .principal-card strong {
-    display: block;
-    color: #061849;
-    font-weight: 730;
-  }
-
-  .target-card small,
-  .principal-card small {
-    display: block;
-    margin-top: 3px;
-    color: #405178;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .approval-badge {
-    min-height: 36px;
-    display: inline-flex;
+  .nar-hint {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .nar-hint a {
+    margin-left: auto;
+  }
+
+  .nar-choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .nar-principal {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid #e5eaf3;
+    border-radius: var(--b2s-radius-md);
+  }
+
+  .nar-principal.is-invalid {
+    border-color: #fca5a5;
+  }
+
+  .nar-principals {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
     gap: 8px;
-    border-radius: var(--b2s-radius-sm);
-    background: #e7f6e8;
-    color: #0b7a1e;
-    padding: 0 12px;
-    font-size: var(--b2s-fs-sm);
-    font-weight: 650;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .nar-principals li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .nar-principal__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
+  }
+
+  .nar-principal__text strong,
+  .nar-principal__text small {
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .access-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
+  .nar-principal__text strong {
+    font-size: var(--b2s-fs-sm);
+    font-weight: 500;
   }
 
-  .access-grid button {
-    position: relative;
-    min-height: 140px;
-    border: 1px solid #d9e2ef;
-    border-radius: var(--b2s-radius-md);
-    background: #fff;
-    color: #071b4a;
-    text-align: center;
-    padding: 20px 14px 14px;
+  .nar-principal__text small {
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
   }
 
-  .access-grid button.active {
-    border-color: #061849;
-    box-shadow: inset 0 0 0 1px #061849;
-  }
-
-  .choice-icon {
-    width: 40px;
-    height: 40px;
-    margin: 0 auto 9px;
-    border-radius: var(--b2s-radius-sm);
+  .nar-avatar {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
     display: grid;
     place-items: center;
-    font-size: 24px;
-  }
-
-  .choice-icon.read { background: #edf3ff; color: #0c3ea4; }
-  .choice-icon.write { background: #e7f6e8; color: #0c9a2b; }
-  .choice-icon.audit { background: #f2e8ff; color: #7a2dff; }
-
-  .access-grid strong {
-    display: block;
-    font-size: var(--b2s-fs-lg);
-    font-weight: 760;
-  }
-
-  .access-grid small {
-    display: block;
-    min-height: 36px;
-    margin-top: 8px;
-    color: #405178;
-    font-size: var(--b2s-fs-sm);
-    line-height: 1.35;
-  }
-
-  .access-grid em {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 28px;
-    margin-top: 10px;
     border-radius: var(--b2s-radius-pill);
-    background: #061849;
-    color: #fff;
-    padding: 0 15px;
-    font-style: normal;
-    font-size: var(--b2s-fs-xs);
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 12px;
     font-weight: 700;
   }
 
-  .access-grid em.warn {
-    background: #fff2e4;
-    color: #f47b00;
-    border: 1px solid #ffc48c;
+  .nar-avatar.is-empty {
+    background: #f1f5f9;
+    color: #94a3b8;
   }
 
-  .access-grid em.sensitive {
-    background: #f3e8ff;
-    color: #7a2dff;
-  }
-
-  .choice-check {
-    position: absolute;
-    top: 11px;
-    right: 11px;
-    color: #061849;
-    font-size: var(--b2s-fs-xl);
-  }
-
-  .principal-card {
-    min-height: 66px;
-    display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) 43px;
-    gap: 13px;
-    align-items: center;
-    border: 1px solid #d9e2ef;
-    border-radius: var(--b2s-radius-md);
-    padding: 9px 12px 9px 16px;
-  }
-
-  .avatar {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    background: #061849;
-    color: #fff;
-    display: grid;
-    place-items: center;
-    font-weight: 780;
-  }
-
-  .avatar.muted {
-    background: #edf3ff;
-    color: #0b2b70;
-  }
-
-  .principal-card > button {
-    width: 41px;
-    height: 41px;
-    border-radius: var(--b2s-radius-sm);
-    border: 1px solid #d9e2ef;
-    background: #fff;
-    color: #061849;
-    font-size: var(--b2s-fs-xl);
-  }
-
-  .principal-list {
+  .nar-ttl {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
-  }
-
-  .principal-list span {
-    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    border: 1px solid #d9e2ef;
-    border-radius: var(--b2s-radius-pill);
-    padding: 4px 9px 4px 12px;
-    color: #071b4a;
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .principal-list button {
-    border: 0;
-    background: transparent;
-    color: #c22323;
-  }
-
-  .ttl-row {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 10px;
-  }
-
-  .ttl-row button {
-    height: 36px;
-    border: 1px solid #d9e2ef;
-    border-radius: var(--b2s-radius-pill);
-    background: #fff;
-    color: #071b4a;
-    padding: 0 20px;
-    font-weight: 650;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .ttl-row button.active {
-    background: #061849;
-    border-color: #061849;
-    color: #fff;
-  }
-
-  .custom-ttl {
-    width: 130px;
-    height: 36px;
-    border: 1px solid #d9e2ef;
-    border-radius: var(--b2s-radius-sm);
-    padding: 0 12px;
-    color: #071b4a;
-  }
-
-  .justification span {
-    display: block;
-    margin-bottom: 7px;
-    color: #405178;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .justification textarea {
-    width: 100%;
-    height: 61px;
-    border: 1px solid #d9e2ef;
-    border-radius: var(--b2s-radius-sm);
-    resize: vertical;
-    padding: 13px 15px;
-    color: #071b4a;
-    outline: none;
-  }
-
-  .justification textarea::placeholder {
-    color: #66779c;
-  }
-
-  .field-hint {
-    display: block;
-    margin-top: 6px;
-    color: #44506b;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 520;
-  }
-
-  .field-hint--success {
-    color: #0f7b6c;
-  }
-
-  .field-hint--warning {
-    color: #9a6700;
-  }
-
-  .field-hint--error {
-    color: #c22323;
-  }
-
-  .info-strip {
-    min-height: 48px;
-    margin-top: 18px;
-    padding: 0 18px;
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    border-top: 1px solid #dfe6f2;
-    background: #f7f9fd;
-    color: #2c3d65;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .info-strip i {
-    color: #061849;
-  }
-
-  .summary-panel {
-    display: grid;
-    gap: 18px;
-    align-content: start;
-  }
-
-  .summary-card {
-    padding: 20px;
-  }
-
-  .ready-state {
-    height: 44px;
-    border-radius: var(--b2s-radius-sm);
-    background: #fff6e9;
-    color: #b76700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    font-weight: 680;
-  }
-
-  .ready-state.ready {
-    background: #e7f6e8;
-    color: #08721b;
-  }
-
-  .policy-link {
-    border: 0;
-    background: transparent;
-    color: #061849;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    text-decoration: none;
-  }
-
-  .policy-link.disabled {
-    opacity: 0.45;
-  }
-
-  .ar-create__footer {
-    display: flex;
-    justify-content: flex-end;
     gap: 12px;
-    padding: 0 36px 20px;
   }
 
-  .ar-create__footer button {
-    height: 48px;
-    border-radius: var(--b2s-radius-md);
-    padding: 0 22px;
-    font-size: var(--b2s-fs-lg);
-    font-weight: 760;
+  .nar-segments {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 9px;
+    background: #f1f5f9;
   }
 
-  .ar-create__footer .cancel {
-    border: 1px solid #d9e2ef;
-    background: #fff;
-    color: #061849;
+  .nar-segments button {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #475569;
+    font-size: var(--b2s-fs-sm);
+    cursor: pointer;
   }
 
-  .ar-create__footer .submit {
-    border: 1px solid #061849;
-    background: #061849;
-    color: #fff;
-    box-shadow: 0 10px 24px rgba(6, 24, 73, 0.2);
+  .nar-segments button.is-active {
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-text);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
   }
 
-  .ar-create__footer button:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
+  .nar-custom {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--b2s-fs-sm);
   }
 
-  @media (max-width: 980px) {
-    :global(.ar-governed-backdrop) {
-      padding-top: 20px;
-    }
+  .nar-custom input {
+    width: 90px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--b2s-color-border);
+    border-radius: var(--b2s-radius-sm);
+  }
 
-    .ar-create__content {
-      grid-template-columns: 1fr;
-      max-height: calc(100vh - 210px);
-    }
+  .nar-justification {
+    display: grid;
+    gap: 6px;
+    font-size: var(--b2s-fs-sm);
+    font-weight: 500;
+  }
 
-    .access-grid {
-      grid-template-columns: 1fr;
-    }
+  .nar-justification textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--b2s-color-border);
+    border-radius: var(--b2s-radius-sm);
+    font: inherit;
+    font-weight: 400;
+    resize: vertical;
+  }
 
-    .target-card {
-      grid-template-columns: 52px minmax(0, 1fr);
-    }
+  .nar-justification textarea.is-invalid,
+  select.is-invalid {
+    border-color: #fca5a5;
+  }
 
-    .approval-badge {
-      grid-column: 1 / -1;
-      width: max-content;
+  .nar-justification small {
+    justify-self: end;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+    font-weight: 400;
+  }
+
+  .nar-ready {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--b2s-color-text-muted);
+  }
+
+  .nar-ready.is-ready {
+    color: #15803d;
+  }
+
+  @media (max-width: 640px) {
+    .nar-choices {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>

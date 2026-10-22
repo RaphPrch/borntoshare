@@ -1184,9 +1184,11 @@
         <button type="button" class="b2s-btn b2s-btn-secondary" on:click={skipRoots}>{t('Create without roots')}</button>
       {/if}
       <button type="button" class="b2s-btn b2s-btn-primary" on:click={finish}>
-        {governedRoots.length > 0
-          ? t('Create endpoint and {count} roots', { count: governedRoots.length })
-          : t('Create storage endpoint')}
+        {governedRoots.length === 0
+          ? t('Create storage endpoint')
+          : governedRoots.length === 1
+            ? t('Create endpoint and 1 root')
+            : t('Create endpoint and {count} roots', { count: governedRoots.length })}
       </button>
     {/if}
   </svelte:fragment>

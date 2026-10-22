@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session, load_only
@@ -147,6 +149,18 @@ def _identity_source_dependency_message(counts: dict[str, int]) -> str:
     parts = [f"{count} {label}" for label, count in counts.items()]
     return "Identity source cannot be deleted while related records exist: " + ", ".join(parts)
 
+
+
+def changed_critical_fields(src: Any, updates: dict[str, Any]) -> list[str]:
+    """Fields that may not change while storage endpoints use the source.
+
+    Endpoints rely on the directory itself (server and base DN). Protocol and port may change:
+    switching the same server to LDAPS is safe. A field sent again with the same value is not a change.
+    """
+    def same(field: str) -> bool:
+        return str(getattr(src, field, None) or "").strip().lower() == str(updates.get(field) or "").strip().lower()
+
+    return sorted(field for field in ("host", "base_dn") if field in updates and not same(field))
 
 @router.get("", summary="List identity sources")
 def list_identity_sources(db: Session = Depends(get_db)):
@@ -438,8 +452,7 @@ def update_identity_source(
         updates["status"] = _status_from_active(bool(updates.get("is_active")))
 
     if _is_identity_source_used(db, src):
-        critical_fields = {"protocol", "host", "port", "base_dn"}
-        changed_critical = sorted([k for k in updates.keys() if k in critical_fields])
+        changed_critical = changed_critical_fields(src, updates)
         if changed_critical:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

@@ -57,6 +57,19 @@ def _ace_principal_candidates(ad_group_name: str, domain: str) -> list[str]:
     return out
 
 
+def _ace_present(listing: str, ace_principal: str, ad_group_name: str) -> bool:
+    """The ACL listing has an ACE for the principal (DOMAIN\\group, group or SID)."""
+    group = str(ad_group_name or "").strip().lower()
+    principal = str(ace_principal or "").strip().lower()
+    for line in str(listing or "").splitlines():
+        if not line.upper().startswith("ACL:"):
+            continue
+        who = line[4:].split(":", 1)[0].strip().lower()
+        if who == principal or who.split("\\")[-1] == group:
+            return True
+    return False
+
+
 def _domain_from_username(username: str) -> str:
     raw = str(username or "").strip()
     if "\\" not in raw:
@@ -321,7 +334,28 @@ def apply_acl_via_group(params: Dict[str, Any]):
 
                 try:
                     p = run_samba(cmd, username=auth_user, password=password, capture_output=True, timeout=timeout, check=True)
+                    # smbcacls may exit 0 without writing anything: read the ACL back before reporting success
+                    listing = run_samba(
+                        ["smbcacls", share_path, rel_path],
+                        username=auth_user,
+                        password=password,
+                        capture_output=True,
+                        timeout=timeout,
+                        check=True,
+                    )
+                    if not _ace_present((listing.stdout or b"").decode(errors="ignore"), ace_principal, ad_group_name):
+                        attempts.append(
+                            {
+                                "principal": ace_principal,
+                                "rel_path": rel_path,
+                                "command": safe_cmd,
+                                "stdout": ((p.stdout or b"").decode(errors="ignore") or "")[:1000],
+                                "stderr": "ACE not present after apply",
+                            }
+                        )
+                        continue
                     details["applied"] = True
+                    details["verified"] = True
                     details["resolved_rel_path"] = rel_path
                     details["resolved_principal"] = ace_principal
                     details["selected_principal_type"] = _principal_type(ace_principal)

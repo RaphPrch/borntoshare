@@ -35,12 +35,15 @@ function formatMessage(type: ToastType, message: string) {
 function createToastStore() {
   const { subscribe, update } = writable<Toast[]>([]);
 
+  let lastId = 0;
+
   function remove(id: number) {
     update(t => t.filter(toast => toast.id !== id));
   }
 
   function show(type: ToastType, message: string, duration?: number): number {
-    const id = Date.now();
+    // Counter, not Date.now(): two toasts in the same millisecond must not share a key
+    const id = ++lastId;
 
     update(t => [...t, { id, type, message: formatMessage(type, message) }]);
     setTimeout(() => remove(id), duration ?? defaultDuration[type]);

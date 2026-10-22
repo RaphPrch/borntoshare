@@ -10,6 +10,8 @@ type AdSourceOption = {
   usersCount?: number;
   groupsCount?: number;
   objectsCount?: number;
+  /** Has an active snapshot: search and browse work */
+  searchable?: boolean;
 };
 
 const asBool = (value: unknown): boolean => {
@@ -23,12 +25,17 @@ const isAdLike = (row: any): boolean => {
   return type === 'ad' || type === 'ldap' || type === 'ldaps';
 };
 
-export const toAdSourceOptions = (payload: unknown): AdSourceOption[] =>
+const hasSearchableSnapshot = (r: any): boolean => {
+  const status = String(r?.last_snapshot_status ?? '').trim().toUpperCase();
+  return status === 'ACTIVE' || status === 'SUCCEEDED';
+};
+
+/** Active AD sources; only those with a searchable snapshot unless includeUnsearchable (then flagged searchable=false) */
+export const toAdSourceOptions = (payload: unknown, options: { includeUnsearchable?: boolean } = {}): AdSourceOption[] =>
   (Array.isArray(payload) ? payload : [])
     .filter((r: any) => {
       if (!isAdLike(r) || r?.is_active === false) return false;
-      const status = String(r?.last_snapshot_status ?? '').trim().toUpperCase();
-      return status === 'ACTIVE' || status === 'SUCCEEDED';
+      return options.includeUnsearchable === true || hasSearchableSnapshot(r);
     })
     .map((r: any) => ({
       id: Number(r?.id ?? 0),
@@ -43,7 +50,8 @@ export const toAdSourceOptions = (payload: unknown): AdSourceOption[] =>
       lastSnapshotAt: String(r?.last_snapshot_at ?? '').trim() || null,
       usersCount: Number(r?.last_snapshot_users_count ?? 0) || 0,
       groupsCount: Number(r?.last_snapshot_groups_count ?? 0) || 0,
-      objectsCount: Number(r?.last_snapshot_objects_count ?? 0) || 0
+      objectsCount: Number(r?.last_snapshot_objects_count ?? 0) || 0,
+      searchable: hasSearchableSnapshot(r)
     }))
     .filter((r: AdSourceOption) => Number.isFinite(r.id) && r.id > 0)
     ;

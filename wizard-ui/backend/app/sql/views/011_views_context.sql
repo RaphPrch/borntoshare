@@ -35,6 +35,7 @@ SELECT
   END AS endpoint_target,
 
   se.zone_id,
+  se.identity_source_id,
   (
     SELECT COUNT(*)
     FROM storage_roots sr

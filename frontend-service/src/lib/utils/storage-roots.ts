@@ -36,3 +36,14 @@ export const normalizeStorageRootRow = (row: any): StorageRootRow => ({
   storage_root_name: row?.storage_root_name ?? row?.name ?? null,
   storage_root_code: row?.storage_root_code ?? row?.code ?? null
 });
+
+/**
+ * Comparison key of a root path: \\srv\share\dir, //srv/share/dir and /srv/share/dir (normalized_root_path) are the same root.
+ */
+export const rootPathKey = (value: unknown): string =>
+  String(value ?? '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\/|\/$/g, '')
+    .toLowerCase();

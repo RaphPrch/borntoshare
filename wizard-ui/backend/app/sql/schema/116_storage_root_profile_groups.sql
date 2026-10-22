@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS storage_root_access_profiles (
   access_level_code VARCHAR(16) NOT NULL,          -- READ | WRITE
   group_name VARCHAR(128) NOT NULL,                -- sAMAccountName, fixed at creation
   group_external_id VARCHAR(190) NULL,             -- AD objectGUID/DN once the group exists
-  status VARCHAR(32) NOT NULL DEFAULT 'PENDING',   -- PENDING | SUCCEEDED | FAILED
+  status VARCHAR(32) NOT NULL DEFAULT 'PENDING',   -- PENDING | ADOPTING (existing group chosen by an admin) | SUCCEEDED | FAILED
   error_message TEXT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

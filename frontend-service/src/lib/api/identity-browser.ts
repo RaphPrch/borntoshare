@@ -378,7 +378,8 @@ export async function resolveIdentityBrowserContext(
 
 export async function listIdentityBrowserSources(fetchFn: FetchLike): Promise<IdentityBrowserSource[]> {
   const payload = await listIdentitySources(fetchFn);
-  return toAdSourceOptions(payload);
+  // Sources without snapshot are listed too, disabled, so that the user knows why they cannot be searched
+  return toAdSourceOptions(payload, { includeUnsearchable: true });
 }
 
 export async function loadIdentityTree(

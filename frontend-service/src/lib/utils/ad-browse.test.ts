@@ -52,8 +52,23 @@ function testKeepsOnlySearchableSnapshotSources(): void {
   assert(rows.find((row) => row.id === 6)?.groupsCount === 51, 'groups count should be preserved');
 }
 
+function testCanListUnsearchableSourcesFlagged(): void {
+  const rows = toAdSourceOptions(
+    [
+      { id: 6, name: 'With snapshot', type: 'ad', is_active: true, last_snapshot_status: 'ACTIVE' },
+      { id: 5, name: 'Without snapshot', type: 'ad', is_active: true, last_snapshot_status: null },
+      { id: 4, name: 'Inactive', type: 'ad', is_active: false, last_snapshot_status: 'ACTIVE' }
+    ],
+    { includeUnsearchable: true }
+  );
+  assert(rows.length === 2, 'inactive sources stay hidden');
+  assert(rows.find((row) => row.id === 6)?.searchable === true, 'source with snapshot is searchable');
+  assert(rows.find((row) => row.id === 5)?.searchable === false, 'source without snapshot is listed but not searchable');
+}
+
 async function run(): Promise<void> {
   testKeepsOnlySearchableSnapshotSources();
+  testCanListUnsearchableSourcesFlagged();
 }
 
 run().catch((err) => {

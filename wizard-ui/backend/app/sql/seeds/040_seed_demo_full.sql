@@ -297,7 +297,7 @@ VALUES
     'ad',
     'Demo Active Directory',
     'corp.demo',
-    'ldap',
+    'ldaps',
     'ad01.corp.demo',
     636,
     'DC=corp,DC=demo',

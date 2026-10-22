@@ -43,6 +43,8 @@ export const load: PageServerLoad = async (event) => {
     is_active: Boolean(row.is_active),
     zone_id: row.zone_id ?? null,
     zone_name: row.zone_name ?? null,
+    identity_source_id: (row as any).identity_source_id ?? null,
+    description: (row as any).description ?? null,
     roots_count: row.roots_count ?? null
   }));
 

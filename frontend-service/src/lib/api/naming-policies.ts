@@ -12,6 +12,13 @@ export type GlobalNamingPolicy = {
   rootcode_strategy: RootcodeStrategy;
 };
 
+/** Naming template of a zone; override_enabled=false falls back to the global template */
+export const putZoneNamingPolicy = (
+  fetchFn: FetchLike,
+  zoneId: number,
+  payload: { override_enabled: boolean; template: string | null }
+) => apiPutData<Record<string, unknown>>(fetchFn, `/naming-policies/zones/${zoneId}`, payload);
+
 export const putGlobalNamingPolicy = (
   fetchFn: FetchLike,
   payload: GlobalNamingPolicy

@@ -80,7 +80,9 @@ export async function bootstrapIdentityBrowser(
       ? contextSourceCandidate
       : null;
 
-  const fallbackSourceId = preferredSourceId ?? (Number(sources[0]?.id ?? 0) || null);
+  // Without a preference, open on the first source that can be searched
+  const firstSearchable = sources.find((src) => src?.searchable !== false) ?? sources[0];
+  const fallbackSourceId = preferredSourceId ?? (Number(firstSearchable?.id ?? 0) || null);
   const selectedSourceId = contextSourceId ?? fallbackSourceId;
   const resolvedRootDn = String(context.rootDn ?? '').trim() || null;
 

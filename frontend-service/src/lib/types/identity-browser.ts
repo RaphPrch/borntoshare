@@ -11,6 +11,7 @@ export type IdentityBrowserSource = {
   usersCount?: number;
   groupsCount?: number;
   objectsCount?: number;
+  searchable?: boolean;
 };
 
 export type IdentityTreeNode = {

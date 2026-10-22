@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { rootPathKey } from '$lib/utils/storage-roots';
   import { formatDateTime } from '$lib/utils/format';
   const ENDPOINT_STATE_VARIANTS = { success: 'success', warning: 'info', danger: 'error', muted: 'muted' } as const;
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -42,12 +43,7 @@
   };
 
   const normalized = (value: unknown) => String(value ?? '').trim().toLowerCase();
-  const pathKey = (endpointId: unknown, rootPath: unknown) =>
-    `${Number(endpointId ?? 0)}:${String(rootPath ?? '')
-      .trim()
-      .replace(/\\/g, '/')
-      .replace(/\/+$/, '')
-      .toLowerCase()}`;
+  const pathKey = (endpointId: unknown, rootPath: unknown) => `${Number(endpointId ?? 0)}:${rootPathKey(rootPath)}`;
 
   $: if (open && !wasOpen) {
     currentStep = 1;
