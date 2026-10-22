@@ -143,3 +143,43 @@ def test_collect_directory_snapshot_normalizes_member_external_ids(monkeypatch) 
 
     # `member_external_id` must contain projected external IDs, not raw DNs.
     assert all("CN=" not in m["member_external_id"] for m in payload["memberships"])
+
+
+def test_collect_directory_snapshot_keeps_every_member_of_a_group(monkeypatch) -> None:
+    conn = _Conn()
+    users = [
+        _Entry(f"CN={name},CN=Users,DC=corp,DC=local", {
+            "distinguishedName": f"CN={name},CN=Users,DC=corp,DC=local",
+            "objectGUID": f"guid-{name}",
+            "sAMAccountName": name,
+        })
+        for name in ("paul", "marc", "lucie")
+    ]
+    admins = _Entry("CN=Admins,OU=Groups,DC=corp,DC=local", {
+        "distinguishedName": "CN=Admins,OU=Groups,DC=corp,DC=local",
+        "objectGUID": "guid-admins",
+        "cn": "Admins",
+        # Multi-valued attribute, as ldap3 returns it
+        "member": [f"CN={name},CN=Users,DC=corp,DC=local" for name in ("paul", "marc", "lucie")],
+    })
+
+    def _fake_search(_conn, *, search_filter: str, **kwargs):
+        _conn.entries = users if "objectClass=user" in search_filter else [admins]
+        return []
+
+    monkeypatch.setattr(action.ldap_client, "connect", lambda **kw: conn)
+    monkeypatch.setattr(action.ldap_client, "bind", lambda *a, **kw: True)
+    monkeypatch.setattr(action.ldap_client, "search", _fake_search)
+
+    ok, _message, details = action.collect_directory_snapshot({
+        "snapshot_id": 1,
+        "identity_source_id": 1,
+        "host": "dc01",
+        "bind_dn": "CN=svc",
+        "password": "secret",
+        "base_dn": "DC=corp,DC=local",
+    })
+
+    assert ok is True
+    members = sorted(m["member_external_id"] for m in details["payload"]["memberships"] if m["group_external_id"] == "guid-admins")
+    assert members == ["guid-lucie", "guid-marc", "guid-paul"]

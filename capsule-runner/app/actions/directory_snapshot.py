@@ -61,6 +61,15 @@ def _row_attr(row: Any, key: str) -> Any:
     return value
 
 
+def _row_attr_all(row: Any, key: str) -> list[Any]:
+    """Every value of a multi-valued attribute (member…); _row_attr keeps only the first one."""
+    data = getattr(row, "entry_attributes_as_dict", {}) or {}
+    value = data.get(key)
+    if value is None:
+        return []
+    return list(value) if isinstance(value, (list, tuple)) else [value]
+
+
 def _norm_key(value: Any) -> str:
     return str(value or "").strip().lower()
 
@@ -231,10 +240,7 @@ def collect_directory_snapshot(params: dict[str, Any]):
                 }
             )
 
-            members = (_row_attr(entry, "member") or [])
-            if not isinstance(members, list):
-                members = [members]
-            for member_dn in members:
+            for member_dn in _row_attr_all(entry, "member"):
                 member_ref = str(member_dn or "").strip()
                 if not member_ref:
                     continue
