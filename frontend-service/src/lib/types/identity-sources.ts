@@ -10,6 +10,10 @@ export type IdentitySourceRow = {
   base_dn?: string;
   bind_dn?: string;
   bind_password_ref?: string;
+  domain_name?: string | null;
+  service_accounts?: Partial<
+    Record<'snapshot' | 'auth' | 'provisioning', { bind_dn?: string; has_password?: boolean; bind_password_ref?: string | null }>
+  >;
   issuer_url?: string;
   client_id?: string;
   status?: string;
@@ -32,6 +36,7 @@ export type IdentitySourceRow = {
     import_groups?: boolean;
     auth_mode?: 'ntlm' | 'kerberos' | string;
     snapshot_enabled?: boolean;
+    provisioning?: boolean;
   };
   updated_at?: string | null;
 };

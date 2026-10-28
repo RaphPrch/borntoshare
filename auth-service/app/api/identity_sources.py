@@ -127,16 +127,13 @@ def _store_ad_bind_password(payload: ADSecretUpsertPayload | dict[str, Any]) -> 
 
     if provided_ref:
         ref = provided_ref
+    elif data.get("name") or data.get("host"):
+        # One reference per source and per service account (the name carries the purpose),
+        # so a dedicated account never overwrites the password of another account
+        name = data.get("name") or data.get("host")
+        ref = f"identity-sources/{_slugify(str(name))}/bind-password"
     else:
-        # Prefer explicit env var if you want deterministic naming across environments.
-        default_ref = (settings.DEFAULT_AD_BIND_PASSWORD_REF or "").strip()
-        if default_ref:
-            ref = default_ref
-        else:
-            # Broker-backed reference (not stored in core-service).
-            # Use name/host to generate a stable-ish key.
-            name = data.get("name") or data.get("host") or "ad"
-            ref = f"identity-sources/{_slugify(str(name))}/bind-password"
+        ref = (settings.DEFAULT_AD_BIND_PASSWORD_REF or "").strip() or "identity-sources/ad/bind-password"
 
     try:
         ref = store_secret(ref, str(bind_password))

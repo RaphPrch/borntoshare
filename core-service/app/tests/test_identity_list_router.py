@@ -3,6 +3,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+from fastapi import HTTPException
+
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
@@ -125,9 +128,10 @@ class _UpdateDB:
 
 
 class _CreateDB:
-    def __init__(self) -> None:
+    def __init__(self, capabilities: dict | None = None) -> None:
         self.calls: list[tuple[str, dict | None]] = []
         self.commit_calls = 0
+        self.capabilities = capabilities
 
     def execute(self, stmt, params=None):
         sql = str(getattr(stmt, "text", stmt))
@@ -181,7 +185,10 @@ class _CreateDB:
 
     def get(self, model, pk):
         if getattr(model, "__name__", "") == "IdentitySource" and int(pk) == 5:
-            return type("IdentitySource", (), {"id": 5, "type": "ad", "is_active": True})()
+            src = type("IdentitySource", (), {"id": 5, "type": "ad", "is_active": True})()
+            if self.capabilities is not None:
+                src.capabilities = self.capabilities
+            return src
         return None
 
     def commit(self):
@@ -472,6 +479,31 @@ def test_create_identity_directory_group_assigns_role(monkeypatch) -> None:
     assert any("UPDATE directory_groups" in sql for sql, _ in db.calls)
     assert any("INSERT INTO identity_roles" in sql and call_params.get("directory_group_id") == 71 for sql, call_params in db.calls)
     assert any(entry.get("action") == "identity.group_access_granted" for entry in logged)
+
+
+def test_create_identity_directory_group_is_refused_when_group_import_is_disabled(monkeypatch) -> None:
+    db = _CreateDB(capabilities={"auth": True, "import_groups": False})
+    monkeypatch.setattr(router, "log_activity", lambda *_a, **_kw: None)
+
+    request = type("Req", (), {"headers": {}})()
+    with pytest.raises(HTTPException) as exc:
+        __import__("asyncio").run(
+            router.create_identity(
+                request=request,
+                payload={
+                    "identity_type": "group",
+                    "auth_source": "ad",
+                    "identity_source_id": 5,
+                    "application_role": "platform_admin",
+                    "principal": {"type": "group", "external_id": "CN=Platform Admins,OU=Groups,DC=corp,DC=local"},
+                },
+                db=db,
+            )
+        )
+
+    assert exc.value.status_code == 409
+    assert not any("INSERT INTO identity_roles" in sql for sql, _ in db.calls)
+    assert db.commit_calls == 0
 
 
 def test_delete_identity_rejects_default_local_admin(monkeypatch) -> None:

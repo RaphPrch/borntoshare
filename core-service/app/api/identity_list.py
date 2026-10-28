@@ -6,6 +6,8 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, sta
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
+from app.services.identity_source_fields import source_capabilities
+from app.services.identity_bindings import sync_identity_bindings
 from app.core.db import get_db
 from app.data.models.identity_sources import IdentitySource
 from app.api.internal_auth_local import _hash_b2s_password
@@ -719,6 +721,8 @@ async def create_identity(
 
         if target_id is None or not row:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Directory user creation failed")
+        # Link to the directory user of the snapshot (group roles, effective access)
+        sync_identity_bindings(db, identity_id=target_id)
 
         _set_subject_application_role(
             db=db,
@@ -730,6 +734,12 @@ async def create_identity(
         identity_source = _pick_identity_source(db, payload.get("identity_source_id"))
         if identity_source is None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No active AD identity source is configured")
+
+        if not bool(source_capabilities(identity_source).get("import_groups", True)):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Importing groups is disabled for this identity source",
+            )
 
         external_id = _clean_text(principal.get("external_id")) or _clean_text(principal.get("dn")) or _clean_text(principal.get("username"))
         display_name = _clean_text(principal.get("display_name")) or _clean_text(principal.get("name")) or external_id

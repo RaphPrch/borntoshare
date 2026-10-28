@@ -28,6 +28,15 @@
     type IdentitySourceInternalMeta
   } from '$lib/utils/identity-sources';
   import { jobsStore } from '$lib/stores/jobs.store';
+  import ServiceAccountOverride from './ServiceAccountOverride.svelte';
+  import {
+    buildServiceAccountsPayload,
+    capabilityEnabled,
+    domainFromBaseDn,
+    draftsForCapabilities,
+    emptyServiceAccountDrafts,
+    serviceAccountDraftError
+  } from '$lib/utils/service-accounts';
   import { snapshotStore } from '$lib/stores/snapshot.store';
 
   export let onTest: (payload: IdentitySourcePayload & { _secret?: string; bind_password?: string | null }) => Promise<{
@@ -152,9 +161,13 @@
     bind_dn: '',
     bind_password_ref: null,
     // Snapshot on by default: importing users and groups searches the directory snapshot
-    capabilities: { auth: true, import_groups: true, snapshot_enabled: true, auth_mode: 'ntlm' },
+    domain_name: '',
+    capabilities: { auth: true, import_groups: true, snapshot_enabled: true, provisioning: false, auth_mode: 'ntlm' },
     is_active: true
   };
+
+  // Dedicated service account per capability (empty: the main account above is used)
+  let serviceAccounts = emptyServiceAccountDrafts();
 
   let protocolChoice: 'ldap' | 'ldaps' = payload.protocol ?? 'ldap';
 
@@ -197,6 +210,7 @@
       host,
       port: payload.port ?? null,
       base_dn: payload.base_dn?.trim() || null,
+      domain_name: payload.domain_name?.trim() || domainFromBaseDn(payload.base_dn) || null,
       bind_dn: bindDn,
       bind_password_ref: payload.bind_password_ref || null,
       capabilities: normalizedCapabilities,
@@ -507,7 +521,13 @@
     lastSnapshotMembershipsCount = null;
     resetSnapshotInitUi();
     try {
-      const created = await onCreate(normalizePayload());
+      const createPayload = normalizePayload();
+      createPayload.service_accounts = await buildServiceAccountsPayload(
+        fetch,
+        draftsForCapabilities(serviceAccounts, payload.capabilities),
+        `identity-source/${createPayload.protocol ?? 'ldaps'}/${createPayload.host || createPayload.name || 'ad'}`
+      );
+      const created = await onCreate(createPayload);
 
       const sourceId = Number(created?.id ?? created?.source_id ?? created?.identity_source_id ?? 0);
       if (Number.isFinite(sourceId) && sourceId > 0) {
@@ -605,7 +625,19 @@
     !!payload.bind_dn &&
     !!(uiBindPassword || payload.bind_password_ref) &&
     (!adHostInput || isValidIPv4(adHostInput) || isValidHostname(adHostInput)) &&
+    !serviceAccountDraftError(draftsForCapabilities(serviceAccounts, payload.capabilities)) &&
     !isDuplicateSourceName();
+
+  $: suggestedDomain = domainFromBaseDn(payload.base_dn);
+
+  function purposeLabel(purpose: 'snapshot' | 'auth' | 'provisioning'): string {
+    if (purpose === 'snapshot') return t('Snapshot inventory');
+    if (purpose === 'auth') return t('Authenticate users');
+    return t('Manage AD groups');
+  }
+  $: dedicatedPurposes = (['snapshot', 'auth', 'provisioning'] as const).filter((purpose) =>
+    capabilityEnabled(payload.capabilities, purpose)
+  );
 
   // If user starts typing a new bind password, force regeneration of secret_ref
   // so the newly entered value is used instead of a previously resolved ref.
@@ -718,8 +750,24 @@
               </span>
               <input class="cap-switch" type="checkbox" bind:checked={payload.capabilities.snapshot_enabled} />
             </label>
+
+            <label class="cap-option">
+              <span class="cap-option-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
+              <span class="cap-option-copy">
+                <strong>{t('Manage AD groups')}</strong>
+                <small>{t('Create AD groups and add members when access requests are approved.')}</small>
+              </span>
+              <input class="cap-switch" type="checkbox" bind:checked={payload.capabilities.provisioning} />
+            </label>
           </div>
 
+          <p class="capabilities-sub capabilities-note">
+            {t('Each capability can use its own service account (next step), e.g. a read-only account for the inventory and a delegated account to manage groups.')}
+          </p>
+
+          {#if payload.capabilities.provisioning && !payload.capabilities.import_groups}
+            <div class="hint">{t('Groups created in AD are imported automatically: enable “Import groups” to grant roles through them.')}</div>
+          {/if}
           {#if payload.capabilities.snapshot_enabled}
             <div class="hint ok">{t('Snapshot inventory will add one additional configuration step.')}</div>
           {/if}
@@ -813,6 +861,20 @@
               {/if}
             </div>
             <div class="field">
+              <label for="identity-source-domain">{t('Domain name')}</label>
+              <input
+                id="identity-source-domain"
+                bind:value={payload.domain_name}
+                placeholder={suggestedDomain || 'example.test'}
+                autocomplete="off"
+              />
+              <span class="hint">{t('Users can sign in as user@domain or DOMAIN\\user. Empty: derived from the base DN.')}</span>
+            </div>
+            <div class="field field--full">
+              <span class="field-label">{t('Main service account')}</span>
+              <span class="hint">{t('Used by every capability that has no dedicated account.')}</span>
+            </div>
+            <div class="field">
               <label for="identity-source-bind-dn">{t('Bind DN')}</label>
               <input
                 id="identity-source-bind-dn"
@@ -855,6 +917,46 @@
                 <span class="hint ok">{t('Kerberos detected. Prerequisites: DNS SRV Kerberos, synchronized NTP, ports 88/464 open, krb5.conf mounted in the runner.')}</span>
               {/if}
             </div>
+
+            {#if dedicatedPurposes.length}
+              <div class="field field--full service-accounts">
+                <span class="field-label">{t('Service accounts per capability (optional)')}</span>
+                <span class="hint">{t('Least privilege: give each capability only the rights it needs.')}</span>
+                {#if dedicatedPurposes.includes('snapshot')}
+                  <ServiceAccountOverride
+                    idPrefix="wizard-sa-snapshot"
+                    placeholder="svc-read@example.test"
+                    icon="bi-cloud-arrow-down"
+                    title={t('Snapshot inventory')}
+                    description={t('Read-only account that collects users, groups and memberships.')}
+                    bind:draft={serviceAccounts.snapshot}
+                    showErrors={showStep3Errors}
+                  />
+                {/if}
+                {#if dedicatedPurposes.includes('auth')}
+                  <ServiceAccountOverride
+                    idPrefix="wizard-sa-auth"
+                    placeholder="svc-auth@example.test"
+                    icon="bi-person-check"
+                    title={t('Authenticate users')}
+                    description={t('Read-only account that finds the user before checking the password.')}
+                    bind:draft={serviceAccounts.auth}
+                    showErrors={showStep3Errors}
+                  />
+                {/if}
+                {#if dedicatedPurposes.includes('provisioning')}
+                  <ServiceAccountOverride
+                    idPrefix="wizard-sa-provisioning"
+                    placeholder="svc-prov@example.test"
+                    icon="bi-people"
+                    title={t('Manage AD groups')}
+                    description={t('Account delegated on the target OUs: create groups and change their members.')}
+                    bind:draft={serviceAccounts.provisioning}
+                    showErrors={showStep3Errors}
+                  />
+                {/if}
+              </div>
+            {/if}
           </div>
         {/if}
 
@@ -1076,6 +1178,24 @@
             <div class="summary-row"><strong>{t('Host / IP:')}</strong> {payload.host || adHostInput || '—'}</div>
             <div class="summary-row"><strong>{t('Base DN:')}</strong> {payload.base_dn || '—'}</div>
             <div class="summary-row"><strong>{t('Bind DN:')}</strong> {payload.bind_dn || '—'}</div>
+            <div class="summary-row"><strong>{t('Domain name:')}</strong> {payload.domain_name?.trim() || suggestedDomain || '—'}</div>
+            <div class="summary-row">
+              <strong>{t('Capabilities:')}</strong>
+              {[
+                payload.capabilities.snapshot_enabled ? t('Snapshot inventory') : null,
+                payload.capabilities.auth ? t('Authenticate users') : null,
+                payload.capabilities.import_groups ? t('Import groups') : null,
+                payload.capabilities.provisioning ? t('Manage AD groups') : null
+              ].filter(Boolean).join(' · ') || '—'}
+            </div>
+            {#each dedicatedPurposes as purpose (purpose)}
+              {#if serviceAccounts[purpose].dedicated && serviceAccounts[purpose].bind_dn.trim()}
+                <div class="summary-row">
+                  <strong>{t('Dedicated account ({purpose}):', { purpose: purposeLabel(purpose) })}</strong>
+                  {serviceAccounts[purpose].bind_dn}
+                </div>
+              {/if}
+            {/each}
             <div class="summary-row">
               <strong>{t('Snapshot:')}</strong>
               <StatusBadge
@@ -1362,9 +1482,17 @@
     color: #64748b;
   }
 
+  .capabilities-note {
+    margin: 12px 0 8px;
+  }
+
+  .service-accounts {
+    gap: 8px;
+  }
+
   .cap-card {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     background: transparent;
     border: 0;

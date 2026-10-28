@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 
 from app.api import identity_sources
 from app.core.direct_call import call_route
+from app.services.identity_source_accounts import account_for
 from app.core.values import positive_int, unwrap_data_dict, unwrap_list
 
 
@@ -24,7 +25,8 @@ def _norm_port(port: Any, protocol: str) -> int:
     return 636 if protocol == "ldaps" else 389
 
 
-async def build_identity_source_capsule_context(identity_source_id: int) -> dict[str, Any]:
+async def build_identity_source_capsule_context(identity_source_id: int, purpose: str = "snapshot") -> dict[str, Any]:
+    """LDAP context of a capsule job; the account is the one of the capability (purpose), else the source's."""
     source = unwrap_data_dict(
         await call_route(identity_sources.get_identity_source_internal, source_id=int(identity_source_id))
     )
@@ -38,12 +40,22 @@ async def build_identity_source_capsule_context(identity_source_id: int) -> dict
             detail="Only AD identity sources are supported",
         )
 
+    if purpose == "provisioning" and not bool((source.get("capabilities") or {}).get("provisioning", source.get("write_enabled"))):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error_code": "AD_PROVISIONING_DISABLED",
+                "message": "Managing AD groups is disabled for this identity source",
+                "identity_source_id": int(identity_source_id),
+            },
+        )
+
     protocol = _norm_protocol(source.get("protocol"))
     payload = {
         "identity_source_id": int(identity_source_id),
         "host": str(source.get("host") or "").strip(),
-        "bind_dn": str(source.get("bind_dn") or "").strip(),
-        "secret_ref": str(source.get("bind_password_ref") or "").strip(),
+        "bind_dn": str(account_for(source, purpose)[0] or "").strip(),
+        "secret_ref": str(account_for(source, purpose)[1] or "").strip(),
         "protocol": protocol,
         "port": _norm_port(source.get("port"), protocol),
         "base_dn": str(source.get("base_dn") or "").strip(),

@@ -16,6 +16,16 @@
   import type { IdentitySourceRow } from '$lib/types/identity-sources';
   import { toast } from '$lib/stores/toast';
   import { notifyError, toUiAppError } from '$lib/errors';
+  import ServiceAccountOverride from './ServiceAccountOverride.svelte';
+  import {
+    buildServiceAccountsPayload,
+    domainFromBaseDn,
+    draftsForCapabilities,
+    emptyServiceAccountDrafts,
+    serviceAccountDraftError,
+    serviceAccountDraftsFrom,
+    type ServiceAccountDrafts
+  } from '$lib/utils/service-accounts';
 
   /** Source to edit, already merged with its internal metadata. Only AD / LDAP sources exist. */
   export let open = false;
@@ -39,10 +49,12 @@
     host: '',
     port: 636,
     base_dn: '',
+    domain_name: '',
     bind_dn: '',
     bind_password_ref: '',
     bind_password: '',
-    capabilities: { auth: true, import_groups: true, snapshot_enabled: false },
+    capabilities: { auth: true, import_groups: true, snapshot_enabled: false, provisioning: false },
+    service_accounts: emptyServiceAccountDrafts(),
     is_active: true
   });
 
@@ -67,14 +79,17 @@
       host: source.host ?? '',
       port: source.port ?? defaultPort(source.protocol),
       base_dn: source.base_dn ?? '',
+      domain_name: source.domain_name ?? '',
       bind_dn: source.bind_dn ?? '',
       bind_password_ref: source.bind_password_ref ?? '',
       bind_password: '',
       capabilities: {
         auth: source.capabilities?.auth ?? true,
         import_groups: source.capabilities?.import_groups ?? true,
-        snapshot_enabled: source.capabilities?.snapshot_enabled ?? false
+        snapshot_enabled: source.capabilities?.snapshot_enabled ?? false,
+        provisioning: source.capabilities?.provisioning ?? false
       },
+      service_accounts: serviceAccountDraftsFrom(source.service_accounts),
       is_active: source.is_active ?? true
     };
     showErrors = false;
@@ -90,6 +105,16 @@
     form.port = defaultPort(value);
   };
 
+  const accountsChanged = (src: IdentitySourceRow, drafts: ServiceAccountDrafts): boolean => {
+    const stored = serviceAccountDraftsFrom(src.service_accounts);
+    return (Object.keys(drafts) as (keyof ServiceAccountDrafts)[]).some(
+      (purpose) =>
+        drafts[purpose].dedicated !== stored[purpose].dedicated ||
+        (drafts[purpose].dedicated &&
+          (normalize(drafts[purpose].bind_dn) !== normalize(stored[purpose].bind_dn) || normalize(drafts[purpose].password) !== ''))
+    );
+  };
+
   const hasChanges = (src: IdentitySourceRow | null, f: typeof form): boolean => {
     if (!src) return false;
     return (
@@ -98,17 +123,26 @@
       normalize(f.host) !== normalize(src.host) ||
       Number(f.port) !== Number(src.port || defaultPort(src.protocol)) ||
       normalize(f.base_dn) !== normalize(src.base_dn) ||
+      normalize(f.domain_name) !== normalize(src.domain_name) ||
       normalize(f.bind_dn) !== normalize(src.bind_dn) ||
       normalize(f.bind_password_ref) !== normalize(src.bind_password_ref) ||
       normalize(f.bind_password) !== '' ||
       f.capabilities.auth !== (src.capabilities?.auth ?? true) ||
       f.capabilities.import_groups !== (src.capabilities?.import_groups ?? true) ||
       f.capabilities.snapshot_enabled !== (src.capabilities?.snapshot_enabled ?? false) ||
+      f.capabilities.provisioning !== (src.capabilities?.provisioning ?? false) ||
+      accountsChanged(src, f.service_accounts) ||
       f.is_active !== (src.is_active ?? true)
     );
   };
 
-  $: requiredOk = !!normalize(form.display_name) && !!normalize(form.host) && !!normalize(form.base_dn) && !!normalize(form.bind_dn);
+  $: requiredOk =
+    !!normalize(form.display_name) &&
+    !!normalize(form.host) &&
+    !!normalize(form.base_dn) &&
+    !!normalize(form.bind_dn) &&
+    !serviceAccountDraftError(draftsForCapabilities(form.service_accounts, form.capabilities));
+  $: suggestedDomain = domainFromBaseDn(form.base_dn);
   $: canSave = requiredOk && hasChanges(source, form);
 
   $: endpointLabel = (() => {
@@ -213,13 +247,15 @@
     host: normalize(form.host) || null,
     port: form.port ? Number(form.port) : null,
     base_dn: normalize(form.base_dn) || null,
+    domain_name: normalize(form.domain_name) || null,
     bind_dn: normalize(form.bind_dn) || null,
     bind_password_ref: normalize(form.bind_password_ref) || null,
     bind_password: normalize(form.bind_password) || null,
     capabilities: {
       auth: form.capabilities.auth,
       import_groups: form.capabilities.import_groups,
-      snapshot_enabled: form.capabilities.snapshot_enabled
+      snapshot_enabled: form.capabilities.snapshot_enabled,
+      provisioning: form.capabilities.provisioning
     },
     is_active: form.is_active
   });
@@ -235,6 +271,12 @@
     actionError = null;
     try {
       const payload = connectionPayload();
+      // Only new passwords are stored; a disabled capability drops its dedicated account
+      const service_accounts = await buildServiceAccountsPayload(
+        fetch,
+        draftsForCapabilities(form.service_accounts, form.capabilities),
+        `identity-source/${payload.protocol}/${payload.host || payload.name || 'ad'}`
+      );
       if (!payload.bind_password_ref && payload.bind_password) {
         const resolved = await resolveCredentials(fetch, {
           username: payload.bind_dn,
@@ -244,7 +286,7 @@
         payload.bind_password_ref = resolved.secret_ref ?? null;
         payload.bind_password = null;
       }
-      await updateIdentitySource(fetch, source.id, payload as Partial<IdentitySourcePayload>);
+      await updateIdentitySource(fetch, source.id, { ...payload, service_accounts } as Partial<IdentitySourcePayload>);
       toast.success(t('Source updated.'));
       const savedId = source.id;
       onClose();
@@ -401,6 +443,11 @@
             <FieldError>{t('Required')}</FieldError>
           {/if}
         </label>
+        <label class="identity-edit-field identity-edit-field--full">
+          <span>{t('Domain name')}</span>
+          <input class="identity-edit-input" bind:value={form.domain_name} placeholder={suggestedDomain || 'example.test'} />
+          <small class="identity-edit-hint">{t('Users can sign in as user@domain or DOMAIN\\user. Empty: derived from the base DN.')}</small>
+        </label>
         <div class="identity-edit-note identity-edit-field--full">
           <i class="bi bi-info-circle" aria-hidden="true"></i>
           {form.protocol === 'ldaps'
@@ -413,7 +460,7 @@
     <section class="identity-edit-card">
       <div class="identity-edit-section-head">
         <h3>{t('Credentials')}</h3>
-        <p>{t('Service account used to bind to the directory.')}</p>
+        <p>{t('Main service account. Used by every capability that has no dedicated account.')}</p>
       </div>
       <div class="identity-edit-grid">
         <label class="identity-edit-field">
@@ -476,6 +523,14 @@
           <input type="checkbox" bind:checked={form.capabilities.snapshot_enabled} />
         </label>
         <label class="identity-edit-capability">
+          <span class="identity-edit-capability-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
+          <span>
+            <strong>{t('Manage AD groups')}</strong>
+            <small>{t('Create AD groups and add members when access requests are approved.')}</small>
+          </span>
+          <input type="checkbox" bind:checked={form.capabilities.provisioning} />
+        </label>
+        <label class="identity-edit-capability">
           <span class="identity-edit-capability-icon"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
           <span>
             <strong>{t('Source active')}</strong>
@@ -485,6 +540,50 @@
         </label>
       </div>
     </section>
+
+    {#if form.capabilities.snapshot_enabled || form.capabilities.auth || form.capabilities.provisioning}
+      <section class="identity-edit-card">
+        <div class="identity-edit-section-head">
+          <h3>{t('Service accounts per capability')}</h3>
+          <p>{t('Least privilege: give each capability only the rights it needs.')}</p>
+        </div>
+        <div class="identity-edit-accounts">
+          {#if form.capabilities.snapshot_enabled}
+            <ServiceAccountOverride
+              idPrefix="edit-sa-snapshot"
+              placeholder="svc-read@example.test"
+              icon="bi-cloud-arrow-down"
+              title={t('Snapshot inventory')}
+              description={t('Read-only account that collects users, groups and memberships.')}
+              bind:draft={form.service_accounts.snapshot}
+              {showErrors}
+            />
+          {/if}
+          {#if form.capabilities.auth}
+            <ServiceAccountOverride
+              idPrefix="edit-sa-auth"
+              placeholder="svc-auth@example.test"
+              icon="bi-person-check"
+              title={t('Authenticate users')}
+              description={t('Read-only account that finds the user before checking the password.')}
+              bind:draft={form.service_accounts.auth}
+              {showErrors}
+            />
+          {/if}
+          {#if form.capabilities.provisioning}
+            <ServiceAccountOverride
+              idPrefix="edit-sa-provisioning"
+              placeholder="svc-prov@example.test"
+              icon="bi-people"
+              title={t('Manage AD groups')}
+              description={t('Account delegated on the target OUs: create groups and change their members.')}
+              bind:draft={form.service_accounts.provisioning}
+              {showErrors}
+            />
+          {/if}
+        </div>
+      </section>
+    {/if}
 
     <section class="identity-edit-card">
       <div class="identity-edit-section-head identity-edit-section-head--inline">
@@ -540,6 +639,12 @@
 <style>
   .identity-edit-shell {
     color: #071638;
+  }
+
+  .identity-edit-accounts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .identity-edit-tested,

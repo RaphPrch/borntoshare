@@ -164,3 +164,84 @@ def test_build_ad_config_accepts_ldap_when_identity_source_declares_it(monkeypat
     )
 
     assert cfg.url == "ldap://192.168.100.40:389"
+
+
+def _source(**overrides) -> dict:
+    return {
+        "id": 5,
+        "protocol": "ldaps",
+        "host": "dc01.example.test",
+        "port": 636,
+        "base_dn": "DC=example,DC=test",
+        "bind_dn": "CN=svc-b2s,DC=example,DC=test",
+        "bind_password_ref": "sm://ad/main",
+        "auth_enabled": True,
+        **overrides,
+    }
+
+
+def test_build_ad_config_uses_the_dedicated_auth_account(monkeypatch) -> None:
+    from app.services.providers import ad_ldap as module
+
+    resolved: list[str] = []
+    monkeypatch.setattr(module, "_resolve_bind_password", lambda src, target=None: resolved.append(src["bind_password_ref"]) or "pw")
+
+    cfg = module._build_ad_config(
+        _source(service_accounts={"auth": {"bind_dn": "CN=svc-auth,DC=example,DC=test", "bind_password_ref": "sm://ad/auth"}}),
+        target=None,
+    )
+
+    assert cfg.bind_user == "CN=svc-auth,DC=example,DC=test"
+    assert resolved == ["sm://ad/auth"]
+
+
+def test_build_ad_config_falls_back_to_the_source_account(monkeypatch) -> None:
+    from app.services.providers import ad_ldap as module
+
+    resolved: list[str] = []
+    monkeypatch.setattr(module, "_resolve_bind_password", lambda src, target=None: resolved.append(src["bind_password_ref"]) or "pw")
+
+    # Incomplete dedicated account: never mix its DN with the password of another account
+    cfg = module._build_ad_config(
+        _source(service_accounts={"auth": {"bind_dn": "CN=svc-auth,DC=example,DC=test"}, "snapshot": {"bind_dn": "x", "bind_password_ref": "y"}}),
+        target=None,
+    )
+
+    assert cfg.bind_user == "CN=svc-b2s,DC=example,DC=test"
+    assert resolved == ["sm://ad/main"]
+
+
+def test_a_refused_user_bind_is_invalid_credentials(monkeypatch) -> None:
+    from ldap3.core.exceptions import LDAPBindError
+
+    from app.services.providers import ad_ldap as module
+
+    def _refuse(*_args, **_kwargs):
+        raise LDAPBindError("invalidCredentials")
+
+    monkeypatch.setattr(module, "Connection", _refuse)
+
+    with pytest.raises(InvalidCredentials):
+        module.ADLDAPProvider._bind_user(object(), "CN=Paul,DC=example,DC=test", "wrong")
+
+
+def test_tls_verification_requires_the_ca_file(monkeypatch, tmp_path) -> None:
+    import ssl
+
+    from app.services.providers import ad_ldap as module
+    from app.services.providers.base import ProviderMisconfigured
+
+    monkeypatch.setattr(module.settings, "LDAP_TLS_VERIFY", False)
+    assert module._tls_config() is None
+
+    monkeypatch.setattr(module.settings, "LDAP_TLS_VERIFY", True)
+    monkeypatch.setattr(module.settings, "LDAP_CA_FILE", str(tmp_path / "missing.pem"))
+    with pytest.raises(ProviderMisconfigured):
+        module._tls_config()
+
+    ca = tmp_path / "ad-ca.pem"
+    ca.write_text("-----BEGIN CERTIFICATE-----\n")
+    monkeypatch.setattr(module.settings, "LDAP_CA_FILE", str(ca))
+    tls = module._tls_config()
+    assert tls.validate == ssl.CERT_REQUIRED
+    assert tls.ca_certs_file == str(ca)

@@ -217,11 +217,24 @@ async def core_resolve_ad_identity(
     username: str | None = None,
     email: str | None = None,
     identity_source_id: int | None = None,
+    provision_if_entitled: bool = False,
 ) -> Dict[str, Any]:
     payload = {
         "external_id": external_id,
         "username": username,
         "email": email,
         "identity_source_id": identity_source_id,
+        "provision_if_entitled": provision_if_entitled,
     }
     return await core_post("/api/internal/identities/resolve-ad", payload)
+
+
+async def core_resolve_directory_login(
+    *,
+    username: str | None = None,
+    upn_hint: str | None = None,
+    domain_hint: str | None = None,
+) -> Dict[str, Any]:
+    """AD source whose last snapshot knows a user who was not imported (login through an entitled group)."""
+    payload = {"username": username, "upn_hint": upn_hint, "domain_hint": domain_hint}
+    return await core_post("/api/internal/identities/resolve-directory-login", payload)

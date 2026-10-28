@@ -23,7 +23,8 @@
    * On les transforme UNE fois en UiError
    */
   $: if (data?.form?.error) {
-    const appError = toAppError(data.form.error, { source: 'auth' });
+    // The server action returns English messages: translate them for display
+    const appError = toAppError(t(String(data.form.error)), { source: 'auth' });
     pageError = appError;
     logAppError(appError, { action: 'login.page.form_error' });
     notifyError(appError);

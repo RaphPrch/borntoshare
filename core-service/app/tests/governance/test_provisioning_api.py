@@ -242,7 +242,8 @@ def test_ensure_ad_group_member_queues_membership_job(monkeypatch) -> None:
         assert group_ref == "CN=GRP_FINANCE_READ,OU=Groups,DC=corp,DC=local"
         return 9
 
-    async def _fake_build_identity_source_capsule_context(identity_source_id: int) -> dict:
+    async def _fake_build_identity_source_capsule_context(identity_source_id: int, purpose: str = "snapshot") -> dict:
+        assert purpose == "provisioning"
         assert identity_source_id == 9
         return {
             "identity_source_id": 9,
@@ -290,7 +291,8 @@ def test_remove_ad_group_member_queues_membership_remove_job(monkeypatch) -> Non
         assert group_ref == "CN=GRP_FINANCE_READ,OU=Groups,DC=corp,DC=local"
         return 9
 
-    async def _fake_build_identity_source_capsule_context(identity_source_id: int) -> dict:
+    async def _fake_build_identity_source_capsule_context(identity_source_id: int, purpose: str = "snapshot") -> dict:
+        assert purpose == "provisioning"
         assert identity_source_id == 9
         return {
             "identity_source_id": 9,

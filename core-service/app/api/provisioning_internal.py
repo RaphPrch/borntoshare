@@ -16,6 +16,7 @@ from app.data.repositories.provisioning_jobs_repo import ProvisioningJobsRepo
 from app.data.repositories.storage_root_access_profiles_repo import StorageRootAccessProfilesRepo
 from app.services.directory_effective_memberships_service import DirectoryEffectiveMembershipsService
 from app.services.directory_projection_service import DirectoryProjectionService
+from app.services.identity_bindings import sync_identity_bindings
 from app.services.health_events import record_health_event
 from app.services.probe_results import ProbeResultService
 from app.services.provisioning_ou_sql import effective_group_ou_case_sql
@@ -603,6 +604,10 @@ def _apply_directory_snapshot_success(
     )
     if activated:
         DirectoryEffectiveMembershipsService(db).rebuild_for_snapshot(snapshot_id=int(snapshot_id))
+        # New directory users: link the AD identities of the source to them (group roles)
+        source_id = int(getattr(job_row, "identity_source_id", 0) or 0)
+        if source_id > 0:
+            sync_identity_bindings(db, identity_source_id=source_id)
 
 
 def _apply_directory_snapshot_failure(

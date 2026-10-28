@@ -53,12 +53,28 @@ class _FakeQuery:
         return list(self._rows)
 
 
-class _FakeDB:
-    def __init__(self, rows: list[_FakeIdentitySource]) -> None:
+class _FakeAccountRows:
+    def __init__(self, rows: list[dict]) -> None:
         self._rows = rows
+
+    def mappings(self):
+        return self
+
+    def all(self):
+        return list(self._rows)
+
+
+class _FakeDB:
+    def __init__(self, rows: list[_FakeIdentitySource], accounts: list[dict] | None = None) -> None:
+        self._rows = rows
+        self._accounts = accounts or []
 
     def query(self, _model):
         return _FakeQuery(self._rows)
+
+    def execute(self, *_args, **_kwargs):
+        # identity_source_service_accounts
+        return _FakeAccountRows(self._accounts)
 
 
 def test_get_active_identity_source_requires_auth_enabled() -> None:
@@ -102,3 +118,18 @@ def test_resolve_by_domain_ignores_non_auth_enabled_rows() -> None:
 
     assert out["id"] == 32
     assert out["auth_enabled"] is True
+
+
+def test_payload_for_auth_service_carries_the_dedicated_accounts() -> None:
+    db = _FakeDB(
+        [_FakeIdentitySource(row_id=10, auth_enabled=True)],
+        accounts=[{"purpose": "auth", "bind_dn": "CN=svc-auth,DC=example,DC=test", "bind_password_ref": "sm://ad/svc-auth"}],
+    )
+
+    out = router.get_active_identity_source(type="ad", db=db)
+
+    assert out["service_accounts"] == {
+        "auth": {"bind_dn": "CN=svc-auth,DC=example,DC=test", "bind_password_ref": "sm://ad/svc-auth"}
+    }
+    # The account of the source stays the fallback of the other capabilities
+    assert out["bind_dn"] == "CN=svc,OU=Users,DC=corp,DC=local"

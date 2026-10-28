@@ -51,6 +51,7 @@ def test_login_sets_session_and_principal_cookie_and_no_session_in_body(monkeypa
     monkeypatch.setattr(auth_api, "_attach_rbac_roles", _attach_roles)
     monkeypatch.setattr(auth_api, "_bind_ad_user_to_local_identity", _bind_ad)
     monkeypatch.setattr(auth_api, "core_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
+    monkeypatch.setattr(auth_api, "core_resolve_directory_login", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
 
     with _new_client() as client:
         res = client.post(
@@ -134,6 +135,7 @@ def test_login_local_invalid_credentials_returns_401(monkeypatch) -> None:
 
     monkeypatch.setattr(auth_api, "choose_provider", lambda _: _Provider())
     monkeypatch.setattr(auth_api, "core_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
+    monkeypatch.setattr(auth_api, "core_resolve_directory_login", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
 
     with _new_client() as client:
         res = client.post(
@@ -158,6 +160,7 @@ def test_login_local_provider_unavailable_returns_503(monkeypatch) -> None:
 
     monkeypatch.setattr(auth_api, "choose_provider", lambda _: _Provider())
     monkeypatch.setattr(auth_api, "core_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
+    monkeypatch.setattr(auth_api, "core_resolve_directory_login", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
 
     with _new_client() as client:
         res = client.post(
@@ -692,3 +695,113 @@ def test_internal_token_error_contract_is_normalized() -> None:
     assert payload["error"]["code"] == "UNAUTHENTICATED"
     assert payload["error"]["message"] == "Invalid internal token"
     assert isinstance(payload["error"]["details"], dict)
+
+
+def _directory_user(username: str):
+    from app.schemas.auth import UserInfo
+
+    return UserInfo(
+        identity_id=None,
+        identity_source_id=5,
+        username=username,
+        display_name=username,
+        email=f"{username}@example.test",
+        external_id=f"CN={username},CN=Users,DC=example,DC=test",
+        auth_source="ad",
+        is_admin=False,
+        roles=[],
+    )
+
+
+def _directory_login_setup(monkeypatch, *, resolve_ad: dict) -> dict:
+    """User not imported, known in the snapshot of source 5."""
+    from app.api import auth as auth_api
+
+    seen: dict = {}
+
+    class _ADProvider:
+        name = "ad"
+
+        async def authenticate_for_source(self, *, source_id: int, username: str, password: str):
+            seen["provider_source_id"] = source_id
+            return _directory_user(username)
+
+    async def _resolve_ad(**kwargs):
+        seen["resolve_ad"] = kwargs
+        return resolve_ad
+
+    async def _same(user):
+        return user
+
+    monkeypatch.setattr(auth_api, "choose_provider", lambda name: seen.setdefault("provider", name) and _ADProvider())
+    monkeypatch.setattr(auth_api, "core_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
+    monkeypatch.setattr(
+        auth_api,
+        "core_resolve_directory_login",
+        lambda **_kwargs: asyncio.sleep(0, result={"found": True, "identity_source_id": 5}),
+    )
+    monkeypatch.setattr(auth_api, "core_resolve_ad_identity", _resolve_ad)
+    monkeypatch.setattr(auth_api, "_post_auth_enrich_user", _same)
+    monkeypatch.setattr(auth_api, "_attach_rbac_roles", _same)
+    return seen
+
+
+def test_login_of_a_directory_user_member_of_an_entitled_group(monkeypatch) -> None:
+    seen = _directory_login_setup(monkeypatch, resolve_ad={"found": True, "identity_id": "114", "is_active": True})
+
+    with _new_client() as client:
+        res = client.post("/auth/login", json={"username": "marc.admin", "password": "secret"})
+
+    assert res.status_code == 200
+    assert seen["provider"] == "ad"
+    assert seen["provider_source_id"] == 5
+    assert seen["resolve_ad"]["provision_if_entitled"] is True
+
+
+def test_login_of_a_directory_user_without_entitled_group_is_refused(monkeypatch) -> None:
+    _directory_login_setup(monkeypatch, resolve_ad={"found": False, "reason_code": "NOT_ENTITLED"})
+
+    with _new_client(raise_server_exceptions=False) as client:
+        res = client.post("/auth/login", json={"username": "lucie.user", "password": "secret"})
+
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "ACCOUNT_NOT_AUTHORIZED"
+
+
+def test_local_login_still_works_when_the_directory_lookup_is_unavailable(monkeypatch) -> None:
+    from app.api import auth as auth_api
+    from app.schemas.auth import UserInfo
+    from app.services.providers.base import AuthUnavailable
+
+    class _Provider:
+        name = "local"
+
+        async def authenticate(self, username: str, password: str):
+            return UserInfo(
+                identity_id="1",
+                username=username,
+                display_name="Admin",
+                email=None,
+                external_id=None,
+                auth_source="local",
+                is_admin=True,
+                roles=["platform_admin"],
+            )
+
+    async def _down(**_kwargs):
+        raise AuthUnavailable("core-service timeout")
+
+    async def _same(user):
+        return user
+
+    monkeypatch.setattr(auth_api, "choose_provider", lambda _: _Provider())
+    monkeypatch.setattr(auth_api, "core_resolve_login_identity", lambda **_kwargs: asyncio.sleep(0, result={"found": False}))
+    monkeypatch.setattr(auth_api, "core_resolve_directory_login", _down)
+    monkeypatch.setattr(auth_api, "_post_auth_enrich_user", _same)
+    monkeypatch.setattr(auth_api, "_attach_rbac_roles", _same)
+    monkeypatch.setattr(auth_api, "_bind_ad_user_to_local_identity", _same)
+
+    with _new_client() as client:
+        res = client.post("/auth/login", json={"username": "admin", "password": "secret"})
+
+    assert res.status_code == 200

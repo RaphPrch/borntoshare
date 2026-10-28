@@ -8,6 +8,7 @@ from app.core.db import get_db
 from app.core.logging import get_logger
 from app.core.internal_auth import require_internal
 from app.data.models.identity_sources import IdentitySource
+from app.services.identity_source_accounts import load_accounts
 from app.services.identity_source_fields import (
     identity_source_columns,
     source_auth_enabled,
@@ -76,7 +77,7 @@ def _domain_aliases(value: str | None) -> set[str]:
     return aliases
 
 
-def _to_payload(src: IdentitySource) -> dict:
+def _to_payload(src: IdentitySource, db: Session | None = None) -> dict:
     caps = source_capabilities(src)
     auth_enabled = source_auth_enabled(src, caps)
     auth_priority = source_auth_priority(src)
@@ -99,8 +100,11 @@ def _to_payload(src: IdentitySource) -> dict:
             "auth": auth_enabled,
             "import_groups": bool(caps.get("import_groups", True)),
             "snapshot_enabled": bool(caps.get("snapshot_enabled", False)),
+            "provisioning": bool(getattr(src, "write_enabled", False)),
             "auth_mode": caps.get("auth_mode", "ntlm"),
         },
+        # Dedicated accounts by capability (auth-service uses "auth"), with their secret references
+        "service_accounts": load_accounts(db, int(src.id)) if db is not None else {},
         "is_active": bool(src.is_active),
     }
 
@@ -141,7 +145,7 @@ def resolve_active_identity_source_by_domain(
         "identity source resolved by domain",
         extra={"id": src.id, "type": src.type, "domain": domain},
     )
-    return _to_payload(src)
+    return _to_payload(src, db)
 
 
 @router.get(
@@ -158,7 +162,7 @@ def get_identity_source_by_id(
         raise HTTPException(status_code=404, detail="Identity source not found")
     if not _source_is_active(src) or not source_auth_enabled(src):
         raise HTTPException(status_code=404, detail="Identity source not active for authentication")
-    return _to_payload(src)
+    return _to_payload(src, db)
 
 
 @router.get(
@@ -180,6 +184,6 @@ def get_active_identity_source(
         logger.warning("identity source not found", extra={"type": type})
         raise HTTPException(status_code=404, detail="No active auth-enabled identity source")
 
-    payload = _to_payload(src)
+    payload = _to_payload(src, db)
     logger.info("identity source resolved", extra={"id": src.id, "type": src.type})
     return payload

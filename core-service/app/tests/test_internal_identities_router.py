@@ -17,6 +17,8 @@ class _FakeDB:
 
 
 class _FakeRows:
+    rowcount = 0
+
     def __init__(self, rows):
         self._rows = list(rows)
 

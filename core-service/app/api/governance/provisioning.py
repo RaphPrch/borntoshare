@@ -361,8 +361,15 @@ async def queue_ad_access_grant(
             reason=str(exc),
         ) from exc
     try:
-        capsule_ctx = await build_identity_source_capsule_context(int(source_id))
+        capsule_ctx = await build_identity_source_capsule_context(int(source_id), purpose="provisioning")
     except HTTPException as exc:
+        if isinstance(exc.detail, dict) and exc.detail.get("error_code") == "AD_PROVISIONING_DISABLED":
+            raise ProvisioningStepError(
+                "AD_PROVISIONING_DISABLED",
+                "Managing AD groups is disabled for this identity source.",
+                hint="Enable “Manage AD groups” on the identity source.",
+                identity_source_id=int(source_id),
+            ) from exc
         raise ProvisioningStepError(
             "IDENTITY_SOURCE_INCOMPLETE",
             "The Active Directory identity source is not usable for provisioning.",
@@ -444,7 +451,7 @@ async def _queue_group_membership_job(
         identity_source_id=payload.identity_source_id,
         group_ref=payload.group_ref,
     )
-    capsule_ctx = await build_identity_source_capsule_context(identity_source_id)
+    capsule_ctx = await build_identity_source_capsule_context(identity_source_id, purpose="provisioning")
 
     capsule_payload: dict[str, Any] = {
         **capsule_ctx,

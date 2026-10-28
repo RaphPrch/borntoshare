@@ -77,7 +77,8 @@
 
         toast.show(
           ft.type ?? 'error',
-          ft.message,
+          // Action messages are English: translate them for display
+          t(ft.message),
           ft.duration ?? 3500
         );
       }

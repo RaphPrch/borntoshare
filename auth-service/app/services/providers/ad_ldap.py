@@ -30,12 +30,15 @@ logger = get_logger(__name__)
 
 try:
     # Optional dependency
-    from ldap3 import Connection, Server, ALL, SUBTREE  # type: ignore
+    from ldap3 import Connection, Server, ALL, SUBTREE, Tls  # type: ignore
+    from ldap3.core.exceptions import LDAPBindError  # type: ignore
 except ImportError:  # pragma: no cover
     Connection = None  # type: ignore
     Server = None  # type: ignore
     ALL = None  # type: ignore
     SUBTREE = None  # type: ignore
+    Tls = None  # type: ignore
+    LDAPBindError = Exception  # type: ignore
 
 
 def _format_object_guid(value) -> str | None:
@@ -191,14 +194,20 @@ def _build_ad_config(src: dict, *, target: str | None) -> ADConfig:
         raise ProviderMisconfigured("AD identity source missing host")
 
     url = f"{protocol}://{host}:{port}"
-    bind_password = _resolve_bind_password(src, target=target)
+    # Account of the "authenticate users" capability, else the account of the source
+    auth_account = (src.get("service_accounts") or {}).get("auth") or {}
+    if auth_account.get("bind_dn") and auth_account.get("bind_password_ref"):
+        bind_user, bind_ref = str(auth_account["bind_dn"]), str(auth_account["bind_password_ref"])
+    else:
+        bind_user, bind_ref = str(src.get("bind_dn") or ""), str(src.get("bind_password_ref") or "")
+    bind_password = _resolve_bind_password({"bind_password_ref": bind_ref}, target=target)
 
     return ADConfig(
         source_id=int(src.get("id") or 0) or None,
         url=url,
         base_dn=str(src.get("base_dn") or ""),
         user_filter=settings.AD_USER_FILTER,
-        bind_user=str(src.get("bind_dn") or ""),
+        bind_user=bind_user,
         bind_password=bind_password,
         user_dn_template=settings.AD_USER_DN_TEMPLATE,
     )
@@ -323,18 +332,27 @@ class ADLDAPProvider(AuthProvider):
         return await asyncio.to_thread(self._authenticate_blocking, cfg, username, password)
 
     def _build_server(self, cfg: ADConfig):
-        return Server(cfg.url, get_info=ALL, connect_timeout=settings.AD_CONNECT_TIMEOUT_SECONDS)
+        return Server(cfg.url, get_info=ALL, connect_timeout=settings.AD_CONNECT_TIMEOUT_SECONDS, tls=_tls_config())
+
+    @staticmethod
+    def _bind_user(server, user_dn: str, password: str) -> None:
+        """Bind as the user: a refused bind means wrong credentials, not an unavailable directory."""
+        try:
+            with Connection(server, user=user_dn, password=password, auto_bind=True):
+                pass
+        except LDAPBindError as exc:
+            raise InvalidCredentials("Invalid credentials") from exc
 
     def _search_user(self, cfg: ADConfig, server, raw_username: str, normalized_user: str) -> _ADSearchResult | None:
         if not (cfg.bind_user and cfg.bind_password):
             return None
 
-        with Connection(
-            server,
-            user=cfg.bind_user,
-            password=cfg.bind_password,
-            auto_bind=True,
-        ) as search_conn:
+        try:
+            search_conn = Connection(server, user=cfg.bind_user, password=cfg.bind_password, auto_bind=True)
+        except LDAPBindError as exc:
+            # The service account is refused: configuration issue, not the user's credentials
+            raise ProviderMisconfigured("AD service account bind failed (authenticate users)") from exc
+        with search_conn:
             attrs = [
                 "distinguishedName",
                 "displayName",
@@ -391,8 +409,7 @@ class ADLDAPProvider(AuthProvider):
                 upn_domain=upn_domain or "",
             )
 
-            with Connection(server, user=user_dn, password=password, auto_bind=True):
-                pass
+            self._bind_user(server, user_dn, password)
 
             display_name = None
             email = None
@@ -428,8 +445,7 @@ class ADLDAPProvider(AuthProvider):
         if found.disabled:
             raise InvalidCredentials("Invalid credentials")
 
-        with Connection(server, user=found.user_dn, password=password, auto_bind=True):
-            pass
+        self._bind_user(server, found.user_dn, password)
 
         return UserInfo(
             identity_id=None,
@@ -608,6 +624,21 @@ class ADLDAPProvider(AuthProvider):
         new_password: str,
     ) -> None:
         raise NotImplementedError("Password change is handled by AD policies / self-service")
+
+
+def _tls_config():
+    """Certificate check of ldaps:// servers when LDAP_TLS_VERIFY is on (CA in LDAP_CA_FILE)."""
+    if Tls is None or not settings.LDAP_TLS_VERIFY:
+        return None
+    import ssl
+
+    ca_file = (settings.LDAP_CA_FILE or "").strip() or None
+    if ca_file:
+        import os
+
+        if not os.path.isfile(ca_file):
+            raise ProviderMisconfigured(f"LDAP CA certificate file not found: {ca_file} (LDAP_CA_FILE)")
+    return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=ca_file)
 
 
 def _resolve_bind_password(src: dict, *, target: str | None) -> str:

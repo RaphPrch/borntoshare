@@ -22,6 +22,7 @@
     "test:identity-browser-api": "npx tsx ./src/lib/api/identity-browser.test.ts",
     "test:entity-status-mapper": "npx tsx ./src/lib/mappers/entity-status.mapper.test.ts",
     "test:ad-browse": "npx tsx ./src/lib/utils/ad-browse.test.ts",
+    "test:service-accounts": "npx tsx ./src/lib/utils/service-accounts.test.ts",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "overrides": {

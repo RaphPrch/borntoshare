@@ -1,7 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { enhance } from '$app/forms';
-  import { toast } from '$lib/stores/toast';
   import LanguageSwitcher from '$lib/components/ui/LanguageSwitcher.svelte';
 
   export let form: { error?: string } | null = {};
@@ -70,24 +69,10 @@
         autocomplete="off"
         use:enhance={() => {
           loading = true;
-          return async ({ result, update }) => {
+          return async ({ update }) => {
             try {
+              // The public layout shows the toast returned by the action
               await update();
-              const data =
-                (result.type === 'failure' || result.type === 'success')
-                  ? (result.data as Record<string, unknown> | undefined)
-                  : undefined;
-
-              const toastPayload = data?.toast as
-                | { type?: string; message?: string; duration?: number }
-                | undefined;
-              const message =
-                toastPayload?.message ?? (data?.error as string | undefined);
-
-              if (message) {
-                const type = toastPayload?.type === 'success' ? 'success' : 'error';
-                toast.show(type, message, toastPayload?.duration ?? 4000);
-              }
             } finally {
               loading = false;
             }

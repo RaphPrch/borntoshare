@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     AD_USER_DN_TEMPLATE: str = ""
     AD_CONNECT_TIMEOUT_SECONDS: int = 5
     ALLOW_INSECURE_LDAP: bool = False
+    # LDAPS certificate check of the domain controllers (production: true + CA of the AD, as capsule-runner)
+    LDAP_TLS_VERIFY: bool = False
+    LDAP_CA_FILE: Optional[str] = None
 
     # =================================================
     # 🔐 Internal service-to-service authentication (V1)

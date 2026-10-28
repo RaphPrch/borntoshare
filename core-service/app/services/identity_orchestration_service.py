@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 from fastapi import HTTPException, Request, status
 
+from app.services.identity_source_accounts import account_for
 from app.api import identity_list, identity_sources, internal_directory_snapshots, internal_identities, provisioning_internal
 from app.core.direct_call import call_route
 from app.core.logging import get_logger
@@ -267,8 +268,9 @@ async def run_identity_snapshot(incoming: dict[str, Any], request_id: str | None
         "snapshot_id": snapshot_id,
         "identity_source_id": int(source_id),
         "host": source.get("host"),
-        "bind_dn": source.get("bind_dn"),
-        "secret_ref": source.get("bind_password_ref"),
+        # Account of the snapshot capability (else the account of the source)
+        "bind_dn": account_for(source, "snapshot")[0],
+        "secret_ref": account_for(source, "snapshot")[1],
         "base_dn": source.get("base_dn"),
         "protocol": protocol,
         "port": port,
@@ -561,8 +563,8 @@ async def discover_identity(incoming: dict[str, Any], request_id: str | None = N
         "host": source.get("host"),
         "port": source.get("port"),
         "protocol": source.get("protocol"),
-        "username": source.get("bind_dn"),
-        "secret_ref": source.get("bind_password_ref"),
+        "username": account_for(source, "snapshot")[0],
+        "secret_ref": account_for(source, "snapshot")[1],
         "base_dn": source.get("base_dn"),
         "search_scope": str(incoming.get("search_scope") or "subtree").strip().lower(),
     }

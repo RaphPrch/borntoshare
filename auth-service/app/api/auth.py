@@ -36,6 +36,7 @@ from app.services.internal_clients import (
     core_post,
     core_resolve_login_identity,
     core_resolve_ad_identity,
+    core_resolve_directory_login,
 )
 
 from app.schemas.auth import (
@@ -519,13 +520,26 @@ async def _bind_ad_user_to_local_identity(user: UserInfo) -> UserInfo:
         username=user.username,
         email=user.email,
         identity_source_id=user.identity_source_id,
+        provision_if_entitled=True,
     )
 
     if not bool((data or {}).get("found")):
+        # Valid AD credentials, but neither imported nor member of a group that has a BornToShare role
+        log_event(
+            logger,
+            logging.WARNING,
+            "AUTH_LOGIN_FAILED",
+            actor=user.username,
+            provider="ad",
+            source_id=user.identity_source_id,
+            outcome=str((data or {}).get("reason_code") or "not_authorized").lower(),
+            status_code=403,
+            error_code="FORBIDDEN",
+        )
         raise _http_error(
             status.HTTP_403_FORBIDDEN,
-            code="FORBIDDEN",
-            message="AD user is not imported in BornToShare",
+            code="ACCOUNT_NOT_AUTHORIZED",
+            message="This account is not authorized in BornToShare",
         )
 
     if (data or {}).get("is_active") is False:
@@ -633,7 +647,35 @@ async def _authenticate_login(payload: LoginRequest, request: Request) -> tuple[
         )
     else:
         requested_provider = _choose_login_provider_name(None, payload.username)
-        if requested_provider == "ad":
+        directory_source_id: int | None = None
+        try:
+            directory = await core_resolve_directory_login(
+                username=normalized_login.get("username"),
+                upn_hint=normalized_login.get("upn_hint"),
+                domain_hint=normalized_login.get("domain_hint"),
+            )
+            if bool((directory or {}).get("found")):
+                directory_source_id = int((directory or {}).get("identity_source_id") or 0) or None
+        except IdentitySourceNotFound:
+            directory_source_id = None
+        except AuthUnavailable as exc:
+            # Directory lookup unavailable: keep the default provider (local break-glass still works)
+            log_event(
+                logger,
+                logging.WARNING,
+                "AUTH_DIRECTORY_LOOKUP_UNAVAILABLE",
+                request_id=rid,
+                actor=normalized_login.get("username") or payload.username,
+                outcome="skipped",
+                message=str(exc),
+            )
+            directory_source_id = None
+        if directory_source_id:
+            # Known in the directory of an auth-enabled source: the AD decides on the password,
+            # BornToShare then grants access only through a group that has a role
+            requested_provider = "ad"
+            resolved_identity = {"found": False, "source_id": directory_source_id}
+        elif requested_provider == "ad":
             log_event(
                 logger,
                 logging.WARNING,
@@ -674,7 +716,6 @@ async def _authenticate_login(payload: LoginRequest, request: Request) -> tuple[
     try:
         if (
             requested_provider == "ad"
-            and bool((resolved_identity or {}).get("found"))
             and (resolved_identity or {}).get("source_id") is not None
             and hasattr(provider, "authenticate_for_source")
         ):

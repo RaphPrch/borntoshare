@@ -45,14 +45,30 @@ au choix, déléguer « Écrire l'attribut member » sur ce groupe, ou déplacer
 
 ## Prérequis Active Directory
 
-### Compte de service
+### Capacités et comptes de service
 
-C'est le compte de la source d'identité AD liée à l'endpoint de stockage. Il ne doit pas être administrateur du domaine.
-Sur l'OU de chaque zone, déléguer seulement :
+Chaque source d'identité AD active seulement les capacités dont elle a besoin
+(Administration › Sources d'identité › Modifier, ou l'assistant de création) :
+
+| Capacité | Rôle | Compte utilisé | Droits AD nécessaires |
+|---|---|---|---|
+| Inventaire par snapshot | collecte utilisateurs, groupes et appartenances | compte « snapshot » | lecture (par défaut pour un utilisateur authentifié) |
+| Authentifier les utilisateurs | connexion à BornToShare avec le compte AD | compte « auth » | lecture |
+| Importer les groupes | ajout de groupes AD et attribution de rôles | — | — |
+| Gérer les groupes AD | création des groupes et des membres à l'approbation | compte « provisioning » | délégation ci-dessous |
+
+Chaque capacité peut avoir son **compte dédié** (DN de liaison et mot de passe). Sans compte dédié, elle utilise le
+compte principal de la source. On peut ainsi donner un compte en lecture seule à l'inventaire et à la connexion,
+et réserver le compte délégué à la gestion des groupes.
+Les mots de passe sont rangés dans le secret broker, un secret par compte. L'interface ne les relit jamais.
+
+Si « Gérer les groupes AD » est désactivée, l'approbation s'arrête sur `AD_PROVISIONING_DISABLED`.
+
+Le compte « provisioning » ne doit pas être administrateur du domaine. Sur l'OU de chaque zone, déléguer seulement :
 
 ```bat
-dsacls "OU=B2S Groups,DC=corp,DC=example" /I:T /G "CORP\svc-borntoshare:CC;group"
-dsacls "OU=B2S Groups,DC=corp,DC=example" /I:S /G "CORP\svc-borntoshare:WP;member;group"
+dsacls "OU=B2S Groups,DC=corp,DC=example" /I:T /G "CORP\svc-b2s-prov:CC;group"
+dsacls "OU=B2S Groups,DC=corp,DC=example" /I:S /G "CORP\svc-b2s-prov:WP;member;group"
 ```
 
 - la 1ʳᵉ ligne autorise la création d'objets Groupe dans l'OU ;
@@ -62,9 +78,29 @@ La lecture des utilisateurs, accordée par défaut aux utilisateurs authentifié
 
 Le compte de l'endpoint de stockage, qui applique l'ACL NTFS, doit pouvoir modifier les permissions des dossiers partagés.
 
+## Connexion des utilisateurs AD et rôles par groupe
+
+La capacité « Authentifier les utilisateurs » doit être active. L'utilisateur se connecte avec `utilisateur`,
+`utilisateur@domaine` ou `DOMAINE\utilisateur`. Le nom de domaine de la source (déduit du DN de base s'il est vide)
+sert à choisir la bonne source quand il y en a plusieurs.
+
+L'AD vérifie le mot de passe. BornToShare donne ensuite l'accès :
+
+- **utilisateur importé** (Identités › Créer › Utilisateur de l'annuaire) : accès avec son rôle ;
+- **membre d'un groupe AD qui a un rôle** (Identités › Créer › Groupe de l'annuaire, puis choisir le rôle,
+  par exemple Administrateur de la plateforme) : l'identité est créée à la 1ʳᵉ connexion. Les groupes imbriqués comptent ;
+- sinon : refus « Ce compte n'est pas autorisé dans BornToShare ».
+
+Les appartenances viennent du **dernier snapshot** de la source : après un ajout ou un retrait dans l'AD,
+lancer une synchronisation (ou attendre la suivante). Un utilisateur entré par un groupe perd l'accès dès qu'un snapshot
+montre qu'il n'est plus dans aucun groupe qui a un rôle. Un utilisateur importé explicitement garde son accès.
+
+Si « Importer les groupes » est désactivée, les rôles donnés par les groupes ne s'appliquent plus.
+
 ### LDAPS vérifié
 
-En production, capsule-runner vérifie le certificat des contrôleurs de domaine :
+En production, capsule-runner (gestion des groupes) et auth-service (connexion des utilisateurs) vérifient le certificat
+des contrôleurs de domaine. Les deux lisent le même fichier :
 
 1. déposer le certificat de l'autorité de certification AD (format PEM) dans `capsule-runner/certs/ad-ca.pem` ;
 2. dans `.env` :
@@ -86,8 +122,9 @@ certains certificats autogénérés ne l'ont pas et sont refusés (`AD_TLS_FAILE
 | `ZONE_GROUP_OU_MISSING` | aucune OU pour les groupes de la zone | la définir dans Zones › Provisionnement |
 | `AD_TARGET_OU_NOT_FOUND` | l'OU de la zone n'existe pas dans l'AD | corriger l'OU ou la créer |
 | `IDENTITY_SOURCE_REQUIRED` | l'endpoint n'a pas de source d'identité AD | lier une source d'identité AD à l'endpoint |
+| `AD_PROVISIONING_DISABLED` | « Gérer les groupes AD » est désactivée sur la source | l'activer sur la source d'identité |
 | `IDENTITY_SOURCE_INCOMPLETE` | hôte, compte, mot de passe ou DN de base manquant | compléter la source d'identité |
-| `AD_BIND_FAILED` | le compte de service ne peut pas se connecter | vérifier compte et mot de passe |
+| `AD_BIND_FAILED` | le compte de service ne peut pas se connecter | vérifier le compte « provisioning » (ou le compte principal) et son mot de passe |
 | `AD_TLS_FAILED` | certificat du contrôleur refusé | vérifier `LDAP_CA_FILE` et le nom d'hôte |
 | `AD_GROUP_CREATE_DENIED` | pas le droit de créer des groupes dans l'OU | délégation « CC;group » ci-dessus |
 | `AD_MEMBER_WRITE_DENIED` | pas le droit de modifier les membres du groupe | délégation « WP;member » ci-dessus |

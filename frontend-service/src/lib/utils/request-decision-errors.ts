@@ -90,6 +90,10 @@ const AD_PROVISIONING_ERRORS: Record<string, { message: () => string; hint?: () 
   IDENTITY_SOURCE_REQUIRED: {
     message: () => t('The storage endpoint has no Active Directory identity source.')
   },
+  AD_PROVISIONING_DISABLED: {
+    message: () => t('Managing AD groups is disabled for the identity source of this storage endpoint.'),
+    hint: () => t('Enable “Manage AD groups” on the identity source.')
+  },
   IDENTITY_SOURCE_INCOMPLETE: {
     message: () => t('The Active Directory identity source is incomplete (host, account, password or base DN).')
   },

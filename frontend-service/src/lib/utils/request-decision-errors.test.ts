@@ -75,12 +75,21 @@ function testBulkMapperUsesFirstFailedItem(): void {
   assert(mapped.title === 'Decision blocked', 'invalid permission should map to blocked title');
 }
 
+function testProvisioningDisabledPointsToTheIdentitySource(): void {
+  const mapped = mapAccessRequestDecisionError({ detail: { code: 'AD_PROVISIONING_DISABLED' }, reason: null });
+
+  assert(mapped.code === 'AD_PROVISIONING_DISABLED', 'code should be kept');
+  assert(mapped.message.includes('Managing AD groups is disabled'), 'message should explain the disabled capability');
+  assert(String(mapped.hint).includes('Manage AD groups'), 'hint should name the capability to enable');
+}
+
 async function run(): Promise<void> {
   testGroupNameMissingMappedToFriendlyMessage();
   testInvalidAccessLevelIsBlocked();
   testReasonOnlyFallsBackToBackendMessage();
   testUnknownErrorFallsBackToGenericMessage();
   testBulkMapperUsesFirstFailedItem();
+  testProvisioningDisabledPointsToTheIdentitySource();
 }
 
 run().catch((err) => {

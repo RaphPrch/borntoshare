@@ -4,9 +4,10 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
+from app.services.identity_bindings import sync_identity_bindings
 from app.core.db import get_db
 from app.core.internal_auth import require_internal
 
@@ -24,6 +25,8 @@ class ResolveAdIdentityRequest(BaseModel):
     email: str | None = Field(default=None)
     identity_source_id: int | None = Field(default=None, gt=0)
     create_if_missing: bool = Field(default=False)
+    # Login of a user who was not imported: create the identity only if a group of the user has a role
+    provision_if_entitled: bool = Field(default=False)
 
 
 class ResolveAdIdentityResponse(BaseModel):
@@ -128,6 +131,34 @@ def resolve_ad_identity_batch(
     )
 
 
+def _is_entitled_by_group(db: Session, *, source_id: int, candidates: list[str]) -> bool:
+    """The directory user (last snapshot) is a member, directly or through nested groups, of a group
+    that has a BornToShare role, on an active source that allows importing groups."""
+    row = db.execute(
+        text(
+            """
+            SELECT 1
+            FROM directory_users du
+            JOIN directory_effective_memberships dem ON dem.directory_user_id = du.id
+            JOIN identity_roles ir ON ir.directory_group_id = dem.directory_group_id
+            JOIN identity_sources s ON s.id = du.identity_source_id
+            WHERE du.identity_source_id = :source_id
+              AND s.is_active = 1
+              AND COALESCE(JSON_VALUE(s.capabilities, '$.import_groups'), 'true') NOT IN ('false', '0')
+              AND (
+                LOWER(TRIM(COALESCE(du.external_id, ''))) IN :candidates
+                OR LOWER(TRIM(COALESCE(du.username, ''))) IN :candidates
+                OR LOWER(TRIM(COALESCE(du.upn, ''))) IN :candidates
+                OR LOWER(TRIM(COALESCE(du.email, ''))) IN :candidates
+              )
+            LIMIT 1
+            """
+        ).bindparams(bindparam("candidates", expanding=True)),
+        {"source_id": int(source_id), "candidates": [c.strip().lower() for c in candidates]},
+    ).first()
+    return row is not None
+
+
 @router.post(
     "/resolve-ad",
     response_model=ResolveAdIdentityResponse,
@@ -158,7 +189,8 @@ def resolve_ad_identity(
                   i.display_name,
                   i.email,
                   i.external_id,
-                  i.is_active
+                  i.is_active,
+                  COALESCE(i.provisioning_source, 'explicit') AS provisioning_source
                 FROM identities i
                 WHERE i.auth_source = 'ad'
                   AND (:source_id IS NULL OR i.source_id = :source_id)
@@ -181,6 +213,17 @@ def resolve_ad_identity(
     for candidate in candidates:
         row = _find_existing_identity(candidate)
         if row:
+            # Created only because of a group: access ends when the user leaves the entitled groups
+            if (
+                bool(payload.provision_if_entitled)
+                and str(row.get("provisioning_source") or "") == "group_entitlement"
+                and source_id is not None
+                and not _is_entitled_by_group(db, source_id=source_id, candidates=candidates)
+            ):
+                return ResolveAdIdentityResponse(found=False, reason_code="NOT_ENTITLED")
+            # Existing identity: make sure it is linked to its directory user (group roles)
+            if sync_identity_bindings(db, identity_id=int(row["id"])):
+                db.commit()
             return ResolveAdIdentityResponse(
                 found=True,
                 reason_code="FOUND_EXISTING",
@@ -192,7 +235,13 @@ def resolve_ad_identity(
                 external_id=row.get("external_id"),
             )
 
-    if bool(payload.create_if_missing) and source_id is not None:
+    provisioning_source = "explicit"
+    if bool(payload.provision_if_entitled) and not bool(payload.create_if_missing) and source_id is not None:
+        if not _is_entitled_by_group(db, source_id=source_id, candidates=candidates):
+            return ResolveAdIdentityResponse(found=False, reason_code="NOT_ENTITLED")
+        provisioning_source = "group_entitlement"
+
+    if (bool(payload.create_if_missing) or provisioning_source == "group_entitlement") and source_id is not None:
         snapshot_user = db.execute(
             text(
                 """
@@ -263,7 +312,7 @@ def resolve_ad_identity(
                           :is_active,
                           1,
                           'internal_resolve_ad',
-                          'explicit',
+                          :provisioning_source,
                           :status,
                           NOW(),
                           NOW()
@@ -278,11 +327,13 @@ def resolve_ad_identity(
                         "email": email,
                         "is_active": 1 if is_active else 0,
                         "status": "active" if is_active else "inactive",
+                        "provisioning_source": provisioning_source,
                     },
                 )
-                db.commit()
-
                 created_row = _find_existing_identity(external_id)
+                if created_row:
+                    sync_identity_bindings(db, identity_id=int(created_row["id"]))
+                db.commit()
                 if created_row:
                     return ResolveAdIdentityResponse(
                         found=True,
@@ -295,6 +346,64 @@ def resolve_ad_identity(
                         external_id=created_row.get("external_id"),
                     )
     return ResolveAdIdentityResponse(found=False, reason_code="NOT_FOUND")
+
+
+class ResolveDirectoryLoginRequest(BaseModel):
+    username: str | None = None
+    upn_hint: str | None = None
+    domain_hint: str | None = None
+
+
+class ResolveDirectoryLoginResponse(BaseModel):
+    found: bool
+    identity_source_id: int | None = None
+
+
+@router.post(
+    "/resolve-directory-login",
+    response_model=ResolveDirectoryLoginResponse,
+    summary="AD source whose last snapshot knows a user not imported yet (internal, login)",
+)
+def resolve_directory_login(
+    payload: ResolveDirectoryLoginRequest,
+    db: Session = Depends(get_db),
+) -> ResolveDirectoryLoginResponse:
+    username = str(payload.username or "").strip().lower()
+    upn_hint = str(payload.upn_hint or "").strip().lower()
+    domain_hint = str(payload.domain_hint or "").strip().lower()
+    if not username and not upn_hint:
+        return ResolveDirectoryLoginResponse(found=False)
+    row = db.execute(
+        text(
+            """
+            SELECT du.identity_source_id
+            FROM directory_users du
+            JOIN identity_sources s ON s.id = du.identity_source_id
+            WHERE s.is_active = 1
+              AND s.auth_enabled = 1
+              AND LOWER(COALESCE(s.type, '')) = 'ad'
+              AND (
+                (:username <> '' AND LOWER(COALESCE(du.username, '')) = :username)
+                OR (:upn_hint <> '' AND (LOWER(COALESCE(du.upn, '')) = :upn_hint OR LOWER(COALESCE(du.email, '')) = :upn_hint))
+              )
+            ORDER BY
+              CASE
+                WHEN :domain_hint <> '' AND (
+                  LOWER(COALESCE(s.domain_name, '')) = :domain_hint
+                  OR SUBSTRING_INDEX(LOWER(COALESCE(s.domain_name, '')), '.', 1) = SUBSTRING_INDEX(:domain_hint, '.', 1)
+                ) THEN 0
+                ELSE 1
+              END,
+              s.auth_priority ASC,
+              s.id ASC
+            LIMIT 1
+            """
+        ),
+        {"username": username, "upn_hint": upn_hint, "domain_hint": domain_hint},
+    ).first()
+    if not row:
+        return ResolveDirectoryLoginResponse(found=False)
+    return ResolveDirectoryLoginResponse(found=True, identity_source_id=int(row[0]))
 
 
 @router.post(
@@ -329,6 +438,7 @@ def resolve_login_identity(
               i.type,
               COALESCE(i.provisioning_source, 'explicit') AS provisioning_source
             FROM identities i
+            LEFT JOIN identity_sources s ON s.id = i.source_id
             WHERE LOWER(COALESCE(i.type, 'user')) = 'user'
               AND COALESCE(i.provisioning_source, 'explicit') <> 'legacy_auto_snapshot'
               AND (
@@ -336,7 +446,20 @@ def resolve_login_identity(
                 OR
                 (:upn_hint <> '' AND LOWER(TRIM(COALESCE(i.email, ''))) = LOWER(:upn_hint))
               )
+              -- AD identities only through a source that is active and allows authentication
+              AND (
+                LOWER(COALESCE(i.auth_source, '')) <> 'ad'
+                OR (s.id IS NOT NULL AND s.is_active = 1 AND s.auth_enabled = 1)
+              )
             ORDER BY
+              -- The source of the domain typed by the user (DOMAIN backslash user, or user@domain) first
+              CASE
+                WHEN :domain_hint <> '' AND (
+                  LOWER(COALESCE(s.domain_name, '')) = :domain_hint
+                  OR SUBSTRING_INDEX(LOWER(COALESCE(s.domain_name, '')), '.', 1) = SUBSTRING_INDEX(:domain_hint, '.', 1)
+                ) THEN 0
+                ELSE 1
+              END,
               CASE
                 WHEN :upn_hint <> '' AND LOWER(TRIM(COALESCE(i.email, ''))) = LOWER(:upn_hint) THEN 0
                 WHEN :domain_hint <> '' AND LOWER(COALESCE(i.auth_source, '')) = 'ad' THEN 1
@@ -358,6 +481,17 @@ def resolve_login_identity(
 
     if not row:
         return ResolveLoginIdentityResponse(found=False, reason_code="NOT_FOUND")
+
+    if (
+        str(row.get("provisioning_source") or "") == "group_entitlement"
+        and row.get("source_id") is not None
+        and not _is_entitled_by_group(
+            db,
+            source_id=int(row["source_id"]),
+            candidates=[c for c in (str(row.get("external_id") or ""), str(row.get("username") or "")) if c],
+        )
+    ):
+        return ResolveLoginIdentityResponse(found=False, reason_code="NOT_ENTITLED")
 
     return ResolveLoginIdentityResponse(
         found=True,

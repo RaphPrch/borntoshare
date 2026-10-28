@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, load_only
 
 from app.core.db import get_db
+from app.services.identity_source_accounts import load_accounts, public_accounts, save_accounts
 from app.core.logging import get_logger
 from app.data.models.identity_sources import IdentitySource
 from app.services.identity_source_fields import (
@@ -88,9 +89,22 @@ def _public_row(src: IdentitySource) -> dict:
             "auth": auth_enabled,
             "import_groups": bool(caps.get("import_groups", True)),
             "snapshot_enabled": bool(caps.get("snapshot_enabled", False)),
+            "provisioning": bool(getattr(src, "write_enabled", False)),
         },
         "is_active": bool(src.is_active),
     }
+
+
+def _save_service_accounts(db: Session, source_id: int, accounts: dict[str, Any]) -> None:
+    try:
+        save_accounts(
+            db,
+            source_id,
+            {purpose: (account.model_dump() if hasattr(account, "model_dump") else account) for purpose, account in accounts.items()},
+        )
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 def _empty_snapshot_meta() -> dict[str, str | int | None]:
@@ -175,6 +189,7 @@ def list_identity_sources(db: Session = Depends(get_db)):
     results = []
     for r in rows:
         payload = _public_row(r)
+        payload["service_accounts"] = public_accounts(load_accounts(db, int(r.id)))
         payload.update(latest_snapshot_map.get(int(r.id), _empty_snapshot_meta()))
         payload["used"] = _is_identity_source_used(db, r)
         results.append(payload)
@@ -217,8 +232,11 @@ def get_identity_source_internal(source_id: int, db: Session = Depends(get_db)):
             "auth": auth_enabled,
             "import_groups": bool(caps.get("import_groups", True)),
             "snapshot_enabled": bool(caps.get("snapshot_enabled", False)),
+            "provisioning": bool(getattr(src, "write_enabled", False)),
             "auth_mode": caps.get("auth_mode", "ntlm"),
         },
+        "write_enabled": bool(getattr(src, "write_enabled", False)),
+        "service_accounts": load_accounts(db, int(src.id)),
         "is_active": bool(src.is_active),
     }
     return ui_data(payload, meta={"source_id": int(source_id)})
@@ -248,6 +266,7 @@ def create_identity_source(payload: IdentitySourceCreate, request: Request, db: 
 
     capabilities_payload = payload.capabilities.model_dump()
     capabilities_payload["auth"] = auth_enabled
+    write_enabled = bool(capabilities_payload.pop("provisioning", False))
 
     create_data: dict[str, object] = {
         "type": source_type,
@@ -262,6 +281,7 @@ def create_identity_source(payload: IdentitySourceCreate, request: Request, db: 
         "bind_password_ref": bind_password_ref,
         "issuer_url": getattr(payload, "issuer_url", None),
         "capabilities": capabilities_payload,
+        "write_enabled": write_enabled,
         "status": _status_from_active(is_active),
         "is_active": is_active,
     }
@@ -272,6 +292,9 @@ def create_identity_source(payload: IdentitySourceCreate, request: Request, db: 
 
     src = IdentitySource(**create_data)
     db.add(src)
+    db.flush()
+    if payload.service_accounts:
+        _save_service_accounts(db, int(src.id), payload.service_accounts)
     db.commit()
     db.refresh(src)
 
@@ -394,13 +417,17 @@ def update_identity_source(
 
     updates_raw = payload.model_dump(exclude_unset=True)
     updates_raw.pop("bind_password", None)
+    service_accounts = updates_raw.pop("service_accounts", None)
 
     capabilities = updates_raw.pop("capabilities", None)
     if capabilities is not None:
         if hasattr(capabilities, "model_dump"):
-            updates_raw["capabilities"] = capabilities.model_dump()
+            updates_raw["capabilities"] = capabilities.model_dump(exclude_unset=True)
         else:
             updates_raw["capabilities"] = dict(capabilities)
+        # The provisioning capability lives in its own column
+        if "provisioning" in updates_raw["capabilities"]:
+            updates_raw["write_enabled"] = bool(updates_raw["capabilities"].pop("provisioning"))
 
     allowed_update_fields = {
         "name",
@@ -414,6 +441,7 @@ def update_identity_source(
         "bind_password_ref",
         "issuer_url",
         "capabilities",
+        "write_enabled",
         "auth_enabled",
         "auth_priority",
         "is_active",
@@ -477,6 +505,9 @@ def update_identity_source(
 
     for field, value in updates.items():
         setattr(src, field, value)
+    if service_accounts:
+        _save_service_accounts(db, int(src.id), service_accounts)
+        updates["service_accounts"] = sorted(service_accounts.keys())
 
     db.commit()
 
