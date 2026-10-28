@@ -21,4 +21,10 @@ def _no_activity_forwarding(monkeypatch):
         sent.append(kwargs)
 
     monkeypatch.setattr(auth_api, "_emit_activity_event", _capture)
+
+    # Startup reads the log level from core-service: not running in the tests
+    async def _no_startup_config():
+        return None
+
+    monkeypatch.setattr(auth_api, "apply_startup_log_level", _no_startup_config)
     return sent

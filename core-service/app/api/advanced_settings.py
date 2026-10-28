@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.internal_auth import require_internal_token
 from app.api._helpers import ui_action, ui_data
 
 router = APIRouter(prefix="/admin", tags=["advanced-settings"])
@@ -98,8 +99,22 @@ def get_advanced_config(db: Session = Depends(get_db)):
 
 @router.post("/config/advanced")
 def save_advanced_config(payload: dict, db: Session = Depends(get_db)):
+    from app.services.log_retention import apply_log_level
+
     current = _read_payload(db)
     merged = _deep_merge(current, payload if isinstance(payload, dict) else {})
     _write_payload(db, _sanitize_advanced_settings(merged))
+    # The log level applies to core-service right away (auth-service applies it on its side)
+    apply_log_level(str((merged.get("logging") or {}).get("level") or "INFO"))
     return ui_action(message="advanced settings saved")
+
+
+@router.post("/config/logs/purge", dependencies=[Depends(require_internal_token)])
+def purge_old_logs(payload: dict | None = None, db: Session = Depends(get_db)):
+    """« Purge old logs » (called by auth-service, which checks the administrator)."""
+    from app.services.log_retention import purge_logs
+
+    data = payload if isinstance(payload, dict) else {}
+    result = purge_logs(db, trigger="manual", actor_display=str(data.get("actor") or "") or None)
+    return ui_data(result)
 

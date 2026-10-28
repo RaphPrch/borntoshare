@@ -60,6 +60,20 @@ async def _startup_infra_scheduler() -> None:
     start_infra_scheduler()
 
 
+@app.on_event("startup")
+def _startup_log_level() -> None:
+    """Log level chosen in Advanced Settings › Logging (LOG_LEVEL until it is set)."""
+    from app.services.log_retention import apply_log_level, logging_settings
+
+    db = SessionLocal()
+    try:
+        apply_log_level(logging_settings(db)["level"])
+    except Exception:
+        pass  # settings table not migrated yet: LOG_LEVEL stays
+    finally:
+        db.close()
+
+
 # ============================================================
 # Request ID middleware
 # ============================================================

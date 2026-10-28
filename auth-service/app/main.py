@@ -49,6 +49,10 @@ async def lifespan(app: FastAPI):
                 methods=methods,
                 path=route.path,
             )
+    # Log level chosen in Advanced Settings › Logging (stored by core-service); LOG_LEVEL if unavailable
+    from app.api import auth as auth_api
+
+    await auth_api.apply_startup_log_level()
     yield
     log_event(
         logger,

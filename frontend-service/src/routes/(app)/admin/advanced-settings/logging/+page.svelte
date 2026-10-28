@@ -78,17 +78,23 @@
     purgeConfirmOpen = false;
     purging = true;
     try {
-      await purgeLogs(fetch);
-      toast.success(t('Purge requested.'));
+      const result = await purgeLogs(fetch);
+      toast.success(
+        t('{audit} audit events and {health} health events older than {days} days removed.', {
+          audit: result?.audit_events ?? 0,
+          health: result?.health_events ?? 0,
+          days: result?.retention_days ?? form.retentionDays
+        })
+      );
     } catch (e: unknown) {
-      reportUiError(e, 'Backend not connected: simulated action (dev).', 'advanced_settings.logging.purge');
+      reportUiError(e, t('Unable to purge the logs.'), 'advanced_settings.logging.purge');
     } finally {
       purging = false;
     }
   }
 </script>
 
-<ConfigCard title={t('Logging')} subtitle={t('Persisted configuration')} icon="bi-journal-text">
+<ConfigCard title={t('Logging')} subtitle={t('Log level of core-service and auth-service, retention of the audit log')} icon="bi-journal-text">
   <div class="adv-form-grid">
     <SettingRow label={t('Log level')}>
       <select class="form-select" bind:value={form.level}>
@@ -125,6 +131,7 @@
           bind:checked={form.retentionEnabled}
         />
         <label class="form-check-label" for="retention-enabled">{t('Enable log retention')}</label>
+        <small class="adv-hint">{t('Enabled: entries older than the retention are removed once a day.')}</small>
       </div>
     </SettingRow>
   </div>
@@ -157,8 +164,9 @@
   subtitle={t('This action is irreversible.')}
   impactTitle={t('Impact')}
   impactItems={[
-    'Historical logs will be removed according to backend retention purge rules.',
-    'This cannot be undone.'
+    t('Audit and health events older than {days} days are removed.', { days: form.retentionDays }),
+    t('The purge itself is written to the audit log.'),
+    t('This cannot be undone.')
   ]}
   cancelLabel={t('Cancel')}
   confirmLabel={t('Purge')}

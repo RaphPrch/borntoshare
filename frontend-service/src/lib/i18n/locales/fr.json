@@ -2648,5 +2648,12 @@
   "This sign-in method is disabled": "Ce mode de connexion est désactivé",
   "This sign-in method is not available": "Ce mode de connexion n'est pas disponible",
   "The identity provider did not send the user name": "Le fournisseur d'identité n'a pas envoyé le nom d'utilisateur",
-  "Without certificate the agent answers in HTTP on port 8080 (AGENT_PORT to change it): internal network only, uncheck “HTTPS”.": "Sans certificat, l'agent répond en HTTP sur le port 8080 (AGENT_PORT pour le changer) : réseau interne uniquement, décochez « HTTPS »."
+  "Without certificate the agent answers in HTTP on port 8080 (AGENT_PORT to change it): internal network only, uncheck “HTTPS”.": "Sans certificat, l'agent répond en HTTP sur le port 8080 (AGENT_PORT pour le changer) : réseau interne uniquement, décochez « HTTPS ».",
+  "{audit} audit events and {health} health events older than {days} days removed.": "{audit} événements d'audit et {health} événements de santé de plus de {days} jours supprimés.",
+  "Unable to purge the logs.": "Impossible de purger les journaux.",
+  "Audit and health events older than {days} days are removed.": "Les événements d'audit et de santé de plus de {days} jours sont supprimés.",
+  "The purge itself is written to the audit log.": "La purge est elle-même tracée dans le journal d'audit.",
+  "This cannot be undone.": "Cette action est irréversible.",
+  "Log level of core-service and auth-service, retention of the audit log": "Niveau de log de core-service et auth-service, rétention du journal d'audit",
+  "Enabled: entries older than the retention are removed once a day.": "Activée : les entrées plus anciennes que la rétention sont supprimées une fois par jour."
 }

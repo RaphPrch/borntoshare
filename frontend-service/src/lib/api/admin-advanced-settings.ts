@@ -25,6 +25,10 @@ type LoggingConfig = {
 type ActionResult = {
   ok: boolean;
   message?: string;
+  // Purge of old logs
+  retention_days?: number;
+  audit_events?: number;
+  health_events?: number;
   // Optional async job fields
   job_id?: string;
   status_url?: string;

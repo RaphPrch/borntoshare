@@ -89,6 +89,14 @@ async def _load_logging_config_from_core() -> dict[str, Any]:
     }
 
 
+async def apply_startup_log_level() -> None:
+    """At startup: the log level chosen in Advanced Settings › Logging (LOG_LEVEL while core is unreachable)."""
+    try:
+        await _load_logging_config_from_core()
+    except Exception:
+        pass
+
+
 async def _save_logging_config_to_core(*, level: str, retention_enabled: bool, retention_days: int) -> dict[str, Any]:
     await core_post(
         "/api/admin/config/advanced",
@@ -1088,7 +1096,20 @@ async def revoke_admin_session(
     user: UserInfo = Depends(get_current_user),
 ) -> dict:
     _require_platform_admin(user)
+    revoked = store.get(session_id)
     store.delete(session_id)
+    session_user = getattr(revoked, "user", None)
+    await _emit_activity_event(
+        action="auth.session_revoked",
+        actor_type="user",
+        actor_id=user.identity_id,
+        actor_display=user.display_name or user.username,
+        target_type="identity",
+        target_id=getattr(session_user, "identity_id", None),
+        target_display=getattr(session_user, "username", None),
+        metadata_json={"session": mask_session_id(session_id)},
+        correlation_id=_request_id(request),
+    )
     log_event(
         logger,
         logging.INFO,
@@ -1170,14 +1191,23 @@ async def set_admin_logging_config(payload: dict[str, Any], user: UserInfo = Dep
 async def purge_admin_logs(user: UserInfo = Depends(get_current_user)) -> dict:
     _require_platform_admin(user)
 
+    try:
+        result = await core_post("/api/admin/config/logs/purge", {"actor": user.display_name or user.username})
+    except AuthUnavailable as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    data = result.get("data") if isinstance(result.get("data"), dict) else result
     log_event(
         logger,
         logging.WARNING,
-        "AUTH_ADMIN_LOGS_PURGE_REQUESTED",
+        "AUTH_ADMIN_LOGS_PURGED",
         actor=user.username,
-        outcome="noop",
+        outcome="success",
     )
-    return {"ok": True, "message": "Purge action accepted"}
+    return {
+        "ok": True,
+        "message": f"{int(data.get('audit_events') or 0)} audit and {int(data.get('health_events') or 0)} health events older than {int(data.get('retention_days') or 0)} days removed",
+        **data,
+    }
 
 
 

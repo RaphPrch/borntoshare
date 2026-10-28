@@ -99,6 +99,14 @@ async def _run_due_tasks() -> None:
         ]
         for task in due:
             await run_task(db, task, trigger="schedule")
+        # Log retention (Advanced Settings › Logging): once a day when enabled
+        from app.services.log_retention import auto_purge_if_due
+
+        try:
+            auto_purge_if_due(db)
+        except Exception:
+            db.rollback()
+            logger.warning("LOG_RETENTION_PURGE_FAILED", exc_info=True)
     finally:
         db.close()
 

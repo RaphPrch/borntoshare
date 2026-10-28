@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from typing import Any
+
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -21,6 +23,34 @@ from app.services.naming_policy import (
 )
 
 router = APIRouter(prefix="/naming-policies", tags=["naming_policies"])
+
+
+def _require_admin(request: Request | None):
+    """Only platform administrators change a naming policy (internal calls carry no request)."""
+    from app.services.authorization import actor_from_request, require_admin
+
+    if request is None:
+        return None
+    actor = actor_from_request(request)
+    require_admin(actor)
+    return actor
+
+
+def _audit(actor, action: str, *, target_id: Any = None, target_display: str | None = None, context: dict | None = None) -> None:
+    from app.services.activity_log import log_activity
+
+    log_activity(
+        None,
+        actor_type="user" if actor is not None and actor.identity_id is not None else "system",
+        actor_id=getattr(actor, "identity_id", None),
+        actor_display=getattr(actor, "display_name", None),
+        action=action,
+        outcome="success",
+        target_type="naming_policy",
+        target_id=target_id,
+        target_display=target_display,
+        context_json=context or {},
+    )
 
 
 def _zone_exists(db: Session, zone_id: int) -> bool:
@@ -80,7 +110,8 @@ def get_global_naming_policy(db: Session = Depends(get_db)):
 
 
 @router.put("/global")
-def put_global_naming_policy(payload: GlobalNamingPolicyPayload, db: Session = Depends(get_db)):
+def put_global_naming_policy(payload: GlobalNamingPolicyPayload, db: Session = Depends(get_db), request: Request = None):
+    actor = _require_admin(request)
     try:
         validate_template_tokens(payload.template)
     except ValueError as exc:
@@ -114,6 +145,7 @@ def put_global_naming_policy(payload: GlobalNamingPolicyPayload, db: Session = D
         },
     )
     db.commit()
+    _audit(actor, "naming_policy.global_updated", target_display="global", context={"template": payload.template, "group_prefix": payload.group_prefix})
     return ui_data(load_global_policy(db))
 
 
@@ -146,7 +178,9 @@ def put_zone_naming_policy(
     zone_id: int,
     payload: ZoneNamingPolicyPayload,
     db: Session = Depends(get_db),
+    request: Request = None,
 ):
+    actor = _require_admin(request)
     if not _zone_exists(db, zone_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found")
 
@@ -194,6 +228,7 @@ def put_zone_naming_policy(
         },
     )
     db.commit()
+    _audit(actor, "naming_policy.zone_updated", target_id=int(zone_id), target_display=f"zone {zone_id}", context={"override_enabled": payload.override_enabled, "template": payload.template})
     return ui_data(load_zone_policy(db, zone_id), meta={"zone_id": int(zone_id)})
 
 
