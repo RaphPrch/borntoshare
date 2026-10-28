@@ -1,7 +1,7 @@
 # Infrastructure
 
 Administration › Paramètres avancés › **Infrastructure** (administrateurs de la plateforme).
-Cinq onglets : vue d'ensemble, base de données, workers, planification, composants surveillés.
+Six onglets : vue d'ensemble, base de données, workers, Keycloak, planification, composants surveillés.
 Keycloak est décrit dans [keycloak.md](keycloak.md).
 
 ## Vue d'ensemble

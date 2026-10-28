@@ -170,3 +170,59 @@ export const updateInfraService = (fetchFn: FetchLike, id: number, body: Service
   apiPut<unknown>(fetchFn, `/infrastructure/services/${id}`, body);
 export const deleteInfraService = (fetchFn: FetchLike, id: number) =>
   apiDelete<unknown>(fetchFn, `/infrastructure/services/${id}`);
+
+// ---- SSO providers (Keycloak)
+
+export type RoleMapping = { value: string; role: string };
+
+export type SsoProvider = {
+  id: number;
+  identity_source_id: number | null;
+  name: string;
+  base_url: string;
+  realm: string;
+  client_id: string;
+  scopes: string;
+  username_claim: string;
+  roles_claim: string;
+  role_mapping: RoleMapping[];
+  default_role: string | null;
+  link_existing_identities: boolean;
+  button_label: string | null;
+  verify_tls: boolean;
+  is_enabled: boolean;
+  status: HealthStatus;
+  last_check_at: string | null;
+  last_message: string | null;
+  has_client_secret: boolean;
+  issuer_hint: string;
+};
+
+export type SsoProviderInput = Omit<SsoProvider, 'id' | 'identity_source_id' | 'status' | 'last_check_at' | 'last_message' | 'has_client_secret' | 'issuer_hint'> & {
+  client_secret_ref?: string | null;
+  public_client?: boolean;
+};
+
+export type SsoTestResult = {
+  ok: boolean;
+  message: string;
+  code?: string;
+  issuer?: string;
+  authorization_endpoint?: string;
+  token_endpoint?: string;
+  client_check?: string;
+};
+
+export const listSsoProviders = (fetchFn: FetchLike) =>
+  apiGetData<{ providers: SsoProvider[]; roles: { code: string; label: string }[] }>(fetchFn, '/infrastructure/sso');
+export const createSsoProvider = (fetchFn: FetchLike, body: SsoProviderInput) => apiPostData<SsoProvider>(fetchFn, '/infrastructure/sso', body);
+export const updateSsoProvider = (fetchFn: FetchLike, id: number, body: SsoProviderInput) =>
+  apiPutData<SsoProvider>(fetchFn, `/infrastructure/sso/${id}`, body);
+export const deleteSsoProvider = (fetchFn: FetchLike, id: number) => apiDeleteData<{ ok: boolean }>(fetchFn, `/infrastructure/sso/${id}`);
+export const recordSsoStatus = (fetchFn: FetchLike, id: number, status: 'healthy' | 'down', message: string) =>
+  apiPostData<{ ok: boolean }>(fetchFn, `/infrastructure/sso/${id}/status`, { status, message });
+/** Run by auth-service, which holds the client secret */
+export const testSsoProvider = (
+  fetchFn: FetchLike,
+  body: { provider_id?: number; base_url?: string; realm?: string; client_id?: string; client_secret_ref?: string | null; verify_tls: boolean }
+) => apiPost<SsoTestResult>(fetchFn, '/auth/sso/test', body, { timeoutMs: 20000 });

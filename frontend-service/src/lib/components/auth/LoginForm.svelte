@@ -4,6 +4,10 @@
   import LanguageSwitcher from '$lib/components/ui/LanguageSwitcher.svelte';
 
   export let form: { error?: string } | null = {};
+  /** Enabled SSO providers (Advanced Settings › Infrastructure › Keycloak) */
+  export let ssoProviders: { id: number; label: string }[] = [];
+  /** Page to open after the sign-in */
+  export let redirectTo: string | null = null;
 
   let showPassword = false;
   let loading = false;
@@ -28,37 +32,19 @@
       <!-- ========================= -->
       <!-- SSO / ORGANIZATION (PRIMARY) -->
       <!-- ========================= -->
-      <form
-        class="login-form"
-        method="POST"
-        action="?/keycloak"
-        use:enhance={() => {
-          loading = true;
-          return async ({ update }) => {
-            try {
-              await update();
-            } finally {
-              loading = false;
-            }
-          };
-        }}
-      >
-        <button
-          type="submit"
-          class="login-submit"
-          disabled={loading}
-        >
+      {#each ssoProviders as provider (provider.id)}
+        <a class="login-submit login-sso" href={`/sso/start/${provider.id}${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`}>
           <span class="sso-text">
-            <strong>{t('Sign in with your organization')}</strong>
-            <span class="sso-sub">
-              {t('Enterprise SSO · Active Directory · Keycloak')}
-            </span>
+            <strong>{ssoProviders.length === 1 ? t('Sign in with your organization') : provider.label}</strong>
+            <span class="sso-sub">{ssoProviders.length === 1 ? provider.label : t('Single sign-on')}</span>
           </span>
-        </button>
-      </form>
+        </a>
+      {/each}
 
-      <!-- SEPARATOR -->
-      <div class="login-divider"></div>
+      {#if ssoProviders.length}
+        <!-- SEPARATOR -->
+        <div class="login-divider"></div>
+      {/if}
 
       <!-- ========================= -->
       <!-- LOCAL LOGIN (FALLBACK) -->
@@ -133,6 +119,14 @@
 </div>
 
 <style>
+  .login-sso {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    margin-bottom: 10px;
+  }
+
   .login-lang {
     position: fixed;
     top: calc(20px + env(safe-area-inset-top, 0px));

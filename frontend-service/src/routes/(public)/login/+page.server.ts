@@ -3,11 +3,20 @@ import type { Actions, PageServerLoad } from './$types';
 /* -----------------------------------------
  * LOAD
  * --------------------------------------- */
-export const load: PageServerLoad = async ({ fetch, locals }) => {
+export const load: PageServerLoad = async ({ fetch, locals, url }) => {
   // 🔐 ALREADY AUTHENTICATED → REDIRECT
   if (locals.me?.id) {
     throw redirect(302, '/dashboard');
   }
+
+  // SSO buttons (Keycloak providers enabled in Advanced Settings › Infrastructure)
+  const sso = await fetch('/api/auth/sso/providers', { headers: { accept: 'application/json' } })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+  const ssoProviders = Array.isArray(sso?.providers)
+    ? sso.providers.map((p: { id: number; label: string }) => ({ id: Number(p.id), label: String(p.label) }))
+    : [];
+  const common = { ssoProviders, ssoError: url.searchParams.get('sso_error'), redirectTo: url.searchParams.get('redirect') };
 
   try {
     const res = await fetch('/api/auth/providers', {
@@ -18,6 +27,7 @@ export const load: PageServerLoad = async ({ fetch, locals }) => {
     const data = await res.json().catch(() => ({}));
 
     return {
+      ...common,
       providers: {
         default: data?.default ?? 'local',
         enabled: Array.isArray(data?.enabled) ? data.enabled : [],
@@ -27,6 +37,7 @@ export const load: PageServerLoad = async ({ fetch, locals }) => {
   } catch (err) {
     // Safe fallback (offline / degraded mode)
     return {
+      ...common,
       providers: {
         default: 'local',
         enabled: ['local'],

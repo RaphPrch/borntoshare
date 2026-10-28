@@ -229,7 +229,8 @@ def list_identity_sources(db: Session = Depends(get_db)):
     load_opt = _identity_source_load_only(db)
     if load_opt is not None:
         query = query.options(load_opt)
-    rows = query.order_by(IdentitySource.id.desc()).all()
+    # SSO providers own an identity source of type oidc: managed in Advanced Settings › Infrastructure
+    rows = query.filter(IdentitySource.type != "oidc").order_by(IdentitySource.id.desc()).all()
 
     latest_snapshot_map = IdentitySourcesViewsRepo(db).list_latest_snapshot_meta_by_source()
     running = DirectorySnapshotsRepo(db).running_runs()

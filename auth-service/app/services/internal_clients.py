@@ -238,3 +238,15 @@ async def core_resolve_directory_login(
     """AD source whose last snapshot knows a user who was not imported (login through an entitled group)."""
     payload = {"username": username, "upn_hint": upn_hint, "domain_hint": domain_hint}
     return await core_post("/api/internal/identities/resolve-directory-login", payload)
+
+
+async def core_list_sso_providers() -> Dict[str, Any]:
+    return await core_get("/api/internal/sso-providers")
+
+
+async def core_get_sso_provider(provider_id: int) -> Dict[str, Any]:
+    return await core_get(f"/api/internal/sso-providers/{int(provider_id)}")
+
+
+async def core_resolve_sso_identity(provider_id: int, claims: Dict[str, Any]) -> Dict[str, Any]:
+    return await core_post(f"/api/internal/sso-providers/{int(provider_id)}/resolve-identity", claims)

@@ -10,6 +10,7 @@
   import InfraWorkers from '$lib/components/infrastructure/InfraWorkers.svelte';
   import InfraSchedules from '$lib/components/infrastructure/InfraSchedules.svelte';
   import InfraServices from '$lib/components/infrastructure/InfraServices.svelte';
+  import InfraKeycloak from '$lib/components/infrastructure/InfraKeycloak.svelte';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
   import { getInfraOverview, runSchedule, type InfraOverview as Overview, type InfraService } from '$lib/api/infrastructure';
@@ -21,14 +22,15 @@
   let checking = false;
   let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
-  type TabKey = 'overview' | 'database' | 'workers' | 'schedules' | 'components';
-  const TAB_KEYS: TabKey[] = ['overview', 'database', 'workers', 'schedules', 'components'];
+  type TabKey = 'overview' | 'database' | 'workers' | 'keycloak' | 'schedules' | 'components';
+  const TAB_KEYS: TabKey[] = ['overview', 'database', 'workers', 'keycloak', 'schedules', 'components'];
 
   $: active = (TAB_KEYS.includes($page.url.searchParams.get('tab') as TabKey) ? $page.url.searchParams.get('tab') : 'overview') as TabKey;
   $: tabs = [
     { key: 'overview', label: t('Overview'), icon: 'bi-speedometer2', count: overview ? (overview.summary.down || null) : null },
     { key: 'database', label: t('Database'), icon: 'bi-database' },
     { key: 'workers', label: t('Workers'), icon: 'bi-cpu', count: overview?.workers.length ?? null },
+    { key: 'keycloak', label: t('Keycloak'), icon: 'bi-key' },
     { key: 'schedules', label: t('Schedules'), icon: 'bi-calendar-check' },
     { key: 'components', label: t('Monitored components'), icon: 'bi-broadcast' }
   ];
@@ -87,6 +89,8 @@
       <InfraDatabase info={overview.database} onChanged={refresh} />
     {:else if active === 'workers'}
       <InfraWorkers workers={overview.workers} onChanged={refresh} />
+    {:else if active === 'keycloak'}
+      <InfraKeycloak />
     {:else if active === 'schedules'}
       <InfraSchedules schedules={overview.schedules} onChanged={refresh} />
     {:else}

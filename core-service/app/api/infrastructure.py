@@ -409,3 +409,134 @@ def delete_service(service_id: int, request: Request, db: Session = Depends(get_
     db.commit()
     _audit(actor, "infrastructure.service_removed", target_type="infra_service", target_id=service_id, target_display=row["label"])
     return ui_list(_services(db))
+
+
+# ============================================================
+# SSO providers (Keycloak)
+# ============================================================
+
+
+class RoleMappingItem(BaseModel):
+    value: str = Field(min_length=1, max_length=190)
+    role: str = Field(min_length=1, max_length=64)
+
+
+class SsoProviderPayload(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    base_url: str = Field(min_length=8, max_length=512)
+    realm: str = Field(min_length=1, max_length=120)
+    client_id: str = Field(min_length=1, max_length=190)
+    client_secret_ref: Optional[str] = Field(default=None, max_length=512)
+    public_client: bool = False
+    scopes: str = Field(default="openid profile email", max_length=255)
+    username_claim: str = Field(default="preferred_username", max_length=64)
+    roles_claim: str = Field(default="realm_access.roles", max_length=190)
+    role_mapping: list[RoleMappingItem] = Field(default_factory=list, max_length=100)
+    default_role: Optional[str] = Field(default=None, max_length=64)
+    link_existing_identities: bool = True
+    button_label: Optional[str] = Field(default=None, max_length=120)
+    verify_tls: bool = True
+    is_enabled: bool = True
+
+    @field_validator("base_url")
+    @classmethod
+    def _base_url(cls, value: str) -> str:
+        value = value.strip().rstrip("/")
+        if not re.match(r"^https?://[^\s/]+", value):
+            raise ValueError("An http(s):// URL is expected")
+        if "/realms/" in value:
+            raise ValueError("Give the server URL without /realms/<realm> (the realm has its own field)")
+        return value
+
+    @field_validator("scopes")
+    @classmethod
+    def _scopes(cls, value: str) -> str:
+        scopes = value.split()
+        if "openid" not in scopes:
+            scopes.insert(0, "openid")
+        return " ".join(scopes)
+
+
+def _check_roles(db: Session, payload: SsoProviderPayload) -> None:
+    known = {r[0] for r in db.execute(text("SELECT code FROM roles"))}
+    used = {m.role for m in payload.role_mapping} | ({payload.default_role} if payload.default_role else set())
+    unknown = sorted(used - known)
+    if unknown:
+        raise HTTPException(status_code=422, detail={"error_code": "UNKNOWN_ROLE", "message": f"Unknown role(s): {', '.join(unknown)}"})
+
+
+@router.get("/sso")
+def list_sso_providers(request: Request, db: Session = Depends(get_db)):
+    from app.services import sso_service
+
+    _admin(request)
+    roles = [dict(r) for r in db.execute(text("SELECT code, label FROM roles ORDER BY id")).mappings()]
+    return ui_data({"providers": sso_service.list_providers(db), "roles": roles})
+
+
+@router.post("/sso", status_code=status.HTTP_201_CREATED)
+def create_sso_provider(payload: SsoProviderPayload, request: Request, db: Session = Depends(get_db)):
+    from app.services import sso_service
+
+    actor = _admin(request)
+    _check_roles(db, payload)
+    if not payload.public_client and not payload.client_secret_ref:
+        raise HTTPException(status_code=422, detail={"error_code": "CLIENT_SECRET_REQUIRED", "message": "The client secret is required (or mark the client as public)"})
+    try:
+        provider = sso_service.save_provider(db, payload.model_dump())
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail={"error_code": "SSO_PROVIDER_EXISTS", "message": "A provider with this name, or this realm and client, already exists"}) from exc
+    _audit(actor, "infrastructure.sso_provider_added", target_type="sso_provider", target_id=provider["id"], target_display=payload.name, context={"realm": payload.realm, "client_id": payload.client_id})
+    return ui_data(provider)
+
+
+@router.put("/sso/{provider_id}")
+def update_sso_provider(provider_id: int, payload: SsoProviderPayload, request: Request, db: Session = Depends(get_db)):
+    from app.services import sso_service
+
+    actor = _admin(request)
+    if not sso_service.get_provider_row(db, provider_id):
+        raise HTTPException(status_code=404, detail="SSO provider not found")
+    _check_roles(db, payload)
+    try:
+        provider = sso_service.save_provider(db, payload.model_dump(), provider_id)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail={"error_code": "SSO_PROVIDER_EXISTS", "message": "A provider with this name, or this realm and client, already exists"}) from exc
+    _audit(actor, "infrastructure.sso_provider_updated", target_type="sso_provider", target_id=provider_id, target_display=payload.name, context={"enabled": payload.is_enabled, "secret_changed": bool(payload.client_secret_ref)})
+    return ui_data(provider)
+
+
+@router.delete("/sso/{provider_id}")
+def delete_sso_provider(provider_id: int, request: Request, db: Session = Depends(get_db)):
+    from app.services import sso_service
+
+    actor = _admin(request)
+    row = sso_service.get_provider_row(db, provider_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="SSO provider not found")
+    sso_service.delete_provider(db, provider_id)
+    db.execute(text("DELETE FROM infra_component_status WHERE component = :c"), {"c": f"sso:{int(provider_id)}"})
+    db.commit()
+    _audit(actor, "infrastructure.sso_provider_removed", target_type="sso_provider", target_id=provider_id, target_display=row.get("name"))
+    return ui_data({"ok": True})
+
+
+class SsoStatusPayload(BaseModel):
+    status: Literal["healthy", "down"]
+    message: str = Field(default="", max_length=512)
+
+
+@router.post("/sso/{provider_id}/status")
+def record_sso_status(provider_id: int, payload: SsoStatusPayload, request: Request, db: Session = Depends(get_db)):
+    """Result of « Test » (run by auth-service, which holds the client secret)."""
+    _admin(request)
+    db.execute(
+        text("UPDATE sso_providers SET status = :status, last_message = :message, last_check_at = UTC_TIMESTAMP() WHERE id = :id"),
+        {"status": payload.status, "message": payload.message, "id": int(provider_id)},
+    )
+    db.commit()
+    return ui_data({"ok": True})

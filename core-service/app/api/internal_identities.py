@@ -456,6 +456,8 @@ def resolve_login_identity(
             LEFT JOIN identity_sources s ON s.id = i.source_id
             WHERE LOWER(COALESCE(i.type, 'user')) = 'user'
               AND COALESCE(i.provisioning_source, 'explicit') <> 'legacy_auto_snapshot'
+              -- Identities created by an SSO provider sign in through it only, never with a password
+              AND LOWER(COALESCE(i.auth_source, '')) <> 'oidc'
               AND (
                 (:username <> '' AND LOWER(TRIM(COALESCE(i.username, ''))) = LOWER(:username))
                 OR

@@ -99,6 +99,8 @@ services:
       AD_USER_DN_TEMPLATE: ${AD_USER_DN_TEMPLATE}
       DEFAULT_AD_BIND_PASSWORD_REF: ${DEFAULT_AD_BIND_PASSWORD_REF}
       B2S_SECRET_WRITE_TOKEN: ${B2S_SECRET_WRITE_TOKEN}
+      # Private authority of the Keycloak servers' certificates (optional, SSO)
+      B2S_OIDC_CA_FILE: ${B2S_OIDC_CA_FILE:-}
       # LDAPS certificate check at AD sign-in (same CA as capsule-runner; shared mount: SELinux label z, not Z)
       LDAP_TLS_VERIFY: ${LDAP_TLS_VERIFY:-false}
       LDAP_CA_FILE: ${LDAP_CA_FILE:-}

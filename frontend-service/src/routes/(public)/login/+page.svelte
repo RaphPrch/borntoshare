@@ -1,6 +1,5 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import { env } from '$env/dynamic/public';
 
   import LoginForm from '$lib/components/auth/LoginForm.svelte';
   import ErrorNotice from '$lib/components/ui/ErrorNotice.svelte';
@@ -11,9 +10,10 @@
   export let data: {
     providers?: unknown;
     form?: Record<string, unknown>;
+    ssoProviders?: { id: number; label: string }[];
+    ssoError?: string | null;
+    redirectTo?: string | null;
   };
-
-  const idpEnabled = env.PUBLIC_IDP_ENABLED === 'true';
 
   // Error normalisée pour affichage inline
   let pageError: AppError | null = null;
@@ -22,13 +22,22 @@
    * SvelteKit expose les failures d’actions via data.form
    * On les transforme UNE fois en UiError
    */
+  // Refused SSO sign-in (back from Keycloak): English message from the server, shown once
+  let ssoShown = false;
+  $: if (data?.ssoError && !ssoShown) {
+    ssoShown = true;
+    const appError = toAppError(t(String(data.ssoError)), { source: 'auth' });
+    pageError = appError;
+    notifyError(appError);
+  }
+
   $: if (data?.form?.error) {
     // The server action returns English messages: translate them for display
     const appError = toAppError(t(String(data.form.error)), { source: 'auth' });
     pageError = appError;
     logAppError(appError, { action: 'login.page.form_error' });
     notifyError(appError);
-  } else {
+  } else if (!data?.ssoError) {
     pageError = null;
   }
 </script>
@@ -37,32 +46,7 @@
   <title>{t('Sign in')} · BornToShare</title>
 </svelte:head>
 
-<LoginForm form={data.form ?? {}} />
+<LoginForm form={data.form ?? {}} ssoProviders={data.ssoProviders ?? []} redirectTo={data.redirectTo ?? null} />
 
 <!-- Persistent error under the form (optional but recommended) -->
 <ErrorNotice error={pageError} />
-
-{#if idpEnabled}
-  <div class="b2s-login-divider">
-    <span class="line"></span>
-    <span class="label">OR</span>
-    <span class="line"></span>
-  </div>
-
-  <button
-    class="b2s-org-btn"
-    type="button"
-    aria-label={t('Sign in with your organization')}
-  >
-    <span class="b2s-org-ico" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path
-          d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"
-          stroke="currentColor"
-          stroke-width="1.6"
-        />
-      </svg>
-    </span>
-    <span class="b2s-org-text">{t('Sign in with your organization')}</span>
-  </button>
-{/if}

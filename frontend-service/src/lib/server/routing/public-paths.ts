@@ -1,6 +1,7 @@
 const PUBLIC_PATH_PREFIXES = [
   '/login',
   '/logout',
+  '/sso/',
   '/_app',
   '/favicon',
   '/css',
