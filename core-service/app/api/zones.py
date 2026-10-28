@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -12,8 +12,17 @@ from app.api._helpers import ui_action, ui_data, ui_list
 from app.schemas.zone import ZoneCreate, ZoneUpdate
 from app.data.repositories.zones_views_repo import ZonesViewsRepo
 from app.services.activity_log import log_activity
+from app.services.authorization import actor_from_request
 
 router = APIRouter(prefix="/zones", tags=["zones"])
+
+
+def _actor(request: Request | None) -> dict[str, Any]:
+    """Administrator behind the request, for the activity log (system when called internally)."""
+    actor = actor_from_request(request) if request is not None else None
+    if actor is None or actor.identity_id is None:
+        return {"actor_type": "system", "actor_id": None, "actor_display": None}
+    return {"actor_type": "user", "actor_id": actor.identity_id, "actor_display": actor.display_name}
 
 
 def _clean_text(value: Any) -> str | None:
@@ -246,7 +255,7 @@ def get_zone(zone_id: int, db: Session = Depends(get_db)):
 # ============================================================
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_zone(payload: ZoneCreate, db: Session = Depends(get_db)):
+def create_zone(payload: ZoneCreate, db: Session = Depends(get_db), request: Request = None):
     data = payload.model_dump()
 
     result = db.execute(
@@ -279,9 +288,7 @@ def create_zone(payload: ZoneCreate, db: Session = Depends(get_db)):
     # Activity (same transaction)
     log_activity(
         db,
-        actor_type="system",
-        actor_id=None,
-        actor_display=None,
+        **_actor(request),
         action="zone.created",
         outcome="success",
         target_type="zone",
@@ -301,7 +308,7 @@ def create_zone(payload: ZoneCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/{zone_id}")
-def update_zone(zone_id: int, payload: ZoneUpdate, db: Session = Depends(get_db)):
+def update_zone(zone_id: int, payload: ZoneUpdate, db: Session = Depends(get_db), request: Request = None):
     z = _get_zone_write_row(db, int(zone_id))
     if not z:
         raise HTTPException(
@@ -333,9 +340,7 @@ def update_zone(zone_id: int, payload: ZoneUpdate, db: Session = Depends(get_db)
     # Activity
     log_activity(
         db,
-        actor_type="system",
-        actor_id=None,
-        actor_display=None,
+        **_actor(request),
         action="zone.updated",
         outcome="success",
         target_type="zone",
@@ -357,7 +362,7 @@ def update_zone(zone_id: int, payload: ZoneUpdate, db: Session = Depends(get_db)
 
 
 @router.delete("/{zone_id}")
-def delete_zone(zone_id: int, db: Session = Depends(get_db)):
+def delete_zone(zone_id: int, db: Session = Depends(get_db), request: Request = None):
     z = _get_zone_write_row(db, int(zone_id))
     if not z:
         raise HTTPException(
@@ -397,9 +402,7 @@ def delete_zone(zone_id: int, db: Session = Depends(get_db)):
     # Activity (same transaction, capture display before commit)
     log_activity(
         db,
-        actor_type="system",
-        actor_id=None,
-        actor_display=None,
+        **_actor(request),
         action="zone.deleted",
         outcome="success",
         target_type="zone",

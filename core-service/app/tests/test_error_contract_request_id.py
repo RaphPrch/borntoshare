@@ -1,10 +1,22 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Query, Request
+from pydantic import BaseModel, field_validator
 from fastapi.testclient import TestClient
 
 from app.core.errors import ensure_request_id, register_exception_handlers
 from app.core.logging import clear_request_id_context, get_logger, set_request_id_context
+
+
+class _Color(BaseModel):
+    color: str
+
+    @field_validator("color")
+    @classmethod
+    def _hex(cls, value: str) -> str:
+        if not value.startswith("#"):
+            raise ValueError("A color like #2563eb is expected")
+        return value
 
 
 def _new_client(*, raise_server_exceptions: bool = True) -> TestClient:
@@ -39,6 +51,10 @@ def _new_client(*, raise_server_exceptions: bool = True) -> TestClient:
     def _validate(limit: int = Query(..., ge=1)) -> dict[str, int]:
         return {"limit": limit}
 
+    @app.post("/color")
+    def _color(payload: _Color) -> dict[str, str]:
+        return {"color": payload.color}
+
     @app.get("/panic")
     def _panic() -> dict[str, bool]:
         raise RuntimeError("boom")
@@ -66,7 +82,8 @@ def test_validation_error_has_standard_contract() -> None:
     assert res.status_code == 422
     body = res.json()
     assert body["error"]["code"] == "VALIDATION_ERROR"
-    assert body["error"]["message"] == "Validation failed."
+    # The message of the failed field (here the missing query parameter)
+    assert body["error"]["message"] == "Field required"
     assert isinstance(body["error"]["details"], dict)
     assert isinstance(body["error"]["details"].get("errors"), list)
     assert body["error"]["request_id"] == "rid-val-1"
@@ -96,3 +113,11 @@ def test_request_id_is_generated_when_header_absent() -> None:
     assert len(rid or "") >= 8
     assert res.json()["error"]["request_id"] == rid
 
+
+
+def test_a_validator_error_is_a_422_with_its_message() -> None:
+    with _new_client() as client:
+        res = client.post("/color", json={"color": "red"})
+
+    assert res.status_code == 422
+    assert res.json()["error"]["message"] == "A color like #2563eb is expected"

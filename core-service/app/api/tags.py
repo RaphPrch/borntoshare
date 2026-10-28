@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.data.repositories.tags_views_repo import TagsViewsRepo
 from app.api._helpers import ui_action, ui_data, ui_list
-from app.schemas.tag import TagCreate, TagUpdate
+from app.schemas.tag import TagCreate, TagUpdate, default_tag_color
 from app.data.models.tag import Tag
 from app.schemas.tag_attachment import TagAttachmentRequest
 from app.data.models.storage_root_tag import storage_root_tag
@@ -84,6 +84,9 @@ def update_tag(tag_id: int, payload: TagUpdate, request: Request, db: Session = 
 
     before = {"name": tag.name, "color": tag.color}
     data = payload.model_dump(exclude_unset=True)
+    if "color" in data and not data["color"]:
+        # Clearing the color gives back the palette color of the tag, never "no color"
+        data["color"] = default_tag_color(data.get("name") or tag.name)
     for key, value in data.items():
         setattr(tag, key, value)
 

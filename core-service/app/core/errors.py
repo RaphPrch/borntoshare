@@ -5,10 +5,20 @@ import uuid
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.core.logging import log_event
+
+
+def _first_validation_message(errors: list) -> str:
+    """Message of the first failed field, as written in its validator ("Value error, " removed)."""
+    for error in errors or []:
+        message = str((error or {}).get("msg") or "").strip()
+        if message:
+            return message.removeprefix("Value error, ")
+    return "Validation failed."
 
 
 def get_request_id(request: Request) -> str:
@@ -160,7 +170,8 @@ def register_exception_handlers(app: FastAPI, logger: logging.Logger) -> None:
     @app.exception_handler(RequestValidationError)
     async def _validation_exception_handler(request: Request, exc: RequestValidationError):
         request_id = get_request_id(request) or ensure_request_id(request)
-        details = {"errors": exc.errors()}
+        # jsonable_encoder: a validator's ValueError sits in "ctx" and is not JSON serializable
+        details = {"errors": jsonable_encoder(exc.errors(), custom_encoder={Exception: str})}
         log_event(
             logger,
             logging.WARNING,
@@ -178,7 +189,7 @@ def register_exception_handlers(app: FastAPI, logger: logging.Logger) -> None:
             status_code=422,
             request_id=request_id,
             code="VALIDATION_ERROR",
-            message="Validation failed.",
+            message=_first_validation_message(details["errors"]),
             details=details,
         )
 

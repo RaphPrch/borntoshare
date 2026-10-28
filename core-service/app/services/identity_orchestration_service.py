@@ -148,6 +148,35 @@ async def _resolve_ad_identity_id(
     return _normalize_candidate(resolved.get("identity_id"))
 
 
+def _groups_with_role(source_id: int | None, external_ids: list[Any]) -> set[str]:
+    """External ids (lower case) of the directory groups of this source that have a BornToShare role."""
+    wanted = sorted({str(e).strip().lower() for e in external_ids if str(e or "").strip()})
+    if not source_id or not wanted:
+        return set()
+    from sqlalchemy import bindparam, text
+
+    from app.core.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        rows = db.execute(
+            text(
+                """
+                SELECT DISTINCT LOWER(dg.external_id)
+                FROM directory_groups dg
+                JOIN identity_roles ir ON ir.directory_group_id = dg.id
+                WHERE dg.identity_source_id = :source_id AND LOWER(dg.external_id) IN :ids
+                """
+            ).bindparams(bindparam("ids", expanding=True)),
+            {"source_id": int(source_id), "ids": wanted},
+        )
+        return {str(r[0]) for r in rows}
+    except Exception:
+        return set()
+    finally:
+        db.close()
+
+
 async def _resolve_ad_identity_ids_batch(
     principals: list[dict[str, Any]],
     *,
@@ -377,6 +406,17 @@ async def search_identity(incoming: dict[str, Any]) -> dict[str, Any]:
                 "identity_source_id": int(source_id) if source_id else None,
             }
         )
+
+    # « Imported » = known by BornToShare in THIS source: a user with an identity, a group with a role.
+    # A homonym in another source is a candidate like any other principal.
+    imported_groups = _groups_with_role(int(source_id) if source_id else None, [i["external_id"] for i in items if i["type"] == "group"])
+    for item in items:
+        if item["type"] == "group":
+            item["is_import_candidate"] = str(item.get("external_id") or "").lower() not in imported_groups
+        elif item["type"] == "user":
+            item["is_import_candidate"] = item["identity_id"] is None
+        else:
+            item["is_import_candidate"] = False
 
     logger.debug(
         "identity.search.results",
