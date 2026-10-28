@@ -84,6 +84,13 @@ JOB_CONTRACTS: dict[str, JobContract] = {
         queue_name=QUEUE_PROBES,
         actor_name="run_probe_job",
     ),
+    # Infrastructure health check (Advanced Settings › Infrastructure), run on a schedule
+    "INFRA_HEALTH": JobContract(
+        job_type="INFRA_HEALTH",
+        default_action="infra_health_check",
+        queue_name=QUEUE_PROBES,
+        actor_name="run_probe_job",
+    ),
 }
 
 

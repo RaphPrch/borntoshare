@@ -17,6 +17,7 @@ from app.api.activity_events import router as activity_events_router
 from app.api.dashboard import router as dashboard_router
 from app.api.advanced_settings import router as advanced_settings_router
 from app.api.naming_policies import router as naming_policies_router
+from app.api.infrastructure import router as infrastructure_router
 from app.api.governance_alerts import router as governance_alerts_router
 from app.api.health_events import router as health_events_router
 
@@ -47,6 +48,7 @@ router.include_router(activity_events_router)
 router.include_router(dashboard_router)
 router.include_router(advanced_settings_router)
 router.include_router(naming_policies_router)
+router.include_router(infrastructure_router)
 router.include_router(governance_alerts_router)
 router.include_router(health_events_router)
 

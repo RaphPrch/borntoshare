@@ -59,6 +59,19 @@ export function timeAgo(iso?: string | null): string {
   return t('{floor}d ago', { floor: Math.floor(hr / 24) });
 }
 
+/** Time left before a future date (next scheduled run): "in 4 min", "in 2 h", "due" when past. */
+export function timeUntil(iso?: string | null): string {
+  if (!iso) return '';
+  const sec = Math.floor((new Date(iso).getTime() - Date.now()) / 1000);
+  if (!Number.isFinite(sec)) return '';
+  if (sec <= 30) return t('due now');
+  const min = Math.round(sec / 60);
+  if (min < 60) return t('in {min} min', { min: Math.max(1, min) });
+  const hr = Math.round(min / 60);
+  if (hr < 24) return t('in {hr} h', { hr });
+  return t('in {d} d', { d: Math.round(hr / 24) });
+}
+
 /** Long technical values (DN, templates, paths): allow line breaks after , } \\ / only, never inside words. */
 export function breakable(value: unknown): string {
   return String(value ?? '').replace(/([,}\\/])/g, '$1\u200b');

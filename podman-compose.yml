@@ -136,6 +136,13 @@ services:
       CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
       # The BFF may call the non-/internal/ orchestration routes without a token
       B2S_ALLOW_PUBLIC_API: "true"
+      # Database chosen in Advanced Settings › Infrastructure, read at startup (replaces DB_*)
+      B2S_RUNTIME_DIR: /etc/b2s/runtime
+      # Private authority of the worker agents' certificates (optional)
+      B2S_AGENT_CA_FILE: ${B2S_AGENT_CA_FILE:-}
+    volumes:
+      - ./config/runtime:/etc/b2s/runtime:rw,z
+      - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     expose: ["8000"]
     healthcheck:
       <<: *healthcheck
@@ -157,11 +164,17 @@ services:
       LOG_LEVEL: ${CAPSULE_LOG_LEVEL:-INFO}
       CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
       RUNNER_MAX_SCOPE: ${RUNNER_MAX_SCOPE:-write}
+      # Agent checked by core-service (Advanced Settings › Infrastructure › Workers)
+      AGENT_USERNAME: ${AGENT_USERNAME:-b2s-agent}
+      AGENT_PASSWORD: ${AGENT_PASSWORD:?AGENT_PASSWORD must be set}
+      AGENT_TLS_CERT: ${AGENT_TLS_CERT:-}
+      AGENT_TLS_KEY: ${AGENT_TLS_KEY:-}
       # LDAPS certificate check of the domain controllers (production: true + CA of the AD)
       LDAP_TLS_VERIFY: ${LDAP_TLS_VERIFY:-false}
       LDAP_CA_FILE: ${LDAP_CA_FILE:-}
     volumes:
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
+    expose: ["8443"]
     extra_hosts:
       - "${AD_DC_NAME}:${AD_DC_IP}"
       - "${AD_DC_FQDN}:${AD_DC_IP}"

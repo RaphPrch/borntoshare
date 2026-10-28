@@ -25,10 +25,13 @@ RUN pip install -r requirements.txt
 
 # Application code: owned by root, read-only for the runtime user
 COPY app ./app
+COPY start.sh ./start.sh
 
 # Non-root runtime user, one UID per service
 RUN groupadd --system --gid 10003 app \
     && useradd --system --uid 10003 --gid app --no-create-home --shell /usr/sbin/nologin app
 USER app
 
-CMD ["dramatiq", "app.jobs.tasks"]
+# Dramatiq worker + agent API (port AGENT_PORT, checked by core-service)
+EXPOSE 8443
+CMD ["./start.sh"]

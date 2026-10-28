@@ -8,3 +8,4 @@ pymysql==1.2.3
 bcrypt==5.0.0
 dramatiq==2.2.1
 redis==8.1.0
+httpx==0.28.1

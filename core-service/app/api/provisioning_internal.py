@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -28,6 +29,7 @@ from app.core.values import positive_int, utcnow_naive
 
 
 router = APIRouter(prefix="/internal/provisioning", tags=["internal-provisioning"])
+logger = logging.getLogger("core.provisioning_internal")
 
 class EnsureAccessGroupPayload(BaseModel):
     storage_root_id: int = Field(..., gt=0)
@@ -565,6 +567,36 @@ def _extract_directory_snapshot_inputs(
     groups = _as_list_of_dict(result_payload.get("groups"))
     memberships = _as_list_of_dict(result_payload.get("memberships"))
     return snapshot_id, users, groups, memberships
+
+
+def _apply_infrastructure_results(db: Session, *, job_row: Any, result_json: dict | None) -> None:
+    """Advanced Settings › Infrastructure: health check states, share discovery of the data sync."""
+    job_type = str(getattr(job_row, "job_type", "") or "").strip().upper()
+    if job_type not in {"INFRA_HEALTH", "SMB_PROBE"}:
+        return
+    job_payload = getattr(job_row, "payload_json", None)
+    if isinstance(job_payload, (str, bytes)):
+        try:
+            job_payload = json.loads(job_payload)
+        except ValueError:
+            job_payload = {}
+    # Savepoint: a failure here must not undo the completion of the job itself
+    savepoint = db.begin_nested()
+    try:
+        if job_type == "INFRA_HEALTH":
+            from app.services.infrastructure_service import apply_worker_health_results
+
+            apply_worker_health_results(db, job_payload=_as_dict(job_payload), result_json=_as_dict(result_json))
+        else:
+            from app.services.data_sync_service import apply_endpoint_discovery
+
+            apply_endpoint_discovery(db, job_payload=_as_dict(job_payload), result_json=_as_dict(result_json))
+        if savepoint.is_active:
+            savepoint.commit()
+    except Exception:
+        if savepoint.is_active:
+            savepoint.rollback()
+        logger.exception("INFRA_RESULT_APPLY_FAILED job_id=%s", int(getattr(job_row, "id", 0) or 0))
 
 
 def _apply_directory_snapshot_success(
@@ -1148,6 +1180,7 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
     )
 
     _record_access_group_outcome(db, job_row=row, succeeded=True, result_json=payload.result_json)
+    _apply_infrastructure_results(db, job_row=row, result_json=payload.result_json)
 
     _write_governance_event(
         db,

@@ -260,3 +260,19 @@ class ACLApplyPayload(BaseModel):
         if not self.password and not self.secret_ref:
             raise ValueError("password or secret_ref is required")
         return self
+
+
+class InfraHealthTarget(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    component: str = Field(min_length=1, max_length=96)
+    kind: str = Field(default="http", pattern="^(http|tcp)$")
+    target: str = Field(min_length=1, max_length=512)
+
+
+class InfraHealthPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    targets: list[InfraHealthTarget] = Field(default_factory=list, max_length=500)
+    timeout: int = Field(default=5, ge=1, le=15)
+    verify_tls: bool = True

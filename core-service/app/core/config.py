@@ -35,6 +35,10 @@ class Settings(BaseModel):
     DB_NAME: str = Field(default=os.getenv("DB_NAME", "b2s"))
     DB_USER: str = Field(default=os.getenv("DB_USER", "b2s"))
     DB_PASSWORD: str = Field(default=os.getenv("DB_PASSWORD", "b2s"))
+    # Full connection string chosen in Advanced Settings › Infrastructure (runtime file), replaces DB_*
+    DATABASE_URL_OVERRIDE: str | None = Field(default=None)
+    # Where the running connection comes from: "env" (.env) or "runtime" (Infrastructure page)
+    DB_CONFIG_SOURCE: str = Field(default="env")
 
     # =================================================
     # 🗄️ Logging Database (MariaDB) — borntoshare_logging
@@ -133,6 +137,8 @@ class Settings(BaseModel):
 
     @property
     def sqlalchemy_url(self) -> str:
+        if self.DATABASE_URL_OVERRIDE:
+            return self.DATABASE_URL_OVERRIDE
         user = urllib.parse.quote_plus(self.DB_USER)
         pwd = urllib.parse.quote_plus(self.DB_PASSWORD)
         return (
@@ -172,9 +178,46 @@ class Settings(BaseModel):
         return kwargs
 
 
+def _apply_runtime_database(settings: Settings) -> Settings:
+    """The database chosen on the Infrastructure page wins over .env (applied at startup)."""
+    from app.core.runtime_config import parse_dsn, read_database_config
+
+    config = read_database_config()
+    if not config:
+        return settings
+    updates: dict = {"DB_CONFIG_SOURCE": "runtime"}
+    if config["mode"] == "dsn" and str(config.get("dsn") or "").strip():
+        dsn = str(config["dsn"]).strip()
+        parts = parse_dsn(dsn)
+        updates.update(
+            DATABASE_URL_OVERRIDE=dsn,
+            DB_HOST=parts["host"],
+            DB_PORT=int(parts["port"]),
+            DB_NAME=parts["name"] or settings.DB_NAME,
+            DB_USER=parts["user"] or settings.DB_USER,
+        )
+        if str(config.get("logging_dsn") or "").strip():
+            updates["LOGGING_DATABASE_URL"] = str(config["logging_dsn"]).strip()
+    elif config["mode"] == "fields":
+        updates.update(
+            DB_HOST=str(config.get("host") or settings.DB_HOST),
+            DB_PORT=int(config.get("port") or settings.DB_PORT),
+            DB_NAME=str(config.get("name") or settings.DB_NAME),
+            DB_USER=str(config.get("user") or settings.DB_USER),
+            DB_PASSWORD=str(config.get("password") or settings.DB_PASSWORD),
+            # The logging database lives on the same server
+            LOGGING_DB_HOST=str(config.get("host") or settings.LOGGING_DB_HOST),
+            LOGGING_DB_PORT=int(config.get("port") or settings.LOGGING_DB_PORT),
+            LOGGING_DB_USER=str(config.get("user") or settings.LOGGING_DB_USER),
+            LOGGING_DB_PASSWORD=str(config.get("password") or settings.LOGGING_DB_PASSWORD),
+            LOGGING_DB_NAME=str(config.get("logging_name") or settings.LOGGING_DB_NAME),
+        )
+    return settings.model_copy(update=updates)
+
+
 @lru_cache
 def get_settings() -> Settings:
-    settings = Settings()
+    settings = _apply_runtime_database(Settings())
 
     # -------------------------------------------------
     # 🔥 Safety checks (CRITICAL)

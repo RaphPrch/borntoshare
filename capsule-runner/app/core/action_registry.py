@@ -10,6 +10,7 @@ from app.actions.ad_access import grant_ad_access
 from app.actions.ad_group import ensure_ad_group
 from app.actions.ad_group_member import ensure_ad_group_member, remove_ad_group_member
 from app.actions.directory_snapshot import collect_directory_snapshot
+from app.actions.infra_health import run_infra_health_check
 from app.actions.kerberos import test_kerberos
 from app.actions.ldap_group_recursive import discover_group_users_recursive
 from app.actions.ldap_search import search_ldap_principals
@@ -17,6 +18,7 @@ from app.actions.ldap_test import test_ldap_bind
 from app.actions.smb import test_smb_ntlm, test_smb_root_access
 from app.middleware.resolve_secrets import CapsuleSecretResolutionError, resolve_secret_fields
 from app.schemas.actions import (
+    InfraHealthPayload,
     ACLApplyPayload,
     ADAccessGrantPayload,
     ADGroupCreatePayload,
@@ -54,6 +56,13 @@ class ActionSpec:
 
 
 ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
+    "infra_health_check": ActionSpec(
+        action="infra_health_check",
+        schema=InfraHealthPayload,
+        runner=run_infra_health_check,
+        secret_fields=(),
+        target_field="targets",
+    ),
     "collect_directory_snapshot": ActionSpec(
         action="collect_directory_snapshot",
         schema=DirectorySnapshotPayload,

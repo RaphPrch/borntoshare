@@ -26,3 +26,7 @@ keys/
 logs/
 dump/
 *.sqlite
+
+# Database connection saved from Advanced Settings › Infrastructure (holds a password)
+config/runtime/*
+!config/runtime/.gitkeep

@@ -13,6 +13,7 @@ _RANK = {
 
 ACTION_MIN_SCOPE: dict[str, str] = {
     # Read-only probes/search
+    "infra_health_check": "read",
     "test_smb_ntlm": "read",
     "test_smb_root_access": "read",
     "test_ldap": "read",

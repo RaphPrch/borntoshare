@@ -10,7 +10,8 @@
   const nav: NavItem[] = [
     { key: 'naming-policies', label: t('Naming policy'), icon: 'bi-input-cursor-text' },
     { key: 'logging', label: t('Logging'), icon: 'bi-journal-text' },
-    { key: 'user-sessions', label: t('User sessions'), icon: 'bi-person-lines-fill' }
+    { key: 'user-sessions', label: t('User sessions'), icon: 'bi-person-lines-fill' },
+    { key: 'infrastructure', label: t('Infrastructure'), icon: 'bi-hdd-network' }
   ];
 
   const defaultHeader = {
@@ -18,7 +19,12 @@
     subtitle: t('Advanced technical settings.')
   };
 
-  const headersBySection: Record<string, { title: string; subtitle: string }> = {};
+  const headersBySection: Record<string, { title: string; subtitle: string }> = {
+    infrastructure: {
+      title: t('Infrastructure'),
+      subtitle: t('State of the platform, database, workers, health check and data sync.')
+    }
+  };
 
   $: current = $page.url.pathname.split('/').pop() ?? 'naming-policies';
   $: header = headersBySection[current] ?? defaultHeader;

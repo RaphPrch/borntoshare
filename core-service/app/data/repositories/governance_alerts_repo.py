@@ -282,6 +282,102 @@ class GovernanceAlertsRepo(SQLViewRepo):
             params,
         )
 
+    def _membership_drift_alerts(
+        self,
+        *,
+        root_id: int,
+        identity_source_id: int,
+        profile_rows: list[dict[str, Any]],
+        base: Any,
+        root_label: str,
+    ) -> list[dict[str, Any]]:
+        """AD group members vs granted accesses, from the latest snapshot (data sync).
+
+        Expected members: requests executed on this root and level, neither revoked nor expired.
+        Actual members: direct members of the group in the active snapshot. A group absent from the
+        snapshot is not judged (nothing to compare with).
+        """
+        alerts: list[dict[str, Any]] = []
+        for row in profile_rows:
+            if str(row.get("status") or "").upper() != "SUCCEEDED":
+                continue
+            level = str(row.get("access_level") or "READ").upper()
+            group_name = str(row.get("group_name") or "").strip()
+            group = self._one(
+                """
+                SELECT dg.id
+                FROM directory_groups dg
+                WHERE dg.identity_source_id = :source_id
+                  AND (
+                    (:external_id <> '' AND LOWER(dg.external_id) = LOWER(:external_id))
+                    OR LOWER(dg.name) = LOWER(:group_name)
+                  )
+                ORDER BY (LOWER(dg.external_id) = LOWER(:external_id)) DESC
+                LIMIT 1
+                """,
+                {"source_id": identity_source_id, "external_id": str(row.get("group_external_id") or ""), "group_name": group_name},
+            )
+            if not group:
+                continue
+            actual = {
+                str(m.get("username") or "").lower(): str(m.get("display_name") or m.get("username") or "")
+                for m in self._all(
+                    """
+                    SELECT du.username, du.display_name
+                    FROM directory_effective_memberships dem
+                    JOIN directory_users du ON du.id = dem.directory_user_id
+                    WHERE dem.directory_group_id = :group_id AND dem.depth = 0 AND du.username IS NOT NULL
+                    """,
+                    {"group_id": int(group["id"])},
+                )
+            }
+            expected = {
+                str(r.get("username") or "").lower(): str(r.get("display_name") or r.get("username") or "")
+                for r in self._all(
+                    """
+                    SELECT
+                      JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.username')) AS username,
+                      JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.display_name')) AS display_name
+                    FROM access_requests ar
+                    JOIN access_request_items ari ON ari.access_request_id = ar.id
+                    WHERE LOWER(ar.status) = 'executed'
+                      AND ar.revoked_at IS NULL
+                      AND ari.target_type = 'storage_root' AND ari.target_id = :root_id
+                      AND UPPER(ari.permission) = :level
+                      AND (ari.expires_at IS NULL OR ari.expires_at > UTC_TIMESTAMP())
+                      AND LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.type')), 'user')) = 'user'
+                    """,
+                    {"root_id": root_id, "level": level},
+                )
+                if r.get("username") and str(r.get("username")) != "null"
+            }
+            profile_id = int(row.get("id") or 0)
+            missing = sorted(set(expected) - set(actual))
+            extra = sorted(set(actual) - set(expected))
+            if missing:
+                alerts.append({
+                    **base("ad_member_missing"),
+                    "alert_key": f"storage_root:{root_id}:ad_member_missing:{profile_id}",
+                    "severity": "high",
+                    "title": f"{level} access granted but missing from the AD group",
+                    "message": f"{group_name}: " + ", ".join(expected[u] for u in missing[:10]) + (f" (+{len(missing) - 10})" if len(missing) > 10 else ""),
+                    "source_type": "membership_drift",
+                    "source_id": str(profile_id),
+                    "metadata_json": {"storage_root_name": root_label, "group_name": group_name, "access_level": level, "usernames": missing},
+                })
+            if extra:
+                alerts.append({
+                    **base("ad_member_not_granted"),
+                    "alert_key": f"storage_root:{root_id}:ad_member_not_granted:{profile_id}",
+                    "severity": "warning",
+                    "title": f"AD group member without a granted {level} access",
+                    "message": f"{group_name}: " + ", ".join(actual[u] for u in extra[:10]) + (f" (+{len(extra) - 10})" if len(extra) > 10 else ""),
+                    "source_type": "membership_drift",
+                    "source_id": str(profile_id),
+                    "metadata_json": {"storage_root_name": root_label, "group_name": group_name, "access_level": level, "usernames": extra},
+                })
+        return alerts
+
     def reconcile_storage_root(self, storage_root_id: int, *, commit: bool = False) -> list[dict[str, Any]]:
         root = self._one(
             """
@@ -527,6 +623,17 @@ class GovernanceAlertsRepo(SQLViewRepo):
                         "scan_probe_job_id": raw_acl_payload.get("probe_job_id"),
                     },
                 }
+            )
+
+        if identity_source_id:
+            alerts.extend(
+                self._membership_drift_alerts(
+                    root_id=root_id,
+                    identity_source_id=int(identity_source_id),
+                    profile_rows=profile_rows,
+                    base=base,
+                    root_label=root_label,
+                )
             )
 
         pending_row = self._one(

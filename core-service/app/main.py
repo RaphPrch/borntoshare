@@ -15,6 +15,7 @@ from app.api.internal_auth_local import router as internal_auth_local_router
 from app.api import router as api_router
 from app.api.governance import router as governance_router
 from app.jobs.watchdog import start_jobs_watchdog
+from app.jobs.infra_scheduler import start_infra_scheduler
 from app.data.repositories.access_requests_views_repo import AccessRequestsReadModelContractError
 
 settings = get_settings()
@@ -52,6 +53,11 @@ def _startup_schema_contract_guard() -> None:
 @app.on_event("startup")
 async def _startup_jobs_watchdog() -> None:
     start_jobs_watchdog()
+
+
+@app.on_event("startup")
+async def _startup_infra_scheduler() -> None:
+    start_infra_scheduler()
 
 
 # ============================================================
