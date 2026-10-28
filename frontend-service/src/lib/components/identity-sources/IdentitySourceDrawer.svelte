@@ -213,7 +213,7 @@
               disabled={busy || snapshotRunning}
               on:click={() => dispatch('runSnapshot')}
             >
-              {snapshotRunning ? t('Snapshot running…') : t('Run Snapshot')}
+              {snapshotRunning ? t('Synchronizing…') : t('Sync now')}
             </button>
           {/if}
         </div>

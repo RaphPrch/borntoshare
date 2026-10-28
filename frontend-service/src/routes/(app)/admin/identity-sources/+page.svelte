@@ -3,6 +3,7 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { browser } from '$app/environment';
+  import { onDestroy } from 'svelte';
   import { sleep } from '$lib/utils/values';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -416,8 +417,23 @@
   const identitySnapshotJob = (sourceId: number) =>
     $jobsStore[jobsStore.keyOf(identitySnapshotJobInput(sourceId))] ?? null;
 
+  // Snapshots running on the server, whoever started them (page reload, another admin, scheduler)
+  $: serverSnapshotRunning = new Set(sources.filter((s) => s.snapshot_running).map((s) => Number(s.id)));
+
   const identitySnapshotRunning = (sourceId: number) =>
-    identitySnapshotJob(sourceId)?.status === 'running';
+    identitySnapshotJob(sourceId)?.status === 'running' || serverSnapshotRunning.has(Number(sourceId));
+
+  // Follow a snapshot started elsewhere until it ends
+  let snapshotWatchTimer: ReturnType<typeof setTimeout> | null = null;
+  $: if (browser && serverSnapshotRunning.size > 0 && !snapshotWatchTimer) {
+    snapshotWatchTimer = setTimeout(async () => {
+      await refreshList();
+      snapshotWatchTimer = null;
+    }, 5000);
+  }
+  onDestroy(() => {
+    if (snapshotWatchTimer) clearTimeout(snapshotWatchTimer);
+  });
 
   const syncSnapshotMetaFromInternal = (sourceId: number, internal: IdentitySourceInternalMeta | null) => {
     snapshotStore.upsert(sourceId, toSnapshotStorePatch(extractSnapshotMeta(internal)));
@@ -720,6 +736,14 @@
         action: 'identity_sources.run_snapshot',
         sourceId: source.id
       });
+      if (appError.code === 'SNAPSHOT_ALREADY_RUNNING') {
+        // Started elsewhere (another admin, another page, the scheduler): follow it instead of failing
+        jobsStore.clearJob(identitySnapshotJobInput(source.id));
+        snapshotStore.upsert(source.id, { status: 'running', loading: false, error: null, note: appError.message });
+        patchSourceRuntimeMeta(source.id, { snapshot_running: true });
+        toast.info(appError.message);
+        return;
+      }
       const message = appError.message;
       notifyError(appError);
       jobsStore.failJob(identitySnapshotJobInput(source.id), {
@@ -732,12 +756,6 @@
         error: message,
         note: null
       });
-      const hint = appError.code
-        ? `Code: ${String(appError.code)}${appError.requestId ? ` · requestId: ${String(appError.requestId)}` : ''}`
-        : appError.requestId
-          ? t('requestId: {String}', { String: String(appError.requestId) })
-          : null;
-      toast.error(hint ? `${message} (${hint})` : message);
       await loadHealthSummaryForSource(source.id, true);
       await refreshList();
     }
@@ -1245,11 +1263,11 @@
                   <button
                     type="button"
                     class="b2s-btn b2s-btn-primary"
-                    disabled={identitySnapshotRunning(detailCard.id)}
+                    disabled={$jobsStore && serverSnapshotRunning && identitySnapshotRunning(detailCard.id)}
                     on:click={() => runSnapshotOnSource(detailCard.raw)}
                   >
-                    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-                    {t('Sync now')}
+                    <i class={`bi ${identitySnapshotRunning(detailCard.id) ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} aria-hidden="true"></i>
+                    {$jobsStore && serverSnapshotRunning && identitySnapshotRunning(detailCard.id) ? t('Synchronizing…') : t('Sync now')}
                   </button>
                 {/if}
               </div>
@@ -1291,7 +1309,7 @@
   snapshotDebugVersion={snapshotDebugVersion}
   busy={busy}
   probeRunning={selectedCard ? identityProbeRunning(selectedCard.id) : false}
-  snapshotRunning={selectedCard ? identitySnapshotRunning(selectedCard.id) : false}
+  snapshotRunning={selectedCard && $jobsStore && serverSnapshotRunning ? identitySnapshotRunning(selectedCard.id) : false}
   on:close={closeDetails}
   on:refresh={() => {
     if (selectedCard) loadInternal(selectedCard.id, true);

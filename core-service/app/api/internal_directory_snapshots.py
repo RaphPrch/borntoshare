@@ -27,6 +27,18 @@ def create_snapshot_run(payload: DirectorySnapshotRunRequest, db: Session = Depe
             "force_full": bool(payload.force_full),
         }
         repo = DirectorySnapshotsRepo(db)
+        # One snapshot at a time per source (double click, two admins, scheduler)
+        running = repo.running_runs(identity_source_id=int(payload.identity_source_id))
+        if running:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error_code": "SNAPSHOT_ALREADY_RUNNING",
+                    "message": "A snapshot is already running for this identity source",
+                    "identity_source_id": int(payload.identity_source_id),
+                    "snapshot_id": running[int(payload.identity_source_id)],
+                },
+            )
         created = repo.create_run(
             identity_source_id=int(payload.identity_source_id),
             initiated_by=payload.initiated_by,

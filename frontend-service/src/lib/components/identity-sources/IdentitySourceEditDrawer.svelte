@@ -24,7 +24,9 @@
     emptyServiceAccountDrafts,
     serviceAccountDraftError,
     serviceAccountDraftsFrom,
-    type ServiceAccountDrafts
+    testServiceAccount,
+    type ServiceAccountDrafts,
+    type ServiceAccountPurpose
   } from '$lib/utils/service-accounts';
 
   /** Source to edit, already merged with its internal metadata. Only AD / LDAP sources exist. */
@@ -259,6 +261,20 @@
     },
     is_active: form.is_active
   });
+
+  const testAccount = (purpose: ServiceAccountPurpose): Promise<boolean> => {
+    const connection = connectionPayload();
+    return testServiceAccount(
+      fetch,
+      { ...connection, capabilities: { ...connection.capabilities, auth_mode: source?.capabilities?.auth_mode === 'kerberos' ? 'kerberos' : 'ntlm' } },
+      form.service_accounts[purpose],
+      {
+        purpose,
+        secretNameBase: `identity-source/${connection.protocol}/${connection.host || connection.name || 'ad'}`,
+        storedRef: source?.service_accounts?.[purpose]?.bind_password_ref ?? null
+      }
+    );
+  };
 
   const handleSave = async () => {
     if (!source) return;
@@ -556,6 +572,7 @@
               title={t('Snapshot inventory')}
               description={t('Read-only account that collects users, groups and memberships.')}
               bind:draft={form.service_accounts.snapshot}
+              onTest={() => testAccount('snapshot')}
               {showErrors}
             />
           {/if}
@@ -567,6 +584,7 @@
               title={t('Authenticate users')}
               description={t('Read-only account that finds the user before checking the password.')}
               bind:draft={form.service_accounts.auth}
+              onTest={() => testAccount('auth')}
               {showErrors}
             />
           {/if}
@@ -578,6 +596,7 @@
               title={t('Manage AD groups')}
               description={t('Account delegated on the target OUs: create groups and change their members.')}
               bind:draft={form.service_accounts.provisioning}
+              onTest={() => testAccount('provisioning')}
               {showErrors}
             />
           {/if}
@@ -759,6 +778,7 @@
 
   .identity-edit-field {
     display: grid;
+    align-content: start;
     gap: 6px;
     color: #071638;
     font-size: var(--b2s-fs-xs);

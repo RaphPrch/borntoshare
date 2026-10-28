@@ -18,6 +18,7 @@ from app.services.identity_source_fields import (
 )
 from app.data.models.storage_endpoint import StorageEndpoint
 from app.data.repositories.identity_source_purge_repo import purge_identity_source_related_records
+from app.data.repositories.directory_snapshots_repo import DirectorySnapshotsRepo
 from app.data.repositories.identity_sources_views_repo import IdentitySourcesViewsRepo
 from app.api._helpers import ui_action, ui_data, ui_list
 from app.schemas.identity_sources import (
@@ -176,6 +177,52 @@ def changed_critical_fields(src: Any, updates: dict[str, Any]) -> list[str]:
 
     return sorted(field for field in ("host", "base_dn") if field in updates and not same(field))
 
+def ensure_unique_source(
+    db: Session,
+    *,
+    name: str | None,
+    domain_name: str | None,
+    auth_enabled: bool,
+    source_type: str,
+    exclude_id: int | None = None,
+) -> None:
+    """409 when the name is taken, or when another AD source that authenticates users has the same domain
+    (the login could not tell which directory checks the password)."""
+    params = {"exclude_id": int(exclude_id or 0)}
+    if str(name or "").strip():
+        taken = db.execute(
+            text(
+                "SELECT id FROM identity_sources WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) AND id <> :exclude_id LIMIT 1"
+            ),
+            {**params, "name": str(name)},
+        ).first()
+        if taken:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"error_code": "IDENTITY_SOURCE_NAME_TAKEN", "message": "An identity source with this name already exists"},
+            )
+    if auth_enabled and source_type == "ad" and str(domain_name or "").strip():
+        taken = db.execute(
+            text(
+                """
+                SELECT name FROM identity_sources
+                WHERE LOWER(TRIM(domain_name)) = LOWER(TRIM(:domain_name))
+                  AND LOWER(type) = 'ad' AND auth_enabled = 1 AND is_active = 1 AND id <> :exclude_id
+                LIMIT 1
+                """
+            ),
+            {**params, "domain_name": str(domain_name)},
+        ).first()
+        if taken:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error_code": "IDENTITY_SOURCE_DOMAIN_TAKEN",
+                    "message": f"The source “{taken[0]}” already authenticates the users of this domain",
+                },
+            )
+
+
 @router.get("", summary="List identity sources")
 def list_identity_sources(db: Session = Depends(get_db)):
     query = db.query(IdentitySource)
@@ -185,12 +232,14 @@ def list_identity_sources(db: Session = Depends(get_db)):
     rows = query.order_by(IdentitySource.id.desc()).all()
 
     latest_snapshot_map = IdentitySourcesViewsRepo(db).list_latest_snapshot_meta_by_source()
+    running = DirectorySnapshotsRepo(db).running_runs()
 
     results = []
     for r in rows:
         payload = _public_row(r)
         payload["service_accounts"] = public_accounts(load_accounts(db, int(r.id)))
         payload.update(latest_snapshot_map.get(int(r.id), _empty_snapshot_meta()))
+        payload["snapshot_running"] = int(r.id) in running
         payload["used"] = _is_identity_source_used(db, r)
         results.append(payload)
     return ui_list(results)
@@ -206,6 +255,7 @@ def get_identity_source_internal(source_id: int, db: Session = Depends(get_db)):
     auth_priority = source_auth_priority(src)
     snapshot_meta = _latest_snapshot_meta(db, int(src.id))
     payload = {
+        "snapshot_running": bool(DirectorySnapshotsRepo(db).running_runs(identity_source_id=int(src.id))),
         "id": src.id,
         "type": src.type,
         "name": src.name,
@@ -263,6 +313,10 @@ def create_identity_source(payload: IdentitySourceCreate, request: Request, db: 
     bind_password_ref = str(payload.bind_password_ref or "").strip() or None
     auth_enabled = bool(payload.auth_enabled)
     auth_priority = int(payload.auth_priority)
+
+    ensure_unique_source(
+        db, name=payload.name, domain_name=payload.domain_name, auth_enabled=auth_enabled, source_type=source_type
+    )
 
     capabilities_payload = payload.capabilities.model_dump()
     capabilities_payload["auth"] = auth_enabled
@@ -489,6 +543,17 @@ def update_identity_source(
                     f"cannot be changed: {', '.join(changed_critical)}"
                 ),
             )
+
+    if {"name", "domain_name", "auth_enabled", "is_active"} & set(updates):
+        ensure_unique_source(
+            db,
+            name=updates["name"] if "name" in updates else None,
+            domain_name=updates.get("domain_name", src.domain_name),
+            auth_enabled=bool(updates.get("auth_enabled", source_auth_enabled(src)))
+            and bool(updates.get("is_active", src.is_active)),
+            source_type=str(src.type or "ad").lower(),
+            exclude_id=int(src.id),
+        )
 
     before = {
         "name": src.name,

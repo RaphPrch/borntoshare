@@ -2371,5 +2371,16 @@
   "Login failed.": "Échec de la connexion.",
   "Missing credentials.": "Identifiants manquants.",
   "Managing AD groups is disabled for the identity source of this storage endpoint.": "La gestion des groupes AD est désactivée sur la source d'identité de ce point de stockage.",
-  "Enable “Manage AD groups” on the identity source.": "Activez « Gérer les groupes AD » sur la source d'identité."
+  "Enable “Manage AD groups” on the identity source.": "Activez « Gérer les groupes AD » sur la source d'identité.",
+  "A snapshot is already running for this identity source.": "Un snapshot est déjà en cours pour cette source d'identité.",
+  "Snapshot inventory is disabled for this identity source.": "L'inventaire par snapshot est désactivé pour cette source d'identité.",
+  "An identity source with this name already exists.": "Une source d'identité porte déjà ce nom.",
+  "Another active source already authenticates the users of this domain.": "Une autre source active authentifie déjà les utilisateurs de ce domaine.",
+  "Test this account": "Tester ce compte",
+  "Connection validated: you can continue.": "Connexion validée : vous pouvez continuer.",
+  "The connection test failed. Fix the settings, or go on knowingly.": "Le test de connexion a échoué. Corrigez les paramètres, ou continuez en connaissance de cause.",
+  "Run the connection test before continuing.": "Lancez le test de connexion avant de continuer.",
+  "Continue without a successful test (not recommended)": "Continuer sans test réussi (déconseillé)",
+  "Test the connection first, or confirm you want to go on without a successful test.": "Testez d'abord la connexion, ou confirmez que vous continuez sans test réussi.",
+  "dc01.example.com or 192.0.2.10": "dc01.example.com ou 192.0.2.10"
 }

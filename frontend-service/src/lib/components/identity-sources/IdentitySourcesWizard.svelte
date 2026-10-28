@@ -35,7 +35,9 @@
     domainFromBaseDn,
     draftsForCapabilities,
     emptyServiceAccountDrafts,
-    serviceAccountDraftError
+    serviceAccountDraftError,
+    testServiceAccount,
+    type ServiceAccountPurpose
   } from '$lib/utils/service-accounts';
   import { snapshotStore } from '$lib/stores/snapshot.store';
 
@@ -76,6 +78,10 @@
     | { ok: boolean; checks: { key: string; ok: boolean; message?: string }[] }
     | null = null;
   let probeStatus: 'idle' | 'running' | 'success' | 'failed' = 'idle';
+  // Connection settings the last successful probe validated
+  let probedKey = '';
+  // The admin chose to go on without a successful probe
+  let skipProbe = false;
   let testError: string | null = null;
   let createError: string | null = null;
   let creating = false;
@@ -154,9 +160,9 @@
   const payload: IdentitySourcePayload = {
     type: 'ad',
     name: '',
-    protocol: 'ldap',
+    protocol: 'ldaps',
     host: '',
-    port: 389,
+    port: 636,
     base_dn: '',
     bind_dn: '',
     bind_password_ref: null,
@@ -231,6 +237,10 @@
     }
     if (currentStepKey === 'connection' && !canContinueStep3) {
       showStep3Errors = true;
+      return;
+    }
+    if (currentStepKey === 'connection' && !connectionValidated) {
+      toast.error(t('Test the connection first, or confirm you want to go on without a successful test.'));
       return;
     }
     if (step < maxStep) step += 1;
@@ -629,6 +639,35 @@
     !isDuplicateSourceName();
 
   $: suggestedDomain = domainFromBaseDn(payload.base_dn);
+  // Shown as soon as the name is typed (a function call in the template would not react)
+  $: duplicateName = Boolean(existingNames && payload.name !== undefined) && isDuplicateSourceName();
+
+  // A change of connection settings invalidates the last probe
+  $: connectionKey = JSON.stringify([
+    adHostInput,
+    payload.port,
+    payload.protocol,
+    payload.base_dn,
+    payload.bind_dn,
+    payload.bind_password_ref ?? '',
+    uiBindPassword ? 'typed' : ''
+  ]);
+  $: if (probeStatus === 'success' && probedKey && connectionKey !== probedKey) {
+    probeStatus = 'idle';
+    testResult = null;
+  }
+  $: connectionValidated = probeStatus === 'success' || skipProbe;
+
+  function testAccount(purpose: ServiceAccountPurpose): Promise<boolean> {
+    const host = (payload.host || adHostInput || '').trim();
+    const protocol = payload.protocol ?? 'ldaps';
+    return testServiceAccount(
+      fetch,
+      { type: 'ad', name: resolveName(), protocol, host, port: payload.port, base_dn: payload.base_dn, capabilities: payload.capabilities },
+      serviceAccounts[purpose],
+      { purpose, secretNameBase: `identity-source/${protocol}/${host || resolveName() || 'ad'}` }
+    );
+  }
 
   function purposeLabel(purpose: 'snapshot' | 'auth' | 'provisioning'): string {
     if (purpose === 'snapshot') return t('Snapshot inventory');
@@ -680,7 +719,7 @@
   $: canContinue =
     (currentStepKey === 'type' && !!payload.type) ||
     currentStepKey === 'capabilities' ||
-    (currentStepKey === 'connection' && canContinueStep3) ||
+    currentStepKey === 'connection' ||
     currentStepKey === 'snapshot' ||
     currentStepKey === 'review';
 </script>
@@ -746,7 +785,7 @@
               <span class="cap-option-icon"><i class="bi bi-cloud-arrow-down" aria-hidden="true"></i></span>
               <span class="cap-option-copy">
                 <strong>{t('Snapshot inventory')}</strong>
-                <small>{t('Synchronize directory inventory and health metadata.')}</small>
+                <small>{t('Needed to search and import users and groups of this source.')}</small>
               </span>
               <input class="cap-switch" type="checkbox" bind:checked={payload.capabilities.snapshot_enabled} />
             </label>
@@ -789,7 +828,7 @@
               />
               {#if showStep3Errors && !payload.name?.trim()}
                 <FieldError>{t('Required')}</FieldError>
-              {:else if showStep3Errors && isDuplicateSourceName()}
+              {:else if duplicateName}
                 <FieldError>{t('This name already exists')}</FieldError>
               {/if}
             </div>
@@ -800,7 +839,7 @@
                 <input
                   id="identity-source-host"
                   bind:value={adHostInput}
-                  placeholder={t('dc1.corp.local or 192.168.10.10')}
+                  placeholder={t('dc01.example.com or 192.0.2.10')}
                 />
                 <button
                   class="b2s-input-action"
@@ -854,7 +893,7 @@
               <input
                 id="identity-source-base-dn"
                 bind:value={payload.base_dn}
-                placeholder="DC=corp,DC=local"
+                placeholder="DC=example,DC=com"
               />
               {#if showStep3Errors && !payload.base_dn}
                 <FieldError>{t('Required')}</FieldError>
@@ -930,6 +969,7 @@
                     title={t('Snapshot inventory')}
                     description={t('Read-only account that collects users, groups and memberships.')}
                     bind:draft={serviceAccounts.snapshot}
+                    onTest={() => testAccount('snapshot')}
                     showErrors={showStep3Errors}
                   />
                 {/if}
@@ -941,6 +981,7 @@
                     title={t('Authenticate users')}
                     description={t('Read-only account that finds the user before checking the password.')}
                     bind:draft={serviceAccounts.auth}
+                    onTest={() => testAccount('auth')}
                     showErrors={showStep3Errors}
                   />
                 {/if}
@@ -952,6 +993,7 @@
                     title={t('Manage AD groups')}
                     description={t('Account delegated on the target OUs: create groups and change their members.')}
                     bind:draft={serviceAccounts.provisioning}
+                    onTest={() => testAccount('provisioning')}
                     showErrors={showStep3Errors}
                   />
                 {/if}
@@ -967,8 +1009,8 @@
               const secretRef = await ensureBindSecretRef();
               return buildWizardProbeRequest(secretRef);
             }}
-            label={t('Run Probe')}
-            busyLabel={t('Running probe…')}
+            label={t('Test connection')}
+            busyLabel={t('Testing…')}
             fullWidth={true}
             showIcon={true}
             iconClass="bi bi-activity"
@@ -999,6 +1041,8 @@
                 : (e.detail.error?.message ?? t('Probe failed'));
 
               probeStatus = ok ? 'success' : 'failed';
+              probedKey = ok ? connectionKey : '';
+              if (ok) skipProbe = false;
 
               testResult = {
                 ok,
@@ -1031,6 +1075,21 @@
             }}
           />
         </div>
+        {#if probeStatus === 'success'}
+          <span class="hint ok probe-gate">{t('Connection validated: you can continue.')}</span>
+        {:else if probeStatus !== 'running'}
+          <div class="probe-gate">
+            <span class="hint">
+              {probeStatus === 'failed'
+                ? t('The connection test failed. Fix the settings, or go on knowingly.')
+                : t('Run the connection test before continuing.')}
+            </span>
+            <label class="probe-skip">
+              <input type="checkbox" bind:checked={skipProbe} />
+              {t('Continue without a successful test (not recommended)')}
+            </label>
+          </div>
+        {/if}
       {/if}
 
       {#if currentStepKey === 'snapshot'}
@@ -1488,6 +1547,22 @@
 
   .service-accounts {
     gap: 8px;
+  }
+
+  .probe-gate {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .probe-skip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--b2s-fs-xs);
+    color: #334155;
+    cursor: pointer;
   }
 
   .cap-card {

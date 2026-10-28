@@ -248,18 +248,22 @@
     syncRunning = true;
     try {
       const run = await runIdentitySnapshot(fetch, selectedIdentity.identity_source_id, 'auto');
+      let status = '';
       if (run?.job_id) {
-        for (let i = 0; i < 18; i += 1) {
+        for (let i = 0; i < 40; i += 1) {
           const job = await getIdentityJob(fetch, Number(run.job_id));
-          const status = normalizeText(job?.status);
-          if (['success', 'succeeded', 'failed', 'error'].includes(status)) break;
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          status = normalizeText(job?.status);
+          if (['failed', 'error'].includes(status)) throw new Error(String(job?.error?.message ?? t('Snapshot failed')));
+          if (['success', 'succeeded'].includes(status)) break;
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         }
       }
-      toast.success(t('Sync started.'));
+      toast.success(['success', 'succeeded'].includes(status) ? t('Directory synchronized.') : t('Sync started.'));
       await refreshIdentityData();
     } catch (error) {
-      notifyError(toAppError(error, { source: 'ui' }));
+      const appError = toAppError(error, { source: 'ui' });
+      if (appError.code === 'SNAPSHOT_ALREADY_RUNNING') toast.info(t('A snapshot is already running for this identity source.'));
+      else notifyError(appError);
     } finally {
       syncRunning = false;
     }
@@ -474,7 +478,7 @@
               variant="primary"
               icon="bi-arrow-repeat"
               busy={syncRunning}
-              label={syncRunning ? t('Syncing...') : t('Sync now')}
+              label={syncRunning ? t('Synchronizing…') : t('Sync now')}
               onClick={syncSelected}
             />
           {/if}

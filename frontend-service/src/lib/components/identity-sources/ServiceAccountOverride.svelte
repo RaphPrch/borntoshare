@@ -10,6 +10,26 @@
   export let draft: ServiceAccountDraft;
   export let showErrors = false;
   export let placeholder = 'svc-account@example.test';
+  /** Probe the directory with this account; null hides the button */
+  export let onTest: (() => Promise<boolean>) | null = null;
+
+  let testState: 'idle' | 'running' | 'ok' | 'failed' = 'idle';
+  // The result is for the account tested: a new DN or password needs a new test
+  $: draftKey = `${draft.bind_dn}|${draft.password}`;
+  let testedKey = '';
+  $: if (testState !== 'idle' && testState !== 'running' && draftKey !== testedKey) testState = 'idle';
+  $: canTest = !!onTest && !!draft.bind_dn.trim() && (!!draft.password.trim() || draft.has_password);
+
+  async function runTest() {
+    if (!onTest || testState === 'running') return;
+    testState = 'running';
+    testedKey = draftKey;
+    try {
+      testState = (await onTest()) ? 'ok' : 'failed';
+    } catch {
+      testState = 'failed';
+    }
+  }
 
   let showPassword = false;
 </script>
@@ -63,6 +83,19 @@
           <span class="sa-hint">{t('A password is stored. Leave empty to keep it.')}</span>
         {/if}
       </div>
+      {#if onTest}
+        <div class="sa-test">
+          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={!canTest || testState === 'running'} on:click={runTest}>
+            <i class={`bi ${testState === 'running' ? 'bi-hourglass-split' : 'bi-activity'}`} aria-hidden="true"></i>
+            {testState === 'running' ? t('Testing…') : t('Test this account')}
+          </button>
+          {#if testState === 'ok'}
+            <span class="sa-result is-ok"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> {t('Connection validated.')}</span>
+          {:else if testState === 'failed'}
+            <span class="sa-result is-err"><i class="bi bi-x-circle-fill" aria-hidden="true"></i> {t('Connection failed')}</span>
+          {/if}
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -149,8 +182,48 @@
     color: #334155;
   }
 
+  /* Same field as the rest of the identity source forms */
   .sa-field input {
     width: 100%;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid #d9e2ef;
+    border-radius: var(--b2s-radius-sm);
+    background: #ffffff;
+    color: #071638;
+    font-size: var(--b2s-fs-sm);
+    outline: 0;
+  }
+
+  .sa-field input:focus {
+    border-color: #8db5ff;
+    box-shadow: 0 0 0 3px rgba(11, 99, 244, 0.12);
+  }
+
+  .sa-field :global(.b2s-input-with-action input) {
+    padding-right: 44px;
+  }
+
+  .sa-test {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .sa-result {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .sa-result.is-ok {
+    color: #15803d;
+  }
+
+  .sa-result.is-err {
+    color: #b91c1c;
   }
 
   .sa-hint {

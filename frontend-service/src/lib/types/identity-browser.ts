@@ -12,6 +12,8 @@ export type IdentityBrowserSource = {
   groupsCount?: number;
   objectsCount?: number;
   searchable?: boolean;
+  /** A snapshot is queued or running on the server */
+  snapshotRunning?: boolean;
 };
 
 export type IdentityTreeNode = {

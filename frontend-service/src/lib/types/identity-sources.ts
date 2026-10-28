@@ -26,6 +26,8 @@ export type IdentitySourceRow = {
   snapshot_at?: string | null;
   last_sync_at?: string | null;
   last_snapshot_status?: string | null;
+  /** A snapshot is queued or running on the server */
+  snapshot_running?: boolean;
   last_snapshot_version?: number | null;
   last_snapshot_objects_count?: number | null;
   last_snapshot_users_count?: number | null;

@@ -7,6 +7,9 @@ class _FakeRepo:
     def __init__(self, _db):
         self._db = _db
 
+    def running_runs(self, **_kwargs):
+        return {}
+
     def create_run(self, **kwargs):  # noqa: ANN003
         self._db.created = dict(kwargs)
         return {

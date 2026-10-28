@@ -21,7 +21,8 @@
   import type { IdentityBrowserSource, IdentityBrowserSelectionPayload } from '../../types/identity-browser';
   import { principalKey as sharedPrincipalKey, principalLabel, type PrincipalSearchItem } from '../../utils/principal-search';
   import { getIdentityJob } from '../../api/identity';
-  import { runIdentitySnapshot } from '../../api/identity-sources';
+  import { getIdentitySourceInternal, runIdentitySnapshot } from '../../api/identity-sources';
+  import { toAppError } from '$lib/errors';
   import { toast } from '../../stores/toast';
 
   type DirectoryMode = 'single' | 'multiple';
@@ -300,39 +301,72 @@
   }
 
   // ---- Snapshot of the directory
-  async function syncDirectory() {
+  const SNAPSHOT_DONE = ['success', 'done', 'succeeded'];
+
+  /** Wait for a snapshot started elsewhere (another admin, another page, the scheduler). */
+  async function waitForServerSnapshot(sourceId: number): Promise<void> {
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      invalidateIdentitySourceInternalCache(sourceId);
+      const internal: any = await getIdentitySourceInternal(fetch, sourceId);
+      if (!internal?.snapshot_running) return;
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+    throw new Error('timeout');
+  }
+
+  async function syncDirectory(options: { follow?: boolean } = {}) {
     if (!selectedSourceId || syncing || !selectedSource?.canRunSnapshot) return;
+    const sourceId = Number(selectedSourceId);
     syncing = true;
     error = null;
     try {
-      const run: any = await runIdentitySnapshot(fetch, Number(selectedSourceId), 'auto');
-      const jobId = Number(run?.job_id ?? 0);
-      if (!(jobId > 0)) throw new Error('Snapshot job not created');
-      let status = '';
-      for (let attempt = 0; attempt < 60; attempt += 1) {
-        const state: any = await getIdentityJob(fetch, jobId);
-        status = String(state?.status ?? '').trim().toLowerCase();
-        if (['success', 'done', 'succeeded'].includes(status)) break;
-        if (['failed', 'error'].includes(status)) throw new Error(String(state?.error?.message ?? 'Snapshot failed'));
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+      let followed = Boolean(options.follow);
+      if (!followed) {
+        try {
+          const run: any = await runIdentitySnapshot(fetch, sourceId, 'auto');
+          const jobId = Number(run?.job_id ?? 0);
+          if (!(jobId > 0)) throw new Error('Snapshot job not created');
+          let status = '';
+          for (let attempt = 0; attempt < 60; attempt += 1) {
+            const state: any = await getIdentityJob(fetch, jobId);
+            status = String(state?.status ?? '').trim().toLowerCase();
+            if (SNAPSHOT_DONE.includes(status)) break;
+            if (['failed', 'error'].includes(status)) throw new Error(String(state?.error?.message ?? 'Snapshot failed'));
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
+          if (!SNAPSHOT_DONE.includes(status)) throw new Error('timeout');
+        } catch (e) {
+          if (toAppError(e).code !== 'SNAPSHOT_ALREADY_RUNNING') throw e;
+          toast.info(t('A snapshot is already running for this identity source.'));
+          followed = true;
+        }
       }
-      if (!['success', 'done', 'succeeded'].includes(status)) throw new Error('timeout');
-      invalidateIdentitySourceInternalCache(selectedSourceId);
+      if (followed) await waitForServerSnapshot(sourceId);
+      invalidateIdentitySourceInternalCache(sourceId);
       // The source becomes searchable once its first snapshot exists
       store.setSources(
         ($store.sources ?? []).map((src) =>
-          Number(src.id) === Number(selectedSourceId) ? { ...src, searchable: true, lastSnapshotAt: new Date().toISOString() } : src
+          Number(src.id) === sourceId
+            ? { ...src, searchable: true, snapshotRunning: false, lastSnapshotAt: new Date().toISOString() }
+            : src
         ),
-        selectedSourceId
+        sourceId
       );
-      await handleSourceChange(selectedSourceId, { keepSelection: true });
-      lastSyncAt = await loadIdentitySourceLastSync(fetch, Number(selectedSourceId), { force: true });
+      await handleSourceChange(sourceId, { keepSelection: true });
+      lastSyncAt = await loadIdentitySourceLastSync(fetch, sourceId, { force: true });
       toast.success(t('Directory synchronized.'));
     } catch (e) {
       error = toBrowserError(e, t('The directory synchronization failed.'));
     } finally {
       syncing = false;
     }
+  }
+
+  // A snapshot already running on the selected source: follow it (button greyed meanwhile)
+  let followedSourceId: number | null = null;
+  $: if (open && selectedSource?.snapshotRunning && !syncing && followedSourceId !== Number(selectedSource.id)) {
+    followedSourceId = Number(selectedSource.id);
+    void syncDirectory({ follow: true });
   }
 
   // ---- Selection and preview
@@ -487,7 +521,7 @@
           </span>
         {/if}
         {#if selectedSource?.canRunSnapshot}
-          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy || syncing || !selectedSourceId} on:click={syncDirectory}>
+          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy || syncing || !selectedSourceId} on:click={() => syncDirectory()}>
             <i class={`bi ${syncing ? 'bi-hourglass-split' : 'bi-arrow-repeat'}`} aria-hidden="true"></i>
             {syncing ? t('Synchronizing…') : t('Synchronize')}
           </button>
@@ -522,7 +556,7 @@
         <i class="bi bi-database-x" aria-hidden="true"></i>
         <strong>{t('Nothing to show until the source is synchronized.')}</strong>
         {#if selectedSource.canRunSnapshot}
-          <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy || syncing} on:click={syncDirectory}>
+          <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy || syncing} on:click={() => syncDirectory()}>
             <i class={`bi ${syncing ? 'bi-hourglass-split' : 'bi-arrow-repeat'}`} aria-hidden="true"></i>
             {syncing ? t('Synchronizing…') : t('Synchronize now')}
           </button>

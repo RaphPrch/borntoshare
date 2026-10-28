@@ -105,6 +105,10 @@ def _coerce_mysql_datetime(value: Any) -> tuple[dt.datetime | None, bool]:
 SNAPSHOT_DETAIL_KEEP_ARCHIVED = 1
 
 
+# A queued or running snapshot not updated for this long is considered abandoned
+SNAPSHOT_RUN_STALE_MINUTES = 30
+
+
 class DirectorySnapshotsRepo:
     def __init__(self, db: Session):
         self.db = db
@@ -179,6 +183,28 @@ class DirectorySnapshotsRepo:
                 continue
 
         raise RuntimeError("Could not allocate unique snapshot version after retries")
+
+    def running_runs(self, *, identity_source_id: int | None = None) -> dict[int, int]:
+        """Snapshots still queued or running, by source: {identity_source_id: snapshot_id}.
+
+        A run older than SNAPSHOT_RUN_STALE_MINUTES is considered abandoned (runner restarted)."""
+        rows = self.db.execute(
+            text(
+                """
+                SELECT identity_source_id, MAX(id) AS snapshot_id
+                FROM directory_snapshots
+                WHERE UPPER(status) IN ('QUEUED', 'RUNNING')
+                  AND COALESCE(updated_at, created_at) >= NOW() - INTERVAL :stale_minutes MINUTE
+                  AND (:identity_source_id IS NULL OR identity_source_id = :identity_source_id)
+                GROUP BY identity_source_id
+                """
+            ),
+            {
+                "identity_source_id": int(identity_source_id) if identity_source_id is not None else None,
+                "stale_minutes": SNAPSHOT_RUN_STALE_MINUTES,
+            },
+        ).mappings().all()
+        return {int(r["identity_source_id"]): int(r["snapshot_id"]) for r in rows}
 
     def list_runs(
         self,

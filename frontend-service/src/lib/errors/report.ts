@@ -1,3 +1,4 @@
+import { codeMessage } from './presenters';
 import { t } from '$lib/i18n';
 import { logAppError } from '../logging/logger';
 import { toAppError } from './normalize';
@@ -21,7 +22,12 @@ export function toUiAppError(
   context?: Record<string, unknown>
 ): AppError {
   const normalized = toAppError(error, { source });
-  const appError = isGenericErrorMessage(normalized.message) ? { ...normalized, message: fallback } : normalized;
+  const known = codeMessage(normalized.code);
+  const appError = known
+    ? { ...normalized, message: known }
+    : isGenericErrorMessage(normalized.message)
+      ? { ...normalized, message: fallback }
+      : normalized;
   logAppError(appError, context);
   return appError;
 }

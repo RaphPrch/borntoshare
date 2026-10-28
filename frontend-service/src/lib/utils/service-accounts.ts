@@ -1,10 +1,13 @@
 import type { FetchLike } from '$lib/api/client';
 import { resolveCredentials } from '$lib/api/credentials';
+import { testIdentitySourceConnection, type IdentitySourceTestPayload } from '$lib/jobs/identity-source-test';
 import type {
   ServiceAccountInput,
   ServiceAccountPublic,
   ServiceAccountPurpose
 } from '$lib/api/identity-sources';
+
+export type { ServiceAccountPurpose };
 
 export const SERVICE_ACCOUNT_PURPOSES: ServiceAccountPurpose[] = ['snapshot', 'auth', 'provisioning'];
 
@@ -117,4 +120,33 @@ export function domainFromBaseDn(baseDn: string | null | undefined): string {
     .filter(Boolean)
     .join('.')
     .toLowerCase();
+}
+
+/**
+ * Probe the directory with one dedicated account. A typed password is stored under the secret
+ * of this account (the same one the save uses), so the main account's secret is never touched.
+ */
+export async function testServiceAccount(
+  fetchFn: FetchLike,
+  connection: Omit<IdentitySourceTestPayload, 'bind_dn' | 'bind_password_ref' | 'bind_password' | '_secret'>,
+  draft: ServiceAccountDraft,
+  options: { purpose: ServiceAccountPurpose; secretNameBase: string; storedRef?: string | null }
+): Promise<boolean> {
+  const bindDn = draft.bind_dn.trim();
+  let ref = options.storedRef ?? null;
+  if (draft.password.trim()) {
+    const resolved = await resolveCredentials(
+      fetchFn,
+      { username: bindDn, password: draft.password, secret_ref: null },
+      { secretName: `${options.secretNameBase}/${options.purpose}`, mode: 'create' }
+    );
+    ref = resolved.secret_ref ?? null;
+  }
+  const result = await testIdentitySourceConnection(fetchFn, {
+    ...connection,
+    bind_dn: bindDn,
+    bind_password_ref: ref,
+    bind_password: null
+  } as IdentitySourceTestPayload);
+  return result.ok;
 }

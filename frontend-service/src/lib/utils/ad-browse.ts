@@ -12,6 +12,8 @@ type AdSourceOption = {
   objectsCount?: number;
   /** Has an active snapshot: search and browse work */
   searchable?: boolean;
+  /** A snapshot is queued or running on the server */
+  snapshotRunning?: boolean;
 };
 
 const asBool = (value: unknown): boolean => {
@@ -51,7 +53,8 @@ export const toAdSourceOptions = (payload: unknown, options: { includeUnsearchab
       usersCount: Number(r?.last_snapshot_users_count ?? 0) || 0,
       groupsCount: Number(r?.last_snapshot_groups_count ?? 0) || 0,
       objectsCount: Number(r?.last_snapshot_objects_count ?? 0) || 0,
-      searchable: hasSearchableSnapshot(r)
+      searchable: hasSearchableSnapshot(r),
+      snapshotRunning: asBool(r?.snapshot_running)
     }))
     .filter((r: AdSourceOption) => Number.isFinite(r.id) && r.id > 0)
     ;

@@ -72,6 +72,12 @@ function extractCode(record: Record<string, unknown> | null): string | undefined
   return asString(record.code) ?? asString(record.error_code);
 }
 
+/** Business code of the service behind the BFF (details.upstream_detail.error.code). */
+function extractUpstreamCode(details: unknown): string | undefined {
+  const upstream = asRecord(asRecord(asRecord(details)?.upstream_detail)?.error);
+  return asString(upstream?.code);
+}
+
 function extractRequestId(record: Record<string, unknown> | null): string | undefined {
   if (!record) return undefined;
   return (
@@ -224,6 +230,8 @@ export function toAppError(error: unknown, context?: Partial<AppError>): AppErro
     details = rec?.details ?? rec?.detail;
     message = extractMessageFromPayload(error);
   }
+
+  code = extractUpstreamCode(details) ?? code;
 
   if (kind === 'unknown') {
     const byStatus = kindFromStatus(status);
