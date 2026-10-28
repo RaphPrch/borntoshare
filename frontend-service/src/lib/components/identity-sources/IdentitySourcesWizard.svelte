@@ -177,8 +177,6 @@
 
   let protocolChoice: 'ldap' | 'ldaps' = payload.protocol ?? 'ldap';
 
-  $: isKerberosAuth = (payload.bind_dn ?? '').includes('@');
-  $: isNtlmAuth = !!payload.bind_dn && !isKerberosAuth;
 
   function selectType(value: IdentitySourcePayload['type']) {
     payload.type = value;
@@ -949,12 +947,8 @@
             </div>
 
             <div class="field field--full">
-              {#if isNtlmAuth}
-                <span class="hint">{t('⚠️ In hardened environments (CIS), Kerberos is recommended. Suggested format: user@realm.')}</span>
-              {/if}
-              {#if isKerberosAuth}
-                <span class="hint ok">{t('Kerberos detected. Prerequisites: DNS SRV Kerberos, synchronized NTP, ports 88/464 open, krb5.conf mounted in the runner.')}</span>
-              {/if}
+              <!-- Simple LDAP bind: the password is protected by LDAPS, not by the account format -->
+              <span class="hint">{t('Bind DN: CN=…,DC=…, user@domain or DOMAIN\\user.')}</span>
             </div>
 
             {#if dedicatedPurposes.length}
@@ -1038,7 +1032,7 @@
               const ok = Boolean(e.detail.ok);
               const message = ok
                 ? t('Probe OK')
-                : (e.detail.error?.message ?? t('Probe failed'));
+                : t(String(e.detail.error?.message ?? 'Probe failed'));
 
               probeStatus = ok ? 'success' : 'failed';
               probedKey = ok ? connectionKey : '';

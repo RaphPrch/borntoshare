@@ -97,6 +97,33 @@ montre qu'il n'est plus dans aucun groupe qui a un rôle. Un utilisateur import�
 
 Si « Importer les groupes » est désactivée, les rôles donnés par les groupes ne s'appliquent plus.
 
+### Test de connexion
+
+« Tester la connexion » (et « Tester ce compte » pour un compte dédié) passe par capsule-runner :
+le worker ouvre une connexion LDAP (389) ou LDAPS (636) vers le contrôleur de domaine, sans WinRM ni PowerShell.
+Il vérifie dans l'ordre : la résolution DNS, la connexion (et le certificat en LDAPS), le bind du compte, la lecture du DN de base.
+Le tiroir affiche le résultat de chaque étape et l'action à mener :
+
+| Code | Cause |
+|---|---|
+| `LDAP_DNS_FAILED` | le nom du contrôleur ne se résout pas |
+| `LDAP_UNREACHABLE` | port fermé ou contrôleur injoignable |
+| `LDAP_TLS_FAILED` | certificat refusé (voir LDAPS vérifié) |
+| `LDAP_SIGNING_REQUIRED` | le contrôleur exige un LDAP signé : passer en LDAPS |
+| `LDAP_BIND_FAILED`, `LDAP_ACCOUNT_LOCKED`, `LDAP_ACCOUNT_DISABLED`, `LDAP_PASSWORD_EXPIRED`… | compte de service refusé, avec la raison donnée par l'AD |
+| `LDAP_BASE_DN_NOT_FOUND` | DN de base inexistant ou illisible pour ce compte |
+
+La vérification du certificat suit `LDAP_TLS_VERIFY`, comme le snapshot et la gestion des groupes. Si elle est désactivée,
+le tiroir affiche « Connexion chiffrée » au lieu de « Certificat valide ».
+
+auth-service se connecte directement au contrôleur pour authentifier les utilisateurs (sans passer par le worker, pour la latence de connexion).
+
+### Journal d'audit
+
+Sont tracés (Observabilité › Journal) : création, modification et suppression d'une source ; demande de snapshot (avec son auteur),
+fin du snapshot (volumes) ou échec (raison) ; connexions réussies et refusées (motif : mot de passe, compte non autorisé…, jamais le mot de passe) ;
+identité créée à la 1ʳᵉ connexion par un groupe qui a un rôle.
+
 ### LDAPS vérifié
 
 En production, capsule-runner (gestion des groupes) et auth-service (connexion des utilisateurs) vérifient le certificat

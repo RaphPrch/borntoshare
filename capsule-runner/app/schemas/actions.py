@@ -53,9 +53,11 @@ class LDAPTestPayload(BaseModel):
     password: Optional[str] = Field(default=None, min_length=1, max_length=1024)
     secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)
     port: int = Field(default=389, ge=1, le=65535)
-    timeout: int = Field(default=5, ge=1, le=15)
+    timeout: int = Field(default=10, ge=1, le=15)
     use_ssl: bool = False
     verify_tls: bool = False
+    # Read after the bind, to check the base DN exists and is readable
+    base_dn: Optional[str] = Field(default=None, max_length=512)
 
     @model_validator(mode="after")
     def _check_secret_or_password(self) -> "LDAPTestPayload":

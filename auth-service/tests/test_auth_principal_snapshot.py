@@ -805,3 +805,17 @@ def test_local_login_still_works_when_the_directory_lookup_is_unavailable(monkey
         res = client.post("/auth/login", json={"username": "admin", "password": "secret"})
 
     assert res.status_code == 200
+
+
+def test_refused_sign_ins_are_audited(monkeypatch, _no_activity_forwarding) -> None:
+    _directory_login_setup(monkeypatch, resolve_ad={"found": False, "reason_code": "NOT_ENTITLED"})
+
+    with _new_client(raise_server_exceptions=False) as client:
+        client.post("/auth/login", json={"username": "lucie.user", "password": "secret"})
+
+    event = _no_activity_forwarding[-1]
+    assert event["action"] == "auth.login"
+    assert event["outcome"] == "failure"
+    assert event["actor_display"] == "lucie.user"
+    assert event["metadata_json"]["reason"] == "ACCOUNT_NOT_AUTHORIZED"
+    assert "secret" not in str(event)

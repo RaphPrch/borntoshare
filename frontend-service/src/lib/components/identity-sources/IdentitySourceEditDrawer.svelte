@@ -191,7 +191,8 @@
     const isLdaps = form.protocol === 'ldaps';
     const tlsOk = isLdaps ? probeResultValue(['tls_ok', 'certificate_ok', 'cert_ok']) : undefined;
     const duration = probeResultValue(['duration_ms', 'response_time_ms', 'elapsed_ms']);
-    const notReported = 'Not reported by the latest probe.';
+    const tlsVerified = probeResultValue(['tls_verified']);
+    const notReported = t('Not reported by the latest probe.');
 
     return [
       {
@@ -217,20 +218,25 @@
         key: 'certificate',
         title: !isLdaps
           ? t('TLS certificate')
-          : tlsOk === true
+          : tlsOk === true && tlsVerified === false
+            ? t('Encrypted connection')
+            : tlsOk === true
             ? t('Server certificate valid')
             : tlsOk === false
               ? t('Server certificate invalid')
               : t('Server certificate'),
         description: !isLdaps
           ? t('Not applicable for LDAP.')
-          : tlsOk === true
+          : tlsOk === true && tlsVerified === false
+            ? t('Encrypted, but the certificate is not checked: LDAP_TLS_VERIFY is off on the worker.')
+            : tlsOk === true
             ? t('The server certificate is trusted and valid.')
             : tlsOk === false
               ? t('The server certificate could not be validated.')
               : notReported,
-        tone: checkTone(tlsOk),
-        icon: checkIcon(tlsOk)
+        // Encrypted but not checked: not a failure, not a validated certificate either
+        tone: tlsOk === true && tlsVerified === false ? 'muted' : checkTone(tlsOk),
+        icon: tlsOk === true && tlsVerified === false ? 'bi-shield-exclamation' : checkIcon(tlsOk)
       },
       {
         key: 'response',
@@ -334,6 +340,7 @@
       const result = await testIdentitySourceConnection(fetch, {
         ...payload,
         bind_password_ref: payload.bind_password_ref || source.bind_password_ref || null,
+        identity_source_id: source.id,
         capabilities: { ...payload.capabilities, auth_mode: source.capabilities?.auth_mode ?? 'ntlm' }
       } as IdentitySourcePayload & { bind_password?: string | null });
       const firstCheck = result.checks[0] ?? null;
@@ -342,7 +349,7 @@
         status: result.status ?? null,
         jobId: result.job_id ?? null,
         message: normalize(firstCheck?.message) || (result.ok ? t('Probe OK') : t('Probe failed')),
-        result: null,
+        result: result.details ?? null,
         checkedAt: new Date().toISOString()
       };
       if (result.ok) toast.success(t('Connection validated.'));

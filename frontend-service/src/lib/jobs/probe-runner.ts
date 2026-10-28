@@ -131,7 +131,8 @@ export function buildIdentitySourceProbeRequest(input: {
     },
     options: {
       timeout_sec: 10,
-      verify_tls: protocol === 'ldaps'
+      // The certificate check follows LDAP_TLS_VERIFY on the worker, like snapshots and AD groups
+      verify_tls: false
     },
     context: {
       identity_source_id: input.identitySourceId ?? undefined,

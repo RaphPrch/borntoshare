@@ -166,7 +166,7 @@ export const formatRelativeTimestamp = (value?: string | null): string => {
   const hour = 60 * minute;
   const day = 24 * hour;
 
-  if (Math.abs(diffMs) < minute) return 'just now';
+  if (Math.abs(diffMs) < minute) return t('just now');
   if (Math.abs(diffMs) < hour) {
     const n = Math.max(1, Math.round(Math.abs(diffMs) / minute));
     return diffMs >= 0 ? t('{n}m ago', { n }) : `in ${n}m`;

@@ -273,3 +273,106 @@ def test_missing_ca_file_is_a_tls_configuration_error(monkeypatch, tmp_path) -> 
     assert ok is False
     assert details["failure_code"] == "AD_TLS_FAILED"
     assert "missing.pem" in details["error"]
+
+
+# --- connection test of the identity source -------------------------------------------
+
+
+class _ProbeConn:
+    def __init__(self, *, bind_ok=True, bind_result=None, base_found=True, base_result=None, open_error=None):
+        self.bind_ok, self.base_found, self.open_error = bind_ok, base_found, open_error
+        self.bind_result, self.base_result = bind_result or {}, base_result or {}
+        self.result: dict = {}
+
+    def open(self):
+        if self.open_error:
+            raise self.open_error
+
+    def search(self, **kwargs):
+        self.result = self.base_result
+        return self.base_found
+
+    def unbind(self):
+        return True
+
+
+def _probe(monkeypatch, conn, **params):
+    from app.actions import ldap_test
+
+    monkeypatch.setattr(ldap_test.socket, "getaddrinfo", lambda *a, **kw: [("addr",)])
+    monkeypatch.setattr(ldap_client, "connect", lambda **kw: conn)
+
+    def _bind(c, **kw):
+        c.result = c.bind_result
+        return c.bind_ok
+
+    monkeypatch.setattr(ldap_client, "bind", _bind)
+    return ldap_test.test_ldap_bind({"host": "dc01.example.com", "username": "svc", "password": "pw", "use_ssl": True, "port": 636, **params})
+
+
+def test_probe_reports_each_step(monkeypatch) -> None:
+    ok, _message, details = _probe(monkeypatch, _ProbeConn(), base_dn=BASE_DN)
+
+    assert ok is True
+    assert (details["tls_ok"], details["bind_ok"], details["base_dn_ok"]) == (True, True, True)
+    assert details["duration_ms"] >= 0
+
+
+@pytest.mark.parametrize(
+    ("message", "code"),
+    [
+        ("80090308: LdapErr: DSID-0C09044E, comment: AcceptSecurityContext error, data 52e, v4563", "LDAP_BIND_FAILED"),
+        ("80090308: LdapErr: DSID-0C09044E, comment: AcceptSecurityContext error, data 775, v4563", "LDAP_ACCOUNT_LOCKED"),
+        ("80090308: LdapErr: DSID-0C09044E, comment: AcceptSecurityContext error, data 533, v4563", "LDAP_ACCOUNT_DISABLED"),
+    ],
+)
+def test_probe_explains_ad_bind_refusals(monkeypatch, message, code) -> None:
+    conn = _ProbeConn(bind_ok=False, bind_result={"description": "invalidCredentials", "message": message})
+
+    ok, _message, details = _probe(monkeypatch, conn)
+
+    assert ok is False
+    assert details["failure_code"] == code
+    assert details["bind_ok"] is False
+
+
+def test_probe_points_to_ldaps_when_signing_is_required(monkeypatch) -> None:
+    conn = _ProbeConn(bind_ok=False, bind_result={"description": "strongerAuthRequired"})
+
+    _ok, message, details = _probe(monkeypatch, conn, use_ssl=False, port=389)
+
+    assert details["failure_code"] == "LDAP_SIGNING_REQUIRED"
+    assert "LDAPS" in message
+
+
+def test_probe_detects_a_wrong_base_dn(monkeypatch) -> None:
+    conn = _ProbeConn(base_found=False, base_result={"description": "noSuchObject"})
+
+    ok, _message, details = _probe(monkeypatch, conn, base_dn="DC=nowhere,DC=com")
+
+    assert ok is False
+    assert details["failure_code"] == "LDAP_BASE_DN_NOT_FOUND"
+    assert details["bind_ok"] is True
+
+
+def test_probe_separates_certificate_and_network_failures(monkeypatch) -> None:
+    _ok, _m, tls = _probe(monkeypatch, _ProbeConn(open_error=LDAPSocketOpenError("socket ssl wrapping error: CERTIFICATE_VERIFY_FAILED")))
+    _ok, _m, down = _probe(monkeypatch, _ProbeConn(open_error=LDAPSocketOpenError("socket connection error: [Errno 111] Connection refused")))
+
+    assert (tls["failure_code"], tls["tls_ok"]) == ("LDAP_TLS_FAILED", False)
+    assert down["failure_code"] == "LDAP_UNREACHABLE"
+
+
+def test_probe_reports_dns_failures_before_connecting(monkeypatch) -> None:
+    from app.actions import ldap_test
+
+    def _unknown(*_a, **_kw):
+        raise OSError(-2, "Name or service not known")
+
+    monkeypatch.setattr(ldap_test.socket, "getaddrinfo", _unknown)
+    monkeypatch.setattr(ldap_client, "connect", lambda **kw: pytest.fail("no connection without an address"))
+
+    ok, _message, details = ldap_test.test_ldap_bind({"host": "nohost.example.com", "username": "svc", "password": "pw"})
+
+    assert ok is False
+    assert details["failure_code"] == "LDAP_DNS_FAILED"

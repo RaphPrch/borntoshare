@@ -5,6 +5,8 @@ from typing import Any
 from fastapi import APIRouter, Request
 
 from app.api._helpers import ui_data, ui_list
+from app.services.activity_log import log_activity
+from app.services.authorization import actor_from_request
 from app.services.identity_orchestration_service import (
     discover_identity as discover_identity_service,
     get_identity_job as get_identity_job_service,
@@ -24,6 +26,19 @@ router = APIRouter(prefix="/identity", tags=["identity-orchestration"])
 async def run_identity_snapshot(request: Request) -> dict[str, Any]:
     incoming = await request.json()
     data = await run_identity_snapshot_service(incoming, request.headers.get("x-request-id") or None)
+    actor = actor_from_request(request)
+    log_activity(
+        None,
+        actor_type="user" if actor.identity_id is not None else "system",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action="identity_source.sync_requested",
+        outcome="success",
+        target_type="identity_source",
+        target_id=int(incoming.get("identity_source_id") or 0) or None,
+        context_json={"job_id": data.get("job_id"), "snapshot_id": data.get("snapshot_id"), "mode": incoming.get("mode")},
+        correlation_id=str(data.get("correlation_id") or "") or None,
+    )
     return ui_data(data)
 
 

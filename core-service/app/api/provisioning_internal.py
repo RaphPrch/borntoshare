@@ -16,6 +16,7 @@ from app.data.repositories.provisioning_jobs_repo import ProvisioningJobsRepo
 from app.data.repositories.storage_root_access_profiles_repo import StorageRootAccessProfilesRepo
 from app.services.directory_effective_memberships_service import DirectoryEffectiveMembershipsService
 from app.services.directory_projection_service import DirectoryProjectionService
+from app.services.activity_log import log_activity
 from app.services.identity_bindings import sync_identity_bindings
 from app.services.health_events import record_health_event
 from app.services.probe_results import ProbeResultService
@@ -608,6 +609,18 @@ def _apply_directory_snapshot_success(
         source_id = int(getattr(job_row, "identity_source_id", 0) or 0)
         if source_id > 0:
             sync_identity_bindings(db, identity_source_id=source_id)
+            log_activity(
+                db,
+                actor_type="system",
+                actor_id=None,
+                actor_display="directory-sync",
+                action="identity_source.sync_completed",
+                outcome="success",
+                target_type="identity_source",
+                target_id=source_id,
+                context_json={"snapshot_id": int(snapshot_id), "job_id": int(getattr(job_row, "id", 0) or 0), "counts": counts},
+                correlation_id=str(getattr(job_row, "correlation_id", "") or "") or None,
+            )
 
 
 def _apply_directory_snapshot_failure(
@@ -616,7 +629,26 @@ def _apply_directory_snapshot_failure(
     job_row: Any,
     error_code: str | None,
     error_message: str | None,
+    result_json: dict | None = None,
 ) -> None:
+    # The worker's reason (bind refused, certificate, ...) is worth more than its generic message
+    reason = str(((result_json or {}).get("details") or {}).get("error") or "").strip()
+    if reason:
+        error_message = f"{str(error_message or 'Directory snapshot failed').strip()}: {reason[:400]}"
+    source_id = int(getattr(job_row, "identity_source_id", 0) or 0)
+    if source_id > 0:
+        log_activity(
+            db,
+            actor_type="system",
+            actor_id=None,
+            actor_display="directory-sync",
+            action="identity_source.sync_failed",
+            outcome="failure",
+            target_type="identity_source",
+            target_id=source_id,
+            context_json={"job_id": int(getattr(job_row, "id", 0) or 0), "error_code": error_code, "error": error_message},
+            correlation_id=str(getattr(job_row, "correlation_id", "") or "") or None,
+        )
     snapshot_id, _, _, _ = _extract_directory_snapshot_inputs(
         job_payload_json=getattr(job_row, "payload_json", None),
         result_json=None,
@@ -1173,6 +1205,7 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
             job_row=row,
             error_code=payload.error_code,
             error_message=payload.error_message,
+            result_json=payload.result_json,
         )
         record_health_event(
             db,

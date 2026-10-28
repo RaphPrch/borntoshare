@@ -118,6 +118,8 @@ async def _emit_activity_event(
     target_display: str | None,
     metadata_json: dict[str, Any] | None = None,
     correlation_id: str | None = None,
+    outcome: str = "success",
+    severity: str | None = None,
 ) -> None:
     url = settings.CORE_URL.rstrip("/") + "/api/activity/events"
     headers = {
@@ -127,7 +129,8 @@ async def _emit_activity_event(
     }
     payload = {
         "action": action,
-        "outcome": "success",
+        "outcome": outcome,
+        "severity": severity,
         "actor_type": actor_type,
         "actor_id": actor_id,
         "actor_display": actor_display,
@@ -825,13 +828,32 @@ async def login(
     response: Response,
 ) -> LoginResponse:
     rid = _request_id(request)
-    user, provider_name, resolved_identity = await _authenticate_login(payload, request)
+    try:
+        user, provider_name, resolved_identity = await _authenticate_login(payload, request)
 
-    if provider_name == "ad":
-        if bool((resolved_identity or {}).get("found")):
-            user = _apply_resolved_identity(user, resolved_identity)
-        else:
-            user = await _bind_ad_user_to_local_identity(user)
+        if provider_name == "ad":
+            if bool((resolved_identity or {}).get("found")):
+                user = _apply_resolved_identity(user, resolved_identity)
+            else:
+                user = await _bind_ad_user_to_local_identity(user)
+    except HTTPException as exc:
+        # Refused sign-ins are audited too (wrong password, account not authorized, inactive identity)
+        if exc.status_code in (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN):
+            detail = exc.detail if isinstance(exc.detail, dict) else {}
+            await _emit_activity_event(
+                action="auth.login",
+                outcome="failure",
+                severity="warning",
+                actor_type="user",
+                actor_id=None,
+                actor_display=str(payload.username or "")[:190],
+                target_type="identity",
+                target_id=None,
+                target_display=str(payload.username or "")[:190],
+                metadata_json={"reason": str(detail.get("code") or exc.status_code), "status_code": exc.status_code},
+                correlation_id=rid,
+            )
+        raise
 
     # Post-auth enrichment (keep if it does NOT add IAM / roles / permissions)
     user = await _post_auth_enrich_user(user)

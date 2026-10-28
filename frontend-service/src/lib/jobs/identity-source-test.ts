@@ -12,6 +12,8 @@ export type IdentitySourceTestPayload = IdentitySourcePayload & {
   /** Plain bind password typed in the wizard, stored as a secret before probing */
   _secret?: string;
   bind_password?: string | null;
+  /** Record the result on this source (last test, health); omitted for drafts and dedicated accounts */
+  identity_source_id?: number | null;
 };
 
 export type IdentitySourceTestResult = {
@@ -19,6 +21,8 @@ export type IdentitySourceTestResult = {
   checks: Array<{ key: string; ok: boolean; message: string }>;
   status?: string | null;
   job_id?: string | number | null;
+  /** Step by step diagnostics of the worker: tls_ok, bind_ok, base_dn_ok, duration_ms, failure_code, hint */
+  details?: Record<string, unknown> | null;
 };
 
 /**
@@ -65,7 +69,8 @@ export async function testIdentitySourceConnection(
     bindDn: payload.bind_dn,
     secretRef,
     authMode,
-    uiOrigin: 'wizard'
+    identitySourceId: payload.identity_source_id ?? null,
+    uiOrigin: payload.identity_source_id ? 'admin' : 'wizard'
   });
 
   const finalStatus = await runProbeWithUi({
@@ -81,10 +86,12 @@ export async function testIdentitySourceConnection(
       {
         key: 'probe',
         ok,
-        message: finalStatus?.result?.message || finalStatus?.errorMessage || (ok ? t('Probe OK') : t('Probe failed'))
+        // The worker's messages are English sentences: translated for display
+        message: t(String(finalStatus?.result?.message || finalStatus?.errorMessage || (ok ? 'Probe OK' : 'Probe failed')))
       }
     ],
     status: finalStatus?.status,
-    job_id: finalStatus?.jobId
+    job_id: finalStatus?.jobId,
+    details: (finalStatus?.result?.details as Record<string, unknown> | undefined) ?? null
   };
 }

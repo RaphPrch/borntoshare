@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
+from app.services.activity_log import log_activity
 from app.services.identity_bindings import sync_identity_bindings
 from app.core.db import get_db
 from app.core.internal_auth import require_internal
@@ -334,6 +335,20 @@ def resolve_ad_identity(
                 if created_row:
                     sync_identity_bindings(db, identity_id=int(created_row["id"]))
                 db.commit()
+                if created_row and provisioning_source == "group_entitlement":
+                    # Account opened by a group that has a role, at its first sign-in
+                    log_activity(
+                        db,
+                        actor_type="system",
+                        actor_id=None,
+                        actor_display="auth-service",
+                        action="identity.account_created",
+                        outcome="success",
+                        target_type="identity",
+                        target_id=int(created_row["id"]),
+                        target_display=str(created_row.get("display_name") or created_row.get("username") or ""),
+                        context_json={"provisioning_source": "group_entitlement", "identity_source_id": source_id, "auth_source": "ad"},
+                    )
                 if created_row:
                     return ResolveAdIdentityResponse(
                         found=True,
