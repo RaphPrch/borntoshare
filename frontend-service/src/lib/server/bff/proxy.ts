@@ -44,7 +44,7 @@ function canAccessAdminRoutes(path: string, roles: string[]): boolean {
   if (path.startsWith('/storage-endpoints')) {
     return roles.includes('platform_admin');
   }
-  if (path.startsWith('/activity/latest') || path.startsWith('/activity/by-actor')) {
+  if (path.startsWith('/activity/latest') || path.startsWith('/activity/by-actor') || path.startsWith('/activity/search') || path.startsWith('/observability')) {
     return roles.includes('platform_admin');
   }
   if (path.startsWith('/identity') || path.startsWith('/identity-sources')) {

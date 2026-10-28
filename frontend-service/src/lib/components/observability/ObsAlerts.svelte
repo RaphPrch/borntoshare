@@ -1,5 +1,4 @@
 <script lang="ts">
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -18,14 +17,23 @@
     type GovernanceAlert
   } from '$lib/api/governance-alerts';
   import type { StatusVariant } from '$lib/utils/status';
+  import { onMount } from 'svelte';
+  import { listZones } from '$lib/api/zones';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
 
-  export let data: { alerts: GovernanceAlert[]; loadFailed: boolean };
+  /** Opened from the overview: an initial filter (« critical » = critical or high) */
+  export let initialSeverity: string = 'all';
+  export let initialType: string = '';
 
-  let alerts: GovernanceAlert[] = data.alerts ?? [];
-  let loadFailed = data.loadFailed;
-  let query = '';
+  let alerts: GovernanceAlert[] = [];
+  let loadFailed = false;
+  let loading = true;
+  let query = initialType;
   let statusFilter: 'active' | 'open' | 'acknowledged' | 'resolved' | 'all' = 'active';
-  let severityFilter = 'all';
+  let severityFilter = initialSeverity || 'all';
+  let zoneFilter = 'all';
+  let grouped = false;
+  let zones: { id: number; name: string }[] = [];
   let page = 1;
   let pageSize = 25;
   let busyId: string | null = null;
@@ -62,7 +70,7 @@
       return { label: t('Identity source #{id}', { id: alert.identity_source_id }), href: '/admin/identity-sources' };
     }
     if (alert.zone_id) {
-      return { label: t('Zone #{id}', { id: alert.zone_id }), href: `/admin/zones/${alert.zone_id}` };
+      return { label: zones.find((z) => String(z.id) === String(alert.zone_id))?.name ?? t('Zone #{id}', { id: alert.zone_id }), href: `/admin/zones/${alert.zone_id}` };
     }
     return { label: String(alert.scope_type ?? '—'), href: null };
   };
@@ -80,19 +88,55 @@
       if (statusFilter === 'active') return status !== 'resolved';
       return statusFilter === 'all' || status === statusFilter;
     })
-    .filter((a) => severityFilter === 'all' || severityOf(a) === severityFilter)
+    .filter((a) =>
+      severityFilter === 'all' ||
+      (severityFilter === 'critical_high' ? ['critical', 'high'].includes(severityOf(a)) : severityOf(a) === severityFilter)
+    )
+    .filter((a) => zoneFilter === 'all' || String(a.zone_id ?? '') === zoneFilter)
     .filter((a) => {
       const q = normalizeText(query);
       if (!q) return true;
-      return normalizeText([a.title, a.message, a.alert_type, scopeOf(a).label].join(' ')).includes(q);
+      return normalizeText([a.title, a.message, typeOf(a), scopeOf(a).label].join(' ')).includes(q);
     })
     .sort(
       (a, b) =>
         (SEVERITY_RANK[severityOf(a)] ?? 9) - (SEVERITY_RANK[severityOf(b)] ?? 9) ||
         String(b.last_seen_at ?? '').localeCompare(String(a.last_seen_at ?? ''))
     );
-  $: query, statusFilter, severityFilter, (page = 1);
+  $: query, statusFilter, severityFilter, zoneFilter, grouped, (page = 1);
   $: pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  /** « Endpoint unreachable × 86 »: one line per type, worst severity first */
+  $: groups = Object.values(
+    filtered.reduce<Record<string, { type: string; title: string; severity: string; count: number; scopes: string[]; lastSeen: string }>>((acc, a) => {
+      const type = typeOf(a);
+      const group = (acc[type] ??= { type, title: String(a.title ?? type), severity: severityOf(a), count: 0, scopes: [], lastSeen: '' });
+      group.count += 1;
+      if ((SEVERITY_RANK[severityOf(a)] ?? 9) < (SEVERITY_RANK[group.severity] ?? 9)) group.severity = severityOf(a);
+      const scope = scopeOf(a).label;
+      if (scope && !group.scopes.includes(scope)) group.scopes.push(scope);
+      if (String(a.last_seen_at ?? '') > group.lastSeen) group.lastSeen = String(a.last_seen_at ?? '');
+      return acc;
+    }, {})
+  ).sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) || b.count - a.count);
+  $: groupRows = groups.slice((page - 1) * pageSize, page * pageSize);
+
+  function typeOf(alert: GovernanceAlert): string {
+    return String(alert.alert_type ?? 'other').split(':')[0];
+  }
+
+  function showGroup(type: string) {
+    grouped = false;
+    query = type;
+  }
+
+  onMount(async () => {
+    await refresh();
+    loading = false;
+    zones = (await listZones(fetch).catch(() => []))
+      .map((z) => ({ id: Number(z.id), name: String(z.name ?? z.id) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
 
   async function refresh() {
     refreshing = true;
@@ -100,6 +144,7 @@
       alerts = await listGovernanceAlerts(fetch, { status: 'all' });
       loadFailed = false;
     } catch (error: unknown) {
+      loadFailed = true;
       reportUiError(error, 'Unable to load alerts.', 'alerts.refresh');
     } finally {
       refreshing = false;
@@ -127,16 +172,7 @@
   }
 </script>
 
-<div class="alerts-page">
-  <PageHeader title={t('Alerts')} subtitle={t('Operational issues detected on storage roots, endpoints and identity sources.')}>
-    <svelte:fragment slot="actions">
-      <button class="b2s-btn b2s-btn-secondary" type="button" on:click={refresh} disabled={refreshing}>
-        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-        {t('Refresh')}
-      </button>
-    </svelte:fragment>
-  </PageHeader>
-
+<div class="obs-alerts">
   <section class="b2s-kpi-grid" aria-label={t('Alerts summary')}>
     <KpiCard label={t('Critical or high')} value={counts.critical} icon="bi-exclamation-octagon" tone="danger" />
     <KpiCard label={t('Warnings')} value={counts.warning} icon="bi-exclamation-triangle" tone="warning" />
@@ -155,20 +191,65 @@
     </select>
     <select class="b2s-select" bind:value={severityFilter} aria-label={t('Severity')}>
       <option value="all">{t('All severities')}</option>
+      <option value="critical_high">{t('Critical or high')}</option>
       <option value="critical">{t('Critical')}</option>
       <option value="high">{t('High')}</option>
       <option value="warning">{t('Warning')}</option>
       <option value="info">{t('Info')}</option>
     </select>
+    <select class="b2s-select" bind:value={zoneFilter} aria-label={t('Zone')}>
+      <option value="all">{t('All zones')}</option>
+      {#each zones as zone (zone.id)}<option value={String(zone.id)}>{zone.name}</option>{/each}
+    </select>
+    <label class="obs-toggle">
+      <input type="checkbox" class="obs-switch" bind:checked={grouped} />
+      <span>{t('Group by type')}</span>
+    </label>
+    <button class="b2s-btn b2s-btn-secondary b2s-toolbar__end" type="button" on:click={refresh} disabled={refreshing}>
+      <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+      {t('Refresh')}
+    </button>
   </div>
 
   {#if loadFailed}
     <InlineAlert tone="error">{t('Unable to load alerts.')}</InlineAlert>
   {/if}
 
-  <section class="b2s-card alerts-table-card">
-    {#if filtered.length === 0}
+  <section class="b2s-card obs-card">
+    {#if loading}
+      <LoadingState />
+    {:else if filtered.length === 0}
       <EmptyStateInline message={statusFilter === 'active' ? t('No open alert. Everything looks fine.') : t('No alert matches these filters.')} />
+    {:else if grouped}
+      <div class="b2s-table-wrap">
+        <table class="b2s-table">
+          <thead>
+            <tr>
+              <th>{t('Severity')}</th>
+              <th>{t('Alert')}</th>
+              <th class="obs-num">{t('Count')}</th>
+              <th>{t('Affected items')}</th>
+              <th>{t('Last seen')}</th>
+              <th class="obs-actions-col"><span class="visually-hidden">{t('Actions')}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each groupRows as group (group.type)}
+              <tr>
+                <td><StatusBadge compact variant={SEVERITY_VARIANT[group.severity] ?? 'muted'} label={severityLabel(group.severity)} /></td>
+                <td class="obs-main"><strong>{group.title}</strong><small>{group.type}</small></td>
+                <td class="obs-num"><strong>× {group.count}</strong></td>
+                <td>{group.scopes.slice(0, 3).join(', ')}{group.scopes.length > 3 ? ` +${group.scopes.length - 3}` : ''}</td>
+                <td class="obs-date">{formatDateTime(group.lastSeen)}</td>
+                <td class="obs-actions">
+                  <button class="b2s-btn b2s-btn-secondary b2s-btn-sm" type="button" on:click={() => showGroup(group.type)}>{t('Show')}</button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+      <Pagination total={groups.length} bind:page bind:pageSize />
     {:else}
       <div class="b2s-table-wrap">
         <table class="b2s-table">
@@ -179,7 +260,7 @@
               <th>{t('Affected item')}</th>
               <th>{t('Last seen')}</th>
               <th>{t('Status')}</th>
-              <th class="alerts-actions-col"><span class="visually-hidden">{t('Actions')}</span></th>
+              <th class="obs-actions-col"><span class="visually-hidden">{t('Actions')}</span></th>
             </tr>
           </thead>
           <tbody>
@@ -190,35 +271,25 @@
                 <td>
                   <StatusBadge compact variant={SEVERITY_VARIANT[severityOf(alert)] ?? 'muted'} label={severityLabel(severityOf(alert))} />
                 </td>
-                <td class="alerts-main">
+                <td class="obs-main">
                   <strong>{alert.title ?? alert.alert_type}</strong>
                   {#if alert.message}<small>{alert.message}</small>{/if}
                 </td>
                 <td>
                   {#if scope.href}<a href={scope.href}>{scope.label}</a>{:else}{scope.label}{/if}
                 </td>
-                <td class="alerts-date">{formatDateTime(alert.last_seen_at)}</td>
+                <td class="obs-date">{formatDateTime(alert.last_seen_at)}</td>
                 <td>
                   <StatusBadge compact showDot={false} variant={STATUS_VARIANT[status] ?? 'muted'} label={statusLabel(status)} />
                 </td>
-                <td class="alerts-actions">
+                <td class="obs-actions">
                   {#if status === 'open'}
-                    <button
-                      class="b2s-btn b2s-btn-secondary b2s-btn-sm"
-                      type="button"
-                      disabled={busyId !== null}
-                      on:click={() => changeStatus(alert, 'acknowledge')}
-                    >
+                    <button class="b2s-btn b2s-btn-secondary b2s-btn-sm" type="button" disabled={busyId !== null} on:click={() => changeStatus(alert, 'acknowledge')}>
                       {t('Acknowledge')}
                     </button>
                   {/if}
                   {#if status !== 'resolved'}
-                    <button
-                      class="b2s-btn b2s-btn-primary b2s-btn-sm"
-                      type="button"
-                      disabled={busyId !== null}
-                      on:click={() => changeStatus(alert, 'resolve')}
-                    >
+                    <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled={busyId !== null} on:click={() => changeStatus(alert, 'resolve')}>
                       {t('Resolve')}
                     </button>
                   {/if}
@@ -234,43 +305,88 @@
 </div>
 
 <style>
-  .alerts-page {
+  .obs-alerts {
     display: grid;
-    gap: 20px;
-    padding: var(--b2s-page-padding);
+    gap: 16px;
   }
 
-  .alerts-table-card {
+  .obs-card {
     overflow: hidden;
   }
 
-  .alerts-main strong {
+  .obs-main strong {
     display: block;
     font-weight: 600;
   }
 
-  .alerts-main small {
+  .obs-main small {
     display: block;
     margin-top: 2px;
     color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-xs);
   }
 
-  .alerts-date {
+  .obs-date {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
 
-  .alerts-actions {
+  .obs-num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .obs-actions {
     white-space: nowrap;
     text-align: right;
   }
 
-  .alerts-actions .b2s-btn + .b2s-btn {
+  .obs-actions .b2s-btn + .b2s-btn {
     margin-left: 8px;
   }
 
-  .alerts-actions-col {
+  .obs-actions-col {
     width: 1%;
+  }
+
+  .obs-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--b2s-fs-sm);
+    color: #334155;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .obs-switch {
+    appearance: none;
+    width: 34px;
+    height: 19px;
+    border-radius: var(--b2s-radius-pill);
+    background: #cbd5e1;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.16s ease;
+  }
+
+  .obs-switch::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #ffffff;
+    transition: transform 0.16s ease;
+  }
+
+  .obs-switch:checked {
+    background: var(--b2s-topbar-bg, #0b1530);
+  }
+
+  .obs-switch:checked::after {
+    transform: translateX(15px);
   }
 </style>

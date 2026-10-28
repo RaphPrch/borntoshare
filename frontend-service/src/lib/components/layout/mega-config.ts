@@ -7,7 +7,7 @@ type MegaMenuItem = {
 
 // Single source of truth for the mega-menu keys
 // (Topbar + MegaMenu must stay aligned)
-export type MegaMenuKey = 'storageRoots' | 'observability' | 'admin';
+export type MegaMenuKey = 'storageRoots' | 'admin';
 
 const megaConfig: Record<MegaMenuKey, MegaMenuItem[]> = {
   storageRoots: [
@@ -16,26 +16,6 @@ const megaConfig: Record<MegaMenuKey, MegaMenuItem[]> = {
       description: 'Browse and manage storage roots.',
       href: '/storage-roots',
       icon: 'bi-hdd-stack'
-    }
-  ],
-  observability: [
-    {
-      title: 'Events',
-      description: 'List all platform actions with severity, time, module and message.',
-      href: '/admin/observability/events',
-      icon: 'bi-list-ul'
-    },
-    {
-      title: 'Jobs',
-      description: 'Observe provisioning jobs, detect stale queued runs and cancel safely.',
-      href: '/admin/observability/jobs',
-      icon: 'bi-activity'
-    },
-    {
-      title: 'Alerts',
-      description: 'Review open issues on storage roots, endpoints and identity sources.',
-      href: '/admin/alerts',
-      icon: 'bi-exclamation-triangle'
     }
   ],
   admin: [

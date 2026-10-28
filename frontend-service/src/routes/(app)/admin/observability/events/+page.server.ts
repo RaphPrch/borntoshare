@@ -1,14 +1,9 @@
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { apiServerGetList } from '$lib/server/api-server';
-import { requireAuth } from '$lib/server/require-auth';
 
-export const load: PageServerLoad = async (event) => {
-  await requireAuth(event);
-
-  const items = await apiServerGetList<any>('/activity/latest?limit=800&business_only=true', event);
-
-  return {
-    items,
-    generatedAt: new Date().toISOString()
-  };
+// Moved to Observability (single hub): keep old bookmarks working
+export const load: PageServerLoad = ({ url }) => {
+  const params = new URLSearchParams(url.search);
+  params.set('tab', 'events');
+  throw redirect(301, `/observability?${params}`);
 };

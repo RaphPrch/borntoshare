@@ -453,3 +453,79 @@ def create_event(payload: dict[str, Any]) -> dict[str, Any]:
         "id": new_id.hex,
         "hash_current": hash_current,
     }
+
+
+_SEARCH_COLUMNS = """
+  LOWER(HEX(id)) AS id, event_time, actor_type, actor_id, action, entity_type, entity_id,
+  zone_id, root_id, endpoint_id, result, severity, correlation_id, source_service, metadata_json
+"""
+# Technical traces never shown in Observability › Events (same rule as the business filter)
+_NOISY_SQL = """
+  action NOT LIKE 'http.%' AND action NOT LIKE 'api.%' AND action NOT LIKE 'request.%'
+  AND action NOT LIKE 'response.%' AND action NOT LIKE 'ui.%' AND action NOT LIKE 'frontend.%'
+  AND action NOT IN ('dashboard.refreshed', 'activity_list_latest', 'activity_list_by_target',
+                     'activity_list_by_actor', 'activity_create', 'seed.started')
+"""
+
+
+def search_events(
+    *,
+    page: int = 1,
+    page_size: int = 50,
+    hours: int | None = None,
+    module: str | None = None,
+    severity: str | None = None,
+    outcome: str | None = None,
+    actor: str | None = None,
+    q: str | None = None,
+) -> dict[str, Any]:
+    """Events of the audit log, filtered and paginated in SQL, with the modules for the filter list."""
+    page = max(1, int(page or 1))
+    page_size = max(10, min(int(page_size or 50), 200))
+    where = [_NOISY_SQL]
+    params: dict[str, Any] = {}
+    if hours:
+        where.append("event_time >= UTC_TIMESTAMP() - INTERVAL :hours HOUR")
+        params["hours"] = int(hours)
+    if module:
+        where.append("action LIKE :module")
+        params["module"] = f"{module}.%"
+    if severity:
+        where.append("LOWER(severity) = :severity")
+        params["severity"] = severity.lower()
+    if outcome == "failure":
+        where.append("LOWER(result) IN ('failure', 'failed', 'error')")
+    elif outcome == "success":
+        where.append("LOWER(result) = 'success'")
+    if actor:
+        where.append("LOWER(JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.actor_display'))) LIKE :actor")
+        params["actor"] = f"%{actor.lower()}%"
+    if q:
+        where.append("(LOWER(action) LIKE :q OR LOWER(CAST(metadata_json AS CHAR)) LIKE :q)")
+        params["q"] = f"%{q.lower()}%"
+    clause = " AND ".join(where)
+    with LoggingSessionLocal() as db:
+        total = int(db.execute(text(f"SELECT COUNT(*) FROM audit_event WHERE {clause}"), params).scalar() or 0)
+        rows = db.execute(
+            text(f"SELECT {_SEARCH_COLUMNS} FROM audit_event WHERE {clause} ORDER BY event_time DESC LIMIT :limit OFFSET :offset"),
+            {**params, "limit": page_size, "offset": (page - 1) * page_size},
+        ).mappings().all()
+        modules = [
+            str(r[0])
+            for r in db.execute(
+                text(
+                    f"""
+                    SELECT SUBSTRING_INDEX(action, '.', 1) AS m FROM audit_event
+                    WHERE {_NOISY_SQL} AND action LIKE '%.%'
+                    GROUP BY m ORDER BY m
+                    """
+                )
+            )
+        ]
+    return {
+        "items": [_row_to_activity(dict(r)) for r in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "modules": modules,
+    }

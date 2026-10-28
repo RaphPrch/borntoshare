@@ -1,33 +1,9 @@
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { apiServerGetList } from '$lib/server/api-server';
-import { requireAuth } from '$lib/server/require-auth';
 
-type AdminJobRow = {
-  id: number;
-  correlation_id?: string | null;
-  job_type?: string | null;
-  action?: string | null;
-  status?: string | null;
-  identity_source_id?: number | null;
-  storage_root_access_profile_id?: number | null;
-  queue_age_seconds?: number | null;
-  watchdog_republish_count?: number | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  started_at?: string | null;
-  finished_at?: string | null;
-  error_code?: string | null;
-  error_message?: string | null;
+// Moved to Observability (single hub): keep old bookmarks working
+export const load: PageServerLoad = ({ url }) => {
+  const params = new URLSearchParams(url.search);
+  params.set('tab', 'jobs');
+  throw redirect(301, `/observability?${params}`);
 };
-
-export const load: PageServerLoad = async (event) => {
-  await requireAuth(event);
-
-  const jobs = await apiServerGetList<AdminJobRow>('/admin/jobs?limit=200', event);
-
-  return {
-    initialJobs: jobs,
-    generatedAt: new Date().toISOString()
-  };
-};
-

@@ -24,11 +24,11 @@
       key: 'open_alerts_count',
       label: t('Open alerts'),
       hint: t('{count} critical or high', { count: Number(stats?.critical_alerts_count ?? 0) }),
-      href: '/admin/alerts',
+      href: '/observability?tab=alerts&severity=critical_high',
       icon: 'bi-exclamation-octagon',
       tone: 'danger'
     },
-    { key: 'failed_jobs_24h_count', label: t('Failed jobs (24 h)'), hint: null, href: '/admin/observability/jobs', icon: 'bi-x-octagon', tone: 'warning' },
+    { key: 'failed_jobs_24h_count', label: t('Failed jobs (24 h)'), hint: null, href: '/observability?tab=jobs&status=FAILED', icon: 'bi-x-octagon', tone: 'warning' },
     {
       key: 'stale_pending_requests_count',
       label: t('Requests waiting for more than 3 days'),

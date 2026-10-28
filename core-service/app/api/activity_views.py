@@ -36,6 +36,30 @@ def get_activity_latest(request: Request, limit: int = 100, business_only: bool 
     )
 
 
+@router.get("/search")
+def search_activity(
+    request: Request,
+    page: int = 1,
+    page_size: int = 50,
+    period: str | None = None,
+    module: str | None = None,
+    severity: str | None = None,
+    outcome: str | None = None,
+    actor: str | None = None,
+    q: str | None = None,
+):
+    """Observability › Events: filtered, paginated in the database."""
+    from app.services.activity_store_db import search_events
+
+    require_observability(actor_from_request(request))
+    hours = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}.get(str(period or ""))
+    data = search_events(
+        page=page, page_size=page_size, hours=hours, module=module or None, severity=severity or None,
+        outcome=outcome or None, actor=actor or None, q=(q or "").strip() or None,
+    )
+    return ui_list(data["items"], meta={k: data[k] for k in ("total", "page", "page_size", "modules")})
+
+
 @router.get("/by-target")
 def get_activity_by_target(
     request: Request,

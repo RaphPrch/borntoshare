@@ -10,6 +10,8 @@
   export let activeMega: MegaMenuKey | null = null;
   export let currentPath: string | undefined = undefined;
   export let alertsCount = 0;
+  /** Open critical or high alerts (administrators only) */
+  export let criticalAlertsCount = 0;
   export let permissions: {
     canSeeStorageRoots?: boolean;
     canSeeObservability?: boolean;
@@ -26,21 +28,19 @@
   $: canSeeStorageRoots = permissions?.canSeeStorageRoots === true;
   $: canSeeObservability = permissions?.canSeeObservability === true;
 
-  type TopbarNavKey = MegaMenuKey | 'dashboard' | 'requests';
+  type TopbarNavKey = MegaMenuKey | 'dashboard' | 'requests' | 'observability';
 
   const routeMap: Record<TopbarNavKey, string[]> = {
     dashboard: ['/dashboard'],
     storageRoots: ['/storage-roots'],
     requests: ['/access-requests'],
-    observability: ['/admin/observability'],
+    observability: ['/observability'],
     admin: ['/admin']
   };
 
   const isActive = (key: TopbarNavKey) => {
     if (activeMega === key) return true;
     const path = currentPath ?? '';
-    if (key === 'observability') return path.startsWith('/admin/observability');
-    if (key === 'admin') return path.startsWith('/admin') && !path.startsWith('/admin/observability');
     const prefixes = routeMap[key] ?? [`/${key}`];
     return prefixes.some(prefix => path.startsWith(prefix));
   };
@@ -102,6 +102,7 @@
   // 🔁 Réactivité Svelte
   $: viewUser = normalizeUser(user);
   $: hasAlerts = Number(alertsCount ?? 0) > 0;
+  $: hasCritical = Number(criticalAlertsCount ?? 0) > 0;
 </script>
 
 <nav class="b2s-topbar">
@@ -140,13 +141,12 @@
       </a>
 
       {#if canSeeObservability}
-        <button
-          type="button"
+        <a
+          href="/observability"
           class="nav-item {isActive('observability') ? 'active' : ''}"
-          on:click={() => openMega('observability')}
         >
           {t('Observability')}
-        </button>
+        </a>
       {/if}
 
       {#if canSeeAdmin}
@@ -167,12 +167,16 @@
       <GlobalSearch {canSeeAdmin} {canSeeStorageRoots} {canSeeObservability} />
       <LanguageSwitcher />
 
-      <a href="/access-requests?status=pending" class="topbar-alert-btn" aria-label={t('Notifications')}>
-        <i class="bi bi-bell" aria-hidden="true"></i>
-        {#if hasAlerts}
-          <span class="topbar-alert-badge" aria-label={t('{alertsCount} alertes', { alertsCount })}>{alertsCount > 99 ? '99+' : alertsCount}</span>
-        {/if}
+      <a href="/access-requests?status=pending" class="topbar-pill" class:is-on={hasAlerts} title={t('Pending access requests')}>
+        <i class="bi bi-inbox" aria-hidden="true"></i>{t('Requests')}
+        <span class="topbar-pill__count">{alertsCount > 99 ? '99+' : alertsCount}</span>
       </a>
+      {#if canSeeObservability}
+        <a href="/observability?tab=alerts&severity=critical_high" class="topbar-pill topbar-pill--danger" class:is-on={hasCritical} title={t('Open critical alerts')}>
+          <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{t('Alerts')}
+          <span class="topbar-pill__count">{criticalAlertsCount > 99 ? '99+' : criticalAlertsCount}</span>
+        </a>
+      {/if}
 
       <div class="topbar-user-chip" aria-label={t('Signed-in user {label}', { label: viewUser.label })}>
         <span class="topbar-user-avatar">{viewUser.initials}</span>

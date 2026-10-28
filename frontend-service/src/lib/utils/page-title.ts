@@ -11,9 +11,7 @@ const TITLES: [prefix: string, label: string][] = [
   ['/admin/identity-sources', 'Identity sources'],
   ['/admin/identity', 'Identity'],
   ['/admin/tags', 'Tags'],
-  ['/admin/alerts', 'Alerts'],
-  ['/admin/observability/jobs', 'Jobs'],
-  ['/admin/observability/events', 'Events'],
+  ['/observability', 'Observability'],
   ['/admin/advanced-settings', 'Advanced settings']
 ];
 

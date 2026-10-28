@@ -105,6 +105,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
     path.startsWith('/governance-alerts') ||
     path.startsWith('/health') ||
     path.startsWith('/infrastructure') ||
+    path.startsWith('/observability') ||
     path.startsWith('/storage-endpoints') ||
     path.startsWith('/storage-roots') ||
     path.startsWith('/tags') ||

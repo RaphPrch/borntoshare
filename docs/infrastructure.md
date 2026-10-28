@@ -1,10 +1,11 @@
 # Infrastructure
 
 Administration › Paramètres avancés › **Infrastructure** (administrateurs de la plateforme).
-Six onglets : vue d'ensemble, base de données, workers, Keycloak, planification, composants surveillés.
-Keycloak est décrit dans [keycloak.md](keycloak.md).
+Cinq onglets : base de données, workers, Keycloak, planification, composants surveillés.
+Keycloak est décrit dans [keycloak.md](keycloak.md). L'état de la plateforme se consulte dans
+**Observabilité › Santé** (voir [observability.md](observability.md)).
 
-## Vue d'ensemble
+## Santé (Observabilité)
 
 État de chaque composant : opérationnel, dégradé (réponse en plus de 1,5 s ou partielle), en panne, inconnu
 (aucun résultat depuis trois intervalles du health check). Chaque ligne montre les derniers contrôles,

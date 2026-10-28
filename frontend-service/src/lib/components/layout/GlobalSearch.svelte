@@ -30,7 +30,10 @@
     { title: 'Dashboard', href: '/dashboard', icon: 'bi-speedometer2', show: true },
     { title: 'Access requests', href: '/access-requests', icon: 'bi-clipboard-check', show: true },
     ...megaConfig.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots })),
-    ...megaConfig.observability.map((item) => ({ ...item, show: canSeeObservability })),
+    { title: 'Observability', href: '/observability', icon: 'bi-activity', show: canSeeObservability },
+    { title: 'Alerts', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', show: canSeeObservability },
+    { title: 'Events', href: '/observability?tab=events', icon: 'bi-list-ul', show: canSeeObservability },
+    { title: 'Jobs', href: '/observability?tab=jobs', icon: 'bi-gear-wide-connected', show: canSeeObservability },
     ...megaConfig.admin.map((item) => ({ ...item, show: canSeeAdmin }))
   ]
     .filter((page) => page.show)

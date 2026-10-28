@@ -9,6 +9,7 @@ export const load: LayoutServerLoad = async (event) => {
   const rawMe = await requireAuth(event);
   const me = normalizeMe(rawMe);
   let topbarAlertsCount = 0;
+  let topbarCriticalAlerts = 0;
   let guardianRootIds: number[] = [];
 
   if (!me.is_admin) {
@@ -33,6 +34,15 @@ export const load: LayoutServerLoad = async (event) => {
     topbarAlertsCount = 0;
   }
 
+  if (me.is_admin) {
+    try {
+      const badge = await apiServerGetData<{ critical_open?: number }>('/observability/badge', event);
+      topbarCriticalAlerts = Number(badge?.critical_open ?? 0) || 0;
+    } catch {
+      topbarCriticalAlerts = 0;
+    }
+  }
+
   /* ======================================================
    * AUTH GUARD (SSR)
    * - Identity only
@@ -41,6 +51,7 @@ export const load: LayoutServerLoad = async (event) => {
   return {
     me,
     topbarAlertsCount,
+    topbarCriticalAlerts,
     navigation: {
       canSeeStorageRoots: me.is_admin || guardianRootIds.length > 0,
       canSeeObservability: me.is_admin,

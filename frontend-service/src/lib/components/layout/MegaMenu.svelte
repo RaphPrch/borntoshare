@@ -15,7 +15,6 @@
   $: items = activeMega
     ? (megaConfig[activeMega] || []).filter((item) => {
         if (activeMega === 'storageRoots') return permissions?.canSeeStorageRoots === true;
-        if (activeMega === 'observability') return permissions?.canSeeObservability === true;
         if (activeMega === 'admin') return permissions?.canSeeAdmin === true;
         return true;
       })
@@ -45,10 +44,6 @@ onDestroy(() => {
     storageRoots: {
       title: t('Storage Roots'),
       subtitle: t('Manage governed storage roots inventory.')
-    },
-    observability: {
-      title: t('Observability'),
-      subtitle: t('Capsules, jobs and platform monitoring.')
     },
     admin: {
       title: t('Administration'),

@@ -42,6 +42,7 @@
       email?: string;
     };
     topbarAlertsCount?: number;
+    topbarCriticalAlerts?: number;
     navigation?: {
       canSeeStorageRoots?: boolean;
       canSeeObservability?: boolean;
@@ -69,6 +70,7 @@
     user={data.me}
     permissions={data.navigation}
     alertsCount={Number(data.topbarAlertsCount ?? 0)}
+    criticalAlertsCount={Number(data.topbarCriticalAlerts ?? 0)}
     currentPath={$page.url.pathname}
   />
 
