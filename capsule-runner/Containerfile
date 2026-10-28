@@ -32,6 +32,6 @@ RUN groupadd --system --gid 10003 app \
     && useradd --system --uid 10003 --gid app --no-create-home --shell /usr/sbin/nologin app
 USER app
 
-# Dramatiq worker + agent API (port AGENT_PORT, checked by core-service)
-EXPOSE 8443
+# Dramatiq worker + agent API checked by core-service: HTTPS 8443, or HTTP 8080 without certificate (AGENT_PORT)
+EXPOSE 8443 8080
 CMD ["./start.sh"]

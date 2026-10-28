@@ -2647,5 +2647,6 @@
   "The sign-in with your organization is unavailable.": "La connexion avec votre organisation est indisponible.",
   "This sign-in method is disabled": "Ce mode de connexion est désactivé",
   "This sign-in method is not available": "Ce mode de connexion n'est pas disponible",
-  "The identity provider did not send the user name": "Le fournisseur d'identité n'a pas envoyé le nom d'utilisateur"
+  "The identity provider did not send the user name": "Le fournisseur d'identité n'a pas envoyé le nom d'utilisateur",
+  "Without certificate the agent answers in HTTP on port 8080 (AGENT_PORT to change it): internal network only, uncheck “HTTPS”.": "Sans certificat, l'agent répond en HTTP sur le port 8080 (AGENT_PORT pour le changer) : réseau interne uniquement, décochez « HTTPS »."
 }

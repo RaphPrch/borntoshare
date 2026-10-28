@@ -63,7 +63,9 @@ AGENT_TLS_CERT=/etc/b2s/certs/agent.pem     # HTTPS (recommandé)
 AGENT_TLS_KEY=/etc/b2s/certs/agent.key
 ```
 
-Port 8443 (`AGENT_PORT`), à ouvrir de core-service vers le worker uniquement. Certificat d'une autorité privée :
+Port : 8443 en HTTPS ; **sans certificat, l'agent répond en HTTP sur le port 8080** (décocher « HTTPS » dans le formulaire).
+`AGENT_PORT` change le port dans les deux cas. À ouvrir de core-service vers le worker uniquement ; le HTTP est réservé
+à un réseau interne (le mot de passe de l'agent y circule en clair). Certificat d'une autorité privée :
 la donner à core-service avec `B2S_AGENT_CA_FILE`, ou décocher « Vérifier le certificat » dans le formulaire.
 
 Dans l'interface : nom, adresse IP ou nom DNS, port, utilisateur et mot de passe de l'agent. Le worker n'est ajouté que si son agent

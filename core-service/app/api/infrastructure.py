@@ -6,7 +6,7 @@ import re
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -123,6 +123,13 @@ class WorkerPayload(BaseModel):
     username: str = Field(min_length=1, max_length=120)
     password_ref: Optional[str] = Field(default=None, max_length=512)
     is_enabled: bool = True
+
+    @model_validator(mode="after")
+    def _default_port(self) -> "WorkerPayload":
+        # The form default is 8443; an HTTP agent listens on 8080 unless another port is given
+        if not self.use_tls and self.port == 8443 and "port" not in self.model_fields_set:
+            self.port = 8080
+        return self
 
     @field_validator("host")
     @classmethod

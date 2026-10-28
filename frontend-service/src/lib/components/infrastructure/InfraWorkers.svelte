@@ -48,6 +48,13 @@
   $: valid = !!form.name.trim() && !!form.host.trim() && !!form.port && !!form.username.trim() && (!!form.password || !!editing);
   $: checkFresh = !!check && checkedKey === formKey;
 
+  /** Default ports of the agent: 8443 in HTTPS, 8080 in HTTP; a port chosen by hand is kept */
+  function setTls(useTls: boolean) {
+    form.use_tls = useTls;
+    if (useTls && Number(form.port) === 8080) form.port = 8443;
+    if (!useTls && Number(form.port) === 8443) form.port = 8080;
+  }
+
   function openAdd() {
     editing = null;
     form = { name: '', host: '', port: 8443, use_tls: true, verify_tls: true, username: 'b2s-agent', password: '', is_enabled: true };
@@ -267,6 +274,7 @@
   <ol>
     <li>{t('On the worker (capsule-runner), set the agent credentials:')} <code>AGENT_USERNAME</code>, <code>AGENT_PASSWORD</code>.</li>
     <li>{t('For HTTPS, give its certificate and key:')} <code>AGENT_TLS_CERT</code>, <code>AGENT_TLS_KEY</code> {t('(port 8443 by default, AGENT_PORT).')}</li>
+    <li>{t('Without certificate the agent answers in HTTP on port 8080 (AGENT_PORT to change it): internal network only, uncheck “HTTPS”.')}</li>
     <li>{t('Open the port from core-service to the worker only, then add the worker here with the same user name and password.')}</li>
     <li>{t('Certificate from a private authority: give it to core-service with B2S_AGENT_CA_FILE, or uncheck “Verify certificate”.')}</li>
   </ol>
@@ -313,7 +321,7 @@
     </label>
     <div class="toggles f--full">
       <label class="toggle">
-        <input type="checkbox" class="cap-switch" bind:checked={form.use_tls} />
+        <input type="checkbox" class="cap-switch" checked={form.use_tls} on:change={(e) => setTls(e.currentTarget.checked)} />
         <span>{t('HTTPS (recommended)')}</span>
       </label>
       <label class="toggle" class:is-off={!form.use_tls}>
