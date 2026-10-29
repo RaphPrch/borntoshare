@@ -52,7 +52,7 @@
   import EntityConsoleShell from "$lib/components/entity/EntityConsoleShell.svelte";
   import EntityAlertDrawer from "$lib/components/entity/EntityAlertDrawer.svelte";
   import EntityAlertStrip from "$lib/components/entity/EntityAlertStrip.svelte";
-  import EntityKpiRow, { type EntityKpiItem } from "$lib/components/entity/EntityKpiRow.svelte";
+  import EntityStatLine, { type EntityStatItem } from "$lib/components/entity/EntityStatLine.svelte";
   import type { EntityAlertStripItem } from "$lib/components/entity/entity-alerts.types";
   import Tabs from "$lib/components/ui/Tabs.svelte";
 
@@ -473,26 +473,24 @@
 
   $: zoneAlertItems = buildZoneAlerts();
   $: zoneKpis = [
-    { key: "endpoints", label: t('Storage endpoints'), value: String(endpoints.length), tone: "info", icon: "bi-hdd-network" },
-    { key: "roots", label: t('Storage roots'), value: String(storageRoots.length), tone: "accent", icon: "bi-folder2" },
+    { key: "endpoints", label: t('Storage endpoints'), value: endpoints.length, big: true },
+    { key: "roots", label: t('Storage roots'), value: storageRoots.length, big: true },
     {
       key: "reachability",
       label: t('Reachability'),
       value: healthSummary.endpointCount > 0 ? `${Math.round((healthSummary.reachableCount / healthSummary.endpointCount) * 100)} %` : "—",
       hint: t('{reachableCount}/{value} reachable', { reachableCount: healthSummary.reachableCount, value: healthSummary.endpointCount || 0 }),
-      tone: healthSummary.endpointCount === 0 ? "neutral" : (healthSummary.unhealthyCount ?? 0) > 0 ? "danger" : "success",
-      icon: "bi-heart-pulse"
+      tone: healthSummary.endpointCount === 0 ? "muted" : (healthSummary.unhealthyCount ?? 0) > 0 ? "danger" : "success"
     },
     {
       key: "alerts",
       label: t('Open alerts'),
-      value: String(zoneAlertItems.length),
+      value: zoneAlertItems.length > 0 ? t('{count} open', { count: zoneAlertItems.length }) : t('No open alert'),
       hint: zoneAlertItems.length > 0 ? t('Open in Observability') : t('Nothing to review'),
-      tone: zoneAlertItems.length > 0 ? "warning" : "success",
-      icon: zoneAlertItems.length > 0 ? "bi-exclamation-triangle" : "bi-check2-circle",
+      tone: zoneAlertItems.length > 0 ? "warning" : undefined,
       href: `/observability?tab=alerts&q=${encodeURIComponent(zoneLabel())}`
     }
-  ] satisfies EntityKpiItem[];
+  ] satisfies EntityStatItem[];
 
   async function ensureTabLoaded(tab: ZoneTabKey) {
     if (loadedComponents[tab]) {
@@ -894,8 +892,6 @@
       onCreateZone: openCreateZone,
       onCreateEndpoint: openEndpointAttachChoice,
       onRunEndpointProbe: runEndpointProbe,
-      onViewAllActivity: () => setTab("activity"),
-      onSelectActivity: openActivityDetails,
       onOpenEndpoint: (endpointId: number | string) => goto(`/admin/storage-endpoints/${endpointId}`),
     },
     activity: {
@@ -927,7 +923,6 @@
         zone={data.zone}
       endpointCount={endpoints.length}
       healthLabel={healthSummary.healthLabel}
-      showAttention={false}
       onEdit={openEditZone}
       onDelete={openDeleteZone}
       onAddEndpoint={openEndpointAttachChoice}
@@ -937,7 +932,7 @@
       onViewAll={() => (showZoneAlertsDrawer = true)}
       ariaLabel={t('Zone alerts')}
     />
-    <EntityKpiRow items={zoneKpis} ariaLabel={t('Zone KPIs')} />
+    <EntityStatLine items={zoneKpis} ariaLabel={t('Zone KPIs')} />
   </svelte:fragment>
 
   <svelte:fragment slot="tabs">

@@ -176,7 +176,7 @@
 
   .zone-form-drawer__safe-notes {
     border-radius: var(--b2s-radius-md);
-    background: rgba(255, 255, 255, 0.7);
+    background: var(--b2s-color-surface);
     padding: 10px 12px;
     color: var(--b2s-color-text-soft);
   }

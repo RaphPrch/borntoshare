@@ -116,6 +116,7 @@ body.dark {
   line-height: 1.35;
   position: relative;
   text-decoration: none;
+  white-space: nowrap;
 
   transition: background 0.15s ease, color 0.15s ease, transform 0.1s;
 }
@@ -158,6 +159,30 @@ body.dark {
 .nav-item:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.35);
+}
+
+/* The bar stays on one line: the user name first, then the labels (icons and counts remain) */
+@media (max-width: 1520px) {
+  .topbar-user-name {
+    display: none;
+  }
+
+  .topbar-user-chip {
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+}
+
+@media (max-width: 1400px) {
+  .topbar-label {
+    display: none;
+  }
+
+  .nav-item {
+    padding-inline: 0.45rem;
+    font-size: var(--b2s-fs-md);
+  }
 }
 
 .user-menu-wrapper {
@@ -246,7 +271,7 @@ body.dark {
 }
 
 .topbar-user-name {
-  max-width: 170px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

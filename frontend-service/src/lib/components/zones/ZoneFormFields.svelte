@@ -6,7 +6,7 @@
     description?: string;
   };
 
-  export const mode: "create" | "edit" | "delete" = "create";
+  export let mode: "create" | "edit" | "delete" = "create";
 </script>
 
 <!-- =====================================================
@@ -45,6 +45,7 @@
   </div>
 </div>
 
+{#if mode === 'create'}
 <div class="zone-form-note">
   <i class="bi bi-rocket" aria-hidden="true"></i>
   <div>
@@ -52,6 +53,7 @@
     {t('You will be able to run a discovery probe to detect storage.')}
   </div>
 </div>
+{/if}
 
 <style>
   /* Fields: shared .b2s-form-label / .b2s-form-control (same as the storage endpoint forms) */

@@ -43,7 +43,7 @@
       {#if loading}
         <LoadingState>{t('Loading endpoints…')}</LoadingState>
       {:else if existingEndpoints.length === 0}
-        <div class="text-muted">{t('No existing endpoint available.')}</div>
+        <div class="b2s-text-muted-note">{t('No existing endpoint available.')}</div>
       {:else}
         <ul class="z-ep-choice__list">
           {#each existingEndpoints as ep (ep.id)}
@@ -91,7 +91,7 @@
   }
 
   .z-ep-choice__list li {
-    border: 1px solid #dbe5f2;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
     padding: 10px 12px;
     display: flex;
@@ -109,5 +109,9 @@
   .z-ep-choice__meta span {
     color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-sm);
+  }
+
+  .b2s-text-muted-note {
+    color: var(--b2s-color-text-muted);
   }
 </style>

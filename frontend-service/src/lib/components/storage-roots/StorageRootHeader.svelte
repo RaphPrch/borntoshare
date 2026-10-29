@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import EntityActionGroup, { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
+  import EntityPageHeader from '$lib/components/entity/EntityPageHeader.svelte';
+  import type { EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
 
   /**
    * Storage root header, without a card: breadcrumb, name, one status pill, actions, UNC path.
@@ -60,92 +61,12 @@
   ];
 </script>
 
-<header class="srh">
-  <nav class="srh__crumbs" aria-label={t('Location')}>
-    <span>{zoneLabel || t('Storage root')}</span>
-    {#if endpointLabel && endpointLabel !== '—'}<i class="bi bi-chevron-right" aria-hidden="true"></i><span>{endpointLabel}</span>{/if}
-  </nav>
-  <div class="srh__row">
-    <h1>{title}</h1>
-    {#if statusLabel}
-      <span class={`srh__pill is-${statusTone}`}><span aria-hidden="true"></span>{statusLabel}</span>
-    {/if}
-    <div class="srh__actions">
-      <EntityActionGroup {actions} ariaLabel={t('Storage root actions')} />
-    </div>
-  </div>
-  <code class="srh__path">{pathLabel}</code>
-</header>
-
-<style>
-  .srh {
-    display: grid;
-    gap: 8px;
-  }
-
-  .srh__crumbs {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .srh__crumbs i {
-    font-size: 10px;
-  }
-
-  .srh__row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px;
-  }
-
-  h1 {
-    margin: 0;
-    font-size: var(--b2s-fs-page-title);
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    overflow-wrap: anywhere;
-  }
-
-  .srh__pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border-radius: var(--b2s-radius-pill);
-    font-size: var(--b2s-fs-xs);
-    font-weight: 600;
-  }
-
-  .srh__pill span {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: currentColor;
-  }
-
-  .srh__pill.is-success { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
-  .srh__pill.is-warning { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .srh__pill.is-danger { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
-  .srh__pill.is-neutral { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
-
-  .srh__actions {
-    margin-left: auto;
-  }
-
-  .srh__path {
-    justify-self: start;
-    max-width: 100%;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: var(--b2s-color-neutral-soft);
-    color: var(--b2s-color-text-soft);
-    font-family: var(--b2s-font-mono);
-    font-size: var(--b2s-fs-xs);
-    overflow-wrap: anywhere;
-  }
-</style>
+<EntityPageHeader
+  crumbs={[zoneLabel || t('Storage root'), ...(endpointLabel && endpointLabel !== '—' ? [endpointLabel] : [])]}
+  {title}
+  {statusLabel}
+  {statusTone}
+  code={pathLabel}
+  {actions}
+  actionsAriaLabel={t('Storage root actions')}
+/>

@@ -252,6 +252,16 @@
     cursor: pointer;
   }
 
+  .global-search-trigger kbd {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 1520px) {
+    .global-search-trigger kbd {
+      display: none;
+    }
+  }
+
   .global-search-trigger:hover {
     background: rgba(255, 255, 255, 0.12);
   }

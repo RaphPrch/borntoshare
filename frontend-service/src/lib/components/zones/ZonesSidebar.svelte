@@ -49,7 +49,7 @@
     icon: "bi-geo-alt",
     iconTone: "zone",
     selectId: zone.id,
-    dot: zone.healthLabel === "warning" ? "warning" : "healthy",
+    dot: zone.healthLabel === "warning" ? "warning" : null,
     searchText: zone.code ?? null
   }));
 </script>

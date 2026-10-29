@@ -1,5 +1,7 @@
 <script lang="ts">
   import TagPill from '$lib/components/tags/TagPill.svelte';
+  import EntityProperties from '$lib/components/entity/EntityProperties.svelte';
+  import EntityProperty from '$lib/components/entity/EntityProperty.svelte';
   import { t } from '$lib/i18n';
   import { formatDate, initials, timeAgo } from '$lib/utils/format';
   import { reportUiError } from '$lib/errors';
@@ -116,38 +118,25 @@
     {/if}
   </div>
 
-  <aside class="ov__inspector" aria-label={t('Properties')}>
-    <h2>{t('Properties')}</h2>
-    <dl>
-      <div>
-        <dt>{t('Guardians')}</dt>
-        <dd class="ov__chips">
+  <EntityProperties title={t('Properties')}>
+      <EntityProperty label={t('Guardians')} chips>
           {#each guardianNames as name}
             <span class="ov__chip"><span class="ov__face is-tiny">{initials(name)}</span>{name}</span>
           {:else}
             <span class="ov__warn">{t('None: requests cannot be approved')}</span>
           {/each}
           <button type="button" class="ov__add" aria-label={t('Manage the guardians')} on:click={onOpenGuardians}><i class="bi bi-plus" aria-hidden="true"></i></button>
-        </dd>
-      </div>
-      <div>
-        <dt>{t('Tags')}</dt>
-        <dd class="ov__chips">
+        </EntityProperty>
+      <EntityProperty label={t('Tags')} chips>
           {#each tags as tag (tagId(tag))}
             <TagPill label={tagLabel(tag)} color={tagColor(tag)} small={true} />
           {/each}
           <button type="button" class="ov__add" aria-label={t('Manage the tags')} on:click={onOpenTags}><i class="bi bi-plus" aria-hidden="true"></i></button>
-        </dd>
-      </div>
-      {#if zoneLabel}<div><dt>{t('Zone')}</dt><dd>{zoneLabel}</dd></div>{/if}
-      <div>
-        <dt>{t('File server')}</dt>
-        <dd>{#if endpointHref}<a href={endpointHref}>{endpointDisplay}</a>{:else}{endpointDisplay}{/if}</dd>
-      </div>
-      <div><dt>{t('Content')}</dt><dd>{contentSizeLabel === '—' ? t('Not measured') : contentSizeLabel}</dd></div>
-      <div>
-        <dt>{t('Inheritance')}</dt>
-        <dd class="ov__chips">
+        </EntityProperty>
+      {#if zoneLabel}<EntityProperty label={t('Zone')}>{zoneLabel}</EntityProperty>{/if}
+      <EntityProperty label={t('File server')}>{#if endpointHref}<a href={endpointHref}>{endpointDisplay}</a>{:else}{endpointDisplay}{/if}</EntityProperty>
+      <EntityProperty label={t('Content')}>{contentSizeLabel === '—' ? t('Not measured') : contentSizeLabel}</EntityProperty>
+      <EntityProperty label={t('Inheritance')} chips>
           {#if !inheritance?.known}
             <span class="ov__muted">{t('Known at the next ACL read')}</span>
           {:else if inheritance.broken}
@@ -158,11 +147,9 @@
           {#if isAdmin && inheritance?.known}
             <button type="button" class="ov__link" on:click={onToggleInheritance}>{inheritance.broken ? t('Restore') : t('Break')}</button>
           {/if}
-        </dd>
-      </div>
-      <div><dt>{t('Directory')}</dt><dd>{permissions?.snapshot_at ? t('Synchronised {ago}', { ago: timeAgo(permissions.snapshot_at) }) : '—'}</dd></div>
-    </dl>
-  </aside>
+        </EntityProperty>
+      <EntityProperty label={t('Directory')}>{permissions?.snapshot_at ? t('Synchronised {ago}', { ago: timeAgo(permissions.snapshot_at) }) : '—'}</EntityProperty>
+  </EntityProperties>
 </div>
 
 <style>
@@ -329,54 +316,6 @@
     color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-sm);
     white-space: nowrap;
-  }
-
-  .ov__inspector {
-    flex: 1 1 280px;
-    max-width: 360px;
-  }
-
-  .ov__inspector h2 {
-    margin-bottom: 4px;
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-xs);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  dl {
-    margin: 0;
-  }
-
-  dl > div {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 11px 0;
-    border-bottom: 1px solid var(--b2s-color-border-soft);
-    font-size: var(--b2s-fs-sm);
-  }
-
-  dl > div:last-child {
-    border-bottom: 0;
-  }
-
-  dt {
-    flex: 0 0 96px;
-    color: var(--b2s-color-text-muted);
-  }
-
-  dd {
-    min-width: 0;
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .ov__chips {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
   }
 
   .ov__chip {

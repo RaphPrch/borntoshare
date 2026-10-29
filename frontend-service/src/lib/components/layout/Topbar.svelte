@@ -168,12 +168,12 @@
       <LanguageSwitcher />
 
       <a href="/access-requests?status=pending" class="topbar-pill" class:is-on={hasAlerts} title={t('Pending access requests')}>
-        <i class="bi bi-inbox" aria-hidden="true"></i>{t('Requests')}
+        <i class="bi bi-inbox" aria-hidden="true"></i><span class="topbar-label">{t('Requests')}</span>
         <span class="topbar-pill__count">{alertsCount > 99 ? '99+' : alertsCount}</span>
       </a>
       {#if canSeeObservability}
         <a href="/observability?tab=alerts&severity=critical_high" class="topbar-pill topbar-pill--danger" class:is-on={hasCritical} title={t('Open critical alerts')}>
-          <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{t('Alerts')}
+          <i class="bi bi-exclamation-triangle" aria-hidden="true"></i><span class="topbar-label">{t('Alerts')}</span>
           <span class="topbar-pill__count">{criticalAlertsCount > 99 ? '99+' : criticalAlertsCount}</span>
         </a>
       {/if}
@@ -184,9 +184,9 @@
       </div>
 
       <form method="POST" action="/logout">
-        <button type="submit" class="logout-btn">
+        <button type="submit" class="logout-btn" aria-label={t('Logout')}>
         <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-        {t('Logout')}
+        <span class="topbar-label">{t('Logout')}</span>
         </button>
       </form>
     </div>

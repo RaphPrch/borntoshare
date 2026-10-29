@@ -1,76 +1,62 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { breakable } from '$lib/utils/format';
-  import EntityOverviewPanel from "$lib/components/entity/EntityOverviewPanel.svelte";
-  import EntityOverviewLayout from "$lib/components/entity/EntityOverviewLayout.svelte";
+  import EntityProperties from "$lib/components/entity/EntityProperties.svelte";
+  import EntityProperty from "$lib/components/entity/EntityProperty.svelte";
   import ZoneEndpointsTable from "../components/ZoneEndpointsTable.svelte";
-  import RecentActivityCard from "$lib/components/activity/RecentActivityCard.svelte";
 
+  /** Overview of a zone on one surface: its file servers and an inspector of its properties. */
   export let zone: any;
   export let endpoints: any[] = [];
   export let storageRootCount = 0;
   export let namingTemplateLabel = '';
   export let provisioningOu = '';
   export let probeResultsByEndpoint: Record<string, string> = {};
-  export let activity: any[] = [];
-  export let healthSummary: {
-    endpointCount: number;
-    reachableCount: number;
-    runnableCount?: number;
-    nonRunnableCount?: number;
-    lastProbeAt: string | null;
-    unhealthyCount?: number;
-    healthLabel?: "ok" | "warning";
-  };
-
   export let onCreateEndpoint: (() => void) | null = null;
   export let onRunEndpointProbe: ((endpoint: any) => void) | null = null;
-  export let onViewAllActivity: (() => void) | null = null;
-  export let onSelectActivity: ((entry: any) => void) | null = null;
-
-
-  $: latestActivity = activity.slice(0, 5);
 </script>
 
-<div class="zone-console__stack">
-  <EntityOverviewLayout>
-    <svelte:fragment slot="main">
-      <EntityOverviewPanel title={t('Storage endpoints')}>
-        <svelte:fragment slot="actions">
-          <button type="button" class="b2s-panel__link" on:click={() => onCreateEndpoint?.()}>
-            {t('Add endpoint')}
-          </button>
-        </svelte:fragment>
-        <ZoneEndpointsTable {endpoints} {probeResultsByEndpoint} onRunProbe={onRunEndpointProbe} />
-      </EntityOverviewPanel>
-    </svelte:fragment>
+<div class="zo">
+  <section class="zo__main" aria-label={t('Storage endpoints')}>
+    <div class="zo__head">
+      <h2>{t('Storage endpoints')}</h2>
+      <button type="button" class="b2s-panel__link" on:click={() => onCreateEndpoint?.()}>{t('Add endpoint')}</button>
+    </div>
+    <ZoneEndpointsTable {endpoints} {probeResultsByEndpoint} onRunProbe={onRunEndpointProbe} />
+  </section>
 
-    <svelte:fragment slot="side">
-      <article class="b2s-panel">
-        <div class="b2s-panel__head"><h2>{t('Details')}</h2></div>
-        <div class="b2s-panel__body">
-          <dl class="b2s-kv">
-            <dt>{t('Code')}</dt><dd>{zone?.code ?? '—'}</dd>
-            <dt>{t('Storage roots')}</dt><dd>{storageRootCount}</dd>
-            <dt>{t('Naming template')}</dt><dd class="zone-overview__mono">{breakable(namingTemplateLabel) || '—'}</dd>
-            <dt>{t('Provisioning OU')}</dt><dd>{breakable(provisioningOu) || '—'}</dd>
-          </dl>
-        </div>
-      </article>
-      <RecentActivityCard
-        title={t('Recent activity')}
-        items={latestActivity}
-        max={5}
-        onViewAll={onViewAllActivity}
-        onSelect={onSelectActivity}
-      />
-    </svelte:fragment>
-  </EntityOverviewLayout>
+  <EntityProperties title={t('Properties')}>
+    <EntityProperty label={t('Code')}>{zone?.code ?? '—'}</EntityProperty>
+    <EntityProperty label={t('Storage roots')}>{storageRootCount}</EntityProperty>
+    <EntityProperty label={t('Naming template')} mono>{breakable(namingTemplateLabel) || '—'}</EntityProperty>
+    <EntityProperty label={t('Provisioning OU')}>{breakable(provisioningOu) || '—'}</EntityProperty>
+  </EntityProperties>
 </div>
 
 <style>
-  .zone-overview__mono {
-    font-family: var(--b2s-font-mono);
-    font-size: var(--b2s-fs-xs);
+  .zo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+    align-items: flex-start;
+  }
+
+  .zo__main {
+    flex: 999 1 420px;
+    min-width: 0;
+    display: grid;
+    gap: 12px;
+  }
+
+  .zo__head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: var(--b2s-fs-md);
+    font-weight: 600;
   }
 </style>
