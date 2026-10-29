@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { formatDateTime } from '$lib/utils/format';
   import { t } from '$lib/i18n';
   import { onDestroy, onMount } from "svelte";
@@ -446,7 +447,7 @@
       const detail = storageRootAlertSummarySubtitle(alert);
       return {
         key: `zone-root-alert-${String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${rootId}`)}`,
-        title: String(alert?.title ?? t('Attention required')),
+        title: alertTitle(alert),
         subtitle: detail ? `${rootLabel} · ${detail}` : rootLabel,
         tone: storageRootAlertTone(alert),
       };

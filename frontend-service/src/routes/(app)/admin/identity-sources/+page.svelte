@@ -1,11 +1,11 @@
 <script lang="ts">
-  import KpiCard from '$lib/components/ui/KpiCard.svelte';
+  import EntityStatLine from '$lib/components/entity/EntityStatLine.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { browser } from '$app/environment';
   import { onDestroy } from 'svelte';
   import { sleep } from '$lib/utils/values';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import EntityPageHeader from '$lib/components/entity/EntityPageHeader.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import IdentitySourcesWizardModal from '$lib/components/identity-sources/IdentitySourcesWizardModal.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -487,7 +487,7 @@
       ).trim();
 
       if (source.type === 'ad' && !bindSecretRef) {
-        toast.error(t('Bind secret introuvable. Configurez un bind_password_ref valide avant de lancer le probe.'));
+        toast.error(t('Bind secret introuvable. Configurez un bind_password_ref valide avant de lancer le test.'));
         jobsStore.failJob(identityProbeJobInput(source.id), {
           message: t('Bind secret introuvable'),
           error: t('Bind secret introuvable')
@@ -1024,20 +1024,14 @@
 
 <section class="b2s-page b2s-page--admin identity-sources-page">
   <div class="identity-clean-shell">
-    <PageHeader title={t('Identity Sources')} subtitle={t('Manage LDAP / OIDC identity sources and monitor operational health.')}>
-      <svelte:fragment slot="actions">
-        <div class="identity-page-actions">
-          <button class="b2s-btn b2s-btn-primary" type="button" on:click={() => (showWizard = true)}>
-            <i class="bi bi-plus-lg" aria-hidden="true"></i>
-            {t('New Identity Source')}
-          </button>
-          <button class="b2s-btn b2s-btn-secondary" type="button" on:click={refreshList} disabled={listLoading}>
-            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-            {t('Refresh')}
-          </button>
-        </div>
-      </svelte:fragment>
-    </PageHeader>
+    <EntityPageHeader
+      title={t('Identity Sources')}
+      actions={[
+        { key: 'refresh', label: t('Refresh'), icon: 'bi-arrow-clockwise', variant: 'secondary', disabled: listLoading, onClick: refreshList },
+        { key: 'new', label: t('New Identity Source'), icon: 'bi-plus-lg', variant: 'primary', onClick: () => (showWizard = true) }
+      ]}
+      actionsAriaLabel={t('Identity source actions')}
+    />
 
     {#if fetchError}
       <InlineAlert tone="error">{fetchError}</InlineAlert>
@@ -1054,12 +1048,15 @@
         hint={t('You will be guided step by step.')}
       />
     {:else}
-      <div class="b2s-kpi-grid" aria-label={t('Identity source summary')}>
-        <KpiCard label={t('Sources')} value={summary.total} icon="bi-diagram-3" tone="info" />
-        <KpiCard label={t('Healthy')} value={summary.healthy} icon="bi-check-lg" tone="success" />
-        <KpiCard label={t('Issues')} value={summary.issues} icon="bi-exclamation-triangle" tone="warning" />
-        <KpiCard label={t('Never synced')} value={summary.neverSynced} icon="bi-clock" tone="neutral" />
-      </div>
+      <EntityStatLine
+        ariaLabel={t('Identity source summary')}
+        items={[
+          { key: 'total', label: t('Sources'), value: summary.total, big: true },
+          { key: 'healthy', label: t('Healthy'), value: summary.healthy, big: true, tone: summary.healthy > 0 ? 'success' : undefined },
+          { key: 'issues', label: t('Issues'), value: summary.issues, big: true, tone: summary.issues > 0 ? 'warning' : undefined },
+          { key: 'never', label: t('Never synced'), value: summary.neverSynced, big: true }
+        ]}
+      />
 
       <div class="identity-filter-card">
         <label class="identity-search">
@@ -1294,6 +1291,19 @@
     display: grid;
     gap: 22px;
     color: var(--b2s-color-heading);
+  }
+
+  /* Filters and table on the page surface, like the other entity pages */
+  .identity-clean-shell :global(.identity-filter-card),
+  .identity-clean-shell :global(.identity-table-card) {
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .identity-clean-shell :global(.identity-filter-card) {
+    min-height: 0;
+    padding: 0;
   }
 
   .identity-clean-shell :global(.b2s-page-header) {

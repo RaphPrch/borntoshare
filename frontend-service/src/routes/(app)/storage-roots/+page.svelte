@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { tick } from 'svelte';
   import { t } from '$lib/i18n';
   import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
@@ -530,7 +531,7 @@
 
   const alertItemFromRow = (alert: GovernanceAlert): StorageRootDetailAlertItem => ({
     key: String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${alert?.scope_id ?? ''}`),
-    title: String(alert?.title ?? t('Attention required')),
+    title: alertTitle(alert),
     subtitle: storageRootAlertSummarySubtitle(alert),
     tone: storageRootAlertTone(alert)
   });

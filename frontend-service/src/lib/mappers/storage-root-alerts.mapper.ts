@@ -147,3 +147,24 @@ export const storageRootOpenAlertSummary = (
     tone: alerts.some((alert) => storageRootAlertTone(alert) === 'error') ? 'error' : 'warning'
   };
 };
+
+const levelWord = (level: string): string => (level.toUpperCase() === 'WRITE' ? t('modify') : t('read'));
+
+/** Alert titles come from core in English: translated here, by pattern when they carry a level or a count. */
+export const alertTitle = (alert: { title?: unknown; alert_type?: unknown } | null | undefined): string => {
+  const raw = String(alert?.title ?? '').trim();
+  if (!raw) return t('Attention required');
+  let match = raw.match(/^(\d+) access requests? pending$/i);
+  if (match) return t('{count} access request(s) pending', { count: match[1] });
+  match = raw.match(/^(READ|WRITE) group missing from filesystem ACL$/i);
+  if (match) return t('{level} group missing from the ACL', { level: levelWord(match[1]) });
+  match = raw.match(/^(READ|WRITE) group being created$/i);
+  if (match) return t('{level} group being created', { level: levelWord(match[1]) });
+  match = raw.match(/^(READ|WRITE) group creation failed$/i);
+  if (match) return t('{level} group creation failed', { level: levelWord(match[1]) });
+  match = raw.match(/^(READ|WRITE) access granted but missing from the AD group$/i);
+  if (match) return t('{level} access granted but missing from the AD group', { level: levelWord(match[1]) });
+  match = raw.match(/^AD group member without a granted (READ|WRITE) access$/i);
+  if (match) return t('AD group member without a granted {level} access', { level: levelWord(match[1]) });
+  return t(raw);
+};

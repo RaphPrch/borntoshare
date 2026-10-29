@@ -2068,7 +2068,6 @@ button.primary.ghost:hover {
 .identity-sources-page {
   min-height: calc(100vh - var(--topbar-height, 64px));
   padding: 24px 32px 56px;
-  background: #eef2fb;
 }
 
 .identity-table,

@@ -34,7 +34,7 @@
     >
       <span class="esl__label">{item.label}</span>
       {#if item.big}
-        <span class="esl__value"><strong class="is-big">{item.value}</strong>{#if item.note}<small>{item.note}</small>{/if}</span>
+        <span class="esl__value"><strong class={`is-big ${item.tone ? `is-${item.tone}` : ''}`}>{item.value}</strong>{#if item.note}<small>{item.note}</small>{/if}</span>
       {:else}
         <strong class={item.tone ? `is-${item.tone}` : ''}>{item.value}</strong>
       {/if}

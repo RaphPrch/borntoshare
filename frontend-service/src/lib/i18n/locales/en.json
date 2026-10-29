@@ -12,7 +12,7 @@
   "Aucune requête à valider.": "No request to review.",
   "avec template": "with template",
   "Bind secret introuvable": "Bind secret not found",
-  "Bind secret introuvable. Configurez un bind_password_ref valide avant de lancer le probe.": "Bind secret not found. Configure a valid bind_password_ref before running the probe.",
+  "Bind secret introuvable. Configurez un bind_password_ref valide avant de lancer le test.": "Bind secret not found. Configure a valid bind_password_ref before running the probe.",
   "Cette demande ne peut pas etre soumise.": "This request cannot be submitted.",
   "Cette demande sera traitee comme une elevation.": "This request will be handled as an elevation.",
   "Champs manquants.": "Missing fields.",

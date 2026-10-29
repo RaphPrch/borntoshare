@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { t } from '$lib/i18n';
   import { formatActivityItem } from '$lib/activity/format';
   import { formatDateTime } from '$lib/utils/format';
@@ -898,7 +899,7 @@
       const detail = storageRootAlertSummarySubtitle(alert);
       return {
         key: `endpoint-root-alert-${endpointId(ep)}-${String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${alertRootId}`)}`,
-        title: String(alert?.title ?? t('Attention required')),
+        title: alertTitle(alert),
         subtitle: detail ? `${rootLabel} · ${detail}` : rootLabel,
         tone: storageRootAlertTone(alert)
       };

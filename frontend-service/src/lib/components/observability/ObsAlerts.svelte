@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -110,7 +111,7 @@
   $: groups = Object.values(
     filtered.reduce<Record<string, { type: string; title: string; severity: string; count: number; scopes: string[]; lastSeen: string }>>((acc, a) => {
       const type = typeOf(a);
-      const group = (acc[type] ??= { type, title: String(a.title ?? type), severity: severityOf(a), count: 0, scopes: [], lastSeen: '' });
+      const group = (acc[type] ??= { type, title: a.title ? alertTitle(a) : type, severity: severityOf(a), count: 0, scopes: [], lastSeen: '' });
       group.count += 1;
       if ((SEVERITY_RANK[severityOf(a)] ?? 9) < (SEVERITY_RANK[group.severity] ?? 9)) group.severity = severityOf(a);
       const scope = scopeOf(a).label;
@@ -272,7 +273,7 @@
                   <StatusBadge compact variant={SEVERITY_VARIANT[severityOf(alert)] ?? 'muted'} label={severityLabel(severityOf(alert))} />
                 </td>
                 <td class="obs-main">
-                  <strong>{alert.title ?? alert.alert_type}</strong>
+                  <strong>{alert.title ? alertTitle(alert) : alert.alert_type}</strong>
                   {#if alert.message}<small>{alert.message}</small>{/if}
                 </td>
                 <td>
