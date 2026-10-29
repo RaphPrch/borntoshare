@@ -119,6 +119,8 @@ def test_resolve_ad_identity_create_if_missing_creates_from_snapshot_user() -> N
                 "email": "alice@example.com",
                 "is_active": 1,
             }],
+            # not known under the identifier of the directory either: created
+            [],
             [{
                 "id": 42,
                 "username": "alice",
@@ -144,6 +146,25 @@ def test_resolve_ad_identity_create_if_missing_creates_from_snapshot_user() -> N
     assert out.identity_id == "42"
     assert db.commit_called is True
     assert any("insert into identities" in " ".join(sql.split()).lower() for sql, _ in db.calls)
+
+
+def test_resolve_ad_identity_asked_by_dn_finds_the_identity_stored_by_guid() -> None:
+    """Importing a directory user twice: asked by DN, stored by objectGUID, no second insert (it hit the unique key)."""
+    db = _CaptureDB(
+        [
+            [],
+            [{"external_id": "{acf4e7d8}", "username": "alice", "display_name": "Alice", "email": None, "is_active": 1}],
+            [{"id": 42, "username": "alice", "display_name": "Alice", "email": None, "external_id": "{acf4e7d8}", "is_active": 1}],
+        ]
+    )
+
+    out = router.resolve_ad_identity(
+        router.ResolveAdIdentityRequest(external_id="CN=Alice,OU=Users,DC=example,DC=com", identity_source_id=9, create_if_missing=True),
+        db=db,
+    )
+
+    assert out.found is True and out.reason_code == "FOUND_EXISTING" and out.identity_id == "42"
+    assert not any("insert into identities" in " ".join(sql.split()).lower() for sql, _ in db.calls)
 
 
 def test_resolve_login_identity_no_candidate_returns_no_candidate() -> None:
