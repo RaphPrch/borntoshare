@@ -8,6 +8,7 @@ Runs like e2e_check.py (same image, same environment), after register.py:
 
   --reset      removes the demo folders first (accesses revoked, folders deleted) and builds them again
   --purge-e2e  removes the « E2E e2e-… » storage roots left by e2e_check.py runs
+  --drop-lab-roots  removes the storage roots declared by register.py
 
 Everything goes through BornToShare (requests, approvals, worker) except what an administrator would do by
 hand on the file server or in AD (an ACE outside BornToShare, an ACE removed, a folder deleted): those are
@@ -153,6 +154,12 @@ def main() -> int:
     source_id = int(source["id"])
     endpoint_id = int(endpoint.get("storage_endpoint_id") or endpoint.get("id"))
     demo_prefix = f"\\\\{lab.LAB}\\{SHARE}\\{BASE}\\"
+
+    if "--drop-lab-roots" in sys.argv:
+        # The roots register.py declares (corp\\finance, projects…) have no guardian: only the demo stays
+        for root in lab.rows(api.call("GET", "/storage-roots/context")):
+            if str(root.get("storage_root_name") or "") in {"Lab Finance", "Lab HR", "Lab Legal", "Lab Projects"}:
+                api.call("DELETE", f"/storage-roots/{int(root['storage_root_id'])}", raw=True)
 
     if "--purge-e2e" in sys.argv:
         leftovers = [r for r in lab.rows(api.call("GET", "/storage-roots/context")) if str(r.get("storage_root_name") or "").startswith("E2E e2e-")]
