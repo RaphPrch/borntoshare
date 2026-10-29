@@ -219,6 +219,14 @@
           "title": "Storage root role removed",
           "description": "Role \"{role}\" was removed from storage root \"{root}\""
         }
+      },
+      "acl_gap_accepted": {
+        "title": "ACL gap accepted",
+        "description": "{group} on \"{root}\" is accepted as it is"
+      },
+      "acl_gap_reopened": {
+        "title": "ACL gap reported again",
+        "description": "{group} on \"{root}\" is reported again"
       }
     },
     "access_request": {
@@ -249,6 +257,10 @@
       "expired": {
         "title": "Access expired",
         "description": "The access of {user} on \"{root}\" reached its end date"
+      },
+      "extended": {
+        "title": "Access extended",
+        "description": "The access of {user} on \"{root}\" was extended"
       }
     },
     "identity_source": {

@@ -168,8 +168,9 @@ def _discover_share_permissions(
         principal = principal.strip()
         rights = rights_raw.strip()
 
-        rights_low = rights.lower()
-        access_level = "write" if ("0x001301bf" in rights_low or "full" in rights_low) else "read"
+        # Last segment of ALLOWED/OI|CI/<mask>: FULL and RWXD / CHANGE (modify, what BornToShare sets for WRITE) give write
+        mask = rights.split("/")[-1].strip().upper()
+        access_level = "write" if mask in {"FULL", "RWXD", "CHANGE", "0X001F01FF", "0X001301BF", "0X1301BF"} or "FULL" in mask else "read"
 
         row = {
             "principal": principal,

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { timeAgo } from '$lib/utils/format';
   import { t } from '$lib/i18n';
   import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
   import { onDestroy, onMount } from 'svelte';
@@ -56,11 +55,8 @@
     rootLabelFromPath
   } from '$lib/mappers/storage-roots.mapper';
   import {
-    buildStorageRootAccessModelRows,
     displayStorageRootTags,
-    effectiveAccessUsersByLevel,
     formatDateTimeLabel,
-    isSelectedStorageRootRow,
     ownerDisplayName,
     storageRootEndpointLabel
   } from '$lib/mappers/storage-root-detail.mapper';
@@ -86,7 +82,6 @@
     storageRootsUiStore,
     type StorageRootsDetailTab
   } from '$lib/stores/storage-roots-ui.store';
-  import StorageRootEffectiveAccessModal from '$lib/components/storage-roots/StorageRootEffectiveAccessModal.svelte';
   import StorageRootOwnersAdModal from '$lib/components/storage-roots/StorageRootOwnersAdModal.svelte';
   import AddStorageRootModal from '$lib/components/storage-roots/AddStorageRootModal.svelte';
   import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
@@ -449,36 +444,7 @@
         ''
     ).trim() || endpointLabel();
   };
-  const isSelectedRootRow = (row: any): boolean => isSelectedStorageRootRow(row, selectedStorageRootId, overview);
 
-  const endpointProbeTimestampForRoot = (row: any): string | null => {
-    const endpointId = Number(row?.storage_endpoint_id ?? row?.endpoint_id ?? 0);
-    const rows = Array.isArray(data.endpoints) ? data.endpoints : [];
-    const endpoint = Number.isFinite(endpointId) && endpointId > 0
-      ? rows.find((ep: any) => Number(ep?.storage_endpoint_id ?? ep?.id ?? 0) === endpointId)
-      : null;
-
-    const selectedScopedTimestamp = isSelectedRootRow(row)
-      ? (
-        overview?.last_probe_at ??
-        overview?.probe_last_run_at ??
-        row?.last_probe_at ??
-        row?.probe_last_run_at ??
-        overview?.storage_endpoint?.last_probe_at ??
-        endpoint?.last_probe_at ??
-        null
-      )
-      : null;
-
-    const raw =
-      selectedScopedTimestamp ??
-      row?.last_probe_at ??
-      row?.probe_last_run_at ??
-      row?.probe_last_at ??
-      row?.storage_endpoint_last_probe_at ??
-      null;
-    return raw ? String(raw) : null;
-  };
 
   const effectiveAvailabilityForRow = (row: any): RootAvailability => {
     const rowId = Number(row?.storage_root_id ?? row?.id ?? 0);
@@ -498,7 +464,6 @@
     return normalizeStorageRootAvailability(row?.effective_availability);
   };
 
-  const effectiveUsersByLevel = (level: 'read' | 'write') => effectiveAccessUsersByLevel(overview, level);
 
   $: guardians = (overview?.owners ?? []).filter((o: any) => normalizeAssignedRole(o?.role) === 'guardian');
 
@@ -520,23 +485,6 @@
     return 'warning';
   };
 
-  const lastProbeLabel = () => {
-    const raw =
-      selectedProbeState().lastRunAt ??
-      overview?.last_probe_at ??
-      overview?.probe_last_run_at ??
-      selectedRow?.last_probe_at ??
-      selectedRow?.probe_last_run_at ??
-      overview?.storage_endpoint?.last_probe_at ??
-      overview?.storage_endpoint_last_probe_at ??
-      selectedEndpoint()?.last_probe_at ??
-      (selectedRow ? endpointProbeTimestampForRoot(selectedRow) : null) ??
-      null;
-    if (!raw) return t('Never run');
-    return timeAgo(String(raw)) || formatDateTimeLabel(raw);
-  };
-
-  const accessModelRows = () => buildStorageRootAccessModelRows(overview);
 
   const displayTags = (row: StorageRootRow | null): StorageRootTagLike[] => displayStorageRootTags(overview, row);
 
@@ -1497,13 +1445,6 @@
     void goto(`/access-requests?create=1&root=${encodeURIComponent(String(selectedStorageRootId))}`);
   };
 
-  let showEffectiveAccessModal = false;
-  let effectiveAccessModalLevel: 'read' | 'write' = 'read';
-  function openEffectiveAccessModal(level: 'read' | 'write') {
-    effectiveAccessModalLevel = level;
-    showEffectiveAccessModal = true;
-  }
-
   let showAlertsDrawer = false;
   let activityLoading = false;
   let activityRows: Array<Record<string, unknown>> = [];
@@ -1986,17 +1927,15 @@
 
   // Values shown by StorageRootDetailView. The helpers read overview, selectedRow, probe and
   // activity state themselves; listing those here makes Svelte recompute when any of them changes
-  // (a call like {accessModelRows()} in the markup would only run once).
+  // (a call like {selectedProbeState()} in the markup would only run once).
   $: detailView = ((..._deps: unknown[]) => ({
     probeState: selectedProbeState(),
     aclFreshness: aclFreshnessFromOverview(),
     endpointLabel: endpointLabel(),
     endpointAddress: endpointAddressLabel(),
-    accessModelRows: accessModelRows(),
     rootAvailabilityText: rootAvailabilityText(),
     rootAvailabilityTone: rootAvailabilityTone(),
     showStatusBadge: showSelectedStatusBadge(),
-    lastProbeText: lastProbeLabel(),
     tags: displayTags(selectedRow),
     activityRemainder: activityRowsForSelectedRoot()
   }))(overview, selectedRow, selectedStorageRootId, rootProbeStateByRootId, activityRows, activityLoadedForRootId, data);
@@ -2039,15 +1978,12 @@
       pathLabel={selectedRow?.root_path ?? '—'}
       contentSizeLabel={String((overview as any)?.estimated_size_label ?? (overview as any)?.content_size_label ?? '—')}
       contentUpdatedLabel={formatDateTimeLabel((overview as any)?.content_updated_at ?? (overview as any)?.last_content_scan_at ?? (overview as any)?.last_scan_at ?? selectedRow?.last_scan_at ?? null)}
-      accessModelRows={detailView.accessModelRows}
-      projectedGroups={overview?.projected_ad_groups ?? []}
       {guardians}
       rootAvailabilityText={detailView.rootAvailabilityText}
       rootAvailabilityTone={detailView.rootAvailabilityTone}
       showStatusBadge={detailView.showStatusBadge}
-      lastProbeText={detailView.lastProbeText}
       tags={detailView.tags}
-      effectiveAccessUsers={overview?.effective_access ?? []}
+      isAdmin={data.user?.is_admin === true}
       activityRemainder={detailView.activityRemainder}
       activityLoading={activityLoading}
       {tagId}
@@ -2059,7 +1995,6 @@
       onDeleteRoot={() => selectedRow && openDeleteRoot(selectedRow)}
       onRunRootProbe={runSelectedRootProbe}
       onNewAccessRequest={openAccessRequestModal}
-      onOpenEffectiveAccess={openEffectiveAccessModal}
       onOpenGovernanceDrawer={(role) => openGovernanceDrawer(role ?? 'guardian')}
       onOpenTagsModal={openTagsModal}
       onViewAllAlerts={openAlertsDrawer}
@@ -2140,17 +2075,6 @@
   items={selectedRootAlerts}
   emptyLabel={t('No alert found for this storage root.')}
   ariaLabelledby="sr-alerts-drawer-title"
-/>
-
-<StorageRootEffectiveAccessModal
-  open={showEffectiveAccessModal}
-  title={effectiveAccessModalLevel === 'write' ? t('Users with WRITE access') : t('Users with READ access')}
-  contextLabel={t('Storage • {value} • {value2}', { value: (selectedRow?.zone_name ?? '—'), value2: (selectedRow?.storage_root_name ?? '—') })}
-  membersCount={effectiveUsersByLevel(effectiveAccessModalLevel).length}
-  level={effectiveAccessModalLevel}
-  users={effectiveUsersByLevel(effectiveAccessModalLevel)}
-  onAddUser={openAccessRequestModal}
-  onClose={() => (showEffectiveAccessModal = false)}
 />
 
 <StorageRootGovernanceDrawer

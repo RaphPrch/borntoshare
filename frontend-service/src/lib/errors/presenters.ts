@@ -14,7 +14,9 @@ const CODE_MESSAGES: Record<string, () => string> = {
   STORAGE_ROOT_PATH_TAKEN: () => t('This storage root path is already declared.'),
   STORAGE_ROOT_HOST_MISMATCH: () => t('The path points at another server than the file server of this storage root.'),
   STORAGE_ROOT_PATH_LOCKED: () => t('AD access groups and NTFS permissions are set on this folder: its path cannot change.'),
-  STORAGE_ROOT_HAS_ACCESSES: () => t('This storage root still has active accesses or pending requests: revoke or decide them first.')
+  STORAGE_ROOT_HAS_ACCESSES: () => t('This storage root still has active accesses or pending requests: revoke or decide them first.'),
+  ACCESS_NOT_IN_FORCE: () => t('This access is no longer in force: it cannot be extended.'),
+  ACCESS_PERMANENT: () => t('This access has no end date: there is nothing to extend.')
 };
 
 /** Translated message of a known business code, for toasts and inline errors alike. */

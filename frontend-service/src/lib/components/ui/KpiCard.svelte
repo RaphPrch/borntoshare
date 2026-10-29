@@ -11,7 +11,7 @@
   $: isText = typeof value === 'string' && !/^[\d\s.,%+-]*$/.test(value);
 </script>
 
-<svelte:element this={href ? 'a' : 'article'} {href} class="b2s-kpi" class:is-link={Boolean(href)}>
+<svelte:element this={href ? 'a' : 'article'} {href} class="b2s-kpi" class:is-link={Boolean(href)} on:click>
   <span class={`b2s-kpi__icon is-${tone}`} aria-hidden="true"><i class={`bi ${icon}`}></i></span>
   <span class="b2s-kpi__body">
     <span class="b2s-kpi__label">{label}</span>

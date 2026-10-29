@@ -897,120 +897,6 @@ def _summarize_visibility_sources_for_request(
     }
 
 
-def _create_revoke_access_request(
-    *,
-    db: Session,
-    source_request_id: int,
-    requester_identity_id: int | None,
-) -> int:
-    source_row = db.execute(
-        text(
-            """
-            SELECT requested_principal_json, decision_comment
-            FROM access_requests
-            WHERE id = :id
-            LIMIT 1
-            """
-        ),
-        {"id": int(source_request_id)},
-    ).mappings().first()
-    if not source_row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access request not found")
-
-    source_items = db.execute(
-        text(
-            """
-            SELECT target_type, target_id, permission, expires_at
-            FROM access_request_items
-            WHERE access_request_id = :id
-            ORDER BY id ASC
-            """
-        ),
-        {"id": int(source_request_id)},
-    ).mappings().all()
-    if not source_items:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Source request has no items")
-
-    code = f"REVOKE-{int(datetime.utcnow().timestamp())}"
-    db.execute(
-        text(
-            """
-            INSERT INTO access_requests (
-              code,
-              requester_identity_id,
-              status,
-              decision_comment,
-              requested_principal_json,
-              created_at,
-              updated_at
-            ) VALUES (
-              :code,
-              :requester_identity_id,
-              'pending',
-              :decision_comment,
-              :requested_principal_json,
-              NOW(6),
-              NOW(6)
-            )
-            """
-        ),
-        {
-            "code": code,
-            "requester_identity_id": requester_identity_id,
-            "decision_comment": f"Auto revoke requested from REQ-{int(source_request_id)}",
-            "requested_principal_json": source_row.get("requested_principal_json"),
-        },
-    )
-    new_req = db.execute(
-        text(
-            """
-            SELECT id
-            FROM access_requests
-            WHERE code = :code
-            ORDER BY id DESC
-            LIMIT 1
-            """
-        ),
-        {"code": code},
-    ).mappings().first()
-    if not new_req:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create revoke request")
-
-    new_req_id = int(new_req["id"])
-    for item in source_items:
-        db.execute(
-            text(
-                """
-                INSERT INTO access_request_items (
-                  access_request_id,
-                  target_type,
-                  target_id,
-                  permission,
-                  expires_at,
-                  created_at,
-                  updated_at
-                ) VALUES (
-                  :access_request_id,
-                  :target_type,
-                  :target_id,
-                  :permission,
-                  :expires_at,
-                  NOW(6),
-                  NOW(6)
-                )
-                """
-            ),
-            {
-                "access_request_id": new_req_id,
-                "target_type": str(item.get("target_type") or "storage_root"),
-                "target_id": int(item.get("target_id") or 0),
-                "permission": str(item.get("permission") or "read"),
-                "expires_at": item.get("expires_at"),
-            },
-        )
-    return new_req_id
-
-
 # ============================================================
 # INTERNAL ORCHESTRATION HELPERS (governance)
 # ============================================================
@@ -1511,6 +1397,76 @@ def create_access_request(
     return ui_action(action_id=int(obj.id), message="access_request.created")
 
 
+class ExtendAccessPayload(BaseModel):
+    days: int = 30
+
+
+@router.post("/{access_request_id}/extend")
+def extend_access_request(
+    access_request_id: int,
+    payload: ExtendAccessPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Move the end date of an access in force (guardians, administrators); the expiry task reads the new date."""
+    actor = actor_from_request(request)
+    require_access_request_review(db, actor, int(access_request_id))
+    days = int(payload.days)
+    if days < 1 or days > 365:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="days must be between 1 and 365")
+    row = db.execute(
+        text(
+            """
+            SELECT ar.status, ar.revoked_at, MIN(ari.expires_at) AS expires_at, COUNT(ari.id) AS items,
+                   SUM(ari.expires_at IS NULL) AS permanent
+            FROM access_requests ar JOIN access_request_items ari ON ari.access_request_id = ar.id
+            WHERE ar.id = :id GROUP BY ar.status, ar.revoked_at
+            """
+        ),
+        {"id": int(access_request_id)},
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access request not found")
+    if str(row["status"] or "").lower() not in {"approved", "executed"} or row["revoked_at"] is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "ACCESS_NOT_IN_FORCE", "message": "Only an access in force can be extended"},
+        )
+    if int(row["permanent"] or 0) == int(row["items"] or 0):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "ACCESS_PERMANENT", "message": "This access has no end date"},
+        )
+    db.execute(
+        text(
+            """
+            UPDATE access_request_items
+            SET expires_at = GREATEST(expires_at, UTC_TIMESTAMP()) + INTERVAL :days DAY
+            WHERE access_request_id = :id AND expires_at IS NOT NULL
+            """
+        ),
+        {"id": int(access_request_id), "days": days},
+    )
+    new_end = db.execute(
+        text("SELECT MAX(expires_at) FROM access_request_items WHERE access_request_id = :id"), {"id": int(access_request_id)}
+    ).scalar()
+    db.commit()
+    log_activity(
+        db,
+        actor_type="user",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action="access_request.extended",
+        outcome="success",
+        target_type="access_request",
+        target_id=int(access_request_id),
+        target_display=f"REQ-{access_request_id}",
+        context_json={"days": days, "expires_at": str(new_end), **_request_event_labels(db, int(access_request_id))},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_data({"id": int(access_request_id), "expires_at": new_end.isoformat() if new_end else None})
+
+
 @router.post("/check-existing-access")
 def check_existing_access(
     payload: ExistingAccessCheckPayload,
@@ -1597,20 +1553,6 @@ def bulk_decision(
         updated_ids = []
         for req_id in requested_ids:
             try:
-                requester_identity_id = actor_id
-                if requester_identity_id is None:
-                    req_owner = db.execute(
-                        text("SELECT requester_identity_id FROM access_requests WHERE id = :id LIMIT 1"),
-                        {"id": int(req_id)},
-                    ).mappings().first()
-                    requester_identity_id = int((req_owner or {}).get("requester_identity_id") or 0) or None
-
-                _create_revoke_access_request(
-                    db=db,
-                    source_request_id=int(req_id),
-                    requester_identity_id=requester_identity_id,
-                )
-
                 db.execute(
                     text(
                         """

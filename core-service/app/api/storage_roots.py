@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -32,6 +33,7 @@ from app.services.authorization import (
 )
 from app.services.naming_policy import resolve_effective_policy
 from app.services.probe_results import ProbeResultService, normalize_probe_status_value
+from app.services.storage_root_permissions import StorageRootPermissions
 from app.services.storage_guards import root_access_counts, root_access_group_count, same_host, unc_host
 
 router = APIRouter(
@@ -1386,6 +1388,150 @@ def record_storage_root_probe_result(
 # ============================================================
 # WRITE MODEL — DELETE
 # ============================================================
+
+# ============================================================
+# Permissions (Storage roots › Permissions)
+# ============================================================
+
+
+class AclExceptionPayload(BaseModel):
+    principal: str = Field(..., min_length=1, max_length=255)
+    note: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/{root_id}/permissions")
+def get_root_permissions(root_id: int, request: Request, db: Session = Depends(get_db)):
+    """Who reaches the folder and why: people, BornToShare groups and their ACE, system accounts, gaps."""
+    require_storage_root_access(db, actor_from_request(request), int(root_id))
+    result = StorageRootPermissions(db).build(int(root_id))
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    return ui_data(result)
+
+
+@router.get("/{root_id}/permissions/explain")
+def explain_root_access(root_id: int, username: str, request: Request, db: Session = Depends(get_db)):
+    """Why a person reaches (or not) the folder: request -> AD group -> ACE -> effective level, step by step."""
+    from app.services.activity_bridge import list_activity_by_target
+
+    require_storage_root_access(db, actor_from_request(request), int(root_id))
+    service = StorageRootPermissions(db)
+    result = service.build(int(root_id))
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    wanted = str(username or "").strip().lower()
+    person = next(
+        (p for p in result["people"] if wanted in {str(p.get("username") or "").lower(), str(p.get("name") or "").lower()}),
+        None,
+    )
+    known = db.execute(
+        text("SELECT display_name FROM directory_users WHERE LOWER(username) = :u LIMIT 1"), {"u": wanted}
+    ).scalar()
+    if person is None:
+        return ui_data({"found": False, "username": username, "known_in_directory": bool(known), "display_name": known,
+                        "acl_scanned_at": result["acl_scanned_at"], "snapshot_at": result["snapshot_at"]})
+
+    steps: list[dict[str, Any]] = []
+    for via in person["via"]:
+        if via["kind"] == "request":
+            approver = None
+            try:
+                events = list_activity_by_target(target_type="access_request", target_id=int(via["request_id"]), limit=50)
+                approver = next(
+                    (e.get("actor_display") for e in events if str(e.get("action")) in {"access_request.approve", "access_request.approved"}),
+                    None,
+                )
+            except Exception:
+                approver = None
+            steps.append({"kind": "request", **via, "approver": approver})
+        elif via["kind"] in {"group", "ad_only", "outside"}:
+            group = next((g for g in result["groups"] if g["name"] == via["group"]), None)
+            gap = next((g for g in result["gaps"] if g["name"] == via["group"]), None)
+            dn = (group or {}).get("dn")
+            steps.append({
+                "kind": "membership",
+                "group": via["group"],
+                "managed": via["kind"] != "outside",
+                "outside_request": via["kind"] == "ad_only",
+                "nested": via.get("nested", False),
+                "ou": dn.split(",", 1)[1] if dn and "," in dn else None,
+            })
+            ace = group or gap
+            if ace:
+                steps.append({
+                    "kind": "ace",
+                    "group": via["group"],
+                    "state": (group or {}).get("ace", "ok"),
+                    "rights_label": ace.get("rights_label"),
+                    "inherited_scope": ace.get("inherited_scope", False),
+                    "level": via["level"],
+                })
+    # One step per group / ACE even when several ways lead to it
+    unique: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for step in steps:
+        key = json.dumps(step, sort_keys=True, default=str)
+        if key not in seen:
+            seen.add(key)
+            unique.append(step)
+    return ui_data({
+        "found": True,
+        "person": person,
+        "steps": unique,
+        "other_roots": service.other_roots(person["username"], int(root_id)) if person.get("username") else [],
+        "acl_scanned_at": result["acl_scanned_at"],
+        "snapshot_at": result["snapshot_at"],
+    })
+
+
+@router.post("/{root_id}/permissions/exceptions", status_code=status.HTTP_201_CREATED)
+def accept_acl_gap(root_id: int, payload: AclExceptionPayload, request: Request, db: Session = Depends(get_db)):
+    """« Accept the gap »: an ACL entry added outside BornToShare stops being reported for this folder."""
+    actor = actor_from_request(request)
+    require_admin(actor)
+    root = db.get(StorageRoot, root_id)
+    if root is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    principal = payload.principal.strip().lower()
+    db.execute(
+        text(
+            """
+            INSERT INTO storage_root_acl_exceptions (storage_root_id, principal, note, accepted_by)
+            VALUES (:root, :principal, :note, :by)
+            ON DUPLICATE KEY UPDATE note = VALUES(note), accepted_by = VALUES(accepted_by), accepted_at = CURRENT_TIMESTAMP
+            """
+        ),
+        {"root": int(root_id), "principal": principal, "note": payload.note, "by": actor.display_name},
+    )
+    db.commit()
+    log_activity(
+        db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
+        action="storage_root.acl_gap_accepted", outcome="success", target_type="storage_root", target_id=int(root_id),
+        target_display=str(root.name or root.root_path or root.id),
+        context_json={"group_name": payload.principal, "note": payload.note},
+    )
+    return ui_action(action_id=int(root_id), message="storage_root.acl_gap_accepted")
+
+
+@router.delete("/{root_id}/permissions/exceptions")
+def reopen_acl_gap(root_id: int, principal: str, request: Request, db: Session = Depends(get_db)):
+    actor = actor_from_request(request)
+    require_admin(actor)
+    root = db.get(StorageRoot, root_id)
+    if root is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    db.execute(
+        text("DELETE FROM storage_root_acl_exceptions WHERE storage_root_id = :root AND principal = :principal"),
+        {"root": int(root_id), "principal": principal.strip().lower()},
+    )
+    db.commit()
+    log_activity(
+        db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
+        action="storage_root.acl_gap_reopened", outcome="success", target_type="storage_root", target_id=int(root_id),
+        target_display=str(root.name or root.root_path or root.id), context_json={"group_name": principal},
+    )
+    return ui_action(action_id=int(root_id), message="storage_root.acl_gap_reopened")
+
 
 @router.delete("/{root_id}")
 def delete_root(

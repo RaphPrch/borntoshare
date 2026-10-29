@@ -1,30 +1,16 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import StorageRootAccessModel from '$lib/components/storage-roots/StorageRootAccessModel.svelte';
   import EntityAlertStrip from '$lib/components/entity/EntityAlertStrip.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import StorageRootHeader from '$lib/components/storage-roots/StorageRootHeader.svelte';
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
-  import StorageRootEffectiveAccessTable from '$lib/components/storage-roots/StorageRootEffectiveAccessTable.svelte';
+  import StorageRootPermissions from '$lib/components/storage-roots/permissions/StorageRootPermissions.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
   import TagPill from '$lib/components/tags/TagPill.svelte';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
-  import { initials } from '$lib/utils/format';
-  import type {
-    StorageRootEffectiveAccessUser,
-    StorageRootProjectedAdGroup
-  } from '$lib/types/storage-roots';
-
-  type AccessModelRow = {
-    level: 'read' | 'write';
-    code: string;
-    label: string;
-    icon: string;
-    tone: 'read' | 'write';
-    users: number;
-    adGroup: string;
-    adGroupTone: 'success' | 'pending' | 'warning' | 'neutral';
-  };
+  import { initials, timeAgo } from '$lib/utils/format';
+  import { getStorageRootPermissions, type StorageRootPermissionsData } from '$lib/api/storage-root-permissions';
+  import { presentErrorMessage, toAppError } from '$lib/errors';
 
   type StorageRootTag = Record<string, unknown>;
   type StorageRootTabKey = 'overview' | 'effective-access' | 'activity';
@@ -59,19 +45,15 @@
   export let pathLabel = '—';
   export let contentSizeLabel = '—';
   export let contentUpdatedLabel = '—';
-  export let lastProbeDurationLabel = '—';
 
-  export let accessModelRows: AccessModelRow[] = [];
-  export let projectedGroups: StorageRootProjectedAdGroup[] = [];
   export let guardians: Array<Record<string, unknown>> = [];
 
   export let rootAvailabilityText = t('Unknown');
   export let rootAvailabilityTone: 'success' | 'warning' | 'error' = 'warning';
   export let showStatusBadge = false;
-  export let lastProbeText = t('Never run');
 
   export let tags: StorageRootTag[] = [];
-  export let effectiveAccessUsers: StorageRootEffectiveAccessUser[] = [];
+  export let isAdmin = false;
   export let activityRemainder: Array<Record<string, unknown>> = [];
   export let activityLoading = false;
   export let tagId: (tag: StorageRootTag) => number = () => 0;
@@ -84,32 +66,63 @@
   export let onDeleteRoot: () => void = () => {};
   export let onRunRootProbe: () => void = () => {};
   export let onNewAccessRequest: () => void = () => {};
-  export let onOpenEffectiveAccess: (level: 'read' | 'write') => void = () => {};
   export let onOpenGovernanceDrawer: (role?: 'guardian') => void = () => {};
   export let onOpenTagsModal: () => void = () => {};
   export let onViewAllAlerts: () => void = () => {};
 
   $: statusTone = rootAvailabilityTone;
   $: showBlockingLoading = detailsLoading && selectedRootCodeOrName === '—';
-  $: effectiveUsersCount = accessModelRows.reduce((total, row) => total + Number(row?.users ?? 0), 0);
-  $: configuredGroupsCount = accessModelRows.filter((row) => row.adGroupTone === 'success').length;
   $: stripItems = alertItems.filter((item) => !String(item.key ?? '').includes('missing_guardian'));
   $: endpointDisplay = endpointAddress && endpointAddress !== '—' ? endpointAddress : endpointLabel;
-  $: aclPermissionsCount = Number(aclFreshness?.permissions_count ?? 0);
   $: aclState = String(aclFreshness?.state ?? '').trim().toLowerCase();
   $: aclScannedAt = String(aclFreshness?.scanned_at ?? aclFreshness?.discovered_at ?? '').trim();
-  $: aclSnapshotId = String(aclFreshness?.active_snapshot_id ?? '').trim();
-  $: aclFreshnessLabel =
-    aclState === 'stale'
-      ? t('ACL stale · snapshot {value}', { value: (aclSnapshotId || 'newer') })
-      : aclScannedAt
-        ? t('{aclPermissionsCount} ACL entries · {value}', { aclPermissionsCount, value: (aclState || 'fresh') })
-        : t('No ACL scan yet');
+
+  // Permissions: one computation (ACL read on the file server x AD groups x requests) for the tab and the KPIs.
+  // Loaded again when another root is selected, when an ACL read ends and after an action in the tab.
+  let permissions: StorageRootPermissionsData | null = null;
+  let permissionsLoading = false;
+  let permissionsError: string | null = null;
+  let permissionsKey = '';
+  let permissionsSeq = 0;
+  $: if (selectedStorageRootId && !rootProbeBusy) syncPermissions(`${selectedStorageRootId}:${aclScannedAt}`);
+
+  function syncPermissions(key: string) {
+    if (key === permissionsKey) return;
+    if (permissions?.storage_root_id !== selectedStorageRootId) permissions = null;
+    permissionsKey = key;
+    void loadPermissions();
+  }
+
+  async function loadPermissions() {
+    const rootId = selectedStorageRootId;
+    if (!rootId) return;
+    const seq = ++permissionsSeq;
+    permissionsLoading = true;
+    permissionsError = null;
+    try {
+      const result = await getStorageRootPermissions(fetch, rootId);
+      if (seq === permissionsSeq) permissions = result;
+    } catch (error: unknown) {
+      if (seq === permissionsSeq) permissionsError = presentErrorMessage(toAppError(error));
+    } finally {
+      if (seq === permissionsSeq) permissionsLoading = false;
+    }
+  }
+
+  const ACL_KPI = {
+    ok: { value: () => t('Compliant'), icon: 'bi-shield-check', tone: 'success' },
+    gap: { value: () => t('Gap to review'), icon: 'bi-shield-exclamation', tone: 'warning' },
+    missing_ace: { value: () => t('ACE missing'), icon: 'bi-shield-x', tone: 'danger' },
+    never_scanned: { value: () => t('Never read'), icon: 'bi-shield', tone: 'neutral' }
+  } as const;
+  $: aclKpi = ACL_KPI[permissions?.status ?? 'never_scanned'];
+  $: aclKpiHint = permissions?.acl_scanned_at
+    ? t('Read {ago} · {count} entries', { ago: timeAgo(permissions.acl_scanned_at), count: permissions.acl_entries })
+    : t('Read the ACL from the Permissions tab');
 
   $: tabs = [
     { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
-    // Entries of the NTFS permissions of the folder (groups and accounts), not people
-    { key: 'effective-access', label: t('NTFS permissions'), icon: 'bi-shield-lock', count: effectiveAccessUsers.length },
+    { key: 'effective-access', label: t('Permissions'), icon: 'bi-shield-lock', count: permissions?.summary.people },
     { key: 'activity', label: t('Activity'), icon: 'bi-clock-history' }
   ];
   $: guardianNames = guardians.map((owner) => ownerDisplayName(owner)).filter(Boolean);
@@ -151,17 +164,22 @@
   <section class="b2s-kpi-grid sr-detail__kpis" aria-label={t('Storage root summary')}>
     <KpiCard
       label={t('People with access')}
-      value={effectiveUsersCount}
-      hint={t('via {count} group(s)', { count: configuredGroupsCount })}
+      value={permissions ? permissions.summary.people : '—'}
+      hint={permissions ? t('{read} read · {write} modify', { read: permissions.summary.read, write: permissions.summary.write }) : ''}
       icon="bi-people"
       tone="info"
+      href={`?selected=${selectedStorageRootId ?? ''}`}
+      on:click={(event) => {
+        event.preventDefault();
+        onSelectTab('effective-access');
+      }}
     />
     <KpiCard
-      label={t('Last probe')}
-      value={lastProbeText}
-      hint={aclFreshnessLabel}
-      icon="bi-activity"
-      tone={rootAvailabilityText === t('Unreachable') ? 'danger' : aclState === 'stale' ? 'warning' : 'success'}
+      label={t('State of the ACL')}
+      value={aclKpi.value()}
+      hint={aclKpiHint}
+      icon={aclKpi.icon}
+      tone={aclKpi.tone}
     />
     <KpiCard
       label={t('Open alerts')}
@@ -181,17 +199,7 @@
   />
 
   {#if activeTab === 'overview'}
-    <section class="b2s-detail-columns">
-      <div>
-        <article class="b2s-panel">
-          <div class="b2s-panel__head">
-            <h2>{t('Access profiles')}</h2>
-          </div>
-          <StorageRootAccessModel rows={accessModelRows} {onOpenEffectiveAccess} />
-        </article>
-      </div>
-
-      <aside>
+    <section class="sr-detail__overview">
         <article class="b2s-panel">
           <div class="b2s-panel__head">
             <h2>{t('Guardians')}</h2>
@@ -240,16 +248,21 @@
             </dl>
           </div>
         </article>
-      </aside>
     </section>
   {:else if activeTab === 'effective-access'}
     <section class="sr-clean-tab-panel">
-      <StorageRootEffectiveAccessTable
-        users={effectiveAccessUsers}
-        {projectedGroups}
-        {aclFreshness}
-        onRescanAcl={selectedStorageRootId ? onRunRootProbe : null}
+      <!-- The page is open to admins and to the guardians of the root: both review its requests -->
+      <StorageRootPermissions
+        data={permissions}
+        loading={permissionsLoading}
+        error={permissionsError}
+        rootId={selectedStorageRootId}
+        rootName={selectedRootCodeOrName}
+        canManage={true}
+        {isAdmin}
         rescanBusy={rootProbeBusy}
+        onRescan={selectedStorageRootId ? onRunRootProbe : null}
+        onChanged={loadPermissions}
       />
     </section>
   {:else if activeTab === 'activity'}
@@ -281,6 +294,19 @@
   @media (max-width: 1280px) {
     .sr-detail__kpis {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .sr-detail__overview {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (max-width: 1100px) {
+    .sr-detail__overview {
+      grid-template-columns: 1fr;
     }
   }
 

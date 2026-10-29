@@ -16,6 +16,8 @@ BornToShare and directly against the directory and the file server:
   5. NTFS ACL on the file server: group ACE (read / modify, inherited), effective access of the user
   6. reuse of the group, zone naming override, existing group adopted, name conflict outside the OU
   7. revocation: member removed, group and ACL kept
+  8. Permissions tab: people (beneficiary, level), groups and their ACE, explanation, extension,
+     an ACE set by hand outside BornToShare reported as a gap, accepted, reported again
 """
 from __future__ import annotations
 
@@ -27,6 +29,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 LAB = "adlab.example.test"
@@ -164,6 +167,15 @@ def smb(share: str, user: str, password: str, command: str) -> bool:
     return done.returncode == 0 and "NT_STATUS_" not in (done.stdout + done.stderr)
 
 
+def set_ace(share: str, folder: str, ace: str) -> None:
+    """Add an ACE directly on the file server, as an administrator would outside BornToShare."""
+    auth = _auth_file("Administrator", ADMIN_PASSWORD)
+    try:
+        subprocess.run(["smbcacls", f"//{LAB}/{share}", folder, "-A", auth, "-a", f"ACL:{ace}"], capture_output=True, text=True)
+    finally:
+        os.unlink(auth)
+
+
 def acl(share: str, folder: str) -> str:
     auth = _auth_file("Administrator", ADMIN_PASSWORD)
     try:
@@ -184,10 +196,10 @@ def wait_probe(api: Api, payload: dict) -> dict:
     return {"status": "timeout"}
 
 
-def request_access(api: Api, root_id: int, level: str, principal: dict) -> int:
+def request_access(api: Api, root_id: int, level: str, principal: dict, expires_at: str | None = None) -> int:
     created = api.call("POST", "/access-requests", {
         "storage_root_id": root_id, "permissions": [level], "requested_principal": principal,
-        "justification": f"E2E acceptance {STAMP}",
+        "justification": f"E2E acceptance {STAMP}", "expires_at": expires_at,
     })
     return int(created["id"])
 
@@ -207,6 +219,25 @@ def add_root(api: Api, endpoint_id: int, share: str, folder: str) -> int:
         "storage_endpoint_id": endpoint_id, "name": f"E2E {folder}", "root_path": f"\\\\{LAB}\\{share}\\{folder}",
     })
     return int(created["id"])
+
+
+def snapshot(api: Api, source_id: int) -> bool:
+    before = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
+    api.call("POST", "/identity/snapshots/run", {"identity_source_id": source_id, "mode": "full", "force_full": True})
+    for _ in range(30):
+        time.sleep(3)
+        after = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
+        if after and after != before:
+            return True
+    return False
+
+
+def read_acl(api: Api, root_id: int) -> bool:
+    """« Read the ACL » of the Permissions tab: storage root probe with the discovery of the permissions."""
+    state = wait_probe(api, {"kind": "storage-root", "protocol": "smb", "scope": "read", "target": {"storage_root_id": root_id},
+                             "options": {"timeout_sec": 30, "discover_permissions": True},
+                             "context": {"storage_root_id": root_id, "ui_origin": "admin"}})
+    return str(state.get("status") or "").lower() in {"success", "succeeded"}
 
 
 def principal_of(api: Api, source_id: int, login: str) -> dict | None:
@@ -279,15 +310,7 @@ def main() -> int:
     dn_b = create_user(login_b, "Bruno")
     dn_c = create_user(login_c, "Chloe")
     add_member(f"CN=GG_Projects,{STAFF_OU}", dn_a)
-    before = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
-    api.call("POST", "/identity/snapshots/run", {"identity_source_id": source_id, "mode": "full", "force_full": True})
-    after = before
-    for _ in range(30):
-        time.sleep(3)
-        after = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
-        if after and after != before:
-            break
-    check("snapshot completed", after != before, after)
+    check("snapshot completed", snapshot(api, source_id))
     principal_a = principal_of(api, source_id, login_a)
     principal_b = principal_of(api, source_id, login_b)
     principal_c = principal_of(api, source_id, login_c)
@@ -394,7 +417,64 @@ def main() -> int:
     check("revoked member removed, the other kept", outcome.get("ok") is True and found and dn_c not in found[0]["member"] and dn_a in found[0]["member"])
     check("ACE kept on the folder", f"EXAMPLE\\{expected_name}:" in acl("projects", folder))
 
-    section("8. Sign-in of a directory user")
+    section("8. Permissions tab: AD, file server and requests together")
+    # A temporary write access, so that the extension can be checked
+    end = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() + 10 * 86400))
+    req_t = request_access(api, root_a, "write", principal_c, expires_at=end)
+    check("a revoked person can request again", req_t > 0, f"REQ {req_t}")
+    approve(api, req_t)
+    check("ACL read on the file server", read_acl(api, root_a))
+    snapshot(api, source_id)
+    perms = api.call("GET", f"/storage-roots/{root_a}/permissions")
+    people = {p.get("username"): p for p in perms.get("people", [])}
+    check("ACL compliant", perms.get("status") == "ok", f"{perms.get('status')}, gaps: {[g.get('principal') for g in perms.get('gaps', [])]}")
+    check("people are the beneficiaries, not the requester", set(people) == {login_a, login_b, login_c}, ", ".join(map(str, people)))
+    check("levels: read / modify (RWXD read as modify)",
+          (people.get(login_a) or {}).get("level") == "read" and (people.get(login_b) or {}).get("level") == "write",
+          f"{(people.get(login_a) or {}).get('level')} / {(people.get(login_b) or {}).get('level')}")
+    via_a = {v.get("kind") for v in (people.get(login_a) or {}).get("via", [])}
+    check("access through the request and the AD group", {"request", "group"} <= via_a, ", ".join(sorted(via_a)))
+    groups = {g.get("name"): g for g in perms.get("groups", [])}
+    check("each BornToShare group has its ACE on the folder",
+          bool(groups) and all(g.get("ace") == "ok" for g in groups.values()) and expected_name in groups,
+          ", ".join(f"{n}={g.get('ace')}" for n, g in groups.items()))
+    check("members of the group read from the directory", (groups.get(expected_name) or {}).get("members_count", 0) >= 1,
+          str((groups.get(expected_name) or {}).get("members_count")))
+    check("system accounts set apart", any(e.get("kind") in {"system", "service"} for e in perms.get("system", [])))
+
+    why = api.call("GET", f"/storage-roots/{root_a}/permissions/explain?username={login_b}")
+    kinds = [s.get("kind") for s in why.get("steps", [])]
+    check("explanation: request -> AD group -> ACE", why.get("found") is True and kinds[:3] == ["request", "membership", "ace"], " -> ".join(kinds))
+    nobody = api.call("GET", f"/storage-roots/{root_a}/permissions/explain?username={login_d}")
+    check("a user without access is told so", nobody.get("found") is False and nobody.get("known_in_directory") is True)
+
+    extended = api.call("POST", f"/access-requests/{req_t}/extend", {"days": 30})
+    check("temporary access extended by 30 days", str(extended.get("expires_at") or "") > end, str(extended.get("expires_at")))
+    status, _ = api.call("POST", f"/access-requests/{req_w}/extend", {"days": 30}, raw=True)
+    check("permanent access cannot be extended", status == 409, f"HTTP {status}")
+
+    outside = f"GG_E2E_Outside_{STAMP}"
+    outside_dn = create_group(outside, STAFF_OU)
+    add_member(outside_dn, f"CN=Dora E2E {STAMP},{STAFF_OU}")
+    set_ace("projects", folder, f"EXAMPLE\\{outside}:ALLOWED/OI|CI/READ")
+    read_acl(api, root_a)
+    snapshot(api, source_id)
+    perms = api.call("GET", f"/storage-roots/{root_a}/permissions")
+    gap = next((g for g in perms.get("gaps", []) if outside.lower() in str(g.get("principal")).lower()), None)
+    check("ACE added on the file server outside BornToShare reported as a gap", perms.get("status") == "gap" and gap is not None,
+          f"{perms.get('status')} {gap and gap.get('principal')}")
+    dora = next((p for p in perms.get("people", []) if p.get("username") == login_d), None)
+    check("its members are shown, reached outside BornToShare", bool(dora) and any(v.get("kind") == "outside" for v in dora.get("via", [])),
+          str(dora and dora.get("via")))
+    if gap:
+        api.call("POST", f"/storage-roots/{root_a}/permissions/exceptions", {"principal": gap["principal"], "note": "E2E"})
+        perms = api.call("GET", f"/storage-roots/{root_a}/permissions")
+        check("gap accepted: ACL compliant again", perms.get("status") == "ok"
+              and any(g.get("accepted") for g in perms.get("gaps", [])), str(perms.get("status")))
+        api.call("DELETE", f"/storage-roots/{root_a}/permissions/exceptions?principal={urllib.parse.quote(gap['principal'])}")
+        check("gap reported again", api.call("GET", f"/storage-roots/{root_a}/permissions").get("status") == "gap")
+
+    section("9. Sign-in of a directory user")
     if not bool(api.call("GET", f"/identity-sources/{source_id}/internal").get("auth_enabled")):
         check("sign-in skipped: sign-in is disabled on the AD lab source", True, "another source signs in example.test")
     else:
