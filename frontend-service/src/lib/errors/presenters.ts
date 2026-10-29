@@ -20,6 +20,7 @@ const CODE_MESSAGES: Record<string, () => string> = {
   FOLDER_OPERATION_FAILED: () => t('The worker could not finish the operation on the file server.'),
   CONFIRM_NAME_MISMATCH: () => t('Type the exact name of the storage root to confirm.'),
   FOLDER_CONTEXT_INCOMPLETE: () => t('The folder, its share or the file server account is missing.'),
+  FOLDER_NAME_INVALID: () => t('These characters are refused by Windows: \\ / : * ? " < > |'),
   STORAGE_ROOT_HAS_CHILDREN: () => t('Child storage roots are attached to this storage root: remove them first.')
 };
 

@@ -45,3 +45,25 @@ def test_delete_succeeds_only_when_the_folder_is_gone(monkeypatch):
     monkeypatch.setattr(folder, "run_samba", lambda cmd, **kw: next(outputs))
     ok, msg, _details = folder.delete_folder({**BASE, "path": "finance"})
     assert ok is False and "ACCESS_DENIED" in msg
+
+
+def test_subfolder_names_refused_by_windows(monkeypatch):
+    calls = []
+    monkeypatch.setattr(folder, "run_samba", lambda cmd, **kw: calls.append(cmd) or _done())
+    for name in ("", "..", "a/b", "a\\b", "x:y", "what?", " lead", "trail.", "a" * 256):
+        ok, _msg, details = folder.create_subfolder({**BASE, "path": "finance", "folder_name": name})
+        assert ok is False and details["failure_code"] == "FOLDER_NAME_INVALID", name
+    assert calls == []
+
+
+def test_subfolder_created_and_checked(monkeypatch):
+    seen = []
+    outputs = iter([_done(), _done()])
+    monkeypatch.setattr(folder, "run_samba", lambda cmd, **kw: seen.append(cmd) or next(outputs))
+    ok, _msg, details = folder.create_subfolder({**BASE, "path": "corp/finance", "folder_name": "Clôture 2026"})
+    assert ok is True and details["target"]["path"] == "corp\\finance\\Clôture 2026"
+    assert seen[0][-1] == 'mkdir "corp\\finance\\Clôture 2026"'
+    outputs = iter([_done("NT_STATUS_OBJECT_NAME_COLLISION making remote directory"), _done()])
+    monkeypatch.setattr(folder, "run_samba", lambda cmd, **kw: next(outputs))
+    ok, _msg, details = folder.create_subfolder({**BASE, "path": "finance", "folder_name": "x"})
+    assert ok is False and details["failure_code"] == "FOLDER_EXISTS"

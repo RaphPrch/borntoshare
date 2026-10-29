@@ -239,6 +239,10 @@
       "folder_deleted": {
         "title": "Folder deleted from the file server",
         "description": "The folder of \"{root}\" and its content were deleted, and the storage root removed"
+      },
+      "subfolder_created": {
+        "title": "Sub-folder created",
+        "description": "A sub-folder was created in \"{root}\" on the file server"
       }
     },
     "access_request": {

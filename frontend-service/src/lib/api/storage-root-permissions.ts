@@ -100,3 +100,7 @@ export type PersonSearchResult = { username: string; name: string; dn: string | 
 
 export const searchPeople = (fetchFn: FetchLike, query: string) =>
   apiGetData<PersonSearchResult[]>(fetchFn, '/storage-roots/people/search', { q: query });
+
+/** Create a sub-folder on the file server, and its storage root when `register` */
+export const createSubfolder = (fetchFn: FetchLike, rootId: number, name: string, register = true) =>
+  apiPostData<{ path: string; storage_root_id: number | null }>(fetchFn, `/storage-roots/${rootId}/subfolders`, { name, register });

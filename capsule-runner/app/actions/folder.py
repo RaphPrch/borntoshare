@@ -1,4 +1,4 @@
-"""Folder operations on the file server, from Storage roots: NTFS inheritance and deletion of the folder."""
+"""Folder operations on the file server, from Storage roots: NTFS inheritance, deletion, sub-folder creation."""
 from __future__ import annotations
 
 import logging
@@ -99,3 +99,53 @@ def delete_folder(params: Dict[str, Any]):
         return False, message.strip()[:300], {**details, "failure_code": "FOLDER_DELETE_FAILED"}
     logger.info("Folder deleted", extra={"operation": "folder_delete", "target_share": share, "target_path": path})
     return True, "Folder deleted", details
+
+
+# Characters Windows refuses in a file or folder name
+_FORBIDDEN_NAME_CHARS = set('\\/:*?"<>|')
+
+
+def folder_name_error(name: str) -> str | None:
+    """Why a sub-folder name is refused, or None when it is valid."""
+    if not name or name in {".", ".."}:
+        return "The folder name is empty"
+    if len(name) > 255:
+        return "The folder name is longer than 255 characters"
+    if any(c in _FORBIDDEN_NAME_CHARS or ord(c) < 32 for c in name):
+        return 'The folder name contains a character refused by Windows (\\ / : * ? " < > |)'
+    if name != name.strip() or name.endswith("."):
+        return "The folder name cannot start or end with a space, nor end with a dot"
+    return None
+
+
+def create_subfolder(params: Dict[str, Any]):
+    """Create a sub-folder in the folder of a storage root (smbclient mkdir), then check it exists."""
+    host = str(params.get("host") or "").strip()
+    share = str(params.get("share") or "").strip()
+    parent = _rel_path(params.get("path"))
+    name = str(params.get("folder_name") or "")
+    user = _auth_user(str(params.get("username") or "").strip(), str(params.get("domain") or "").strip())
+    password = str(params.get("password") or "")
+    timeout = int(params.get("timeout_sec") or 30)
+    path = f"{parent}\\{name}" if parent else name
+    details: dict[str, Any] = {"operation": "folder_create", "target": {"host": host, "share": share, "path": path}}
+
+    error = folder_name_error(name)
+    if error:
+        return False, error, {**details, "failure_code": "FOLDER_NAME_INVALID"}
+    try:
+        done = run_samba(["smbclient", f"//{host}/{share}", "-c", f'mkdir "{path}"'],
+                         username=user, password=password, capture_output=True, timeout=timeout)
+        check = run_samba(["smbclient", f"//{host}/{share}", "-c", f'cd "{path}"'],
+                          username=user, password=password, capture_output=True, timeout=timeout)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return False, f"smbclient failed: {exc}", {**details, "failure_code": "FOLDER_CREATE_FAILED"}
+    created_output = _output(done)
+    if "NT_STATUS_OBJECT_NAME_COLLISION" in created_output:
+        return False, "A folder with this name already exists", {**details, "failure_code": "FOLDER_EXISTS"}
+    if "NT_STATUS_" in _output(check):
+        message = next((line for line in created_output.splitlines() if "NT_STATUS_" in line), "the folder was not created")
+        return False, message.strip()[:300], {**details, "failure_code": "FOLDER_CREATE_FAILED"}
+    details["created"] = True
+    logger.info("Folder created", extra={"operation": "folder_create", "target_share": share, "target_path": path})
+    return True, "Folder created", details

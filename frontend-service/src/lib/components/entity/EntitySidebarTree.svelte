@@ -61,6 +61,8 @@
   export let onQueryChange: (value: string) => void = () => {};
   /** Pointer over a selectable row (null when it leaves): a page can show a preview next to it */
   export let onHover: ((node: EntityTreeNode | null, anchor: HTMLElement | null) => void) | null = null;
+  /** Right click (or the context-menu key) on a selectable row: the page opens its own menu */
+  export let onContextMenu: ((node: EntityTreeNode, event: MouseEvent) => void) | null = null;
   /** « + » next to the search: creates an item of the list (new file server, storage roots, zone) */
   export let onAdd: (() => void) | null = null;
   export let addLabel = t('Add');
@@ -387,6 +389,12 @@
             data-key={node.key}
             on:mouseenter={(event) => node.selectId != null && onHover?.(node, event.currentTarget)}
             on:mouseleave={() => onHover?.(null, null)}
+            on:contextmenu={(event) => {
+              if (!onContextMenu || node.selectId == null) return;
+              event.preventDefault();
+              onHover?.(null, null);
+              onContextMenu(node, event);
+            }}
             on:click={() => activate(row)}
             on:keydown={onKeydown}
             on:focus={() => (focusedKey = node.key)}

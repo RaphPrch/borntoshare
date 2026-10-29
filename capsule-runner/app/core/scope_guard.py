@@ -31,6 +31,7 @@ ACTION_MIN_SCOPE: dict[str, str] = {
     "acl_apply_via_group": "write",
     "folder_inheritance": "write",
     "folder_delete": "write",
+    "folder_create": "write",
 }
 
 

@@ -271,6 +271,8 @@ class FolderOperationPayload(BaseModel):
     path: str = Field(min_length=1, max_length=1024)
     # break | restore; not « mode », which the auth block already uses (ntlm)
     inheritance: Optional[Literal["break", "restore"]] = None
+    # Name of the sub-folder to create (folder_create)
+    folder_name: Optional[str] = Field(default=None, max_length=255)
     username: str = Field(min_length=1, max_length=255)
     password: Optional[str] = Field(default=None, min_length=1, max_length=1024)
     secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)

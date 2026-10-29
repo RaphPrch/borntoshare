@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { t } from '$lib/i18n';
   import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
   import { onDestroy, onMount } from 'svelte';
@@ -100,6 +101,10 @@
   import StorageRootTreePanel from '$lib/components/storage-roots/StorageRootTreePanel.svelte';
   import EntityWorkspace from '$lib/components/entity/EntityWorkspace.svelte';
   import StorageRootDetailView from '$lib/components/storage-roots/StorageRootDetailView.svelte';
+  import StorageRootFolderActions, {
+    type FolderActionKind,
+    type FolderActionTarget
+  } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
   import StorageRootEmptyState from '$lib/components/storage-roots/StorageRootEmptyState.svelte';
   import ConfirmDeleteDialog from '$lib/components/ui/ConfirmDeleteDialog.svelte';
@@ -612,6 +617,40 @@
     } catch {
       toast.error(t('Storage root operation failed'));
     }
+  }
+
+  // Operations on the folder on the file server (header menu or right click in the explorer)
+  let folderActionKind: FolderActionKind | null = null;
+  let folderActionTarget: FolderActionTarget | null = null;
+  let detailRefreshKey = 0;
+
+  function openFolderAction(kind: FolderActionKind, row: any, inheritanceBroken: boolean | null) {
+    const id = Number(row?.storage_root_id ?? 0);
+    if (!id) return;
+    folderActionTarget = {
+      id,
+      name: String(row?.storage_root_name ?? row?.name ?? id),
+      path: String(row?.root_path ?? ''),
+      inheritanceBroken
+    };
+    folderActionKind = kind;
+  }
+
+  async function onFolderInheritanceChanged(rootId: number) {
+    await refreshStorageRootsLoad();
+    if (rootId === Number(selectedStorageRootId)) {
+      detailRefreshKey += 1;
+      void runSelectedRootProbe();
+    }
+  }
+
+  async function onSubfolderCreated(newRootId: number | null) {
+    await refreshStorageRootsLoad();
+    if (!newRootId) return;
+    await goto(`/storage-roots?selected=${newRootId}`, { replaceState: true });
+    await tick();
+    // Its ACL is read at once: inheritance, entries copied from the parent
+    if (Number(selectedStorageRootId) === newRootId) void runSelectedRootProbe();
   }
 
   /** The storage root is gone (removed from BornToShare, or its folder deleted from the server): drop it from the page */
@@ -1966,6 +2005,9 @@
         onSelectRoot={selectRoot}
         onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
         {rootAlertSummary}
+        onFolderAction={data.user?.is_admin === true
+          ? (kind, row) => openFolderAction(kind, row, row?.inheritance_broken == null ? null : Boolean(row.inheritance_broken))
+          : null}
       />
     </svelte:fragment>
 
@@ -2003,11 +2045,21 @@
       onOpenGovernanceDrawer={(role) => openGovernanceDrawer(role ?? 'guardian')}
       onOpenTagsModal={openTagsModal}
       onViewAllAlerts={openAlertsDrawer}
-      onFolderDeleted={(rootId) => void afterRootRemoved(rootId)}
+      onFolderAction={(kind, inheritanceBroken) => openFolderAction(kind, selectedRow, inheritanceBroken)}
+      refreshKey={detailRefreshKey}
       explainLogin={explainParam}
     />
   </EntityWorkspace>
 {/if}
+
+<StorageRootFolderActions
+  kind={folderActionKind}
+  target={folderActionTarget}
+  onClose={() => (folderActionKind = null)}
+  onInheritanceChanged={(rootId) => void onFolderInheritanceChanged(rootId)}
+  onDeleted={(rootId) => void afterRootRemoved(rootId)}
+  onSubfolderCreated={(rootId) => void onSubfolderCreated(rootId)}
+/>
 
 <StorageEndpointWizardModal
   open={showEndpointWizard}

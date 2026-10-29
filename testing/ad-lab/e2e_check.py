@@ -18,7 +18,8 @@ BornToShare and directly against the directory and the file server:
   7. revocation: member removed, group and ACL kept
   8. Permissions tab: people (beneficiary, level), groups and their ACE, explanation, extension,
      an ACE set by hand outside BornToShare reported as a gap, accepted, reported again
-  9. Folder on the file server: inheritance broken and restored, folder deleted (guards first)
+  9. Folder on the file server: inheritance broken and restored (badge of the list), sub-folder created
+     and governed, folder deleted (guards first)
 """
 from __future__ import annotations
 
@@ -491,9 +492,22 @@ def main() -> int:
     check("inheritance broken on the file server (PD)", "PD" in control.split(":", 1)[-1].split("|"), control)
     check("state shown by BornToShare", api.call("GET", f"/storage-roots/{root_a}/permissions").get("inheritance", {}).get("broken") is True)
     check("BornToShare groups kept on the folder", f"EXAMPLE\\{expected_name}:" in acl("projects", folder))
+    listed = next((r for r in rows(api.call("GET", "/storage-roots/context")) if int(r.get("storage_root_id") or 0) == root_a), {})
+    check("list of the folders: inheritance shown as disabled", listed.get("inheritance_broken") is True, str(listed.get("inheritance_broken")))
     api.call("POST", f"/storage-roots/{root_a}/inheritance", {"mode": "restore"})
     control = next((l for l in acl("projects", folder).splitlines() if l.startswith("CONTROL:")), "")
     check("inheritance restored", "PD" not in control.split(":", 1)[-1].split("|"), control)
+
+    status, _ = api.call("POST", f"/storage-roots/{root_a}/subfolders", {"name": "bad:name"}, raw=True)
+    check("sub-folder: name refused by Windows refused", status == 422, f"HTTP {status}")
+    sub = api.call("POST", f"/storage-roots/{root_a}/subfolders", {"name": "Clôture 2026", "register": True})
+    sub_root = int(sub.get("storage_root_id") or 0)
+    check("sub-folder created on the file server", smb("projects", "Administrator", ADMIN_PASSWORD, f'cd "{folder}\\Clôture 2026"'), str(sub.get("path")))
+    child = next((r for r in rows(api.call("GET", "/storage-roots/context")) if int(r.get("storage_root_id") or 0) == sub_root), {})
+    check("sub-folder governed: storage root under its parent", bool(sub_root) and int(child.get("parent_storage_root_id") or 0) == root_a,
+          f"#{sub_root} parent {child.get('parent_storage_root_id')}")
+    status, _ = api.call("POST", f"/storage-roots/{sub_root}/delete-folder", {"confirm_name": "Clôture 2026"}, raw=True)
+    check("sub-folder deleted", status == 200 and not smb("projects", "Administrator", ADMIN_PASSWORD, f'cd "{folder}\\Clôture 2026"'), f"HTTP {status}")
 
     status, body = api.call("POST", f"/storage-roots/{root_a}/delete-folder", {"confirm_name": f"E2E {folder}"}, raw=True)
     code = (((body.get("error") or {}).get("details") or {}).get("upstream_detail") or {}).get("error", {}).get("code")

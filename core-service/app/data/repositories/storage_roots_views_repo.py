@@ -146,6 +146,9 @@ class StorageRootsViewsRepo(SQLViewRepo):
         acl_payload = self._json_dict(payload.get("discovered_permissions_json"))
         payload.update(self._content_metrics_from_payload(acl_payload))
         payload["effective_availability"] = self._compute_effective_availability(payload)
+        # NTFS inheritance of the folder (PD in the CONTROL flags of the last ACL read); None until read
+        control = str(acl_payload.get("control") or "").upper()
+        payload["inheritance_broken"] = ("PD" in control.split("|")) if control else None
         return payload
 
     def _compute_effective_availability(self, row: dict[str, Any] | None) -> str:

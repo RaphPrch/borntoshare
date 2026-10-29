@@ -28,6 +28,7 @@ _PROBE_JOB_TYPE_BY_TEMPLATE = {
     "acl_apply_via_group": "ACL_APPLY",
     "folder_inheritance": "FOLDER_INHERITANCE",
     "folder_delete": "FOLDER_DELETE",
+    "folder_create": "FOLDER_CREATE",
 }
 
 
@@ -378,7 +379,8 @@ async def _enrich_folder_payload(
                     "storage_root_id": int(storage_root_id or 0)},
         )
     target = {"host": host, "share": share, "path": rel_path, "storage_root_id": int(storage_root_id or 0),
-              **({"inheritance": target["inheritance"]} if target.get("inheritance") else {})}
+              **({"inheritance": target["inheritance"]} if target.get("inheritance") else {}),
+              **({"folder_name": target["folder_name"]} if target.get("folder_name") else {})}
     auth = {"mode": "ntlm", "username": username, "secret_ref": secret_ref}
     domain_name = str(ctx.get("domain_name") or "").strip()
     if domain_name:
@@ -499,6 +501,8 @@ def _pick_template(kind: str, protocol: str) -> tuple[str, str]:
         return "folder_inheritance", "v1"
     if kind_norm == "folder" and protocol_norm == "delete":
         return "folder_delete", "v1"
+    if kind_norm == "folder" and protocol_norm == "create":
+        return "folder_create", "v1"
 
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -538,7 +542,7 @@ async def submit_probe_run(payload: dict[str, Any]) -> dict[str, Any]:
         target, auth, options, context = await _enrich_acl_probe_payload(payload)
     if template_slug == "test_smb_root_access":
         target, auth, options, context = await _enrich_storage_root_probe_payload(payload)
-    if template_slug in {"folder_inheritance", "folder_delete"}:
+    if template_slug in {"folder_inheritance", "folder_delete", "folder_create"}:
         target, auth, options, context = await _enrich_folder_payload(payload)
 
     identity_source_id = positive_int(context.get("identity_source_id"))

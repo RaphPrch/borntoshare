@@ -1709,6 +1709,10 @@
       "folder_deleted": {
         "title": "Dossier supprimé du serveur de fichiers",
         "description": "Le dossier de « {root} » et son contenu ont été supprimés, et le storage root retiré"
+      },
+      "subfolder_created": {
+        "title": "Sous-dossier créé",
+        "description": "Un sous-dossier a été créé dans « {root} » sur le serveur de fichiers"
       }
     },
     "access_request": {
@@ -3115,5 +3119,19 @@
   "The folder, its share or the file server account is missing.": "Le dossier, son partage ou le compte du serveur de fichiers manque.",
   "Child storage roots are attached to this storage root: remove them first.": "Des storage roots enfants sont rattachés : retirez-les d’abord.",
   "Next: {name}, in {days} d": "Prochaine : {name}, dans {days} j",
-  "Are you sure?": "Êtes-vous sûr ?"
+  "Are you sure?": "Êtes-vous sûr ?",
+  "A storage root is created for it, under {name}, with its guardians and tags.": "Un storage root est créé pour lui, sous {name}, avec ses garants et ses tags.",
+  "Actions on {name}": "Actions sur {name}",
+  "Create the folder": "Créer le dossier",
+  "Folder name": "Nom du dossier",
+  "Folder {name} created on the file server.": "Dossier {name} créé sur le serveur de fichiers.",
+  "Govern it in BornToShare": "Le gouverner dans BornToShare",
+  "New folder in {name}": "Nouveau dossier dans {name}",
+  "New sub-folder": "Nouveau sous-dossier",
+  "No inheritance": "Sans héritage",
+  "The NTFS inheritance of this folder is disabled": "L'héritage NTFS de ce dossier est désactivé",
+  "The folder was not created.": "Le dossier n'a pas été créé.",
+  "The name cannot start or end with a space, nor end with a dot.": "Le nom ne peut ni commencer ni finir par un espace, ni finir par un point.",
+  "These characters are refused by Windows: \\ / : * ? \" < > |": "Ces caractères sont refusés par Windows : \\ / : * ? \" < > |",
+  "Type the name of the folder.": "Saisissez le nom du dossier."
 }

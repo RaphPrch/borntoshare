@@ -2,7 +2,6 @@
   import { t } from '$lib/i18n';
   import EntityAlertStrip from '$lib/components/entity/EntityAlertStrip.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
-  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import StorageRootHeader from '$lib/components/storage-roots/StorageRootHeader.svelte';
   import StorageRootStatLine from '$lib/components/storage-roots/StorageRootStatLine.svelte';
   import StorageRootTodo from '$lib/components/storage-roots/StorageRootTodo.svelte';
@@ -10,14 +9,9 @@
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
   import StorageRootPermissions from '$lib/components/storage-roots/permissions/StorageRootPermissions.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
-  import { reportUiError, presentErrorMessage, toAppError } from '$lib/errors';
-  import { toast } from '$lib/stores/toast';
-  import {
-    deleteStorageRootFolder,
-    getStorageRootPermissions,
-    setFolderInheritance,
-    type StorageRootPermissionsData
-  } from '$lib/api/storage-root-permissions';
+  import { presentErrorMessage, toAppError } from '$lib/errors';
+  import { getStorageRootPermissions, type StorageRootPermissionsData } from '$lib/api/storage-root-permissions';
+  import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
 
   type StorageRootTag = Record<string, unknown>;
   type StorageRootTabKey = 'overview' | 'effective-access' | 'activity';
@@ -62,6 +56,8 @@
   export let isAdmin = false;
   /** Login whose access is explained at once (?explain= from the ⌘K palette) */
   export let explainLogin: string | null = null;
+  /** Bumped by the page after an operation on the folder: the permissions are read again */
+  export let refreshKey = 0;
   export let activityRemainder: Array<Record<string, unknown>> = [];
   export let activityLoading = false;
   export let tagId: (tag: StorageRootTag) => number = () => 0;
@@ -77,8 +73,8 @@
   export let onOpenGovernanceDrawer: (role?: 'guardian') => void = () => {};
   export let onOpenTagsModal: () => void = () => {};
   export let onViewAllAlerts: () => void = () => {};
-  /** The folder was deleted from the file server and the storage root from BornToShare */
-  export let onFolderDeleted: (rootId: number) => void = () => {};
+  /** Operation on the folder on the file server (inheritance, deletion, sub-folder), run by the page */
+  export let onFolderAction: (kind: FolderActionKind, inheritanceBroken: boolean | null) => void = () => {};
 
   $: showBlockingLoading = detailsLoading && selectedRootCodeOrName === '—';
   // Pending requests are decided in the « To review » line, a missing guardian in the inspector
@@ -93,7 +89,7 @@
   let permissionsError: string | null = null;
   let permissionsKey = '';
   let permissionsSeq = 0;
-  $: if (selectedStorageRootId && !rootProbeBusy) syncPermissions(`${selectedStorageRootId}:${aclScannedAt}`);
+  $: if (selectedStorageRootId && !rootProbeBusy) syncPermissions(`${selectedStorageRootId}:${aclScannedAt}:${refreshKey}`);
 
   function syncPermissions(key: string) {
     if (key === permissionsKey) return;
@@ -131,44 +127,6 @@
     : { label: ACL_PILL[permissions?.status ?? 'never_scanned'].label(), tone: ACL_PILL[permissions?.status ?? 'never_scanned'].tone };
   $: inheritanceBroken = permissions?.inheritance?.known ? permissions.inheritance.broken : null;
 
-  // ---------------------------------------------------------------- folder operations (file server, platform admins)
-  let confirmInheritance = false;
-  let confirmDeleteFolder = false;
-  let folderBusy = false;
-
-  async function toggleInheritance() {
-    confirmInheritance = false;
-    if (!selectedStorageRootId) return;
-    const mode = inheritanceBroken ? 'restore' : 'break';
-    folderBusy = true;
-    try {
-      await setFolderInheritance(fetch, selectedStorageRootId, mode);
-      toast.success(mode === 'break' ? t('Inheritance broken on the file server.') : t('Inheritance restored on the file server.'));
-      await loadPermissions();
-      onRunRootProbe();
-    } catch (error: unknown) {
-      reportUiError(error, t('The file server did not change the inheritance.'), 'storage-root.inheritance');
-    } finally {
-      folderBusy = false;
-    }
-  }
-
-  async function deleteFolder() {
-    confirmDeleteFolder = false;
-    const rootId = selectedStorageRootId;
-    if (!rootId) return;
-    folderBusy = true;
-    try {
-      await deleteStorageRootFolder(fetch, rootId, selectedRootCodeOrName);
-      toast.success(t('Folder {name} deleted from the file server.', { name: selectedRootCodeOrName }));
-      onFolderDeleted(rootId);
-    } catch (error: unknown) {
-      reportUiError(error, t('The folder was not deleted.'), 'storage-root.delete-folder');
-    } finally {
-      folderBusy = false;
-    }
-  }
-
   $: tabs = [
     { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
     { key: 'effective-access', label: t('Permissions'), icon: 'bi-shield-lock', count: permissions?.summary.people },
@@ -196,7 +154,7 @@
     {pathLabel}
     statusLabel={selectedStorageRootId ? pill.label : ''}
     statusTone={pill.tone}
-    rootProbeBusy={rootProbeBusy || folderBusy}
+    {rootProbeBusy}
     {selectedStorageRootId}
     {isAdmin}
     {inheritanceBroken}
@@ -204,8 +162,9 @@
     {onNewAccessRequest}
     {onEditRoot}
     {onDeleteRoot}
-    onToggleInheritance={() => (confirmInheritance = true)}
-    onDeleteFolder={() => (confirmDeleteFolder = true)}
+    onToggleInheritance={() => onFolderAction('inheritance', inheritanceBroken)}
+    onDeleteFolder={() => onFolderAction('delete', inheritanceBroken)}
+    onCreateSubfolder={() => onFolderAction('subfolder', inheritanceBroken)}
   />
 
   <StorageRootStatLine
@@ -243,7 +202,7 @@
       onOpenPermissions={() => onSelectTab('effective-access')}
       onOpenGuardians={() => onOpenGovernanceDrawer('guardian')}
       onOpenTags={onOpenTagsModal}
-      onToggleInheritance={() => (confirmInheritance = true)}
+      onToggleInheritance={() => onFolderAction('inheritance', inheritanceBroken)}
       onChanged={loadPermissions}
     />
   {:else if activeTab === 'effective-access'}
@@ -259,7 +218,7 @@
         {isAdmin}
         {explainLogin}
         onChanged={loadPermissions}
-        onToggleInheritance={() => (confirmInheritance = true)}
+        onToggleInheritance={() => onFolderAction('inheritance', inheritanceBroken)}
       />
     </section>
   {:else if activeTab === 'activity'}
@@ -275,37 +234,6 @@
     </section>
   {/if}
 </div>
-
-<ConfirmActionModal
-  open={confirmInheritance}
-  onClose={() => (confirmInheritance = false)}
-  onConfirm={toggleInheritance}
-  severity="warning"
-  title={inheritanceBroken ? t('Restore the inheritance of {name}?', { name: selectedRootCodeOrName }) : t('Break the inheritance of {name}?', { name: selectedRootCodeOrName })}
-  subtitle={t('Are you sure?')}
-  confirmLabel={inheritanceBroken ? t('Restore the inheritance') : t('Break the inheritance')}
-  confirmVariant="warning"
-/>
-
-<ConfirmActionModal
-  open={confirmDeleteFolder}
-  onClose={() => (confirmDeleteFolder = false)}
-  onConfirm={deleteFolder}
-  title={t('Delete the folder {name} from the file server?', { name: selectedRootCodeOrName })}
-  subtitle={pathLabel}
-  impactItems={[
-    t('The folder and everything in it are deleted on the file server. This cannot be undone.'),
-    t('The storage root is removed from BornToShare.'),
-    t('Refused while an access is in force or a request is pending.'),
-    t('The AD groups of the folder stay in the directory.')
-  ]}
-  requireTextConfirm={true}
-  requiredText={selectedRootCodeOrName}
-  textConfirmLabel={t('Type the name of the storage root to confirm')}
-  textConfirmPlaceholder={selectedRootCodeOrName}
-  confirmLabel={t('Delete the folder')}
-  confirmVariant="danger"
-/>
 
 <style>
   .sr-detail {

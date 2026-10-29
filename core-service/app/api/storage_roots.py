@@ -1566,7 +1566,9 @@ def _ensure_root_deletable(db: Session, root: StorageRoot) -> None:
         )
 
 
-async def _run_folder_job(root_id: int, protocol: str, *, inheritance: str | None = None, timeout_sec: int = 90) -> dict[str, Any]:
+async def _run_folder_job(
+    root_id: int, protocol: str, *, inheritance: str | None = None, folder_name: str | None = None, timeout_sec: int = 90
+) -> dict[str, Any]:
     """Folder operation of the worker on the file server, waited for; raises a 502 with the worker's message on failure."""
     import asyncio
 
@@ -1574,7 +1576,8 @@ async def _run_folder_job(root_id: int, protocol: str, *, inheritance: str | Non
 
     queued = await submit_probe_run({
         "kind": "folder", "protocol": protocol, "scope": "write",
-        "target": {"storage_root_id": int(root_id), **({"inheritance": inheritance} if inheritance else {})},
+        "target": {"storage_root_id": int(root_id), **({"inheritance": inheritance} if inheritance else {}),
+                   **({"folder_name": folder_name} if folder_name else {})},
         "options": {"timeout_sec": timeout_sec}, "context": {"storage_root_id": int(root_id), "ui_origin": "admin"},
     })
     job_id = int((queued or {}).get("job_id") or 0)
@@ -1624,6 +1627,42 @@ async def set_root_inheritance(root_id: int, payload: InheritancePayload, reques
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     return ui_data({"storage_root_id": int(root_id), "inheritance_broken": payload.mode == "break"})
+
+
+class SubfolderPayload(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    # Govern the new folder in BornToShare (a storage root under this one)
+    register: bool = True
+
+
+@router.post("/{root_id}/subfolders", status_code=status.HTTP_201_CREATED)
+async def create_root_subfolder(root_id: int, payload: SubfolderPayload, request: Request, db: Session = Depends(get_db)):
+    """Create a sub-folder in the folder of the storage root (worker), then, if asked, its storage root."""
+    actor = actor_from_request(request)
+    require_admin(actor)
+    root = db.get(StorageRoot, root_id)
+    if root is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    name = payload.name
+    if name != name.strip() or name in {".", ".."} or name.endswith(".") or any(c in '\\/:*?"<>|' or ord(c) < 32 for c in name):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={"code": "FOLDER_NAME_INVALID", "message": 'The folder name contains a character refused by Windows (\\ / : * ? " < > |)'})
+    job = await _run_folder_job(int(root_id), "create", folder_name=name)
+    path = f"{str(root.root_path or '').rstrip(chr(92))}\\{name}"
+    log_activity(
+        db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
+        action="storage_root.subfolder_created", outcome="success", target_type="storage_root", target_id=int(root_id),
+        target_display=str(root.name or root.root_path or root.id), context_json={"folder": path, "job_id": job.get("id")},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    created_root_id = None
+    if payload.register:
+        created = await create_root(
+            StorageRootCreate(storage_endpoint_id=int(root.storage_endpoint_id), parent_storage_root_id=int(root.id), name=name, root_path=path),
+            request, db,
+        )
+        created_root_id = int((created or {}).get("data", {}).get("id") or (created or {}).get("id") or 0) or None
+    return ui_data({"path": path, "storage_root_id": created_root_id})
 
 
 class DeleteFolderPayload(BaseModel):

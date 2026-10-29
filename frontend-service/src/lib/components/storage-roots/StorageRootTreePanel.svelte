@@ -6,6 +6,8 @@
     type EntityTreeNode
   } from '$lib/components/entity/EntitySidebarTree.svelte';
   import StorageRootPeek from '$lib/components/storage-roots/StorageRootPeek.svelte';
+  import StorageRootContextMenu from '$lib/components/storage-roots/StorageRootContextMenu.svelte';
+  import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
 
   type AlertTone = 'warning' | 'error';
@@ -27,10 +29,14 @@
   export let rootAlertSummary: (row: StorageRootRow) => RootAlertSummary = () => null;
   export let onQueryChange: (value: string) => void = () => {};
   export let onSelectRoot: (id: number) => void = () => {};
+  /** Right-click menu on a storage root (platform admins): operations on its folder on the file server */
+  export let onFolderAction: ((kind: FolderActionKind, row: StorageRootRow) => void) | null = null;
 
   const VIEW_KEY = 'b2s.storageRoots.view';
   let peekRow: StorageRootRow | null = null;
   let peekAnchor: HTMLElement | null = null;
+  let menuRow: StorageRootRow | null = null;
+  let menuAt = { x: 0, y: 0 };
   let filter = 'all';
   let viewMode: 'tree' | 'list' = 'tree';
 
@@ -101,6 +107,10 @@
       iconTone: 'root',
       selectId: rootId(row),
       dot: rowDot(row),
+      // Only the exception is shown: a folder whose NTFS inheritance is disabled
+      badges: row?.inheritance_broken === true
+        ? [{ label: t('No inheritance'), tone: 'neutral', icon: 'bi-scissors', title: t('The NTFS inheritance of this folder is disabled') }]
+        : [],
       searchText: [
         rootPath(row),
         row?.storage_root_code,
@@ -239,10 +249,27 @@
   onViewMode={setViewMode}
   {onQueryChange}
   onSelect={(id) => onSelectRoot(Number(id))}
+  onContextMenu={onFolderAction
+    ? (node, event) => {
+        menuRow = rows.find((row) => rootId(row) === Number(node.selectId)) ?? null;
+        const anchor = event.currentTarget as HTMLElement | null;
+        const rect = anchor?.getBoundingClientRect();
+        // The context-menu key gives no pointer position: open under the row
+        menuAt = event.clientX || event.clientY ? { x: event.clientX, y: event.clientY } : { x: (rect?.left ?? 0) + 24, y: rect?.bottom ?? 0 };
+      }
+    : null}
   onHover={(node, anchor) => {
     peekRow = node ? rows.find((row) => rootId(row) === Number(node.selectId)) ?? null : null;
     peekAnchor = anchor;
   }}
 />
 
-<StorageRootPeek row={peekRow} anchor={peekAnchor} alert={peekRow ? rootAlertSummary(peekRow) : null} />
+<StorageRootContextMenu
+  row={menuRow}
+  at={menuAt}
+  onClose={() => (menuRow = null)}
+  onOpen={(row) => onSelectRoot(rootId(row))}
+  onAction={(kind, row) => onFolderAction?.(kind, row)}
+/>
+
+<StorageRootPeek row={menuRow ? null : peekRow} anchor={peekAnchor} alert={peekRow ? rootAlertSummary(peekRow) : null} />

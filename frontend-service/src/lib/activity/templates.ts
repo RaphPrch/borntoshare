@@ -41,6 +41,7 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'storage_root.probe_rerun': { titleKey: 'activity.storage_root.probe_rerun.title', descriptionKey: 'activity.storage_root.probe_rerun.description', badge: 'info', icon: 'arrow-repeat' },
   'storage_root.inheritance_broken': { titleKey: 'activity.storage_root.inheritance_broken.title', descriptionKey: 'activity.storage_root.inheritance_broken.description', badge: 'admin', icon: 'scissors' },
   'storage_root.inheritance_restored': { titleKey: 'activity.storage_root.inheritance_restored.title', descriptionKey: 'activity.storage_root.inheritance_restored.description', badge: 'admin', icon: 'diagram-3' },
+  'storage_root.subfolder_created': { titleKey: 'activity.storage_root.subfolder_created.title', descriptionKey: 'activity.storage_root.subfolder_created.description', badge: 'admin', icon: 'folder-plus' },
   'storage_root.folder_deleted': { titleKey: 'activity.storage_root.folder_deleted.title', descriptionKey: 'activity.storage_root.folder_deleted.description', badge: 'critical', scope: 'security', icon: 'trash3' },
   'storage_root.acl_gap_accepted': { titleKey: 'activity.storage_root.acl_gap_accepted.title', descriptionKey: 'activity.storage_root.acl_gap_accepted.description', badge: 'admin', icon: 'shield-check' },
   'storage_root.acl_gap_reopened': { titleKey: 'activity.storage_root.acl_gap_reopened.title', descriptionKey: 'activity.storage_root.acl_gap_reopened.description', badge: 'admin', icon: 'shield-exclamation' },

@@ -25,6 +25,7 @@
   export let onDeleteRoot: () => void = () => {};
   export let onToggleInheritance: () => void = () => {};
   export let onDeleteFolder: () => void = () => {};
+  export let onCreateSubfolder: () => void = () => {};
 
   $: disabled = !selectedStorageRootId;
   let actions: EntityActionItem[] = [];
@@ -51,6 +52,7 @@
             title: inheritanceBroken === null ? t('Read the ACL first') : undefined,
             onClick: onToggleInheritance
           },
+          { key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', overflow: true, disabled, onClick: onCreateSubfolder },
           { key: 'delete', label: t('Remove from BornToShare'), icon: 'bi-x-circle', overflow: true, disabled, onClick: onDeleteRoot },
           { key: 'delete-folder', label: t('Delete the folder from the server'), icon: 'bi-trash', variant: 'danger', overflow: true, disabled, onClick: onDeleteFolder }
         ] satisfies EntityActionItem[])
