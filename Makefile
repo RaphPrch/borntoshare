@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: help build up down restart ps logs logs-% wizard wizard-down clean
+.PHONY: help build up down restart ps logs logs-% wizard wizard-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs
 
 help:
 	@echo "make build          build the images"
@@ -16,6 +16,8 @@ help:
 	@echo "make wizard         start the database wizard (http://<host>:\$$WIZARD_PORT)"
 	@echo "make wizard-down    stop the wizard"
 	@echo "make clean          stop, then remove unused images and the Redis queue"
+	@echo "make ad-lab-up      test Active Directory adlab.example.test (end-to-end tests, never in production)"
+	@echo "make ad-lab-down    stop it (data kept)     make ad-lab-reset: stop and delete its domain"
 
 .env:
 	@echo "Missing .env: copy .env.example to .env and fill it in." && exit 1
@@ -49,3 +51,23 @@ wizard-down:
 clean: down
 	podman volume rm -f b2s-redis-data
 	podman image prune -f
+
+# ------------------------------------------------------------
+# Test Active Directory (testing/ad-lab): end-to-end tests only
+# ------------------------------------------------------------
+AD_LAB := podman-compose -f testing/ad-lab/compose.yml
+
+ad-lab-up:
+	@podman network exists b2s-app || (echo "Start the stack first (make up): the lab joins its b2s-app network." && exit 1)
+	$(AD_LAB) up -d --build
+	@echo "adlab.example.test: provisioning takes about a minute the first time (make ad-lab-logs)."
+
+ad-lab-down:
+	$(AD_LAB) down
+
+ad-lab-reset:
+	$(AD_LAB) down
+	-podman volume rm b2s-ad-lab-samba b2s-ad-lab-shares
+
+ad-lab-logs:
+	$(AD_LAB) logs -f --tail=100

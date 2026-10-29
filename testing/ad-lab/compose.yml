@@ -1,0 +1,43 @@
+# Test Active Directory for end-to-end tests: never on a production host.
+#   make ad-lab-up        (after « make up »: joins the b2s-app network of the stack)
+# Reachable by capsule-runner and auth-service as adlab.example.test; no port published on the host.
+services:
+  ad-lab:
+    container_name: b2s-ad-lab
+    image: b2s-ad-lab:latest
+    build: .
+    hostname: adlab
+    environment:
+      AD_LAB_REALM: EXAMPLE.TEST
+      AD_LAB_DOMAIN: EXAMPLE
+      AD_LAB_ADMIN_PASSWORD: ${AD_LAB_ADMIN_PASSWORD:-Adm1n!Lab-2026}
+      AD_LAB_USER_PASSWORD: ${AD_LAB_USER_PASSWORD:-User!Lab-2026}
+      AD_LAB_SERVICE_PASSWORD: ${AD_LAB_SERVICE_PASSWORD:-Svc!Lab-2026}
+    # Samba AD needs to set the NTFS ACLs (extended attributes) and to bind its ports
+    cap_add: [SYS_ADMIN]
+    volumes:
+      - ad-lab-samba:/var/lib/samba
+      - ad-lab-shares:/srv/shares
+      # LDAPS CA of the lab (out/ad-ca.pem), for LDAP_TLS_VERIFY=true: see README
+      - ./out:/export:z
+    healthcheck:
+      # LDAPS answers once the domain is provisioned (first start: about a minute)
+      test: ["CMD-SHELL", "LDAPTLS_REQCERT=never ldapsearch -LLL -x -H ldaps://localhost -b '' -s base defaultNamingContext >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 5
+    networks:
+      app:
+        aliases: [adlab, adlab.example.test]
+
+networks:
+  app:
+    name: b2s-app
+    external: true
+
+volumes:
+  ad-lab-samba:
+    name: b2s-ad-lab-samba
+  ad-lab-shares:
+    name: b2s-ad-lab-shares
