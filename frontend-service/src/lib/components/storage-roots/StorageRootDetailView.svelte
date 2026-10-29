@@ -74,7 +74,6 @@
   $: showBlockingLoading = detailsLoading && selectedRootCodeOrName === '—';
   $: stripItems = alertItems.filter((item) => !String(item.key ?? '').includes('missing_guardian'));
   $: endpointDisplay = endpointAddress && endpointAddress !== '—' ? endpointAddress : endpointLabel;
-  $: aclState = String(aclFreshness?.state ?? '').trim().toLowerCase();
   $: aclScannedAt = String(aclFreshness?.scanned_at ?? aclFreshness?.discovered_at ?? '').trim();
 
   // Permissions: one computation (ACL read on the file server x AD groups x requests) for the tab and the KPIs.
@@ -148,8 +147,6 @@
     {showStatusBadge}
     {pathLabel}
     endpointLabel={endpointLabel}
-    aclLabel={aclState === 'stale' ? t('ACL stale') : ''}
-    aclTone={aclState === 'stale' ? 'warning' : 'info'}
     {rootProbeBusy}
     {selectedStorageRootId}
     {onRunRootProbe}

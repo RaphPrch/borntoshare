@@ -484,7 +484,7 @@
   "Groups allowed to sign in": "Groupes autorisés à se connecter",
   "Guardian": "Guardian",
   "Guardian review": "Validation par un guardian",
-  "Guardians": "Guardians",
+  "Guardians": "Garants",
   "Guardians and tags can be assigned after import from the storage root governance panel.": "Les guardians et les tags peuvent être assignés après l'import, depuis le panneau de gouvernance du storage root.",
   "Guardians manage access governance for this storage root.": "Les guardians gèrent la gouvernance des accès de ce storage root.",
   "Guardians:": "Guardians :",
