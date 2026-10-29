@@ -188,7 +188,6 @@
 <button type="button" class="global-search-trigger" on:click={show} aria-label={t('Search (Ctrl+K)')}>
   <i class="bi bi-search" aria-hidden="true"></i>
   <span>{t('Search')}</span>
-  <kbd>Ctrl K</kbd>
 </button>
 
 <AppModal {open} onClose={close} size="lg" showClose={false} ariaLabelledby="global-search-label" contentClass="global-search">
@@ -238,32 +237,32 @@
 </AppModal>
 
 <style>
+  /* Item of the navigation rail */
   .global-search-trigger {
-    height: 38px;
-    display: inline-flex;
+    width: 74px;
+    min-height: 50px;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 0 10px 0 12px;
-    border: 1px solid rgba(154, 175, 214, 0.35);
-    border-radius: var(--b2s-radius-pill);
-    background: rgba(255, 255, 255, 0.06);
-    color: #dbe4f5;
-    font-size: var(--b2s-fs-sm);
+    justify-content: center;
+    gap: 2px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--b2s-color-text-muted);
+    font: inherit;
+    font-size: 11px;
     cursor: pointer;
   }
 
-  .global-search-trigger kbd {
-    white-space: nowrap;
-  }
-
-  @media (max-width: 1520px) {
-    .global-search-trigger kbd {
-      display: none;
-    }
+  .global-search-trigger i {
+    font-size: 18px;
+    line-height: 1;
   }
 
   .global-search-trigger:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--b2s-color-neutral-soft);
+    color: var(--b2s-color-text);
   }
 
   kbd {
@@ -359,10 +358,4 @@
     font-size: var(--b2s-fs-sm);
   }
 
-  @media (max-width: 1100px) {
-    .global-search-trigger span,
-    .global-search-trigger kbd {
-      display: none;
-    }
-  }
 </style>

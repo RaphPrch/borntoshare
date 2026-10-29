@@ -22,11 +22,10 @@
     showPassword = !showPassword;
   }
 
-  // Illustration of the product, not real data
-  $: lanes = [
-    { person: 'Alice Bernard', via: t('approved request'), group: 'B2S_FINANCE_RX', folder: 'Finance', level: t('read'), tone: 'read' },
-    { person: 'Julien Durand', via: t('approved request'), group: 'B2S_FINANCE_RW', folder: 'Finance', level: t('modify'), tone: 'write' },
-    { person: 'Sophie Moreau', via: t('ends in 5 days'), group: 'B2S_LEGAL_RX', folder: t('Legal'), level: t('read'), tone: 'read' }
+  const features = [
+    { icon: 'bi-send-check', title: 'Request and approve', text: 'Users request access to a folder, its guardians decide, every decision is traced.' },
+    { icon: 'bi-people', title: 'Active Directory and NTFS handled for you', text: 'AD groups, memberships and permissions are applied on the file server, then checked.' },
+    { icon: 'bi-shield-check', title: 'Always know who has access', text: 'Permissions set outside the process, ending accesses and unreachable servers are reported.' }
   ];
 </script>
 
@@ -36,20 +35,16 @@
 
     <div class="lg__pitch">
       <p class="lg__headline">{t('Who can access what.')}<br /><mark>{t('And why.')}</mark></p>
-      <div class="lg__lanes" aria-hidden="true">
-        {#each lanes as lane}
-          <div class={`lg__lane is-${lane.tone}`}>
-            <div class="lg__node"><strong>{lane.person}</strong><small>{lane.via}</small></div>
-            <div class="lg__wire"></div>
-            <div class="lg__node"><code>{lane.group}</code><small>{t('Active Directory group')}</small></div>
-            <div class="lg__wire"></div>
-            <div class="lg__node"><strong>{lane.folder}</strong><small>{lane.level}</small></div>
-          </div>
+      <p class="lg__lead">{t('BornToShare governs access to your shared folders, from the request to the permissions on the file server.')}</p>
+      <ul class="lg__features">
+        {#each features as feature}
+          <li>
+            <i class={`bi ${feature.icon}`} aria-hidden="true"></i>
+            <span><strong>{t(feature.title)}</strong>{t(feature.text)}</span>
+          </li>
         {/each}
-      </div>
+      </ul>
     </div>
-
-    <p class="lg__foot">{t('Access to shared folders, governed and checked on the file server.')}</p>
   </section>
 
   <main class="lg__panel">
@@ -148,8 +143,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    gap: 44px;
+    gap: 64px;
     padding: 44px clamp(24px, 5vw, 72px);
   }
 
@@ -178,8 +172,9 @@
   }
 
   .lg__pitch {
+    margin-block: auto;
     display: grid;
-    gap: 40px;
+    gap: 32px;
   }
 
   .lg__headline {
@@ -199,84 +194,54 @@
     box-decoration-break: clone;
   }
 
-  .lg__lanes {
-    display: grid;
-    gap: 12px;
+  .lg__lead {
+    max-width: 620px;
+    margin: 0;
+    color: var(--lg-muted);
+    font-size: 20px;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
   }
 
-  .lg__lane {
-    --flow: var(--lg-read);
+  .lg__features {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1.3fr) 40px minmax(0, 1fr);
+    gap: 18px;
+    max-width: 620px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .lg__features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .lg__features i {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    display: flex;
     align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: #e9fbc6;
+    color: #3c6600;
+    font-size: 17px;
   }
 
-  .lg__lane.is-write {
-    --flow: var(--lg-write);
-  }
-
-  .lg__node {
-    min-width: 0;
-    padding: 12px 14px;
-    border: 1px solid var(--lg-line);
-    border-radius: 14px;
-    background: var(--lg-surface);
-    box-shadow: var(--lg-shadow);
-    font-size: 14px;
-  }
-
-  .lg__node strong {
+  .lg__features strong {
     display: block;
     font-weight: 600;
   }
 
-  .lg__node code {
-    display: block;
-    color: inherit;
-    font-family: 'Geist Mono Variable', var(--b2s-font-mono);
-    font-size: 12px;
-    overflow-wrap: anywhere;
-  }
-
-  .lg__node small {
-    display: block;
+  .lg__features span {
     color: var(--lg-muted);
-    font-size: 12px;
   }
 
-  .lg__wire {
-    position: relative;
-    height: 2px;
-    overflow: hidden;
-    background: var(--lg-line2);
-  }
-
-  .lg__wire::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 40%;
-    background: var(--flow);
-    animation: lg-flow 2.2s linear infinite;
-  }
-
-  @keyframes lg-flow {
-    from { left: -40%; }
-    to { left: 100%; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .lg__wire::after {
-      left: 30%;
-      animation: none;
-    }
-  }
-
-  .lg__foot {
-    margin: 0;
-    color: var(--lg-muted);
-    font-size: 12px;
+  .lg__features strong {
+    color: var(--lg-text);
   }
 
   .lg__panel {

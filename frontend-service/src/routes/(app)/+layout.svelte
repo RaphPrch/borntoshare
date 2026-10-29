@@ -9,6 +9,8 @@
   // =========================================================
 
   // 1️⃣ Design tokens (single source of truth)
+  import "@fontsource-variable/geist";
+  import "@fontsource-variable/geist-mono";
   import "$lib/styles/tokens.css";
 
   // 2️⃣ Bootstrap (kept for grid/utilities only)
@@ -27,8 +29,7 @@
 
   import Toaster from "$lib/components/ui/Toaster.svelte";
   import TopProgress from "$lib/components/ui/TopProgress.svelte";
-  import Topbar from "$lib/components/layout/Topbar.svelte";
-  import MegaMenu from "$lib/components/layout/MegaMenu.svelte";
+  import Sidebar from "$lib/components/layout/Sidebar.svelte";
   import { bootstrapFrontendCore } from "$lib/bootstrap.client";
 
   // ---------------------------------------------------------
@@ -52,12 +53,7 @@
     theme: string;
   };
 
-  let activeMega: import('$lib/components/layout/mega-config').MegaMenuKey | null = null;
-
   bootstrapFrontendCore();
-
-  // Reset mega-menu on navigation
-  $: $page.url.pathname, activeMega = null;
 </script>
 
 <svelte:head>
@@ -65,16 +61,13 @@
 </svelte:head>
 
 <div class="b2s-app-root">
-  <Topbar
-    bind:activeMega
+  <Sidebar
     user={data.me}
     permissions={data.navigation}
     alertsCount={Number(data.topbarAlertsCount ?? 0)}
     criticalAlertsCount={Number(data.topbarCriticalAlerts ?? 0)}
     currentPath={$page.url.pathname}
   />
-
-  <MegaMenu {activeMega} permissions={data.navigation} close={() => (activeMega = null)} />
 
   <main class="b2s-app-main">
     <slot />

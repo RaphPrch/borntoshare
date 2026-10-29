@@ -27,6 +27,7 @@
   dt {
     flex: 0 0 96px;
     color: var(--b2s-color-text-muted);
+    font-weight: 400;
   }
 
   dd {

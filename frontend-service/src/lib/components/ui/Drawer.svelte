@@ -39,7 +39,7 @@
   <div
     class={`b2s-drawer b2s-entity-drawer ${rootClass}`.trim()}
     role="presentation"
-    style={`--b2s-drawer-width:${width};--b2s-drawer-top:70px;`}
+    style={`--b2s-drawer-width:${width};--b2s-drawer-top:0;`}
   >
     <button
       type="button"

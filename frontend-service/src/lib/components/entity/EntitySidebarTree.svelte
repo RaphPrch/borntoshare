@@ -442,10 +442,10 @@
 <style>
   .b2s-list-pane {
     position: sticky;
-    top: 86px;
+    top: 16px;
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 110px);
+    max-height: calc(100vh - 32px);
     min-width: 0;
     overflow: hidden;
     border: 1px solid var(--b2s-color-border-soft);
