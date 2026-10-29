@@ -125,8 +125,12 @@ def _discover_share_permissions(
     username: str,
     password: str,
     timeout: int,
+    control_out: dict | None = None,
 ) -> list[dict]:
-    """Best-effort ACL extraction for a share or a folder via `smbcacls`."""
+    """Best-effort ACL extraction for a share or a folder via `smbcacls`.
+
+    `control_out` receives the security descriptor CONTROL flags (PD: inheritance broken).
+    """
     share_path = f"//{host}/{share}"
     normalized_path = str(path or "").strip().strip("/\\").replace("/", "\\")
     rel_candidates = [normalized_path, ".", "", "\\"] if normalized_path else ["", "\\", "."]
@@ -155,6 +159,8 @@ def _discover_share_permissions(
 
     for raw in out.splitlines():
         line = raw.strip()
+        if control_out is not None and line.startswith("CONTROL:"):
+            control_out["control"] = line[8:].strip()
         if not line or not line.startswith("ACL:"):
             continue
 
@@ -488,6 +494,7 @@ def test_smb_root_access(params: dict):
                     )
                 )
             else:
+                control: dict = {}
                 permissions = _discover_share_permissions(
                     host=host,
                     share=share,
@@ -495,8 +502,10 @@ def test_smb_root_access(params: dict):
                     username=username,
                     password=password,
                     timeout=timeout,
+                    control_out=control,
                 )
                 details["permissions"] = permissions
+                details["permissions_control"] = control.get("control")
                 details["permissions_count"] = len(permissions)
                 details["permissions_discovered_at"] = datetime.now(timezone.utc).isoformat()
                 details["checks"].append(

@@ -954,10 +954,11 @@ def list_access_requests(
     overdue: int | None = None,
     high_impact: int | None = None,
     q: str | None = None,
+    storage_root_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     """
-    List access requests (V1++).
+    List access requests (V1++); storage_root_id keeps the requests of one storage root (« To review » line).
 
     Backed by SQL view:
       - v_access_requests
@@ -972,6 +973,8 @@ def list_access_requests(
     )
     actor = actor_from_request(request)
     rows = filter_access_request_rows(db, actor, rows)
+    if storage_root_id:
+        rows = [r for r in rows if int(r.get("storage_root_id") or 0) == int(storage_root_id)]
     return ui_list(
         rows,
         meta={

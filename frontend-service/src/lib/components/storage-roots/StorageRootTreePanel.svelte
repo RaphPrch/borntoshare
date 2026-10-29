@@ -5,6 +5,7 @@
     type EntityTreeBadge,
     type EntityTreeNode
   } from '$lib/components/entity/EntitySidebarTree.svelte';
+  import StorageRootPeek from '$lib/components/storage-roots/StorageRootPeek.svelte';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
 
   type AlertTone = 'warning' | 'error';
@@ -28,6 +29,8 @@
   export let onSelectRoot: (id: number) => void = () => {};
 
   const VIEW_KEY = 'b2s.storageRoots.view';
+  let peekRow: StorageRootRow | null = null;
+  let peekAnchor: HTMLElement | null = null;
   let filter = 'all';
   let viewMode: 'tree' | 'list' = 'tree';
 
@@ -57,27 +60,20 @@
   const zoneKey = (row: StorageRootRow): string => String(row?.zone_id ?? 'unassigned-zone');
   const zoneLabel = (row: StorageRootRow): string => String(row?.zone_name ?? t('Unassigned zone')).trim() || t('Unassigned zone');
   const endpointLabel = (row: StorageRootRow): string => String(row?.storage_endpoint_name ?? '').trim();
-  const alertCount = (row: StorageRootRow): number => Number(rootAlertSummary(row)?.count ?? 0);
   const pendingCount = (row: StorageRootRow): number => Number(row?.pending_validation_count ?? 0);
   // \\server\share\folder (or /server/share/folder) -> [server, share, folder]
   const pathSegments = (path: string): string[] => path.split(/[\\/]+/).filter(Boolean);
 
   const countLabel = (count: number): EntityTreeBadge => ({ label: String(count), title: t('{count} storage roots', { count }) });
 
-  /** One indicator per root, the most urgent one (blocking alert, then pending request, then warning); both on hover */
-  function rowBadges(row: StorageRootRow): EntityTreeBadge[] {
+  /** A dot only when something is to be done: red = blocking alert, orange = request to decide; details on hover */
+  function rowDot(row: StorageRootRow): EntityTreeNode['dot'] {
     const alert = rootAlertSummary(row);
-    const alerts = alert && alert.count > 0 ? alert.count : 0;
-    const pending = pendingCount(row);
-    if (!alerts && !pending) return [];
-    const title = [
-      alerts ? (alert?.label ?? t('{count} alerts', { count: alerts })) : '',
-      pending ? t('{count} pending requests', { count: pending }) : ''
-    ].filter(Boolean).join(' · ');
-    if (alerts && alert?.tone === 'error') return [{ label: String(alerts), tone: 'error', icon: 'bi-exclamation-triangle-fill', title }];
-    if (pending) return [{ label: String(pending), tone: 'info', icon: 'bi-hourglass-split', title }];
-    return [{ label: String(alerts), tone: alert?.tone ?? 'warning', icon: 'bi-exclamation-triangle-fill', title }];
+    if (alert && alert.count > 0 && alert.tone === 'error') return 'error';
+    if (pendingCount(row) > 0) return 'warning';
+    return null;
   }
+  const toReview = (row: StorageRootRow): boolean => rowDot(row) !== null;
 
   function sumAlerts(items: StorageRootRow[]): Alerts {
     let count = 0;
@@ -100,12 +96,11 @@
       key,
       label: rootLabel(row),
       subtitle,
-      // The name may be cut in the tree: full name and path on hover
-      title: [rootLabel(row), rootPath(row)].filter(Boolean).join('\n') || null,
+      // Full name, path and state in the preview shown on hover
       icon: 'bi-folder2',
       iconTone: 'root',
       selectId: rootId(row),
-      badges: rowBadges(row),
+      dot: rowDot(row),
       searchText: [
         rootPath(row),
         row?.storage_root_code,
@@ -192,7 +187,7 @@
   }
 
   $: visibleRows = rows.filter((row) =>
-    filter === 'all' || (filter === 'alerts' ? alertCount(row) > 0 : pendingCount(row) > 0)
+    filter === 'all' || (filter === 'review' ? toReview(row) : pendingCount(row) > 0)
   );
 
   $: nodes = (() => {
@@ -220,7 +215,7 @@
 
   $: filters = [
     { key: 'all', label: t('All'), count: rows.length },
-    { key: 'alerts', label: t('With alerts'), count: rows.filter((row) => alertCount(row) > 0).length },
+    { key: 'review', label: t('To review'), count: rows.filter(toReview).length },
     { key: 'pending', label: t('Pending requests'), count: rows.filter((row) => pendingCount(row) > 0).length }
   ];
 </script>
@@ -244,4 +239,10 @@
   onViewMode={setViewMode}
   {onQueryChange}
   onSelect={(id) => onSelectRoot(Number(id))}
+  onHover={(node, anchor) => {
+    peekRow = node ? rows.find((row) => rootId(row) === Number(node.selectId)) ?? null : null;
+    peekAnchor = anchor;
+  }}
 />
+
+<StorageRootPeek row={peekRow} anchor={peekAnchor} alert={peekRow ? rootAlertSummary(peekRow) : null} />

@@ -56,7 +56,6 @@
   } from '$lib/mappers/storage-roots.mapper';
   import {
     displayStorageRootTags,
-    formatDateTimeLabel,
     ownerDisplayName,
     storageRootEndpointLabel
   } from '$lib/mappers/storage-root-detail.mapper';
@@ -287,6 +286,14 @@
       }
       lastAppliedSelectedParam = selectedParam;
     }
+  }
+
+  // ?explain=<login> (⌘K palette): open Permissions on « why does this person reach the folder »
+  $: explainParam = String($page.url.searchParams.get('explain') ?? '').trim() || null;
+  let explainApplied: string | null = null;
+  $: if (explainParam && explainParam !== explainApplied) {
+    explainApplied = explainParam;
+    storageRootsUiStore.setDetailTab('effective-access');
   }
 
   $: if (!selectedStorageRootId && ctxRows.length > 0) {
@@ -546,11 +553,6 @@
     void isLoadingDetails;
   }
 
-  const showSelectedStatusBadge = () => {
-    const status = rootAvailabilityText();
-    return status !== t('Reachable') && status !== t('Unknown');
-  };
-
   const selectDetailTab = (tab: StorageRootsDetailTab) => {
     storageRootsUiStore.setDetailTab(tab);
     if (tab === 'activity' && selectedStorageRootId) {
@@ -612,6 +614,28 @@
     }
   }
 
+  /** The storage root is gone (removed from BornToShare, or its folder deleted from the server): drop it from the page */
+  async function afterRootRemoved(deletedRootId: number) {
+    data = {
+      ...data,
+      storageRoots: (data.storageRoots ?? []).filter(
+        (row: any) => Number(row?.storage_root_id ?? row?.id ?? 0) !== deletedRootId
+      ),
+      storageRootAlerts: (data.storageRootAlerts ?? []).filter(
+        (alert: any) => Number(storageRootAlertRootId(alert) ?? 0) !== deletedRootId
+      )
+    };
+    rootModalOpen = false;
+    deleteRootModalOpen = false;
+    editingRoot = null;
+    detailsCache.clear();
+    selectedStorageRootId = null;
+    selectionStore.setSelectedStorageRootId(null);
+    storageRootsUiStore.setSelectedStorageRootId(null);
+    await goto('/storage-roots', { replaceState: true });
+    await refreshStorageRootsLoad();
+  }
+
   async function confirmDeleteRoot() {
     if (!editingRoot?.storage_root_id) return;
     if (!canDeleteStorageRoot()) {
@@ -623,24 +647,7 @@
 
     try {
       await deleteStorageRoot(fetch, deletedRootId);
-      data = {
-        ...data,
-        storageRoots: (data.storageRoots ?? []).filter(
-          (row: any) => Number(row?.storage_root_id ?? row?.id ?? 0) !== deletedRootId
-        ),
-        storageRootAlerts: (data.storageRootAlerts ?? []).filter(
-          (alert: any) => Number(storageRootAlertRootId(alert) ?? 0) !== deletedRootId
-        )
-      };
-      rootModalOpen = false;
-      deleteRootModalOpen = false;
-      editingRoot = null;
-      detailsCache.clear();
-      selectedStorageRootId = null;
-      selectionStore.setSelectedStorageRootId(null);
-      storageRootsUiStore.setSelectedStorageRootId(null);
-      await goto('/storage-roots', { replaceState: true });
-      await refreshStorageRootsLoad();
+      await afterRootRemoved(deletedRootId);
       toast.success(t('Storage root deleted'));
     } catch (e) {
       if (isDependencyDeleteError(e)) {
@@ -1935,7 +1942,6 @@
     endpointAddress: endpointAddressLabel(),
     rootAvailabilityText: rootAvailabilityText(),
     rootAvailabilityTone: rootAvailabilityTone(),
-    showStatusBadge: showSelectedStatusBadge(),
     tags: displayTags(selectedRow),
     activityRemainder: activityRowsForSelectedRoot()
   }))(overview, selectedRow, selectedStorageRootId, rootProbeStateByRootId, activityRows, activityLoadedForRootId, data);
@@ -1977,11 +1983,10 @@
       endpointAddress={detailView.endpointAddress}
       pathLabel={selectedRow?.root_path ?? '—'}
       contentSizeLabel={String((overview as any)?.estimated_size_label ?? (overview as any)?.content_size_label ?? '—')}
-      contentUpdatedLabel={formatDateTimeLabel((overview as any)?.content_updated_at ?? (overview as any)?.last_content_scan_at ?? (overview as any)?.last_scan_at ?? selectedRow?.last_scan_at ?? null)}
+      endpointHref={selectedRow?.storage_endpoint_id ? `/admin/storage-endpoints/${selectedRow.storage_endpoint_id}` : null}
       {guardians}
       rootAvailabilityText={detailView.rootAvailabilityText}
       rootAvailabilityTone={detailView.rootAvailabilityTone}
-      showStatusBadge={detailView.showStatusBadge}
       tags={detailView.tags}
       isAdmin={data.user?.is_admin === true}
       activityRemainder={detailView.activityRemainder}
@@ -1998,6 +2003,8 @@
       onOpenGovernanceDrawer={(role) => openGovernanceDrawer(role ?? 'guardian')}
       onOpenTagsModal={openTagsModal}
       onViewAllAlerts={openAlertsDrawer}
+      onFolderDeleted={(rootId) => void afterRootRemoved(rootId)}
+      explainLogin={explainParam}
     />
   </EntityWorkspace>
 {/if}

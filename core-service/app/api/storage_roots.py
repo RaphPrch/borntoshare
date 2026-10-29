@@ -1399,6 +1399,17 @@ class AclExceptionPayload(BaseModel):
     note: str | None = Field(default=None, max_length=500)
 
 
+@router.get("/people/search")
+def search_people(request: Request, q: str = Query(min_length=2, max_length=100), db: Session = Depends(get_db)):
+    """People of the directory and the folders they reach (⌘K); a guardian only sees the folders he guards."""
+    actor = actor_from_request(request)
+    require_storage_roots_index(db, actor)
+    people = StorageRootPermissions(db).search_people(q)
+    for person in people:
+        person["roots"] = filter_storage_root_rows(db, actor, person["roots"])
+    return ui_data(people)
+
+
 @router.get("/{root_id}/permissions")
 def get_root_permissions(root_id: int, request: Request, db: Session = Depends(get_db)):
     """Who reaches the folder and why: people, BornToShare groups and their ACE, system accounts, gaps."""
@@ -1533,6 +1544,126 @@ def reopen_acl_gap(root_id: int, principal: str, request: Request, db: Session =
     return ui_action(action_id=int(root_id), message="storage_root.acl_gap_reopened")
 
 
+def _ensure_root_deletable(db: Session, root: StorageRoot) -> None:
+    accesses = root_access_counts(db, int(root.id))
+    if accesses["active"] or accesses["pending"]:
+        # Deleting would leave the AD members and the NTFS ACL in place, without any request to revoke them
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "STORAGE_ROOT_HAS_ACCESSES",
+                "message": f"{accesses['active']} active access(es) and {accesses['pending']} pending request(s) "
+                           "on this storage root: revoke or decide them first",
+                **accesses,
+            },
+        )
+
+    children = _child_storage_roots(db, parent_storage_root_id=int(root.id))
+    if children:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "STORAGE_ROOT_HAS_CHILDREN", "message": "Storage root has child storage roots attached and cannot be deleted"},
+        )
+
+
+async def _run_folder_job(root_id: int, protocol: str, *, inheritance: str | None = None, timeout_sec: int = 90) -> dict[str, Any]:
+    """Folder operation of the worker on the file server, waited for; raises a 502 with the worker's message on failure."""
+    import asyncio
+
+    from app.services.probe_service import fetch_probe_job, submit_probe_run
+
+    queued = await submit_probe_run({
+        "kind": "folder", "protocol": protocol, "scope": "write",
+        "target": {"storage_root_id": int(root_id), **({"inheritance": inheritance} if inheritance else {})},
+        "options": {"timeout_sec": timeout_sec}, "context": {"storage_root_id": int(root_id), "ui_origin": "admin"},
+    })
+    job_id = int((queued or {}).get("job_id") or 0)
+    job: dict[str, Any] = {}
+    for _ in range(max(1, timeout_sec)):
+        job = dict(await fetch_probe_job(job_id) or {})
+        state = str(job.get("status") or "").lower()
+        if state == "succeeded":
+            return job
+        if state in {"failed", "timed_out", "cancelled"}:
+            break
+        await asyncio.sleep(1)
+    error = job.get("error") if isinstance(job.get("error"), dict) else {}
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail={"code": "FOLDER_OPERATION_FAILED", "message": str(error.get("message") or job.get("status") or "the worker did not answer"),
+                "job_id": job_id or None},
+    )
+
+
+class InheritancePayload(BaseModel):
+    mode: str = Field(pattern="^(break|restore)$")
+
+
+@router.post("/{root_id}/inheritance")
+async def set_root_inheritance(root_id: int, payload: InheritancePayload, request: Request, db: Session = Depends(get_db)):
+    """Break (the inherited entries become explicit ones) or restore the NTFS inheritance of the folder, through the worker."""
+    actor = actor_from_request(request)
+    require_admin(actor)
+    root = db.get(StorageRoot, root_id)
+    if root is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    job = await _run_folder_job(int(root_id), "inheritance", inheritance=payload.mode)
+    result = job.get("result") if isinstance(job.get("result"), dict) else {}
+    details = result.get("details") if isinstance(result.get("details"), dict) else result
+    db.refresh(root)
+    acl = dict(root.discovered_permissions_json or {}) if isinstance(root.discovered_permissions_json, dict) else {}
+    # The state shows at once; the ACL read that follows refreshes the entries
+    acl["control"] = str(details.get("control") or ("SR|PD|DP" if payload.mode == "break" else "SR|DP"))
+    root.discovered_permissions_json = acl
+    db.commit()
+    log_activity(
+        db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
+        action=f"storage_root.inheritance_{'broken' if payload.mode == 'break' else 'restored'}", outcome="success",
+        target_type="storage_root", target_id=int(root_id), target_display=str(root.name or root.root_path or root.id),
+        context_json={"root_path": root.root_path, "job_id": job.get("id")},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_data({"storage_root_id": int(root_id), "inheritance_broken": payload.mode == "break"})
+
+
+class DeleteFolderPayload(BaseModel):
+    confirm_name: str = Field(min_length=1, max_length=255)
+
+
+@router.post("/{root_id}/delete-folder")
+async def delete_root_folder(root_id: int, payload: DeleteFolderPayload, request: Request, db: Session = Depends(get_db)):
+    """Delete the folder and its content on the file server (worker), then the storage root in BornToShare."""
+    actor = actor_from_request(request)
+    require_admin(actor)
+    root = db.get(StorageRoot, root_id)
+    if root is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    if payload.confirm_name.strip() != str(root.name or "").strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={"code": "CONFIRM_NAME_MISMATCH", "message": "Type the exact name of the storage root to confirm"})
+    _ensure_root_deletable(db, root)
+    target_display = str(root.name or root.root_path or root.id)
+    context = {"name": root.name, "root_path": root.root_path, "storage_endpoint_id": root.storage_endpoint_id,
+               "zone_id": _root_zone_id(root), "folder_deleted": True}
+
+    job = await _run_folder_job(int(root_id), "delete", timeout_sec=240)
+    db.refresh(root)
+    db.delete(root)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail={"code": "STORAGE_ROOT_REFERENCED", "message": "The folder is deleted but the storage root is still referenced"})
+    context["job_id"] = job.get("id")
+    log_activity(
+        db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
+        action="storage_root.folder_deleted", outcome="success", target_type="storage_root", target_id=int(root_id),
+        target_display=target_display, context_json=context, correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_action(action_id=int(root_id), message="storage_root.folder_deleted")
+
+
 @router.delete("/{root_id}")
 def delete_root(
     root_id: int,
@@ -1559,25 +1690,7 @@ def delete_root(
         "zone_id": _root_zone_id(root),
     }
 
-    accesses = root_access_counts(db, int(root.id))
-    if accesses["active"] or accesses["pending"]:
-        # Deleting would leave the AD members and the NTFS ACL in place, without any request to revoke them
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "code": "STORAGE_ROOT_HAS_ACCESSES",
-                "message": f"{accesses['active']} active access(es) and {accesses['pending']} pending request(s) "
-                           "on this storage root: revoke or decide them first",
-                **accesses,
-            },
-        )
-
-    children = _child_storage_roots(db, parent_storage_root_id=int(root.id))
-    if children:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Storage root has child storage roots attached and cannot be deleted",
-        )
+    _ensure_root_deletable(db, root)
 
     db.delete(root)
     try:

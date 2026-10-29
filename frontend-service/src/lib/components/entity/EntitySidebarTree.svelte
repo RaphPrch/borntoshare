@@ -59,6 +59,8 @@
   export let onFilter: (key: string) => void = () => {};
   export let onSelect: (id: string | number, node: EntityTreeNode) => void = () => {};
   export let onQueryChange: (value: string) => void = () => {};
+  /** Pointer over a selectable row (null when it leaves): a page can show a preview next to it */
+  export let onHover: ((node: EntityTreeNode | null, anchor: HTMLElement | null) => void) | null = null;
   /** « + » next to the search: creates an item of the list (new file server, storage roots, zone) */
   export let onAdd: (() => void) | null = null;
   export let addLabel = t('Add');
@@ -383,6 +385,8 @@
             tabindex={node.key === focusedKey ? 0 : -1}
             title={node.title ?? undefined}
             data-key={node.key}
+            on:mouseenter={(event) => node.selectId != null && onHover?.(node, event.currentTarget)}
+            on:mouseleave={() => onHover?.(null, null)}
             on:click={() => activate(row)}
             on:keydown={onKeydown}
             on:focus={() => (focusedKey = node.key)}

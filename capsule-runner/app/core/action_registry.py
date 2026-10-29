@@ -10,6 +10,7 @@ from app.actions.ad_access import grant_ad_access
 from app.actions.ad_group import ensure_ad_group
 from app.actions.ad_group_member import ensure_ad_group_member, remove_ad_group_member
 from app.actions.directory_snapshot import collect_directory_snapshot
+from app.actions.folder import delete_folder, set_folder_inheritance
 from app.actions.infra_health import run_infra_health_check
 from app.actions.kerberos import test_kerberos
 from app.actions.ldap_group_recursive import discover_group_users_recursive
@@ -24,6 +25,7 @@ from app.schemas.actions import (
     ADGroupCreatePayload,
     ADGroupMemberPayload,
     DirectorySnapshotPayload,
+    FolderOperationPayload,
     KerberosAuthPayload,
     LDAPRecursiveGroupUsersPayload,
     LDAPSearchPayload,
@@ -158,6 +160,20 @@ ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
         action="acl_apply_via_group",
         schema=ACLApplyPayload,
         runner=apply_acl_via_group,
+        secret_fields=("secret_ref",),
+        target_field="host",
+    ),
+    "folder_inheritance": ActionSpec(
+        action="folder_inheritance",
+        schema=FolderOperationPayload,
+        runner=set_folder_inheritance,
+        secret_fields=("secret_ref",),
+        target_field="host",
+    ),
+    "folder_delete": ActionSpec(
+        action="folder_delete",
+        schema=FolderOperationPayload,
+        runner=delete_folder,
         secret_fields=("secret_ref",),
         target_field="host",
     ),

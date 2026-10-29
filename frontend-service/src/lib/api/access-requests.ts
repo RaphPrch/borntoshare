@@ -1,5 +1,5 @@
 import type { FetchLike } from './client';
-import { apiGetData, apiPostData } from './client';
+import { apiGetData, apiGetList, apiPostData } from './client';
 
 type AccessRequestRecord = Record<string, unknown>;
 
@@ -207,3 +207,17 @@ export type ApprovalPreview = {
 /** What an approval will do (AD group, OU, member, ACL) and what would stop it — reviewers only */
 export const getApprovalPreview = (fetchFn: FetchLike, id: number) =>
   apiGetData<ApprovalPreview>(fetchFn, `/access-requests/${id}/approval-preview`);
+
+export type PendingRootRequest = {
+  request_id: number;
+  request_code: string | null;
+  requested_for_display: string | null;
+  access_profile_name: string | null;
+  justification: string | null;
+  created_at: string | null;
+  expires_at: string | null;
+};
+
+/** Pending requests of one storage root (« To review » line of the storage root) */
+export const listPendingRequestsForRoot = (fetchFn: FetchLike, storageRootId: number) =>
+  apiGetList<PendingRootRequest>(fetchFn, '/access-requests', { status: 'pending', storage_root_id: storageRootId });

@@ -50,6 +50,8 @@ export type StorageRootPermissionsData = {
   root_path: string | null;
   acl_scanned_at: string | null;
   acl_entries: number;
+  /** NTFS inheritance of the folder from its parent (CONTROL flags of the last ACL read) */
+  inheritance: { known: boolean; broken: boolean; inherited_entries: number };
   snapshot_at: string | null;
   status: 'ok' | 'gap' | 'missing_ace' | 'never_scanned';
   summary: { people: number; read: number; write: number; groups: number; groups_ok: number; expiring_30d: number; gaps: number; accepted_gaps: number };
@@ -85,3 +87,16 @@ export const reopenAclGap = (fetchFn: FetchLike, rootId: number, principal: stri
 
 export const extendAccess = (fetchFn: FetchLike, accessRequestId: number, days = 30) =>
   apiPostData<{ id: number; expires_at: string | null }>(fetchFn, `/access-requests/${accessRequestId}/extend`, { days });
+
+/** Break (inherited entries kept as explicit ones) or restore the inheritance of the folder, by the worker */
+export const setFolderInheritance = (fetchFn: FetchLike, rootId: number, mode: 'break' | 'restore') =>
+  apiPostData<{ storage_root_id: number; inheritance_broken: boolean }>(fetchFn, `/storage-roots/${rootId}/inheritance`, { mode });
+
+/** Delete the folder and its content on the file server, then the storage root */
+export const deleteStorageRootFolder = (fetchFn: FetchLike, rootId: number, confirmName: string) =>
+  apiPostData(fetchFn, `/storage-roots/${rootId}/delete-folder`, { confirm_name: confirmName });
+
+export type PersonSearchResult = { username: string; name: string; dn: string | null; identity_source_id: number | null; roots: Array<{ storage_root_id: number; name: string; level: AccessLevel }> };
+
+export const searchPeople = (fetchFn: FetchLike, query: string) =>
+  apiGetData<PersonSearchResult[]>(fetchFn, '/storage-roots/people/search', { q: query });

@@ -18,6 +18,7 @@ BornToShare and directly against the directory and the file server:
   7. revocation: member removed, group and ACL kept
   8. Permissions tab: people (beneficiary, level), groups and their ACE, explanation, extension,
      an ACE set by hand outside BornToShare reported as a gap, accepted, reported again
+  9. Folder on the file server: inheritance broken and restored, folder deleted (guards first)
 """
 from __future__ import annotations
 
@@ -474,7 +475,35 @@ def main() -> int:
         api.call("DELETE", f"/storage-roots/{root_a}/permissions/exceptions?principal={urllib.parse.quote(gap['principal'])}")
         check("gap reported again", api.call("GET", f"/storage-roots/{root_a}/permissions").get("status") == "gap")
 
-    section("9. Sign-in of a directory user")
+    section("9. Folder on the file server: inheritance and deletion")
+    found = api.call("GET", f"/storage-roots/people/search?q={login_a}")
+    check("people search: a person and the folders they reach",
+          any(p.get("username") == login_a and any(r.get("storage_root_id") == root_a for r in p.get("roots", [])) for p in found))
+    api.call("POST", f"/storage-roots/{root_a}/inheritance", {"mode": "break"})
+    control = next((l for l in acl("projects", folder).splitlines() if l.startswith("CONTROL:")), "")
+    check("inheritance broken on the file server (PD)", "PD" in control.split(":", 1)[-1].split("|"), control)
+    check("state shown by BornToShare", api.call("GET", f"/storage-roots/{root_a}/permissions").get("inheritance", {}).get("broken") is True)
+    check("BornToShare groups kept on the folder", f"EXAMPLE\\{expected_name}:" in acl("projects", folder))
+    api.call("POST", f"/storage-roots/{root_a}/inheritance", {"mode": "restore"})
+    control = next((l for l in acl("projects", folder).splitlines() if l.startswith("CONTROL:")), "")
+    check("inheritance restored", "PD" not in control.split(":", 1)[-1].split("|"), control)
+
+    status, body = api.call("POST", f"/storage-roots/{root_a}/delete-folder", {"confirm_name": f"E2E {folder}"}, raw=True)
+    code = (((body.get("error") or {}).get("details") or {}).get("upstream_detail") or {}).get("error", {}).get("code")
+    check("deletion refused while accesses are in force", status == 409 and smb("projects", "Administrator", ADMIN_PASSWORD, f"cd {folder}; ls"),
+          f"HTTP {status} {code}")
+    folder_x = f"e2e-{STAMP}-x"
+    root_x = add_root(api, endpoint_id, "projects", folder_x)
+    smb("projects", "Administrator", ADMIN_PASSWORD, f"mkdir {folder_x}\\sub; cd {folder_x}\\sub; put /etc/hostname note.txt")
+    status, _ = api.call("POST", f"/storage-roots/{root_x}/delete-folder", {"confirm_name": "wrong name"}, raw=True)
+    check("deletion refused without the exact name", status == 422, f"HTTP {status}")
+    status, _ = api.call("POST", f"/storage-roots/{root_x}/delete-folder", {"confirm_name": f"E2E {folder_x}"}, raw=True)
+    check("folder and content deleted from the file server", status == 200 and not smb("projects", "Administrator", ADMIN_PASSWORD, f"cd {folder_x}; ls"),
+          f"HTTP {status}")
+    status, _ = api.call("GET", f"/storage-roots/{root_x}/permissions", raw=True)
+    check("storage root removed from BornToShare", status == 404, f"HTTP {status}")
+
+    section("10. Sign-in of a directory user")
     if not bool(api.call("GET", f"/identity-sources/{source_id}/internal").get("auth_enabled")):
         check("sign-in skipped: sign-in is disabled on the AD lab source", True, "another source signs in example.test")
     else:

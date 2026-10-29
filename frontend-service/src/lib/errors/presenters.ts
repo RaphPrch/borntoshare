@@ -16,7 +16,11 @@ const CODE_MESSAGES: Record<string, () => string> = {
   STORAGE_ROOT_PATH_LOCKED: () => t('AD access groups and NTFS permissions are set on this folder: its path cannot change.'),
   STORAGE_ROOT_HAS_ACCESSES: () => t('This storage root still has active accesses or pending requests: revoke or decide them first.'),
   ACCESS_NOT_IN_FORCE: () => t('This access is no longer in force: it cannot be extended.'),
-  ACCESS_PERMANENT: () => t('This access has no end date: there is nothing to extend.')
+  ACCESS_PERMANENT: () => t('This access has no end date: there is nothing to extend.'),
+  FOLDER_OPERATION_FAILED: () => t('The worker could not finish the operation on the file server.'),
+  CONFIRM_NAME_MISMATCH: () => t('Type the exact name of the storage root to confirm.'),
+  FOLDER_CONTEXT_INCOMPLETE: () => t('The folder, its share or the file server account is missing.'),
+  STORAGE_ROOT_HAS_CHILDREN: () => t('Child storage roots are attached to this storage root: remove them first.')
 };
 
 /** Translated message of a known business code, for toasts and inline errors alike. */

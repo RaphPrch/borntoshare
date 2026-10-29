@@ -227,6 +227,18 @@
       "acl_gap_reopened": {
         "title": "ACL gap reported again",
         "description": "{group} on \"{root}\" is reported again"
+      },
+      "inheritance_broken": {
+        "title": "NTFS inheritance broken",
+        "description": "\"{root}\" no longer inherits the permissions of its parent folder"
+      },
+      "inheritance_restored": {
+        "title": "NTFS inheritance restored",
+        "description": "\"{root}\" inherits again the permissions of its parent folder"
+      },
+      "folder_deleted": {
+        "title": "Folder deleted from the file server",
+        "description": "The folder of \"{root}\" and its content were deleted, and the storage root removed"
       }
     },
     "access_request": {

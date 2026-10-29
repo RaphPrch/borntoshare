@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { PrincipalSearchItem } from '$lib/utils/principal-search';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
@@ -73,6 +74,7 @@
   let showCreateRequestModal = false;
   let createPrefillStorageRootId: number | null = null;
   let createPrefillAccessLevel: string | null = null;
+  let createPrefillPrincipal: PrincipalSearchItem | null = null;
   let requestParamId: number | null = null;
   let lastAutoSelectedRequestId: number | null = null;
 
@@ -174,6 +176,19 @@
     const prefillRootId = Number($page.url.searchParams.get('root') ?? 0);
     createPrefillStorageRootId = prefillRootId > 0 ? prefillRootId : null;
     createPrefillAccessLevel = String($page.url.searchParams.get('permission') ?? '').trim() || null;
+    // ?principal_dn=…&principal_username=…&principal_name=…&principal_source=… (⌘K palette)
+    const prefillDn = String($page.url.searchParams.get('principal_dn') ?? '').trim();
+    createPrefillPrincipal = prefillDn
+      ? {
+          id: prefillDn,
+          type: 'user',
+          dn: prefillDn,
+          username: $page.url.searchParams.get('principal_username'),
+          display_name: $page.url.searchParams.get('principal_name'),
+          identity_source_id: Number($page.url.searchParams.get('principal_source') ?? 0) || null,
+          auth_source: 'ad'
+        }
+      : null;
     const targetRequestId = Number($page.url.searchParams.get('request') ?? 0);
     requestParamId = targetRequestId > 0 ? targetRequestId : null;
   }
@@ -729,6 +744,7 @@
   open={showCreateRequestModal}
   prefillStorageRootId={createPrefillStorageRootId}
   prefillAccessLevel={createPrefillAccessLevel}
+  prefillPrincipal={createPrefillPrincipal}
   onClose={closeCreateRequestModal}
   onCreated={handleAccessRequestCreated}
 />

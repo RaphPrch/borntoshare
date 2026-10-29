@@ -9,8 +9,9 @@
   import { listZones } from '$lib/api/zones';
   import { listStorageEndpoints } from '$lib/api/storage-endpoints';
   import { normalizeText } from '$lib/utils/values';
+  import { searchPeople, type PersonSearchResult } from '$lib/api/storage-root-permissions';
 
-  /** Ctrl+K / ⌘K palette: jump to a page, storage root, zone or storage endpoint. */
+  /** Ctrl+K / ⌘K palette: jump to a page, storage root, zone or storage endpoint, or to a person and the folders they reach. */
   export let canSeeAdmin = false;
   export let canSeeStorageRoots = false;
   export let canSeeObservability = false;
@@ -93,9 +94,70 @@
     void goto(result.href);
   }
 
+  // People of the directory, searched on the server (2 characters or more)
+  let people: PersonSearchResult[] = [];
+  let peopleTimer: ReturnType<typeof setTimeout> | null = null;
+  let peopleSeq = 0;
+  $: schedulePeople(query);
+  function schedulePeople(value: string) {
+    if (peopleTimer) clearTimeout(peopleTimer);
+    const text = value.trim();
+    if (!canSeeStorageRoots || text.length < 2) {
+      people = [];
+      return;
+    }
+    peopleTimer = setTimeout(async () => {
+      const seq = ++peopleSeq;
+      const found = await searchPeople(fetch, text).catch(() => [] as PersonSearchResult[]);
+      if (seq === peopleSeq) people = found;
+    }, 250);
+  }
+
+  const levelWord = (level: string) => (level === 'write' ? t('modify') : t('read'));
+  const explainHref = (rootId: number, username: string) =>
+    `/storage-roots?selected=${rootId}&explain=${encodeURIComponent(username)}`;
+  function requestHref(person: PersonSearchResult): string {
+    const params = new URLSearchParams({ create: '1' });
+    if (person.dn) {
+      params.set('principal_dn', person.dn);
+      params.set('principal_username', person.username);
+      params.set('principal_name', person.name);
+      if (person.identity_source_id) params.set('principal_source', String(person.identity_source_id));
+    }
+    return `/access-requests?${params}`;
+  }
+
+  $: personResults = people.flatMap((person): Result[] => [
+    {
+      group: t('People'),
+      label: person.name,
+      detail: person.roots.length
+        ? t('reaches {count} folder(s): {list}', {
+            count: person.roots.length,
+            list: person.roots.slice(0, 3).map((r) => `${r.name} (${levelWord(r.level)})`).join(', ')
+          })
+        : t('{login} · no folder', { login: person.username }),
+      href: person.roots.length ? explainHref(person.roots[0].storage_root_id, person.username) : requestHref(person),
+      icon: 'bi-person'
+    }
+  ]);
+  // Actions on the first person found: the palette acts, not only navigates
+  $: actionResults = people.length
+    ? [
+        { group: t('Actions'), label: t('Request access for {name}…', { name: people[0].name }), detail: '', href: requestHref(people[0]), icon: 'bi-plus-lg' },
+        ...people[0].roots.slice(0, 4).map((root) => ({
+          group: t('Actions'),
+          label: t('Why {name} reaches {folder}', { name: people[0].name, folder: root.name }),
+          detail: levelWord(root.level),
+          href: explainHref(root.storage_root_id, people[0].username),
+          icon: 'bi-diagram-3'
+        }))
+      ]
+    : [];
+
   $: q = normalizeText(query);
   $: results = (q
-    ? [...pages, ...entities].filter((r) => normalizeText(`${r.label} ${r.detail}`).includes(q))
+    ? [...personResults, ...actionResults, ...[...pages, ...entities].filter((r) => normalizeText(`${r.label} ${r.detail}`).includes(q))]
     : pages
   ).slice(0, 30);
   $: if (activeIndex >= results.length) activeIndex = Math.max(0, results.length - 1);
@@ -131,14 +193,14 @@
 
 <AppModal {open} onClose={close} size="lg" showClose={false} ariaLabelledby="global-search-label" contentClass="global-search">
   <label class="global-search__field">
-    <span id="global-search-label" class="visually-hidden">{t('Search pages, storage roots, zones and endpoints')}</span>
+    <span id="global-search-label" class="visually-hidden">{t('Search people, pages, storage roots, zones and endpoints')}</span>
     <i class="bi bi-search" aria-hidden="true"></i>
     <input
       bind:this={inputEl}
       bind:value={query}
       on:keydown={onInputKeydown}
       type="text"
-      placeholder={t('Search pages, storage roots, zones and endpoints…')}
+      placeholder={t('Search a person, a storage root, a page…')}
       role="combobox"
       aria-expanded="true"
       aria-controls="global-search-results"

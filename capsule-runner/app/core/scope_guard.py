@@ -29,6 +29,8 @@ ACTION_MIN_SCOPE: dict[str, str] = {
     "remove_ad_group_member": "write",
     "grant_ad_access": "write",
     "acl_apply_via_group": "write",
+    "folder_inheritance": "write",
+    "folder_delete": "write",
 }
 
 

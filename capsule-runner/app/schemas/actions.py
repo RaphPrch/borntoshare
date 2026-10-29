@@ -262,6 +262,28 @@ class ACLApplyPayload(BaseModel):
         return self
 
 
+class FolderOperationPayload(BaseModel):
+    """A folder of a storage root on the file server: inheritance change or deletion."""
+    model_config = ConfigDict(extra="forbid")
+
+    host: str = Field(min_length=1, max_length=255)
+    share: str = Field(min_length=1, max_length=255)
+    path: str = Field(min_length=1, max_length=1024)
+    # break | restore; not « mode », which the auth block already uses (ntlm)
+    inheritance: Optional[Literal["break", "restore"]] = None
+    username: str = Field(min_length=1, max_length=255)
+    password: Optional[str] = Field(default=None, min_length=1, max_length=1024)
+    secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)
+    domain: str = Field(default="", max_length=255)
+    timeout_sec: int = Field(default=30, ge=1, le=300)
+
+    @model_validator(mode="after")
+    def _check_secret_or_password(self) -> "FolderOperationPayload":
+        if not self.password and not self.secret_ref:
+            raise ValueError("password or secret_ref is required")
+        return self
+
+
 class InfraHealthTarget(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

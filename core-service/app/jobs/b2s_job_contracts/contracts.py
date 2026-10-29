@@ -78,6 +78,19 @@ JOB_CONTRACTS: dict[str, JobContract] = {
         queue_name=QUEUE_ACL,
         actor_name="run_acl_job",
     ),
+    # Folder of a storage root on the file server (Storage roots › Permissions / delete)
+    "FOLDER_INHERITANCE": JobContract(
+        job_type="FOLDER_INHERITANCE",
+        default_action="folder_inheritance",
+        queue_name=QUEUE_ACL,
+        actor_name="run_acl_job",
+    ),
+    "FOLDER_DELETE": JobContract(
+        job_type="FOLDER_DELETE",
+        default_action="folder_delete",
+        queue_name=QUEUE_ACL,
+        actor_name="run_acl_job",
+    ),
     "SMB_PROBE": JobContract(
         job_type="SMB_PROBE",
         default_action="test_smb_ntlm",

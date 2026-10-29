@@ -81,3 +81,12 @@ def test_build_sorts_acl_and_people() -> None:
     assert people["alice.finance"]["via"][0]["kind"] == "ad_only"  # in the group without a request
     assert people["bob"]["via"][0]["kind"] == "outside"
     assert result["summary"]["people"] == 3 and result["summary"]["write"] == 1
+
+
+def test_inheritance_state_reads_the_control_flags():
+    from app.services.storage_root_permissions import inheritance_state
+
+    aces = [{"raw": "ALLOWED/OI|CI|I/FULL"}, {"raw": "ALLOWED/OI|CI/READ"}, {"raw": "garbage"}]
+    assert inheritance_state("SR|PD|DP", aces) == {"known": True, "broken": True, "inherited_entries": 1}
+    assert inheritance_state("SR|DP", aces)["broken"] is False
+    assert inheritance_state(None, [])["known"] is False

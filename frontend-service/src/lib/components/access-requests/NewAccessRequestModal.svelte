@@ -19,6 +19,8 @@
   export let open = false;
   export let prefillStorageRootId: number | null = null;
   export let prefillAccessLevel: string | null = null;
+  /** Beneficiary chosen beforehand (⌘K palette « Request access for… ») */
+  export let prefillPrincipal: PrincipalSearchItem | null = null;
   export let onClose: () => void = () => {};
   export let onCreated: () => void = () => {};
 
@@ -147,8 +149,8 @@
 
   function resetFlow() {
     showAdBrowser = false;
-    selectedPrincipals = [];
-    selectedPrincipalKeys = [];
+    selectedPrincipals = prefillPrincipal ? [prefillPrincipal] : [];
+    selectedPrincipalKeys = prefillPrincipal ? [principalKey(prefillPrincipal as Record<string, unknown>) || 'principal-0'] : [];
     selectedAccess = normalizePrefillAccessChoice(prefillAccessLevel);
     ttlPreset = '30';
     customTtlDays = 45;

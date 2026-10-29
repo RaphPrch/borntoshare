@@ -26,6 +26,8 @@ _PROBE_JOB_TYPE_BY_TEMPLATE = {
     "search_ldap_principals": "IDENTITY_SEARCH",
     "search_ldaps_principals": "IDENTITY_SEARCH",
     "acl_apply_via_group": "ACL_APPLY",
+    "folder_inheritance": "FOLDER_INHERITANCE",
+    "folder_delete": "FOLDER_DELETE",
 }
 
 
@@ -356,6 +358,36 @@ async def _enrich_acl_probe_payload(
     return target, auth, options, context
 
 
+async def _enrich_folder_payload(
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Folder of a storage root on its file server (inheritance, deletion), with the file server account."""
+    target = dict(payload.get("target") or {})
+    options = dict(payload.get("options") or {})
+    context = dict(payload.get("context") or {})
+    storage_root_id = positive_int(target.get("storage_root_id")) or positive_int(context.get("storage_root_id"))
+    ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(storage_root_id or 0)) if storage_root_id else None
+    if not isinstance(ctx, dict):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error_code": "STORAGE_ROOT_NOT_FOUND", "message": "Storage root not found"})
+    host, share, rel_path = _parse_unc_root_path(ctx.get("root_path"))
+    username, secret_ref = _probe_credentials({}, ctx)
+    if not (host and share and rel_path and username and secret_ref):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error_code": "FOLDER_CONTEXT_INCOMPLETE", "message": "The folder, its share or the file server account is missing",
+                    "storage_root_id": int(storage_root_id or 0)},
+        )
+    target = {"host": host, "share": share, "path": rel_path, "storage_root_id": int(storage_root_id or 0),
+              **({"inheritance": target["inheritance"]} if target.get("inheritance") else {})}
+    auth = {"mode": "ntlm", "username": username, "secret_ref": secret_ref}
+    domain_name = str(ctx.get("domain_name") or "").strip()
+    if domain_name:
+        auth["domain"] = domain_name
+    options["timeout_sec"] = int(options.get("timeout_sec") or 60)
+    context["storage_root_id"] = int(storage_root_id or 0)
+    return target, auth, options, context
+
+
 async def _enrich_storage_root_probe_payload(
     payload: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -463,6 +495,10 @@ def _pick_template(kind: str, protocol: str) -> tuple[str, str]:
         return "test_smb_root_access", "v1"
     if kind_norm == "acl" and protocol_norm == "acl_push":
         return "acl_apply_via_group", "v1"
+    if kind_norm == "folder" and protocol_norm == "inheritance":
+        return "folder_inheritance", "v1"
+    if kind_norm == "folder" and protocol_norm == "delete":
+        return "folder_delete", "v1"
 
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -502,6 +538,8 @@ async def submit_probe_run(payload: dict[str, Any]) -> dict[str, Any]:
         target, auth, options, context = await _enrich_acl_probe_payload(payload)
     if template_slug == "test_smb_root_access":
         target, auth, options, context = await _enrich_storage_root_probe_payload(payload)
+    if template_slug in {"folder_inheritance", "folder_delete"}:
+        target, auth, options, context = await _enrich_folder_payload(payload)
 
     identity_source_id = positive_int(context.get("identity_source_id"))
     timeout_sec = int(options.get("timeout_sec") or 30)

@@ -23,9 +23,9 @@
   import { expiryProgress, levelLabel, viaLabel } from './permissions-format';
 
   /**
-   * Storage roots › Permissions: who reaches the folder and why.
-   * State of the ACL, an access checker, the map people -> AD groups -> folder, the people,
-   * the entries added outside BornToShare and the expected system accounts.
+   * Storage roots › Permissions, on one surface: the state of the ACL in a sentence, an access checker,
+   * the flow people -> AD groups -> folder (bands sized by members, click = filter), the people,
+   * the entries set outside BornToShare and the expected system accounts.
    */
   export let data: StorageRootPermissionsData | null = null;
   export let loading = false;
@@ -34,22 +34,24 @@
   export let rootName = '';
   export let canManage = false;
   export let isAdmin = false;
-  export let rescanBusy = false;
-  export let onRescan: (() => void) | null = null;
   export let onChanged: () => void = () => {};
+  export let onToggleInheritance: () => void = () => {};
+  /** Login to explain at once (⌘K palette, link from another page) */
+  export let explainLogin: string | null = null;
 
-  // ---------------------------------------------------------------- state of the ACL
-  const STATUS: Record<StorageRootPermissionsData['status'], { tone: string; icon: string; title: () => string }> = {
-    ok: { tone: 'ok', icon: 'bi-shield-check', title: () => t('ACL compliant with BornToShare') },
-    gap: { tone: 'warn', icon: 'bi-shield-exclamation', title: () => t('ACL compliant, gap(s) to review') },
-    missing_ace: { tone: 'bad', icon: 'bi-shield-x', title: () => t('A BornToShare group is missing from the ACL') },
-    never_scanned: { tone: 'idle', icon: 'bi-shield', title: () => t('ACL never read') }
+  const STATE: Record<StorageRootPermissionsData['status'], { tone: string; word: () => string }> = {
+    ok: { tone: 'ok', word: () => t('Compliant.') },
+    gap: { tone: 'warn', word: () => t('To review.') },
+    missing_ace: { tone: 'bad', word: () => t('Incomplete.') },
+    never_scanned: { tone: 'idle', word: () => t('Not read yet.') }
   };
-  $: status = data ? STATUS[data.status] : null;
+  $: state = data ? STATE[data.status] : null;
   $: openGaps = data?.gaps.filter((g) => !g.accepted) ?? [];
   $: acceptedGaps = data?.gaps.filter((g) => g.accepted) ?? [];
+  $: outsidePeople = data?.people.filter((p) => p.via.every((v) => v.kind === 'outside')) ?? [];
+  $: governedPeople = data?.people.filter((p) => !p.via.every((v) => v.kind === 'outside')) ?? [];
 
-  // ---------------------------------------------------------------- access checker
+  // ---------------------------------------------------------------- checker
   let query = '';
   let checking = false;
   let checked: AccessExplanation | null = null;
@@ -82,48 +84,49 @@
     if (timer) clearTimeout(timer);
   });
 
-  // ---------------------------------------------------------------- map
-  $: lanes = [
-    ...(data?.groups ?? []).map((g) => ({
-      key: `g:${g.name}`,
-      group: g.name,
-      managed: true,
-      level: g.level,
-      state: g.ace,
-      rights: g.rights_label,
-      scope: g.inherited_scope,
-      members: data?.people.filter((p) => p.via.some((v) => v.kind !== 'request' && 'group' in v && v.group === g.name)) ?? []
-    })),
+  // ---------------------------------------------------------------- flow bands
+  type Band = { key: string; group: string; level: 'read' | 'write' | null; managed: boolean; state: string; rights: string | null; members: PermissionPerson[] };
+  const groupOfVia = (p: PermissionPerson) =>
+    p.via.filter((v) => v.kind !== 'request' && 'group' in v).map((v) => String((v as { group: string }).group));
+  $: bands = [
+    ...(data?.groups ?? []).map(
+      (g): Band => ({ key: `g:${g.name}`, group: g.name, level: g.level, managed: true, state: g.ace, rights: g.rights_label,
+        members: data?.people.filter((p) => groupOfVia(p).includes(g.name)) ?? [] })
+    ),
     ...openGaps
       .filter((g) => (g.members_count ?? 0) > 0 || g.kind === 'broad')
-      .map((g) => ({
-        key: `x:${g.principal}`,
-        group: g.name,
-        managed: false,
-        level: g.level,
-        state: 'outside' as const,
-        rights: g.rights_label,
-        scope: g.inherited_scope,
-        members: data?.people.filter((p) => p.via.some((v) => v.kind === 'outside' && v.group === g.name)) ?? []
-      }))
+      .map((g): Band => ({ key: `x:${g.principal}`, group: g.name, level: g.level, managed: false, state: 'outside', rights: g.rights_label,
+        members: data?.people.filter((p) => groupOfVia(p).includes(g.name)) ?? [] }))
   ];
+  $: maxMembers = Math.max(1, ...bands.map((b) => b.members.length));
+  const bandHeight = (count: number) => 34 + Math.round((Math.min(count, maxMembers) / maxMembers) * 42);
 
   // ---------------------------------------------------------------- people
-  let levelFilter: 'all' | 'read' | 'write' = 'all';
+  let filter: 'all' | 'read' | 'write' | 'ending' = 'all';
+  let groupFilter: string | null = null;
   let search = '';
-  $: people = (data?.people ?? []).filter((p) => {
-    if (levelFilter !== 'all' && p.level !== levelFilter) return false;
+  $: horizon = Date.now() + 30 * 86400000;
+  $: people = governedPeople.filter((p) => {
+    if (filter === 'read' || filter === 'write') if (p.level !== filter) return false;
+    if (filter === 'ending' && !(p.expires_at && Date.parse(p.expires_at) <= horizon)) return false;
+    if (groupFilter && !groupOfVia(p).includes(groupFilter)) return false;
     const q = search.trim().toLowerCase();
     return !q || `${p.name} ${p.username ?? ''}`.toLowerCase().includes(q);
   });
 
+  const toggleGroup = (name: string) => (groupFilter = groupFilter === name ? null : name);
   const mainRequest = (p: PermissionPerson) =>
     p.via.find((v) => v.kind === 'request' && v.level === p.level) as Extract<PermissionPerson['via'][number], { kind: 'request' }> | undefined;
-  const groupOf = (p: PermissionPerson) => p.via.find((v) => v.kind !== 'request' && 'group' in v)?.['group' as never] as string | undefined;
 
   // ---------------------------------------------------------------- drawer, actions
   let explainFor: string | null = null;
+  let explainedFrom: string | null = null;
+  $: if (explainLogin && explainLogin !== explainedFrom) {
+    explainedFrom = explainLogin;
+    explainFor = explainLogin;
+  }
   let revoking: PermissionPerson | null = null;
+  let showSystem = false;
   let busy = false;
 
   async function revoke() {
@@ -167,151 +170,148 @@
       { header: t('Until'), value: (p: PermissionPerson) => (p.expires_at ? formatDate(p.expires_at) : t('Permanent')) }
     ], data?.people ?? []);
   }
+
+  const gapPeople = (gap: AclEntry) => outsidePeople.filter((p) => groupOfVia(p).includes(gap.name));
 </script>
 
 {#if loading && !data}
   <LoadingState block>{t('Reading the permissions…')}</LoadingState>
 {:else if error && !data}
   <InlineAlert tone="error">{error}</InlineAlert>
-{:else if data && status}
+{:else if data && state}
   <div class="pm">
-    <!-- State of the ACL -->
-    <section class={`pm-hero is-${status.tone}`} aria-label={t('State of the ACL')}>
-      <span class="pm-hero__icon"><i class={`bi ${status.icon}`} aria-hidden="true"></i></span>
-      <div class="pm-hero__text">
-        <strong>{status.title()}</strong>
-        <span>
-          {#if data.acl_scanned_at}
-            {t('Read on the file server {ago}', { ago: timeAgo(data.acl_scanned_at) })} · {t('{count} entries', { count: data.acl_entries })} ·
-            {t('{ok}/{total} BornToShare groups in place', { ok: data.summary.groups_ok, total: data.summary.groups })}
-            {#if data.summary.gaps} · {t('{count} entry(ies) outside BornToShare', { count: data.summary.gaps })}{/if}
-          {:else}
-            {t('Read the ACL to see who reaches this folder.')}
+    <!-- the state in one sentence -->
+    <section class="pm-state" aria-label={t('State of the ACL')}>
+      <p class="pm-sentence">
+        <span class={`pm-word is-${state.tone}`}>{state.word()}</span>
+        {#if !data.acl_scanned_at}
+          {t('Read the ACL to see who reaches this folder.')}
+        {:else}
+          {t('{count} person(s) reach this folder', { count: data.summary.people })}{#if data.summary.people},
+            <span class="is-read">{t('{count} read', { count: data.summary.read })}</span> {t('and')}
+            <span class="is-write">{t('{count} modify', { count: data.summary.write })}</span>{/if},
+          {t('through {count} AD group(s)', { count: data.summary.groups })}.
+          {#if data.summary.groups_ok < data.summary.groups}
+            <span class="is-bad">{t('{count} group(s) without their ACE.', { count: data.summary.groups - data.summary.groups_ok })}</span>
           {/if}
-        </span>
-        {#if data.snapshot_at}<small>{t('Directory synchronised {ago}', { ago: timeAgo(data.snapshot_at) })}</small>{/if}
-      </div>
-      <div class="pm-hero__actions">
-        {#if onRescan}
-          <button type="button" class="b2s-btn b2s-btn-secondary" disabled={rescanBusy} on:click={() => onRescan?.()}>
-            <i class={`bi ${rescanBusy ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} aria-hidden="true"></i>{rescanBusy ? t('Reading…') : t('Read the ACL')}
-          </button>
+          {#if openGaps.length}
+            <span class="is-write">{t('{count} entry(ies) set outside BornToShare.', { count: openGaps.length })}</span>
+          {/if}
         {/if}
-        <button type="button" class="b2s-btn b2s-btn-secondary" disabled={!data.people.length} on:click={exportCsv}>
+      </p>
+      <div class="pm-meta">
+        {#if data.acl_scanned_at}
+          <span>{t('ACL read {ago}', { ago: timeAgo(data.acl_scanned_at) })} · {t('{count} entries', { count: data.acl_entries })}</span>
+        {/if}
+        {#if data.snapshot_at}<span>· {t('directory synchronised {ago}', { ago: timeAgo(data.snapshot_at) })}</span>{/if}
+        {#if data.inheritance?.known}
+          <span class="pm-inherit" class:is-broken={data.inheritance.broken}>
+            · <i class={`bi ${data.inheritance.broken ? 'bi-scissors' : 'bi-diagram-3'}`} aria-hidden="true"></i>
+            {data.inheritance.broken ? t('inheritance broken') : t('inherits from the parent folder')}
+            {#if isAdmin}<button type="button" class="pm-textbtn" on:click={onToggleInheritance}>{data.inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
+          </span>
+        {/if}
+        <button type="button" class="pm-textbtn pm-export" disabled={!data.people.length} on:click={exportCsv}>
           <i class="bi bi-download" aria-hidden="true"></i>{t('Export')}
         </button>
       </div>
     </section>
 
-    <!-- Summary -->
-    <section class="pm-tiles" aria-label={t('Summary')}>
-      <div class="pm-tile">
-        <span>{t('People with access')}</span>
-        <strong>{data.summary.people}</strong>
-        {#if data.summary.people}
-          <div class="pm-split" aria-hidden="true">
-            <span class="is-read" style={`flex: ${data.summary.read}`}></span><span class="is-write" style={`flex: ${data.summary.write}`}></span>
-          </div>
-          <small><i class="pm-key is-read"></i>{t('{count} read', { count: data.summary.read })} <i class="pm-key is-write"></i>{t('{count} modify', { count: data.summary.write })}</small>
+    <!-- checker -->
+    <section class="pm-check" aria-label={t('Check the access of a person')}>
+      <label class="pm-check__field">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <span class="pm-check__ask">{t('Who reaches it?')}</span>
+        <input type="search" bind:value={query} placeholder={t('Type a login, e.g. paul.martin')} autocomplete="off" aria-label={t('Username')} />
+      </label>
+      <div class="pm-check__answer" aria-live="polite">
+        {#if checking}
+          <span class="pm-muted">{t('Checking…')}</span>
+        {:else if checked?.found}
+          <span class={`pm-dot is-${checked.person.level}`} aria-hidden="true"></span>
+          <strong>{checked.person.name}</strong>
+          <span>{checked.person.level === 'write' ? t('modifies this folder') : t('reads this folder')}</span>
+          <span class="pm-muted">—</span>
+          {#each checked.steps as step, index}
+            {#if index}<span class="pm-muted" aria-hidden="true">→</span>{/if}
+            {#if step.kind === 'request'}
+              <span class="pm-chip">{t('{code} validated', { code: step.code })}{step.approver ? ` · ${step.approver}` : ''}</span>
+            {:else if step.kind === 'membership'}
+              <code class="pm-chip">{step.group}</code>
+            {:else}
+              <span class="pm-chip">{step.rights_label ? t(step.rights_label) : t('No ACE')}</span>
+            {/if}
+          {/each}
+          {#if checked.person.expires_at}
+            <span class="is-write">· {t('ends {date}', { date: formatDate(checked.person.expires_at) })}</span>
+          {/if}
+          <button type="button" class="pm-textbtn pm-push" on:click={() => checked?.found && (explainFor = checked.person.username ?? checked.person.name)}>{t('Details')}</button>
+        {:else if checkedMissing}
+          <span class="pm-dot is-none" aria-hidden="true"></span>
+          <span>
+            {checkedMissing.known_in_directory
+              ? t('{name} has no access to this folder', { name: checkedMissing.display_name || checkedMissing.username })
+              : t('No directory account named {name}', { name: checkedMissing.username })}
+          </span>
+        {:else}
+          <span class="pm-muted">{t('The answer shows here, with the path request → AD group → folder.')}</span>
         {/if}
       </div>
-      <div class="pm-tile">
-        <span>{t('BornToShare groups')}</span>
-        <strong>{data.summary.groups_ok}<em>/{data.summary.groups}</em></strong>
-        <small>{data.summary.groups_ok === data.summary.groups ? t('Each group has its ACE on the folder.') : t('A group has lost its ACE: approve a request again to put it back.')}</small>
-      </div>
-      <div class="pm-tile">
-        <span>{t('Accesses ending within 30 days')}</span>
-        <strong>{data.summary.expiring_30d}</strong>
-        <small>{t('Removed from their group automatically at the end date.')}</small>
-      </div>
     </section>
 
-    <!-- Access checker -->
-    <section class="pm-check" aria-label={t('Check the access of a person')}>
-      <div>
-        <strong>{t('Check the access of a person')}</strong>
-        <span>{t('Type a login: BornToShare says whether the person reaches this folder, at which level and why.')}</span>
-      </div>
-      <div class="pm-check__row">
-        <label class="pm-check__input">
-          <i class="bi bi-search" aria-hidden="true"></i>
-          <span class="visually-hidden">{t('Username')}</span>
-          <input type="search" bind:value={query} placeholder={t('e.g. paul.martin')} autocomplete="off" />
-        </label>
-        <div class="pm-check__answer" aria-live="polite">
-          {#if checking}
-            <span class="pm-check__muted">{t('Checking…')}</span>
-          {:else if checked?.found}
-            <span class={`pm-check__verdict is-${checked.person.level}`}>
-              {t('{name} has {level} access', { name: checked.person.name, level: levelLabel(checked.person.level).toLowerCase() })}
-            </span>
-            {#each checked.person.via as via}
-              <span class="pm-chip">{viaLabel(via)}</span>
-              {#if 'group' in via && via.group && via.kind !== 'request'}<span class="pm-chip is-mono">{via.group}</span>{/if}
+    <!-- flow -->
+    {#if bands.length}
+      <section class="pm-flow" aria-label={t('From the people to the folder')}>
+        <h2>{t('From the people to the folder')}</h2>
+        <div class="pm-flow__grid">
+          <div class="pm-flow__bands">
+            {#each bands as band (band.key)}
+              <button
+                type="button"
+                class={`pm-band is-${band.managed ? band.level ?? 'read' : 'outside'}`}
+                class:is-active={groupFilter === band.group}
+                style={`height: ${bandHeight(band.members.length)}px`}
+                aria-pressed={groupFilter === band.group}
+                title={t('Show only its members')}
+                on:click={() => toggleGroup(band.group)}
+              >
+                <span class="pm-band__people">
+                  <span class="pm-stack">
+                    {#each band.members.slice(0, 5) as member (member.key)}<span class="pm-face">{initials(member.name)}</span>{/each}
+                  </span>
+                  <span>{band.members.length ? t('{count} person(s)', { count: band.members.length }) : t('No member yet')}</span>
+                </span>
+                <span class="pm-band__group">
+                  <code>{band.group}</code>
+                  <small>
+                    {band.managed ? t('managed') : t('outside BornToShare')} ·
+                    {band.state === 'ok' ? t('ACE in place') : band.state === 'missing' ? t('ACE missing') : band.state === 'mismatch' ? t('Unexpected rights') : band.rights ? t(band.rights) : ''}
+                  </small>
+                </span>
+              </button>
             {/each}
-            <button type="button" class="pm-check__more" on:click={() => checked?.found && (explainFor = checked.person.username ?? checked.person.name)}>{t('Details')}</button>
-          {:else if checkedMissing}
-            <span class="pm-check__verdict is-none">
-              {checkedMissing.known_in_directory
-                ? t('{name} has no access to this folder', { name: checkedMissing.display_name || checkedMissing.username })
-                : t('No directory account named {name}', { name: checkedMissing.username })}
-            </span>
-          {:else}
-            <span class="pm-check__muted">{t('The answer shows here, with the path request → AD group → folder.')}</span>
-          {/if}
-        </div>
-      </div>
-    </section>
-
-    <!-- Map -->
-    {#if lanes.length}
-      <section class="b2s-panel" aria-label={t('Access map')}>
-        <div class="b2s-panel__head">
-          <h2>{t('Access map')}</h2>
-          <span class="pm-sub">{t('From the people to the folder, through the AD groups')}</span>
-        </div>
-        <div class="pm-map">
-          {#each lanes as lane (lane.key)}
-            <div class="pm-lane">
-              <div class="pm-lane__people">
-                {#each lane.members.slice(0, 6) as member (member.key)}
-                  <button type="button" class="pm-person" on:click={() => (explainFor = member.username ?? member.name)}>
-                    <span class="pm-avatar">{initials(member.name)}</span>{member.name}
-                  </button>
-                {:else}
-                  <span class="pm-lane__empty">{t('No member yet')}</span>
-                {/each}
-                {#if lane.members.length > 6}<span class="pm-lane__more">+{lane.members.length - 6}</span>{/if}
-              </div>
-              <span class="pm-link" aria-hidden="true"></span>
-              <div class={`pm-group is-${lane.managed ? lane.level : 'outside'}`}>
-                <strong class="is-mono">{lane.group}</strong>
-                <small>
-                  {t('{count} member(s)', { count: lane.members.length })} ·
-                  {lane.managed ? t('managed by BornToShare') : t('outside BornToShare')}
-                </small>
-                {#if lane.state === 'missing'}<em class="pm-flag">{t('ACE missing')}</em>{:else if lane.state === 'mismatch'}<em class="pm-flag">{t('Unexpected rights')}</em>{/if}
-              </div>
-              <span class="pm-link" aria-hidden="true"></span>
-              <div class="pm-folder">
-                <strong>{lane.rights ? t(lane.rights) : t('No ACE')}</strong>
-                <small>{lane.scope ? t('this folder, subfolders and files') : t('this folder only')}</small>
-              </div>
-            </div>
-          {/each}
+          </div>
+          <div class="pm-flow__folder">
+            <small class="pm-mono">{data.root_path ?? ''}</small>
+            <strong>{rootName}</strong>
+            <small>{data.inheritance?.broken ? t('inheritance broken') : t('folder, subfolders and files')}</small>
+          </div>
         </div>
       </section>
     {/if}
 
-    <!-- People -->
-    <section class="b2s-panel" aria-label={t('Who has access')}>
-      <div class="b2s-panel__head pm-people-head">
+    <!-- people -->
+    <section class="pm-people" aria-label={t('Who has access')}>
+      <div class="pm-people__head">
         <h2>{t('Who has access')}</h2>
-        <div class="b2s-segments" role="group" aria-label={t('Filter by level')}>
-          <button type="button" class:is-active={levelFilter === 'all'} on:click={() => (levelFilter = 'all')}>{t('All')} <span>{data.summary.people}</span></button>
-          <button type="button" class:is-active={levelFilter === 'read'} on:click={() => (levelFilter = 'read')}>{t('Read')} <span>{data.summary.read}</span></button>
-          <button type="button" class:is-active={levelFilter === 'write'} on:click={() => (levelFilter = 'write')}>{t('Modify')} <span>{data.summary.write}</span></button>
+        <div class="pm-filters" role="group" aria-label={t('Filter by level')}>
+          <button type="button" class:is-active={filter === 'all'} on:click={() => (filter = 'all')}>{t('All')} {governedPeople.length}</button>
+          <button type="button" class:is-active={filter === 'read'} on:click={() => (filter = 'read')}>{t('Read')} {data.summary.read}</button>
+          <button type="button" class:is-active={filter === 'write'} on:click={() => (filter = 'write')}>{t('Modify')} {data.summary.write}</button>
+          <button type="button" class:is-active={filter === 'ending'} on:click={() => (filter = 'ending')}>{t('Ending within 30 days')} {data.summary.expiring_30d}</button>
+          {#if groupFilter}
+            <button type="button" class="is-active is-group" on:click={() => (groupFilter = null)}>{groupFilter} <i class="bi bi-x" aria-hidden="true"></i></button>
+          {/if}
         </div>
         <label class="pm-search">
           <i class="bi bi-search" aria-hidden="true"></i>
@@ -319,109 +319,88 @@
           <input type="search" bind:value={search} placeholder={t('Search a person')} />
         </label>
       </div>
-      {#if people.length === 0}
-        <p class="pm-empty">{data.summary.people ? t('Nobody matches this filter.') : t('Nobody reaches this folder through BornToShare yet.')}</p>
-      {:else}
-        <div class="b2s-table-wrap">
-          <table class="b2s-table pm-table">
-            <thead>
-              <tr>
-                <th>{t('Person')}</th>
-                <th>{t('Access')}</th>
-                <th>{t('By')}</th>
-                <th>{t('Until')}</th>
-                <th><span class="visually-hidden">{t('Actions')}</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each people as person (person.key)}
-                {@const request = mainRequest(person)}
-                {@const progress = person.expires_at ? expiryProgress(request?.decided_at ?? null, person.expires_at) : null}
-                <tr>
-                  <td>
-                    <button type="button" class="pm-who" on:click={() => (explainFor = person.username ?? person.name)}>
-                      <span class="pm-avatar is-lg">{initials(person.name)}</span>
-                      <span><strong>{person.name}</strong><small>{person.username ?? ''}</small></span>
-                    </button>
-                  </td>
-                  <td><span class={`pm-level is-${person.level}`}>{levelLabel(person.level)}</span></td>
-                  <td>
-                    <div class="pm-via">
-                      {#each person.via as via}
-                        <span class={`pm-chip is-${via.kind}`}>{viaLabel(via)}</span>
-                      {/each}
-                      {#if groupOf(person)}<span class="pm-mono">{groupOf(person)}</span>{/if}
-                      {#if person.warnings.includes('awaiting_sync')}<span class="pm-chip is-info" title={t('Approved recently: the next directory sync confirms the group membership.')}>{t('Sync pending')}</span>{/if}
-                      {#if person.warnings.includes('missing_in_group')}<span class="pm-chip is-outside">{t('Missing from the group')}</span>{/if}
-                    </div>
-                  </td>
-                  <td>
-                    {#if person.expires_at && progress}
-                      <span title={formatDateTime(person.expires_at)}>{formatDate(person.expires_at)} · {t('in {days} d', { days: progress.daysLeft })}</span>
-                      <div class="pm-time" class:is-soon={progress.soon} aria-hidden="true"><span style={`width: ${progress.percentLeft}%`}></span></div>
-                    {:else}
-                      <span class="pm-muted">{request ? t('Permanent') : '—'}</span>
-                    {/if}
-                  </td>
-                  <td class="pm-actions">
-                    {#if canManage && person.revocable_request_ids.length}
-                      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" disabled={busy} on:click={() => (revoking = person)}>{t('Revoke')}</button>
-                    {/if}
-                  </td>
-                </tr>
+
+      {#if people.length === 0 && !openGaps.length}
+        <p class="pm-empty">{governedPeople.length ? t('Nobody matches this filter.') : t('Nobody reaches this folder through BornToShare yet.')}</p>
+      {/if}
+      <ul class="pm-rows">
+        {#each people as person (person.key)}
+          {@const request = mainRequest(person)}
+          {@const progress = person.expires_at ? expiryProgress(request?.decided_at ?? null, person.expires_at) : null}
+          <li class="pm-row">
+            <button type="button" class="pm-who" on:click={() => (explainFor = person.username ?? person.name)}>
+              <span class={`pm-face is-lg is-${person.level}`}>{initials(person.name)}</span>
+              <span><strong>{person.name}</strong><small>{person.username ?? ''}</small></span>
+            </button>
+            <span class={`pm-level is-${person.level}`}>{levelLabel(person.level)}</span>
+            <span class="pm-via">
+              {#each person.via as via}<span class={`pm-chip is-${via.kind}`}>{viaLabel(via)}</span>{/each}
+              {#each groupOfVia(person) as group}<code>{group}</code>{/each}
+              {#if person.warnings.includes('awaiting_sync')}<span class="pm-chip is-info" title={t('Approved recently: the next directory sync confirms the group membership.')}>{t('Sync pending')}</span>{/if}
+              {#if person.warnings.includes('missing_in_group')}<span class="pm-chip is-outside">{t('Missing from the group')}</span>{/if}
+            </span>
+            <span class="pm-until">
+              {#if person.expires_at && progress}
+                <span title={formatDateTime(person.expires_at)}>{formatDate(person.expires_at)} · {t('in {days} d', { days: progress.daysLeft })}</span>
+                <span class="pm-time" class:is-soon={progress.soon} aria-hidden="true"><span style={`width: ${progress.percentLeft}%`}></span></span>
+              {:else}
+                <span class="pm-muted">{request ? t('Permanent') : '—'}</span>
+              {/if}
+            </span>
+            <span class="pm-actions">
+              {#if canManage && person.revocable_request_ids.length}
+                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" disabled={busy} on:click={() => (revoking = person)}>{t('Revoke')}</button>
+              {/if}
+            </span>
+          </li>
+        {/each}
+
+        <!-- entries set by hand on the file server, in the list -->
+        {#each openGaps as gap (gap.principal)}
+          <li class="pm-row is-gap">
+            <span class="pm-who is-static">
+              <span class="pm-face is-lg is-outside"><i class="bi bi-exclamation-lg" aria-hidden="true"></i></span>
+              <span>
+                <strong>{gap.kind === 'broad' ? t('Folder open widely') : gap.name}</strong>
+                <small>{t('{rights}, set directly on the file server', { rights: t(gap.rights_label) })}</small>
+              </span>
+            </span>
+            <span class="pm-via">
+              {#each gapPeople(gap).slice(0, 4) as person (person.key)}
+                <button type="button" class="pm-chip is-outside" on:click={() => (explainFor = person.username ?? person.name)}>{person.name}</button>
               {/each}
-            </tbody>
-          </table>
-        </div>
+              {#if gap.members_count}<span class="pm-muted">{t('{count} member(s) without a request or a guardian', { count: gap.members_count })}</span>{/if}
+            </span>
+            <span class="pm-actions">
+              {#if isAdmin}
+                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} on:click={() => toggleGap(gap, true)}>{t('Accept the gap')}</button>
+              {/if}
+            </span>
+          </li>
+        {/each}
+      </ul>
+
+      <p class="pm-foot">
+        {#if acceptedGaps.length}
+          {t('{count} accepted gap(s):', { count: acceptedGaps.length })}
+          {#each acceptedGaps as gap, i (gap.principal)}
+            {i ? ', ' : ''}<span class="pm-mono">{gap.name}</span>{#if isAdmin} <button type="button" class="pm-textbtn" disabled={busy} on:click={() => toggleGap(gap, false)}>{t('Report again')}</button>{/if}
+          {/each}
+          <br />
+        {/if}
+        {#if data.system.length}
+          {t('+ {count} expected system account(s)', { count: data.system.length })}
+          <button type="button" class="pm-textbtn" aria-expanded={showSystem} on:click={() => (showSystem = !showSystem)}>{showSystem ? t('Hide') : t('Show')}</button>
+        {/if}
+      </p>
+      {#if showSystem}
+        <ul class="pm-system">
+          {#each data.system as entry (entry.principal)}
+            <li><span>{entry.kind === 'service' ? t('BornToShare account') : entry.name}</span><code>{entry.principal}</code><span class="pm-muted">{t(entry.rights_label)}</span></li>
+          {/each}
+        </ul>
       {/if}
     </section>
-
-    <!-- Gaps -->
-    {#each openGaps as gap (gap.principal)}
-      <section class="pm-gap" aria-label={t('Entry outside BornToShare')}>
-        <div>
-          <strong>{gap.kind === 'broad' ? t('Folder open widely') : t('Added outside BornToShare')}</strong>
-          <span>
-            <span class="pm-mono">{gap.principal}</span>
-            {t('has {rights} on this folder, set directly on the file server.', { rights: t(gap.rights_label).toLowerCase() })}
-            {#if gap.members_count}{t('Its {count} member(s) reach it without a request or a guardian.', { count: gap.members_count })}{/if}
-          </span>
-        </div>
-        {#if isAdmin}
-          <button type="button" class="b2s-btn b2s-btn-secondary" disabled={busy} on:click={() => toggleGap(gap, true)}>{t('Accept the gap')}</button>
-        {/if}
-      </section>
-    {/each}
-
-    {#if acceptedGaps.length}
-      <details class="pm-details">
-        <summary>{t('Accepted gaps')} <span>· {acceptedGaps.length}</span></summary>
-        <ul class="pm-list">
-          {#each acceptedGaps as gap (gap.principal)}
-            <li>
-              <span><strong>{gap.name}</strong><small class="pm-mono">{gap.principal} · {t(gap.rights_label)}</small></span>
-              <span class="pm-muted">{gap.accepted_by ? t('accepted by {name}', { name: gap.accepted_by }) : ''}</span>
-              {#if isAdmin}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} on:click={() => toggleGap(gap, false)}>{t('Report again')}</button>{/if}
-            </li>
-          {/each}
-        </ul>
-      </details>
-    {/if}
-
-    <!-- System accounts -->
-    {#if data.system.length}
-      <details class="pm-details">
-        <summary>{t('System and administration accounts')} <span>· {t('{count} expected entries', { count: data.system.length })}</span></summary>
-        <ul class="pm-list is-grid">
-          {#each data.system as entry (entry.principal)}
-            <li>
-              <span><strong>{entry.kind === 'service' ? t('BornToShare account') : entry.name}</strong><small class="pm-mono">{entry.principal}</small></span>
-              <span class="pm-muted">{t(entry.rights_label)}</span>
-            </li>
-          {/each}
-        </ul>
-      </details>
-    {/if}
   </div>
 {/if}
 
@@ -449,372 +428,341 @@
 <style>
   .pm {
     display: grid;
-    gap: 16px;
+    gap: 28px;
   }
 
-  .pm-hero {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 16px;
-    padding: 18px 20px;
-    border: 1px solid var(--b2s-color-border-soft);
-    border-radius: var(--b2s-radius-lg);
-    background: var(--b2s-color-surface);
-  }
-
-  .pm-hero__icon {
-    width: 46px;
-    height: 46px;
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    font-size: 22px;
-  }
-
-  .is-ok .pm-hero__icon { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
-  .is-warn .pm-hero__icon { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .is-bad .pm-hero__icon { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
-  .is-idle .pm-hero__icon { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
-
-  .pm-hero__text {
-    flex: 1 1 380px;
-    display: grid;
-    gap: 3px;
-  }
-
-  .pm-hero__text strong {
-    font-size: var(--b2s-fs-lg);
-    font-weight: 700;
-  }
-
-  .pm-hero__text span,
-  .pm-hero__text small {
-    color: var(--b2s-color-text-muted);
-  }
-
-  .pm-hero__text small {
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .pm-hero__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .pm-tiles {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-  }
-
-  .pm-tile {
-    display: grid;
-    gap: 8px;
-    align-content: start;
-    padding: 16px 18px;
-    border: 1px solid var(--b2s-color-border-soft);
-    border-radius: var(--b2s-radius-md);
-    background: var(--b2s-color-surface);
-  }
-
-  .pm-tile > span {
-    color: var(--b2s-color-text-muted);
-    font-weight: 500;
-  }
-
-  .pm-tile > strong {
-    font-size: var(--b2s-fs-2xl);
-    font-weight: 700;
-  }
-
-  .pm-tile em {
-    color: var(--b2s-color-text-faint);
-    font-style: normal;
-    font-size: var(--b2s-fs-lg);
-  }
-
-  .pm-tile small {
-    color: var(--b2s-color-text-soft);
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .pm-split {
-    display: flex;
-    gap: 2px;
-    height: 8px;
-    overflow: hidden;
-    border-radius: var(--b2s-radius-pill);
-  }
-
-  .pm-split .is-read,
-  .pm-key.is-read { background: var(--b2s-color-info); }
-  .pm-split .is-write,
-  .pm-key.is-write { background: var(--b2s-color-warning); }
-
-  .pm-key {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    margin: 0 6px 0 0;
-    border-radius: 2px;
-  }
-
-  .pm-key.is-write {
-    margin-left: 12px;
-  }
-
-  /* Checker: the dark band of the mock-up */
-  .pm-check {
-    display: grid;
-    gap: 14px;
-    padding: 18px 20px;
-    border-radius: var(--b2s-radius-lg);
-    background: var(--b2s-topbar-bg);
-    color: var(--b2s-color-surface);
-  }
-
-  .pm-check > div:first-child {
-    display: grid;
-    gap: 4px;
-  }
-
-  .pm-check > div:first-child strong {
-    font-size: var(--b2s-fs-lg);
-  }
-
-  .pm-check > div:first-child span,
-  .pm-check__muted {
-    color: #c7d2fe;
-  }
-
-  .pm-check__row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .pm-check__input {
-    flex: 1 1 260px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: 44px;
-    padding: 0 14px;
-    border-radius: var(--b2s-radius-md);
-    background: var(--b2s-color-surface);
-    color: var(--b2s-color-text-muted);
-  }
-
-  .pm-check__input input {
-    flex: 1;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: var(--b2s-color-text);
-    font: inherit;
-  }
-
-  .pm-check__answer {
-    flex: 2 1 420px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    min-height: 44px;
-    padding: 6px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: var(--b2s-radius-md);
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .pm-check__verdict {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+  h2 {
+    margin: 0;
+    font-size: var(--b2s-fs-md);
     font-weight: 600;
   }
 
-  .pm-check__verdict::before {
-    content: '';
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #4ade80;
-  }
-
-  .pm-check__verdict.is-none::before {
-    background: #fca5a5;
-  }
-
-  .pm-check .pm-chip {
-    background: rgba(255, 255, 255, 0.14);
-    color: var(--b2s-color-surface);
-  }
-
-  .pm-check__more {
-    margin-left: auto;
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--b2s-color-surface);
-    font: inherit;
-    font-weight: 600;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .pm-sub {
+  .pm-muted {
     color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-sm);
   }
 
-  /* Map: people -> group -> folder */
-  .pm-map {
-    display: grid;
-    gap: 12px;
-    padding: 16px 20px 20px;
-  }
-
-  .pm-lane {
-    display: grid;
-    grid-template-columns: minmax(0, 1.3fr) 32px minmax(0, 1fr) 32px minmax(0, 0.8fr);
-    align-items: center;
-  }
-
-  .pm-lane__people {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    min-height: 44px;
-    padding: 10px;
-    border: 1px dashed var(--b2s-color-border-mid);
-    border-radius: var(--b2s-radius-md);
-  }
-
-  .pm-lane__empty,
-  .pm-lane__more {
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .pm-person {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px 3px 3px;
-    border: none;
-    border-radius: var(--b2s-radius-pill);
-    background: var(--b2s-color-neutral-soft);
-    color: var(--b2s-color-text);
-    font: inherit;
-    font-size: var(--b2s-fs-sm);
-    cursor: pointer;
-  }
-
-  .pm-person:hover {
-    background: var(--b2s-color-info-soft);
-  }
-
-  .pm-avatar {
-    width: 24px;
-    height: 24px;
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: var(--b2s-color-primary-soft);
-    color: var(--b2s-color-heading);
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .pm-avatar.is-lg {
-    width: 34px;
-    height: 34px;
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .pm-link {
-    height: 2px;
-    margin: 0 4px;
-    background: var(--b2s-color-border-mid);
-  }
-
-  .pm-group {
-    display: grid;
-    gap: 3px;
-    padding: 10px 12px;
-    border: 1px solid var(--b2s-color-info-border);
-    border-radius: var(--b2s-radius-md);
-    background: var(--b2s-color-info-soft);
-  }
-
-  .pm-group.is-write {
-    border-color: var(--b2s-color-warning-border);
-    background: var(--b2s-color-warning-soft);
-  }
-
-  .pm-group.is-outside {
-    border-style: dashed;
-    border-color: var(--b2s-color-warning);
-    background: var(--b2s-color-surface);
-  }
-
-  .pm-group small {
-    color: var(--b2s-color-text-soft);
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .pm-flag {
-    justify-self: start;
-    padding: 1px 8px;
-    border-radius: var(--b2s-radius-pill);
-    background: var(--b2s-color-danger-soft);
-    color: var(--b2s-color-danger-strong);
-    font-size: var(--b2s-fs-xs);
-    font-style: normal;
-    font-weight: 600;
-  }
-
-  .pm-folder {
-    display: grid;
-    gap: 3px;
-    padding: 10px 12px;
-    border-radius: var(--b2s-radius-md);
-    background: var(--b2s-color-text);
-    color: var(--b2s-color-surface);
-  }
-
-  .pm-folder small {
-    color: var(--b2s-color-border-mid);
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .is-mono,
-  .pm-mono {
+  .pm-mono,
+  code {
     font-family: var(--b2s-font-mono);
     font-size: var(--b2s-fs-xs);
     overflow-wrap: anywhere;
   }
 
-  .pm-people-head {
+  .is-read { color: var(--b2s-color-info-strong); }
+  .is-write { color: var(--b2s-color-warning-strong); }
+  .is-bad { color: var(--b2s-color-danger-strong); }
+
+  .pm-textbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--b2s-color-info-strong);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .pm-textbtn:disabled {
+    color: var(--b2s-color-text-faint);
+    cursor: default;
+  }
+
+  /* state */
+  .pm-state {
+    display: grid;
+    gap: 8px;
+  }
+
+  .pm-sentence {
+    max-width: 920px;
+    margin: 0;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+
+  .pm-word {
+    font-weight: 700;
+  }
+
+  .pm-word.is-ok { color: var(--b2s-color-success-strong); }
+  .pm-word.is-warn { color: var(--b2s-color-warning-strong); }
+  .pm-word.is-bad { color: var(--b2s-color-danger-strong); }
+  .pm-word.is-idle { color: var(--b2s-color-text-muted); }
+
+  .pm-meta {
+    display: flex;
     flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .pm-inherit.is-broken {
+    color: var(--b2s-color-warning-strong);
+  }
+
+  .pm-export {
+    margin-left: auto;
+  }
+
+  /* checker */
+  .pm-check {
+    display: grid;
+    gap: 10px;
+  }
+
+  .pm-check__field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 50px;
+    padding: 0 16px;
+    border: 1px solid var(--b2s-color-border);
+    border-radius: 14px;
+    background: var(--b2s-color-surface);
+    box-shadow: 0 6px 24px rgba(15, 26, 58, 0.06);
+    color: var(--b2s-color-text-muted);
+  }
+
+  .pm-check__field:focus-within {
+    border-color: var(--b2s-color-info);
+  }
+
+  .pm-check__ask {
+    white-space: nowrap;
+  }
+
+  .pm-check__field input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--b2s-color-text);
+    font: inherit;
+    font-size: var(--b2s-fs-md);
+  }
+
+  .pm-check__answer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+    padding: 0 6px;
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .pm-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--b2s-color-success);
+  }
+
+  .pm-dot.is-none {
+    background: var(--b2s-color-danger);
+  }
+
+  .pm-push {
+    margin-left: auto;
+  }
+
+  .pm-chip {
+    padding: 2px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--b2s-color-neutral-soft);
+    color: var(--b2s-color-text-strong);
+    font: inherit;
+    font-size: var(--b2s-fs-xs);
+  }
+
+  button.pm-chip {
+    cursor: pointer;
+  }
+
+  .pm-chip.is-ad_only,
+  .pm-chip.is-outside { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
+  .pm-chip.is-info { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
+
+  /* flow */
+  .pm-flow {
+    display: grid;
     gap: 12px;
   }
 
+  .pm-flow__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.32fr);
+    align-items: stretch;
+  }
+
+  .pm-flow__bands {
+    display: grid;
+    gap: 8px;
+  }
+
+  .pm-band {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    align-items: stretch;
+    padding: 0;
+    border: 0;
+    border-radius: 12px 0 0 12px;
+    background: transparent;
+    color: var(--b2s-color-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .pm-band:hover,
+  .pm-band.is-active {
+    box-shadow: 0 0 0 2px var(--b2s-color-info);
+  }
+
+  .pm-band__people {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    border-radius: 12px 0 0 12px;
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .pm-band__group {
+    display: grid;
+    align-content: center;
+    gap: 2px;
+    padding: 0 14px;
+  }
+
+  .pm-band__group small {
+    color: var(--b2s-color-text-soft);
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .pm-band.is-read .pm-band__people { background: linear-gradient(90deg, var(--b2s-color-surface), var(--b2s-color-info-soft)); color: var(--b2s-color-info-strong); }
+  .pm-band.is-read .pm-band__group { background: var(--b2s-color-info-soft); }
+  .pm-band.is-write .pm-band__people { background: linear-gradient(90deg, var(--b2s-color-surface), var(--b2s-color-warning-soft)); color: var(--b2s-color-warning-strong); }
+  .pm-band.is-write .pm-band__group { background: var(--b2s-color-warning-soft); }
+  .pm-band.is-outside .pm-band__people,
+  .pm-band.is-outside .pm-band__group {
+    background: repeating-linear-gradient(135deg, var(--b2s-color-surface), var(--b2s-color-surface) 6px, var(--b2s-color-warning-soft) 6px, var(--b2s-color-warning-soft) 12px);
+    color: var(--b2s-color-warning-strong);
+  }
+
+  .pm-flow__folder {
+    display: grid;
+    align-content: center;
+    gap: 6px;
+    padding: 16px 18px;
+    border-radius: 0 14px 14px 0;
+    background: var(--b2s-topbar-bg);
+    color: var(--b2s-color-surface);
+  }
+
+  .pm-flow__folder small {
+    color: #c7d2fe;
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .pm-flow__folder strong {
+    font-size: var(--b2s-fs-md);
+    overflow-wrap: anywhere;
+  }
+
+  .pm-stack {
+    display: flex;
+  }
+
+  .pm-face {
+    width: 26px;
+    height: 26px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: -7px;
+    border: 2px solid var(--b2s-color-surface);
+    border-radius: 50%;
+    background: var(--b2s-color-primary-soft);
+    color: var(--b2s-color-heading);
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .pm-stack .pm-face:first-child { margin-left: 0; }
+
+  .pm-face.is-lg {
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    border: 0;
+    font-size: 11px;
+  }
+
+  .pm-face.is-read { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
+  .pm-face.is-write { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
+  .pm-face.is-outside { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
+
+  /* people */
+  .pm-people {
+    display: grid;
+  }
+
+  .pm-people__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 12px;
+  }
+
+  .pm-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pm-filters button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid var(--b2s-color-border);
+    border-radius: var(--b2s-radius-pill);
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-text-soft);
+    font: inherit;
+    font-size: var(--b2s-fs-xs);
+    cursor: pointer;
+  }
+
+  .pm-filters button.is-active {
+    border-color: var(--b2s-topbar-bg);
+    background: var(--b2s-topbar-bg);
+    color: var(--b2s-color-surface);
+  }
+
+  .pm-filters .is-group {
+    font-family: var(--b2s-font-mono);
+  }
+
   .pm-search {
-    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 8px;
-    height: 36px;
+    height: 34px;
     min-width: 220px;
+    margin-left: auto;
     padding: 0 12px;
     border: 1px solid var(--b2s-color-border);
     border-radius: var(--b2s-radius-sm);
@@ -823,8 +771,9 @@
 
   .pm-search input {
     flex: 1;
-    border: none;
-    outline: none;
+    min-width: 0;
+    border: 0;
+    outline: 0;
     background: transparent;
     font: inherit;
     font-size: var(--b2s-fs-sm);
@@ -832,20 +781,51 @@
 
   .pm-empty {
     margin: 0;
-    padding: 16px 20px 20px;
+    padding: 16px 0;
     color: var(--b2s-color-text-muted);
+  }
+
+  .pm-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pm-row {
+    display: grid;
+    grid-template-columns: minmax(200px, 1.2fr) 110px minmax(0, 1.6fr) 170px 90px;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 6px;
+    border-top: 1px solid var(--b2s-color-border-soft);
+  }
+
+  .pm-row:hover {
+    background: var(--b2s-color-surface-soft);
+  }
+
+  .pm-row.is-gap {
+    grid-template-columns: minmax(200px, 1.2fr) minmax(0, 1.6fr) auto;
+    border-top: 1px dashed var(--b2s-color-warning);
+    border-bottom: 1px dashed var(--b2s-color-warning);
+    background: var(--b2s-color-warning-soft);
   }
 
   .pm-who {
     display: inline-flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
     padding: 0;
-    border: none;
+    border: 0;
     background: none;
     font: inherit;
     text-align: left;
     cursor: pointer;
+  }
+
+  .pm-who.is-static {
+    cursor: default;
   }
 
   .pm-who strong,
@@ -858,20 +838,19 @@
     font-weight: 600;
   }
 
-  .pm-who:hover strong {
+  button.pm-who:hover strong {
     color: var(--b2s-color-info-strong);
   }
 
-  .pm-who small,
-  .pm-muted {
+  .pm-who small {
     color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-xs);
   }
 
   .pm-level {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: var(--b2s-radius-pill);
+    justify-self: start;
+    padding: 2px 8px;
+    border-radius: 6px;
     font-size: var(--b2s-fs-xs);
     font-weight: 600;
   }
@@ -884,24 +863,20 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-  }
-
-  .pm-chip {
-    padding: 2px 8px;
-    border-radius: 6px;
-    background: var(--b2s-color-neutral-soft);
-    color: var(--b2s-color-text-strong);
+    min-width: 0;
     font-size: var(--b2s-fs-xs);
   }
 
-  .pm-chip.is-ad_only,
-  .pm-chip.is-outside { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .pm-chip.is-info { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
+  .pm-until {
+    display: grid;
+    gap: 4px;
+    font-size: var(--b2s-fs-sm);
+    white-space: nowrap;
+  }
 
   .pm-time {
     width: 120px;
     height: 4px;
-    margin-top: 4px;
     overflow: hidden;
     border-radius: var(--b2s-radius-pill);
     background: var(--b2s-color-border-soft);
@@ -917,97 +892,49 @@
     background: var(--b2s-color-warning);
   }
 
-  .pm-table td:nth-child(4) {
-    white-space: nowrap;
-  }
-
   .pm-actions {
-    text-align: right;
-    white-space: nowrap;
+    justify-self: end;
   }
 
-  .pm-gap {
+  .pm-foot {
+    margin: 14px 6px 0;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+    line-height: 1.8;
+  }
+
+  .pm-system {
+    display: grid;
+    gap: 6px;
+    margin: 8px 0 0;
+    padding: 0 6px;
+    list-style: none;
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .pm-system li {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 16px;
-    padding: 16px 20px;
-    border: 1px solid var(--b2s-color-warning-border);
-    border-radius: var(--b2s-radius-lg);
-    background: var(--b2s-color-warning-soft);
-  }
-
-  .pm-gap > div {
-    flex: 1 1 420px;
-    display: grid;
-    gap: 4px;
-  }
-
-  .pm-gap strong {
-    color: var(--b2s-color-warning-strong);
-  }
-
-  .pm-details {
-    border: 1px solid var(--b2s-color-border-soft);
-    border-radius: var(--b2s-radius-lg);
-    background: var(--b2s-color-surface);
-  }
-
-  .pm-details summary {
-    padding: 14px 20px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .pm-details summary span {
-    color: var(--b2s-color-text-muted);
-    font-weight: 400;
-  }
-
-  .pm-list {
-    display: grid;
-    gap: 8px;
-    margin: 0;
-    padding: 0 20px 18px;
-    list-style: none;
-  }
-
-  .pm-list.is-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .pm-list li {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     gap: 10px;
-    padding: 10px 12px;
-    border-radius: var(--b2s-radius-sm);
-    background: var(--b2s-color-surface-soft);
   }
 
-  .pm-list li strong,
-  .pm-list li small {
-    display: block;
-  }
-
-  .pm-list li small {
-    color: var(--b2s-color-text-muted);
-  }
-
-  @media (max-width: 900px) {
-    .pm-tiles,
-    .pm-list.is-grid {
+  @media (max-width: 1000px) {
+    .pm-row,
+    .pm-row.is-gap {
       grid-template-columns: 1fr;
     }
 
-    .pm-lane {
-      grid-template-columns: 1fr;
-      gap: 6px;
+    .pm-actions {
+      justify-self: start;
     }
 
-    .pm-link {
-      display: none;
+    .pm-flow__grid,
+    .pm-band {
+      grid-template-columns: 1fr;
+    }
+
+    .pm-flow__folder {
+      border-radius: 0 0 14px 14px;
     }
   }
 </style>

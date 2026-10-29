@@ -2,15 +2,22 @@
   import { t } from '$lib/i18n';
   import EntityAlertStrip from '$lib/components/entity/EntityAlertStrip.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import StorageRootHeader from '$lib/components/storage-roots/StorageRootHeader.svelte';
+  import StorageRootStatLine from '$lib/components/storage-roots/StorageRootStatLine.svelte';
+  import StorageRootTodo from '$lib/components/storage-roots/StorageRootTodo.svelte';
+  import StorageRootOverview from '$lib/components/storage-roots/StorageRootOverview.svelte';
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
   import StorageRootPermissions from '$lib/components/storage-roots/permissions/StorageRootPermissions.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
-  import TagPill from '$lib/components/tags/TagPill.svelte';
-  import KpiCard from '$lib/components/ui/KpiCard.svelte';
-  import { initials, timeAgo } from '$lib/utils/format';
-  import { getStorageRootPermissions, type StorageRootPermissionsData } from '$lib/api/storage-root-permissions';
-  import { presentErrorMessage, toAppError } from '$lib/errors';
+  import { reportUiError, presentErrorMessage, toAppError } from '$lib/errors';
+  import { toast } from '$lib/stores/toast';
+  import {
+    deleteStorageRootFolder,
+    getStorageRootPermissions,
+    setFolderInheritance,
+    type StorageRootPermissionsData
+  } from '$lib/api/storage-root-permissions';
 
   type StorageRootTag = Record<string, unknown>;
   type StorageRootTabKey = 'overview' | 'effective-access' | 'activity';
@@ -44,16 +51,17 @@
   export let endpointAddress = '—';
   export let pathLabel = '—';
   export let contentSizeLabel = '—';
-  export let contentUpdatedLabel = '—';
+  export let endpointHref: string | null = null;
 
   export let guardians: Array<Record<string, unknown>> = [];
 
   export let rootAvailabilityText = t('Unknown');
   export let rootAvailabilityTone: 'success' | 'warning' | 'error' = 'warning';
-  export let showStatusBadge = false;
 
   export let tags: StorageRootTag[] = [];
   export let isAdmin = false;
+  /** Login whose access is explained at once (?explain= from the ⌘K palette) */
+  export let explainLogin: string | null = null;
   export let activityRemainder: Array<Record<string, unknown>> = [];
   export let activityLoading = false;
   export let tagId: (tag: StorageRootTag) => number = () => 0;
@@ -69,10 +77,12 @@
   export let onOpenGovernanceDrawer: (role?: 'guardian') => void = () => {};
   export let onOpenTagsModal: () => void = () => {};
   export let onViewAllAlerts: () => void = () => {};
+  /** The folder was deleted from the file server and the storage root from BornToShare */
+  export let onFolderDeleted: (rootId: number) => void = () => {};
 
-  $: statusTone = rootAvailabilityTone;
   $: showBlockingLoading = detailsLoading && selectedRootCodeOrName === '—';
-  $: stripItems = alertItems.filter((item) => !String(item.key ?? '').includes('missing_guardian'));
+  // Pending requests are decided in the « To review » line, a missing guardian in the inspector
+  $: stripItems = alertItems.filter((item) => !/missing_guardian|pending_access_validation/.test(String(item.key ?? '')));
   $: endpointDisplay = endpointAddress && endpointAddress !== '—' ? endpointAddress : endpointLabel;
   $: aclScannedAt = String(aclFreshness?.scanned_at ?? aclFreshness?.discovered_at ?? '').trim();
 
@@ -108,16 +118,56 @@
     }
   }
 
-  const ACL_KPI = {
-    ok: { value: () => t('Compliant'), icon: 'bi-shield-check', tone: 'success' },
-    gap: { value: () => t('Gap to review'), icon: 'bi-shield-exclamation', tone: 'warning' },
-    missing_ace: { value: () => t('ACE missing'), icon: 'bi-shield-x', tone: 'danger' },
-    never_scanned: { value: () => t('Never read'), icon: 'bi-shield', tone: 'neutral' }
+  // One status pill: the folder unreachable first, then the state of its ACL
+  const ACL_PILL = {
+    ok: { label: () => t('Compliant'), tone: 'success' },
+    gap: { label: () => t('Gap to review'), tone: 'warning' },
+    missing_ace: { label: () => t('ACE missing'), tone: 'danger' },
+    never_scanned: { label: () => t('ACL never read'), tone: 'neutral' }
   } as const;
-  $: aclKpi = ACL_KPI[permissions?.status ?? 'never_scanned'];
-  $: aclKpiHint = permissions?.acl_scanned_at
-    ? t('Read {ago} · {count} entries', { ago: timeAgo(permissions.acl_scanned_at), count: permissions.acl_entries })
-    : t('Read the ACL from the Permissions tab');
+  $: unreachable = rootAvailabilityTone === 'error';
+  $: pill = unreachable
+    ? { label: rootAvailabilityText, tone: 'danger' as const }
+    : { label: ACL_PILL[permissions?.status ?? 'never_scanned'].label(), tone: ACL_PILL[permissions?.status ?? 'never_scanned'].tone };
+  $: inheritanceBroken = permissions?.inheritance?.known ? permissions.inheritance.broken : null;
+
+  // ---------------------------------------------------------------- folder operations (file server, platform admins)
+  let confirmInheritance = false;
+  let confirmDeleteFolder = false;
+  let folderBusy = false;
+
+  async function toggleInheritance() {
+    confirmInheritance = false;
+    if (!selectedStorageRootId) return;
+    const mode = inheritanceBroken ? 'restore' : 'break';
+    folderBusy = true;
+    try {
+      await setFolderInheritance(fetch, selectedStorageRootId, mode);
+      toast.success(mode === 'break' ? t('Inheritance broken on the file server.') : t('Inheritance restored on the file server.'));
+      await loadPermissions();
+      onRunRootProbe();
+    } catch (error: unknown) {
+      reportUiError(error, t('The file server did not change the inheritance.'), 'storage-root.inheritance');
+    } finally {
+      folderBusy = false;
+    }
+  }
+
+  async function deleteFolder() {
+    confirmDeleteFolder = false;
+    const rootId = selectedStorageRootId;
+    if (!rootId) return;
+    folderBusy = true;
+    try {
+      await deleteStorageRootFolder(fetch, rootId, selectedRootCodeOrName);
+      toast.success(t('Folder {name} deleted from the file server.', { name: selectedRootCodeOrName }));
+      onFolderDeleted(rootId);
+    } catch (error: unknown) {
+      reportUiError(error, t('The folder was not deleted.'), 'storage-root.delete-folder');
+    } finally {
+      folderBusy = false;
+    }
+  }
 
   $: tabs = [
     { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
@@ -125,7 +175,7 @@
     { key: 'activity', label: t('Activity'), icon: 'bi-clock-history' }
   ];
   $: guardianNames = guardians.map((owner) => ownerDisplayName(owner)).filter(Boolean);
-  $: openAlerts = alertItems.length;
+  $: openAlerts = stripItems.length;
 
   const normalizeTabKey = (key: string): StorageRootTabKey => {
     if (key === 'effective-access') return 'effective-access';
@@ -142,51 +192,33 @@
   <StorageRootHeader
     title={selectedRootCodeOrName}
     {zoneLabel}
-    statusLabel={rootAvailabilityText}
-    statusTone={statusTone}
-    {showStatusBadge}
+    {endpointLabel}
     {pathLabel}
-    endpointLabel={endpointLabel}
-    {rootProbeBusy}
+    statusLabel={selectedStorageRootId ? pill.label : ''}
+    statusTone={pill.tone}
+    rootProbeBusy={rootProbeBusy || folderBusy}
     {selectedStorageRootId}
+    {isAdmin}
+    {inheritanceBroken}
     {onRunRootProbe}
     {onNewAccessRequest}
     {onEditRoot}
     {onDeleteRoot}
+    onToggleInheritance={() => (confirmInheritance = true)}
+    onDeleteFolder={() => (confirmDeleteFolder = true)}
   />
 
-  <!-- « No guardian » is told by the Guardians card, with its action -->
-  <EntityAlertStrip items={stripItems} onViewAll={onViewAllAlerts} ariaLabel={t('Storage root alerts')} />
+  <StorageRootStatLine
+    {permissions}
+    {openAlerts}
+    lastProbeText={rootAvailabilityText}
+    alertsHref={`/observability?tab=alerts&q=${encodeURIComponent(selectedRootCodeOrName)}`}
+    onOpenPermissions={() => onSelectTab('effective-access')}
+  />
 
-  <section class="b2s-kpi-grid sr-detail__kpis" aria-label={t('Storage root summary')}>
-    <KpiCard
-      label={t('People with access')}
-      value={permissions ? permissions.summary.people : '—'}
-      hint={permissions ? t('{read} read · {write} modify', { read: permissions.summary.read, write: permissions.summary.write }) : ''}
-      icon="bi-people"
-      tone="info"
-      href={`?selected=${selectedStorageRootId ?? ''}`}
-      on:click={(event) => {
-        event.preventDefault();
-        onSelectTab('effective-access');
-      }}
-    />
-    <KpiCard
-      label={t('State of the ACL')}
-      value={aclKpi.value()}
-      hint={aclKpiHint}
-      icon={aclKpi.icon}
-      tone={aclKpi.tone}
-    />
-    <KpiCard
-      label={t('Open alerts')}
-      value={openAlerts}
-      hint={openAlerts > 0 ? t('Open in Observability') : t('Nothing to review')}
-      icon={openAlerts > 0 ? 'bi-exclamation-triangle' : 'bi-check2-circle'}
-      tone={openAlerts > 0 ? 'warning' : 'success'}
-      href={`/observability?tab=alerts&q=${encodeURIComponent(selectedRootCodeOrName)}`}
-    />
-  </section>
+  <StorageRootTodo rootId={selectedStorageRootId} onDecided={loadPermissions} />
+
+  <EntityAlertStrip items={stripItems} onViewAll={onViewAllAlerts} ariaLabel={t('Storage root alerts')} />
 
   <Tabs
     {tabs}
@@ -196,56 +228,24 @@
   />
 
   {#if activeTab === 'overview'}
-    <section class="sr-detail__overview">
-        <article class="b2s-panel">
-          <div class="b2s-panel__head">
-            <h2>{t('Guardians')}</h2>
-            <button type="button" class="b2s-panel__link" on:click={() => onOpenGovernanceDrawer('guardian')}>{t('Manage')}</button>
-          </div>
-          <div class="b2s-panel__body">
-            {#if guardianNames.length > 0}
-              <ul class="sr-detail__people">
-                {#each guardianNames as name}
-                  <li><span class="sr-detail__avatar">{initials(name)}</span>{name}</li>
-                {/each}
-              </ul>
-            {:else}
-              <p class="sr-detail__empty">{t('No guardian assigned. Access requests cannot be approved yet.')}</p>
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => onOpenGovernanceDrawer('guardian')}>
-                <i class="bi bi-person-plus" aria-hidden="true"></i>{t('Add a guardian')}
-              </button>
-            {/if}
-          </div>
-        </article>
-
-        <article class="b2s-panel">
-          <div class="b2s-panel__head">
-            <h2>{t('Tags')}</h2>
-            <button type="button" class="b2s-panel__link" on:click={onOpenTagsModal}>{t('Manage')}</button>
-          </div>
-          <div class="b2s-panel__body">
-            {#if tags.length > 0}
-              <div class="sr-detail__tags">
-                {#each tags as tag (tagId(tag))}
-                  <TagPill label={tagLabel(tag)} color={tagColor(tag)} small={true} />
-                {/each}
-              </div>
-            {:else}
-              <p class="sr-detail__empty">{t('No tags attached')}</p>
-            {/if}
-          </div>
-        </article>
-
-        <article class="b2s-panel">
-          <div class="b2s-panel__head"><h2>{t('Details')}</h2></div>
-          <div class="b2s-panel__body">
-            <dl class="b2s-kv">
-              <dt>{t('File server')}</dt><dd>{endpointDisplay}</dd>
-              <dt>{t('Content')}</dt><dd>{contentSizeLabel === '—' ? t('Not measured') : contentSizeLabel}</dd>
-            </dl>
-          </div>
-        </article>
-    </section>
+    <StorageRootOverview
+      {permissions}
+      {guardianNames}
+      {tags}
+      {tagId}
+      {tagLabel}
+      {tagColor}
+      {zoneLabel}
+      {endpointDisplay}
+      {endpointHref}
+      {contentSizeLabel}
+      {isAdmin}
+      onOpenPermissions={() => onSelectTab('effective-access')}
+      onOpenGuardians={() => onOpenGovernanceDrawer('guardian')}
+      onOpenTags={onOpenTagsModal}
+      onToggleInheritance={() => (confirmInheritance = true)}
+      onChanged={loadPermissions}
+    />
   {:else if activeTab === 'effective-access'}
     <section class="sr-clean-tab-panel">
       <!-- The page is open to admins and to the guardians of the root: both review its requests -->
@@ -257,9 +257,9 @@
         rootName={selectedRootCodeOrName}
         canManage={true}
         {isAdmin}
-        rescanBusy={rootProbeBusy}
-        onRescan={selectedStorageRootId ? onRunRootProbe : null}
+        {explainLogin}
         onChanged={loadPermissions}
+        onToggleInheritance={() => (confirmInheritance = true)}
       />
     </section>
   {:else if activeTab === 'activity'}
@@ -276,6 +276,39 @@
   {/if}
 </div>
 
+<ConfirmActionModal
+  open={confirmInheritance}
+  onClose={() => (confirmInheritance = false)}
+  onConfirm={toggleInheritance}
+  severity="warning"
+  title={inheritanceBroken ? t('Restore the inheritance of {name}?', { name: selectedRootCodeOrName }) : t('Break the inheritance of {name}?', { name: selectedRootCodeOrName })}
+  impactItems={inheritanceBroken
+    ? [t('The folder inherits again the entries of its parent folder.'), t('Its own entries, BornToShare groups included, are kept.'), t('The ACL is read again right after.')]
+    : [t('The entries inherited from the parent folder are copied as entries of this folder: nobody loses access.'), t('A change on the parent folder no longer reaches this folder.'), t('The ACL is read again right after.')]}
+  confirmLabel={inheritanceBroken ? t('Restore the inheritance') : t('Break the inheritance')}
+  confirmVariant="warning"
+/>
+
+<ConfirmActionModal
+  open={confirmDeleteFolder}
+  onClose={() => (confirmDeleteFolder = false)}
+  onConfirm={deleteFolder}
+  title={t('Delete the folder {name} from the file server?', { name: selectedRootCodeOrName })}
+  subtitle={pathLabel}
+  impactItems={[
+    t('The folder and everything in it are deleted on the file server. This cannot be undone.'),
+    t('The storage root is removed from BornToShare.'),
+    t('Refused while an access is in force or a request is pending.'),
+    t('The AD groups of the folder stay in the directory.')
+  ]}
+  requireTextConfirm={true}
+  requiredText={selectedRootCodeOrName}
+  textConfirmLabel={t('Type the name of the storage root to confirm')}
+  textConfirmPlaceholder={selectedRootCodeOrName}
+  confirmLabel={t('Delete the folder')}
+  confirmVariant="danger"
+/>
+
 <style>
   .sr-detail {
     min-width: 0;
@@ -284,66 +317,4 @@
     align-content: start;
   }
 
-  .sr-detail__kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  @media (max-width: 1280px) {
-    .sr-detail__kpis {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  .sr-detail__overview {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px;
-    align-items: start;
-  }
-
-  @media (max-width: 1100px) {
-    .sr-detail__overview {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .sr-detail__people {
-    display: grid;
-    gap: 10px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .sr-detail__people li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .sr-detail__avatar {
-    width: 30px;
-    height: 30px;
-    flex: 0 0 auto;
-    display: grid;
-    place-items: center;
-    border-radius: var(--b2s-radius-pill);
-    background: #e0e7ff;
-    color: #3730a3;
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .sr-detail__tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .sr-detail__empty {
-    margin: 0;
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-sm);
-  }
 </style>

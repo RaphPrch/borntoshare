@@ -489,6 +489,8 @@ def _persist_storage_root_probe_result(
                 "probe_job_id": int(getattr(job_row, "id", 0) or 0) or None,
                 "permissions": permissions,
                 "permissions_count": len(permissions),
+                # Security descriptor flags of the folder: PD = inheritance from the parent broken
+                "control": str(details.get("permissions_control") or "").strip() or None,
                 "content_size_bytes": content_size_bytes,
                 "content_updated_at": content_scanned_at,
             }

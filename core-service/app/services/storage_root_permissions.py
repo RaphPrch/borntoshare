@@ -30,6 +30,17 @@ _RIGHTS_LABELS = {"full": "Full control", "modify": "Modify", "read": "Read and 
 _GROUP_STATUSES = ("SUCCEEDED", "ADOPTING")
 
 
+def inheritance_state(control: Any, aces: list[dict[str, Any]]) -> dict[str, Any]:
+    """NTFS inheritance of the folder: PD in the CONTROL flags = broken; the I flag marks an entry from the parent."""
+    flags = [f.strip().upper() for f in str(control or "").split("|") if f.strip()]
+    inherited = 0
+    for ace in aces:
+        parts = str(ace.get("raw") or "").upper().split("/")
+        if len(parts) > 2 and "I" in parts[1].split("|"):
+            inherited += 1
+    return {"known": bool(flags), "broken": "PD" in flags, "inherited_entries": inherited}
+
+
 def short_name(principal: str | None) -> str:
     """DOMAIN\\name -> name (lower case)."""
     raw = str(principal or "").strip().replace("/", "\\")
@@ -350,6 +361,7 @@ class StorageRootPermissions:
             "root_path": root.get("root_path"),
             "acl_scanned_at": scanned_at,
             "acl_entries": len(aces),
+            "inheritance": inheritance_state(scan.get("control"), aces),
             "snapshot_at": snapshot_at,
             "status": status,
             "summary": {
@@ -367,6 +379,28 @@ class StorageRootPermissions:
             "system": system,
             "gaps": gaps,
         }
+
+    def search_people(self, query: str, limit: int = 6) -> list[dict[str, Any]]:
+        """Directory users matching a login or a name, with the storage roots they reach (⌘K palette)."""
+        like = f"%{query.strip().lower()}%"
+        rows = self._all(
+            """
+            SELECT du.username, MAX(du.display_name) AS display_name, MAX(du.dn) AS dn,
+                   MAX(du.identity_source_id) AS identity_source_id
+            FROM directory_users du
+            WHERE du.username IS NULL OR du.username <> ''
+            GROUP BY du.username
+            HAVING LOWER(du.username) LIKE :q OR LOWER(COALESCE(MAX(du.display_name), '')) LIKE :q
+            ORDER BY du.username
+            LIMIT :limit
+            """,
+            {"q": like, "limit": int(limit)},
+        )
+        return [
+            {"username": r["username"], "name": r["display_name"] or r["username"], "dn": r["dn"],
+             "identity_source_id": r["identity_source_id"], "roots": self.other_roots(str(r["username"]), 0)}
+            for r in rows if r.get("username")
+        ]
 
     def other_roots(self, username: str, exclude_root_id: int) -> list[dict[str, Any]]:
         """Other storage roots a person reaches through BornToShare (requests in force or managed groups)."""
