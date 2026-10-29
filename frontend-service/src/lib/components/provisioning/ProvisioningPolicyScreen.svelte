@@ -292,20 +292,20 @@
     opacity: 0.6;
   }
 
-  /* Zone: on the page surface, like the storage roots */
-  .pp[data-scope='zone'] {
+  /* On the page surface, like the storage roots */
+  .pp {
     border: 0;
     background: none;
     box-shadow: none;
   }
 
-  .pp[data-scope='zone'] :global(.b2s-panel__head),
-  .pp[data-scope='zone'] :global(.b2s-panel__body) {
+  .pp :global(.b2s-panel__head),
+  .pp :global(.b2s-panel__body) {
     padding-inline: 0;
     border: 0;
   }
 
-  .pp[data-scope='zone'] .pp__footer {
+  .pp .pp__footer {
     justify-content: flex-start;
     padding-inline: 0;
     border-top: 0;

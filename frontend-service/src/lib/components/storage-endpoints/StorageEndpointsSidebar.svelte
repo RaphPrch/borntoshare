@@ -64,7 +64,8 @@
       icon: 'bi-hdd-network',
       iconTone: 'server',
       selectId: id,
-      dot: endpointTone(ep),
+      // Only what needs a look: a healthy server stays quiet
+      dot: endpointTone(ep) === 'healthy' ? null : endpointTone(ep),
       badges: alertBadge(ep),
       children: (rootsByEndpoint.get(id) ?? [])
         .map((row): EntityTreeNode => {

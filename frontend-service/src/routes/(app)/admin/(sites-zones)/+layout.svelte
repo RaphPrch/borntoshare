@@ -18,7 +18,7 @@
 </script>
 
 {#if zones.length}
-  <EntityWorkspace title={t('Zones')} subtitle={t('Sites and their storage endpoints, provisioning OU and naming rules.')}>
+  <EntityWorkspace title={t('Zones')}>
     <svelte:fragment slot="list">
       <ZonesSidebar
         onAdd={createZone}

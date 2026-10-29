@@ -20,18 +20,14 @@
     buildStorageEndpointProvisioningViewModel,
     type ProvisioningPolicyViewModel
   } from '$lib/components/provisioning/provisioning-policy.adapter';
-  import EntityHeader from '$lib/components/entity/EntityHeader.svelte';
-  import {
-    type OperationalHeaderMetaItem
-  } from '$lib/components/entity/EntityHeader.svelte';
+  import EntityPageHeader from '$lib/components/entity/EntityPageHeader.svelte';
+  import EntityStatLine, { type EntityStatItem } from '$lib/components/entity/EntityStatLine.svelte';
+  import EntityProperties from '$lib/components/entity/EntityProperties.svelte';
+  import EntityProperty from '$lib/components/entity/EntityProperty.svelte';
   import { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
-  import EntityKpiRow from '$lib/components/entity/EntityKpiRow.svelte';
-  import type { EntityKpiItem } from '$lib/components/entity/EntityKpiRow.svelte';
-  import EntityOverviewLayout from '$lib/components/entity/EntityOverviewLayout.svelte';
   import AssociatedRootsTable from '$lib/components/storage-endpoints/AssociatedRootsTable.svelte';
   import ActivityDetailsDrawer from '$lib/components/activity/ActivityDetailsDrawer.svelte';
-  import EntityOverviewPanel from '$lib/components/entity/EntityOverviewPanel.svelte';
   import EntityConsoleShell from '$lib/components/entity/EntityConsoleShell.svelte';
 
   import {
@@ -824,31 +820,34 @@
     return lastResult || t('probe or configuration needs review');
   };
 
-  let kpiItems: EntityKpiItem[] = [];
+  let kpiItems: EntityStatItem[] = [];
   $: kpiItems = selected
     ? [
         {
           key: 'roots',
           label: t('Governed storage roots'),
-          value: String(selectedRoots.length),
-          tone: 'accent',
-          icon: 'bi-folder2'
+          value: selectedRoots.length,
+          big: true
         },
         {
           key: 'pending',
           label: t('Pending requests'),
-          value: String(endpointPendingCount(selected)),
-          hint: endpointPendingCount(selected) > 0 ? t('Requests awaiting review') : t('No pending requests'),
-          tone: endpointPendingCount(selected) > 0 ? 'warning' : 'neutral',
-          icon: 'bi-hourglass-split'
+          value: endpointPendingCount(selected),
+          big: true,
+          note: endpointPendingCount(selected) > 0 ? t('Requests awaiting review') : t('No pending requests')
+        },
+        {
+          key: 'test',
+          label: t('Last test'),
+          value: endpointLastProbeLabel(selected),
+          hint: endpointLastResultLabel(selected)
         },
         {
           key: 'alerts',
           label: t('Open alerts'),
-          value: String(endpointAlertItems.length),
+          value: endpointAlertItems.length > 0 ? t('{count} open', { count: endpointAlertItems.length }) : t('No open alert'),
           hint: endpointAlertItems.length > 0 ? t('Open in Observability') : t('Nothing to review'),
-          tone: endpointAlertItems.length > 0 ? 'warning' : 'success',
-          icon: endpointAlertItems.length > 0 ? 'bi-exclamation-triangle' : 'bi-check2-circle',
+          tone: endpointAlertItems.length > 0 ? 'warning' as const : undefined,
           // The full list, with acknowledge / resolve, is in Observability
           href: `/observability?tab=alerts&q=${encodeURIComponent(endpointName(selected))}`
         }
@@ -859,10 +858,8 @@
 
   const endpointOperationalTone = (ep: any) => endpointHealthToOperationalTone(endpointHealth(ep));
 
-  const endpointHeaderMetaItems = (ep: any): OperationalHeaderMetaItem[] => [
-    { icon: 'bi-hdd', label: endpointHasHost(ep) ? endpointHost(ep) : t('No host configured'), tone: endpointHasHost(ep) ? 'neutral' : 'warning', mono: endpointHasHost(ep) },
-    { icon: 'bi-clock-history', label: endpointLastProbeLabel(ep) }
-  ];
+  const pillTone = (tone: string): 'success' | 'warning' | 'danger' | 'neutral' =>
+    tone === 'success' || tone === 'warning' || tone === 'danger' ? tone : 'neutral';
 
   const endpointAttentionItems = (ep: any, options?: { includeProvisioningWarnings?: boolean }): string[] =>
     buildStorageEndpointOperationalAttentionItems({
@@ -1097,7 +1094,7 @@
   </main>
 </div>
 {:else}
-<EntityWorkspace title={t('Storage endpoints')} subtitle={t('File servers connected to BornToShare and the storage roots they expose.')}>
+<EntityWorkspace title={t('Storage endpoints')}>
   <svelte:fragment slot="list">
     <StorageEndpointsSidebar
       onAdd={() => (showWizard = true)}
@@ -1120,14 +1117,12 @@
       <EntityConsoleShell>
         <svelte:fragment slot="header">
           {#key healthState}
-          <EntityHeader
-            iconClass="bi-hdd-network"
-            eyebrow={t('Storage endpoint · Zone {zone}', { zone: endpointZone(selected) })}
+          <EntityPageHeader
+            crumbs={[t('Storage endpoints'), endpointZone(selected)]}
             title={endpointName(selected)}
-            metaItems={endpointHeaderMetaItems(selected)}
+            code={endpointHasHost(selected) ? endpointHost(selected) : t('No host configured')}
             statusLabel={healthLabel(endpointHealth(selected))}
-            statusTone={endpointOperationalTone(selected)}
-            showAttention={false}
+            statusTone={pillTone(endpointOperationalTone(selected))}
             actions={endpointHeaderActions(selected)}
             actionsAriaLabel={t('Storage endpoint actions')}
           />
@@ -1137,7 +1132,7 @@
             ariaLabel={t('Storage endpoint alerts')}
             action={!['unhealthy', 'degraded'].includes(endpointHealth(selected)) ? null : { label: t('Edit the connection'), icon: 'bi-pencil', onClick: () => (showEditModal = true) }}
           />
-          <EntityKpiRow items={kpiItems} ariaLabel={t('Storage endpoint KPIs')} />
+          <EntityStatLine items={kpiItems} ariaLabel={t('Storage endpoint KPIs')} />
           {/key}
         </svelte:fragment>
 
@@ -1151,46 +1146,29 @@
         </svelte:fragment>
 
         {#if activeEndpointTab === 'overview'}
-          <EntityOverviewLayout>
-            <svelte:fragment slot="main">
-              <EntityOverviewPanel title={t('Governed storage roots')} panelClass="sed-panel--governed">
-                <svelte:fragment slot="actions">
-                  <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => { editInitialTab = 'roots'; showEditModal = true; }}>
-                    <i class="bi bi-search" aria-hidden="true"></i>{t('Discover and add')}
-                  </button>
-                </svelte:fragment>
-                <AssociatedRootsTable rows={rootsFilteredRows} dense={true} emptyLabel={t('No associated roots')} />
-              </EntityOverviewPanel>
-            </svelte:fragment>
+          <div class="sed-overview">
+            <section class="sed-overview__main" aria-label={t('Governed storage roots')}>
+              <div class="sed-overview__head">
+                <h2>{t('Governed storage roots')}</h2>
+                <button type="button" class="b2s-panel__link" on:click={() => { editInitialTab = 'roots'; showEditModal = true; }}>{t('Discover and add')}</button>
+              </div>
+              <AssociatedRootsTable rows={rootsFilteredRows} dense={true} emptyLabel={t('No associated roots')} />
+            </section>
 
-            <svelte:fragment slot="side">
-              <article class="b2s-panel">
-                <div class="b2s-panel__head"><h2>{t('Connection')}</h2></div>
-                <div class="b2s-panel__body">
-                  <dl class="b2s-kv">
-                    <dt>{t('Host')}</dt>
-                    <dd class="sed-mono">{endpointHasHost(selected) ? endpointHost(selected) : '—'}{selected?.port ? `:${selected.port}` : ''}</dd>
-                    <dt>{t('Protocol')}</dt><dd>{String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase()}</dd>
-                    <dt>{t('Service account')}</dt><dd class="sed-mono">{selected?.bind_dn || selected?.auth_username || '—'}</dd>
-                    <dt>{t('Identity source')}</dt>
-                    <dd>{selected?.identity_source_id ? (data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`) : t('None')}</dd>
-                    <dt>{t('Zone')}</dt><dd>{endpointZone(selected)}</dd>
-                    <dt>{t('Last test')}</dt>
-                    <dd>{endpointLastProbeLabel(selected)}{endpointLastResultLabel(selected) ? ` · ${endpointLastResultLabel(selected)}` : ''}</dd>
-                    {#if lastChange}
-                      <dt>{t('Last change')}</dt>
-                      <dd>
-                        <button type="button" class="sed-link" on:click={() => (activeEndpointTab = 'activity')}>
-                          {formatActivityItem(lastChange).title}
-                        </button>
-                        <small class="sed-muted">{lastChange.actor_display ?? t('System')} · {formatRelativeDate(lastChange.created_at, '')}</small>
-                      </dd>
-                    {/if}
-                  </dl>
-                </div>
-              </article>
-            </svelte:fragment>
-          </EntityOverviewLayout>
+            <EntityProperties title={t('Connection')}>
+              <EntityProperty label={t('Host')} mono>{endpointHasHost(selected) ? endpointHost(selected) : '—'}{selected?.port ? `:${selected.port}` : ''}</EntityProperty>
+              <EntityProperty label={t('Protocol')}>{String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase()}</EntityProperty>
+              <EntityProperty label={t('Service account')} mono>{selected?.bind_dn || selected?.auth_username || '—'}</EntityProperty>
+              <EntityProperty label={t('Identity source')}>{selected?.identity_source_id ? (data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`) : t('None')}</EntityProperty>
+              <EntityProperty label={t('Zone')}>{endpointZone(selected)}</EntityProperty>
+              {#if lastChange}
+                <EntityProperty label={t('Last change')}>
+                  <button type="button" class="sed-link" on:click={() => (activeEndpointTab = 'activity')}>{formatActivityItem(lastChange).title}</button>
+                  <small class="sed-muted">{lastChange.actor_display ?? t('System')} · {formatRelativeDate(lastChange.created_at, '')}</small>
+                </EntityProperty>
+              {/if}
+            </EntityProperties>
+          </div>
         {:else if activeEndpointTab === 'activity'}
           <ActivityTabPanel
             items={activity}
@@ -1299,8 +1277,29 @@
     font-size: var(--b2s-fs-xs);
   }
 
-  .sed-mono {
-    font-family: var(--b2s-font-mono);
-    font-size: var(--b2s-fs-sm);
+  .sed-overview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+    align-items: flex-start;
+  }
+
+  .sed-overview__main {
+    flex: 999 1 420px;
+    min-width: 0;
+    display: grid;
+    gap: 12px;
+  }
+
+  .sed-overview__head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .sed-overview__head h2 {
+    margin: 0;
+    font-size: var(--b2s-fs-md);
+    font-weight: 600;
   }
 </style>

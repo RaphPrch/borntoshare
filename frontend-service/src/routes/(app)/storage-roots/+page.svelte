@@ -1994,7 +1994,7 @@
     onCreateEndpoint={() => (showEndpointWizard = true)}
   />
 {:else}
-  <EntityWorkspace title={t('Storage roots')} subtitle={t('Governed shares, who can access them and who approves.')}>
+  <EntityWorkspace title={t('Storage roots')}>
     <svelte:fragment slot="list">
       <StorageRootTreePanel
         onAdd={data.user?.is_admin === true ? openCreateRoot : null}

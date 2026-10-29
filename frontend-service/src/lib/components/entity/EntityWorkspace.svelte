@@ -1,15 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
 
   /**
    * Page layout shared by zones, storage endpoints and storage roots:
-   * page band (title, subtitle, actions), list pane on the left (resizable), selected entity on the right.
-   * Slots: "actions" (band buttons), "list" (EntitySidebarTree), default (entity detail).
+   * list pane on the left (resizable), selected entity on the right. No title band: the top menu says where
+   * we are and the entity header carries the page title. `title` names the page for screen readers.
+   * Slots: "list" (EntitySidebarTree), default (entity detail).
    */
   export let title: string;
-  export let subtitle: string | null = null;
 
   const WIDTH_KEY = 'b2s.workspace.listWidth';
   const DEFAULT_WIDTH = 340;
@@ -62,11 +61,7 @@
   }
 </script>
 
-<div class="b2s-workspace-page">
-  <PageHeader {title} {subtitle}>
-    <svelte:fragment slot="actions"><slot name="actions" /></svelte:fragment>
-  </PageHeader>
-
+<div class="b2s-workspace-page" role="region" aria-label={title}>
   <div class="b2s-workspace" class:has-list={$$slots.list} class:is-resizing={Boolean(dragStart)} style={`--b2s-list-width:${listWidth}px`}>
     {#if $$slots.list}
       <div class="b2s-workspace__list">
