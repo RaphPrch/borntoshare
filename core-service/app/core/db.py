@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy import inspect
 from sqlalchemy.orm import sessionmaker
 
@@ -167,6 +167,16 @@ engine = create_engine(
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_recycle=settings.DB_POOL_RECYCLE,
 )
+
+
+@event.listens_for(engine, "connect")
+def _use_utc_session(dbapi_connection, _record) -> None:
+    """NOW() in UTC whatever the time zone of the database server: the code and the UI read naive dates as UTC."""
+    if engine.dialect.name not in {"mysql", "mariadb"}:
+        return
+    cursor = dbapi_connection.cursor()
+    cursor.execute("SET time_zone = '+00:00'")
+    cursor.close()
 
 SessionLocal = sessionmaker(
     autocommit=False,

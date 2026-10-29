@@ -50,7 +50,8 @@ export function initials(value?: string | null, fallback = '??'): string {
 export function timeAgo(iso?: string | null): string {
   if (!iso) return '';
   const diff = Date.now() - new Date(iso).getTime();
-  const sec = Math.floor(diff / 1000);
+  // A clock slightly ahead must not show a negative duration
+  const sec = Math.max(0, Math.floor(diff / 1000));
   if (sec < 60) return t('{sec}s ago', { sec });
   const min = Math.floor(sec / 60);
   if (min < 60) return t('{min}m ago', { min });
