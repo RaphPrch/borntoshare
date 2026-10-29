@@ -13,7 +13,7 @@ Everything goes through BornToShare (requests, approvals, worker) except what an
 hand on the file server or in AD (an ACE outside BornToShare, an ACE removed, a folder deleted): those are
 the situations BornToShare has to detect. Folders, under \\\\adlab.example.test\\projects\\Demo:
 
-  Finance              compliant: read and modify groups, members, guardian, tags
+  Finance              compliant: read and modify groups, members, guardians, tags, a refused and a revoked request
   Ressources humaines  compliant + a request to decide (« To review »)
   Juridique            an access ending in 5 days, another one in 20 days
   Direction            NTFS inheritance broken (badge « No inheritance »), still compliant
@@ -195,6 +195,13 @@ def main() -> int:
     grant(api, roots["Finance"], "read", people["alice.bernard"])
     grant(api, roots["Finance"], "read", people["emma.leroy"])
     grant(api, roots["Finance"], "write", people["julien.durand"])
+    refused = lab.request_access(api, roots["Finance"], "write", people["hugo.garnier"])
+    api.call("POST", "/access-requests/bulk", {"ids": [refused], "decision": "reject"})
+    revoked = grant(api, roots["Finance"], "read", people["lea.fontaine"])
+    api.call("POST", "/access-requests/bulk", {"ids": [revoked], "decision": "revoke"})
+    tags = {str(t.get("name") or t.get("label") or "").lower(): int(t["id"]) for t in lab.rows(api.call("GET", "/tags"))}
+    for tag_id in list(tags.values())[:2]:
+        api.call("POST", "/tags/attach", {"tag_id": tag_id, "resource_type": "storage_root", "resource_id": roots["Finance"]})
 
     roots["Ressources humaines"] = new_root(api, endpoint_id, "Ressources humaines", G("nathalie.girard"))
     grant(api, roots["Ressources humaines"], "read", people["sophie.moreau"])
