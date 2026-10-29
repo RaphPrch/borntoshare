@@ -47,7 +47,8 @@
     const indicator = endpointAlertIndicator(ep);
     const count = endpointAlertCount(ep);
     return indicator && count > 0
-      ? [{ label: String(count), tone: indicator.kind, icon: 'bi-exclamation-triangle-fill', title: indicator.label }]
+      // Quiet (coloured icon only): the dot beside it already carries the state of the server
+      ? [{ label: String(count), tone: indicator.kind === 'error' ? 'error-quiet' : 'warning-quiet', icon: 'bi-exclamation-triangle-fill', title: indicator.label }]
       : [];
   }
 
@@ -97,7 +98,7 @@
         icon: 'bi-geo-alt',
         iconTone: 'zone',
         badges: [{ label: String(endpoints.length), title: t('{count} endpoints', { count: endpoints.length }) }],
-        collapsedBadges: alerts > 0 ? [{ label: String(alerts), tone: 'warning', icon: 'bi-exclamation-triangle-fill', title: t('{count} alerts', { count: alerts }) }] : [],
+        collapsedBadges: alerts > 0 ? [{ label: String(alerts), tone: 'warning-quiet', icon: 'bi-exclamation-triangle-fill', title: t('{count} alerts', { count: alerts }) }] : [],
         children: endpoints.map(endpointNode).sort(byLabel)
       };
     })

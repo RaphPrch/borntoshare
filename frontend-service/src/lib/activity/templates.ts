@@ -109,6 +109,7 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'test_ldap': { titleKey: 'activity.test_ldap.title', descriptionKey: 'activity.test_ldap.description', badge: 'info', icon: 'activity' },
   'test_ldaps': { titleKey: 'activity.test_ldaps.title', descriptionKey: 'activity.test_ldaps.description', badge: 'info', icon: 'activity' },
   'test_kerberos': { titleKey: 'activity.test_kerberos.title', descriptionKey: 'activity.test_kerberos.description', badge: 'info', icon: 'activity' },
+  'test_smb_ntlm:failed': { titleKey: 'activity.test_smb_ntlm_failed.title', descriptionKey: 'activity.test_smb_ntlm_failed.description', badge: 'critical', icon: 'x-octagon' },
   'test_smb_ntlm': { titleKey: 'activity.test_smb_ntlm.title', descriptionKey: 'activity.test_smb_ntlm.description', badge: 'info', icon: 'activity' },
   'secret_resolve': { titleKey: 'activity.secret_resolve.title', descriptionKey: 'activity.secret_resolve.description', badge: 'admin', scope: 'security', icon: 'key' },
   'identity_source_create_snapshot_trigger': { titleKey: 'activity.identity_source_create_snapshot_trigger.title', descriptionKey: 'activity.identity_source_create_snapshot_trigger.description', badge: 'info', icon: 'camera' },

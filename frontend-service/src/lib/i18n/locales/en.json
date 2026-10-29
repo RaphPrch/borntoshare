@@ -584,6 +584,10 @@
         "title": "Logs purged",
         "description": "Entries older than the retention period were deleted"
       }
+    },
+    "test_smb_ntlm_failed": {
+      "title": "Connection test failed",
+      "description": "The file server \"{endpoint}\" refused or did not answer the SMB test"
     }
   },
   "badges": {

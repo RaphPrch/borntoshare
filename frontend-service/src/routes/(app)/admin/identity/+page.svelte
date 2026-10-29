@@ -661,7 +661,7 @@
     margin: 0;
     color: #344664;
     font-size: var(--b2s-fs-sm);
-    font-weight: 760;
+    font-weight: 700;
   }
 
   .identity-detail-grid dd,

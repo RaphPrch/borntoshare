@@ -232,6 +232,59 @@ def put_zone_naming_policy(
     return ui_data(load_zone_policy(db, zone_id), meta={"zone_id": int(zone_id)})
 
 
+class NamingRootsPreviewPayload(BaseModel):
+    zone_id: int | None = None
+    storage_endpoint_id: int | None = None
+    # Template being edited, not saved yet (applied at the level of the scope)
+    template: str | None = Field(default=None, max_length=128)
+    limit: int = Field(default=3, ge=1, le=10)
+
+
+@router.post("/preview-roots")
+def preview_root_groups(payload: NamingRootsPreviewPayload, db: Session = Depends(get_db)):
+    """READ / WRITE group names of a few real storage roots of a file server or a zone.
+
+    Same rule as the approvals (resolve_storage_root_group_name), with the template being edited when given.
+    """
+    if payload.storage_endpoint_id:
+        scope, where, params = "storage_endpoint", "sr.storage_endpoint_id = :id", {"id": int(payload.storage_endpoint_id)}
+    elif payload.zone_id:
+        scope, where, params = "zone", "se.zone_id = :id", {"id": int(payload.zone_id)}
+    else:
+        raise HTTPException(status_code=422, detail="zone_id or storage_endpoint_id is required")
+    rows = db.execute(
+        text(
+            f"""
+            SELECT sr.id, sr.name, sr.root_path
+            FROM storage_roots sr
+            JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
+            WHERE {where}
+            ORDER BY sr.name
+            LIMIT :limit
+            """
+        ),
+        {**params, "limit": int(payload.limit)},
+    ).mappings().all()
+    items = []
+    try:
+        for row in rows:
+            naming = resolve_storage_root_naming(db, int(row["id"]), draft_scope=scope, draft_template=payload.template)
+            if naming is None:
+                continue
+            effective, zone_code, root_path = naming
+            names = {
+                level: resolve_group_name_from_effective_policy(
+                    effective_policy=effective, zone_code=zone_code, storage_root_path=root_path, perm=level
+                )["samAccountName"]
+                for level in ("READ", "WRITE")
+            }
+            items.append({"storage_root_id": int(row["id"]), "name": row["name"], "root_path": row["root_path"],
+                          "read_group": names["READ"], "write_group": names["WRITE"]})
+    except ValueError as exc:  # unknown token in the template being edited
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return ui_data({"items": items})
+
+
 @router.post("/preview")
 def preview_group_name(payload: NamingPreviewPayload, db: Session = Depends(get_db)):
     try:

@@ -38,6 +38,8 @@
   export let endpoint: EditableEndpoint | null = null;
   export let onClose: () => void;
   export let onSaved: (() => void) | null = null;
+  /** Tab shown at the opening: « roots » from « Discover and add » of the storage roots table */
+  export let initialTab: "endpoint" | "roots" = "endpoint";
 
   let saving = false;
   let showPassword = false;
@@ -160,7 +162,7 @@
     resolveHint = null;
     touched = {};
     initialSnapshot = buildSnapshot();
-    activeTab = "endpoint";
+    activeTab = initialTab;
     rootsQuery = "";
     discoverStatus = "idle";
     discoverError = null;

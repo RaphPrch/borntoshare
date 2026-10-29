@@ -173,9 +173,10 @@
     <KpiCard
       label={t('Open alerts')}
       value={openAlerts}
-      hint={openAlerts > 0 ? t('Review them in the alert list') : t('Nothing to review')}
+      hint={openAlerts > 0 ? t('Open in Observability') : t('Nothing to review')}
       icon={openAlerts > 0 ? 'bi-exclamation-triangle' : 'bi-check2-circle'}
       tone={openAlerts > 0 ? 'warning' : 'success'}
+      href={`/observability?tab=alerts&q=${encodeURIComponent(selectedRootCodeOrName)}`}
     />
   </section>
 

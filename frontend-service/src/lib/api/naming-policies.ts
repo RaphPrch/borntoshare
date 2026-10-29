@@ -1,4 +1,4 @@
-import { apiPutData, type FetchLike } from './client';
+import { apiPostData, apiPutData, type FetchLike } from './client';
 
 export type RootcodeStrategy = 'BASENAME' | 'PATH_ALL';
 
@@ -23,3 +23,17 @@ export const putGlobalNamingPolicy = (
   fetchFn: FetchLike,
   payload: GlobalNamingPolicy
 ) => apiPutData<GlobalNamingPolicy>(fetchFn, '/naming-policies/global', payload);
+
+export type RootGroupsPreviewItem = {
+  storage_root_id: number;
+  name: string;
+  root_path: string;
+  read_group: string;
+  write_group: string;
+};
+
+/** READ / WRITE group names of a few real storage roots (of a file server or a zone), with an unsaved template */
+export const previewRootGroups = (
+  fetchFn: FetchLike,
+  payload: { zone_id?: number | null; storage_endpoint_id?: number | null; template?: string | null; limit?: number }
+) => apiPostData<{ items: RootGroupsPreviewItem[] }>(fetchFn, '/naming-policies/preview-roots', payload);

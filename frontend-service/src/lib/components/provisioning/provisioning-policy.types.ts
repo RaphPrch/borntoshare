@@ -42,18 +42,14 @@ export type EffectiveProvisioningModel = {
 
 export type ProvisioningPolicyScreenProps = {
   scope: ProvisioningScope;
-  title?: string;
   saveLabel?: string;
   configuration: ProvisioningConfigurationModel;
-  preview: ProvisioningPreviewModel;
   effective: EffectiveProvisioningModel;
   onSave?: () => void;
   saveDisabled?: boolean;
   saveBusy?: boolean;
   errorMessage?: string | null;
   showUnsaved?: boolean;
-  showEffectiveSave?: boolean;
-  showEffectivePreview?: boolean;
 };
 
 export type ProvisioningPolicyViewModel = {

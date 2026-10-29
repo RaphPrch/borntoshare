@@ -510,7 +510,7 @@
     padding: 6px 12px;
     border-radius: var(--b2s-radius-pill);
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.01em;
     background: color-mix(
       in srgb,
@@ -585,7 +585,7 @@
   .tags-table-head {
     padding: 16px 20px;
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--b2s-color-text-muted);
@@ -615,7 +615,7 @@
 
   .tag-usage {
     justify-self: end;
-    font-weight: 900;
+    font-weight: 700;
     color: #0b1530;
   }
 
@@ -659,7 +659,7 @@
   }
 
   .tag-modal__section label {
-    font-weight: 900;
+    font-weight: 700;
     color: #0b1530;
     font-size: var(--b2s-fs-sm);
   }
@@ -690,7 +690,7 @@
   }
 
   .tag-card__title {
-    font-weight: 900;
+    font-weight: 700;
     color: #0b1530;
     margin-bottom: 10px;
   }
@@ -735,7 +735,7 @@
 
   .tag-custom__label {
     color: var(--b2s-color-text-muted);
-    font-weight: 800;
+    font-weight: 700;
     font-size: var(--b2s-fs-sm);
   }
 
@@ -759,7 +759,7 @@
     background: var(--b2s-color-primary-soft);
     border: 1px solid rgba(37, 99, 235, 0.25);
     color: #0b1530;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .tag-values-list {
@@ -780,7 +780,7 @@
   .tag-card__hint {
     margin-top: 12px;
     color: var(--b2s-color-text-muted);
-    font-weight: 800;
+    font-weight: 700;
     font-size: var(--b2s-fs-xs);
   }
 

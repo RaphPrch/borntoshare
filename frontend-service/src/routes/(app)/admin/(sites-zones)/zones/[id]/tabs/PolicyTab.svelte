@@ -6,6 +6,7 @@
   import type { ProvisioningPolicyViewModel } from "$lib/components/provisioning/provisioning-policy.types";
 
   export let policy: ZoneProvisioningPolicy;
+  export let zoneId: number | null = null;
   export let namingTemplateLabel = '';
   export let saving = false;
   export let error: string | null = null;
@@ -40,24 +41,19 @@
 
 <ProvisioningPolicyScreen
   scope="zone"
-  title=""
-  showPreview={false}
-  showEffectiveSave={false}
-  showEffectivePreview={false}
+  saveLabel={t('Save policy')}
   configuration={{
     ...viewModel.configuration,
     namingTemplate: String(namingTemplateLabel || '').trim() || viewModel.configuration.namingTemplate
   }}
-  preview={viewModel.preview}
   effective={{
     ...viewModel.effective,
     effectiveNaming: String(namingTemplateLabel || '').trim() || viewModel.effective.effectiveNaming
   }}
+  previewTarget={{ zone_id: zoneId ?? (Number(policy?.zone_id ?? 0) || null) }}
   saveDisabled={!canSave}
   saveBusy={saving}
   errorMessage={error}
   showUnsaved={isDirty}
 />
 
-<style>
-</style>

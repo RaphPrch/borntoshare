@@ -106,7 +106,7 @@
   .error-card h1 {
     margin: 0;
     font-size: 3rem;
-    font-weight: 800;
+    font-weight: 700;
     color: #38bdf8;
   }
 

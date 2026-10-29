@@ -323,14 +323,13 @@
           <th scope="col" class="col-type">{t('Type')}</th>
           <th scope="col">{t('Description')}</th>
           <th scope="col" class="col-actor">{t('Actor')}</th>
-          <th scope="col" class="col-source">{t('Source')}</th>
           <th scope="col" class="col-actions"><span class="visually-hidden">{t('Actions')}</span></th>
         </tr>
       </thead>
       <tbody>
         {#if pageRows.length === 0}
           <tr>
-            <td colspan="6">
+            <td colspan="5">
               <div class="activity-empty">{emptyLabel}</div>
             </td>
           </tr>
@@ -368,7 +367,6 @@
                   </span>
                 </div>
               </td>
-              <td class="activity-source">{row.source}</td>
               <td class="activity-actions">
                 {#if clickableRows}
                   <button
@@ -377,7 +375,7 @@
                     aria-label={t('Open activity details')}
                     on:click|stopPropagation={() => selectRow(row, pageStart + index)}
                   >
-                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
                   </button>
                 {/if}
               </td>
@@ -535,16 +533,11 @@
     width: 190px;
   }
 
-  .col-source {
-    width: 170px;
-  }
-
   .col-actions {
     width: 48px;
   }
 
-  .activity-time,
-  .activity-source {
+  .activity-time{
     color: #30415f;
     white-space: nowrap;
   }
@@ -627,7 +620,7 @@
     display: inline-grid;
     place-items: center;
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
     flex: 0 0 auto;
   }
 

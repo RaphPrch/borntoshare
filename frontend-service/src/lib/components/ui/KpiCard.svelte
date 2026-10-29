@@ -82,7 +82,7 @@
 
   /* A text value (« 27 min ago ») is smaller than a number, so that it fits on one line */
   .b2s-kpi__value.is-text {
-    font-size: var(--b2s-fs-xl);
+    font-size: var(--b2s-fs-title);
     line-height: 1.4;
   }
 

@@ -217,7 +217,7 @@
 
   .b2s-entity-drawer__header-copy h2 {
     margin: 0;
-    font-size: var(--b2s-fs-xl);
+    font-size: var(--b2s-fs-title);
     line-height: 1.2;
     font-weight: 700;
     color: var(--b2s-color-text);

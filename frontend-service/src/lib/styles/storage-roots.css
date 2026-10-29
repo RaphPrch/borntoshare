@@ -390,7 +390,7 @@
   color: #0d1d3b;
   font-size: var(--b2s-fs-lg);
   line-height: 1.18;
-  font-weight: 750;
+  font-weight: 700;
   overflow-wrap: anywhere;
 }
 
@@ -400,7 +400,7 @@
   padding: 4px 9px;
   font-size: var(--b2s-fs-xs);
   font-style: normal;
-  font-weight: 750;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -605,7 +605,7 @@
   margin: 0 0 12px;
   color: #0f1f3d;
   font-size: var(--b2s-fs-lg);
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .sr-overview-side-card dl {
@@ -633,7 +633,7 @@
   margin: 0;
   color: #10203f;
   font-size: var(--b2s-fs-sm);
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .sr-overview-side-card dd.is-error {
@@ -658,7 +658,7 @@
   gap: 8px;
   padding: 0;
   font-size: var(--b2s-fs-xs);
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .sr-overview-tags {

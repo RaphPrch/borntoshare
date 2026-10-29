@@ -6,6 +6,7 @@
     hint?: string;
     tone?: 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent';
     icon?: string;
+    href?: string | null;
   };
 </script>
 
@@ -27,6 +28,7 @@
       hint={item.hint ?? null}
       icon={item.icon ?? 'bi-dot'}
       tone={KPI_TONES[item.tone ?? 'neutral']}
+      href={item.href ?? null}
     />
   {/each}
 </section>

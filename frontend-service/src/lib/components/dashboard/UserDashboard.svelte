@@ -407,7 +407,7 @@
     color: #111827;
     font-size: var(--b2s-fs-console-title);
     line-height: 1.05;
-    font-weight: 800;
+    font-weight: 700;
     margin-top: 6px;
   }
 

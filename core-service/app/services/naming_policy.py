@@ -415,10 +415,18 @@ def resolve_zone_context(db: Session, zone_ref: Any) -> tuple[int | None, str]:
     return None, raw
 
 
-def resolve_storage_root_naming(db: Session, storage_root_id: int) -> tuple[dict[str, Any], str, str] | None:
+def resolve_storage_root_naming(
+    db: Session,
+    storage_root_id: int,
+    *,
+    draft_scope: str | None = None,
+    draft_template: str | None = None,
+) -> tuple[dict[str, Any], str, str] | None:
     """(effective policy, zone code, root path) used to name the AD groups of a storage root.
 
     Precedence: global < zone < storage endpoint (override, then its naming_template) < storage root.
+    draft_scope / draft_template: a template being edited (« zone » or « storage_endpoint ») replaces the
+    saved one at its level, for previews before saving; an empty endpoint draft means « inherit the zone ».
     """
     row = db.execute(
         text(
@@ -436,8 +444,22 @@ def resolve_storage_root_naming(db: Session, storage_root_id: int) -> tuple[dict
         return None
     zone_id = int(row.get("zone_id") or 0) or None
     endpoint_id = int(row.get("storage_endpoint_id") or 0) or None
-    effective = resolve_effective_policy(db, zone_id, storage_endpoint_id=endpoint_id)
+    draft = str(draft_template or "").strip()
+    if draft:
+        validate_template_tokens(draft)
+
+    effective = dict(load_global_policy(db))
+    if zone_id is not None:
+        effective = _apply_override_policy(effective, load_zone_policy(db, int(zone_id)))
+    if draft_scope == "zone" and draft:
+        effective = {**effective, "template": draft}
+    if endpoint_id is not None:
+        effective = _apply_override_policy(
+            effective, _load_scope_override_policy(db, scope_type="storage_endpoint", scope_id=int(endpoint_id))
+        )
     endpoint_template = str(row.get("naming_template") or "").strip()
+    if draft_scope == "storage_endpoint":
+        endpoint_template = draft
     if endpoint_template:
         effective = {**effective, "template": endpoint_template}
     effective = _apply_override_policy(

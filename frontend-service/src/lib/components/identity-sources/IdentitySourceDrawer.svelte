@@ -425,7 +425,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--b2s-color-text-soft);
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .identity-drawer-grid p {
@@ -483,7 +483,7 @@
     z-index: 1;
     background: var(--b2s-color-surface-soft);
     color: var(--b2s-color-text-strong);
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .snapshot-debug-table tbody tr:last-child td {

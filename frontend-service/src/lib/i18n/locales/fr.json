@@ -2054,6 +2054,10 @@
         "title": "Journaux purgés",
         "description": "Les entrées plus anciennes que la durée de conservation ont été supprimées"
       }
+    },
+    "test_smb_ntlm_failed": {
+      "title": "Échec du test de connexion",
+      "description": "Le serveur de fichiers « {endpoint} » a refusé le test SMB ou n'a pas répondu"
     }
   },
   "badges": {
@@ -2798,5 +2802,31 @@
   "No organizational unit is configured for the groups of this zone.": "Aucune unité d'organisation n'est configurée pour les groupes de cette zone.",
   "A disabled file server is no longer probed and its roots cannot be requested.": "Un serveur de fichiers désactivé n'est plus testé et ses storage roots ne peuvent plus être demandés.",
   "Test the connection before continuing.": "Testez la connexion avant de continuer.",
-  "Storage roots discovery": "Découverte des storage roots"
+  "Storage roots discovery": "Découverte des storage roots",
+  "Discover and add": "Découvrir et ajouter",
+  "Edit the connection": "Modifier la connexion",
+  "Global policy": "Règle globale",
+  "Groups for these storage roots": "Groupes pour ces storage roots",
+  "Inherit the zone policy": "Hériter de la règle de la zone",
+  "Inherited from the zone": "Héritée de la zone",
+  "Last test": "Dernier test",
+  "No storage root yet: the groups are named when the first access is approved.": "Aucun storage root pour l'instant : les groupes sont nommés à la validation du premier accès.",
+  "Not checked": "Non vérifié",
+  "OU of the groups": "OU des groupes",
+  "Open in Observability": "Ouvrir dans Observabilité",
+  "Organizational unit (OU) of the groups": "Unité d'organisation (OU) des groupes",
+  "Own OU or naming template": "OU ou modèle de nommage propres",
+  "Provisioning policy": "Règle de provisioning",
+  "RX (read) or RW (write)": "RX (lecture) ou RW (écriture)",
+  "Read group": "Groupe lecture",
+  "Service account": "Compte de service",
+  "Specific to this file server": "Propre à ce serveur de fichiers",
+  "The template is not valid.": "Le modèle n'est pas valide.",
+  "Use the zone values": "Reprendre les valeurs de la zone",
+  "Where BornToShare creates the AD access groups and how it names them.": "Où BornToShare crée les groupes d'accès AD et comment il les nomme.",
+  "Write group": "Groupe écriture",
+  "Zone of the file server": "Zone du serveur de fichiers",
+  "prefix": "préfixe",
+  "storage root path": "chemin du storage root",
+  "{count} alert(s)": "{count} alerte(s)"
 }

@@ -1426,7 +1426,7 @@
   }
 
   .card__title {
-    font-weight: 800;
+    font-weight: 700;
     font-size: var(--b2s-fs-lg);
     color: var(--b2s-color-text);
   }
@@ -1639,7 +1639,7 @@
     padding: 6px 12px;
     border-radius: var(--b2s-radius-pill);
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
     margin-bottom: 10px;
   }
 
@@ -1697,7 +1697,7 @@
   }
 
   .test-title {
-    font-weight: 800;
+    font-weight: 700;
     color: var(--b2s-color-text);
   }
 
@@ -1711,7 +1711,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--b2s-color-success-strong);
   }
 
@@ -1752,7 +1752,7 @@
 
   .snapshot-sync-title {
     font-size: var(--b2s-fs-sm);
-    font-weight: 900;
+    font-weight: 700;
     color: var(--b2s-color-text);
   }
 
@@ -1794,7 +1794,7 @@
 
   .snapshot-progress-value {
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
     color: var(--b2s-color-text-strong);
     min-width: 40px;
     text-align: right;
@@ -1861,7 +1861,7 @@
 
   .snapshot-step-label {
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
     color: var(--b2s-color-text);
   }
 

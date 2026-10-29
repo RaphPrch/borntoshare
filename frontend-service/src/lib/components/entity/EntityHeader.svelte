@@ -124,7 +124,7 @@
     border-radius: 14px;
     background: #edf4ff;
     color: var(--b2s-topbar-bg);
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .b2s-entity-header__copy {
@@ -143,7 +143,7 @@
   .b2s-entity-header h1 {
     margin: 2px 0 0;
     color: var(--b2s-color-text);
-    font-size: var(--b2s-fs-2xl);
+    font-size: var(--b2s-fs-xl);
     font-weight: 700;
     line-height: 1.25;
     overflow-wrap: anywhere;

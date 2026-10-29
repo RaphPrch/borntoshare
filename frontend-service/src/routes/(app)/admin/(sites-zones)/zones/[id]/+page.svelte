@@ -487,9 +487,10 @@
       key: "alerts",
       label: t('Open alerts'),
       value: String(zoneAlertItems.length),
-      hint: zoneAlertItems.length > 0 ? t('Review them in the alert list') : t('Nothing to review'),
+      hint: zoneAlertItems.length > 0 ? t('Open in Observability') : t('Nothing to review'),
       tone: zoneAlertItems.length > 0 ? "warning" : "success",
-      icon: zoneAlertItems.length > 0 ? "bi-exclamation-triangle" : "bi-check2-circle"
+      icon: zoneAlertItems.length > 0 ? "bi-exclamation-triangle" : "bi-check2-circle",
+      href: `/observability?tab=alerts&q=${encodeURIComponent(zoneLabel())}`
     }
   ] satisfies EntityKpiItem[];
 
@@ -902,6 +903,7 @@
       onSelectActivity: openActivityDetails,
     },
     provisioning: {
+      zoneId: currentZoneId,
       policy: policyDraft,
       namingTemplateLabel: namingDraft,
       onChangeNamingTemplate: setNamingDraft,

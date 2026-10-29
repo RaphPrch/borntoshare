@@ -16,10 +16,11 @@
   --b2s-fs-sm: 13px;
   --b2s-fs-md: 14px;
   --b2s-fs-lg: 16px;
+  --b2s-fs-title: 18px; /* drawer and dialog titles, text values of indicators */
   --b2s-fs-xl: 20px;
   --b2s-fs-2xl: 24px;
-  --b2s-fs-page-title: 28px;
-  --b2s-fs-console-title: 32px;
+  --b2s-fs-page-title: 24px;
+  --b2s-fs-console-title: 24px;
 
   --b2s-text-xs: var(--b2s-fs-xs);
   --b2s-text-sm: var(--b2s-fs-md);

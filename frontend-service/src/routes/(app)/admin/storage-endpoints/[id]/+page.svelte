@@ -88,6 +88,7 @@
     storageRootAlerts?: GovernanceAlert[];
     activity?: any[];
     pendingRequests?: any[];
+    identitySourceNames?: Record<string, string>;
   };
 
   let endpoints: any[] = Array.isArray(data.endpoints) ? data.endpoints : [];
@@ -211,9 +212,6 @@
       [key]: true
     };
   };
-
-  const endpointManualHealthRefreshBusy = (ep: any): boolean =>
-    Boolean(manualHealthRefreshByEndpointId[String(endpointId(ep))]);
 
   const formatRelativeDate = (value: unknown, fallback = 'Unavailable'): string => {
     const text = String(value ?? '').trim();
@@ -413,12 +411,6 @@
       setHealthLoading(id, null);
       if (options?.manual) setManualHealthRefresh(id, false);
     }
-  }
-
-  function refreshSelectedEndpointStatus(): void {
-    if (!selected || selectedId <= 0) return;
-    healthLoadedForEndpointId = selectedId;
-    void refreshEndpointHealth(selected, { manual: true });
   }
 
   // Browser only: during SSR the component fetch cannot resolve relative /api URLs
@@ -680,6 +672,7 @@
 
   let showWizard = false;
   let showEditModal = false;
+  let editInitialTab: 'endpoint' | 'roots' = 'endpoint';
   let showDeleteModal = false;
   let showEndpointAlertsDrawer = false;
   let endpointAlertItems: EntityAlertStripItem[] = [];
@@ -736,13 +729,31 @@
     return Number.isFinite(embedded) && embedded > 0 ? embedded : 0;
   };
 
+  // Open alerts per storage root, for the state column of the table
+  $: rootAlertCounts = selectVisibleStorageRootAlertsForRootIds(
+    selectedRoots.map((row) => rootId(row)),
+    data.storageRootAlerts ?? []
+  ).reduce<Record<string, number>>((counts, alert) => {
+    const key = String(storageRootAlertRootId(alert));
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {});
+
   $: rootsFilteredRows = selectedRoots
     .map((row) => ({
       id: rootId(row),
       name: String(rootName(row) || '').replace(/^\s*\[[^\]]+\]\s*/, ''),
       path: rootPath(row),
-      pendingCount: pendingCountForRoot(row)
+      pendingCount: pendingCountForRoot(row),
+      health: (rootHealthByEndpointId[String(selectedId)] ?? {})[String(rootId(row))] ?? null,
+      alertCount: rootAlertCounts[String(rootId(row))] ?? 0
     }));
+
+  // Successful routine checks are summed up in the header (last test): the card keeps changes and failures
+  const ROUTINE_CHECKS = new Set(['test_smb_ntlm', 'test_smb_root_access']);
+  $: notableActivity = activity.filter(
+    (entry) => !(ROUTINE_CHECKS.has(String(entry?.action ?? '')) && String(entry?.outcome ?? entry?.result ?? '').toLowerCase() === 'success')
+  );
 
   let activityDetailsOpen = false;
   let selectedActivityEntry: Record<string, unknown> | null = null;
@@ -763,11 +774,6 @@
   const endpointLastProbeLabel = (ep: any): string => {
     const raw = endpointLastProbeRaw(ep);
     return raw ? formatRelativeDate(raw, 'No probe data') : t('No probe data');
-  };
-
-  const endpointLastCommunicationLabel = (ep: any): string => {
-    const raw = endpointLastProbeRaw(ep);
-    return raw ? formatDateTime(raw, { empty: t('Unavailable') }) : t('No probe data');
   };
 
   const endpointLastResultLabel = (ep: any): string => {
@@ -822,20 +828,14 @@
           icon: 'bi-hourglass-split'
         },
         {
-          key: 'probe',
-          label: t('Last probe'),
-          value: endpointLastProbeLabel(selected),
-          hint: healthLabel(endpointHealth(selected)),
-          tone: endpointHealth(selected) === 'healthy' ? 'success' : 'warning',
-          icon: 'bi-heart-pulse'
-        },
-        {
           key: 'alerts',
           label: t('Open alerts'),
           value: String(endpointAlertItems.length),
-          hint: endpointAlertItems.length > 0 ? t('Review them in the alert list') : t('Nothing to review'),
+          hint: endpointAlertItems.length > 0 ? t('Open in Observability') : t('Nothing to review'),
           tone: endpointAlertItems.length > 0 ? 'warning' : 'success',
-          icon: endpointAlertItems.length > 0 ? 'bi-exclamation-triangle' : 'bi-check2-circle'
+          icon: endpointAlertItems.length > 0 ? 'bi-exclamation-triangle' : 'bi-check2-circle',
+          // The full list, with acknowledge / resolve, is in Observability
+          href: `/observability?tab=alerts&q=${encodeURIComponent(endpointName(selected))}`
         }
       ]
     : [];
@@ -855,7 +855,8 @@
       healthDetail: endpointHealthDetail(ep),
       hostReady: endpointHasHost(ep),
       hostLabel: endpointHost(ep),
-      pendingRequestCount: endpointPendingCount(ep),
+      // Pending requests have their own indicator: they are not an alert of the file server
+      pendingRequestCount: 0,
       provisioningWarnings: options?.includeProvisioningWarnings ? provisioningWarnings : []
     });
 
@@ -871,7 +872,7 @@
     endpointAttentionItems(ep, options).map((item, index) => ({
       key: `endpoint-operational-alert-${endpointId(ep)}-${index}-${item}`,
       title: item,
-      subtitle: index === 0 ? t('Last probe: {endpointLastCommunicationLabel}', { endpointLastCommunicationLabel: endpointLastCommunicationLabel(ep) }) : null,
+      subtitle: null,
       tone: endpointAlertToneFromText(item)
     }));
 
@@ -944,15 +945,6 @@
       onClick: () => runEndpointProbe(ep)
     },
     {
-      key: 'refresh-status',
-      label: endpointManualHealthRefreshBusy(ep) ? t('Refreshing...') : t('Refresh status'),
-      icon: 'bi-arrow-clockwise',
-      variant: 'secondary',
-      overflow: true,
-      disabled: endpointManualHealthRefreshBusy(ep),
-      onClick: refreshSelectedEndpointStatus
-    },
-    {
       key: 'delete',
       label: t('Delete storage endpoint'),
       icon: 'bi-trash',
@@ -964,19 +956,6 @@
 
   let endpointProvisioningViewModel: ProvisioningPolicyViewModel =
     buildStorageEndpointProvisioningViewModel(null);
-
-  const previewGroupName = (templateRaw: unknown, permRaw: 'RX' | 'RW'): string | null => {
-    const policy = (endpointProvisioningPolicy as any)?.effective_naming_policy ?? {};
-    const template = String(templateRaw ?? '').trim() || '{PREFIX}_{ROOTCODE}_{PERM}';
-    const prefix = String(policy?.group_prefix ?? 'B2S').trim() || 'B2S';
-    const uppercase = policy?.normalize_uppercase !== false;
-    const rootCode = uppercase ? 'FINANCE_RW' : 'finance_rw';
-    const rendered = template
-      .replaceAll('{PREFIX}', prefix)
-      .replaceAll('{ROOTCODE}', rootCode)
-      .replaceAll('{PERM}', permRaw);
-    return uppercase ? rendered.toUpperCase() : rendered;
-  };
 
   $: {
     const policy = endpointProvisioningPolicy;
@@ -1031,27 +1010,7 @@
                   policy.effective_values?.naming_template ??
                   (policy as any).effective_naming_policy?.template ??
                   null
-          },
-          example_groups:
-            draft.policyMode === 'override'
-              ? {
-                  ...(policy.example_groups ?? {}),
-                  read: previewGroupName(
-                    String(draft.namingTemplate ?? '').trim() ||
-                      policy.inherited_values?.naming_template ||
-                      policy.effective_values?.naming_template ||
-                      (policy as any).effective_naming_policy?.template,
-                    'RX'
-                  ),
-                  write: previewGroupName(
-                    String(draft.namingTemplate ?? '').trim() ||
-                      policy.inherited_values?.naming_template ||
-                      policy.effective_values?.naming_template ||
-                      (policy as any).effective_naming_policy?.template,
-                    'RW'
-                  )
-                }
-              : policy.example_groups
+          }
         }
       : null;
 
@@ -1165,6 +1124,7 @@
             items={endpointAlertItems}
             onViewAll={() => (showEndpointAlertsDrawer = true)}
             ariaLabel={t('Storage endpoint alerts')}
+            action={!['unhealthy', 'degraded'].includes(endpointHealth(selected)) ? null : { label: t('Edit the connection'), icon: 'bi-pencil', onClick: () => (showEditModal = true) }}
           />
           <EntityKpiRow items={kpiItems} ariaLabel={t('Storage endpoint KPIs')} />
           {/key}
@@ -1183,7 +1143,12 @@
           <EntityOverviewLayout>
             <svelte:fragment slot="main">
               <EntityOverviewPanel title={t('Governed storage roots')} panelClass="sed-panel--governed">
-                <AssociatedRootsTable rows={rootsFilteredRows.slice(0, 10)} dense={true} emptyLabel={t('No associated roots')} />
+                <svelte:fragment slot="actions">
+                  <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => { editInitialTab = 'roots'; showEditModal = true; }}>
+                    <i class="bi bi-search" aria-hidden="true"></i>{t('Discover and add')}
+                  </button>
+                </svelte:fragment>
+                <AssociatedRootsTable rows={rootsFilteredRows} dense={true} emptyLabel={t('No associated roots')} />
               </EntityOverviewPanel>
             </svelte:fragment>
 
@@ -1192,16 +1157,21 @@
                 <div class="b2s-panel__head"><h2>{t('Connection')}</h2></div>
                 <div class="b2s-panel__body">
                   <dl class="b2s-kv">
-                    <dt>{t('Host')}</dt><dd>{endpointHasHost(selected) ? endpointHost(selected) : '—'}</dd>
+                    <dt>{t('Host')}</dt>
+                    <dd class="sed-mono">{endpointHasHost(selected) ? endpointHost(selected) : '—'}{selected?.port ? `:${selected.port}` : ''}</dd>
                     <dt>{t('Protocol')}</dt><dd>{String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase()}</dd>
-                    <dt>{t('Share')}</dt><dd>{String(selected?.base_path ?? '—')}</dd>
+                    <dt>{t('Service account')}</dt><dd class="sed-mono">{selected?.bind_dn || selected?.auth_username || '—'}</dd>
+                    <dt>{t('Identity source')}</dt>
+                    <dd>{selected?.identity_source_id ? (data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`) : t('None')}</dd>
                     <dt>{t('Zone')}</dt><dd>{endpointZone(selected)}</dd>
+                    <dt>{t('Last test')}</dt>
+                    <dd>{endpointLastProbeLabel(selected)}{endpointLastResultLabel(selected) ? ` · ${endpointLastResultLabel(selected)}` : ''}</dd>
                   </dl>
                 </div>
               </article>
               <RecentActivityCard
                 title={t('Recent activity')}
-                items={activity}
+                items={notableActivity}
                 max={5}
                 onViewAll={() => (activeEndpointTab = 'activity')}
                 onSelect={openActivityDetails}
@@ -1217,18 +1187,15 @@
         {:else}
           <ProvisioningPolicyScreen
             scope="storage-endpoint"
-            title=""
             saveLabel={t('Save changes')}
-            configuration={endpointProvisioningViewModel.configuration}
-            preview={endpointProvisioningViewModel.preview}
+            configuration={{ ...endpointProvisioningViewModel.configuration, zoneLabel: endpointZone(selected) }}
             effective={endpointProvisioningViewModel.effective}
+            previewTarget={{ storage_endpoint_id: endpointId(selected) }}
             onSave={saveEndpointProvisioning}
             saveDisabled={!endpointCanSave}
             saveBusy={endpointProvisioningBusy}
             errorMessage={endpointProvisioningError || (provisioningWarnings.length > 0 ? provisioningWarnings.join(' · ') : null)}
             showUnsaved={endpointIsDirty}
-            showPreview={endpointProvisioningDraft.policyMode === 'override' || endpointIsDirty}
-            showEffectiveSave={endpointProvisioningDraft.policyMode === 'override' || endpointIsDirty}
           />
         {/if}
       </EntityConsoleShell>
@@ -1266,9 +1233,11 @@
 <StorageEndpointEditModal
   open={showEditModal}
   endpoint={selected}
-  onClose={() => (showEditModal = false)}
+  initialTab={editInitialTab}
+  onClose={() => { showEditModal = false; editInitialTab = 'endpoint'; }}
   onSaved={async () => {
     showEditModal = false;
+    editInitialTab = 'endpoint';
     await invalidateAll();
     if (selected) {
       healthLoadedForEndpointId = null;

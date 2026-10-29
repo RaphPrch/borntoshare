@@ -50,7 +50,7 @@
   right: 18px;
   background: transparent;
   border: none;
-  font-size: var(--b2s-fs-page-title);
+  font-size: var(--b2s-fs-xl);
   cursor: pointer;
   color: var(--b2s-color-text-strong);
   z-index: 2;
@@ -137,7 +137,7 @@
 .b2s-modal__heading h2 {
   margin: 0;
   color: var(--b2s-color-text);
-  font-size: var(--b2s-fs-xl);
+  font-size: var(--b2s-fs-title);
   font-weight: 700;
   line-height: 1.2;
 }

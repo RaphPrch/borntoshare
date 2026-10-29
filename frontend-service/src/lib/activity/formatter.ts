@@ -181,7 +181,9 @@ function humanizeAction(value: string): string {
 
 export function renderActivity(ev: any): ActivityRender {
   const action = String(ev?.action ?? 'event');
-  const tpl = activityTemplates[action];
+  // A failed check has its own wording (« Connection test failed »), not « test executed »
+  const failed = ['failed', 'failure', 'error'].includes(String(ev?.outcome ?? ev?.result ?? '').toLowerCase());
+  const tpl = (failed ? activityTemplates[`${action}:failed`] : undefined) ?? activityTemplates[action];
   const vars = varsFromEvent(ev);
 
   const title = tpl ? t(tpl.titleKey, vars) : humanizeAction(action);

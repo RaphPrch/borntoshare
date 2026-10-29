@@ -190,7 +190,7 @@
 
   .field label {
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
     color: var(--b2s-color-text-soft);
     text-transform: uppercase;
     letter-spacing: 0.04em;

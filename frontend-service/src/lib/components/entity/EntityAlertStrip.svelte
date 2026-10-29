@@ -6,6 +6,8 @@
   export let items: EntityAlertStripItem[] = [];
   export let onViewAll: () => void = () => {};
   export let ariaLabel = t('Entity alerts');
+  /** What fixes the main alert (e.g. edit the connection), shown next to it */
+  export let action: { label: string; icon?: string; onClick: () => void } | null = null;
 
   $: visibleItems = items.slice(0, 2);
   $: hasError = items.some((item) => item.tone === 'error');
@@ -22,6 +24,12 @@
         </li>
       {/each}
     </ul>
+    {#if action}
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm entity-alerts__action" on:click={action.onClick}>
+        {#if action.icon}<i class={`bi ${action.icon}`} aria-hidden="true"></i>{/if}
+        {action.label}
+      </button>
+    {/if}
     <button type="button" class="entity-alerts__link" on:click={onViewAll}>
       {items.length > visibleItems.length
         ? t('View all alerts ({itemsCount})', { itemsCount: items.length })
@@ -32,6 +40,11 @@
 {/if}
 
 <style>
+  .entity-alerts__action {
+    flex: none;
+    align-self: center;
+  }
+
   .entity-alerts {
     display: flex;
     align-items: flex-start;

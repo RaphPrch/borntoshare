@@ -366,7 +366,7 @@
     align-items: center;
     gap: 8px;
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
     padding: 0 12px;
     white-space: nowrap;
   }
@@ -475,13 +475,13 @@
     align-items: center;
     justify-content: center;
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
     flex: 0 0 auto;
   }
 
   .sr-effective-access-table__identity strong {
     color: #102243;
-    font-weight: 750;
+    font-weight: 700;
   }
 
   .sr-effective-access-table__identity-text {
@@ -509,7 +509,7 @@
     justify-content: center;
     padding: 0 10px;
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .sr-effective-access-table__pill.is-access-read,
@@ -608,7 +608,7 @@
     margin: 0;
     color: #102243;
     font-size: var(--b2s-fs-xl);
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .sr-effective-access-table__drawer p {
@@ -668,14 +668,14 @@
     align-items: center;
     justify-content: center;
     font-size: var(--b2s-fs-xs);
-    font-weight: 800;
+    font-weight: 700;
     flex: 0 0 auto;
   }
 
   .sr-effective-access-table__drawer-member strong {
     color: #102243;
     font-size: var(--b2s-fs-sm);
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .sr-effective-access-table__drawer-member dl {
@@ -693,7 +693,7 @@
   .sr-effective-access-table__drawer-member dt {
     color: #607087;
     font-size: var(--b2s-fs-xs);
-    font-weight: 750;
+    font-weight: 700;
   }
 
   .sr-effective-access-table__drawer-member dd {
