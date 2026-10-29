@@ -266,8 +266,13 @@ class InfraHealthTarget(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     component: str = Field(min_length=1, max_length=96)
-    kind: str = Field(default="http", pattern="^(http|tcp)$")
+    kind: str = Field(default="http", pattern="^(http|tcp|ldap)$")
     target: str = Field(min_length=1, max_length=512)
+    # ldap: bind with the account that reads the directory (password resolved from the secret broker)
+    use_ssl: bool = True
+    base_dn: Optional[str] = Field(default=None, max_length=512)
+    bind_dn: Optional[str] = Field(default=None, max_length=512)
+    secret_ref: Optional[str] = Field(default=None, max_length=512)
 
 
 class InfraHealthPayload(BaseModel):

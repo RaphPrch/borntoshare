@@ -404,11 +404,28 @@ def worker_targets(db: Session) -> list[dict[str, Any]]:
     for row in db.execute(text("SELECT * FROM infra_services WHERE is_enabled = 1 ORDER BY id")).mappings():
         targets.append({"component": f"service:{row['component_key']}", "label": row["label"], "category": row["category"], "kind": row["check_kind"], "target": row["target"]})
     targets.append({"component": "database_network", "label": "Database server (from the worker)", "category": "data", "kind": "tcp", "target": f"{settings.DB_HOST}:{settings.DB_PORT}"})
+    from app.services.identity_source_accounts import load_accounts
+
     for row in db.execute(
-        text("SELECT id, name, host, port, protocol FROM identity_sources WHERE is_active = 1 AND LOWER(type) = 'ad' AND host IS NOT NULL")
+        text(
+            """
+            SELECT id, name, host, port, protocol, base_dn, bind_dn, bind_password_ref
+            FROM identity_sources WHERE is_active = 1 AND LOWER(type) = 'ad' AND host IS NOT NULL
+            """
+        )
     ).mappings():
-        port = int(row["port"] or (636 if str(row["protocol"] or "").lower() == "ldaps" else 389))
-        targets.append({"component": f"identity_source:{row['id']}", "label": f"Directory · {row['name']}", "category": "directory", "kind": "tcp", "target": f"{row['host']}:{port}"})
+        use_ssl = str(row["protocol"] or "").lower() != "ldap"
+        port = int(row["port"] or (636 if use_ssl else 389))
+        # A real LDAP check (TLS, bind with the account that reads the directory, base DN), not only the port
+        account = load_accounts(db, int(row["id"])).get("snapshot") or {}
+        bind_dn = account.get("bind_dn") or row["bind_dn"]
+        secret_ref = account.get("bind_password_ref") or row["bind_password_ref"]
+        target = {"component": f"identity_source:{row['id']}", "label": f"Directory · {row['name']}", "category": "directory", "target": f"{row['host']}:{port}"}
+        if bind_dn and secret_ref:
+            target.update({"kind": "ldap", "use_ssl": use_ssl, "base_dn": row["base_dn"], "bind_dn": bind_dn, "secret_ref": secret_ref})
+        else:
+            target["kind"] = "tcp"
+        targets.append(target)
     for row in db.execute(
         text("SELECT id, name, host, port FROM storage_endpoints WHERE host IS NOT NULL AND host <> ''")
     ).mappings():

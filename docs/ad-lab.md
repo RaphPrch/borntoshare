@@ -58,6 +58,32 @@ Le DC a sa propre autorité de certification, publiée dans `testing/ad-lab/out/
 `LDAP_TLS_VERIFY=true`, ajouter ce certificat au fichier `LDAP_CA_FILE` de capsule-runner et d'auth-service
 (un fichier peut contenir plusieurs autorités). Les certificats respectent la vérification stricte de Python 3.13+.
 
+## Recette automatique
+
+`e2e_check.py` rejoue la recette complète (32 contrôles, environ 3 minutes). Chaque passage crée ses propres
+utilisateurs et dossiers `e2e-<horodatage>` : il peut être relancé à volonté. À lancer après `register.py`, depuis
+l'image du labo (outils LDAP et SMB), sur le réseau `b2s-app` :
+
+```
+podman run --rm --network b2s-app -e B2S_URL=http://frontend-service:3000 -e B2S_ORIGIN=https://<borntoshare> \
+  -e B2S_USER=<admin local> -e B2S_PASSWORD_FILE=/run/pw -v <fichier du mot de passe>:/run/pw:ro,z \
+  -v ./testing/ad-lab/e2e_check.py:/e2e.py:ro,z --entrypoint python3 b2s-ad-lab:latest /e2e.py
+```
+
+| Partie | Vérifié dans BornToShare et directement dans l'AD / sur le serveur de fichiers |
+|---|---|
+| Connexion | test de la source (LDAPS, bind, DN de base), test du serveur de fichiers (partages listés) |
+| Health check | l'annuaire est contrôlé par un vrai bind LDAPS, le serveur de fichiers par son port |
+| Synchro | utilisateurs créés dans l'AD retrouvés après un snapshot et après la tâche planifiée « Data sync », groupes aussi |
+| Groupe d'accès | nom = nomenclature, créé à la validation seulement, dans l'OU de la zone, groupe de sécurité global, demandeur membre |
+| ACL NTFS | ACE du groupe sur le dossier (lecture `READ`, écriture `RWXD`, héritée `OI\|CI`) ; accès réel : lecture OK, écriture refusée en lecture, aucun accès sans groupe, écriture OK au niveau écriture |
+| Cas particuliers | groupe réutilisé à la 2e demande, override de nomenclature de la zone, groupe déjà présent dans l'OU repris, même nom hors de l'OU : arrêt `AD_GROUP_NAME_CONFLICT` |
+| Révocation | membre retiré, l'autre conservé, groupe et ACE conservés |
+| Connexion utilisateur | membre de `GG_B2S_Admins` (groupe AD avec rôle) accepté, mauvais mot de passe refusé, utilisateur AD sans rôle refusé |
+
+La connexion des utilisateurs n'est testée que si la source « AD lab » l'a activée, et le groupe `GG_B2S_Admins`
+doit être déclaré dans Identités avec un rôle.
+
 ## Scénario de bout en bout vérifié
 
 Demande de lecture de paul.martin sur « Lab Finance » → aperçu (groupe `B2S_CORP_FINANCE_RX` à créer dans

@@ -1,7 +1,9 @@
 """Infrastructure health check run by a worker (Advanced Settings › Infrastructure).
 
 Checks every target from the worker's network position, in parallel:
-  tcp  : the port accepts a connection (database, Redis, domain controllers, file servers)
+  tcp  : the port accepts a connection (database, Redis, file servers)
+  ldap : the domain controller answers as a directory: TLS (checked as for snapshots), bind with the
+         account that reads the directory, base DN readable
   http : the URL answers (status < 500); https certificate checked unless verify_tls is false
 Each target gets healthy / degraded (slow) / down, a latency and a message.
 """
@@ -67,15 +69,55 @@ def check_http(url: str, timeout: float, verify_tls: bool) -> dict:
     return {"status": _status_for(latency), "latency_ms": latency, "message": f"HTTP {resp.status_code}"}
 
 
+def check_ldap(target: dict, password: str | None, timeout: float) -> dict:
+    from app.actions.ldap_test import test_ldap_bind
+
+    if not password:
+        return {"status": "down", "latency_ms": None, "message": "The password of the directory account could not be read from the secret broker"}
+    host, port = _split_host_port(str(target.get("target") or ""))
+    ok, message, details = test_ldap_bind({
+        "host": host, "port": port, "use_ssl": bool(target.get("use_ssl", True)),
+        "username": target.get("bind_dn"), "password": password, "base_dn": target.get("base_dn"), "timeout": timeout,
+    })
+    latency = int(details.get("duration_ms") or 0)
+    if not ok:
+        return {"status": "down", "latency_ms": None, "message": str(details.get("hint") or message), "failure_code": details.get("failure_code")}
+    tls = "LDAPS, certificate checked" if details.get("tls_verified") else ("LDAPS" if details.get("use_ssl") else "LDAP")
+    return {"status": _status_for(latency), "latency_ms": latency, "message": f"{tls}, bind and base DN OK ({target.get('bind_dn')})"}
+
+
+def _ldap_passwords(targets: list[dict]) -> dict[str, str]:
+    refs = sorted({str(t.get("secret_ref")) for t in targets if str(t.get("kind") or "").lower() == "ldap" and t.get("secret_ref")})
+    if not refs:
+        return {}
+    from app.services.secret_broker_client import resolve_secret_refs
+
+    # One by one: a wrong reference of one source must not hide the password of the others
+    passwords: dict[str, str] = {}
+    for ref in refs:
+        try:
+            passwords.update(resolve_secret_refs([ref]) or {})
+        except Exception:
+            pass  # that directory then reports that its password could not be read
+    return passwords
+
+
 def run_infra_health_check(params: dict):
     targets = [t for t in (params.get("targets") or []) if isinstance(t, dict) and t.get("component")]
     timeout = max(1, min(int(params.get("timeout") or 5), 15))
     verify_tls = bool(params.get("verify_tls", True))
 
+    passwords = _ldap_passwords(targets)
+
     def _one(target: dict) -> dict:
         kind = str(target.get("kind") or "http").lower()
         value = str(target.get("target") or "")
-        result = check_tcp(value, timeout) if kind == "tcp" else check_http(value, timeout, verify_tls)
+        if kind == "ldap":
+            result = check_ldap(target, passwords.get(str(target.get("secret_ref") or "")), timeout)
+        elif kind == "tcp":
+            result = check_tcp(value, timeout)
+        else:
+            result = check_http(value, timeout, verify_tls)
         return {"component": target["component"], "kind": kind, "target": value, **result}
 
     with ThreadPoolExecutor(max_workers=min(16, max(1, len(targets)))) as pool:
