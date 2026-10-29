@@ -283,6 +283,20 @@ def resolve_ad_identity(
             email = str(snapshot_user.get("email") or "").strip() or None
             is_active = bool(snapshot_user.get("is_active")) if snapshot_user.get("is_active") is not None else True
 
+            # Asked by DN or login, stored by objectGUID: this user may have an identity already (importing it twice)
+            already = _find_existing_identity(external_id) if external_id else None
+            if already:
+                return ResolveAdIdentityResponse(
+                    found=True,
+                    reason_code="FOUND_EXISTING",
+                    identity_id=str(already.get("id")),
+                    is_active=bool(already.get("is_active")),
+                    username=already.get("username"),
+                    display_name=already.get("display_name"),
+                    email=already.get("email"),
+                    external_id=already.get("external_id"),
+                )
+
             if external_id:
                 db.execute(
                     text(

@@ -41,6 +41,22 @@ def inheritance_state(control: Any, aces: list[dict[str, Any]]) -> dict[str, Any
     return {"known": bool(flags), "broken": "PD" in flags, "inherited_entries": inherited}
 
 
+def is_expected_system_principal(principal: str | None, service_account: str | None = None) -> bool:
+    """SYSTEM, BUILTIN, domain administrators and the file server account of BornToShare: expected on every folder."""
+    raw = str(principal or "").replace("/", "\\")
+    namespace = raw.split("\\")[0].upper() if "\\" in raw else ""
+    name = short_name(raw)
+    return namespace in _SYSTEM_NAMESPACES or name in _SYSTEM_NAMES or bool(service_account and name == account_name(service_account))
+
+
+def account_name(account: str | None) -> str:
+    """Login of an account written DOMAIN\\login, login@domain or CN=login,OU=…"""
+    raw = str(account or "").strip()
+    if raw.lower().startswith("cn="):
+        raw = raw[3:].split(",", 1)[0]
+    return short_name(raw.split("@", 1)[0])
+
+
 def short_name(principal: str | None) -> str:
     """DOMAIN\\name -> name (lower case)."""
     raw = str(principal or "").strip().replace("/", "\\")
@@ -204,7 +220,7 @@ class StorageRootPermissions:
         aces = [dict(a) for a in (scan.get("permissions") or []) if isinstance(a, dict) and a.get("principal")]
         scanned_at = scan.get("discovered_at")
         exceptions = self._exceptions(root_id)
-        service_account = short_name(root.get("endpoint_account"))
+        service_account = account_name(root.get("endpoint_account"))
 
         profiles = self._all(
             """

@@ -99,3 +99,21 @@ def test_access_group_description_names_the_folder_and_the_level():
     assert access_group_description(r"\\fs01\corp\finance", "write").endswith("accès modification (BornToShare)")
     assert access_group_description(r"\\fs01\corp\finance") == r"\\fs01\corp\finance — accès (BornToShare)"
     assert access_group_description("", "READ") is None
+
+
+def test_expected_system_principals_are_not_gaps():
+    from app.services.storage_root_permissions import is_expected_system_principal
+
+    for account in ("EXAMPLE\\svc-b2s-files", "svc-b2s-files@example.test", "CN=svc-b2s-files,OU=Service,DC=example,DC=test"):
+        assert is_expected_system_principal("EXAMPLE\\svc-b2s-files", account)
+    for principal in ("NT AUTHORITY\\SYSTEM", "BUILTIN\\Administrators", "EXAMPLE\\Domain Admins"):
+        assert is_expected_system_principal(principal)
+    assert not is_expected_system_principal("EXAMPLE\\GG_Marketing_Agence", "EXAMPLE\\svc-b2s-files")
+    assert not is_expected_system_principal("EXAMPLE\\Domain Users")
+
+
+def test_share_of_a_root_path():
+    from app.api.storage_roots import _normalize_root_path, _share_key
+
+    assert _share_key(_normalize_root_path(r"\\fs01\projects\Demo\Finance")) == _normalize_root_path(r"\\fs01\projects")
+    assert _share_key(_normalize_root_path(r"\\fs01\projects")) == _normalize_root_path(r"\\fs01\projects")

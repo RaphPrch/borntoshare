@@ -106,9 +106,10 @@ async def _sync_acl_drift(db: Session) -> dict[str, Any]:
         for r in db.execute(
             text(
                 """
-                SELECT DISTINCT sr.id, sr.name, sr.storage_endpoint_id
+                -- Every governed folder: its ACL gives the drift of the groups, the entries set outside
+                -- BornToShare and the NTFS inheritance shown in the list
+                SELECT sr.id, sr.name, sr.storage_endpoint_id
                 FROM storage_roots sr
-                JOIN storage_root_access_profiles srap ON srap.storage_root_id = sr.id
                 WHERE sr.deleted_at IS NULL
                 """
             )

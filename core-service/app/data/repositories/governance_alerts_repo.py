@@ -382,6 +382,9 @@ class GovernanceAlertsRepo(SQLViewRepo):
         return alerts
 
     def reconcile_storage_root(self, storage_root_id: int, *, commit: bool = False) -> list[dict[str, Any]]:
+        # The probe result was just set on the ORM object: write it first, the raw SQL below would read the old one
+        # (a probe that succeeded again kept its « Root probe failed » alert open)
+        self.db.flush()
         root = self._one(
             """
             SELECT
@@ -397,6 +400,7 @@ class GovernanceAlertsRepo(SQLViewRepo):
               se.last_probe_status AS endpoint_probe_status,
               se.last_probe_at AS endpoint_probe_at,
               se.last_probe_message AS endpoint_probe_message,
+              se.bind_dn AS endpoint_account,
               se.identity_source_id,
               z.id AS zone_id,
               z.name AS zone_name
@@ -600,11 +604,27 @@ class GovernanceAlertsRepo(SQLViewRepo):
                     }
                 )
 
+        # Expected system accounts and the entries accepted in Permissions are not gaps (same rules as the tab)
+        from app.services.storage_root_permissions import is_expected_system_principal
+
+        try:
+            accepted = {
+                str(p or "").strip().lower()
+                for p in self.db.execute(
+                    text("SELECT principal FROM storage_root_acl_exceptions WHERE storage_root_id = :id"), {"id": root_id}
+                ).scalars()
+            }
+        except Exception:  # table not created yet (pack 136)
+            accepted = set()
         for permission in acl_permissions:
             if not isinstance(permission, dict):
                 continue
             normalized_principal = normalize_principal(permission.get("principal"))
             if not normalized_principal or normalized_principal in expected_groups:
+                continue
+            if is_expected_system_principal(permission.get("principal"), root_data.get("endpoint_account")):
+                continue
+            if str(permission.get("principal") or "").strip().lower() in accepted:
                 continue
             principal = str(permission.get("principal") or "").strip()
             if not principal:

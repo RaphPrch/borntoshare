@@ -419,6 +419,12 @@ def _project_storage_root_ad_groups(
     )
 
 
+def _share_key(normalized_path: str) -> str:
+    """Share of a normalized root path: \\server\\share\\folder -> \\server\\share."""
+    parts = [p for p in normalized_path.split("\\") if p]
+    return "\\" + "\\".join(parts[:2]) if len(parts) >= 2 else normalized_path
+
+
 def _normalize_root_path(value: str | None) -> str:
     raw = str(value or "").strip().replace("/", "\\")
     while "\\\\" in raw:
@@ -934,6 +940,8 @@ def sync_storage_root_discovery(
         root.discovered_permissions_json = {
             "discovered_at": discovered_at.isoformat(),
             "permissions": item.permissions or [],
+            # The share listing has no security descriptor flags: keep the inheritance read by the last ACL scan
+            "control": previous_payload.get("control"),
             "content_size_bytes": previous_payload.get("content_size_bytes"),
             "content_updated_at": previous_payload.get("content_updated_at"),
         }
@@ -952,10 +960,14 @@ def sync_storage_root_discovery(
         updated += 1
 
     if payload.discovery_complete:
-        # Any root attached to the endpoint but not returned by a complete
-        # discovery is considered unreachable for this probe cycle.
+        # A root whose share is not returned by a complete discovery is unreachable for this probe cycle.
+        # The discovery lists shares only: a folder below a listed share is left to its own probe (marking it
+        # unreachable here turned every sub-folder red, and wiped its ACL, at each scheduled data sync).
+        discovered_shares = {_share_key(k) for k in discovered_keys}
         for key, root in by_path.items():
             if key in discovered_keys:
+                continue
+            if key != _share_key(key) and _share_key(key) in discovered_shares:
                 continue
             root.last_probe_status = "failed"
             root.last_probe_at = discovered_at
@@ -1662,6 +1674,29 @@ async def create_root_subfolder(root_id: int, payload: SubfolderPayload, request
             request, db,
         )
         created_root_id = int((created or {}).get("data", {}).get("id") or (created or {}).get("id") or 0) or None
+        if created_root_id:
+            # The sub-folder starts with the guardians and the tags of its parent (copied, then managed on their own)
+            db.execute(
+                text(
+                    """
+                    INSERT INTO storage_root_roles (root_id, identity_id, role, assigned_by, assigned_at)
+                    SELECT :child, identity_id, role, :actor, CURRENT_TIMESTAMP FROM storage_root_roles WHERE root_id = :parent
+                    """
+                ),
+                {"child": created_root_id, "parent": int(root.id), "actor": actor.identity_id},
+            )
+            db.execute(
+                text(
+                    """
+                    INSERT INTO storage_root_tags (storage_root_id, tag_id, created_at, updated_at)
+                    SELECT :child, tag_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                    FROM storage_root_tags WHERE storage_root_id = :parent AND deleted_at IS NULL
+                    """
+                ),
+                {"child": created_root_id, "parent": int(root.id)},
+            )
+            db.commit()
+            _reconcile_storage_root_alerts(db, created_root_id)
     return ui_data({"path": path, "storage_root_id": created_root_id})
 
 

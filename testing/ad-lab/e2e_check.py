@@ -230,7 +230,12 @@ def add_root(api: Api, endpoint_id: int, share: str, folder: str) -> int:
 
 def snapshot(api: Api, source_id: int) -> bool:
     before = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
-    api.call("POST", "/identity/snapshots/run", {"identity_source_id": source_id, "mode": "full", "force_full": True})
+    for _ in range(40):
+        status, _body = api.call("POST", "/identity/snapshots/run", {"identity_source_id": source_id, "mode": "full", "force_full": True}, raw=True)
+        if status != 409:  # 409: one is already running (the schedule): wait for it, then ours
+            break
+        time.sleep(3)
+        before = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
     for _ in range(30):
         time.sleep(3)
         after = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
@@ -255,6 +260,40 @@ def principal_of(api: Api, source_id: int, login: str) -> dict | None:
         return None
     return {"type": "user", "dn": item.get("dn"), "username": login, "display_name": item.get("display_name"),
             "identity_source_id": source_id}
+
+
+# ---------------------------------------------------------------- clean-up
+
+def remove_root(api: Api, root: dict) -> None:
+    """Revoke and decide what is open, then delete the folder and the storage root (children first)."""
+    root_id = int(root["storage_root_id"])
+    requests = rows(api.call("GET", f"/access-requests?storage_root_id={root_id}"))
+    active = [int(r["request_id"]) for r in requests if str(r.get("status")).lower() in {"approved", "executed"}]
+    pending = [int(r["request_id"]) for r in requests if str(r.get("status")).lower() == "pending"]
+    if active:
+        api.call("POST", "/access-requests/bulk", {"ids": active, "decision": "revoke"})
+    if pending:
+        api.call("POST", "/access-requests/bulk", {"ids": pending, "decision": "reject"})
+    status, body = api.call("POST", f"/storage-roots/{root_id}/delete-folder",
+                            {"confirm_name": str(root.get("storage_root_name") or "")}, raw=True)
+    if status >= 400:
+        # The folder may be gone already: remove the storage root only
+        status, body = api.call("DELETE", f"/storage-roots/{root_id}", raw=True)
+    print(f"  - {root.get('storage_root_name')}: {'removed' if status < 400 else f'kept (HTTP {status}) {str(body)[:160]}'}")
+
+
+def purge(api: Api, roots: list[dict]) -> None:
+    # Their sub-folders governed in BornToShare go too, first (a parent with children cannot be deleted)
+    every = rows(api.call("GET", "/storage-roots/context"))
+    paths = [str(r.get("root_path") or "").lower().rstrip("\\") + "\\" for r in roots]
+    ids = {int(r["storage_root_id"]) for r in roots}
+    roots = roots + [r for r in every if int(r["storage_root_id"]) not in ids
+                     and any(str(r.get("root_path") or "").lower().startswith(p) for p in paths)]
+    for root in sorted(roots, key=lambda r: len(str(r.get("root_path") or "")), reverse=True):
+        try:
+            remove_root(api, root)
+        except Exception as exc:  # keep going: one stuck root must not stop the clean-up
+            print(f"  - {root.get('storage_root_name')}: {str(exc)[:200]}")
 
 
 # ---------------------------------------------------------------- scenario
@@ -535,6 +574,11 @@ def main() -> int:
         check("wrong password refused", status in (401, 403), f"HTTP {status}")
         status, _ = Api().call("POST", "/auth/login", {"username": f"{login_b}@example.test", "password": USER_PASSWORD}, raw=True)
         check("valid AD user without a BornToShare role refused", status in (401, 403), f"HTTP {status}")
+
+    if os.environ.get("E2E_KEEP") != "1":
+        # The run leaves nothing behind (E2E_KEEP=1 keeps its folders to look at them)
+        print("\n== Clean-up")
+        purge(api, [r for r in rows(api.call("GET", "/storage-roots/context")) if str(r.get("storage_root_name") or "").startswith(f"E2E e2e-{STAMP}")])
 
     return summary()
 
