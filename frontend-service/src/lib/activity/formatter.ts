@@ -127,7 +127,8 @@ function varsFromEvent(ev: any) {
       asStr((ctx as any)?.before?.host) ??
       asStr(ev?.endpoint_id) ??
       asStr(ev?.entity_id),
-    profile: profileLabel,
+    // Levels arrive in English (« Read access ») and are translated here
+    profile: profileLabel ? t(profileLabel) : profileLabel,
     user:
       asStr((ctx as any)?.user) ??
       asStr((ctx as any)?.username) ??

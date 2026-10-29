@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.data.repositories.sql_view_repo import SQLViewRepo
+from app.services.storage_root_access_profile_resolution import normalize_requested_permission
 from app.core.values import utcnow_naive
 
 
@@ -331,25 +332,27 @@ class GovernanceAlertsRepo(SQLViewRepo):
                     {"group_id": int(group["id"])},
                 )
             }
+            # Approved (or legacy "executed") requests, any spelling of the level (write, contribution, modify…)
             expected = {
                 str(r.get("username") or "").lower(): str(r.get("display_name") or r.get("username") or "")
                 for r in self._all(
                     """
                     SELECT
                       JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.username')) AS username,
-                      JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.display_name')) AS display_name
+                      JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.display_name')) AS display_name,
+                      ari.permission
                     FROM access_requests ar
                     JOIN access_request_items ari ON ari.access_request_id = ar.id
-                    WHERE LOWER(ar.status) = 'executed'
+                    WHERE LOWER(ar.status) IN ('approved', 'executed')
                       AND ar.revoked_at IS NULL
                       AND ari.target_type = 'storage_root' AND ari.target_id = :root_id
-                      AND UPPER(ari.permission) = :level
                       AND (ari.expires_at IS NULL OR ari.expires_at > UTC_TIMESTAMP())
                       AND LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.type')), 'user')) = 'user'
                     """,
-                    {"root_id": root_id, "level": level},
+                    {"root_id": root_id},
                 )
                 if r.get("username") and str(r.get("username")) != "null"
+                and normalize_requested_permission(str(r.get("permission") or "")) == level
             }
             profile_id = int(row.get("id") or 0)
             missing = sorted(set(expected) - set(actual))

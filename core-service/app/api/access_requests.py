@@ -249,7 +249,55 @@ def _current_access_level_for_principal(
             if access_level == "write":
                 return "WRITE"
             current = "READ"
-    return current
+    # The snapshot only shows an access after the next data sync: approved requests count right away
+    granted = _granted_level_from_requests(db=db, storage_root_id=int(storage_root_id), wanted=wanted)
+    if granted == "WRITE":
+        return "WRITE"
+    return "READ" if "READ" in {current, granted} else current
+
+
+def _granted_level_from_requests(*, db: Session, storage_root_id: int, wanted: set[str]) -> str:
+    """Highest level of the approved requests of this principal on the root, neither revoked nor expired."""
+    rows = db.execute(
+        text(
+            """
+            SELECT ar.requester_identity_id, ar.requested_principal_json, ari.permission
+            FROM access_requests ar
+            JOIN access_request_items ari ON ari.access_request_id = ar.id
+            WHERE LOWER(COALESCE(ar.status, '')) IN ('approved', 'executed')
+              AND ar.revoked_at IS NULL
+              AND LOWER(COALESCE(ari.target_type, '')) = 'storage_root'
+              AND ari.target_id = :storage_root_id
+              AND (ari.expires_at IS NULL OR ari.expires_at > UTC_TIMESTAMP())
+            """
+        ),
+        {"storage_root_id": int(storage_root_id)},
+    ).mappings().all()
+    # Match on DN / login when known: the identity id may be the requester's, not the principal's
+    wanted_text = {key for key in wanted if key.startswith("text:")} or wanted
+    level = "NONE"
+    for row in rows:
+        payload = row.get("requested_principal_json")
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except ValueError:
+                payload = None
+        payload = payload if isinstance(payload, dict) else {}
+        has_text = bool(str(payload.get("dn") or payload.get("username") or "").strip())
+        keys = _principal_match_keys(
+            identity_id=None if has_text else (_extract_principal_identity_id(payload) or int(row.get("requester_identity_id") or 0) or None),
+            principal_dn=payload.get("dn"),
+            principal_username=payload.get("username"),
+        )
+        if not wanted_text.intersection(keys):
+            continue
+        granted = normalize_requested_permission(str(row.get("permission") or ""))
+        if granted == "WRITE":
+            return "WRITE"
+        if granted == "READ":
+            level = "READ"
+    return level
 
 
 def _find_open_request_for_principal(
@@ -308,9 +356,22 @@ def _find_open_request_for_principal(
             principal_dn=existing_dn,
             principal_username=existing_username,
         )
-        if wanted.intersection(existing):
+        if _same_principal(wanted, existing):
             return dict(row)
     return None
+
+
+def _same_principal(wanted: set[str], existing: set[str]) -> bool:
+    """Same person: DN or login when both sides have one, the identity id otherwise.
+
+    The identity id falls back to the requester's when the beneficiary has none, so an administrator
+    requesting for two people would otherwise match himself.
+    """
+    wanted_text = {key for key in wanted if key.startswith("text:")}
+    existing_text = {key for key in existing if key.startswith("text:")}
+    if wanted_text and existing_text:
+        return bool(wanted_text & existing_text)
+    return bool(wanted & existing)
 
 
 def _evaluate_access_request_guardrails(
@@ -1099,6 +1160,30 @@ def get_access_request_details(
 # WRITE MODEL — CREATE
 # ============================================================
 
+def _created_event_labels(db: Session, *, items: list[dict[str, Any]], principal_payload: Any) -> dict[str, str]:
+    """Beneficiary, level and storage root names of a new request, for its activity entry."""
+    labels: dict[str, str] = {}
+    principal = principal_payload if isinstance(principal_payload, dict) else {}
+    user = str(principal.get("display_name") or principal.get("username") or "").strip()
+    if user:
+        labels["user"] = user
+    first = next((item for item in items if str(item.get("target_type") or "").lower() == "storage_root"), None)
+    if first is None:
+        return labels
+    level = normalize_requested_permission(str(first.get("permission") or ""))
+    if level:
+        labels["profile"] = "Write access" if level == "WRITE" else "Read access"
+    try:
+        root = db.execute(
+            text("SELECT name FROM storage_roots WHERE id = :id"), {"id": int(first.get("target_id") or 0)}
+        ).scalar()
+    except Exception:  # a label only: never block the request for it
+        root = None
+    if root:
+        labels["root"] = str(root)
+    return labels
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_access_request(
     payload: AccessRequestCreate,
@@ -1221,6 +1306,8 @@ def create_access_request(
             "items_count": len(items),
             "permissions": permissions,
             "storage_root_id": storage_root_id,
+            # Read by the activity templates: « {user} requested {profile} on {root} »
+            **_created_event_labels(db, items=items, principal_payload=principal_payload),
         },
         correlation_id=(request.headers.get("x-request-id") or None),
     )
