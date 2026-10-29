@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
+  import { formatActivityItem } from '$lib/activity/format';
   import { formatDateTime } from '$lib/utils/format';
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
@@ -24,7 +25,6 @@
     type OperationalHeaderMetaItem
   } from '$lib/components/entity/EntityHeader.svelte';
   import { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
-  import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
   import EntityKpiRow from '$lib/components/entity/EntityKpiRow.svelte';
   import type { EntityKpiItem } from '$lib/components/entity/EntityKpiRow.svelte';
@@ -297,11 +297,18 @@
   $: selectedRoots = roots.filter((r) => Number(r?.storage_endpoint_id ?? 0) === selectedId);
 
   type EndpointTabKey = 'overview' | 'activity' | 'provisioning';
-  const endpointTabs: { key: EndpointTabKey; label: string; icon: string }[] = [
+  // Failures of the last 7 days are counted on the Activity tab (the overview no longer lists the activity)
+  const isFailure = (entry: any) => ['failed', 'failure', 'error'].includes(String(entry?.outcome ?? entry?.result ?? '').toLowerCase());
+  $: recentFailures = activity.filter(
+    (entry) => isFailure(entry) && Date.now() - new Date(String(entry?.created_at ?? '')).getTime() < 7 * 24 * 3600 * 1000
+  ).length;
+  $: endpointTabs = [
     { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
-    { key: 'activity', label: t('Activity'), icon: 'bi-activity' },
+    { key: 'activity', label: t('Activity'), icon: 'bi-activity', count: recentFailures || null },
     { key: 'provisioning', label: t('Provisioning'), icon: 'bi-shield-check' }
   ];
+  // Last change made by a person (creation, edit…), shown in the Connection card
+  $: lastChange = activity.find((entry) => !String(entry?.action ?? '').startsWith('test_'));
   let activeEndpointTab: EndpointTabKey = 'overview';
 
   let endpointProvisioningBusy = false;
@@ -739,21 +746,21 @@
     return counts;
   }, {});
 
+  const rootProbeHealth = (row: any): HealthValue => {
+    const own = statusToHealth(String(row?.last_probe_status ?? row?.probe_status ?? ''));
+    return own !== 'unknown' ? own : endpointHealth(selected) === 'unhealthy' ? 'unhealthy' : 'unknown';
+  };
+
   $: rootsFilteredRows = selectedRoots
     .map((row) => ({
       id: rootId(row),
       name: String(rootName(row) || '').replace(/^\s*\[[^\]]+\]\s*/, ''),
       path: rootPath(row),
       pendingCount: pendingCountForRoot(row),
-      health: (rootHealthByEndpointId[String(selectedId)] ?? {})[String(rootId(row))] ?? null,
+      // Result of the root's own last test (as on the Storage roots page), not its availability for requests
+      health: rootProbeHealth(row),
       alertCount: rootAlertCounts[String(rootId(row))] ?? 0
     }));
-
-  // Successful routine checks are summed up in the header (last test): the card keeps changes and failures
-  const ROUTINE_CHECKS = new Set(['test_smb_ntlm', 'test_smb_root_access']);
-  $: notableActivity = activity.filter(
-    (entry) => !(ROUTINE_CHECKS.has(String(entry?.action ?? '')) && String(entry?.outcome ?? entry?.result ?? '').toLowerCase() === 'success')
-  );
 
   let activityDetailsOpen = false;
   let selectedActivityEntry: Record<string, unknown> | null = null;
@@ -776,8 +783,16 @@
     return raw ? formatRelativeDate(raw, 'No probe data') : t('No probe data');
   };
 
+  // Internal result codes (endpoint_alive_via_successful_root_probe…) are not shown as such
+  const PROBE_MESSAGE_CODES: Record<string, () => string> = {
+    endpoint_alive_via_successful_root_probe: () => t('Reachable (a storage root test passed)')
+  };
+
   const endpointLastResultLabel = (ep: any): string => {
     const message = String(ep?.last_probe_message ?? '').trim();
+    if (/^[a-z0-9_]+$/.test(message)) {
+      return PROBE_MESSAGE_CODES[message]?.() ?? (endpointHealth(ep) === 'healthy' ? t('Reachable') : t('Unreachable'));
+    }
     if (message) return message;
     return endpointHealth(ep) === 'healthy' ? t('Reachable') : t('Unreachable');
   };
@@ -1083,14 +1098,10 @@
 </div>
 {:else}
 <EntityWorkspace title={t('Storage endpoints')} subtitle={t('File servers connected to BornToShare and the storage roots they expose.')}>
-  <svelte:fragment slot="actions">
-    <button type="button" class="b2s-btn b2s-btn-primary" on:click={() => (showWizard = true)}>
-      <i class="bi bi-plus-lg" aria-hidden="true"></i>
-      {t('New endpoint')}
-    </button>
-  </svelte:fragment>
   <svelte:fragment slot="list">
     <StorageEndpointsSidebar
+      onAdd={() => (showWizard = true)}
+      addLabel={t('New endpoint')}
       query={search}
       groups={sidebarGroups}
       selectedEndpointId={selectedId}
@@ -1166,16 +1177,18 @@
                     <dt>{t('Zone')}</dt><dd>{endpointZone(selected)}</dd>
                     <dt>{t('Last test')}</dt>
                     <dd>{endpointLastProbeLabel(selected)}{endpointLastResultLabel(selected) ? ` · ${endpointLastResultLabel(selected)}` : ''}</dd>
+                    {#if lastChange}
+                      <dt>{t('Last change')}</dt>
+                      <dd>
+                        <button type="button" class="sed-link" on:click={() => (activeEndpointTab = 'activity')}>
+                          {formatActivityItem(lastChange).title}
+                        </button>
+                        <small class="sed-muted">{lastChange.actor_display ?? t('System')} · {formatRelativeDate(lastChange.created_at, '')}</small>
+                      </dd>
+                    {/if}
                   </dl>
                 </div>
               </article>
-              <RecentActivityCard
-                title={t('Recent activity')}
-                items={notableActivity}
-                max={5}
-                onViewAll={() => (activeEndpointTab = 'activity')}
-                onSelect={openActivityDetails}
-              />
             </svelte:fragment>
           </EntityOverviewLayout>
         {:else if activeEndpointTab === 'activity'}
@@ -1268,3 +1281,26 @@
   textConfirmLabel={t('Type')}
   textConfirmPlaceholder=DELETE
 />
+
+<style>
+  .sed-link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--b2s-color-info);
+    font-size: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .sed-muted {
+    display: block;
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .sed-mono {
+    font-family: var(--b2s-font-mono);
+    font-size: var(--b2s-fs-sm);
+  }
+</style>

@@ -16,6 +16,9 @@
   } from "$lib/components/entity/EntitySidebarTree.svelte";
 
   export let zones: ZonesSidebarZone[] = [];
+  /** « + » next to the search (see EntitySidebarTree) */
+  export let onAdd: (() => void) | null = null;
+  export let addLabel = '';
   export let selectedZoneId: number | null = null;
   export let onSelectZone: ((id: number) => void) | null = null;
 
@@ -52,6 +55,8 @@
 </script>
 
 <EntitySidebarTree
+  {onAdd}
+  addLabel={addLabel || undefined}
   ariaLabel={t('Zones')}
   searchPlaceholder={t('Search zone or code')}
   searchAriaLabel={t('Search zone or code')}

@@ -59,6 +59,9 @@
   export let onFilter: (key: string) => void = () => {};
   export let onSelect: (id: string | number, node: EntityTreeNode) => void = () => {};
   export let onQueryChange: (value: string) => void = () => {};
+  /** « + » next to the search: creates an item of the list (new file server, storage roots, zone) */
+  export let onAdd: (() => void) | null = null;
+  export let addLabel = t('Add');
   /** localStorage key of the expanded nodes (none: not remembered) */
   export let storageKey: string | null = null;
   /** Levels expanded the first time (before anything is remembered) */
@@ -300,13 +303,20 @@
 
 <aside class="b2s-list-pane" aria-label={ariaLabel}>
   <div class="b2s-list-pane__head">
-    <SearchField
-      wrapperClass="b2s-list-pane__search"
-      placeholder={searchPlaceholder}
-      ariaLabel={searchAriaLabel}
-      value={query}
-      onChange={(value) => onQueryChange(value)}
-    />
+    <div class="b2s-list-pane__searchrow">
+      <SearchField
+        wrapperClass="b2s-list-pane__search"
+        placeholder={searchPlaceholder}
+        ariaLabel={searchAriaLabel}
+        value={query}
+        onChange={(value) => onQueryChange(value)}
+      />
+      {#if onAdd}
+        <button type="button" class="b2s-btn b2s-btn-primary b2s-list-pane__add" title={addLabel} aria-label={addLabel} on:click={() => onAdd?.()}>
+          <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        </button>
+      {/if}
+    </div>
     {#if filters.length > 0}
       <div class="b2s-list-pane__filters" role="group" aria-label={t('Quick filters')}>
         {#each filters as filter (filter.key)}
@@ -436,6 +446,24 @@
     display: grid;
     gap: 10px;
     padding: 16px 16px 8px;
+  }
+
+  .b2s-list-pane__searchrow {
+    display: flex;
+    gap: 8px;
+  }
+
+  .b2s-list-pane__searchrow :global(.b2s-list-pane__search) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .b2s-list-pane__add {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
   }
 
   .b2s-list-pane__head :global(.b2s-list-pane__search) {

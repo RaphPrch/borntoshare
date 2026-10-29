@@ -34,6 +34,7 @@
 
   // Groups for real storage roots, with the template being typed (an inherited endpoint previews the zone rule)
   let examples: RootGroupsPreviewItem[] = [];
+  let existingGroups = 0;
   let examplesError: string | null = null;
   let examplesLoading = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -56,6 +57,7 @@
       const result = await previewRootGroups(fetch, { ...previewTarget, template: String(template ?? '').trim() || null, limit: 3 });
       if (seq !== requestSeq) return;
       examples = result?.items ?? [];
+      existingGroups = Number((result as { existing_groups?: number })?.existing_groups ?? 0);
       examplesError = null;
     } catch (error: unknown) {
       if (seq !== requestSeq) return;
@@ -164,6 +166,12 @@
         </table>
       {/if}
     </section>
+
+    {#if showUnsaved && existingGroups > 0}
+      <InlineAlert tone="warning">
+        {t('{count} AD group(s) already exist: they keep their name and OU. The new rule applies to the groups created from now on.', { count: existingGroups })}
+      </InlineAlert>
+    {/if}
 
     {#if errorMessage}
       <InlineAlert tone="error">{errorMessage}</InlineAlert>

@@ -32,6 +32,7 @@ from app.services.authorization import (
 )
 from app.services.naming_policy import resolve_effective_policy
 from app.services.probe_results import ProbeResultService, normalize_probe_status_value
+from app.services.storage_guards import root_access_counts, root_access_group_count, same_host, unc_host
 
 router = APIRouter(
     prefix="/storage-roots",
@@ -191,6 +192,12 @@ def _root_zone_id(root: StorageRoot) -> int | None:
         return None
     value = getattr(endpoint, "zone_id", None)
     return int(value) if value is not None else None
+
+
+def _root_zone_name(db: Session, zone_id: int | None) -> str | None:
+    if not zone_id:
+        return None
+    return db.execute(text("SELECT name FROM zones WHERE id = :id"), {"id": int(zone_id)}).scalar()
 
 
 class StorageRootOwnersUpdatePayload(BaseModel):
@@ -415,6 +422,26 @@ def _normalize_root_path(value: str | None) -> str:
     while "\\\\" in raw:
         raw = raw.replace("\\\\", "\\")
     return raw.rstrip("\\").lower()
+
+
+def _assert_root_on_endpoint_host(db: Session, *, storage_endpoint_id: int, root_path: str) -> None:
+    """The UNC host of a storage root is the host of its file server (fs12 and fs12.example.org match)."""
+    host = unc_host(root_path)
+    if not host:
+        return
+    endpoint_host = db.execute(
+        text("SELECT host FROM storage_endpoints WHERE id = :id"), {"id": int(storage_endpoint_id)}
+    ).scalar()
+    if endpoint_host and not same_host(host, endpoint_host):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "STORAGE_ROOT_HOST_MISMATCH",
+                "message": f"The path points at {host}, but the file server is {endpoint_host}",
+                "root_host": host,
+                "endpoint_host": endpoint_host,
+            },
+        )
 
 
 def _normalize_storage_root_path(value: str | None) -> str:
@@ -1033,6 +1060,7 @@ async def create_root(
 
     normalized_root_path = _normalize_storage_root_path(data.get("root_path"))
     data["normalized_root_path"] = normalized_root_path
+    _assert_root_on_endpoint_host(db, storage_endpoint_id=int(data["storage_endpoint_id"]), root_path=str(data.get("root_path") or ""))
     _assert_unique_storage_root_path(
         db,
         storage_endpoint_id=int(data["storage_endpoint_id"]),
@@ -1102,6 +1130,8 @@ async def create_root(
             "inherit_tags": bool(root.inherit_tags),
             "is_active": _root_is_active(root),
             "zone_id": _root_zone_id(root),
+            # Read by the activity texts (« governed in zone Bordeaux »), not only the id
+            "zone_name": _root_zone_name(db, _root_zone_id(root)),
         },
         correlation_id=(request.headers.get("x-request-id") or None),
         background=False,
@@ -1150,6 +1180,22 @@ def update_root(
     target_storage_endpoint_id = int(updates.get("storage_endpoint_id") or root.storage_endpoint_id)
     target_root_path = str(updates.get("root_path") or root.root_path or "")
     if "root_path" in updates or "storage_endpoint_id" in updates:
+        moved = _normalize_storage_root_path(target_root_path) != str(root.normalized_root_path or "") or (
+            target_storage_endpoint_id != int(root.storage_endpoint_id)
+        )
+        if moved:
+            groups = root_access_group_count(db, int(root.id))
+            if groups:
+                # The NTFS ACL and the AD groups stay on the current folder: a new path would not have them
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "code": "STORAGE_ROOT_PATH_LOCKED",
+                        "message": f"{groups} AD access group(s) are set on this folder: its path cannot change",
+                        "access_groups": groups,
+                    },
+                )
+            _assert_root_on_endpoint_host(db, storage_endpoint_id=target_storage_endpoint_id, root_path=target_root_path)
         updates["normalized_root_path"] = _normalize_storage_root_path(target_root_path)
         _assert_unique_storage_root_path(
             db,
@@ -1366,6 +1412,19 @@ def delete_root(
         "parent_storage_root_id": root.parent_storage_root_id,
         "zone_id": _root_zone_id(root),
     }
+
+    accesses = root_access_counts(db, int(root.id))
+    if accesses["active"] or accesses["pending"]:
+        # Deleting would leave the AD members and the NTFS ACL in place, without any request to revoke them
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "STORAGE_ROOT_HAS_ACCESSES",
+                "message": f"{accesses['active']} active access(es) and {accesses['pending']} pending request(s) "
+                           "on this storage root: revoke or decide them first",
+                **accesses,
+            },
+        )
 
     children = _child_storage_roots(db, parent_storage_root_id=int(root.id))
     if children:

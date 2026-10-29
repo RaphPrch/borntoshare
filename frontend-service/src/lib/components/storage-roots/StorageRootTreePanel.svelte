@@ -18,6 +18,9 @@
    * zone > server > folders of the UNC path > storage roots (or a flat list per zone).
    */
   export let rows: StorageRootRow[] = [];
+  /** « + » next to the search (see EntitySidebarTree) */
+  export let onAdd: (() => void) | null = null;
+  export let addLabel = '';
   export let query = '';
   export let selectedStorageRootId: number | null = null;
   export let rootAlertSummary: (row: StorageRootRow) => RootAlertSummary = () => null;
@@ -61,16 +64,19 @@
 
   const countLabel = (count: number): EntityTreeBadge => ({ label: String(count), title: t('{count} storage roots', { count }) });
 
+  /** One indicator per root, the most urgent one (blocking alert, then pending request, then warning); both on hover */
   function rowBadges(row: StorageRootRow): EntityTreeBadge[] {
-    const badges: EntityTreeBadge[] = [];
     const alert = rootAlertSummary(row);
-    if (alert && alert.count > 0) {
-      badges.push({ label: String(alert.count), tone: alert.tone, icon: 'bi-exclamation-triangle-fill', title: alert.label ?? t('{count} alerts', { count: alert.count }) });
-    }
-    if (pendingCount(row) > 0) {
-      badges.push({ label: String(pendingCount(row)), tone: 'info', icon: 'bi-hourglass-split', title: t('{count} pending requests', { count: pendingCount(row) }) });
-    }
-    return badges;
+    const alerts = alert && alert.count > 0 ? alert.count : 0;
+    const pending = pendingCount(row);
+    if (!alerts && !pending) return [];
+    const title = [
+      alerts ? (alert?.label ?? t('{count} alerts', { count: alerts })) : '',
+      pending ? t('{count} pending requests', { count: pending }) : ''
+    ].filter(Boolean).join(' · ');
+    if (alerts && alert?.tone === 'error') return [{ label: String(alerts), tone: 'error', icon: 'bi-exclamation-triangle-fill', title }];
+    if (pending) return [{ label: String(pending), tone: 'info', icon: 'bi-hourglass-split', title }];
+    return [{ label: String(alerts), tone: alert?.tone ?? 'warning', icon: 'bi-exclamation-triangle-fill', title }];
   }
 
   function sumAlerts(items: StorageRootRow[]): Alerts {
@@ -94,7 +100,8 @@
       key,
       label: rootLabel(row),
       subtitle,
-      title: rootPath(row) || null,
+      // The name may be cut in the tree: full name and path on hover
+      title: [rootLabel(row), rootPath(row)].filter(Boolean).join('\n') || null,
       icon: 'bi-folder2',
       iconTone: 'root',
       selectId: rootId(row),
@@ -219,6 +226,8 @@
 </script>
 
 <EntitySidebarTree
+  {onAdd}
+  addLabel={addLabel || undefined}
   ariaLabel={t('Storage roots')}
   searchPlaceholder={t('Search name or path…')}
   searchAriaLabel={t('Search storage roots')}

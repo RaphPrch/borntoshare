@@ -19,14 +19,10 @@
 
 {#if zones.length}
   <EntityWorkspace title={t('Zones')} subtitle={t('Sites and their storage endpoints, provisioning OU and naming rules.')}>
-    <svelte:fragment slot="actions">
-      <button type="button" class="b2s-btn b2s-btn-primary" on:click={createZone}>
-        <i class="bi bi-plus-lg" aria-hidden="true"></i>
-        {t('New zone')}
-      </button>
-    </svelte:fragment>
     <svelte:fragment slot="list">
       <ZonesSidebar
+        onAdd={createZone}
+        addLabel={t('New zone')}
         {zones}
         {selectedZoneId}
         onSelectZone={(id) => {

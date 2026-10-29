@@ -36,4 +36,4 @@ export type RootGroupsPreviewItem = {
 export const previewRootGroups = (
   fetchFn: FetchLike,
   payload: { zone_id?: number | null; storage_endpoint_id?: number | null; template?: string | null; limit?: number }
-) => apiPostData<{ items: RootGroupsPreviewItem[] }>(fetchFn, '/naming-policies/preview-roots', payload);
+) => apiPostData<{ items: RootGroupsPreviewItem[]; existing_groups?: number }>(fetchFn, '/naming-policies/preview-roots', payload);

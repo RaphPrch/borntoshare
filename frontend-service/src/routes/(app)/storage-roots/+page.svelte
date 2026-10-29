@@ -1523,9 +1523,6 @@
     return [];
   };
 
-  const recentActivityRows = (): Array<Record<string, unknown>> =>
-    activityRowsForSelectedRoot().slice(0, 5);
-
   const prependLocalActivityRow = (
     action: string,
     rootId: number,
@@ -1652,16 +1649,6 @@
 
   function openAlertsDrawer() {
     showAlertsDrawer = true;
-  }
-
-  async function openActivityTab() {
-    if (!selectedStorageRootId) {
-      toast.warning(t('Select a storage root first'));
-      return;
-    }
-
-    storageRootsUiStore.setDetailTab('activity');
-    await loadStorageRootActivity(Number(selectedStorageRootId));
   }
 
   /* -------------------------------------------------------------------------- */
@@ -2011,7 +1998,6 @@
     showStatusBadge: showSelectedStatusBadge(),
     lastProbeText: lastProbeLabel(),
     tags: displayTags(selectedRow),
-    recentActivity: recentActivityRows(),
     activityRemainder: activityRowsForSelectedRoot()
   }))(overview, selectedRow, selectedStorageRootId, rootProbeStateByRootId, activityRows, activityLoadedForRootId, data);
 </script>
@@ -2025,27 +2011,10 @@
   />
 {:else}
   <EntityWorkspace title={t('Storage roots')} subtitle={t('Governed shares, who can access them and who approves.')}>
-    <svelte:fragment slot="actions">
-      <button
-        type="button"
-        class="b2s-btn b2s-btn-secondary"
-        on:click={() => {
-          void refreshStorageRootsLoad();
-          if (selectedStorageRootId) void invalidateAndReloadDetailsForRoot(selectedStorageRootId);
-        }}
-      >
-        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-        {t('Refresh')}
-      </button>
-      {#if data.user?.is_admin === true}
-        <button type="button" class="b2s-btn b2s-btn-primary" on:click={openCreateRoot}>
-          <i class="bi bi-plus-lg" aria-hidden="true"></i>
-          {t('Add storage roots')}
-        </button>
-      {/if}
-    </svelte:fragment>
     <svelte:fragment slot="list">
       <StorageRootTreePanel
+        onAdd={data.user?.is_admin === true ? openCreateRoot : null}
+        addLabel={t('Add storage roots')}
         rows={ctxRows}
         query={$storageRootsUiStore.query}
         {selectedStorageRootId}
@@ -2079,7 +2048,6 @@
       lastProbeText={detailView.lastProbeText}
       tags={detailView.tags}
       effectiveAccessUsers={overview?.effective_access ?? []}
-      recentActivity={detailView.recentActivity}
       activityRemainder={detailView.activityRemainder}
       activityLoading={activityLoading}
       {tagId}
@@ -2094,7 +2062,6 @@
       onOpenEffectiveAccess={openEffectiveAccessModal}
       onOpenGovernanceDrawer={(role) => openGovernanceDrawer(role ?? 'guardian')}
       onOpenTagsModal={openTagsModal}
-      onViewAllActivity={openActivityTab}
       onViewAllAlerts={openAlertsDrawer}
     />
   </EntityWorkspace>

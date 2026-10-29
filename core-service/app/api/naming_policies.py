@@ -282,7 +282,20 @@ def preview_root_groups(payload: NamingRootsPreviewPayload, db: Session = Depend
                           "read_group": names["READ"], "write_group": names["WRITE"]})
     except ValueError as exc:  # unknown token in the template being edited
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return ui_data({"items": items})
+    # Groups already in the directory keep their name and OU when the rule changes
+    existing = db.execute(
+        text(
+            f"""
+            SELECT COUNT(*)
+            FROM storage_root_access_profiles p
+            JOIN storage_roots sr ON sr.id = p.storage_root_id
+            JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
+            WHERE {where} AND UPPER(COALESCE(p.status, '')) IN ('SUCCEEDED', 'ADOPTING')
+            """
+        ),
+        params,
+    ).scalar()
+    return ui_data({"items": items, "existing_groups": int(existing or 0)})
 
 
 @router.post("/preview")

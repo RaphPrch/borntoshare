@@ -11,10 +11,13 @@
   import {
     listStorageEndpoints,
     updateStorageEndpoint,
+    getStorageEndpointImpact,
     type StorageEndpointOverview,
     type StorageEndpointUpdatePayload
   } from '$lib/api/storage-endpoints';
   import { runProbeJob } from "$lib/api/probes";
+  import { buildStorageEndpointConnectProbeRequest } from "$lib/jobs/probe-builders";
+  import { extractDomainFromUsername } from "$lib/jobs/storage-endpoint-probe";
   import { resolveCredentials } from "$lib/api/credentials";
   import { createStorageRoot } from '$lib/api/storage-roots';
   import { listZones, type ZoneOverview } from "$lib/api/zones";
@@ -302,7 +305,42 @@
     onClose?.();
   }
 
-  async function save() {
+  /** Guard steps of a save, each asked once: connection test, disabling, root paths of a host change */
+  type SaveOptions = { testDone?: boolean; disableConfirmed?: boolean; rewriteRootPaths?: boolean };
+  let guard: { title: string; subtitle: string; items: string[]; confirmLabel: string; next: SaveOptions } | null = null;
+  let guardBusy = false;
+
+  async function testConnection(secretRef: string | null): Promise<string | null> {
+    const request = buildStorageEndpointConnectProbeRequest({
+      protocol,
+      host: host.trim(),
+      port: Number(port) || 445,
+      username: username.trim() || null,
+      domain: extractDomainFromUsername(username.trim()),
+      secretRef,
+      password: secretRef ? null : password || null,
+      discover: false,
+      timeoutSec: 20,
+      uiOrigin: "admin"
+    });
+    try {
+      const { job_id } = await runProbeJob(fetch, request);
+      const polled = await pollProbeJob(fetch, job_id, { intervalMs: 1500, maxAttempts: 30 });
+      if (polled.status === "success") return null;
+      const payload: any = polled.payload ?? {};
+      return String(payload?.error?.message ?? payload?.result?.message ?? polled.errorMessage ?? t('The connection test failed.'));
+    } catch (error: unknown) {
+      return error instanceof Error ? error.message : t('The connection test failed.');
+    }
+  }
+
+  async function confirmGuard() {
+    const next = guard?.next;
+    guard = null;
+    if (next) await save(next);
+  }
+
+  async function save(options: SaveOptions = {}) {
     if (!endpoint) return;
 
     const endpointNumericId = Number(pick(endpoint, "id", "storage_endpoint_id") ?? 0);
@@ -345,7 +383,46 @@
         secretRef = resolved.secret_ref ?? secretRef;
       }
 
+      // Same rule as the creation wizard: a new host or new credentials are tested before they are saved
+      const connectionChanged =
+        current.host !== previous.host || current.port !== previous.port || current.username !== previous.username || Boolean(password.trim());
+      if (connectionChanged && !options.testDone && current.isActive) {
+        guardBusy = true;
+        const failure = await testConnection(secretRef);
+        guardBusy = false;
+        if (failure) {
+          guard = {
+            title: t('The connection test failed'),
+            subtitle: failure,
+            items: [t('The file server will be marked unreachable until a test passes.'), t('Approvals on its storage roots will fail.')],
+            confirmLabel: t('Save anyway'),
+            next: { ...options, testDone: true }
+          };
+          return;
+        }
+      }
+
+      // Disabling a file server that still serves accesses: say what stops working
+      if (previous.isActive && !current.isActive && !options.disableConfirmed) {
+        const impact = await getStorageEndpointImpact(fetch, endpointNumericId).catch(() => null);
+        if (impact && (impact.roots || impact.active || impact.pending)) {
+          guard = {
+            title: t('Disable this file server?'),
+            subtitle: t('It is no longer tested and its storage roots can no longer be requested.'),
+            items: [
+              t('{count} storage root(s)', { count: impact.roots }),
+              t('{count} active access(es): the AD members and the NTFS permissions are kept', { count: impact.active }),
+              t('{count} pending request(s) that can no longer be approved', { count: impact.pending })
+            ],
+            confirmLabel: t('Disable'),
+            next: { ...options, testDone: true, disableConfirmed: true }
+          };
+          return;
+        }
+      }
+
       const updates: StorageEndpointUpdatePayload = {};
+      if (options.rewriteRootPaths) updates.rewrite_root_paths = true;
 
       if (current.name !== previous.name) updates.name = current.name;
       if (current.description !== previous.description) updates.description = current.description;
@@ -384,8 +461,23 @@
       toast.success(t('Storage endpoint updated.'));
       onClose?.();
       onSaved?.();
-    } catch (e) {
-      const code = String(e?.code ?? e?.details?.error?.code ?? "").trim();
+    } catch (e: any) {
+      const code = String(e?.code ?? e?.details?.error?.code ?? e?.details?.upstream_detail?.error?.code ?? "").trim();
+      const details: any = e?.details?.upstream_detail?.error?.details ?? e?.details?.error?.details ?? e?.details ?? {};
+      if (code === "ENDPOINT_HOST_HAS_ROOTS") {
+        // The storage roots keep \\\\old-host\\... in their path: offer to move them with the server
+        guard = {
+          title: t('Move the storage roots to the new host?'),
+          subtitle: t('{count} storage root(s) use {oldHost} in their path.', { count: details?.roots ?? '', oldHost: details?.old_host ?? '' }),
+          items: [
+            t('Their paths become \\\\{newHost}\\…', { newHost: details?.new_host ?? host.trim() }),
+            t('Their AD groups and NTFS permissions must exist on the new server (same shares).')
+          ],
+          confirmLabel: t('Move the paths and save'),
+          next: { ...options, testDone: true, disableConfirmed: true, rewriteRootPaths: true }
+        };
+        return;
+      }
       if (code === "SECRET_PERSISTENCE_FAILURE") {
         toast.error(t('Secret could not be persisted. Endpoint was not saved.'));
       } else if (code === "SECRET_DECRYPT_FAILED") {
@@ -771,9 +863,9 @@
           variant="primary"
           icon={saving ? "bi-arrow-repeat" : "bi-check2"}
           busy={saving}
-          label={saving ? t('Saving…') : t('Save changes')}
+          label={guardBusy ? t('Testing the connection…') : saving ? t('Saving…') : t('Save changes')}
           disabled={saving || !canSave}
-          onClick={save}
+          onClick={() => save()}
         />
         {#if endpointSaveReason}
           <div class="se-edit-disabled-reason">{endpointSaveReason}</div>
@@ -806,6 +898,18 @@
   </svelte:fragment>
 </Drawer>
 {/if}
+
+<ConfirmActionModal
+  open={Boolean(guard)}
+  onClose={() => (guard = null)}
+  onConfirm={confirmGuard}
+  title={guard?.title ?? ''}
+  subtitle={guard?.subtitle ?? null}
+  impactItems={guard?.items ?? []}
+  confirmLabel={guard?.confirmLabel ?? t('Confirm')}
+  confirmVariant="warning"
+  severity="warning"
+/>
 
 <ConfirmActionModal
   open={closeConfirmOpen}

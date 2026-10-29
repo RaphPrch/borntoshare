@@ -16,6 +16,9 @@
 
   /** List pane of the storage endpoints page: zone > endpoint > its storage roots (links to the storage roots page). */
   export let query = '';
+  /** « + » next to the search (see EntitySidebarTree) */
+  export let onAdd: (() => void) | null = null;
+  export let addLabel = '';
   export let groups: EndpointZoneGroup[] = [];
   export let roots: RootRow[] = [];
   export let selectedEndpointId: number | null = null;
@@ -112,6 +115,8 @@
 </script>
 
 <EntitySidebarTree
+  {onAdd}
+  addLabel={addLabel || undefined}
   ariaLabel={t('Storage endpoints')}
   searchPlaceholder={t('Search endpoint, host or path…')}
   searchAriaLabel={t('Search endpoint or zone')}

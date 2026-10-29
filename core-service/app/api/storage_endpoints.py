@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -21,6 +24,15 @@ from app.api._helpers import ui_action, ui_data, ui_list
 from app.core.sql import to_dicts
 from app.services.activity_log import log_activity
 from app.services.authorization import actor_from_request, require_admin
+from app.services.storage_guards import (
+    endpoint_access_counts,
+    endpoint_access_group_count,
+    endpoint_root_count,
+    normalize_root_path,
+    rewrite_unc_host,
+    same_host,
+    unc_host,
+)
 from app.services.probe_results import (
     ProbeResultService,
     coerce_probe_datetime,
@@ -479,6 +491,78 @@ def create_endpoint(
     return ui_action(action_id=int(endpoint.id), message="storage_endpoint.created")
 
 
+def _guard_endpoint_change(db: Session, endpoint: Any, updates: dict[str, Any], *, rewrite_root_paths: bool) -> list[tuple[Any, str]]:
+    """Refuse the changes that would leave the AD groups or the storage roots behind.
+
+    - identity source or zone: the existing access groups stay in the other domain / OU
+    - host: the storage roots keep \\\\old-host\\... in their path; rewritten only when asked
+    Returns the (root, new path) to apply.
+    """
+    endpoint_id = int(endpoint.id)
+    moved = [
+        field for field in ("identity_source_id", "zone_id")
+        if field in updates and (int(updates.get(field) or 0) or None) != (int(getattr(endpoint, field, 0) or 0) or None)
+    ]
+    if moved:
+        groups = endpoint_access_group_count(db, endpoint_id)
+        if groups:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "ENDPOINT_HAS_ACCESS_GROUPS",
+                    "message": f"{groups} AD access group(s) already exist for the storage roots of this file server: "
+                               "they would stay in the previous domain or OU",
+                    "access_groups": groups,
+                    "fields": moved,
+                },
+            )
+
+    new_host = str(updates.get("host") or "").strip()
+    if not new_host or same_host(new_host, endpoint.host):
+        return []
+    roots = db.query(StorageRoot).filter(StorageRoot.storage_endpoint_id == endpoint_id).all()
+    if not roots:
+        return []
+    if not rewrite_root_paths:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "ENDPOINT_HOST_HAS_ROOTS",
+                "message": f"{len(roots)} storage root(s) use the current host in their path",
+                "roots": len(roots),
+                "old_host": endpoint.host,
+                "new_host": new_host,
+            },
+        )
+    rewrites = [(root, rewrite_unc_host(root.root_path, new_host)) for root in roots if unc_host(root.root_path)]
+    for root, new_path in rewrites:
+        clash = db.execute(
+            text("SELECT id FROM storage_roots WHERE normalized_root_path = :path AND id <> :id LIMIT 1"),
+            {"path": normalize_root_path(new_path), "id": int(root.id)},
+        ).scalar()
+        if clash:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "STORAGE_ROOT_PATH_TAKEN", "message": f"{new_path} is already declared", "root_path": new_path},
+            )
+    return rewrites
+
+
+@router.get("/{endpoint_id}/impact", summary="What depends on a storage endpoint")
+def get_endpoint_impact(endpoint_id: int, request: Request, db: Session = Depends(get_db)):
+    """Storage roots, AD access groups, active accesses and pending requests: shown before disabling or changing it."""
+    _require_platform_admin(request)
+    if db.get(StorageEndpoint, endpoint_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
+    return ui_data(
+        {
+            "roots": endpoint_root_count(db, endpoint_id),
+            "access_groups": endpoint_access_group_count(db, endpoint_id),
+            **endpoint_access_counts(db, endpoint_id),
+        }
+    )
+
+
 @router.patch(
     "/{endpoint_id}",
     summary="Update storage endpoint",
@@ -523,6 +607,8 @@ def update_endpoint(
     )
 
     updates = _sync_endpoint_lifecycle(payload.model_dump(exclude_unset=True))
+    rewrite_root_paths = bool(updates.pop("rewrite_root_paths", False))
+    root_path_rewrites = _guard_endpoint_change(db, endpoint, updates, rewrite_root_paths=rewrite_root_paths)
 
     next_bind_dn = updates.get("bind_dn", endpoint.bind_dn)
     next_bind_ref = updates.get("bind_password_ref", endpoint.bind_password_ref)
@@ -558,6 +644,9 @@ def update_endpoint(
 
     for field, value in updates.items():
         setattr(endpoint, field, value)
+    for root, new_path in root_path_rewrites:
+        root.root_path = new_path
+        root.normalized_root_path = normalize_root_path(new_path)
 
     probe_status = str(updates.get("last_probe_status") or "").strip().lower()
     probe_failed_roots: list[dict[str, object]] = []

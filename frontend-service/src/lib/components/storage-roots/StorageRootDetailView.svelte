@@ -7,7 +7,6 @@
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
   import StorageRootEffectiveAccessTable from '$lib/components/storage-roots/StorageRootEffectiveAccessTable.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
-  import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import TagPill from '$lib/components/tags/TagPill.svelte';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import { initials } from '$lib/utils/format';
@@ -73,7 +72,6 @@
 
   export let tags: StorageRootTag[] = [];
   export let effectiveAccessUsers: StorageRootEffectiveAccessUser[] = [];
-  export let recentActivity: Array<Record<string, unknown>> = [];
   export let activityRemainder: Array<Record<string, unknown>> = [];
   export let activityLoading = false;
   export let tagId: (tag: StorageRootTag) => number = () => 0;
@@ -89,13 +87,13 @@
   export let onOpenEffectiveAccess: (level: 'read' | 'write') => void = () => {};
   export let onOpenGovernanceDrawer: (role?: 'guardian') => void = () => {};
   export let onOpenTagsModal: () => void = () => {};
-  export let onViewAllActivity: () => void = () => {};
   export let onViewAllAlerts: () => void = () => {};
 
   $: statusTone = rootAvailabilityTone;
   $: showBlockingLoading = detailsLoading && selectedRootCodeOrName === '—';
   $: effectiveUsersCount = accessModelRows.reduce((total, row) => total + Number(row?.users ?? 0), 0);
   $: configuredGroupsCount = accessModelRows.filter((row) => row.adGroupTone === 'success').length;
+  $: stripItems = alertItems.filter((item) => !String(item.key ?? '').includes('missing_guardian'));
   $: endpointDisplay = endpointAddress && endpointAddress !== '—' ? endpointAddress : endpointLabel;
   $: aclPermissionsCount = Number(aclFreshness?.permissions_count ?? 0);
   $: aclState = String(aclFreshness?.state ?? '').trim().toLowerCase();
@@ -110,7 +108,8 @@
 
   $: tabs = [
     { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
-    { key: 'effective-access', label: t('Effective access'), icon: 'bi-people', count: effectiveAccessUsers.length },
+    // Entries of the NTFS permissions of the folder (groups and accounts), not people
+    { key: 'effective-access', label: t('NTFS permissions'), icon: 'bi-shield-lock', count: effectiveAccessUsers.length },
     { key: 'activity', label: t('Activity'), icon: 'bi-clock-history' }
   ];
   $: guardianNames = guardians.map((owner) => ownerDisplayName(owner)).filter(Boolean);
@@ -136,7 +135,7 @@
     {showStatusBadge}
     {pathLabel}
     endpointLabel={endpointLabel}
-    aclLabel={aclState === 'stale' ? t('ACL stale') : aclScannedAt ? t('ACL fresh') : ''}
+    aclLabel={aclState === 'stale' ? t('ACL stale') : ''}
     aclTone={aclState === 'stale' ? 'warning' : 'info'}
     {rootProbeBusy}
     {selectedStorageRootId}
@@ -146,22 +145,16 @@
     {onDeleteRoot}
   />
 
-  <EntityAlertStrip items={alertItems} onViewAll={onViewAllAlerts} ariaLabel={t('Storage root alerts')} />
+  <!-- « No guardian » is told by the Guardians card, with its action -->
+  <EntityAlertStrip items={stripItems} onViewAll={onViewAllAlerts} ariaLabel={t('Storage root alerts')} />
 
   <section class="b2s-kpi-grid sr-detail__kpis" aria-label={t('Storage root summary')}>
     <KpiCard
-      label={t('Effective access')}
+      label={t('People with access')}
       value={effectiveUsersCount}
-      hint={t('{configuredGroupsCount} Groups', { configuredGroupsCount })}
+      hint={t('via {count} group(s)', { count: configuredGroupsCount })}
       icon="bi-people"
       tone="info"
-    />
-    <KpiCard
-      label={t('Guardians')}
-      value={guardians.length}
-      hint={guardianNames.slice(0, 2).join(', ') || t('No guardian yet')}
-      icon="bi-shield-check"
-      tone={guardians.length > 0 ? 'purple' : 'warning'}
     />
     <KpiCard
       label={t('Last probe')}
@@ -193,20 +186,9 @@
         <article class="b2s-panel">
           <div class="b2s-panel__head">
             <h2>{t('Access profiles')}</h2>
-            <button type="button" class="b2s-panel__link" on:click={() => onOpenGovernanceDrawer('guardian')}>
-              {t('Manage guardians')}
-            </button>
           </div>
           <StorageRootAccessModel rows={accessModelRows} {onOpenEffectiveAccess} />
         </article>
-
-        <RecentActivityCard
-          title={t('Recent activity')}
-          items={recentActivity}
-          max={5}
-          emptyText={t('Activity related to this storage root will appear here.')}
-          onViewAll={onViewAllActivity}
-        />
       </div>
 
       <aside>
@@ -224,6 +206,9 @@
               </ul>
             {:else}
               <p class="sr-detail__empty">{t('No guardian assigned. Access requests cannot be approved yet.')}</p>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => onOpenGovernanceDrawer('guardian')}>
+                <i class="bi bi-person-plus" aria-hidden="true"></i>{t('Add a guardian')}
+              </button>
             {/if}
           </div>
         </article>
@@ -250,9 +235,7 @@
           <div class="b2s-panel__head"><h2>{t('Details')}</h2></div>
           <div class="b2s-panel__body">
             <dl class="b2s-kv">
-              <dt>{t('Endpoint')}</dt><dd>{endpointDisplay}</dd>
-              <dt>{t('Path')}</dt><dd class="sr-detail__mono">{pathLabel}</dd>
-              <dt>{t('Reachability')}</dt><dd>{rootAvailabilityText}</dd>
+              <dt>{t('File server')}</dt><dd>{endpointDisplay}</dd>
               <dt>{t('Content')}</dt><dd>{contentSizeLabel === '—' ? t('Not measured') : contentSizeLabel}</dd>
             </dl>
           </div>
@@ -292,7 +275,7 @@
   }
 
   .sr-detail__kpis {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   @media (max-width: 1280px) {
@@ -339,10 +322,5 @@
     margin: 0;
     color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-sm);
-  }
-
-  .sr-detail__mono {
-    font-family: var(--b2s-font-mono);
-    font-size: var(--b2s-fs-xs);
   }
 </style>

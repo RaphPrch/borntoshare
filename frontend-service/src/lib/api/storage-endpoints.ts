@@ -321,10 +321,13 @@ export type StorageEndpointUpdatePayload =
     zone_id?: number | null;
     auth_username?: string | null;
     config_json?: Record<string, any> | null;
+    /** Host change of a file server with storage roots: rewrite their UNC paths to the new host */
+    rewrite_root_paths?: boolean;
   };
 
 type StorageEndpointApiUpdatePayload = Partial<StorageEndpointApiWritePayload> & {
   zone_id?: number | null;
+  rewrite_root_paths?: boolean;
 };
 
 function toStorageEndpointCreateApiPayload(payload: StorageEndpointCreatePayload): StorageEndpointApiWritePayload {
@@ -374,6 +377,7 @@ function toStorageEndpointUpdateApiPayload(payload: StorageEndpointUpdatePayload
   if (payload.last_probe_status !== undefined) data.last_probe_status = payload.last_probe_status;
   if (payload.last_probe_at !== undefined) data.last_probe_at = payload.last_probe_at;
   if (payload.last_probe_message !== undefined) data.last_probe_message = payload.last_probe_message;
+  if (payload.rewrite_root_paths) data.rewrite_root_paths = true;
 
   return data;
 }
@@ -426,3 +430,9 @@ export const deleteStorageEndpoint = (
   id: number
 ): Promise<void> =>
   apiDeleteData(fetchFn, `/storage-endpoints/${id}`);
+
+export type StorageEndpointImpact = { roots: number; access_groups: number; active: number; pending: number };
+
+/** What depends on a file server (storage roots, AD groups, accesses, requests): shown before disabling or moving it */
+export const getStorageEndpointImpact = (fetchFn: FetchLike, id: number) =>
+  apiGetData<StorageEndpointImpact>(fetchFn, `/storage-endpoints/${id}/impact`);

@@ -89,6 +89,9 @@ class StorageEndpointUpdate(SecretRefRules, ProbeStatusRules):
     # Identity
     # --------------------------------------------------
 
+    # Host change of a file server that has storage roots: rewrite their UNC paths to the new host
+    rewrite_root_paths: Optional[bool] = None
+
     name: Optional[str] = Field(
         default=None,
         min_length=1,
