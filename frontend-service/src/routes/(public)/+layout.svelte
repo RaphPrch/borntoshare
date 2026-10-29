@@ -1,6 +1,8 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   // Global styles for public routes (/login, /logout, ...)
+  import '@fontsource-variable/geist';
+  import '@fontsource-variable/geist-mono';
   import '$lib/styles/tokens.css';
   import '$lib/styles/bootstrap-subset.css';
   import '$lib/styles/bootstrap-icons.min.css';

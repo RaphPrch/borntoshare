@@ -15,6 +15,10 @@
     redirectTo?: string | null;
   };
 
+  $: enabledProviders = Array.isArray((data?.providers as { enabled?: unknown } | undefined)?.enabled)
+    ? ((data.providers as { enabled: string[] }).enabled)
+    : [];
+
   // Error normalisée pour affichage inline
   let pageError: AppError | null = null;
 
@@ -46,7 +50,12 @@
   <title>{t('Sign in')} · BornToShare</title>
 </svelte:head>
 
-<LoginForm form={data.form ?? {}} ssoProviders={data.ssoProviders ?? []} redirectTo={data.redirectTo ?? null} />
-
-<!-- Persistent error under the form (optional but recommended) -->
-<ErrorNotice error={pageError} />
+<LoginForm
+  form={data.form ?? {}}
+  ssoProviders={data.ssoProviders ?? []}
+  redirectTo={data.redirectTo ?? null}
+  providers={enabledProviders}
+>
+  <!-- Persistent error under the form -->
+  <ErrorNotice error={pageError} />
+</LoginForm>

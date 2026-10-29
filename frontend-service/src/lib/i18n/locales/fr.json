@@ -3145,5 +3145,19 @@
   "{level} access granted but missing from the AD group": "Accès {level} accordé mais absent du groupe AD",
   "AD group member without a granted {level} access": "Membre du groupe AD sans accès {level} accordé",
   "{count} access request(s) pending": "{count} demande(s) en attente",
-  "Identity source actions": "Actions de la source d'identité"
+  "Identity source actions": "Actions de la source d'identité",
+  "Who can access what.": "Qui accède à quoi.",
+  "And why.": "Et pourquoi.",
+  "approved request": "demande validée",
+  "ends in 5 days": "fin dans 5 jours",
+  "Legal": "Juridique",
+  "Active Directory group": "Groupe Active Directory",
+  "Access to shared folders, governed and checked on the file server.": "Accès aux dossiers partagés, gouvernés et vérifiés sur le serveur de fichiers.",
+  "With your company account.": "Avec votre compte d'entreprise.",
+  "Reserved for platform administration.": "Réservé à l'administration de la plateforme.",
+  "Account type": "Type de compte",
+  "Local account": "Compte local",
+  "Username or email": "Identifiant ou adresse e-mail",
+  "or": "ou",
+  "Continue with {label}": "Continuer avec {label}"
 }
