@@ -3114,5 +3114,6 @@
   "Type the exact name of the storage root to confirm.": "Saisissez le nom exact du storage root pour confirmer.",
   "The folder, its share or the file server account is missing.": "Le dossier, son partage ou le compte du serveur de fichiers manque.",
   "Child storage roots are attached to this storage root: remove them first.": "Des storage roots enfants sont rattachés : retirez-les d’abord.",
-  "Next: {name}, in {days} d": "Prochaine : {name}, dans {days} j"
+  "Next: {name}, in {days} d": "Prochaine : {name}, dans {days} j",
+  "Are you sure?": "Êtes-vous sûr ?"
 }

@@ -126,6 +126,11 @@ def find_group(name: str) -> list[dict]:
         if line.startswith("dn: "):
             current = {"dn": line[4:], "member": []}
             groups.append(current)
+        elif current is not None and ":: " in line:
+            # Non-ASCII values (« — », « è ») come base64 encoded
+            import base64
+            key, value = line.split(":: ", 1)
+            current[key] = base64.b64decode(value).decode("utf-8")
         elif current is not None and ": " in line:
             key, value = line.split(": ", 1)
             if key == "member":
@@ -355,6 +360,8 @@ def main() -> int:
     group = found[0] if found else {}
     check("group created in the OU of the zone", group.get("dn") == f"CN={expected_name},{GROUPS_OU}", str(group.get("dn")))
     check("global security group", group.get("groupType") == "-2147483646", str(group.get("groupType")))
+    check("description: the folder on the file server and the level",
+          group.get("description") == f"\\\\{LAB}\\projects\\{folder} — accès lecture (BornToShare)", str(group.get("description")))
     check("requester is a member", dn_a in group.get("member", []))
 
     section("5. NTFS ACL on the file server")

@@ -90,3 +90,12 @@ def test_inheritance_state_reads_the_control_flags():
     assert inheritance_state("SR|PD|DP", aces) == {"known": True, "broken": True, "inherited_entries": 1}
     assert inheritance_state("SR|DP", aces)["broken"] is False
     assert inheritance_state(None, [])["known"] is False
+
+
+def test_access_group_description_names_the_folder_and_the_level():
+    from app.api.governance.provisioning import access_group_description
+
+    assert access_group_description(r"\\fs01\corp\finance", "READ") == r"\\fs01\corp\finance — accès lecture (BornToShare)"
+    assert access_group_description(r"\\fs01\corp\finance", "write").endswith("accès modification (BornToShare)")
+    assert access_group_description(r"\\fs01\corp\finance") == r"\\fs01\corp\finance — accès (BornToShare)"
+    assert access_group_description("", "READ") is None

@@ -282,9 +282,7 @@
   onConfirm={toggleInheritance}
   severity="warning"
   title={inheritanceBroken ? t('Restore the inheritance of {name}?', { name: selectedRootCodeOrName }) : t('Break the inheritance of {name}?', { name: selectedRootCodeOrName })}
-  impactItems={inheritanceBroken
-    ? [t('The folder inherits again the entries of its parent folder.'), t('Its own entries, BornToShare groups included, are kept.'), t('The ACL is read again right after.')]
-    : [t('The entries inherited from the parent folder are copied as entries of this folder: nobody loses access.'), t('A change on the parent folder no longer reaches this folder.'), t('The ACL is read again right after.')]}
+  subtitle={t('Are you sure?')}
   confirmLabel={inheritanceBroken ? t('Restore the inheritance') : t('Break the inheritance')}
   confirmVariant="warning"
 />

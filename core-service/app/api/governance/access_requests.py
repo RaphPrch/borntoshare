@@ -180,7 +180,7 @@ async def _grant_item(
             adopt_group_dn=external_id if adopting else None,
             principal_dn=principal_dn,
             principal_username=principal_username,
-            description_text=f"BornToShare · {access_level_code} · storage root #{target_id}",
+            access_level_code=access_level_code,
             correlation_id=f"{correlation_id}_{int(item.get('id') or 0)}_grant",
         )
     except ProvisioningStepError as exc:

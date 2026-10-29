@@ -119,6 +119,18 @@ async def _resolve_identity_source_id_for_group_operation(
     return int(await infer_identity_source_id_from_group_ref(group_ref))
 
 
+def access_group_description(root_path: Any, access_level_code: str | None = None) -> str | None:
+    """Description of an AD group created by BornToShare: the folder it opens on the file server, then the level.
+
+    Admins read it in « Active Directory Users and Computers » to know what the group gives access to.
+    """
+    path = str(root_path or "").strip()
+    if not path:
+        return None
+    level = {"READ": "lecture", "WRITE": "modification"}.get(str(access_level_code or "").strip().upper())
+    return f"{path} — {'accès ' + level if level else 'accès'} (BornToShare)"[:1024]
+
+
 async def ensure_ad_group_via_name(
     payload: EnsureAdGroupIn,
     request: Request = None,
@@ -141,9 +153,11 @@ async def ensure_ad_group_via_name(
     resolved_protocol: str | None = None
     resolved_bind_dn: str | None = None
 
+    description_text = str(payload.description_text or "").strip() or None
     if root_id > 0:
         ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(root_id))
         pctx = build_provisioning_context(ctx)
+        description_text = access_group_description((ctx or {}).get("root_path")) or description_text
 
         secret_ref = secret_ref or pctx.effective_secret_ref
         identity_source_id = identity_source_id or pctx.identity_source_id
@@ -224,7 +238,7 @@ async def ensure_ad_group_via_name(
                     "port": resolved_port,
                     "protocol": resolved_protocol,
                     "bind_dn": resolved_bind_dn,
-                    "description_text": payload.description_text,
+                    "description_text": description_text,
                     "domain_name": domain_name,
                     "secret_ref": secret_ref,
                     "context": {
@@ -327,7 +341,7 @@ async def queue_ad_access_grant(
     adopt_group_dn: str | None,
     principal_dn: str | None,
     principal_username: str | None,
-    description_text: str | None,
+    access_level_code: str | None,
     correlation_id: str,
 ) -> dict[str, Any]:
     """Queue the capsule job that finds/creates the AD group of the level and adds the requester.
@@ -336,6 +350,7 @@ async def queue_ad_access_grant(
     """
     ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(storage_root_id))
     pctx = build_provisioning_context(ctx)
+    description_text = access_group_description((ctx or {}).get("root_path") if isinstance(ctx, dict) else None, access_level_code)
     source_id = int(identity_source_id or 0) or pctx.identity_source_id
     if not source_id:
         raise ProvisioningStepError(
