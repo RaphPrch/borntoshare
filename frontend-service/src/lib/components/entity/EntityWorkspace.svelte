@@ -154,7 +154,7 @@
   .b2s-workspace__resizer:hover::after,
   .b2s-workspace__resizer:focus-visible::after,
   .is-resizing .b2s-workspace__resizer::after {
-    background: #cbd5e1;
+    background: var(--b2s-color-border-mid);
   }
 
   .b2s-workspace__resizer:focus-visible {

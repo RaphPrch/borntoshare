@@ -67,7 +67,7 @@
   }
 
   .zone-form-field label > span {
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-weight: 650;
   }
 
@@ -89,7 +89,7 @@
 
   .zone-form-control:focus {
     border-color: #88a9e5;
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     box-shadow: 0 0 0 3px rgba(36, 101, 199, 0.14);
   }
 
@@ -107,7 +107,7 @@
   }
 
   .zone-form-note > i {
-    color: var(--b2s-topbar-bg, #111b3f);
+    color: var(--b2s-topbar-bg, var(--b2s-topbar-bg));
     margin-top: 1px;
   }
 </style>

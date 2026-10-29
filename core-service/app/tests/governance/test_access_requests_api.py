@@ -510,6 +510,8 @@ def test_bulk_decision_revoke_removes_memberships_then_persists_in_core(monkeypa
     removed: list[tuple[str, str | None, int | None]] = []
 
     async def _fake_internal_get(path: str):
+        if path.startswith("/api/internal/access-requests/101/other-active"):
+            return None  # no other request grants this level
         assert path == "/api/internal/access-requests/101/provisioning-plan"
         return _revoke_plan([
             {
@@ -608,3 +610,36 @@ def test_bulk_decision_revoke_failure_records_item_and_skips_core_persist(monkey
     assert "No governed group bound to READ" in out["data"]["failed_reasons"][101]
     assert [p for p, _ in post_calls] == ["/api/internal/access-requests/item-executions"]
     assert post_calls[0][1]["status"] == "FAILED"
+
+
+def test_revoke_keeps_the_member_still_granted_by_another_request(monkeypatch) -> None:
+    async def _fake_internal_get(path: str):
+        if "/other-active" in path:
+            return "REQ-77"
+        return _revoke_plan([
+            {"id": 201, "target_type": "storage_root", "target_id": 77, "permission": "read",
+             "access_level_code": "READ", "group_ref": "B2S_ROOT_77_READ", "identity_source_id": 9, "error": None}
+        ])
+
+    executions: list[dict] = []
+
+    async def _fake_internal_post(path: str, payload: dict):
+        if path == "/api/internal/access-requests/item-executions":
+            executions.append(payload)
+            return {"ok": True}
+        if path == "/api/access-requests/bulk":
+            return {"data": {"ok": True, "updated_ids": [101], "failed_ids": []}}
+        raise AssertionError(path)
+
+    async def _never_called(*args, **kwargs):
+        raise AssertionError("the member must stay in the group")
+
+    fake_routes(monkeypatch, api, get=_fake_internal_get, post=_fake_internal_post)
+    monkeypatch.setattr(api, "remove_ad_group_member", _never_called)
+    journal = _capture_journal(monkeypatch)
+
+    out = asyncio.run(api.bulk_decision(_Req({"ids": [101], "decision": "revoke"})))
+
+    assert out["data"]["updated_ids"] == [101]
+    assert executions[0]["result_json"] == {"kept": True, "still_granted_by": "REQ-77"}
+    assert "ad_group_member_kept" in [action for action, _ in journal]

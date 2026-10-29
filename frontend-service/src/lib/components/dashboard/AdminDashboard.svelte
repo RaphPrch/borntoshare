@@ -41,8 +41,8 @@
 
   const kpi = [
     { key: 'storage_roots', label: t('Storage Roots'), href: '/storage-roots', icon: 'bi-folder2-open', tone: 'info' },
-    { key: 'storage_endpoints', label: t('Storage Endpoints'), href: '/admin/storage-endpoints', icon: 'bi-hdd-network', tone: 'purple' },
-    { key: 'admins', label: t('Admins'), href: '/admin/identity', icon: 'bi-person-gear', tone: 'success' },
+    { key: 'storage_endpoints', label: t('Storage Endpoints'), href: '/admin/storage-endpoints', icon: 'bi-hdd-network', tone: 'info' },
+    { key: 'admins', label: t('Admins'), href: '/admin/identity', icon: 'bi-person-gear', tone: 'info' },
     { key: 'pending_requests', label: t('Pending Requests'), href: '/access-requests', icon: 'bi-hourglass-split', tone: 'warning' }
   ] as const;
 
@@ -140,13 +140,13 @@
   }
   .panel__header{ margin-bottom: 10px; }
   h2{ margin: 0; font-size: var(--b2s-fs-lg); }
-  .panel__hint{ color:#64748b; font-size:var(--b2s-fs-md); margin-top: 4px; }
+  .panel__hint{ color:var(--b2s-color-text-muted); font-size:var(--b2s-fs-md); margin-top: 4px; }
   .activity{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
   .activity li{ border-top:1px dashed #e5e7eb; padding-top:10px; }
   .activity li:first-child{ border-top: none; padding-top:0; }
   .activity__main{ display:flex; gap:8px; flex-wrap:wrap; }
   .activity__action{ font-weight:700; }
-  .activity__target{ color:#475569; }
-  .activity__meta{ color:#64748b; font-size:var(--b2s-fs-md); margin-top: 4px; display:flex; gap:6px; align-items:center; }
+  .activity__target{ color:var(--b2s-color-text-soft); }
+  .activity__meta{ color:var(--b2s-color-text-muted); font-size:var(--b2s-fs-md); margin-top: 4px; display:flex; gap:6px; align-items:center; }
   .dot{ opacity:.7; }
 </style>

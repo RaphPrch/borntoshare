@@ -178,13 +178,13 @@
     border-radius: var(--b2s-radius-md);
     background: rgba(255, 255, 255, 0.7);
     padding: 10px 12px;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
   }
 
   .zone-form-drawer__safe-notes strong {
     display: block;
     margin-bottom: 6px;
-    color: #334155;
+    color: var(--b2s-color-text-strong);
   }
 
   .zone-form-drawer__actions {

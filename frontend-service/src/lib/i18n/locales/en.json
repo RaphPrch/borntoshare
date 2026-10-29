@@ -245,6 +245,10 @@
       "revoked": {
         "title": "Access revoked",
         "description": "Access of {user} on \"{root}\" was revoked"
+      },
+      "expired": {
+        "title": "Access expired",
+        "description": "The access of {user} on \"{root}\" reached its end date"
       }
     },
     "identity_source": {
@@ -558,6 +562,28 @@
     "ad_group_adoption_requested": {
       "title": "AD group adoption",
       "description": "{group} will be adopted at the next approval"
+    },
+    "ad_group_member_kept": {
+      "title": "Member kept",
+      "description": "Still granted by {request}: the requester stays in {group}"
+    },
+    "access_request_expiry_started": {
+      "title": "End date reached",
+      "description": "Removal of the access in Active Directory"
+    },
+    "access_request_expired": {
+      "title": "Access expired",
+      "description": "The request is closed"
+    },
+    "access_request_expiry_failed": {
+      "title": "Expiry not applied",
+      "description": "{message} — tried again in 6 h"
+    },
+    "logs": {
+      "purged": {
+        "title": "Logs purged",
+        "description": "Entries older than the retention period were deleted"
+      }
     }
   },
   "badges": {

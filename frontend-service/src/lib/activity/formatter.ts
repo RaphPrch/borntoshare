@@ -115,6 +115,7 @@ function varsFromEvent(ev: any) {
     action: asStr(ev?.action) ?? 'event',
     group: asStr(details?.group_name) ?? asStr((ctx as any)?.group_name) ?? t('the AD group'),
     ou: asStr(details?.target_ou_dn) ?? t('the zone organizational unit'),
+    request: asStr(details?.still_granted_by) ?? '',
     message: provisioningErrorMessage(details?.code) ?? asStr(details?.message) ?? '',
     zone: zoneLabel,
     root: rootLabel,

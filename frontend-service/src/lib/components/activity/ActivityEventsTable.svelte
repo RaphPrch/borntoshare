@@ -567,15 +567,15 @@
   }
 
   .activity-type--warning i {
-    color: #f59e0b;
+    color: var(--b2s-color-warning);
   }
 
   .activity-type--success i {
-    color: #16a34a;
+    color: var(--b2s-color-success);
   }
 
   .activity-type--info i {
-    color: var(--b2s-topbar-bg, #111b3f);
+    color: var(--b2s-topbar-bg, var(--b2s-topbar-bg));
   }
 
   .activity-type--sync i {
@@ -623,7 +623,7 @@
     height: 30px;
     border-radius: var(--b2s-radius-pill);
     background: rgba(77, 163, 255, 0.12);
-    color: var(--b2s-topbar-bg, #111b3f);
+    color: var(--b2s-topbar-bg, var(--b2s-topbar-bg));
     display: inline-grid;
     place-items: center;
     font-size: var(--b2s-fs-xs);
@@ -644,7 +644,7 @@
 
   .activity-more:hover {
     background: rgba(77, 163, 255, 0.12);
-    color: var(--b2s-topbar-bg, #111b3f);
+    color: var(--b2s-topbar-bg, var(--b2s-topbar-bg));
   }
 
   .activity-empty {
@@ -688,8 +688,8 @@
   }
 
   .activity-pagination .activity-page--active {
-    border-color: var(--b2s-topbar-bg, #111b3f);
-    background: var(--b2s-topbar-bg, #111b3f);
+    border-color: var(--b2s-topbar-bg, var(--b2s-topbar-bg));
+    background: var(--b2s-topbar-bg, var(--b2s-topbar-bg));
     color: #fff;
   }
 

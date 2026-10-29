@@ -102,9 +102,9 @@
 
 <style>
   .sa {
-    border: 1px solid #d9e2ef;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     padding: 10px 12px;
   }
 
@@ -127,7 +127,7 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--b2s-radius-sm);
-    background: #eff6ff;
+    background: var(--b2s-color-info-soft);
     color: #0b63f4;
   }
 
@@ -141,7 +141,7 @@
   }
 
   .sa-copy strong {
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
@@ -157,7 +157,7 @@
     align-items: center;
     gap: 8px;
     font-size: var(--b2s-fs-xs);
-    color: #334155;
+    color: var(--b2s-color-text-strong);
     cursor: pointer;
     white-space: nowrap;
   }
@@ -179,7 +179,7 @@
   .sa-field label {
     font-size: var(--b2s-fs-xs);
     font-weight: 600;
-    color: #334155;
+    color: var(--b2s-color-text-strong);
   }
 
   /* Same field as the rest of the identity source forms */
@@ -187,10 +187,10 @@
     width: 100%;
     height: 38px;
     padding: 0 12px;
-    border: 1px solid #d9e2ef;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
-    background: #ffffff;
-    color: #071638;
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-sm);
     outline: 0;
   }
@@ -219,16 +219,16 @@
   }
 
   .sa-result.is-ok {
-    color: #15803d;
+    color: var(--b2s-color-success-strong);
   }
 
   .sa-result.is-err {
-    color: #b91c1c;
+    color: var(--b2s-color-danger-strong);
   }
 
   .sa-hint {
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
   }
 
   .cap-switch {
@@ -237,7 +237,7 @@
     width: 34px;
     height: 19px;
     border-radius: var(--b2s-radius-pill);
-    background: #cbd5e1;
+    background: var(--b2s-color-border-mid);
     position: relative;
     cursor: pointer;
     transition: background 0.16s ease;
@@ -251,7 +251,7 @@
     width: 13px;
     height: 13px;
     border-radius: 50%;
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     transition: transform 0.16s ease;
   }
 

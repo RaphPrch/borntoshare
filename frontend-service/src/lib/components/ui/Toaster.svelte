@@ -59,9 +59,9 @@
 
   /* Override bootstrap-ish toast variants for dark topbar context */
   :global(.b2s-toaster .toast.text-bg-danger) {
-    background: #dc2626;
+    background: var(--b2s-color-danger);
     color: #ffffff;
-    border: 1px solid #991b1b;
+    border: 1px solid var(--b2s-color-danger-strong);
   }
 
   :global(.b2s-toaster .toast.text-bg-danger .toast-body),
@@ -70,19 +70,19 @@
   }
 
   :global(.b2s-toaster .toast.text-bg-warning) {
-    background: #f59e0b;
+    background: var(--b2s-color-warning);
     color: #111827;
-    border: 1px solid #b45309;
+    border: 1px solid var(--b2s-color-warning-strong);
   }
 
   :global(.b2s-toaster .toast.text-bg-success) {
-    background: #16a34a;
+    background: var(--b2s-color-success);
     color: #ffffff;
-    border: 1px solid #166534;
+    border: 1px solid var(--b2s-color-success-strong);
   }
 
   :global(.b2s-toaster .toast.text-bg-secondary) {
-    background: #334155;
+    background: var(--b2s-color-text-strong);
     color: #ffffff;
     border: 1px solid #1f2937;
   }

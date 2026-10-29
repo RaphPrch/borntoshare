@@ -160,12 +160,12 @@
     align-items: center;
     gap: 8px;
     font-size: var(--b2s-fs-sm);
-    color: #475569;
+    color: var(--b2s-color-text-soft);
   }
 
   .obs-note {
     margin: 12px 0 0;
     font-size: var(--b2s-fs-sm);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
   }
 </style>

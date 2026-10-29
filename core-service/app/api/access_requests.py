@@ -1156,9 +1156,196 @@ def get_access_request_details(
     require_access_request_access(db, actor_from_request(request), int(access_request_id))
     return ui_data(row, meta={"access_request_id": int(access_request_id)})
 
+
+@router.get("/{access_request_id}/approval-preview")
+def get_access_request_approval_preview(
+    access_request_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """What an approval will do, for the reviewer: AD group (created or reused) in which OU, member, NTFS ACL.
+
+    Also lists what would stop it (no identity source, AD groups not managed, no OU…), before anyone clicks.
+    """
+    from app.api.provisioning_internal import get_storage_root_provisioning_context
+
+    plan = get_access_request_provisioning_plan_internal(int(access_request_id), request, db)
+    principal = dict(plan.get("principal") or {})
+    workers = db.execute(text("SELECT status FROM infra_workers WHERE is_enabled = 1")).scalars().all()
+    blockers: list[dict[str, str]] = []
+    warnings: list[dict[str, str]] = []
+    if not principal.get("dn") and not principal.get("username"):
+        blockers.append({"code": "REQUESTED_PRINCIPAL_MISSING", "message": "The beneficiary has no directory account."})
+    # Worker statuses: healthy | degraded | down | unknown (Infrastructure › Workers)
+    if workers and not any(str(s or "").lower() in {"healthy", "degraded"} for s in workers):
+        warnings.append({"code": "NO_WORKER_UP", "message": "No worker answered the last health check: the approval may wait."})
+
+    items: list[dict[str, Any]] = []
+    for item in list(plan.get("items") or []):
+        level = str(item.get("access_level_code") or "READ").upper()
+        out: dict[str, Any] = {
+            "id": item.get("id"),
+            "storage_root_id": item.get("target_id"),
+            "access_level": level,
+            "group_name": item.get("group_name"),
+            "acl": "modify" if level == "WRITE" else "read_execute",
+            "problems": [],
+        }
+        if item.get("error"):
+            detail = dict(item.get("error_detail") or {})
+            out["problems"].append({"code": str(detail.get("code") or "PLAN_ERROR"), "message": str(item.get("error"))})
+            items.append(out)
+            continue
+        status_value = str(item.get("profile_status") or "").upper()
+        out["group_action"] = (
+            "adopt" if status_value == "ADOPTING"
+            else "reuse" if status_value == "SUCCEEDED"
+            else "create"
+        )
+        try:
+            ctx = get_storage_root_provisioning_context(int(item.get("target_id") or 0), db)
+        except HTTPException:
+            ctx = {}
+        source_id = int(ctx.get("identity_source_id") or 0) or None
+        source = None
+        if source_id:
+            source = db.execute(
+                text("SELECT name, capabilities, write_enabled, is_active FROM identity_sources WHERE id = :id"),
+                {"id": source_id},
+            ).mappings().first()
+        capabilities = (source or {}).get("capabilities")
+        if isinstance(capabilities, str):
+            try:
+                capabilities = json.loads(capabilities)
+            except ValueError:
+                capabilities = {}
+        capabilities = capabilities if isinstance(capabilities, dict) else {}
+        out.update(
+            {
+                "storage_root_name": ctx.get("storage_root_name"),
+                "root_path": ctx.get("root_path"),
+                "target_ou_dn": ctx.get("effective_group_ou_dn") or ctx.get("zone_default_group_ou_dn") or ctx.get("default_group_ou_dn"),
+                "identity_source_id": source_id,
+                "identity_source_name": (source or {}).get("name"),
+            }
+        )
+        if not source:
+            out["problems"].append({"code": "IDENTITY_SOURCE_REQUIRED", "message": "The file server of this root has no Active Directory identity source."})
+        elif not bool(capabilities.get("provisioning", (source or {}).get("write_enabled"))):
+            out["problems"].append({"code": "AD_PROVISIONING_DISABLED", "message": "Managing AD groups is disabled for this identity source."})
+        if out["group_action"] == "create" and not out["target_ou_dn"]:
+            out["problems"].append({"code": "ZONE_GROUP_OU_MISSING", "message": "No organizational unit is configured for the groups of this zone."})
+        items.append(out)
+
+    for item in items:
+        blockers.extend(item["problems"])
+    return ui_data(
+        {
+            "principal": principal,
+            "items": items,
+            "blockers": blockers,
+            "warnings": warnings,
+            "can_approve": not blockers,
+        }
+    )
+
 # ============================================================
 # WRITE MODEL — CREATE
 # ============================================================
+
+def other_active_request_for_level(
+    access_request_id: int,
+    storage_root_id: int,
+    access_level_code: str,
+    db: Session = Depends(get_db),
+) -> str | None:
+    """Code of another approved request (not revoked, not expired) of the same person, root and level, if any.
+
+    A revocation or an expiry keeps the person in the AD group while such a request exists.
+    """
+    current = db.execute(
+        text("SELECT requester_identity_id, requested_principal_json FROM access_requests WHERE id = :id"),
+        {"id": int(access_request_id)},
+    ).mappings().first()
+    if not current:
+        return None
+    payload = current.get("requested_principal_json")
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except ValueError:
+            payload = None
+    payload = payload if isinstance(payload, dict) else {}
+    wanted = _principal_match_keys(
+        identity_id=_extract_principal_identity_id(payload) or (int(current.get("requester_identity_id") or 0) or None),
+        principal_dn=payload.get("dn"),
+        principal_username=payload.get("username"),
+    )
+    rows = db.execute(
+        text(
+            """
+            SELECT ar.id, ar.code, ar.requester_identity_id, ar.requested_principal_json, ari.permission
+            FROM access_requests ar
+            JOIN access_request_items ari ON ari.access_request_id = ar.id
+            WHERE ar.id <> :id
+              AND LOWER(COALESCE(ar.status, '')) IN ('approved', 'executed')
+              AND ar.revoked_at IS NULL
+              AND LOWER(COALESCE(ari.target_type, '')) = 'storage_root'
+              AND ari.target_id = :root_id
+              AND (ari.expires_at IS NULL OR ari.expires_at > UTC_TIMESTAMP())
+            """
+        ),
+        {"id": int(access_request_id), "root_id": int(storage_root_id)},
+    ).mappings().all()
+    level = str(access_level_code or "").strip().upper()
+    for row in rows:
+        if normalize_requested_permission(str(row.get("permission") or "")) != level:
+            continue
+        other = row.get("requested_principal_json")
+        if isinstance(other, str):
+            try:
+                other = json.loads(other)
+            except ValueError:
+                other = None
+        other = other if isinstance(other, dict) else {}
+        keys = _principal_match_keys(
+            identity_id=_extract_principal_identity_id(other) or (int(row.get("requester_identity_id") or 0) or None),
+            principal_dn=other.get("dn"),
+            principal_username=other.get("username"),
+        )
+        if _same_principal(wanted, keys):
+            return str(row.get("code") or f"REQ-{row.get('id')}")
+    return None
+
+
+def _request_event_labels(db: Session, access_request_id: int) -> dict[str, str]:
+    """Beneficiary, level and storage root of an existing request, for its activity entries."""
+    try:
+        row = db.execute(
+            text(
+                """
+                SELECT ar.requested_principal_json, ari.target_type, ari.target_id, ari.permission
+                FROM access_requests ar
+                JOIN access_request_items ari ON ari.access_request_id = ar.id
+                WHERE ar.id = :id
+                LIMIT 1
+                """
+            ),
+            {"id": int(access_request_id)},
+        ).mappings().first()
+    except Exception:  # a label only
+        return {}
+    if not row:
+        return {}
+    principal = row.get("requested_principal_json")
+    if isinstance(principal, str):
+        try:
+            principal = json.loads(principal)
+        except ValueError:
+            principal = None
+    item = {"target_type": row.get("target_type"), "target_id": row.get("target_id"), "permission": row.get("permission")}
+    return _created_event_labels(db, items=[item], principal_payload=principal)
+
 
 def _created_event_labels(db: Session, *, items: list[dict[str, Any]], principal_payload: Any) -> dict[str, str]:
     """Beneficiary, level and storage root names of a new request, for its activity entry."""
@@ -1479,6 +1666,7 @@ def bulk_decision(
                 target_display=f"REQ-{req_id}",
                 context_json={
                     "decision": decision,
+                    **_request_event_labels(db, int(req_id)),
                     "executions_started": int(executions_started),
                     "members_visibility_sources": visibility_summary.get("visibility_sources", []),
                     "active_snapshot_ids": visibility_summary.get("active_snapshot_ids", []),

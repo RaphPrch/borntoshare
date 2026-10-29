@@ -1208,11 +1208,11 @@
   .se-field-hint {
     margin-top: 6px;
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-weight: 600;
   }
 
   .se-field-hint.ok {
-    color: #15803d;
+    color: var(--b2s-color-success-strong);
   }
 </style>

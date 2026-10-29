@@ -38,6 +38,10 @@ ROUTES: dict[Callable[..., Any], tuple[str, str]] = {
         "/api/internal/access-requests/{access_request_id}/provisioning-plan",
     ),
     access_requests.create_access_request_item_execution_internal: ("POST", "/api/internal/access-requests/item-executions"),
+    access_requests.other_active_request_for_level: (
+        "GET",
+        "/api/internal/access-requests/{access_request_id}/other-active",
+    ),
     access_requests.bulk_decision: ("POST", "/api/access-requests/bulk"),
     internal_directory_snapshots.create_snapshot_run: ("POST", "/api/internal/directory-snapshots/runs"),
     internal_directory_snapshots.list_snapshot_runs: ("GET", "/api/internal/directory-snapshots/runs"),

@@ -1,7 +1,7 @@
 <script module lang="ts">
   export type EntityTreeBadge = {
     label: string;
-    tone?: 'neutral' | 'info' | 'warning' | 'error';
+    tone?: 'neutral' | 'info' | 'warning' | 'error' | 'warning-quiet' | 'error-quiet';
     icon?: string | null;
     title?: string | null;
   };
@@ -426,7 +426,7 @@
     max-height: calc(100vh - 110px);
     min-width: 0;
     overflow: hidden;
-    border: 1px solid #e5eaf3;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-lg);
     background: var(--b2s-color-surface);
     box-shadow: 0 3px 10px rgba(18, 31, 64, 0.04);
@@ -464,10 +464,10 @@
     gap: 6px;
     height: 26px;
     padding: 0 10px;
-    border: 1px solid #e5eaf3;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-pill);
     background: var(--b2s-color-surface);
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-xs);
     cursor: pointer;
   }
@@ -494,7 +494,7 @@
     gap: 2px;
     padding: 3px;
     border-radius: 9px;
-    background: #f1f5f9;
+    background: var(--b2s-color-neutral-soft);
   }
 
   .b2s-list-pane__views button {
@@ -505,7 +505,7 @@
     border: none;
     border-radius: 7px;
     background: transparent;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-xs);
     cursor: pointer;
   }
@@ -531,12 +531,12 @@
     border: none;
     border-radius: 7px;
     background: transparent;
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     cursor: pointer;
   }
 
   .b2s-list-pane__actions button:hover:not(:disabled) {
-    background: #f1f5f9;
+    background: var(--b2s-color-neutral-soft);
     color: var(--b2s-color-text);
   }
 
@@ -605,7 +605,7 @@
   }
 
   .b2s-tree__row.is-muted .b2s-tree__label {
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
     font-style: italic;
   }
 
@@ -614,7 +614,7 @@
     align-self: stretch;
     width: 10px;
     margin-left: 9px;
-    border-left: 1px solid #e2e8f0;
+    border-left: 1px solid var(--b2s-color-border-soft);
   }
 
   .b2s-tree__twisty {
@@ -627,13 +627,13 @@
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
     font-size: 11px;
     cursor: pointer;
   }
 
   button.b2s-tree__twisty:hover:not(:disabled) {
-    background: #e2e8f0;
+    background: var(--b2s-color-border-soft);
     color: var(--b2s-color-text);
   }
 
@@ -644,12 +644,12 @@
   .b2s-tree__icon {
     flex: 0 0 auto;
     font-size: 15px;
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
   }
 
   .b2s-tree__icon.is-zone { color: #6366f1; }
   .b2s-tree__icon.is-server { color: #0ea5e9; }
-  .b2s-tree__icon.is-folder { color: #cbd5e1; }
+  .b2s-tree__icon.is-folder { color: var(--b2s-color-border-mid); }
   .b2s-tree__icon.is-root { color: #d4a017; }
 
   .b2s-tree__text {
@@ -668,7 +668,7 @@
 
   .b2s-tree__label small {
     margin-left: 6px;
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
     font-size: 11.5px;
     font-weight: 400;
     font-style: normal;
@@ -682,7 +682,7 @@
   }
 
   .b2s-tree__sub {
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-xs);
   }
 
@@ -695,25 +695,29 @@
     justify-content: center;
     padding: 1px 7px;
     border-radius: var(--b2s-radius-pill);
-    background: #f1f5f9;
-    color: #64748b;
+    background: var(--b2s-color-neutral-soft);
+    color: var(--b2s-color-text-muted);
     font-size: 11px;
     font-weight: 500;
   }
 
-  .b2s-tree__badge.is-warning { background: #fff4e5; color: #c2410c; font-weight: 600; }
-  .b2s-tree__badge.is-error { background: #fdecec; color: #b91c1c; font-weight: 600; }
-  .b2s-tree__badge.is-info { background: #eaf2ff; color: #1d4ed8; font-weight: 600; }
+  .b2s-tree__badge.is-warning { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); font-weight: 600; }
+  .b2s-tree__badge.is-error { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); font-weight: 600; }
+  .b2s-tree__badge.is-info { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-weight: 600; }
+  .b2s-tree__badge.is-error-quiet,
+  .b2s-tree__badge.is-warning-quiet { background: transparent; color: var(--b2s-color-text-muted); }
+  .b2s-tree__badge.is-error-quiet i { color: var(--b2s-color-danger); }
+  .b2s-tree__badge.is-warning-quiet i { color: var(--b2s-color-warning); }
 
   .b2s-tree__dot {
     width: 8px;
     height: 8px;
     flex: 0 0 auto;
     border-radius: var(--b2s-radius-pill);
-    background: #16a34a;
+    background: var(--b2s-color-success);
   }
 
   .b2s-tree__dot.is-warning { background: #ea580c; }
-  .b2s-tree__dot.is-error { background: #dc2626; }
-  .b2s-tree__dot.is-neutral { background: #94a3b8; }
+  .b2s-tree__dot.is-error { background: var(--b2s-color-danger); }
+  .b2s-tree__dot.is-neutral { background: var(--b2s-color-text-faint); }
 </style>

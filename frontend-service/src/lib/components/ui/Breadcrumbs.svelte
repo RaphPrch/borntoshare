@@ -35,7 +35,7 @@
   .b2s-breadcrumbs li + li::before {
     content: '/';
     margin-right: 6px;
-    color: #cbd5e1;
+    color: var(--b2s-color-border-mid);
   }
 
   .b2s-breadcrumbs a {

@@ -37,7 +37,7 @@
     align-items: flex-start;
     gap: 12px;
     padding: 12px 16px;
-    border: 1px solid #fed7aa;
+    border: 1px solid var(--b2s-color-warning-border);
     border-radius: var(--b2s-radius-md);
     background: var(--b2s-color-warning-soft);
     color: #9a3412;
@@ -45,9 +45,9 @@
   }
 
   .entity-alerts.is-error {
-    border-color: #fecaca;
+    border-color: var(--b2s-color-danger-border);
     background: var(--b2s-color-danger-soft);
-    color: #991b1b;
+    color: var(--b2s-color-danger-strong);
   }
 
   .entity-alerts__icon {

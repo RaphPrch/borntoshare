@@ -100,7 +100,7 @@ export type DatabaseTest = {
   missing_tables?: string[];
 };
 
-export type ScheduleTask = 'health_check' | 'data_sync';
+export type ScheduleTask = 'health_check' | 'data_sync' | 'access_expiry';
 
 export type InfraSchedule = {
   task: ScheduleTask;

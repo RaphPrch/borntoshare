@@ -830,7 +830,7 @@
   }
 
   .se-edit {
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     display: grid;
     gap: 16px;
   }
@@ -857,7 +857,7 @@
     margin-bottom: 6px;
     font-size: var(--b2s-fs-xs);
     font-weight: 800;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
@@ -874,12 +874,12 @@
   .se-edit :global(.se-field-hint) {
     margin-top: 6px;
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-weight: 600;
   }
 
   .se-edit :global(.se-field-hint.ok) {
-    color: #15803d;
+    color: var(--b2s-color-success-strong);
   }
 
   .se-edit :global(.se-form-block) {
@@ -904,11 +904,11 @@
   }
 
   .se-edit-unsaved {
-    color: var(--b2s-color-warning-strong, #b45309);
+    color: var(--b2s-color-warning-strong, var(--b2s-color-warning-strong));
   }
 
   .se-edit-disabled-reason {
-    color: var(--b2s-color-text-muted, #64748b);
+    color: var(--b2s-color-text-muted, var(--b2s-color-text-muted));
   }
 
   @media (max-width: 820px) {

@@ -79,6 +79,26 @@
   --b2s-color-danger: #dc3545;
   --b2s-color-danger-strong: #b91c1c;
   --b2s-color-danger-soft: #fef2f2;
+  --b2s-color-danger-border: #fecaca;
+  --b2s-color-warning-border: #fed7aa;
+
+  /* Success and information: same four steps as danger and warning (text, strong, soft background, border) */
+  --b2s-color-success: #16a34a;
+  --b2s-color-success-strong: #15803d;
+  --b2s-color-success-soft: #f0fdf4;
+  --b2s-color-success-border: #bbf7d0;
+  --b2s-color-info: #2563eb;
+  --b2s-color-info-strong: #1d4ed8;
+  --b2s-color-info-soft: #eff6ff;
+  --b2s-color-info-border: #bfdbfe;
+
+  /* Neutral scale (slate): headings, secondary text, separators, quiet backgrounds */
+  --b2s-color-heading: #071638;
+  --b2s-color-text-strong: #334155;
+  --b2s-color-text-faint: #94a3b8;
+  --b2s-color-border-soft: #e2e8f0;
+  --b2s-color-border-mid: #cbd5e1;
+  --b2s-color-neutral-soft: #f1f5f9;
 
   --b2s-focus-ring: 0 0 0 4px rgba(37, 99, 235, 0.18);
 

@@ -107,7 +107,7 @@
   }
 
   .z-ep-choice__meta span {
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-sm);
   }
 </style>

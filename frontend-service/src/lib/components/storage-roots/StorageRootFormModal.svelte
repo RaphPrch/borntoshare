@@ -458,7 +458,7 @@
 
   .sr-discovered-title {
     font-size: var(--b2s-fs-xs);
-    color: #334155;
+    color: var(--b2s-color-text-strong);
     margin-bottom: 8px;
     font-weight: 600;
   }
@@ -478,7 +478,7 @@
     border: 1px solid rgba(148, 163, 184, 0.35);
     border-radius: var(--b2s-radius-sm);
     background: #fff;
-    color: #0f172a;
+    color: var(--b2s-color-text);
     padding: 7px 9px;
     text-align: left;
   }

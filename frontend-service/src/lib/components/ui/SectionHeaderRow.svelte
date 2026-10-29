@@ -62,7 +62,7 @@
 
   .b2s-section-header-row__copy h3 span {
     font-size: var(--b2s-fs-sm);
-    color: #667085;
+    color: var(--b2s-color-text-muted);
     font-weight: 600;
   }
 
@@ -71,7 +71,7 @@
     margin: 0;
     font-size: var(--b2s-fs-sm);
     line-height: 1.4;
-    color: #667085;
+    color: var(--b2s-color-text-muted);
   }
 
   .b2s-section-header-row__actions {

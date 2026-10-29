@@ -67,7 +67,7 @@
   }
 
   button.active {
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     color: var(--b2s-topbar-bg);
   }
 

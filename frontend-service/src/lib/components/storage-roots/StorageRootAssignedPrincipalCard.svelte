@@ -55,7 +55,7 @@
     border: none;
     border-radius: var(--b2s-radius-pill);
     background: #eef2f8;
-    color: #667085;
+    color: var(--b2s-color-text-muted);
     display: inline-flex;
     align-items: center;
     justify-content: center;

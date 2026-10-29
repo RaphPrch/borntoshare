@@ -216,7 +216,7 @@
 
   .toolbar p {
     margin: 0;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-sm);
   }
 
@@ -226,7 +226,7 @@
   }
 
   .svc tr.is-off td {
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
   }
 
   .mono {
@@ -244,7 +244,7 @@
     margin-left: 6px;
     padding: 1px 7px;
     border-radius: var(--b2s-radius-pill);
-    background: #eef2ff;
+    background: var(--b2s-color-primary-soft);
     color: #3730a3;
     font-size: var(--b2s-fs-xs);
   }
@@ -252,9 +252,9 @@
   .kind {
     padding: 2px 8px;
     border-radius: var(--b2s-radius-pill);
-    background: #f1f5f9;
+    background: var(--b2s-color-neutral-soft);
     font-size: var(--b2s-fs-xs);
-    color: #334155;
+    color: var(--b2s-color-text-strong);
   }
 
   .center {
@@ -277,14 +277,14 @@
     width: 100%;
     height: 34px;
     padding: 0 10px;
-    border: 1px solid #d9e2ef;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
     font-size: var(--b2s-fs-sm);
   }
 
   .err {
     display: block;
-    color: #b91c1c;
+    color: var(--b2s-color-danger-strong);
     font-size: var(--b2s-fs-xs);
     margin-top: 2px;
   }
@@ -294,7 +294,7 @@
     width: 34px;
     height: 19px;
     border-radius: var(--b2s-radius-pill);
-    background: #cbd5e1;
+    background: var(--b2s-color-border-mid);
     position: relative;
     cursor: pointer;
     transition: background 0.16s ease;
@@ -309,7 +309,7 @@
     width: 13px;
     height: 13px;
     border-radius: 50%;
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     transition: transform 0.16s ease;
   }
 

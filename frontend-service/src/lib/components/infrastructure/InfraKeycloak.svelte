@@ -514,7 +514,7 @@
 
   .toolbar p {
     margin: 0;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-sm);
   }
 
@@ -524,15 +524,15 @@
     align-items: center;
     gap: 6px;
     padding: 36px 16px;
-    border: 1px dashed #cbd5e1;
+    border: 1px dashed var(--b2s-color-border-mid);
     border-radius: var(--b2s-radius-md);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     text-align: center;
   }
 
   .empty i {
     font-size: 1.8rem;
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
   }
 
   .cards {
@@ -545,9 +545,9 @@
     display: grid;
     gap: 12px;
     padding: 16px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
-    background: #ffffff;
+    background: var(--b2s-color-surface);
   }
 
   .card.is-off {
@@ -568,19 +568,19 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--b2s-radius-sm);
-    background: #f1f5f9;
-    color: #64748b;
+    background: var(--b2s-color-neutral-soft);
+    color: var(--b2s-color-text-muted);
     font-size: 1.1rem;
   }
 
   .card__icon.is-healthy {
-    background: #dcfce7;
-    color: #15803d;
+    background: var(--b2s-color-success-soft);
+    color: var(--b2s-color-success-strong);
   }
 
   .card__icon.is-down {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: var(--b2s-color-danger-soft);
+    color: var(--b2s-color-danger-strong);
   }
 
   .card__title {
@@ -589,12 +589,12 @@
   }
 
   .card__title strong {
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .card__title span {
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -604,19 +604,19 @@
     margin: 0;
     padding: 6px 10px;
     border-radius: var(--b2s-radius-sm);
-    background: #f8fafc;
+    background: var(--b2s-color-surface-soft);
     font-size: var(--b2s-fs-xs);
-    color: #475569;
+    color: var(--b2s-color-text-soft);
   }
 
   .card__msg.is-down {
     background: var(--b2s-color-danger-soft);
-    color: #991b1b;
+    color: var(--b2s-color-danger-strong);
   }
 
   .card__msg.is-healthy {
-    background: #f0fdf4;
-    color: #166534;
+    background: var(--b2s-color-success-soft);
+    color: var(--b2s-color-success-strong);
   }
 
   .facts {
@@ -628,12 +628,12 @@
   }
 
   .facts dt {
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
   }
 
   .facts dd {
     margin: 0;
-    color: #0f172a;
+    color: var(--b2s-color-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -656,20 +656,20 @@
     gap: 6px;
     padding: 3px 9px;
     border-radius: var(--b2s-radius-pill);
-    background: #eef2ff;
+    background: var(--b2s-color-primary-soft);
     color: #3730a3;
     font-size: var(--b2s-fs-xs);
   }
 
   .map.is-default {
-    background: #f1f5f9;
-    color: #475569;
+    background: var(--b2s-color-neutral-soft);
+    color: var(--b2s-color-text-soft);
   }
 
   .card__actions {
     display: flex;
     gap: 6px;
-    border-top: 1px solid #f1f5f9;
+    border-top: 1px solid var(--b2s-color-neutral-soft);
     padding-top: 10px;
   }
 
@@ -686,14 +686,14 @@
     display: grid;
     gap: 12px;
     padding: 14px 16px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
   }
 
   .sec h4 {
     margin: 0;
     font-size: var(--b2s-fs-sm);
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .grid {
@@ -721,7 +721,7 @@
   .redirect > span {
     font-size: var(--b2s-fs-xs);
     font-weight: 600;
-    color: #334155;
+    color: var(--b2s-color-text-strong);
   }
 
   .f input,
@@ -729,15 +729,15 @@
     width: 100%;
     height: 38px;
     padding: 0 12px;
-    border: 1px solid #d9e2ef;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
     font-size: var(--b2s-fs-sm);
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .f input:disabled {
-    background: #f8fafc;
-    color: #64748b;
+    background: var(--b2s-color-surface-soft);
+    color: var(--b2s-color-text-muted);
   }
 
   .f input:focus,
@@ -758,7 +758,7 @@
     align-items: center;
     gap: 8px;
     font-size: var(--b2s-fs-sm);
-    color: #334155;
+    color: var(--b2s-color-text-strong);
     cursor: pointer;
   }
 
@@ -773,15 +773,15 @@
     gap: 8px;
     padding: 6px 6px 6px 12px;
     border-radius: var(--b2s-radius-sm);
-    background: #f8fafc;
-    border: 1px dashed #cbd5e1;
+    background: var(--b2s-color-surface-soft);
+    border: 1px dashed var(--b2s-color-border-mid);
   }
 
   .redirect__row code {
     flex: 1;
     min-width: 0;
     overflow-wrap: anywhere;
-    color: #0f172a;
+    color: var(--b2s-color-text);
     font-size: var(--b2s-fs-xs);
   }
 
@@ -801,11 +801,11 @@
   .mapping__head span {
     font-size: var(--b2s-fs-xs);
     font-weight: 600;
-    color: #334155;
+    color: var(--b2s-color-text-strong);
   }
 
   .mapping__row i {
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
     text-align: center;
   }
 
@@ -827,15 +827,15 @@
   }
 
   .result.is-ok {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
+    background: var(--b2s-color-success-soft);
+    border: 1px solid var(--b2s-color-success-border);
     color: #14532d;
   }
 
   .result.is-err {
     background: var(--b2s-color-danger-soft);
-    border: 1px solid #fecaca;
-    color: #7f1d1d;
+    border: 1px solid var(--b2s-color-danger-border);
+    color: var(--b2s-color-danger-strong);
   }
 
   .result.is-outdated {
@@ -855,7 +855,7 @@
     width: 34px;
     height: 19px;
     border-radius: var(--b2s-radius-pill);
-    background: #cbd5e1;
+    background: var(--b2s-color-border-mid);
     position: relative;
     cursor: pointer;
     transition: background 0.16s ease;
@@ -869,7 +869,7 @@
     width: 13px;
     height: 13px;
     border-radius: 50%;
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     transition: transform 0.16s ease;
   }
 

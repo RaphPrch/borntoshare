@@ -99,7 +99,7 @@
   .idb-tree-toggle {
     border: 0;
     background: transparent;
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
     font-size: 11px;
     padding: 0;
     width: 20px;

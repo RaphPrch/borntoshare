@@ -726,7 +726,7 @@
     gap: 2px;
     padding: 3px;
     border-radius: 9px;
-    background: #f1f5f9;
+    background: var(--b2s-color-neutral-soft);
   }
 
   .idb-segments button {
@@ -734,7 +734,7 @@
     border: none;
     border-radius: 7px;
     background: transparent;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-sm);
     cursor: pointer;
   }
@@ -759,15 +759,15 @@
     gap: 6px;
     padding: 4px 10px;
     border-radius: var(--b2s-radius-pill);
-    background: #f1f5f9;
-    color: #475569;
+    background: var(--b2s-color-neutral-soft);
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-xs);
     white-space: nowrap;
   }
 
   .idb-chip.is-stale {
     background: var(--b2s-color-warning-soft);
-    color: #c2410c;
+    color: var(--b2s-color-warning-strong);
   }
 
   .idb-error-detail {
@@ -783,7 +783,7 @@
     justify-items: center;
     gap: 12px;
     padding: 56px 16px;
-    border: 1px dashed #d9e2ef;
+    border: 1px dashed var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
     color: var(--b2s-color-text-muted);
     text-align: center;
@@ -791,7 +791,7 @@
 
   .idb-placeholder > i {
     font-size: 28px;
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
   }
 
   .idb-layout {
@@ -807,7 +807,7 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    border: 1px solid #e5eaf3;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
     background: var(--b2s-color-surface);
   }
@@ -819,7 +819,7 @@
     gap: 8px;
     margin: 0;
     padding: 12px 14px 8px;
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.05em;
@@ -883,7 +883,7 @@
   }
 
   .idb-check {
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
     font-size: 16px;
   }
 
@@ -991,7 +991,7 @@
     display: flex;
     justify-content: space-between;
     margin: 0 0 8px;
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.05em;

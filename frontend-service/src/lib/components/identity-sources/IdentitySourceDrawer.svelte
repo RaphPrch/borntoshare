@@ -28,6 +28,8 @@
   export let internal: IdentitySourceInternalMeta | null = null;
   export let loading = false;
   export let loadError: string | null = null;
+  /** Last 7 days of health checks, one point a day */
+  export let recentHealth: Array<{ key: string; label: string; tone: string; title: string; icon: string }> = [];
   export let snapshotDebugRows: Array<{
     key: string;
     type: string;
@@ -79,6 +81,7 @@
     runProbe: void;
     runSnapshot: void;
     toggle: void;
+    delete: void;
   }>();
 
   const valueOrDash = (value: unknown, fallback = '—') => {
@@ -149,6 +152,19 @@
     {/if}
 
     {#if activeTab === 'health'}
+      {#if recentHealth.length}
+        <div class="isd-health" aria-label={t('Recent health status')}>
+          <h4>{t('Recent health')} <small>{t('Last 7 days')}</small></h4>
+          <ol>
+            {#each recentHealth as point (point.key)}
+              <li class={point.tone} title={point.title}>
+                <i class={`bi ${point.icon}`} aria-hidden="true"></i>
+                <small>{point.label}</small>
+              </li>
+            {/each}
+          </ol>
+        </div>
+      {/if}
       <div class="identity-drawer-grid">
         {#if source.supportsProbe}
           <div>
@@ -296,37 +312,94 @@
     {/if}
   {/if}
 
+  <svelte:fragment slot="footer-start">
+    {#if source}
+      <button type="button" class="b2s-btn b2s-btn-danger-outline b2s-btn-sm" disabled={busy} on:click={() => dispatch('delete')}>
+        <i class="bi bi-trash3" aria-hidden="true"></i>
+        {t('Delete')}
+      </button>
+    {/if}
+  </svelte:fragment>
   <svelte:fragment slot="footer">
     {#if source}
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} on:click={() => dispatch('toggle')}>
+        <i class={`bi ${source.isEnabled ? 'bi-toggle-on' : 'bi-toggle-off'}`} aria-hidden="true"></i>
+        {source.isEnabled ? t('Disable') : t('Enable')}
+      </button>
       <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} on:click={() => dispatch('edit')}>
         <i class="bi bi-pencil-square" aria-hidden="true"></i>
         {t('Edit')}
       </button>
       {#if source.supportsProbe}
-        <button
-          type="button"
-          class="b2s-btn b2s-btn-secondary b2s-btn-sm"
-          disabled={busy || probeRunning}
-          on:click={() => dispatch('runProbe')}
-        >
+        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy || probeRunning} on:click={() => dispatch('runProbe')}>
           <i class="bi bi-activity" aria-hidden="true"></i>
-          {probeRunning ? t('Probe running…') : t('Run Probe')}
+          {probeRunning ? t('Probe running…') : t('Test connection')}
         </button>
       {/if}
-      <button
-        type="button"
-        class="b2s-btn b2s-btn-secondary b2s-btn-sm"
-        disabled={busy}
-        on:click={() => dispatch('toggle')}
-      >
-        <i class={`bi ${source.isEnabled ? 'bi-toggle-on' : 'bi-toggle-off'}`} aria-hidden="true"></i>
-        {source.isEnabled ? t('Disable') : t('Enable')}
-      </button>
+      {#if source.supportsSnapshot}
+        <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy || snapshotRunning} on:click={() => dispatch('runSnapshot')}>
+          <i class={`bi ${snapshotRunning ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} aria-hidden="true"></i>
+          {snapshotRunning ? t('Synchronizing…') : t('Sync now')}
+        </button>
+      {/if}
     {/if}
   </svelte:fragment>
 </Drawer>
 
 <style>
+  .isd-health {
+    margin-top: 0.72rem;
+    padding: 12px 14px;
+    border: 1px solid var(--b2s-color-border-soft);
+    border-radius: var(--b2s-radius-md);
+  }
+
+  .isd-health h4 {
+    margin: 0 0 10px;
+    font-size: var(--b2s-fs-sm);
+    font-weight: 600;
+  }
+
+  .isd-health h4 small {
+    margin-left: 6px;
+    color: var(--b2s-color-text-muted);
+    font-weight: 400;
+  }
+
+  .isd-health ol {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .isd-health li {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    color: var(--b2s-color-text-faint);
+  }
+
+  .isd-health li i {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--b2s-color-neutral-soft);
+    font-size: 11px;
+  }
+
+  .isd-health li.is-success i { background: var(--b2s-color-success-soft); color: var(--b2s-color-success); }
+  .isd-health li.is-warning i { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning); }
+  .isd-health li.is-error i { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger); }
+
+  .isd-health small {
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+  }
+
   .identity-drawer-v2-head {
     display: flex;
     align-items: center;
@@ -351,14 +424,14 @@
     font-size: var(--b2s-fs-xs);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     font-weight: 800;
   }
 
   .identity-drawer-grid p {
     margin: 0.2rem 0 0;
     font-size: var(--b2s-fs-md);
-    color: #0f172a;
+    color: var(--b2s-color-text);
   }
 
   .snapshot-debug-wrap {
@@ -369,13 +442,13 @@
 
   .snapshot-debug-subtitle {
     margin: 0.2rem 0 0.45rem;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-xs);
     font-weight: 600;
   }
 
   .snapshot-debug-empty {
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
@@ -392,7 +465,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: var(--b2s-fs-xs);
-    color: #0f172a;
+    color: var(--b2s-color-text);
   }
 
   .snapshot-debug-table th,
@@ -408,8 +481,8 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    background: #f8fafc;
-    color: #334155;
+    background: var(--b2s-color-surface-soft);
+    color: var(--b2s-color-text-strong);
     font-weight: 800;
   }
 

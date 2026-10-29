@@ -47,7 +47,7 @@
     align-items: center;
     gap: 14px;
     padding: 16px;
-    border: 1px solid #e5eaf3;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
     background: var(--b2s-color-surface);
     color: var(--b2s-color-text);
@@ -122,15 +122,15 @@
   .b2s-choice__badge {
     padding: 1px 8px;
     border-radius: var(--b2s-radius-pill);
-    background: #f1f5f9;
-    color: #475569;
+    background: var(--b2s-color-neutral-soft);
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-xs);
     font-weight: 500;
   }
 
   .b2s-choice__badge.is-info {
     background: #eaf2ff;
-    color: #1d4ed8;
+    color: var(--b2s-color-info-strong);
   }
 
   .b2s-choice__chevron,

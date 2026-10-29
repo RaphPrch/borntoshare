@@ -60,6 +60,8 @@
   let showMembersDrawer = false;
   let targetIdentity: IdentityRow | null = null;
   let selectedId: string | null = null;
+  // The detail opens in a drawer on a row click
+  let detailOpen = false;
   let search = '';
   let tab: 'all' | 'local_admins' | 'ad_admins' | 'ad_groups' = 'all';
   let statusSourceFilter = 'all';
@@ -305,8 +307,8 @@
 
   <section class="b2s-kpi-grid identity-kpis" aria-label={t('Identity summary')}>
     <KpiCard label={t('Total identities')} value={stats.total} hint={t('All identities with access')} icon="bi-people-fill" tone="info" />
-    <KpiCard label={t('Admin accounts')} value={stats.adminAccounts} hint={t('Local and AD admin accounts')} icon="bi-person-fill" tone="success" />
-    <KpiCard label={t('AD groups')} value={stats.adGroups} hint={t('Groups allowed to sign in')} icon="bi-people" tone="purple" />
+    <KpiCard label={t('Admin accounts')} value={stats.adminAccounts} hint={t('Local and AD admin accounts')} icon="bi-person-fill" tone="info" />
+    <KpiCard label={t('AD groups')} value={stats.adGroups} hint={t('Groups allowed to sign in')} icon="bi-people" tone="info" />
   </section>
 
   <section class="identity-toolbar-card" aria-label={t('Identity filters')}>
@@ -314,7 +316,7 @@
       <i class="bi bi-search" aria-hidden="true"></i>
       <input type="search" bind:value={search} on:input={() => (pageIndex = 1)} placeholder={t('Search identities...')} />
     </label>
-    <div class="identity-tabs" role="tablist" aria-label={t('Identity type')}>
+    <div class="b2s-segments" role="tablist" aria-label={t('Identity type')}>
       <button type="button" class:active={tab === 'all'} on:click={() => { tab = 'all'; pageIndex = 1; }}>{t('All')}</button>
       <button type="button" class:active={tab === 'local_admins'} on:click={() => { tab = 'local_admins'; pageIndex = 1; }}>{t('Local admins')}</button>
       <button type="button" class:active={tab === 'ad_admins'} on:click={() => { tab = 'ad_admins'; pageIndex = 1; }}>{t('AD admins')}</button>
@@ -349,12 +351,11 @@
             <th>{t('Source')}</th>
             <th>{t('Status')}</th>
             <th>{t('Last activity')}</th>
-            <th aria-label={t('Actions')}></th>
           </tr>
         </thead>
         <tbody>
           {#each pagedIdentities as identity}
-            <tr class:active={selectedIdentity && String(selectedIdentity.id) === String(identity.id)} on:click={() => (selectedId = String(identity.id))}>
+            <tr class:active={selectedIdentity && String(selectedIdentity.id) === String(identity.id)} on:click={() => { selectedId = String(identity.id); detailOpen = true; }}>
               <td>
                 <div class="identity-cell">
                   <span class={`identity-avatar ${identityTone(identity)}`}><i class={`bi ${identityIcon(identity)}`} aria-hidden="true"></i></span>
@@ -372,40 +373,9 @@
               <td>{identity.sourceLabel}</td>
               <td><StatusBadge status={identity.status === 'active' ? 'active' : 'disabled'} label={identity.status === 'active' ? t('Active') : t('Disabled')} compact={true} variant={identity.status === 'active' ? 'success' : 'disabled'} /></td>
               <td>{lastActivityLabel(identity)}</td>
-              <td>
-                <div class="identity-row-actions">
-                  <EntityActionButton
-                    variant="secondary"
-                    icon="bi-pencil"
-                    label={t('Edit identity')}
-                    iconOnly={true}
-                    stopPropagation={true}
-                    onClick={() => openEdit(identity)}
-                  />
-                  {#if canDeleteIdentity(identity)}
-                    <EntityActionButton
-                      variant="danger-outline"
-                      icon="bi-trash"
-                      label={t('Delete identity')}
-                      iconOnly={true}
-                      stopPropagation={true}
-                      onClick={() => requestDeleteIdentity(identity)}
-                    />
-                  {:else}
-                    <EntityActionButton
-                      variant="danger-outline"
-                      icon="bi-trash"
-                      label={t('Delete identity')}
-                      iconOnly={true}
-                      disabled={true}
-                      title={t('Default local admin cannot be deleted')}
-                    />
-                  {/if}
-                </div>
-              </td>
             </tr>
           {:else}
-            <tr><td colspan="6" class="identity-empty">{t('No identities found.')}</td></tr>
+            <tr><td colspan="5" class="identity-empty">{t('No identities found.')}</td></tr>
           {/each}
         </tbody>
       </table>
@@ -413,91 +383,87 @@
         <Pagination total={filteredIdentities.length} bind:page={pageIndex} bind:pageSize pageSizes={[10, 25, 50]} />
       {/if}
     </section>
+  </div>
 
-    <aside class="identity-detail-card">
+  <Drawer
+    open={detailOpen && Boolean(selectedIdentity)}
+    iconClass={`bi ${identityIcon(selectedIdentity)}`}
+    title={selectedIdentity?.display_name ?? ''}
+    subtitle={selectedIdentity ? `${typeLabel(selectedIdentity)} · ${selectedIdentity.sourceLabel}` : null}
+    onClose={() => (detailOpen = false)}
+  >
+    <svelte:fragment slot="header-meta">
       {#if selectedIdentity}
-        <header class="identity-detail-head">
-          <span class={`identity-avatar identity-avatar--large ${identityTone(selectedIdentity)}`}><i class={`bi ${identityIcon(selectedIdentity)}`}></i></span>
-          <div>
-            <h2>{selectedIdentity.display_name}</h2>
-            <div class="identity-pills">
-              <span class="identity-dot"></span>
-              <span>{typeLabel(selectedIdentity)}</span>
-              <span>{selectedIdentity.sourceLabel}</span>
-              <span class={selectedIdentity.status}>{selectedIdentity.status === 'active' ? t('Active') : t('Inactive')}</span>
-            </div>
-          </div>
-        </header>
-
-        <div class="identity-detail-grid">
-          <dl>
-            <div><dt>{t('Type')}</dt><dd>{typeLabel(selectedIdentity)}</dd></div>
-            <div><dt>{t('Source')}</dt><dd>{selectedIdentity.sourceLabel}</dd></div>
-            <div><dt>{t('Status')}</dt><dd>{selectedIdentity.status === 'active' ? t('Active') : t('Disabled')}</dd></div>
-            {#if selectedIdentity.type === 'group'}
-              <div><dt>{t('Members')}</dt><dd>{selectedIdentity.members_count ?? 0}</dd></div>
-            {:else}
-              <div><dt>{t('Username')}</dt><dd>{selectedIdentity.username}</dd></div>
-            {/if}
-            <div><dt>{t('Scope')}</dt><dd>{t('Application access')}</dd></div>
-            <div><dt>{t('Last sync')}</dt><dd>{selectedIdentity.last_snapshot_at ? timeAgo(selectedIdentity.last_snapshot_at) : t('Not available')}</dd></div>
-          </dl>
-          <section>
-            <h3>{t('Application roles')}</h3>
-            {#if selectedIdentity.roles.length}
-              <div class="identity-badges">
-                {#each selectedIdentity.roles as role}
-                  <StatusBadge status={role} label={roleLabel(role)} compact={true} variant={roleBadgeVariant(role)} showDot={false} />
-                {/each}
-              </div>
-            {:else}
-              <p>{t('No application role assigned.')}</p>
-            {/if}
-            {#if selectedIdentity.source !== 'local'}
-              <p class="identity-muted">{t('Directory binding: {sourceLabel}', { sourceLabel: selectedIdentity.sourceLabel })}</p>
-            {/if}
-            {#if selectedIdentity.type === 'group'}
-              <p class="identity-muted">{t('Members of this group inherit the selected application role.')}</p>
-            {/if}
-            {#if isDefaultLocalAdmin(selectedIdentity)}
-              <div class="identity-badges">
-                <StatusBadge status="protected" label={t('Protected')} compact={true} variant="warning" showDot={false} />
-              </div>
-              <p class="identity-muted">{t('This default local admin cannot be deleted.')}</p>
-            {/if}
-          </section>
-        </div>
-
-        <footer class="identity-detail-actions">
-          <EntityActionButton variant="secondary" icon="bi-pencil" label={t('Edit')} onClick={() => openEdit()} />
-          {#if selectedIdentity.type === 'group' && selectedIdentity.source !== 'local'}
-            <EntityActionButton variant="secondary" icon="bi-people" label={t('View members')} onClick={openMembersDrawer} />
-          {/if}
-          {#if selectedIdentity.source !== 'local' && selectedIdentity.identity_source_id}
-            <EntityActionButton
-              variant="primary"
-              icon="bi-arrow-repeat"
-              busy={syncRunning}
-              label={syncRunning ? t('Synchronizing…') : t('Sync now')}
-              onClick={syncSelected}
-            />
-          {/if}
-        </footer>
-        <section class="identity-danger-zone">
-          <h3>{t('Danger zone')}</h3>
-          <p>{t('Delete removes application access only.')}</p>
-          {#if canDeleteIdentity(selectedIdentity)}
-            <EntityActionButton variant="danger-outline" icon="bi-trash" label={t('Delete')} onClick={() => requestDeleteIdentity()} />
+        <StatusBadge compact variant={selectedIdentity.status === 'active' ? 'success' : 'disabled'} label={selectedIdentity.status === 'active' ? t('Active') : t('Disabled')} />
+      {/if}
+    </svelte:fragment>
+    {#if selectedIdentity}
+      <div class="identity-detail-grid">
+        <dl>
+          <div><dt>{t('Type')}</dt><dd>{typeLabel(selectedIdentity)}</dd></div>
+          <div><dt>{t('Source')}</dt><dd>{selectedIdentity.sourceLabel}</dd></div>
+          <div><dt>{t('Status')}</dt><dd>{selectedIdentity.status === 'active' ? t('Active') : t('Disabled')}</dd></div>
+          {#if selectedIdentity.type === 'group'}
+            <div><dt>{t('Members')}</dt><dd>{selectedIdentity.members_count ?? 0}</dd></div>
           {:else}
-            <EntityActionButton variant="danger-outline" icon="bi-trash" label={t('Delete')} disabled={true} title={t('Default local admin cannot be deleted')} />
-            <p class="identity-danger-zone__hint">{t('Default local admin cannot be deleted.')}</p>
+            <div><dt>{t('Username')}</dt><dd>{selectedIdentity.username}</dd></div>
+          {/if}
+          <div><dt>{t('Scope')}</dt><dd>{t('Application access')}</dd></div>
+          <div><dt>{t('Last sync')}</dt><dd>{selectedIdentity.last_snapshot_at ? timeAgo(selectedIdentity.last_snapshot_at) : t('Not available')}</dd></div>
+        </dl>
+        <section>
+          <h3>{t('Application roles')}</h3>
+          {#if selectedIdentity.roles.length}
+            <div class="identity-badges">
+              {#each selectedIdentity.roles as role}
+                <StatusBadge status={role} label={roleLabel(role)} compact={true} variant={roleBadgeVariant(role)} showDot={false} />
+              {/each}
+            </div>
+          {:else}
+            <p>{t('No application role assigned.')}</p>
+          {/if}
+          {#if selectedIdentity.source !== 'local'}
+            <p class="identity-muted">{t('Directory binding: {sourceLabel}', { sourceLabel: selectedIdentity.sourceLabel })}</p>
+          {/if}
+          {#if selectedIdentity.type === 'group'}
+            <p class="identity-muted">{t('Members of this group inherit the selected application role.')}</p>
+          {/if}
+          {#if isDefaultLocalAdmin(selectedIdentity)}
+            <div class="identity-badges">
+              <StatusBadge status="protected" label={t('Protected')} compact={true} variant="warning" showDot={false} />
+            </div>
+            <p class="identity-muted">{t('This default local admin cannot be deleted.')}</p>
           {/if}
         </section>
-      {:else}
-        <EmptyStateInline message={t('Select an identity to review application access.')} />
+      </div>
+    {/if}
+    <svelte:fragment slot="footer-start">
+      {#if selectedIdentity}
+        {#if canDeleteIdentity(selectedIdentity)}
+          <EntityActionButton variant="danger-outline" icon="bi-trash" label={t('Delete')} onClick={() => requestDeleteIdentity()} />
+        {:else}
+          <EntityActionButton variant="danger-outline" icon="bi-trash" label={t('Delete')} disabled={true} title={t('Default local admin cannot be deleted')} />
+        {/if}
       {/if}
-    </aside>
-  </div>
+    </svelte:fragment>
+    <svelte:fragment slot="footer">
+      {#if selectedIdentity}
+        <EntityActionButton variant="secondary" icon="bi-pencil" label={t('Edit')} onClick={() => openEdit()} />
+        {#if selectedIdentity.type === 'group' && selectedIdentity.source !== 'local'}
+          <EntityActionButton variant="secondary" icon="bi-people" label={t('View members')} onClick={openMembersDrawer} />
+        {/if}
+        {#if selectedIdentity.source !== 'local' && selectedIdentity.identity_source_id}
+          <EntityActionButton
+            variant="primary"
+            icon="bi-arrow-repeat"
+            busy={syncRunning}
+            label={syncRunning ? t('Synchronizing…') : t('Sync now')}
+            onClick={syncSelected}
+          />
+        {/if}
+      {/if}
+    </svelte:fragment>
+  </Drawer>
 
   <IdentityWizardModal
     open={showWizard}
@@ -577,7 +543,7 @@
     --identity-blue: #0b59d1;
     min-height: calc(100vh - 68px);
     padding: var(--b2s-page-padding);
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .identity-note {
@@ -633,41 +599,13 @@
     border: 0;
     outline: 0;
     background: transparent;
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-md);
-  }
-
-  .identity-tabs {
-    height: 44px;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    border: 1px solid #d8e2ef;
-    border-radius: var(--b2s-radius-sm);
-    overflow: hidden;
-  }
-
-  .identity-tabs button {
-    border: 0;
-    border-right: 1px solid #d8e2ef;
-    background: #fff;
-    color: #223552;
-    font-size: var(--b2s-fs-md);
-    font-weight: 650;
-  }
-
-  .identity-tabs button:last-child {
-    border-right: 0;
-  }
-
-  .identity-tabs button.active {
-    color: var(--identity-blue);
-    background: #f3f8ff;
-    box-shadow: inset 0 -2px 0 var(--identity-blue);
   }
 
   .identity-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(420px, 0.95fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 22px;
     align-items: start;
   }
@@ -696,78 +634,6 @@
     width: 22px;
     height: 22px;
     font-size: var(--b2s-fs-xl);
-  }
-
-  .identity-avatar--large {
-    width: 22px;
-    height: 22px;
-    font-size: var(--b2s-fs-xl);
-  }
-
-  .identity-dot {
-    font-size: 0.42rem;
-  }
-
-  .identity-pills .active {
-    color: #047857;
-    background: #dff8ec;
-  }
-
-  .identity-pills .inactive {
-    color: #64748b;
-    background: #edf2f7;
-  }
-
-  .identity-row-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-  }
-
-  .identity-detail-card {
-    padding: 22px 26px 0;
-    overflow: hidden;
-  }
-
-  .identity-detail-head {
-    display: flex;
-    align-items: flex-start;
-    gap: 18px;
-    margin-bottom: 22px;
-  }
-
-  .identity-detail-head h2 {
-    margin: 0 0 10px;
-    color: #071638;
-    font-size: var(--b2s-fs-xl);
-    line-height: 1.15;
-    font-weight: 650;
-  }
-
-  .identity-pills {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .identity-pills span:not(.identity-dot) {
-    display: inline-flex;
-    align-items: center;
-    min-height: 26px;
-    padding: 0 12px;
-    border-radius: var(--b2s-radius-pill);
-    color: #0b59d1;
-    background: #eaf2ff;
-    font-size: 0.76rem;
-    font-weight: 700;
-  }
-
-  .identity-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #0b8f49;
   }
 
   .identity-detail-grid {
@@ -801,7 +667,7 @@
   .identity-detail-grid dd,
   .identity-detail-grid p {
     margin: 0;
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-md);
   }
 
@@ -822,35 +688,6 @@
     font-size: var(--b2s-fs-sm);
   }
 
-  .identity-detail-actions {
-    display: grid;
-    grid-template-columns: 1fr 1.25fr 1fr;
-    gap: 16px;
-  }
-
-  .identity-danger-zone {
-    padding: 18px 0 0;
-    border-top: 1px solid #dfe7f2;
-    display: grid;
-    gap: 10px;
-  }
-
-  .identity-danger-zone h3,
-  .identity-danger-zone p {
-    margin: 0;
-  }
-
-  .identity-danger-zone h3 {
-    font-size: var(--b2s-fs-lg);
-    color: var(--b2s-color-danger, #dc3545);
-  }
-
-  .identity-danger-zone p,
-  .identity-danger-zone__hint {
-    font-size: var(--b2s-fs-md);
-    color: #64748b;
-  }
-
   .identity-members-list {
     display: grid;
     gap: 14px;
@@ -859,7 +696,7 @@
   .identity-empty {
     height: 180px !important;
     text-align: center;
-    color: #64748b !important;
+    color: var(--b2s-color-text-muted) !important;
   }
 
   @media (max-width: 1280px) {

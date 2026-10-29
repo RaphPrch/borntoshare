@@ -209,7 +209,7 @@
     margin: 12px 0 0;
     font-size: var(--b2s-fs-md);
     line-height: 1.45;
-    color: var(--b2s-color-text-muted, #667085);
+    color: var(--b2s-color-text-muted, var(--b2s-color-text-muted));
     max-width: 52ch;
   }
 
@@ -224,7 +224,7 @@
 
   .governance-drawer__loading {
     margin-top: 16px;
-    color: var(--b2s-color-text-muted, #667085);
+    color: var(--b2s-color-text-muted, var(--b2s-color-text-muted));
     font-size: var(--b2s-fs-md);
   }
 

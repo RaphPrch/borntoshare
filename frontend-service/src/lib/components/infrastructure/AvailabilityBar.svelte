@@ -36,7 +36,7 @@
 
   .avail__seg {
     border-radius: 2px;
-    background: #e2e8f0;
+    background: var(--b2s-color-border-soft);
   }
 
   .avail__seg.is-healthy {
@@ -44,7 +44,7 @@
   }
 
   .avail__seg.is-degraded {
-    background: #f59e0b;
+    background: var(--b2s-color-warning);
   }
 
   .avail__seg.is-down {
@@ -52,10 +52,10 @@
   }
 
   .avail__seg.is-unknown {
-    background: #cbd5e1;
+    background: var(--b2s-color-border-mid);
   }
 
   .avail__seg.is-empty {
-    background: #f1f5f9;
+    background: var(--b2s-color-neutral-soft);
   }
 </style>

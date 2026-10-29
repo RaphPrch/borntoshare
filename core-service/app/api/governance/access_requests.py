@@ -397,6 +397,24 @@ async def _revoke_request_memberships(
             action, req_id=req_id, request=request, correlation_id=correlation_id, storage_root_id=target_id,
             access_level=access_level_code, group_name=group_ref, **kw,
         )
+        # Another active request still grants this level: the person stays in the group
+        still_granted_by = await call_route(
+            access_requests_routes.other_active_request_for_level,
+            access_request_id=int(req_id),
+            storage_root_id=int(target_id),
+            access_level_code=access_level_code,
+        )
+        if still_granted_by:
+            journal("ad_group_member_kept", still_granted_by=still_granted_by)
+            await _record_item_execution(
+                access_request_id=int(req_id),
+                access_request_item_id=item_id,
+                status="DONE",
+                requested_payload_json=requested_payload,
+                result_json={"kept": True, "still_granted_by": still_granted_by},
+                error_message=None,
+            )
+            continue
         try:
             removed = unwrap_data(
                 await remove_ad_group_member(

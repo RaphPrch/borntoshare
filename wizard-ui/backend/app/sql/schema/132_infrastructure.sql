@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS infra_check_history (
 
 -- Regular tasks run through the workers
 CREATE TABLE IF NOT EXISTS infra_schedules (
-  task VARCHAR(32) PRIMARY KEY,                    -- health_check | data_sync
+  task VARCHAR(32) PRIMARY KEY,                    -- health_check | data_sync | access_expiry (135)
   is_enabled TINYINT(1) NOT NULL DEFAULT 1,
   interval_minutes INT NOT NULL,
   options_json JSON NULL,                          -- data_sync: {"snapshots": true, "shares": true, "acl_drift": true}

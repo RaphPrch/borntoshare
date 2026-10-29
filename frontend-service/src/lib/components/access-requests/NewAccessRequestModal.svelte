@@ -711,7 +711,7 @@
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
-    border: 1px solid #e5eaf3;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
   }
 
@@ -772,8 +772,8 @@
   }
 
   .nar-avatar.is-empty {
-    background: #f1f5f9;
-    color: #94a3b8;
+    background: var(--b2s-color-neutral-soft);
+    color: var(--b2s-color-text-faint);
   }
 
   .nar-ttl {
@@ -788,7 +788,7 @@
     gap: 2px;
     padding: 3px;
     border-radius: 9px;
-    background: #f1f5f9;
+    background: var(--b2s-color-neutral-soft);
   }
 
   .nar-segments button {
@@ -796,7 +796,7 @@
     border: none;
     border-radius: 7px;
     background: transparent;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-sm);
     cursor: pointer;
   }
@@ -860,7 +860,7 @@
   }
 
   .nar-ready.is-ready {
-    color: #15803d;
+    color: var(--b2s-color-success-strong);
   }
 
   @media (max-width: 640px) {

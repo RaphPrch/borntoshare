@@ -76,7 +76,7 @@
   }
 
   .activity-card__list li + li {
-    border-top: 1px solid #f1f5f9;
+    border-top: 1px solid var(--b2s-color-neutral-soft);
   }
 
   .activity-card__row {
@@ -96,7 +96,7 @@
   }
 
   .activity-card__row.is-clickable:hover {
-    background: #f8fafc;
+    background: var(--b2s-color-surface-soft);
   }
 
   .activity-card__icon {
@@ -108,12 +108,12 @@
     border-radius: var(--b2s-radius-pill);
     font-size: var(--b2s-fs-md);
     background: #eaf2ff;
-    color: #1d4ed8;
+    color: var(--b2s-color-info-strong);
   }
 
-  .activity-card__icon.is-success { background: #e8f8ef; color: #15803d; }
-  .activity-card__icon.is-warning { background: #fff4e5; color: #c2410c; }
-  .activity-card__icon.is-critical { background: #fdecec; color: #b91c1c; }
+  .activity-card__icon.is-success { background: #e8f8ef; color: var(--b2s-color-success-strong); }
+  .activity-card__icon.is-warning { background: #fff4e5; color: var(--b2s-color-warning-strong); }
+  .activity-card__icon.is-critical { background: #fdecec; color: var(--b2s-color-danger-strong); }
 
   .activity-card__copy {
     min-width: 0;
@@ -139,7 +139,7 @@
   }
 
   .activity-card__meta {
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
     font-size: var(--b2s-fs-xs);
   }
 

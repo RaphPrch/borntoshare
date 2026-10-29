@@ -252,8 +252,8 @@
   }
 
   .hero.is-healthy {
-    background: #f0fdf4;
-    border-color: #bbf7d0;
+    background: var(--b2s-color-success-soft);
+    border-color: var(--b2s-color-success-border);
   }
 
   .hero.is-degraded {
@@ -262,13 +262,13 @@
   }
 
   .hero.is-down {
-    background: #fef2f2;
-    border-color: #fecaca;
+    background: var(--b2s-color-danger-soft);
+    border-color: var(--b2s-color-danger-border);
   }
 
   .hero.is-unknown {
-    background: #f8fafc;
-    border-color: #e2e8f0;
+    background: var(--b2s-color-surface-soft);
+    border-color: var(--b2s-color-border-soft);
   }
 
   .hero__icon {
@@ -280,32 +280,32 @@
     justify-content: center;
     color: #ffffff;
     font-size: 1.35rem;
-    background: #94a3b8;
+    background: var(--b2s-color-text-faint);
   }
 
   .is-healthy .hero__icon {
-    background: #16a34a;
+    background: var(--b2s-color-success);
   }
 
   .is-degraded .hero__icon {
-    background: #f59e0b;
+    background: var(--b2s-color-warning);
   }
 
   .is-down .hero__icon {
-    background: #dc2626;
+    background: var(--b2s-color-danger);
   }
 
   .hero h2 {
     margin: 0;
     font-size: 19px;
     font-weight: 600;
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .hero p {
     margin: 4px 0 0;
     font-size: var(--b2s-fs-md);
-    color: #475569;
+    color: var(--b2s-color-text-soft);
   }
 
   .kpis {
@@ -319,23 +319,23 @@
     display: grid;
     gap: 4px;
     padding: 16px 18px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
-    background: #ffffff;
-    color: #071638;
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-heading);
     text-decoration: none;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
   .kpi:hover {
-    border-color: #94a3b8;
+    border-color: var(--b2s-color-text-faint);
     box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .kpi__label {
     font-size: var(--b2s-fs-sm);
-    color: #475569;
+    color: var(--b2s-color-text-soft);
   }
 
   .kpi__value {
@@ -344,26 +344,26 @@
     gap: 8px;
     flex-wrap: wrap;
     font-size: var(--b2s-fs-sm);
-    color: #475569;
+    color: var(--b2s-color-text-soft);
   }
 
   .kpi__value b {
     font-size: 30px;
     font-weight: 600;
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .kpi__hint {
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
   }
 
   .is-err {
-    color: #b91c1c !important;
+    color: var(--b2s-color-danger-strong) !important;
   }
 
   .is-warn {
-    color: #b45309 !important;
+    color: var(--b2s-color-warning-strong) !important;
   }
 
   .cols {
@@ -379,9 +379,9 @@
   }
 
   .panel {
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     overflow: hidden;
   }
 
@@ -390,19 +390,19 @@
     align-items: center;
     gap: 10px;
     padding: 14px 18px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--b2s-color-border-soft);
   }
 
   .panel__head h3 {
     margin: 0;
     font-size: 15px;
     font-weight: 600;
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .panel__head span {
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
   }
 
   .panel__head a {
@@ -416,12 +416,12 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-sm);
   }
 
   .panel__empty i {
-    color: #16a34a;
+    color: var(--b2s-color-success);
   }
 
   .rows {
@@ -431,7 +431,7 @@
   }
 
   .rows li + li {
-    border-top: 1px solid #f1f5f9;
+    border-top: 1px solid var(--b2s-color-neutral-soft);
   }
 
   .row-link,
@@ -441,13 +441,13 @@
     gap: 12px;
     align-items: center;
     padding: 12px 18px;
-    color: #071638;
+    color: var(--b2s-color-heading);
     text-decoration: none;
   }
 
   .row-link:hover {
-    background: #f8fafc;
-    color: #071638;
+    background: var(--b2s-color-surface-soft);
+    color: var(--b2s-color-heading);
   }
 
   .row-main strong,
@@ -465,18 +465,18 @@
 
   .row-main small {
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
   }
 
   .row-count {
     font-size: var(--b2s-fs-sm);
     font-weight: 600;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
   }
 
   .row-time {
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     white-space: nowrap;
   }
 
@@ -493,11 +493,11 @@
     align-items: start;
     padding: 8px 0;
     font-size: var(--b2s-fs-sm);
-    color: #334155;
+    color: var(--b2s-color-text-strong);
   }
 
   .timeline__time {
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
@@ -507,19 +507,19 @@
     height: 8px;
     margin-top: 6px;
     border-radius: 50%;
-    background: #16a34a;
+    background: var(--b2s-color-success);
   }
 
   .timeline__dot.is-err {
-    background: #dc2626;
+    background: var(--b2s-color-danger);
   }
 
   .timeline__dot.is-info {
-    background: #2563eb;
+    background: var(--b2s-color-info);
   }
 
   .timeline b {
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .families {
@@ -535,15 +535,15 @@
     gap: 10px;
     padding: 10px 12px;
     border-radius: var(--b2s-radius-sm);
-    background: #f8fafc;
+    background: var(--b2s-color-surface-soft);
     font-size: var(--b2s-fs-sm);
-    color: #071638;
+    color: var(--b2s-color-heading);
     text-decoration: none;
   }
 
   .family:hover {
-    color: #071638;
-    background: #f1f5f9;
+    color: var(--b2s-color-heading);
+    background: var(--b2s-color-neutral-soft);
   }
 
   .family__dot {
@@ -554,7 +554,7 @@
   }
 
   .family.is-down {
-    background: #fef2f2;
+    background: var(--b2s-color-danger-soft);
   }
 
   .family.is-down .family__dot {
@@ -562,20 +562,20 @@
   }
 
   .family.is-degraded .family__dot {
-    background: #f59e0b;
+    background: var(--b2s-color-warning);
   }
 
   .family.is-unknown .family__dot {
-    background: #cbd5e1;
+    background: var(--b2s-color-border-mid);
   }
 
   .family__count {
     margin-left: auto;
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
   }
 
   .family.is-down .family__count {
-    color: #991b1b;
+    color: var(--b2s-color-danger-strong);
     font-weight: 600;
   }
 

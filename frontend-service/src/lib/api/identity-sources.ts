@@ -220,8 +220,16 @@ export const runIdentitySnapshot = (
     { timeoutMs: 10000 }
   );
 
+/** Sample of the directory objects of a source (same search as the beneficiary picker) */
 export const browseIdentitySource = (
   fetchFn: FetchLike,
   sourceId: number,
   params?: { q?: string; limit?: number; principal_type?: 'all' | 'user' | 'group' | 'ou' }
-) => apiGetData<IdentityBrowseResponse>(fetchFn, `/identity-sources/${sourceId}/browse`, params);
+) =>
+  apiPostData<IdentityBrowseResponse>(fetchFn, '/identity/search', {
+    identity_source_id: Number(sourceId),
+    query: String(params?.q ?? '').trim(),
+    principal_type: params?.principal_type ?? 'all',
+    search_scope: 'subtree',
+    limit: Number(params?.limit ?? 50)
+  });

@@ -470,7 +470,7 @@
     height: 30px;
     border-radius: var(--b2s-radius-pill);
     background: rgba(77, 163, 255, 0.12);
-    color: var(--b2s-topbar-bg, #111b3f);
+    color: var(--b2s-topbar-bg, var(--b2s-topbar-bg));
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -532,9 +532,9 @@
   }
 
   .sr-effective-access-table__pill.is-source-manual {
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--b2s-color-border-mid);
     background: #f3f6fb;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
   }
 
   .sr-effective-access-table__pill.is-source-acl {
@@ -780,7 +780,7 @@
   .sr-effective-access-table__pagination strong {
     border-color: var(--b2s-topbar-accent, #4da3ff);
     background: #eef5ff;
-    color: var(--b2s-topbar-bg, #111b3f);
+    color: var(--b2s-topbar-bg, var(--b2s-topbar-bg));
   }
 
   .sr-effective-access-table__pagination button:disabled {

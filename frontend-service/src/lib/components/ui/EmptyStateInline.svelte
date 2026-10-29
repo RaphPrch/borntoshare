@@ -7,7 +7,7 @@
 
 <style>
   .b2s-empty-inline {
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     padding: 10px 2px;
     font-size: var(--b2s-fs-md);
   }

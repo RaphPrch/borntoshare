@@ -375,7 +375,7 @@
   }
 
   .identity-edit-section {
-    border: 1px solid #e5eaf3;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
     background: #fff;
     padding: 18px;
@@ -393,7 +393,7 @@
     margin: 0;
     font-size: var(--b2s-fs-lg);
     font-weight: 700;
-    color: #0f172a;
+    color: var(--b2s-color-text);
   }
 
   .identity-edit-section__index {
@@ -418,7 +418,7 @@
   .identity-edit-field label,
   .identity-edit-field .identity-edit-label,
   .identity-edit-field > span {
-    color: #0f172a;
+    color: var(--b2s-color-text);
     font-size: var(--b2s-fs-md);
     font-weight: 600;
   }
@@ -430,7 +430,7 @@
     border-radius: var(--b2s-radius-md);
     padding: 0 14px;
     background: #fff;
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-md);
   }
 
@@ -441,7 +441,7 @@
   }
 
   .identity-edit-input.invalid {
-    border-color: var(--b2s-color-danger, #dc3545);
+    border-color: var(--b2s-color-danger, var(--b2s-color-danger));
   }
 
   .identity-edit-toggle {
@@ -515,7 +515,7 @@
   .identity-edit-role-card strong {
     display: block;
     margin: 0 0 4px;
-    color: #0f172a;
+    color: var(--b2s-color-text);
     font-size: var(--b2s-fs-lg);
   }
 
@@ -555,7 +555,7 @@
     margin-right: auto;
     font-size: var(--b2s-fs-xs);
     font-weight: 700;
-    color: var(--b2s-color-warning-strong, #b45309);
+    color: var(--b2s-color-warning-strong, var(--b2s-color-warning-strong));
   }
 
   @media (max-width: 640px) {

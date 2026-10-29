@@ -69,6 +69,8 @@ export type IdentitySourceCardVM = {
   snapshotTone: StatusVariant;
   endpointLabel: string;
   lastProbeLabel: string;
+  /** Exact date of the last probe, shown on hover where the label is relative */
+  lastProbeTitle: string;
   lastSnapshotLabel: string;
   usersCount: number | null;
   groupsCount: number | null;
@@ -254,6 +256,9 @@ const snapshotLabelFromSource = (
   const relative = formatRelativeTimestamp(lastSnapshotAt);
 
   if (!normalized && !toIsoDate(lastSnapshotAt)) return t('Never Synced');
+  // An active snapshot reads « Synced 8d ago », not the raw status
+  if (['active', 'succeeded', 'success', 'completed'].includes(normalized.toLowerCase()) && relative !== '—')
+    return t('Synced {relative}', { relative });
   if (normalized && relative !== '—') return `${statusLabel(normalized)} · ${relative}`;
   if (normalized) return statusLabel(normalized);
   if (relative !== '—') return t('Synced {relative}', { relative });
@@ -352,7 +357,7 @@ export const mapIdentitySourceToCardVM = (
     probeJobStatus === 'running'
       ? t('Probe in progress')
       : lastProbeAt
-        ? formatAbsoluteTimestamp(lastProbeAt)
+        ? formatRelativeTimestamp(lastProbeAt)
         : t('Never');
 
   const lastSnapshotLabel = snapshotAt
@@ -376,6 +381,7 @@ export const mapIdentitySourceToCardVM = (
     lastProbeLabel: supportsProbe
       ? lastProbeLabel
       : t('Not applicable'),
+    lastProbeTitle: supportsProbe && lastProbeAt ? formatAbsoluteTimestamp(lastProbeAt) : '',
     lastSnapshotLabel: supportsSnapshot
       ? lastSnapshotLabel
       : t('Not applicable'),

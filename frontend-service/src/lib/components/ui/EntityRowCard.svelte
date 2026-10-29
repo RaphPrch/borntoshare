@@ -41,7 +41,7 @@
     padding: 18px 20px;
     border: 1px solid #e3e8f3;
     border-radius: var(--b2s-radius-lg);
-    background: #f8fafc;
+    background: var(--b2s-color-surface-soft);
   }
 
   .b2s-entity-row-card.is-compact {
@@ -94,7 +94,7 @@
   .b2s-entity-row-card__meta,
   .b2s-entity-row-card__submeta {
     font-size: var(--b2s-fs-sm);
-    color: #667085;
+    color: var(--b2s-color-text-muted);
     line-height: 1.35;
     white-space: nowrap;
     overflow: hidden;

@@ -292,7 +292,7 @@ def list_schedules(request: Request, db: Session = Depends(get_db)):
 
 
 @router.put("/schedules/{task}")
-def update_schedule(task: Literal["health_check", "data_sync"], payload: SchedulePayload, request: Request, db: Session = Depends(get_db)):
+def update_schedule(task: Literal["health_check", "data_sync", "access_expiry"], payload: SchedulePayload, request: Request, db: Session = Depends(get_db)):
     actor = _admin(request)
     updates: dict[str, Any] = {}
     if payload.is_enabled is not None:
@@ -312,7 +312,7 @@ def update_schedule(task: Literal["health_check", "data_sync"], payload: Schedul
 
 
 @router.post("/schedules/{task}/run")
-async def run_schedule(task: Literal["health_check", "data_sync"], request: Request, db: Session = Depends(get_db)):
+async def run_schedule(task: Literal["health_check", "data_sync", "access_expiry"], request: Request, db: Session = Depends(get_db)):
     from app.jobs.infra_scheduler import run_task
 
     actor = _admin(request)

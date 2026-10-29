@@ -37,7 +37,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    border-bottom: 1px solid #e5eaf3;
+    border-bottom: 1px solid var(--b2s-color-border-soft);
     overflow-x: auto;
   }
 
@@ -70,7 +70,7 @@
     padding: 0 7px;
     border-radius: var(--b2s-radius-pill);
     background: #eef2f7;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     font-size: 11px;
     font-weight: 600;
   }

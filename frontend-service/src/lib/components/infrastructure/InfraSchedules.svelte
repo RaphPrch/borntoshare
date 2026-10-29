@@ -25,6 +25,12 @@
       title: () => t('Data sync'),
       text: () => t('Brings BornToShare in line with the directories and the file servers. Run by the workers.'),
       intervals: SYNC_INTERVALS
+    },
+    access_expiry: {
+      icon: 'bi-hourglass-bottom',
+      title: () => t('Access expiry'),
+      text: () => t('Removes from the AD group, through a worker, the people whose access has reached its end date. The group and its ACL are kept.'),
+      intervals: HEALTH_INTERVALS
     }
   };
 
@@ -197,9 +203,9 @@
   }
 
   .card {
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     display: grid;
   }
 
@@ -213,7 +219,7 @@
     gap: 12px;
     align-items: start;
     padding: 16px 18px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--b2s-color-neutral-soft);
   }
 
   .card__icon {
@@ -223,7 +229,7 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--b2s-radius-sm);
-    background: #eef2ff;
+    background: var(--b2s-color-primary-soft);
     color: #1e3a8a;
     font-size: 1.15rem;
   }
@@ -231,13 +237,13 @@
   .card__title h3 {
     margin: 0;
     font-size: var(--b2s-fs-md);
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .card__title p {
     margin: 3px 0 0;
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     line-height: 1.4;
   }
 
@@ -246,7 +252,7 @@
     align-items: center;
     gap: 8px;
     font-size: var(--b2s-fs-xs);
-    color: #334155;
+    color: var(--b2s-color-text-strong);
     cursor: pointer;
     white-space: nowrap;
   }
@@ -263,7 +269,7 @@
     gap: 10px;
     align-items: center;
     font-size: var(--b2s-fs-sm);
-    color: #334155;
+    color: var(--b2s-color-text-strong);
   }
 
   .interval select {
@@ -280,12 +286,12 @@
   .timeline div {
     padding: 10px 12px;
     border-radius: var(--b2s-radius-sm);
-    background: #f8fafc;
+    background: var(--b2s-color-surface-soft);
   }
 
   .timeline dt {
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
   }
 
   .timeline dd {
@@ -295,7 +301,7 @@
     align-items: center;
     flex-wrap: wrap;
     font-size: var(--b2s-fs-sm);
-    color: #0f172a;
+    color: var(--b2s-color-text);
     font-weight: 600;
   }
 
@@ -303,7 +309,7 @@
   .last-line {
     margin: 0;
     font-size: var(--b2s-fs-xs);
-    color: #475569;
+    color: var(--b2s-color-text-soft);
   }
 
   .parts {
@@ -317,7 +323,7 @@
     gap: 10px;
     align-items: center;
     padding: 10px 12px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
     cursor: pointer;
   }
@@ -334,7 +340,7 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--b2s-radius-sm);
-    background: #eff6ff;
+    background: var(--b2s-color-info-soft);
     color: #0b63f4;
   }
 
@@ -345,12 +351,12 @@
 
   .part__copy strong {
     font-size: var(--b2s-fs-xs);
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .part__copy small {
     font-size: var(--b2s-fs-xs);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     margin-top: 2px;
   }
 
@@ -358,7 +364,7 @@
     display: flex;
     justify-content: flex-end;
     padding: 12px 18px;
-    border-top: 1px solid #f1f5f9;
+    border-top: 1px solid var(--b2s-color-neutral-soft);
   }
 
   .cap-switch {
@@ -367,7 +373,7 @@
     width: 34px;
     height: 19px;
     border-radius: var(--b2s-radius-pill);
-    background: #cbd5e1;
+    background: var(--b2s-color-border-mid);
     position: relative;
     cursor: pointer;
     transition: background 0.16s ease;
@@ -381,7 +387,7 @@
     width: 13px;
     height: 13px;
     border-radius: 50%;
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     transition: transform 0.16s ease;
   }
 

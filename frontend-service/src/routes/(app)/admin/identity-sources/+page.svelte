@@ -9,6 +9,7 @@
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import IdentitySourcesWizardModal from '$lib/components/identity-sources/IdentitySourcesWizardModal.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import IdentitySourceDrawer from '$lib/components/identity-sources/IdentitySourceDrawer.svelte';
   import IdentitySourceEditDrawer from '$lib/components/identity-sources/IdentitySourceEditDrawer.svelte';
   import {
@@ -120,14 +121,6 @@
     { value: 'ad', label: t('Active Directory / LDAP') },
     { value: 'oidc', label: 'OIDC' },
     { value: 'local', label: t('Local') }
-  ];
-
-  const healthOptions = [
-    { value: 'all', label: t('Health') },
-    { value: 'healthy', label: t('Healthy') },
-    { value: 'issues', label: t('Issues') },
-    { value: 'disabled', label: t('Disabled') },
-    { value: 'unknown', label: t('Unknown') }
   ];
 
   const snapshotOptions = [
@@ -278,13 +271,14 @@
     const id = Number(sourceId ?? 0);
     if (!Number.isFinite(id) || id <= 0) return;
     selectedSourceId = id;
-    showDetailsDrawer = false;
+    showDetailsDrawer = true;
     selectedInternal = null;
     internalError = null;
     snapshotDebugRows = [];
     snapshotDebugError = null;
     snapshotDebugSourceId = null;
     selectionStore.setSelectedIdentitySourceId(id);
+    void loadInternal(id);
   };
 
   $: if (Array.isArray(data?.identity_sources)) {
@@ -1064,7 +1058,7 @@
         <KpiCard label={t('Sources')} value={summary.total} icon="bi-diagram-3" tone="info" />
         <KpiCard label={t('Healthy')} value={summary.healthy} icon="bi-check-lg" tone="success" />
         <KpiCard label={t('Issues')} value={summary.issues} icon="bi-exclamation-triangle" tone="warning" />
-        <KpiCard label={t('Never synced')} value={summary.neverSynced} icon="bi-clock" tone="purple" />
+        <KpiCard label={t('Never synced')} value={summary.neverSynced} icon="bi-clock" tone="neutral" />
       </div>
 
       <div class="identity-filter-card">
@@ -1084,18 +1078,13 @@
               <option value={option.value}>{option.label}</option>
             {/each}
           </select>
-          <select bind:value={statusFilter} on:change={resetListPage} aria-label={t('Filter by health')}>
-            {#each healthOptions as option}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
           <select bind:value={snapshotFilter} on:change={resetListPage} aria-label={t('Filter by snapshot status')}>
             {#each snapshotOptions as option}
               <option value={option.value}>{option.label}</option>
             {/each}
           </select>
         </div>
-        <div class="identity-status-tabs" role="group" aria-label={t('Health quick filters')}>
+        <div class="b2s-segments" role="group" aria-label={t('Health quick filters')}>
           <button type="button" class:active={statusFilter === 'all'} on:click={() => selectStatusFilter('all')}>{t('All')}</button>
           <button type="button" class:active={statusFilter === 'healthy'} on:click={() => selectStatusFilter('healthy')}>{t('Healthy')}</button>
           <button type="button" class:active={statusFilter === 'issues'} on:click={() => selectStatusFilter('issues')}>{t('Issues')}</button>
@@ -1105,23 +1094,15 @@
       </div>
 
       {#if listLoading}
-        <div class="identity-main-grid" aria-busy="true">
-          <div class="identity-table-card">
-            {#each Array(6) as _, index (`identity-loading-row-${index}`)}
-              <div class="identity-row-skeleton"></div>
-            {/each}
-          </div>
-          <div class="identity-detail-card identity-detail-card--empty">
+        <div class="identity-table-card" aria-busy="true">
+          {#each Array(6) as _, index (`identity-loading-row-${index}`)}
             <div class="identity-row-skeleton"></div>
-            <div class="identity-row-skeleton small"></div>
-            <div class="identity-row-skeleton"></div>
-          </div>
+          {/each}
         </div>
       {:else if sortedCards.length === 0}
         <div class="identity-no-result" role="status">{t('No identity source matches current filters.')}</div>
       {:else}
-        <div class="identity-main-grid">
-          <div class="identity-table-card">
+        <div class="identity-table-card">
             <table class="b2s-table identity-clean-table">
               <thead>
                 <tr>
@@ -1150,14 +1131,9 @@
                     </td>
                     <td><span class={`identity-pill ${toneClass(card.typeTone)}`}>{card.typeLabel}</span></td>
                     <td class="identity-muted-cell">{card.endpointLabel}</td>
-                    <td>
-                      <span class={`identity-health-label ${toneClass(card.healthTone)}`}>
-                        <i class="bi bi-circle-fill" aria-hidden="true"></i>
-                        {card.healthLabel}
-                      </span>
-                    </td>
-                    <td>{card.lastProbeLabel}</td>
-                    <td><span class={`identity-pill ${toneClass(card.snapshotTone)}`}>{card.snapshotLabel}</span></td>
+                    <td><StatusBadge compact variant={card.healthTone} label={card.healthLabel} /></td>
+                    <td title={card.lastProbeTitle || undefined}>{card.lastProbeLabel}</td>
+                    <td><StatusBadge compact showDot={false} variant={card.snapshotTone} label={card.snapshotLabel} /></td>
                     <td class="text-end">
                       <button
                         class="b2s-btn b2s-btn-secondary b2s-btn-sm b2s-btn-icon"
@@ -1201,97 +1177,6 @@
               </div>
             </div>
           </div>
-
-          <aside class="identity-detail-card">
-            {#if detailCard}
-              <div class="identity-detail-head">
-                <span class="identity-detail-icon">
-                  <i class={`bi ${sourceIconClass(detailCard)}`} aria-hidden="true"></i>
-                </span>
-                <div>
-                  <h2>{detailCard.name}</h2>
-                  <div class="identity-detail-badges">
-                    <span class={`identity-pill ${toneClass(detailCard.typeTone)}`}>{detailCard.typeLabel}</span>
-                    <span class={`identity-pill ${toneClass(detailCard.healthTone)}`}>
-                      <i class="bi bi-circle-fill" aria-hidden="true"></i>
-                      {detailCard.healthLabel}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <dl class="identity-detail-list">
-                <div>
-                  <dt>{t('Endpoint')}</dt>
-                  <dd>{detailCard.endpointLabel}</dd>
-                </div>
-                <div>
-                  <dt>{t('Base DN')}</dt>
-                  <dd>{baseDnLabel(detailCard)}</dd>
-                </div>
-                <div>
-                  <dt>{t('Last probe')}</dt>
-                  <dd>{compactProbeLabel(detailCard)}</dd>
-                </div>
-                <div>
-                  <dt>{t('Snapshot')}</dt>
-                  <dd><span class={`identity-pill ${toneClass(detailCard.snapshotTone)}`}>{compactSnapshotLabel(detailCard)}</span></dd>
-                </div>
-              </dl>
-
-              <div class="identity-detail-actions">
-                {#if detailCard.supportsProbe}
-                  <button
-                    type="button"
-                    class="b2s-btn b2s-btn-secondary"
-                    disabled={identityProbeRunning(detailCard.id)}
-                    on:click={() => runTestOnSource(detailCard.raw)}
-                  >
-                    <i class="bi bi-activity" aria-hidden="true"></i>
-                    {t('Test connection')}
-                  </button>
-                {/if}
-                <button type="button" class="b2s-btn b2s-btn-secondary" disabled={!isAdIdentitySource(detailCard.raw)} on:click={() => openEdit(detailCard.raw)}>
-                  <i class="bi bi-pencil" aria-hidden="true"></i>
-                  {t('Edit')}
-                </button>
-                <button type="button" class="b2s-btn b2s-btn-danger-outline" on:click={() => openDelete(detailCard.raw)}>
-                  <i class="bi bi-trash3" aria-hidden="true"></i>
-                  {t('Delete')}
-                </button>
-                {#if detailCard.supportsSnapshot}
-                  <button
-                    type="button"
-                    class="b2s-btn b2s-btn-primary"
-                    disabled={$jobsStore && serverSnapshotRunning && identitySnapshotRunning(detailCard.id)}
-                    on:click={() => runSnapshotOnSource(detailCard.raw)}
-                  >
-                    <i class={`bi ${identitySnapshotRunning(detailCard.id) ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} aria-hidden="true"></i>
-                    {$jobsStore && serverSnapshotRunning && identitySnapshotRunning(detailCard.id) ? t('Synchronizing…') : t('Sync now')}
-                  </button>
-                {/if}
-              </div>
-
-              <div class="identity-health-card">
-                <div class="identity-health-head">
-                  <h3>{t('Recent health')}</h3>
-                  <span>{t('Last 7 days')}</span>
-                </div>
-                <div class="identity-health-line" aria-label={t('Recent health status')}>
-                  {#each selectedRecentHealth as point (point.key)}
-                    <div class="identity-health-point">
-                      <span class={`identity-health-dot ${point.tone}`} title={point.title}>
-                        <i class={`bi ${point.icon}`} aria-hidden="true"></i>
-                      </span>
-                      <small>{point.label}</small>
-                    </div>
-                  {/each}
-                </div>
-              </div>
-
-            {/if}
-          </aside>
-        </div>
       {/if}
     {/if}
   </div>
@@ -1326,6 +1211,10 @@
   on:toggle={() => {
     if (selectedCard) handleToggleActive(selectedCard.raw, !selectedCard.raw?.is_active);
   }}
+  on:delete={() => {
+    if (selectedCard) openDelete(selectedCard.raw);
+  }}
+  recentHealth={selectedRecentHealth}
 />
 
 <IdentitySourceEditDrawer
@@ -1404,7 +1293,7 @@
   .identity-clean-shell {
     display: grid;
     gap: 22px;
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .identity-clean-shell :global(.b2s-page-header) {
@@ -1419,7 +1308,6 @@
     margin-left: auto;
     flex-wrap: wrap;
   }
-  .identity-status-tabs button,
   .identity-pagination button {
     font-family: var(--b2s-font-sans);
     letter-spacing: 0;
@@ -1439,9 +1327,9 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    border: 1px solid #d9e2ef;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     padding: 0 14px;
     color: #48607f;
   }
@@ -1450,7 +1338,7 @@
     width: 100%;
     border: 0;
     outline: 0;
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-md);
     background: transparent;
   }
@@ -1470,68 +1358,19 @@
     min-width: 112px;
     height: 42px;
     border-radius: var(--b2s-radius-sm);
-    border: 1px solid #d9e2ef;
-    background: #ffffff;
-    color: #071638;
+    border: 1px solid var(--b2s-color-border-soft);
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-heading);
     padding: 0 34px 0 14px;
     font-weight: 550;
     font-size: var(--b2s-fs-md);
   }
 
-  .identity-status-tabs {
-    justify-self: end;
-    display: inline-grid;
-    grid-template-columns: repeat(4, minmax(86px, 1fr));
-    border: 1px solid #d9e2ef;
-    border-radius: var(--b2s-radius-sm);
-    overflow: hidden;
-    background: #f8fafc;
-  }
-
-  .identity-status-tabs button {
-    height: 42px;
-    border: 0;
-    border-right: 1px solid #d9e2ef;
-    background: transparent;
-    color: #596985;
-    font-size: var(--b2s-fs-md);
-    font-weight: 500;
-  }
-
-  .identity-status-tabs button:last-child {
-    border-right: 0;
-  }
-
-  .identity-status-tabs button.active {
-    position: relative;
-    background: #ffffff;
-    color: #071638;
-    font-weight: 650;
-  }
-
-  .identity-status-tabs button.active::after {
-    content: "";
-    position: absolute;
-    left: 20%;
-    right: 20%;
-    bottom: 0;
-    height: 3px;
-    border-radius: 999px 999px 0 0;
-    background: #071638;
-  }
-
   .identity-result-count {
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-md);
     font-weight: 650;
     white-space: nowrap;
-  }
-
-  .identity-main-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(360px, 0.98fr);
-    gap: 20px;
-    align-items: start;
   }
 
   .identity-table-card {
@@ -1563,7 +1402,7 @@
 
   .identity-source-cell strong {
     min-width: 0;
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-weight: 650;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1591,7 +1430,7 @@
     max-width: 100%;
     border-radius: var(--b2s-radius-pill);
     border: 1px solid #d7e0ee;
-    background: #f8fafc;
+    background: var(--b2s-color-surface-soft);
     color: #425473;
     padding: 3px 9px;
     font-size: var(--b2s-fs-xs);
@@ -1601,51 +1440,48 @@
   }
 
   .identity-pill.is-success,
-  .identity-health-label.is-success,
-  .identity-health-dot.is-success {
+  .identity-health-label.is-success{
     color: #0b8f49;
   }
 
   .identity-pill.is-success {
-    background: #dcfce7;
+    background: var(--b2s-color-success-soft);
     border-color: #a7e8bd;
   }
 
   .identity-pill.is-warning,
-  .identity-health-label.is-warning,
-  .identity-health-dot.is-warning {
-    color: #b45309;
+  .identity-health-label.is-warning{
+    color: var(--b2s-color-warning-strong);
   }
 
   .identity-pill.is-warning {
-    background: #fff7ed;
-    border-color: #fed7aa;
+    background: var(--b2s-color-warning-soft);
+    border-color: var(--b2s-color-warning-border);
   }
 
   .identity-pill.is-error,
-  .identity-health-label.is-error,
-  .identity-health-dot.is-error {
-    color: #dc2626;
+  .identity-health-label.is-error{
+    color: var(--b2s-color-danger);
   }
 
   .identity-pill.is-error {
-    background: #fef2f2;
-    border-color: #fecaca;
+    background: var(--b2s-color-danger-soft);
+    border-color: var(--b2s-color-danger-border);
   }
 
   .identity-pill.is-info,
   .identity-pill.is-ad,
   .identity-pill.is-oidc {
     color: #0758d8;
-    background: #eff6ff;
+    background: var(--b2s-color-info-soft);
     border-color: #b8d2ff;
   }
 
   .identity-pill.is-disabled,
   .identity-pill.is-muted {
-    color: #475569;
-    background: #f8fafc;
-    border-color: #cbd5e1;
+    color: var(--b2s-color-text-soft);
+    background: var(--b2s-color-surface-soft);
+    border-color: var(--b2s-color-border-mid);
   }
 
   .identity-health-label {
@@ -1704,7 +1540,7 @@
   }
 
   .identity-pagination strong {
-    background: #071638;
+    background: var(--b2s-color-heading);
     color: #ffffff;
     font-weight: 650;
   }
@@ -1712,176 +1548,6 @@
   .identity-pagination button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
-  }
-
-  .identity-detail-card {
-    padding: 22px 26px 0;
-    overflow: hidden;
-  }
-
-  .identity-detail-head {
-    display: flex;
-    align-items: flex-start;
-    gap: 18px;
-    margin-bottom: 22px;
-  }
-
-  .identity-detail-icon {
-    flex: 0 0 auto;
-    width: 22px;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #0b63f4;
-    font-size: 1.35rem;
-  }
-
-  .identity-detail-head h2 {
-    margin: 0 0 10px;
-    color: #071638;
-    font-size: var(--b2s-fs-xl);
-    line-height: 1.15;
-    font-weight: 650;
-  }
-
-  .identity-detail-badges {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .identity-detail-list {
-    display: grid;
-    gap: 14px;
-    margin: 0 0 22px;
-  }
-
-  .identity-detail-list div {
-    display: grid;
-    grid-template-columns: 112px minmax(0, 1fr);
-    gap: 14px;
-    align-items: start;
-  }
-
-  .identity-detail-list dt {
-    color: #5b6d86;
-    font-weight: 500;
-  }
-
-  .identity-detail-list dd {
-    margin: 0;
-    min-width: 0;
-    color: #071638;
-    font-weight: 550;
-    overflow-wrap: anywhere;
-  }
-
-  .identity-detail-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 24px;
-  }
-
-  .identity-health-card {
-    border-top: 1px solid #dce4ef;
-    padding: 20px 0 18px;
-  }
-
-  .identity-health-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 22px;
-  }
-
-  .identity-health-head h3 {
-    margin: 0;
-    color: #071638;
-    font-size: var(--b2s-fs-lg);
-    font-weight: 650;
-  }
-
-  .identity-health-head span {
-    color: #596985;
-    font-size: var(--b2s-fs-sm);
-    font-weight: 500;
-  }
-
-  .identity-health-line {
-    position: relative;
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 4px;
-  }
-
-  .identity-health-line::before {
-    content: "";
-    position: absolute;
-    left: 7%;
-    right: 7%;
-    top: 11px;
-    height: 3px;
-    background: #16a34a;
-    border-radius: var(--b2s-radius-pill);
-  }
-
-  .identity-health-point {
-    position: relative;
-    z-index: 1;
-    display: grid;
-    justify-items: center;
-    gap: 8px;
-  }
-
-  .identity-health-dot {
-    width: 22px;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: currentColor;
-    color: #16a34a;
-  }
-
-  .identity-health-dot i {
-    color: #ffffff;
-    font-size: 0.78rem;
-  }
-
-  .identity-health-dot.is-warning {
-    color: #f59e0b;
-  }
-
-  .identity-health-dot.is-error {
-    color: #dc2626;
-  }
-
-  .identity-health-dot.is-info {
-    color: #2563eb;
-  }
-
-  .identity-health-dot.is-muted,
-  .identity-health-dot.is-disabled {
-    color: #94a3b8;
-  }
-
-  .identity-health-line:has(.identity-health-dot.is-error)::before,
-  .identity-health-line:has(.identity-health-dot.is-warning)::before,
-  .identity-health-line:has(.identity-health-dot.is-info)::before,
-  .identity-health-line:has(.identity-health-dot.is-muted)::before,
-  .identity-health-line:has(.identity-health-dot.is-disabled)::before {
-    background: #cbd5e1;
-  }
-
-  .identity-health-point small {
-    color: #071638;
-    font-size: var(--b2s-fs-xs);
-    white-space: nowrap;
   }
 
   .identity-row-skeleton {
@@ -1901,7 +1567,7 @@
     padding: 1rem;
     border-radius: var(--b2s-radius-sm);
     border: 1px dashed rgba(148, 163, 184, 0.45);
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     background: rgba(248, 250, 252, 0.75);
     text-align: center;
     font-size: var(--b2s-fs-md);
@@ -1914,14 +1580,6 @@
 
   @media (max-width: 1280px) {
     .identity-filter-card {
-      grid-template-columns: 1fr;
-    }
-
-    .identity-status-tabs {
-      justify-self: stretch;
-    }
-
-    .identity-main-grid {
       grid-template-columns: 1fr;
     }
   }
@@ -1944,20 +1602,10 @@
 
     .identity-page-actions,
     .identity-selects,
-    .identity-detail-actions,
     .identity-table-footer {
       width: 100%;
       flex-direction: column;
       align-items: stretch;
-    }
-
-    .identity-status-tabs {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .identity-detail-list div {
-      grid-template-columns: 1fr;
-      gap: 4px;
     }
   }
 </style>

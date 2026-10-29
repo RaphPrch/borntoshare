@@ -246,7 +246,7 @@
 
   .obs-error {
     max-width: 420px;
-    color: #7f1d1d;
+    color: var(--b2s-color-danger-strong);
     font-size: var(--b2s-fs-sm);
   }
 

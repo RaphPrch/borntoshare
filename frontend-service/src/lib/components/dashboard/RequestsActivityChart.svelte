@@ -88,7 +88,7 @@
   .req-chart {
     margin: 0;
     padding: 16px 20px 12px;
-    border: 1px solid #e5eaf3;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
     background: var(--b2s-color-surface);
   }
@@ -150,7 +150,7 @@
   }
 
   .req-chart__grid span:last-child {
-    border-top-color: #cbd5e1;
+    border-top-color: var(--b2s-color-border-mid);
   }
 
   .req-chart__bars {
@@ -189,7 +189,7 @@
     display: grid;
     gap: 2px;
     padding: 8px 10px;
-    border: 1px solid #e5eaf3;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
     background: var(--b2s-color-surface);
     box-shadow: 0 6px 18px rgba(18, 31, 64, 0.12);

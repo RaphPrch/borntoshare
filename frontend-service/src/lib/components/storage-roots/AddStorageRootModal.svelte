@@ -1304,7 +1304,7 @@
   .sr-add-filter-chips button.active {
     border-color: #93b8ff;
     color: #1a5ee5;
-    background: #eff6ff;
+    background: var(--b2s-color-info-soft);
   }
 
   .sr-add-filter-chips span {

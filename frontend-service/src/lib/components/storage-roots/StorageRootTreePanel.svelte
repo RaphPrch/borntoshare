@@ -85,8 +85,9 @@
     return { count, tone };
   }
 
+  // Totals of a collapsed zone or server stay quiet (coloured icon, no background): the roots carry the full badge
   const alertBadges = ({ count, tone }: Alerts): EntityTreeBadge[] =>
-    count > 0 && tone ? [{ label: String(count), tone, icon: 'bi-exclamation-triangle-fill', title: t('{count} alerts', { count }) }] : [];
+    count > 0 && tone ? [{ label: String(count), tone: tone === 'error' ? 'error-quiet' : 'warning-quiet', icon: 'bi-exclamation-triangle-fill', title: t('{count} alerts', { count }) }] : [];
 
   function rootNode(row: StorageRootRow, key: string, subtitle: string | null = null): EntityTreeNode {
     return {

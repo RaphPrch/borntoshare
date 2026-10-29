@@ -664,7 +664,7 @@
 
 <style>
   .identity-edit-shell {
-    color: #071638;
+    color: var(--b2s-color-heading);
   }
 
   .identity-edit-accounts {
@@ -683,9 +683,9 @@
 
   .identity-edit-summary,
   .identity-edit-card {
-    border: 1px solid #d9e2ef;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
-    background: #ffffff;
+    background: var(--b2s-color-surface);
   }
 
   .identity-edit-summary {
@@ -709,7 +709,7 @@
   .identity-edit-summary strong {
     display: block;
     min-width: 0;
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-sm);
     font-weight: 650;
     overflow-wrap: anywhere;
@@ -733,12 +733,12 @@
 
   .identity-edit-status.is-error,
   .identity-edit-tested.is-error {
-    color: #dc2626;
+    color: var(--b2s-color-danger);
   }
 
   .identity-edit-status.is-info,
   .identity-edit-tested.is-info {
-    color: #2563eb;
+    color: var(--b2s-color-info);
   }
 
   .identity-edit-card {
@@ -759,7 +759,7 @@
 
   .identity-edit-section-head h3 {
     margin: 0 0 4px;
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-lg);
     font-weight: 700;
   }
@@ -787,7 +787,7 @@
     display: grid;
     align-content: start;
     gap: 6px;
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-xs);
     font-weight: 650;
   }
@@ -799,10 +799,10 @@
   .identity-edit-input {
     width: 100%;
     min-height: 38px;
-    border: 1px solid #d9e2ef;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
-    background: #ffffff;
-    color: #071638;
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-sm);
   }
 
@@ -822,8 +822,8 @@
   }
 
   .identity-edit-input:disabled {
-    color: #64748b;
-    background: #f8fafc;
+    color: var(--b2s-color-text-muted);
+    background: var(--b2s-color-surface-soft);
   }
 
 
@@ -849,7 +849,7 @@
   }
 
   .identity-edit-hint {
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-xs);
   }
 
@@ -898,9 +898,9 @@
     gap: 11px;
     align-items: center;
     padding: 12px;
-    border: 1px solid #d9e2ef;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
-    background: #ffffff;
+    background: var(--b2s-color-surface);
   }
 
   .identity-edit-capability-icon {
@@ -910,7 +910,7 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--b2s-radius-sm);
-    background: #eff6ff;
+    background: var(--b2s-color-info-soft);
     color: #0b63f4;
     font-size: 1rem;
   }
@@ -921,7 +921,7 @@
   }
 
   .identity-edit-capability strong {
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
@@ -938,7 +938,7 @@
     width: 34px;
     height: 19px;
     border-radius: var(--b2s-radius-pill);
-    background: #cbd5e1;
+    background: var(--b2s-color-border-mid);
     position: relative;
     cursor: pointer;
     transition: background 0.16s ease;
@@ -952,7 +952,7 @@
     width: 13px;
     height: 13px;
     border-radius: 50%;
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     transition: transform 0.16s ease;
   }
 
@@ -967,19 +967,19 @@
   .identity-edit-validation {
     display: grid;
     grid-template-columns: 1.2fr 1fr 1fr 0.9fr;
-    border: 1px solid #d9e2ef;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
     overflow: hidden;
-    background: #f8fafc;
+    background: var(--b2s-color-surface-soft);
   }
 
   .identity-edit-validation.is-success {
     border-color: #b8e8c8;
-    background: #f0fdf4;
+    background: var(--b2s-color-success-soft);
   }
 
   .identity-edit-validation.is-error {
-    border-color: #fecaca;
+    border-color: var(--b2s-color-danger-border);
     background: #fff5f5;
   }
 
@@ -1004,18 +1004,18 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: #e2e8f0;
-    color: #64748b;
+    background: var(--b2s-color-border-soft);
+    color: var(--b2s-color-text-muted);
   }
 
   .identity-edit-validation-item.is-success > span {
     color: #0b8f49;
-    background: #dcfce7;
+    background: var(--b2s-color-success-soft);
   }
 
   .identity-edit-validation-item.is-error > span {
-    color: #dc2626;
-    background: #fee2e2;
+    color: var(--b2s-color-danger);
+    background: var(--b2s-color-danger-soft);
   }
 
   .identity-edit-validation-item strong,
@@ -1024,7 +1024,7 @@
   }
 
   .identity-edit-validation-item strong {
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-xs);
     font-weight: 700;
   }
@@ -1039,7 +1039,7 @@
   .identity-edit-footer-state {
     display: grid;
     gap: 5px;
-    color: #071638;
+    color: var(--b2s-color-heading);
     font-size: var(--b2s-fs-xs);
   }
 
@@ -1049,7 +1049,7 @@
   }
 
   .identity-edit-footer-state span.is-error {
-    color: #dc2626;
+    color: var(--b2s-color-danger);
   }
 
   .identity-edit-footer-state i {

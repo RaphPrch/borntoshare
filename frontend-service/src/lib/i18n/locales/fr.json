@@ -1715,6 +1715,10 @@
       "revoked": {
         "title": "Accès révoqué",
         "description": "L’accès de {user} sur « {root} » a été révoqué"
+      },
+      "expired": {
+        "title": "Accès expiré",
+        "description": "L'accès de {user} sur « {root} » a atteint sa date de fin"
       }
     },
     "identity_source": {
@@ -2028,6 +2032,28 @@
     "ad_group_adoption_requested": {
       "title": "Adoption d'un groupe AD",
       "description": "{group} sera adopté à la prochaine approbation"
+    },
+    "ad_group_member_kept": {
+      "title": "Membre conservé",
+      "description": "Toujours accordé par {request} : le demandeur reste dans {group}"
+    },
+    "access_request_expiry_started": {
+      "title": "Date de fin atteinte",
+      "description": "Retrait de l'accès dans Active Directory"
+    },
+    "access_request_expired": {
+      "title": "Accès expiré",
+      "description": "La demande est close"
+    },
+    "access_request_expiry_failed": {
+      "title": "Expiration non appliquée",
+      "description": "{message} — nouvel essai dans 6 h"
+    },
+    "logs": {
+      "purged": {
+        "title": "Journaux purgés",
+        "description": "Les entrées plus anciennes que la durée de conservation ont été supprimées"
+      }
     }
   },
   "badges": {
@@ -2743,5 +2769,31 @@
   "{n} component(s) slow": "{n} composant(s) lent(s)",
   "{n} critical alert(s) to handle": "{n} alerte(s) critique(s) à traiter",
   "{n} queued for more than 5 min": "{n} en file depuis plus de 5 min",
-  "{w} warnings · {a} acknowledged": "{w} avertissements · {a} acquittées"
+  "{w} warnings · {a} acknowledged": "{w} avertissements · {a} acquittées",
+  "Access applied": "Accès appliqué",
+  "Access expiry": "Expiration des accès",
+  "Already exists, reused": "Existe déjà, réutilisé",
+  "An existing group will be adopted": "Un groupe existant sera adopté",
+  "Created in {ou}": "Créé dans {ou}",
+  "Done by a worker on a domain controller of the identity source": "Fait par un worker sur un contrôleur de domaine de la source d'identité",
+  "Existing group adopted": "Groupe existant adopté",
+  "Fix the configuration shown above first": "Corrigez d'abord la configuration indiquée ci-dessus",
+  "Modify": "Modification",
+  "NTFS permission: {right}": "Permission NTFS : {right}",
+  "Permanent": "Permanent",
+  "Read and execute": "Lecture et exécution",
+  "Removes from the AD group, through a worker, the people whose access has reached its end date. The group and its ACL are kept.": "Retire du groupe AD, via un worker, les personnes dont l'accès a atteint sa date de fin. Le groupe et son ACL sont conservés.",
+  "What the approval does": "Ce que fait la validation",
+  "Will be created in {ou}": "Sera créé dans {ou}",
+  "the requester": "le demandeur",
+  "this folder, subfolders and files": "ce dossier, ses sous-dossiers et fichiers",
+  "via {source}": "via {source}",
+  "{who} added to the group": "{who} ajouté(e) au groupe",
+  "{who} is added to the group": "{who} est ajouté(e) au groupe",
+  "{who} must sign out of Windows and sign in again for the new group to apply.": "{who} doit fermer puis rouvrir sa session Windows pour que le nouveau groupe s'applique.",
+  "The beneficiary has no directory account.": "Le bénéficiaire n'a pas de compte dans l'annuaire.",
+  "No worker answered the last health check: the approval may wait.": "Aucun worker n'a répondu au dernier health check : la validation risque d'attendre.",
+  "The file server of this root has no Active Directory identity source.": "Le serveur de fichiers de ce dossier n'a pas de source d'identité Active Directory.",
+  "Managing AD groups is disabled for this identity source.": "La gestion des groupes AD est désactivée pour cette source d'identité.",
+  "No organizational unit is configured for the groups of this zone.": "Aucune unité d'organisation n'est configurée pour les groupes de cette zone."
 }

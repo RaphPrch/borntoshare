@@ -179,3 +179,31 @@ export const createAccessRequest = (
 ) => {
   return apiPostData<{ id: number }>(fetchFn, '/access-requests', payload);
 };
+
+export type ApprovalProblem = { code: string; message: string };
+
+export type ApprovalPreviewItem = {
+  id: number;
+  storage_root_id: number;
+  storage_root_name?: string | null;
+  root_path?: string | null;
+  access_level: 'READ' | 'WRITE';
+  group_name?: string | null;
+  group_action?: 'create' | 'reuse' | 'adopt';
+  target_ou_dn?: string | null;
+  identity_source_name?: string | null;
+  acl: 'read_execute' | 'modify';
+  problems: ApprovalProblem[];
+};
+
+export type ApprovalPreview = {
+  principal: { dn?: string | null; username?: string | null; display?: string | null };
+  items: ApprovalPreviewItem[];
+  blockers: ApprovalProblem[];
+  warnings: ApprovalProblem[];
+  can_approve: boolean;
+};
+
+/** What an approval will do (AD group, OU, member, ACL) and what would stop it — reviewers only */
+export const getApprovalPreview = (fetchFn: FetchLike, id: number) =>
+  apiGetData<ApprovalPreview>(fetchFn, `/access-requests/${id}/approval-preview`);

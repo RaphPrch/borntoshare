@@ -38,6 +38,12 @@
 
   let selectedId: number | null = null;
   $: selectedTag = tagsNorm.find((tag) => tag.id === selectedId) ?? null;
+  // Optional columns appear only when at least one tag fills them
+  $: showCode = tagsNorm.some((tag) => String(tag?.code ?? '').trim());
+  $: showUpdated = tagsNorm.some((tag) => tag?.updated_at || tag?.created_at);
+  $: gridColumns = ['minmax(220px, 1.5fr)', showCode ? 'minmax(120px, 1fr)' : '', '110px', showUpdated ? '170px' : '']
+    .filter(Boolean)
+    .join(' ');
 
   let modalOpen = false;
   let modalMode: "create" | "edit" = "create";
@@ -127,27 +133,6 @@
       icon: "bi-plus-lg",
       variant: "primary",
       onClick: openCreate
-    },
-    {
-      key: "edit",
-      label: t('Edit tag'),
-      icon: "bi-pencil-square",
-      variant: "secondary",
-      disabled: !selectedTag,
-      onClick: openEdit
-    },
-    {
-      key: "delete",
-      label: t('Delete tag'),
-      icon: "bi-trash",
-      variant: "danger",
-      disabled: !selectedTag || getUsage(selectedTag) > 0,
-      title: !selectedTag
-        ? t('Select a tag first')
-        : getUsage(selectedTag) > 0
-          ? dependencyCountDeleteMessage("tag", getUsage(selectedTag), "resource")
-          : undefined,
-      onClick: openDelete
     }
   ] satisfies EntityActionItem[];
 
@@ -186,11 +171,6 @@
     valueItems = [];
     valueInput = "";
     modalOpen = true;
-  }
-
-  function openEdit() {
-    if (!selectedTag) return;
-    openEditTag(selectedTag);
   }
 
   function openDelete() {
@@ -312,12 +292,12 @@
     </div>
   </section>
 
-  <section class="tags-table">
+  <section class="tags-table" style={`--tags-columns: ${gridColumns}`}>
     <div class="tags-table-head">
       <span>{t('Tag')}</span>
-      <span>{t('Code')}</span>
+      {#if showCode}<span>{t('Code')}</span>{/if}
       <span>{t('Usage')}</span>
-      <span>{t('Updated')}</span>
+      {#if showUpdated}<span>{t('Updated')}</span>{/if}
     </div>
 
     <div class="tags-table-body">
@@ -329,11 +309,10 @@
             role="button"
             tabindex="0"
             aria-pressed={tag.id === selectedId}
-            on:click={() => (selectedId = tag.id)}
-            on:dblclick={() => openEditTag(tag)}
+            on:click={() => openEditTag(tag)}
             on:keydown={(e) => {
               if (e.key === "Enter") {
-                selectedId = tag.id;
+                openEditTag(tag);
                 return;
               }
               if (e.key === "ArrowDown") {
@@ -352,9 +331,9 @@
             <div class="tag-cell">
               <TagPill label={tag.label ?? tag.name ?? tag.code ?? t('Tag')} color={tag.color_rgb ?? null} />
             </div>
-            <div class="tag-code">{tag.code ?? '—'}</div>
+            {#if showCode}<div class="tag-code">{tag.code ?? '—'}</div>{/if}
             <div class="tag-usage">{getUsage(tag)}</div>
-            <div class="tag-updated">{formatUpdatedAt(tag.updated_at ?? tag.created_at)}</div>
+            {#if showUpdated}<div class="tag-updated">{formatUpdatedAt(tag.updated_at ?? tag.created_at)}</div>{/if}
           </div>
         {/each}
       {:else}
@@ -463,6 +442,21 @@
         <InlineAlert tone="error">{errorMsg}</InlineAlert>
       {/if}
 
+  <svelte:fragment slot="footer-start">
+    {#if modalMode === "edit" && selectedTag}
+      <EntityActionButton
+        variant="danger-outline"
+        icon="bi-trash"
+        label={t('Delete tag')}
+        disabled={getUsage(selectedTag) > 0}
+        title={getUsage(selectedTag) > 0 ? dependencyCountDeleteMessage("tag", getUsage(selectedTag), "resource") : undefined}
+        onClick={() => {
+          modalOpen = false;
+          openDelete();
+        }}
+      />
+    {/if}
+  </svelte:fragment>
   <svelte:fragment slot="footer">
     <EntityActionButton variant="ghost" label={t('Cancel')} onClick={() => (modalOpen = false)} />
     <EntityActionButton
@@ -503,7 +497,7 @@
   .tags-page {
     min-height: calc(100vh - 64px);
     padding: var(--b2s-page-padding);
-    color: #0f172a;
+    color: var(--b2s-color-text);
   }
 
   :global(.tags-page .b2s-page-header__actions .b2s-action-group) {
@@ -520,17 +514,17 @@
     letter-spacing: 0.01em;
     background: color-mix(
       in srgb,
-      var(--tag-color, #94a3b8) 22%,
+      var(--tag-color, var(--b2s-color-text-faint)) 22%,
       #ffffff
     );
     color: color-mix(
       in srgb,
-      var(--tag-color, #475569) 78%,
-      #0f172a
+      var(--tag-color, var(--b2s-color-text-soft)) 78%,
+      var(--b2s-color-text)
     );
     border: 1px solid color-mix(
       in srgb,
-      var(--tag-color, #94a3b8) 45%,
+      var(--tag-color, var(--b2s-color-text-faint)) 45%,
       transparent
     );
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
@@ -547,7 +541,7 @@
   .tags-table-head,
   .tags-row {
     display: grid;
-    grid-template-columns: minmax(220px, 1.5fr) minmax(120px, 1fr) 110px 170px;
+    grid-template-columns: var(--tags-columns, minmax(220px, 1.5fr) 110px);
     align-items: center;
     gap: 12px;
   }
@@ -569,7 +563,7 @@
 
   :global(.tags-search input) {
     font-weight: 700;
-    color: #0f172a;
+    color: var(--b2s-color-text);
   }
 
   .tags-sort {
@@ -594,7 +588,7 @@
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     border-bottom: 1px solid rgba(148, 163, 184, 0.3);
   }
 
@@ -616,7 +610,7 @@
 
   .tags-row.selected {
     background: rgba(59, 130, 246, 0.12);
-    box-shadow: inset 3px 0 0 #2563eb;
+    box-shadow: inset 3px 0 0 var(--b2s-color-info);
   }
 
   .tag-usage {
@@ -627,7 +621,7 @@
 
   .tag-code,
   .tag-updated {
-    color: #334155;
+    color: var(--b2s-color-text-strong);
     font-weight: 700;
     font-size: var(--b2s-fs-sm);
     min-width: 0;
@@ -643,7 +637,7 @@
 
   .tags-empty {
     padding: 18px 20px;
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-weight: 700;
   }
 
@@ -692,7 +686,7 @@
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: var(--b2s-radius-lg);
     padding: 14px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    background: linear-gradient(180deg, #ffffff 0%, var(--b2s-color-surface-soft) 100%);
   }
 
   .tag-card__title {
@@ -707,7 +701,7 @@
 
   .tag-card__subtitle {
     margin: -6px 0 12px;
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-weight: 700;
     font-size: var(--b2s-fs-sm);
   }
@@ -740,7 +734,7 @@
   }
 
   .tag-custom__label {
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-weight: 800;
     font-size: var(--b2s-fs-sm);
   }
@@ -762,7 +756,7 @@
     gap: 10px;
     padding: 8px 10px;
     border-radius: var(--b2s-radius-pill);
-    background: #eef2ff;
+    background: var(--b2s-color-primary-soft);
     border: 1px solid rgba(37, 99, 235, 0.25);
     color: #0b1530;
     font-weight: 900;
@@ -785,7 +779,7 @@
 
   .tag-card__hint {
     margin-top: 12px;
-    color: #64748b;
+    color: var(--b2s-color-text-muted);
     font-weight: 800;
     font-size: var(--b2s-fs-xs);
   }

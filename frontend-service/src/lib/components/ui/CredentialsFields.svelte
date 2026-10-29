@@ -191,7 +191,7 @@
   .field label {
     font-size: var(--b2s-fs-xs);
     font-weight: 800;
-    color: #475569;
+    color: var(--b2s-color-text-soft);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
@@ -200,10 +200,10 @@
     width: 100%;
     padding: 12px 14px;
     border-radius: var(--b2s-radius-md);
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--b2s-color-border-mid);
     font-size: var(--b2s-fs-md);
     font-weight: 600;
-    color: #0f172a;
+    color: var(--b2s-color-text);
   }
 
   .field input:focus-visible {
@@ -213,8 +213,8 @@
   }
 
   .field input:disabled {
-    background: #f8fafc;
-    color: #64748b;
+    background: var(--b2s-color-surface-soft);
+    color: var(--b2s-color-text-muted);
     cursor: not-allowed;
   }
 

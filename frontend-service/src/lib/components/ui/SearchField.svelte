@@ -40,7 +40,7 @@
   }
 
   .b2s-search-field i {
-    color: var(--b2s-search-icon-color, var(--b2s-color-text-muted, #64748b));
+    color: var(--b2s-search-icon-color, var(--b2s-color-text-muted, var(--b2s-color-text-muted)));
     font-size: 0.92rem;
   }
 
@@ -55,7 +55,7 @@
   }
 
   .b2s-search-field input::placeholder {
-    color: var(--b2s-search-placeholder, var(--b2s-color-text-muted, #64748b));
+    color: var(--b2s-search-placeholder, var(--b2s-color-text-muted, var(--b2s-color-text-muted)));
   }
 
   .b2s-search-field input:disabled {
@@ -64,7 +64,7 @@
   }
 
   .b2s-search-field:focus-within {
-    border-color: var(--b2s-search-focus-border, var(--b2s-color-primary, #2563eb));
+    border-color: var(--b2s-search-focus-border, var(--b2s-color-primary, var(--b2s-color-info)));
     box-shadow: var(--b2s-search-focus-ring, 0 0 0 3px rgba(59, 130, 246, 0.12));
   }
 </style>

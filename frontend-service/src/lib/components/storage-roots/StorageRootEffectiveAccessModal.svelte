@@ -80,7 +80,7 @@
   }
 
   .sr-ea-context {
-    color: #667085;
+    color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-md);
     font-weight: 500;
   }

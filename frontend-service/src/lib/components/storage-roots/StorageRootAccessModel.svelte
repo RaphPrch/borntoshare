@@ -56,19 +56,19 @@
     gap: 6px;
     height: 24px;
     padding: 0 10px;
-    border: 1px solid #bfdbfe;
+    border: 1px solid var(--b2s-color-info-border);
     border-radius: var(--b2s-radius-pill);
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: var(--b2s-color-info-soft);
+    color: var(--b2s-color-info-strong);
     font-size: var(--b2s-fs-xs);
     font-weight: 500;
     white-space: nowrap;
   }
 
   .access-model__profile.is-write {
-    border-color: #fed7aa;
-    background: #fff7ed;
-    color: #c2410c;
+    border-color: var(--b2s-color-warning-border);
+    background: var(--b2s-color-warning-soft);
+    color: var(--b2s-color-warning-strong);
   }
 
   .access-model__group {

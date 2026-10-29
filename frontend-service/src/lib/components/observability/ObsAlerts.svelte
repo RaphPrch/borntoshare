@@ -354,7 +354,7 @@
     align-items: center;
     gap: 8px;
     font-size: var(--b2s-fs-sm);
-    color: #334155;
+    color: var(--b2s-color-text-strong);
     cursor: pointer;
     white-space: nowrap;
   }
@@ -364,7 +364,7 @@
     width: 34px;
     height: 19px;
     border-radius: var(--b2s-radius-pill);
-    background: #cbd5e1;
+    background: var(--b2s-color-border-mid);
     position: relative;
     cursor: pointer;
     transition: background 0.16s ease;
@@ -378,7 +378,7 @@
     width: 13px;
     height: 13px;
     border-radius: 50%;
-    background: #ffffff;
+    background: var(--b2s-color-surface);
     transition: transform 0.16s ease;
   }
 

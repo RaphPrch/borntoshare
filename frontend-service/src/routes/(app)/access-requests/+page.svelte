@@ -13,7 +13,8 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { normalizeMe } from '$lib/types/me';
-  import { adoptAccessGroup, bulkDecision, getAccessRequestDetails } from '$lib/api/access-requests';
+  import { adoptAccessGroup, bulkDecision, getAccessRequestDetails, getApprovalPreview, type ApprovalPreview } from '$lib/api/access-requests';
+  import ApprovalPlan from '$lib/components/access-requests/ApprovalPlan.svelte';
   import { listActivityByTarget, type ActivityEvent } from '$lib/api/activity';
   import { renderActivity } from '$lib/activity/formatter';
   import { onDestroy } from 'svelte';
@@ -62,6 +63,9 @@
   let showRevokeConfirm = false;
   // Provisioning log of the open request (one entry per step, written by the server as it goes)
   let provisioningLog: ActivityEvent[] = [];
+  // What the approval will do (reviewers), then what it did once applied
+  let approvalPreview: ApprovalPreview | null = null;
+  let appliedPreview: ApprovalPreview | null = null;
   let logTimer: ReturnType<typeof setInterval> | null = null;
   // Last failed decision: code, hint and, for a name conflict, the group an admin can adopt
   let decisionFailure: { code?: string | null; hint?: string | null; access_profile_id?: number | null; existing_dn?: string | null } | null = null;
@@ -104,7 +108,7 @@
 
   const durationLabel = (row: any): string => {
     const days = durationDays(row);
-    return days === 0 ? '—' : days === 1 ? t('1 day') : t('{count} days', { count: days });
+    return days === 0 ? t('Permanent') : days === 1 ? t('1 day') : t('{count} days', { count: days });
   };
 
   const requesterName = (row: any): string => accessRequestRequesterName(row);
@@ -209,9 +213,29 @@
     decisionComment = '';
     decisionFailure = null;
     provisioningLog = [];
+    approvalPreview = null;
+    appliedPreview = null;
     void loadRequestDetail(id);
     void loadProvisioningLog(id);
+    void loadApprovalPreview(id);
   }
+
+  async function loadApprovalPreview(id: number): Promise<void> {
+    try {
+      const preview = await getApprovalPreview(fetch, id);
+      if (selectedRequestId === id) approvalPreview = preview;
+    } catch {
+      // Only reviewers get it (403 otherwise); the request stays readable without it
+    }
+  }
+
+  // created, reused, adopted… from the provisioning log of the approval
+  $: groupOutcome =
+    provisioningLog
+      .map((event) => String(event.action ?? ''))
+      .filter((action) => /^ad_group_(created|recreated|reused|adopted)$/.test(action))
+      .map((action) => action.replace('ad_group_', ''))
+      .pop() ?? null;
 
   async function loadProvisioningLog(id: number): Promise<void> {
     try {
@@ -249,6 +273,8 @@
     detailError = '';
     decisionFailure = null;
     provisioningLog = [];
+    approvalPreview = null;
+    appliedPreview = null;
     detailLoading = false;
     decisionComment = '';
     detailLoadToken += 1;
@@ -282,6 +308,12 @@
       }
       showRevokeConfirm = false;
       toast.success({ approve: t('Request approved.'), reject: t('Request rejected.'), revoke: t('Access revoked.') }[decision]);
+      if (decision === 'approve' && approvalPreview) {
+        // The drawer stays open on the result: group, member, ACL, and what the requester has to do
+        appliedPreview = approvalPreview;
+        await Promise.all([loadRequestDetail(id), loadProvisioningLog(id), invalidateAll()]);
+        return;
+      }
       closeDetail();
       await invalidateAll();
     } catch {
@@ -409,12 +441,12 @@
     />
     <KpiCard label={t('Applied')} value={appliedRows.length} hint={t('{count} in the last 30 days', { count: appliedRecent })} icon="bi-check2-circle" tone="success" />
     <KpiCard label={t('Rejected or failed')} value={rejectedCount} hint={t('{count} closed in total', { count: closedRows.length })} icon="bi-x-circle" tone="danger" />
-    <KpiCard label={t('Expiring within 7 days')} value={expiringSoon} hint={t('Access ends soon')} icon="bi-clock-history" tone="purple" />
+    <KpiCard label={t('Expiring within 7 days')} value={expiringSoon} hint={t('Access ends soon')} icon="bi-clock-history" tone="warning" />
   </section>
 
   <section class="b2s-panel ar-list">
     <div class="ar-toolbar">
-      <div class="ar-segments" role="tablist" aria-label={t('Request status')}>
+      <div class="b2s-segments" role="tablist" aria-label={t('Request status')}>
         {#each SEGMENTS as key}
           <button type="button" role="tab" aria-selected={segment === key} class:is-active={segment === key} on:click={() => selectSegment(key)}>
             {segmentLabel(key)} <span>{segmentCounts[key]}</span>
@@ -583,6 +615,18 @@
         <blockquote class="ar-quote">{justification(selectedRequest) || t('No justification provided.')}</blockquote>
       </section>
 
+      {#if appliedPreview}
+        <section>
+          <h3>{t('Access applied')}</h3>
+          <ApprovalPlan preview={appliedPreview} done {groupOutcome} />
+        </section>
+      {:else if canReviewSelected && approvalPreview}
+        <section>
+          <h3>{t('What the approval does')}</h3>
+          <ApprovalPlan preview={approvalPreview} />
+        </section>
+      {/if}
+
       {#if provisioningLog.length > 0 || decisionRunning === 'approve' || decisionRunning === 'revoke'}
         <section>
           <h3>{t('Provisioning log')}</h3>
@@ -647,7 +691,13 @@
         <i class="bi bi-x-lg" aria-hidden="true"></i>
         {decisionRunning === 'reject' ? t('Rejecting…') : t('Reject')}
       </button>
-      <button type="button" class="b2s-btn b2s-btn-primary" disabled={Boolean(decisionRunning)} on:click={() => runDecision('approve')}>
+      <button
+        type="button"
+        class="b2s-btn b2s-btn-primary"
+        disabled={Boolean(decisionRunning) || approvalPreview?.can_approve === false}
+        title={approvalPreview?.can_approve === false ? t('Fix the configuration shown above first') : undefined}
+        on:click={() => runDecision('approve')}
+      >
         <i class="bi bi-check2" aria-hidden="true"></i>
         {decisionRunning === 'approve' ? t('Approving…') : t('Approve')}
       </button>
@@ -709,41 +759,6 @@
     border-bottom: 1px solid #eef2f7;
   }
 
-  .ar-segments {
-    display: inline-flex;
-    gap: 2px;
-    padding: 4px;
-    border-radius: 10px;
-    background: #f1f5f9;
-  }
-
-  .ar-segments button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: #475569;
-    font-size: var(--b2s-fs-sm);
-    cursor: pointer;
-  }
-
-  .ar-segments button span {
-    padding: 0 6px;
-    border-radius: var(--b2s-radius-pill);
-    background: #e2e8f0;
-    font-size: 11px;
-  }
-
-  .ar-segments button.is-active {
-    background: var(--b2s-color-surface);
-    color: var(--b2s-color-text);
-    font-weight: 600;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
-  }
-
   .ar-toolbar :global(.ar-search) {
     flex: 1 1 260px;
     max-width: 360px;
@@ -791,7 +806,7 @@
 
   .ar-chevron {
     width: 1%;
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
     text-align: right;
   }
 
@@ -845,7 +860,7 @@
     margin: 0;
     padding: 0;
     list-style: none;
-    border: 1px solid #e5eaf3;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
     overflow: hidden;
   }
@@ -875,7 +890,7 @@
   }
 
   .ar-progress li.is-current span {
-    color: #c2410c;
+    color: var(--b2s-color-warning-strong);
   }
 
   .ar-progress li.is-stopped {
@@ -883,7 +898,7 @@
   }
 
   .ar-progress li.is-waiting strong {
-    color: #94a3b8;
+    color: var(--b2s-color-text-faint);
   }
 
   .ar-quote {
@@ -891,7 +906,7 @@
     padding: 12px 14px;
     border-left: 3px solid #c7d2fe;
     border-radius: var(--b2s-radius-sm);
-    background: #f8fafc;
+    background: var(--b2s-color-surface-soft);
     font-size: var(--b2s-fs-sm);
   }
 
@@ -946,10 +961,10 @@
     margin-top: 2px;
   }
 
-  .ar-log li.is-success > i { color: #16a34a; }
-  .ar-log li.is-in_progress > i { color: #2563eb; }
+  .ar-log li.is-success > i { color: var(--b2s-color-success); }
+  .ar-log li.is-in_progress > i { color: var(--b2s-color-info); }
   .ar-log li.is-failure { background: var(--b2s-color-danger-soft); }
-  .ar-log li.is-failure > i { color: #dc2626; }
+  .ar-log li.is-failure > i { color: var(--b2s-color-danger); }
 
   .ar-log strong {
     display: block;
