@@ -13,10 +13,10 @@
      NAME
 ===================================================== -->
 <div class="zone-form-field">
-  <label for="zone-name">{t('Zone name')} <span aria-hidden="true">*</span></label>
+  <label class="b2s-form-label" for="zone-name">{t('Zone name')} <span class="req" aria-hidden="true">*</span></label>
   <input
     id="zone-name"
-    class="zone-form-control"
+    class="b2s-form-control"
     bind:value={form.name}
     placeholder={t('Enter a zone name')}
     required
@@ -28,10 +28,10 @@
      CODE
 ===================================================== -->
 <div class="zone-form-field">
-  <label for="zone-code">{t('Zone code')} <span>{t('(optional)')}</span></label>
+  <label class="b2s-form-label" for="zone-code">{t('Zone code')} <span>{t('(optional)')}</span></label>
   <input
     id="zone-code"
-    class="zone-form-control"
+    class="b2s-form-control"
     bind:value={form.code}
     placeholder={t('Governance')}
     autocomplete="off"
@@ -54,60 +54,30 @@
 </div>
 
 <style>
+  /* Fields: shared .b2s-form-label / .b2s-form-control (same as the storage endpoint forms) */
   .zone-form-field {
     display: grid;
-    gap: 7px;
   }
 
-  .zone-form-field label {
-    margin: 0;
-    color: #1f2c48;
-    font-size: var(--b2s-fs-md);
-    font-weight: 720;
-  }
-
-  .zone-form-field label > span {
+  .zone-form-field :global(.b2s-form-label > span:not(.req)) {
     color: var(--b2s-color-text-muted);
-    font-weight: 650;
-  }
-
-  .zone-form-control {
-    width: 100%;
-    min-height: 42px;
-    border: 1px solid #c8d2e4;
-    border-radius: var(--b2s-radius-md);
-    background: #f8fbff;
-    color: #1f2e4b;
-    padding: 0 12px;
-    font-size: var(--b2s-fs-md);
-    outline: none;
-    transition:
-      border-color 0.16s ease,
-      box-shadow 0.16s ease,
-      background-color 0.16s ease;
-  }
-
-  .zone-form-control:focus {
-    border-color: #88a9e5;
-    background: var(--b2s-color-surface);
-    box-shadow: 0 0 0 3px rgba(36, 101, 199, 0.14);
+    font-weight: 400;
   }
 
   .zone-form-note {
-    border: 1px solid #d7e1f0;
-    border-radius: var(--b2s-radius-md);
-    background: #f4f8ff;
-    color: #304867;
-    padding: 11px 12px;
     display: flex;
     align-items: flex-start;
     gap: 9px;
-    font-size: var(--b2s-fs-md);
-    font-weight: 620;
+    padding: 10px 12px;
+    border: 1px solid var(--b2s-color-info-border);
+    border-radius: var(--b2s-radius-md);
+    background: var(--b2s-color-info-soft);
+    color: var(--b2s-color-text-strong);
+    font-size: var(--b2s-fs-sm);
   }
 
   .zone-form-note > i {
-    color: var(--b2s-topbar-bg, var(--b2s-topbar-bg));
     margin-top: 1px;
+    color: var(--b2s-color-info-strong);
   }
 </style>

@@ -2795,5 +2795,8 @@
   "No worker answered the last health check: the approval may wait.": "Aucun worker n'a répondu au dernier health check : la validation risque d'attendre.",
   "The file server of this root has no Active Directory identity source.": "Le serveur de fichiers de ce dossier n'a pas de source d'identité Active Directory.",
   "Managing AD groups is disabled for this identity source.": "La gestion des groupes AD est désactivée pour cette source d'identité.",
-  "No organizational unit is configured for the groups of this zone.": "Aucune unité d'organisation n'est configurée pour les groupes de cette zone."
+  "No organizational unit is configured for the groups of this zone.": "Aucune unité d'organisation n'est configurée pour les groupes de cette zone.",
+  "A disabled file server is no longer probed and its roots cannot be requested.": "Un serveur de fichiers désactivé n'est plus testé et ses storage roots ne peuvent plus être demandés.",
+  "Test the connection before continuing.": "Testez la connexion avant de continuer.",
+  "Storage roots discovery": "Découverte des storage roots"
 }

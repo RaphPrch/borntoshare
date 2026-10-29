@@ -207,7 +207,8 @@
   /* =========================================================
      STEP 1 — TYPE
    ========================================================= */
-  let selectedProtocol: 'smb' | null = null;
+  // SMB is the only available type for now: selected from the start
+  let selectedProtocol: 'smb' | null = 'smb';
 
   function selectProtocol(p: 'smb') {
     selectedProtocol = p;
@@ -815,7 +816,7 @@
                    class="se-input"
                    class:invalid={errUsername}
                    bind:value={model.username}
-                   placeholder={t('DOMAIN\\\\service-account')}
+                   placeholder="DOMAIN\service-account"
                    on:blur={() => touch('username')}
                  />
                 {#if errUsername}
@@ -871,9 +872,9 @@
                 const secretRef = await ensureSecretRef('create', { clearPassword: false });
                 return buildConnectProbeRequest(secretRef);
               }}
-              label={t('Run Probe')}
-              busyLabel={t('Running probe…')}
-              fullWidth={true}
+              label={t('Test the connection')}
+              busyLabel={t('Testing…')}
+              fullWidth={false}
               showIcon={true}
               iconClass="bi bi-activity"
               busyIconClass="bi bi-hourglass-split"
@@ -1150,7 +1151,7 @@
     {#if step === 1 && !canContinueStep1}
       {t('Select a type to continue.')}
     {:else if step === 2 && !connectionTested}
-      {t('Run the probe to check the connection before continuing.')}
+      {t('Test the connection before continuing.')}
     {:else if step === 3}
       {t('{governedRootsCount} selected', { governedRootsCount: governedRoots.length })}
     {/if}
@@ -1193,26 +1194,3 @@
     {/if}
   </svelte:fragment>
 </WizardShell>
-
-<style>
-  /* minimal, non-invasive visual validation */
-  .req {
-    opacity: 0.8;
-  }
-
-  .se-input.invalid {
-    border-color: rgba(220, 53, 69, 0.75) !important;
-    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.12);
-  }
-
-  .se-field-hint {
-    margin-top: 6px;
-    font-size: var(--b2s-fs-xs);
-    color: var(--b2s-color-text-muted);
-    font-weight: 600;
-  }
-
-  .se-field-hint.ok {
-    color: var(--b2s-color-success-strong);
-  }
-</style>

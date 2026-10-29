@@ -6,13 +6,16 @@
   export let tone: 'info' | 'success' | 'warning' | 'danger' | 'purple' | 'neutral' = 'info';
   export let hint: string | null = null;
   export let href: string | null = null;
+
+  // Numbers keep the large size; a text value (« 27 min ago », « Never ») is set smaller
+  $: isText = typeof value === 'string' && !/^[\d\s.,%+-]*$/.test(value);
 </script>
 
 <svelte:element this={href ? 'a' : 'article'} {href} class="b2s-kpi" class:is-link={Boolean(href)}>
   <span class={`b2s-kpi__icon is-${tone}`} aria-hidden="true"><i class={`bi ${icon}`}></i></span>
   <span class="b2s-kpi__body">
     <span class="b2s-kpi__label">{label}</span>
-    <strong class="b2s-kpi__value">{value}</strong>
+    <strong class="b2s-kpi__value" class:is-text={isText} title={isText ? String(value) : undefined}>{value}</strong>
     {#if hint}<span class="b2s-kpi__hint">{hint}</span>{/if}
   </span>
 </svelte:element>
@@ -72,6 +75,15 @@
     font-weight: 700;
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* A text value (« 27 min ago ») is smaller than a number, so that it fits on one line */
+  .b2s-kpi__value.is-text {
+    font-size: var(--b2s-fs-xl);
+    line-height: 1.4;
   }
 
   .b2s-kpi__hint {

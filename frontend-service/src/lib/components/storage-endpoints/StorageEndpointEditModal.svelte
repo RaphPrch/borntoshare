@@ -5,6 +5,8 @@
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import ActionFooter from "$lib/components/ui/ActionFooter.svelte";
+  import Tabs from "$lib/components/ui/Tabs.svelte";
+  import StatusBadge from "$lib/components/ui/StatusBadge.svelte";
 
   import {
     listStorageEndpoints,
@@ -527,33 +529,22 @@
   rootClass="se-edit-drawer"
   showFooter={true}
 >
+  <svelte:fragment slot="header-meta">
+    <StatusBadge compact showDot={false} variant="info" label={`SMB · ${t('Windows / Samba shares')}`} />
+  </svelte:fragment>
+
   <div class="se-edit">
-    <div class="se-edit-tabs">
-      <button
-        type="button"
-        class={`secondary ${activeTab === "endpoint" ? "is-active" : ""}`}
-        on:click={() => (activeTab = "endpoint")}
-      >
-        {t('Endpoint')}
-      </button>
-      <button
-        type="button"
-        class={`secondary ${activeTab === "roots" ? "is-active" : ""}`}
-        on:click={() => (activeTab = "roots")}
-      >
-        {t('Storage roots')}
-      </button>
-    </div>
+    <Tabs
+      tabs={[
+        { key: "endpoint", label: t('Endpoint'), icon: "bi-hdd-network" },
+        { key: "roots", label: t('Storage roots'), icon: "bi-folder2" }
+      ]}
+      activeKey={activeTab}
+      onChange={(key) => (activeTab = key === "roots" ? "roots" : "endpoint")}
+      ariaLabel={t('Edit storage endpoint')}
+    />
 
     {#if activeTab === "endpoint"}
-
-    <div class="se-selected-type">
-      <i class="bi bi-display icon smb" aria-hidden="true"></i>
-      <div>
-        <strong>SMB</strong>
-        <span>{t('Windows / Samba shares')}</span>
-      </div>
-    </div>
 
     <div class="se-form-block">
       <h3>{t('Identity')}</h3>
@@ -720,19 +711,21 @@
               <i class={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`} aria-hidden="true"></i>
             </button>
           </div>
-          <div class="se-field-hint">{t('Laissez vide pour conserver le secret actuel.')}</div>
         </div>
       </div>
     </div>
 
-    <div class="form-check">
-      <input class="form-check-input" id="se-active" type="checkbox" bind:checked={isActive} />
-      <label class="form-check-label" for="se-active">{t('Enabled')}</label>
-    </div>
+    <label class="se-edit-switch" for="se-active">
+      <input class="cap-switch" id="se-active" type="checkbox" bind:checked={isActive} />
+      <span>
+        <strong>{isActive ? t('Enabled') : t('Disabled')}</strong>
+        <small>{t('A disabled file server is no longer probed and its roots cannot be requested.')}</small>
+      </span>
+    </label>
 
     {:else}
     <div class="se-form-block">
-      <h3>{t('Storage roots discovery (Step 3)')}</h3>
+      <h3>{t('Storage roots discovery')}</h3>
       <p class="se-field-hint">{t('Run SMB share discovery and select roots to govern.')}</p>
 
       {#if discoverStatus === "failed"}
@@ -830,60 +823,37 @@
   }
 
   .se-edit {
-    background: var(--b2s-color-surface);
     display: grid;
     gap: 16px;
   }
 
-  .se-edit-tabs,
-  .se-selected-type,
-  .se-form-block,
-  .form-check {
-    margin-left: 0;
-    margin-right: 0;
-  }
-
-  .se-edit-tabs {
-    margin-top: 0;
+  .se-edit :global(.se-form-block) {
     margin-bottom: 0;
   }
 
-  .se-selected-type {
-    margin-bottom: 0;
+  .se-edit-switch {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--b2s-color-border-soft);
+    border-radius: var(--b2s-radius-md);
+    cursor: pointer;
   }
 
-  .se-edit :global(label) {
-    display: inline-block;
-    margin-bottom: 6px;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 800;
-    color: var(--b2s-color-text-soft);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+  .se-edit-switch strong,
+  .se-edit-switch small {
+    display: block;
   }
 
-  .se-edit :global(.req) {
-    opacity: 0.8;
-  }
-
-  .se-edit :global(.se-input.invalid) {
-    border-color: rgba(220, 53, 69, 0.75) !important;
-    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.12);
-  }
-
-  .se-edit :global(.se-field-hint) {
-    margin-top: 6px;
-    font-size: var(--b2s-fs-xs);
-    color: var(--b2s-color-text-muted);
+  .se-edit-switch strong {
+    font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
 
-  .se-edit :global(.se-field-hint.ok) {
-    color: var(--b2s-color-success-strong);
-  }
-
-  .se-edit :global(.se-form-block) {
-    margin-bottom: 0;
+  .se-edit-switch small {
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
   }
 
   .se-edit-drawer__actions {
@@ -900,15 +870,15 @@
     width: 100%;
     text-align: right;
     font-size: var(--b2s-fs-xs);
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .se-edit-unsaved {
-    color: var(--b2s-color-warning-strong, var(--b2s-color-warning-strong));
+    color: var(--b2s-color-warning-strong);
   }
 
   .se-edit-disabled-reason {
-    color: var(--b2s-color-text-muted, var(--b2s-color-text-muted));
+    color: var(--b2s-color-text-muted);
   }
 
   @media (max-width: 820px) {
@@ -916,14 +886,6 @@
     .se-edit :global(.se-form-grid--target),
     .se-edit :global(.se-form-grid--creds) {
       grid-template-columns: 1fr;
-    }
-
-    .se-edit-tabs,
-    .se-selected-type,
-    .se-form-block,
-    .form-check {
-      margin-left: 0;
-      margin-right: 0;
     }
   }
 </style>

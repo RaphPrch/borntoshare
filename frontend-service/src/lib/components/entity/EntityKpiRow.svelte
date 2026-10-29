@@ -16,7 +16,7 @@
   export let items: EntityKpiItem[] = [];
   export let ariaLabel = t('Entity KPIs');
 
-  const KPI_TONES = { neutral: 'neutral', info: 'info', success: 'success', warning: 'warning', danger: 'danger', accent: 'purple' } as const;
+  const KPI_TONES = { neutral: 'neutral', info: 'info', success: 'success', warning: 'warning', danger: 'danger', accent: 'info' } as const;
 </script>
 
 <section class="b2s-kpi-grid entity-kpis" aria-label={ariaLabel}>

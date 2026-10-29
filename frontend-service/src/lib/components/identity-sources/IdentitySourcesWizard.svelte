@@ -1618,36 +1618,9 @@
     line-height: 1.25;
   }
 
-  .cap-switch {
-    appearance: none;
-    width: 34px;
-    height: 19px;
-    border-radius: var(--b2s-radius-pill);
-    background: var(--b2s-color-border-mid);
-    position: relative;
-    cursor: pointer;
-    transition: background 0.16s ease;
-  }
 
-  .cap-switch::after {
-    content: "";
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 13px;
-    height: 13px;
-    border-radius: 50%;
-    background: var(--b2s-color-surface);
-    transition: transform 0.16s ease;
-  }
 
-  .cap-switch:checked {
-    background: var(--b2s-topbar-bg, #0b1530);
-  }
 
-  .cap-switch:checked::after {
-    transform: translateX(15px);
-  }
 
   .test-step {
     padding: 4px 0;
