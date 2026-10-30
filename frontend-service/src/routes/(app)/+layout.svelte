@@ -21,6 +21,7 @@
   // 3️⃣ BornToShare global stylesheet (merged)
   import "$lib/styles/layout.css";
   import "$lib/styles/app.css";
+  import "$lib/styles/signal.css";
   import "$lib/styles/buttons.css";
   import "$lib/styles/storage-roots.css";
 

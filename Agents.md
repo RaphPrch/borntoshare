@@ -59,6 +59,12 @@ core-service (`core-service/`, all business data and orchestration):
 - Shared helpers: response envelopes `ui_data`/`ui_list`/`ui_action` (`api/_helpers.py`), value helpers (`core/values.py`), shared pydantic rules `SecretRefRules`/`ProbeStatusRules` (`schemas/common.py`). Reuse them instead of re-implementing.
 - core-service never talks LDAP or SMB: directory and file-server work runs as capsule-runner jobs.
 
+Authorization:
+- The frontend BFF (`lib/server/bff/proxy.ts`) is the only client of the APIs: it drops every identity and service header sent by the browser, sets them from the session, and refuses `/api/*` without a session (sign-in routes excepted).
+- core-service trusts `x-roles` and `x-identity-id`, so it must stay on the internal network, and every route checks its own rights: guards `admin_only`, `admin_or_internal`, `admin_or_guardian`, `signed_in_or_internal` and `require_storage_root_access` (`services/authorization.py`). A new route gets one; `tests/test_route_authorization.py` lists them.
+- A guardian acts on the storage roots they govern, and their probes target a root by id only.
+- Sign-in: `services/login_throttle.py` refuses attempts after 5 wrong passwords in 15 min (identifier + address) or 50 from an address (`LOGIN_THROTTLE_*`).
+
 Auth:
 - Keep `b2s_session` cookie behavior.
 - Support local, AD, dev, and optional Keycloak.

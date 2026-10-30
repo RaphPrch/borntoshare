@@ -2140,7 +2140,7 @@
   impactItems={[
     t('Name: {String}', { String: String(editingRoot?.display_name ?? editingRoot?.storage_root_name ?? editingRoot?.name ?? t('Storage root')) }),
     t('Path: {String}', { String: String(editingRoot?.root_path ?? editingRoot?.locator ?? editingRoot?.path ?? '—') }),
-    'The storage root governance record will be permanently deleted.'
+    t('The storage root governance record will be permanently deleted.')
   ]}
   deleteLabel={t('Delete')}
 />

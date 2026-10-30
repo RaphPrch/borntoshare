@@ -121,6 +121,12 @@ export async function httpRequest<T>(fetchFn: FetchLike, options: HttpRequestOpt
     ? (dataRec.error as Record<string, unknown>)
     : null;
 
+  // The session ended while the page was open: back to the sign-in page, then here
+  if (res.status === 401 && typeof window !== 'undefined' && !url.startsWith('/api/auth/')) {
+    const here = window.location.pathname + window.location.search;
+    window.location.assign(`/login?redirect=${encodeURIComponent(here)}`);
+  }
+
   if (!res.ok) {
     throw new ApiError(normalizeErrorMessage(res.status, data, res.statusText), {
       status: res.status,

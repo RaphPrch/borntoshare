@@ -3,16 +3,16 @@ import { t } from '$lib/i18n';
 // Browser tab title per route (longest matching prefix wins). Labels are translated when read.
 const TITLES: [prefix: string, label: string][] = [
   ['/dashboard', 'Dashboard'],
-  ['/storage-roots', 'Storage roots'],
+  ['/storage-roots', 'Folders'],
   ['/access-requests/', 'Access request'],
   ['/access-requests', 'Access requests'],
   ['/admin/zones', 'Zones'],
-  ['/admin/storage-endpoints', 'Storage endpoints'],
-  ['/admin/identity-sources', 'Identity sources'],
-  ['/admin/identity', 'Identity'],
+  ['/admin/storage-endpoints', 'File servers'],
+  ['/admin/identity-sources', 'Directories'],
+  ['/admin/identity', 'Identities'],
   ['/admin/tags', 'Tags'],
-  ['/observability', 'Observability'],
-  ['/admin/advanced-settings', 'Advanced settings']
+  ['/observability', 'Monitoring'],
+  ['/admin/advanced-settings', 'Settings']
 ];
 
 const matches = (pathname: string, prefix: string): boolean =>

@@ -257,16 +257,16 @@
 </script>
 
 <section class="tg">
-  <header class="tg__head">
-    <div class="tg__title">
+  <header class="sg-head">
+    <div class="sg-title">
       <h1>{t('Tags')}</h1>
       <p>{t('{tags} tags, {count} uses on folders', { tags: tagsNorm.length, count: totalUsage })}</p>
     </div>
-    <label class="tg__search">
+    <label class="sg-search" style="flex-basis:300px">
       <i class="bi bi-search" aria-hidden="true"></i>
       <input type="search" aria-label={t('Search for a tag')} placeholder={t('Search by name or family')} bind:value={searchQuery} />
     </label>
-    <div class="tg__seg" role="group" aria-label={t('Sort')}>
+    <div class="sg-seg" role="group" aria-label={t('Sort')}>
       <button type="button" class:on={sortBy === "usage"} aria-pressed={sortBy === "usage"} on:click={() => (sortBy = "usage")}>{t('Usage')}</button>
       <button type="button" class:on={sortBy === "name"} aria-pressed={sortBy === "name"} on:click={() => (sortBy = "name")}>{t('Name')}</button>
     </div>
@@ -276,7 +276,7 @@
   </header>
 
   {#if families.length}
-    <div class="tg__chips" role="group" aria-label={t('Family')}>
+    <div class="sg-chips" role="group" aria-label={t('Family')}>
       {#each familyChips as chip (chip.key)}
         <button type="button" class:on={familyFilter === chip.key} aria-pressed={familyFilter === chip.key} on:click={() => (familyFilter = chip.key)}>{chip.label} · {chip.count}</button>
       {/each}
@@ -310,7 +310,7 @@
       {/each}
     </section>
 
-    <aside class="tg__side" aria-label={t('Details')}>
+    <aside class="b2s-panel tg__side" aria-label={t('Details')}>
       {#if selectedTag}
         <div>
           <TagPill label={selectedTag.label} color={selectedTag.color_rgb ?? null} />
@@ -334,7 +334,7 @@
         </div>
         <button type="button" class="b2s-btn b2s-btn-secondary" disabled={mergeCandidates.length === 0} on:click={openMerge}>{t('Merge with…')}</button>
       {:else}
-        <div class="tg__side-empty">
+        <div class="sg-side-empty">
           <i class="bi bi-tags" aria-hidden="true"></i>
           <p>{t('Select a tag to see where it is used.')}</p>
         </div>
@@ -466,8 +466,8 @@
   description={selectedTag?.label ?? selectedTag?.name ?? null}
   impactTitle={t('Consequences')}
   impactItems={[
-    'Irreversible deletion of this tag.',
-    'Associated governance references must be recreated if needed.'
+    t('Irreversible deletion of this tag.'),
+    t('Associated governance references must be recreated if needed.')
   ]}
   deleteLabel={t('Delete')}
   deleteBusyLabel={t('Deleting…')}
@@ -484,19 +484,6 @@
   }
 
   .tg { display: flex; flex-direction: column; gap: 18px; padding: var(--b2s-page-padding); }
-  .tg__head { display: flex; align-items: flex-end; gap: 12px; }
-  .tg__title { flex: 1 1 320px; min-width: 0; }
-  .tg__title h1 { margin: 0; font-size: 38px; line-height: 1.05; font-weight: 600; letter-spacing: -.03em; }
-  .tg__title p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
-  .tg__search { flex: 0 1 300px; display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; padding: 0 14px; border-radius: 12px; background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border-strong); color: var(--b2s-color-text-muted); }
-  .tg__search:focus-within { border-color: var(--b2s-color-text); }
-  .tg__search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--b2s-color-text); font: inherit; }
-  .tg__seg { display: inline-flex; gap: 3px; padding: 3px; border-radius: 12px; background: var(--b2s-color-neutral-soft); }
-  .tg__seg button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-weight: 500; cursor: pointer; }
-  .tg__seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 2px rgba(14, 18, 24, .12); }
-  .tg__chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .tg__chips button { min-height: 36px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--b2s-color-border-strong); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font: inherit; font-size: 13px; cursor: pointer; }
-  .tg__chips button.on { background: var(--b2s-color-text); border-color: var(--b2s-color-text); color: #fff; font-weight: 600; }
   .tg__body { display: flex; align-items: flex-start; gap: 18px; }
   .tg__tiles { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-auto-flow: dense; gap: 10px; }
   .tg__tile { min-height: 84px; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 10px; border: 1px solid transparent; border-radius: 14px; color: var(--b2s-color-text); font: inherit; text-align: left; cursor: pointer; transition: transform .12s; }
@@ -505,7 +492,7 @@
   .tg__tile strong { font-weight: 600; overflow-wrap: anywhere; }
   .tg__tile span { font-size: 13px; }
   .tg__empty { grid-column: 1 / -1; }
-  .tg__side { flex: 0 0 340px; position: sticky; top: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border); border-radius: 18px; box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06); }
+  .tg__side { flex: 0 0 340px; position: sticky; top: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
   .tg__side h2 { margin: 10px 0 4px; font-size: 25px; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
   .tg__side code { font-family: var(--b2s-font-mono); font-size: 12px; color: var(--b2s-color-text-muted); }
   .tg__side dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
@@ -514,9 +501,6 @@
   .tg__side dd { margin: 0; font-weight: 500; }
   .tg__actions { display: flex; gap: 8px; }
   .tg__actions .b2s-btn-primary { flex: 1; }
-  .tg__side-empty { display: grid; justify-items: center; gap: 10px; padding: 40px 24px; text-align: center; color: var(--b2s-color-text-muted); }
-  .tg__side-empty i { font-size: 26px; }
-  .tg__side-empty p { margin: 0; }
 
   .tag-modal__section {
     padding: 0;

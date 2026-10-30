@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: help build up down restart ps logs logs-% wizard wizard-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs
+.PHONY: help build up down restart ps logs logs-% wizard wizard-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy
 
 help:
 	@echo "make build          build the images"
@@ -16,11 +16,15 @@ help:
 	@echo "make wizard         start the database wizard (http://<host>:\$$WIZARD_PORT)"
 	@echo "make wizard-down    stop the wizard"
 	@echo "make clean          stop, then remove unused images and the Redis queue"
+	@echo "make deploy         database packs, rollback point, build and recreate the services"
 	@echo "make ad-lab-up      test Active Directory adlab.example.test (end-to-end tests, never in production)"
 	@echo "make ad-lab-down    stop it (data kept)     make ad-lab-reset: stop and delete its domain"
 
 .env:
 	@echo "Missing .env: copy .env.example to .env and fill it in." && exit 1
+
+deploy: .env
+	./scripts/deploy.sh
 
 build: .env
 	$(COMPOSE) build

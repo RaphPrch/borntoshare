@@ -1023,7 +1023,7 @@
   subtitle={t('You have unsaved changes.')}
   impactTitle={t('Impact')}
   impactItems={[
-    'Any unsaved provisioning changes will be lost.'
+    t('Any unsaved provisioning changes will be lost.')
   ]}
   cancelLabel={t('Stay')}
   confirmLabel={t('Leave tab')}

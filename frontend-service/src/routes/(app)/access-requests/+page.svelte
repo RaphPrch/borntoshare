@@ -476,14 +476,14 @@
 </script>
 
 <div class="ar-page">
-  <header class="ar-head">
-    <div class="ar-title">
+  <header class="sg-head">
+    <div class="sg-title">
       <h1>{t('Access requests')}</h1>
       <p>
         {t('{pending} to review · {applied} applied · {expiring} ending within 7 days', { pending: pendingRows.length, applied: appliedRows.length, expiring: expiringSoon })}{#if pendingRows.length > 0}{' · '}{t('Oldest: {age}', { age: timeAgo(new Date(oldestPendingMs).toISOString()) })}{/if}
       </p>
     </div>
-    <label class="ar-search">
+    <label class="sg-search" style="flex-basis:340px">
       <i class="bi bi-search" aria-hidden="true"></i>
       <input type="search" aria-label={t('Search access requests')} placeholder={t('Search requester, resource, path…')} bind:value={searchText} />
     </label>
@@ -494,14 +494,14 @@
   </header>
 
   <div class="ar-filters">
-    <div class="ar-seg" role="tablist" aria-label={t('Request status')}>
+    <div class="sg-seg" role="tablist" aria-label={t('Request status')}>
       {#each SEGMENTS as key}
         <button type="button" role="tab" aria-selected={segment === key} class:on={segment === key} on:click={() => selectSegment(key)}>
           {segmentLabel(key)} <span>{segmentCounts[key]}</span>
         </button>
       {/each}
     </div>
-    <div class="ar-chips" role="group" aria-label={t('Access')}>
+    <div class="sg-chips" role="group" aria-label={t('Access')}>
       {#each [{ key: 'all', label: t('All access') }, { key: 'read', label: t('Read') }, { key: 'write', label: t('Write') }] as item}
         <button type="button" class:on={accessFilter === item.key} aria-pressed={accessFilter === item.key} on:click={() => (accessFilter = item.key as typeof accessFilter)}>{item.label}</button>
       {/each}
@@ -522,7 +522,7 @@
   {/if}
 
   <div class="ar-body">
-  <section class="ar-list">
+  <section class="b2s-panel ar-list">
     <div class="b2s-table-wrap">
       <table class="b2s-table ar-table">
         <thead>
@@ -597,7 +597,7 @@
       <Pagination total={visibleRequests.length} bind:page={listPage} bind:pageSize={listPageSize} pageSizes={[10, 25, 50]} />
     {/if}
   </section>
-<aside class="ar-side" aria-label={t('Decision')}>
+<aside class="b2s-panel ar-side" aria-label={t('Decision')}>
   {#if selectedRequest}
     <div class="ar-side-head">
       <div class="ar-person">
@@ -773,7 +773,7 @@
   </div>
   </div>
   {:else}
-    <div class="ar-side-empty">
+    <div class="sg-side-empty">
       <i class="bi bi-inbox" aria-hidden="true"></i>
       <p>{t('Select a request to see what its approval does.')}</p>
     </div>
@@ -824,58 +824,12 @@
     padding: var(--b2s-page-padding);
   }
 
-  .ar-head {
-    display: flex;
-    align-items: flex-end;
-    gap: 12px;
-  }
 
-  .ar-title {
-    flex: 1 1 320px;
-    min-width: 0;
-  }
 
-  .ar-title h1 {
-    margin: 0;
-    font-size: 38px;
-    line-height: 1.05;
-    font-weight: 600;
-    letter-spacing: -.03em;
-  }
 
-  .ar-title p {
-    margin: 6px 0 0;
-    color: var(--b2s-color-text-muted);
-    font-size: 15px;
-  }
 
-  .ar-search {
-    flex: 0 1 340px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 44px;
-    margin: 0;
-    padding: 0 14px;
-    border-radius: 12px;
-    background: var(--b2s-color-surface);
-    border: 1px solid var(--b2s-color-border-strong);
-    color: var(--b2s-color-text-muted);
-  }
 
-  .ar-search:focus-within {
-    border-color: var(--b2s-color-text);
-  }
 
-  .ar-search input {
-    flex: 1;
-    min-width: 0;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: var(--b2s-color-text);
-    font: inherit;
-  }
 
   .ar-filters {
     display: flex;
@@ -883,60 +837,12 @@
     gap: 8px;
   }
 
-  .ar-seg {
-    display: inline-flex;
-    gap: 3px;
-    padding: 3px;
-    border-radius: 12px;
-    background: var(--b2s-color-neutral-soft);
-  }
 
-  .ar-seg button {
-    min-height: 38px;
-    padding: 0 14px;
-    border: 0;
-    border-radius: 9px;
-    background: transparent;
-    color: var(--b2s-color-text-muted);
-    font: inherit;
-    font-weight: 500;
-    cursor: pointer;
-  }
 
-  .ar-seg button.on {
-    background: var(--b2s-color-surface);
-    color: var(--b2s-color-text);
-    box-shadow: 0 1px 2px rgba(14, 18, 24, .12);
-  }
 
-  .ar-seg span {
-    font-size: 12px;
-    color: var(--b2s-color-text-muted);
-  }
 
-  .ar-chips {
-    display: flex;
-    gap: 8px;
-  }
 
-  .ar-chips button {
-    min-height: 36px;
-    padding: 0 13px;
-    border-radius: 999px;
-    border: 1px solid var(--b2s-color-border-strong);
-    background: var(--b2s-color-surface);
-    color: var(--b2s-color-text-muted);
-    font: inherit;
-    font-size: 13px;
-    cursor: pointer;
-  }
 
-  .ar-chips button.on {
-    background: var(--b2s-color-text);
-    border-color: var(--b2s-color-text);
-    color: #fff;
-    font-weight: 600;
-  }
 
   .ar-export {
     margin-left: auto;
@@ -967,15 +873,7 @@
     gap: 18px;
   }
 
-  .ar-list,
-  .ar-side {
-    background: var(--b2s-color-surface);
-    border: 1px solid var(--b2s-color-border);
-    border-radius: 18px;
-    box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06);
-  }
-
-  .ar-list {
+    .ar-list {
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -1067,22 +965,8 @@
     display: none;
   }
 
-  .ar-side-empty {
-    display: grid;
-    justify-items: center;
-    gap: 10px;
-    padding: 56px 24px;
-    text-align: center;
-    color: var(--b2s-color-text-muted);
-  }
 
-  .ar-side-empty i {
-    font-size: 26px;
-  }
 
-  .ar-side-empty p {
-    margin: 0;
-  }
 
   .ar-late {
     color: var(--b2s-color-danger);

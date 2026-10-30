@@ -297,12 +297,12 @@
 </script>
 
 <section class="identity-page">
-  <header class="identity-head">
-    <div class="identity-title">
+  <header class="sg-head">
+    <div class="sg-title">
       <h1>{t('Identities')}</h1>
       <p>{t('{total} with access · {admins} admin accounts · {groups} AD groups', { total: stats.total, admins: stats.adminAccounts, groups: stats.adGroups })}</p>
     </div>
-    <label class="identity-search">
+    <label class="sg-search" style="flex-basis:420px">
       <i class="bi bi-search" aria-hidden="true"></i>
       <input type="search" bind:value={search} on:input={() => (pageIndex = 1)} placeholder={t('Search identities...')} aria-label={t('Search identities...')} />
     </label>
@@ -310,7 +310,7 @@
   </header>
 
   <div class="identity-filters">
-    <div class="identity-chips" role="group" aria-label={t('Identity type')}>
+    <div class="sg-chips" role="group" aria-label={t('Identity type')}>
       <button type="button" class:on={tab === 'all'} on:click={() => { tab = 'all'; pageIndex = 1; }}>{t('All')}</button>
       <button type="button" class:on={tab === 'local_admins'} on:click={() => { tab = 'local_admins'; pageIndex = 1; }}>{t('Local admins')}</button>
       <button type="button" class:on={tab === 'ad_admins'} on:click={() => { tab = 'ad_admins'; pageIndex = 1; }}>{t('AD admins')}</button>
@@ -327,7 +327,7 @@
   </div>
 
   <div class="identity-layout">
-    <section class="identity-list-card">
+    <section class="b2s-panel identity-list-card">
       <table class="b2s-table identity-table">
         <thead>
           <tr>
@@ -369,7 +369,7 @@
       {/if}
     </section>
 
-    <aside class="identity-side" aria-label={t('Details')}>
+    <aside class="b2s-panel identity-side" aria-label={t('Details')}>
       {#if detailOpen && selectedIdentity}
         <div class="identity-side-head">
           <span class={`identity-avatar ${identityTone(selectedIdentity)}`}><i class={`bi ${identityIcon(selectedIdentity)}`} aria-hidden="true"></i></span>
@@ -446,7 +446,7 @@
       {/if}
     </div>
       {:else}
-        <div class="identity-side-empty">
+        <div class="sg-side-empty">
           <i class="bi bi-person" aria-hidden="true"></i>
           <p>{t('Select an identity to see its roles.')}</p>
           <small>{t('This page governs application access only, not NTFS permissions.')}</small>
@@ -519,30 +519,19 @@
     deleteBusyLabel={t('Deleting...')}
     busy={deleteBusy}
     impactItems={[
-      'This removes application access only.',
+      t('This removes application access only.'),
       t('It does not delete the AD user/group.'),
-      'It does not modify NTFS permissions.'
+      t('It does not modify NTFS permissions.')
     ]}
   />
 </section>
 
 <style>
   .identity-page { display: flex; flex-direction: column; gap: 18px; padding: var(--b2s-page-padding); color: var(--b2s-color-text); }
-  .identity-head { display: flex; align-items: flex-end; gap: 12px; }
-  .identity-title { flex: 1 1 320px; min-width: 0; }
-  .identity-title h1 { margin: 0; font-size: 38px; line-height: 1.05; font-weight: 600; letter-spacing: -.03em; }
-  .identity-title p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
-  .identity-search { flex: 0 1 420px; display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; padding: 0 14px; border-radius: 12px; background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border-strong); color: var(--b2s-color-text-muted); }
-  .identity-search:focus-within { border-color: var(--b2s-color-text); }
-  .identity-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--b2s-color-text); font: inherit; }
   .identity-filters { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .identity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .identity-chips button { min-height: 36px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--b2s-color-border-strong); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font: inherit; font-size: 13px; cursor: pointer; }
-  .identity-chips button.on { background: var(--b2s-color-text); border-color: var(--b2s-color-text); color: #fff; font-weight: 600; }
   .identity-select { min-height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--b2s-color-border-strong); background: var(--b2s-color-surface); color: var(--b2s-color-text); font: inherit; font-size: 13px; }
   .identity-layout { display: flex; align-items: flex-start; gap: 18px; }
-  .identity-list-card, .identity-side { background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border); border-radius: 18px; box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06); }
-  .identity-list-card { flex: 1; min-width: 0; overflow: hidden; }
+    .identity-list-card { flex: 1; min-width: 0; overflow: hidden; }
   .identity-side { flex: 0 0 400px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
   .identity-side-head { display: flex; align-items: center; gap: 12px; }
   .identity-side-head > div { flex: 1; min-width: 0; }
@@ -552,10 +541,6 @@
   .identity-close:hover { background: var(--b2s-color-neutral-soft); }
   .identity-side-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .identity-side-danger { padding-top: 12px; border-top: 1px solid var(--b2s-color-border); }
-  .identity-side-empty { display: grid; justify-items: center; gap: 10px; padding: 40px 24px; text-align: center; color: var(--b2s-color-text-muted); }
-  .identity-side-empty i { font-size: 26px; }
-  .identity-side-empty p { margin: 0; }
-  .identity-side-empty small { font-size: 12px; }
   .identity-cell-stack { display: grid; gap: 6px; }
   .identity-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .identity-table { width: 100%; border-collapse: collapse; }

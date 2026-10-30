@@ -1248,9 +1248,9 @@
   subtitle={endpointName(endpointToDelete)}
   impactTitle={t('Impact')}
   impactItems={[
-    'This endpoint will be permanently deleted.',
+    t('This endpoint will be permanently deleted.'),
     t('Probe operations linked to this endpoint will stop.'),
-    'Dependent governance links will need to be recreated if required.'
+    t('Dependent governance links will need to be recreated if required.')
   ]}
   cancelLabel={t('Cancel')}
   confirmLabel={t('Delete')}

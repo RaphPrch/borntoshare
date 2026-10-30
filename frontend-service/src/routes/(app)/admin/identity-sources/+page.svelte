@@ -1207,9 +1207,9 @@
   subtitle={selectedSource?.name ?? null}
   impactTitle={t('Consequences')}
   impactItems={[
-    'Irreversible deletion of this identity source.',
+    t('Irreversible deletion of this identity source.'),
     t('Authentication and identity import workflows linked to this source will stop.'),
-    'Storage endpoints must be reassigned if needed.'
+    t('Storage endpoints must be reassigned if needed.')
   ]}
   onConfirm={handleDelete}
   cancelLabel={t('Cancel')}
@@ -1238,8 +1238,8 @@
   subtitle={pendingToggleSource?.display_name ?? pendingToggleSource?.name ?? null}
   impactTitle={t('Consequences')}
   impactItems={[
-    'Imports linked to this source may stop.',
-    'Authentication flows depending on this source may be impacted.'
+    t('Imports linked to this source may stop.'),
+    t('Authentication flows depending on this source may be impacted.')
   ]}
   onConfirm={confirmDisableUsedSource}
   cancelLabel={t('Cancel')}

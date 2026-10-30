@@ -64,8 +64,8 @@
 </script>
 
 <div class="sv">
-  <header class="sv__head">
-    <div class="sv__title">
+  <header class="sg-head">
+    <div class="sg-title">
       <h1>{t('File servers')}</h1>
       <p>
         {t('{servers} servers · {reachable} reachable · {folders} folders', {
@@ -75,7 +75,7 @@
         })}
       </p>
     </div>
-    <label class="sv__search">
+    <label class="sg-search" style="flex-basis:340px">
       <i class="bi bi-search" aria-hidden="true"></i>
       <input type="search" aria-label={t('Search file servers')} placeholder={t('Search name, host, zone…')} bind:value={query} />
     </label>
@@ -84,7 +84,7 @@
     </button>
   </header>
 
-  <section class="sv__panel sv__wall" aria-label={t('Fleet status')}>
+  <section class="b2s-panel sv__wall" aria-label={t('Fleet status')}>
     <div class="sv__wall-head">
       <strong>{t('Fleet status')}</strong>
       <span>
@@ -108,14 +108,14 @@
     </div>
   </section>
 
-  <div class="sv__chips" role="group" aria-label={t('Filters')}>
+  <div class="sg-chips" role="group" aria-label={t('Filters')}>
     {#each filters as item (item.key)}
       <button type="button" class:on={filter === item.key} aria-pressed={filter === item.key} on:click={() => (filter = item.key)}>{item.label} · {item.count}</button>
     {/each}
   </div>
 
   <div class="sv__body">
-    <section class="sv__panel sv__list">
+    <section class="b2s-panel sv__list">
       <table>
         <thead>
           <tr><th>{t('Server')}</th><th class="w-zone">{t('Zone')}</th><th class="w-num">{t('Folders')}</th><th class="w-state">{t('State')}</th><th class="w-last">{t('Last test')}</th></tr>
@@ -128,7 +128,7 @@
               </td>
               <td>{ep.zone_name ?? '—'}</td>
               <td>{folders(ep)}</td>
-              <td><span class={`tag ${TONE[variantOf(ep)]}`}>{label(ep)}</span></td>
+              <td><span class={`sg-tag ${TONE[variantOf(ep)]}`}>{label(ep)}</span></td>
               <td class="muted" title={ep.last_probe_at ? formatDateTime(ep.last_probe_at) : undefined}>{lastTest(ep)}</td>
             </tr>
           {:else}
@@ -147,10 +147,10 @@
       </div>
     </section>
 
-    <aside class="sv__panel sv__side" aria-label={t('Details')}>
+    <aside class="b2s-panel sv__side" aria-label={t('Details')}>
       {#if selected}
         <div>
-          <span class={`tag ${TONE[variantOf(selected)]}`}>{label(selected)}</span>
+          <span class={`sg-tag ${TONE[variantOf(selected)]}`}>{label(selected)}</span>
           <h2>{selected.name}</h2>
           <code>{address(selected) || '—'}{selected.port ? `:${selected.port}` : ''} · {selected.zone_name ?? '—'}</code>
         </div>
@@ -163,7 +163,7 @@
         </dl>
         <button type="button" class="b2s-btn b2s-btn-primary" on:click={() => selected && open(selected)}>{t('Open the server')}</button>
       {:else}
-        <div class="sv__side-empty">
+        <div class="sg-side-empty">
           <i class="bi bi-hdd-network" aria-hidden="true"></i>
           <p>{t('Select a server on the wall or in the list.')}</p>
         </div>
@@ -174,14 +174,6 @@
 
 <style>
   .sv { display: flex; flex-direction: column; gap: 18px; padding: var(--b2s-page-padding); }
-  .sv__head { display: flex; align-items: flex-end; gap: 12px; }
-  .sv__title { flex: 1 1 320px; min-width: 0; }
-  .sv__title h1 { margin: 0; font-size: 38px; line-height: 1.05; font-weight: 600; letter-spacing: -.03em; }
-  .sv__title p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
-  .sv__search { flex: 0 1 340px; display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; padding: 0 14px; border-radius: 12px; background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border-strong); color: var(--b2s-color-text-muted); }
-  .sv__search:focus-within { border-color: var(--b2s-color-text); }
-  .sv__search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--b2s-color-text); font: inherit; }
-  .sv__panel { background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border); border-radius: 18px; box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06); }
   .sv__wall { padding: 16px; }
   .sv__wall-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
   .sv__wall-head strong { font-weight: 600; }
@@ -194,9 +186,6 @@
   .sv__cell { width: 30px; height: 30px; padding: 0; border: 0; border-radius: 7px; cursor: pointer; transition: transform .1s; }
   .sv__cell:hover { transform: scale(1.2); }
   .sv__cell.sel { outline: 2px solid var(--b2s-color-text); outline-offset: 2px; }
-  .sv__chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .sv__chips button { min-height: 36px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--b2s-color-border-strong); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font: inherit; font-size: 13px; cursor: pointer; }
-  .sv__chips button.on { background: var(--b2s-color-text); border-color: var(--b2s-color-text); color: #fff; font-weight: 600; }
   .sv__body { display: flex; align-items: flex-start; gap: 18px; }
   .sv__list { flex: 1; min-width: 0; overflow: hidden; }
   .sv__list table { width: 100%; border-collapse: collapse; }
@@ -222,12 +211,4 @@
   .sv__side dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
   .sv__side dt { font-size: 12px; font-weight: 400; color: var(--b2s-color-text-muted); }
   .sv__side dd { margin: 0; font-weight: 500; }
-  .sv__side-empty { display: grid; justify-items: center; gap: 10px; padding: 40px 24px; text-align: center; color: var(--b2s-color-text-muted); }
-  .sv__side-empty i { font-size: 26px; }
-  .sv__side-empty p { margin: 0; }
-  .tag { display: inline-flex; align-items: center; font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 999px; background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text); white-space: nowrap; }
-  .tag.ok { background: var(--b2s-color-success-soft); color: var(--b2s-color-success); }
-  .tag.warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning); }
-  .tag.bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger); }
-  .tag.read { background: var(--b2s-color-info-soft); color: var(--b2s-color-info); }
 </style>

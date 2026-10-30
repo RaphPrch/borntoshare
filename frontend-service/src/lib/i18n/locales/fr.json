@@ -3245,5 +3245,19 @@
   "Tags merged.": "Tags fusionnés.",
   "Unable to merge tags.": "Impossible de fusionner les tags.",
   "Search by name or family": "Rechercher par nom ou famille",
-  "Too many failed sign-in attempts. Try again later.": "Trop de tentatives échouées. Réessayez plus tard."
+  "Too many failed sign-in attempts. Try again later.": "Trop de tentatives échouées. Réessayez plus tard.",
+  "Any unsaved provisioning changes will be lost.": "Les modifications de provisionnement non enregistrées seront perdues.",
+  "Irreversible deletion of this identity source.": "Suppression irréversible de cet annuaire.",
+  "Storage endpoints must be reassigned if needed.": "Les serveurs de fichiers devront être réaffectés si besoin.",
+  "Imports linked to this source may stop.": "Les imports liés à cet annuaire peuvent s'arrêter.",
+  "Authentication flows depending on this source may be impacted.": "Les connexions qui dépendent de cet annuaire peuvent être affectées.",
+  "This removes application access only.": "Seul l'accès à l'application est retiré.",
+  "It does not modify NTFS permissions.": "Les permissions NTFS ne sont pas modifiées.",
+  "This endpoint will be permanently deleted.": "Ce serveur sera définitivement supprimé.",
+  "Dependent governance links will need to be recreated if required.": "Les liens de gouvernance dépendants devront être recréés si besoin.",
+  "Irreversible deletion of this tag.": "Suppression irréversible de ce tag.",
+  "Associated governance references must be recreated if needed.": "Les références de gouvernance associées devront être recréées si besoin.",
+  "The storage root governance record will be permanently deleted.": "La gouvernance de ce dossier sera définitivement supprimée.",
+  "Showing {count} items": "{count} éléments affichés",
+  "Snapshot synchronized · {importedCount} objet(s).": "Snapshot synchronisé · {importedCount} objet(s)."
 }
