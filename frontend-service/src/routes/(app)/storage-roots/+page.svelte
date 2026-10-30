@@ -100,6 +100,7 @@
   import StorageRootTagsDrawer from '$lib/components/storage-roots/StorageRootTagsDrawer.svelte';
   import StorageRootGovernanceDrawer from '$lib/components/storage-roots/StorageRootGovernanceDrawer.svelte';
   import StorageRootTreePanel from '$lib/components/storage-roots/StorageRootTreePanel.svelte';
+  import StorageRootBrowser from '$lib/components/storage-roots/StorageRootBrowser.svelte';
   import EntityWorkspace from '$lib/components/entity/EntityWorkspace.svelte';
   import StorageRootDetailView from '$lib/components/storage-roots/StorageRootDetailView.svelte';
   import StorageRootFolderActions, {
@@ -282,6 +283,15 @@
   let lastAppliedSelectedParam: number | null = null;
 
   $: ctxRows = (data.storageRoots ?? []).map(normalizeStorageRootRow);
+
+  // No folder in the URL: the tiles / list home; a folder opens on the detail page
+  $: browsing = !(Number($page.url.searchParams.get('selected') ?? 0) > 0);
+  $: if (browsing) lastAppliedSelectedParam = null;
+
+  const openRootFromBrowser = (id: number) => {
+    storageRootsUiStore.setDetailTab('overview');
+    void goto(`/storage-roots?selected=${id}`);
+  };
 
   $: if (browser && ctxRows.length > 0) {
     const selectedParam = Number($page.url.searchParams.get('selected') ?? 0);
@@ -1994,7 +2004,21 @@
     onCreateRoot={openCreateRoot}
     onCreateEndpoint={() => (showEndpointWizard = true)}
   />
+{:else if browsing}
+  <StorageRootBrowser
+    rows={ctxRows}
+    query={$storageRootsUiStore.query}
+    {rootAlertSummary}
+    onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
+    onOpenRoot={openRootFromBrowser}
+    onRequestAccess={(id) => void goto(`/access-requests?create=1&root=${encodeURIComponent(String(id))}`)}
+    onAdd={data.user?.is_admin === true ? openCreateRoot : null}
+    onFolderAction={data.user?.is_admin === true
+      ? (kind, row) => openFolderAction(kind, row, row?.inheritance_broken == null ? null : Boolean(row.inheritance_broken))
+      : null}
+  />
 {:else}
+  <a class="sr-back" href="/storage-roots"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All folders')}</a>
   <EntityWorkspace title={t('Storage roots')}>
     <svelte:fragment slot="list">
       <StorageRootTreePanel
@@ -2171,3 +2195,21 @@
   on:activity={handleOwnersBrowserActivity}
   on:save={applyOwnersFromBrowser}
 />
+
+<style>
+  .sr-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    z-index: 1;
+    margin: 16px 0 -14px 28px;
+    font-size: 13px;
+    color: var(--b2s-color-text-muted);
+    text-decoration: none;
+  }
+
+  .sr-back:hover {
+    color: var(--b2s-color-text);
+  }
+</style>
