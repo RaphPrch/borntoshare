@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from typing import Any, Dict
 
@@ -149,3 +150,60 @@ def create_subfolder(params: Dict[str, Any]):
     details["created"] = True
     logger.info("Folder created", extra={"operation": "folder_create", "target_share": share, "target_path": path})
     return True, "Folder created", details
+
+
+SHARE_NAME_FORBIDDEN = re.compile(r'[\\/:*?"<>|\[\];=,+$]')
+LOCAL_PATH = re.compile(r"^([A-Za-z]):((?:\\[^\\/:*?\"<>|]+)+)$")
+
+
+def share_name_error(name: str) -> str | None:
+    if not name.strip() or name != name.strip() or len(name) > 80:
+        return "The share name is required, 80 characters at most, without surrounding spaces"
+    if SHARE_NAME_FORBIDDEN.search(name):
+        return 'These characters are refused in a share name: \\ / : * ? " < > | [ ] ; = , + $'
+    return None
+
+
+def create_share(params: Dict[str, Any]):
+    """Create a share on a Windows file server: its folder through the administrative share, the share over RPC, then read it back."""
+    host = str(params.get("host") or "").strip()
+    share = str(params.get("share") or "")
+    local_path = str(params.get("path") or "").strip()
+    user = _auth_user(str(params.get("username") or "").strip(), str(params.get("domain") or "").strip())
+    password = str(params.get("password") or "")
+    timeout = int(params.get("timeout_sec") or 30)
+    details: dict[str, Any] = {"operation": "share_create", "target": {"host": host, "share": share, "path": local_path}}
+
+    error = share_name_error(share)
+    if error:
+        return False, error, {**details, "failure_code": "SHARE_NAME_INVALID"}
+    matched = LOCAL_PATH.match(local_path)
+    if not matched:
+        return False, r"A local path of the server is expected, like D:\Shares\Finance", {**details, "failure_code": "SHARE_PATH_INVALID"}
+    parts = [part for part in matched.group(2).split("\\") if part]
+    commands = "; ".join(f'mkdir "{chr(92).join(parts[:depth + 1])}"' for depth in range(len(parts)))
+    try:
+        folder = run_samba(["smbclient", f"//{host}/{matched.group(1).upper()}$", "-c", commands],
+                           username=user, password=password, capture_output=True, timeout=timeout)
+        folder_output = _output(folder)
+        if "NT_STATUS_ACCESS_DENIED" in folder_output or "NT_STATUS_BAD_NETWORK_NAME" in folder_output:
+            return False, ("The account of the file server cannot reach the administrative share: "
+                           "it must be a local administrator of the server"), {**details, "failure_code": "SHARE_ADMIN_REQUIRED"}
+        added = run_samba(["rpcclient", host, "-c", f'netshareadd "{local_path}" "{share}" 0 "BornToShare"'],
+                          username=user, password=password, capture_output=True, timeout=timeout)
+        check = run_samba(["rpcclient", host, "-c", f'netsharegetinfo "{share}" 2'],
+                          username=user, password=password, capture_output=True, timeout=timeout)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return False, f"Unable to create the share: {exc}", {**details, "failure_code": "SHARE_CREATE_FAILED"}
+    added_output = _output(added)
+    check_output = _output(check)
+    if "WERR_ALREADY_EXISTS" in added_output or "NERR_DuplicateShare" in added_output or "WERR_FILE_EXISTS" in added_output:
+        return False, "A share with this name already exists", {**details, "failure_code": "SHARE_EXISTS"}
+    if "WERR_ACCESS_DENIED" in added_output:
+        return False, "The account of the file server must be a local administrator of the server", {**details, "failure_code": "SHARE_ADMIN_REQUIRED"}
+    if local_path.lower() not in check_output.lower():
+        message = next((line for line in added_output.splitlines() if "WERR_" in line or "NT_STATUS_" in line), "the share was not created")
+        return False, message.strip()[:300], {**details, "failure_code": "SHARE_CREATE_FAILED"}
+    details["created"] = True
+    logger.info("Share created", extra={"operation": "share_create", "target_share": share})
+    return True, "Share created", details

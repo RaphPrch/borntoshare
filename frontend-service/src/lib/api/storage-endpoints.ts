@@ -436,3 +436,12 @@ export type StorageEndpointImpact = { roots: number; access_groups: number; acti
 /** What depends on a file server (storage roots, AD groups, accesses, requests): shown before disabling or moving it */
 export const getStorageEndpointImpact = (fetchFn: FetchLike, id: number) =>
   apiGetData<StorageEndpointImpact>(fetchFn, `/storage-endpoints/${id}/impact`);
+
+export const createStorageEndpointShare = (
+  fetchFn: FetchLike,
+  endpointId: number,
+  payload: { name: string; path?: string }
+) =>
+  apiPostData<{ share: string; path: string; unc: string }>(fetchFn, `/storage-endpoints/${endpointId}/shares`, payload, {
+    timeoutMs: 90_000
+  });

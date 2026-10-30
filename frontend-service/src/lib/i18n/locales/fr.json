@@ -1353,6 +1353,10 @@
       "deleted": {
         "title": "Serveur supprimé",
         "description": "Le serveur « {endpoint} » a été supprimé de la zone « {zone} »"
+      },
+      "share_created": {
+        "title": "Partage créé",
+        "description": "Un partage a été créé sur le serveur « {target} »"
       }
     },
     "tag": {
@@ -2904,5 +2908,16 @@
   "Snapshot synchronized · {importedCount} objet(s).": "Inventaire synchronisé · {importedCount} objet(s).",
   "Keep editing": "Continuer à modifier",
   "Active Directory does not answer: {done} done, {left} left to process.": "Active Directory ne répond pas : {done} traitée(s), {left} restante(s).",
-  "Processing {done} of {total}…": "Traitement {done} sur {total}…"
+  "Processing {done} of {total}…": "Traitement {done} sur {total}…",
+  "Create a share": "Créer un partage",
+  "Share name": "Nom du partage",
+  "Local path on the server": "Chemin local sur le serveur",
+  "Created if it does not exist. Empty: {path}": "Créé s'il n'existe pas. Vide : {path}",
+  "The account of this server must be a local administrator of it.": "Le compte de ce serveur doit en être administrateur local.",
+  "Share created.": "Partage créé.",
+  "Unable to create the share.": "Impossible de créer le partage.",
+  "Create the share": "Créer le partage",
+  "The account of the file server cannot reach the administrative share: it must be a local administrator of the server": "Le compte du serveur n'accède pas au partage administratif : il doit être administrateur local du serveur",
+  "The account of the file server must be a local administrator of the server": "Le compte du serveur doit être administrateur local du serveur",
+  "A share with this name already exists": "Un partage porte déjà ce nom"
 }

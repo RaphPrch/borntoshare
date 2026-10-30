@@ -91,6 +91,12 @@ JOB_CONTRACTS: dict[str, JobContract] = {
         queue_name=QUEUE_ACL,
         actor_name="run_acl_job",
     ),
+    "SHARE_CREATE": JobContract(
+        job_type="SHARE_CREATE",
+        default_action="share_create",
+        queue_name=QUEUE_ACL,
+        actor_name="run_acl_job",
+    ),
     "FOLDER_DELETE": JobContract(
         job_type="FOLDER_DELETE",
         default_action="folder_delete",

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ShareCreateModal from '$lib/components/storage-endpoints/ShareCreateModal.svelte';
   import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { t } from '$lib/i18n';
   import { formatActivityItem } from '$lib/activity/format';
@@ -675,6 +676,7 @@
   }
 
   let showWizard = false;
+  let showShareModal = false;
   let showEditModal = false;
   let editInitialTab: 'endpoint' | 'roots' = 'endpoint';
   let showDeleteModal = false;
@@ -1095,6 +1097,7 @@
   </main>
 </div>
 {:else}
+<ShareCreateModal open={showShareModal} endpointId={selectedEndpointId()} onClose={() => (showShareModal = false)} onCreated={() => void invalidateAll()} />
 <a class="ep-back" href="/admin/storage-endpoints"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All servers')}</a>
 <EntityWorkspace title={t('Storage endpoints')}>
   <svelte:fragment slot="list">
@@ -1152,6 +1155,7 @@
             <section class="sed-overview__main" aria-label={t('Governed storage roots')}>
               <div class="sed-overview__head">
                 <h2>{t('Governed storage roots')}</h2>
+                <button type="button" class="b2s-panel__link" on:click={() => (showShareModal = true)}>{t('Create a share')}</button>
                 <button type="button" class="b2s-panel__link" on:click={() => { editInitialTab = 'roots'; showEditModal = true; }}>{t('Discover and add')}</button>
               </div>
               <AssociatedRootsTable rows={rootsFilteredRows} dense={true} emptyLabel={t('No associated roots')} />

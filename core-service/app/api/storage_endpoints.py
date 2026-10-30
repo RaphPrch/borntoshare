@@ -23,7 +23,7 @@ from app.data.repositories.storage_endpoints_views_repo import (
 from app.api._helpers import ui_action, ui_data, ui_list
 from app.core.sql import to_dicts
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request, require_admin
+from app.services.authorization import actor_from_request, admin_only, require_admin
 from app.services.storage_guards import (
     endpoint_access_counts,
     endpoint_access_group_count,
@@ -801,6 +801,67 @@ def update_endpoint(
             )
 
     return ui_action(action_id=int(endpoint_id), message="storage_endpoint.updated")
+
+
+class ShareCreatePayload(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    # Local path on the file server; a folder under C:\\Shares when omitted
+    path: str | None = Field(default=None, max_length=512)
+
+
+@router.post("/{endpoint_id}/shares", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_only)])
+async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, request: Request, db: Session = Depends(get_db)):
+    """Create a share on the file server with its account, which must be a local administrator of the server."""
+    import asyncio
+
+    from app.services.probe_service import fetch_probe_job, submit_probe_run
+
+    endpoint = db.get(StorageEndpoint, int(endpoint_id))
+    if endpoint is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
+    if not (endpoint.host and endpoint.bind_dn and endpoint.bind_password_ref):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={"code": "ENDPOINT_CREDENTIALS_MISSING", "message": "The file server has no host or account"})
+    name = payload.name.strip()
+    local_path = (payload.path or "").strip() or f"C:\\Shares\\{name}"
+    queued = await submit_probe_run({
+        "kind": "share", "protocol": "create", "scope": "write",
+        "target": {"host": endpoint.host, "share": name, "path": local_path},
+        "auth": {"mode": "ntlm", "username": endpoint.bind_dn, "secret_ref": endpoint.bind_password_ref},
+        "options": {"timeout_sec": 60},
+        "context": {"storage_endpoint_id": int(endpoint_id), "ui_origin": "admin"},
+    })
+    job_id = int((queued or {}).get("job_id") or 0)
+    job: dict[str, Any] = {}
+    for _ in range(60):
+        job = dict(await fetch_probe_job(job_id) or {})
+        state = str(job.get("status") or "").lower()
+        if state == "succeeded":
+            break
+        if state in {"failed", "timed_out", "cancelled"}:
+            error = job.get("error") if isinstance(job.get("error"), dict) else {}
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                                detail={"code": "SHARE_CREATE_FAILED", "message": str(error.get("message") or state), "job_id": job_id})
+        await asyncio.sleep(1)
+    else:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                            detail={"code": "SHARE_CREATE_TIMEOUT", "message": "The worker did not answer in time", "job_id": job_id})
+
+    actor = actor_from_request(request)
+    log_activity(
+        db,
+        actor_type="user" if actor.identity_id is not None else "system",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action="storage_endpoint.share_created",
+        outcome="success",
+        target_type="storage_endpoint",
+        target_id=int(endpoint_id),
+        target_display=str(endpoint.name or endpoint_id),
+        context_json={"share": name, "path": local_path},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_data({"share": name, "path": local_path, "unc": f"\\\\{endpoint.host}\\{name}"})
 
 
 @router.post("/{endpoint_id}/probe-result", dependencies=[Depends(require_internal_token)])

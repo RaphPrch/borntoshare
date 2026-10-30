@@ -25,6 +25,7 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   // Tags
   'governance_alert.acknowledged': { titleKey: 'activity.governance_alert.acknowledged.title', descriptionKey: 'activity.governance_alert.acknowledged.description', badge: 'info', icon: 'eye' },
   'governance_alert.resolved': { titleKey: 'activity.governance_alert.resolved.title', descriptionKey: 'activity.governance_alert.resolved.description', badge: 'admin', icon: 'check2-circle' },
+  'storage_endpoint.share_created': { titleKey: 'activity.storage_endpoint.share_created.title', descriptionKey: 'activity.storage_endpoint.share_created.description', badge: 'admin', icon: 'folder' },
   'tag.created': { titleKey: 'activity.tag.created.title', descriptionKey: 'activity.tag.created.description', badge: 'admin', icon: 'tag' },
   'tag.updated': { titleKey: 'activity.tag.updated.title', descriptionKey: 'activity.tag.updated.description', badge: 'admin', icon: 'tag' },
   'tag.deleted': { titleKey: 'activity.tag.deleted.title', descriptionKey: 'activity.tag.deleted.description', badge: 'critical', scope: 'security', icon: 'tag' },

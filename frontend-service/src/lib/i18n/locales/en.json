@@ -163,6 +163,10 @@
       "deleted": {
         "title": "Endpoint removed",
         "description": "Endpoint \"{endpoint}\" was removed from zone \"{zone}\""
+      },
+      "share_created": {
+        "title": "Share created",
+        "description": "A share was created on server \"{target}\""
       }
     },
     "tag": {
