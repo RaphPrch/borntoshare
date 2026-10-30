@@ -1,11 +1,10 @@
 <script lang="ts">
-  import EntityStatLine from '$lib/components/entity/EntityStatLine.svelte';
+  import EntityActionGroup from '$lib/components/entity/EntityActionGroup.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { browser } from '$app/environment';
   import { onDestroy } from 'svelte';
   import { sleep } from '$lib/utils/values';
-  import EntityPageHeader from '$lib/components/entity/EntityPageHeader.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import IdentitySourcesWizardModal from '$lib/components/identity-sources/IdentitySourcesWizardModal.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -1024,14 +1023,19 @@
 
 <section class="b2s-page b2s-page--admin identity-sources-page">
   <div class="identity-clean-shell">
-    <EntityPageHeader
-      title={t('Directories')}
-      actions={[
+    <header class="ids-head">
+      <div>
+        <h1>{t('Directories')}</h1>
+        <p>{t('{total} directories · {healthy} healthy · {issues} with issues · {never} never synced', { total: summary.total, healthy: summary.healthy, issues: summary.issues, never: summary.neverSynced })}</p>
+      </div>
+      <EntityActionGroup
+        ariaLabel={t('Identity source actions')}
+        actions={[
         { key: 'refresh', label: t('Refresh'), icon: 'bi-arrow-clockwise', variant: 'secondary', disabled: listLoading, onClick: refreshList },
         { key: 'new', label: t('New Identity Source'), icon: 'bi-plus-lg', variant: 'primary', onClick: () => (showWizard = true) }
-      ]}
-      actionsAriaLabel={t('Identity source actions')}
-    />
+        ]}
+      />
+    </header>
 
     {#if fetchError}
       <InlineAlert tone="error">{fetchError}</InlineAlert>
@@ -1048,16 +1052,6 @@
         hint={t('You will be guided step by step.')}
       />
     {:else}
-      <EntityStatLine
-        ariaLabel={t('Identity source summary')}
-        items={[
-          { key: 'total', label: t('Sources'), value: summary.total, big: true },
-          { key: 'healthy', label: t('Healthy'), value: summary.healthy, big: true, tone: summary.healthy > 0 ? 'success' : undefined },
-          { key: 'issues', label: t('Issues'), value: summary.issues, big: true, tone: summary.issues > 0 ? 'warning' : undefined },
-          { key: 'never', label: t('Never synced'), value: summary.neverSynced, big: true }
-        ]}
-      />
-
       <div class="identity-filter-card">
         <label class="identity-search">
           <i class="bi bi-search" aria-hidden="true"></i>
@@ -1100,52 +1094,34 @@
         <div class="identity-no-result" role="status">{t('No identity source matches current filters.')}</div>
       {:else}
         <div class="identity-table-card">
-            <table class="b2s-table identity-clean-table">
-              <thead>
-                <tr>
-                  <th>{t('Source')}</th>
-                  <th>{t('Type')}</th>
-                  <th>{t('Endpoint')}</th>
-                  <th>{t('Health')}</th>
-                  <th>{t('Last probe')}</th>
-                  <th>{t('Snapshot')}</th>
-                  <th class="text-end">{t('Actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each paginatedCards as card (card.id)}
-                  <tr
-                    class:selected={(selectedSourceId ?? detailCard?.id) === card.id}
-                    on:click={() => selectSourceById(card.id)}
+            <div class="ids-cards">
+              {#each paginatedCards as card (card.id)}
+                <div class="ids-card" class:selected={(selectedSourceId ?? detailCard?.id) === card.id}>
+                  <button type="button" class="ids-card-main" on:click={() => selectSourceById(card.id)}>
+                    <span class="ids-card-name">
+                      <strong>{card.name}</strong>
+                      <code>{card.endpointLabel}</code>
+                    </span>
+                    <span><span class={`identity-pill ${toneClass(card.typeTone)}`}>{card.typeLabel}</span></span>
+                    <span class="ids-card-meta" title={card.lastProbeTitle || undefined}>
+                      <small>{t('Last probe')}</small>
+                      {card.lastProbeLabel}
+                    </span>
+                    <span><StatusBadge compact showDot={false} variant={card.snapshotTone} label={card.snapshotLabel} /></span>
+                    <span><StatusBadge compact variant={card.healthTone} label={card.healthLabel} /></span>
+                  </button>
+                  <button
+                    class="b2s-btn b2s-btn-secondary b2s-btn-sm b2s-btn-icon"
+                    type="button"
+                    aria-label={t('Edit {name}', { name: card.name })}
+                    disabled={!isAdIdentitySource(card.raw)}
+                    on:click={() => openEdit(card.raw)}
                   >
-                    <td>
-                      <div class="identity-source-cell">
-                        <span class={`identity-source-mini ${toneClass(card.typeTone)}`}>
-                          <i class={`bi ${sourceIconClass(card)}`} aria-hidden="true"></i>
-                        </span>
-                        <strong>{card.name}</strong>
-                      </div>
-                    </td>
-                    <td><span class={`identity-pill ${toneClass(card.typeTone)}`}>{card.typeLabel}</span></td>
-                    <td class="identity-muted-cell">{card.endpointLabel}</td>
-                    <td><StatusBadge compact variant={card.healthTone} label={card.healthLabel} /></td>
-                    <td title={card.lastProbeTitle || undefined}>{card.lastProbeLabel}</td>
-                    <td><StatusBadge compact showDot={false} variant={card.snapshotTone} label={card.snapshotLabel} /></td>
-                    <td class="text-end">
-                      <button
-                        class="b2s-btn b2s-btn-secondary b2s-btn-sm b2s-btn-icon"
-                        type="button"
-                        aria-label={t('Edit {name}', { name: card.name })}
-                        disabled={!isAdIdentitySource(card.raw)}
-                        on:click|stopPropagation={() => openEdit(card.raw)}
-                      >
-                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
-                      </button>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                  </button>
+                </div>
+              {/each}
+            </div>
 
             <div class="identity-table-footer">
               <label>
@@ -1394,29 +1370,11 @@
     font-size: var(--b2s-fs-md);
   }
 
-  .identity-clean-table th {
-    white-space: nowrap;
-  }
-
-  .identity-clean-table tbody tr {
-    cursor: pointer;
-    transition: background 0.14s ease;
-  }
-
   .identity-source-cell {
     display: flex;
     align-items: center;
     gap: 13px;
     min-width: 0;
-  }
-
-  .identity-source-cell strong {
-    min-width: 0;
-    color: var(--b2s-color-heading);
-    font-weight: 650;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .identity-source-mini {
@@ -1502,11 +1460,6 @@
     font-weight: 550;
   }
 
-  .identity-health-label i,
-  .identity-pill i {
-    font-size: 0.5rem;
-  }
-
   .identity-table-footer {
     min-height: 70px;
     display: flex;
@@ -1588,36 +1541,6 @@
     100% { background-position: -200% 0; }
   }
 
-  @media (max-width: 1280px) {
-    .identity-filter-card {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  @media (max-width: 920px) {
-    :global(.identity-sources-page) {
-      padding: 20px 16px 28px;
-    }
-
-    .identity-clean-table {
-      min-width: 900px;
-    }
-
-    .identity-table-card {
-      overflow-x: auto;
-    }
-  }
-
-  @media (max-width: 640px) {
-
-    .identity-page-actions,
-    .identity-selects,
-    .identity-table-footer {
-      width: 100%;
-      flex-direction: column;
-      align-items: stretch;
-    }
-  }
 
   .identity-sources-page :global(h1) {
     font-size: 38px;
@@ -1625,4 +1548,15 @@
     font-weight: 600;
     letter-spacing: -.03em;
   }
+
+  .ids-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .ids-head p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
+  .ids-cards { display: flex; flex-direction: column; gap: 10px; }
+  .ids-card { display: flex; align-items: center; gap: 12px; padding-right: 16px; background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border); border-radius: 16px; }
+  .ids-card:hover { box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06); }
+  .ids-card.selected { border-color: var(--b2s-color-text); box-shadow: 0 0 0 1px var(--b2s-color-text); }
+  .ids-card-main { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 130px minmax(0, 1fr) 100px; gap: 14px; align-items: center; padding: 16px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .ids-card-name strong { display: block; font-size: 16px; font-weight: 600; }
+  .ids-card-name code { font-family: var(--b2s-font-mono); font-size: 12px; color: var(--b2s-color-text-muted); }
+  .ids-card-meta small { display: block; font-size: 12px; color: var(--b2s-color-text-muted); }
 </style>

@@ -127,6 +127,7 @@
     tags: StorageRootTagLike[];
     endpoints?: StorageRootEndpointSummary[];
     storageRootAlerts?: GovernanceAlert[];
+    accessRequests?: any[];
     storageRootActivity?: Array<Record<string, unknown>>;
     storageRootActivityRootId?: number | null;
   };
@@ -2007,6 +2008,7 @@
 {:else if browsing}
   <StorageRootBrowser
     rows={ctxRows}
+    accessRequests={data.accessRequests ?? []}
     query={$storageRootsUiStore.query}
     {rootAlertSummary}
     onQueryChange={(value) => storageRootsUiStore.setQuery(value)}

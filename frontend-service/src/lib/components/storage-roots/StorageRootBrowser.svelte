@@ -7,7 +7,7 @@
     page: 0,
     open: new Set<string>()
   };
-  type Filter = 'all' | 'review' | 'blocking' | 'pending' | 'no-inheritance';
+  type Filter = 'all' | 'review' | 'blocking' | 'pending' | 'ending' | 'no-inheritance';
 </script>
 
 <script lang="ts">
@@ -16,11 +16,13 @@
   import StorageRootContextMenu from '$lib/components/storage-roots/StorageRootContextMenu.svelte';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
+  import { accessRequestAccessLabel } from '$lib/mappers/access-requests.mapper';
 
   type Alert = { count: number; tone: 'warning' | 'error'; label?: string } | null;
   type Tone = 'ok' | 'warn' | 'bad' | 'read';
-  type RowState = { blocking: boolean; review: boolean; pending: number; alerts: number; tone: Tone; label: string };
-  type Totals = { n: number; review: number; blocking: number; pending: number };
+  type Grants = { read: number; write: number; ending: number };
+  type RowState = { blocking: boolean; review: boolean; pending: number; alerts: number; tone: Tone; label: string; granted: Grants };
+  type Totals = Grants & { n: number; review: number; blocking: number; pending: number };
   type Tile = { key: string; name: string; sub?: string; totals: Totals; big?: number; note: string; row?: StorageRootRow; pick: () => void };
   type Line = { key: string; name: string; sub?: string; depth: number; group: boolean; totals: Totals; row?: StorageRootRow };
 
@@ -29,6 +31,7 @@
    * made for hundreds of folders; a folder opens on the detail page.
    */
   export let rows: StorageRootRow[] = [];
+  export let accessRequests: any[] = [];
   export let query = '';
   export let rootAlertSummary: (row: StorageRootRow) => Alert = () => null;
   export let onQueryChange: (value: string) => void = () => {};
@@ -90,29 +93,55 @@
   const zoneName = (row: StorageRootRow): string => String(row?.zone_name ?? t('Unassigned zone')).trim() || t('Unassigned zone');
   const serverIdOf = (row: StorageRootRow): string => `${zoneIdOf(row)}|${(segments(row)[0] ?? serverName(row)).toLowerCase()}`;
 
+  const DAY = 86_400_000;
+  // Accesses granted through requests and still running: an NTFS entry set by hand is not counted here
+  function grantsByRoot(list: any[]): Map<number, Grants> {
+    const now = Date.now();
+    const map = new Map<number, Grants>();
+    for (const row of list) {
+      if (!['executed', 'approved', 'enforced', 'applied'].includes(String(row?.status ?? '').trim().toLowerCase())) continue;
+      const id = Number(row?.storage_root_id ?? row?.target_id ?? 0);
+      const ends = new Date(String(row?.expires_at ?? '')).getTime() || 0;
+      if (!(id > 0) || (ends && ends <= now)) continue;
+      const label = accessRequestAccessLabel(row).toLowerCase();
+      const entry = map.get(id) ?? { read: 0, write: 0, ending: 0 };
+      if (label.includes('write') || label.includes('écriture') || label.includes('contrib')) entry.write += 1;
+      else entry.read += 1;
+      if (ends && ends - now <= 30 * DAY) entry.ending += 1;
+      map.set(id, entry);
+    }
+    return map;
+  }
+  $: grants = grantsByRoot(accessRequests);
+  const grantsOf = (map: Map<number, Grants>, row: StorageRootRow): Grants => map.get(rootId(row)) ?? { read: 0, write: 0, ending: 0 };
+
   // Same reading as the explorer: red = blocking alert, orange = request to decide
-  function stateOf(row: StorageRootRow): RowState {
+  function stateOf(row: StorageRootRow, granted: Grants = { read: 0, write: 0, ending: 0 }): RowState {
     const alert = rootAlertSummary(row);
     const alerts = alert?.count ?? 0;
     const pending = Number(row?.pending_validation_count ?? 0);
     const blocking = alerts > 0 && alert?.tone === 'error';
     const alertLabel = t('{count} alert(s)', { count: alerts });
-    if (blocking) return { blocking, review: true, pending, alerts, tone: 'bad', label: alertLabel };
-    if (pending > 0) return { blocking, review: true, pending, alerts, tone: 'warn', label: t('{count} pending requests', { count: pending }) };
-    if (alerts > 0) return { blocking, review: false, pending, alerts, tone: 'read', label: alertLabel };
-    return { blocking, review: false, pending, alerts, tone: 'ok', label: t('Nothing to do') };
+    if (blocking) return { blocking, review: true, pending, alerts, tone: 'bad', label: alertLabel, granted };
+    if (pending > 0) return { blocking, review: true, pending, alerts, tone: 'warn', label: t('{count} pending requests', { count: pending }), granted };
+    if (alerts > 0) return { blocking, review: false, pending, alerts, tone: 'read', label: alertLabel, granted };
+    return { blocking, review: false, pending, alerts, tone: 'ok', label: t('Nothing to do'), granted };
   }
 
-  $: states = new Map(rows.map((row) => [rootId(row), stateOf(row)]));
+  $: states = new Map(rows.map((row) => [rootId(row), stateOf(row, grantsOf(grants, row))]));
   const stateFor = (map: Map<number, RowState>, row: StorageRootRow): RowState => map.get(rootId(row)) ?? stateOf(row);
 
   function totalsOf(map: Map<number, RowState>, list: StorageRootRow[]): Totals {
-    const totals: Totals = { n: list.length, review: 0, blocking: 0, pending: 0 };
+    const totals: Totals = { n: list.length, review: 0, blocking: 0, pending: 0, read: 0, write: 0, ending: 0 };
     for (const row of list) {
       const state = stateFor(map, row);
       if (state.review) totals.review += 1;
       if (state.blocking) totals.blocking += 1;
       if (state.pending > 0) totals.pending += 1;
+      const { granted } = state;
+      totals.read += granted.read;
+      totals.write += granted.write;
+      if (granted.ending > 0) totals.ending += 1;
     }
     return totals;
   }
@@ -122,6 +151,7 @@
     if (active === 'review') return state.review;
     if (active === 'blocking') return state.blocking;
     if (active === 'pending') return state.pending > 0;
+    if (active === 'ending') return state.granted.ending > 0;
     if (active === 'no-inheritance') return row?.inheritance_broken === true;
     return true;
   }
@@ -152,6 +182,7 @@
     { key: 'review', label: t('To review') },
     { key: 'blocking', label: t('Blocking') },
     { key: 'pending', label: t('Pending requests') },
+    { key: 'ending', label: t('Ending within 30 days') },
     { key: 'no-inheritance', label: t('No inheritance') }
   ].map((item) => ({
     ...item,
@@ -399,6 +430,11 @@
                   {#if tile.big != null}<b>{tile.big}</b>{/if}
                 </span>
                 {#if tile.sub}<code title={tile.row ? rootPath(tile.row) : undefined}>{tile.sub}</code>{/if}
+                {#if tile.totals.read + tile.totals.write > 0}
+                  <span class="br__split" title={t('{count} granted accesses', { count: tile.totals.read + tile.totals.write })}>
+                    <i class="read" style={`flex:${tile.totals.read}`}></i><i class="write" style={`flex:${tile.totals.write}`}></i>
+                  </span>
+                {/if}
                 <span class="br__tile-note">
                   <span>{tile.note}</span>
                   {#if tile.totals.blocking > 0 && !tile.row}
@@ -419,7 +455,7 @@
         <div class="br__panel br__table">
           <table>
             <thead>
-              <tr><th>{t('Name')}</th><th class="w-state">{t('State')}</th><th class="w-num">{t('Requests')}</th><th class="w-inh">{t('Inheritance')}</th></tr>
+              <tr><th>{t('Name')}</th><th class="w-state">{t('State')}</th><th class="w-num">{t('Access')}</th><th class="w-num">{t('Requests')}</th><th class="w-inh">{t('Inheritance')}</th></tr>
             </thead>
             <tbody>
               {#each pageLines as line (line.key)}
@@ -453,11 +489,18 @@
                       <span class={`tag ${groupTone(line.totals)}`}>{groupLabel(line.totals)}</span>
                     {/if}
                   </td>
+                  <td>
+                    {#if line.totals.read + line.totals.write > 0}
+                      <span class="br__people">{line.totals.read + line.totals.write}
+                        <span class="br__split"><i class="read" style={`flex:${line.totals.read}`}></i><i class="write" style={`flex:${line.totals.write}`}></i></span>
+                      </span>
+                    {:else}—{/if}
+                  </td>
                   <td>{line.row ? state?.pending || '—' : line.totals.pending || '—'}</td>
                   <td class="muted">{line.row ? (line.row.inheritance_broken === true ? t('Disabled') : t('Inherited')) : ''}</td>
                 </tr>
               {:else}
-                <tr><td colspan="4" class="br__empty">{t('No folder matches your search.')}</td></tr>
+                <tr><td colspan="5" class="br__empty">{t('No folder matches your search.')}</td></tr>
               {/each}
             </tbody>
           </table>
@@ -484,6 +527,8 @@
         <dl>
           <div><dt>{t('Zone')}</dt><dd>{zoneName(selectedRow)}</dd></div>
           <div><dt>{t('Server')}</dt><dd>{serverName(selectedRow)}</dd></div>
+          <div><dt>{t('Read')}</dt><dd>{grantsOf(grants, selectedRow).read}</dd></div>
+          <div><dt>{t('Modify')}</dt><dd>{grantsOf(grants, selectedRow).write}</dd></div>
           <div><dt>{t('Requests')}</dt><dd>{selectedState.pending}</dd></div>
           <div><dt>{t('Inheritance')}</dt><dd>{selectedRow.inheritance_broken === true ? t('Disabled') : t('Inherited')}</dd></div>
         </dl>
@@ -506,6 +551,8 @@
           <div><dt>{t('To review')}</dt><dd>{scopeTotals.review}</dd></div>
           <div><dt>{t('Blocking')}</dt><dd>{scopeTotals.blocking}</dd></div>
           <div><dt>{t('Pending requests')}</dt><dd>{scopeTotals.pending}</dd></div>
+          <div><dt>{t('Read')}</dt><dd>{scopeTotals.read}</dd></div>
+          <div><dt>{t('Modify')}</dt><dd>{scopeTotals.write}</dd></div>
         </dl>
         {#if scopeTotals.review > 0 && filter !== 'review'}
           <button type="button" class="br__btn br__btn--primary" on:click={() => setFilter('review')}>{t('Show what needs action')}</button>
@@ -563,6 +610,12 @@
   .br__tile-top b { font-size: 22px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
   .br__tile code { font-family: var(--b2s-font-mono); font-size: 11px; color: var(--b2s-color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .br__tile-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 22px; font-size: 12px; }
+  .br__split { display: flex; gap: 3px; height: 6px; }
+  .br__split i { display: block; min-width: 0; border-radius: 3px; }
+  .br__split i.read { background: var(--b2s-color-info); }
+  .br__split i.write { background: var(--b2s-color-warning); }
+  .br__people { display: flex; align-items: center; gap: 8px; }
+  .br__people .br__split { flex: 1; max-width: 50px; }
   .br__more { align-self: center; }
   .br__panel { background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border); border-radius: 18px; box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06); }
   .br__table { overflow: hidden; }
@@ -573,7 +626,7 @@
   .br__table tbody tr:hover td { background: var(--b2s-color-surface-soft); }
   .br__table tbody tr.sel td { background: var(--b2s-accent-soft); }
   .w-state { width: 200px; }
-  .w-num { width: 100px; }
+  .w-num { width: 96px; }
   .w-inh { width: 110px; }
   .muted { font-size: 12px; color: var(--b2s-color-text-muted); }
   .br__cell { display: flex; align-items: center; gap: 6px; min-width: 0; }

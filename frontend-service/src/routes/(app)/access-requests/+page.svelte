@@ -71,6 +71,9 @@
   let createPrefillStorageRootId: number | null = null;
   let createPrefillAccessLevel: string | null = null;
   let createPrefillPrincipal: PrincipalSearchItem | null = null;
+  let checkedIds = new Set<number>();
+  let bulkDecisionAsked: 'approve' | 'reject' | null = null;
+  let bulkRunning = false;
   let requestParamId: number | null = null;
   let lastAutoSelectedRequestId: number | null = null;
 
@@ -194,6 +197,49 @@
     const target = requests.find((row) => accessRequestId(row) === requestParamId);
     if (target) selectRequest(target);
     else openRequest(requestParamId);
+  }
+
+  $: checkable = (row: any): boolean => isPending(row) && isReviewAllowed(row);
+  $: pageCheckable = pageRequests.filter(checkable);
+  $: allPageChecked = pageCheckable.length > 0 && pageCheckable.every((row) => checkedIds.has(accessRequestId(row)));
+  // A selection never outlives its rows (decided elsewhere, filtered by the API)
+  $: if (requests) {
+    const live = new Set(requests.filter(isPending).map(accessRequestId));
+    if ([...checkedIds].some((id) => !live.has(id))) checkedIds = new Set([...checkedIds].filter((id) => live.has(id)));
+  }
+
+  function toggleChecked(id: number): void {
+    if (checkedIds.has(id)) checkedIds.delete(id);
+    else checkedIds.add(id);
+    checkedIds = checkedIds;
+  }
+
+  function togglePage(): void {
+    const next = !allPageChecked;
+    for (const row of pageCheckable) {
+      if (next) checkedIds.add(accessRequestId(row));
+      else checkedIds.delete(accessRequestId(row));
+    }
+    checkedIds = checkedIds;
+  }
+
+  async function runBulkDecision(): Promise<void> {
+    if (!bulkDecisionAsked) return;
+    bulkRunning = true;
+    const ids = [...checkedIds];
+    try {
+      const result = await bulkDecision(fetch, ids, bulkDecisionAsked);
+      const failed = Number(result?.failed_ids?.length ?? 0);
+      if (failed > 0) toast.error(t('{ok} done, {failed} failed: open each failed request to see why.', { ok: ids.length - failed, failed }));
+      else toast.success(t('{count} requests processed.', { count: ids.length }));
+      checkedIds = new Set(result?.failed_ids ?? []);
+      await invalidateAll();
+    } catch {
+      toast.error(bulkDecisionAsked === 'approve' ? t('Approval failed.') : t('Rejection failed.'));
+    } finally {
+      bulkRunning = false;
+      bulkDecisionAsked = null;
+    }
   }
 
   const SEGMENTS: Segment[] = ['pending', 'applied', 'closed', 'all'];
@@ -466,12 +512,26 @@
     </button>
   </div>
 
+  {#if checkedIds.size > 0}
+    <div class="ar-bulk" role="status">
+      <strong>{t('{count} selected', { count: checkedIds.size })}</strong>
+      <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" on:click={() => (bulkDecisionAsked = 'approve')}>{t('Approve all')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (bulkDecisionAsked = 'reject')}>{t('Reject all')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (checkedIds = new Set())}>{t('Cancel')}</button>
+    </div>
+  {/if}
+
   <div class="ar-body">
   <section class="ar-list">
     <div class="b2s-table-wrap">
       <table class="b2s-table ar-table">
         <thead>
           <tr>
+            <th class="ar-check">
+              {#if pageCheckable.length > 0}
+                <input type="checkbox" aria-label={t('Select all')} checked={allPageChecked} on:change={togglePage} />
+              {/if}
+            </th>
             <th>{t('Requester')}</th>
             <th>{t('Resource')}</th>
             <th>{t('Access')}</th>
@@ -482,7 +542,7 @@
         <tbody>
           {#if pageRequests.length === 0}
             <tr>
-              <td colspan="5" class="ar-empty">
+              <td colspan="6" class="ar-empty">
                 {segment === 'pending' ? t('No request is waiting for a review.') : t('No request matches these filters.')}
               </td>
             </tr>
@@ -495,6 +555,16 @@
                 on:click={() => selectRequest(request)}
                 on:keydown={(event) => event.key === 'Enter' && selectRequest(request)}
               >
+                <td class="ar-check" on:click|stopPropagation on:keydown|stopPropagation>
+                  {#if checkable(request)}
+                    <input
+                      type="checkbox"
+                      aria-label={t('Select {name}', { name: requesterName(request) })}
+                      checked={checkedIds.has(accessRequestId(request))}
+                      on:change={() => toggleChecked(accessRequestId(request))}
+                    />
+                  {/if}
+                </td>
                 <td>
                   <div class="ar-person">
                     <span class="ar-avatar">{initials(requesterName(request), '??')}</span>
@@ -724,6 +794,19 @@
   busy={decisionRunning === 'revoke'}
 />
 
+<ConfirmActionModal
+  open={Boolean(bulkDecisionAsked)}
+  onClose={() => (bulkDecisionAsked = null)}
+  onConfirm={runBulkDecision}
+  title={bulkDecisionAsked === 'reject' ? t('Reject {count} requests?', { count: checkedIds.size }) : t('Approve {count} requests?', { count: checkedIds.size })}
+  impactItems={[bulkDecisionAsked === 'reject' ? t('The requesters are told their request was refused.') : t('Each person is added to the AD group of the folder.')]}
+  severity={bulkDecisionAsked === 'reject' ? 'danger' : 'warning'}
+  confirmVariant={bulkDecisionAsked === 'reject' ? 'danger' : 'primary'}
+  confirmLabel={bulkDecisionAsked === 'reject' ? t('Reject all') : t('Approve all')}
+  confirmBusyLabel={t('Processing…')}
+  busy={bulkRunning}
+/>
+
 <NewAccessRequestModal
   open={showCreateRequestModal}
   prefillStorageRootId={createPrefillStorageRootId}
@@ -857,6 +940,25 @@
 
   .ar-export {
     margin-left: auto;
+  }
+
+  .ar-bulk {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 18px;
+    background: var(--b2s-color-text);
+    color: #fff;
+  }
+
+  .ar-bulk strong {
+    flex: 1;
+    font-weight: 600;
+  }
+
+  .ar-check {
+    width: 44px;
   }
 
   .ar-body {

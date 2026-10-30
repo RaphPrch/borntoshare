@@ -33,7 +33,8 @@
   let statusFilter: 'active' | 'open' | 'acknowledged' | 'resolved' | 'all' = 'active';
   let severityFilter = initialSeverity || 'all';
   let zoneFilter = 'all';
-  let grouped = false;
+  // By type first: a filter coming from the overview shows the alerts themselves
+  let grouped = !initialType && (initialSeverity || 'all') === 'all';
   let zones: { id: number; name: string }[] = [];
   let page = 1;
   let pageSize = 25;

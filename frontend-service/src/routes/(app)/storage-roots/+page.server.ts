@@ -78,6 +78,9 @@ export const load: PageServerLoad = async (event) => {
     event
   ).catch(() => []);
 
+  // Accesses granted through requests (the API filters by role): volumes and end dates of the folders home
+  const accessRequestsRaw = await apiServerGetList('/access-requests', event).catch(() => []);
+
   const normalizeId = (v: unknown) => String(v ?? '').trim().toLowerCase();
   const meId = normalizeId(typedUser?.id);
 
@@ -152,6 +155,7 @@ export const load: PageServerLoad = async (event) => {
     tags: (tagsRaw as unknown[]) ?? [],
     endpoints: (endpointsRaw as StorageRootEndpointSummary[]) ?? [],
     storageRootAlerts: (storageRootAlertsRaw as unknown[]) ?? [],
+    accessRequests: (accessRequestsRaw as unknown[]) ?? [],
     storageRootActivity,
     storageRootActivityRootId: selectedStorageRootId > 0 ? selectedStorageRootId : null,
   };
