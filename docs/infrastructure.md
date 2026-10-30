@@ -43,6 +43,16 @@ Exécuté par les workers, 6 h par défaut. Trois parties, activables séparéme
 
 Le premier data sync a lieu un intervalle après l'installation, pas au premier démarrage.
 
+## Secrets et sauvegarde
+
+Les mots de passe des annuaires et des serveurs de fichiers sont chiffrés sur disque par le secret broker, dans
+`secret-broker/secrets` (monté sur `/data/secrets`, ignoré par git). La base ne garde que leur référence `sm://…`.
+Ils survivent donc au redémarrage et à la recréation des conteneurs.
+
+Une sauvegarde complète comprend **trois éléments** : la base, le dossier `secret-broker/secrets` et `B2S_SECRET_MASTER_KEY`
+(`.env`), à conserver séparément. Sans le dossier ou sans la clé, les références restent en base mais les mots de passe sont perdus :
+les annuaires passent en panne (« mot de passe illisible ») jusqu'à leur nouvelle saisie.
+
 ## Base de données
 
 core-service ne peut pas lire la connexion à sa base dans cette même base : elle est écrite dans
