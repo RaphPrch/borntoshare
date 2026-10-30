@@ -3173,7 +3173,7 @@
   "Nothing to do": "Rien à traiter",
   "{servers} servers · {count} to review": "{servers} serveur(s) · {count} à traiter",
   "{count} to review": "{count} à traiter",
-  "{folders} folders · {servers} servers · {zones} zones — {count} to review": "{folders} dossiers · {servers} serveurs · {zones} zones — {count} à traiter",
+  "{folders} folders · {servers} servers · {zones} zones — {count} to review": "{folders} dossier(s) · {servers} serveur(s) · {zones} zone(s) — {count} à traiter",
   "Search all folders": "Rechercher dans tous les dossiers",
   "Search all folders…": "Rechercher parmi tous les dossiers…",
   "Tiles": "Tuiles",
@@ -3191,5 +3191,12 @@
   "All folders": "Tous les dossiers",
   "{count} folders out of {total} need action.": "{count} dossier(s) sur {total} demandent une action.",
   "Show what needs action": "Voir ce qui est à traiter",
-  "No folder matches your search.": "Aucun dossier ne correspond."
+  "No folder matches your search.": "Aucun dossier ne correspond.",
+  "{pending} to review · {applied} applied · {expiring} ending within 7 days": "{pending} à traiter · {applied} appliquée(s) · {expiring} se termine(nt) sous 7 jours",
+  "Waiting": "Attente",
+  "Decision": "Décision",
+  "requests write access to": "demande à modifier",
+  "requests read access to": "demande à lire",
+  "requests access to": "demande un accès à",
+  "Select a request to see what its approval does.": "Sélectionnez une demande pour voir ce que sa validation déclenche."
 }

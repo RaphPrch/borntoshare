@@ -2,13 +2,9 @@
   import type { PrincipalSearchItem } from '$lib/utils/principal-search';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
-  import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import SearchField from '$lib/components/ui/SearchField.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
-  import Drawer from '$lib/components/ui/Drawer.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { t } from '$lib/i18n';
   import { goto, invalidateAll } from '$app/navigation';
@@ -434,57 +430,44 @@
 </script>
 
 <div class="ar-page">
-  <PageHeader
-    title={t('Access requests')}
-    subtitle={canReviewAny ? t('Review, approve and follow governed access to storage roots.') : t('Follow the status of your access requests.')}
-  >
-    <svelte:fragment slot="actions">
-      <button type="button" class="b2s-btn b2s-btn-primary" on:click={openCreateRequestModal}>
-        <i class="bi bi-plus-lg" aria-hidden="true"></i>
-        {t('New request')}
-      </button>
-    </svelte:fragment>
-  </PageHeader>
-
-  <section class="b2s-kpi-grid ar-kpis" aria-label={t('Access requests summary')}>
-    <KpiCard
-      label={canReviewAny ? t('Awaiting review') : t('Pending')}
-      value={pendingRows.length}
-      hint={pendingRows.length > 0 ? t('Oldest: {age}', { age: timeAgo(new Date(oldestPendingMs).toISOString()) }) : t('Nothing to review')}
-      icon="bi-inbox"
-      tone="warning"
-    />
-    <KpiCard label={t('Applied')} value={appliedRows.length} hint={t('{count} in the last 30 days', { count: appliedRecent })} icon="bi-check2-circle" tone="success" />
-    <KpiCard label={t('Rejected or failed')} value={rejectedCount} hint={t('{count} closed in total', { count: closedRows.length })} icon="bi-x-circle" tone="danger" />
-    <KpiCard label={t('Expiring within 7 days')} value={expiringSoon} hint={t('Access ends soon')} icon="bi-clock-history" tone="warning" />
-  </section>
-
-  <section class="b2s-panel ar-list">
-    <div class="ar-toolbar">
-      <div class="b2s-segments" role="tablist" aria-label={t('Request status')}>
-        {#each SEGMENTS as key}
-          <button type="button" role="tab" aria-selected={segment === key} class:is-active={segment === key} on:click={() => selectSegment(key)}>
-            {segmentLabel(key)} <span>{segmentCounts[key]}</span>
-          </button>
-        {/each}
-      </div>
-      <SearchField
-        wrapperClass="ar-search"
-        placeholder={t('Search requester, resource, path…')}
-        ariaLabel={t('Search access requests')}
-        bind:value={searchText}
-      />
-      <select class="b2s-select" bind:value={accessFilter} aria-label={t('Access')}>
-        <option value="all">{t('All access')}</option>
-        <option value="read">{t('Read')}</option>
-        <option value="write">{t('Write')}</option>
-      </select>
-      <button type="button" class="b2s-btn b2s-btn-secondary ar-export" on:click={exportRequests} disabled={visibleRequests.length === 0}>
-        <i class="bi bi-download" aria-hidden="true"></i>
-        {t('Export')}
-      </button>
+  <header class="ar-head">
+    <div class="ar-title">
+      <h1>{t('Access requests')}</h1>
+      <p>
+        {t('{pending} to review · {applied} applied · {expiring} ending within 7 days', { pending: pendingRows.length, applied: appliedRows.length, expiring: expiringSoon })}{#if pendingRows.length > 0}{' · '}{t('Oldest: {age}', { age: timeAgo(new Date(oldestPendingMs).toISOString()) })}{/if}
+      </p>
     </div>
+    <label class="ar-search">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input type="search" aria-label={t('Search access requests')} placeholder={t('Search requester, resource, path…')} bind:value={searchText} />
+    </label>
+    <button type="button" class="b2s-btn b2s-btn-primary" on:click={openCreateRequestModal}>
+      <i class="bi bi-plus-lg" aria-hidden="true"></i>
+      {t('New request')}
+    </button>
+  </header>
 
+  <div class="ar-filters">
+    <div class="ar-seg" role="tablist" aria-label={t('Request status')}>
+      {#each SEGMENTS as key}
+        <button type="button" role="tab" aria-selected={segment === key} class:on={segment === key} on:click={() => selectSegment(key)}>
+          {segmentLabel(key)} <span>{segmentCounts[key]}</span>
+        </button>
+      {/each}
+    </div>
+    <div class="ar-chips" role="group" aria-label={t('Access')}>
+      {#each [{ key: 'all', label: t('All access') }, { key: 'read', label: t('Read') }, { key: 'write', label: t('Write') }] as item}
+        <button type="button" class:on={accessFilter === item.key} aria-pressed={accessFilter === item.key} on:click={() => (accessFilter = item.key as typeof accessFilter)}>{item.label}</button>
+      {/each}
+    </div>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm ar-export" on:click={exportRequests} disabled={visibleRequests.length === 0}>
+      <i class="bi bi-download" aria-hidden="true"></i>
+      {t('Export')}
+    </button>
+  </div>
+
+  <div class="ar-body">
+  <section class="ar-list">
     <div class="b2s-table-wrap">
       <table class="b2s-table ar-table">
         <thead>
@@ -492,16 +475,14 @@
             <th>{t('Requester')}</th>
             <th>{t('Resource')}</th>
             <th>{t('Access')}</th>
-            <th>{t('Duration')}</th>
-            <th>{t('Status')}</th>
-            <th>{t('Requested')}</th>
-            <th><span class="visually-hidden">{t('Open')}</span></th>
+            {#if segment !== 'pending'}<th>{t('Status')}</th>{/if}
+            <th>{segment === 'pending' ? t('Waiting') : t('Requested')}</th>
           </tr>
         </thead>
         <tbody>
           {#if pageRequests.length === 0}
             <tr>
-              <td colspan="7" class="ar-empty">
+              <td colspan="5" class="ar-empty">
                 {segment === 'pending' ? t('No request is waiting for a review.') : t('No request matches these filters.')}
               </td>
             </tr>
@@ -530,13 +511,12 @@
                 <td>
                   <StatusBadge compact showDot={false} variant={accessKind(request) === 'write' ? 'warning' : 'info'} label={accessLabel(request)} />
                 </td>
-                <td class="ar-nowrap">{durationLabel(request)}</td>
-                <td><StatusBadge compact variant={requestToneVariant(meta.tone)} label={meta.label} /></td>
-                <td class="ar-nowrap">
-                  {formatDateTime(request.created_at)}
-                  <small>{timeAgo(request.created_at)}</small>
+                {#if segment !== 'pending'}
+                  <td><StatusBadge compact variant={requestToneVariant(meta.tone)} label={meta.label} /></td>
+                {/if}
+                <td class="ar-nowrap" class:ar-late={isPending(request) && now - createdMs(request) > 3 * DAY} title={formatDateTime(request.created_at)}>
+                  {timeAgo(request.created_at)}
                 </td>
-                <td class="ar-chevron"><i class="bi bi-chevron-right" aria-hidden="true"></i></td>
               </tr>
             {/each}
           {/if}
@@ -547,24 +527,28 @@
       <Pagination total={visibleRequests.length} bind:page={listPage} bind:pageSize={listPageSize} pageSizes={[10, 25, 50]} />
     {/if}
   </section>
-</div>
-
-<Drawer
-  open={Boolean(selectedRequest)}
-  size="lg"
-  iconClass="bi bi-file-earmark-lock"
-  title={selectedRequest ? `${requesterName(selectedRequest)} → ${resourceName(selectedRequest)}` : ''}
-  subtitle={selectedRequest ? t('Access request {code}', { code: requestCode(selectedRequest) }) : null}
-  ariaLabelledby="access-request-drawer-title"
-  onClose={closeDetail}
->
-  <svelte:fragment slot="header-meta">
-    {#if selectedRequest}
+<aside class="ar-side" aria-label={t('Decision')}>
+  {#if selectedRequest}
+    <div class="ar-side-head">
+      <div class="ar-person">
+        <span class="ar-avatar ar-avatar--lg">{initials(requesterName(selectedRequest), '??')}</span>
+        <div>
+          <strong>{requesterName(selectedRequest)}</strong>
+          <small class="ar-mono">{requestCode(selectedRequest)}</small>
+        </div>
+      </div>
+      <button type="button" class="ar-close" aria-label={t('Close')} on:click={closeDetail}><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </div>
+    <p class="ar-sentence">
+      {accessKind(selectedRequest) === 'write' ? t('requests write access to') : accessKind(selectedRequest) === 'read' ? t('requests read access to') : t('requests access to')}
+      <strong>{resourceName(selectedRequest)}</strong>
+    </p>
+    <div class="ar-badges">
       <StatusBadge compact variant={requestToneVariant(statusMeta(selectedRequest).tone)} label={statusMeta(selectedRequest).label} />
       <StatusBadge compact showDot={false} variant={accessKind(selectedRequest) === 'write' ? 'warning' : 'info'} label={accessLabel(selectedRequest)} />
       <StatusBadge compact showDot={false} variant="muted" label={durationLabel(selectedRequest)} />
-    {/if}
-  </svelte:fragment>
+    </div>
+  {/if}
 
   {#if selectedRequest}
     <div class="ar-detail">
@@ -599,16 +583,6 @@
       <section>
         <h3>{t('Request')}</h3>
         <dl class="b2s-kv">
-          <dt>{t('Requester')}</dt>
-          <dd>
-            <span class="ar-person">
-              <span class="ar-avatar">{initials(requesterName(selectedRequest), '??')}</span>
-              <span>
-                <strong>{requesterName(selectedRequest)}</strong>
-                {#if requesterDepartment(selectedRequest)}<small>{requesterDepartment(selectedRequest)}</small>{/if}
-              </span>
-            </span>
-          </dd>
           <dt>{t('Resource')}</dt>
           <dd>{resourceName(selectedRequest)} {#if resourcePath(selectedRequest)}<span class="ar-mono">{resourcePath(selectedRequest)}</span>{/if}</dd>
           <dt>{t('Access')}</dt>
@@ -691,7 +665,9 @@
     </div>
   {/if}
 
-  <svelte:fragment slot="footer-start">
+  {#if selectedRequest}
+  <div class="ar-side-foot">
+  <p class="ar-foot-note">
     {#if selectedRequest && canReviewSelected}
       {t('You can decide on this request.')}
     {:else if selectedRequest && isPending(selectedRequest)}
@@ -699,8 +675,8 @@
     {:else if canRevokeSelected}
       {t('Revoking removes the AD group membership now.')}
     {/if}
-  </svelte:fragment>
-  <svelte:fragment slot="footer">
+  </p>
+  <div class="ar-foot-actions">
     {#if canReviewSelected}
       <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={Boolean(decisionRunning)} on:click={() => runDecision('reject')}>
         <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -723,10 +699,18 @@
           {t('Revoke access')}
         </button>
       {/if}
-      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={closeDetail}>{t('Close')}</button>
     {/if}
-  </svelte:fragment>
-</Drawer>
+  </div>
+  </div>
+  {:else}
+    <div class="ar-side-empty">
+      <i class="bi bi-inbox" aria-hidden="true"></i>
+      <p>{t('Select a request to see what its approval does.')}</p>
+    </div>
+  {/if}
+</aside>
+  </div>
+</div>
 
 <ConfirmActionModal
   open={showRevokeConfirm}
@@ -751,48 +735,262 @@
 
 <style>
   .ar-page {
-    display: grid;
-    gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
     padding: var(--b2s-page-padding);
   }
 
-  .ar-kpis {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  @media (max-width: 1100px) {
-    .ar-kpis {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  .ar-toolbar {
+  .ar-head {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-end;
     gap: 12px;
-    padding: 14px 16px;
-    border-bottom: 1px solid #eef2f7;
   }
 
-  .ar-toolbar :global(.ar-search) {
-    flex: 1 1 260px;
-    max-width: 360px;
-    height: 40px;
-    padding: 0 12px;
-    border-radius: var(--b2s-radius-sm);
+  .ar-title {
+    flex: 1 1 320px;
+    min-width: 0;
   }
 
-  .ar-toolbar :global(.ar-search input) {
-    width: 100%;
-    border: none;
-    outline: none;
+  .ar-title h1 {
+    margin: 0;
+    font-size: 38px;
+    line-height: 1.05;
+    font-weight: 600;
+    letter-spacing: -.03em;
+  }
+
+  .ar-title p {
+    margin: 6px 0 0;
+    color: var(--b2s-color-text-muted);
+    font-size: 15px;
+  }
+
+  .ar-search {
+    flex: 0 1 340px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    margin: 0;
+    padding: 0 14px;
+    border-radius: 12px;
+    background: var(--b2s-color-surface);
+    border: 1px solid var(--b2s-color-border-strong);
+    color: var(--b2s-color-text-muted);
+  }
+
+  .ar-search:focus-within {
+    border-color: var(--b2s-color-text);
+  }
+
+  .ar-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
     background: transparent;
-    font-size: var(--b2s-fs-sm);
+    color: var(--b2s-color-text);
+    font: inherit;
+  }
+
+  .ar-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ar-seg {
+    display: inline-flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 12px;
+    background: var(--b2s-color-neutral-soft);
+  }
+
+  .ar-seg button {
+    min-height: 38px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--b2s-color-text-muted);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .ar-seg button.on {
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-text);
+    box-shadow: 0 1px 2px rgba(14, 18, 24, .12);
+  }
+
+  .ar-seg span {
+    font-size: 12px;
+    color: var(--b2s-color-text-muted);
+  }
+
+  .ar-chips {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ar-chips button {
+    min-height: 36px;
+    padding: 0 13px;
+    border-radius: 999px;
+    border: 1px solid var(--b2s-color-border-strong);
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-text-muted);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .ar-chips button.on {
+    background: var(--b2s-color-text);
+    border-color: var(--b2s-color-text);
+    color: #fff;
+    font-weight: 600;
   }
 
   .ar-export {
     margin-left: auto;
+  }
+
+  .ar-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  .ar-list,
+  .ar-side {
+    background: var(--b2s-color-surface);
+    border: 1px solid var(--b2s-color-border);
+    border-radius: 18px;
+    box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06);
+  }
+
+  .ar-list {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .ar-side {
+    flex: 0 0 420px;
+    position: sticky;
+    top: 16px;
+    /* Below the page head: the decision buttons stay on screen without scrolling the page */
+    max-height: calc(100vh - 190px);
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ar-side-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ar-side-head strong {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .ar-close {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--b2s-color-text-muted);
+    cursor: pointer;
+  }
+
+  .ar-close:hover {
+    background: var(--b2s-color-neutral-soft);
+  }
+
+  .ar-sentence {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.3;
+    letter-spacing: -.01em;
+  }
+
+  .ar-sentence strong {
+    font-weight: 600;
+  }
+
+  .ar-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ar-side-foot {
+    position: sticky;
+    bottom: -20px;
+    margin: 0 -20px -20px;
+    padding: 12px 20px 16px;
+    background: var(--b2s-color-surface);
+    border-top: 1px solid var(--b2s-color-border);
+  }
+
+  .ar-foot-note {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--b2s-color-text-muted);
+  }
+
+  .ar-foot-note:empty {
+    display: none;
+  }
+
+  .ar-foot-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .ar-foot-actions:empty {
+    display: none;
+  }
+
+  .ar-side-empty {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    padding: 56px 24px;
+    text-align: center;
+    color: var(--b2s-color-text-muted);
+  }
+
+  .ar-side-empty i {
+    font-size: 26px;
+  }
+
+  .ar-side-empty p {
+    margin: 0;
+  }
+
+  .ar-late {
+    color: var(--b2s-color-danger);
+    font-weight: 600;
+  }
+
+  .ar-avatar--lg {
+    width: 48px;
+    height: 48px;
+    font-size: 15px;
   }
 
   .ar-table tbody tr {
@@ -818,12 +1016,6 @@
 
   .ar-nowrap {
     white-space: nowrap;
-  }
-
-  .ar-chevron {
-    width: 1%;
-    color: var(--b2s-color-text-faint);
-    text-align: right;
   }
 
   .ar-empty {
@@ -853,10 +1045,10 @@
     display: grid;
     place-items: center;
     border-radius: var(--b2s-radius-pill);
-    background: #e0e7ff;
-    color: #3730a3;
-    font-size: 12px;
-    font-weight: 700;
+    background: var(--b2s-color-neutral-soft);
+    color: var(--b2s-color-text);
+    font-size: 11px;
+    font-weight: 600;
   }
 
   .ar-detail {
@@ -872,7 +1064,7 @@
 
   .ar-progress {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin: 0;
     padding: 0;
     list-style: none;
@@ -888,8 +1080,12 @@
     font-size: var(--b2s-fs-xs);
   }
 
-  .ar-progress li + li {
-    border-left: 1px solid #eef2f7;
+  .ar-progress li:nth-child(even) {
+    border-left: 1px solid var(--b2s-color-border-soft);
+  }
+
+  .ar-progress li:nth-child(n + 3) {
+    border-top: 1px solid var(--b2s-color-border-soft);
   }
 
   .ar-progress span {
@@ -920,7 +1116,6 @@
   .ar-quote {
     margin: 0;
     padding: 12px 14px;
-    border-left: 3px solid #c7d2fe;
     border-radius: var(--b2s-radius-sm);
     background: var(--b2s-color-surface-soft);
     font-size: var(--b2s-fs-sm);
