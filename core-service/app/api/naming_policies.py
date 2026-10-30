@@ -21,6 +21,7 @@ from app.services.naming_policy import (
     serialize_rootcode_strategy_for_storage,
     validate_template_tokens,
 )
+from app.services.authorization import admin_or_internal
 
 router = APIRouter(prefix="/naming-policies", tags=["naming_policies"])
 
@@ -240,7 +241,7 @@ class NamingRootsPreviewPayload(BaseModel):
     limit: int = Field(default=3, ge=1, le=10)
 
 
-@router.post("/preview-roots")
+@router.post("/preview-roots", dependencies=[Depends(admin_or_internal)])
 def preview_root_groups(payload: NamingRootsPreviewPayload, db: Session = Depends(get_db)):
     """READ / WRITE group names of a few real storage roots of a file server or a zone.
 
@@ -298,7 +299,7 @@ def preview_root_groups(payload: NamingRootsPreviewPayload, db: Session = Depend
     return ui_data({"items": items, "existing_groups": int(existing or 0)})
 
 
-@router.post("/preview")
+@router.post("/preview", dependencies=[Depends(admin_or_internal)])
 def preview_group_name(payload: NamingPreviewPayload, db: Session = Depends(get_db)):
     try:
         storage_root_naming = (

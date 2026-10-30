@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import Depends, APIRouter
 from pydantic import BaseModel, Field
 
 from app.api._helpers import ui_data
 from app.services.probe_service import fetch_probe_job, submit_probe_run
 
+from app.services.authorization import admin_or_guardian
 
 router = APIRouter(prefix="/probes", tags=["probes"])
 
@@ -23,7 +24,7 @@ class ProbeRunRequest(BaseModel):
     context: dict[str, Any] | None = None
 
 
-@router.post("/run")
+@router.post("/run", dependencies=[Depends(admin_or_guardian)])
 async def run_probe(payload: ProbeRunRequest) -> dict[str, Any]:
     data = await submit_probe_run(payload.model_dump())
     return ui_data(data)

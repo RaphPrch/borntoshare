@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.internal_auth import require_internal_token
 from app.api._helpers import ui_action, ui_data
+from app.services.authorization import admin_or_internal
 
 router = APIRouter(prefix="/admin", tags=["advanced-settings"])
 
@@ -97,7 +98,7 @@ def get_advanced_config(db: Session = Depends(get_db)):
     return ui_data(_read_payload(db))
 
 
-@router.post("/config/advanced")
+@router.post("/config/advanced", dependencies=[Depends(admin_or_internal)])
 def save_advanced_config(payload: dict, db: Session = Depends(get_db)):
     from app.services.log_retention import apply_log_level
 

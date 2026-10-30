@@ -6,7 +6,7 @@ import time
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response, status
+from fastapi import Depends, APIRouter, HTTPException, Query, Request, Response, status
 
 from app.api import provisioning_internal
 from app.core.direct_call import call_route
@@ -19,7 +19,7 @@ from app.services.identity_capsule_payloads import (
     infer_identity_source_id_from_group_ref,
 )
 from app.services.audit_logger import log_event
-from app.services.authorization import actor_from_request, require_admin
+from app.services.authorization import actor_from_request, admin_only, require_admin
 from app.services.provisioning_context import build_provisioning_context
 from app.services.provisioning_jobs import create_and_publish_job
 
@@ -654,7 +654,7 @@ async def list_admin_jobs(
     return ui_list(items)
 
 
-@router.post("/admin/jobs/{job_id}/cancel")
+@router.post("/admin/jobs/{job_id}/cancel", dependencies=[Depends(admin_only)])
 async def cancel_admin_job(job_id: int, request: Request):
     incoming = await request.json()
     payload = dict(incoming) if isinstance(incoming, dict) else {}

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import Depends, APIRouter, Request
 
 from app.api._helpers import ui_data, ui_list
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request
+from app.services.authorization import actor_from_request, admin_only, admin_or_guardian, signed_in_or_internal
 from app.services.identity_orchestration_service import (
     discover_identity as discover_identity_service,
     get_identity_job as get_identity_job_service,
@@ -22,7 +22,7 @@ from app.services.identity_orchestration_service import (
 router = APIRouter(prefix="/identity", tags=["identity-orchestration"])
 
 
-@router.post("/snapshots/run")
+@router.post("/snapshots/run", dependencies=[Depends(admin_only)])
 async def run_identity_snapshot(request: Request) -> dict[str, Any]:
     incoming = await request.json()
     data = await run_identity_snapshot_service(incoming, request.headers.get("x-request-id") or None)
@@ -42,7 +42,7 @@ async def run_identity_snapshot(request: Request) -> dict[str, Any]:
     return ui_data(data)
 
 
-@router.post("/search")
+@router.post("/search", dependencies=[Depends(signed_in_or_internal)])
 async def search_identity(request: Request) -> dict[str, Any]:
     incoming = await request.json()
     data = await search_identity_service(incoming)
@@ -55,28 +55,28 @@ async def list_identity_overview(request: Request) -> dict[str, Any]:
     return ui_list(items)
 
 
-@router.patch("/{identity_id}")
+@router.patch("/{identity_id}", dependencies=[Depends(admin_only)])
 async def update_identity(identity_id: int, request: Request) -> dict[str, Any]:
     payload = await request.json()
     data = await update_identity_service(identity_id, payload, request)
     return ui_data(data)
 
 
-@router.post("/import/ad")
+@router.post("/import/ad", dependencies=[Depends(admin_or_guardian)])
 async def import_identity_ad(request: Request) -> dict[str, Any]:
     incoming = await request.json()
     data = await import_identity_ad_service(incoming)
     return ui_data(data)
 
 
-@router.post("/import/ad/batch")
+@router.post("/import/ad/batch", dependencies=[Depends(admin_or_guardian)])
 async def import_identity_ad_batch(request: Request) -> dict[str, Any]:
     incoming = await request.json()
     data = await import_identity_ad_batch_service(incoming)
     return ui_data(data)
 
 
-@router.post("/discover")
+@router.post("/discover", dependencies=[Depends(admin_only)])
 async def discover_identity(request: Request) -> dict[str, Any]:
     incoming = await request.json()
     data = await discover_identity_service(incoming, request.headers.get("x-request-id") or None)

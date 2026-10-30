@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from app.api._helpers import ui_action
 from app.services.activity_bridge import create_activity_event as create_activity_event_db
 
+from app.services.authorization import signed_in_or_internal, stamp_actor
 
 router = APIRouter(prefix="/activity", tags=["activity"])
 
@@ -35,9 +36,9 @@ class ActivityEventCreate(BaseModel):
     correlation_id: str | None = None
 
 
-@router.post("/events")
-def create_activity_event_route(payload: ActivityEventCreate):
-    data = payload.model_dump(exclude_none=True)
+@router.post("/events", dependencies=[Depends(signed_in_or_internal)])
+def create_activity_event_route(payload: ActivityEventCreate, request: Request):
+    data = stamp_actor(request, payload.model_dump(exclude_none=True))
 
     ev = create_activity_event_db(data if isinstance(data, dict) else {})
     if not isinstance(ev, dict):

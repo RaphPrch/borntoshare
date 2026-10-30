@@ -12,7 +12,7 @@ from app.api._helpers import ui_action, ui_data, ui_list
 from app.schemas.zone import ZoneCreate, ZoneUpdate
 from app.data.repositories.zones_views_repo import ZonesViewsRepo
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request
+from app.services.authorization import actor_from_request, admin_or_internal
 
 router = APIRouter(prefix="/zones", tags=["zones"])
 
@@ -182,7 +182,7 @@ def get_zone_provisioning_policy(zone_id: int, db: Session = Depends(get_db)):
     return ui_data(dict(row), meta={"zone_id": int(zone_id)})
 
 
-@router.put("/{zone_id}/provisioning-policy")
+@router.put("/{zone_id}/provisioning-policy", dependencies=[Depends(admin_or_internal)])
 def put_zone_provisioning_policy(zone_id: int, payload: dict, db: Session = Depends(get_db)):
     if "naming_template" in (payload or {}):
         raise HTTPException(
@@ -254,7 +254,7 @@ def get_zone(zone_id: int, db: Session = Depends(get_db)):
 # WRITE MODEL (CRUD)
 # ============================================================
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_or_internal)])
 def create_zone(payload: ZoneCreate, db: Session = Depends(get_db), request: Request = None):
     data = payload.model_dump()
 
@@ -307,7 +307,7 @@ def create_zone(payload: ZoneCreate, db: Session = Depends(get_db), request: Req
     return ui_action(action_id=int(zone_id), message="zone.created")
 
 
-@router.patch("/{zone_id}")
+@router.patch("/{zone_id}", dependencies=[Depends(admin_or_internal)])
 def update_zone(zone_id: int, payload: ZoneUpdate, db: Session = Depends(get_db), request: Request = None):
     z = _get_zone_write_row(db, int(zone_id))
     if not z:
@@ -361,7 +361,7 @@ def update_zone(zone_id: int, payload: ZoneUpdate, db: Session = Depends(get_db)
     return ui_action(action_id=int(zone_id), message="zone.updated")
 
 
-@router.delete("/{zone_id}")
+@router.delete("/{zone_id}", dependencies=[Depends(admin_or_internal)])
 def delete_zone(zone_id: int, db: Session = Depends(get_db), request: Request = None):
     z = _get_zone_write_row(db, int(zone_id))
     if not z:

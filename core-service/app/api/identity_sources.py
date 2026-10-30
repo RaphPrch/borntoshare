@@ -26,7 +26,7 @@ from app.schemas.identity_sources import (
     IdentitySourceUpdate,
 )
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request
+from app.services.authorization import actor_from_request, admin_or_internal
 
 router = APIRouter(prefix="/identity-sources", tags=["identity_sources"])
 logger = get_logger("core.identity_sources")
@@ -293,7 +293,7 @@ def get_identity_source_internal(source_id: int, db: Session = Depends(get_db)):
     return ui_data(payload, meta={"source_id": int(source_id)})
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, summary="Create identity source")
+@router.post("", status_code=status.HTTP_201_CREATED, summary="Create identity source", dependencies=[Depends(admin_or_internal)])
 def create_identity_source(payload: IdentitySourceCreate, request: Request, db: Session = Depends(get_db)):
     available_columns = identity_source_columns(db)
     has_auth_enabled_col = "auth_enabled" in available_columns
@@ -384,7 +384,7 @@ def create_identity_source(payload: IdentitySourceCreate, request: Request, db: 
     return ui_action(action_id=int(src.id), message="identity_source.created")
 
 
-@router.delete("/{source_id}", summary="Delete identity source")
+@router.delete("/{source_id}", summary="Delete identity source", dependencies=[Depends(admin_or_internal)])
 def delete_identity_source(source_id: int, request: Request, db: Session = Depends(get_db)):
     src = _get_identity_source(db, source_id)
     if not src:
@@ -430,7 +430,7 @@ def delete_identity_source(source_id: int, request: Request, db: Session = Depen
     return ui_action(action_id=int(source_id), message="identity_source.deleted")
 
 
-@router.patch("/{source_id}", summary="Update identity source")
+@router.patch("/{source_id}", summary="Update identity source", dependencies=[Depends(admin_or_internal)])
 def update_identity_source(
     source_id: int,
     payload: IdentitySourceUpdate,

@@ -1,7 +1,7 @@
 import type { RequestEvent } from '@sveltejs/kit';
 
 import { buildInternalHeaders } from '../internal-token';
-import { getServiceBaseUrl, resolveDirectRoute } from '../service-routes';
+import { getServiceBaseUrl, resolveDirectRoute, stripApiPrefix } from '../service-routes';
 
 type BffMe = {
   id?: number | string | null;
@@ -40,7 +40,29 @@ function normalizeRoles(me: BffMe | null | undefined): string[] {
   return Array.from(new Set(normalized));
 }
 
+// Identity and service headers are only ever set here: whatever the client sends is dropped
+function dropTrustedHeaders(headers: Headers): void {
+  for (const name of [...headers.keys()]) {
+    if (
+      name === 'x-roles' ||
+      name === 'x-identity-id' ||
+      name === 'x-actor-display' ||
+      name.startsWith('x-internal-') ||
+      name.startsWith('x-service-')
+    ) {
+      headers.delete(name);
+    }
+  }
+}
+
+// Identity routes open to every signed-in user: core-service checks them (guardians pick people there)
+const IDENTITY_ROUTES_FOR_USERS = ['/identity/search', '/identity/import', '/identity/jobs'];
+
+/** `path`: the path the client asked for, not the upstream one (/admin/jobs is /governance/admin/jobs upstream). */
 function canAccessAdminRoutes(path: string, roles: string[]): boolean {
+  if (IDENTITY_ROUTES_FOR_USERS.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+    return true;
+  }
   if (path.startsWith('/storage-endpoints')) {
     return roles.includes('platform_admin');
   }
@@ -56,9 +78,6 @@ function canAccessAdminRoutes(path: string, roles: string[]): boolean {
     path.startsWith('/naming-policies') ||
     path.startsWith('/admin/')
   ) {
-    return roles.includes('platform_admin');
-  }
-  if (path === '/admin/jobs' || path.startsWith('/admin/jobs/')) {
     return roles.includes('platform_admin');
   }
   return true;
@@ -184,6 +203,7 @@ export async function proxyApi(event: RequestEvent): Promise<Response> {
 
   const headers = new Headers(request.headers);
   headers.delete('host');
+  dropTrustedHeaders(headers);
 
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', url.protocol.replace(':', ''));
@@ -195,7 +215,12 @@ export async function proxyApi(event: RequestEvent): Promise<Response> {
   const roles = normalizeRoles(me);
   const actorDisplay = String(me?.display_name ?? me?.username ?? '').trim();
 
-  if (!canAccessAdminRoutes(route.path, roles)) {
+  // Everything but the sign-in routes requires a session
+  if (!route.path.startsWith('/auth/') && !me) {
+    return jsonError(401, 'Authentication required', 'BFF_UNAUTHENTICATED', requestId);
+  }
+
+  if (!canAccessAdminRoutes(stripApiPrefix(url.pathname), roles)) {
     return jsonError(403, 'Forbidden', 'BFF_FORBIDDEN', requestId, { path: route.path });
   }
 

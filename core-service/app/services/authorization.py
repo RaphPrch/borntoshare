@@ -3,9 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from app.core.db import get_db
+from app.core.internal_auth import require_internal_token
 
 
 @dataclass(frozen=True)
@@ -223,3 +226,43 @@ def require_access_request_access(db: Session, actor: ActorContext, access_reque
 def require_access_request_review(db: Session, actor: ActorContext, access_request_id: int) -> None:
     if not can_review_request(db, actor, int(access_request_id)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="access request review forbidden")
+
+
+# ============================================================
+# Route dependencies: `dependencies=[Depends(...)]` on the write routes
+# ============================================================
+
+def admin_only(request: Request) -> None:
+    require_admin(actor_from_request(request))
+
+
+def admin_or_internal(request: Request) -> None:
+    """A platform admin, or a service with the internal token (auth-service calls these routes)."""
+    if can_access_admin(actor_from_request(request)):
+        return
+    try:
+        require_internal_token(request)
+    except HTTPException as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="platform_admin role required") from exc
+
+
+def admin_or_guardian(request: Request, db: Session = Depends(get_db)) -> None:
+    """A platform admin or the guardian of at least one storage root (the check per root stays in the route)."""
+    require_storage_roots_index(db, actor_from_request(request))
+
+
+def signed_in_or_internal(request: Request) -> None:
+    if actor_from_request(request).identity_id is not None:
+        return
+    try:
+        require_internal_token(request)
+    except HTTPException as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authentication required") from exc
+
+
+def stamp_actor(request: Request, data: dict[str, Any]) -> dict[str, Any]:
+    """An event sent on behalf of a user is theirs: the actor never comes from the payload."""
+    actor = actor_from_request(request)
+    if actor.identity_id is None:
+        return data
+    return {**data, "actor_type": "user", "actor_id": actor.identity_id, "actor_display": actor.display_name}

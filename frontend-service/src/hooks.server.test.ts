@@ -330,6 +330,87 @@ async function testApiProxyHydratesPrincipalBeforeForwarding() {
   assert(String(payload?.identity) === '501', 'api proxy should forward hydrated identity id');
 }
 
+async function callApi(
+  path: string,
+  init: { method?: string; headers?: Record<string, string>; roles?: string[] } = {}
+): Promise<{ status: number; forwarded: Headers | null; url: string | null }> {
+  const { handle, issuePrincipalCookieFromMe } = await createHandleDeps();
+  const cookies: CookieState = {};
+  if (init.roles) {
+    cookies.b2s_session = 'sid-601';
+    cookies.b2s_principal = await issuePrincipalCookieFromMe(
+      { id: 601, username: 'user', display_name: 'User', email: 'user@example.org', roles: init.roles, is_admin: init.roles.includes('platform_admin') },
+      900,
+      'hooks-test-key'
+    );
+  }
+  const { event } = createEvent(path, cookies);
+  event.request = new Request(`http://localhost${path}`, {
+    method: init.method ?? 'POST',
+    headers: { cookie: toCookieHeader(cookies), ...(init.headers ?? {}) },
+    body: (init.method ?? 'POST') === 'GET' ? undefined : '{}'
+  });
+  (event as any).getClientAddress = () => '127.0.0.1';
+
+  let forwarded: Headers | null = null;
+  let url: string | null = null;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, requestInit?: RequestInit) => {
+    forwarded = new Headers(requestInit?.headers);
+    url = String(input);
+    return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as any;
+  const response = await handle({ event, resolve: async () => new Response('ok') } as any);
+  globalThis.fetch = originalFetch;
+  return { status: response.status, forwarded, url };
+}
+
+const SPOOFED = {
+  'x-roles': 'platform_admin',
+  'x-identity-id': '1',
+  'x-actor-display': 'admin',
+  'x-internal-token': 'forged',
+  'x-service-name': 'forged',
+  'x-service-scope': 'forged'
+};
+
+async function testAnonymousNeverReachesServices() {
+  for (const path of ['/api/tags', '/api/tags/1/merge', '/api/storage-roots/1', '/api/identity/search', '/api/probes/run', '/api/activity/events']) {
+    const result = await callApi(path, { headers: SPOOFED });
+    assert(result.status === 401, `${path}: anonymous should get 401, got ${result.status}`);
+    assert(result.forwarded === null, `${path}: anonymous should not reach a service`);
+  }
+}
+
+async function testSignInRoutesStayPublicWithoutTrustedHeaders() {
+  const result = await callApi('/api/auth/login', { headers: SPOOFED });
+  assert(result.status === 200, 'sign-in should stay public');
+  for (const name of Object.keys(SPOOFED)) {
+    assert(result.forwarded?.get(name) === null, `${name} from the client should be dropped`);
+  }
+}
+
+async function testClientHeadersNeverOverrideTheSession() {
+  const result = await callApi('/api/tags/1/merge', { roles: ['user'], headers: SPOOFED });
+  assert(result.forwarded?.get('x-roles') === 'user', 'roles should come from the session');
+  assert(result.forwarded?.get('x-identity-id') === '601', 'identity should come from the session');
+  assert(result.forwarded?.get('x-internal-token') !== 'forged', 'a forged internal token should be dropped');
+
+  const noRoles = await callApi('/api/tags/1/merge', { roles: [], headers: SPOOFED });
+  assert(noRoles.forwarded?.get('x-roles') === null, 'a session without roles should not keep the client roles');
+}
+
+async function testAdminRoutesAreCheckedOnTheRequestedPath() {
+  for (const path of ['/api/admin/jobs/1/cancel', '/api/identity/snapshots/run', '/api/identity/discover', '/api/identity-sources/secret-ref', '/api/zones']) {
+    const user = await callApi(path, { roles: ['user'] });
+    assert(user.status === 403 && user.forwarded === null, `${path}: a user should get 403, got ${user.status}`);
+    const admin = await callApi(path, { roles: ['platform_admin'] });
+    assert(admin.status === 200 && admin.forwarded !== null, `${path}: an admin should pass, got ${admin.status}`);
+  }
+  const search = await callApi('/api/identity/search', { roles: ['user'] });
+  assert(search.status === 200, 'a signed-in user can search people (core-service checks the rest)');
+}
+
 async function run() {
   await testValidSnapshotSkipsAuthMe();
   await testAbsentSnapshotFallsBackToAuthMe();
@@ -337,6 +418,10 @@ async function run() {
   await testInvalidSnapshotFallsBackToAuthMe();
   await testUnauthenticatedRedirectKeepsQueryString();
   await testApiProxyHydratesPrincipalBeforeForwarding();
+  await testAnonymousNeverReachesServices();
+  await testSignInRoutesStayPublicWithoutTrustedHeaders();
+  await testClientHeadersNeverOverrideTheSession();
+  await testAdminRoutesAreCheckedOnTheRequestedPath();
 }
 
 run().catch((err) => {

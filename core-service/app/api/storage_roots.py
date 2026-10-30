@@ -25,6 +25,9 @@ from app.data.repositories.governance_alerts_repo import GovernanceAlertsRepo
 from app.api._helpers import ui_action, ui_data, ui_list
 from app.services.activity_log import log_activity
 from app.services.authorization import (
+    admin_only,
+    admin_or_guardian,
+
     actor_from_request,
     filter_storage_root_rows,
     require_admin,
@@ -805,6 +808,7 @@ def replace_storage_root_owners(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    require_storage_root_access(db, actor_from_request(request), int(storage_root_id))
     root = db.get(StorageRoot, storage_root_id)
     if root is None:
         raise HTTPException(
@@ -903,7 +907,7 @@ def list_storage_roots_effective_access(
     return ui_list(rows, meta={"count": int(len(rows))})
 
 
-@router.post("/discovery-sync", dependencies=[Depends(require_internal_token)])
+@router.post("/discovery-sync", dependencies=[Depends(admin_or_guardian), Depends(require_internal_token)])
 def sync_storage_root_discovery(
     payload: StorageRootDiscoverySyncPayload,
     db: Session = Depends(get_db),
@@ -1054,7 +1058,7 @@ def get_storage_root(
 # WRITE MODEL — CREATE
 # ============================================================
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_only)])
 async def create_root(
     payload: StorageRootCreate,
     request: Request,
@@ -1166,6 +1170,7 @@ def update_root(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    require_storage_root_access(db, actor_from_request(request), int(root_id))
     """
     Partial update of a storage root.
     """
@@ -1319,6 +1324,7 @@ def record_storage_root_probe_result(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    require_storage_root_access(db, actor_from_request(request), int(root_id))
     root = db.get(StorageRoot, int(root_id))
     if root is None:
         raise HTTPException(
@@ -1738,7 +1744,7 @@ async def delete_root_folder(root_id: int, payload: DeleteFolderPayload, request
     return ui_action(action_id=int(root_id), message="storage_root.folder_deleted")
 
 
-@router.delete("/{root_id}")
+@router.delete("/{root_id}", dependencies=[Depends(admin_only)])
 def delete_root(
     root_id: int,
     request: Request,

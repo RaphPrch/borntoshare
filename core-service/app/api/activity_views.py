@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.api._helpers import ui_action, ui_list
 from app.services.authorization import (
+    signed_in_or_internal,
+    stamp_actor,
+
     actor_from_request,
     require_access_request_access,
     require_observability,
@@ -109,10 +112,10 @@ def get_activity_by_actor(request: Request, actor_id: int, limit: int = 200):
     )
 
 
-@router.post("/events")
-def post_activity_event(payload: dict = Body(default_factory=dict)):
+@router.post("/events", dependencies=[Depends(signed_in_or_internal)])
+def post_activity_event(request: Request, payload: dict = Body(default_factory=dict)):
     # Accept a generic dict payload.
-    created = create_activity_event(payload if isinstance(payload, dict) else {})
+    created = create_activity_event(stamp_actor(request, payload if isinstance(payload, dict) else {}))
     if not isinstance(created, dict):
         return ui_action(ok=False, message="activity.event.create_failed")
     return ui_action(

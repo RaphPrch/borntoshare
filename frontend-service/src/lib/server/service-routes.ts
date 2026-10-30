@@ -29,7 +29,7 @@ function governanceRoute(path: string): DirectRoute {
   return { service: 'core', path: `/governance${path}`, internal: true };
 }
 
-function stripApiPrefix(pathname: string): string {
+export function stripApiPrefix(pathname: string): string {
   if (pathname === '/api') return '/';
   if (pathname.startsWith('/api/')) return pathname.slice(4) || '/';
   return pathname.startsWith('/') ? pathname : `/${pathname}`;

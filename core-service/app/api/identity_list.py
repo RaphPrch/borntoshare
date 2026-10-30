@@ -14,7 +14,7 @@ from app.api.internal_auth_local import _hash_b2s_password
 from app.api._helpers import ui_data, ui_list
 from app.schemas.identity_search import IdentitySearchRequest
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request
+from app.services.authorization import actor_from_request, admin_or_internal
 
 
 router = APIRouter(prefix="/identity", tags=["identity"])
@@ -442,7 +442,7 @@ def list_identity_overview(
     )
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(admin_or_internal)])
 async def create_identity(
     request: Request,
     payload: dict[str, Any] = Body(default={}),
@@ -953,7 +953,7 @@ def list_identity_group_members(
     )
 
 
-@router.delete("/{identity_id}")
+@router.delete("/{identity_id}", dependencies=[Depends(admin_or_internal)])
 async def delete_identity(
     identity_id: int,
     request: Request,
@@ -1150,7 +1150,7 @@ async def search_identity_overview(
     )
 
 
-@router.patch("/{identity_id}")
+@router.patch("/{identity_id}", dependencies=[Depends(admin_or_internal)])
 async def update_identity(
     identity_id: int,
     request: Request,
