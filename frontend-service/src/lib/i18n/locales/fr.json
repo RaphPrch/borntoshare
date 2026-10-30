@@ -1655,6 +1655,10 @@
       "detached": {
         "title": "Tag détaché",
         "description": "Le tag « {tag} » a été détaché de la ressource « {resource} »"
+      },
+      "merged": {
+        "title": "Tags fusionnés",
+        "description": "Un tag a été fusionné dans « {target} »"
       }
     },
     "storage_root": {
@@ -3228,5 +3232,16 @@
   "{count} granted accesses": "{count} accès accordé(s)",
   "Granted through requests": "Accordés par demande",
   "{total} directories · {healthy} healthy · {issues} with issues · {never} never synced": "{total} annuaire(s) · {healthy} sain(s) · {issues} en anomalie · {never} jamais synchronisé(s)",
-  "Processing…": "Traitement…"
+  "Processing…": "Traitement…",
+  "Family": "Famille",
+  "No family": "Sans famille",
+  "e.g. Sensitivity": "ex. Sensibilité",
+  "Merge with…": "Fusionner avec…",
+  "Merge {name} with another tag": "Fusionner {name} avec un autre tag",
+  "Tag to keep": "Tag à conserver",
+  "Choose a tag…": "Choisir un tag…",
+  "{count} folders move to {target}, then {source} is deleted. This cannot be undone.": "{count} dossier(s) passent à {target}, puis {source} est supprimé. Cette action est irréversible.",
+  "Merge": "Fusionner",
+  "Tags merged.": "Tags fusionnés.",
+  "Unable to merge tags.": "Impossible de fusionner les tags."
 }

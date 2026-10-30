@@ -26,6 +26,10 @@ def _normalize_color(value: Optional[str]) -> Optional[str]:
     return color.lower()
 
 
+def _normalize_family(value: Optional[str]) -> Optional[str]:
+    return str(value or "").strip() or None
+
+
 # ============================================================
 # CREATE
 # ============================================================
@@ -47,6 +51,17 @@ class TagCreate(BaseModel):
         max_length=32,
         description="Tag color (#rrggbb); a color of the palette when omitted",
     )
+
+    family: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Family grouping the tag in the catalogue",
+    )
+
+    @field_validator("family")
+    @classmethod
+    def _family(cls, value: Optional[str]) -> Optional[str]:
+        return _normalize_family(value)
 
     @field_validator("color")
     @classmethod
@@ -83,7 +98,30 @@ class TagUpdate(BaseModel):
         description="Optional tag color",
     )
 
+    family: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Family grouping the tag in the catalogue",
+    )
+
+    @field_validator("family")
+    @classmethod
+    def _family(cls, value: Optional[str]) -> Optional[str]:
+        return _normalize_family(value)
+
     @field_validator("color")
     @classmethod
     def _color(cls, value: Optional[str]) -> Optional[str]:
         return _normalize_color(value)
+
+
+# ============================================================
+# MERGE
+# ============================================================
+
+class TagMerge(BaseModel):
+    """
+    Merge a tag into another one: its folders move to the target, then it is deleted.
+    """
+
+    target_id: int = Field(..., gt=0, description="Tag that is kept")

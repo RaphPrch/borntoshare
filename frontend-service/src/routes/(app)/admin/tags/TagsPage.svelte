@@ -10,7 +10,7 @@
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import TagPill from "$lib/components/tags/TagPill.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import { createTag, updateTag, deleteTag, type TagOverview } from "$lib/api/tags";
+  import { createTag, updateTag, deleteTag, mergeTag, type TagOverview } from "$lib/api/tags";
   import { showApiErrorToast } from "$lib/errors/api-toast";
   import { toast } from "$lib/stores/toast";
   import {
@@ -44,7 +44,8 @@
   let form = {
     name: "",
     color_rgb: "",
-    value_text: ""
+    value_text: "",
+    family: ""
   };
 
   let valueInput = "";
@@ -95,10 +96,52 @@
   $: hasColorError = !isValidHexColor(form.color_rgb);
   $: canSubmit = !busy && !hasNameError && !hasColorError;
 
+  const NO_FAMILY = "__none__";
+  let familyFilter = "all";
+  const familyOf = (tag: any): string => String(tag?.family ?? "").trim();
+  $: families = [...new Set(tagsNorm.map(familyOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
+  // The filter of a family that no longer exists (last tag merged or renamed) falls back to all
+  $: if (familyFilter !== "all" && familyFilter !== NO_FAMILY && !families.includes(familyFilter)) familyFilter = "all";
+  $: familyChips = [
+    { key: "all", label: t('All'), count: tagsNorm.length },
+    ...families.map((family) => ({ key: family, label: family, count: tagsNorm.filter((tag) => familyOf(tag) === family).length })),
+    ...(families.length ? [{ key: NO_FAMILY, label: t('No family'), count: tagsNorm.filter((tag) => !familyOf(tag)).length }] : [])
+  ];
+
+  let mergeOpen = false;
+  let mergeTargetId = "";
+  let merging = false;
+  $: mergeCandidates = tagsNorm
+    .filter((tag) => tag.id !== selectedId)
+    .sort((a, b) => String(a.label).localeCompare(String(b.label), "fr", { sensitivity: "base" }));
+  $: mergeTarget = tagsNorm.find((tag) => String(tag.id) === mergeTargetId) ?? null;
+
+  function openMerge(): void {
+    mergeTargetId = "";
+    mergeOpen = true;
+  }
+
+  async function handleMerge(): Promise<void> {
+    if (!selectedTag || !mergeTarget) return;
+    merging = true;
+    try {
+      await mergeTag(fetch, selectedTag.id, Number(mergeTarget.id));
+      toast.success(t('Tags merged.'));
+      mergeOpen = false;
+      selectedId = Number(mergeTarget.id);
+      await invalidateAll();
+    } catch (e) {
+      showApiErrorToast(e, "Unable to merge tags.");
+    } finally {
+      merging = false;
+    }
+  }
+
   $: filteredTags = tagsNorm.filter((tag: any) => {
+    if (familyFilter !== "all" && (familyFilter === NO_FAMILY ? familyOf(tag) : familyOf(tag) !== familyFilter)) return false;
     const q = normalizeText(searchQuery);
     if (!q) return true;
-    const haystack = [tag?.label, tag?.name, tag?.code, tag?.value_text]
+    const haystack = [tag?.label, tag?.name, tag?.code, tag?.value_text, tag?.family]
       .map((v) => normalizeText(v))
       .join(" ");
     return haystack.includes(q);
@@ -124,7 +167,8 @@
     form = {
       name: tag.name ?? tag.label ?? "",
       color_rgb: tag.color_rgb ?? tag.color ?? "",
-      value_text: tag.value_text ?? ""
+      value_text: tag.value_text ?? "",
+      family: tag.family ?? ""
     };
     valueItems = splitValues(form.value_text);
     valueInput = "";
@@ -147,7 +191,7 @@
   function openCreate() {
     modalMode = "create";
     errorMsg = null;
-    form = { name: "", color_rgb: "", value_text: "" };
+    form = { name: "", color_rgb: "", value_text: "", family: familyFilter === NO_FAMILY || familyFilter === "all" ? "" : familyFilter };
     valueItems = [];
     valueInput = "";
     modalOpen = true;
@@ -180,6 +224,7 @@
     const color_rgb = form.color_rgb.trim() || null;
     const color = color_rgb;
     const value_text = uniqueValues(valueItems).join(", ").trim() || null;
+    const family = form.family.trim() || null;
 
     try {
       if (!name) {
@@ -191,10 +236,10 @@
       }
 
       if (modalMode === "create") {
-        await createTag(fetch, { name, label, code, color_rgb, color, value_text });
+        await createTag(fetch, { name, label, code, color_rgb, color, value_text, family });
         toast.success(t('Tag created.'));
       } else if (modalMode === "edit" && selectedTag) {
-        await updateTag(fetch, selectedTag.id, { name, label, code, color_rgb, color, value_text });
+        await updateTag(fetch, selectedTag.id, { name, label, code, color_rgb, color, value_text, family });
         toast.success(t('Tag updated.'));
       }
 
@@ -261,6 +306,14 @@
     </button>
   </header>
 
+  {#if families.length}
+    <div class="tg__chips" role="group" aria-label={t('Family')}>
+      {#each familyChips as chip (chip.key)}
+        <button type="button" class:on={familyFilter === chip.key} aria-pressed={familyFilter === chip.key} on:click={() => (familyFilter = chip.key)}>{chip.label} · {chip.count}</button>
+      {/each}
+    </div>
+  {/if}
+
   <div class="tg__body">
     <section class="tg__tiles" aria-label={t('Tags')}>
       {#each sortedTags as tag (tag.id)}
@@ -296,6 +349,7 @@
           {#if selectedTag.code}<code>{selectedTag.code}</code>{/if}
         </div>
         <dl>
+          <div class="wide"><dt>{t('Family')}</dt><dd>{familyOf(selectedTag) || t('No family')}</dd></div>
           <div><dt>{t('Usage')}</dt><dd>{t('{count} folders', { count: getUsage(selectedTag) })}</dd></div>
           <div><dt>{t('Updated')}</dt><dd>{formatUpdatedAt(selectedTag.updated_at ?? selectedTag.created_at)}</dd></div>
           {#if selectedTag.value_text}<div class="wide"><dt>{t('Value')}</dt><dd>{selectedTag.value_text}</dd></div>{/if}
@@ -310,6 +364,7 @@
             on:click={openDelete}
           >{t('Delete')}</button>
         </div>
+        <button type="button" class="b2s-btn b2s-btn-secondary" disabled={mergeCandidates.length === 0} on:click={openMerge}>{t('Merge with…')}</button>
       {:else}
         <div class="tg__side-empty">
           <i class="bi bi-tags" aria-hidden="true"></i>
@@ -337,6 +392,21 @@
             placeholder={t('e.g. Sensitive')}
             bind:value={form.name}
           />
+      </section>
+
+      <section class="tag-modal__section">
+          <label for="tag-family">{t('Family')} <small>{t('(optional)')}</small></label>
+          <input
+            id="tag-family"
+            class="tag-input"
+            list="tag-family-options"
+            maxlength="100"
+            placeholder={t('e.g. Sensitivity')}
+            bind:value={form.family}
+          />
+          <datalist id="tag-family-options">
+            {#each families as family}<option value={family}></option>{/each}
+          </datalist>
       </section>
 
       <section class="tag-modal__grid">
@@ -437,6 +507,30 @@
   </svelte:fragment>
 </AppModal>
 
+<AppModal
+  open={mergeOpen}
+  onClose={() => (mergeOpen = false)}
+  title={t('Merge {name} with another tag', { name: selectedTag?.label ?? '' })}
+  iconClass="bi bi-union"
+>
+  <section class="tag-modal__section">
+    <label for="tag-merge-target">{t('Tag to keep')}</label>
+    <select id="tag-merge-target" class="tag-input" bind:value={mergeTargetId}>
+      <option value="">{t('Choose a tag…')}</option>
+      {#each mergeCandidates as tag (tag.id)}<option value={String(tag.id)}>{tag.label}</option>{/each}
+    </select>
+  </section>
+  {#if selectedTag && mergeTarget}
+    <InlineAlert tone="warning">
+      {t('{count} folders move to {target}, then {source} is deleted. This cannot be undone.', { count: getUsage(selectedTag), target: mergeTarget.label, source: selectedTag.label })}
+    </InlineAlert>
+  {/if}
+  <svelte:fragment slot="footer">
+    <EntityActionButton variant="ghost" label={t('Cancel')} onClick={() => (mergeOpen = false)} />
+    <EntityActionButton variant="primary" busy={merging} disabled={!mergeTarget} label={t('Merge')} onClick={handleMerge} />
+  </svelte:fragment>
+</AppModal>
+
 <ConfirmDeleteDialog
   open={showDeleteConfirm}
   onClose={closeDeleteConfirm}
@@ -474,6 +568,9 @@
   .tg__seg { display: inline-flex; gap: 3px; padding: 3px; border-radius: 12px; background: var(--b2s-color-neutral-soft); }
   .tg__seg button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-weight: 500; cursor: pointer; }
   .tg__seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 2px rgba(14, 18, 24, .12); }
+  .tg__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tg__chips button { min-height: 36px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--b2s-color-border-strong); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .tg__chips button.on { background: var(--b2s-color-text); border-color: var(--b2s-color-text); color: #fff; font-weight: 600; }
   .tg__body { display: flex; align-items: flex-start; gap: 18px; }
   .tg__tiles { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-auto-flow: dense; gap: 10px; }
   .tg__tile { min-height: 84px; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 10px; border: 1px solid transparent; border-radius: 14px; color: var(--b2s-color-text); font: inherit; text-align: left; cursor: pointer; transition: transform .12s; }

@@ -28,6 +28,7 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'tag.created': { titleKey: 'activity.tag.created.title', descriptionKey: 'activity.tag.created.description', badge: 'admin', icon: 'tag' },
   'tag.updated': { titleKey: 'activity.tag.updated.title', descriptionKey: 'activity.tag.updated.description', badge: 'admin', icon: 'tag' },
   'tag.deleted': { titleKey: 'activity.tag.deleted.title', descriptionKey: 'activity.tag.deleted.description', badge: 'critical', scope: 'security', icon: 'tag' },
+  'tag.merged': { titleKey: 'activity.tag.merged.title', descriptionKey: 'activity.tag.merged.description', badge: 'admin', icon: 'tag' },
   'tag.attached': { titleKey: 'activity.tag.attached.title', descriptionKey: 'activity.tag.attached.description', badge: 'info', icon: 'tag' },
   'tag.detached': { titleKey: 'activity.tag.detached.title', descriptionKey: 'activity.tag.detached.description', badge: 'info', icon: 'tag' },
 

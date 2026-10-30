@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.data.repositories.tags_views_repo import TagsViewsRepo
 from app.api._helpers import ui_action, ui_data, ui_list
-from app.schemas.tag import TagCreate, TagUpdate, default_tag_color
+from app.schemas.tag import TagCreate, TagMerge, TagUpdate, default_tag_color
 from app.data.models.tag import Tag
 from app.schemas.tag_attachment import TagAttachmentRequest
 from app.data.models.storage_root_tag import storage_root_tag
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request
+from app.services.authorization import actor_from_request, require_admin
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 
@@ -46,6 +46,7 @@ def create_tag(payload: TagCreate, request: Request, db: Session = Depends(get_d
     tag = Tag(
         name=payload.name,
         color=payload.color,
+        family=payload.family,
     )
 
     db.add(tag)
@@ -71,6 +72,7 @@ def create_tag(payload: TagCreate, request: Request, db: Session = Depends(get_d
             "id": int(tag.id),
             "name": tag.name,
             "color": tag.color,
+            "family": tag.family,
         },
         meta={"tag_id": int(tag.id)},
     )
@@ -82,7 +84,7 @@ def update_tag(tag_id: int, payload: TagUpdate, request: Request, db: Session = 
     if tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
 
-    before = {"name": tag.name, "color": tag.color}
+    before = {"name": tag.name, "color": tag.color, "family": tag.family}
     data = payload.model_dump(exclude_unset=True)
     if "color" in data and not data["color"]:
         # Clearing the color gives back the palette color of the tag, never "no color"
@@ -93,7 +95,7 @@ def update_tag(tag_id: int, payload: TagUpdate, request: Request, db: Session = 
     db.commit()
     db.refresh(tag)
 
-    after = {"name": tag.name, "color": tag.color}
+    after = {"name": tag.name, "color": tag.color, "family": tag.family}
     actor_id, actor_display = _actor_from_headers(request)
     log_activity(
         db,
@@ -113,6 +115,7 @@ def update_tag(tag_id: int, payload: TagUpdate, request: Request, db: Session = 
             "id": int(tag.id),
             "name": tag.name,
             "color": tag.color,
+            "family": tag.family,
         },
         meta={"tag_id": int(tag.id)},
     )
@@ -153,6 +156,54 @@ def delete_tag(tag_id: int, request: Request, db: Session = Depends(get_db)):
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     return ui_action(action_id=int(tag_id), message="tag.deleted")
+
+
+@router.post("/{tag_id}/merge")
+def merge_tag(tag_id: int, payload: TagMerge, request: Request, db: Session = Depends(get_db)):
+    require_admin(actor_from_request(request))
+    if int(payload.target_id) == int(tag_id):
+        raise HTTPException(status_code=400, detail="A tag cannot be merged into itself")
+
+    source: Tag | None = db.get(Tag, tag_id)
+    target: Tag | None = db.get(Tag, int(payload.target_id))
+    if source is None or target is None:
+        raise HTTPException(status_code=404, detail="Tag not found")
+
+    source_display = str(source.name or source.id)
+    # One transaction: a folder carrying both tags keeps a single link to the target
+    moved = db.execute(
+        text(
+            """
+            INSERT IGNORE INTO storage_root_tags (storage_root_id, tag_id)
+            SELECT storage_root_id, :target FROM storage_root_tags WHERE tag_id = :source
+            """
+        ),
+        {"target": int(target.id), "source": int(tag_id)},
+    ).rowcount
+    db.execute(storage_root_tag.delete().where(storage_root_tag.c.tag_id == int(tag_id)))
+    db.expire(source)
+    db.delete(source)
+    db.commit()
+
+    actor_id, actor_display = _actor_from_headers(request)
+    log_activity(
+        db,
+        actor_type="user" if actor_id is not None else "system",
+        actor_id=actor_id,
+        actor_display=actor_display,
+        action="tag.merged",
+        outcome="success",
+        target_type="tag",
+        target_id=int(target.id),
+        target_display=str(target.name or target.id),
+        context_json={"merged_tag_id": int(tag_id), "merged_tag_name": source_display, "moved": int(moved or 0)},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_action(
+        action_id=int(target.id),
+        message="tag.merged",
+        details={"merged_tag_id": int(tag_id), "moved": int(moved or 0)},
+    )
 
 
 # ============================================================

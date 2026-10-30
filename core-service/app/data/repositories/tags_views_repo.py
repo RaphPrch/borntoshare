@@ -36,6 +36,7 @@ class TagsViewsRepo(SQLViewRepo):
                 t.id,
                 t.name,
                 t.color,
+                t.family,
                 COALESCE(u.tag_usage, 0) AS `usage`
             FROM tags t
             LEFT JOIN (
@@ -57,6 +58,7 @@ class TagsViewsRepo(SQLViewRepo):
                 t.id,
                 t.name,
                 t.color,
+                t.family,
                 COALESCE(u.tag_usage, 0) AS `usage`
             FROM tags t
             LEFT JOIN (

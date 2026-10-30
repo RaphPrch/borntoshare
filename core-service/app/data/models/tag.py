@@ -32,6 +32,11 @@ class Tag(Base, TimestampMixin):
         nullable=True,
     )
 
+    family: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
 
     # ============================================================

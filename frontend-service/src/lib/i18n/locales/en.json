@@ -185,6 +185,10 @@
       "detached": {
         "title": "Tag detached",
         "description": "Tag \"{tag}\" was detached from resource \"{resource}\""
+      },
+      "merged": {
+        "title": "Tags merged",
+        "description": "A tag was merged into \"{target}\""
       }
     },
     "storage_root": {

@@ -12,6 +12,7 @@ export type TagOverview = {
   code: string;
   color_rgb?: string | null;
   value_text?: string | null;
+  family?: string | null;
 };
 
 type TagWritePayload = {
@@ -21,6 +22,7 @@ type TagWritePayload = {
   color_rgb?: string | null;
   color?: string | null;
   value_text?: string | null;
+  family?: string | null;
 };
 
 type TagWriteResponse = {
@@ -38,6 +40,9 @@ export const updateTag = (fetchFn: FetchLike, id: string | number, payload: TagW
   apiPatchData<TagWriteResponse>(fetchFn, `/tags/${id}`, payload);
 export const deleteTag = (fetchFn: FetchLike, id: string | number) =>
   apiDeleteData<TagDeleteResponse>(fetchFn, `/tags/${id}`);
+
+export const mergeTag = (fetchFn: FetchLike, id: string | number, targetId: number) =>
+  apiPostData<{ details?: { moved?: number } }>(fetchFn, `/tags/${id}/merge`, { target_id: targetId });
 
 export const attachTagToStorageRoot = (
   fetchFn: FetchLike,
