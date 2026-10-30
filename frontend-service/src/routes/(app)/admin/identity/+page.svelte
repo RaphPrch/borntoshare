@@ -1,6 +1,5 @@
 <script lang="ts">
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
-  import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
   import { t } from '$lib/i18n';
   import type { StatusVariant } from '$lib/utils/status';
@@ -9,7 +8,6 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import EntityActionButton from '$lib/components/entity/EntityActionButton.svelte';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import IdentityWizardModal from './components/IdentityWizardModal.svelte';
@@ -299,47 +297,34 @@
 </script>
 
 <section class="identity-page">
-  <PageHeader
-    title={t('Identity')}
-    subtitle={t('Manage local admin accounts, AD admin accounts, and AD groups that can access the platform.')}
-  />
-  <span class="identity-note"><i class="bi bi-info-circle" aria-hidden="true"></i> {t('This page governs application access only, not NTFS permissions.')}</span>
-
-  <section class="b2s-kpi-grid identity-kpis" aria-label={t('Identity summary')}>
-    <KpiCard label={t('Total identities')} value={stats.total} hint={t('All identities with access')} icon="bi-people-fill" tone="info" />
-    <KpiCard label={t('Admin accounts')} value={stats.adminAccounts} hint={t('Local and AD admin accounts')} icon="bi-person-fill" tone="info" />
-    <KpiCard label={t('AD groups')} value={stats.adGroups} hint={t('Groups allowed to sign in')} icon="bi-people" tone="info" />
-  </section>
-
-  <section class="identity-toolbar-card" aria-label={t('Identity filters')}>
+  <header class="identity-head">
+    <div class="identity-title">
+      <h1>{t('Identities')}</h1>
+      <p>{t('{total} with access · {admins} admin accounts · {groups} AD groups', { total: stats.total, admins: stats.adminAccounts, groups: stats.adGroups })}</p>
+    </div>
     <label class="identity-search">
       <i class="bi bi-search" aria-hidden="true"></i>
-      <input type="search" bind:value={search} on:input={() => (pageIndex = 1)} placeholder={t('Search identities...')} />
+      <input type="search" bind:value={search} on:input={() => (pageIndex = 1)} placeholder={t('Search identities...')} aria-label={t('Search identities...')} />
     </label>
-    <div class="b2s-segments" role="tablist" aria-label={t('Identity type')}>
-      <button type="button" class:active={tab === 'all'} on:click={() => { tab = 'all'; pageIndex = 1; }}>{t('All')}</button>
-      <button type="button" class:active={tab === 'local_admins'} on:click={() => { tab = 'local_admins'; pageIndex = 1; }}>{t('Local admins')}</button>
-      <button type="button" class:active={tab === 'ad_admins'} on:click={() => { tab = 'ad_admins'; pageIndex = 1; }}>{t('AD admins')}</button>
-      <button type="button" class:active={tab === 'ad_groups'} on:click={() => { tab = 'ad_groups'; pageIndex = 1; }}>{t('AD groups')}</button>
+    <EntityActionButton variant="primary" icon="bi-plus-lg" label={t('Create identity')} onClick={() => (showWizard = true)} />
+  </header>
+
+  <div class="identity-filters">
+    <div class="identity-chips" role="group" aria-label={t('Identity type')}>
+      <button type="button" class:on={tab === 'all'} on:click={() => { tab = 'all'; pageIndex = 1; }}>{t('All')}</button>
+      <button type="button" class:on={tab === 'local_admins'} on:click={() => { tab = 'local_admins'; pageIndex = 1; }}>{t('Local admins')}</button>
+      <button type="button" class:on={tab === 'ad_admins'} on:click={() => { tab = 'ad_admins'; pageIndex = 1; }}>{t('AD admins')}</button>
+      <button type="button" class:on={tab === 'ad_groups'} on:click={() => { tab = 'ad_groups'; pageIndex = 1; }}>{t('AD groups')}</button>
     </div>
-    <label class="identity-select">
-      <i class="bi bi-funnel" aria-hidden="true"></i>
-      <select bind:value={statusSourceFilter} on:change={() => (pageIndex = 1)}>
-        <option value="all">{t('All status / source')}</option>
-        <option value="active">{t('Active')}</option>
-        <option value="inactive">{t('Inactive')}</option>
-        {#each sourceOptions as option}
-          <option value={`source:${option}`}>{option}</option>
-        {/each}
-      </select>
-    </label>
-    <EntityActionButton
-      variant="primary"
-      icon="bi-plus-lg"
-      label={t('Create identity')}
-      onClick={() => (showWizard = true)}
-    />
-  </section>
+    <select class="identity-select" bind:value={statusSourceFilter} on:change={() => (pageIndex = 1)} aria-label={t('All status / source')}>
+      <option value="all">{t('All status / source')}</option>
+      <option value="active">{t('Active')}</option>
+      <option value="inactive">{t('Inactive')}</option>
+      {#each sourceOptions as option}
+        <option value={`source:${option}`}>{option}</option>
+      {/each}
+    </select>
+  </div>
 
   <div class="identity-layout">
     <section class="identity-list-card">
@@ -355,7 +340,7 @@
         </thead>
         <tbody>
           {#each pagedIdentities as identity}
-            <tr class:active={selectedIdentity && String(selectedIdentity.id) === String(identity.id)} on:click={() => { selectedId = String(identity.id); detailOpen = true; }}>
+            <tr class:active={detailOpen && selectedIdentity && String(selectedIdentity.id) === String(identity.id)} on:click={() => { selectedId = String(identity.id); detailOpen = true; }}>
               <td>
                 <div class="identity-cell">
                   <span class={`identity-avatar ${identityTone(identity)}`}><i class={`bi ${identityIcon(identity)}`} aria-hidden="true"></i></span>
@@ -383,20 +368,17 @@
         <Pagination total={filteredIdentities.length} bind:page={pageIndex} bind:pageSize pageSizes={[10, 25, 50]} />
       {/if}
     </section>
-  </div>
 
-  <Drawer
-    open={detailOpen && Boolean(selectedIdentity)}
-    iconClass={`bi ${identityIcon(selectedIdentity)}`}
-    title={selectedIdentity?.display_name ?? ''}
-    subtitle={selectedIdentity ? `${typeLabel(selectedIdentity)} · ${selectedIdentity.sourceLabel}` : null}
-    onClose={() => (detailOpen = false)}
-  >
-    <svelte:fragment slot="header-meta">
-      {#if selectedIdentity}
-        <StatusBadge compact variant={selectedIdentity.status === 'active' ? 'success' : 'disabled'} label={selectedIdentity.status === 'active' ? t('Active') : t('Disabled')} />
-      {/if}
-    </svelte:fragment>
+    <aside class="identity-side" aria-label={t('Details')}>
+      {#if detailOpen && selectedIdentity}
+        <div class="identity-side-head">
+          <span class={`identity-avatar ${identityTone(selectedIdentity)}`}><i class={`bi ${identityIcon(selectedIdentity)}`} aria-hidden="true"></i></span>
+          <div>
+            <h2>{selectedIdentity.display_name}</h2>
+            <small>{typeLabel(selectedIdentity)} · {selectedIdentity.sourceLabel}</small>
+          </div>
+          <button type="button" class="identity-close" aria-label={t('Close')} on:click={() => (detailOpen = false)}><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
     {#if selectedIdentity}
       <div class="identity-detail-grid">
         <dl>
@@ -437,16 +419,7 @@
         </section>
       </div>
     {/if}
-    <svelte:fragment slot="footer-start">
-      {#if selectedIdentity}
-        {#if canDeleteIdentity(selectedIdentity)}
-          <EntityActionButton variant="danger-outline" icon="bi-trash" label={t('Delete')} onClick={() => requestDeleteIdentity()} />
-        {:else}
-          <EntityActionButton variant="danger-outline" icon="bi-trash" label={t('Delete')} disabled={true} title={t('Default local admin cannot be deleted')} />
-        {/if}
-      {/if}
-    </svelte:fragment>
-    <svelte:fragment slot="footer">
+        <div class="identity-side-actions">
       {#if selectedIdentity}
         <EntityActionButton variant="secondary" icon="bi-pencil" label={t('Edit')} onClick={() => openEdit()} />
         {#if selectedIdentity.type === 'group' && selectedIdentity.source !== 'local'}
@@ -462,8 +435,25 @@
           />
         {/if}
       {/if}
-    </svelte:fragment>
-  </Drawer>
+    </div>
+        <div class="identity-side-danger">
+      {#if selectedIdentity}
+        {#if canDeleteIdentity(selectedIdentity)}
+          <EntityActionButton variant="danger-outline" icon="bi-trash" label={t('Delete')} onClick={() => requestDeleteIdentity()} />
+        {:else}
+          <EntityActionButton variant="danger-outline" icon="bi-trash" label={t('Delete')} disabled={true} title={t('Default local admin cannot be deleted')} />
+        {/if}
+      {/if}
+    </div>
+      {:else}
+        <div class="identity-side-empty">
+          <i class="bi bi-person" aria-hidden="true"></i>
+          <p>{t('Select an identity to see its roles.')}</p>
+          <small>{t('This page governs application access only, not NTFS permissions.')}</small>
+        </div>
+      {/if}
+    </aside>
+  </div>
 
   <IdentityWizardModal
     open={showWizard}
@@ -537,172 +527,51 @@
 </section>
 
 <style>
-
-  .identity-page {
-    --identity-navy: #061a44;
-    --identity-blue: #0b59d1;
-    min-height: calc(100vh - 68px);
-    padding: var(--b2s-page-padding);
-    color: var(--b2s-color-heading);
-  }
-
-  .identity-note {
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    color: #465b78;
-    font-size: var(--b2s-fs-md);
-    margin-top: 12px;
-  }
-
-  .identity-kpis {
-    margin: 22px 0 24px;
-  }
-
-  .identity-cell-stack {
-    display: grid;
-    gap: 6px;
-  }
-
-  .identity-badges {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .identity-toolbar-card {
-    display: grid;
-    grid-template-columns: minmax(260px, 330px) minmax(360px, 1fr) 210px auto;
-    gap: 20px;
-    align-items: center;
-    padding: 16px 20px;
-    margin-bottom: 18px;
-  }
-
-  .identity-search,
-  .identity-select {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 14px;
-    border: 1px solid #d8e2ef;
-    border-radius: var(--b2s-radius-sm);
-    background: #fff;
-    color: #526682;
-  }
-
-  .identity-search input,
-  .identity-select select {
-    width: 100%;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: var(--b2s-color-heading);
-    font-size: var(--b2s-fs-md);
-  }
-
-  .identity-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 22px;
-    align-items: start;
-  }
-
-  .identity-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .identity-table tr {
-    cursor: pointer;
-  }
-
-  .identity-table tr.active {
-    box-shadow: inset 3px 0 0 #0b63f4;
-  }
-
-  .identity-cell {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding-block: 10px;
-  }
-
-  .identity-avatar {
-    width: 22px;
-    height: 22px;
-    font-size: var(--b2s-fs-xl);
-  }
-
-  .identity-detail-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    padding-bottom: 22px;
-    border-bottom: 1px solid #dfe7f2;
-  }
-
-  .identity-detail-grid dl {
-    display: grid;
-    gap: 12px;
-    margin: 0;
-  }
-
-  .identity-detail-grid div {
-    display: grid;
-    grid-template-columns: 100px 1fr;
-    gap: 14px;
-  }
-
-  .identity-detail-grid dt,
-  .identity-detail-grid h3 {
-    margin: 0;
-    color: #344664;
-    font-size: var(--b2s-fs-sm);
-    font-weight: 700;
-  }
-
-  .identity-detail-grid dd,
-  .identity-detail-grid p {
-    margin: 0;
-    color: var(--b2s-color-heading);
-    font-size: var(--b2s-fs-md);
-  }
-
-  .identity-members-list article {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-
-  .identity-members-list strong,
-  .identity-members-list small {
-    display: block;
-  }
-
-  .identity-members-list small,
-  .identity-muted {
-    color: #5d6f8a;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .identity-members-list {
-    display: grid;
-    gap: 14px;
-  }
-
-  .identity-empty {
-    height: 180px !important;
-    text-align: center;
-    color: var(--b2s-color-text-muted) !important;
-  }
-
-  @media (max-width: 1280px) {
-    .identity-toolbar-card,
-    .identity-layout {
-      grid-template-columns: 1fr;
-    }
-  }
+  .identity-page { display: flex; flex-direction: column; gap: 18px; padding: var(--b2s-page-padding); color: var(--b2s-color-text); }
+  .identity-head { display: flex; align-items: flex-end; gap: 12px; }
+  .identity-title { flex: 1 1 320px; min-width: 0; }
+  .identity-title h1 { margin: 0; font-size: 38px; line-height: 1.05; font-weight: 600; letter-spacing: -.03em; }
+  .identity-title p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
+  .identity-search { flex: 0 1 420px; display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; padding: 0 14px; border-radius: 12px; background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border-strong); color: var(--b2s-color-text-muted); }
+  .identity-search:focus-within { border-color: var(--b2s-color-text); }
+  .identity-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--b2s-color-text); font: inherit; }
+  .identity-filters { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .identity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .identity-chips button { min-height: 36px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--b2s-color-border-strong); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .identity-chips button.on { background: var(--b2s-color-text); border-color: var(--b2s-color-text); color: #fff; font-weight: 600; }
+  .identity-select { min-height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--b2s-color-border-strong); background: var(--b2s-color-surface); color: var(--b2s-color-text); font: inherit; font-size: 13px; }
+  .identity-layout { display: flex; align-items: flex-start; gap: 18px; }
+  .identity-list-card, .identity-side { background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border); border-radius: 18px; box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06); }
+  .identity-list-card { flex: 1; min-width: 0; overflow: hidden; }
+  .identity-side { flex: 0 0 400px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .identity-side-head { display: flex; align-items: center; gap: 12px; }
+  .identity-side-head > div { flex: 1; min-width: 0; }
+  .identity-side-head h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
+  .identity-side-head small { color: var(--b2s-color-text-muted); font-size: 12px; }
+  .identity-close { width: 32px; height: 32px; flex: none; border: 0; border-radius: 8px; background: transparent; color: var(--b2s-color-text-muted); cursor: pointer; }
+  .identity-close:hover { background: var(--b2s-color-neutral-soft); }
+  .identity-side-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .identity-side-danger { padding-top: 12px; border-top: 1px solid var(--b2s-color-border); }
+  .identity-side-empty { display: grid; justify-items: center; gap: 10px; padding: 40px 24px; text-align: center; color: var(--b2s-color-text-muted); }
+  .identity-side-empty i { font-size: 26px; }
+  .identity-side-empty p { margin: 0; }
+  .identity-side-empty small { font-size: 12px; }
+  .identity-cell-stack { display: grid; gap: 6px; }
+  .identity-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .identity-table { width: 100%; border-collapse: collapse; }
+  .identity-table tr { cursor: pointer; }
+  .identity-table tr.active td { background: var(--b2s-accent-soft); }
+  .identity-cell { display: flex; align-items: center; gap: 10px; }
+  .identity-avatar { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text); font-size: 15px; }
+  .identity-detail-grid { display: grid; gap: 16px; }
+  .identity-detail-grid dl { display: grid; gap: 10px; margin: 0; }
+  .identity-detail-grid div { display: grid; grid-template-columns: 110px 1fr; gap: 12px; }
+  .identity-detail-grid dt, .identity-detail-grid h3 { margin: 0; color: var(--b2s-color-text-muted); font-size: 12px; font-weight: 400; }
+  .identity-detail-grid h3 { margin-bottom: 6px; }
+  .identity-detail-grid dd, .identity-detail-grid p { margin: 0; font-size: 14px; }
+  .identity-members-list { display: grid; gap: 12px; }
+  .identity-members-list article { display: flex; align-items: center; gap: 12px; }
+  .identity-members-list strong, .identity-members-list small { display: block; }
+  .identity-members-list small, .identity-muted { color: var(--b2s-color-text-muted); font-size: 12px; }
+  .identity-empty { padding: 24px; text-align: center; color: var(--b2s-color-text-muted); }
 </style>

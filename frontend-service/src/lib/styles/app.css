@@ -2573,9 +2573,9 @@ table th {
 .b2s-segments {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 2px;
-  padding: 4px;
-  border-radius: 10px;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
   background: var(--b2s-color-neutral-soft);
 }
 
@@ -2583,12 +2583,14 @@ table th {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  min-height: 38px;
+  padding: 0 14px;
   border: none;
-  border-radius: 8px;
+  border-radius: 9px;
   background: transparent;
-  color: var(--b2s-color-text-soft);
+  color: var(--b2s-color-text-muted);
   font-size: var(--b2s-fs-sm);
+  font-weight: 500;
   cursor: pointer;
 }
 

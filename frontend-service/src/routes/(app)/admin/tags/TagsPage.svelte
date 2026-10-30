@@ -8,11 +8,8 @@
 
   import ConfirmDeleteDialog from "$lib/components/ui/ConfirmDeleteDialog.svelte";
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
-  import EntityActionGroup, { type EntityActionItem } from "$lib/components/entity/EntityActionGroup.svelte";
-  import SearchField from "$lib/components/ui/SearchField.svelte";
   import TagPill from "$lib/components/tags/TagPill.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import PageHeader from "$lib/components/ui/PageHeader.svelte";
   import { createTag, updateTag, deleteTag, type TagOverview } from "$lib/api/tags";
   import { showApiErrorToast } from "$lib/errors/api-toast";
   import { toast } from "$lib/stores/toast";
@@ -38,13 +35,6 @@
 
   let selectedId: number | null = null;
   $: selectedTag = tagsNorm.find((tag) => tag.id === selectedId) ?? null;
-  // Optional columns appear only when at least one tag fills them
-  $: showCode = tagsNorm.some((tag) => String(tag?.code ?? '').trim());
-  $: showUpdated = tagsNorm.some((tag) => tag?.updated_at || tag?.created_at);
-  $: gridColumns = ['minmax(220px, 1.5fr)', showCode ? 'minmax(120px, 1fr)' : '', '110px', showUpdated ? '170px' : '']
-    .filter(Boolean)
-    .join(' ');
-
   let modalOpen = false;
   let modalMode: "create" | "edit" = "create";
   let showDeleteConfirm = false;
@@ -61,8 +51,7 @@
   let valueItems: string[] = [];
 
   let searchQuery = "";
-  let sortBy: "name" | "usage" | "updated" = "name";
-  let sortDir: "asc" | "desc" = "asc";
+  let sortBy: "name" | "usage" = "usage";
 
   const palette = [
     "#5b7cfa",
@@ -116,25 +105,16 @@
   });
 
   $: sortedTags = [...filteredTags].sort((a: any, b: any) => {
-    const dir = sortDir === "asc" ? 1 : -1;
-    if (sortBy === "usage") return (getUsage(a) - getUsage(b)) * dir;
-    if (sortBy === "updated") {
-      const ta = new Date(String(a?.updated_at ?? a?.created_at ?? 0)).getTime() || 0;
-      const tb = new Date(String(b?.updated_at ?? b?.created_at ?? 0)).getTime() || 0;
-      return (ta - tb) * dir;
-    }
-    return String(a?.label ?? a?.name ?? "").localeCompare(String(b?.label ?? b?.name ?? ""), "fr", { sensitivity: "base" }) * dir;
+    const byName = String(a?.label ?? a?.name ?? "").localeCompare(String(b?.label ?? b?.name ?? ""), "fr", { sensitivity: "base" });
+    return sortBy === "usage" ? getUsage(b) - getUsage(a) || byName : byName;
   });
+  $: maxUsage = Math.max(1, ...tagsNorm.map(getUsage));
+  $: totalUsage = tagsNorm.reduce((total, tag) => total + getUsage(tag), 0);
 
-  $: tagActions = [
-    {
-      key: "new",
-      label: t('Create tag'),
-      icon: "bi-plus-lg",
-      variant: "primary",
-      onClick: openCreate
-    }
-  ] satisfies EntityActionItem[];
+  // A tag used on more than half of what the top tag covers takes two columns
+  const tileStyle = (tag: any, max: number): string =>
+    `background:color-mix(in srgb, ${tag.color_rgb || "var(--b2s-color-text-faint)"} 24%, var(--b2s-color-surface));` +
+    (getUsage(tag) > max * 0.5 && max > 1 ? "grid-column:span 2;" : "");
 
   function openEditTag(tag: any) {
     if (!tag) return;
@@ -262,82 +242,41 @@
   }
 </script>
 
-<section class="tags-page">
-  <PageHeader title={t('Tags')} subtitle={t('All created tags are listed here.')}>
-    <svelte:fragment slot="actions">
-      <EntityActionGroup actions={tagActions} ariaLabel={t('Tag actions')} />
-    </svelte:fragment>
-  </PageHeader>
-
-  <section class="tags-toolbar">
-    <SearchField
-      wrapperClass="tags-search"
-      placeholder={t('Search by name, code, or value')}
-      ariaLabel={t('Search for a tag')}
-      bind:value={searchQuery}
-    />
-    <div class="tags-sort">
-      <select bind:value={sortBy}>
-        <option value="name">{t('Trier: Nom')}</option>
-        <option value="usage">{t('Trier: Usage')}</option>
-        <option value="updated">{t('Sort: Last updated')}</option>
-      </select>
-      <EntityActionButton
-        variant="secondary"
-        icon={sortDir === 'asc' ? 'bi-sort-down' : 'bi-sort-up'}
-        label={sortDir === 'asc' ? t('Ascending') : t('Descending')}
-        className="tags-sort-dir-btn"
-        onClick={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}
-      />
+<section class="tg">
+  <header class="tg__head">
+    <div class="tg__title">
+      <h1>{t('Tags')}</h1>
+      <p>{t('{tags} tags, {count} uses on folders', { tags: tagsNorm.length, count: totalUsage })}</p>
     </div>
-  </section>
-
-  <section class="tags-table" style={`--tags-columns: ${gridColumns}`}>
-    <div class="tags-table-head">
-      <span>{t('Tag')}</span>
-      {#if showCode}<span>{t('Code')}</span>{/if}
-      <span>{t('Usage')}</span>
-      {#if showUpdated}<span>{t('Updated')}</span>{/if}
+    <label class="tg__search">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input type="search" aria-label={t('Search for a tag')} placeholder={t('Search by name, code, or value')} bind:value={searchQuery} />
+    </label>
+    <div class="tg__seg" role="group" aria-label={t('Sort')}>
+      <button type="button" class:on={sortBy === "usage"} aria-pressed={sortBy === "usage"} on:click={() => (sortBy = "usage")}>{t('Usage')}</button>
+      <button type="button" class:on={sortBy === "name"} aria-pressed={sortBy === "name"} on:click={() => (sortBy = "name")}>{t('Name')}</button>
     </div>
+    <button type="button" class="b2s-btn b2s-btn-primary" on:click={openCreate}>
+      <i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Create tag')}
+    </button>
+  </header>
 
-    <div class="tags-table-body">
-      {#if Array.isArray(sortedTags) && sortedTags.length}
-        {#each sortedTags as tag, index (tag.id)}
-          <div
-            class="tags-row"
-            class:selected={tag.id === selectedId}
-            role="button"
-            tabindex="0"
-            aria-pressed={tag.id === selectedId}
-            on:click={() => openEditTag(tag)}
-            on:keydown={(e) => {
-              if (e.key === "Enter") {
-                openEditTag(tag);
-                return;
-              }
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                const next = sortedTags[index + 1];
-                if (next?.id) selectedId = next.id;
-                return;
-              }
-              if (e.key === "ArrowUp") {
-                e.preventDefault();
-                const prev = sortedTags[index - 1];
-                if (prev?.id) selectedId = prev.id;
-              }
-            }}
-          >
-            <div class="tag-cell">
-              <TagPill label={tag.label ?? tag.name ?? tag.code ?? t('Tag')} color={tag.color_rgb ?? null} />
-            </div>
-            {#if showCode}<div class="tag-code">{tag.code ?? '—'}</div>{/if}
-            <div class="tag-usage">{getUsage(tag)}</div>
-            {#if showUpdated}<div class="tag-updated">{formatUpdatedAt(tag.updated_at ?? tag.created_at)}</div>{/if}
-          </div>
-        {/each}
+  <div class="tg__body">
+    <section class="tg__tiles" aria-label={t('Tags')}>
+      {#each sortedTags as tag (tag.id)}
+        <button
+          type="button"
+          class="tg__tile"
+          class:sel={tag.id === selectedId}
+          style={tileStyle(tag, maxUsage)}
+          on:click={() => (selectedId = tag.id)}
+          on:dblclick={() => openEditTag(tag)}
+        >
+          <strong>{tag.label}</strong>
+          <span>{t('{count} folders', { count: getUsage(tag) })}</span>
+        </button>
       {:else}
-        <div class="tags-empty">
+        <div class="tg__empty">
           <EmptyState
             iconClass="bi bi-tags"
             title={t('No tags found')}
@@ -346,9 +285,39 @@
             onCta={openCreate}
           />
         </div>
+      {/each}
+    </section>
+
+    <aside class="tg__side" aria-label={t('Details')}>
+      {#if selectedTag}
+        <div>
+          <TagPill label={selectedTag.label} color={selectedTag.color_rgb ?? null} />
+          <h2>{selectedTag.label}</h2>
+          {#if selectedTag.code}<code>{selectedTag.code}</code>{/if}
+        </div>
+        <dl>
+          <div><dt>{t('Usage')}</dt><dd>{t('{count} folders', { count: getUsage(selectedTag) })}</dd></div>
+          <div><dt>{t('Updated')}</dt><dd>{formatUpdatedAt(selectedTag.updated_at ?? selectedTag.created_at)}</dd></div>
+          {#if selectedTag.value_text}<div class="wide"><dt>{t('Value')}</dt><dd>{selectedTag.value_text}</dd></div>{/if}
+        </dl>
+        <div class="tg__actions">
+          <button type="button" class="b2s-btn b2s-btn-primary" on:click={() => openEditTag(selectedTag)}>{t('Edit tag')}</button>
+          <button
+            type="button"
+            class="b2s-btn b2s-btn-danger-outline"
+            disabled={getUsage(selectedTag) > 0}
+            title={getUsage(selectedTag) > 0 ? dependencyCountDeleteMessage("tag", getUsage(selectedTag), "resource") : undefined}
+            on:click={openDelete}
+          >{t('Delete')}</button>
+        </div>
+      {:else}
+        <div class="tg__side-empty">
+          <i class="bi bi-tags" aria-hidden="true"></i>
+          <p>{t('Select a tag to see where it is used.')}</p>
+        </div>
       {/if}
-    </div>
-  </section>
+    </aside>
+  </div>
 </section>
 
 <AppModal
@@ -494,163 +463,37 @@
     padding: 0 !important;
   }
 
-  .tags-page {
-    min-height: calc(100vh - 64px);
-    padding: var(--b2s-page-padding);
-    color: var(--b2s-color-text);
-  }
-
-  :global(.tags-page .b2s-page-header__actions .b2s-action-group) {
-    width: auto;
-  }
-
-  :global(.tags-page .b2s-tag-pill) {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 12px;
-    border-radius: var(--b2s-radius-pill);
-    font-size: var(--b2s-fs-xs);
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    background: color-mix(
-      in srgb,
-      var(--tag-color, var(--b2s-color-text-faint)) 22%,
-      #ffffff
-    );
-    color: color-mix(
-      in srgb,
-      var(--tag-color, var(--b2s-color-text-soft)) 78%,
-      var(--b2s-color-text)
-    );
-    border: 1px solid color-mix(
-      in srgb,
-      var(--tag-color, var(--b2s-color-text-faint)) 45%,
-      transparent
-    );
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
-  }
-
-  .tags-table {
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    border-radius: var(--b2s-radius-lg);
-    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
-    backdrop-filter: blur(12px);
-  }
-
-  .tags-table-head,
-  .tags-row {
-    display: grid;
-    grid-template-columns: var(--tags-columns, minmax(220px, 1.5fr) 110px);
-    align-items: center;
-    gap: 12px;
-  }
-
-  .tags-toolbar {
-    margin-bottom: 14px;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 12px;
-    align-items: center;
-  }
-
-  :global(.tags-search) {
-    height: 40px;
-    border-radius: var(--b2s-radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: rgba(255, 255, 255, 0.85);
-  }
-
-  :global(.tags-search input) {
-    font-weight: 700;
-    color: var(--b2s-color-text);
-  }
-
-  .tags-sort {
-    display: inline-flex;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .tags-sort select {
-    height: 34px;
-    border-radius: var(--b2s-radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: rgba(255, 255, 255, 0.75);
-    padding: 0 10px;
-    font-weight: 700;
-    color: #0b1530;
-  }
-
-  .tags-table-head {
-    padding: 16px 20px;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--b2s-color-text-muted);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.3);
-  }
-
-  .tags-table-body {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .tags-row {
-    padding: 14px 20px;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-    cursor: pointer;
-    transition: background 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .tags-row:hover {
-    background: rgba(59, 130, 246, 0.08);
-  }
-
-  .tags-row.selected {
-    background: rgba(59, 130, 246, 0.12);
-    box-shadow: inset 3px 0 0 var(--b2s-color-info);
-  }
-
-  .tag-usage {
-    justify-self: end;
-    font-weight: 700;
-    color: #0b1530;
-  }
-
-  .tag-code,
-  .tag-updated {
-    color: var(--b2s-color-text-strong);
-    font-weight: 700;
-    font-size: var(--b2s-fs-sm);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .tag-code {
-    font-family: var(--b2s-font-mono);
-    letter-spacing: 0.01em;
-  }
-
-  .tags-empty {
-    padding: 18px 20px;
-    color: var(--b2s-color-text-muted);
-    font-weight: 700;
-  }
-
-  :global(.tags-sort-dir-btn) {
-    min-width: 140px;
-  }
-
-  /* ---- Modal ---- */
-
-  :global(.tag-modal__body) {
-    display: grid;
-    gap: 16px;
-  }
+  .tg { display: flex; flex-direction: column; gap: 18px; padding: var(--b2s-page-padding); }
+  .tg__head { display: flex; align-items: flex-end; gap: 12px; }
+  .tg__title { flex: 1 1 320px; min-width: 0; }
+  .tg__title h1 { margin: 0; font-size: 38px; line-height: 1.05; font-weight: 600; letter-spacing: -.03em; }
+  .tg__title p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
+  .tg__search { flex: 0 1 300px; display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; padding: 0 14px; border-radius: 12px; background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border-strong); color: var(--b2s-color-text-muted); }
+  .tg__search:focus-within { border-color: var(--b2s-color-text); }
+  .tg__search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--b2s-color-text); font: inherit; }
+  .tg__seg { display: inline-flex; gap: 3px; padding: 3px; border-radius: 12px; background: var(--b2s-color-neutral-soft); }
+  .tg__seg button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-weight: 500; cursor: pointer; }
+  .tg__seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 2px rgba(14, 18, 24, .12); }
+  .tg__body { display: flex; align-items: flex-start; gap: 18px; }
+  .tg__tiles { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-auto-flow: dense; gap: 10px; }
+  .tg__tile { min-height: 84px; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 10px; border: 1px solid transparent; border-radius: 14px; color: var(--b2s-color-text); font: inherit; text-align: left; cursor: pointer; transition: transform .12s; }
+  .tg__tile:hover { transform: translateY(-2px); }
+  .tg__tile.sel { outline: 2px solid var(--b2s-color-text); outline-offset: 2px; }
+  .tg__tile strong { font-weight: 600; overflow-wrap: anywhere; }
+  .tg__tile span { font-size: 13px; }
+  .tg__empty { grid-column: 1 / -1; }
+  .tg__side { flex: 0 0 340px; position: sticky; top: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border); border-radius: 18px; box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06); }
+  .tg__side h2 { margin: 10px 0 4px; font-size: 25px; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
+  .tg__side code { font-family: var(--b2s-font-mono); font-size: 12px; color: var(--b2s-color-text-muted); }
+  .tg__side dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
+  .tg__side dl .wide { grid-column: 1 / -1; }
+  .tg__side dt { font-size: 12px; font-weight: 400; color: var(--b2s-color-text-muted); }
+  .tg__side dd { margin: 0; font-weight: 500; }
+  .tg__actions { display: flex; gap: 8px; }
+  .tg__actions .b2s-btn-primary { flex: 1; }
+  .tg__side-empty { display: grid; justify-items: center; gap: 10px; padding: 40px 24px; text-align: center; color: var(--b2s-color-text-muted); }
+  .tg__side-empty i { font-size: 26px; }
+  .tg__side-empty p { margin: 0; }
 
   .tag-modal__section {
     padding: 0;
@@ -784,44 +627,4 @@
     font-size: var(--b2s-fs-xs);
   }
 
-  @media (max-width: 840px) {
-    .tags-page {
-      padding: 20px;
-    }
-
-    .tags-toolbar {
-      grid-template-columns: 1fr;
-    }
-
-    .tags-sort {
-      width: 100%;
-    }
-
-    .tags-sort select,
-    .tags-sort :global(.tags-sort-dir-btn) {
-      width: 100%;
-    }
-
-    .tags-table-head,
-    .tags-row {
-      grid-template-columns: minmax(160px, 1.4fr) minmax(90px, 0.8fr) 80px 130px;
-      gap: 10px;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .tags-table-head,
-    .tags-row {
-      grid-template-columns: minmax(130px, 1fr) 78px 76px;
-    }
-
-    .tags-table-head span:nth-child(2),
-    .tags-row .tag-code {
-      display: none;
-    }
-
-    .tag-updated {
-      font-size: var(--b2s-fs-xs);
-    }
-  }
 </style>

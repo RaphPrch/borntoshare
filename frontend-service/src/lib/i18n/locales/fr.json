@@ -3209,5 +3209,10 @@
   "No server matches your search.": "Aucun serveur ne correspond.",
   "To check": "À vérifier",
   "Select a server on the wall or in the list.": "Sélectionnez un serveur sur le mur ou dans la liste.",
-  "Search file servers": "Rechercher un serveur"
+  "Search file servers": "Rechercher un serveur",
+  "{tags} tags, {count} uses on folders": "{tags} tag(s), {count} pose(s) sur les dossiers",
+  "{count} folders": "{count} dossier(s)",
+  "Select a tag to see where it is used.": "Sélectionnez un tag pour voir son usage.",
+  "{total} with access · {admins} admin accounts · {groups} AD groups": "{total} avec accès · {admins} compte(s) admin · {groups} groupe(s) AD",
+  "Select an identity to see its roles.": "Sélectionnez une identité pour voir ses rôles."
 }

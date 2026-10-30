@@ -1025,7 +1025,7 @@
 <section class="b2s-page b2s-page--admin identity-sources-page">
   <div class="identity-clean-shell">
     <EntityPageHeader
-      title={t('Identity Sources')}
+      title={t('Directories')}
       actions={[
         { key: 'refresh', label: t('Refresh'), icon: 'bi-arrow-clockwise', variant: 'secondary', disabled: listLoading, onClick: refreshList },
         { key: 'new', label: t('New Identity Source'), icon: 'bi-plus-lg', variant: 'primary', onClick: () => (showWizard = true) }
@@ -1617,5 +1617,12 @@
       flex-direction: column;
       align-items: stretch;
     }
+  }
+
+  .identity-sources-page :global(h1) {
+    font-size: 38px;
+    line-height: 1.05;
+    font-weight: 600;
+    letter-spacing: -.03em;
   }
 </style>

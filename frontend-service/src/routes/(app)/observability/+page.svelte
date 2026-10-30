@@ -95,7 +95,7 @@
 </script>
 
 <div class="obs-page">
-  <PageHeader title={t('Observability')} subtitle={t('Platform health, alerts, events and jobs in one place.')}>
+  <PageHeader title={t('Monitoring')} subtitle={t('Platform health, alerts, events and jobs in one place.')}>
     <svelte:fragment slot="actions">
       <label class="obs-period">
         <span>{t('Period')}</span>

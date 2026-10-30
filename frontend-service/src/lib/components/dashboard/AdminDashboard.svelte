@@ -40,7 +40,7 @@
   ] as const;
 
   const kpi = [
-    { key: 'storage_roots', label: t('Storage Roots'), href: '/storage-roots', icon: 'bi-folder2-open', tone: 'info' },
+    { key: 'storage_roots', label: t('Folders'), href: '/storage-roots', icon: 'bi-folder2-open', tone: 'info' },
     { key: 'storage_endpoints', label: t('Storage Endpoints'), href: '/admin/storage-endpoints', icon: 'bi-hdd-network', tone: 'info' },
     { key: 'admins', label: t('Admins'), href: '/admin/identity', icon: 'bi-person-gear', tone: 'info' },
     { key: 'pending_requests', label: t('Pending Requests'), href: '/access-requests', icon: 'bi-hourglass-split', tone: 'warning' }
