@@ -3198,5 +3198,16 @@
   "requests write access to": "demande à modifier",
   "requests read access to": "demande à lire",
   "requests access to": "demande un accès à",
-  "Select a request to see what its approval does.": "Sélectionnez une demande pour voir ce que sa validation déclenche."
+  "Select a request to see what its approval does.": "Sélectionnez une demande pour voir ce que sa validation déclenche.",
+  "All servers": "Tous les serveurs",
+  "{servers} servers · {reachable} reachable · {folders} folders": "{servers} serveur(s) · {reachable} joignable(s) · {folders} dossier(s)",
+  "Fleet status": "État du parc",
+  "Search name, host, zone…": "Nom, hôte, zone…",
+  "Add a server": "Ajouter un serveur",
+  "Open the server": "Ouvrir le serveur",
+  "Not tested yet": "Pas encore testé",
+  "No server matches your search.": "Aucun serveur ne correspond.",
+  "To check": "À vérifier",
+  "Select a server on the wall or in the list.": "Sélectionnez un serveur sur le mur ou dans la liste.",
+  "Search file servers": "Rechercher un serveur"
 }

@@ -1095,6 +1095,7 @@
   </main>
 </div>
 {:else}
+<a class="ep-back" href="/admin/storage-endpoints"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All servers')}</a>
 <EntityWorkspace title={t('Storage endpoints')}>
   <svelte:fragment slot="list">
     <StorageEndpointsSidebar
@@ -1302,5 +1303,21 @@
     margin: 0;
     font-size: var(--b2s-fs-md);
     font-weight: 600;
+  }
+
+  .ep-back {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 16px 0 -14px 28px;
+    font-size: 13px;
+    color: var(--b2s-color-text-muted);
+    text-decoration: none;
+  }
+
+  .ep-back:hover {
+    color: var(--b2s-color-text);
   }
 </style>

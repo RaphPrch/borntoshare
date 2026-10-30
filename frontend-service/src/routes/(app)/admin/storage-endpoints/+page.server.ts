@@ -3,7 +3,6 @@ import type { PageServerLoad } from './$types';
 import type { StorageEndpointContext, StorageEndpointOverview } from '$lib/api/storage-endpoints';
 import { apiServerGetList } from '$lib/server/api-server';
 import { requireAuth } from '$lib/server/require-auth';
-import { redirect } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async (event) => {
   await requireAuth(event);
@@ -31,15 +30,6 @@ export const load: PageServerLoad = async (event) => {
     zone_name: row.zone_name ?? null,
     roots_count: row.roots_count ?? null
   }));
-
-  const firstEndpointId = Number(
-    (Array.isArray(endpoints) ? endpoints : [])[0]?.id ??
-    0
-  );
-
-  if (Number.isFinite(firstEndpointId) && firstEndpointId > 0) {
-    throw redirect(302, `/admin/storage-endpoints/${firstEndpointId}`);
-  }
 
   return {
     endpoints

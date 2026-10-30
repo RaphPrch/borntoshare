@@ -1,8 +1,9 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
+  import StorageEndpointsHome from '$lib/components/storage-endpoints/StorageEndpointsHome.svelte';
   import { toast } from '$lib/stores/toast';
 
   export let data: {
@@ -23,6 +24,8 @@
     onCta={() => (showWizard = true)}
     hint={t('You will be guided step by step.')}
   />
+{:else}
+  <StorageEndpointsHome endpoints={data.endpoints} onAdd={() => (showWizard = true)} />
 {/if}
 
 <StorageEndpointWizardModal
@@ -32,6 +35,5 @@
     showWizard = false;
     toast.success(t('Storage endpoint created.'));
     await invalidateAll();
-    await goto('/admin/storage-endpoints');
   }}
 />
