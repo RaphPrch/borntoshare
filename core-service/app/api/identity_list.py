@@ -243,7 +243,7 @@ def _set_subject_application_role(
     )
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(admin_or_internal)])
 def list_identity_overview(
     scope: str | None = Query(default=None),
     db: Session = Depends(get_db),
@@ -912,7 +912,7 @@ async def create_identity(
     )
 
 
-@router.get("/groups/{group_id}/members")
+@router.get("/groups/{group_id}/members", dependencies=[Depends(admin_or_internal)])
 def list_identity_group_members(
     group_id: int,
     db: Session = Depends(get_db),

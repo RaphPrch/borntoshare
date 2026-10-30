@@ -11,13 +11,19 @@ from app.data.repositories.governance_alerts_repo import (
 )
 from app.api._helpers import ui_action, ui_list
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request, can_access_admin
+from app.services.authorization import (
+    actor_from_request,
+    can_access_admin,
+    get_guardian_storage_root_ids,
+    require_storage_root_access,
+)
 
 router = APIRouter(prefix="/governance-alerts", tags=["governance_alerts"])
 
 
 @router.get("")
 def list_governance_alerts(
+    request: Request,
     scope_type: str | None = None,
     scope_id: int | None = None,
     storage_root_id: int | None = None,
@@ -35,6 +41,11 @@ def list_governance_alerts(
         status=status,
         limit=limit,
     )
+    actor = actor_from_request(request)
+    if not can_access_admin(actor):
+        # A guardian reads the alerts of their folders, nothing about the rest of the platform
+        own_roots = set(get_guardian_storage_root_ids(db, actor))
+        rows = [row for row in rows if row.get("storage_root_id") in own_roots]
     return ui_list(
         rows,
         meta={
@@ -52,10 +63,12 @@ def list_governance_alerts(
 @router.get("/storage-roots/{storage_root_id}")
 def list_storage_root_alerts(
     storage_root_id: int,
+    request: Request,
     status: str = "open",
     reconcile: bool = True,
     db: Session = Depends(get_db),
 ):
+    require_storage_root_access(db, actor_from_request(request), int(storage_root_id))
     repo = GovernanceAlertsRepo(db)
     rows = (
         repo.reconcile_storage_root(int(storage_root_id), commit=True)

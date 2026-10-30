@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -258,6 +259,43 @@ def signed_in_or_internal(request: Request) -> None:
         require_internal_token(request)
     except HTTPException as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authentication required") from exc
+
+
+def own_root_of_probe(body: dict[str, Any]) -> int | None:
+    """The storage root of a probe a guardian may run: by id only, the host and the account come from the server."""
+    target = body.get("target")
+    if str(body.get("kind") or "").strip().lower() != "storage-root" or body.get("auth") or not isinstance(target, dict):
+        return None
+    if set(target) != {"storage_root_id"}:
+        return None
+    return _to_int(target["storage_root_id"])
+
+
+async def probe_of_own_root(request: Request, db: Session = Depends(get_db)) -> None:
+    actor = actor_from_request(request)
+    if can_access_admin(actor):
+        return
+    body = await request.json()
+    root_id = own_root_of_probe(body if isinstance(body, dict) else {})
+    if root_id is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="platform_admin role required")
+    require_storage_root_access(db, actor, root_id)
+
+
+def probe_job_of_own_root(job_id: str, request: Request, db: Session = Depends(get_db)) -> None:
+    """Results list the ACL of the folder: only for the guardians of that folder."""
+    actor = actor_from_request(request)
+    if can_access_admin(actor):
+        return
+    row = db.execute(text("SELECT payload_json FROM provisioning_jobs WHERE id = :id"), {"id": _to_int(job_id) or 0}).first()
+    try:
+        envelope = json.loads(row[0]) if row and isinstance(row[0], str) else (row[0] if row else {})
+        root_id = _to_int(envelope["payload"]["target"]["storage_root_id"])
+    except (KeyError, TypeError, ValueError):
+        root_id = None
+    if root_id is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="platform_admin role required")
+    require_storage_root_access(db, actor, root_id)
 
 
 def stamp_actor(request: Request, data: dict[str, Any]) -> dict[str, Any]:

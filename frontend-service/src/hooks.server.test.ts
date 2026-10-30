@@ -382,6 +382,13 @@ async function testAnonymousNeverReachesServices() {
   }
 }
 
+async function testInternalRoutesAreNeverExposed() {
+  for (const path of ['/api/internal/identity-sources/active', '/api/auth/internal/introspect']) {
+    const result = await callApi(path, { roles: ['platform_admin'] });
+    assert(result.status === 404 && result.forwarded === null, `${path}: should not be exposed, got ${result.status}`);
+  }
+}
+
 async function testSignInRoutesStayPublicWithoutTrustedHeaders() {
   const result = await callApi('/api/auth/login', { headers: SPOOFED });
   assert(result.status === 200, 'sign-in should stay public');
@@ -419,6 +426,7 @@ async function run() {
   await testUnauthenticatedRedirectKeepsQueryString();
   await testApiProxyHydratesPrincipalBeforeForwarding();
   await testAnonymousNeverReachesServices();
+  await testInternalRoutesAreNeverExposed();
   await testSignInRoutesStayPublicWithoutTrustedHeaders();
   await testClientHeadersNeverOverrideTheSession();
   await testAdminRoutesAreCheckedOnTheRequestedPath();

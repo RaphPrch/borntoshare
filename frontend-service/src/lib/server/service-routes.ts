@@ -38,7 +38,7 @@ export function stripApiPrefix(pathname: string): string {
 export function resolveDirectRoute(pathname: string): DirectRoute | null {
   const path = stripApiPrefix(pathname);
 
-  if (path.startsWith('/internal')) {
+  if (path.startsWith('/internal') || path.startsWith('/auth/internal')) {
     return null;
   }
 

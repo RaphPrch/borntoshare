@@ -93,7 +93,7 @@ def _write_payload(db: Session, payload: dict) -> None:
     db.commit()
 
 
-@router.get("/config/advanced")
+@router.get("/config/advanced", dependencies=[Depends(admin_or_internal)])
 def get_advanced_config(db: Session = Depends(get_db)):
     return ui_data(_read_payload(db))
 

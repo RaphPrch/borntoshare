@@ -1488,7 +1488,8 @@
 
   const runSelectedRootProbe = async () => {
     try {
-      await runRootProbe(true);
+      // Discovering the folders of the whole server is for platform admins
+      await runRootProbe(data.user?.is_admin === true);
       toast.success(t('Root probe OK: storage root is reachable'));
     } catch (e: any) {
       toast.error(e?.message ?? t('Root probe failed'));

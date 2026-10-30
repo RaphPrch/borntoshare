@@ -630,7 +630,7 @@ async def run_queued_jobs_watchdog_once(
     }
 
 
-@router.get("/admin/jobs")
+@router.get("/admin/jobs", dependencies=[Depends(admin_only)])
 async def list_admin_jobs(
     status_filter: str | None = Query(default=None, alias="status"),
     job_type: str | None = None,

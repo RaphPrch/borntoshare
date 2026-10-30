@@ -78,7 +78,8 @@ def get_activity_by_target(
     elif normalized_target_type == "access_request" and int(target_id or 0) > 0:
         # Provisioning log of a request: whoever may see the request
         require_access_request_access(db, actor, int(target_id))
-    elif normalized_target_type in {"zone", "storage_endpoint", "access_request", "storage_root_access_profile"}:
+    else:
+        # Any other target, or none at all, reads the journal of the platform
         require_observability(actor)
     rows = list_activity_by_target(
         target_type=target_type,

@@ -105,7 +105,7 @@ def _replace_map_json(value: dict[str, str] | str | None) -> str | None:
     return str(value)
 
 
-@router.get("/global")
+@router.get("/global", dependencies=[Depends(admin_or_internal)])
 def get_global_naming_policy(db: Session = Depends(get_db)):
     return ui_data(load_global_policy(db))
 
@@ -150,7 +150,7 @@ def put_global_naming_policy(payload: GlobalNamingPolicyPayload, db: Session = D
     return ui_data(load_global_policy(db))
 
 
-@router.get("/zones/{zone_id}")
+@router.get("/zones/{zone_id}", dependencies=[Depends(admin_or_internal)])
 def get_zone_naming_policy(zone_id: int, db: Session = Depends(get_db)):
     if not _zone_exists(db, zone_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found")

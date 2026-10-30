@@ -223,7 +223,7 @@ def ensure_unique_source(
             )
 
 
-@router.get("", summary="List identity sources")
+@router.get("", summary="List identity sources", dependencies=[Depends(admin_or_internal)])
 def list_identity_sources(db: Session = Depends(get_db)):
     query = db.query(IdentitySource)
     load_opt = _identity_source_load_only(db)
@@ -246,7 +246,7 @@ def list_identity_sources(db: Session = Depends(get_db)):
     return ui_list(results)
 
 
-@router.get("/{source_id}/internal", summary="Get identity source (internal, with secrets)")
+@router.get("/{source_id}/internal", summary="Get identity source (internal, with secrets)", dependencies=[Depends(admin_or_internal)])
 def get_identity_source_internal(source_id: int, db: Session = Depends(get_db)):
     src = _get_identity_source(db, source_id)
     if not src:

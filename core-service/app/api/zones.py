@@ -107,7 +107,7 @@ def _build_zone_policy_candidate(
 # READ MODELS (VIEWS)
 # ============================================================
 
-@router.get("")
+@router.get("", dependencies=[Depends(admin_or_internal)])
 def list_zones(db: Session = Depends(get_db)):
     """
     List zones (READ MODEL).
@@ -119,7 +119,7 @@ def list_zones(db: Session = Depends(get_db)):
     return ui_list([dict(r) for r in rows])
 
 
-@router.get("/{zone_id}/console")
+@router.get("/{zone_id}/console", dependencies=[Depends(admin_or_internal)])
 def get_zone_console(zone_id: int, db: Session = Depends(get_db)):
     """Ultra Gold console read-model for a zone (V1++).
 
@@ -161,7 +161,7 @@ def get_zone_console(zone_id: int, db: Session = Depends(get_db)):
     return ui_data(payload, meta={"zone_id": int(zone_id)})
 
 
-@router.get("/{zone_id}/provisioning-policy")
+@router.get("/{zone_id}/provisioning-policy", dependencies=[Depends(admin_or_internal)])
 def get_zone_provisioning_policy(zone_id: int, db: Session = Depends(get_db)):
     row = ZonesViewsRepo(db).get_zone_provisioning_policy(zone_id)
     if row is None:
@@ -225,7 +225,7 @@ def put_zone_provisioning_policy(zone_id: int, payload: dict, db: Session = Depe
     return get_zone_provisioning_policy(zone_id, db)
 
 
-@router.get("/{zone_id}")
+@router.get("/{zone_id}", dependencies=[Depends(admin_or_internal)])
 def get_zone(zone_id: int, db: Session = Depends(get_db)):
     """
     Zone write-model detail.

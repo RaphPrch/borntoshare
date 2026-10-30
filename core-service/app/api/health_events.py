@@ -6,11 +6,12 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.api._helpers import ui_list
 from app.services.health_events import summarize_health_history
+from app.services.authorization import admin_or_internal
 
 router = APIRouter(prefix="/health", tags=["health-events"])
 
 
-@router.get("/summary")
+@router.get("/summary", dependencies=[Depends(admin_or_internal)])
 def get_health_summary(
     entity_type: str,
     entity_id: int = Query(..., gt=0),

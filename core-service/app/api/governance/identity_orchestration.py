@@ -49,7 +49,7 @@ async def search_identity(request: Request) -> dict[str, Any]:
     return ui_data(data)
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(admin_only)])
 async def list_identity_overview(request: Request) -> dict[str, Any]:
     items = await list_identity_overview_service(dict(request.query_params))
     return ui_list(items)
@@ -83,7 +83,7 @@ async def discover_identity(request: Request) -> dict[str, Any]:
     return ui_data(data)
 
 
-@router.get("/jobs/{job_id}")
+@router.get("/jobs/{job_id}", dependencies=[Depends(admin_or_guardian)])
 async def get_identity_job(job_id: int) -> dict[str, Any]:
     data = await get_identity_job_service(job_id)
     return ui_data(data)

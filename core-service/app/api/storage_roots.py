@@ -26,7 +26,6 @@ from app.api._helpers import ui_action, ui_data, ui_list
 from app.services.activity_log import log_activity
 from app.services.authorization import (
     admin_only,
-    admin_or_guardian,
 
     actor_from_request,
     filter_storage_root_rows,
@@ -907,7 +906,7 @@ def list_storage_roots_effective_access(
     return ui_list(rows, meta={"count": int(len(rows))})
 
 
-@router.post("/discovery-sync", dependencies=[Depends(admin_or_guardian), Depends(require_internal_token)])
+@router.post("/discovery-sync", dependencies=[Depends(admin_only), Depends(require_internal_token)])
 def sync_storage_root_discovery(
     payload: StorageRootDiscoverySyncPayload,
     db: Session = Depends(get_db),

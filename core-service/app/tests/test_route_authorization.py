@@ -9,6 +9,7 @@ from app.api import (
     activity_events,
     activity_views,
     advanced_settings,
+    health_events,
     identity_list,
     identity_sources,
     naming_policies,
@@ -20,6 +21,9 @@ from app.services.authorization import (
     admin_only,
     admin_or_guardian,
     admin_or_internal,
+    own_root_of_probe,
+    probe_job_of_own_root,
+    probe_of_own_root,
     signed_in_or_internal,
     stamp_actor,
 )
@@ -36,12 +40,20 @@ GUARDED = [
     (identity_list, ["create_identity", "update_identity", "delete_identity"], admin_or_internal),
     (naming_policies, ["preview_group_name", "preview_root_groups"], admin_or_internal),
     (advanced_settings, ["save_advanced_config"], admin_or_internal),
-    (storage_roots, ["create_root", "delete_root"], admin_only),
-    (storage_roots, ["sync_storage_root_discovery"], admin_or_guardian),
+    (storage_roots, ["create_root", "delete_root", "sync_storage_root_discovery"], admin_only),
     (activity_views, ["post_activity_event"], signed_in_or_internal),
     (activity_events, ["create_activity_event_route"], signed_in_or_internal),
     (provisioning, ["cancel_admin_job"], admin_only),
-    (probes, ["run_probe"], admin_or_guardian),
+    (probes, ["run_probe", "get_probe_job"], admin_or_guardian),
+    (probes, ["run_probe"], probe_of_own_root),
+    (probes, ["get_probe_job"], probe_job_of_own_root),
+    (provisioning, ["list_admin_jobs"], admin_only),
+    (zones, ["list_zones", "get_zone", "get_zone_console", "get_zone_provisioning_policy"], admin_or_internal),
+    (identity_sources, ["list_identity_sources", "get_identity_source_internal"], admin_or_internal),
+    (identity_list, ["list_identity_overview", "list_identity_group_members"], admin_or_internal),
+    (naming_policies, ["get_global_naming_policy", "get_zone_naming_policy"], admin_or_internal),
+    (advanced_settings, ["get_advanced_config"], admin_or_internal),
+    (health_events, ["get_health_summary"], admin_or_internal),
     (identity_orchestration, ["run_identity_snapshot", "update_identity", "discover_identity"], admin_only),
     (identity_orchestration, ["import_identity_ad", "import_identity_ad_batch"], admin_or_guardian),
     (identity_orchestration, ["search_identity"], signed_in_or_internal),
@@ -84,3 +96,17 @@ def test_stamp_actor_ignores_the_actor_of_the_payload():
     assert (stamped["actor_type"], stamped["actor_id"], stamped["actor_display"]) == ("user", 5, "Claire")
     # A service with the internal token keeps what it declares
     assert stamp_actor(_request(), forged) == forged
+
+
+@pytest.mark.parametrize(
+    "body,expected",
+    [
+        ({"kind": "storage-root", "target": {"storage_root_id": 7}}, 7),
+        ({"kind": "storage-endpoint", "target": {"storage_root_id": 7}}, None),
+        ({"kind": "storage-root", "target": {"storage_root_id": 7, "host": "elsewhere.example.test"}}, None),
+        ({"kind": "storage-root", "target": {"storage_root_id": 7}, "auth": {"username": "x"}}, None),
+        ({"kind": "storage-root", "target": {}}, None),
+    ],
+)
+def test_guardian_only_probes_a_root_by_id(body, expected):
+    assert own_root_of_probe(body) == expected
