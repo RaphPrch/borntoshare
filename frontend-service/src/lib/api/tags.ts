@@ -11,7 +11,6 @@ export type TagOverview = {
   label: string;
   code: string;
   color_rgb?: string | null;
-  value_text?: string | null;
   family?: string | null;
 };
 
@@ -21,7 +20,6 @@ type TagWritePayload = {
   code?: string;
   color_rgb?: string | null;
   color?: string | null;
-  value_text?: string | null;
   family?: string | null;
 };
 

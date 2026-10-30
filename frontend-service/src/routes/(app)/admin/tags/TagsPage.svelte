@@ -44,12 +44,8 @@
   let form = {
     name: "",
     color_rgb: "",
-    value_text: "",
     family: ""
   };
-
-  let valueInput = "";
-  let valueItems: string[] = [];
 
   let searchQuery = "";
   let sortBy: "name" | "usage" = "usage";
@@ -79,14 +75,6 @@
     if (!v) return true;
     return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v);
   };
-
-  const splitValues = (value: string | null | undefined) =>
-    String(value ?? "")
-      .split(",")
-      .map((v) => v.trim())
-      .filter(Boolean);
-
-  const uniqueValues = (values: string[]) => Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
 
   const formatUpdatedAt = (raw: unknown) => {
     return formatDateTime(raw);
@@ -141,7 +129,7 @@
     if (familyFilter !== "all" && (familyFilter === NO_FAMILY ? familyOf(tag) : familyOf(tag) !== familyFilter)) return false;
     const q = normalizeText(searchQuery);
     if (!q) return true;
-    const haystack = [tag?.label, tag?.name, tag?.code, tag?.value_text, tag?.family]
+    const haystack = [tag?.label, tag?.name, tag?.code, tag?.family]
       .map((v) => normalizeText(v))
       .join(" ");
     return haystack.includes(q);
@@ -167,33 +155,15 @@
     form = {
       name: tag.name ?? tag.label ?? "",
       color_rgb: tag.color_rgb ?? tag.color ?? "",
-      value_text: tag.value_text ?? "",
       family: tag.family ?? ""
     };
-    valueItems = splitValues(form.value_text);
-    valueInput = "";
     modalOpen = true;
-  }
-
-  function addValueItem() {
-    const v = valueInput.trim();
-    if (!v) return;
-    valueItems = uniqueValues([...valueItems, v]);
-    form.value_text = valueItems.join(", ");
-    valueInput = "";
-  }
-
-  function removeValueItem(value: string) {
-    valueItems = valueItems.filter((v) => v !== value);
-    form.value_text = valueItems.join(", ");
   }
 
   function openCreate() {
     modalMode = "create";
     errorMsg = null;
-    form = { name: "", color_rgb: "", value_text: "", family: familyFilter === NO_FAMILY || familyFilter === "all" ? "" : familyFilter };
-    valueItems = [];
-    valueInput = "";
+    form = { name: "", color_rgb: "", family: familyFilter === NO_FAMILY || familyFilter === "all" ? "" : familyFilter };
     modalOpen = true;
   }
 
@@ -223,7 +193,6 @@
     const code = toSlug(name);
     const color_rgb = form.color_rgb.trim() || null;
     const color = color_rgb;
-    const value_text = uniqueValues(valueItems).join(", ").trim() || null;
     const family = form.family.trim() || null;
 
     try {
@@ -236,10 +205,10 @@
       }
 
       if (modalMode === "create") {
-        await createTag(fetch, { name, label, code, color_rgb, color, value_text, family });
+        await createTag(fetch, { name, label, code, color_rgb, color, family });
         toast.success(t('Tag created.'));
       } else if (modalMode === "edit" && selectedTag) {
-        await updateTag(fetch, selectedTag.id, { name, label, code, color_rgb, color, value_text, family });
+        await updateTag(fetch, selectedTag.id, { name, label, code, color_rgb, color, family });
         toast.success(t('Tag updated.'));
       }
 
@@ -295,7 +264,7 @@
     </div>
     <label class="tg__search">
       <i class="bi bi-search" aria-hidden="true"></i>
-      <input type="search" aria-label={t('Search for a tag')} placeholder={t('Search by name, code, or value')} bind:value={searchQuery} />
+      <input type="search" aria-label={t('Search for a tag')} placeholder={t('Search by name or family')} bind:value={searchQuery} />
     </label>
     <div class="tg__seg" role="group" aria-label={t('Sort')}>
       <button type="button" class:on={sortBy === "usage"} aria-pressed={sortBy === "usage"} on:click={() => (sortBy = "usage")}>{t('Usage')}</button>
@@ -352,7 +321,6 @@
           <div class="wide"><dt>{t('Family')}</dt><dd>{familyOf(selectedTag) || t('No family')}</dd></div>
           <div><dt>{t('Usage')}</dt><dd>{t('{count} folders', { count: getUsage(selectedTag) })}</dd></div>
           <div><dt>{t('Updated')}</dt><dd>{formatUpdatedAt(selectedTag.updated_at ?? selectedTag.created_at)}</dd></div>
-          {#if selectedTag.value_text}<div class="wide"><dt>{t('Value')}</dt><dd>{selectedTag.value_text}</dd></div>{/if}
         </dl>
         <div class="tg__actions">
           <button type="button" class="b2s-btn b2s-btn-primary" on:click={() => openEditTag(selectedTag)}>{t('Edit tag')}</button>
@@ -433,48 +401,6 @@
               />
             </div>
           </div>
-      </section>
-
-      <section class="tag-card tag-card--wide">
-          <div class="tag-card__title">{t('Value')}</div>
-          <p class="tag-card__subtitle">{t('Create one or more predefined values for this tag')}</p>
-          <div class="tag-value-row">
-            <input
-              class="tag-input"
-              placeholder={t('e.g. Confidential')}
-              bind:value={valueInput}
-              on:keydown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addValueItem();
-                }
-              }}
-            />
-            <button
-              class="b2s-btn b2s-btn-secondary"
-              type="button"
-              on:click={addValueItem}
-            >
-              {t('Add value')}
-            </button>
-          </div>
-          {#if valueItems.length > 0}
-            <div class="tag-values-list">
-              {#each valueItems as item (item)}
-                <div class="tag-value-pill">
-                  {item}
-                  <button
-                    type="button"
-                    aria-label={t('Remove value')}
-                    on:click={() => removeValueItem(item)}
-                  >
-                    ×
-                  </button>
-                </div>
-              {/each}
-            </div>
-          {/if}
-          <div class="tag-card__hint">{t('Suggested: Public, Sensitive, Private, Archived')}</div>
       </section>
 
       {#if errorMsg}
@@ -635,17 +561,6 @@
     margin-bottom: 10px;
   }
 
-  .tag-card--wide {
-    margin: 0;
-  }
-
-  .tag-card__subtitle {
-    margin: -6px 0 12px;
-    color: var(--b2s-color-text-muted);
-    font-weight: 700;
-    font-size: var(--b2s-fs-sm);
-  }
-
   .tag-palette {
     display: flex;
     flex-wrap: wrap;
@@ -681,47 +596,6 @@
 
   .tag-input--compact {
     height: 38px;
-  }
-
-  .tag-value-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 10px;
-  }
-
-  .tag-value-pill {
-    margin-top: 12px;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    border-radius: var(--b2s-radius-pill);
-    background: var(--b2s-color-primary-soft);
-    border: 1px solid rgba(37, 99, 235, 0.25);
-    color: #0b1530;
-    font-weight: 700;
-  }
-
-  .tag-values-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .tag-value-pill button {
-    width: 22px;
-    height: 22px;
-    border-radius: var(--b2s-radius-pill);
-    border: none;
-    background: rgba(2, 6, 23, 0.12);
-    color: #0b1530;
-  }
-
-  .tag-card__hint {
-    margin-top: 12px;
-    color: var(--b2s-color-text-muted);
-    font-weight: 700;
-    font-size: var(--b2s-fs-xs);
   }
 
 </style>

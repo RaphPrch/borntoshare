@@ -13,7 +13,7 @@ from app.data.models.tag import Tag
 from app.schemas.tag_attachment import TagAttachmentRequest
 from app.data.models.storage_root_tag import storage_root_tag
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request, require_admin
+from app.services.authorization import actor_from_request, can_access_admin, is_storage_root_guardian, require_admin
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 
@@ -43,6 +43,7 @@ def list_tags(db: Session = Depends(get_db)):
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_tag(payload: TagCreate, request: Request, db: Session = Depends(get_db)):
+    require_admin(actor_from_request(request))
     tag = Tag(
         name=payload.name,
         color=payload.color,
@@ -80,6 +81,7 @@ def create_tag(payload: TagCreate, request: Request, db: Session = Depends(get_d
 
 @router.patch("/{tag_id}")
 def update_tag(tag_id: int, payload: TagUpdate, request: Request, db: Session = Depends(get_db)):
+    require_admin(actor_from_request(request))
     tag: Tag | None = db.get(Tag, tag_id)
     if tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
@@ -123,6 +125,7 @@ def update_tag(tag_id: int, payload: TagUpdate, request: Request, db: Session = 
 
 @router.delete("/{tag_id}")
 def delete_tag(tag_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(actor_from_request(request))
     tag: Tag | None = db.get(Tag, tag_id)
     if tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
@@ -215,11 +218,20 @@ _RESOURCE_TABLES = {
 }
 
 
+def _require_resource_tagging(db: Session, request: Request, payload: TagAttachmentRequest) -> None:
+    # A platform admin, or a guardian on the storage roots they govern
+    actor = actor_from_request(request)
+    if can_access_admin(actor) or is_storage_root_guardian(db, actor, int(payload.resource_id)):
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="storage root guardian or platform_admin role required")
+
+
 @router.post("/attach", status_code=status.HTTP_201_CREATED)
 def attach_tag(payload: TagAttachmentRequest, request: Request, db: Session = Depends(get_db)):
     table = _RESOURCE_TABLES.get(payload.resource_type)
     if table is None:
         raise HTTPException(status_code=400, detail="Unsupported resource_type")
+    _require_resource_tagging(db, request, payload)
 
     # Column naming depends on resource
     resource_col = f"{payload.resource_type}_id"
@@ -274,6 +286,7 @@ def detach_tag(payload: TagAttachmentRequest, request: Request, db: Session = De
     table = _RESOURCE_TABLES.get(payload.resource_type)
     if table is None:
         raise HTTPException(status_code=400, detail="Unsupported resource_type")
+    _require_resource_tagging(db, request, payload)
 
     resource_col = f"{payload.resource_type}_id"
 

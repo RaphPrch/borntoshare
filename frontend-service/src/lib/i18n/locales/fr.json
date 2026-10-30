@@ -3243,5 +3243,6 @@
   "{count} folders move to {target}, then {source} is deleted. This cannot be undone.": "{count} dossier(s) passent à {target}, puis {source} est supprimé. Cette action est irréversible.",
   "Merge": "Fusionner",
   "Tags merged.": "Tags fusionnés.",
-  "Unable to merge tags.": "Impossible de fusionner les tags."
+  "Unable to merge tags.": "Impossible de fusionner les tags.",
+  "Search by name or family": "Rechercher par nom ou famille"
 }
