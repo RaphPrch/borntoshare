@@ -1132,6 +1132,7 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
             "error_message": None,
         },
     )
+    _reconcile_after_propagation(db, row)
 
     if str(getattr(row, "job_type", "") or "").strip().upper() == "DIRECTORY_SNAPSHOT":
         _apply_directory_snapshot_success(
@@ -1205,6 +1206,22 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
     return repo.to_dict(row)
 
 
+def _reconcile_after_propagation(db: Session, row: Any) -> None:
+    """The end of an ACL propagation opens or closes its alert right away, without waiting for the next scan."""
+    payload_json = getattr(row, "payload_json", None)
+    envelope = payload_json if isinstance(payload_json, dict) else {}
+    context = (envelope.get("payload") or {}).get("context") or {}
+    root_id = context.get("storage_root_id")
+    if not context.get("acl_propagation") or not root_id:
+        return
+    try:
+        from app.data.repositories.governance_alerts_repo import GovernanceAlertsRepo
+
+        GovernanceAlertsRepo(db).reconcile_storage_root(int(root_id), commit=True)
+    except Exception:
+        db.rollback()
+
+
 @router.post("/jobs/{job_id}/fail", dependencies=[require_internal({"jobs:write"})])
 def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = Depends(get_db)):
     correlation_id = _require_correlation(payload.correlation_id)
@@ -1233,6 +1250,7 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
             "error_message": payload.error_message,
         },
     )
+    _reconcile_after_propagation(db, row)
 
     if str(getattr(row, "job_type", "") or "").strip().upper() == "DIRECTORY_SNAPSHOT":
         _apply_directory_snapshot_failure(

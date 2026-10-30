@@ -411,13 +411,20 @@ class StorageRootPermissions:
 
         for gap in gaps:
             gap.pop("members", None)
+        propagation = self._propagation(root_id)
+        if status == "ok" and propagation and propagation["state"] == "running":
+            # Compliant on the folder, not yet on all its content
+            status = "applying"
+        elif status == "ok" and propagation and propagation["state"] == "failed":
+            # The rights did not reach everything: never « compliant », the banner of the tab says why
+            status = "missing_ace"
         return {
             "storage_root_id": int(root_id),
             "root_path": root.get("root_path"),
             "acl_scanned_at": scanned_at,
             "acl_entries": len(aces),
             "inheritance": inheritance_state(scan.get("control"), aces),
-            "propagation": self._propagation(root_id),
+            "propagation": propagation,
             "snapshot_at": snapshot_at,
             "status": status,
             "summary": {

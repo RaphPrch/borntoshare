@@ -117,6 +117,7 @@
   // One status pill: the folder unreachable first, then the state of its ACL
   const ACL_PILL = {
     ok: { label: () => t('Compliant'), tone: 'success' },
+    applying: { label: () => t('Being applied'), tone: 'warning' },
     gap: { label: () => t('Gap to review'), tone: 'warning' },
     missing_ace: { label: () => t('ACE missing'), tone: 'danger' },
     never_scanned: { label: () => t('ACL never read'), tone: 'neutral' }

@@ -437,6 +437,22 @@ class GovernanceAlertsRepo(SQLViewRepo):
             }
 
         alerts: list[dict[str, Any]] = []
+        from app.services.storage_root_permissions import StorageRootPermissions
+
+        propagation = StorageRootPermissions(self.db)._propagation(root_id)
+        if propagation and propagation["state"] == "failed":
+            alerts.append(
+                {
+                    **base("acl_propagation_failed"),
+                    "alert_key": f"storage_root:{root_id}:acl_propagation_failed",
+                    "severity": "high",
+                    "title": "Rights not applied to the whole folder",
+                    "message": f"Some people may be refused inside the folder: {str(propagation.get('message') or 'the propagation failed')[:300]}",
+                    "source_type": "acl_propagation",
+                    "source_id": str(root_id),
+                    "metadata_json": {"storage_root_name": root_label},
+                }
+            )
 
         endpoint_status = str(root_data.get("endpoint_probe_status") or "").strip().lower()
         root_status = str(root_data.get("last_probe_status") or "").strip().lower()

@@ -246,6 +246,10 @@ def snapshot(api: Api, source_id: int) -> bool:
 
 def read_acl(api: Api, root_id: int) -> bool:
     """« Read the ACL » of the Permissions tab: storage root probe with the discovery of the permissions."""
+    for _ in range(30):  # the rights reach the content of the folder in the background after an approval
+        if (api.call("GET", f"/storage-roots/{root_id}/permissions").get("propagation") or {}).get("state") != "running":
+            break
+        time.sleep(2)
     state = wait_probe(api, {"kind": "storage-root", "protocol": "smb", "scope": "read", "target": {"storage_root_id": root_id},
                              "options": {"timeout_sec": 30, "discover_permissions": True},
                              "context": {"storage_root_id": root_id, "ui_origin": "admin"}})

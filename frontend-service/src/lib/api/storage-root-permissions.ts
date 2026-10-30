@@ -54,7 +54,7 @@ export type StorageRootPermissionsData = {
   /** NTFS inheritance of the folder from its parent (CONTROL flags of the last ACL read) */
   inheritance: { known: boolean; broken: boolean; inherited_entries: number };
   snapshot_at: string | null;
-  status: 'ok' | 'gap' | 'missing_ace' | 'never_scanned';
+  status: 'ok' | 'applying' | 'gap' | 'missing_ace' | 'never_scanned';
   summary: { people: number; read: number; write: number; groups: number; groups_ok: number; expiring_30d: number; gaps: number; accepted_gaps: number };
   people: PermissionPerson[];
   groups: PermissionGroup[];

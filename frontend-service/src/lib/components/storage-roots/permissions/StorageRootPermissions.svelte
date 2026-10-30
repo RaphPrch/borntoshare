@@ -69,6 +69,7 @@
 
   const STATE: Record<StorageRootPermissionsData['status'], { tone: string; word: () => string }> = {
     ok: { tone: 'ok', word: () => t('Compliant.') },
+    applying: { tone: 'warn', word: () => t('Being applied.') },
     gap: { tone: 'warn', word: () => t('To review.') },
     missing_ace: { tone: 'bad', word: () => t('Incomplete.') },
     never_scanned: { tone: 'idle', word: () => t('Not read yet.') }

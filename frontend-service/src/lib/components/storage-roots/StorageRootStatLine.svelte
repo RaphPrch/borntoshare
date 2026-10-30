@@ -13,6 +13,7 @@
 
   const ACL_STATE: Record<StorageRootPermissionsData['status'], () => string> = {
     ok: () => t('Compliant'),
+    applying: () => t('Being applied'),
     gap: () => t('Gap to review'),
     missing_ace: () => t('ACE missing'),
     never_scanned: () => t('Never read')

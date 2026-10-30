@@ -2929,5 +2929,8 @@
   "ACL repaired on the folder. Its content follows in the background.": "ACL réparée sur le dossier. Son contenu suit en arrière-plan.",
   "Unable to repair the ACL.": "Impossible de réparer l'ACL.",
   "The rights are being applied to the content of the folder. On a big folder it can take a while.": "Les droits s'appliquent au contenu du dossier. Sur un gros dossier, cela peut prendre du temps.",
-  "The rights could not reach all the content of the folder: some people may be refused inside. Use « Repair the ACL ».": "Les droits n'ont pas atteint tout le contenu du dossier : certaines personnes peuvent être refusées à l'intérieur. Utilisez « Réparer l'ACL »."
+  "The rights could not reach all the content of the folder: some people may be refused inside. Use « Repair the ACL ».": "Les droits n'ont pas atteint tout le contenu du dossier : certaines personnes peuvent être refusées à l'intérieur. Utilisez « Réparer l'ACL ».",
+  "Being applied.": "Application en cours.",
+  "Being applied": "Application en cours",
+  "Rights not applied to the whole folder": "Droits non appliqués à tout le dossier"
 }
