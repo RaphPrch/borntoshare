@@ -2,6 +2,7 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import Drawer from "$lib/components/ui/Drawer.svelte";
+  import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import ZoneFormFields from "$lib/components/zones/ZoneFormFields.svelte";
 
@@ -22,6 +23,16 @@
   };
 
   let busy = false;
+  let closeConfirmOpen = false;
+
+  $: saved = mode === "create" ? { name: "", code: "", description: "" } : { name: zone?.name ?? "", code: zone?.code ?? "", description: zone?.description ?? "" };
+  $: isDirty = mode !== "delete" && JSON.stringify(form) !== JSON.stringify(saved);
+
+  function requestClose() {
+    if (busy) return;
+    if (isDirty) closeConfirmOpen = true;
+    else onClose();
+  }
   let errorMsg: string | null = null;
 
   $: if (mode === "create") {
@@ -114,7 +125,7 @@
   title={drawerTitle}
   subtitle={drawerSubtitle}
   iconClass="bi bi-diagram-2"
-  onClose={onClose}
+  onClose={requestClose}
   ariaLabelledby="zone-form-drawer-title"
   rootClass="zone-form-drawer"
   showFooter={true}
@@ -147,7 +158,7 @@
 
   <svelte:fragment slot="footer">
     <div class="zone-form-drawer__actions">
-      <EntityActionButton variant="secondary" label={t('Cancel')} disabled={busy} onClick={onClose} />
+      <EntityActionButton variant="secondary" label={t('Cancel')} disabled={busy} onClick={requestClose} />
       <EntityActionButton
         variant={mode === "delete" ? "danger" : "primary"}
         icon={busy ? "bi-arrow-repeat" : mode === "delete" ? "bi-trash" : "bi-check2"}
@@ -159,6 +170,8 @@
     </div>
   </svelte:fragment>
 </Drawer>
+
+<UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={() => { closeConfirmOpen = false; onClose(); }} />
 
 <style>
   .zone-form-drawer__content {

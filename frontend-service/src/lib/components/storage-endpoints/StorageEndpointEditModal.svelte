@@ -1,4 +1,5 @@
 <script lang="ts">
+  import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
   import Drawer from "$lib/components/ui/Drawer.svelte";
@@ -272,7 +273,12 @@
     zoneId !== null &&
     required(username) &&
     !duplicateEndpoint;
-  $: endpointDirty = JSON.stringify(buildSnapshot()) !== JSON.stringify(initialSnapshot ?? buildSnapshot());
+  // buildSnapshot() hides what it reads: the fields are named here so the state follows them
+  let endpointDirty = false;
+  $: {
+    void [name, description, protocol, host, port, username, zoneId, identitySourceId, isActive];
+    endpointDirty = JSON.stringify(buildSnapshot()) !== JSON.stringify(initialSnapshot ?? buildSnapshot());
+  }
   $: rootsDirty = selectedRoots.length > 0;
   $: isDirty = endpointDirty || rootsDirty || Boolean(password.trim());
   $: endpointSaveReason = !required(name)
@@ -913,17 +919,7 @@
   severity="warning"
 />
 
-<ConfirmActionModal
-  open={closeConfirmOpen}
-  onClose={() => (closeConfirmOpen = false)}
-  onConfirm={discardAndClose}
-  title={t('Discard unsaved changes')}
-  subtitle={t('Your edits have not been saved.')}
-  confirmLabel={t('Discard changes')}
-  confirmVariant="warning"
-  severity="warning"
-  impactItems={[t('All unsaved edits in this drawer will be lost.')]}
-/>
+<UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={discardAndClose} />
 
 <style>
   :global(.se-edit-drawer .b2s-entity-drawer__footer) {

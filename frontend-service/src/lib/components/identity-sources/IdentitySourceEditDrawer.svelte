@@ -1,4 +1,5 @@
 <script lang="ts">
+  import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
@@ -146,6 +147,13 @@
     !serviceAccountDraftError(draftsForCapabilities(form.service_accounts, form.capabilities));
   $: suggestedDomain = domainFromBaseDn(form.base_dn);
   $: canSave = requiredOk && hasChanges(source, form);
+
+  let closeConfirmOpen = false;
+  function requestClose() {
+    if (saving) return;
+    if (hasChanges(source, form)) closeConfirmOpen = true;
+    else onClose();
+  }
 
   $: endpointLabel = (() => {
     const host = normalize(form.host || source?.host);
@@ -382,7 +390,7 @@
   subtitle={source?.display_name ?? source?.name ?? t('Identity source')}
   iconClass={`bi ${sourceIconClass(sourceCard)}`}
   ariaLabelledby="identity-source-edit-title"
-  {onClose}
+  onClose={requestClose}
 >
   <svelte:fragment slot="header-meta">
     <StatusBadge
@@ -653,7 +661,7 @@
   </svelte:fragment>
   <svelte:fragment slot="footer">
     <div class="identity-edit-drawer-footer">
-      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={onClose} disabled={saving || probeRunning}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={requestClose} disabled={saving || probeRunning}>{t('Cancel')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary" on:click={handleTestConnection} disabled={saving || probeRunning}>
         {probeRunning ? t('Testing…') : t('Test connection')}
       </button>
@@ -663,6 +671,8 @@
     </div>
   </svelte:fragment>
 </Drawer>
+
+<UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={() => { closeConfirmOpen = false; onClose(); }} />
 
 <style>
   .identity-edit-shell {

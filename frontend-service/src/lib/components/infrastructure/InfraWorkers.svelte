@@ -1,4 +1,5 @@
 <script lang="ts">
+  import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import { t } from '$lib/i18n';
   import { timeAgo } from '$lib/utils/format';
   import Drawer from '$lib/components/ui/Drawer.svelte';
@@ -60,6 +61,7 @@
     form = { name: '', host: '', port: 8443, use_tls: true, verify_tls: true, username: 'b2s-agent', password: '', is_enabled: true };
     check = null;
     showErrors = false;
+    savedForm = JSON.stringify(form);
     drawerOpen = true;
   }
 
@@ -68,7 +70,15 @@
     form = { name: worker.name, host: worker.host, port: worker.port, use_tls: worker.use_tls, verify_tls: worker.verify_tls, username: worker.username, password: '', is_enabled: worker.is_enabled };
     check = null;
     showErrors = false;
+    savedForm = JSON.stringify(form);
     drawerOpen = true;
+  }
+
+  let savedForm = '';
+  let closeConfirmOpen = false;
+  function requestCloseDrawer() {
+    if (JSON.stringify(form) !== savedForm) closeConfirmOpen = true;
+    else closeDrawer();
   }
 
   function closeDrawer() {
@@ -288,7 +298,7 @@
   subtitle={editing ? editing.name : t('Reached through its HTTPS agent')}
   iconClass="bi bi-cpu"
   ariaLabelledby="infra-worker-drawer-title"
-  onClose={closeDrawer}
+  onClose={requestCloseDrawer}
 >
   <div class="dform">
     <label class="f f--full">
@@ -357,7 +367,7 @@
 
   <svelte:fragment slot="footer">
     <div class="dfoot">
-      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={closeDrawer}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={requestCloseDrawer}>{t('Cancel')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary" on:click={runTest} disabled={testing || saving}>
         <i class={`bi ${testing ? 'bi-hourglass-split' : 'bi-plug'}`} aria-hidden="true"></i>{testing ? t('Testing…') : t('Test the agent')}
       </button>
@@ -367,6 +377,8 @@
     </div>
   </svelte:fragment>
 </Drawer>
+
+<UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={() => { closeConfirmOpen = false; closeDrawer(); }} />
 
 <ConfirmActionModal
   open={!!removing}

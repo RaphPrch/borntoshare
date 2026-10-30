@@ -1,4 +1,5 @@
 <script lang="ts">
+  import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
@@ -340,17 +341,7 @@
   </svelte:fragment>
 </Drawer>
 
-<ConfirmActionModal
-  open={closeConfirmOpen}
-  onClose={() => (closeConfirmOpen = false)}
-  onConfirm={discardAndClose}
-  title={t('Discard unsaved changes')}
-  subtitle={t('Your edits have not been saved.')}
-  confirmLabel={t('Discard changes')}
-  confirmVariant="warning"
-  severity="warning"
-  impactItems={[t('All unsaved edits in this drawer will be lost.')]}
-/>
+<UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={discardAndClose} />
 
 <style>
 

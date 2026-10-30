@@ -19,6 +19,8 @@
   export let actions: EntityActionItem[] = [];
   export let ariaLabel = t('Entity actions');
   export let align: 'start' | 'end' = 'end';
+  /** Opens the « … » menu upwards (bottom of a drawer) */
+  export let menuUp = false;
 
   const buttonClass = (action: EntityActionItem): string => {
     const variant = action.variant ?? 'secondary';
@@ -47,7 +49,7 @@
   {/each}
 
   {#if overflowActions.length > 0}
-    <details class="b2s-action-menu">
+    <details class="b2s-action-menu" class:is-up={menuUp}>
       <summary class="b2s-btn b2s-btn-secondary b2s-btn-icon" aria-label={t('More actions')}>
         <i class="bi bi-three-dots" aria-hidden="true"></i>
       </summary>
@@ -57,7 +59,10 @@
           <button
             type="button"
             class={`b2s-action-menu__item is-${action.variant ?? 'secondary'}`}
-            on:click={() => action.onClick?.()}
+            on:click={(event) => {
+              event.currentTarget.closest('details')?.removeAttribute('open');
+              action.onClick?.();
+            }}
             disabled={Boolean(action.disabled)}
             title={action.title}
             role="menuitem"
@@ -92,6 +97,11 @@
 
   .b2s-action-menu {
     position: relative;
+  }
+
+  .b2s-action-menu.is-up .b2s-action-menu__content {
+    top: auto;
+    bottom: calc(100% + 8px);
   }
 
   .b2s-action-menu summary {

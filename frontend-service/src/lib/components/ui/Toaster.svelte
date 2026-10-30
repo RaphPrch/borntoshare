@@ -44,7 +44,7 @@
     position: fixed;
     top: 72px;
     right: 16px;
-    z-index: 1080;
+    z-index: 1400;
     display: flex;
     flex-direction: column;
     gap: 8px;

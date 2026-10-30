@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EntityActionGroup, { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
@@ -89,6 +90,21 @@
     return str || fallback;
   };
 
+  let footerActions: EntityActionItem[] = [];
+  $: footerActions = source
+    ? [
+        { key: 'edit', label: t('Edit'), icon: 'bi-pencil-square', disabled: busy, onClick: () => void dispatch('edit') },
+        ...(source.supportsSnapshot
+          ? [{ key: 'sync', label: snapshotRunning ? t('Synchronizing…') : t('Sync now'), icon: snapshotRunning ? 'bi-hourglass-split' : 'bi-arrow-clockwise', variant: 'primary' as const, disabled: busy || snapshotRunning, onClick: () => void dispatch('runSnapshot') }]
+          : []),
+        ...(source.supportsProbe
+          ? [{ key: 'probe', label: probeRunning ? t('Probe running…') : t('Test connection'), icon: 'bi-activity', overflow: true, disabled: busy || probeRunning, onClick: () => void dispatch('runProbe') }]
+          : []),
+        { key: 'toggle', label: source.isEnabled ? t('Disable') : t('Enable'), icon: source.isEnabled ? 'bi-toggle-on' : 'bi-toggle-off', overflow: true, disabled: busy, onClick: () => void dispatch('toggle') },
+        { key: 'delete', label: t('Delete'), icon: 'bi-trash3', variant: 'danger' as const, overflow: true, disabled: busy, onClick: () => void dispatch('delete') }
+      ]
+    : [];
+
   const boolLabel = (value: unknown, yes = 'Yes', no = 'No') => (value ? yes : no);
 </script>
 
@@ -140,10 +156,12 @@
           <h4>{t('Bind DN')}</h4>
           <p>{source.bindDn}</p>
         </div>
-        <div>
-          <h4>{t('Issuer')}</h4>
-          <p>{source.issuer}</p>
-        </div>
+        {#if source.issuer && source.issuer !== '—'}
+          <div>
+            <h4>{t('Issuer')}</h4>
+            <p>{source.issuer}</p>
+          </div>
+        {/if}
         <div class="full">
           <h4>{t('Configuration summary')}</h4>
           <p>{source.subtitle}</p>
@@ -312,36 +330,9 @@
     {/if}
   {/if}
 
-  <svelte:fragment slot="footer-start">
-    {#if source}
-      <button type="button" class="b2s-btn b2s-btn-danger-outline b2s-btn-sm" disabled={busy} on:click={() => dispatch('delete')}>
-        <i class="bi bi-trash3" aria-hidden="true"></i>
-        {t('Delete')}
-      </button>
-    {/if}
-  </svelte:fragment>
   <svelte:fragment slot="footer">
     {#if source}
-      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} on:click={() => dispatch('toggle')}>
-        <i class={`bi ${source.isEnabled ? 'bi-toggle-on' : 'bi-toggle-off'}`} aria-hidden="true"></i>
-        {source.isEnabled ? t('Disable') : t('Enable')}
-      </button>
-      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} on:click={() => dispatch('edit')}>
-        <i class="bi bi-pencil-square" aria-hidden="true"></i>
-        {t('Edit')}
-      </button>
-      {#if source.supportsProbe}
-        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy || probeRunning} on:click={() => dispatch('runProbe')}>
-          <i class="bi bi-activity" aria-hidden="true"></i>
-          {probeRunning ? t('Probe running…') : t('Test connection')}
-        </button>
-      {/if}
-      {#if source.supportsSnapshot}
-        <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy || snapshotRunning} on:click={() => dispatch('runSnapshot')}>
-          <i class={`bi ${snapshotRunning ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} aria-hidden="true"></i>
-          {snapshotRunning ? t('Synchronizing…') : t('Sync now')}
-        </button>
-      {/if}
+      <EntityActionGroup actions={footerActions} menuUp ariaLabel={t('Identity source actions')} />
     {/if}
   </svelte:fragment>
 </Drawer>

@@ -43,7 +43,30 @@
   }
   $: void moveFocus(open);
 
+  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+
+  // Tab stays in the panel; a dialog opened above it keeps its own focus
+  function keepFocusInside(event: KeyboardEvent): void {
+    const active = document.activeElement;
+    if (!panel || (active && active !== document.body && !panel.contains(active))) return;
+    const items = [...panel.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((item) => item.offsetParent !== null);
+    if (items.length === 0) {
+      event.preventDefault();
+      return;
+    }
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (event.shiftKey && (active === first || active === panel)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   const handleKeydown = (event: KeyboardEvent) => {
+    if (open && event.key === 'Tab') keepFocusInside(event);
     if (!open || !closeOnEscape || event.key !== 'Escape') return;
     event.preventDefault();
     onClose?.();

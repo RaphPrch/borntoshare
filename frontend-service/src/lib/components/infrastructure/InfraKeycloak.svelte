@@ -1,4 +1,5 @@
 <script lang="ts">
+  import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
   import { timeAgo } from '$lib/utils/format';
@@ -30,6 +31,12 @@
 
   // ---- drawer
   let open = false;
+  let savedForm = '';
+  let closeConfirmOpen = false;
+  function requestClose() {
+    if (JSON.stringify(form) !== savedForm) closeConfirmOpen = true;
+    else open = false;
+  }
   let editing: SsoProvider | null = null;
   let showErrors = false;
   let saving = false;
@@ -110,6 +117,7 @@
     publicClient = false;
     testResult = null;
     showErrors = false;
+    savedForm = JSON.stringify(form);
     open = true;
   }
 
@@ -135,6 +143,7 @@
     publicClient = !provider.has_client_secret;
     testResult = null;
     showErrors = false;
+    savedForm = JSON.stringify(form);
     open = true;
   }
 
@@ -334,7 +343,7 @@
   subtitle={t('OpenID Connect, authorization code with PKCE')}
   iconClass="bi bi-key"
   ariaLabelledby="infra-sso-drawer-title"
-  onClose={() => (open = false)}
+  onClose={requestClose}
 >
   <div class="sections">
     <section class="sec">
@@ -485,7 +494,7 @@
 
   <svelte:fragment slot="footer">
     <div class="dfoot">
-      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={() => (open = false)}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={requestClose}>{t('Cancel')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary" on:click={runTest} disabled={testing || saving}>
         <i class={`bi ${testing ? 'bi-hourglass-split' : 'bi-plug'}`} aria-hidden="true"></i>{testing ? t('Testing…') : t('Test')}
       </button>
@@ -495,6 +504,8 @@
     </div>
   </svelte:fragment>
 </Drawer>
+
+<UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={() => { closeConfirmOpen = false; open = false; }} />
 
 <ConfirmActionModal
   open={!!removing}

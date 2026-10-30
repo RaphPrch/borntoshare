@@ -6,7 +6,7 @@
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.55);
-  z-index: 1000;
+  z-index: 1300;
 
   /* Center modal + allow scroll when viewport is small */
   display: flex;
@@ -28,7 +28,7 @@
   background: var(--b2s-color-surface, #ffffff);
   border-radius: var(--b2s-modal-radius, 20px);
   box-shadow: var(--b2s-modal-shadow, 0 40px 120px rgba(0, 0, 0, 0.35));
-  z-index: 1001;
+  z-index: 1301;
 
   display: flex;
   flex-direction: column;
