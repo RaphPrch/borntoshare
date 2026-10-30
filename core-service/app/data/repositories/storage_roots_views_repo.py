@@ -673,7 +673,7 @@ class StorageRootsViewsRepo(SQLViewRepo):
     def _is_well_known_acl_principal(cls, value: Any) -> bool:
         raw = str(value or "").strip().upper()
         namespace = cls._acl_principal_namespace(raw)
-        return namespace in {"BUILTIN", "NT AUTHORITY"} or raw in {"EVERYONE", "AUTHENTICATED USERS"}
+        return namespace in {"BUILTIN", "NT AUTHORITY", "AUTORITE NT", "AUTORITÉ NT"} or raw in {"EVERYONE", "TOUT LE MONDE", "AUTHENTICATED USERS"}
 
     def _root_acl_context(self, storage_root_id: int) -> tuple[list[dict[str, Any]], int | None, str | None]:
         row = self._one_dict(

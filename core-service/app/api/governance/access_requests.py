@@ -879,6 +879,22 @@ async def _bulk_approve(
             approved_ids.append(int(req_id))
             approval_correlations[int(req_id)] = approval_correlation
             executions_started += 1
+        except HTTPException as exc:
+            # Not allowed to decide: a refusal, not a failed approval to retry
+            if exc.status_code == status.HTTP_403_FORBIDDEN:
+                raise
+            _journal(
+                "access_request_approval_failed",
+                req_id=int(req_id),
+                request=request,
+                correlation_id=approval_correlation,
+                result="failure",
+                severity="warning",
+                message=str(exc.detail)[:500],
+            )
+            failed_ids.append(int(req_id))
+            failed_reasons[int(req_id)] = str(exc.detail)
+            failed_details[int(req_id)] = {"item_id": None, "code": "APPROVAL_PLAN_RUNTIME_ERROR", "message": str(exc.detail), "hint": "Retry and inspect core-service logs.", "storage_root_id": None, "requested_permission": None, "candidates_count": 0}
         except Exception as exc:
             _journal(
                 "access_request_approval_failed",

@@ -313,7 +313,8 @@ class GovernanceAlertsRepo(SQLViewRepo):
                     (:external_id <> '' AND LOWER(dg.external_id) = LOWER(:external_id))
                     OR LOWER(dg.name) = LOWER(:group_name)
                   )
-                ORDER BY (LOWER(dg.external_id) = LOWER(:external_id)) DESC
+                -- A group deleted then created again in AD leaves older rows of the same name: the latest one counts
+                ORDER BY (LOWER(dg.external_id) = LOWER(:external_id)) DESC, dg.id DESC
                 LIMIT 1
                 """,
                 {"source_id": identity_source_id, "external_id": str(row.get("group_external_id") or ""), "group_name": group_name},
@@ -605,7 +606,7 @@ class GovernanceAlertsRepo(SQLViewRepo):
                 )
 
         # Expected system accounts and the entries accepted in Permissions are not gaps (same rules as the tab)
-        from app.services.storage_root_permissions import is_expected_system_principal
+        from app.services.storage_root_permissions import is_broad_principal, is_expected_system_principal
 
         try:
             accepted = {
@@ -633,7 +634,7 @@ class GovernanceAlertsRepo(SQLViewRepo):
                 {
                     **base("acl_principal_not_governed"),
                     "alert_key": f"storage_root:{root_id}:acl_principal_not_governed:{normalized_principal}",
-                    "severity": "warning",
+                    "severity": "high" if is_broad_principal(principal) else "warning",
                     "title": "Filesystem ACL not governed",
                     "message": f"{principal} is present in the filesystem ACL but is not linked to an access profile",
                     "source_type": "acl_scan",

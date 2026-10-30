@@ -117,3 +117,13 @@ def test_share_of_a_root_path():
 
     assert _share_key(_normalize_root_path(r"\\fs01\projects\Demo\Finance")) == _normalize_root_path(r"\\fs01\projects")
     assert _share_key(_normalize_root_path(r"\\fs01\projects")) == _normalize_root_path(r"\\fs01\projects")
+
+
+def test_french_windows_names_are_system_and_users_never_are():
+    from app.services.storage_root_permissions import is_broad_principal, is_expected_system_principal as system
+
+    for name in ("AUTORITE NT\\Système", "CREATEUR PROPRIETAIRE", "BUILTIN\\Administrateurs", "CORP\\Admins du domaine"):
+        assert system(name) is True, name
+    for name in ("BUILTIN\\Utilisateurs", "BUILTIN\\Users", "Tout le monde", "Everyone", "CORP\\Utilisateurs du domaine", "AUTORITE NT\\Utilisateurs authentifiés"):
+        assert system(name) is False, name
+        assert is_broad_principal(name) is True, name

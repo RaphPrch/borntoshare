@@ -21,10 +21,18 @@ from sqlalchemy.orm import Session
 from app.services.storage_root_access_profile_resolution import normalize_requested_permission
 
 # Accounts expected on every governed folder (beside the endpoint service account)
-_SYSTEM_NAMESPACES = {"NT AUTHORITY", "BUILTIN"}
-_SYSTEM_NAMES = {"system", "administrators", "domain admins", "enterprise admins", "administrator", "creator owner", "creator group"}
+# (English and French Windows: the names read in an ACL follow the language of the server)
+_SYSTEM_NAMESPACES = {"NT AUTHORITY", "AUTORITE NT", "AUTORITÉ NT", "BUILTIN"}
+_SYSTEM_NAMES = {
+    "system", "système", "systeme", "administrators", "administrateurs", "domain admins", "admins du domaine",
+    "enterprise admins", "administrateurs de l'entreprise", "administrateurs de l’entreprise", "administrator",
+    "administrateur", "creator owner", "createur proprietaire", "créateur propriétaire",
+}
 # Everyone-like principals are never « system »: they open the folder widely
-_BROAD_NAMES = {"everyone", "authenticated users", "domain users", "users"}
+_BROAD_NAMES = {
+    "everyone", "tout le monde", "authenticated users", "utilisateurs authentifiés", "utilisateurs authentifies",
+    "domain users", "utilisateurs du domaine", "users", "utilisateurs",
+}
 
 _RIGHTS_LABELS = {"full": "Full control", "modify": "Modify", "read": "Read and execute", "special": "Special", "deny": "Denied"}
 _GROUP_STATUSES = ("SUCCEEDED", "ADOPTING")
@@ -46,7 +54,14 @@ def is_expected_system_principal(principal: str | None, service_account: str | N
     raw = str(principal or "").replace("/", "\\")
     namespace = raw.split("\\")[0].upper() if "\\" in raw else ""
     name = short_name(raw)
+    if name in _BROAD_NAMES:
+        return False
     return namespace in _SYSTEM_NAMESPACES or name in _SYSTEM_NAMES or bool(service_account and name == account_name(service_account))
+
+
+def is_broad_principal(principal: str | None) -> bool:
+    """Everyone, Users, Domain users…: the folder is open to the whole company, whatever the requests say."""
+    return short_name(principal) in _BROAD_NAMES
 
 
 def account_name(account: str | None) -> str:

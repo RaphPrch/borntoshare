@@ -183,13 +183,18 @@ def create_share(params: Dict[str, Any]):
     parts = [part for part in matched.group(2).split("\\") if part]
     commands = "; ".join(f'mkdir "{chr(92).join(parts[:depth + 1])}"' for depth in range(len(parts)))
     try:
+        existing = run_samba(["rpcclient", host, "-c", f'netsharegetinfo "{share}" 1'],
+                             username=user, password=password, capture_output=True, timeout=timeout)
+        if f"netname: {share}".lower() in _output(existing).lower():
+            return False, "A share with this name already exists", {**details, "failure_code": "SHARE_EXISTS"}
         folder = run_samba(["smbclient", f"//{host}/{matched.group(1).upper()}$", "-c", commands],
                            username=user, password=password, capture_output=True, timeout=timeout)
         folder_output = _output(folder)
         if "NT_STATUS_ACCESS_DENIED" in folder_output or "NT_STATUS_BAD_NETWORK_NAME" in folder_output:
             return False, ("The account of the file server cannot reach the administrative share: "
                            "it must be a local administrator of the server"), {**details, "failure_code": "SHARE_ADMIN_REQUIRED"}
-        added = run_samba(["rpcclient", host, "-c", f'netshareadd "{local_path}" "{share}" 0 "BornToShare"'],
+        # -1: no limit of connections (0 would refuse every connection to the share)
+        added = run_samba(["rpcclient", host, "-c", f'netshareadd "{local_path}" "{share}" -1 "BornToShare"'],
                           username=user, password=password, capture_output=True, timeout=timeout)
         check = run_samba(["rpcclient", host, "-c", f'netsharegetinfo "{share}" 2'],
                           username=user, password=password, capture_output=True, timeout=timeout)
@@ -197,13 +202,25 @@ def create_share(params: Dict[str, Any]):
         return False, f"Unable to create the share: {exc}", {**details, "failure_code": "SHARE_CREATE_FAILED"}
     added_output = _output(added)
     check_output = _output(check)
-    if "WERR_ALREADY_EXISTS" in added_output or "NERR_DuplicateShare" in added_output or "WERR_FILE_EXISTS" in added_output:
-        return False, "A share with this name already exists", {**details, "failure_code": "SHARE_EXISTS"}
     if "WERR_ACCESS_DENIED" in added_output:
         return False, "The account of the file server must be a local administrator of the server", {**details, "failure_code": "SHARE_ADMIN_REQUIRED"}
     if local_path.lower() not in check_output.lower():
         message = next((line for line in added_output.splitlines() if "WERR_" in line or "NT_STATUS_" in line), "the share was not created")
         return False, message.strip()[:300], {**details, "failure_code": "SHARE_CREATE_FAILED"}
+    # Without this, the folder inherits from the drive: every user of the domain could read it (BUILTIN\\Users)
+    entries = [r"S-1-5-18", r"S-1-5-32-544", user]
+    try:
+        for entry in entries:
+            run_samba(["smbcacls", f"//{host}/{share}", "\\", "--add", f"ACL:{entry}:ALLOWED/OI|CI/FULL"],
+                      username=user, password=password, capture_output=True, timeout=timeout)
+        run_samba(["smbcacls", f"//{host}/{share}", "\\", "--inherit=remove"],
+                  username=user, password=password, capture_output=True, timeout=timeout)
+        listing = _output(run_samba(["smbcacls", f"//{host}/{share}", "\\", "--numeric"],
+                                    username=user, password=password, capture_output=True, timeout=timeout))
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return False, f"Share created, but its permissions could not be set: {exc}", {**details, "failure_code": "SHARE_ACL_FAILED"}
+    if "S-1-5-32-544" not in listing or "S-1-5-32-545" in listing or "S-1-1-0" in listing:
+        return False, "Share created, but its folder is still open to the users of the server", {**details, "failure_code": "SHARE_ACL_FAILED"}
     details["created"] = True
     logger.info("Share created", extra={"operation": "share_create", "target_share": share})
     return True, "Share created", details
