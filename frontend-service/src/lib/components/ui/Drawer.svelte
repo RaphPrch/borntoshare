@@ -262,19 +262,6 @@
     padding: 20px 24px 24px;
   }
 
-  @media (max-width: 760px) {
-    .b2s-drawer__panel {
-      width: 100vw;
-      max-width: 100vw;
-      min-width: 100vw;
-    }
-
-    .b2s-entity-drawer__header,
-    .b2s-entity-drawer__body {
-      padding-inline: 18px;
-    }
-  }
-
   @keyframes b2s-drawer-in {
     from {
       transform: translateX(18px);

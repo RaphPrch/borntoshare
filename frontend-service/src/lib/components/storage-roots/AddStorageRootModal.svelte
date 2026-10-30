@@ -1870,31 +1870,4 @@
   @media (max-width: 1180px) {
   }
 
-  @media (max-width: 760px) {
-
-    .sr-add-body {
-      grid-template-columns: 1fr;
-      overflow: auto;
-    }
-
-    .sr-add-source-panel {
-      min-height: 360px;
-      border-right: 0;
-      border-bottom: 1px solid var(--b2s-color-border-soft);
-    }
-
-    .sr-add-main {
-      overflow: visible;
-    }
-
-    .sr-add-metrics {
-      grid-template-columns: 1fr;
-    }
-
-    .sr-add-metrics div + div {
-      border-left: 0;
-      border-top: 1px solid var(--b2s-color-border-soft);
-      padding-top: 14px;
-    }
-  }
 </style>

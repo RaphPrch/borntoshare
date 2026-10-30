@@ -731,22 +731,4 @@
     width: 100%;
   }
 
-  @media (max-width: 720px) {
-    .toolbar {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .facts {
-      grid-template-columns: auto 1fr;
-    }
-
-    .dform {
-      grid-template-columns: 1fr;
-    }
-
-    .f--wide {
-      grid-column: auto;
-    }
-  }
 </style>

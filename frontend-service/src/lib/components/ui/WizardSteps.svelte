@@ -86,14 +86,4 @@
     color: #52688f;
   }
 
-  @media (max-width: 760px) {
-    .b2s-steps {
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-
-    .b2s-steps li:not(:last-child)::after {
-      display: none;
-    }
-  }
 </style>

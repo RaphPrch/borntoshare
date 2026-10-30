@@ -760,16 +760,6 @@
   }
 }
 
-@media (max-width: 760px) {
-  .sr-clean-main {
-    padding: 18px 14px 24px;
-  }
-
-  .sr-overview-kpis {
-    grid-template-columns: 1fr;
-  }
-}
-
 .sr-tags-modal-body {
   display: grid;
   gap: 10px;

@@ -853,18 +853,4 @@
 
 
 
-  @media (max-width: 720px) {
-    .toolbar {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .grid {
-      grid-template-columns: 1fr;
-    }
-
-    .f--wide {
-      grid-column: auto;
-    }
-  }
 </style>

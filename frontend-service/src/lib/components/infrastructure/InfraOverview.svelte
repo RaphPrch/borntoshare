@@ -400,26 +400,4 @@
     color: var(--b2s-color-text);
   }
 
-  @media (max-width: 900px) {
-    .kpis {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .row {
-      grid-template-columns: auto minmax(0, 1fr) 80px;
-    }
-
-    .row__bar {
-      grid-column: 2 / -1;
-      grid-row: 2;
-    }
-
-    .hero {
-      grid-template-columns: auto 1fr;
-    }
-
-    .hero__action {
-      grid-column: 1 / -1;
-    }
-  }
 </style>

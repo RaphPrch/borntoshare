@@ -992,24 +992,4 @@
     color: #2268f4;
   }
 
-  @media (max-width: 900px) {
-    .identity-wizard {
-      width: 100%;
-      padding: 24px 20px;
-    }
-
-    .identity-wizard__form-grid,
-    .identity-wizard__roles {
-      grid-template-columns: 1fr;
-    }
-
-    .identity-wizard__search-row {
-      grid-template-columns: 1fr;
-    }
-
-    .identity-wizard__section-head{
-      flex-direction: column;
-      align-items: stretch;
-    }
-  }
 </style>

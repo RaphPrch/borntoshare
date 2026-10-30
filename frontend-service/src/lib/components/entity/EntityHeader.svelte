@@ -245,13 +245,4 @@
     padding-left: 18px;
   }
 
-  @media (max-width: 900px) {
-    .b2s-entity-header__main {
-      flex-wrap: wrap;
-    }
-
-    .b2s-entity-header__actions {
-      width: 100%;
-    }
-  }
 </style>

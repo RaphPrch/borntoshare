@@ -235,17 +235,4 @@
 
 
 
-  @media (max-width: 640px) {
-    .sa-head {
-      grid-template-columns: auto 1fr;
-    }
-
-    .sa-toggle {
-      grid-column: 1 / -1;
-    }
-
-    .sa-fields {
-      grid-template-columns: 1fr;
-    }
-  }
 </style>

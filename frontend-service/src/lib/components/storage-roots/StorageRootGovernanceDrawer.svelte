@@ -250,17 +250,4 @@
     gap: 16px;
   }
 
-  @media (max-width: 900px) {
-    .governance-drawer {
-      padding-inline: 20px;
-    }
-
-    :global(.governance-drawer__browse) {
-      width: 100%;
-    }
-
-    .governance-drawer__footer :global(.b2s-action-footer__actions .b2s-btn) {
-      width: 100%;
-    }
-  }
 </style>

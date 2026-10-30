@@ -1022,17 +1022,4 @@
     }
   }
 
-  @media (max-width: 760px) {
-    .idb-layout {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .idb-tree {
-      height: 180px;
-    }
-
-    .idb-sync {
-      margin-left: 0;
-    }
-  }
 </style>

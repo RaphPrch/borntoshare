@@ -326,9 +326,4 @@
     font-weight: 600;
   }
 
-  @media (max-width: 720px) {
-    .pp__modes {
-      grid-template-columns: 1fr;
-    }
-  }
 </style>

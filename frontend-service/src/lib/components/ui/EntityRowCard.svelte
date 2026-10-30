@@ -117,15 +117,4 @@
     gap: 8px;
   }
 
-  @media (max-width: 760px) {
-    .b2s-entity-row-card {
-      align-items: flex-start;
-      gap: 12px;
-      padding: 14px;
-    }
-
-    .b2s-entity-row-card__title-row {
-      flex-wrap: wrap;
-    }
-  }
 </style>

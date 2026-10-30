@@ -1927,15 +1927,4 @@
     color: var(--b2s-color-danger-strong);
   }
 
-  @media (max-width: 900px) {
-    .cards,
-    .grid {
-      grid-template-columns: 1fr;
-    }
-
-    .actions {
-      flex-direction: column;
-      align-items: stretch;
-    }
-  }
 </style>

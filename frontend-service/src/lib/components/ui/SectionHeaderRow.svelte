@@ -81,15 +81,5 @@
     flex: 0 0 auto;
   }
 
-  @media (max-width: 760px) {
-    .b2s-section-header-row {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-
-    .b2s-section-header-row__actions {
-      width: 100%;
-    }
-  }
 </style>
 

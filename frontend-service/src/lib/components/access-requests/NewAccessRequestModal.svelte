@@ -865,9 +865,4 @@
     color: var(--b2s-color-success-strong);
   }
 
-  @media (max-width: 640px) {
-    .nar-choices {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
 </style>

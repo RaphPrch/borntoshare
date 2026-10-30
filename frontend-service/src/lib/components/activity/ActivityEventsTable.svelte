@@ -686,22 +686,4 @@
     color: #fff;
   }
 
-  @media (max-width: 900px) {
-    .activity-log-card {
-      padding: 14px;
-    }
-
-    .activity-search,
-    .activity-select,
-    .activity-select--date {
-      width: 100%;
-      min-width: 0;
-      flex: 1 1 100%;
-    }
-
-    .activity-select select,
-    .activity-select--date select {
-      width: 100%;
-    }
-  }
 </style>

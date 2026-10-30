@@ -669,18 +669,4 @@
     }
   }
 
-  @media (max-width: 720px) {
-    .summary-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .submitted-toolbar {
-      align-items: stretch;
-    }
-
-    .search-box {
-      min-width: 0;
-      width: 100%;
-    }
-  }
 </style>

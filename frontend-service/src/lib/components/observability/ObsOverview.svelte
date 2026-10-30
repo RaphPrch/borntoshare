@@ -590,18 +590,4 @@
     }
   }
 
-  @media (max-width: 640px) {
-    .hero {
-      grid-template-columns: auto 1fr;
-    }
-
-    .hero__action {
-      grid-column: 1 / -1;
-    }
-
-    .kpis,
-    .families {
-      grid-template-columns: 1fr;
-    }
-  }
 </style>

@@ -57,18 +57,5 @@
     gap: 10px;
   }
 
-  @media (max-width: 760px) {
-    .b2s-action-footer {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .b2s-action-footer__actions {
-      margin-left: 0;
-      width: 100%;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-  }
 </style>
 

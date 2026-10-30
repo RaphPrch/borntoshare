@@ -293,10 +293,4 @@
 
 
 
-  @media (max-width: 720px) {
-    .toolbar {
-      flex-direction: column;
-      align-items: stretch;
-    }
-  }
 </style>

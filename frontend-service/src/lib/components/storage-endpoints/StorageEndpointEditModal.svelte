@@ -987,11 +987,4 @@
     color: var(--b2s-color-text-muted);
   }
 
-  @media (max-width: 820px) {
-    .se-edit :global(.se-form-grid--identity),
-    .se-edit :global(.se-form-grid--target),
-    .se-edit :global(.se-form-grid--creds) {
-      grid-template-columns: 1fr;
-    }
-  }
 </style>

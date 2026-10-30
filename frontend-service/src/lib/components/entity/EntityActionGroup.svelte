@@ -148,9 +148,4 @@
     cursor: not-allowed;
   }
 
-  @media (max-width: 900px) {
-    .b2s-action-group {
-      justify-content: flex-start;
-    }
-  }
 </style>

@@ -558,9 +558,4 @@
     color: var(--b2s-color-warning-strong, var(--b2s-color-warning-strong));
   }
 
-  @media (max-width: 640px) {
-    .identity-edit-password-grid {
-      grid-template-columns: 1fr;
-    }
-  }
 </style>
