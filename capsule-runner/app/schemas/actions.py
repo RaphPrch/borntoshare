@@ -237,7 +237,9 @@ class ACLApplyOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     dry_run: bool = False
-    timeout_sec: int = Field(default=20, ge=1, le=60)
+    # The propagation to the content of a big folder can take hours
+    propagate: bool = False
+    timeout_sec: int = Field(default=20, ge=1, le=14400)
 
 
 class ACLApplyPayload(BaseModel):
@@ -253,7 +255,7 @@ class ACLApplyPayload(BaseModel):
     secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)
     domain: str = Field(default="", max_length=255)
     options: ACLApplyOptions = Field(default_factory=ACLApplyOptions)
-    timeout_sec: int = Field(default=20, ge=1, le=60)
+    timeout_sec: int = Field(default=20, ge=1, le=14400)
 
     @model_validator(mode="after")
     def _check_secret_or_password(self) -> "ACLApplyPayload":

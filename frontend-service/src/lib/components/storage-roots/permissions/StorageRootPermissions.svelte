@@ -9,6 +9,7 @@
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
   import { bulkDecision } from '$lib/api/access-requests';
+  import { repairStorageRootAcl } from '$lib/api/storage-root-permissions';
   import {
     acceptAclGap,
     explainStorageRootAccess,
@@ -35,6 +36,33 @@
   export let canManage = false;
   export let isAdmin = false;
   export let onChanged: () => void = () => {};
+
+  let repairing = false;
+  async function repairAcl(): Promise<void> {
+    if (!rootId) return;
+    repairing = true;
+    try {
+      await repairStorageRootAcl(fetch, rootId);
+      toast.success(t('ACL repaired on the folder. Its content follows in the background.'));
+      setTimeout(onChanged, 4000);
+    } catch (error: any) {
+      toast.error(error?.message ?? t('Unable to repair the ACL.'));
+    } finally {
+      repairing = false;
+    }
+  }
+
+  // The tab follows a propagation in progress
+  let propagationTimer: ReturnType<typeof setTimeout> | null = null;
+  $: if (data?.propagation?.state === 'running' && !propagationTimer) {
+    propagationTimer = setTimeout(() => {
+      propagationTimer = null;
+      onChanged();
+    }, 15000);
+  }
+  onDestroy(() => {
+    if (propagationTimer) clearTimeout(propagationTimer);
+  });
   export let onToggleInheritance: () => void = () => {};
   /** Login to explain at once (⌘K palette, link from another page) */
   export let explainLogin: string | null = null;
@@ -199,7 +227,15 @@
           {/if}
         {/if}
       </p>
+      {#if data.propagation?.state === 'running'}
+        <p class="pm-propagation"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('The rights are being applied to the content of the folder. On a big folder it can take a while.')}</p>
+      {:else if data.propagation?.state === 'failed'}
+        <p class="pm-propagation is-bad"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {t('The rights could not reach all the content of the folder: some people may be refused inside. Use « Repair the ACL ».')}</p>
+      {/if}
       <div class="pm-meta">
+        {#if (canManage || isAdmin) && data.summary.groups > 0}
+          <button type="button" class="pm-textbtn" disabled={repairing} on:click={repairAcl}>{repairing ? t('Repairing…') : t('Repair the ACL')}</button> ·
+        {/if}
         {#if data.acl_scanned_at}
           <span>{t('ACL read {ago}', { ago: timeAgo(data.acl_scanned_at) })} · {t('{count} entries', { count: data.acl_entries })}</span>
         {/if}
@@ -426,6 +462,8 @@
 />
 
 <style>
+  .pm-propagation { margin: 8px 0 0; font-size: 13px; color: var(--b2s-color-text-muted); }
+  .pm-propagation.is-bad { color: var(--b2s-color-danger); }
   .pm {
     display: grid;
     gap: 28px;

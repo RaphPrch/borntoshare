@@ -1615,6 +1615,77 @@ async def _run_folder_job(
     )
 
 
+@router.post("/{root_id}/permissions/repair")
+async def repair_root_acl(root_id: int, request: Request, db: Session = Depends(get_db)):
+    """Put back the entry of each BornToShare group on the folder and on its content, whatever was changed by hand."""
+    import asyncio
+
+    from app.services.probe_service import fetch_probe_job, submit_acl_propagation, submit_probe_run
+
+    actor = actor_from_request(request)
+    require_storage_root_access(db, actor, int(root_id))
+    root = db.get(StorageRoot, root_id)
+    if root is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    profiles = [
+        dict(row)
+        for row in db.execute(
+            text(
+                """
+                SELECT access_level_code, group_name
+                FROM storage_root_access_profiles
+                WHERE storage_root_id = :root_id AND status = 'SUCCEEDED' AND group_name IS NOT NULL
+                """
+            ),
+            {"root_id": int(root_id)},
+        ).mappings()
+    ]
+    if not profiles:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail={"code": "ACL_NOTHING_TO_REPAIR", "message": "This folder has no BornToShare group yet"})
+    propagations: list[int] = []
+    for profile in profiles:
+        level, group_name = str(profile["access_level_code"]), str(profile["group_name"])
+        queued = await submit_probe_run({
+            "kind": "acl", "protocol": "acl_push", "scope": "storage_root",
+            "target": {"storage_root_id": int(root_id), "access_level_code": level, "group_name": group_name, "permission": level},
+            "auth": {}, "options": {},
+            "context": {"storage_root_id": int(root_id), "access_level_code": level},
+        })
+        job: dict[str, Any] = {}
+        for _ in range(60):
+            job = dict(await fetch_probe_job(int((queued or {}).get("job_id") or 0)) or {})
+            if str(job.get("status") or "").lower() in {"succeeded", "failed", "timed_out", "cancelled"}:
+                break
+            await asyncio.sleep(1)
+        if str(job.get("status") or "").lower() != "succeeded":
+            error = job.get("error") if isinstance(job.get("error"), dict) else {}
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                                detail={"code": "ACL_REPAIR_FAILED", "message": str(error.get("message") or job.get("status") or "ACL repair failed")})
+        propagation = await submit_acl_propagation(int(root_id), level, group_name)
+        propagations.append(int((propagation or {}).get("job_id") or 0))
+    # The ACL is read again, so that the state of the tab and the alerts follow
+    await submit_probe_run({
+        "kind": "storage-root", "protocol": "smb", "scope": "read", "target": {"storage_root_id": int(root_id)},
+        "options": {"timeout_sec": 30, "discover_permissions": True},
+        "context": {"storage_root_id": int(root_id), "ui_origin": "admin"},
+    })
+    log_activity(
+        db,
+        actor_type="user" if actor.identity_id is not None else "system",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action="storage_root.acl_repaired",
+        outcome="success",
+        target_type="storage_root",
+        target_id=int(root_id),
+        target_display=str(root.name or root_id),
+        context_json={"groups": [p["group_name"] for p in profiles]},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_data({"groups": [p["group_name"] for p in profiles], "propagation_job_ids": propagations})
+
+
 class InheritancePayload(BaseModel):
     mode: str = Field(pattern="^(break|restore)$")
 

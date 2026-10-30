@@ -226,6 +226,30 @@ class StorageRootPermissions:
 
     # ------------------------------------------------------------------ result
 
+    def _propagation(self, root_id: int) -> dict[str, Any] | None:
+        """Latest background propagation of the ACL to the content of the folder."""
+        rows = self._all(
+            """
+            SELECT status, error_message, finished_at
+            FROM provisioning_jobs
+            WHERE job_type = 'ACL_APPLY'
+              AND created_at > UTC_TIMESTAMP() - INTERVAL 30 DAY
+              AND JSON_VALUE(payload_json, '$.payload.context.acl_propagation') IN ('true', '1')
+              AND JSON_VALUE(payload_json, '$.payload.context.storage_root_id') = :root_id
+            ORDER BY id DESC
+            LIMIT 4
+            """,
+            {"root_id": str(int(root_id))},
+        )
+        if not rows:
+            return None
+        statuses = [str(r.get("status") or "").upper() for r in rows]
+        if any(s in {"QUEUED", "PENDING", "RUNNING", "RETRYING"} for s in statuses):
+            return {"state": "running"}
+        if statuses[0] in {"FAILED", "TIMED_OUT", "CANCELLED"}:
+            return {"state": "failed", "message": rows[0].get("error_message")}
+        return {"state": "done", "at": _iso(rows[0].get("finished_at"))}
+
     def build(self, root_id: int) -> dict[str, Any] | None:
         root = self._root(root_id)
         if root is None:
@@ -393,6 +417,7 @@ class StorageRootPermissions:
             "acl_scanned_at": scanned_at,
             "acl_entries": len(aces),
             "inheritance": inheritance_state(scan.get("control"), aces),
+            "propagation": self._propagation(root_id),
             "snapshot_at": snapshot_at,
             "status": status,
             "summary": {

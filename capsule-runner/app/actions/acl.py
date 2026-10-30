@@ -274,7 +274,9 @@ def apply_acl_via_group(params: Dict[str, Any]):
     )
     details["ace_principals"] = ace_principals
 
-    # --propagate-inheritance: smbcacls alone writes on the folder only, what it already contains would stay out of reach.
+    # options.propagate: writes on what the folder already contains too (smbcacls alone stops at the folder).
+    # Long on a big tree: a job of its own, after the approval.
+    propagation = ["--propagate-inheritance"] if options.get("propagate") else []
     # `smbcacls` requires a filename argument. At share root, "." may fail with
     # NT_STATUS_OBJECT_NAME_INVALID depending on Samba/server behavior.
     rel_candidates = [path] if path else ["", "\\"]
@@ -305,7 +307,7 @@ def apply_acl_via_group(params: Dict[str, Any]):
                     "smbcacls",
                     share_path,
                     rel_path,
-                    "--propagate-inheritance",
+                    *propagation,
                     "--add",
                     ace,
                 ]
@@ -313,7 +315,7 @@ def apply_acl_via_group(params: Dict[str, Any]):
                     "smbcacls",
                     share_path,
                     rel_path,
-                    "--propagate-inheritance",
+                    *propagation,
                     "--add",
                     ace,
                 ]

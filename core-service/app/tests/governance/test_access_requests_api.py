@@ -280,6 +280,9 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
         assert str(job_id) == "8001"
         return {"job_id": "8001", "status": "succeeded", "result": {"message": "ACL applied"}}
 
+    async def _propagation(*_args):
+        return {"job_id": "9"}
+    monkeypatch.setattr(api, "submit_acl_propagation", _propagation)
     fake_routes(monkeypatch, api, get=_fake_internal_get)
     fake_routes(monkeypatch, api, post=_fake_internal_post)
     grants = _fake_grant(monkeypatch)
@@ -325,6 +328,7 @@ def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> N
         "ad_group_member_added",
         "acl_apply_queued",
         "acl_applied",
+        "acl_propagation_queued",
         "access_request_applied",
     ]
     assert all(kw["entity_type"] == "access_request" and kw["entity_id"] == 101 for _, kw in journal)

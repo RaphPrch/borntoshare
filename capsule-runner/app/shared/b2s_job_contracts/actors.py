@@ -36,7 +36,8 @@ def run_provisioning_job(job_id: int) -> None:
     _dispatch(job_id)
 
 
-@dramatiq.actor(queue_name=QUEUE_ACL, max_retries=5)
+# 5 h: the propagation of an ACL to a big folder (the default limit of Dramatiq is 10 min)
+@dramatiq.actor(queue_name=QUEUE_ACL, max_retries=5, time_limit=5 * 3600 * 1000)
 def run_acl_job(job_id: int) -> None:
     _dispatch(job_id)
 

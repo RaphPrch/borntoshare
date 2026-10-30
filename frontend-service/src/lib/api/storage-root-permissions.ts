@@ -46,6 +46,7 @@ export type AclEntry = {
 };
 
 export type StorageRootPermissionsData = {
+  propagation?: { state: 'running' | 'failed' | 'done'; message?: string | null; at?: string | null } | null;
   storage_root_id: number;
   root_path: string | null;
   acl_scanned_at: string | null;
@@ -104,3 +105,7 @@ export const searchPeople = (fetchFn: FetchLike, query: string) =>
 /** Create a sub-folder on the file server, and its storage root when `register` */
 export const createSubfolder = (fetchFn: FetchLike, rootId: number, name: string, register = true) =>
   apiPostData<{ path: string; storage_root_id: number | null }>(fetchFn, `/storage-roots/${rootId}/subfolders`, { name, register });
+
+/** Put back the entries of the BornToShare groups on the folder and its content */
+export const repairStorageRootAcl = (fetchFn: FetchLike, rootId: number) =>
+  apiPostData<{ groups: string[] }>(fetchFn, `/storage-roots/${rootId}/permissions/repair`, undefined, { timeoutMs: 180_000 });

@@ -59,6 +59,9 @@ def _parse_dt(value: Any) -> datetime | None:
 
 
 def _target_key(template_slug: str, target: dict[str, Any], context: dict[str, Any]) -> tuple[str, int | str] | None:
+    if template_slug == "acl_apply_via_group" and context.get("acl_propagation"):
+        # One propagation at a time per group of a folder: asking again does not pile up
+        return ("acl_propagation", f"{context.get('storage_root_id')}:{context.get('access_level_code')}")
     if template_slug == "test_smb_root_access":
         root_id = positive_int(target.get("storage_root_id")) or positive_int(context.get("storage_root_id"))
         return ("storage_root_id", int(root_id)) if root_id else None
@@ -96,6 +99,9 @@ def _payload_matches_probe_target(
     payload = payload_json.get("payload") if isinstance(payload_json.get("payload"), dict) else {}
     target = payload.get("target") if isinstance(payload.get("target"), dict) else {}
     context = payload.get("context") if isinstance(payload.get("context"), dict) else {}
+
+    if target_key[0] == "acl_propagation":
+        return _target_key(template_slug, target, context) == target_key
 
     key, expected = target_key
     if key == "host":
@@ -645,3 +651,27 @@ async def fetch_probe_job(job_id: int | str) -> dict[str, Any]:
     progress_step = "queued" if status_value in {"queued", "retrying"} else "executing" if status_value == "running" else "done"
     data["progress"] = {"step": progress_step}
     return data
+
+
+async def submit_acl_propagation(storage_root_id: int, access_level_code: str, group_name: str) -> dict[str, Any]:
+    """Second step of an ACL: the entry reaches what the folder already contains, in the background."""
+    return await submit_probe_run(
+        {
+            "kind": "acl",
+            "protocol": "acl_push",
+            "scope": "storage_root",
+            "target": {
+                "storage_root_id": int(storage_root_id),
+                "access_level_code": access_level_code,
+                "group_name": group_name,
+                "permission": access_level_code,
+            },
+            "auth": {},
+            "options": {"propagate": True, "timeout_sec": 14400},
+            "context": {
+                "storage_root_id": int(storage_root_id),
+                "access_level_code": access_level_code,
+                "acl_propagation": True,
+            },
+        }
+    )

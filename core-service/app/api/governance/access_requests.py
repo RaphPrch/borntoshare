@@ -18,7 +18,7 @@ from app.api.governance.provisioning import (
     wait_provisioning_job,
 )
 from app.services.audit_logger import log_event
-from app.services.probe_service import fetch_probe_job, submit_probe_run
+from app.services.probe_service import fetch_probe_job, submit_acl_propagation, submit_probe_run
 from app.core.values import unwrap_data
 
 
@@ -259,6 +259,13 @@ async def _grant_item(
             access_profile_id=profile_id,
         ) from exc
     journal("acl_applied", group_name=group_name, permission=access_level_code)
+    # 4. The entry reaches what the folder already contains, in the background: hours on a big tree.
+    # The access is decided here; a failure shows in the Permissions tab, with its repair.
+    try:
+        propagation = await submit_acl_propagation(target_id, access_level_code, group_name)
+        journal("acl_propagation_queued", result="in_progress", group_name=group_name, job_id=int((propagation or {}).get("job_id") or 0) or None)
+    except Exception as exc:
+        journal("acl_propagation_failed", result="failure", severity="warning", group_name=group_name, message=str(exc)[:300])
 
     return {
         "group": grant,

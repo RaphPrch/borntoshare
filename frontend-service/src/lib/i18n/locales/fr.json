@@ -1441,6 +1441,10 @@
       "subfolder_created": {
         "title": "Sous-dossier créé",
         "description": "Un sous-dossier a été créé dans « {root} » sur le serveur de fichiers"
+      },
+      "acl_repaired": {
+        "title": "ACL réparée",
+        "description": "L'ACL du dossier « {target} » a été réparée"
       }
     },
     "access_request": {
@@ -2919,5 +2923,11 @@
   "Create the share": "Créer le partage",
   "The account of the file server cannot reach the administrative share: it must be a local administrator of the server": "Le compte du serveur n'accède pas au partage administratif : il doit être administrateur local du serveur",
   "The account of the file server must be a local administrator of the server": "Le compte du serveur doit être administrateur local du serveur",
-  "A share with this name already exists": "Un partage porte déjà ce nom"
+  "A share with this name already exists": "Un partage porte déjà ce nom",
+  "Repair the ACL": "Réparer l'ACL",
+  "Repairing…": "Réparation…",
+  "ACL repaired on the folder. Its content follows in the background.": "ACL réparée sur le dossier. Son contenu suit en arrière-plan.",
+  "Unable to repair the ACL.": "Impossible de réparer l'ACL.",
+  "The rights are being applied to the content of the folder. On a big folder it can take a while.": "Les droits s'appliquent au contenu du dossier. Sur un gros dossier, cela peut prendre du temps.",
+  "The rights could not reach all the content of the folder: some people may be refused inside. Use « Repair the ACL ».": "Les droits n'ont pas atteint tout le contenu du dossier : certaines personnes peuvent être refusées à l'intérieur. Utilisez « Réparer l'ACL »."
 }

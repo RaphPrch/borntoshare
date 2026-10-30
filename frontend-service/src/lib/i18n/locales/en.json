@@ -251,6 +251,10 @@
       "subfolder_created": {
         "title": "Sub-folder created",
         "description": "A sub-folder was created in \"{root}\" on the file server"
+      },
+      "acl_repaired": {
+        "title": "ACL repaired",
+        "description": "The ACL of folder \"{target}\" was repaired"
       }
     },
     "access_request": {
