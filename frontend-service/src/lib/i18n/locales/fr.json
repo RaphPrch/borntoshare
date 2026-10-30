@@ -3244,5 +3244,6 @@
   "Merge": "Fusionner",
   "Tags merged.": "Tags fusionnés.",
   "Unable to merge tags.": "Impossible de fusionner les tags.",
-  "Search by name or family": "Rechercher par nom ou famille"
+  "Search by name or family": "Rechercher par nom ou famille",
+  "Too many failed sign-in attempts. Try again later.": "Trop de tentatives échouées. Réessayez plus tard."
 }

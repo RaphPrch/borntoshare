@@ -566,6 +566,46 @@ async def _bulk_revoke(
     })
 
 
+_approvals_in_progress: set[int] = set()
+_ALREADY_DECIDED = {
+    "code": "REQUEST_ALREADY_DECIDED",
+    "message": "This request has already been decided.",
+    "hint": "Refresh the list: nothing was changed.",
+}
+
+
+async def _split_already_decided(requested_ids: list[int], request: Request) -> tuple[list[int], list[int]]:
+    undecided: list[int] = []
+    decided: list[int] = []
+    for req_id in requested_ids:
+        details = unwrap_data(
+            await call_route(access_requests_routes.get_access_request_details, access_request_id=int(req_id), request=request)
+        )
+        status_value = str((details or {}).get("status") or "pending").strip().lower()
+        (undecided if any(key in status_value for key in ("pending", "waiting", "review")) else decided).append(int(req_id))
+    return undecided, decided
+
+
+def _with_already_decided(
+    result: dict[str, Any],
+    decision: str,
+    requested_ids: list[int],
+    undecided: list[int],
+    already_decided: list[int],
+) -> dict[str, Any]:
+    merged = dict(result or {})
+    merged.setdefault("ok", True)
+    merged["decision"] = decision
+    merged["requested_ids"] = requested_ids
+    merged.setdefault("updated_ids", [])
+    merged.setdefault("updated_count", 0)
+    merged.setdefault("executions_started", 0)
+    merged["failed_ids"] = [*list(merged.get("failed_ids") or []), *already_decided]
+    merged["failed_reasons"] = {**dict(merged.get("failed_reasons") or {}), **{i: _ALREADY_DECIDED["message"] for i in already_decided}}
+    merged["failed_details"] = {**dict(merged.get("failed_details") or {}), **{i: dict(_ALREADY_DECIDED) for i in already_decided}}
+    return merged
+
+
 @router.post("/bulk")
 async def bulk_decision(request: Request) -> dict[str, Any]:
     payload = await request.json()
@@ -588,13 +628,43 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
             request=request,
         )
 
-    if decision != "approve":
-        result = await call_route(access_requests_routes.bulk_decision, payload=payload, request=request)
-        return ui_data(unwrap_data(result))
+    # Approving or rejecting is for pending requests only: the access of a decided one is already in place, or refused
+    undecided, already_decided = await _split_already_decided(requested_ids, request)
 
-    failed_ids: list[int] = []
-    failed_reasons: dict[int, str] = {}
-    failed_details: dict[int, dict[str, Any]] = {}
+    if decision != "approve":
+        result = {}
+        if undecided:
+            result = unwrap_data(
+                await call_route(
+                    access_requests_routes.bulk_decision,
+                    payload={**payload, "ids": undecided},
+                    request=request,
+                )
+            )
+        return ui_data(_with_already_decided(result, decision, requested_ids, undecided, already_decided))
+
+    # A second reviewer clicking while the approval runs (the status changes at its end)
+    in_progress = [req_id for req_id in undecided if req_id in _approvals_in_progress]
+    claimed = [req_id for req_id in undecided if req_id not in _approvals_in_progress]
+    already_decided.extend(in_progress)
+    _approvals_in_progress.update(claimed)
+    try:
+        return await _bulk_approve(payload=payload, requested_ids=claimed, already_decided=already_decided, request=request)
+    finally:
+        _approvals_in_progress.difference_update(claimed)
+
+
+async def _bulk_approve(
+    *,
+    payload: dict[str, Any],
+    requested_ids: list[int],
+    already_decided: list[int],
+    request: Request,
+) -> dict[str, Any]:
+    decision = "approve"
+    failed_ids: list[int] = list(already_decided)
+    failed_reasons: dict[int, str] = {req_id: _ALREADY_DECIDED["message"] for req_id in already_decided}
+    failed_details: dict[int, dict[str, Any]] = {req_id: dict(_ALREADY_DECIDED) for req_id in already_decided}
     approved_ids: list[int] = []
     executions_started = 0
 

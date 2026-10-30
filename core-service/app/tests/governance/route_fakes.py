@@ -82,11 +82,19 @@ def route_path(handler: Callable[..., Any], kwargs: dict[str, Any]) -> tuple[str
 
 
 class PathFakes:
+    statuses: dict[int, str] = {}
+
     def __init__(self) -> None:
         self.fakes: dict[str, Callable[..., Any]] = {}
         self.requests: list[Any] = []  # `request` forwarded to handlers that need the caller's headers
 
     async def __call__(self, handler: Callable[..., Any], /, **kwargs: Any) -> Any:
+
+        # Most tests are about what follows the status check: their requests are pending
+
+        if handler is access_requests.get_access_request_details:
+
+            return {"status": self.statuses.get(int(kwargs["access_request_id"]), "pending")}
         if "request" in kwargs:
             self.requests.append(kwargs["request"])
         method, path, payload = route_path(handler, kwargs)
@@ -98,10 +106,11 @@ class PathFakes:
         return await fake(path, dict(payload or {}))
 
 
-def fake_routes(monkeypatch, module, *, get=None, post=None, patch=None) -> PathFakes:
+def fake_routes(monkeypatch, module, *, get=None, post=None, patch=None, statuses=None) -> PathFakes:
     """Fake `module.call_route`, and the job creation it triggers (services.provisioning_jobs)."""
     current = getattr(module, "call_route", None)
     fakes = current if isinstance(current, PathFakes) else PathFakes()
+    fakes.statuses = dict(statuses or getattr(fakes, "statuses", {}) or {})
     for method, fake in (("GET", get), ("POST", post), ("PATCH", patch)):
         if fake is not None:
             fakes.fakes[method] = fake

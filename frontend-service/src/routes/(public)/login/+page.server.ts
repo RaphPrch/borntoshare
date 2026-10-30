@@ -98,6 +98,8 @@ export const actions: Actions = {
           msg = 'Invalid username or password.';
         } else if (res.status === 403 && payloadMessage) {
           msg = payloadMessage;
+        } else if (res.status === 429) {
+          msg = 'Too many failed sign-in attempts. Try again later.';
         } else if (res.status >= 500) {
           msg = 'Authentication service unavailable.';
         } else if (payloadMessage) {

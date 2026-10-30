@@ -14,6 +14,7 @@ from app.core.errors import get_request_id
 from app.core.logging import get_logger, log_event, mask_session_id
 from app.core.deps import get_current_user
 from app.core.internal_auth import require_internal_token
+from app.services.login_throttle import login_throttle
 from app.core.principal_snapshot import issue_principal_snapshot_cookie_value
 
 from app.services.providers.registry import (
@@ -885,6 +886,28 @@ async def login(
     response: Response,
 ) -> LoginResponse:
     rid = _request_id(request)
+    # Set by the frontend BFF, the only client of this route: the address of the browser
+    address = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip() or (request.client.host if request.client else "")
+    retry_after = login_throttle.retry_after(payload.username, address)
+    if retry_after:
+        await _emit_activity_event(
+            action="auth.login",
+            outcome="failure",
+            severity="warning",
+            actor_type="user",
+            actor_id=None,
+            actor_display=str(payload.username or "")[:190],
+            target_type="identity",
+            target_id=None,
+            target_display=str(payload.username or "")[:190],
+            metadata_json={"reason": "LOGIN_THROTTLED", "status_code": 429},
+            correlation_id=rid,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"code": "LOGIN_THROTTLED", "message": "Too many failed sign-in attempts. Try again later."},
+            headers={"Retry-After": str(retry_after)},
+        )
     try:
         user, provider_name, resolved_identity = await _authenticate_login(payload, request)
 
@@ -894,6 +917,9 @@ async def login(
             else:
                 user = await _bind_ad_user_to_local_identity(user)
     except HTTPException as exc:
+        # Only a wrong password counts: valid credentials without a role are not guessing
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            login_throttle.record_failure(payload.username, address)
         # Refused sign-ins are audited too (wrong password, account not authorized, inactive identity)
         if exc.status_code in (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN):
             detail = exc.detail if isinstance(exc.detail, dict) else {}
@@ -912,6 +938,7 @@ async def login(
             )
         raise
 
+    login_throttle.reset(payload.username, address)
     return await open_session(request, response, user, provider_name)
 
 

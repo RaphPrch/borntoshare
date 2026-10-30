@@ -46,6 +46,10 @@ class Settings(BaseSettings):
 
     SESSION_TTL_SECONDS: int = 8 * 60 * 60       # 8h hard TTL
     SESSION_IDLE_TIMEOUT: int = 30 * 60          # 30 min inactivity
+    LOGIN_THROTTLE_MAX_FAILURES: int = 5
+    LOGIN_THROTTLE_MAX_FAILURES_PER_ADDRESS: int = 50
+    LOGIN_THROTTLE_WINDOW_SECONDS: int = 900
+
     SESSION_STORE_BACKEND: str = "memory"        # memory | redis
 
     # Redis session backend (V1)
