@@ -613,6 +613,8 @@
 
 {#if open}
 <Drawer
+  closeOnBackdrop={false}
+  closeOnEscape={false}
   {open}
   onClose={requestClose}
   title={t('Edit storage endpoint')}

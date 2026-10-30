@@ -326,6 +326,8 @@
 {/if}
 
 <Drawer
+  closeOnBackdrop={false}
+  closeOnEscape={false}
   {open}
   size="lg"
   title={editing ? t('Edit the Keycloak server') : t('Add a Keycloak server')}

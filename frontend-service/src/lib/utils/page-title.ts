@@ -4,7 +4,6 @@ import { t } from '$lib/i18n';
 const TITLES: [prefix: string, label: string][] = [
   ['/dashboard', 'Dashboard'],
   ['/storage-roots', 'Folders'],
-  ['/access-requests/', 'Access request'],
   ['/access-requests', 'Access requests'],
   ['/admin/zones', 'Zones'],
   ['/admin/storage-endpoints', 'File servers'],

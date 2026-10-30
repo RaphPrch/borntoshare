@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { t } from '$lib/i18n';
   /**
    * Side panel opening from the right (single drawer component of the app).
@@ -26,6 +27,22 @@
 
   $: width = size === 'lg' ? '760px' : '560px';
 
+  // Keyboard users land in the panel, and back where they were when it closes
+  let panel: HTMLDivElement | null = null;
+  let opener: HTMLElement | null = null;
+  async function moveFocus(isOpen: boolean): Promise<void> {
+    if (typeof document === 'undefined') return;
+    if (isOpen) {
+      opener = document.activeElement as HTMLElement | null;
+      await tick();
+      panel?.focus();
+    } else if (opener) {
+      opener.focus?.();
+      opener = null;
+    }
+  }
+  $: void moveFocus(open);
+
   const handleKeydown = (event: KeyboardEvent) => {
     if (!open || !closeOnEscape || event.key !== 'Escape') return;
     event.preventDefault();
@@ -49,6 +66,8 @@
     ></button>
 
     <div
+      bind:this={panel}
+      tabindex="-1"
       class={`b2s-drawer__panel ${panelClass}`.trim()}
       role="dialog"
       aria-modal="true"
@@ -90,7 +109,7 @@
         {/if}
       </div>
 
-      {#if showFooter}
+      {#if showFooter && ($$slots.footer || $$slots['footer-start'])}
         <footer class={`b2s-drawer__footer b2s-entity-drawer__footer ${footerClass}`.trim()}>
           {#if $$slots['footer-start']}
             <div class="b2s-drawer__footer-start"><slot name="footer-start" /></div>
@@ -103,6 +122,9 @@
 {/if}
 
 <style>
+  .b2s-drawer__panel:focus {
+    outline: none;
+  }
   .b2s-drawer {
     position: fixed;
     inset: var(--b2s-drawer-top, 0) 0 0 0;

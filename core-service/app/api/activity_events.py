@@ -2,15 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
-from app.api._helpers import ui_action
-from app.services.activity_bridge import create_activity_event as create_activity_event_db
-
-from app.services.authorization import signed_in_or_internal, stamp_actor
-
-router = APIRouter(prefix="/activity", tags=["activity"])
-
 
 class ActivityEventCreate(BaseModel):
     action: str = Field(..., min_length=1, max_length=128)
@@ -34,17 +26,3 @@ class ActivityEventCreate(BaseModel):
 
     context_json: dict[str, Any] | None = None
     correlation_id: str | None = None
-
-
-@router.post("/events", dependencies=[Depends(signed_in_or_internal)])
-def create_activity_event_route(payload: ActivityEventCreate, request: Request):
-    data = stamp_actor(request, payload.model_dump(exclude_none=True))
-
-    ev = create_activity_event_db(data if isinstance(data, dict) else {})
-    if not isinstance(ev, dict):
-        return ui_action(ok=False, message="activity.event.create_failed")
-    return ui_action(
-        ok=bool(ev.get("ok", False)),
-        action_id=ev.get("id"),
-        message="activity.event.created",
-    )

@@ -924,12 +924,12 @@ def list_identity_group_members(
               du.id,
               du.username,
               du.display_name,
-              du.email,
-              du.status,
-              du.is_active
+              du.email
             FROM directory_group_members dgm
             JOIN directory_users du ON du.id = dgm.directory_user_id
-            WHERE dgm.group_id = :group_id
+            JOIN directory_groups dg ON dg.id = dgm.group_id
+            JOIN identities i ON i.external_id = dg.external_id AND i.type = 'group'
+            WHERE i.id = :group_id
               AND dgm.deleted_at IS NULL
             ORDER BY COALESCE(NULLIF(TRIM(du.display_name), ''), du.username, du.email, CAST(du.id AS CHAR))
             LIMIT 500
@@ -944,8 +944,6 @@ def list_identity_group_members(
                 "username": row.get("username"),
                 "display_name": row.get("display_name"),
                 "email": row.get("email"),
-                "status": row.get("status"),
-                "is_active": bool(row.get("is_active")) if row.get("is_active") is not None else None,
             }
             for row in rows
         ],

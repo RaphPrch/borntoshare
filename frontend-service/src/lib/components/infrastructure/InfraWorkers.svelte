@@ -281,6 +281,8 @@
 </details>
 
 <Drawer
+  closeOnBackdrop={false}
+  closeOnEscape={false}
   open={drawerOpen}
   title={editing ? t('Edit the worker') : t('Add a worker')}
   subtitle={editing ? editing.name : t('Reached through its HTTPS agent')}

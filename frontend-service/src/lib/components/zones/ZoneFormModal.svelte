@@ -108,6 +108,8 @@
 </script>
 
 <Drawer
+  closeOnBackdrop={false}
+  closeOnEscape={false}
   {open}
   title={drawerTitle}
   subtitle={drawerSubtitle}

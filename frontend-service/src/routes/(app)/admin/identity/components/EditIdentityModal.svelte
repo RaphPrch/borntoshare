@@ -172,6 +172,8 @@
 </script>
 
 <Drawer
+  closeOnBackdrop={false}
+  closeOnEscape={false}
   {open}
   onClose={handleBackdropClose}
   title={title}

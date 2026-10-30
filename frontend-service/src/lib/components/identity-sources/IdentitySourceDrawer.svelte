@@ -420,12 +420,10 @@
   }
 
   .identity-drawer-grid h4 {
-    margin: 0;
-    font-size: var(--b2s-fs-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--b2s-color-text-soft);
-    font-weight: 700;
+    display: block;
+    color: var(--b2s-color-text-muted);
+    font-size: 12px;
+    font-weight: 400;
   }
 
   .identity-drawer-grid p {

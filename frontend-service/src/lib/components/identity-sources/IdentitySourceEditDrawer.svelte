@@ -374,6 +374,8 @@
 </script>
 
 <Drawer
+  closeOnBackdrop={false}
+  closeOnEscape={false}
   {open}
   size="lg"
   title={t('Edit identity source')}

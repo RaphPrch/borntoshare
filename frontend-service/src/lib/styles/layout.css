@@ -416,24 +416,3 @@
   min-width: 0;
   overflow-wrap: break-word;
 }
-
-/* Two columns under the tabs: content on the left, side panels on the right */
-.b2s-detail-columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 20px;
-  align-items: start;
-}
-
-.b2s-detail-columns > * {
-  min-width: 0;
-  display: grid;
-  gap: 20px;
-  align-content: start;
-}
-
-@media (max-width: 1280px) {
-  .b2s-detail-columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}

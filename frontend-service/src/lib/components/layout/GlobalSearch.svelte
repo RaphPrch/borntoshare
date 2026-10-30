@@ -4,7 +4,7 @@
   import { t } from '$lib/i18n';
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
-  import megaConfig from './mega-config';
+  import searchPages from './search-pages';
   import { listStorageRootsContext } from '$lib/api/storage-roots';
   import { listZones } from '$lib/api/zones';
   import { listStorageEndpoints } from '$lib/api/storage-endpoints';
@@ -30,12 +30,12 @@
   $: pages = [
     { title: 'Dashboard', href: '/dashboard', icon: 'bi-speedometer2', show: true },
     { title: 'Access requests', href: '/access-requests', icon: 'bi-clipboard-check', show: true },
-    ...megaConfig.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots })),
+    ...searchPages.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots })),
     { title: 'Observability', href: '/observability', icon: 'bi-activity', show: canSeeObservability },
     { title: 'Alerts', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', show: canSeeObservability },
     { title: 'Events', href: '/observability?tab=events', icon: 'bi-list-ul', show: canSeeObservability },
     { title: 'Jobs', href: '/observability?tab=jobs', icon: 'bi-gear-wide-connected', show: canSeeObservability },
-    ...megaConfig.admin.map((item) => ({ ...item, show: canSeeAdmin }))
+    ...searchPages.admin.map((item) => ({ ...item, show: canSeeAdmin }))
   ]
     .filter((page) => page.show)
     .map((page): Result => ({ group: t('Pages'), label: t(page.title), detail: '', href: page.href, icon: page.icon ?? 'bi-file-earmark' }));

@@ -1,15 +1,14 @@
-type MegaMenuItem = {
+type SearchPage = {
   title: string;
   description: string;
   href: string;
   icon?: string;
 };
 
-// Single source of truth for the mega-menu keys
-// (Topbar + MegaMenu must stay aligned)
-export type MegaMenuKey = 'storageRoots' | 'admin';
+// Pages offered by the global search
+type SearchPageGroup = 'storageRoots' | 'admin';
 
-const megaConfig: Record<MegaMenuKey, MegaMenuItem[]> = {
+const searchPages: Record<SearchPageGroup, SearchPage[]> = {
   storageRoots: [
     {
       title: 'Storage Roots',
@@ -58,4 +57,4 @@ const megaConfig: Record<MegaMenuKey, MegaMenuItem[]> = {
   ]
 };
 
-export default megaConfig;
+export default searchPages;

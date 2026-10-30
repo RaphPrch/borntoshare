@@ -6,7 +6,6 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 from app.api import (
-    activity_events,
     activity_views,
     advanced_settings,
     health_events,
@@ -42,7 +41,6 @@ GUARDED = [
     (advanced_settings, ["save_advanced_config"], admin_or_internal),
     (storage_roots, ["create_root", "delete_root", "sync_storage_root_discovery"], admin_only),
     (activity_views, ["post_activity_event"], signed_in_or_internal),
-    (activity_events, ["create_activity_event_route"], signed_in_or_internal),
     (provisioning, ["cancel_admin_job"], admin_only),
     (probes, ["run_probe", "get_probe_job"], admin_or_guardian),
     (probes, ["run_probe"], probe_of_own_root),
