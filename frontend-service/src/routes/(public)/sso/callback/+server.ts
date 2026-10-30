@@ -20,7 +20,8 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
     body: JSON.stringify({ code, state })
   });
   const data = await res.json().catch(() => null);
-  if (!res.ok) return toLogin(data?.error?.message ?? 'Sign-in failed.');
+  // A malformed answer (422) has nothing useful to show: only a refusal explains itself
+  if (!res.ok) return toLogin(res.status === 422 ? 'Sign-in failed.' : (data?.error?.message ?? 'Sign-in failed.'));
 
   const headers = new Headers({ location: String(data?.return_to || '/dashboard') });
   for (const cookie of res.headers.getSetCookie()) headers.append('set-cookie', cookie);
