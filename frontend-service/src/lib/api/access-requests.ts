@@ -152,11 +152,17 @@ export const bulkDecision = async (
   decisionComment?: string
 ) => {
   const comment = String(decisionComment || '').trim();
-  const response = await apiPostData<Record<string, unknown>>(fetchFn, '/access-requests/bulk', {
-    ids,
-    decision,
-    ...(comment ? { decision_comment: comment } : {})
-  });
+  const response = await apiPostData<Record<string, unknown>>(
+    fetchFn,
+    '/access-requests/bulk',
+    {
+      ids,
+      decision,
+      ...(comment ? { decision_comment: comment } : {})
+    },
+    // An approval waits for Active Directory and the file server (each step up to 90 s)
+    { timeoutMs: 200_000 }
+  );
 
   return normalizeBulkDecisionResponse(response);
 };

@@ -74,6 +74,7 @@
   let checkedIds = new Set<number>();
   let bulkDecisionAsked: 'approve' | 'reject' | null = null;
   let bulkRunning = false;
+  let bulkDone = 0;
   let requestParamId: number | null = null;
   let lastAutoSelectedRequestId: number | null = null;
 
@@ -223,21 +224,39 @@
     checkedIds = checkedIds;
   }
 
+  // One at a time: each approval can wait for Active Directory, and the progress stays visible
   async function runBulkDecision(): Promise<void> {
     if (!bulkDecisionAsked) return;
     bulkRunning = true;
     const ids = [...checkedIds];
+    const failed: number[] = [];
+    let stoppedAt = -1;
     try {
-      const result = await bulkDecision(fetch, ids, bulkDecisionAsked);
-      const failed = Number(result?.failed_ids?.length ?? 0);
-      if (failed > 0) toast.error(t('{ok} done, {failed} failed: open each failed request to see why.', { ok: ids.length - failed, failed }));
+      for (const [index, id] of ids.entries()) {
+        bulkDone = index;
+        const result = await bulkDecision(fetch, [id], bulkDecisionAsked);
+        if (Number(result?.failed_ids?.length ?? 0) > 0) {
+          failed.push(id);
+          // Active Directory does not answer: the next ones would each wait as long
+          if (result?.failed_details?.[id]?.code === 'AD_JOB_STILL_RUNNING') {
+            stoppedAt = index;
+            break;
+          }
+        }
+      }
+      const untouched = stoppedAt >= 0 ? ids.slice(stoppedAt + 1) : [];
+      const done = ids.length - failed.length - untouched.length;
+      if (stoppedAt >= 0) toast.error(t('Active Directory does not answer: {done} done, {left} left to process.', { done, left: failed.length + untouched.length }));
+      else if (failed.length > 0) toast.error(t('{ok} done, {failed} failed: open each failed request to see why.', { ok: done, failed: failed.length }));
       else toast.success(t('{count} requests processed.', { count: ids.length }));
-      checkedIds = new Set(result?.failed_ids ?? []);
+      checkedIds = new Set([...failed, ...untouched]);
       await invalidateAll();
     } catch {
       toast.error(bulkDecisionAsked === 'approve' ? t('Approval failed.') : t('Rejection failed.'));
+      await invalidateAll();
     } finally {
       bulkRunning = false;
+      bulkDone = 0;
       bulkDecisionAsked = null;
     }
   }
@@ -803,7 +822,7 @@
   severity={bulkDecisionAsked === 'reject' ? 'danger' : 'warning'}
   confirmVariant={bulkDecisionAsked === 'reject' ? 'danger' : 'primary'}
   confirmLabel={bulkDecisionAsked === 'reject' ? t('Reject all') : t('Approve all')}
-  confirmBusyLabel={t('Processing…')}
+  confirmBusyLabel={t('Processing {done} of {total}…', { done: bulkDone + 1, total: checkedIds.size })}
   busy={bulkRunning}
 />
 

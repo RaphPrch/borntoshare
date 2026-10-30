@@ -118,8 +118,9 @@ async def _sync_acl_drift(db: Session) -> dict[str, Any]:
     started, failed = 0, []
     repo = GovernanceAlertsRepo(db)
     for root in roots:
-        # Group members vs grants right away (latest snapshot); the ACL part follows the scan
-        repo.reconcile_storage_root(int(root["id"]), commit=False)
+        # Group members vs grants right away (latest snapshot); the ACL part follows the scan.
+        # Committed per folder: a transaction over the whole loop locks the servers for minutes.
+        repo.reconcile_storage_root(int(root["id"]), commit=True)
         try:
             await submit_probe_run(
                 {

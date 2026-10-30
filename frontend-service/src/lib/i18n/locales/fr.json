@@ -2902,5 +2902,7 @@
   "The storage root governance record will be permanently deleted.": "La gouvernance de ce dossier sera définitivement supprimée.",
   "Showing {count} items": "{count} éléments affichés",
   "Snapshot synchronized · {importedCount} objet(s).": "Inventaire synchronisé · {importedCount} objet(s).",
-  "Keep editing": "Continuer à modifier"
+  "Keep editing": "Continuer à modifier",
+  "Active Directory does not answer: {done} done, {left} left to process.": "Active Directory ne répond pas : {done} traitée(s), {left} restante(s).",
+  "Processing {done} of {total}…": "Traitement {done} sur {total}…"
 }
