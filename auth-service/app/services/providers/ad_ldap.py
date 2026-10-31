@@ -31,14 +31,14 @@ logger = get_logger(__name__)
 try:
     # Optional dependency
     from ldap3 import Connection, Server, ALL, SUBTREE, Tls  # type: ignore
-    from ldap3.core.exceptions import LDAPBindError  # type: ignore
+    from ldap3.core.exceptions import LDAPBindError, LDAPException, LDAPSocketOpenError, LDAPSocketReceiveError  # type: ignore
 except ImportError:  # pragma: no cover
     Connection = None  # type: ignore
     Server = None  # type: ignore
     ALL = None  # type: ignore
     SUBTREE = None  # type: ignore
     Tls = None  # type: ignore
-    LDAPBindError = Exception  # type: ignore
+    LDAPBindError = LDAPException = LDAPSocketOpenError = LDAPSocketReceiveError = Exception  # type: ignore
 
 
 def _format_object_guid(value) -> str | None:
@@ -354,6 +354,11 @@ class ADLDAPProvider(AuthProvider):
                 pass
         except LDAPBindError as exc:
             raise InvalidCredentials("Invalid credentials") from exc
+        except (LDAPSocketOpenError, LDAPSocketReceiveError) as exc:
+            raise AuthUnavailable("Directory unreachable") from exc
+        except LDAPException as exc:
+            # Refused for the connection itself (signing required, TLS...), not because of the password
+            raise ProviderMisconfigured(f"AD user bind refused: {exc}") from exc
 
     def _search_user(self, cfg: ADConfig, server, raw_username: str, normalized_user: str) -> _ADSearchResult | None:
         if not (cfg.bind_user and cfg.bind_password):
@@ -364,6 +369,10 @@ class ADLDAPProvider(AuthProvider):
         except LDAPBindError as exc:
             # The service account is refused: configuration issue, not the user's credentials
             raise ProviderMisconfigured("AD service account bind failed (authenticate users)") from exc
+        except (LDAPSocketOpenError, LDAPSocketReceiveError) as exc:
+            raise AuthUnavailable("Directory unreachable") from exc
+        except LDAPException as exc:
+            raise ProviderMisconfigured(f"AD service account refused: {exc}") from exc
         with search_conn:
             openldap = cfg.directory_flavor == "openldap"
             attrs = (

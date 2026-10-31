@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: help build up down restart ps logs logs-% wizard wizard-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy
+.PHONY: backup help build up down restart ps logs logs-% wizard wizard-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy
 
 help:
 	@echo "make build          build the images"
@@ -13,6 +13,7 @@ help:
 	@echo "make restart        down + up"
 	@echo "make ps             containers status"
 	@echo "make logs           follow all logs   (make logs-auth-service: one service)"
+	@echo "make backup         save the two databases to backups/ (not the key of the secrets)"
 	@echo "make wizard         start the database wizard (http://<host>:\$$WIZARD_PORT)"
 	@echo "make wizard-down    stop the wizard"
 	@echo "make clean          stop, then remove unused images and the Redis queue"
@@ -45,6 +46,9 @@ logs:
 
 logs-%:
 	$(COMPOSE) logs -f --tail=200 $*
+
+backup: .env
+	./scripts/backup.sh
 
 wizard: .env
 	$(COMPOSE) --profile wizard up -d --build wizard-ui

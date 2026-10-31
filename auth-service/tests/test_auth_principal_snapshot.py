@@ -562,7 +562,7 @@ def test_unhandled_exception_maps_to_internal_error_contract(monkeypatch) -> Non
     assert payload["error"]["request_id"]
 
 
-def test_login_provider_misconfigured_maps_to_500(monkeypatch) -> None:
+def test_login_provider_misconfigured_maps_to_503(monkeypatch) -> None:
     from app.api import auth as auth_api
     from app.services.providers.base import ProviderMisconfigured
 
@@ -598,7 +598,7 @@ def test_login_provider_misconfigured_maps_to_500(monkeypatch) -> None:
             json={"username": "b2s", "password": "secret"},
         )
 
-    assert res.status_code == 500
+    assert res.status_code == 503
     payload = res.json()
     assert payload["error"]["code"] == "PROVIDER_MISCONFIGURED"
     assert isinstance(payload["error"]["details"], dict)

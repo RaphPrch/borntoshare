@@ -380,7 +380,9 @@ async def _enrich_folder_payload(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error_code": "STORAGE_ROOT_NOT_FOUND", "message": "Storage root not found"})
     host, share, rel_path = _parse_unc_root_path(ctx.get("root_path"))
     username, secret_ref = _probe_credentials({}, ctx)
-    if not (host and share and rel_path and username and secret_ref):
+    # A sub-folder can be created right under a share; its root itself is never deleted nor changed
+    creating = str(payload.get("protocol") or "").strip().lower() == "create"
+    if not (host and share and (rel_path or creating) and username and secret_ref):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"error_code": "FOLDER_CONTEXT_INCOMPLETE", "message": "The folder, its share or the file server account is missing",

@@ -34,3 +34,6 @@ config/runtime/*
 # DFS work in progress: stays local, not committed (its edits in tracked files are marked skip-worktree)
 capsule-runner/app/actions/dfs.py
 capsule-runner/app/tests/test_dfs_action.py
+
+# Copies of the databases (make backup)
+backups/

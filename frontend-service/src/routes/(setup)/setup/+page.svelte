@@ -5,6 +5,7 @@
   import { createIdentitySource, updateIdentitySource, runIdentitySnapshot } from '$lib/api/identity-sources';
   import { createStorageEndpoint, updateStorageEndpoint } from '$lib/api/storage-endpoints';
   import { createIdentity } from '$lib/api/identity';
+  import { createStorageRoot, updateStorageRootOwners } from '$lib/api/storage-roots';
   import { searchIdentityDirectory } from '$lib/api/identity-browser';
   import { resolveCredentials } from '$lib/api/credentials';
   import { completeSetup } from '$lib/api/admin-advanced-settings';
@@ -15,7 +16,7 @@
 
   export let data: { status: Record<string, any> };
 
-  type StepKey = 'zone' | 'directory' | 'server' | 'identities' | 'roles' | 'done';
+  type StepKey = 'zone' | 'directory' | 'server' | 'identities' | 'roles' | 'folders' | 'done';
   type Group = { key: string; title: string; item: Record<string, any>; role: 'platform_admin' | 'user' };
   type Check = { label: string; ok: boolean | null; value: string };
 
@@ -25,6 +26,7 @@
     { key: 'server', label: () => t('File server'), hint: () => t('Where the folders are') },
     { key: 'identities', label: () => t('Identities'), hint: () => t('Who can sign in') },
     { key: 'roles', label: () => t('Roles'), hint: () => t('Who administers') },
+    { key: 'folders', label: () => t('Folders'), hint: () => t('Which folders to govern') },
     { key: 'done', label: () => t('Ready'), hint: () => t('Your first folders') }
   ];
 
@@ -72,8 +74,20 @@
   let groupsError = '';
   let snapshotStarted = false;
 
+  let shares: string[] = [];
+  let sharesLoading = false;
+  let sharesError = '';
+  let pickedShares: Record<string, boolean> = {};
+  let peopleQuery = '';
+  let people: Group[] = [];
+  let peopleLoading = false;
+  let guardians: Record<string, Group> = {};
+  let foldersCreated = 0;
+  let importedGroups = Number(status.imported_groups ?? 0);
+
   // Resume at the first step left to do
   const firstStep = !zoneId ? 0 : !sourceId ? 1 : !serverId ? 2 : status.imported_groups > 0 ? 5 : 3;
+  const minGuardians = Number(status.min_guardians ?? 2);
   let at = firstStep;
   let top = firstStep;
   let busy = false;
@@ -84,6 +98,8 @@
   $: pickedGroups = Object.values(picked);
   $: admins = pickedGroups.filter((group) => group.role === 'platform_admin').length;
   $: isLdaps = directory.protocol === 'ldaps';
+  $: pickedShareList = shares.filter((share) => pickedShares[share]);
+  $: guardianList = Object.values(guardians);
   $: directoryReady =
     !!directory.name.trim() && !!directory.host.trim() && !!directory.base.trim() && !!directory.account.trim() &&
     (!!directory.password || !!directory.ref) && !!directory.ou.trim();
@@ -93,13 +109,15 @@
     : current === 'directory' ? directoryReady && directoryTested
     : current === 'server' ? serverReady && serverTested
     : current === 'identities' ? pickedGroups.length > 0 || status.imported_groups > 0
+    : current === 'folders' ? pickedShareList.length > 0 && guardianList.length >= minGuardians
     : true;
   $: placed = [
     { label: t('Zone'), value: top > 0 ? zone.name : '', step: 0 },
     { label: t('Directory'), value: top > 1 ? `${directory.name} · ${directory.protocol.toUpperCase()}` : '', step: 1 },
     { label: t('File server'), value: top > 2 ? `${server.name} · ${server.host}` : '', step: 2 },
-    { label: t('Identities'), value: top > 3 ? t('{count} group(s)', { count: pickedGroups.length || status.imported_groups || 0 }) : '', step: 3 },
-    { label: t('Roles'), value: top > 4 ? t('{count} administrator group(s)', { count: admins }) : '', step: 4 }
+    { label: t('Identities'), value: top > 3 ? t('{count} group(s)', { count: importedGroups || pickedGroups.length }) : '', step: 3 },
+    { label: t('Roles'), value: top > 4 ? t('Done') : '', step: 4 },
+    { label: t('Folders'), value: top > 5 ? t('{count} folder(s)', { count: foldersCreated }) : '', step: 5 }
   ];
 
   function touchDirectory() {
@@ -248,6 +266,92 @@
     }
   }
 
+  async function loadShares() {
+    sharesLoading = true;
+    sharesError = '';
+    try {
+      const username = server.account.trim();
+      const result: any = await runProbeWithPolling({
+        fetchFn: fetch,
+        request: buildStorageEndpointConnectProbeRequest({
+          protocol: 'smb',
+          host: server.host.trim(),
+          port: 445,
+          username,
+          domain: extractDomainFromUsername(username),
+          secretRef: server.ref,
+          password: null,
+          discover: true,
+          timeoutSec: 20,
+          uiOrigin: 'wizard'
+        }),
+        intervalMs: 1200,
+        maxAttempts: 30
+      });
+      shares = Array.isArray(result.result?.details?.roots) ? result.result.details.roots.map(String) : [];
+      if (!result.ok) sharesError = t('Unable to read the shares of the server.');
+    } catch (error) {
+      sharesError = message(error, t('Unable to read the shares of the server.'));
+    } finally {
+      sharesLoading = false;
+    }
+  }
+
+  async function loadPeople() {
+    if (!sourceId) return;
+    peopleLoading = true;
+    try {
+      const found: any = await searchIdentityDirectory(fetch, {
+        sourceId,
+        q: peopleQuery.trim(),
+        scope: 'subtree',
+        principalType: 'user',
+        enabledOnly: false,
+        limit: 50
+      });
+      people = (found.items ?? []).map((item: any) => ({
+        key: String(item.dn ?? item.external_id ?? item.username),
+        item,
+        title: String(item.display_name ?? item.username ?? item.dn),
+        role: 'user' as const
+      }));
+    } catch {
+      people = [];
+    } finally {
+      peopleLoading = false;
+    }
+  }
+
+  function toggleGuardian(person: Group, checked: boolean) {
+    const next = { ...guardians };
+    if (checked) next[person.key] = person;
+    else delete next[person.key];
+    guardians = next;
+  }
+
+  function enterStep() {
+    if (STEPS[at].key === 'identities') void loadGroups();
+    if (STEPS[at].key === 'folders') {
+      if (!shares.length) void loadShares();
+      if (!people.length) void loadPeople();
+    }
+  }
+
+  async function skipFolders() {
+    if (busy) return;
+    busy = true;
+    errorMessage = '';
+    try {
+      await completeSetup(fetch);
+      at += 1;
+      top = Math.max(top, at);
+    } catch (error) {
+      errorMessage = message(error, t('Unable to save this step.'));
+    } finally {
+      busy = false;
+    }
+  }
+
   function togglePick(group: Group, checked: boolean) {
     const next = { ...picked };
     if (checked) next[group.key] = group;
@@ -330,7 +434,36 @@
           }
         } as any);
       }
+      importedGroups += pickedGroups.length;
       picked = {};
+    }
+    if (current === 'folders') {
+      const guardianIds: number[] = [];
+      for (const person of guardianList) {
+        const created: any = await createIdentity(fetch, {
+          identity_type: 'user',
+          auth_source: 'ad',
+          identity_source_id: sourceId,
+          application_role: 'user',
+          principal: {
+            type: 'user',
+            external_id: person.item.external_id ?? person.item.dn ?? person.item.username,
+            dn: person.item.dn ?? null,
+            username: person.item.username ?? null,
+            upn: person.item.upn ?? null,
+            display_name: person.title,
+            email: person.item.email ?? null
+          }
+        } as any);
+        guardianIds.push(Number(created?.id));
+      }
+      for (const share of pickedShareList) {
+        const name = share.split('\\').filter(Boolean).pop() ?? share;
+        const root = await createStorageRoot(fetch, { storage_endpoint_id: Number(serverId), name, root_path: share } as any);
+        await updateStorageRootOwners(fetch, Number(root.id), { guardian_ids: guardianIds });
+        foldersCreated += 1;
+      }
+      await completeSetup(fetch);
     }
   }
 
@@ -342,7 +475,7 @@
       await saveStep();
       at += 1;
       top = Math.max(top, at);
-      if (STEPS[at].key === 'identities') void loadGroups();
+      enterStep();
     } catch (error) {
       errorMessage = message(error, t('Unable to save this step.'));
     } finally {
@@ -354,21 +487,15 @@
     if (index > top) return;
     errorMessage = '';
     at = index;
-    if (STEPS[at].key === 'identities') void loadGroups();
+    enterStep();
   }
 
   async function finish(path: string) {
     busy = true;
-    try {
-      await completeSetup(fetch);
-      await goto(path, { invalidateAll: true });
-    } catch (error) {
-      errorMessage = message(error, t('Unable to save this step.'));
-      busy = false;
-    }
+    await goto(path, { invalidateAll: true });
   }
 
-  if (firstStep === 3) void loadGroups();
+  enterStep();
 </script>
 
 <svelte:head><title>{t('First start')} · BornToShare</title></svelte:head>
@@ -376,7 +503,7 @@
 <div class="sp">
   <aside class="sp-path" aria-label={t('Setup steps')}>
     <div class="sp-brand"><b aria-hidden="true">B</b><strong>BornToShare</strong></div>
-    <h1>{t('Let\'s set everything up.')} <mark>{t('Six steps.')}</mark></h1>
+    <h1>{t('Let\'s set everything up.')} <mark>{t('Seven steps.')}</mark></h1>
     <p>{t('The application is empty. Each step is saved: you can leave and come back here.')}</p>
     <ol class="sp-steps">
       {#each STEPS as step, index}
@@ -411,9 +538,12 @@
           {:else if current === 'roles'}
             <h2>{t('Give each group a role')}</h2>
             <p class="sp-lead">{t('The role decides what can be done in BornToShare, not what can be opened on the file server.')}</p>
+          {:else if current === 'folders'}
+            <h2>{t('Choose your first folders')}</h2>
+            <p class="sp-lead">{t('Tick the shares to govern, then name their guardians. You can add others later.')}</p>
           {:else}
             <h2>{t('BornToShare is ready')}</h2>
-            <p class="sp-lead">{t('What is left: say which folders to govern, and who their guardians are.')}</p>
+            <p class="sp-lead">{foldersCreated ? t('Your folders are in place: what is left is to ask for accesses.') : t('No folder yet: add them from the Folders menu.')}</p>
           {/if}
         </div>
 
@@ -530,14 +660,57 @@
             <p class="sp-note">{t('The groups of this step are already imported. Their roles can be changed in Identities.')}</p>
           {/if}
           <p class="sp-note">{t('The guardian role is not given here: it is given folder by folder, with a minimum of guardians per folder.')}</p>
+        {:else if current === 'folders'}
+          {#if sharesLoading}
+            <p class="sp-note"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('Reading the shares…')}</p>
+          {:else if sharesError}
+            <p class="sp-note warn">{sharesError}</p>
+          {:else if shares.length === 0}
+            <p class="sp-note">{t('No share found on this server.')}</p>
+          {:else}
+            <div class="sp-list">
+              {#each shares as share (share)}
+                <label class="sp-pick">
+                  <input type="checkbox" bind:checked={pickedShares[share]} />
+                  <span><strong>{share.split('\\').filter(Boolean).pop()}</strong><small class="mono">{share}</small></span>
+                </label>
+              {/each}
+            </div>
+          {/if}
+          <div>
+            <h3 class="sp-sub">{t('Guardians of these folders')}</h3>
+            <p class="sp-lead sp-lead--tight">{t('Choose at least {count}. You can change them folder by folder later.', { count: minGuardians })} {t('Guardians decide on the access requests of their folders.')}</p>
+          </div>
+          <form class="sp-search" on:submit|preventDefault={loadPeople}>
+            <input type="search" bind:value={peopleQuery} aria-label={t('Search a person of the directory')} placeholder={t('Search a person of the directory…')} />
+            <button type="submit" class="sp-btn sm">{t('Search')}</button>
+          </form>
+          {#if peopleLoading}
+            <p class="sp-note"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('Reading the directory…')}</p>
+          {:else if people.length === 0}
+            <p class="sp-note">{t('Nobody found.')}</p>
+          {:else}
+            <div class="sp-list">
+              {#each people as person (person.key)}
+                <label class="sp-pick">
+                  <input type="checkbox" checked={Boolean(guardians[person.key])} on:change={(event) => toggleGuardian(person, event.currentTarget.checked)} />
+                  <span><strong>{person.title}</strong><small class="mono">{person.item.username ?? ''}</small></span>
+                </label>
+              {/each}
+            </div>
+          {/if}
+          {#if guardianList.length}
+            <p class="sp-note tip">{guardianList.map((person) => person.title).join(', ')}</p>
+          {/if}
         {:else}
           <div class="sp-checks">
             <div><span>{t('Zone')}</span><i class="ok">{zone.name}</i></div>
             <div><span>{t('Directory')}</span><i class="ok">{directory.name}</i></div>
             <div><span>{t('File server')}</span><i class="ok">{server.name}</i></div>
+            <div><span>{t('Folders')}</span><i class="ok">{foldersCreated}</i></div>
           </div>
           <div class="sp-row">
-            <button type="button" class="sp-btn pri" disabled={busy} on:click={() => finish('/storage-roots')}>{t('Add my first folders')}</button>
+            <button type="button" class="sp-btn pri" disabled={busy} on:click={() => finish('/storage-roots')}>{t('See my folders')}</button>
             <button type="button" class="sp-btn" disabled={busy} on:click={() => finish('/dashboard')}>{t('Go to the dashboard')}</button>
           </div>
         {/if}
@@ -556,6 +729,9 @@
           {/if}
         </span>
         {#if at > 0}<button type="button" class="sp-btn" disabled={busy} on:click={() => goToStep(at - 1)}>{t('Back')}</button>{/if}
+        {#if current === 'folders'}
+          <button type="button" class="sp-btn" disabled={busy} on:click={skipFolders}>{t('Skip for now')}</button>
+        {/if}
         {#if current !== 'done'}
           <button type="button" class="sp-btn pri" disabled={!canContinue || busy} on:click={next}>{busy ? t('Saving…') : t('Continue')}</button>
         {/if}
@@ -599,6 +775,8 @@
   .sp-count { font-size: 12px; color: var(--b2s-color-text-muted); }
   .sp-form h2 { margin: 3px 0 0; font-size: 30px; line-height: 1.1; font-weight: 600; letter-spacing: -.025em; }
   .sp-lead { margin: 7px 0 0; max-width: 62ch; color: var(--b2s-color-text-muted); font-size: 15px; }
+  .sp-sub { margin: 4px 0 0; font-size: 16px; font-weight: 600; }
+  .sp-lead--tight { margin-top: 2px; font-size: 13px; }
   .sp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
   .sp-f { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; font-weight: 500; font-size: 13px; }
   .wide { grid-column: 1 / -1; }
@@ -612,7 +790,7 @@
   .sp-seg { display: inline-flex; gap: 3px; padding: 3px; border-radius: 12px; background: var(--b2s-color-neutral-soft); }
   .sp-seg button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: var(--b2s-color-text-muted); cursor: pointer; }
   .sp-seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 2px rgba(14, 18, 24, .12); }
-  .sp-btn { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); color: inherit; font-weight: 500; cursor: pointer; }
+  .sp-btn { white-space: nowrap; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); color: inherit; font-weight: 500; cursor: pointer; }
   .sp-btn.sm { min-height: 36px; font-size: 13px; }
   .sp-btn:disabled { opacity: .5; cursor: default; }
   .sp-btn.pri { background: var(--b2s-accent); border-color: #9ad632; color: #10140a; font-weight: 600; }

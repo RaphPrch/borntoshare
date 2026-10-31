@@ -266,3 +266,24 @@ def test_user_filters_follow_the_directory() -> None:
     assert "(uid=jane)" in module._user_filters(openldap, "jane", "jane")[0]
     custom = _tls_cfg(module, user_filter="(mail={username})")
     assert module._user_filters(custom, "j*", "j*") == ["(mail=j\\2a)"]
+
+
+def test_a_connection_refused_by_the_directory_is_not_a_wrong_password(monkeypatch) -> None:
+    from ldap3.core.exceptions import LDAPSocketOpenError, LDAPStrongerAuthRequiredResult
+
+    from app.services.providers import ad_ldap as module
+    from app.services.providers.base import AuthUnavailable, ProviderMisconfigured
+
+    def refused(*_a, **_k):
+        raise LDAPStrongerAuthRequiredResult("strongerAuthRequired")
+
+    monkeypatch.setattr(module, "Connection", refused)
+    with pytest.raises(ProviderMisconfigured):
+        module.ADLDAPProvider._bind_user(object(), "CN=Paul,DC=example,DC=test", "secret")
+
+    def down(*_a, **_k):
+        raise LDAPSocketOpenError("no route")
+
+    monkeypatch.setattr(module, "Connection", down)
+    with pytest.raises(AuthUnavailable):
+        module.ADLDAPProvider._bind_user(object(), "CN=Paul,DC=example,DC=test", "secret")

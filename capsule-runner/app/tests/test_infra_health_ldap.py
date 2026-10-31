@@ -50,7 +50,7 @@ def test_unreadable_secret_is_reported(monkeypatch) -> None:
     _ok, _message, details = infra_health.run_infra_health_check({"targets": [_target()]})
 
     assert details["results"][0]["status"] == "down"
-    assert "secret broker" in details["results"][0]["message"]
+    assert "could not be read" in details["results"][0]["message"]
 
 
 def test_job_contract_keeps_the_ldap_fields() -> None:

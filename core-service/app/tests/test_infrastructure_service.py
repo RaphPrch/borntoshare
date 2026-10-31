@@ -111,3 +111,53 @@ def test_overview_marks_old_results_unknown_and_computes_uptime() -> None:
     assert by["web"]["uptime_24h"] == 75.0
     assert by["old"]["status"] == "unknown" and by["old"]["stale"] is True
     assert out["summary"]["healthy"] == 1 and out["summary"]["unknown"] == 1
+
+
+class _WorkerDb:
+    def __init__(self, existing: bool = False) -> None:
+        self.existing = existing
+        self.inserted: list[dict] = []
+        self.committed = False
+
+    def execute(self, statement, params=None):
+        sql = " ".join(str(statement).split())
+        if sql.startswith("INSERT INTO infra_workers"):
+            self.inserted.append(dict(params))
+        return self
+
+    def first(self):
+        return (1,) if self.existing else None
+
+    @property
+    def lastrowid(self) -> int:
+        return 1
+
+    def commit(self) -> None:
+        self.committed = True
+
+
+def test_the_local_worker_declares_itself_on_the_port_where_its_agent_answers(monkeypatch) -> None:
+    import asyncio
+
+    async def check(row):
+        return {"status": "healthy" if row["port"] == 8443 else "down"}
+
+    monkeypatch.setattr(infra, "check_agent", check)
+    monkeypatch.setattr(infra, "record_worker_check", lambda *a, **k: None)
+    db = _WorkerDb()
+
+    assert asyncio.run(infra.register_local_worker(db))["port"] == 8443
+    assert db.inserted[0]["use_tls"] is True and db.committed is True
+
+
+def test_no_local_worker_when_one_is_declared_or_none_answers(monkeypatch) -> None:
+    import asyncio
+
+    async def down(row):
+        return {"status": "down"}
+
+    monkeypatch.setattr(infra, "check_agent", down)
+    assert asyncio.run(infra.register_local_worker(_WorkerDb(existing=True))) is None
+    db = _WorkerDb()
+    assert asyncio.run(infra.register_local_worker(db)) is None
+    assert db.inserted == []

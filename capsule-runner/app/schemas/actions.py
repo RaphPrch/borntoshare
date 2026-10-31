@@ -318,6 +318,12 @@ class FolderOperationPayload(BaseModel):
         return self
 
 
+class FolderCreatePayload(FolderOperationPayload):
+    """A sub-folder can be created right under a share: no parent path then."""
+
+    path: str = Field(default="", max_length=1024)
+
+
 class InfraHealthTarget(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

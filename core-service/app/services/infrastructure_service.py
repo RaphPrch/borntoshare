@@ -438,6 +438,31 @@ def worker_targets(db: Session) -> list[dict[str, Any]]:
     return targets
 
 
+async def register_local_worker(db: Session) -> dict[str, Any] | None:
+    """First start: the worker of this installation declares itself, so that it is monitored without a form."""
+    if db.execute(text("SELECT 1 FROM infra_workers LIMIT 1")).first():
+        return None
+    host = (os.getenv("B2S_LOCAL_WORKER_HOST") or "capsule-runner").strip()
+    # Same defaults as the agent: HTTP on 8080, HTTPS on 8443 with its own certificate
+    for port, use_tls in ((8080, False), (8443, True)):
+        row = {"name": "Worker principal", "host": host, "port": port, "use_tls": use_tls, "verify_tls": False, "is_enabled": True}
+        check = await check_agent(row)
+        if check["status"] in {"healthy", "degraded"}:
+            result = db.execute(
+                text(
+                    """
+                    INSERT INTO infra_workers (name, host, port, use_tls, verify_tls, is_enabled)
+                    VALUES (:name, :host, :port, :use_tls, :verify_tls, :is_enabled)
+                    """
+                ),
+                row,
+            )
+            record_worker_check(db, int(result.lastrowid), check)
+            db.commit()
+            return {"host": host, "port": port, "status": check["status"]}
+    return None
+
+
 async def run_health_check(db: Session, *, trigger: str) -> dict[str, Any]:
     """Core-side checks now, worker agents now, the rest queued to a worker (results on job completion)."""
     from app.services.provisioning_jobs import create_and_publish_job

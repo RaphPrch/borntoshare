@@ -218,14 +218,18 @@ def get_setup_status(db: Session = Depends(get_db)):
             "group_ou": (policy or {}).get("static_ou_dn"),
             "server": server,
             "imported_groups": imported_groups,
+            "min_guardians": min_guardians(db),
         }
     )
 
 
 @router.post("/setup/complete", dependencies=[Depends(admin_only)])
-def complete_setup(request: Request, db: Session = Depends(get_db)):
+async def complete_setup(request: Request, db: Session = Depends(get_db)):
+    from app.services.infrastructure_service import register_local_worker
+
     current = _read_payload(db)
     _write_payload(db, {**current, "setup": {"completed": True}})
+    worker = await register_local_worker(db)
     actor = actor_from_request(request)
     log_activity(
         db,
@@ -236,6 +240,7 @@ def complete_setup(request: Request, db: Session = Depends(get_db)):
         outcome="success",
         target_type="advanced_settings",
         target_display="Guided setup",
+        context_json={"worker_declared": worker},
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     return ui_action(message="setup completed")

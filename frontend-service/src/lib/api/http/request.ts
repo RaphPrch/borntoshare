@@ -1,4 +1,5 @@
 import type { FetchLike, HttpRequestOptions } from './contract';
+import { t } from '$lib/i18n';
 import { ApiError, normalizeErrorMessage } from './errors';
 
 const LOG_LEVEL = String((import.meta as any).env?.VITE_LOG_LEVEL ?? 'INFO').trim().toUpperCase();
@@ -94,12 +95,12 @@ export async function httpRequest<T>(fetchFn: FetchLike, options: HttpRequestOpt
   } catch (err: unknown) {
     clearTimeout(timeoutId);
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new ApiError('Request timeout', {
+      throw new ApiError(t('Request timeout'), {
         code: 'REQUEST_TIMEOUT',
         transport: 'timeout'
       });
     }
-    throw new ApiError('Network error', {
+    throw new ApiError(t('Network error'), {
       code: 'NETWORK_ERROR',
       transport: 'network',
       details: err
@@ -128,7 +129,8 @@ export async function httpRequest<T>(fetchFn: FetchLike, options: HttpRequestOpt
   }
 
   if (!res.ok) {
-    throw new ApiError(normalizeErrorMessage(res.status, data, res.statusText), {
+    // The services answer in English: shown in the language of the user when the sentence is in the catalog
+    throw new ApiError(t(normalizeErrorMessage(res.status, data, res.statusText)), {
       status: res.status,
       code:
         (typeof nestedError?.code === 'string' ? nestedError.code : undefined) ??

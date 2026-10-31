@@ -764,12 +764,12 @@ async def _authenticate_login(payload: LoginRequest, request: Request) -> tuple[
             actor=payload.username,
             provider=provider.name,
             outcome="misconfigured",
-            status_code=500,
+            status_code=503,
             error_code="PROVIDER_MISCONFIGURED",
             message=str(exc),
         )
         raise _http_error(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status.HTTP_503_SERVICE_UNAVAILABLE,
             code="PROVIDER_MISCONFIGURED",
             message="Authentication provider misconfigured",
             details={"provider": provider.name},

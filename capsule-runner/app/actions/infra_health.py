@@ -73,7 +73,7 @@ def check_ldap(target: dict, password: str | None, timeout: float) -> dict:
     from app.actions.ldap_test import test_ldap_bind
 
     if not password:
-        return {"status": "down", "latency_ms": None, "message": "The password of the directory account could not be read from the secret broker"}
+        return {"status": "down", "latency_ms": None, "message": "The password of the directory account could not be read"}
     host, port = _split_host_port(str(target.get("target") or ""))
     ok, message, details = test_ldap_bind({
         "host": host, "port": port, "use_ssl": bool(target.get("use_ssl", True)),

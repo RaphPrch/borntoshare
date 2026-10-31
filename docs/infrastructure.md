@@ -53,6 +53,16 @@ En revanche, une faille permettant d'exécuter du code dans core-service y donne
 Une sauvegarde complète comprend **deux éléments** : la base et `B2S_SECRET_MASTER_KEY`, à conserver séparément. Sans la clé, les
 références restent en base mais les annuaires passent en panne (« mot de passe illisible ») jusqu'à leur nouvelle saisie.
 
+`make backup` enregistre les deux bases dans `backups/` (fichiers lisibles par leur seul propriétaire). La clé n'y est pas : à conserver
+dans un coffre, à part. Pour restaurer sur une installation arrêtée, avec le même `.env` :
+
+```bash
+zcat backups/<date>/borntoshare.sql.gz | mariadb -h <hôte> -u <compte> -p borntoshare
+zcat backups/<date>/borntoshare_logging.sql.gz | mariadb -h <hôte> -u <compte> -p borntoshare_logging
+```
+
+Puis relancer les services et vérifier qu'un test d'annuaire réussit : c'est lui qui prouve que la clé correspond aux mots de passe.
+
 ## Base de données
 
 core-service ne peut pas lire la connexion à sa base dans cette même base : elle est écrite dans
@@ -108,7 +118,8 @@ tâche lancée à la main, composant ajouté, modifié, supprimé.
 ## Premier démarrage
 
 Tant qu'aucun dossier n'est gouverné et que le parcours n'est pas terminé, un administrateur qui se connecte arrive sur `/setup` :
-zone, annuaire (Active Directory ou OpenLDAP, en LDAP ou LDAPS), serveur de fichiers, identités, rôles. Chaque étape est enregistrée et
+zone, annuaire (Active Directory ou OpenLDAP, en LDAP ou LDAPS), serveur de fichiers, identités, rôles, premiers dossiers et leurs garants.
+À la fin, le worker de l'installation est déclaré tout seul dans Infrastructure. Chaque étape est enregistrée et
 le parcours reprend à la première étape restante. Le compte administrateur local est créé avant, par `wizard-ui`.
 
 ## Annuaires OpenLDAP

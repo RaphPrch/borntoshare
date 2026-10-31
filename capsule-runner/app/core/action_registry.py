@@ -26,6 +26,7 @@ from app.schemas.actions import (
     ADGroupCreatePayload,
     ADGroupMemberPayload,
     DirectorySnapshotPayload,
+    FolderCreatePayload,
     FolderOperationPayload,
     KerberosAuthPayload,
     LDAPRecursiveGroupUsersPayload,
@@ -181,7 +182,7 @@ ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
     ),
     "folder_create": ActionSpec(
         action="folder_create",
-        schema=FolderOperationPayload,
+        schema=FolderCreatePayload,
         runner=create_subfolder,
         secret_fields=("secret_ref",),
         target_field="host",
