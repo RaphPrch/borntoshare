@@ -23,6 +23,7 @@ class _FakeIdentitySource:
         auth_priority: int = 100,
     ) -> None:
         self.id = row_id
+        self.directory_flavor = "ad"
         self.tls_verify = True
         self.tls_ca_pem = None
         self.tls_server_name = None

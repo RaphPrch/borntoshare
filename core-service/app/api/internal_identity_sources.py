@@ -94,6 +94,7 @@ def _to_payload(src: IdentitySource, db: Session | None = None) -> dict:
         "bind_dn": src.bind_dn,
         "bind_password": None,
         "bind_password_ref": src.bind_password_ref,
+        "directory_flavor": src.directory_flavor,
         "tls_verify": bool(src.tls_verify),
         "tls_ca_pem": src.tls_ca_pem,
         "tls_server_name": src.tls_server_name,

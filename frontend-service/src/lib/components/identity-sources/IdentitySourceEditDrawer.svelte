@@ -49,6 +49,7 @@
   const emptyForm = () => ({
     display_name: '',
     protocol: 'ldaps' as 'ldap' | 'ldaps',
+    directory_flavor: 'ad',
     tls_verify: true,
     tls_ca_pem: '',
     tls_server_name: '',
@@ -83,6 +84,7 @@
       display_name: normalize(source.display_name ?? source.name),
       // Sources saved as "ldap" on port 636 do use LDAPS
       protocol: source.protocol === 'ldap' && Number(source.port) !== 636 ? 'ldap' : 'ldaps',
+      directory_flavor: source.directory_flavor ?? 'ad',
       tls_verify: source.tls_verify ?? true,
       tls_ca_pem: source.tls_ca_pem ?? '',
       tls_server_name: source.tls_server_name ?? '',
@@ -268,6 +270,7 @@
     type: 'ad' as const,
     name: normalize(form.display_name),
     protocol: form.protocol,
+    directory_flavor: form.directory_flavor,
     tls_verify: form.tls_verify,
     tls_ca_pem: normalize(form.tls_ca_pem) || null,
     tls_server_name: normalize(form.tls_server_name) || null,
@@ -451,6 +454,13 @@
           {#if showErrors && !normalize(form.display_name)}
             <FieldError>{t('Required')}</FieldError>
           {/if}
+        </label>
+        <label class="identity-edit-field">
+          <span>{t('Directory type')}</span>
+          <select class="identity-edit-input" bind:value={form.directory_flavor}>
+            <option value="ad">Active Directory</option>
+            <option value="openldap">OpenLDAP</option>
+          </select>
         </label>
         <div class="identity-edit-field">
           <span>{t('Encryption')}</span>

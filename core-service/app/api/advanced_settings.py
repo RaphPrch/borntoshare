@@ -12,7 +12,7 @@ from app.core.db import get_db
 from app.core.internal_auth import require_internal_token
 from app.api._helpers import ui_action, ui_data
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request, admin_or_internal
+from app.services.authorization import actor_from_request, admin_only, admin_or_internal
 
 router = APIRouter(prefix="/admin", tags=["advanced-settings"])
 
@@ -176,3 +176,66 @@ def purge_old_logs(payload: dict | None = None, db: Session = Depends(get_db)):
     result = purge_logs(db, trigger="manual", actor_display=str(data.get("actor") or "") or None)
     return ui_data(result)
 
+
+# ============================================================
+# First start: the guided setup shown to an administrator while the application is empty
+# ============================================================
+
+def _first_row(db: Session, sql: str) -> dict | None:
+    row = db.execute(text(sql)).mappings().first()
+    return dict(row) if row else None
+
+
+@router.get("/setup/status", dependencies=[Depends(admin_or_internal)])
+def get_setup_status(db: Session = Depends(get_db)):
+    """What is already configured, so that the setup resumes at the right step. No password here."""
+    roots = int(db.execute(text("SELECT COUNT(*) FROM storage_roots")).scalar() or 0)
+    # An installation that already governs folders has no use for the guided setup
+    completed = bool((_read_payload(db).get("setup") or {}).get("completed")) or roots > 0
+    zone = _first_row(db, "SELECT id, name, code, description FROM zones ORDER BY id LIMIT 1")
+    directory = _first_row(
+        db,
+        """
+        SELECT id, name, directory_flavor, protocol, host, port, domain_name, base_dn, bind_dn,
+               bind_password_ref, tls_verify, tls_ca_pem, tls_server_name
+        FROM identity_sources WHERE LOWER(type) = 'ad' AND is_active = 1 ORDER BY id LIMIT 1
+        """,
+    )
+    server = _first_row(
+        db, "SELECT id, name, host, port, bind_dn, bind_password_ref FROM storage_endpoints ORDER BY id LIMIT 1"
+    )
+    policy = (
+        _first_row(db, f"SELECT static_ou_dn FROM zone_provisioning_policy WHERE zone_id = {int(zone['id'])}") if zone else None
+    )
+    imported_groups = int(
+        db.execute(text("SELECT COUNT(DISTINCT directory_group_id) FROM identity_roles WHERE directory_group_id IS NOT NULL")).scalar() or 0
+    )
+    return ui_data(
+        {
+            "completed": completed,
+            "zone": zone,
+            "directory": directory,
+            "group_ou": (policy or {}).get("static_ou_dn"),
+            "server": server,
+            "imported_groups": imported_groups,
+        }
+    )
+
+
+@router.post("/setup/complete", dependencies=[Depends(admin_only)])
+def complete_setup(request: Request, db: Session = Depends(get_db)):
+    current = _read_payload(db)
+    _write_payload(db, {**current, "setup": {"completed": True}})
+    actor = actor_from_request(request)
+    log_activity(
+        db,
+        actor_type="user",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action="advanced_settings.setup_completed",
+        outcome="success",
+        target_type="advanced_settings",
+        target_display="Guided setup",
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_action(message="setup completed")

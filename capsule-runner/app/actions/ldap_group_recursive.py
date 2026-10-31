@@ -5,7 +5,7 @@ from typing import Any
 
 from ldap3 import BASE, SUBTREE
 
-from app.shared import ldap_client
+from app.shared import ldap_client, ldap_dialect
 
 
 def _entry_get(entry: Any, key: str) -> Any:
@@ -37,7 +37,7 @@ def _escape_filter(value: str) -> str:
     )
 
 
-def _resolve_group_dn(conn: Any, *, base_dn: str, group_ref: str) -> str:
+def _resolve_group_dn(conn: Any, *, base_dn: str, group_ref: str, dialect: ldap_dialect.Dialect = ldap_dialect.ACTIVE_DIRECTORY) -> str:
     raw = str(group_ref or "").strip()
     if not raw:
         raise ValueError("root_group_dn is required")
@@ -45,18 +45,16 @@ def _resolve_group_dn(conn: Any, *, base_dn: str, group_ref: str) -> str:
     if "=" in raw and "," in raw:
         conn.search(
             search_base=raw,
-            search_filter="(objectClass=group)",
+            search_filter=dialect.group_filter,
             search_scope=BASE,
             attributes=["distinguishedName"],
             size_limit=1,
         )
         if conn.entries:
             return str(_entry_get(conn.entries[0], "distinguishedName") or getattr(conn.entries[0], "entry_dn", "") or raw).strip()
-
-    escaped = _escape_filter(raw)
     conn.search(
         search_base=str(base_dn or "").strip(),
-        search_filter=f"(&(objectClass=group)(|(distinguishedName={escaped})(cn={escaped})(sAMAccountName={escaped})))",
+        search_filter=dialect.group_ref_filter(raw),
         search_scope=SUBTREE,
         attributes=["distinguishedName"],
         size_limit=1,
@@ -93,6 +91,7 @@ def discover_group_users_recursive(params: dict[str, Any]):
     if not root_group_dn:
         return False, "Missing required field: root_group_dn", {"field": "root_group_dn"}
 
+    dialect = ldap_dialect.of(params)
     conn = None
     try:
         conn = ldap_client.connect(
@@ -107,7 +106,7 @@ def discover_group_users_recursive(params: dict[str, Any]):
         if not ldap_client.bind(conn, bind_dn=bind_dn, password=password):
             return False, "LDAP bind failed", {"host": host, "port": port}
 
-        resolved_root_group_dn = _resolve_group_dn(conn, base_dn=base_dn, group_ref=root_group_dn)
+        resolved_root_group_dn = _resolve_group_dn(conn, base_dn=base_dn, group_ref=root_group_dn, dialect=dialect)
         visited_groups: set[str] = set()
         queue: deque[tuple[str, int]] = deque([(resolved_root_group_dn, 0)])
         users_by_dn: dict[str, dict[str, Any]] = {}
@@ -121,7 +120,7 @@ def discover_group_users_recursive(params: dict[str, Any]):
 
             conn.search(
                 search_base=group_dn,
-                search_filter="(objectClass=group)",
+                search_filter=dialect.group_filter,
                 search_scope=BASE,
                 attributes=["member", "distinguishedName"],
                 size_limit=1,
@@ -132,7 +131,8 @@ def discover_group_users_recursive(params: dict[str, Any]):
             members = _entry_get_list(conn.entries[0], "member")
             for member_dn in members:
                 member_dn = str(member_dn or "").strip()
-                if not member_dn:
+                # A group holding its own place (OpenLDAP groups cannot be empty) has no such member
+                if not member_dn or member_dn.lower() == key:
                     continue
 
                 conn.search(
@@ -144,8 +144,8 @@ def discover_group_users_recursive(params: dict[str, Any]):
                         "distinguishedName",
                         "cn",
                         "displayName",
-                        "sAMAccountName",
-                        "userPrincipalName",
+                        dialect.login_attr,
+                        dialect.upn_attr,
                         "mail",
                     ],
                     size_limit=1,
@@ -156,16 +156,14 @@ def discover_group_users_recursive(params: dict[str, Any]):
                 entry = conn.entries[0]
                 classes = {str(v).lower() for v in _entry_get_list(entry, "objectClass") if str(v).strip()}
 
-                if "group" in classes:
+                if dialect.is_group(classes):
                     if depth < max_depth:
                         next_group_dn = str(_entry_get(entry, "distinguishedName") or member_dn).strip()
                         if next_group_dn:
                             queue.append((next_group_dn, depth + 1))
                     continue
 
-                if "user" not in classes and "person" not in classes:
-                    continue
-                if "computer" in classes:
+                if not dialect.is_user(classes):
                     continue
 
                 dn = str(_entry_get(entry, "distinguishedName") or member_dn).strip()
@@ -173,8 +171,8 @@ def discover_group_users_recursive(params: dict[str, Any]):
                     continue
 
                 username = str(
-                    _entry_get(entry, "sAMAccountName")
-                    or _entry_get(entry, "userPrincipalName")
+                    _entry_get(entry, dialect.login_attr)
+                    or _entry_get(entry, dialect.upn_attr)
                     or _entry_get(entry, "cn")
                     or dn
                 ).strip()

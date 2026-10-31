@@ -1,5 +1,6 @@
 // src/routes/+layout.server.ts
 
+import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { requireAuth } from '$lib/server/require-auth';
 import { apiServerGetData, apiServerGetList } from '$lib/server/api-server';
@@ -32,6 +33,12 @@ export const load: LayoutServerLoad = async (event) => {
     topbarAlertsCount = Number(counts?.pending ?? 0) || 0;
   } catch {
     topbarAlertsCount = 0;
+  }
+
+  // Empty application: the administrator goes through the guided setup first
+  if (me.is_admin) {
+    const setup = await apiServerGetData<{ completed?: boolean }>('/admin/setup/status', event).catch(() => null);
+    if (setup && !setup.completed) throw redirect(302, '/setup');
   }
 
   if (me.is_admin) {

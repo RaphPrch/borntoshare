@@ -42,6 +42,7 @@ class IdentitySourceCreate(SecretRefRules):
     bind_dn: Optional[str] = Field(default=None, max_length=512)
     bind_password: Optional[str] = None
     bind_password_ref: Optional[str] = Field(default=None, max_length=512)
+    directory_flavor: Literal["ad", "openldap"] = "ad"
     tls_verify: bool = True
     tls_ca_pem: Optional[str] = Field(default=None, max_length=65535)
     tls_server_name: Optional[str] = Field(default=None, max_length=255)
@@ -70,6 +71,7 @@ class IdentitySourceUpdate(SecretRefRules):
     bind_dn: Optional[str] = Field(default=None, max_length=512)
     bind_password: Optional[str] = None
     bind_password_ref: Optional[str] = Field(default=None, max_length=512)
+    directory_flavor: Optional[Literal["ad", "openldap"]] = None
     tls_verify: Optional[bool] = None
     tls_ca_pem: Optional[str] = Field(default=None, max_length=65535)
     tls_server_name: Optional[str] = Field(default=None, max_length=255)

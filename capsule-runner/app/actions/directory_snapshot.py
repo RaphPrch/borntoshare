@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from app.shared import ldap_client
+from app.shared import ldap_client, ldap_dialect
 
 
 def _as_int(value: Any, default: int) -> int:
@@ -121,33 +121,21 @@ def collect_directory_snapshot(params: dict[str, Any]):
         if not ldap_client.bind(conn, bind_dn=bind_dn, password=password):
             return False, "LDAP bind failed", {"snapshot_id": snapshot_id, "host": host, "port": port}
 
-        user_attrs = [
-            "distinguishedName",
-            "cn",
-            "displayName",
-            "sAMAccountName",
-            "userPrincipalName",
-            "mail",
-            "objectGUID",
-            "objectSid",
-            "whenChanged",
-            "uSNChanged",
-        ]
-        group_attrs = [
-            "distinguishedName",
-            "cn",
-            "sAMAccountName",
-            "description",
-            "objectGUID",
-            "whenChanged",
-            "uSNChanged",
-            "member",
-        ]
+        dialect = ldap_dialect.of(params)
+        user_attrs = dialect.attrs(
+            "distinguishedName", "cn", "displayName", dialect.login_attr, dialect.upn_attr, "mail",
+            dialect.id_attr, dialect.sid_attr, dialect.changed_attr, dialect.usn_attr,
+        )
+        group_attrs = dialect.attrs(
+            "distinguishedName", "cn", dialect.group_login_attr, "description",
+            dialect.id_attr, dialect.changed_attr, dialect.usn_attr, "member",
+            None if dialect.name == "ad" else "uniqueMember",
+        )
 
         ldap_client.search(
             conn,
             base_dn=base_dn,
-            search_filter="(&(objectClass=user)(!(objectClass=computer))(!(sAMAccountName=*$)))",
+            search_filter=dialect.user_filter,
             attributes=user_attrs,
             limit=5000,
             scope="subtree",
@@ -159,7 +147,7 @@ def collect_directory_snapshot(params: dict[str, Any]):
         user_external_by_key: dict[str, str] = {}
         for entry in user_rows:
             dn = str(_row_attr(entry, "distinguishedName") or getattr(entry, "entry_dn", "") or "").strip()
-            external_id = _safe_text(_row_attr(entry, "objectGUID") or dn or _row_attr(entry, "sAMAccountName"), 255)
+            external_id = _safe_text(_row_attr(entry, dialect.id_attr) or dn or _row_attr(entry, dialect.login_attr), 255)
             if not external_id:
                 continue
             dn_key = _norm_key(dn)
@@ -168,10 +156,10 @@ def collect_directory_snapshot(params: dict[str, Any]):
 
             for key in (
                 external_id,
-                _row_attr(entry, "objectGUID"),
-                _row_attr(entry, "objectSid"),
-                _row_attr(entry, "userPrincipalName"),
-                _row_attr(entry, "sAMAccountName"),
+                _row_attr(entry, dialect.id_attr),
+                _row_attr(entry, dialect.sid_attr) if dialect.sid_attr else None,
+                _row_attr(entry, dialect.upn_attr),
+                _row_attr(entry, dialect.login_attr),
                 dn,
             ):
                 norm = _norm_key(key)
@@ -181,13 +169,13 @@ def collect_directory_snapshot(params: dict[str, Any]):
             users.append(
                 {
                     "external_id": external_id,
-                    "object_guid": _safe_text(_row_attr(entry, "objectGUID"), 36),
-                    "object_sid": _safe_text(_row_attr(entry, "objectSid"), 190),
-                    "upn": _safe_text(_row_attr(entry, "userPrincipalName"), 255),
+                    "object_guid": _safe_text(_row_attr(entry, dialect.id_attr), 36),
+                    "object_sid": _safe_text(_row_attr(entry, dialect.sid_attr), 190) if dialect.sid_attr else None,
+                    "upn": _safe_text(_row_attr(entry, dialect.upn_attr), 255),
                     "dn": _safe_text(dn, 512),
-                    "when_changed": _safe_dt(_row_attr(entry, "whenChanged")),
-                    "usn_changed": _safe_usn(_row_attr(entry, "uSNChanged")),
-                    "username": _safe_text(_row_attr(entry, "sAMAccountName"), 190),
+                    "when_changed": _safe_dt(_row_attr(entry, dialect.changed_attr)),
+                    "usn_changed": _safe_usn(_row_attr(entry, dialect.usn_attr)) if dialect.usn_attr else None,
+                    "username": _safe_text(_row_attr(entry, dialect.login_attr), 190),
                     "display_name": _safe_text(_row_attr(entry, "displayName") or _row_attr(entry, "cn"), 190),
                     "email": _safe_text(_row_attr(entry, "mail"), 255),
                     "source": _safe_text("capsule_snapshot", 64),
@@ -198,7 +186,7 @@ def collect_directory_snapshot(params: dict[str, Any]):
         ldap_client.search(
             conn,
             base_dn=base_dn,
-            search_filter="(objectClass=group)",
+            search_filter=dialect.group_filter,
             attributes=group_attrs,
             limit=5000,
             scope="subtree",
@@ -212,7 +200,7 @@ def collect_directory_snapshot(params: dict[str, Any]):
         memberships: list[dict[str, Any]] = []
         for entry in group_rows:
             dn = str(_row_attr(entry, "distinguishedName") or getattr(entry, "entry_dn", "") or "").strip()
-            external_id = _safe_text(_row_attr(entry, "objectGUID") or dn or _row_attr(entry, "sAMAccountName"), 255)
+            external_id = _safe_text(_row_attr(entry, dialect.id_attr) or dn or _row_attr(entry, dialect.login_attr), 255)
             if not external_id:
                 continue
 
@@ -221,8 +209,8 @@ def collect_directory_snapshot(params: dict[str, Any]):
                 group_external_by_dn[dn_key] = external_id
             for key in (
                 external_id,
-                _row_attr(entry, "objectGUID"),
-                _row_attr(entry, "sAMAccountName"),
+                _row_attr(entry, dialect.id_attr),
+                _row_attr(entry, dialect.group_login_attr),
                 dn,
             ):
                 norm = _norm_key(key)
@@ -233,18 +221,19 @@ def collect_directory_snapshot(params: dict[str, Any]):
                 {
                     "external_id": external_id,
                     "dn": _safe_text(dn, 512),
-                    "when_changed": _safe_dt(_row_attr(entry, "whenChanged")),
-                    "usn_changed": _safe_usn(_row_attr(entry, "uSNChanged")),
+                    "when_changed": _safe_dt(_row_attr(entry, dialect.changed_attr)),
+                    "usn_changed": _safe_usn(_row_attr(entry, dialect.usn_attr)) if dialect.usn_attr else None,
                     "name": _safe_text(_row_attr(entry, "cn"), 255),
-                    "code": _safe_text(_row_attr(entry, "sAMAccountName"), 255),
+                    "code": _safe_text(_row_attr(entry, dialect.group_login_attr), 255),
                     "description": _safe_text(_row_attr(entry, "description"), 4096),
                     "is_active": True,
                 }
             )
 
-            for member_dn in _row_attr_all(entry, "member"):
+            for member_dn in [*_row_attr_all(entry, "member"), *_row_attr_all(entry, "uniqueMember")]:
                 member_ref = str(member_dn or "").strip()
-                if not member_ref:
+                # A group holding its own place (OpenLDAP groups cannot be empty) has no such member
+                if not member_ref or _norm_key(member_ref) == dn_key:
                     continue
 
                 # Keep raw and normalize in a second pass so nested group refs can be

@@ -58,6 +58,10 @@ export async function saveSessionLimits(fetchFn: FetchLike, ttlSeconds: number, 
   return apiPost<ActionResult>(fetchFn, '/admin/config/advanced', { sessions: { ttlSeconds, idleSeconds } });
 }
 
+export async function completeSetup(fetchFn: FetchLike) {
+  return apiPost<ActionResult>(fetchFn, '/admin/setup/complete', {});
+}
+
 export async function saveLoggingConfig(fetchFn: FetchLike, logging: LoggingConfig) {
   const payload = {
     level: logging.level,

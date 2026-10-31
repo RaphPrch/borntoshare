@@ -104,3 +104,20 @@ Ajoutez tout autre composant à contrôler depuis un worker : URL `http(s)://…
 
 Tracés : connexion de base enregistrée ou réinitialisée, worker ajouté, modifié, supprimé, planification modifiée,
 tâche lancée à la main, composant ajouté, modifié, supprimé.
+
+## Premier démarrage
+
+Tant qu'aucun dossier n'est gouverné et que le parcours n'est pas terminé, un administrateur qui se connecte arrive sur `/setup` :
+zone, annuaire (Active Directory ou OpenLDAP, en LDAP ou LDAPS), serveur de fichiers, identités, rôles. Chaque étape est enregistrée et
+le parcours reprend à la première étape restante. Le compte administrateur local est créé avant, par `wizard-ui`.
+
+## Annuaires OpenLDAP
+
+Les utilisateurs sont lus dans `inetOrgPerson` ou `posixAccount` (identifiant `uid`), les groupes dans `groupOfNames` ou
+`groupOfUniqueNames`, l'identifiant stable est `entryUUID`. BornToShare crée des `groupOfNames` ; comme ce type de groupe ne peut pas être
+vide, le groupe est inscrit comme son propre membre, et cette entrée est ignorée à la lecture. OpenLDAP n'indique pas de compte désactivé
+de façon standard : un compte est considéré actif tant qu'il peut se connecter.
+
+Limite : les droits sur les dossiers portent sur le nom du groupe. Le serveur de fichiers doit donc connaître ces groupes, par exemple
+un Samba adossé au même annuaire. Un serveur Windows membre d'un domaine AD ne voit pas les groupes d'un OpenLDAP.
+

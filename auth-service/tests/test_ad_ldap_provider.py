@@ -39,9 +39,10 @@ def test_authenticate_propagates_identity_source_id(monkeypatch) -> None:
             source_id=7,
             url="ldaps://dc01.corp.local:636",
             base_dn="DC=corp,DC=local",
-            user_filter="(sAMAccountName={username})",
+            user_filter="",
             bind_user="CN=svc,OU=Users,DC=corp,DC=local",
             bind_password="secret",
+            directory_flavor="ad",
             tls_verify=False,
             tls_ca_pem=None,
             tls_server_name=None,
@@ -92,9 +93,10 @@ def test_authenticate_blocking_uses_upn_fallback_and_rejects_disabled(monkeypatc
         source_id=9,
         url="ldaps://dc01.corp.local:636",
         base_dn="DC=corp,DC=local",
-        user_filter="(sAMAccountName={username})",
+        user_filter="",
         bind_user="CN=svc,OU=Users,DC=corp,DC=local",
         bind_password="secret",
+        directory_flavor="ad",
         tls_verify=False,
         tls_ca_pem=None,
         tls_server_name=None,
@@ -119,9 +121,10 @@ def test_authenticate_for_source_uses_resolved_source(monkeypatch) -> None:
             source_id=2,
             url="ldap://192.168.100.40:389",
             base_dn="DC=corp,DC=local",
-            user_filter="(sAMAccountName={username})",
+            user_filter="",
             bind_user="CORP\\Administrator",
             bind_password="secret",
+            directory_flavor="ad",
             tls_verify=False,
             tls_ca_pem=None,
             tls_server_name=None,
@@ -227,8 +230,8 @@ def test_a_refused_user_bind_is_invalid_credentials(monkeypatch) -> None:
 
 
 def _tls_cfg(module, **overrides):
-    values = {"source_id": 1, "url": "ldaps://dc", "base_dn": "DC=x", "user_filter": "(cn={username})", "bind_user": "u",
-              "bind_password": "p", "tls_verify": True, "tls_ca_pem": None, "tls_server_name": None}
+    values = {"source_id": 1, "url": "ldaps://dc", "base_dn": "DC=x", "user_filter": "", "bind_user": "u",
+              "bind_password": "p", "directory_flavor": "ad", "tls_verify": True, "tls_ca_pem": None, "tls_server_name": None}
     return module.ADConfig(**{**values, **overrides})
 
 
@@ -250,5 +253,16 @@ def test_build_ad_config_reads_the_user_filter_of_the_directory(monkeypatch) -> 
     monkeypatch.setattr(module, "_resolve_bind_password", lambda _src, target=None: "secret")
     src = {"id": 2, "protocol": "ldap", "host": "dc", "port": 389, "base_dn": "DC=x", "bind_dn": "u", "bind_password_ref": "sm://x", "auth_enabled": True}
 
-    assert module._build_ad_config(src, target=None).user_filter == "(sAMAccountName={username})"
+    assert module._build_ad_config(src, target=None).user_filter == ""
     assert module._build_ad_config({**src, "user_filter": "(mail={username})"}, target=None).user_filter == "(mail={username})"
+
+
+def test_user_filters_follow_the_directory() -> None:
+    from app.services.providers import ad_ldap as module
+
+    ad = _tls_cfg(module)
+    assert module._user_filters(ad, "jane", "jane") == ["(sAMAccountName=jane)"]
+    openldap = _tls_cfg(module, directory_flavor="openldap")
+    assert "(uid=jane)" in module._user_filters(openldap, "jane", "jane")[0]
+    custom = _tls_cfg(module, user_filter="(mail={username})")
+    assert module._user_filters(custom, "j*", "j*") == ["(mail=j\\2a)"]

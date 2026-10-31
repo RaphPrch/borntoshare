@@ -100,6 +100,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
     path.startsWith('/activity') ||
     path.startsWith('/admin/advanced-settings') ||
     path.startsWith('/admin/config') ||
+    path.startsWith('/admin/setup') ||
     path.startsWith('/dashboard') ||
     path.startsWith('/naming-policies') ||
     path.startsWith('/governance-alerts') ||

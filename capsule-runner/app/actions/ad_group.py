@@ -5,7 +5,7 @@ from uuid import UUID
 
 from ldap3 import ALL, Connection, Server
 
-from app.shared import ldap_client
+from app.shared import ldap_client, ldap_dialect
 
 
 def _escape_dn_value(value: str) -> str:
@@ -68,6 +68,7 @@ def ensure_ad_group(params: Dict[str, Any]):
     if not target_ou_dn:
         return False, "Missing required field: target_ou_dn", {"field": "target_ou_dn"}
 
+    dialect = ldap_dialect.of(params)
     escaped_cn = _escape_dn_value(group_name)
     group_dn = f"CN={escaped_cn},{target_ou_dn}"
 
@@ -81,18 +82,18 @@ def ensure_ad_group(params: Dict[str, Any]):
         # Validate target OU exists and is reachable before group operations.
         conn.search(
             search_base=target_ou_dn,
-            search_filter="(objectClass=organizationalUnit)",
+            search_filter=dialect.ou_filter,
             attributes=["distinguishedName"],
             size_limit=1,
         )
         if not conn.entries:
             return False, "Target OU not found", {"target_ou_dn": target_ou_dn, "field": "target_ou_dn"}
 
-        search_filter = f"(&(objectClass=group)(cn={group_name}))"
+        search_filter = f"(&{dialect.group_filter}(cn={ldap_dialect.escape_filter(group_name)}))"
         conn.search(
             search_base=target_ou_dn,
             search_filter=search_filter,
-            attributes=["distinguishedName", "cn", "objectGUID"],
+            attributes=["distinguishedName", "cn", dialect.id_attr],
             size_limit=1,
         )
 
@@ -102,7 +103,7 @@ def ensure_ad_group(params: Dict[str, Any]):
                 "group_name": group_name,
                 "group_dn": existing_dn,
                 "group_external_id": existing_dn,
-                "group_guid": _guid_to_str(getattr(conn.entries[0], "objectGUID", None)),
+                "group_guid": _guid_to_str(getattr(conn.entries[0], dialect.id_attr, None)),
                 "target_ou_dn": target_ou_dn,
                 "directory_server_hint": host,
                 "description_text": str(params.get("description_text") or "").strip() or None,
@@ -113,15 +114,11 @@ def ensure_ad_group(params: Dict[str, Any]):
             }
             return True, "AD group already exists", details
 
-        attributes = {
-            "sAMAccountName": group_name,
-            "groupType": -2147483646,  # GLOBAL + SECURITY
-        }
         description_text = str(params.get("description_text") or "").strip()
-        if description_text:
-            attributes["description"] = description_text
-
-        created = conn.add(group_dn, ["top", "group"], attributes)
+        object_classes, attributes = dialect.new_group(
+            group_dn=group_dn, group_name=group_name, description=description_text, marker="Managed by BornToShare"
+        )
+        created = conn.add(group_dn, object_classes, attributes)
         if not created:
             result = dict(getattr(conn, "result", {}) or {})
             result_desc = str(result.get("description") or "").lower()
@@ -160,13 +157,13 @@ def ensure_ad_group(params: Dict[str, Any]):
             conn.search(
                 search_base=target_ou_dn,
                 search_filter=search_filter,
-                attributes=["distinguishedName", "objectGUID"],
+                attributes=["distinguishedName", dialect.id_attr],
                 size_limit=1,
             )
             if conn.entries:
                 details["group_dn"] = str(getattr(conn.entries[0], "entry_dn", "") or details["group_dn"])
                 details["group_external_id"] = details["group_dn"]
-                details["group_guid"] = _guid_to_str(getattr(conn.entries[0], "objectGUID", None))
+                details["group_guid"] = _guid_to_str(getattr(conn.entries[0], dialect.id_attr, None))
         except Exception:
             pass
 

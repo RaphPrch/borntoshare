@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.shared import ldap_client
+from app.shared import ldap_client, ldap_dialect
 
 
 def search_ldap_principals(params: dict[str, Any]):
@@ -41,15 +41,18 @@ def search_ldap_principals(params: dict[str, Any]):
     )
     wildcard = f"*{escaped}*" if escaped else "*"
 
+    dialect = ldap_dialect.of(params)
     user_filter = (
-        f"(&"
+        f"(&{dialect.user_filter}(|(cn={wildcard})(givenName={wildcard})(sn={wildcard})({dialect.login_attr}={wildcard})(mail={wildcard})))"
+        if dialect.name == "openldap"
+        else f"(&"
         f"(objectClass=user)"
         f"(!(objectClass=computer))"
         f"(!(sAMAccountName=*$))"
         f"(|(cn={wildcard})(displayName={wildcard})(givenName={wildcard})(sn={wildcard})(sAMAccountName={wildcard})(userPrincipalName={wildcard})(mail={wildcard}))"
         f")"
     )
-    group_filter = f"(&(objectClass=group)(|(cn={wildcard})(sAMAccountName={wildcard})))"
+    group_filter = f"(&{dialect.group_filter}(|(cn={wildcard})({dialect.group_login_attr}={wildcard})))"
 
     if principal_type == "user":
         search_filter = user_filter
@@ -58,21 +61,25 @@ def search_ldap_principals(params: dict[str, Any]):
     else:
         search_filter = f"(|{user_filter}{group_filter})"
 
-    attrs = [
-        "cn",
-        "displayName",
-        "givenName",
-        "sn",
-        "distinguishedName",
-        "sAMAccountName",
-        "userPrincipalName",
-        "mail",
-        "objectClass",
-        "objectGUID",
-        "member",
-        "memberOf",
-        "userAccountControl",
-    ]
+    attrs = (
+        ["cn", "displayName", "givenName", "sn", "uid", "mail", "objectClass", "entryUUID", "member", "uniqueMember"]
+        if dialect.name == "openldap"
+        else [
+            "cn",
+            "displayName",
+            "givenName",
+            "sn",
+            "distinguishedName",
+            "sAMAccountName",
+            "userPrincipalName",
+            "mail",
+            "objectClass",
+            "objectGUID",
+            "member",
+            "memberOf",
+            "userAccountControl",
+        ]
+    )
 
     conn = None
     try:
@@ -101,19 +108,19 @@ def search_ldap_principals(params: dict[str, Any]):
         for entry in conn.entries:
             data = entry.entry_attributes_as_dict or {}
             object_classes = [str(v).lower() for v in (data.get("objectClass") or [])]
-            principal_type = "group" if "group" in object_classes else "user"
+            principal_type = "group" if dialect.is_group(set(object_classes)) else "user"
 
-            account_name = str((data.get("sAMAccountName") or [""])[0] or "").strip()
+            account_name = str((data.get(dialect.login_attr) or data.get("cn") or [""])[0] or "").strip()
             display_name = str((data.get("displayName") or data.get("cn") or [""])[0] or "").strip()
-            dn = str((data.get("distinguishedName") or [""])[0] or "").strip()
+            dn = str((data.get("distinguishedName") or [entry.entry_dn])[0] or "").strip()
             if principal_type == "user" and account_name.endswith("$"):
                 # AD computer accounts should not be exposed in identity import UI
                 continue
             email = str((data.get("mail") or [""])[0] or "").strip() or None
-            upn = str((data.get("userPrincipalName") or [""])[0] or "").strip() or None
-            external_id = str((data.get("objectGUID") or [""])[0] or "").strip() or dn or account_name
+            upn = str((data.get(dialect.upn_attr) or [""])[0] or "").strip() or None
+            external_id = str((data.get(dialect.id_attr) or [""])[0] or "").strip() or dn or account_name
             member_of = [str(v).strip() for v in (data.get("memberOf") or []) if str(v).strip()]
-            member_dns = [str(v).strip() for v in (data.get("member") or []) if str(v).strip()]
+            member_dns = [str(v).strip() for v in [*(data.get("member") or []), *(data.get("uniqueMember") or [])] if str(v).strip() and str(v).strip().lower() != dn.lower()]
 
             uac_raw = (data.get("userAccountControl") or [None])[0]
             try:

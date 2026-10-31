@@ -161,6 +161,7 @@
     type: 'ad',
     name: '',
     protocol: 'ldaps',
+    directory_flavor: 'ad',
     tls_verify: true,
     tls_ca_pem: '',
     tls_server_name: '',
@@ -862,6 +863,13 @@
               {#if resolveHint}
                 <span class={resolveHint.ok ? 'hint ok' : 'hint'}>{resolveHint.message}</span>
               {/if}
+            </div>
+            <div class="field">
+              <label for="is-wizard-flavor">{t('Directory type')}</label>
+              <select id="is-wizard-flavor" bind:value={payload.directory_flavor}>
+                <option value="ad">Active Directory</option>
+                <option value="openldap">OpenLDAP</option>
+              </select>
             </div>
             <div class="field">
               <span class="field-label">{t('Encryption')}</span>

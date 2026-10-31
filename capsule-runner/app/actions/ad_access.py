@@ -24,9 +24,8 @@ from ldap3.core import exceptions as ldap_exceptions
 
 from app.actions.ad_group import _escape_dn_value, _guid_to_str
 from app.actions.ad_group_member import _entry_get, _escape_filter, _resolve_principal_dn
-from app.shared import ldap_client
+from app.shared import ldap_client, ldap_dialect
 
-GLOBAL_SECURITY_GROUP = -2147483646
 MANAGED_MARKER = "Managed by BornToShare"
 # CN (and so the group name) is limited to 64 characters in AD
 MAX_GROUP_NAME = 64
@@ -74,12 +73,14 @@ def _guid_filter(value: str) -> str | None:
     return "(objectGUID=" + "".join(f"\\{byte:02x}" for byte in raw) + ")"
 
 
-def _find_group(conn: Any, *, base_dn: str, search_filter: str, scope: Any = SUBTREE) -> dict[str, Any] | None:
+def _find_group(
+    conn: Any, *, base_dn: str, search_filter: str, scope: Any = SUBTREE, dialect: ldap_dialect.Dialect = ldap_dialect.ACTIVE_DIRECTORY
+) -> dict[str, Any] | None:
     conn.search(
         search_base=base_dn,
-        search_filter=f"(&(objectClass=group){search_filter})",
+        search_filter=f"(&{dialect.group_filter}{search_filter})",
         search_scope=scope,
-        attributes=["distinguishedName", "sAMAccountName", "objectGUID"],
+        attributes=["distinguishedName", dialect.group_login_attr, dialect.id_attr],
         size_limit=2,
     )
     if not conn.entries:
@@ -87,28 +88,32 @@ def _find_group(conn: Any, *, base_dn: str, search_filter: str, scope: Any = SUB
     entry = conn.entries[0]
     return {
         "dn": str(_entry_get(entry, "distinguishedName") or getattr(entry, "entry_dn", "") or "").strip(),
-        "sam": str(_entry_get(entry, "sAMAccountName") or "").strip(),
+        "sam": str(_entry_get(entry, dialect.group_login_attr) or "").strip(),
         # ldap3 may format the GUID as "{...}": keep the plain form
-        "guid": (_guid_to_str(_entry_get(entry, "objectGUID")) or "").strip("{}") or None,
+        "guid": (_guid_to_str(_entry_get(entry, dialect.id_attr)) or "").strip("{}") or None,
     }
 
 
-def _find_known_group(conn: Any, *, base_dn: str, external_id: str) -> dict[str, Any] | None:
-    guid_filter = _guid_filter(external_id)
+def _find_known_group(
+    conn: Any, *, base_dn: str, external_id: str, dialect: ldap_dialect.Dialect = ldap_dialect.ACTIVE_DIRECTORY
+) -> dict[str, Any] | None:
+    guid_filter = None if "=" in external_id else (dialect.id_filter(external_id) or _guid_filter(external_id))
     if guid_filter:
-        return _find_group(conn, base_dn=base_dn, search_filter=guid_filter)
+        return _find_group(conn, base_dn=base_dn, search_filter=guid_filter, dialect=dialect)
     if "=" in external_id:
         try:
-            return _find_group(conn, base_dn=external_id, search_filter="", scope=BASE)
+            return _find_group(conn, base_dn=external_id, search_filter="", scope=BASE, dialect=dialect)
         except ldap_exceptions.LDAPNoSuchObjectResult:
             return None
     return None
 
 
-def _create_group(conn: Any, *, group_name: str, target_ou_dn: str, description: str) -> dict[str, Any]:
+def _create_group(
+    conn: Any, *, group_name: str, target_ou_dn: str, description: str, dialect: ldap_dialect.Dialect = ldap_dialect.ACTIVE_DIRECTORY
+) -> dict[str, Any]:
     conn.search(
         search_base=target_ou_dn,
-        search_filter="(|(objectClass=organizationalUnit)(objectClass=container))",
+        search_filter=dialect.ou_filter,
         search_scope=BASE,
         attributes=["distinguishedName"],
         size_limit=1,
@@ -120,13 +125,10 @@ def _create_group(conn: Any, *, group_name: str, target_ou_dn: str, description:
             target_ou_dn=target_ou_dn,
         )
     group_dn = f"CN={_escape_dn_value(group_name)},{target_ou_dn}"
-    attributes = {
-        "sAMAccountName": group_name,
-        "groupType": GLOBAL_SECURITY_GROUP,
-        "description": description[:1024] if description else MANAGED_MARKER,
-        "info": MANAGED_MARKER,
-    }
-    if not conn.add(group_dn, ["top", "group"], attributes):
+    object_classes, attributes = dialect.new_group(
+        group_dn=group_dn, group_name=group_name, description=description[:1024], marker=MANAGED_MARKER
+    )
+    if not conn.add(group_dn, object_classes, attributes):
         result = dict(getattr(conn, "result", {}) or {})
         description_text = str(result.get("description") or "").lower()
         if "exists" in description_text:
@@ -145,14 +147,16 @@ def _create_group(conn: Any, *, group_name: str, target_ou_dn: str, description:
                 ldap_result=str(result)[:500],
             )
         raise _Failure("AD_GROUP_CREATE_FAILED", "Active Directory refused the group creation", ldap_result=str(result)[:500])
-    created = _find_group(conn, base_dn=group_dn, search_filter="", scope=BASE) or {}
+    created = _find_group(conn, base_dn=group_dn, search_filter="", scope=BASE, dialect=dialect) or {}
     return {"dn": created.get("dn") or group_dn, "sam": group_name, "guid": created.get("guid")}
 
 
-def _ensure_member(conn: Any, *, group_dn: str, principal_dn: str) -> str:
+def _ensure_member(
+    conn: Any, *, group_dn: str, principal_dn: str, dialect: ldap_dialect.Dialect = ldap_dialect.ACTIVE_DIRECTORY
+) -> str:
     conn.search(
         search_base=group_dn,
-        search_filter="(objectClass=group)",
+        search_filter=dialect.group_filter,
         search_scope=BASE,
         attributes=["member"],
         size_limit=1,
@@ -192,6 +196,7 @@ def grant_ad_access(params: dict[str, Any]):
     principal_dn = str(params.get("principal_dn") or "").strip() or None
     principal_username = str(params.get("principal_username") or "").strip() or None
 
+    dialect = ldap_dialect.of(params)
     steps: list[dict[str, Any]] = []
 
     def step(name: str, status: str, message: str, **extra: Any) -> None:
@@ -243,17 +248,17 @@ def grant_ad_access(params: dict[str, Any]):
         group: dict[str, Any] | None = None
         outcome = ""
         if adopt_dn:
-            group = _find_known_group(conn, base_dn=base_dn, external_id=adopt_dn)
+            group = _find_known_group(conn, base_dn=base_dn, external_id=adopt_dn, dialect=dialect)
             if not group:
                 raise _Failure("AD_ADOPT_TARGET_NOT_FOUND", "The group to adopt no longer exists", adopt_group_dn=adopt_dn)
             outcome = "adopted"
         elif external_id:
-            group = _find_known_group(conn, base_dn=base_dn, external_id=external_id)
+            group = _find_known_group(conn, base_dn=base_dn, external_id=external_id, dialect=dialect)
             outcome = "reused" if group else ""
             if not group:
                 step("group", "warning", "The known group no longer exists in Active Directory", group_external_id=external_id)
         if not group:
-            existing = _find_group(conn, base_dn=base_dn, search_filter=f"(sAMAccountName={_escape_filter(group_name)})")
+            existing = _find_group(conn, base_dn=base_dn, search_filter=f"({dialect.group_login_attr}={_escape_filter(group_name)})", dialect=dialect)
             if existing and _parent_dn(existing["dn"]) == _normalize_dn(target_ou_dn):
                 group, outcome = existing, "reused"
             elif existing:
@@ -264,7 +269,7 @@ def grant_ad_access(params: dict[str, Any]):
                     group_name=group_name,
                 )
             else:
-                group = _create_group(conn, group_name=group_name, target_ou_dn=target_ou_dn, description=description)
+                group = _create_group(conn, group_name=group_name, target_ou_dn=target_ou_dn, description=description, dialect=dialect)
                 outcome = "recreated" if external_id else "created"
         step("group", "done", f"Group {outcome}", outcome=outcome, group_dn=group["dn"])
 
@@ -275,10 +280,11 @@ def grant_ad_access(params: dict[str, Any]):
                 base_dn=base_dn,
                 principal_dn=principal_dn,
                 principal_username=principal_username,
+                dialect=dialect,
             )
         except ValueError as exc:
             raise _Failure("AD_PRINCIPAL_NOT_FOUND", "The requester was not found in Active Directory", reason=str(exc)) from exc
-        member_outcome = _ensure_member(conn, group_dn=group["dn"], principal_dn=resolved_principal)
+        member_outcome = _ensure_member(conn, group_dn=group["dn"], principal_dn=resolved_principal, dialect=dialect)
         step("member", "done", "Member added" if member_outcome == "added" else "Already a member", outcome=member_outcome)
 
         return True, "AD access granted", {

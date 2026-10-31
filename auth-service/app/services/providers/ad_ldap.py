@@ -108,9 +108,6 @@ def _split_username(raw: str) -> tuple[str, str | None, str | None]:
     return value, None, None
 
 
-DEFAULT_USER_FILTER = "(sAMAccountName={username})"
-
-
 @dataclass
 class ADConfig:
     source_id: int | None
@@ -119,6 +116,7 @@ class ADConfig:
     user_filter: str
     bind_user: str
     bind_password: str
+    directory_flavor: str
     tls_verify: bool
     tls_ca_pem: str | None
     tls_server_name: str | None
@@ -166,6 +164,23 @@ def _ad_account_disabled(*, user_account_control, computed_control) -> bool:
     return False
 
 
+def _escape_filter_value(value: str) -> str:
+    return (
+        str(value or "").replace("\\", "\\5c").replace("*", "\\2a").replace("(", "\\28").replace(")", "\\29").replace("\x00", "")
+    )
+
+
+def _user_filters(cfg: ADConfig, username: str, raw_username: str) -> list[str]:
+    """The filter set on the directory when there is one, else the usual attributes of its kind."""
+    custom = (cfg.user_filter or "").strip()
+    if custom:
+        return [custom.replace("{username}", _escape_filter_value(username))]
+    if cfg.directory_flavor == "openldap":
+        value = _escape_filter_value(username)
+        return [f"(&(|(objectClass=inetOrgPerson)(objectClass=posixAccount))(|(uid={value})(mail={value})))"]
+    return _build_search_filters(username=username, raw_username=raw_username)
+
+
 def _build_search_filters(*, username: str, raw_username: str) -> list[str]:
     normalized = str(username or "").strip()
     raw = str(raw_username or "").strip()
@@ -211,9 +226,10 @@ def _build_ad_config(src: dict, *, target: str | None) -> ADConfig:
         source_id=int(src.get("id") or 0) or None,
         url=url,
         base_dn=str(src.get("base_dn") or ""),
-        user_filter=str(src.get("user_filter") or "").strip() or DEFAULT_USER_FILTER,
+        user_filter=str(src.get("user_filter") or "").strip(),
         bind_user=bind_user,
         bind_password=bind_password,
+        directory_flavor=str(src.get("directory_flavor") or "ad"),
         tls_verify=bool(src.get("tls_verify", True)),
         tls_ca_pem=src.get("tls_ca_pem") or None,
         tls_server_name=src.get("tls_server_name") or None,
@@ -349,17 +365,22 @@ class ADLDAPProvider(AuthProvider):
             # The service account is refused: configuration issue, not the user's credentials
             raise ProviderMisconfigured("AD service account bind failed (authenticate users)") from exc
         with search_conn:
-            attrs = [
-                "distinguishedName",
-                "displayName",
-                "mail",
-                "userPrincipalName",
-                "objectGUID",
-                "objectSid",
-                "userAccountControl",
-                "msDS-User-Account-Control-Computed",
-            ]
-            filters = _build_search_filters(username=normalized_user, raw_username=raw_username)
+            openldap = cfg.directory_flavor == "openldap"
+            attrs = (
+                ["displayName", "cn", "mail", "entryUUID"]
+                if openldap
+                else [
+                    "distinguishedName",
+                    "displayName",
+                    "mail",
+                    "userPrincipalName",
+                    "objectGUID",
+                    "objectSid",
+                    "userAccountControl",
+                    "msDS-User-Account-Control-Computed",
+                ]
+            )
+            filters = _user_filters(cfg, normalized_user, raw_username)
             if not filters:
                 return None
 
@@ -375,16 +396,16 @@ class ADLDAPProvider(AuthProvider):
                     continue
 
                 entry = search_conn.entries[0]
-                user_dn = str(_entry_attr_value(entry, "distinguishedName") or "").strip()
+                user_dn = str(_entry_attr_value(entry, "distinguishedName") or getattr(entry, "entry_dn", "") or "").strip()
                 if not user_dn:
                     continue
 
                 return _ADSearchResult(
                     user_dn=user_dn,
-                    display_name=str(_entry_attr_value(entry, "displayName") or "") or None,
+                    display_name=str(_entry_attr_value(entry, "displayName") or _entry_attr_value(entry, "cn") or "") or None,
                     email=str(_entry_attr_value(entry, "mail") or "") or None,
                     upn=str(_entry_attr_value(entry, "userPrincipalName") or "") or None,
-                    object_guid=_format_object_guid(_entry_attr_value(entry, "objectGUID")),
+                    object_guid=_format_object_guid(_entry_attr_value(entry, "entryUUID" if openldap else "objectGUID")),
                     object_sid=_format_object_sid(_entry_attr_value(entry, "objectSid")),
                     disabled=_ad_account_disabled(
                         user_account_control=_entry_attr_value(entry, "userAccountControl"),

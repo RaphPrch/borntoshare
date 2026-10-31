@@ -4,7 +4,7 @@ from typing import Any
 
 from ldap3 import BASE, MODIFY_ADD, MODIFY_DELETE, SUBTREE
 
-from app.shared import ldap_client
+from app.shared import ldap_client, ldap_dialect
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
@@ -34,7 +34,7 @@ def _entry_get(entry: Any, key: str) -> Any:
     return value
 
 
-def _resolve_group_dn(conn: Any, *, base_dn: str, group_ref: str) -> str:
+def _resolve_group_dn(conn: Any, *, base_dn: str, group_ref: str, dialect: ldap_dialect.Dialect = ldap_dialect.ACTIVE_DIRECTORY) -> str:
     raw = str(group_ref or "").strip()
     if not raw:
         raise ValueError("group_ref is required")
@@ -42,18 +42,16 @@ def _resolve_group_dn(conn: Any, *, base_dn: str, group_ref: str) -> str:
     if "=" in raw and "," in raw:
         conn.search(
             search_base=raw,
-            search_filter="(objectClass=group)",
+            search_filter=dialect.group_filter,
             search_scope=BASE,
             attributes=["distinguishedName"],
             size_limit=1,
         )
         if conn.entries:
             return str(_entry_get(conn.entries[0], "distinguishedName") or getattr(conn.entries[0], "entry_dn", "") or raw).strip()
-
-    escaped = _escape_filter(raw)
     conn.search(
         search_base=str(base_dn or "").strip(),
-        search_filter=f"(&(objectClass=group)(|(distinguishedName={escaped})(cn={escaped})(sAMAccountName={escaped})))",
+        search_filter=dialect.group_ref_filter(raw),
         search_scope=SUBTREE,
         attributes=["distinguishedName"],
         size_limit=1,
@@ -69,6 +67,7 @@ def _resolve_principal_dn(
     base_dn: str,
     principal_dn: str | None,
     principal_username: str | None,
+    dialect: ldap_dialect.Dialect = ldap_dialect.ACTIVE_DIRECTORY,
 ) -> str:
     raw_dn = str(principal_dn or "").strip()
     if raw_dn:
@@ -85,14 +84,9 @@ def _resolve_principal_dn(
     username = str(principal_username or "").strip()
     if not username:
         raise ValueError("principal_dn or principal_username is required")
-
-    escaped = _escape_filter(username)
     conn.search(
         search_base=str(base_dn or "").strip(),
-        search_filter=(
-            "(&(|(objectClass=user)(objectClass=person))"
-            f"(|(sAMAccountName={escaped})(userPrincipalName={escaped})(cn={escaped})))"
-        ),
+        search_filter=dialect.user_ref_filter(username),
         search_scope=SUBTREE,
         attributes=["distinguishedName"],
         size_limit=1,
@@ -175,17 +169,18 @@ def ensure_ad_group_member(params: dict[str, Any]):
         if not ldap_client.bind(conn, bind_dn=bind_dn, password=password):
             return False, "LDAP bind failed", {"host": host, "port": port}
 
-        resolved_group_dn = _resolve_group_dn(conn, base_dn=base_dn, group_ref=group_ref)
+        resolved_group_dn = _resolve_group_dn(conn, base_dn=base_dn, group_ref=group_ref, dialect=ldap_dialect.of(params))
         resolved_principal_dn = _resolve_principal_dn(
             conn,
             base_dn=base_dn,
             principal_dn=principal_dn,
             principal_username=principal_username,
+            dialect=ldap_dialect.of(params),
         )
 
         conn.search(
             search_base=resolved_group_dn,
-            search_filter="(objectClass=group)",
+            search_filter=ldap_dialect.of(params).group_filter,
             search_scope=BASE,
             attributes=["member"],
             size_limit=1,
@@ -286,17 +281,18 @@ def remove_ad_group_member(params: dict[str, Any]):
         if not ldap_client.bind(conn, bind_dn=bind_dn, password=password):
             return False, "LDAP bind failed", {"host": host, "port": port}
 
-        resolved_group_dn = _resolve_group_dn(conn, base_dn=base_dn, group_ref=group_ref)
+        resolved_group_dn = _resolve_group_dn(conn, base_dn=base_dn, group_ref=group_ref, dialect=ldap_dialect.of(params))
         resolved_principal_dn = _resolve_principal_dn(
             conn,
             base_dn=base_dn,
             principal_dn=principal_dn,
             principal_username=principal_username,
+            dialect=ldap_dialect.of(params),
         )
 
         conn.search(
             search_base=resolved_group_dn,
-            search_filter="(objectClass=group)",
+            search_filter=ldap_dialect.of(params).group_filter,
             search_scope=BASE,
             attributes=["member"],
             size_limit=1,
@@ -318,6 +314,12 @@ def remove_ad_group_member(params: dict[str, Any]):
             resolved_group_dn,
             {"member": [(MODIFY_DELETE, [resolved_principal_dn])]},
         )
+        if not ok and "objectclassviolation" in str((getattr(conn, "result", {}) or {}).get("description") or "").lower():
+            # Last member of an OpenLDAP group, which cannot be empty: the group takes its place
+            ok = conn.modify(
+                resolved_group_dn,
+                {"member": [(MODIFY_ADD, [resolved_group_dn]), (MODIFY_DELETE, [resolved_principal_dn])]},
+            )
         if not ok:
             result = dict(getattr(conn, "result", {}) or {})
             desc = str(result.get("description") or "").lower()

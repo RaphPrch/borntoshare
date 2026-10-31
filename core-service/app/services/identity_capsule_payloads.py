@@ -28,6 +28,7 @@ def _norm_port(port: Any, protocol: str) -> int:
 def source_tls_fields(source: dict[str, Any]) -> dict[str, Any]:
     """How a worker checks the certificate of this directory."""
     return {
+        "directory_flavor": source.get("directory_flavor") or "ad",
         "verify_tls": bool(source.get("tls_verify", True)),
         "tls_ca_pem": source.get("tls_ca_pem") or None,
         "tls_server_name": source.get("tls_server_name") or None,

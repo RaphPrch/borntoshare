@@ -39,6 +39,7 @@ export type IdentitySourcePayload = {
   type: 'ad';
   name: string;
   protocol?: 'ldap' | 'ldaps';
+  directory_flavor?: 'ad' | 'openldap' | string | null;
   tls_verify?: boolean | null;
   tls_ca_pem?: string | null;
   tls_server_name?: string | null;
@@ -79,6 +80,7 @@ type IdentitySourceApiWritePayload = {
   name: string;
   issuer_url?: string | null;
   protocol?: 'ldap' | 'ldaps';
+  directory_flavor?: 'ad' | 'openldap' | string | null;
   tls_verify?: boolean | null;
   tls_ca_pem?: string | null;
   tls_server_name?: string | null;
@@ -103,6 +105,7 @@ export type IdentitySourceListItem = {
   type?: string | null;
   name?: string | null;
   protocol?: 'ldap' | 'ldaps' | string | null;
+  directory_flavor?: 'ad' | 'openldap' | string | null;
   tls_verify?: boolean | null;
   tls_ca_pem?: string | null;
   tls_server_name?: string | null;
@@ -156,6 +159,7 @@ function toIdentitySourceCreateApiPayload(payload: IdentitySourcePayload): Ident
     name: payload.name,
     issuer_url: toNullableTrimmedString(payload.issuer_url),
     protocol: normalizeAdProtocol(payload.protocol),
+    directory_flavor: payload.directory_flavor ?? 'ad',
     tls_verify: payload.tls_verify ?? true,
     tls_ca_pem: toNullableTrimmedString(payload.tls_ca_pem),
     tls_server_name: toNullableTrimmedString(payload.tls_server_name),
@@ -180,6 +184,7 @@ function toIdentitySourceUpdateApiPayload(payload: Partial<IdentitySourcePayload
   if (payload.name !== undefined) data.name = payload.name;
   if (payload.issuer_url !== undefined) data.issuer_url = toNullableTrimmedString(payload.issuer_url);
   if (payload.protocol !== undefined) data.protocol = normalizeAdProtocol(payload.protocol);
+  if (payload.directory_flavor !== undefined) data.directory_flavor = payload.directory_flavor;
   if (payload.tls_verify !== undefined) data.tls_verify = payload.tls_verify;
   if (payload.tls_ca_pem !== undefined) data.tls_ca_pem = toNullableTrimmedString(payload.tls_ca_pem);
   if (payload.tls_server_name !== undefined) data.tls_server_name = toNullableTrimmedString(payload.tls_server_name);
