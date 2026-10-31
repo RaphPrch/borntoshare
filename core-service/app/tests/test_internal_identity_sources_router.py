@@ -23,6 +23,10 @@ class _FakeIdentitySource:
         auth_priority: int = 100,
     ) -> None:
         self.id = row_id
+        self.tls_verify = True
+        self.tls_ca_pem = None
+        self.tls_server_name = None
+        self.user_filter = None
         self.type = source_type
         self.name = name
         self.domain_name = domain_name

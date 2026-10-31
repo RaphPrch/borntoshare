@@ -79,14 +79,8 @@ class Settings(BaseSettings):
     # =================================================
     # 🟩 Active Directory / LDAP
     # =================================================
-    AD_ENABLED: bool = False
-    AD_USER_FILTER: str = "(sAMAccountName={username})"
-    AD_USER_DN_TEMPLATE: str = ""
     AD_CONNECT_TIMEOUT_SECONDS: int = 5
     ALLOW_INSECURE_LDAP: bool = False
-    # LDAPS certificate check of the domain controllers (production: true + CA of the AD, as capsule-runner)
-    LDAP_TLS_VERIFY: bool = False
-    LDAP_CA_FILE: Optional[str] = None
 
     # =================================================
     # 🔐 Internal service-to-service authentication (V1)
@@ -102,7 +96,6 @@ class Settings(BaseSettings):
     B2S_SECRET_BROKER_URL: str = "http://secret-broker:8010"
     B2S_SECRET_BROKER_TIMEOUT_SECONDS: float = 5.0
     B2S_SECRET_WRITE_TOKEN: Optional[str] = None
-    DEFAULT_AD_BIND_PASSWORD_REF: Optional[str] = None
 
     # =================================================
     # ⚙️ Pydantic config

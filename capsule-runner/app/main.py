@@ -113,8 +113,6 @@ def agent_info(_user: str = Depends(require_agent_credentials)):
             "python": platform.python_version(),
             "worker_processes": processes,
             "broker": broker,
-            "ldap_tls_verify": settings.LDAP_TLS_VERIFY,
-            "ldap_ca_file_present": bool(settings.LDAP_CA_FILE and os.path.isfile(settings.LDAP_CA_FILE)),
             "agent_tls": bool(settings.AGENT_TLS_CERT and settings.AGENT_TLS_KEY),
         }
     )

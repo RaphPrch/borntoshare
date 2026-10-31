@@ -386,6 +386,9 @@
         type: source.type,
         name: source.name,
         protocol: source.protocol,
+        tls_verify: source.tls_verify,
+        tls_ca_pem: source.tls_ca_pem,
+        tls_server_name: source.tls_server_name,
         host: source.host,
         port: source.port,
         base_dn: source.base_dn,
@@ -400,6 +403,9 @@
       };
       const request = buildIdentitySourceProbeRequest({
         protocol: payload.protocol || 'ldaps',
+        tlsVerify: payload.tls_verify,
+        tlsCaPem: payload.tls_ca_pem,
+        tlsServerName: payload.tls_server_name,
         host: payload.host,
         port: payload.port,
         baseDn: payload.base_dn,

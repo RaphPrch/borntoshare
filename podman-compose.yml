@@ -60,21 +60,18 @@ services:
     build: ./secret-broker
     environment:
       <<: *common-env
-      B2S_SECRET_PROVIDER: filesystem
-      B2S_SECRETS_DIR: /data/secrets
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       B2S_SECRET_MASTER_KEY: ${B2S_SECRET_MASTER_KEY:?B2S_SECRET_MASTER_KEY must be set}
       B2S_SECRET_WRITE_TOKEN: ${B2S_SECRET_WRITE_TOKEN}
       B2S_SECRET_ALLOW_WRITE: ${B2S_SECRET_ALLOW_WRITE:-true}
-    volumes:
-      # No :Z / :U — relabel or recursive chown can fail on the host filesystem
-      - ./secret-broker/secrets:/data/secrets:rw
-    security_opt:
-      - no-new-privileges:true
-      - label=disable
     healthcheck:
       <<: *healthcheck
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health', timeout=3)"]
-    networks: [app]
+    networks: [app, data]
 
   auth-service:
     <<: *hardening
@@ -94,21 +91,12 @@ services:
       SESSION_IDLE_TIMEOUT: ${SESSION_IDLE_TIMEOUT}
       ENABLED_PROVIDERS: ${ENABLED_PROVIDERS}
       DEFAULT_AUTH_PROVIDER: ${DEFAULT_AUTH_PROVIDER}
-      AD_ENABLED: ${AD_ENABLED}
-      AD_USER_FILTER: ${AD_USER_FILTER}
-      AD_USER_DN_TEMPLATE: ${AD_USER_DN_TEMPLATE}
-      DEFAULT_AD_BIND_PASSWORD_REF: ${DEFAULT_AD_BIND_PASSWORD_REF}
       B2S_SECRET_WRITE_TOKEN: ${B2S_SECRET_WRITE_TOKEN}
       # Private authority of the Keycloak servers' certificates (optional, SSO)
       B2S_OIDC_CA_FILE: ${B2S_OIDC_CA_FILE:-}
       # LDAPS certificate check at AD sign-in (same CA as capsule-runner; shared mount: SELinux label z, not Z)
-      LDAP_TLS_VERIFY: ${LDAP_TLS_VERIFY:-false}
-      LDAP_CA_FILE: ${LDAP_CA_FILE:-}
     volumes:
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
-    extra_hosts:
-      - "${AD_DC_NAME}:${AD_DC_IP}"
-      - "${AD_DC_FQDN}:${AD_DC_IP}"
     expose: ["8000"]
     healthcheck:
       <<: *healthcheck
@@ -174,14 +162,9 @@ services:
       # Empty: 8443 in HTTPS, 8080 in HTTP
       AGENT_PORT: ${AGENT_PORT:-}
       # LDAPS certificate check of the domain controllers (production: true + CA of the AD)
-      LDAP_TLS_VERIFY: ${LDAP_TLS_VERIFY:-false}
-      LDAP_CA_FILE: ${LDAP_CA_FILE:-}
     volumes:
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     expose: ["8443", "8080"]
-    extra_hosts:
-      - "${AD_DC_NAME}:${AD_DC_IP}"
-      - "${AD_DC_FQDN}:${AD_DC_IP}"
     depends_on:
       redis:
         condition: service_healthy

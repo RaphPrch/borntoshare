@@ -4,8 +4,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 TS=$(date +%Y%m%d-%H%M%S)
-SERVICES="core-service frontend-service capsule-runner auth-service"
-PACKS="135_access_expiry_schedule 136_storage_root_acl_exceptions 137_close_phantom_revoke_requests 138_tag_family 139_access_request_permission_change"
+SERVICES="secret-broker core-service frontend-service capsule-runner auth-service"
+PACKS="135_access_expiry_schedule 136_storage_root_acl_exceptions 137_close_phantom_revoke_requests 138_tag_family 139_access_request_permission_change 140_identity_source_ldap_settings 141_secret_items"
 
 env_value() { grep -E "^$1=" .env | cut -d= -f2- | sed 's/^"//; s/"$//'; }
 

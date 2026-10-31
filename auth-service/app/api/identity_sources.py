@@ -133,7 +133,7 @@ def _store_ad_bind_password(payload: ADSecretUpsertPayload | dict[str, Any]) -> 
         name = data.get("name") or data.get("host")
         ref = f"identity-sources/{_slugify(str(name))}/bind-password"
     else:
-        ref = (settings.DEFAULT_AD_BIND_PASSWORD_REF or "").strip() or "identity-sources/ad/bind-password"
+        ref = "identity-sources/ad/bind-password"
 
     try:
         ref = store_secret(ref, str(bind_password))

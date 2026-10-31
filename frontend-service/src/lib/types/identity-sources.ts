@@ -5,6 +5,10 @@ export type IdentitySourceRow = {
   name?: string;
   display_name?: string;
   protocol?: 'ldap' | 'ldaps' | string;
+  tls_verify?: boolean | null;
+  tls_ca_pem?: string | null;
+  tls_server_name?: string | null;
+  user_filter?: string | null;
   host?: string;
   port?: number;
   base_dn?: string;

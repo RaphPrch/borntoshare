@@ -161,6 +161,9 @@
     type: 'ad',
     name: '',
     protocol: 'ldaps',
+    tls_verify: true,
+    tls_ca_pem: '',
+    tls_server_name: '',
     host: '',
     port: 636,
     base_dn: '',
@@ -615,6 +618,9 @@
     const authMode = payload.bind_dn?.includes('@') ? 'kerberos' : 'ntlm';
     return buildIdentitySourceProbeRequest({
       protocol,
+      tlsVerify: payload.tls_verify,
+      tlsCaPem: payload.tls_ca_pem,
+      tlsServerName: payload.tls_server_name,
       host,
       port: payload.port,
       baseDn: payload.base_dn,
@@ -875,6 +881,30 @@
                   : t('LDAP · port 389. The password of the service account travels unencrypted.')}
               </span>
             </div>
+            {#if protocolChoice === 'ldaps'}
+              <div class="field">
+                <span class="field-label">{t('Server certificate')}</span>
+                <div class="form-check form-switch">
+                  <input id="is-wizard-tls-verify" class="form-check-input" type="checkbox" bind:checked={payload.tls_verify} />
+                  <label class="form-check-label" for="is-wizard-tls-verify">{t('Check the server certificate')}</label>
+                </div>
+                {#if !payload.tls_verify}
+                  <span class="hint">{t('The connection is encrypted, but the identity of the server is not verified.')}</span>
+                {/if}
+              </div>
+              {#if payload.tls_verify}
+                <div class="field">
+                  <label for="is-wizard-tls-ca">{t('Certificate authority (PEM)')}</label>
+                  <textarea id="is-wizard-tls-ca" rows="4" bind:value={payload.tls_ca_pem} placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+                  <span class="hint">{t('Public certificate of the authority that signed the domain controller. Leave empty if it is a public authority.')}</span>
+                </div>
+                <div class="field">
+                  <label for="is-wizard-tls-name">{t('Name in the certificate')}</label>
+                  <input id="is-wizard-tls-name" bind:value={payload.tls_server_name} placeholder="dc01.example.test" />
+                  <span class="hint">{t('Only if the host above is an IP address.')}</span>
+                </div>
+              {/if}
+            {/if}
             <div class="field">
               <label for="identity-source-port">{t('Port')}</label>
               <input

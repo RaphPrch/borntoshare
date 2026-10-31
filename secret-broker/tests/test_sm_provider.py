@@ -1,69 +1,63 @@
 from __future__ import annotations
 
 import base64
-import json
-import sys
-from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-_ROOT = Path(__file__).resolve().parents[1]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
-
+from core import crypto
 from core.errors import SecretDecryptFailedError, SecretInvalidRefError, SecretNotFoundError
 from providers.sm import SecretManagerProvider
 
+REF = "sm://storage-endpoint/smb/endpoint-a"
 
-def test_resolve_invalid_ref_raises_invalid_ref(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("B2S_SECRETS_DIR", str(tmp_path))
-    provider = SecretManagerProvider()
 
+@pytest.fixture(autouse=True)
+def _key(monkeypatch) -> None:
+    monkeypatch.setenv("B2S_SECRET_MASTER_KEY", base64.b64encode(b"0123456789abcdef0123456789abcdef").decode())
+
+
+def _row(ref: str, value: str) -> dict:
+    iv, ciphertext = crypto.encrypt(ref, value)
+    return {"iv": iv, "ciphertext": ciphertext, "key_id": "k"}
+
+
+def test_resolve_decrypts_the_row(rows) -> None:
+    rows[REF] = _row(REF, "secret")
+    assert SecretManagerProvider().resolve(REF) == "secret"
+    assert "secret" not in str(rows)
+
+
+def test_resolve_invalid_ref_raises_invalid_ref(rows) -> None:
     with pytest.raises(SecretInvalidRefError):
-        provider.resolve("sm://")
+        SecretManagerProvider().resolve("sm://")
 
 
-def test_resolve_missing_file_raises_not_found(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("B2S_SECRETS_DIR", str(tmp_path))
-    provider = SecretManagerProvider()
+def test_resolve_path_traversal_raises_invalid_ref(rows) -> None:
+    with pytest.raises(SecretInvalidRefError):
+        SecretManagerProvider().resolve("sm://../etc/passwd")
 
+
+def test_resolve_missing_row_raises_not_found(rows) -> None:
     with pytest.raises(SecretNotFoundError):
-        provider.resolve("sm://storage-endpoint/smb/endpoint-a")
+        SecretManagerProvider().resolve(REF)
 
 
-def test_resolve_path_traversal_raises_invalid_ref(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("B2S_SECRETS_DIR", str(tmp_path))
-    provider = SecretManagerProvider()
-
-    with pytest.raises(SecretInvalidRefError):
-        provider.resolve("sm://../etc/passwd")
-
-
-def test_resolve_corrupted_payload_raises_decrypt_failed(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("B2S_SECRETS_DIR", str(tmp_path))
-    provider = SecretManagerProvider()
-
-    target = tmp_path / "storage-endpoint" / "smb"
-    target.mkdir(parents=True, exist_ok=True)
-    (target / "endpoint-a.enc").write_text("not-json", encoding="utf-8")
-
+def test_resolve_corrupted_row_raises_decrypt_failed(rows) -> None:
+    rows[REF] = {"iv": "not base64!", "ciphertext": "x", "key_id": "k"}
     with pytest.raises(SecretDecryptFailedError):
-        provider.resolve("sm://storage-endpoint/smb/endpoint-a")
+        SecretManagerProvider().resolve(REF)
 
 
-def test_resolve_bad_ciphertext_raises_decrypt_failed(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("B2S_SECRETS_DIR", str(tmp_path))
-    monkeypatch.setenv("B2S_SECRET_MASTER_KEY", "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
-    provider = SecretManagerProvider()
-
-    payload = {
-        "iv": base64.b64encode(b"0123456789ab").decode("utf-8"),
-        "ciphertext": base64.b64encode(b"bad-ciphertext").decode("utf-8"),
-    }
-
-    target = tmp_path / "storage-endpoint" / "smb"
-    target.mkdir(parents=True, exist_ok=True)
-    (target / "endpoint-a.enc").write_text(json.dumps(payload), encoding="utf-8")
-
+def test_a_value_copied_to_another_reference_cannot_be_decrypted(rows) -> None:
+    rows[REF] = _row("sm://other/secret", "secret")
     with pytest.raises(SecretDecryptFailedError):
-        provider.resolve("sm://storage-endpoint/smb/endpoint-a")
+        SecretManagerProvider().resolve(REF)
+
+
+def test_another_key_cannot_decrypt(rows, monkeypatch) -> None:
+    iv = b"0123456789ab"
+    other = AESGCM(b"f" * 32).encrypt(iv, b"secret", REF.encode())
+    rows[REF] = {"iv": base64.b64encode(iv).decode(), "ciphertext": base64.b64encode(other).decode(), "key_id": "k"}
+    with pytest.raises(SecretDecryptFailedError):
+        SecretManagerProvider().resolve(REF)

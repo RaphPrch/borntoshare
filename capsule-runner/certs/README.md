@@ -1,9 +1,5 @@
-Certificat (PEM) de l'autorité de certification Active Directory, monté en lecture seule
-dans capsule-runner sur /etc/b2s/certs.
+Certificats montés en lecture seule sur /etc/b2s/certs : TLS de l'agent et autorité OIDC.
 
-Production : déposer `ad-ca.pem` ici, puis dans `.env` :
-
-    LDAP_TLS_VERIFY=true
-    LDAP_CA_FILE=/etc/b2s/certs/ad-ca.pem
+L'autorité de certification Active Directory ne se dépose plus ici : elle se colle dans le formulaire de l'annuaire et reste en base.
 
 Les fichiers de ce dossier (hors ce README) ne sont pas versionnés.

@@ -54,9 +54,8 @@ Mots de passe par défaut (labo uniquement), modifiables avant le premier démar
 
 ## LDAPS vérifié
 
-Le DC a sa propre autorité de certification, publiée dans `testing/ad-lab/out/ad-ca.pem`. Avec
-`LDAP_TLS_VERIFY=true`, ajouter ce certificat au fichier `LDAP_CA_FILE` de capsule-runner et d'auth-service
-(un fichier peut contenir plusieurs autorités). Les certificats respectent la vérification stricte de Python 3.13+.
+Le DC a sa propre autorité de certification, publiée dans `testing/ad-lab/out/ad-ca.pem`. Pour vérifier
+le certificat, coller ce fichier dans « Autorité de certification » de l'annuaire. Les certificats respectent la vérification stricte de Python 3.13+.
 
 ## Recette automatique
 

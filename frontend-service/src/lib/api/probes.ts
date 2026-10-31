@@ -44,6 +44,8 @@ export type ProbeRunRequest = {
   options?: {
     timeout_sec?: number;
     verify_tls?: boolean;
+    tls_ca_pem?: string;
+    tls_server_name?: string;
     test_write?: boolean;
     dns_check?: boolean;
     dry_run?: boolean;

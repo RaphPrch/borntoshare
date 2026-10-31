@@ -3,27 +3,35 @@ from __future__ import annotations
 import ssl
 from typing import Any
 
-import os
-
 from ldap3 import ALL, BASE, LEVEL, SIMPLE, SUBTREE, Connection, Server, Tls
 from ldap3.core.exceptions import LDAPSSLConfigurationError
 
 
-def tls_config(verify_tls: bool) -> Tls:
-    """Certificate check when asked by the job or enforced by LDAP_TLS_VERIFY (with LDAP_CA_FILE when set)."""
-    from app.core import settings  # lazy: settings require the broker configuration
-
-    verify = bool(verify_tls) or settings.LDAP_TLS_VERIFY
-    if not verify:
+def tls_config(verify_tls: bool, ca_pem: str | None = None, server_name: str | None = None) -> Tls:
+    """Certificate check set on the directory: its CA (PEM) and, for a host given by IP, the name in the certificate."""
+    if not verify_tls:
         return Tls(validate=ssl.CERT_NONE)
-    ca_file = settings.LDAP_CA_FILE
-    if ca_file and not os.path.isfile(ca_file):
-        raise LDAPSSLConfigurationError(f"LDAP CA certificate file not found: {ca_file} (LDAP_CA_FILE)")
-    return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=ca_file)
+    try:
+        return Tls(
+            validate=ssl.CERT_REQUIRED,
+            ca_certs_data=(ca_pem or "").strip() or None,
+            valid_names=[server_name.strip()] if (server_name or "").strip() else None,
+        )
+    except Exception as exc:
+        raise LDAPSSLConfigurationError(f"Invalid LDAP CA certificate: {exc}") from exc
 
 
-def connect(*, host: str, port: int, use_ssl: bool, verify_tls: bool, timeout: int) -> Connection:
-    tls = tls_config(verify_tls) if use_ssl else None
+def connect(
+    *,
+    host: str,
+    port: int,
+    use_ssl: bool,
+    verify_tls: bool,
+    timeout: int,
+    ca_pem: str | None = None,
+    server_name: str | None = None,
+) -> Connection:
+    tls = tls_config(verify_tls, ca_pem, server_name) if use_ssl else None
     server = Server(
         str(host or "").strip(),
         port=int(port),

@@ -231,6 +231,8 @@ def grant_ad_access(params: dict[str, Any]):
             # Same rule as the other LDAP actions: sources saved as "ldap" on port 636 are LDAPS
             use_ssl=protocol == "ldaps" or port == 636,
             verify_tls=bool(params.get("verify_tls")),
+            ca_pem=params.get("tls_ca_pem"),
+            server_name=params.get("tls_server_name"),
             timeout=timeout,
         )
         if not ldap_client.bind(conn, bind_dn=bind_dn, password=password):

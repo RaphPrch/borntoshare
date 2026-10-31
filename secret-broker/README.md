@@ -3,7 +3,7 @@
 Service interne chargé de la **résolution** et du **stockage persistant chiffré** des secrets.
 
 ## Périmètre V1
-- Provider persistant officiel : `sm://` (filesystem chiffré)
+- Provider persistant officiel : `sm://`, chiffré en AES-256-GCM dans la table `secret_items` de la base ; la clé `B2S_SECRET_MASTER_KEY` n'est jamais en base
 - Provider optionnel dev : `env://` (désactivé par défaut)
 - Aucune intégration `vault://`, `file://` ou provider non implémenté
 - Requêtes internes uniquement (`X-Internal-Token`)
@@ -25,7 +25,7 @@ Le broker retourne une structure stable:
     "code": "SECRET_NOT_FOUND",
     "message": "Secret not found",
     "ref": "sm://storage-endpoint/smb/192.168.100.40",
-    "provider": "filesystem"
+    "provider": "database"
   }
 }
 ```
@@ -38,29 +38,12 @@ Mapping HTTP :
 - `500` → `SECRET_PROVIDER_FAILURE` / `SECRET_PERSISTENCE_FAILURE`
 - `403` → `SECRET_STORE_REJECTED`
 
-## Persistance disque: permissions du bind-mount (important)
-
-Le service tourne en utilisateur non-root (`UID 10004`).
-Si le dossier hôte monté sur `/data/secrets` n'est pas inscriptible,
-le service échoue explicitement (`SECRET_PERSISTENCE_FAILURE`) et ne démarre pas
-en mode semi-fonctionnel.
-
-Dans le [`podman-compose.yml`](../podman-compose.yml) racine, le volume est :
-
-```yaml
-./secret-broker/secrets:/data/secrets:rw
-```
-
-- `Z` : relabel SELinux
-- `U` : remap ownership pour l'UID/GID du conteneur (rootless Podman)
-
 ## Variables d'environnement
 
 - `INTERNAL_TOKEN` (obligatoire)
 - `B2S_SECRET_ALLOWED_PREFIXES=sm://` (prod par défaut)
 - `B2S_SECRET_ALLOW_ENV_PROVIDER=false` (mettre `true` uniquement en dev si `env://` est souhaité)
-- `B2S_SECRET_PROVIDER=filesystem`
-- `B2S_SECRETS_DIR=/data/secrets`
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` : base qui porte `secret_items`
 - `B2S_SECRET_MASTER_KEY` (**obligatoire**, stable entre redémarrages)
 - `B2S_SECRET_ALLOW_WRITE=false` (à activer explicitement si nécessaire)
 - `B2S_SECRET_WRITE_TOKEN=<token>` (recommandé dès que write est activé)

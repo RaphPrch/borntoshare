@@ -1,9 +1,9 @@
-# BornToShare secret-broker — secret storage (encrypted filesystem provider)
+# BornToShare secret-broker — secret storage (encrypted, in the database)
 ARG BASE_IMAGE=docker.io/library/python:3.14-slim-trixie
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="borntoshare-secret-broker" \
-      org.opencontainers.image.description="secret storage (encrypted filesystem provider)" \
+      org.opencontainers.image.description="secret storage (encrypted, in the database)" \
       org.opencontainers.image.source="https://github.com/RaphPrch/borntoshare"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

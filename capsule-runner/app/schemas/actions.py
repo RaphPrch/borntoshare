@@ -56,6 +56,8 @@ class LDAPTestPayload(BaseModel):
     timeout: int = Field(default=10, ge=1, le=15)
     use_ssl: bool = False
     verify_tls: bool = False
+    tls_ca_pem: Optional[str] = Field(default=None, max_length=65535)
+    tls_server_name: Optional[str] = Field(default=None, max_length=255)
     # Read after the bind, to check the base DN exists and is readable
     base_dn: Optional[str] = Field(default=None, max_length=512)
 
@@ -80,6 +82,9 @@ class LDAPSearchPayload(BaseModel):
     port: int = Field(default=389, ge=1, le=65535)
     timeout: int = Field(default=5, ge=1, le=15)
     use_ssl: bool = False
+    verify_tls: bool = False
+    tls_ca_pem: Optional[str] = Field(default=None, max_length=65535)
+    tls_server_name: Optional[str] = Field(default=None, max_length=255)
 
     @model_validator(mode="after")
     def _check_secret_or_password(self) -> "LDAPSearchPayload":
@@ -103,6 +108,8 @@ class DirectorySnapshotPayload(BaseModel):
     timeout: int = Field(default=15, ge=1, le=30)
     use_ssl: bool = True
     verify_tls: bool = False
+    tls_ca_pem: Optional[str] = Field(default=None, max_length=65535)
+    tls_server_name: Optional[str] = Field(default=None, max_length=255)
     mode: str = Field(default="auto", min_length=1, max_length=32)
     force_full: bool = True
 
@@ -143,6 +150,8 @@ class ADGroupCreatePayload(BaseModel):
     port: int = Field(default=636, ge=1, le=65535)
     timeout: int = Field(default=5, ge=1, le=15)
     verify_tls: bool = False
+    tls_ca_pem: Optional[str] = Field(default=None, max_length=65535)
+    tls_server_name: Optional[str] = Field(default=None, max_length=255)
     description_text: Optional[str] = Field(default=None, max_length=1024)
     domain_name: Optional[str] = Field(default=None, max_length=255)
     identity_source: Dict[str, Any] = Field(default_factory=dict)
@@ -166,6 +175,8 @@ class ADGroupMemberPayload(BaseModel):
     port: int = Field(default=636, ge=1, le=65535)
     timeout: int = Field(default=5, ge=1, le=30)
     verify_tls: bool = False
+    tls_ca_pem: Optional[str] = Field(default=None, max_length=65535)
+    tls_server_name: Optional[str] = Field(default=None, max_length=255)
     base_dn: str = Field(min_length=1, max_length=1024)
     group_ref: str = Field(min_length=1, max_length=1024)
     principal_dn: Optional[str] = Field(default=None, max_length=1024)
@@ -193,6 +204,8 @@ class ADAccessGrantPayload(BaseModel):
     port: int = Field(default=636, ge=1, le=65535)
     timeout: int = Field(default=15, ge=1, le=30)
     verify_tls: bool = False
+    tls_ca_pem: Optional[str] = Field(default=None, max_length=65535)
+    tls_server_name: Optional[str] = Field(default=None, max_length=255)
     base_dn: str = Field(min_length=1, max_length=1024)
     target_ou_dn: str = Field(min_length=1, max_length=1024)
     group_name: str = Field(min_length=1, max_length=128)
@@ -222,6 +235,8 @@ class LDAPRecursiveGroupUsersPayload(BaseModel):
     port: int = Field(default=636, ge=1, le=65535)
     timeout: int = Field(default=5, ge=1, le=30)
     verify_tls: bool = False
+    tls_ca_pem: Optional[str] = Field(default=None, max_length=65535)
+    tls_server_name: Optional[str] = Field(default=None, max_length=255)
     base_dn: str = Field(min_length=1, max_length=1024)
     root_group_dn: str = Field(min_length=1, max_length=1024)
     max_depth: int = Field(default=10, ge=1, le=30)

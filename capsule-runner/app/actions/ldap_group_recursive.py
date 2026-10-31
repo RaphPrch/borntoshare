@@ -100,6 +100,8 @@ def discover_group_users_recursive(params: dict[str, Any]):
             port=port,
             use_ssl=(protocol == "ldaps"),
             verify_tls=bool(params.get("verify_tls", False)),
+            ca_pem=params.get("tls_ca_pem"),
+            server_name=params.get("tls_server_name"),
             timeout=timeout,
         )
         if not ldap_client.bind(conn, bind_dn=bind_dn, password=password):

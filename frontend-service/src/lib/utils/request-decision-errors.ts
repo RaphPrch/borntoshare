@@ -114,7 +114,7 @@ const AD_PROVISIONING_ERRORS: Record<string, { message: () => string; hint?: () 
   },
   AD_TLS_FAILED: {
     message: () => t('The certificate of the domain controller was refused.'),
-    hint: () => t('Check the AD certificate authority given to capsule-runner (LDAP_CA_FILE) and the host name of the identity source.')
+    hint: () => t('Check the certificate authority of the directory and the host name of the identity source.')
   },
   AD_UNREACHABLE: {
     message: () => t('Active Directory did not answer.')

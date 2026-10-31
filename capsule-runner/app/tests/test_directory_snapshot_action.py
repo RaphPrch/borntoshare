@@ -81,7 +81,7 @@ def test_collect_directory_snapshot_normalizes_member_external_ids(monkeypatch) 
         ),
     ]
 
-    def _fake_connect(*, host: str, port: int, use_ssl: bool, verify_tls: bool, timeout: int):
+    def _fake_connect(*, host: str, port: int, use_ssl: bool, verify_tls: bool, timeout: int, **_tls):
         assert host == "dc01.corp.local"
         assert port == 636
         assert use_ssl is True

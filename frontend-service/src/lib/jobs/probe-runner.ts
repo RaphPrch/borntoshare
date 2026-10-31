@@ -108,6 +108,9 @@ export async function runProbeWithPolling<TPost = unknown>(
 
 export function buildIdentitySourceProbeRequest(input: {
   protocol: 'ldap' | 'ldaps' | string;
+  tlsVerify?: boolean | null;
+  tlsCaPem?: string | null;
+  tlsServerName?: string | null;
   host?: string | null;
   port?: number | null;
   baseDn?: string | null;
@@ -131,8 +134,9 @@ export function buildIdentitySourceProbeRequest(input: {
     },
     options: {
       timeout_sec: 10,
-      // The certificate check follows LDAP_TLS_VERIFY on the worker, like snapshots and AD groups
-      verify_tls: false
+      verify_tls: input.tlsVerify ?? true,
+      tls_ca_pem: input.tlsCaPem?.trim() || undefined,
+      tls_server_name: input.tlsServerName?.trim() || undefined
     },
     context: {
       identity_source_id: input.identitySourceId ?? undefined,

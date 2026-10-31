@@ -18,7 +18,7 @@ services:
     volumes:
       - ad-lab-samba:/var/lib/samba
       - ad-lab-shares:/srv/shares
-      # LDAPS CA of the lab (out/ad-ca.pem), for LDAP_TLS_VERIFY=true: see README
+      # LDAPS CA of the lab (out/ad-ca.pem), to paste in the directory: see README
       - ./out:/export:z
     healthcheck:
       # LDAPS answers once the domain is provisioned (first start: about a minute)

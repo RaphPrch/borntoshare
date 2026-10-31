@@ -33,6 +33,10 @@ class IdentitySource(Base, TimestampMixin):
     base_dn: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     bind_dn: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     bind_password_ref: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    tls_verify: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    tls_ca_pem: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tls_server_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    user_filter: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     # OIDC (Wizard-UI schema authority)
     issuer_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)

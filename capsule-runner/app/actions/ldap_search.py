@@ -81,6 +81,8 @@ def search_ldap_principals(params: dict[str, Any]):
             port=port,
             use_ssl=use_ssl,
             verify_tls=bool(params.get("verify_tls", False)),
+            ca_pem=params.get("tls_ca_pem"),
+            server_name=params.get("tls_server_name"),
             timeout=timeout,
         )
         if not ldap_client.bind(conn, bind_dn=username, password=password):

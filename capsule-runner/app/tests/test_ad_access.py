@@ -262,17 +262,18 @@ def test_registry_retries_only_what_the_action_marks_retryable(monkeypatch) -> N
         assert exc.value.retryable is retryable
 
 
-def test_missing_ca_file_is_a_tls_configuration_error(monkeypatch, tmp_path) -> None:
-    from app.core import settings
+def test_tls_config_carries_the_settings_of_the_directory() -> None:
+    import ssl
 
-    monkeypatch.setattr(settings, "LDAP_TLS_VERIFY", True)
-    monkeypatch.setattr(settings, "LDAP_CA_FILE", str(tmp_path / "missing.pem"))
+    from app.shared import ldap_client
 
-    ok, _message, details = ad_access.grant_ad_access(_params())
+    assert ldap_client.tls_config(False).validate == ssl.CERT_NONE
 
-    assert ok is False
-    assert details["failure_code"] == "AD_TLS_FAILED"
-    assert "missing.pem" in details["error"]
+    tls = ldap_client.tls_config(True, "-----BEGIN CERTIFICATE-----", "dc01.example.test")
+    assert tls.validate == ssl.CERT_REQUIRED
+    assert tls.ca_certs_data == "-----BEGIN CERTIFICATE-----"
+    assert tls.valid_names == ["dc01.example.test"]
+
 
 
 # --- connection test of the identity source -------------------------------------------

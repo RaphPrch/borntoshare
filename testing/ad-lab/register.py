@@ -112,6 +112,12 @@ def main() -> None:
             "capabilities": {"auth": True, "import_groups": True, "snapshot_enabled": True, "provisioning": True},
             "auth_enabled": True, "auth_priority": 50, "is_active": True,
         }
+        # LDAPS checked against the CA of the lab when it is at hand
+        ca_file = os.environ.get("LAB_CA_FILE", "/export/ad-ca.pem")
+        if os.path.isfile(ca_file):
+            body["tls_ca_pem"] = open(ca_file, encoding="utf-8").read()
+        else:
+            body["tls_verify"] = False
         try:
             created = api.call("POST", "/identity-sources", body)
         except ApiError as exc:

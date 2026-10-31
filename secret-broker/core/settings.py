@@ -29,12 +29,6 @@ class Settings:
         "yes",
     )
 
-    # Persistent secrets directory (V1)
-    secrets_dir: str = os.getenv("B2S_SECRETS_DIR", "/data/secrets").strip()
-
-    # Filesystem is the default and only supported persistence provider in V1.
-    secret_provider: str = os.getenv("B2S_SECRET_PROVIDER", "filesystem").strip().lower()
-
     # Dev-only: allow in-memory secrets set via API
     allow_write: bool = os.getenv("B2S_SECRET_ALLOW_WRITE", "false").lower() in (
         "1",
@@ -52,9 +46,6 @@ settings = Settings()
 
 def _validate_settings() -> None:
     allowed = _split_csv(settings.allowed_prefixes)
-    if settings.secret_provider != "filesystem":
-        raise RuntimeError("Unsupported B2S_SECRET_PROVIDER, expected 'filesystem'")
-
     if not allowed:
         raise RuntimeError("B2S_SECRET_ALLOWED_PREFIXES must not be empty")
 

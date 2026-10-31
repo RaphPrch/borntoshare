@@ -24,9 +24,8 @@ def build_registry() -> Dict[str, AuthProvider]:
     # Local provider is always available
     reg["local"] = CoreLocalProvider()
 
-    # AD/LDAP (only if enabled)
-    if getattr(settings, "AD_ENABLED", False):
-        reg["ad"] = ADLDAPProvider()
+    # AD/LDAP: used for the directories with sign-in enabled
+    reg["ad"] = ADLDAPProvider()
 
     return reg
 

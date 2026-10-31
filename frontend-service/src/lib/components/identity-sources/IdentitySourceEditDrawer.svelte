@@ -49,6 +49,10 @@
   const emptyForm = () => ({
     display_name: '',
     protocol: 'ldaps' as 'ldap' | 'ldaps',
+    tls_verify: true,
+    tls_ca_pem: '',
+    tls_server_name: '',
+    user_filter: '',
     host: '',
     port: 636,
     base_dn: '',
@@ -79,6 +83,10 @@
       display_name: normalize(source.display_name ?? source.name),
       // Sources saved as "ldap" on port 636 do use LDAPS
       protocol: source.protocol === 'ldap' && Number(source.port) !== 636 ? 'ldap' : 'ldaps',
+      tls_verify: source.tls_verify ?? true,
+      tls_ca_pem: source.tls_ca_pem ?? '',
+      tls_server_name: source.tls_server_name ?? '',
+      user_filter: source.user_filter ?? '',
       host: source.host ?? '',
       port: source.port ?? defaultPort(source.protocol),
       base_dn: source.base_dn ?? '',
@@ -236,7 +244,7 @@
         description: !isLdaps
           ? t('Not applicable for LDAP.')
           : tlsOk === true && tlsVerified === false
-            ? t('Encrypted, but the certificate is not checked: LDAP_TLS_VERIFY is off on the worker.')
+            ? t('Encrypted, but the certificate is not checked: the check is off for this directory.')
             : tlsOk === true
             ? t('The server certificate is trusted and valid.')
             : tlsOk === false
@@ -260,6 +268,10 @@
     type: 'ad' as const,
     name: normalize(form.display_name),
     protocol: form.protocol,
+    tls_verify: form.tls_verify,
+    tls_ca_pem: normalize(form.tls_ca_pem) || null,
+    tls_server_name: normalize(form.tls_server_name) || null,
+    user_filter: normalize(form.user_filter) || null,
     host: normalize(form.host) || null,
     port: form.port ? Number(form.port) : null,
     base_dn: normalize(form.base_dn) || null,
@@ -458,6 +470,35 @@
               : t('LDAP · port 389. The password of the service account travels unencrypted.')}
           </small>
         </div>
+        {#if form.protocol === 'ldaps'}
+          <div class="identity-edit-field">
+            <span>{t('Server certificate')}</span>
+            <div class="form-check form-switch">
+              <input id="identity-edit-tls-verify" class="form-check-input" type="checkbox" bind:checked={form.tls_verify} />
+              <label class="form-check-label" for="identity-edit-tls-verify">{t('Check the server certificate')}</label>
+            </div>
+            {#if !form.tls_verify}
+              <small class="identity-edit-hint">{t('The connection is encrypted, but the identity of the server is not verified.')}</small>
+            {/if}
+          </div>
+          {#if form.tls_verify}
+            <label class="identity-edit-field">
+              <span>{t('Certificate authority (PEM)')}</span>
+              <textarea class="identity-edit-input" rows="4" bind:value={form.tls_ca_pem} placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+              <small class="identity-edit-hint">{t('Public certificate of the authority that signed the domain controller. Leave empty if it is a public authority.')}</small>
+            </label>
+            <label class="identity-edit-field">
+              <span>{t('Name in the certificate')}</span>
+              <input class="identity-edit-input" bind:value={form.tls_server_name} placeholder="dc01.example.test" />
+              <small class="identity-edit-hint">{t('Only if the host is an IP address.')}</small>
+            </label>
+          {/if}
+        {/if}
+        <label class="identity-edit-field">
+          <span>{t('User search filter')}</span>
+          <input class="identity-edit-input" bind:value={form.user_filter} placeholder="(sAMAccountName=&#123;username&#125;)" />
+          <small class="identity-edit-hint">{t('Used at sign-in. Leave empty for the default filter.')}</small>
+        </label>
         <label class="identity-edit-field">
           <span>{t('Hostname / IP')}</span>
           <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.host)} bind:value={form.host} />

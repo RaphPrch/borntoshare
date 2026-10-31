@@ -409,7 +409,7 @@ def worker_targets(db: Session) -> list[dict[str, Any]]:
     for row in db.execute(
         text(
             """
-            SELECT id, name, host, port, protocol, base_dn, bind_dn, bind_password_ref
+            SELECT id, name, host, port, protocol, base_dn, bind_dn, bind_password_ref, tls_verify, tls_ca_pem, tls_server_name
             FROM identity_sources WHERE is_active = 1 AND LOWER(type) = 'ad' AND host IS NOT NULL
             """
         )
@@ -422,7 +422,7 @@ def worker_targets(db: Session) -> list[dict[str, Any]]:
         secret_ref = account.get("bind_password_ref") or row["bind_password_ref"]
         target = {"component": f"identity_source:{row['id']}", "label": f"Directory · {row['name']}", "category": "directory", "target": f"{row['host']}:{port}"}
         if bind_dn and secret_ref:
-            target.update({"kind": "ldap", "use_ssl": use_ssl, "base_dn": row["base_dn"], "bind_dn": bind_dn, "secret_ref": secret_ref})
+            target.update({"kind": "ldap", "use_ssl": use_ssl, "verify_tls": bool(row["tls_verify"]), "tls_ca_pem": row["tls_ca_pem"], "tls_server_name": row["tls_server_name"], "base_dn": row["base_dn"], "bind_dn": bind_dn, "secret_ref": secret_ref})
         else:
             target["kind"] = "tcp"
         targets.append(target)

@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 from fastapi import HTTPException, Request, status
 
+from app.services.identity_capsule_payloads import source_tls_fields
 from app.services.identity_source_accounts import account_for
 from app.api import identity_list, identity_sources, internal_directory_snapshots, internal_identities, provisioning_internal
 from app.core.direct_call import call_route
@@ -304,7 +305,7 @@ async def run_identity_snapshot(incoming: dict[str, Any], request_id: str | None
         "protocol": protocol,
         "port": port,
         "use_ssl": protocol == "ldaps",
-        "verify_tls": bool(incoming.get("verify_tls", False)),
+        **source_tls_fields(source),
         "timeout": int(incoming.get("timeout") or 15),
         "mode": requested_mode,
         "force_full": force_full,
@@ -606,6 +607,7 @@ async def discover_identity(incoming: dict[str, Any], request_id: str | None = N
         "username": account_for(source, "snapshot")[0],
         "secret_ref": account_for(source, "snapshot")[1],
         "base_dn": source.get("base_dn"),
+        **source_tls_fields(source),
         "search_scope": str(incoming.get("search_scope") or "subtree").strip().lower(),
     }
 

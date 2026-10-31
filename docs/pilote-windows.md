@@ -38,8 +38,7 @@ la création est refusée avec un message clair et tout le reste fonctionne sur 
 
 **Réseau**, depuis le worker : LDAPS 636 vers le contrôleur de domaine, SMB 445 vers le serveur de fichiers.
 
-**Certificat** : l'autorité qui signe le certificat LDAPS, au format PEM. Elle est fournie à auth-service et à
-capsule-runner (`LDAP_CA_FILE`, voir `podman-compose.yml`).
+**Certificat** : l'autorité qui signe le certificat LDAPS, au format PEM. Elle se colle dans le formulaire de l'annuaire.
 
 Les mots de passe sont saisis dans l'interface, qui les range dans le secret broker. Ne pas les transmettre autrement.
 

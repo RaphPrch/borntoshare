@@ -113,7 +113,7 @@ Le tiroir affiche le résultat de chaque étape et l'action à mener :
 | `LDAP_BIND_FAILED`, `LDAP_ACCOUNT_LOCKED`, `LDAP_ACCOUNT_DISABLED`, `LDAP_PASSWORD_EXPIRED`… | compte de service refusé, avec la raison donnée par l'AD |
 | `LDAP_BASE_DN_NOT_FOUND` | DN de base inexistant ou illisible pour ce compte |
 
-La vérification du certificat suit `LDAP_TLS_VERIFY`, comme le snapshot et la gestion des groupes. Si elle est désactivée,
+La vérification du certificat suit le réglage de l'annuaire, comme le snapshot et la gestion des groupes. Si elle est désactivée,
 le tiroir affiche « Connexion chiffrée » au lieu de « Certificat valide ».
 
 auth-service se connecte directement au contrôleur pour authentifier les utilisateurs (sans passer par le worker, pour la latence de connexion).
@@ -126,18 +126,10 @@ identité créée à la 1ʳᵉ connexion par un groupe qui a un rôle.
 
 ### LDAPS vérifié
 
-En production, capsule-runner (gestion des groupes) et auth-service (connexion des utilisateurs) vérifient le certificat
-des contrôleurs de domaine. Les deux lisent le même fichier :
+La vérification se règle sur chaque annuaire (Annuaires › Modifier), elle est active par défaut :
 
-1. déposer le certificat de l'autorité de certification AD (format PEM) dans `capsule-runner/certs/ad-ca.pem` ;
-2. dans `.env` :
-
-   ```
-   LDAP_TLS_VERIFY=true
-   LDAP_CA_FILE=/etc/b2s/certs/ad-ca.pem
-   ```
-
-3. renseigner, dans la source d'identité, le nom d'hôte présent dans le certificat du contrôleur de domaine (pas son adresse IP).
+1. coller le certificat de l'autorité de certification AD (format PEM) dans « Autorité de certification » ;
+2. renseigner comme hôte le nom présent dans le certificat, ou, si l'hôte est une adresse IP, ce nom dans « Nom dans le certificat ».
 
 Le certificat doit contenir l'extension « Authority Key Identifier ». Les certificats émis par une autorité AD CS l'ont ;
 certains certificats autogénérés ne l'ont pas et sont refusés (`AD_TLS_FAILED`).
@@ -152,7 +144,7 @@ certains certificats autogénérés ne l'ont pas et sont refusés (`AD_TLS_FAILE
 | `AD_PROVISIONING_DISABLED` | « Gérer les groupes AD » est désactivée sur la source | l'activer sur la source d'identité |
 | `IDENTITY_SOURCE_INCOMPLETE` | hôte, compte, mot de passe ou DN de base manquant | compléter la source d'identité |
 | `AD_BIND_FAILED` | le compte de service ne peut pas se connecter | vérifier le compte « provisioning » (ou le compte principal) et son mot de passe |
-| `AD_TLS_FAILED` | certificat du contrôleur refusé | vérifier `LDAP_CA_FILE` et le nom d'hôte |
+| `AD_TLS_FAILED` | certificat du contrôleur refusé | vérifier l'autorité de certification de l'annuaire et le nom d'hôte |
 | `AD_GROUP_CREATE_DENIED` | pas le droit de créer des groupes dans l'OU | délégation « CC;group » ci-dessus |
 | `AD_MEMBER_WRITE_DENIED` | pas le droit de modifier les membres du groupe | délégation « WP;member » ci-dessus |
 | `AD_GROUP_NAME_CONFLICT` | même nom hors de l'OU de la zone | adopter le groupe ou le renommer dans l'AD |

@@ -114,6 +114,8 @@ def collect_directory_snapshot(params: dict[str, Any]):
             port=port,
             use_ssl=use_ssl,
             verify_tls=verify_tls,
+            ca_pem=params.get("tls_ca_pem"),
+            server_name=params.get("tls_server_name"),
             timeout=timeout,
         )
         if not ldap_client.bind(conn, bind_dn=bind_dn, password=password):

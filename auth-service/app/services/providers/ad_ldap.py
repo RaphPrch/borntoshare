@@ -108,6 +108,9 @@ def _split_username(raw: str) -> tuple[str, str | None, str | None]:
     return value, None, None
 
 
+DEFAULT_USER_FILTER = "(sAMAccountName={username})"
+
+
 @dataclass
 class ADConfig:
     source_id: int | None
@@ -116,7 +119,9 @@ class ADConfig:
     user_filter: str
     bind_user: str
     bind_password: str
-    user_dn_template: str
+    tls_verify: bool
+    tls_ca_pem: str | None
+    tls_server_name: str | None
 
 
 @dataclass
@@ -206,10 +211,12 @@ def _build_ad_config(src: dict, *, target: str | None) -> ADConfig:
         source_id=int(src.get("id") or 0) or None,
         url=url,
         base_dn=str(src.get("base_dn") or ""),
-        user_filter=settings.AD_USER_FILTER,
+        user_filter=str(src.get("user_filter") or "").strip() or DEFAULT_USER_FILTER,
         bind_user=bind_user,
         bind_password=bind_password,
-        user_dn_template=settings.AD_USER_DN_TEMPLATE,
+        tls_verify=bool(src.get("tls_verify", True)),
+        tls_ca_pem=src.get("tls_ca_pem") or None,
+        tls_server_name=src.get("tls_server_name") or None,
     )
 
 
@@ -317,22 +324,11 @@ class ADLDAPProvider(AuthProvider):
 
     name = "ad"
 
-    def __init__(self) -> None:
-        if not settings.AD_ENABLED:
-            log_event(
-                logger,
-                logging.WARNING,
-                "AUTH_PROVIDER_UNAVAILABLE",
-                provider="ad",
-                outcome="disabled",
-                error_code="INTERNAL_ERROR",
-            )
-
     async def _authenticate_sync(self, cfg: ADConfig, username: str, password: str) -> UserInfo:
         return await asyncio.to_thread(self._authenticate_blocking, cfg, username, password)
 
     def _build_server(self, cfg: ADConfig):
-        return Server(cfg.url, get_info=ALL, connect_timeout=settings.AD_CONNECT_TIMEOUT_SECONDS, tls=_tls_config())
+        return Server(cfg.url, get_info=ALL, connect_timeout=settings.AD_CONNECT_TIMEOUT_SECONDS, tls=_tls_config(cfg))
 
     @staticmethod
     def _bind_user(server, user_dn: str, password: str) -> None:
@@ -401,42 +397,10 @@ class ADLDAPProvider(AuthProvider):
         normalized_user, domain, upn_domain = _split_username(username)
         server = self._build_server(cfg)
 
-        # Mode 2: direct user bind with DN template.
-        if cfg.user_dn_template:
-            user_dn = cfg.user_dn_template.format(
-                username=normalized_user,
-                domain=domain or "",
-                upn_domain=upn_domain or "",
-            )
-
-            self._bind_user(server, user_dn, password)
-
-            display_name = None
-            email = None
-            external_id = user_dn
-
-            found = self._search_user(cfg, server, username, normalized_user)
-            if found:
-                if found.disabled:
-                    raise InvalidCredentials("Invalid credentials")
-                display_name = found.display_name
-                email = found.email
-                external_id = found.object_guid or found.object_sid or found.user_dn
-
-            return UserInfo(
-                identity_id=None,
-                identity_source_id=cfg.source_id,
-                username=normalized_user,
-                display_name=display_name,
-                email=email,
-                external_id=external_id,
-                auth_source="ad",
-            )
-
-        # Mode 1: service bind + search DN + user bind.
+        # Service bind + search DN + user bind.
         if not (cfg.bind_user and cfg.bind_password):
             raise ProviderMisconfigured(
-                "AD bind account not configured (set bind_dn/bind_password or user_dn_template)"
+                "AD bind account not configured (set bind_dn/bind_password)"
             )
 
         found = self._search_user(cfg, server, username, normalized_user)
@@ -458,9 +422,6 @@ class ADLDAPProvider(AuthProvider):
         )
 
     async def authenticate(self, username: str, password: str) -> UserInfo:
-        if not settings.AD_ENABLED:
-            raise AuthUnavailable("AD/LDAP authentication is disabled")
-
         if Connection is None or Server is None:
             raise AuthUnavailable("ldap3 is not installed in auth-service")
 
@@ -539,9 +500,6 @@ class ADLDAPProvider(AuthProvider):
         return user
 
     async def authenticate_for_source(self, *, source_id: int, username: str, password: str) -> UserInfo:
-        if not settings.AD_ENABLED:
-            raise AuthUnavailable("AD/LDAP authentication is disabled")
-
         if Connection is None or Server is None:
             raise AuthUnavailable("ldap3 is not installed in auth-service")
 
@@ -626,19 +584,20 @@ class ADLDAPProvider(AuthProvider):
         raise NotImplementedError("Password change is handled by AD policies / self-service")
 
 
-def _tls_config():
-    """Certificate check of ldaps:// servers when LDAP_TLS_VERIFY is on (CA in LDAP_CA_FILE)."""
-    if Tls is None or not settings.LDAP_TLS_VERIFY:
+def _tls_config(cfg: ADConfig):
+    """Certificate check of ldaps:// servers, as set on the directory."""
+    if Tls is None or not cfg.tls_verify:
         return None
     import ssl
 
-    ca_file = (settings.LDAP_CA_FILE or "").strip() or None
-    if ca_file:
-        import os
-
-        if not os.path.isfile(ca_file):
-            raise ProviderMisconfigured(f"LDAP CA certificate file not found: {ca_file} (LDAP_CA_FILE)")
-    return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=ca_file)
+    try:
+        return Tls(
+            validate=ssl.CERT_REQUIRED,
+            ca_certs_data=(cfg.tls_ca_pem or "").strip() or None,
+            valid_names=[cfg.tls_server_name.strip()] if (cfg.tls_server_name or "").strip() else None,
+        )
+    except Exception as exc:
+        raise ProviderMisconfigured(f"Invalid LDAP CA certificate: {exc}") from exc
 
 
 def _resolve_bind_password(src: dict, *, target: str | None) -> str:

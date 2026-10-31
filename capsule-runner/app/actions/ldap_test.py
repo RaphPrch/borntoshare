@@ -48,7 +48,7 @@ def _connect_failure(error: Exception, use_ssl: bool) -> tuple[str, str]:
     if any(word in text for word in ("certificate", "ssl", "tls", "ca certificate file")):
         return (
             "LDAP_TLS_FAILED",
-            "The certificate of the domain controller was refused: check LDAP_CA_FILE and use the host name of the certificate.",
+            "The certificate of the domain controller was refused: check the certificate authority of the directory and use the host name of the certificate.",
         )
     if any(word in text for word in ("name or service not known", "nodename nor servname", "getaddrinfo", "no address", "invalid server address")):
         return "LDAP_DNS_FAILED", "The host name of the domain controller cannot be resolved (DNS)."
@@ -75,14 +75,12 @@ def test_ldap_bind(params: dict):
         return False, "Missing LDAP bind password", {"field": "password", "failure_code": "LDAP_MISSING_FIELD", "retryable": False}
 
     started = time.monotonic()
-    from app.core import settings  # lazy: settings require the broker configuration
 
     details: dict = {
         "host": host,
         "port": port,
         "use_ssl": use_ssl,
-        # The certificate is checked when LDAP_TLS_VERIFY is on (same policy as snapshots and AD groups)
-        "tls_verified": bool(use_ssl and settings.LDAP_TLS_VERIFY),
+        "tls_verified": bool(use_ssl and params.get("verify_tls")),
         "tls_ok": None,
         "bind_ok": None,
         "base_dn_ok": None,
@@ -105,7 +103,15 @@ def test_ldap_bind(params: dict):
     conn = None
     try:
         try:
-            conn = ldap_client.connect(host=host, port=port, use_ssl=use_ssl, verify_tls=False, timeout=timeout)
+            conn = ldap_client.connect(
+                host=host,
+                port=port,
+                use_ssl=use_ssl,
+                verify_tls=bool(params.get("verify_tls")),
+                timeout=timeout,
+                ca_pem=params.get("tls_ca_pem"),
+                server_name=params.get("tls_server_name"),
+            )
             conn.open()
         except Exception as exc:
             code, hint = _connect_failure(exc, use_ssl)

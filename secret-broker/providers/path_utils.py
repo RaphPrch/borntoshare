@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Optional
-
 from core.errors import SecretInvalidRefError
 
 SM_PREFIX = "sm://"
@@ -38,19 +35,3 @@ def build_sm_ref(name_or_ref: str) -> str:
     raw = str(name_or_ref or "").strip()
     rel = sm_ref_to_relative(raw) if raw.startswith(SM_PREFIX) else normalize_secret_relative_ref(raw)
     return f"{SM_PREFIX}{rel}"
-
-
-def normalize_secret_path(base_dir: Path, relative_ref: str) -> Path:
-    rel = normalize_secret_relative_ref(relative_ref)
-    candidate = (base_dir / rel).resolve()
-    base_resolved = base_dir.resolve()
-    try:
-        candidate.relative_to(base_resolved)
-    except ValueError as exc:
-        raise SecretInvalidRefError(message="Secret path escapes base directory", ref=relative_ref) from exc
-    return candidate
-
-
-def sm_ref_to_file_path(base_dir: Path, secret_ref: str) -> Path:
-    rel = sm_ref_to_relative(secret_ref)
-    return Path(f"{normalize_secret_path(base_dir, rel)}.enc")

@@ -21,7 +21,7 @@ if [ ! -f /var/lib/samba/private/sam.ldb ]; then
     --option="dns forwarder = 127.0.0.11" \
     --option="dns update command = /bin/true" >/dev/null
 
-  # LDAPS: our own CA, so that BornToShare can verify the certificate (LDAP_TLS_VERIFY=true)
+  # LDAPS: our own CA, so that BornToShare can verify the certificate
   mkdir -p "${TLS_DIR}"
   # Extensions required by strict X.509 checks (Python 3.13+ ssl, recent OpenSSL clients)
   openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=BornToShare AD lab CA" \

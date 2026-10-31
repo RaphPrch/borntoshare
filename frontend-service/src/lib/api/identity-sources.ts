@@ -39,6 +39,10 @@ export type IdentitySourcePayload = {
   type: 'ad';
   name: string;
   protocol?: 'ldap' | 'ldaps';
+  tls_verify?: boolean | null;
+  tls_ca_pem?: string | null;
+  tls_server_name?: string | null;
+  user_filter?: string | null;
   host?: string | null;
   port?: number | null;
   base_dn?: string | null;
@@ -75,6 +79,10 @@ type IdentitySourceApiWritePayload = {
   name: string;
   issuer_url?: string | null;
   protocol?: 'ldap' | 'ldaps';
+  tls_verify?: boolean | null;
+  tls_ca_pem?: string | null;
+  tls_server_name?: string | null;
+  user_filter?: string | null;
   host?: string | null;
   port?: number | null;
   base_dn?: string | null;
@@ -95,6 +103,10 @@ export type IdentitySourceListItem = {
   type?: string | null;
   name?: string | null;
   protocol?: 'ldap' | 'ldaps' | string | null;
+  tls_verify?: boolean | null;
+  tls_ca_pem?: string | null;
+  tls_server_name?: string | null;
+  user_filter?: string | null;
   host?: string | null;
   port?: number | null;
   base_dn?: string | null;
@@ -144,6 +156,10 @@ function toIdentitySourceCreateApiPayload(payload: IdentitySourcePayload): Ident
     name: payload.name,
     issuer_url: toNullableTrimmedString(payload.issuer_url),
     protocol: normalizeAdProtocol(payload.protocol),
+    tls_verify: payload.tls_verify ?? true,
+    tls_ca_pem: toNullableTrimmedString(payload.tls_ca_pem),
+    tls_server_name: toNullableTrimmedString(payload.tls_server_name),
+    user_filter: toNullableTrimmedString(payload.user_filter),
     host: toNullableTrimmedString(payload.host),
     port: normalizePort(payload.port),
     base_dn: toNullableTrimmedString(payload.base_dn),
@@ -164,6 +180,10 @@ function toIdentitySourceUpdateApiPayload(payload: Partial<IdentitySourcePayload
   if (payload.name !== undefined) data.name = payload.name;
   if (payload.issuer_url !== undefined) data.issuer_url = toNullableTrimmedString(payload.issuer_url);
   if (payload.protocol !== undefined) data.protocol = normalizeAdProtocol(payload.protocol);
+  if (payload.tls_verify !== undefined) data.tls_verify = payload.tls_verify;
+  if (payload.tls_ca_pem !== undefined) data.tls_ca_pem = toNullableTrimmedString(payload.tls_ca_pem);
+  if (payload.tls_server_name !== undefined) data.tls_server_name = toNullableTrimmedString(payload.tls_server_name);
+  if (payload.user_filter !== undefined) data.user_filter = toNullableTrimmedString(payload.user_filter);
   if (payload.host !== undefined) data.host = toNullableTrimmedString(payload.host);
   if (payload.port !== undefined) data.port = normalizePort(payload.port);
   if (payload.base_dn !== undefined) data.base_dn = toNullableTrimmedString(payload.base_dn);

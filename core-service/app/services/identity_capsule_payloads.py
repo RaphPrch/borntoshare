@@ -25,6 +25,15 @@ def _norm_port(port: Any, protocol: str) -> int:
     return 636 if protocol == "ldaps" else 389
 
 
+def source_tls_fields(source: dict[str, Any]) -> dict[str, Any]:
+    """How a worker checks the certificate of this directory."""
+    return {
+        "verify_tls": bool(source.get("tls_verify", True)),
+        "tls_ca_pem": source.get("tls_ca_pem") or None,
+        "tls_server_name": source.get("tls_server_name") or None,
+    }
+
+
 async def build_identity_source_capsule_context(identity_source_id: int, purpose: str = "snapshot") -> dict[str, Any]:
     """LDAP context of a capsule job; the account is the one of the capability (purpose), else the source's."""
     source = unwrap_data_dict(
@@ -59,7 +68,7 @@ async def build_identity_source_capsule_context(identity_source_id: int, purpose
         "protocol": protocol,
         "port": _norm_port(source.get("port"), protocol),
         "base_dn": str(source.get("base_dn") or "").strip(),
-        "verify_tls": False,
+        **source_tls_fields(source),
         "timeout": 5,
     }
 

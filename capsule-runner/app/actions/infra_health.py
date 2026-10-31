@@ -77,6 +77,7 @@ def check_ldap(target: dict, password: str | None, timeout: float) -> dict:
     host, port = _split_host_port(str(target.get("target") or ""))
     ok, message, details = test_ldap_bind({
         "host": host, "port": port, "use_ssl": bool(target.get("use_ssl", True)),
+        "verify_tls": bool(target.get("verify_tls")), "tls_ca_pem": target.get("tls_ca_pem"), "tls_server_name": target.get("tls_server_name"),
         "username": target.get("bind_dn"), "password": password, "base_dn": target.get("base_dn"), "timeout": timeout,
     })
     latency = int(details.get("duration_ms") or 0)

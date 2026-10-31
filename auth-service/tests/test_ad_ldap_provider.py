@@ -31,7 +31,6 @@ def test_authenticate_propagates_identity_source_id(monkeypatch) -> None:
 
     provider = module.ADLDAPProvider()
 
-    monkeypatch.setattr(module.settings, "AD_ENABLED", True)
     monkeypatch.setattr(module, "Connection", object())
     monkeypatch.setattr(module, "Server", object())
 
@@ -43,7 +42,9 @@ def test_authenticate_propagates_identity_source_id(monkeypatch) -> None:
             user_filter="(sAMAccountName={username})",
             bind_user="CN=svc,OU=Users,DC=corp,DC=local",
             bind_password="secret",
-            user_dn_template="",
+            tls_verify=False,
+            tls_ca_pem=None,
+            tls_server_name=None,
         )
 
     monkeypatch.setattr(module, "_load_active_config_for_domain", _fake_load)
@@ -69,7 +70,6 @@ def test_authenticate_blocking_uses_upn_fallback_and_rejects_disabled(monkeypatc
     from app.services.providers import ad_ldap as module
 
     provider = module.ADLDAPProvider()
-    monkeypatch.setattr(module.settings, "AD_ENABLED", True)
     monkeypatch.setattr(provider, "_build_server", lambda _cfg: object())
 
     search_calls: list[tuple[str, str]] = []
@@ -95,7 +95,9 @@ def test_authenticate_blocking_uses_upn_fallback_and_rejects_disabled(monkeypatc
         user_filter="(sAMAccountName={username})",
         bind_user="CN=svc,OU=Users,DC=corp,DC=local",
         bind_password="secret",
-        user_dn_template="",
+        tls_verify=False,
+        tls_ca_pem=None,
+        tls_server_name=None,
     )
 
     with pytest.raises(InvalidCredentials):
@@ -108,7 +110,6 @@ def test_authenticate_for_source_uses_resolved_source(monkeypatch) -> None:
     from app.services.providers import ad_ldap as module
 
     provider = module.ADLDAPProvider()
-    monkeypatch.setattr(module.settings, "AD_ENABLED", True)
     monkeypatch.setattr(module, "Connection", object())
     monkeypatch.setattr(module, "Server", object())
 
@@ -121,7 +122,9 @@ def test_authenticate_for_source_uses_resolved_source(monkeypatch) -> None:
             user_filter="(sAMAccountName={username})",
             bind_user="CORP\\Administrator",
             bind_password="secret",
-            user_dn_template="",
+            tls_verify=False,
+            tls_ca_pem=None,
+            tls_server_name=None,
         )
 
     monkeypatch.setattr(module, "_load_active_config_for_source", _fake_load)
@@ -146,8 +149,6 @@ def test_authenticate_for_source_uses_resolved_source(monkeypatch) -> None:
 def test_build_ad_config_accepts_ldap_when_identity_source_declares_it(monkeypatch) -> None:
     from app.services.providers import ad_ldap as module
 
-    monkeypatch.setattr(module.settings, "AD_USER_FILTER", "(sAMAccountName={username})", raising=False)
-    monkeypatch.setattr(module.settings, "AD_USER_DN_TEMPLATE", "", raising=False)
     monkeypatch.setattr(module, "_resolve_bind_password", lambda _src, target=None: "secret")
 
     cfg = module._build_ad_config(
@@ -225,23 +226,29 @@ def test_a_refused_user_bind_is_invalid_credentials(monkeypatch) -> None:
         module.ADLDAPProvider._bind_user(object(), "CN=Paul,DC=example,DC=test", "wrong")
 
 
-def test_tls_verification_requires_the_ca_file(monkeypatch, tmp_path) -> None:
+def _tls_cfg(module, **overrides):
+    values = {"source_id": 1, "url": "ldaps://dc", "base_dn": "DC=x", "user_filter": "(cn={username})", "bind_user": "u",
+              "bind_password": "p", "tls_verify": True, "tls_ca_pem": None, "tls_server_name": None}
+    return module.ADConfig(**{**values, **overrides})
+
+
+def test_tls_check_follows_the_settings_of_the_directory() -> None:
     import ssl
 
     from app.services.providers import ad_ldap as module
-    from app.services.providers.base import ProviderMisconfigured
 
-    monkeypatch.setattr(module.settings, "LDAP_TLS_VERIFY", False)
-    assert module._tls_config() is None
+    assert module._tls_config(_tls_cfg(module, tls_verify=False)) is None
 
-    monkeypatch.setattr(module.settings, "LDAP_TLS_VERIFY", True)
-    monkeypatch.setattr(module.settings, "LDAP_CA_FILE", str(tmp_path / "missing.pem"))
-    with pytest.raises(ProviderMisconfigured):
-        module._tls_config()
-
-    ca = tmp_path / "ad-ca.pem"
-    ca.write_text("-----BEGIN CERTIFICATE-----\n")
-    monkeypatch.setattr(module.settings, "LDAP_CA_FILE", str(ca))
-    tls = module._tls_config()
+    tls = module._tls_config(_tls_cfg(module, tls_server_name="dc01.example.test"))
     assert tls.validate == ssl.CERT_REQUIRED
-    assert tls.ca_certs_file == str(ca)
+    assert tls.valid_names == ["dc01.example.test"]
+
+
+def test_build_ad_config_reads_the_user_filter_of_the_directory(monkeypatch) -> None:
+    from app.services.providers import ad_ldap as module
+
+    monkeypatch.setattr(module, "_resolve_bind_password", lambda _src, target=None: "secret")
+    src = {"id": 2, "protocol": "ldap", "host": "dc", "port": 389, "base_dn": "DC=x", "bind_dn": "u", "bind_password_ref": "sm://x", "auth_enabled": True}
+
+    assert module._build_ad_config(src, target=None).user_filter == "(sAMAccountName={username})"
+    assert module._build_ad_config({**src, "user_filter": "(mail={username})"}, target=None).user_filter == "(mail={username})"

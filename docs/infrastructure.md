@@ -21,7 +21,7 @@ Il tourne selon la fréquence de l'onglet Planification (5 min par défaut), en 
 | un worker (tâche `INFRA_HEALTH`) | services de la plateforme, port de la base, contrôleurs de domaine des sources d'identité, serveurs de fichiers (port 445), Keycloak, composants ajoutés à la main |
 
 Les sources d'identité AD sont contrôlées comme un annuaire, pas seulement par leur port : connexion LDAPS
-(certificat vérifié si `LDAP_TLS_VERIFY=true`), bind avec le compte qui lit l'annuaire (compte « snapshot »,
+(certificat vérifié selon le réglage de l'annuaire), bind avec le compte qui lit l'annuaire (compte « snapshot »,
 sinon celui de la source) et lecture du DN de base. Un compte désactivé, expiré ou refusé, un certificat
 invalide ou un DNS faux passent la source « en panne » avec la cause. Un mot de passe changé dans l'AD
 reste accepté une heure par le contrôleur de domaine (comportement d'Active Directory).
@@ -45,13 +45,15 @@ Le premier data sync a lieu un intervalle après l'installation, pas au premier 
 
 ## Secrets et sauvegarde
 
-Les mots de passe des annuaires et des serveurs de fichiers sont chiffrés sur disque par le secret broker, dans
-`secret-broker/secrets` (monté sur `/data/secrets`, ignoré par git). La base ne garde que leur référence `sm://…`.
-Ils survivent donc au redémarrage et à la recréation des conteneurs.
+Les mots de passe des annuaires et des serveurs de fichiers sont chiffrés (AES-256-GCM) dans la table `secret_items` de la base.
+Seul le secret broker les déchiffre : `B2S_SECRET_MASTER_KEY` reste dans `.env` et n'est jamais en base. Un dump ou un accès SQL
+seul ne donne donc pas les mots de passe.
 
-Une sauvegarde complète comprend **trois éléments** : la base, le dossier `secret-broker/secrets` et `B2S_SECRET_MASTER_KEY`
-(`.env`), à conserver séparément. Sans le dossier ou sans la clé, les références restent en base mais les mots de passe sont perdus :
-les annuaires passent en panne (« mot de passe illisible ») jusqu'à leur nouvelle saisie.
+Une sauvegarde complète comprend **deux éléments** : la base et `B2S_SECRET_MASTER_KEY`, à conserver séparément. Sans la clé, les
+références restent en base mais les annuaires passent en panne (« mot de passe illisible ») jusqu'à leur nouvelle saisie.
+
+Le secret broker lit la connexion à la base dans les variables `DB_*` de `.env`. Après un changement de base dans Réglages avancés ›
+Infrastructure, il faut aussi les mettre à jour et le redémarrer.
 
 ## Base de données
 

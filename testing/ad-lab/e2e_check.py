@@ -323,7 +323,7 @@ def main() -> int:
     section("1. Connection")
     probe = wait_probe(api, {
         "kind": "identity-source", "protocol": "ldaps", "scope": "read",
-        "target": {"host": LAB, "port": 636, "base_dn": BASE_DN}, "options": {"timeout_sec": 10, "verify_tls": False},
+        "target": {"host": LAB, "port": 636, "base_dn": BASE_DN}, "options": {"timeout_sec": 10, "verify_tls": bool(internal.get("tls_verify")), "tls_ca_pem": internal.get("tls_ca_pem") or None, "tls_server_name": internal.get("tls_server_name") or None},
         "context": {"identity_source_id": source_id, "ui_origin": "admin"},
         "auth": {"mode": "simple", "username": internal.get("bind_dn"), "secret_ref": internal.get("bind_password_ref")},
     })
