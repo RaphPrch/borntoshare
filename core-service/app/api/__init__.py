@@ -25,6 +25,7 @@ from app.api.health_events import router as health_events_router
 # Identity sources (AD / OIDC connectors)
 from app.api.identity_sources import router as identity_sources_router
 from app.api.internal_identity_sources import router as internal_identity_sources_router
+from app.api.internal_secrets import router as internal_secrets_router
 from app.api.internal_identity_roles import router as internal_identity_roles_router
 from app.api.internal_identities import router as internal_identities_router
 from app.api.provisioning_internal import router as provisioning_internal_router
@@ -59,6 +60,7 @@ router.include_router(health_events_router)
 # Identity sources
 router.include_router(identity_sources_router)
 router.include_router(internal_identity_sources_router)
+router.include_router(internal_secrets_router)
 router.include_router(internal_identity_roles_router)
 router.include_router(internal_identities_router)
 router.include_router(provisioning_internal_router)

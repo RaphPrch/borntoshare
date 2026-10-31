@@ -11,7 +11,6 @@ def _env(name: str, default: str | None = None) -> str | None:
 # ==========================================================
 # 🔐 Secret Broker (V1)
 # ==========================================================
-SECRET_BROKER_URL: str = (_env("B2S_SECRET_BROKER_URL", "http://secret-broker:8010") or "").rstrip("/")
 INTERNAL_TOKEN: str | None = (_env("INTERNAL_TOKEN") or None)
 
 
@@ -29,7 +28,7 @@ if RUNNER_MAX_SCOPE not in {"read", "write", "admin"}:
 
 
 # ==========================================================
-# 🗄️ core-service + broker (Dramatiq)
+# 🗄️ core-service + queue (Dramatiq)
 # ==========================================================
 CORE_URL: str = (_env("CORE_URL", "http://core-service:8000") or "").rstrip("/")
 CAPSULE_BROKER_URL: str = (_env("CAPSULE_BROKER_URL") or "").strip()

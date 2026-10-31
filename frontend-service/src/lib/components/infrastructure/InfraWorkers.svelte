@@ -86,7 +86,7 @@
     form.password = '';
   }
 
-  /** Stores the typed password in the secret broker (one secret per worker) and returns its reference */
+  /** Stores the typed password encrypted (one secret per worker) and returns its reference */
   async function passwordRef(): Promise<string | null> {
     if (!form.password) return null;
     const resolved = await resolveCredentials(
@@ -329,7 +329,7 @@
         </button>
       </div>
       {#if showErrors && needsPassword && !form.password && !editing}<FieldError>{t('Required')}</FieldError>{/if}
-      <small>{t('Stored in the secret broker, never shown again.')}</small>
+      <small>{t('Stored encrypted, never shown again.')}</small>
     </label>
     <div class="toggles f--full">
       <label class="toggle">

@@ -26,25 +26,25 @@ def _internal_headers() -> Dict[str, str]:
 
 
 def resolve_secret_refs(secret_refs: Iterable[str]) -> Dict[str, str]:
-    """Resolve secret references to values via secret-broker (v1)."""
+    """Resolve secret references to values through core-service."""
     refs = [r for r in (secret_refs or []) if r]
     if not refs:
         return {}
 
     headers = _internal_headers()
     if not headers:
-        raise RuntimeError("Missing internal token for secret-broker calls")
+        raise RuntimeError("Missing internal token to read secrets from core-service")
 
     out: Dict[str, str] = {}
     with _client() as client:
         for ref in refs:
-            resp = client.post(f"{settings.SECRET_BROKER_URL}/resolve", json={"ref": ref}, headers=headers)
+            resp = client.post(f"{settings.CORE_URL}/api/internal/secrets/resolve", json={"ref": ref}, headers=headers)
             if resp.status_code != 200:
                 code = "SECRET_PROVIDER_FAILURE"
-                message = f"Secret broker error for {ref}"
+                message = f"Secret error for {ref}"
                 try:
                     payload: Dict[str, Any] = resp.json() if resp.content else {}
-                    error = payload.get("error") if isinstance(payload, dict) else None
+                    error = (payload.get("error") or payload.get("detail")) if isinstance(payload, dict) else None
                     if isinstance(error, dict):
                         code = str(error.get("code") or code)
                         message = str(error.get("message") or message)
@@ -57,7 +57,7 @@ def resolve_secret_refs(secret_refs: Iterable[str]) -> Dict[str, str]:
             if val is None:
                 raise SecretResolveError(
                     code="SECRET_PROVIDER_FAILURE",
-                    message=f"Secret broker invalid response for {ref}",
+                    message=f"Invalid secret response for {ref}",
                     ref=ref,
                     http_status=500,
                 )

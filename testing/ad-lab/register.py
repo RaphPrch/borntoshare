@@ -7,7 +7,7 @@ Creates, or finds when they already exist:
   - identity source « AD lab » (LDAPS adlab.example.test): svc-b2s-read, provisioning account svc-b2s-prov
   - file server « AD lab file server » (SMB adlab.example.test, svc-b2s-files)
   - storage roots corp\\finance, corp\\hr, corp\\legal and projects
-Passwords go to the secret broker; this script never prints them.
+Passwords are stored encrypted by the application; this script never prints them.
 """
 from __future__ import annotations
 

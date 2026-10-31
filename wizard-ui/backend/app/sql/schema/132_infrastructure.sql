@@ -53,7 +53,6 @@ INSERT IGNORE INTO infra_services (component_key, label, category, check_kind, t
   ('web', 'Web interface', 'web', 'http', 'http://frontend-service:3000/login', 1),
   ('auth', 'Authentication service', 'service', 'http', 'http://auth-service:8000/health', 1),
   ('core', 'Core service', 'service', 'http', 'http://core-service:8000/health', 1),
-  ('secret_broker', 'Secret broker', 'security', 'http', 'http://secret-broker:8010/health', 1),
   ('redis', 'Job queue (Redis)', 'queue', 'tcp', 'redis:6379', 1);
 
 -- Last known state of every component (one row each), written by the health check

@@ -32,7 +32,8 @@ from app.core.runtime_config import (
     runtime_dir_writable,
     write_database_config,
 )
-from app.services.secret_broker_client import SecretUnavailable, resolve_worker_password
+from app.core.db import SessionLocal
+from app.services.secret_store import SecretError, resolve as resolve_secret
 
 # Tables a BornToShare database must have before core-service is pointed at it
 REQUIRED_TABLES = ("identity_sources", "identities", "roles", "storage_endpoints", "storage_roots", "access_requests", "infra_schedules")
@@ -242,8 +243,9 @@ async def check_agent(row: dict[str, Any], *, password: str | None = None) -> di
     """Call the agent of a worker: healthy (agent + Dramatiq + queue OK), degraded, or down with the reason."""
     if password is None:
         try:
-            password = await resolve_worker_password(str(row.get("password_ref") or ""))
-        except SecretUnavailable as exc:
+            with SessionLocal() as db:
+                password = resolve_secret(db, str(row.get("password_ref") or ""))
+        except SecretError as exc:
             return {"status": "unknown", "message": str(exc), "latency_ms": None, "details": {}}
     url = f"{agent_url(row)}/agent/v1/info"
     # Certificate of the agent: system authorities, plus the private CA of B2S_AGENT_CA_FILE when set

@@ -46,14 +46,12 @@ Le premier data sync a lieu un intervalle après l'installation, pas au premier 
 ## Secrets et sauvegarde
 
 Les mots de passe des annuaires et des serveurs de fichiers sont chiffrés (AES-256-GCM) dans la table `secret_items` de la base.
-Seul le secret broker les déchiffre : `B2S_SECRET_MASTER_KEY` reste dans `.env` et n'est jamais en base. Un dump ou un accès SQL
-seul ne donne donc pas les mots de passe.
+core-service les chiffre et les déchiffre ; auth-service et les workers les lui demandent par une route interne, avec `INTERNAL_TOKEN`.
+`B2S_SECRET_MASTER_KEY` reste dans `.env` et n'est jamais en base : un dump ou un accès SQL seul ne donne donc pas les mots de passe.
+En revanche, une faille permettant d'exécuter du code dans core-service y donnerait accès, puisqu'il détient la clé et la base.
 
 Une sauvegarde complète comprend **deux éléments** : la base et `B2S_SECRET_MASTER_KEY`, à conserver séparément. Sans la clé, les
 références restent en base mais les annuaires passent en panne (« mot de passe illisible ») jusqu'à leur nouvelle saisie.
-
-Le secret broker lit la connexion à la base dans les variables `DB_*` de `.env`. Après un changement de base dans Réglages avancés ›
-Infrastructure, il faut aussi les mettre à jour et le redémarrer.
 
 ## Base de données
 
@@ -88,7 +86,7 @@ Port : 8443 en HTTPS ; **sans certificat, l'agent répond en HTTP sur le port 80
 la donner à core-service avec `B2S_AGENT_CA_FILE`, ou décocher « Vérifier le certificat » dans le formulaire.
 
 Dans l'interface : nom, adresse IP ou nom DNS, port, utilisateur et mot de passe de l'agent. Le worker n'est ajouté que si son agent
-répond avec ces identifiants. Le mot de passe est rangé dans le secret broker ; core-service le lit uniquement pour interroger l'agent.
+répond avec ces identifiants. Le mot de passe est chiffré en base ; core-service le lit pour interroger l'agent.
 
 | Message | Cause |
 |---|---|

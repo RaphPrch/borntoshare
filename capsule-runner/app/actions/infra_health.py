@@ -91,7 +91,7 @@ def _ldap_passwords(targets: list[dict]) -> dict[str, str]:
     refs = sorted({str(t.get("secret_ref")) for t in targets if str(t.get("kind") or "").lower() == "ldap" and t.get("secret_ref")})
     if not refs:
         return {}
-    from app.services.secret_broker_client import resolve_secret_refs
+    from app.services.secret_client import resolve_secret_refs
 
     # One by one: a wrong reference of one source must not hide the password of the others
     passwords: dict[str, str] = {}

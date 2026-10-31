@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.internal_auth import require_internal_token
 from app.core.logging import get_logger, log_event
-from app.services.secret_broker_client import SecretStoreUnavailable, store_secret
+from app.services.secret_client import SecretStoreUnavailable, store_secret
 
 logger = get_logger(__name__)
 

@@ -155,7 +155,7 @@
     form.role_mapping = form.role_mapping.filter((_, i) => i !== index);
   }
 
-  /** The client secret goes to the secret broker; only its reference is saved */
+  /** The client secret is stored encrypted; only its reference is saved */
   async function secretRef(): Promise<string | null> {
     if (publicClient || !secret) return null;
     const resolved = await resolveCredentials(

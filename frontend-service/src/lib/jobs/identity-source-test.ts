@@ -27,7 +27,7 @@ export type IdentitySourceTestResult = {
 
 /**
  * Probe the LDAP connection described by `payload` (wizard or edit form).
- * A plain password is first stored in the secret broker, the probe only receives a secret_ref.
+ * A plain password is first stored encrypted, the probe only receives a secret_ref.
  */
 export async function testIdentitySourceConnection(
   fetchFn: FetchLike,

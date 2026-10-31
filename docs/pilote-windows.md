@@ -40,7 +40,7 @@ la création est refusée avec un message clair et tout le reste fonctionne sur 
 
 **Certificat** : l'autorité qui signe le certificat LDAPS, au format PEM. Elle se colle dans le formulaire de l'annuaire.
 
-Les mots de passe sont saisis dans l'interface, qui les range dans le secret broker. Ne pas les transmettre autrement.
+Les mots de passe sont saisis dans l'interface, qui les chiffre en base. Ne pas les transmettre autrement.
 
 ## 1. Connexion
 

@@ -60,7 +60,7 @@ Chaque source d'identité AD active seulement les capacités dont elle a besoin
 Chaque capacité peut avoir son **compte dédié** (DN de liaison et mot de passe). Sans compte dédié, elle utilise le
 compte principal de la source. On peut ainsi donner un compte en lecture seule à l'inventaire et à la connexion,
 et réserver le compte délégué à la gestion des groupes.
-Les mots de passe sont rangés dans le secret broker, un secret par compte. L'interface ne les relit jamais.
+Les mots de passe sont chiffrés en base, un secret par compte. L'interface ne les relit jamais.
 
 Si « Gérer les groupes AD » est désactivée, l'approbation s'arrête sur `AD_PROVISIONING_DISABLED`.
 

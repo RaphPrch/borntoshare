@@ -20,7 +20,7 @@ from app.services.internal_clients import (
     core_resolve_sso_identity,
 )
 from app.services.providers.base import AuthUnavailable
-from app.services.secret_broker_client import resolve_secret
+from app.services.secret_client import resolve_secret
 
 router = APIRouter(prefix="/auth/sso", tags=["sso"])
 logger = get_logger(__name__)

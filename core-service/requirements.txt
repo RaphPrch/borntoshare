@@ -5,6 +5,7 @@ uvicorn[standard]==0.54.0
 pydantic==2.14.1
 sqlalchemy==2.1.5
 pymysql==1.2.3
+cryptography==50.0.2
 bcrypt==5.0.0
 dramatiq==2.2.1
 redis==8.1.0

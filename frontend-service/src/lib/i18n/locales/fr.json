@@ -1049,7 +1049,6 @@
   "Storage roots were created, but discovery sync must be refreshed.": "Les dossiers ont été créés, mais la synchronisation de la découverte doit être actualisée.",
   "Storage roots will be created immediately. Governed groups and effective permissions are finalized on first approved access request.": "Les dossiers seront créés immédiatement. Les groupes gouvernés et les permissions effectives sont finalisés à la première demande d'accès approuvée.",
   "Stored secret unchanged": "Secret enregistré inchangé",
-  "Stored securely in Secret Broker.": "Stocké de façon sécurisée dans le Secret Broker.",
   "Submit request": "Soumettre la demande",
   "Submitted": "Soumise",
   "Submitted request filters": "Filtres des demandes soumises",
@@ -2282,7 +2281,6 @@
   "Some components answer slowly or partially.": "Certains composants répondent lentement ou partiellement.",
   "State not known yet": "État encore inconnu",
   "State of the platform, database, workers, health check and data sync.": "État de la plateforme, base de données, workers, health check et data sync.",
-  "Stored in the secret broker, never shown again.": "Rangé dans le secret broker, jamais réaffiché.",
   "Test the agent": "Tester l'agent",
   "Test the connection": "Tester la connexion",
   "Tested before saving, applied at the next start of core-service.": "Testée avant l'enregistrement, appliquée au prochain démarrage de core-service.",
@@ -2973,5 +2971,7 @@
   "Used at sign-in. Leave empty for the default filter.": "Utilisé à la connexion. À laisser vide pour le filtre par défaut.",
   "Encrypted, but the certificate is not checked: the check is off for this directory.": "Chiffré, mais le certificat n'est pas vérifié : la vérification est désactivée pour cet annuaire.",
   "Check the certificate authority of the directory and the host name of the identity source.": "Vérifiez l'autorité de certification AD fournie à capsule-runner et le nom d'hôte de l'annuaire.",
-  "The certificate of the domain controller was refused: check the certificate authority of the directory and use the host name of the certificate.": "Le certificat du contrôleur de domaine a été refusé : vérifiez l'autorité de certification de l'annuaire et utilisez le nom d'hôte du certificat."
+  "The certificate of the domain controller was refused: check the certificate authority of the directory and use the host name of the certificate.": "Le certificat du contrôleur de domaine a été refusé : vérifiez l'autorité de certification de l'annuaire et utilisez le nom d'hôte du certificat.",
+  "Stored encrypted in the database.": "Chiffré en base de données.",
+  "Stored encrypted, never shown again.": "Chiffré en base, jamais réaffiché."
 }

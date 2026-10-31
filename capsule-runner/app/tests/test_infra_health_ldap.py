@@ -63,14 +63,14 @@ def test_job_contract_keeps_the_ldap_fields() -> None:
 
 
 def test_one_unreadable_secret_does_not_hide_the_others(monkeypatch) -> None:
-    from app.services import secret_broker_client
+    from app.services import secret_client
 
     def resolve(refs):
         if refs == ["sm://bad"]:
             raise RuntimeError("Secret prefix not allowed")
         return {ref: "pw" for ref in refs}
 
-    monkeypatch.setattr(secret_broker_client, "resolve_secret_refs", resolve)
+    monkeypatch.setattr(secret_client, "resolve_secret_refs", resolve)
 
     passwords = infra_health._ldap_passwords([_target(secret_ref="sm://bad"), _target()])
 

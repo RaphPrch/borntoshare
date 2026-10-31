@@ -2,7 +2,7 @@
 
 ## Project: BornToShare
 
-BornToShare is a data governance application with a SvelteKit frontend (which also acts as the API gateway), FastAPI services (auth, core, secret-broker, capsule-runner, wizard), MariaDB, Keycloak/AD/local authentication, and capsule-based execution.
+BornToShare is a data governance application with a SvelteKit frontend (which also acts as the API gateway), FastAPI services (auth, core, capsule-runner, wizard), MariaDB, Keycloak/AD/local authentication, and capsule-based execution.
 
 ## Working rules
 
@@ -92,7 +92,7 @@ Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
 - Directory snapshots: only the active one and the previous archived one keep their user/group/membership rows (`DirectorySnapshotsRepo.purge_archived_details`).
 
 Containers:
-- One `Containerfile` and one `.containerignore` per service. Python services (capsule-runner included) share the same template: `python:3.14-slim-trixie`, no venv, code owned by root, non-root user `app` with one UID per service (auth 10001, core 10002, capsule 10003, secret-broker 10004, wizard 10005, frontend 10006). The frontend uses `node:26-alpine`.
+- One `Containerfile` and one `.containerignore` per service. Python services (capsule-runner included) share the same template: `python:3.14-slim-trixie`, no venv, code owned by root, non-root user `app` with one UID per service (auth 10001, core 10002, capsule 10003, wizard 10005, frontend 10006). The frontend uses `node:26-alpine`.
 - Dependencies are pinned (`==` in `requirements.txt`, lockfile for npm); a library shared by several services has the same version everywhere.
 - Every HTTP service has a compose healthcheck (`/health`, frontend `/login`) and services start once their dependencies are healthy.
 - One root `podman-compose.yml` (all services, shared hardening via `x-hardening`) and one root `.env` (model: `.env.example`). Each service lists only the variables it reads in `environment:` — no `env_file`, so secrets are not spread to every container. Topology URLs are code defaults in the Python services; the frontend gets `B2S_AUTH_URL` / `B2S_CORE_URL` as fixed values in the compose file.

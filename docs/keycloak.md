@@ -18,7 +18,7 @@ Administration › Paramètres avancés › Infrastructure › **Keycloak**. Cha
 |---|---|
 | URL du serveur | `https://sso.example.com` (sans `/realms/…`) |
 | Realm | `example` |
-| Client ID / secret | `borntoshare` / secret du client (rangé dans le secret broker) |
+| Client ID / secret | `borntoshare` / secret du client (chiffré en base) |
 | Les rôles viennent de | rôles du realm (`realm_access.roles`), rôles du client, groupes (mapper « groups »), ou autre claim |
 | Correspondances | `b2s-admins` → Administrateur de la plateforme |
 | Quand rien ne correspond | refuser la connexion (recommandé), ou donner un rôle |

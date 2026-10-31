@@ -25,7 +25,7 @@ B2S_URL=https://<borntoshare> B2S_USER=<admin local> B2S_PASSWORD_FILE=<fichier 
 
 Il crée la zone « AD lab » (groupes dans `OU=B2S Groups`), la source d'identité « AD lab » (LDAPS), le serveur de
 fichiers « AD lab file server » et quatre storage roots (`corp\finance`, `corp\hr`, `corp\legal`, `projects`).
-Les mots de passe vont dans le secret broker. Si une autre source authentifie déjà `example.test`, la source du
+Les mots de passe sont chiffrés en base. Si une autre source authentifie déjà `example.test`, la source du
 labo est créée sans la connexion des utilisateurs (garde-fou « un domaine, une source de connexion »).
 
 `make ad-lab-down` arrête le DC (données gardées) ; `make ad-lab-reset` supprime aussi le domaine.

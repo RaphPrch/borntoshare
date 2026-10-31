@@ -561,7 +561,7 @@
               <i class={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
             </button>
           </div>
-          <small class="identity-field-help">{t('Stored securely in Secret Broker.')}</small>
+          <small class="identity-field-help">{t('Stored encrypted in the database.')}</small>
         </label>
       </div>
     </section>

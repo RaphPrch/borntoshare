@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional, Sequence
 
-from app.services.secret_broker_client import SecretResolveError, resolve_secret_refs
+from app.services.secret_client import SecretResolveError, resolve_secret_refs
 
 
 @dataclass

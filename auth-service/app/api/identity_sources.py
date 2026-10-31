@@ -12,7 +12,7 @@ from app.core.internal_auth import require_internal_token
 from app.core.internal_token import build_internal_headers
 from app.core.logging import get_logger, log_event
 from app.schemas.identity_sources import ADSecretUpsertPayload
-from app.services.secret_broker_client import store_secret, SecretStoreUnavailable
+from app.services.secret_client import store_secret, SecretStoreUnavailable
 
 settings = get_settings()
 logger = get_logger(__name__)

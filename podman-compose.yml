@@ -53,26 +53,6 @@ services:
       test: ["CMD", "redis-cli", "ping"]
     networks: [jobs]
 
-  secret-broker:
-    <<: *hardening
-    container_name: secret-broker
-    image: b2s-secret-broker:latest
-    build: ./secret-broker
-    environment:
-      <<: *common-env
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT:-3306}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      B2S_SECRET_MASTER_KEY: ${B2S_SECRET_MASTER_KEY:?B2S_SECRET_MASTER_KEY must be set}
-      B2S_SECRET_WRITE_TOKEN: ${B2S_SECRET_WRITE_TOKEN}
-      B2S_SECRET_ALLOW_WRITE: ${B2S_SECRET_ALLOW_WRITE:-true}
-    healthcheck:
-      <<: *healthcheck
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health', timeout=3)"]
-    networks: [app, data]
-
   auth-service:
     <<: *hardening
     container_name: auth-service
@@ -91,7 +71,6 @@ services:
       SESSION_IDLE_TIMEOUT: ${SESSION_IDLE_TIMEOUT}
       ENABLED_PROVIDERS: ${ENABLED_PROVIDERS}
       DEFAULT_AUTH_PROVIDER: ${DEFAULT_AUTH_PROVIDER}
-      B2S_SECRET_WRITE_TOKEN: ${B2S_SECRET_WRITE_TOKEN}
       # Private authority of the Keycloak servers' certificates (optional, SSO)
       B2S_OIDC_CA_FILE: ${B2S_OIDC_CA_FILE:-}
       # LDAPS certificate check at AD sign-in (same CA as capsule-runner; shared mount: SELinux label z, not Z)
@@ -101,9 +80,6 @@ services:
     healthcheck:
       <<: *healthcheck
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
-    depends_on:
-      secret-broker:
-        condition: service_healthy
     networks: [app]
 
   core-service:
@@ -113,6 +89,7 @@ services:
     build: ./core-service
     environment:
       <<: *common-env
+      B2S_SECRET_MASTER_KEY: ${B2S_SECRET_MASTER_KEY:?B2S_SECRET_MASTER_KEY must be set}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME}
@@ -139,8 +116,6 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
     depends_on:
       redis:
-        condition: service_healthy
-      secret-broker:
         condition: service_healthy
     networks: [app, data, jobs]
 

@@ -6,7 +6,7 @@ import struct
 import uuid
 import logging
 
-from app.services.secret_broker_client import resolve_secret
+from app.services.secret_client import resolve_secret
 
 from app.core.config import get_settings
 from app.core.logging import get_logger, log_event

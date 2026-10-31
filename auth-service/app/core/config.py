@@ -93,9 +93,6 @@ class Settings(BaseSettings):
     # =================================================
     # 🔐 Secret broker (V1)
     # =================================================
-    B2S_SECRET_BROKER_URL: str = "http://secret-broker:8010"
-    B2S_SECRET_BROKER_TIMEOUT_SECONDS: float = 5.0
-    B2S_SECRET_WRITE_TOKEN: Optional[str] = None
 
     # =================================================
     # ⚙️ Pydantic config
@@ -140,7 +137,6 @@ class Settings(BaseSettings):
     @field_validator(
         "CORE_TIMEOUT_SECONDS",
         "AD_CONNECT_TIMEOUT_SECONDS",
-        "B2S_SECRET_BROKER_TIMEOUT_SECONDS",
         "REDIS_TIMEOUT_SECONDS",
     )
     @classmethod
