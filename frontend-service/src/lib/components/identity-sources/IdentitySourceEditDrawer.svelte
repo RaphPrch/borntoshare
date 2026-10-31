@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TlsCertificateField from './TlsCertificateField.svelte';
   import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import FieldError from '$lib/components/ui/FieldError.svelte';
@@ -492,11 +493,10 @@
             {/if}
           </div>
           {#if form.tls_verify}
-            <label class="identity-edit-field">
-              <span>{t('Certificate authority (PEM)')}</span>
-              <textarea class="identity-edit-input" rows="4" bind:value={form.tls_ca_pem} placeholder="-----BEGIN CERTIFICATE-----"></textarea>
-              <small class="identity-edit-hint">{t('Public certificate of the authority that signed the domain controller. Leave empty if it is a public authority.')}</small>
-            </label>
+            <div class="identity-edit-field">
+              <label for="identity-edit-tls-ca">{t('Certificate authority (PEM)')}</label>
+              <TlsCertificateField id="identity-edit-tls-ca" inputClass="identity-edit-input" hintClass="identity-edit-hint" bind:pem={form.tls_ca_pem} bind:serverName={form.tls_server_name} host={form.host} port={form.port} />
+            </div>
             <label class="identity-edit-field">
               <span>{t('Name in the certificate')}</span>
               <input class="identity-edit-input" bind:value={form.tls_server_name} placeholder="dc01.example.test" />

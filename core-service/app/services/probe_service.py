@@ -23,6 +23,7 @@ _PROBE_JOB_TYPE_BY_TEMPLATE = {
     "test_smb_root_access": "SMB_PROBE",
     "test_ldap": "LDAP_TEST",
     "test_ldaps": "LDAP_TEST",
+    "fetch_tls_certificate": "LDAP_TEST",
     "search_ldap_principals": "IDENTITY_SEARCH",
     "search_ldaps_principals": "IDENTITY_SEARCH",
     "acl_apply_via_group": "ACL_APPLY",
@@ -494,6 +495,8 @@ def _pick_template(kind: str, protocol: str) -> tuple[str, str]:
         return "search_ldap_principals", "v1"
     if kind_norm == "identity-search" and protocol_norm == "ldaps":
         return "search_ldaps_principals", "v1"
+    if kind_norm == "identity-source" and protocol_norm == "tls-certificate":
+        return "fetch_tls_certificate", "v1"
     if kind_norm == "identity-source" and protocol_norm == "ldap":
         return "test_ldap", "v1"
     if kind_norm == "identity-source" and protocol_norm == "ldaps":

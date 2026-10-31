@@ -11,6 +11,7 @@
   import { runProbeWithPolling, buildIdentitySourceProbeRequest } from '$lib/jobs/probe-runner';
   import { buildStorageEndpointConnectProbeRequest } from '$lib/jobs/probe-builders';
   import { extractDomainFromUsername } from '$lib/jobs/storage-endpoint-probe';
+  import TlsCertificateField from '$lib/components/identity-sources/TlsCertificateField.svelte';
 
   export let data: { status: Record<string, any> };
 
@@ -446,7 +447,10 @@
             {#if isLdaps}
               <label class="sp-switch wide" for="sp-dir-verify"><input id="sp-dir-verify" type="checkbox" bind:checked={directory.verify} on:change={touchDirectory} /> {t('Check the server certificate')}</label>
               {#if directory.verify}
-                <label class="sp-f wide" for="sp-dir-ca">{t('Certificate authority (PEM)')}<textarea id="sp-dir-ca" rows="4" bind:value={directory.ca} placeholder="-----BEGIN CERTIFICATE-----"></textarea><small>{t('Public certificate of the authority that signed the domain controller. Leave empty if it is a public authority.')}</small></label>
+                <div class="sp-f wide">
+                  <label for="sp-dir-ca">{t('Certificate authority (PEM)')}</label>
+                  <TlsCertificateField id="sp-dir-ca" bind:pem={directory.ca} bind:serverName={directory.tlsName} host={directory.host} port={directory.port} onChange={touchDirectory} />
+                </div>
                 <label class="sp-f" for="sp-dir-tls">{t('Name in the certificate')}<input id="sp-dir-tls" class="mono" bind:value={directory.tlsName} placeholder="dc01.example.test" autocomplete="off" /><small>{t('Only if the host is an IP address.')}</small></label>
               {:else}
                 <p class="sp-note warn wide">{t('The connection is encrypted, but the identity of the server is not verified.')}</p>
@@ -598,10 +602,10 @@
   .sp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
   .sp-f { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; font-weight: 500; font-size: 13px; }
   .wide { grid-column: 1 / -1; }
-  .sp-f input, .sp-f textarea, .sp-pick select { width: 100%; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); color: inherit; font-size: 14px; font-weight: 400; }
-  .sp-f textarea { padding: 10px 12px; font-family: var(--b2s-font-mono, monospace); font-size: 12px; resize: vertical; }
+  .sp-f input, .sp-f :global(textarea), .sp-pick select { width: 100%; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); color: inherit; font-size: 14px; font-weight: 400; }
+  .sp-f :global(textarea) { padding: 10px 12px; font-family: var(--b2s-font-mono, monospace); font-size: 12px; resize: vertical; }
   .sp-f input.mono { font-family: var(--b2s-font-mono, monospace); font-size: 13px; }
-  .sp-f small { font-weight: 400; color: var(--b2s-color-text-muted); font-size: 12px; }
+  .sp-f :global(small) { font-weight: 400; color: var(--b2s-color-text-muted); font-size: 12px; }
   .sp-switch { display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; }
   .sp-switch input { width: 18px; height: 18px; accent-color: var(--b2s-color-success); }
   .sp-row { display: flex; flex-wrap: wrap; gap: 10px; }

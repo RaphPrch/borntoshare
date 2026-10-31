@@ -128,7 +128,7 @@ identité créée à la 1ʳᵉ connexion par un groupe qui a un rôle.
 
 La vérification se règle sur chaque annuaire (Annuaires › Modifier), elle est active par défaut :
 
-1. coller le certificat de l'autorité de certification AD (format PEM) dans « Autorité de certification » ;
+1. cliquer sur « Récupérer le certificat » et comparer l'empreinte affichée avec celle du serveur avant de valider, ou coller le certificat de l'autorité (format PEM). Si le serveur n'envoie que son propre certificat, c'est celui-ci qui est conservé : à son renouvellement, la connexion s'arrête jusqu'à ce que le nouveau soit validé. Coller l'autorité évite cette étape ;
 2. renseigner comme hôte le nom présent dans le certificat, ou, si l'hôte est une adresse IP, ce nom dans « Nom dans le certificat ».
 
 Le certificat doit contenir l'extension « Authority Key Identifier ». Les certificats émis par une autorité AD CS l'ont ;

@@ -16,6 +16,7 @@ from app.actions.kerberos import test_kerberos
 from app.actions.ldap_group_recursive import discover_group_users_recursive
 from app.actions.ldap_search import search_ldap_principals
 from app.actions.ldap_test import test_ldap_bind
+from app.actions.tls_certificate import fetch_tls_certificate
 from app.actions.smb import test_smb_ntlm, test_smb_root_access
 from app.middleware.resolve_secrets import CapsuleSecretResolutionError, resolve_secret_fields
 from app.schemas.actions import (
@@ -30,6 +31,7 @@ from app.schemas.actions import (
     LDAPRecursiveGroupUsersPayload,
     LDAPSearchPayload,
     LDAPTestPayload,
+    TLSCertificatePayload,
     SMBProbePayload,
     SMBRootProbePayload,
 )
@@ -84,6 +86,13 @@ ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
         schema=SMBRootProbePayload,
         runner=test_smb_root_access,
         secret_fields=("secret_ref",),
+        target_field="host",
+    ),
+    "fetch_tls_certificate": ActionSpec(
+        action="fetch_tls_certificate",
+        schema=TLSCertificatePayload,
+        runner=fetch_tls_certificate,
+        secret_fields=(),
         target_field="host",
     ),
     "test_ldap": ActionSpec(

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TlsCertificateField from './TlsCertificateField.svelte';
   import { formatDateTime } from '$lib/utils/format';
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -180,6 +181,10 @@
   let serviceAccounts = emptyServiceAccountDrafts();
 
   let protocolChoice: 'ldap' | 'ldaps' = payload.protocol ?? 'ldap';
+  let tlsPem = '';
+  let tlsName = '';
+  $: payload.tls_ca_pem = tlsPem;
+  $: payload.tls_server_name = tlsName;
 
 
   function selectType(value: IdentitySourcePayload['type']) {
@@ -903,12 +908,11 @@
               {#if payload.tls_verify}
                 <div class="field">
                   <label for="is-wizard-tls-ca">{t('Certificate authority (PEM)')}</label>
-                  <textarea id="is-wizard-tls-ca" rows="4" bind:value={payload.tls_ca_pem} placeholder="-----BEGIN CERTIFICATE-----"></textarea>
-                  <span class="hint">{t('Public certificate of the authority that signed the domain controller. Leave empty if it is a public authority.')}</span>
+                  <TlsCertificateField id="is-wizard-tls-ca" hintClass="hint" bind:pem={tlsPem} bind:serverName={tlsName} host={payload.host || adHostInput} port={payload.port} />
                 </div>
                 <div class="field">
                   <label for="is-wizard-tls-name">{t('Name in the certificate')}</label>
-                  <input id="is-wizard-tls-name" bind:value={payload.tls_server_name} placeholder="dc01.example.test" />
+                  <input id="is-wizard-tls-name" bind:value={tlsName} placeholder="dc01.example.test" />
                   <span class="hint">{t('Only if the host above is an IP address.')}</span>
                 </div>
               {/if}

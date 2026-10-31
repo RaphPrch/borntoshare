@@ -18,6 +18,7 @@ ACTION_MIN_SCOPE: dict[str, str] = {
     "test_smb_root_access": "read",
     "test_ldap": "read",
     "test_ldaps": "read",
+    "fetch_tls_certificate": "read",
     "search_ldap_principals": "read",
     "search_ldaps_principals": "read",
     "test_kerberos": "read",

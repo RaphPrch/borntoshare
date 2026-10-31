@@ -45,6 +45,14 @@ class SMBRootProbePayload(BaseModel):
         return self
 
 
+class TLSCertificatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    host: str = Field(min_length=1, max_length=255)
+    port: int = Field(default=636, ge=1, le=65535)
+    timeout: int = Field(default=10, ge=1, le=30)
+
+
 class LDAPTestPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

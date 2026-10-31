@@ -4,6 +4,7 @@ fastapi==0.156.5
 pydantic==2.14.1
 httpx==0.28.1
 ldap3==2.9.1
+cryptography==50.0.2
 dramatiq==2.2.1
 uvicorn==0.54.0
 redis==8.1.0

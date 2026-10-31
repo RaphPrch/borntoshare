@@ -48,7 +48,7 @@ def _connect_failure(error: Exception, use_ssl: bool) -> tuple[str, str]:
     if any(word in text for word in ("certificate", "ssl", "tls", "ca certificate file")):
         return (
             "LDAP_TLS_FAILED",
-            "The certificate of the domain controller was refused: check the certificate authority of the directory and use the host name of the certificate.",
+            "The certificate of the domain controller was refused: fetch the certificate again or check the authority of the directory, and use the host name of the certificate.",
         )
     if any(word in text for word in ("name or service not known", "nodename nor servname", "getaddrinfo", "no address", "invalid server address")):
         return "LDAP_DNS_FAILED", "The host name of the domain controller cannot be resolved (DNS)."
