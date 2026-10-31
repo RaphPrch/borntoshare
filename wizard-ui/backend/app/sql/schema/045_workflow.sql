@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS access_requests (
   context_snapshot_at TIMESTAMP NULL,
   requested_principal_json JSON NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_access_requests_requester FOREIGN KEY (requester_identity_id) REFERENCES identities(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS access_request_items (
@@ -23,6 +24,11 @@ CREATE TABLE IF NOT EXISTS access_request_items (
   target_type VARCHAR(32) NOT NULL,
   target_id BIGINT UNSIGNED NOT NULL,
   permission VARCHAR(32) NOT NULL,
+  original_permission VARCHAR(32) NULL,
+  permission_changed_by BIGINT UNSIGNED NULL,
+  permission_changed_by_display VARCHAR(255) NULL,
+  permission_changed_at TIMESTAMP NULL,
+  permission_change_reason VARCHAR(500) NULL,
   expires_at TIMESTAMP NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

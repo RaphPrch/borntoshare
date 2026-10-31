@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.secret_store import forget_unused
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session, load_only
@@ -410,6 +411,7 @@ def delete_identity_source(source_id: int, request: Request, db: Session = Depen
     src = _get_identity_source(db, source_id)
     if not src:
         raise HTTPException(status_code=404, detail="Identity source not found")
+    secret_refs = [src.bind_password_ref, *[(a or {}).get("bind_password_ref") for a in load_accounts(db, int(src.id)).values()]]
     purge_identity_source_related_records(db, int(src.id))
     dependency_counts = _identity_source_dependency_counts(db, int(src.id))
     if dependency_counts:
@@ -432,6 +434,9 @@ def delete_identity_source(source_id: int, request: Request, db: Session = Depen
         "is_active": bool(src.is_active),
     }
     db.delete(src)
+    db.flush()
+    forget_unused(db, secret_refs)
+    db.execute(text("DELETE FROM infra_component_status WHERE component = :c"), {"c": f"identity_source:{int(source_id)}"})
     db.commit()
 
     actor_id, actor_display = _actor_from_headers(request)

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS provisioning_jobs (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT uq_provisioning_jobs_correlation UNIQUE (correlation_id),
+  CONSTRAINT fk_provisioning_jobs_identity_source FOREIGN KEY (identity_source_id) REFERENCES identity_sources(id) ON DELETE SET NULL,
   CONSTRAINT fk_provisioning_jobs_srap_id FOREIGN KEY (storage_root_access_profile_id) REFERENCES storage_root_access_profiles(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

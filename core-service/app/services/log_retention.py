@@ -44,6 +44,27 @@ def _delete_older(session: Session, table: str, column: str, days: int) -> int:
             return total
 
 
+def _delete_finished_jobs(session: Session, days: int) -> int:
+    """A job still queued or running is never purged, however old."""
+    total = 0
+    while True:
+        deleted = session.execute(
+            text(
+                f"""
+                DELETE FROM provisioning_jobs
+                WHERE created_at < UTC_TIMESTAMP() - INTERVAL :days DAY
+                  AND UPPER(status) NOT IN ('QUEUED', 'RUNNING')
+                LIMIT {BATCH}
+                """
+            ),
+            {"days": int(days)},
+        ).rowcount or 0
+        session.commit()
+        total += int(deleted)
+        if deleted < BATCH:
+            return total
+
+
 def purge_logs(db: Session, *, days: int | None = None, trigger: str, actor_display: str | None = None) -> dict[str, Any]:
     from app.core.logging_db import LoggingSessionLocal
     from app.services.activity_log import log_activity
@@ -52,7 +73,17 @@ def purge_logs(db: Session, *, days: int | None = None, trigger: str, actor_disp
     with LoggingSessionLocal() as logging_db:
         audit = _delete_older(logging_db, "audit_event", "event_time", days)
     health = _delete_older(db, "governance_health_events", "checked_at", days)
-    result = {"retention_days": days, "audit_events": audit, "health_events": health}
+    events = _delete_older(db, "governance_events", "created_at", days)
+    checks = _delete_older(db, "infra_check_history", "checked_at", days)
+    jobs = _delete_finished_jobs(db, days)
+    result = {
+        "retention_days": days,
+        "audit_events": audit,
+        "health_events": health,
+        "governance_events": events,
+        "check_history": checks,
+        "jobs": jobs,
+    }
     log_activity(
         db,
         actor_type="user" if actor_display and trigger == "manual" else "system",

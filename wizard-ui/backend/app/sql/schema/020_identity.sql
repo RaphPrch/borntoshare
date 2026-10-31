@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS identity_sources (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   type VARCHAR(32) NOT NULL,
+  directory_flavor VARCHAR(16) NOT NULL DEFAULT 'ad', -- ad | openldap
   name VARCHAR(190) NOT NULL,
   domain_name VARCHAR(255) NULL,
   protocol VARCHAR(16) NULL,
@@ -9,6 +10,10 @@ CREATE TABLE IF NOT EXISTS identity_sources (
   base_dn VARCHAR(512) NULL,
   bind_dn VARCHAR(512) NULL,
   bind_password_ref VARCHAR(512) NULL,
+  tls_verify TINYINT(1) NOT NULL DEFAULT 1,
+  tls_ca_pem TEXT NULL,
+  tls_server_name VARCHAR(255) NULL,
+  user_filter VARCHAR(512) NULL,
   default_group_ou_dn VARCHAR(512) NULL,
   issuer_url VARCHAR(512) NULL,
   capabilities JSON NOT NULL DEFAULT (JSON_OBJECT()),
@@ -28,7 +33,8 @@ CREATE TABLE IF NOT EXISTS identity_sources (
   delta_supported TINYINT(1) NOT NULL DEFAULT 0,
   dirsync_supported TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_identity_sources_name (name)
 );
 
 CREATE TABLE IF NOT EXISTS identities (
@@ -50,6 +56,7 @@ CREATE TABLE IF NOT EXISTS identities (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT uq_identities_source_external_id UNIQUE (source_id, external_id),
+  CONSTRAINT uq_identities_source_username UNIQUE (source_id, username),
   KEY idx_identities_source_username (source_id, username),
   CONSTRAINT fk_identities_source_id FOREIGN KEY (source_id) REFERENCES identity_sources(id)
 );

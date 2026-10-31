@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.secret_store import forget_unused
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -1003,7 +1004,11 @@ def delete_endpoint(
         "zone_name": zone_ctx.get("name"),
     }
 
+    secret_ref = endpoint.bind_password_ref
     db.delete(endpoint)
+    db.flush()
+    forget_unused(db, [secret_ref])
+    db.execute(text("DELETE FROM infra_component_status WHERE component = :c"), {"c": f"storage_endpoint:{int(endpoint_id)}"})
     db.commit()
 
     actor_id, actor_display = _actor_from_headers(request)

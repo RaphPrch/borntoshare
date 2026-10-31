@@ -59,3 +59,20 @@ def test_zone_codes_are_checked() -> None:
     assert ZoneCreate(name="Paris", code=" ").code is None
     with pytest.raises(ValueError):
         ZoneCreate(name="Paris", code="a b$")
+
+
+def test_the_wizard_creates_the_integrity_rules() -> None:
+    from pathlib import Path
+
+    schema = Path("/wizard-ui/backend/app/sql/schema")
+    if not schema.is_dir():
+        pytest.skip("wizard sources not mounted")
+    core = {name: (schema / name).read_text(encoding="utf-8") for name in ("010_core.sql", "020_identity.sql", "045_workflow.sql", "119_ad_provisioning_wiring.sql")}
+    for name, rule in (
+        ("010_core.sql", "uq_zones_name"), ("010_core.sql", "uq_zones_code"),
+        ("020_identity.sql", "uq_identity_sources_name"), ("020_identity.sql", "uq_identities_source_username"),
+        ("020_identity.sql", "directory_flavor"), ("020_identity.sql", "tls_ca_pem"), ("020_identity.sql", "user_filter"),
+        ("045_workflow.sql", "fk_access_requests_requester"), ("045_workflow.sql", "original_permission"),
+        ("119_ad_provisioning_wiring.sql", "fk_provisioning_jobs_identity_source"),
+    ):
+        assert rule in core[name], rule

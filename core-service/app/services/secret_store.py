@@ -103,3 +103,22 @@ def resolve(db: Session, ref: str) -> str:
 
 def exists(db: Session, ref: str) -> bool:
     return db.execute(text("SELECT 1 FROM secret_items WHERE ref = :ref"), {"ref": build_ref(ref)}).first() is not None
+
+
+def forget_unused(db: Session, refs: list[str | None]) -> None:
+    """Passwords of a deleted object, unless another object still uses them. The caller commits."""
+    for ref in {str(ref).strip() for ref in refs if ref and str(ref).startswith(SM_PREFIX)}:
+        db.execute(
+            text(
+                """
+                DELETE FROM secret_items
+                WHERE ref = :ref
+                  AND NOT EXISTS (SELECT 1 FROM identity_sources WHERE bind_password_ref = :ref)
+                  AND NOT EXISTS (SELECT 1 FROM identity_source_service_accounts WHERE bind_password_ref = :ref)
+                  AND NOT EXISTS (SELECT 1 FROM storage_endpoints WHERE bind_password_ref = :ref)
+                  AND NOT EXISTS (SELECT 1 FROM sso_providers WHERE client_secret_ref = :ref)
+                """
+            ),
+            {"ref": ref},
+        )
+
