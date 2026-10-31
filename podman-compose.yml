@@ -27,7 +27,7 @@ x-healthcheck: &healthcheck
 x-common-env: &common-env
   TZ: Europe/Paris
   APP_ENV: ${APP_ENV:-dev}
-  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  LOG_LEVEL: INFO
   INTERNAL_TOKEN_MODE: ${INTERNAL_TOKEN_MODE:-static}
   INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN must be set}
 
@@ -61,19 +61,8 @@ services:
     environment:
       <<: *common-env
       PRINCIPAL_SIGNING_KEY: ${PRINCIPAL_SIGNING_KEY}
-      PRINCIPAL_TTL_SECONDS: ${PRINCIPAL_TTL_SECONDS}
-      PRINCIPAL_COOKIE_NAME: ${PRINCIPAL_COOKIE_NAME}
-      PRINCIPAL_COOKIE_SAMESITE: ${PRINCIPAL_COOKIE_SAMESITE}
-      PRINCIPAL_COOKIE_SECURE: ${PRINCIPAL_COOKIE_SECURE}
-      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
-      COOKIE_SAMESITE: ${COOKIE_SAMESITE}
-      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS}
-      SESSION_IDLE_TIMEOUT: ${SESSION_IDLE_TIMEOUT}
-      ENABLED_PROVIDERS: ${ENABLED_PROVIDERS}
-      DEFAULT_AUTH_PROVIDER: ${DEFAULT_AUTH_PROVIDER}
       # Private authority of the Keycloak servers' certificates (optional, SSO)
       B2S_OIDC_CA_FILE: ${B2S_OIDC_CA_FILE:-}
-      # LDAPS certificate check at AD sign-in (same CA as capsule-runner; shared mount: SELinux label z, not Z)
     volumes:
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     expose: ["8000"]
@@ -126,17 +115,13 @@ services:
     build: ./capsule-runner
     environment:
       <<: *common-env
-      LOG_LEVEL: ${CAPSULE_LOG_LEVEL:-INFO}
       CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
       RUNNER_MAX_SCOPE: ${RUNNER_MAX_SCOPE:-write}
       # Agent checked by core-service (Advanced Settings › Infrastructure › Workers)
-      AGENT_USERNAME: ${AGENT_USERNAME:-b2s-agent}
-      AGENT_PASSWORD: ${AGENT_PASSWORD:?AGENT_PASSWORD must be set}
       AGENT_TLS_CERT: ${AGENT_TLS_CERT:-}
       AGENT_TLS_KEY: ${AGENT_TLS_KEY:-}
       # Empty: 8443 in HTTPS, 8080 in HTTP
       AGENT_PORT: ${AGENT_PORT:-}
-      # LDAPS certificate check of the domain controllers (production: true + CA of the AD)
     volumes:
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     expose: ["8443", "8080"]
@@ -156,13 +141,7 @@ services:
       # Upstreams of the BFF (no default in the frontend code)
       B2S_AUTH_URL: http://auth-service:8000
       B2S_CORE_URL: http://core-service:8000/api
-      B2S_USE_HTTPS: ${B2S_USE_HTTPS:-false}
       PRINCIPAL_SIGNING_KEY: ${PRINCIPAL_SIGNING_KEY}
-      PRINCIPAL_TTL_SECONDS: ${PRINCIPAL_TTL_SECONDS}
-      PRINCIPAL_COOKIE_NAME: ${PRINCIPAL_COOKIE_NAME}
-      PRINCIPAL_COOKIE_SAMESITE: ${PRINCIPAL_COOKIE_SAMESITE}
-      PRINCIPAL_COOKIE_SECURE: ${PRINCIPAL_COOKIE_SECURE}
-      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
     ports:
       - "${FRONTEND_PUBLISHED_PORT:-3000}:3000"
     healthcheck:
@@ -185,7 +164,7 @@ services:
     environment:
       TZ: Europe/Paris
       APP_ENV: ${APP_ENV:-dev}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL: INFO
       WIZARD_MODE: ${WIZARD_MODE:-dev}
     ports:
       - "${WIZARD_PORT:-8080}:8080"

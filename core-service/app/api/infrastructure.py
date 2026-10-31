@@ -120,8 +120,6 @@ class WorkerPayload(BaseModel):
     port: int = Field(default=8443, ge=1, le=65535)
     use_tls: bool = True
     verify_tls: bool = True
-    username: str = Field(min_length=1, max_length=120)
-    password_ref: Optional[str] = Field(default=None, max_length=512)
     is_enabled: bool = True
 
     @model_validator(mode="after")
@@ -146,8 +144,6 @@ class WorkerUpdate(BaseModel):
     port: Optional[int] = Field(default=None, ge=1, le=65535)
     use_tls: Optional[bool] = None
     verify_tls: Optional[bool] = None
-    username: Optional[str] = Field(default=None, min_length=1, max_length=120)
-    password_ref: Optional[str] = Field(default=None, max_length=512)
     is_enabled: Optional[bool] = None
 
 
@@ -157,28 +153,16 @@ def list_workers(request: Request, db: Session = Depends(get_db)):
     return ui_list(infra.list_workers(db))
 
 
-class WorkerTestPayload(WorkerPayload):
-    # Editing without a new password: the stored one of this worker is used
-    worker_id: Optional[int] = None
-
-
 @router.post("/workers/test")
-async def test_worker(payload: WorkerTestPayload, request: Request, db: Session = Depends(get_db)):
+async def test_worker(payload: WorkerPayload, request: Request):
     _admin(request)
-    data = payload.model_dump()
-    if not data.get("password_ref") and payload.worker_id:
-        data["password_ref"] = (infra.get_worker_row(db, payload.worker_id) or {}).get("password_ref")
-    if not data.get("password_ref"):
-        raise HTTPException(status_code=422, detail={"error_code": "WORKER_PASSWORD_REQUIRED", "message": "The password of the agent is required"})
-    return ui_data(await infra.check_agent(data))
+    return ui_data(await infra.check_agent(payload.model_dump()))
 
 
 @router.post("/workers", status_code=status.HTTP_201_CREATED)
 async def create_worker(payload: WorkerPayload, request: Request, db: Session = Depends(get_db)):
     actor = _admin(request)
-    if not payload.password_ref:
-        raise HTTPException(status_code=422, detail={"error_code": "WORKER_PASSWORD_REQUIRED", "message": "The password of the agent is required"})
-    # A worker is added only once its agent answered with these credentials
+    # A worker is added only once its agent answered
     check = await infra.check_agent(payload.model_dump())
     if check["status"] not in {"healthy", "degraded"}:
         raise HTTPException(status_code=422, detail={"error_code": "WORKER_UNREACHABLE", "message": check.get("message") or "Agent unreachable"})
@@ -186,8 +170,8 @@ async def create_worker(payload: WorkerPayload, request: Request, db: Session = 
         result = db.execute(
             text(
                 """
-                INSERT INTO infra_workers (name, host, port, use_tls, verify_tls, username, password_ref, is_enabled)
-                VALUES (:name, :host, :port, :use_tls, :verify_tls, :username, :password_ref, :is_enabled)
+                INSERT INTO infra_workers (name, host, port, use_tls, verify_tls, is_enabled)
+                VALUES (:name, :host, :port, :use_tls, :verify_tls, :is_enabled)
                 """
             ),
             payload.model_dump(),
@@ -212,7 +196,7 @@ async def update_worker(worker_id: int, payload: WorkerUpdate, request: Request,
     if not updates:
         return ui_data(infra._worker_public(row))
     merged = {**row, **updates}
-    connection_changed = any(k in updates for k in ("host", "port", "use_tls", "verify_tls", "username", "password_ref"))
+    connection_changed = any(k in updates for k in ("host", "port", "use_tls", "verify_tls"))
     check = None
     if connection_changed and merged.get("is_enabled"):
         check = await infra.check_agent(merged)
@@ -227,7 +211,7 @@ async def update_worker(worker_id: int, payload: WorkerUpdate, request: Request,
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail={"error_code": "WORKER_EXISTS", "message": "A worker with this name or this host and port already exists"}) from exc
-    _audit(actor, "infrastructure.worker_updated", target_type="worker", target_id=worker_id, target_display=merged.get("name"), context={"fields": sorted(k for k in updates if k != "password_ref") + (["password"] if "password_ref" in updates else [])})
+    _audit(actor, "infrastructure.worker_updated", target_type="worker", target_id=worker_id, target_display=merged.get("name"), context={"fields": sorted(updates)})
     return ui_data(infra._worker_public(infra.get_worker_row(db, worker_id) or {}))
 
 

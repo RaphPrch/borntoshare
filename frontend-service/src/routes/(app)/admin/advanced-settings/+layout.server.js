@@ -39,6 +39,12 @@ export async function load(event) {
     governance: {
       minGuardians:
         (advancedResult.status === 'fulfilled' ? asOptionalNumber(advancedResult.value?.governance?.minGuardians) : undefined) ?? 2
+    },
+    sessions: {
+      ttlSeconds:
+        (advancedResult.status === 'fulfilled' ? asOptionalNumber(advancedResult.value?.sessions?.ttlSeconds) : undefined) ?? 28800,
+      idleSeconds:
+        (advancedResult.status === 'fulfilled' ? asOptionalNumber(advancedResult.value?.sessions?.idleSeconds) : undefined) ?? 1800
     }
   };
 

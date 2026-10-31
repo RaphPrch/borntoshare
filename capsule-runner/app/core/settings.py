@@ -42,8 +42,6 @@ if not CAPSULE_BROKER_URL:
 # ==========================================================
 # HTTPS API through which core-service checks this worker, with these credentials
 AGENT_ENABLED: bool = (_env("AGENT_ENABLED", "true") or "true").strip().lower() in {"1", "true", "yes", "on"}
-AGENT_USERNAME: str = (_env("AGENT_USERNAME") or "").strip()
-AGENT_PASSWORD: str = _env("AGENT_PASSWORD") or ""
 AGENT_TLS_CERT: str | None = (_env("AGENT_TLS_CERT") or "").strip() or None
 AGENT_TLS_KEY: str | None = (_env("AGENT_TLS_KEY") or "").strip() or None
 # HTTPS on 8443 with a certificate, HTTP on 8080 without (internal network only); AGENT_PORT overrides both

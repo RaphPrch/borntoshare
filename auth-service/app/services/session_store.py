@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Protocol
 
 from app.core.config import get_settings
+from app.services.session_limits import session_idle_seconds, session_ttl_seconds
 from app.core.logging import get_logger, log_event, mask_session_id
 from app.schemas.auth import UserInfo
 
@@ -43,11 +44,11 @@ class SessionRecord:
         now = _utcnow()
 
         # Hard TTL
-        if now - self.created_at > timedelta(seconds=settings.SESSION_TTL_SECONDS):
+        if now - self.created_at > timedelta(seconds=session_ttl_seconds()):
             return True
 
         # Idle timeout
-        if now - self.last_seen > timedelta(seconds=settings.SESSION_IDLE_TIMEOUT):
+        if now - self.last_seen > timedelta(seconds=session_idle_seconds()):
             return True
 
         return False
@@ -154,8 +155,6 @@ class RedisSessionStore:
             raise RuntimeError("redis package is not installed")
 
         self._key_prefix = str(settings.REDIS_KEY_PREFIX or "bts:auth").strip() or "bts:auth"
-        self._session_ttl = int(settings.SESSION_TTL_SECONDS)
-        self._idle_timeout = int(settings.SESSION_IDLE_TIMEOUT)
         self._client = redis.Redis(
             host=settings.REDIS_HOST,
             port=int(settings.REDIS_PORT),
@@ -230,8 +229,8 @@ class RedisSessionStore:
 
     def _effective_ttl(self, rec: SessionRecord) -> int:
         now = _utcnow()
-        hard_left = self._session_ttl - int((now - rec.created_at).total_seconds())
-        idle_left = self._idle_timeout - int((now - rec.last_seen).total_seconds())
+        hard_left = session_ttl_seconds() - int((now - rec.created_at).total_seconds())
+        idle_left = session_idle_seconds() - int((now - rec.last_seen).total_seconds())
         ttl = min(hard_left, idle_left)
         return max(1, ttl)
 
@@ -252,7 +251,7 @@ class RedisSessionStore:
         if identity_id:
             user_sessions_key = self._user_sessions_key(identity_id)
             self._client.sadd(user_sessions_key, sid)
-            self._client.expire(user_sessions_key, max(self._session_ttl, self._idle_timeout))
+            self._client.expire(user_sessions_key, max(session_ttl_seconds(), session_idle_seconds()))
 
         log_event(
             logger,

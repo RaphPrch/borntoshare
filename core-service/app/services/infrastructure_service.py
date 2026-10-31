@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import hashlib
+import hmac
 import os
 import ssl
 import time
@@ -32,8 +34,6 @@ from app.core.runtime_config import (
     runtime_dir_writable,
     write_database_config,
 )
-from app.core.db import SessionLocal
-from app.services.secret_store import SecretError, resolve as resolve_secret
 
 # Tables a BornToShare database must have before core-service is pointed at it
 REQUIRED_TABLES = ("identity_sources", "identities", "roles", "storage_endpoints", "storage_roots", "access_requests", "infra_schedules")
@@ -203,7 +203,7 @@ def reset_database() -> dict[str, Any]:
 # ============================================================
 
 WORKER_PUBLIC_FIELDS = (
-    "id", "name", "host", "port", "use_tls", "verify_tls", "username", "is_enabled", "status",
+    "id", "name", "host", "port", "use_tls", "verify_tls", "is_enabled", "status",
     "last_check_at", "last_seen_at", "last_message", "version", "hostname", "max_scope", "details_json",
 )
 
@@ -239,14 +239,13 @@ def get_worker_row(db: Session, worker_id: int) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
-async def check_agent(row: dict[str, Any], *, password: str | None = None) -> dict[str, Any]:
+def agent_token() -> str:
+    """Proof shown to the agent of a worker, derived from INTERNAL_TOKEN: a host that receives it learns nothing of that token."""
+    return hmac.new((os.getenv("INTERNAL_TOKEN") or "").encode(), b"b2s-agent", hashlib.sha256).hexdigest()
+
+
+async def check_agent(row: dict[str, Any]) -> dict[str, Any]:
     """Call the agent of a worker: healthy (agent + Dramatiq + queue OK), degraded, or down with the reason."""
-    if password is None:
-        try:
-            with SessionLocal() as db:
-                password = resolve_secret(db, str(row.get("password_ref") or ""))
-        except SecretError as exc:
-            return {"status": "unknown", "message": str(exc), "latency_ms": None, "details": {}}
     url = f"{agent_url(row)}/agent/v1/info"
     # Certificate of the agent: system authorities, plus the private CA of B2S_AGENT_CA_FILE when set
     ca_file = (os.getenv("B2S_AGENT_CA_FILE") or "").strip()
@@ -256,7 +255,7 @@ async def check_agent(row: dict[str, Any], *, password: str | None = None) -> di
     started = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=6.0, verify=verify) as client:
-            resp = await client.get(url, auth=(str(row.get("username") or ""), password))
+            resp = await client.get(url, headers={"X-Agent-Token": agent_token()})
     except httpx.ConnectError as exc:
         text_exc = str(exc).lower()
         if "certificate" in text_exc or "ssl" in text_exc:
@@ -271,9 +270,7 @@ async def check_agent(row: dict[str, Any], *, password: str | None = None) -> di
         return {"status": "down", "message": str(exc)[:300], "latency_ms": None, "details": {}}
     latency = int((time.monotonic() - started) * 1000)
     if resp.status_code == 401:
-        return {"status": "down", "message": "The agent refused the user name or the password", "latency_ms": latency, "details": {}}
-    if resp.status_code == 503:
-        return {"status": "down", "message": "The agent has no credentials configured (AGENT_USERNAME / AGENT_PASSWORD)", "latency_ms": latency, "details": {}}
+        return {"status": "down", "message": "The agent refused this server: INTERNAL_TOKEN differs on the worker", "latency_ms": latency, "details": {}}
     if resp.status_code != 200:
         return {"status": "down", "message": f"Agent answered HTTP {resp.status_code}", "latency_ms": latency, "details": {}}
     body = resp.json() if resp.content else {}

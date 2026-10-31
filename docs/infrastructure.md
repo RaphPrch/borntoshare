@@ -74,24 +74,22 @@ Un worker (capsule-runner) lit ses tâches dans la file Redis ; il expose en plu
 Sur le worker (`.env`) :
 
 ```
-AGENT_USERNAME=b2s-agent
-AGENT_PASSWORD=<mot de passe long>
+INTERNAL_TOKEN=<le même que core-service>
 AGENT_TLS_CERT=/etc/b2s/certs/agent.pem     # HTTPS (recommandé)
 AGENT_TLS_KEY=/etc/b2s/certs/agent.key
 ```
 
 Port : 8443 en HTTPS ; **sans certificat, l'agent répond en HTTP sur le port 8080** (décocher « HTTPS » dans le formulaire).
 `AGENT_PORT` change le port dans les deux cas. À ouvrir de core-service vers le worker uniquement ; le HTTP est réservé
-à un réseau interne (le mot de passe de l'agent y circule en clair). Certificat d'une autorité privée :
+à un réseau interne (l'échange avec l'agent n'y est pas chiffré). Certificat d'une autorité privée :
 la donner à core-service avec `B2S_AGENT_CA_FILE`, ou décocher « Vérifier le certificat » dans le formulaire.
 
-Dans l'interface : nom, adresse IP ou nom DNS, port, utilisateur et mot de passe de l'agent. Le worker n'est ajouté que si son agent
-répond avec ces identifiants. Le mot de passe est chiffré en base ; core-service le lit pour interroger l'agent.
+Dans l'interface : nom, adresse IP ou nom DNS, port de l'agent. Le worker n'est ajouté que si son agent
+répond. core-service se présente à l'agent avec une preuve dérivée de `INTERNAL_TOKEN`, sans compte à stocker.
 
 | Message | Cause |
 |---|---|
-| « L'agent a refusé le nom d'utilisateur ou le mot de passe » | identifiants différents de `AGENT_USERNAME` / `AGENT_PASSWORD` |
-| « L'agent n'a pas d'identifiants configurés » | `AGENT_USERNAME` / `AGENT_PASSWORD` absents sur le worker |
+| « L'agent a refusé ce serveur » | `INTERNAL_TOKEN` différent sur le worker |
 | « Certificat de l'agent refusé » | autorité inconnue : `B2S_AGENT_CA_FILE` ou décocher la vérification |
 | « L'agent a fermé la connexion » | HTTPS d'un côté, HTTP de l'autre : aligner la case TLS et `AGENT_TLS_CERT` |
 | « Pas de réponse » | hôte, port ou pare-feu |

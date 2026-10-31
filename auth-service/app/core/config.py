@@ -42,10 +42,7 @@ class Settings(BaseSettings):
     PRINCIPAL_TTL_SECONDS: int = 15 * 60
     PRINCIPAL_SIGNING_KEY: str = DEV_PRINCIPAL_SIGNING_KEY
     PRINCIPAL_COOKIE_SAMESITE: str = "lax"  # lax | strict | none
-    PRINCIPAL_COOKIE_SECURE: bool = False
 
-    SESSION_TTL_SECONDS: int = 8 * 60 * 60       # 8h hard TTL
-    SESSION_IDLE_TIMEOUT: int = 30 * 60          # 30 min inactivity
     LOGIN_THROTTLE_MAX_FAILURES: int = 5
     LOGIN_THROTTLE_MAX_FAILURES_PER_ADDRESS: int = 50
     LOGIN_THROTTLE_WINDOW_SECONDS: int = 900
@@ -65,8 +62,6 @@ class Settings(BaseSettings):
     # =================================================
     # 🔐 Providers & Feature flags
     # =================================================
-    ENABLED_PROVIDERS: List[str] = ["ad", "local"]
-    DEFAULT_AUTH_PROVIDER: str = "ad"
 
     # =================================================
     # 🧠 Local provider (core-service)
@@ -122,8 +117,7 @@ class Settings(BaseSettings):
             raise ValueError("Invalid SameSite value")
         return normalized
 
-    @field_validator("ENABLED_PROVIDERS", mode="before")
-    @classmethod
+
     def _normalize_enabled_providers(cls, value: object) -> list[str]:
         if not isinstance(value, list):
             return ["ad", "local"]
@@ -153,7 +147,7 @@ class Settings(BaseSettings):
             raise ValueError("SESSION_STORE_BACKEND must be one of: memory, redis")
         return normalized
 
-    @field_validator("SESSION_TTL_SECONDS", "SESSION_IDLE_TIMEOUT", "PRINCIPAL_TTL_SECONDS")
+    @field_validator("PRINCIPAL_TTL_SECONDS")
     @classmethod
     def _validate_positive_ttl(cls, value: int) -> int:
         if int(value) <= 0:
@@ -181,12 +175,5 @@ def get_settings() -> Settings:
         DEV_PRINCIPAL_SIGNING_KEY,
     }:
         raise RuntimeError("Misconfiguration: PRINCIPAL_SIGNING_KEY must be set when APP_ENV=prod")
-
-    # ---- Provider sanity
-    default_provider = (settings.DEFAULT_AUTH_PROVIDER or "").strip().lower()
-    if default_provider and default_provider not in settings.ENABLED_PROVIDERS:
-        raise RuntimeError(
-            "DEFAULT_AUTH_PROVIDER must be listed in ENABLED_PROVIDERS"
-        )
 
     return settings

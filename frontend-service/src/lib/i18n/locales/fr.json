@@ -2247,7 +2247,6 @@
   "No recent result": "Pas de résultat récent",
   "No worker registered": "Aucun worker enregistré",
   "On the worker (capsule-runner), set the agent credentials:": "Sur le worker (capsule-runner), définissez les identifiants de l'agent :",
-  "Open the port from core-service to the worker only, then add the worker here with the same user name and password.": "Ouvrez le port de core-service vers le worker uniquement, puis ajoutez le worker ici avec le même utilisateur et mot de passe.",
   "Other components": "Autres composants",
   "Overrides the server fields. The password is part of the string.": "Remplace les champs serveur. Le mot de passe fait partie de la chaîne.",
   "Partial": "Partiel",
@@ -2305,7 +2304,6 @@
   "Users, groups and memberships of every source with “Snapshot inventory”.": "Utilisateurs, groupes et appartenances de chaque annuaire avec « Inventaire de l'annuaire ».",
   "Verify certificate": "Vérifier le certificat",
   "Web": "Web",
-  "Without TLS the password travels unencrypted: internal network only.": "Sans TLS, le mot de passe circule en clair : réseau interne uniquement.",
   "Worker added: its agent answered.": "Worker ajouté : son agent a répondu.",
   "Worker check failed.": "Échec de la vérification du worker.",
   "Worker removed.": "Worker supprimé.",
@@ -2973,5 +2971,15 @@
   "Check the certificate authority of the directory and the host name of the identity source.": "Vérifiez l'autorité de certification AD fournie à capsule-runner et le nom d'hôte de l'annuaire.",
   "The certificate of the domain controller was refused: check the certificate authority of the directory and use the host name of the certificate.": "Le certificat du contrôleur de domaine a été refusé : vérifiez l'autorité de certification de l'annuaire et utilisez le nom d'hôte du certificat.",
   "Stored encrypted in the database.": "Chiffré en base de données.",
-  "Stored encrypted, never shown again.": "Chiffré en base, jamais réaffiché."
+  "Stored encrypted, never shown again.": "Chiffré en base, jamais réaffiché.",
+  "Session limits": "Limites de session",
+  "Apply within a minute, also to the sessions already open.": "S'appliquent en moins d'une minute, y compris aux sessions déjà ouvertes.",
+  "Maximum duration (hours)": "Durée maximale (heures)",
+  "Disconnect after inactivity (minutes)": "Déconnexion après inactivité (minutes)",
+  "From 1 to 720 hours; inactivity from 1 minute to the maximum duration.": "De 1 à 720 heures ; inactivité d'une minute à la durée maximale.",
+  "Session limits saved.": "Limites de session enregistrées.",
+  "Unable to save the session limits.": "Impossible d'enregistrer les limites de session.",
+  "On the worker (capsule-runner), set the same INTERNAL_TOKEN as core-service:": "Sur le worker (capsule-runner), renseigner le même INTERNAL_TOKEN que core-service :",
+  "Open the port from core-service to the worker only, then add the worker here.": "Ouvrez le port de core-service vers le worker uniquement, puis ajoutez le worker ici avec le même utilisateur et mot de passe., puis ajouter le worker ici.",
+  "Without TLS the exchange with the agent is not encrypted: internal network only.": "Sans TLS, l'échange avec l'agent n'est pas chiffré : réseau interne uniquement."
 }

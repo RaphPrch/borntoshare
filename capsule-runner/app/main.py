@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import hmac
 import logging
 import os
@@ -8,13 +9,31 @@ import socket
 import time
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import httpx
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 
 from app.core import settings
 from app.core.api_envelope import ok_data
 
-raw_level = os.getenv("LOG_LEVEL", "INFO").upper()
+
+
+def _configured_log_level() -> str:
+    """Level chosen in Advanced settings > Logging; LOG_LEVEL when core-service does not answer. Read at start."""
+    try:
+        resp = httpx.get(
+            f"{settings.CORE_URL}/api/admin/config/advanced",
+            headers={"X-Internal-Token": settings.INTERNAL_TOKEN or ""},
+            timeout=2.0,
+        )
+        level_name = (resp.json().get("data") or {}).get("logging", {}).get("level")
+        if resp.status_code == 200 and level_name:
+            return str(level_name)
+    except (httpx.HTTPError, ValueError, AttributeError):
+        pass
+    return os.getenv("LOG_LEVEL", "INFO")
+
+
+raw_level = _configured_log_level().upper()
 level = getattr(logging, raw_level, logging.INFO)
 
 logging.basicConfig(
@@ -41,27 +60,14 @@ app = FastAPI(
     openapi_url=None,
 )
 
-_basic = HTTPBasic(auto_error=False)
-
-
-def require_agent_credentials(credentials: HTTPBasicCredentials | None = Depends(_basic)) -> str:
-    """Basic authentication with AGENT_USERNAME / AGENT_PASSWORD (constant-time comparison)."""
-    if not settings.AGENT_USERNAME or not settings.AGENT_PASSWORD:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Agent credentials are not configured")
-    valid = credentials is not None and all(
-        (
-            hmac.compare_digest(credentials.username.encode(), settings.AGENT_USERNAME.encode()),
-            hmac.compare_digest(credentials.password.encode(), settings.AGENT_PASSWORD.encode()),
-        )
-    )
-    if not valid:
+def require_agent_token(x_agent_token: str = Header(default="")) -> None:
+    """Only core-service: it derives this proof from INTERNAL_TOKEN (constant-time comparison)."""
+    if not settings.INTERNAL_TOKEN:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="INTERNAL_TOKEN is not configured")
+    expected = hmac.new(settings.INTERNAL_TOKEN.encode(), b"b2s-agent", hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(x_agent_token.encode(), expected.encode()):
         logger.warning("AGENT_AUTH_FAILED")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid agent credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return credentials.username
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid agent token")
 
 
 def _dramatiq_processes() -> int:
@@ -98,7 +104,7 @@ def health():
 
 
 @app.get("/agent/v1/info")
-def agent_info(_user: str = Depends(require_agent_credentials)):
+def agent_info(_auth: None = Depends(require_agent_token)):
     """State of this worker, read by core-service: processes, job queue, TLS material."""
     processes = _dramatiq_processes()
     broker = _broker_state()

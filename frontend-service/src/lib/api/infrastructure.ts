@@ -28,7 +28,6 @@ export type InfraWorker = {
   port: number;
   use_tls: boolean;
   verify_tls: boolean;
-  username: string;
   is_enabled: boolean;
   status: HealthStatus;
   last_check_at: string | null;
@@ -55,8 +54,6 @@ export type WorkerInput = {
   port: number;
   use_tls: boolean;
   verify_tls: boolean;
-  username: string;
-  password_ref?: string | null;
   is_enabled?: boolean;
 };
 

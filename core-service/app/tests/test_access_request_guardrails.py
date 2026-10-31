@@ -147,3 +147,11 @@ def test_saving_an_invalid_minimum_is_refused(monkeypatch) -> None:
     with pytest.raises(HTTPException) as refused:
         advanced_settings.save_advanced_config({"governance": {"minGuardians": 0}}, _request(1, "platform_admin"), db=SimpleNamespace())
     assert refused.value.detail["code"] == "MIN_GUARDIANS_INVALID"
+
+
+def test_saving_invalid_session_limits_is_refused(monkeypatch) -> None:
+    monkeypatch.setattr(advanced_settings, "_read_payload", lambda db: {"logging": {"level": "INFO"}, "governance": {"minGuardians": 2}, "sessions": {"ttlSeconds": 3600, "idleSeconds": 600}})
+    monkeypatch.setattr(advanced_settings, "_write_payload", lambda db, payload: pytest.fail("must not save"))
+    with pytest.raises(HTTPException) as refused:
+        advanced_settings.save_advanced_config({"sessions": {"idleSeconds": 7200}}, _request(1, "platform_admin"), db=SimpleNamespace())
+    assert refused.value.detail["code"] == "SESSION_LIMITS_INVALID"

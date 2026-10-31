@@ -17,7 +17,7 @@ from app.services.authorization import actor_from_request, admin_or_internal
 router = APIRouter(prefix="/admin", tags=["advanced-settings"])
 
 
-# "logging" is read by auth-service, "governance" by core-service; other sections were stored but never applied.
+# "logging" and "sessions" are read by auth-service, "governance" by core-service; other sections were stored but never applied.
 DEFAULT_ADVANCED_SETTINGS: dict = {
     "logging": {
         "level": "INFO",
@@ -27,12 +27,16 @@ DEFAULT_ADVANCED_SETTINGS: dict = {
     "governance": {
         "minGuardians": 2,
     },
+    "sessions": {
+        "ttlSeconds": 8 * 60 * 60,
+        "idleSeconds": 30 * 60,
+    },
 }
 
 MIN_GUARDIANS_RANGE = (1, 10)
 
 
-DEPRECATED_ADVANCED_SETTINGS_KEYS = {"platform", "discovery", "integrations", "security", "sessions", "maintenance"}
+DEPRECATED_ADVANCED_SETTINGS_KEYS = {"platform", "discovery", "integrations", "security", "maintenance"}
 
 
 def _deep_merge(base: dict, patch: dict) -> dict:
@@ -134,6 +138,13 @@ def save_advanced_config(payload: dict, request: Request, db: Session = Depends(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "MIN_GUARDIANS_INVALID", "message": f"Le nombre de garants doit être compris entre {low} et {high}."},
+        )
+    sessions = merged.get("sessions") or {}
+    ttl, idle = sessions.get("ttlSeconds"), sessions.get("idleSeconds")
+    if not (isinstance(ttl, int) and isinstance(idle, int) and 15 * 60 <= ttl <= 30 * 24 * 3600 and 60 <= idle <= ttl):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "SESSION_LIMITS_INVALID", "message": "Durée de session : de 15 minutes à 30 jours ; inactivité : d'une minute à la durée de session."},
         )
     _write_payload(db, merged)
     # The log level applies to core-service right away (auth-service applies it on its side)

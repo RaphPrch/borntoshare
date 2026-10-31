@@ -14,8 +14,6 @@ CREATE TABLE IF NOT EXISTS infra_workers (
   port INT NOT NULL DEFAULT 8443,
   use_tls TINYINT(1) NOT NULL DEFAULT 1,
   verify_tls TINYINT(1) NOT NULL DEFAULT 1,
-  username VARCHAR(120) NOT NULL,
-  password_ref VARCHAR(512) NOT NULL,
   is_enabled TINYINT(1) NOT NULL DEFAULT 1,
   status VARCHAR(16) NOT NULL DEFAULT 'unknown',   -- unknown | healthy | degraded | down
   last_check_at DATETIME NULL,

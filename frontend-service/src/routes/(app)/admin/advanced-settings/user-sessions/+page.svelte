@@ -10,9 +10,37 @@
   import { logAppError } from '$lib/logging';
   import { timeAgo } from '$lib/utils/format';
   import type { UserSession } from '$lib/api/admin-advanced-settings';
-  import { listUserSessions, revokeUserSession } from '$lib/api/admin-advanced-settings';
+  import { listUserSessions, revokeUserSession, saveSessionLimits } from '$lib/api/admin-advanced-settings';
+  import SettingRow from '$lib/components/settings/SettingRow.svelte';
+  import FieldError from '$lib/components/ui/FieldError.svelte';
 
   export let data: any;
+
+  let ttlHours = Math.round(Number(data.settings?.sessions?.ttlSeconds ?? 28800) / 3600);
+  let idleMinutes = Math.round(Number(data.settings?.sessions?.idleSeconds ?? 1800) / 60);
+  let savedLimits = `${ttlHours}/${idleMinutes}`;
+  let savingLimits = false;
+
+  $: limitsError =
+    Number.isInteger(Number(ttlHours)) && ttlHours >= 1 && ttlHours <= 720 && Number.isInteger(Number(idleMinutes)) && idleMinutes >= 1 && idleMinutes <= ttlHours * 60
+      ? null
+      : t('From 1 to 720 hours; inactivity from 1 minute to the maximum duration.');
+  $: canSaveLimits = !savingLimits && !limitsError && `${ttlHours}/${idleMinutes}` !== savedLimits;
+
+  async function saveLimits() {
+    if (!canSaveLimits) return;
+    savingLimits = true;
+    try {
+      await saveSessionLimits(fetch, Number(ttlHours) * 3600, Number(idleMinutes) * 60);
+      savedLimits = `${ttlHours}/${idleMinutes}`;
+      toast.success(t('Session limits saved.'));
+    } catch (e: unknown) {
+      reportUiError(e, t('Unable to save the session limits.'), 'advanced_settings.sessions.save');
+    } finally {
+      savingLimits = false;
+    }
+  }
+
   let sessions: UserSession[] = data.sessions ?? [];
   let isLoading = false;
   let revokingId: string | null = null;
@@ -89,6 +117,23 @@
     }
   }
 </script>
+
+<ConfigCard title={t('Session limits')} subtitle={t('Apply within a minute, also to the sessions already open.')}>
+  <div class="adv-form-grid">
+    <SettingRow label={t('Maximum duration (hours)')}>
+      <input class="form-control" type="number" min="1" max="720" step="1" bind:value={ttlHours} />
+    </SettingRow>
+    <SettingRow label={t('Disconnect after inactivity (minutes)')}>
+      <input class="form-control" type="number" min="1" step="1" bind:value={idleMinutes} />
+      {#if limitsError}<FieldError>{limitsError}</FieldError>{/if}
+    </SettingRow>
+  </div>
+  <div class="adv-actions">
+    <button class="b2s-btn b2s-btn-primary" type="button" on:click={saveLimits} disabled={!canSaveLimits}>
+      {savingLimits ? t('Saving…') : t('Save changes')}
+    </button>
+  </div>
+</ConfigCard>
 
 <ConfigCard title={t('User sessions')} subtitle={t('Active sessions')} icon="bi-person-lines-fill">
   <div class="b2s-toolbar is-plain">

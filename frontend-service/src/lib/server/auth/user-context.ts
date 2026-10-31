@@ -33,11 +33,8 @@ const PRINCIPAL_COOKIE_SAMESITE = (() => {
   return 'lax';
 })();
 
-// Secure by default whenever the public origin is HTTPS; explicit env vars still win.
-const PRINCIPAL_COOKIE_SECURE =
-  (env.PRINCIPAL_COOKIE_SECURE ??
-    env.B2S_USE_HTTPS ??
-    String((env.ORIGIN ?? '').trim().toLowerCase().startsWith('https://'))) === 'true';
+// Secure whenever the public origin is HTTPS
+const PRINCIPAL_COOKIE_SECURE = (env.ORIGIN ?? '').trim().toLowerCase().startsWith('https://');
 
 const DEV_PRINCIPAL_SIGNING_KEY = 'dev-principal-key';
 const PRINCIPAL_SIGNING_KEY = env.PRINCIPAL_SIGNING_KEY || DEV_PRINCIPAL_SIGNING_KEY;

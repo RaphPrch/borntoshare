@@ -8,7 +8,6 @@
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
-  import { resolveCredentials } from '$lib/api/credentials';
   import { STATUS_VARIANT, formatDuration, statusLabel } from '$lib/utils/infrastructure';
   import {
     checkWorker,
@@ -34,8 +33,7 @@
   // ---- Drawer (add / edit)
   let drawerOpen = false;
   let editing: InfraWorker | null = null;
-  let form = { name: '', host: '', port: 8443, use_tls: true, verify_tls: true, username: '', password: '', is_enabled: true };
-  let showPassword = false;
+  let form = { name: '', host: '', port: 8443, use_tls: true, verify_tls: true, is_enabled: true };
   let showErrors = false;
   let testing = false;
   let saving = false;
@@ -44,9 +42,8 @@
   let busyId: number | null = null;
   let removing: InfraWorker | null = null;
 
-  $: formKey = JSON.stringify([form.host, form.port, form.use_tls, form.verify_tls, form.username, form.password]);
-  $: needsPassword = !editing || !!form.password;
-  $: valid = !!form.name.trim() && !!form.host.trim() && !!form.port && !!form.username.trim() && (!!form.password || !!editing);
+  $: formKey = JSON.stringify([form.host, form.port, form.use_tls, form.verify_tls]);
+  $: valid = !!form.name.trim() && !!form.host.trim() && !!form.port;
   $: checkFresh = !!check && checkedKey === formKey;
 
   /** Default ports of the agent: 8443 in HTTPS, 8080 in HTTP; a port chosen by hand is kept */
@@ -58,7 +55,7 @@
 
   function openAdd() {
     editing = null;
-    form = { name: '', host: '', port: 8443, use_tls: true, verify_tls: true, username: 'b2s-agent', password: '', is_enabled: true };
+    form = { name: '', host: '', port: 8443, use_tls: true, verify_tls: true, is_enabled: true };
     check = null;
     showErrors = false;
     savedForm = JSON.stringify(form);
@@ -67,7 +64,7 @@
 
   function openEdit(worker: InfraWorker) {
     editing = worker;
-    form = { name: worker.name, host: worker.host, port: worker.port, use_tls: worker.use_tls, verify_tls: worker.verify_tls, username: worker.username, password: '', is_enabled: worker.is_enabled };
+    form = { name: worker.name, host: worker.host, port: worker.port, use_tls: worker.use_tls, verify_tls: worker.verify_tls, is_enabled: worker.is_enabled };
     check = null;
     showErrors = false;
     savedForm = JSON.stringify(form);
@@ -83,30 +80,16 @@
 
   function closeDrawer() {
     drawerOpen = false;
-    form.password = '';
   }
 
-  /** Stores the typed password encrypted (one secret per worker) and returns its reference */
-  async function passwordRef(): Promise<string | null> {
-    if (!form.password) return null;
-    const resolved = await resolveCredentials(
-      fetch,
-      { username: form.username.trim(), password: form.password, secret_ref: null },
-      { secretName: `infrastructure-worker/${form.host.trim()}/${form.port}`, mode: 'create' }
-    );
-    return resolved.secret_ref ?? null;
-  }
-
-  function payload(ref: string | null): WorkerInput {
+  function payload(): WorkerInput {
     return {
       name: form.name.trim(),
       host: form.host.trim(),
       port: Number(form.port),
       use_tls: form.use_tls,
       verify_tls: form.verify_tls,
-      username: form.username.trim(),
-      is_enabled: form.is_enabled,
-      ...(ref ? { password_ref: ref } : {})
+      is_enabled: form.is_enabled
     };
   }
 
@@ -119,8 +102,7 @@
     check = null;
     const key = formKey;
     try {
-      // Editing without a new password: the stored password of this worker is used
-      check = await testWorker(fetch, { ...payload(await passwordRef()), ...(editing ? { worker_id: editing.id } : {}) });
+      check = await testWorker(fetch, payload());
       checkedKey = key;
     } catch (e) {
       reportUiError(e, t('Worker test failed.'), 'infrastructure.workers.test');
@@ -136,12 +118,11 @@
     }
     saving = true;
     try {
-      const ref = await passwordRef();
       if (editing) {
-        await updateWorker(fetch, editing.id, payload(ref));
+        await updateWorker(fetch, editing.id, payload());
         toast.success(t('Worker updated.'));
       } else {
-        await createWorker(fetch, payload(ref));
+        await createWorker(fetch, payload());
         toast.success(t('Worker added: its agent answered.'));
       }
       closeDrawer();
@@ -282,10 +263,10 @@
 <details class="howto">
   <summary><i class="bi bi-info-circle" aria-hidden="true"></i>{t('Prepare the agent of a worker')}</summary>
   <ol>
-    <li>{t('On the worker (capsule-runner), set the agent credentials:')} <code>AGENT_USERNAME</code>, <code>AGENT_PASSWORD</code>.</li>
+    <li>{t('On the worker (capsule-runner), set the same INTERNAL_TOKEN as core-service:')} <code>INTERNAL_TOKEN</code></li>
     <li>{t('For HTTPS, give its certificate and key:')} <code>AGENT_TLS_CERT</code>, <code>AGENT_TLS_KEY</code> {t('(port 8443 by default, AGENT_PORT).')}</li>
     <li>{t('Without certificate the agent answers in HTTP on port 8080 (AGENT_PORT to change it): internal network only, uncheck “HTTPS”.')}</li>
-    <li>{t('Open the port from core-service to the worker only, then add the worker here with the same user name and password.')}</li>
+    <li>{t('Open the port from core-service to the worker only, then add the worker here.')}</li>
     <li>{t('Certificate from a private authority: give it to core-service with B2S_AGENT_CA_FILE, or uncheck “Verify certificate”.')}</li>
   </ol>
 </details>
@@ -315,22 +296,6 @@
       <span>{t('Port')}</span>
       <input type="number" min="1" max="65535" bind:value={form.port} />
     </label>
-    <label class="f">
-      <span>{t('User name')}</span>
-      <input bind:value={form.username} autocomplete="off" />
-      {#if showErrors && !form.username.trim()}<FieldError>{t('Required')}</FieldError>{/if}
-    </label>
-    <label class="f f--wide">
-      <span>{t('Password')}</span>
-      <div class="b2s-input-with-action">
-        <input type={showPassword ? 'text' : 'password'} bind:value={form.password} autocomplete="new-password" placeholder={editing ? t('Unchanged') : ''} />
-        <button type="button" class="b2s-input-action" aria-label={showPassword ? t('Hide password') : t('Show password')} on:click={() => (showPassword = !showPassword)}>
-          <i class={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
-        </button>
-      </div>
-      {#if showErrors && needsPassword && !form.password && !editing}<FieldError>{t('Required')}</FieldError>{/if}
-      <small>{t('Stored encrypted, never shown again.')}</small>
-    </label>
     <div class="toggles f--full">
       <label class="toggle">
         <input type="checkbox" class="cap-switch" checked={form.use_tls} on:change={(e) => setTls(e.currentTarget.checked)} />
@@ -348,7 +313,7 @@
       {/if}
     </div>
     {#if !form.use_tls}
-      <p class="warn f--full"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{t('Without TLS the password travels unencrypted: internal network only.')}</p>
+      <p class="warn f--full"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{t('Without TLS the exchange with the agent is not encrypted: internal network only.')}</p>
     {/if}
 
     {#if check}

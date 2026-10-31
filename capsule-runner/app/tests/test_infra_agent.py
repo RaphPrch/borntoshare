@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+
 import socket
 import sys
 from pathlib import Path
@@ -18,32 +21,35 @@ from app.core import settings  # noqa: E402
 
 @pytest.fixture()
 def client(monkeypatch):
-    monkeypatch.setattr(settings, "AGENT_USERNAME", "b2s-agent")
-    monkeypatch.setattr(settings, "AGENT_PASSWORD", "s3cret")
+    monkeypatch.setattr(settings, "INTERNAL_TOKEN", "itok")
     monkeypatch.setattr(agent, "_dramatiq_processes", lambda: 4)
     monkeypatch.setattr(agent, "_broker_state", lambda: {"reachable": True, "latency_ms": 1, "queues": {"capsule_probes": 2}})
     return TestClient(agent.app)
 
 
-def test_agent_requires_its_credentials(client) -> None:
+def _proof(token: str = "itok") -> dict[str, str]:
+    return {"X-Agent-Token": hmac.new(token.encode(), b"b2s-agent", hashlib.sha256).hexdigest()}
+
+
+def test_agent_requires_the_proof_of_core_service(client) -> None:
     assert client.get("/agent/v1/info").status_code == 401
-    assert client.get("/agent/v1/info", auth=("b2s-agent", "wrong")).status_code == 401
-    ok = client.get("/agent/v1/info", auth=("b2s-agent", "s3cret"))
+    assert client.get("/agent/v1/info", headers=_proof("wrong")).status_code == 401
+    assert client.get("/agent/v1/info", headers={"X-Agent-Token": "itok"}).status_code == 401
+    ok = client.get("/agent/v1/info", headers=_proof())
     assert ok.status_code == 200
     data = ok.json()["data"]
     assert data["status"] == "healthy"
     assert data["broker"]["queues"]["capsule_probes"] == 2
 
 
-def test_agent_without_configured_credentials_refuses_everyone(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "AGENT_USERNAME", "")
-    monkeypatch.setattr(settings, "AGENT_PASSWORD", "")
-    assert TestClient(agent.app).get("/agent/v1/info", auth=("", "")).status_code == 503
+def test_agent_without_internal_token_refuses_everyone(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "INTERNAL_TOKEN", "")
+    assert TestClient(agent.app).get("/agent/v1/info", headers=_proof("")).status_code == 503
 
 
 def test_agent_is_degraded_without_job_process(client, monkeypatch) -> None:
     monkeypatch.setattr(agent, "_dramatiq_processes", lambda: 0)
-    assert client.get("/agent/v1/info", auth=("b2s-agent", "s3cret")).json()["data"]["status"] == "degraded"
+    assert client.get("/agent/v1/info", headers=_proof()).json()["data"]["status"] == "degraded"
 
 
 def test_health_check_reports_each_target(monkeypatch) -> None:

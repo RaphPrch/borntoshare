@@ -54,6 +54,10 @@ export async function saveGovernanceConfig(fetchFn: FetchLike, minGuardians: num
   return apiPost<ActionResult>(fetchFn, '/admin/config/advanced', { governance: { minGuardians } });
 }
 
+export async function saveSessionLimits(fetchFn: FetchLike, ttlSeconds: number, idleSeconds: number) {
+  return apiPost<ActionResult>(fetchFn, '/admin/config/advanced', { sessions: { ttlSeconds, idleSeconds } });
+}
+
 export async function saveLoggingConfig(fetchFn: FetchLike, logging: LoggingConfig) {
   const payload = {
     level: logging.level,

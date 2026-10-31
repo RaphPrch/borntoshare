@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
 from app.core.internal_token import build_internal_headers
+from app.services.providers.registry import DEFAULT_AUTH_PROVIDER
+from app.services.session_limits import session_idle_seconds, session_ttl_seconds
 from app.core.errors import get_request_id
 from app.core.logging import get_logger, log_event, mask_session_id
 from app.core.deps import get_current_user
@@ -190,8 +192,8 @@ def _session_expires_at_iso(rec: object | None) -> str | None:
         return None
 
     now = datetime.now(timezone.utc)
-    hard_exp = created_at + timedelta(seconds=int(settings.SESSION_TTL_SECONDS))
-    idle_exp = last_seen + timedelta(seconds=int(settings.SESSION_IDLE_TIMEOUT))
+    hard_exp = created_at + timedelta(seconds=session_ttl_seconds())
+    idle_exp = last_seen + timedelta(seconds=session_idle_seconds())
     exp = hard_exp if hard_exp <= idle_exp else idle_exp
     if exp.tzinfo is None:
         exp = exp.replace(tzinfo=timezone.utc)
@@ -279,7 +281,7 @@ async def providers() -> dict:
     registry = build_registry()
     ordered = ordered_providers(registry)
     names = [p.name for p in ordered] if ordered else sorted(registry.keys())
-    default_provider = (settings.DEFAULT_AUTH_PROVIDER or "").strip().lower()
+    default_provider = DEFAULT_AUTH_PROVIDER
     if default_provider not in names:
         default_provider = names[0] if names else "local"
 
@@ -336,8 +338,6 @@ def _should_set_secure_cookie(request: Request) -> bool:
 
 
 def _principal_cookie_secure(request: Request) -> bool:
-    if settings.PRINCIPAL_COOKIE_SECURE:
-        return True
     return _is_https_request(request)
 
 
