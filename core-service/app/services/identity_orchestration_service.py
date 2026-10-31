@@ -269,6 +269,11 @@ async def run_identity_snapshot(incoming: dict[str, Any], request_id: str | None
 
     correlation_id = request_id or f"idsnap_{uuid.uuid4().hex}"
     requested_mode = str(incoming.get("mode") or "auto").strip().lower() or "auto"
+    if requested_mode not in {"auto", "full", "dirsync", "usn", "whenchanged"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "SNAPSHOT_MODE_INVALID", "message": "Mode d'inventaire inconnu."},
+        )
     force_full = bool(incoming.get("force_full", True))
 
     snapshot_run = await call_route(

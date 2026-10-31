@@ -686,6 +686,13 @@ async def create_identity(
         username = _clean_text(principal.get("username")) or _clean_text(principal.get("upn")) or _clean_text(principal.get("email"))
         display_name = _clean_text(principal.get("display_name")) or username or external_id
         email = _clean_text(principal.get("email"))
+        # A group outside the directory would become a false entry, and nobody could ever be in it
+        base_dn = _clean_text(getattr(identity_source, "base_dn", None))
+        if base_dn and (not dn or not dn.lower().replace(", ", ",").endswith(base_dn.lower().replace(", ", ","))):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "GROUP_OUTSIDE_DIRECTORY", "message": "Ce groupe n'appartient pas à cet annuaire."},
+            )
         if not external_id or not display_name:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="principal external_id/dn and display_name are required")
 

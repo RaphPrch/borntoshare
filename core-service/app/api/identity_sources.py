@@ -333,6 +333,12 @@ def create_identity_source(payload: IdentitySourceCreate, request: Request, db: 
     capabilities_payload["auth"] = auth_enabled
     write_enabled = bool(capabilities_payload.pop("provisioning", False))
 
+    if source_type == "ad" and not (str(payload.host or "").strip() and str(payload.base_dn or "").strip()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "IDENTITY_SOURCE_INCOMPLETE", "message": "L'hôte et le DN de base de l'annuaire sont obligatoires."},
+        )
+
     create_data: dict[str, object] = {
         "type": source_type,
         "name": payload.name,

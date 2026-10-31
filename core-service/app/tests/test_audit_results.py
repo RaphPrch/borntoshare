@@ -33,3 +33,29 @@ def test_a_refused_change_is_logged_but_not_a_read_nor_an_internal_call(monkeypa
     errors._log_refusal(_request("POST", "/api/internal/jobs"), 409, "NO", "no")
     errors._log_refusal(_request("POST", "/api/zones"), 404, "NO", "no")
     assert len(rows) == 2
+
+
+@pytest.mark.parametrize(
+    "dn,valid",
+    [
+        ("OU=B2S Groups,OU=CORP,DC=CORP,DC=LOCAL", True),
+        ("ou=b2s,dc=example,dc=test", True),
+        ("CN=Dupont\\, Jean,DC=x", True),
+        ("pas-un-dn", False),
+        ("OU=", False),
+        ("OU=x,,DC=y", False),
+    ],
+)
+def test_organizational_units_must_be_dns(dn, valid) -> None:
+    from app.api.zones import _DN
+
+    assert bool(_DN.match(dn)) is valid
+
+
+def test_zone_codes_are_checked() -> None:
+    from app.schemas.zone import ZoneCreate
+
+    assert ZoneCreate(name="Paris", code="PAR-1").code == "PAR-1"
+    assert ZoneCreate(name="Paris", code=" ").code is None
+    with pytest.raises(ValueError):
+        ZoneCreate(name="Paris", code="a b$")

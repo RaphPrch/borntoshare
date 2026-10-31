@@ -4,6 +4,9 @@ from app.api import zones as router
 
 
 class _Result:
+    def first(self):
+        return None
+
     def __init__(self, *, lastrowid: int = 0, scalar_value=None):
         self.lastrowid = lastrowid
         self._scalar_value = scalar_value

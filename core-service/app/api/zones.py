@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -195,6 +197,13 @@ def put_zone_provisioning_policy(zone_id: int, payload: dict, request: Request, 
         zone_id=int(zone_id),
         candidate_payload=payload,
     )
+    for key in ("base_ou_dn", "static_ou_dn"):
+        value = str(normalized.get(key) or "").strip()
+        if value and not _DN.match(value):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "ZONE_OU_INVALID", "message": f"« {value} » n'est pas un DN valide. Exemple : OU=Groupes,DC=example,DC=test"},
+            )
 
     # upsert
     db.execute(
@@ -269,9 +278,31 @@ def get_zone(zone_id: int, db: Session = Depends(get_db)):
 # WRITE MODEL (CRUD)
 # ============================================================
 
+def _refuse_duplicate_zone(db: Session, *, name: str | None, code: str | None, excluding: int = 0) -> None:
+    taken = db.execute(
+        text(
+            """
+            SELECT 1 FROM zones
+            WHERE id <> :excluding AND (LOWER(name) = LOWER(:name) OR (:code <> '' AND LOWER(code) = LOWER(:code)))
+            LIMIT 1
+            """
+        ),
+        {"excluding": excluding, "name": name or "", "code": code or ""},
+    ).first()
+    if taken:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "ZONE_EXISTS", "message": "Une zone porte déjà ce nom ou ce code."},
+        )
+
+
+_DN = re.compile(r"^\s*[A-Za-z][\w-]*=(?:[^,=\\]|\\.)+(?:\s*,\s*[A-Za-z][\w-]*=(?:[^,=\\]|\\.)+)*\s*$")
+
+
 @router.post("", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_or_internal)])
 def create_zone(payload: ZoneCreate, db: Session = Depends(get_db), request: Request = None):
     data = payload.model_dump()
+    _refuse_duplicate_zone(db, name=data.get("name"), code=data.get("code"))
 
     result = db.execute(
         text(
@@ -292,8 +323,8 @@ def create_zone(payload: ZoneCreate, db: Session = Depends(get_db), request: Req
     except IntegrityError:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid zone data",
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "ZONE_EXISTS", "message": "Une zone porte déjà ce nom ou ce code."},
         )
 
     zone_id = int(getattr(result, "lastrowid", 0) or 0)
@@ -341,6 +372,7 @@ def update_zone(zone_id: int, payload: ZoneUpdate, db: Session = Depends(get_db)
     allowed_fields = {"name", "code", "description"}
     data = {k: v for k, v in requested.items() if k in allowed_fields}
     if data:
+        _refuse_duplicate_zone(db, name=data.get("name"), code=data.get("code"), excluding=int(zone_id))
         set_clause = ", ".join(f"{field} = :{field}" for field in data.keys())
         params = dict(data)
         params["id"] = int(zone_id)
@@ -369,8 +401,8 @@ def update_zone(zone_id: int, payload: ZoneUpdate, db: Session = Depends(get_db)
     except IntegrityError:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid zone data",
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "ZONE_EXISTS", "message": "Une zone porte déjà ce nom ou ce code."},
         )
 
     return ui_action(action_id=int(zone_id), message="zone.updated")
