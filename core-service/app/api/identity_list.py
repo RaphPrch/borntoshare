@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+import logging
+import os
+import httpx
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
@@ -16,6 +19,8 @@ from app.schemas.identity_search import IdentitySearchRequest
 from app.services.activity_log import log_activity
 from app.services.authorization import actor_from_request, admin_or_internal
 
+
+logger = logging.getLogger("core.identity")
 
 router = APIRouter(prefix="/identity", tags=["identity"])
 
@@ -188,6 +193,81 @@ def _ensure_role_id(db: Session, role_code: str) -> int:
     if not row:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Application role '{role_code}' is unavailable")
     return int(row["id"])
+
+
+def _other_admin_exists(db: Session, *, excluding_identity: int | None = None, excluding_group: int | None = None) -> bool:
+    """Someone else keeps the platform administrator role: an active person, or a directory group that holds it."""
+    row = db.execute(
+        text(
+            """
+            SELECT 1
+            FROM identity_roles ir
+            JOIN roles r ON r.id = ir.role_id AND r.code = 'platform_admin'
+            LEFT JOIN identities i ON i.id = ir.identity_id
+            WHERE (ir.identity_id IS NOT NULL AND i.is_active = 1 AND ir.identity_id <> COALESCE(:identity, 0))
+               OR (ir.directory_group_id IS NOT NULL AND ir.directory_group_id <> COALESCE(:grp, 0))
+            LIMIT 1
+            """
+        ),
+        {"identity": excluding_identity, "grp": excluding_group},
+    ).first()
+    return row is not None
+
+
+def _subject_is_admin(db: Session, *, identity_id: int | None = None, group_id: int | None = None) -> bool:
+    return db.execute(
+        text(
+            """
+            SELECT 1 FROM identity_roles ir JOIN roles r ON r.id = ir.role_id AND r.code = 'platform_admin'
+            WHERE (:identity IS NOT NULL AND ir.identity_id = :identity) OR (:grp IS NOT NULL AND ir.directory_group_id = :grp)
+            LIMIT 1
+            """
+        ),
+        {"identity": identity_id, "grp": group_id},
+    ).first() is not None
+
+
+def _refuse_admin_loss(
+    db: Session,
+    request: Request,
+    *,
+    action: str,
+    identity_id: int | None = None,
+    group_id: int | None = None,
+) -> None:
+    """Nobody removes their own account or rights, and the platform always keeps one administrator."""
+    actor_id, actor_display = _actor_from_headers(request)
+    code = message = None
+    if identity_id is not None and actor_id is not None and int(identity_id) == int(actor_id):
+        code, message = "IDENTITY_SELF_CHANGE_FORBIDDEN", "Vous ne pouvez pas supprimer, désactiver ou rétrograder votre propre compte."
+    elif _subject_is_admin(db, identity_id=identity_id, group_id=group_id) and not _other_admin_exists(
+        db, excluding_identity=identity_id, excluding_group=group_id
+    ):
+        code, message = "LAST_ADMIN_FORBIDDEN", "La plateforme doit garder au moins un administrateur."
+    if not code:
+        return
+    log_activity(
+        db,
+        actor_type="user" if actor_id is not None else "system",
+        actor_id=actor_id,
+        actor_display=actor_display,
+        action=action,
+        outcome="denied",
+        target_type="identity_group" if group_id is not None else "identity",
+        target_id=int(group_id if group_id is not None else identity_id),
+        context_json={"code": code},
+        correlation_id=request.headers.get("x-request-id") or None,
+    )
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": code, "message": message})
+
+
+def _close_sessions(identity_id: int) -> None:
+    """The account can no longer act: its open sessions end now (best effort, logged by the auth service)."""
+    try:
+        url = (os.getenv("B2S_AUTH_URL") or "http://auth-service:8000").rstrip("/") + "/auth/internal/sessions/revoke"
+        httpx.post(url, json={"identity_id": str(identity_id)}, headers={"X-Internal-Token": os.getenv("INTERNAL_TOKEN") or ""}, timeout=3.0)
+    except httpx.HTTPError:
+        logger.warning("IDENTITY_SESSIONS_NOT_CLOSED", extra={"identity_id": identity_id})
 
 
 def _set_subject_application_role(
@@ -982,6 +1062,7 @@ async def delete_identity(
         if not group_row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
 
+        _refuse_admin_loss(db, request, action="identity.group_access_revoked", group_id=int(identity_id))
         db.execute(
             text(
                 """
@@ -1050,6 +1131,7 @@ async def delete_identity(
             {"id": int(identity_id)},
         ).mappings().first()
         if group_row:
+            _refuse_admin_loss(db, request, action="identity.group_access_revoked", group_id=int(identity_id))
             db.execute(
                 text(
                     """
@@ -1080,6 +1162,7 @@ async def delete_identity(
 
     if not user_row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
+    _refuse_admin_loss(db, request, action="identity.account_deleted", identity_id=int(identity_id))
 
     if _is_default_local_admin_row(user_row):
         raise HTTPException(
@@ -1115,6 +1198,7 @@ async def delete_identity(
         {"id": int(identity_id)},
     )
     db.commit()
+    _close_sessions(int(identity_id))
 
     log_activity(
         db,
@@ -1194,6 +1278,11 @@ async def update_identity(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No supported fields provided")
 
     subject_type = identity_type or "user"
+    loses_admin = application_role is not None and application_role != "platform_admin"
+    if subject_type == "group" and loses_admin:
+        _refuse_admin_loss(db, request, action="identity.application_role_updated", group_id=int(identity_id))
+    elif subject_type != "group" and (loses_admin or is_active is False):
+        _refuse_admin_loss(db, request, action="identity.application_role_updated", identity_id=int(identity_id))
     if subject_type == "group":
         before_row = db.execute(
             text(
@@ -1272,6 +1361,8 @@ async def update_identity(
             )
 
     db.commit()
+    if subject_type != "group" and (loses_admin or is_active is False):
+        _close_sessions(int(identity_id))
 
     if subject_type == "group":
         row = db.execute(

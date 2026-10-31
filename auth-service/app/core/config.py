@@ -39,7 +39,8 @@ class Settings(BaseSettings):
     COOKIE_DOMAIN: Optional[str] = None
 
     PRINCIPAL_COOKIE_NAME: str = "b2s_principal"
-    PRINCIPAL_TTL_SECONDS: int = 15 * 60
+    # Rights and revocations reach an open session within this delay
+    PRINCIPAL_TTL_SECONDS: int = 60
     PRINCIPAL_SIGNING_KEY: str = DEV_PRINCIPAL_SIGNING_KEY
     PRINCIPAL_COOKIE_SAMESITE: str = "lax"  # lax | strict | none
 

@@ -132,6 +132,25 @@ def save_advanced_config(payload: dict, request: Request, db: Session = Depends(
 
     current = _read_payload(db)
     merged = _sanitize_advanced_settings(_deep_merge(current, payload if isinstance(payload, dict) else {}))
+    for section in ("logging", "governance", "sessions"):
+        if not isinstance(merged.get(section), dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "ADVANCED_SETTINGS_INVALID", "message": f"La section {section} est invalide."},
+            )
+    logging_cfg = merged["logging"]
+    if str(logging_cfg.get("level") or "INFO").upper() not in {"DEBUG", "INFO", "WARN", "WARNING", "ERROR"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "LOG_LEVEL_INVALID", "message": "Niveau de journalisation invalide."},
+        )
+    # A value out of range would become a retention of one day, and the purge would empty the journal
+    days = logging_cfg.get("retentionDays", 180)
+    if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= 3650:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "LOG_RETENTION_INVALID", "message": "La rétention doit être comprise entre 1 et 3650 jours."},
+        )
     wanted = (merged.get("governance") or {}).get("minGuardians")
     low, high = MIN_GUARDIANS_RANGE
     if not isinstance(wanted, int) or isinstance(wanted, bool) or not low <= wanted <= high:

@@ -142,7 +142,7 @@ def test_min_guardians_setting_falls_back_on_an_invalid_value(monkeypatch) -> No
 
 
 def test_saving_an_invalid_minimum_is_refused(monkeypatch) -> None:
-    monkeypatch.setattr(advanced_settings, "_read_payload", lambda db: {"logging": {"level": "INFO"}, "governance": {"minGuardians": 2}})
+    monkeypatch.setattr(advanced_settings, "_read_payload", lambda db: {"logging": {"level": "INFO"}, "governance": {"minGuardians": 2}, "sessions": {"ttlSeconds": 3600, "idleSeconds": 600}})
     monkeypatch.setattr(advanced_settings, "_write_payload", lambda db, payload: pytest.fail("must not save"))
     with pytest.raises(HTTPException) as refused:
         advanced_settings.save_advanced_config({"governance": {"minGuardians": 0}}, _request(1, "platform_admin"), db=SimpleNamespace())
@@ -155,3 +155,20 @@ def test_saving_invalid_session_limits_is_refused(monkeypatch) -> None:
     with pytest.raises(HTTPException) as refused:
         advanced_settings.save_advanced_config({"sessions": {"idleSeconds": 7200}}, _request(1, "platform_admin"), db=SimpleNamespace())
     assert refused.value.detail["code"] == "SESSION_LIMITS_INVALID"
+
+
+@pytest.mark.parametrize(
+    "patch,code",
+    [
+        ({"logging": "oops"}, "ADVANCED_SETTINGS_INVALID"),
+        ({"logging": {"level": "XX"}}, "LOG_LEVEL_INVALID"),
+        ({"logging": {"retentionDays": -4}}, "LOG_RETENTION_INVALID"),
+        ({"logging": {"retentionDays": 99999}}, "LOG_RETENTION_INVALID"),
+    ],
+)
+def test_invalid_logging_settings_are_refused(monkeypatch, patch, code) -> None:
+    monkeypatch.setattr(advanced_settings, "_read_payload", lambda db: {"logging": {"level": "INFO", "retentionDays": 180}, "governance": {"minGuardians": 2}, "sessions": {"ttlSeconds": 3600, "idleSeconds": 600}})
+    monkeypatch.setattr(advanced_settings, "_write_payload", lambda db, payload: pytest.fail("must not save"))
+    with pytest.raises(HTTPException) as refused:
+        advanced_settings.save_advanced_config(patch, _request(1, "platform_admin"), db=SimpleNamespace())
+    assert refused.value.detail["code"] == code

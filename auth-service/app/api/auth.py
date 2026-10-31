@@ -1002,6 +1002,27 @@ async def introspect(
 # Session / user
 # ============================================================
 
+class RevokeSessionsRequest(BaseModel):
+    identity_id: str
+
+
+@router.post("/internal/sessions/revoke")
+def revoke_identity_sessions(
+    payload: RevokeSessionsRequest,
+    x_internal_token: Optional[str] = Header(default=None, alias="X-Internal-Token"),
+) -> dict[str, Any]:
+    """A deleted, deactivated or demoted account: core-service ends its open sessions."""
+    require_internal_token(x_internal_token, source="auth.sessions_revoke")
+    store = get_session_store()
+    closed = 0
+    for rec in store.list():
+        if str(getattr(getattr(rec, "user", None), "identity_id", "") or "") == payload.identity_id:
+            store.delete(rec.session_id)
+            closed += 1
+    log_event(logger, logging.INFO, "AUTH_SESSIONS_REVOKED", target=payload.identity_id, outcome="closed", closed=closed)
+    return {"ok": True, "closed": closed}
+
+
 @router.get("/me", response_model=UserInfo)
 async def me(
     request: Request,
@@ -1179,9 +1200,12 @@ async def set_admin_logging_config(payload: dict[str, Any], user: UserInfo = Dep
 
     level = _apply_runtime_log_level(str(payload.get("level", "INFO")))
     try:
-        retention_days = max(1, int(payload.get("retentionDays", _runtime_logging_retention_days)))
-    except Exception:
-        retention_days = 180
+        retention_days = int(payload.get("retentionDays", _runtime_logging_retention_days))
+    except (TypeError, ValueError):
+        retention_days = 0
+    # Never adjusted silently: a negative value would become one day and the purge would empty the journal
+    if not 1 <= retention_days <= 3650:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Log retention must be between 1 and 3650 days")
     retention_enabled = bool(payload.get("retentionEnabled", _runtime_logging_retention_enabled))
 
     try:

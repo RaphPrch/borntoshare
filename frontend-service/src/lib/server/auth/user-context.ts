@@ -21,7 +21,7 @@ const SESSION_COOKIE_NAME = env.SESSION_COOKIE_NAME ?? 'b2s_session';
 const PRINCIPAL_COOKIE_NAME = env.PRINCIPAL_COOKIE_NAME ?? 'b2s_principal';
 
 const PRINCIPAL_TTL_SECONDS = Number.parseInt(
-  env.PRINCIPAL_TTL_SECONDS ?? '900',
+  env.PRINCIPAL_TTL_SECONDS ?? '60',
   10
 );
 
