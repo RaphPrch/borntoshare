@@ -73,6 +73,21 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
         {"task": task, "status": status, "message": str(message)[:512], "summary": json.dumps(summary, default=str)},
     )
     db.commit()
+    # Runs asked by an administrator are logged by the route, with their author
+    if trigger == "schedule":
+        from app.services.activity_log import log_activity
+
+        log_activity(
+            None,
+            actor_type="system",
+            actor_id=None,
+            actor_display="scheduler",
+            action=f"infrastructure.{task}_run",
+            outcome="success" if status == "success" else "failure",
+            target_type="schedule",
+            target_display=task,
+            context_json={"status": status, "message": str(message)[:500], "trigger": trigger},
+        )
     return {"task": task, "status": status, "message": message, "summary": summary}
 
 

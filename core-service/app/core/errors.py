@@ -140,6 +140,31 @@ def json_error_response(
     )
 
 
+def _log_refusal(request: Request, status_code: int, code: str | None, message: str | None) -> None:
+    """A refused change is part of the history: who tried what, and why it did not go through."""
+    path = request.url.path
+    if request.method not in {"POST", "PUT", "PATCH", "DELETE"} or status_code not in {400, 403, 409, 422} or "/internal/" in path:
+        return
+    try:
+        from app.services.activity_log import log_activity
+
+        raw_actor = str(request.headers.get("x-identity-id") or "").strip()
+        log_activity(
+            None,
+            actor_type="user" if raw_actor else "system",
+            actor_id=int(raw_actor) if raw_actor.isdigit() else None,
+            actor_display=request.headers.get("x-actor-display") or None,
+            action="request.refused",
+            outcome="denied" if status_code == 403 else "failure",
+            target_type="api",
+            target_display=path[:190],
+            context_json={"method": request.method, "path": path, "status": status_code, "code": code, "message": str(message or "")[:300]},
+            correlation_id=request.headers.get("x-request-id") or None,
+        )
+    except Exception:  # the log never changes the answer
+        logging.getLogger("core.errors").warning("REFUSAL_NOT_LOGGED", exc_info=True)
+
+
 def register_exception_handlers(app: FastAPI, logger: logging.Logger) -> None:
     @app.exception_handler(HTTPException)
     async def _http_exception_handler(request: Request, exc: HTTPException):
@@ -159,6 +184,7 @@ def register_exception_handlers(app: FastAPI, logger: logging.Logger) -> None:
             path=request.url.path,
             message=message,
         )
+        _log_refusal(request, exc.status_code, code, message)
         return _error_response(
             status_code=exc.status_code,
             request_id=request_id,
@@ -185,6 +211,7 @@ def register_exception_handlers(app: FastAPI, logger: logging.Logger) -> None:
             path=request.url.path,
             details_count=len(details["errors"]),
         )
+        _log_refusal(request, 422, "VALIDATION_ERROR", _first_validation_message(details["errors"]))
         return _error_response(
             status_code=422,
             request_id=request_id,

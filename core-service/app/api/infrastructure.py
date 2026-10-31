@@ -28,14 +28,14 @@ def _admin(request: Request):
     return actor
 
 
-def _audit(actor, action: str, *, target_type: str, target_id: Any = None, target_display: str | None = None, context: dict | None = None) -> None:
+def _audit(actor, action: str, *, outcome: str = "success", target_type: str, target_id: Any = None, target_display: str | None = None, context: dict | None = None) -> None:
     log_activity(
         None,
         actor_type="user" if actor.identity_id is not None else "system",
         actor_id=actor.identity_id,
         actor_display=actor.display_name,
         action=action,
-        outcome="success",
+        outcome=outcome,
         target_type=target_type,
         target_id=target_id,
         target_display=target_display,
@@ -255,6 +255,32 @@ class SchedulePayload(BaseModel):
     options: Optional[dict[str, bool]] = None
 
 
+def _with_job_outcome(db: Session, item: dict[str, Any]) -> None:
+    """Started is not done: what the jobs of the last data sync really gave, read from the jobs themselves."""
+    if not item.get("last_run_at") or item.get("last_status") == "running":
+        return
+    rows = db.execute(
+        text(
+            """
+            SELECT UPPER(status) AS status, COUNT(*) AS n
+            FROM provisioning_jobs
+            WHERE created_at >= :since
+              AND (job_type = 'DIRECTORY_SNAPSHOT'
+                   OR JSON_VALUE(payload_json, '$.payload.context.origin') = 'data_sync')
+            GROUP BY UPPER(status)
+            """
+        ),
+        {"since": item["last_run_at"]},
+    ).mappings().all()
+    counts = {str(row["status"]): int(row["n"]) for row in rows}
+    failed = sum(counts.get(s, 0) for s in ("FAILED", "TIMED_OUT", "CANCELLED"))
+    pending = sum(counts.get(s, 0) for s in ("QUEUED", "RUNNING"))
+    item["jobs"] = {"failed": failed, "pending": pending, "succeeded": counts.get("SUCCEEDED", 0)}
+    if failed and item.get("last_status") == "success":
+        item["last_status"] = "partial"
+        item["last_message"] = f"{item.get('last_message') or ''} · {failed} failed".strip(" ·")
+
+
 def _schedules(db: Session) -> list[dict[str, Any]]:
     out = []
     for row in db.execute(text("SELECT * FROM infra_schedules ORDER BY task")).mappings():
@@ -263,6 +289,8 @@ def _schedules(db: Session) -> list[dict[str, Any]]:
             value = item.pop(key)
             item[key.replace("_json", "")] = json.loads(value) if isinstance(value, (str, bytes)) and value else (value or {})
         item["is_enabled"] = bool(item["is_enabled"])
+        if item["task"] == "data_sync":
+            _with_job_outcome(db, item)
         for key in ("last_run_at", "next_run_at", "updated_at"):
             item[key] = infra._iso(item[key])
         out.append(item)
@@ -300,11 +328,20 @@ async def run_schedule(task: Literal["health_check", "data_sync", "access_expiry
     from app.jobs.infra_scheduler import run_task
 
     actor = _admin(request)
-    running = db.execute(text("SELECT last_status FROM infra_schedules WHERE task = :task"), {"task": task}).scalar()
-    if running == "running":
+    # A service stopped during a run leaves it « running » for ever: after 30 minutes it no longer blocks
+    running = db.execute(
+        text(
+            """
+            SELECT last_status = 'running' AND last_run_at > UTC_TIMESTAMP() - INTERVAL 30 MINUTE
+            FROM infra_schedules WHERE task = :task
+            """
+        ),
+        {"task": task},
+    ).scalar()
+    if running:
         raise HTTPException(status_code=409, detail={"error_code": "TASK_ALREADY_RUNNING", "message": "This task is already running"})
     result = await run_task(db, task, trigger="manual")
-    _audit(actor, f"infrastructure.{task}_run", target_type="schedule", target_display=task, context={"status": result["status"]})
+    _audit(actor, f"infrastructure.{task}_run", outcome="success" if result["status"] == "success" else "failure", target_type="schedule", target_display=task, context={"status": result["status"]})
     return ui_data(result)
 
 

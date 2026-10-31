@@ -7,6 +7,7 @@ from app.core.logging import get_logger
 logger = get_logger("governance.audit")
 
 ALLOWED_RESULTS = {"success", "failure", "denied", "in_progress"}
+RESULT_ALIASES = {"error": "failure", "failed": "failure", "rejected": "denied", "blocked": "denied", "allowed": "success", "started": "in_progress", "partial": "failure"}
 ALLOWED_SEVERITIES = {"info", "warning", "error", "critical"}
 ALLOWED_SCOPES = {"business", "technical"}
 
@@ -18,7 +19,10 @@ def _as_actor_id(actor_id: Any) -> str:
 
 def _normalize_result(value: str | None) -> str:
     raw = str(value or "success").strip().lower()
-    return raw if raw in ALLOWED_RESULTS else "success"
+    if raw in ALLOWED_RESULTS:
+        return raw
+    # An outcome nobody planned is never reported as a success
+    return RESULT_ALIASES.get(raw, "failure")
 
 
 def _normalize_severity(value: str | None) -> str:

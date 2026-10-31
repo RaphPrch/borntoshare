@@ -1251,6 +1251,26 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
         },
     )
     _reconcile_after_propagation(db, row)
+    # Snapshot failures have their own entry below
+    if str(getattr(row, "job_type", "") or "").strip().upper() != "DIRECTORY_SNAPSHOT":
+        log_activity(
+            db,
+            actor_type="system",
+            actor_id=None,
+            actor_display="worker",
+            action="job.failed",
+            outcome="failure",
+            target_type="job",
+            target_id=int(job_id),
+            target_display=str(getattr(row, "job_type", "") or ""),
+            context_json={
+                "job_type": getattr(row, "job_type", None),
+                "job_action": payload.action,
+                "error_code": payload.error_code,
+                "error_message": str(payload.error_message or "")[:500],
+            },
+            correlation_id=correlation_id,
+        )
 
     if str(getattr(row, "job_type", "") or "").strip().upper() == "DIRECTORY_SNAPSHOT":
         _apply_directory_snapshot_failure(

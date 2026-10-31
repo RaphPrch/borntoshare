@@ -183,7 +183,7 @@ def get_zone_provisioning_policy(zone_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{zone_id}/provisioning-policy", dependencies=[Depends(admin_or_internal)])
-def put_zone_provisioning_policy(zone_id: int, payload: dict, db: Session = Depends(get_db)):
+def put_zone_provisioning_policy(zone_id: int, payload: dict, request: Request, db: Session = Depends(get_db)):
     if "naming_template" in (payload or {}):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -222,6 +222,21 @@ def put_zone_provisioning_policy(zone_id: int, payload: dict, db: Session = Depe
         },
     )
     db.commit()
+    # Decides where the groups of the zone are created: part of the history
+    log_activity(
+        db,
+        **_actor(request),
+        action="zone.provisioning_policy_updated",
+        outcome="success",
+        target_type="zone",
+        target_id=int(zone_id),
+        context_json={
+            "enabled": bool(normalized.get("enabled")),
+            "ou_strategy": normalized.get("ou_strategy"),
+            "base_ou_dn": normalized.get("base_ou_dn"),
+            "static_ou_dn": normalized.get("static_ou_dn"),
+        },
+    )
     return get_zone_provisioning_policy(zone_id, db)
 
 
