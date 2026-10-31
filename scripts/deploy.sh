@@ -23,6 +23,8 @@ done
 
 echo "3/4 build + recreate: $SERVICES"
 podman-compose -f podman-compose.yml build $SERVICES
+# The job queue is not rebuilt, but nothing works without it
+podman-compose -f podman-compose.yml up -d --no-deps redis
 podman-compose -f podman-compose.yml up -d --force-recreate --no-deps $SERVICES
 
 echo "4/4 waiting for the services"
@@ -38,5 +40,7 @@ cat <<ROLLBACK
 
 Rollback:
   for s in $SERVICES; do podman tag localhost/b2s-\$s:rollback-$TS localhost/b2s-\$s:latest; done
-  podman-compose -f podman-compose.yml up -d --force-recreate --no-deps $SERVICES
+  # The job queue is not rebuilt, but nothing works without it
+podman-compose -f podman-compose.yml up -d --no-deps redis
+podman-compose -f podman-compose.yml up -d --force-recreate --no-deps $SERVICES
 ROLLBACK
