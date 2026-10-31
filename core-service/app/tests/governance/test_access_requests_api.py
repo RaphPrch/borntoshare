@@ -512,6 +512,7 @@ def _revoke_plan(items: list[dict]) -> dict:
 def test_bulk_decision_revoke_removes_memberships_then_persists_in_core(monkeypatch) -> None:
     post_calls: list[tuple[str, dict]] = []
     removed: list[tuple[str, str | None, int | None]] = []
+    forgotten: list[str] = []
 
     async def _fake_internal_get(path: str):
         if path.startswith("/api/internal/access-requests/101/other-active"):
@@ -531,6 +532,9 @@ def test_bulk_decision_revoke_removes_memberships_then_persists_in_core(monkeypa
         ])
 
     async def _fake_internal_post(path: str, payload: dict):
+        if path.startswith("/api/internal/access-requests/forget-membership"):
+            forgotten.append(path)
+            return True
         post_calls.append((path, dict(payload)))
         if path == "/api/internal/access-requests/item-executions":
             return {"ok": True}
@@ -562,6 +566,7 @@ def test_bulk_decision_revoke_removes_memberships_then_persists_in_core(monkeypa
     assert out["data"]["updated_ids"] == [101]
     assert out["data"]["failed_ids"] == []
     assert removed == [("B2S_ROOT_77_READ", "jane", 9)]
+    assert len(forgotten) == 1 and "group_ref=B2S_ROOT_77_READ" in forgotten[0]
     assert post_calls[0][0] == "/api/internal/access-requests/item-executions"
     assert post_calls[0][1]["status"] == "DONE"
     assert post_calls[0][1]["requested_payload_json"]["operation"] == "revoke"

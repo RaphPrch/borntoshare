@@ -289,6 +289,10 @@
       "extended": {
         "title": "Access extended",
         "description": "The access of {user} on \"{root}\" was extended"
+      },
+      "permission_changed": {
+        "title": "Request access level changed",
+        "description": "The request of {user} on \"{root}\": {from} → {to}"
       }
     },
     "identity_source": {
@@ -628,6 +632,12 @@
     "test_smb_ntlm_failed": {
       "title": "Connection test failed",
       "description": "The file server \"{endpoint}\" refused or did not answer the SMB test"
+    },
+    "advanced_settings": {
+      "updated": {
+        "title": "Advanced settings changed",
+        "description": "Change saved"
+      }
     }
   },
   "badges": {

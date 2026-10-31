@@ -140,6 +140,53 @@ def can_access_request(db: Session, actor: ActorContext, access_request_id: int)
     return False
 
 
+def is_own_request(db: Session, actor: ActorContext, access_request_id: int) -> bool:
+    """The actor filed this request, or is the person who would get the access."""
+    if actor.identity_id is None:
+        return False
+    row = (
+        db.execute(
+            text("SELECT requester_identity_id, requested_principal_json FROM access_requests WHERE id = :id"),
+            {"id": int(access_request_id)},
+        )
+        .mappings()
+        .first()
+    )
+    if not row:
+        return False
+    if _to_int(row.get("requester_identity_id")) == actor.identity_id:
+        return True
+    principal = row.get("requested_principal_json")
+    if isinstance(principal, str):
+        try:
+            principal = json.loads(principal)
+        except ValueError:
+            principal = None
+    principal = principal if isinstance(principal, dict) else {}
+    if _to_int(principal.get("identity_id")) == actor.identity_id:
+        return True
+    dn = str(principal.get("dn") or "").strip()
+    username = str(principal.get("username") or "").strip()
+    if not dn and not username:
+        return False
+    match = db.execute(
+        text(
+            """
+            SELECT 1
+            FROM identities i
+            LEFT JOIN identity_bindings ib ON ib.identity_id = i.id AND ib.deleted_at IS NULL
+            LEFT JOIN directory_users du ON du.id = ib.directory_user_id
+            WHERE i.id = :identity_id
+              AND ((:dn <> '' AND LOWER(du.dn) = LOWER(:dn))
+                OR (:username <> '' AND (LOWER(i.username) = LOWER(:username) OR LOWER(du.username) = LOWER(:username))))
+            LIMIT 1
+            """
+        ),
+        {"identity_id": int(actor.identity_id), "dn": dn, "username": username},
+    ).first()
+    return match is not None
+
+
 def can_review_request(db: Session, actor: ActorContext, access_request_id: int) -> bool:
     if is_platform_administrator(actor):
         return True

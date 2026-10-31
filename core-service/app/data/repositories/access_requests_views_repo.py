@@ -108,11 +108,16 @@ class AccessRequestsViewsRepo:
             """
             SELECT
                 ar.id AS request_id,
+                ar.requester_identity_id AS requester_identity_id,
                 ar.requested_principal_json AS requested_principal_json,
                 ar.decision_comment AS justification,
                 ari.target_type AS target_type,
                 ari.target_id AS target_id,
                 ari.permission AS permission,
+                ari.original_permission AS original_permission,
+                ari.permission_changed_by_display AS permission_changed_by_display,
+                ari.permission_changed_at AS permission_changed_at,
+                ari.permission_change_reason AS permission_change_reason,
                 ari.expires_at AS expires_at,
                 sr.id AS storage_root_id,
                 sr.name AS storage_root_name,
@@ -141,6 +146,9 @@ class AccessRequestsViewsRepo:
             return row
 
         merged = dict(row)
+
+        for key in ("requester_identity_id", "original_permission", "permission_changed_by_display", "permission_changed_at", "permission_change_reason"):
+            merged[key] = snapshot.get(key)
 
         principal_display = self._extract_principal_display(snapshot.get("requested_principal_json"))
         if not merged.get("requested_for_display") and principal_display:
@@ -511,6 +519,11 @@ class AccessRequestsViewsRepo:
                 "ttl_enforced": ttl_enforced,
             },
             "timeline": timeline_rows,
+            "requester_identity_id": base.get("requester_identity_id"),
+            "original_permission": base.get("original_permission"),
+            "permission_changed_by_display": base.get("permission_changed_by_display"),
+            "permission_changed_at": base.get("permission_changed_at"),
+            "permission_change_reason": base.get("permission_change_reason"),
             "provisioning": to_dicts(provisionings),
         }
 

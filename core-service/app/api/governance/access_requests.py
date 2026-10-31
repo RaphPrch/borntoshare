@@ -199,7 +199,7 @@ async def _grant_item(
     if job is None:
         raise ProvisioningStepError(
             "AD_JOB_STILL_RUNNING",
-            "Active Directory has not answered yet.",
+            "Active Directory n'a pas encore répondu.",
             hint="The job keeps running; approve again in a few minutes (nothing is done twice).",
             job_id=job_id,
             access_profile_id=profile_id,
@@ -440,12 +440,19 @@ async def _revoke_request_memberships(
             if job is None:
                 raise ProvisioningStepError(
                     "AD_JOB_STILL_RUNNING",
-                    "Active Directory has not answered yet; revoke again in a few minutes.",
+                    "Active Directory n'a pas encore répondu : relancez la révocation dans quelques minutes.",
                     job_id=job_id,
                 )
             if str(job.get("status") or "").upper() != "SUCCEEDED":
                 raise _job_failure(job, job_id=job_id, step="ad_group_member_removal")
             details = dict(unwrap_data(job.get("result_json") or {}).get("details") or {})
+            await call_route(
+                access_requests_routes.forget_direct_membership,
+                identity_source_id=source_id,
+                group_ref=group_ref,
+                principal_dn=principal_dn,
+                principal_username=principal_username,
+            )
             journal(
                 "ad_group_member_removed" if details.get("reason") != "already_absent" else "ad_group_member_already_absent",
                 job_id=job_id,
@@ -573,11 +580,11 @@ async def _bulk_revoke(
     })
 
 
-_approvals_in_progress: set[int] = set()
+_approvals_in_progress = access_requests_routes.approvals_in_progress
 _ALREADY_DECIDED = {
     "code": "REQUEST_ALREADY_DECIDED",
-    "message": "This request has already been decided.",
-    "hint": "Refresh the list: nothing was changed.",
+    "message": "Cette demande a déjà été traitée.",
+    "hint": "Actualisez la liste : rien n'a été modifié.",
 }
 
 
@@ -650,6 +657,8 @@ async def bulk_decision(request: Request) -> dict[str, Any]:
             )
         return ui_data(_with_already_decided(result, decision, requested_ids, undecided, already_decided))
 
+    await call_route(access_requests_routes.ensure_requests_approvable, ids=undecided, request=request)
+
     # A second reviewer clicking while the approval runs (the status changes at its end)
     in_progress = [req_id for req_id in undecided if req_id in _approvals_in_progress]
     claimed = [req_id for req_id in undecided if req_id not in _approvals_in_progress]
@@ -668,7 +677,6 @@ async def _bulk_approve(
     already_decided: list[int],
     request: Request,
 ) -> dict[str, Any]:
-    decision = "approve"
     failed_ids: list[int] = list(already_decided)
     failed_reasons: dict[int, str] = {req_id: _ALREADY_DECIDED["message"] for req_id in already_decided}
     failed_details: dict[int, dict[str, Any]] = {req_id: dict(_ALREADY_DECIDED) for req_id in already_decided}
@@ -745,8 +753,6 @@ async def _bulk_approve(
                 access_level_code = str(item.get("access_level_code") or "READ").strip().upper() or "READ"
                 group_ref = str(item.get("group_ref") or "").strip()
                 source_id = int(item.get("identity_source_id") or 0) or None
-                profile_status = str(item.get("profile_status") or "").strip().upper()
-                group_external_id = str(item.get("group_external_id") or "").strip() or None
                 item_correlation = f"ar_{int(req_id)}_{int(item_id or 0)}"
 
                 if item_error:

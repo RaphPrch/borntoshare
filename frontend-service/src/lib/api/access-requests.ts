@@ -142,6 +142,13 @@ export const checkExistingAccess = (
   return apiPostData<CheckExistingAccessResponse>(fetchFn, '/access-requests/check-existing-access', payload);
 };
 
+export const changeRequestPermission = async (
+  fetchFn: FetchLike,
+  id: number,
+  permission: 'read' | 'write',
+  reason: string
+) => apiPostData<{ id: number; permission: string }>(fetchFn, `/access-requests/${id}/permission`, { permission, reason });
+
 /**
  * APPROVE an access request
  */

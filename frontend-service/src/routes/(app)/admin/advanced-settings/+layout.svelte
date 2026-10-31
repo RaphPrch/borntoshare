@@ -9,6 +9,7 @@
 
   const nav: NavItem[] = [
     { key: 'naming-policies', label: t('Naming policy'), icon: 'bi-input-cursor-text' },
+    { key: 'governance', label: t('Governance'), icon: 'bi-shield-check' },
     { key: 'logging', label: t('Logging'), icon: 'bi-journal-text' },
     { key: 'user-sessions', label: t('User sessions'), icon: 'bi-person-lines-fill' },
     { key: 'infrastructure', label: t('Infrastructure'), icon: 'bi-hdd-network' }

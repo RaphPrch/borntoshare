@@ -21,6 +21,8 @@ export function normalizeMe(raw: unknown): Me {
 
   const id =
     toNumber(obj.identity_id) ??
+    // Already normalized (the session holds a Me)
+    toNumber(obj.id) ??
     0;
 
   const username = String(

@@ -56,6 +56,8 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'access_request.rejected': { titleKey: 'activity.access_request.rejected.title', descriptionKey: 'activity.access_request.rejected.description', badge: 'admin', icon: 'x-circle' },
   'access_request.executed': { titleKey: 'activity.access_request.executed.title', descriptionKey: 'activity.access_request.executed.description', badge: 'info', icon: 'check2-circle' },
   'access_request.revoked': { titleKey: 'activity.access_request.revoked.title', descriptionKey: 'activity.access_request.revoked.description', badge: 'admin', icon: 'person-x' },
+  'access_request.permission_changed': { titleKey: 'activity.access_request.permission_changed.title', descriptionKey: 'activity.access_request.permission_changed.description', badge: 'admin', icon: 'arrow-left-right' },
+  'advanced_settings.updated': { titleKey: 'activity.advanced_settings.updated.title', descriptionKey: 'activity.advanced_settings.updated.description', badge: 'admin', icon: 'sliders' },
   'access_request.extended': { titleKey: 'activity.access_request.extended.title', descriptionKey: 'activity.access_request.extended.description', badge: 'admin', icon: 'calendar-plus' },
   'auth.login': { titleKey: 'activity.auth.login.title', descriptionKey: 'activity.auth.login.description', badge: 'info', icon: 'box-arrow-in-right' },
   'access_request.failed': { titleKey: 'activity.access_request.failed.title', descriptionKey: 'activity.access_request.failed.description', badge: 'critical', scope: 'security', icon: 'exclamation-triangle' },

@@ -10,7 +10,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { normalizeMe } from '$lib/types/me';
-  import { adoptAccessGroup, bulkDecision, getAccessRequestDetails, getApprovalPreview, type ApprovalPreview } from '$lib/api/access-requests';
+  import { adoptAccessGroup, bulkDecision, changeRequestPermission, getAccessRequestDetails, getApprovalPreview, type ApprovalPreview } from '$lib/api/access-requests';
   import ApprovalPlan from '$lib/components/access-requests/ApprovalPlan.svelte';
   import { listActivityByTarget, type ActivityEvent } from '$lib/api/activity';
   import { renderActivity } from '$lib/activity/formatter';
@@ -68,6 +68,9 @@
   let decisionFailure: { code?: string | null; hint?: string | null; access_profile_id?: number | null; existing_dn?: string | null } | null = null;
   let adopting = false;
   let showCreateRequestModal = false;
+  let levelEditing = false;
+  let levelReason = '';
+  let levelSaving = false;
   let createPrefillStorageRootId: number | null = null;
   let createPrefillAccessLevel: string | null = null;
   let createPrefillPrincipal: PrincipalSearchItem | null = null;
@@ -166,6 +169,10 @@
     ? selectedRequestDetail ?? requests.find((row) => accessRequestId(row) === selectedRequestId) ?? null
     : null;
   $: canReviewSelected = Boolean(selectedRequest) && isPending(selectedRequest) && isReviewAllowed(selectedRequest);
+  // A guardian does not decide on their own request; an administrator does (and it is traced)
+  $: ownRequestBlocked = Boolean(selectedRequest?.own_request) && me?.is_admin !== true;
+  $: canChangeLevel = Boolean(selectedRequest?.can_change_permission) && isPending(selectedRequest);
+  $: originalLevel = String(selectedRequest?.original_permission ?? '').trim().toLowerCase();
   $: canRevokeSelected =
     Boolean(selectedRequest) && isApplied(selectedRequest) && isReviewAllowed(selectedRequest) &&
     (!expiresMs(selectedRequest) || expiresMs(selectedRequest) > now);
@@ -234,7 +241,15 @@
     try {
       for (const [index, id] of ids.entries()) {
         bulkDone = index;
-        const result = await bulkDecision(fetch, [id], bulkDecisionAsked);
+        let result: Awaited<ReturnType<typeof bulkDecision>> | null = null;
+        try {
+          result = await bulkDecision(fetch, [id], bulkDecisionAsked);
+        } catch (e: unknown) {
+          // Refused for this request only (their own request): the next ones can go on
+          if ((e as { status?: number })?.status !== 403) throw e;
+          failed.push(id);
+          continue;
+        }
         if (Number(result?.failed_ids?.length ?? 0) > 0) {
           failed.push(id);
           // Active Directory does not answer: the next ones would each wait as long
@@ -353,8 +368,31 @@
     appliedPreview = null;
     detailLoading = false;
     decisionComment = '';
+    levelEditing = false;
+    levelReason = '';
     detailLoadToken += 1;
     if (requestParamId) setUrl((params) => params.delete('request'));
+  }
+
+  async function changeLevel(): Promise<void> {
+    if (!selectedRequest || levelSaving || !levelReason.trim()) return;
+    const id = accessRequestId(selectedRequest);
+    if (!id) return;
+    const target = accessKind(selectedRequest) === 'write' ? 'read' : 'write';
+    levelSaving = true;
+    try {
+      await changeRequestPermission(fetch, id, target, levelReason.trim());
+      toast.success(target === 'read' ? t('The request now asks for read access.') : t('The request now asks for write access.'));
+      levelEditing = false;
+      levelReason = '';
+      await invalidateAll();
+      void loadApprovalPreview(id);
+      void loadRequestDetail(id);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error && e.message ? e.message : t('Unable to change the access level.'));
+    } finally {
+      levelSaving = false;
+    }
   }
 
   async function runDecision(decision: 'approve' | 'reject' | 'revoke'): Promise<void> {
@@ -745,6 +783,39 @@
         </section>
       {/if}
 
+      {#if originalLevel}
+        <section>
+          <h3>{t('Access level changed')}</h3>
+          <p class="ar-level-note">
+            {t('First requested: {level}. Changed by {name}: {reason}', {
+              level: originalLevel === 'write' ? t('Write') : t('Read'),
+              name: selectedRequest.permission_changed_by_display ?? '—',
+              reason: selectedRequest.permission_change_reason ?? '—'
+            })}
+          </p>
+        </section>
+      {/if}
+
+      {#if canChangeLevel && accessKind(selectedRequest) !== 'other'}
+        <section>
+          {#if levelEditing}
+            <label for="level-reason" class="ar-label">
+              {accessKind(selectedRequest) === 'write' ? t('Why read access instead?') : t('Why write access instead?')}
+            </label>
+            <textarea id="level-reason" class="ar-textarea" maxlength="500" bind:value={levelReason}></textarea>
+            <div class="ar-level-actions">
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={levelSaving} on:click={() => { levelEditing = false; levelReason = ''; }}>{t('Cancel')}</button>
+              <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={levelSaving || !levelReason.trim()} on:click={changeLevel}>{t('Confirm the change')}</button>
+            </div>
+          {:else}
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={Boolean(decisionRunning)} on:click={() => (levelEditing = true)}>
+              <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+              {accessKind(selectedRequest) === 'write' ? t('Change to read') : t('Change to write')}
+            </button>
+          {/if}
+        </section>
+      {/if}
+
       {#if canReviewSelected}
         <section>
           <label for="decision-comment" class="ar-label">{t('Comment (optional)')}</label>
@@ -757,7 +828,9 @@
   {#if selectedRequest}
   <div class="ar-side-foot">
   <p class="ar-foot-note">
-    {#if selectedRequest && canReviewSelected}
+    {#if selectedRequest && canReviewSelected && ownRequestBlocked}
+      {t('This is your own request: another guardian or an administrator approves it.')}
+    {:else if selectedRequest && canReviewSelected}
       {t('You can decide on this request.')}
     {:else if selectedRequest && isPending(selectedRequest)}
       {t('A guardian of this storage root or a platform administrator decides.')}
@@ -775,7 +848,7 @@
         type="button"
         class="b2s-btn b2s-btn-primary"
         disabled={Boolean(decisionRunning) || approvalPreview?.can_approve === false}
-        title={approvalPreview?.can_approve === false ? t('Fix the configuration shown above first') : undefined}
+        title={ownRequestBlocked ? t('This is your own request: another guardian or an administrator approves it.') : approvalPreview?.can_approve === false ? t('Fix the configuration shown above first') : undefined}
         on:click={() => runDecision('approve')}
       >
         <i class="bi bi-check2" aria-hidden="true"></i>
@@ -1204,6 +1277,18 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 8px 12px;
+    margin-top: 8px;
+  }
+
+  .ar-level-note {
+    margin: 0;
+    color: var(--b2s-text-muted, inherit);
+  }
+
+  .ar-level-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
     margin-top: 8px;
   }
 

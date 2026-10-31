@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.core.db import get_db
+from app.api.advanced_settings import min_guardians
 from app.core.internal_auth import require_internal_token
 from app.data.models.identity import Identity
 from app.data.models.storage_endpoint import StorageEndpoint
@@ -25,6 +26,7 @@ from app.data.repositories.governance_alerts_repo import GovernanceAlertsRepo
 from app.api._helpers import ui_action, ui_data, ui_list
 from app.services.activity_log import log_activity
 from app.services.authorization import (
+    is_platform_administrator,
     admin_only,
 
     actor_from_request,
@@ -846,6 +848,38 @@ def replace_storage_root_owners(
 
     actor = actor_from_request(request)
     actor_id, actor_display = actor.identity_id, actor.display_name
+    before_ids = _load_existing_guardian_ids(db, storage_root_id=int(storage_root_id))
+
+    def refuse(code: str, http_status: int, message: str) -> None:
+        log_activity(
+            db,
+            actor_type="user" if actor_id is not None else "system",
+            actor_id=actor_id,
+            actor_display=actor_display,
+            action="storage_root.owners.replaced",
+            outcome="denied",
+            target_type="storage_root",
+            target_id=int(storage_root_id),
+            target_display=str(root.name or root.root_path or root.id),
+            context_json={"code": code, "guardian_ids_before": sorted(before_ids), "guardian_ids_requested": sorted(all_ids)},
+            correlation_id=(request.headers.get("x-request-id") or None),
+        )
+        raise HTTPException(status_code=http_status, detail={"code": code, "message": message})
+
+    # Administrators keep the hand: they are the way out when a guardian leaves
+    if actor_id in before_ids and actor_id not in all_ids and not is_platform_administrator(actor):
+        refuse(
+            "GUARDIAN_SELF_REMOVAL_FORBIDDEN",
+            status.HTTP_403_FORBIDDEN,
+            "Un garant ne peut pas se retirer lui-même d'un dossier : un autre garant ou un administrateur doit le faire.",
+        )
+    required = min_guardians(db)
+    if len(all_ids) < required:
+        refuse(
+            "TOO_FEW_GUARDIANS",
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Un dossier doit avoir au moins {required} garants (Réglages avancés > Gouvernance).",
+        )
 
     write_repo = StorageRootOwnersRepo(db)
     write_repo.replace_owners(
@@ -869,7 +903,9 @@ def replace_storage_root_owners(
         target_id=int(storage_root_id),
         target_display=str(root.name or root.root_path or root.id),
         context_json={
-            "guardian_ids": sorted({int(v) for v in (payload.guardian_ids or []) if int(v) > 0}),
+            "guardian_ids": sorted(all_ids),
+            "guardians_added": sorted(all_ids - before_ids),
+            "guardians_removed": sorted(before_ids - all_ids),
             "owners_count": len(owners),
         },
         correlation_id=(request.headers.get("x-request-id") or None),

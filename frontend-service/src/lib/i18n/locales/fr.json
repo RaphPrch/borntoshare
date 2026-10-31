@@ -1479,6 +1479,10 @@
       "extended": {
         "title": "Accès prolongé",
         "description": "L'accès de {user} sur « {root} » a été prolongé"
+      },
+      "permission_changed": {
+        "title": "Niveau d'accès de la demande modifié",
+        "description": "La demande de {user} sur « {root} » : {from} → {to}"
       }
     },
     "identity_source": {
@@ -1818,6 +1822,12 @@
     "test_smb_ntlm_failed": {
       "title": "Échec du test de connexion",
       "description": "Le serveur de fichiers « {endpoint} » a refusé le test SMB ou n'a pas répondu"
+    },
+    "advanced_settings": {
+      "updated": {
+        "title": "Réglages avancés modifiés",
+        "description": "Modification enregistrée"
+      }
     }
   },
   "badges": {
@@ -2932,5 +2942,27 @@
   "The rights could not reach all the content of the folder: some people may be refused inside. Use « Repair the ACL ».": "Les droits n'ont pas atteint tout le contenu du dossier : certaines personnes peuvent être refusées à l'intérieur. Utilisez « Réparer l'ACL ».",
   "Being applied.": "Application en cours.",
   "Being applied": "Application en cours",
-  "Rights not applied to the whole folder": "Droits non appliqués à tout le dossier"
+  "Rights not applied to the whole folder": "Droits non appliqués à tout le dossier",
+  "The request now asks for read access.": "La demande porte maintenant sur la lecture.",
+  "The request now asks for write access.": "La demande porte maintenant sur l'écriture.",
+  "Unable to change the access level.": "Impossible de changer le niveau d'accès.",
+  "Access level changed": "Niveau d'accès modifié",
+  "First requested: {level}. Changed by {name}: {reason}": "Demandé au départ : {level}. Modifié par {name} : {reason}",
+  "Why read access instead?": "Pourquoi la lecture plutôt que l'écriture ?",
+  "Why write access instead?": "Pourquoi l'écriture plutôt que la lecture ?",
+  "Confirm the change": "Confirmer le changement",
+  "Change to read": "Passer en lecture",
+  "Change to write": "Passer en écriture",
+  "This is your own request: another guardian or an administrator approves it.": "C'est votre propre demande : un autre garant ou un administrateur doit l'approuver.",
+  "Rules every governed folder must follow.": "Règles que chaque dossier gouverné doit respecter.",
+  "Minimum guardians per folder": "Nombre minimum de garants par dossier",
+  "Enter a number between 1 and 10.": "Saisissez un nombre entre 1 et 10.",
+  "Governance settings saved.": "Réglages de gouvernance enregistrés.",
+  "Saving the guardians of a folder is refused below this number. Folders already below it get an alert.": "En dessous de ce nombre, l'enregistrement des garants d'un dossier est refusé. Les dossiers déjà en dessous font l'objet d'une alerte.",
+  "You cannot remove yourself: another guardian or an administrator does it.": "Vous ne pouvez pas vous retirer : un autre garant ou un administrateur doit le faire.",
+  "Repair the ACL of this folder?": "Réparer l'ACL de ce dossier ?",
+  "The entries of the BornToShare groups are written again on the folder.": "Les entrées des groupes BornToShare sont réécrites sur le dossier.",
+  "They are then applied to all its content in the background: this can take several minutes on a large folder.": "Elles sont ensuite appliquées à tout son contenu en tâche de fond : cela peut prendre plusieurs minutes sur un gros dossier.",
+  "Repair": "Réparer",
+  "guardian": "garant"
 }

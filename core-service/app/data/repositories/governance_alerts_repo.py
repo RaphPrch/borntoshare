@@ -299,6 +299,10 @@ class GovernanceAlertsRepo(SQLViewRepo):
         snapshot is not judged (nothing to compare with).
         """
         alerts: list[dict[str, Any]] = []
+        last_inventory = (self._one(
+            "SELECT MAX(activated_at) AS at FROM directory_snapshots WHERE identity_source_id = :source_id",
+            {"source_id": identity_source_id},
+        ) or {}).get("at")
         for row in profile_rows:
             if str(row.get("status") or "").upper() != "SUCCEEDED":
                 continue
@@ -348,9 +352,11 @@ class GovernanceAlertsRepo(SQLViewRepo):
                       AND ar.revoked_at IS NULL
                       AND ari.target_type = 'storage_root' AND ari.target_id = :root_id
                       AND (ari.expires_at IS NULL OR ari.expires_at > UTC_TIMESTAMP())
+                      -- Approved after the last inventory: its copy of the group cannot show this member yet
+                      AND (ar.decided_at IS NULL OR :last_inventory IS NULL OR ar.decided_at <= :last_inventory)
                       AND LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.type')), 'user')) = 'user'
                     """,
-                    {"root_id": root_id},
+                    {"root_id": root_id, "last_inventory": last_inventory},
                 )
                 if r.get("username") and str(r.get("username")) != "null"
                 and normalize_requested_permission(str(r.get("permission") or "")) == level
@@ -519,16 +525,25 @@ class GovernanceAlertsRepo(SQLViewRepo):
             {"storage_root_id": root_id},
         )
         owner_counts = {str(row.get("role") or "").lower(): int(row.get("count") or 0) for row in owner_rows}
-        if int(owner_counts.get("guardian") or 0) <= 0:
+        from app.api.advanced_settings import min_guardians
+
+        guardian_count = int(owner_counts.get("guardian") or 0)
+        required_guardians = min_guardians(self.db)
+        if guardian_count < required_guardians:
             alerts.append(
                 {
                     **base("missing_guardian"),
                     "severity": "warning",
                     "title": "Guardian missing",
-                    "message": "No guardian assigned",
+                    "message": f"{guardian_count} guardian(s) assigned, {required_guardians} required",
                     "source_type": "governance_policy",
                     "source_id": str(root_id),
-                    "metadata_json": {"storage_root_name": root_label, "role": "guardian"},
+                    "metadata_json": {
+                        "storage_root_name": root_label,
+                        "role": "guardian",
+                        "guardians": guardian_count,
+                        "required": required_guardians,
+                    },
                 }
             )
         profile_rows = self._all(

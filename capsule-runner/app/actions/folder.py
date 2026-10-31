@@ -96,7 +96,7 @@ def delete_folder(params: Dict[str, Any]):
     gone = "NT_STATUS_NO_SUCH_FILE" in remaining or "NT_STATUS_OBJECT_NAME_NOT_FOUND" in remaining or "NT_STATUS_OBJECT_PATH_NOT_FOUND" in remaining
     details["deleted"] = gone
     if not gone:
-        message = next((line for line in _output(done).splitlines() if "NT_STATUS_" in line), "the folder is still there")
+        message = next((line for line in _output(done).splitlines() if "NT_STATUS_" in line), "le dossier est toujours présent")
         return False, message.strip()[:300], {**details, "failure_code": "FOLDER_DELETE_FAILED"}
     logger.info("Folder deleted", extra={"operation": "folder_delete", "target_share": share, "target_path": path})
     return True, "Folder deleted", details
@@ -145,7 +145,7 @@ def create_subfolder(params: Dict[str, Any]):
     if "NT_STATUS_OBJECT_NAME_COLLISION" in created_output:
         return False, "A folder with this name already exists", {**details, "failure_code": "FOLDER_EXISTS"}
     if "NT_STATUS_" in _output(check):
-        message = next((line for line in created_output.splitlines() if "NT_STATUS_" in line), "the folder was not created")
+        message = next((line for line in created_output.splitlines() if "NT_STATUS_" in line), "le dossier n'a pas été créé")
         return False, message.strip()[:300], {**details, "failure_code": "FOLDER_CREATE_FAILED"}
     details["created"] = True
     logger.info("Folder created", extra={"operation": "folder_create", "target_share": share, "target_path": path})
@@ -179,33 +179,33 @@ def create_share(params: Dict[str, Any]):
         return False, error, {**details, "failure_code": "SHARE_NAME_INVALID"}
     matched = LOCAL_PATH.match(local_path)
     if not matched:
-        return False, r"A local path of the server is expected, like D:\Shares\Finance", {**details, "failure_code": "SHARE_PATH_INVALID"}
+        return False, r"Un chemin local du serveur est attendu, par exemple D:\Shares\Finance", {**details, "failure_code": "SHARE_PATH_INVALID"}
     parts = [part for part in matched.group(2).split("\\") if part]
     commands = "; ".join(f'mkdir "{chr(92).join(parts[:depth + 1])}"' for depth in range(len(parts)))
     try:
         existing = run_samba(["rpcclient", host, "-c", f'netsharegetinfo "{share}" 1'],
                              username=user, password=password, capture_output=True, timeout=timeout)
         if f"netname: {share}".lower() in _output(existing).lower():
-            return False, "A share with this name already exists", {**details, "failure_code": "SHARE_EXISTS"}
+            return False, "Un partage porte déjà ce nom.", {**details, "failure_code": "SHARE_EXISTS"}
         folder = run_samba(["smbclient", f"//{host}/{matched.group(1).upper()}$", "-c", commands],
                            username=user, password=password, capture_output=True, timeout=timeout)
         folder_output = _output(folder)
         if "NT_STATUS_ACCESS_DENIED" in folder_output or "NT_STATUS_BAD_NETWORK_NAME" in folder_output:
-            return False, ("The account of the file server cannot reach the administrative share: "
-                           "it must be a local administrator of the server"), {**details, "failure_code": "SHARE_ADMIN_REQUIRED"}
+            return False, ("Le compte du serveur de fichiers n'accède pas au partage administratif : "
+                           "il doit être administrateur local du serveur."), {**details, "failure_code": "SHARE_ADMIN_REQUIRED"}
         # -1: no limit of connections (0 would refuse every connection to the share)
         added = run_samba(["rpcclient", host, "-c", f'netshareadd "{local_path}" "{share}" -1 "BornToShare"'],
                           username=user, password=password, capture_output=True, timeout=timeout)
         check = run_samba(["rpcclient", host, "-c", f'netsharegetinfo "{share}" 2'],
                           username=user, password=password, capture_output=True, timeout=timeout)
     except (subprocess.TimeoutExpired, OSError) as exc:
-        return False, f"Unable to create the share: {exc}", {**details, "failure_code": "SHARE_CREATE_FAILED"}
+        return False, f"Impossible de créer le partage : {exc}", {**details, "failure_code": "SHARE_CREATE_FAILED"}
     added_output = _output(added)
     check_output = _output(check)
     if "WERR_ACCESS_DENIED" in added_output:
-        return False, "The account of the file server must be a local administrator of the server", {**details, "failure_code": "SHARE_ADMIN_REQUIRED"}
+        return False, "Le compte du serveur de fichiers doit être administrateur local du serveur.", {**details, "failure_code": "SHARE_ADMIN_REQUIRED"}
     if local_path.lower() not in check_output.lower():
-        message = next((line for line in added_output.splitlines() if "WERR_" in line or "NT_STATUS_" in line), "the share was not created")
+        message = next((line for line in added_output.splitlines() if "WERR_" in line or "NT_STATUS_" in line), "le partage n'a pas été créé")
         return False, message.strip()[:300], {**details, "failure_code": "SHARE_CREATE_FAILED"}
     # Without this, the folder inherits from the drive: every user of the domain could read it (BUILTIN\\Users)
     entries = [r"S-1-5-18", r"S-1-5-32-544", user]
@@ -218,9 +218,9 @@ def create_share(params: Dict[str, Any]):
         listing = _output(run_samba(["smbcacls", f"//{host}/{share}", "\\", "--numeric"],
                                     username=user, password=password, capture_output=True, timeout=timeout))
     except (subprocess.TimeoutExpired, OSError) as exc:
-        return False, f"Share created, but its permissions could not be set: {exc}", {**details, "failure_code": "SHARE_ACL_FAILED"}
+        return False, f"Partage créé, mais ses permissions n'ont pas pu être posées : {exc}", {**details, "failure_code": "SHARE_ACL_FAILED"}
     if "S-1-5-32-544" not in listing or "S-1-5-32-545" in listing or "S-1-1-0" in listing:
-        return False, "Share created, but its folder is still open to the users of the server", {**details, "failure_code": "SHARE_ACL_FAILED"}
+        return False, "Partage créé, mais son dossier reste ouvert aux utilisateurs du serveur.", {**details, "failure_code": "SHARE_ACL_FAILED"}
     details["created"] = True
     logger.info("Share created", extra={"operation": "share_create", "target_share": share})
     return True, "Share created", details

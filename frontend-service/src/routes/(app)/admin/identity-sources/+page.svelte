@@ -50,20 +50,6 @@
   import type { IdentitySourceRow } from '$lib/types/identity-sources';
   import { testIdentitySourceConnection, type IdentitySourceTestPayload } from '$lib/jobs/identity-source-test';
 
-  type SnapshotDebugRow = {
-    key: string;
-    type: string;
-    snapshotVersion: number | null;
-    firstName: string | null;
-    lastName: string | null;
-    displayName: string | null;
-    username: string | null;
-    email: string | null;
-    upn: string | null;
-    dn: string | null;
-    enabled: string | null;
-  };
-
   export let data: {
     identity_sources?: IdentitySourceRow[];
     fetch_error?: string | null;
@@ -85,11 +71,6 @@
   let internalLoading = false;
   let internalError: string | null = null;
   let selectedInternal: IdentitySourceInternalMeta | null = null;
-  let snapshotDebugLoading = false;
-  let snapshotDebugError: string | null = null;
-  let snapshotDebugRows: SnapshotDebugRow[] = [];
-  let snapshotDebugSourceId: number | null = null;
-  let snapshotDebugVersion: number | null = null;
   let hasSources = false;
   let existingSourceNames: string[] = [];
   let sortedCards: IdentitySourceCardVM[] = [];
@@ -273,9 +254,6 @@
     showDetailsDrawer = true;
     selectedInternal = null;
     internalError = null;
-    snapshotDebugRows = [];
-    snapshotDebugError = null;
-    snapshotDebugSourceId = null;
     selectionStore.setSelectedIdentitySourceId(id);
     void loadInternal(id);
   };
@@ -291,96 +269,6 @@
   const normalizeDebugValue = (value: unknown): string | null => {
     const normalized = String(value ?? '').trim();
     return normalized.length > 0 ? normalized : null;
-  };
-
-  const normalizeDebugEnabled = (value: unknown): string | null => {
-    if (typeof value === 'boolean') return value ? 'true' : 'false';
-    const normalized = String(value ?? '').trim().toLowerCase();
-    if (!normalized) return null;
-    if (['1', 'true', 'yes', 'y', 'enabled', 'active'].includes(normalized)) return 'true';
-    if (['0', 'false', 'no', 'n', 'disabled', 'inactive'].includes(normalized)) return 'false';
-    return normalized;
-  };
-
-  const loadSnapshotDebugRows = async (sourceId: number, force = false) => {
-    const normalizedSourceId = Number(sourceId ?? 0);
-    if (!Number.isFinite(normalizedSourceId) || normalizedSourceId <= 0) return;
-
-    if (!force && snapshotDebugSourceId === normalizedSourceId && (snapshotDebugRows.length > 0 || snapshotDebugError)) {
-      return;
-    }
-
-    snapshotDebugLoading = true;
-    snapshotDebugError = null;
-    snapshotDebugRows = [];
-
-    try {
-      const payload = await browseIdentitySource(fetch, normalizedSourceId, {
-        q: '',
-        limit: 120,
-        principal_type: 'all'
-      });
-
-      if (selectedSourceId !== null && Number(selectedSourceId) !== normalizedSourceId) {
-        return;
-      }
-
-      const rawItems = Array.isArray(payload?.items) ? payload.items : [];
-      const version = toFiniteCount(
-        selectedInternal?.last_snapshot_version ??
-        selectedCard?.raw?.last_snapshot_version
-      );
-
-      snapshotDebugRows = rawItems.slice(0, 120).map((row: Record<string, unknown>, index: number) => {
-        const type = normalizeDebugValue(row?.type)?.toLowerCase() ?? 'unknown';
-        const firstName = normalizeDebugValue(row?.first_name ?? row?.given_name ?? row?.firstname);
-        const lastName = normalizeDebugValue(row?.last_name ?? row?.sn ?? row?.surname ?? row?.lastname);
-        const displayName = normalizeDebugValue(row?.display_name ?? row?.cn ?? row?.name);
-        const username = normalizeDebugValue(row?.username ?? row?.samaccountname ?? row?.sam);
-        const email = normalizeDebugValue(row?.email ?? row?.mail);
-        const upn = normalizeDebugValue(row?.upn ?? row?.user_principal_name);
-        const dn = normalizeDebugValue(row?.dn);
-        const key =
-          normalizeDebugValue(row?.external_id) ??
-          normalizeDebugValue(row?.id) ??
-          dn ??
-          `${type}-${index}`;
-
-        return {
-          key,
-          type,
-          snapshotVersion: version,
-          firstName,
-          lastName,
-          displayName,
-          username,
-          email,
-          upn,
-          dn,
-          enabled: normalizeDebugEnabled(row?.enabled ?? row?.is_active ?? row?.active)
-        } as SnapshotDebugRow;
-      });
-
-      snapshotDebugSourceId = normalizedSourceId;
-      snapshotDebugVersion = version;
-    } catch (e: unknown) {
-      if (selectedSourceId !== null && Number(selectedSourceId) !== normalizedSourceId) {
-        return;
-      }
-      const appError = toUiAppError(e, t('Unable to load snapshot debug rows.'), 'ui', {
-        action: 'identity_sources.load_snapshot_debug_rows',
-        sourceId: normalizedSourceId
-      });
-      snapshotDebugRows = [];
-      snapshotDebugError = appError.message;
-      snapshotDebugSourceId = normalizedSourceId;
-      snapshotDebugVersion = null;
-    } finally {
-      if (selectedSourceId !== null && Number(selectedSourceId) !== normalizedSourceId) {
-        return;
-      }
-      snapshotDebugLoading = false;
-    }
   };
 
   const dependencyMessageFromError = (error: unknown, fallback: string): string => {
@@ -928,11 +816,6 @@
     selectedSourceId = null;
     selectedInternal = null;
     internalError = null;
-    snapshotDebugRows = [];
-    snapshotDebugError = null;
-    snapshotDebugLoading = false;
-    snapshotDebugSourceId = null;
-    snapshotDebugVersion = null;
     selectionStore.setSelectedIdentitySourceId(null);
   };
 
@@ -942,11 +825,8 @@
     internalError = null;
     try {
       selectedInternal = (await getIdentitySourceInternal(fetch, Number(sourceId))) as IdentitySourceInternalMeta;
-      snapshotDebugVersion = toFiniteCount(selectedInternal?.last_snapshot_version ?? null);
-      await loadSnapshotDebugRows(sourceId, force);
     } catch (e: unknown) {
       selectedInternal = null;
-      snapshotDebugVersion = null;
       const appError = toUiAppError(e, t('Unable to load internal metadata.'), 'ui', {
         action: 'identity_sources.load_internal_metadata',
         sourceId
@@ -1011,10 +891,6 @@
     detailCard,
     detailCard?.id ? healthSummaryBySourceId[detailCard.id] ?? null : null
   );
-
-  $: if (!snapshotDebugVersion && selectedCard) {
-    snapshotDebugVersion = toFiniteCount(selectedCard.raw?.last_snapshot_version ?? null);
-  }
 
   $: if (showDetailsDrawer && selectedSourceId !== null && !selectedCard) {
     closeDetails();
@@ -1161,10 +1037,6 @@
   internal={selectedInternal}
   loading={internalLoading}
   loadError={internalError}
-  snapshotDebugRows={snapshotDebugRows}
-  snapshotDebugLoading={snapshotDebugLoading}
-  snapshotDebugError={snapshotDebugError}
-  snapshotDebugVersion={snapshotDebugVersion}
   busy={busy}
   probeRunning={selectedCard ? identityProbeRunning(selectedCard.id) : false}
   snapshotRunning={selectedCard && $jobsStore && serverSnapshotRunning ? identitySnapshotRunning(selectedCard.id) : false}

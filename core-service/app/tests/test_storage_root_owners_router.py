@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import sys
 from pathlib import Path
 
@@ -61,6 +63,8 @@ def test_replace_storage_root_owners_uses_actor_from_request_and_returns_owners(
     monkeypatch.setattr(router, "_guardians_in_active_snapshot_enabled", lambda *args, **kwargs: None)
     monkeypatch.setattr(router, "_guardian_ids_requiring_snapshot_validation", lambda *args, **kwargs: [7, 9])
     monkeypatch.setattr(router, "_reconcile_storage_root_alerts", lambda *args, **kwargs: None)
+    monkeypatch.setattr(router, "_load_existing_guardian_ids", lambda *args, **kwargs: {7})
+    monkeypatch.setattr(router, "min_guardians", lambda db: 2)
     monkeypatch.setattr(router, "log_activity", lambda *args, **kwargs: captured.setdefault("activity", kwargs))
     monkeypatch.setattr(router, "StorageRootOwnersRepo", _FakeOwnersRepo)
     monkeypatch.setattr(router, "StorageRootsViewsRepo", _FakeViewsRepo)
@@ -94,3 +98,54 @@ def test_replace_storage_root_owners_uses_actor_from_request_and_returns_owners(
     assert isinstance(activity, dict)
     assert activity["actor_id"] == 42
     assert activity["actor_display"] == "Admin Local"
+
+
+def _refused_owners_update(monkeypatch, *, guardian_ids, identity, roles, existing, required=2):
+    logged: list[dict] = []
+
+    class _Db:
+        def get(self, model, identity_id):
+            return SimpleNamespace(id=identity_id, name="Finance", root_path="\\\\f\\s")
+
+    monkeypatch.setattr(router, "require_storage_root_access", lambda *args, **kwargs: None)
+    monkeypatch.setattr(router, "_guardians_in_active_snapshot_enabled", lambda *args, **kwargs: None)
+    monkeypatch.setattr(router, "_guardian_ids_requiring_snapshot_validation", lambda *args, **kwargs: [])
+    monkeypatch.setattr(router, "_load_existing_guardian_ids", lambda *args, **kwargs: set(existing))
+    monkeypatch.setattr(router, "min_guardians", lambda db: required)
+    monkeypatch.setattr(router, "log_activity", lambda db, **kwargs: logged.append(kwargs))
+    monkeypatch.setattr(router, "StorageRootOwnersRepo", _NoWriteRepo)
+    monkeypatch.setattr(router, "_reconcile_storage_root_alerts", lambda *args, **kwargs: None)
+
+    app = FastAPI()
+    app.include_router(router.router)
+    app.dependency_overrides[router.get_db] = lambda: _Db()
+    with TestClient(app) as client:
+        res = client.put(
+            "/storage-roots/1/owners",
+            json={"guardian_ids": guardian_ids},
+            headers={"x-identity-id": str(identity), "x-actor-display": "Actor", "x-roles": roles},
+        )
+    return res, logged
+
+
+class _NoWriteRepo:
+    def __init__(self, db):
+        self.db = db
+
+    def replace_owners(self, **kwargs):
+        raise AssertionError("refused updates must not write")
+
+
+def test_guardian_cannot_remove_themselves_and_the_attempt_is_logged(monkeypatch) -> None:
+    res, logged = _refused_owners_update(monkeypatch, guardian_ids=[8, 9], identity=7, roles="user", existing=[7, 8, 9])
+    assert res.status_code == 403
+    assert res.json()["detail"]["code"] == "GUARDIAN_SELF_REMOVAL_FORBIDDEN"
+    assert logged[0]["outcome"] == "denied"
+    assert logged[0]["context_json"]["guardian_ids_requested"] == [8, 9]
+
+
+def test_a_folder_keeps_the_minimum_of_guardians_even_for_an_administrator(monkeypatch) -> None:
+    res, logged = _refused_owners_update(monkeypatch, guardian_ids=[8], identity=7, roles="platform_admin", existing=[8, 9])
+    assert res.status_code == 422
+    assert res.json()["detail"]["code"] == "TOO_FEW_GUARDIANS"
+    assert logged[0]["context_json"]["code"] == "TOO_FEW_GUARDIANS"

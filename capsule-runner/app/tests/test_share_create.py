@@ -31,7 +31,7 @@ def test_creates_the_folder_tree_then_the_share_and_reads_it_back(monkeypatch):
 def test_an_account_without_rights_gets_a_clear_message(monkeypatch):
     _fake(monkeypatch, "", "tree connect failed: NT_STATUS_ACCESS_DENIED")
     ok, message, details = folder.create_share({**BASE, "share": "Finance", "path": r"C:\Shares\Finance"})
-    assert ok is False and details["failure_code"] == "SHARE_ADMIN_REQUIRED" and "local administrator" in message
+    assert ok is False and details["failure_code"] == "SHARE_ADMIN_REQUIRED" and "administrateur local" in message
 
 
 def test_an_existing_share_is_reported(monkeypatch):

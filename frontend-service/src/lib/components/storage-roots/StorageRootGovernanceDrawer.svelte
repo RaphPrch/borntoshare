@@ -15,6 +15,8 @@
   export let onSave: () => void = () => {};
   export let onSelectRoleTab: (role: 'guardian') => void = () => {};
   export let onRemoveOwner: (owner: Record<string, unknown>) => void = () => {};
+  /** This guardian cannot remove themselves (0: no lock, for administrators) */
+  export let lockedIdentityId = 0;
 
   export let saving = false;
   export let loading = false;
@@ -121,6 +123,7 @@
               {owner}
               role={roleTab}
               {saving}
+              removeLocked={lockedIdentityId > 0 && Number(owner?.identity_id ?? 0) === lockedIdentityId}
               {ownerDisplayName}
               {ownerTypeLabel}
               onRemove={onRemoveOwner}

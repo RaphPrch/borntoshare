@@ -27,6 +27,9 @@ dsacls "OU=B2S Groups,DC=example,DC=test" /I:S /G "EXAMPLE\svc-b2s-prov:WP;membe
 **Serveur de fichiers** : un partage de test, par exemple `\\files.example.test\pilote`, contenant
 trois dossiers. `svc-b2s-files` a le contrôle total sur le dossier du partage (NTFS) et sur le partage lui-même.
 
+Ce compte n'a pas besoin d'être administrateur local, sauf pour créer des partages depuis BornToShare : sans ce droit,
+la création est refusée avec un message clair et tout le reste fonctionne sur les partages où il a le contrôle total.
+
 **Utilisateurs et groupes de test** :
 
 - `pilote.admin`, membre d'un groupe `GG_B2S_Pilot_Admins` ;
@@ -58,7 +61,8 @@ Les mots de passe sont saisis dans l'interface, qui les range dans le secret bro
 | 2.1 | Serveurs › Ajouter un serveur, découverte des partages | Le partage et ses dossiers sont listés |
 | 2.2 | Dossiers › Ajouter des dossiers : les trois dossiers | Tuiles visibles, zone et serveur corrects |
 | 2.3 | Ouvrir un dossier › Relire l'ACL | Les entrées existantes sont lues ; les noms correspondent à ceux de l'Explorateur Windows |
-| 2.4 | Nommer `pilote.garant` garant du premier dossier | Il voit ce dossier et seulement lui |
+| 2.4 | Nommer `pilote.garant` et un second garant sur le premier dossier (minimum réglable dans Réglages avancés › Gouvernance, 2 par défaut) | `pilote.garant` voit ce dossier et seulement lui ; en dessous du minimum, l'enregistrement est refusé |
+| 2.5 | `pilote.garant` essaie de se retirer des garants | Refus, tentative tracée dans le journal |
 
 ## 3. Demande et approbation
 
@@ -73,6 +77,8 @@ Les mots de passe sont saisis dans l'interface, qui les range dans le secret bro
 | 3.7 | Révocation | Membre retiré, groupe et ACL conservés ; accès perdu à la session suivante |
 | 3.8 | Accès avec date de fin proche, attendre l'échéance | Membre retiré automatiquement |
 | 3.9 | Cocher plusieurs demandes › Tout approuver | Progression affichée, toutes appliquées |
+| 3.10 | `pilote.garant` dépose une demande pour lui-même | Il ne peut pas l'approuver ni la prolonger ; un autre garant ou un administrateur décide, tentative tracée |
+| 3.11 | Avant la décision, Passer en lecture ou en écriture avec une raison | Niveau changé, demande d'origine et raison visibles, changement tracé |
 
 Le ticket Kerberos d'une session ouverte ne contient pas le nouveau groupe : c'est pourquoi les étapes 3.5 à 3.7 demandent une nouvelle session.
 

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 import json
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.db import get_db
 from app.core.logging import get_logger, log_event
@@ -20,7 +20,9 @@ from app.core.internal_auth import require_internal
 from app.services.activity_log import log_activity
 from app.services.authorization import (
     actor_from_request,
+    can_review_request,
     filter_access_request_rows,
+    is_own_request,
     is_platform_administrator,
     require_access_request_access,
     require_access_request_review,
@@ -405,7 +407,7 @@ def _evaluate_access_request_guardrails(
             "current_access_level": "NONE",
             "code": "ACCESS_REQUEST_ALREADY_EXISTS",
             "reason": "ACCESS_REQUEST_ALREADY_EXISTS",
-            "message": "Une demande d'acces est deja en cours pour cet utilisateur et cette ressource.",
+            "message": "Une demande d'accès est déjà en cours pour cet utilisateur et cette ressource.",
             "source": "DB",
             "access_request_id": int(existing_request.get("id") or 0) or None,
             "access_request_code": str(existing_request.get("code") or "").strip() or None,
@@ -425,7 +427,7 @@ def _evaluate_access_request_guardrails(
                 "current_access_level": current_access_level,
                 "code": "ACCESS_ALREADY_GRANTED",
                 "reason": "ACCESS_ALREADY_GRANTED",
-                "message": "L'utilisateur possede deja cet acces sur cette ressource.",
+                "message": "L'utilisateur possède déjà cet accès sur cette ressource.",
                 "source": "EFFECTIVE_ACCESS",
             }
         return {
@@ -433,7 +435,7 @@ def _evaluate_access_request_guardrails(
             "current_access_level": current_access_level,
             "code": "ELEVATION_ALLOWED",
             "reason": "ELEVATION_ALLOWED",
-            "message": "L'utilisateur possede deja un acces Lecture. Cette demande sera traitee comme une elevation vers Ecriture.",
+            "message": "L'utilisateur possède déjà un accès en lecture. Cette demande sera traitée comme un passage en écriture.",
             "source": "EFFECTIVE_ACCESS",
         }
 
@@ -1042,7 +1044,14 @@ def get_access_request_details(
             detail="Access request not found",
         )
 
-    require_access_request_access(db, actor_from_request(request), int(access_request_id))
+    actor = actor_from_request(request)
+    require_access_request_access(db, actor, int(access_request_id))
+    is_requester = actor.identity_id is not None and int(row.get("requester_identity_id") or 0) == actor.identity_id
+    row = {
+        **row,
+        "own_request": is_own_request(db, actor, int(access_request_id)),
+        "can_change_permission": is_requester or can_review_request(db, actor, int(access_request_id)),
+    }
     return ui_data(row, meta={"access_request_id": int(access_request_id)})
 
 
@@ -1064,10 +1073,10 @@ def get_access_request_approval_preview(
     blockers: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
     if not principal.get("dn") and not principal.get("username"):
-        blockers.append({"code": "REQUESTED_PRINCIPAL_MISSING", "message": "The beneficiary has no directory account."})
+        blockers.append({"code": "REQUESTED_PRINCIPAL_MISSING", "message": "Le bénéficiaire n'a pas de compte dans l'annuaire."})
     # Worker statuses: healthy | degraded | down | unknown (Infrastructure › Workers)
-    if workers and not any(str(s or "").lower() in {"healthy", "degraded"} for s in workers):
-        warnings.append({"code": "NO_WORKER_UP", "message": "No worker answered the last health check: the approval may wait."})
+    if workers and all(str(s or "").lower() == "down" for s in workers):
+        warnings.append({"code": "NO_WORKER_UP", "message": "Aucun worker n'a répondu au dernier contrôle : la validation risque d'attendre."})
 
     items: list[dict[str, Any]] = []
     for item in list(plan.get("items") or []):
@@ -1119,15 +1128,18 @@ def get_access_request_approval_preview(
             }
         )
         if not source:
-            out["problems"].append({"code": "IDENTITY_SOURCE_REQUIRED", "message": "The file server of this root has no Active Directory identity source."})
+            out["problems"].append({"code": "IDENTITY_SOURCE_REQUIRED", "message": "Le serveur de fichiers de ce dossier n'a pas d'annuaire Active Directory."})
         elif not bool(capabilities.get("provisioning", (source or {}).get("write_enabled"))):
-            out["problems"].append({"code": "AD_PROVISIONING_DISABLED", "message": "Managing AD groups is disabled for this identity source."})
+            out["problems"].append({"code": "AD_PROVISIONING_DISABLED", "message": "La gestion des groupes AD est désactivée pour cet annuaire."})
         if out["group_action"] == "create" and not out["target_ou_dn"]:
-            out["problems"].append({"code": "ZONE_GROUP_OU_MISSING", "message": "No organizational unit is configured for the groups of this zone."})
+            out["problems"].append({"code": "ZONE_GROUP_OU_MISSING", "message": "Aucune unité d'organisation n'est configurée pour les groupes de cette zone."})
         items.append(out)
 
     for item in items:
         blockers.extend(item["problems"])
+    actor = actor_from_request(request)
+    if not is_platform_administrator(actor) and is_own_request(db, actor, int(access_request_id)):
+        blockers.append({"code": "SELF_APPROVAL_FORBIDDEN", "message": _SELF_APPROVAL_MESSAGE})
     return ui_data(
         {
             "principal": principal,
@@ -1141,6 +1153,87 @@ def get_access_request_approval_preview(
 # ============================================================
 # WRITE MODEL — CREATE
 # ============================================================
+
+def forget_direct_membership(
+    identity_source_id: int | None,
+    group_ref: str,
+    principal_dn: str | None,
+    principal_username: str | None,
+    db: Session = Depends(get_db),
+) -> bool:
+    """Drop a person's direct link to a group from the local copy of the directory, once removed from AD.
+
+    Permissions and the "already has this access" check read this copy, which otherwise stays stale
+    until the next inventory. That inventory rewrites these rows from AD anyway.
+    """
+    group = db.execute(
+        text(
+            """
+            SELECT id, identity_source_id, external_id, dn, name
+            FROM directory_groups
+            WHERE deleted_at IS NULL
+              AND (:source_id IS NULL OR identity_source_id = :source_id)
+              AND (LOWER(name) = LOWER(:group_ref) OR LOWER(dn) = LOWER(:group_ref))
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ),
+        {"source_id": identity_source_id, "group_ref": group_ref},
+    ).mappings().first()
+    if not group:
+        return False
+    user = db.execute(
+        text(
+            """
+            SELECT id, external_id, dn
+            FROM directory_users
+            WHERE identity_source_id = :source_id
+              AND (LOWER(dn) = LOWER(:dn) OR LOWER(username) = LOWER(:username))
+            ORDER BY LOWER(dn) = LOWER(:dn) DESC
+            LIMIT 1
+            """
+        ),
+        {"source_id": group["identity_source_id"], "dn": principal_dn or "", "username": principal_username or ""},
+    ).mappings().first()
+    if not user:
+        return False
+    ids = {"group_id": group["id"], "user_id": user["id"]}
+    db.execute(
+        text(
+            """
+            DELETE FROM directory_effective_memberships
+            WHERE directory_group_id = :group_id AND directory_user_id = :user_id AND depth = 0
+            """
+        ),
+        ids,
+    )
+    db.execute(
+        text("DELETE FROM directory_group_members WHERE group_id = :group_id AND directory_user_id = :user_id"),
+        ids,
+    )
+    snapshot_id = StorageRootsViewsRepo(db)._active_snapshot_id_for_source(identity_source_id=group["identity_source_id"])
+    if snapshot_id:
+        db.execute(
+            text(
+                """
+                DELETE FROM directory_snapshot_memberships
+                WHERE snapshot_id = :snapshot_id
+                  AND LOWER(group_external_id) IN (LOWER(:group_external_id), LOWER(:group_dn), LOWER(:group_name))
+                  AND LOWER(member_external_id) IN (LOWER(:member_external_id), LOWER(:member_dn))
+                """
+            ),
+            {
+                "snapshot_id": snapshot_id,
+                "group_external_id": group["external_id"] or "",
+                "group_dn": group["dn"] or "",
+                "group_name": group["name"] or "",
+                "member_external_id": user["external_id"] or "",
+                "member_dn": user["dn"] or "",
+            },
+        )
+    db.commit()
+    return True
+
 
 def other_active_request_for_level(
     access_request_id: int,
@@ -1353,7 +1446,7 @@ def create_access_request(
                 requested_access_level=normalize_requested_permission(requested_permission),
                 current_access_level=guardrail.get("current_access_level"),
                 source=guardrail.get("source"),
-                outcome="blocked",
+                outcome="denied",
                 error_code=guardrail.get("code"),
             )
             raise HTTPException(
@@ -1400,6 +1493,147 @@ def create_access_request(
     return ui_action(action_id=int(obj.id), message="access_request.created")
 
 
+# Requests being approved by this process: their status only changes at the end of the approval
+approvals_in_progress: set[int] = set()
+
+_SELF_APPROVAL_MESSAGE = "Vous ne pouvez pas décider de votre propre demande : un autre garant ou un administrateur doit le faire."
+
+
+def _refuse_own_request(db: Session, request: Request, access_request_id: int, *, action: str, code: str) -> None:
+    """403 and an activity entry when a guardian acts on their own request; administrators are only traced."""
+    actor = actor_from_request(request)
+    if is_platform_administrator(actor) or not is_own_request(db, actor, int(access_request_id)):
+        return
+    log_activity(
+        db,
+        actor_type="user",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action=action,
+        outcome="denied",
+        target_type="access_request",
+        target_id=int(access_request_id),
+        target_display=f"REQ-{access_request_id}",
+        context_json={"code": code, **_request_event_labels(db, int(access_request_id))},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": code, "message": _SELF_APPROVAL_MESSAGE})
+
+
+def ensure_requests_approvable(ids: list[int], request: Request, db: Session = Depends(get_db)) -> None:
+    """Called before anything is changed in AD or on the file server."""
+    for req_id in ids:
+        _refuse_own_request(db, request, int(req_id), action="access_request.approve", code="SELF_APPROVAL_FORBIDDEN")
+
+
+class ChangePermissionPayload(BaseModel):
+    permission: Literal["read", "write"]
+    reason: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/{access_request_id}/permission")
+def change_access_request_permission(
+    access_request_id: int,
+    payload: ChangePermissionPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Change the level of a pending request (read <-> write), by its requester or a reviewer, before the decision."""
+    actor = actor_from_request(request)
+    row = db.execute(
+        text("SELECT status, requester_identity_id, requested_principal_json FROM access_requests WHERE id = :id"),
+        {"id": int(access_request_id)},
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access request not found")
+    is_requester = actor.identity_id is not None and int(row.get("requester_identity_id") or 0) == actor.identity_id
+    if not is_requester:
+        require_access_request_review(db, actor, int(access_request_id))
+
+    reason = payload.reason.strip()
+    level = payload.permission.upper()
+    labels = _request_event_labels(db, int(access_request_id))
+    current_level = None
+    conflict: tuple[str, str] | None = None
+    items = db.execute(
+        text(
+            """
+            SELECT id, target_id, permission FROM access_request_items
+            WHERE access_request_id = :id AND LOWER(COALESCE(target_type, '')) = 'storage_root'
+            """
+        ),
+        {"id": int(access_request_id)},
+    ).mappings().all()
+    if items:
+        current_level = normalize_requested_permission(str(items[0].get("permission") or ""))
+    if not reason:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "REASON_REQUIRED", "message": "Indiquez la raison du changement."},
+        )
+    if str(row.get("status") or "").lower() != "pending":
+        conflict = ("ACCESS_REQUEST_ALREADY_DECIDED", "Seule une demande en attente peut être modifiée.")
+    elif int(access_request_id) in approvals_in_progress:
+        conflict = ("APPROVAL_IN_PROGRESS", "L'approbation de cette demande est en cours.")
+    elif not items:
+        conflict = ("ACCESS_REQUEST_NO_ITEM", "Cette demande ne porte sur aucun dossier.")
+    elif current_level == level:
+        conflict = ("PERMISSION_UNCHANGED", "La demande porte déjà sur ce niveau d'accès.")
+    else:
+        held = _current_access_level_for_principal(
+            db=db,
+            storage_root_id=int(items[0]["target_id"]),
+            requested_principal_payload=row.get("requested_principal_json"),
+            requester_identity_id=row.get("requester_identity_id"),
+        )
+        if held == "WRITE" or held == level:
+            conflict = ("ACCESS_ALREADY_GRANTED", "L'utilisateur possède déjà cet accès sur ce dossier.")
+
+    def journal(outcome: str, **context: Any) -> None:
+        log_activity(
+            db,
+            actor_type="user",
+            actor_id=actor.identity_id,
+            actor_display=actor.display_name,
+            action="access_request.permission_changed",
+            outcome=outcome,
+            target_type="access_request",
+            target_id=int(access_request_id),
+            target_display=f"REQ-{access_request_id}",
+            context_json={"from": current_level, "to": level, "reason": reason, **labels, **context},
+            correlation_id=(request.headers.get("x-request-id") or None),
+        )
+
+    if conflict:
+        journal("denied", code=conflict[0])
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": conflict[0], "message": conflict[1]})
+
+    db.execute(
+        text(
+            """
+            UPDATE access_request_items
+            SET original_permission = COALESCE(original_permission, permission),
+                permission = :permission,
+                permission_changed_by = :actor_id,
+                permission_changed_by_display = :actor_display,
+                permission_changed_at = UTC_TIMESTAMP(),
+                permission_change_reason = :reason
+            WHERE access_request_id = :id AND LOWER(COALESCE(target_type, '')) = 'storage_root'
+            """
+        ),
+        {
+            "permission": payload.permission,
+            "actor_id": actor.identity_id,
+            "actor_display": actor.display_name,
+            "reason": reason,
+            "id": int(access_request_id),
+        },
+    )
+    db.commit()
+    journal("success")
+    return ui_data({"id": int(access_request_id), "permission": payload.permission})
+
+
 class ExtendAccessPayload(BaseModel):
     days: int = 30
 
@@ -1414,6 +1648,7 @@ def extend_access_request(
     """Move the end date of an access in force (guardians, administrators); the expiry task reads the new date."""
     actor = actor_from_request(request)
     require_access_request_review(db, actor, int(access_request_id))
+    _refuse_own_request(db, request, int(access_request_id), action="access_request.extended", code="SELF_APPROVAL_FORBIDDEN")
     days = int(payload.days)
     if days < 1 or days > 365:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="days must be between 1 and 365")
@@ -1433,12 +1668,12 @@ def extend_access_request(
     if str(row["status"] or "").lower() not in {"approved", "executed"} or row["revoked_at"] is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "ACCESS_NOT_IN_FORCE", "message": "Only an access in force can be extended"},
+            detail={"code": "ACCESS_NOT_IN_FORCE", "message": "Seul un accès en vigueur peut être prolongé."},
         )
     if int(row["permanent"] or 0) == int(row["items"] or 0):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "ACCESS_PERMANENT", "message": "This access has no end date"},
+            detail={"code": "ACCESS_PERMANENT", "message": "Cet accès n'a pas de date de fin."},
         )
     db.execute(
         text(
@@ -1493,7 +1728,7 @@ def check_existing_access(
         storage_root_id=int(payload.storage_root_id),
         user_id=requester_identity_id,
         requested_access_level=normalize_requested_permission(requested_permission),
-        outcome="started",
+        outcome="in_progress",
     )
     result = _evaluate_access_request_guardrails(
         db=db,
@@ -1511,7 +1746,7 @@ def check_existing_access(
         requested_access_level=normalize_requested_permission(requested_permission),
         current_access_level=result.get("current_access_level"),
         source=result.get("source"),
-        outcome="allowed" if result.get("can_request") else "blocked",
+        outcome="success" if result.get("can_request") else "denied",
         error_code=None if result.get("can_request") else result.get("code"),
     )
     return ui_data(result)
@@ -1540,6 +1775,8 @@ def bulk_decision(
 
     for req_id in requested_ids:
         require_access_request_review(db, actor, int(req_id))
+    if decision == "approve":
+        ensure_requests_approvable(requested_ids, request, db)
 
     if decision == "approve":
         # Governance is now the only business orchestrator for approve/provision.
@@ -1612,6 +1849,8 @@ def bulk_decision(
                 context_json={
                     "decision": decision,
                     **_request_event_labels(db, int(req_id)),
+                    # An administrator deciding on their own request is allowed, and visible afterwards
+                    "own_request": is_own_request(db, actor, int(req_id)),
                     "executions_started": int(executions_started),
                     "members_visibility_sources": visibility_summary.get("visibility_sources", []),
                     "active_snapshot_ids": visibility_summary.get("active_snapshot_ids", []),

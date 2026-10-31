@@ -809,6 +809,14 @@ class ShareCreatePayload(BaseModel):
     path: str | None = Field(default=None, max_length=512)
 
 
+_SHARE_REFUSALS = {
+    "SHARE_ADMIN_REQUIRED": status.HTTP_403_FORBIDDEN,
+    "SHARE_EXISTS": status.HTTP_409_CONFLICT,
+    "SHARE_NAME_INVALID": status.HTTP_422_UNPROCESSABLE_ENTITY,
+    "SHARE_PATH_INVALID": status.HTTP_422_UNPROCESSABLE_ENTITY,
+}
+
+
 @router.post("/{endpoint_id}/shares", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_only)])
 async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, request: Request, db: Session = Depends(get_db)):
     """Create a share on the file server with its account, which must be a local administrator of the server."""
@@ -821,7 +829,7 @@ async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, r
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
     if not (endpoint.host and endpoint.bind_dn and endpoint.bind_password_ref):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail={"code": "ENDPOINT_CREDENTIALS_MISSING", "message": "The file server has no host or account"})
+                            detail={"code": "ENDPOINT_CREDENTIALS_MISSING", "message": "Le serveur de fichiers n'a ni hôte ni compte."})
     name = payload.name.strip()
     local_path = (payload.path or "").strip() or f"C:\\Shares\\{name}"
     queued = await submit_probe_run({
@@ -840,12 +848,15 @@ async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, r
             break
         if state in {"failed", "timed_out", "cancelled"}:
             error = job.get("error") if isinstance(job.get("error"), dict) else {}
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                                detail={"code": "SHARE_CREATE_FAILED", "message": str(error.get("message") or state), "job_id": job_id})
+            # A refusal is not a failure of the worker: retrying would give the same answer
+            code = str(error.get("code") or "SHARE_CREATE_FAILED")
+            http_status = _SHARE_REFUSALS.get(code, status.HTTP_502_BAD_GATEWAY)
+            raise HTTPException(status_code=http_status,
+                                detail={"code": code, "message": str(error.get("message") or state), "job_id": job_id})
         await asyncio.sleep(1)
     else:
         raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                            detail={"code": "SHARE_CREATE_TIMEOUT", "message": "The worker did not answer in time", "job_id": job_id})
+                            detail={"code": "SHARE_CREATE_TIMEOUT", "message": "Le worker n'a pas répondu à temps.", "job_id": job_id})
 
     actor = actor_from_request(request)
     log_activity(

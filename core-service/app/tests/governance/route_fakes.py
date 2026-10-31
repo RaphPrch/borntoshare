@@ -42,6 +42,7 @@ ROUTES: dict[Callable[..., Any], tuple[str, str]] = {
         "GET",
         "/api/internal/access-requests/{access_request_id}/other-active",
     ),
+    access_requests.forget_direct_membership: ("POST", "/api/internal/access-requests/forget-membership"),
     access_requests.bulk_decision: ("POST", "/api/access-requests/bulk"),
     internal_directory_snapshots.create_snapshot_run: ("POST", "/api/internal/directory-snapshots/runs"),
     internal_directory_snapshots.list_snapshot_runs: ("GET", "/api/internal/directory-snapshots/runs"),
@@ -95,6 +96,8 @@ class PathFakes:
         if handler is access_requests.get_access_request_details:
 
             return {"status": self.statuses.get(int(kwargs["access_request_id"]), "pending")}
+        if handler is access_requests.ensure_requests_approvable:
+            return None
         if "request" in kwargs:
             self.requests.append(kwargs["request"])
         method, path, payload = route_path(handler, kwargs)

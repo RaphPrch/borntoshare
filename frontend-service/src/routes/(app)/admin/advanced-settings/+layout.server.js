@@ -6,9 +6,10 @@ import { requireAuth } from '$lib/server/require-auth';
 export async function load(event) {
   await requireAuth(event);
 
-  const [loggingResult, namingPolicyResult] = await Promise.allSettled([
+  const [loggingResult, namingPolicyResult, advancedResult] = await Promise.allSettled([
     apiServerGet('/auth/admin/logging', event),
-    apiServerGetData('/naming-policies/global', event)
+    apiServerGetData('/naming-policies/global', event),
+    apiServerGetData('/admin/config/advanced', event)
   ]);
 
   const authLoggingRaw =
@@ -34,6 +35,10 @@ export async function load(event) {
           ? authLogging.retentionEnabled
           : true,
       retentionDays: asOptionalNumber(authLogging.retentionDays) ?? 180
+    },
+    governance: {
+      minGuardians:
+        (advancedResult.status === 'fulfilled' ? asOptionalNumber(advancedResult.value?.governance?.minGuardians) : undefined) ?? 2
     }
   };
 

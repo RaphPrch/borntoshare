@@ -384,6 +384,19 @@ def test_smb_ntlm(params: dict):
                     )
                     details["permissions_by_root"][unc] = perms
 
+                # The tool being installed proves nothing: the account must also be able to read the ACLs
+                if roots and not any(details["permissions_by_root"].values()):
+                    details["acl_capability"] = False
+                    details["checks"] = [c for c in details["checks"] if c.get("name") != "acl_capability"]
+                    details["checks"].append(
+                        _check(
+                            "acl_capability",
+                            False,
+                            "This account cannot read the ACLs of the discovered shares",
+                            failure_code="SMB_ACL_READ_DENIED",
+                        )
+                    )
+
             # Optional UX hint: keep message informative when discovery is empty.
             if not roots:
                 return True, "Connection OK but no shares discovered", details

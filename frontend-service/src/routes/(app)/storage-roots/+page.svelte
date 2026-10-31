@@ -115,6 +115,7 @@
   import { canDeleteManagedObject } from '$lib/utils/permissions';
 
   export let data: {
+    me?: { id?: number; is_admin?: boolean };
     user?: {
       id?: string | number;
       is_admin?: boolean;
@@ -2171,6 +2172,7 @@
   onSave={saveGovernanceChanges}
   onSelectRoleTab={handleGovernanceRoleTabSelect}
   onRemoveOwner={removeGovernanceOwner}
+  lockedIdentityId={data.me?.is_admin === true ? 0 : Number(data.me?.id ?? 0)}
   saving={governanceSaving}
   loading={governanceLoading}
   roleTab={governanceRoleTab}

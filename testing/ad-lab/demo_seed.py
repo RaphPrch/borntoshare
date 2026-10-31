@@ -210,37 +210,37 @@ def main() -> int:
     for tag_id in list(tags.values())[:2]:
         api.call("POST", "/tags/attach", {"tag_id": tag_id, "resource_type": "storage_root", "resource_id": roots["Finance"]})
 
-    roots["Ressources humaines"] = new_root(api, endpoint_id, "Ressources humaines", G("nathalie.girard"))
+    roots["Ressources humaines"] = new_root(api, endpoint_id, "Ressources humaines", G("nathalie.girard", "olivier.bonnet"))
     grant(api, roots["Ressources humaines"], "read", people["sophie.moreau"])
     lab.request_access(api, roots["Ressources humaines"], "write", people["camille.roux"])  # left to decide
 
-    roots["Juridique"] = new_root(api, endpoint_id, "Juridique", G("claire.vidal"))
+    roots["Juridique"] = new_root(api, endpoint_id, "Juridique", G("claire.vidal", "olivier.bonnet"))
     grant(api, roots["Juridique"], "read", people["sophie.moreau"], days=5)
     grant(api, roots["Juridique"], "write", people["alice.bernard"], days=20)
 
-    roots["Direction"] = new_root(api, endpoint_id, "Direction", G("olivier.bonnet"))
+    roots["Direction"] = new_root(api, endpoint_id, "Direction", G("olivier.bonnet", "claire.vidal"))
     grant(api, roots["Direction"], "write", people["emma.leroy"])
     api.call("POST", f"/storage-roots/{roots['Direction']}/inheritance", {"mode": "break"})
 
-    roots["Marketing"] = new_root(api, endpoint_id, "Marketing", G("nathalie.girard"))
+    roots["Marketing"] = new_root(api, endpoint_id, "Marketing", G("nathalie.girard", "claire.vidal"))
     grant(api, roots["Marketing"], "write", people["camille.roux"])
     lab.set_ace(SHARE, f"{BASE}\\Marketing", "EXAMPLE\\GG_Marketing_Agence:ALLOWED/OI|CI/READ")
     sub = api.call("POST", f"/storage-roots/{roots['Marketing']}/subfolders", {"name": "Campagnes", "register": True})
     roots["Marketing\\Campagnes"] = int(sub.get("storage_root_id") or 0)
 
-    roots["Achats"] = new_root(api, endpoint_id, "Achats", G("olivier.bonnet"))
+    roots["Achats"] = new_root(api, endpoint_id, "Achats", G("olivier.bonnet", "claire.vidal"))
     grant(api, roots["Achats"], "read", people["julien.durand"])
     lab.set_ace(SHARE, f"{BASE}\\Achats", "EXAMPLE\\GG_Achats_Prestataires:ALLOWED/OI|CI/READ")
 
-    roots["Comptabilité"] = new_root(api, endpoint_id, "Comptabilité", G("olivier.bonnet"))
+    roots["Comptabilité"] = new_root(api, endpoint_id, "Comptabilité", G("olivier.bonnet", "nathalie.girard"))
     req = grant(api, roots["Comptabilité"], "read", people["lucas.petit"])
     group = (api.call("GET", f"/access-requests/{req}/approval-preview").get("items") or [{}])[0].get("group_name") or ""
     remove_ace(f"{BASE}\\Comptabilité", group)
 
-    roots["Archives 2019"] = new_root(api, endpoint_id, "Archives 2019", G("claire.vidal"))
+    roots["Archives 2019"] = new_root(api, endpoint_id, "Archives 2019", G("claire.vidal", "olivier.bonnet"))
     admin_smb(f'deltree "{BASE}\\Archives 2019"')
 
-    roots["Projets"] = new_root(api, endpoint_id, "Projets", G("nathalie.girard"))
+    roots["Projets"] = new_root(api, endpoint_id, "Projets", G("nathalie.girard", "olivier.bonnet"))
 
     log("Directory sync, then the ACL of every folder read on the file server")
     lab.snapshot(api, source_id)

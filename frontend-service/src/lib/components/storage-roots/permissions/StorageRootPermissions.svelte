@@ -38,8 +38,10 @@
   export let onChanged: () => void = () => {};
 
   let repairing = false;
+  let repairAsked = false;
   async function repairAcl(): Promise<void> {
     if (!rootId) return;
+    repairAsked = false;
     repairing = true;
     try {
       await repairStorageRootAcl(fetch, rootId);
@@ -235,7 +237,7 @@
       {/if}
       <div class="pm-meta">
         {#if (canManage || isAdmin) && data.summary.groups > 0}
-          <button type="button" class="pm-textbtn" disabled={repairing} on:click={repairAcl}>{repairing ? t('Repairing…') : t('Repair the ACL')}</button> ·
+          <button type="button" class="pm-textbtn" disabled={repairing} on:click={() => (repairAsked = true)}>{repairing ? t('Repairing…') : t('Repair the ACL')}</button> ·
         {/if}
         {#if data.acl_scanned_at}
           <span>{t('ACL read {ago}', { ago: timeAgo(data.acl_scanned_at) })} · {t('{count} entries', { count: data.acl_entries })}</span>
@@ -451,6 +453,15 @@
     explainFor = null;
     onChanged();
   }}
+/>
+
+<ConfirmActionModal
+  open={repairAsked}
+  onClose={() => (repairAsked = false)}
+  onConfirm={repairAcl}
+  title={t('Repair the ACL of this folder?')}
+  impactItems={[t('The entries of the BornToShare groups are written again on the folder.'), t('They are then applied to all its content in the background: this can take several minutes on a large folder.')]}
+  confirmLabel={t('Repair')}
 />
 
 <ConfirmActionModal

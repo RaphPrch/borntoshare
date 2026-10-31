@@ -7,6 +7,7 @@
   export let owner: Record<string, unknown> = {};
   export let role: 'guardian' = 'guardian';
   export let saving = false;
+  export let removeLocked = false;
   export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => t('Unknown');
   export let ownerTypeLabel: (owner: Record<string, unknown>) => string = () => t('User');
   export let onRemove: (owner: Record<string, unknown>) => void = () => {};
@@ -38,9 +39,9 @@
         type="button"
         class="assigned-principal-card__remove"
         on:click={() => onRemove(owner)}
-        disabled={saving}
-        aria-label={t('Remove {role}', { role })}
-        title={t('Remove {role}', { role })}
+        disabled={saving || removeLocked}
+        aria-label={t('Remove {role}', { role: t('guardian') })}
+        title={removeLocked ? t('You cannot remove yourself: another guardian or an administrator does it.') : t('Remove {role}', { role: t('guardian') })}
       >
         <i class="bi bi-x-lg"></i>
       </button>

@@ -50,6 +50,10 @@ export async function purgeLogs(fetchFn: FetchLike) {
   return apiPost<ActionResult>(fetchFn, '/auth/admin/logs/purge', {});
 }
 
+export async function saveGovernanceConfig(fetchFn: FetchLike, minGuardians: number) {
+  return apiPost<ActionResult>(fetchFn, '/admin/config/advanced', { governance: { minGuardians } });
+}
+
 export async function saveLoggingConfig(fetchFn: FetchLike, logging: LoggingConfig) {
   const payload = {
     level: logging.level,

@@ -4,26 +4,32 @@ import json
 from copy import deepcopy
 from json import JSONDecodeError
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.internal_auth import require_internal_token
 from app.api._helpers import ui_action, ui_data
-from app.services.authorization import admin_or_internal
+from app.services.activity_log import log_activity
+from app.services.authorization import actor_from_request, admin_or_internal
 
 router = APIRouter(prefix="/admin", tags=["advanced-settings"])
 
 
-# Only "logging" is read (by auth-service); other sections were stored but never applied.
+# "logging" is read by auth-service, "governance" by core-service; other sections were stored but never applied.
 DEFAULT_ADVANCED_SETTINGS: dict = {
     "logging": {
         "level": "INFO",
         "retentionEnabled": True,
         "retentionDays": 180,
     },
+    "governance": {
+        "minGuardians": 2,
+    },
 }
+
+MIN_GUARDIANS_RANGE = (1, 10)
 
 
 DEPRECATED_ADVANCED_SETTINGS_KEYS = {"platform", "discovery", "integrations", "security", "sessions", "maintenance"}
@@ -93,20 +99,60 @@ def _write_payload(db: Session, payload: dict) -> None:
     db.commit()
 
 
+def min_guardians(db: Session) -> int:
+    """Guardians a storage root must have (Advanced settings > Governance)."""
+    value = (_read_payload(db).get("governance") or {}).get("minGuardians")
+    low, high = MIN_GUARDIANS_RANGE
+    return value if isinstance(value, int) and low <= value <= high else DEFAULT_ADVANCED_SETTINGS["governance"]["minGuardians"]
+
+
+def _changed_settings(before: dict, after: dict, prefix: str = "") -> dict:
+    changes: dict = {}
+    for key in sorted(set(before) | set(after)):
+        old, new = before.get(key), after.get(key)
+        if isinstance(old, dict) and isinstance(new, dict):
+            changes.update(_changed_settings(old, new, f"{prefix}{key}."))
+        elif old != new:
+            changes[f"{prefix}{key}"] = {"from": old, "to": new}
+    return changes
+
+
 @router.get("/config/advanced", dependencies=[Depends(admin_or_internal)])
 def get_advanced_config(db: Session = Depends(get_db)):
     return ui_data(_read_payload(db))
 
 
 @router.post("/config/advanced", dependencies=[Depends(admin_or_internal)])
-def save_advanced_config(payload: dict, db: Session = Depends(get_db)):
+def save_advanced_config(payload: dict, request: Request, db: Session = Depends(get_db)):
     from app.services.log_retention import apply_log_level
 
     current = _read_payload(db)
-    merged = _deep_merge(current, payload if isinstance(payload, dict) else {})
-    _write_payload(db, _sanitize_advanced_settings(merged))
+    merged = _sanitize_advanced_settings(_deep_merge(current, payload if isinstance(payload, dict) else {}))
+    wanted = (merged.get("governance") or {}).get("minGuardians")
+    low, high = MIN_GUARDIANS_RANGE
+    if not isinstance(wanted, int) or isinstance(wanted, bool) or not low <= wanted <= high:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "MIN_GUARDIANS_INVALID", "message": f"Le nombre de garants doit être compris entre {low} et {high}."},
+        )
+    _write_payload(db, merged)
     # The log level applies to core-service right away (auth-service applies it on its side)
     apply_log_level(str((merged.get("logging") or {}).get("level") or "INFO"))
+    changes = _changed_settings(current, merged)
+    if changes:
+        actor = actor_from_request(request)
+        log_activity(
+            db,
+            actor_type="user" if actor.identity_id is not None else "system",
+            actor_id=actor.identity_id,
+            actor_display=actor.display_name,
+            action="advanced_settings.updated",
+            outcome="success",
+            target_type="advanced_settings",
+            target_display="Advanced settings",
+            context_json={"changes": changes},
+            correlation_id=(request.headers.get("x-request-id") or None),
+        )
     return ui_action(message="advanced settings saved")
 
 
