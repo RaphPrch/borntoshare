@@ -47,3 +47,14 @@ def test_a_person_without_the_role_is_not_concerned(monkeypatch, logged) -> None
     monkeypatch.setattr(router, "_subject_is_admin", lambda db, **kwargs: False)
     router._refuse_admin_loss(None, _request(7), action="identity.account_deleted", identity_id=8)
     assert logged == []
+
+
+def test_objects_outside_the_directory_are_refused() -> None:
+    from types import SimpleNamespace
+
+    source = SimpleNamespace(base_dn="DC=Example,DC=Test")
+    router._refuse_outside_directory(source, "CN=Jane,OU=People,DC=example,DC=test")
+    for dn in ("CN=Jane,DC=other,DC=test", None):
+        with pytest.raises(HTTPException) as refused:
+            router._refuse_outside_directory(source, dn)
+        assert refused.value.detail["code"] == "OUTSIDE_DIRECTORY"

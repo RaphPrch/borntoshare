@@ -270,6 +270,15 @@ def _close_sessions(identity_id: int) -> None:
         logger.warning("IDENTITY_SESSIONS_NOT_CLOSED", extra={"identity_id": identity_id})
 
 
+def _refuse_outside_directory(identity_source: Any, dn: str | None) -> None:
+    base_dn = _clean_text(getattr(identity_source, "base_dn", None))
+    if base_dn and (not dn or not dn.lower().replace(", ", ",").endswith(base_dn.lower().replace(", ", ","))):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "OUTSIDE_DIRECTORY", "message": "Cet objet n'appartient pas à cet annuaire."},
+        )
+
+
 def _set_subject_application_role(
     *,
     db: Session,
@@ -686,13 +695,8 @@ async def create_identity(
         username = _clean_text(principal.get("username")) or _clean_text(principal.get("upn")) or _clean_text(principal.get("email"))
         display_name = _clean_text(principal.get("display_name")) or username or external_id
         email = _clean_text(principal.get("email"))
-        # A group outside the directory would become a false entry, and nobody could ever be in it
-        base_dn = _clean_text(getattr(identity_source, "base_dn", None))
-        if base_dn and (not dn or not dn.lower().replace(", ", ",").endswith(base_dn.lower().replace(", ", ","))):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"code": "GROUP_OUTSIDE_DIRECTORY", "message": "Ce groupe n'appartient pas à cet annuaire."},
-            )
+        # An object outside the directory would become a false entry, and nobody could ever be matched with it
+        _refuse_outside_directory(identity_source, _clean_text(principal.get("dn")))
         if not external_id or not display_name:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="principal external_id/dn and display_name are required")
 
@@ -831,6 +835,8 @@ async def create_identity(
         external_id = _clean_text(principal.get("external_id")) or _clean_text(principal.get("dn")) or _clean_text(principal.get("username"))
         display_name = _clean_text(principal.get("display_name")) or _clean_text(principal.get("name")) or external_id
         dn = _clean_text(principal.get("dn"))
+        # An object outside the directory would become a false entry, and nobody could ever be matched with it
+        _refuse_outside_directory(identity_source, dn)
         if not external_id or not display_name:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="principal external_id/dn and display_name are required")
 
