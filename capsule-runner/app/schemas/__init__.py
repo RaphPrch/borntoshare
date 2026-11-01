@@ -4,6 +4,7 @@ from app.schemas.actions import (
     KerberosAuthPayload,
     LDAPSearchPayload,
     LDAPTestPayload,
+    DirectoryDiscoveryPayload,
     TLSCertificatePayload,
     SMBProbePayload,
 )
@@ -11,6 +12,7 @@ from app.schemas.actions import (
 __all__ = [
     "SMBProbePayload",
     "LDAPTestPayload",
+    "DirectoryDiscoveryPayload",
     "TLSCertificatePayload",
     "LDAPSearchPayload",
     "KerberosAuthPayload",

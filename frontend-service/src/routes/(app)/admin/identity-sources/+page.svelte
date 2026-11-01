@@ -3,23 +3,21 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { browser } from '$app/environment';
+  import { goto } from '$app/navigation';
   import { onDestroy } from 'svelte';
   import { sleep } from '$lib/utils/values';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
-  import IdentitySourcesWizardModal from '$lib/components/identity-sources/IdentitySourcesWizardModal.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import IdentitySourceDrawer from '$lib/components/identity-sources/IdentitySourceDrawer.svelte';
   import IdentitySourceEditDrawer from '$lib/components/identity-sources/IdentitySourceEditDrawer.svelte';
   import {
     browseIdentitySource,
-    createIdentitySource,
     deleteIdentitySource,
     getIdentitySourceInternal,
     listIdentitySources,
     runIdentitySnapshot,
     updateIdentitySource,
-    type IdentitySourcePayload
   } from '$lib/api/identity-sources';
   import { getIdentityJob } from '$lib/api/identity';
   import { getHealthSummary, type HealthSummaryDay } from '$lib/api/health';
@@ -30,7 +28,6 @@
   } from '$lib/mappers/identity-sources.mapper';
   import { buildIdentitySourceProbeRequest } from '$lib/jobs/probe-runner';
   import { runProbeWithUi } from '$lib/jobs/probe-ui';
-  import { resolveCredentials } from '$lib/api/credentials';
   import { toast } from '$lib/stores/toast';
   import { dependencyDeleteMessage, isDependencyDeleteError } from '$lib/utils/delete-guard';
   import { notifyError, toAppError, isGenericErrorMessage, toUiAppError } from '$lib/errors';
@@ -48,14 +45,12 @@
   import { selectionStore } from '$lib/stores/selection.store';
   import { snapshotStore } from '$lib/stores/snapshot.store';
   import type { IdentitySourceRow } from '$lib/types/identity-sources';
-  import { testIdentitySourceConnection, type IdentitySourceTestPayload } from '$lib/jobs/identity-source-test';
 
   export let data: {
     identity_sources?: IdentitySourceRow[];
     fetch_error?: string | null;
   };
 
-  let showWizard = false;
   let showDetailsDrawer = false;
   let selectedSourceId: number | null = null;
   let showEditModal = false;
@@ -359,8 +354,6 @@
     }
   };
 
-  const runTest = (payload: IdentitySourceTestPayload) => testIdentitySourceConnection(fetch, payload);
-
   const runTestOnSource = async (source: IdentitySourceRow) => {
     if (!source) return;
     if (identityProbeRunning(source.id)) return;
@@ -648,30 +641,6 @@
     }
   };
 
-  const runCreate = async (payload: IdentitySourcePayload & { _secret?: string; bind_password?: string | null }) => {
-    const protocol = (payload.protocol || 'ldaps').toLowerCase();
-    const bindSecret = payload._secret ?? payload.bind_password;
-
-    const resolved = await resolveCredentials(fetch, {
-      username: payload.bind_dn ?? null,
-      password: bindSecret ?? null,
-      secret_ref: payload.bind_password_ref ?? null
-    }, {
-      secretName: `identity-source/${protocol}/${payload.host || payload.name || 'ad'}`,
-      mode: 'create'
-    });
-
-    payload.bind_password_ref = resolved.secret_ref ?? payload.bind_password_ref ?? null;
-    payload.bind_password = null;
-
-    return createIdentitySource(fetch, payload);
-  };
-
-  const handleIdentityWizardDone = async () => {
-    showWizard = false;
-    await refreshList();
-  };
-
   const openEdit = async (source: IdentitySourceRow) => {
     if (!source) return;
     if (!isAdIdentitySource(source)) {
@@ -914,7 +883,7 @@
         ariaLabel={t('Identity source actions')}
         actions={[
         { key: 'refresh', label: t('Refresh'), icon: 'bi-arrow-clockwise', variant: 'secondary', disabled: listLoading, onClick: refreshList },
-        { key: 'new', label: t('New Identity Source'), icon: 'bi-plus-lg', variant: 'primary', onClick: () => (showWizard = true) }
+        { key: 'new', label: t('New Identity Source'), icon: 'bi-plus-lg', variant: 'primary', onClick: () => goto('/admin/identity-sources/new') }
         ]}
       />
     </header>
@@ -930,7 +899,7 @@
         title={t('No identity sources yet')}
         description={t('Identity sources connect an LDAP directory to authenticate users and import identities.')}
         ctaLabel={t('Create your first identity source')}
-        onCta={() => (showWizard = true)}
+        onCta={() => goto('/admin/identity-sources/new')}
         hint={t('You will be guided step by step.')}
       />
     {:else}
@@ -1126,15 +1095,6 @@
   busy={busy}
 >
 </ConfirmActionModal>
-
-<IdentitySourcesWizardModal
-  open={showWizard}
-  onClose={() => (showWizard = false)}
-  onTest={runTest}
-  onCreate={runCreate}
-  existingNames={existingSourceNames}
-  on:done={handleIdentityWizardDone}
-/>
 
 <style>
   :global(.identity-sources-page) {

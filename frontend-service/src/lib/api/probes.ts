@@ -15,6 +15,7 @@ type ProbeProtocol =
   | 'ldap'
   | 'ldaps'
   | 'tls-certificate'
+  | 'directory-discovery'
   | 'smb'
   | 'acl_push';
 

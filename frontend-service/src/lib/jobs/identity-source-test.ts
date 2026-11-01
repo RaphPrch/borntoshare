@@ -63,6 +63,9 @@ export async function testIdentitySourceConnection(
 
   const request = buildIdentitySourceProbeRequest({
     protocol,
+    tlsVerify: payload.tls_verify,
+    tlsCaPem: payload.tls_ca_pem,
+    tlsServerName: payload.tls_server_name,
     host: payload.host,
     port: payload.port,
     baseDn: payload.base_dn,

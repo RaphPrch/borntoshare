@@ -19,6 +19,7 @@ ACTION_MIN_SCOPE: dict[str, str] = {
     "test_ldap": "read",
     "test_ldaps": "read",
     "fetch_tls_certificate": "read",
+    "discover_directory": "read",
     "search_ldap_principals": "read",
     "search_ldaps_principals": "read",
     "test_kerberos": "read",
