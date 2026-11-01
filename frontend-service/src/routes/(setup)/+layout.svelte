@@ -9,7 +9,9 @@
   import '$lib/styles/app.css';
   import '$lib/styles/buttons.css';
   import Toaster from '$lib/components/ui/Toaster.svelte';
+  import SessionIdleBanner from '$lib/components/layout/SessionIdleBanner.svelte';
 </script>
 
 <slot />
+<SessionIdleBanner />
 <Toaster />

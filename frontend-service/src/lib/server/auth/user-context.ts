@@ -1,6 +1,5 @@
 import type { RequestEvent } from '@sveltejs/kit';
 
-import { unwrapDataStrict } from '../../api/http/envelopes';
 import { normalizeMe, type Me } from '../../types/me';
 import { getServiceBaseUrl } from '../service-routes';
 import {
@@ -44,10 +43,11 @@ if ((env.APP_ENV ?? 'dev').trim().toLowerCase() === 'prod' && PRINCIPAL_SIGNING_
   throw new Error('PRINCIPAL_SIGNING_KEY must be set when APP_ENV=prod');
 }
 
-async function hydrateUserFromAuthMe(event: RequestEvent): Promise<Me | null> {
+// 'unavailable': the authentication service did not answer, which says nothing about the session
+async function hydrateUserFromAuthMe(event: RequestEvent): Promise<Me | null | 'unavailable'> {
   const authUrl = getServiceBaseUrl('auth');
   if (!authUrl) {
-    return null;
+    return 'unavailable';
   }
 
   const cookieHeader = event.request.headers.get('cookie') || '';
@@ -64,28 +64,26 @@ async function hydrateUserFromAuthMe(event: RequestEvent): Promise<Me | null> {
       }
     });
   } catch {
-    return null;
+    return 'unavailable';
   }
 
-  if (!res.ok) {
+  // Only the authentication service rejecting the session ends it
+  if (res.status === 401 || res.status === 403) {
     return null;
+  }
+  if (!res.ok) {
+    return 'unavailable';
   }
 
   let raw: unknown;
   try {
     raw = await res.json();
   } catch {
-    return null;
+    return 'unavailable';
   }
 
-  let payload: unknown;
-  try {
-      payload = unwrapDataStrict(raw, 'GET /auth/me');
-  } catch {
-    return null;
-  }
-
-  const me = normalizeMe(payload);
+  // GET /auth/me returns the user directly, without a "data" envelope
+  const me = normalizeMe(raw);
 
   if (!me.id) {
     return null;
@@ -143,11 +141,17 @@ export async function hydrateUserContext(event: RequestEvent): Promise<void> {
     }
   }
 
-  let hydrated: Me | null = null;
+  let hydrated: Me | null | 'unavailable';
   try {
     hydrated = await hydrateUserFromAuthMe(event);
   } catch {
-    hydrated = null;
+    hydrated = 'unavailable';
+  }
+
+  // Temporary failure: this request is anonymous, but the session stays valid for the next one
+  if (hydrated === 'unavailable') {
+    locals.me = null;
+    return;
   }
 
   if (hydrated) {

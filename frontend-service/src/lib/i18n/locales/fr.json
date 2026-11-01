@@ -3230,5 +3230,9 @@
   "Your folders are in place: what is left is to ask for accesses.": "Vos dossiers sont en place : il reste à demander les accès.",
   "No folder yet: add them from the Folders menu.": "Pas encore de dossier : ajoutez-les depuis le menu Dossiers.",
   "Who decides for each folder": "Qui décide pour chaque dossier",
-  "Done": "Terminé"
+  "Done": "Terminé",
+  "Your session was closed after a period of inactivity. Sign in to continue.": "Votre session a été fermée après une période d’inactivité. Connectez-vous pour continuer.",
+  "Your session will close in {time} because of inactivity.": "Votre session va se fermer dans {time} pour cause d’inactivité.",
+  "Unsaved changes will be lost.": "Les modifications non enregistrées seront perdues.",
+  "Stay signed in": "Rester connecté"
 }

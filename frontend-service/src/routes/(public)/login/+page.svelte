@@ -13,6 +13,7 @@
     ssoProviders?: { id: number; label: string }[];
     ssoError?: string | null;
     redirectTo?: string | null;
+    closedForInactivity?: boolean;
   };
 
   $: enabledProviders = Array.isArray((data?.providers as { enabled?: unknown } | undefined)?.enabled)
@@ -56,6 +57,25 @@
   redirectTo={data.redirectTo ?? null}
   providers={enabledProviders}
 >
+  {#if data.closedForInactivity && !data.form}
+    <p class="closed-notice" role="status">
+      <i class="bi bi-clock-history" aria-hidden="true"></i>
+      {t('Your session was closed after a period of inactivity. Sign in to continue.')}
+    </p>
+  {/if}
+
   <!-- Persistent error under the form -->
   <ErrorNotice error={pageError} />
 </LoginForm>
+
+<style>
+  .closed-notice {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: var(--b2s-radius-md);
+    background: var(--b2s-accent-soft);
+    font-size: 13px;
+  }
+</style>

@@ -29,6 +29,7 @@
   import { pageTitle } from "$lib/utils/page-title";
 
   import Toaster from "$lib/components/ui/Toaster.svelte";
+  import SessionIdleBanner from "$lib/components/layout/SessionIdleBanner.svelte";
   import TopProgress from "$lib/components/ui/TopProgress.svelte";
   import Sidebar from "$lib/components/layout/Sidebar.svelte";
   import { bootstrapFrontendCore } from "$lib/bootstrap.client";
@@ -75,5 +76,6 @@
   </main>
 </div>
 
+<SessionIdleBanner />
 <Toaster />
 <TopProgress />

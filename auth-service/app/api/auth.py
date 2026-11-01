@@ -1049,6 +1049,12 @@ async def me(
     return user
 
 
+@router.get("/session")
+async def session_status(_user: UserInfo = Depends(get_current_user)) -> dict[str, int]:
+    """Inactivity limit shown to the user. Reading the session also counts as activity."""
+    return {"idle_seconds": session_idle_seconds()}
+
+
 @router.post("/logout", response_model=LogoutResponse)
 async def logout(
     request: Request,

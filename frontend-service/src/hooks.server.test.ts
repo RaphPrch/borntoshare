@@ -133,17 +133,12 @@ async function testAbsentSnapshotFallsBackToAuthMe() {
       authMeCalls += 1;
       return new Response(
         JSON.stringify({
-          ok: true,
-          data: {
-            identity_id: 201,
-            username: 'u201',
-            display_name: 'U 201',
-            email: 'u201@example.org',
-            roles: ['user'],
-            is_admin: false
-          },
-          meta: {},
-          error: null
+                    identity_id: 201,
+          username: 'u201',
+          display_name: 'U 201',
+          email: 'u201@example.org',
+          roles: ['user'],
+          is_admin: false
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       );
@@ -188,17 +183,12 @@ async function testExpiredSnapshotFallsBackToAuthMe() {
       authMeCalls += 1;
       return new Response(
         JSON.stringify({
-          ok: true,
-          data: {
-            identity_id: 301,
-            username: 'u301',
-            display_name: null,
-            email: null,
-            roles: ['user'],
-            is_admin: false
-          },
-          meta: {},
-          error: null
+                    identity_id: 301,
+          username: 'u301',
+          display_name: null,
+          email: null,
+          roles: ['user'],
+          is_admin: false
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       );
@@ -244,17 +234,12 @@ async function testInvalidSnapshotFallsBackToAuthMe() {
       authMeCalls += 1;
       return new Response(
         JSON.stringify({
-          ok: true,
-          data: {
-            identity_id: 401,
-            username: 'u401',
-            display_name: null,
-            email: null,
-            roles: ['user'],
-            is_admin: false
-          },
-          meta: {},
-          error: null
+                    identity_id: 401,
+          username: 'u401',
+          display_name: null,
+          email: null,
+          roles: ['user'],
+          is_admin: false
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       );
@@ -266,6 +251,21 @@ async function testInvalidSnapshotFallsBackToAuthMe() {
   globalThis.fetch = originalFetch;
 
   assert(authMeCalls === 1, 'invalid principal snapshot should fallback to /auth/me');
+}
+
+async function authMeOutcome(status: number) {
+  const { handle } = await createHandleDeps();
+  const { event } = createEvent('/dashboard', { b2s_session: 'session-1' });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response('{}', { status })) as any;
+  await Promise.resolve(handle({ event, resolve: async () => new Response('ok') } as any)).catch(() => undefined);
+  globalThis.fetch = originalFetch;
+  return event.cookies.get('b2s_session');
+}
+
+async function testOnlyARejectedSessionClearsTheCookies() {
+  assert((await authMeOutcome(503)) === 'session-1', 'auth-service failing should keep the session cookie');
+  assert((await authMeOutcome(401)) === undefined, 'a rejected session should clear the session cookie');
 }
 
 async function testUnauthenticatedRedirectKeepsQueryString() {
@@ -423,6 +423,7 @@ async function run() {
   await testAbsentSnapshotFallsBackToAuthMe();
   await testExpiredSnapshotFallsBackToAuthMe();
   await testInvalidSnapshotFallsBackToAuthMe();
+  await testOnlyARejectedSessionClearsTheCookies();
   await testUnauthenticatedRedirectKeepsQueryString();
   await testApiProxyHydratesPrincipalBeforeForwarding();
   await testAnonymousNeverReachesServices();
