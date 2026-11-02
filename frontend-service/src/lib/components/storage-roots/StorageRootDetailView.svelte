@@ -21,13 +21,6 @@
     subtitle?: string | null;
     tone?: 'warning' | 'error';
   };
-  type ProbeExecutionState = {
-    status?: string;
-    message?: string | null;
-    jobId?: string | null;
-    durationMs?: number | null;
-    checks?: Array<Record<string, unknown>>;
-  };
 
   export let detailsLoading = false;
   export let selectedStorageRootId: number | null = null;
@@ -36,7 +29,6 @@
   export let activeTab: StorageRootTabKey = 'overview';
 
   export let rootProbeBusy = false;
-  export let probeState: ProbeExecutionState | null = null;
   export let aclFreshness: Record<string, unknown> | null = null;
 
   export let alertItems: StorageRootAlertItem[] = [];

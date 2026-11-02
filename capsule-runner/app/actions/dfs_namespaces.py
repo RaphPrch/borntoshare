@@ -92,6 +92,16 @@ def namespace_from_path(path: str) -> tuple[str, str] | None:
     return (parts[0], parts[1]) if len(parts) >= 2 else None
 
 
+def domain_of_path(path: str, root_server: str) -> str:
+    """\\\\corp.local\\brest is a domain namespace: its domain is the server part of the path,
+    unless that part is the root server itself (\\\\DFS01\\lorient, a standalone namespace)."""
+    first = str(path or "").strip("\\/").replace("/", "\\").split("\\")[0].lower()
+    server = str(root_server or "").lower()
+    if not first or first in {server, server.split(".")[0]} or first.split(".")[0] == server.split(".")[0]:
+        return ""
+    return first
+
+
 def read_dfs_namespaces(params: dict[str, Any]):
     host = str(params.get("host") or "").strip().strip("\\/")
     path = str(params.get("path") or "").strip()
@@ -102,7 +112,7 @@ def read_dfs_namespaces(params: dict[str, Any]):
         if isinstance(located, str):
             return False, located, {"path": path, "failure_code": "DFS_NAMESPACE_NOT_FOUND"}
         host, namespace = located
-        params = {**params, "host": host, "namespaces": [namespace]}
+        params = {**params, "host": host, "namespaces": [namespace], "domain": params.get("domain") or domain_of_path(path, host)}
     username = str(params.get("username") or "").strip()
     password = str(params.get("password") or "")
     port = int(params.get("port") or 445)

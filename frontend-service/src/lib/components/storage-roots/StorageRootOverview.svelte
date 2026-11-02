@@ -2,7 +2,7 @@
   import TagPill from '$lib/components/tags/TagPill.svelte';
   import { t } from '$lib/i18n';
   import { formatDate, initials, timeAgo } from '$lib/utils/format';
-  import { formatActivityItem } from '$lib/activity/format';
+  import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
   import { extendAccess, type PermissionPerson, type StorageRootPermissionsData } from '$lib/api/storage-root-permissions';
@@ -49,7 +49,6 @@
     .sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)))
     .slice(0, 4);
   $: inheritance = permissions?.inheritance;
-  $: recent = activity.slice(0, 5).map((entry) => ({ entry, item: formatActivityItem(entry as any) }));
 
   let login = '';
   function explain() {
@@ -131,22 +130,7 @@
       </section>
     {/if}
 
-    <section class="ov__card" aria-label={t('Recent activity')}>
-      <header><h2>{t('Recent activity')}</h2><button type="button" class="ov__link" on:click={onOpenActivity}>{t('All the history')} ›</button></header>
-      {#if recent.length}
-        <ul class="ov__activity">
-          {#each recent as { entry, item }, index (index)}
-            <li>
-              <span class={`ov__dot is-${item.variant}`} aria-hidden="true"></span>
-              <span class="ov__act"><strong>{item.title}</strong>{#if item.subtitle1}<small>{item.subtitle1}</small>{/if}</span>
-              <small class="ov__when">{timeAgo(String(entry?.created_at ?? entry?.occurred_at ?? ''))}</small>
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="ov__muted">{t('No activity found for this storage root.')}</p>
-      {/if}
-    </section>
+    <RecentActivityCard items={activity} emptyLabel={t('No activity found for this storage root.')} onOpenHistory={onOpenActivity} />
   </div>
 
   <section class="ov__card ov__side" aria-label={t('Governance')}>
@@ -213,20 +197,13 @@
   .ov__face.is-more { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-soft); }
   .ov__face.is-small { margin: 0; border: 0; }
   .ov__face.is-tiny { width: 22px; height: 22px; margin: 0; border: 0; }
-  .ov__ends, .ov__activity { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .ov__ends { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
   .ov__ends li { display: flex; align-items: center; gap: 12px; }
   .ov__name { flex: 0 1 180px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ov__bar { flex: 1; height: 4px; overflow: hidden; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-border-soft); }
   .ov__bar span { display: block; height: 4px; background: var(--b2s-color-info); }
   .ov__bar.is-soon span { background: var(--b2s-color-warning); }
   .ov__when { flex: none; color: var(--b2s-color-text-soft); font-size: var(--b2s-fs-xs); white-space: nowrap; }
-  .ov__activity li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: start; }
-  .ov__dot { width: 9px; height: 9px; margin-top: 6px; border-radius: 50%; background: var(--b2s-color-border-mid, #cdd2db); }
-  .ov__dot.is-ok { background: var(--b2s-color-success); }
-  .ov__dot.is-warn { background: var(--b2s-color-warning); }
-  .ov__act { display: flex; flex-direction: column; min-width: 0; }
-  .ov__act strong { font-weight: 500; font-size: var(--b2s-fs-sm); }
-  .ov__act small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
   .ov__side { position: sticky; top: 16px; }
   .ov__side dl { margin: 0; }
   .ov__side dl div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; padding: 9px 0; border-top: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-sm); }

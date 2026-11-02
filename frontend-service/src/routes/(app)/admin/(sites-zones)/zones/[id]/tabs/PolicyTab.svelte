@@ -12,7 +12,6 @@
   export let error: string | null = null;
   export let isDirty = false;
   export let canSave = true;
-  export let inheritanceOverview: Record<string, unknown> | null = null;
 
   export let onChange: ((next: ZoneProvisioningPolicy) => void) | null = null;
   export let onSave: (() => void) | null = null;

@@ -1356,6 +1356,10 @@
       "share_created": {
         "title": "Partage créé",
         "description": "Un partage a été créé sur le serveur « {target} »"
+      },
+      "dfs_read": {
+        "title": "Espace de noms relu",
+        "description": "L’espace de noms « {target} » a été relu sur son serveur"
       }
     },
     "tag": {
@@ -1444,6 +1448,10 @@
       "acl_repaired": {
         "title": "ACL réparée",
         "description": "L'ACL du dossier « {target} » a été réparée"
+      },
+      "bulk_check_requested": {
+        "title": "Relecture d’ACL demandée",
+        "description": "Le worker teste les dossiers sélectionnés et relit leurs ACL"
       }
     },
     "access_request": {
@@ -3694,5 +3702,27 @@
   "every share is managed": "tous les partages sont gérés",
   "to manage from the Shares tab": "à gérer depuis l’onglet Partages",
   "{count} share(s) not managed": "{count} partage(s) non géré(s)",
-  "Secret not found": "Le mot de passe du compte de service est introuvable : saisissez-le à nouveau dans Modifier la connexion"
+  "Secret not found": "Le mot de passe du compte de service est introuvable : saisissez-le à nouveau dans Modifier la connexion",
+  "DFS folders added since then are not shown.": "Les dossiers DFS ajoutés depuis n’apparaissent pas.",
+  "Last read": "Dernière lecture",
+  "Namespace summary": "Synthèse de l’espace de noms",
+  "Read again": "Relire",
+  "Read {days} days ago": "Lu il y a {days} jours",
+  "Root servers": "Serveurs racine",
+  "The last read failed": "La dernière lecture a échoué",
+  "Their target folders become governed folders, on every target.": "Leurs dossiers cibles deviennent des dossiers gouvernés, sur chaque cible.",
+  "They lead nowhere: check them in the DFS console.": "Ils ne mènent nulle part : vérifiez-les dans la console DFS.",
+  "To do on this namespace": "À faire sur cet espace de noms",
+  "all declared": "tous déclarés",
+  "nothing left to manage": "plus rien à gérer",
+  "one click manages them on every target": "un clic les gère sur toutes leurs cibles",
+  "their targets are governed folders": "leurs cibles sont des dossiers gouvernés",
+  "{count} DFS folder(s) to manage": "{count} dossier(s) DFS à gérer",
+  "{count} DFS folder(s) without a target": "{count} dossier(s) DFS sans cible",
+  "{count} not declared: {names}": "{count} non déclaré(s) : {names}",
+  "{count} target server(s) not declared": "{count} serveur(s) cible(s) non déclaré(s)",
+  "{names}: their DFS folders cannot be managed.": "{names} : leurs dossiers DFS ne peuvent pas être gérés.",
+  "Read failed": "Lecture en échec",
+  "Up to date": "À jour",
+  "To read again": "À relire"
 }

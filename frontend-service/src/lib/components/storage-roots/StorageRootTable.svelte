@@ -359,7 +359,7 @@
   </div>
 
   <div class="tb__grid" class:admin={isAdmin}>
-    <div class="tb__head" role="row">
+    <div class="tb__head">
       {#if isAdmin}<span><input type="checkbox" checked={allVisibleChecked} on:change={toggleAll} aria-label={t('Select the folders shown')} /></span>{/if}
       <button type="button" on:click={() => sortBy('name')}>{t('Folder')}{sortMark('name', sortKey, desc)}</button>
       <button type="button" on:click={() => sortBy('server')}>{t('Server')}{sortMark('server', sortKey, desc)}</button>
@@ -369,7 +369,7 @@
       <span>{t('ACL read')}</span>
     </div>
     {#each page as line (line.id)}
-      <div class="tb__row" class:sel={checked.has(line.id)} role="row" on:contextmenu={(event) => openMenu(line, event)}>
+      <div class="tb__row" class:sel={checked.has(line.id)} on:contextmenu={(event) => openMenu(line, event)}>
         {#if isAdmin}<span><input type="checkbox" checked={checked.has(line.id)} on:change={() => toggle(line.id)} aria-label={t('Select {name}', { name: line.name })} /></span>{/if}
         <button type="button" class="tb__name" on:click={() => onOpenRoot(line.id)}>
           <strong>{line.name}</strong>

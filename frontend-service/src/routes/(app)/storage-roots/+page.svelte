@@ -1731,7 +1731,6 @@
       zoneLabel={String(selectedRow?.zone_name ?? '')}
       activeTab={$storageRootsUiStore.detailTab}
       {rootProbeBusy}
-      probeState={detailView.probeState}
       aclFreshness={detailView.aclFreshness}
       alertItems={selectedRootAlerts}
       endpointLabel={detailView.endpointLabel}

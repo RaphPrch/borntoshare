@@ -28,9 +28,21 @@
   import { timeAgo } from '$lib/utils/format';
   import { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
+  import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import EndpointFoldersTable from '$lib/components/storage-endpoints/EndpointFoldersTable.svelte';
   import EndpointSharesPanel from '$lib/components/storage-endpoints/EndpointSharesPanel.svelte';
   import DfsNamespacePanel from '$lib/components/storage-endpoints/DfsNamespacePanel.svelte';
+  import DfsTiles from '$lib/components/storage-endpoints/DfsTiles.svelte';
+  import EntityTodoCard, { type EntityTodoStep } from '$lib/components/entity/EntityTodoCard.svelte';
+  import {
+    dfsCounts,
+    dfsReadAge,
+    dfsReadIsStale,
+    loadDfsInfo,
+    manageDfsLinks,
+    readDfsAgain,
+    type DfsInfo
+  } from '$lib/components/storage-endpoints/dfs-namespace';
   import ActivityDetailsDrawer from '$lib/components/activity/ActivityDetailsDrawer.svelte';
   import EntityConsoleShell from '$lib/components/entity/EntityConsoleShell.svelte';
 
@@ -308,6 +320,92 @@
   const isDfsEndpoint = (ep: any): boolean => String(ep?.type ?? ep?.storage_endpoint_type ?? ep?.endpoint_type ?? '').toLowerCase() === 'dfs';
   $: selectedIsDfs = isDfsEndpoint(selected);
   let namespacePath = '';
+
+  // A DFS namespace: its DFS folders, read here so that the tiles, « To do » and the list share them
+  let dfsInfo: DfsInfo | null = null;
+  let dfsLoading = false;
+  let dfsError = '';
+  let dfsReading = false;
+  let dfsBusy: Record<string, boolean> = {};
+  let dfsLoadedFor = 0;
+  $: if (selected && selectedIsDfs && endpointId(selected) !== dfsLoadedFor) void loadDfs(endpointId(selected));
+
+  async function loadDfs(id: number) {
+    if (id !== dfsLoadedFor) dfsInfo = null;
+    dfsLoadedFor = id;
+    dfsLoading = true;
+    dfsError = '';
+    try {
+      const info = await loadDfsInfo(fetch, id);
+      if (id !== dfsLoadedFor) return;
+      dfsInfo = info;
+      namespacePath = info?.path ?? '';
+    } catch (e) {
+      if (id === dfsLoadedFor) dfsError = e instanceof Error ? e.message : t('Unable to read this namespace.');
+    } finally {
+      if (id === dfsLoadedFor) dfsLoading = false;
+    }
+  }
+
+  async function dfsReadAgainNow() {
+    if (!selected || !dfsInfo?.path || dfsReading) return;
+    dfsReading = true;
+    dfsError = '';
+    try {
+      await readDfsAgain(fetch, selected, dfsInfo.path, dfsInfo.type);
+      await loadDfs(endpointId(selected));
+      toast.success(t('Namespace read again.'));
+      void invalidateAll();
+    } catch (e) {
+      dfsError = e instanceof Error ? e.message : t('Unable to read this namespace.');
+      toast.error(dfsError);
+    } finally {
+      dfsReading = false;
+    }
+  }
+
+  async function dfsManage(paths: string[]) {
+    if (!selected || !paths.length) return;
+    const key = paths.length === 1 ? paths[0] : '*';
+    dfsBusy = { ...dfsBusy, [key]: true };
+    try {
+      const answer = await manageDfsLinks(fetch, endpointId(selected), paths);
+      const created = answer.managed.reduce((sum, row) => sum + row.created.length, 0);
+      if (answer.failed.length) toast.warning(t('{count} DFS folder(s) refused: {message}', { count: answer.failed.length, message: t(answer.failed[0].message) }));
+      if (created) toast.success(t('{count} folder(s) now managed.', { count: created }));
+      await loadDfs(endpointId(selected));
+      void invalidateAll();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('Creation failed'));
+    } finally {
+      dfsBusy = { ...dfsBusy, [key]: false };
+    }
+  }
+
+  $: dfsCount = dfsCounts(dfsInfo);
+  $: dfsAge = dfsReadAge(dfsInfo);
+  $: dfsTodoLinks = (dfsInfo?.links ?? []).filter((link) => link.state === 'to_manage' || link.state === 'partial').map((link) => link.path);
+  let dfsSteps: EntityTodoStep[] = [];
+  $: dfsSteps = !dfsInfo
+    ? (dfsError
+        ? [{ key: 'read', tone: 'bad' as const, icon: 'bi-x-octagon', title: t('Unable to read this namespace.'), detail: dfsError, label: t('Edit the connection'), run: () => (showEditModal = true) }]
+        : [])
+    : [
+        ...(dfsInfo.error || dfsError
+          ? [{ key: 'error', tone: 'bad' as const, icon: 'bi-x-octagon', title: t('The last read failed'), detail: dfsError || dfsInfo.error || '', label: dfsReading ? t('Reading…') : t('Read the namespace again'), busy: dfsReading, run: dfsReadAgainNow }]
+          : dfsReadIsStale(dfsInfo)
+            ? [{ key: 'stale', tone: 'warn' as const, icon: 'bi-clock-history', title: dfsAge === null ? t('Never read') : t('Read {days} days ago', { days: dfsAge }), detail: t('DFS folders added since then are not shown.'), label: dfsReading ? t('Reading…') : t('Read the namespace again'), busy: dfsReading, run: dfsReadAgainNow }]
+            : []),
+        ...(dfsCount.unknownServers.length
+          ? [{ key: 'unknown', tone: 'bad' as const, icon: 'bi-hdd-network', title: t('{count} target server(s) not declared', { count: dfsCount.unknownServers.length }), detail: t('{names}: their DFS folders cannot be managed.', { names: dfsCount.unknownServers.join(', ') }), label: t('Declare the server'), run: () => goto(`/admin/storage-endpoints/new${selected?.zone_id ? `?zone=${selected.zone_id}` : ''}`) }]
+          : []),
+        ...(dfsCount.todo
+          ? [{ key: 'todo', tone: 'warn' as const, icon: 'bi-folder-plus', title: t('{count} DFS folder(s) to manage', { count: dfsCount.todo }), detail: t('Their target folders become governed folders, on every target.'), label: t('Manage the {count} to manage', { count: dfsCount.todo }), busy: dfsBusy['*'], run: () => dfsManage(dfsTodoLinks) }]
+          : []),
+        ...(dfsCount.noTarget
+          ? [{ key: 'notarget', tone: 'info' as const, icon: 'bi-signpost', title: t('{count} DFS folder(s) without a target', { count: dfsCount.noTarget }), detail: t('They lead nowhere: check them in the DFS console.'), label: t('Read the namespace again'), busy: dfsReading, run: dfsReadAgainNow }]
+          : [])
+      ];
   $: endpointTabs = selectedIsDfs ? [
     { key: 'overview', label: t('DFS folders'), icon: 'bi-diagram-3' },
     { key: 'activity', label: t('Activity'), icon: 'bi-activity', count: recentFailures || null }
@@ -949,7 +1047,8 @@
   $: healthState = [endpointHealthById, rootHealthByEndpointId, healthLoadingByEndpointId,
                     manualHealthRefreshByEndpointId, probingEndpointId];
 
-  const endpointHeaderActions = (ep: any): EntityActionItem[] => [
+  // The extra arguments (reading state of a namespace…) only make the header follow them
+  const endpointHeaderActions = (ep: any, ..._deps: unknown[]): EntityActionItem[] => [
     {
       key: 'edit',
       label: t('Edit'),
@@ -957,14 +1056,22 @@
       variant: 'secondary',
       onClick: () => (showEditModal = true)
     },
-    {
+    ...(isDfsEndpoint(ep) ? [{
+      key: 'read-namespace',
+      label: dfsReading ? t('Reading…') : t('Read the namespace again'),
+      icon: dfsReading ? 'bi-arrow-repeat sed-spin' : 'bi-arrow-clockwise',
+      variant: 'primary' as const,
+      disabled: dfsReading || !dfsInfo?.path,
+      onClick: () => void dfsReadAgainNow()
+    }] : []),
+    ...(isDfsEndpoint(ep) ? [] : [{
       key: 'probe',
       label: probingEndpointId === endpointId(ep) ? t('Testing…') : t('Test the connection'),
       icon: probingEndpointId === endpointId(ep) ? 'bi-arrow-repeat sed-spin' : 'bi-activity',
-      variant: 'secondary',
+      variant: 'secondary' as const,
       disabled: probingEndpointId === endpointId(ep),
       onClick: () => runEndpointProbe(ep)
-    },
+    }]),
     ...(isDfsEndpoint(ep) ? [] : [
       {
         key: 'add-folders',
@@ -1143,19 +1250,27 @@
               iconTone="blue"
               crumbs={selectedIsDfs ? [t('DFS namespaces'), endpointZone(selected)] : [t('Storage endpoints'), endpointZone(selected)]}
               title={endpointName(selected)}
-              statusLabel={healthLabel(endpointHealth(selected))}
-              statusTone={pillTone(endpointOperationalTone(selected))}
+              statusLabel={selectedIsDfs ? (dfsInfo?.error || dfsError ? t('Read failed') : dfsInfo?.read_at ? (dfsReadIsStale(dfsInfo) ? t('To read again') : t('Up to date')) : dfsInfo ? t('Never read') : '') : healthLabel(endpointHealth(selected))}
+              statusTone={selectedIsDfs ? (dfsInfo?.error || dfsError ? 'danger' : dfsInfo?.read_at && !dfsReadIsStale(dfsInfo) ? 'success' : 'warning') : pillTone(endpointOperationalTone(selected))}
               path={selectedIsDfs && namespacePath ? namespacePath : endpointHasHost(selected) ? `\\\\${endpointHost(selected)}${selected?.port && Number(selected.port) !== 445 ? `:${selected.port}` : ''}` : ''}
               chips={[
                 ...(!endpointHasHost(selected) && !selectedIsDfs ? [{ label: t('No host configured'), icon: 'bi-exclamation-triangle' }] : []),
-                { label: String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase() },
+                ...(selectedIsDfs
+                  ? [
+                      ...(dfsInfo?.type ? [{ label: dfsInfo.type === 'domain' ? t('Domain namespace') : t('Standalone namespace') }] : []),
+                      ...(dfsInfo?.root_targets?.length ? [{ label: t('root on {servers}', { servers: dfsInfo.root_targets.map((target) => target.split('\\').filter(Boolean)[0]).join(', ') }), icon: 'bi-hdd-network' }] : [])
+                    ]
+                  : [{ label: String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase() }]),
                 ...((selected?.bind_dn || selected?.auth_username) ? [{ label: String(selected?.bind_dn || selected?.auth_username), icon: 'bi-person-badge', mono: true }] : []),
                 ...(selected?.identity_source_id ? [{ label: data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`, icon: 'bi-diagram-3' }] : [])
               ]}
-              actions={endpointHeaderActions(selected)}
+              actions={endpointHeaderActions(selected, dfsReading, dfsInfo, probingEndpointId)}
               actionsAriaLabel={t('Storage endpoint actions')}
             />
-            {#if !selectedIsDfs}
+            {#if selectedIsDfs}
+              <DfsTiles info={dfsInfo} counts={dfsCount} onOpenFolders={() => (activeEndpointTab = 'overview')} />
+              <EntityTodoCard title={t('To do on this namespace')} steps={dfsSteps} />
+            {:else}
               <EndpointTiles
                 summary={endpointSummary}
                 health={endpointHealth(selected)}
@@ -1199,9 +1314,24 @@
         </svelte:fragment>
 
         {#if activeEndpointTab === 'overview' && selectedIsDfs}
-          {#key endpointId(selected)}
-            <DfsNamespacePanel endpoint={selected} bind:namespacePath onChanged={() => void invalidateAll()} />
-          {/key}
+          <div class="sed-overview">
+            <DfsNamespacePanel endpoint={selected} info={dfsInfo} loading={dfsLoading} error={dfsError} busy={dfsBusy} onManage={dfsManage} />
+            <div class="sed-side">
+              <section class="sed-card" aria-label={t('DFS namespace')}>
+                <header>
+                  <h2>{t('DFS namespace')}</h2>
+                </header>
+                <dl>
+                  <div><dt>{t('Type')}</dt><dd>{dfsInfo?.type === 'domain' ? t('Domain namespace') : dfsInfo?.type ? t('Standalone namespace') : '—'}</dd></div>
+                  <div><dt>{t('Root servers')}</dt><dd>{dfsInfo?.root_targets?.length ? dfsInfo.root_targets.join(', ') : '—'}</dd></div>
+                  <div><dt>{t('Last read')}</dt><dd>{dfsInfo?.read_at ? formatDateTime(dfsInfo.read_at) : t('never read')}</dd></div>
+                  <div><dt>{t('Service account')}</dt><dd class="mono">{selected?.bind_dn || selected?.auth_username || '—'}</dd></div>
+                  <div><dt>{t('Zone')}</dt><dd>{endpointZone(selected)}</dd></div>
+                </dl>
+              </section>
+              <RecentActivityCard items={activity} onOpenHistory={() => (activeEndpointTab = 'activity')} />
+            </div>
+          </div>
         {:else if activeEndpointTab === 'overview'}
           <div class="sed-overview">
             <section class="sed-card" aria-label={t('Managed folders')}>
@@ -1218,23 +1348,7 @@
                   <div><dt>{t('Last test')}</dt><dd>{endpointLastProbeLabel(selected)}{#if endpointHealth(selected) !== 'healthy'}<small>{humanizeFileServerMessage(t(endpointLastResultLabel(selected)))}</small>{/if}</dd></div>
                 </dl>
               </section>
-              <section class="sed-card" aria-label={t('Recent activity')}>
-                <header><h2>{t('Recent activity')}</h2><button type="button" class="sed-link" on:click={() => (activeEndpointTab = 'activity')}>{t('All the history')} ›</button></header>
-                {#if activity.length}
-                  <ul class="sed-activity">
-                    {#each activity.slice(0, 5) as entry, index (index)}
-                      {@const item = formatActivityItem(entry)}
-                      <li>
-                        <span class={`sed-dot is-${item.variant}`} aria-hidden="true"></span>
-                        <span class="sed-act"><strong>{item.title}</strong>{#if item.subtitle1}<small>{item.subtitle1}</small>{/if}</span>
-                        <small class="sed-when">{entry?.created_at ? timeAgo(String(entry.created_at)) : ''}</small>
-                      </li>
-                    {/each}
-                  </ul>
-                {:else}
-                  <p class="sed-muted">{t('No activity yet.')}</p>
-                {/if}
-              </section>
+              <RecentActivityCard items={activity} onOpenHistory={() => (activeEndpointTab = 'activity')} />
             </div>
           </div>
         {:else if activeEndpointTab === 'shares'}
@@ -1332,11 +1446,6 @@
     cursor: pointer;
   }
 
-  .sed-muted {
-    display: block;
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-xs);
-  }
 
   .sed-link {
     font-size: var(--b2s-fs-sm);
@@ -1425,57 +1534,12 @@
     font-size: var(--b2s-fs-xs);
   }
 
-  .sed-activity {
-    display: grid;
-    gap: 10px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
 
-  .sed-activity li {
-    display: grid;
-    grid-template-columns: 10px minmax(0, 1fr) auto;
-    gap: 10px;
-    align-items: start;
-  }
 
-  .sed-dot {
-    width: 9px;
-    height: 9px;
-    margin-top: 6px;
-    border-radius: 50%;
-    background: var(--b2s-color-border-mid, #cdd2db);
-  }
 
-  .sed-dot.is-ok {
-    background: var(--b2s-color-success);
-  }
 
-  .sed-dot.is-warn {
-    background: var(--b2s-color-warning);
-  }
 
-  .sed-act {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
 
-  .sed-act strong {
-    font-weight: 500;
-    font-size: var(--b2s-fs-sm);
-  }
 
-  .sed-act small {
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-xs);
-    overflow-wrap: anywhere;
-  }
 
-  .sed-when {
-    color: var(--b2s-color-text-soft);
-    font-size: var(--b2s-fs-xs);
-    white-space: nowrap;
-  }
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { timeAgo } from '$lib/utils/format';
-  import { formatActivityItem } from '$lib/activity/format';
+  import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import { previewRootGroups } from '$lib/api/naming-policies';
   import type { ZoneSummary } from '$lib/components/zones/zone-summary';
 
@@ -45,7 +45,6 @@
   $: visible = servers
     .filter((server) => filter === 'all' || (filter === 'bad' ? server.state === 'unreachable' : filter === 'dfs' ? server.dfs : !server.dfs))
     .filter((server) => `${server.name} ${server.host}`.toLowerCase().includes(query.trim().toLowerCase()));
-  $: recent = activity.slice(0, 5).map((entry) => ({ entry, item: formatActivityItem(entry) }));
 
   // An example of group name and the gaps to the saved rule, read once per zone and rule
   let example = '';
@@ -141,22 +140,7 @@
       </dl>
     </section>
 
-    <section class="zo__card" aria-label={t('Recent activity')}>
-      <header><h2>{t('Recent activity')}</h2>{#if onOpenActivity}<button type="button" class="zo__link" on:click={onOpenActivity}>{t('All the history')} ›</button>{/if}</header>
-      {#if recent.length}
-        <ul class="zo__activity">
-          {#each recent as { entry, item }, index (index)}
-            <li>
-              <span class={`zo__dot is-${item.variant}`} aria-hidden="true"></span>
-              <span class="zo__name"><strong>{item.title}</strong>{#if item.subtitle1}<small>{item.subtitle1}</small>{/if}</span>
-              <small class="zo__when">{timeAgo(String(entry?.created_at ?? ''))}</small>
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="zo__muted">{t('No activity yet.')}</p>
-      {/if}
-    </section>
+    <RecentActivityCard items={activity} onOpenHistory={onOpenActivity} />
   </div>
 </div>
 
@@ -204,10 +188,4 @@
   dd small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   dd.warn { color: var(--b2s-color-warning-strong); }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
-  .zo__activity { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-  .zo__activity li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: start; }
-  .zo__dot { width: 9px; height: 9px; margin-top: 6px; border-radius: 50%; background: var(--b2s-color-border-mid, #cdd2db); }
-  .zo__dot.is-ok { background: var(--b2s-color-success); }
-  .zo__dot.is-warn { background: var(--b2s-color-warning); }
-  .zo__when { color: var(--b2s-color-text-soft); font-size: var(--b2s-fs-xs); white-space: nowrap; }
 </style>

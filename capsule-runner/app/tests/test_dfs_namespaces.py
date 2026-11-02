@@ -31,3 +31,10 @@ def test_a_namespace_path_names_its_server_and_namespace():
 
 def test_targets_keep_the_unc_form():
     assert action._clean_target(r"\FILER01\PiloteB2S") == r"\\FILER01\PiloteB2S"
+
+
+def test_the_domain_of_a_namespace_comes_from_its_path():
+    assert action.domain_of_path(r"\\corp.local\brest", "DFS01.CORP.LOCAL") == "corp.local"
+    assert action.domain_of_path(r"\\DFS01\lorient", "DFS01.CORP.LOCAL") == ""
+    assert action.domain_of_path(r"\\dfs01.corp.local\lorient", "DFS01") == ""
+    assert action.domain_of_path("", "DFS01") == ""

@@ -167,6 +167,10 @@
       "share_created": {
         "title": "Share created",
         "description": "A share was created on server \"{target}\""
+      },
+      "dfs_read": {
+        "title": "Namespace read again",
+        "description": "The namespace « {target} » was read again on its server"
       }
     },
     "tag": {
@@ -255,6 +259,10 @@
       "acl_repaired": {
         "title": "ACL repaired",
         "description": "The ACL of folder \"{target}\" was repaired"
+      },
+      "bulk_check_requested": {
+        "title": "ACL read requested",
+        "description": "The worker tests the selected folders and reads their ACLs"
       }
     },
     "access_request": {
