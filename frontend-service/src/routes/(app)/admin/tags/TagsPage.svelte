@@ -256,6 +256,16 @@
   }
 </script>
 
+{#if !tagsNorm.length}
+  <EmptyState
+    page
+    iconClass="bi bi-tags"
+    title={t('No tags yet')}
+    description={t('Tags classify folders, for example by department or sensitivity, to find and govern them more easily.')}
+    ctaLabel={t('Create your first tag')}
+    onCta={openCreate}
+  />
+{:else}
 <section class="tg">
   <header class="sg-head">
     <div class="sg-title">
@@ -302,9 +312,7 @@
           <EmptyState
             iconClass="bi bi-tags"
             title={t('No tags found')}
-            description={t('Create a tag or adjust your search.')}
-            ctaLabel={t('Create tag')}
-            onCta={openCreate}
+            description={t('No tag matches this search.')}
           />
         </div>
       {/each}
@@ -342,6 +350,7 @@
     </aside>
   </div>
 </section>
+{/if}
 
 <AppModal
   open={modalOpen}

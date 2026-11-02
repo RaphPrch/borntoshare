@@ -44,7 +44,7 @@
 </script>
 
 <EmptyState
-  containerClass="storage-endpoints-empty"
+  page
   iconClass="bi bi-diagram-2"
   title={t('No zones yet')}
   description={t('Zones organize governance policies and scope for storage endpoints and storage roots.')}

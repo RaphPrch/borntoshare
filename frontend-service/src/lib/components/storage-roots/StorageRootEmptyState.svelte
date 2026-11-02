@@ -11,7 +11,7 @@
 </script>
 
 <EmptyState
-  containerClass="storage-endpoints-empty"
+  page
   iconClass="bi bi-folder2-open"
   title={t('No storage roots yet')}
   description={!canManage

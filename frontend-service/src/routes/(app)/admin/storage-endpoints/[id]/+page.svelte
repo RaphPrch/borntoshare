@@ -1111,7 +1111,7 @@
 <div class="sed-layout sed-layout--empty">
   <main class="sed-main">
       <EmptyState
-        containerClass="storage-endpoints-empty"
+        page
         iconClass="bi bi-hdd-stack"
         title={t('No storage endpoint')}
         description={t('Storage endpoints are required to discover roots, apply governance, and handle access requests.')}

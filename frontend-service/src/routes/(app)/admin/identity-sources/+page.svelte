@@ -894,7 +894,8 @@
 
     {#if !hasSources && !listLoading && !fetchError}
       <EmptyState
-        containerClass="storage-endpoints-empty identity-empty-state"
+        page
+        containerClass="identity-empty-state"
         iconClass="bi bi-people"
         title={t('No identity sources yet')}
         description={t('Identity sources connect an LDAP directory to authenticate users and import identities.')}

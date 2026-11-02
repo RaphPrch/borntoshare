@@ -5,7 +5,7 @@
 </script>
 
 <EmptyState
-  containerClass="storage-endpoints-empty"
+  page
   iconClass="bi bi-hdd-stack"
   title={t('No storage endpoints yet')}
   description={t('Storage endpoints connect your file servers to discover and govern storage roots.')}

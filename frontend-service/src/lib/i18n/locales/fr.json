@@ -3550,5 +3550,9 @@
   "This path is not a DFS namespace, or the account cannot read it": "Ce chemin n’est pas un espace de noms DFS, ou le compte ne peut pas le lire.",
   "The name of the domain or server cannot be resolved: check Advanced settings > Network and DNS": "Le nom du domaine ou du serveur est introuvable : vérifiez Paramètres avancés > Réseau et DNS.",
   "A domain proposed by a directory is only asked for the names the usual DNS does not know. Set it to use it first.": "Un domaine proposé par un annuaire n’est interrogé que pour les noms inconnus du DNS habituel. Fixez-le pour qu’il passe en premier.",
-  "Set": "Fixer"
+  "Set": "Fixer",
+  "No tags yet": "Aucun tag pour l’instant",
+  "Tags classify folders, for example by department or sensitivity, to find and govern them more easily.": "Les tags classent les dossiers, par service ou par sensibilité par exemple, pour les retrouver et les gouverner plus facilement.",
+  "Create your first tag": "Créer votre premier tag",
+  "No tag matches this search.": "Aucun tag ne correspond à cette recherche."
 }
