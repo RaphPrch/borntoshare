@@ -107,4 +107,10 @@ def write_activity_event(
         "metadata_json": metadata,
         "correlation_id": correlation_id,
     }
+    # The zone, folder and server an event concerns, when its context names them: the activity of a
+    # folder also shows the events of other objects about it (its access requests…)
+    for column, keys in (("root_id", ("storage_root_id", "root_id")), ("zone_id", ("zone_id",)), ("endpoint_id", ("storage_endpoint_id", "endpoint_id"))):
+        value = next((metadata.get(key) for key in keys if isinstance(metadata.get(key), int) and not isinstance(metadata.get(key), bool)), None)
+        if value is not None:
+            payload[column] = value
     return create_activity_event(payload)

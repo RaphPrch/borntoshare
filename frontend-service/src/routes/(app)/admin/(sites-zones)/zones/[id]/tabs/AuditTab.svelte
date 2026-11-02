@@ -1,8 +1,7 @@
 <script lang="ts">
-  import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
+  import ActivityTimeline from '$lib/components/activity/ActivityTimeline.svelte';
 
   export let activity: any[] = [];
-  export let onSelectActivity: ((entry: any) => void) | null = null;
 </script>
 
-<ActivityTabPanel items={activity} onSelect={onSelectActivity} />
+<ActivityTimeline items={activity} />

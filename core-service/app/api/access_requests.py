@@ -1300,7 +1300,7 @@ def other_active_request_for_level(
     return None
 
 
-def _request_event_labels(db: Session, access_request_id: int) -> dict[str, str]:
+def _request_event_labels(db: Session, access_request_id: int) -> dict[str, Any]:
     """Beneficiary, level and storage root of an existing request, for its activity entries."""
     try:
         row = db.execute(
@@ -1329,9 +1329,9 @@ def _request_event_labels(db: Session, access_request_id: int) -> dict[str, str]
     return _created_event_labels(db, items=[item], principal_payload=principal)
 
 
-def _created_event_labels(db: Session, *, items: list[dict[str, Any]], principal_payload: Any) -> dict[str, str]:
-    """Beneficiary, level and storage root names of a new request, for its activity entry."""
-    labels: dict[str, str] = {}
+def _created_event_labels(db: Session, *, items: list[dict[str, Any]], principal_payload: Any) -> dict[str, Any]:
+    """Beneficiary, level and storage root (name and id) of a new request, for its activity entry."""
+    labels: dict[str, Any] = {}
     principal = principal_payload if isinstance(principal_payload, dict) else {}
     user = str(principal.get("display_name") or principal.get("username") or "").strip()
     if user:
@@ -1339,6 +1339,9 @@ def _created_event_labels(db: Session, *, items: list[dict[str, Any]], principal
     first = next((item for item in items if str(item.get("target_type") or "").lower() == "storage_root"), None)
     if first is None:
         return labels
+    if int(first.get("target_id") or 0) > 0:
+        # The activity of the folder shows its requests
+        labels["storage_root_id"] = int(first.get("target_id"))
     level = normalize_requested_permission(str(first.get("permission") or ""))
     if level:
         labels["profile"] = "Write access" if level == "WRITE" else "Read access"

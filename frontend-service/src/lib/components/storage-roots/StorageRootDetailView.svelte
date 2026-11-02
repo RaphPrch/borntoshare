@@ -7,7 +7,7 @@
   import StorageRootOverview from '$lib/components/storage-roots/StorageRootOverview.svelte';
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
   import StorageRootPermissions from '$lib/components/storage-roots/permissions/StorageRootPermissions.svelte';
-  import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
+  import ActivityTimeline from '$lib/components/activity/ActivityTimeline.svelte';
   import { presentErrorMessage, toAppError } from '$lib/errors';
   import { getStorageRootPermissions, type StorageRootPermissionsData } from '$lib/api/storage-root-permissions';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
@@ -240,10 +240,7 @@
       {#if activityLoading}
         <StorageRootLoadingState label={t('Loading activity...')} />
       {:else}
-        <ActivityTabPanel
-          items={activityRemainder}
-          emptyLabel={t('No activity found for this storage root.')}
-        />
+        <ActivityTimeline items={activityRemainder} emptyLabel={t('No activity found for this storage root.')} />
       {/if}
     </section>
   {/if}

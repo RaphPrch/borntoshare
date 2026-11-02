@@ -8,11 +8,13 @@
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
+  import { goto } from '$app/navigation';
   import { bulkDecision } from '$lib/api/access-requests';
   import { repairStorageRootAcl } from '$lib/api/storage-root-permissions';
   import {
     acceptAclGap,
     explainStorageRootAccess,
+    extendAccess,
     notFound,
     reopenAclGap,
     type AccessExplanation,
@@ -24,9 +26,9 @@
   import { expiryProgress, levelLabel, viaLabel } from './permissions-format';
 
   /**
-   * Storage roots › Permissions, on one surface: the state of the ACL in a sentence, an access checker,
-   * the flow people -> AD groups -> folder (bands sized by members, click = filter), the people,
-   * the entries set outside BornToShare and the expected system accounts.
+   * Storage roots › Permissions, in cards: the state of the ACL, « who reaches it? » with the path
+   * person → AD group → folder, the path of the accesses per AD group (click = filter), the people,
+   * and on the side the entries set outside BornToShare, the AD groups and the next end dates.
    */
   export let data: StorageRootPermissionsData | null = null;
   export let loading = false;
@@ -129,8 +131,6 @@
       .map((g): Band => ({ key: `x:${g.principal}`, group: g.name, level: g.level, managed: false, state: 'outside', rights: g.rights_label,
         members: data?.people.filter((p) => groupOfVia(p).includes(g.name)) ?? [] }))
   ];
-  $: maxMembers = Math.max(1, ...bands.map((b) => b.members.length));
-  const bandHeight = (count: number) => 34 + Math.round((Math.min(count, maxMembers) / maxMembers) * 42);
 
   // ---------------------------------------------------------------- people
   let filter: 'all' | 'read' | 'write' | 'ending' = 'all';
@@ -203,6 +203,35 @@
   }
 
   const gapPeople = (gap: AclEntry) => outsidePeople.filter((p) => groupOfVia(p).includes(gap.name));
+
+  // ---------------------------------------------------------------- end dates
+  $: ends = (data?.people ?? [])
+    .filter((p) => p.expires_at)
+    .sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)))
+    .slice(0, 5);
+  let extending: string | null = null;
+  async function extend(person: PermissionPerson) {
+    const request = mainRequest(person) ?? (person.via.find((v) => v.kind === 'request' && v.expires_at) as ReturnType<typeof mainRequest>);
+    if (!request) return;
+    extending = person.key;
+    try {
+      const result = await extendAccess(fetch, request.request_id, 30);
+      toast.success(t('Access extended until {date}.', { date: formatDate(result.expires_at ?? '') }));
+      onChanged();
+    } catch (err: unknown) {
+      reportUiError(err, t('Unable to extend this access.'), 'permissions.extend');
+    } finally {
+      extending = null;
+    }
+  }
+
+  $: ringShare = data && data.summary.groups ? Math.round((data.summary.groups_ok / data.summary.groups) * 100) : 0;
+  const ACE_LABEL: Record<string, () => string> = {
+    ok: () => t('ACE in place'),
+    missing: () => t('ACE missing'),
+    mismatch: () => t('Unexpected rights'),
+    outside: () => t('outside BornToShare')
+  };
 </script>
 
 {#if loading && !data}
@@ -211,235 +240,247 @@
   <InlineAlert tone="error">{error}</InlineAlert>
 {:else if data && state}
   <div class="pm">
-    <!-- the state in one sentence -->
-    <section class="pm-state" aria-label={t('State of the ACL')}>
-      <p class="pm-sentence">
-        <span class={`pm-word is-${state.tone}`}>{state.word()}</span>
-        {#if !data.acl_scanned_at}
-          {t('Read the ACL to see who reaches this folder.')}
-        {:else}
-          {t('{count} person(s) reach this folder', { count: data.summary.people })}{#if data.summary.people},
-            <span class="is-read">{t('{count} read', { count: data.summary.read })}</span> {t('and')}
-            <span class="is-write">{t('{count} modify', { count: data.summary.write })}</span>{/if},
-          {t('through {count} AD group(s)', { count: data.summary.groups })}.
-          {#if data.summary.groups_ok < data.summary.groups}
-            <span class="is-bad">{t('{count} group(s) without their ACE.', { count: data.summary.groups - data.summary.groups_ok })}</span>
+    <div class="pm-col">
+      <!-- state of the ACL -->
+      <section class="pm-card" aria-label={t('State of the ACL')}>
+        <header>
+          <h2>{t('State of the ACL')}</h2>
+          {#if (canManage || isAdmin) && data.summary.groups > 0}
+            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={repairing} on:click={() => (repairAsked = true)}>{repairing ? t('Repairing…') : t('Repair the ACL')}</button>
           {/if}
-          {#if openGaps.length}
-            <span class="is-write">{t('{count} entry(ies) set outside BornToShare.', { count: openGaps.length })}</span>
-          {/if}
-        {/if}
-      </p>
-      {#if data.propagation?.state === 'running'}
-        <p class="pm-propagation"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('The rights are being applied to the content of the folder. On a big folder it can take a while.')}</p>
-      {:else if data.propagation?.state === 'failed'}
-        <p class="pm-propagation is-bad"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {t('The rights could not reach all the content of the folder: some people may be refused inside. Use « Repair the ACL ».')}</p>
-      {/if}
-      <div class="pm-meta">
-        {#if (canManage || isAdmin) && data.summary.groups > 0}
-          <button type="button" class="pm-textbtn" disabled={repairing} on:click={() => (repairAsked = true)}>{repairing ? t('Repairing…') : t('Repair the ACL')}</button> ·
-        {/if}
-        {#if data.acl_scanned_at}
-          <span>{t('ACL read {ago}', { ago: timeAgo(data.acl_scanned_at) })} · {t('{count} entries', { count: data.acl_entries })}</span>
-        {/if}
-        {#if data.snapshot_at}<span>· {t('directory synchronised {ago}', { ago: timeAgo(data.snapshot_at) })}</span>{/if}
-        {#if data.inheritance?.known}
-          <span class="pm-inherit" class:is-broken={data.inheritance.broken}>
-            · <i class={`bi ${data.inheritance.broken ? 'bi-scissors' : 'bi-diagram-3'}`} aria-hidden="true"></i>
-            {data.inheritance.broken ? t('inheritance broken') : t('inherits from the parent folder')}
-            {#if isAdmin}<button type="button" class="pm-textbtn" on:click={onToggleInheritance}>{data.inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
-          </span>
-        {/if}
-        <button type="button" class="pm-textbtn pm-export" disabled={!data.people.length} on:click={exportCsv}>
-          <i class="bi bi-download" aria-hidden="true"></i>{t('Export')}
-        </button>
-      </div>
-    </section>
-
-    <!-- checker -->
-    <section class="pm-check" aria-label={t('Check the access of a person')}>
-      <label class="pm-check__field">
-        <i class="bi bi-search" aria-hidden="true"></i>
-        <span class="pm-check__ask">{t('Who reaches it?')}</span>
-        <input type="search" bind:value={query} placeholder={t('Type a login, e.g. paul.martin')} autocomplete="off" aria-label={t('Username')} />
-      </label>
-      <div class="pm-check__answer" aria-live="polite">
-        {#if checking}
-          <span class="pm-muted">{t('Checking…')}</span>
-        {:else if checked?.found}
-          <span class={`pm-dot is-${checked.person.level}`} aria-hidden="true"></span>
-          <strong>{checked.person.name}</strong>
-          <span>{checked.person.level === 'write' ? t('modifies this folder') : t('reads this folder')}</span>
-          <span class="pm-muted">—</span>
-          {#each checked.steps as step, index}
-            {#if index}<span class="pm-muted" aria-hidden="true">→</span>{/if}
-            {#if step.kind === 'request'}
-              <span class="pm-chip">{t('{code} validated', { code: step.code })}{step.approver ? ` · ${step.approver}` : ''}</span>
-            {:else if step.kind === 'membership'}
-              <code class="pm-chip">{step.group}</code>
-            {:else}
-              <span class="pm-chip">{step.rights_label ? t(step.rights_label) : t('No ACE')}</span>
-            {/if}
-          {/each}
-          {#if checked.person.expires_at}
-            <span class="is-write">· {t('ends {date}', { date: formatDate(checked.person.expires_at) })}</span>
-          {/if}
-          <button type="button" class="pm-textbtn pm-push" on:click={() => checked?.found && (explainFor = checked.person.username ?? checked.person.name)}>{t('Details')}</button>
-        {:else if checkedMissing}
-          <span class="pm-dot is-none" aria-hidden="true"></span>
-          <span>
-            {checkedMissing.known_in_directory
-              ? t('{name} has no access to this folder', { name: checkedMissing.display_name || checkedMissing.username })
-              : t('No directory account named {name}', { name: checkedMissing.username })}
-          </span>
-        {:else}
-          <span class="pm-muted">{t('The answer shows here, with the path request → AD group → folder.')}</span>
-        {/if}
-      </div>
-    </section>
-
-    <!-- flow -->
-    {#if bands.length}
-      <section class="pm-flow" aria-label={t('From the people to the folder')}>
-        <h2>{t('From the people to the folder')}</h2>
-        <div class="pm-flow__grid">
-          <div class="pm-flow__bands">
-            {#each bands as band (band.key)}
-              <button
-                type="button"
-                class={`pm-band is-${band.managed ? band.level ?? 'read' : 'outside'}`}
-                class:is-active={groupFilter === band.group}
-                style={`height: ${bandHeight(band.members.length)}px`}
-                aria-pressed={groupFilter === band.group}
-                title={t('Show only its members')}
-                on:click={() => toggleGroup(band.group)}
-              >
-                <span class="pm-band__people">
-                  <span class="pm-stack">
-                    {#each band.members.slice(0, 5) as member (member.key)}<span class="pm-face">{initials(member.name)}</span>{/each}
-                  </span>
-                  <span>{band.members.length ? t('{count} person(s)', { count: band.members.length }) : t('No member yet')}</span>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!data.people.length} on:click={exportCsv}><i class="bi bi-download" aria-hidden="true"></i>{t('Export')}</button>
+        </header>
+        <div class="pm-state">
+          <span class={`pm-ring is-${state.tone}`} style={`--share:${ringShare}%`} aria-hidden="true"><b>{data.summary.groups_ok}/{data.summary.groups}</b></span>
+          <div class="pm-state__text">
+            <strong class={`is-${state.tone}`}>{state.word().replace(/\.$/, '')}</strong>
+            <p>
+              {#if !data.acl_scanned_at}
+                {t('Read the ACL to see who reaches this folder.')}
+              {:else}
+                {t('{count} person(s) reach this folder', { count: data.summary.people })}{#if data.summary.people},
+                  <span class="is-read">{t('{count} read', { count: data.summary.read })}</span> {t('and')}
+                  <span class="is-write">{t('{count} modify', { count: data.summary.write })}</span>{/if},
+                {t('through {count} AD group(s)', { count: data.summary.groups })}.
+                {#if data.summary.groups_ok < data.summary.groups}
+                  <span class="is-bad">{t('{count} group(s) without their ACE.', { count: data.summary.groups - data.summary.groups_ok })}</span>
+                {/if}
+              {/if}
+            </p>
+            <div class="pm-facts">
+              {#if data.acl_scanned_at}<span>{t('ACL read {ago}', { ago: timeAgo(data.acl_scanned_at) })}</span><span>{t('{count} entries', { count: data.acl_entries })}</span>{/if}
+              {#if data.snapshot_at}<span>{t('directory synchronised {ago}', { ago: timeAgo(data.snapshot_at) })}</span>{/if}
+              {#if data.inheritance?.known}
+                <span class:is-warn={data.inheritance.broken}>
+                  <i class={`bi ${data.inheritance.broken ? 'bi-scissors' : 'bi-diagram-3'}`} aria-hidden="true"></i>
+                  {data.inheritance.broken ? t('inheritance broken') : t('inherits from the parent folder')}
+                  {#if isAdmin}· <button type="button" class="pm-link" on:click={onToggleInheritance}>{data.inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
                 </span>
-                <span class="pm-band__group">
-                  <code>{band.group}</code>
-                  <small>
-                    {band.managed ? t('managed') : t('outside BornToShare')} ·
-                    {band.state === 'ok' ? t('ACE in place') : band.state === 'missing' ? t('ACE missing') : band.state === 'mismatch' ? t('Unexpected rights') : band.rights ? t(band.rights) : ''}
-                  </small>
-                </span>
-              </button>
-            {/each}
+              {/if}
+            </div>
           </div>
-          <div class="pm-flow__folder">
-            <small class="pm-mono">{data.root_path ?? ''}</small>
-            <strong>{rootName}</strong>
-            <small>{data.inheritance?.broken ? t('inheritance broken') : t('folder, subfolders and files')}</small>
-          </div>
+        </div>
+        {#if data.propagation?.state === 'running'}
+          <p class="pm-note"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('The rights are being applied to the content of the folder. On a big folder it can take a while.')}</p>
+        {:else if data.propagation?.state === 'failed'}
+          <p class="pm-note is-bad"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {t('The rights could not reach all the content of the folder: some people may be refused inside. Use « Repair the ACL ».')}</p>
+        {/if}
+      </section>
+
+      <!-- who reaches it? -->
+      <section class="pm-card" aria-label={t('Check the access of a person')}>
+        <header><h2>{t('Who reaches it?')}</h2></header>
+        <label class="pm-ask">
+          <i class="bi bi-search" aria-hidden="true"></i>
+          <input type="search" bind:value={query} placeholder={t('Type a login, e.g. paul.martin')} autocomplete="off" aria-label={t('Username')} />
+        </label>
+        <div aria-live="polite">
+          {#if checking}
+            <p class="pm-muted">{t('Checking…')}</p>
+          {:else if checked?.found}
+            <div class="pm-answer">
+              <p><strong>{checked.person.name}</strong> {checked.person.level === 'write' ? t('modifies this folder') : t('reads this folder')}
+                {#if checked.person.expires_at}<span class="is-write">· {t('ends {date}', { date: formatDate(checked.person.expires_at) })}</span>{/if}
+                <button type="button" class="pm-link" on:click={() => checked?.found && (explainFor = checked.person.username ?? checked.person.name)}>{t('Details')} ›</button>
+              </p>
+              <div class="pm-chain">
+                <span class="pm-step is-ok"><b>{checked.person.name}</b><small>{checked.person.username ?? ''}</small></span>
+                {#each checked.steps as step}
+                  <span class="pm-arrow" aria-hidden="true">→</span>
+                  {#if step.kind === 'request'}
+                    <span class="pm-step is-ok"><b>{t('{code} validated', { code: step.code })}</b><small>{step.approver ?? ''}</small></span>
+                  {:else if step.kind === 'membership'}
+                    <span class="pm-step is-ok"><b class="mono">{step.group}</b><small>{step.managed ? t('managed') : t('outside BornToShare')}</small></span>
+                  {:else}
+                    <span class={`pm-step ${step.state === 'ok' ? 'is-ok' : 'is-bad'}`}><b>{rootName}</b><small>{step.rights_label ? t(step.rights_label) : t('No ACE')}</small></span>
+                  {/if}
+                {/each}
+              </div>
+            </div>
+          {:else if checkedMissing}
+            <div class="pm-answer is-none">
+              <p>
+                {checkedMissing.known_in_directory
+                  ? t('{name} has no access to this folder', { name: checkedMissing.display_name || checkedMissing.username })
+                  : t('No directory account named {name}', { name: checkedMissing.username })}
+              </p>
+              {#if checkedMissing.known_in_directory && rootId}
+                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" on:click={() => goto(`/access-requests?create=1&root=${rootId}`)}>{t('Request an access')}</button>
+              {/if}
+            </div>
+          {:else}
+            <p class="pm-muted">{t('The answer shows here, with the path request → AD group → folder.')}</p>
+          {/if}
         </div>
       </section>
-    {/if}
 
-    <!-- people -->
-    <section class="pm-people" aria-label={t('Who has access')}>
-      <div class="pm-people__head">
-        <h2>{t('Who has access')}</h2>
-        <div class="pm-filters" role="group" aria-label={t('Filter by level')}>
-          <button type="button" class:is-active={filter === 'all'} on:click={() => (filter = 'all')}>{t('All')} {governedPeople.length}</button>
-          <button type="button" class:is-active={filter === 'read'} on:click={() => (filter = 'read')}>{t('Read')} {data.summary.read}</button>
-          <button type="button" class:is-active={filter === 'write'} on:click={() => (filter = 'write')}>{t('Modify')} {data.summary.write}</button>
-          <button type="button" class:is-active={filter === 'ending'} on:click={() => (filter = 'ending')}>{t('Ending within 30 days')} {data.summary.expiring_30d}</button>
-          {#if groupFilter}
-            <button type="button" class="is-active is-group" on:click={() => (groupFilter = null)}>{groupFilter} <i class="bi bi-x" aria-hidden="true"></i></button>
-          {/if}
-        </div>
-        <label class="pm-search">
-          <i class="bi bi-search" aria-hidden="true"></i>
-          <span class="visually-hidden">{t('Search a person')}</span>
-          <input type="search" bind:value={search} placeholder={t('Search a person')} />
-        </label>
-      </div>
-
-      {#if people.length === 0 && !openGaps.length}
-        <p class="pm-empty">{governedPeople.length ? t('Nobody matches this filter.') : t('Nobody reaches this folder through BornToShare yet.')}</p>
-      {/if}
-      <ul class="pm-rows">
-        {#each people as person (person.key)}
-          {@const request = mainRequest(person)}
-          {@const progress = person.expires_at ? expiryProgress(request?.decided_at ?? null, person.expires_at) : null}
-          <li class="pm-row">
-            <button type="button" class="pm-who" on:click={() => (explainFor = person.username ?? person.name)}>
-              <span class={`pm-face is-lg is-${person.level}`}>{initials(person.name)}</span>
-              <span><strong>{person.name}</strong><small>{person.username ?? ''}</small></span>
-            </button>
-            <span class={`pm-level is-${person.level}`}>{levelLabel(person.level)}</span>
-            <span class="pm-via">
-              {#each person.via as via}<span class={`pm-chip is-${via.kind}`}>{viaLabel(via)}</span>{/each}
-              {#each groupOfVia(person) as group}<code>{group}</code>{/each}
-              {#if person.warnings.includes('awaiting_sync')}<span class="pm-chip is-info" title={t('Approved recently: the next directory sync confirms the group membership.')}>{t('Sync pending')}</span>{/if}
-              {#if person.warnings.includes('missing_in_group')}<span class="pm-chip is-outside">{t('Missing from the group')}</span>{/if}
-            </span>
-            <span class="pm-until">
-              {#if person.expires_at && progress}
-                <span title={formatDateTime(person.expires_at)}>{formatDate(person.expires_at)} · {t('in {days} d', { days: progress.daysLeft })}</span>
-                <span class="pm-time" class:is-soon={progress.soon} aria-hidden="true"><span style={`width: ${progress.percentLeft}%`}></span></span>
-              {:else}
-                <span class="pm-muted">{request ? t('Permanent') : '—'}</span>
-              {/if}
-            </span>
-            <span class="pm-actions">
-              {#if canManage && person.revocable_request_ids.length}
-                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" disabled={busy} on:click={() => (revoking = person)}>{t('Revoke')}</button>
-              {/if}
-            </span>
-          </li>
-        {/each}
-
-        <!-- entries set by hand on the file server, in the list -->
-        {#each openGaps as gap (gap.principal)}
-          <li class="pm-row is-gap">
-            <span class="pm-who is-static">
-              <span class="pm-face is-lg is-outside"><i class="bi bi-exclamation-lg" aria-hidden="true"></i></span>
-              <span>
-                <strong>{gap.kind === 'broad' ? t('Folder open widely') : gap.name}</strong>
-                <small>{t('{rights}, set directly on the file server', { rights: t(gap.rights_label) })}</small>
+      <!-- path of the accesses -->
+      {#if bands.length}
+        <section class="pm-card" aria-label={t('Path of the accesses')}>
+          <header><h2>{t('Path of the accesses')}</h2><small class="pm-muted">{t('Click a group to see only its members')}</small></header>
+          {#each bands as band (band.key)}
+            <button type="button" class={`pm-path is-${band.managed ? band.level ?? 'read' : 'outside'}`} class:is-active={groupFilter === band.group} aria-pressed={groupFilter === band.group} on:click={() => toggleGroup(band.group)}>
+              <span class="pm-path__who">
+                <span class="pm-stack">{#each band.members.slice(0, 4) as member (member.key)}<span class={`pm-face is-${band.level ?? 'read'}`}>{initials(member.name)}</span>{/each}</span>
+                <span><b>{band.members.length ? t('{count} person(s)', { count: band.members.length }) : t('No member yet')}</b><small>{band.level === 'write' ? t('in modification') : t('in read')}</small></span>
               </span>
-            </span>
-            <span class="pm-via">
-              {#each gapPeople(gap).slice(0, 4) as person (person.key)}
-                <button type="button" class="pm-chip is-outside" on:click={() => (explainFor = person.username ?? person.name)}>{person.name}</button>
-              {/each}
-              {#if gap.members_count}<span class="pm-muted">{t('{count} member(s) without a request or a guardian', { count: gap.members_count })}</span>{/if}
-            </span>
-            <span class="pm-actions">
-              {#if isAdmin}
-                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} on:click={() => toggleGap(gap, true)}>{t('Accept the gap')}</button>
-              {/if}
-            </span>
-          </li>
-        {/each}
-      </ul>
-
-      <p class="pm-foot">
-        {#if acceptedGaps.length}
-          {t('{count} accepted gap(s):', { count: acceptedGaps.length })}
-          {#each acceptedGaps as gap, i (gap.principal)}
-            {i ? ', ' : ''}<span class="pm-mono">{gap.name}</span>{#if isAdmin} <button type="button" class="pm-textbtn" disabled={busy} on:click={() => toggleGap(gap, false)}>{t('Report again')}</button>{/if}
+              <span class="pm-arrow" aria-hidden="true">→</span>
+              <span class="pm-path__group"><b class="mono">{band.group}</b><small>{band.managed ? t('managed') : t('outside BornToShare')} · {ACE_LABEL[band.state]?.() ?? (band.rights ? t(band.rights) : '')}</small></span>
+              <span class="pm-arrow" aria-hidden="true">→</span>
+              <span class="pm-path__folder"><i class="bi bi-folder2-open" aria-hidden="true"></i>{rootName}</span>
+            </button>
           {/each}
-          <br />
+        </section>
+      {/if}
+
+      <!-- people -->
+      <section class="pm-card" aria-label={t('Who has access')}>
+        <header><h2>{t('Who has access')}</h2></header>
+        <div class="pm-tools">
+          <label class="pm-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={search} placeholder={t('Search a person')} aria-label={t('Search a person')} /></label>
+          <div class="pm-seg" role="group" aria-label={t('Filter by level')}>
+            <button type="button" class:on={filter === 'all'} on:click={() => (filter = 'all')}>{t('All')}<span>{governedPeople.length}</span></button>
+            <button type="button" class:on={filter === 'read'} on:click={() => (filter = 'read')}>{t('Read')}<span>{data.summary.read}</span></button>
+            <button type="button" class:on={filter === 'write'} on:click={() => (filter = 'write')}>{t('Modify')}<span>{data.summary.write}</span></button>
+            <button type="button" class:on={filter === 'ending'} on:click={() => (filter = 'ending')}>{t('Ending within 30 days')}<span>{data.summary.expiring_30d}</span></button>
+          </div>
+          {#if groupFilter}<button type="button" class="pm-chip is-filter" on:click={() => (groupFilter = null)}>{groupFilter} <i class="bi bi-x" aria-hidden="true"></i></button>{/if}
+        </div>
+        {#if people.length}
+          <ul class="pm-rows">
+            {#each people as person (person.key)}
+              {@const request = mainRequest(person)}
+              {@const progress = person.expires_at ? expiryProgress(request?.decided_at ?? null, person.expires_at) : null}
+              <li>
+                <button type="button" class="pm-who" on:click={() => (explainFor = person.username ?? person.name)}>
+                  <span class={`pm-face is-lg is-${person.level}`}>{initials(person.name)}</span>
+                  <span><strong>{person.name}</strong><small>{person.username ?? ''}</small></span>
+                </button>
+                <span><span class={`pm-level is-${person.level}`}>{levelLabel(person.level)}</span></span>
+                <span class="pm-via" title={[...person.via.map((via) => viaLabel(via)), ...groupOfVia(person)].join(' · ')}>
+                  <span>{person.via.map((via) => viaLabel(via)).join(' · ')}</span>
+                  {#each groupOfVia(person) as group}<small class="mono">{group}</small>{/each}
+                  {#if person.warnings.includes('awaiting_sync')}<small class="is-info" title={t('Approved recently: the next directory sync confirms the group membership.')}>{t('Sync pending')}</small>{/if}
+                  {#if person.warnings.includes('missing_in_group')}<small class="is-bad">{t('Missing from the group')}</small>{/if}
+                </span>
+                <span class="pm-until">
+                  {#if person.expires_at && progress}
+                    <small class:is-warn={progress.soon} title={formatDateTime(person.expires_at)}>{t('in {days} d', { days: progress.daysLeft })}</small>
+                    <span class="pm-time" class:is-soon={progress.soon} aria-hidden="true"><span style={`width: ${progress.percentLeft}%`}></span></span>
+                  {:else}
+                    <small class="pm-muted">{request ? t('Permanent') : '—'}</small>
+                  {/if}
+                </span>
+                <span class="pm-actions">
+                  {#if canManage && person.expires_at && request}
+                    <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={extending === person.key} on:click={() => extend(person)}>+30 j</button>
+                  {/if}
+                  {#if canManage && person.revocable_request_ids.length}
+                    <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" disabled={busy} on:click={() => (revoking = person)}>{t('Revoke')}</button>
+                  {/if}
+                </span>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="pm-empty">{governedPeople.length ? t('Nobody matches this filter.') : t('Nobody reaches this folder through BornToShare yet.')}</p>
         {/if}
         {#if data.system.length}
-          {t('+ {count} expected system account(s)', { count: data.system.length })}
-          <button type="button" class="pm-textbtn" aria-expanded={showSystem} on:click={() => (showSystem = !showSystem)}>{showSystem ? t('Hide') : t('Show')}</button>
+          <div class="pm-system">
+            <span><i class="bi bi-gear" aria-hidden="true"></i> {t('+ {count} expected system account(s)', { count: data.system.length })}</span>
+            <button type="button" class="pm-link" aria-expanded={showSystem} on:click={() => (showSystem = !showSystem)}>{showSystem ? t('Hide') : t('Show')}</button>
+          </div>
+          {#if showSystem}
+            <ul class="pm-system__list">
+              {#each data.system as entry (entry.principal)}
+                <li><span>{entry.kind === 'service' ? t('BornToShare account') : entry.name}</span><code>{entry.principal}</code><span class="pm-muted">{t(entry.rights_label)}</span></li>
+              {/each}
+            </ul>
+          {/if}
         {/if}
-      </p>
-      {#if showSystem}
-        <ul class="pm-system">
-          {#each data.system as entry (entry.principal)}
-            <li><span>{entry.kind === 'service' ? t('BornToShare account') : entry.name}</span><code>{entry.principal}</code><span class="pm-muted">{t(entry.rights_label)}</span></li>
+      </section>
+    </div>
+
+    <div class="pm-col">
+      <section class="pm-card" aria-label={t('Outside BornToShare')}>
+        <header><h2>{t('Outside BornToShare')}</h2>{#if openGaps.length}<span class="pm-count is-warn">{openGaps.length}</span>{/if}</header>
+        <p class="pm-muted">{t('NTFS entries that give an access without going through a request.')}</p>
+        {#each openGaps as gap (gap.principal)}
+          <div class="pm-gap">
+            <span>
+              <b>{gap.kind === 'broad' ? t('Folder open widely') : gap.name}</b>
+              <small>{t('{rights}, set directly on the file server', { rights: t(gap.rights_label) })}</small>
+              {#if gapPeople(gap).length}
+                <span class="pm-gap__people">
+                  {#each gapPeople(gap).slice(0, 4) as person (person.key)}<button type="button" class="pm-link" on:click={() => (explainFor = person.username ?? person.name)}>{person.name}</button>{/each}
+                </span>
+              {:else if gap.members_count}
+                <small>{t('{count} member(s) without a request or a guardian', { count: gap.members_count })}</small>
+              {/if}
+            </span>
+            {#if isAdmin}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} on:click={() => toggleGap(gap, true)}>{t('Accept the gap')}</button>{/if}
+          </div>
+        {:else}
+          <p class="pm-ok"><i class="bi bi-check2-circle" aria-hidden="true"></i> {t('Nothing: every access goes through BornToShare.')}</p>
+        {/each}
+        {#if acceptedGaps.length}
+          <small class="pm-muted">{t('{count} accepted gap(s):', { count: acceptedGaps.length })}</small>
+          {#each acceptedGaps as gap (gap.principal)}
+            <div class="pm-accepted"><span class="mono">{gap.name}</span>{#if isAdmin}<button type="button" class="pm-link" disabled={busy} on:click={() => toggleGap(gap, false)}>{t('Report again')}</button>{/if}</div>
           {/each}
-        </ul>
+        {/if}
+      </section>
+
+      {#if data.groups.length}
+        <section class="pm-card" aria-label={t('AD groups')}>
+          <header><h2>{t('AD groups')}</h2></header>
+          <dl class="pm-kv">
+            {#each data.groups as group (group.name)}
+              <div>
+                <dt>{levelLabel(group.level)}</dt>
+                <dd><span class="mono">{group.name}</span><small>{t('{count} member(s)', { count: group.members_count })} · {ACE_LABEL[group.ace]?.() ?? t('ACL not read')}</small></dd>
+              </div>
+            {/each}
+          </dl>
+        </section>
       {/if}
-    </section>
+
+      {#if ends.length}
+        <section class="pm-card" aria-label={t('Next end dates')}>
+          <header><h2>{t('Next end dates')}</h2></header>
+          {#each ends as person (person.key)}
+            {@const request = mainRequest(person)}
+            {@const progress = expiryProgress(request?.decided_at ?? null, String(person.expires_at))}
+            <div class="pm-end">
+              <span class={`pm-face is-${person.level}`}>{initials(person.name)}</span>
+              <span class="pm-end__name"><b>{person.name}</b><span class="pm-time" class:is-soon={progress.soon} aria-hidden="true"><span style={`width: ${progress.percentLeft}%`}></span></span></span>
+              <small class="pm-muted">{t('in {days} d', { days: progress.daysLeft })}</small>
+              {#if canManage && request}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={extending === person.key} on:click={() => extend(person)}>+30 j</button>{/if}
+            </div>
+          {/each}
+        </section>
+      {/if}
+    </div>
   </div>
 {/if}
 
@@ -474,517 +515,118 @@
 />
 
 <style>
-  .pm-propagation { margin: 8px 0 0; font-size: 13px; color: var(--b2s-color-text-muted); }
-  .pm-propagation.is-bad { color: var(--b2s-color-danger); }
-  .pm {
-    display: grid;
-    gap: 28px;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: var(--b2s-fs-md);
-    font-weight: 600;
-  }
-
-  .pm-muted {
-    color: var(--b2s-color-text-muted);
-  }
-
-  .pm-mono,
-  code {
-    font-family: var(--b2s-font-mono);
-    font-size: var(--b2s-fs-xs);
-    overflow-wrap: anywhere;
-  }
-
+  .pm { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
+  .pm-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .pm-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
+  .pm-card header { display: flex; align-items: center; gap: 8px; }
+  .pm-card h2 { margin: 0 auto 0 0; font-size: var(--b2s-fs-md); font-weight: 600; }
+  .pm-muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
+  .pm-link { padding: 0; border: 0; background: none; color: var(--b2s-color-info-strong); font: inherit; font-size: var(--b2s-fs-sm); cursor: pointer; }
   .is-read { color: var(--b2s-color-info-strong); }
-  .is-write { color: var(--b2s-color-warning-strong); }
+  .is-write, .is-warn { color: var(--b2s-color-warning-strong); }
   .is-bad { color: var(--b2s-color-danger-strong); }
-
-  .pm-textbtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--b2s-color-info-strong);
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .pm-textbtn:disabled {
-    color: var(--b2s-color-text-faint);
-    cursor: default;
-  }
-
+  .is-info { color: var(--b2s-color-info-strong); }
   /* state */
-  .pm-state {
-    display: grid;
-    gap: 8px;
-  }
-
-  .pm-sentence {
-    max-width: 920px;
-    margin: 0;
-    font-size: 22px;
-    font-weight: 500;
-    line-height: 1.4;
-    letter-spacing: -0.01em;
-  }
-
-  .pm-word {
-    font-weight: 700;
-  }
-
-  .pm-word.is-ok { color: var(--b2s-color-success-strong); }
-  .pm-word.is-warn { color: var(--b2s-color-warning-strong); }
-  .pm-word.is-bad { color: var(--b2s-color-danger-strong); }
-  .pm-word.is-idle { color: var(--b2s-color-text-muted); }
-
-  .pm-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .pm-inherit.is-broken {
-    color: var(--b2s-color-warning-strong);
-  }
-
-  .pm-export {
-    margin-left: auto;
-  }
-
-  /* checker */
-  .pm-check {
-    display: grid;
-    gap: 10px;
-  }
-
-  .pm-check__field {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    height: 50px;
-    padding: 0 16px;
-    border: 1px solid var(--b2s-color-border);
-    border-radius: 14px;
-    background: var(--b2s-color-surface);
-    box-shadow: 0 6px 24px rgba(15, 26, 58, 0.06);
-    color: var(--b2s-color-text-muted);
-  }
-
-  .pm-check__field:focus-within {
-    border-color: var(--b2s-color-info);
-  }
-
-  .pm-check__ask {
-    white-space: nowrap;
-  }
-
-  .pm-check__field input {
-    flex: 1;
-    min-width: 0;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: var(--b2s-color-text);
-    font: inherit;
-    font-size: var(--b2s-fs-md);
-  }
-
-  .pm-check__answer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    min-height: 28px;
-    padding: 0 6px;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .pm-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--b2s-color-success);
-  }
-
-  .pm-dot.is-none {
-    background: var(--b2s-color-danger);
-  }
-
-  .pm-push {
-    margin-left: auto;
-  }
-
-  .pm-chip {
-    padding: 2px 8px;
-    border: 0;
-    border-radius: 6px;
-    background: var(--b2s-color-neutral-soft);
-    color: var(--b2s-color-text-strong);
-    font: inherit;
-    font-size: var(--b2s-fs-xs);
-  }
-
-  button.pm-chip {
-    cursor: pointer;
-  }
-
-  .pm-chip.is-ad_only,
-  .pm-chip.is-outside { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .pm-chip.is-info { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
-
-  /* flow */
-  .pm-flow {
-    display: grid;
-    gap: 12px;
-  }
-
-  .pm-flow__grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.32fr);
-    align-items: stretch;
-  }
-
-  .pm-flow__bands {
-    display: grid;
-    gap: 8px;
-  }
-
-  .pm-band {
-    display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-    align-items: stretch;
-    padding: 0;
-    border: 0;
-    border-radius: 12px 0 0 12px;
-    background: transparent;
-    color: var(--b2s-color-text);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
-  }
-
-  .pm-band:hover,
-  .pm-band.is-active {
-    box-shadow: 0 0 0 2px var(--b2s-color-info);
-  }
-
-  .pm-band__people {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 14px;
-    border-radius: 12px 0 0 12px;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .pm-band__group {
-    display: grid;
-    align-content: center;
-    gap: 2px;
-    padding: 0 14px;
-  }
-
-  .pm-band__group small {
-    color: var(--b2s-color-text-soft);
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .pm-band.is-read .pm-band__people { background: linear-gradient(90deg, var(--b2s-color-surface), var(--b2s-color-info-soft)); color: var(--b2s-color-info-strong); }
-  .pm-band.is-read .pm-band__group { background: var(--b2s-color-info-soft); }
-  .pm-band.is-write .pm-band__people { background: linear-gradient(90deg, var(--b2s-color-surface), var(--b2s-color-warning-soft)); color: var(--b2s-color-warning-strong); }
-  .pm-band.is-write .pm-band__group { background: var(--b2s-color-warning-soft); }
-  .pm-band.is-outside .pm-band__people,
-  .pm-band.is-outside .pm-band__group {
-    background: repeating-linear-gradient(135deg, var(--b2s-color-surface), var(--b2s-color-surface) 6px, var(--b2s-color-warning-soft) 6px, var(--b2s-color-warning-soft) 12px);
-    color: var(--b2s-color-warning-strong);
-  }
-
-  .pm-flow__folder {
-    display: grid;
-    align-content: center;
-    gap: 6px;
-    padding: 16px 18px;
-    border-radius: 0 14px 14px 0;
-    background: var(--b2s-topbar-bg);
-    color: var(--b2s-color-surface);
-  }
-
-  .pm-flow__folder small {
-    color: #c7d2fe;
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .pm-flow__folder strong {
-    font-size: var(--b2s-fs-md);
-    overflow-wrap: anywhere;
-  }
-
-  .pm-stack {
-    display: flex;
-  }
-
-  .pm-face {
-    width: 26px;
-    height: 26px;
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: -7px;
-    border: 2px solid var(--b2s-color-surface);
-    border-radius: 50%;
-    background: var(--b2s-color-primary-soft);
-    color: var(--b2s-color-heading);
-    font-size: 10px;
-    font-weight: 700;
-  }
-
+  .pm-state { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
+  .pm-ring { position: relative; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: conic-gradient(var(--ring) var(--share), var(--b2s-color-neutral-soft) 0); --ring: var(--b2s-color-success); }
+  .pm-ring.is-warn { --ring: var(--b2s-color-warning); }
+  .pm-ring.is-bad { --ring: var(--b2s-color-danger); }
+  .pm-ring.is-idle { --ring: var(--b2s-color-border-mid, #cdd2db); }
+  .pm-ring::after { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--b2s-color-surface); }
+  .pm-ring b { position: relative; z-index: 1; font-size: 13px; }
+  .pm-state__text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .pm-state__text strong { font-size: 17px; font-weight: 600; }
+  .pm-state__text strong.is-ok { color: var(--b2s-color-success-strong); }
+  .pm-state__text p { margin: 0; font-size: var(--b2s-fs-sm); }
+  .pm-facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .pm-facts > span { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: var(--b2s-radius-sm); background: var(--b2s-color-neutral-soft); font-size: var(--b2s-fs-xs); }
+  .pm-facts .pm-link { font-size: var(--b2s-fs-xs); }
+  .pm-note { margin: 0; font-size: var(--b2s-fs-sm); color: var(--b2s-color-text-muted); }
+  .pm-note.is-bad { color: var(--b2s-color-danger); }
+  /* who reaches it */
+  .pm-ask { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--b2s-color-border-mid, var(--b2s-color-border)); border-radius: var(--b2s-radius-md); }
+  .pm-ask input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; }
+  .pm-answer { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .pm-answer p { margin: 0; font-size: var(--b2s-fs-sm); }
+  .pm-answer .pm-link { margin-left: 6px; }
+  .pm-answer.is-none { flex-direction: row; align-items: center; justify-content: space-between; }
+  .pm-chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
+  .pm-step { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 8px 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface); }
+  .pm-step b { font-size: var(--b2s-fs-sm); font-weight: 600; overflow-wrap: anywhere; }
+  .pm-step small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .pm-step.is-ok { border-color: var(--b2s-color-success-border, #bfe6d1); background: var(--b2s-color-success-soft); }
+  .pm-step.is-bad { border-color: var(--b2s-color-danger-border, #f0c4c4); background: var(--b2s-color-danger-soft); }
+  .pm-arrow { align-self: center; color: var(--b2s-color-border-mid, #cdd2db); }
+  /* path of the accesses */
+  .pm-path { display: grid; grid-template-columns: minmax(150px, 0.8fr) 18px minmax(0, 1.4fr) 18px auto; gap: 8px; align-items: center; width: 100%; padding: 10px 12px; border: 1px solid var(--b2s-color-border); border-left-width: 3px; border-radius: var(--b2s-radius-md); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .pm-path.is-read { border-left-color: var(--b2s-color-info); }
+  .pm-path.is-write { border-left-color: var(--b2s-color-warning); }
+  .pm-path.is-outside { border-left-color: var(--b2s-color-danger); }
+  .pm-path:hover, .pm-path.is-active { background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .pm-path.is-active { box-shadow: inset 0 0 0 1px var(--b2s-color-text); }
+  .pm-path__who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .pm-path__who b, .pm-path__group b { display: block; font-size: var(--b2s-fs-sm); }
+  .pm-path__who small, .pm-path__group small { display: block; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .pm-path__group { min-width: 0; }
+  .pm-path__group b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pm-path__folder { display: inline-flex; align-items: center; gap: 6px; font-size: var(--b2s-fs-sm); white-space: nowrap; }
+  .pm-path__folder i { color: var(--b2s-color-success-strong); }
+  .pm-stack { display: flex; }
+  .pm-face { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 26px; height: 26px; margin-left: -6px; border: 2px solid var(--b2s-color-surface); border-radius: 50%; background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: 10px; font-weight: 700; }
   .pm-stack .pm-face:first-child { margin-left: 0; }
-
-  .pm-face.is-lg {
-    width: 32px;
-    height: 32px;
-    margin: 0;
-    border: 0;
-    font-size: 11px;
-  }
-
-  .pm-face.is-read { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
   .pm-face.is-write { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .pm-face.is-outside { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-
+  .pm-face.is-lg { width: 32px; height: 32px; margin: 0; border: 0; font-size: 11px; }
   /* people */
-  .pm-people {
-    display: grid;
-  }
-
-  .pm-people__head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px;
-    padding-bottom: 12px;
-  }
-
-  .pm-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .pm-filters button {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border: 1px solid var(--b2s-color-border);
-    border-radius: var(--b2s-radius-pill);
-    background: var(--b2s-color-surface);
-    color: var(--b2s-color-text-soft);
-    font: inherit;
-    font-size: var(--b2s-fs-xs);
-    cursor: pointer;
-  }
-
-  .pm-filters button.is-active {
-    border-color: var(--b2s-topbar-bg);
-    background: var(--b2s-topbar-bg);
-    color: var(--b2s-color-surface);
-  }
-
-  .pm-filters .is-group {
-    font-family: var(--b2s-font-mono);
-  }
-
-  .pm-search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 34px;
-    min-width: 220px;
-    margin-left: auto;
-    padding: 0 12px;
-    border: 1px solid var(--b2s-color-border);
-    border-radius: var(--b2s-radius-sm);
-    color: var(--b2s-color-text-muted);
-  }
-
-  .pm-search input {
-    flex: 1;
-    min-width: 0;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    font: inherit;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .pm-empty {
-    margin: 0;
-    padding: 16px 0;
-    color: var(--b2s-color-text-muted);
-  }
-
-  .pm-rows {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .pm-row {
-    display: grid;
-    grid-template-columns: minmax(200px, 1.2fr) 110px minmax(0, 1.6fr) 170px 90px;
-    align-items: center;
-    gap: 14px;
-    padding: 10px 6px;
-    border-top: 1px solid var(--b2s-color-border-soft);
-  }
-
-  .pm-row:hover {
-    background: var(--b2s-color-surface-soft);
-  }
-
-  .pm-row.is-gap {
-    grid-template-columns: minmax(200px, 1.2fr) minmax(0, 1.6fr) auto;
-    border-top: 1px dashed var(--b2s-color-warning);
-    border-bottom: 1px dashed var(--b2s-color-warning);
-    background: var(--b2s-color-warning-soft);
-  }
-
-  .pm-who {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .pm-who.is-static {
-    cursor: default;
-  }
-
-  .pm-who strong,
-  .pm-who small {
-    display: block;
-  }
-
-  .pm-who strong {
-    color: var(--b2s-color-text);
-    font-weight: 600;
-  }
-
-  button.pm-who:hover strong {
-    color: var(--b2s-color-info-strong);
-  }
-
-  .pm-who small {
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .pm-level {
-    justify-self: start;
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: var(--b2s-fs-xs);
-    font-weight: 600;
-  }
-
+  .pm-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .pm-search { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 160px; max-width: 240px; height: 34px; padding: 0 10px; border: 1px solid var(--b2s-color-border-mid, var(--b2s-color-border)); border-radius: var(--b2s-radius-md); }
+  .pm-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: var(--b2s-fs-sm); }
+  .pm-seg { display: flex; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
+  .pm-seg button { padding: 4px 10px; border: 0; border-radius: var(--b2s-radius-sm); background: none; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); white-space: nowrap; cursor: pointer; }
+  .pm-seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; }
+  .pm-seg span { margin-left: 5px; opacity: 0.7; }
+  .pm-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border: 0; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-text); color: #fff; font-size: var(--b2s-fs-xs); cursor: pointer; }
+  .pm-rows { margin: 0; padding: 0; list-style: none; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); }
+  .pm-rows li { display: grid; grid-template-columns: minmax(110px, 1fr) auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 10px 12px; }
+  .pm-rows li + li { border-top: 1px solid var(--b2s-color-border); }
+  .pm-who { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .pm-who strong { display: block; font-weight: 500; font-size: var(--b2s-fs-sm); }
+  .pm-who small { display: block; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pm-who:hover strong { text-decoration: underline; }
+  .pm-level { padding: 2px 9px; border-radius: var(--b2s-radius-pill); font-size: var(--b2s-fs-xs); font-weight: 500; }
   .pm-level.is-read { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
   .pm-level.is-write { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-
-  .pm-via {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .pm-until {
-    display: grid;
-    gap: 4px;
-    font-size: var(--b2s-fs-sm);
-    white-space: nowrap;
-  }
-
-  .pm-time {
-    width: 120px;
-    height: 4px;
-    overflow: hidden;
-    border-radius: var(--b2s-radius-pill);
-    background: var(--b2s-color-border-soft);
-  }
-
-  .pm-time span {
-    display: block;
-    height: 4px;
-    background: var(--b2s-color-success);
-  }
-
-  .pm-time.is-soon span {
-    background: var(--b2s-color-warning);
-  }
-
-  .pm-actions {
-    justify-self: end;
-  }
-
-  .pm-foot {
-    margin: 14px 6px 0;
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-xs);
-    line-height: 1.8;
-  }
-
-  .pm-system {
-    display: grid;
-    gap: 6px;
-    margin: 8px 0 0;
-    padding: 0 6px;
-    list-style: none;
-    font-size: var(--b2s-fs-xs);
-  }
-
-  .pm-system li {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  @media (max-width: 1000px) {
-    .pm-row,
-    .pm-row.is-gap {
-      grid-template-columns: 1fr;
-    }
-
-    .pm-actions {
-      justify-self: start;
-    }
-
-    .pm-flow__grid,
-    .pm-band {
-      grid-template-columns: 1fr;
-    }
-
-    .pm-flow__folder {
-      border-radius: 0 0 14px 14px;
-    }
-  }
+  .pm-via { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--b2s-fs-xs); }
+  .pm-via > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pm-via .mono { color: var(--b2s-color-text-muted); }
+  .pm-until { display: flex; flex-direction: column; gap: 4px; }
+  .pm-time { display: block; height: 4px; overflow: hidden; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-border-soft, #e9ebf0); }
+  .pm-time span { display: block; height: 4px; background: var(--b2s-color-info); }
+  .pm-time.is-soon span { background: var(--b2s-color-warning); }
+  .pm-actions { display: flex; justify-content: flex-end; gap: 6px; }
+  .pm-empty { margin: 0; padding: 16px; border: 1px dashed var(--b2s-color-border); border-radius: var(--b2s-radius-md); color: var(--b2s-color-text-muted); text-align: center; }
+  .pm-system { display: flex; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px dashed var(--b2s-color-border); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .pm-system .pm-link { margin-left: auto; }
+  .pm-system__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-xs); }
+  .pm-system__list li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; }
+  .pm-system__list code { color: var(--b2s-color-text-muted); }
+  /* side */
+  .pm-count { padding: 0 8px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-warning-soft); font-size: var(--b2s-fs-xs); font-weight: 600; }
+  .pm-gap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--b2s-color-warning-border, #f3d9ad); border-radius: var(--b2s-radius-md); background: var(--b2s-color-warning-soft); }
+  .pm-gap b { display: block; font-size: var(--b2s-fs-sm); overflow-wrap: anywhere; }
+  .pm-gap small { display: block; color: var(--b2s-color-warning-strong); font-size: var(--b2s-fs-xs); }
+  .pm-gap__people { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+  .pm-gap__people .pm-link { font-size: var(--b2s-fs-xs); }
+  .pm-ok { margin: 0; color: var(--b2s-color-success-strong); font-size: var(--b2s-fs-sm); }
+  .pm-accepted { display: flex; justify-content: space-between; gap: 8px; font-size: var(--b2s-fs-sm); }
+  .pm-kv { margin: 0; }
+  .pm-kv div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-top: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-sm); }
+  .pm-kv div:first-child { border-top: 0; }
+  .pm-kv dt { color: var(--b2s-color-text-muted); }
+  .pm-kv dd { display: flex; flex-direction: column; gap: 2px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .pm-kv small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .pm-end { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+  .pm-end .pm-face { margin: 0; border: 0; }
+  .pm-end__name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .pm-end__name b { font-size: var(--b2s-fs-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

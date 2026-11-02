@@ -27,7 +27,7 @@
   import { humanizeFileServerMessage } from '$lib/errors/file-server';
   import { timeAgo } from '$lib/utils/format';
   import { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
-  import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
+  import ActivityTimeline from '$lib/components/activity/ActivityTimeline.svelte';
   import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import EndpointFoldersTable from '$lib/components/storage-endpoints/EndpointFoldersTable.svelte';
   import EndpointSharesPanel from '$lib/components/storage-endpoints/EndpointSharesPanel.svelte';
@@ -43,7 +43,6 @@
     readDfsAgain,
     type DfsInfo
   } from '$lib/components/storage-endpoints/dfs-namespace';
-  import ActivityDetailsDrawer from '$lib/components/activity/ActivityDetailsDrawer.svelte';
   import EntityConsoleShell from '$lib/components/entity/EntityConsoleShell.svelte';
 
   import {
@@ -871,18 +870,6 @@
       alertCount: rootAlertCounts[String(rootId(row))] ?? 0
     }));
 
-  let activityDetailsOpen = false;
-  let selectedActivityEntry: Record<string, unknown> | null = null;
-
-  function openActivityDetails(entry: Record<string, unknown> | null) {
-    selectedActivityEntry = entry ?? null;
-    activityDetailsOpen = Boolean(selectedActivityEntry);
-  }
-
-  function closeActivityDetails() {
-    activityDetailsOpen = false;
-    selectedActivityEntry = null;
-  }
 
   const endpointLastProbeRaw = (ep: any): string | null =>
     String(ep?.last_probe_at ?? ep?.updated_at ?? '').trim() || null;
@@ -1356,11 +1343,7 @@
             <EndpointSharesPanel endpoint={selected} discoveredAt={catalogEntry?.discovered_at ?? null} onChanged={() => void invalidateAll()} />
           {/key}
         {:else if activeEndpointTab === 'activity'}
-          <ActivityTabPanel
-            items={activity}
-            emptyLabel={t('No activity available for this endpoint')}
-            onSelect={openActivityDetails}
-          />
+          <ActivityTimeline items={activity} emptyLabel={t('No activity available for this endpoint')} />
         {:else}
           <ProvisioningPolicyScreen
             scope="storage-endpoint"
@@ -1380,11 +1363,6 @@
 </EntityWorkspace>
 {/if}
 
-<ActivityDetailsDrawer
-  open={activityDetailsOpen}
-  entry={selectedActivityEntry}
-  onClose={closeActivityDetails}
-/>
 
 <ConfirmActionModal
   open={showRereadConfirm}

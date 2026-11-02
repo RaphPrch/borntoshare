@@ -9,7 +9,6 @@
 
   import ZoneFormModal from "$lib/components/zones/ZoneFormModal.svelte";
   import { listStorageEndpoints, updateStorageEndpoint } from "$lib/api/storage-endpoints";
-  import ActivityDetailsDrawer from "$lib/components/activity/ActivityDetailsDrawer.svelte";
   import ConfirmActionModal from "$lib/components/ui/ConfirmActionModal.svelte";
   import EndpointAttachChoiceModal from "./components/EndpointAttachChoiceModal.svelte";
   import { putZoneNamingPolicy } from "$lib/api/naming-policies";
@@ -106,8 +105,6 @@
   let policyError: string | null = null;
   let policyNotice = "";
   let handledCreateQuery = false;
-  let activityDetailsOpen = false;
-  let selectedActivityEntry: any | null = null;
   let showRereadConfirm = false;
   let rereadBusy = false;
   let showLeaveProvisioningConfirm = false;
@@ -733,11 +730,6 @@
     }
   }
 
-  function openActivityDetails(entry: any) {
-    selectedActivityEntry = entry ?? null;
-    activityDetailsOpen = Boolean(selectedActivityEntry);
-  }
-
   async function loadAttachableEndpoints() {
     if (!currentZoneId) return;
     attachEndpointsLoading = true;
@@ -786,11 +778,6 @@
     }
   }
 
-  function closeActivityDetails() {
-    activityDetailsOpen = false;
-    selectedActivityEntry = null;
-  }
-
   $: activeTab = normalizeTab($page.url.searchParams.get("tab"));
   $: {
     const shouldOpenCreate = $page.url.searchParams.get("create") === "1";
@@ -822,7 +809,6 @@
     },
     activity: {
       activity,
-      onSelectActivity: openActivityDetails,
     },
     provisioning: {
       zoneId: currentZoneId,
@@ -930,11 +916,6 @@
   confirmLabel={t('Start the reads')}
 />
 
-<ActivityDetailsDrawer
-  open={activityDetailsOpen}
-  entry={selectedActivityEntry}
-  onClose={closeActivityDetails}
-/>
 
 <ConfirmActionModal
   open={showLeaveProvisioningConfirm}

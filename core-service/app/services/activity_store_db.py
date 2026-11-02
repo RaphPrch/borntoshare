@@ -318,7 +318,8 @@ def list_by_target(*, target_type: str, target_id: str | None = None, limit: int
                       result, severity,
                       correlation_id, source_service, metadata_json
                     FROM audit_event
-                    WHERE entity_type = :etype AND entity_id = :eid
+                    WHERE (entity_type = :etype AND entity_id = :eid)
+                       OR (:etype = 'storage_root' AND root_id = :eid AND LEFT(action, 15) = 'access_request.')
                     ORDER BY event_time DESC
                     LIMIT :limit
                     """
