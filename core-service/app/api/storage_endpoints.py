@@ -243,6 +243,179 @@ def _enrich_probe_fields(row: dict) -> dict:
 # READ MODELS (SQL VIEWS ONLY)
 # ============================================================
 
+def _assert_namespace_free(db: Session, path: str | None) -> None:
+    from app.services.dfs_links import snapshot
+
+    wanted = str(path or "").strip().rstrip("\\").lower()
+    if not wanted.startswith("\\\\"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "DFS_NAMESPACE_PATH_INVALID", "message": "Read the namespace before adding it"},
+        )
+    for endpoint in db.query(StorageEndpoint).filter(StorageEndpoint.endpoint_type == "dfs").all():
+        if str(snapshot(endpoint).get("path") or "").strip().rstrip("\\").lower() == wanted:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "DFS_NAMESPACE_TAKEN", "message": f"This namespace is already declared as {endpoint.name}"},
+            )
+
+
+def _resolved(host: str) -> set[str]:
+    import socket
+
+    try:
+        return {info[4][0] for info in socket.getaddrinfo(host.strip(), None)}
+    except (OSError, UnicodeError):
+        return set()
+
+
+def _assert_host_free(db: Session, host: str | None, *, exclude_id: int | None = None) -> None:
+    """One file server, one endpoint: two would govern the same folders twice."""
+    from app.services.storage_guards import same_host
+
+    wanted = str(host or "").strip()
+    if not wanted:
+        return
+    rows = db.execute(
+        text("SELECT id, name, host FROM storage_endpoints WHERE host IS NOT NULL AND LOWER(endpoint_type) <> 'dfs'")
+    ).mappings().all()
+    taken = next((row for row in rows if row["id"] != exclude_id and same_host(str(row["host"]), wanted)), None)
+    if taken is None:
+        # The same server by its name and by its address (or two names): compared by what they resolve to
+        wanted_ips = _resolved(wanted)
+        taken = next(
+            (row for row in rows if row["id"] != exclude_id and wanted_ips & _resolved(str(row["host"]))),
+            None,
+        ) if wanted_ips else None
+    if taken:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "STORAGE_ENDPOINT_HOST_TAKEN", "message": f"This file server is already declared as {taken['name']}"},
+        )
+
+
+class DfsSnapshotPayload(BaseModel):
+    namespace: dict
+
+
+class DfsManagePayload(BaseModel):
+    paths: list[str] = Field(min_length=1, max_length=500)
+
+
+def _dfs_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
+    endpoint = db.get(StorageEndpoint, int(endpoint_id))
+    if endpoint is None or str(endpoint.endpoint_type or "").lower() != "dfs":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DFS namespace not found")
+    return endpoint
+
+
+@router.get("/{endpoint_id}/dfs-links", summary="Folders of a DFS namespace and their targets")
+def list_dfs_links(endpoint_id: int, request: Request, db: Session = Depends(get_db)):
+    from app.services.dfs_links import describe_links, snapshot
+
+    _require_platform_admin(request)
+    endpoint = _dfs_endpoint(db, endpoint_id)
+    shot = snapshot(endpoint)
+    return ui_data({
+        "path": shot.get("path"),
+        "type": shot.get("type"),
+        "root_targets": shot.get("root_targets") or [],
+        "read_at": shot.get("read_at"),
+        "error": shot.get("error"),
+        "links": describe_links(db, endpoint),
+    })
+
+
+@router.post("/{endpoint_id}/dfs-snapshot", summary="Keep the last reading of a DFS namespace")
+def save_dfs_snapshot(endpoint_id: int, payload: DfsSnapshotPayload, request: Request, db: Session = Depends(get_db)):
+    from datetime import datetime, timezone
+
+    from app.services.dfs_links import snapshot
+
+    _require_platform_admin(request)
+    endpoint = _dfs_endpoint(db, endpoint_id)
+    namespace = payload.namespace
+    if str(namespace.get("path") or "").strip().lower() != str(snapshot(endpoint).get("path") or "").strip().lower():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "DFS_NAMESPACE_MISMATCH", "message": "This reading is the one of another namespace"},
+        )
+    capabilities = dict(endpoint.capabilities or {})
+    capabilities["dfs_snapshot"] = {
+        "path": namespace.get("path"),
+        "name": namespace.get("name"),
+        "type": namespace.get("type"),
+        "root_targets": list(namespace.get("root_targets") or []),
+        "links": [
+            {"path": str(link.get("path")), "targets": [str(t) for t in (link.get("targets") or [])]}
+            for link in (namespace.get("links") or [])
+            if isinstance(link, dict) and link.get("path")
+        ],
+        "error": namespace.get("error"),
+        "read_at": datetime.now(timezone.utc).isoformat(),
+    }
+    endpoint.capabilities = capabilities
+    db.commit()
+    from app.services.dfs_links import forget_cache
+
+    forget_cache()
+    actor_id, actor_display = _actor_from_headers(request)
+    log_activity(
+        db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
+        action="storage_endpoint.dfs_read", outcome="success", target_type="storage_endpoint", target_id=int(endpoint.id),
+        target_display=str(endpoint.name), context_json={"links": len(capabilities["dfs_snapshot"]["links"]), "path": namespace.get("path")},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_data({"links": len(capabilities["dfs_snapshot"]["links"])})
+
+
+@router.post("/{endpoint_id}/dfs-links/manage", summary="Manage DFS folders: a storage root on each of their targets")
+async def manage_dfs_links(endpoint_id: int, payload: DfsManagePayload, request: Request, db: Session = Depends(get_db)):
+    from app.api.storage_roots import _create_storage_root, _queue_root_check, _refusal_text
+    from app.schemas.storage_root import StorageRootCreate
+    from app.services.dfs_links import describe_links
+
+    _require_platform_admin(request)
+    endpoint = _dfs_endpoint(db, endpoint_id)
+    wanted = {str(path).strip().lower() for path in payload.paths}
+    done: list[dict] = []
+    failed: list[dict] = []
+    for link in describe_links(db, endpoint):
+        if str(link["path"]).lower() not in wanted:
+            continue
+        # Rights on every target or on none: a replica left out would refuse the users it serves
+        if link["state"] in {"unknown_server", "no_target"}:
+            failed.append({"path": link["path"], "message": "A target of this folder is on a file server that is not declared"})
+            continue
+        created: list[int] = []
+        for target in link["targets"]:
+            if target["storage_root_id"]:
+                continue
+            name = str(link["path"]).split("\\")[-1] or str(link["path"])
+            try:
+                root = _create_storage_root(
+                    StorageRootCreate(
+                        storage_endpoint_id=int(target["storage_endpoint_id"]),
+                        name=name[:190],
+                        root_path=str(target["root_path"]),
+                        status="active",
+                    ),
+                    request,
+                    db,
+                    inherit_from_parent=True,
+                )
+                created.append(int(root.id))
+                await _queue_root_check(int(root.id))
+            except Exception as exc:
+                db.rollback()
+                failed.append({"path": link["path"], "target": target["unc"], "message": _refusal_text(exc)})
+        done.append({"path": link["path"], "created": created})
+    from app.services.dfs_links import forget_cache
+
+    forget_cache()
+    return ui_data({"managed": done, "failed": failed})
+
+
 @router.get(
     "",
     summary="Storage endpoints list (UI)",
@@ -414,6 +587,11 @@ def create_endpoint(
 
     _require_platform_admin(request)
     data = _sync_endpoint_lifecycle(payload.model_dump())
+    if str(data.get("endpoint_type") or "").lower() == "dfs":
+        # Several namespaces share their DFS server: one namespace is declared once
+        _assert_namespace_free(db, ((data.get("capabilities") or {}).get("dfs_snapshot") or {}).get("path"))
+    else:
+        _assert_host_free(db, data.get("host"))
 
     if data.get("bind_dn") and not data.get("bind_password_ref"):
         raise HTTPException(
@@ -608,6 +786,8 @@ def update_endpoint(
     )
 
     updates = _sync_endpoint_lifecycle(payload.model_dump(exclude_unset=True))
+    if "host" in updates:
+        _assert_host_free(db, updates.get("host"), exclude_id=int(endpoint.id))
     rewrite_root_paths = bool(updates.pop("rewrite_root_paths", False))
     root_path_rewrites = _guard_endpoint_change(db, endpoint, updates, rewrite_root_paths=rewrite_root_paths)
 

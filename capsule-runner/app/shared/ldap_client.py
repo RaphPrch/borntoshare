@@ -31,9 +31,16 @@ def connect(
     ca_pem: str | None = None,
     server_name: str | None = None,
 ) -> Connection:
+    from app.shared.name_resolution import address_for_tools
+
+    name = str(host or "").strip()
+    address = address_for_tools(name)
+    # Reached by its address, the server keeps its name for the certificate check
+    if address != name and not (server_name or "").strip():
+        server_name = name
     tls = tls_config(verify_tls, ca_pem, server_name) if use_ssl else None
     server = Server(
-        str(host or "").strip(),
+        address,
         port=int(port),
         use_ssl=bool(use_ssl),
         get_info=ALL,

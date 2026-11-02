@@ -26,9 +26,10 @@
 
   $: main = [
     { href: '/dashboard', label: t('Dashboard'), icon: 'bi-speedometer2' },
-    ...(canSeeStorageRoots ? [{ href: '/storage-roots', label: t('Folders'), icon: 'bi-folder2-open' }] : []),
+    // Everyone has these four menus; their content follows the role (own folders and own activity for a user)
+    { href: '/storage-roots', label: t('Folders'), icon: 'bi-folder2-open' },
     { href: '/access-requests', label: t('Requests'), icon: 'bi-check2-square', count: Number(alertsCount ?? 0) },
-    ...(canSeeObservability ? [{ href: '/observability', label: t('Monitoring'), icon: 'bi-activity', count: Number(criticalAlertsCount ?? 0), danger: true }] : [])
+    { href: '/observability', label: t('Monitoring'), icon: 'bi-activity', count: canSeeObservability ? Number(criticalAlertsCount ?? 0) : 0, danger: true }
   ] as Item[];
   $: admin = (canSeeAdmin
     ? [

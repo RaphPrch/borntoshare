@@ -15,14 +15,16 @@ export const load: PageServerLoad = async (event) => {
     throw error(400, 'Invalid storage endpoint id');
   }
 
-  const [endpointRows, roots, tags, activity, storageRootAlerts, identitySources] = await Promise.all([
+  const [endpointRows, roots, tags, activity, storageRootAlerts, identitySources, catalog] = await Promise.all([
     apiServerGetList<StorageEndpointContext>('/storage-endpoints/context', event),
     apiServerGetList('/storage-roots/context', event),
     parentTags ? Promise.resolve(parentTags) : apiServerGetList('/tags', event),
     apiServerGetList(`/activity/by-target?target_type=storage_endpoint&target_id=${id}&limit=120`, event),
     apiServerGetList('/governance-alerts?scope_type=storage_root&status=open&limit=2000', event).catch(() => []),
     // Names only, for the Connection card
-    apiServerGetList<{ id: number; name: string }>('/identity-sources', event).catch(() => [])
+    apiServerGetList<{ id: number; name: string }>('/identity-sources', event).catch(() => []),
+    // Shares found by the last search, managed or not
+    apiServerGetList<Record<string, any>>('/storage-roots/discovered/servers', event).catch(() => [])
   ]);
 
   const endpoints: StorageEndpointOverview[] = endpointRows.map((row) => ({
@@ -66,6 +68,7 @@ export const load: PageServerLoad = async (event) => {
     identitySourceNames: Object.fromEntries(
       (Array.isArray(identitySources) ? identitySources : []).map((source) => [String(source.id), String(source.name ?? '')])
     ) as Record<string, string>,
-    pendingRequests: []
+    pendingRequests: [],
+    catalog: Object.fromEntries(catalog.map((row) => [String(row.storage_endpoint_id), row]))
   };
 };

@@ -6,7 +6,8 @@ const PERIODS = ['24h', '7d', '30d'];
 
 export const load = async (event) => {
   const me = await requireAuth(event);
-  if (me.is_admin !== true) throw redirect(302, '/dashboard');
+  // Not an administrator: the monitoring of what concerns this person only
+  if (me.is_admin !== true) throw redirect(302, '/observability/mine');
 
   const requested = event.url.searchParams.get('period') ?? '24h';
   const period = PERIODS.includes(requested) ? requested : '24h';

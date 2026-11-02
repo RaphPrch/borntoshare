@@ -101,7 +101,8 @@
   }
 
   function rootPath(root: any): string {
-    return compact(root?.root_path ?? root?.normalized_root_path ?? root?.path);
+    // The DFS path first: it is the one users see in the Explorer
+    return compact(root?.dfs_path ?? root?.root_path ?? root?.normalized_root_path ?? root?.path);
   }
 
   function rootZone(root: any): string {

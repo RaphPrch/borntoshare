@@ -9,7 +9,6 @@
   import { invalidateAll } from "$app/navigation";
 
   import ZoneFormModal from "$lib/components/zones/ZoneFormModal.svelte";
-  import StorageEndpointWizardModal from "$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte";
   import { listStorageEndpoints, updateStorageEndpoint } from "$lib/api/storage-endpoints";
   import PlanPreviewModal from "$lib/components/provisioning/PlanPreviewModal.svelte";
   import ActivityDetailsDrawer from "$lib/components/activity/ActivityDetailsDrawer.svelte";
@@ -104,7 +103,6 @@
   let zoneModalMode: "create" | "edit" | "delete" = "edit";
   let editingZone: ZoneOverview | null = null;
 
-  let showEndpointWizard = false;
   let showEndpointAttachChoice = false;
   let attachEndpointsLoading = false;
   let attachEndpointBusyId: number | null = null;
@@ -843,7 +841,7 @@
 
   function startCreateEndpointWizard() {
     showEndpointAttachChoice = false;
-    showEndpointWizard = true;
+    void goto(`/admin/storage-endpoints/new?zone=${currentZoneId}`);
   }
 
   async function attachExistingEndpoint(endpointId: number) {
@@ -976,17 +974,6 @@
   onDelete={confirmDeleteZone}
 />
 
-<StorageEndpointWizardModal
-  open={showEndpointWizard}
-  onClose={() => (showEndpointWizard = false)}
-  wizardProps={{ initialZoneId: currentZoneId, lockZone: true }}
-  on:done={async () => {
-    showEndpointWizard = false;
-    if (browser) {
-      await invalidateAll();
-    }
-  }}
-/>
 
 <EndpointAttachChoiceModal
   open={showEndpointAttachChoice}

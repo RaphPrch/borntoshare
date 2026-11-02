@@ -704,6 +704,8 @@ def _discovered_snapshots(db: Session) -> list[tuple[StorageEndpoint, dict[str, 
     for endpoint in db.query(StorageEndpoint).order_by(StorageEndpoint.name).all():
         if not endpoint.is_active or str(endpoint.status or "").strip().lower() == "disabled":
             continue
+        if str(endpoint.endpoint_type or "").lower() == "dfs":
+            continue
         capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
         snapshot = capabilities.get("discovered_roots_snapshot")
         out.append((endpoint, snapshot if isinstance(snapshot, dict) else {}, managed.get(int(endpoint.id), set())))
@@ -719,6 +721,24 @@ def _discovered_item(endpoint: StorageEndpoint, root: dict[str, Any], managed: s
         "root_path": root_path,
         "managed": _normalize_root_path(root_path) in managed,
     }
+
+
+@router.get("/internal/{storage_root_id}/dfs-replicas", dependencies=[Depends(require_internal_token)])
+def get_dfs_replicas(storage_root_id: int, db: Session = Depends(get_db)):
+    """The other targets of the DFS folder this storage root is a target of (same rights on each)."""
+    from app.services.dfs_links import dfs_paths_and_replicas
+
+    _paths, replicas = dfs_paths_and_replicas(db)
+    return {"replicas": replicas.get(int(storage_root_id), [])}
+
+
+@router.get("/dfs-paths")
+def list_dfs_paths(request: Request, db: Session = Depends(get_db)):
+    """DFS path of each storage root reached through a namespace: the name users know."""
+    from app.services.dfs_links import dfs_paths_and_replicas
+
+    paths, _replicas = dfs_paths_and_replicas(db)
+    return ui_data({str(root_id): path for root_id, path in paths.items()})
 
 
 @router.get("/discovered/servers", dependencies=[Depends(admin_only)])
@@ -788,6 +808,15 @@ def list_storage_roots_context(
     repo = StorageRootsViewsRepo(db)
     rows = repo.list_context(zone_id=zone_id)
     rows = filter_storage_root_rows(db, actor, rows)
+    # The DFS path is the name users know the folder by
+    from app.services.dfs_links import dfs_paths_and_replicas
+
+    try:
+        dfs_paths, _replicas = dfs_paths_and_replicas(db)
+    except Exception:
+        dfs_paths = {}
+    if dfs_paths:
+        rows = [{**row, "dfs_path": dfs_paths.get(int(row.get("storage_root_id") or row.get("id") or 0))} for row in rows]
     return ui_list(
         rows,
         meta={
@@ -1361,6 +1390,11 @@ def _create_storage_root(
     endpoint = db.get(StorageEndpoint, int(data["storage_endpoint_id"]))
     if endpoint is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
+    if str(endpoint.endpoint_type or "").lower() == "dfs":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "STORAGE_ENDPOINT_IS_DFS", "message": "A DFS namespace holds no files: manage its folders from the namespace"},
+        )
     if not endpoint.is_active or str(endpoint.status or "").strip().lower() == "disabled":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

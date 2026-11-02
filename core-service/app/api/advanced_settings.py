@@ -31,6 +31,10 @@ DEFAULT_ADVANCED_SETTINGS: dict = {
         "ttlSeconds": 8 * 60 * 60,
         "idleSeconds": 30 * 60,
     },
+    # DNS servers of the Windows domains, used by the worker (the directories propose theirs)
+    "network": {
+        "dns": [],
+    },
 }
 
 MIN_GUARDIANS_RANGE = (1, 10)
@@ -165,6 +169,20 @@ def save_advanced_config(payload: dict, request: Request, db: Session = Depends(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "SESSION_LIMITS_INVALID", "message": "Durée de session : de 15 minutes à 30 jours ; inactivité : d'une minute à la durée de session."},
         )
+    from app.services.domain_dns import validate_entries
+
+    network = merged.get("network") if isinstance(merged.get("network"), dict) else {}
+    merged["network"] = {**network, "dns": network.get("dns", [])}
+    dns_error = validate_entries(merged["network"]["dns"])
+    if dns_error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "DNS_SETTINGS_INVALID", "message": dns_error},
+        )
+    merged["network"]["dns"] = [
+        {"domain": str(e["domain"]).strip().lower().strip("."), "servers": [str(s).strip() for s in e["servers"]]}
+        for e in merged["network"]["dns"]
+    ]
     _write_payload(db, merged)
     # The log level applies to core-service right away (auth-service applies it on its side)
     apply_log_level(str((merged.get("logging") or {}).get("level") or "INFO"))

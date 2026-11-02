@@ -233,6 +233,11 @@ def test_bulk_decision_non_approve_proxies_to_core(monkeypatch) -> None:
 def test_bulk_decision_approve_orchestrates_and_marks_approved(monkeypatch) -> None:
     post_calls: list[tuple[str, dict]] = []
 
+    async def _no_replica(_root_id):
+        return []
+
+    monkeypatch.setattr(api, "_dfs_replicas_of", _no_replica)
+
     async def _fake_internal_get(
         path: str,
     ):
@@ -652,3 +657,33 @@ def test_revoke_keeps_the_member_still_granted_by_another_request(monkeypatch) -
     assert out["data"]["updated_ids"] == [101]
     assert executions[0]["result_json"] == {"kept": True, "still_granted_by": "REQ-77"}
     assert "ad_group_member_kept" in [action for action, _ in journal]
+
+
+
+def test_a_dfs_replica_gets_the_same_group_and_rights(monkeypatch) -> None:
+    import asyncio
+
+    submitted: list[dict] = []
+    journal_entries: list[tuple[str, dict]] = []
+
+    async def _replicas(_root_id):
+        return [55]
+
+    async def _submit(payload):
+        submitted.append(payload)
+        return {"job_id": 9}
+
+    async def _wait(_queued, timeout_sec=30):
+        return {"ok": True}
+
+    async def _propagate(root_id, level, group):
+        submitted.append({"propagation": root_id, "group": group})
+
+    monkeypatch.setattr(api, "_dfs_replicas_of", _replicas)
+    monkeypatch.setattr(api, "submit_probe_run", _submit)
+    monkeypatch.setattr(api, "_wait_acl_apply_result", _wait)
+    monkeypatch.setattr(api, "submit_acl_propagation", _propagate)
+    asyncio.run(api._apply_on_dfs_replicas(10, "READ", "B2S_RH_RX", lambda action, **kw: journal_entries.append((action, kw))))
+    assert submitted[0]["target"] == {"storage_root_id": 55, "access_level_code": "READ", "group_name": "B2S_RH_RX", "permission": "READ"}
+    assert submitted[1] == {"propagation": 55, "group": "B2S_RH_RX"}
+    assert journal_entries[0][0] == "dfs_replica_acl_applied"

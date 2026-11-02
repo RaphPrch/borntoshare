@@ -53,6 +53,40 @@ class TLSCertificatePayload(BaseModel):
     timeout: int = Field(default=10, ge=1, le=30)
 
 
+class DFSReadPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    host: str = Field(min_length=1, max_length=255)
+    username: str = Field(min_length=1, max_length=255)
+    password: Optional[str] = Field(default=None, min_length=1, max_length=1024)
+    secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)
+    port: int = Field(default=445, ge=1, le=65535)
+    domain: Optional[str] = Field(default=None, max_length=255)
+    namespaces: list[str] = Field(default_factory=list, max_length=200)
+    path: Optional[str] = Field(default=None, max_length=512)
+    max_links: int = Field(default=5000, ge=1, le=20000)
+
+    @model_validator(mode="after")
+    def _check_secret_or_password(self) -> "DFSReadPayload":
+        if not self.password and not self.secret_ref:
+            raise ValueError("password or secret_ref is required")
+        return self
+
+
+class NameResolutionPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+
+
+class SMBDiscoveryPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    host: str = Field(min_length=1, max_length=255)
+    port: int = Field(default=445, ge=1, le=65535)
+    timeout: int = Field(default=8, ge=2, le=20)
+
+
 class DirectoryDiscoveryPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

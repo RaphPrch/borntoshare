@@ -60,8 +60,9 @@ export const load: PageServerLoad = async (event) => {
   const isAdmin = typedUser?.is_admin === true;
   const canSeeStorageRoots = parent?.navigation?.canSeeStorageRoots === true;
 
+  // A user who guards no folder sees the folders they can reach
   if (!canSeeStorageRoots) {
-    throw redirect(302, '/dashboard');
+    throw redirect(302, '/storage-roots/mine');
   }
 
   // --------------------------------------------------

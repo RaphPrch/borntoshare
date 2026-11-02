@@ -1,0 +1,138 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { t } from '$lib/i18n';
+  import { apiGetData, apiPostData } from '$lib/api/client';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import { humanizeFileServerMessage } from '$lib/errors/file-server';
+  import { buildStorageEndpointProbeRequestFromEndpoint, parseStorageEndpointProbeRoots } from '$lib/jobs/storage-endpoint-probe';
+  import { runProbeWithPolling, syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
+  import { formatDateTime } from '$lib/utils/format';
+  import { toast } from '$lib/stores/toast';
+
+  /** Shares found on the server by its last search: the managed ones, and those to add (one by one, or several at once). */
+  export let endpoint: Record<string, any>;
+  export let discoveredAt: string | null = null;
+  export let onChanged: () => void = () => {};
+
+  type Share = { name: string; root_path: string; managed: boolean };
+  let shares: Share[] = [];
+  let loading = true;
+  let searching = false;
+  let error = '';
+  let query = '';
+  let filter: 'new' | 'managed' | 'all' = 'new';
+  let adding: Record<string, boolean> = {};
+
+  $: id = Number(endpoint?.id ?? endpoint?.storage_endpoint_id ?? 0);
+  $: counts = { new: shares.filter((s) => !s.managed).length, managed: shares.filter((s) => s.managed).length, all: shares.length };
+  $: visible = shares
+    .filter((s) => filter === 'all' || (filter === 'new' ? !s.managed : s.managed))
+    .filter((s) => `${s.name} ${s.root_path}`.toLowerCase().includes(query.trim().toLowerCase()));
+
+  async function load() {
+    loading = true;
+    try {
+      const answer = await apiGetData<{ items: Share[] }>(fetch, '/storage-roots/discovered', { storage_endpoint_id: id });
+      shares = answer.items;
+    } catch (e) {
+      error = e instanceof Error ? e.message : t('Unable to read the folders of this server.');
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function searchAgain() {
+    searching = true;
+    error = '';
+    try {
+      const final: any = await runProbeWithPolling({
+        fetchFn: fetch,
+        request: buildStorageEndpointProbeRequestFromEndpoint(endpoint as any, { discover: true, timeoutSec: 30, uiOrigin: 'admin' }),
+        intervalMs: 1500,
+        maxAttempts: 80
+      });
+      if (!final.ok) throw new Error(humanizeFileServerMessage(t(String(final.errorMessage ?? 'Unable to read the folders of this server.'))));
+      await syncStorageRootDiscoveryForEndpoint(fetch, id, final.result);
+      if (!parseStorageEndpointProbeRoots(final.result).length && final.result?.details?.discovery_complete === false) {
+        throw new Error(humanizeFileServerMessage(t(String(final.result?.message ?? 'Unable to read the folders of this server.'))));
+      }
+      await load();
+      onChanged();
+    } catch (e) {
+      error = e instanceof Error ? e.message : t('Unable to read the folders of this server.');
+    } finally {
+      searching = false;
+    }
+  }
+
+  async function add(share: Share) {
+    adding = { ...adding, [share.root_path]: true };
+    try {
+      const answer = await apiPostData<{ created: unknown[]; failed: { message: string }[] }>(fetch, '/storage-roots/bulk', {
+        items: [{ storage_endpoint_id: id, name: share.name, root_path: share.root_path }]
+      });
+      if (answer.failed.length) throw new Error(t(answer.failed[0].message));
+      shares = shares.map((row) => (row.root_path === share.root_path ? { ...row, managed: true } : row));
+      toast.success(t('{name} is now managed.', { name: share.name }));
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? humanizeFileServerMessage(e.message) : t('Creation failed'));
+    } finally {
+      adding = { ...adding, [share.root_path]: false };
+    }
+  }
+
+  onMount(load);
+</script>
+
+<div class="head">
+  <small class="muted">{discoveredAt ? t('Last search on {date}', { date: formatDateTime(discoveredAt) }) : t('This server has never been searched.')}</small>
+  <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={searching} on:click={searchAgain}>{searching ? t('Searching…') : t('Search the server again')}</button>
+  {#if counts.new > 1}<a class="b2s-btn b2s-btn-primary b2s-btn-sm" href={`/storage-roots/add?endpoint=${id}`}>{t('Add several')}</a>{/if}
+</div>
+{#if error}<InlineAlert tone="error">{error}</InlineAlert>{/if}
+<div class="tools">
+  <input class="b2s-input" aria-label={t('Filter the shares')} placeholder={t('Filter the shares…')} bind:value={query} />
+  <div class="seg">
+    {#each [['new', t('Not managed')], ['managed', t('Managed')], ['all', t('All')]] as [key, label]}
+      <button type="button" class:on={filter === key} on:click={() => (filter = key as typeof filter)}>{label} <span>{counts[key]}</span></button>
+    {/each}
+  </div>
+</div>
+{#if loading}
+  <p class="empty">{t('Loading…')}</p>
+{:else if visible.length}
+  <ul class="list">
+    {#each visible as share (share.root_path)}
+      <li>
+        <span class="name"><strong>{share.name}</strong></span>
+        {#if share.managed}
+          <span class="pill">{t('Managed')}</span>
+        {:else}
+          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={adding[share.root_path]} on:click={() => add(share)}>{adding[share.root_path] ? t('Adding…') : t('Manage')}</button>
+        {/if}
+      </li>
+    {/each}
+  </ul>
+{:else}
+  <p class="empty">{shares.length ? t('No share matches this search.') : t('No share found: search the server, or create a share.')}</p>
+{/if}
+
+<style>
+  .head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .head small { margin-right: auto; }
+  .muted { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); }
+  .tools { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .tools .b2s-input { flex: 1; min-width: 0; }
+  .seg { display: flex; flex: none; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
+  .seg button { padding: 4px 9px; border: 0; border-radius: var(--b2s-radius-sm); background: transparent; color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); cursor: pointer; }
+  .seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; box-shadow: var(--b2s-shadow-sm); }
+  .seg span { opacity: 0.7; }
+  .list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface); }
+  .list li { display: flex; align-items: center; gap: 12px; padding: 7px 12px; }
+  .list li + li { border-top: 1px solid var(--b2s-color-border); }
+  .name { flex: 1; min-width: 0; }
+  .name strong { font-weight: 500; }
+  .pill { padding: 1px 8px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); font-size: var(--b2s-font-micro); font-weight: 500; }
+  .empty { padding: 20px; text-align: center; color: var(--b2s-color-text-muted); }
+</style>

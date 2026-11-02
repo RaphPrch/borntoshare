@@ -61,7 +61,7 @@
       key: `ep:${id}`,
       label: endpointName(ep),
       subtitle: endpointHost(ep) || null,
-      icon: 'bi-hdd-network',
+      icon: String(ep?.type ?? ep?.storage_endpoint_type ?? '').toLowerCase() === 'dfs' ? 'bi-diagram-3' : 'bi-hdd-network',
       iconTone: 'server',
       selectId: id,
       // Only what needs a look: a healthy server stays quiet

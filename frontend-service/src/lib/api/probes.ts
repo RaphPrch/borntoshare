@@ -9,13 +9,17 @@ type ProbeKind =
   | 'identity-source'
   | 'storage-endpoint'
   | 'storage-root'
-  | 'acl';
+  | 'acl'
+  | 'network';
 
 type ProbeProtocol =
   | 'ldap'
   | 'ldaps'
   | 'tls-certificate'
   | 'directory-discovery'
+  | 'smb-discovery'
+  | 'dfs'
+  | 'dns'
   | 'smb'
   | 'acl_push';
 

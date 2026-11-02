@@ -17,6 +17,9 @@ from app.actions.ldap_group_recursive import discover_group_users_recursive
 from app.actions.ldap_search import search_ldap_principals
 from app.actions.ldap_test import test_ldap_bind
 from app.actions.directory_discovery import discover_directory
+from app.actions.smb_discovery import discover_smb_server
+from app.actions.dfs_namespaces import read_dfs_namespaces
+from app.shared.name_resolution import resolve_name
 from app.actions.tls_certificate import fetch_tls_certificate
 from app.actions.smb import test_smb_ntlm, test_smb_root_access
 from app.middleware.resolve_secrets import CapsuleSecretResolutionError, resolve_secret_fields
@@ -34,6 +37,9 @@ from app.schemas.actions import (
     LDAPSearchPayload,
     LDAPTestPayload,
     DirectoryDiscoveryPayload,
+    SMBDiscoveryPayload,
+    DFSReadPayload,
+    NameResolutionPayload,
     TLSCertificatePayload,
     SMBProbePayload,
     SMBRootProbePayload,
@@ -95,6 +101,27 @@ ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
         action="fetch_tls_certificate",
         schema=TLSCertificatePayload,
         runner=fetch_tls_certificate,
+        secret_fields=(),
+        target_field="host",
+    ),
+    "read_dfs_namespaces": ActionSpec(
+        action="read_dfs_namespaces",
+        schema=DFSReadPayload,
+        runner=read_dfs_namespaces,
+        secret_fields=("secret_ref",),
+        target_field="host",
+    ),
+    "resolve_name": ActionSpec(
+        action="resolve_name",
+        schema=NameResolutionPayload,
+        runner=resolve_name,
+        secret_fields=(),
+        target_field="name",
+    ),
+    "discover_smb_server": ActionSpec(
+        action="discover_smb_server",
+        schema=SMBDiscoveryPayload,
+        runner=discover_smb_server,
         secret_fields=(),
         target_field="host",
     ),

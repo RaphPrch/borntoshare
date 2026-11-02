@@ -24,6 +24,27 @@ from app.services.activity_bridge import (
 router = APIRouter(prefix="/activity", tags=["activity"])
 
 
+@router.get("/mine", dependencies=[Depends(signed_in_or_internal)])
+def get_my_activity(request: Request, limit: int = 100, db: Session = Depends(get_db)):
+    """Monitoring of a user who is not an administrator: their actions, their requests, the folders they guard."""
+    from app.data.repositories.access_requests_views_repo import AccessRequestsViewsRepo
+    from app.services.activity_store_db import list_for_person
+    from app.services.authorization import filter_access_request_rows, get_guardian_storage_root_ids
+
+    actor = actor_from_request(request)
+    if actor.identity_id is None:
+        return ui_list([])
+    rows = AccessRequestsViewsRepo(db).list(status=None, my_action=False, overdue_only=False, high_impact=False, q=None)
+    request_ids = sorted({str(row.get("request_id")) for row in filter_access_request_rows(db, actor, rows) if row.get("request_id")})
+    root_ids = [str(v) for v in get_guardian_storage_root_ids(db, actor)]
+    try:
+        events = list_for_person(actor_id=str(actor.identity_id), request_ids=request_ids, root_ids=root_ids, limit=limit)
+    except Exception:
+        events = []
+    # Sign-ins are noise here; the rest is what concerns this person
+    return ui_list([event for event in events if not str(event.get("action") or "").startswith("auth.")])
+
+
 @router.get("/latest")
 def get_activity_latest(request: Request, limit: int = 100, business_only: bool = False):
     require_observability(actor_from_request(request))

@@ -314,6 +314,8 @@ type StorageEndpointApiWritePayload = {
   last_probe_status?: string | null;
   last_probe_at?: string | null;
   last_probe_message?: string | null;
+  /** A DFS namespace carries its last reading (folders and targets) */
+  capabilities?: Record<string, unknown>;
 };
 
 export type StorageEndpointUpdatePayload =
@@ -352,7 +354,8 @@ function toStorageEndpointCreateApiPayload(payload: StorageEndpointCreatePayload
     status: payload.status ?? 'active',
     last_probe_status: payload.last_probe_status ?? null,
     last_probe_at: payload.last_probe_at ?? null,
-    last_probe_message: payload.last_probe_message ?? null
+    last_probe_message: payload.last_probe_message ?? null,
+    ...((payload as { capabilities?: Record<string, unknown> }).capabilities ? { capabilities: (payload as { capabilities?: Record<string, unknown> }).capabilities } : {})
   };
 }
 

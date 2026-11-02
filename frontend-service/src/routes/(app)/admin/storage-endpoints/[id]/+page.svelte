@@ -15,7 +15,6 @@
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import StorageEndpointsSidebar from '$lib/components/storage-endpoints/StorageEndpointsSidebar.svelte';
   import EntityWorkspace from '$lib/components/entity/EntityWorkspace.svelte';
-  import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
   import StorageEndpointEditModal from '$lib/components/storage-endpoints/StorageEndpointEditModal.svelte';
   import ProvisioningPolicyScreen from '$lib/components/provisioning/ProvisioningPolicyScreen.svelte';
   import {
@@ -28,7 +27,9 @@
   import EntityProperty from '$lib/components/entity/EntityProperty.svelte';
   import { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
-  import AssociatedRootsTable from '$lib/components/storage-endpoints/AssociatedRootsTable.svelte';
+  import EndpointFoldersTable from '$lib/components/storage-endpoints/EndpointFoldersTable.svelte';
+  import EndpointSharesPanel from '$lib/components/storage-endpoints/EndpointSharesPanel.svelte';
+  import DfsNamespacePanel from '$lib/components/storage-endpoints/DfsNamespacePanel.svelte';
   import ActivityDetailsDrawer from '$lib/components/activity/ActivityDetailsDrawer.svelte';
   import EntityConsoleShell from '$lib/components/entity/EntityConsoleShell.svelte';
 
@@ -231,7 +232,9 @@
 
   function handleEndpointTabChange(key: string) {
     activeEndpointTab =
-      key === 'provisioning'
+      key === 'shares'
+        ? 'shares'
+        : key === 'provisioning'
         ? 'provisioning'
         : key === 'activity'
           ? 'activity'
@@ -270,9 +273,10 @@
   $: sidebarGroups = (() => {
     const map = new Map<string, { zone_id: string | number; zone_name: string; endpoints: any[] }>();
     for (const ep of sidebarEndpoints) {
-      const zoneName = endpointZone(ep) || t('Unavailable');
-      const rawZoneId = Number(ep?.zone_id ?? ep?.zone?.id ?? 0);
-      const resolvedZoneId = Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId(ep)}`;
+      // DFS namespaces have their own group: they hold no files, they lead to the folders of the file servers
+      const zoneName = isDfsEndpoint(ep) ? t('DFS namespaces') : endpointZone(ep) || t('Unavailable');
+      const rawZoneId = isDfsEndpoint(ep) ? 0 : Number(ep?.zone_id ?? ep?.zone?.id ?? 0);
+      const resolvedZoneId = isDfsEndpoint(ep) ? 'dfs' : Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId(ep)}`;
       const key = String(resolvedZoneId);
       if (!map.has(key)) {
         map.set(key, {
@@ -294,14 +298,21 @@
 
   $: selectedRoots = roots.filter((r) => Number(r?.storage_endpoint_id ?? 0) === selectedId);
 
-  type EndpointTabKey = 'overview' | 'activity' | 'provisioning';
+  type EndpointTabKey = 'overview' | 'shares' | 'activity' | 'provisioning';
   // Failures of the last 7 days are counted on the Activity tab (the overview no longer lists the activity)
   const isFailure = (entry: any) => ['failed', 'failure', 'error'].includes(String(entry?.outcome ?? entry?.result ?? '').toLowerCase());
   $: recentFailures = activity.filter(
     (entry) => isFailure(entry) && Date.now() - new Date(String(entry?.created_at ?? '')).getTime() < 7 * 24 * 3600 * 1000
   ).length;
-  $: endpointTabs = [
+  const isDfsEndpoint = (ep: any): boolean => String(ep?.type ?? ep?.storage_endpoint_type ?? ep?.endpoint_type ?? '').toLowerCase() === 'dfs';
+  $: selectedIsDfs = isDfsEndpoint(selected);
+  let namespacePath = '';
+  $: endpointTabs = selectedIsDfs ? [
+    { key: 'overview', label: t('DFS folders'), icon: 'bi-diagram-3' },
+    { key: 'activity', label: t('Activity'), icon: 'bi-activity', count: recentFailures || null }
+  ] : [
     { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
+    { key: 'shares', label: t('Shares'), icon: 'bi-folder-plus', count: catalogEntry?.new_count || null },
     { key: 'activity', label: t('Activity'), icon: 'bi-activity', count: recentFailures || null },
     { key: 'provisioning', label: t('Provisioning'), icon: 'bi-shield-check' }
   ];
@@ -675,7 +686,8 @@
     }
   }
 
-  let showWizard = false;
+  // Shares of the last search (managed or not), for the counter and the Shares tab
+  $: catalogEntry = selected ? (data as any).catalog?.[String(endpointId(selected))] ?? null : null;
   let showShareModal = false;
   let showEditModal = false;
   let editInitialTab: 'endpoint' | 'roots' = 'endpoint';
@@ -824,34 +836,37 @@
   };
 
   let kpiItems: EntityStatItem[] = [];
+  // Status, host and zone are in the header: the figures say what is not shown elsewhere
   $: kpiItems = selected
     ? [
         {
           key: 'roots',
-          label: t('Governed storage roots'),
+          label: t('Managed folders'),
           value: selectedRoots.length,
-          big: true
+          big: true,
+          note: rootsFilteredRows.filter((row) => row.health === 'unhealthy' || row.alertCount).length
+            ? t('{count} to review', { count: rootsFilteredRows.filter((row) => row.health === 'unhealthy' || row.alertCount).length })
+            : null
+        },
+        {
+          key: 'shares',
+          label: t('Shares not managed'),
+          value: catalogEntry ? Number(catalogEntry.new_count ?? 0) : '—',
+          big: true,
+          note: catalogEntry?.discovered_at ? null : t('Never searched'),
+          onClick: () => (activeEndpointTab = 'shares')
         },
         {
           key: 'pending',
           label: t('Pending requests'),
           value: endpointPendingCount(selected),
-          big: true,
-          note: endpointPendingCount(selected) > 0 ? t('Requests awaiting review') : t('No pending requests')
-        },
-        {
-          key: 'test',
-          label: t('Last test'),
-          value: endpointLastProbeLabel(selected),
-          hint: endpointLastResultLabel(selected)
+          big: true
         },
         {
           key: 'alerts',
           label: t('Open alerts'),
           value: endpointAlertItems.length > 0 ? t('{count} open', { count: endpointAlertItems.length }) : t('No open alert'),
-          hint: endpointAlertItems.length > 0 ? t('Open in Observability') : t('Nothing to review'),
           tone: endpointAlertItems.length > 0 ? 'warning' as const : undefined,
-          // The full list, with acknowledge / resolve, is in Observability
           href: `/observability?tab=alerts&q=${encodeURIComponent(endpointName(selected))}`
         }
       ]
@@ -953,12 +968,22 @@
     },
     {
       key: 'probe',
-      label: probingEndpointId === endpointId(ep) ? t('Probe running...') : t('Run probe'),
+      label: probingEndpointId === endpointId(ep) ? t('Testing…') : t('Test the connection'),
       icon: probingEndpointId === endpointId(ep) ? 'bi-arrow-repeat sed-spin' : 'bi-activity',
-      variant: 'primary',
+      variant: 'secondary',
       disabled: probingEndpointId === endpointId(ep),
       onClick: () => runEndpointProbe(ep)
     },
+    ...(isDfsEndpoint(ep) ? [] : [
+      {
+        key: 'add-folders',
+        label: t('Add folders'),
+        icon: 'bi-plus-lg',
+        variant: 'primary' as const,
+        onClick: () => goto(`/storage-roots/add?endpoint=${endpointId(ep)}`)
+      },
+      { key: 'share', label: t('Create a share'), icon: 'bi-folder-plus', overflow: true, onClick: () => (showShareModal = true) }
+    ]),
     {
       key: 'delete',
       label: t('Delete storage endpoint'),
@@ -1091,18 +1116,17 @@
         title={t('No storage endpoint')}
         description={t('Storage endpoints are required to discover roots, apply governance, and handle access requests.')}
         ctaLabel={t('Create endpoint')}
-        onCta={() => (showWizard = true)}
+        onCta={() => goto('/admin/storage-endpoints/new')}
         hint={t('The wizard guides you step by step.')}
       />
   </main>
 </div>
 {:else}
 <ShareCreateModal open={showShareModal} endpointId={selectedEndpointId()} onClose={() => (showShareModal = false)} onCreated={() => void invalidateAll()} />
-<a class="ep-back" href="/admin/storage-endpoints"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All servers')}</a>
 <EntityWorkspace title={t('Storage endpoints')}>
   <svelte:fragment slot="list">
     <StorageEndpointsSidebar
-      onAdd={() => (showWizard = true)}
+      onAdd={() => goto(`/admin/storage-endpoints/new${selected?.zone_id ? `?zone=${selected.zone_id}` : ''}`)}
       addLabel={t('New endpoint')}
       query={search}
       groups={sidebarGroups}
@@ -1123,9 +1147,9 @@
         <svelte:fragment slot="header">
           {#key healthState}
           <EntityPageHeader
-            crumbs={[t('Storage endpoints'), endpointZone(selected)]}
+            crumbs={selectedIsDfs ? [t('DFS namespaces'), endpointZone(selected)] : [t('Storage endpoints'), endpointZone(selected)]}
             title={endpointName(selected)}
-            code={endpointHasHost(selected) ? endpointHost(selected) : t('No host configured')}
+            code={selectedIsDfs && namespacePath ? namespacePath : endpointHasHost(selected) ? `\\\\${endpointHost(selected)}${selected?.port && Number(selected.port) !== 445 ? `:${selected.port}` : ''}` : t('No host configured')}
             statusLabel={healthLabel(endpointHealth(selected))}
             statusTone={pillTone(endpointOperationalTone(selected))}
             actions={endpointHeaderActions(selected)}
@@ -1137,7 +1161,7 @@
             ariaLabel={t('Storage endpoint alerts')}
             action={!['unhealthy', 'degraded'].includes(endpointHealth(selected)) ? null : { label: t('Edit the connection'), icon: 'bi-pencil', onClick: () => (showEditModal = true) }}
           />
-          <EntityStatLine items={kpiItems} ariaLabel={t('Storage endpoint KPIs')} />
+          {#if !selectedIsDfs}<EntityStatLine items={kpiItems} ariaLabel={t('Storage endpoint KPIs')} />{/if}
           {/key}
         </svelte:fragment>
 
@@ -1150,23 +1174,21 @@
           />
         </svelte:fragment>
 
-        {#if activeEndpointTab === 'overview'}
+        {#if activeEndpointTab === 'overview' && selectedIsDfs}
+          {#key endpointId(selected)}
+            <DfsNamespacePanel endpoint={selected} bind:namespacePath onChanged={() => void invalidateAll()} />
+          {/key}
+        {:else if activeEndpointTab === 'overview'}
           <div class="sed-overview">
-            <section class="sed-overview__main" aria-label={t('Governed storage roots')}>
-              <div class="sed-overview__head">
-                <h2>{t('Governed storage roots')}</h2>
-                <button type="button" class="b2s-panel__link" on:click={() => (showShareModal = true)}>{t('Create a share')}</button>
-                <button type="button" class="b2s-panel__link" on:click={() => { editInitialTab = 'roots'; showEditModal = true; }}>{t('Discover and add')}</button>
-              </div>
-              <AssociatedRootsTable rows={rootsFilteredRows} dense={true} emptyLabel={t('No associated roots')} />
+            <section class="sed-overview__main" aria-label={t('Managed folders')}>
+              <EndpointFoldersTable rows={rootsFilteredRows} host={endpointHost(selected)} />
             </section>
 
             <EntityProperties title={t('Connection')}>
-              <EntityProperty label={t('Host')} mono>{endpointHasHost(selected) ? endpointHost(selected) : '—'}{selected?.port ? `:${selected.port}` : ''}</EntityProperty>
               <EntityProperty label={t('Protocol')}>{String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase()}</EntityProperty>
               <EntityProperty label={t('Service account')} mono>{selected?.bind_dn || selected?.auth_username || '—'}</EntityProperty>
-              <EntityProperty label={t('Identity source')}>{selected?.identity_source_id ? (data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`) : t('None')}</EntityProperty>
-              <EntityProperty label={t('Zone')}>{endpointZone(selected)}</EntityProperty>
+              <EntityProperty label={t('Directory')}>{selected?.identity_source_id ? (data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`) : t('None')}</EntityProperty>
+              <EntityProperty label={t('Last test')}>{endpointLastProbeLabel(selected)}{#if endpointHealth(selected) !== 'healthy'}<small class="sed-muted">{endpointLastResultLabel(selected)}</small>{/if}</EntityProperty>
               {#if lastChange}
                 <EntityProperty label={t('Last change')}>
                   <button type="button" class="sed-link" on:click={() => (activeEndpointTab = 'activity')}>{formatActivityItem(lastChange).title}</button>
@@ -1175,6 +1197,10 @@
               {/if}
             </EntityProperties>
           </div>
+        {:else if activeEndpointTab === 'shares'}
+          {#key endpointId(selected)}
+            <EndpointSharesPanel endpoint={selected} discoveredAt={catalogEntry?.discovered_at ?? null} onChanged={() => void invalidateAll()} />
+          {/key}
         {:else if activeEndpointTab === 'activity'}
           <ActivityTabPanel
             items={activity}
@@ -1214,17 +1240,6 @@
   items={endpointAlertItems}
   emptyLabel={t('No alert found for this storage endpoint.')}
   ariaLabelledby="storage-endpoint-alerts-drawer-title"
-/>
-
-<StorageEndpointWizardModal
-  open={showWizard}
-  onClose={() => (showWizard = false)}
-  on:done={async () => {
-    showWizard = false;
-    toast.success(t('Storage endpoint created.'));
-    await invalidateAll();
-    await goto('/admin/storage-endpoints');
-  }}
 />
 
 <StorageEndpointEditModal
@@ -1297,31 +1312,7 @@
     gap: 12px;
   }
 
-  .sed-overview__head {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-  }
 
-  .sed-overview__head h2 {
-    margin: 0;
-    font-size: var(--b2s-fs-md);
-    font-weight: 600;
-  }
 
-  .ep-back {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin: 16px 0 -14px 28px;
-    font-size: 13px;
-    color: var(--b2s-color-text-muted);
-    text-decoration: none;
-  }
 
-  .ep-back:hover {
-    color: var(--b2s-color-text);
-  }
 </style>

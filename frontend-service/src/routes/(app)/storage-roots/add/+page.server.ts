@@ -1,11 +1,11 @@
-import { redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { apiServerGetData, apiServerGetList } from '$lib/server/api-server';
 import { requireAuth } from '$lib/server/require-auth';
 
 export const load: PageServerLoad = async (event) => {
   const me = await requireAuth(event);
-  if (me.is_admin !== true) throw redirect(302, '/storage-roots');
+  if (me.is_admin !== true) throw error(403, 'Reserved to the administrators of the platform');
 
   event.depends('app:storage-roots-add');
   const [endpoints, catalog, tags, identity, settings] = await Promise.all([

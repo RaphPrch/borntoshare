@@ -116,3 +116,19 @@ def test_guardians_are_added_to_those_the_folder_has(monkeypatch) -> None:
     data = api.add_guardians_in_bulk(payload, _request(), _Db())["data"]
     assert seen == {1: [3, 5]} and data["updated"] == [1]
     assert data["failed"] == [{"storage_root_id": 2, "message": "Il faut 2 garants"}]
+
+
+def test_a_file_server_is_not_declared_twice_under_another_name(monkeypatch) -> None:
+    from fastapi import HTTPException as _HTTPException
+    from app.api import storage_endpoints as endpoints
+
+    rows = [{"id": 1, "name": "FILER01", "host": "10.0.0.5"}]
+    db = SimpleNamespace(execute=lambda *_a, **_k: SimpleNamespace(mappings=lambda: SimpleNamespace(all=lambda: rows)))
+    monkeypatch.setattr(endpoints, "_resolved", lambda host: {"10.0.0.5"} if host in {"filer01.example.test", "10.0.0.5"} else set())
+    try:
+        endpoints._assert_host_free(db, "filer01.example.test")
+        raise AssertionError("the same server under its name must be refused")
+    except _HTTPException as exc:
+        assert exc.detail["code"] == "STORAGE_ENDPOINT_HOST_TAKEN"
+    endpoints._assert_host_free(db, "other.example.test")
+    endpoints._assert_host_free(db, "10.0.0.5", exclude_id=1)

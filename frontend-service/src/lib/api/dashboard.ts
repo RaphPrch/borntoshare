@@ -3,43 +3,39 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { apiGetData, type FetchLike } from "$lib/api/client";
 import { apiServerGetData } from '$lib/server/api-server';
 
-type UserDashboardMeSummary = {
-  my_open_requests: number;
-  awaiting_my_review: number;
-  approved: number;
-  rejected_or_closed: number;
-};
-
-type UserDashboardMeRequest = Record<string, unknown> & {
+export type DashboardRequest = {
   request_id?: number;
-  request_code?: string;
-  storage_root_id?: number;
-  storage_root_name?: string;
-  requested_for_display?: string;
-  access_profile_name?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
-  viewer_role?: string;
-  is_requester?: boolean;
-  is_guardian?: boolean;
+  request_code?: string | null;
+  status?: string | null;
+  status_label?: string | null;
+  storage_root_id?: number | null;
+  storage_root_name?: string | null;
+  target_path?: string | null;
+  permission?: string | null;
+  expires_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  requested_for_display?: string | null;
+  latest_execution_status?: string | null;
+  overdue?: boolean | null;
 };
 
-type UserDashboardMePayload = {
-  summary: UserDashboardMeSummary;
-  requires_action: UserDashboardMeRequest[];
-  visible_requests: UserDashboardMeRequest[];
-};
-
-const DEFAULT_USER_DASHBOARD_ME: UserDashboardMePayload = {
-  summary: {
-    my_open_requests: 0,
-    awaiting_my_review: 0,
-    approved: 0,
-    rejected_or_closed: 0
-  },
-  requires_action: [],
-  visible_requests: []
+export type UserDashboardMePayload = {
+  role: 'user' | 'guardian';
+  mine: { pending: number; active: number; ending_30d: number; failed: number; refused_30d: number };
+  my_requests: DashboardRequest[];
+  my_ending: DashboardRequest[];
+  guardian?: {
+    folders: number;
+    folders_with_alerts: number;
+    to_decide: number;
+    overdue: number;
+    failed: number;
+    active: number;
+    ending_30d: number;
+  };
+  to_decide?: DashboardRequest[];
+  guarded_failed?: DashboardRequest[];
 };
 
 /* ==================================================
@@ -96,20 +92,15 @@ export async function getDashboardPlatformOverviewServer(
   };
 }
 
-export async function getUserDashboardMe(
-  fetchFn: FetchLike
-): Promise<UserDashboardMePayload> {
-  const raw = await apiGetData<Partial<UserDashboardMePayload>>(fetchFn, "/dashboard/me");
-  const summary: Partial<UserDashboardMeSummary> = raw?.summary ?? {};
+export async function getUserDashboardMe(fetchFn: FetchLike): Promise<UserDashboardMePayload> {
+  const raw = await apiGetData<Partial<UserDashboardMePayload>>(fetchFn, '/dashboard/me');
+  const list = (value: unknown) => (Array.isArray(value) ? (value as DashboardRequest[]) : []);
   return {
-    summary: {
-      my_open_requests: Number(summary.my_open_requests ?? 0),
-      awaiting_my_review: Number(summary.awaiting_my_review ?? 0),
-      approved: Number(summary.approved ?? 0),
-      rejected_or_closed: Number(summary.rejected_or_closed ?? 0)
-    },
-    requires_action: Array.isArray(raw?.requires_action) ? raw!.requires_action : DEFAULT_USER_DASHBOARD_ME.requires_action,
-    visible_requests: Array.isArray(raw?.visible_requests) ? raw!.visible_requests : DEFAULT_USER_DASHBOARD_ME.visible_requests
+    role: raw?.role === 'guardian' ? 'guardian' : 'user',
+    mine: { pending: 0, active: 0, ending_30d: 0, failed: 0, refused_30d: 0, ...(raw?.mine ?? {}) },
+    my_requests: list(raw?.my_requests),
+    my_ending: list(raw?.my_ending),
+    ...(raw?.guardian ? { guardian: raw.guardian, to_decide: list(raw?.to_decide), guarded_failed: list(raw?.guarded_failed) } : {})
   };
 }
 

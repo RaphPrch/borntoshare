@@ -259,6 +259,9 @@ async def _grant_item(
             access_profile_id=profile_id,
         ) from exc
     journal("acl_applied", group_name=group_name, permission=access_level_code)
+    # A DFS folder with several targets (replicas): the same group gets the same rights on each of them,
+    # otherwise a user sent to a replica by DFS is refused
+    await _apply_on_dfs_replicas(target_id, access_level_code, group_name, journal)
     # 4. The entry reaches what the folder already contains, in the background: hours on a big tree.
     # The access is decided here; a failure shows in the Permissions tab, with its repair.
     try:
@@ -275,6 +278,41 @@ async def _grant_item(
         "identity_source_id": queued.get("identity_source_id"),
         "grant_job_id": job_id,
     }
+
+
+async def _dfs_replicas_of(root_id: int) -> list[int]:
+    from app.api import storage_roots as storage_roots_routes
+
+    found = await call_route(storage_roots_routes.get_dfs_replicas, storage_root_id=int(root_id))
+    return [int(v) for v in (found or {}).get("replicas") or []]
+
+
+async def _apply_on_dfs_replicas(root_id: int, access_level_code: str, group_name: str, journal) -> None:
+    try:
+        replicas = await _dfs_replicas_of(root_id)
+    except Exception as exc:
+        journal("dfs_replicas_unknown", result="failure", severity="warning", message=str(exc)[:300])
+        return
+    for replica_id in replicas:
+        try:
+            queued = await submit_probe_run(
+                {
+                    "kind": "acl",
+                    "protocol": "acl_push",
+                    "scope": "storage_root",
+                    "target": {"storage_root_id": replica_id, "access_level_code": access_level_code, "group_name": group_name, "permission": access_level_code},
+                    "auth": {},
+                    "options": {},
+                    "context": {"storage_root_id": replica_id, "access_level_code": access_level_code},
+                }
+            )
+            await _wait_acl_apply_result(queued, timeout_sec=ACL_TIMEOUT_SEC)
+            journal("dfs_replica_acl_applied", group_name=group_name, replica_root_id=replica_id)
+            await submit_acl_propagation(replica_id, access_level_code, group_name)
+        except Exception as exc:
+            # The access is decided; the replica shows the gap in its Permissions tab, with its repair
+            journal("dfs_replica_acl_failed", result="failure", severity="warning", group_name=group_name,
+                    replica_root_id=replica_id, message=str(exc)[:300])
 
 
 async def _record_item_execution(

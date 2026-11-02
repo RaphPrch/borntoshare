@@ -331,6 +331,13 @@
   });
 
   onMount(() => {
+    // Opened from a server page: that server first
+    const wanted = Number(new URL(window.location.href).searchParams.get('endpoint') ?? 0);
+    const asked = servers.find((server) => server.id === wanted);
+    if (asked) {
+      selectServer(asked);
+      return;
+    }
     const first = servers.find((server) => server.state === 'ok' && server.newCount > 0) ?? servers.find((server) => server.state === 'ok') ?? servers[0];
     if (first) selectServer(first);
   });

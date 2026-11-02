@@ -12,6 +12,7 @@
     { key: 'governance', label: t('Governance'), icon: 'bi-shield-check' },
     { key: 'logging', label: t('Logging'), icon: 'bi-journal-text' },
     { key: 'user-sessions', label: t('User sessions'), icon: 'bi-person-lines-fill' },
+    { key: 'network', label: t('Network and DNS'), icon: 'bi-diagram-2' },
     { key: 'infrastructure', label: t('Infrastructure'), icon: 'bi-hdd-network' }
   ];
 

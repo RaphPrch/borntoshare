@@ -78,7 +78,6 @@
     type StorageRootsDetailTab
   } from '$lib/stores/storage-roots-ui.store';
   import StorageRootOwnersAdModal from '$lib/components/storage-roots/StorageRootOwnersAdModal.svelte';
-  import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
   import { syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
   import { humanizeFileServerMessage } from '$lib/errors/file-server';
   import {
@@ -709,7 +708,6 @@
   /* Add root wizard                                                             */
   /* -------------------------------------------------------------------------- */
 
-  let showEndpointWizard = false;
 
   function openCreateRoot() {
     void goto('/storage-roots/add');
@@ -1685,7 +1683,7 @@
     canManage={data.user?.is_admin === true}
     hasEndpoints={(data.endpoints ?? []).length > 0}
     onCreateRoot={openCreateRoot}
-    onCreateEndpoint={() => (showEndpointWizard = true)}
+    onCreateEndpoint={() => goto('/admin/storage-endpoints/new')}
   />
 {:else if browsing}
   <StorageRootBrowser
@@ -1733,7 +1731,7 @@
       alertItems={selectedRootAlerts}
       endpointLabel={detailView.endpointLabel}
       endpointAddress={detailView.endpointAddress}
-      pathLabel={selectedRow?.root_path ?? '—'}
+      pathLabel={(selectedRow as any)?.dfs_path ? `${(selectedRow as any).dfs_path}  →  ${selectedRow?.root_path ?? ''}` : selectedRow?.root_path ?? '—'}
       contentSizeLabel={String((overview as any)?.estimated_size_label ?? (overview as any)?.content_size_label ?? '—')}
       endpointHref={selectedRow?.storage_endpoint_id ? `/admin/storage-endpoints/${selectedRow.storage_endpoint_id}` : null}
       {guardians}
@@ -1771,15 +1769,6 @@
   onSubfolderCreated={(rootId) => void onSubfolderCreated(rootId)}
 />
 
-<StorageEndpointWizardModal
-  open={showEndpointWizard}
-  onClose={() => (showEndpointWizard = false)}
-  on:done={async () => {
-    showEndpointWizard = false;
-    toast.success(t('Storage endpoint created.'));
-    await refreshStorageRootsLoad();
-  }}
-/>
 
 <StorageRootFormModal
   open={rootModalOpen}

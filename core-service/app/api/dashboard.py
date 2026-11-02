@@ -6,6 +6,8 @@ Wizard-UI is the schema authority for dashboard views.
 Exposes a minimal, SQL-first API.
 """
 
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
@@ -25,40 +27,34 @@ from app.services.authorization import (
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
-def _status_bucket(value: object) -> str:
-    raw = str(value or "").strip().lower()
-    if raw in {"approved", "enforced"}:
-        return "approved"
-    if raw in {"rejected", "revoked", "closed"}:
-        return "rejected_or_closed"
-    return "open"
+def _is_failed(row: dict) -> bool:
+    return str(row.get("latest_execution_status") or "").strip().upper() in {"FAILED", "ERROR", "TIMED_OUT"}
 
 
-def _load_requester_ids(db: Session, request_ids: list[int]) -> dict[int, int]:
-    ids = sorted({int(v) for v in (request_ids or []) if int(v) > 0})
-    if not ids:
-        return {}
-    rows = (
-        db.execute(
-            text(
-                """
-                SELECT id AS request_id, requester_identity_id
-                FROM access_requests
-                WHERE id IN :ids
-                """
-            ).bindparams(bindparam("ids", expanding=True)),
-            {"ids": ids},
-        )
-        .mappings()
-        .all()
+def _ends_soon(row: dict, now: datetime) -> bool:
+    end = row.get("expires_at")
+    if isinstance(end, str):
+        try:
+            end = datetime.fromisoformat(end.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if not isinstance(end, datetime):
+        return False
+    if end.tzinfo is not None:
+        end = end.astimezone(timezone.utc).replace(tzinfo=None)
+    return now <= end <= now + timedelta(days=30)
+
+
+def _status(row: dict) -> str:
+    return str(row.get("status") or "").strip().lower()
+
+
+def _card(row: dict) -> dict:
+    keys = (
+        "request_id", "request_code", "status", "status_label", "storage_root_id", "storage_root_name", "target_path",
+        "permission", "expires_at", "created_at", "updated_at", "requested_for_display", "latest_execution_status", "overdue",
     )
-    out: dict[int, int] = {}
-    for row in rows:
-        request_id = int(row.get("request_id") or 0)
-        requester_identity_id = int(row.get("requester_identity_id") or 0)
-        if request_id > 0 and requester_identity_id > 0:
-            out[request_id] = requester_identity_id
-    return out
+    return {key: row.get(key) for key in keys}
 
 
 @router.get("/me")
@@ -66,70 +62,58 @@ def get_user_dashboard_me(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Dashboard of a user who is not an administrator; a guardian also gets the requests on their folders."""
     actor = actor_from_request(request)
-    if actor.identity_id is None:
-        return ui_data(
-            {
-                "summary": {
-                    "my_open_requests": 0,
-                    "awaiting_my_review": 0,
-                    "approved": 0,
-                    "rejected_or_closed": 0,
-                },
-                "requires_action": [],
-                "visible_requests": [],
-            }
+    guardian_root_ids = set(get_guardian_storage_root_ids(db, actor)) if actor.identity_id is not None else set()
+    rows = (
+        filter_access_request_rows(
+            db, actor, AccessRequestsViewsRepo(db).list(status=None, my_action=False, overdue_only=False, high_impact=False, q=None)
         )
-
-    rows = AccessRequestsViewsRepo(db).list(status=None, my_action=False, overdue_only=False, high_impact=False, q=None)
-    visible_rows = filter_access_request_rows(db, actor, rows)
-    guardian_root_ids = set(get_guardian_storage_root_ids(db, actor))
-    requester_ids_by_request = _load_requester_ids(
-        db,
-        [int(row.get("request_id") or 0) for row in visible_rows if int(row.get("request_id") or 0) > 0],
+        if actor.identity_id is not None
+        else []
     )
+    now = datetime.utcnow()
+    mine = [row for row in rows if int(row.get("requester_identity_id") or 0) == actor.identity_id]
+    guarded = [row for row in rows if int(row.get("storage_root_id") or 0) in guardian_root_ids]
+    recent = now - timedelta(days=30)
 
-    visible_requests: list[dict] = []
-    requires_action: list[dict] = []
-    summary = {
-        "my_open_requests": 0,
-        "awaiting_my_review": 0,
-        "approved": 0,
-        "rejected_or_closed": 0,
+    def _recent(row: dict) -> bool:
+        stamp = row.get("updated_at") or row.get("created_at")
+        return isinstance(stamp, datetime) and stamp.replace(tzinfo=None) >= recent
+
+    payload: dict = {
+        "role": "guardian" if guardian_root_ids else "user",
+        "mine": {
+            "pending": sum(1 for row in mine if _status(row) == "pending"),
+            "active": sum(1 for row in mine if _status(row) == "approved"),
+            "ending_30d": sum(1 for row in mine if _status(row) == "approved" and _ends_soon(row, now)),
+            "failed": sum(1 for row in mine if _status(row) in {"pending", "approved"} and _is_failed(row)),
+            "refused_30d": sum(1 for row in mine if _status(row) == "rejected" and _recent(row)),
+        },
+        "my_requests": [_card(row) for row in sorted(mine, key=lambda r: str(r.get("created_at") or ""), reverse=True)[:8]],
+        "my_ending": [_card(row) for row in mine if _status(row) == "approved" and _ends_soon(row, now)][:8],
     }
-
-    for row in visible_rows:
-        payload = dict(row)
-        request_id = int(payload.get("request_id") or 0)
-        storage_root_id = int(payload.get("storage_root_id") or 0)
-        requester_identity_id = requester_ids_by_request.get(request_id)
-        is_requester = requester_identity_id == actor.identity_id
-        is_guardian = storage_root_id > 0 and storage_root_id in guardian_root_ids
-        viewer_role = "requester + guardian" if is_requester and is_guardian else "requester" if is_requester else "guardian" if is_guardian else "visible"
-        bucket = _status_bucket(payload.get("status"))
-        payload["viewer_role"] = viewer_role
-        payload["is_requester"] = bool(is_requester)
-        payload["is_guardian"] = bool(is_guardian)
-        visible_requests.append(payload)
-
-        if bucket == "approved":
-            summary["approved"] += 1
-        elif bucket == "rejected_or_closed":
-            summary["rejected_or_closed"] += 1
-        else:
-            summary["my_open_requests"] += 1
-
-        if is_guardian and bucket == "open":
-            summary["awaiting_my_review"] += 1
-            requires_action.append(payload)
-
-    return ui_data(
-        {
-            "summary": summary,
-            "requires_action": requires_action[:10],
-            "visible_requests": visible_requests[:200],
+    if guardian_root_ids:
+        alerts = db.execute(
+            text(
+                "SELECT COUNT(DISTINCT storage_root_id) FROM governance_alerts "
+                "WHERE status = 'open' AND storage_root_id IN :ids AND alert_type <> 'pending_access_validation'"
+            ).bindparams(bindparam("ids", expanding=True)),
+            {"ids": sorted(guardian_root_ids)},
+        ).scalar()
+        to_decide = [row for row in guarded if _status(row) == "pending"]
+        payload["guardian"] = {
+            "folders": len(guardian_root_ids),
+            "folders_with_alerts": int(alerts or 0),
+            "to_decide": len(to_decide),
+            "overdue": sum(1 for row in to_decide if row.get("overdue")),
+            "failed": sum(1 for row in guarded if _status(row) in {"pending", "approved"} and _is_failed(row)),
+            "active": sum(1 for row in guarded if _status(row) == "approved"),
+            "ending_30d": sum(1 for row in guarded if _status(row) == "approved" and _ends_soon(row, now)),
         }
-    )
+        payload["to_decide"] = [_card(row) for row in sorted(to_decide, key=lambda r: str(r.get("created_at") or ""))[:8]]
+        payload["guarded_failed"] = [_card(row) for row in guarded if _status(row) in {"pending", "approved"} and _is_failed(row)][:8]
+    return ui_data(payload)
 
 
 @router.get("/platform-overview")

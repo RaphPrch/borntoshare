@@ -58,6 +58,15 @@ export async function saveSessionLimits(fetchFn: FetchLike, ttlSeconds: number, 
   return apiPost<ActionResult>(fetchFn, '/admin/config/advanced', { sessions: { ttlSeconds, idleSeconds } });
 }
 
+export type DnsDomain = { domain: string; servers: string[]; origin?: string; source?: string };
+
+/** DNS servers of the Windows domains, used by the worker (Advanced settings > Network and DNS) */
+export async function saveDnsDomains(fetchFn: FetchLike, dns: DnsDomain[]) {
+  return apiPost<ActionResult>(fetchFn, '/admin/config/advanced', {
+    network: { dns: dns.map(({ domain, servers }) => ({ domain, servers })) }
+  });
+}
+
 export async function completeSetup(fetchFn: FetchLike) {
   return apiPost<ActionResult>(fetchFn, '/admin/setup/complete', {});
 }

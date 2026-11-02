@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -240,6 +240,44 @@ def list_latest(*, limit: int = 100, business_only: bool = False) -> list[dict[s
         if business_only:
             activities = [a for a in activities if bool(a.get("is_business"))]
         return activities[:limit]
+
+
+def list_for_person(
+    *, actor_id: str, request_ids: list[str], root_ids: list[str], limit: int = 100
+) -> list[dict[str, Any]]:
+    """What a person did, and what happened to their requests and to the folders they guard."""
+    limit = max(1, min(int(limit or 100), 300))
+    clauses = ["actor_id = :aid"]
+    params: dict[str, Any] = {"aid": str(actor_id), "limit": limit}
+    if request_ids:
+        clauses.append("(entity_type = 'access_request' AND entity_id IN :rids)")
+        params["rids"] = [str(v) for v in request_ids]
+    if root_ids:
+        clauses.append("(entity_type = 'storage_root' AND entity_id IN :roots)")
+        clauses.append("root_id IN :root_nums")
+        params["roots"] = [str(v) for v in root_ids]
+        params["root_nums"] = [int(v) for v in root_ids]
+    statement = text(
+        f"""
+        SELECT
+          LOWER(HEX(id)) AS id,
+          event_time, actor_type, actor_id, action,
+          entity_type, entity_id,
+          zone_id, root_id, endpoint_id,
+          result, severity,
+          correlation_id, source_service, metadata_json
+        FROM audit_event
+        WHERE {" OR ".join(clauses)}
+        ORDER BY event_time DESC
+        LIMIT :limit
+        """
+    )
+    for name in ("rids", "roots", "root_nums"):
+        if name in params:
+            statement = statement.bindparams(bindparam(name, expanding=True))
+    with LoggingSessionLocal() as db:
+        rows = db.execute(statement, params).mappings().all()
+    return [_row_to_activity(dict(r)) for r in rows]
 
 
 def list_by_target(*, target_type: str, target_id: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
