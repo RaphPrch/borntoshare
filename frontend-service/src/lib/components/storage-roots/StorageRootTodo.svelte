@@ -12,19 +12,45 @@
     type PendingRootRequest
   } from '$lib/api/access-requests';
 
+  type AlertItem = { key: string; type?: string; title: string; subtitle?: string | null; tone?: 'warning' | 'error' };
+  type Step = { key: string; tone: 'bad' | 'warn'; icon: string; title: string; detail: string; label: string; run: () => void };
+
   /**
-   * « To review »: the pending requests of the storage root, decided in place.
-   * Validating shows what the worker will do (AD group, OU, ACL) before it runs.
+   * « To do on this folder »: its open alerts, each with the action that settles it, then its pending
+   * requests decided in place (validating shows what the worker will do before it runs).
    */
   export let rootId: number | null = null;
+  export let alertItems: AlertItem[] = [];
+  export let busy = false;
+  export let onRunProbe: () => void = () => {};
+  export let onOpenGuardians: () => void = () => {};
+  export let onOpenPermissions: () => void = () => {};
+  export let onViewAllAlerts: () => void = () => {};
   export let onDecided: () => void = () => {};
+
+  const PROBE_TYPES = ['root_probe_failed', 'root_probe_unknown', 'endpoint_unreachable', 'endpoint_probe_failed'];
+  const PERMISSION_TYPES = ['acl_principal_not_governed', 'acl_profile_missing', 'ad_group_read_failed', 'acl_gap', 'missing_ace'];
+
+  const typeOf = (item: AlertItem) => item.type || (String(item.key).match(/[a-z_]+$/)?.[0] ?? '');
+
+  $: steps = alertItems
+    .filter((item) => typeOf(item) !== 'pending_access_validation')
+    .map((item): Step => {
+      const type = typeOf(item);
+      const base = { key: item.key, tone: item.tone === 'error' ? 'bad' as const : 'warn' as const, title: item.title, detail: item.subtitle ?? '' };
+      if (PROBE_TYPES.includes(type)) return { ...base, icon: 'bi-wifi-off', label: t('Test again'), run: onRunProbe };
+      if (type === 'missing_guardian') return { ...base, icon: 'bi-person-plus', label: t('Add guardians'), run: onOpenGuardians };
+      if (PERMISSION_TYPES.includes(type)) return { ...base, icon: 'bi-shield-exclamation', label: t('See the permissions'), run: onOpenPermissions };
+      return { ...base, icon: 'bi-exclamation-triangle', label: t('Details'), run: onViewAllAlerts };
+    })
+    .sort((a, b) => Number(b.tone === 'bad') - Number(a.tone === 'bad'));
 
   let requests: PendingRootRequest[] = [];
   let loadedFor: number | null = null;
   let seq = 0;
   let deciding: { request: PendingRootRequest; decision: 'approve' | 'reject' } | null = null;
   let preview: ApprovalPreview | null = null;
-  let busy = false;
+  let decidingBusy = false;
 
   $: if (rootId !== loadedFor) void load(rootId);
 
@@ -75,7 +101,7 @@
     const target = deciding;
     deciding = null;
     if (!target) return;
-    busy = true;
+    decidingBusy = true;
     try {
       const result = await bulkDecision(fetch, [target.request.request_id], target.decision);
       if (Number(result?.failed_ids?.length ?? 0) > 0) throw new Error(String(Object.values(result?.failed_reasons ?? {})[0] ?? ''));
@@ -86,31 +112,41 @@
       reportUiError(error, t('The decision failed.'), 'storage-root.todo');
       await load(rootId);
     } finally {
-      busy = false;
+      decidingBusy = false;
     }
   }
 
   const levelLabel = (code: string | null) => (String(code ?? '').toLowerCase() === 'write' ? t('modify') : t('read'));
+  $: total = steps.length + requests.length;
 </script>
 
-{#if requests.length}
-  <section class="todo" aria-label={t('To review')}>
-    {#each requests.slice(0, 3) as request (request.request_id)}
+{#if total}
+  <section class="todo" aria-label={t('To do on this folder')}>
+    <h2><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>{t('To do on this folder')} · {total}</h2>
+    {#each steps as step (step.key)}
+      <div class="todo__row">
+        <span class={`todo__icon is-${step.tone}`} aria-hidden="true"><i class={`bi ${step.icon}`}></i></span>
+        <span class="todo__text"><strong>{step.title}</strong>{#if step.detail}<small>{step.detail}</small>{/if}</span>
+        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} on:click={step.run}>{step.label}</button>
+      </div>
+    {/each}
+    {#each requests.slice(0, 5) as request (request.request_id)}
       <div class="todo__row">
         <span class="todo__avatar" aria-hidden="true">{initials(request.requested_for_display ?? '')}</span>
         <span class="todo__text">
-          <strong>{request.requested_for_display ?? t('Someone')}</strong>
-          {t('asks for {level}', { level: levelLabel(request.access_profile_name) })}
-          {#if request.justification}<span class="todo__why">· {request.justification}</span>{/if}
-          {#if request.created_at}<span class="todo__when">· {timeAgo(request.created_at)}</span>{/if}
+          <strong>{t('{name} asks for {level}', { name: request.requested_for_display ?? t('Someone'), level: levelLabel(request.access_profile_name) })}</strong>
+          <small>
+            {#if request.justification}{request.justification} · {/if}{#if request.created_at}{timeAgo(request.created_at)} · {/if}<a href={`/access-requests?request=${request.request_id}`}>{request.request_code ?? t('Details')}</a>
+          </small>
         </span>
-        <a class="todo__link" href={`/access-requests?request=${request.request_id}`}>{request.request_code ?? t('Details')}</a>
-        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} on:click={() => ask(request, 'reject')}>{t('Refuse')}</button>
-        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={busy} on:click={() => ask(request, 'approve')}>{t('Validate')}</button>
+        <span class="todo__decide">
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={decidingBusy} on:click={() => ask(request, 'reject')}>{t('Refuse')}</button>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={decidingBusy} on:click={() => ask(request, 'approve')}>{t('Validate')}</button>
+        </span>
       </div>
     {/each}
-    {#if requests.length > 3}
-      <a class="todo__more" href="/access-requests?status=pending">{t('{count} more request(s) to review', { count: requests.length - 3 })}</a>
+    {#if requests.length > 5}
+      <a class="todo__more" href="/access-requests?status=pending">{t('{count} more request(s) to review', { count: requests.length - 5 })}</a>
     {/if}
   </section>
 {/if}
@@ -129,58 +165,18 @@
 />
 
 <style>
-  .todo {
-    display: grid;
-    gap: 2px;
-    padding: 6px 14px;
-    border-radius: var(--b2s-radius-lg);
-    background: var(--b2s-color-warning-soft);
-    color: var(--b2s-color-warning-strong);
-  }
-
-  .todo__row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 0;
-  }
-
-  .todo__avatar {
-    width: 28px;
-    height: 28px;
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: var(--b2s-color-warning-border);
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .todo__text {
-    flex: 1 1 320px;
-    min-width: 0;
-  }
-
-  .todo__text strong {
-    font-weight: 600;
-  }
-
-  .todo__why,
-  .todo__when {
-    opacity: 0.85;
-  }
-
-  .todo__link,
-  .todo__more {
-    color: inherit;
-    font-size: var(--b2s-fs-xs);
-    text-decoration: underline;
-  }
-
-  .todo__more {
-    padding: 4px 0 6px 38px;
-  }
+  .todo { overflow: hidden; border: 1px solid var(--b2s-color-warning-border, #f3d9ad); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
+  .todo h2 { display: flex; align-items: center; gap: 8px; margin: 0; padding: 11px 16px; background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); font-size: var(--b2s-fs-sm); font-weight: 600; }
+  .todo__row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--b2s-color-border); }
+  .todo h2 + .todo__row { border-top: 0; }
+  .todo__icon, .todo__avatar { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; font-size: 13px; }
+  .todo__icon.is-bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
+  .todo__icon.is-warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
+  .todo__avatar { border-radius: 50%; background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: 11px; font-weight: 700; }
+  .todo__text { display: flex; flex-direction: column; min-width: 0; }
+  .todo__text strong { font-weight: 600; font-size: var(--b2s-fs-sm); }
+  .todo__text small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
+  .todo__text a { color: inherit; text-decoration: underline; }
+  .todo__decide { display: flex; gap: 6px; }
+  .todo__more { display: block; padding: 8px 16px 10px 56px; border-top: 1px solid var(--b2s-color-border); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>

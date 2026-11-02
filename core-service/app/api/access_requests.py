@@ -1496,7 +1496,7 @@ def create_access_request(
 # Requests being approved by this process: their status only changes at the end of the approval
 approvals_in_progress: set[int] = set()
 
-_SELF_APPROVAL_MESSAGE = "Vous ne pouvez pas décider de votre propre demande : un autre garant ou un administrateur doit le faire."
+_SELF_APPROVAL_MESSAGE = "Vous ne pouvez pas décider de votre propre demande : un autre gardien ou un administrateur doit le faire."
 
 
 def _refuse_own_request(db: Session, request: Request, access_request_id: int, *, action: str, code: str) -> None:

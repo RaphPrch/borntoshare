@@ -1,9 +1,8 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import EntityAlertStrip from '$lib/components/entity/EntityAlertStrip.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import StorageRootHeader from '$lib/components/storage-roots/StorageRootHeader.svelte';
-  import StorageRootStatLine from '$lib/components/storage-roots/StorageRootStatLine.svelte';
+  import StorageRootTiles from '$lib/components/storage-roots/StorageRootTiles.svelte';
   import StorageRootTodo from '$lib/components/storage-roots/StorageRootTodo.svelte';
   import StorageRootOverview from '$lib/components/storage-roots/StorageRootOverview.svelte';
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
@@ -17,6 +16,7 @@
   type StorageRootTabKey = 'overview' | 'effective-access' | 'activity';
   type StorageRootAlertItem = {
     key: string;
+    type?: string;
     title: string;
     subtitle?: string | null;
     tone?: 'warning' | 'error';
@@ -77,8 +77,6 @@
   export let onFolderAction: (kind: FolderActionKind, inheritanceBroken: boolean | null) => void = () => {};
 
   $: showBlockingLoading = detailsLoading && selectedRootCodeOrName === '—';
-  // Pending requests are decided in the « To review » line, a missing guardian in the inspector
-  $: stripItems = alertItems.filter((item) => !/missing_guardian|pending_access_validation/.test(String(item.key ?? '')));
   $: endpointDisplay = endpointAddress && endpointAddress !== '—' ? endpointAddress : endpointLabel;
   $: aclScannedAt = String(aclFreshness?.scanned_at ?? aclFreshness?.discovered_at ?? '').trim();
 
@@ -123,7 +121,7 @@
     never_scanned: { label: () => t('To verify'), tone: 'neutral' }
   } as const;
   $: unreachable = rootAvailabilityTone === 'error';
-  $: guardianMissing = alertItems.some((item) => /missing_guardian/.test(String(item.key ?? '')));
+  $: guardianMissing = alertItems.some((item) => item.type === 'missing_guardian' || /missing_guardian/.test(String(item.key ?? '')));
   $: aclState = permissions?.status ?? 'never_scanned';
   // « Compliant » only speaks of a folder with nothing left to do: its guardians count too
   $: pill = unreachable
@@ -139,8 +137,14 @@
     { key: 'activity', label: t('Activity'), icon: 'bi-clock-history' }
   ];
   $: guardianNames = guardians.map((owner) => ownerDisplayName(owner)).filter(Boolean);
-  // The guardians are shown in the properties, not in the strip, but they remain an open alert
-  $: openAlerts = alertItems.filter((item) => !/pending_access_validation/.test(String(item.key ?? ''))).length;
+
+  // « Who reaches it? » typed in the overview opens the permissions tab on that login
+  let explainTyped: string | null = null;
+  $: if (selectedStorageRootId) explainTyped = null;
+  function explainFromOverview(login: string) {
+    explainTyped = login;
+    onSelectTab('effective-access');
+  }
 
   const normalizeTabKey = (key: string): StorageRootTabKey => {
     if (key === 'effective-access') return 'effective-access';
@@ -174,17 +178,24 @@
     onCreateSubfolder={() => onFolderAction('subfolder', inheritanceBroken)}
   />
 
-  <StorageRootStatLine
+  <StorageRootTiles
     {permissions}
-    {openAlerts}
-    lastProbeText={rootAvailabilityText}
-    alertsHref={`/observability?tab=alerts&q=${encodeURIComponent(selectedRootCodeOrName)}`}
+    guardianCount={guardianNames.length}
+    guardiansMissing={guardianMissing}
     onOpenPermissions={() => onSelectTab('effective-access')}
+    onOpenGuardians={() => onOpenGovernanceDrawer('guardian')}
   />
 
-  <StorageRootTodo rootId={selectedStorageRootId} onDecided={loadPermissions} />
-
-  <EntityAlertStrip items={stripItems} onViewAll={onViewAllAlerts} ariaLabel={t('Storage root alerts')} />
+  <StorageRootTodo
+    rootId={selectedStorageRootId}
+    {alertItems}
+    busy={rootProbeBusy}
+    onRunProbe={onRunRootProbe}
+    onOpenGuardians={() => onOpenGovernanceDrawer('guardian')}
+    onOpenPermissions={() => onSelectTab('effective-access')}
+    {onViewAllAlerts}
+    onDecided={loadPermissions}
+  />
 
   <Tabs
     {tabs}
@@ -197,6 +208,8 @@
     <StorageRootOverview
       {permissions}
       {guardianNames}
+      guardiansMissing={guardianMissing}
+      activity={activityRemainder}
       {tags}
       {tagId}
       {tagLabel}
@@ -207,6 +220,8 @@
       {contentSizeLabel}
       {isAdmin}
       onOpenPermissions={() => onSelectTab('effective-access')}
+      onExplain={explainFromOverview}
+      onOpenActivity={() => onSelectTab('activity')}
       onOpenGuardians={() => onOpenGovernanceDrawer('guardian')}
       onOpenTags={onOpenTagsModal}
       onToggleInheritance={() => onFolderAction('inheritance', inheritanceBroken)}
@@ -223,7 +238,7 @@
         rootName={selectedRootCodeOrName}
         canManage={true}
         {isAdmin}
-        {explainLogin}
+        explainLogin={explainTyped ?? explainLogin}
         onChanged={loadPermissions}
         onToggleInheritance={() => onFolderAction('inheritance', inheritanceBroken)}
       />

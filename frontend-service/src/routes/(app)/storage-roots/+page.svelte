@@ -92,7 +92,7 @@
   import StorageRootTagsDrawer from '$lib/components/storage-roots/StorageRootTagsDrawer.svelte';
   import StorageRootGovernanceDrawer from '$lib/components/storage-roots/StorageRootGovernanceDrawer.svelte';
   import StorageRootTreePanel from '$lib/components/storage-roots/StorageRootTreePanel.svelte';
-  import StorageRootBrowser from '$lib/components/storage-roots/StorageRootBrowser.svelte';
+  import StorageRootTable from '$lib/components/storage-roots/StorageRootTable.svelte';
   import EntityWorkspace from '$lib/components/entity/EntityWorkspace.svelte';
   import StorageRootDetailView from '$lib/components/storage-roots/StorageRootDetailView.svelte';
   import StorageRootFolderActions, {
@@ -507,6 +507,7 @@
   type StorageRootTreeAlertSummary = { count: number; tone: 'warning' | 'error'; label?: string } | null;
   type StorageRootDetailAlertItem = {
     key: string;
+    type?: string;
     title: string;
     subtitle?: string | null;
     tone?: 'warning' | 'error';
@@ -534,6 +535,7 @@
 
   const alertItemFromRow = (alert: GovernanceAlert): StorageRootDetailAlertItem => ({
     key: String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${alert?.scope_id ?? ''}`),
+    type: String(alert?.alert_type ?? ''),
     title: alertTitle(alert),
     subtitle: humanizeFileServerMessage(storageRootAlertSummarySubtitle(alert)),
     tone: storageRootAlertTone(alert)
@@ -1686,14 +1688,16 @@
     onCreateEndpoint={() => goto('/admin/storage-endpoints/new')}
   />
 {:else if browsing}
-  <StorageRootBrowser
+  <StorageRootTable
     rows={ctxRows}
     accessRequests={data.accessRequests ?? []}
+    tags={(data.tags ?? []) as Array<Record<string, any>>}
+    isAdmin={data.user?.is_admin === true}
+    initialFilter={$page.url.searchParams.get('filter')}
     query={$storageRootsUiStore.query}
     {rootAlertSummary}
     onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
     onOpenRoot={openRootFromBrowser}
-    onRequestAccess={(id) => void goto(`/access-requests?create=1&root=${encodeURIComponent(String(id))}`)}
     onAdd={data.user?.is_admin === true ? openCreateRoot : null}
     onFolderAction={data.user?.is_admin === true
       ? (kind, row) => openFolderAction(kind, row, row?.inheritance_broken == null ? null : Boolean(row.inheritance_broken))
@@ -1704,7 +1708,6 @@
   <EntityWorkspace title={t('Storage roots')}>
     <svelte:fragment slot="list">
       <StorageRootTreePanel
-        missingGuardians={data.user?.is_admin === true ? (data.storageRootAlerts ?? []).filter((alert) => (alert as any)?.alert_type === 'missing_guardian').length : 0}
         onAdd={data.user?.is_admin === true ? openCreateRoot : null}
         addLabel={t('Add storage roots')}
         rows={ctxRows}

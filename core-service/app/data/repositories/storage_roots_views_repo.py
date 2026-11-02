@@ -254,6 +254,25 @@ class StorageRootsViewsRepo(SQLViewRepo):
             if int(row.get("storage_root_id") or 0) > 0
         }
 
+    def _load_guardian_counts(self, storage_root_ids: list[int]) -> dict[int, int]:
+        """Guardians assigned to each storage root (same count as the « guardian missing » alert)."""
+        normalized_ids = sorted({int(v) for v in (storage_root_ids or []) if int(v) > 0})
+        if not normalized_ids:
+            return {}
+        bind_keys = [f"root_id_{idx}" for idx, _ in enumerate(normalized_ids)]
+        params = {key: value for key, value in zip(bind_keys, normalized_ids)}
+        in_clause = ", ".join(f":{key}" for key in bind_keys)
+        rows = self._all(
+            f"""
+            SELECT root_id, COUNT(*) AS guardians_count
+            FROM storage_root_roles
+            WHERE LOWER(role) = 'guardian' AND root_id IN ({in_clause})
+            GROUP BY root_id
+            """,
+            params,
+        )
+        return {int(row.get("root_id") or 0): int(row.get("guardians_count") or 0) for row in rows}
+
     @staticmethod
     def _read_backend_pending_validation_count(row: dict[str, Any] | None) -> int | None:
         payload = dict(row or {})
@@ -439,6 +458,7 @@ class StorageRootsViewsRepo(SQLViewRepo):
         storage_root_ids = [int(r.get("storage_root_id") or 0) for r in rows if int(r.get("storage_root_id") or 0) > 0]
         tags_by_root_id = self._load_tags_map(storage_root_ids)
         pending_counts_by_root_id = self._load_pending_validation_counts(storage_root_ids)
+        guardian_counts_by_root_id = self._load_guardian_counts(storage_root_ids)
         alerts_by_root_id = self._load_open_alerts_map(storage_root_ids)
         discovered_tree_by_root_id = self._load_discovered_tree_map(storage_root_ids)
         revalidation_by_root_id = self._load_revalidation_map(storage_root_ids)
@@ -455,6 +475,7 @@ class StorageRootsViewsRepo(SQLViewRepo):
                 else int(pending_counts_by_root_id.get(storage_root_id, 0))
             )
             payload.update(revalidation_by_root_id.get(storage_root_id, {}))
+            payload["guardians_count"] = int(guardian_counts_by_root_id.get(storage_root_id, 0))
             alert_summary = alerts_by_root_id.get(storage_root_id, {})
             payload["open_alerts_count"] = int(alert_summary.get("open_alerts_count") or 0)
             payload["open_alerts_error_count"] = int(alert_summary.get("open_alerts_error_count") or 0)

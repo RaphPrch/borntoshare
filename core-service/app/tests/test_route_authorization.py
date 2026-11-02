@@ -39,7 +39,7 @@ GUARDED = [
     (identity_list, ["create_identity", "update_identity", "delete_identity"], admin_or_internal),
     (naming_policies, ["preview_group_name", "preview_root_groups"], admin_or_internal),
     (advanced_settings, ["save_advanced_config"], admin_or_internal),
-    (storage_roots, ["create_root", "delete_root", "sync_storage_root_discovery"], admin_only),
+    (storage_roots, ["create_root", "delete_root", "sync_storage_root_discovery", "create_roots_in_bulk", "add_guardians_in_bulk", "add_tags_in_bulk", "check_roots_in_bulk"], admin_only),
     (activity_views, ["post_activity_event"], signed_in_or_internal),
     (provisioning, ["cancel_admin_job"], admin_only),
     (probes, ["run_probe", "get_probe_job"], admin_or_guardian),

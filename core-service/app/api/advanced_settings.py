@@ -160,7 +160,7 @@ def save_advanced_config(payload: dict, request: Request, db: Session = Depends(
     if not isinstance(wanted, int) or isinstance(wanted, bool) or not low <= wanted <= high:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "MIN_GUARDIANS_INVALID", "message": f"Le nombre de garants doit être compris entre {low} et {high}."},
+            detail={"code": "MIN_GUARDIANS_INVALID", "message": f"Le nombre de gardiens doit être compris entre {low} et {high}."},
         )
     sessions = merged.get("sessions") or {}
     ttl, idle = sessions.get("ttlSeconds"), sessions.get("idleSeconds")

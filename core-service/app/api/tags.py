@@ -218,6 +218,20 @@ _RESOURCE_TABLES = {
 }
 
 
+def _attachment_names(db: Session, payload: TagAttachmentRequest) -> tuple[str, str]:
+    """Tag label and resource name for the activity texts (« tag Finance attached to folder Compta »)."""
+    tag = db.get(Tag, int(payload.tag_id))
+    tag_label = str(getattr(tag, "label", None) or getattr(tag, "name", None) or f"#{payload.tag_id}")
+    resource = f"{payload.resource_type}:{payload.resource_id}"
+    if payload.resource_type == "storage_root":
+        row = db.execute(
+            text("SELECT name, root_path FROM storage_roots WHERE id = :id"), {"id": int(payload.resource_id)}
+        ).mappings().first()
+        if row:
+            resource = str(row.get("name") or row.get("root_path") or resource)
+    return tag_label, resource
+
+
 def _require_resource_tagging(db: Session, request: Request, payload: TagAttachmentRequest) -> None:
     # A platform admin, or a guardian on the storage roots they govern
     actor = actor_from_request(request)
@@ -256,6 +270,15 @@ def attach_tag(payload: TagAttachmentRequest, request: Request, db: Session = De
         else:
             raise HTTPException(status_code=409, detail="Tag attachment failed") from exc
 
+    if already_attached:
+        # Nothing changed: no line in the activity (a bulk action re-sends the tags a folder already has)
+        return ui_action(
+            action_id=int(payload.tag_id),
+            message="tag.attached",
+            details={"resource_type": str(payload.resource_type), "resource_id": int(payload.resource_id), "already_attached": True},
+        )
+
+    tag_label, resource_name = _attachment_names(db, payload)
     actor_id, actor_display = _actor_from_headers(request)
     log_activity(
         db,
@@ -266,8 +289,8 @@ def attach_tag(payload: TagAttachmentRequest, request: Request, db: Session = De
         outcome="success",
         target_type=str(payload.resource_type),
         target_id=int(payload.resource_id),
-        target_display=f"{payload.resource_type}:{payload.resource_id}",
-        context_json={"tag_id": int(payload.tag_id), "already_attached": already_attached},
+        target_display=resource_name,
+        context_json={"tag_id": int(payload.tag_id), "tag": tag_label, "root": resource_name},
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     return ui_action(
@@ -298,6 +321,7 @@ def detach_tag(payload: TagAttachmentRequest, request: Request, db: Session = De
     )
     db.commit()
 
+    tag_label, resource_name = _attachment_names(db, payload)
     actor_id, actor_display = _actor_from_headers(request)
     log_activity(
         db,
@@ -308,8 +332,8 @@ def detach_tag(payload: TagAttachmentRequest, request: Request, db: Session = De
         outcome="success",
         target_type=str(payload.resource_type),
         target_id=int(payload.resource_id),
-        target_display=f"{payload.resource_type}:{payload.resource_id}",
-        context_json={"tag_id": int(payload.tag_id)},
+        target_display=resource_name,
+        context_json={"tag_id": int(payload.tag_id), "tag": tag_label, "root": resource_name},
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     return ui_action(

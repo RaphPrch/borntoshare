@@ -1002,14 +1002,14 @@ def replace_storage_root_owners(
         refuse(
             "GUARDIAN_SELF_REMOVAL_FORBIDDEN",
             status.HTTP_403_FORBIDDEN,
-            "Un garant ne peut pas se retirer lui-même d'un dossier : un autre garant ou un administrateur doit le faire.",
+            "Un gardien ne peut pas se retirer lui-même d'un dossier : un autre gardien ou un administrateur doit le faire.",
         )
     required = min_guardians(db)
     if len(all_ids) < required:
         refuse(
             "TOO_FEW_GUARDIANS",
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            f"Un dossier doit avoir au moins {required} garants (Réglages avancés > Gouvernance).",
+            f"Un dossier doit avoir au moins {required} gardiens (Réglages avancés > Gouvernance).",
         )
 
     write_repo = StorageRootOwnersRepo(db)
@@ -1243,7 +1243,7 @@ async def create_root(
     return ui_action(action_id=int(root.id), message="storage_root.created")
 
 
-async def _queue_root_check(root_id: int) -> None:
+async def _queue_root_check(root_id: int, origin: str = "storage_root_create") -> None:
     """A new folder is unverified until the worker has really opened it and read its ACL."""
     from app.services.probe_service import submit_probe_run
 
@@ -1252,7 +1252,7 @@ async def _queue_root_check(root_id: int) -> None:
             "kind": "storage-root", "protocol": "smb", "scope": "read",
             "target": {"storage_root_id": int(root_id)},
             "options": {"timeout_sec": 30},
-            "context": {"storage_root_id": int(root_id), "ui_origin": "storage_root_create"},
+            "context": {"storage_root_id": int(root_id), "ui_origin": origin},
         })
     except HTTPException:
         # Not an SMB server, no account...: the folder stays « to verify », visible as such
@@ -1374,6 +1374,72 @@ def add_guardians_in_bulk(
             db.rollback()
             failed.append({"storage_root_id": int(root_id), "message": _refusal_text(exc)})
     return ui_data({"updated": updated, "failed": failed})
+
+
+class StorageRootBulkTagsPayload(BaseModel):
+    root_ids: list[int] = Field(min_length=1, max_length=100)
+    tag_ids: list[int] = Field(min_length=1, max_length=20)
+
+
+@router.post("/bulk-tags", dependencies=[Depends(admin_only)])
+def add_tags_in_bulk(
+    payload: StorageRootBulkTagsPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Attach tags to several storage roots (a tag already there stays); each root is answered for."""
+    from app.api.tags import attach_tag
+    from app.schemas.tag_attachment import TagAttachmentRequest
+
+    updated: list[int] = []
+    failed: list[dict[str, Any]] = []
+    for root_id in payload.root_ids:
+        try:
+            if db.get(StorageRoot, int(root_id)) is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+            for tag_id in payload.tag_ids:
+                attach_tag(TagAttachmentRequest(tag_id=int(tag_id), resource_type="storage_root", resource_id=int(root_id)), request, db)
+            updated.append(int(root_id))
+        except Exception as exc:
+            db.rollback()
+            failed.append({"storage_root_id": int(root_id), "message": _refusal_text(exc)})
+    return ui_data({"updated": updated, "failed": failed})
+
+
+class StorageRootBulkCheckPayload(BaseModel):
+    root_ids: list[int] = Field(min_length=1, max_length=100)
+
+
+@router.post("/bulk-check", dependencies=[Depends(admin_only)])
+async def check_roots_in_bulk(
+    payload: StorageRootBulkCheckPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Queue a test and an ACL read of several storage roots on the worker; the results land on each root."""
+    queued: list[int] = []
+    failed: list[dict[str, Any]] = []
+    for root_id in dict.fromkeys(int(value) for value in payload.root_ids):
+        root = db.get(StorageRoot, root_id)
+        if root is None:
+            failed.append({"storage_root_id": root_id, "message": "Storage root not found"})
+            continue
+        await _queue_root_check(root_id, origin="storage_root_bulk_check")
+        queued.append(root_id)
+    actor = actor_from_request(request)
+    log_activity(
+        db,
+        actor_type="user" if actor.identity_id is not None else "system",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action="storage_root.bulk_check_requested",
+        outcome="success" if not failed else "partial",
+        target_type="storage_root",
+        target_display=f"{len(queued)} storage root(s)",
+        context_json={"storage_root_ids": queued, "failed": failed},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_data({"queued": queued, "failed": failed})
 
 
 def _create_storage_root(
