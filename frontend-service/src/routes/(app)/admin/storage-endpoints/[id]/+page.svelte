@@ -1280,7 +1280,7 @@
                 testBusy={probingEndpointId === endpointId(selected)}
                 onEditConnection={() => (showEditModal = true)}
                 onTest={() => runEndpointProbe(selected)}
-                onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian`)}
+                onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian&bulk=guardians`)}
                 onReread={() => (showRereadConfirm = true)}
                 onOpenRequests={() => goto('/access-requests?status=pending')}
                 onOpenShares={() => (activeEndpointTab = 'shares')}

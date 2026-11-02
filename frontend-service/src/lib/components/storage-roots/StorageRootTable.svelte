@@ -60,6 +60,8 @@
   export let initialZone: string | null = null;
   /** File server id from the link of a server page (?endpoint=): only its folders */
   export let initialEndpoint: string | null = null;
+  /** ?bulk=guardians: the folders shown are selected and the guardians dialog opens at once */
+  export let initialBulk: string | null = null;
   export let rootAlertSummary: (row: StorageRootRow) => Alert = () => null;
   export let onQueryChange: (value: string) => void = () => {};
   export let onOpenRoot: (id: number) => void = () => {};
@@ -230,6 +232,13 @@
   let peopleLoaded = false;
   let guardianIds: number[] = [];
   let tagIds = new Set<number>();
+
+  let bulkStarted = false;
+  $: if (!bulkStarted && isAdmin && initialBulk === 'guardians' && visible.length) {
+    bulkStarted = true;
+    checked = new Set(visible.map((line) => line.id));
+    void openAction('guardians');
+  }
 
   async function openAction(kind: 'guardians' | 'tags' | 'check') {
     failures = [];

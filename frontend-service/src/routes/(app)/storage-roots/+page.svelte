@@ -1696,6 +1696,7 @@
     initialFilter={$page.url.searchParams.get('filter')}
     initialZone={$page.url.searchParams.get('zone')}
     initialEndpoint={$page.url.searchParams.get('endpoint')}
+    initialBulk={$page.url.searchParams.get('bulk')}
     query={$storageRootsUiStore.query}
     {rootAlertSummary}
     onQueryChange={(value) => storageRootsUiStore.setQuery(value)}

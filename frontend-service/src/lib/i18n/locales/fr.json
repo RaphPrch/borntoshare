@@ -1360,6 +1360,10 @@
       "dfs_read": {
         "title": "Espace de noms relu",
         "description": "L’espace de noms « {target} » a été relu sur son serveur"
+      },
+      "dfs_created": {
+        "title": "Espace de noms ajouté",
+        "description": "L’espace de noms « {endpoint} » a été ajouté dans la zone « {zone} »"
       }
     },
     "tag": {

@@ -650,7 +650,8 @@ def create_endpoint(
         actor_type="user" if actor_id is not None else "system",
         actor_id=actor_id,
         actor_display=actor_display,
-        action="storage_endpoint.created",
+        # A DFS namespace is not a file server: its own line in the activity
+        action="storage_endpoint.dfs_created" if str(endpoint.endpoint_type or "").lower() == "dfs" else "storage_endpoint.created",
         outcome="success",
         target_type="storage_endpoint",
         target_id=int(endpoint.id),

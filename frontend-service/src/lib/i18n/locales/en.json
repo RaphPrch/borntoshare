@@ -171,6 +171,10 @@
       "dfs_read": {
         "title": "Namespace read again",
         "description": "The namespace « {target} » was read again on its server"
+      },
+      "dfs_created": {
+        "title": "Namespace added",
+        "description": "The namespace « {endpoint} » was added to the zone « {zone} »"
       }
     },
     "tag": {

@@ -856,7 +856,7 @@
         ouMissing={!resolveZoneBaseOu(data.provisioningPolicy)}
         {rereadBusy}
         onOpenServer={(id) => goto(`/admin/storage-endpoints/${id}`)}
-        onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian`)}
+        onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian&bulk=guardians`)}
         onReread={() => (showRereadConfirm = true)}
         onOpenRequests={() => goto("/access-requests?status=pending")}
         onOpenProvisioning={() => setTab("provisioning")}
