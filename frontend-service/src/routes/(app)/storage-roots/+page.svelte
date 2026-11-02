@@ -1695,6 +1695,7 @@
     isAdmin={data.user?.is_admin === true}
     initialFilter={$page.url.searchParams.get('filter')}
     initialZone={$page.url.searchParams.get('zone')}
+    initialEndpoint={$page.url.searchParams.get('endpoint')}
     query={$storageRootsUiStore.query}
     {rootAlertSummary}
     onQueryChange={(value) => storageRootsUiStore.setQuery(value)}

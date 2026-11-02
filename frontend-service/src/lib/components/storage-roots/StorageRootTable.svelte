@@ -58,6 +58,8 @@
   export let initialFilter: string | null = null;
   /** Zone id from the link of a zone page (?zone=) */
   export let initialZone: string | null = null;
+  /** File server id from the link of a server page (?endpoint=): only its folders */
+  export let initialEndpoint: string | null = null;
   export let rootAlertSummary: (row: StorageRootRow) => Alert = () => null;
   export let onQueryChange: (value: string) => void = () => {};
   export let onOpenRoot: (id: number) => void = () => {};
@@ -142,7 +144,11 @@
   $: lines = rows.map((row) => lineOf(row, grants)).filter((line) => line.id > 0);
   $: zones = [...new Map(lines.map((line) => [line.zoneKey, line.zone])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
   $: if (zoneFilter && !zones.some(([key]) => key === zoneFilter)) zoneFilter = '';
-  $: zoned = zoneFilter ? lines.filter((line) => line.zoneKey === zoneFilter) : lines;
+  let endpointFilter = Number(initialEndpoint ?? 0) || 0;
+  $: endpointName = endpointFilter ? lines.find((line) => Number((line.row as any)?.storage_endpoint_id ?? 0) === endpointFilter)?.server ?? '' : '';
+  $: zoned = (zoneFilter ? lines.filter((line) => line.zoneKey === zoneFilter) : lines).filter(
+    (line) => !endpointFilter || Number((line.row as any)?.storage_endpoint_id ?? 0) === endpointFilter
+  );
 
   const PASSES: Record<Filter, (line: Line) => boolean> = {
     all: () => true,
@@ -324,6 +330,11 @@
       <input type="search" aria-label={t('Search all folders')} placeholder={t('Search all folders…')} value={query}
         on:input={(event) => { onQueryChange(event.currentTarget.value); shown = PAGE; }} />
     </label>
+    {#if endpointFilter}
+      <button type="button" class="b2s-btn b2s-btn-secondary tb__scope" on:click={() => (endpointFilter = 0)} title={t('Show the folders of every server')}>
+        <i class="bi bi-hdd-network" aria-hidden="true"></i>{endpointName || t('Server')}<i class="bi bi-x" aria-hidden="true"></i>
+      </button>
+    {/if}
     {#if zones.length > 1}
       <select class="b2s-input tb__zone" aria-label={t('Filter by zone')} bind:value={zoneFilter}>
         <option value="">{t('All zones')}</option>

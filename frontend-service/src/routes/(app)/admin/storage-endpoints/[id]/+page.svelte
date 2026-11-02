@@ -7,8 +7,6 @@
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
   import { goto, invalidateAll } from '$app/navigation';
-  import EntityAlertDrawer from '$lib/components/entity/EntityAlertDrawer.svelte';
-  import EntityAlertStrip from '$lib/components/entity/EntityAlertStrip.svelte';
   import type { EntityAlertStripItem } from '$lib/components/entity/entity-alerts.types';
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -21,10 +19,13 @@
     buildStorageEndpointProvisioningViewModel,
     type ProvisioningPolicyViewModel
   } from '$lib/components/provisioning/provisioning-policy.adapter';
-  import EntityPageHeader from '$lib/components/entity/EntityPageHeader.svelte';
-  import EntityStatLine, { type EntityStatItem } from '$lib/components/entity/EntityStatLine.svelte';
-  import EntityProperties from '$lib/components/entity/EntityProperties.svelte';
-  import EntityProperty from '$lib/components/entity/EntityProperty.svelte';
+  import EntityHeroCard from '$lib/components/entity/EntityHeroCard.svelte';
+  import EndpointTiles from '$lib/components/storage-endpoints/EndpointTiles.svelte';
+  import EndpointTodo from '$lib/components/storage-endpoints/EndpointTodo.svelte';
+  import { summarizeZone } from '$lib/components/zones/zone-summary';
+  import { apiPostData } from '$lib/api/client';
+  import { humanizeFileServerMessage } from '$lib/errors/file-server';
+  import { timeAgo } from '$lib/utils/format';
   import { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import ActivityTabPanel from '$lib/components/activity/ActivityTabPanel.svelte';
   import EndpointFoldersTable from '$lib/components/storage-endpoints/EndpointFoldersTable.svelte';
@@ -317,7 +318,6 @@
     { key: 'provisioning', label: t('Provisioning'), icon: 'bi-shield-check' }
   ];
   // Last change made by a person (creation, edit…), shown in the Connection card
-  $: lastChange = activity.find((entry) => !String(entry?.action ?? '').startsWith('test_'));
   let activeEndpointTab: EndpointTabKey = 'overview';
 
   let endpointProvisioningBusy = false;
@@ -692,8 +692,8 @@
   let showEditModal = false;
   let editInitialTab: 'endpoint' | 'roots' = 'endpoint';
   let showDeleteModal = false;
-  let showEndpointAlertsDrawer = false;
-  let endpointAlertItems: EntityAlertStripItem[] = [];
+  let showRereadConfirm = false;
+  let rereadBusy = false;
   let deleteBusy = false;
   let endpointToDelete: any | null = null;
 
@@ -835,42 +835,35 @@
     return lastResult || t('probe or configuration needs review');
   };
 
-  let kpiItems: EntityStatItem[] = [];
-  // Status, host and zone are in the header: the figures say what is not shown elsewhere
-  $: kpiItems = selected
-    ? [
-        {
-          key: 'roots',
-          label: t('Managed folders'),
-          value: selectedRoots.length,
-          big: true,
-          note: rootsFilteredRows.filter((row) => row.health === 'unhealthy' || row.alertCount).length
-            ? t('{count} to review', { count: rootsFilteredRows.filter((row) => row.health === 'unhealthy' || row.alertCount).length })
-            : null
-        },
-        {
-          key: 'shares',
-          label: t('Shares not managed'),
-          value: catalogEntry ? Number(catalogEntry.new_count ?? 0) : '—',
-          big: true,
-          note: catalogEntry?.discovered_at ? null : t('Never searched'),
-          onClick: () => (activeEndpointTab = 'shares')
-        },
-        {
-          key: 'pending',
-          label: t('Pending requests'),
-          value: endpointPendingCount(selected),
-          big: true
-        },
-        {
-          key: 'alerts',
-          label: t('Open alerts'),
-          value: endpointAlertItems.length > 0 ? t('{count} open', { count: endpointAlertItems.length }) : t('No open alert'),
-          tone: endpointAlertItems.length > 0 ? 'warning' as const : undefined,
-          href: `/observability?tab=alerts&q=${encodeURIComponent(endpointName(selected))}`
-        }
-      ]
-    : [];
+  // The folders of this server to review, read from their open alerts (same reading as the zone page)
+  // endpointHealthById is read inside endpointHealth(): listed so that the summary follows the health checks
+  $: endpointSummary = ((_health: unknown) => summarizeZone(
+    selected ? [{ ...selected, id: endpointId(selected), operational_state: ({ healthy: 'reachable', unhealthy: 'unreachable' } as Record<string, string>)[endpointHealth(selected)] ?? 'unknown' }] : [],
+    selectedRoots,
+    (data.storageRootAlerts ?? []) as GovernanceAlert[]
+  ))(endpointHealthById);
+  $: sharesNotManaged = catalogEntry ? Number(catalogEntry.new_count ?? 0) : null;
+  $: foldersHref = selected ? `/storage-roots?endpoint=${endpointId(selected)}` : '/storage-roots';
+
+  async function rereadFolders() {
+    showRereadConfirm = false;
+    const ids = endpointSummary.reread.map((root) => root.id);
+    if (!ids.length || rereadBusy) return;
+    rereadBusy = true;
+    try {
+      let queued = 0;
+      for (let start = 0; start < ids.length; start += 100) {
+        const answer = await apiPostData<{ queued: number[] }>(fetch, '/storage-roots/bulk-check', { root_ids: ids.slice(start, start + 100) });
+        queued += answer?.queued?.length ?? 0;
+      }
+      toast.success(t('{count} folder(s) queued for a test and an ACL read.', { count: queued }));
+      await invalidateAll();
+    } catch (e: any) {
+      toast.error(String(e?.message ?? t('The action failed.')));
+    } finally {
+      rereadBusy = false;
+    }
+  }
 
   $: provisioningWarnings = endpointProvisioningPolicy?.warnings?.map((w) => String(w?.message ?? '').trim()).filter(Boolean) ?? [];
 
@@ -955,8 +948,6 @@
   // Health, probe and refresh state are read inside the helpers: list them so Svelte recomputes
   $: healthState = [endpointHealthById, rootHealthByEndpointId, healthLoadingByEndpointId,
                     manualHealthRefreshByEndpointId, probingEndpointId];
-  $: endpointAlertItems = ((..._deps: unknown[]) =>
-    selected ? buildStorageEndpointAlerts(selected, { includeProvisioningWarnings: true }) : [])(healthState);
 
   const endpointHeaderActions = (ep: any): EntityActionItem[] => [
     {
@@ -1146,22 +1137,55 @@
       <EntityConsoleShell>
         <svelte:fragment slot="header">
           {#key healthState}
-          <EntityPageHeader
-            crumbs={selectedIsDfs ? [t('DFS namespaces'), endpointZone(selected)] : [t('Storage endpoints'), endpointZone(selected)]}
-            title={endpointName(selected)}
-            code={selectedIsDfs && namespacePath ? namespacePath : endpointHasHost(selected) ? `\\\\${endpointHost(selected)}${selected?.port && Number(selected.port) !== 445 ? `:${selected.port}` : ''}` : t('No host configured')}
-            statusLabel={healthLabel(endpointHealth(selected))}
-            statusTone={pillTone(endpointOperationalTone(selected))}
-            actions={endpointHeaderActions(selected)}
-            actionsAriaLabel={t('Storage endpoint actions')}
-          />
-          <EntityAlertStrip
-            items={endpointAlertItems}
-            onViewAll={() => (showEndpointAlertsDrawer = true)}
-            ariaLabel={t('Storage endpoint alerts')}
-            action={!['unhealthy', 'degraded'].includes(endpointHealth(selected)) ? null : { label: t('Edit the connection'), icon: 'bi-pencil', onClick: () => (showEditModal = true) }}
-          />
-          {#if !selectedIsDfs}<EntityStatLine items={kpiItems} ariaLabel={t('Storage endpoint KPIs')} />{/if}
+          <div class="sed-top">
+            <EntityHeroCard
+              icon={selectedIsDfs ? 'bi-diagram-3' : 'bi-hdd-network'}
+              iconTone="blue"
+              crumbs={selectedIsDfs ? [t('DFS namespaces'), endpointZone(selected)] : [t('Storage endpoints'), endpointZone(selected)]}
+              title={endpointName(selected)}
+              statusLabel={healthLabel(endpointHealth(selected))}
+              statusTone={pillTone(endpointOperationalTone(selected))}
+              path={selectedIsDfs && namespacePath ? namespacePath : endpointHasHost(selected) ? `\\\\${endpointHost(selected)}${selected?.port && Number(selected.port) !== 445 ? `:${selected.port}` : ''}` : ''}
+              chips={[
+                ...(!endpointHasHost(selected) && !selectedIsDfs ? [{ label: t('No host configured'), icon: 'bi-exclamation-triangle' }] : []),
+                { label: String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase() },
+                ...((selected?.bind_dn || selected?.auth_username) ? [{ label: String(selected?.bind_dn || selected?.auth_username), icon: 'bi-person-badge', mono: true }] : []),
+                ...(selected?.identity_source_id ? [{ label: data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`, icon: 'bi-diagram-3' }] : [])
+              ]}
+              actions={endpointHeaderActions(selected)}
+              actionsAriaLabel={t('Storage endpoint actions')}
+            />
+            {#if !selectedIsDfs}
+              <EndpointTiles
+                summary={endpointSummary}
+                health={endpointHealth(selected)}
+                lastTest={endpointLastProbeRaw(selected) ? timeAgo(String(endpointLastProbeRaw(selected))) : ''}
+                {sharesNotManaged}
+                onOpenConnection={() => (showEditModal = true)}
+                onOpenFolders={() => goto(foldersHref)}
+                onOpenGuardians={() => goto(`${foldersHref}&filter=no-guardian`)}
+                onOpenShares={() => (activeEndpointTab = 'shares')}
+              />
+              <EndpointTodo
+                summary={endpointSummary}
+                health={endpointHealth(selected)}
+                hostMissing={!endpointHasHost(selected)}
+                lastResult={endpointHealth(selected) === 'unhealthy' ? humanizeFileServerMessage(t(endpointLastResultLabel(selected))) : ''}
+                pendingRequests={endpointPendingCount(selected)}
+                sharesNotManaged={sharesNotManaged ?? 0}
+                {provisioningWarnings}
+                {rereadBusy}
+                testBusy={probingEndpointId === endpointId(selected)}
+                onEditConnection={() => (showEditModal = true)}
+                onTest={() => runEndpointProbe(selected)}
+                onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian`)}
+                onReread={() => (showRereadConfirm = true)}
+                onOpenRequests={() => goto('/access-requests?status=pending')}
+                onOpenShares={() => (activeEndpointTab = 'shares')}
+                onOpenProvisioning={() => (activeEndpointTab = 'provisioning')}
+              />
+            {/if}
+          </div>
           {/key}
         </svelte:fragment>
 
@@ -1180,22 +1204,38 @@
           {/key}
         {:else if activeEndpointTab === 'overview'}
           <div class="sed-overview">
-            <section class="sed-overview__main" aria-label={t('Managed folders')}>
+            <section class="sed-card" aria-label={t('Managed folders')}>
+              <header><h2>{t('Managed folders')}</h2><a class="sed-link" href={`/storage-roots/add?endpoint=${endpointId(selected)}`}>+ {t('Add folders')}</a></header>
               <EndpointFoldersTable rows={rootsFilteredRows} host={endpointHost(selected)} />
             </section>
-
-            <EntityProperties title={t('Connection')}>
-              <EntityProperty label={t('Protocol')}>{String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase()}</EntityProperty>
-              <EntityProperty label={t('Service account')} mono>{selected?.bind_dn || selected?.auth_username || '—'}</EntityProperty>
-              <EntityProperty label={t('Directory')}>{selected?.identity_source_id ? (data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`) : t('None')}</EntityProperty>
-              <EntityProperty label={t('Last test')}>{endpointLastProbeLabel(selected)}{#if endpointHealth(selected) !== 'healthy'}<small class="sed-muted">{endpointLastResultLabel(selected)}</small>{/if}</EntityProperty>
-              {#if lastChange}
-                <EntityProperty label={t('Last change')}>
-                  <button type="button" class="sed-link" on:click={() => (activeEndpointTab = 'activity')}>{formatActivityItem(lastChange).title}</button>
-                  <small class="sed-muted">{lastChange.actor_display ?? t('System')} · {formatRelativeDate(lastChange.created_at, '')}</small>
-                </EntityProperty>
-              {/if}
-            </EntityProperties>
+            <div class="sed-side">
+              <section class="sed-card" aria-label={t('Connection')}>
+                <header><h2>{t('Connection')}</h2><button type="button" class="sed-link" on:click={() => (showEditModal = true)}>{t('Edit')} ›</button></header>
+                <dl>
+                  <div><dt>{t('Protocol')}</dt><dd>{String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase()}</dd></div>
+                  <div><dt>{t('Service account')}</dt><dd class="mono">{selected?.bind_dn || selected?.auth_username || '—'}</dd></div>
+                  <div><dt>{t('Directory')}</dt><dd>{selected?.identity_source_id ? (data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`) : t('None')}</dd></div>
+                  <div><dt>{t('Last test')}</dt><dd>{endpointLastProbeLabel(selected)}{#if endpointHealth(selected) !== 'healthy'}<small>{humanizeFileServerMessage(t(endpointLastResultLabel(selected)))}</small>{/if}</dd></div>
+                </dl>
+              </section>
+              <section class="sed-card" aria-label={t('Recent activity')}>
+                <header><h2>{t('Recent activity')}</h2><button type="button" class="sed-link" on:click={() => (activeEndpointTab = 'activity')}>{t('All the history')} ›</button></header>
+                {#if activity.length}
+                  <ul class="sed-activity">
+                    {#each activity.slice(0, 5) as entry, index (index)}
+                      {@const item = formatActivityItem(entry)}
+                      <li>
+                        <span class={`sed-dot is-${item.variant}`} aria-hidden="true"></span>
+                        <span class="sed-act"><strong>{item.title}</strong>{#if item.subtitle1}<small>{item.subtitle1}</small>{/if}</span>
+                        <small class="sed-when">{entry?.created_at ? timeAgo(String(entry.created_at)) : ''}</small>
+                      </li>
+                    {/each}
+                  </ul>
+                {:else}
+                  <p class="sed-muted">{t('No activity yet.')}</p>
+                {/if}
+              </section>
+            </div>
           </div>
         {:else if activeEndpointTab === 'shares'}
           {#key endpointId(selected)}
@@ -1232,14 +1272,14 @@
   onClose={closeActivityDetails}
 />
 
-<EntityAlertDrawer
-  open={showEndpointAlertsDrawer}
-  onClose={() => (showEndpointAlertsDrawer = false)}
-  title={t('Storage endpoint alerts')}
-  subtitle={t('Endpoint · {value}', { value: (selected ? endpointName(selected) : t('Unavailable')) })}
-  items={endpointAlertItems}
-  emptyLabel={t('No alert found for this storage endpoint.')}
-  ariaLabelledby="storage-endpoint-alerts-drawer-title"
+<ConfirmActionModal
+  open={showRereadConfirm}
+  onClose={() => (showRereadConfirm = false)}
+  onConfirm={rereadFolders}
+  severity="warning"
+  title={t('Read the ACLs of {count} folder(s)?', { count: endpointSummary.reread.length })}
+  impactItems={[t('The worker tests each folder and reads its NTFS permissions. The results appear on each folder in the next minutes.')]}
+  confirmLabel={t('Start the reads')}
 />
 
 <StorageEndpointEditModal
@@ -1298,21 +1338,144 @@
     font-size: var(--b2s-fs-xs);
   }
 
-  .sed-overview {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 40px;
-    align-items: flex-start;
+  .sed-link {
+    font-size: var(--b2s-fs-sm);
+    text-decoration: none;
   }
 
-  .sed-overview__main {
-    flex: 999 1 420px;
-    min-width: 0;
+  .sed-top {
     display: grid;
+    gap: 14px;
+  }
+
+  .sed-overview {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  .sed-side {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .sed-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    padding: 16px 18px;
+    border: 1px solid var(--b2s-color-border);
+    border-radius: var(--b2s-radius-lg);
+    background: var(--b2s-color-surface);
+  }
+
+  .sed-card header {
+    display: flex;
+    align-items: center;
     gap: 12px;
   }
 
+  .sed-card h2 {
+    margin: 0 auto 0 0;
+    font-size: var(--b2s-fs-md);
+    font-weight: 600;
+  }
 
+  .sed-card dl {
+    margin: 0;
+  }
 
+  .sed-card dl div {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px 0;
+    border-top: 1px solid var(--b2s-color-border);
+    font-size: var(--b2s-fs-sm);
+  }
 
+  .sed-card dl div:first-child {
+    border-top: 0;
+  }
+
+  .sed-card dt {
+    color: var(--b2s-color-text-muted);
+  }
+
+  .sed-card dd {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sed-card dd small {
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .sed-card .mono {
+    font-family: var(--b2s-font-mono);
+    font-size: var(--b2s-fs-xs);
+  }
+
+  .sed-activity {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sed-activity li {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: start;
+  }
+
+  .sed-dot {
+    width: 9px;
+    height: 9px;
+    margin-top: 6px;
+    border-radius: 50%;
+    background: var(--b2s-color-border-mid, #cdd2db);
+  }
+
+  .sed-dot.is-ok {
+    background: var(--b2s-color-success);
+  }
+
+  .sed-dot.is-warn {
+    background: var(--b2s-color-warning);
+  }
+
+  .sed-act {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .sed-act strong {
+    font-weight: 500;
+    font-size: var(--b2s-fs-sm);
+  }
+
+  .sed-act small {
+    color: var(--b2s-color-text-muted);
+    font-size: var(--b2s-fs-xs);
+    overflow-wrap: anywhere;
+  }
+
+  .sed-when {
+    color: var(--b2s-color-text-soft);
+    font-size: var(--b2s-fs-xs);
+    white-space: nowrap;
+  }
 </style>
