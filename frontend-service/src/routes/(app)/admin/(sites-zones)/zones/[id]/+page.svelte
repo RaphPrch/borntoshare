@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { formatDateTime } from '$lib/utils/format';
   import { t } from '$lib/i18n';
   import { onDestroy, onMount } from "svelte";
@@ -10,7 +9,6 @@
 
   import ZoneFormModal from "$lib/components/zones/ZoneFormModal.svelte";
   import { listStorageEndpoints, updateStorageEndpoint } from "$lib/api/storage-endpoints";
-  import PlanPreviewModal from "$lib/components/provisioning/PlanPreviewModal.svelte";
   import ActivityDetailsDrawer from "$lib/components/activity/ActivityDetailsDrawer.svelte";
   import ConfirmActionModal from "$lib/components/ui/ConfirmActionModal.svelte";
   import EndpointAttachChoiceModal from "./components/EndpointAttachChoiceModal.svelte";
@@ -37,23 +35,15 @@
   import {
     normalizeProbeStatus,
   } from "$lib/mappers/visual-state.mapper";
-  import { buildZoneOperationalAttentionItems } from "$lib/mappers/entity-operational.mapper";
-  import {
-    selectVisibleStorageRootAlertsForRootIds,
-    storageRootAlertRootId,
-    storageRootAlertSummarySubtitle,
-    storageRootAlertTone,
-    visibleStorageRootAlerts
-  } from "$lib/mappers/storage-root-alerts.mapper";
   import { toast } from "$lib/stores/toast";
   import { dependencyDeleteMessage, isDependencyDeleteError } from "$lib/utils/delete-guard";
 
-  import ZoneHeader from "./components/ZoneHeader.svelte";
+  import ZoneHero from "./components/ZoneHero.svelte";
   import EntityConsoleShell from "$lib/components/entity/EntityConsoleShell.svelte";
-  import EntityAlertDrawer from "$lib/components/entity/EntityAlertDrawer.svelte";
-  import EntityAlertStrip from "$lib/components/entity/EntityAlertStrip.svelte";
-  import EntityStatLine, { type EntityStatItem } from "$lib/components/entity/EntityStatLine.svelte";
-  import type { EntityAlertStripItem } from "$lib/components/entity/entity-alerts.types";
+  import ZoneTiles from "$lib/components/zones/ZoneTiles.svelte";
+  import ZoneTodo from "$lib/components/zones/ZoneTodo.svelte";
+  import { summarizeZone } from "$lib/components/zones/zone-summary";
+  import { apiPostData } from "$lib/api/client";
   import Tabs from "$lib/components/ui/Tabs.svelte";
 
   const PROBE_SYNC_EVENT = "b2s:storage-endpoint-probe-updated";
@@ -71,7 +61,8 @@
     zoneNamingPolicy?: { template?: string | null; override_enabled?: boolean | number | null } | null;
     identitySources: any[];
     namingPolicyGlobal?: { template?: string | null } | null;
-    zones?: Array<{ id?: number; pendingRequests?: number }>;
+    zones?: Array<{ id?: number; pendingRequests?: number; identitySourceIds?: number[] }>;
+    minGuardians?: number;
   };
 
   $: currentZoneId = Number(data.zone?.id ?? 0) || null;
@@ -111,15 +102,14 @@
   let discoverRunning = false;
   let probeResultsByEndpoint: Record<string, string> = {};
 
-  let showPreviewModal = false;
   let policySaving = false;
   let policyError: string | null = null;
   let policyNotice = "";
   let handledCreateQuery = false;
   let activityDetailsOpen = false;
   let selectedActivityEntry: any | null = null;
-  let showZoneAlertsDrawer = false;
-  let zoneAlertItems: EntityAlertStripItem[] = [];
+  let showRereadConfirm = false;
+  let rereadBusy = false;
   let showLeaveProvisioningConfirm = false;
   let pendingTabAfterConfirm: ZoneTabKey | null = null;
   let probeSyncRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -193,28 +183,6 @@
 
   $: hasPolicyValidationError = Boolean(policyValidationErrors.base_ou_dn || policyValidationErrors.static_ou_dn);
   $: isPolicyDirty = JSON.stringify(normalizedPolicyDraft) !== policySavedSnapshot || namingDraft.trim() !== namingSaved.trim();
-  $: provisioningReady = Boolean(
-    resolveZoneBaseOu(data.provisioningPolicy) && namingSaved.trim()
-  );
-  $: previewItems = [
-    t('Zone OU source: enabled'),
-    t('Zone OU: {value}', { value: ((normalizedPolicyDraft.base_ou_dn ?? "(empty)")) }),
-    t('Naming template (managed in Naming Policies): {value}', { value: (namingSaved.trim() || "(empty)") }),
-  ];
-  $: zoneProvisioningOverview = {
-    namingPolicy: namingSaved.trim() || t('Not configured'),
-    guardians: Number((data.zone as any)?.guardians_count ?? (data.zone as any)?.guardian_count ?? 0),
-    rootsTotal: storageRoots.length,
-    rootsBroken: storageRoots.filter((root) => {
-      const status = String(root?.last_probe_status ?? root?.status ?? root?.effective_availability ?? "").toLowerCase();
-      const rootId = Number(root?.storage_root_id ?? root?.id ?? 0);
-      const alerts = visibleStorageRootAlerts(data.storageRootAlerts ?? []).filter(
-        (alert) => storageRootAlertRootId(alert) === rootId
-      ).length;
-      return status.includes("fail") || status.includes("unreachable") || alerts > 0;
-    }).length,
-  };
-
   const endpointHost = (ep: any) => String(ep?.host ?? "").trim();
   const endpointAuthReady = (ep: any) => {
     const username = String(ep?.auth_username ?? ep?.username ?? ep?.bind_dn ?? "").trim();
@@ -284,8 +252,6 @@
   $: hasAttachedStorageRoots = storageRoots.length > 0;
 
   const zoneLabel = () => String(data.zone?.name ?? data.zone?.code ?? t('Zone #{value}', { value: (currentZoneId ?? "-") }));
-  const storageRootId = (root: any) => Number(root?.storage_root_id ?? root?.id ?? 0);
-  const storageRootName = (root: any) => String(root?.name ?? root?.storage_root_name ?? t('Storage root #{storageRootId}', { storageRootId: storageRootId(root) }));
 
   onMount(() => {
     if (!browser) return;
@@ -408,98 +374,43 @@
     healthLabel: "ok" | "warning";
   };
 
-  const formatZoneProbeDate = (value: string | null | undefined): string => {
-    const text = String(value ?? "").trim();
-    if (!text) return t('Never run');
-    return formatDateTime(text, { empty: t('Never run') });
-  };
+  // Servers reachable or not and folders to review, from the open alerts of the folders of the zone
+  $: summary = summarizeZone(endpoints, storageRoots, (data.storageRootAlerts ?? []) as any[], (id) =>
+    normalizeProbeStatus(probeResultsByEndpoint[String(id)] ?? "") === "running" ? "checking" : null
+  );
+  $: zoneEntry = (data.zones ?? []).find((zone) => Number(zone?.id) === currentZoneId);
+  $: pendingRequests = Number(zoneEntry?.pendingRequests ?? 0);
+  $: directories = (zoneEntry?.identitySourceIds ?? [])
+    .map((id) => (data.identitySources ?? []).find((source: any) => Number(source?.id) === Number(id)))
+    .map((source: any) => String(source?.name ?? source?.display_name ?? "").trim())
+    .filter(Boolean);
+  $: minGuardians = Number(data.minGuardians ?? 2) || 2;
+  $: serversLabel = [
+    summary.files.length ? t('{count} file server(s)', { count: summary.files.length }) : "",
+    summary.dfs.length ? t('{count} DFS namespace(s)', { count: summary.dfs.length }) : "",
+  ].filter(Boolean).join(" · ");
+  $: foldersHref = `/storage-roots?zone=${currentZoneId ?? ""}`;
 
-  $: zoneHeaderAttentionItems = buildZoneOperationalAttentionItems({
-    endpointCount,
-    reachableCount,
-    nonRunnableCount: healthSummary.nonRunnableCount,
-    provisioningReady,
-    healthLabel: healthSummary.healthLabel,
-  });
-  $: zoneHasAttention = zoneHeaderAttentionItems.length > 0;
-  $: zoneAttentionMeta = t('Last probe: {formatZoneProbeDate}', { formatZoneProbeDate: formatZoneProbeDate(healthSummary.lastProbeAt) });
-  const alertToneFromText = (value: string): "warning" | "error" => {
-    const text = String(value ?? "").toLowerCase();
-    return text.includes("unreachable") || text.includes("failed") || text.includes("down")
-      ? "error"
-      : "warning";
-  };
-  const operationalZoneAlertItems = (): EntityAlertStripItem[] =>
-    zoneHeaderAttentionItems.map((item, index) => ({
-      key: `zone-operational-alert-${index}-${item}`,
-      title: item,
-      subtitle: index === 0 ? zoneAttentionMeta : null,
-      tone: alertToneFromText(item),
-    }));
-
-  const zoneRootGovernanceAlertItems = (): EntityAlertStripItem[] => {
-    const rootIds = storageRoots.map((root) => storageRootId(root));
-    const rootLabels = new Map(storageRoots.map((root) => [storageRootId(root), storageRootName(root)]));
-    return selectVisibleStorageRootAlertsForRootIds(rootIds, data.storageRootAlerts ?? []).map((alert) => {
-      const rootId = storageRootAlertRootId(alert);
-      const rootLabel = rootLabels.get(rootId) ?? t('Storage root #{rootId}', { rootId });
-      const detail = storageRootAlertSummarySubtitle(alert);
-      return {
-        key: `zone-root-alert-${String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${rootId}`)}`,
-        title: alertTitle(alert),
-        subtitle: detail ? `${rootLabel} · ${detail}` : rootLabel,
-        tone: storageRootAlertTone(alert),
-      };
-    });
-  };
-
-  const dedupeZoneAlertItems = (items: EntityAlertStripItem[]): EntityAlertStripItem[] => {
-    const seen = new Set<string>();
-    const out: EntityAlertStripItem[] = [];
-    for (const item of items) {
-      const key = `${String(item.title ?? "").trim().toLowerCase()}|${String(item.subtitle ?? "").trim().toLowerCase()}`;
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      out.push(item);
+  // Folders whose test failed or whose ACL has a gap, on servers that answer: read again by the worker
+  async function rereadFolders() {
+    showRereadConfirm = false;
+    const ids = summary.reread.map((root) => root.id);
+    if (!ids.length || rereadBusy) return;
+    rereadBusy = true;
+    try {
+      let queued = 0;
+      for (let start = 0; start < ids.length; start += 100) {
+        const answer = await apiPostData<{ queued: number[] }>(fetch, "/storage-roots/bulk-check", { root_ids: ids.slice(start, start + 100) });
+        queued += answer?.queued?.length ?? 0;
+      }
+      toast.success(t('{count} folder(s) queued for a test and an ACL read.', { count: queued }));
+      await invalidateAll();
+    } catch (e: any) {
+      toast.error(String(e?.message ?? t('The action failed.')));
+    } finally {
+      rereadBusy = false;
     }
-    return out;
-  };
-
-  const buildZoneAlerts = (): EntityAlertStripItem[] =>
-    dedupeZoneAlertItems([
-      ...operationalZoneAlertItems(),
-      ...zoneRootGovernanceAlertItems(),
-    ]);
-
-  $: zoneAlertItems = buildZoneAlerts();
-  $: dfsCount = endpoints.filter((ep) => String(ep?.endpoint_type ?? '').toLowerCase() === 'dfs').length;
-  $: rootIdsWithAlerts = [...new Set(selectVisibleStorageRootAlertsForRootIds(storageRoots.map((root) => storageRootId(root)), data.storageRootAlerts ?? []).map((alert) => storageRootAlertRootId(alert)))];
-  $: pendingRequests = Number((data.zones ?? []).find((zone) => Number(zone?.id) === currentZoneId)?.pendingRequests ?? 0);
-  $: zoneKpis = [
-    {
-      key: "servers",
-      label: t('Servers'),
-      value: endpoints.length - dfsCount,
-      note: dfsCount ? t('+ {count} DFS namespace(s)', { count: dfsCount }) : undefined,
-      big: true
-    },
-    {
-      key: "roots",
-      label: t('Managed folders'),
-      value: storageRoots.length,
-      note: rootIdsWithAlerts.length ? t('{count} to review', { count: rootIdsWithAlerts.length }) : undefined,
-      big: true
-    },
-    { key: "requests", label: t('Pending requests'), value: pendingRequests, big: true },
-    {
-      key: "alerts",
-      label: t('Open alerts'),
-      value: zoneAlertItems.length,
-      tone: zoneAlertItems.length > 0 ? "warning" : undefined,
-      big: true,
-      href: zoneAlertItems.length ? `/observability?tab=alerts&q=${encodeURIComponent(zoneLabel())}` : undefined
-    }
-  ] satisfies EntityStatItem[];
+  }
 
   async function ensureTabLoaded(tab: ZoneTabKey) {
     if (loadedComponents[tab]) {
@@ -895,20 +806,19 @@
   $: if (browser) void ensureTabLoaded(activeTab);
   $: tabProps = {
     overview: {
-      endpoints,
-      storageRoots,
-      rootIdsWithAlerts,
+      zoneId: currentZoneId,
+      summary,
       namingTemplateLabel: namingSaved.trim(),
       provisioningOu: resolveZoneBaseOu(data.provisioningPolicy) ?? '',
-      probeResultsByEndpoint,
-      lastChange: activity[0]
-        ? {
-            actor: activity[0]?.actor_display_name ?? activity[0]?.actor_display ?? activity[0]?.actor_username ?? null,
-            at: activity[0]?.created_at ?? null,
-          }
-        : null,
+      minGuardians,
+      directories,
+      activity,
       onOpenEndpoint: (endpointId: number | string) => goto(`/admin/storage-endpoints/${endpointId}`),
+      onOpenRoot: (rootId: number) => goto(`/storage-roots?selected=${rootId}`),
+      onOpenFolders: () => goto(`${foldersHref}&filter=review`),
       onOpenProvisioning: () => setTab("provisioning"),
+      onOpenActivity: () => setTab("activity"),
+      onAddServer: openEndpointAttachChoice,
     },
     activity: {
       activity,
@@ -924,32 +834,48 @@
       isDirty: isPolicyDirty,
       canSave: !hasPolicyValidationError,
       validationErrors: policyValidationErrors,
-      inheritanceOverview: zoneProvisioningOverview,
       onChange: updatePolicyDraft,
       onSave: savePolicy,
       onDiscard: discardPolicyChanges,
       onReset: resetPolicyDefaults,
-      onPreview: () => (showPreviewModal = true),
     },
   };
 </script>
 
 <EntityConsoleShell>
   <svelte:fragment slot="header">
-      <ZoneHeader
+    <div class="zone-top">
+      <ZoneHero
         zone={data.zone}
-      endpointCount={endpoints.length}
-      healthLabel={healthSummary.healthLabel}
-      onEdit={openEditZone}
-      onDelete={openDeleteZone}
-      onAddEndpoint={openEndpointAttachChoice}
-    />
-    <EntityAlertStrip
-      items={zoneAlertItems}
-      onViewAll={() => (showZoneAlertsDrawer = true)}
-      ariaLabel={t('Zone alerts')}
-    />
-    <EntityStatLine items={zoneKpis} ariaLabel={t('Zone KPIs')} />
+        endpointCount={endpoints.length}
+        healthLabel={healthSummary.healthLabel}
+        {directories}
+        {serversLabel}
+        onEdit={openEditZone}
+        onDelete={openDeleteZone}
+        onAddEndpoint={openEndpointAttachChoice}
+      />
+      <ZoneTiles
+        {summary}
+        {pendingRequests}
+        {minGuardians}
+        onOpenServers={() => setTab("overview")}
+        onOpenFolders={() => goto(foldersHref)}
+        onOpenRequests={() => goto("/access-requests?status=pending")}
+        onOpenGuardians={() => goto(`${foldersHref}&filter=no-guardian`)}
+      />
+      <ZoneTodo
+        {summary}
+        {pendingRequests}
+        ouMissing={!resolveZoneBaseOu(data.provisioningPolicy)}
+        {rereadBusy}
+        onOpenServer={(id) => goto(`/admin/storage-endpoints/${id}`)}
+        onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian`)}
+        onReread={() => (showRereadConfirm = true)}
+        onOpenRequests={() => goto("/access-requests?status=pending")}
+        onOpenProvisioning={() => setTab("provisioning")}
+      />
+    </div>
   </svelte:fragment>
 
   <svelte:fragment slot="tabs">
@@ -970,15 +896,6 @@
 
 <div class="visually-hidden" aria-live="polite">{policyNotice || policyError || ""}</div>
 
-<EntityAlertDrawer
-  open={showZoneAlertsDrawer}
-  onClose={() => (showZoneAlertsDrawer = false)}
-  title={t('Zone alerts')}
-  subtitle={t('Zone · {zoneLabel}', { zoneLabel: zoneLabel() })}
-  items={zoneAlertItems}
-  emptyLabel={t('No alert found for this zone.')}
-  ariaLabelledby="zone-alerts-drawer-title"
-/>
 
 <ZoneFormModal
   open={zoneModalOpen}
@@ -1003,11 +920,14 @@
   onAttachExisting={attachExistingEndpoint}
 />
 
-<PlanPreviewModal
-  open={showPreviewModal}
-  title={t('Provisioning policy changes preview')}
-  items={previewItems}
-  onClose={() => (showPreviewModal = false)}
+<ConfirmActionModal
+  open={showRereadConfirm}
+  onClose={() => (showRereadConfirm = false)}
+  onConfirm={rereadFolders}
+  severity="warning"
+  title={t('Read the ACLs of {count} folder(s)?', { count: summary.reread.length })}
+  impactItems={[t('The worker tests each folder and reads its NTFS permissions. The results appear on each folder in the next minutes.')]}
+  confirmLabel={t('Start the reads')}
 />
 
 <ActivityDetailsDrawer
@@ -1033,3 +953,10 @@
   cancelLabel={t('Stay')}
   confirmLabel={t('Leave tab')}
 />
+
+<style>
+  .zone-top {
+    display: grid;
+    gap: 14px;
+  }
+</style>

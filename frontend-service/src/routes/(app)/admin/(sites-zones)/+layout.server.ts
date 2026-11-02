@@ -24,17 +24,38 @@ export const load: LayoutServerLoad = async (event: LayoutServerLoadEvent) => {
     zone?: { id?: number | null } | null;
     operational_state?: string | null;
     pending_requests_count?: number | null;
+    identity_source_id?: number | null;
   }>('/storage-endpoints/context', event);
+  // Folders with an open alert, per zone: the « to review » share of each zone
+  const rootAlerts = await apiServerGetList<{ zone_id?: number | null; storage_root_id?: number | null; scope_id?: number | null }>(
+    '/governance-alerts?scope_type=storage_root&status=open&limit=2000',
+    event
+  ).catch(() => []);
+  const reviewRootsByZone = new Map<number, Set<number>>();
+  for (const alert of rootAlerts) {
+    const zoneId = Number(alert?.zone_id ?? 0);
+    const rootId = Number(alert?.storage_root_id ?? alert?.scope_id ?? 0);
+    if (zoneId > 0 && rootId > 0) {
+      if (!reviewRootsByZone.has(zoneId)) reviewRootsByZone.set(zoneId, new Set());
+      reviewRootsByZone.get(zoneId)!.add(rootId);
+    }
+  }
 
   const endpointRows = Array.isArray(endpoints) ? endpoints : [];
   const zoneHealthById = new Map<number, "ok" | "warning">();
   const endpointCountByZone = new Map<number, number>();
   const pendingByZone = new Map<number, number>();
+  const directoriesByZone = new Map<number, Set<number>>();
   for (const endpoint of endpointRows) {
     const zoneId = Number(endpoint?.zone_id ?? endpoint?.zone?.id ?? 0);
     if (!Number.isFinite(zoneId) || zoneId <= 0) continue;
     endpointCountByZone.set(zoneId, (endpointCountByZone.get(zoneId) ?? 0) + 1);
     pendingByZone.set(zoneId, (pendingByZone.get(zoneId) ?? 0) + Number(endpoint?.pending_requests_count ?? 0));
+    const sourceId = Number(endpoint?.identity_source_id ?? 0);
+    if (sourceId > 0) {
+      if (!directoriesByZone.has(zoneId)) directoriesByZone.set(zoneId, new Set());
+      directoriesByZone.get(zoneId)!.add(sourceId);
+    }
     const operationalState = String(endpoint?.operational_state ?? '').trim().toLowerCase();
     const isWarning = operationalState !== 'reachable';
 
@@ -52,6 +73,8 @@ export const load: LayoutServerLoad = async (event: LayoutServerLoadEvent) => {
       ...zone,
       endpointCount: endpointCountByZone.get(zoneId) ?? 0,
       pendingRequests: pendingByZone.get(zoneId) ?? 0,
+      reviewRoots: reviewRootsByZone.get(zoneId)?.size ?? 0,
+      identitySourceIds: [...(directoriesByZone.get(zoneId) ?? [])],
       // Keep sidebar health semantics aligned with zone page backend summary.
       healthLabel:
         operationalSummary === 'healthy'

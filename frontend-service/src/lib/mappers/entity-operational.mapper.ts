@@ -1,14 +1,6 @@
 import { t } from '$lib/i18n';
 type OperationalHeaderTone = 'success' | 'warning' | 'danger' | 'neutral' | 'info';
 
-type ZoneOperationalAttentionInput = {
-  endpointCount: number;
-  reachableCount: number;
-  nonRunnableCount: number;
-  provisioningReady: boolean;
-  healthLabel?: 'ok' | 'warning';
-};
-
 type StorageEndpointOperationalAttentionInput = {
   healthLabel: string;
   healthDetail?: string | null;
@@ -46,33 +38,6 @@ export const visualToneToOperationalTone = (tone: string): OperationalHeaderTone
   if (normalized === 'neutral') return 'neutral';
   return 'warning';
 };
-
-export function buildZoneOperationalAttentionItems(input: ZoneOperationalAttentionInput): string[] {
-  const endpointCount = Math.max(0, Number(input.endpointCount ?? 0));
-  const reachableCount = Math.max(0, Number(input.reachableCount ?? 0));
-  const nonRunnableCount = Math.max(0, Number(input.nonRunnableCount ?? 0));
-  const unhealthyCount = Math.max(0, endpointCount - reachableCount);
-
-  const items = [
-    endpointCount === 0
-      ? t('No storage endpoint attached to this zone yet.')
-      : reachableCount === 0
-        ? t('No endpoint is currently reachable in this zone.')
-        : unhealthyCount > 0
-          ? t('{unhealthyCount} endpoint{value} not reachable.', { unhealthyCount, value: (unhealthyCount > 1 ? 's are' : ' is') })
-          : null,
-    nonRunnableCount > 0
-      ? t('{nonRunnableCount} endpoint{value} missing host and/or credentials.', { nonRunnableCount, value: (nonRunnableCount > 1 ? 's are' : ' is') })
-      : null,
-    input.provisioningReady ? null : t('Provisioning policy is incomplete.')
-  ].filter(Boolean) as string[];
-
-  if (items.length === 0 && input.healthLabel === 'warning') {
-    items.push('Zone configuration needs review.');
-  }
-
-  return [...new Set(items)];
-}
 
 export function buildStorageEndpointOperationalAttentionItems(
   input: StorageEndpointOperationalAttentionInput

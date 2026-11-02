@@ -56,6 +56,8 @@
   export let query = '';
   export let isAdmin = false;
   export let initialFilter: string | null = null;
+  /** Zone id from the link of a zone page (?zone=) */
+  export let initialZone: string | null = null;
   export let rootAlertSummary: (row: StorageRootRow) => Alert = () => null;
   export let onQueryChange: (value: string) => void = () => {};
   export let onOpenRoot: (id: number) => void = () => {};
@@ -69,7 +71,7 @@
   let filter: Filter = (['all', 'review', 'no-guardian', 'ending', 'blocking'] as const).includes(initialFilter as Filter)
     ? (initialFilter as Filter)
     : memory.filter;
-  let zoneFilter = memory.zone;
+  let zoneFilter = initialZone || memory.zone;
   let sortKey: SortKey = memory.sort;
   let desc = memory.desc;
   let shown = PAGE;

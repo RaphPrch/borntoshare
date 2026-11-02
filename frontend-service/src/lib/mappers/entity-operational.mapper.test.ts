@@ -1,39 +1,10 @@
 import assert from 'node:assert/strict';
 import {
   buildStorageEndpointOperationalAttentionItems,
-  buildZoneOperationalAttentionItems,
   endpointHealthToOperationalTone,
   healthLabelToOperationalTone,
   visualToneToOperationalTone
 } from './entity-operational.mapper';
-
-{
-  const items = buildZoneOperationalAttentionItems({
-    endpointCount: 3,
-    reachableCount: 1,
-    nonRunnableCount: 1,
-    provisioningReady: false,
-    healthLabel: 'warning'
-  });
-
-  assert.deepEqual(items, [
-    '2 endpoints are not reachable.',
-    '1 endpoint is missing host and/or credentials.',
-    'Provisioning policy is incomplete.'
-  ]);
-}
-
-{
-  const items = buildZoneOperationalAttentionItems({
-    endpointCount: 2,
-    reachableCount: 2,
-    nonRunnableCount: 0,
-    provisioningReady: true,
-    healthLabel: 'warning'
-  });
-
-  assert.deepEqual(items, ['Zone configuration needs review.']);
-}
 
 {
   const items = buildStorageEndpointOperationalAttentionItems({

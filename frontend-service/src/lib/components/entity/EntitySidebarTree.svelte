@@ -14,6 +14,8 @@
     hint?: string | null;
     /** Second line under the label (path, host…) */
     subtitle?: string | null;
+    /** Thin health bar under the subtitle: share of items in order and to review */
+    health?: { ok: number; review: number } | null;
     /** Tooltip (full path…) */
     title?: string | null;
     icon?: string | null;
@@ -425,6 +427,11 @@
                 {#if node.hint}<small>{node.hint}</small>{/if}
               </span>
               {#if node.subtitle}<span class="b2s-tree__sub">{node.subtitle}</span>{/if}
+              {#if node.health && node.health.ok + node.health.review > 0}
+                <span class="b2s-tree__health" aria-hidden="true">
+                  <i style={`flex:${node.health.ok}`}></i><i class="is-review" style={`flex:${node.health.review}`}></i>
+                </span>
+              {/if}
             </span>
             {#each [...(node.badges ?? []), ...(row.hasChildren && !row.expanded ? node.collapsedBadges ?? [] : [])] as badge}
               <span class={`b2s-tree__badge is-${badge.tone ?? 'neutral'}`} title={badge.title ?? undefined}>
@@ -760,4 +767,7 @@
   .b2s-tree__dot.is-warning { background: #ea580c; }
   .b2s-tree__dot.is-error { background: var(--b2s-color-danger); }
   .b2s-tree__dot.is-neutral { background: var(--b2s-color-text-faint); }
+  .b2s-tree__health { display: flex; gap: 2px; height: 4px; margin-top: 5px; overflow: hidden; border-radius: 99px; }
+  .b2s-tree__health i { display: block; min-width: 0; border-radius: 99px; background: var(--b2s-color-success); }
+  .b2s-tree__health i.is-review { background: var(--b2s-color-warning); }
 </style>

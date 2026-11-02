@@ -72,7 +72,7 @@
   .tile b.is-bad { color: var(--b2s-color-danger-strong); }
   .tile b.is-muted { color: var(--b2s-color-text-muted); }
   .tile small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .tile__split { display: flex; gap: 2px; height: 6px; margin-top: 8px; }
+  .tile__split { display: flex; align-self: stretch; width: 100%; gap: 2px; height: 6px; margin-top: 8px; }
   .tile__split i { display: block; min-width: 0; border-radius: 3px; }
   .tile__split i.read { background: var(--b2s-color-info); }
   .tile__split i.write { background: var(--b2s-color-warning); }

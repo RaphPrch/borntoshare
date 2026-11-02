@@ -1694,6 +1694,7 @@
     tags={(data.tags ?? []) as Array<Record<string, any>>}
     isAdmin={data.user?.is_admin === true}
     initialFilter={$page.url.searchParams.get('filter')}
+    initialZone={$page.url.searchParams.get('zone')}
     query={$storageRootsUiStore.query}
     {rootAlertSummary}
     onQueryChange={(value) => storageRootsUiStore.setQuery(value)}

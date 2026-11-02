@@ -11,6 +11,7 @@
     "test:auth-snapshot": "npx tsx ./src/lib/server/auth/principal-cookie.test.ts && npx tsx ./src/hooks.server.test.ts",
     "test:identity-sources-mapper": "npx tsx ./src/lib/mappers/identity-sources.mapper.test.ts",
     "test:principal-search": "npx tsx ./src/lib/utils/principal-search.test.ts",
+    "test:zone-summary": "npx tsx ./src/lib/components/zones/zone-summary.test.ts",
     "test:request-decision-errors": "npx tsx ./src/lib/utils/request-decision-errors.test.ts",
     "test:entity-operational-mapper": "npx tsx ./src/lib/mappers/entity-operational.mapper.test.ts",
     "test:storage-root-governance": "npx tsx ./src/lib/utils/storage-root-governance.test.ts",

@@ -7,6 +7,7 @@
     healthLabel?: "ok" | "warning";
     endpointCount?: number;
     storage_roots_count?: number | null;
+    reviewRoots?: number;
   };
 </script>
 
@@ -55,6 +56,15 @@
     iconTone: "zone",
     selectId: zone.id,
     dot: zone.healthLabel === "warning" ? "warning" : null,
+    badges: Number(zone.reviewRoots ?? 0) > 0
+      ? [{ label: String(zone.reviewRoots), tone: "warning" as const, title: t('{count} folder(s) to review', { count: Number(zone.reviewRoots) }) }]
+      : [],
+    health: Number(zone.storage_roots_count ?? 0) > 0
+      ? {
+          ok: Math.max(0, Number(zone.storage_roots_count ?? 0) - Number(zone.reviewRoots ?? 0)),
+          review: Math.min(Number(zone.reviewRoots ?? 0), Number(zone.storage_roots_count ?? 0))
+        }
+      : null,
     searchText: zone.code ?? null
   }));
 </script>
