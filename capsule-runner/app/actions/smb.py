@@ -439,6 +439,8 @@ def test_smb_root_access(params: dict):
     display_rel_path = rel_path.replace("/", "\\")
     target_label = f"\\\\{host}\\{share}" + (f"\\{display_rel_path}" if display_rel_path else "")
     ls_target = rel_path.replace("\\", "/") if rel_path else ""
+    # The root of a share has no path: smbclient refuses ls "" (NT_STATUS_NO_SUCH_FILE)
+    ls_command = f'ls "{ls_target}"' if ls_target else "ls"
 
     cmd = [
         "smbclient",
@@ -448,7 +450,7 @@ def test_smb_root_access(params: dict):
         "-p",
         str(port),
         "-c",
-        f'ls "{ls_target}"',
+        ls_command,
     ]
     safe_cmd = [
         "smbclient",
@@ -458,7 +460,7 @@ def test_smb_root_access(params: dict):
         "-p",
         str(port),
         "-c",
-        f'ls "{ls_target}"',
+        ls_command,
     ]
 
     details = {

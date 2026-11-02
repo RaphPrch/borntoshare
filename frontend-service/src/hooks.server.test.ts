@@ -268,6 +268,14 @@ async function testOnlyARejectedSessionClearsTheCookies() {
   assert((await authMeOutcome(401)) === undefined, 'a rejected session should clear the session cookie');
 }
 
+async function testSignInOnlyRedirectsInsideTheSite() {
+  const { safeInternalPath } = await import('./lib/utils/safe-redirect');
+  assert(safeInternalPath('/admin/zones?x=1#a') === '/admin/zones?x=1#a', 'a path of the site is kept');
+  for (const target of ['https://evil.example/x', '//evil.example/x', '/\\evil.example', 'evil.example', '/\t/evil.example', null]) {
+    assert(safeInternalPath(target) === '/dashboard', `${target} should not leave the site`);
+  }
+}
+
 async function testUnauthenticatedRedirectKeepsQueryString() {
   const { handle } = await createHandleDeps();
   const { event } = createEvent('/access-requests?status=pending&root=12', {});
@@ -424,6 +432,7 @@ async function run() {
   await testExpiredSnapshotFallsBackToAuthMe();
   await testInvalidSnapshotFallsBackToAuthMe();
   await testOnlyARejectedSessionClearsTheCookies();
+  await testSignInOnlyRedirectsInsideTheSite();
   await testUnauthenticatedRedirectKeepsQueryString();
   await testApiProxyHydratesPrincipalBeforeForwarding();
   await testAnonymousNeverReachesServices();

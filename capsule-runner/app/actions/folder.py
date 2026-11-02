@@ -104,12 +104,15 @@ def delete_folder(params: Dict[str, Any]):
 
 # Characters Windows refuses in a file or folder name
 _FORBIDDEN_NAME_CHARS = set('\\/:*?"<>|')
+_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *{f"COM{n}" for n in range(1, 10)}, *{f"LPT{n}" for n in range(1, 10)}}
 
 
 def folder_name_error(name: str) -> str | None:
     """Why a sub-folder name is refused, or None when it is valid."""
     if not name or name in {".", ".."}:
         return "The folder name is empty"
+    if name.split(".")[0].upper() in _RESERVED_NAMES:
+        return "This name is reserved by Windows"
     if len(name) > 255:
         return "The folder name is longer than 255 characters"
     if any(c in _FORBIDDEN_NAME_CHARS or ord(c) < 32 for c in name):

@@ -1,3 +1,4 @@
+import { humanizeFileServerMessage } from './file-server';
 import { t } from '$lib/i18n';
 import type { AppError } from './types';
 
@@ -17,6 +18,10 @@ const CODE_MESSAGES: Record<string, () => string> = {
   STORAGE_ROOT_HAS_ACCESSES: () => t('This storage root still has active accesses or pending requests: revoke or decide them first.'),
   ACCESS_NOT_IN_FORCE: () => t('This access is no longer in force: it cannot be extended.'),
   ACCESS_PERMANENT: () => t('This access has no end date: there is nothing to extend.'),
+  FOLDER_WORKER_TIMEOUT: () => t('The worker does not answer: nothing was done on the file server. Check that it is started, then try again.'),
+  FOLDER_JOB_STILL_RUNNING: () => t('The worker is still working on it: check the file server before trying again.'),
+  FOLDER_NAME_RESERVED: () => t('This name is reserved by Windows'),
+  STORAGE_ENDPOINT_DISABLED: () => t('This file server is disabled'),
   FOLDER_OPERATION_FAILED: () => t('The worker could not finish the operation on the file server.'),
   CONFIRM_NAME_MISMATCH: () => t('Type the exact name of the storage root to confirm.'),
   FOLDER_CONTEXT_INCOMPLETE: () => t('The folder, its share or the file server account is missing.'),
@@ -30,6 +35,7 @@ export function codeMessage(code: string | null | undefined): string | undefined
 }
 
 export function presentErrorMessage(error: AppError): string {
+  if (error.message?.includes('NT_STATUS_')) return humanizeFileServerMessage(error.message);
   const byCode = codeMessage(error.code);
   if (byCode) return byCode;
   if (error.status === 400) return t('Invalid request.');

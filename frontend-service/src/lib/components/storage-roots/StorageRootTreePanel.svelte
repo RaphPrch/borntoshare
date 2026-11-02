@@ -27,6 +27,8 @@
   export let query = '';
   export let selectedStorageRootId: number | null = null;
   export let rootAlertSummary: (row: StorageRootRow) => RootAlertSummary = () => null;
+  /** Administrators: folders to give guardians to, with a link to do it in one go; 0 hides it */
+  export let missingGuardians = 0;
   export let onQueryChange: (value: string) => void = () => {};
   export let onSelectRoot: (id: number) => void = () => {};
   /** Right-click menu on a storage root (platform admins): operations on its folder on the file server */
@@ -196,7 +198,11 @@
       .sort(byLabel);
   }
 
-  $: visibleRows = rows.filter((row) =>
+  let zoneFilter = '';
+  $: zoneOptions = [...new Map(rows.map((row) => [zoneKey(row), zoneLabel(row)])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
+  $: if (zoneFilter && !zoneOptions.some(([key]) => key === zoneFilter)) zoneFilter = '';
+  $: zonedRows = zoneFilter ? rows.filter((row) => zoneKey(row) === zoneFilter) : rows;
+  $: visibleRows = zonedRows.filter((row) =>
     filter === 'all' || (filter === 'review' ? toReview(row) : pendingCount(row) > 0)
   );
 
@@ -224,11 +230,25 @@
   })();
 
   $: filters = [
-    { key: 'all', label: t('All'), count: rows.length },
-    { key: 'review', label: t('To review'), count: rows.filter(toReview).length },
-    { key: 'pending', label: t('Pending requests'), count: rows.filter((row) => pendingCount(row) > 0).length }
+    { key: 'all', label: t('All'), count: zonedRows.length },
+    { key: 'review', label: t('To review'), count: zonedRows.filter(toReview).length },
+    { key: 'pending', label: t('Pending requests'), count: zonedRows.filter((row) => pendingCount(row) > 0).length }
   ];
 </script>
+
+{#if zoneOptions.length > 1 || missingGuardians > 0}
+  <div class="tree-extra">
+    {#if zoneOptions.length > 1}
+      <select class="b2s-input" aria-label={t('Filter by zone')} bind:value={zoneFilter}>
+        <option value="">{t('All zones')}</option>
+        {#each zoneOptions as [key, label] (key)}<option value={key}>{label}</option>{/each}
+      </select>
+    {/if}
+    {#if missingGuardians > 0}
+      <a class="tree-link" href="/storage-roots/guardians"><i class="bi bi-person-exclamation" aria-hidden="true"></i>{t('{count} folder(s) without enough guardians', { count: missingGuardians })}</a>
+    {/if}
+  </div>
+{/if}
 
 <EntitySidebarTree
   {onAdd}
@@ -273,3 +293,8 @@
 />
 
 <StorageRootPeek row={menuRow ? null : peekRow} anchor={peekAnchor} alert={peekRow ? rootAlertSummary(peekRow) : null} />
+
+<style>
+  .tree-extra { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .tree-link { display: flex; align-items: center; gap: 6px; color: var(--b2s-color-warning-strong); font-size: var(--b2s-font-micro); }
+</style>

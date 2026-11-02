@@ -1,3 +1,4 @@
+import { humanizeFileServerMessage } from './file-server';
 import { codeMessage } from './presenters';
 import { t } from '$lib/i18n';
 import { logAppError } from '../logging/logger';
@@ -23,7 +24,10 @@ export function toUiAppError(
 ): AppError {
   const normalized = toAppError(error, { source });
   const known = codeMessage(normalized.code);
-  const appError = known
+  // The precise cause on the file server says more than the generic message of its code
+  const appError = normalized.message?.includes('NT_STATUS_')
+    ? { ...normalized, message: humanizeFileServerMessage(normalized.message) }
+    : known
     ? { ...normalized, message: known }
     : isGenericErrorMessage(normalized.message)
       ? { ...normalized, message: fallback }

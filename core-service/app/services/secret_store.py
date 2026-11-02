@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+import uuid
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import text
@@ -103,6 +104,23 @@ def resolve(db: Session, ref: str) -> str:
 
 def exists(db: Session, ref: str) -> bool:
     return db.execute(text("SELECT 1 FROM secret_items WHERE ref = :ref"), {"ref": build_ref(ref)}).first() is not None
+
+
+_UNUSED = """
+    NOT EXISTS (SELECT 1 FROM identity_sources WHERE bind_password_ref = {ref})
+    AND NOT EXISTS (SELECT 1 FROM identity_source_service_accounts WHERE bind_password_ref = {ref})
+    AND NOT EXISTS (SELECT 1 FROM storage_endpoints WHERE bind_password_ref = {ref})
+    AND NOT EXISTS (SELECT 1 FROM sso_providers WHERE client_secret_ref = {ref})
+"""
+
+
+def store_unshared(db: Session, name: str, value: str) -> str:
+    """Store a typed password without touching one in use: names come from the host, which objects share."""
+    # Passwords typed for a test, or replaced by a new one, and never used since
+    db.execute(text(f"DELETE FROM secret_items WHERE updated_at < NOW() - INTERVAL 1 DAY AND {_UNUSED.format(ref='secret_items.ref')}"))
+    ref = build_ref(name)
+    unused = db.execute(text(f"SELECT {_UNUSED.format(ref=':ref')}"), {"ref": ref}).scalar()
+    return store(db, name if unused else f"{name}-{uuid.uuid4().hex[:8]}", value)
 
 
 def forget_unused(db: Session, refs: list[str | None]) -> None:

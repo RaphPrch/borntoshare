@@ -17,14 +17,24 @@ class _Db:
 
     def __init__(self) -> None:
         self.rows: dict[str, dict] = {}
+        self.used: set[str] = set()
         self._row = None
 
     def execute(self, statement, params=None):
         sql = " ".join(str(statement).split())
+        self.last_sql = sql
+        if sql.startswith("DELETE"):
+            return self
+        if sql.startswith("SELECT NOT EXISTS"):
+            self._used = params["ref"] in self.used
+            return self
         if sql.startswith("INSERT"):
             self.rows[params["ref"]] = {"iv": params["iv"], "ciphertext": params["ciphertext"]}
         self._row = self.rows.get(params["ref"])
         return self
+
+    def scalar(self):
+        return not self._used
 
     def mappings(self):
         return self
@@ -48,6 +58,17 @@ def test_a_stored_value_is_encrypted_and_read_back() -> None:
     assert "le-secret" not in str(db.rows)
     assert secret_store.resolve(db, ref) == "le-secret"
     assert secret_store.exists(db, ref) is True
+
+
+def test_a_password_in_use_is_never_overwritten() -> None:
+    db = _Db()
+    first = secret_store.store_unshared(db, "identity-sources/host/bind-password", "le-bon")
+    assert first == "sm://identity-sources/host/bind-password"
+    assert secret_store.store_unshared(db, "identity-sources/host/bind-password", "retest") == first
+    db.used.add(first)
+    other = secret_store.store_unshared(db, "identity-sources/host/bind-password", "autre")
+    assert other != first and other.startswith(first + "-")
+    assert secret_store.resolve(db, first) == "retest" and secret_store.resolve(db, other) == "autre"
 
 
 @pytest.mark.parametrize("bad", ["sm://", "sm://../etc/passwd", "/etc/passwd"])

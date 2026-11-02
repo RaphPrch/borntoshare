@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 import importlib
 import sys
 import uuid
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -171,6 +173,52 @@ def test_login_local_provider_unavailable_returns_503(monkeypatch) -> None:
     assert res.status_code == 503
     payload = res.json()
     assert payload["error"]["code"] == "AUTH_UNAVAILABLE"
+
+
+@pytest.mark.parametrize(
+    ("auth_source", "chosen"),
+    [("local", "ad"), ("ad", "local")],
+)
+def test_login_refuses_the_wrong_account_type(monkeypatch, auth_source, chosen) -> None:
+    from app.api import auth as auth_api
+
+    class _Provider:
+        name = auth_source
+
+        async def authenticate(self, username: str, password: str):
+            raise AssertionError("the password must not be checked")
+
+    monkeypatch.setattr(auth_api, "choose_provider", lambda _: _Provider())
+    monkeypatch.setattr(
+        auth_api,
+        "core_resolve_login_identity",
+        lambda **_kwargs: asyncio.sleep(0, result={"found": True, "is_active": True, "status": "active", "auth_source": auth_source, "identity_id": "1"}),
+    )
+
+    with _new_client() as client:
+        res = client.post("/auth/login", json={"username": "admin", "password": "secret", "provider": chosen})
+
+    assert res.status_code == 401
+    assert res.json()["error"]["code"] == "UNAUTHENTICATED"
+
+
+def test_me_follows_the_rights_lost_since_the_sign_in(monkeypatch) -> None:
+    from app.api import auth as auth_api
+    from app.schemas.auth import UserInfo
+    from app.services.providers.base import AuthUnavailable
+
+    user = UserInfo(identity_id="9", username="u", auth_source="ad", is_admin=True, roles=["platform_admin", "user"])
+    monkeypatch.setattr(auth_api, "core_get_identity_roles", lambda _id: asyncio.sleep(0, result={"roles": ["user"]}))
+    request = SimpleNamespace(cookies={}, headers={}, state=SimpleNamespace())
+    asyncio.run(auth_api._refresh_session_roles(request, user))
+    assert user.roles == ["user"] and user.is_admin is False
+
+    async def down(_id):
+        raise AuthUnavailable("core down")
+
+    monkeypatch.setattr(auth_api, "core_get_identity_roles", down)
+    asyncio.run(auth_api._refresh_session_roles(request, user))
+    assert user.roles == ["user"]
 
 
 def test_me_without_session_returns_401() -> None:

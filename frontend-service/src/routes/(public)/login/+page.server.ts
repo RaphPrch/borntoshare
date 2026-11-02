@@ -1,5 +1,6 @@
 import { fail, redirect, isRedirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { safeInternalPath } from '$lib/utils/safe-redirect';
 /* -----------------------------------------
  * LOAD
  * --------------------------------------- */
@@ -16,7 +17,7 @@ export const load: PageServerLoad = async ({ fetch, locals, url }) => {
   const ssoProviders = Array.isArray(sso?.providers)
     ? sso.providers.map((p: { id: number; label: string }) => ({ id: Number(p.id), label: String(p.label) }))
     : [];
-  const common = { ssoProviders, ssoError: url.searchParams.get('sso_error'), closedForInactivity: url.searchParams.get('reason') === 'idle', redirectTo: url.searchParams.get('redirect') };
+  const common = { ssoProviders, ssoError: url.searchParams.get('sso_error'), closedForInactivity: url.searchParams.get('reason') === 'idle', redirectTo: safeInternalPath(url.searchParams.get('redirect')) };
 
   try {
     const res = await fetch('/api/auth/providers', {
@@ -116,8 +117,7 @@ export const actions: Actions = {
         });
       }
 
-      const target =
-        url.searchParams.get('redirect') || '/dashboard';
+      const target = safeInternalPath(url.searchParams.get('redirect'));
 
       // 🔐 Auth is successful — let hooks + layout handle protection
       throw redirect(303, target);

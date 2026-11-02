@@ -45,7 +45,7 @@
     return window.location.pathname + window.location.search;
   }
 
-  function toLogin(reason: string): void {
+  function toLogin(reason?: 'idle'): void {
     const query = new URLSearchParams({ redirect: currentPath() });
     if (reason) query.set('reason', reason);
     window.location.assign(`/login?${query}`);
@@ -55,8 +55,9 @@
     lastPing = Date.now();
     try {
       const res = await fetch('/api/auth/session', { headers: { accept: 'application/json' } });
+      // Ended by the server (maximum duration, revoked), not by this countdown
       if (res.status === 401) {
-        toLogin('idle');
+        toLogin();
         return;
       }
       if (!res.ok) return;

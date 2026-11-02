@@ -59,24 +59,6 @@ class ProbeResultService:
     def __init__(self, db: Session):
         self.db = db
 
-    def initialize_storage_root_from_endpoint_probe(
-        self,
-        data: dict[str, Any],
-        *,
-        endpoint: StorageEndpoint | None,
-    ) -> dict[str, Any]:
-        endpoint_probe_status = str(getattr(endpoint, "last_probe_status", "") or "").strip().lower()
-        if endpoint_probe_status != "success" or data.get("last_probe_status"):
-            return data
-
-        probe_at = getattr(endpoint, "last_probe_at", None) or coerce_probe_datetime(None)
-        initialized = dict(data)
-        initialized["last_probe_status"] = "success"
-        initialized["last_probe_at"] = probe_at
-        initialized["last_probe_message"] = "endpoint_probe_ok"
-        initialized["last_discovery_at"] = initialized.get("last_discovery_at") or probe_at
-        return initialized
-
     def record_storage_root_probe(
         self,
         root: StorageRoot,

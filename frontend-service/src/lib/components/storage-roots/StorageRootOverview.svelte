@@ -123,7 +123,7 @@
           {#each guardianNames as name}
             <span class="ov__chip"><span class="ov__face is-tiny">{initials(name)}</span>{name}</span>
           {:else}
-            <span class="ov__warn">{t('None: requests cannot be approved')}</span>
+            <button type="button" class="ov__warn" on:click={onOpenGuardians}>{t('None: only the administrators can approve the requests. Choose guardians')}</button>
           {/each}
           <button type="button" class="ov__add" aria-label={t('Manage the guardians')} on:click={onOpenGuardians}><i class="bi bi-plus" aria-hidden="true"></i></button>
         </EntityProperty>
@@ -328,6 +328,12 @@
   }
 
   .ov__warn {
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    text-decoration: underline;
+    cursor: pointer;
     color: var(--b2s-color-warning-strong);
   }
 

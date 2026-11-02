@@ -15,66 +15,6 @@ class _NoopDB:
     pass
 
 
-def test_initialize_storage_root_from_successful_endpoint_probe_sets_reachability_fields() -> None:
-    probe_at = datetime(2026, 6, 5, 8, 30, tzinfo=timezone.utc)
-    endpoint = StorageEndpoint(
-        id=7011,
-        name="FILER",
-        endpoint_type="smb",
-        protocol="smb",
-        host="192.168.100.40",
-        zone_id=1101,
-        capabilities={},
-        status="active",
-        is_active=True,
-        last_probe_status="success",
-        last_probe_at=probe_at,
-        last_probe_message="probe_ok",
-    )
-
-    data = {
-        "storage_endpoint_id": 7011,
-        "name": "FINANCE",
-        "root_path": r"\\192.168.100.40\FINANCE",
-        "status": "active",
-    }
-
-    initialized = ProbeResultService(_NoopDB()).initialize_storage_root_from_endpoint_probe(data, endpoint=endpoint)
-
-    assert initialized["last_probe_status"] == "success"
-    assert initialized["last_probe_at"] == probe_at
-    assert initialized["last_probe_message"] == "endpoint_probe_ok"
-    assert initialized["last_discovery_at"] == probe_at
-
-
-def test_initialize_storage_root_preserves_explicit_root_probe_status() -> None:
-    endpoint = StorageEndpoint(
-        id=7011,
-        name="FILER",
-        endpoint_type="smb",
-        protocol="smb",
-        host="192.168.100.40",
-        zone_id=1101,
-        capabilities={},
-        status="active",
-        is_active=True,
-        last_probe_status="success",
-    )
-    data = {
-        "storage_endpoint_id": 7011,
-        "name": "BROKEN",
-        "root_path": r"\\192.168.100.40\BROKEN",
-        "last_probe_status": "failed",
-        "last_probe_message": "root_probe_failed",
-    }
-
-    initialized = ProbeResultService(_NoopDB()).initialize_storage_root_from_endpoint_probe(data, endpoint=endpoint)
-
-    assert initialized is data
-    assert initialized["last_probe_status"] == "failed"
-    assert initialized["last_probe_message"] == "root_probe_failed"
-
-
 def test_storage_root_discovery_sync_payload_defaults_to_complete_discovery() -> None:
     payload = StorageRootDiscoverySyncPayload(storage_endpoint_id=12, roots=[])
 

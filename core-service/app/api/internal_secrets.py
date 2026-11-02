@@ -41,7 +41,7 @@ class SecretRefIn(BaseModel):
 @router.post("/store")
 def store_secret(payload: StoreSecretIn, db: Session = Depends(get_db)):
     try:
-        return ui_data({"ref": secret_store.store(db, payload.name, payload.value)})
+        return ui_data({"ref": secret_store.store_unshared(db, payload.name, payload.value)})
     except secret_store.SecretError as exc:
         raise _refuse(exc) from exc
 

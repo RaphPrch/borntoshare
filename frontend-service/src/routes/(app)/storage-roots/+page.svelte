@@ -47,14 +47,8 @@
     normalizeStorageRootRow,
     type StorageRootRow,
     type StorageRootTagLike,
-    rootPathKey
   } from '$lib/utils/storage-roots';
   import {
-    endpointIdOf,
-    endpointNameOf,
-    endpointProtocolOf,
-    endpointZoneIdOf,
-    rootLabelFromPath
   } from '$lib/mappers/storage-roots.mapper';
   import {
     displayStorageRootTags,
@@ -84,13 +78,12 @@
     type StorageRootsDetailTab
   } from '$lib/stores/storage-roots-ui.store';
   import StorageRootOwnersAdModal from '$lib/components/storage-roots/StorageRootOwnersAdModal.svelte';
-  import AddStorageRootModal from '$lib/components/storage-roots/AddStorageRootModal.svelte';
   import StorageEndpointWizardModal from '$lib/components/storage-endpoints/StorageEndpointWizardModal.svelte';
-  import { runProbeWithPolling, syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
+  import { syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
+  import { humanizeFileServerMessage } from '$lib/errors/file-server';
   import {
     buildStorageEndpointProbeRequestFromEndpoint,
     buildStorageRootProbeRequest,
-    parseStorageEndpointProbeRoots,
     resolveStorageEndpointProbeConfig,
     validateStorageEndpointProbeConfig
   } from '$lib/jobs/storage-endpoint-probe';
@@ -111,7 +104,6 @@
   import StorageRootEmptyState from '$lib/components/storage-roots/StorageRootEmptyState.svelte';
   import ConfirmDeleteDialog from '$lib/components/ui/ConfirmDeleteDialog.svelte';
   import { showApiErrorToast } from '$lib/errors/api-toast';
-  import type { AddRootFolder, AddRootZone } from '$lib/components/storage-roots/add-storage-root.types';
   import { canDeleteManagedObject } from '$lib/utils/permissions';
 
   export let data: {
@@ -544,7 +536,7 @@
   const alertItemFromRow = (alert: GovernanceAlert): StorageRootDetailAlertItem => ({
     key: String(alert?.alert_key ?? alert?.id ?? `${alert?.alert_type ?? 'alert'}-${alert?.scope_id ?? ''}`),
     title: alertTitle(alert),
-    subtitle: storageRootAlertSummarySubtitle(alert),
+    subtitle: humanizeFileServerMessage(storageRootAlertSummarySubtitle(alert)),
     tone: storageRootAlertTone(alert)
   });
 
@@ -717,322 +709,10 @@
   /* Add root wizard                                                             */
   /* -------------------------------------------------------------------------- */
 
-  let addRootModalOpen = false;
   let showEndpointWizard = false;
-  let addRootLoading = false;
-  let addRootSelectedZoneId: string | number | null = null;
-  let addRootSelectedEndpointId: string | number | null = null;
-  let addRootSelectedFolderId: string | number | null = null;
-  let addRootSelectedFolderIds: Array<string | number> = [];
-  let discoveredFoldersByEndpointId: Record<number, AddRootFolder[]> = {};
-  let endpointDiscoveryBusyById: Record<string, boolean> = {};
-  let endpointDiscoveryStateById: Record<number, { status: 'idle' | 'running' | 'success' | 'failed'; message?: string | null; lastRefreshAt?: string | null }> = {};
-  let addRootZones: AddRootZone[] = [];
 
   function openCreateRoot() {
-    const endpointRows = Array.isArray(data.endpoints) ? data.endpoints : [];
-    if (endpointRows.length === 0) {
-      toast.warning(t('No storage endpoint available to create a storage root'));
-      return;
-    }
-
-    addRootModalOpen = true;
-    addRootSelectedFolderId = null;
-    addRootSelectedFolderIds = [];
-    addRootSelectedZoneId = addRootZones[0]?.id ?? null;
-    addRootSelectedEndpointId = addRootZones[0]?.endpoints?.[0]?.id ?? null;
-  }
-
-  const endpointRefreshState = (endpointId: number) =>
-    endpointDiscoveryStateById[endpointId] ?? { status: 'idle' as const, message: null, lastRefreshAt: null };
-
-  function rebuildAddRootZones() {
-    const endpointRows = Array.isArray(data.endpoints) ? data.endpoints : [];
-    const byZone = new Map<string, AddRootZone>();
-    const endpointBasePathOf = (endpoint: any): string =>
-      String(
-        endpoint?.base_path ??
-          endpoint?.discovery_base_path ??
-          endpoint?.root_path ??
-          endpoint?.share_path ??
-          endpoint?.path ??
-          ''
-      ).trim();
-
-    for (const endpoint of endpointRows) {
-      const endpointId = endpointIdOf(endpoint);
-      const rawZoneId = endpointZoneIdOf(endpoint);
-      const zoneId = Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId}`;
-      const key = String(zoneId);
-      const zoneName = String(endpoint?.zone_name ?? endpoint?.zone?.name ?? t('Unassigned zone'));
-
-      if (!byZone.has(key)) {
-        byZone.set(key, {
-          id: zoneId,
-          name: zoneName,
-          discoveryCount: 0,
-          endpoints: [],
-          discoveredFolders: []
-        });
-      }
-
-      const zone = byZone.get(key)!;
-      const endpointFolders = discoveredFoldersByEndpointId[endpointId] ?? [];
-      const endpointEntry = {
-        id: endpointId,
-        name: endpointNameOf(endpoint),
-        zoneName,
-        protocol: endpointProtocolOf(endpoint),
-        basePath: endpointBasePathOf(endpoint) || null,
-        status: endpoint?.status ?? endpoint?.operational_status ?? null,
-        host: endpoint?.host ?? endpoint?.hostname ?? null,
-        discoveryCount: endpointFolders.length,
-        discoveredFolders: endpointFolders,
-        refreshing: Boolean(endpointDiscoveryBusyById[String(endpointId)]),
-        refreshStatus: endpointRefreshState(endpointId).status,
-        refreshMessage: endpointRefreshState(endpointId).message ?? null,
-        lastRefreshAt: endpointRefreshState(endpointId).lastRefreshAt ?? null,
-        lastProbeAt: endpoint?.last_probe_at ?? endpoint?.probe_at ?? null,
-        lastProbeStatus: endpoint?.last_probe_status ?? endpoint?.probe_status ?? null
-      };
-
-      zone.endpoints.push(endpointEntry);
-      zone.discoveryCount += endpointEntry.discoveryCount;
-      zone.discoveredFolders.push(...endpointFolders.map((folder) => ({ ...folder, zoneId: zone.id })));
-    }
-
-    addRootZones = Array.from(byZone.values()).sort((a, b) => String(a.name).localeCompare(String(b.name), 'en'));
-  }
-
-  async function runDiscoveryForEndpoint(endpoint: any, zoneId: string | number): Promise<AddRootFolder[]> {
-    const endpointId = endpointIdOf(endpoint);
-    const protocolRaw = String(endpoint?.protocol ?? endpoint?.type ?? endpoint?.storage_endpoint_type ?? '').trim().toLowerCase();
-    const protocol = endpointProtocolOf(endpoint);
-    const probeConfig = resolveStorageEndpointProbeConfig(endpoint);
-    const validation = validateStorageEndpointProbeConfig(probeConfig, { label: t('Storage endpoint') });
-
-    if (!Number.isFinite(endpointId) || endpointId <= 0 || (protocolRaw !== 'smb' && protocolRaw !== 'cifs') || !validation.ok) {
-      return discoveredFoldersByEndpointId[endpointId] ?? [];
-    }
-
-    const request = buildStorageEndpointProbeRequestFromEndpoint(endpoint, {
-      discover: true,
-      timeoutSec: 30,
-      uiOrigin: 'admin'
-    });
-
-    const final = await runProbeWithPolling({
-      fetchFn: fetch,
-      request,
-      intervalMs: 1500,
-      maxAttempts: 80
-    });
-
-    if (!final.ok) {
-      throw new Error(final.errorMessage || t('Discovery failed for endpoint {endpointNameOf}', { endpointNameOf: endpointNameOf(endpoint) }));
-    }
-
-    await syncStorageRootDiscoveryForEndpoint(fetch, endpointId, final.result);
-
-    const roots = parseStorageEndpointProbeRoots(final.result);
-    return roots.map((rootPath, index) => ({
-      id: `probe-${endpointId}-${index}-${rootPath}`,
-      zoneId,
-      protocol,
-      folderName: rootLabelFromPath(rootPath),
-      endpointId,
-      rootPath
-    }));
-  }
-
-  async function handleTriggerEndpointDiscovery(zoneId: string | number, endpointIdRaw: string | number) {
-    const endpointId = Number(endpointIdRaw ?? 0);
-    if (!Number.isFinite(endpointId) || endpointId <= 0) {
-      toast.warning(t('Invalid storage endpoint selected'));
-      return;
-    }
-
-    const endpoint = (Array.isArray(data.endpoints) ? data.endpoints : []).find((row: any) => endpointIdOf(row) === endpointId);
-    if (!endpoint) {
-      toast.warning(t('Storage endpoint not found'));
-      return;
-    }
-
-    endpointDiscoveryBusyById = { ...endpointDiscoveryBusyById, [String(endpointId)]: true };
-    endpointDiscoveryStateById = {
-      ...endpointDiscoveryStateById,
-      [endpointId]: {
-        status: 'running',
-        message: null,
-        lastRefreshAt: endpointRefreshState(endpointId).lastRefreshAt ?? null
-      }
-    };
-
-    try {
-      const next = { ...discoveredFoldersByEndpointId };
-      const discovered = await runDiscoveryForEndpoint(endpoint, zoneId);
-      next[endpointId] = discovered;
-
-      discoveredFoldersByEndpointId = next;
-      endpointDiscoveryStateById = {
-        ...endpointDiscoveryStateById,
-        [endpointId]: {
-          status: 'success',
-          message: null,
-          lastRefreshAt: new Date().toISOString()
-        }
-      };
-
-      addRootSelectedZoneId = zoneId;
-      addRootSelectedEndpointId = endpointId;
-      addRootSelectedFolderId = null;
-      toast.success(t('{count} storage root(s) found', { count: discovered.length }));
-    } catch (e: any) {
-      endpointDiscoveryStateById = {
-        ...endpointDiscoveryStateById,
-        [endpointId]: {
-          status: 'failed',
-          message: String(e?.message ?? t('Endpoint discovery failed')),
-          lastRefreshAt: new Date().toISOString()
-        }
-      };
-      toast.error(e?.message ?? t('Endpoint discovery failed'));
-    } finally {
-      endpointDiscoveryBusyById = { ...endpointDiscoveryBusyById, [String(endpointId)]: false };
-    }
-  }
-
-  function handleSelectAddRootZone(zoneId: string | number) {
-    addRootSelectedZoneId = zoneId;
-    const zone = addRootZones.find((z) => String(z.id) === String(zoneId));
-    addRootSelectedEndpointId = zone?.endpoints?.[0]?.id ?? null;
-    addRootSelectedFolderId = null;
-    addRootSelectedFolderIds = [];
-  }
-
-  function handleSelectAddRootEndpoint(zoneId: string | number, endpointId: string | number) {
-    addRootSelectedZoneId = zoneId;
-    addRootSelectedEndpointId = endpointId;
-    addRootSelectedFolderId = null;
-    addRootSelectedFolderIds = [];
-  }
-
-  function handleSelectAddRootFolder(folderId: string | number) {
-    addRootSelectedFolderId = folderId;
-    if (!addRootSelectedFolderIds.some((value) => String(value) === String(folderId))) {
-      addRootSelectedFolderIds = [folderId];
-    }
-  }
-
-  function handleSelectAddRootFolders(folderIds: Array<string | number>) {
-    addRootSelectedFolderIds = folderIds;
-    addRootSelectedFolderId = folderIds[0] ?? null;
-  }
-
-  function closeAddRootModal() {
-    addRootModalOpen = false;
-    addRootLoading = false;
-    addRootSelectedEndpointId = null;
-    addRootSelectedFolderId = null;
-    addRootSelectedFolderIds = [];
-  }
-
-  const selectedAddRootFolders = (folderIds: Array<string | number> = addRootSelectedFolderIds): AddRootFolder[] => {
-    const ids = folderIds.length > 0 ? folderIds : addRootSelectedFolderId ? [addRootSelectedFolderId] : [];
-    if (ids.length === 0) return [];
-    const found: AddRootFolder[] = [];
-    for (const zone of addRootZones) {
-      for (const endpoint of zone.endpoints) {
-        for (const folder of endpoint.discoveredFolders ?? []) {
-          if (ids.some((folderId) => String(folderId) === String(folder.id))) {
-            found.push(folder);
-          }
-        }
-      }
-    }
-    return found.filter((folder, index, rows) => rows.findIndex((candidate) => String(candidate.id) === String(folder.id)) === index);
-  };
-
-  const normalizeRootPathForParentLookup = (value: unknown): string => rootPathKey(value);
-
-  const managedParentForFolder = (folder: AddRootFolder): StorageRootRow | null => {
-    const folderEndpointId = Number(folder?.endpointId ?? 0);
-    const folderPath = normalizeRootPathForParentLookup(folder?.rootPath);
-    if (!Number.isFinite(folderEndpointId) || folderEndpointId <= 0 || !folderPath) return null;
-
-    return ctxRows
-      .filter((row) => Number(row?.storage_endpoint_id ?? 0) === folderEndpointId)
-      .map((row) => ({
-        row,
-        path: normalizeRootPathForParentLookup(row?.normalized_root_path ?? row?.root_path)
-      }))
-      .filter(({ path }) => path && folderPath !== path && folderPath.startsWith(`${path}/`))
-      .sort((a, b) => b.path.length - a.path.length)
-      .map(({ row }) => row)[0] ?? null;
-  };
-
-  const managedRootKeysForAddWizard = (rows: typeof ctxRows): string[] =>
-    rows.map((row) => `${Number(row?.storage_endpoint_id ?? 0)}:${normalizeRootPathForParentLookup(row?.normalized_root_path ?? row?.root_path)}`);
-
-  async function createStorageRootFromSelection(options: { inheritGovernance?: boolean; folderIds?: Array<string | number> } = {}) {
-    const selectedFolders = selectedAddRootFolders(options.folderIds ?? addRootSelectedFolderIds);
-    if (selectedFolders.length === 0) {
-      toast.warning(t('Select a discovered folder first'));
-      return;
-    }
-
-    addRootLoading = true;
-    try {
-      const createdRoots = [];
-      for (const selectedFolder of selectedFolders) {
-        const managedParent = managedParentForFolder(selectedFolder);
-        const inheritGovernance = Boolean(managedParent) && options.inheritGovernance !== false;
-        const created = await createStorageRoot(fetch, {
-          storage_endpoint_id: Number(selectedFolder.endpointId),
-          parent_storage_root_id: managedParent ? Number(managedParent.storage_root_id) : null,
-          name: selectedFolder.folderName,
-          root_path: selectedFolder.rootPath,
-          inherit_owners: inheritGovernance,
-          inherit_tags: inheritGovernance,
-          status: 'active'
-        });
-        createdRoots.push(created);
-      }
-
-      toast.success(t('{count} storage root{value} created', { count: createdRoots.length, value: (createdRoots.length > 1 ? 's' : '') }));
-      detailsCache.clear();
-      closeAddRootModal();
-      const selectedCreatedId = createdRoots[0]?.id;
-      await goto(selectedCreatedId ? `/storage-roots?selected=${selectedCreatedId}` : '/storage-roots', { replaceState: true });
-      await refreshStorageRootsLoad();
-    } catch {
-      toast.error(t('Storage root operation failed'));
-    } finally {
-      addRootLoading = false;
-    }
-  }
-
-  $: if (addRootModalOpen && addRootZones.length > 0) {
-    if (!addRootSelectedZoneId) {
-      addRootSelectedZoneId = addRootZones[0].id;
-    }
-    const selectedZone = addRootZones.find((z) => String(z.id) === String(addRootSelectedZoneId));
-    if (selectedZone && !addRootSelectedEndpointId) {
-      addRootSelectedEndpointId = selectedZone.endpoints?.[0]?.id ?? null;
-    }
-  }
-
-  $: {
-    const _endpointRows = data.endpoints ?? [];
-    const _discovered = discoveredFoldersByEndpointId;
-    const _busy = endpointDiscoveryBusyById;
-    const _state = endpointDiscoveryStateById;
-    void _endpointRows;
-    void _discovered;
-    void _busy;
-    void _state;
-
-    rebuildAddRootZones();
+    void goto('/storage-roots/add');
   }
 
   /* -------------------------------------------------------------------------- */
@@ -2026,6 +1706,7 @@
   <EntityWorkspace title={t('Storage roots')}>
     <svelte:fragment slot="list">
       <StorageRootTreePanel
+        missingGuardians={data.user?.is_admin === true ? (data.storageRootAlerts ?? []).filter((alert) => (alert as any)?.alert_type === 'missing_guardian').length : 0}
         onAdd={data.user?.is_admin === true ? openCreateRoot : null}
         addLabel={t('Add storage roots')}
         rows={ctxRows}
@@ -2098,24 +1779,6 @@
     toast.success(t('Storage endpoint created.'));
     await refreshStorageRootsLoad();
   }}
-/>
-
-<AddStorageRootModal
-  open={addRootModalOpen}
-  zones={addRootZones}
-  selectedZoneId={addRootSelectedZoneId}
-  selectedEndpointId={addRootSelectedEndpointId}
-  selectedFolderId={addRootSelectedFolderId}
-  selectedFolderIds={addRootSelectedFolderIds}
-  managedRootKeys={managedRootKeysForAddWizard(ctxRows)}
-  loading={addRootLoading}
-  on:close={closeAddRootModal}
-  on:selectZone={(event) => handleSelectAddRootZone(event.detail.zoneId)}
-  on:selectEndpoint={(event) => handleSelectAddRootEndpoint(event.detail.zoneId, event.detail.endpointId)}
-  on:triggerEndpointDiscovery={(event) => handleTriggerEndpointDiscovery(event.detail.zoneId, event.detail.endpointId)}
-  on:selectFolder={(event) => handleSelectAddRootFolder(event.detail.folderId)}
-  on:selectFolders={(event) => handleSelectAddRootFolders(event.detail.folderIds)}
-  on:create={(event) => createStorageRootFromSelection(event.detail)}
 />
 
 <StorageRootFormModal

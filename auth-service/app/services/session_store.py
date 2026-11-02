@@ -63,6 +63,7 @@ class SessionStore(Protocol):
     def get(self, session_id: str) -> Optional[SessionRecord]: ...
     def delete(self, session_id: str) -> None: ...
     def list(self) -> list[SessionRecord]: ...
+    def update_user(self, session_id: str, user: UserInfo) -> None: ...
 
 
 # -----------------------------------------------------------
@@ -124,6 +125,11 @@ class InMemorySessionStore:
         # Update last_seen
         rec.last_seen = _utcnow()
         return rec
+
+    def update_user(self, session_id: str, user: UserInfo) -> None:
+        rec = self._data.get(session_id)
+        if rec:
+            rec.user = user
 
     def delete(self, session_id: str) -> None:
         self._data.pop(session_id, None)
@@ -291,6 +297,13 @@ class RedisSessionStore:
         ttl = self._effective_ttl(rec)
         self._client.set(name=key, value=self._encode_record(rec), ex=ttl)
         return rec
+
+    def update_user(self, session_id: str, user: UserInfo) -> None:
+        raw = self._client.get(self._sess_key(session_id))
+        rec = self._decode_record(raw) if raw else None
+        if rec:
+            rec.user = user
+            self._client.set(name=self._sess_key(session_id), value=self._encode_record(rec), ex=self._effective_ttl(rec))
 
     def delete(self, session_id: str) -> None:
         key = self._sess_key(session_id)

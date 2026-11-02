@@ -705,6 +705,27 @@ async def _authenticate_login(payload: LoginRequest, request: Request) -> tuple[
                 message="Invalid credentials",
             )
 
+    # The account type chosen on the sign-in page must be the one of the account.
+    # Same answer as a wrong password: the page does not tell which accounts exist.
+    chosen_provider = str(payload.provider or "").strip().lower()
+    if chosen_provider and chosen_provider != requested_provider:
+        log_event(
+            logger,
+            logging.WARNING,
+            "AUTH_LOGIN_FAILED",
+            request_id=rid,
+            actor=payload.username,
+            provider=chosen_provider,
+            outcome="account_type_mismatch",
+            status_code=401,
+            error_code="UNAUTHENTICATED",
+        )
+        raise _http_error(
+            status.HTTP_401_UNAUTHORIZED,
+            code="UNAUTHENTICATED",
+            message="Invalid credentials",
+        )
+
     try:
         provider = choose_provider(requested_provider)
     except ValueError:
@@ -1023,6 +1044,28 @@ def revoke_identity_sessions(
     return {"ok": True, "closed": closed}
 
 
+async def _refresh_session_roles(request: Request, user: UserInfo) -> None:
+    """Rights lost (group left, role removed) apply to the open sessions, not only at the next sign-in."""
+    if not user.identity_id:
+        return
+    try:
+        data = await core_get_identity_roles(user.identity_id)
+    except (AuthUnavailable, IdentitySourceNotFound):
+        return  # core-service does not answer: the rights known at sign-in stay until it does
+    roles = data.get("roles") if isinstance(data, dict) else None
+    if not isinstance(roles, list):
+        return
+    fresh = [str(role) for role in roles]
+    if sorted(fresh) == sorted(str(role) for role in (user.roles or [])):
+        return
+    user.roles = fresh
+    user.is_admin = bool({role.strip().lower() for role in fresh} & {"platform_admin", "admin"})
+    sid = request.cookies.get(settings.SESSION_COOKIE_NAME)
+    if sid:
+        get_session_store().update_user(sid, user)
+    log_event(logger, logging.INFO, "AUTH_SESSION_ROLES_CHANGED", actor=user.username, outcome="success", request_id=_request_id(request))
+
+
 @router.get("/me", response_model=UserInfo)
 async def me(
     request: Request,
@@ -1037,6 +1080,7 @@ async def me(
     - no enrichment
     - no recomputation
     """
+    await _refresh_session_roles(request, user)
     _set_principal_cookie(request, response, user)
     log_event(
         logger,

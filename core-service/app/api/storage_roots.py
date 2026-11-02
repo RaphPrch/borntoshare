@@ -456,6 +456,35 @@ def _assert_root_on_endpoint_host(db: Session, *, storage_endpoint_id: int, root
         )
 
 
+_SYSTEM_SHARES = {"ADMIN$", "IPC$", "PRINT$", "SYSVOL", "NETLOGON"}
+_RESERVED_FOLDER_NAMES = {"CON", "PRN", "AUX", "NUL", *{f"COM{n}" for n in range(1, 10)}, *{f"LPT{n}" for n in range(1, 10)}}
+
+
+def _root_path_error(endpoint_type: str | None, root_path: str | None) -> str | None:
+    """Why a path cannot be a storage root: a UNC path on a real share, without any way out of it."""
+    raw = str(root_path or "").strip()
+    parts = [part for part in raw.replace("\\", "/").split("/") if part]
+    if any(part in {".", ".."} for part in parts):
+        return "The path cannot contain . or .."
+    if str(endpoint_type or "").strip().lower() not in {"smb", "cifs"}:
+        return None
+    if not (raw.startswith("\\\\") or raw.startswith("//")) or len(parts) < 2:
+        return "Enter a network path such as \\\\server\\share"
+    share = parts[1].upper()
+    if share in _SYSTEM_SHARES or (len(share) == 2 and share[0].isalpha() and share[1] == "$"):
+        return "A system share cannot be managed"
+    return None
+
+
+def _assert_valid_root_path(endpoint: StorageEndpoint | None, root_path: str | None) -> None:
+    message = _root_path_error(getattr(endpoint, "endpoint_type", None), root_path)
+    if message:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "STORAGE_ROOT_PATH_INVALID", "message": message},
+        )
+
+
 def _normalize_storage_root_path(value: str | None) -> str:
     raw = str(value or "").strip().replace("\\", "/")
     while "//" in raw:
@@ -664,6 +693,79 @@ def _parse_discovered_at(value: str | None) -> datetime:
 # ============================================================
 # READ MODELS (V2.1+ — VIEWS ONLY)
 # ============================================================
+
+def _discovered_snapshots(db: Session) -> list[tuple[StorageEndpoint, dict[str, Any], set[str]]]:
+    """Each file server, the folders found by its last discovery, and the paths already managed."""
+    managed: dict[int, set[str]] = {}
+    rows = db.execute(text("SELECT storage_endpoint_id, root_path FROM storage_roots")).all()
+    for endpoint_id, root_path in rows:
+        managed.setdefault(int(endpoint_id), set()).add(_normalize_root_path(root_path))
+    out = []
+    for endpoint in db.query(StorageEndpoint).order_by(StorageEndpoint.name).all():
+        if not endpoint.is_active or str(endpoint.status or "").strip().lower() == "disabled":
+            continue
+        capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
+        snapshot = capabilities.get("discovered_roots_snapshot")
+        out.append((endpoint, snapshot if isinstance(snapshot, dict) else {}, managed.get(int(endpoint.id), set())))
+    return out
+
+
+def _discovered_item(endpoint: StorageEndpoint, root: dict[str, Any], managed: set[str]) -> dict[str, Any]:
+    root_path = str(root.get("root_path") or "")
+    return {
+        "storage_endpoint_id": int(endpoint.id),
+        "storage_endpoint_name": endpoint.name,
+        "name": str(root.get("name") or _derive_root_name_from_path(root_path)),
+        "root_path": root_path,
+        "managed": _normalize_root_path(root_path) in managed,
+    }
+
+
+@router.get("/discovered/servers", dependencies=[Depends(admin_only)])
+def list_discovered_servers(db: Session = Depends(get_db)):
+    """Per file server: when its folders were last listed, how many, how many are not managed yet."""
+    items = []
+    for endpoint, snapshot, managed in _discovered_snapshots(db):
+        roots = [root for root in snapshot.get("roots") or [] if isinstance(root, dict)]
+        new_count = sum(1 for root in roots if _normalize_root_path(root.get("root_path")) not in managed)
+        items.append(
+            {
+                "storage_endpoint_id": int(endpoint.id),
+                "discovered_at": snapshot.get("discovered_at"),
+                "roots_count": len(roots),
+                "new_count": new_count,
+            }
+        )
+    return ui_list(items)
+
+
+@router.get("/discovered", dependencies=[Depends(admin_only)])
+def list_discovered_roots(
+    storage_endpoint_id: int | None = Query(default=None, gt=0),
+    q: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """Folders of one file server, or the folders still to manage matching a search on all of them."""
+    term = str(q or "").strip().lower()
+    if storage_endpoint_id is None and not term:
+        raise HTTPException(status_code=422, detail="storage_endpoint_id or q is required")
+    items = []
+    for endpoint, snapshot, managed in _discovered_snapshots(db):
+        if storage_endpoint_id is not None and int(endpoint.id) != storage_endpoint_id:
+            continue
+        for root in snapshot.get("roots") or []:
+            if not isinstance(root, dict):
+                continue
+            item = _discovered_item(endpoint, root, managed)
+            if storage_endpoint_id is None and (item["managed"] or term not in f"{item['name']} {item['root_path']}".lower()):
+                continue
+            items.append(item)
+    total = len(items)
+    if storage_endpoint_id is None:
+        items = items[:limit]
+    return ui_data({"items": items, "total": total})
+
 
 @router.get("/context")
 def list_storage_roots_context(
@@ -1107,9 +1209,164 @@ async def create_root(
       - GET /storage-roots/context
       - GET /storage-roots/{id}/overview
     """
+    root = _create_storage_root(payload, request, db)
+    await _queue_root_check(int(root.id))
+    return ui_action(action_id=int(root.id), message="storage_root.created")
+
+
+async def _queue_root_check(root_id: int) -> None:
+    """A new folder is unverified until the worker has really opened it and read its ACL."""
+    from app.services.probe_service import submit_probe_run
+
+    try:
+        await submit_probe_run({
+            "kind": "storage-root", "protocol": "smb", "scope": "read",
+            "target": {"storage_root_id": int(root_id)},
+            "options": {"timeout_sec": 30},
+            "context": {"storage_root_id": int(root_id), "ui_origin": "storage_root_create"},
+        })
+    except HTTPException:
+        # Not an SMB server, no account...: the folder stays « to verify », visible as such
+        pass
+
+
+class StorageRootBulkItem(BaseModel):
+    storage_endpoint_id: int = Field(gt=0)
+    name: str = Field(min_length=1, max_length=190)
+    root_path: str = Field(min_length=1, max_length=512)
+
+
+class StorageRootBulkPayload(BaseModel):
+    items: list[StorageRootBulkItem] = Field(min_length=1, max_length=100)
+    guardian_ids: list[int] = Field(default_factory=list)
+    tag_ids: list[int] = Field(default_factory=list)
+
+
+def _refusal_text(exc: Exception) -> str:
+    detail = getattr(exc, "detail", "The operation failed")
+    return str(detail.get("message") or detail.get("code")) if isinstance(detail, dict) else str(detail)
+
+
+@router.post("/bulk", dependencies=[Depends(admin_only)])
+async def create_roots_in_bulk(
+    payload: StorageRootBulkPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Create several storage roots: a refused folder does not stop the others, and each one is answered for."""
+    from app.api.tags import attach_tag
+    from app.schemas.tag_attachment import TagAttachmentRequest
+
+    actor = actor_from_request(request)
+    created: list[dict[str, Any]] = []
+    failed: list[dict[str, Any]] = []
+    for item in payload.items:
+        answer = {"storage_endpoint_id": item.storage_endpoint_id, "name": item.name, "root_path": item.root_path}
+        try:
+            root = _create_storage_root(
+                StorageRootCreate(
+                    storage_endpoint_id=item.storage_endpoint_id,
+                    name=item.name,
+                    root_path=item.root_path,
+                    status="active",
+                ),
+                request,
+                db,
+                inherit_from_parent=True,
+            )
+        except Exception as exc:
+            # Whatever happens to one folder, the others of the batch go on
+            db.rollback()
+            reason = _refusal_text(exc) if isinstance(exc, HTTPException) else "The folder could not be saved"
+            failed.append({**answer, "message": reason})
+            log_activity(
+                db,
+                actor_type="user" if actor.identity_id is not None else "system",
+                actor_id=actor.identity_id,
+                actor_display=actor.display_name,
+                action="storage_root.created",
+                outcome="failure",
+                target_type="storage_root",
+                target_display=item.name,
+                context_json={"root_path": item.root_path, "storage_endpoint_id": item.storage_endpoint_id, "reason": reason},
+                correlation_id=(request.headers.get("x-request-id") or None),
+            )
+            continue
+        # The folder exists: guardians or tags refused are a warning to act on, not a failed creation
+        warnings: list[str] = []
+        if payload.guardian_ids:
+            try:
+                replace_storage_root_owners(
+                    int(root.id), StorageRootOwnersUpdatePayload(guardian_ids=payload.guardian_ids), request, db
+                )
+            except Exception as exc:
+                db.rollback()
+                warnings.append(_refusal_text(exc))
+        for tag_id in payload.tag_ids:
+            try:
+                attach_tag(
+                    TagAttachmentRequest(tag_id=int(tag_id), resource_type="storage_root", resource_id=int(root.id)),
+                    request,
+                    db,
+                )
+            except Exception as exc:
+                db.rollback()
+                warnings.append(_refusal_text(exc))
+        await _queue_root_check(int(root.id))
+        created.append({**answer, "id": int(root.id), "warnings": warnings})
+    return ui_data({"created": created, "failed": failed})
+
+
+class StorageRootBulkGuardiansPayload(BaseModel):
+    root_ids: list[int] = Field(min_length=1, max_length=100)
+    guardian_ids: list[int] = Field(min_length=1, max_length=20)
+
+
+@router.post("/bulk-guardians", dependencies=[Depends(admin_only)])
+def add_guardians_in_bulk(
+    payload: StorageRootBulkGuardiansPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Add guardians to several storage roots, keeping those they already have; each one is answered for."""
+    updated: list[int] = []
+    failed: list[dict[str, Any]] = []
+    for root_id in payload.root_ids:
+        try:
+            current = _load_existing_guardian_ids(db, storage_root_id=int(root_id))
+            replace_storage_root_owners(
+                int(root_id),
+                StorageRootOwnersUpdatePayload(guardian_ids=sorted({*current, *payload.guardian_ids})),
+                request,
+                db,
+            )
+            updated.append(int(root_id))
+        except Exception as exc:
+            db.rollback()
+            failed.append({"storage_root_id": int(root_id), "message": _refusal_text(exc)})
+    return ui_data({"updated": updated, "failed": failed})
+
+
+def _create_storage_root(
+    payload: StorageRootCreate,
+    request: Request,
+    db: Session,
+    *,
+    inherit_from_parent: bool = False,
+) -> StorageRoot:
     data = payload.model_dump()
     if "last_probe_status" in data:
         data["last_probe_status"] = _normalize_probe_status_value(data.get("last_probe_status"))
+
+    endpoint = db.get(StorageEndpoint, int(data["storage_endpoint_id"]))
+    if endpoint is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
+    if not endpoint.is_active or str(endpoint.status or "").strip().lower() == "disabled":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "STORAGE_ENDPOINT_DISABLED", "message": "This file server is disabled"},
+        )
+    _assert_valid_root_path(endpoint, data.get("root_path"))
 
     normalized_root_path = _normalize_storage_root_path(data.get("root_path"))
     data["normalized_root_path"] = normalized_root_path
@@ -1133,8 +1390,11 @@ async def create_root(
             normalized_root_path=normalized_root_path,
         )
 
-    endpoint = db.get(StorageEndpoint, int(data["storage_endpoint_id"]))
-    data = ProbeResultService(db).initialize_storage_root_from_endpoint_probe(data, endpoint=endpoint)
+    if inherit_from_parent:
+        # A folder below a managed one keeps its guardians and tags; a top-level folder has none to inherit
+        inherited = data["parent_storage_root_id"] is not None
+        data["inherit_owners"] = inherited
+        data["inherit_tags"] = inherited
 
     root = StorageRoot(**data)
     db.add(root)
@@ -1192,7 +1452,7 @@ async def create_root(
 
     _reconcile_storage_root_alerts(db, int(root.id))
 
-    return ui_action(action_id=int(root.id), message="storage_root.created")
+    return root
 
 # ============================================================
 # WRITE MODEL — UPDATE
@@ -1228,6 +1488,8 @@ def update_root(
         "zone_id": _root_zone_id(root),
     }
     updates = payload.model_dump(exclude_unset=True)
+    if "root_path" in updates:
+        _assert_valid_root_path(db.get(StorageEndpoint, int(root.storage_endpoint_id)), updates.get("root_path"))
     if "last_probe_status" in updates:
         updates["last_probe_status"] = _normalize_probe_status_value(updates.get("last_probe_status"))
 
@@ -1619,13 +1881,27 @@ def _ensure_root_deletable(db: Session, root: StorageRoot) -> None:
         )
 
 
+_FOLDER_JOB_TEMPLATES = {"inheritance": "folder_inheritance", "create": "folder_create", "delete": "folder_delete"}
+
+
 async def _run_folder_job(
-    root_id: int, protocol: str, *, inheritance: str | None = None, folder_name: str | None = None, timeout_sec: int = 90
+    root: StorageRoot,
+    protocol: str,
+    *,
+    request: Request,
+    action: str,
+    inheritance: str | None = None,
+    folder_name: str | None = None,
+    timeout_sec: int = 90,
 ) -> dict[str, Any]:
     """Folder operation of the worker on the file server, waited for; raises a 502 with the worker's message on failure."""
     import asyncio
 
-    from app.services.probe_service import fetch_probe_job, submit_probe_run
+    from app.services.probe_service import _fail_stale_probe_job, fetch_probe_job, submit_probe_run
+
+    root_id = int(root.id)
+    display = str(root.name or root.root_path or root_id)
+    root_path = root.root_path
 
     queued = await submit_probe_run({
         "kind": "folder", "protocol": protocol, "scope": "write",
@@ -1644,9 +1920,33 @@ async def _run_folder_job(
             break
         await asyncio.sleep(1)
     error = job.get("error") if isinstance(job.get("error"), dict) else {}
+    state = str(job.get("status") or "").lower()
+    timed_out = state not in {"failed", "timed_out", "cancelled"}
+    if timed_out and state != "running":
+        # Answered as failed, it must not run when the worker comes back: a late deletion would surprise everyone
+        await _fail_stale_probe_job(
+            {"id": job_id}, template_slug=_FOLDER_JOB_TEMPLATES[protocol], max_age_seconds=timeout_sec
+        )
+    code = "FOLDER_OPERATION_FAILED"
+    if timed_out:
+        code = "FOLDER_JOB_STILL_RUNNING" if state == "running" else "FOLDER_WORKER_TIMEOUT"
+    actor = actor_from_request(request)
+    log_activity(
+        None,
+        actor_type="user" if actor.identity_id is not None else "system",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action=action,
+        outcome="failure",
+        target_type="storage_root",
+        target_id=root_id,
+        target_display=display,
+        context_json={"root_path": root_path, "job_id": job_id or None, "folder": folder_name, "reason": code if timed_out else str(error.get("message") or job.get("status") or "")[:300]},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
     raise HTTPException(
         status_code=status.HTTP_502_BAD_GATEWAY,
-        detail={"code": "FOLDER_OPERATION_FAILED", "message": str(error.get("message") or job.get("status") or "the worker did not answer"),
+        detail={"code": code, "message": str(error.get("message") or job.get("status") or "the worker did not answer"),
                 "job_id": job_id or None},
     )
 
@@ -1734,7 +2034,10 @@ async def set_root_inheritance(root_id: int, payload: InheritancePayload, reques
     root = db.get(StorageRoot, root_id)
     if root is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
-    job = await _run_folder_job(int(root_id), "inheritance", inheritance=payload.mode)
+    job = await _run_folder_job(
+        root, "inheritance", request=request, inheritance=payload.mode,
+        action=f"storage_root.inheritance_{'broken' if payload.mode == 'break' else 'restored'}",
+    )
     result = job.get("result") if isinstance(job.get("result"), dict) else {}
     details = result.get("details") if isinstance(result.get("details"), dict) else result
     db.refresh(root)
@@ -1768,10 +2071,13 @@ async def create_root_subfolder(root_id: int, payload: SubfolderPayload, request
     if root is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
     name = payload.name
+    if name.split(".")[0].upper() in _RESERVED_FOLDER_NAMES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={"code": "FOLDER_NAME_RESERVED", "message": "This name is reserved by Windows"})
     if name != name.strip() or name in {".", ".."} or name.endswith(".") or any(c in '\\/:*?"<>|' or ord(c) < 32 for c in name):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                             detail={"code": "FOLDER_NAME_INVALID", "message": 'The folder name contains a character refused by Windows (\\ / : * ? " < > |)'})
-    job = await _run_folder_job(int(root_id), "create", folder_name=name)
+    job = await _run_folder_job(root, "create", request=request, action="storage_root.subfolder_created", folder_name=name)
     path = f"{str(root.root_path or '').rstrip(chr(92))}\\{name}"
     log_activity(
         db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
@@ -1832,7 +2138,7 @@ async def delete_root_folder(root_id: int, payload: DeleteFolderPayload, request
     context = {"name": root.name, "root_path": root.root_path, "storage_endpoint_id": root.storage_endpoint_id,
                "zone_id": _root_zone_id(root), "folder_deleted": True}
 
-    job = await _run_folder_job(int(root_id), "delete", timeout_sec=240)
+    job = await _run_folder_job(root, "delete", request=request, action="storage_root.folder_deleted", timeout_sec=240)
     db.refresh(root)
     db.delete(root)
     try:

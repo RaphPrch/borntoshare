@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+  import { beforeNavigate, goto } from '$app/navigation';
+  import { getIdentityJob } from '$lib/api/identity';
   import { t } from '$lib/i18n';
   import { resolveCredentials } from '$lib/api/credentials';
   import {
@@ -13,6 +14,7 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { notifyError, toUiAppError } from '$lib/errors';
   import { testIdentitySourceConnection } from '$lib/jobs/identity-source-test';
+  import { pollJobUntilTerminal } from '$lib/jobs/polling';
   import { runProbeWithPolling } from '$lib/jobs/probe-runner';
   import { snapshotStore } from '$lib/stores/snapshot.store';
   import { formatDate } from '$lib/utils/format';
@@ -27,9 +29,8 @@
     testServiceAccount,
     type ServiceAccountPurpose
   } from '$lib/utils/service-accounts';
-  import { sleep } from '$lib/utils/values';
 
-  export let data: { existingNames: string[] };
+  export let data: { existingNames: string[]; authDomains: { name: string; domain: string }[] };
 
   type Certificate = {
     certificate_pem: string;
@@ -58,6 +59,9 @@
   let tlsName = '';
   let certificate: Certificate | null = null;
   let showAdvanced = false;
+  // Filled by the analysis, so a new analysis may replace them; what the administrator typed stays
+  let trustedPem = '';
+  let autoName = '';
 
   // Main account: the password is stored once, and only typing a new one replaces it
   let bindDn = '';
@@ -87,7 +91,10 @@
   const draftKey = (purpose: ServiceAccountPurpose) =>
     `${serviceAccounts[purpose].bind_dn}|${serviceAccounts[purpose].password}`;
 
-  $: cleanHost = host.trim();
+  // A pasted address such as ldaps://dc01.example.com:636 also works
+  $: hostParts = host.trim().replace(/^ldaps?:\/\//i, '').split('/')[0].split(':');
+  $: cleanHost = hostParts.length === 2 ? hostParts[0] : host.trim().replace(/^ldaps?:\/\//i, '').split('/')[0];
+  $: typedPort = hostParts.length === 2 ? Number(hostParts[1]) || null : null;
   $: hostValid = isValidIPv4(cleanHost) || isValidHostname(cleanHost);
   $: if (analysedHost && cleanHost !== analysedHost) forgetAnalysis();
   $: connectionKey = JSON.stringify([cleanHost, protocol, port, baseDn, bindDn, bindRef, password, tlsVerify, tlsPem, tlsName]);
@@ -100,28 +107,46 @@
   $: duplicateName = data.existingNames.some((other) => other.trim().toLowerCase() === name.trim().toLowerCase());
   $: draftError = serviceAccountDraftError(draftsForCapabilities(serviceAccounts, capabilities));
   $: certificatePending = Boolean(certificate) && protocol === 'ldaps' && tlsVerify && !tlsPem;
+  $: effectiveDomain = (domain.trim() || domainFromBaseDn(baseDn)).toLowerCase();
+  $: domainOwner = capabilities.auth && effectiveDomain ? data.authDomains.find((source) => source.domain === effectiveDomain) ?? null : null;
+  $: noUse = !Object.values(capabilities).some(Boolean);
+  $: dedicatedEnabled = (['snapshot', 'auth', 'provisioning'] as ServiceAccountPurpose[]).filter(
+    (purpose) => serviceAccounts[purpose].dedicated && Boolean(draftsForCapabilities(serviceAccounts, capabilities)[purpose].dedicated)
+  );
+  $: dedicatedResults = dedicatedEnabled.map((purpose) => {
+    const result = accountResults[purpose];
+    return result && result.key === `${serviceAccounts[purpose].bind_dn}|${serviceAccounts[purpose].password}` ? result.ok : null;
+  });
+  $: anyTestFailed = accountTest === 'failed' || dedicatedResults.includes(false);
+  $: allTestsPassed = accountTest === 'ok' && dedicatedResults.every((ok) => ok === true);
   $: formComplete =
     hostValid && Boolean(port) && Boolean(baseDn.trim()) && Boolean(bindDn.trim()) && Boolean(password || bindRef) &&
-    Boolean(name.trim()) && !duplicateName && !draftError;
-  $: canCreate = formComplete && !certificatePending && (accountTest === 'ok' || createWithoutTest);
+    Boolean(name.trim()) && !duplicateName && !draftError && !noUse && !domainOwner;
+  $: canCreate = formComplete && !certificatePending && (allTestsPassed || (anyTestFailed && createWithoutTest));
   $: locked = creating || createdId !== null;
 
   function forgetAnalysis() {
     analysedHost = '';
     analysis = 'idle';
     analysisMessage = '';
+    forgetCertificate();
+  }
+
+  function forgetCertificate() {
     certificate = null;
-    tlsPem = '';
-    tlsName = '';
+    if (trustedPem && tlsPem === trustedPem) {
+      tlsPem = '';
+      tlsName = '';
+    }
+    trustedPem = '';
   }
 
   async function analyse() {
     if (!hostValid || analysis === 'running') return;
+    const target = cleanHost;
     analysis = 'running';
     analysisMessage = '';
-    certificate = null;
-    tlsPem = '';
-    tlsName = '';
+    forgetCertificate();
     try {
       const result: any = await runProbeWithPolling({
         fetchFn: fetch,
@@ -129,15 +154,21 @@
           kind: 'identity-source',
           protocol: 'directory-discovery',
           scope: 'read',
-          target: { host: cleanHost },
+          target: { host: target },
           options: { timeout_sec: 5 },
           context: { ui_origin: 'admin' }
         },
         intervalMs: 800,
         maxAttempts: 30
       });
+      // The address changed meanwhile: this answer, and its certificate, are those of another server
+      if (cleanHost !== target) {
+        analysis = 'idle';
+        if (hostValid && document.activeElement?.id !== 'source-host') void analyse();
+        return;
+      }
       const details = result.result?.details ?? {};
-      analysedHost = cleanHost;
+      analysedHost = target;
       if (!result.ok) {
         analysis = 'failed';
         analysisMessage = t(String(result.errorMessage ?? result.result?.message ?? 'Unable to analyse the server.'));
@@ -145,16 +176,19 @@
         return;
       }
       protocol = details.protocol === 'ldap' ? 'ldap' : 'ldaps';
-      port = Number(details.port) || (protocol === 'ldaps' ? 636 : 389);
+      port = typedPort ?? (Number(details.port) || (protocol === 'ldaps' ? 636 : 389));
       if (details.flavor) flavor = details.flavor === 'openldap' ? 'openldap' : 'ad';
       if (details.base_dn) baseDn = String(details.base_dn);
-      domain = domainFromBaseDn(baseDn);
       certificate = details.certificate ?? null;
-      if (!name.trim()) name = domain || cleanHost;
+      if (!name.trim() || name === autoName) name = autoName = domainFromBaseDn(baseDn) || target;
       // Without the base, the administrator completes it by hand
       analysis = details.base_dn ? 'ok' : 'warn';
       if (!details.base_dn) showAdvanced = true;
     } catch (error) {
+      if (cleanHost !== target) {
+        analysis = 'idle';
+        return;
+      }
       analysis = 'failed';
       analysisMessage = error instanceof Error && error.message ? error.message : t('Unable to analyse the server.');
       showAdvanced = true;
@@ -170,7 +204,7 @@
 
   function trustCertificate() {
     if (!certificate) return;
-    tlsPem = certificate.certificate_pem;
+    tlsPem = trustedPem = certificate.certificate_pem;
     // By IP address, the name cannot be checked without the one of the certificate
     if (isIpAddress(cleanHost) && !tlsName.trim()) tlsName = certificate.server_names[0] ?? '';
   }
@@ -215,6 +249,7 @@
       showErrors = true;
       return;
     }
+    testedKey = '';
     accountTest = 'running';
     accountMessage = '';
     try {
@@ -236,10 +271,15 @@
 
   async function testDedicated(purpose: ServiceAccountPurpose): Promise<boolean> {
     const key = draftKey(purpose);
-    const ok = await testServiceAccount(fetch, connection() as Parameters<typeof testServiceAccount>[1], serviceAccounts[purpose], {
-      purpose,
-      secretNameBase: secretName()
-    });
+    let ok = false;
+    try {
+      ok = await testServiceAccount(fetch, connection() as Parameters<typeof testServiceAccount>[1], serviceAccounts[purpose], {
+        purpose,
+        secretNameBase: secretName()
+      });
+    } catch {
+      ok = false;
+    }
     accountResults = { ...accountResults, [purpose]: { key, ok } };
     return ok;
   }
@@ -285,7 +325,7 @@
         ? { state: 'ok', title: t('Server certificate'), detail: t('Certificate trusted') }
         : certificate
           ? { state: 'warn', title: t('Server certificate'), detail: t('Compare the fingerprint, then trust the certificate.') }
-          : { state: 'idle', title: t('Server certificate'), detail: t('Waiting for the analysis') }) as { state: CheckState; title: string; detail: string };
+          : { state: 'idle', title: t('Server certificate'), detail: analysis === 'failed' ? t('Not read: paste it in the advanced options if needed.') : t('Waiting for the analysis') }) as { state: CheckState; title: string; detail: string };
 
   $: checks = [
     {
@@ -320,8 +360,12 @@
     : !bindDn.trim() || !(password || bindRef) ? t('Enter the service account and its password.')
     : !name.trim() ? t('Enter a name for this directory.')
     : duplicateName ? t('This name already exists. Please choose another one.')
+    : noUse ? t('Turn on at least one use.')
+    : domainOwner ? t('“{name}” already authenticates this domain: turn off “Authenticate users”.', { name: domainOwner.name })
     : draftError ? t('Complete the dedicated accounts you turned on.')
-    : accountTest !== 'ok' && !createWithoutTest ? t('Test the service account to continue.')
+    : anyTestFailed && !createWithoutTest ? t('Fix the failed test, or create it anyway.')
+    : accountTest === 'idle' || accountTest === 'running' ? t('Test the service account to continue.')
+    : dedicatedResults.includes(null) ? t('Test the dedicated accounts to continue.')
     : '';
 
   function setSyncStep(index: number, state: CheckState) {
@@ -331,45 +375,47 @@
   async function runFirstSync(sourceId: number) {
     syncState = 'running';
     syncMessage = '';
-    syncSteps = [t('Dispatch'), t('Queue'), t('Collecte'), t('Persist')].map((label) => ({ label, state: 'idle' }));
+    syncSteps = [t('Dispatch'), t('In queue'), t('Collecte'), t('Persist')].map((label) => ({ label, state: 'idle' }));
     let current = 0;
     setSyncStep(0, 'running');
     snapshotStore.setRunning(sourceId, 'Initial snapshot sync running');
     try {
-      await runIdentitySnapshot(fetch, sourceId, 'auto');
+      const run = await runIdentitySnapshot(fetch, sourceId, 'auto');
       setSyncStep(0, 'ok');
       setSyncStep(1, 'ok');
       current = 2;
       setSyncStep(2, 'running');
-      for (let i = 0; i < 40; i += 1) {
-        const internal = (await getIdentitySourceInternal(fetch, sourceId)) as IdentitySourceInternalMeta;
-        const meta = extractSnapshotMeta(internal);
-        const status = String(meta.status ?? '').trim().toUpperCase();
-        if (['FAILED', 'ERROR', 'CANCELED', 'CANCELLED'].includes(status)) {
-          throw new Error(t('Snapshot {toLowerCase}.', { toLowerCase: status.toLowerCase() }));
-        }
-        if ((Boolean(meta.at) || (meta.version ?? 0) > 0) && ['ACTIVE', 'SUCCEEDED'].includes(status)) {
-          setSyncStep(2, 'ok');
-          setSyncStep(3, 'ok');
-          syncState = 'ok';
-          syncMessage = t('{users} users and {groups} groups read.', { users: meta.users ?? 0, groups: meta.groups ?? 0 });
-          snapshotStore.setSuccess(sourceId, {
-            note: t('Initial snapshot persisted in database.'),
-            lastRunAt: meta.at,
-            lastSnapshotStatus: meta.status,
-            lastSnapshotVersion: meta.version,
-            lastSnapshotObjectsCount: meta.objects,
-            lastSnapshotUsersCount: meta.users,
-            lastSnapshotGroupsCount: meta.groups,
-            lastSnapshotMembershipsCount: meta.memberships
-          });
-          return;
-        }
-        await sleep(1500);
+      // The job tells how it ended: the directory only records the snapshots that succeeded
+      const polled = await pollJobUntilTerminal(String(run?.job_id ?? ''), {
+        fetchJob: (id) => getIdentityJob(fetch, Number(id)),
+        getRawStatus: (job: any) => String(job?.status ?? ''),
+        getErrorMessage: (job: any) => String(job?.error?.message ?? job?.error?.code ?? '').trim() || undefined,
+        intervalMs: 1500,
+        maxAttempts: 40
+      });
+      if (polled.status === 'timeout') {
+        // A large directory takes longer: the job goes on, this page simply stops waiting for it
+        syncState = 'warn';
+        syncMessage = t('The synchronization goes on in the background. Follow it from the list of directories.');
+        return;
       }
-      // A large directory takes longer: the job goes on, this page simply stops waiting for it
-      syncState = 'warn';
-      syncMessage = t('The synchronization goes on in the background. Follow it from the list of directories.');
+      if (polled.status === 'error') throw new Error(t(polled.errorMessage ?? 'Unable to initialize first snapshot.'));
+      setSyncStep(2, 'ok');
+      setSyncStep(3, 'ok');
+      const internal = (await getIdentitySourceInternal(fetch, sourceId)) as IdentitySourceInternalMeta;
+      const meta = extractSnapshotMeta(internal);
+      syncState = 'ok';
+      syncMessage = t('{users} users and {groups} groups read.', { users: meta.users ?? 0, groups: meta.groups ?? 0 });
+      snapshotStore.setSuccess(sourceId, {
+        note: t('Initial snapshot persisted in database.'),
+        lastRunAt: meta.at,
+        lastSnapshotStatus: meta.status,
+        lastSnapshotVersion: meta.version,
+        lastSnapshotObjectsCount: meta.objects,
+        lastSnapshotUsersCount: meta.users,
+        lastSnapshotGroupsCount: meta.groups,
+        lastSnapshotMembershipsCount: meta.memberships
+      });
     } catch (error) {
       setSyncStep(current, 'failed');
       syncState = 'failed';
@@ -424,6 +470,14 @@
       creating = false;
     }
   }
+
+  // What was typed is lost by leaving before the creation
+  beforeNavigate((navigation) => {
+    if (navigation.type === 'leave' || locked || createdId !== null) return;
+    if ((host.trim() || bindDn.trim() || password) && !window.confirm(t('Leave this page? What you entered will be lost.'))) {
+      navigation.cancel();
+    }
+  });
 
   const USES = [
     { key: 'snapshot_enabled', title: 'Snapshot inventory', text: 'Needed to search and import users and groups of this source.' },
@@ -575,7 +629,7 @@
             <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-icon" aria-label={showPassword ? t('Hide') : t('Show')} on:click={() => (showPassword = !showPassword)}>
               <i class={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
             </button>
-            <button type="button" class="b2s-btn b2s-btn-secondary" disabled={accountTest === 'running'} on:click={testAccount}>
+            <button type="button" class="b2s-btn b2s-btn-secondary" disabled={accountTest === 'running' || certificatePending} on:click={testAccount}>
               {accountTest === 'running' ? t('Testing…') : t('Test')}
             </button>
           </div>
@@ -593,6 +647,9 @@
             </label>
           {/each}
         </div>
+        {#if capabilities.provisioning && !capabilities.import_groups}
+          <InlineAlert tone="info">{t('Groups created in AD are imported automatically: enable “Import groups” to grant roles through them.')}</InlineAlert>
+        {/if}
         {#if capabilities.snapshot_enabled || capabilities.auth || capabilities.provisioning}
           <div class="accounts">
             {#if capabilities.snapshot_enabled}
@@ -632,7 +689,7 @@
       </ul>
 
       {#if createdId === null}
-        {#if accountTest === 'failed'}
+        {#if anyTestFailed}
           <label class="toggle small">
             <input type="checkbox" bind:checked={createWithoutTest} />
             {t('Create it even though the test failed')}

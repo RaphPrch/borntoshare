@@ -120,12 +120,17 @@
     applying: { label: () => t('Being applied'), tone: 'warning' },
     gap: { label: () => t('Gap to review'), tone: 'warning' },
     missing_ace: { label: () => t('ACE missing'), tone: 'danger' },
-    never_scanned: { label: () => t('ACL never read'), tone: 'neutral' }
+    never_scanned: { label: () => t('To verify'), tone: 'neutral' }
   } as const;
   $: unreachable = rootAvailabilityTone === 'error';
+  $: guardianMissing = alertItems.some((item) => /missing_guardian/.test(String(item.key ?? '')));
+  $: aclState = permissions?.status ?? 'never_scanned';
+  // « Compliant » only speaks of a folder with nothing left to do: its guardians count too
   $: pill = unreachable
     ? { label: rootAvailabilityText, tone: 'danger' as const }
-    : { label: ACL_PILL[permissions?.status ?? 'never_scanned'].label(), tone: ACL_PILL[permissions?.status ?? 'never_scanned'].tone };
+    : aclState === 'ok' && guardianMissing
+      ? { label: t('Guardians missing'), tone: 'warning' as const }
+      : { label: ACL_PILL[aclState].label(), tone: ACL_PILL[aclState].tone };
   $: inheritanceBroken = permissions?.inheritance?.known ? permissions.inheritance.broken : null;
 
   $: tabs = [
@@ -134,7 +139,8 @@
     { key: 'activity', label: t('Activity'), icon: 'bi-clock-history' }
   ];
   $: guardianNames = guardians.map((owner) => ownerDisplayName(owner)).filter(Boolean);
-  $: openAlerts = stripItems.length;
+  // The guardians are shown in the properties, not in the strip, but they remain an open alert
+  $: openAlerts = alertItems.filter((item) => !/pending_access_validation/.test(String(item.key ?? ''))).length;
 
   const normalizeTabKey = (key: string): StorageRootTabKey => {
     if (key === 'effective-access') return 'effective-access';
