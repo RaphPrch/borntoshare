@@ -30,10 +30,22 @@ export type RootGroupsPreviewItem = {
   root_path: string;
   read_group: string;
   write_group: string;
+  /** Groups already in the directory, and whether one no longer follows the saved rule */
+  existing_read_group?: string | null;
+  existing_write_group?: string | null;
+  drift?: boolean;
 };
 
 /** READ / WRITE group names of a few real storage roots (of a file server or a zone), with an unsaved template */
 export const previewRootGroups = (
   fetchFn: FetchLike,
-  payload: { zone_id?: number | null; storage_endpoint_id?: number | null; template?: string | null; limit?: number }
-) => apiPostData<{ items: RootGroupsPreviewItem[]; existing_groups?: number }>(fetchFn, '/naming-policies/preview-roots', payload);
+  payload: {
+    zone_id?: number | null;
+    storage_endpoint_id?: number | null;
+    template?: string | null;
+    limit?: number;
+    offset?: number;
+    query?: string | null;
+    drift_only?: boolean;
+  }
+) => apiPostData<{ items: RootGroupsPreviewItem[]; total?: number; drift_total?: number; existing_groups?: number }>(fetchFn, '/naming-policies/preview-roots', payload);

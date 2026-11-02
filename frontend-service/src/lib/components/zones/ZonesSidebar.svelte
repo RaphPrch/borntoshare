@@ -6,6 +6,7 @@
     is_active?: boolean;
     healthLabel?: "ok" | "warning";
     endpointCount?: number;
+    storage_roots_count?: number | null;
   };
 </script>
 
@@ -45,7 +46,11 @@
   $: nodes = filtered.map((zone): EntityTreeNode => ({
     key: `zone:${zone.id}`,
     label: zone.name,
-    subtitle: [zone.code, endpointsLabel(Number(zone.endpointCount ?? 0))].filter(Boolean).join(" · "),
+    subtitle: [
+      zone.code,
+      endpointsLabel(Number(zone.endpointCount ?? 0)),
+      Number(zone.storage_roots_count ?? 0) ? t('{count} folders', { count: Number(zone.storage_roots_count) }) : null
+    ].filter(Boolean).join(" · "),
     icon: "bi-geo-alt",
     iconTone: "zone",
     selectId: zone.id,

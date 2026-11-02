@@ -238,14 +238,24 @@ class NamingRootsPreviewPayload(BaseModel):
     storage_endpoint_id: int | None = None
     # Template being edited, not saved yet (applied at the level of the scope)
     template: str | None = Field(default=None, max_length=128)
-    limit: int = Field(default=3, ge=1, le=10)
+    limit: int = Field(default=3, ge=1, le=50)
+    offset: int = Field(default=0, ge=0)
+    # Filter on the name or path of the storage roots
+    query: str | None = Field(default=None, max_length=200)
+    # Only the storage roots whose existing groups do not follow the saved rule
+    drift_only: bool = False
+
+
+_PREVIEW_SCAN_LIMIT = 2000
 
 
 @router.post("/preview-roots", dependencies=[Depends(admin_or_internal)])
 def preview_root_groups(payload: NamingRootsPreviewPayload, db: Session = Depends(get_db)):
-    """READ / WRITE group names of a few real storage roots of a file server or a zone.
+    """READ / WRITE group names of the storage roots of a file server or a zone, a page at a time.
 
     Same rule as the approvals (resolve_storage_root_group_name), with the template being edited when given.
+    Each storage root also carries its groups already in the directory, and `drift` when one of them no longer
+    follows the saved rule (renamed by hand, or created under an older rule).
     """
     if payload.storage_endpoint_id:
         scope, where, params = "storage_endpoint", "sr.storage_endpoint_id = :id", {"id": int(payload.storage_endpoint_id)}
@@ -253,6 +263,10 @@ def preview_root_groups(payload: NamingRootsPreviewPayload, db: Session = Depend
         scope, where, params = "zone", "se.zone_id = :id", {"id": int(payload.zone_id)}
     else:
         raise HTTPException(status_code=422, detail="zone_id or storage_endpoint_id is required")
+    query = str(payload.query or "").strip()
+    if query:
+        where += " AND (sr.name LIKE :q OR sr.root_path LIKE :q)"
+        params = {**params, "q": f"%{query}%"}
     rows = db.execute(
         text(
             f"""
@@ -260,43 +274,72 @@ def preview_root_groups(payload: NamingRootsPreviewPayload, db: Session = Depend
             FROM storage_roots sr
             JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
             WHERE {where}
-            ORDER BY sr.name
-            LIMIT :limit
+            ORDER BY sr.name, sr.id
+            LIMIT :scan
             """
         ),
-        {**params, "limit": int(payload.limit)},
+        {**params, "scan": _PREVIEW_SCAN_LIMIT},
     ).mappings().all()
+    existing_by_root: dict[int, dict[str, str]] = {}
+    if rows:
+        for row in db.execute(
+            text(
+                f"""
+                SELECT p.storage_root_id, UPPER(p.access_level_code) AS level, p.group_name
+                FROM storage_root_access_profiles p
+                JOIN storage_roots sr ON sr.id = p.storage_root_id
+                JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
+                WHERE {where} AND UPPER(COALESCE(p.status, '')) IN ('SUCCEEDED', 'ADOPTING')
+                """
+            ),
+            params,
+        ).mappings():
+            existing_by_root.setdefault(int(row["storage_root_id"]), {})[str(row["level"])] = str(row["group_name"])
+
+    def names(root_id: int, template: str | None) -> dict[str, str] | None:
+        naming = resolve_storage_root_naming(db, root_id, draft_scope=scope, draft_template=template)
+        if naming is None:
+            return None
+        effective, zone_code, root_path = naming
+        return {
+            level: resolve_group_name_from_effective_policy(
+                effective_policy=effective, zone_code=zone_code, storage_root_path=root_path, perm=level
+            )["samAccountName"]
+            for level in ("READ", "WRITE")
+        }
+
+    drift_seen: dict[int, bool] = {}
+
+    def drifts(root_id: int) -> bool:
+        if root_id not in drift_seen:
+            existing = existing_by_root.get(root_id) or {}
+            saved = (names(root_id, None) or {}) if existing else {}
+            drift_seen[root_id] = any(str(group).upper() != str(saved.get(level, "")).upper() for level, group in existing.items())
+        return drift_seen[root_id]
+
     items = []
     try:
-        for row in rows:
-            naming = resolve_storage_root_naming(db, int(row["id"]), draft_scope=scope, draft_template=payload.template)
-            if naming is None:
+        candidates = [row for row in rows if drifts(int(row["id"]))] if payload.drift_only else list(rows)
+        drift_total = len(candidates) if payload.drift_only else sum(1 for row in rows if drifts(int(row["id"])))
+        for row in candidates[payload.offset : payload.offset + payload.limit]:
+            root_id = int(row["id"])
+            computed = names(root_id, payload.template)
+            if computed is None:
                 continue
-            effective, zone_code, root_path = naming
-            names = {
-                level: resolve_group_name_from_effective_policy(
-                    effective_policy=effective, zone_code=zone_code, storage_root_path=root_path, perm=level
-                )["samAccountName"]
-                for level in ("READ", "WRITE")
-            }
-            items.append({"storage_root_id": int(row["id"]), "name": row["name"], "root_path": row["root_path"],
-                          "read_group": names["READ"], "write_group": names["WRITE"]})
+            existing = existing_by_root.get(root_id) or {}
+            items.append({"storage_root_id": root_id, "name": row["name"], "root_path": row["root_path"],
+                          "read_group": computed["READ"], "write_group": computed["WRITE"],
+                          "existing_read_group": existing.get("READ"), "existing_write_group": existing.get("WRITE"),
+                          "drift": drifts(root_id)})
     except ValueError as exc:  # unknown token in the template being edited
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    # Groups already in the directory keep their name and OU when the rule changes
-    existing = db.execute(
-        text(
-            f"""
-            SELECT COUNT(*)
-            FROM storage_root_access_profiles p
-            JOIN storage_roots sr ON sr.id = p.storage_root_id
-            JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-            WHERE {where} AND UPPER(COALESCE(p.status, '')) IN ('SUCCEEDED', 'ADOPTING')
-            """
-        ),
-        params,
-    ).scalar()
-    return ui_data({"items": items, "existing_groups": int(existing or 0)})
+    return ui_data({
+        "items": items,
+        "total": len(candidates),
+        "drift_total": drift_total,
+        # Groups already in the directory keep their name and OU when the rule changes
+        "existing_groups": sum(len(groups) for groups in existing_by_root.values()),
+    })
 
 
 @router.post("/preview", dependencies=[Depends(admin_or_internal)])

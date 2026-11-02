@@ -15,7 +15,7 @@
   $: actions = [
     { key: "edit", label: t('Edit'), icon: "bi-pencil", variant: "secondary", onClick: () => onEdit?.() },
     ...(onAddEndpoint
-      ? [{ key: "add-endpoint", label: t('Add endpoint'), icon: "bi-plus-lg", variant: "primary" as const, onClick: () => onAddEndpoint?.() }]
+      ? [{ key: "add-endpoint", label: t('Add a server'), icon: "bi-plus-lg", variant: "primary" as const, onClick: () => onAddEndpoint?.() }]
       : []),
     { key: "delete", label: t('Delete zone'), icon: "bi-trash", variant: "danger", overflow: true, onClick: () => onDelete?.() }
   ] satisfies EntityActionItem[];

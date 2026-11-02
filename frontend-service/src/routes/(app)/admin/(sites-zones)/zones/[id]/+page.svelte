@@ -71,6 +71,7 @@
     zoneNamingPolicy?: { template?: string | null; override_enabled?: boolean | number | null } | null;
     identitySources: any[];
     namingPolicyGlobal?: { template?: string | null } | null;
+    zones?: Array<{ id?: number; pendingRequests?: number }>;
   };
 
   $: currentZoneId = Number(data.zone?.id ?? 0) || null;
@@ -78,8 +79,8 @@
 
   const tabs: { key: ZoneTabKey; label: string; icon: string }[] = [
     { key: "overview", label: t('Overview'), icon: "bi-grid" },
-    { key: "activity", label: t('Activity'), icon: "bi-activity" },
     { key: "provisioning", label: t('Provisioning'), icon: "bi-shield-check" },
+    { key: "activity", label: t('Activity'), icon: "bi-activity" },
   ];
 
   const tabLoaders: Record<ZoneTabKey, () => Promise<{ default: any }>> = {
@@ -471,23 +472,32 @@
     ]);
 
   $: zoneAlertItems = buildZoneAlerts();
+  $: dfsCount = endpoints.filter((ep) => String(ep?.endpoint_type ?? '').toLowerCase() === 'dfs').length;
+  $: rootIdsWithAlerts = [...new Set(selectVisibleStorageRootAlertsForRootIds(storageRoots.map((root) => storageRootId(root)), data.storageRootAlerts ?? []).map((alert) => storageRootAlertRootId(alert)))];
+  $: pendingRequests = Number((data.zones ?? []).find((zone) => Number(zone?.id) === currentZoneId)?.pendingRequests ?? 0);
   $: zoneKpis = [
-    { key: "endpoints", label: t('Storage endpoints'), value: endpoints.length, big: true },
-    { key: "roots", label: t('Storage roots'), value: storageRoots.length, big: true },
     {
-      key: "reachability",
-      label: t('Reachability'),
-      value: healthSummary.endpointCount > 0 ? `${Math.round((healthSummary.reachableCount / healthSummary.endpointCount) * 100)} %` : "—",
-      hint: t('{reachableCount}/{value} reachable', { reachableCount: healthSummary.reachableCount, value: healthSummary.endpointCount || 0 }),
-      tone: healthSummary.endpointCount === 0 ? "muted" : (healthSummary.unhealthyCount ?? 0) > 0 ? "danger" : "success"
+      key: "servers",
+      label: t('Servers'),
+      value: endpoints.length - dfsCount,
+      note: dfsCount ? t('+ {count} DFS namespace(s)', { count: dfsCount }) : undefined,
+      big: true
     },
+    {
+      key: "roots",
+      label: t('Managed folders'),
+      value: storageRoots.length,
+      note: rootIdsWithAlerts.length ? t('{count} to review', { count: rootIdsWithAlerts.length }) : undefined,
+      big: true
+    },
+    { key: "requests", label: t('Pending requests'), value: pendingRequests, big: true },
     {
       key: "alerts",
       label: t('Open alerts'),
-      value: zoneAlertItems.length > 0 ? t('{count} open', { count: zoneAlertItems.length }) : t('No open alert'),
-      hint: zoneAlertItems.length > 0 ? t('Open in Observability') : t('Nothing to review'),
+      value: zoneAlertItems.length,
       tone: zoneAlertItems.length > 0 ? "warning" : undefined,
-      href: `/observability?tab=alerts&q=${encodeURIComponent(zoneLabel())}`
+      big: true,
+      href: zoneAlertItems.length ? `/observability?tab=alerts&q=${encodeURIComponent(zoneLabel())}` : undefined
     }
   ] satisfies EntityStatItem[];
 
@@ -713,6 +723,12 @@
     };
   }
 
+  function discardPolicyChanges() {
+    policyDraft = buildPolicyDraftFromData(data.provisioningPolicy);
+    namingDraft = namingSaved;
+    policyError = null;
+  }
+
   function updatePolicyDraft(next: ZoneProvisioningPolicy) {
     policyDraft = {
       ...policyDraft,
@@ -869,7 +885,7 @@
     const shouldOpenCreate = $page.url.searchParams.get("create") === "1";
     if (shouldOpenCreate && !handledCreateQuery) {
       handledCreateQuery = true;
-      openCreateZone();
+      void goto('/admin/zones/new');
     }
     if (!shouldOpenCreate) {
       handledCreateQuery = false;
@@ -879,19 +895,20 @@
   $: if (browser) void ensureTabLoaded(activeTab);
   $: tabProps = {
     overview: {
-      zone: data.zone,
       endpoints,
-      storageRootCount: storageRoots.length,
+      storageRoots,
+      rootIdsWithAlerts,
       namingTemplateLabel: namingSaved.trim(),
-      provisioningOu: String((policyDraft as any)?.base_ou_dn ?? '').trim(),
+      provisioningOu: resolveZoneBaseOu(data.provisioningPolicy) ?? '',
       probeResultsByEndpoint,
-      activity,
-      healthSummary,
-      discoverRunning,
-      onCreateZone: openCreateZone,
-      onCreateEndpoint: openEndpointAttachChoice,
-      onRunEndpointProbe: runEndpointProbe,
+      lastChange: activity[0]
+        ? {
+            actor: activity[0]?.actor_display_name ?? activity[0]?.actor_display ?? activity[0]?.actor_username ?? null,
+            at: activity[0]?.created_at ?? null,
+          }
+        : null,
       onOpenEndpoint: (endpointId: number | string) => goto(`/admin/storage-endpoints/${endpointId}`),
+      onOpenProvisioning: () => setTab("provisioning"),
     },
     activity: {
       activity,
@@ -910,6 +927,7 @@
       inheritanceOverview: zoneProvisioningOverview,
       onChange: updatePolicyDraft,
       onSave: savePolicy,
+      onDiscard: discardPolicyChanges,
       onReset: resetPolicyDefaults,
       onPreview: () => (showPreviewModal = true),
     },

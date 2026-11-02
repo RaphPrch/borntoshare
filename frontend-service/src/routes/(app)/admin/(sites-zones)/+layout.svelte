@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
   import EntityWorkspace from "$lib/components/entity/EntityWorkspace.svelte";
   import ZonesSidebar from "$lib/components/zones/ZonesSidebar.svelte";
 
@@ -9,15 +10,16 @@
   $: zones = data.zones ?? [];
   let selectedZoneId: number | null = null;
   $: selectedZoneId = data?.selectedZoneId ?? selectedZoneId;
-  $: defaultCreateZoneId = selectedZoneId ?? (zones.length > 0 ? Number(zones[0]?.id ?? 0) : null);
 
   function createZone() {
-    const targetZoneId = Number(defaultCreateZoneId ?? 0);
-    goto(targetZoneId > 0 ? `/admin/zones/${targetZoneId}?create=1` : '/admin/zones?create=1');
+    goto('/admin/zones/new');
   }
+
+  // The add page stands alone, like the one of the servers
+  $: addPage = /\/admin\/zones\/new\/?$/.test($page.url.pathname);
 </script>
 
-{#if zones.length}
+{#if zones.length && !addPage}
   <EntityWorkspace title={t('Zones')}>
     <svelte:fragment slot="list">
       <ZonesSidebar

@@ -16,6 +16,7 @@
 
   export let onChange: ((next: ZoneProvisioningPolicy) => void) | null = null;
   export let onSave: (() => void) | null = null;
+  export let onDiscard: (() => void) | null = null;
   export let onChangeNamingTemplate: ((value: string) => void) | null = null;
 
   let viewModel: ProvisioningPolicyViewModel = buildZoneProvisioningViewModel(policy);
@@ -55,5 +56,6 @@
   saveBusy={saving}
   errorMessage={error}
   showUnsaved={isDirty}
+  {onDiscard}
 />
 

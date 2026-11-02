@@ -23,15 +23,18 @@ export const load: LayoutServerLoad = async (event: LayoutServerLoadEvent) => {
     zone_id?: number | null;
     zone?: { id?: number | null } | null;
     operational_state?: string | null;
+    pending_requests_count?: number | null;
   }>('/storage-endpoints/context', event);
 
   const endpointRows = Array.isArray(endpoints) ? endpoints : [];
   const zoneHealthById = new Map<number, "ok" | "warning">();
   const endpointCountByZone = new Map<number, number>();
+  const pendingByZone = new Map<number, number>();
   for (const endpoint of endpointRows) {
     const zoneId = Number(endpoint?.zone_id ?? endpoint?.zone?.id ?? 0);
     if (!Number.isFinite(zoneId) || zoneId <= 0) continue;
     endpointCountByZone.set(zoneId, (endpointCountByZone.get(zoneId) ?? 0) + 1);
+    pendingByZone.set(zoneId, (pendingByZone.get(zoneId) ?? 0) + Number(endpoint?.pending_requests_count ?? 0));
     const operationalState = String(endpoint?.operational_state ?? '').trim().toLowerCase();
     const isWarning = operationalState !== 'reachable';
 
@@ -48,6 +51,7 @@ export const load: LayoutServerLoad = async (event: LayoutServerLoadEvent) => {
     return {
       ...zone,
       endpointCount: endpointCountByZone.get(zoneId) ?? 0,
+      pendingRequests: pendingByZone.get(zoneId) ?? 0,
       // Keep sidebar health semantics aligned with zone page backend summary.
       healthLabel:
         operationalSummary === 'healthy'
