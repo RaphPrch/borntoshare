@@ -1,6 +1,6 @@
 """Regular infrastructure tasks (Advanced Settings › Infrastructure › Schedules).
 
-Every 30 s, the tasks whose next run is due are started: health check, data sync and access expiry.
+Every 30 s, the tasks whose next run is due are started: health check, data sync, access expiry and DFS namespaces.
 All hand the work to the workers through the job queue. A MariaDB lock keeps a single scheduler active when
 several core-service instances run.
 """
@@ -25,6 +25,7 @@ LOCK_NAME = "b2s_infra_scheduler"
 async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
     """Run one task now and record its outcome on the schedule."""
     from app.jobs.access_expiry import run_access_expiry
+    from app.services.dfs_refresh import run_dfs_read
     from app.services.data_sync_service import run_data_sync
     from app.services.infrastructure_service import run_health_check
 
@@ -54,6 +55,10 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             message = summary.get("message", "")
         elif task == "access_expiry":
             summary = await run_access_expiry(db, trigger=trigger)
+            status = summary["status"]
+            message = summary["message"]
+        elif task == "dfs_read":
+            summary = await run_dfs_read(db, trigger=trigger)
             status = summary["status"]
             message = summary["message"]
         else:

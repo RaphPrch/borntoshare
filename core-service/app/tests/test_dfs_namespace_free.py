@@ -52,3 +52,11 @@ def test_a_share_counts_the_folders_managed_in_it() -> None:
     managed = {_normalize_root_path(p) for p in ("\\\\fs\\Finance\\A", "\\\\fs\\Finance\\A\\B", "\\\\fs\\FinanceX\\C")}
     item = _discovered_item(endpoint, {"root_path": "\\\\fs\\Finance", "name": "Finance"}, managed)
     assert item["managed"] is False and item["managed_below"] == 2
+
+
+def test_a_refused_delegation_is_remembered_until_a_change_goes_through() -> None:
+    endpoint = SimpleNamespace(capabilities={"dfs_snapshot": {"path": "x"}}, bind_dn="CORP\\svc")
+    storage_endpoints._remember_dfs_delegation(endpoint, denied=True)
+    assert endpoint.capabilities["dfs_manage_denied"]["account"] == "CORP\\svc"
+    storage_endpoints._remember_dfs_delegation(endpoint, denied=False)
+    assert "dfs_manage_denied" not in endpoint.capabilities and endpoint.capabilities["dfs_snapshot"] == {"path": "x"}

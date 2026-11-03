@@ -7,6 +7,31 @@ export type ActivityTemplate = {
 };
 
 export const activityTemplates: Record<string, ActivityTemplate> = {
+  // Sessions, infrastructure, schedules, naming, checks of a folder
+  'auth.logout': { titleKey: 'activity.auth.logout.title', descriptionKey: 'activity.auth.logout.description', badge: 'info', scope: 'security', icon: 'box-arrow-right' },
+  'auth.session_revoked': { titleKey: 'activity.auth.session_revoked.title', descriptionKey: 'activity.auth.session_revoked.description', badge: 'admin', scope: 'security', icon: 'x-circle' },
+  'identity.account_disabled': { titleKey: 'activity.identity.account_disabled.title', descriptionKey: 'activity.identity.account_disabled.description', badge: 'admin', scope: 'security', icon: 'person-dash' },
+  'identity.group_access_granted': { titleKey: 'activity.identity.group_access_granted.title', descriptionKey: 'activity.identity.group_access_granted.description', badge: 'admin', scope: 'security', icon: 'shield-plus' },
+  'infrastructure.health_check_run': { titleKey: 'activity.infrastructure.health_check_run.title', descriptionKey: 'activity.infrastructure.health_check_run.description', badge: 'info', icon: 'heart-pulse' },
+  'infrastructure.data_sync_run': { titleKey: 'activity.infrastructure.data_sync_run.title', descriptionKey: 'activity.infrastructure.data_sync_run.description', badge: 'info', icon: 'arrow-repeat' },
+  'infrastructure.access_expiry_run': { titleKey: 'activity.infrastructure.access_expiry_run.title', descriptionKey: 'activity.infrastructure.access_expiry_run.description', badge: 'info', icon: 'hourglass-bottom' },
+  'infrastructure.dfs_read_run': { titleKey: 'activity.infrastructure.dfs_read_run.title', descriptionKey: 'activity.infrastructure.dfs_read_run.description', badge: 'info', icon: 'diagram-3' },
+  'infrastructure.schedule_updated': { titleKey: 'activity.infrastructure.schedule_updated.title', descriptionKey: 'activity.infrastructure.schedule_updated.description', badge: 'admin', icon: 'clock' },
+  'infrastructure.database_configured': { titleKey: 'activity.infrastructure.database_configured.title', descriptionKey: 'activity.infrastructure.database_configured.description', badge: 'admin', scope: 'security', icon: 'database-gear' },
+  'infrastructure.database_reset': { titleKey: 'activity.infrastructure.database_reset.title', descriptionKey: 'activity.infrastructure.database_reset.description', badge: 'critical', scope: 'security', icon: 'database-x' },
+  'infrastructure.service_added': { titleKey: 'activity.infrastructure.service_added.title', descriptionKey: 'activity.infrastructure.service_added.description', badge: 'admin', icon: 'plus-circle' },
+  'infrastructure.service_updated': { titleKey: 'activity.infrastructure.service_updated.title', descriptionKey: 'activity.infrastructure.service_updated.description', badge: 'admin', icon: 'pencil-square' },
+  'infrastructure.service_removed': { titleKey: 'activity.infrastructure.service_removed.title', descriptionKey: 'activity.infrastructure.service_removed.description', badge: 'critical', icon: 'trash3' },
+  'infrastructure.sso_provider_added': { titleKey: 'activity.infrastructure.sso_provider_added.title', descriptionKey: 'activity.infrastructure.sso_provider_added.description', badge: 'admin', scope: 'security', icon: 'key' },
+  'infrastructure.sso_provider_updated': { titleKey: 'activity.infrastructure.sso_provider_updated.title', descriptionKey: 'activity.infrastructure.sso_provider_updated.description', badge: 'admin', scope: 'security', icon: 'key' },
+  'infrastructure.sso_provider_removed': { titleKey: 'activity.infrastructure.sso_provider_removed.title', descriptionKey: 'activity.infrastructure.sso_provider_removed.description', badge: 'critical', scope: 'security', icon: 'key' },
+  'infrastructure.worker_added': { titleKey: 'activity.infrastructure.worker_added.title', descriptionKey: 'activity.infrastructure.worker_added.description', badge: 'admin', scope: 'security', icon: 'cpu' },
+  'infrastructure.worker_updated': { titleKey: 'activity.infrastructure.worker_updated.title', descriptionKey: 'activity.infrastructure.worker_updated.description', badge: 'admin', scope: 'security', icon: 'cpu' },
+  'infrastructure.worker_removed': { titleKey: 'activity.infrastructure.worker_removed.title', descriptionKey: 'activity.infrastructure.worker_removed.description', badge: 'critical', scope: 'security', icon: 'cpu' },
+  'naming_policy.global_updated': { titleKey: 'activity.naming_policy.global_updated.title', descriptionKey: 'activity.naming_policy.global_updated.description', badge: 'admin', scope: 'security', icon: 'fonts' },
+  'naming_policy.zone_updated': { titleKey: 'activity.naming_policy.zone_updated.title', descriptionKey: 'activity.naming_policy.zone_updated.description', badge: 'admin', scope: 'security', icon: 'fonts' },
+  'storage_root.probe_completed': { titleKey: 'activity.storage_root.probe_completed.title', descriptionKey: 'activity.storage_root.probe_completed.description', badge: 'info', icon: 'check2-circle' },
+  'storage_root.probe_failed': { titleKey: 'activity.storage_root.probe_failed.title', descriptionKey: 'activity.storage_root.probe_failed.description', badge: 'critical', icon: 'x-octagon' },
   // Accounts, setup, jobs, refusals, checks; failures of share and DFS changes
   'identity.account_created': { titleKey: 'activity.identity.account_created.title', descriptionKey: 'activity.identity.account_created.description', badge: 'admin', scope: 'security', icon: 'person-plus' },
   'identity.account_deleted': { titleKey: 'activity.identity.account_deleted.title', descriptionKey: 'activity.identity.account_deleted.description', badge: 'critical', scope: 'security', icon: 'person-x' },

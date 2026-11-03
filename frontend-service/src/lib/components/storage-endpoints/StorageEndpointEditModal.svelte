@@ -45,6 +45,8 @@
   export let onSaved: (() => void) | null = null;
   /** Tab shown at the opening: « roots » from « Discover and add » of the storage roots table */
   export let initialTab: "endpoint" | "roots" = "endpoint";
+  /** A new address found for the server (its name resolves elsewhere): filled in, to review and save. */
+  export let suggestedHost: string | null = null;
 
   let saving = false;
   let showPassword = false;
@@ -167,6 +169,7 @@
     resolveHint = null;
     touched = {};
     initialSnapshot = buildSnapshot();
+    if (suggestedHost) host = suggestedHost;
     activeTab = initialTab;
     rootsQuery = "";
     discoverStatus = "idle";

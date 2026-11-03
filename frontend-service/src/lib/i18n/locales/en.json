@@ -311,6 +311,14 @@
       "unavailable_from_endpoint_probe": {
         "title": "Folder unreachable",
         "description": "The folder “{target}” is unreachable: its server does not answer"
+      },
+      "probe_completed": {
+        "title": "Folder checked",
+        "description": "The folder “{target}” is reachable"
+      },
+      "probe_failed": {
+        "title": "Folder check failed",
+        "description": "The folder check failed: {target}"
       }
     },
     "access_request": {
@@ -579,6 +587,14 @@
       "login": {
         "title": "Sign-in",
         "description": "{user} signed in"
+      },
+      "logout": {
+        "title": "Sign-out",
+        "description": "“{user}” signed out"
+      },
+      "session_revoked": {
+        "title": "Session closed",
+        "description": "A session of “{target}” was closed"
       }
     },
     "governance_alert": {
@@ -735,6 +751,14 @@
       "password_changed": {
         "title": "Password changed",
         "description": "The password of “{target}” was changed"
+      },
+      "account_disabled": {
+        "title": "Account disabled",
+        "description": "The account “{target}” was disabled"
+      },
+      "group_access_granted": {
+        "title": "Group access granted",
+        "description": "An access through a group was granted to “{target}”"
       }
     },
     "job": {
@@ -747,6 +771,82 @@
       "refused": {
         "title": "Change refused",
         "description": "A change was refused: {reason}"
+      }
+    },
+    "infrastructure": {
+      "health_check_run": {
+        "title": "Health check run",
+        "description": "Health check: {reason}"
+      },
+      "data_sync_run": {
+        "title": "Data sync run",
+        "description": "Data sync: {reason}"
+      },
+      "access_expiry_run": {
+        "title": "Access expiry run",
+        "description": "Access expiry: {reason}"
+      },
+      "dfs_read_run": {
+        "title": "DFS namespaces read",
+        "description": "DFS namespaces: {reason}"
+      },
+      "schedule_updated": {
+        "title": "Schedule changed",
+        "description": "The schedule “{target}” was changed"
+      },
+      "database_configured": {
+        "title": "Database configured",
+        "description": "The connection to the database “{target}” was configured"
+      },
+      "database_reset": {
+        "title": "Database reset",
+        "description": "The database “{target}” was reset"
+      },
+      "service_added": {
+        "title": "Service added",
+        "description": "The service “{target}” was added"
+      },
+      "service_updated": {
+        "title": "Service changed",
+        "description": "The service “{target}” was changed"
+      },
+      "service_removed": {
+        "title": "Service removed",
+        "description": "The service “{target}” was removed"
+      },
+      "sso_provider_added": {
+        "title": "SSO provider added",
+        "description": "The SSO provider “{target}” was added"
+      },
+      "sso_provider_updated": {
+        "title": "SSO provider changed",
+        "description": "The SSO provider “{target}” was changed"
+      },
+      "sso_provider_removed": {
+        "title": "SSO provider removed",
+        "description": "The SSO provider “{target}” was removed"
+      },
+      "worker_added": {
+        "title": "Worker added",
+        "description": "The worker “{target}” was added"
+      },
+      "worker_updated": {
+        "title": "Worker changed",
+        "description": "The worker “{target}” was changed"
+      },
+      "worker_removed": {
+        "title": "Worker removed",
+        "description": "The worker “{target}” was removed"
+      }
+    },
+    "naming_policy": {
+      "global_updated": {
+        "title": "Global naming changed",
+        "description": "The global naming of the AD groups was changed"
+      },
+      "zone_updated": {
+        "title": "Zone naming changed",
+        "description": "The naming of the AD groups of the zone “{zone}” was changed"
       }
     }
   },

@@ -47,3 +47,26 @@ CORE_NAMES = Path(probe_service.__file__).resolve().parent / "windows_names.py"
 @pytest.mark.skipif(not WORKER_NAMES.exists(), reason="the worker is not next to the core (image build)")
 def test_the_two_copies_of_the_windows_name_rules_are_the_same() -> None:
     assert CORE_NAMES.read_text(encoding="utf-8") == WORKER_NAMES.read_text(encoding="utf-8")
+
+
+TEMPLATES = REPO / "frontend-service" / "src" / "lib" / "activity" / "templates.ts"
+EVENT = re.compile(
+    r'"((?:zone|storage_endpoint|storage_root|access_request|identity_source|identity|tag|infrastructure|advanced_settings'
+    r'|governance_alert|logs|naming_policy|job|request)\.[a-z_]+)"'
+)
+# Written through f"infrastructure.{task}_run": one per scheduled task
+SCHEDULED_TASKS = ("health_check", "data_sync", "access_expiry", "dfs_read")
+
+
+@pytest.mark.skipif(not TEMPLATES.exists(), reason="the frontend is not next to the core (image build)")
+def test_every_audited_event_has_a_wording_in_the_activity() -> None:
+    core = Path(probe_service.__file__).resolve().parents[1]
+    written = {
+        match
+        for path in core.rglob("*.py")
+        if "tests" not in path.parts
+        for match in EVENT.findall(path.read_text(encoding="utf-8"))
+    } | {f"infrastructure.{task}_run" for task in SCHEDULED_TASKS}
+    templates = set(re.findall(r"^  '([a-z_]+\.[a-z_.]+)':", TEMPLATES.read_text(encoding="utf-8"), re.M))
+    assert len(written) >= 40 and len(templates) >= 40
+    assert sorted(written - templates) == []

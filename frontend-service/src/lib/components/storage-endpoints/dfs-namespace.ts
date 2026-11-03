@@ -24,6 +24,8 @@ export type DfsInfo = {
   read_at: string | null;
   error: string | null;
   links: DfsLink[];
+  /** The account was refused the management of the namespace at the last change */
+  manage_denied?: { at: string; account: string | null } | null;
 };
 
 export type DfsCounts = {

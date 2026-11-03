@@ -114,6 +114,30 @@ _cache: tuple[float, tuple[dict[int, str], dict[int, list[int]]]] | None = None
 _CACHE_SECONDS = 60
 
 
+def store_snapshot(db: Session, endpoint: Any, namespace: dict[str, Any]) -> int:
+    """Keep a reading of the namespace by the worker on its endpoint; the number of DFS folders it has."""
+    from datetime import datetime, timezone
+
+    capabilities = dict(endpoint.capabilities or {})
+    capabilities["dfs_snapshot"] = {
+        "path": namespace.get("path"),
+        "name": namespace.get("name"),
+        "type": namespace.get("type"),
+        "root_targets": list(namespace.get("root_targets") or []),
+        "links": [
+            {"path": str(link.get("path")), "targets": [str(t) for t in (link.get("targets") or [])]}
+            for link in (namespace.get("links") or [])
+            if isinstance(link, dict) and link.get("path")
+        ],
+        "error": namespace.get("error"),
+        "read_at": datetime.now(timezone.utc).isoformat(),
+    }
+    endpoint.capabilities = capabilities
+    db.commit()
+    forget_cache()
+    return len(capabilities["dfs_snapshot"]["links"])
+
+
 def forget_cache() -> None:
     global _cache
     _cache = None

@@ -31,6 +31,12 @@
       title: () => t('Access expiry'),
       text: () => t('Removes from the AD group, through a worker, the people whose access has reached its end date. The group and its ACL are kept.'),
       intervals: HEALTH_INTERVALS
+    },
+    dfs_read: {
+      icon: 'bi-diagram-3',
+      title: () => t('DFS namespaces'),
+      text: () => t('Reads every DFS namespace again, through a worker: DFS folders added or removed outside BornToShare show without « Read again ».'),
+      intervals: SYNC_INTERVALS
     }
   };
 

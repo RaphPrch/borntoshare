@@ -324,13 +324,13 @@ def list_dfs_links(endpoint_id: int, request: Request, db: Session = Depends(get
         "read_at": shot.get("read_at"),
         "error": shot.get("error"),
         "links": describe_links(db, endpoint),
+        # The account was refused the management of the namespace (last try)
+        "manage_denied": (endpoint.capabilities or {}).get("dfs_manage_denied") if isinstance(endpoint.capabilities, dict) else None,
     })
 
 
 @router.post("/{endpoint_id}/dfs-snapshot", summary="Keep the last reading of a DFS namespace")
 def save_dfs_snapshot(endpoint_id: int, payload: DfsSnapshotPayload, request: Request, db: Session = Depends(get_db)):
-    from datetime import datetime, timezone
-
     from app.services.dfs_links import snapshot
 
     _require_platform_admin(request)
@@ -341,33 +341,17 @@ def save_dfs_snapshot(endpoint_id: int, payload: DfsSnapshotPayload, request: Re
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "DFS_NAMESPACE_MISMATCH", "message": "This reading is the one of another namespace"},
         )
-    capabilities = dict(endpoint.capabilities or {})
-    capabilities["dfs_snapshot"] = {
-        "path": namespace.get("path"),
-        "name": namespace.get("name"),
-        "type": namespace.get("type"),
-        "root_targets": list(namespace.get("root_targets") or []),
-        "links": [
-            {"path": str(link.get("path")), "targets": [str(t) for t in (link.get("targets") or [])]}
-            for link in (namespace.get("links") or [])
-            if isinstance(link, dict) and link.get("path")
-        ],
-        "error": namespace.get("error"),
-        "read_at": datetime.now(timezone.utc).isoformat(),
-    }
-    endpoint.capabilities = capabilities
-    db.commit()
-    from app.services.dfs_links import forget_cache
+    from app.services.dfs_links import store_snapshot
 
-    forget_cache()
+    links = store_snapshot(db, endpoint, namespace)
     actor_id, actor_display = _actor_from_headers(request)
     log_activity(
         db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
         action="storage_endpoint.dfs_read", outcome="success", target_type="storage_endpoint", target_id=int(endpoint.id),
-        target_display=str(endpoint.name), context_json={"links": len(capabilities["dfs_snapshot"]["links"]), "path": namespace.get("path")},
+        target_display=str(endpoint.name), context_json={"links": links, "path": namespace.get("path")},
         correlation_id=(request.headers.get("x-request-id") or None),
     )
-    return ui_data({"links": len(capabilities["dfs_snapshot"]["links"])})
+    return ui_data({"links": links})
 
 
 @router.post("/{endpoint_id}/dfs-links/manage", summary="Manage DFS folders: a storage root on each of their targets")
@@ -828,6 +812,9 @@ def update_endpoint(
     host_moved = "host" in updates and not same_host(str(updates.get("host") or ""), endpoint.host)
     for field, value in updates.items():
         setattr(endpoint, field, value)
+    if {"bind_dn", "bind_password_ref"} & set(updates):
+        # Another account: its right to manage a DFS namespace is not known yet
+        _remember_dfs_delegation(endpoint, denied=False)
     capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
     if host_moved and "discovered_roots_snapshot" in capabilities:
         # The shares found on the previous host carry its address: the next search lists them again
@@ -1120,13 +1107,31 @@ def _dfs_operation(db: Session, request: Request, endpoint_id: int, action: str,
     return endpoint, operation, path, folder, links
 
 
+def _remember_dfs_delegation(endpoint: StorageEndpoint, denied: bool) -> None:
+    """The last answer of the namespace on the right to manage it: shown in « To do » until a change goes through."""
+    from datetime import datetime, timezone
+
+    capabilities = dict(endpoint.capabilities or {})
+    if denied:
+        capabilities["dfs_manage_denied"] = {"at": datetime.now(timezone.utc).isoformat(), "account": endpoint.bind_dn}
+    elif "dfs_manage_denied" in capabilities:
+        capabilities.pop("dfs_manage_denied")
+    else:
+        return
+    endpoint.capabilities = capabilities
+
+
 async def _run_dfs_job(operation: _EndpointOperation, endpoint: StorageEndpoint, protocol: str, target: dict[str, Any], failure_code: str):
     try:
         await operation.run(protocol, "", failure_code=failure_code, kind="dfs-folder",
                             target={"host": endpoint.host, "port": int(endpoint.port or 445), **target})
+        _remember_dfs_delegation(endpoint, denied=False)
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else {}
         code = str(detail.get("code") or "")
+        if code == "DFS_ADMIN_REQUIRED":
+            _remember_dfs_delegation(endpoint, denied=True)
+            operation.db.commit()
         if code in _DFS_REFUSALS and exc.status_code != _DFS_REFUSALS[code]:
             raise HTTPException(status_code=_DFS_REFUSALS[code], detail=detail) from exc
         raise

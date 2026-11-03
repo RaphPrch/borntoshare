@@ -14,6 +14,9 @@
   export let rereadBusy = false;
   export let testBusy = false;
   export let onEditConnection: () => void = () => {};
+  /** The name of the server resolves to another address than the one it is declared with */
+  export let movedTo: string | null = null;
+  export let onUseAddress: (address: string) => void = () => {};
   export let onTest: () => void = () => {};
   export let onAddGuardians: () => void = () => {};
   export let onReread: () => void = () => {};
@@ -26,7 +29,17 @@
     ...(hostMissing
       ? [{ key: 'host', tone: 'bad' as const, icon: 'bi-hdd-network', title: t('No address for this server'), detail: t('Give its name or IP address.'), label: t('Edit the connection'), run: onEditConnection }]
       : health === 'unhealthy'
-        ? [{
+        ? [movedTo
+          ? {
+              key: 'moved',
+              tone: 'bad' as const,
+              icon: 'bi-signpost-split',
+              title: t('The server seems to have a new address'),
+              detail: t('Its name now leads to {address}. {count} folder(s) blocked until the address is changed.', { address: movedTo, count: summary.roots.length }),
+              label: t('Use {address}', { address: movedTo }),
+              run: () => movedTo && onUseAddress(movedTo)
+            }
+          : {
             key: 'down',
             tone: 'bad' as const,
             icon: 'bi-wifi-off',

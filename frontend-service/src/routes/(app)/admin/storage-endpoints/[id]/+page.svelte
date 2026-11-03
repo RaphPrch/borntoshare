@@ -396,6 +396,9 @@
           : dfsReadIsStale(dfsInfo)
             ? [{ key: 'stale', tone: 'warn' as const, icon: 'bi-clock-history', title: dfsAge === null ? t('Never read') : t('Read {days} days ago', { days: dfsAge }), detail: t('DFS folders added since then are not shown.'), label: dfsReading ? t('Reading…') : t('Read the namespace again'), busy: dfsReading, run: dfsReadAgainNow }]
             : []),
+        ...(dfsInfo.manage_denied
+          ? [{ key: 'delegation', tone: 'bad' as const, icon: 'bi-person-lock', title: t('The account cannot manage this namespace'), detail: t('{account} was refused when creating or deleting a DFS folder: delegate the management of the namespace to it (DFS console › Delegate Management Permissions), or use another account.', { account: dfsInfo.manage_denied.account ?? '' }), label: t('Edit the connection'), run: () => (showEditModal = true) }]
+          : []),
         ...(dfsCount.unknownServers.length
           ? [{ key: 'unknown', tone: 'bad' as const, icon: 'bi-hdd-network', title: t('{count} target server(s) not declared', { count: dfsCount.unknownServers.length }), detail: t('{names}: their DFS folders cannot be managed.', { names: dfsCount.unknownServers.join(', ') }), label: t('Declare the server'), run: () => goto(`/admin/storage-endpoints/new${selected?.zone_id ? `?zone=${selected.zone_id}` : ''}`) }]
           : []),
@@ -787,6 +790,34 @@
   // Shares of the last search (managed or not), for the counter and the Shares tab
   $: catalogEntry = selected ? (data as any).catalog?.[String(endpointId(selected))] ?? null : null;
   let showShareModal = false;
+  // A server declared by its address that no longer answers: does its name lead elsewhere now (VM restarted…)?
+  let movedTo: { endpointId: number; address: string } | null = null;
+  let suggestedHost: string | null = null;
+  let movedCheckedFor = 0;
+  const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
+  // endpointHealthById is read inside endpointHealth(): listed so that the check follows the health checks
+  $: if (selected && !selectedIsDfs && endpointHealthById && endpointHealth(selected) === 'unhealthy' && IPV4.test(String(selected.host ?? '')) && endpointId(selected) !== movedCheckedFor) {
+    void checkNewAddress(selected);
+  }
+
+  async function checkNewAddress(ep: any) {
+    const id = endpointId(ep);
+    movedCheckedFor = id;
+    const name = String(ep?.name ?? ep?.storage_endpoint_name ?? '').trim();
+    if (!/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/.test(name) || IPV4.test(name)) return;
+    try {
+      const final: any = await runProbeWithPolling({
+        fetchFn: fetch,
+        request: { kind: 'network', protocol: 'dns', scope: 'read', target: { name }, options: { timeout_sec: 10 }, context: { ui_origin: 'admin', storage_endpoint_id: id } } as any,
+        intervalMs: 800,
+        maxAttempts: 25
+      });
+      const address = String(final?.result?.details?.address ?? '');
+      if (final.ok && IPV4.test(address) && address !== String(ep.host ?? '') && movedCheckedFor === id) movedTo = { endpointId: id, address };
+    } catch {
+      // No answer for its name: the usual « does not answer » stays
+    }
+  }
   // A new share: the Shares tab lists it again at once
   let sharesVersion = 0;
   let showEditModal = false;
@@ -1282,6 +1313,8 @@
                 {rereadBusy}
                 testBusy={probingEndpointId === endpointId(selected)}
                 onEditConnection={() => (showEditModal = true)}
+                movedTo={movedTo?.endpointId === endpointId(selected) ? movedTo.address : null}
+                onUseAddress={(address) => { suggestedHost = address; showEditModal = true; }}
                 onTest={() => runEndpointProbe(selected)}
                 onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian&bulk=guardians`)}
                 onReread={() => (showRereadConfirm = true)}
@@ -1381,7 +1414,8 @@
   open={showEditModal}
   endpoint={selected}
   initialTab={editInitialTab}
-  onClose={() => { showEditModal = false; editInitialTab = 'endpoint'; }}
+  {suggestedHost}
+  onClose={() => { showEditModal = false; editInitialTab = 'endpoint'; suggestedHost = null; }}
   onSaved={async () => {
     showEditModal = false;
     editInitialTab = 'endpoint';

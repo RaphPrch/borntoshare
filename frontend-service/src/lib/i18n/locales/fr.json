@@ -1500,6 +1500,14 @@
       "unavailable_from_endpoint_probe": {
         "title": "Dossier injoignable",
         "description": "Le dossier « {target} » est injoignable : son serveur ne répond pas"
+      },
+      "probe_completed": {
+        "title": "Dossier testé",
+        "description": "Le dossier « {target} » est joignable"
+      },
+      "probe_failed": {
+        "title": "Dossier en échec",
+        "description": "Le test du dossier a échoué : {target}"
       }
     },
     "access_request": {
@@ -1768,6 +1776,14 @@
       "login": {
         "title": "Connexion",
         "description": "{user} s’est connecté"
+      },
+      "logout": {
+        "title": "Déconnexion",
+        "description": "« {user} » s’est déconnecté"
+      },
+      "session_revoked": {
+        "title": "Session fermée",
+        "description": "Une session de « {target} » a été fermée"
       }
     },
     "governance_alert": {
@@ -1924,6 +1940,14 @@
       "password_changed": {
         "title": "Mot de passe changé",
         "description": "Le mot de passe de « {target} » a été changé"
+      },
+      "account_disabled": {
+        "title": "Compte désactivé",
+        "description": "Le compte « {target} » a été désactivé"
+      },
+      "group_access_granted": {
+        "title": "Accès par groupe donné",
+        "description": "Un accès par groupe a été donné à « {target} »"
       }
     },
     "job": {
@@ -1936,6 +1960,82 @@
       "refused": {
         "title": "Modification refusée",
         "description": "Une modification a été refusée : {reason}"
+      }
+    },
+    "infrastructure": {
+      "health_check_run": {
+        "title": "Test de santé lancé",
+        "description": "Test de santé : {reason}"
+      },
+      "data_sync_run": {
+        "title": "Synchronisation lancée",
+        "description": "Synchronisation : {reason}"
+      },
+      "access_expiry_run": {
+        "title": "Fin des accès traitée",
+        "description": "Fin des accès : {reason}"
+      },
+      "dfs_read_run": {
+        "title": "Espaces de noms DFS relus",
+        "description": "Espaces de noms DFS : {reason}"
+      },
+      "schedule_updated": {
+        "title": "Planification modifiée",
+        "description": "La planification « {target} » a été modifiée"
+      },
+      "database_configured": {
+        "title": "Base de données configurée",
+        "description": "La connexion à la base « {target} » a été configurée"
+      },
+      "database_reset": {
+        "title": "Base de données réinitialisée",
+        "description": "La base « {target} » a été réinitialisée"
+      },
+      "service_added": {
+        "title": "Service ajouté",
+        "description": "Le service « {target} » a été ajouté"
+      },
+      "service_updated": {
+        "title": "Service modifié",
+        "description": "Le service « {target} » a été modifié"
+      },
+      "service_removed": {
+        "title": "Service retiré",
+        "description": "Le service « {target} » a été retiré"
+      },
+      "sso_provider_added": {
+        "title": "Fournisseur SSO ajouté",
+        "description": "Le fournisseur SSO « {target} » a été ajouté"
+      },
+      "sso_provider_updated": {
+        "title": "Fournisseur SSO modifié",
+        "description": "Le fournisseur SSO « {target} » a été modifié"
+      },
+      "sso_provider_removed": {
+        "title": "Fournisseur SSO retiré",
+        "description": "Le fournisseur SSO « {target} » a été retiré"
+      },
+      "worker_added": {
+        "title": "Worker ajouté",
+        "description": "Le worker « {target} » a été ajouté"
+      },
+      "worker_updated": {
+        "title": "Worker modifié",
+        "description": "Le worker « {target} » a été modifié"
+      },
+      "worker_removed": {
+        "title": "Worker retiré",
+        "description": "Le worker « {target} » a été retiré"
+      }
+    },
+    "naming_policy": {
+      "global_updated": {
+        "title": "Nommage global modifié",
+        "description": "Le nommage global des groupes AD a été modifié"
+      },
+      "zone_updated": {
+        "title": "Nommage de zone modifié",
+        "description": "Le nommage des groupes AD de la zone « {zone} » a été modifié"
       }
     }
   },
@@ -3973,5 +4073,10 @@
   "The name of the DFS folder is required, 255 characters at most": "Le nom du dossier DFS est requis, 255 caractères au plus",
   "{count} managed folder(s)": "{count} dossier(s) géré(s)",
   "Manage it in BornToShare right after": "Le gérer dans BornToShare juste après",
-  "Choose a share of the zone, or type its path: create it first on its file server.": "Choisissez un partage de la zone, ou saisissez son chemin : créez-le d'abord sur son serveur de fichiers."
+  "Choose a share of the zone, or type its path: create it first on its file server.": "Choisissez un partage de la zone, ou saisissez son chemin : créez-le d'abord sur son serveur de fichiers.",
+  "Reads every DFS namespace again, through a worker: DFS folders added or removed outside BornToShare show without « Read again ».": "Relit chaque espace de noms DFS, par un worker : les dossiers DFS ajoutés ou retirés hors de BornToShare apparaissent sans « Relire ».",
+  "The server seems to have a new address": "Le serveur semble avoir changé d’adresse",
+  "Its name now leads to {address}. {count} folder(s) blocked until the address is changed.": "Son nom mène maintenant à {address}. {count} dossier(s) bloqué(s) tant que l'adresse n'est pas changée.",
+  "The account cannot manage this namespace": "Le compte ne peut pas gérer cet espace de noms",
+  "{account} was refused when creating or deleting a DFS folder: delegate the management of the namespace to it (DFS console › Delegate Management Permissions), or use another account.": "{account} a été refusé en créant ou supprimant un dossier DFS : déléguez-lui la gestion de l'espace de noms (console DFS › Déléguer les autorisations de gestion), ou utilisez un autre compte."
 }
