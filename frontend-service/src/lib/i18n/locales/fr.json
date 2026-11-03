@@ -3806,5 +3806,6 @@
   "Extending…": "Prolongation…",
   "In force": "En vigueur",
   "Refused · 30 d": "Refusées · 30 j",
-  "{shown} of {total} request(s)": "{shown} sur {total} demande(s)"
+  "{shown} of {total} request(s)": "{shown} sur {total} demande(s)",
+  "Ask again": "Refaire une demande"
 }

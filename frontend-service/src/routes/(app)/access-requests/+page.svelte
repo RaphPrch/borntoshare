@@ -870,6 +870,11 @@
     {/if}
   </p>
   <div class="ar-foot-actions">
+    {#if statusOf(selectedRequest) === 'rejected' && selectedRequest?.own_request && storageRootIdFromRow(selectedRequest) !== null && !selectedRequest?.storage_root_deleted}
+      <a class="b2s-btn b2s-btn-secondary" href={`/access-requests/new?root=${storageRootIdFromRow(selectedRequest)}`}>
+        <i class="bi bi-arrow-repeat" aria-hidden="true"></i>{t('Ask again')}
+      </a>
+    {/if}
     {#if selectedRequest?.can_cancel}
       <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={cancelling} on:click={() => (showCancelConfirm = true)}>
         <i class="bi bi-x-circle" aria-hidden="true"></i>{cancelling ? t('Cancelling…') : t('Cancel my request')}
