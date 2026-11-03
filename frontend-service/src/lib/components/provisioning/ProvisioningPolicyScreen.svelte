@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import { onDestroy } from 'svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -240,11 +241,7 @@
           </li>
         {/each}
       </ul>
-      {#if items.length < total}
-        <button type="button" class="pp__more" on:click={() => (shown += PAGE)}>
-          {t('Show {count} more ({total} left)', { count: Math.min(PAGE, total - items.length), total: total - items.length })}
-        </button>
-      {/if}
+      <ShowMore shown={items.length} {total} page={PAGE} onMore={() => (shown += PAGE)} />
     {/if}
     <small class="pp__hint">{t('Existing groups are not renamed: the rule applies to the next folders. A gap is a group that no longer follows the saved rule.')}</small>
   </section>
@@ -526,15 +523,6 @@
     color: var(--b2s-color-warning-strong, #a85a00);
   }
 
-  .pp__more {
-    align-self: center;
-    padding: 4px 10px;
-    border: 0;
-    background: none;
-    color: var(--b2s-color-info);
-    font-size: var(--b2s-fs-sm);
-    cursor: pointer;
-  }
 
   .pp__bar {
     position: sticky;

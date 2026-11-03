@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   // Tones of the states, as StatusBadge variants
@@ -192,7 +193,7 @@
       {/each}
     </ul>
     {#if visible.length > shown}
-      <button type="button" class="more" on:click={() => (shown += PAGE)}>{t('Show {count} more ({total} left)', { count: Math.min(PAGE, visible.length - shown), total: visible.length - shown })}</button>
+      <ShowMore {shown} total={visible.length} page={PAGE} onMore={() => (shown += PAGE)} />
     {/if}
   {:else}
     <EmptyStateInline message={links.length ? t('No DFS folder matches this search.') : t('This namespace leads to no folder yet.')} />
@@ -274,5 +275,4 @@
   .dfs-form small { color: var(--b2s-color-text-muted); font-weight: 400; }
   .dfs-form .check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
   .link { font-size: var(--b2s-text-sm); }
-  .more { width: 100%; margin-top: 8px; padding: 8px; border: 1px dashed var(--b2s-color-border-mid); border-radius: var(--b2s-radius-md); background: none; color: var(--b2s-color-text-muted); cursor: pointer; }
 </style>

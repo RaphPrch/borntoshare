@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   // Tones of the states, as StatusBadge variants
@@ -64,7 +65,7 @@
     {/each}
   </ul>
   {#if matching.length > shown}
-    <button type="button" class="more" on:click={() => (shown += PAGE)}>{t('Show {count} more ({total} left)', { count: Math.min(PAGE, matching.length - shown), total: matching.length - shown })}</button>
+    <ShowMore {shown} total={matching.length} page={PAGE} onMore={() => (shown += PAGE)} />
   {/if}
 {:else}
   <EmptyStateInline message={rows.length ? t('No folder matches this search.') : t('No folder managed on this server yet.')} />
@@ -81,5 +82,4 @@
   .name strong { font-weight: 500; white-space: nowrap; }
   .name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--b2s-color-text-muted); font-family: var(--b2s-font-mono); font-size: var(--b2s-font-micro); }
   .req { color: var(--b2s-color-warning-strong); font-size: var(--b2s-font-micro); text-align: right; }
-  .more { width: 100%; margin-top: 8px; padding: 8px; border: 1px dashed var(--b2s-color-border-mid); border-radius: var(--b2s-radius-md); background: none; color: var(--b2s-color-text-muted); cursor: pointer; }
 </style>

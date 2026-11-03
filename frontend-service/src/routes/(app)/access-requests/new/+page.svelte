@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
@@ -289,7 +290,7 @@
                 <p class="nr__muted nr__empty">{t('No folder matches this search.')}</p>
               {/each}
               {#if hidden}
-                <button type="button" class="nr__more" on:click={() => (shown += PAGE)}>{t('Show {count} more ({total} left)', { count: Math.min(PAGE, hidden), total: hidden })}</button>
+                <ShowMore shown={0} total={hidden} page={PAGE} onMore={() => (shown += PAGE)} />
               {/if}
             </div>
           {/if}
@@ -422,7 +423,6 @@
   .nr__name { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; }
   .nr__name b { font-weight: 500; font-size: var(--b2s-fs-sm); }
   .nr__name small { overflow: hidden; text-overflow: ellipsis; color: var(--b2s-color-text-muted); font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
-  .nr__more { align-self: center; margin-top: 8px; padding: 6px 12px; border: 1px dashed var(--b2s-color-border-mid, var(--b2s-color-border)); border-radius: var(--b2s-radius-md); background: none; color: var(--b2s-color-text-muted); cursor: pointer; }
   .nr__empty { padding: 20px; text-align: center; }
   .nr__form { gap: 20px; }
   .nr__q { display: flex; flex-direction: column; gap: 8px; }

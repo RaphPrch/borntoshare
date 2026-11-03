@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import { t } from '$lib/i18n';
   import { formatDate, formatDateTime, initials } from '$lib/utils/format';
   import { formatActivityItem } from '$lib/activity/format';
@@ -117,7 +118,7 @@
           </ol>
         {/each}
         {#if visible.length > shown}
-          <button type="button" class="at__more" on:click={() => (shown += PAGE)}>{t('Show {count} more', { count: Math.min(PAGE, visible.length - shown) })}</button>
+          <ShowMore {shown} total={visible.length} page={PAGE} onMore={() => (shown += PAGE)} />
         {/if}
       {:else}
         <p class="at__empty">{items.length ? t('No event matches these filters.') : emptyLabel}</p>
@@ -200,7 +201,6 @@
   .at__face { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text); font-size: 9px; font-weight: 700; }
   .at__face.is-lg { width: 30px; height: 30px; font-size: 11px; }
   .at__time { padding-top: 2px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); white-space: nowrap; }
-  .at__more { align-self: center; padding: 6px 12px; border: 1px dashed var(--b2s-color-border-mid, var(--b2s-color-border)); border-radius: var(--b2s-radius-md); background: none; color: var(--b2s-color-text-muted); cursor: pointer; }
   .at__empty, .at__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .at__empty { padding: 20px; text-align: center; }
   .at__detail { display: flex; flex-direction: column; gap: 6px; }
