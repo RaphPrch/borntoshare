@@ -30,12 +30,13 @@ et trace ; il ne parle jamais à l'AD ni aux serveurs : il publie des travaux qu
   pour le worker.
 - **Audit** : `borntoshare_logging.audit_event`, chaîné par hachage. Les refus sont tracés avec leur objet.
 - **Planificateur** : `health_check`, `data_sync`, `access_expiry`, `dfs_read` (voir [docs/architecture.md](../docs/architecture.md#planificateur)).
+- **Sans mode** : pas de documentation interactive de l'API, jamais de requête SQL dans les journaux.
 - **Garde-fous** : un dossier ne se supprime pas tant qu'un accès court, un partage pas tant qu'un dossier géré
   est dedans, un hôte ne change pas sans déplacer les chemins, un espace de noms ne se déclare qu'une fois.
 
 ## Variables
 
-`APP_ENV`, `INTERNAL_TOKEN`, `B2S_SECRET_MASTER_KEY`, `DB_*`, `LOGGING_DB_*`, `CAPSULE_BROKER_URL`,
+`INTERNAL_TOKEN`, `B2S_SECRET_MASTER_KEY`, `DB_*`, `LOGGING_DB_*`, `CAPSULE_BROKER_URL`,
 `B2S_RUNTIME_DIR`, `B2S_AGENT_CA_FILE`, `B2S_ALLOW_PUBLIC_API` (le BFF appelle les routes métier). Voir
 [docs/installation.md](../docs/installation.md).
 

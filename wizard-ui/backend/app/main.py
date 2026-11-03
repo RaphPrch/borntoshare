@@ -37,25 +37,6 @@ logger.info("Logging initialized", extra={"level": LOG_LEVEL})
 
 
 # ============================================================
-# ⚙️ WIZARD MODE
-# ============================================================
-# Priority:
-# - WIZARD_MODE (explicit)
-# - APP_ENV (compose / container)
-# - default: dev
-WIZARD_MODE = os.getenv("WIZARD_MODE", os.getenv("APP_ENV", "dev")).lower()
-
-
-def is_dev() -> bool:
-    return WIZARD_MODE == "dev"
-
-
-def is_prod() -> bool:
-    return WIZARD_MODE == "prod"
-
-
-
-# ============================================================
 # 🚀 FASTAPI INIT
 # ============================================================
 app = FastAPI(
@@ -74,18 +55,6 @@ app = FastAPI(
 @app.get("/health", include_in_schema=False)
 def health():
     return {"status": "ok"}
-
-
-# ============================================================
-# 🔧 MODE ENDPOINT (UI)
-# ============================================================
-@app.get("/api/mode")
-async def get_mode():
-    return {
-        "mode": WIZARD_MODE,
-        "dev": is_dev(),
-        "prod": is_prod(),
-    }
 
 
 # ============================================================
@@ -131,5 +100,4 @@ async def wizard_index():
 async def _startup():
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print("  🚀 BornToShare Wizard v1.0")
-    print(f"  🔧 Mode           : {WIZARD_MODE}")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")

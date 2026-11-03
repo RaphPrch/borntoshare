@@ -103,7 +103,7 @@ Un gardien ne valide pas sa propre demande : un autre gardien ou un administrate
 
 ## À faire en production
 
-- `APP_ENV=prod`, secrets générés aléatoirement, `.env` en `chmod 600`.
+- Secrets générés aléatoirement (`PRINCIPAL_SIGNING_KEY` est refusée si c'est la clé par défaut), `.env` en `chmod 600`.
 - HTTPS devant le port 3000, et `FRONTEND_PUBLIC_ORIGIN` en `https://`.
 - Agent du worker en HTTPS (`AGENT_TLS_*`).
 - `make wizard-down` dès la fin de l'installation.

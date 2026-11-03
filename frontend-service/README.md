@@ -30,7 +30,7 @@ Pages principales : tableau de bord, Dossiers, Demandes (liste et création en t
 
 ## Variables
 
-`APP_ENV`, `INTERNAL_TOKEN`, `PRINCIPAL_SIGNING_KEY`, `ORIGIN` (`FRONTEND_PUBLIC_ORIGIN`), `B2S_AUTH_URL`,
+`INTERNAL_TOKEN`, `PRINCIPAL_SIGNING_KEY` (obligatoire en production), `ORIGIN` (`FRONTEND_PUBLIC_ORIGIN`), `B2S_AUTH_URL`,
 `B2S_CORE_URL` ; au build, `B2S_VERSION` (version affichée dans le menu, fournie par `make deploy`).
 
 ## Développement

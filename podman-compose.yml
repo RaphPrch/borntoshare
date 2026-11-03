@@ -26,10 +26,7 @@ x-healthcheck: &healthcheck
 
 x-common-env: &common-env
   TZ: Europe/Paris
-  APP_ENV: ${APP_ENV:-dev}
   LOG_LEVEL: INFO
-  # One shared token between the services (capsule-runner only sends this one): the only mode of the stack
-  INTERNAL_TOKEN_MODE: static
   INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN must be set}
 
 services:
@@ -174,9 +171,7 @@ services:
     profiles: [wizard]
     environment:
       TZ: Europe/Paris
-      APP_ENV: ${APP_ENV:-dev}
       LOG_LEVEL: INFO
-      WIZARD_MODE: ${WIZARD_MODE:-dev}
     ports:
       - "${WIZARD_PORT:-8080}:8080"
     healthcheck:

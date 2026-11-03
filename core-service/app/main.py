@@ -111,7 +111,6 @@ def health():
     return {
         "status": "ok",
         "service": settings.SERVICE_NAME,
-        "env": settings.APP_ENV,
     }
 
 

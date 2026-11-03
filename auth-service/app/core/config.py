@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     # =================================================
     # 🧩 Application
     # =================================================
-    APP_ENV: str = "dev"  # dev | staging | prod
     VERSION: str = "2026.01-v1"
 
     # =================================================
@@ -156,6 +155,13 @@ class Settings(BaseSettings):
         return value
 
 
+def require_principal_signing_key(settings: Settings) -> None:
+    """The principal cookie carries the roles: a publicly known key would let anyone forge an admin.
+    Checked when the server starts (the unit tests load the settings without it)."""
+    if settings.PRINCIPAL_SIGNING_KEY in {"", DEV_PRINCIPAL_SIGNING_KEY}:
+        raise RuntimeError("Misconfiguration: PRINCIPAL_SIGNING_KEY must be set")
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     settings = Settings()
@@ -169,12 +175,5 @@ def get_settings() -> Settings:
         raise RuntimeError(
             "Misconfiguration: INTERNAL_TOKEN is required (V1 static mode)"
         )
-
-    # ---- Principal cookie carries roles: a publicly known key lets anyone forge an admin
-    if (settings.APP_ENV or "").strip().lower() == "prod" and settings.PRINCIPAL_SIGNING_KEY in {
-        "",
-        DEV_PRINCIPAL_SIGNING_KEY,
-    }:
-        raise RuntimeError("Misconfiguration: PRINCIPAL_SIGNING_KEY must be set when APP_ENV=prod")
 
     return settings

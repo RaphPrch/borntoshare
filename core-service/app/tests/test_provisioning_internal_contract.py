@@ -20,7 +20,6 @@ def test_job_failed_requires_error_code() -> None:
 
 
 def test_scoped_auth_missing_scope_forbidden(monkeypatch) -> None:
-    monkeypatch.setenv("INTERNAL_TOKEN_MODE", "static")
     monkeypatch.setenv("INTERNAL_TOKEN", "svc-token")
     dep = require_internal({"profiles:write"}).dependency
 
@@ -38,7 +37,6 @@ def test_scoped_auth_missing_scope_forbidden(monkeypatch) -> None:
 
 
 def test_scoped_auth_invalid_token_unauthorized(monkeypatch) -> None:
-    monkeypatch.setenv("INTERNAL_TOKEN_MODE", "static")
     monkeypatch.setenv("INTERNAL_TOKEN", "svc-token")
     dep = require_internal({"jobs:read"}).dependency
 

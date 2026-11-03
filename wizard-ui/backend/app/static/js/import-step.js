@@ -9,22 +9,8 @@ import { computePasswordRules } from "./password.js";
 export async function runImport() {
   try {
     // ------------------------------------------------
-    // Guards (PROD safety + step completeness)
+    // Guards (step completeness)
     // ------------------------------------------------
-    try {
-      const res = await fetch("/api/mode");
-      const m = await res.json();
-
-      const isProd = m?.prod === true;
-
-      // Defense-in-depth: even if UI hides/disables, enforce here.
-      if (isProd && el("apply_seed")?.checked === true) {
-        toastError("Seed interdit en environnement PROD.");
-        return;
-      }
-    } catch (e) {
-      console.warn("[WIZARD IMPORT] Unable to load /api/mode", e);
-    }
 
     if (!stepStatus[2] || !stepStatus[3] || !stepStatus[4] || !stepStatus[5]) {
       toastError(
@@ -57,8 +43,6 @@ export async function runImport() {
         email: state.admin?.email || value("admin_email") || "",
         password: state.admin?.password || value("admin_password"),
       },
-      apply_seed: el("apply_seed")?.checked === true,
-      force_import: el("force_import")?.checked === true,
       logging_db: {
         db_name: state.logging_db?.db_name || value("logging_db_name"),
         app_sql_user: state.logging_db?.app_sql_user || value("logging_sql_user") || "app_user",
@@ -173,11 +157,6 @@ export async function runImport() {
 
     if (data.ok) {
       toastSuccess("✅ Import terminé avec succès");
-    } else if (data.skipped) {
-      toastError(
-        data.message ||
-          "Import ignoré (mode PROD – force_import requis)."
-      );
     } else {
       toastError("Import échoué. Consulte les logs.");
     }

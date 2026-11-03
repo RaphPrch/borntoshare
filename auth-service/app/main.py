@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
-from app.core.config import get_settings
+from app.core.config import get_settings, require_principal_signing_key
 from app.core.errors import ensure_request_id, register_exception_handlers
 from app.core.logging import (
     clear_request_id_context,
@@ -32,11 +32,11 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    require_principal_signing_key(settings)
     log_event(
         logger,
         logging.INFO,
         "AUTH_SERVICE_STARTUP",
-        env=settings.APP_ENV,
         version=settings.VERSION,
     )
     for route in app.routes:

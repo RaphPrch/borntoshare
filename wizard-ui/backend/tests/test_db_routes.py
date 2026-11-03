@@ -3,12 +3,12 @@ import socket
 import pytest
 from unittest.mock import patch, MagicMock
 
-from app.main import app # Assuming your FastAPI app instance is named 'app' in app.main
+from backend.app.main import app
 
 client = TestClient(app)
 
-@patch("app.routes.db.socket.gethostbyname")
-@patch("app.routes.db.socket.create_connection")
+@patch("backend.app.routes.db.socket.gethostbyname")
+@patch("backend.app.routes.db.socket.create_connection")
 def test_network_diagnostic_success(mock_create_connection, mock_gethostbyname):
     mock_gethostbyname.return_value = "127.0.0.1"
     mock_create_connection.return_value = MagicMock() # Mock the socket object
@@ -25,8 +25,8 @@ def test_network_diagnostic_success(mock_create_connection, mock_gethostbyname):
     mock_gethostbyname.assert_called_once_with("localhost")
     mock_create_connection.assert_called_once_with(("127.0.0.1", 3306), timeout=3)
 
-@patch("app.routes.db.socket.gethostbyname")
-@patch("app.routes.db.socket.create_connection")
+@patch("backend.app.routes.db.socket.gethostbyname")
+@patch("backend.app.routes.db.socket.create_connection")
 def test_network_diagnostic_dns_failure(mock_create_connection, mock_gethostbyname):
     mock_gethostbyname.side_effect = socket.gaierror("DNS lookup failed")
 
@@ -42,7 +42,7 @@ def test_network_diagnostic_dns_failure(mock_create_connection, mock_gethostbyna
     mock_gethostbyname.assert_called_once_with("nonexistent.host")
     mock_create_connection.assert_not_called()
 
-@patch("app.routes.db.get_connection")
+@patch("backend.app.routes.db.get_connection")
 def test_test_db_success(mock_get_connection):
     mock_conn = MagicMock()
     mock_get_connection.return_value = mock_conn
@@ -62,7 +62,7 @@ def test_test_db_success(mock_get_connection):
     mock_get_connection.assert_called_once()
     mock_conn.close.assert_called_once()
 
-@patch("app.routes.db.get_connection")
+@patch("backend.app.routes.db.get_connection")
 def test_test_db_failure(mock_get_connection):
     mock_get_connection.side_effect = Exception("DB connection error")
 
@@ -80,7 +80,7 @@ def test_test_db_failure(mock_get_connection):
     assert "Unable to connect to database" in response.json()["detail"]
     mock_get_connection.assert_called_once()
 
-@patch("app.routes.db.get_connection")
+@patch("backend.app.routes.db.get_connection")
 def test_privileges_test_success(mock_get_connection):
     mock_conn = MagicMock()
     mock_cur = mock_conn.cursor.return_value

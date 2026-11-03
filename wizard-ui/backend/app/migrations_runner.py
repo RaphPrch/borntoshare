@@ -7,7 +7,6 @@ Structure:
 - sql/schema/*.sql     -> core tables, constraints
 - sql/views/*.sql      -> read models (views)
 - sql/indexes/*.sql    -> indexes
-- sql/seeds/*.sql      -> DEV-only reference seeds (optional)
 
 Compatible with MySQL / MariaDB.
 No PostgreSQL-specific features.
@@ -15,7 +14,7 @@ No PostgreSQL-specific features.
 This runner enforces:
 - strict execution order
 - MySQL-compatible statement splitting
-- separation of schema / views / indexes / seed
+- separation of schema / views / indexes
 - protection against forbidden legacy SQL
 """
 
@@ -37,27 +36,10 @@ SQL_DIR = Path(__file__).resolve().parent / "sql"
 SCHEMA_DIR = SQL_DIR / "schema"
 VIEWS_DIR = SQL_DIR / "views"
 INDEXES_DIR = SQL_DIR / "indexes"
-SEEDS_DIR = SQL_DIR / "seeds"
 
 LOGGING_SQL_DIR = SQL_DIR / "logging"
 LOGGING_SCHEMA_DIR = LOGGING_SQL_DIR / "schema"
 LOGGING_INDEXES_DIR = LOGGING_SQL_DIR / "indexes"
-LOGGING_SEEDS_DIR = LOGGING_SQL_DIR / "seeds"
-
-# Optional private seeds dir (not committed)
-# - Relative paths are resolved from SQL_DIR
-_PRIVATE_SEEDS_DIR_RAW = os.getenv("WIZARD_PRIVATE_SEEDS_DIR", "").strip()
-
-
-def _get_private_seeds_dir() -> Optional[Path]:
-    if not _PRIVATE_SEEDS_DIR_RAW:
-        return None
-
-    p = Path(_PRIVATE_SEEDS_DIR_RAW)
-    if not p.is_absolute():
-        p = (SQL_DIR / p).resolve()
-
-    return p if p.exists() else None
 
 # -------------------------------------------------------------------
 # SQL safety guards
@@ -236,24 +218,6 @@ def run_schema_pack(db_name: str, root_cfg: Optional[dict] = None) -> None:
     _run_pack(db_name=db_name, paths=paths, root_cfg=root_cfg)
 
 
-def run_seed_pack(db_name: str, root_cfg: Optional[dict] = None) -> None:
-    """
-    Run DEV-only seed pack.
-    """
-    paths = list(_iter_sql_files(SEEDS_DIR))
-
-    private_dir = _get_private_seeds_dir()
-    if private_dir:
-        logger.info("[SQL] Including private seeds from %s", private_dir)
-        paths += list(_iter_sql_files(private_dir))
-
-    if not paths:
-        logger.info("[SQL] No seed files found, skipping")
-        return
-
-    _run_pack(db_name=db_name, paths=paths, root_cfg=root_cfg)
-
-
 def run_logging_schema_pack(db_name: str, root_cfg: Optional[dict] = None) -> None:
     """
     Run dedicated Logging DB SQL pack (schema + indexes).
@@ -273,19 +237,6 @@ def run_logging_schema_pack(db_name: str, root_cfg: Optional[dict] = None) -> No
     _run_pack(db_name=db_name, paths=paths, root_cfg=root_cfg)
 
 
-def run_logging_seed_pack(db_name: str, root_cfg: Optional[dict] = None) -> None:
-    """
-    Run dedicated Logging DB seed pack (DEV/TEST demo data).
-    Files location:
-      - sql/logging/seeds/*.sql
-    """
-    paths = list(_iter_sql_files(LOGGING_SEEDS_DIR))
-
-    if not paths:
-        logger.info("[SQL] No logging seed files found, skipping logging seed pack")
-        return
-
-    _run_pack(db_name=db_name, paths=paths, root_cfg=root_cfg)
 # -------------------------------------------------------------------
 # Backward-compat aliases (used by routes/import_wizard.py)
 # -------------------------------------------------------------------
@@ -293,5 +244,3 @@ def run_initial_schema(db_name: str, root_cfg: Optional[dict] = None) -> None:
     run_schema_pack(db_name=db_name, root_cfg=root_cfg)
 
 
-def run_seed_sql(db_name: str, root_cfg: Optional[dict] = None) -> None:
-    run_seed_pack(db_name=db_name, root_cfg=root_cfg)

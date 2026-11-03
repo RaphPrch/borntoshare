@@ -45,15 +45,11 @@ def init_logging() -> logging.Logger:
     # ---------------------------------------------------------
     # SQLAlchemy tuning
     # ---------------------------------------------------------
-    if settings.APP_ENV == "dev":
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
-    else:
-        logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
+    # SQL statements are never logged: their parameters may hold personal data
+    logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
 
     logger.info(
-        "core-service logger initialized | env=%s | level=%s",
-        settings.APP_ENV,
+        "core-service logger initialized | level=%s",
         settings.LOG_LEVEL,
     )
 

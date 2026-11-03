@@ -72,7 +72,7 @@ Auth:
 - Keep `b2s_session` cookie behavior.
 - Support local, AD, dev, and optional Keycloak.
 - Do not force Keycloak-only authentication.
-- Set `APP_ENV=prod` in production: auth-service and frontend refuse to start with the default `PRINCIPAL_SIGNING_KEY` (the principal cookie carries roles).
+- `PRINCIPAL_SIGNING_KEY` is mandatory: auth-service (at startup) and the production frontend (at first use) refuse the built-in key. There is no dev or prod mode (`APP_ENV`, `WIZARD_MODE`) and a single internal-token mode (the shared `INTERNAL_TOKEN`).
 
 Access model:
 - Use “Access Profiles”, not “Permission Packs”.
@@ -87,7 +87,7 @@ Capsules:
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
 
 Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
-- There is no Alembic. `wizard-ui/backend/app/migrations_runner.py` applies `schema/` → `views/` → `indexes/` (and `seeds/` in dev); the logging DB has its own `logging/schema` + `logging/indexes`. Every file must be idempotent: the runner re-applies the whole pack.
+- There is no Alembic. `wizard-ui/backend/app/migrations_runner.py` applies `schema/` → `views/` → `indexes/`; the logging DB has its own `logging/schema` + `logging/indexes`. Every file must be idempotent: the runner re-applies the whole pack.
 - Tables: `CREATE TABLE IF NOT EXISTS`; indexes: `CREATE INDEX IF NOT EXISTS` in `indexes/020_indexes.sql`.
 - Before v1 there are no migrations: the pack describes the whole schema and the database is recreated from it (re-run the wizard on an empty database). Removing an object = deleting its definition.
 - Only create a view that code reads; `core-service/app/core/db.py` lists the views and columns checked at startup.

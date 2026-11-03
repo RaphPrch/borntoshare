@@ -23,7 +23,6 @@ class Settings(BaseModel):
     # =================================================
     # 🧩 Core
     # =================================================
-    APP_ENV: str = Field(default=os.getenv("APP_ENV", "dev"))
     LOG_LEVEL: str = Field(default=os.getenv("LOG_LEVEL", "INFO"))
 
     # =================================================
@@ -66,28 +65,13 @@ class Settings(BaseModel):
     API_PREFIX: str = Field(default=os.getenv("API_PREFIX", "/api"))
     # Opens the non-/internal/ orchestration routes (/governance/*) to the frontend BFF without a token.
     ALLOW_PUBLIC_API: bool = Field(default=_env_flag("B2S_ALLOW_PUBLIC_API", "false"))
-    ENABLE_DOCS: bool = Field(default=os.getenv("ENABLE_DOCS", "true").lower() == "true")
 
     # =================================================
     # 🔐 Internal service-to-service authentication
     # =================================================
-    # static | hmac
-    INTERNAL_TOKEN_MODE: str = Field(
-        default=os.getenv("INTERNAL_TOKEN_MODE", "hmac").lower()
-    )
-
-    # ⚠️ MUST be unset when mode=hmac
+    # One token shared by every service (X-Internal-Token)
     INTERNAL_TOKEN: str | None = Field(
         default=os.getenv("INTERNAL_TOKEN")
-    )
-
-    # Format: "kid1:secret1,kid2:secret2"
-    INTERNAL_TOKEN_KEYS: str = Field(
-        default=os.getenv("INTERNAL_TOKEN_KEYS", "")
-    )
-
-    INTERNAL_TOKEN_TTL_SEC: int = Field(
-        default=int(os.getenv("INTERNAL_TOKEN_TTL_SEC", "300"))
     )
 
     # =================================================
@@ -113,28 +97,10 @@ class Settings(BaseModel):
             raise ValueError("Invalid LOG_LEVEL")
         return resolved
 
-    @field_validator("INTERNAL_TOKEN_MODE")
-    @classmethod
-    def _validate_internal_token_mode(cls, value: str) -> str:
-        normalized = str(value or "hmac").strip().lower()
-        if normalized not in {"hmac", "static"}:
-            raise ValueError("INTERNAL_TOKEN_MODE must be 'hmac' or 'static'")
-        return normalized
-
-    @field_validator("INTERNAL_TOKEN_TTL_SEC")
-    @classmethod
-    def _validate_positive_ints(cls, value: int) -> int:
-        if int(value) <= 0:
-            raise ValueError("Value must be > 0")
-        return int(value)
 
     # =================================================
     # Helpers
     # =================================================
-    @property
-    def is_prod(self) -> bool:
-        return self.APP_ENV.lower() in {"prod", "production"}
-
     @property
     def sqlalchemy_url(self) -> str:
         if self.DATABASE_URL_OVERRIDE:
@@ -159,22 +125,14 @@ class Settings(BaseModel):
         )
 
     def fastapi_kwargs(self) -> dict:
+        # No interactive API documentation: the API is internal, behind the BFF
         kwargs = {
             "title": self.SERVICE_NAME,
             "version": os.getenv("APP_VERSION", "0.1.0"),
+            "docs_url": None,
+            "redoc_url": None,
+            "openapi_url": None,
         }
-        if self.ENABLE_DOCS and not self.is_prod:
-            kwargs.update(
-                {
-                    "docs_url": "/docs",
-                    "redoc_url": "/redoc",
-                    "openapi_url": "/openapi.json",
-                }
-            )
-        else:
-            kwargs.update(
-                {"docs_url": None, "redoc_url": None, "openapi_url": None}
-            )
         return kwargs
 
 
@@ -222,19 +180,5 @@ def get_settings() -> Settings:
     # -------------------------------------------------
     # 🔥 Safety checks (CRITICAL)
     # -------------------------------------------------
-    if settings.INTERNAL_TOKEN_MODE == "hmac" and settings.INTERNAL_TOKEN:
-        raise RuntimeError(
-            "Misconfiguration: INTERNAL_TOKEN must not be set when INTERNAL_TOKEN_MODE=hmac"
-        )
-
-    # NOTE:
-    # We intentionally avoid raising at import time when hmac keyring is absent,
-    # because many unit tests import modules that read settings eagerly.
-    # Runtime guards in request-time auth paths still enforce token validity.
-
-    if settings.INTERNAL_TOKEN_MODE == "static" and not (settings.INTERNAL_TOKEN or "").strip():
-        raise RuntimeError(
-            "Misconfiguration: INTERNAL_TOKEN is required when INTERNAL_TOKEN_MODE=static"
-        )
-
+    # INTERNAL_TOKEN is checked on every internal request (no import-time failure: the tests load the settings)
     return settings

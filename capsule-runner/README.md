@@ -38,7 +38,7 @@ celle de core-service). Le test `test_action_wiring.py` vérifie que rien ne man
 
 ## Variables
 
-`APP_ENV`, `INTERNAL_TOKEN`, `CAPSULE_BROKER_URL`, `RUNNER_MAX_SCOPE`, `AGENT_TLS_CERT`, `AGENT_TLS_KEY`,
+`INTERNAL_TOKEN`, `CAPSULE_BROKER_URL`, `RUNNER_MAX_SCOPE`, `AGENT_TLS_CERT`, `AGENT_TLS_KEY`,
 `AGENT_PORT`. Certificats : [certs/README.md](certs/README.md).
 
 ## Tests

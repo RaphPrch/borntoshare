@@ -34,3 +34,14 @@ def test_success_clears_the_identifier_but_not_the_address(monkeypatch):
     assert throttle.retry_after("marc", "10.0.0.1") == 0
     throttle.record_failure("other", "10.0.0.1")
     assert throttle.retry_after("anyone", "10.0.0.1") > 0
+
+
+def test_the_built_in_signing_key_is_refused_at_startup() -> None:
+    import pytest
+
+    from app.core.config import DEV_PRINCIPAL_SIGNING_KEY, Settings, require_principal_signing_key
+
+    for key in ("", DEV_PRINCIPAL_SIGNING_KEY):
+        with pytest.raises(RuntimeError):
+            require_principal_signing_key(Settings(PRINCIPAL_SIGNING_KEY=key))
+    require_principal_signing_key(Settings(PRINCIPAL_SIGNING_KEY="a-real-key-0123456789abcdef0123456789"))

@@ -36,11 +36,15 @@ const PRINCIPAL_COOKIE_SAMESITE = (() => {
 const PRINCIPAL_COOKIE_SECURE = (env.ORIGIN ?? '').trim().toLowerCase().startsWith('https://');
 
 const DEV_PRINCIPAL_SIGNING_KEY = 'dev-principal-key';
-const PRINCIPAL_SIGNING_KEY = env.PRINCIPAL_SIGNING_KEY || DEV_PRINCIPAL_SIGNING_KEY;
 
 // The principal cookie carries the user's roles: a publicly known key would let anyone forge an admin.
-if ((env.APP_ENV ?? 'dev').trim().toLowerCase() === 'prod' && PRINCIPAL_SIGNING_KEY === DEV_PRINCIPAL_SIGNING_KEY) {
-  throw new Error('PRINCIPAL_SIGNING_KEY must be set when APP_ENV=prod');
+// The production server refuses to sign or read it with the built-in key; checked at first use, not at build.
+function principalSigningKey(): string {
+  const key = env.PRINCIPAL_SIGNING_KEY || DEV_PRINCIPAL_SIGNING_KEY;
+  if (key === DEV_PRINCIPAL_SIGNING_KEY && env.NODE_ENV === 'production') {
+    throw new Error('PRINCIPAL_SIGNING_KEY must be set');
+  }
+  return key;
 }
 
 // 'unavailable': the authentication service did not answer, which says nothing about the session
@@ -92,7 +96,7 @@ async function hydrateUserFromAuthMe(event: RequestEvent): Promise<Me | null | '
   const snapshotCookie = await issuePrincipalCookieFromMe(
     me,
     PRINCIPAL_TTL_SECONDS,
-    PRINCIPAL_SIGNING_KEY
+    principalSigningKey()
   );
 
   event.cookies.set(PRINCIPAL_COOKIE_NAME, snapshotCookie, {
@@ -129,7 +133,7 @@ export async function hydrateUserContext(event: RequestEvent): Promise<void> {
     try {
       snapshot = await verifyPrincipalCookieWithKey(
         rawPrincipal,
-        PRINCIPAL_SIGNING_KEY
+        principalSigningKey()
       );
     } catch {
       snapshot = null;

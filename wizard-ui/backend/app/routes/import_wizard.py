@@ -8,14 +8,8 @@ from fastapi import APIRouter, HTTPException
 from mysql.connector import Error
 
 from ..db import get_connection
-from ..migrations_runner import (
-    run_initial_schema,
-    run_seed_sql,
-    run_logging_schema_pack,
-    run_logging_seed_pack,
-)
+from ..migrations_runner import run_initial_schema, run_logging_schema_pack
 from ..security import validate_password_complexity
-from ..settings import settings
 from ..admin_logic import create_local_admin_if_needed
 
 # ------------------------------------------------------------
@@ -31,10 +25,6 @@ logging.basicConfig(level=logging.DEBUG)  # Log level set to DEBUG for visibilit
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------
-def _is_prod() -> bool:
-    return settings.is_prod()
-
-
 def _validate_sql_identifier(value: str, label: str) -> None:
     if not value:
         logger.error(f"{label} requis.")  # Log error here
@@ -103,19 +93,8 @@ def _resolve_logging_root_cfg(logging_db: Dict[str, Any], default_root: Dict[str
 @router.post("/import")  # Ajout d'une route sans le slash final pour éviter les redirections
 async def import_config(payload: dict):
     """
-    Import final du wizard.
-
-    DEV:
-      - création DB
-      - comptes SQL
-      - schéma + vues + indexes
-      - seed DEV optionnel
-      - admin local
-
-    PROD:
-      - BLOQUÉ par défaut
-      - AUTORISÉ uniquement si force_import=true
-      - seed STRICTEMENT interdit
+    Import final du wizard : base, comptes SQL, schéma, vues et index, base d'audit, administrateur local.
+    Rejouable : chaque paquet SQL peut être appliqué à nouveau. Aucune donnée de démonstration.
     """
 
     logger.info("========== WIZARD IMPORT START ==========")
@@ -132,8 +111,6 @@ async def import_config(payload: dict):
     app_sql_password = payload.get("app_user_password")
     logging_db = payload.get("logging_db") or {}
 
-    apply_seed_flag = _parse_bool(payload.get("apply_seed"), default=False)
-    force_import = _parse_bool(payload.get("force_import"), default=False)
 
     # ------------------------------------------------------------------
     # Basic validation
@@ -168,23 +145,6 @@ async def import_config(payload: dict):
         _validate_sql_identifier(str(logging_db.get("db_name")), "Nom de base logging")
         _validate_sql_identifier(str(logging_db.get("app_sql_user")), "Compte SQL logging")
         validate_password_complexity(str(logging_db.get("app_user_password") or ""))
-
-    logger.info(
-        "[WIZARD] mode=%s | apply_seed=%s | force_import=%s",
-        settings.MODE,
-        apply_seed_flag,
-        force_import,
-    )
-
-    # ------------------------------------------------------------------
-    # MODE PROD — garde-fous
-    # ------------------------------------------------------------------
-    if _is_prod() and apply_seed_flag:
-        logger.error("Seed interdit en environnement PROD.")  # Log error here
-        raise HTTPException(
-            status_code=400,
-            detail="Seed interdit en environnement PROD.",
-        )
 
     # ==================================================================
     # 1. Création de la base
@@ -297,7 +257,7 @@ async def import_config(payload: dict):
         conn.close()
 
     # ==================================================================
-    # 3. Schéma / seed
+    # 3. Schéma
     # ==================================================================
     logger.info("[WIZARD] Running schema pack")
     run_initial_schema(db_name=db_name, root_cfg=root_cfg)
@@ -316,15 +276,6 @@ async def import_config(payload: dict):
         logger.info("[WIZARD] Running dedicated logging SQL pack")
         run_logging_schema_pack(db_name=logging_db_name, root_cfg=logging_app_cfg)
 
-        if apply_seed_flag:
-            logger.info("[WIZARD] Running dedicated logging seed pack")
-            run_logging_seed_pack(db_name=logging_db_name, root_cfg=logging_app_cfg)
-
-    if apply_seed_flag:
-        logger.info("[WIZARD] Running DEV seed pack")
-        run_seed_sql(db_name=db_name, root_cfg=root_cfg)
-    else:
-        logger.info("[WIZARD] Seed skipped")
 
     # ==================================================================
     # 4. Admin local
@@ -353,6 +304,4 @@ async def import_config(payload: dict):
     return {
         "ok": True,
         "message": "Import terminé avec succès.",
-        "prod": _is_prod(),
-        "forced": force_import,
     }

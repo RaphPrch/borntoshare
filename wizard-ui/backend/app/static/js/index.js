@@ -73,54 +73,6 @@ function bindFormSubmit(id, fn) {
 document.addEventListener("DOMContentLoaded", () => {
   logInfo("Init wizard");
 
-  // ------------------------------------------------------
-  // Runtime mode (DEV/PROD) UI
-  // ------------------------------------------------------
-  (async () => {
-    try {
-      const res = await fetch("/api/mode");
-      const m = await res.json();
-
-      const badge = document.getElementById("wizard_env_badge");
-      if (badge) {
-        // Badge deliberately hidden in UI (kept for future debug).
-        // If you want to re-enable, remove the inline style in index.html.
-        badge.textContent = "";
-      }
-
-      const isProd = m?.prod === true;
-
-      const applySeedBlock = document.getElementById("apply_seed_block");
-      const applySeed = document.getElementById("apply_seed");
-      const seedBlock = document.getElementById("seed_prod_block");
-      const prodBanner = document.getElementById("prod_mode_banner");
-
-      // In PROD:
-      // - seed is forbidden → hide checkbox and show warning
-      // - force_import is required to run import → show the checkbox block
-      if (seedBlock) seedBlock.style.display = isProd ? "block" : "none";
-      if (applySeedBlock) applySeedBlock.style.display = isProd ? "none" : "block";
-      if (applySeed) {
-        // Reset on mode load to avoid stale state
-        applySeed.checked = false;
-        applySeed.disabled = isProd;
-      }
-
-      if (prodBanner) {
-        if (isProd) {
-          prodBanner.textContent = "Mode PROD : seed désactivé, import contrôlé (force import requis si DB déjà initialisée).";
-          prodBanner.style.display = "block";
-        } else {
-          prodBanner.style.display = "none";
-          prodBanner.textContent = "";
-        }
-      }
-
-    } catch (e) {
-      // Mode endpoint is best-effort
-      logWarn("Unable to load /api/mode", { error: String(e) });
-    }
-  })();
 
   // STEP 1
   bindClick("btn_start", () => {

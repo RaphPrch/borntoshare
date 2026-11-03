@@ -13,7 +13,7 @@
 
 ## 1. Le fichier `.env`
 
-Un seul fichier à la racine du dépôt configure toute la pile. Chaque conteneur ne reçoit que les variables
+Un seul fichier à la racine du dépôt configure toute la pile. Il n'y a pas de mode « dev » ou « prod » : la pile se comporte toujours comme en production. Chaque conteneur ne reçoit que les variables
 qu'il lit (`podman-compose.yml`).
 
 ```bash
@@ -23,9 +23,8 @@ chmod 600 .env
 
 | Variable | Lue par | Valeur |
 |---|---|---|
-| `APP_ENV` | tous | `prod` en production (refus des clés de développement, pas de données de démo) ; `dev` sinon |
 | `INTERNAL_TOKEN` | tous | Jeton partagé entre les services, 32 caractères aléatoires au moins |
-| `PRINCIPAL_SIGNING_KEY` | auth-service, frontend | Clé de signature du cookie de session, 32 caractères aléatoires au moins |
+| `PRINCIPAL_SIGNING_KEY` | auth-service, frontend | Clé de signature du cookie de session, 32 caractères aléatoires au moins ; la clé par défaut est refusée |
 | `DB_HOST`, `DB_PORT` | core-service | Serveur MariaDB |
 | `DB_NAME`, `LOGGING_DB_NAME` | core-service | Bases des données et de l'audit (créées par le wizard) |
 | `DB_USER`, `DB_PASSWORD` | core-service | Compte SQL de l'application, **celui que le wizard crée** (par défaut `b2s_app`) |
@@ -38,7 +37,7 @@ chmod 600 .env
 | `AGENT_PORT` | worker | Vide : 8443 en HTTPS, 8080 en HTTP |
 | `B2S_AGENT_CA_FILE` | core-service | Autorité privée des certificats d'agent (ex. `/etc/b2s/certs/agent-ca.pem`) |
 | `B2S_OIDC_CA_FILE` | auth-service | Autorité privée des certificats Keycloak (SSO) |
-| `WIZARD_PORT`, `WIZARD_MODE` | wizard | Port du wizard ; `prod` interdit les données de démonstration |
+| `WIZARD_PORT` | wizard | Port du wizard |
 
 Générer un secret : `openssl rand -base64 48 | tr -d '/+=' | cut -c1-48`.
 

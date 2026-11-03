@@ -33,17 +33,15 @@ Le compte SQL de l'étape 3 est celui à reporter dans `.env` (`DB_USER`, `DB_PA
 ## Paquets SQL
 
 `backend/app/sql/` : `schema/` (tables et contraintes, numérotées), `views/`, `indexes/`, `logging/` (base
-d'audit), `seeds/` (données de démonstration). `migrations_runner.py` les applique dans l'ordre des noms.
+d'audit). `migrations_runner.py` les applique dans l'ordre des noms.
 `scripts/deploy.sh` rejoue les paquets récents (`PACKS`) à chaque mise à jour : un paquet doit pouvoir être
 appliqué plusieurs fois, et sa liste de valeurs autorisées doit inclure celles des paquets suivants.
 
-## Modes
+## Données
 
-| Variable | Effet |
-|---|---|
-| `WIZARD_MODE` (ou `APP_ENV`) `prod` | Les données de démonstration sont refusées ; réimporter sur une base existante exige de le forcer |
-| `WIZARD_MODE` `dev` | L'option « Données de démonstration » applique `sql/seeds/` |
-| `WIZARD_PRIVATE_SEEDS_DIR` | Dossier de jeux de données privés, non versionnés (relatif à `backend/app/sql/` ou absolu) |
+Le wizard ne crée que la structure (schéma, vues, index, base d'audit) et le premier administrateur : aucune
+donnée de démonstration. Il peut être relancé sur une base existante : chaque paquet SQL s'applique à nouveau
+sans rien effacer.
 
 ## Sécurité
 

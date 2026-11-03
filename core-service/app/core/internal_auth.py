@@ -1,6 +1,6 @@
 """Service-to-service authentication (inbound checks).
 
-- X-Internal-Token: static (INTERNAL_TOKEN) or short-lived HMAC token (INTERNAL_TOKEN_KEYS), see internal_token.py
+- X-Internal-Token: the token shared by every service (INTERNAL_TOKEN)
 - X-Service-Name / X-Service-Scope: caller identity and scopes for scoped internal routes (with X-Internal-Token)
 """
 from __future__ import annotations
@@ -12,55 +12,26 @@ from collections.abc import Callable
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from app.core.config import get_settings
-from app.core.internal_token import InternalTokenError, parse_keyring, verify_internal_token
 from app.core.logging import get_logger, log_event
 
 
 logger = get_logger("core.internal_auth")
 
 
-def _token_mode() -> str:
-    return os.getenv("INTERNAL_TOKEN_MODE", "hmac").strip().lower()
-
-
-def _token_ttl() -> int:
-    return int(os.getenv("INTERNAL_TOKEN_TTL_SEC", "300"))
-
-
 # ============================================================
 # X-Internal-Token
 # ============================================================
 
-def _verify_internal_token(provided: str | None) -> tuple[str, int] | None:
-    """Check X-Internal-Token (static or hmac); returns (kid, exp) in hmac mode."""
+def _verify_internal_token(provided: str | None) -> None:
+    """Check X-Internal-Token against INTERNAL_TOKEN (constant-time comparison)."""
     provided = str(provided or "").strip()
     if not provided:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing internal token",
         )
-
-    if _token_mode() == "static":
-        expected = os.getenv("INTERNAL_TOKEN", "")
-        if not expected or not hmac.compare_digest(provided, expected):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid internal token",
-            )
-        return None
-
-    keyring = parse_keyring(os.getenv("INTERNAL_TOKEN_KEYS", ""))
-    if not keyring:
-        logger.critical("[SECURITY] INTERNAL_TOKEN_KEYS not configured")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service unavailable",
-        )
-
-    try:
-        return verify_internal_token(provided, keyring, ttl_sec=_token_ttl())
-    except InternalTokenError:
-        # Do not leak details to client
+    expected = os.getenv("INTERNAL_TOKEN", "")
+    if not expected or not hmac.compare_digest(provided, expected):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid internal token",
@@ -68,10 +39,8 @@ def _verify_internal_token(provided: str | None) -> tuple[str, int] | None:
 
 
 def require_internal_token(request: Request) -> None:
-    """Protect internal endpoints (static or hmac)."""
-    verified = _verify_internal_token(request.headers.get("X-Internal-Token"))
-    if verified:
-        request.state.internal_kid, request.state.internal_exp = verified
+    """Protect internal endpoints."""
+    _verify_internal_token(request.headers.get("X-Internal-Token"))
 
 
 def require_orchestration_access(request: Request) -> None:
