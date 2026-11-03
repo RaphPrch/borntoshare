@@ -5,6 +5,8 @@
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { reportUiError } from '$lib/errors/report';
   import { toast } from '$lib/stores/toast';
+  import { apiGetData } from '$lib/api/client';
+  import { listStorageEndpoints } from '$lib/api/storage-endpoints';
   import { createDfsFolder, deleteDfsFolder, type DfsInfo, type DfsLink } from './dfs-namespace';
 
   /**
@@ -48,11 +50,38 @@
   let createError = '';
   $: canCreate = Boolean(newFolder.trim()) && /^\\\\[^\\]+\\[^\\]+/.test(newTarget.trim());
 
+  let manageAfter = true;
+  // The shares of the file servers of the zone, as DFS targets (\\\\FILER01\\Finance)
+  let targetChoices: { value: string; label: string }[] = [];
+
+  // A DFS target names its server as Windows knows it: the declared name when it is one, else its address
+  const serverName = (ep: { name: string; host?: string | null }) =>
+    /^[A-Za-z0-9-]{1,15}$/.test(ep.name) || /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(ep.name) ? ep.name : String(ep.host ?? ep.name);
+
+  async function loadTargets() {
+    try {
+      const servers = (await listStorageEndpoints(fetch)).filter(
+        (ep) => String(ep.type).toLowerCase() !== 'dfs' && (!endpoint?.zone_id || Number(ep.zone_id) === Number(endpoint.zone_id))
+      );
+      const lists = await Promise.all(
+        servers.map(async (ep) => {
+          const answer = await apiGetData<{ items: { name: string }[] }>(fetch, '/storage-roots/discovered', { storage_endpoint_id: ep.id }).catch(() => ({ items: [] }));
+          return answer.items.map((share) => ({ value: `\\\\${serverName(ep)}\\${share.name}`, label: `${ep.name} · ${share.name}` }));
+        })
+      );
+      targetChoices = lists.flat();
+    } catch {
+      targetChoices = [];
+    }
+  }
+
   function openCreate() {
     newFolder = '';
     newTarget = '';
     createError = '';
+    manageAfter = true;
     createOpen = true;
+    void loadTargets();
   }
 
   async function submitCreate() {
@@ -62,7 +91,9 @@
       const done = await createDfsFolder(fetch, endpointNumber, newFolder.trim(), newTarget.trim());
       toast.success(t('DFS folder {path} created.', { path: done.path }));
       createOpen = false;
-      onChanged();
+      // Managed at once: its target becomes a storage root (the page reads the namespace again)
+      if (manageAfter) onManage([newFolder.trim().replace(/^\\+|\\+$/g, '')]);
+      else onChanged();
     } catch (e) {
       createError = reportUiError(e, t('The DFS folder was not created.'), 'storage-endpoint.dfs-folder-create');
     } finally {
@@ -168,8 +199,15 @@
     </label>
     <label>
       {t('Target share')}
-      <input class="b2s-input mono" bind:value={newTarget} maxlength="512" placeholder="\\FILER01\Finance" />
-      <small>{t('The share the DFS folder leads to: create it first on its file server.')}</small>
+      <input class="b2s-input mono" bind:value={newTarget} maxlength="512" placeholder="\\FILER01\Finance" list="dfs-target-choices" />
+      <datalist id="dfs-target-choices">
+        {#each targetChoices as choice (choice.value)}<option value={choice.value}>{choice.label}</option>{/each}
+      </datalist>
+      <small>{t('Choose a share of the zone, or type its path: create it first on its file server.')}</small>
+    </label>
+    <label class="check">
+      <input type="checkbox" bind:checked={manageAfter} />
+      <span>{t('Manage it in BornToShare right after')}</span>
     </label>
     {#if createError}<InlineAlert tone="error">{createError}</InlineAlert>{/if}
   </div>
@@ -231,6 +269,7 @@
   .dfs-form { display: grid; gap: 14px; }
   .dfs-form label { display: grid; gap: 6px; font-weight: 500; }
   .dfs-form small { color: var(--b2s-color-text-muted); font-weight: 400; }
+  .dfs-form .check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
   .link { font-size: var(--b2s-text-sm); }
   .more { width: 100%; margin-top: 8px; padding: 8px; border: 1px dashed var(--b2s-color-border-mid); border-radius: var(--b2s-radius-md); background: none; color: var(--b2s-color-text-muted); cursor: pointer; }
   .empty { padding: 20px; text-align: center; color: var(--b2s-color-text-muted); }

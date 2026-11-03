@@ -1188,8 +1188,17 @@ async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, r
         # Refused here, before a job: the worker would give the same answer
         raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "SHARE_NAME_INVALID", error)
     await operation.run("create", local_path, failure_code="SHARE_CREATE_FAILED")
+    unc = f"\\\\{endpoint.host}\\{name}"
+    # Listed at once with the shares of the server, without searching it again
+    capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
+    snapshot = capabilities.get("discovered_roots_snapshot")
+    if isinstance(snapshot, dict) and isinstance(snapshot.get("roots"), list):
+        roots = [root for root in snapshot["roots"] if normalize_root_path(str((root or {}).get("root_path") or "")) != normalize_root_path(unc)]
+        roots.append({"root_path": unc, "name": name})
+        endpoint.capabilities = {**capabilities, "discovered_roots_snapshot": {**snapshot, "roots": roots, "roots_count": len(roots)}}
     operation.log("success")
-    return ui_data({"share": name, "path": local_path, "unc": f"\\\\{endpoint.host}\\{name}"})
+    db.commit()
+    return ui_data({"share": name, "path": local_path, "unc": unc})
 
 
 @router.delete("/{endpoint_id}/shares/{share}", dependencies=[Depends(admin_only)])

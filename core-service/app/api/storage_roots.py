@@ -714,12 +714,15 @@ def _discovered_snapshots(db: Session) -> list[tuple[StorageEndpoint, dict[str, 
 
 def _discovered_item(endpoint: StorageEndpoint, root: dict[str, Any], managed: set[str]) -> dict[str, Any]:
     root_path = str(root.get("root_path") or "")
+    normalized = _normalize_root_path(root_path)
     return {
         "storage_endpoint_id": int(endpoint.id),
         "storage_endpoint_name": endpoint.name,
         "name": str(root.get("name") or _derive_root_name_from_path(root_path)),
         "root_path": root_path,
-        "managed": _normalize_root_path(root_path) in managed,
+        "managed": normalized in managed,
+        # Folders managed inside it: the share cannot be removed while there are some
+        "managed_below": sum(1 for path in managed if path.startswith(normalized + "\\")),
     }
 
 

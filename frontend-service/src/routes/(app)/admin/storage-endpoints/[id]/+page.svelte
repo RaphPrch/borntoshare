@@ -787,6 +787,8 @@
   // Shares of the last search (managed or not), for the counter and the Shares tab
   $: catalogEntry = selected ? (data as any).catalog?.[String(endpointId(selected))] ?? null : null;
   let showShareModal = false;
+  // A new share: the Shares tab lists it again at once
+  let sharesVersion = 0;
   let showEditModal = false;
   let editInitialTab: 'endpoint' | 'roots' = 'endpoint';
   let showDeleteModal = false;
@@ -1208,7 +1210,7 @@
   </main>
 </div>
 {:else}
-<ShareCreateModal open={showShareModal} endpointId={selectedEndpointId()} onClose={() => (showShareModal = false)} onCreated={() => void invalidateAll()} />
+<ShareCreateModal open={showShareModal} endpointId={selectedEndpointId()} onClose={() => (showShareModal = false)} onCreated={() => { sharesVersion += 1; void invalidateAll(); }} />
 <EntityWorkspace title={t('Storage endpoints')}>
   <svelte:fragment slot="list">
     <StorageEndpointsSidebar
@@ -1340,7 +1342,7 @@
             </div>
           </div>
         {:else if activeEndpointTab === 'shares'}
-          {#key endpointId(selected)}
+          {#key `${endpointId(selected)}-${sharesVersion}`}
             <EndpointSharesPanel endpoint={selected} discoveredAt={catalogEntry?.discovered_at ?? null} onChanged={() => void invalidateAll()} />
           {/key}
         {:else if activeEndpointTab === 'activity'}

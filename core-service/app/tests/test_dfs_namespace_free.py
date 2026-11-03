@@ -43,3 +43,12 @@ def test_dfs_folder_names() -> None:
     assert dfs_folder_error("Corporate\\Finance") is None
     for bad in ("", "a\\..\\b", "Fin:ance", "Fin|ance", "a\\\\b", "Corporate\\CON", "Finance."):
         assert dfs_folder_error(bad), bad
+
+
+def test_a_share_counts_the_folders_managed_in_it() -> None:
+    from app.api.storage_roots import _discovered_item, _normalize_root_path
+
+    endpoint = SimpleNamespace(id=90, name="FILER01")
+    managed = {_normalize_root_path(p) for p in ("\\\\fs\\Finance\\A", "\\\\fs\\Finance\\A\\B", "\\\\fs\\FinanceX\\C")}
+    item = _discovered_item(endpoint, {"root_path": "\\\\fs\\Finance", "name": "Finance"}, managed)
+    assert item["managed"] is False and item["managed_below"] == 2

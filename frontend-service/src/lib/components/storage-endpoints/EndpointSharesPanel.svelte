@@ -17,7 +17,7 @@
   export let discoveredAt: string | null = null;
   export let onChanged: () => void = () => {};
 
-  type Share = { name: string; root_path: string; managed: boolean };
+  type Share = { name: string; root_path: string; managed: boolean; managed_below?: number };
   let shares: Share[] = [];
   let loading = true;
   let searching = false;
@@ -134,7 +134,11 @@
           <span class="pill">{t('Managed')}</span>
         {:else}
           <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={adding[share.root_path]} on:click={() => add(share)}>{adding[share.root_path] ? t('Adding…') : t('Manage')}</button>
-          <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" aria-label={t('Delete the share {name}', { name: share.name })} title={t('Delete the share')} on:click={() => (toDelete = share)}><i class="bi bi-trash" aria-hidden="true"></i></button>
+          {#if share.managed_below}
+            <span class="muted" title={t('BornToShare manages folders in this share: remove them from BornToShare first.')}>{t('{count} managed folder(s)', { count: share.managed_below })}</span>
+          {:else}
+            <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" aria-label={t('Delete the share {name}', { name: share.name })} title={t('Delete the share')} on:click={() => (toDelete = share)}><i class="bi bi-trash" aria-hidden="true"></i></button>
+          {/if}
         {/if}
       </li>
     {/each}

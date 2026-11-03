@@ -3926,7 +3926,6 @@
   "Delete the DFS folder {path}?": "Supprimer le dossier DFS {path} ?",
   "DFS folder": "Dossier DFS",
   "Target share": "Partage cible",
-  "The share the DFS folder leads to: create it first on its file server.": "Le partage vers lequel mène le dossier DFS : créez-le d'abord sur son serveur de fichiers.",
   "Create the DFS folder": "Créer le dossier DFS",
   "Its users lose this DFS path.": "Ses utilisateurs perdent ce chemin DFS.",
   "The shares it leads to and their files stay on their servers.": "Les partages vers lesquels il mène et leurs fichiers restent sur leurs serveurs.",
@@ -3971,5 +3970,8 @@
   "The folder name contains a character refused by Windows (\\ / : * ? \" < > |)": "Le nom du dossier contient un caractère refusé par Windows (\\ / : * ? \" < > |)",
   "The folder name cannot start or end with a space, nor end with a dot": "Le nom du dossier ne peut pas commencer ni finir par une espace, ni finir par un point",
   "The share name is required, 80 characters at most, without surrounding spaces": "Le nom du partage est requis, 80 caractères au plus, sans espace autour",
-  "The name of the DFS folder is required, 255 characters at most": "Le nom du dossier DFS est requis, 255 caractères au plus"
+  "The name of the DFS folder is required, 255 characters at most": "Le nom du dossier DFS est requis, 255 caractères au plus",
+  "{count} managed folder(s)": "{count} dossier(s) géré(s)",
+  "Manage it in BornToShare right after": "Le gérer dans BornToShare juste après",
+  "Choose a share of the zone, or type its path: create it first on its file server.": "Choisissez un partage de la zone, ou saisissez son chemin : créez-le d'abord sur son serveur de fichiers."
 }
