@@ -1,5 +1,6 @@
 <script lang="ts">
   import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
+  import { upstreamErrorOf } from '$lib/errors/normalize';
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
   import Drawer from "$lib/components/ui/Drawer.svelte";
@@ -468,8 +469,8 @@
       onClose?.();
       onSaved?.();
     } catch (e: any) {
-      // The BFF wraps the core refusal in details.error.details.upstream_detail: its code comes first
-      const upstream: any = e?.details?.error?.details?.upstream_detail?.error ?? null;
+      // The refusal of the core behind the BFF: its code comes first
+      const upstream: any = upstreamErrorOf(e?.details);
       const code = String(upstream?.code ?? e?.code ?? "").trim();
       const details: any = upstream?.details ?? {};
       if (code === "ENDPOINT_HOST_HAS_ROOTS") {

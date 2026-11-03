@@ -1048,7 +1048,7 @@ def get_access_request_details(
     require_access_request_access(db, actor, int(access_request_id))
     is_requester = actor.identity_id is not None and int(row.get("requester_identity_id") or 0) == actor.identity_id
     stored = db.execute(
-        text("SELECT requester_identity_id, status, decision_comment FROM access_requests WHERE id = :id"),
+        text("SELECT requester_identity_id, status, decision_comment, decided_at FROM access_requests WHERE id = :id"),
         {"id": int(access_request_id)},
     ).mappings().first() or {}
     is_requester = is_requester or (actor.identity_id is not None and int(stored.get("requester_identity_id") or 0) == actor.identity_id)
@@ -1059,6 +1059,7 @@ def get_access_request_details(
         # The requester withdraws a request that waits; a refusal says why
         "can_cancel": bool(is_requester and str(stored.get("status") or "").lower() == "pending"),
         "decision_comment": stored.get("decision_comment"),
+        "decided_at": row.get("decided_at") or stored.get("decided_at"),
     }
     return ui_data(row, meta={"access_request_id": int(access_request_id)})
 

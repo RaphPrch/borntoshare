@@ -1,6 +1,5 @@
 <script lang="ts">
   import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
-  import { tick } from 'svelte';
   import { t } from '$lib/i18n';
   import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
   import { onDestroy, onMount } from 'svelte';
@@ -653,10 +652,8 @@
   async function onSubfolderCreated(newRootId: number | null) {
     await refreshStorageRootsLoad();
     if (!newRootId) return;
+    // The core already queued its check (access and ACL): no second probe from here
     await goto(`/storage-roots?selected=${newRootId}`, { replaceState: true });
-    await tick();
-    // Its ACL is read at once: inheritance, entries copied from the parent
-    if (Number(selectedStorageRootId) === newRootId) void runSelectedRootProbe();
   }
 
   /** The storage root is gone (removed from BornToShare, or its folder deleted from the server): drop it from the page */

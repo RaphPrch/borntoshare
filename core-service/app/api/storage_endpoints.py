@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.services.secret_store import forget_unused
@@ -996,6 +997,8 @@ class ShareCreatePayload(BaseModel):
     path: str | None = Field(default=None, max_length=512)
 
 
+_SHARE_NAME_FORBIDDEN = re.compile(r'[\\/:*?"<>|\[\];=,+$]')
+
 _SHARE_REFUSALS = {
     "SHARE_ADMIN_REQUIRED": status.HTTP_403_FORBIDDEN,
     "SHARE_EXISTS": status.HTTP_409_CONFLICT,
@@ -1019,6 +1022,29 @@ async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, r
                             detail={"code": "ENDPOINT_CREDENTIALS_MISSING", "message": "Le serveur de fichiers n'a ni hôte ni compte."})
     name = payload.name.strip()
     local_path = (payload.path or "").strip() or f"C:\\Shares\\{name}"
+    actor = actor_from_request(request)
+
+    def refused(http_status: int, code: str, message: str, job_id: int | None = None) -> HTTPException:
+        # A share that was not created is audited too: who tried, which name, why
+        log_activity(
+            db,
+            actor_type="user" if actor.identity_id is not None else "system",
+            actor_id=actor.identity_id,
+            actor_display=actor.display_name,
+            action="storage_endpoint.share_created",
+            outcome="failure",
+            target_type="storage_endpoint",
+            target_id=int(endpoint_id),
+            target_display=str(endpoint.name or endpoint_id),
+            context_json={"share": name, "path": local_path, "reason": message, "code": code},
+            correlation_id=(request.headers.get("x-request-id") or None),
+        )
+        return HTTPException(status_code=http_status, detail={"code": code, "message": message, **({"job_id": job_id} if job_id else {})})
+
+    if _SHARE_NAME_FORBIDDEN.search(name):
+        # Refused here, before a job: the worker would give the same answer
+        raise refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "SHARE_NAME_INVALID",
+                      'These characters are refused in a share name: \\ / : * ? " < > | [ ] ; = , + $')
     queued = await submit_probe_run({
         "kind": "share", "protocol": "create", "scope": "write",
         "target": {"host": endpoint.host, "share": name, "path": local_path},
@@ -1038,14 +1064,11 @@ async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, r
             # A refusal is not a failure of the worker: retrying would give the same answer
             code = str(error.get("code") or "SHARE_CREATE_FAILED")
             http_status = _SHARE_REFUSALS.get(code, status.HTTP_502_BAD_GATEWAY)
-            raise HTTPException(status_code=http_status,
-                                detail={"code": code, "message": str(error.get("message") or state), "job_id": job_id})
+            raise refused(http_status, code, str(error.get("message") or state), job_id)
         await asyncio.sleep(1)
     else:
-        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                            detail={"code": "SHARE_CREATE_TIMEOUT", "message": "Le worker n'a pas répondu à temps.", "job_id": job_id})
+        raise refused(status.HTTP_504_GATEWAY_TIMEOUT, "SHARE_CREATE_TIMEOUT", "Le worker n'a pas répondu à temps.", job_id)
 
-    actor = actor_from_request(request)
     log_activity(
         db,
         actor_type="user" if actor.identity_id is not None else "system",

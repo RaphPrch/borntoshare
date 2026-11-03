@@ -281,7 +281,17 @@ def remove_ad_group_member(params: dict[str, Any]):
         if not ldap_client.bind(conn, bind_dn=bind_dn, password=password):
             return False, "LDAP bind failed", {"host": host, "port": port}
 
-        resolved_group_dn = _resolve_group_dn(conn, base_dn=base_dn, group_ref=group_ref, dialect=ldap_dialect.of(params))
+        try:
+            resolved_group_dn = _resolve_group_dn(conn, base_dn=base_dn, group_ref=group_ref, dialect=ldap_dialect.of(params))
+        except ValueError:
+            # A group deleted outside BornToShare has no members left: the access is already gone
+            return True, "AD group not found: membership already absent", {
+                "ok": True,
+                "removed": False,
+                "reason": "group_not_found",
+                "group": group_ref,
+                "operation": "remove_ad_group_member",
+            }
         resolved_principal_dn = _resolve_principal_dn(
             conn,
             base_dn=base_dn,
