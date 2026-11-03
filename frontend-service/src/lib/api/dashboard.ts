@@ -33,6 +33,9 @@ export type UserDashboardMePayload = {
     failed: number;
     active: number;
     ending_30d: number;
+    approved_30d?: number;
+    refused_30d?: number;
+    revoked_30d?: number;
   };
   to_decide?: DashboardRequest[];
   guarded_failed?: DashboardRequest[];
