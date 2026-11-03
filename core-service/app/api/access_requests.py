@@ -1047,10 +1047,18 @@ def get_access_request_details(
     actor = actor_from_request(request)
     require_access_request_access(db, actor, int(access_request_id))
     is_requester = actor.identity_id is not None and int(row.get("requester_identity_id") or 0) == actor.identity_id
+    stored = db.execute(
+        text("SELECT requester_identity_id, status, decision_comment FROM access_requests WHERE id = :id"),
+        {"id": int(access_request_id)},
+    ).mappings().first() or {}
+    is_requester = is_requester or (actor.identity_id is not None and int(stored.get("requester_identity_id") or 0) == actor.identity_id)
     row = {
         **row,
         "own_request": is_own_request(db, actor, int(access_request_id)),
         "can_change_permission": is_requester or can_review_request(db, actor, int(access_request_id)),
+        # The requester withdraws a request that waits; a refusal says why
+        "can_cancel": bool(is_requester and str(stored.get("status") or "").lower() == "pending"),
+        "decision_comment": stored.get("decision_comment"),
     }
     return ui_data(row, meta={"access_request_id": int(access_request_id)})
 
@@ -1635,6 +1643,61 @@ def change_access_request_permission(
     db.commit()
     journal("success")
     return ui_data({"id": int(access_request_id), "permission": payload.permission})
+
+
+@router.post("/{access_request_id}/cancel")
+def cancel_access_request(
+    access_request_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """The requester withdraws their own request while it waits for a decision; nothing was done on the folder yet."""
+    actor = actor_from_request(request)
+    row = db.execute(
+        text("SELECT id, requester_identity_id, status FROM access_requests WHERE id = :id"),
+        {"id": int(access_request_id)},
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access request not found")
+    if actor.identity_id is None or int(row.get("requester_identity_id") or 0) != int(actor.identity_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "CANCEL_NOT_REQUESTER", "message": "Only the person who made the request can cancel it"},
+        )
+    if str(row.get("status") or "").lower() != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CANCEL_NOT_PENDING", "message": "Only a request waiting for a decision can be cancelled"},
+        )
+    db.execute(
+        text("UPDATE access_requests SET status = 'cancelled', decided_at = :now, updated_at = :now WHERE id = :id AND status = 'pending'"),
+        {"id": int(access_request_id), "now": datetime.utcnow()},
+    )
+    db.commit()
+    labels = _request_event_labels(db, int(access_request_id))
+    log_activity(
+        db,
+        actor_type="user",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action="access_request.cancelled",
+        outcome="success",
+        target_type="access_request",
+        target_id=int(access_request_id),
+        target_display=f"REQ-{access_request_id}",
+        context_json={"decision": "cancel", **labels},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    # The « request to decide » of the folder goes away with it
+    root_id = int(labels.get("storage_root_id") or 0)
+    if root_id:
+        try:
+            from app.api.storage_roots import _reconcile_storage_root_alerts
+
+            _reconcile_storage_root_alerts(db, root_id)
+        except Exception:  # the alert is refreshed by the next reconciliation anyway
+            db.rollback()
+    return ui_action(action_id=int(access_request_id), message="access_request.cancelled", details={"status": "cancelled"})
 
 
 class ExtendAccessPayload(BaseModel):

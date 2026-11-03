@@ -273,6 +273,17 @@ class AccessRequestsViewsRepo:
             if root_id > 0:
                 row["guardian_name"] = guardian_names.get(root_id)
 
+        # A deleted folder: its name as recorded when the request was created, and the request says so
+        orphans = [int(r.get("request_id") or 0) for r in rows if not str(r.get("storage_root_name") or "").strip()]
+        if orphans:
+            from app.services.activity_store_db import root_names_of_requests
+
+            names = root_names_of_requests(orphans)
+            for row in rows:
+                if not str(row.get("storage_root_name") or "").strip():
+                    row["storage_root_deleted"] = True
+                    row["storage_root_name"] = names.get(int(row.get("request_id") or 0))
+
         if my_action:
             return rows
 

@@ -15,6 +15,7 @@ const REQUEST_STATUS_MAP: Record<string, AccessRequestStatusMeta> = {
   rejected: { label: 'Rejected', tone: 'rejected' },
   executed: { label: 'Applied', tone: 'enforced' },
   expired: { label: 'Expired', tone: 'neutral' },
+  cancelled: { label: 'Cancelled', tone: 'neutral' },
   failed: { label: 'Failed', tone: 'rejected' }
 };
 

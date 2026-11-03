@@ -11,7 +11,15 @@ const firstNonEmpty = (values: any[]) => {
 export const accessRequestId = (row: any): number =>
   Number(row?.request_id ?? row?.id ?? 0);
 
+/** Name of the folder of a request; a deleted folder says so, never its technical id */
 export const accessRequestTargetLabel = (row: any): string =>
+  row?.storage_root_deleted
+    ? row?.storage_root_name
+      ? t('Deleted folder · {name}', { name: String(row.storage_root_name) })
+      : t('Deleted folder')
+    : accessRequestTargetName(row);
+
+const accessRequestTargetName = (row: any): string =>
   String(
     firstNonEmpty([
       row?.storage_root_name,

@@ -305,6 +305,10 @@
       "permission_changed": {
         "title": "Request access level changed",
         "description": "The request of {user} on \"{root}\": {from} → {to}"
+      },
+      "cancelled": {
+        "title": "Request cancelled",
+        "description": "{user} cancelled their request on « {root} »"
       }
     },
     "identity_source": {

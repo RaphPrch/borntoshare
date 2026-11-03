@@ -10,7 +10,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { normalizeMe } from '$lib/types/me';
-  import { adoptAccessGroup, bulkDecision, changeRequestPermission, getAccessRequestDetails, getApprovalPreview, type ApprovalPreview } from '$lib/api/access-requests';
+  import { cancelAccessRequest, adoptAccessGroup, bulkDecision, changeRequestPermission, getAccessRequestDetails, getApprovalPreview, type ApprovalPreview } from '$lib/api/access-requests';
   import ApprovalPlan from '$lib/components/access-requests/ApprovalPlan.svelte';
   import { listActivityByTarget, type ActivityEvent } from '$lib/api/activity';
   import { renderActivity } from '$lib/activity/formatter';
@@ -27,9 +27,9 @@
     accessRequestAccessLabel,
     accessRequestId,
     accessRequestRequesterName,
-    accessRequestTargetLabel,
-    accessRequestTargetPath
+    accessRequestTargetLabel
   } from '$lib/mappers/access-requests.mapper';
+  import { reportUiError } from '$lib/errors';
 
   type Segment = 'pending' | 'applied' | 'closed' | 'all';
   type AccessKind = 'read' | 'write' | 'other';
@@ -58,6 +58,24 @@
   let decisionComment = '';
   let decisionRunning: 'approve' | 'reject' | 'revoke' | null = null;
   let showRevokeConfirm = false;
+  let showCancelConfirm = false;
+  let cancelling = false;
+  async function cancelSelected() {
+    showCancelConfirm = false;
+    const id = selectedRequest ? accessRequestId(selectedRequest) : 0;
+    if (!id) return;
+    cancelling = true;
+    try {
+      await cancelAccessRequest(fetch, Number(id));
+      toast.success(t('Request cancelled.'));
+      await invalidateAll();
+      selectedRequestDetail = null;
+    } catch (error) {
+      reportUiError(error, t('Unable to cancel this request.'), 'access-requests.cancel');
+    } finally {
+      cancelling = false;
+    }
+  }
   // Provisioning log of the open request (one entry per step, written by the server as it goes)
   let provisioningLog: ActivityEvent[] = [];
   // What the approval will do (reviewers), then what it did once applied
@@ -121,8 +139,9 @@
     String(row?.requested_for_department ?? row?.requester_department ?? row?.department ?? row?.requested_principal_json?.department ?? '').trim();
   const resourceName = (row: any): string => accessRequestTargetLabel(row);
   const resourcePath = (row: any): string => {
-    const path = String(row?.root_path ?? row?.target_path ?? row?.resource_path ?? accessRequestTargetPath(row) ?? '').trim();
-    return path && path !== '—' ? path : '';
+    // A folder path only: never the technical id of a deleted folder (/storage_root/12)
+    const path = String(row?.root_path ?? row?.target_path ?? row?.resource_path ?? '').trim();
+    return path && path !== '—' && !path.startsWith('/storage_root') ? path : '';
   };
   const requestCode = (row: any): string => String(row?.request_code ?? row?.code ?? `#${accessRequestId(row)}`);
   const justification = (row: any): string => String(row?.justification ?? row?.business_justification ?? row?.reason ?? '').trim();
@@ -827,8 +846,13 @@
 
   {#if selectedRequest}
   <div class="ar-side-foot">
+  {#if statusOf(selectedRequest) === 'rejected' && selectedRequest?.decision_comment}
+    <p class="ar-reason"><strong>{t('Reason for the refusal')}</strong>{selectedRequest.decision_comment}</p>
+  {/if}
   <p class="ar-foot-note">
-    {#if selectedRequest && canReviewSelected && ownRequestBlocked}
+    {#if selectedRequest?.can_cancel}
+      {t('You can withdraw this request while it waits for a decision.')}
+    {:else if selectedRequest && canReviewSelected && ownRequestBlocked}
       {t('This is your own request: another guardian or an administrator approves it.')}
     {:else if selectedRequest && canReviewSelected}
       {t('You can decide on this request.')}
@@ -839,6 +863,11 @@
     {/if}
   </p>
   <div class="ar-foot-actions">
+    {#if selectedRequest?.can_cancel}
+      <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={cancelling} on:click={() => (showCancelConfirm = true)}>
+        <i class="bi bi-x-circle" aria-hidden="true"></i>{cancelling ? t('Cancelling…') : t('Cancel my request')}
+      </button>
+    {/if}
     {#if canReviewSelected}
       <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={Boolean(decisionRunning)} on:click={() => runDecision('reject')}>
         <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -873,6 +902,16 @@
 </aside>
   </div>
 </div>
+
+<ConfirmActionModal
+  open={showCancelConfirm}
+  onClose={() => (showCancelConfirm = false)}
+  onConfirm={cancelSelected}
+  severity="warning"
+  title={t('Cancel this request?')}
+  impactItems={[t('The request is withdrawn: nobody will decide on it and nothing changes on the folder.')]}
+  confirmLabel={t('Cancel my request')}
+/>
 
 <ConfirmActionModal
   open={showRevokeConfirm}
@@ -1309,4 +1348,6 @@
     font-size: var(--b2s-fs-sm);
     resize: vertical;
   }
+  .ar-reason { display: flex; flex-direction: column; gap: 2px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--b2s-color-danger-border, #f0c4c4); border-radius: var(--b2s-radius-md); background: var(--b2s-color-danger-soft); font-size: var(--b2s-fs-sm); }
+  .ar-reason strong { color: var(--b2s-color-danger-strong); }
 </style>

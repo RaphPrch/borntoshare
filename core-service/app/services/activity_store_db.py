@@ -568,3 +568,34 @@ def search_events(
         "page_size": page_size,
         "modules": modules,
     }
+
+
+def root_names_of_requests(request_ids: list[int]) -> dict[int, str]:
+    """Folder name of access requests whose folder is gone, as recorded when each request was created."""
+    ids = sorted({int(v) for v in request_ids if int(v) > 0})
+    if not ids:
+        return {}
+    try:
+        with LoggingSessionLocal() as db:
+            rows = db.execute(
+                text(
+                    "SELECT entity_id, metadata_json FROM audit_event "
+                    "WHERE entity_type = 'access_request' AND entity_id IN :ids AND action = 'access_request.created'"
+                ).bindparams(bindparam("ids", expanding=True)),
+                {"ids": [str(v) for v in ids]},
+            ).mappings().all()
+    except Exception:  # a label only: the list stays usable without the activity log
+        return {}
+    names: dict[int, str] = {}
+    for row in rows:
+        meta = row.get("metadata_json")
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta)
+            except ValueError:
+                meta = None
+        name = str((meta or {}).get("root") or "").strip() if isinstance(meta, dict) else ""
+        if name:
+            names[int(row["entity_id"])] = name
+    return names
+

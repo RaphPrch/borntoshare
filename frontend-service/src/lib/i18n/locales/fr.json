@@ -1494,6 +1494,10 @@
       "permission_changed": {
         "title": "Niveau d'accès de la demande modifié",
         "description": "La demande de {user} sur « {root} » : {from} → {to}"
+      },
+      "cancelled": {
+        "title": "Demande annulée",
+        "description": "{user} a annulé sa demande sur « {root} »"
       }
     },
     "identity_source": {
@@ -3750,5 +3754,15 @@
   "in read": "en lecture",
   "{count} event(s)": "{count} événement(s)",
   "Accepted (30 days)": "Acceptées (30 jours)",
-  "Revoked (30 days)": "Révoquées (30 jours)"
+  "Revoked (30 days)": "Révoquées (30 jours)",
+  "Deleted folder · {name}": "Dossier supprimé · {name}",
+  "Deleted folder": "Dossier supprimé",
+  "Reason for the refusal": "Motif du refus",
+  "You can withdraw this request while it waits for a decision.": "Vous pouvez retirer cette demande tant qu’elle attend une décision.",
+  "Cancelling…": "Annulation…",
+  "Cancel my request": "Annuler ma demande",
+  "Request cancelled.": "Demande annulée.",
+  "Unable to cancel this request.": "Impossible d’annuler cette demande.",
+  "Cancel this request?": "Annuler cette demande ?",
+  "The request is withdrawn: nobody will decide on it and nothing changes on the folder.": "La demande est retirée : personne n’aura à décider, et rien ne change sur le dossier."
 }

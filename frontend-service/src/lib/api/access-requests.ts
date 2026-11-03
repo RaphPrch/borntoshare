@@ -152,6 +152,10 @@ export const changeRequestPermission = async (
 /**
  * APPROVE an access request
  */
+/** The requester withdraws their own pending request */
+export const cancelAccessRequest = (fetchFn: FetchLike, id: number) =>
+  apiPostData<Record<string, unknown>>(fetchFn, `/access-requests/${id}/cancel`, {});
+
 export const bulkDecision = async (
   fetchFn: FetchLike,
   ids: number[],
