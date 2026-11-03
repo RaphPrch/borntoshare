@@ -10,7 +10,7 @@ from app.actions.ad_access import grant_ad_access
 from app.actions.ad_group import ensure_ad_group
 from app.actions.ad_group_member import ensure_ad_group_member, remove_ad_group_member
 from app.actions.directory_snapshot import collect_directory_snapshot
-from app.actions.folder import create_share, create_subfolder, delete_folder, set_folder_inheritance
+from app.actions.folder import create_share, create_subfolder, delete_folder, delete_share, set_folder_inheritance
 from app.actions.infra_health import run_infra_health_check
 from app.actions.kerberos import test_kerberos
 from app.actions.ldap_group_recursive import discover_group_users_recursive
@@ -227,6 +227,13 @@ ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
         action="share_create",
         schema=FolderOperationPayload,
         runner=create_share,
+        secret_fields=("secret_ref",),
+        target_field="host",
+    ),
+    "share_delete": ActionSpec(
+        action="share_delete",
+        schema=FolderOperationPayload,
+        runner=delete_share,
         secret_fields=("secret_ref",),
         target_field="host",
     ),

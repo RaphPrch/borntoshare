@@ -175,6 +175,10 @@
       "dfs_created": {
         "title": "Namespace added",
         "description": "The namespace « {endpoint} » was added to the zone « {zone} »"
+      },
+      "share_deleted": {
+        "title": "Share deleted",
+        "description": "A share was deleted from the server “{target}”"
       }
     },
     "tag": {

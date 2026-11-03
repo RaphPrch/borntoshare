@@ -26,6 +26,7 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'governance_alert.acknowledged': { titleKey: 'activity.governance_alert.acknowledged.title', descriptionKey: 'activity.governance_alert.acknowledged.description', badge: 'info', icon: 'eye' },
   'governance_alert.resolved': { titleKey: 'activity.governance_alert.resolved.title', descriptionKey: 'activity.governance_alert.resolved.description', badge: 'admin', icon: 'check2-circle' },
   'storage_endpoint.share_created': { titleKey: 'activity.storage_endpoint.share_created.title', descriptionKey: 'activity.storage_endpoint.share_created.description', badge: 'admin', icon: 'folder' },
+  'storage_endpoint.share_deleted': { titleKey: 'activity.storage_endpoint.share_deleted.title', descriptionKey: 'activity.storage_endpoint.share_deleted.description', badge: 'admin', icon: 'folder' },
   'access_request.cancelled': { titleKey: 'activity.access_request.cancelled.title', descriptionKey: 'activity.access_request.cancelled.description', badge: 'info', icon: 'x-circle' },
   'storage_endpoint.dfs_created': { titleKey: 'activity.storage_endpoint.dfs_created.title', descriptionKey: 'activity.storage_endpoint.dfs_created.description', badge: 'admin', icon: 'diagram-3' },
   'storage_endpoint.dfs_read': { titleKey: 'activity.storage_endpoint.dfs_read.title', descriptionKey: 'activity.storage_endpoint.dfs_read.description', badge: 'info', icon: 'diagram-3' },

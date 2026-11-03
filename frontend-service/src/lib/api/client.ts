@@ -68,11 +68,13 @@ const apiPatch = <T>(
 
 export const apiDelete = <T>(
   fetchFn: FetchLike,
-  path: string
+  path: string,
+  options?: TimeoutOptions
 ) =>
   clientRequest<T>(fetchFn, {
     method: 'DELETE',
-    path
+    path,
+    timeoutMs: options?.timeoutMs
   });
 
 export const apiGetData = async <T>(
@@ -108,5 +110,6 @@ export const apiPatchData = async <T>(
 
 export const apiDeleteData = async <T>(
   fetchFn: FetchLike,
-  path: string
-): Promise<T> => unwrapDataStrict<T>(await apiDelete<unknown>(fetchFn, path), `DELETE ${path}`);
+  path: string,
+  options?: TimeoutOptions
+): Promise<T> => unwrapDataStrict<T>(await apiDelete<unknown>(fetchFn, path, options), `DELETE ${path}`);

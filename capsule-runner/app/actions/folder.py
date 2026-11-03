@@ -227,3 +227,43 @@ def create_share(params: Dict[str, Any]):
     details["created"] = True
     logger.info("Share created", extra={"operation": "share_create", "target_share": share})
     return True, "Share created", details
+
+
+# Shares of the system, never removed from BornToShare
+SYSTEM_SHARES = {"IPC$", "ADMIN$", "PRINT$", "NETLOGON", "SYSVOL"}
+
+
+def delete_share(params: Dict[str, Any]):
+    """Remove a share from a Windows file server over RPC. Its folder and files stay on the server."""
+    host = str(params.get("host") or "").strip()
+    share = str(params.get("share") or "")
+    user = _auth_user(str(params.get("username") or "").strip(), str(params.get("domain") or "").strip())
+    password = str(params.get("password") or "")
+    timeout = int(params.get("timeout_sec") or 30)
+    details: dict[str, Any] = {"operation": "share_delete", "target": {"host": host, "share": share}}
+
+    if share_name_error(share) or share.upper() in SYSTEM_SHARES or share.endswith("$"):
+        return False, "Ce partage ne peut pas être supprimé depuis BornToShare.", {**details, "failure_code": "SHARE_NAME_INVALID"}
+    try:
+        existing = _output(run_samba(["rpcclient", host, "-c", f'netsharegetinfo "{share}" 2'],
+                                     username=user, password=password, capture_output=True, timeout=timeout))
+        if "WERR_ACCESS_DENIED" in existing or "NT_STATUS_ACCESS_DENIED" in existing:
+            return False, "Le compte du serveur de fichiers doit être administrateur local du serveur.", {**details, "failure_code": "SHARE_ADMIN_REQUIRED"}
+        if f"netname: {share}".lower() not in existing.lower():
+            return False, "Ce partage n'existe pas sur le serveur.", {**details, "failure_code": "SHARE_NOT_FOUND"}
+        path = next((line.split(":", 1)[1].strip() for line in existing.splitlines() if line.strip().lower().startswith("path:")), "")
+        removed = _output(run_samba(["rpcclient", host, "-c", f'netsharedel "{share}"'],
+                                    username=user, password=password, capture_output=True, timeout=timeout))
+        check = _output(run_samba(["rpcclient", host, "-c", f'netsharegetinfo "{share}" 1'],
+                                  username=user, password=password, capture_output=True, timeout=timeout))
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return False, f"Impossible de supprimer le partage : {exc}", {**details, "failure_code": "SHARE_DELETE_FAILED"}
+    if "WERR_ACCESS_DENIED" in removed:
+        return False, "Le compte du serveur de fichiers doit être administrateur local du serveur.", {**details, "failure_code": "SHARE_ADMIN_REQUIRED"}
+    if f"netname: {share}".lower() in check.lower():
+        message = next((line for line in removed.splitlines() if "WERR_" in line or "NT_STATUS_" in line), "le partage est toujours là")
+        code = "SHARE_IN_USE" if "WERR_" in message and "IN_USE" in message.upper() else "SHARE_DELETE_FAILED"
+        return False, message.strip()[:300], {**details, "failure_code": code}
+    details.update({"deleted": True, "path": path})
+    logger.info("Share deleted", extra={"operation": "share_delete", "target_share": share})
+    return True, "Share deleted", details

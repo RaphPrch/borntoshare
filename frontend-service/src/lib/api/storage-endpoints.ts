@@ -440,6 +440,12 @@ export type StorageEndpointImpact = { roots: number; access_groups: number; acti
 export const getStorageEndpointImpact = (fetchFn: FetchLike, id: number) =>
   apiGetData<StorageEndpointImpact>(fetchFn, `/storage-endpoints/${id}/impact`);
 
+/** Remove a share from the file server; its folder and files stay there. Refused while a managed folder is in it. */
+export const deleteStorageEndpointShare = (fetchFn: FetchLike, endpointId: number, share: string) =>
+  apiDeleteData<{ share: string; unc: string }>(fetchFn, `/storage-endpoints/${endpointId}/shares/${encodeURIComponent(share)}`, {
+    timeoutMs: 90_000
+  });
+
 export const createStorageEndpointShare = (
   fetchFn: FetchLike,
   endpointId: number,

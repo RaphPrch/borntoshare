@@ -8,6 +8,9 @@
   import { runProbeWithPolling, syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
   import { formatDateTime } from '$lib/utils/format';
   import { toast } from '$lib/stores/toast';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import { deleteStorageEndpointShare } from '$lib/api/storage-endpoints';
+  import { reportUiError } from '$lib/errors/report';
 
   /** Shares found on the server by its last search: the managed ones, and those to add (one by one, or several at once). */
   export let endpoint: Record<string, any>;
@@ -82,6 +85,27 @@
     }
   }
 
+  // A share that BornToShare does not manage can be removed from the server; its files stay there
+  let toDelete: Share | null = null;
+  let deleting = false;
+
+  async function confirmDelete() {
+    const share = toDelete;
+    if (!share) return;
+    deleting = true;
+    try {
+      await deleteStorageEndpointShare(fetch, id, share.name);
+      shares = shares.filter((row) => row.root_path !== share.root_path);
+      toast.success(t('Share {name} deleted from the file server.', { name: share.name }));
+      toDelete = null;
+      onChanged();
+    } catch (e) {
+      reportUiError(e, t('The share was not deleted.'), 'storage-endpoint.share-delete');
+    } finally {
+      deleting = false;
+    }
+  }
+
   onMount(load);
 </script>
 
@@ -110,6 +134,7 @@
           <span class="pill">{t('Managed')}</span>
         {:else}
           <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={adding[share.root_path]} on:click={() => add(share)}>{adding[share.root_path] ? t('Adding…') : t('Manage')}</button>
+          <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" aria-label={t('Delete the share {name}', { name: share.name })} title={t('Delete the share')} on:click={() => (toDelete = share)}><i class="bi bi-trash" aria-hidden="true"></i></button>
         {/if}
       </li>
     {/each}
@@ -117,6 +142,30 @@
 {:else}
   <p class="empty">{shares.length ? t('No share matches this search.') : t('No share found: search the server, or create a share.')}</p>
 {/if}
+
+<ConfirmActionModal
+  open={Boolean(toDelete)}
+  onClose={() => (toDelete = null)}
+  onConfirm={confirmDelete}
+  severity="danger"
+  confirmVariant="danger"
+  title={t('Delete the share {name}?', { name: toDelete?.name ?? '' })}
+  subtitle={toDelete?.root_path ?? null}
+  impactTitle={t('Impact')}
+  impactItems={[
+    t('The share is removed from the file server: its users lose the path.'),
+    t('Its folder and files stay on the server.'),
+    t('Refused while BornToShare manages a folder in it.')
+  ]}
+  cancelLabel={t('Cancel')}
+  confirmLabel={t('Delete the share')}
+  confirmBusyLabel={t('Deleting…')}
+  busy={deleting}
+  requireTextConfirm={true}
+  requiredText={toDelete?.name ?? ''}
+  textConfirmLabel={t('Type the name of the share to confirm')}
+  textConfirmPlaceholder={toDelete?.name ?? ''}
+/>
 
 <style>
   .head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }

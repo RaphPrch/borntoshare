@@ -1001,89 +1001,129 @@ _SHARE_NAME_FORBIDDEN = re.compile(r'[\\/:*?"<>|\[\];=,+$]')
 
 _SHARE_REFUSALS = {
     "SHARE_ADMIN_REQUIRED": status.HTTP_403_FORBIDDEN,
+    "SHARE_NOT_FOUND": status.HTTP_404_NOT_FOUND,
+    "SHARE_IN_USE": status.HTTP_409_CONFLICT,
     "SHARE_EXISTS": status.HTTP_409_CONFLICT,
     "SHARE_NAME_INVALID": status.HTTP_422_UNPROCESSABLE_ENTITY,
     "SHARE_PATH_INVALID": status.HTTP_422_UNPROCESSABLE_ENTITY,
 }
 
 
-@router.post("/{endpoint_id}/shares", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_only)])
-async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, request: Request, db: Session = Depends(get_db)):
-    """Create a share on the file server with its account, which must be a local administrator of the server."""
-    import asyncio
-
-    from app.services.probe_service import fetch_probe_job, submit_probe_run
-
+def _share_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
     endpoint = db.get(StorageEndpoint, int(endpoint_id))
     if endpoint is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
     if not (endpoint.host and endpoint.bind_dn and endpoint.bind_password_ref):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                             detail={"code": "ENDPOINT_CREDENTIALS_MISSING", "message": "Le serveur de fichiers n'a ni hôte ni compte."})
+    return endpoint
+
+
+class _ShareOperation:
+    """A share created or deleted on the file server by the worker, audited whatever the outcome."""
+
+    def __init__(self, db: Session, request: Request, endpoint: StorageEndpoint, *, action: str, share: str, context: dict[str, Any]):
+        self.db, self.request, self.endpoint = db, request, endpoint
+        self.action, self.share, self.context = action, share, context
+        self.actor = actor_from_request(request)
+
+    def log(self, outcome: str, **extra: Any) -> None:
+        log_activity(
+            self.db,
+            actor_type="user" if self.actor.identity_id is not None else "system",
+            actor_id=self.actor.identity_id,
+            actor_display=self.actor.display_name,
+            action=self.action,
+            outcome=outcome,
+            target_type="storage_endpoint",
+            target_id=int(self.endpoint.id),
+            target_display=str(self.endpoint.name or self.endpoint.id),
+            context_json={**self.context, **extra},
+            correlation_id=(self.request.headers.get("x-request-id") or None),
+        )
+
+    def refused(self, http_status: int, code: str, message: str, job_id: int | None = None, **extra: Any) -> HTTPException:
+        # The route writes its own refusal: no generic request.refused besides
+        self.request.state.refusal_logged = True
+        self.log("failure", reason=message, code=code)
+        return HTTPException(status_code=http_status, detail={"code": code, "message": message, **extra, **({"job_id": job_id} if job_id else {})})
+
+    async def run(self, protocol: str, path: str, *, failure_code: str) -> dict[str, Any]:
+        import asyncio
+
+        from app.services.probe_service import fetch_probe_job, submit_probe_run
+
+        queued = await submit_probe_run({
+            "kind": "share", "protocol": protocol, "scope": "write",
+            "target": {"host": self.endpoint.host, "share": self.share, "path": path},
+            "auth": {"mode": "ntlm", "username": self.endpoint.bind_dn, "secret_ref": self.endpoint.bind_password_ref},
+            "options": {"timeout_sec": 60},
+            "context": {"storage_endpoint_id": int(self.endpoint.id), "ui_origin": "admin"},
+        })
+        job_id = int((queued or {}).get("job_id") or 0)
+        for _ in range(60):
+            job = dict(await fetch_probe_job(job_id) or {})
+            state = str(job.get("status") or "").lower()
+            if state == "succeeded":
+                return job
+            if state in {"failed", "timed_out", "cancelled"}:
+                error = job.get("error") if isinstance(job.get("error"), dict) else {}
+                # A refusal is not a failure of the worker: retrying would give the same answer
+                code = str(error.get("code") or failure_code)
+                raise self.refused(_SHARE_REFUSALS.get(code, status.HTTP_502_BAD_GATEWAY), code, str(error.get("message") or state), job_id)
+            await asyncio.sleep(1)
+        raise self.refused(status.HTTP_504_GATEWAY_TIMEOUT, f"{failure_code.rsplit('_', 1)[0]}_TIMEOUT", "Le worker n'a pas répondu à temps.", job_id)
+
+
+@router.post("/{endpoint_id}/shares", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_only)])
+async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, request: Request, db: Session = Depends(get_db)):
+    """Create a share on the file server with its account, which must be a local administrator of the server."""
+    endpoint = _share_endpoint(db, endpoint_id)
     name = payload.name.strip()
     local_path = (payload.path or "").strip() or f"C:\\Shares\\{name}"
-    actor = actor_from_request(request)
-
-    def refused(http_status: int, code: str, message: str, job_id: int | None = None) -> HTTPException:
-        # A share that was not created is audited too: who tried, which name, why
-        request.state.refusal_logged = True
-        log_activity(
-            db,
-            actor_type="user" if actor.identity_id is not None else "system",
-            actor_id=actor.identity_id,
-            actor_display=actor.display_name,
-            action="storage_endpoint.share_created",
-            outcome="failure",
-            target_type="storage_endpoint",
-            target_id=int(endpoint_id),
-            target_display=str(endpoint.name or endpoint_id),
-            context_json={"share": name, "path": local_path, "reason": message, "code": code},
-            correlation_id=(request.headers.get("x-request-id") or None),
-        )
-        return HTTPException(status_code=http_status, detail={"code": code, "message": message, **({"job_id": job_id} if job_id else {})})
-
+    operation = _ShareOperation(db, request, endpoint, action="storage_endpoint.share_created", share=name,
+                                context={"share": name, "path": local_path})
     if _SHARE_NAME_FORBIDDEN.search(name):
         # Refused here, before a job: the worker would give the same answer
-        raise refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "SHARE_NAME_INVALID",
-                      'These characters are refused in a share name: \\ / : * ? " < > | [ ] ; = , + $')
-    queued = await submit_probe_run({
-        "kind": "share", "protocol": "create", "scope": "write",
-        "target": {"host": endpoint.host, "share": name, "path": local_path},
-        "auth": {"mode": "ntlm", "username": endpoint.bind_dn, "secret_ref": endpoint.bind_password_ref},
-        "options": {"timeout_sec": 60},
-        "context": {"storage_endpoint_id": int(endpoint_id), "ui_origin": "admin"},
-    })
-    job_id = int((queued or {}).get("job_id") or 0)
-    job: dict[str, Any] = {}
-    for _ in range(60):
-        job = dict(await fetch_probe_job(job_id) or {})
-        state = str(job.get("status") or "").lower()
-        if state == "succeeded":
-            break
-        if state in {"failed", "timed_out", "cancelled"}:
-            error = job.get("error") if isinstance(job.get("error"), dict) else {}
-            # A refusal is not a failure of the worker: retrying would give the same answer
-            code = str(error.get("code") or "SHARE_CREATE_FAILED")
-            http_status = _SHARE_REFUSALS.get(code, status.HTTP_502_BAD_GATEWAY)
-            raise refused(http_status, code, str(error.get("message") or state), job_id)
-        await asyncio.sleep(1)
-    else:
-        raise refused(status.HTTP_504_GATEWAY_TIMEOUT, "SHARE_CREATE_TIMEOUT", "Le worker n'a pas répondu à temps.", job_id)
-
-    log_activity(
-        db,
-        actor_type="user" if actor.identity_id is not None else "system",
-        actor_id=actor.identity_id,
-        actor_display=actor.display_name,
-        action="storage_endpoint.share_created",
-        outcome="success",
-        target_type="storage_endpoint",
-        target_id=int(endpoint_id),
-        target_display=str(endpoint.name or endpoint_id),
-        context_json={"share": name, "path": local_path},
-        correlation_id=(request.headers.get("x-request-id") or None),
-    )
+        raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "SHARE_NAME_INVALID",
+                                'These characters are refused in a share name: \\ / : * ? " < > | [ ] ; = , + $')
+    await operation.run("create", local_path, failure_code="SHARE_CREATE_FAILED")
+    operation.log("success")
     return ui_data({"share": name, "path": local_path, "unc": f"\\\\{endpoint.host}\\{name}"})
+
+
+@router.delete("/{endpoint_id}/shares/{share}", dependencies=[Depends(admin_only)])
+async def delete_endpoint_share(endpoint_id: int, share: str, request: Request, db: Session = Depends(get_db)):
+    """Remove a share from the file server. Its folder and files stay on the server; refused while BornToShare manages a folder in it."""
+    endpoint = _share_endpoint(db, endpoint_id)
+    name = share.strip()
+    unc = f"\\\\{endpoint.host}\\{name}"
+    operation = _ShareOperation(db, request, endpoint, action="storage_endpoint.share_deleted", share=name,
+                                context={"share": name, "unc": unc})
+    if not name or _SHARE_NAME_FORBIDDEN.search(name) or name.endswith("$"):
+        raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "SHARE_NAME_INVALID", "This share cannot be deleted from BornToShare")
+    prefix = normalize_root_path(unc)
+    managed = [
+        str(path) for (path,) in db.execute(
+            text("SELECT root_path FROM storage_roots WHERE storage_endpoint_id = :id AND deleted_at IS NULL "
+                 "AND (normalized_root_path = :prefix OR normalized_root_path LIKE :below)"),
+            {"id": int(endpoint_id), "prefix": prefix, "below": prefix + "/%"},
+        ).all()
+    ]
+    if managed:
+        raise operation.refused(status.HTTP_409_CONFLICT, "SHARE_HAS_STORAGE_ROOTS",
+                                f"{len(managed)} folder(s) of this share are managed in BornToShare: remove them first",
+                                roots=len(managed))
+    await operation.run("delete", unc, failure_code="SHARE_DELETE_FAILED")
+    # The last search of the server still lists it: gone from there too
+    capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
+    snapshot = capabilities.get("discovered_roots_snapshot")
+    if isinstance(snapshot, dict) and isinstance(snapshot.get("roots"), list):
+        kept = [root for root in snapshot["roots"] if normalize_root_path(str((root or {}).get("root_path") or "")) != prefix]
+        endpoint.capabilities = {**capabilities, "discovered_roots_snapshot": {**snapshot, "roots": kept, "roots_count": len(kept)}}
+    operation.log("success")
+    db.commit()
+    return ui_data({"share": name, "unc": unc})
 
 
 @router.post("/{endpoint_id}/probe-result", dependencies=[Depends(require_internal_token)])

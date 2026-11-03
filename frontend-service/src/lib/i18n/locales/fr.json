@@ -1364,6 +1364,10 @@
       "dfs_created": {
         "title": "Espace de noms ajouté",
         "description": "L’espace de noms « {endpoint} » a été ajouté dans la zone « {zone} »"
+      },
+      "share_deleted": {
+        "title": "Partage supprimé",
+        "description": "Un partage a été supprimé du serveur « {target} »"
       }
     },
     "tag": {
@@ -3810,5 +3814,16 @@
   "Ask again": "Refaire une demande",
   "Their paths become \\\\{newHost}\\…": "Leurs chemins deviennent \\\\{newHost}\\…",
   "These characters are refused in a share name: \\ / : * ? \" < > | [ ] ; = , + $": "Ces caractères sont refusés dans un nom de partage : \\ / : * ? \" < > | [ ] ; = , + $",
-  "Type the name of the server to confirm": "Saisissez le nom du serveur pour confirmer"
+  "Type the name of the server to confirm": "Saisissez le nom du serveur pour confirmer",
+  "Share {name} deleted from the file server.": "Partage {name} supprimé du serveur de fichiers.",
+  "The share was not deleted.": "Le partage n'a pas été supprimé.",
+  "Delete the share {name}": "Supprimer le partage {name}",
+  "Delete the share": "Supprimer le partage",
+  "Delete the share {name}?": "Supprimer le partage {name} ?",
+  "The share is removed from the file server: its users lose the path.": "Le partage est retiré du serveur de fichiers : ses utilisateurs perdent ce chemin.",
+  "Its folder and files stay on the server.": "Son dossier et ses fichiers restent sur le serveur.",
+  "Refused while BornToShare manages a folder in it.": "Refusé tant que BornToShare gère un dossier dedans.",
+  "Type the name of the share to confirm": "Saisissez le nom du partage pour confirmer",
+  "This share cannot be deleted from BornToShare": "Ce partage ne peut pas être supprimé depuis BornToShare",
+  "BornToShare manages folders in this share: remove them from BornToShare first.": "BornToShare gère des dossiers dans ce partage : retirez-les d'abord de BornToShare."
 }
