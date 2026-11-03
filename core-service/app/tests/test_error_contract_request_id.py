@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, field_validator
 from fastapi.testclient import TestClient
@@ -59,7 +61,7 @@ def _new_client(*, raise_server_exceptions: bool = True) -> TestClient:
     def _panic() -> dict[str, bool]:
         raise RuntimeError("boom")
 
-    return TestClient(app, raise_server_exceptions=raise_server_exceptions)
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions, headers={"X-Internal-Token": os.environ["INTERNAL_TOKEN"]})
 
 
 def test_http_exception_returns_normalized_error_and_request_id() -> None:
@@ -121,3 +123,13 @@ def test_a_validator_error_is_a_422_with_its_message() -> None:
 
     assert res.status_code == 422
     assert res.json()["error"]["message"] == "A color like #2563eb is expected"
+
+
+def test_core_answers_only_with_the_internal_token() -> None:
+    from app.main import app
+
+    bare = TestClient(app)
+    forged = bare.get("/api/zones", headers={"x-identity-id": "1", "x-roles": "platform_admin"})
+    assert forged.status_code == 401 and forged.json()["error"]["code"] == "INTERNAL_TOKEN_REQUIRED"
+    assert bare.get("/api/zones", headers={"X-Internal-Token": "wrong", "x-roles": "platform_admin"}).status_code == 403
+    assert bare.get("/health").status_code == 200

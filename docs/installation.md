@@ -33,16 +33,19 @@ chmod 600 .env
 | `FRONTEND_PUBLIC_ORIGIN` | frontend | URL publique exacte (schéma, hôte, port) : sert de contrôle d'origine |
 | `FRONTEND_PUBLISHED_PORT` | compose | Port publié sur l'hôte (3000) |
 | `RUNNER_MAX_SCOPE` | worker | `write` (normal) ou `read` (worker de lecture seule) |
-| `AGENT_TLS_CERT`, `AGENT_TLS_KEY` | worker | Certificat et clé PEM de l'agent du worker (sous `/etc/b2s/certs`) ; vides : HTTP sur 8080, réseau interne uniquement |
-| `AGENT_PORT` | worker | Vide : 8443 en HTTPS, 8080 en HTTP |
-| `B2S_AGENT_CA_FILE` | core-service | Autorité privée des certificats d'agent (ex. `/etc/b2s/certs/agent-ca.pem`) |
-| `B2S_OIDC_CA_FILE` | auth-service | Autorité privée des certificats Keycloak (SSO) |
 | `WIZARD_PORT` | wizard | Port du wizard |
 
 Générer un secret : `openssl rand -base64 48 | tr -d '/+=' | cut -c1-48`.
 
-Les fichiers de certificats (agent, autorités privées) se déposent dans `capsule-runner/certs/`, monté en
-lecture seule dans `/etc/b2s/certs` par auth-service, core-service et capsule-runner.
+Les certificats ne passent pas par une variable : on les dépose dans `capsule-runner/certs/`, monté en lecture
+seule dans `/etc/b2s/certs` par auth-service, core-service et capsule-runner. Chaque fichier est pris en compte
+s'il existe :
+
+| Fichier | Lu par | Effet |
+|---|---|---|
+| `agent.crt` + `agent.key` | worker | Agent en HTTPS sur 8443 ; sans eux, HTTP sur 8080 (réseau interne uniquement) |
+| `agent-ca.pem` | core-service | Autorité privée des certificats d'agent |
+| `oidc-ca.pem` | auth-service | Autorité privée des serveurs Keycloak (SSO) |
 
 `B2S_VERSION` n'est pas à renseigner : `make deploy` y met le commit et la date, affichés en bas du menu.
 

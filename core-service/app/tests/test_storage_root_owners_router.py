@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from types import SimpleNamespace
 
 import sys
@@ -73,7 +75,7 @@ def test_replace_storage_root_owners_uses_actor_from_request_and_returns_owners(
     app.include_router(router.router)
     app.dependency_overrides[router.get_db] = lambda: db
 
-    with TestClient(app) as client:
+    with TestClient(app, headers={"X-Internal-Token": os.environ["INTERNAL_TOKEN"]}) as client:
         res = client.put(
             "/storage-roots/1/owners",
             json={"guardian_ids": [7, 9]},
@@ -119,7 +121,7 @@ def _refused_owners_update(monkeypatch, *, guardian_ids, identity, roles, existi
     app = FastAPI()
     app.include_router(router.router)
     app.dependency_overrides[router.get_db] = lambda: _Db()
-    with TestClient(app) as client:
+    with TestClient(app, headers={"X-Internal-Token": os.environ["INTERNAL_TOKEN"]}) as client:
         res = client.put(
             "/storage-roots/1/owners",
             json={"guardian_ids": guardian_ids},

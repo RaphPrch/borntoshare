@@ -41,7 +41,7 @@ sur ces identités sont conservés ; seuls ceux venant du jeton sont recalculés
 - `state` à usage unique (10 min), `nonce` et PKCE `S256` ; retour uniquement vers une page de BornToShare.
 - Jetons reçus directement du point d'accès token de Keycloak, en TLS, avec authentification du client ; émetteur, audience,
   expiration et nonce de l'ID token vérifiés.
-- Certificat du serveur Keycloak vérifié ; autorité privée : `B2S_OIDC_CA_FILE` sur auth-service.
+- Certificat du serveur Keycloak vérifié ; autorité privée : `capsule-runner/certs/oidc-ca.pem`, lue par auth-service.
 - Avec plusieurs instances d'auth-service, `SESSION_STORE_BACKEND=redis` (les connexions en cours y sont gardées).
 
 ## Supervision et audit

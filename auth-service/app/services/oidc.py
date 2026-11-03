@@ -37,8 +37,9 @@ class OidcError(Exception):
 def _verify(provider: dict[str, Any]) -> Any:
     if not provider.get("verify_tls", True):
         return False
-    ca_file = (os.getenv("B2S_OIDC_CA_FILE") or "").strip()
-    if ca_file and os.path.isfile(ca_file):
+    # Private authority of the Keycloak servers: oidc-ca.pem in capsule-runner/certs (mounted on /etc/b2s/certs)
+    ca_file = "/etc/b2s/certs/oidc-ca.pem"
+    if os.path.isfile(ca_file):
         return ssl.create_default_context(cafile=ca_file)
     return True
 
@@ -62,7 +63,7 @@ async def discovery(provider: dict[str, Any], *, fresh: bool = False) -> dict[st
             resp = await client.get(url)
     except httpx.ConnectError as exc:
         if "certificate" in str(exc).lower():
-            raise OidcError("SSO_TLS_FAILED", "Certificate of the Keycloak server refused (B2S_OIDC_CA_FILE, or uncheck “Verify certificate”)") from exc
+            raise OidcError("SSO_TLS_FAILED", "Certificate of the Keycloak server refused (put its authority in capsule-runner/certs/oidc-ca.pem, or uncheck “Verify certificate”)") from exc
         raise OidcError("SSO_UNREACHABLE", f"Keycloak unreachable at {url}") from exc
     except httpx.HTTPError as exc:
         raise OidcError("SSO_UNREACHABLE", f"Keycloak unreachable at {url}: {exc}") from exc

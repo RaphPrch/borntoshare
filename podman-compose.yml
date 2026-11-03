@@ -63,8 +63,6 @@ services:
       SESSION_STORE_BACKEND: redis
       REDIS_DB: 1
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      # Private authority of the Keycloak servers' certificates (optional, SSO)
-      B2S_OIDC_CA_FILE: ${B2S_OIDC_CA_FILE:-}
     volumes:
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     expose: ["8000"]
@@ -95,12 +93,8 @@ services:
       LOGGING_DB_USER: ${DB_USER}
       LOGGING_DB_PASSWORD: ${DB_PASSWORD}
       CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
-      # The BFF may call the non-/internal/ orchestration routes without a token
-      B2S_ALLOW_PUBLIC_API: "true"
       # Database chosen in Advanced Settings › Infrastructure, read at startup (replaces DB_*)
       B2S_RUNTIME_DIR: /etc/b2s/runtime
-      # Private authority of the worker agents' certificates (optional)
-      B2S_AGENT_CA_FILE: ${B2S_AGENT_CA_FILE:-}
     volumes:
       - ./config/runtime:/etc/b2s/runtime:rw,z
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
@@ -122,11 +116,7 @@ services:
       <<: *common-env
       CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
       RUNNER_MAX_SCOPE: ${RUNNER_MAX_SCOPE:-write}
-      # Agent checked by core-service (Advanced Settings › Infrastructure › Workers)
-      AGENT_TLS_CERT: ${AGENT_TLS_CERT:-}
-      AGENT_TLS_KEY: ${AGENT_TLS_KEY:-}
-      # Empty: 8443 in HTTPS, 8080 in HTTP
-      AGENT_PORT: ${AGENT_PORT:-}
+    # Agent checked by core-service: HTTPS on 8443 with certs/agent.crt + agent.key, else HTTP on 8080
     volumes:
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     expose: ["8443", "8080"]

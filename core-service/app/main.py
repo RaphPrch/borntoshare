@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hmac
+import os
+
 from fastapi import FastAPI, Request
 
 from app.core.config import get_settings
@@ -72,6 +75,29 @@ def _startup_log_level() -> None:
         pass  # settings table not migrated yet: LOG_LEVEL stays
     finally:
         db.close()
+
+
+# ============================================================
+# Internal token: every request but the health probe
+# ============================================================
+# core-service trusts the identity headers that the BFF sets (x-identity-id, x-roles): only a caller holding the
+# token shared by the services may send them. Registered first, so it runs after the request ID middleware.
+_OPEN_PATHS = {"/health"}
+
+
+@app.middleware("http")
+async def internal_token_middleware(request: Request, call_next):
+    if request.url.path not in _OPEN_PATHS:
+        expected = os.getenv("INTERNAL_TOKEN", "")
+        provided = request.headers.get("x-internal-token", "")
+        if not expected or not provided or not hmac.compare_digest(provided, expected):
+            return json_error_response(
+                status_code=401 if not provided else 403,
+                request_id=ensure_request_id(request),
+                code="INTERNAL_TOKEN_REQUIRED",
+                message="This service only answers the other services of BornToShare",
+            )
+    return await call_next(request)
 
 
 # ============================================================

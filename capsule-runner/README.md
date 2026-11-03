@@ -8,7 +8,7 @@ puis rend le résultat. Un agent HTTP(S) répond aux vérifications de santé de
 |---|---|
 | Image | `b2s-capsule-runner` (Python 3.14, Dramatiq ; `smbclient`, `rpcclient`, `smbcacls`, `krb5-user`), utilisateur 10003 |
 | Processus | `start.sh` : l'agent (uvicorn) et le worker Dramatiq ; l'un qui s'arrête arrête le conteneur |
-| Ports | Agent 8443 en HTTPS (avec `AGENT_TLS_CERT`/`AGENT_TLS_KEY`), sinon 8080 en HTTP (réseau interne uniquement) |
+| Ports | Agent 8443 en HTTPS (avec `certs/agent.crt` et `agent.key`), sinon 8080 en HTTP (réseau interne uniquement) |
 | Réseaux | `b2s-app` (vers core-service et l'extérieur), `b2s-jobs` (Redis) |
 | Files | `capsule_identity` (annuaire), `capsule_probes` (tests, lectures), `capsule_acl` (groupes, ACL, dossiers, partages, DFS) |
 | Sorties | LDAPS 636 / LDAP 389, Kerberos 88, DNS 53, SMB 445 (voir [docs/architecture.md](../docs/architecture.md#flux-à-ouvrir-vers-lextérieur)) |
@@ -38,8 +38,8 @@ celle de core-service). Le test `test_action_wiring.py` vérifie que rien ne man
 
 ## Variables
 
-`INTERNAL_TOKEN`, `CAPSULE_BROKER_URL`, `RUNNER_MAX_SCOPE`, `AGENT_TLS_CERT`, `AGENT_TLS_KEY`,
-`AGENT_PORT`. Certificats : [certs/README.md](certs/README.md).
+`INTERNAL_TOKEN`, `CAPSULE_BROKER_URL`, `RUNNER_MAX_SCOPE` (`read` ou `write`). Certificats de l'agent :
+[certs/README.md](certs/README.md).
 
 ## Tests
 

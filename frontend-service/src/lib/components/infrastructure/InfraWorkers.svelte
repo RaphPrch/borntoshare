@@ -264,10 +264,10 @@
   <summary><i class="bi bi-info-circle" aria-hidden="true"></i>{t('Prepare the agent of a worker')}</summary>
   <ol>
     <li>{t('On the worker (capsule-runner), set the same INTERNAL_TOKEN as core-service:')} <code>INTERNAL_TOKEN</code></li>
-    <li>{t('For HTTPS, give its certificate and key:')} <code>AGENT_TLS_CERT</code>, <code>AGENT_TLS_KEY</code> {t('(port 8443 by default, AGENT_PORT).')}</li>
-    <li>{t('Without certificate the agent answers in HTTP on port 8080 (AGENT_PORT to change it): internal network only, uncheck “HTTPS”.')}</li>
+    <li>{t('For HTTPS, put its certificate and key in capsule-runner/certs:')} <code>agent.crt</code>, <code>agent.key</code> {t('(port 8443).')}</li>
+    <li>{t('Without them the agent answers in HTTP on port 8080: internal network only, uncheck “HTTPS”.')}</li>
     <li>{t('Open the port from core-service to the worker only, then add the worker here.')}</li>
-    <li>{t('Certificate from a private authority: give it to core-service with B2S_AGENT_CA_FILE, or uncheck “Verify certificate”.')}</li>
+    <li>{t('Certificate from a private authority: put it in capsule-runner/certs/agent-ca.pem, or uncheck “Verify certificate”.')}</li>
   </ol>
 </details>
 

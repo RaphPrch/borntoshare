@@ -63,8 +63,6 @@ class Settings(BaseModel):
     # =================================================
     SERVICE_NAME: str = Field(default=os.getenv("SERVICE_NAME", "core-service"))
     API_PREFIX: str = Field(default=os.getenv("API_PREFIX", "/api"))
-    # Opens the non-/internal/ orchestration routes (/governance/*) to the frontend BFF without a token.
-    ALLOW_PUBLIC_API: bool = Field(default=_env_flag("B2S_ALLOW_PUBLIC_API", "false"))
 
     # =================================================
     # 🔐 Internal service-to-service authentication

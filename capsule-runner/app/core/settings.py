@@ -20,9 +20,9 @@ INTERNAL_TOKEN: str | None = (_env("INTERNAL_TOKEN") or None)
 # Allowed values: read | write | admin
 RUNNER_MAX_SCOPE: str = (_env("RUNNER_MAX_SCOPE", "write") or "write").lower()
 
-if RUNNER_MAX_SCOPE not in {"read", "write", "admin"}:
+if RUNNER_MAX_SCOPE not in {"read", "write"}:
     raise RuntimeError(
-        f"Invalid RUNNER_MAX_SCOPE: {RUNNER_MAX_SCOPE} (expected read|write|admin)"
+        f"Invalid RUNNER_MAX_SCOPE: {RUNNER_MAX_SCOPE} (expected read|write)"
     )
 
 
@@ -40,10 +40,10 @@ if not CAPSULE_BROKER_URL:
 # ==========================================================
 # 🛰️ Agent (Advanced Settings › Infrastructure)
 # ==========================================================
-# HTTPS API through which core-service checks this worker, with these credentials
-AGENT_ENABLED: bool = (_env("AGENT_ENABLED", "true") or "true").strip().lower() in {"1", "true", "yes", "on"}
-AGENT_TLS_CERT: str | None = (_env("AGENT_TLS_CERT") or "").strip() or None
-AGENT_TLS_KEY: str | None = (_env("AGENT_TLS_KEY") or "").strip() or None
-# HTTPS on 8443 with a certificate, HTTP on 8080 without (internal network only); AGENT_PORT overrides both
-AGENT_PORT: int = int(_env("AGENT_PORT") or ("8443" if AGENT_TLS_CERT and AGENT_TLS_KEY else "8080"))
+# Checked by core-service. HTTPS on 8443 when capsule-runner/certs holds agent.crt and agent.key
+# (mounted on /etc/b2s/certs), else HTTP on 8080: internal network only.
+CERTS_DIR = "/etc/b2s/certs"
+AGENT_TLS_CERT: str | None = f"{CERTS_DIR}/agent.crt" if os.path.isfile(f"{CERTS_DIR}/agent.crt") and os.path.isfile(f"{CERTS_DIR}/agent.key") else None
+AGENT_TLS_KEY: str | None = f"{CERTS_DIR}/agent.key" if AGENT_TLS_CERT else None
+AGENT_PORT: int = 8443 if AGENT_TLS_CERT else 8080
 APP_VERSION: str = (_env("APP_VERSION", "v1") or "v1").strip()

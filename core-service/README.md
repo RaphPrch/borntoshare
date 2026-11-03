@@ -7,7 +7,7 @@ et trace ; il ne parle jamais à l'AD ni aux serveurs : il publie des travaux qu
 |---|---|
 | Image | `b2s-core-service` (Python 3.14, FastAPI, SQLAlchemy, Dramatiq), utilisateur 10002 |
 | Port | 8000, interne (réseaux `b2s-app`, `b2s-data`, `b2s-jobs`) ; API sous `/api` |
-| Appelé par | frontend-service (routes métier), auth-service et capsule-runner (routes `/api/internal/*`) |
+| Appelé par | frontend-service (routes métier), auth-service et capsule-runner (routes `/api/internal/*`) — toujours avec le jeton interne |
 | Appelle | MariaDB (`borntoshare`, `borntoshare_logging`), Redis (base 2, publication), l'agent des workers |
 | Montages | `config/runtime` (connexion à la base choisie dans l'application), `capsule-runner/certs` (lecture seule) |
 | Santé | `GET /health` |
@@ -37,7 +37,8 @@ et trace ; il ne parle jamais à l'AD ni aux serveurs : il publie des travaux qu
 ## Variables
 
 `INTERNAL_TOKEN`, `B2S_SECRET_MASTER_KEY`, `DB_*`, `LOGGING_DB_*`, `CAPSULE_BROKER_URL`,
-`B2S_RUNTIME_DIR`, `B2S_AGENT_CA_FILE`, `B2S_ALLOW_PUBLIC_API` (le BFF appelle les routes métier). Voir
+`B2S_RUNTIME_DIR` ; autorité privée des agents : `certs/agent-ca.pem`. Toute requête sauf `/health` exige le
+jeton interne. Voir
 [docs/installation.md](../docs/installation.md).
 
 ## Tests

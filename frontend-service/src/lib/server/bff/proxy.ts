@@ -234,11 +234,10 @@ export async function proxyApi(event: RequestEvent): Promise<Response> {
     headers.set('x-actor-display', actorDisplay);
   }
 
-  if (route.internal) {
-    const internalHeaders = await buildInternalHeaders();
-    for (const [key, value] of Object.entries(internalHeaders as Record<string, string>)) {
-      headers.set(key, value);
-    }
+  // Every upstream call carries the shared token: core-service trusts the identity headers above only with it
+  const internalHeaders = await buildInternalHeaders();
+  for (const [key, value] of Object.entries(internalHeaders as Record<string, string>)) {
+    headers.set(key, value);
   }
 
   try {

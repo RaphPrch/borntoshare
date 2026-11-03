@@ -1,16 +1,16 @@
 #!/bin/bash
-# Worker entrypoint: the Dramatiq worker (jobs) and, when enabled, the agent API (checked by core-service).
-# The container stops when either process stops, so the orchestrator restarts it.
+# Worker entrypoint: the Dramatiq worker (jobs) and the agent API (checked by core-service).
+# The agent is HTTPS on 8443 when capsule-runner/certs (mounted on /etc/b2s/certs) holds agent.crt and agent.key,
+# HTTP on 8080 otherwise (internal network only). The container stops when either process stops.
 set -eu
 
-if [ "${AGENT_ENABLED:-true}" = "true" ]; then
-  if [ -n "${AGENT_TLS_CERT:-}" ] && [ -n "${AGENT_TLS_KEY:-}" ]; then
-    uvicorn app.main:app --host 0.0.0.0 --port "${AGENT_PORT:-8443}" --no-access-log \
-      --ssl-certfile "$AGENT_TLS_CERT" --ssl-keyfile "$AGENT_TLS_KEY" &
-  else
-    echo "WARNING: agent in HTTP (AGENT_TLS_CERT / AGENT_TLS_KEY unset), port ${AGENT_PORT:-8080}: internal network only" >&2
-    uvicorn app.main:app --host 0.0.0.0 --port "${AGENT_PORT:-8080}" --no-access-log &
-  fi
+CERTS=/etc/b2s/certs
+if [ -f "$CERTS/agent.crt" ] && [ -f "$CERTS/agent.key" ]; then
+  uvicorn app.main:app --host 0.0.0.0 --port 8443 --no-access-log \
+    --ssl-certfile "$CERTS/agent.crt" --ssl-keyfile "$CERTS/agent.key" &
+else
+  echo "WARNING: agent in HTTP on 8080 (no agent.crt / agent.key in $CERTS): internal network only" >&2
+  uvicorn app.main:app --host 0.0.0.0 --port 8080 --no-access-log &
 fi
 
 dramatiq app.jobs.tasks &

@@ -247,8 +247,8 @@ def agent_token() -> str:
 async def check_agent(row: dict[str, Any]) -> dict[str, Any]:
     """Call the agent of a worker: healthy (agent + Dramatiq + queue OK), degraded, or down with the reason."""
     url = f"{agent_url(row)}/agent/v1/info"
-    # Certificate of the agent: system authorities, plus the private CA of B2S_AGENT_CA_FILE when set
-    ca_file = (os.getenv("B2S_AGENT_CA_FILE") or "").strip()
+    # Certificate of the agent: system authorities, plus a private CA when capsule-runner/certs holds agent-ca.pem
+    ca_file = "/etc/b2s/certs/agent-ca.pem"
     verify: Any = bool(row.get("verify_tls", True))
     if verify and ca_file and os.path.isfile(ca_file):
         verify = ssl.create_default_context(cafile=ca_file)
@@ -264,7 +264,7 @@ async def check_agent(row: dict[str, Any]) -> dict[str, Any]:
     except httpx.TimeoutException:
         return {"status": "down", "message": f"No answer from {url} (timeout): check the host, the port and the firewall", "latency_ms": None, "details": {}}
     except httpx.RemoteProtocolError:
-        hint = "the agent uses HTTPS: enable TLS" if not row.get("use_tls") else "the agent does not speak HTTPS: disable TLS or set AGENT_TLS_CERT on the worker"
+        hint = "the agent uses HTTPS: enable TLS" if not row.get("use_tls") else "the agent does not speak HTTPS: disable TLS, or put agent.crt and agent.key in capsule-runner/certs"
         return {"status": "down", "message": f"The agent closed the connection ({hint})", "latency_ms": None, "details": {}}
     except httpx.HTTPError as exc:
         return {"status": "down", "message": str(exc)[:300], "latency_ms": None, "details": {}}

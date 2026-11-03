@@ -94,18 +94,12 @@ core-service ne peut pas lire la connexion à sa base dans cette même base : el
 Un worker (capsule-runner) lit ses tâches dans la file Redis ; il expose en plus un **agent HTTPS** que core-service interroge
 (processus actifs, file joignable, tâches en attente, version, vérification LDAPS).
 
-Sur le worker (`.env`) :
-
-```
-INTERNAL_TOKEN=<le même que core-service>
-AGENT_TLS_CERT=/etc/b2s/certs/agent.pem     # HTTPS (recommandé)
-AGENT_TLS_KEY=/etc/b2s/certs/agent.key
-```
-
-Port : 8443 en HTTPS ; **sans certificat, l'agent répond en HTTP sur le port 8080** (décocher « HTTPS » dans le formulaire).
-`AGENT_PORT` change le port dans les deux cas. À ouvrir de core-service vers le worker uniquement ; le HTTP est réservé
-à un réseau interne (l'échange avec l'agent n'y est pas chiffré). Certificat d'une autorité privée :
-la donner à core-service avec `B2S_AGENT_CA_FILE`, ou décocher « Vérifier le certificat » dans le formulaire.
+Le worker a le même `INTERNAL_TOKEN` que core-service. Pour le HTTPS (recommandé), déposer son certificat et sa
+clé dans `capsule-runner/certs/` sous les noms `agent.crt` et `agent.key` : l'agent répond alors sur 8443. **Sans
+eux, il répond en HTTP sur le port 8080** (décocher « HTTPS » dans le formulaire), réservé à un réseau interne
+(l'échange n'y est pas chiffré). À ouvrir de core-service vers le worker uniquement. Certificat d'une autorité
+privée : la déposer dans `capsule-runner/certs/agent-ca.pem` (lue par core-service), ou décocher « Vérifier le
+certificat » dans le formulaire.
 
 Dans l'interface : nom, adresse IP ou nom DNS, port de l'agent. Le worker n'est ajouté que si son agent
 répond. core-service se présente à l'agent avec une preuve dérivée de `INTERNAL_TOKEN`, sans compte à stocker.
@@ -113,8 +107,8 @@ répond. core-service se présente à l'agent avec une preuve dérivée de `INTE
 | Message | Cause |
 |---|---|
 | « L'agent a refusé ce serveur » | `INTERNAL_TOKEN` différent sur le worker |
-| « Certificat de l'agent refusé » | autorité inconnue : `B2S_AGENT_CA_FILE` ou décocher la vérification |
-| « L'agent a fermé la connexion » | HTTPS d'un côté, HTTP de l'autre : aligner la case TLS et `AGENT_TLS_CERT` |
+| « Certificat de l'agent refusé » | autorité inconnue : `certs/agent-ca.pem` ou décocher la vérification |
+| « L'agent a fermé la connexion » | HTTPS d'un côté, HTTP de l'autre : aligner la case TLS et la présence de `certs/agent.crt` |
 | « Pas de réponse » | hôte, port ou pare-feu |
 | dégradé : « aucun processus de tâches » / « file injoignable » | le worker répond mais ne peut pas exécuter de tâches |
 

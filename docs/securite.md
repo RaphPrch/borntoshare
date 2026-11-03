@@ -18,9 +18,9 @@
 | `INTERNAL_TOKEN` | Tous les services | En-tête `X-Internal-Token` sur chaque appel entre services | Comparaison à temps constant ; refusé si absent ; jamais exposé au navigateur |
 | Cookie `b2s_session` | Navigateur ↔ frontend | Session de l'utilisateur, stockée dans Redis (base 1) | `HttpOnly`, `Secure` en HTTPS, `SameSite=Lax` ; durées réglables (Réglages avancés › Sessions utilisateur) ; révocable |
 | Cookie `b2s_principal` | Navigateur ↔ frontend | Identité et rôles de l'utilisateur, signés par `PRINCIPAL_SIGNING_KEY` | Signature vérifiée à chaque requête ; durée de 60 s : un changement de droits ou une révocation s'applique en une minute |
-| Identité de l'utilisateur | frontend → core | En-têtes `X-Identity-Id` et assimilés, posés par le BFF | core n'accepte ces en-têtes qu'avec le jeton interne ; le navigateur ne peut pas les forger |
+| Identité de l'utilisateur | frontend → core | En-têtes `X-Identity-Id`, `X-Roles`, posés par le BFF | core-service exige le jeton interne sur **toutes** ses requêtes (sauf `/health`) : sans lui, ces en-têtes ne sont pas lus (401). Le navigateur ne peut pas les forger |
 | `B2S_SECRET_MASTER_KEY` | core-service | Chiffre les mots de passe stockés (AES-256-GCM, la référence du secret comme donnée associée) | Jamais en base ; à sauvegarder à part |
-| Identifiants d'agent | core → worker | Vérification de la santé du worker | HTTPS avec certificat (`AGENT_TLS_*`), autorité privée `B2S_AGENT_CA_FILE` |
+| Identifiants d'agent | core → worker | Vérification de la santé du worker | HTTPS avec `certs/agent.crt` et `agent.key` ; autorité privée `certs/agent-ca.pem` |
 | Mot de passe Redis | auth, core, worker | Accès à la file et aux sessions | Réseau `b2s-jobs` interne |
 
 Le BFF vérifie l'origine des requêtes qui modifient des données (contrôle CSRF de SvelteKit contre
@@ -105,7 +105,7 @@ Un gardien ne valide pas sa propre demande : un autre gardien ou un administrate
 
 - Secrets générés aléatoirement (`PRINCIPAL_SIGNING_KEY` est refusée si c'est la clé par défaut), `.env` en `chmod 600`.
 - HTTPS devant le port 3000, et `FRONTEND_PUBLIC_ORIGIN` en `https://`.
-- Agent du worker en HTTPS (`AGENT_TLS_*`).
+- Agent du worker en HTTPS (`capsule-runner/certs/agent.crt` et `agent.key`).
 - `make wizard-down` dès la fin de l'installation.
 - Sauvegarde des bases (`make backup`) **et**, à part, de `B2S_SECRET_MASTER_KEY`.
 - Comptes de service dédiés, mots de passe longs, droits limités à ce tableau.

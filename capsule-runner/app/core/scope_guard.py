@@ -7,7 +7,6 @@ from app.core.action_registry import CapsuleActionError
 _RANK = {
     "read": 1,
     "write": 2,
-    "admin": 3,
 }
 
 
@@ -54,9 +53,16 @@ def ensure_action_scope_allowed(action: str) -> None:
         )
 
     runner_scope = str(settings.RUNNER_MAX_SCOPE or "write").strip().lower()
-    required_scope = ACTION_MIN_SCOPE.get(normalized_action, "admin")
+    required_scope = ACTION_MIN_SCOPE.get(normalized_action)
+    if required_scope is None:
+        # An action without a declared scope never runs
+        raise CapsuleActionError(
+            error_code="CAPSULE_SCOPE_DENIED",
+            message=f"Action '{normalized_action}' has no declared scope",
+            retryable=False,
+        )
 
-    if _RANK.get(runner_scope, 0) < _RANK.get(required_scope, 99):
+    if _RANK.get(runner_scope, 0) < _RANK[required_scope]:
         raise CapsuleActionError(
             error_code="CAPSULE_SCOPE_DENIED",
             message=f"Action '{normalized_action}' requires scope '{required_scope}' (runner max: '{runner_scope}')",

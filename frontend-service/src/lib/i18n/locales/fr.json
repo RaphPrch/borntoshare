@@ -2374,7 +2374,6 @@
   "just now": "à l'instant",
   "LDAP connection, bind and base DN OK": "Connexion LDAP, bind et DN de base OK",
   "LDAP bind successful": "Bind LDAP réussi",
-  "(port 8443 by default, AGENT_PORT).": "(port 8443 par défaut, AGENT_PORT).",
   "ACL and group drift": "Dérive des ACL et des groupes",
   "ACL scan of every governed root, AD group members compared with the granted accesses. Differences raise alerts.": "Lecture des ACL de chaque dossier gouverné, membres des groupes AD comparés aux accès accordés. Les écarts lèvent des alertes.",
   "ACL scans: {n} of {r} governed roots": "Lectures d'ACL : {n} sur {r} dossiers gouvernés",
@@ -2397,7 +2396,6 @@
   "Back to the .env settings at the next start.": "Retour aux réglages du .env au prochain démarrage.",
   "Brings BornToShare in line with the directories and the file servers. Run by the workers.": "Aligne BornToShare sur les annuaires et les serveurs de fichiers. Exécuté par les workers.",
   "Category": "Catégorie",
-  "Certificate from a private authority: give it to core-service with B2S_AGENT_CA_FILE, or uncheck “Verify certificate”.": "Certificat d'une autorité privée : donnez-la à core-service avec B2S_AGENT_CA_FILE, ou décochez « Vérifier le certificat ».",
   "Change the connection": "Modifier la connexion",
   "Check": "Vérifier",
   "Checked from a worker at every health check. Directories, file servers, workers and Keycloak are added automatically.": "Contrôlés depuis un worker à chaque health check. Annuaires, serveurs de fichiers, workers et Keycloak sont ajoutés automatiquement.",
@@ -2430,7 +2428,6 @@
   "Every {n} hours": "Toutes les {n} heures",
   "Every {n} minutes": "Toutes les {n} minutes",
   "File servers": "Serveurs de fichiers",
-  "For HTTPS, give its certificate and key:": "Pour le HTTPS, donnez son certificat et sa clé :",
   "Frequency": "Fréquence",
   "From the .env file": "Issue du fichier .env",
   "HTTPS (recommended)": "HTTPS (recommandé)",
@@ -2614,7 +2611,6 @@
   "This sign-in method is disabled": "Ce mode de connexion est désactivé",
   "This sign-in method is not available": "Ce mode de connexion n'est pas disponible",
   "The identity provider did not send the user name": "Le fournisseur d'identité n'a pas envoyé le nom d'utilisateur",
-  "Without certificate the agent answers in HTTP on port 8080 (AGENT_PORT to change it): internal network only, uncheck “HTTPS”.": "Sans certificat, l'agent répond en HTTP sur le port 8080 (AGENT_PORT pour le changer) : réseau interne uniquement, décochez « HTTPS ».",
   "{audit} audit events and {health} health events older than {days} days removed.": "{audit} événements d'audit et {health} événements de santé de plus de {days} jours supprimés.",
   "Unable to purge the logs.": "Impossible de purger les journaux.",
   "Audit and health events older than {days} days are removed.": "Les événements d'audit et de santé de plus de {days} jours sont supprimés.",
@@ -4090,5 +4086,9 @@
   "{count} password(s) missing from the secret store": "{count} mot(s) de passe introuvable(s) dans le coffre de secrets",
   "Every test, approval or change with them fails: enter them again.": "Tout test, toute validation ou modification avec eux échoue : saisissez-les à nouveau.",
   "Built on {date}": "Construit le {date}",
-  "Filter the events": "Filtrer les événements"
+  "Filter the events": "Filtrer les événements",
+  "For HTTPS, put its certificate and key in capsule-runner/certs:": "Pour le HTTPS, déposez son certificat et sa clé dans capsule-runner/certs :",
+  "(port 8443).": "(port 8443).",
+  "Without them the agent answers in HTTP on port 8080: internal network only, uncheck “HTTPS”.": "Sans eux, l'agent répond en HTTP sur le port 8080 : réseau interne uniquement, décochez « HTTPS ».",
+  "Certificate from a private authority: put it in capsule-runner/certs/agent-ca.pem, or uncheck “Verify certificate”.": "Certificat d'une autorité privée : déposez-la dans capsule-runner/certs/agent-ca.pem, ou décochez « Vérifier le certificat »."
 }

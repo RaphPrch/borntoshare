@@ -7,7 +7,6 @@ type ServiceKind = 'auth' | 'core';
 type DirectRoute = {
   service: ServiceKind;
   path: string;
-  internal: boolean;
 };
 
 function normalizeBaseUrl(raw: string | undefined): string | null {
@@ -26,7 +25,7 @@ export function getServiceBaseUrl(service: ServiceKind): string | null {
 
 // Governance (orchestration) routes are served by core-service under /governance.
 function governanceRoute(path: string): DirectRoute {
-  return { service: 'core', path: `/governance${path}`, internal: true };
+  return { service: 'core', path: `/governance${path}` };
 }
 
 export function stripApiPrefix(pathname: string): string {
@@ -43,7 +42,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
   }
 
   if (path.startsWith('/auth/')) {
-    return { service: 'auth', path, internal: false };
+    return { service: 'auth', path };
   }
 
   if (path === '/access-requests/bulk' || /^\/storage-root-access-profiles\/\d+\/adopt$/.test(path)) {
@@ -51,22 +50,22 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
   }
 
   if (path === '/identity-sources/secret-ref') {
-    return { service: 'auth', path: '/internal/identity-sources/secret-ref', internal: true };
+    return { service: 'auth', path: '/internal/identity-sources/secret-ref' };
   }
 
   if (path === '/storage-endpoints/secret-ref') {
-    return { service: 'auth', path: '/internal/storage-endpoints/secret-ref', internal: true };
+    return { service: 'auth', path: '/internal/storage-endpoints/secret-ref' };
   }
 
   if (path === '/storage-roots/discovery-sync' || path === '/storage-roots/discovery-sync/') {
-    return { service: 'core', path: '/storage-roots/discovery-sync', internal: true };
+    return { service: 'core', path: '/storage-roots/discovery-sync' };
   }
 
   if (
     /^\/storage-endpoints\/\d+\/probe-result\/?$/.test(path) ||
     /^\/storage-roots\/\d+\/probe-result\/?$/.test(path)
   ) {
-    return { service: 'core', path: path.replace(/\/$/, ''), internal: true };
+    return { service: 'core', path: path.replace(/\/$/, '') };
   }
 
   if (
@@ -87,7 +86,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
       }
     }
 
-    return { service: 'core', path, internal: false };
+    return { service: 'core', path };
   }
 
   if (path.startsWith('/admin/jobs') || path.startsWith('/probes')) {
@@ -113,7 +112,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
     path.startsWith('/tags') ||
     path.startsWith('/zones')
   ) {
-    return { service: 'core', path, internal: false };
+    return { service: 'core', path };
   }
 
   return null;

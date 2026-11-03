@@ -11,7 +11,6 @@ from collections.abc import Callable
 
 from fastapi import Depends, Header, HTTPException, Request, status
 
-from app.core.config import get_settings
 from app.core.logging import get_logger, log_event
 
 
@@ -44,13 +43,7 @@ def require_internal_token(request: Request) -> None:
 
 
 def require_orchestration_access(request: Request) -> None:
-    """Guard for the orchestration routes (/governance/*).
-
-    B2S_ALLOW_PUBLIC_API opens the non-/internal/ ones to the frontend BFF;
-    everything else requires an internal token.
-    """
-    if get_settings().ALLOW_PUBLIC_API and "/internal/" not in request.url.path:
-        return
+    """Guard for the orchestration routes (/governance/*): the internal token, like every route of core-service."""
     require_internal_token(request)
 
 
