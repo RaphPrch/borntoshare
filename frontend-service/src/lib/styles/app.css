@@ -2106,3 +2106,27 @@ select.b2s-input {
 .b2s-form-hint.ok {
   color: var(--b2s-color-success-strong);
 }
+
+/* ============================================================
+   STAT TILES: the figures at the top of a zone, a server, a DFS namespace, a folder.
+   One look everywhere: label, value (toned), hint, optional bar.
+   ============================================================ */
+.b2s-stat-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.b2s-stat-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 14px 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: box-shadow 0.12s, border-color 0.12s; }
+.b2s-stat-tile:hover { border-color: var(--b2s-color-border-mid, var(--b2s-color-border)); box-shadow: 0 6px 18px rgba(14, 18, 24, 0.06); }
+.b2s-stat-tile:focus-visible { outline: none; box-shadow: var(--b2s-focus-ring); }
+.b2s-stat-tile > span:first-child { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+.b2s-stat-tile b { font-size: 24px; font-weight: 600; line-height: 1.25; }
+.b2s-stat-tile b.is-ok { color: var(--b2s-color-success-strong); }
+.b2s-stat-tile b.is-warn { color: var(--b2s-color-warning-strong); }
+.b2s-stat-tile b.is-bad { color: var(--b2s-color-danger-strong); }
+.b2s-stat-tile b.is-mute, .b2s-stat-tile b.is-muted { color: var(--b2s-color-text-muted); }
+.b2s-stat-tile small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
+.b2s-stat-tile small.is-bad { color: var(--b2s-color-danger-strong); }
+.b2s-stat-bar { display: flex; align-self: stretch; width: 100%; gap: 2px; height: 5px; margin-top: 8px; overflow: hidden; border-radius: 99px; }
+.b2s-stat-bar i { display: block; min-width: 0; border-radius: 99px; background: var(--b2s-color-success); }
+.b2s-stat-bar i.warn, .b2s-stat-bar i.todo { background: var(--b2s-color-warning); }
+.b2s-stat-bar i.bad { background: var(--b2s-color-danger); }
+.b2s-stat-bar i.mute { background: var(--b2s-color-border); }
+.b2s-stat-bar i.read { background: var(--b2s-color-info); }
+.b2s-stat-bar i.write { background: var(--b2s-color-warning); }
