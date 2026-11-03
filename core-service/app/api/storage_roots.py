@@ -39,6 +39,7 @@ from app.services.naming_policy import resolve_effective_policy
 from app.services.probe_results import ProbeResultService, normalize_probe_status_value
 from app.services.storage_root_permissions import StorageRootPermissions
 from app.services.storage_guards import root_access_counts, root_access_group_count, same_host, unc_host
+from app.services.windows_names import RESERVED_MESSAGE, folder_name_error
 
 router = APIRouter(
     prefix="/storage-roots",
@@ -457,7 +458,6 @@ def _assert_root_on_endpoint_host(db: Session, *, storage_endpoint_id: int, root
 
 
 _SYSTEM_SHARES = {"ADMIN$", "IPC$", "PRINT$", "SYSVOL", "NETLOGON"}
-_RESERVED_FOLDER_NAMES = {"CON", "PRN", "AUX", "NUL", *{f"COM{n}" for n in range(1, 10)}, *{f"LPT{n}" for n in range(1, 10)}}
 
 
 def _root_path_error(endpoint_type: str | None, root_path: str | None) -> str | None:
@@ -2171,12 +2171,10 @@ async def create_root_subfolder(root_id: int, payload: SubfolderPayload, request
     if root is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
     name = payload.name
-    if name.split(".")[0].upper() in _RESERVED_FOLDER_NAMES:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail={"code": "FOLDER_NAME_RESERVED", "message": "This name is reserved by Windows"})
-    if name != name.strip() or name in {".", ".."} or name.endswith(".") or any(c in '\\/:*?"<>|' or ord(c) < 32 for c in name):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail={"code": "FOLDER_NAME_INVALID", "message": 'The folder name contains a character refused by Windows (\\ / : * ? " < > |)'})
+    error = folder_name_error(name)
+    if error:
+        code = "FOLDER_NAME_RESERVED" if error == RESERVED_MESSAGE else "FOLDER_NAME_INVALID"
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"code": code, "message": error})
     job = await _run_folder_job(root, "create", request=request, action="storage_root.subfolder_created", folder_name=name)
     path = f"{str(root.root_path or '').rstrip(chr(92))}\\{name}"
     log_activity(

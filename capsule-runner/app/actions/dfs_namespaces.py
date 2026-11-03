@@ -11,6 +11,7 @@ from typing import Any, Callable, Iterable
 
 from app.shared.name_resolution import resolve
 from app.shared.samba_auth import run_samba
+from app.shared.windows_names import dfs_folder_error
 
 _SYSTEM_SHARES = {"ADMIN$", "IPC$", "PRINT$", "SYSVOL", "NETLOGON"}
 _REPARSE_POINT = 0x400
@@ -196,18 +197,6 @@ def read_dfs_namespaces(params: dict[str, Any]):
 # DFS folders created and removed under a namespace, over RPC (netdfs) on its root server, with the account of the
 # namespace: it must be allowed to manage the namespace (delegation, or domain admin).
 # ----------------------------------------------------------------------------------------------------------------
-
-_FOLDER_FORBIDDEN = re.compile(r'[/:*?"<>|]')
-
-
-def dfs_folder_error(folder: str) -> str | None:
-    parts = folder.strip("\\").split("\\")
-    if not folder.strip("\\") or len(folder) > 255:
-        return "The name of the DFS folder is required, 255 characters at most"
-    if any(not part.strip() or part in {".", ".."} or part != part.strip() or _FOLDER_FORBIDDEN.search(part) for part in parts):
-        return 'A DFS folder is made of names separated by \\, without / : * ? " < > |'
-    return None
-
 
 def split_target(target: str) -> tuple[str, str] | None:
     """\\\\FILER01\\Finance\\Sub -> (FILER01, Finance\\Sub): the server and what follows it."""

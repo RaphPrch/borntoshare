@@ -3939,7 +3939,6 @@
   "Read the namespace before changing it": "Lisez l'espace de noms avant de le modifier",
   "Under {path}. Separate the levels with \\.": "Sous {path}. Séparez les niveaux par \\.",
   "The target is a network path such as \\\\server\\share": "La cible est un chemin réseau comme \\\\serveur\\partage",
-  "A DFS folder is made of names separated by \\, without / : * ? \" < > |": "Un dossier DFS est fait de noms séparés par \\, sans / : * ? \" < > |",
   "Activity recorded on {target}": "Activité enregistrée sur {target}",
   "Unable to delete identity.": "Impossible de supprimer le compte.",
   "Unable to save tag.": "Impossible d'enregistrer le tag.",
@@ -3966,5 +3965,11 @@
   "Import impossible: no active Active Directory source is defined.": "Import impossible : aucun annuaire Active Directory actif n'est défini.",
   "Unable to open the AD browser: no Active Directory source is selected.": "Impossible d'ouvrir l'explorateur AD : aucun annuaire Active Directory n'est sélectionné.",
   "Users can sign in as user@domain or DOMAIN\\user. Empty: derived from the base DN.": "Les utilisateurs se connectent en utilisateur@domaine ou DOMAINE\\utilisateur. Vide : déduit de la base DN.",
-  "These characters are refused by Windows: \\ / : * ? \" < > |": "Ces caractères sont refusés par Windows : \\ / : * ? \" < > |"
+  "These characters are refused by Windows: \\ / : * ? \" < > |": "Ces caractères sont refusés par Windows : \\ / : * ? \" < > |",
+  "The folder name is empty": "Le nom du dossier est vide",
+  "The folder name is longer than 255 characters": "Le nom du dossier dépasse 255 caractères",
+  "The folder name contains a character refused by Windows (\\ / : * ? \" < > |)": "Le nom du dossier contient un caractère refusé par Windows (\\ / : * ? \" < > |)",
+  "The folder name cannot start or end with a space, nor end with a dot": "Le nom du dossier ne peut pas commencer ni finir par une espace, ni finir par un point",
+  "The share name is required, 80 characters at most, without surrounding spaces": "Le nom du partage est requis, 80 caractères au plus, sans espace autour",
+  "The name of the DFS folder is required, 255 characters at most": "Le nom du dossier DFS est requis, 255 caractères au plus"
 }

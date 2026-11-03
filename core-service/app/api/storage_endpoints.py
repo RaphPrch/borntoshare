@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from app.services.secret_store import forget_unused
+from app.services.windows_names import dfs_folder_error, share_name_error
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -997,8 +997,6 @@ class ShareCreatePayload(BaseModel):
     path: str | None = Field(default=None, max_length=512)
 
 
-_SHARE_NAME_FORBIDDEN = re.compile(r'[\\/:*?"<>|\[\];=,+$]')
-
 _SHARE_REFUSALS = {
     "SHARE_ADMIN_REQUIRED": status.HTTP_403_FORBIDDEN,
     "SHARE_NOT_FOUND": status.HTTP_404_NOT_FOUND,
@@ -1076,7 +1074,6 @@ class _EndpointOperation:
         raise self.refused(status.HTTP_504_GATEWAY_TIMEOUT, f"{failure_code.rsplit('_', 1)[0]}_TIMEOUT", "Le worker n'a pas répondu à temps.", job_id)
 
 
-_DFS_FOLDER_FORBIDDEN = re.compile(r'[/:*?"<>|]')
 _DFS_REFUSALS = {
     "DFS_ADMIN_REQUIRED": status.HTTP_403_FORBIDDEN,
     "DFS_FOLDER_EXISTS": status.HTTP_409_CONFLICT,
@@ -1084,15 +1081,6 @@ _DFS_REFUSALS = {
     "DFS_TARGET_INVALID": status.HTTP_422_UNPROCESSABLE_ENTITY,
     "DFS_NAMESPACE_NOT_FOUND": status.HTTP_404_NOT_FOUND,
 }
-
-
-def _dfs_folder_name(folder: str) -> str | None:
-    parts = folder.strip("\\").split("\\")
-    if not folder.strip("\\") or len(folder) > 255 or any(
-        not part.strip() or part in {".", ".."} or part != part.strip() or _DFS_FOLDER_FORBIDDEN.search(part) for part in parts
-    ):
-        return 'A DFS folder is made of names separated by \\, without / : * ? " < > |'
-    return None
 
 
 class DfsFolderPayload(BaseModel):
@@ -1125,7 +1113,7 @@ def _dfs_operation(db: Session, request: Request, endpoint_id: int, action: str,
                                    context={"folder": folder, "dfs_path": f"{path}\\{folder}", **context})
     if not path:
         raise operation.refused(status.HTTP_409_CONFLICT, "DFS_NAMESPACE_NOT_READ", "Read the namespace before changing it")
-    error = _dfs_folder_name(folder)
+    error = dfs_folder_error(folder)
     if error:
         raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "DFS_FOLDER_INVALID", error)
     links = [dict(link) for link in (shot.get("links") or []) if isinstance(link, dict)]
@@ -1195,10 +1183,10 @@ async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, r
     local_path = (payload.path or "").strip() or f"C:\\Shares\\{name}"
     operation = _EndpointOperation(db, request, endpoint, action="storage_endpoint.share_created", share=name,
                                 context={"share": name, "path": local_path})
-    if _SHARE_NAME_FORBIDDEN.search(name):
+    error = share_name_error(name)
+    if error:
         # Refused here, before a job: the worker would give the same answer
-        raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "SHARE_NAME_INVALID",
-                                'These characters are refused in a share name: \\ / : * ? " < > | [ ] ; = , + $')
+        raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "SHARE_NAME_INVALID", error)
     await operation.run("create", local_path, failure_code="SHARE_CREATE_FAILED")
     operation.log("success")
     return ui_data({"share": name, "path": local_path, "unc": f"\\\\{endpoint.host}\\{name}"})
@@ -1212,7 +1200,7 @@ async def delete_endpoint_share(endpoint_id: int, share: str, request: Request, 
     unc = f"\\\\{endpoint.host}\\{name}"
     operation = _EndpointOperation(db, request, endpoint, action="storage_endpoint.share_deleted", share=name,
                                 context={"share": name, "unc": unc})
-    if not name or _SHARE_NAME_FORBIDDEN.search(name) or name.endswith("$"):
+    if share_name_error(name) or name.endswith("$"):
         raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "SHARE_NAME_INVALID", "This share cannot be deleted from BornToShare")
     prefix = normalize_root_path(unc)
     managed = [

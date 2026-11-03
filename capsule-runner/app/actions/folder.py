@@ -7,6 +7,7 @@ import subprocess
 from typing import Any, Dict
 
 from app.shared.samba_auth import run_samba
+from app.shared.windows_names import folder_name_error, share_name_error
 
 logger = logging.getLogger(__name__)
 
@@ -102,26 +103,6 @@ def delete_folder(params: Dict[str, Any]):
     return True, "Folder deleted", details
 
 
-# Characters Windows refuses in a file or folder name
-_FORBIDDEN_NAME_CHARS = set('\\/:*?"<>|')
-_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *{f"COM{n}" for n in range(1, 10)}, *{f"LPT{n}" for n in range(1, 10)}}
-
-
-def folder_name_error(name: str) -> str | None:
-    """Why a sub-folder name is refused, or None when it is valid."""
-    if not name or name in {".", ".."}:
-        return "The folder name is empty"
-    if name.split(".")[0].upper() in _RESERVED_NAMES:
-        return "This name is reserved by Windows"
-    if len(name) > 255:
-        return "The folder name is longer than 255 characters"
-    if any(c in _FORBIDDEN_NAME_CHARS or ord(c) < 32 for c in name):
-        return 'The folder name contains a character refused by Windows (\\ / : * ? " < > |)'
-    if name != name.strip() or name.endswith("."):
-        return "The folder name cannot start or end with a space, nor end with a dot"
-    return None
-
-
 def create_subfolder(params: Dict[str, Any]):
     """Create a sub-folder in the folder of a storage root (smbclient mkdir), then check it exists."""
     host = str(params.get("host") or "").strip()
@@ -155,16 +136,7 @@ def create_subfolder(params: Dict[str, Any]):
     return True, "Folder created", details
 
 
-SHARE_NAME_FORBIDDEN = re.compile(r'[\\/:*?"<>|\[\];=,+$]')
 LOCAL_PATH = re.compile(r"^([A-Za-z]):((?:\\[^\\/:*?\"<>|]+)+)$")
-
-
-def share_name_error(name: str) -> str | None:
-    if not name.strip() or name != name.strip() or len(name) > 80:
-        return "The share name is required, 80 characters at most, without surrounding spaces"
-    if SHARE_NAME_FORBIDDEN.search(name):
-        return 'These characters are refused in a share name: \\ / : * ? " < > | [ ] ; = , + $'
-    return None
 
 
 def create_share(params: Dict[str, Any]):

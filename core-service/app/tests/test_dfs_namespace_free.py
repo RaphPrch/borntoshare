@@ -38,6 +38,8 @@ def test_a_namespace_not_read_is_refused() -> None:
 
 
 def test_dfs_folder_names() -> None:
-    assert storage_endpoints._dfs_folder_name("Corporate\\Finance") is None
-    for bad in ("", "a\\..\\b", "Fin:ance", "Fin|ance", "a\\\\b"):
-        assert storage_endpoints._dfs_folder_name(bad), bad
+    from app.services.windows_names import dfs_folder_error
+
+    assert dfs_folder_error("Corporate\\Finance") is None
+    for bad in ("", "a\\..\\b", "Fin:ance", "Fin|ance", "a\\\\b", "Corporate\\CON", "Finance."):
+        assert dfs_folder_error(bad), bad
