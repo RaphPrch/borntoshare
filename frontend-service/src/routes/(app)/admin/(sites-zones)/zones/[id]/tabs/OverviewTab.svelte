@@ -70,7 +70,7 @@
 <div class="zo">
   <div class="zo__col">
     <section class="zo__card" aria-label={t('Servers of the zone')}>
-      <header><h2>{t('Servers of the zone')}</h2>{#if onAddServer}<button type="button" class="zo__link" on:click={onAddServer}>+ {t('Add')}</button>{/if}</header>
+      <header><h2>{t('Servers of the zone')}</h2>{#if onAddServer}<button type="button" class="b2s-link-btn" on:click={onAddServer}>+ {t('Add')}</button>{/if}</header>
       {#if servers.length}
         <div class="zo__tools">
           <input class="b2s-input" type="search" aria-label={t('Filter the servers')} placeholder={t('Filter the servers…')} bind:value={query} />
@@ -112,7 +112,7 @@
       <section class="zo__card" aria-label={t('Folders to review')}>
         <header>
           <h2>{t('Folders to review')}</h2>
-          {#if onOpenFolders}<button type="button" class="zo__link" on:click={onOpenFolders}>{t('The {count} in the table', { count: summary.review.length })} ›</button>{/if}
+          {#if onOpenFolders}<button type="button" class="b2s-link-btn" on:click={onOpenFolders}>{t('The {count} in the table', { count: summary.review.length })} ›</button>{/if}
         </header>
         {#each summary.review.slice(0, 5) as root (root.id)}
           <div class="zo__root">
@@ -127,7 +127,7 @@
 
   <div class="zo__col">
     <section class="zo__card" aria-label={t('Governance')}>
-      <header><h2>{t('Governance')}</h2>{#if onOpenProvisioning}<button type="button" class="zo__link" on:click={onOpenProvisioning}>{t('Provisioning')} ›</button>{/if}</header>
+      <header><h2>{t('Governance')}</h2>{#if onOpenProvisioning}<button type="button" class="b2s-link-btn" on:click={onOpenProvisioning}>{t('Provisioning')} ›</button>{/if}</header>
       <dl>
         <div><dt>{t('OU of the groups')}</dt><dd class="mono">{provisioningOu || t('Default OU of the directory')}</dd></div>
         <div><dt>{t('Naming')}</dt><dd><span class="mono">{namingTemplateLabel || t('Not set')}</span>{#if example}<small>{t('Example: {name}', { name: example })}</small>{/if}</dd></div>
@@ -150,7 +150,6 @@
   .zo__card { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .zo__card header { display: flex; align-items: center; gap: 12px; }
   .zo__card h2 { margin: 0 auto 0 0; font-size: var(--b2s-fs-md); font-weight: 600; }
-  .zo__link { padding: 0; border: 0; background: none; color: var(--b2s-color-info-strong); font: inherit; font-size: var(--b2s-fs-sm); cursor: pointer; }
   .zo__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .zo__tools { display: flex; gap: 8px; align-items: center; }
   .zo__tools .b2s-input { flex: 1; max-width: 260px; }

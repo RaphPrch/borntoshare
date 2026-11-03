@@ -2130,3 +2130,9 @@ select.b2s-input {
 .b2s-stat-bar i.mute { background: var(--b2s-color-border); }
 .b2s-stat-bar i.read { background: var(--b2s-color-info); }
 .b2s-stat-bar i.write { background: var(--b2s-color-warning); }
+
+/* A button that reads as a link (« Modifier › », « Tout l'historique ›… »): one style everywhere */
+.b2s-link-btn { padding: 0; border: 0; background: none; color: var(--b2s-color-info-strong); font: inherit; font-size: var(--b2s-fs-sm); text-align: left; text-decoration: none; cursor: pointer; }
+.b2s-link-btn:hover { text-decoration: underline; }
+.b2s-link-btn:focus-visible { outline: none; border-radius: 4px; box-shadow: var(--b2s-focus-ring); }
+.b2s-link-btn:disabled { color: var(--b2s-color-text-muted); cursor: default; text-decoration: none; }

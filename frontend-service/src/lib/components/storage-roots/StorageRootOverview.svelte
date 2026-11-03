@@ -81,7 +81,7 @@
 <div class="ov">
   <div class="ov__col">
     <section class="ov__card" aria-label={t('Who reaches it')}>
-      <header><h2>{t('Who reaches it')}</h2><button type="button" class="ov__link" on:click={onOpenPermissions}>{t('All the permissions')} ›</button></header>
+      <header><h2>{t('Who reaches it')}</h2><button type="button" class="b2s-link-btn" on:click={onOpenPermissions}>{t('All the permissions')} ›</button></header>
       <form class="ov__who" on:submit|preventDefault={explain}>
         <input class="b2s-input" bind:value={login} placeholder={t('Who reaches it? Type a login, e.g. paul.martin')} aria-label={t('Who reaches it?')} />
         <button type="submit" class="b2s-btn b2s-btn-secondary" disabled={!login.trim()}>{t('Check')}</button>
@@ -164,7 +164,7 @@
           {#if !inheritance?.known}<span class="ov__muted">{t('Known at the next ACL read')}</span>
           {:else if inheritance.broken}<span>{t('Broken: the folder keeps its own entries')}</span>
           {:else}<span>{t('Inherited from the parent folder')}</span>{/if}
-          {#if isAdmin && inheritance?.known}<button type="button" class="ov__link" on:click={onToggleInheritance}>{inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
+          {#if isAdmin && inheritance?.known}<button type="button" class="b2s-link-btn" on:click={onToggleInheritance}>{inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
         </dd>
       </div>
       <div><dt>{t('Directory')}</dt><dd>{permissions?.snapshot_at ? t('Synchronised {ago}', { ago: timeAgo(permissions.snapshot_at) }) : '—'}</dd></div>
@@ -178,7 +178,6 @@
   .ov__card { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .ov__card header { display: flex; align-items: center; gap: 12px; }
   .ov__card h2 { margin: 0 auto 0 0; font-size: var(--b2s-fs-md); font-weight: 600; }
-  .ov__link { padding: 0; border: 0; background: none; color: var(--b2s-color-info-strong); font: inherit; font-size: var(--b2s-fs-sm); cursor: pointer; }
   .ov__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .ov__who { display: flex; gap: 8px; }
   .ov__who .b2s-input { flex: 1; min-width: 0; }

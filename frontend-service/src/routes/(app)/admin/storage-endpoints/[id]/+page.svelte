@@ -1365,12 +1365,12 @@
         {:else if activeEndpointTab === 'overview'}
           <div class="sed-overview">
             <section class="sed-card" aria-label={t('Managed folders')}>
-              <header><h2>{t('Managed folders')}</h2><a class="sed-link" href={`/storage-roots/add?endpoint=${endpointId(selected)}`}>+ {t('Add folders')}</a></header>
+              <header><h2>{t('Managed folders')}</h2><a class="b2s-link-btn" href={`/storage-roots/add?endpoint=${endpointId(selected)}`}>+ {t('Add folders')}</a></header>
               <EndpointFoldersTable rows={rootsFilteredRows} host={endpointHost(selected)} />
             </section>
             <div class="sed-side">
               <section class="sed-card" aria-label={t('Connection')}>
-                <header><h2>{t('Connection')}</h2><button type="button" class="sed-link" on:click={() => (showEditModal = true)}>{t('Edit')} ›</button></header>
+                <header><h2>{t('Connection')}</h2><button type="button" class="b2s-link-btn" on:click={() => (showEditModal = true)}>{t('Edit')} ›</button></header>
                 <dl>
                   <div><dt>{t('Protocol')}</dt><dd>{String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase()}</dd></div>
                   <div><dt>{t('Service account')}</dt><dd class="mono">{selected?.bind_dn || selected?.auth_username || '—'}</dd></div>
@@ -1458,21 +1458,8 @@
 />
 
 <style>
-  .sed-link {
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--b2s-color-info);
-    font-size: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
 
 
-  .sed-link {
-    font-size: var(--b2s-fs-sm);
-    text-decoration: none;
-  }
 
   .sed-top {
     display: grid;

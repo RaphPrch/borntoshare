@@ -274,7 +274,7 @@
                 <span class:is-warn={data.inheritance.broken}>
                   <i class={`bi ${data.inheritance.broken ? 'bi-scissors' : 'bi-diagram-3'}`} aria-hidden="true"></i>
                   {data.inheritance.broken ? t('inheritance broken') : t('inherits from the parent folder')}
-                  {#if isAdmin}· <button type="button" class="pm-link" on:click={onToggleInheritance}>{data.inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
+                  {#if isAdmin}· <button type="button" class="b2s-link-btn" on:click={onToggleInheritance}>{data.inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
                 </span>
               {/if}
             </div>
@@ -301,7 +301,7 @@
             <div class="pm-answer">
               <p><strong>{checked.person.name}</strong> {checked.person.level === 'write' ? t('modifies this folder') : t('reads this folder')}
                 {#if checked.person.expires_at}<span class="is-write">· {t('ends {date}', { date: formatDate(checked.person.expires_at) })}</span>{/if}
-                <button type="button" class="pm-link" on:click={() => checked?.found && (explainFor = checked.person.username ?? checked.person.name)}>{t('Details')} ›</button>
+                <button type="button" class="b2s-link-btn" on:click={() => checked?.found && (explainFor = checked.person.username ?? checked.person.name)}>{t('Details')} ›</button>
               </p>
               <div class="pm-chain">
                 <span class="pm-step is-ok"><b>{checked.person.name}</b><small>{checked.person.username ?? ''}</small></span>
@@ -408,7 +408,7 @@
         {#if data.system.length}
           <div class="pm-system">
             <span><i class="bi bi-gear" aria-hidden="true"></i> {t('+ {count} expected system account(s)', { count: data.system.length })}</span>
-            <button type="button" class="pm-link" aria-expanded={showSystem} on:click={() => (showSystem = !showSystem)}>{showSystem ? t('Hide') : t('Show')}</button>
+            <button type="button" class="b2s-link-btn" aria-expanded={showSystem} on:click={() => (showSystem = !showSystem)}>{showSystem ? t('Hide') : t('Show')}</button>
           </div>
           {#if showSystem}
             <ul class="pm-system__list">
@@ -432,7 +432,7 @@
               <small>{t('{rights}, set directly on the file server', { rights: t(gap.rights_label) })}</small>
               {#if gapPeople(gap).length}
                 <span class="pm-gap__people">
-                  {#each gapPeople(gap).slice(0, 4) as person (person.key)}<button type="button" class="pm-link" on:click={() => (explainFor = person.username ?? person.name)}>{person.name}</button>{/each}
+                  {#each gapPeople(gap).slice(0, 4) as person (person.key)}<button type="button" class="b2s-link-btn" on:click={() => (explainFor = person.username ?? person.name)}>{person.name}</button>{/each}
                 </span>
               {:else if gap.members_count}
                 <small>{t('{count} member(s) without a request or a guardian', { count: gap.members_count })}</small>
@@ -446,7 +446,7 @@
         {#if acceptedGaps.length}
           <small class="pm-muted">{t('{count} accepted gap(s):', { count: acceptedGaps.length })}</small>
           {#each acceptedGaps as gap (gap.principal)}
-            <div class="pm-accepted"><span class="mono">{gap.name}</span>{#if isAdmin}<button type="button" class="pm-link" disabled={busy} on:click={() => toggleGap(gap, false)}>{t('Report again')}</button>{/if}</div>
+            <div class="pm-accepted"><span class="mono">{gap.name}</span>{#if isAdmin}<button type="button" class="b2s-link-btn" disabled={busy} on:click={() => toggleGap(gap, false)}>{t('Report again')}</button>{/if}</div>
           {/each}
         {/if}
       </section>
@@ -522,7 +522,6 @@
   .pm-card h2 { margin: 0 auto 0 0; font-size: var(--b2s-fs-md); font-weight: 600; }
   .pm-muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
-  .pm-link { padding: 0; border: 0; background: none; color: var(--b2s-color-info-strong); font: inherit; font-size: var(--b2s-fs-sm); cursor: pointer; }
   .is-read { color: var(--b2s-color-info-strong); }
   .is-write, .is-warn { color: var(--b2s-color-warning-strong); }
   .is-bad { color: var(--b2s-color-danger-strong); }
@@ -541,7 +540,7 @@
   .pm-state__text p { margin: 0; font-size: var(--b2s-fs-sm); }
   .pm-facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
   .pm-facts > span { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: var(--b2s-radius-sm); background: var(--b2s-color-neutral-soft); font-size: var(--b2s-fs-xs); }
-  .pm-facts .pm-link { font-size: var(--b2s-fs-xs); }
+  .pm-facts .b2s-link-btn { font-size: var(--b2s-fs-xs); }
   .pm-note { margin: 0; font-size: var(--b2s-fs-sm); color: var(--b2s-color-text-muted); }
   .pm-note.is-bad { color: var(--b2s-color-danger); }
   /* who reaches it */
@@ -549,7 +548,7 @@
   .pm-ask input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; }
   .pm-answer { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft, #f6f7f9); }
   .pm-answer p { margin: 0; font-size: var(--b2s-fs-sm); }
-  .pm-answer .pm-link { margin-left: 6px; }
+  .pm-answer .b2s-link-btn { margin-left: 6px; }
   .pm-answer.is-none { flex-direction: row; align-items: center; justify-content: space-between; }
   .pm-chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
   .pm-step { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 8px 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface); }
@@ -606,7 +605,7 @@
   .pm-actions { display: flex; justify-content: flex-end; gap: 6px; }
   .pm-empty { margin: 0; padding: 16px; border: 1px dashed var(--b2s-color-border); border-radius: var(--b2s-radius-md); color: var(--b2s-color-text-muted); text-align: center; }
   .pm-system { display: flex; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px dashed var(--b2s-color-border); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .pm-system .pm-link { margin-left: auto; }
+  .pm-system .b2s-link-btn { margin-left: auto; }
   .pm-system__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-xs); }
   .pm-system__list li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; }
   .pm-system__list code { color: var(--b2s-color-text-muted); }
@@ -616,7 +615,7 @@
   .pm-gap b { display: block; font-size: var(--b2s-fs-sm); overflow-wrap: anywhere; }
   .pm-gap small { display: block; color: var(--b2s-color-warning-strong); font-size: var(--b2s-fs-xs); }
   .pm-gap__people { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
-  .pm-gap__people .pm-link { font-size: var(--b2s-fs-xs); }
+  .pm-gap__people .b2s-link-btn { font-size: var(--b2s-fs-xs); }
   .pm-ok { margin: 0; color: var(--b2s-color-success-strong); font-size: var(--b2s-fs-sm); }
   .pm-accepted { display: flex; justify-content: space-between; gap: 8px; font-size: var(--b2s-fs-sm); }
   .pm-kv { margin: 0; }
