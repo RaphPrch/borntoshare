@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { t } from '$lib/i18n';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import AppModal from '$lib/components/ui/AppModal.svelte';
@@ -149,11 +150,12 @@
   {#if error || info.error}<InlineAlert tone="error">{error || info.error}</InlineAlert>{/if}
   <div class="tools">
     <input class="b2s-input" aria-label={t('Filter the DFS folders')} placeholder={t('Filter the DFS folders…')} bind:value={query} />
-    <div class="seg" role="group" aria-label={t('Filter by state')}>
-      {#each [['all', t('All')], ['todo', t('To manage')], ['managed', t('Managed')], ['unknown', t('Server not declared')]] as [key, label]}
-        <button type="button" class:on={filter === key} on:click={() => (filter = key as typeof filter)}>{label} <span>{counts[key]}</span></button>
-      {/each}
-    </div>
+    <SegmentedFilter ariaLabel={t('Filter by state')} bind:value={filter} options={[
+      { key: 'all', label: t('All'), count: counts.all },
+      { key: 'todo', label: t('To manage'), count: counts.todo },
+      { key: 'managed', label: t('Managed'), count: counts.managed },
+      { key: 'unknown', label: t('Server not declared'), count: counts.unknown }
+    ]} />
   </div>
 
   {#if visible.length}
@@ -254,10 +256,6 @@
   .muted { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); }
   .tools { display: flex; gap: 8px; align-items: center; }
   .tools .b2s-input { flex: 1; min-width: 0; }
-  .seg { display: flex; flex: none; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
-  .seg button { padding: 4px 9px; border: 0; border-radius: var(--b2s-radius-sm); background: transparent; color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); white-space: nowrap; cursor: pointer; }
-  .seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; box-shadow: var(--b2s-shadow-sm); }
-  .seg span { opacity: 0.7; }
   .list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface); }
   .list li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 8px 12px; }
   .list li + li { border-top: 1px solid var(--b2s-color-border); }

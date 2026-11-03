@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { t } from '$lib/i18n';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
@@ -19,10 +20,10 @@
 <section class="b2s-page mine">
   <PageHeader title={t('Monitoring')} subtitle={t('What happened to your requests, your accesses and the folders you guard.')}>
     <svelte:fragment slot="actions">
-      <div class="seg">
-        <button type="button" class:on={filter === 'all'} on:click={() => (filter = 'all')}>{t('All')} {data.events.length}</button>
-        <button type="button" class:on={filter === 'failed'} on:click={() => (filter = 'failed')}>{t('Failures')} {failures}</button>
-      </div>
+      <SegmentedFilter ariaLabel={t('Filter the events')} bind:value={filter} options={[
+        { key: 'all', label: t('All'), count: data.events.length },
+        { key: 'failed', label: t('Failures'), count: failures }
+      ]} />
     </svelte:fragment>
   </PageHeader>
 
@@ -51,7 +52,4 @@
   .main { display: flex; flex-direction: column; min-width: 0; }
   .main strong { font-weight: 500; }
   .main small, .line > small { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); }
-  .seg { display: flex; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
-  .seg button { padding: 4px 10px; border: 0; border-radius: var(--b2s-radius-sm); background: transparent; color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); cursor: pointer; }
-  .seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; }
 </style>

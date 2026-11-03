@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { t } from '$lib/i18n';
   import { goto } from '$app/navigation';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -144,12 +145,10 @@
         {#if data.sources.length}
           <div class="field">
             <span class="label">{t('Start from')}</span>
-            <div class="seg" role="group" aria-label={t('Start from')}>
-              <button type="button" class:on={start === 'global'} aria-pressed={start === 'global'} on:click={() => applyStart('global')}>{t('Global setting')}</button>
-              {#each data.sources.slice(0, 4) as source (source.id)}
-                <button type="button" class:on={start === String(source.id)} aria-pressed={start === String(source.id)} on:click={() => applyStart(String(source.id))}>{t('Zone {name}', { name: source.name })}</button>
-              {/each}
-            </div>
+            <SegmentedFilter ariaLabel={t('Start from')} value={start} onChange={(key) => applyStart(key)} options={[
+              { key: 'global', label: t('Global setting') },
+              ...data.sources.slice(0, 4).map((source) => ({ key: String(source.id), label: t('Zone {name}', { name: source.name }) }))
+            ]} />
           </div>
         {/if}
         <div class="field">
@@ -206,9 +205,6 @@
   .field label, .label { font-size: var(--b2s-text-sm); font-weight: 500; }
   .field-error { color: var(--b2s-color-danger-strong); font-size: var(--b2s-font-micro); }
   .muted { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); overflow-wrap: anywhere; }
-  .seg { display: inline-flex; flex-wrap: wrap; align-self: flex-start; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
-  .seg button { padding: 5px 12px; border: 0; border-radius: var(--b2s-radius-sm); background: none; color: var(--b2s-color-text-muted); font-size: var(--b2s-text-sm); cursor: pointer; }
-  .seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; box-shadow: var(--b2s-shadow-sm); }
   .tokens { display: flex; flex-wrap: wrap; gap: 6px; }
   .token { padding: 2px 8px; border: 1px dashed var(--b2s-color-border-mid, var(--b2s-color-border)); border-radius: var(--b2s-radius-sm); background: var(--b2s-color-neutral-soft); font-family: var(--b2s-font-mono); font-size: var(--b2s-font-micro); cursor: pointer; }
   .token:hover { border-color: var(--b2s-color-text); }

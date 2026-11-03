@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
   import { apiGetData, apiPostData } from '$lib/api/client';
@@ -123,11 +124,11 @@
 {#if error}<InlineAlert tone="error">{error}</InlineAlert>{/if}
 <div class="tools">
   <input class="b2s-input" aria-label={t('Filter the shares')} placeholder={t('Filter the shares…')} bind:value={query} />
-  <div class="seg">
-    {#each [['new', t('Not managed')], ['managed', t('Managed')], ['all', t('All')]] as [key, label]}
-      <button type="button" class:on={filter === key} on:click={() => (filter = key as typeof filter)}>{label} <span>{counts[key]}</span></button>
-    {/each}
-  </div>
+  <SegmentedFilter ariaLabel={t('Filter by state')} bind:value={filter} options={[
+    { key: 'new', label: t('Not managed'), count: counts.new },
+    { key: 'managed', label: t('Managed'), count: counts.managed },
+    { key: 'all', label: t('All'), count: counts.all }
+  ]} />
 </div>
 {#if loading}
   <p class="empty">{t('Loading…')}</p>
@@ -188,10 +189,6 @@
   .muted { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); }
   .tools { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
   .tools .b2s-input { flex: 1; min-width: 0; }
-  .seg { display: flex; flex: none; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
-  .seg button { padding: 4px 9px; border: 0; border-radius: var(--b2s-radius-sm); background: transparent; color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); cursor: pointer; }
-  .seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; box-shadow: var(--b2s-shadow-sm); }
-  .seg span { opacity: 0.7; }
   .list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface); }
   .list li { display: flex; align-items: center; gap: 12px; padding: 7px 12px; }
   .list li + li { border-top: 1px solid var(--b2s-color-border); }

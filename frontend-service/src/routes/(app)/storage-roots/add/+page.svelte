@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { beforeNavigate, invalidate } from '$app/navigation';
   import { t } from '$lib/i18n';
@@ -371,11 +372,11 @@
       <section class="pane">
         <div class="pane-head">
           <input class="b2s-input" aria-label={t('Filter the servers')} placeholder={t('Filter the servers…')} bind:value={serverQuery} />
-          <div class="seg">
-            <button type="button" class:on={serverFilter === 'all'} on:click={() => (serverFilter = 'all')}>{t('All')} {servers.length}</button>
-            <button type="button" class:on={serverFilter === 'selected'} on:click={() => (serverFilter = 'selected')}>{t('Checked')} {selectedServers.length}</button>
-            <button type="button" class:on={serverFilter === 'bad'} on:click={() => (serverFilter = 'bad')}>{t('Unreachable')} {badCount}</button>
-          </div>
+          <SegmentedFilter ariaLabel={t('Filter the servers')} bind:value={serverFilter} options={[
+            { key: 'all', label: t('All'), count: servers.length },
+            { key: 'selected', label: t('Checked'), count: selectedServers.length },
+            { key: 'bad', label: t('Unreachable'), count: badCount }
+          ]} />
         </div>
         <div class="scroll">
           {#each zones as group (group.zone)}
@@ -433,11 +434,11 @@
             {#if currentFolders.length}
               <div class="tools">
                 <input class="b2s-input" aria-label={t('Filter this server')} placeholder={t('Filter this server…')} bind:value={folderQuery} />
-                <div class="seg">
-                  <button type="button" class:on={folderFilter === 'new'} on:click={() => (folderFilter = 'new')}>{t('New')} {currentFolders.length - managedCount}</button>
-                  <button type="button" class:on={folderFilter === 'managed'} on:click={() => (folderFilter = 'managed')}>{t('Managed')} {managedCount}</button>
-                  <button type="button" class:on={folderFilter === 'all'} on:click={() => (folderFilter = 'all')}>{t('All')} {currentFolders.length}</button>
-                </div>
+                <SegmentedFilter ariaLabel={t('Filter by state')} bind:value={folderFilter} options={[
+                  { key: 'new', label: t('New'), count: currentFolders.length - managedCount },
+                  { key: 'managed', label: t('Managed'), count: managedCount },
+                  { key: 'all', label: t('All'), count: currentFolders.length }
+                ]} />
                 <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={!selectable.length} on:click={toggleAll}>
                   {allChecked ? t('Uncheck all') : t('Check {count}', { count: selectable.length })}
                 </button>
@@ -583,9 +584,6 @@
   .pad { padding: 10px 14px; }
   .note { margin: 0; padding: 18px; color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); text-align: center; }
 
-  .seg { display: flex; flex: none; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
-  .seg button { flex: 1; padding: 4px 8px; border: 0; border-radius: var(--b2s-radius-sm); background: transparent; color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); white-space: nowrap; cursor: pointer; }
-  .seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; box-shadow: var(--b2s-shadow-sm); }
 
   .zone { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 6px; width: 100%; padding: 8px 14px; border: 0; border-bottom: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface-soft); font-size: var(--b2s-text-sm); font-weight: 600; text-align: left; cursor: pointer; }
   .zone small { margin-left: auto; font-weight: 400; color: var(--b2s-color-text-muted); }

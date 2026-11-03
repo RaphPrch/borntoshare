@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { t } from '$lib/i18n';
 
   /** Folders governed on a server: hundreds of them stay readable (search, filters, compact rows, by page). */
@@ -37,11 +38,12 @@
 
 <div class="tools">
   <input class="b2s-input" aria-label={t('Filter the folders')} placeholder={t('Filter the folders…')} bind:value={query} />
-  <div class="seg" role="group" aria-label={t('Filter by state')}>
-    {#each [['all', t('All')], ['todo', t('To review')], ['down', t('Unreachable')], ['pending', t('Pending requests')]] as [key, label]}
-      <button type="button" class:on={filter === key} on:click={() => (filter = key as typeof filter)}>{label} <span>{counts[key]}</span></button>
-    {/each}
-  </div>
+  <SegmentedFilter ariaLabel={t('Filter by state')} bind:value={filter} options={[
+    { key: 'all', label: t('All'), count: counts.all },
+    { key: 'todo', label: t('To review'), count: counts.todo },
+    { key: 'down', label: t('Unreachable'), count: counts.down },
+    { key: 'pending', label: t('Pending requests'), count: counts.pending }
+  ]} />
 </div>
 
 {#if matching.length}
@@ -67,10 +69,6 @@
 <style>
   .tools { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
   .tools .b2s-input { flex: 1; min-width: 0; }
-  .seg { display: flex; flex: none; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
-  .seg button { padding: 4px 9px; border: 0; border-radius: var(--b2s-radius-sm); background: transparent; color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); white-space: nowrap; cursor: pointer; }
-  .seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; box-shadow: var(--b2s-shadow-sm); }
-  .seg span { opacity: 0.7; }
   .list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface); }
   .list li + li { border-top: 1px solid var(--b2s-color-border); }
   .list a { display: grid; grid-template-columns: minmax(0, 1fr) 110px 92px; gap: 12px; align-items: center; padding: 7px 12px; color: inherit; text-decoration: none; }

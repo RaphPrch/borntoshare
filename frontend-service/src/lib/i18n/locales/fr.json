@@ -4089,5 +4089,6 @@
   "Testing the SMB access to {host} with {account}…": "Test de l'accès SMB à {host} avec {account}…",
   "{count} password(s) missing from the secret store": "{count} mot(s) de passe introuvable(s) dans le coffre de secrets",
   "Every test, approval or change with them fails: enter them again.": "Tout test, toute validation ou modification avec eux échoue : saisissez-les à nouveau.",
-  "Built on {date}": "Construit le {date}"
+  "Built on {date}": "Construit le {date}",
+  "Filter the events": "Filtrer les événements"
 }
