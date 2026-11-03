@@ -32,6 +32,7 @@ Frontend:
 - Buttons: `b2s-btn` + one variant (`b2s-btn-primary|secondary|ghost|danger|danger-outline|warning`, sizes `b2s-btn-sm`, `b2s-btn-icon`) from `lib/styles/buttons.css`, or `EntityActionButton`. Modals on `AppModal`, side panels on `Drawer`, tabs on `Tabs`. No new Bootstrap classes (`bootstrap-subset.css` only keeps what is still used).
 - Texts go through `t()` from `$lib/i18n` (French and English): `t('Save changes')`, `t('{count} roots', { count })`. The English text is the key; add its French translation to `lib/i18n/locales/fr.json` (a source text written in French goes to `en.json` instead). Never translate data sent to the API (activity messages, codes) or values compared in code; translate labels at render time, not in module-level constants.
 - Follow the `src/lib` layout and shared helpers described in `frontend-service/docs/structure.md`.
+- One shared component or class per element (fields `b2s-input`, `SegmentedFilter`, `StatusBadge`, `b2s-stat-tile`, `ShowMore`, `b2s-link-btn`, `EmptyStateInline`): see `frontend-service/docs/ui-conventions.md`. Report failures with `reportUiError`; every audited event needs a wording in `lib/activity/templates.ts`.
 - No glassmorphism.
 - Page titles go through `PageHeader` (list pages) or `EntityHeader` (entity consoles); pages use `padding: var(--b2s-page-padding)`.
 - Typography and radius only from `lib/styles/tokens.css`: system font (`--b2s-font-sans`, `--b2s-font-mono` for paths, DNs and IDs only), sizes `--b2s-fs-xs|sm|md|lg|xl|2xl|page-title|console-title`, radius `--b2s-radius-sm|md|lg|pill`.
@@ -58,6 +59,8 @@ core-service (`core-service/`, all business data and orchestration):
 - Settings live in `core/config.py` only; `CAPSULE_BROKER_URL` is required at startup.
 - Shared helpers: response envelopes `ui_data`/`ui_list`/`ui_action` (`api/_helpers.py`), value helpers (`core/values.py`), shared pydantic rules `SecretRefRules`/`ProbeStatusRules` (`schemas/common.py`). Reuse them instead of re-implementing.
 - core-service never talks LDAP or SMB: directory and file-server work runs as capsule-runner jobs.
+- A new worker action is declared in `capsule-runner/app/core/action_registry.py`, `scope_guard.py`, both copies of `b2s_job_contracts`, and `core-service/app/services/probe_service.py` (template and job type); `test_action_wiring.py` (core and worker) fails when one is missing. Windows name rules live in `windows_names.py` (same file in both services).
+- A new SQL pack goes to `wizard-ui/backend/app/sql/schema/` and to `PACKS` in `scripts/deploy.sh`; packs are replayed on every deploy, so each one must apply again after the later ones.
 
 Authorization:
 - The frontend BFF (`lib/server/bff/proxy.ts`) is the only client of the APIs: it drops every identity and service header sent by the browser, sets them from the session, and refuses `/api/*` without a session (sign-in routes excepted).
@@ -78,7 +81,7 @@ Access model:
 
 Capsules:
 - Capsules are agentless.
-- capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares and NTFS ACLs, Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
+- capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares, NTFS ACLs and DFS (netdfs), Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
 - Capsule execution must remain isolated from the main application network.
 - Job queue: Dramatiq over Redis. Redis is a service of the root `podman-compose.yml`, password-protected (`REDIS_PASSWORD`), with no published port, on the `b2s-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.

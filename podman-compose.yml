@@ -28,7 +28,8 @@ x-common-env: &common-env
   TZ: Europe/Paris
   APP_ENV: ${APP_ENV:-dev}
   LOG_LEVEL: INFO
-  INTERNAL_TOKEN_MODE: ${INTERNAL_TOKEN_MODE:-static}
+  # One shared token between the services (capsule-runner only sends this one): the only mode of the stack
+  INTERNAL_TOKEN_MODE: static
   INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN must be set}
 
 services:

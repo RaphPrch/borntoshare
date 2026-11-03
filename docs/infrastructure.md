@@ -43,6 +43,14 @@ Exécuté par les workers, 6 h par défaut. Trois parties, activables séparéme
 
 Le premier data sync a lieu un intervalle après l'installation, pas au premier démarrage.
 
+## Fin des accès et espaces de noms DFS
+
+- **Fin des accès** (15 min par défaut) : chaque accès arrivé à sa date de fin est retiré du groupe AD par un
+  worker ; le groupe et son ACL restent, prêts pour une autre demande.
+- **Espaces de noms DFS** (6 h par défaut) : chaque espace de noms est relu par un worker avec son compte ; un
+  dossier DFS ajouté ou retiré dans la console DFS apparaît sans « Relire ». Le résultat est tracé
+  (`storage_endpoint.dfs_read`).
+
 ## Secrets et sauvegarde
 
 Les mots de passe des annuaires et des serveurs de fichiers sont chiffrés (AES-256-GCM) dans la table `secret_items` de la base.
@@ -52,6 +60,11 @@ En revanche, une faille permettant d'exécuter du code dans core-service y donne
 
 Une sauvegarde complète comprend **deux éléments** : la base et `B2S_SECRET_MASTER_KEY`, à conserver séparément. Sans la clé, les
 références restent en base mais les annuaires passent en panne (« mot de passe illisible ») jusqu'à leur nouvelle saisie.
+
+Le health check vérifie aussi que chaque référence de mot de passe mène à un secret : s'il en manque (base restaurée
+sans sa clé, coffre réinitialisé), son résultat les nomme, le tableau de bord des administrateurs les liste avec
+un lien vers chaque objet, et la fiche d'un serveur propose « Ressaisir le mot de passe »
+(`GET /api/infrastructure/secrets/missing`).
 
 `make backup` enregistre les deux bases dans `backups/` (fichiers lisibles par leur seul propriétaire). La clé n'y est pas : à conserver
 dans un coffre, à part. Pour restaurer sur une installation arrêtée, avec le même `.env` :
