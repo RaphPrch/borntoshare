@@ -14,6 +14,7 @@
     "test:zone-summary": "npx tsx ./src/lib/components/zones/zone-summary.test.ts",
     "test:dfs-namespace": "npx tsx ./src/lib/components/storage-endpoints/dfs-namespace.test.ts",
     "test:activity-timeline": "npx tsx ./src/lib/activity/timeline.test.ts",
+    "test:error-normalize": "npx tsx ./src/lib/errors/normalize.test.ts",
     "test:request-decision-errors": "npx tsx ./src/lib/utils/request-decision-errors.test.ts",
     "test:entity-operational-mapper": "npx tsx ./src/lib/mappers/entity-operational.mapper.test.ts",
     "test:storage-root-governance": "npx tsx ./src/lib/utils/storage-root-governance.test.ts",
