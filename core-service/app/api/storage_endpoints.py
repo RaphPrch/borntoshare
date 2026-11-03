@@ -1026,6 +1026,7 @@ async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, r
 
     def refused(http_status: int, code: str, message: str, job_id: int | None = None) -> HTTPException:
         # A share that was not created is audited too: who tried, which name, why
+        request.state.refusal_logged = True
         log_activity(
             db,
             actor_type="user" if actor.identity_id is not None else "system",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -140,11 +141,26 @@ def json_error_response(
     )
 
 
+_REFUSAL_TARGET = re.compile(r"/api/(storage-roots|storage-endpoints|zones|access-requests)/(\d+)(?:/|$)")
+_REFUSAL_TARGET_TYPES = {
+    "storage-roots": "storage_root",
+    "storage-endpoints": "storage_endpoint",
+    "zones": "zone",
+    "access-requests": "access_request",
+}
+
+
 def _log_refusal(request: Request, status_code: int, code: str | None, message: str | None) -> None:
     """A refused change is part of the history: who tried what, and why it did not go through."""
     path = request.url.path
     if request.method not in {"POST", "PUT", "PATCH", "DELETE"} or status_code not in {400, 403, 409, 422} or "/internal/" in path:
         return
+    # The route already wrote its own, more precise refusal (share_created failure…)
+    if getattr(request.state, "refusal_logged", False):
+        return
+    # The object the refused change was about: the refusal shows in its activity
+    target = _REFUSAL_TARGET.search(path)
+    target_type = _REFUSAL_TARGET_TYPES.get(target.group(1)) if target else None
     try:
         from app.services.activity_log import log_activity
 
@@ -156,7 +172,8 @@ def _log_refusal(request: Request, status_code: int, code: str | None, message: 
             actor_display=request.headers.get("x-actor-display") or None,
             action="request.refused",
             outcome="denied" if status_code == 403 else "failure",
-            target_type="api",
+            target_type=target_type or "api",
+            target_id=int(target.group(2)) if target_type else None,
             target_display=path[:190],
             context_json={"method": request.method, "path": path, "status": status_code, "code": code, "message": str(message or "")[:300]},
             correlation_id=request.headers.get("x-request-id") or None,
