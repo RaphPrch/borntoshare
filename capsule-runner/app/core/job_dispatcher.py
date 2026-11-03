@@ -73,8 +73,13 @@ def run_job(job_id: int, *, retries: int = 0, max_retries: int = 5) -> None:
     final_error_message = "Execution failed"
     final_result_json: dict[str, Any] = {}
 
+    # A test started from a screen: someone waits for the answer, a retry minutes later helps nobody
+    interactive = False
+
     try:
         action, action_payload = _extract_payload(job)
+        context = action_payload.get("context") if isinstance(action_payload.get("context"), dict) else {}
+        interactive = action.startswith("test_") and str(context.get("ui_origin") or "") == "admin"
         ensure_action_scope_allowed(action)
         result_payload = execute_action(action, action_payload, job_id=numeric_job_id)
         metrics = _build_metrics(result_payload, retries, max_retries)
@@ -123,6 +128,8 @@ def run_job(job_id: int, *, retries: int = 0, max_retries: int = 5) -> None:
             retryable = True
 
         is_final_attempt = retries >= max_retries
+        if interactive:
+            retryable = False
         if not retryable:
             is_final_attempt = True
         if not is_final_attempt:
