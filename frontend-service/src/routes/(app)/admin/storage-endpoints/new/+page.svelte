@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { tick } from 'svelte';
   import { beforeNavigate, goto } from '$app/navigation';
   import { t } from '$lib/i18n';
@@ -353,7 +354,7 @@
   <div class="layout">
     <fieldset class="form" disabled={creating}>
       <section class="card">
-        <div class="card-head"><h2>{kind === 'dfs' ? t('DFS server or namespace') : t('Server')}</h2>{#if analysis === 'ok'}<span class="tag tag--ok">{t('Detected')}</span>{/if}</div>
+        <div class="card-head"><h2>{kind === 'dfs' ? t('DFS server or namespace') : t('Server')}</h2>{#if analysis === 'ok'}<StatusBadge compact variant="success" label={t('Detected')} />{/if}</div>
         <div class="row">
           <input class="b2s-input mono big" aria-label={t('Hostname / IP')} placeholder={kind === 'dfs' ? 'dfs01.example.com  ·  \\\\example.com\\brest' : 'filer01.example.com'} bind:value={host}
             on:keydown={(event) => event.key === 'Enter' && analyse()} on:blur={() => hostValid && cleanHost !== analysedHost && analyse()} />
@@ -400,8 +401,8 @@
       <section class="card">
         <div class="card-head">
           <h2>{t('Service account')}</h2>
-          {#if test === 'ok'}<span class="tag tag--ok">{t('Connection successful')}</span>{/if}
-          {#if test === 'failed'}<span class="tag tag--bad">{t('Connection refused')}</span>{/if}
+          {#if test === 'ok'}<StatusBadge compact variant="success" label={t('Connection successful')} />{/if}
+          {#if test === 'failed'}<StatusBadge compact variant="error" label={t('Connection refused')} />{/if}
         </div>
         {#if zoneServers.length}
           <div class="field">
@@ -436,7 +437,7 @@
                   <label>
                     <input type="checkbox" checked={picked.has(namespace.name)} on:change={() => togglePick(namespace.name)} />
                     <span class="ns-name"><strong>{namespace.name}</strong><small class="mono">{namespace.path}</small></span>
-                    <span class="tag" class:tag--ok={namespace.type === 'domain'}>{namespace.type === 'domain' ? t('Domain') : t('Standalone')}</span>
+                    <StatusBadge compact showDot={false} variant={namespace.type === 'domain' ? 'success' : 'muted'} label={namespace.type === 'domain' ? t('Domain') : t('Standalone')} />
                     <small class="muted">{namespace.error ? t('Not read: {message}', { message: namespace.error }) : t('{count} DFS folder(s)', { count: namespace.links.length })}</small>
                   </label>
                 </li>
@@ -509,13 +510,9 @@
   .ns label { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto 140px; gap: 10px; align-items: center; padding: 9px 12px; cursor: pointer; }
   .ns-name { display: flex; flex-direction: column; min-width: 0; }
   .ns-name strong { font-weight: 500; }
-  .tag { padding: 2px 9px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); font-weight: 500; }
   .shares { display: flex; flex-wrap: wrap; gap: 6px; }
   .shares span { padding: 3px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); font-family: var(--b2s-font-mono); font-size: var(--b2s-font-micro); }
   .muted { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); }
-  .tag { padding: 2px 9px; border-radius: var(--b2s-radius-pill); font-size: var(--b2s-font-micro); font-weight: 500; }
-  .tag--ok { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
-  .tag--bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
   .panel { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; padding: 18px; }
   .checks { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
   .checks li { display: grid; grid-template-columns: 18px 1fr; gap: 9px; font-size: var(--b2s-text-sm); }

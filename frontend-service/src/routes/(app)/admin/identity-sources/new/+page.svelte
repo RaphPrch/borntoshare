@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { beforeNavigate, goto } from '$app/navigation';
   import { getIdentityJob } from '$lib/api/identity';
   import { t } from '$lib/i18n';
@@ -501,8 +502,8 @@
       <section class="card">
         <div class="card-head">
           <h2>{t('Server')}</h2>
-          {#if analysis === 'ok'}<span class="tag tag--ok">{t('Detected')}</span>{/if}
-          {#if analysis === 'warn'}<span class="tag tag--warn">{t('To complete')}</span>{/if}
+          {#if analysis === 'ok'}<StatusBadge compact variant="success" label={t('Detected')} />{/if}
+          {#if analysis === 'warn'}<StatusBadge compact variant="warning" label={t('To complete')} />{/if}
         </div>
 
         <div class="host-row">
@@ -608,8 +609,8 @@
       <section class="card">
         <div class="card-head">
           <h2>{t('Service account')}</h2>
-          {#if accountTest === 'ok'}<span class="tag tag--ok">{t('Connection successful')}</span>{/if}
-          {#if accountTest === 'failed'}<span class="tag tag--bad">{t('Connection refused')}</span>{/if}
+          {#if accountTest === 'ok'}<StatusBadge compact variant="success" label={t('Connection successful')} />{/if}
+          {#if accountTest === 'failed'}<StatusBadge compact variant="error" label={t('Connection refused')} />{/if}
         </div>
         <div class="field">
           <label for="source-bind">{t('Account')}</label>
@@ -771,10 +772,6 @@
   .toggle.small { font-weight: 400; font-size: var(--b2s-font-micro); }
   .link { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; padding: 0; border: 0; background: none; color: var(--b2s-color-info-strong); font-size: var(--b2s-text-sm); cursor: pointer; }
 
-  .tag { padding: 2px 9px; border-radius: var(--b2s-radius-pill); font-size: var(--b2s-font-micro); font-weight: 500; }
-  .tag--ok { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
-  .tag--warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .tag--bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
 
   .found { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
   .found div { padding: 10px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-accent-soft); min-width: 0; }

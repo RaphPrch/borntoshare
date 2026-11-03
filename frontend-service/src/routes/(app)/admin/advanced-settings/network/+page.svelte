@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -104,7 +105,7 @@
       {#each proposedOnly as entry (entry.domain)}
         <tr class="proposed">
           <td class="mono">{entry.domain}</td>
-          <td><span class="mono">{entry.servers.join(', ')}</span> <span class="tag">{t('Proposed by the directory {name}', { name: entry.source ?? '' })}</span></td>
+          <td><span class="mono">{entry.servers.join(', ')}</span> <StatusBadge compact showDot={false} variant="info" label={t('Proposed by the directory {name}', { name: entry.source ?? '' })} /></td>
           <td class="end"><button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => add(entry)}>{t('Set')}</button></td>
         </tr>
       {/each}
@@ -136,7 +137,6 @@
   .dns .end { text-align: right; width: 110px; }
   .dns .mono, .mono { font-family: var(--b2s-font-mono); }
   .proposed td { color: var(--b2s-color-text-muted); }
-  .tag { margin-left: 6px; padding: 1px 8px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: var(--b2s-font-micro); font-family: var(--b2s-font-sans); }
   .error { display: block; margin-top: 4px; color: var(--b2s-color-danger-strong); font-size: var(--b2s-font-micro); }
   .empty { color: var(--b2s-color-text-muted); text-align: center; }
   .actions { display: flex; justify-content: space-between; margin-top: 12px; }

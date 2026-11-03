@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { onDestroy, onMount } from 'svelte';
   import { beforeNavigate, invalidate } from '$app/navigation';
@@ -539,8 +540,8 @@
               {#if groupPreview}
                 <div class="groups">
                   <strong>{t('Groups prepared (example: {name})', { name: firstSelected?.name ?? '' })}</strong>
-                  <div><span class="tag tag--read">{t('Read')}</span><span class="mono">{groupPreview.read}</span></div>
-                  <div><span class="tag tag--write">{t('Write')}</span><span class="mono">{groupPreview.write}</span></div>
+                  <div><StatusBadge compact showDot={false} variant="info" label={t('Read')} /><span class="mono">{groupPreview.read}</span></div>
+                  <div><StatusBadge compact showDot={false} variant="warning" label={t('Write')} /><span class="mono">{groupPreview.write}</span></div>
                 </div>
               {/if}
               <details>
@@ -632,9 +633,6 @@
   .groups { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft); font-size: var(--b2s-font-micro); }
   .groups div { display: flex; align-items: center; gap: 7px; min-width: 0; }
   .groups .mono { overflow-wrap: anywhere; }
-  .tag { padding: 1px 8px; border-radius: var(--b2s-radius-pill); font-weight: 500; }
-  .tag--read { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
-  .tag--write { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
   details { padding: 9px 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); }
   summary { font-size: var(--b2s-text-sm); font-weight: 500; cursor: pointer; }
   .gov { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }

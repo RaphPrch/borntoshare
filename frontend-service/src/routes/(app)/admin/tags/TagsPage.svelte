@@ -365,7 +365,7 @@
           <label for="tag-name">{t('Tag name')}</label>
           <input
             id="tag-name"
-            class="tag-input"
+            class="b2s-input"
             placeholder={t('e.g. Sensitive')}
             bind:value={form.name}
           />
@@ -375,7 +375,7 @@
           <label for="tag-family">{t('Family')} <small>{t('(optional)')}</small></label>
           <input
             id="tag-family"
-            class="tag-input"
+            class="b2s-input"
             list="tag-family-options"
             maxlength="100"
             placeholder={t('e.g. Sensitivity')}
@@ -404,7 +404,7 @@
             <div class="tag-custom">
               <span class="tag-custom__label">{t('Custom…')}</span>
               <input
-                class="tag-input tag-input--compact"
+                class="b2s-input"
                 placeholder="#3fa9f5"
                 bind:value={form.color_rgb}
               />
@@ -450,7 +450,7 @@
 >
   <section class="tag-modal__section">
     <label for="tag-merge-target">{t('Tag to keep')}</label>
-    <select id="tag-merge-target" class="tag-input" bind:value={mergeTargetId}>
+    <select id="tag-merge-target" class="b2s-input" bind:value={mergeTargetId}>
       <option value="">{t('Choose a tag…')}</option>
       {#each mergeCandidates as tag (tag.id)}<option value={String(tag.id)}>{tag.label}</option>{/each}
     </select>
@@ -508,6 +508,12 @@
   .tg__actions { display: flex; gap: 8px; }
   .tg__actions .b2s-btn-primary { flex: 1; }
 
+  /* The body of the modal is AppModal's: its sections are spaced like the other forms */
+  :global(.tag-modal__body) {
+    display: grid;
+    gap: 16px;
+  }
+
   .tag-modal__section {
     padding: 0;
     display: grid;
@@ -520,19 +526,7 @@
     font-size: var(--b2s-fs-sm);
   }
 
-  .tag-input {
-    height: 44px;
-    border-radius: var(--b2s-radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    padding: 0 14px;
-    font-weight: 700;
-    outline: none;
-  }
 
-  .tag-input:focus {
-    border-color: rgba(37, 99, 235, 0.55);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
-  }
 
   .tag-modal__grid {
     padding: 0;
@@ -584,8 +578,5 @@
     font-size: var(--b2s-fs-sm);
   }
 
-  .tag-input--compact {
-    height: 38px;
-  }
 
 </style>
