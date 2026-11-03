@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { onMount } from 'svelte';
@@ -132,7 +133,7 @@
   ]} />
 </div>
 {#if loading}
-  <p class="empty">{t('Loading…')}</p>
+  <EmptyStateInline message={t('Loading…')} />
 {:else if visible.length}
   <ul class="list">
     {#each visible as share (share.root_path)}
@@ -152,7 +153,7 @@
     {/each}
   </ul>
 {:else}
-  <p class="empty">{shares.length ? t('No share matches this search.') : t('No share found: search the server, or create a share.')}</p>
+  <EmptyStateInline message={shares.length ? t('No share matches this search.') : t('No share found: search the server, or create a share.')} />
 {/if}
 
 <ConfirmActionModal
@@ -195,6 +196,5 @@
   .list li + li { border-top: 1px solid var(--b2s-color-border); }
   .name { flex: 1; min-width: 0; }
   .name strong { font-weight: 500; }
-  .empty { padding: 20px; text-align: center; color: var(--b2s-color-text-muted); }
   .also { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 </style>

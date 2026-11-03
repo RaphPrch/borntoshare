@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   // Tones of the states, as StatusBadge variants
   const TONE_VARIANT: Record<string, 'success' | 'warning' | 'error' | 'muted'> = { ok: 'success', warn: 'warning', bad: 'error', n: 'muted' };
@@ -148,7 +149,7 @@
     {/if}
   </header>
 {#if loading && !info}
-  <p class="empty">{t('Loading…')}</p>
+  <EmptyStateInline message={t('Loading…')} />
 {:else if info}
   {#if error || info.error}<InlineAlert tone="error">{error || info.error}</InlineAlert>{/if}
   <div class="tools">
@@ -194,7 +195,7 @@
       <button type="button" class="more" on:click={() => (shown += PAGE)}>{t('Show {count} more ({total} left)', { count: Math.min(PAGE, visible.length - shown), total: visible.length - shown })}</button>
     {/if}
   {:else}
-    <p class="empty">{links.length ? t('No DFS folder matches this search.') : t('This namespace leads to no folder yet.')}</p>
+    <EmptyStateInline message={links.length ? t('No DFS folder matches this search.') : t('This namespace leads to no folder yet.')} />
   {/if}
 {:else}
   <InlineAlert tone="error">{error}</InlineAlert>
@@ -274,5 +275,4 @@
   .dfs-form .check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
   .link { font-size: var(--b2s-text-sm); }
   .more { width: 100%; margin-top: 8px; padding: 8px; border: 1px dashed var(--b2s-color-border-mid); border-radius: var(--b2s-radius-md); background: none; color: var(--b2s-color-text-muted); cursor: pointer; }
-  .empty { padding: 20px; text-align: center; color: var(--b2s-color-text-muted); }
 </style>
