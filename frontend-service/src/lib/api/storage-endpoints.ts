@@ -441,8 +441,8 @@ export const getStorageEndpointImpact = (fetchFn: FetchLike, id: number) =>
   apiGetData<StorageEndpointImpact>(fetchFn, `/storage-endpoints/${id}/impact`);
 
 /** Remove a share from the file server; its folder and files stay there. Refused while a managed folder is in it. */
-export const deleteStorageEndpointShare = (fetchFn: FetchLike, endpointId: number, share: string) =>
-  apiDeleteData<{ share: string; unc: string }>(fetchFn, `/storage-endpoints/${endpointId}/shares/${encodeURIComponent(share)}`, {
+export const deleteStorageEndpointShare = (fetchFn: FetchLike, endpointId: number, share: string, removeEmptyFolder = false) =>
+  apiDeleteData<{ share: string; unc: string; folder_removed?: boolean }>(fetchFn, `/storage-endpoints/${endpointId}/shares/${encodeURIComponent(share)}${removeEmptyFolder ? '?remove_empty_folder=true' : ''}`, {
     timeoutMs: 90_000
   });
 

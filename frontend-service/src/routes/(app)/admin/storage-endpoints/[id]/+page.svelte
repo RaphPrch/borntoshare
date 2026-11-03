@@ -918,6 +918,12 @@
     endpoint_alive_via_successful_root_probe: () => t('Reachable (a storage root test passed)')
   };
 
+  // « Secret not found »: the test failed before reaching the server, its password is gone (store reset, restore…)
+  const endpointSecretMissing = (ep: any, ..._deps: unknown[]): boolean =>
+    /secret not found|secret_not_found|secret_resolution|mot de passe du compte de service est introuvable/i.test(
+      `${ep?.last_probe_message ?? ''} ${endpointHealthDetail(ep) ?? ''}`
+    );
+
   const endpointLastResultLabel = (ep: any): string => {
     const message = String(ep?.last_probe_message ?? '').trim();
     if (/^[a-z0-9_]+$/.test(message)) {
@@ -1314,6 +1320,7 @@
                 testBusy={probingEndpointId === endpointId(selected)}
                 onEditConnection={() => (showEditModal = true)}
                 movedTo={movedTo?.endpointId === endpointId(selected) ? movedTo.address : null}
+                secretMissing={endpointSecretMissing(selected, endpointHealthById)}
                 onUseAddress={(address) => { suggestedHost = address; showEditModal = true; }}
                 onTest={() => runEndpointProbe(selected)}
                 onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian&bulk=guardians`)}
@@ -1338,7 +1345,7 @@
 
         {#if activeEndpointTab === 'overview' && selectedIsDfs}
           <div class="sed-overview">
-            <DfsNamespacePanel endpoint={selected} info={dfsInfo} loading={dfsLoading} error={dfsError} busy={dfsBusy} onManage={dfsManage} onChanged={() => selected && void loadDfs(endpointId(selected))} />
+            <DfsNamespacePanel endpoint={selected} info={dfsInfo} loading={dfsLoading} error={dfsError} busy={dfsBusy} onManage={dfsManage} onChanged={() => selected && void loadDfs(endpointId(selected))} onReadAgain={dfsReadAgainNow} reading={dfsReading} />
             <div class="sed-side">
               <section class="sed-card" aria-label={t('DFS namespace')}>
                 <header>

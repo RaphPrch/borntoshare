@@ -881,6 +881,9 @@
           disabled={saving || !canSave}
           onClick={() => save()}
         />
+        {#if guardBusy}
+          <div class="se-edit-disabled-reason">{t('Testing the SMB access to {host} with {account}…', { host: host.trim(), account: username.trim() })}</div>
+        {/if}
         {#if endpointSaveReason}
           <div class="se-edit-disabled-reason">{endpointSaveReason}</div>
         {/if}

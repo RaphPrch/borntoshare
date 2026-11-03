@@ -369,6 +369,8 @@ class FolderOperationPayload(BaseModel):
     inheritance: Optional[Literal["break", "restore"]] = None
     # Name of the sub-folder to create (folder_create)
     folder_name: Optional[str] = Field(default=None, max_length=255)
+    # share_delete: also remove the folder of the share when it is empty
+    remove_empty_folder: bool = False
     username: str = Field(min_length=1, max_length=255)
     password: Optional[str] = Field(default=None, min_length=1, max_length=1024)
     secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)

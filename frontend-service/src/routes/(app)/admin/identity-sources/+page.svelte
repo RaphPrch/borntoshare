@@ -955,7 +955,7 @@
                       <code>{card.endpointLabel}</code>
                     </span>
                     <span><span class={`identity-pill ${toneClass(card.typeTone)}`}>{card.typeLabel}</span></span>
-                    <span class="ids-card-meta" title={card.lastProbeTitle || undefined}>
+                    <span class="ids-card-meta" class:is-stale={card.lastProbeStale} title={card.lastProbeStale ? t('Tested more than a day ago: test it again') : card.lastProbeTitle || undefined}>
                       <small>{t('Last probe')}</small>
                       {card.lastProbeLabel}
                     </span>
@@ -1398,4 +1398,5 @@
   .ids-card-name strong { display: block; font-size: 16px; font-weight: 600; }
   .ids-card-name code { font-family: var(--b2s-font-mono); font-size: 12px; color: var(--b2s-color-text-muted); }
   .ids-card-meta small { display: block; font-size: 12px; color: var(--b2s-color-text-muted); }
+  .ids-card-meta.is-stale { color: var(--b2s-color-warning-strong); }
 </style>

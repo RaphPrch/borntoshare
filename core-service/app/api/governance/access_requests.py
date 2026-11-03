@@ -526,6 +526,18 @@ async def _revoke_request_memberships(
     return "; ".join(failures) if failures else None
 
 
+async def _recheck_roots_of(request_ids: list[int]) -> None:
+    """The ACL of the folders just granted or revoked is read again: the Permissions tab shows the new group at once."""
+    try:
+        from app.api.storage_roots import _queue_root_check
+        from app.services.access_request_roots import roots_of_requests
+
+        for root_id in roots_of_requests(request_ids):
+            await _queue_root_check(root_id, origin="access_request")
+    except Exception:  # the decision is made: a check that cannot start changes nothing to it
+        pass
+
+
 async def _bulk_revoke(
     *,
     payload: dict[str, Any],
@@ -592,6 +604,7 @@ async def _bulk_revoke(
 
     failed_ids = [int(x) for x in requested_ids if int(x) in failed_reasons]
     updated_ids = [int(x) for x in revoked_ids if int(x) not in failed_reasons]
+    await _recheck_roots_of(updated_ids)
     for req_id in requested_ids:
         ok = int(req_id) in updated_ids
         _journal(
@@ -981,6 +994,7 @@ async def _bulk_approve(
         )
         for req_id in approved_ids:
             _journal("access_request_applied", req_id=int(req_id), request=request, correlation_id=approval_correlations[int(req_id)])
+        await _recheck_roots_of(approved_ids)
 
     normalized_failed_ids = [int(x) for x in failed_ids if int(x) > 0]
     normalized_failed_details = {

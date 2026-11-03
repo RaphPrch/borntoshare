@@ -1207,7 +1207,8 @@ async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, r
 
 
 @router.delete("/{endpoint_id}/shares/{share}", dependencies=[Depends(admin_only)])
-async def delete_endpoint_share(endpoint_id: int, share: str, request: Request, db: Session = Depends(get_db)):
+async def delete_endpoint_share(endpoint_id: int, share: str, request: Request, remove_empty_folder: bool = False,
+                                db: Session = Depends(get_db)):
     """Remove a share from the file server. Its folder and files stay on the server; refused while BornToShare manages a folder in it."""
     endpoint = _share_endpoint(db, endpoint_id)
     name = share.strip()
@@ -1228,16 +1229,19 @@ async def delete_endpoint_share(endpoint_id: int, share: str, request: Request, 
         raise operation.refused(status.HTTP_409_CONFLICT, "SHARE_HAS_STORAGE_ROOTS",
                                 f"{len(managed)} folder(s) of this share are managed in BornToShare: remove them first",
                                 roots=len(managed))
-    await operation.run("delete", unc, failure_code="SHARE_DELETE_FAILED")
+    job = await operation.run("delete", unc, failure_code="SHARE_DELETE_FAILED",
+                              target={"host": endpoint.host, "share": name, "path": unc, "remove_empty_folder": bool(remove_empty_folder)})
+    result = job.get("result") if isinstance(job.get("result"), dict) else {}
+    folder_removed = bool((result.get("details") or {}).get("folder_removed"))
     # The last search of the server still lists it: gone from there too
     capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
     snapshot = capabilities.get("discovered_roots_snapshot")
     if isinstance(snapshot, dict) and isinstance(snapshot.get("roots"), list):
         kept = [root for root in snapshot["roots"] if normalize_root_path(str((root or {}).get("root_path") or "")) != prefix]
         endpoint.capabilities = {**capabilities, "discovered_roots_snapshot": {**snapshot, "roots": kept, "roots_count": len(kept)}}
-    operation.log("success")
+    operation.log("success", folder_removed=folder_removed)
     db.commit()
-    return ui_data({"share": name, "unc": unc})
+    return ui_data({"share": name, "unc": unc, "folder_removed": folder_removed})
 
 
 @router.post("/{endpoint_id}/probe-result", dependencies=[Depends(require_internal_token)])

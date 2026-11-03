@@ -88,15 +88,21 @@
   // A share that BornToShare does not manage can be removed from the server; its files stay there
   let toDelete: Share | null = null;
   let deleting = false;
+  // Its folder too, when empty (rmdir on the server refuses a folder that still holds files)
+  let removeEmptyFolder = true;
 
   async function confirmDelete() {
     const share = toDelete;
     if (!share) return;
     deleting = true;
     try {
-      await deleteStorageEndpointShare(fetch, id, share.name);
+      const done = await deleteStorageEndpointShare(fetch, id, share.name, removeEmptyFolder);
       shares = shares.filter((row) => row.root_path !== share.root_path);
-      toast.success(t('Share {name} deleted from the file server.', { name: share.name }));
+      toast.success(
+        removeEmptyFolder && !done.folder_removed
+          ? t('Share {name} deleted; its folder is kept because it is not empty.', { name: share.name })
+          : t('Share {name} deleted from the file server.', { name: share.name })
+      );
       toDelete = null;
       onChanged();
     } catch (e) {
@@ -158,7 +164,7 @@
   impactTitle={t('Impact')}
   impactItems={[
     t('The share is removed from the file server: its users lose the path.'),
-    t('Its folder and files stay on the server.'),
+    t('Files are never deleted: a folder that is not empty stays on the server.'),
     t('Refused while BornToShare manages a folder in it.')
   ]}
   cancelLabel={t('Cancel')}
@@ -169,7 +175,12 @@
   requiredText={toDelete?.name ?? ''}
   textConfirmLabel={t('Type the name of the share to confirm')}
   textConfirmPlaceholder={toDelete?.name ?? ''}
-/>
+>
+  <label class="also">
+    <input type="checkbox" bind:checked={removeEmptyFolder} />
+    <span>{t('Also delete its folder if it is empty')}</span>
+  </label>
+</ConfirmActionModal>
 
 <style>
   .head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
@@ -188,4 +199,5 @@
   .name strong { font-weight: 500; }
   .pill { padding: 1px 8px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); font-size: var(--b2s-font-micro); font-weight: 500; }
   .empty { padding: 20px; text-align: center; color: var(--b2s-color-text-muted); }
+  .also { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 </style>

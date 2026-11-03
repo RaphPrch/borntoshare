@@ -14,6 +14,8 @@
   export let rereadBusy = false;
   export let testBusy = false;
   export let onEditConnection: () => void = () => {};
+  /** The last test failed because the password of the account is no longer in the secret store */
+  export let secretMissing = false;
   /** The name of the server resolves to another address than the one it is declared with */
   export let movedTo: string | null = null;
   export let onUseAddress: (address: string) => void = () => {};
@@ -28,6 +30,16 @@
   $: steps = [
     ...(hostMissing
       ? [{ key: 'host', tone: 'bad' as const, icon: 'bi-hdd-network', title: t('No address for this server'), detail: t('Give its name or IP address.'), label: t('Edit the connection'), run: onEditConnection }]
+      : secretMissing
+        ? [{
+            key: 'secret',
+            tone: 'bad' as const,
+            icon: 'bi-key',
+            title: t('The password of the account is missing'),
+            detail: t('It is no longer in the secret store: enter it again. {count} folder(s) blocked meanwhile.', { count: summary.roots.length }),
+            label: t('Enter the password again'),
+            run: onEditConnection
+          }]
       : health === 'unhealthy'
         ? [movedTo
           ? {

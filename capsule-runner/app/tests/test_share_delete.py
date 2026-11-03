@@ -45,3 +45,16 @@ def test_a_share_still_there_is_a_failure(monkeypatch):
     _fake(monkeypatch, INFO, "result was WERR_ACCESS_DENIED", INFO)
     ok, _, details = folder.delete_share({**BASE, "share": "Finance", "path": "unused"})
     assert ok is False and details["failure_code"] == "SHARE_ADMIN_REQUIRED"
+
+
+def test_the_empty_folder_goes_with_the_share_when_asked(monkeypatch):
+    calls = _fake(monkeypatch, INFO, "", "", "")
+    ok, _, details = folder.delete_share({**BASE, "share": "Finance", "path": "unused", "remove_empty_folder": True})
+    assert ok is True and details["folder_removed"] is True
+    assert calls[3][1] == "//files.example.test/C$" and calls[3][-1] == 'rmdir "Shares\\Finance"'
+
+
+def test_a_folder_with_files_is_kept(monkeypatch):
+    _fake(monkeypatch, INFO, "", "", "NT_STATUS_DIRECTORY_NOT_EMPTY removing remote directory")
+    ok, _, details = folder.delete_share({**BASE, "share": "Finance", "path": "unused", "remove_empty_folder": True})
+    assert ok is True and details["folder_removed"] is False and details["folder_kept_because"] == "not_empty"

@@ -39,7 +39,8 @@ export async function testIdentitySourceConnection(
   let secretRef: string | undefined = payload.bind_password_ref || undefined;
   const bindSecret = payload._secret ?? payload.bind_password;
 
-  if (!secretRef && bindSecret) {
+  // A password typed in the form is the one to test, even when a secret is already stored (it may be gone)
+  if (bindSecret) {
     try {
       const resolved = await resolveCredentials(fetchFn, {
         username: payload.bind_dn ?? null,

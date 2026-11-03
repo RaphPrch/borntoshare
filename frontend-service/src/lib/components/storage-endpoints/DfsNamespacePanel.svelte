@@ -21,6 +21,8 @@
   export let onManage: (paths: string[]) => void = () => {};
   /** A DFS folder was created or removed: the page reads the namespace again. */
   export let onChanged: () => void = () => {};
+  export let onReadAgain: () => void = () => {};
+  export let reading = false;
 
   const PAGE = 50;
   let query = '';
@@ -101,6 +103,9 @@
     }
   }
 
+  // Typed to confirm: the last level of the DFS folder (Finance for Corporate\\Finance)
+  const lastLevel = (path: string | null | undefined) => String(path ?? '').split('\\').filter(Boolean).pop() ?? '';
+
   // A DFS folder that BornToShare does not manage can be removed; the shares behind it stay
   let toDelete: DfsLink | null = null;
   let deleting = false;
@@ -134,6 +139,7 @@
   <header>
     <h2>{t('DFS folders')}</h2>
     {#if info}
+      <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" disabled={reading} on:click={onReadAgain}><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{reading ? t('Reading…') : t('Read again')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={openCreate}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('New DFS folder')}</button>
     {/if}
   </header>
@@ -236,9 +242,9 @@
   confirmBusyLabel={t('Deleting…')}
   busy={deleting}
   requireTextConfirm={true}
-  requiredText={toDelete?.path ?? ''}
-  textConfirmLabel={t('Type the DFS folder to confirm')}
-  textConfirmPlaceholder={toDelete?.path ?? ''}
+  requiredText={lastLevel(toDelete?.path)}
+  textConfirmLabel={t('Type the name to confirm')}
+  textConfirmPlaceholder={lastLevel(toDelete?.path)}
 />
 
 <style>

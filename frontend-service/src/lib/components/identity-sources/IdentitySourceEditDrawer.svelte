@@ -306,12 +306,31 @@
     );
   };
 
+  // A new server, port, protocol, account or password is tested before it is saved (same rule as a file server)
+  let saveAnyway = false;
+  $: connectionChanged = Boolean(source) && (
+    normalize(form.host) !== normalize(source?.host) ||
+    (source?.port != null && Number(form.port) !== Number(source.port)) ||
+    (Boolean(source?.protocol) && normalize(form.protocol).toLowerCase() !== normalize(source?.protocol).toLowerCase()) ||
+    normalize(form.bind_dn) !== normalize(source?.bind_dn) ||
+    Boolean(normalize(form.bind_password))
+  );
+  $: if (!connectionChanged) saveAnyway = false;
+
   const handleSave = async () => {
     if (!source) return;
     if (!canSave) {
       showErrors = true;
-      actionError = 'Please fill in required fields.';
+      actionError = t('Please fill in required fields.');
       return;
+    }
+    if (connectionChanged && !saveAnyway) {
+      await handleTestConnection(false);
+      if (!probeResult?.ok) {
+        saveAnyway = true;
+        actionError = t('The connection test failed: {message}. Save again to keep these settings anyway.', { message: probeResult?.message ?? '' });
+        return;
+      }
     }
     saving = true;
     actionError = null;
@@ -323,12 +342,13 @@
         draftsForCapabilities(form.service_accounts, form.capabilities),
         `identity-source/${payload.protocol}/${payload.host || payload.name || 'ad'}`
       );
-      if (!payload.bind_password_ref && payload.bind_password) {
+      // A typed password is always stored: the stored secret may be gone (store reset, restore…)
+      if (payload.bind_password) {
         const resolved = await resolveCredentials(fetch, {
           username: payload.bind_dn,
           password: payload.bind_password,
-          secret_ref: null
-        }, { secretName: `identity-source/${payload.protocol}/${payload.host || payload.name || 'ad'}`, mode: 'create' });
+          secret_ref: payload.bind_password_ref || null
+        }, { secretName: `identity-source/${payload.protocol}/${payload.host || payload.name || 'ad'}`, mode: payload.bind_password_ref ? 'edit' : 'create' });
         payload.bind_password_ref = resolved.secret_ref ?? null;
         payload.bind_password = null;
       }
@@ -349,7 +369,8 @@
     }
   };
 
-  const handleTestConnection = async () => {
+  /** record: false for settings not saved yet, so that their failure does not mark the saved source in error */
+  const handleTestConnection = async (record = true) => {
     if (!source) return;
     if (!normalize(form.host) || !normalize(form.base_dn) || !normalize(form.bind_dn)) {
       showErrors = true;
@@ -364,7 +385,7 @@
       const result = await testIdentitySourceConnection(fetch, {
         ...payload,
         bind_password_ref: payload.bind_password_ref || source.bind_password_ref || null,
-        identity_source_id: source.id,
+        identity_source_id: record ? source.id : null,
         capabilities: { ...payload.capabilities, auth_mode: source.capabilities?.auth_mode ?? 'ntlm' }
       } as IdentitySourcePayload & { bind_password?: string | null });
       const firstCheck = result.checks[0] ?? null;
@@ -713,7 +734,7 @@
   <svelte:fragment slot="footer">
     <div class="identity-edit-drawer-footer">
       <button type="button" class="b2s-btn b2s-btn-ghost" on:click={requestClose} disabled={saving || probeRunning}>{t('Cancel')}</button>
-      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={handleTestConnection} disabled={saving || probeRunning}>
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => handleTestConnection()} disabled={saving || probeRunning}>
         {probeRunning ? t('Testing…') : t('Test connection')}
       </button>
       <button type="button" class="b2s-btn b2s-btn-primary" on:click={handleSave} disabled={saving || !canSave || probeRunning}>

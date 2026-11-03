@@ -236,6 +236,17 @@ def delete_share(params: Dict[str, Any]):
         message = next((line for line in removed.splitlines() if "WERR_" in line or "NT_STATUS_" in line), "le partage est toujours là")
         code = "SHARE_IN_USE" if "WERR_" in message and "IN_USE" in message.upper() else "SHARE_DELETE_FAILED"
         return False, message.strip()[:300], {**details, "failure_code": code}
-    details.update({"deleted": True, "path": path})
+    details.update({"deleted": True, "path": path, "folder_removed": False})
+    matched = LOCAL_PATH.match(path)
+    if params.get("remove_empty_folder") and matched:
+        # rmdir refuses a folder that is not empty: nothing in it can be lost
+        try:
+            removed_dir = _output(run_samba(["smbclient", f"//{host}/{matched.group(1).upper()}$", "-c", f'rmdir "{matched.group(2).lstrip(chr(92))}"'],
+                                            username=user, password=password, capture_output=True, timeout=timeout))
+            details["folder_removed"] = "NT_STATUS_" not in removed_dir
+            if not details["folder_removed"]:
+                details["folder_kept_because"] = "not_empty" if "NOT_EMPTY" in removed_dir.upper() else "refused"
+        except (subprocess.TimeoutExpired, OSError):
+            details["folder_kept_because"] = "refused"
     logger.info("Share deleted", extra={"operation": "share_delete", "target_share": share})
     return True, "Share deleted", details

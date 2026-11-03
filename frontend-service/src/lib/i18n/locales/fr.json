@@ -4011,7 +4011,6 @@
   "Delete the share": "Supprimer le partage",
   "Delete the share {name}?": "Supprimer le partage {name} ?",
   "The share is removed from the file server: its users lose the path.": "Le partage est retiré du serveur de fichiers : ses utilisateurs perdent ce chemin.",
-  "Its folder and files stay on the server.": "Son dossier et ses fichiers restent sur le serveur.",
   "Refused while BornToShare manages a folder in it.": "Refusé tant que BornToShare gère un dossier dedans.",
   "Type the name of the share to confirm": "Saisissez le nom du partage pour confirmer",
   "This share cannot be deleted from BornToShare": "Ce partage ne peut pas être supprimé depuis BornToShare",
@@ -4030,7 +4029,6 @@
   "Its users lose this DFS path.": "Ses utilisateurs perdent ce chemin DFS.",
   "The shares it leads to and their files stay on their servers.": "Les partages vers lesquels il mène et leurs fichiers restent sur leurs serveurs.",
   "Refused while BornToShare manages the folders behind it.": "Refusé tant que BornToShare gère les dossiers derrière lui.",
-  "Type the DFS folder to confirm": "Saisissez le dossier DFS pour confirmer",
   "The account of the namespace is not allowed to manage it: delegate its management to it": "Le compte de l'espace de noms n'a pas le droit de le gérer : déléguez-lui sa gestion",
   "This DFS folder already leads to this target": "Ce dossier DFS mène déjà vers cette cible",
   "BornToShare manages the folders behind this DFS folder: its users reach them through it": "BornToShare gère les dossiers derrière ce dossier DFS : ses utilisateurs y accèdent par lui",
@@ -4078,5 +4076,15 @@
   "The server seems to have a new address": "Le serveur semble avoir changé d’adresse",
   "Its name now leads to {address}. {count} folder(s) blocked until the address is changed.": "Son nom mène maintenant à {address}. {count} dossier(s) bloqué(s) tant que l'adresse n'est pas changée.",
   "The account cannot manage this namespace": "Le compte ne peut pas gérer cet espace de noms",
-  "{account} was refused when creating or deleting a DFS folder: delegate the management of the namespace to it (DFS console › Delegate Management Permissions), or use another account.": "{account} a été refusé en créant ou supprimant un dossier DFS : déléguez-lui la gestion de l'espace de noms (console DFS › Déléguer les autorisations de gestion), ou utilisez un autre compte."
+  "{account} was refused when creating or deleting a DFS folder: delegate the management of the namespace to it (DFS console › Delegate Management Permissions), or use another account.": "{account} a été refusé en créant ou supprimant un dossier DFS : déléguez-lui la gestion de l'espace de noms (console DFS › Déléguer les autorisations de gestion), ou utilisez un autre compte.",
+  "The connection test failed: {message}. Save again to keep these settings anyway.": "Le test de connexion a échoué : {message}. Enregistrez à nouveau pour garder ces réglages quand même.",
+  "Please fill in required fields.": "Remplissez les champs obligatoires.",
+  "The password of the account is missing": "Le mot de passe du compte est introuvable",
+  "It is no longer in the secret store: enter it again. {count} folder(s) blocked meanwhile.": "Il n'est plus dans le coffre de secrets : saisissez-le à nouveau. {count} dossier(s) bloqué(s) en attendant.",
+  "Enter the password again": "Ressaisir le mot de passe",
+  "Tested more than a day ago: test it again": "Testé il y a plus d’un jour : testez à nouveau",
+  "Share {name} deleted; its folder is kept because it is not empty.": "Partage {name} supprimé ; son dossier est gardé car il n'est pas vide.",
+  "Also delete its folder if it is empty": "Supprimer aussi son dossier s'il est vide",
+  "Files are never deleted: a folder that is not empty stays on the server.": "Aucun fichier n'est supprimé : un dossier qui n'est pas vide reste sur le serveur.",
+  "Testing the SMB access to {host} with {account}…": "Test de l'accès SMB à {host} avec {account}…"
 }

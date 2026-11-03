@@ -71,6 +71,7 @@ export type IdentitySourceCardVM = {
   lastProbeLabel: string;
   /** Exact date of the last probe, shown on hover where the label is relative */
   lastProbeTitle: string;
+  lastProbeStale?: boolean;
   lastSnapshotLabel: string;
   usersCount: number | null;
   groupsCount: number | null;
@@ -347,11 +348,8 @@ export const mapIdentitySourceToCardVM = (
     toCount(snapshotMeta?.lastSnapshotMembershipsCount) ??
     toCount(source?.last_snapshot_memberships_count);
 
-  const lastProbeAt = firstValidTimestamp(
-    source?.last_probe_at,
-    source?.probed_at,
-    source?.updated_at
-  );
+  // Only a real test counts: a saved change of the source is not one
+  const lastProbeAt = firstValidTimestamp(source?.last_probe_at, source?.probed_at);
 
   const lastProbeLabel =
     probeJobStatus === 'running'
@@ -382,6 +380,8 @@ export const mapIdentitySourceToCardVM = (
       ? lastProbeLabel
       : t('Not applicable'),
     lastProbeTitle: supportsProbe && lastProbeAt ? formatAbsoluteTimestamp(lastProbeAt) : '',
+    // A test older than a day says little about today: shown as to do again
+    lastProbeStale: supportsProbe && Boolean(lastProbeAt) && Date.now() - Date.parse(String(lastProbeAt)) > 86_400_000,
     lastSnapshotLabel: supportsSnapshot
       ? lastSnapshotLabel
       : t('Not applicable'),
