@@ -149,6 +149,14 @@
       "probe_rerun": {
         "title": "Probe re-run",
         "description": "Connectivity probe was re-run for zone \"{zone}\""
+      },
+      "provisioning_policy_updated": {
+        "title": "Provisioning policy changed",
+        "description": "The provisioning policy of the zone “{zone}” changed"
+      },
+      "storage_endpoint_added": {
+        "title": "Server added to the zone",
+        "description": "A server was added to the zone “{zone}”"
       }
     },
     "storage_endpoint": {
@@ -187,6 +195,26 @@
       "dfs_folder_deleted": {
         "title": "DFS folder deleted",
         "description": "A DFS folder was deleted from “{target}”"
+      },
+      "probe_result_recorded": {
+        "title": "Server check recorded",
+        "description": "The check result of the server “{endpoint}” was recorded"
+      },
+      "share_created_failed": {
+        "title": "Share not created",
+        "description": "The share “{share}” was not created: {reason}"
+      },
+      "share_deleted_failed": {
+        "title": "Share not deleted",
+        "description": "The share “{share}” was not deleted: {reason}"
+      },
+      "dfs_folder_created_failed": {
+        "title": "DFS folder not created",
+        "description": "The DFS folder “{folder}” was not created: {reason}"
+      },
+      "dfs_folder_deleted_failed": {
+        "title": "DFS folder not deleted",
+        "description": "The DFS folder “{folder}” was not deleted: {reason}"
       }
     },
     "tag": {
@@ -279,6 +307,10 @@
       "bulk_check_requested": {
         "title": "ACL read requested",
         "description": "The worker tests the selected folders and reads their ACLs"
+      },
+      "unavailable_from_endpoint_probe": {
+        "title": "Folder unreachable",
+        "description": "The folder “{target}” is unreachable: its server does not answer"
       }
     },
     "access_request": {
@@ -347,6 +379,10 @@
       "sync_completed": {
         "title": "Directory synchronized",
         "description": "Snapshot of \"{source}\" completed"
+      },
+      "sync_requested": {
+        "title": "Sync requested",
+        "description": "A sync of the directory “{target}” was requested"
       }
     },
     "acl_template": {
@@ -665,6 +701,52 @@
       "updated": {
         "title": "Advanced settings changed",
         "description": "Change saved"
+      },
+      "setup_completed": {
+        "title": "Setup completed",
+        "description": "The initial setup of BornToShare is complete"
+      }
+    },
+    "identity": {
+      "account_created": {
+        "title": "Account created",
+        "description": "The account “{target}” was created"
+      },
+      "account_deleted": {
+        "title": "Account deleted",
+        "description": "The account “{target}” was deleted"
+      },
+      "account_enabled": {
+        "title": "Account enabled or disabled",
+        "description": "The state of the account “{target}” changed"
+      },
+      "account_renamed": {
+        "title": "Account renamed",
+        "description": "The account “{target}” was renamed"
+      },
+      "application_role_updated": {
+        "title": "Role changed",
+        "description": "The BornToShare role of “{target}” changed"
+      },
+      "group_access_revoked": {
+        "title": "Group access removed",
+        "description": "An access granted through a group was removed from “{target}”"
+      },
+      "password_changed": {
+        "title": "Password changed",
+        "description": "The password of “{target}” was changed"
+      }
+    },
+    "job": {
+      "failed": {
+        "title": "Job failed",
+        "description": "A worker job failed: {reason}"
+      }
+    },
+    "request": {
+      "refused": {
+        "title": "Change refused",
+        "description": "A change was refused: {reason}"
       }
     }
   },

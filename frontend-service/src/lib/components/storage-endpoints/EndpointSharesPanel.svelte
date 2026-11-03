@@ -79,7 +79,7 @@
       toast.success(t('{name} is now managed.', { name: share.name }));
       onChanged();
     } catch (e) {
-      toast.error(e instanceof Error ? humanizeFileServerMessage(e.message) : t('Creation failed'));
+      reportUiError(e, t('Creation failed'), 'storage-endpoint.share-manage');
     } finally {
       adding = { ...adding, [share.root_path]: false };
     }

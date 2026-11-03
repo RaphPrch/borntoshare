@@ -50,7 +50,7 @@
       toast.success(t('ACL repaired on the folder. Its content follows in the background.'));
       setTimeout(onChanged, 4000);
     } catch (error: any) {
-      toast.error(error?.message ?? t('Unable to repair the ACL.'));
+      reportUiError(error, t('Unable to repair the ACL.'), 'storage-root.acl-repair');
     } finally {
       repairing = false;
     }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reportUiError } from '$lib/errors/report';
   import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import { upstreamErrorOf } from '$lib/errors/normalize';
   import FieldError from '$lib/components/ui/FieldError.svelte';
@@ -25,7 +26,6 @@
   import { listZones, type ZoneOverview } from "$lib/api/zones";
   import { listIdentitySources, type IdentitySourceListItem } from '$lib/api/identity-sources';
   import { pollProbeJob } from '$lib/jobs/probe-polling';
-  import { showApiErrorToast } from '$lib/errors/api-toast';
   import { isValidHostname, isValidIPv4 } from '$lib/utils/host-validate';
   import { toast } from "$lib/stores/toast";
 
@@ -230,14 +230,14 @@
       return;
     }
     if (isValidIPv4(value)) {
-      resolveHint = { ok: true, message: t('IP valide.') };
+      resolveHint = { ok: true, message: t('Valid IP address.') };
       return;
     }
     if (isValidHostname(value)) {
-      resolveHint = { ok: true, message: t('Hostname valide.') };
+      resolveHint = { ok: true, message: t('Valid host name.') };
       return;
     }
-    resolveHint = { ok: false, message: t('Format hostname/IP invalide.') };
+    resolveHint = { ok: false, message: t('Invalid host name or IP address.') };
   }
 
   const required = (v?: string | number | null) =>
@@ -352,12 +352,12 @@
 
     const endpointNumericId = Number(pick(endpoint, "id", "storage_endpoint_id") ?? 0);
     if (!endpointNumericId) {
-      toast.error(t('Endpoint id invalide.'));
+      toast.error(t('Invalid server id.'));
       return;
     }
 
     if (!canSave) {
-      toast.error(t('Champs manquants.'));
+      toast.error(t('Missing fields.'));
       return;
     }
 
@@ -494,7 +494,7 @@
       } else if (code === "SECRET_NOT_FOUND") {
         toast.error(t('The secure password for this endpoint was not found. Re-save credentials.'));
       } else {
-        showApiErrorToast(e, "Unable to save storage endpoint.");
+        reportUiError(e, t('Unable to save storage endpoint.'), 'storage-endpoint.save');
       }
     } finally {
       saving = false;
@@ -587,7 +587,7 @@
   async function saveSelectedRoots() {
     const endpointNumericId = Number(pick(endpoint, "id", "storage_endpoint_id") ?? 0);
     if (!endpointNumericId) {
-      toast.error(t('Endpoint id invalide.'));
+      toast.error(t('Invalid server id.'));
       return;
     }
     if (selectedRoots.length === 0) {
@@ -613,7 +613,7 @@
       toast.success(`Storage roots created: ${ok}${ko > 0 ? ` · failures: ${ko}` : ""}.`);
       onSaved?.();
     } catch (e) {
-      showApiErrorToast(e, "Unable to create storage roots.");
+      reportUiError(e, t('Unable to create storage roots.'), 'storage-endpoint.roots-create');
     } finally {
       saving = false;
     }
@@ -732,7 +732,7 @@
               class="se-input"
               class:invalid={errHost || errHostFormat}
               bind:value={host}
-              placeholder={t('fileserver.domain.local ou 10.0.0.12')}
+              placeholder={t('fileserver.domain.local or 10.0.0.12')}
               on:blur={() => touch("host")}
             />
             <button

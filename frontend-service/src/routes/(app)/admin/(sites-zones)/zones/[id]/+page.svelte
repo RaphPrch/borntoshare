@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reportUiError } from '$lib/errors/report';
   import { formatDateTime } from '$lib/utils/format';
   import { t } from '$lib/i18n';
   import { onDestroy, onMount } from "svelte";
@@ -704,7 +705,7 @@
         if (browser) goto(`/admin/zones/${id}`, { invalidateAll: true });
       }
     } catch (e) {
-      toast.error(e?.message ?? t('Zone operation failed'));
+      reportUiError(e, t('Zone operation failed'), 'zone.operation');
     }
   }
 
@@ -726,7 +727,7 @@
         toast.error(dependencyDeleteMessage("zone", "storage endpoints or storage roots"));
         return;
       }
-      toast.error(e?.message ?? t('Zone delete failed'));
+      reportUiError(e, t('Zone delete failed'), 'zone.delete');
     }
   }
 

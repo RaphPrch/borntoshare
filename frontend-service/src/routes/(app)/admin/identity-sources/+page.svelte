@@ -367,7 +367,7 @@
       ).trim();
 
       if (source.type === 'ad' && !bindSecretRef) {
-        toast.error(t('Bind secret introuvable. Configurez un bind_password_ref valide avant de lancer le test.'));
+        toast.error(t('The password of the account is missing: enter it again before testing.'));
         jobsStore.failJob(identityProbeJobInput(source.id), {
           message: t('Bind secret introuvable'),
           error: t('Bind secret introuvable')
@@ -1065,9 +1065,9 @@
   confirmBusyLabel={t('Deleting…')}
   busy={busy}
   requireTextConfirm={true}
-  requiredText=DELETE
-  textConfirmLabel={t('Type')}
-  textConfirmPlaceholder=DELETE
+  requiredText={String(selectedSource?.name ?? '')}
+  textConfirmLabel={t('Type the name to confirm')}
+  textConfirmPlaceholder={String(selectedSource?.name ?? '')}
 >
   <div class="identity-modal-body">
     <p>{t('This action is final. Confirm deletion.')}</p>
@@ -1092,7 +1092,7 @@
   onConfirm={confirmDisableUsedSource}
   cancelLabel={t('Cancel')}
   confirmLabel={t('Disable')}
-  confirmBusyLabel={t('En cours…')}
+  confirmBusyLabel={t('In progress…')}
   busy={busy}
 >
 </ConfirmActionModal>

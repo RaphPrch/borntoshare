@@ -1338,6 +1338,14 @@
       "probe_rerun": {
         "title": "Test relancé",
         "description": "Le test de connectivité a été relancé pour la zone « {zone} »"
+      },
+      "provisioning_policy_updated": {
+        "title": "Politique de provisionnement modifiée",
+        "description": "La politique de provisionnement de la zone « {zone} » a changé"
+      },
+      "storage_endpoint_added": {
+        "title": "Serveur ajouté à la zone",
+        "description": "Un serveur a été ajouté à la zone « {zone} »"
       }
     },
     "storage_endpoint": {
@@ -1376,6 +1384,26 @@
       "dfs_folder_deleted": {
         "title": "Dossier DFS supprimé",
         "description": "Un dossier DFS a été supprimé de « {target} »"
+      },
+      "probe_result_recorded": {
+        "title": "Test du serveur enregistré",
+        "description": "Le résultat du test du serveur « {endpoint} » a été enregistré"
+      },
+      "share_created_failed": {
+        "title": "Partage non créé",
+        "description": "Le partage « {share} » n’a pas été créé : {reason}"
+      },
+      "share_deleted_failed": {
+        "title": "Partage non supprimé",
+        "description": "Le partage « {share} » n’a pas été supprimé : {reason}"
+      },
+      "dfs_folder_created_failed": {
+        "title": "Dossier DFS non créé",
+        "description": "Le dossier DFS « {folder} » n’a pas été créé : {reason}"
+      },
+      "dfs_folder_deleted_failed": {
+        "title": "Dossier DFS non supprimé",
+        "description": "Le dossier DFS « {folder} » n’a pas été supprimé : {reason}"
       }
     },
     "tag": {
@@ -1468,6 +1496,10 @@
       "bulk_check_requested": {
         "title": "Relecture d’ACL demandée",
         "description": "Le worker teste les dossiers sélectionnés et relit leurs ACL"
+      },
+      "unavailable_from_endpoint_probe": {
+        "title": "Dossier injoignable",
+        "description": "Le dossier « {target} » est injoignable : son serveur ne répond pas"
       }
     },
     "access_request": {
@@ -1536,6 +1568,10 @@
       "sync_completed": {
         "title": "Annuaire synchronisé",
         "description": "L'inventaire de « {source} » est terminé"
+      },
+      "sync_requested": {
+        "title": "Synchronisation demandée",
+        "description": "Une synchronisation de l’annuaire « {target} » a été demandée"
       }
     },
     "acl_template": {
@@ -1854,6 +1890,52 @@
       "updated": {
         "title": "Réglages avancés modifiés",
         "description": "Modification enregistrée"
+      },
+      "setup_completed": {
+        "title": "Premier démarrage terminé",
+        "description": "La configuration initiale de BornToShare est terminée"
+      }
+    },
+    "identity": {
+      "account_created": {
+        "title": "Compte créé",
+        "description": "Le compte « {target} » a été créé"
+      },
+      "account_deleted": {
+        "title": "Compte supprimé",
+        "description": "Le compte « {target} » a été supprimé"
+      },
+      "account_enabled": {
+        "title": "Compte activé ou désactivé",
+        "description": "L’état du compte « {target} » a changé"
+      },
+      "account_renamed": {
+        "title": "Compte renommé",
+        "description": "Le compte « {target} » a été renommé"
+      },
+      "application_role_updated": {
+        "title": "Rôle modifié",
+        "description": "Le rôle de « {target} » dans BornToShare a changé"
+      },
+      "group_access_revoked": {
+        "title": "Accès par groupe retiré",
+        "description": "Un accès donné par groupe a été retiré à « {target} »"
+      },
+      "password_changed": {
+        "title": "Mot de passe changé",
+        "description": "Le mot de passe de « {target} » a été changé"
+      }
+    },
+    "job": {
+      "failed": {
+        "title": "Travail en échec",
+        "description": "Un travail du worker a échoué : {reason}"
+      }
+    },
+    "request": {
+      "refused": {
+        "title": "Modification refusée",
+        "description": "Une modification a été refusée : {reason}"
       }
     }
   },
@@ -3857,5 +3939,32 @@
   "Read the namespace before changing it": "Lisez l'espace de noms avant de le modifier",
   "Under {path}. Separate the levels with \\.": "Sous {path}. Séparez les niveaux par \\.",
   "The target is a network path such as \\\\server\\share": "La cible est un chemin réseau comme \\\\serveur\\partage",
-  "A DFS folder is made of names separated by \\, without / : * ? \" < > |": "Un dossier DFS est fait de noms séparés par \\, sans / : * ? \" < > |"
+  "A DFS folder is made of names separated by \\, without / : * ? \" < > |": "Un dossier DFS est fait de noms séparés par \\, sans / : * ? \" < > |",
+  "Activity recorded on {target}": "Activité enregistrée sur {target}",
+  "Unable to delete identity.": "Impossible de supprimer le compte.",
+  "Unable to save tag.": "Impossible d'enregistrer le tag.",
+  "Unable to delete tag.": "Impossible de supprimer le tag.",
+  "Unable to save storage endpoint.": "Impossible d'enregistrer le serveur.",
+  "Unable to create storage roots.": "Impossible de créer les dossiers.",
+  "Unable to delete storage root.": "Impossible de retirer le dossier.",
+  "Type the name to confirm": "Saisissez le nom pour confirmer",
+  "Last run {lastRunLabel}": "Dernier test {lastRunLabel}",
+  "Duration {durationLabel}": "Durée {durationLabel}",
+  "Valid IP address.": "Adresse IP valide.",
+  "Valid host name.": "Nom d'hôte valide.",
+  "Invalid host name or IP address.": "Nom d'hôte ou adresse IP invalide.",
+  "Invalid server id.": "Identifiant de serveur invalide.",
+  "Missing fields.": "Champs manquants.",
+  "fileserver.domain.local or 10.0.0.12": "fileserver.domain.local ou 10.0.0.12",
+  "Copy the request ID": "Copier l’identifiant de la requête",
+  "Invalid JSON for the replace map.": "JSON invalide pour la table de remplacement.",
+  "The template is required.": "Le modèle est requis.",
+  "Global naming of the AD groups": "Nommage global des groupes AD",
+  "The password of the account is missing: enter it again before testing.": "Le mot de passe du compte est introuvable : saisissez-le à nouveau avant de tester.",
+  "In progress…": "En cours…",
+  "Collection": "Collecte",
+  "Import impossible: no active Active Directory source is defined.": "Import impossible : aucun annuaire Active Directory actif n'est défini.",
+  "Unable to open the AD browser: no Active Directory source is selected.": "Impossible d'ouvrir l'explorateur AD : aucun annuaire Active Directory n'est sélectionné.",
+  "Users can sign in as user@domain or DOMAIN\\user. Empty: derived from the base DN.": "Les utilisateurs se connectent en utilisateur@domaine ou DOMAINE\\utilisateur. Vide : déduit de la base DN.",
+  "These characters are refused by Windows: \\ / : * ? \" < > |": "Ces caractères sont refusés par Windows : \\ / : * ? \" < > |"
 }

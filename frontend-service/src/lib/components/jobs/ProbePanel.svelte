@@ -69,8 +69,8 @@
 
   {#if lastRunLabel || durationLabel || jobId}
     <div class="probe-meta">
-      {#if lastRunLabel}<span>{t('Dernier run {lastRunLabel}', { lastRunLabel })}</span>{/if}
-      {#if durationLabel}<span>{t('Durée {durationLabel}', { durationLabel })}</span>{/if}
+      {#if lastRunLabel}<span>{t('Last run {lastRunLabel}', { lastRunLabel })}</span>{/if}
+      {#if durationLabel}<span>{t('Duration {durationLabel}', { durationLabel })}</span>{/if}
       {#if jobId}<span>{t('Job #{jobId}', { jobId })}</span>{/if}
     </div>
   {/if}

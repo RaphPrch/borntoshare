@@ -5,7 +5,7 @@
   export let availableItems: any[] = [];
   export let selectedItems: any[] = [];
 
-  export let availableTitle = t('Disponibles');
+  export let availableTitle = t('Available');
   export let selectedTitle = t('Selected');
 
   export let getItemKey: (item: any) => string | number = (item: any) => String(item?.id ?? item ?? '');

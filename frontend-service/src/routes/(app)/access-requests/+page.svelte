@@ -418,7 +418,7 @@
       void loadApprovalPreview(id);
       void loadRequestDetail(id);
     } catch (e: unknown) {
-      toast.error(e instanceof Error && e.message ? e.message : t('Unable to change the access level.'));
+      reportUiError(e, t('Unable to change the access level.'), 'access-request.permission');
     } finally {
       levelSaving = false;
     }

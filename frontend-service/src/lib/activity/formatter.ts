@@ -137,6 +137,10 @@ function varsFromEvent(ev: any) {
       identityLabel ??
       actor,
     role: asStr((ctx as any)?.role),
+    // Why a change was refused or failed, and what it was about
+    reason: asStr((ctx as any)?.reason) ?? asStr((ctx as any)?.message) ?? asStr((ctx as any)?.error_message) ?? '',
+    share: asStr((ctx as any)?.share) ?? '',
+    folder: asStr((ctx as any)?.dfs_path) ?? asStr((ctx as any)?.folder) ?? '',
     source: sourceLabel,
     target: targetDisplay,
     resource: targetDisplay,
@@ -189,7 +193,7 @@ export function renderActivity(ev: any): ActivityRender {
   const title = tpl ? t(tpl.titleKey, vars) : humanizeAction(action);
   const description = tpl
     ? t(tpl.descriptionKey, vars)
-    : (vars.target ? `Activity recorded on ${vars.target}` : t('Activity recorded'));
+    : (vars.target ? t('Activity recorded on {target}', { target: vars.target }) : t('Activity recorded'));
 
   const badgeKind = badgeFromEvent(ev, tpl);
   const badgeLabel = resolveBadgeLabel(badgeKind);

@@ -162,7 +162,7 @@
       adSources = activeAdSources(await listIdentitySources(fetch));
       if (!adSources.length) {
         onCancel();
-        toast.warning(t('Import impossible: aucune identity source Active Directory active n\'est definie.'));
+        toast.warning(t('Import impossible: no active Active Directory source is defined.'));
         return false;
       }
       if (!selectedSourceId) {
@@ -305,7 +305,7 @@
     const hasSources = await ensureAdSources();
     if (!hasSources) return;
     if (!selectedSourceId) {
-      toast.warning(t('Impossible d\'ouvrir le browser AD : aucune identity source Active Directory n\'est selectionnee.'));
+      toast.warning(t('Unable to open the AD browser: no Active Directory source is selected.'));
       return;
     }
     showAdBrowser = true;

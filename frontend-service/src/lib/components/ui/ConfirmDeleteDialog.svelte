@@ -13,10 +13,8 @@
   export let busy = false;
   export let deleteLabel = t('Delete');
   export let deleteBusyLabel = t('Deleting...');
-  export let requireTextConfirm = false;
-  export let requiredText = 'DELETE';
-  export let textConfirmLabel = t('Type');
-  export let textConfirmPlaceholder = 'DELETE';
+  /** A final deletion: the name of what goes is typed to confirm it (same rule on every screen). */
+  export let confirmName: string | null = null;
 </script>
 
 <ConfirmActionModal
@@ -34,8 +32,8 @@
   {impactTitle}
   {impactItems}
   {busy}
-  {requireTextConfirm}
-  {requiredText}
-  {textConfirmLabel}
-  {textConfirmPlaceholder}
+  requireTextConfirm={Boolean(confirmName)}
+  requiredText={confirmName ?? ''}
+  textConfirmLabel={t('Type the name to confirm')}
+  textConfirmPlaceholder={confirmName ?? ''}
 />

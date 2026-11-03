@@ -7,6 +7,26 @@ export type ActivityTemplate = {
 };
 
 export const activityTemplates: Record<string, ActivityTemplate> = {
+  // Accounts, setup, jobs, refusals, checks; failures of share and DFS changes
+  'identity.account_created': { titleKey: 'activity.identity.account_created.title', descriptionKey: 'activity.identity.account_created.description', badge: 'admin', scope: 'security', icon: 'person-plus' },
+  'identity.account_deleted': { titleKey: 'activity.identity.account_deleted.title', descriptionKey: 'activity.identity.account_deleted.description', badge: 'critical', scope: 'security', icon: 'person-x' },
+  'identity.account_enabled': { titleKey: 'activity.identity.account_enabled.title', descriptionKey: 'activity.identity.account_enabled.description', badge: 'admin', scope: 'security', icon: 'person-check' },
+  'identity.account_renamed': { titleKey: 'activity.identity.account_renamed.title', descriptionKey: 'activity.identity.account_renamed.description', badge: 'admin', scope: 'security', icon: 'pencil-square' },
+  'identity.application_role_updated': { titleKey: 'activity.identity.application_role_updated.title', descriptionKey: 'activity.identity.application_role_updated.description', badge: 'admin', scope: 'security', icon: 'shield-check' },
+  'identity.group_access_revoked': { titleKey: 'activity.identity.group_access_revoked.title', descriptionKey: 'activity.identity.group_access_revoked.description', badge: 'critical', scope: 'security', icon: 'shield-x' },
+  'identity.password_changed': { titleKey: 'activity.identity.password_changed.title', descriptionKey: 'activity.identity.password_changed.description', badge: 'admin', scope: 'security', icon: 'key' },
+  'advanced_settings.setup_completed': { titleKey: 'activity.advanced_settings.setup_completed.title', descriptionKey: 'activity.advanced_settings.setup_completed.description', badge: 'admin', scope: 'security', icon: 'check2-circle' },
+  'identity_source.sync_requested': { titleKey: 'activity.identity_source.sync_requested.title', descriptionKey: 'activity.identity_source.sync_requested.description', badge: 'info', icon: 'arrow-repeat' },
+  'zone.provisioning_policy_updated': { titleKey: 'activity.zone.provisioning_policy_updated.title', descriptionKey: 'activity.zone.provisioning_policy_updated.description', badge: 'admin', scope: 'security', icon: 'shield-check' },
+  'zone.storage_endpoint_added': { titleKey: 'activity.zone.storage_endpoint_added.title', descriptionKey: 'activity.zone.storage_endpoint_added.description', badge: 'admin', icon: 'hdd-network' },
+  'job.failed': { titleKey: 'activity.job.failed.title', descriptionKey: 'activity.job.failed.description', badge: 'critical', icon: 'x-octagon' },
+  'request.refused': { titleKey: 'activity.request.refused.title', descriptionKey: 'activity.request.refused.description', badge: 'info', icon: 'slash-circle' },
+  'storage_endpoint.probe_result_recorded': { titleKey: 'activity.storage_endpoint.probe_result_recorded.title', descriptionKey: 'activity.storage_endpoint.probe_result_recorded.description', badge: 'info', icon: 'activity' },
+  'storage_root.unavailable_from_endpoint_probe': { titleKey: 'activity.storage_root.unavailable_from_endpoint_probe.title', descriptionKey: 'activity.storage_root.unavailable_from_endpoint_probe.description', badge: 'critical', icon: 'exclamation-triangle' },
+  'storage_endpoint.share_created:failed': { titleKey: 'activity.storage_endpoint.share_created_failed.title', descriptionKey: 'activity.storage_endpoint.share_created_failed.description', badge: 'critical', icon: 'folder-x' },
+  'storage_endpoint.share_deleted:failed': { titleKey: 'activity.storage_endpoint.share_deleted_failed.title', descriptionKey: 'activity.storage_endpoint.share_deleted_failed.description', badge: 'critical', icon: 'folder-x' },
+  'storage_endpoint.dfs_folder_created:failed': { titleKey: 'activity.storage_endpoint.dfs_folder_created_failed.title', descriptionKey: 'activity.storage_endpoint.dfs_folder_created_failed.description', badge: 'critical', icon: 'folder-x' },
+  'storage_endpoint.dfs_folder_deleted:failed': { titleKey: 'activity.storage_endpoint.dfs_folder_deleted_failed.title', descriptionKey: 'activity.storage_endpoint.dfs_folder_deleted_failed.description', badge: 'critical', icon: 'folder-x' },
   // Zones
   'zone.created': { titleKey: 'activity.zone.created.title', descriptionKey: 'activity.zone.created.description', badge: 'info', icon: 'plus-circle' },
   'zone.updated': { titleKey: 'activity.zone.updated.title', descriptionKey: 'activity.zone.updated.description', badge: 'info', icon: 'pencil-square' },

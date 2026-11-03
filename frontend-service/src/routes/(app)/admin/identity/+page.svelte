@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reportUiError } from '$lib/errors/report';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
   import { t } from '$lib/i18n';
@@ -22,7 +23,6 @@
   } from '$lib/api/identity';
   import { runIdentitySnapshot } from '$lib/api/identity-sources';
   import { notifyError, toAppError } from '$lib/errors';
-  import { showApiErrorToast } from '$lib/errors/api-toast';
   import { timeAgo } from '$lib/utils/format';
   import { toast } from '$lib/stores/toast';
 
@@ -237,7 +237,7 @@
       deleteTarget = null;
     } catch (error) {
       notifyError(toAppError(error, { source: 'ui' }));
-      showApiErrorToast(error, 'Unable to delete identity.');
+      reportUiError(error, t('Unable to delete identity.'), 'identity.delete');
     } finally {
       deleteBusy = false;
     }
@@ -516,8 +516,9 @@
     title={t('Delete identity')}
     description={deleteTarget ? t('Remove {display_name} from application access.', { display_name: deleteTarget.display_name }) : null}
     deleteLabel={t('Delete')}
-    deleteBusyLabel={t('Deleting...')}
+    deleteBusyLabel={t('Deleting…')}
     busy={deleteBusy}
+    confirmName={deleteTarget ? String(deleteTarget.username ?? deleteTarget.display_name ?? '') : null}
     impactItems={[
       t('This removes application access only.'),
       t('It does not delete the AD user/group.'),

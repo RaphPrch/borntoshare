@@ -82,11 +82,11 @@
       return null;
     }
   })();
-  $: replaceMapError = parsedReplaceMap ? null : t('JSON invalide pour Replace map.');
+  $: replaceMapError = parsedReplaceMap ? null : t('Invalid JSON for the replace map.');
   $: groupPrefixError = normalizedCurrent.group_prefix ? null : t('Prefix is required.');
   $: templateError =
     !normalizedCurrent.template
-      ? t('Le template est requis.')
+      ? t('The template is required.')
       : hasKnownToken
         ? null
         : t('Template must contain at least one supported token.');
@@ -128,7 +128,7 @@
   }
 </script>
 
-<ConfigCard title={t('Naming policy')} subtitle={t('Configuration globale de nommage des groupes AD')} icon="bi-input-cursor-text">
+<ConfigCard title={t('Naming policy')} subtitle={t('Global naming of the AD groups')} icon="bi-input-cursor-text">
   <div class="adv-form-grid">
     <SettingRow label={t('Prefix')} help="Global prefix added to generated groups.">
       <input class="form-control" bind:value={policy.group_prefix} />

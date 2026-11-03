@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reportUiError } from '$lib/errors/report';
   import { formatDateTime } from '$lib/utils/format';
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -11,7 +12,6 @@
   import TagPill from "$lib/components/tags/TagPill.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { createTag, updateTag, deleteTag, mergeTag, type TagOverview } from "$lib/api/tags";
-  import { showApiErrorToast } from "$lib/errors/api-toast";
   import { toast } from "$lib/stores/toast";
   import {
     dependencyCountDeleteMessage,
@@ -119,7 +119,7 @@
       selectedId = Number(mergeTarget.id);
       await invalidateAll();
     } catch (e) {
-      showApiErrorToast(e, "Unable to merge tags.");
+      reportUiError(e, t('Unable to merge tags.'), 'tag.merge');
     } finally {
       merging = false;
     }
@@ -216,7 +216,7 @@
       await invalidateAll();
     } catch (e) {
       errorMsg = e?.message ?? t('Operation failed.');
-      showApiErrorToast(e, "Unable to save tag.");
+      reportUiError(e, t('Unable to save tag.'), 'tag.save');
     } finally {
       busy = false;
     }
@@ -248,7 +248,7 @@
         toast.error(usage > 0 ? dependencyCountDeleteMessage("tag", usage, "resource") : dependencyDeleteMessage("tag", "resources"));
         showDeleteConfirm = false;
       } else {
-        showApiErrorToast(e, "Unable to delete tag.");
+        reportUiError(e, t('Unable to delete tag.'), 'tag.delete');
       }
     } finally {
       busy = false;
@@ -481,10 +481,7 @@
   deleteLabel={t('Delete')}
   deleteBusyLabel={t('Deleting…')}
   busy={busy}
-  requireTextConfirm={true}
-  requiredText=DELETE
-  textConfirmLabel={t('Type')}
-  textConfirmPlaceholder=DELETE
+  confirmName={String(selectedTag?.label ?? selectedTag?.name ?? '')}
 />
 
 <style>

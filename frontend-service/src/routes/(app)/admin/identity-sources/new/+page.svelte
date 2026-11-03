@@ -375,7 +375,7 @@
   async function runFirstSync(sourceId: number) {
     syncState = 'running';
     syncMessage = '';
-    syncSteps = [t('Dispatch'), t('In queue'), t('Collecte'), t('Persist')].map((label) => ({ label, state: 'idle' }));
+    syncSteps = [t('Dispatch'), t('In queue'), t('Collection'), t('Persist')].map((label) => ({ label, state: 'idle' }));
     let current = 0;
     setSyncStep(0, 'running');
     snapshotStore.setRunning(sourceId, 'Initial snapshot sync running');

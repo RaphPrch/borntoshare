@@ -28,7 +28,7 @@
   export let confirmClass: string | null = null;
 
   export let requireTextConfirm = false;
-  export let requiredText = 'DELETE';
+  export let requiredText = '';
   export let textConfirmLabel = t('Type confirmation text');
   export let textConfirmPlaceholder = 'Type text';
 

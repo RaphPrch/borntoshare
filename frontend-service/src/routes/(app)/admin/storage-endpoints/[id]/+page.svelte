@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reportUiError } from '$lib/errors/report';
   import ShareCreateModal from '$lib/components/storage-endpoints/ShareCreateModal.svelte';
   import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { t } from '$lib/i18n';
@@ -375,7 +376,7 @@
       await loadDfs(endpointId(selected));
       void invalidateAll();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('Creation failed'));
+      reportUiError(e, t('Creation failed'), 'storage-endpoint.dfs-manage');
     } finally {
       dfsBusy = { ...dfsBusy, [key]: false };
     }

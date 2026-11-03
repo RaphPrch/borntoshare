@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reportUiError } from '$lib/errors/report';
   import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { t } from '$lib/i18n';
   import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
@@ -101,7 +102,6 @@
   import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
   import StorageRootEmptyState from '$lib/components/storage-roots/StorageRootEmptyState.svelte';
   import ConfirmDeleteDialog from '$lib/components/ui/ConfirmDeleteDialog.svelte';
-  import { showApiErrorToast } from '$lib/errors/api-toast';
   import { canDeleteManagedObject } from '$lib/utils/permissions';
 
   export let data: {
@@ -699,7 +699,7 @@
         toast.error(dependencyDeleteMessage('storage root', 'dependent records'));
         return;
       }
-      showApiErrorToast(e, 'Unable to delete storage root.');
+      reportUiError(e, t('Unable to delete storage root.'), 'storage-root.remove');
     }
   }
 
@@ -1170,7 +1170,7 @@
       await runRootProbe(data.user?.is_admin === true);
       toast.success(t('Root probe OK: storage root is reachable'));
     } catch (e: any) {
-      toast.error(e?.message ?? t('Root probe failed'));
+      reportUiError(e, t('Root probe failed'), 'storage-root.probe');
     }
   };
 
@@ -1797,7 +1797,8 @@
     t('Path: {String}', { String: String(editingRoot?.root_path ?? editingRoot?.locator ?? editingRoot?.path ?? '—') }),
     t('The storage root governance record will be permanently deleted.')
   ]}
-  deleteLabel={t('Delete')}
+  deleteLabel={t('Remove from BornToShare')}
+  confirmName={String(editingRoot?.display_name ?? editingRoot?.storage_root_name ?? editingRoot?.name ?? '')}
 />
 
 <StorageRootTagsDrawer

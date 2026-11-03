@@ -27,8 +27,8 @@
       <div class="error-meta">
         <span>{t('Request ID :')}</span>
         <code>{error.requestId}</code>
-        <button class="link-btn" type="button" on:click={copyRequestId} title={t('Copier le Request ID')}>
-          {t('Copier')}
+        <button class="link-btn" type="button" on:click={copyRequestId} title={t('Copy the request ID')}>
+          {t('Copy')}
         </button>
       </div>
     {/if}
