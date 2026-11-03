@@ -325,7 +325,7 @@
                   : t('No directory account named {name}', { name: checkedMissing.username })}
               </p>
               {#if checkedMissing.known_in_directory && rootId}
-                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" on:click={() => goto(`/access-requests?create=1&root=${rootId}`)}>{t('Request an access')}</button>
+                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" on:click={() => goto(`/access-requests/new?root=${rootId}`)}>{t('Request an access')}</button>
               {/if}
             </div>
           {:else}

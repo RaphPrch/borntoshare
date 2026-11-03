@@ -218,7 +218,6 @@
   }
 
   function openMenu(line: Line, event: MouseEvent) {
-    if (!onFolderAction) return;
     event.preventDefault();
     menuRow = line.row;
     menuAt = { x: event.clientX, y: event.clientY };
@@ -477,6 +476,7 @@
   onClose={() => (menuRow = null)}
   onOpen={(row) => onOpenRoot(Number(row?.storage_root_id ?? 0))}
   onAction={(kind, row) => onFolderAction?.(kind, row)}
+  canManage={Boolean(onFolderAction)}
 />
 
 <style>

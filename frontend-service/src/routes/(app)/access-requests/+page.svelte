@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { PrincipalSearchItem } from '$lib/utils/principal-search';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
@@ -8,6 +7,7 @@
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { t } from '$lib/i18n';
   import { goto, invalidateAll } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import { normalizeMe } from '$lib/types/me';
   import { cancelAccessRequest, adoptAccessGroup, bulkDecision, changeRequestPermission, getAccessRequestDetails, getApprovalPreview, type ApprovalPreview } from '$lib/api/access-requests';
@@ -15,7 +15,6 @@
   import { listActivityByTarget, type ActivityEvent } from '$lib/api/activity';
   import { renderActivity } from '$lib/activity/formatter';
   import { onDestroy } from 'svelte';
-  import NewAccessRequestModal from '$lib/components/access-requests/NewAccessRequestModal.svelte';
   import { toast } from '$lib/stores/toast';
   import { initials, formatDateTime, formatDate, timeAgo } from '$lib/utils/format';
   import { getRequestStatusMeta, requestToneVariant } from '$lib/utils/access-request-status';
@@ -85,13 +84,9 @@
   // Last failed decision: code, hint and, for a name conflict, the group an admin can adopt
   let decisionFailure: { code?: string | null; hint?: string | null; access_profile_id?: number | null; existing_dn?: string | null } | null = null;
   let adopting = false;
-  let showCreateRequestModal = false;
   let levelEditing = false;
   let levelReason = '';
   let levelSaving = false;
-  let createPrefillStorageRootId: number | null = null;
-  let createPrefillAccessLevel: string | null = null;
-  let createPrefillPrincipal: PrincipalSearchItem | null = null;
   let checkedIds = new Set<number>();
   let bulkDecisionAsked: 'approve' | 'reject' | null = null;
   let bulkRunning = false;
@@ -197,24 +192,12 @@
     (!expiresMs(selectedRequest) || expiresMs(selectedRequest) > now);
 
   $: {
-    const openCreate = norm($page.url.searchParams.get('create'));
-    showCreateRequestModal = openCreate === '1' || openCreate === 'true';
-    const prefillRootId = Number($page.url.searchParams.get('root') ?? 0);
-    createPrefillStorageRootId = prefillRootId > 0 ? prefillRootId : null;
-    createPrefillAccessLevel = String($page.url.searchParams.get('permission') ?? '').trim() || null;
-    // ?principal_dn=…&principal_username=…&principal_name=…&principal_source=… (⌘K palette)
-    const prefillDn = String($page.url.searchParams.get('principal_dn') ?? '').trim();
-    createPrefillPrincipal = prefillDn
-      ? {
-          id: prefillDn,
-          type: 'user',
-          dn: prefillDn,
-          username: $page.url.searchParams.get('principal_username'),
-          display_name: $page.url.searchParams.get('principal_name'),
-          identity_source_id: Number($page.url.searchParams.get('principal_source') ?? 0) || null,
-          auth_source: 'ad'
-        }
-      : null;
+    // Former links (?create=1&root=…&principal_dn=…) open the creation page with the same parameters
+    if (browser && ['1', 'true'].includes(norm($page.url.searchParams.get('create')))) {
+      const params = new URLSearchParams($page.url.searchParams);
+      params.delete('create');
+      void goto(`/access-requests/new${params.toString() ? `?${params}` : ''}`, { replaceState: true });
+    }
     const targetRequestId = Number($page.url.searchParams.get('request') ?? 0);
     requestParamId = targetRequestId > 0 ? targetRequestId : null;
   }
@@ -493,19 +476,7 @@
     ], visibleRequests);
   }
 
-  async function openCreateRequestModal(): Promise<void> {
-    setUrl((params) => params.set('create', '1'));
-  }
 
-  async function closeCreateRequestModal(): Promise<void> {
-    showCreateRequestModal = false;
-    setUrl((params) => params.delete('create'));
-  }
-
-  async function handleAccessRequestCreated(): Promise<void> {
-    await closeCreateRequestModal();
-    await invalidateAll();
-  }
 
   // Progress of the selected request: submitted -> guardian review -> applied -> ends
   $: progress = selectedRequest
@@ -563,10 +534,10 @@
       <i class="bi bi-search" aria-hidden="true"></i>
       <input type="search" aria-label={t('Search access requests')} placeholder={t('Search requester, resource, path…')} bind:value={searchText} />
     </label>
-    <button type="button" class="b2s-btn b2s-btn-primary" on:click={openCreateRequestModal}>
+    <a class="b2s-btn b2s-btn-primary" href="/access-requests/new">
       <i class="bi bi-plus-lg" aria-hidden="true"></i>
       {t('New request')}
-    </button>
+    </a>
   </header>
 
   <div class="ar-filters">
@@ -938,14 +909,6 @@
   busy={bulkRunning}
 />
 
-<NewAccessRequestModal
-  open={showCreateRequestModal}
-  prefillStorageRootId={createPrefillStorageRootId}
-  prefillAccessLevel={createPrefillAccessLevel}
-  prefillPrincipal={createPrefillPrincipal}
-  onClose={closeCreateRequestModal}
-  onCreated={handleAccessRequestCreated}
-/>
 
 <style>
   .ar-page {

@@ -1182,7 +1182,7 @@
       toast.warning(t('Select a storage root first'));
       return;
     }
-    void goto(`/access-requests?create=1&root=${encodeURIComponent(String(selectedStorageRootId))}`);
+    void goto(`/access-requests/new?root=${encodeURIComponent(String(selectedStorageRootId))}`);
   };
 
   let showAlertsDrawer = false;

@@ -25,7 +25,7 @@
   title={t('Dashboard')}
   subtitle={guardian ? t('Your requests and the folders you guard') : t('Your requests and your accesses')}
 >
-  <a slot="actions" class="b2s-btn b2s-btn-primary" href="/access-requests?create=1">
+  <a slot="actions" class="b2s-btn b2s-btn-primary" href="/access-requests/new">
     <i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}
   </a>
 

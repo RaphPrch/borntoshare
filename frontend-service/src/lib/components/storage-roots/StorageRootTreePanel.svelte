@@ -264,15 +264,13 @@
   onViewMode={setViewMode}
   {onQueryChange}
   onSelect={(id) => onSelectRoot(Number(id))}
-  onContextMenu={onFolderAction
-    ? (node, event) => {
+  onContextMenu={(node, event) => {
         menuRow = rows.find((row) => rootId(row) === Number(node.selectId)) ?? null;
         const anchor = event.currentTarget as HTMLElement | null;
         const rect = anchor?.getBoundingClientRect();
         // The context-menu key gives no pointer position: open under the row
         menuAt = event.clientX || event.clientY ? { x: event.clientX, y: event.clientY } : { x: (rect?.left ?? 0) + 24, y: rect?.bottom ?? 0 };
-      }
-    : null}
+      }}
   onHover={(node, anchor) => {
     peekRow = node ? rows.find((row) => rootId(row) === Number(node.selectId)) ?? null : null;
     peekAnchor = anchor;
@@ -285,6 +283,7 @@
   onClose={() => (menuRow = null)}
   onOpen={(row) => onSelectRoot(rootId(row))}
   onAction={(kind, row) => onFolderAction?.(kind, row)}
+  canManage={Boolean(onFolderAction)}
 />
 
 <StorageRootPeek row={menuRow ? null : peekRow} anchor={peekAnchor} alert={peekRow ? rootAlertSummary(peekRow) : null} />

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from '$lib/i18n';
+  import { goto } from '$app/navigation';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
 
@@ -10,6 +11,8 @@
   export let onClose: () => void = () => {};
   export let onOpen: (row: StorageRootRow) => void = () => {};
   export let onAction: (kind: FolderActionKind, row: StorageRootRow) => void = () => {};
+  /** Platform administrators: the operations on the folder of the file server; everyone can request an access */
+  export let canManage = true;
 
   let menuEl: HTMLDivElement | null = null;
   let position = { left: 0, top: 0 };
@@ -19,6 +22,12 @@
     ? [
         { key: 'open', label: t('Open'), icon: 'bi-box-arrow-in-right', run: (target: StorageRootRow) => onOpen(target) },
         {
+          key: 'request',
+          label: t('Request access'),
+          icon: 'bi-key',
+          run: (target: StorageRootRow) => void goto(`/access-requests/new?root=${Number(target?.storage_root_id ?? 0)}`)
+        },
+        ...(canManage ? [{
           key: 'inheritance',
           label: broken ? t('Restore the inheritance') : t('Break the inheritance'),
           icon: broken ? 'bi-diagram-3' : 'bi-scissors',
@@ -27,7 +36,7 @@
           run: (target: StorageRootRow) => onAction('inheritance', target)
         },
         { key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', run: (target: StorageRootRow) => onAction('subfolder', target) },
-        { key: 'delete', label: t('Delete the folder from the server'), icon: 'bi-trash', danger: true, run: (target: StorageRootRow) => onAction('delete', target) }
+        { key: 'delete', label: t('Delete the folder from the server'), icon: 'bi-trash', danger: true, run: (target: StorageRootRow) => onAction('delete', target) }] : [])
       ]
     : [];
 

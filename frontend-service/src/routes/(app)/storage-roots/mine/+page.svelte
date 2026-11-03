@@ -29,7 +29,7 @@
   <PageHeader title={t('My folders')} subtitle={t('The folders you reach through your requests.')}>
     <svelte:fragment slot="actions">
       <input class="b2s-input" aria-label={t('Search my folders')} placeholder={t('Search a folder…')} bind:value={query} />
-      <a class="b2s-btn b2s-btn-primary" href="/access-requests?create=1"><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}</a>
+      <a class="b2s-btn b2s-btn-primary" href="/access-requests/new"><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}</a>
     </svelte:fragment>
   </PageHeader>
 
