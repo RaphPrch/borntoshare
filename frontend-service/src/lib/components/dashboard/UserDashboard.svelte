@@ -37,10 +37,17 @@
           hint={guardian.overdue ? t('{count} waiting for more than 3 days', { count: guardian.overdue }) : null} />
         <KpiCard label={t('In error')} value={guardian.failed} icon="bi-exclamation-octagon" tone={tone(guardian.failed, 'danger')} href="/access-requests?status=all"
           hint={t('Requests the file server or the directory refused')} />
-        <KpiCard label={t('Folders to look at')} value={guardian.folders_with_alerts} icon="bi-folder-x" tone={tone(guardian.folders_with_alerts, 'warning')} href="/storage-roots"
+        <KpiCard label={t('Folders to look at')} value={guardian.folders_with_alerts} icon="bi-folder-x" tone={tone(guardian.folders_with_alerts, 'warning')} href="/storage-roots?filter=review"
           hint={t('{count} folder(s) guarded', { count: guardian.folders })} />
         <KpiCard label={t('Ending within 30 days')} value={guardian.ending_30d} icon="bi-calendar-event" tone="info" href="/access-requests?status=applied"
           hint={t('{count} access(es) in force', { count: guardian.active })} />
+      </div>
+      <div class="b2s-kpi-grid">
+        <KpiCard label={t('Accepted (30 days)')} value={guardian.approved_30d ?? 0} icon="bi-check-circle" tone="success" href="/access-requests?status=applied" />
+        <KpiCard label={t('Refused (30 days)')} value={guardian.refused_30d ?? 0} icon="bi-x-circle" tone="neutral" href="/access-requests?status=closed" />
+        <KpiCard label={t('Revoked (30 days)')} value={guardian.revoked_30d ?? 0} icon="bi-person-dash" tone="neutral" href="/access-requests?status=closed" />
+        <KpiCard label={t('Accesses in force')} value={guardian.active} icon="bi-unlock" tone="info" href="/access-requests?status=applied"
+          hint={t('{count} folder(s) guarded', { count: guardian.folders })} />
       </div>
     </section>
   {/if}

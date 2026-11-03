@@ -110,6 +110,10 @@ def get_user_dashboard_me(
             "failed": sum(1 for row in guarded if _status(row) in {"pending", "approved"} and _is_failed(row)),
             "active": sum(1 for row in guarded if _status(row) == "approved"),
             "ending_30d": sum(1 for row in guarded if _status(row) == "approved" and _ends_soon(row, now)),
+            # Decisions of the last 30 days on the guarded folders
+            "approved_30d": sum(1 for row in guarded if _status(row) in {"approved", "applied", "executed", "expired", "revoked"} and _recent(row)),
+            "refused_30d": sum(1 for row in guarded if _status(row) == "rejected" and _recent(row)),
+            "revoked_30d": sum(1 for row in guarded if _status(row) == "revoked" and _recent(row)),
         }
         payload["to_decide"] = [_card(row) for row in sorted(to_decide, key=lambda r: str(r.get("created_at") or ""))[:8]]
         payload["guarded_failed"] = [_card(row) for row in guarded if _status(row) in {"pending", "approved"} and _is_failed(row)][:8]

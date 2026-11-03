@@ -3748,5 +3748,7 @@
   "Yesterday": "Hier",
   "in modification": "en modification",
   "in read": "en lecture",
-  "{count} event(s)": "{count} événement(s)"
+  "{count} event(s)": "{count} événement(s)",
+  "Accepted (30 days)": "Acceptées (30 jours)",
+  "Revoked (30 days)": "Révoquées (30 jours)"
 }
