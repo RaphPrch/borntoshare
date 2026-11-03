@@ -35,3 +35,9 @@ def test_a_namespace_not_read_is_refused() -> None:
     with pytest.raises(HTTPException) as refused:
         storage_endpoints._assert_namespace_free(_Db(), "corp.local\\brest")
     assert refused.value.detail["code"] == "DFS_NAMESPACE_PATH_INVALID"
+
+
+def test_dfs_folder_names() -> None:
+    assert storage_endpoints._dfs_folder_name("Corporate\\Finance") is None
+    for bad in ("", "a\\..\\b", "Fin:ance", "Fin|ance", "a\\\\b"):
+        assert storage_endpoints._dfs_folder_name(bad), bad

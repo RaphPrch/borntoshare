@@ -208,7 +208,9 @@ export function toAppError(error: unknown, context?: Partial<AppError>): AppErro
     code = apiError.code;
     requestId = apiError.requestId ?? apiError.request_id;
     details = apiError.details;
-    message = extractMessageFromPayload(apiError.details) ?? apiError.message;
+    // The services answer in English: the sentence of the catalog when there is one
+    const raw = extractMessageFromPayload(apiError.details);
+    message = raw ? t(raw) : apiError.message;
 
     if (apiError.transport === 'timeout') {
       kind = 'timeout';

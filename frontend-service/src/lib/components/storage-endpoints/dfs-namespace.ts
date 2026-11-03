@@ -1,5 +1,5 @@
 import { t } from '$lib/i18n';
-import { apiGetData, apiPostData } from '$lib/api/client';
+import { apiDeleteData, apiGetData, apiPostData } from '$lib/api/client';
 import { humanizeFileServerMessage } from '$lib/errors/file-server';
 import { runProbeWithPolling } from '$lib/jobs/probe-runner';
 
@@ -102,3 +102,13 @@ export const manageDfsLinks = (fetchFn: typeof fetch, endpointId: number, paths:
     `/storage-endpoints/${endpointId}/dfs-links/manage`,
     { paths }
   );
+
+/** Create a DFS folder under the namespace (Corporate\\Finance), leading to a share (\\\\FILER01\\Finance). */
+export const createDfsFolder = (fetchFn: typeof fetch, endpointId: number, folder: string, target: string) =>
+  apiPostData<{ path: string; target: string }>(fetchFn, `/storage-endpoints/${endpointId}/dfs-folders`, { folder, target }, { timeoutMs: 90_000 });
+
+/** Remove a DFS folder and its targets; the shares and their files stay. Refused while it is managed. */
+export const deleteDfsFolder = (fetchFn: typeof fetch, endpointId: number, folder: string) =>
+  apiDeleteData<{ path: string; targets: string[] }>(fetchFn, `/storage-endpoints/${endpointId}/dfs-folders?folder=${encodeURIComponent(folder)}`, {
+    timeoutMs: 90_000
+  });

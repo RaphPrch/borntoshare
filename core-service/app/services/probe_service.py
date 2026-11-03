@@ -36,6 +36,8 @@ _PROBE_JOB_TYPE_BY_TEMPLATE = {
     "folder_create": "FOLDER_CREATE",
     "share_create": "SHARE_CREATE",
     "share_delete": "SHARE_DELETE",
+    "dfs_folder_create": "DFS_FOLDER_CREATE",
+    "dfs_folder_delete": "DFS_FOLDER_DELETE",
 }
 
 
@@ -532,6 +534,10 @@ def _pick_template(kind: str, protocol: str) -> tuple[str, str]:
         return "share_create", "v1"
     if kind_norm == "share" and protocol_norm == "delete":
         return "share_delete", "v1"
+    if kind_norm == "dfs-folder" and protocol_norm == "create":
+        return "dfs_folder_create", "v1"
+    if kind_norm == "dfs-folder" and protocol_norm == "delete":
+        return "dfs_folder_delete", "v1"
 
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,

@@ -1019,8 +1019,8 @@ def _share_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
     return endpoint
 
 
-class _ShareOperation:
-    """A share created or deleted on the file server by the worker, audited whatever the outcome."""
+class _EndpointOperation:
+    """A change made on a server by the worker (share, DFS folder), audited whatever the outcome."""
 
     def __init__(self, db: Session, request: Request, endpoint: StorageEndpoint, *, action: str, share: str, context: dict[str, Any]):
         self.db, self.request, self.endpoint = db, request, endpoint
@@ -1048,14 +1048,15 @@ class _ShareOperation:
         self.log("failure", reason=message, code=code)
         return HTTPException(status_code=http_status, detail={"code": code, "message": message, **extra, **({"job_id": job_id} if job_id else {})})
 
-    async def run(self, protocol: str, path: str, *, failure_code: str) -> dict[str, Any]:
+    async def run(self, protocol: str, path: str, *, failure_code: str, kind: str = "share",
+                  target: dict[str, Any] | None = None) -> dict[str, Any]:
         import asyncio
 
         from app.services.probe_service import fetch_probe_job, submit_probe_run
 
         queued = await submit_probe_run({
-            "kind": "share", "protocol": protocol, "scope": "write",
-            "target": {"host": self.endpoint.host, "share": self.share, "path": path},
+            "kind": kind, "protocol": protocol, "scope": "write",
+            "target": target or {"host": self.endpoint.host, "share": self.share, "path": path},
             "auth": {"mode": "ntlm", "username": self.endpoint.bind_dn, "secret_ref": self.endpoint.bind_password_ref},
             "options": {"timeout_sec": 60},
             "context": {"storage_endpoint_id": int(self.endpoint.id), "ui_origin": "admin"},
@@ -1075,13 +1076,124 @@ class _ShareOperation:
         raise self.refused(status.HTTP_504_GATEWAY_TIMEOUT, f"{failure_code.rsplit('_', 1)[0]}_TIMEOUT", "Le worker n'a pas répondu à temps.", job_id)
 
 
+_DFS_FOLDER_FORBIDDEN = re.compile(r'[/:*?"<>|]')
+_DFS_REFUSALS = {
+    "DFS_ADMIN_REQUIRED": status.HTTP_403_FORBIDDEN,
+    "DFS_FOLDER_EXISTS": status.HTTP_409_CONFLICT,
+    "DFS_FOLDER_INVALID": status.HTTP_422_UNPROCESSABLE_ENTITY,
+    "DFS_TARGET_INVALID": status.HTTP_422_UNPROCESSABLE_ENTITY,
+    "DFS_NAMESPACE_NOT_FOUND": status.HTTP_404_NOT_FOUND,
+}
+
+
+def _dfs_folder_name(folder: str) -> str | None:
+    parts = folder.strip("\\").split("\\")
+    if not folder.strip("\\") or len(folder) > 255 or any(
+        not part.strip() or part in {".", ".."} or part != part.strip() or _DFS_FOLDER_FORBIDDEN.search(part) for part in parts
+    ):
+        return 'A DFS folder is made of names separated by \\, without / : * ? " < > |'
+    return None
+
+
+class DfsFolderPayload(BaseModel):
+    # Under the namespace: Corporate\\Finance
+    folder: str = Field(min_length=1, max_length=255)
+    # The share it leads to: \\\\FILER01\\Finance
+    target: str = Field(min_length=5, max_length=512)
+
+
+def _save_dfs_links(endpoint: StorageEndpoint, links: list[dict[str, Any]]) -> None:
+    from app.services.dfs_links import forget_cache
+
+    capabilities = dict(endpoint.capabilities or {})
+    capabilities["dfs_snapshot"] = {**dict(capabilities.get("dfs_snapshot") or {}), "links": links}
+    endpoint.capabilities = capabilities
+    forget_cache()
+
+
+def _dfs_operation(db: Session, request: Request, endpoint_id: int, action: str, folder: str, **context: Any):
+    from app.services.dfs_links import snapshot
+
+    endpoint = _dfs_endpoint(db, endpoint_id)
+    if not (endpoint.bind_dn and endpoint.bind_password_ref):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={"code": "ENDPOINT_CREDENTIALS_MISSING", "message": "Le serveur DFS n'a pas de compte."})
+    shot = snapshot(endpoint)
+    path = str(shot.get("path") or "").strip().rstrip("\\")
+    folder = folder.strip().strip("\\")
+    operation = _EndpointOperation(db, request, endpoint, action=action, share=folder,
+                                   context={"folder": folder, "dfs_path": f"{path}\\{folder}", **context})
+    if not path:
+        raise operation.refused(status.HTTP_409_CONFLICT, "DFS_NAMESPACE_NOT_READ", "Read the namespace before changing it")
+    error = _dfs_folder_name(folder)
+    if error:
+        raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "DFS_FOLDER_INVALID", error)
+    links = [dict(link) for link in (shot.get("links") or []) if isinstance(link, dict)]
+    return endpoint, operation, path, folder, links
+
+
+async def _run_dfs_job(operation: _EndpointOperation, endpoint: StorageEndpoint, protocol: str, target: dict[str, Any], failure_code: str):
+    try:
+        await operation.run(protocol, "", failure_code=failure_code, kind="dfs-folder",
+                            target={"host": endpoint.host, "port": int(endpoint.port or 445), **target})
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        code = str(detail.get("code") or "")
+        if code in _DFS_REFUSALS and exc.status_code != _DFS_REFUSALS[code]:
+            raise HTTPException(status_code=_DFS_REFUSALS[code], detail=detail) from exc
+        raise
+
+
+@router.post("/{endpoint_id}/dfs-folders", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_only)])
+async def create_dfs_folder(endpoint_id: int, payload: DfsFolderPayload, request: Request, db: Session = Depends(get_db)):
+    """Create a DFS folder under the namespace, leading to a share. The account of the namespace must be allowed to manage it."""
+    target = payload.target.strip().replace("/", "\\").rstrip("\\")
+    endpoint, operation, path, folder, links = _dfs_operation(db, request, endpoint_id, "storage_endpoint.dfs_folder_created",
+                                                              payload.folder, target=target)
+    parts = [part for part in target.split("\\") if part]
+    if not target.startswith("\\\\") or len(parts) < 2:
+        raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "DFS_TARGET_INVALID", "The target is a network path such as \\\\server\\share")
+    same = next((link for link in links if str(link.get("path") or "").lower() == folder.lower()), None)
+    if same and any(str(t).lower() == target.lower() for t in (same.get("targets") or [])):
+        raise operation.refused(status.HTTP_409_CONFLICT, "DFS_FOLDER_EXISTS", "This DFS folder already leads to this target")
+    await _run_dfs_job(operation, endpoint, "create", {"path": path, "folder": folder, "target_unc": target}, "DFS_FOLDER_CREATE_FAILED")
+    if same:
+        same["targets"] = [*(same.get("targets") or []), target]
+    else:
+        links.append({"path": folder, "targets": [target]})
+    _save_dfs_links(endpoint, links)
+    operation.log("success")
+    db.commit()
+    return ui_data({"path": f"{path}\\{folder}", "target": target})
+
+
+@router.delete("/{endpoint_id}/dfs-folders", dependencies=[Depends(admin_only)])
+async def delete_dfs_folder(endpoint_id: int, folder: str, request: Request, db: Session = Depends(get_db)):
+    """Remove a DFS folder and all its targets. The shares and their files are not touched; refused while it is managed."""
+    from app.services.dfs_links import describe_links
+
+    endpoint, operation, path, folder, links = _dfs_operation(db, request, endpoint_id, "storage_endpoint.dfs_folder_deleted", folder)
+    link = next((row for row in describe_links(db, endpoint) if str(row.get("path") or "").lower() == folder.lower()), None)
+    if link is None:
+        raise operation.refused(status.HTTP_404_NOT_FOUND, "DFS_FOLDER_NOT_FOUND", "This DFS folder is not in the last reading of the namespace")
+    if any(target.get("storage_root_id") for target in link.get("targets") or []):
+        raise operation.refused(status.HTTP_409_CONFLICT, "DFS_FOLDER_MANAGED",
+                                "BornToShare manages the folders behind this DFS folder: its users reach them through it")
+    targets = [str(target.get("unc")) for target in link.get("targets") or [] if target.get("unc")]
+    await _run_dfs_job(operation, endpoint, "delete", {"path": path, "folder": folder, "targets": targets}, "DFS_FOLDER_DELETE_FAILED")
+    _save_dfs_links(endpoint, [row for row in links if str(row.get("path") or "").lower() != folder.lower()])
+    operation.log("success", targets=targets)
+    db.commit()
+    return ui_data({"path": f"{path}\\{folder}", "targets": targets})
+
+
 @router.post("/{endpoint_id}/shares", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_only)])
 async def create_endpoint_share(endpoint_id: int, payload: ShareCreatePayload, request: Request, db: Session = Depends(get_db)):
     """Create a share on the file server with its account, which must be a local administrator of the server."""
     endpoint = _share_endpoint(db, endpoint_id)
     name = payload.name.strip()
     local_path = (payload.path or "").strip() or f"C:\\Shares\\{name}"
-    operation = _ShareOperation(db, request, endpoint, action="storage_endpoint.share_created", share=name,
+    operation = _EndpointOperation(db, request, endpoint, action="storage_endpoint.share_created", share=name,
                                 context={"share": name, "path": local_path})
     if _SHARE_NAME_FORBIDDEN.search(name):
         # Refused here, before a job: the worker would give the same answer
@@ -1098,7 +1210,7 @@ async def delete_endpoint_share(endpoint_id: int, share: str, request: Request, 
     endpoint = _share_endpoint(db, endpoint_id)
     name = share.strip()
     unc = f"\\\\{endpoint.host}\\{name}"
-    operation = _ShareOperation(db, request, endpoint, action="storage_endpoint.share_deleted", share=name,
+    operation = _EndpointOperation(db, request, endpoint, action="storage_endpoint.share_deleted", share=name,
                                 context={"share": name, "unc": unc})
     if not name or _SHARE_NAME_FORBIDDEN.search(name) or name.endswith("$"):
         raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "SHARE_NAME_INVALID", "This share cannot be deleted from BornToShare")

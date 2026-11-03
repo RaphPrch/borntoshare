@@ -1368,6 +1368,14 @@
       "share_deleted": {
         "title": "Partage supprimé",
         "description": "Un partage a été supprimé du serveur « {target} »"
+      },
+      "dfs_folder_created": {
+        "title": "Dossier DFS créé",
+        "description": "Un dossier DFS a été créé dans « {target} »"
+      },
+      "dfs_folder_deleted": {
+        "title": "Dossier DFS supprimé",
+        "description": "Un dossier DFS a été supprimé de « {target} »"
       }
     },
     "tag": {
@@ -3825,5 +3833,29 @@
   "Refused while BornToShare manages a folder in it.": "Refusé tant que BornToShare gère un dossier dedans.",
   "Type the name of the share to confirm": "Saisissez le nom du partage pour confirmer",
   "This share cannot be deleted from BornToShare": "Ce partage ne peut pas être supprimé depuis BornToShare",
-  "BornToShare manages folders in this share: remove them from BornToShare first.": "BornToShare gère des dossiers dans ce partage : retirez-les d'abord de BornToShare."
+  "BornToShare manages folders in this share: remove them from BornToShare first.": "BornToShare gère des dossiers dans ce partage : retirez-les d'abord de BornToShare.",
+  "New DFS folder": "Nouveau dossier DFS",
+  "DFS folder {path} created.": "Dossier DFS {path} créé.",
+  "The DFS folder was not created.": "Le dossier DFS n'a pas été créé.",
+  "DFS folder {path} deleted.": "Dossier DFS {path} supprimé.",
+  "The DFS folder was not deleted.": "Le dossier DFS n'a pas été supprimé.",
+  "Delete the DFS folder {path}": "Supprimer le dossier DFS {path}",
+  "Delete the DFS folder": "Supprimer le dossier DFS",
+  "Delete the DFS folder {path}?": "Supprimer le dossier DFS {path} ?",
+  "DFS folder": "Dossier DFS",
+  "Target share": "Partage cible",
+  "The share the DFS folder leads to: create it first on its file server.": "Le partage vers lequel mène le dossier DFS : créez-le d'abord sur son serveur de fichiers.",
+  "Create the DFS folder": "Créer le dossier DFS",
+  "Its users lose this DFS path.": "Ses utilisateurs perdent ce chemin DFS.",
+  "The shares it leads to and their files stay on their servers.": "Les partages vers lesquels il mène et leurs fichiers restent sur leurs serveurs.",
+  "Refused while BornToShare manages the folders behind it.": "Refusé tant que BornToShare gère les dossiers derrière lui.",
+  "Type the DFS folder to confirm": "Saisissez le dossier DFS pour confirmer",
+  "The account of the namespace is not allowed to manage it: delegate its management to it": "Le compte de l'espace de noms n'a pas le droit de le gérer : déléguez-lui sa gestion",
+  "This DFS folder already leads to this target": "Ce dossier DFS mène déjà vers cette cible",
+  "BornToShare manages the folders behind this DFS folder: its users reach them through it": "BornToShare gère les dossiers derrière ce dossier DFS : ses utilisateurs y accèdent par lui",
+  "This DFS folder is not in the last reading of the namespace": "Ce dossier DFS n'est pas dans la dernière lecture de l'espace de noms",
+  "Read the namespace before changing it": "Lisez l'espace de noms avant de le modifier",
+  "Under {path}. Separate the levels with \\.": "Sous {path}. Séparez les niveaux par \\.",
+  "The target is a network path such as \\\\server\\share": "La cible est un chemin réseau comme \\\\serveur\\partage",
+  "A DFS folder is made of names separated by \\, without / : * ? \" < > |": "Un dossier DFS est fait de noms séparés par \\, sans / : * ? \" < > |"
 }

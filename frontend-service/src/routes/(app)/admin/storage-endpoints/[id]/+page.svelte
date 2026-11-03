@@ -1302,7 +1302,7 @@
 
         {#if activeEndpointTab === 'overview' && selectedIsDfs}
           <div class="sed-overview">
-            <DfsNamespacePanel endpoint={selected} info={dfsInfo} loading={dfsLoading} error={dfsError} busy={dfsBusy} onManage={dfsManage} />
+            <DfsNamespacePanel endpoint={selected} info={dfsInfo} loading={dfsLoading} error={dfsError} busy={dfsBusy} onManage={dfsManage} onChanged={() => selected && void loadDfs(endpointId(selected))} />
             <div class="sed-side">
               <section class="sed-card" aria-label={t('DFS namespace')}>
                 <header>

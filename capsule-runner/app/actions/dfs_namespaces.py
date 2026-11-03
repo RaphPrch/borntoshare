@@ -190,3 +190,111 @@ def read_dfs_namespaces(params: dict[str, Any]):
     if wanted and not namespaces:
         return False, "This namespace was not found on its server.", {**details, "failure_code": "DFS_NAMESPACE_NOT_FOUND"}
     return True, "DFS namespaces read", {**details, "namespaces": namespaces}
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# DFS folders created and removed under a namespace, over RPC (netdfs) on its root server, with the account of the
+# namespace: it must be allowed to manage the namespace (delegation, or domain admin).
+# ----------------------------------------------------------------------------------------------------------------
+
+_FOLDER_FORBIDDEN = re.compile(r'[/:*?"<>|]')
+
+
+def dfs_folder_error(folder: str) -> str | None:
+    parts = folder.strip("\\").split("\\")
+    if not folder.strip("\\") or len(folder) > 255:
+        return "The name of the DFS folder is required, 255 characters at most"
+    if any(not part.strip() or part in {".", ".."} or part != part.strip() or _FOLDER_FORBIDDEN.search(part) for part in parts):
+        return 'A DFS folder is made of names separated by \\, without / : * ? " < > |'
+    return None
+
+
+def split_target(target: str) -> tuple[str, str] | None:
+    """\\\\FILER01\\Finance\\Sub -> (FILER01, Finance\\Sub): the server and what follows it."""
+    parts = [part for part in str(target or "").replace("/", "\\").split("\\") if part]
+    if not str(target or "").startswith(("\\\\", "//")) or len(parts) < 2:
+        return None
+    return parts[0], "\\".join(parts[1:])
+
+
+def _rpc(address: str, command: str, *, username: str, password: str, timeout: int) -> str:
+    done = run_samba(["rpcclient", address, "-c", command], username=username, password=password, capture_output=True, timeout=timeout)
+    return (done.stdout or b"").decode(errors="ignore") + (done.stderr or b"").decode(errors="ignore")
+
+
+def _has_target(info: str, server: str, share: str) -> bool:
+    text = info.lower()
+    return f"server: {server.lower()}" in text and f"share: {share.lower()}" in text
+
+
+def _namespace_server(params: dict[str, Any]) -> tuple[str, str, dict[str, Any]] | tuple[None, str, dict[str, Any]]:
+    path = str(params.get("path") or "").strip().rstrip("\\")
+    folder = str(params.get("folder") or "").strip().strip("\\")
+    details: dict[str, Any] = {"path": path, "folder": folder, "entry": f"{path}\\{folder}"}
+    error = dfs_folder_error(folder)
+    if error:
+        return None, error, {**details, "failure_code": "DFS_FOLDER_INVALID"}
+    located = _root_server(path, username=str(params.get("username") or ""), password=str(params.get("password") or ""),
+                           port=int(params.get("port") or 445))
+    if isinstance(located, str):
+        return None, located, {**details, "failure_code": "DFS_NAMESPACE_NOT_FOUND"}
+    root_host, _ = located
+    address = resolve(root_host)
+    if not address:
+        return None, "The name of the DFS server cannot be resolved", {**details, "failure_code": "DFS_DNS_FAILED"}
+    details["server"] = root_host
+    return address, "", details
+
+
+def _refusal(output: str, details: dict[str, Any], failure: str) -> tuple[bool, str, dict[str, Any]]:
+    if "WERR_ACCESS_DENIED" in output or "NT_STATUS_ACCESS_DENIED" in output:
+        return False, "The account of the namespace is not allowed to manage it: delegate its management to it", {
+            **details, "failure_code": "DFS_ADMIN_REQUIRED"}
+    message = next((line.strip() for line in output.splitlines() if "WERR_" in line or "NT_STATUS_" in line), "")
+    return False, (message or "The DFS server refused the change")[:300], {**details, "failure_code": failure}
+
+
+def dfs_folder_create(params: dict[str, Any]):
+    """Create a DFS folder under the namespace, leading to a share (\\\\server\\share)."""
+    address, message, details = _namespace_server(params)
+    if not address:
+        return False, message, details
+    target = split_target(str(params.get("target_unc") or ""))
+    if not target:
+        return False, "The target is a network path such as \\\\server\\share", {**details, "failure_code": "DFS_TARGET_INVALID"}
+    server, share = target
+    details["target"] = f"\\\\{server}\\{share}"
+    auth = {"username": str(params.get("username") or ""), "password": str(params.get("password") or ""),
+            "timeout": int(params.get("timeout_sec") or 30)}
+    entry = details["entry"]
+    try:
+        if _has_target(_rpc(address, f'dfsgetinfo "{entry}" "{server}" "{share}" 3', **auth), server, share):
+            return False, "This DFS folder already leads to this target", {**details, "failure_code": "DFS_FOLDER_EXISTS"}
+        added = _rpc(address, f'dfsadd "{entry}" "{server}" "{share}" "BornToShare"', **auth)
+        check = _rpc(address, f'dfsgetinfo "{entry}" "{server}" "{share}" 3', **auth)
+    except Exception as exc:
+        return False, f"The DFS server could not be changed: {str(exc)[:200]}", {**details, "failure_code": "DFS_FOLDER_CREATE_FAILED"}
+    if not _has_target(check, server, share):
+        return _refusal(added, details, "DFS_FOLDER_CREATE_FAILED")
+    return True, "DFS folder created", {**details, "created": True}
+
+
+def dfs_folder_delete(params: dict[str, Any]):
+    """Remove a DFS folder: each of its targets, the folder goes with the last one. The shares are not touched."""
+    address, message, details = _namespace_server(params)
+    if not address:
+        return False, message, details
+    targets = [split_target(str(target)) for target in (params.get("targets") or [])]
+    if not targets or any(target is None for target in targets):
+        return False, "The targets of the DFS folder are required", {**details, "failure_code": "DFS_TARGET_INVALID"}
+    auth = {"username": str(params.get("username") or ""), "password": str(params.get("password") or ""),
+            "timeout": int(params.get("timeout_sec") or 30)}
+    entry = details["entry"]
+    try:
+        for server, share in targets:  # type: ignore[misc]
+            removed = _rpc(address, f'dfsremove "{entry}" "{server}" "{share}"', **auth)
+            if _has_target(_rpc(address, f'dfsgetinfo "{entry}" "{server}" "{share}" 3', **auth), server, share):
+                return _refusal(removed, details, "DFS_FOLDER_DELETE_FAILED")
+    except Exception as exc:
+        return False, f"The DFS server could not be changed: {str(exc)[:200]}", {**details, "failure_code": "DFS_FOLDER_DELETE_FAILED"}
+    return True, "DFS folder deleted", {**details, "deleted": True}

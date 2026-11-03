@@ -1,7 +1,11 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
-  import type { DfsInfo, DfsLink } from './dfs-namespace';
+  import AppModal from '$lib/components/ui/AppModal.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import { reportUiError } from '$lib/errors/report';
+  import { toast } from '$lib/stores/toast';
+  import { createDfsFolder, deleteDfsFolder, type DfsInfo, type DfsLink } from './dfs-namespace';
 
   /**
    * The DFS folders of a namespace and the file server folders they lead to, with what is managed.
@@ -13,6 +17,8 @@
   export let error = '';
   export let busy: Record<string, boolean> = {};
   export let onManage: (paths: string[]) => void = () => {};
+  /** A DFS folder was created or removed: the page reads the namespace again. */
+  export let onChanged: () => void = () => {};
 
   const PAGE = 50;
   let query = '';
@@ -32,6 +38,58 @@
     .filter((link) => `${link.path} ${link.targets.map((target) => target.unc).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
   $: if (query || filter) shown = PAGE;
 
+  $: endpointNumber = Number(endpoint?.id ?? endpoint?.storage_endpoint_id ?? 0);
+
+  // A new DFS folder under the namespace, leading to a share
+  let creating = false;
+  let createOpen = false;
+  let newFolder = '';
+  let newTarget = '';
+  let createError = '';
+  $: canCreate = Boolean(newFolder.trim()) && /^\\\\[^\\]+\\[^\\]+/.test(newTarget.trim());
+
+  function openCreate() {
+    newFolder = '';
+    newTarget = '';
+    createError = '';
+    createOpen = true;
+  }
+
+  async function submitCreate() {
+    creating = true;
+    createError = '';
+    try {
+      const done = await createDfsFolder(fetch, endpointNumber, newFolder.trim(), newTarget.trim());
+      toast.success(t('DFS folder {path} created.', { path: done.path }));
+      createOpen = false;
+      onChanged();
+    } catch (e) {
+      createError = reportUiError(e, t('The DFS folder was not created.'), 'storage-endpoint.dfs-folder-create');
+    } finally {
+      creating = false;
+    }
+  }
+
+  // A DFS folder that BornToShare does not manage can be removed; the shares behind it stay
+  let toDelete: DfsLink | null = null;
+  let deleting = false;
+
+  async function confirmDelete() {
+    const link = toDelete;
+    if (!link) return;
+    deleting = true;
+    try {
+      await deleteDfsFolder(fetch, endpointNumber, link.path);
+      toast.success(t('DFS folder {path} deleted.', { path: link.dfs_path || link.path }));
+      toDelete = null;
+      onChanged();
+    } catch (e) {
+      reportUiError(e, t('The DFS folder was not deleted.'), 'storage-endpoint.dfs-folder-delete');
+    } finally {
+      deleting = false;
+    }
+  }
+
   const STATE: Record<DfsLink['state'], { label: () => string; tone: string }> = {
     managed: { label: () => t('Managed'), tone: 'ok' },
     partial: { label: () => t('Partly managed'), tone: 'warn' },
@@ -44,6 +102,9 @@
 <section class="card" aria-label={t('DFS folders')}>
   <header>
     <h2>{t('DFS folders')}</h2>
+    {#if info}
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={openCreate}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('New DFS folder')}</button>
+    {/if}
   </header>
 {#if loading && !info}
   <p class="empty">{t('Loading…')}</p>
@@ -80,6 +141,9 @@
             {:else if link.state === 'managed'}
               <a class="link" href={`/storage-roots?selected=${link.targets[0]?.storage_root_id}`}>{t('Open')}</a>
             {/if}
+            {#if link.state !== 'managed' && link.state !== 'partial'}
+              <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" aria-label={t('Delete the DFS folder {path}', { path: link.path })} title={t('Delete the DFS folder')} on:click={() => (toDelete = link)}><i class="bi bi-trash" aria-hidden="true"></i></button>
+            {/if}
           </span>
         </li>
       {/each}
@@ -94,6 +158,50 @@
   <InlineAlert tone="error">{error}</InlineAlert>
 {/if}
 </section>
+
+<AppModal open={createOpen} onClose={() => (createOpen = false)} title={t('New DFS folder')} subtitle={info?.path ?? null} iconClass="bi bi-diagram-3" closeOnBackdrop={false}>
+  <div class="dfs-form">
+    <label>
+      {t('DFS folder')}
+      <input class="b2s-input" bind:value={newFolder} maxlength="255" placeholder="Corporate\Finance" />
+      <small>{t('Under {path}. Separate the levels with \\.', { path: info?.path ?? '' })}</small>
+    </label>
+    <label>
+      {t('Target share')}
+      <input class="b2s-input mono" bind:value={newTarget} maxlength="512" placeholder="\\FILER01\Finance" />
+      <small>{t('The share the DFS folder leads to: create it first on its file server.')}</small>
+    </label>
+    {#if createError}<InlineAlert tone="error">{createError}</InlineAlert>{/if}
+  </div>
+  <svelte:fragment slot="footer">
+    <button type="button" class="b2s-btn b2s-btn-ghost" disabled={creating} on:click={() => (createOpen = false)}>{t('Cancel')}</button>
+    <button type="button" class="b2s-btn b2s-btn-primary" disabled={creating || !canCreate} on:click={submitCreate}>{creating ? t('Creating…') : t('Create the DFS folder')}</button>
+  </svelte:fragment>
+</AppModal>
+
+<ConfirmActionModal
+  open={Boolean(toDelete)}
+  onClose={() => (toDelete = null)}
+  onConfirm={confirmDelete}
+  severity="danger"
+  confirmVariant="danger"
+  title={t('Delete the DFS folder {path}?', { path: toDelete?.path ?? '' })}
+  subtitle={toDelete?.dfs_path ?? null}
+  impactTitle={t('Impact')}
+  impactItems={[
+    t('Its users lose this DFS path.'),
+    t('The shares it leads to and their files stay on their servers.'),
+    t('Refused while BornToShare manages the folders behind it.')
+  ]}
+  cancelLabel={t('Cancel')}
+  confirmLabel={t('Delete the DFS folder')}
+  confirmBusyLabel={t('Deleting…')}
+  busy={deleting}
+  requireTextConfirm={true}
+  requiredText={toDelete?.path ?? ''}
+  textConfirmLabel={t('Type the DFS folder to confirm')}
+  textConfirmPlaceholder={toDelete?.path ?? ''}
+/>
 
 <style>
   .card { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
@@ -119,7 +227,10 @@
   .pill--warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
   .pill--bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
   .pill--n { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
-  .act { text-align: right; }
+  .act { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
+  .dfs-form { display: grid; gap: 14px; }
+  .dfs-form label { display: grid; gap: 6px; font-weight: 500; }
+  .dfs-form small { color: var(--b2s-color-text-muted); font-weight: 400; }
   .link { font-size: var(--b2s-text-sm); }
   .more { width: 100%; margin-top: 8px; padding: 8px; border: 1px dashed var(--b2s-color-border-mid); border-radius: var(--b2s-radius-md); background: none; color: var(--b2s-color-text-muted); cursor: pointer; }
   .empty { padding: 20px; text-align: center; color: var(--b2s-color-text-muted); }

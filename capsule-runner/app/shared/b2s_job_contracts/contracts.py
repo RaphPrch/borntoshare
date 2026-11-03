@@ -103,6 +103,18 @@ JOB_CONTRACTS: dict[str, JobContract] = {
         queue_name=QUEUE_ACL,
         actor_name="run_acl_job",
     ),
+    "DFS_FOLDER_CREATE": JobContract(
+        job_type="DFS_FOLDER_CREATE",
+        default_action="dfs_folder_create",
+        queue_name=QUEUE_ACL,
+        actor_name="run_acl_job",
+    ),
+    "DFS_FOLDER_DELETE": JobContract(
+        job_type="DFS_FOLDER_DELETE",
+        default_action="dfs_folder_delete",
+        queue_name=QUEUE_ACL,
+        actor_name="run_acl_job",
+    ),
     "FOLDER_DELETE": JobContract(
         job_type="FOLDER_DELETE",
         default_action="folder_delete",

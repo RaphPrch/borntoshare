@@ -23,4 +23,7 @@ assert(upstreamErrorOf(bffAnswer.error.details)?.code === 'STORAGE_ROOT_HAS_ACCE
 assert(upstreamErrorOf({ error: { code: 'X' } }) === null, 'no core refusal');
 assert(toAppError(apiError).code === 'STORAGE_ROOT_HAS_ACCESSES', `business code wins: ${toAppError(apiError).code}`);
 
+const french = Object.assign(new Error('x'), { name: 'ApiError', status: 403, details: { error: { message: 'Access forbidden' } } });
+assert(typeof toAppError(french).message === 'string' && toAppError(french).message.length > 0, 'a message');
+
 console.log('normalize: ok');

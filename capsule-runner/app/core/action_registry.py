@@ -18,7 +18,7 @@ from app.actions.ldap_search import search_ldap_principals
 from app.actions.ldap_test import test_ldap_bind
 from app.actions.directory_discovery import discover_directory
 from app.actions.smb_discovery import discover_smb_server
-from app.actions.dfs_namespaces import read_dfs_namespaces
+from app.actions.dfs_namespaces import dfs_folder_create, dfs_folder_delete, read_dfs_namespaces
 from app.shared.name_resolution import resolve_name
 from app.actions.tls_certificate import fetch_tls_certificate
 from app.actions.smb import test_smb_ntlm, test_smb_root_access
@@ -38,6 +38,7 @@ from app.schemas.actions import (
     LDAPTestPayload,
     DirectoryDiscoveryPayload,
     SMBDiscoveryPayload,
+    DFSFolderPayload,
     DFSReadPayload,
     NameResolutionPayload,
     TLSCertificatePayload,
@@ -110,6 +111,20 @@ ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
         runner=read_dfs_namespaces,
         secret_fields=("secret_ref",),
         target_field="host",
+    ),
+    "dfs_folder_create": ActionSpec(
+        action="dfs_folder_create",
+        schema=DFSFolderPayload,
+        runner=dfs_folder_create,
+        secret_fields=("secret_ref",),
+        target_field="path",
+    ),
+    "dfs_folder_delete": ActionSpec(
+        action="dfs_folder_delete",
+        schema=DFSFolderPayload,
+        runner=dfs_folder_delete,
+        secret_fields=("secret_ref",),
+        target_field="path",
     ),
     "resolve_name": ActionSpec(
         action="resolve_name",

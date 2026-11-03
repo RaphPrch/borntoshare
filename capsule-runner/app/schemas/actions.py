@@ -73,6 +73,29 @@ class DFSReadPayload(BaseModel):
         return self
 
 
+class DFSFolderPayload(BaseModel):
+    """A DFS folder created (one target) or removed (all its targets) under a namespace."""
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(min_length=3, max_length=512)
+    folder: str = Field(min_length=1, max_length=255)
+    # Not « target »: the job already uses that key for its whole target block
+    target_unc: Optional[str] = Field(default=None, max_length=512)
+    targets: list[str] = Field(default_factory=list, max_length=32)
+    username: str = Field(min_length=1, max_length=255)
+    password: Optional[str] = Field(default=None, min_length=1, max_length=1024)
+    secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)
+    port: int = Field(default=445, ge=1, le=65535)
+    domain: Optional[str] = Field(default=None, max_length=255)
+    timeout_sec: int = Field(default=30, ge=1, le=300)
+
+    @model_validator(mode="after")
+    def _check_secret_or_password(self) -> "DFSFolderPayload":
+        if not self.password and not self.secret_ref:
+            raise ValueError("password or secret_ref is required")
+        return self
+
+
 class NameResolutionPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

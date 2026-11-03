@@ -179,6 +179,14 @@
       "share_deleted": {
         "title": "Share deleted",
         "description": "A share was deleted from the server “{target}”"
+      },
+      "dfs_folder_created": {
+        "title": "DFS folder created",
+        "description": "A DFS folder was created in “{target}”"
+      },
+      "dfs_folder_deleted": {
+        "title": "DFS folder deleted",
+        "description": "A DFS folder was deleted from “{target}”"
       }
     },
     "tag": {
