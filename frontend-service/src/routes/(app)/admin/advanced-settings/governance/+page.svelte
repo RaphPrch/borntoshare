@@ -40,7 +40,7 @@
 <ConfigCard title={t('Governance')} subtitle={t('Rules every governed folder must follow.')}>
   <div class="adv-form-grid">
     <SettingRow label={t('Minimum guardians per folder')}>
-      <input class="form-control" type="number" min="1" max="10" step="1" bind:value={minGuardians} />
+      <input class="b2s-input" type="number" min="1" max="10" step="1" bind:value={minGuardians} />
       {#if rangeError}
         <FieldError>{rangeError}</FieldError>
       {/if}

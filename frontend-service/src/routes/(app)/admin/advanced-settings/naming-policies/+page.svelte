@@ -131,7 +131,7 @@
 <ConfigCard title={t('Naming policy')} subtitle={t('Global naming of the AD groups')} icon="bi-input-cursor-text">
   <div class="adv-form-grid">
     <SettingRow label={t('Prefix')} help="Global prefix added to generated groups.">
-      <input class="form-control" bind:value={policy.group_prefix} />
+      <input class="b2s-input" bind:value={policy.group_prefix} />
       {#if groupPrefixError}
         <FieldError>{groupPrefixError}</FieldError>
       {/if}
@@ -141,14 +141,14 @@
       label={t('Template')}
       help={t('Available tokens: {tokens}.', { tokens: '{PREFIX}, {ROOTCODE}, {PERM}' })}
     >
-      <input class="form-control" bind:value={policy.template} />
+      <input class="b2s-input" bind:value={policy.template} />
       {#if templateError}
         <FieldError>{templateError}</FieldError>
       {/if}
     </SettingRow>
 
     <SettingRow label={t('Max sAM length')}>
-      <input class="form-control" type="number" min="8" max="256" bind:value={policy.max_sam_length} />
+      <input class="b2s-input" type="number" min="8" max="256" bind:value={policy.max_sam_length} />
       {#if maxSamError}
         <FieldError>{maxSamError}</FieldError>
       {/if}
@@ -169,7 +169,7 @@
     </SettingRow>
 
     <SettingRow label={t('Replace map (JSON)')}>
-      <textarea class="form-control" rows="4" bind:value={replaceMapText}></textarea>
+      <textarea class="b2s-input" rows="4" bind:value={replaceMapText}></textarea>
       {#if replaceMapError}
         <FieldError>{replaceMapError}</FieldError>
       {/if}

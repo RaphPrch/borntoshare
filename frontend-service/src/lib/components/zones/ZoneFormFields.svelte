@@ -16,7 +16,7 @@
   <label class="b2s-form-label" for="zone-name">{t('Zone name')} <span class="req" aria-hidden="true">*</span></label>
   <input
     id="zone-name"
-    class="b2s-form-control"
+    class="b2s-input"
     bind:value={form.name}
     placeholder={t('Enter a zone name')}
     required
@@ -31,7 +31,7 @@
   <label class="b2s-form-label" for="zone-code">{t('Zone code')} <span>{t('(optional)')}</span></label>
   <input
     id="zone-code"
-    class="b2s-form-control"
+    class="b2s-input"
     bind:value={form.code}
     placeholder={t('Governance')}
     autocomplete="off"
@@ -56,7 +56,7 @@
 {/if}
 
 <style>
-  /* Fields: shared .b2s-form-label / .b2s-form-control (same as the storage endpoint forms) */
+  /* Fields: shared .b2s-form-label / .b2s-input (same as the storage endpoint forms) */
   .zone-form-field {
     display: grid;
   }

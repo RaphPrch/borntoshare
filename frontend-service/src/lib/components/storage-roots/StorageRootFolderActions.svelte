@@ -149,7 +149,7 @@
   <div class="sub">
     <label class="sub__field">
       <span>{t('Folder name')}</span>
-      <input bind:this={nameInput} class="b2s-form-control" type="text" bind:value={folderName} maxlength="255" autocomplete="off"
+      <input bind:this={nameInput} class="b2s-input" type="text" bind:value={folderName} maxlength="255" autocomplete="off"
         aria-invalid={Boolean(nameError)} on:input={() => (nameError = '')} />
       {#if nameError}<small class="sub__error">{nameError}</small>{/if}
       {#if folderName && !nameError}<small class="sub__path">{target?.path}\{folderName}</small>{/if}

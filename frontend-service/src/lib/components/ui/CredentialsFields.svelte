@@ -97,7 +97,7 @@
     <div class="se-form-item">
       <label for={`${uid}-username`}>{usernameLabel}</label>
       <input
-        class="se-input"
+        class="b2s-input"
         type="text"
         bind:value={username}
         id={`${uid}-username`}
@@ -111,7 +111,7 @@
       <label for={`${uid}-password`}>{passwordLabel}</label>
       <div class="se-password">
         <input
-          class="se-input"
+          class="b2s-input"
           type={reveal ? 'text' : 'password'}
           bind:value={password}
         id={`${uid}-password`}
@@ -132,7 +132,7 @@
       {#if showSecretRef}
         <small class="se-muted">{t('or existing secret_ref')}</small>
         <input
-          class="se-input"
+          class="b2s-input"
           type="text"
           bind:value={secret_ref}
           placeholder={t('vault://…')}

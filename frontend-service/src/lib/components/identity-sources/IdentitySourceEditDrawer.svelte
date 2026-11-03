@@ -472,14 +472,14 @@
       <div class="identity-edit-grid">
         <label class="identity-edit-field">
           <span>{t('Display name')}</span>
-          <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.display_name)} bind:value={form.display_name} />
+          <input class="b2s-input" class:is-invalid={showErrors && !normalize(form.display_name)} bind:value={form.display_name} />
           {#if showErrors && !normalize(form.display_name)}
             <FieldError>{t('Required')}</FieldError>
           {/if}
         </label>
         <label class="identity-edit-field">
           <span>{t('Directory type')}</span>
-          <select class="identity-edit-input" bind:value={form.directory_flavor}>
+          <select class="b2s-input" bind:value={form.directory_flavor}>
             <option value="ad">Active Directory</option>
             <option value="openldap">OpenLDAP</option>
           </select>
@@ -516,41 +516,41 @@
           {#if form.tls_verify}
             <div class="identity-edit-field">
               <label for="identity-edit-tls-ca">{t('Certificate authority (PEM)')}</label>
-              <TlsCertificateField id="identity-edit-tls-ca" inputClass="identity-edit-input" hintClass="identity-edit-hint" bind:pem={form.tls_ca_pem} bind:serverName={form.tls_server_name} host={form.host} port={form.port} />
+              <TlsCertificateField id="identity-edit-tls-ca" inputClass="b2s-input" hintClass="identity-edit-hint" bind:pem={form.tls_ca_pem} bind:serverName={form.tls_server_name} host={form.host} port={form.port} />
             </div>
             <label class="identity-edit-field">
               <span>{t('Name in the certificate')}</span>
-              <input class="identity-edit-input" bind:value={form.tls_server_name} placeholder="dc01.example.test" />
+              <input class="b2s-input" bind:value={form.tls_server_name} placeholder="dc01.example.test" />
               <small class="identity-edit-hint">{t('Only if the host is an IP address.')}</small>
             </label>
           {/if}
         {/if}
         <label class="identity-edit-field">
           <span>{t('User search filter')}</span>
-          <input class="identity-edit-input" bind:value={form.user_filter} placeholder="(sAMAccountName=&#123;username&#125;)" />
+          <input class="b2s-input" bind:value={form.user_filter} placeholder="(sAMAccountName=&#123;username&#125;)" />
           <small class="identity-edit-hint">{t('Used at sign-in. Leave empty for the default filter.')}</small>
         </label>
         <label class="identity-edit-field">
           <span>{t('Hostname / IP')}</span>
-          <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.host)} bind:value={form.host} />
+          <input class="b2s-input" class:is-invalid={showErrors && !normalize(form.host)} bind:value={form.host} />
           {#if showErrors && !normalize(form.host)}
             <FieldError>{t('Required')}</FieldError>
           {/if}
         </label>
         <label class="identity-edit-field">
           <span>{t('Port')}</span>
-          <input class="identity-edit-input" type="number" min="1" max="65535" bind:value={form.port} />
+          <input class="b2s-input" type="number" min="1" max="65535" bind:value={form.port} />
         </label>
         <label class="identity-edit-field identity-edit-field--full">
           <span>{t('Base DN')}</span>
-          <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.base_dn)} bind:value={form.base_dn} />
+          <input class="b2s-input" class:is-invalid={showErrors && !normalize(form.base_dn)} bind:value={form.base_dn} />
           {#if showErrors && !normalize(form.base_dn)}
             <FieldError>{t('Required')}</FieldError>
           {/if}
         </label>
         <label class="identity-edit-field identity-edit-field--full">
           <span>{t('Domain name')}</span>
-          <input class="identity-edit-input" bind:value={form.domain_name} placeholder={suggestedDomain || 'example.test'} />
+          <input class="b2s-input" bind:value={form.domain_name} placeholder={suggestedDomain || 'example.test'} />
           <small class="identity-edit-hint">{t('Users can sign in as user@domain or DOMAIN\\user. Empty: derived from the base DN.')}</small>
         </label>
         <div class="identity-edit-note identity-edit-field--full">
@@ -570,7 +570,7 @@
       <div class="identity-edit-grid">
         <label class="identity-edit-field">
           <span>{t('Bind DN')}</span>
-          <input class="identity-edit-input" class:is-invalid={showErrors && !normalize(form.bind_dn)} bind:value={form.bind_dn} />
+          <input class="b2s-input" class:is-invalid={showErrors && !normalize(form.bind_dn)} bind:value={form.bind_dn} />
           {#if showErrors && !normalize(form.bind_dn)}
             <FieldError>{t('Required')}</FieldError>
           {/if}
@@ -579,7 +579,7 @@
           <span>{t('Bind password')}</span>
           <div class="identity-edit-input-action">
             <input
-              class="identity-edit-input"
+              class="b2s-input"
               type={showPassword ? 'text' : 'password'}
               bind:value={form.bind_password}
               placeholder={form.bind_password_ref ? t('Stored secret unchanged') : t('AD account password')}
@@ -880,39 +880,6 @@
     grid-column: 1 / -1;
   }
 
-  .identity-edit-input {
-    width: 100%;
-    min-height: 38px;
-    border: 1px solid var(--b2s-color-border-soft);
-    border-radius: var(--b2s-radius-sm);
-    background: var(--b2s-color-surface);
-    color: var(--b2s-color-heading);
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .identity-edit-input {
-    padding: 0 12px;
-    outline: 0;
-  }
-
-  .identity-edit-input:focus {
-    border-color: #8db5ff;
-    box-shadow: 0 0 0 3px rgba(11, 99, 244, 0.12);
-  }
-
-  .identity-edit-input.is-invalid {
-    border-color: #fca5a5;
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08);
-  }
-
-  .identity-edit-input:disabled {
-    color: var(--b2s-color-text-muted);
-    background: var(--b2s-color-surface-soft);
-  }
-
-
-
-
   .identity-edit-field .form-switch {
     display: flex;
     align-items: center;
@@ -954,7 +921,7 @@
     align-items: center;
   }
 
-  .identity-edit-input-action .identity-edit-input {
+  .identity-edit-input-action .b2s-input {
     padding-right: 42px;
   }
 

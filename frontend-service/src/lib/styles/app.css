@@ -203,20 +203,6 @@ body.dark {
   padding: var(--b2s-space-4);
 }
 
-.b2s-input {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--b2s-color-border);
-  border-radius: var(--b2s-radius-md);
-  padding: var(--b2s-space-2) var(--b2s-space-3);
-  color: var(--b2s-color-text);
-  outline: none;
-}
-
-.b2s-input:focus {
-  border-color: var(--b2s-color-primary);
-}
-
 .b2s-input-with-action {
   position: relative;
   display: flex;
@@ -1085,30 +1071,6 @@ button.danger:hover {
   .se-link--right {
     justify-self: start;
   }
-}
-
-.se-input {
-  width: 100%;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: var(--b2s-radius-sm);
-  border: 1px solid var(--b2s-color-border);
-  background-color: var(--b2s-color-surface);
-  font-size: var(--b2s-fs-md);
-  font-weight: 400;
-  color: var(--b2s-color-text);
-}
-
-select.se-input {
-  padding-right: 32px;
-  appearance: none;
-  background: var(--b2s-color-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%2364748b' stroke-width='2' d='m2 5 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
-}
-
-.se-input:focus-visible {
-  outline: none;
-  border-color: var(--b2s-topbar-bg, #0b1530);
-  box-shadow: 0 0 0 4px rgba(11, 21, 48, 0.18);
 }
 
 button.primary.ghost {
@@ -2055,11 +2017,10 @@ table th {
 }
 
 /* ============================================================
-   FORMS in wizards and drawers: same sizes everywhere
-   (storage endpoints, zones…). Inputs and selects are 40px like .b2s-select.
+   FIELDS: one style everywhere (.b2s-input), 40px like .b2s-select,
+   the focus ring of the theme; textarea and select variants.
    ============================================================ */
-.b2s-form-control,
-.se-input {
+.b2s-input {
   width: 100%;
   height: 40px;
   padding: 0 12px;
@@ -2072,32 +2033,28 @@ table th {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-textarea.b2s-form-control,
-textarea.se-input {
+textarea.b2s-input {
   height: auto;
   min-height: 88px;
   padding: 10px 12px;
 }
 
-.b2s-form-control::placeholder,
-.se-input::placeholder {
+.b2s-input::placeholder {
   color: var(--b2s-color-text-faint);
 }
 
-.b2s-form-control:focus,
-.se-input:focus {
+.b2s-input:focus,
+.b2s-input:focus-visible {
   border-color: var(--b2s-topbar-bg);
   box-shadow: var(--b2s-focus-ring);
 }
 
-.b2s-form-control:disabled,
-.se-input:disabled {
+.b2s-input:disabled {
   background: var(--b2s-color-surface-soft);
   color: var(--b2s-color-text-muted);
 }
 
-select.b2s-form-control,
-select.se-input {
+select.b2s-input {
   padding-right: 32px;
   appearance: none;
   background: var(--b2s-color-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%2364748b' stroke-width='2' d='m2 5 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
@@ -2121,8 +2078,8 @@ select.se-input {
   opacity: 0.8;
 }
 
-.b2s-form-control.is-invalid,
-.se-input.invalid {
+.b2s-input.is-invalid,
+.b2s-input.invalid {
   border-color: var(--b2s-color-danger);
   box-shadow: 0 0 0 3px var(--b2s-color-danger-soft);
 }

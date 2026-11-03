@@ -206,7 +206,7 @@
         <label for="identity-display-name">{t('Display name')}</label>
         <input
           id="identity-display-name"
-          class="identity-edit-input"
+          class="b2s-input"
           class:invalid={Boolean(displayNameError)}
           type="text"
           bind:value={displayName}
@@ -276,7 +276,7 @@
           <label for="identity-current-password">{t('Current password')}</label>
           <input
             id="identity-current-password"
-            class="identity-edit-input"
+            class="b2s-input"
             type="password"
             bind:value={currentPassword}
             autocomplete="current-password"
@@ -292,7 +292,7 @@
             <label for="identity-new-password">{t('New password optional')}</label>
             <input
               id="identity-new-password"
-              class="identity-edit-input"
+              class="b2s-input"
               type="password"
               bind:value={newPassword}
               autocomplete="new-password"
@@ -307,7 +307,7 @@
             <label for="identity-confirm-password">{t('Confirm password')}</label>
             <input
               id="identity-confirm-password"
-              class="identity-edit-input"
+              class="b2s-input"
               type="password"
               bind:value={confirmPassword}
               autocomplete="new-password"
@@ -416,26 +416,8 @@
     font-weight: 600;
   }
 
-  .identity-edit-input {
-    width: 100%;
-    min-height: 44px;
-    border: 1px solid #d7dfec;
-    border-radius: var(--b2s-radius-md);
-    padding: 0 14px;
-    background: #fff;
-    color: var(--b2s-color-heading);
-    font-size: var(--b2s-fs-md);
-  }
 
-  .identity-edit-input:focus {
-    outline: none;
-    border-color: #2f6df6;
-    box-shadow: 0 0 0 3px rgba(47, 109, 246, 0.12);
-  }
 
-  .identity-edit-input.invalid {
-    border-color: var(--b2s-color-danger, var(--b2s-color-danger));
-  }
 
   .identity-edit-toggle {
     display: inline-flex;

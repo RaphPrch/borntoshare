@@ -661,7 +661,7 @@
           <label for="se-edit-name">{t('Name')} <span class="req">*</span></label>
           <input
             id="se-edit-name"
-            class="se-input"
+            class="b2s-input"
             class:invalid={errName}
             bind:value={name}
             placeholder={t('Main file server')}
@@ -676,7 +676,7 @@
           <label for="se-edit-description">{t('Description')}</label>
           <input
             id="se-edit-description"
-            class="se-input"
+            class="b2s-input"
             bind:value={description}
             placeholder={t('Production SMB storage')}
           />
@@ -689,7 +689,7 @@
       <div class="se-form-grid se-form-grid--identity">
         <div>
           <label for="se-edit-zone">{t('Existing zone')} <span class="req">*</span></label>
-          <select id="se-edit-zone" class="se-input" bind:value={zoneId} disabled={zonesLoading}>
+          <select id="se-edit-zone" class="b2s-input" bind:value={zoneId} disabled={zonesLoading}>
             <option value="">{t('Select zone')}</option>
             {#each zones as z (z.id)}
               <option value={z.id}>{z.name}</option>
@@ -705,7 +705,7 @@
 
         <div>
           <label for="se-edit-identity-source">{t('Identity source (AD)')}</label>
-          <select id="se-edit-identity-source" class="se-input" bind:value={identitySourceId}>
+          <select id="se-edit-identity-source" class="b2s-input" bind:value={identitySourceId}>
             <option value="">{t('No identity source (optional)')}</option>
             {#each activeAdIdentitySources as src (src.id)}
               <option value={src.id}>{src.name ?? t('Source #{id}', { id: src.id })}</option>
@@ -732,7 +732,7 @@
           <div class="b2s-input-with-action">
             <input
               id="se-edit-host"
-              class="se-input"
+              class="b2s-input"
               class:invalid={errHost || errHostFormat}
               bind:value={host}
               placeholder={t('fileserver.domain.local or 10.0.0.12')}
@@ -766,7 +766,7 @@
           <label for="se-edit-port">{t('Port')} <span class="req">*</span></label>
           <input
             id="se-edit-port"
-            class="se-input"
+            class="b2s-input"
             type="number"
             min="1"
             max="65535"
@@ -788,7 +788,7 @@
           <label for="se-edit-username">{t('Username')} <span class="req">*</span></label>
           <input
             id="se-edit-username"
-            class="se-input"
+            class="b2s-input"
             class:invalid={errUsername}
             bind:value={username}
             placeholder="DOMAIN\service-account"
@@ -804,7 +804,7 @@
           <div class="b2s-input-with-action">
             <input
               id="se-edit-password"
-              class="se-input"
+              class="b2s-input"
               type={showPassword ? "text" : "password"}
               bind:value={password}
               placeholder={t('Leave empty to keep current')}
@@ -842,7 +842,7 @@
 
       <div class="se-form-block">
         <label for="se-edit-roots-filter">{t('Filter roots')}</label>
-        <input id="se-edit-roots-filter" class="se-input" bind:value={rootsQuery} placeholder={t('Filter discovered roots…')} />
+        <input id="se-edit-roots-filter" class="b2s-input" bind:value={rootsQuery} placeholder={t('Filter discovered roots…')} />
       </div>
 
       <div class="se-root-rows">

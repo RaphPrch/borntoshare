@@ -121,10 +121,10 @@
 <ConfigCard title={t('Session limits')} subtitle={t('Apply within a minute, also to the sessions already open.')}>
   <div class="adv-form-grid">
     <SettingRow label={t('Maximum duration (hours)')}>
-      <input class="form-control" type="number" min="1" max="720" step="1" bind:value={ttlHours} />
+      <input class="b2s-input" type="number" min="1" max="720" step="1" bind:value={ttlHours} />
     </SettingRow>
     <SettingRow label={t('Disconnect after inactivity (minutes)')}>
-      <input class="form-control" type="number" min="1" step="1" bind:value={idleMinutes} />
+      <input class="b2s-input" type="number" min="1" step="1" bind:value={idleMinutes} />
       {#if limitsError}<FieldError>{limitsError}</FieldError>{/if}
     </SettingRow>
   </div>
