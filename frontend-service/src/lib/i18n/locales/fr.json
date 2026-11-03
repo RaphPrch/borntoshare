@@ -3801,5 +3801,10 @@
   "calendar": "calendrier",
   "no end": "sans fin",
   "{count} access requests created": "{count} demandes d’accès créées",
-  "{count} requests, one per folder": "{count} demandes, une par dossier"
+  "{count} requests, one per folder": "{count} demandes, une par dossier",
+  "All levels": "Tous niveaux",
+  "Extending…": "Prolongation…",
+  "In force": "En vigueur",
+  "Refused · 30 d": "Refusées · 30 j",
+  "{shown} of {total} request(s)": "{shown} sur {total} demande(s)"
 }

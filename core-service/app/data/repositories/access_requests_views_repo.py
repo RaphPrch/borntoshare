@@ -273,6 +273,24 @@ class AccessRequestsViewsRepo:
             if root_id > 0:
                 row["guardian_name"] = guardian_names.get(root_id)
 
+        # When and with which comment each request was decided (not in the view)
+        ids = [int(r.get("request_id") or 0) for r in rows if int(r.get("request_id") or 0) > 0]
+        if ids:
+            decided = {
+                int(d["id"]): d
+                for d in self.db.execute(
+                    text("SELECT id, decided_at, revoked_at, decision_comment FROM access_requests WHERE id IN :ids").bindparams(
+                        bindparam("ids", expanding=True)
+                    ),
+                    {"ids": ids},
+                ).mappings()
+            }
+            for row in rows:
+                info = decided.get(int(row.get("request_id") or 0)) or {}
+                row["decided_at"] = info.get("decided_at")
+                row["revoked_at"] = info.get("revoked_at")
+                row["decision_comment"] = info.get("decision_comment")
+
         # A deleted folder: its name as recorded when the request was created, and the request says so
         orphans = [int(r.get("request_id") or 0) for r in rows if not str(r.get("storage_root_name") or "").strip()]
         if orphans:

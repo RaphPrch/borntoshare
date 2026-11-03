@@ -1,7 +1,7 @@
 <script lang="ts">
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
-  import Pagination from '$lib/components/ui/Pagination.svelte';
+  import { extendAccess } from '$lib/api/storage-root-permissions';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -46,8 +46,10 @@
   let segment: Segment = data.segment ?? 'pending';
   let searchText = data.query ?? '';
   let accessFilter: 'all' | AccessKind = 'all';
-  let listPage = 1;
-  let listPageSize = 10;
+  const PAGE = 50;
+  let shown = PAGE;
+  // Two more views of the counters: accesses ending within 30 days, requests refused in the last 30 days
+  let extra: 'none' | 'ending' | 'refused' = 'none';
 
   let selectedRequestId: number | null = null;
   let selectedRequestDetail: any | null = null;
@@ -159,16 +161,28 @@
   // Counters (computed on every request the user can see)
   $: now = Date.now();
   $: pendingRows = requests.filter(isPending);
-  $: oldestPendingMs = pendingRows.reduce((min, row) => Math.min(min, createdMs(row) || now), now);
   $: appliedRows = requests.filter(isApplied);
-  $: appliedRecent = appliedRows.filter((row) => now - createdMs(row) <= 30 * DAY).length;
-  $: closedRows = requests.filter((row) => segmentOf(row) === 'closed');
-  $: rejectedCount = closedRows.filter((row) => ['rejected', 'failed'].includes(statusOf(row))).length;
-  $: expiringSoon = appliedRows.filter((row) => expiresMs(row) > now && expiresMs(row) - now <= 7 * DAY).length;
-  $: segmentCounts = { pending: pendingRows.length, applied: appliedRows.length, closed: closedRows.length, all: requests.length };
+
+  const decidedMs = (row: any): number => new Date(String(row?.decided_at ?? row?.revoked_at ?? row?.updated_at ?? '')).getTime() || 0;
+  const endingSoon = (row: any): boolean => isApplied(row) && expiresMs(row) > now && expiresMs(row) - now <= 30 * DAY;
+  const refusedRecently = (row: any): boolean => statusOf(row) === 'rejected' && now - decidedMs(row) <= 30 * DAY;
+  $: counters = [
+    { key: 'pending', label: t('To review'), count: pendingRows.length, tone: pendingRows.length ? 'warn' : '' },
+    { key: 'applied', label: t('In force'), count: appliedRows.length, tone: '' },
+    { key: 'ending', label: t('Ending within 30 days'), count: requests.filter(endingSoon).length, tone: '' },
+    { key: 'refused', label: t('Refused · 30 d'), count: requests.filter(refusedRecently).length, tone: '' },
+    { key: 'all', label: t('All'), count: requests.length, tone: '' }
+  ];
+  $: activeCounter = extra !== 'none' ? extra : segment === 'closed' ? 'all' : segment;
+  function pickCounter(key: string): void {
+    if (key === 'ending') { extra = 'ending'; selectSegment('applied'); }
+    else if (key === 'refused') { extra = 'refused'; selectSegment('closed'); }
+    else { extra = 'none'; selectSegment(key as Segment); }
+  }
 
   $: visibleRequests = requests
     .filter((row) => segment === 'all' || segmentOf(row) === segment)
+    .filter((row) => extra === 'none' || (extra === 'ending' ? endingSoon(row) : refusedRecently(row)))
     .filter((row) => accessFilter === 'all' || accessKind(row) === accessFilter)
     .filter((row) => {
       const q = norm(searchText);
@@ -176,8 +190,8 @@
       return [requesterName(row), requesterDepartment(row), resourceName(row), resourcePath(row), requestCode(row)].map(norm).join(' ').includes(q);
     })
     .sort((a, b) => createdMs(b) - createdMs(a));
-  $: segment, accessFilter, searchText, (listPage = 1);
-  $: pageRequests = visibleRequests.slice((listPage - 1) * listPageSize, listPage * listPageSize);
+  $: segment, extra, accessFilter, searchText, (shown = PAGE);
+  $: pageRequests = visibleRequests.slice(0, shown);
 
   $: selectedRequest = selectedRequestId
     ? selectedRequestDetail ?? requests.find((row) => accessRequestId(row) === selectedRequestId) ?? null
@@ -278,11 +292,6 @@
     }
   }
 
-  const SEGMENTS: Segment[] = ['pending', 'applied', 'closed', 'all'];
-  // Labels are translated when read
-  const segmentLabel = (key: Segment): string =>
-    ({ pending: t('To review'), applied: t('Applied'), closed: t('Closed'), all: t('All') })[key];
-
   function setUrl(update: (params: URLSearchParams) => void): void {
     const params = new URLSearchParams($page.url.searchParams);
     update(params);
@@ -293,6 +302,24 @@
   function selectSegment(key: Segment): void {
     segment = key;
     setUrl((params) => params.set('status', key));
+  }
+
+  // Guardians move the end of an access in force
+  let extending = false;
+  async function extendSelected(): Promise<void> {
+    const id = selectedRequest ? accessRequestId(selectedRequest) : 0;
+    if (!id || extending) return;
+    extending = true;
+    try {
+      const result = await extendAccess(fetch, Number(id), 30);
+      toast.success(t('Access extended until {date}.', { date: formatDate(result.expires_at ?? '') }));
+      await invalidateAll();
+      selectedRequestDetail = null;
+    } catch (error) {
+      reportUiError(error, t('Unable to extend this access.'), 'access-requests.extend');
+    } finally {
+      extending = false;
+    }
   }
 
   function selectRequest(row: any): void {
@@ -526,9 +553,6 @@
   <header class="sg-head">
     <div class="sg-title">
       <h1>{t('Access requests')}</h1>
-      <p>
-        {t('{pending} to review · {applied} applied · {expiring} ending within 7 days', { pending: pendingRows.length, applied: appliedRows.length, expiring: expiringSoon })}{#if pendingRows.length > 0}{' · '}{t('Oldest: {age}', { age: timeAgo(new Date(oldestPendingMs).toISOString()) })}{/if}
-      </p>
     </div>
     <label class="sg-search" style="flex-basis:340px">
       <i class="bi bi-search" aria-hidden="true"></i>
@@ -540,16 +564,17 @@
     </a>
   </header>
 
+  <div class="ar-counters" role="group" aria-label={t('Request status')}>
+    {#each counters as counter (counter.key)}
+      <button type="button" class:on={activeCounter === counter.key} aria-pressed={activeCounter === counter.key} on:click={() => pickCounter(counter.key)}>
+        <span>{counter.label}</span><b class:warn={counter.tone === 'warn'}>{counter.count}</b>
+      </button>
+    {/each}
+  </div>
+
   <div class="ar-filters">
-    <div class="sg-seg" role="tablist" aria-label={t('Request status')}>
-      {#each SEGMENTS as key}
-        <button type="button" role="tab" aria-selected={segment === key} class:on={segment === key} on:click={() => selectSegment(key)}>
-          {segmentLabel(key)} <span>{segmentCounts[key]}</span>
-        </button>
-      {/each}
-    </div>
-    <div class="sg-chips" role="group" aria-label={t('Access')}>
-      {#each [{ key: 'all', label: t('All access') }, { key: 'read', label: t('Read') }, { key: 'write', label: t('Write') }] as item}
+    <div class="sg-seg" role="group" aria-label={t('Access')}>
+      {#each [{ key: 'all', label: t('All levels') }, { key: 'read', label: t('Read') }, { key: 'write', label: t('Modify') }] as item}
         <button type="button" class:on={accessFilter === item.key} aria-pressed={accessFilter === item.key} on:click={() => (accessFilter = item.key as typeof accessFilter)}>{item.label}</button>
       {/each}
     </div>
@@ -564,7 +589,7 @@
       <strong>{t('{count} selected', { count: checkedIds.size })}</strong>
       <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" on:click={() => (bulkDecisionAsked = 'approve')}>{t('Approve all')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (bulkDecisionAsked = 'reject')}>{t('Reject all')}</button>
-      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (checkedIds = new Set())}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (checkedIds = new Set())}>{t('Clear the selection')}</button>
     </div>
   {/if}
 
@@ -580,16 +605,16 @@
               {/if}
             </th>
             <th>{t('Requester')}</th>
-            <th>{t('Resource')}</th>
-            <th>{t('Access')}</th>
-            {#if segment !== 'pending'}<th>{t('Status')}</th>{/if}
-            <th>{segment === 'pending' ? t('Waiting') : t('Requested')}</th>
+            <th>{t('Folder')}</th>
+            <th>{t('Level')}</th>
+            <th>{t('Status')}</th>
+            {#if !selectedRequest}<th>{t('End')}</th><th>{t('Decision')}</th>{/if}
           </tr>
         </thead>
         <tbody>
           {#if pageRequests.length === 0}
             <tr>
-              <td colspan="6" class="ar-empty">
+              <td colspan="7" class="ar-empty">
                 {segment === 'pending' ? t('No request is waiting for a review.') : t('No request matches these filters.')}
               </td>
             </tr>
@@ -617,7 +642,7 @@
                     <span class="ar-avatar">{initials(requesterName(request), '??')}</span>
                     <div>
                       <strong>{requesterName(request)}</strong>
-                      {#if requesterDepartment(request)}<small>{requesterDepartment(request)}</small>{/if}
+                      <small class:ar-late={isPending(request) && now - createdMs(request) > 3 * DAY} title={formatDateTime(request.created_at)}>{requestCode(request)} · {timeAgo(request.created_at)}</small>
                     </div>
                   </div>
                 </td>
@@ -628,12 +653,17 @@
                 <td>
                   <StatusBadge compact showDot={false} variant={accessKind(request) === 'write' ? 'warning' : 'info'} label={accessLabel(request)} />
                 </td>
-                {#if segment !== 'pending'}
-                  <td><StatusBadge compact variant={requestToneVariant(meta.tone)} label={meta.label} /></td>
+                <td><StatusBadge compact variant={requestToneVariant(meta.tone)} label={meta.label} /></td>
+                {#if !selectedRequest}
+                  <td class="ar-end">
+                    {#if isApplied(request) && expiresMs(request)}
+                      {@const left = Math.max(0, Math.ceil((expiresMs(request) - now) / DAY))}
+                      <small class:ar-late={left <= 7}>{t('in {days} d', { days: left })}</small>
+                      <span class="ar-bar" aria-hidden="true"><span class:soon={left <= 7} style={`width:${Math.min(100, Math.round((left / Math.max(1, durationDays(request))) * 100))}%`}></span></span>
+                    {:else if isApplied(request)}<small>{t('Permanent')}</small>{:else}<small class="ar-dim">—</small>{/if}
+                  </td>
+                  <td class="ar-nowrap"><small class="ar-dim">{decidedMs(request) && !isPending(request) ? formatDate(new Date(decidedMs(request)).toISOString()) : '—'}</small></td>
                 {/if}
-                <td class="ar-nowrap" class:ar-late={isPending(request) && now - createdMs(request) > 3 * DAY} title={formatDateTime(request.created_at)}>
-                  {timeAgo(request.created_at)}
-                </td>
               </tr>
             {/each}
           {/if}
@@ -641,9 +671,15 @@
       </table>
     </div>
     {#if visibleRequests.length > 0}
-      <Pagination total={visibleRequests.length} bind:page={listPage} bind:pageSize={listPageSize} pageSizes={[10, 25, 50]} />
+      <div class="ar-foot">
+        <span>{t('{shown} of {total} request(s)', { shown: pageRequests.length, total: visibleRequests.length })}</span>
+        {#if pageRequests.length < visibleRequests.length}
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => (shown += PAGE)}>{t('Show {count} more', { count: Math.min(PAGE, visibleRequests.length - pageRequests.length) })}</button>
+        {/if}
+      </div>
     {/if}
   </section>
+{#if selectedRequest}
 <aside class="b2s-panel ar-side" aria-label={t('Decision')}>
   {#if selectedRequest}
     <div class="ar-side-head">
@@ -855,6 +891,11 @@
         {decisionRunning === 'approve' ? t('Approving…') : t('Approve')}
       </button>
     {:else}
+      {#if canRevokeSelected && expiresMs(selectedRequest)}
+        <button type="button" class="b2s-btn b2s-btn-secondary" disabled={extending} on:click={extendSelected}>
+          <i class="bi bi-calendar-plus" aria-hidden="true"></i>{extending ? t('Extending…') : t('Extend by 30 days')}
+        </button>
+      {/if}
       {#if canRevokeSelected}
         <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={Boolean(decisionRunning)} on:click={() => (showRevokeConfirm = true)}>
           <i class="bi bi-person-x" aria-hidden="true"></i>
@@ -864,13 +905,9 @@
     {/if}
   </div>
   </div>
-  {:else}
-    <div class="sg-side-empty">
-      <i class="bi bi-inbox" aria-hidden="true"></i>
-      <p>{t('Select a request to see what its approval does.')}</p>
-    </div>
   {/if}
 </aside>
+{/if}
   </div>
 </div>
 
@@ -1313,4 +1350,18 @@
   }
   .ar-reason { display: flex; flex-direction: column; gap: 2px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--b2s-color-danger-border, #f0c4c4); border-radius: var(--b2s-radius-md); background: var(--b2s-color-danger-soft); font-size: var(--b2s-fs-sm); }
   .ar-reason strong { color: var(--b2s-color-danger-strong); }
+  .ar-counters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  .ar-counters button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); text-align: left; cursor: pointer; }
+  .ar-counters button.on { border-color: var(--b2s-color-text); box-shadow: inset 0 0 0 1px var(--b2s-color-text); }
+  .ar-counters span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .ar-counters b { font-size: 22px; font-weight: 600; line-height: 1.2; }
+  .ar-counters b.warn { color: var(--b2s-color-warning-strong); }
+  .ar-end { min-width: 90px; }
+  .ar-bar { display: block; height: 4px; margin-top: 4px; overflow: hidden; border-radius: 99px; background: var(--b2s-color-border-soft, #e9ebf0); }
+  .ar-bar span { display: block; height: 4px; background: var(--b2s-color-info); }
+  .ar-bar span.soon { background: var(--b2s-color-warning); }
+  .ar-dim { color: var(--b2s-color-text-muted); }
+  .ar-foot { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--b2s-color-border); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .ar-foot span { margin-right: auto; }
+  .ar-person small { white-space: nowrap; }
 </style>
