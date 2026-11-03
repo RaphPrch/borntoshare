@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
@@ -138,7 +139,7 @@
       <li>
         <span class="name"><strong>{share.name}</strong></span>
         {#if share.managed}
-          <span class="pill">{t('Managed')}</span>
+          <StatusBadge compact variant="success" label={t('Managed')} />
         {:else}
           <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={adding[share.root_path]} on:click={() => add(share)}>{adding[share.root_path] ? t('Adding…') : t('Manage')}</button>
           {#if share.managed_below}
@@ -194,7 +195,6 @@
   .list li + li { border-top: 1px solid var(--b2s-color-border); }
   .name { flex: 1; min-width: 0; }
   .name strong { font-weight: 500; }
-  .pill { padding: 1px 8px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); font-size: var(--b2s-font-micro); font-weight: 500; }
   .empty { padding: 20px; text-align: center; color: var(--b2s-color-text-muted); }
   .also { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 </style>

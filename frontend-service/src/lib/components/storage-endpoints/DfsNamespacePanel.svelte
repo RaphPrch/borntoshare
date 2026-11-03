@@ -1,4 +1,7 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
+  // Tones of the states, as StatusBadge variants
+  const TONE_VARIANT: Record<string, 'success' | 'warning' | 'error' | 'muted'> = { ok: 'success', warn: 'warning', bad: 'error', n: 'muted' };
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { t } from '$lib/i18n';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -171,7 +174,7 @@
               <small class="muted">—</small>
             {/each}
           </span>
-          <span class={`pill pill--${state.tone}`}>{link.targets.length > 1 && link.state !== 'unknown_server' ? t('{label} · {count} targets', { label: state.label(), count: link.targets.length }) : state.label()}</span>
+          <StatusBadge compact variant={TONE_VARIANT[state.tone]} label={link.targets.length > 1 && link.state !== 'unknown_server' ? t('{label} · {count} targets', { label: state.label(), count: link.targets.length }) : state.label()} />
           <span class="act">
             {#if link.state === 'to_manage' || link.state === 'partial'}
               <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy[link.path]} on:click={() => onManage([link.path])}>{t('Manage')}</button>
@@ -264,11 +267,6 @@
   .targets { display: flex; flex-direction: column; min-width: 0; }
   .targets small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--b2s-color-text-muted); }
   .targets .unknown { color: var(--b2s-color-danger-strong); }
-  .pill { justify-self: start; padding: 1px 8px; border-radius: var(--b2s-radius-pill); font-size: var(--b2s-font-micro); font-weight: 500; white-space: nowrap; }
-  .pill--ok { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
-  .pill--warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .pill--bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
-  .pill--n { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
   .act { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
   .dfs-form { display: grid; gap: 14px; }
   .dfs-form label { display: grid; gap: 6px; font-weight: 500; }

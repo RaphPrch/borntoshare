@@ -1,4 +1,7 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
+  // Tones of the states, as StatusBadge variants
+  const TONE_VARIANT: Record<string, 'success' | 'warning' | 'error' | 'muted'> = { ok: 'success', warn: 'warning', bad: 'error', n: 'muted' };
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { t } from '$lib/i18n';
 
@@ -53,7 +56,7 @@
       <li>
         <a href={`/storage-roots?selected=${row.id}`}>
           <span class="name"><strong>{row.name}</strong><small>{inside(row)}</small></span>
-          <span class={`pill pill--${s.tone}`}>{s.label}</span>
+          <StatusBadge compact variant={TONE_VARIANT[s.tone]} label={s.label} />
           <span class="req">{(row.pendingCount ?? 0) > 0 ? t('{count} request(s)', { count: row.pendingCount }) : ''}</span>
         </a>
       </li>
@@ -76,11 +79,6 @@
   .name { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
   .name strong { font-weight: 500; white-space: nowrap; }
   .name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--b2s-color-text-muted); font-family: var(--b2s-font-mono); font-size: var(--b2s-font-micro); }
-  .pill { justify-self: start; padding: 1px 8px; border-radius: var(--b2s-radius-pill); font-size: var(--b2s-font-micro); font-weight: 500; white-space: nowrap; }
-  .pill--ok { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
-  .pill--warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .pill--bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
-  .pill--n { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
   .req { color: var(--b2s-color-warning-strong); font-size: var(--b2s-font-micro); text-align: right; }
   .more { width: 100%; margin-top: 8px; padding: 8px; border: 1px dashed var(--b2s-color-border-mid); border-radius: var(--b2s-radius-md); background: none; color: var(--b2s-color-text-muted); cursor: pointer; }
   .empty { padding: 20px; text-align: center; color: var(--b2s-color-text-muted); }

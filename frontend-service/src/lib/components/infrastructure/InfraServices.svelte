@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
@@ -146,7 +147,7 @@
           <tr class:is-off={!service.is_enabled}>
             <td>
               <strong>{service.label}</strong>
-              {#if service.is_builtin}<span class="tag">{t('Platform')}</span>{/if}
+              {#if service.is_builtin}<StatusBadge compact showDot={false} variant="muted" label={t('Platform')} />{/if}
             </td>
             <td>{categoryLabel(service.category)}</td>
             <td><span class="kind">{service.check_kind === 'http' ? 'HTTP(S)' : 'TCP'}</span></td>
@@ -240,14 +241,6 @@
     white-space: nowrap;
   }
 
-  .tag {
-    margin-left: 6px;
-    padding: 1px 7px;
-    border-radius: var(--b2s-radius-pill);
-    background: var(--b2s-color-primary-soft);
-    color: #3730a3;
-    font-size: var(--b2s-fs-xs);
-  }
 
   .kind {
     padding: 2px 8px;

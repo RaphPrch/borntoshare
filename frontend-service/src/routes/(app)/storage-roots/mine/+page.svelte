@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
@@ -38,7 +39,7 @@
     {#each inForce as row (row.request_id)}
       <a class="line" href={`/access-requests?status=applied&request=${row.request_id}`}>
         <span class="main"><strong>{row.storage_root_name}</strong><small class="mono">{row.target_path}</small></span>
-        <span class="pill" class:pill--write={access(row) === t('Modify')}>{access(row)}</span>
+        <StatusBadge compact showDot={false} variant={access(row) === t('Modify') ? 'info' : 'muted'} label={access(row)} />
         <small>{row.requested_for ? t('For {name}', { name: row.requested_for }) : ''}</small>
         <small>{row.expires_at ? t('Ends on {date}', { date: formatDate(row.expires_at) }) : t('No end date')}</small>
       </a>
@@ -53,7 +54,7 @@
       {#each waiting as row (row.request_id)}
         <a class="line" href={`/access-requests?status=pending&request=${row.request_id}`}>
           <span class="main"><strong>{row.storage_root_name}</strong><small class="mono">{row.target_path}</small></span>
-          <span class="pill" class:pill--write={access(row) === t('Modify')}>{access(row)}</span>
+          <StatusBadge compact showDot={false} variant={access(row) === t('Modify') ? 'info' : 'muted'} label={access(row)} />
           <small>{row.requested_for ? t('For {name}', { name: row.requested_for }) : ''}</small>
           <small>{t('Asked on {date}', { date: formatDate(row.created_at) })}</small>
         </a>
@@ -76,6 +77,4 @@
   .main strong { font-weight: 500; }
   .main small, .line > small { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mono { font-family: var(--b2s-font-mono); }
-  .pill { justify-self: start; padding: 1px 9px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: var(--b2s-font-micro); font-weight: 500; }
-  .pill--write { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
 </style>
