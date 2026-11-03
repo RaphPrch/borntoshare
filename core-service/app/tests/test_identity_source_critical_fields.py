@@ -16,5 +16,9 @@ def test_switching_to_ldaps_is_allowed() -> None:
     assert changed_critical_fields(SOURCE, {"protocol": "ldaps", "port": 636}) == []
 
 
-def test_another_server_or_base_dn_is_a_change() -> None:
-    assert changed_critical_fields(SOURCE, {"host": "dc02.example.test", "base_dn": "DC=other,DC=test"}) == ["base_dn", "host"]
+def test_another_domain_controller_is_allowed() -> None:
+    assert changed_critical_fields(SOURCE, {"host": "dc02.example.test"}) == []
+
+
+def test_another_base_dn_is_a_change() -> None:
+    assert changed_critical_fields(SOURCE, {"host": "dc02.example.test", "base_dn": "DC=other,DC=test"}) == ["base_dn"]

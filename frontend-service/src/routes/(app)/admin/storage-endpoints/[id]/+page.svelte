@@ -1408,9 +1408,9 @@
   confirmBusyLabel={t('Deleting…')}
   busy={deleteBusy}
   requireTextConfirm={true}
-  requiredText=DELETE
-  textConfirmLabel={t('Type')}
-  textConfirmPlaceholder=DELETE
+  requiredText={endpointName(endpointToDelete)}
+  textConfirmLabel={t('Type the name of the server to confirm')}
+  textConfirmPlaceholder={endpointName(endpointToDelete)}
 />
 
 <style>

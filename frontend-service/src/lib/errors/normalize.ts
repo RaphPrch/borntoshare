@@ -72,9 +72,12 @@ function extractCode(record: Record<string, unknown> | null): string | undefined
   return asString(record.code) ?? asString(record.error_code);
 }
 
-/** Business code of the service behind the BFF (details.upstream_detail.error.code). */
+/** Business code of the service behind the BFF: details.upstream_detail.error.code, or the same under
+ * error.details when the details are the whole BFF answer (ApiError). */
 function extractUpstreamCode(details: unknown): string | undefined {
-  const upstream = asRecord(asRecord(asRecord(details)?.upstream_detail)?.error);
+  const rec = asRecord(details);
+  const bff = asRecord(asRecord(rec?.error)?.details) ?? rec;
+  const upstream = asRecord(asRecord(bff?.upstream_detail)?.error);
   return asString(upstream?.code);
 }
 

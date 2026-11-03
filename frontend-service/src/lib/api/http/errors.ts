@@ -83,7 +83,8 @@ export function normalizeErrorMessage(status: number, payload: unknown, statusTe
 
   if (status === 401) {
     msg = 'Authentication required';
-  } else if (status === 403) {
+  } else if (status === 403 && !usefulString(nestedError?.message) && !detailMessage) {
+    // A refusal that says why (local administrator required…) is shown as is
     msg = 'Access forbidden';
   }
 

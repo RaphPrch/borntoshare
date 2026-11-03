@@ -3807,5 +3807,8 @@
   "In force": "En vigueur",
   "Refused · 30 d": "Refusées · 30 j",
   "{shown} of {total} request(s)": "{shown} sur {total} demande(s)",
-  "Ask again": "Refaire une demande"
+  "Ask again": "Refaire une demande",
+  "Their paths become \\\\{newHost}\\…": "Leurs chemins deviennent \\\\{newHost}\\…",
+  "These characters are refused in a share name: \\ / : * ? \" < > | [ ] ; = , + $": "Ces caractères sont refusés dans un nom de partage : \\ / : * ? \" < > | [ ] ; = , + $",
+  "Type the name of the server to confirm": "Saisissez le nom du serveur pour confirmer"
 }

@@ -468,8 +468,10 @@
       onClose?.();
       onSaved?.();
     } catch (e: any) {
-      const code = String(e?.code ?? e?.details?.error?.code ?? e?.details?.upstream_detail?.error?.code ?? "").trim();
-      const details: any = e?.details?.upstream_detail?.error?.details ?? e?.details?.error?.details ?? e?.details ?? {};
+      // The BFF wraps the core refusal in details.error.details.upstream_detail: its code comes first
+      const upstream: any = e?.details?.error?.details?.upstream_detail?.error ?? null;
+      const code = String(upstream?.code ?? e?.code ?? "").trim();
+      const details: any = upstream?.details ?? {};
       if (code === "ENDPOINT_HOST_HAS_ROOTS") {
         // The storage roots keep \\\\old-host\\... in their path: offer to move them with the server
         guard = {

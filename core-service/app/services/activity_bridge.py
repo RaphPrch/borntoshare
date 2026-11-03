@@ -113,4 +113,8 @@ def write_activity_event(
         value = next((metadata.get(key) for key in keys if isinstance(metadata.get(key), int) and not isinstance(metadata.get(key), bool)), None)
         if value is not None:
             payload[column] = value
+    # The target itself is in its own scope
+    own_column = {"storage_root": "root_id", "storage_endpoint": "endpoint_id", "zone": "zone_id"}.get(str(target_type or ""))
+    if own_column and own_column not in payload and str(target_id or "").isdigit():
+        payload[own_column] = int(str(target_id))
     return create_activity_event(payload)

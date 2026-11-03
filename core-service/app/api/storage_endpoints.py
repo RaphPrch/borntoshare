@@ -824,8 +824,13 @@ def update_endpoint(
             require_ad=require_ad,
         )
 
+    host_moved = "host" in updates and not same_host(str(updates.get("host") or ""), endpoint.host)
     for field, value in updates.items():
         setattr(endpoint, field, value)
+    capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
+    if host_moved and "discovered_roots_snapshot" in capabilities:
+        # The shares found on the previous host carry its address: the next search lists them again
+        endpoint.capabilities = {key: value for key, value in capabilities.items() if key != "discovered_roots_snapshot"}
     for root, new_path in root_path_rewrites:
         root.root_path = new_path
         root.normalized_root_path = normalize_root_path(new_path)

@@ -175,13 +175,14 @@ def _identity_source_dependency_message(counts: dict[str, int]) -> str:
 def changed_critical_fields(src: Any, updates: dict[str, Any]) -> list[str]:
     """Fields that may not change while storage endpoints use the source.
 
-    Endpoints rely on the directory itself (server and base DN). Protocol and port may change:
-    switching the same server to LDAPS is safe. A field sent again with the same value is not a change.
+    Endpoints rely on the directory itself, named by its base DN. The server may change (new address,
+    another domain controller of the same domain), and so may protocol and port: switching to LDAPS is
+    safe. A field sent again with the same value is not a change.
     """
     def same(field: str) -> bool:
         return str(getattr(src, field, None) or "").strip().lower() == str(updates.get(field) or "").strip().lower()
 
-    return sorted(field for field in ("host", "base_dn") if field in updates and not same(field))
+    return sorted(field for field in ("base_dn",) if field in updates and not same(field))
 
 def ensure_unique_source(
     db: Session,
