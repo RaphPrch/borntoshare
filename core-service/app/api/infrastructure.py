@@ -48,6 +48,15 @@ def _audit(actor, action: str, *, outcome: str = "success", target_type: str, ta
 # ============================================================
 
 
+@router.get("/secrets/missing")
+def list_missing_secrets(request: Request, db: Session = Depends(get_db)):
+    """Servers and directories whose password is no longer in the secret store."""
+    from app.services.secret_store import missing_secrets
+
+    _admin(request)
+    return ui_list(missing_secrets(db))
+
+
 @router.get("/overview")
 def get_overview(request: Request, db: Session = Depends(get_db)):
     _admin(request)

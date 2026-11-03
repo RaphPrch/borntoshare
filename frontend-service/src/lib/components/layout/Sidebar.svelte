@@ -80,6 +80,7 @@
     <GlobalSearch {canSeeAdmin} {canSeeStorageRoots} {canSeeObservability} />
     <LanguageSwitcher tone="light" />
     <span class="sb__user" title={name} aria-label={t('Signed-in user {label}', { label: name })}>{initials(name, 'U')}</span>
+    <span class="sb__version" title={t('Built on {date}', { date: new Date(__B2S_BUILT_AT__).toLocaleString() })}>{__B2S_VERSION__}</span>
     <form method="POST" action="/logout">
       <button type="submit" class="sb__item sb__logout">
         <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
@@ -90,6 +91,7 @@
 </nav>
 
 <style>
+  .sb__version { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--b2s-color-text-muted); font-size: 10px; text-align: center; opacity: 0.8; }
   .sb {
     position: sticky;
     top: 0;

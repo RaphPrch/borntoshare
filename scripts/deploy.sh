@@ -21,6 +21,8 @@ for s in $SERVICES; do
   podman tag "localhost/b2s-$s:latest" "localhost/b2s-$s:rollback-$TS"
 done
 
+# Shown in the menu of the application: commit and date of this deploy
+export B2S_VERSION="$(git describe --always --dirty 2>/dev/null || echo unknown) · $(date +%Y-%m-%d)"
 echo "3/4 build + recreate: $SERVICES"
 podman-compose -f podman-compose.yml build $SERVICES
 # The job queue is not rebuilt, but nothing works without it

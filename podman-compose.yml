@@ -141,7 +141,10 @@ services:
     <<: *hardening
     container_name: frontend-service
     image: b2s-frontend-service:latest
-    build: ./frontend-service
+    build:
+      context: ./frontend-service
+      args:
+        B2S_VERSION: ${B2S_VERSION:-}
     environment:
       <<: *common-env
       ORIGIN: ${FRONTEND_PUBLIC_ORIGIN:-http://localhost:3000}

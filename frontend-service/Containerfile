@@ -10,6 +10,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-fund --no-audit
 
 COPY . .
+# Shown in the menu (make deploy gives the git version)
+ARG B2S_VERSION=
+ENV B2S_VERSION=${B2S_VERSION}
 RUN npm run build
 
 # ---------- Runtime ----------

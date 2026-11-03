@@ -44,10 +44,11 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
     try:
         if task == "health_check":
             summary = await run_health_check(db, trigger=trigger)
-            status = "partial" if summary.get("queued_error") or summary.get("core_down") else "success"
+            status = "partial" if summary.get("queued_error") or summary.get("core_down") or summary.get("missing_secrets") else "success"
             message = (
                 f"{summary['core_checks']} checked by core-service, {summary['worker_targets']} sent to a worker"
                 + (f" · queue error: {summary['queued_error']}" if summary.get("queued_error") else "")
+                + (f" · password missing for: {', '.join(summary['missing_secrets'])[:200]}" if summary.get("missing_secrets") else "")
             )
         elif task == "data_sync":
             summary = await run_data_sync(db, trigger=trigger)

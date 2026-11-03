@@ -1,9 +1,18 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import path from 'path';
+import { readFileSync } from 'fs';
+
+// The version shown in the menu: given by make deploy (git), else the package version of a local build
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'));
 
 export default defineConfig({
   plugins: [sveltekit()],
+
+  define: {
+    __B2S_VERSION__: JSON.stringify(process.env.B2S_VERSION || `${pkg.version}-dev`),
+    __B2S_BUILT_AT__: JSON.stringify(new Date().toISOString())
+  },
 
   build: {
     rollupOptions: {

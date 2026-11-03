@@ -6,6 +6,9 @@
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import { formatActivityItem } from '$lib/activity/format';
   import RequestsActivityChart from './RequestsActivityChart.svelte';
+  import { onMount } from 'svelte';
+  import { apiGetList } from '$lib/api/client';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
 
   // Expected (safe) shape:
   // data.stats: { storage_roots, storage_endpoints, admins, pending_requests }
@@ -51,9 +54,34 @@
   const timeLabel = (value: unknown): string => {
     return formatDateTime(value);
   };
+
+  // Passwords gone from the secret store: every use of these objects fails until they are entered again
+  type MissingSecret = { kind: 'storage_endpoint' | 'identity_source'; id: number; name: string; purpose: string | null };
+  let missingSecrets: MissingSecret[] = [];
+  const PURPOSES: Record<string, () => string> = {
+    provisioning: () => t('Manage AD groups'),
+    snapshot: () => t('Snapshot inventory'),
+    auth: () => t('Authenticate users')
+  };
+  const secretHref = (item: MissingSecret) =>
+    item.kind === 'storage_endpoint' ? `/admin/storage-endpoints/${item.id}` : '/admin/identity-sources';
+  onMount(async () => {
+    missingSecrets = await apiGetList<MissingSecret>(fetch, '/infrastructure/secrets/missing').catch(() => []);
+  });
 </script>
 
 <DashboardShell title={t('Admin Dashboard')} subtitle={t('Platform Operations Overview')}>
+  {#if missingSecrets.length}
+    <InlineAlert tone="error">
+      <strong>{t('{count} password(s) missing from the secret store', { count: missingSecrets.length })}</strong>
+      <span>{t('Every test, approval or change with them fails: enter them again.')}</span>
+      <span class="missing-secrets">
+        {#each missingSecrets as item (`${item.kind}-${item.id}-${item.purpose}`)}
+          <a href={secretHref(item)}>{item.name}{item.purpose ? ` · ${PURPOSES[item.purpose]?.() ?? item.purpose}` : ''}</a>
+        {/each}
+      </span>
+    </InlineAlert>
+  {/if}
   <div class="b2s-kpi-grid">
     {#each kpi as item}
       <KpiCard label={item.label} value={num(stats[item.key])} icon={item.icon} tone={item.tone} href={item.href} />
@@ -112,6 +140,7 @@
 </DashboardShell>
 
 <style>
+  .missing-secrets { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; }
   .dashboard-attention h2 {
     margin: 8px 0 12px;
     color: var(--b2s-color-text);

@@ -140,3 +140,28 @@ def forget_unused(db: Session, refs: list[str | None]) -> None:
             {"ref": ref},
         )
 
+
+
+def missing_secrets(db: Session) -> list[dict[str, object]]:
+    """The objects whose password is no longer in the store (store reset, restore of another database…):
+    every test, approval or change with them fails until it is entered again."""
+    rows = db.execute(
+        text(
+            """
+            SELECT kind, object_id, name, purpose, ref FROM (
+              SELECT 'storage_endpoint' AS kind, id AS object_id, name, NULL AS purpose, bind_password_ref AS ref
+                FROM storage_endpoints WHERE bind_password_ref LIKE 'sm://%'
+              UNION ALL
+              SELECT 'identity_source', id, name, NULL, bind_password_ref
+                FROM identity_sources WHERE bind_password_ref LIKE 'sm://%'
+              UNION ALL
+              SELECT 'identity_source', a.identity_source_id, s.name, a.purpose, a.bind_password_ref
+                FROM identity_source_service_accounts a JOIN identity_sources s ON s.id = a.identity_source_id
+                WHERE a.bind_password_ref LIKE 'sm://%'
+            ) refs
+            WHERE NOT EXISTS (SELECT 1 FROM secret_items i WHERE i.ref = refs.ref)
+            ORDER BY kind, name
+            """
+        )
+    ).mappings().all()
+    return [{"kind": r["kind"], "id": int(r["object_id"]), "name": r["name"], "purpose": r["purpose"]} for r in rows]

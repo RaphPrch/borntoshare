@@ -4086,5 +4086,8 @@
   "Share {name} deleted; its folder is kept because it is not empty.": "Partage {name} supprimé ; son dossier est gardé car il n'est pas vide.",
   "Also delete its folder if it is empty": "Supprimer aussi son dossier s'il est vide",
   "Files are never deleted: a folder that is not empty stays on the server.": "Aucun fichier n'est supprimé : un dossier qui n'est pas vide reste sur le serveur.",
-  "Testing the SMB access to {host} with {account}…": "Test de l'accès SMB à {host} avec {account}…"
+  "Testing the SMB access to {host} with {account}…": "Test de l'accès SMB à {host} avec {account}…",
+  "{count} password(s) missing from the secret store": "{count} mot(s) de passe introuvable(s) dans le coffre de secrets",
+  "Every test, approval or change with them fails: enter them again.": "Tout test, toute validation ou modification avec eux échoue : saisissez-les à nouveau.",
+  "Built on {date}": "Construit le {date}"
 }

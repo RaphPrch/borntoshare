@@ -501,9 +501,18 @@ async def run_health_check(db: Session, *, trigger: str) -> dict[str, Any]:
         queued_error = str(exc)[:300]
 
     down = [r for r in results if r["status"] == "down"]
+    from app.services.secret_store import missing_secrets
+
+    try:
+        lost = missing_secrets(db)
+    except Exception:
+        db.rollback()
+        lost = []
     return {
         "core_checks": len(results),
         "core_down": len(down),
+        # Passwords gone from the store: named here, every use of them fails
+        "missing_secrets": [f"{item['name']}{' (' + str(item['purpose']) + ')' if item['purpose'] else ''}" for item in lost],
         "worker_job_id": job_id,
         "worker_targets": len(targets),
         "queued_error": queued_error,
