@@ -34,8 +34,9 @@ jobs:
             workdir: capsule-runner
           - service: core-service
             workdir: core-service
+          # From wizard-ui: the tests import backend.app.main
           - service: wizard-ui
-            workdir: wizard-ui/backend
+            workdir: wizard-ui
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
