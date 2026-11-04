@@ -29,7 +29,6 @@
   import { timeAgo } from '$lib/utils/format';
   import { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import ActivityTimeline from '$lib/components/activity/ActivityTimeline.svelte';
-  import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import EndpointFoldersTable from '$lib/components/storage-endpoints/EndpointFoldersTable.svelte';
   import EndpointSharesPanel from '$lib/components/storage-endpoints/EndpointSharesPanel.svelte';
   import DfsNamespacePanel from '$lib/components/storage-endpoints/DfsNamespacePanel.svelte';
@@ -135,6 +134,15 @@
     probingEndpointId === endpointId(ep) ? 'checking' : persistedOperationalState(ep);
 
   const endpointTone = (ep: any): 'healthy' | 'warning' | 'error' => {
+    // A DFS namespace has no connection test: its last reading tells (read without error = healthy)
+    if (isDfsEndpoint(ep)) {
+      let caps: any = ep?.capabilities;
+      if (typeof caps === 'string') {
+        try { caps = JSON.parse(caps); } catch { caps = {}; }
+      }
+      const shot = caps?.dfs_snapshot;
+      return shot?.error ? 'error' : shot?.read_at ? 'healthy' : 'warning';
+    }
     const health = endpointHealth(ep);
     if (health === 'healthy') return 'healthy';
     if (health === 'degraded' || health === 'unknown') return 'warning';
@@ -286,10 +294,10 @@
   $: sidebarGroups = (() => {
     const map = new Map<string, { zone_id: string | number; zone_name: string; endpoints: any[] }>();
     for (const ep of sidebarEndpoints) {
-      // DFS namespaces have their own group: they hold no files, they lead to the folders of the file servers
-      const zoneName = isDfsEndpoint(ep) ? t('DFS namespaces') : endpointZone(ep) || t('Unavailable');
-      const rawZoneId = isDfsEndpoint(ep) ? 0 : Number(ep?.zone_id ?? ep?.zone?.id ?? 0);
-      const resolvedZoneId = isDfsEndpoint(ep) ? 'dfs' : Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId(ep)}`;
+      // Every server in its zone; the sidebar puts the DFS namespaces under their namespace server
+      const zoneName = endpointZone(ep) || t('Unavailable');
+      const rawZoneId = Number(ep?.zone_id ?? ep?.zone?.id ?? 0);
+      const resolvedZoneId = Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId(ep)}`;
       const key = String(resolvedZoneId);
       if (!map.has(key)) {
         map.set(key, {
@@ -901,7 +909,8 @@
       pendingCount: pendingCountForRoot(row),
       // Result of the root's own last test (as on the Storage roots page), not its availability for requests
       health: rootProbeHealth(row),
-      alertCount: rootAlertCounts[String(rootId(row))] ?? 0
+      alertCount: rootAlertCounts[String(rootId(row))] ?? 0,
+      guardians: Number((row as any)?.guardian_count ?? (row as any)?.guardians_count ?? NaN)
     }));
 
 
@@ -1346,21 +1355,6 @@
         {#if activeEndpointTab === 'overview' && selectedIsDfs}
           <div class="sed-overview">
             <DfsNamespacePanel endpoint={selected} info={dfsInfo} loading={dfsLoading} error={dfsError} busy={dfsBusy} onManage={dfsManage} onChanged={() => selected && void loadDfs(endpointId(selected))} onReadAgain={dfsReadAgainNow} reading={dfsReading} />
-            <div class="sed-side">
-              <section class="sed-card" aria-label={t('DFS namespace')}>
-                <header>
-                  <h2>{t('DFS namespace')}</h2>
-                </header>
-                <dl>
-                  <div><dt>{t('Type')}</dt><dd>{dfsInfo?.type === 'domain' ? t('Domain namespace') : dfsInfo?.type ? t('Standalone namespace') : '—'}</dd></div>
-                  <div><dt>{t('Root servers')}</dt><dd>{dfsInfo?.root_targets?.length ? dfsInfo.root_targets.join(', ') : '—'}</dd></div>
-                  <div><dt>{t('Last read')}</dt><dd>{dfsInfo?.read_at ? formatDateTime(dfsInfo.read_at) : t('never read')}</dd></div>
-                  <div><dt>{t('Service account')}</dt><dd class="mono">{selected?.bind_dn || selected?.auth_username || '—'}</dd></div>
-                  <div><dt>{t('Zone')}</dt><dd>{endpointZone(selected)}</dd></div>
-                </dl>
-              </section>
-              <RecentActivityCard items={activity} onOpenHistory={() => (activeEndpointTab = 'activity')} />
-            </div>
           </div>
         {:else if activeEndpointTab === 'overview'}
           <div class="sed-overview">
@@ -1368,18 +1362,6 @@
               <header><h2>{t('Managed folders')}</h2><a class="b2s-link-btn" href={`/storage-roots/add?endpoint=${endpointId(selected)}`}>+ {t('Add folders')}</a></header>
               <EndpointFoldersTable rows={rootsFilteredRows} host={endpointHost(selected)} />
             </section>
-            <div class="sed-side">
-              <section class="sed-card" aria-label={t('Connection')}>
-                <header><h2>{t('Connection')}</h2><button type="button" class="b2s-link-btn" on:click={() => (showEditModal = true)}>{t('Edit')} ›</button></header>
-                <dl>
-                  <div><dt>{t('Protocol')}</dt><dd>{String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase()}</dd></div>
-                  <div><dt>{t('Service account')}</dt><dd class="mono">{selected?.bind_dn || selected?.auth_username || '—'}</dd></div>
-                  <div><dt>{t('Directory')}</dt><dd>{selected?.identity_source_id ? (data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`) : t('None')}</dd></div>
-                  <div><dt>{t('Last test')}</dt><dd>{endpointLastProbeLabel(selected)}{#if endpointHealth(selected) !== 'healthy'}<small>{humanizeFileServerMessage(t(endpointLastResultLabel(selected)))}</small>{/if}</dd></div>
-                </dl>
-              </section>
-              <RecentActivityCard items={activity} onOpenHistory={() => (activeEndpointTab = 'activity')} />
-            </div>
           </div>
         {:else if activeEndpointTab === 'shares'}
           {#key `${endpointId(selected)}-${sharesVersion}`}
@@ -1468,17 +1450,11 @@
 
   .sed-overview {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
     align-items: start;
   }
 
-  .sed-side {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    min-width: 0;
-  }
 
   .sed-card {
     display: flex;
@@ -1503,45 +1479,12 @@
     font-weight: 600;
   }
 
-  .sed-card dl {
-    margin: 0;
-  }
 
-  .sed-card dl div {
-    display: grid;
-    grid-template-columns: 110px minmax(0, 1fr);
-    gap: 8px;
-    padding: 8px 0;
-    border-top: 1px solid var(--b2s-color-border);
-    font-size: var(--b2s-fs-sm);
-  }
 
-  .sed-card dl div:first-child {
-    border-top: 0;
-  }
 
-  .sed-card dt {
-    color: var(--b2s-color-text-muted);
-  }
 
-  .sed-card dd {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin: 0;
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
 
-  .sed-card dd small {
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-xs);
-  }
 
-  .sed-card .mono {
-    font-family: var(--b2s-font-mono);
-    font-size: var(--b2s-fs-xs);
-  }
 
 
 

@@ -36,8 +36,12 @@
 
   const byLabel = (a: { label: string }, b: { label: string }): number =>
     a.label.localeCompare(b.label, 'fr', { sensitivity: 'base', numeric: true });
+  const isDfs = (ep: EndpointRow) => String(ep?.type ?? ep?.storage_endpoint_type ?? ep?.endpoint_type ?? '').toLowerCase() === 'dfs';
+  // « To review »: what is not healthy (a count of alerts would include every namespace with a DFS folder to manage)
   const keep = (ep: EndpointRow): boolean =>
-    filter === 'all' || (filter === 'alerts' ? endpointAlertCount(ep) > 0 : endpointTone(ep) === 'error');
+    filter === 'all' || (filter === 'todo' ? endpointTone(ep) !== 'healthy' : endpointTone(ep) === 'error');
+  // DFS01.CORP.LOCAL -> DFS01: the namespace server, named once above its namespaces
+  const serverOf = (ep: EndpointRow) => (endpointHost(ep) || '—').split('.')[0].toUpperCase();
 
   $: rootsByEndpoint = roots.reduce((map, row) => {
     const id = Number(row?.storage_endpoint_id ?? 0);
@@ -60,13 +64,14 @@
     return {
       key: `ep:${id}`,
       label: endpointName(ep),
-      subtitle: endpointHost(ep) || null,
+      // A namespace sits under its server, named once: no host repeated on every line
+      subtitle: isDfs(ep) ? null : endpointHost(ep) || null,
       icon: String(ep?.type ?? ep?.storage_endpoint_type ?? '').toLowerCase() === 'dfs' ? 'bi-diagram-3' : 'bi-hdd-network',
       iconTone: 'server',
       selectId: id,
       // Only what needs a look: a healthy server stays quiet
       dot: endpointTone(ep) === 'healthy' ? null : endpointTone(ep),
-      badges: alertBadge(ep),
+      badges: isDfs(ep) ? [] : alertBadge(ep),
       children: (rootsByEndpoint.get(id) ?? [])
         .map((row): EntityTreeNode => {
           const rootId = Number(row?.id ?? row?.storage_root_id ?? 0);
@@ -88,7 +93,7 @@
   $: allEndpoints = groups.flatMap((zone) => zone.endpoints);
   $: filters = [
     { key: 'all', label: t('All'), count: allEndpoints.length },
-    { key: 'alerts', label: t('With alerts'), count: allEndpoints.filter((ep) => endpointAlertCount(ep) > 0).length },
+    { key: 'todo', label: t('To review'), count: allEndpoints.filter((ep) => endpointTone(ep) !== 'healthy').length },
     { key: 'unreachable', label: t('Unreachable'), count: allEndpoints.filter((ep) => endpointTone(ep) === 'error').length }
   ];
 
@@ -103,7 +108,22 @@
         iconTone: 'zone',
         badges: [{ label: String(endpoints.length), title: t('{count} endpoints', { count: endpoints.length }) }],
         collapsedBadges: alerts > 0 ? [{ label: String(alerts), tone: 'warning-quiet', icon: 'bi-exclamation-triangle-fill', title: t('{count} alerts', { count: alerts }) }] : [],
-        children: endpoints.map(endpointNode).sort(byLabel)
+        children: [
+          ...endpoints.filter((ep) => !isDfs(ep)).map(endpointNode).sort(byLabel),
+          ...[...new Set(endpoints.filter(isDfs).map(serverOf))].sort().map((server): EntityTreeNode => {
+            const namespaces = endpoints.filter((ep) => isDfs(ep) && serverOf(ep) === server);
+            const review = namespaces.filter((ep) => endpointTone(ep) !== 'healthy').length;
+            return {
+              key: `dfs:${zone.zone_id}:${server}`,
+              label: server,
+              subtitle: t('{count} DFS namespace(s)', { count: namespaces.length }),
+              icon: 'bi-diagram-3',
+              iconTone: 'server',
+              badges: review ? [{ label: String(review), tone: 'warning-quiet', icon: 'bi-exclamation-triangle-fill', title: t('{count} to review', { count: review }) }] : [],
+              children: namespaces.map(endpointNode).sort(byLabel)
+            };
+          })
+        ]
       };
     })
     .filter((zone) => (zone.children ?? []).length > 0);

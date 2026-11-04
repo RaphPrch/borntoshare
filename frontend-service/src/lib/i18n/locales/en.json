@@ -1142,5 +1142,18 @@
   "Assignment group": "Assignment group",
   "Configuration item (CI)": "Configuration item (CI)",
   "Create from": "Create from",
-  "One incident per alert (correlation id = key of the alert): no duplicate when the alert comes back. Critical → impact/urgency 1, High → 2. When the alert closes in BornToShare, the incident is resolved with a note.": "One incident per alert (correlation id = key of the alert): no duplicate when the alert comes back. Critical → impact/urgency 1, High → 2. When the alert closes in BornToShare, the incident is resolved with a note."
+  "One incident per alert (correlation id = key of the alert): no duplicate when the alert comes back. Critical → impact/urgency 1, High → 2. When the alert closes in BornToShare, the incident is resolved with a note.": "One incident per alert (correlation id = key of the alert): no duplicate when the alert comes back. Critical → impact/urgency 1, High → 2. When the alert closes in BornToShare, the incident is resolved with a note.",
+  "Filter the {count} folders (name, path)": "Filter the {count} folders (name, path)",
+  "{count} to review": "{count} to review",
+  "Folder": "Folder",
+  "Guardians": "Guardians",
+  "Requests": "Requests",
+  "State": "State",
+  "{count} pending": "{count} pending",
+  "in order": "in order",
+  "{count} folder(s) in order": "{count} folder(s) in order",
+  "Show": "Show",
+  "{count} DFS namespace(s)": "{count} DFS namespace(s)",
+  "To review": "To review",
+  "{count} folder(s)": "{count} folder(s)"
 }

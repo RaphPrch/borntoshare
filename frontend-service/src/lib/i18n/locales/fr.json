@@ -4336,5 +4336,9 @@
   "Assignment group": "Groupe d'affectation",
   "Configuration item (CI)": "Élément de configuration (CI)",
   "Create from": "Créer à partir de",
-  "One incident per alert (correlation id = key of the alert): no duplicate when the alert comes back. Critical → impact/urgency 1, High → 2. When the alert closes in BornToShare, the incident is resolved with a note.": "Un incident par alerte (identifiant de corrélation = clé de l'alerte) : pas de doublon si l'alerte revient. Critique → impact/urgence 1, Élevée → 2. Quand l'alerte se ferme dans BornToShare, l'incident est résolu avec une note."
+  "One incident per alert (correlation id = key of the alert): no duplicate when the alert comes back. Critical → impact/urgency 1, High → 2. When the alert closes in BornToShare, the incident is resolved with a note.": "Un incident par alerte (identifiant de corrélation = clé de l'alerte) : pas de doublon si l'alerte revient. Critique → impact/urgence 1, Élevée → 2. Quand l'alerte se ferme dans BornToShare, l'incident est résolu avec une note.",
+  "Filter the {count} folders (name, path)": "Filtrer les {count} dossiers (nom, chemin)",
+  "{count} pending": "{count} en attente",
+  "in order": "en ordre",
+  "{count} folder(s) in order": "{count} dossier(s) en ordre"
 }

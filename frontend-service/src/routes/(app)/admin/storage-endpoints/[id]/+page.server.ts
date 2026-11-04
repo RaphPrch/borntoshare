@@ -43,6 +43,8 @@ export const load: PageServerLoad = async (event) => {
     last_probe_at: row.last_probe_at ?? null,
     last_probe_message: row.last_probe_message ?? null,
     operational_state: row.operational_state ?? null,
+    // A DFS namespace has no connection test: its last reading (dfs_snapshot) gives its state in the list
+    capabilities: (row as any).capabilities ?? null,
     pending_requests_count: row.pending_requests_count ?? null,
     is_active: Boolean(row.is_active),
     zone_id: row.zone_id ?? null,
