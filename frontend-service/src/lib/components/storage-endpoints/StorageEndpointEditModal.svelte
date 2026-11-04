@@ -251,6 +251,9 @@
     const id = Number(ep?.id ?? 0);
     const currentId = Number(endpoint?.id ?? endpoint?.storage_endpoint_id ?? 0);
     if (id && currentId && id === currentId) return false;
+    // Several DFS namespaces live on the same namespace server: only two file servers cannot share a host
+    const isDfs = (value: any) => String(value?.endpoint_type ?? value?.storage_endpoint_type ?? value?.type ?? '').toLowerCase() === 'dfs';
+    if (isDfs(ep) || isDfs(endpoint)) return false;
     const candidateHost = normalizedHost(String(ep?.host ?? ""));
     return Boolean(candidateHost && candidateHost === currentNormalizedHost);
   });
