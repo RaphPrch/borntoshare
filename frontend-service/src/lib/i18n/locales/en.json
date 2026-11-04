@@ -878,5 +878,11 @@
   "Recently requested": "Recently requested",
   "Frequent reasons:": "Frequent reasons:",
   "{count} days": "{count} days",
-  "“{term}” names {count} folders: pick the right one in the list.": "“{term}” names {count} folders: pick the right one in the list."
+  "“{term}” names {count} folders: pick the right one in the list.": "“{term}” names {count} folders: pick the right one in the list.",
+  "The folder receives the rights of its parent folder again: whoever reaches the parent reaches this folder too.": "The folder receives the rights of its parent folder again: whoever reaches the parent reaches this folder too.",
+  "Nothing is removed: the explicit rights of the folder stay, including the copies made when the inheritance was broken, so some entries appear twice.": "Nothing is removed: the explicit rights of the folder stay, including the copies made when the inheritance was broken, so some entries appear twice.",
+  "The inherited rights that BornToShare does not manage come back as gaps in Monitoring.": "The inherited rights that BornToShare does not manage come back as gaps in Monitoring.",
+  "Applied at once on the file server; BornToShare then reads the rights of the folder again.": "Applied at once on the file server; BornToShare then reads the rights of the folder again.",
+  "The rights inherited from the parent folder are copied as explicit rights: nobody loses access.": "The rights inherited from the parent folder are copied as explicit rights: nobody loses access.",
+  "Later changes on the parent folder no longer apply to this folder.": "Later changes on the parent folder no longer apply to this folder."
 }

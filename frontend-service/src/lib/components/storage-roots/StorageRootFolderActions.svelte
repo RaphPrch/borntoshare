@@ -64,6 +64,19 @@
     }
   }
 
+  // What each change does on the file server (checked on a lab folder: break then restore)
+  const RESTORE_IMPACT = () => [
+    t('The folder receives the rights of its parent folder again: whoever reaches the parent reaches this folder too.'),
+    t('Nothing is removed: the explicit rights of the folder stay, including the copies made when the inheritance was broken, so some entries appear twice.'),
+    t('The inherited rights that BornToShare does not manage come back as gaps in Monitoring.'),
+    t('Applied at once on the file server; BornToShare then reads the rights of the folder again.')
+  ];
+  const BREAK_IMPACT = () => [
+    t('The rights inherited from the parent folder are copied as explicit rights: nobody loses access.'),
+    t('Later changes on the parent folder no longer apply to this folder.'),
+    t('Applied at once on the file server; BornToShare then reads the rights of the folder again.')
+  ];
+
   async function confirmInheritance() {
     const root = target;
     if (!root) return;
@@ -109,7 +122,8 @@
   title={target?.inheritanceBroken
     ? t('Restore the inheritance of {name}?', { name: target?.name ?? '' })
     : t('Break the inheritance of {name}?', { name: target?.name ?? '' })}
-  subtitle={t('Are you sure?')}
+  subtitle={target?.path ?? ''}
+  impactItems={target?.inheritanceBroken ? RESTORE_IMPACT() : BREAK_IMPACT()}
   confirmLabel={target?.inheritanceBroken ? t('Restore the inheritance') : t('Break the inheritance')}
   confirmVariant="warning"
 />
