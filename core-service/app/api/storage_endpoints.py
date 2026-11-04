@@ -327,6 +327,8 @@ def list_dfs_links(endpoint_id: int, request: Request, db: Session = Depends(get
         "links": describe_links(db, endpoint),
         # The account was refused the management of the namespace (last try)
         "manage_denied": (endpoint.capabilities or {}).get("dfs_manage_denied") if isinstance(endpoint.capabilities, dict) else None,
+        # The last change that went through, with the account that made it (valid while the account is the same)
+        "manage_ok": (endpoint.capabilities or {}).get("dfs_manage_ok") if isinstance(endpoint.capabilities, dict) else None,
     })
 
 
@@ -819,8 +821,8 @@ def update_endpoint(
     capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
     # Another account (or password) may hold the delegation: the refusal of the previous one no longer tells anything
     account_changed = "bind_dn" in updates or "bind_password_ref" in updates
-    if account_changed and "dfs_manage_denied" in capabilities:
-        capabilities = {key: value for key, value in capabilities.items() if key != "dfs_manage_denied"}
+    if account_changed and ("dfs_manage_denied" in capabilities or "dfs_manage_ok" in capabilities):
+        capabilities = {key: value for key, value in capabilities.items() if key not in ("dfs_manage_denied", "dfs_manage_ok")}
         endpoint.capabilities = capabilities
     if host_moved and "discovered_roots_snapshot" in capabilities:
         # The shares found on the previous host carry its address: the next search lists them again
@@ -1118,12 +1120,14 @@ def _remember_dfs_delegation(endpoint: StorageEndpoint, denied: bool) -> None:
     from datetime import datetime, timezone
 
     capabilities = dict(endpoint.capabilities or {})
+    answer = {"at": datetime.now(timezone.utc).isoformat(), "account": endpoint.bind_dn}
+    # The refusal, or the last change that went through (« management delegated, checked on … » in the header)
     if denied:
-        capabilities["dfs_manage_denied"] = {"at": datetime.now(timezone.utc).isoformat(), "account": endpoint.bind_dn}
-    elif "dfs_manage_denied" in capabilities:
-        capabilities.pop("dfs_manage_denied")
+        capabilities["dfs_manage_denied"] = answer
+        capabilities.pop("dfs_manage_ok", None)
     else:
-        return
+        capabilities.pop("dfs_manage_denied", None)
+        capabilities["dfs_manage_ok"] = answer
     endpoint.capabilities = capabilities
 
 

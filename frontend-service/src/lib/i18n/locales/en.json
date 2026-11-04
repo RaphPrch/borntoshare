@@ -1155,5 +1155,14 @@
   "Show": "Show",
   "{count} DFS namespace(s)": "{count} DFS namespace(s)",
   "To review": "To review",
-  "{count} folder(s)": "{count} folder(s)"
+  "{count} folder(s)": "{count} folder(s)",
+  "management refused": "management refused",
+  "management delegated · checked {date}": "management delegated · checked {date}",
+  "tested {when}": "tested {when}",
+  "never tested": "never tested",
+  "{count} managed folder(s)": "{count} managed folder(s)",
+  "waiting for a guardian": "waiting for a guardian",
+  "nothing waits": "nothing waits",
+  "Without enough guardians": "Without enough guardians",
+  "Pending requests": "Pending requests"
 }

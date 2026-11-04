@@ -14,8 +14,11 @@
   export let host = '';
 
   const TONE_VARIANT: Record<string, 'success' | 'warning' | 'error' | 'muted'> = { ok: 'success', warn: 'warning', bad: 'error', n: 'muted' };
+  /** Filter of the list, shared with the tiles of the page */
+  export let filter = 'all';
+  /** Folders without enough guardians (summary of the server) */
+  export let noGuardianIds: Set<number> = new Set();
   let query = '';
-  let filter: 'all' | 'todo' | 'down' | 'pending' = 'all';
   let opened = new Set<string>();
   let calmShown = new Set<string>();
 
@@ -39,15 +42,17 @@
     : row.health === 'healthy' ? null
     : { label: t('To verify'), tone: 'n' };
 
-  $: counts = { all: rows.length, todo: rows.filter(todo).length, down: rows.filter(down).length, pending: rows.filter((row) => (row.pendingCount ?? 0) > 0).length };
+  const keepRow = (row: Row, key: string) =>
+    key === 'all' || (key === 'todo' ? todo(row) : key === 'down' ? down(row) : key === 'guard' ? noGuardianIds.has(row.id) : (row.pendingCount ?? 0) > 0);
+  $: counts = { all: rows.length, todo: rows.filter(todo).length, down: rows.filter(down).length, guard: rows.filter((row) => noGuardianIds.has(row.id)).length, pending: rows.filter((row) => (row.pendingCount ?? 0) > 0).length };
   $: needle = query.trim().toLowerCase();
   $: matching = rows
-    .filter((row) => filter === 'all' || (filter === 'todo' ? todo(row) : filter === 'down' ? down(row) : (row.pendingCount ?? 0) > 0))
+    .filter((row) => keepRow(row, filter))
     .filter((row) => !needle || `${row.name} ${row.path}`.toLowerCase().includes(needle));
   $: groups = [...new Set(matching.map(shareOf))]
     .map((share) => {
       const list = matching.filter((row) => shareOf(row) === share).sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
-      const hot = list.filter((row) => todo(row) || (row.pendingCount ?? 0) > 0);
+      const hot = list.filter((row) => todo(row) || (row.pendingCount ?? 0) > 0 || noGuardianIds.has(row.id));
       return { share, hot, calm: list.filter((row) => !hot.includes(row)), total: list.length };
     })
     .sort((a, b) => b.hot.length - a.hot.length || a.share.localeCompare(b.share, 'fr', { numeric: true }));
@@ -70,6 +75,7 @@
     { key: 'all', label: t('All'), count: counts.all },
     { key: 'todo', label: t('To review'), count: counts.todo },
     { key: 'down', label: t('Unreachable'), count: counts.down },
+    { key: 'guard', label: t('Without enough guardians'), count: counts.guard },
     { key: 'pending', label: t('Pending requests'), count: counts.pending }
   ]} />
 </div>

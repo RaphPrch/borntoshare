@@ -4340,5 +4340,11 @@
   "Filter the {count} folders (name, path)": "Filtrer les {count} dossiers (nom, chemin)",
   "{count} pending": "{count} en attente",
   "in order": "en ordre",
-  "{count} folder(s) in order": "{count} dossier(s) en ordre"
+  "{count} folder(s) in order": "{count} dossier(s) en ordre",
+  "management refused": "gestion refusée",
+  "management delegated · checked {date}": "gestion déléguée · vérifiée le {date}",
+  "tested {when}": "testé {when}",
+  "never tested": "jamais testé",
+  "waiting for a guardian": "en attente d'un gardien",
+  "nothing waits": "rien en attente"
 }

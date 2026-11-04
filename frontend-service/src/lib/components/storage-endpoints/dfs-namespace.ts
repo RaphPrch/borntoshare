@@ -26,6 +26,8 @@ export type DfsInfo = {
   links: DfsLink[];
   /** The account was refused the management of the namespace at the last change */
   manage_denied?: { at: string; account: string | null } | null;
+  /** Last change of a DFS folder that went through, with its account */
+  manage_ok?: { at: string; account: string | null } | null;
 };
 
 export type DfsCounts = {

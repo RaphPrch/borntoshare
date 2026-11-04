@@ -901,6 +901,14 @@
     return own !== 'unknown' ? own : endpointHealth(selected) === 'unhealthy' ? 'unhealthy' : 'unknown';
   };
 
+  // Filter of the folder list, also set by the tiles (to review, without enough guardians, pending requests)
+  let folderFilter = 'all';
+  let folderFilterFor = 0;
+  // Another server: its list starts unfiltered
+  $: if (selected && endpointId(selected) !== folderFilterFor) {
+    folderFilterFor = endpointId(selected);
+    folderFilter = 'all';
+  }
   $: rootsFilteredRows = selectedRoots
     .map((row) => ({
       id: rootId(row),
@@ -1296,8 +1304,14 @@
                       ...(dfsInfo?.type ? [{ label: dfsInfo.type === 'domain' ? t('Domain namespace') : t('Standalone namespace') }] : []),
                       ...(dfsInfo?.root_targets?.length ? [{ label: t('root on {servers}', { servers: dfsInfo.root_targets.map((target) => target.split('\\').filter(Boolean)[0]).join(', ') }), icon: 'bi-hdd-network' }] : [])
                     ]
-                  : [{ label: String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase() }]),
+                  : [
+                      { label: String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase() },
+                      { label: endpointLastProbeRaw(selected) ? t('tested {when}', { when: timeAgo(String(endpointLastProbeRaw(selected))) }) : t('never tested'), icon: 'bi-activity' }
+                    ]),
                 ...((selected?.bind_dn || selected?.auth_username) ? [{ label: String(selected?.bind_dn || selected?.auth_username), icon: 'bi-person-badge', mono: true }] : []),
+                // Right to manage the DFS folders, as the namespace last answered (for the account of the connection)
+                ...(selectedIsDfs && dfsInfo?.manage_denied ? [{ label: t('management refused'), icon: 'bi-person-lock' }] : []),
+                ...(selectedIsDfs && !dfsInfo?.manage_denied && dfsInfo?.manage_ok ? [{ label: t('management delegated · checked {date}', { date: formatDateTime(dfsInfo.manage_ok.at) }), icon: 'bi-shield-check' }] : []),
                 ...(selected?.identity_source_id ? [{ label: data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`, icon: 'bi-diagram-3' }] : [])
               ]}
               actions={endpointHeaderActions(selected, dfsReading, dfsInfo, probingEndpointId)}
@@ -1309,12 +1323,10 @@
             {:else}
               <EndpointTiles
                 summary={endpointSummary}
-                health={endpointHealth(selected)}
-                lastTest={endpointLastProbeRaw(selected) ? timeAgo(String(endpointLastProbeRaw(selected))) : ''}
+                pendingCount={rootsFilteredRows.reduce((sum, row) => sum + (row.pendingCount ?? 0), 0)}
                 {sharesNotManaged}
-                onOpenConnection={() => (showEditModal = true)}
-                onOpenFolders={() => goto(foldersHref)}
-                onOpenGuardians={() => goto(`${foldersHref}&filter=no-guardian`)}
+                activeFilter={folderFilter}
+                onFilter={(key) => { folderFilter = key; activeEndpointTab = 'overview'; }}
                 onOpenShares={() => (activeEndpointTab = 'shares')}
               />
               <EndpointTodo
@@ -1360,7 +1372,7 @@
           <div class="sed-overview">
             <section class="sed-card" aria-label={t('Managed folders')}>
               <header><h2>{t('Managed folders')}</h2><a class="b2s-link-btn" href={`/storage-roots/add?endpoint=${endpointId(selected)}`}>+ {t('Add folders')}</a></header>
-              <EndpointFoldersTable rows={rootsFilteredRows} host={endpointHost(selected)} />
+              <EndpointFoldersTable rows={rootsFilteredRows} host={endpointHost(selected)} bind:filter={folderFilter} noGuardianIds={new Set(endpointSummary.noGuardian.map((row) => row.id))} />
             </section>
           </div>
         {:else if activeEndpointTab === 'shares'}
