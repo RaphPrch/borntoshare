@@ -1,22 +1,26 @@
 <script lang="ts">
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
-  import { checkExistingAccess, createAccessRequest } from '$lib/api/access-requests';
+  import { checkExistingAccess, createAccessRequest, listMyAccessRequests } from '$lib/api/access-requests';
+  import { parseRequestSentence } from '$lib/utils/request-sentence';
   import { listStorageRootsContext, type StorageRootContext } from '$lib/api/storage-roots';
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
 
   /**
-   * New access request in three steps: the folders (a cart, one level per folder, a tree zone → server),
-   * who and for how long, then a review. Opened from a folder (?root=), the folder is set and locked.
+   * New access request in three steps: the folders (a cart, one level per folder, a tree by zone, file server
+   * or DFS root), who and for how long, then a review. Opened from a folder (?root=), the folder is set and locked.
+   * The express entry fills the three steps from one sentence (lib/utils/request-sentence.ts).
    */
   type Level = 'READ' | 'WRITE';
-  type Root = { id: number; name: string; path: string; zone: string; server: string; dfsPath: string };
+  type GroupBy = 'zone' | 'server' | 'dfs';
+  type Root = { id: number; name: string; path: string; zone: string; server: string; dfsPath: string; dfsRoot: string };
   type Check = { state: 'checking' | 'ok' | 'blocked' | 'elevation'; message: string };
 
   const PAGE = 40;
@@ -35,6 +39,11 @@
   let zoneFilter = '';
   let shown = PAGE;
   let closed = new Set<string>();
+  const GROUP_KEY = 'b2s.newRequest.groupBy';
+  let groupBy: GroupBy = 'zone';
+  let recent: Root[] = [];
+  let express = '';
+  let expressNote = '';
   let cart = new Map<number, Level>();
   let checks: Record<number, Check> = {};
   let lockedRootId: number | null = null;
@@ -54,7 +63,9 @@
     path: text(row.root_path ?? row.path),
     zone: text(row.zone_name ?? row.zone_code) || t('Unassigned zone'),
     server: text(row.storage_endpoint_name ?? row.endpoint_name) || t('Unknown server'),
-    dfsPath: text(row.dfs_path)
+    dfsPath: text(row.dfs_path),
+    // \\domain\namespace: the DFS root the folder is published under
+    dfsRoot: text(row.dfs_path).match(/^\\\\[^\\]+\\[^\\]+/)?.[0] ?? ''
   });
 
   onMount(async () => {
@@ -82,31 +93,74 @@
       lockedRootId = rootParam;
       add(rootParam, level);
     }
+    try {
+      const saved = localStorage.getItem(GROUP_KEY);
+      if (saved === 'zone' || saved === 'server' || saved === 'dfs') groupBy = saved;
+    } catch {
+      // the default grouping is fine
+    }
+    if (!lockedRootId) void loadRecent();
   });
+
+  // The folders of the user's last requests, newest first
+  async function loadRecent() {
+    try {
+      const rows = await listMyAccessRequests(fetch);
+      const ids = [...rows]
+        .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
+        .map((row) => Number(row.storage_root_id ?? 0));
+      recent = [...new Set(ids)].map((id) => roots.find((root) => root.id === id)).filter(Boolean).slice(0, 6) as Root[];
+    } catch {
+      recent = [];
+    }
+  }
+  function setGroupBy(key: string) {
+    groupBy = key as GroupBy;
+    closed = new Set();
+    try {
+      localStorage.setItem(GROUP_KEY, groupBy);
+    } catch {
+      // kept for this visit only
+    }
+  }
 
   // ---- folders ----------------------------------------------------------------
   $: zones = [...new Set(roots.map((root) => root.zone))].sort((a, b) => a.localeCompare(b, 'fr'));
   $: needle = query.trim().toLowerCase();
+  const outsideDfs = () => t('Outside DFS');
+  // Two levels for each grouping: zone → server, server alone, DFS root alone (folders outside DFS last)
+  const groupKeys = (root: Root, by: GroupBy): [string, string] =>
+    by === 'zone' ? [root.zone, root.server] : by === 'server' ? [root.server, ''] : [root.dfsRoot || outsideDfs(), ''];
+  const sortKey = (root: Root, by: GroupBy) => (by === 'dfs' && !root.dfsRoot ? '\uffff' : '') + groupKeys(root, by).join('|');
   $: visible = roots
     .filter((root) => !zoneFilter || root.zone === zoneFilter)
     .filter((root) => !needle || `${root.name} ${root.path} ${root.dfsPath}`.toLowerCase().includes(needle))
-    .sort((a, b) => a.zone.localeCompare(b.zone, 'fr') || a.server.localeCompare(b.server, 'fr') || a.name.localeCompare(b.name, 'fr', { numeric: true }));
-  $: if (query || zoneFilter) shown = PAGE;
+    .sort((a, b) => sortKey(a, groupBy).localeCompare(sortKey(b, groupBy), 'fr') || a.name.localeCompare(b.name, 'fr', { numeric: true }));
+  $: if (query || zoneFilter || groupBy) shown = PAGE;
+  type Sub = { key: string; label: string; count: number; rows: Root[] };
   $: tree = (() => {
-    const out: Array<{ zone: string; count: number; servers: Array<{ key: string; server: string; rows: Root[] }> }> = [];
+    const out: Array<{ key: string; label: string; count: number; subs: Sub[] }> = [];
     let budget = shown;
-    for (const zone of [...new Set(visible.map((root) => root.zone))]) {
-      const zoneRows = visible.filter((root) => root.zone === zone);
-      const entry = { zone, count: zoneRows.length, servers: [] as Array<{ key: string; server: string; rows: Root[] }> };
-      for (const server of [...new Set(zoneRows.map((root) => root.server))]) {
-        const rows = zoneRows.filter((root) => root.server === server);
-        entry.servers.push({ key: `${zone}|${server}`, server, rows: budget > 0 ? rows.slice(0, budget) : [] });
-        budget -= rows.length;
+    for (const root of visible) {
+      const [first, second] = groupKeys(root, groupBy);
+      let group = out.find((entry) => entry.label === first);
+      if (!group) out.push((group = { key: `${groupBy}|${first}`, label: first, count: 0, subs: [] }));
+      let sub = group.subs.find((entry) => entry.label === second);
+      if (!sub) group.subs.push((sub = { key: `${group.key}|${second}`, label: second, count: 0, rows: [] }));
+      group.count += 1;
+      sub.count += 1;
+      if (budget > 0) {
+        sub.rows.push(root);
+        budget -= 1;
       }
-      out.push(entry);
     }
     return out;
   })();
+  $: groupOptions = [
+    { key: 'zone', label: t('By zone') },
+    { key: 'server', label: t('By file server') },
+    ...(roots.some((root) => root.dfsRoot) ? [{ key: 'dfs', label: t('By DFS root') }] : [])
+  ];
   $: hidden = Math.max(0, visible.length - shown);
   const isOpen = (key: string, searching: boolean) => searching || !closed.has(key);
   function toggleGroup(key: string) {
@@ -192,11 +246,17 @@
     return days ? new Date(Date.now() + days * 86_400_000) : null;
   })();
   const dayLabel = (date: Date | null) => (date ? date.toLocaleDateString() : t('no end'));
+  const REASONS = [() => t('Monthly closing'), () => t('Replacing a colleague'), () => t('Audit in progress'), () => t('New project')];
+  function useReason(label: string) {
+    const current = justification.trim();
+    if (!current.startsWith(label)) justification = current ? `${label} : ${current}` : `${label} : `;
+    document.getElementById('nr-why')?.focus();
+  }
   $: step2Ready = Boolean(justification.trim()) && (!forOther || principals.length > 0) && (duration !== 'date' || Boolean(customDate));
   $: requestCount = sendable.length * (forOther ? principals.length : 1);
 
   async function submit() {
-    if (submitting || !sendable.length) return;
+    if (submitting || anyChecking || !sendable.length) return;
     submitting = true;
     let created = 0;
     const failed: string[] = [];
@@ -227,6 +287,47 @@
   }
 
   const STEPS = [() => t('Folders'), () => t('Duration and reason'), () => t('Review')];
+  $: canGo = (n: number) => n < step || (n === 2 && sendable.length > 0 && !anyChecking) || (n === 3 && sendable.length > 0 && !anyChecking && step2Ready);
+  $: stepSummary = (n: number) =>
+    n === 1 ? (cart.size ? t('{count} folder(s)', { count: cart.size }) : '') : n === 2 && justification.trim() ? dayLabel(endDate) : '';
+
+  // ---- express entry ------------------------------------------------------------
+  const isoDay = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  $: parsed = express.trim() ? parseRequestSentence(express, roots) : null;
+  $: parsedNames = parsed ? parsed.rootIds.map((id) => roots.find((root) => root.id === id)?.name).filter(Boolean).join(', ') : '';
+  $: parsedDuration = !parsed?.duration
+    ? ''
+    : 'permanent' in parsed.duration
+      ? t('Permanent')
+      : 'days' in parsed.duration
+        ? t('{count} days', { count: parsed.duration.days })
+        : t('until {date}', { date: new Date(`${parsed.duration.date}T12:00:00`).toLocaleDateString() });
+  function applyExpress() {
+    if (!parsed) return;
+    const result = parsed;
+    for (const id of result.rootIds) add(id, result.level ?? 'READ');
+    const found = result.duration;
+    if (found && 'permanent' in found) duration = 'permanent';
+    else if (found && 'days' in found) {
+      const preset = DURATIONS.find((option) => option.days === found.days);
+      if (preset) duration = preset.key;
+      else {
+        duration = 'date';
+        customDate = isoDay(new Date(Date.now() + found.days * 86_400_000));
+      }
+    } else if (found && 'date' in found) {
+      duration = 'date';
+      customDate = found.date;
+    }
+    if (result.reason) justification = result.reason;
+    const unclear = result.ambiguous[0];
+    if (unclear) {
+      query = unclear.term;
+      expressNote = t('“{term}” names {count} folders: pick the right one in the list.', { term: unclear.term, count: unclear.ids.length });
+    } else expressNote = '';
+    express = '';
+    if (!unclear && cart.size) step = result.reason && found ? 3 : 2;
+  }
 </script>
 
 <svelte:head><title>{t('New access request')} · BornToShare</title></svelte:head>
@@ -238,7 +339,11 @@
       <h1>{t('New access request')}</h1>
       <ol class="nr__steps">
         {#each STEPS as label, index}
-          <li class:on={step === index + 1} class:done={step > index + 1}><span>{step > index + 1 ? '✓' : index + 1}</span>{label()}</li>
+          <li class:on={step === index + 1} class:done={step > index + 1}>
+            <button type="button" disabled={step === index + 1 || !canGo(index + 1) || submitting} aria-current={step === index + 1 ? 'step' : undefined} on:click={() => (step = index + 1)}>
+              <span>{step > index + 1 ? '✓' : index + 1}</span>{label()}{#if stepSummary(index + 1) && step !== index + 1}<small>{stepSummary(index + 1)}</small>{/if}
+            </button>
+          </li>
         {/each}
       </ol>
     </div>
@@ -255,6 +360,22 @@
           {#if lockedRootId}
             <p class="nr__locked"><i class="bi bi-lock" aria-hidden="true"></i>{t('The folder comes from the folder page and cannot be changed here.')}</p>
           {:else}
+            <form class="nr__express" on:submit|preventDefault={applyExpress}>
+              <label for="nr-express"><i class="bi bi-lightning-charge" aria-hidden="true"></i>{t('Express entry')}</label>
+              <div class="nr__expressrow">
+                <input id="nr-express" class="b2s-input" bind:value={express} autocomplete="off" placeholder={t('E.g. read on Purchasing and Accounting for 30 days: November closing')} />
+                <button type="submit" class="b2s-btn b2s-btn-secondary" disabled={!parsed || (!parsed.rootIds.length && !parsed.ambiguous.length)}>{t('Fill in')}</button>
+              </div>
+              {#if parsed}
+                <div class="nr__slots">
+                  <span class:miss={!parsed.level}><em>{t('Level')}</em>{parsed.level === 'WRITE' ? t('Modify') : parsed.level === 'READ' ? t('Read') : t('Read (default)')}</span>
+                  <span class:miss={!parsedNames && !parsed.ambiguous.length}><em>{t('Folders')}</em>{parsedNames || (parsed.ambiguous.length ? t('to pick in the list') : t('name a folder or paste its path'))}</span>
+                  <span class:miss={!parsed.duration}><em>{t('Duration')}</em>{parsedDuration || t('“for 30 days”, “until 31/12”, “permanent”')}</span>
+                  <span class:miss={!parsed.reason}><em>{t('Reason')}</em>{parsed.reason || t('after a colon: “…: closing”')}</span>
+                </div>
+              {/if}
+              {#if expressNote}<small class="nr__warn">{expressNote}</small>{/if}
+            </form>
             <div class="nr__search">
               <label><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={query} placeholder={t('Which folder are you looking for?')} aria-label={t('Search a folder')} /></label>
               {#if zones.length > 1}
@@ -263,24 +384,36 @@
                   {#each zones as zone (zone)}<option value={zone}>{zone}</option>{/each}
                 </select>
               {/if}
+              <SegmentedFilter options={groupOptions} value={groupBy} ariaLabel={t('Group the folders')} onChange={setGroupBy} />
             </div>
+            {#if recent.length && !needle}
+              <div class="nr__recent">
+                <span>{t('Recently requested')}</span>
+                {#each recent as root (root.id)}
+                  <button type="button" class:on={cart.has(root.id)} title={root.dfsPath || root.path} on:click={() => toggle(root.id)}>{cart.has(root.id) ? '✓' : '+'} {root.name}<small>{root.server}</small></button>
+                {/each}
+              </div>
+            {/if}
             <div class="nr__tree">
-              {#each tree as zone (zone.zone)}
-                {@const zoneOpen = isOpen(zone.zone, Boolean(needle))}
-                <button type="button" class="nr__zone" on:click={() => toggleGroup(zone.zone)}>
-                  <span class="nr__car">{zoneOpen ? '▾' : '▸'}</span>{zone.zone}<em>{t('{count} folder(s)', { count: zone.count })}</em>
+              {#each tree as group (group.key)}
+                {@const groupOpen = isOpen(group.key, Boolean(needle))}
+                <button type="button" class="nr__zone" on:click={() => toggleGroup(group.key)}>
+                  <span class="nr__car">{groupOpen ? '▾' : '▸'}</span>{group.label}<em>{t('{count} folder(s)', { count: group.count })}</em>
                 </button>
-                {#if zoneOpen}
-                  {#each zone.servers as server (server.key)}
-                    {@const serverOpen = isOpen(server.key, Boolean(needle))}
-                    <button type="button" class="nr__server" on:click={() => toggleGroup(server.key)}>
-                      <span class="nr__car">{serverOpen ? '▾' : '▸'}</span>{server.server}<em>{visible.filter((root) => root.zone === zone.zone && root.server === server.server).length}</em>
-                    </button>
-                    {#if serverOpen}
-                      {#each server.rows as root (root.id)}
-                        <button type="button" class="nr__item" class:on={cart.has(root.id)} on:click={() => toggle(root.id)}>
+                {#if groupOpen}
+                  {#each group.subs as sub (sub.key)}
+                    {@const subOpen = !sub.label || isOpen(sub.key, Boolean(needle))}
+                    {#if sub.label}
+                      <button type="button" class="nr__server" on:click={() => toggleGroup(sub.key)}>
+                        <span class="nr__car">{subOpen ? '▾' : '▸'}</span>{sub.label}<em>{sub.count}</em>
+                      </button>
+                    {/if}
+                    {#if subOpen}
+                      {#each sub.rows as root (root.id)}
+                        {@const shownPath = groupBy === 'server' ? root.path : root.dfsPath || root.path}
+                        <button type="button" class="nr__item" class:flat={!sub.label} class:on={cart.has(root.id)} on:click={() => toggle(root.id)}>
                           <span class="nr__tick">{cart.has(root.id) ? '✓' : ''}</span>
-                          <span class="nr__name"><b>{root.name}</b><small title={root.dfsPath || root.path}>{root.dfsPath || root.path}</small></span>
+                          <span class="nr__name"><b>{root.name}</b><small title={shownPath}>{shownPath}</small></span>
                         </button>
                       {/each}
                     {/if}
@@ -323,6 +456,10 @@
           <div class="nr__q">
             <label class="nr__label" for="nr-why">{t('Why?')}</label>
             <textarea id="nr-why" class="b2s-input" bind:value={justification} placeholder={t('E.g. monthly closing of November. The guardian reads it before deciding.')}></textarea>
+            <div class="nr__reasons">
+              <small class="nr__muted">{t('Frequent reasons:')}</small>
+              {#each REASONS as reason}<button type="button" on:click={() => useReason(reason())}>{reason()}</button>{/each}
+            </div>
             <small class="nr__muted">{t('Required · seen by the guardian and in the history of the folder')}</small>
           </div>
         </section>
@@ -367,7 +504,7 @@
         {:else if step === 2}
           <div class="nr__foot"><button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => (step = 1)}>{t('Back')}</button><button type="button" class="b2s-btn b2s-btn-primary" disabled={!step2Ready || !sendable.length} on:click={() => (step = 3)}>{t('Review')}</button></div>
         {:else}
-          <div class="nr__foot"><button type="button" class="b2s-btn b2s-btn-secondary" disabled={submitting} on:click={() => (step = 2)}>{t('Edit')}</button><button type="button" class="b2s-btn b2s-btn-primary" disabled={submitting || !sendable.length} on:click={submit}>{submitting ? t('Sending…') : requestCount > 1 ? t('Send {count} requests', { count: requestCount }) : t('Send the request')}</button></div>
+          <div class="nr__foot"><button type="button" class="b2s-btn b2s-btn-secondary" disabled={submitting} on:click={() => (step = 2)}>{t('Edit')}</button><button type="button" class="b2s-btn b2s-btn-primary" disabled={submitting || anyChecking || !sendable.length} on:click={submit}>{submitting ? t('Sending…') : requestCount > 1 ? t('Send {count} requests', { count: requestCount }) : t('Send the request')}</button></div>
         {/if}
       </aside>
     </div>
@@ -395,16 +532,21 @@
   .nr__title { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 4px; }
   .nr__title h1 { margin: 0; font-size: var(--b2s-fs-page-title, 26px); font-weight: 600; letter-spacing: -0.01em; }
   .nr__steps { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; }
-  .nr__steps li { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-pill); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .nr__steps li { display: contents; }
+  .nr__steps button { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-pill); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); cursor: pointer; }
+  .nr__steps button:disabled { cursor: default; }
+  .nr__steps small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .nr__steps small::before { content: '· '; }
   .nr__steps span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--b2s-color-neutral-soft); font-weight: 600; font-size: 12px; }
-  .nr__steps li.on { border-color: var(--b2s-color-text); color: var(--b2s-color-text); }
-  .nr__steps li.on span { background: var(--b2s-color-text); color: #fff; }
+  .nr__steps li.on button { border-color: var(--b2s-color-text); color: var(--b2s-color-text); }
+  .nr__steps li.on button span { background: var(--b2s-color-text); color: #fff; }
+  .nr__steps li.done button:hover { border-color: var(--b2s-color-text); color: var(--b2s-color-text); }
   .nr__steps li.done span { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
   .nr__layout { display: grid; grid-template-columns: minmax(0, 760px) 320px; gap: 18px; align-items: start; }
   .nr__panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .nr__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .nr__locked { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--b2s-color-text-muted); }
-  .nr__search { display: flex; gap: 8px; }
+  .nr__search { display: flex; align-items: center; gap: 8px; }
   .nr__search label { flex: 1; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border: 1.5px solid var(--b2s-color-border-mid, var(--b2s-color-border)); border-radius: var(--b2s-radius-md); }
   .nr__search label:focus-within { border-color: var(--b2s-color-text); }
   .nr__search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: 15px; }
@@ -458,5 +600,22 @@
   .nr__warn { color: var(--b2s-color-warning-strong) !important; }
   .nr__cartempty { margin: 0; padding: 16px; border: 1.5px dashed var(--b2s-color-border); border-radius: var(--b2s-radius-md); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); text-align: center; }
   .nr__wide { width: 100%; justify-content: center; }
+  .nr__express { display: grid; gap: 8px; padding: 12px; border: 1px dashed var(--b2s-color-border-mid, var(--b2s-color-border)); border-radius: var(--b2s-radius-md); }
+  .nr__express label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: var(--b2s-fs-sm); }
+  .nr__expressrow { display: flex; gap: 8px; }
+  .nr__expressrow input { flex: 1; }
+  .nr__slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .nr__slots span { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 8px 10px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); font-size: var(--b2s-fs-sm); font-weight: 500; overflow-wrap: anywhere; }
+  .nr__slots span.miss { border-style: dashed; background: var(--b2s-color-surface-soft, #f6f7f9); color: var(--b2s-color-text-muted); font-weight: 400; }
+  .nr__slots em { color: var(--b2s-color-text-muted); font-style: normal; font-size: var(--b2s-fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .nr__recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .nr__recent > span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .nr__recent button { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-pill); background: var(--b2s-color-surface); font-size: var(--b2s-fs-sm); cursor: pointer; }
+  .nr__recent button.on { border-color: var(--b2s-color-success-border, #cfe99a); background: var(--b2s-accent-soft); }
+  .nr__recent small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .nr__item.flat { padding-left: 22px; }
+  .nr__reasons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .nr__reasons button { padding: 3px 10px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-sm); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); cursor: pointer; }
+  .nr__reasons button:hover { color: var(--b2s-color-text); border-color: var(--b2s-color-text); }
   .nr__foot { display: flex; justify-content: flex-end; gap: 8px; }
 </style>

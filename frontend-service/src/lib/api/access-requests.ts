@@ -238,3 +238,7 @@ export type PendingRootRequest = {
 /** Pending requests of one storage root (« To review » line of the storage root) */
 export const listPendingRequestsForRoot = (fetchFn: FetchLike, storageRootId: number) =>
   apiGetList<PendingRootRequest>(fetchFn, '/access-requests', { status: 'pending', storage_root_id: storageRootId });
+
+/** Requests made by the caller, newest first (« Recently requested » of the new request page). */
+export const listMyAccessRequests = (fetchFn: FetchLike) =>
+  apiGetList<{ storage_root_id?: number | null; created_at?: string | null }>(fetchFn, '/access-requests', { mine: 1 });

@@ -957,10 +957,12 @@ def list_access_requests(
     high_impact: int | None = None,
     q: str | None = None,
     storage_root_id: int | None = None,
+    mine: int | None = None,
     db: Session = Depends(get_db),
 ):
     """
-    List access requests (V1++); storage_root_id keeps the requests of one storage root (« To review » line).
+    List access requests (V1++); storage_root_id keeps the requests of one storage root (« To review » line),
+    mine=1 the requests the caller made (« My recent folders » of the new request page).
 
     Backed by SQL view:
       - v_access_requests
@@ -977,6 +979,8 @@ def list_access_requests(
     rows = filter_access_request_rows(db, actor, rows)
     if storage_root_id:
         rows = [r for r in rows if int(r.get("storage_root_id") or 0) == int(storage_root_id)]
+    if mine:
+        rows = [r for r in rows if actor.identity_id is not None and int(r.get("requester_identity_id") or 0) == int(actor.identity_id)]
     return ui_list(
         rows,
         meta={
