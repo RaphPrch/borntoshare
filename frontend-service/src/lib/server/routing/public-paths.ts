@@ -5,7 +5,9 @@ const PUBLIC_PATH_PREFIXES = [
   '/_app',
   '/favicon',
   '/css',
-  '/api/auth'
+  '/api/auth',
+  // Supervision check (Centreon…), protected by its own read-only token
+  '/monitoring/'
 ];
 
 const STATIC_PATH_PREFIXES = ['/favicon', '/_app', '/css'];

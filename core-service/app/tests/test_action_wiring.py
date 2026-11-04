@@ -52,7 +52,7 @@ def test_the_two_copies_of_the_windows_name_rules_are_the_same() -> None:
 TEMPLATES = REPO / "frontend-service" / "src" / "lib" / "activity" / "templates.ts"
 EVENT = re.compile(
     r'"((?:zone|storage_endpoint|storage_root|access_request|identity_source|identity|tag|infrastructure|advanced_settings'
-    r'|governance_alert|logs|naming_policy|job|request)\.[a-z_]+)"'
+    r'|governance_alert|logs|naming_policy|job|request|extension)\.[a-z_]+)"'
 )
 # Written through f"infrastructure.{task}_run": one per scheduled task
 SCHEDULED_TASKS = ("health_check", "data_sync", "access_expiry", "dfs_read")

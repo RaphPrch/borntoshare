@@ -46,6 +46,7 @@ s'il existe :
 | `agent.crt` + `agent.key` | worker | Agent en HTTPS sur 8443 ; sans eux, HTTP sur 8080 (réseau interne uniquement) |
 | `agent-ca.pem` | core-service | Autorité privée des certificats d'agent |
 | `oidc-ca.pem` | auth-service | Autorité privée des serveurs Keycloak (SSO) |
+| `syslog-ca.pem`, `splunk-ca.pem` | core-service | Autorité privée du collecteur syslog (TLS) ou du HEC Splunk (Réglages avancés › Extensions) |
 
 `B2S_VERSION` n'est pas à renseigner : `make deploy` y met le commit et la date, affichés en bas du menu.
 

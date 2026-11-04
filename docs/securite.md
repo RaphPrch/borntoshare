@@ -109,3 +109,12 @@ Un gardien ne valide pas sa propre demande : un autre gardien ou un administrate
 - `make wizard-down` dès la fin de l'installation.
 - Sauvegarde des bases (`make backup`) **et**, à part, de `B2S_SECRET_MASTER_KEY`.
 - Comptes de service dédiés, mots de passe longs, droits limités à ce tableau.
+
+## Extensions (Réglages avancés › Extensions)
+
+- Syslog et Splunk reçoivent le journal d'audit et les nouvelles alertes de gouvernance, envoyés par core-service en
+  arrière-plan (3 essais, journal des envois gardé 7 jours). Le jeton HEC de Splunk est rangé dans le coffre.
+- Centreon interroge `GET /monitoring/health` sur le frontend, seule route publique en dehors de la connexion : elle
+  exige l'en-tête `X-Monitoring-Token` (jeton créé à l'activation, affiché une seule fois, renouvelable), ne lit que
+  l'état des composants et répond 200 (OK, WARNING) ou 503 (CRITICAL).
+

@@ -181,7 +181,7 @@ class GovernanceAlertsRepo(SQLViewRepo):
             "metadata_json": metadata_text,
             "now": now,
         }
-        self.db.execute(
+        result = self.db.execute(
             text(
                 """
                 INSERT INTO governance_alerts (
@@ -243,6 +243,11 @@ class GovernanceAlertsRepo(SQLViewRepo):
             ),
             params,
         )
+        # A new alert (1 row inserted, 2 when an existing one is updated) goes to the extensions that want it
+        if result.rowcount == 1:
+            from app.services.extensions import dispatch, event_from_alert
+
+            dispatch(event_from_alert(alert))
 
     def _resolve_missing_storage_root_alerts(self, *, storage_root_id: int, active_keys: set[str]) -> None:
         if not active_keys:

@@ -84,6 +84,11 @@ def log_activity(
 
     _activity_logged_in_request.set(True)
 
+    # The same event goes to the extensions that want it (syslog, Splunk…), in the background
+    from app.services.extensions import dispatch, event_from_activity
+
+    dispatch(event_from_activity(payload))
+
     if not background:
         _write_activity_safe(payload)
         return {"ok": True, "queued": False}

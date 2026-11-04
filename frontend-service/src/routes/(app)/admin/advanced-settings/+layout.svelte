@@ -13,7 +13,8 @@
     { key: 'logging', label: t('Logging'), icon: 'bi-journal-text' },
     { key: 'user-sessions', label: t('User sessions'), icon: 'bi-person-lines-fill' },
     { key: 'network', label: t('Network and DNS'), icon: 'bi-diagram-2' },
-    { key: 'infrastructure', label: t('Infrastructure'), icon: 'bi-hdd-network' }
+    { key: 'infrastructure', label: t('Infrastructure'), icon: 'bi-hdd-network' },
+    { key: 'extensions', label: t('Extensions'), icon: 'bi-plug' }
   ];
 
   const defaultHeader = {
@@ -25,6 +26,10 @@
     infrastructure: {
       title: t('Infrastructure'),
       subtitle: t('State of the platform, database, workers, health check and data sync.')
+    },
+    extensions: {
+      title: t('Extensions'),
+      subtitle: t('Send the events of BornToShare to the tools of the company, and let the supervision check it.')
     }
   };
 
