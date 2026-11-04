@@ -97,7 +97,8 @@ Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
 Containers:
 - One `Containerfile` and one `.containerignore` per service. Python services (capsule-runner included) share the same template: `python:3.14-slim-trixie`, no venv, code owned by root, non-root user `app` with one UID per service (auth 10001, core 10002, capsule 10003, wizard 10005, frontend 10006). The frontend uses `node:26-alpine`.
 - Dependencies are pinned (`==` in `requirements.txt`, lockfile for npm); a library shared by several services has the same version everywhere.
-- Every HTTP service has a compose healthcheck (`/health`, frontend `/login`) and services start once their dependencies are healthy.
+- Every service has a compose healthcheck and services start once their dependencies are healthy. `/health` checks what the service needs and answers 503 otherwise: database + Redis (core), Redis (auth), Redis + Dramatiq processes (worker, `python -m app.healthcheck`, HTTPS or HTTP like `start.sh`); frontend `/login`.
+- Python lint: `make lint` (Ruff, `ruff.toml`); it must pass before a commit.
 - One root `podman-compose.yml` (all services, shared hardening via `x-hardening`) and one root `.env` (model: `.env.example`). Each service lists only the variables it reads in `environment:` — no `env_file`, so secrets are not spread to every container. Topology URLs are code defaults in the Python services; the frontend gets `B2S_AUTH_URL` / `B2S_CORE_URL` as fixed values in the compose file.
 - `make up` / `make down` / `make logs` / `make logs-<service>`; the database wizard runs on demand (`make wizard`, profile `wizard`).
 

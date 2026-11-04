@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Secrets of auth-service: stored and read through core-service, which holds the key."""
+
+from __future__ import annotations
 
 import os
 from typing import Optional

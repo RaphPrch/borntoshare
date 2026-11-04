@@ -10,7 +10,7 @@ et trace ; il ne parle jamais à l'AD ni aux serveurs : il publie des travaux qu
 | Appelé par | frontend-service (routes métier), auth-service et capsule-runner (routes `/api/internal/*`) — toujours avec le jeton interne |
 | Appelle | MariaDB (`borntoshare`, `borntoshare_logging`), Redis (base 2, publication), l'agent des workers |
 | Montages | `config/runtime` (connexion à la base choisie dans l'application), `capsule-runner/certs` (lecture seule) |
-| Santé | `GET /health` |
+| Santé | `GET /health` : 503 si la base ou Redis ne répond pas |
 
 ## Organisation du code
 
@@ -36,8 +36,9 @@ et trace ; il ne parle jamais à l'AD ni aux serveurs : il publie des travaux qu
 
 ## Variables
 
-`INTERNAL_TOKEN`, `B2S_SECRET_MASTER_KEY`, `DB_*`, `LOGGING_DB_*`, `CAPSULE_BROKER_URL`,
-`B2S_RUNTIME_DIR` ; autorité privée des agents : `certs/agent-ca.pem`. Toute requête sauf `/health` exige le
+Lues par pydantic-settings (`app/core/config.py`) : `INTERNAL_TOKEN`, `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` et
+`CAPSULE_BROKER_URL` sont obligatoires (le service refuse de démarrer sans eux) ; `DB_PORT`, `LOGGING_DB_NAME`
+(la base d'audit reprend le serveur et le compte de `DB_*`), `B2S_SECRET_MASTER_KEY`, `B2S_RUNTIME_DIR` ; autorité privée des agents : `certs/agent-ca.pem`. Toute requête sauf `/health` exige le
 jeton interne. Voir
 [docs/installation.md](../docs/installation.md).
 

@@ -26,7 +26,7 @@ chmod 600 .env
 | `INTERNAL_TOKEN` | tous | Jeton partagé entre les services, 32 caractères aléatoires au moins |
 | `PRINCIPAL_SIGNING_KEY` | auth-service, frontend | Clé de signature du cookie de session, 32 caractères aléatoires au moins ; la clé par défaut est refusée |
 | `DB_HOST`, `DB_PORT` | core-service | Serveur MariaDB |
-| `DB_NAME`, `LOGGING_DB_NAME` | core-service | Bases des données et de l'audit (créées par le wizard) |
+| `DB_NAME`, `LOGGING_DB_NAME` | core-service | Bases des données et de l'audit (créées par le wizard, sur le même serveur et avec le même compte) |
 | `DB_USER`, `DB_PASSWORD` | core-service | Compte SQL de l'application, **celui que le wizard crée** (par défaut `b2s_app`) |
 | `REDIS_PASSWORD` | redis, auth, core, worker | Mot de passe Redis, lettres et chiffres uniquement |
 | `B2S_SECRET_MASTER_KEY` | core-service | 32 octets en base64 (`openssl rand -base64 32`) : chiffre les mots de passe stockés. **À sauvegarder à part** |
@@ -115,7 +115,8 @@ Restauration : recharger les deux dumps dans une base vide (`gzip -dc … | mari
 ## 6. Vérifier
 
 ```bash
-make ps              # les quatre services « healthy » (le worker n'a pas de sonde : voir Infrastructure › Workers)
+make ps              # tous les services « healthy » : /health vérifie la base et Redis (core), Redis (auth),
+                     # Redis et les processus Dramatiq (worker) ; un service « unhealthy » dit pourquoi dans /health
 make logs-core-service
 ```
 

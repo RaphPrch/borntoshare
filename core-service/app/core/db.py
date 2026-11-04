@@ -11,8 +11,6 @@ from app.core.config import get_settings
 # 🔴 OBLIGATOIRE : charge TOUS les modèles avant toute requête ORM
 import app.data.models  # noqa: F401
 
-# ✅ Base vient des modèles, PAS d'ici
-from app.data.models.base import Base
 settings = get_settings()
 
 

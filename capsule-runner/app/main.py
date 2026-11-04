@@ -11,6 +11,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi.responses import JSONResponse
 
 from app.core import settings
 from app.core.api_envelope import ok_data
@@ -100,7 +101,20 @@ def _broker_state() -> dict:
 
 @app.get("/health")
 def health():
-    return ok_data({"status": "ok", "max_scope": settings.RUNNER_MAX_SCOPE, "version": settings.APP_VERSION})
+    """Container healthcheck: answers 503 when no Dramatiq process runs or the job queue cannot be reached."""
+    from redis import Redis
+    from redis.backoff import NoBackoff
+    from redis.retry import Retry
+
+    checks: dict[str, str] = {"workers": "ok" if _dramatiq_processes() else "no Dramatiq process"}
+    try:
+        Redis.from_url(settings.CAPSULE_BROKER_URL, socket_timeout=2, socket_connect_timeout=2, retry=Retry(NoBackoff(), 0)).ping()
+        checks["job_queue"] = "ok"
+    except Exception as exc:
+        checks["job_queue"] = str(exc)[:200]
+    healthy = all(value == "ok" for value in checks.values())
+    body = {"status": "ok" if healthy else "down", "max_scope": settings.RUNNER_MAX_SCOPE, "version": settings.APP_VERSION, "checks": checks}
+    return ok_data(body) if healthy else JSONResponse(status_code=503, content={**ok_data(body), "ok": False})
 
 
 @app.get("/agent/v1/info")

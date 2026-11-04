@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import dramatiq
 from dramatiq.middleware import CurrentMessage

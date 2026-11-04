@@ -1,89 +1,60 @@
 from __future__ import annotations
 
-import os
 import urllib.parse
 from functools import lru_cache
-from pydantic import BaseModel, Field, field_validator
+
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def _env_flag(name: str, default: str) -> bool:
-    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
-
-
-class Settings(BaseModel):
+class Settings(BaseSettings):
     """
-    core-service settings (BornToShare)
+    core-service settings, read from the environment (podman-compose.yml passes the .env values).
 
-    Goals:
-    - DEV simple (HTTP, no strict policies)
-    - Consistent internal service-to-service auth
-    - Single DB URL for SQLAlchemy
+    A required variable that is missing stops the service at startup instead of falling back to a default.
     """
 
-    # =================================================
-    # 🧩 Core
-    # =================================================
-    LOG_LEVEL: str = Field(default=os.getenv("LOG_LEVEL", "INFO"))
+    model_config = SettingsConfigDict(extra="ignore")
 
-    # =================================================
-    # 🗄️ Database (MariaDB)
-    # =================================================
-    DB_DRIVER: str = Field(default=os.getenv("DB_DRIVER", "mariadb+pymysql"))
-    DB_HOST: str = Field(default=os.getenv("DB_HOST", "192.168.100.12"))
-    DB_PORT: int = Field(default=int(os.getenv("DB_PORT", "3306")))
-    DB_NAME: str = Field(default=os.getenv("DB_NAME", "b2s"))
-    DB_USER: str = Field(default=os.getenv("DB_USER", "b2s"))
-    DB_PASSWORD: str = Field(default=os.getenv("DB_PASSWORD", "b2s"))
-    # Full connection string chosen in Advanced Settings › Infrastructure (runtime file), replaces DB_*
-    DATABASE_URL_OVERRIDE: str | None = Field(default=None)
-    # Where the running connection comes from: "env" (.env) or "runtime" (Infrastructure page)
-    DB_CONFIG_SOURCE: str = Field(default="env")
+    LOG_LEVEL: str = "INFO"
+    SERVICE_NAME: str = "core-service"
+    API_PREFIX: str = "/api"
+    APP_VERSION: str = "0.1.0"
 
-    # =================================================
-    # 🗄️ Logging Database (MariaDB) — borntoshare_logging
-    # =================================================
-    # Prefer explicit URL if provided. Otherwise build from LOGGING_DB_* parts.
-    LOGGING_DATABASE_URL: str | None = Field(default=os.getenv("LOGGING_DATABASE_URL"))
-    LOGGING_DB_DRIVER: str = Field(default=os.getenv("LOGGING_DB_DRIVER", "mariadb+pymysql"))
-    LOGGING_DB_HOST: str = Field(default=os.getenv("LOGGING_DB_HOST", "db_logging"))
-    LOGGING_DB_PORT: int = Field(default=int(os.getenv("LOGGING_DB_PORT", "3306")))
-    LOGGING_DB_NAME: str = Field(default=os.getenv("LOGGING_DB_NAME", "borntoshare_logging"))
-    LOGGING_DB_USER: str = Field(default=os.getenv("LOGGING_DB_USER", "b2s"))
-    LOGGING_DB_PASSWORD: str = Field(default=os.getenv("LOGGING_DB_PASSWORD", "b2s"))
-
-    DB_POOL_SIZE: int = Field(default=int(os.getenv("DB_POOL_SIZE", "10")))
-    DB_MAX_OVERFLOW: int = Field(default=int(os.getenv("DB_MAX_OVERFLOW", "20")))
-    DB_POOL_RECYCLE: int = Field(default=int(os.getenv("DB_POOL_RECYCLE", "1800")))
-    DB_SCHEMA_GUARD_ENABLED: bool = Field(
-        default=os.getenv("DB_SCHEMA_GUARD_ENABLED", "true").lower() == "true"
-    )
-
-    # =================================================
-    # 🌐 API
-    # =================================================
-    SERVICE_NAME: str = Field(default=os.getenv("SERVICE_NAME", "core-service"))
-    API_PREFIX: str = Field(default=os.getenv("API_PREFIX", "/api"))
-
-    # =================================================
-    # 🔐 Internal service-to-service authentication
-    # =================================================
     # One token shared by every service (X-Internal-Token)
-    INTERNAL_TOKEN: str | None = Field(
-        default=os.getenv("INTERNAL_TOKEN")
-    )
+    INTERNAL_TOKEN: str = Field(min_length=1)
 
-    # =================================================
-    # 🧵 Provisioning jobs (Dramatiq broker + watchdog)
-    # =================================================
-    CAPSULE_BROKER_URL: str = Field(default=os.getenv("CAPSULE_BROKER_URL", "").strip())
-    # Republishes jobs stuck in QUEUED for longer than the timeout.
-    JOB_WATCHDOG_ENABLED: bool = Field(default=_env_flag("JOB_WATCHDOG_ENABLED", "1"))
-    JOB_WATCHDOG_INTERVAL_SECONDS: int = Field(default=max(15, int(os.getenv("JOB_WATCHDOG_INTERVAL_SECONDS", "30"))))
-    JOB_WATCHDOG_QUEUED_TIMEOUT_SECONDS: int = Field(
-        default=max(30, int(os.getenv("JOB_WATCHDOG_QUEUED_TIMEOUT_SECONDS", "300")))
-    )
-    JOB_WATCHDOG_MAX_REPUBLISH: int = Field(default=max(0, int(os.getenv("JOB_WATCHDOG_MAX_REPUBLISH", "1"))))
-    JOB_WATCHDOG_LIMIT: int = Field(default=max(1, min(int(os.getenv("JOB_WATCHDOG_LIMIT", "200")), 1000)))
+    # Database (MariaDB)
+    DB_DRIVER: str = "mariadb+pymysql"
+    DB_HOST: str = Field(min_length=1)
+    DB_PORT: int = 3306
+    DB_NAME: str = Field(min_length=1)
+    DB_USER: str = Field(min_length=1)
+    DB_PASSWORD: str = Field(min_length=1)
+    # Full connection string chosen in Advanced Settings › Infrastructure (runtime file), replaces DB_*
+    DATABASE_URL_OVERRIDE: str | None = None
+    # Where the running connection comes from: "env" (.env) or "runtime" (Infrastructure page)
+    DB_CONFIG_SOURCE: str = "env"
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_RECYCLE: int = 1800
+    DB_SCHEMA_GUARD_ENABLED: bool = True
+
+    # Audit database (borntoshare_logging): same server and account as the main database unless set
+    LOGGING_DATABASE_URL: str | None = None
+    LOGGING_DB_NAME: str = "borntoshare_logging"
+    LOGGING_DB_HOST: str | None = None
+    LOGGING_DB_PORT: int | None = None
+    LOGGING_DB_USER: str | None = None
+    LOGGING_DB_PASSWORD: str | None = None
+
+    # Dramatiq broker (Redis) and the watchdog that republishes jobs stuck in QUEUED
+    CAPSULE_BROKER_URL: str = Field(min_length=1)
+    JOB_WATCHDOG_ENABLED: bool = True
+    JOB_WATCHDOG_INTERVAL_SECONDS: int = Field(default=30, ge=15)
+    JOB_WATCHDOG_QUEUED_TIMEOUT_SECONDS: int = Field(default=300, ge=30)
+    JOB_WATCHDOG_MAX_REPUBLISH: int = Field(default=1, ge=0)
+    JOB_WATCHDOG_LIMIT: int = Field(default=200, ge=1, le=1000)
 
     @field_validator("LOG_LEVEL")
     @classmethod
@@ -95,6 +66,13 @@ class Settings(BaseModel):
             raise ValueError("Invalid LOG_LEVEL")
         return resolved
 
+    @model_validator(mode="after")
+    def _logging_database_defaults(self) -> "Settings":
+        self.LOGGING_DB_HOST = self.LOGGING_DB_HOST or self.DB_HOST
+        self.LOGGING_DB_PORT = self.LOGGING_DB_PORT or self.DB_PORT
+        self.LOGGING_DB_USER = self.LOGGING_DB_USER or self.DB_USER
+        self.LOGGING_DB_PASSWORD = self.LOGGING_DB_PASSWORD or self.DB_PASSWORD
+        return self
 
     # =================================================
     # Helpers
@@ -118,7 +96,7 @@ class Settings(BaseModel):
         user = urllib.parse.quote_plus(self.LOGGING_DB_USER)
         pwd = urllib.parse.quote_plus(self.LOGGING_DB_PASSWORD)
         return (
-            f"{self.LOGGING_DB_DRIVER}://{user}:{pwd}"
+            f"{self.DB_DRIVER}://{user}:{pwd}"
             f"@{self.LOGGING_DB_HOST}:{self.LOGGING_DB_PORT}/{self.LOGGING_DB_NAME}"
         )
 
@@ -126,7 +104,7 @@ class Settings(BaseModel):
         # No interactive API documentation: the API is internal, behind the BFF
         kwargs = {
             "title": self.SERVICE_NAME,
-            "version": os.getenv("APP_VERSION", "0.1.0"),
+            "version": self.APP_VERSION,
             "docs_url": None,
             "redoc_url": None,
             "openapi_url": None,
@@ -173,10 +151,4 @@ def _apply_runtime_database(settings: Settings) -> Settings:
 
 @lru_cache
 def get_settings() -> Settings:
-    settings = _apply_runtime_database(Settings())
-
-    # -------------------------------------------------
-    # 🔥 Safety checks (CRITICAL)
-    # -------------------------------------------------
-    # INTERNAL_TOKEN is checked on every internal request (no import-time failure: the tests load the settings)
-    return settings
+    return _apply_runtime_database(Settings())

@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 
 import pytest
-from fastapi import HTTPException
 
 if sys.version_info < (3, 10):
     pytest.skip("Requires Python >= 3.10 for SQLAlchemy mapped union annotations", allow_module_level=True)

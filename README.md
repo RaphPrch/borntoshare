@@ -64,4 +64,5 @@ make deploy            mise à jour : paquets SQL, point de retour, reconstructi
 make backup            sauvegarde des deux bases dans backups/ (pas la clé des secrets)
 make wizard            wizard d'initialisation ; make wizard-down pour l'arrêter
 make ad-lab-up         AD de test pour les tests de bout en bout (jamais en production)
+make lint              contrôle du code Python des quatre services (Ruff, règles dans ruff.toml)
 ```

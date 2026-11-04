@@ -9,7 +9,6 @@ from typing import Any
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import Session
 
 from app.core.logging_db import LoggingSessionLocal
 

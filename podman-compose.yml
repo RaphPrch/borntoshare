@@ -87,11 +87,8 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      LOGGING_DB_HOST: ${DB_HOST}
-      LOGGING_DB_PORT: ${DB_PORT:-3306}
+      # Audit database: same server and account as DB_*
       LOGGING_DB_NAME: ${LOGGING_DB_NAME}
-      LOGGING_DB_USER: ${DB_USER}
-      LOGGING_DB_PASSWORD: ${DB_PASSWORD}
       CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
       # Database chosen in Advanced Settings › Infrastructure, read at startup (replaces DB_*)
       B2S_RUNTIME_DIR: /etc/b2s/runtime
@@ -120,6 +117,9 @@ services:
     volumes:
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     expose: ["8443", "8080"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-m", "app.healthcheck"]
     depends_on:
       redis:
         condition: service_healthy

@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Dashboard endpoints consumed by frontend BFF.
 
 Wizard-UI is the schema authority for dashboard views.
 Exposes a minimal, SQL-first API.
 """
+
+from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 

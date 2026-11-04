@@ -161,17 +161,31 @@ class RedisSessionStore:
             raise RuntimeError("redis package is not installed")
 
         self._key_prefix = str(settings.REDIS_KEY_PREFIX or "bts:auth").strip() or "bts:auth"
-        self._client = redis.Redis(
+        self._server = dict(
             host=settings.REDIS_HOST,
             port=int(settings.REDIS_PORT),
             db=int(settings.REDIS_DB),
             username=settings.REDIS_USERNAME,
             password=settings.REDIS_PASSWORD,
             ssl=bool(settings.REDIS_TLS),
+        )
+        self._client = redis.Redis(
+            **self._server,
             socket_timeout=float(settings.REDIS_TIMEOUT_SECONDS),
             socket_connect_timeout=float(settings.REDIS_TIMEOUT_SECONDS),
             decode_responses=True,
         )
+
+    def ping(self) -> None:
+        """Healthcheck: one short try, without the retries of the sessions client."""
+        from redis.backoff import NoBackoff
+        from redis.retry import Retry
+
+        probe = redis.Redis(**self._server, socket_timeout=2, socket_connect_timeout=2, retry=Retry(NoBackoff(), 0))
+        try:
+            probe.ping()
+        finally:
+            probe.close()
 
     def _sess_key(self, session_id: str) -> str:
         return f"{self._key_prefix}:sess:{session_id}"

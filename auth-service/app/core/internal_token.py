@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Internal service-to-service authentication helpers."""
+
+from __future__ import annotations
 
 from typing import Dict
 

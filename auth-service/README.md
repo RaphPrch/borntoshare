@@ -9,7 +9,7 @@ locaux et les rôles auprès de core-service (routes `/api/internal/*`, jeton in
 | Port | 8000, interne (réseaux `b2s-app`, `b2s-jobs`) |
 | Appelé par | frontend-service (BFF) |
 | Appelle | core-service, Redis (base 1), les contrôleurs de domaine (LDAPS), Keycloak (OIDC) |
-| Santé | `GET /health` |
+| Santé | `GET /health` : 503 si Redis (sessions) ne répond pas |
 
 ## Fournisseurs de connexion
 

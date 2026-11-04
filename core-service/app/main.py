@@ -139,10 +139,31 @@ register_exception_handlers(app, logger)
 
 @app.get("/health", tags=["health"])
 def health():
-    return {
-        "status": "ok",
-        "service": settings.SERVICE_NAME,
-    }
+    """Container healthcheck: answers 503 when the database or the job queue cannot be reached."""
+    from fastapi.responses import JSONResponse
+    from redis import Redis
+    from redis.backoff import NoBackoff
+    from redis.retry import Retry
+    from sqlalchemy import text
+
+    checks: dict[str, str] = {}
+    try:
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+        finally:
+            db.close()
+        checks["database"] = "ok"
+    except Exception as exc:
+        checks["database"] = str(getattr(exc, "orig", exc))[:200]
+    try:
+        Redis.from_url(settings.CAPSULE_BROKER_URL, socket_timeout=2, socket_connect_timeout=2, retry=Retry(NoBackoff(), 0)).ping()
+        checks["job_queue"] = "ok"
+    except Exception as exc:
+        checks["job_queue"] = str(exc)[:200]
+    healthy = all(value == "ok" for value in checks.values())
+    body = {"status": "ok" if healthy else "down", "service": settings.SERVICE_NAME, "checks": checks}
+    return body if healthy else JSONResponse(status_code=503, content=body)
 
 
 # ============================================================

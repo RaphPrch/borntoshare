@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 from app.services.secret_client import SecretResolveError, resolve_secret_refs
 

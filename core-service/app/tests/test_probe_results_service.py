@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 
-from app.data.models.storage_endpoint import StorageEndpoint
 from app.data.models.storage_root import StorageRoot
 from app.api import provisioning_internal as provisioning_module
 from app.api.provisioning_internal import _extract_storage_endpoint_id_from_probe
 from app.api.storage_roots import StorageRootDiscoverySyncPayload
 from app.data.repositories.storage_roots_views_repo import StorageRootsViewsRepo
-from app.services.probe_results import ProbeResultService
 
 
 class _NoopDB:

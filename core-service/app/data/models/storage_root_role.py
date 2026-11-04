@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from datetime import datetime
 
@@ -8,11 +8,6 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, String, UniqueConstrain
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
-
-if TYPE_CHECKING:
-    from .storage_root import StorageRoot
-    from .identity import Identity
-
 
 class StorageRootRole(Base):
     __tablename__ = "storage_root_roles"

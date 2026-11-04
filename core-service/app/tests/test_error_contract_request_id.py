@@ -132,4 +132,35 @@ def test_core_answers_only_with_the_internal_token() -> None:
     forged = bare.get("/api/zones", headers={"x-identity-id": "1", "x-roles": "platform_admin"})
     assert forged.status_code == 401 and forged.json()["error"]["code"] == "INTERNAL_TOKEN_REQUIRED"
     assert bare.get("/api/zones", headers={"X-Internal-Token": "wrong", "x-roles": "platform_admin"}).status_code == 403
-    assert bare.get("/health").status_code == 200
+    # The health probe needs no token (its answer depends on the database and Redis, see the test below)
+    assert bare.get("/health").status_code in (200, 503)
+
+
+def test_health_answers_503_with_the_failing_check(monkeypatch) -> None:
+    import redis
+
+    from app import main
+
+    class _DB:
+        def execute(self, _sql):
+            return None
+
+        def close(self):
+            pass
+
+    class _Redis:
+        def __init__(self, up: bool):
+            self.up = up
+
+        def ping(self):
+            if not self.up:
+                raise ConnectionError("redis down")
+
+    monkeypatch.setattr(main, "SessionLocal", _DB)
+    monkeypatch.setattr(redis.Redis, "from_url", classmethod(lambda cls, *a, **k: _Redis(True)))
+    up = TestClient(main.app).get("/health")
+    assert up.status_code == 200 and up.json()["checks"] == {"database": "ok", "job_queue": "ok"}
+
+    monkeypatch.setattr(redis.Redis, "from_url", classmethod(lambda cls, *a, **k: _Redis(False)))
+    down = TestClient(main.app).get("/health")
+    assert down.status_code == 503 and down.json()["checks"]["job_queue"] == "redis down"

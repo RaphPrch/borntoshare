@@ -5,7 +5,6 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import text
 
 from app.data.models.identity_sources import IdentitySource
 from app.data.models.storage_endpoint import StorageEndpoint

@@ -9,6 +9,7 @@ puis rend le résultat. Un agent HTTP(S) répond aux vérifications de santé de
 | Image | `b2s-capsule-runner` (Python 3.14, Dramatiq ; `smbclient`, `rpcclient`, `smbcacls`, `krb5-user`), utilisateur 10003 |
 | Processus | `start.sh` : l'agent (uvicorn) et le worker Dramatiq ; l'un qui s'arrête arrête le conteneur |
 | Ports | Agent 8443 en HTTPS (avec `certs/agent.crt` et `agent.key`), sinon 8080 en HTTP (réseau interne uniquement) |
+| Santé | `GET /health` de l'agent : 503 sans processus Dramatiq ou sans Redis ; sonde `python -m app.healthcheck` |
 | Réseaux | `b2s-app` (vers core-service et l'extérieur), `b2s-jobs` (Redis) |
 | Files | `capsule_identity` (annuaire), `capsule_probes` (tests, lectures), `capsule_acl` (groupes, ACL, dossiers, partages, DFS) |
 | Sorties | LDAPS 636 / LDAP 389, Kerberos 88, DNS 53, SMB 445 (voir [docs/architecture.md](../docs/architecture.md#flux-à-ouvrir-vers-lextérieur)) |

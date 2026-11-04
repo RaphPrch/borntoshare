@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: backup help build up down restart ps logs logs-% wizard wizard-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy
+.PHONY: backup help build up down restart ps logs logs-% wizard wizard-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
 
 help:
 	@echo "make build          build the images"
@@ -18,6 +18,7 @@ help:
 	@echo "make wizard-down    stop the wizard"
 	@echo "make clean          stop, then remove unused images and the Redis queue"
 	@echo "make deploy         database packs, rollback point, build and recreate the services"
+	@echo "make lint           Python lint of the four services (Ruff, rules in ruff.toml)"
 	@echo "make ad-lab-up      test Active Directory adlab.example.test (end-to-end tests, never in production)"
 	@echo "make ad-lab-down    stop it (data kept)     make ad-lab-reset: stop and delete its domain"
 
@@ -79,3 +80,7 @@ ad-lab-reset:
 
 ad-lab-logs:
 	$(AD_LAB) logs -f --tail=100
+
+lint:
+	podman run --rm -e PIP_DISABLE_PIP_VERSION_CHECK=1 -v "$(CURDIR)":/src:z,ro -w /src docker.io/library/python:3.14-slim-trixie \
+		sh -c "pip install -q --root-user-action=ignore ruff==0.13.0 >/dev/null && ruff check --no-cache core-service auth-service capsule-runner wizard-ui"
