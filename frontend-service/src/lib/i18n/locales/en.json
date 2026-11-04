@@ -884,5 +884,6 @@
   "The inherited rights that BornToShare does not manage come back as gaps in Monitoring.": "The inherited rights that BornToShare does not manage come back as gaps in Monitoring.",
   "Applied at once on the file server; BornToShare then reads the rights of the folder again.": "Applied at once on the file server; BornToShare then reads the rights of the folder again.",
   "The rights inherited from the parent folder are copied as explicit rights: nobody loses access.": "The rights inherited from the parent folder are copied as explicit rights: nobody loses access.",
-  "Later changes on the parent folder no longer apply to this folder.": "Later changes on the parent folder no longer apply to this folder."
+  "Later changes on the parent folder no longer apply to this folder.": "Later changes on the parent folder no longer apply to this folder.",
+  "Only this folder changes: its existing sub-folders keep their current rights.": "Only this folder changes: its existing sub-folders keep their current rights."
 }
