@@ -22,7 +22,24 @@ const config = {
   kit: {
     // CSRF: SvelteKit only accepts form POSTs whose Origin matches the app origin,
     // which adapter-node takes from the ORIGIN env var (see podman-compose.yml).
-    adapter: adapter()
+    adapter: adapter(),
+    // Content-Security-Policy: scripts of the app only (SvelteKit adds a nonce to the ones it inlines), nothing
+    // from elsewhere, and never shown in a frame. Styles allow inline: Svelte writes style="…" attributes.
+    csp: {
+      mode: 'auto',
+      directives: {
+        'default-src': ['self'],
+        'script-src': ['self'],
+        'style-src': ['self', 'unsafe-inline'],
+        'img-src': ['self', 'data:', 'blob:'],
+        'font-src': ['self', 'data:'],
+        'connect-src': ['self'],
+        'object-src': ['none'],
+        'base-uri': ['self'],
+        'form-action': ['self'],
+        'frame-ancestors': ['none']
+      }
+    }
   }
 };
 

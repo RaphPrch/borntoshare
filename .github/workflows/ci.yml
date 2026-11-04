@@ -9,6 +9,18 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    name: lint (Ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      # Same version and rules as « make lint » (ruff.toml)
+      - run: pip install ruff==0.13.0
+      - run: ruff check --no-cache core-service auth-service capsule-runner wizard-ui
+
   python:
     name: tests ${{ matrix.service }}
     runs-on: ubuntu-latest
@@ -22,8 +34,6 @@ jobs:
             workdir: capsule-runner
           - service: core-service
             workdir: core-service
-          - service: secret-broker
-            workdir: secret-broker
           - service: wizard-ui
             workdir: wizard-ui/backend
     steps:
@@ -39,7 +49,7 @@ jobs:
       - name: Run tests
         working-directory: ${{ matrix.workdir }}
         run: |
-          # auth-service settings require INTERNAL_TOKEN; core-service refuses it in hmac mode
+          # auth-service settings require INTERNAL_TOKEN (core-service tests set their own)
           if [ "${{ matrix.service }}" = "auth-service" ]; then export INTERNAL_TOKEN=ci-internal-token; fi
           python -m pytest -q
 

@@ -39,7 +39,32 @@ process.on?.('unhandledRejection', (reason) => {
  * MAIN HANDLE
  * ============================================================ */
 
-export const handle: Handle = async ({ event, resolve }) => {
+// Headers of every answer (pages, API, files): no frame, no type guessing, no referrer outside, no device API;
+// HSTS once the public address is HTTPS (FRONTEND_PUBLIC_ORIGIN)
+const SECURITY_HEADERS: Record<string, string> = {
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  ...(String(process.env.ORIGIN ?? '').startsWith('https://') ? { 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' } : {})
+};
+
+function withSecurityHeaders(response: Response): Response {
+  try {
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) if (!response.headers.has(name)) response.headers.set(name, value);
+    return response;
+  } catch {
+    // Headers of a proxied answer can be read-only: copy the answer
+    const copy = new Response(response.body, response);
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) if (!copy.headers.has(name)) copy.headers.set(name, value);
+    return copy;
+  }
+}
+
+export const handle: Handle = async (input) => withSecurityHeaders(await handleRequest(input));
+
+const handleRequest: Handle = async ({ event, resolve }) => {
   const { url } = event;
   const locals = event.locals as { me: { id?: string | number | null } | null; locale: Locale };
 

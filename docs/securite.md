@@ -118,3 +118,11 @@ Un gardien ne valide pas sa propre demande : un autre gardien ou un administrate
   exige l'en-tête `X-Monitoring-Token` (jeton créé à l'activation, affiché une seule fois, renouvelable), ne lit que
   l'état des composants et répond 200 (OK, WARNING) ou 503 (CRITICAL).
 
+## En-têtes HTTP du frontend
+
+Chaque réponse porte une Content-Security-Policy (scripts de l'application seulement, avec un nonce pour ceux que
+SvelteKit insère ; aucune ressource externe ; `frame-ancestors 'none'`), `X-Frame-Options: DENY`,
+`X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, une `Permissions-Policy` qui
+coupe caméra, micro et géolocalisation, et `Strict-Transport-Security` dès que `FRONTEND_PUBLIC_ORIGIN` est en HTTPS.
+Les styles en ligne restent permis : Svelte écrit des attributs `style`.
+
