@@ -459,7 +459,7 @@
     </InlineAlert>
   {/if}
   <svelte:fragment slot="footer">
-    <EntityActionButton variant="ghost" label={t('Cancel')} onClick={closeAction} />
+    <EntityActionButton variant="secondary" label={t('Cancel')} onClick={closeAction} />
     <EntityActionButton
       variant="primary"
       busy={running}

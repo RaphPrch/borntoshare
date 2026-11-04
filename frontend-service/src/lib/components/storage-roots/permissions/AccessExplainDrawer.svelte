@@ -100,7 +100,7 @@
   </svelte:fragment>
 
   {#if loading}
-    <LoadingState />
+    <LoadingState skeleton="detail" />
   {:else if missing}
     <InlineAlert tone="info">
       {missing.known_in_directory

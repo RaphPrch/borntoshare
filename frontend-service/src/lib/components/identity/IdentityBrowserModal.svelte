@@ -568,7 +568,7 @@
         <h3 class="idb-panel__title">{t('Directory')}</h3>
         <div class="idb-scroll">
           {#if $store.loadingTree}
-            <LoadingState>{t('Loading…')}</LoadingState>
+            <LoadingState skeleton="rows">{t('Loading…')}</LoadingState>
           {:else if $store.tree.length === 0}
             <p class="idb-muted">{searchable ? t('No organizational unit.') : '—'}</p>
           {:else}
@@ -588,7 +588,7 @@
         </h3>
         <div class="idb-scroll">
           {#if $store.loadingSearch}
-            <LoadingState>{t('Searching the directory…')}</LoadingState>
+            <LoadingState skeleton="rows">{t('Searching the directory…')}</LoadingState>
           {:else if $store.rows.length === 0}
             <p class="idb-empty">
               <i class="bi bi-search" aria-hidden="true"></i>
@@ -634,7 +634,7 @@
         <h3 class="idb-panel__title">{previewTitle}</h3>
         <div class="idb-scroll">
           {#if $store.loadingPreview}
-            <LoadingState>{t('Loading…')}</LoadingState>
+            <LoadingState skeleton="rows">{t('Loading…')}</LoadingState>
           {:else if !$store.preview}
             <p class="idb-empty">{t('Select a user or a group to see its details.')}</p>
           {:else}

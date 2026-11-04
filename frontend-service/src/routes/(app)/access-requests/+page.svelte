@@ -710,7 +710,7 @@
 
   {#if selectedRequest}
     <div class="ar-detail">
-      {#if detailLoading}<LoadingState>{t('Loading full details…')}</LoadingState>{/if}
+      {#if detailLoading}<LoadingState skeleton="detail">{t('Loading full details…')}</LoadingState>{/if}
       {#if detailError}
         <InlineAlert tone={decisionFailure?.code === 'AD_JOB_STILL_RUNNING' ? 'warning' : 'error'}>
           <strong>{detailError}</strong>

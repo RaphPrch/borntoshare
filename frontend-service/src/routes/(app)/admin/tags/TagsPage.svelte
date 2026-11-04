@@ -402,7 +402,7 @@
               {/each}
             </div>
             <div class="tag-custom">
-              <span class="tag-custom__label">{t('Custom…')}</span>
+              <span class="tag-custom__label">{t('Other colour')}</span>
               <input
                 class="b2s-input"
                 placeholder="#3fa9f5"
@@ -432,7 +432,7 @@
     {/if}
   </svelte:fragment>
   <svelte:fragment slot="footer">
-    <EntityActionButton variant="ghost" label={t('Cancel')} onClick={() => (modalOpen = false)} />
+    <EntityActionButton variant="secondary" label={t('Cancel')} onClick={() => (modalOpen = false)} />
     <EntityActionButton
       variant="primary"
       busy={busy}
@@ -461,7 +461,7 @@
     </InlineAlert>
   {/if}
   <svelte:fragment slot="footer">
-    <EntityActionButton variant="ghost" label={t('Cancel')} onClick={() => (mergeOpen = false)} />
+    <EntityActionButton variant="secondary" label={t('Cancel')} onClick={() => (mergeOpen = false)} />
     <EntityActionButton variant="primary" busy={merging} disabled={!mergeTarget} label={t('Merge')} onClick={handleMerge} />
   </svelte:fragment>
 </AppModal>

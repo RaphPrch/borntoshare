@@ -219,7 +219,7 @@
 
   <section class="b2s-card obs-card">
     {#if loading}
-      <LoadingState />
+      <LoadingState skeleton="rows" />
     {:else if filtered.length === 0}
       <EmptyStateInline message={statusFilter === 'active' ? t('No open alert. Everything looks fine.') : t('No alert matches these filters.')} />
     {:else if grouped}

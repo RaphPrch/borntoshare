@@ -53,7 +53,7 @@
     {#if errorMessage}<InlineAlert tone="error">{errorMessage}</InlineAlert>{/if}
   </div>
   <svelte:fragment slot="footer">
-    <button type="button" class="b2s-btn b2s-btn-ghost" disabled={busy} on:click={onClose}>{t('Cancel')}</button>
+    <button type="button" class="b2s-btn b2s-btn-secondary" disabled={busy} on:click={onClose}>{t('Cancel')}</button>
     <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy || !name.trim()} on:click={submit}>
       {busy ? t('Creating…') : t('Create the share')}
     </button>

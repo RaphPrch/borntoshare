@@ -278,7 +278,7 @@
 </div>
 
 {#if loading}
-  <LoadingState />
+  <LoadingState skeleton="rows" />
 {:else if providers.length === 0}
   <div class="empty">
     <i class="bi bi-key" aria-hidden="true"></i>
@@ -494,7 +494,7 @@
 
   <svelte:fragment slot="footer">
     <div class="dfoot">
-      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={requestClose}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={requestClose}>{t('Cancel')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary" on:click={runTest} disabled={testing || saving}>
         <i class={`bi ${testing ? 'bi-hourglass-split' : 'bi-plug'}`} aria-hidden="true"></i>{testing ? t('Testing…') : t('Test')}
       </button>

@@ -225,7 +225,7 @@
     {#if createError}<InlineAlert tone="error">{createError}</InlineAlert>{/if}
   </div>
   <svelte:fragment slot="footer">
-    <button type="button" class="b2s-btn b2s-btn-ghost" disabled={creating} on:click={() => (createOpen = false)}>{t('Cancel')}</button>
+    <button type="button" class="b2s-btn b2s-btn-secondary" disabled={creating} on:click={() => (createOpen = false)}>{t('Cancel')}</button>
     <button type="button" class="b2s-btn b2s-btn-primary" disabled={creating || !canCreate} on:click={submitCreate}>{creating ? t('Creating…') : t('Create the DFS folder')}</button>
   </svelte:fragment>
 </AppModal>

@@ -342,9 +342,77 @@
   }
 }
 
+/* Skeleton (LoadingState skeleton): the shape of the content that comes, a light sweep over it */
+.b2s-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 4px;
+}
+
+.b2s-skeleton__row,
+.b2s-skeleton__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.b2s-skeleton__dot,
+.b2s-skeleton__avatar,
+.b2s-skeleton__line,
+.b2s-skeleton__tiles span {
+  position: relative;
+  overflow: hidden;
+  background: var(--b2s-color-neutral-soft, #eef1f6);
+  border-radius: var(--b2s-radius-sm);
+}
+
+.b2s-skeleton__dot { width: 28px; height: 28px; border-radius: var(--b2s-radius-md); flex: none; }
+.b2s-skeleton__avatar { width: 40px; height: 40px; border-radius: var(--b2s-radius-pill); flex: none; }
+.b2s-skeleton__line { height: 12px; width: 70%; }
+.b2s-skeleton__line.is-title { height: 18px; width: 40%; }
+.b2s-skeleton__line.is-short { width: 45%; }
+.b2s-skeleton__line.is-tag { width: 64px; margin-left: auto; flex: none; }
+.b2s-skeleton__tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 6px; }
+.b2s-skeleton__tiles span { height: 64px; border-radius: var(--b2s-radius-md); }
+
+.b2s-skeleton__dot::after,
+.b2s-skeleton__avatar::after,
+.b2s-skeleton__line::after,
+.b2s-skeleton__tiles span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: b2s-skeleton-sweep 1.4s ease-in-out infinite;
+  animation-delay: var(--b2s-skeleton-delay, 0ms);
+}
+
+@keyframes b2s-skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.b2s-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .b2s-spinner {
     animation-duration: 2.4s;
+  }
+  .b2s-skeleton__dot::after,
+  .b2s-skeleton__avatar::after,
+  .b2s-skeleton__line::after,
+  .b2s-skeleton__tiles span::after {
+    animation: none;
   }
 }
 

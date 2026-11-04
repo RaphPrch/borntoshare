@@ -41,7 +41,7 @@
       <h3>{t('Attach existing endpoint')}</h3>
 
       {#if loading}
-        <LoadingState>{t('Loading endpoints…')}</LoadingState>
+        <LoadingState skeleton="rows" rows={3}>{t('Loading endpoints…')}</LoadingState>
       {:else if existingEndpoints.length === 0}
         <div class="b2s-text-muted-note">{t('No existing endpoint available.')}</div>
       {:else}

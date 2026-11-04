@@ -687,7 +687,7 @@
   </svelte:fragment>
 
   <svelte:fragment slot="footer">
-    <button class="b2s-btn b2s-btn-ghost" type="button" on:click={onCancel}>{t('Cancel')}</button>
+    <button class="b2s-btn b2s-btn-secondary" type="button" on:click={onCancel}>{t('Cancel')}</button>
     {#if step > 1}
       <button class="b2s-btn b2s-btn-secondary" type="button" on:click={handleBack}>
         <i class="bi bi-arrow-left" aria-hidden="true"></i>

@@ -178,7 +178,7 @@
 
   <section class="b2s-card obs-card">
     {#if loading && rows.length === 0}
-      <LoadingState />
+      <LoadingState skeleton="rows" />
     {:else if rows.length === 0}
       <EmptyStateInline message={t('No event matches these filters.')} />
     {:else}

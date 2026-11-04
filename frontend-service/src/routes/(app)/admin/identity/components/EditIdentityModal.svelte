@@ -50,7 +50,6 @@
 
   $: title = isGroup ? t('Edit group') : t('Edit account');
   $: subtitle = String(identity?.display_name ?? identity?.username ?? '').trim() || t('Unknown identity');
-  $: roleLabel = selectedRole === 'platform_admin' ? t('Platform administrator') : t('User');
   $: canEditPassword = isLocalUser;
   $: canToggleActive = isUser;
   $: baselineDisplayName = String(identity?.display_name ?? identity?.username ?? '').trim();
@@ -196,7 +195,6 @@
   <div class="identity-edit-shell">
     <section class="identity-edit-section">
       <div class="identity-edit-section__heading">
-        <span class="identity-edit-section__index">1</span>
         <div>
           <h3>{t('Account profile')}</h3>
         </div>
@@ -231,7 +229,6 @@
 
     <section class="identity-edit-section">
       <div class="identity-edit-section__heading">
-        <span class="identity-edit-section__index">2</span>
         <div>
           <h3>{t('Application access')}</h3>
         </div>
@@ -256,7 +253,6 @@
             </div>
           </label>
         </div>
-        <p class="identity-edit-helper">{t('Currently selected: {roleLabel}', { roleLabel })}</p>
         <p class="identity-edit-helper">
           {t('Application roles control access within BornToShare only and do not grant NTFS or file system permissions.')}
         </p>
@@ -266,7 +262,6 @@
     {#if canEditPassword}
       <section class="identity-edit-section">
         <div class="identity-edit-section__heading">
-          <span class="identity-edit-section__index">3</span>
           <div>
             <h3>{t('Security')}</h3>
           </div>
@@ -335,7 +330,7 @@
       {/if}
       <button type="button" class="b2s-btn b2s-btn-secondary" on:click={close} disabled={loading}>{t('Cancel')}</button>
       <button type="button" class="b2s-btn b2s-btn-primary" on:click={submit} disabled={loading}>
-        {loading ? t('Saving changes…') : t('Save changes')}
+        <i class="bi {loading ? 'bi-arrow-repeat' : 'bi-check2'}" aria-hidden="true"></i>{loading ? t('Saving changes…') : t('Save changes')}
       </button>
     </div>
   </svelte:fragment>
@@ -389,19 +384,6 @@
     color: var(--b2s-color-text);
   }
 
-  .identity-edit-section__index {
-    width: 28px;
-    height: 28px;
-    border-radius: var(--b2s-radius-md);
-    border: 1px solid #d8e3f4;
-    background: #f4f8ff;
-    color: #2f6df6;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--b2s-fs-md);
-    font-weight: 700;
-  }
 
   .identity-edit-field {
     display: grid;

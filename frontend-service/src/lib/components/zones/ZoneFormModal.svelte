@@ -64,7 +64,7 @@
       ? t('This action is permanent.')
       : mode === "create"
         ? t('Define the zone identity and default governance context.')
-        : t('Update the zone identity and default governance context.');
+        : String((zone as any)?.name ?? (zone as any)?.zone_name ?? '') || t('Update the zone identity and default governance context.');
   $: confirmLabel =
     mode === "delete"
       ? t('Delete')

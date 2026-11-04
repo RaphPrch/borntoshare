@@ -332,7 +332,7 @@
 
   <svelte:fragment slot="footer">
     <div class="dfoot">
-      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={requestCloseDrawer}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={requestCloseDrawer}>{t('Cancel')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary" on:click={runTest} disabled={testing || saving}>
         <i class={`bi ${testing ? 'bi-hourglass-split' : 'bi-plug'}`} aria-hidden="true"></i>{testing ? t('Testing…') : t('Test the agent')}
       </button>

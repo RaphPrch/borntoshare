@@ -139,7 +139,7 @@
             </td>
             <td class="center"><input type="checkbox" class="cap-switch" bind:checked={draft.is_enabled} aria-label={t('Monitored')} /></td>
             <td class="right nowrap">
-              <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" on:click={cancel}>{t('Cancel')}</button>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={cancel}>{t('Cancel')}</button>
               <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" on:click={submit} disabled={!draftValid || saving}>{t('Save')}</button>
             </td>
           </tr>
@@ -188,7 +188,7 @@
           </td>
           <td class="center"><input type="checkbox" class="cap-switch" bind:checked={draft.is_enabled} aria-label={t('Monitored')} /></td>
           <td class="right nowrap">
-            <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" on:click={cancel}>{t('Cancel')}</button>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={cancel}>{t('Cancel')}</button>
             <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" on:click={submit} disabled={!draftValid || saving}>{t('Add')}</button>
           </td>
         </tr>

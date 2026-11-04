@@ -6,6 +6,7 @@
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
   import { checkExistingAccess, createAccessRequest, listMyAccessRequests } from '$lib/api/access-requests';
   import { parseRequestSentence } from '$lib/utils/request-sentence';
@@ -350,7 +351,7 @@
   </header>
 
   {#if loading}
-    <p class="nr__muted">{t('Loading…')}</p>
+    <section class="nr__panel"><LoadingState skeleton="rows" rows={6}>{t('Loading…')}</LoadingState></section>
   {:else if loadError}
     <InlineAlert tone="error">{loadError}</InlineAlert>
   {:else}

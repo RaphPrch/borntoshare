@@ -790,6 +790,20 @@ def list_discovered_roots(
     return ui_data({"items": items, "total": total})
 
 
+@router.get("/exposure")
+def get_storage_roots_exposure(request: Request, db: Session = Depends(get_db)):
+    """Exposure map: each governed folder by zone, server and share, with how widely its ACL opens it."""
+    from app.services.exposure import build_exposure
+
+    actor = actor_from_request(request)
+    require_storage_roots_index(db, actor)
+    allowed = None
+    if not is_platform_administrator(actor):
+        rows = db.execute(text("SELECT id AS storage_root_id FROM storage_roots WHERE deleted_at IS NULL")).mappings().all()
+        allowed = {int(r["storage_root_id"]) for r in filter_storage_root_rows(db, actor, [dict(r) for r in rows])}
+    return ui_data(build_exposure(db, allowed))
+
+
 @router.get("/context")
 def list_storage_roots_context(
     request: Request,

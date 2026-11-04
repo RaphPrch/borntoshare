@@ -630,7 +630,7 @@
   {open}
   onClose={requestClose}
   title={t('Edit storage endpoint')}
-  subtitle={t('Update identity, target and credentials.')}
+  subtitle={String((endpoint as any)?.name ?? (endpoint as any)?.storage_endpoint_name ?? '') || t('Update identity, target and credentials.')}
   iconClass="bi bi-hdd-network"
   ariaLabelledby="se-edit-title"
   size="lg"

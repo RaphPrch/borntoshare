@@ -733,7 +733,7 @@
   </svelte:fragment>
   <svelte:fragment slot="footer">
     <div class="identity-edit-drawer-footer">
-      <button type="button" class="b2s-btn b2s-btn-ghost" on:click={requestClose} disabled={saving || probeRunning}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={requestClose} disabled={saving || probeRunning}>{t('Cancel')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => handleTestConnection()} disabled={saving || probeRunning}>
         {probeRunning ? t('Testing…') : t('Test connection')}
       </button>

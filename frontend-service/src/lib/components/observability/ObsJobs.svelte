@@ -156,7 +156,7 @@
 
   <section class="b2s-card obs-card">
     {#if loading}
-      <LoadingState />
+      <LoadingState skeleton="rows" />
     {:else if filtered.length === 0}
       <EmptyStateInline message={t('No job found.')} />
     {:else}
