@@ -37,6 +37,54 @@ def list_tags(db: Session = Depends(get_db)):
     return ui_list([dict(r) for r in rows])
 
 
+@router.get("/overview")
+def tags_overview(request: Request, db: Session = Depends(get_db)):
+    """Tags page: each tag with the folders that carry it, and how much of the governed folders tags cover
+    (folders without any tag, and among them the ones open to everyone, from the exposure map)."""
+    require_admin(actor_from_request(request))
+    from app.services.exposure import build_exposure
+
+    tags = [dict(r) for r in TagsViewsRepo(db).list()]
+    carriers = db.execute(
+        text(
+            """
+            SELECT srt.tag_id, sr.id, sr.name, sr.root_path, se.name AS server
+            FROM storage_root_tags srt
+            JOIN storage_roots sr ON sr.id = srt.storage_root_id AND sr.deleted_at IS NULL
+            JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
+            ORDER BY sr.name
+            """
+        )
+    ).mappings().all()
+    folders: dict[int, list[dict]] = {}
+    tagged: set[int] = set()
+    for row in carriers:
+        tagged.add(int(row["id"]))
+        folders.setdefault(int(row["tag_id"]), []).append(
+            {"id": int(row["id"]), "name": row["name"], "path": row["root_path"], "server": row["server"]}
+        )
+    open_ids: set[int] = set()
+    total = 0
+    for zone in build_exposure(db, None)["zones"]:
+        for server in zone["servers"]:
+            for share in server["shares"]:
+                for folder in share["folders"]:
+                    total += 1
+                    if folder["level"] in ("open_write", "open_read"):
+                        open_ids.add(int(folder["id"]))
+    for tag in tags:
+        # The page shows the first folders; the count is the tag usage
+        tag["folders"] = folders.get(int(tag["id"]), [])[:8]
+    return ui_data({
+        "tags": tags,
+        "coverage": {
+            "total": total,
+            "tagged": len(tagged),
+            "untagged_open": len(open_ids - tagged),
+        },
+    })
+
+
 # ============================================================
 # WRITE MODELS — TAG CRUD
 # ============================================================

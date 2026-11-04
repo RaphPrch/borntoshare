@@ -28,6 +28,7 @@
     "test:ad-browse": "npx tsx ./src/lib/utils/ad-browse.test.ts",
     "test:service-accounts": "npx tsx ./src/lib/utils/service-accounts.test.ts",
     "test:request-sentence": "npx tsx ./src/lib/utils/request-sentence.test.ts",
+    "test:tag-colors": "npx tsx ./src/lib/utils/tag-colors.test.ts",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "overrides": {
