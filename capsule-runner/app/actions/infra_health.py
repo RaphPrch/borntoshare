@@ -34,13 +34,19 @@ def _status_for(latency_ms: int) -> str:
 
 def check_tcp(target: str, timeout: float) -> dict:
     started = time.monotonic()
+    # Same resolution as the other actions: the DNS of the Windows domains first (Advanced settings › Network
+    # and DNS), then the usual resolver; a DFS01.CORP.LOCAL unknown to the container DNS is still checked
+    from app.shared.name_resolution import resolve
+
     try:
         host, port = _split_host_port(target)
-        socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-    except (OSError, ValueError) as exc:
+    except ValueError as exc:
         return {"status": "down", "latency_ms": None, "message": f"Cannot resolve the host: {exc}"}
+    address = resolve(host)
+    if not address:
+        return {"status": "down", "latency_ms": None, "message": f"Cannot resolve the host: {host} (domain DNS and usual resolver)"}
     try:
-        with socket.create_connection((host, port), timeout=timeout):
+        with socket.create_connection((address, port), timeout=timeout):
             latency = int((time.monotonic() - started) * 1000)
             return {"status": _status_for(latency), "latency_ms": latency, "message": f"Port {port} open"}
     except socket.timeout:
