@@ -116,6 +116,7 @@
       revokingId = null;
     }
   }
+  import SignInLimitsCard from '$lib/components/settings/SignInLimitsCard.svelte';
 </script>
 
 <ConfigCard title={t('Session limits')} subtitle={t('Apply within a minute, also to the sessions already open.')}>
@@ -236,6 +237,8 @@
   busy={Boolean(revokingId)}
   severity="warning"
 />
+
+<SignInLimitsCard signIn={data.advanced?.signIn ?? {}} />
 
 <style>
   .adv-current-session {

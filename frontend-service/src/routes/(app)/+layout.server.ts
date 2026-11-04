@@ -55,8 +55,13 @@ export const load: LayoutServerLoad = async (event) => {
    * - Identity only
    * - NO authorization logic here
    * ====================================================== */
+  // Banner of Advanced settings › Notifications, shown to every user
+  const publicSettings = await apiServerGetData<{ banner?: { enabled?: boolean; message?: string; tone?: string } }>('/admin/config/public', event).catch(() => null);
+  const banner = publicSettings?.banner?.enabled && publicSettings.banner.message ? publicSettings.banner : null;
+
   return {
     me,
+    banner,
     topbarAlertsCount,
     topbarCriticalAlerts,
     navigation: {

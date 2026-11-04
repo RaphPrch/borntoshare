@@ -14,6 +14,7 @@
     { key: 'user-sessions', label: t('User sessions'), icon: 'bi-person-lines-fill' },
     { key: 'network', label: t('Network and DNS'), icon: 'bi-diagram-2' },
     { key: 'infrastructure', label: t('Infrastructure'), icon: 'bi-hdd-network' },
+    { key: 'notifications', label: t('Notifications'), icon: 'bi-envelope' },
     { key: 'extensions', label: t('Extensions'), icon: 'bi-plug' }
   ];
 

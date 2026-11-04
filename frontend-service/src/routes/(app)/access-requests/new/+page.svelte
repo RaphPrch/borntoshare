@@ -10,6 +10,7 @@
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
   import { checkExistingAccess, createAccessRequest, listMyAccessRequests } from '$lib/api/access-requests';
   import { parseRequestSentence } from '$lib/utils/request-sentence';
+  import { getPublicSettings } from '$lib/api/admin-advanced-settings';
   import { listStorageRootsContext, type StorageRootContext } from '$lib/api/storage-roots';
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
@@ -25,12 +26,14 @@
   type Check = { state: 'checking' | 'ok' | 'blocked' | 'elevation'; message: string };
 
   const PAGE = 40;
-  const DURATIONS = [
-    { key: '7', days: 7, label: () => t('7 days') },
-    { key: '30', days: 30, label: () => t('30 days') },
-    { key: '90', days: 90, label: () => t('90 days') },
-    { key: 'permanent', days: 0, label: () => t('Permanent') }
+  // Durations, permanent access, longest access and reason: Advanced settings › Governance (core-service checks them too)
+  let policy = { durations: [7, 30, 90], allowPermanent: true, maxDays: 365, minReasonLength: 10 };
+  $: DURATIONS = [
+    ...policy.durations.map((days) => ({ key: String(days), days, label: () => t('{count} days', { count: days }) })),
+    ...(policy.allowPermanent ? [{ key: 'permanent', days: 0, label: () => t('Permanent') }] : [])
   ];
+  $: if (duration !== 'date' && DURATIONS.length && !DURATIONS.some((option) => option.key === duration)) duration = DURATIONS[Math.min(1, DURATIONS.length - 1)].key;
+  $: maxDate = new Date(Date.now() + policy.maxDays * 86_400_000).toISOString().slice(0, 10);
 
   let roots: Root[] = [];
   let loading = true;
@@ -70,6 +73,7 @@
   });
 
   onMount(async () => {
+    getPublicSettings(fetch).then((settings) => { if (settings?.requests) policy = settings.requests; }).catch(() => null);
     try {
       roots = ((await listStorageRootsContext(fetch)) as any[]).map(toRoot).filter((root) => root.id > 0);
     } catch (error) {
@@ -253,7 +257,8 @@
     if (!current.startsWith(label)) justification = current ? `${label} : ${current}` : `${label} : `;
     document.getElementById('nr-why')?.focus();
   }
-  $: step2Ready = Boolean(justification.trim()) && (!forOther || principals.length > 0) && (duration !== 'date' || Boolean(customDate));
+  $: reasonShort = justification.trim().length < policy.minReasonLength;
+  $: step2Ready = !reasonShort && (!forOther || principals.length > 0) && (duration !== 'date' || Boolean(customDate));
   $: requestCount = sendable.length * (forOther ? principals.length : 1);
 
   async function submit() {
@@ -452,7 +457,7 @@
               {/each}
               <button type="button" class:on={duration === 'date'} on:click={() => (duration = 'date')}>{t('A date…')}<small>{customDate ? dayLabel(endDate) : t('calendar')}</small></button>
             </div>
-            {#if duration === 'date'}<input class="b2s-input nr__date" type="date" bind:value={customDate} min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)} />{/if}
+            {#if duration === 'date'}<input class="b2s-input nr__date" type="date" bind:value={customDate} min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)} max={maxDate} />{/if}
           </div>
           <div class="nr__q">
             <label class="nr__label" for="nr-why">{t('Why?')}</label>
@@ -461,7 +466,7 @@
               <small class="nr__muted">{t('Frequent reasons:')}</small>
               {#each REASONS as reason}<button type="button" on:click={() => useReason(reason())}>{reason()}</button>{/each}
             </div>
-            <small class="nr__muted">{t('Required · seen by the guardian and in the history of the folder')}</small>
+            <small class="nr__muted">{t('At least {count} characters · seen by the guardian and in the history of the folder', { count: policy.minReasonLength })}</small>
           </div>
         </section>
       {:else}

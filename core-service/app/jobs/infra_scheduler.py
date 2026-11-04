@@ -58,6 +58,12 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             summary = await run_access_expiry(db, trigger=trigger)
             status = summary["status"]
             message = summary["message"]
+            # Accesses about to end: their holders are told once (Advanced settings › Notifications)
+            from app.services.notifications import expiry_reminders
+
+            reminders = expiry_reminders(db)
+            if reminders:
+                message = f"{message} · {reminders} reminder(s)"
         elif task == "dfs_read":
             summary = await run_dfs_read(db, trigger=trigger)
             status = summary["status"]

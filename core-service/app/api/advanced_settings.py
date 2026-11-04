@@ -35,6 +35,43 @@ DEFAULT_ADVANCED_SETTINGS: dict = {
     "network": {
         "dns": [],
     },
+    # New access requests: the durations offered, the permanent access, the longest access, the reason
+    "requests": {
+        "durations": [7, 30, 90],
+        "allowPermanent": True,
+        "maxDays": 365,
+        "minReasonLength": 10,
+    },
+    # Accounts that open a folder to everyone, besides Everyone, Users and Domain users (exposure map, alerts)
+    "exposure": {
+        "broadGroups": [],
+    },
+    # Failed sign-ins before a pause (read by auth-service)
+    "signIn": {
+        "maxFailuresPerAccount": 5,
+        "maxFailuresPerAddress": 50,
+        "windowMinutes": 15,
+    },
+    # Message shown to every user (maintenance, incident)
+    "banner": {
+        "enabled": False,
+        "message": "",
+        "tone": "info",
+    },
+    # E-mails: guardians told of a request, requesters of the decision and of an access about to end
+    "notifications": {
+        "enabled": False,
+        "host": "",
+        "port": 587,
+        "security": "starttls",
+        "sender": "",
+        "username": "",
+        "passwordRef": None,
+        "appUrl": "",
+        "pendingToGuardians": True,
+        "decisionToRequester": True,
+        "expiryReminderDays": 7,
+    },
 }
 
 MIN_GUARDIANS_RANGE = (1, 10)
@@ -125,9 +162,76 @@ def _changed_settings(before: dict, after: dict, prefix: str = "") -> dict:
     return changes
 
 
+def _invalid(code: str, message: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"code": code, "message": message})
+
+
+def _is_int(value: object, low: int, high: int) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and low <= value <= high
+
+
+def _validate_new_sections(db: Session, merged: dict, payload: dict) -> None:
+    """Requests, exposure, sign-in, banner and notifications: checked, cleaned; the SMTP password goes to the vault."""
+    requests = merged.get("requests") or {}
+    durations = sorted({int(d) for d in requests.get("durations") or [] if _is_int(d, 1, 3650)})
+    if not durations and not requests.get("allowPermanent"):
+        raise _invalid("REQUEST_POLICY_INVALID", "Proposez au moins une durée, ou autorisez l'accès permanent.")
+    if not _is_int(requests.get("maxDays"), 1, 3650) or any(d > requests["maxDays"] for d in durations):
+        raise _invalid("REQUEST_POLICY_INVALID", "La durée maximale va de 1 à 3650 jours et couvre les durées proposées.")
+    if not _is_int(requests.get("minReasonLength"), 1, 500):
+        raise _invalid("REQUEST_POLICY_INVALID", "La longueur minimale du motif va de 1 à 500 caractères.")
+    merged["requests"] = {**requests, "durations": durations[:6], "allowPermanent": bool(requests.get("allowPermanent"))}
+
+    groups = (merged.get("exposure") or {}).get("broadGroups") or []
+    merged["exposure"] = {"broadGroups": sorted({str(g).strip() for g in groups if str(g).strip()})[:50]}
+
+    sign_in = merged.get("signIn") or {}
+    if not (_is_int(sign_in.get("maxFailuresPerAccount"), 3, 50) and _is_int(sign_in.get("maxFailuresPerAddress"), 10, 1000)
+            and _is_int(sign_in.get("windowMinutes"), 1, 1440)):
+        raise _invalid("SIGN_IN_LIMITS_INVALID", "Échecs par compte : 3 à 50 ; par adresse : 10 à 1000 ; fenêtre : 1 à 1440 minutes.")
+
+    banner = merged.get("banner") or {}
+    message = str(banner.get("message") or "").strip()[:300]
+    if banner.get("enabled") and not message:
+        raise _invalid("BANNER_INVALID", "Le bandeau activé a besoin d'un message.")
+    merged["banner"] = {"enabled": bool(banner.get("enabled")), "message": message, "tone": banner.get("tone") if banner.get("tone") in {"info", "warning", "danger"} else "info"}
+
+    notif = merged.get("notifications") or {}
+    password = ((payload.get("notifications") or {}).get("password") or "") if isinstance(payload.get("notifications"), dict) else ""
+    notif.pop("password", None)
+    notif.pop("hasPassword", None)
+    if password:
+        from app.services.secret_store import store
+
+        notif["passwordRef"] = store(db, "notifications/smtp", str(password))
+    if notif.get("enabled") and not (str(notif.get("host") or "").strip() and "@" in str(notif.get("sender") or "")):
+        raise _invalid("SMTP_SETTINGS_INVALID", "Le serveur SMTP et l'adresse d'expéditeur sont requis.")
+    if not _is_int(notif.get("port"), 1, 65535) or notif.get("security") not in {"starttls", "tls", "none"}:
+        raise _invalid("SMTP_SETTINGS_INVALID", "Port de 1 à 65535 ; sécurité STARTTLS, TLS ou aucune.")
+    if not _is_int(notif.get("expiryReminderDays"), 0, 60):
+        raise _invalid("SMTP_SETTINGS_INVALID", "Le rappel avant la fin va de 0 (aucun) à 60 jours.")
+    merged["notifications"] = notif
+
+
+def public_settings(db: Session) -> dict:
+    """What every signed-in user may read: the request policy and the banner."""
+    payload = _read_payload(db)
+    return {"requests": payload.get("requests"), "banner": payload.get("banner")}
+
+
 @router.get("/config/advanced", dependencies=[Depends(admin_or_internal)])
 def get_advanced_config(db: Session = Depends(get_db)):
-    return ui_data(_read_payload(db))
+    payload = _read_payload(db)
+    # The SMTP password never leaves: the page only knows whether one is set
+    notif = dict(payload.get("notifications") or {})
+    notif["hasPassword"] = bool(notif.pop("passwordRef", None))
+    return ui_data({**payload, "notifications": notif})
+
+
+@router.get("/config/public")
+def get_public_config(db: Session = Depends(get_db)):
+    """Request policy and banner, for every signed-in user (new request page, banner of the layout)."""
+    return ui_data(public_settings(db))
 
 
 @router.post("/config/advanced", dependencies=[Depends(admin_or_internal)])
@@ -183,7 +287,11 @@ def save_advanced_config(payload: dict, request: Request, db: Session = Depends(
         {"domain": str(e["domain"]).strip().lower().strip("."), "servers": [str(s).strip() for s in e["servers"]]}
         for e in merged["network"]["dns"]
     ]
+    _validate_new_sections(db, merged, payload if isinstance(payload, dict) else {})
     _write_payload(db, merged)
+    from app.services.storage_root_permissions import forget_broad_cache
+
+    forget_broad_cache()
     # The log level applies to core-service right away (auth-service applies it on its side)
     apply_log_level(str((merged.get("logging") or {}).get("level") or "INFO"))
     changes = _changed_settings(current, merged)
@@ -202,6 +310,26 @@ def save_advanced_config(payload: dict, request: Request, db: Session = Depends(
             correlation_id=(request.headers.get("x-request-id") or None),
         )
     return ui_action(message="advanced settings saved")
+
+
+@router.post("/config/notifications/test", dependencies=[Depends(admin_only)])
+def test_notifications(payload: dict, request: Request, db: Session = Depends(get_db)):
+    """A test e-mail to the given address, with the saved SMTP settings; the error of the server comes back as is."""
+    from app.services.notifications import send_mail, settings
+    from app.services.secret_store import resolve
+
+    to = str((payload or {}).get("to") or "").strip()
+    if "@" not in to:
+        raise _invalid("SMTP_TEST_INVALID", "Adresse de destination invalide.")
+    config = settings(db)
+    if not str(config.get("host") or "").strip():
+        raise _invalid("SMTP_TEST_INVALID", "Enregistrez d'abord le serveur SMTP.")
+    try:
+        send_mail(config, resolve(db, config["passwordRef"]) if config.get("passwordRef") else None, [to],
+                  "[BornToShare] E-mail de test", "Les notifications de BornToShare arrivent bien.")
+    except Exception as exc:
+        return ui_data({"ok": False, "error": str(exc)[:300]})
+    return ui_data({"ok": True})
 
 
 @router.post("/config/logs/purge", dependencies=[Depends(require_internal_token)])

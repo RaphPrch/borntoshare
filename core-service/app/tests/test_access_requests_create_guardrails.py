@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from fastapi import HTTPException
 
 from app.api import access_requests as api
@@ -38,6 +40,15 @@ def _payload(permission: str = "read") -> api.AccessRequestCreate:
         requested_principal={"id": 10, "username": "b2s", "dn": "CN=b2s,OU=CORP,DC=corp,DC=local"},
     )
 
+
+
+@pytest.fixture(autouse=True)
+def _no_policy_nor_mail(monkeypatch):
+    # The request policy and the e-mails read the settings from the database: tested on their own
+    monkeypatch.setattr(api, "_check_request_policy", lambda *args, **kwargs: None)
+    from app.services import notifications
+
+    monkeypatch.setattr(notifications, "request_created", lambda *args, **kwargs: None)
 
 def test_create_access_request_blocks_when_access_already_granted(monkeypatch) -> None:
     db = _Db()

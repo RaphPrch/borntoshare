@@ -78,7 +78,9 @@ l'annuaire (LDAPS, certificat, compte de service), le premier serveur de fichier
 les identités autorisées à se connecter et les administrateurs, puis les premiers dossiers gouvernés.
 
 Ensuite, dans Réglages avancés : Réseau et DNS (serveurs DNS de chaque domaine), Infrastructure (workers,
-planifications), Politique de nommage des groupes AD, Gouvernance (nombre minimal de gardiens).
+planifications), Politique de nommage des groupes AD, Gouvernance (nombre minimal de gardiens, durées et motif
+des demandes, groupes « ouverts à tous » de l'entreprise), Sessions (durées, échecs de connexion), Notifications
+(serveur SMTP, e-mails envoyés, bandeau de maintenance), Extensions (syslog, Splunk, Centreon).
 
 ## 4. Mises à jour
 

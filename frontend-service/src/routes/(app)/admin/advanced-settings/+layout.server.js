@@ -50,6 +50,8 @@ export async function load(event) {
 
   return {
     settings,
+    // The whole stored settings (requests, exposure, sign-in, banner, notifications…)
+    advanced: advancedResult.status === 'fulfilled' && advancedResult.value && typeof advancedResult.value === 'object' ? advancedResult.value : {},
     namingPolicyGlobal
   };
 }

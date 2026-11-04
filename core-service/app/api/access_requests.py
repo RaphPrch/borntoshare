@@ -948,6 +948,39 @@ def create_access_request_item_execution_internal(
 # READ MODELS (VIEWS ONLY)
 # ============================================================
 
+def _check_request_policy(db: Session, justification: Any, expires_at: Any, items: list[dict]) -> None:
+    """Advanced settings › Governance › Requests: reason long enough, permanent access allowed, longest access."""
+    from datetime import timezone
+
+    from app.api.advanced_settings import _read_payload
+
+    policy = _read_payload(db).get("requests") or {}
+    min_reason = int(policy.get("minReasonLength") or 1)
+    if len(str(justification or "").strip()) < min_reason:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "REQUEST_REASON_TOO_SHORT", "message": f"Le motif doit faire au moins {min_reason} caractères."},
+        )
+    ends = [expires_at, *[item.get("expires_at") for item in items]]
+    if any(end in (None, "") for end in ends) and not policy.get("allowPermanent", True):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "REQUEST_PERMANENT_NOT_ALLOWED", "message": "Les accès permanents ne sont pas autorisés : choisissez une date de fin."},
+        )
+    max_days = int(policy.get("maxDays") or 3650)
+    for end in ends:
+        if end in (None, ""):
+            continue
+        when = end if isinstance(end, datetime) else datetime.fromisoformat(str(end).replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        if (when - datetime.now(timezone.utc)).total_seconds() > (max_days + 1) * 86400:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "REQUEST_TOO_LONG", "message": f"Un accès dure au plus {max_days} jours."},
+            )
+
+
 @router.get("")
 def list_access_requests(
     request: Request,
@@ -1425,6 +1458,7 @@ def create_access_request(
 
     if justification:
         data["justification"] = str(justification)
+    _check_request_policy(db, justification, expires_at, items)
 
     if requested_principal is not None:
         data["requested_principal_json"] = requested_principal
@@ -1506,6 +1540,9 @@ def create_access_request(
         outcome="success",
     )
 
+    from app.services import notifications
+
+    notifications.request_created(db, int(obj.id))
     return ui_action(action_id=int(obj.id), message="access_request.created")
 
 
@@ -1929,6 +1966,12 @@ def bulk_decision(
                 },
                 correlation_id=(request.headers.get("x-request-id") or None),
             )
+
+    if updated_ids:
+        from app.services import notifications
+
+        for req_id in updated_ids:
+            notifications.request_decided(db, int(req_id), decision)
 
     if failed_ids:
         for req_id in failed_ids:

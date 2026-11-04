@@ -6,7 +6,9 @@
 import {
   apiDelete,
   apiGet,
+  apiGetData,
   apiPost,
+  apiPostData,
   apiPut,
   type FetchLike
 } from './client';
@@ -94,3 +96,22 @@ export async function listUserSessions(fetchFn: FetchLike) {
 export async function revokeUserSession(fetchFn: FetchLike, sessionId: string) {
   return apiDelete<ActionResult>(fetchFn, `/auth/admin/sessions/${sessionId}`);
 }
+
+/** Saves one or several sections of Advanced settings (merged into the stored ones by core-service). */
+export async function saveAdvancedSections(fetchFn: FetchLike, sections: Record<string, unknown>) {
+  return apiPost<ActionResult>(fetchFn, '/admin/config/advanced', sections);
+}
+
+export async function sendTestEmail(fetchFn: FetchLike, to: string) {
+  return apiPostData<{ ok: boolean; error?: string }>(fetchFn, '/admin/config/notifications/test', { to });
+}
+
+export type PublicSettings = {
+  requests: { durations: number[]; allowPermanent: boolean; maxDays: number; minReasonLength: number };
+  banner: { enabled: boolean; message: string; tone: 'info' | 'warning' | 'danger' };
+};
+
+export async function getPublicSettings(fetchFn: FetchLike) {
+  return apiGetData<PublicSettings>(fetchFn, '/admin/config/public');
+}
+

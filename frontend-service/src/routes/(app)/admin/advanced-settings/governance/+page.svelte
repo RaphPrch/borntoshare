@@ -4,6 +4,8 @@
   import { t } from '$lib/i18n';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
   import SettingRow from '$lib/components/settings/SettingRow.svelte';
+  import RequestPolicyCard from '$lib/components/settings/RequestPolicyCard.svelte';
+  import BroadGroupsCard from '$lib/components/settings/BroadGroupsCard.svelte';
 
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
@@ -58,3 +60,6 @@
     </button>
   </div>
 </ConfigCard>
+
+<RequestPolicyCard requests={data.advanced?.requests ?? {}} />
+<BroadGroupsCard groups={data.advanced?.exposure?.broadGroups ?? []} />

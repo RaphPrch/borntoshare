@@ -44,6 +44,7 @@
       display_name?: string;
       email?: string;
     };
+    banner?: { message?: string; tone?: string } | null;
     topbarAlertsCount?: number;
     topbarCriticalAlerts?: number;
     navigation?: {
@@ -72,6 +73,9 @@
   />
 
   <main class="b2s-app-main">
+    {#if data.banner}
+      <div class="b2s-banner is-{data.banner.tone ?? 'info'}" role="status"><i class="bi bi-megaphone" aria-hidden="true"></i>{data.banner.message}</div>
+    {/if}
     <slot />
   </main>
 </div>
@@ -79,3 +83,10 @@
 <SessionIdleBanner />
 <Toaster />
 <TopProgress />
+
+<style>
+  .b2s-banner { display: flex; align-items: center; gap: 10px; margin: 16px 28px 0; padding: 10px 16px; border-radius: var(--b2s-radius-md); font-size: var(--b2s-fs-sm); font-weight: 500; }
+  .b2s-banner.is-info { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
+  .b2s-banner.is-warning { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
+  .b2s-banner.is-danger { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
+</style>

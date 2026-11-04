@@ -22,9 +22,17 @@ class LoginThrottle:
     def _keys(username: str, address: str) -> tuple[str, str]:
         return f"user:{str(username or '').strip().lower()}|{address}", f"addr:{address}"
 
-    def _recent(self, key: str, now: float) -> deque[float]:
+    @staticmethod
+    def _limits() -> tuple[int, int, int]:
+        from app.services.session_limits import sign_in_limits
+
+        return sign_in_limits(
+            (settings.LOGIN_THROTTLE_MAX_FAILURES, settings.LOGIN_THROTTLE_MAX_FAILURES_PER_ADDRESS, settings.LOGIN_THROTTLE_WINDOW_SECONDS)
+        )
+
+    def _recent(self, key: str, now: float, window: int) -> deque[float]:
         attempts = self._failures[key]
-        while attempts and attempts[0] <= now - settings.LOGIN_THROTTLE_WINDOW_SECONDS:
+        while attempts and attempts[0] <= now - window:
             attempts.popleft()
         if not attempts:
             del self._failures[key]
@@ -36,13 +44,11 @@ class LoginThrottle:
         now = time.monotonic()
         user_key, address_key = self._keys(username, address)
         wait = 0.0
-        for key, limit in (
-            (user_key, settings.LOGIN_THROTTLE_MAX_FAILURES),
-            (address_key, settings.LOGIN_THROTTLE_MAX_FAILURES_PER_ADDRESS),
-        ):
-            attempts = self._recent(key, now)
+        per_account, per_address, window = self._limits()
+        for key, limit in ((user_key, per_account), (address_key, per_address)):
+            attempts = self._recent(key, now, window)
             if len(attempts) >= limit:
-                wait = max(wait, attempts[0] + settings.LOGIN_THROTTLE_WINDOW_SECONDS - now)
+                wait = max(wait, attempts[0] + window - now)
         return int(wait) + 1 if wait > 0 else 0
 
     def record_failure(self, username: str, address: str) -> None:

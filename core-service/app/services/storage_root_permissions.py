@@ -59,9 +59,38 @@ def is_expected_system_principal(principal: str | None, service_account: str | N
     return namespace in _SYSTEM_NAMESPACES or name in _SYSTEM_NAMES or bool(service_account and name == account_name(service_account))
 
 
+_broad_cache: dict[str, Any] = {"at": 0.0, "names": frozenset()}
+
+
+def forget_broad_cache() -> None:
+    _broad_cache["at"] = 0.0
+
+
+def _extra_broad_names() -> frozenset[str]:
+    """Groups added in Advanced settings › Governance (« all staff »…), re-read every minute."""
+    import time
+
+    if time.monotonic() - _broad_cache["at"] > 60:
+        _broad_cache["at"] = time.monotonic()
+        try:
+            from app.api.advanced_settings import _read_payload
+            from app.core.db import SessionLocal
+
+            db = SessionLocal()
+            try:
+                groups = (_read_payload(db).get("exposure") or {}).get("broadGroups") or []
+            finally:
+                db.close()
+            _broad_cache["names"] = frozenset(short_name(g) for g in groups if str(g).strip())
+        except Exception:
+            pass  # database not reachable: the built-in names still apply
+    return _broad_cache["names"]
+
+
 def is_broad_principal(principal: str | None) -> bool:
-    """Everyone, Users, Domain users…: the folder is open to the whole company, whatever the requests say."""
-    return short_name(principal) in _BROAD_NAMES
+    """Everyone, Users, Domain users… and the groups added in the settings: the folder is open to the whole company."""
+    name = short_name(principal)
+    return name in _BROAD_NAMES or name in _extra_broad_names()
 
 
 def account_name(account: str | None) -> str:
