@@ -4346,5 +4346,7 @@
   "tested {when}": "testé {when}",
   "never tested": "jamais testé",
   "waiting for a guardian": "en attente d'un gardien",
-  "nothing waits": "rien en attente"
+  "nothing waits": "rien en attente",
+  "Its target server is not declared in BornToShare: declare it in Servers first.": "Son serveur cible n'est pas déclaré dans BornToShare : déclarez-le d'abord dans Serveurs.",
+  "Target not declared": "Cible non déclarée"
 }

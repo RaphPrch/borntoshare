@@ -1164,5 +1164,7 @@
   "waiting for a guardian": "waiting for a guardian",
   "nothing waits": "nothing waits",
   "Without enough guardians": "Without enough guardians",
-  "Pending requests": "Pending requests"
+  "Pending requests": "Pending requests",
+  "Its target server is not declared in BornToShare: declare it in Servers first.": "Its target server is not declared in BornToShare: declare it in Servers first.",
+  "Target not declared": "Target not declared"
 }

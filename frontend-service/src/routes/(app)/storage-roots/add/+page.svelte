@@ -27,7 +27,20 @@
     minGuardians: number;
   };
 
-  type Folder = { storage_endpoint_id: number; storage_endpoint_name: string; name: string; root_path: string; managed: boolean };
+  /**
+   * A folder to add. From a DFS namespace: its DFS folder, governed on its targets (the declared file servers where
+   * the NTFS rights live), shown under its DFS path; `blocked` says why it cannot be added (target not declared).
+   */
+  type Folder = {
+    storage_endpoint_id: number;
+    storage_endpoint_name: string;
+    name: string;
+    root_path: string;
+    managed: boolean;
+    dfsPath?: string;
+    targets?: Array<{ storage_endpoint_id: number; root_path: string }>;
+    blocked?: string;
+  };
   type Server = {
     id: number;
     name: string;
@@ -129,7 +142,7 @@
     : currentFolders
         .filter((folder) => folderFilter === 'all' || (folderFilter === 'new' ? !folder.managed : folder.managed))
         .filter((folder) => `${folder.name} ${folder.root_path}`.toLowerCase().includes(folderQuery.trim().toLowerCase()));
-  $: selectable = rows.filter((folder) => !folder.managed);
+  $: selectable = rows.filter((folder) => !folder.managed && !folder.blocked);
   $: allChecked = selectable.length > 0 && selectable.every((folder) => selected.has(keyOf(folder)));
 
   $: firstSelected = selected.values().next().value as Folder | undefined;
@@ -145,6 +158,11 @@
     loadingFolders = true;
     loadError = '';
     try {
+      const server = servers.find((entry) => entry.id === id);
+      if (String(server?.raw?.storage_endpoint_type ?? server?.raw?.type ?? '').toLowerCase() === 'dfs') {
+        foldersByServer = { ...foldersByServer, [id]: await dfsFolders(id) };
+        return;
+      }
       const answer = await apiGetData<{ items: Folder[] }>(fetch, '/storage-roots/discovered', { storage_endpoint_id: id });
       foldersByServer = { ...foldersByServer, [id]: answer.items };
     } catch (error) {
@@ -152,6 +170,25 @@
     } finally {
       loadingFolders = false;
     }
+  }
+
+  // The DFS folders of a namespace, as read last: each one leads to the folders of its targets
+  async function dfsFolders(id: number): Promise<Folder[]> {
+    const answer = await apiGetData<{ links: any[] }>(fetch, `/storage-endpoints/${id}/dfs-links`);
+    return (answer.links ?? []).map((link) => {
+      const declared = (link.targets ?? []).filter((target: any) => target.storage_endpoint_id && target.root_path);
+      const first = declared[0];
+      return {
+        storage_endpoint_id: first?.storage_endpoint_id ?? id,
+        storage_endpoint_name: first?.storage_endpoint_name ?? '',
+        name: String(link.path ?? '').split('\\').filter(Boolean).pop() ?? String(link.path ?? ''),
+        root_path: first?.root_path ?? String(link.dfs_path ?? link.path ?? ''),
+        managed: link.state === 'managed',
+        dfsPath: String(link.dfs_path ?? link.path ?? ''),
+        targets: declared.map((target: any) => ({ storage_endpoint_id: Number(target.storage_endpoint_id), root_path: String(target.root_path) })),
+        blocked: declared.length ? undefined : t('Its target server is not declared in BornToShare: declare it in Servers first.')
+      } satisfies Folder;
+    });
   }
 
   function selectServer(server: Server) {
@@ -234,7 +271,7 @@
     const checked = !selected.has(keyOf(folder));
     if (event.shiftKey && anchor !== null) {
       const [low, high] = [Math.min(anchor, index), Math.max(anchor, index)];
-      for (const row of rows.slice(low, high + 1)) if (!row.managed) setChecked(row, checked);
+      for (const row of rows.slice(low, high + 1)) if (!row.managed && !row.blocked) setChecked(row, checked);
     } else {
       setChecked(folder, checked);
     }
@@ -293,7 +330,12 @@
           created: Array<Folder & { id: number; warnings: string[] }>;
           failed: Failure[];
         }>(fetch, '/storage-roots/bulk', {
-          items: batch.map(({ storage_endpoint_id, name, root_path }) => ({ storage_endpoint_id, name, root_path })),
+          // A DFS folder becomes a governed folder on each of its targets (its replicas keep the same rights)
+          items: batch.flatMap((folder) =>
+            folder.targets?.length
+              ? folder.targets.map((target) => ({ storage_endpoint_id: target.storage_endpoint_id, name: folder.name, root_path: target.root_path }))
+              : [{ storage_endpoint_id: folder.storage_endpoint_id, name: folder.name, root_path: folder.root_path }]
+          ),
           guardian_ids: guardianIds,
           tag_ids: tagIds
         });
@@ -453,12 +495,12 @@
           {#if !searchMode && current && scanErrors[current.id]}<div class="pad"><InlineAlert tone="error">{scanErrors[current.id]}</InlineAlert></div>{/if}
 
           {#each rows as folder, index (keyOf(folder))}
-            <button type="button" class="folder" class:folder--search={searchMode} class:sel={selected.has(keyOf(folder))} disabled={folder.managed} title={folder.root_path} on:click={(event) => toggleRow(event, folder, index)}>
+            <button type="button" class="folder" class:folder--search={searchMode} class:sel={selected.has(keyOf(folder))} disabled={folder.managed || Boolean(folder.blocked)} title={folder.blocked ?? (folder.dfsPath ? `${folder.dfsPath} → ${folder.root_path}` : folder.root_path)} on:click={(event) => toggleRow(event, folder, index)}>
               <span class="check" aria-hidden="true">{#if selected.has(keyOf(folder))}<i class="bi bi-check-lg"></i>{/if}</span>
               <span class="ell name">{folder.name}</span>
               {#if searchMode}<span class="ell mono muted">{folder.storage_endpoint_name}</span>{/if}
-              <span class="ell mono muted">{folder.root_path}</span>
-              <small>{folder.managed ? t('Already managed') : ''}</small>
+              <span class="ell mono muted">{folder.dfsPath ?? folder.root_path}</span>
+              <small>{folder.managed ? t('Already managed') : folder.blocked ? t('Target not declared') : folder.dfsPath ? `→ ${folder.root_path}` : ''}</small>
             </button>
           {:else}
             {#if searchMode}
