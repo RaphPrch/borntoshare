@@ -18,11 +18,13 @@ const toPositiveId = (value: unknown): number => {
 
 const hiddenStorageRootAlertTypes = new Set([
   'acl_principal_not_governed',
+  'acl_inherited_not_governed',
   'probe_issues',
   'open_issues'
 ]);
 const hiddenStorageRootAlertTitles = new Set([
   'filesystem acl not governed',
+  'inherited filesystem acl not governed',
   'open issues',
   'probe issues'
 ]);
@@ -181,4 +183,12 @@ export const alertTitle = (alert: { title?: unknown; alert_type?: unknown } | nu
   match = raw.match(/^AD group member without a granted (READ|WRITE) access$/i);
   if (match) return t('AD group member without a granted {level} access', { level: levelWord(match[1]) });
   return t(raw);
+};
+
+/** Alert messages come from core in English: the ones built from a pattern are translated here. */
+export const alertMessage = (alert: { message?: unknown } | null | undefined): string => {
+  const raw = String(alert?.message ?? '').trim();
+  const match = raw.match(/^(.+) reaches (\d+) governed folder\(s\) of (.+) by inheritance, from above them: to fix where the right is set$/);
+  if (match) return t('{principal} reaches {count} governed folder(s) of {share} by inheritance: to fix where the right is set, above these folders.', { principal: match[1], count: match[2], share: match[3] });
+  return raw;
 };

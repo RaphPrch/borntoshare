@@ -29,7 +29,7 @@
   export let onDecided: () => void = () => {};
 
   const PROBE_TYPES = ['root_probe_failed', 'root_probe_unknown', 'endpoint_unreachable', 'endpoint_probe_failed'];
-  const PERMISSION_TYPES = ['acl_principal_not_governed', 'acl_profile_missing', 'ad_group_read_failed', 'acl_gap', 'missing_ace'];
+  const PERMISSION_TYPES = ['acl_principal_not_governed', 'acl_inherited_not_governed', 'acl_profile_missing', 'ad_group_read_failed', 'acl_gap', 'missing_ace'];
 
   const typeOf = (item: AlertItem) => item.type || (String(item.key).match(/[a-z_]+$/)?.[0] ?? '');
 

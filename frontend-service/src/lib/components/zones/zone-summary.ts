@@ -46,7 +46,7 @@ export type ZoneSummary = {
   reread: ZoneRoot[];
 };
 
-const PROBE_OR_ACL = ['root_probe_failed', 'root_probe_unknown', 'acl_principal_not_governed', 'acl_profile_missing', 'ad_group_read_failed'];
+const PROBE_OR_ACL = ['root_probe_failed', 'root_probe_unknown', 'acl_principal_not_governed', 'acl_inherited_not_governed', 'acl_profile_missing', 'ad_group_read_failed'];
 
 const num = (value: unknown): number => {
   const n = Number(value ?? 0);

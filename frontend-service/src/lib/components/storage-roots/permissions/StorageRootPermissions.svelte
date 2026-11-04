@@ -232,6 +232,12 @@
     mismatch: () => t('Unexpected rights'),
     outside: () => t('outside BornToShare')
   };
+  const originText = (entry: AclEntry): string =>
+    entry.origin === 'inherited'
+      ? t('{rights}, inherited from the parent folder', { rights: t(entry.rights_label) })
+      : entry.origin === 'both'
+        ? t('{rights}, set on the folder and inherited from the parent folder', { rights: t(entry.rights_label) })
+        : t('{rights}, set directly on the file server', { rights: t(entry.rights_label) });
 </script>
 
 {#if loading && !data}
@@ -413,7 +419,7 @@
           {#if showSystem}
             <ul class="pm-system__list">
               {#each data.system as entry (entry.principal)}
-                <li><span>{entry.kind === 'service' ? t('BornToShare account') : entry.name}</span><code>{entry.principal}</code><span class="pm-muted">{t(entry.rights_label)}</span></li>
+                <li><span>{entry.kind === 'service' ? t('BornToShare account') : entry.name}</span><code>{entry.principal}</code><span class="pm-muted">{originText(entry)}</span></li>
               {/each}
             </ul>
           {/if}
@@ -429,7 +435,7 @@
           <div class="pm-gap">
             <span>
               <b>{gap.kind === 'broad' ? t('Folder open widely') : gap.name}</b>
-              <small>{t('{rights}, set directly on the file server', { rights: t(gap.rights_label) })}</small>
+              <small>{originText(gap)}</small>
               {#if gapPeople(gap).length}
                 <span class="pm-gap__people">
                   {#each gapPeople(gap).slice(0, 4) as person (person.key)}<button type="button" class="b2s-link-btn" on:click={() => (explainFor = person.username ?? person.name)}>{person.name}</button>{/each}

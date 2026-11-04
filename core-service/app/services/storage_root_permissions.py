@@ -103,6 +103,28 @@ def inherited_scope(raw: str | None) -> bool:
     return "OI" in flags and "CI" in flags
 
 
+_RIGHTS_RANK = {"deny": 5, "full": 4, "modify": 3, "read": 2, "special": 1}
+
+
+def merge_by_principal(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One line per account: an NTFS ACL repeats a principal (explicit + inherited copy, partial masks).
+    The strongest right is kept, and where it comes from: explicit, inherited or both."""
+    merged: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        key = str(entry["principal"]).lower()
+        origin = "inherited" if entry.get("inherited") else "explicit"
+        row = merged.get(key)
+        if row is None:
+            merged[key] = {**entry, "origin": origin}
+            continue
+        if _RIGHTS_RANK.get(entry["rights"], 0) > _RIGHTS_RANK.get(row["rights"], 0):
+            row.update({k: entry[k] for k in ("rights", "rights_label", "level", "raw")})
+        row["inherited_scope"] = bool(row.get("inherited_scope") or entry.get("inherited_scope"))
+        if row["origin"] != origin:
+            row["origin"] = "both"
+    return list(merged.values())
+
+
 def _json(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
@@ -285,6 +307,7 @@ class StorageRootPermissions:
                 "rights_label": _RIGHTS_LABELS[rights],
                 "level": level_from_rights(rights),
                 "inherited_scope": inherited_scope(raw),
+                "inherited": "I" in (raw.split("/")[1].split("|") if raw.count("/") >= 2 else []),
                 "raw": raw,
             }
             namespace = principal.replace("/", "\\").split("\\")[0].upper() if "\\" in principal.replace("/", "\\") else ""
@@ -296,6 +319,9 @@ class StorageRootPermissions:
                 system.append({**entry, "kind": "service" if name == service_account else "system"})
             else:
                 gaps.append({**entry, "kind": "outside"})
+
+        system = merge_by_principal(system)
+        gaps = merge_by_principal(gaps)
 
         # Groups managed by BornToShare, with their ACE and their members
         groups: list[dict[str, Any]] = []

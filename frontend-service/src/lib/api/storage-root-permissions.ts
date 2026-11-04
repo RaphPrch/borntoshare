@@ -38,6 +38,8 @@ export type AclEntry = {
   rights_label: string;
   level: AccessLevel | null;
   inherited_scope: boolean;
+  /** Where the right comes from: set on the folder, inherited from the parent, or both (one line per account) */
+  origin: 'explicit' | 'inherited' | 'both';
   raw: string;
   kind: 'system' | 'service' | 'outside' | 'broad';
   accepted?: boolean;

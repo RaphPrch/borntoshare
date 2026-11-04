@@ -4112,10 +4112,15 @@
   "Frequent reasons:": "Motifs fréquents :",
   "“{term}” names {count} folders: pick the right one in the list.": "« {term} » désigne {count} dossiers : choisissez le bon dans la liste.",
   "The folder receives the rights of its parent folder again: whoever reaches the parent reaches this folder too.": "Le dossier reçoit de nouveau les droits de son dossier parent : qui accède au parent accède aussi à ce dossier.",
-  "Nothing is removed: the explicit rights of the folder stay, including the copies made when the inheritance was broken, so some entries appear twice.": "Rien n'est retiré : les droits explicites du dossier restent, y compris les copies faites à la rupture de l'héritage ; certaines entrées apparaissent donc en double.",
   "The inherited rights that BornToShare does not manage come back as gaps in Monitoring.": "Les droits hérités que BornToShare ne gère pas reviennent comme écarts dans Suivi.",
   "Applied at once on the file server; BornToShare then reads the rights of the folder again.": "Appliqué tout de suite sur le serveur de fichiers ; BornToShare relit ensuite les droits du dossier.",
   "The rights inherited from the parent folder are copied as explicit rights: nobody loses access.": "Les droits hérités du dossier parent sont copiés en droits explicites : personne ne perd son accès.",
   "Later changes on the parent folder no longer apply to this folder.": "Les changements faits ensuite sur le dossier parent ne s'appliquent plus à ce dossier.",
-  "Only this folder changes: its existing sub-folders keep their current rights.": "Seul ce dossier change : ses sous-dossiers existants gardent leurs droits actuels."
+  "Only this folder changes: its existing sub-folders keep their current rights.": "Seul ce dossier change : ses sous-dossiers existants gardent leurs droits actuels.",
+  "Comment of the guardian": "Commentaire du gardien",
+  "Inherited filesystem ACL not governed": "Entrée d'ACL héritée non gouvernée",
+  "{principal} reaches {count} governed folder(s) of {share} by inheritance: to fix where the right is set, above these folders.": "{principal} atteint {count} dossier(s) gouverné(s) de {share} par héritage : à corriger là où le droit est posé, au-dessus de ces dossiers.",
+  "The explicit rights of the folder stay; the copies made when the inheritance was broken repeat the inherited rights and are removed (no right changes).": "Les droits explicites du dossier restent ; les copies faites à la rupture de l'héritage, identiques aux droits hérités, sont retirées (aucun droit ne change).",
+  "{rights}, inherited from the parent folder": "{rights}, hérité du dossier parent",
+  "{rights}, set on the folder and inherited from the parent folder": "{rights}, posé sur le dossier et hérité du dossier parent"
 }

@@ -67,7 +67,7 @@
   // What each change does on the file server (checked on a lab folder and a sub-folder: break then restore)
   const RESTORE_IMPACT = () => [
     t('The folder receives the rights of its parent folder again: whoever reaches the parent reaches this folder too.'),
-    t('Nothing is removed: the explicit rights of the folder stay, including the copies made when the inheritance was broken, so some entries appear twice.'),
+    t('The explicit rights of the folder stay; the copies made when the inheritance was broken repeat the inherited rights and are removed (no right changes).'),
     t('The inherited rights that BornToShare does not manage come back as gaps in Monitoring.'),
     t('Only this folder changes: its existing sub-folders keep their current rights.'),
     t('Applied at once on the file server; BornToShare then reads the rights of the folder again.')

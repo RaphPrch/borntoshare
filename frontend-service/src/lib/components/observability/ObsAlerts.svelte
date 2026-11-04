@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
+  import { alertMessage, alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -275,7 +275,7 @@
                 </td>
                 <td class="obs-main">
                   <strong>{alert.title ? alertTitle(alert) : alert.alert_type}</strong>
-                  {#if alert.message}<small>{alert.message}</small>{/if}
+                  {#if alert.message}<small>{alertMessage(alert)}</small>{/if}
                 </td>
                 <td>
                   {#if scope.href}<a href={scope.href}>{scope.label}</a>{:else}{scope.label}{/if}

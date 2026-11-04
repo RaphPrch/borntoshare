@@ -16,6 +16,12 @@ RESOLVED_STATUS = "resolved"
 ACKNOWLEDGED_STATUS = "acknowledged"
 
 
+def _is_inherited(permission: dict[str, Any]) -> bool:
+    """smbcacls flags of an entry (ALLOWED/OI|CI|I/READ): I marks an entry inherited from the parent folder."""
+    parts = str(permission.get("raw") or "").split("/")
+    return len(parts) >= 2 and "I" in parts[1].split("|")
+
+
 class GovernanceAlertsRepo(SQLViewRepo):
     """Operational governance alert state.
 
@@ -282,6 +288,40 @@ class GovernanceAlertsRepo(SQLViewRepo):
             ),
             params,
         )
+
+    def _inherited_holders(self, *, endpoint_id: int, root_path: str, principal: str, normalize) -> tuple[str, list[int]]:
+        """The governed folders of the share of root_path that inherit principal, highest first (then oldest)."""
+        parts = [part for part in root_path.replace("/", "\\").split("\\") if part]
+        if len(parts) < 2:
+            return root_path, []
+        share = "\\\\" + "\\".join(parts[:2])
+        rows = self.db.execute(
+            text(
+                """
+                SELECT id, root_path, discovered_permissions_json
+                FROM storage_roots
+                WHERE storage_endpoint_id = :endpoint_id AND deleted_at IS NULL
+                """
+            ),
+            {"endpoint_id": int(endpoint_id)},
+        ).mappings().all()
+        holders: list[tuple[int, int]] = []
+        for row in rows:
+            path = str(row.get("root_path") or "").replace("/", "\\").rstrip("\\")
+            if path.lower() != share.lower() and not path.lower().startswith(share.lower() + "\\"):
+                continue
+            payload = row.get("discovered_permissions_json")
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except (TypeError, ValueError):
+                    payload = {}
+            entries = payload.get("permissions") if isinstance(payload, dict) else None
+            if not isinstance(entries, list):
+                continue
+            if any(isinstance(e, dict) and _is_inherited(e) and normalize(e.get("principal")) == principal for e in entries):
+                holders.append((path.count("\\"), int(row["id"])))
+        return share, [root_id for _depth, root_id in sorted(holders)]
 
     def _membership_drift_alerts(
         self,
@@ -648,6 +688,8 @@ class GovernanceAlertsRepo(SQLViewRepo):
             }
         except Exception:  # table not created yet (pack 136)
             accepted = set()
+        # An inherited entry comes from above: one alert per share and principal, on its highest governed folder
+        inherited_principals: dict[str, str] = {}
         for permission in acl_permissions:
             if not isinstance(permission, dict):
                 continue
@@ -660,6 +702,9 @@ class GovernanceAlertsRepo(SQLViewRepo):
                 continue
             principal = str(permission.get("principal") or "").strip()
             if not principal:
+                continue
+            if _is_inherited(permission):
+                inherited_principals.setdefault(normalized_principal, principal)
                 continue
             alerts.append(
                 {
@@ -675,6 +720,35 @@ class GovernanceAlertsRepo(SQLViewRepo):
                         "principal": principal,
                         "access_level": permission.get("access_level"),
                         "raw": permission.get("raw"),
+                        "scan_probe_job_id": raw_acl_payload.get("probe_job_id"),
+                    },
+                }
+            )
+
+        for normalized_principal, principal in sorted(inherited_principals.items()):
+            share, holders = self._inherited_holders(
+                endpoint_id=endpoint_id, root_path=str(root_data.get("root_path") or ""), principal=normalized_principal,
+                normalize=normalize_principal,
+            )
+            if not holders or holders[0] != root_id:
+                continue
+            alerts.append(
+                {
+                    **base("acl_inherited_not_governed"),
+                    "alert_key": f"storage_root:{root_id}:acl_inherited_not_governed:{normalized_principal}",
+                    "severity": "high" if is_broad_principal(principal) else "warning",
+                    "title": "Inherited filesystem ACL not governed",
+                    "message": (
+                        f"{principal} reaches {len(holders)} governed folder(s) of {share} by inheritance, "
+                        "from above them: to fix where the right is set"
+                    ),
+                    "source_type": "acl_scan",
+                    "source_id": str(raw_acl_payload.get("probe_job_id") or root_id),
+                    "metadata_json": {
+                        "storage_root_name": root_label,
+                        "principal": principal,
+                        "share": share,
+                        "folders_count": len(holders),
                         "scan_probe_job_id": raw_acl_payload.get("probe_job_id"),
                     },
                 }

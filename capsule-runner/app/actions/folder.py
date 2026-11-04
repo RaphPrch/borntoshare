@@ -69,8 +69,43 @@ def set_folder_inheritance(params: Dict[str, Any]):
     details.update({"control": control, "inheritance_broken": protected})
     if done.returncode != 0 or "NT_STATUS_" in output or protected != (mode == "break"):
         return False, (output.strip().splitlines() or ["inheritance unchanged"])[-1][:300], {**details, "failure_code": "FOLDER_INHERITANCE_FAILED"}
+    if mode == "restore":
+        # The copies made when the inheritance was broken now repeat the inherited entries: removed, rights unchanged
+        removed = 0
+        try:
+            for line in explicit_duplicates(_acl_lines(host, share, path, user, password, timeout)):
+                gone = run_samba(["smbcacls", f"//{host}/{share}", path, "--delete", line],
+                                 username=user, password=password, capture_output=True, timeout=timeout)
+                removed += int(gone.returncode == 0 and "NT_STATUS_" not in _output(gone))
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            logger.warning("Duplicate entries not removed", extra={"operation": "folder_inheritance", "error": str(exc)[:200]})
+        details["duplicates_removed"] = removed
     logger.info("Folder inheritance changed", extra={"operation": "folder_inheritance", "mode": mode, "target_share": share, "target_path": path})
     return True, "Inheritance broken" if protected else "Inheritance restored", details
+
+
+def _acl_lines(host: str, share: str, path: str, user: str, password: str, timeout: int) -> list[str]:
+    done = run_samba(["smbcacls", f"//{host}/{share}", path], username=user, password=password, capture_output=True, timeout=timeout)
+    return [line.strip() for line in _output(done).splitlines() if line.strip().startswith("ACL:")]
+
+
+def explicit_duplicates(acl_lines: list[str]) -> list[str]:
+    """Explicit entries that repeat an inherited one (same principal, type, flags and mask): the copies left by a
+    break of the inheritance once it is restored. Removing them changes no right."""
+
+    def split(line: str) -> tuple[str, str, frozenset[str], str] | None:
+        principal, _, ace = line[4:].rpartition(":")
+        parts = ace.split("/")
+        if not principal or len(parts) != 3:
+            return None
+        return principal.lower(), parts[0].upper(), frozenset(f for f in parts[1].split("|") if f), parts[2].upper()
+
+    inherited = set()
+    for line in acl_lines:
+        entry = split(line)
+        if entry and "I" in entry[2]:
+            inherited.add((entry[0], entry[1], entry[2] - {"I"}, entry[3]))
+    return [line for line in acl_lines if (entry := split(line)) and "I" not in entry[2] and entry in inherited]
 
 
 def delete_folder(params: Dict[str, Any]):

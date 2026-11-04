@@ -6,6 +6,7 @@
   import { CATEGORIES } from '$lib/utils/infrastructure';
   import { jobStatusLabel, jobStatusVariant, jobTypeLabel } from '$lib/utils/jobs';
   import type { ObsOverview } from '$lib/api/observability';
+  import { alertMessage } from '$lib/mappers/storage-root-alerts.mapper';
   import type { StatusVariant } from '$lib/utils/status';
 
   export let data: ObsOverview;
@@ -160,7 +161,7 @@
               <span class="row-main">
                 <strong>{t(group.title)}</strong>
                 <small>
-                  {#if group.scope_count}{group.scopes.join(', ')}{group.scope_count > group.scopes.length ? ` +${group.scope_count - group.scopes.length}` : ''}{' · '}{/if}{group.example ?? ''}
+                  {#if group.scope_count}{group.scopes.join(', ')}{group.scope_count > group.scopes.length ? ` +${group.scope_count - group.scopes.length}` : ''}{' · '}{/if}{alertMessage({ message: group.example })}
                 </small>
               </span>
               <span class="row-count">× {group.count}</span>
