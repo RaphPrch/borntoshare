@@ -285,3 +285,41 @@ def delete_share(params: Dict[str, Any]):
             details["folder_kept_because"] = "refused"
     logger.info("Share deleted", extra={"operation": "share_delete", "target_share": share})
     return True, "Share deleted", details
+
+
+def parse_ls_folders(output: str) -> list[str]:
+    """Sub-folders in a smbclient « ls » listing: lines « name  D  0  date », without . and .."""
+    names: list[str] = []
+    for line in output.splitlines():
+        parts = re.split(r"\s{2,}", line.strip())
+        if len(parts) < 3 or not re.fullmatch(r"[A-Z]+", parts[1]) or "D" not in parts[1]:
+            continue
+        if parts[0] in {".", ".."}:
+            continue
+        names.append(parts[0])
+    return sorted(set(names), key=str.lower)
+
+
+def list_folders(params: Dict[str, Any]):
+    """Sub-folders of a folder of a share (or of the share itself): read only, to choose what to govern."""
+    host = str(params.get("host") or "").strip()
+    share = str(params.get("share") or "").strip()
+    path = _rel_path(params.get("path"))
+    user = _auth_user(str(params.get("username") or "").strip(), str(params.get("domain") or "").strip())
+    password = str(params.get("password") or "")
+    timeout = int(params.get("timeout_sec") or 30)
+    details: dict[str, Any] = {"operation": "folder_list", "target": {"host": host, "share": share, "path": path}}
+    pattern = f"{path}\\*" if path else "*"
+    try:
+        done = run_samba(["smbclient", f"//{host}/{share}", "-c", f'ls "{pattern.replace(chr(34), "")}"'],
+                         username=user, password=password, capture_output=True, timeout=timeout)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return False, f"smbclient failed: {exc}", {**details, "failure_code": "FOLDER_LIST_FAILED"}
+    output = _output(done)
+    status = next((line.strip() for line in output.splitlines() if "NT_STATUS_" in line), "")
+    if done.returncode != 0 and status:
+        return False, status[:300], {**details, "failure_code": "FOLDER_LIST_FAILED"}
+    folders = parse_ls_folders(output)
+    details["folders"] = folders
+    return True, f"{len(folders)} sub-folder(s)", details
+

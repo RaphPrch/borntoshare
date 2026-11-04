@@ -1147,6 +1147,46 @@ async def _run_dfs_job(operation: _EndpointOperation, endpoint: StorageEndpoint,
         raise
 
 
+@router.get("/{endpoint_id}/browse", dependencies=[Depends(admin_only)])
+async def browse_endpoint_folder(endpoint_id: int, path: str, request: Request, db: Session = Depends(get_db)):
+    """Sub-folders of \\\\host\\share[\\dir] on a file server, read by a worker with the account of the server
+    (Add folders: go down in a share, or in the target of a DFS folder)."""
+    import asyncio
+
+    from app.services.probe_service import fetch_probe_job, submit_probe_run
+
+    endpoint = db.get(StorageEndpoint, int(endpoint_id))
+    if endpoint is None or str(endpoint.endpoint_type or "").lower() == "dfs":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File server not found")
+    parts = [part for part in str(path or "").replace("/", "\\").split("\\") if part]
+    if len(parts) < 2 or any(part in {".", ".."} for part in parts):
+        raise HTTPException(status_code=422, detail={"code": "BROWSE_PATH_INVALID", "message": "A path \\\\server\\share[\\folder] is expected"})
+    if not (endpoint.bind_dn and endpoint.bind_password_ref):
+        raise HTTPException(status_code=422, detail={"code": "BROWSE_ACCOUNT_MISSING", "message": "This server has no account to read its folders"})
+    queued = await submit_probe_run({
+        "kind": "folder", "protocol": "list", "scope": "read",
+        "target": {"host": endpoint.host, "share": parts[1], "path": "\\".join(parts[2:])},
+        "auth": {"mode": "ntlm", "username": endpoint.bind_dn, "secret_ref": endpoint.bind_password_ref},
+        "options": {"timeout_sec": 30},
+        "context": {"storage_endpoint_id": int(endpoint_id), "ui_origin": "admin"},
+    })
+    job_id = int((queued or {}).get("job_id") or 0)
+    job: dict[str, Any] = {}
+    for _ in range(40):
+        job = dict(await fetch_probe_job(job_id) or {})
+        state = str(job.get("status") or "").lower()
+        if state == "succeeded":
+            result = job.get("result") if isinstance(job.get("result"), dict) else {}
+            details = result.get("details") if isinstance(result.get("details"), dict) else result
+            base = "\\\\" + "\\".join(parts)
+            return ui_data({"path": base, "folders": [{"name": name, "root_path": f"{base}\\{name}"} for name in details.get("folders") or []]})
+        if state in {"failed", "timed_out", "cancelled"}:
+            break
+        await asyncio.sleep(0.5)
+    error = job.get("error") if isinstance(job.get("error"), dict) else {}
+    raise HTTPException(status_code=502, detail={"code": "BROWSE_FAILED", "message": str(error.get("message") or "The worker did not list the folder")[:300]})
+
+
 @router.post("/{endpoint_id}/dfs-folders", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_only)])
 async def create_dfs_folder(endpoint_id: int, payload: DfsFolderPayload, request: Request, db: Session = Depends(get_db)):
     """Create a DFS folder under the namespace, leading to a share. The account of the namespace must be allowed to manage it."""

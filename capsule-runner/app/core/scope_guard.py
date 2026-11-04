@@ -36,6 +36,7 @@ ACTION_MIN_SCOPE: dict[str, str] = {
     "folder_inheritance": "write",
     "folder_delete": "write",
     "folder_create": "write",
+    "folder_list": "read",
     "share_create": "write",
     "share_delete": "write",
     "dfs_folder_create": "write",

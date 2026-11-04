@@ -34,6 +34,7 @@ _PROBE_JOB_TYPE_BY_TEMPLATE = {
     "folder_inheritance": "FOLDER_INHERITANCE",
     "folder_delete": "FOLDER_DELETE",
     "folder_create": "FOLDER_CREATE",
+    "folder_list": "FOLDER_LIST",
     "share_create": "SHARE_CREATE",
     "share_delete": "SHARE_DELETE",
     "dfs_folder_create": "DFS_FOLDER_CREATE",
@@ -530,6 +531,8 @@ def _pick_template(kind: str, protocol: str) -> tuple[str, str]:
         return "folder_delete", "v1"
     if kind_norm == "folder" and protocol_norm == "create":
         return "folder_create", "v1"
+    if kind_norm == "folder" and protocol_norm == "list":
+        return "folder_list", "v1"
     if kind_norm == "share" and protocol_norm == "create":
         return "share_create", "v1"
     if kind_norm == "share" and protocol_norm == "delete":

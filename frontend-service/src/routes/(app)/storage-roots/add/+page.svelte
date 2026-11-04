@@ -40,6 +40,8 @@
     dfsPath?: string;
     targets?: Array<{ storage_endpoint_id: number; root_path: string }>;
     blocked?: string;
+    /** Level under the folder of the list (go down in a share or in the target of a DFS folder) */
+    depth?: number;
   };
   type Server = {
     id: number;
@@ -137,11 +139,63 @@
   $: currentFolders = currentId ? foldersByServer[currentId] ?? [] : [];
   $: managedCount = currentFolders.filter((folder) => folder.managed).length;
   $: searchMode = Boolean(globalQuery.trim());
-  $: rows = searchMode
+  // Sub-folders read on demand, under their parent (key of the parent -> its sub-folders)
+  let childrenOf: Record<string, Folder[]> = {};
+  let expanded = new Set<string>();
+  let browsing: Record<string, boolean> = {};
+  let browseErrors: Record<string, string> = {};
+  let governedPaths: Set<string> | null = null;
+  const browseTarget = (folder: Folder) =>
+    folder.blocked ? null : folder.targets?.length ? folder.targets[0] : folder.dfsPath ? null : { storage_endpoint_id: folder.storage_endpoint_id, root_path: folder.root_path };
+  async function toggleExpand(folder: Folder) {
+    const key = keyOf(folder);
+    if (expanded.has(key)) {
+      expanded.delete(key);
+      expanded = expanded;
+      return;
+    }
+    expanded.add(key);
+    expanded = expanded;
+    const target = browseTarget(folder);
+    if (childrenOf[key] || !target) return;
+    browsing = { ...browsing, [key]: true };
+    try {
+      // The folders already governed, to mark the sub-folders that are (read once)
+      if (!governedPaths) {
+        const roots = await apiGetData<any[]>(fetch, '/storage-roots/context').catch(() => []);
+        governedPaths = new Set((Array.isArray(roots) ? roots : []).map((row) => String(row?.root_path ?? '').toLowerCase()));
+      }
+      const answer = await apiGetData<{ folders: Array<{ name: string; root_path: string }> }>(fetch, `/storage-endpoints/${target.storage_endpoint_id}/browse`, { path: target.root_path });
+      childrenOf = {
+        ...childrenOf,
+        [key]: answer.folders.map((child) => ({
+          storage_endpoint_id: target.storage_endpoint_id,
+          storage_endpoint_name: folder.storage_endpoint_name,
+          name: child.name,
+          root_path: child.root_path,
+          managed: Boolean(governedPaths?.has(child.root_path.toLowerCase())),
+          depth: (folder.depth ?? 0) + 1,
+          ...(folder.dfsPath
+            ? { dfsPath: `${folder.dfsPath}\\${child.name}`, targets: (folder.targets ?? []).map((t) => ({ storage_endpoint_id: t.storage_endpoint_id, root_path: `${t.root_path}\\${child.name}` })) }
+            : {})
+        }))
+      };
+      const { [key]: _gone, ...others } = browseErrors;
+      browseErrors = others;
+    } catch (error) {
+      browseErrors = { ...browseErrors, [key]: error instanceof Error ? error.message : t('The folder could not be read.') };
+    } finally {
+      browsing = { ...browsing, [key]: false };
+    }
+  }
+  const withChildren = (list: Folder[], open: Set<string>, kids: Record<string, Folder[]>): Folder[] =>
+    list.flatMap((folder) => [folder, ...(open.has(keyOf(folder)) ? withChildren(kids[keyOf(folder)] ?? [], open, kids) : [])]);
+  $: baseRows = searchMode
     ? globalItems
     : currentFolders
         .filter((folder) => folderFilter === 'all' || (folderFilter === 'new' ? !folder.managed : folder.managed))
         .filter((folder) => `${folder.name} ${folder.root_path}`.toLowerCase().includes(folderQuery.trim().toLowerCase()));
+  $: rows = searchMode ? baseRows : withChildren(baseRows, expanded, childrenOf);
   $: selectable = rows.filter((folder) => !folder.managed && !folder.blocked);
   $: allChecked = selectable.length > 0 && selectable.every((folder) => selected.has(keyOf(folder)));
 
@@ -495,6 +549,12 @@
           {#if !searchMode && current && scanErrors[current.id]}<div class="pad"><InlineAlert tone="error">{scanErrors[current.id]}</InlineAlert></div>{/if}
 
           {#each rows as folder, index (keyOf(folder))}
+            <div class="fline" style="--depth:{folder.depth ?? 0}">
+            {#if !searchMode}
+              <button type="button" class="exp" disabled={!browseTarget(folder)} aria-expanded={expanded.has(keyOf(folder))} aria-label={t('Show the sub-folders of {name}', { name: folder.name })} title={browseErrors[keyOf(folder)] ?? ''} on:click={() => toggleExpand(folder)}>
+                {#if browsing[keyOf(folder)]}<i class="bi bi-arrow-repeat" aria-hidden="true"></i>{:else if browseErrors[keyOf(folder)]}<i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{:else}{expanded.has(keyOf(folder)) ? '▾' : '▸'}{/if}
+              </button>
+            {/if}
             <button type="button" class="folder" class:folder--search={searchMode} class:sel={selected.has(keyOf(folder))} disabled={folder.managed || Boolean(folder.blocked)} title={folder.blocked ?? (folder.dfsPath ? `${folder.dfsPath} → ${folder.root_path}` : folder.root_path)} on:click={(event) => toggleRow(event, folder, index)}>
               <span class="check" aria-hidden="true">{#if selected.has(keyOf(folder))}<i class="bi bi-check-lg"></i>{/if}</span>
               <span class="ell name">{folder.name}</span>
@@ -502,6 +562,7 @@
               <span class="ell mono muted">{folder.dfsPath ?? folder.root_path}</span>
               <small>{folder.managed ? t('Already managed') : folder.blocked ? t('Target not declared') : folder.dfsPath ? `→ ${folder.root_path}` : ''}</small>
             </button>
+            </div>
           {:else}
             {#if searchMode}
               {#if !searching}<p class="note">{t('No folder matches this search.')}</p>{/if}
@@ -646,6 +707,11 @@
   .tools .b2s-input { flex: 1; min-width: 0; }
   .tools .b2s-btn { flex: none; }
 
+  .fline { display: flex; align-items: stretch; }
+  .fline .folder { flex: 1; min-width: 0; padding-left: calc(14px + var(--depth) * 20px); }
+  .exp { flex: none; width: 32px; border: 0; border-bottom: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font-size: 11px; cursor: pointer; }
+  .exp:disabled { cursor: default; opacity: 0.35; }
+  .exp:hover:not(:disabled) { color: var(--b2s-color-text); }
   .folder { display: grid; grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) 84px; gap: 12px; align-items: center; width: 100%; padding: 7px 14px; border: 0; border-bottom: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); text-align: left; font-size: var(--b2s-text-sm); cursor: pointer; user-select: none; }
   .folder--search { grid-template-columns: 20px minmax(0, 1fr) 128px minmax(0, 1fr) 84px; }
   .folder:hover:not(:disabled) { background: var(--b2s-color-surface-soft); }
