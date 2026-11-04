@@ -817,6 +817,11 @@ def update_endpoint(
         # Another account: its right to manage a DFS namespace is not known yet
         _remember_dfs_delegation(endpoint, denied=False)
     capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
+    # Another account (or password) may hold the delegation: the refusal of the previous one no longer tells anything
+    account_changed = "bind_dn" in updates or "bind_password_ref" in updates
+    if account_changed and "dfs_manage_denied" in capabilities:
+        capabilities = {key: value for key, value in capabilities.items() if key != "dfs_manage_denied"}
+        endpoint.capabilities = capabilities
     if host_moved and "discovered_roots_snapshot" in capabilities:
         # The shares found on the previous host carry its address: the next search lists them again
         endpoint.capabilities = {key: value for key, value in capabilities.items() if key != "discovered_roots_snapshot"}
