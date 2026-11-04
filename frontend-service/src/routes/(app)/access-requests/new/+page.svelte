@@ -397,7 +397,7 @@
             <div class="nr__tree">
               {#each tree as group (group.key)}
                 {@const groupOpen = isOpen(group.key, Boolean(needle))}
-                <button type="button" class="nr__zone" on:click={() => toggleGroup(group.key)}>
+                <button type="button" class="nr__zone" class:unc={groupBy === 'dfs' && group.label.startsWith('\\\\')} on:click={() => toggleGroup(group.key)}>
                   <span class="nr__car">{groupOpen ? '▾' : '▸'}</span>{group.label}<em>{t('{count} folder(s)', { count: group.count })}</em>
                 </button>
                 {#if groupOpen}
@@ -556,6 +556,7 @@
   .nr__zone { top: 0; z-index: 2; padding: 8px 4px; border-bottom: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-sm); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
   .nr__server { top: 36px; z-index: 1; padding: 6px 4px 6px 18px; font-size: var(--b2s-fs-sm); font-weight: 600; }
   .nr__zone em, .nr__server em { margin-left: auto; color: var(--b2s-color-text-muted); font-style: normal; font-weight: 500; font-size: var(--b2s-fs-xs); text-transform: none; letter-spacing: 0; }
+  .nr__zone.unc { font-family: var(--b2s-font-mono); text-transform: none; letter-spacing: 0; }
   .nr__car { width: 12px; color: var(--b2s-color-text-muted); font-size: 10px; }
   .nr__item { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: center; width: 100%; padding: 6px 10px 6px 34px; border: 1px solid transparent; border-radius: var(--b2s-radius-md); background: none; text-align: left; cursor: pointer; }
   .nr__item:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
