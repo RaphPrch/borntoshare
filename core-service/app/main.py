@@ -3,6 +3,9 @@ from __future__ import annotations
 import hmac
 import os
 
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 
 from app.core.config import get_settings
@@ -30,7 +33,42 @@ logger = get_logger("core-app")
 # Application
 # ============================================================
 
-app = FastAPI(**settings.fastapi_kwargs())
+def _check_schema_contract() -> None:
+    db = SessionLocal()
+    try:
+        ensure_schema_contract_checked(bind=db.get_bind())
+    finally:
+        db.close()
+
+
+def _apply_log_level() -> None:
+    """Log level chosen in Advanced Settings › Logging (LOG_LEVEL until it is set)."""
+    from app.services.log_retention import apply_log_level, logging_settings
+
+    db = SessionLocal()
+    try:
+        apply_log_level(logging_settings(db)["level"])
+    except Exception:
+        pass  # settings table not migrated yet: LOG_LEVEL stays
+    finally:
+        db.close()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Startup checks, then the two background loops (jobs watchdog, infrastructure schedules), stopped on shutdown."""
+    _check_schema_contract()
+    _apply_log_level()
+    tasks = [task for task in (start_jobs_watchdog(), start_infra_scheduler()) if task is not None]
+    try:
+        yield
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+app = FastAPI(**settings.fastapi_kwargs(), lifespan=lifespan)
 
 
 @app.exception_handler(AccessRequestsReadModelContractError)
@@ -42,39 +80,6 @@ async def _access_requests_read_model_contract_handler(request: Request, exc: Ac
         message=str(exc),
         request_id=request_id,
     )
-
-
-@app.on_event("startup")
-def _startup_schema_contract_guard() -> None:
-    db = SessionLocal()
-    try:
-        ensure_schema_contract_checked(bind=db.get_bind())
-    finally:
-        db.close()
-
-
-@app.on_event("startup")
-async def _startup_jobs_watchdog() -> None:
-    start_jobs_watchdog()
-
-
-@app.on_event("startup")
-async def _startup_infra_scheduler() -> None:
-    start_infra_scheduler()
-
-
-@app.on_event("startup")
-def _startup_log_level() -> None:
-    """Log level chosen in Advanced Settings › Logging (LOG_LEVEL until it is set)."""
-    from app.services.log_retention import apply_log_level, logging_settings
-
-    db = SessionLocal()
-    try:
-        apply_log_level(logging_settings(db)["level"])
-    except Exception:
-        pass  # settings table not migrated yet: LOG_LEVEL stays
-    finally:
-        db.close()
 
 
 # ============================================================

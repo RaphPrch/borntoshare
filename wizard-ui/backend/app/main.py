@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -39,7 +41,16 @@ logger.info("Logging initialized", extra={"level": LOG_LEVEL})
 # ============================================================
 # 🚀 FASTAPI INIT
 # ============================================================
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("  🚀 BornToShare Wizard v1.0")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="BornToShare Wizard v1.0",
     description="Initial setup wizard for BornToShare platform",
     openapi_url=None,   # Wizard interne
@@ -93,11 +104,3 @@ async def wizard_index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
-# ============================================================
-# 🟢 STARTUP LOG
-# ============================================================
-@app.on_event("startup")
-async def _startup():
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("  🚀 BornToShare Wizard v1.0")
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")

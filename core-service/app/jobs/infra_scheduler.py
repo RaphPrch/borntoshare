@@ -148,5 +148,5 @@ async def _loop() -> None:
         await asyncio.sleep(TICK_SECONDS)
 
 
-def start_infra_scheduler() -> None:
-    asyncio.create_task(_loop())
+def start_infra_scheduler() -> asyncio.Task:
+    return asyncio.create_task(_loop())

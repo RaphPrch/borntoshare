@@ -27,6 +27,7 @@ async def _jobs_watchdog_loop() -> None:
             continue
 
 
-def start_jobs_watchdog() -> None:
+def start_jobs_watchdog() -> asyncio.Task | None:
     if settings.JOB_WATCHDOG_ENABLED:
-        asyncio.create_task(_jobs_watchdog_loop())
+        return asyncio.create_task(_jobs_watchdog_loop())
+    return None
