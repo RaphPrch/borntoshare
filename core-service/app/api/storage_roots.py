@@ -1279,6 +1279,36 @@ def _refusal_text(exc: Exception) -> str:
     return str(detail.get("message") or detail.get("code")) if isinstance(detail, dict) else str(detail)
 
 
+def _check_bulk_guardians(db: Session, *, endpoint_ids: set[int], guardian_ids: list[int]) -> None:
+    """Guardians of a batch, checked before any folder is created: known, enough of them, in each directory."""
+    requested = sorted({int(v) for v in guardian_ids if int(v) > 0})
+    if not requested:
+        return
+    missing = [identity_id for identity_id in requested if db.get(Identity, identity_id) is None]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown identity ids: {','.join(str(v) for v in missing)}")
+    required = min_guardians(db)
+    if len(requested) < required:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "TOO_FEW_GUARDIANS", "message": f"Un dossier doit avoir au moins {required} gardiens (Réglages avancés > Gouvernance)."},
+        )
+    for endpoint_id in sorted(endpoint_ids):
+        source_id = int(db.execute(text("SELECT identity_source_id FROM storage_endpoints WHERE id = :id"), {"id": endpoint_id}).scalar() or 0)
+        if source_id <= 0:
+            continue
+        eligible = _load_active_enabled_snapshot_users(db, identity_source_id=source_id)
+        invalid = [identity_id for identity_id in requested if identity_id not in eligible]
+        if invalid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Guardians must belong to active snapshot and be enabled users. "
+                    f"Invalid identity ids: {','.join(str(v) for v in invalid)}"
+                ),
+            )
+
+
 @router.post("/bulk", dependencies=[Depends(admin_only)])
 async def create_roots_in_bulk(
     payload: StorageRootBulkPayload,
@@ -1289,6 +1319,8 @@ async def create_roots_in_bulk(
     from app.api.tags import attach_tag
     from app.schemas.tag_attachment import TagAttachmentRequest
 
+    # Guardians that cannot be set refuse the whole batch: no folder is created without them
+    _check_bulk_guardians(db, endpoint_ids={item.storage_endpoint_id for item in payload.items}, guardian_ids=payload.guardian_ids)
     actor = actor_from_request(request)
     created: list[dict[str, Any]] = []
     failed: list[dict[str, Any]] = []

@@ -142,6 +142,11 @@
   };
   const requestCode = (row: any): string => String(row?.request_code ?? row?.code ?? `#${accessRequestId(row)}`);
   const justification = (row: any): string => String(row?.justification ?? row?.business_justification ?? row?.reason ?? '').trim();
+  // The guardian's comment on a decided request (older requests may repeat the justification there)
+  const guardianComment = (row: any): string => {
+    const comment = String(row?.decision_comment ?? '').trim();
+    return statusOf(row) !== 'pending' && comment !== justification(row) ? comment : '';
+  };
   const statusMeta = (row: any) => {
     const meta = getRequestStatusMeta(statusOf(row));
     return isPending(row) ? { ...meta, label: t('Guardian review') } : meta;
@@ -853,8 +858,8 @@
 
   {#if selectedRequest}
   <div class="ar-side-foot">
-  {#if statusOf(selectedRequest) === 'rejected' && selectedRequest?.decision_comment}
-    <p class="ar-reason"><strong>{t('Reason for the refusal')}</strong>{selectedRequest.decision_comment}</p>
+  {#if guardianComment(selectedRequest)}
+    <p class="ar-reason"><strong>{statusOf(selectedRequest) === 'rejected' ? t('Reason for the refusal') : t('Comment of the guardian')}</strong>{guardianComment(selectedRequest)}</p>
   {/if}
   <p class="ar-foot-note">
     {#if selectedRequest?.can_cancel}

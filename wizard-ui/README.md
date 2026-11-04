@@ -35,7 +35,8 @@ Le compte SQL de l'étape 3 est celui à reporter dans `.env` (`DB_USER`, `DB_PA
 `backend/app/sql/` : `schema/` (tables et contraintes, numérotées), `views/`, `indexes/`, `logging/` (base
 d'audit). `migrations_runner.py` les applique dans l'ordre des noms.
 `scripts/deploy.sh` rejoue les paquets récents (`PACKS`) à chaque mise à jour : un paquet doit pouvoir être
-appliqué plusieurs fois, et sa liste de valeurs autorisées doit inclure celles des paquets suivants.
+appliqué plusieurs fois, et sa liste de valeurs autorisées doit inclure celles des paquets suivants. Une vue
+dont la définition change est ajoutée à `VIEWS` : elle est recréée (`CREATE OR REPLACE`) au même moment.
 
 ## Données
 

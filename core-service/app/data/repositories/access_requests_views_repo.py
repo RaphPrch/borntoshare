@@ -110,7 +110,7 @@ class AccessRequestsViewsRepo:
                 ar.id AS request_id,
                 ar.requester_identity_id AS requester_identity_id,
                 ar.requested_principal_json AS requested_principal_json,
-                ar.decision_comment AS justification,
+                ar.justification AS justification,
                 ari.target_type AS target_type,
                 ari.target_id AS target_id,
                 ari.permission AS permission,

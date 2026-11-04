@@ -12,7 +12,8 @@ CREATE OR REPLACE VIEW v_access_requests AS
 SELECT
   ar.id AS request_id,
   ar.code AS request_code,
-  ar.decision_comment AS justification,
+  ar.justification AS justification,
+  ar.decision_comment AS decision_comment,
   COALESCE(
     JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.display_name')),
     JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.username')),
@@ -72,7 +73,7 @@ SELECT
   ar.id AS request_id,
   CAST('submit' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS event_type,
   CONVERT(COALESCE(req.display_name,'Unknown') USING utf8mb4) COLLATE utf8mb4_unicode_ci AS actor_display,
-  CONVERT(ar.decision_comment USING utf8mb4) COLLATE utf8mb4_unicode_ci AS message,
+  CONVERT(ar.justification USING utf8mb4) COLLATE utf8mb4_unicode_ci AS message,
   ar.created_at AS created_at
 FROM access_requests ar
 LEFT JOIN identities req ON req.id = ar.requester_identity_id

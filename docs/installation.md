@@ -88,7 +88,7 @@ make deploy
 
 `make deploy` (scripts/deploy.sh) :
 
-1. applique les paquets SQL de `PACKS`, tous rejouables ;
+1. applique les paquets SQL de `PACKS`, tous rejouables, puis les vues de `VIEWS` dont la définition a changé ;
 2. étiquette les images en service `rollback-<date>` ;
 3. reconstruit et recrée core, frontend, worker et auth (en passant `B2S_VERSION`) ;
 4. attend que les services soient sains.

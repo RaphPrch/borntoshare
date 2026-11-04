@@ -1423,8 +1423,8 @@ def create_access_request(
     if not data.get("code"):
         data["code"] = f"REQ-{int(datetime.utcnow().timestamp())}"
 
-    if justification and not data.get("decision_comment"):
-        data["decision_comment"] = str(justification)
+    if justification:
+        data["justification"] = str(justification)
 
     if requested_principal is not None:
         data["requested_principal_json"] = requested_principal
@@ -1919,6 +1919,7 @@ def bulk_decision(
                 target_display=f"REQ-{req_id}",
                 context_json={
                     "decision": decision,
+                    "comment": (str(payload.decision_comment or "").strip() or None),
                     **_request_event_labels(db, int(req_id)),
                     # An administrator deciding on their own request is allowed, and visible afterwards
                     "own_request": is_own_request(db, actor, int(req_id)),

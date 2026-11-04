@@ -5,15 +5,22 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 TS=$(date +%Y%m%d-%H%M%S)
 SERVICES="core-service frontend-service capsule-runner auth-service"
-PACKS="135_access_expiry_schedule 136_storage_root_acl_exceptions 137_close_phantom_revoke_requests 138_tag_family 139_access_request_permission_change 140_identity_source_ldap_settings 141_secret_items 142_worker_agent_token 143_identity_source_flavor 144_integrity 145_dfs_read_schedule"
+PACKS="135_access_expiry_schedule 136_storage_root_acl_exceptions 137_close_phantom_revoke_requests 138_tag_family 139_access_request_permission_change 140_identity_source_ldap_settings 141_secret_items 142_worker_agent_token 143_identity_source_flavor 144_integrity 145_dfs_read_schedule 146_access_request_justification"
+# Views whose definition changed since the installation: replayed too (CREATE OR REPLACE)
+VIEWS="141_views_workflow"
 
 env_value() { grep -E "^$1=" .env | cut -d= -f2- | sed 's/^"//; s/"$//'; }
 
-echo "1/4 database: $PACKS"
+echo "1/4 database: $PACKS, views $VIEWS"
 for pack in $PACKS; do
   podman run --rm -i -e MYSQL_PWD="$(env_value DB_PASSWORD)" docker.io/library/mariadb:11.4 mariadb --skip-ssl \
     -h "$(env_value DB_HOST)" -u "$(env_value DB_USER)" "$(env_value DB_NAME)" \
     < "wizard-ui/backend/app/sql/schema/$pack.sql"
+done
+for view in $VIEWS; do
+  podman run --rm -i -e MYSQL_PWD="$(env_value DB_PASSWORD)" docker.io/library/mariadb:11.4 mariadb --skip-ssl \
+    -h "$(env_value DB_HOST)" -u "$(env_value DB_USER)" "$(env_value DB_NAME)" \
+    < "wizard-ui/backend/app/sql/views/$view.sql"
 done
 
 echo "2/4 rollback point: rollback-$TS"

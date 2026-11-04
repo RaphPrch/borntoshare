@@ -46,6 +46,13 @@ class AccessRequest(Base, TimestampMixin):
         nullable=False,
     )
 
+    # Reason given by the requester, read by the guardian
+    justification: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    # Comment of the guardian on the decision
     decision_comment: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,

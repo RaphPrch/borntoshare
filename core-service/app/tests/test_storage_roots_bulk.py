@@ -57,7 +57,10 @@ def test_a_refused_folder_does_not_stop_the_others_and_is_logged(monkeypatch) ->
 
 
 def test_refused_guardians_are_a_warning_on_a_folder_that_exists(monkeypatch) -> None:
+    # Guardians are checked before the batch (test_storage_roots_bulk_guardians.py); a refusal that still comes
+    # afterwards leaves the folder created, with a warning
     _setup(monkeypatch)
+    monkeypatch.setattr(api, "_check_bulk_guardians", lambda *_a, **_k: None)
 
     def refuse(*_a, **_k):
         raise HTTPException(status_code=422, detail={"code": "TOO_FEW_GUARDIANS", "message": "Il faut 2 gardiens"})
