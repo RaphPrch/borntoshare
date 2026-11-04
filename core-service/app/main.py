@@ -60,6 +60,9 @@ async def lifespan(_app: FastAPI):
     _check_schema_contract()
     _apply_log_level()
     tasks = [task for task in (start_jobs_watchdog(), start_infra_scheduler()) if task is not None]
+    from app.services.otel_export import start_if_enabled
+
+    start_if_enabled()
     try:
         yield
     finally:
@@ -88,6 +91,21 @@ async def _access_requests_read_model_contract_handler(request: Request, exc: Ac
 # core-service trusts the identity headers that the BFF sets (x-identity-id, x-roles): only a caller holding the
 # token shared by the services may send them. Registered first, so it runs after the request ID middleware.
 _OPEN_PATHS = {"/health"}
+
+
+@app.middleware("http")
+async def otel_span_middleware(request: Request, call_next):
+    """One span per request for OpenTelemetry (Advanced settings › Extensions), when it is enabled."""
+    import time as _time
+
+    from app.services.otel_export import record_span
+
+    started = _time.time_ns()
+    response = await call_next(request)
+    if request.url.path != "/health":
+        route = getattr(request.scope.get("route"), "path", None) or request.url.path
+        record_span(request.method, route, response.status_code, started, _time.time_ns(), request.headers.get("traceparent"))
+    return response
 
 
 @app.middleware("http")

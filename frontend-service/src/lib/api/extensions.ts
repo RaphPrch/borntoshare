@@ -1,6 +1,6 @@
 import { apiGetData, apiPostData, apiPutData, type FetchLike } from './client';
 
-export type ExtensionKey = 'syslog' | 'splunk' | 'centreon';
+export type ExtensionKey = 'syslog' | 'splunk' | 'centreon' | 'grafana' | 'otel' | 'servicenow';
 export type ExtensionRoutes = { audit: boolean; alerts: boolean; min_severity: 'info' | 'warning' | 'high' | 'critical' };
 export type ExtensionStats = { sent: number; failed: number; last_status: string; last_at: string; last_detail: string | null; buckets: number[]; failed_buckets: number[] };
 export type Extension = {

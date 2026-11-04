@@ -40,13 +40,27 @@ _ALLOWED = {
     "syslog": {"host", "port", "transport", "format", "facility", "app_name", "verify"},
     "splunk": {"url", "index", "sourcetype", "verify"},
     "centreon": set(),
+    "grafana": {"loki_url", "loki_user", "labels", "grafana_url", "dashboard_uid"},
+    "otel": {"endpoint", "service_namespace", "environment", "logs", "traces", "metrics", "sample_ratio"},
+    "servicenow": {"instance_url", "auth", "username", "client_id", "assignment_group", "cmdb_ci", "category", "close_code"},
 }
+_URL_FIELDS = {"url", "loki_url", "grafana_url", "endpoint", "instance_url"}
 
 
 def _clean(key: str, config: dict[str, Any]) -> dict[str, Any]:
     if key not in ext.CATALOG:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown extension")
     out = {name: value for name, value in config.items() if name in _ALLOWED[key] and value not in (None, "")}
+    for name in _URL_FIELDS & set(out):
+        if not str(out[name]).startswith(("https://", "http://")):
+            raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "Les adresses commencent par https://"})
+    if key == "otel":
+        ratio = float(out.get("sample_ratio", 0.1))
+        if not 0 <= ratio <= 1:
+            raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "L'échantillonnage va de 0 à 1"})
+        out["sample_ratio"] = ratio
+    if key == "servicenow" and out.get("auth", "basic") not in {"basic", "oauth"}:
+        raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "Authentification basic ou oauth"})
     if key == "syslog":
         if out.get("transport", "udp") not in {"udp", "tcp", "tls"} or out.get("format", "rfc5424") not in {"rfc5424", "cef", "json"}:
             raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "Transport or format not supported"})
@@ -92,7 +106,17 @@ def save_extension(key: str, payload: ExtensionPayload, request: Request, db: Se
     current = _row(db, key)
     secret_ref = current["secret_ref"] if current else None
     token = None
-    if payload.secret:
+    if key == "grafana":
+        # Loki, annotations and the metrics token share one vault entry: a field left empty keeps its value
+        from app.services.extension_senders import secrets_of
+
+        keys = secrets_of(resolve(db, secret_ref)) if secret_ref else {}
+        keys.update(secrets_of(payload.secret))
+        if payload.enabled and not keys.get("metrics"):
+            keys["metrics"] = token = secrets.token_urlsafe(32)
+        if keys:
+            secret_ref = store(db, "extension/grafana", json.dumps(keys))
+    elif payload.secret:
         secret_ref = store(db, f"extension/{key}", payload.secret)
     if key == "centreon" and payload.enabled and not secret_ref:
         # The read-only token of the check, shown once
@@ -132,9 +156,21 @@ def test_extension(key: str, payload: ExtensionPayload, request: Request, db: Se
         raise HTTPException(status_code=422, detail={"code": "EXTENSION_NOTHING_TO_SEND", "message": "This extension receives no event"})
     current = _row(db, key)
     secret = payload.secret or (resolve(db, current["secret_ref"]) if current and current["secret_ref"] else None)
+    if key == "grafana" and payload.secret:
+        from app.services.extension_senders import secrets_of
+
+        stored = secrets_of(resolve(db, current["secret_ref"])) if current and current["secret_ref"] else {}
+        secret = json.dumps({**stored, **secrets_of(payload.secret)})
     started = time.monotonic()
     try:
-        ext.deliver(key, config, secret, ext.test_event())
+        if key == "servicenow":
+            from app.services.extension_senders import servicenow_check
+
+            servicenow_check(config, secret)
+        else:
+            # Grafana: an alert, so that the annotations are tried too
+            event = {**ext.test_event(), "type": "alerts"} if key == "grafana" else ext.test_event()
+            ext.deliver(key, config, secret, event)
     except Exception as exc:
         return ui_data({"ok": False, "error": str(exc)[:300]})
     return ui_data({"ok": True, "latency_ms": int((time.monotonic() - started) * 1000)})
@@ -204,3 +240,18 @@ def centreon_check(request: Request, db: Session = Depends(get_db)):
     else:
         state, line = "OK", "OK - every monitored component answers"
     return ui_data({"state": state, "text": line})
+
+
+@router.get("/grafana/metrics")
+def grafana_metrics(request: Request, db: Session = Depends(get_db)):
+    """Figures of the platform for Prometheus / Grafana (called by the frontend route /monitoring/metrics)."""
+    from app.services.extension_senders import secrets_of
+    from app.services.platform_metrics import prometheus_text, snapshot
+
+    provided = request.headers.get("x-monitoring-token", "")
+    row = _row(db, "grafana")
+    expected = secrets_of(resolve(db, row["secret_ref"])).get("metrics", "") if row and row["enabled"] and row["secret_ref"] else ""
+    if not expected or not provided or not hmac.compare_digest(provided, expected):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Metrics token refused")
+    return ui_data({"text": prometheus_text(snapshot(db))})
+

@@ -33,10 +33,10 @@
   const PRODUCTS: Product[] = [
     { key: 'syslog', name: 'Syslog', category: () => t('Logs and SIEM'), description: () => t('Audit and alerts to a syslog collector (RFC 5424, CEF or JSON).'), live: true },
     { key: 'splunk', name: 'Splunk', category: () => t('Logs and SIEM'), description: () => t('Audit and alerts to the HTTP Event Collector of Splunk.'), live: true },
-    { key: 'otel', name: 'OpenTelemetry', category: () => t('Observability'), description: () => t('Traces, metrics and logs of the services in OTLP, to your collector.'), live: false },
-    { key: 'grafana', name: 'Grafana', category: () => t('Observability'), description: () => t('Logs to Loki, annotations on your dashboards, metrics to scrape.'), live: false },
+    { key: 'otel', name: 'OpenTelemetry', category: () => t('Observability'), description: () => t('Traces, metrics and logs of the services in OTLP, to your collector.'), live: true },
+    { key: 'grafana', name: 'Grafana', category: () => t('Observability'), description: () => t('Logs to Loki, annotations on your dashboards, metrics to scrape.'), live: true },
     { key: 'centreon', name: 'Centreon', category: () => t('Supervision and ITSM'), description: () => t('Centreon checks the state of the BornToShare components.'), live: true },
-    { key: 'servicenow', name: 'ServiceNow ITSM', category: () => t('Supervision and ITSM'), description: () => t('One incident per critical alert, resolved when the alert closes.'), live: false }
+    { key: 'servicenow', name: 'ServiceNow ITSM', category: () => t('Supervision and ITSM'), description: () => t('One incident per critical alert, resolved when the alert closes.'), live: true }
   ];
   const SEVERITIES: Array<{ key: ExtensionRoutes['min_severity']; label: () => string }> = [
     { key: 'info', label: () => t('Information') },
@@ -85,7 +85,7 @@
       : item.stats?.last_status === 'failed' ? { variant: 'error', label: t('Failing') }
       : { variant: 'success', label: t('Active') };
   const flows = (item: Extension | null) =>
-    !item ? '' : item.key === 'centreon' ? t('Platform state, on request') : [item.routes.audit ? t('Audit') : '', item.routes.alerts ? t('Alerts') : ''].filter(Boolean).join(' · ') || '—';
+    !item ? '' : item.key === 'centreon' ? t('Platform state, on request') : item.key === 'servicenow' ? t('Incidents from the alerts') : [item.routes.audit ? t('Audit') : '', item.routes.alerts ? t('Alerts') : ''].filter(Boolean).join(' · ') || '—';
 
   // ---- drawer -----------------------------------------------------------------------------------
   let editing: Extension | null = null;
@@ -106,10 +106,27 @@
     routes = { ...item.routes };
     enabled = item.configured ? item.enabled : true;
     secret = '';
+    lokiSecret = '';
+    grafanaSecret = '';
+    if (key === 'otel') form = { logs: true, traces: true, metrics: true, sample_ratio: 0.1, service_namespace: 'borntoshare', environment: 'production', ...item.config };
+    if (key === 'servicenow') {
+      form = { auth: 'basic', category: 'software', ...item.config };
+      if (!item.configured) routes = { ...routes, audit: false, min_severity: 'critical' };
+    }
+    if (key === 'grafana') form = { labels: 'app=borntoshare', ...item.config };
     testResult = null;
     shownToken = '';
   }
-  const payload = () => ({ enabled, config: form, routes, secret: secret.trim() || null });
+  // Grafana keeps its Loki and annotation tokens together; an empty field keeps the saved value
+  let lokiSecret = '';
+  let grafanaSecret = '';
+  const payload = () => {
+    if (editing?.key === 'grafana') {
+      const keys = Object.fromEntries(Object.entries({ loki: lokiSecret.trim(), grafana: grafanaSecret.trim() }).filter(([, value]) => value));
+      return { enabled, config: form, routes, secret: Object.keys(keys).length ? JSON.stringify(keys) : null };
+    }
+    return { enabled, config: form, routes, secret: secret.trim() || null };
+  };
 
   async function runTest() {
     if (!editing) return;
@@ -234,11 +251,11 @@
         <tbody>
           <tr>
             <td><b>{t('Audit log')}</b><small>{t('Sign-ins, requests, decisions, changes of rights')}</small></td>
-            {#each extensions.filter((item) => item.events.length) as item (item.key)}<td><input type="checkbox" bind:checked={item.routes.audit} disabled={!item.configured} aria-label={t('Audit to {name}', { name: nameOf(item.key) })} /></td>{/each}
+            {#each extensions.filter((item) => item.events.length) as item (item.key)}<td><input type="checkbox" bind:checked={item.routes.audit} disabled={!item.configured || !item.events.includes('audit')} aria-label={t('Audit to {name}', { name: nameOf(item.key) })} /></td>{/each}
           </tr>
           <tr>
             <td><b>{t('Governance alerts')}</b><small>{t('New alerts: ACL gaps, folders open to everyone, missing guardians')}</small></td>
-            {#each extensions.filter((item) => item.events.length) as item (item.key)}<td><input type="checkbox" bind:checked={item.routes.alerts} disabled={!item.configured} aria-label={t('Alerts to {name}', { name: nameOf(item.key) })} /></td>{/each}
+            {#each extensions.filter((item) => item.events.length) as item (item.key)}<td><input type="checkbox" bind:checked={item.routes.alerts} disabled={!item.configured || !item.events.includes('alerts')} aria-label={t('Alerts to {name}', { name: nameOf(item.key) })} /></td>{/each}
           </tr>
           <tr>
             <td><b>{t('Alerts from')}</b><small>{t('Minimal severity of the alerts sent')}</small></td>
@@ -309,6 +326,55 @@
           <label>{t('Certificate')}<select class="b2s-input" bind:value={form.verify}><option value="public">{t('Check (public authority)')}</option><option value="file">{t('Check (capsule-runner/certs/splunk-ca.pem)')}</option><option value="none">{t('Do not check')}</option></select></label>
         </div>
         {#if editing.stats?.last_status === 'failed'}<p class="ext__result is-bad">{t('Last send refused: {error}', { error: editing.stats.last_detail ?? '' })}</p>{/if}
+      {:else if editing.key === 'grafana'}
+        <h3>{t('Logs to Loki')}</h3>
+        <label class="ext__field">{t('Loki push URL')}<input class="b2s-input" bind:value={form.loki_url} placeholder="https://loki.corp.local/loki/api/v1/push" /></label>
+        <div class="ext__grid">
+          <label>{t('Account (optional)')}<input class="b2s-input" bind:value={form.loki_user} autocomplete="off" /></label>
+          <label>{t('Password or token')}<input class="b2s-input" type="password" bind:value={lokiSecret} placeholder={editing.has_secret ? t('Unchanged') : ''} autocomplete="new-password" /></label>
+          <label>{t('Labels')}<input class="b2s-input" bind:value={form.labels} placeholder="app=borntoshare,env=prod" /></label>
+        </div>
+        <h3>{t('Annotations')}</h3>
+        <div class="ext__grid">
+          <label>{t('Grafana URL')}<input class="b2s-input" bind:value={form.grafana_url} placeholder="https://grafana.corp.local" /></label>
+          <label>{t('Service account token')}<input class="b2s-input" type="password" bind:value={grafanaSecret} placeholder={editing.has_secret ? t('Unchanged') : ''} autocomplete="new-password" /><small>{t('Right « annotations:write »')}</small></label>
+          <label>{t('Dashboard (UID, optional)')}<input class="b2s-input" bind:value={form.dashboard_uid} /></label>
+        </div>
+        <h3>{t('Metrics')}</h3>
+        <div class="ext__field"><span>{t('Prometheus scrape (job)')}</span><code class="ext__preview">{`- job_name: borntoshare\n  scheme: ${$page.url.protocol.replace(':', '')}\n  metrics_path: /monitoring/metrics\n  authorization:\n    credentials: <token>\n  static_configs:\n    - targets: ['${$page.url.host}']`}</code></div>
+        {#if shownToken}<div class="ext__field"><span>{t('Metrics token (shown once)')}</span><code class="ext__preview is-token">{shownToken}</code></div>
+        {:else}<small class="ext__muted">{editing.has_secret ? t('A metrics token is set (created when the extension was enabled).') : t('The metrics token is created when you save with the extension enabled.')}</small>{/if}
+      {:else if editing.key === 'otel'}
+        <h3>{t('OTLP collector')}</h3>
+        <label class="ext__field">{t('Endpoint (OTLP/HTTP)')}<input class="b2s-input" bind:value={form.endpoint} placeholder="https://otel-collector.corp.local:4318" /></label>
+        <label class="ext__field">{t('Headers')}<input class="b2s-input" type="password" bind:value={secret} placeholder={editing.has_secret ? t('Unchanged') : 'Authorization=Bearer …'} autocomplete="new-password" /><small>{t('key=value separated by ; · kept in the vault')}</small></label>
+        <div class="ext__grid">
+          <label>service.namespace<input class="b2s-input" bind:value={form.service_namespace} /></label>
+          <label>deployment.environment<input class="b2s-input" bind:value={form.environment} /></label>
+        </div>
+        <h3>{t('Signals')}</h3>
+        <div class="ext__checks">
+          <label><input type="checkbox" bind:checked={form.logs} /> {t('Logs: the events chosen in « What goes where »')}</label>
+          <label><input type="checkbox" bind:checked={form.traces} /> {t('Traces: the requests of core-service')}</label>
+          <label><input type="checkbox" bind:checked={form.metrics} /> {t('Metrics: the figures of the platform, every minute')}</label>
+          <label class="ext__ratio">{t('Sampling of the traces')}<input class="b2s-input" type="number" min="0" max="1" step="0.05" bind:value={form.sample_ratio} /></label>
+        </div>
+      {:else if editing.key === 'servicenow'}
+        <h3>{t('Instance')}</h3>
+        <label class="ext__field">{t('Instance URL')}<input class="b2s-input" bind:value={form.instance_url} placeholder="https://corp.service-now.com" /></label>
+        <div class="ext__field"><span>{t('Authentication')}</span><SegmentedFilter bind:value={form.auth} options={[{ key: 'basic', label: t('Service account') }, { key: 'oauth', label: 'OAuth (client credentials)' }]} /></div>
+        <div class="ext__grid">
+          {#if form.auth === 'oauth'}<label>Client ID<input class="b2s-input" bind:value={form.client_id} /></label>
+          {:else}<label>{t('Account')}<input class="b2s-input" bind:value={form.username} autocomplete="off" /></label>{/if}
+          <label>{form.auth === 'oauth' ? 'Client secret' : t('Password')}<input class="b2s-input" type="password" bind:value={secret} placeholder={editing.has_secret ? t('Unchanged') : ''} autocomplete="new-password" /><small>{t('Kept in the vault of BornToShare')}</small></label>
+        </div>
+        <h3>{t('Incidents')}</h3>
+        <div class="ext__grid">
+          <label>{t('Assignment group')}<input class="b2s-input" bind:value={form.assignment_group} placeholder="IAM - File access" /></label>
+          <label>{t('Configuration item (CI)')}<input class="b2s-input" bind:value={form.cmdb_ci} placeholder="BornToShare" /></label>
+          <label>{t('Create from')}<select class="b2s-input" bind:value={routes.min_severity}>{#each SEVERITIES as severity (severity.key)}<option value={severity.key}>{severity.label()}</option>{/each}</select></label>
+        </div>
+        <p class="ext__result is-info">{t('One incident per alert (correlation id = key of the alert): no duplicate when the alert comes back. Critical → impact/urgency 1, High → 2. When the alert closes in BornToShare, the incident is resolved with a note.')}</p>
       {:else}
         <p class="ext__result is-info">{t('Centreon calls the check below with its token: 200 « OK » or « WARNING », 503 « CRITICAL » with the components down.')}</p>
         <div class="ext__field"><span>{t('Check URL')}</span><code class="ext__preview">{checkUrl}</code></div>
@@ -375,5 +441,8 @@
   .ext__result.is-ok { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
   .ext__result.is-bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
   .ext__result.is-info { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
+  .ext__checks { display: flex; flex-direction: column; gap: 8px; font-size: var(--b2s-fs-sm); }
+  .ext__checks label { display: flex; align-items: center; gap: 8px; }
+  .ext__ratio input { width: 90px; }
   .ext__enable { display: flex; align-items: center; gap: 8px; margin: 0; }
 </style>

@@ -32,6 +32,12 @@ CATALOG: dict[str, dict[str, Any]] = {
     "syslog": {"events": ["audit", "alerts"], "secret": False},
     "splunk": {"events": ["audit", "alerts"], "secret": True},
     "centreon": {"events": [], "secret": True},
+    # Loki (events), annotations (alerts), /monitoring/metrics (scraped with its token)
+    "grafana": {"events": ["audit", "alerts"], "secret": True},
+    # OTLP/HTTP: events as logs, core-service requests as traces, platform figures as metrics
+    "otel": {"events": ["audit", "alerts"], "secret": False},
+    # One incident per new alert, resolved when the alert closes
+    "servicenow": {"events": ["alerts", "alerts_resolved"], "secret": True},
 }
 DEFAULT_ROUTES = {"audit": True, "alerts": True, "min_severity": "high"}
 RETRY_DELAYS = (0, 2, 10)
@@ -72,10 +78,16 @@ def event_from_alert(alert: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def event_from_resolved_alert(alert: dict[str, Any]) -> dict[str, Any]:
+    return {**event_from_alert(alert), "type": "alerts_resolved", "outcome": "resolved"}
+
+
 def wanted(routes: dict[str, Any], event: dict[str, Any]) -> bool:
-    if not routes.get(event["type"]):
+    # A closed alert follows its alert: sent where the alert was sent
+    kind = "alerts" if event["type"] == "alerts_resolved" else event["type"]
+    if not routes.get(kind):
         return False
-    if event["type"] == "alerts":
+    if kind == "alerts":
         floor = SEVERITIES.index(routes.get("min_severity", "high")) if routes.get("min_severity") in SEVERITIES else 2
         level = SEVERITIES.index(event["severity"]) if event["severity"] in SEVERITIES else 1
         return level >= floor
@@ -172,10 +184,20 @@ def send_splunk(config: dict[str, Any], secret: str, event: dict[str, Any]) -> N
 
 
 def deliver(key: str, config: dict[str, Any], secret: str | None, event: dict[str, Any]) -> None:
+    from app.services import extension_senders as senders
+
+    if event["type"] not in CATALOG.get(key, {}).get("events", []) and event["action"] != "borntoshare.test":
+        return
     if key == "syslog":
         send_syslog(config, syslog_line(event, config))
     elif key == "splunk":
         send_splunk(config, secret or "", event)
+    elif key == "grafana":
+        senders.send_grafana(config, secret, event)
+    elif key == "otel":
+        senders.send_otel(config, secret, event)
+    elif key == "servicenow":
+        senders.send_servicenow(config, secret, event)
     else:
         raise ValueError(f"{key} receives no event")
 

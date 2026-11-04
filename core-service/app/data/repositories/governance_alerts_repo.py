@@ -158,6 +158,14 @@ class GovernanceAlertsRepo(SQLViewRepo):
             raise ValueError(f"unsupported alert status: {status}")
         self.db.execute(text(sql), {"status": status, "now": now, "actor_id": actor_id, "id": int(alert_id)})
         self.db.commit()
+        if status == RESOLVED_STATUS:
+            row = self.db.execute(
+                text("SELECT alert_key, alert_type, severity, title, message FROM governance_alerts WHERE id = :id"), {"id": int(alert_id)}
+            ).mappings().first()
+            if row:
+                from app.services.extensions import dispatch, event_from_resolved_alert
+
+                dispatch(event_from_resolved_alert(dict(row)))
 
     def _upsert_alert(self, alert: dict[str, Any]) -> None:
         metadata_json = alert.get("metadata_json")
@@ -250,6 +258,23 @@ class GovernanceAlertsRepo(SQLViewRepo):
             dispatch(event_from_alert(alert))
 
     def _resolve_missing_storage_root_alerts(self, *, storage_root_id: int, active_keys: set[str]) -> None:
+        # The alerts about to close go to the extensions (ServiceNow resolves their incident)
+        closing = [
+            dict(row)
+            for row in self.db.execute(
+                text("SELECT alert_key, alert_type, severity, title, message FROM governance_alerts WHERE storage_root_id = :id AND status = :open"),
+                {"id": int(storage_root_id), "open": OPEN_STATUS},
+            ).mappings().all()
+            if row["alert_key"] not in active_keys
+        ]
+        self._resolve_missing_storage_root_alerts_sql(storage_root_id=storage_root_id, active_keys=active_keys)
+        if closing:
+            from app.services.extensions import dispatch, event_from_resolved_alert
+
+            for alert in closing:
+                dispatch(event_from_resolved_alert(alert))
+
+    def _resolve_missing_storage_root_alerts_sql(self, *, storage_root_id: int, active_keys: set[str]) -> None:
         if not active_keys:
             self.db.execute(
                 text(
