@@ -1147,20 +1147,12 @@ async def _run_dfs_job(operation: _EndpointOperation, endpoint: StorageEndpoint,
         raise
 
 
-@router.get("/{endpoint_id}/browse", dependencies=[Depends(admin_only)])
-async def browse_endpoint_folder(endpoint_id: int, path: str, request: Request, db: Session = Depends(get_db)):
-    """Sub-folders of \\\\host\\share[\\dir] on a file server, read by a worker with the account of the server
-    (Add folders: go down in a share, or in the target of a DFS folder)."""
+async def _list_folder(endpoint: StorageEndpoint, parts: list[str]) -> list[str]:
+    """Sub-folders of \\\\host\\share[\\dir] read by a worker with the account of the server; 502 with its message."""
     import asyncio
 
     from app.services.probe_service import fetch_probe_job, submit_probe_run
 
-    endpoint = db.get(StorageEndpoint, int(endpoint_id))
-    if endpoint is None or str(endpoint.endpoint_type or "").lower() == "dfs":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File server not found")
-    parts = [part for part in str(path or "").replace("/", "\\").split("\\") if part]
-    if len(parts) < 2 or any(part in {".", ".."} for part in parts):
-        raise HTTPException(status_code=422, detail={"code": "BROWSE_PATH_INVALID", "message": "A path \\\\server\\share[\\folder] is expected"})
     if not (endpoint.bind_dn and endpoint.bind_password_ref):
         raise HTTPException(status_code=422, detail={"code": "BROWSE_ACCOUNT_MISSING", "message": "This server has no account to read its folders"})
     queued = await submit_probe_run({
@@ -1168,7 +1160,7 @@ async def browse_endpoint_folder(endpoint_id: int, path: str, request: Request, 
         "target": {"host": endpoint.host, "share": parts[1], "path": "\\".join(parts[2:])},
         "auth": {"mode": "ntlm", "username": endpoint.bind_dn, "secret_ref": endpoint.bind_password_ref},
         "options": {"timeout_sec": 30},
-        "context": {"storage_endpoint_id": int(endpoint_id), "ui_origin": "admin"},
+        "context": {"storage_endpoint_id": int(endpoint.id), "ui_origin": "admin"},
     })
     job_id = int((queued or {}).get("job_id") or 0)
     job: dict[str, Any] = {}
@@ -1178,13 +1170,30 @@ async def browse_endpoint_folder(endpoint_id: int, path: str, request: Request, 
         if state == "succeeded":
             result = job.get("result") if isinstance(job.get("result"), dict) else {}
             details = result.get("details") if isinstance(result.get("details"), dict) else result
-            base = "\\\\" + "\\".join(parts)
-            return ui_data({"path": base, "folders": [{"name": name, "root_path": f"{base}\\{name}"} for name in details.get("folders") or []]})
+            return list(details.get("folders") or [])
         if state in {"failed", "timed_out", "cancelled"}:
             break
         await asyncio.sleep(0.5)
     error = job.get("error") if isinstance(job.get("error"), dict) else {}
-    raise HTTPException(status_code=502, detail={"code": "BROWSE_FAILED", "message": str(error.get("message") or "The worker did not list the folder")[:300]})
+    raise HTTPException(status_code=502, detail={"code": "BROWSE_FAILED", "message": str(error.get("message") or job.get("message") or "The worker did not list the folder")[:300]})
+
+
+def _unc_parts(path: str) -> list[str]:
+    return [part for part in str(path or "").replace("/", "\\").split("\\") if part]
+
+
+@router.get("/{endpoint_id}/browse", dependencies=[Depends(admin_only)])
+async def browse_endpoint_folder(endpoint_id: int, path: str, request: Request, db: Session = Depends(get_db)):
+    """Sub-folders of \\\\host\\share[\\dir] on a file server (Add folders: go down in a share or a DFS target)."""
+    endpoint = db.get(StorageEndpoint, int(endpoint_id))
+    if endpoint is None or str(endpoint.endpoint_type or "").lower() == "dfs":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File server not found")
+    parts = _unc_parts(path)
+    if len(parts) < 2 or any(part in {".", ".."} for part in parts):
+        raise HTTPException(status_code=422, detail={"code": "BROWSE_PATH_INVALID", "message": "A path \\\\server\\share[\\folder] is expected"})
+    base = "\\\\" + "\\".join(parts)
+    names = await _list_folder(endpoint, parts)
+    return ui_data({"path": base, "folders": [{"name": name, "root_path": f"{base}\\{name}"} for name in names]})
 
 
 @router.post("/{endpoint_id}/dfs-folders", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_only)])
@@ -1199,6 +1208,26 @@ async def create_dfs_folder(endpoint_id: int, payload: DfsFolderPayload, request
     same = next((link for link in links if str(link.get("path") or "").lower() == folder.lower()), None)
     if same and any(str(t).lower() == target.lower() for t in (same.get("targets") or [])):
         raise operation.refused(status.HTTP_409_CONFLICT, "DFS_FOLDER_EXISTS", "This DFS folder already leads to this target")
+    # The target lives on a declared file server and exists there: a DFS folder to a missing share would only
+    # fail later, when its folders are governed (NT_STATUS_BAD_NETWORK_NAME)
+    from app.services.dfs_links import _Servers
+
+    server = _Servers(db).match(parts[0])
+    if server is None:
+        raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "DFS_TARGET_SERVER_UNKNOWN",
+                                f"The server {parts[0]} is not declared in BornToShare: declare it in Servers first")
+    try:
+        await _list_folder(db.get(StorageEndpoint, int(server["id"])), parts)
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        reason = str(detail.get("message") or "")
+        hint = (
+            "create the share in the Shares tab of the server" if "BAD_NETWORK_NAME" in reason
+            else "check that the server answers (network, address)" if any(word in reason for word in ("TIMEOUT", "Connection to", "UNREACHABLE", "REFUSED"))
+            else "create the folder on the server"
+        )
+        raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "DFS_TARGET_MISSING",
+                                f"The target {target} cannot be reached on {server['name']} ({reason or 'not found'}): {hint} first")
     await _run_dfs_job(operation, endpoint, "create", {"path": path, "folder": folder, "target_unc": target}, "DFS_FOLDER_CREATE_FAILED")
     if same:
         same["targets"] = [*(same.get("targets") or []), target]

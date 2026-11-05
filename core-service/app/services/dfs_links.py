@@ -48,8 +48,14 @@ class _Servers:
         return self._addresses[key]
 
     def match(self, server: str) -> dict[str, Any] | None:
+        short = str(server or "").split(".")[0].lower()
         for row in self.rows:
             if same_host(str(row["host"]), server):
+                return row
+        # A DFS target names the server as Windows knows it (FILER01), often declared here by its address:
+        # its declared name, or the first label of its host, says it too
+        for row in self.rows:
+            if short and short in {str(row.get("name") or "").strip().lower(), str(row["host"]).split(".")[0].lower()}:
                 return row
         wanted = self._of(server)
         if not wanted:
