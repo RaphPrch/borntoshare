@@ -640,3 +640,93 @@ def update_identity_source(
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     return ui_action(action_id=int(source_id), message="identity_source.updated")
+
+
+_GOVERNED = "SELECT DISTINCT group_name FROM storage_root_access_profiles WHERE group_name IS NOT NULL"
+# A group read again by a later snapshot may keep its older row: one row per DN, the latest
+# Only the objects of the last reading (a group removed from AD keeps the row of an older one)
+_LAST_VERSION = "COALESCE((SELECT last_snapshot_version FROM identity_sources WHERE id = :id), snapshot_version)"
+_LATEST_GROUPS = ("SELECT MAX(id) FROM directory_groups WHERE identity_source_id = :id AND deleted_at IS NULL"
+                  f" AND snapshot_version = {_LAST_VERSION} GROUP BY LOWER(COALESCE(dn, name))")
+_LATEST_USERS = ("SELECT MAX(id) FROM directory_users WHERE identity_source_id = :id"
+                 f" AND snapshot_version = {_LAST_VERSION} GROUP BY LOWER(COALESCE(dn, username))")
+
+
+@router.get("/{source_id}/overview", summary="What the directory holds and who uses it", dependencies=[Depends(admin_or_internal)])
+def get_identity_source_overview(source_id: int, db: Session = Depends(get_db)):
+    """The page of a directory: people and technical accounts, groups governed by BornToShare, servers that use it."""
+    if db.get(IdentitySource, int(source_id)) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity source not found")
+    params = {"id": int(source_id)}
+    users = db.execute(
+        text(f"SELECT COUNT(*) AS total, SUM(email IS NOT NULL AND email <> '') AS with_email FROM directory_users WHERE id IN ({_LATEST_USERS})"),
+        params,
+    ).mappings().first() or {}
+    groups_total = db.execute(text(f"SELECT COUNT(*) FROM directory_groups WHERE id IN ({_LATEST_GROUPS})"), params).scalar() or 0
+    governed = db.execute(
+        text(
+            f"""
+            SELECT g.name, g.dn,
+              (SELECT COUNT(*) FROM directory_group_members m WHERE m.group_id = g.id AND m.deleted_at IS NULL) AS members
+            FROM directory_groups g
+            WHERE g.id IN ({_LATEST_GROUPS}) AND g.name IN ({_GOVERNED})
+            ORDER BY g.name
+            """
+        ),
+        params,
+    ).mappings().all()
+    endpoints = db.execute(
+        text(
+            """
+            SELECT id, name, endpoint_type, host,
+              (SELECT COUNT(*) FROM storage_roots r WHERE r.storage_endpoint_id = e.id) AS roots
+            FROM storage_endpoints e WHERE identity_source_id = :id ORDER BY endpoint_type <> 'smb', name
+            """
+        ),
+        params,
+    ).mappings().all()
+    return ui_data({
+        "users": int(users.get("total") or 0),
+        "users_with_email": int(users.get("with_email") or 0),
+        "groups": int(groups_total),
+        "governed_groups": len(governed),
+        "governed_sample": [dict(row) for row in governed[:6]],
+        "endpoints": [dict(row) for row in endpoints],
+    })
+
+
+@router.get("/{source_id}/inventory", summary="Users or groups of the last directory reading", dependencies=[Depends(admin_or_internal)])
+def get_identity_source_inventory(source_id: int, kind: str = "users", q: str = "", limit: int = 200, db: Session = Depends(get_db)):
+    if db.get(IdentitySource, int(source_id)) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity source not found")
+    params: dict[str, Any] = {"id": int(source_id), "q": f"%{q.strip()}%", "limit": max(1, min(int(limit), 500))}
+    if kind == "groups":
+        rows = db.execute(
+            text(
+                f"""
+                SELECT g.id, g.name, g.dn, g.description,
+                  (SELECT COUNT(*) FROM directory_group_members m WHERE m.group_id = g.id AND m.deleted_at IS NULL) AS members,
+                  g.name IN ({_GOVERNED}) AS governed
+                FROM directory_groups g
+                WHERE g.id IN ({_LATEST_GROUPS})
+                  AND (:q = '%%' OR g.name LIKE :q OR g.dn LIKE :q)
+                ORDER BY governed DESC, g.name LIMIT :limit
+                """
+            ),
+            params,
+        ).mappings().all()
+        return ui_list([{**dict(row), "governed": bool(row["governed"])} for row in rows])
+    rows = db.execute(
+        text(
+            f"""
+            SELECT u.id, u.username, u.display_name, u.email, u.upn, u.dn,
+              (SELECT COUNT(*) FROM directory_group_members m WHERE m.directory_user_id = u.id AND m.deleted_at IS NULL) AS groups
+            FROM directory_users u
+            WHERE u.id IN ({_LATEST_USERS})
+              AND (:q = '%%' OR u.username LIKE :q OR u.display_name LIKE :q OR u.email LIKE :q)
+            ORDER BY (u.email IS NULL OR u.email = ''), u.display_name LIMIT :limit
+            """
+        ),
+        params,
+    ).mappings().all()
+    return ui_list([dict(row) for row in rows])

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import EntityActionGroup from '$lib/components/entity/EntityActionGroup.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { browser } from '$app/environment';
@@ -8,8 +7,11 @@
   import { sleep } from '$lib/utils/values';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
-  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
-  import IdentitySourceDrawer from '$lib/components/identity-sources/IdentitySourceDrawer.svelte';
+  import EntityWorkspace from '$lib/components/entity/EntityWorkspace.svelte';
+  import IdentitySourcesSidebar from '$lib/components/identity-sources/IdentitySourcesSidebar.svelte';
+  import IdentitySourceWorkspace from '$lib/components/identity-sources/IdentitySourceWorkspace.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import { page } from '$app/stores';
   import IdentitySourceEditDrawer from '$lib/components/identity-sources/IdentitySourceEditDrawer.svelte';
   import {
     browseIdentitySource,
@@ -818,6 +820,16 @@
     .map((s) => String(s?.name ?? s?.display_name ?? '').trim())
     .filter(Boolean);
 
+  // The page opens on a directory: ?selected=, else the first by name. Placed before the cards are composed:
+  // a reactive statement does not run again for a value changed by a later one.
+  let sidebarQuery = '';
+  $: if (browser && selectedSourceId === null && sources.length) {
+    const wanted = Number($page.url.searchParams.get('selected') ?? 0);
+    const byName = [...sources].sort((x, y) => String(x?.name ?? '').localeCompare(String(y?.name ?? ''), 'fr'));
+    const first = sources.find((source) => Number(source?.id ?? 0) === wanted) ?? byName[0];
+    selectSourceById(Number(first?.id ?? 0));
+  }
+
   $: ({
     sortedCards,
     summary,
@@ -867,176 +879,62 @@
     detailCard?.id ? healthSummaryBySourceId[detailCard.id] ?? null : null
   );
 
-  $: if (showDetailsDrawer && selectedSourceId !== null && !selectedCard) {
-    closeDetails();
+  // A deleted directory: the page opens on another one
+  $: if (selectedSourceId !== null && sources.length && !sources.some((source) => Number(source?.id ?? 0) === selectedSourceId)) {
+    selectedSourceId = null;
+  }
+
+  $: if (browser && selectedSourceId !== null && Number($page.url.searchParams.get('selected') ?? 0) !== selectedSourceId) {
+    const next = new URL($page.url);
+    next.searchParams.set('selected', String(selectedSourceId));
+    goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true, keepFocus: true });
   }
 </script>
 
-<section class="b2s-page b2s-page--admin identity-sources-page">
-  <div class="identity-clean-shell">
-    <header class="ids-head">
-      <div>
-        <h1>{t('Directories')}</h1>
-        <p>{t('{total} directories · {healthy} healthy · {issues} with issues · {never} never synced', { total: summary.total, healthy: summary.healthy, issues: summary.issues, never: summary.neverSynced })}</p>
-      </div>
-      <EntityActionGroup
-        ariaLabel={t('Identity source actions')}
-        actions={[
-        { key: 'refresh', label: t('Refresh'), icon: 'bi-arrow-clockwise', variant: 'secondary', disabled: listLoading, onClick: refreshList },
-        { key: 'new', label: t('New Identity Source'), icon: 'bi-plus-lg', variant: 'primary', onClick: () => goto('/admin/identity-sources/new') }
-        ]}
+{#if !hasSources && !listLoading && !fetchError}
+  <section class="b2s-page b2s-page--admin">
+    <EmptyState
+      page
+      containerClass="identity-empty-state"
+      iconClass="bi bi-people"
+      title={t('No identity sources yet')}
+      description={t('Identity sources connect an LDAP directory to authenticate users and import identities.')}
+      ctaLabel={t('Create your first identity source')}
+      onCta={() => goto('/admin/identity-sources/new')}
+      hint={t('You will be guided step by step.')}
+    />
+  </section>
+{:else}
+  <EntityWorkspace title={t('Directories')}>
+    <svelte:fragment slot="list">
+      <IdentitySourcesSidebar
+        cards={sortedCards}
+        selectedId={selectedSourceId}
+        query={sidebarQuery}
+        onQueryChange={(value) => (sidebarQuery = value)}
+        onSelect={selectSourceById}
+        onAdd={() => goto('/admin/identity-sources/new')}
       />
-    </header>
-
-    {#if fetchError}
-      <InlineAlert tone="error">{fetchError}</InlineAlert>
-    {/if}
-
-    {#if !hasSources && !listLoading && !fetchError}
-      <EmptyState
-        page
-        containerClass="identity-empty-state"
-        iconClass="bi bi-people"
-        title={t('No identity sources yet')}
-        description={t('Identity sources connect an LDAP directory to authenticate users and import identities.')}
-        ctaLabel={t('Create your first identity source')}
-        onCta={() => goto('/admin/identity-sources/new')}
-        hint={t('You will be guided step by step.')}
+    </svelte:fragment>
+    {#if fetchError}<InlineAlert tone="error">{fetchError}</InlineAlert>{/if}
+    {#if selectedCard}
+      <IdentitySourceWorkspace
+        card={selectedCard}
+        internal={selectedInternal}
+        {busy}
+        probeRunning={identityProbeRunning(selectedCard.id)}
+        snapshotRunning={$jobsStore && serverSnapshotRunning ? identitySnapshotRunning(selectedCard.id) : false}
+        onEdit={() => selectedCard && openEdit(selectedCard.raw)}
+        onTest={() => selectedCard && runTestOnSource(selectedCard.raw)}
+        onSync={() => selectedCard && runSnapshotOnSource(selectedCard.raw)}
+        onToggle={() => selectedCard && handleToggleActive(selectedCard.raw, !selectedCard.raw?.is_active)}
+        onDelete={() => selectedCard && openDelete(selectedCard.raw)}
       />
     {:else}
-      <div class="identity-filter-card">
-        <label class="identity-search">
-          <i class="bi bi-search" aria-hidden="true"></i>
-          <input
-            type="search"
-            bind:value={listQuery}
-            on:input={resetListPage}
-            placeholder={t('Search identity sources...')}
-            aria-label={t('Search identity sources')}
-          />
-        </label>
-        <div class="identity-selects">
-          <select bind:value={typeFilter} on:change={resetListPage} aria-label={t('Filter by type')}>
-            {#each typeOptions as option}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
-          <select bind:value={snapshotFilter} on:change={resetListPage} aria-label={t('Filter by snapshot status')}>
-            {#each snapshotOptions as option}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
-        </div>
-        <div class="b2s-segments" role="group" aria-label={t('Health quick filters')}>
-          <button type="button" class:active={statusFilter === 'all'} on:click={() => selectStatusFilter('all')}>{t('All')}</button>
-          <button type="button" class:active={statusFilter === 'healthy'} on:click={() => selectStatusFilter('healthy')}>{t('Healthy')}</button>
-          <button type="button" class:active={statusFilter === 'issues'} on:click={() => selectStatusFilter('issues')}>{t('Issues')}</button>
-          <button type="button" class:active={statusFilter === 'disabled'} on:click={() => selectStatusFilter('disabled')}>{t('Disabled')}</button>
-        </div>
-        <strong class="identity-result-count">{t('{sortedCardsCount} result{value}', { sortedCardsCount: sortedCards.length, value: (sortedCards.length === 1 ? '' : 's') })}</strong>
-      </div>
-
-      {#if listLoading}
-        <div class="identity-table-card" aria-busy="true">
-          {#each Array(6) as _, index (`identity-loading-row-${index}`)}
-            <div class="identity-row-skeleton"></div>
-          {/each}
-        </div>
-      {:else if sortedCards.length === 0}
-        <div class="identity-no-result" role="status">{t('No identity source matches current filters.')}</div>
-      {:else}
-        <div class="identity-table-card">
-            <div class="ids-cards">
-              {#each paginatedCards as card (card.id)}
-                <div class="ids-card" class:selected={(selectedSourceId ?? detailCard?.id) === card.id}>
-                  <button type="button" class="ids-card-main" on:click={() => selectSourceById(card.id)}>
-                    <span class="ids-card-name">
-                      <strong>{card.name}</strong>
-                      <code>{card.endpointLabel}</code>
-                    </span>
-                    <span><span class={`identity-pill ${toneClass(card.typeTone)}`}>{card.typeLabel}</span></span>
-                    <span class="ids-card-meta" class:is-stale={card.lastProbeStale} title={card.lastProbeStale ? t('Tested more than a day ago: test it again') : card.lastProbeTitle || undefined}>
-                      <small>{t('Last probe')}</small>
-                      {card.lastProbeLabel}
-                    </span>
-                    <span><StatusBadge compact showDot={false} variant={card.snapshotTone} label={card.snapshotLabel} /></span>
-                    <span><StatusBadge compact variant={card.healthTone} label={card.healthLabel} /></span>
-                  </button>
-                  <button
-                    class="b2s-btn b2s-btn-secondary b2s-btn-sm b2s-btn-icon"
-                    type="button"
-                    aria-label={t('Edit {name}', { name: card.name })}
-                    disabled={!isAdIdentitySource(card.raw)}
-                    on:click={() => openEdit(card.raw)}
-                  >
-                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
-                  </button>
-                </div>
-              {/each}
-            </div>
-
-            <div class="identity-table-footer">
-              <label>
-                {t('Rows per page:')}
-                <select bind:value={rowsPerPage} on:change={resetListPage}>
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
-              </label>
-              <div class="identity-pagination">
-                <span>{t('{value}–{pageEnd} of {sortedCardsCount}', { value: (pageStart + 1), pageEnd, sortedCardsCount: sortedCards.length })}</span>
-                <button type="button" aria-label={t('First page')} disabled={currentPage === 1} on:click={() => goToPage(1)}>
-                  <i class="bi bi-chevron-bar-left" aria-hidden="true"></i>
-                </button>
-                <button type="button" aria-label={t('Previous page')} disabled={currentPage === 1} on:click={() => goToPage(currentPage - 1)}>
-                  <i class="bi bi-chevron-left" aria-hidden="true"></i>
-                </button>
-                <strong>{currentPage}</strong>
-                <button type="button" aria-label={t('Next page')} disabled={currentPage === totalPages} on:click={() => goToPage(currentPage + 1)}>
-                  <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                </button>
-                <button type="button" aria-label={t('Last page')} disabled={currentPage === totalPages} on:click={() => goToPage(totalPages)}>
-                  <i class="bi bi-chevron-bar-right" aria-hidden="true"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-      {/if}
+      <LoadingState block skeleton="detail" />
     {/if}
-  </div>
-</section>
-
-<IdentitySourceDrawer
-  open={showDetailsDrawer}
-  source={selectedCard}
-  internal={selectedInternal}
-  loading={internalLoading}
-  loadError={internalError}
-  busy={busy}
-  probeRunning={selectedCard ? identityProbeRunning(selectedCard.id) : false}
-  snapshotRunning={selectedCard && $jobsStore && serverSnapshotRunning ? identitySnapshotRunning(selectedCard.id) : false}
-  on:close={closeDetails}
-  on:refresh={() => {
-    if (selectedCard) loadInternal(selectedCard.id, true);
-  }}
-  on:edit={() => {
-    if (selectedCard) openEdit(selectedCard.raw);
-  }}
-  on:runProbe={() => {
-    if (selectedCard) runTestOnSource(selectedCard.raw);
-  }}
-  on:runSnapshot={() => {
-    if (selectedCard) runSnapshotOnSource(selectedCard.raw);
-  }}
-  on:toggle={() => {
-    if (selectedCard) handleToggleActive(selectedCard.raw, !selectedCard.raw?.is_active);
-  }}
-  on:delete={() => {
-    if (selectedCard) openDelete(selectedCard.raw);
-  }}
-  recentHealth={selectedRecentHealth}
-/>
+  </EntityWorkspace>
+{/if}
 
 <IdentitySourceEditDrawer
   open={showEditModal}
@@ -1098,305 +996,5 @@
 </ConfirmActionModal>
 
 <style>
-  :global(.identity-sources-page) {
-    padding: var(--b2s-page-padding);
-  }
-
-  .identity-clean-shell {
-    display: grid;
-    gap: 22px;
-    color: var(--b2s-color-heading);
-  }
-
-  /* Filters and table on the page surface, like the other entity pages */
-  .identity-clean-shell :global(.identity-filter-card),
-  .identity-clean-shell :global(.identity-table-card) {
-    border: 0;
-    background: none;
-    box-shadow: none;
-  }
-
-  .identity-clean-shell :global(.identity-filter-card) {
-    min-height: 0;
-    padding: 0;
-  }
-
-  .identity-clean-shell :global(.b2s-page-header) {
-    margin-bottom: 2px;
-  }
-
-  .identity-page-actions {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 14px;
-    margin-left: auto;
-    flex-wrap: wrap;
-  }
-  .identity-pagination button {
-    font-family: var(--b2s-font-sans);
-    letter-spacing: 0;
-  }
-
-  .identity-filter-card {
-    min-height: 80px;
-    display: grid;
-    grid-template-columns: minmax(260px, 330px) auto 1fr auto;
-    gap: 20px;
-    align-items: center;
-    padding: 16px 20px;
-  }
-
-  .identity-search {
-    height: 42px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border: 1px solid var(--b2s-color-border-soft);
-    border-radius: var(--b2s-radius-sm);
-    background: var(--b2s-color-surface);
-    padding: 0 14px;
-    color: #48607f;
-  }
-
-  .identity-search input {
-    width: 100%;
-    border: 0;
-    outline: 0;
-    color: var(--b2s-color-heading);
-    font-size: var(--b2s-fs-md);
-    background: transparent;
-  }
-
-  .identity-search input::placeholder {
-    color: #72829a;
-  }
-
-  .identity-selects {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .identity-selects select,
-  .identity-table-footer select {
-    min-width: 112px;
-    height: 42px;
-    border-radius: var(--b2s-radius-sm);
-    border: 1px solid var(--b2s-color-border-soft);
-    background: var(--b2s-color-surface);
-    color: var(--b2s-color-heading);
-    padding: 0 34px 0 14px;
-    font-weight: 550;
-    font-size: var(--b2s-fs-md);
-  }
-
-  .identity-result-count {
-    color: var(--b2s-color-heading);
-    font-size: var(--b2s-fs-md);
-    font-weight: 650;
-    white-space: nowrap;
-  }
-
-  .identity-table-card {
-    overflow: hidden;
-  }
-
-  .identity-clean-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: var(--b2s-fs-md);
-  }
-
-  .identity-source-cell {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    min-width: 0;
-  }
-
-  .identity-source-mini {
-    width: 22px;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #0b63f4;
-  }
-
-  .identity-muted-cell {
-    color: #5e6f89;
-  }
-
-  .identity-pill {
-    min-height: 25px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    max-width: 100%;
-    border-radius: var(--b2s-radius-pill);
-    border: 1px solid #d7e0ee;
-    background: var(--b2s-color-surface-soft);
-    color: #425473;
-    padding: 3px 9px;
-    font-size: var(--b2s-fs-xs);
-    line-height: 1.1;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .identity-pill.is-success,
-  .identity-health-label.is-success{
-    color: #0b8f49;
-  }
-
-  .identity-pill.is-success {
-    background: var(--b2s-color-success-soft);
-    border-color: #a7e8bd;
-  }
-
-  .identity-pill.is-warning,
-  .identity-health-label.is-warning{
-    color: var(--b2s-color-warning-strong);
-  }
-
-  .identity-pill.is-warning {
-    background: var(--b2s-color-warning-soft);
-    border-color: var(--b2s-color-warning-border);
-  }
-
-  .identity-pill.is-error,
-  .identity-health-label.is-error{
-    color: var(--b2s-color-danger);
-  }
-
-  .identity-pill.is-error {
-    background: var(--b2s-color-danger-soft);
-    border-color: var(--b2s-color-danger-border);
-  }
-
-  .identity-pill.is-info,
-  .identity-pill.is-ad,
-  .identity-pill.is-oidc {
-    color: #0758d8;
-    background: var(--b2s-color-info-soft);
-    border-color: #b8d2ff;
-  }
-
-  .identity-pill.is-disabled,
-  .identity-pill.is-muted {
-    color: var(--b2s-color-text-soft);
-    background: var(--b2s-color-surface-soft);
-    border-color: var(--b2s-color-border-mid);
-  }
-
-  .identity-health-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    color: #596985;
-    font-weight: 550;
-  }
-
-  .identity-table-footer {
-    min-height: 70px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    padding: 14px 16px;
-    border-top: 1px solid #dce4ef;
-  }
-
-  .identity-table-footer label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: #51637e;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .identity-table-footer select {
-    min-width: 80px;
-  }
-
-  .identity-pagination {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    color: #51637e;
-  }
-
-  .identity-pagination button,
-  .identity-pagination strong {
-    width: 34px;
-    height: 34px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--b2s-radius-sm);
-    border: 1px solid transparent;
-    background: transparent;
-    color: #536885;
-  }
-
-  .identity-pagination strong {
-    background: var(--b2s-color-heading);
-    color: #ffffff;
-    font-weight: 650;
-  }
-
-  .identity-pagination button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  .identity-row-skeleton {
-    height: 66px;
-    margin: 14px;
-    border-radius: var(--b2s-radius-sm);
-    background: linear-gradient(90deg, rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.34), rgba(148, 163, 184, 0.18));
-    background-size: 200% 100%;
-    animation: identity-loading 1.4s ease-in-out infinite;
-  }
-
-  .identity-row-skeleton.small {
-    height: 38px;
-  }
-
-  .identity-no-result {
-    padding: 1rem;
-    border-radius: var(--b2s-radius-sm);
-    border: 1px dashed rgba(148, 163, 184, 0.45);
-    color: var(--b2s-color-text-muted);
-    background: rgba(248, 250, 252, 0.75);
-    text-align: center;
-    font-size: var(--b2s-fs-md);
-  }
-
-  @keyframes identity-loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-
-
-  .identity-sources-page :global(h1) {
-    font-size: 38px;
-    line-height: 1.05;
-    font-weight: 600;
-    letter-spacing: -.03em;
-  }
-
-  .ids-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-  .ids-head p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
-  .ids-cards { display: flex; flex-direction: column; gap: 10px; }
-  .ids-card { display: flex; align-items: center; gap: 12px; padding-right: 16px; background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border); border-radius: 16px; }
-  .ids-card:hover { box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06); }
-  .ids-card.selected { border-color: var(--b2s-color-text); box-shadow: 0 0 0 1px var(--b2s-color-text); }
-  .ids-card-main { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 130px minmax(0, 1fr) 100px; gap: 14px; align-items: center; padding: 16px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-  .ids-card-name strong { display: block; font-size: 16px; font-weight: 600; }
-  .ids-card-name code { font-family: var(--b2s-font-mono); font-size: 12px; color: var(--b2s-color-text-muted); }
-  .ids-card-meta small { display: block; font-size: 12px; color: var(--b2s-color-text-muted); }
-  .ids-card-meta.is-stale { color: var(--b2s-color-warning-strong); }
+  .identity-modal-body { display: flex; flex-direction: column; gap: 10px; }
 </style>

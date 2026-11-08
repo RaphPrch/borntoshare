@@ -486,19 +486,59 @@
     { key: 'auth', title: 'Authenticate users', text: 'Allow this source to authenticate users.' },
     { key: 'provisioning', title: 'Manage AD groups', text: 'Create AD groups and add members when access requests are approved.' }
   ] as const;
+
+  // Wizard: type › connection › test and creation. The steps out of view stay in the page (nothing typed is lost).
+  let step = 0;
+  let kind: 'ad' = 'ad';
+  $: wizardSteps = [
+    { label: t('Type'), hint: t('AD, SSO, local') },
+    { label: t('Connection'), hint: t('server, account, uses') },
+    { label: t('Test'), hint: t('checks and creation') }
+  ];
 </script>
 
 <section class="b2s-page b2s-page--admin new-source">
-  <header class="page-head">
-    <div>
+  <div class="wz">
+    <aside class="wz__side">
       <a class="crumb" href="/admin/identity-sources"><i class="bi bi-chevron-left" aria-hidden="true"></i>{t('Directories')}</a>
-      <h1>{t('Connect a directory')}</h1>
-      <p>{t('Give the address of the server: the rest is detected.')}</p>
-    </div>
-  </header>
+      <h1>{t('New directory')}</h1>
+      <ol class="wz__steps">
+        {#each wizardSteps as item, index (item.label)}
+          <li>
+            <button type="button" class="wz__step" class:is-current={index === step} disabled={index > 0 && kind !== 'ad'} on:click={() => (step = index)}>
+              <span class="wz__num" class:is-done={index < step} class:is-current={index === step}>{#if index < step}<i class="bi bi-check-lg" aria-hidden="true"></i>{:else}{index + 1}{/if}</span>
+              <span><strong>{item.label}</strong><small>{item.hint}</small></span>
+            </button>
+          </li>
+        {/each}
+      </ol>
+      <p class="wz__note">{t('The password of the read account goes to the secret store of BornToShare; it is never shown again.')}</p>
+    </aside>
 
-  <div class="layout">
-    <fieldset class="form" disabled={locked}>
+    <div class="wz__body">
+      <div class="wz__content">
+        {#if step === 0}
+          <div class="wz__intro">
+            <h2>{t('Which directory are you adding?')}</h2>
+            <p>{t('It provides the people and the groups; BornToShare creates the access groups of the folders in it.')}</p>
+          </div>
+          <div class="wz__kinds">
+            <button type="button" class="wz__kind" class:is-on={kind === 'ad'} on:click={() => (kind = 'ad')}>
+              <span class="wz__badge is-ad">AD</span>
+              <span><strong>{t('Active Directory / LDAP')} <em>{t('recommended')}</em></strong><small>{t('People and groups of the domain; BornToShare creates the access groups and writes the NTFS ACLs. The address is enough: the rest is detected.')}</small></span>
+            </button>
+            <a class="wz__kind" href="/admin/advanced-settings/infrastructure">
+              <span class="wz__badge is-sso">ID</span>
+              <span><strong>{t('Identity provider (SSO)')}</strong><small>{t('Entra ID, Keycloak… to sign in to BornToShare: set up in Settings › Infrastructure.')}</small></span>
+            </a>
+            <div class="wz__kind is-off" aria-disabled="true">
+              <span class="wz__badge is-local">LO</span>
+              <span><strong>{t('Local accounts')}</strong><small>{t('Built in: the « Local » provider is always there, for a fallback access.')}</small></span>
+            </div>
+          </div>
+        {/if}
+
+    <fieldset class="form" class:wz-hidden={step !== 1} disabled={locked}>
       <section class="card">
         <div class="card-head">
           <h2>{t('Server')}</h2>
@@ -676,8 +716,9 @@
       </section>
     </fieldset>
 
-    <aside class="panel">
-      <h2>{t('Configuration status')}</h2>
+    <div class="panel" class:wz-hidden={step !== 2}>
+      <h2>{t('Test and first reading')}</h2>
+      <p class="muted">{t('Each step is checked by a worker, from its network.')}</p>
       <ul class="checks">
         {#each checks as check (check.title)}
           <li>
@@ -725,26 +766,64 @@
           {/if}
         </div>
       {/if}
-    </aside>
+    </div>
+      </div>
+      <footer class="wz__foot">
+        <a class="b2s-btn b2s-btn-secondary" href="/admin/identity-sources">{t('Cancel')}</a>
+        <span class="wz__spacer"></span>
+        {#if step > 0}<button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => (step -= 1)}>{t('Previous')}</button>{/if}
+        {#if step < 2}
+          <button type="button" class="b2s-btn b2s-btn-primary" disabled={kind !== 'ad'} on:click={() => (step += 1)}>{step === 0 ? t('Continue') : t('Check and create')}</button>
+        {/if}
+      </footer>
+    </div>
   </div>
 </section>
 
 <style>
   .new-source { padding: var(--b2s-page-padding); }
-  .page-head { margin-bottom: 20px; }
-  .page-head h1 { margin: 4px 0 2px; font-size: var(--b2s-fs-page-title); color: var(--b2s-color-heading); }
-  .page-head p { margin: 0; color: var(--b2s-color-text-muted); }
+  .wz { display: flex; width: 100%; max-width: 1180px; min-height: 560px; margin: 0 auto; border: 1px solid var(--b2s-color-border); border-radius: 18px; background: var(--b2s-color-surface); box-shadow: var(--b2s-shadow-md, 0 12px 40px rgba(14, 18, 24, 0.1)); overflow: hidden; }
+  .wz__side { flex: 0 0 270px; display: flex; flex-direction: column; gap: 18px; padding: 26px 22px; background: var(--b2s-color-surface-soft, #f5f7fa); border-right: 1px solid var(--b2s-color-border); }
+  .wz__side h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--b2s-color-heading); }
+  .wz__steps { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .wz__step { display: flex; gap: 12px; align-items: center; width: 100%; padding: 10px; border: 0; border-radius: 12px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .wz__step.is-current { background: var(--b2s-color-surface); box-shadow: 0 1px 3px rgba(14, 18, 24, 0.1); }
+  .wz__step strong, .wz__step small { display: block; }
+  .wz__step strong { font-size: var(--b2s-fs-sm); font-weight: 600; }
+  .wz__step small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .wz__num { flex: 0 0 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--b2s-color-border); color: var(--b2s-color-text-muted); font-size: 13px; font-weight: 700; }
+  .wz__num.is-current { background: var(--b2s-color-text); color: var(--b2s-color-surface); }
+  .wz__num.is-done { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
+  .wz__note { margin: auto 0 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .wz__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .wz__content { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 26px 30px; }
+  .wz__intro h2 { font-size: 18px; }
+  .wz__intro p { margin: 4px 0 0; color: var(--b2s-color-text-muted); }
+  .wz__kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .wz__kind { display: flex; gap: 14px; align-items: flex-start; padding: 16px; border: 1px solid var(--b2s-color-border); border-radius: 14px; background: var(--b2s-color-surface); color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+  .wz__kind.is-on { border: 2px solid var(--b2s-color-text); padding: 15px; }
+  .wz__kind.is-off { opacity: 0.6; cursor: default; }
+  .wz__kind strong, .wz__kind small { display: block; }
+  .wz__kind strong em { font-style: normal; font-weight: 500; font-size: var(--b2s-font-micro); color: var(--b2s-color-success-strong); }
+  .wz__kind small { margin-top: 4px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); line-height: 1.4; }
+  .wz__badge { flex: 0 0 40px; height: 40px; display: grid; place-items: center; border-radius: 11px; font-size: 13px; font-weight: 700; }
+  .wz__badge.is-ad { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
+  .wz__badge.is-sso { background: #efe7fb; color: #6b3fc4; }
+  .wz__badge.is-local { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
+  .wz__foot { display: flex; align-items: center; gap: 10px; padding: 16px 30px; border-top: 1px solid var(--b2s-color-border); }
+  .wz__spacer { flex: 1; }
+  .wz-hidden { display: none !important; }
+  .wz .panel { border: 0; box-shadow: none; padding: 0; }
   .crumb { display: inline-flex; align-items: center; gap: 4px; color: var(--b2s-color-text-muted); font-size: var(--b2s-text-sm); text-decoration: none; }
   .crumb:hover { color: var(--b2s-color-text); }
 
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; max-width: 1240px; align-items: start; }
   .form { display: flex; flex-direction: column; gap: 14px; min-width: 0; margin: 0; padding: 0; border: 0; }
   .card, .panel { background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); box-shadow: var(--b2s-shadow-sm); }
   .card { display: flex; flex-direction: column; gap: 14px; padding: 18px 20px; }
   .card-head { display: flex; align-items: center; gap: 10px; }
   h2 { margin: 0; font-size: var(--b2s-fs-md); font-weight: 600; color: var(--b2s-color-heading); }
 
-  .panel { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+  .panel { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
   .checks { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
   .checks li { display: grid; grid-template-columns: 18px 1fr; gap: 9px; font-size: var(--b2s-text-sm); }
   .checks strong, .checks small { display: block; }
