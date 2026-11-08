@@ -224,6 +224,9 @@
 
   onMount(() => {
     if (!browser) return;
+    // ?q=est:sensible (from a policy, a link…): the search opens filled in
+    const initialQuery = $page.url.searchParams.get('q');
+    if (initialQuery) storageRootsUiStore.setQuery(initialQuery);
 
     const onProbeSync = (event: Event) => {
       const custom = event as CustomEvent<{

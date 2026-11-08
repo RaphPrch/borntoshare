@@ -111,6 +111,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
     path.startsWith('/storage-roots') ||
     path.startsWith('/tags') ||
     path.startsWith('/extensions') ||
+    path.startsWith('/policies') ||
     path.startsWith('/zones')
   ) {
     return { service: 'core', path };

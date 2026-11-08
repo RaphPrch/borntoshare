@@ -107,6 +107,16 @@ const GUIDES: Record<string, () => AlertGuide> = {
 
 export const alertGuide = (alertType: string | null | undefined): AlertGuide => {
   const key = String(alertType ?? '').split(':')[0].trim().toLowerCase();
+  if (key === 'policy')
+    return {
+      cause: t('The folder matches a smart policy: its condition is shown under the title.'),
+      steps: [
+        t('Open the folder and correct what the condition points at (sensitive files, missing guardian, size…).'),
+        t('At its next run, the policy closes the alert by itself once the folder no longer matches.'),
+        t('If the policy is wrong, change its condition on the Policies page.')
+      ],
+      action: { label: t('Open the folder') }
+    };
   const found = GUIDES[key] ?? (key.startsWith('ad_group') ? GUIDES.ad_group_read_failed : null);
   return found
     ? found()

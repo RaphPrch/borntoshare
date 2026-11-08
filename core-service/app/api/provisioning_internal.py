@@ -419,8 +419,17 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
     job_id = int(getattr(job_row, "id", 0) or 0) or None
     if error_message is not None:
         sensitivity.record_failure(db, root_id, job_id, error_message)
-    else:
-        sensitivity.record_result(db, root_id, job_id, result_json)
+        return
+    sensitivity.record_result(db, root_id, job_id, result_json)
+    db.commit()
+    # The policies about sensitivity apply at once to this folder, without waiting for their schedule
+    try:
+        from app.services.policies import run_all
+
+        run_all(db, only_root_ids={int(root_id)}, trigger="sensitivity_scan")
+    except Exception:
+        db.rollback()
+        logger.warning("POLICIES_AFTER_SCAN_FAILED", exc_info=True)
 
 
 def _persist_storage_root_probe_result(

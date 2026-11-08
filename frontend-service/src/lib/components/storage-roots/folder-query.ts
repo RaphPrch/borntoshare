@@ -168,6 +168,11 @@ const KEY_META = (): Record<string, { word: string; label: string; icon: string 
 /** Proposals for the word being typed (the last one of the query) */
 export function folderSuggestions(query: string, rows: Row[], tags: string[] = []): Suggestion[] {
   const last = String(query ?? '').split(/\s+/).pop() ?? '';
+  // The filter already typed in full: nothing more to propose
+  return suggestionsFor(last, rows, tags).filter((item) => fold(item.insert) !== fold(last));
+}
+
+function suggestionsFor(last: string, rows: Row[], tags: string[]): Suggestion[] {
   const vocab = vocabulary(rows, tags);
   const meta = KEY_META();
   const typed = last.match(/^-?([a-zA-Zéèêà]+):(.*)$/);

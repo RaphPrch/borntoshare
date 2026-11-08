@@ -265,7 +265,8 @@ class GovernanceAlertsRepo(SQLViewRepo):
                 text("SELECT alert_key, alert_type, severity, title, message FROM governance_alerts WHERE storage_root_id = :id AND status = :open"),
                 {"id": int(storage_root_id), "open": OPEN_STATUS},
             ).mappings().all()
-            if row["alert_key"] not in active_keys
+            # The alerts of the smart policies are opened and closed by the policies
+            if row["alert_key"] not in active_keys and not str(row["alert_type"] or "").startswith("policy:")
         ]
         self._resolve_missing_storage_root_alerts_sql(storage_root_id=storage_root_id, active_keys=active_keys)
         if closing:
@@ -284,6 +285,7 @@ class GovernanceAlertsRepo(SQLViewRepo):
                         resolved_at = COALESCE(resolved_at, :now)
                     WHERE storage_root_id = :storage_root_id
                       AND status = :open_status
+                      AND alert_type NOT LIKE 'policy:%'
                     """
                 ),
                 {
@@ -313,6 +315,7 @@ class GovernanceAlertsRepo(SQLViewRepo):
                     resolved_at = COALESCE(resolved_at, :now)
                 WHERE storage_root_id = :storage_root_id
                   AND status = :open_status
+                  AND alert_type NOT LIKE 'policy:%'
                   AND alert_key NOT IN ({in_clause})
                 """
             ),

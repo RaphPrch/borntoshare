@@ -841,6 +841,10 @@
       "worker_removed": {
         "title": "Worker removed",
         "description": "The worker “{target}” was removed"
+      },
+      "policies_run": {
+        "title": "Policies evaluated",
+        "description": "The smart policies were evaluated on every folder"
       }
     },
     "naming_policy": {
@@ -861,6 +865,28 @@
       "token_renewed": {
         "title": "Monitoring token renewed",
         "description": "The previous token of « {target} » no longer works"
+      }
+    },
+    "policy": {
+      "created": {
+        "title": "Policy created",
+        "description": "The policy \"{target}\" was created"
+      },
+      "updated": {
+        "title": "Policy updated",
+        "description": "The policy \"{target}\" was updated"
+      },
+      "deleted": {
+        "title": "Policy deleted",
+        "description": "The policy \"{target}\" was deleted; its alerts are closed"
+      },
+      "run": {
+        "title": "Policy run",
+        "description": "The policy \"{target}\" was run on demand"
+      },
+      "applied": {
+        "title": "Policy applied",
+        "description": "Folders started or stopped matching the policy \"{target}\""
       }
     }
   },

@@ -37,6 +37,12 @@ const searchPages: Record<SearchPageGroup, SearchPage[]> = {
       icon: 'bi-tags'
     },
     {
+      title: 'Policies',
+      description: 'Smart policies: tag, alert and notify when folders match a condition.',
+      href: '/admin/policies',
+      icon: 'bi-lightning-charge'
+    },
+    {
       title: 'Identity',
       description: 'Manage local accounts and directory users or groups.',
       href: '/admin/identity',

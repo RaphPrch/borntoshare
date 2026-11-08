@@ -33,6 +33,7 @@ from app.api.provisioning_internal import router as provisioning_internal_router
 from app.api.internal_directory_snapshots import router as internal_directory_snapshots_router
 from .identity_list import router as identity_list_router
 from app.api.extensions import router as extensions_router
+from app.api.policies import router as policies_router
 
 
 
@@ -54,6 +55,7 @@ router.include_router(naming_policies_router)
 router.include_router(infrastructure_router)
 router.include_router(observability_router)
 router.include_router(extensions_router)
+router.include_router(policies_router)
 router.include_router(internal_sso_router)
 router.include_router(governance_alerts_router)
 router.include_router(health_events_router)

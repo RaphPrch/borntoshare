@@ -1,7 +1,7 @@
 """Regular infrastructure tasks (Advanced Settings › Infrastructure › Schedules).
 
 Every 30 s, the tasks whose next run is due are started: health check, data sync, access expiry and DFS namespaces.
-All hand the work to the workers through the job queue. A MariaDB lock keeps a single scheduler active when
+The smart policies run in core-service; the others hand the work to the workers through the job queue. A MariaDB lock keeps a single scheduler active when
 several core-service instances run.
 """
 from __future__ import annotations
@@ -66,6 +66,12 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
                 message = f"{message} · {reminders} reminder(s)"
         elif task == "dfs_read":
             summary = await run_dfs_read(db, trigger=trigger)
+            status = summary["status"]
+            message = summary["message"]
+        elif task == "policies":
+            from app.services.policies import run_all
+
+            summary = run_all(db, trigger=trigger)
             status = summary["status"]
             message = summary["message"]
         else:

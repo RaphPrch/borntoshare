@@ -37,6 +37,12 @@
       title: () => t('DFS namespaces'),
       text: () => t('Reads every DFS namespace again, through a worker: DFS folders added or removed outside BornToShare show without « Read again ».'),
       intervals: SYNC_INTERVALS
+    },
+    policies: {
+      icon: 'bi-lightning-charge',
+      title: () => t('Smart policies'),
+      text: () => t('Evaluates every active policy on the folders: tags, alerts and notices for the folders that start matching, alerts closed for those that stop.'),
+      intervals: HEALTH_INTERVALS
     }
   };
 

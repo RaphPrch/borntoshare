@@ -39,6 +39,7 @@
         { href: '/admin/identity-sources', label: t('Directories'), icon: 'bi-diagram-3' },
         { href: '/admin/identity', label: t('Identities'), icon: 'bi-people' },
         { href: '/admin/tags', label: t('Tags'), icon: 'bi-tags' },
+        { href: '/admin/policies', label: t('Policies'), icon: 'bi-lightning-charge' },
         { href: '/admin/advanced-settings', label: t('Settings'), icon: 'bi-sliders' }
       ]
     : []) as Item[];

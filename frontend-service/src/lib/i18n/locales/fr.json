@@ -2019,6 +2019,10 @@
       "worker_removed": {
         "title": "Worker retiré",
         "description": "Le worker « {target} » a été retiré"
+      },
+      "policies_run": {
+        "title": "Politiques évaluées",
+        "description": "Les politiques intelligentes ont été évaluées sur tous les dossiers"
       }
     },
     "naming_policy": {
@@ -2039,6 +2043,28 @@
       "token_renewed": {
         "title": "Jeton de supervision renouvelé",
         "description": "L’ancien jeton de « {target} » ne fonctionne plus"
+      }
+    },
+    "policy": {
+      "created": {
+        "title": "Politique créée",
+        "description": "La politique « {target} » a été créée"
+      },
+      "updated": {
+        "title": "Politique modifiée",
+        "description": "La politique « {target} » a été modifiée"
+      },
+      "deleted": {
+        "title": "Politique supprimée",
+        "description": "La politique « {target} » a été supprimée ; ses alertes sont fermées"
+      },
+      "run": {
+        "title": "Politique exécutée",
+        "description": "La politique « {target} » a été exécutée à la demande"
+      },
+      "applied": {
+        "title": "Politique appliquée",
+        "description": "Des dossiers ont commencé ou cessé de correspondre à la politique « {target} »"
       }
     }
   },
@@ -4477,5 +4503,59 @@
   "AWS access key": "Clé d'accès AWS",
   "API key or token": "Clé d'API ou jeton",
   "Password in clear": "Mot de passe en clair",
-  "Password in a Windows answer file": "Mot de passe dans un fichier de réponse Windows"
+  "Password in a Windows answer file": "Mot de passe dans un fichier de réponse Windows",
+  "Sensitive files": "Fichiers sensibles",
+  "Passwords, keys or vaults found by the sensitivity scan.": "Mots de passe, clés ou coffres trouvés par l'analyse de sensibilité.",
+  "Folder without guardian": "Dossier sans gardien",
+  "Nobody but the administrators can validate its requests.": "Seuls les administrateurs peuvent valider ses demandes.",
+  "Unreachable folder": "Dossier injoignable",
+  "The worker can no longer open it.": "Le capsule runner ne peut plus l'ouvrir.",
+  "Large folder": "Dossier volumineux",
+  "More than 50 GB: to check with its guardians.": "Plus de 50 Go : à vérifier avec ses gardiens.",
+  "Broken inheritance without tag": "Héritage rompu sans tag",
+  "Permissions set apart, and nothing says why.": "Des permissions à part, sans rien qui dise pourquoi.",
+  "Policy saved: {count} folder(s) match.": "Politique enregistrée : {count} dossier(s) correspondent.",
+  "Policy saved.": "Politique enregistrée.",
+  "{matched} folder(s) match, {new} new.": "{matched} dossier(s) correspondent, dont {new} nouveau(x).",
+  "Policy deleted.": "Politique supprimée.",
+  "Policies": "Politiques",
+  "When folders match a condition, BornToShare acts: tag, alert in Monitoring, notice to the guardians.": "Quand des dossiers correspondent à une condition, BornToShare agit : tag, alerte dans Suivi, avertissement aux gardiens.",
+  "New policy": "Nouvelle politique",
+  "If": "Si",
+  "then": "alors",
+  "tag": "tag",
+  "alert {severity}": "alerte {severity}",
+  "notice to the guardians": "avertir les gardiens",
+  "folder(s) matching": "dossier(s) concerné(s)",
+  "evaluated {when}": "évaluée {when}",
+  "Not evaluated yet": "Pas encore évaluée",
+  "Run": "Exécuter",
+  "Add from a template": "Ajouter depuis un modèle",
+  "Start from a template": "Commencer par un modèle",
+  "Edit the policy": "Modifier la politique",
+  "Description (optional)": "Description (facultative)",
+  "Shown in the alert and the notice": "Affichée dans l'alerte et l'avertissement",
+  "If the folder matches": "Si le dossier correspond à",
+  "Condition": "Condition",
+  "Unknown state: {states}": "État inconnu : {states}",
+  "{count} folder(s) match now": "{count} dossier(s) correspondent actuellement",
+  "Then": "Alors",
+  "Open an alert in Monitoring": "Ouvrir une alerte dans Suivi",
+  "It closes by itself when the folder no longer matches.": "Elle se ferme d'elle-même quand le dossier ne correspond plus.",
+  "Add a tag": "Ajouter un tag",
+  "Once, when the folder starts matching. Removing it stays a human choice.": "Une fois, quand le dossier commence à correspondre. Le retirer reste un choix humain.",
+  "Choose a tag": "Choisir un tag",
+  "Tell the guardians by e-mail": "Prévenir les gardiens par e-mail",
+  "Once per folder that starts matching (Settings › Notifications must be on).": "Une fois par dossier qui commence à correspondre (Réglages › Notifications doit être activé).",
+  "Evaluated every 15 minutes, and right after a sensitivity scan.": "Évaluée toutes les 15 minutes, et juste après une analyse de sensibilité.",
+  "Create the policy": "Créer la politique",
+  "Delete the policy": "Supprimer la politique",
+  "Its open alerts are closed.": "Ses alertes ouvertes sont fermées.",
+  "The tags it added stay on the folders.": "Les tags qu'elle a ajoutés restent sur les dossiers.",
+  "The folder matches a smart policy: its condition is shown under the title.": "Le dossier correspond à une politique intelligente : sa condition est indiquée sous le titre.",
+  "Open the folder and correct what the condition points at (sensitive files, missing guardian, size…).": "Ouvrez le dossier et corrigez ce que vise la condition (fichiers sensibles, gardien manquant, taille…).",
+  "At its next run, the policy closes the alert by itself once the folder no longer matches.": "À sa prochaine exécution, la politique ferme l'alerte d'elle-même dès que le dossier ne correspond plus.",
+  "If the policy is wrong, change its condition on the Policies page.": "Si la politique est mal réglée, changez sa condition dans la page Politiques.",
+  "Smart policies": "Politiques intelligentes",
+  "Evaluates every active policy on the folders: tags, alerts and notices for the folders that start matching, alerts closed for those that stop.": "Évalue chaque politique active sur les dossiers : tags, alertes et avertissements pour ceux qui commencent à correspondre, alertes fermées pour ceux qui cessent."
 }
