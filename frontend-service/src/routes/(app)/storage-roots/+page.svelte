@@ -294,6 +294,7 @@
       }
       // ?tab=permissions (exposure map): open the folder on its Permissions tab
       if (exists && $page.url.searchParams.get('tab') === 'permissions') storageRootsUiStore.setDetailTab('effective-access');
+      else if (exists && $page.url.searchParams.get('tab') === 'activity') storageRootsUiStore.setDetailTab('activity');
       lastAppliedSelectedParam = selectedParam;
     }
   }

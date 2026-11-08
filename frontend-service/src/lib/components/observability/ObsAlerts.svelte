@@ -21,6 +21,8 @@
   import { onMount } from 'svelte';
   import { listZones } from '$lib/api/zones';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import AppModal from '$lib/components/ui/AppModal.svelte';
+  import { alertGuide } from '$lib/components/observability/alert-guides';
 
   /** Opened from the overview: an initial filter (« critical » = critical or high) */
   export let initialSeverity: string = 'all';
@@ -151,6 +153,18 @@
     } finally {
       refreshing = false;
     }
+  }
+
+  // « Resolve » opens how to fix the cause first: marking it resolved alone does not fix anything
+  let guideAlert: GovernanceAlert | null = null;
+  $: guide = guideAlert ? alertGuide(guideAlert.alert_type) : null;
+  $: guideScope = guideAlert ? scopeOf(guideAlert) : null;
+  $: guideHref = guideScope?.href && guide?.action?.tab ? `${guideScope.href}&tab=${guide.action.tab}` : guideScope?.href ?? null;
+  async function resolveFromGuide() {
+    if (!guideAlert) return;
+    const alert = guideAlert;
+    await changeStatus(alert, 'resolve');
+    guideAlert = null;
   }
 
   async function changeStatus(alert: GovernanceAlert, action: 'acknowledge' | 'resolve') {
@@ -286,12 +300,12 @@
                 </td>
                 <td class="obs-actions">
                   {#if status === 'open'}
-                    <button class="b2s-btn b2s-btn-secondary b2s-btn-sm" type="button" disabled={busyId !== null} on:click={() => changeStatus(alert, 'acknowledge')}>
+                    <button class="b2s-btn b2s-btn-secondary b2s-btn-sm" type="button" title={t('I have seen it and I am dealing with it: the alert stays, marked as taken care of')} disabled={busyId !== null} on:click={() => changeStatus(alert, 'acknowledge')}>
                       {t('Acknowledge')}
                     </button>
                   {/if}
                   {#if status !== 'resolved'}
-                    <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled={busyId !== null} on:click={() => changeStatus(alert, 'resolve')}>
+                    <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled={busyId !== null} on:click={() => (guideAlert = alert)}>
                       {t('Resolve')}
                     </button>
                   {/if}
@@ -305,6 +319,29 @@
     {/if}
   </section>
 </div>
+
+<AppModal open={guideAlert !== null} onClose={() => (guideAlert = null)} size="lg" iconClass="bi bi-tools"
+  title={guideAlert ? (guideAlert.title ? alertTitle(guideAlert) : String(guideAlert.alert_type ?? '')) : ''}
+  subtitle={guideScope?.label ?? null}>
+  {#if guideAlert && guide}
+    <div class="guide">
+      {#if guideAlert.message}<p class="guide__msg">{alertMessage(guideAlert)}</p>{/if}
+      <h3>{t('Why this alert')}</h3>
+      <p>{guide.cause}</p>
+      <h3>{t('How to resolve it')}</h3>
+      <ol>{#each guide.steps as step}<li>{step}</li>{/each}</ol>
+      <p class="guide__note"><i class="bi bi-info-circle" aria-hidden="true"></i>
+        {t('The checks close the alert by themselves once the cause is gone. Marking it resolved by hand hides it until the next check: if the cause is still there, it opens again.')}</p>
+    </div>
+  {/if}
+  <svelte:fragment slot="footer-start">
+    {#if guideHref}<a class="b2s-btn b2s-btn-secondary" href={guideHref}>{guide?.action?.label ?? t('Open the item')}</a>{/if}
+  </svelte:fragment>
+  <svelte:fragment slot="footer">
+    <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (guideAlert = null)}>{t('Cancel')}</button>
+    <button class="b2s-btn b2s-btn-primary" type="button" disabled={busyId !== null} on:click={resolveFromGuide}>{t('It is fixed: mark resolved')}</button>
+  </svelte:fragment>
+</AppModal>
 
 <style>
   .obs-alerts {
@@ -391,4 +428,10 @@
   .obs-switch:checked::after {
     transform: translateX(15px);
   }
+  .guide { display: flex; flex-direction: column; gap: 6px; font-size: var(--b2s-fs-sm); }
+  .guide h3 { margin: 10px 0 0; font-size: var(--b2s-fs-sm); font-weight: 600; }
+  .guide p, .guide ol { margin: 0; }
+  .guide ol { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+  .guide__msg { padding: 8px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft, #f6f7f9); color: var(--b2s-color-text-muted); }
+  .guide__note { display: flex; gap: 8px; margin-top: 10px !important; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>

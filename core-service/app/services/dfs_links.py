@@ -174,10 +174,21 @@ def _compute(db: Session) -> tuple[dict[int, str], dict[int, list[int]]]:
     roots = _roots_by_path(db)
     paths: dict[int, str] = {}
     replicas: dict[int, list[int]] = {}
+    # The folders managed below a DFS target (added by browsing the share) are reached through the DFS folder too
+    below = db.execute(text("SELECT id, storage_endpoint_id, root_path FROM storage_roots")).mappings().all()
     for namespace in namespaces:
         for link in describe_links(db, namespace, servers=servers, roots=roots):
             ids = [t["storage_root_id"] for t in link["targets"] if t["storage_root_id"]]
             for root_id in ids:
                 paths.setdefault(root_id, link["dfs_path"])
                 replicas[root_id] = sorted({*replicas.get(root_id, []), *[other for other in ids if other != root_id]})
+            for target in link["targets"]:
+                if not target["root_path"]:
+                    continue
+                prefix = _norm(target["root_path"]) + "\\"
+                depth = len([part for part in target["root_path"].split("\\") if part])
+                for row in below:
+                    if int(row["storage_endpoint_id"]) == target["storage_endpoint_id"] and _norm(row["root_path"]).startswith(prefix):
+                        rest = [part for part in str(row["root_path"]).split("\\") if part][depth:]
+                        paths.setdefault(int(row["id"]), "\\".join([link["dfs_path"], *rest]))
     return paths, replicas

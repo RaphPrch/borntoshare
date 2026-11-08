@@ -50,6 +50,58 @@
     return map;
   }, new Map<number, RootRow[]>());
 
+  // \\corp.local\brest: the folders reached through the namespace hang under it, along their DFS path
+  const capabilitiesOf = (ep: EndpointRow): Record<string, any> => {
+    const raw = ep?.capabilities;
+    if (typeof raw !== 'string') return (raw as Record<string, any>) ?? {};
+    try {
+      return JSON.parse(raw) ?? {};
+    } catch {
+      return {};
+    }
+  };
+  // The context view gives the capabilities as JSON text
+  const namespacePath = (ep: EndpointRow) => String(capabilitiesOf(ep)?.dfs_snapshot?.path ?? '').replace(/\\+$/, '').toLowerCase();
+  type Branch = { label: string; key: string; root: RootRow | null; children: Map<string, Branch> };
+
+  function rootNode(row: RootRow, key: string, label?: string): EntityTreeNode {
+    const rootId = Number(row?.id ?? row?.storage_root_id ?? 0);
+    const path = String(row?.root_path ?? '').trim();
+    return {
+      key,
+      label: label ?? (String(row?.name ?? row?.storage_root_name ?? path).trim() || t('Storage root')),
+      title: path ? t('{path} · open in storage roots', { path }) : null,
+      icon: 'bi-folder2',
+      iconTone: 'root',
+      selectId: `${ROOT_PREFIX}${rootId}`,
+      searchText: `${path} ${String(row?.dfs_path ?? '')}`
+    };
+  }
+
+  function dfsChildren(ep: EndpointRow, id: number): EntityTreeNode[] {
+    const prefix = namespacePath(ep);
+    if (!prefix) return [];
+    const top: Branch = { label: '', key: `ep:${id}`, root: null, children: new Map() };
+    for (const row of roots) {
+      const dfsPath = String(row?.dfs_path ?? '');
+      if (!dfsPath.toLowerCase().startsWith(`${prefix}\\`)) continue;
+      let branch = top;
+      for (const part of dfsPath.slice(prefix.length).split('\\').filter(Boolean)) {
+        const name = part.toLowerCase();
+        if (!branch.children.has(name)) branch.children.set(name, { label: part, key: `${branch.key}|${name}`, root: null, children: new Map() });
+        branch = branch.children.get(name)!;
+      }
+      branch.root = row;
+    }
+    const toNode = (branch: Branch): EntityTreeNode => {
+      const children = [...branch.children.values()].map(toNode).sort(byLabel);
+      if (branch.root) return { ...rootNode(branch.root, branch.key, branch.label), children };
+      // A DFS folder level with no managed folder of its own (Corporate\…)
+      return { key: branch.key, label: branch.label, icon: 'bi-folder', iconTone: 'root', children };
+    };
+    return [...top.children.values()].map(toNode).sort(byLabel);
+  }
+
   function alertBadge(ep: EndpointRow): EntityTreeBadge[] {
     const indicator = endpointAlertIndicator(ep);
     const count = endpointAlertCount(ep);
@@ -72,21 +124,9 @@
       // Only what needs a look: a healthy server stays quiet
       dot: endpointTone(ep) === 'healthy' ? null : endpointTone(ep),
       badges: isDfs(ep) ? [] : alertBadge(ep),
-      children: (rootsByEndpoint.get(id) ?? [])
-        .map((row): EntityTreeNode => {
-          const rootId = Number(row?.id ?? row?.storage_root_id ?? 0);
-          const path = String(row?.root_path ?? '').trim();
-          return {
-            key: `ep:${id}|root:${rootId}`,
-            label: String(row?.name ?? row?.storage_root_name ?? path).trim() || t('Storage root'),
-            title: path ? t('{path} · open in storage roots', { path }) : null,
-            icon: 'bi-folder2',
-            iconTone: 'root',
-            selectId: `${ROOT_PREFIX}${rootId}`,
-            searchText: path
-          };
-        })
-        .sort(byLabel)
+      children: isDfs(ep)
+        ? dfsChildren(ep, id)
+        : (rootsByEndpoint.get(id) ?? []).map((row) => rootNode(row, `ep:${id}|root:${Number(row?.id ?? row?.storage_root_id ?? 0)}`)).sort(byLabel)
     };
   }
 

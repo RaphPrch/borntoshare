@@ -7,7 +7,7 @@ from app.services.secret_store import forget_unused
 from app.services.windows_names import dfs_folder_error, share_name_error
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -269,6 +269,29 @@ def _resolved(host: str) -> set[str]:
         return {info[4][0] for info in socket.getaddrinfo(host.strip(), None)}
     except (OSError, UnicodeError):
         return set()
+
+
+def _same_server(db: Session, host: str | None, *, exclude_id: int | None = None) -> list[dict]:
+    """Every endpoint declared on this server (its namespaces for a DFS server)."""
+    from app.services.storage_guards import same_host
+
+    wanted = str(host or "").strip()
+    if not wanted:
+        return []
+    rows = db.execute(text("SELECT id, name, host, zone_id FROM storage_endpoints WHERE host IS NOT NULL")).mappings().all()
+    return [dict(row) for row in rows if row["id"] != exclude_id and same_host(str(row["host"]), wanted)]
+
+
+def _assert_zone_of_server(db: Session, host: str | None, zone_id: int | None) -> None:
+    """A server belongs to one zone: a new namespace of a DFS server goes in the zone of the server."""
+    other = next((row for row in _same_server(db, host) if zone_id and int(row["zone_id"] or 0) != int(zone_id)), None)
+    if other:
+        zone = db.execute(text("SELECT name FROM zones WHERE id = :id"), {"id": other["zone_id"]}).scalar()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "STORAGE_ENDPOINT_ZONE_OF_SERVER",
+                    "message": f"{other['host']} is in the zone {zone or other['zone_id']}: a server belongs to one zone, declare it there"},
+        )
 
 
 def _assert_host_free(db: Session, host: str | None, *, exclude_id: int | None = None) -> None:
@@ -580,6 +603,7 @@ def create_endpoint(
         _assert_namespace_free(db, ((data.get("capabilities") or {}).get("dfs_snapshot") or {}).get("path"))
     else:
         _assert_host_free(db, data.get("host"))
+    _assert_zone_of_server(db, data.get("host"), int(data.get("zone_id") or 0) or None)
 
     if data.get("bind_dn") and not data.get("bind_password_ref"):
         raise HTTPException(
@@ -813,8 +837,17 @@ def update_endpoint(
         )
 
     host_moved = "host" in updates and not same_host(str(updates.get("host") or ""), endpoint.host)
+    zone_moved = "zone_id" in updates and int(updates.get("zone_id") or 0) != int(endpoint.zone_id or 0)
     for field, value in updates.items():
         setattr(endpoint, field, value)
+    if zone_moved or host_moved:
+        # A server belongs to one zone: its other namespaces follow (a new host joins the zone of that server)
+        siblings = _same_server(db, endpoint.host, exclude_id=int(endpoint.id))
+        if host_moved and not zone_moved and siblings:
+            endpoint.zone_id = siblings[0]["zone_id"]
+        elif siblings:
+            db.execute(text("UPDATE storage_endpoints SET zone_id = :zone WHERE id IN :ids").bindparams(bindparam("ids", expanding=True)),
+                       {"zone": int(endpoint.zone_id), "ids": [row["id"] for row in siblings]})
     if {"bind_dn", "bind_password_ref"} & set(updates):
         # Another account: its right to manage a DFS namespace is not known yet
         _remember_dfs_delegation(endpoint, denied=False)

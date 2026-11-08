@@ -41,3 +41,32 @@ def test_states_of_dfs_folders():
 def test_unc_is_split_into_server_and_rest():
     assert dfs_links.split_unc(r"\\FILER01\Share\Dir") == ("FILER01", r"Share\Dir")
     assert dfs_links._norm(r"\\Host\Share\\Dir\\") == r"\\host\share\dir"
+
+
+def test_folders_below_a_dfs_target_get_their_dfs_path(monkeypatch):
+    rows = [
+        {"id": 10, "storage_endpoint_id": 1, "root_path": r"\\172.20.12.195\PiloteB2S"},
+        {"id": 12, "storage_endpoint_id": 1, "root_path": r"\\172.20.12.195\PiloteB2S\Finance\2026"},
+        {"id": 13, "storage_endpoint_id": 1, "root_path": r"\\172.20.12.195\PiloteB2Sv2\Finance"},
+    ]
+
+    class _Result:
+        def mappings(self):
+            return self
+
+        def all(self):
+            return rows
+
+    class _Db:
+        def query(self, _model):
+            return SimpleNamespace(filter=lambda *_a: SimpleNamespace(all=lambda: [_namespace([{"path": r"Commons\Pilote", "targets": [r"\\FILER01\PiloteB2S"]}])]))
+
+        def execute(self, *_a, **_k):
+            return _Result()
+
+    monkeypatch.setattr(dfs_links, "_Servers", lambda _db: SERVERS)
+    paths, replicas = dfs_links._compute(_Db())
+    assert paths[10] == r"\\corp.local\brest\Commons\Pilote"
+    assert paths[12] == r"\\corp.local\brest\Commons\Pilote\Finance\2026"
+    assert 13 not in paths
+    assert replicas == {10: []}
