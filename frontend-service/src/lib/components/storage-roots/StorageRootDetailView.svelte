@@ -36,7 +36,7 @@
   export let endpointLabel = '—';
   export let endpointAddress = '—';
   export let pathLabel = '—';
-  export let contentSizeLabel = '—';
+  export let content: any = null;
   export let endpointHref: string | null = null;
 
   export let guardians: Array<Record<string, unknown>> = [];
@@ -209,7 +209,8 @@
       {zoneLabel}
       {endpointDisplay}
       {endpointHref}
-      {contentSizeLabel}
+      {content}
+      onMeasure={onRunRootProbe}
       {isAdmin}
       onOpenPermissions={() => onSelectTab('effective-access')}
       onExplain={explainFromOverview}

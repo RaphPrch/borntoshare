@@ -275,6 +275,72 @@ def _discover_share_content_size(
         }
 
 
+_LS_ENTRY = re.compile(r"^\s{2}(?P<name>.+?)\s{2,}(?P<attr>[A-Z]*)\s+(?P<size>\d+)\s+\w{3} \w{3}\s+\d+ [\d:]+ \d{4}$")
+_MAX_LISTED = 300_000
+
+
+def parse_recursive_ls(output: str, max_entries: int = _MAX_LISTED, base: str = "") -> dict:
+    """Totals of a smbclient « recurse ON; ls » listing: bytes, files, sub-folders, the weight of each
+    first-level sub-folder and the most frequent file types. Beyond max_entries the figures are a floor."""
+    totals = {"bytes": 0, "files": 0, "folders": 0, "truncated": False}
+    top: dict[str, dict[str, int]] = {}
+    types: dict[str, int] = {}
+    depth_prefix: list[str] = []
+    seen = 0
+    for line in output.splitlines():
+        if line.startswith("\\"):
+            # « \Finance\2025 » : the folder whose entries follow (relative to the folder listed)
+            parts = [part for part in line.strip().split("\\") if part]
+            base_parts = [part for part in base.replace("/", "\\").split("\\") if part]
+            if [p.lower() for p in parts[: len(base_parts)]] == [p.lower() for p in base_parts]:
+                parts = parts[len(base_parts):]
+            depth_prefix = parts
+            continue
+        match = _LS_ENTRY.match(line.rstrip())
+        if not match or match["name"] in {".", ".."}:
+            continue
+        seen += 1
+        if seen > max_entries:
+            totals["truncated"] = True
+            break
+        first = depth_prefix[0] if depth_prefix else None
+        if "D" in match["attr"]:
+            totals["folders"] += 1
+            if first is None:
+                top.setdefault(match["name"], {"bytes": 0, "files": 0})
+            continue
+        size = int(match["size"])
+        totals["bytes"] += size
+        totals["files"] += 1
+        if first is not None:
+            entry = top.setdefault(first, {"bytes": 0, "files": 0})
+            entry["bytes"] += size
+            entry["files"] += 1
+        ext = match["name"].rsplit(".", 1)[-1].lower() if "." in match["name"] else ""
+        types[ext[:10] or "—"] = types.get(ext[:10] or "—", 0) + 1
+    totals["top"] = [{"name": name, **value} for name, value in sorted(top.items(), key=lambda kv: -kv[1]["bytes"])[:8]]
+    totals["types"] = [{"ext": ext, "files": count} for ext, count in sorted(types.items(), key=lambda kv: -kv[1])[:8]]
+    return totals
+
+
+def _discover_content_stats(*, host: str, share: str, path: str | None, username: str, password: str, port: int, timeout: int) -> tuple[dict | None, dict]:
+    """Size, files and sub-folders of a folder, by one recursive listing (smbclient), read only."""
+    target = str(path or "").strip().strip("/\\").replace("/", "\\")
+    pattern = f"{target}\\*" if target else "*"
+    cmd = ["smbclient", f"//{host}/{share}", "-m", "SMB3", "-p", str(port), "-c", f'recurse ON; ls "{pattern}"']
+    try:
+        proc = run_samba(cmd, username=username, password=password, capture_output=True, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired:
+        return None, {"supported": False, "failure_code": "CAPSULE_TIMEOUT", "timeout": int(timeout)}
+    except OSError as exc:
+        return None, {"supported": False, "failure_code": "CAPSULE_SMB_LS_UNAVAILABLE", "error": str(exc)[:500]}
+    output = ((proc.stdout or b"") + b"\n" + (proc.stderr or b"")).decode(errors="ignore")
+    if proc.returncode != 0 and "NT_STATUS_" in output and not _LS_ENTRY.search(output):
+        return None, {"supported": False, "failure_code": _classify_smb_error(output), "stderr": output[-500:]}
+    stats = parse_recursive_ls(output, base=target)
+    return stats, {"supported": True, "command": "recurse ls"}
+
+
 def test_smb_ntlm(params: dict):
     host = params["host"]
     username = params["username"]
@@ -536,7 +602,7 @@ def test_smb_root_access(params: dict):
             details["checks"].append(_check("root_acl", True, "SMB storage root ACL inspection skipped"))
 
         if discover_content_size:
-            content_size_bytes, size_meta = _discover_share_content_size(
+            content_stats, size_meta = _discover_content_stats(
                 host=host,
                 share=share,
                 path=rel_path,
@@ -545,6 +611,14 @@ def test_smb_root_access(params: dict):
                 port=port,
                 timeout=timeout,
             )
+            content_size_bytes = content_stats["bytes"] if content_stats else None
+            if content_stats:
+                details["content_stats"] = content_stats
+            else:
+                # Too big to list in time: the size alone, as before
+                content_size_bytes, size_meta = _discover_share_content_size(
+                    host=host, share=share, path=rel_path, username=username, password=password, port=port, timeout=timeout,
+                )
             if content_size_bytes is not None:
                 details["content_size_bytes"] = content_size_bytes
                 details["content_updated_at"] = datetime.now(timezone.utc).isoformat()

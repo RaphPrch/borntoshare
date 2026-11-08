@@ -4350,5 +4350,17 @@
   "Its target server is not declared in BornToShare: declare it in Servers first.": "Son serveur cible n'est pas déclaré dans BornToShare : déclarez-le d'abord dans Serveurs.",
   "Target not declared": "Cible non déclarée",
   "Show the sub-folders of {name}": "Afficher les sous-dossiers de {name}",
-  "The folder could not be read.": "Le dossier n'a pas pu être lu."
+  "The folder could not be read.": "Le dossier n'a pas pu être lu.",
+  "Content of the folder": "Contenu du dossier",
+  "read {when} by the worker": "lu {when} par le capsule runner",
+  "Not measured yet": "Pas encore mesuré",
+  "Measure again": "Mesurer à nouveau",
+  "Size": "Taille",
+  "Sub-folders": "Sous-dossiers",
+  "Very large folder: the figures are a minimum (the first 300,000 entries).": "Dossier très volumineux : les chiffres sont un minimum (les 300 000 premières entrées).",
+  "Where the weight is": "Où est le volume",
+  "File types": "Types de fichiers",
+  "{count} file(s)": "{count} fichier(s)",
+  "no extension": "sans extension",
+  "The size, the sub-folders and the files appear after the next check of the folder by the worker.": "La taille, les sous-dossiers et les fichiers apparaissent après la prochaine vérification du dossier par le capsule runner."
 }

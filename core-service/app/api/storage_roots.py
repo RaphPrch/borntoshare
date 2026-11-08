@@ -876,6 +876,14 @@ def get_storage_root_overview(
     row["owners"] = repo.list_owners(storage_root_id)
     row["projected_ad_groups"] = projected_groups
     row["acl_freshness"] = repo.get_acl_freshness(storage_root_id)
+    # Content of the folder as the worker read it last (size, files, sub-folders, where the weight is)
+    scan_root = db.get(StorageRoot, int(storage_root_id))
+    scan = scan_root.discovered_permissions_json if scan_root is not None and isinstance(scan_root.discovered_permissions_json, dict) else {}
+    row["content"] = {
+        "bytes": scan.get("content_size_bytes"),
+        "scanned_at": scan.get("content_updated_at"),
+        **(scan.get("content_stats") or {}),
+    } if scan.get("content_size_bytes") is not None or scan.get("content_stats") else None
     row["provisioning_policy"] = provisioning_policy
     row["effective_provisioning"] = {
         "identity_source_id": (provisioning_policy or {}).get("resolved_identity_source_id"),
@@ -1228,6 +1236,14 @@ def get_storage_root(
         storage_root_id=int(storage_root_id),
     )
     row["acl_freshness"] = repo.get_acl_freshness(storage_root_id)
+    # Content of the folder as the worker read it last (size, files, sub-folders, where the weight is)
+    scan_root = db.get(StorageRoot, int(storage_root_id))
+    scan = scan_root.discovered_permissions_json if scan_root is not None and isinstance(scan_root.discovered_permissions_json, dict) else {}
+    row["content"] = {
+        "bytes": scan.get("content_size_bytes"),
+        "scanned_at": scan.get("content_updated_at"),
+        **(scan.get("content_stats") or {}),
+    } if scan.get("content_size_bytes") is not None or scan.get("content_stats") else None
     row["effective_access"] = effective_access.get("users", [])
     row["effective_access_counts"] = {
         "read_users": int(effective_access.get("read_users") or 0),

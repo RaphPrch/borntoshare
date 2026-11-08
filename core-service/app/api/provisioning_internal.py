@@ -493,6 +493,8 @@ def _persist_storage_root_probe_result(
                 "control": str(details.get("permissions_control") or "").strip() or None,
                 "content_size_bytes": content_size_bytes,
                 "content_updated_at": content_scanned_at,
+                # Files, sub-folders, weight of the first-level sub-folders and file types (worker listing)
+                "content_stats": details.get("content_stats") if isinstance(details.get("content_stats"), dict) else None,
             }
         endpoint_id = int(getattr(root, "storage_endpoint_id", 0) or 0)
         if endpoint_id > 0:

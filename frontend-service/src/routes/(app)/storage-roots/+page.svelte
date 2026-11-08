@@ -1736,7 +1736,7 @@
       endpointLabel={detailView.endpointLabel}
       endpointAddress={detailView.endpointAddress}
       pathLabel={(selectedRow as any)?.dfs_path ? `${(selectedRow as any).dfs_path}  →  ${selectedRow?.root_path ?? ''}` : selectedRow?.root_path ?? '—'}
-      contentSizeLabel={String((overview as any)?.estimated_size_label ?? (overview as any)?.content_size_label ?? '—')}
+      content={(overview as any)?.content ?? null}
       endpointHref={selectedRow?.storage_endpoint_id ? `/admin/storage-endpoints/${selectedRow.storage_endpoint_id}` : null}
       {guardians}
       rootAvailabilityText={detailView.rootAvailabilityText}
