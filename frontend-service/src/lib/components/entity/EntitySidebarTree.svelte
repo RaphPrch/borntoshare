@@ -54,6 +54,8 @@
   export let searchAriaLabel = t('Search');
   export let emptyLabel = t('No item matches your search.');
   export let query = '';
+  /** What the nodes are matched against when it differs from the text typed (express filters taken out) */
+  export let matchQuery: string | null = null;
   export let nodes: EntityTreeNode[] = [];
   export let selectedId: string | number | null = null;
   export let filters: EntitySidebarFilter[] = [];
@@ -211,7 +213,7 @@
   }
 
   // Search: keeps matching nodes and their ancestors, and opens the branches that lead to them
-  $: q = norm(query);
+  $: q = norm(matchQuery ?? query);
   const matches = (node: EntityTreeNode): boolean =>
     [node.label, node.hint, node.subtitle, node.searchText].map(norm).join(' ').includes(q);
 
@@ -323,6 +325,7 @@
         </button>
       {/if}
     </div>
+    <slot name="below-search" />
     {#if filters.length > 0}
       <div class="b2s-list-pane__filters" role="group" aria-label={t('Quick filters')}>
         {#each filters as filter (filter.key)}

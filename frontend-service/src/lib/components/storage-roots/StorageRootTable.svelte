@@ -19,6 +19,8 @@
   import StorageRootContextMenu from '$lib/components/storage-roots/StorageRootContextMenu.svelte';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
+  import { matchesFolderQuery, parseFolderQuery } from '$lib/components/storage-roots/folder-query';
+  import FolderQueryAssist from '$lib/components/storage-roots/FolderQueryAssist.svelte';
   import { accessRequestAccessLabel } from '$lib/mappers/access-requests.mapper';
 
   type Alert = { count: number; tone: 'warning' | 'error'; label?: string } | null;
@@ -167,7 +169,10 @@
     { key: 'blocking' as Filter, label: t('Blocking') }
   ].map((counter) => ({ ...counter, count: zoned.filter(PASSES[counter.key]).length }));
 
-  $: needle = query.trim().toLowerCase();
+  // Express search: « tag:… gardien:… est:… » filter, the rest of the text is searched
+  $: parsed = parseFolderQuery(query);
+  $: needle = parsed.text.trim().toLowerCase();
+  let searchFocused = false;
   const haystack = (line: Line) =>
     [line.name, line.path, line.dfsPath, line.server, line.zone, ...(Array.isArray(line.row?.tags) ? line.row.tags.map((tag: any) => tag?.label ?? tag?.name ?? '') : [])]
       .join(' ')
@@ -183,6 +188,7 @@
   $: visible = zoned
     .filter(PASSES[filter])
     .filter((line) => !needle || haystack(line).includes(needle))
+    .filter((line) => matchesFolderQuery(line.row, parsed.filters))
     .sort((a, b) => (desc ? -1 : 1) * SORTS[sortKey](a, b));
   $: page = visible.slice(0, shown);
 
@@ -333,11 +339,17 @@
       <h1>{t('Folders')}</h1>
       <p>{t('{folders} folders · {count} to review', { folders: zoned.length, count: counters[1].count })}</p>
     </div>
-    <label class="sg-search">
-      <i class="bi bi-search" aria-hidden="true"></i>
-      <input type="search" aria-label={t('Search all folders')} placeholder={t('Search all folders…')} value={query}
-        on:input={(event) => { onQueryChange(event.currentTarget.value); shown = PAGE; }} />
-    </label>
+    <div class="sg-search-wrap">
+      <label class="sg-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" aria-label={t('Search all folders')} placeholder={t('Search, or tag:… gardien:… est:…')} value={query}
+          on:focus={() => (searchFocused = true)} on:blur={() => (searchFocused = false)}
+          on:input={(event) => { onQueryChange(event.currentTarget.value); shown = PAGE; }} />
+      </label>
+      <FolderQueryAssist floating focused={searchFocused} {query} rows={zoned.map((line) => line.row)}
+        tags={tags.map((tag) => String(tag?.label ?? tag?.name ?? '')).filter(Boolean)}
+        onQueryChange={(value) => { onQueryChange(value); shown = PAGE; }} />
+    </div>
     {#if endpointFilter}
       <button type="button" class="b2s-btn b2s-btn-secondary tb__scope" on:click={() => (endpointFilter = 0)} title={t('Show the folders of every server')}>
         <i class="bi bi-hdd-network" aria-hidden="true"></i>{endpointName || t('Server')}<i class="bi bi-x" aria-hidden="true"></i>
@@ -520,4 +532,6 @@
   .tb__tags { display: flex; flex-wrap: wrap; gap: 8px; }
   .tb__tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-pill); cursor: pointer; }
   .tb__failures { margin: 6px 0 0; padding-left: 18px; }
+  .sg-search-wrap { position: relative; flex: 0 1 420px; display: flex; flex-direction: column; }
+  .sg-search-wrap .sg-search { flex: 1 1 auto; }
 </style>

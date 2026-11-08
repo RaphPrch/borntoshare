@@ -5,6 +5,8 @@
     type EntityTreeBadge,
     type EntityTreeNode
   } from '$lib/components/entity/EntitySidebarTree.svelte';
+  import { matchesFolderQuery, parseFolderQuery } from '$lib/components/storage-roots/folder-query';
+  import FolderQueryAssist from '$lib/components/storage-roots/FolderQueryAssist.svelte';
   import StorageRootPeek from '$lib/components/storage-roots/StorageRootPeek.svelte';
   import StorageRootContextMenu from '$lib/components/storage-roots/StorageRootContextMenu.svelte';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
@@ -201,9 +203,13 @@
   $: zoneOptions = [...new Map(rows.map((row) => [zoneKey(row), zoneLabel(row)])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
   $: if (zoneFilter && !zoneOptions.some(([key]) => key === zoneFilter)) zoneFilter = '';
   $: zonedRows = zoneFilter ? rows.filter((row) => zoneKey(row) === zoneFilter) : rows;
+  // Express search: « tag:Finance gardien:alice est:sans-gardien … » filter the rows, the rest of the text searches the tree
+  $: parsed = parseFolderQuery(query);
   $: visibleRows = zonedRows.filter((row) =>
-    filter === 'all' || (filter === 'review' ? toReview(row) : filter === 'no-guardian' ? noGuardian(row) : pendingCount(row) > 0)
+    (filter === 'all' || (filter === 'review' ? toReview(row) : filter === 'no-guardian' ? noGuardian(row) : pendingCount(row) > 0)) &&
+    matchesFolderQuery(row, parsed.filters)
   );
+
 
   $: nodes = (() => {
     const zones = new Map<string, { label: string; rows: StorageRootRow[] }>();
@@ -249,10 +255,11 @@
   {onAdd}
   addLabel={addLabel || undefined}
   ariaLabel={t('Storage roots')}
-  searchPlaceholder={t('Search name or path…')}
+  searchPlaceholder={t('Name, path, or tag:… gardien:… est:…')}
   searchAriaLabel={t('Search storage roots')}
   emptyLabel={t('No storage root matches your search.')}
   {query}
+  matchQuery={parsed.text}
   {nodes}
   selectedId={selectedStorageRootId}
   {filters}
@@ -275,7 +282,11 @@
     peekRow = node ? rows.find((row) => rootId(row) === Number(node.selectId)) ?? null : null;
     peekAnchor = anchor;
   }}
-/>
+>
+  <div slot="below-search">
+    <FolderQueryAssist {query} {rows} count={visibleRows.length} {onQueryChange} />
+  </div>
+</EntitySidebarTree>
 
 <StorageRootContextMenu
   row={menuRow}
