@@ -14,12 +14,14 @@
    * Smart policies: « if the folders match this condition, then do this ». The condition is the express search
    * of the folders; the actions are a tag, an alert in Monitoring and a notice to the guardians.
    */
-  type Actions = { add_tag: number | null; alert: { severity: string } | null; notify_guardians: boolean };
+  type Jobs = { kinds: Array<'check' | 'sensitivity'>; every_hours: number };
+  type Actions = { add_tag: number | null; alert: { severity: string } | null; notify_guardians: boolean; jobs?: Jobs | null };
   type Policy = {
     id: number; name: string; description: string | null; enabled: boolean; condition: string; actions: Actions;
     matching: number; last_run_at: string | null; last_new: number | null; last_error: string | null;
   };
-  type Draft = { id: number | null; name: string; description: string; enabled: boolean; condition: string; tagOn: boolean; tagId: number | null; alertOn: boolean; severity: string; notify: boolean };
+  type Draft = { id: number | null; name: string; description: string; enabled: boolean; condition: string; tagOn: boolean; tagId: number | null; alertOn: boolean; severity: string; notify: boolean;
+    jobsOn: boolean; jobCheck: boolean; jobSensitivity: boolean; everyHours: number };
 
   export let data: Record<string, any>;
 
@@ -29,12 +31,16 @@
   const tagNamed = (name: string) => tags.find((tag) => String(tag.name).toLowerCase() === name.toLowerCase())?.id ?? null;
   const SEVERITIES = (): Array<[string, string]> => [['info', t('Information')], ['warning', t('Warning')], ['high', t('High')], ['critical', t('Critical')]];
   const severityLabel = (value: string) => SEVERITIES().find(([key]) => key === value)?.[1] ?? value;
+  const FREQUENCIES = (): Array<[number, string]> => [[24, t('every day')], [168, t('every week')], [720, t('every month')]];
+  const frequencyLabel = (hours: number) => FREQUENCIES().find(([value]) => value === Number(hours))?.[1] ?? t('every {hours} h', { hours });
+  const JOB_LABEL = (): Record<string, string> => ({ check: t('reread the ACL and the content'), sensitivity: t('sensitivity scan') });
 
   // Starting points: the common needs, to adjust
   $: templates = [
     { name: t('Sensitive files'), description: t('Passwords, keys or vaults found by the sensitivity scan.'), condition: 'est:sensible', tagId: tagNamed('Critical'), severity: 'high', notify: true, icon: 'bi-shield-lock' },
     { name: t('Folder without guardian'), description: t('Nobody but the administrators can validate its requests.'), condition: 'est:sans-gardien', tagId: null, severity: 'warning', notify: false, icon: 'bi-person-x' },
     { name: t('Unreachable folder'), description: t('The worker can no longer open it.'), condition: 'est:injoignable', tagId: null, severity: 'high', notify: true, icon: 'bi-wifi-off' },
+    { name: t('Weekly scan of the Finance folders'), description: t('Looks for passwords stored in the folders tagged Finance, every week.'), condition: 'tag:Finance', tagId: null, severity: 'warning', notify: false, icon: 'bi-calendar-week', jobs: { kinds: ['sensitivity'], every_hours: 168 } },
     { name: t('Large folder'), description: t('More than 50 GB: to check with its guardians.'), condition: 'taille>50Go', tagId: null, severity: 'info', notify: false, icon: 'bi-hdd' },
     { name: t('Broken inheritance without tag'), description: t('Permissions set apart, and nothing says why.'), condition: 'est:heritage-rompu est:sans-tag', tagId: null, severity: 'info', notify: false, icon: 'bi-scissors' }
   ];
@@ -48,12 +54,14 @@
 
   function edit(policy: Policy | null, template: (typeof templates)[number] | null = null) {
     const source = policy
-      ? { name: policy.name, description: policy.description ?? '', condition: policy.condition, tagId: policy.actions?.add_tag ?? null, severity: policy.actions?.alert?.severity ?? 'warning', notify: Boolean(policy.actions?.notify_guardians), alertOn: Boolean(policy.actions?.alert), enabled: policy.enabled }
+      ? { name: policy.name, description: policy.description ?? '', condition: policy.condition, tagId: policy.actions?.add_tag ?? null, severity: policy.actions?.alert?.severity ?? 'warning', notify: Boolean(policy.actions?.notify_guardians), alertOn: Boolean(policy.actions?.alert), enabled: policy.enabled, jobs: policy.actions?.jobs ?? null }
       : template
-        ? { ...template, alertOn: true, enabled: true }
-        : { name: '', description: '', condition: '', tagId: null, severity: 'warning', notify: false, alertOn: true, enabled: true };
+        ? { ...template, alertOn: !(template as any).jobs, enabled: true, jobs: (template as any).jobs ?? null }
+        : { name: '', description: '', condition: '', tagId: null, severity: 'warning', notify: false, alertOn: true, enabled: true, jobs: null };
     draft = { id: policy?.id ?? null, name: source.name, description: source.description, enabled: source.enabled, condition: source.condition,
-      tagOn: Boolean(source.tagId), tagId: source.tagId ?? null, alertOn: source.alertOn, severity: source.severity, notify: source.notify };
+      tagOn: Boolean(source.tagId), tagId: source.tagId ?? null, alertOn: source.alertOn, severity: source.severity, notify: source.notify,
+      jobsOn: Boolean(source.jobs?.kinds?.length), jobCheck: Boolean(source.jobs?.kinds?.includes('check')),
+      jobSensitivity: Boolean(source.jobs?.kinds?.includes('sensitivity')), everyHours: Number(source.jobs?.every_hours ?? 168) };
     preview = null;
     if (draft.condition) schedulePreview(draft.condition);
   }
@@ -78,19 +86,21 @@
     schedulePreview(value);
   }
 
-  $: canSave = Boolean(draft && draft.name.trim() && draft.condition.trim() && (draft.alertOn || draft.notify || (draft.tagOn && draft.tagId)) && !(preview?.unknown_states?.length));
+  $: draftKinds = draft ? ([draft.jobCheck && 'check', draft.jobSensitivity && 'sensitivity'].filter(Boolean) as Array<'check' | 'sensitivity'>) : [];
+  $: canSave = Boolean(draft && draft.name.trim() && draft.condition.trim() && (draft.alertOn || draft.notify || (draft.tagOn && draft.tagId) || (draft.jobsOn && draftKinds.length)) && !(preview?.unknown_states?.length));
 
   async function save() {
     if (!draft || !canSave || saving) return;
     saving = true;
     const body = {
       name: draft.name.trim(), description: draft.description.trim() || null, enabled: draft.enabled, condition: draft.condition.trim(),
-      actions: { add_tag: draft.tagOn ? draft.tagId : null, alert: draft.alertOn ? { severity: draft.severity } : null, notify_guardians: draft.notify }
+      actions: { add_tag: draft.tagOn ? draft.tagId : null, alert: draft.alertOn ? { severity: draft.severity } : null, notify_guardians: draft.notify,
+        jobs: draft.jobsOn && draftKinds.length ? { kinds: draftKinds, every_hours: draft.everyHours } : null }
     };
     try {
       const result: any = draft.id ? await apiPutData(fetch, `/policies/${draft.id}`, body) : await apiPostData(fetch, '/policies', body);
       const run = result?.run?.results?.[0];
-      toast.success(run ? t('Policy saved: {count} folder(s) match.', { count: run.matched }) : t('Policy saved.'));
+      toast.success(run ? t('Policy saved: {count} folder(s) match.', { count: run.matched }) + (run.jobs ? ' ' + t('{count} task(s) sent to the workers.', { count: run.jobs }) : '') : t('Policy saved.'));
       draft = null;
       await invalidateAll();
     } catch (error: unknown) {
@@ -105,7 +115,7 @@
     try {
       const result: any = await apiPostData(fetch, `/policies/${policy.id}/run`, {});
       const outcome = result?.run?.results?.[0];
-      toast.success(t('{matched} folder(s) match, {new} new.', { matched: outcome?.matched ?? 0, new: outcome?.new ?? 0 }));
+      toast.success(t('{matched} folder(s) match, {new} new.', { matched: outcome?.matched ?? 0, new: outcome?.new ?? 0 }) + (outcome?.jobs ? ' ' + t('{count} task(s) sent to the workers.', { count: outcome.jobs }) : ''));
       await invalidateAll();
     } catch (error: unknown) {
       reportUiError(error, 'Unable to run the policy.', 'policies.run');
@@ -169,6 +179,7 @@
               {#if tag}<span class="pc__act"><i class="bi bi-tag" aria-hidden="true"></i>{t('tag')} <TagPill small label={String(tag.name)} color={tag.color ?? null} /></span>{/if}
               {#if policy.actions?.alert}<span class="pc__act"><i class="bi bi-bell" aria-hidden="true"></i>{t('alert {severity}', { severity: severityLabel(policy.actions.alert.severity).toLowerCase() })}</span>{/if}
               {#if policy.actions?.notify_guardians}<span class="pc__act"><i class="bi bi-envelope" aria-hidden="true"></i>{t('notice to the guardians')}</span>{/if}
+              {#if policy.actions?.jobs?.kinds?.length}<span class="pc__act"><i class="bi bi-cpu" aria-hidden="true"></i>{policy.actions.jobs.kinds.map((kind) => JOB_LABEL()[kind]).join(' + ')} · {frequencyLabel(policy.actions.jobs.every_hours)}</span>{/if}
             </div>
           </div>
           <div class="pc__side">
@@ -248,6 +259,20 @@
         <label class="pf__check"><input type="checkbox" bind:checked={draft.notify} />
           <span>{t('Tell the guardians by e-mail')}<small>{t('Once per folder that starts matching (Settings › Notifications must be on).')}</small></span>
         </label>
+        <label class="pf__check"><input type="checkbox" bind:checked={draft.jobsOn} />
+          <span>{t('Run tasks on these folders')}<small>{t('Sent to the workers for each folder that matches, at most once per period; 50 folders per run, the next runs take the rest.')}</small></span>
+          {#if draft.jobsOn}
+            <select class="b2s-input" bind:value={draft.everyHours} aria-label={t('Frequency')}>
+              {#each FREQUENCIES() as [value, label] (value)}<option value={value}>{label}</option>{/each}
+            </select>
+          {/if}
+        </label>
+        {#if draft.jobsOn}
+          <div class="pf__jobs">
+            <label><input type="checkbox" bind:checked={draft.jobCheck} />{t('Test the folder, reread its ACL and measure its content')}</label>
+            <label><input type="checkbox" bind:checked={draft.jobSensitivity} />{t('Sensitivity scan (passwords, keys, vaults)')}</label>
+          </div>
+        {/if}
       </div>
       <label class="pf__check"><input type="checkbox" bind:checked={draft.enabled} /><span>{t('Active')}<small>{t('Evaluated every 15 minutes, and right after a sensitivity scan.')}</small></span></label>
     </div>
@@ -308,5 +333,7 @@
   .pf__check span { display: flex; flex-direction: column; gap: 2px; }
   .pf__check small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .pf__check select { min-width: 160px; }
+  .pf__jobs { display: flex; flex-direction: column; gap: 6px; margin: -4px 0 0 28px; font-size: var(--b2s-fs-sm); }
+  .pf__jobs label { display: flex; gap: 8px; align-items: center; }
   .mono { font-family: var(--b2s-font-mono); }
 </style>

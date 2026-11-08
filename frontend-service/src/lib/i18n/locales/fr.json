@@ -4557,5 +4557,18 @@
   "At its next run, the policy closes the alert by itself once the folder no longer matches.": "À sa prochaine exécution, la politique ferme l'alerte d'elle-même dès que le dossier ne correspond plus.",
   "If the policy is wrong, change its condition on the Policies page.": "Si la politique est mal réglée, changez sa condition dans la page Politiques.",
   "Smart policies": "Politiques intelligentes",
-  "Evaluates every active policy on the folders: tags, alerts and notices for the folders that start matching, alerts closed for those that stop.": "Évalue chaque politique active sur les dossiers : tags, alertes et avertissements pour ceux qui commencent à correspondre, alertes fermées pour ceux qui cessent."
+  "Evaluates every active policy on the folders: tags, alerts and notices for the folders that start matching, alerts closed for those that stop.": "Évalue chaque politique active sur les dossiers : tags, alertes et avertissements pour ceux qui commencent à correspondre, alertes fermées pour ceux qui cessent.",
+  "every day": "chaque jour",
+  "every week": "chaque semaine",
+  "every month": "chaque mois",
+  "every {hours} h": "toutes les {hours} h",
+  "reread the ACL and the content": "relire l'ACL et le contenu",
+  "sensitivity scan": "analyse de sensibilité",
+  "Weekly scan of the Finance folders": "Analyse hebdomadaire des dossiers Finance",
+  "Looks for passwords stored in the folders tagged Finance, every week.": "Cherche chaque semaine les mots de passe stockés dans les dossiers tagués Finance.",
+  "{count} task(s) sent to the workers.": "{count} tâche(s) envoyée(s) aux capsule runners.",
+  "Run tasks on these folders": "Lancer des tâches sur ces dossiers",
+  "Sent to the workers for each folder that matches, at most once per period; 50 folders per run, the next runs take the rest.": "Envoyées aux capsule runners pour chaque dossier concerné, au plus une fois par période ; 50 dossiers par passage, les suivants prennent le reste.",
+  "Test the folder, reread its ACL and measure its content": "Tester le dossier, relire son ACL et mesurer son contenu",
+  "Sensitivity scan (passwords, keys, vaults)": "Analyse de sensibilité (mots de passe, clés, coffres)"
 }

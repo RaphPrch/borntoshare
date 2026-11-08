@@ -23,10 +23,17 @@ class PolicyAlert(BaseModel):
     severity: Literal["info", "warning", "high", "critical"] = "warning"
 
 
+class PolicyJobs(BaseModel):
+    # check: test the folder, read its ACL again and measure its content; sensitivity: sensitivity scan
+    kinds: list[Literal["check", "sensitivity"]] = Field(min_length=1, max_length=2)
+    every_hours: Literal[24, 168, 720] = 168
+
+
 class PolicyActions(BaseModel):
     add_tag: int | None = Field(default=None, gt=0)
     alert: PolicyAlert | None = None
     notify_guardians: bool = False
+    jobs: PolicyJobs | None = None
 
 
 class PolicyPayload(BaseModel):
@@ -46,7 +53,7 @@ def _check(db: Session, payload: PolicyPayload) -> None:
     if unknown:
         raise HTTPException(status_code=422, detail={"code": "POLICY_CONDITION_INVALID", "message": f"État inconnu : {', '.join(unknown)}"})
     actions = payload.actions
-    if not (actions.add_tag or actions.alert or actions.notify_guardians):
+    if not (actions.add_tag or actions.alert or actions.notify_guardians or actions.jobs):
         raise HTTPException(status_code=422, detail={"code": "POLICY_NO_ACTION", "message": "Choisissez au moins une action"})
     if actions.add_tag and db.execute(text("SELECT 1 FROM tags WHERE id = :id"), {"id": actions.add_tag}).first() is None:
         raise HTTPException(status_code=422, detail={"code": "POLICY_TAG_UNKNOWN", "message": "Ce tag n'existe pas"})
@@ -82,7 +89,7 @@ def preview(payload: PreviewPayload, request: Request, db: Session = Depends(get
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_policy(payload: PolicyPayload, request: Request, db: Session = Depends(get_db)):
+async def create_policy(payload: PolicyPayload, request: Request, db: Session = Depends(get_db)):
     actor = actor_from_request(request)
     require_admin(actor)
     _check(db, payload)
@@ -100,12 +107,12 @@ def create_policy(payload: PolicyPayload, request: Request, db: Session = Depend
     policy_id = int(result.lastrowid)
     _audit(db, request, "policy.created", policy_id, payload.name, {"condition": payload.condition, "actions": payload.actions.model_dump()})
     # Applied at once: no need to wait for the next run of the schedule
-    summary = engine.run_all(db, policy_id=policy_id, trigger="admin") if payload.enabled else None
+    summary = await engine.run_all_and_dispatch(db, policy_id=policy_id, trigger="admin") if payload.enabled else None
     return ui_data({"policy": engine.get_policy(db, policy_id), "run": summary})
 
 
 @router.put("/{policy_id}")
-def update_policy(policy_id: int, payload: PolicyPayload, request: Request, db: Session = Depends(get_db)):
+async def update_policy(policy_id: int, payload: PolicyPayload, request: Request, db: Session = Depends(get_db)):
     actor = actor_from_request(request)
     require_admin(actor)
     before = engine.get_policy(db, policy_id)
@@ -132,7 +139,7 @@ def update_policy(policy_id: int, payload: PolicyPayload, request: Request, db: 
         db.commit()
     _audit(db, request, "policy.updated", policy_id, payload.name,
            {"before": {k: before[k] for k in ("name", "enabled", "condition", "actions")}, "condition": payload.condition, "actions": payload.actions.model_dump(), "enabled": payload.enabled})
-    summary = engine.run_all(db, policy_id=policy_id, trigger="admin") if payload.enabled else None
+    summary = await engine.run_all_and_dispatch(db, policy_id=policy_id, trigger="admin") if payload.enabled else None
     return ui_data({"policy": engine.get_policy(db, policy_id), "run": summary})
 
 
@@ -150,13 +157,13 @@ def delete_policy(policy_id: int, request: Request, db: Session = Depends(get_db
 
 
 @router.post("/{policy_id}/run")
-def run_policy(policy_id: int, request: Request, db: Session = Depends(get_db)):
+async def run_policy(policy_id: int, request: Request, db: Session = Depends(get_db)):
     require_admin(actor_from_request(request))
     policy = engine.get_policy(db, policy_id)
     if policy is None:
         raise HTTPException(status_code=404, detail="Policy not found")
     if not policy["enabled"]:
         raise HTTPException(status_code=409, detail={"code": "POLICY_DISABLED", "message": "Cette politique est désactivée"})
-    summary = engine.run_all(db, policy_id=policy_id, trigger="admin")
+    summary = await engine.run_all_and_dispatch(db, policy_id=policy_id, trigger="admin")
     _audit(db, request, "policy.run", policy_id, policy["name"], {"results": summary.get("results")})
     return ui_data({"policy": engine.get_policy(db, policy_id), "run": summary})

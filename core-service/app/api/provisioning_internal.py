@@ -426,7 +426,8 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
     try:
         from app.services.policies import run_all
 
-        run_all(db, only_root_ids={int(root_id)}, trigger="sensitivity_scan")
+        # No tasks from here: a policy that scans would start the scan again
+        run_all(db, only_root_ids={int(root_id)}, trigger="sensitivity_scan", allow_jobs=False)
     except Exception:
         db.rollback()
         logger.warning("POLICIES_AFTER_SCAN_FAILED", exc_info=True)

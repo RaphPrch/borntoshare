@@ -5,6 +5,8 @@ that match with those that matched before (governance_policy_hits):
 - a folder that starts matching gets the actions once: tag added, guardians told;
 - while it matches, the alert of the policy stays open (and reopens if someone marks it resolved);
 - a folder that stops matching loses its hit and its alert is resolved. The tag stays: removing it is a human choice.
+- tasks (ACL read and content, sensitivity scan) go to the workers for the folders that match, at most once per
+  frequency per folder and MAX_JOBS_PER_RUN folders per run: the next runs take the rest.
 """
 from __future__ import annotations
 
@@ -20,6 +22,8 @@ from app.services import folder_query
 
 logger = logging.getLogger("core.policies")
 SEVERITIES = ("info", "warning", "high", "critical")
+JOB_KINDS = ("check", "sensitivity")
+MAX_JOBS_PER_RUN = 50
 
 
 def _now() -> datetime:
@@ -183,7 +187,62 @@ def _notify(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]]) -> 
     return sent
 
 
-def run_policy(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]], *, only_root_ids: set[int] | None = None) -> dict[str, Any]:
+def _due_jobs(db: Session, policy_id: int, root_ids: list[int], spec: dict[str, Any], now: datetime) -> list[dict[str, Any]]:
+    """The tasks due on the matching folders: never got them, or longer ago than the frequency. Marked as given."""
+    kinds = [kind for kind in spec.get("kinds") or [] if kind in JOB_KINDS]
+    if not kinds or not root_ids:
+        return []
+    hours = max(1, int(spec.get("every_hours") or 24))
+    rows = db.execute(
+        text(
+            """
+            SELECT storage_root_id FROM governance_policy_hits
+            WHERE policy_id = :id AND storage_root_id IN :ids
+              AND (last_job_at IS NULL OR last_job_at < :now - INTERVAL :hours HOUR)
+            ORDER BY last_job_at IS NOT NULL, last_job_at, storage_root_id
+            LIMIT :cap
+            """
+        ).bindparams(bindparam("ids", expanding=True)),
+        {"id": int(policy_id), "ids": root_ids, "now": now, "hours": hours, "cap": MAX_JOBS_PER_RUN},
+    ).all()
+    due = [int(root_id) for (root_id,) in rows]
+    if due:
+        db.execute(
+            text("UPDATE governance_policy_hits SET last_job_at = :now WHERE policy_id = :id AND storage_root_id IN :ids")
+            .bindparams(bindparam("ids", expanding=True)),
+            {"now": now, "id": int(policy_id), "ids": due},
+        )
+    return [{"storage_root_id": root_id, "kind": kind} for root_id in due for kind in kinds]
+
+
+async def dispatch_jobs(db: Session, jobs: list[dict[str, Any]]) -> dict[str, int]:
+    """Hand the tasks of a run to the workers (job queue). Returns how many were queued per kind."""
+    from app.api.storage_roots import _queue_root_check
+    from app.services import sensitivity
+    from app.services.probe_service import submit_probe_run
+
+    done = {"check": 0, "sensitivity": 0, "failed": 0}
+    for job in jobs:
+        root_id = int(job["storage_root_id"])
+        try:
+            if job["kind"] == "check":
+                await _queue_root_check(root_id, origin="policy")
+            else:
+                queued = await submit_probe_run({
+                    "kind": "storage-root", "protocol": "sensitivity", "scope": "read",
+                    "target": {"storage_root_id": root_id}, "options": {"timeout_sec": 600},
+                    "context": {"storage_root_id": root_id, "ui_origin": "policy"},
+                })
+                sensitivity.mark_requested(db, root_id, int(queued.get("job_id") or 0) or None)
+            done[job["kind"]] += 1
+        except Exception:
+            logger.warning("POLICY_JOB_NOT_QUEUED", extra={"storage_root_id": root_id, "kind": job["kind"]}, exc_info=True)
+            done["failed"] += 1
+    return done
+
+
+def run_policy(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]], *, only_root_ids: set[int] | None = None,
+               allow_jobs: bool = True) -> dict[str, Any]:
     """Evaluate one policy; only_root_ids limits the run to some folders (after a scan of one folder)."""
     pid = int(policy["id"])
     scope = [row for row in rows if only_root_ids is None or int(row.get("storage_root_id") or 0) in only_root_ids]
@@ -221,16 +280,21 @@ def run_policy(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]], 
             _raise_alert(db, policy, row, str((actions.get("alert") or {}).get("severity") or "warning"))
     resolved = _resolve_alerts(db, pid, gone_ids) if gone_ids else 0
     notified = _notify(db, policy, [matched[root_id] for root_id in new_ids]) if actions.get("notify_guardians") and new_ids else 0
+    jobs = _due_jobs(db, pid, list(matched), actions.get("jobs") or {}, now) if allow_jobs else []
     if only_root_ids is None:
         db.execute(
             text("UPDATE governance_policies SET last_run_at = :now, last_matched = :matched, last_new = :new, last_error = NULL WHERE id = :id"),
             {"now": now, "matched": len(matched), "new": len(new_ids), "id": pid},
         )
     db.commit()
-    return {"policy_id": pid, "matched": len(matched), "new": len(new_ids), "gone": len(gone_ids), "tagged": tagged, "resolved": resolved, "notified": notified}
+    return {"policy_id": pid, "matched": len(matched), "new": len(new_ids), "gone": len(gone_ids), "tagged": tagged,
+            "resolved": resolved, "notified": notified, "jobs": jobs}
 
 
-def run_all(db: Session, *, policy_id: int | None = None, only_root_ids: set[int] | None = None, trigger: str = "schedule") -> dict[str, Any]:
+def run_all(db: Session, *, policy_id: int | None = None, only_root_ids: set[int] | None = None, trigger: str = "schedule",
+            allow_jobs: bool = True) -> dict[str, Any]:
+    """Evaluate the active policies. The tasks they ask for are returned in « jobs »: the caller hands them to
+    the workers with dispatch_jobs (async), or use run_all_and_dispatch."""
     from app.services.activity_log import log_activity
 
     policies = [p for p in list_policies(db) if p["enabled"] and (policy_id is None or p["id"] == int(policy_id))]
@@ -240,13 +304,13 @@ def run_all(db: Session, *, policy_id: int | None = None, only_root_ids: set[int
     results, failed = [], []
     for policy in policies:
         try:
-            result = run_policy(db, policy, rows, only_root_ids=only_root_ids)
+            result = run_policy(db, policy, rows, only_root_ids=only_root_ids, allow_jobs=allow_jobs)
             results.append(result)
-            if result["new"] or result["gone"]:
+            if result["new"] or result["gone"] or result["jobs"]:
                 log_activity(
                     None, actor_type="system", actor_id=None, actor_display="policies",
                     action="policy.applied", outcome="success", target_type="policy", target_id=str(policy["id"]),
-                    target_display=policy["name"], context_json={**result, "trigger": trigger},
+                    target_display=policy["name"], context_json={**{k: v for k, v in result.items() if k != "jobs"}, "jobs": len(result["jobs"]), "trigger": trigger},
                 )
         except Exception as exc:
             db.rollback()
@@ -257,8 +321,20 @@ def run_all(db: Session, *, policy_id: int | None = None, only_root_ids: set[int
             db.commit()
     matched = sum(r["matched"] for r in results)
     new = sum(r["new"] for r in results)
-    message = f"{len(results)} policy(ies): {matched} folder(s) matching, {new} new" + (f" · failed: {', '.join(failed)}" if failed else "")
-    return {"status": "partial" if failed else "success", "message": message, "results": results}
+    jobs = [job for r in results for job in r["jobs"]]
+    message = (f"{len(results)} policy(ies): {matched} folder(s) matching, {new} new"
+               + (f", {len(jobs)} task(s) for the workers" if jobs else "") + (f" · failed: {', '.join(failed)}" if failed else ""))
+    return {"status": "partial" if failed else "success", "message": message, "results": results, "jobs": jobs}
+
+
+async def run_all_and_dispatch(db: Session, **kwargs: Any) -> dict[str, Any]:
+    summary = run_all(db, **kwargs)
+    if summary.get("jobs"):
+        summary["queued"] = await dispatch_jobs(db, summary["jobs"])
+    summary["jobs"] = len(summary.get("jobs") or [])
+    for result in summary.get("results") or []:
+        result["jobs"] = len(result.get("jobs") or [])
+    return summary
 
 
 def forget_policy(db: Session, policy_id: int) -> None:

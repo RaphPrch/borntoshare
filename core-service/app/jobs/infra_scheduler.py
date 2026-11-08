@@ -69,9 +69,9 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             status = summary["status"]
             message = summary["message"]
         elif task == "policies":
-            from app.services.policies import run_all
+            from app.services.policies import run_all_and_dispatch
 
-            summary = run_all(db, trigger=trigger)
+            summary = await run_all_and_dispatch(db, trigger=trigger)
             status = summary["status"]
             message = summary["message"]
         else:
