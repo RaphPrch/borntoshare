@@ -37,6 +37,7 @@
   export let endpointAddress = '—';
   export let pathLabel = '—';
   export let content: any = null;
+  export let sensitivity: any = null;
   export let endpointHref: string | null = null;
 
   export let guardians: Array<Record<string, unknown>> = [];
@@ -210,6 +211,8 @@
       {endpointDisplay}
       {endpointHref}
       {content}
+      {sensitivity}
+      rootId={selectedStorageRootId}
       onMeasure={onRunRootProbe}
       {isAdmin}
       onOpenPermissions={() => onSelectTab('effective-access')}

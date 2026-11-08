@@ -1,5 +1,6 @@
 <script lang="ts">
   import StorageRootContentCards from '$lib/components/storage-roots/StorageRootContentCards.svelte';
+  import StorageRootSensitivityCard from '$lib/components/storage-roots/StorageRootSensitivityCard.svelte';
   import TagPill from '$lib/components/tags/TagPill.svelte';
   import { t } from '$lib/i18n';
   import { formatDate, initials, timeAgo } from '$lib/utils/format';
@@ -27,6 +28,8 @@
   export let endpointHref: string | null = null;
   /** Size, sub-folders, files of the folder (last check by the worker) */
   export let content: any = null;
+  export let sensitivity: any = null;
+  export let rootId: number | null = null;
   export let onMeasure: (() => void) | null = null;
   export let isAdmin = false;
   export let activity: Array<Record<string, unknown>> = [];
@@ -84,6 +87,7 @@
 <div class="ov">
   <div class="ov__col">
     <StorageRootContentCards {content} {onMeasure} />
+    <StorageRootSensitivityCard {rootId} {sensitivity} {isAdmin} />
     <section class="ov__card" aria-label={t('Who reaches it')}>
       <header><h2>{t('Who reaches it')}</h2><button type="button" class="b2s-link-btn" on:click={onOpenPermissions}>{t('All the permissions')} ›</button></header>
       <form class="ov__who" on:submit|preventDefault={explain}>

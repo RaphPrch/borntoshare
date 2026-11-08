@@ -77,6 +77,7 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'access_request.cancelled': { titleKey: 'activity.access_request.cancelled.title', descriptionKey: 'activity.access_request.cancelled.description', badge: 'info', icon: 'x-circle' },
   'storage_endpoint.dfs_created': { titleKey: 'activity.storage_endpoint.dfs_created.title', descriptionKey: 'activity.storage_endpoint.dfs_created.description', badge: 'admin', icon: 'diagram-3' },
   'storage_endpoint.dfs_read': { titleKey: 'activity.storage_endpoint.dfs_read.title', descriptionKey: 'activity.storage_endpoint.dfs_read.description', badge: 'info', icon: 'diagram-3' },
+  'storage_root.sensitivity_scan_requested': { titleKey: 'activity.storage_root.sensitivity_scan_requested.title', descriptionKey: 'activity.storage_root.sensitivity_scan_requested.description', badge: 'info', icon: 'shield-lock' },
   'storage_root.bulk_check_requested': { titleKey: 'activity.storage_root.bulk_check_requested.title', descriptionKey: 'activity.storage_root.bulk_check_requested.description', badge: 'info', icon: 'arrow-clockwise' },
   'storage_root.acl_repaired': { titleKey: 'activity.storage_root.acl_repaired.title', descriptionKey: 'activity.storage_root.acl_repaired.description', badge: 'admin', icon: 'folder' },
   'tag.created': { titleKey: 'activity.tag.created.title', descriptionKey: 'activity.tag.created.description', badge: 'admin', icon: 'tag' },

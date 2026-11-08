@@ -4,7 +4,7 @@ import { applySuggestion, folderSuggestions, matchesFolderQuery, parseFolderQuer
 const rows = [
   { storage_root_id: 1, storage_root_name: 'Finance', root_path: '\\\\172.22.98.56\\PiloteB2S\\Finance', zone_name: 'CORP', storage_endpoint_name: 'FILER01',
     tags: [{ label: 'Données RH' }], guardian_names: ['Alice Martin', 'alice.martin'], guardians_count: 1, open_alerts_count: 0,
-    last_probe_status: 'success', content_size_bytes: 2 * 1024 ** 3, dfs_path: '\\\\corp.local\\brest\\Corporate\\Finance' },
+    last_probe_status: 'success', content_size_bytes: 2 * 1024 ** 3, sensitive_files: 2, dfs_path: '\\\\corp.local\\brest\\Corporate\\Finance' },
   { storage_root_id: 2, storage_root_name: 'Archives', root_path: '\\\\172.22.98.56\\Archives', zone_name: 'MAISON', storage_endpoint_name: 'FILER01',
     tags: [], guardian_names: [], guardians_count: 0, open_alerts_count: 3, open_alert_types: 'missing_guardian,acl_profile_missing',
     last_probe_status: 'failed', content_size_bytes: 0, inheritance_broken: true }
@@ -30,6 +30,8 @@ const ids = (query: string) => rows.filter((row) => matchesFolderQuery(row, pars
     assert.deepEqual(ids('-est:alerte'), [1]);
     assert.deepEqual(ids('alerte:acl'), [2]);
     assert.deepEqual(ids('taille>1Go'), [1]);
+    assert.deepEqual(ids('est:sensible'), [1]);
+    assert.deepEqual(ids('est:non-analyse'), [2]);
     assert.deepEqual(ids('taille<1Mo'), [2]);
     assert.deepEqual(ids('serveur:filer01 partage:archives'), [2]);
 }

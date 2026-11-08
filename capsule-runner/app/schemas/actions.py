@@ -45,6 +45,27 @@ class SMBRootProbePayload(BaseModel):
         return self
 
 
+class SMBSensitivityPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    host: str = Field(min_length=1, max_length=255)
+    share: str = Field(min_length=1, max_length=255)
+    path: str = Field(default="", max_length=1024)
+    username: str = Field(min_length=1, max_length=255)
+    password: Optional[str] = Field(default=None, min_length=1, max_length=1024)
+    secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)
+    port: int = Field(default=445, ge=1, le=65535)
+    timeout: int = Field(default=300, ge=10, le=1800)
+    storage_endpoint_id: Optional[int] = Field(default=None, gt=0)
+    storage_root_id: Optional[int] = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _check_secret_or_password(self) -> "SMBSensitivityPayload":
+        if not self.password and not self.secret_ref:
+            raise ValueError("password or secret_ref is required")
+        return self
+
+
 class TLSCertificatePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

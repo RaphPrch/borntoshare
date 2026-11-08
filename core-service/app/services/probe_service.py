@@ -38,6 +38,7 @@ _PROBE_JOB_TYPE_BY_TEMPLATE = {
     "share_create": "SHARE_CREATE",
     "share_delete": "SHARE_DELETE",
     "dfs_folder_create": "DFS_FOLDER_CREATE",
+    "scan_smb_sensitivity": "SENSITIVITY_SCAN",
     "dfs_folder_delete": "DFS_FOLDER_DELETE",
 }
 
@@ -523,6 +524,8 @@ def _pick_template(kind: str, protocol: str) -> tuple[str, str]:
         return "test_smb_ntlm", "v1"
     if kind_norm == "storage-root" and protocol_norm == "smb":
         return "test_smb_root_access", "v1"
+    if kind_norm == "storage-root" and protocol_norm == "sensitivity":
+        return "scan_smb_sensitivity", "v1"
     if kind_norm == "acl" and protocol_norm == "acl_push":
         return "acl_apply_via_group", "v1"
     if kind_norm == "folder" and protocol_norm == "inheritance":
@@ -578,7 +581,7 @@ async def submit_probe_run(payload: dict[str, Any]) -> dict[str, Any]:
 
     if template_slug == "acl_apply_via_group":
         target, auth, options, context = await _enrich_acl_probe_payload(payload)
-    if template_slug == "test_smb_root_access":
+    if template_slug in {"test_smb_root_access", "scan_smb_sensitivity"}:
         target, auth, options, context = await _enrich_storage_root_probe_payload(payload)
     if template_slug in {"folder_inheritance", "folder_delete", "folder_create"}:
         target, auth, options, context = await _enrich_folder_payload(payload)

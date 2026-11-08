@@ -97,6 +97,12 @@ JOB_CONTRACTS: dict[str, JobContract] = {
         queue_name=QUEUE_PROBES,
         actor_name="run_probe_job",
     ),
+    "SENSITIVITY_SCAN": JobContract(
+        job_type="SENSITIVITY_SCAN",
+        default_action="scan_smb_sensitivity",
+        queue_name=QUEUE_PROBES,
+        actor_name="run_probe_job",
+    ),
     "SHARE_CREATE": JobContract(
         job_type="SHARE_CREATE",
         default_action="share_create",

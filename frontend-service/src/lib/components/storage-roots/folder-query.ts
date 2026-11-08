@@ -84,7 +84,9 @@ const STATES: Record<string, (row: Row) => boolean> = {
   vide: (row) => size(row) === 0,
   'non-mesure': (row) => size(row) == null,
   'non-teste': (row) => !row?.last_probe_at,
-  dfs: (row) => Boolean(row?.dfs_path)
+  dfs: (row) => Boolean(row?.dfs_path),
+  sensible: (row) => Number(row?.sensitive_files ?? 0) > 0,
+  'non-analyse': (row) => row?.sensitive_files == null
 };
 
 function test(row: Row, filter: QueryFilter): boolean {
@@ -134,7 +136,9 @@ const STATE_LABELS = (): Array<[string, string]> => [
   ['vide', t('empty')],
   ['non-mesure', t('size not measured')],
   ['non-teste', t('never tested')],
-  ['dfs', t('reached through DFS')]
+  ['dfs', t('reached through DFS')],
+  ['sensible', t('with sensitive files')],
+  ['non-analyse', t('never scanned for sensitivity')]
 ];
 
 /** What the list knows, per key: the values to propose */
@@ -202,6 +206,7 @@ export function folderSuggestions(query: string, rows: Row[], tags: string[] = [
 export const folderQueryExamples = (): Suggestion[] => [
   { insert: 'tag:', label: t('By tag'), hint: 'tag:Finance', icon: 'bi-tag' },
   { insert: 'gardien:', label: t('By guardian'), hint: 'gardien:alice', icon: 'bi-person-check' },
+  { insert: 'est:sensible', label: t('With sensitive files'), hint: 'est:sensible', icon: 'bi-shield-lock' },
   { insert: 'est:sans-gardien', label: t('Without guardian'), hint: 'est:sans-gardien', icon: 'bi-person-x' },
   { insert: 'est:alerte', label: t('With open alerts'), hint: 'est:alerte', icon: 'bi-exclamation-triangle' },
   { insert: 'est:sans-tag', label: t('Without tag'), hint: 'est:sans-tag', icon: 'bi-tag' },

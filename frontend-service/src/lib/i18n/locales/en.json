@@ -319,6 +319,10 @@
       "probe_failed": {
         "title": "Folder check failed",
         "description": "The folder check failed: {target}"
+      },
+      "sensitivity_scan_requested": {
+        "title": "Sensitivity scan requested",
+        "description": "The worker looks for passwords, keys and vaults stored in the selected folders"
       }
     },
     "access_request": {

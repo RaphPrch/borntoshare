@@ -21,6 +21,7 @@ from app.actions.smb_discovery import discover_smb_server
 from app.actions.dfs_namespaces import dfs_folder_create, dfs_folder_delete, read_dfs_namespaces
 from app.shared.name_resolution import resolve_name
 from app.actions.tls_certificate import fetch_tls_certificate
+from app.actions.sensitivity import scan_smb_sensitivity
 from app.actions.smb import test_smb_ntlm, test_smb_root_access
 from app.middleware.resolve_secrets import CapsuleSecretResolutionError, resolve_secret_fields
 from app.schemas.actions import (
@@ -44,6 +45,7 @@ from app.schemas.actions import (
     TLSCertificatePayload,
     SMBProbePayload,
     SMBRootProbePayload,
+    SMBSensitivityPayload,
 )
 
 logger = logging.getLogger("capsule-runner.registry")
@@ -95,6 +97,13 @@ ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
         action="test_smb_root_access",
         schema=SMBRootProbePayload,
         runner=test_smb_root_access,
+        secret_fields=("secret_ref",),
+        target_field="host",
+    ),
+    "scan_smb_sensitivity": ActionSpec(
+        action="scan_smb_sensitivity",
+        schema=SMBSensitivityPayload,
+        runner=scan_smb_sensitivity,
         secret_fields=("secret_ref",),
         target_field="host",
     ),

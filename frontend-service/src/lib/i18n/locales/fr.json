@@ -1497,6 +1497,10 @@
       "probe_failed": {
         "title": "Dossier en échec",
         "description": "Le test du dossier a échoué : {target}"
+      },
+      "sensitivity_scan_requested": {
+        "title": "Analyse de sensibilité demandée",
+        "description": "Le capsule runner cherche les mots de passe, clés et coffres stockés dans les dossiers sélectionnés"
       }
     },
     "access_request": {
@@ -4441,5 +4445,37 @@
   "Suggestions": "Suggestions",
   "Hide the express filters": "Masquer les filtres express",
   "Express filters: by tag, guardian, state…": "Filtres express : par tag, gardien, état…",
-  "Search, or tag:… gardien:… est:…": "Rechercher, ou tag:… gardien:… est:…"
+  "Search, or tag:… gardien:… est:…": "Rechercher, ou tag:… gardien:… est:…",
+  "Passwords in clear": "Mots de passe en clair",
+  "Password files": "Fichiers de mots de passe",
+  "Password vaults": "Coffres de mots de passe",
+  "Private keys": "Clés privées",
+  "API keys and tokens": "Clés d'API et jetons",
+  "Sensitivity": "Sensibilité",
+  "Scan in progress…": "Analyse en cours…",
+  "scanned {when}": "analysé {when}",
+  "Never scanned": "Jamais analysé",
+  "Scan again": "Analyser à nouveau",
+  "Scan the folder": "Analyser le dossier",
+  "The worker reads the folder: names of the files, then the content of the small text files.": "Le capsule runner lit le dossier : le nom des fichiers, puis le contenu des petits fichiers texte.",
+  "The scan failed": "L'analyse a échoué",
+  "Nothing sensitive found in {files} file(s), {read} read.": "Rien de sensible dans {files} fichier(s), dont {read} lu(s).",
+  "{count} sensitive file(s)": "{count} fichier(s) sensible(s)",
+  "line {line}": "ligne {line}",
+  "Show the {count} others": "Voir les {count} autres",
+  "Move the secrets to a vault, delete the copies, then scan again.": "Déplacez les secrets dans un coffre, supprimez les copies, puis relancez l'analyse.",
+  "Large folder: only part of the files was read.": "Dossier volumineux : une partie seulement des fichiers a été lue.",
+  "Looks for passwords, keys and password vaults stored in the folder. Read only; the secrets themselves are never kept.": "Recherche les mots de passe, clés et coffres stockés dans le dossier. En lecture seule ; les secrets eux-mêmes ne sont jamais conservés.",
+  "with sensitive files": "avec fichiers sensibles",
+  "never scanned for sensitivity": "jamais analysés (sensibilité)",
+  "With sensitive files": "Avec fichiers sensibles",
+  "Password vault": "Coffre de mots de passe",
+  "Private key or certificate with key": "Clé privée ou certificat avec clé",
+  "File named after passwords": "Fichier nommé comme des mots de passe",
+  "Stored credentials": "Identifiants enregistrés",
+  "Private key": "Clé privée",
+  "AWS access key": "Clé d'accès AWS",
+  "API key or token": "Clé d'API ou jeton",
+  "Password in clear": "Mot de passe en clair",
+  "Password in a Windows answer file": "Mot de passe dans un fichier de réponse Windows"
 }

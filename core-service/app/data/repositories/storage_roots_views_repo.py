@@ -484,6 +484,9 @@ class StorageRootsViewsRepo(SQLViewRepo):
         pending_counts_by_root_id = self._load_pending_validation_counts(storage_root_ids)
         guardian_counts_by_root_id = self._load_guardian_counts(storage_root_ids)
         guardian_names_by_root_id = self._load_guardian_names(storage_root_ids)
+        from app.services.sensitivity import flagged_by_root
+
+        sensitive_by_root_id = flagged_by_root(self.db, storage_root_ids)
         alerts_by_root_id = self._load_open_alerts_map(storage_root_ids)
         discovered_tree_by_root_id = self._load_discovered_tree_map(storage_root_ids)
         revalidation_by_root_id = self._load_revalidation_map(storage_root_ids)
@@ -502,6 +505,8 @@ class StorageRootsViewsRepo(SQLViewRepo):
             payload.update(revalidation_by_root_id.get(storage_root_id, {}))
             payload["guardians_count"] = int(guardian_counts_by_root_id.get(storage_root_id, 0))
             payload["guardian_names"] = guardian_names_by_root_id.get(storage_root_id, [])
+            # Files flagged by the last sensitivity scan; None when the folder was never scanned
+            payload["sensitive_files"] = sensitive_by_root_id.get(storage_root_id)
             alert_summary = alerts_by_root_id.get(storage_root_id, {})
             payload["open_alerts_count"] = int(alert_summary.get("open_alerts_count") or 0)
             payload["open_alerts_error_count"] = int(alert_summary.get("open_alerts_error_count") or 0)

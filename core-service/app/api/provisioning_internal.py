@@ -407,6 +407,22 @@ def _persist_storage_endpoint_probe_result(
     )
 
 
+def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict | None, error_message: str | None = None) -> None:
+    """Sensitivity scan of a folder (scan_smb_sensitivity): its findings, or why it failed."""
+    from app.services import sensitivity
+
+    if str(getattr(job_row, "action", "") or "").strip() != sensitivity.ACTION:
+        return
+    root_id = _extract_storage_root_id_from_probe(job_payload_json=getattr(job_row, "payload_json", None), result_json=result_json)
+    if not root_id:
+        return
+    job_id = int(getattr(job_row, "id", 0) or 0) or None
+    if error_message is not None:
+        sensitivity.record_failure(db, root_id, job_id, error_message)
+    else:
+        sensitivity.record_result(db, root_id, job_id, result_json)
+
+
 def _persist_storage_root_probe_result(
     db: Session,
     *,
@@ -1184,6 +1200,7 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
         correlation_id=correlation_id,
     )
 
+    _persist_sensitivity_result(db, job_row=row, result_json=payload.result_json)
     _record_access_group_outcome(db, job_row=row, succeeded=True, result_json=payload.result_json)
     _apply_infrastructure_results(db, job_row=row, result_json=payload.result_json)
 
@@ -1328,6 +1345,8 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
         correlation_id=correlation_id,
     )
 
+    _persist_sensitivity_result(db, job_row=row, result_json=payload.result_json,
+                                error_message=str(payload.error_message or payload.error_code or "The scan failed"))
     _record_access_group_outcome(
         db,
         job_row=row,

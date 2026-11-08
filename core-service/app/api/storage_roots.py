@@ -879,6 +879,9 @@ def get_storage_root_overview(
     # Content of the folder as the worker read it last (size, files, sub-folders, where the weight is)
     scan_root = db.get(StorageRoot, int(storage_root_id))
     scan = scan_root.discovered_permissions_json if scan_root is not None and isinstance(scan_root.discovered_permissions_json, dict) else {}
+    from app.services import sensitivity as _sensitivity
+
+    row["sensitivity"] = _sensitivity.get(db, int(storage_root_id))
     row["content"] = {
         "bytes": scan.get("content_size_bytes"),
         "scanned_at": scan.get("content_updated_at"),
@@ -1239,6 +1242,9 @@ def get_storage_root(
     # Content of the folder as the worker read it last (size, files, sub-folders, where the weight is)
     scan_root = db.get(StorageRoot, int(storage_root_id))
     scan = scan_root.discovered_permissions_json if scan_root is not None and isinstance(scan_root.discovered_permissions_json, dict) else {}
+    from app.services import sensitivity as _sensitivity
+
+    row["sensitivity"] = _sensitivity.get(db, int(storage_root_id))
     row["content"] = {
         "bytes": scan.get("content_size_bytes"),
         "scanned_at": scan.get("content_updated_at"),
@@ -1505,6 +1511,63 @@ async def check_roots_in_bulk(
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     return ui_data({"queued": queued, "failed": failed})
+
+
+class SensitivityScanPayload(BaseModel):
+    root_ids: list[int] = Field(min_length=1, max_length=100)
+
+
+@router.post("/sensitivity-scan", dependencies=[Depends(admin_only)])
+async def scan_sensitivity(payload: SensitivityScanPayload, request: Request, db: Session = Depends(get_db)):
+    """Ask the worker to look for passwords, keys and vaults stored in these folders (read only, in the background)."""
+    from app.services import sensitivity
+    from app.services.probe_service import submit_probe_run
+
+    queued: list[int] = []
+    failed: list[dict[str, Any]] = []
+    for root_id in dict.fromkeys(int(value) for value in payload.root_ids):
+        if db.get(StorageRoot, root_id) is None:
+            failed.append({"storage_root_id": root_id, "message": "Storage root not found"})
+            continue
+        try:
+            job = await submit_probe_run({
+                "kind": "storage-root", "protocol": "sensitivity", "scope": "read",
+                "target": {"storage_root_id": root_id},
+                "options": {"timeout_sec": 600},
+                "context": {"storage_root_id": root_id, "ui_origin": "sensitivity_scan"},
+            })
+        except HTTPException as exc:
+            failed.append({"storage_root_id": root_id, "message": _refusal_text(exc)})
+            continue
+        sensitivity.mark_requested(db, root_id, int(job.get("job_id") or 0) or None)
+        queued.append(root_id)
+    actor = actor_from_request(request)
+    log_activity(
+        db,
+        actor_type="user" if actor.identity_id is not None else "system",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action="storage_root.sensitivity_scan_requested",
+        outcome="success" if not failed else "partial",
+        target_type="storage_root",
+        target_id=str(queued[0]) if len(queued) == 1 else None,
+        target_display=f"{len(queued)} storage root(s)",
+        context_json={"storage_root_ids": queued, "failed": failed},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_data({"queued": queued, "failed": failed})
+
+
+@router.get("/{root_id}/sensitivity")
+def get_sensitivity(root_id: int, request: Request, db: Session = Depends(get_db)):
+    """Last sensitivity scan of the folder (what the card shows while a scan runs)."""
+    from app.services import sensitivity
+
+    actor = actor_from_request(request)
+    require_storage_roots_index(db, actor)
+    if not filter_storage_root_rows(db, actor, [{"storage_root_id": int(root_id)}]):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    return ui_data(sensitivity.get(db, int(root_id)))
 
 
 def _create_storage_root(
