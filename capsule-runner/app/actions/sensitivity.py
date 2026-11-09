@@ -58,28 +58,6 @@ CONTENT_RULES: list[tuple[str, str, re.Pattern[str], int]] = [
 ]
 
 
-def list_files(output: str, base: str = "", max_entries: int = MAX_LISTED) -> tuple[list[tuple[str, int]], bool]:
-    """Files of a smbclient « recurse ON; ls » listing: (path relative to the share, size); truncated or not."""
-    base_parts = [part for part in base.replace("/", "\\").split("\\") if part]
-    folder: list[str] = list(base_parts)
-    files: list[tuple[str, int]] = []
-    seen = 0
-    for line in output.splitlines():
-        if line.startswith("\\"):
-            folder = [part for part in line.strip().split("\\") if part]
-            continue
-        match = _LS_ENTRY.match(line.rstrip())
-        if not match or match["name"] in {".", ".."}:
-            continue
-        seen += 1
-        if seen > max_entries:
-            return files, True
-        if "D" in match["attr"]:
-            continue
-        files.append(("\\".join([*folder, match["name"]]), int(match["size"])))
-    return files, False
-
-
 def _extension(name: str) -> str:
     return name.rsplit(".", 1)[-1].lower() if "." in name else ""
 
@@ -137,7 +115,54 @@ def _counts(findings: list[dict]) -> dict[str, int]:
     return counts
 
 
+def _listing_smb(base_cmd: list[str], rel_path: str, username: str, password: str, timeout: int) -> tuple[list[tuple[str, int, float | None]], bool]:
+    """Every file of the folder through SMB (path, size, change time), read as it streams."""
+    from app.actions.smb import _modified
+    from app.shared.samba_auth import stream_samba
+
+    pattern = f"{rel_path}\\*" if rel_path else "*"
+    base_parts = [part for part in rel_path.replace("/", "\\").split("\\") if part]
+    folder: list[str] = list(base_parts)
+    files: list[tuple[str, int, float | None]] = []
+    errors: list[str] = []
+    seen = 0
+    truncated = False
+    with stream_samba([*base_cmd, "-c", f'recurse ON; ls "{pattern}"'], username=username, password=password, timeout=timeout) as lines:
+        for line in lines:
+            if line.startswith("\\"):
+                folder = [part for part in line.strip().split("\\") if part]
+                continue
+            match = _LS_ENTRY.match(line.rstrip())
+            if not match:
+                if "NT_STATUS_" in line:
+                    errors.append(line)
+                continue
+            if match["name"] in {".", ".."} or "D" in match["attr"]:
+                continue
+            seen += 1
+            if seen > MAX_LISTED:
+                truncated = True
+                break
+            files.append(("\\".join([*folder, match["name"]]), int(match["size"]), _modified(match["date"])))
+    if not files and errors:
+        raise RuntimeError(errors[-1])
+    return files, truncated
+
+
+def _after(stamp: float | None, path: str, since: float | None, cursor: str) -> bool:
+    """Changed since the cursor of the last scan: (change time, path) after (since, cursor)."""
+    if since is None:
+        return True
+    if stamp is None:
+        return False
+    return stamp > since or (stamp == since and path > cursor)
+
+
 def scan_smb_sensitivity(params: dict):
+    """Incremental: the names of all the files are checked at each scan (cheap); the content only of the text files
+    changed since the cursor of the last scan, the oldest first, within the budget of one scan. The next scan starts
+    where this one stopped, until every changed file has been read; then the cursor is the start of the scan.
+    The files flagged before that are gone are reported, so that the core forgets them."""
     host = params["host"]
     share = params["share"]
     rel_path = str(params.get("path") or "").strip().strip("/\\").replace("/", "\\")
@@ -147,44 +172,85 @@ def scan_smb_sensitivity(params: dict):
     timeout = int(params.get("timeout", 300))
     target_label = f"\\\\{host}\\{share}" + (f"\\{rel_path}" if rel_path else "")
     base_cmd = ["smbclient", f"//{host}/{share}", "-m", "SMB3", "-p", str(port)]
+    started = datetime.now(timezone.utc)
+    since_iso = params.get("since") if params.get("rules_version") == RULES_VERSION else None
+    since = datetime.fromisoformat(str(since_iso).replace("Z", "+00:00")).timestamp() if since_iso else None
+    cursor = str(params.get("cursor_path") or "") if since is not None else ""
+    known = [str(path) for path in (params.get("known_paths") or [])][:200]
 
-    pattern = f"{rel_path}\\*" if rel_path else "*"
-    try:
-        listing = run_samba([*base_cmd, "-c", f'recurse ON; ls "{pattern}"'], username=username, password=password,
-                            capture_output=True, timeout=timeout, check=False)
-    except subprocess.TimeoutExpired:
-        return False, f"Listing of {target_label} timed out", {"failure_code": "CAPSULE_TIMEOUT", "retryable": False}
-    output = ((listing.stdout or b"") + b"\n" + (listing.stderr or b"")).decode(errors="ignore")
-    if listing.returncode != 0 and "NT_STATUS_" in output and not _LS_ENTRY.search(output):
-        return False, f"Listing of {target_label} failed: {output.strip()[-300:]}", {"failure_code": _classify_smb_error(output)}
+    method = "smb"
+    fallback_reason = None
+    name_hits: list[str] = []
+    candidates: list[tuple[str, int, float | None]] = []
+    pending_total = 0
+    gone: list[str] = []
+    files_listed = 0
+    truncated = False
+    server = None
+    if params.get("server_name"):
+        from app.shared.server_scan import ServerScanError, sensitivity_listing
+        from app.shared.winrm import WinRMError
 
-    files, truncated = list_files(output, base=rel_path)
+        try:
+            server = sensitivity_listing(
+                share=share, path=rel_path, name_patterns=[pattern.pattern for _c, _l, pattern in NAME_RULES],
+                text_extensions=sorted(TEXT_EXTENSIONS), text_names=sorted(TEXT_NAMES), max_file_bytes=MAX_FILE_BYTES,
+                since=since_iso if since is not None else None, cursor_path=cursor, known_paths=known, candidates=MAX_READ_FILES * 2,
+                timeout=max(timeout, 600),
+                connection={"host": host, "server_name": params.get("server_name"), "username": username, "password": password,
+                            "domain": str(params.get("domain") or ""), "kdc_hint": params.get("kdc_host")})
+        except (WinRMError, ServerScanError) as exc:
+            fallback_reason = f"{getattr(exc, 'code', 'WINRM_FAILED')}: {getattr(exc, 'message', str(exc))}"[:300]
+    if server is not None:
+        method = "server"
+        files_listed = int(server.get("files_listed") or 0)
+        name_hits = [str(item["path"]) for item in server.get("name_hits") or []]
+        for item in server.get("candidates") or []:
+            stamp = datetime.fromisoformat(str(item["modified"]).replace("Z", "+00:00")).timestamp() if item.get("modified") else None
+            candidates.append((str(item["path"]), int(item.get("size") or 0), stamp))
+        pending_total = int(server.get("pending_total") or 0)
+        gone = [str(path) for path in server.get("gone_paths") or []]
+    else:
+        try:
+            files, truncated = _listing_smb(base_cmd, rel_path, username, password, timeout)
+        except TimeoutError:
+            return False, f"Listing of {target_label} timed out", {"failure_code": "CAPSULE_TIMEOUT", "retryable": False}
+        except RuntimeError as exc:
+            return False, f"Listing of {target_label} failed: {str(exc)[-300:]}", {"failure_code": _classify_smb_error(str(exc))}
+        files_listed = len(files)
+        name_hits = [path for path, _size, _stamp in files]
+        changed = sorted(((path, size, stamp) for path, size, stamp in files if is_text_candidate(path, size) and _after(stamp, path, since, cursor)),
+                         key=lambda item: (item[2] or 0, item[0]))
+        pending_total = len(changed)
+        candidates = changed
+        present = {path.lower() for path, _size, _stamp in files}
+        gone = [] if truncated else [path for path in known if path.lower() not in present]
+
     findings: list[dict] = []
-    for path, _size in files:
+    for path in name_hits:
         findings.extend(name_findings(path))
 
-    candidates = [(path, size) for path, size in files if is_text_candidate(path, size)]
-    chosen: list[tuple[str, int]] = []
+    chosen: list[tuple[str, int, float | None]] = []
     total = 0
-    for path, size in candidates:
-        if len(chosen) >= MAX_READ_FILES or total + size > MAX_READ_BYTES:
-            truncated = True
+    for item in candidates:
+        if len(chosen) >= MAX_READ_FILES or total + item[1] > MAX_READ_BYTES:
             break
-        chosen.append((path, size))
-        total += size
+        chosen.append(item)
+        total += item[1]
 
     files_read = 0
     bytes_read = 0
+    read_paths: list[str] = []
     workdir = tempfile.mkdtemp(prefix="b2s-sens-")
     try:
         if chosen:
-            gets = "; ".join(f'get "{path}" "{os.path.join(workdir, f"{index:05d}")}"' for index, (path, _size) in enumerate(chosen))
+            gets = "; ".join(f'get "{path}" "{os.path.join(workdir, f"{index:05d}")}"' for index, (path, _size, _stamp) in enumerate(chosen))
             try:
                 run_samba([*base_cmd, "-c", f"prompt OFF; {gets}"], username=username, password=password,
                           capture_output=True, timeout=timeout, check=False)
             except subprocess.TimeoutExpired:
                 truncated = True
-            for index, (path, _size) in enumerate(chosen):
+            for index, (path, _size, _stamp) in enumerate(chosen):
                 local = os.path.join(workdir, f"{index:05d}")
                 if not os.path.exists(local):
                     continue
@@ -192,11 +258,20 @@ def scan_smb_sensitivity(params: dict):
                     raw = handle.read(MAX_FILE_BYTES)
                 files_read += 1
                 bytes_read += len(raw)
+                read_paths.append(path)
                 if b"\x00" in raw[:1024] and not raw.startswith((b"\xff\xfe", b"\xfe\xff")):
                     continue  # binary
                 findings.extend(content_findings(path, _decode(raw)))
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+
+    # Where the next scan starts: after the last file read, or at the start of this one when every changed file was read
+    complete = len(read_paths) >= pending_total and not truncated
+    last = chosen[len(read_paths) - 1] if read_paths else None
+    if complete or last is None or last[2] is None:
+        next_since, next_cursor = (started.isoformat() if complete else since_iso), ("" if complete else cursor)
+    else:
+        next_since, next_cursor = datetime.fromtimestamp(last[2], tz=timezone.utc).isoformat(), last[0]
 
     # A file found by its name and by its content counts once per category
     unique: dict[tuple[str, str], dict] = {}
@@ -208,15 +283,20 @@ def scan_smb_sensitivity(params: dict):
     details = {
         "sensitivity": {
             "rules_version": RULES_VERSION,
-            "scanned_at": datetime.now(timezone.utc).isoformat(),
+            "scanned_at": started.isoformat(),
             "target": target_label,
-            "files_listed": len(files),
+            "method": method,
+            "fallback_reason": fallback_reason,
+            "files_listed": files_listed,
             "files_read": files_read,
             "bytes_read": bytes_read,
             "truncated": truncated,
             "counts": _counts(findings),
             "files_flagged": len({item["path"].lower() for item in findings}),
             "findings": findings[:MAX_FINDINGS],
+            "incremental": {"full": since is None, "since": since_iso if since is not None else None, "next_since": next_since,
+                            "next_cursor": next_cursor, "complete": complete, "pending": max(0, pending_total - len(read_paths)),
+                            "read_paths": read_paths, "gone_paths": gone},
         }
     }
     flagged = details["sensitivity"]["files_flagged"]

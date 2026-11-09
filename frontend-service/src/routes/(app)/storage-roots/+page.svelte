@@ -1760,6 +1760,7 @@
       onEditRoot={openEditRoot}
       onDeleteRoot={() => selectedRow && openDeleteRoot(selectedRow)}
       onRunRootProbe={runSelectedRootProbe}
+      onReloadDetails={() => { if (selectedStorageRootId) loadDetails(selectedStorageRootId); }}
       onNewAccessRequest={openAccessRequestModal}
       onOpenGovernanceDrawer={(role) => openGovernanceDrawer(role ?? 'guardian')}
       onOpenTagsModal={openTagsModal}

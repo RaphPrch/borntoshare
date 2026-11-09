@@ -77,3 +77,47 @@ def test_new_states_of_the_express_search() -> None:
     assert not folder_query.matches({"content_size_bytes": 100, "cold_1y_bytes": 40}, "est:donnees-froides")
     assert folder_query.matches({"junk_files": 3}, "est:encombre")
     assert folder_query.unknown_states("est:cle-ou-jeton est:correction est:donnees-froides est:encombre") == []
+
+
+def test_duplicates_lower_the_sort_pillar_and_say_what_to_do() -> None:
+    row = _row(cold_1y_bytes=0, cold_3y_bytes=0, dup_wasted_bytes=2 * GB, dup_groups=3, shared_dup_bytes=2 * GB, shared_dup_folders=2)
+    result = five_s.score_folder(row, NOW - timedelta(days=10), NOW)
+    assert result["pillars"]["sort"] == 70
+    texts = [a["text"] for a in result["actions"] if a["pillar"] == "sort"]
+    assert texts[0].startswith("Supprimer 2 Go de doublons") and texts[1].startswith("Dédoublonner 2 Go")
+    assert five_s._family(texts[0]) == "Supprimer les doublons dans les dossiers"
+    assert folder_query.matches({"dup_wasted_bytes": 1}, "est:doublons") and folder_query.matches({}, "est:tous")
+
+
+def test_an_incremental_scan_keeps_what_it_did_not_read_again() -> None:
+    from app.services import sensitivity
+
+    previous = [
+        {"path": "F\\a.ini", "category": "password", "line": 2},       # not read again: kept
+        {"path": "F\\b.ini", "category": "password", "line": 1},       # read again, now clean: dropped
+        {"path": "F\\gone.txt", "category": "password", "line": 3},    # deleted: dropped
+        {"path": "F\\mdp.xlsx", "category": "credentials_file", "line": None},  # names are checked again every time
+    ]
+    scan = {"findings": [{"path": "F\\c.ps1", "category": "password", "line": 4}],
+            "incremental": {"read_paths": ["F\\b.ini", "F\\c.ps1"], "gone_paths": ["F\\gone.txt"]}}
+    merged = sensitivity._merge(previous, scan, same_rules=True)
+    assert sorted(item["path"] for item in merged) == ["F\\a.ini", "F\\c.ps1"]
+    assert [item["path"] for item in sensitivity._merge(previous, scan, same_rules=False)] == ["F\\c.ps1"]
+
+
+def test_the_measure_is_its_own_job_and_a_dfs_folder_is_measured_through_smb(monkeypatch) -> None:
+    import asyncio
+
+    from app.services import probe_service
+
+    assert probe_service._pick_template("folder", "measure") == ("folder_scan", "v1")
+    assert probe_service._job_type_for_template("folder_scan") == "FOLDER_SCAN"
+    ctx = {"root_path": "\\\\dfs01\\brest\\Finance", "endpoint_bind_dn": "CORP\\svc", "endpoint_bind_password_ref": "sm://x/y",
+           "endpoint_name": "brest", "endpoint_type": "dfs", "identity_source_host": "10.0.0.1", "domain_name": "corp.local"}
+
+    async def fake_call_route(_route, **_kwargs):
+        return ctx
+
+    monkeypatch.setattr(probe_service, "call_route", fake_call_route)
+    target, auth, options, _context = asyncio.run(probe_service._enrich_quota_payload({"target": {"storage_root_id": 4}}, measure=True))
+    assert target["server_name"] is None and "operation" not in target and options["timeout_sec"] == 3600 and auth["mode"] == "ntlm"

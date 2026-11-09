@@ -291,7 +291,7 @@ def _modified(value: str) -> float | None:
         return None
 
 
-def parse_recursive_ls(output: str, max_entries: int = _MAX_LISTED, base: str = "", now: float | None = None) -> dict:
+def parse_recursive_ls(output, max_entries: int = _MAX_LISTED, base: str = "", now: float | None = None) -> dict:
     """Totals of a smbclient « recurse ON; ls » listing: bytes, files, sub-folders, the weight of each
     first-level sub-folder and the most frequent file types. Beyond max_entries the figures are a floor.
     Also how old the data is (files not modified for 1 and 3 years, the biggest of them, the last change) and the
@@ -306,7 +306,8 @@ def parse_recursive_ls(output: str, max_entries: int = _MAX_LISTED, base: str = 
     types: dict[str, int] = {}
     depth_prefix: list[str] = []
     seen = 0
-    for line in output.splitlines():
+    # A whole listing (str) or its lines as they come (stream_samba)
+    for line in (output.splitlines() if isinstance(output, str) else output):
         if line.startswith("\\"):
             # « \Finance\2025 » : the folder whose entries follow (relative to the folder listed)
             parts = [part for part in line.strip().split("\\") if part]
@@ -542,7 +543,7 @@ def test_smb_root_access(params: dict):
     port = int(params.get("port", 445))
     timeout = int(params.get("timeout", 10))
     discover_permissions = bool(params.get("discover_permissions", True))
-    discover_content_size = bool(params.get("discover_content_size", True))
+    discover_content_size = bool(params.get("discover_content_size", False))
 
     smb_path = f"//{host}/{share}"
     display_rel_path = rel_path.replace("/", "\\")

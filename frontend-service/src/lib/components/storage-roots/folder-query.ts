@@ -95,6 +95,8 @@ const STATES: Record<string, (row: Row) => boolean> = {
     return total > 0 && Number(row?.cold_1y_bytes ?? 0) > 0.5 * total;
   },
   encombre: (row) => Number(row?.junk_files ?? 0) > 0,
+  doublons: (row) => Number(row?.dup_wasted_bytes ?? 0) > 0 || Number(row?.shared_dup_bytes ?? 0) > 0,
+  tous: () => true,
   quota: (row) => row?.quota_limit_bytes != null,
   'sans-quota': (row) => row?.quota_limit_bytes == null,
   'quota-plein': (row) => row?.quota_used_percent != null && Number(row.quota_used_percent) >= Number(row?.quota_warn_percent ?? 85),
@@ -156,6 +158,8 @@ const STATE_LABELS = (): Array<[string, string]> => [
   ['correction', t('correction asked')],
   ['donnees-froides', t('mostly cold data')],
   ['encombre', t('with clutter files')],
+  ['doublons', t('with duplicates')],
+  ['tous', t('every folder')],
   ['quota', t('with a quota')],
   ['sans-quota', t('without quota')],
   ['quota-plein', t('quota almost full')],

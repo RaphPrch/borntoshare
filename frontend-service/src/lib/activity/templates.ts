@@ -96,6 +96,7 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'storage_root.quota_request_cancelled': { titleKey: 'activity.storage_root.quota_request_cancelled.title', descriptionKey: 'activity.storage_root.quota_request_cancelled.description', badge: 'info', icon: 'dash-circle' },
   'storage_root.remediation_requested': { titleKey: 'activity.storage_root.remediation_requested.title', descriptionKey: 'activity.storage_root.remediation_requested.description', badge: 'admin', icon: 'send' },
   'storage_root.remediation_cancelled': { titleKey: 'activity.storage_root.remediation_cancelled.title', descriptionKey: 'activity.storage_root.remediation_cancelled.description', badge: 'admin', icon: 'dash-circle' },
+  'storage_root.measure_requested': { titleKey: 'activity.storage_root.measure_requested.title', descriptionKey: 'activity.storage_root.measure_requested.description', badge: 'info', icon: 'rulers' },
   'storage_root.sensitivity_scan_requested': { titleKey: 'activity.storage_root.sensitivity_scan_requested.title', descriptionKey: 'activity.storage_root.sensitivity_scan_requested.description', badge: 'info', icon: 'shield-lock' },
   'storage_root.bulk_check_requested': { titleKey: 'activity.storage_root.bulk_check_requested.title', descriptionKey: 'activity.storage_root.bulk_check_requested.description', badge: 'info', icon: 'arrow-clockwise' },
   'storage_root.acl_repaired': { titleKey: 'activity.storage_root.acl_repaired.title', descriptionKey: 'activity.storage_root.acl_repaired.description', badge: 'admin', icon: 'folder' },

@@ -155,6 +155,10 @@ class StorageRootsViewsRepo(SQLViewRepo):
         payload["junk_files"] = junk.get("files") if junk else None
         payload["junk_bytes"] = junk.get("bytes") if junk else None
         payload["last_modified_at"] = stats.get("last_modified")
+        # Probable duplicates inside the folder (found on the server: same size and fingerprint)
+        dups = stats.get("duplicates") if isinstance(stats.get("duplicates"), dict) else {}
+        payload["dup_wasted_bytes"] = dups.get("wasted_bytes") if dups else None
+        payload["dup_groups"] = dups.get("groups") if dups else None
         payload["effective_availability"] = self._compute_effective_availability(payload)
         # NTFS inheritance of the folder (PD in the CONTROL flags of the last ACL read); None until read
         control = str(acl_payload.get("control") or "").upper()
@@ -507,6 +511,10 @@ class StorageRootsViewsRepo(SQLViewRepo):
         from app.services.remediations import counts_by_root as remediations_by_root
 
         trend_by_root_id = content_trends(self.db, storage_root_ids)
+        from app.services.scans import cross_duplicates, states_by_root
+
+        shared_by_root_id = cross_duplicates(self.db, storage_root_ids)
+        scan_state_by_root_id = states_by_root(self.db, storage_root_ids)
         remediation_by_root_id = remediations_by_root(self.db, storage_root_ids)
         alerts_by_root_id = self._load_open_alerts_map(storage_root_ids)
         discovered_tree_by_root_id = self._load_discovered_tree_map(storage_root_ids)
@@ -531,6 +539,11 @@ class StorageRootsViewsRepo(SQLViewRepo):
             payload["password_files"] = passwords_by_root_id.get(storage_root_id)
             payload["key_files"] = keys_by_root_id.get(storage_root_id)
             payload["remediation_status"] = remediation_by_root_id.get(storage_root_id)
+            shared = shared_by_root_id.get(storage_root_id) or {}
+            # Files also present in other folders (same fingerprint): their size, and with how many folders
+            payload["shared_dup_bytes"] = shared.get("bytes")
+            payload["shared_dup_folders"] = len(shared.get("with") or []) if shared else None
+            payload["measure_status"] = scan_state_by_root_id.get(storage_root_id)
             trend = trend_by_root_id.get(storage_root_id) or {}
             payload["growth_30d_bytes"] = trend.get("growth_30d_bytes")
             payload["bytes_per_day"] = trend.get("bytes_per_day")

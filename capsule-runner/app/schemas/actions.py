@@ -58,6 +58,15 @@ class SMBSensitivityPayload(BaseModel):
     timeout: int = Field(default=300, ge=10, le=1800)
     storage_endpoint_id: Optional[int] = Field(default=None, gt=0)
     storage_root_id: Optional[int] = Field(default=None, gt=0)
+    # Incremental: the cursor of the last scan (change time, path), the rules it used, the files flagged before
+    since: Optional[str] = Field(default=None, max_length=64)
+    cursor_path: Optional[str] = Field(default=None, max_length=1024)
+    rules_version: Optional[int] = None
+    known_paths: list[str] = Field(default_factory=list, max_length=200)
+    # Listing on the Windows server itself (WinRM, Kerberos) when it can; SMB otherwise
+    server_name: Optional[str] = Field(default=None, max_length=255)
+    kdc_host: Optional[str] = Field(default=None, max_length=255)
+    domain: str = Field(default="", max_length=255)
 
     @model_validator(mode="after")
     def _check_secret_or_password(self) -> "SMBSensitivityPayload":
@@ -409,6 +418,30 @@ class FolderCreatePayload(FolderOperationPayload):
     """A sub-folder can be created right under a share: no parent path then."""
 
     path: str = Field(default="", max_length=1024)
+
+
+class FolderScanPayload(BaseModel):
+    """Measure of a governed folder (its own job, on the scan queue): on the server over WinRM, or through SMB."""
+    model_config = ConfigDict(extra="forbid")
+
+    host: str = Field(min_length=1, max_length=255)
+    share: str = Field(min_length=1, max_length=255)
+    path: str = Field(default="", max_length=1024)
+    server_name: Optional[str] = Field(default=None, max_length=255)
+    kdc_host: Optional[str] = Field(default=None, max_length=255)
+    username: str = Field(min_length=1, max_length=255)
+    password: Optional[str] = Field(default=None, min_length=1, max_length=1024)
+    secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)
+    domain: str = Field(default="", max_length=255)
+    port: int = Field(default=445, ge=1, le=65535)
+    timeout_sec: int = Field(default=3600, ge=30, le=6 * 3600)
+    storage_root_id: Optional[int] = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _check_secret_or_password(self) -> "FolderScanPayload":
+        if not self.password and not self.secret_ref:
+            raise ValueError("password or secret_ref is required")
+        return self
 
 
 class FolderQuotaPayload(BaseModel):

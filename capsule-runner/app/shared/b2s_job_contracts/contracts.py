@@ -7,6 +7,8 @@ QUEUE_IDENTITY = "capsule_identity"
 QUEUE_PROVISIONING = "capsule_provisioning"
 QUEUE_ACL = "capsule_acl"
 QUEUE_PROBES = "capsule_probes"
+# Long walks of folders (measure, sensitivity): their own worker threads, so that a test never waits behind a scan
+QUEUE_SCANS = "capsule_scans"
 
 
 @dataclass(frozen=True)
@@ -112,8 +114,14 @@ JOB_CONTRACTS: dict[str, JobContract] = {
     "SENSITIVITY_SCAN": JobContract(
         job_type="SENSITIVITY_SCAN",
         default_action="scan_smb_sensitivity",
-        queue_name=QUEUE_PROBES,
-        actor_name="run_probe_job",
+        queue_name=QUEUE_SCANS,
+        actor_name="run_scan_job",
+    ),
+    "FOLDER_SCAN": JobContract(
+        job_type="FOLDER_SCAN",
+        default_action="folder_scan",
+        queue_name=QUEUE_SCANS,
+        actor_name="run_scan_job",
     ),
     "SHARE_CREATE": JobContract(
         job_type="SHARE_CREATE",

@@ -33,7 +33,7 @@
   export let content: any = null;
   export let sensitivity: any = null;
   export let rootId: number | null = null;
-  export let onMeasure: (() => void) | null = null;
+  export let onMeasured: () => void = () => {};
   export let isAdmin = false;
   export let isDfs = false;
   export let activity: Array<Record<string, unknown>> = [];
@@ -90,7 +90,7 @@
 
 <div class="ov">
   <div class="ov__col">
-    <StorageRootContentCards {content} {onMeasure} {rootId} />
+    <StorageRootContentCards {content} {rootId} {onMeasured} />
     <StorageRootQuotaCard {rootId} {isAdmin} {isDfs} />
     <StorageRootSensitivityCard {rootId} {sensitivity} {isAdmin} />
     <section class="ov__card" aria-label={t('Who reaches it')}>

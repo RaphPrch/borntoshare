@@ -22,7 +22,7 @@ from app.services import folder_query
 
 logger = logging.getLogger("core.policies")
 SEVERITIES = ("info", "warning", "high", "critical")
-JOB_KINDS = ("check", "sensitivity")
+JOB_KINDS = ("check", "measure", "sensitivity")
 MAX_JOBS_PER_RUN = 50
 
 
@@ -215,22 +215,32 @@ async def dispatch_jobs(db: Session, jobs: list[dict[str, Any]]) -> dict[str, in
     from app.services import sensitivity
     from app.services.probe_service import submit_probe_run
 
-    done = {"check": 0, "sensitivity": 0, "failed": 0}
+    from app.services import scans
+
+    done = {"check": 0, "measure": 0, "sensitivity": 0, "failed": 0}
     failed: set[tuple[int, int]] = set()
     for job in jobs:
         root_id = int(job["storage_root_id"])
         key = (int(job.get("policy_id") or 0), root_id)
         try:
             # Same request as the check of a folder, but errors are not swallowed here
-            protocol = "smb" if job["kind"] == "check" else "sensitivity"
-            queued = await submit_probe_run({
-                "kind": "storage-root", "protocol": protocol, "scope": "read",
-                "target": {"storage_root_id": root_id},
-                "options": {"timeout_sec": 30 if protocol == "smb" else 600},
-                "context": {"storage_root_id": root_id, "ui_origin": "policy"},
-            })
-            if job["kind"] == "sensitivity":
-                sensitivity.mark_requested(db, root_id, int(queued.get("job_id") or 0) or None)
+            if job["kind"] == "measure":
+                # The measure is its own job (scan queue), apart from the test of the folder
+                queued = await submit_probe_run({
+                    "kind": "folder", "protocol": "measure", "scope": "read",
+                    "target": {"storage_root_id": root_id}, "context": {"storage_root_id": root_id, "ui_origin": "policy"},
+                })
+                scans.mark_requested(db, root_id, int(queued.get("job_id") or 0) or None)
+            else:
+                protocol = "smb" if job["kind"] == "check" else "sensitivity"
+                queued = await submit_probe_run({
+                    "kind": "storage-root", "protocol": protocol, "scope": "read",
+                    "target": {"storage_root_id": root_id},
+                    "options": {"timeout_sec": 30 if protocol == "smb" else 600},
+                    "context": {"storage_root_id": root_id, "ui_origin": "policy"},
+                })
+                if job["kind"] == "sensitivity":
+                    sensitivity.mark_requested(db, root_id, int(queued.get("job_id") or 0) or None)
             done[job["kind"]] += 1
         except Exception:
             logger.warning("POLICY_JOB_NOT_QUEUED", extra={"storage_root_id": root_id, "kind": job["kind"]}, exc_info=True)

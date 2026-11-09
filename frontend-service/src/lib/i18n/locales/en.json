@@ -363,6 +363,10 @@
       "remediation_cancelled": {
         "title": "Correction cancelled",
         "description": "The correction asked for « {target} » is cancelled"
+      },
+      "measure_requested": {
+        "title": "Measure requested",
+        "description": "The worker measures « {target} »: size, age of the data, clutter and duplicates"
       }
     },
     "access_request": {

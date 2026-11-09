@@ -10,6 +10,7 @@ from app.jobs.b2s_job_contracts.contracts import (
     QUEUE_IDENTITY,
     QUEUE_PROBES,
     QUEUE_PROVISIONING,
+    QUEUE_SCANS,
     actor_for_job_type,
     queue_for_job_type,
 )
@@ -37,12 +38,14 @@ run_identity_job = QueuePublisher(actor_name="run_identity_job", queue_name=QUEU
 run_provisioning_job = QueuePublisher(actor_name="run_provisioning_job", queue_name=QUEUE_PROVISIONING)
 run_acl_job = QueuePublisher(actor_name="run_acl_job", queue_name=QUEUE_ACL)
 run_probe_job = QueuePublisher(actor_name="run_probe_job", queue_name=QUEUE_PROBES)
+run_scan_job = QueuePublisher(actor_name="run_scan_job", queue_name=QUEUE_SCANS, max_retries=2)
 
 _PUBLISHERS_BY_ACTOR = {
     "run_identity_job": run_identity_job,
     "run_provisioning_job": run_provisioning_job,
     "run_acl_job": run_acl_job,
     "run_probe_job": run_probe_job,
+    "run_scan_job": run_scan_job,
 }
 
 

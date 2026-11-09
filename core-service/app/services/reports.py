@@ -58,6 +58,10 @@ def storage(db: Session, rows: list[dict]) -> dict[str, Any]:
     cold1 = sum(int(row.get("cold_1y_bytes") or 0) for row in measured)
     cold3 = sum(int(row.get("cold_3y_bytes") or 0) for row in measured)
     junk = sum(int(row.get("junk_bytes") or 0) for row in measured)
+    from app.services.scans import cross_duplicate_total
+
+    inside = sum(int(row.get("dup_wasted_bytes") or 0) for row in measured)
+    between = cross_duplicate_total(db, [int(row.get("storage_root_id") or 0) for row in measured]) if db is not None else {"bytes": 0, "files": 0}
     with_quota = [row for row in rows if row.get("quota_limit_bytes") is not None]
     watch = [row for row in with_quota if row.get("quota_used_percent") is not None
              and float(row["quota_used_percent"]) >= float(row.get("quota_warn_percent") or 85)]
@@ -81,6 +85,8 @@ def storage(db: Session, rows: list[dict]) -> dict[str, Any]:
             _kpi("Données de plus d'un an", _pct(cold1, total), "percent", f"dont {str(_pct(cold3, total) or 0).replace('.', ',')} % de plus de 3 ans",
                  "warn" if (_pct(cold1, total) or 0) > 50 else None),
             _kpi("Fichiers parasites", junk, "bytes", f"{sum(int(row.get('junk_files') or 0) for row in measured)} fichier(s)"),
+            _kpi("Doublons à libérer", inside + between["bytes"], "bytes",
+                 f"dans les dossiers {_human(inside)} · entre dossiers {_human(between['bytes'])}", "warn" if inside + between["bytes"] else None),
             _kpi("Dossiers avec quota", len(with_quota), "int", f"{len(watch)} au-delà du seuil d'alerte", "warn" if watch else None),
         ],
         "sections": [
@@ -101,6 +107,13 @@ def storage(db: Session, rows: list[dict]) -> dict[str, Any]:
              "rows": [{"folder": _folder(row), "bytes": _size(row), "cold1": row.get("cold_1y_bytes"), "cold3": row.get("cold_3y_bytes")}
                       for row in _top(measured, lambda r: float(r.get("cold_3y_bytes") or 0) + 0.001 * float(r.get("cold_1y_bytes") or 0))],
              "empty": "Aucune donnée de plus d'un an."},
+            {"title": "Doublons", "description": "Copies probables (même taille et même empreinte) dans un dossier, ou présentes aussi dans d'autres dossiers.",
+             "columns": [_col("folder", "Dossier", "folder"), _col("inside", "Dans le dossier", "bytes"), _col("groups", "Groupes", "int"),
+                         _col("shared", "Aussi ailleurs", "bytes"), _col("with", "Autres dossiers", "int")],
+             "rows": [{"folder": _folder(row), "inside": row.get("dup_wasted_bytes"), "groups": row.get("dup_groups"),
+                       "shared": row.get("shared_dup_bytes"), "with": row.get("shared_dup_folders")}
+                      for row in _top(measured, lambda r: float(r.get("dup_wasted_bytes") or 0) + float(r.get("shared_dup_bytes") or 0))],
+             "empty": "Aucun doublon trouvé (les doublons demandent une mesure sur le serveur Windows)."},
             {"title": "Fichiers parasites", "columns": [_col("folder", "Dossier", "folder"), _col("files", "Fichiers", "int"), _col("bytes", "Volume", "bytes")],
              "rows": [{"folder": _folder(row), "files": row.get("junk_files"), "bytes": row.get("junk_bytes")}
                       for row in _top(measured, lambda r: float(r.get("junk_files") or 0))], "empty": "Aucun fichier parasite."},
@@ -209,6 +222,10 @@ def five_s_report(db: Session, rows: list[dict]) -> dict[str, Any]:
                       for f in result["folders"] if f["score"] is not None][:15]},
         ],
     }
+
+
+def _human(value: int) -> str:
+    return five_s._bytes(float(value or 0))
 
 
 def _iso(value: Any) -> str | None:

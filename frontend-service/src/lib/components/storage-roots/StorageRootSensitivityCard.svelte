@@ -25,6 +25,8 @@
     truncated?: boolean;
     target?: string;
     error?: string | null;
+    method?: 'server' | 'smb';
+    incremental?: { full: boolean | null; complete: boolean | null; pending: number | null };
     scanned_at?: string | null;
     requested_at?: string | null;
   };
@@ -229,6 +231,13 @@
     </p>
   {:else}
     <p class="sc__empty">{t('Looks for passwords, keys and password vaults stored in the folder. Read only; the secrets themselves are never kept.')}</p>
+  {/if}
+  {#if !running && state?.status === 'done' && state.incremental}
+    <p class="sc__note">
+      {state.incremental.full ? t('Full scan') : t('Incremental scan: only the files changed since the last one were read')}
+      · {t('{count} read', { count: state.files_read ?? 0 })}{state.method === 'server' ? ` · ${t('listed on the server')}` : ''}
+      {#if state.incremental.pending}· <b>{t('{count} changed file(s) left: read at the next scan', { count: state.incremental.pending })}</b>{/if}
+    </p>
   {/if}
   {#if !running && state?.status === 'done'}
     <StorageRootRemediation {rootId} {isAdmin} {passwordFiles} refreshKey={state?.scanned_at} />

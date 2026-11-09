@@ -1,13 +1,17 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { apiGetData, apiPostData } from '$lib/api/client';
+  import { reportUiError } from '$lib/errors';
+  import { flashOn } from '$lib/utils/motion';
   import { t } from '$lib/i18n';
   import { formatBytes, formatDateTime, timeAgo } from '$lib/utils/format';
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import StorageRootGrowth from '$lib/components/storage-roots/StorageRootGrowth.svelte';
 
   /**
-   * Content of a governed folder, as the worker read it during the last check of the folder: size, sub-folders
-   * and files, then where the weight is (first-level sub-folders) and which file types. One hue, bars with
-   * their value written: the figure never depends on the colour alone.
+   * Content of a governed folder, as its last measure found it: size, sub-folders and files, where the weight is,
+   * which file types, how old the data is, clutter and duplicates. The measure is its own job (apart from the test
+   * of the folder), walked on the Windows server when it can. One hue, bars with their value written.
    */
   type Content = {
     bytes?: number | null;
@@ -21,10 +25,61 @@
     cold_top?: Array<{ path: string; bytes: number; modified: string }>;
     junk?: { bytes: number; files: number; examples: string[] };
     last_modified?: string | null;
+    method?: 'server' | 'smb';
+    elapsed_ms?: number;
+    denied_folders?: number;
+    duplicates?: { groups: number; files: number; wasted_bytes: number; truncated: boolean;
+      top: Array<{ size: number; files: number; wasted: number; paths: string[] }> };
   };
+  type Scan = { status: 'running' | 'done' | 'failed'; method: string | null; fallback_reason: string | null; requested_at: string | null;
+    finished_at: string | null; elapsed_ms: number | null; files: number | null; error: string | null };
+  type Shared = { files: number; bytes: number; with: number[]; examples: Array<{ path: string; size: number; also_in: string[] }> };
   export let content: Content | null = null;
-  export let onMeasure: (() => void) | null = null;
   export let rootId: number | null = null;
+  /** A measure landed: the page reads the folder again */
+  export let onMeasured: () => void = () => {};
+
+  let scan: Scan | null = null;
+  let shared: Shared | null = null;
+  let loadedFor: number | null = null;
+  let busy = false;
+  let landed = 0;
+  let timer: ReturnType<typeof setInterval> | null = null;
+  $: if (rootId && rootId !== loadedFor) loadScan();
+  async function loadScan() {
+    loadedFor = rootId;
+    const data = await apiGetData<{ scan: Scan | null; shared: Shared | null }>(fetch, `/storage-roots/${rootId}/scan`).catch(() => null);
+    const was = scan?.status;
+    scan = data?.scan ?? null;
+    shared = data?.shared ?? null;
+    if (was === 'running' && scan?.status === 'done') {
+      landed += 1;
+      onMeasured();
+    }
+  }
+  $: measuring = scan?.status === 'running';
+  $: measuring ? start() : stop();
+  function start() {
+    if (!timer) timer = setInterval(() => rootId && loadScan(), 3000);
+  }
+  function stop() {
+    if (timer) clearInterval(timer);
+    timer = null;
+  }
+  onDestroy(stop);
+  async function measure() {
+    if (!rootId || busy) return;
+    busy = true;
+    try {
+      scan = await apiPostData<Scan>(fetch, `/storage-roots/${rootId}/measure`, {});
+    } catch (error: unknown) {
+      reportUiError(error, 'Unable to measure the folder.', 'storage-roots.measure');
+    } finally {
+      busy = false;
+    }
+  }
+  $: dups = content?.duplicates ?? null;
+  const seconds = (ms: number | null | undefined) => (ms == null ? '' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s`);
 
   const size = (bytes: number | null | undefined) => formatBytes(bytes);
   const count = (value: number | undefined) => (value == null ? '—' : value.toLocaleString('fr-FR'));
@@ -48,14 +103,18 @@
   const pct = (value: number) => (total ? Math.round((value / total) * 100) : 0);
 </script>
 
-<section class="cc" aria-label={t('Content of the folder')}>
+<section class="cc" aria-label={t('Content of the folder')} use:flashOn={landed}>
   <header>
     <h2>{t('Content')}</h2>
     <small>
-      {#if content?.scanned_at}<span title={formatDateTime(content.scanned_at)}>{t('read {when} by the worker', { when: timeAgo(content.scanned_at) })}</span>{:else}{t('Not measured yet')}{/if}
-      {#if onMeasure} · <button type="button" class="b2s-link-btn" on:click={onMeasure}>{t('Measure again')}</button>{/if}
+      {#if measuring}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span> {t('Measure in progress…')}
+      {:else if content?.scanned_at}<span title={formatDateTime(content.scanned_at)}>{t('measured {when}', { when: timeAgo(content.scanned_at) })}</span>{#if content.method} · {content.method === 'server' ? t('on the server') : t('through SMB')}{content.elapsed_ms != null ? ` (${seconds(content.elapsed_ms)})` : ''}{/if}
+      {:else}{t('Not measured yet')}{/if}
+      {#if rootId && !measuring} · <button type="button" class="b2s-link-btn" disabled={busy} on:click={measure}>{content?.scanned_at ? t('Measure again') : t('Measure the folder')}</button>{/if}
     </small>
   </header>
+  {#if scan?.status === 'failed'}<p class="cc__fail" role="alert"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i>{t('The last measure failed')}: {scan.error}</p>{/if}
+  {#if scan?.fallback_reason && content?.method === 'smb'}<p class="cc__note">{t('Measured through SMB (no duplicates): the server could not be walked on.')} <code>{scan.fallback_reason}</code></p>{/if}
   {#if content}
     <div class="cc__tiles">
       <div class="cc__tile"><i class="bi bi-hdd" aria-hidden="true"></i><span>{t('Size')}</span><b>{floor}<CountUp value={content.bytes} format={(n) => size(Math.round(n))} /></b></div>
@@ -112,6 +171,30 @@
         {/if}
       </div>
     {/if}
+    {#if dups?.groups || shared?.files}
+      <div class="cc__dups">
+        <div class="cc__age-head">
+          <h3>{t('Duplicates')}</h3>
+          <small>{t('same size and same fingerprint')}{dups?.truncated ? ` · ${t('partial: hashing budget reached')}` : ''}</small>
+        </div>
+        {#if dups?.groups}
+          <p><b>{size(dups.wasted_bytes)}</b> {t('to free in the folder')} · {t('{count} group(s) of copies, {files} file(s)', { count: dups.groups, files: dups.files })}</p>
+          <ul class="cc__dup-list">
+            {#each dups.top.slice(0, 5) as group (group.paths.join('|'))}
+              <li><span class="cc__dup-n">×{group.files}</span><span class="cc__dup-paths">{#each group.paths.slice(0, 3) as path (path)}<code title={path}>{path}</code>{/each}</span><span class="cc__dup-size">{size(group.size)}</span></li>
+            {/each}
+          </ul>
+        {/if}
+        {#if shared?.files}
+          <p><b>{size(shared.bytes)}</b> {t('also present in {count} other folder(s)', { count: shared.with.length })}</p>
+          <ul class="cc__dup-list">
+            {#each shared.examples as file (file.path)}
+              <li><span class="cc__dup-n"><i class="bi bi-files" aria-hidden="true"></i></span><span class="cc__dup-paths"><code title={file.path}>{file.path}</code><small>{t('also in')} {file.also_in.join(', ')}</small></span><span class="cc__dup-size">{size(file.size)}</span></li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
     {#if content.junk?.files}
       <div class="cc__junk">
         <i class="bi bi-trash3" aria-hidden="true"></i>
@@ -121,7 +204,7 @@
     {/if}
     <StorageRootGrowth {rootId} refreshKey={content.scanned_at} />
   {:else}
-    <p class="cc__empty">{t('The size, the sub-folders and the files appear after the next check of the folder by the worker.')}</p>
+    <p class="cc__empty">{t('The size, the age of the data and the duplicates appear after the first measure of the folder.')}</p>
   {/if}
 </section>
 
@@ -162,8 +245,21 @@
   .cc__more summary { cursor: pointer; color: var(--b2s-color-info-strong); font-size: var(--b2s-fs-xs); }
   .cc__more ul { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: var(--b2s-fs-xs); }
   .cc__more li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
-  .cc__more code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--b2s-font-mono); }
+  .cc__more code { color: var(--b2s-color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--b2s-font-mono); }
   .cc__more span { color: var(--b2s-color-text-muted); font-variant-numeric: tabular-nums; }
+  .cc__fail { display: flex; gap: 8px; margin: 0; color: var(--b2s-color-danger-strong, #b42318); font-size: var(--b2s-fs-sm); }
+  .cc__note code { font-family: var(--b2s-font-mono); }
+  .cc__dups { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--b2s-color-border); }
+  .cc__dups p { margin: 0; font-size: var(--b2s-fs-sm); }
+  .cc__dups h3 { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .cc__dups .cc__age-head small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .cc__dup-list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-xs); }
+  .cc__dup-list li { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+  .cc__dup-n { display: grid; place-items: center; padding: 1px 0; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-weight: 700; }
+  .cc__dup-paths { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .cc__dup-paths code { color: var(--b2s-color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--b2s-font-mono); }
+  .cc__dup-paths small { color: var(--b2s-color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cc__dup-size { color: var(--b2s-color-text-muted); font-variant-numeric: tabular-nums; }
   .cc__junk { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-warning-soft, #fff4e5); font-size: var(--b2s-fs-sm); }
   .cc__junk i { color: var(--b2s-color-warning-strong, #9a5b00); margin-top: 2px; }
   .cc__junk small { display: block; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }

@@ -12,6 +12,7 @@ from app.shared.b2s_job_contracts.contracts import (
     QUEUE_IDENTITY,
     QUEUE_PROBES,
     QUEUE_PROVISIONING,
+    QUEUE_SCANS,
 )
 
 
@@ -43,4 +44,10 @@ def run_acl_job(job_id: int) -> None:
 
 @dramatiq.actor(queue_name=QUEUE_PROBES, max_retries=5)
 def run_probe_job(job_id: int) -> None:
+    _dispatch(job_id)
+
+
+# 6 h: the walk of a big folder (measure, sensitivity); started by its own worker process (start.sh)
+@dramatiq.actor(queue_name=QUEUE_SCANS, max_retries=2, time_limit=6 * 3600 * 1000)
+def run_scan_job(job_id: int) -> None:
     _dispatch(job_id)

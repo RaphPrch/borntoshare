@@ -27,8 +27,10 @@ def main() -> int:
         client = Client(
             request["address"], port=int(request.get("port") or 5985), ssl=False, auth="kerberos",
             negotiate_hostname_override=request["fqdn"], negotiate_delegate=False, encryption="always",
+            # The receive loop polls every 20 s until the script ends: a long walk of a folder never times out here
+            # (the parent process bounds the whole run)
             connection_timeout=min(int(request.get("timeout") or 60), 30),
-            operation_timeout=max(10, int(request.get("timeout") or 60) - 5),
+            operation_timeout=20, read_timeout=30,
         )
         output, streams, had_errors = client.execute_ps(request["script"])
         errors = [str(item) for item in streams.error][:5]

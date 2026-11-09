@@ -13,7 +13,10 @@ else
   uvicorn app.main:app --host 0.0.0.0 --port 8080 --no-access-log &
 fi
 
-dramatiq app.jobs.tasks &
+# Interactive jobs (tests, ACL, groups) and the long walks of folders in separate processes: a scan of millions of
+# files never delays a test. SCAN_THREADS: walks at the same time (each one reads its file server).
+dramatiq app.jobs.tasks --queues capsule_identity capsule_provisioning capsule_acl capsule_probes &
+dramatiq app.jobs.tasks --queues capsule_scans --processes 1 --threads "${SCAN_THREADS:-2}" &
 
 # Exit as soon as one of them exits
 wait -n

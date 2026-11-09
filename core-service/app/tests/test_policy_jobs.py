@@ -36,6 +36,6 @@ def test_a_task_refused_by_the_queue_is_tried_again_next_run(monkeypatch):
         {"policy_id": 5, "storage_root_id": 2, "kind": "sensitivity"},
     ]
     done = asyncio.run(policies.dispatch_jobs(db, jobs))
-    assert done == {"check": 1, "sensitivity": 1, "failed": 1}
+    assert done == {"check": 1, "measure": 0, "sensitivity": 1, "failed": 1}
     # Only folder 1 gets its date: folder 2 stays due
     assert [(row["policy"], row["root"]) for row in db.updates[-1]] == [(5, 1)]

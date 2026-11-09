@@ -1541,6 +1541,10 @@
       "remediation_cancelled": {
         "title": "Correction annulée",
         "description": "La correction demandée pour « {target} » est annulée"
+      },
+      "measure_requested": {
+        "title": "Mesure demandée",
+        "description": "Le worker mesure « {target} » : taille, âge des données, fichiers parasites et doublons"
       }
     },
     "access_request": {
@@ -5049,5 +5053,42 @@
   "5S: Set in order": "Ranger",
   "5S: Shine": "Nettoyer",
   "5S: Standardize": "Standardiser",
-  "5S: Sustain": "Respecter"
+  "5S: Sustain": "Respecter",
+  "Keep what is used: data untouched for years goes to the archive, duplicates go.": "Garder l'utile : les données inchangées depuis des années partent en archive, les doublons disparaissent.",
+  "Measure in progress…": "Mesure en cours…",
+  "measured {when}": "mesuré {when}",
+  "on the server": "sur le serveur",
+  "through SMB": "par SMB",
+  "Measure the folder": "Mesurer le dossier",
+  "The last measure failed": "La dernière mesure a échoué",
+  "Measured through SMB (no duplicates): the server could not be walked on.": "Mesuré par SMB (sans doublons) : le parcours sur le serveur n'a pas été possible.",
+  "Duplicates": "Doublons",
+  "same size and same fingerprint": "même taille et même empreinte",
+  "partial: hashing budget reached": "partiel : budget d'empreintes atteint",
+  "to free in the folder": "à libérer dans le dossier",
+  "{count} group(s) of copies, {files} file(s)": "{count} groupe(s) de copies, {files} fichier(s)",
+  "also present in {count} other folder(s)": "présents aussi dans {count} autre(s) dossier(s)",
+  "also in": "aussi dans",
+  "Unable to measure the folder.": "Impossible de mesurer le dossier.",
+  "The size, the age of the data and the duplicates appear after the first measure of the folder.": "La taille, l'âge des données et les doublons apparaissent après la première mesure du dossier.",
+  "Full scan": "Analyse complète",
+  "Incremental scan: only the files changed since the last one were read": "Analyse incrémentale : seuls les fichiers modifiés depuis la précédente ont été lus",
+  "listed on the server": "listés sur le serveur",
+  "{count} changed file(s) left: read at the next scan": "{count} fichier(s) modifié(s) restant(s) : lus à la prochaine analyse",
+  "Test the folder and reread its ACL": "Tester le dossier et relire son ACL",
+  "Measure the folder: size, age, clutter, duplicates": "Mesurer le dossier : taille, âge, fichiers parasites, doublons",
+  "Weekly measure of the folders": "Mesure hebdomadaire des dossiers",
+  "Size, age of the data, clutter and duplicates of every folder, every week: the growth curves and the 5S follow.": "Taille, âge des données, fichiers parasites et doublons de chaque dossier, chaque semaine : les courbes de croissance et le 5S suivent.",
+  "Copies of the same files inside the folder or in other folders.": "Copies des mêmes fichiers dans le dossier ou dans d'autres dossiers.",
+  "with duplicates": "avec doublons",
+  "every folder": "tous les dossiers",
+  "Probable copies (same size and fingerprint), found when the folders are measured on their server": "Copies probables (même taille et même empreinte), trouvées quand les dossiers sont mesurés sur leur serveur",
+  "No folder measured on its server yet: duplicates are found by the measure on the Windows server.": "Aucun dossier mesuré sur son serveur pour l'instant : les doublons sont trouvés par la mesure sur le serveur Windows.",
+  "No duplicate found in the {count} folder(s) measured on their server.": "Aucun doublon dans les {count} dossier(s) mesuré(s) sur leur serveur.",
+  "to free": "à libérer",
+  "inside the folders": "dans les dossiers",
+  "between folders": "entre dossiers",
+  "folder(s) concerned": "dossier(s) concerné(s)",
+  "{size} inside ({count} group(s))": "{size} dans le dossier ({count} groupe(s))",
+  "{size} also in {count} other folder(s)": "{size} aussi dans {count} autre(s) dossier(s)"
 }

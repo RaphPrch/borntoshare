@@ -40,6 +40,7 @@ _PROBE_JOB_TYPE_BY_TEMPLATE = {
     "dfs_folder_create": "DFS_FOLDER_CREATE",
     "scan_smb_sensitivity": "SENSITIVITY_SCAN",
     "folder_quota_read": "FOLDER_QUOTA_READ",
+    "folder_scan": "FOLDER_SCAN",
     "folder_quota_apply": "FOLDER_QUOTA_APPLY",
     "dfs_folder_delete": "DFS_FOLDER_DELETE",
 }
@@ -413,6 +414,7 @@ async def _enrich_folder_payload(
 
 async def _enrich_quota_payload(
     payload: dict[str, Any],
+    measure: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     """FSRM quota of a folder: the folder on its Windows file server, the server account, the DNS name of the server
     (Kerberos SPN when it is declared by its IP) and a domain controller to ask first."""
@@ -423,7 +425,8 @@ async def _enrich_quota_payload(
     ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(storage_root_id or 0)) if storage_root_id else None
     if not isinstance(ctx, dict):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error_code": "STORAGE_ROOT_NOT_FOUND", "message": "Storage root not found"})
-    if str(ctx.get("endpoint_type") or "smb").strip().lower() != "smb":
+    windows_server = str(ctx.get("endpoint_type") or "smb").strip().lower() == "smb"
+    if not windows_server and not measure:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"error_code": "QUOTA_DFS_UNSUPPORTED", "message": "A DFS folder has no quota of its own: set it on its target folder, on the file server"},
@@ -437,9 +440,12 @@ async def _enrich_quota_payload(
                     "storage_root_id": int(storage_root_id or 0)},
         )
     operation = str(target.get("operation") or "read").strip().lower()
-    out = {"host": host, "share": share, "path": rel_path, "storage_root_id": int(storage_root_id or 0), "operation": operation,
-           "server_name": str(ctx.get("endpoint_name") or "").strip() or None,
+    out = {"host": host, "share": share, "path": rel_path, "storage_root_id": int(storage_root_id or 0),
+           # A DFS namespace is measured through SMB (no server to walk on)
+           "server_name": (str(ctx.get("endpoint_name") or "").strip() or None) if windows_server else None,
            "kdc_host": str(ctx.get("identity_source_host") or "").strip() or None}
+    if not measure:
+        out["operation"] = operation
     if operation == "set":
         out.update({"limit_bytes": int(target.get("limit_bytes") or 0), "soft": bool(target.get("soft")),
                     "warn_percent": int(target.get("warn_percent") or 85), "description": "BornToShare"})
@@ -447,7 +453,9 @@ async def _enrich_quota_payload(
     domain_name = str(ctx.get("domain_name") or "").strip()
     if domain_name:
         auth["domain"] = domain_name
-    options["timeout_sec"] = int(options.get("timeout_sec") or 90)
+    options["timeout_sec"] = int(options.get("timeout_sec") or (3600 if measure else 90))
+    if measure:
+        auth["mode"] = "ntlm"  # SMB when the server cannot be walked on; Kerberos (WinRM) otherwise
     context["storage_root_id"] = int(storage_root_id or 0)
     return out, auth, options, context
 
@@ -534,7 +542,8 @@ async def _enrich_storage_root_probe_payload(
     if not isinstance(options.get("timeout_sec"), int):
         options["timeout_sec"] = int(options.get("timeout_sec") or 20)
     options["discover_permissions"] = bool(options.get("discover_permissions", True))
-    options["discover_content_size"] = bool(options.get("discover_content_size", True))
+    # The test reads the access and the ACL only: the measure of the content is its own job (folder_scan)
+    options["discover_content_size"] = bool(options.get("discover_content_size", False))
 
     context["storage_root_id"] = int(storage_root_id)
     context["storage_root_name"] = str(ctx.get("storage_root_name") or context.get("storage_root_name") or "").strip() or None
@@ -579,6 +588,8 @@ def _pick_template(kind: str, protocol: str) -> tuple[str, str]:
         return "folder_create", "v1"
     if kind_norm == "folder" and protocol_norm == "list":
         return "folder_list", "v1"
+    if kind_norm == "folder" and protocol_norm == "measure":
+        return "folder_scan", "v1"
     if kind_norm == "folder" and protocol_norm == "quota-read":
         return "folder_quota_read", "v1"
     if kind_norm == "folder" and protocol_norm == "quota-apply":
@@ -634,6 +645,17 @@ async def submit_probe_run(payload: dict[str, Any]) -> dict[str, Any]:
         target, auth, options, context = await _enrich_folder_payload(payload)
     if template_slug in {"folder_quota_read", "folder_quota_apply"}:
         target, auth, options, context = await _enrich_quota_payload(payload)
+    if template_slug == "folder_scan":
+        target, auth, options, context = await _enrich_quota_payload(payload, measure=True)
+    if template_slug == "scan_smb_sensitivity":
+        from app.services.sensitivity import incremental_params
+
+        # Where the last scan stopped, and the Windows server to list on (WinRM) when it is one
+        target.update(incremental_params(int(context.get("storage_root_id") or target.get("storage_root_id") or 0)))
+        ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(target.get("storage_root_id") or 0))
+        if isinstance(ctx, dict) and str(ctx.get("endpoint_type") or "smb").lower() == "smb":
+            target["server_name"] = str(ctx.get("endpoint_name") or "").strip() or None
+            target["kdc_host"] = str(ctx.get("identity_source_host") or "").strip() or None
 
     identity_source_id = positive_int(context.get("identity_source_id"))
     timeout_sec = int(options.get("timeout_sec") or 30)

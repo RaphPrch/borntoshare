@@ -64,6 +64,8 @@
   export let onEditRoot: () => void = () => {};
   export let onDeleteRoot: () => void = () => {};
   export let onRunRootProbe: () => void = () => {};
+  /** A measure landed: the overview is read again */
+  export let onReloadDetails: () => void = () => {};
   export let onNewAccessRequest: () => void = () => {};
   export let onOpenGovernanceDrawer: (role?: 'guardian') => void = () => {};
   export let onOpenTagsModal: () => void = () => {};
@@ -215,7 +217,7 @@
       {sensitivity}
       {isDfs}
       rootId={selectedStorageRootId}
-      onMeasure={onRunRootProbe}
+      onMeasured={onReloadDetails}
       {isAdmin}
       onOpenPermissions={() => onSelectTab('effective-access')}
       onExplain={explainFromOverview}

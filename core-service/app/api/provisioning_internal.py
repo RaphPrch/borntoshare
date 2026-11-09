@@ -441,6 +441,35 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
         logger.warning("POLICIES_AFTER_SCAN_FAILED", exc_info=True)
 
 
+def _persist_scan_result(db: Session, *, job_row: Any, result_json: dict | None, error_message: str | None = None) -> None:
+    """Measure of a folder (folder_scan): its content, history and fingerprints, or why it failed."""
+    from app.services import scans
+
+    if str(getattr(job_row, "action", "") or "").strip() != scans.ACTION:
+        return
+    root_id = _extract_storage_root_id_from_probe(job_payload_json=getattr(job_row, "payload_json", None), result_json=result_json)
+    if not root_id:
+        return
+    job_id = int(getattr(job_row, "id", 0) or 0) or None
+    try:
+        if error_message is not None:
+            scans.record_failure(db, root_id, job_id, error_message)
+            return
+        scans.record_result(db, root_id, job_id, result_json)
+    except Exception:
+        db.rollback()
+        logger.warning("SCAN_RESULT_NOT_SAVED", exc_info=True)
+        return
+    # The policies about size, age, clutter or duplicates apply at once to this folder
+    try:
+        from app.services.policies import run_all
+
+        run_all(db, only_root_ids={int(root_id)}, trigger="folder_scan", allow_jobs=False)
+    except Exception:
+        db.rollback()
+        logger.warning("POLICIES_AFTER_MEASURE_FAILED", exc_info=True)
+
+
 def _persist_quota_result(db: Session, *, job_row: Any, result_json: dict | None, error_message: str | None = None) -> None:
     """FSRM quota of a folder (folder_quota_read / folder_quota_apply): what the server has now, or why it failed."""
     from app.services import quotas
@@ -1255,6 +1284,7 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
 
     _persist_sensitivity_result(db, job_row=row, result_json=payload.result_json)
     _persist_quota_result(db, job_row=row, result_json=payload.result_json)
+    _persist_scan_result(db, job_row=row, result_json=payload.result_json)
     _record_access_group_outcome(db, job_row=row, succeeded=True, result_json=payload.result_json)
     _apply_infrastructure_results(db, job_row=row, result_json=payload.result_json)
 
@@ -1401,6 +1431,8 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
 
     _persist_sensitivity_result(db, job_row=row, result_json=payload.result_json,
                                 error_message=str(payload.error_message or payload.error_code or "The scan failed"))
+    _persist_scan_result(db, job_row=row, result_json=payload.result_json,
+                         error_message=str(payload.error_message or payload.error_code or "The measure failed"))
     _persist_quota_result(db, job_row=row, result_json={**(payload.result_json or {}), "error_code": payload.error_code},
                           error_message=str(payload.error_message or payload.error_code or "The quota operation failed"))
     _record_access_group_outcome(

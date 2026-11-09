@@ -41,3 +41,54 @@ def run_samba(cmd: list[str], *, username: str, password: str, **run_kwargs: Any
             os.unlink(auth_path)
         except FileNotFoundError:
             pass
+
+
+class stream_samba:
+    """A Samba CLI tool whose output is read line by line (a listing of millions of entries never sits in memory).
+
+        with stream_samba(cmd, username=..., password=..., timeout=3600) as lines:
+            for line in lines: ...
+    The process is killed when the deadline passes (TimeoutError) or when the reader stops early.
+    """
+
+    def __init__(self, cmd: list[str], *, username: str, password: str, timeout: int) -> None:
+        self.cmd = _with_domain_addresses(cmd)
+        self.username = username
+        self.password = password
+        self.timeout = timeout
+        self.proc: subprocess.Popen | None = None
+        self.auth_path = ""
+        self.timed_out = False
+
+    def __enter__(self):
+        import threading
+
+        fd, self.auth_path = tempfile.mkstemp(prefix="b2s_smbauth_")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(f"username = {self.username}\npassword = {self.password}\n")
+        self.proc = subprocess.Popen([*self.cmd, "-A", self.auth_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        self._timer = threading.Timer(self.timeout, self._kill)
+        self._timer.start()
+        return (raw.decode(errors="ignore").rstrip("\r\n") for raw in self.proc.stdout)
+
+    def _kill(self) -> None:
+        self.timed_out = True
+        if self.proc and self.proc.poll() is None:
+            self.proc.kill()
+
+    def __exit__(self, *exc) -> None:
+        self._timer.cancel()
+        if self.proc and self.proc.poll() is None:
+            self.proc.kill()
+        if self.proc:
+            self.proc.wait()
+        try:
+            os.unlink(self.auth_path)
+        except FileNotFoundError:
+            pass
+        if self.timed_out and exc[0] is None:
+            raise TimeoutError("listing timed out")
+
+    @property
+    def returncode(self) -> int | None:
+        return self.proc.returncode if self.proc else None

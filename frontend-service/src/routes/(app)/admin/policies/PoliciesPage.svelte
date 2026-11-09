@@ -14,14 +14,15 @@
    * Smart policies: « if the folders match this condition, then do this ». The condition is the express search
    * of the folders; the actions are a tag, an alert in Monitoring and a notice to the guardians.
    */
-  type Jobs = { kinds: Array<'check' | 'sensitivity'>; every_hours: number };
+  type Kind = 'check' | 'measure' | 'sensitivity';
+  type Jobs = { kinds: Kind[]; every_hours: number };
   type Actions = { add_tag: number | null; alert: { severity: string } | null; notify_guardians: boolean; jobs?: Jobs | null };
   type Policy = {
     id: number; name: string; description: string | null; enabled: boolean; condition: string; actions: Actions;
     matching: number; last_run_at: string | null; last_new: number | null; last_error: string | null;
   };
   type Draft = { id: number | null; name: string; description: string; enabled: boolean; condition: string; tagOn: boolean; tagId: number | null; alertOn: boolean; severity: string; notify: boolean;
-    jobsOn: boolean; jobCheck: boolean; jobSensitivity: boolean; everyHours: number };
+    jobsOn: boolean; jobCheck: boolean; jobMeasure: boolean; jobSensitivity: boolean; everyHours: number };
 
   export let data: Record<string, any>;
 
@@ -41,6 +42,8 @@
     { name: t('Folder without guardian'), description: t('Nobody but the administrators can validate its requests.'), condition: 'est:sans-gardien', tagId: null, severity: 'warning', notify: false, icon: 'bi-person-x' },
     { name: t('Unreachable folder'), description: t('The worker can no longer open it.'), condition: 'est:injoignable', tagId: null, severity: 'high', notify: true, icon: 'bi-wifi-off' },
     { name: t('Weekly scan of the Finance folders'), description: t('Looks for passwords stored in the folders tagged Finance, every week.'), condition: 'tag:Finance', tagId: null, severity: 'warning', notify: false, icon: 'bi-calendar-week', jobs: { kinds: ['sensitivity'], every_hours: 168 } },
+    { name: t('Weekly measure of the folders'), description: t('Size, age of the data, clutter and duplicates of every folder, every week: the growth curves and the 5S follow.'), condition: 'est:tous', tagId: null, severity: 'info', notify: false, icon: 'bi-rulers', jobs: { kinds: ['measure'], every_hours: 168 } },
+    { name: t('Duplicates'), description: t('Copies of the same files inside the folder or in other folders.'), condition: 'est:doublons', tagId: null, severity: 'info', notify: false, icon: 'bi-files' },
     { name: t('Large folder'), description: t('More than 50 GB: to check with its guardians.'), condition: 'taille>50Go', tagId: null, severity: 'info', notify: false, icon: 'bi-hdd' },
     { name: t('Broken inheritance without tag'), description: t('Permissions set apart, and nothing says why.'), condition: 'est:heritage-rompu est:sans-tag', tagId: null, severity: 'info', notify: false, icon: 'bi-scissors' }
   ];
@@ -64,7 +67,7 @@
         : { name: '', description: '', condition: '', tagId: null, severity: 'warning', notify: false, alertOn: true, enabled: true, jobs: null };
     draft = { id: policy?.id ?? null, name: source.name, description: source.description, enabled: source.enabled, condition: source.condition,
       tagOn: Boolean(source.tagId), tagId: source.tagId ?? null, alertOn: source.alertOn, severity: source.severity, notify: source.notify,
-      jobsOn: Boolean(source.jobs?.kinds?.length), jobCheck: Boolean(source.jobs?.kinds?.includes('check')),
+      jobsOn: Boolean(source.jobs?.kinds?.length), jobCheck: Boolean(source.jobs?.kinds?.includes('check')), jobMeasure: Boolean(source.jobs?.kinds?.includes('measure')),
       jobSensitivity: Boolean(source.jobs?.kinds?.includes('sensitivity')), everyHours: Number(source.jobs?.every_hours ?? 168) };
     preview = null;
     if (draft.condition) schedulePreview(draft.condition);
@@ -90,7 +93,7 @@
     schedulePreview(value);
   }
 
-  $: draftKinds = draft ? ([draft.jobCheck && 'check', draft.jobSensitivity && 'sensitivity'].filter(Boolean) as Array<'check' | 'sensitivity'>) : [];
+  $: draftKinds = draft ? ([draft.jobCheck && 'check', draft.jobMeasure && 'measure', draft.jobSensitivity && 'sensitivity'].filter(Boolean) as Kind[]) : [];
   $: wide = Boolean(draft?.enabled && (preview?.count ?? 0) > POLICY_CONFIRM_FROM);
   $: canSave = Boolean(draft && draft.name.trim() && draft.condition.trim() && (draft.alertOn || draft.notify || (draft.tagOn && draft.tagId) || (draft.jobsOn && draftKinds.length)) && !(preview?.unknown_states?.length) && (!wide || wideConfirmed));
 
@@ -278,7 +281,8 @@
         </label>
         {#if draft.jobsOn}
           <div class="pf__jobs">
-            <label><input type="checkbox" bind:checked={draft.jobCheck} />{t('Test the folder, reread its ACL and measure its content')}</label>
+            <label><input type="checkbox" bind:checked={draft.jobCheck} />{t('Test the folder and reread its ACL')}</label>
+            <label><input type="checkbox" bind:checked={draft.jobMeasure} />{t('Measure the folder: size, age, clutter, duplicates')}</label>
             <label><input type="checkbox" bind:checked={draft.jobSensitivity} />{t('Sensitivity scan (passwords, keys, vaults)')}</label>
           </div>
         {/if}

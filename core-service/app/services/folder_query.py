@@ -5,7 +5,7 @@ free text plus « key:value » filters, « - » to exclude, quotes for a value w
   tag: gardien: zone: serveur: dfs: partage: alerte: taille> taille<
   est: alerte injoignable sain sans-gardien sans-tag heritage-rompu demandes a-revalider vide non-mesure
        non-teste dfs sensible non-analyse mot-de-passe cle-ou-jeton correction quota sans-quota quota-plein quota-demande
-       donnees-froides encombre
+       donnees-froides encombre doublons tous
 """
 from __future__ import annotations
 
@@ -116,6 +116,9 @@ STATES: dict[str, Callable[[dict], bool]] = {
     # More than half of the data untouched for a year · clutter files (caches, lock files, temporary, copies)
     "donnees-froides": lambda row: bool(row.get("cold_1y_bytes")) and float(row["cold_1y_bytes"]) > 0.5 * float(_size(row) or 0) > 0,
     "encombre": lambda row: int(row.get("junk_files") or 0) > 0,
+    "doublons": lambda row: int(row.get("dup_wasted_bytes") or 0) > 0 or int(row.get("shared_dup_bytes") or 0) > 0,
+    # Every folder: the condition of a policy that runs a task everywhere (weekly measure)
+    "tous": lambda row: True,
     "quota": lambda row: row.get("quota_limit_bytes") is not None,
     "sans-quota": lambda row: row.get("quota_limit_bytes") is None,
     "quota-plein": lambda row: row.get("quota_used_percent") is not None and float(row["quota_used_percent"]) >= float(row.get("quota_warn_percent") or 85),

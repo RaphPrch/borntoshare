@@ -71,7 +71,7 @@ def test_storage_root_probe_maps_to_smb_root_template() -> None:
     assert probe_service._job_type_for_template(template) == "SMB_PROBE"
 
 
-def test_storage_root_probe_enrichment_defaults_to_permissions_and_size(monkeypatch) -> None:
+def test_storage_root_probe_enrichment_reads_permissions_and_leaves_the_measure_to_its_own_job(monkeypatch) -> None:
     async def _fake_internal_get(path: str):
         assert path == "/api/internal/provisioning/storage-roots/8015/context"
         return {
@@ -103,5 +103,5 @@ def test_storage_root_probe_enrichment_defaults_to_permissions_and_size(monkeypa
     assert auth["username"] == "svc-probe"
     assert auth["secret_ref"] == "sm://endpoint/7011"
     assert options["discover_permissions"] is True
-    assert options["discover_content_size"] is True
+    assert options["discover_content_size"] is False
     assert context["storage_root_id"] == 8015

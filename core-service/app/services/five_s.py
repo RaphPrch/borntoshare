@@ -69,11 +69,16 @@ def score_folder(row: dict, scanned_at: datetime | None, now: datetime | None = 
     actions: list[dict[str, str]] = []
     size = _size(row)
 
-    # Trier: the share of cold data
+    # Trier: cold data and duplicates (inside the folder fully, shared with other folders half: one copy may be the right one)
     if size and row.get("cold_1y_bytes") is not None:
         cold1, cold3 = int(row.get("cold_1y_bytes") or 0), int(row.get("cold_3y_bytes") or 0)
-        weight = (cold3 + 0.5 * (cold1 - cold3)) / size
+        dup, shared = int(row.get("dup_wasted_bytes") or 0), int(row.get("shared_dup_bytes") or 0)
+        weight = min(1.0, (cold3 + 0.5 * (cold1 - cold3) + dup + 0.5 * shared) / size)
         pillars["sort"] = max(0, round(100 * (1 - weight)))
+        if dup:
+            actions.append({"pillar": "sort", "text": f"Supprimer {_bytes(dup)} de doublons dans le dossier ({int(row.get('dup_groups') or 0)} groupe(s))"})
+        if shared:
+            actions.append({"pillar": "sort", "text": f"Dédoublonner {_bytes(shared)} présents aussi dans {int(row.get('shared_dup_folders') or 0)} autre(s) dossier(s)"})
         if cold3:
             actions.append({"pillar": "sort", "text": f"Archiver {_bytes(cold3)} non modifiés depuis plus de 3 ans"})
         elif cold1 > 0.3 * size:
@@ -195,6 +200,7 @@ def compute(rows: list[dict[str, Any]], scanned: dict[int, datetime]) -> dict[st
 def _family(text_value: str) -> str:
     """« Archiver 2 Go non modifiés… » → « Archiver les données de plus de 3 ans »: the same action across folders."""
     families = (
+        ("Dédoublonner", "Dédoublonner entre dossiers"),
         ("Archiver", "Archiver les données de plus de 3 ans"), ("Revoir", "Revoir les données de plus d'un an"),
         ("Ajouter un second gardien", "Ajouter un second gardien"), ("Nommer des gardiens", "Nommer des gardiens"),
         ("Classer", "Classer avec un tag"), ("Définir un quota", "Définir un quota"),
@@ -206,6 +212,8 @@ def _family(text_value: str) -> str:
         ("Mesurer", "Mesurer les dossiers"), ("Relancer", "Relancer l'analyse de sensibilité"),
         ("Lancer", "Lancer l'analyse de sensibilité"), ("Décider", "Décider les demandes en attente"),
     )
+    if text_value.startswith("Supprimer") and "doublons" in text_value:
+        return "Supprimer les doublons dans les dossiers"
     for prefix, family in families:
         if text_value.startswith(prefix):
             return family

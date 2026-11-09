@@ -23,6 +23,7 @@ from app.shared.name_resolution import resolve_name
 from app.actions.tls_certificate import fetch_tls_certificate
 from app.actions.sensitivity import scan_smb_sensitivity
 from app.actions.quota import apply_folder_quota, read_folder_quota
+from app.actions.folder_scan import scan_folder
 from app.actions.smb import test_smb_ntlm, test_smb_root_access
 from app.middleware.resolve_secrets import CapsuleSecretResolutionError, resolve_secret_fields
 from app.schemas.actions import (
@@ -35,6 +36,7 @@ from app.schemas.actions import (
     FolderCreatePayload,
     FolderOperationPayload,
     FolderQuotaPayload,
+    FolderScanPayload,
     KerberosAuthPayload,
     LDAPRecursiveGroupUsersPayload,
     LDAPSearchPayload,
@@ -243,6 +245,14 @@ ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
         target_field="host",
     ),
     # FSRM quota of a folder on its Windows server (WinRM, Kerberos): read, then set or remove
+    # Measure of a folder, apart from its test (scan queue): size, age, clutter, duplicates
+    "folder_scan": ActionSpec(
+        action="folder_scan",
+        schema=FolderScanPayload,
+        runner=scan_folder,
+        secret_fields=("secret_ref",),
+        target_field="host",
+    ),
     "folder_quota_read": ActionSpec(
         action="folder_quota_read",
         schema=FolderQuotaPayload,

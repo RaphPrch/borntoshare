@@ -54,36 +54,91 @@ def visible(findings: list[dict], ignored: set[str], total_flagged: int | None =
     return len({str(item.get("path", "")).lower() for item in shown}) + unlisted, counts
 
 
+def _merge(previous: list[dict], scan: dict, same_rules: bool) -> list[dict]:
+    """Findings after an incremental scan: the names of all the files were checked again (their findings replace the
+    old ones); the content only of the files read this time. A file not read again keeps its content findings,
+    unless it is gone or the rules changed."""
+    new = list(scan.get("findings") or [])
+    incremental = scan.get("incremental") if isinstance(scan.get("incremental"), dict) else None
+    if incremental is None:
+        return new
+    read = {str(path).lower() for path in incremental.get("read_paths") or []}
+    gone = {str(path).lower() for path in incremental.get("gone_paths") or []}
+    kept = [item for item in previous
+            if same_rules and item.get("line") is not None
+            and str(item.get("path", "")).lower() not in read and str(item.get("path", "")).lower() not in gone]
+    unique: dict[tuple[str, str], dict] = {}
+    for item in [*kept, *new]:
+        key = (str(item.get("path", "")).lower(), str(item.get("category")))
+        if key not in unique or (unique[key].get("line") is None and item.get("line") is not None):
+            unique[key] = item
+    return list(unique.values())
+
+
+def incremental_params(storage_root_id: int) -> dict[str, Any]:
+    """Where the next scan of the folder starts, and the files whose content was flagged (to know if they are gone)."""
+    from app.core.db import SessionLocal
+
+    if not storage_root_id:
+        return {}
+    session = SessionLocal()
+    try:
+        row = session.execute(
+            text("SELECT content_since, content_cursor, rules_version, findings_json FROM storage_root_sensitivity WHERE storage_root_id = :id"),
+            {"id": int(storage_root_id)},
+        ).mappings().first()
+    except Exception:
+        return {}
+    finally:
+        session.close()
+    if not row or not row["content_since"]:
+        return {}
+    known = sorted({str(item.get("path")) for item in _load(row["findings_json"], []) if isinstance(item, dict) and item.get("line") is not None})
+    return {"since": row["content_since"], "cursor_path": row["content_cursor"] or "", "rules_version": row["rules_version"], "known_paths": known[:200]}
+
+
 def record_result(db: Session, storage_root_id: int, job_id: int | None, result_json: dict | None) -> dict[str, Any] | None:
     details = (result_json or {}).get("details") if isinstance(result_json, dict) else None
     scan = details.get("sensitivity") if isinstance(details, dict) else None
     if not isinstance(scan, dict):
         return None
-    findings = list(scan.get("findings") or [])
-    summary = {key: scan.get(key) for key in ("rules_version", "target", "files_listed", "files_read", "bytes_read", "truncated")}
-    summary["files_flagged_total"] = int(scan.get("files_flagged") or 0)
+    previous = db.execute(text("SELECT ignored_json, findings_json, rules_version FROM storage_root_sensitivity WHERE storage_root_id = :id"),
+                          {"id": int(storage_root_id)}).mappings().first()
+    same_rules = bool(previous) and previous["rules_version"] == scan.get("rules_version")
+    findings = _merge(_load(previous["findings_json"], []) if previous else [], scan, same_rules)
+    incremental = scan.get("incremental") if isinstance(scan.get("incremental"), dict) else {}
+    summary = {key: scan.get(key) for key in ("rules_version", "target", "files_listed", "files_read", "bytes_read", "truncated", "method", "fallback_reason")}
+    summary["files_flagged_total"] = len({str(item.get("path", "")).lower() for item in findings})
+    summary["incremental"] = {key: incremental.get(key) for key in ("full", "complete", "pending")}
     # The files marked as false positives stay so through the new scan
-    previous = db.execute(text("SELECT ignored_json FROM storage_root_sensitivity WHERE storage_root_id = :id"), {"id": int(storage_root_id)}).first()
-    flagged, counts = visible(findings, _ignored_paths(previous[0] if previous else None), summary["files_flagged_total"])
+    flagged, counts = visible(findings, _ignored_paths(previous["ignored_json"] if previous else None), summary["files_flagged_total"])
     db.execute(
         text(
             """
             INSERT INTO storage_root_sensitivity
-              (storage_root_id, status, files_flagged, counts_json, findings_json, summary_json, job_id, scanned_at, error_message)
-            VALUES (:id, 'done', :flagged, :counts, :findings, :summary, :job, :now, NULL)
+              (storage_root_id, status, files_flagged, counts_json, findings_json, summary_json, job_id, scanned_at, error_message,
+               content_since, content_cursor, content_pending, content_complete, rules_version)
+            VALUES (:id, 'done', :flagged, :counts, :findings, :summary, :job, :now, NULL, :since, :cursor, :pending, :complete, :rules)
             ON DUPLICATE KEY UPDATE status = 'done', files_flagged = VALUES(files_flagged), counts_json = VALUES(counts_json),
               findings_json = VALUES(findings_json), summary_json = VALUES(summary_json), job_id = VALUES(job_id),
-              scanned_at = VALUES(scanned_at), error_message = NULL
+              scanned_at = VALUES(scanned_at), error_message = NULL, content_since = VALUES(content_since),
+              content_cursor = VALUES(content_cursor), content_pending = VALUES(content_pending),
+              content_complete = VALUES(content_complete), rules_version = VALUES(rules_version)
             """
         ),
         {
             "id": int(storage_root_id),
             "flagged": flagged,
             "counts": json.dumps(counts),
-            "findings": json.dumps(findings),
+            "findings": json.dumps(findings[:500]),
             "summary": json.dumps(summary),
             "job": job_id,
             "now": _now(),
+            "since": incremental.get("next_since"),
+            "cursor": (incremental.get("next_cursor") or None) and str(incremental["next_cursor"])[:1024],
+            "pending": incremental.get("pending"),
+            "complete": None if not incremental else (1 if incremental.get("complete") else 0),
+            "rules": scan.get("rules_version"),
         },
     )
     return scan

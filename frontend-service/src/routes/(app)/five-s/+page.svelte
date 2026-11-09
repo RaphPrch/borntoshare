@@ -17,10 +17,12 @@
   type Folder = { id: number; name: string; path: string; server: string; zone: string; size_bytes: number | null; score: number | null;
     pillars: Record<Pillar, number | null>; actions: Array<{ pillar: Pillar; text: string }> };
   type FiveS = { score: number | null; pillars: Record<Pillar, number | null>; folders_count: number; scope: string;
-    top_actions: Array<{ pillar: Pillar; text: string; folders: number }>; folders: Folder[]; zones: Array<{ id: number; name: string }> };
+    top_actions: Array<{ pillar: Pillar; text: string; folders: number }>; folders: Folder[]; zones: Array<{ id: number; name: string }>;
+    duplicates: { inside_bytes: number; between_bytes: number; folders_count: number; measured_on_server: number;
+      folders: Array<{ id: number; name: string; inside: number; groups: number; shared: number; with: number }> } };
 
   const PILLARS: Array<{ key: Pillar; label: () => string; jp: string; hint: () => string; icon: string }> = [
-    { key: 'sort', label: () => t('5S: Sort'), jp: 'Seiri', hint: () => t('Keep what is used: data untouched for years goes to the archive.'), icon: 'bi-funnel' },
+    { key: 'sort', label: () => t('5S: Sort'), jp: 'Seiri', hint: () => t('Keep what is used: data untouched for years goes to the archive, duplicates go.'), icon: 'bi-funnel' },
     { key: 'order', label: () => t('5S: Set in order'), jp: 'Seiton', hint: () => t('Each folder has its owners and its place: guardians, a tag, a quota.'), icon: 'bi-grid-3x3-gap' },
     { key: 'shine', label: () => t('5S: Shine'), jp: 'Seiso', hint: () => t('Nothing that should not be there: passwords, keys, clutter files.'), icon: 'bi-stars' },
     { key: 'standard', label: () => t('5S: Standardize'), jp: 'Seiketsu', hint: () => t('The folder follows the rule: inheritance, no error, reachable.'), icon: 'bi-rulers' },
@@ -106,6 +108,33 @@
         {/each}
       </div>
     </div>
+
+    <section class="fs__card" aria-label={t('Duplicates')}>
+      <header>
+        <h2><i class="bi bi-files" aria-hidden="true"></i> {t('Duplicates')}</h2>
+        <small>{t('Probable copies (same size and fingerprint), found when the folders are measured on their server')}</small>
+      </header>
+      {#if !data.duplicates.measured_on_server}
+        <p class="fs__muted">{t('No folder measured on its server yet: duplicates are found by the measure on the Windows server.')}</p>
+      {:else if !data.duplicates.folders_count}
+        <p class="fs__ok"><i class="bi bi-check2-circle" aria-hidden="true"></i>{t('No duplicate found in the {count} folder(s) measured on their server.', { count: data.duplicates.measured_on_server })}</p>
+      {:else}
+        <div class="fs__dup-kpis">
+          <div><b><CountUp value={data.duplicates.inside_bytes + data.duplicates.between_bytes} format={(n) => formatBytes(Math.round(n))} /></b><span>{t('to free')}</span></div>
+          <div><b>{formatBytes(data.duplicates.inside_bytes)}</b><span>{t('inside the folders')}</span></div>
+          <div><b>{formatBytes(data.duplicates.between_bytes)}</b><span>{t('between folders')}</span></div>
+          <div><b>{data.duplicates.folders_count}</b><span>{t('folder(s) concerned')}</span></div>
+        </div>
+        <ul class="fs__dups">
+          {#each data.duplicates.folders as folder (folder.id)}
+            <li>
+              <a href={`/storage-roots?selected=${folder.id}`}><b>{folder.name}</b></a>
+              <span>{#if folder.inside}{t('{size} inside ({count} group(s))', { size: formatBytes(folder.inside), count: folder.groups })}{/if}{#if folder.inside && folder.shared}{' · '}{/if}{#if folder.shared}{t('{size} also in {count} other folder(s)', { size: formatBytes(folder.shared), count: folder.with })}{/if}</span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
 
     {#if data.top_actions.length}
       <section class="fs__card" aria-label={t('What to do first')}>
@@ -209,5 +238,16 @@
   .fs__dot { display: inline-grid; place-items: center; min-width: 34px; padding: 1px 6px; border-radius: 8px; background: var(--fs-soft); color: var(--fs-tone); font-size: var(--b2s-fs-xs); font-weight: 600; font-variant-numeric: tabular-nums; }
   .fs__next { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-sm); }
   .fs__empty { margin: 12px 0; color: var(--b2s-color-text-muted); }
+  .fs__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .fs__ok { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--b2s-color-success-strong, #1a7f37); font-size: var(--b2s-fs-sm); }
+  .fs__card h2 i { color: var(--b2s-color-info-strong); }
+  .fs__dup-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .fs__dup-kpis div { display: flex; flex-direction: column; padding: 10px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-info-soft); }
+  .fs__dup-kpis b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .fs__dup-kpis span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fs__dups { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
+  .fs__dups li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--b2s-color-border); }
+  .fs__dups a { color: inherit; text-decoration: none; }
+  .fs__dups span { color: var(--b2s-color-text-muted); }
   .fs__more { align-self: center; }
 </style>

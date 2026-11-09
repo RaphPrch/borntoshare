@@ -24,8 +24,8 @@ class PolicyAlert(BaseModel):
 
 
 class PolicyJobs(BaseModel):
-    # check: test the folder, read its ACL again and measure its content; sensitivity: sensitivity scan
-    kinds: list[Literal["check", "sensitivity"]] = Field(min_length=1, max_length=2)
+    # check: test the folder and read its ACL again; measure: size, age, clutter, duplicates; sensitivity: scan
+    kinds: list[Literal["check", "measure", "sensitivity"]] = Field(min_length=1, max_length=3)
     every_hours: Literal[24, 168, 720] = 168
 
 

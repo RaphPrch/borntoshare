@@ -5,6 +5,7 @@ from app.shared.b2s_job_contracts.actors import (
     run_identity_job,
     run_probe_job,
     run_provisioning_job,
+    run_scan_job,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "run_identity_job",
     "run_probe_job",
     "run_provisioning_job",
+    "run_scan_job",
 ]
