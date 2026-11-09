@@ -15,24 +15,8 @@ CREATE TABLE IF NOT EXISTS storage_root_scans (
   error_message VARCHAR(600) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Fingerprints of the biggest files of each folder (at most 500 per folder, replaced at each measure): two folders
--- holding the same fingerprint hold the same file (duplicates between folders). Fingerprint = SHA-256 of the size,
--- the first and the last 64 KiB.
-CREATE TABLE IF NOT EXISTS storage_root_fingerprints (
-  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  storage_root_id BIGINT NOT NULL,
-  fingerprint CHAR(64) NOT NULL,
-  size_bytes BIGINT UNSIGNED NOT NULL,
-  path VARCHAR(1024) NOT NULL,
-  modified_at DATETIME NULL,
-  KEY ix_fingerprints_print (fingerprint, size_bytes),
-  KEY ix_fingerprints_root (storage_root_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Room taken by duplicates in each measure (5S « Trier », its trend)
-SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'storage_root_content_history' AND COLUMN_NAME = 'duplicate_bytes');
-SET @sql := IF(@col = 0, 'ALTER TABLE storage_root_content_history ADD COLUMN duplicate_bytes BIGINT UNSIGNED NULL', 'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+-- (Fingerprints and the history of the measures moved to the 5S module: b2s_fives_inventory.fingerprints,
+-- b2s_fives.content_history, scripts/modules/fives/install.sh)
 
 -- Incremental sensitivity scan: where the next scan starts (change time, path) and what is still to read
 SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'storage_root_sensitivity' AND COLUMN_NAME = 'content_since');

@@ -1,0 +1,10 @@
+# fives-service — the 5S and data hygiene module (Python 3.14)
+# Pinned: the same library has the same version in every service. Update them together.
+fastapi==0.156.5
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+pydantic-settings==2.16.1
+sqlalchemy==2.1.5
+pymysql==1.2.3
+cryptography==50.0.2
+httpx==0.28.1

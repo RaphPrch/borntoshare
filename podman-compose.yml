@@ -90,6 +90,8 @@ services:
       # Audit database: same server and account as DB_*
       LOGGING_DB_NAME: ${LOGGING_DB_NAME}
       CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
+      # The 5S module, when installed: it receives each measure of a folder
+      B2S_FIVES_URL: http://fives-service:8000
       # Database chosen in Advanced Settings › Infrastructure, read at startup (replaces DB_*)
       B2S_RUNTIME_DIR: /etc/b2s/runtime
     volumes:
@@ -139,6 +141,8 @@ services:
       # Upstreams of the BFF (no default in the frontend code)
       B2S_AUTH_URL: http://auth-service:8000
       B2S_CORE_URL: http://core-service:8000/api
+      # The 5S module (when installed and licensed): /api/modules/fives/*
+      B2S_FIVES_URL: http://fives-service:8000
       PRINCIPAL_SIGNING_KEY: ${PRINCIPAL_SIGNING_KEY}
     ports:
       - "${FRONTEND_PUBLISHED_PORT:-3000}:3000"
@@ -151,6 +155,30 @@ services:
       core-service:
         condition: service_healthy
     networks: [app]
+
+  # Optional module « 5S et hygiène des données » (licensed): its own container and databases
+  # (b2s_fives, b2s_fives_inventory, account FIVES_DB_USER), installed by scripts/modules/fives/install.sh.
+  # Started with the profile « fives » (make deploy does it when FIVES_DB_PASSWORD is set).
+  fives-service:
+    <<: *hardening
+    container_name: fives-service
+    image: b2s-fives-service:latest
+    build: ./fives-service
+    profiles: [fives]
+    environment:
+      <<: *common-env
+      B2S_CORE_URL: http://core-service:8000
+      FIVES_DB_HOST: ${FIVES_DB_HOST:-${DB_HOST}}
+      FIVES_DB_PORT: ${DB_PORT:-3306}
+      FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
+      FIVES_DB_PASSWORD: ${FIVES_DB_PASSWORD:-}
+      FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
+      FIVES_INVENTORY_DB_NAME: ${FIVES_INVENTORY_DB_NAME:-b2s_fives_inventory}
+    expose: ["8000"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+    networks: [app, data]
 
   # Database initialization (run once, then stop it: make wizard / make wizard-down)
   wizard-ui:

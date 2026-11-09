@@ -96,3 +96,24 @@ def test_storage_root_effective_availability_distinguishes_endpoint_and_root_sta
     assert repo._compute_effective_availability(
         {"storage_endpoint_last_probe_status": "success", "last_probe_status": None}
     ) == "needs_root_probe"
+
+
+def test_a_test_that_reads_the_acl_keeps_the_last_measure(monkeypatch) -> None:
+    """The test no longer measures: reading the ACL again must not wipe the content of the last measure."""
+    measured = {"content_size_bytes": 1234, "content_updated_at": "2026-11-09T19:00:00+00:00", "content_stats": {"files": 3}, "content_scan_job_id": 9}
+    root = StorageRoot(id=8015, storage_endpoint_id=0, name="Finance", root_path=r"\\files\finance", status="active",
+                       discovered_permissions_json={"permissions": [], **measured})
+
+    class _DB:
+        def get(self, model, ident):
+            return root
+
+    monkeypatch.setattr(provisioning_module.ProbeResultService, "record_storage_root_probe", lambda self, root_arg, **kwargs: None)
+    job = type("Job", (), {"id": 55, "action": "test_smb_root_access", "payload_json": {"payload": {"target": {"storage_root_id": 8015}}}})()
+    provisioning_module._persist_storage_root_probe_result(
+        _DB(), job_row=job, status_value="success",
+        result_json={"success": True, "message": "ok", "details": {"checks": [{"name": "root_acl", "ok": True}],
+                                                                   "permissions": [{"principal": "CORP\\g", "rights": "READ"}]}},
+    )
+    assert {key: root.discovered_permissions_json.get(key) for key in measured} == measured
+    assert root.discovered_permissions_json["permissions_count"] == 1

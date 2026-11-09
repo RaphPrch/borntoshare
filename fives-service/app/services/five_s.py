@@ -13,9 +13,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import bindparam, text
-from sqlalchemy.orm import Session
-
 PILLARS = ("sort", "order", "shine", "standard", "sustain")
 LABELS = {"sort": "Trier", "order": "Ranger", "shine": "Nettoyer", "standard": "Standardiser", "sustain": "Respecter"}
 
@@ -46,21 +43,6 @@ def _bytes(value: float) -> str:
             return f"{value:.1f} {unit}".replace(".0 ", " ").replace(".", ",")
         value /= 1024
     return str(value)
-
-
-def scanned_at_by_root(db: Session, ids: list[int]) -> dict[int, datetime]:
-    if not ids:
-        return {}
-    try:
-        rows = db.execute(
-            text("SELECT storage_root_id, scanned_at FROM storage_root_sensitivity WHERE scanned_at IS NOT NULL AND storage_root_id IN :ids")
-            .bindparams(bindparam("ids", expanding=True)),
-            {"ids": ids},
-        ).all()
-    except Exception:
-        db.rollback()
-        return {}
-    return {int(root_id): at for root_id, at in rows}
 
 
 def score_folder(row: dict, scanned_at: datetime | None, now: datetime | None = None) -> dict[str, Any]:
@@ -163,12 +145,14 @@ def score_folder(row: dict, scanned_at: datetime | None, now: datetime | None = 
     return {"score": round(sum(known) / len(known)) if known else None, "pillars": pillars, "actions": actions}
 
 
-def compute(rows: list[dict[str, Any]], scanned: dict[int, datetime]) -> dict[str, Any]:
+def compute(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Each row: a folder as the core knows it (with sensitivity_scanned_at), plus what the module adds
+    (shared_dup_bytes, shared_dup_folders)."""
     now = _now()
     folders = []
     for row in rows:
         root_id = int(row.get("storage_root_id") or 0)
-        result = score_folder(row, scanned.get(root_id), now)
+        result = score_folder(row, _parse(row.get("sensitivity_scanned_at")), now)
         folders.append({
             "id": root_id, "name": row.get("storage_root_name"), "path": row.get("dfs_path") or row.get("root_path"),
             "server": row.get("storage_endpoint_name"), "zone": row.get("zone_name"), "zone_id": row.get("zone_id"),

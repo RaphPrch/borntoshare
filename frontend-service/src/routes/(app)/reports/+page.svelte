@@ -3,13 +3,19 @@
   import { apiGetData } from '$lib/api/client';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { t } from '$lib/i18n';
+  import { fivesEnabled } from '$lib/utils/features';
 
   /** The reports of the governed folders: read on screen, printed or saved as PDF from the browser. */
-  type Report = { key: string; title: string; description: string };
-  const ICONS: Record<string, string> = { storage: 'bi-hdd-stack', security: 'bi-shield-lock', governance: 'bi-diagram-3', five_s: 'bi-stars' };
+  type Report = { key: string; title: string; description: string; source?: 'core' | 'fives' };
+  const ICONS: Record<string, string> = { storage: 'bi-hdd-stack', security: 'bi-shield-lock', governance: 'bi-diagram-3', 'fives-5s': 'bi-stars', 'fives-hygiene': 'bi-recycle' };
   let reports: Report[] | null = null;
   onMount(async () => {
-    reports = await apiGetData<Report[]>(fetch, '/insights/reports').catch(() => []);
+    // The reports of the core, then those of the 5S module when it is on
+    const [core, module] = await Promise.all([
+      apiGetData<Report[]>(fetch, '/insights/reports').catch(() => []),
+      $fivesEnabled ? apiGetData<Report[]>(fetch, '/modules/fives/reports').catch(() => []) : Promise.resolve([] as Report[])
+    ]);
+    reports = [...core, ...module];
   });
 </script>
 

@@ -2,19 +2,7 @@
 -- the quota will be full. And the corrections asked to guardians for the passwords found in their folders: due date,
 -- scan again at the due date, closed by itself when the files are gone. Idempotent: can be applied again.
 
-CREATE TABLE IF NOT EXISTS storage_root_content_history (
-  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  storage_root_id BIGINT NOT NULL,
-  measured_at DATETIME NOT NULL,
-  bytes BIGINT UNSIGNED NOT NULL,
-  files INT UNSIGNED NULL,
-  folders INT UNSIGNED NULL,
-  cold_1y_bytes BIGINT UNSIGNED NULL,
-  cold_3y_bytes BIGINT UNSIGNED NULL,
-  junk_bytes BIGINT UNSIGNED NULL,
-  -- One point per folder and hour: a second measure in the same hour replaces the first (one statement, no lock race)
-  UNIQUE KEY ux_content_history_root_hour (storage_root_id, measured_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- (The history of the measures moved to the 5S module: b2s_fives.content_history, scripts/modules/fives/install.sh)
 
 CREATE TABLE IF NOT EXISTS sensitivity_remediations (
   id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,

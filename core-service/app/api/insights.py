@@ -1,4 +1,4 @@
-"""The 5S of the file shares and the reports: computed on the folders the person may see (administrators: all;
+"""The reports of the core: computed on the folders the person may see (administrators: all;
 guardians and backup guardians: theirs), optionally in one zone."""
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api._helpers import ui_data
 from app.core.db import get_db
-from app.services import features, five_s, reports
+from app.services import reports
 from app.services.authorization import actor_from_request, filter_storage_root_rows, require_storage_roots_index
 
 router = APIRouter(prefix="/insights", tags=["insights"])
@@ -29,42 +29,15 @@ def _rows(db: Session, request: Request, zone_id: int | None) -> tuple[list[dict
     return rows, scope, [{"id": zid, "name": name} for zid, name in zones]
 
 
-@router.get("/five-s")
-def get_five_s(request: Request, zone_id: int | None = None, db: Session = Depends(get_db)):
-    features.require(db, "fives")
-    rows, scope, zones = _rows(db, request, zone_id)
-    from app.services.scans import cross_duplicate_total
-
-    ids = [int(row.get("storage_root_id") or 0) for row in rows]
-    result = five_s.compute(rows, five_s.scanned_at_by_root(db, ids))
-    # Duplicates: inside each folder (found on the server) and between folders (same fingerprint)
-    with_dups = sorted((row for row in rows if int(row.get("dup_wasted_bytes") or 0) or int(row.get("shared_dup_bytes") or 0)),
-                       key=lambda row: -(int(row.get("dup_wasted_bytes") or 0) + int(row.get("shared_dup_bytes") or 0)))
-    duplicates = {
-        "inside_bytes": sum(int(row.get("dup_wasted_bytes") or 0) for row in rows),
-        "between_bytes": cross_duplicate_total(db, ids)["bytes"],
-        "folders_count": len(with_dups),
-        "measured_on_server": sum(1 for row in rows if row.get("dup_wasted_bytes") is not None),
-        "folders": [{"id": int(row["storage_root_id"]), "name": row.get("storage_root_name"), "inside": int(row.get("dup_wasted_bytes") or 0),
-                     "groups": int(row.get("dup_groups") or 0), "shared": int(row.get("shared_dup_bytes") or 0),
-                     "with": int(row.get("shared_dup_folders") or 0)} for row in with_dups[:8]],
-    }
-    return ui_data({**result, "scope": scope, "zones": zones, "duplicates": duplicates})
-
-
 @router.get("/reports")
-def list_reports(db: Session = Depends(get_db)):
-    # The 5S report belongs to the 5S feature
-    fives = features.enabled(db, "fives")
-    return ui_data([{"key": key, "title": title, "description": description} for key, (title, description) in reports.KINDS.items()
-                    if key != "five_s" or fives])
+def list_reports():
+    # The 5S and data hygiene reports are served by the 5S module (fives-service)
+    return ui_data([{"key": key, "title": title, "description": description, "source": "core"} for key, (title, description) in reports.KINDS.items()])
 
 
 @router.get("/reports/{kind}")
 def get_report(kind: str, request: Request, zone_id: int | None = None, db: Session = Depends(get_db)):
     if kind not in reports.KINDS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
-    if kind == "five_s":
-        features.require(db, "fives")
     rows, scope, zones = _rows(db, request, zone_id)
     return ui_data({**reports.build(db, kind, rows, scope), "zones": zones})

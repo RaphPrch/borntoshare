@@ -27,7 +27,9 @@
     loadedFor = key;
     error = '';
     try {
-      report = await apiGetData<Report>(fetch, `/insights/reports/${kind}`, zoneId ? { zone_id: zoneId } : undefined);
+      // fives-…: a report of the 5S module (its own service)
+      const base = kind.startsWith('fives-') ? '/modules/fives/reports' : '/insights/reports';
+      report = await apiGetData<Report>(fetch, `${base}/${kind}`, zoneId ? { zone_id: zoneId } : undefined);
     } catch (failure) {
       error = failure instanceof Error ? failure.message : t('Unable to load the report.');
     }

@@ -21,7 +21,7 @@
   $: if (rootId && key !== loadedFor) load();
   async function load() {
     loadedFor = key;
-    data = await apiGetData<History>(fetch, `/storage-roots/${rootId}/content-history`).catch(() => null);
+    data = await apiGetData<History>(fetch, `/modules/fives/storage-roots/${rootId}/growth`).catch(() => null);
   }
 
   const W = 320;

@@ -5137,5 +5137,6 @@
   "This key opens no feature of this version of BornToShare": "Cette clé n'ouvre aucune fonctionnalité de cette version de BornToShare",
   "No valid license opens this feature: enter a license key first": "Aucune licence valide n'ouvre cette fonctionnalité : saisissez d'abord une clé de licence",
   "This feature is not active: an administrator turns it on in Advanced settings › Features": "Cette fonctionnalité n'est pas active : un administrateur l'active dans Réglages avancés › Fonctionnalités",
-  "Remove the license": "Retirer la licence"
+  "Remove the license": "Retirer la licence",
+  "{files} file(s) · {folders} sub-folder(s)": "{files} fichier(s) · {folders} sous-dossier(s)"
 }

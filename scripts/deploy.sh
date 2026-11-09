@@ -5,6 +5,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 TS=$(date +%Y%m%d-%H%M%S)
 SERVICES="core-service frontend-service capsule-runner auth-service"
+# The 5S module runs once its databases are installed (scripts/modules/fives/install.sh writes FIVES_DB_PASSWORD)
+COMPOSE="podman-compose -f podman-compose.yml"
+if grep -qE '^FIVES_DB_PASSWORD=.+' .env; then
+  SERVICES="$SERVICES fives-service"
+  COMPOSE="podman-compose --profile fives -f podman-compose.yml"
+fi
 PACKS="135_access_expiry_schedule 136_storage_root_acl_exceptions 137_close_phantom_revoke_requests 138_tag_family 139_access_request_permission_change 140_identity_source_ldap_settings 141_secret_items 142_worker_agent_token 143_identity_source_flavor 144_integrity 145_dfs_read_schedule 146_access_request_justification 147_extensions 148_notification_log 149_storage_root_sensitivity 150_governance_policies 151_policy_jobs 152_sensitivity_ignores 153_guardian_substitutes 154_storage_root_quotas 155_content_history_remediations 156_folder_scans_duplicates 157_licenses_features"
 # Views whose definition changed since the installation: replayed too (CREATE OR REPLACE)
 VIEWS="141_views_workflow"
@@ -25,16 +31,16 @@ done
 
 echo "2/4 rollback point: rollback-$TS"
 for s in $SERVICES; do
-  podman tag "localhost/b2s-$s:latest" "localhost/b2s-$s:rollback-$TS"
+  podman tag "localhost/b2s-$s:latest" "localhost/b2s-$s:rollback-$TS" 2>/dev/null || echo "  (no image yet for $s)"
 done
 
 # Shown in the menu of the application: commit and date of this deploy
 export B2S_VERSION="$(git describe --always --dirty 2>/dev/null || echo unknown) · $(date +%Y-%m-%d)"
 echo "3/4 build + recreate: $SERVICES"
-podman-compose -f podman-compose.yml build $SERVICES
+$COMPOSE build $SERVICES
 # The job queue is not rebuilt, but nothing works without it
-podman-compose -f podman-compose.yml up -d --no-deps redis
-podman-compose -f podman-compose.yml up -d --force-recreate --no-deps $SERVICES
+$COMPOSE up -d --no-deps redis
+$COMPOSE up -d --force-recreate --no-deps $SERVICES
 
 echo "4/4 waiting for the services"
 pattern="^($(echo "$SERVICES" | tr ' ' '|')) "
@@ -50,6 +56,6 @@ cat <<ROLLBACK
 Rollback:
   for s in $SERVICES; do podman tag localhost/b2s-\$s:rollback-$TS localhost/b2s-\$s:latest; done
   # The job queue is not rebuilt, but nothing works without it
-podman-compose -f podman-compose.yml up -d --no-deps redis
-podman-compose -f podman-compose.yml up -d --force-recreate --no-deps $SERVICES
+$COMPOSE up -d --no-deps redis
+$COMPOSE up -d --force-recreate --no-deps $SERVICES
 ROLLBACK

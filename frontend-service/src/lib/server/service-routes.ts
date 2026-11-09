@@ -2,7 +2,7 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
-type ServiceKind = 'auth' | 'core';
+type ServiceKind = 'auth' | 'core' | 'fives';
 
 type DirectRoute = {
   service: ServiceKind;
@@ -20,6 +20,9 @@ export function getServiceBaseUrl(service: ServiceKind): string | null {
       return normalizeBaseUrl(process.env.B2S_AUTH_URL);
     case 'core':
       return normalizeBaseUrl(process.env.B2S_CORE_URL);
+    // Optional module « 5S et hygiène des données » (its own container); it checks its license itself
+    case 'fives':
+      return normalizeBaseUrl(process.env.B2S_FIVES_URL);
   }
 }
 
@@ -43,6 +46,12 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
 
   if (path.startsWith('/auth/')) {
     return { service: 'auth', path };
+  }
+
+  // /api/modules/fives/x → fives-service /x (never its internal routes)
+  if (path === '/modules/fives' || path.startsWith('/modules/fives/')) {
+    const rest = path.slice('/modules/fives'.length) || '/';
+    return rest.startsWith('/internal') ? null : { service: 'fives', path: rest };
   }
 
   if (path === '/access-requests/bulk' || /^\/storage-root-access-profiles\/\d+\/adopt$/.test(path)) {

@@ -13,13 +13,12 @@ from typing import Any, Callable
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
-from app.services import content_history, five_s
 
+# The 5S and data hygiene reports (cold data, duplicates, clutter, growth) belong to the 5S module (fives-service)
 KINDS = {
-    "storage": ("Stockage et quotas", "Volume, croissance, quotas, données froides et fichiers parasites des dossiers."),
+    "storage": ("Stockage et quotas", "Volume des dossiers, par serveur, les plus gros et leurs quotas."),
     "security": ("Sécurité des données", "Mots de passe et clés trouvés, corrections demandées, gardiens et héritage."),
     "governance": ("Gouvernance des accès", "Classement, quotas, demandes en attente et dossiers à revalider."),
-    "five_s": ("5S des partages", "Score 5S des dossiers, par pilier et par zone, et les actions qui l'amélioreraient."),
 }
 
 
@@ -55,68 +54,36 @@ def _top(rows: list[dict], key: Callable[[dict], float], limit: int = 10) -> lis
 def storage(db: Session, rows: list[dict]) -> dict[str, Any]:
     measured = [row for row in rows if row.get("content_size_bytes") is not None]
     total = sum(_size(row) for row in measured)
-    cold1 = sum(int(row.get("cold_1y_bytes") or 0) for row in measured)
-    cold3 = sum(int(row.get("cold_3y_bytes") or 0) for row in measured)
-    junk = sum(int(row.get("junk_bytes") or 0) for row in measured)
-    from app.services.scans import cross_duplicate_total
-
-    inside = sum(int(row.get("dup_wasted_bytes") or 0) for row in measured)
-    between = cross_duplicate_total(db, [int(row.get("storage_root_id") or 0) for row in measured]) if db is not None else {"bytes": 0, "files": 0}
     with_quota = [row for row in rows if row.get("quota_limit_bytes") is not None]
     watch = [row for row in with_quota if row.get("quota_used_percent") is not None
              and float(row["quota_used_percent"]) >= float(row.get("quota_warn_percent") or 85)]
     servers: dict[str, dict[str, Any]] = {}
     for row in measured:
         entry = servers.setdefault(str(row.get("storage_endpoint_name") or "—"), {"server": str(row.get("storage_endpoint_name") or "—"),
-                                                                                  "folders": 0, "bytes": 0, "cold": 0, "quotas": 0})
+                                                                                  "folders": 0, "bytes": 0, "files": 0, "quotas": 0})
         entry["folders"] += 1
         entry["bytes"] += _size(row)
-        entry["cold"] += int(row.get("cold_1y_bytes") or 0)
+        entry["files"] += int(row.get("content_files") or 0)
         entry["quotas"] += 1 if row.get("quota_limit_bytes") is not None else 0
-    quota_rows = []
-    for row in with_quota:
-        forecast = content_history.forecast(_size(row) or row.get("quota_used_bytes"), row.get("quota_limit_bytes"), row.get("bytes_per_day"))
-        quota_rows.append({"folder": _folder(row), "used": row.get("quota_used_bytes"), "limit": row.get("quota_limit_bytes"),
-                           "percent": row.get("quota_used_percent"), "full_at": forecast["full_at"],
-                           "status": "plein" if (row.get("quota_used_percent") or 0) >= 100 else "à surveiller" if row in watch else "ok"})
+    quota_rows = [{"folder": _folder(row), "used": row.get("quota_used_bytes"), "limit": row.get("quota_limit_bytes"), "percent": row.get("quota_used_percent"),
+                   "status": "plein" if (row.get("quota_used_percent") or 0) >= 100 else "à surveiller" if row in watch else "ok"} for row in with_quota]
     return {
         "kpis": [
             _kpi("Volume mesuré", total, "bytes", f"{len(measured)} dossier(s) mesuré(s) sur {len(rows)}"),
-            _kpi("Données de plus d'un an", _pct(cold1, total), "percent", f"dont {str(_pct(cold3, total) or 0).replace('.', ',')} % de plus de 3 ans",
-                 "warn" if (_pct(cold1, total) or 0) > 50 else None),
-            _kpi("Fichiers parasites", junk, "bytes", f"{sum(int(row.get('junk_files') or 0) for row in measured)} fichier(s)"),
-            _kpi("Doublons à libérer", inside + between["bytes"], "bytes",
-                 f"dans les dossiers {_human(inside)} · entre dossiers {_human(between['bytes'])}", "warn" if inside + between["bytes"] else None),
+            _kpi("Fichiers", sum(int(row.get("content_files") or 0) for row in measured), "int"),
             _kpi("Dossiers avec quota", len(with_quota), "int", f"{len(watch)} au-delà du seuil d'alerte", "warn" if watch else None),
         ],
         "sections": [
             {"title": "Par serveur", "columns": [_col("server", "Serveur"), _col("folders", "Dossiers", "int"), _col("bytes", "Volume", "bytes"),
-                                                  _col("cold", "Plus d'un an", "bytes"), _col("quotas", "Avec quota", "int")],
+                                                  _col("files", "Fichiers", "int"), _col("quotas", "Avec quota", "int")],
              "rows": sorted(servers.values(), key=lambda entry: -entry["bytes"])},
             {"title": "Les plus gros dossiers", "columns": [_col("folder", "Dossier", "folder"), _col("bytes", "Volume", "bytes"),
-                                                            _col("growth", "30 jours", "bytes"), _col("quota", "Quota", "percent")],
-             "rows": [{"folder": _folder(row), "bytes": _size(row), "growth": row.get("growth_30d_bytes"), "quota": row.get("quota_used_percent")}
+                                                            _col("files", "Fichiers", "int"), _col("quota", "Quota", "percent")],
+             "rows": [{"folder": _folder(row), "bytes": _size(row), "files": row.get("content_files"), "quota": row.get("quota_used_percent")}
                       for row in _top(measured, _size)]},
-            {"title": "Quotas", "description": "Remplissage et date où le quota sera plein au rythme actuel (après une semaine de mesures).",
-             "columns": [_col("folder", "Dossier", "folder"), _col("used", "Utilisé", "bytes"), _col("limit", "Quota", "bytes"),
-                         _col("percent", "Rempli", "percent"), _col("full_at", "Plein vers", "date"), _col("status", "État", "status")],
+            {"title": "Quotas", "columns": [_col("folder", "Dossier", "folder"), _col("used", "Utilisé", "bytes"), _col("limit", "Quota", "bytes"),
+                                            _col("percent", "Rempli", "percent"), _col("status", "État", "status")],
              "rows": sorted(quota_rows, key=lambda entry: -(entry["percent"] or 0)), "empty": "Aucun dossier n'a de quota."},
-            {"title": "Données froides", "description": "Les dossiers où le plus de données n'ont pas été modifiées depuis plus de 3 ans.",
-             "columns": [_col("folder", "Dossier", "folder"), _col("bytes", "Volume", "bytes"), _col("cold1", "Plus d'un an", "bytes"),
-                         _col("cold3", "Plus de 3 ans", "bytes")],
-             "rows": [{"folder": _folder(row), "bytes": _size(row), "cold1": row.get("cold_1y_bytes"), "cold3": row.get("cold_3y_bytes")}
-                      for row in _top(measured, lambda r: float(r.get("cold_3y_bytes") or 0) + 0.001 * float(r.get("cold_1y_bytes") or 0))],
-             "empty": "Aucune donnée de plus d'un an."},
-            {"title": "Doublons", "description": "Copies probables (même taille et même empreinte) dans un dossier, ou présentes aussi dans d'autres dossiers.",
-             "columns": [_col("folder", "Dossier", "folder"), _col("inside", "Dans le dossier", "bytes"), _col("groups", "Groupes", "int"),
-                         _col("shared", "Aussi ailleurs", "bytes"), _col("with", "Autres dossiers", "int")],
-             "rows": [{"folder": _folder(row), "inside": row.get("dup_wasted_bytes"), "groups": row.get("dup_groups"),
-                       "shared": row.get("shared_dup_bytes"), "with": row.get("shared_dup_folders")}
-                      for row in _top(measured, lambda r: float(r.get("dup_wasted_bytes") or 0) + float(r.get("shared_dup_bytes") or 0))],
-             "empty": "Aucun doublon trouvé (les doublons demandent une mesure sur le serveur Windows)."},
-            {"title": "Fichiers parasites", "columns": [_col("folder", "Dossier", "folder"), _col("files", "Fichiers", "int"), _col("bytes", "Volume", "bytes")],
-             "rows": [{"folder": _folder(row), "files": row.get("junk_files"), "bytes": row.get("junk_bytes")}
-                      for row in _top(measured, lambda r: float(r.get("junk_files") or 0))], "empty": "Aucun fichier parasite."},
         ],
     }
 
@@ -195,44 +162,11 @@ def governance(db: Session, rows: list[dict]) -> dict[str, Any]:
     }
 
 
-def five_s_report(db: Session, rows: list[dict]) -> dict[str, Any]:
-    result = five_s.compute(rows, five_s.scanned_at_by_root(db, [int(row.get("storage_root_id") or 0) for row in rows]))
-    zones: dict[str, list[dict]] = {}
-    for folder in result["folders"]:
-        zones.setdefault(str(folder.get("zone") or "—"), []).append(folder)
-
-    def avg(items: list[dict], pillar: str | None = None) -> int | None:
-        values = [(f["pillars"].get(pillar) if pillar else f["score"]) for f in items]
-        values = [v for v in values if v is not None]
-        return round(sum(values) / len(values)) if values else None
-
-    return {
-        "kpis": [_kpi("Score 5S", result["score"], "score", f"{result['folders_count']} dossier(s)")]
-                + [_kpi(five_s.LABELS[p], result["pillars"][p], "score") for p in five_s.PILLARS],
-        "sections": [
-            {"title": "Par zone", "columns": [_col("zone", "Zone"), _col("folders", "Dossiers", "int"), _col("score", "Score", "score"),
-                                              *[_col(p, five_s.LABELS[p], "score") for p in five_s.PILLARS]],
-             "rows": [{"zone": zone, "folders": len(items), "score": avg(items), **{p: avg(items, p) for p in five_s.PILLARS}}
-                      for zone, items in sorted(zones.items())]},
-            {"title": "Actions qui amélioreraient le plus le score", "columns": [_col("pillar", "Pilier"), _col("text", "Action"), _col("folders", "Dossiers", "int")],
-             "rows": [{"pillar": five_s.LABELS[a["pillar"]], "text": a["text"], "folders": a["folders"]} for a in result["top_actions"]]},
-            {"title": "Les 15 dossiers les moins bien tenus", "columns": [_col("folder", "Dossier", "folder"), _col("score", "Score", "score"),
-                                                                           *[_col(p, five_s.LABELS[p], "score") for p in five_s.PILLARS]],
-             "rows": [{"folder": {"id": f["id"], "name": f["name"], "path": f["path"]}, "score": f["score"], **f["pillars"]}
-                      for f in result["folders"] if f["score"] is not None][:15]},
-        ],
-    }
-
-
-def _human(value: int) -> str:
-    return five_s._bytes(float(value or 0))
-
-
 def _iso(value: Any) -> str | None:
     return value.isoformat() + "Z" if isinstance(value, datetime) else value
 
 
-BUILDERS = {"storage": storage, "security": security, "governance": governance, "five_s": five_s_report}
+BUILDERS = {"storage": storage, "security": security, "governance": governance}
 
 
 def build(db: Session, kind: str, rows: list[dict], scope: str) -> dict[str, Any]:

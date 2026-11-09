@@ -46,7 +46,7 @@
   async function load() {
     error = '';
     try {
-      data = await apiGetData<FiveS>(fetch, '/insights/five-s', zoneId ? { zone_id: zoneId } : undefined);
+      data = await apiGetData<FiveS>(fetch, '/modules/fives/five-s', zoneId ? { zone_id: zoneId } : undefined);
       shown = 30;
     } catch (failure) {
       const code = (failure as { code?: string; status?: number })?.code;

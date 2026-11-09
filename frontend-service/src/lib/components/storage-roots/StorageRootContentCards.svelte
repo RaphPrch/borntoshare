@@ -3,6 +3,7 @@
   import { apiGetData, apiPostData } from '$lib/api/client';
   import { reportUiError } from '$lib/errors';
   import { flashOn } from '$lib/utils/motion';
+  import { fivesEnabled } from '$lib/utils/features';
   import { t } from '$lib/i18n';
   import { formatBytes, formatDateTime, timeAgo } from '$lib/utils/format';
   import CountUp from '$lib/components/ui/CountUp.svelte';
@@ -48,10 +49,13 @@
   $: if (rootId && rootId !== loadedFor) loadScan();
   async function loadScan() {
     loadedFor = rootId;
-    const data = await apiGetData<{ scan: Scan | null; shared: Shared | null }>(fetch, `/storage-roots/${rootId}/scan`).catch(() => null);
+    const data = await apiGetData<{ scan: Scan | null }>(fetch, `/storage-roots/${rootId}/scan`).catch(() => null);
     const was = scan?.status;
     scan = data?.scan ?? null;
-    shared = data?.shared ?? null;
+    // Duplicates with other folders: the 5S module, when it is on
+    shared = $fivesEnabled
+      ? ((await apiGetData<{ shared: Shared | null }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicates`).catch(() => null))?.shared ?? null)
+      : null;
     if (was === 'running' && scan?.status === 'done') {
       landed += 1;
       onMeasured();
@@ -151,7 +155,8 @@
       {/if}
     </div>
     {/key}
-    {#if ages.length}
+    <!-- Age of the data, duplicates, clutter and growth: the module « 5S et hygiène des données » -->
+    {#if $fivesEnabled && ages.length}
       <div class="cc__age">
         <div class="cc__age-head">
           <h3>{t('Age of the data')}</h3>
@@ -171,7 +176,7 @@
         {/if}
       </div>
     {/if}
-    {#if dups?.groups || shared?.files}
+    {#if $fivesEnabled && (dups?.groups || shared?.files)}
       <div class="cc__dups">
         <div class="cc__age-head">
           <h3>{t('Duplicates')}</h3>
@@ -195,14 +200,14 @@
         {/if}
       </div>
     {/if}
-    {#if content.junk?.files}
+    {#if $fivesEnabled && content.junk?.files}
       <div class="cc__junk">
         <i class="bi bi-trash3" aria-hidden="true"></i>
         <span><b>{t('{count} clutter file(s)', { count: content.junk.files })}</b> · {size(content.junk.bytes)}
           <small>{t('Thumbnail caches, Office lock files, temporary files, backups and copies')} — {content.junk.examples.slice(0, 3).join(', ')}</small></span>
       </div>
     {/if}
-    <StorageRootGrowth {rootId} refreshKey={content.scanned_at} />
+    {#if $fivesEnabled}<StorageRootGrowth {rootId} refreshKey={content.scanned_at} />{/if}
   {:else}
     <p class="cc__empty">{t('The size, the age of the data and the duplicates appear after the first measure of the folder.')}</p>
   {/if}

@@ -2,6 +2,7 @@
   import { t } from '$lib/i18n';
   import { formatBytes, timeAgo } from '$lib/utils/format';
   import CountUp from '$lib/components/ui/CountUp.svelte';
+  import { fivesEnabled } from '$lib/utils/features';
   import type { StorageRootPermissionsData } from '$lib/api/storage-root-permissions';
 
   /**
@@ -16,14 +17,11 @@
   export let onOpenContent: () => void = () => {};
 
   $: bytes = row?.content_size_bytes ?? row?.estimated_size_bytes ?? null;
-  $: growth = row?.growth_30d_bytes ?? null;
-  $: perDay = row?.bytes_per_day ?? null;
   $: quotaLimit = row?.quota_limit_bytes ?? null;
   $: quotaPct = row?.quota_used_percent ?? null;
   $: quotaTone = quotaPct == null ? '' : quotaPct >= 100 ? 'bad' : quotaPct >= Number(row?.quota_warn_percent ?? 85) ? 'warn' : 'ok';
   $: cold = bytes ? Number(row?.cold_1y_bytes ?? 0) / Number(bytes) : null;
   $: expiring = summary?.expiring_30d ?? 0;
-  const signed = (value: number) => `${value >= 0 ? '+' : '−'}${formatBytes(Math.abs(value))}`;
 
   const ACL_STATE: Record<StorageRootPermissionsData['status'], () => string> = {
     ok: () => t('Compliant'),
@@ -59,7 +57,7 @@
   <button type="button" class="b2s-stat-tile" on:click={onOpenContent}>
     <span>{t('Size')}</span>
     <b>{#if bytes == null}—{:else}<CountUp value={Number(bytes)} format={(n) => formatBytes(Math.round(n))} />{/if}</b>
-    <small>{growth != null ? t('{growth} in 30 days', { growth: signed(growth) }) : perDay != null ? t('{pace} per day', { pace: signed(perDay) }) : bytes == null ? t('Not measured yet') : t('Trend after a week of measures')}</small>
+    <small>{bytes == null ? t('Not measured yet') : t('{files} file(s) · {folders} sub-folder(s)', { files: Number(row?.content_files ?? 0).toLocaleString('fr-FR'), folders: Number(row?.content_folders ?? 0).toLocaleString('fr-FR') })}</small>
   </button>
   <button type="button" class="b2s-stat-tile" on:click={onOpenContent}>
     <span>{t('Quota')}</span>
@@ -72,11 +70,17 @@
       <b class="is-warn">{expiring}</b>
       <small>{nextEnd ? t('Next: {name}, in {days} d', { name: nextEnd.name, days: nextDays ?? 0 }) : t('No end date to come')}</small>
     </button>
-  {:else}
+  {:else if $fivesEnabled}
     <button type="button" class="b2s-stat-tile" on:click={onOpenContent}>
       <span>{t('Cold data')}</span>
       <b class:is-warn={cold != null && cold > 0.5}>{cold == null ? '—' : `${Math.round(cold * 100)} %`}</b>
       <small>{cold == null ? t('Not measured yet') : t('untouched for more than a year')}</small>
+    </button>
+  {:else}
+    <button type="button" class="b2s-stat-tile" on:click={onOpenPermissions}>
+      <span>{t('Ending within 30 days')}</span>
+      <b>0</b>
+      <small>{t('No end date to come')}</small>
     </button>
   {/if}
 </section>

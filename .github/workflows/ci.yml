@@ -19,7 +19,7 @@ jobs:
           python-version: "3.14"
       # Same version and rules as « make lint » (ruff.toml)
       - run: pip install ruff==0.13.0
-      - run: ruff check --no-cache core-service auth-service capsule-runner wizard-ui
+      - run: ruff check --no-cache core-service auth-service capsule-runner fives-service wizard-ui
 
   python:
     name: tests ${{ matrix.service }}
@@ -34,6 +34,9 @@ jobs:
             workdir: capsule-runner
           - service: core-service
             workdir: core-service
+          # The 5S module (its own container and databases)
+          - service: fives-service
+            workdir: fives-service
           # From wizard-ui: the tests import backend.app.main
           - service: wizard-ui
             workdir: wizard-ui

@@ -570,6 +570,10 @@ def _persist_storage_root_probe_result(
             or checked_at.isoformat()
         )
         if permissions or acl_check_succeeded:
+            # The test reads the ACL; the content comes from the measure (its own job): kept as it is when the test did not measure
+            previous = root.discovered_permissions_json if isinstance(root.discovered_permissions_json, dict) else {}
+            kept = {key: previous.get(key) for key in ("content_size_bytes", "content_updated_at", "content_stats", "content_scan_job_id")
+                    if previous.get(key) is not None} if content_size_bytes is None else {}
             root.discovered_permissions_json = {
                 "discovered_at": checked_at.isoformat(),
                 "source": "storage_root_probe",
@@ -583,15 +587,8 @@ def _persist_storage_root_probe_result(
                 # Files, sub-folders, weight of the first-level sub-folders and file types (worker listing)
                 "content_stats": details.get("content_stats") if isinstance(details.get("content_stats"), dict) else None,
             }
-            # One more point of the growth curve (and of the date the quota will be full)
-            if content_size_bytes is not None:
-                try:
-                    from app.services import content_history
-
-                    content_history.record(int(getattr(root, "id", 0) or 0), measured_at=checked_at.replace(tzinfo=None),
-                                           bytes_=int(content_size_bytes), stats=details.get("content_stats"))
-                except Exception:
-                    logger.warning("CONTENT_HISTORY_NOT_SAVED", exc_info=True)
+            if kept:
+                root.discovered_permissions_json = {**root.discovered_permissions_json, **kept}
         endpoint_id = int(getattr(root, "storage_endpoint_id", 0) or 0)
         if endpoint_id > 0:
             endpoint = db.get(StorageEndpoint, endpoint_id)

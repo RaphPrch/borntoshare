@@ -150,6 +150,7 @@ class StorageRootsViewsRepo(SQLViewRepo):
         cold = stats.get("cold") if isinstance(stats.get("cold"), dict) else {}
         junk = stats.get("junk") if isinstance(stats.get("junk"), dict) else {}
         payload["content_files"] = stats.get("files")
+        payload["content_folders"] = stats.get("folders")
         payload["cold_1y_bytes"] = (cold.get("1y") or {}).get("bytes") if cold else None
         payload["cold_3y_bytes"] = (cold.get("3y") or {}).get("bytes") if cold else None
         payload["junk_files"] = junk.get("files") if junk else None
@@ -507,13 +508,9 @@ class StorageRootsViewsRepo(SQLViewRepo):
         passwords_by_root_id = password_files_by_root(self.db, storage_root_ids)
         keys_by_root_id = key_files_by_root(self.db, storage_root_ids)
         quota_by_root_id = quotas_by_root(self.db, storage_root_ids)
-        from app.services.content_history import trends as content_trends
         from app.services.remediations import counts_by_root as remediations_by_root
+        from app.services.scans import states_by_root
 
-        trend_by_root_id = content_trends(self.db, storage_root_ids)
-        from app.services.scans import cross_duplicates, states_by_root
-
-        shared_by_root_id = cross_duplicates(self.db, storage_root_ids)
         scan_state_by_root_id = states_by_root(self.db, storage_root_ids)
         remediation_by_root_id = remediations_by_root(self.db, storage_root_ids)
         alerts_by_root_id = self._load_open_alerts_map(storage_root_ids)
@@ -539,14 +536,7 @@ class StorageRootsViewsRepo(SQLViewRepo):
             payload["password_files"] = passwords_by_root_id.get(storage_root_id)
             payload["key_files"] = keys_by_root_id.get(storage_root_id)
             payload["remediation_status"] = remediation_by_root_id.get(storage_root_id)
-            shared = shared_by_root_id.get(storage_root_id) or {}
-            # Files also present in other folders (same fingerprint): their size, and with how many folders
-            payload["shared_dup_bytes"] = shared.get("bytes")
-            payload["shared_dup_folders"] = len(shared.get("with") or []) if shared else None
             payload["measure_status"] = scan_state_by_root_id.get(storage_root_id)
-            trend = trend_by_root_id.get(storage_root_id) or {}
-            payload["growth_30d_bytes"] = trend.get("growth_30d_bytes")
-            payload["bytes_per_day"] = trend.get("bytes_per_day")
             # FSRM quota of the folder (None: no quota known)
             payload.update(quota_by_root_id.get(storage_root_id) or {"quota_status": None, "quota_limit_bytes": None, "quota_used_bytes": None,
                                                                       "quota_used_percent": None, "quota_pending_requests": 0})

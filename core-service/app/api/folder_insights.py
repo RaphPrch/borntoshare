@@ -1,5 +1,5 @@
-"""What a folder tells over time: its growth curve (and when its quota will be full), and the corrections asked to
-its guardians for the passwords found in it."""
+"""The measure of a folder (its own job) and the corrections asked to its guardians for the passwords found in it.
+Its growth curve and its duplicates with other folders belong to the 5S module (fives-service)."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -9,20 +9,11 @@ from sqlalchemy.orm import Session
 from app.api._helpers import ui_data
 from app.api.quotas import _audit, _folder
 from app.core.db import get_db
-from app.services import content_history, quotas, remediations, scans
+from app.services import remediations, scans
 from app.services.authorization import actor_from_request, require_admin
 from app.data.models.storage_root import StorageRoot
 
 router = APIRouter(prefix="/storage-roots", tags=["storage-roots"])
-
-
-@router.get("/{root_id}/content-history")
-def get_content_history(root_id: int, request: Request, db: Session = Depends(get_db)):
-    """The measures of the last 180 days, the pace (bytes per day) and the date the quota will be full."""
-    _folder(db, request, root_id)
-    quota = quotas.get_quota(db, root_id) or {}
-    limit = quota.get("limit_bytes") if quota.get("status") == "applied" else None
-    return ui_data(content_history.summary(db, int(root_id), limit))
 
 
 @router.get("/{root_id}/remediation")
@@ -117,8 +108,6 @@ async def measure_folders(payload: MeasurePayload, request: Request, db: Session
 
 @router.get("/{root_id}/scan")
 def get_scan(root_id: int, request: Request, db: Session = Depends(get_db)):
-    """The last measure of the folder (running, done, failed; on the server or through SMB) and its duplicates with
-    other folders."""
+    """The last measure of the folder (running, done, failed; on the server or through SMB)."""
     _folder(db, request, root_id)
-    shared = scans.cross_duplicates(db, [int(root_id)]).get(int(root_id))
-    return ui_data({"scan": scans.get(db, int(root_id)), "shared": shared})
+    return ui_data({"scan": scans.get(db, int(root_id))})
