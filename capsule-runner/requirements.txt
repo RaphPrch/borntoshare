@@ -10,3 +10,7 @@ cryptography==50.0.2
 dramatiq==2.2.1
 uvicorn==0.54.0
 redis==8.1.0
+# WinRM (PowerShell remoting) to the Windows file servers: FSRM quotas. Kerberos only: gssapi in requirements-kerberos.txt
+pypsrp==0.9.1
+pyspnego==0.12.4
+requests==2.34.2

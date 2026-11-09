@@ -97,6 +97,18 @@ JOB_CONTRACTS: dict[str, JobContract] = {
         queue_name=QUEUE_PROBES,
         actor_name="run_probe_job",
     ),
+    "FOLDER_QUOTA_READ": JobContract(
+        job_type="FOLDER_QUOTA_READ",
+        default_action="folder_quota_read",
+        queue_name=QUEUE_PROBES,
+        actor_name="run_probe_job",
+    ),
+    "FOLDER_QUOTA_APPLY": JobContract(
+        job_type="FOLDER_QUOTA_APPLY",
+        default_action="folder_quota_apply",
+        queue_name=QUEUE_ACL,
+        actor_name="run_acl_job",
+    ),
     "SENSITIVITY_SCAN": JobContract(
         job_type="SENSITIVITY_SCAN",
         default_action="scan_smb_sensitivity",

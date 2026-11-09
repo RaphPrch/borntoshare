@@ -331,6 +331,30 @@
       "sensitivity_unignored": {
         "title": "False positive removed",
         "description": "\"{target}\" counts again in the sensitivity of the folder"
+      },
+      "quota_set": {
+        "title": "Quota set",
+        "description": "{size} on « {target} »"
+      },
+      "quota_removed": {
+        "title": "Quota removed",
+        "description": "« {target} » has no quota any more (it was {size})"
+      },
+      "quota_requested": {
+        "title": "More room requested",
+        "description": "{size} requested for « {target} »: {reason}"
+      },
+      "quota_request_approved": {
+        "title": "Quota request approved",
+        "description": "« {target} » goes to {size}"
+      },
+      "quota_request_rejected": {
+        "title": "Quota request refused",
+        "description": "{size} refused for « {target} »: {note}"
+      },
+      "quota_request_cancelled": {
+        "title": "Quota request cancelled",
+        "description": "The request for more room in « {target} » is cancelled"
       }
     },
     "access_request": {

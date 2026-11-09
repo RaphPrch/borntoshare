@@ -37,6 +37,8 @@ ACTION_MIN_SCOPE: dict[str, str] = {
     "folder_delete": "write",
     "folder_create": "write",
     "folder_list": "read",
+    "folder_quota_read": "read",
+    "folder_quota_apply": "write",
     "scan_smb_sensitivity": "read",
     "share_create": "write",
     "share_delete": "write",

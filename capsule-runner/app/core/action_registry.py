@@ -22,6 +22,7 @@ from app.actions.dfs_namespaces import dfs_folder_create, dfs_folder_delete, rea
 from app.shared.name_resolution import resolve_name
 from app.actions.tls_certificate import fetch_tls_certificate
 from app.actions.sensitivity import scan_smb_sensitivity
+from app.actions.quota import apply_folder_quota, read_folder_quota
 from app.actions.smb import test_smb_ntlm, test_smb_root_access
 from app.middleware.resolve_secrets import CapsuleSecretResolutionError, resolve_secret_fields
 from app.schemas.actions import (
@@ -33,6 +34,7 @@ from app.schemas.actions import (
     DirectorySnapshotPayload,
     FolderCreatePayload,
     FolderOperationPayload,
+    FolderQuotaPayload,
     KerberosAuthPayload,
     LDAPRecursiveGroupUsersPayload,
     LDAPSearchPayload,
@@ -237,6 +239,21 @@ ALLOWED_ACTIONS: Dict[str, ActionSpec] = {
         action="folder_inheritance",
         schema=FolderOperationPayload,
         runner=set_folder_inheritance,
+        secret_fields=("secret_ref",),
+        target_field="host",
+    ),
+    # FSRM quota of a folder on its Windows server (WinRM, Kerberos): read, then set or remove
+    "folder_quota_read": ActionSpec(
+        action="folder_quota_read",
+        schema=FolderQuotaPayload,
+        runner=read_folder_quota,
+        secret_fields=("secret_ref",),
+        target_field="host",
+    ),
+    "folder_quota_apply": ActionSpec(
+        action="folder_quota_apply",
+        schema=FolderQuotaPayload,
+        runner=apply_folder_quota,
         secret_fields=("secret_ref",),
         target_field="host",
     ),

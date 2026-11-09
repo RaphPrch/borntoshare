@@ -4,7 +4,7 @@ Same language as the search field of the Folders page (frontend lib/components/s
 free text plus « key:value » filters, « - » to exclude, quotes for a value with spaces.
   tag: gardien: zone: serveur: dfs: partage: alerte: taille> taille<
   est: alerte injoignable sain sans-gardien sans-tag heritage-rompu demandes a-revalider vide non-mesure
-       non-teste dfs sensible non-analyse
+       non-teste dfs sensible non-analyse mot-de-passe quota sans-quota quota-plein quota-demande
 """
 from __future__ import annotations
 
@@ -109,6 +109,11 @@ STATES: dict[str, Callable[[dict], bool]] = {
     "dfs": lambda row: bool(row.get("dfs_path")),
     "sensible": lambda row: int(row.get("sensitive_files") or 0) > 0,
     "non-analyse": lambda row: row.get("sensitive_files") is None,
+    "mot-de-passe": lambda row: int(row.get("password_files") or 0) > 0,
+    "quota": lambda row: row.get("quota_limit_bytes") is not None,
+    "sans-quota": lambda row: row.get("quota_limit_bytes") is None,
+    "quota-plein": lambda row: row.get("quota_used_percent") is not None and float(row["quota_used_percent"]) >= float(row.get("quota_warn_percent") or 85),
+    "quota-demande": lambda row: int(row.get("quota_pending_requests") or 0) > 0,
 }
 
 

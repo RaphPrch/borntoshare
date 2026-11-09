@@ -1,5 +1,14 @@
 # BornToShare capsule-runner — Dramatiq worker running LDAP, SMB and Kerberos actions
 ARG BASE_IMAGE=docker.io/library/python:3.14-slim-trixie
+
+# gssapi (Kerberos for WinRM: FSRM quotas) has no Linux wheel: built here, without the compiler in the final image
+FROM ${BASE_IMAGE} AS kerberos-wheels
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gcc libkrb5-dev \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements-kerberos.txt .
+RUN pip wheel --no-cache-dir --no-deps -w /wheels -r requirements-kerberos.txt
+
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="borntoshare-capsule-runner" \
@@ -12,7 +21,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_ROOT_USER_ACTION=ignore
 
-# smbclient: smbclient, smbcacls, rpcclient - krb5-user: kinit
+# smbclient: smbclient, smbcacls, rpcclient - krb5-user: kinit and the GSSAPI library (WinRM)
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends smbclient krb5-user ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -20,8 +29,9 @@ RUN apt-get update \
 WORKDIR /app
 
 # Dependencies first (cached while requirements.txt is unchanged)
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+COPY requirements.txt requirements-kerberos.txt ./
+COPY --from=kerberos-wheels /wheels /wheels
+RUN pip install -r requirements.txt && pip install --no-index --find-links /wheels -r requirements-kerberos.txt && rm -rf /wheels
 
 # Application code: owned by root, read-only for the runtime user
 COPY app ./app

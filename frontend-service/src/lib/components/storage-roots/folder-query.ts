@@ -86,7 +86,12 @@ const STATES: Record<string, (row: Row) => boolean> = {
   'non-teste': (row) => !row?.last_probe_at,
   dfs: (row) => Boolean(row?.dfs_path),
   sensible: (row) => Number(row?.sensitive_files ?? 0) > 0,
-  'non-analyse': (row) => row?.sensitive_files == null
+  'non-analyse': (row) => row?.sensitive_files == null,
+  'mot-de-passe': (row) => Number(row?.password_files ?? 0) > 0,
+  quota: (row) => row?.quota_limit_bytes != null,
+  'sans-quota': (row) => row?.quota_limit_bytes == null,
+  'quota-plein': (row) => row?.quota_used_percent != null && Number(row.quota_used_percent) >= Number(row?.quota_warn_percent ?? 85),
+  'quota-demande': (row) => Number(row?.quota_pending_requests ?? 0) > 0
 };
 
 function test(row: Row, filter: QueryFilter): boolean {
@@ -138,7 +143,12 @@ const STATE_LABELS = (): Array<[string, string]> => [
   ['non-teste', t('never tested')],
   ['dfs', t('reached through DFS')],
   ['sensible', t('with sensitive files')],
-  ['non-analyse', t('never scanned for sensitivity')]
+  ['non-analyse', t('never scanned for sensitivity')],
+  ['mot-de-passe', t('with passwords stored')],
+  ['quota', t('with a quota')],
+  ['sans-quota', t('without quota')],
+  ['quota-plein', t('quota almost full')],
+  ['quota-demande', t('quota request waiting')]
 ];
 
 /** What the list knows, per key: the values to propose */
@@ -212,6 +222,8 @@ export const folderQueryExamples = (): Suggestion[] => [
   { insert: 'tag:', label: t('By tag'), hint: 'tag:Finance', icon: 'bi-tag' },
   { insert: 'gardien:', label: t('By guardian'), hint: 'gardien:alice', icon: 'bi-person-check' },
   { insert: 'est:sensible', label: t('With sensitive files'), hint: 'est:sensible', icon: 'bi-shield-lock' },
+  { insert: 'est:mot-de-passe', label: t('With passwords stored'), hint: 'est:mot-de-passe', icon: 'bi-key' },
+  { insert: 'est:quota-plein', label: t('Quota almost full'), hint: 'est:quota-plein', icon: 'bi-speedometer2' },
   { insert: 'est:sans-gardien', label: t('Without guardian'), hint: 'est:sans-gardien', icon: 'bi-person-x' },
   { insert: 'est:alerte', label: t('With open alerts'), hint: 'est:alerte', icon: 'bi-exclamation-triangle' },
   { insert: 'est:sans-tag', label: t('Without tag'), hint: 'est:sans-tag', icon: 'bi-tag' },

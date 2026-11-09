@@ -1509,6 +1509,30 @@
       "sensitivity_unignored": {
         "title": "Faux positif retiré",
         "description": "« {target} » compte de nouveau dans la sensibilité du dossier"
+      },
+      "quota_set": {
+        "title": "Quota défini",
+        "description": "{size} sur « {target} »"
+      },
+      "quota_removed": {
+        "title": "Quota retiré",
+        "description": "« {target} » n'a plus de quota (il était de {size})"
+      },
+      "quota_requested": {
+        "title": "Plus d'espace demandé",
+        "description": "{size} demandés pour « {target} » : {reason}"
+      },
+      "quota_request_approved": {
+        "title": "Demande de quota approuvée",
+        "description": "« {target} » passe à {size}"
+      },
+      "quota_request_rejected": {
+        "title": "Demande de quota refusée",
+        "description": "{size} refusés pour « {target} » : {note}"
+      },
+      "quota_request_cancelled": {
+        "title": "Demande de quota annulée",
+        "description": "La demande d'espace pour « {target} » est annulée"
       }
     },
     "access_request": {
@@ -4854,5 +4878,73 @@
   "I confirm the action on {count} folders": "Je confirme l'action sur {count} dossiers",
   "Policy « {name} » disabled.": "Politique « {name} » désactivée.",
   "Policy « {name} » enabled.": "Politique « {name} » activée.",
-  "I confirm: this policy acts at once on {count} folders": "Je confirme : cette politique agit aussitôt sur {count} dossiers"
+  "I confirm: this policy acts at once on {count} folders": "Je confirme : cette politique agit aussitôt sur {count} dossiers",
+  "A DFS folder has no quota of its own: it is set on its target folder, on the file server.": "Un dossier DFS n'a pas de quota propre : il se règle sur son dossier cible, sur le serveur de fichiers.",
+  "Applying the quota on the server…": "Application du quota sur le serveur…",
+  "Approve: {size}": "Approuver : {size}",
+  "Ask for more room": "Demander plus d'espace",
+  "Ask for {size}": "Demander {size}",
+  "Block writes": "Bloquer l'écriture",
+  "Change to {size}": "Passer à {size}",
+  "Hard quota: blocks writes beyond it": "Quota strict : bloque l'écriture au-delà",
+  "Limit": "Limite",
+  "No quota on the server: the folder can grow until the disk is full.": "Aucun quota sur le serveur : le dossier peut grossir jusqu'à remplir le disque.",
+  "Only warn": "Avertir seulement",
+  "Path on the server": "Chemin sur le serveur",
+  "Peak {size}": "Pic {size}",
+  "Quota": "Quota",
+  "Quota almost full": "Quota presque plein",
+  "Quota removal sent to the server.": "Retrait du quota envoyé au serveur.",
+  "Quota sent to the server.": "Quota envoyé au serveur.",
+  "Quota used": "Quota utilisé",
+  "Reading the quota on the server…": "Lecture du quota sur le serveur…",
+  "Remove the quota": "Retirer le quota",
+  "Removing the quota on the server…": "Retrait du quota sur le serveur…",
+  "Request approved: the new quota goes to the server.": "Demande approuvée : le nouveau quota part sur le serveur.",
+  "Request for more room waiting": "Demande d'espace en attente",
+  "Request sent: an administrator decides.": "Demande envoyée : un administrateur décide.",
+  "Room needed": "Espace nécessaire",
+  "Set a quota": "Définir un quota",
+  "Set {size}": "Définir {size}",
+  "Soft quota: warns, never blocks": "Quota souple : avertit, ne bloque jamais",
+  "The folder already uses {size}: a hard quota below it would block every write.": "Le dossier utilise déjà {size} : un quota strict en dessous bloquerait toute écriture.",
+  "The folder will be able to grow until the disk is full. The server keeps no trace of the quota.": "Le dossier pourra grossir jusqu'à remplir le disque. Le serveur ne garde aucune trace du quota.",
+  "The server refused or could not be reached": "Le serveur a refusé ou n'a pas pu être joint",
+  "The server refused the quota: {message}": "Le serveur a refusé le quota : {message}",
+  "Warn from": "Avertir à partir de",
+  "Warning at {percent} %": "Alerte à {percent} %",
+  "When it is full": "Quand il est plein",
+  "Why does the folder need it?": "Pourquoi le dossier en a-t-il besoin ?",
+  "Why is it refused? The person who asked reads it.": "Pourquoi est-ce refusé ? La personne qui a demandé le lira.",
+  "With passwords stored": "Avec mots de passe stockés",
+  "asks for {size}": "demande {size}",
+  "e.g. Archive the 2019 projects first": "ex. Archivez d'abord les projets 2019",
+  "e.g. The 2027 budget files arrive in January": "ex. Les fichiers du budget 2027 arrivent en janvier",
+  "now {size}": "actuellement {size}",
+  "of {limit}": "sur {limit}",
+  "passwords": "mots de passe",
+  "quota almost full": "quota presque plein",
+  "quota request waiting": "demande de quota en attente",
+  "with a quota": "avec un quota",
+  "with passwords stored": "avec mots de passe stockés",
+  "without quota": "sans quota",
+  "{count} file(s) holding passwords": "{count} fichier(s) contenant des mots de passe",
+  "{size} cancelled": "{size} annulés",
+  "{size} granted": "{size} accordés",
+  "{size} refused": "{size} refusés",
+  "{used} of {limit}": "{used} sur {limit}",
+  "Unable to change the quota.": "Impossible de modifier le quota.",
+  "A change of this quota is already on its way to the server": "Une modification de ce quota est déjà en route vers le serveur",
+  "The folder already uses more than this: a hard quota below its use would block every write": "Le dossier utilise déjà davantage : un quota strict en dessous bloquerait toute écriture",
+  "This folder has no quota": "Ce dossier n'a pas de quota",
+  "Say why the folder needs more room": "Dites pourquoi le dossier a besoin de plus d'espace",
+  "This folder has no quota to raise": "Ce dossier n'a pas de quota à augmenter",
+  "Ask for more than the current quota": "Demandez plus que le quota actuel",
+  "A request for this folder is already waiting for a decision": "Une demande pour ce dossier attend déjà une décision",
+  "This request was already decided": "Cette demande a déjà été décidée",
+  "Only the person who asked can cancel the request": "Seule la personne qui a demandé peut annuler la demande",
+  "Say why the request is refused: the person who asked reads it": "Dites pourquoi la demande est refusée : la personne qui a demandé le lira",
+  "Quota request not found": "Demande de quota introuvable",
+  "A DFS folder has no quota of its own: set it on its target folder, on the file server": "Un dossier DFS n'a pas de quota propre : réglez-le sur son dossier cible, sur le serveur de fichiers",
+  "Requests for more room": "Demandes d'espace"
 }

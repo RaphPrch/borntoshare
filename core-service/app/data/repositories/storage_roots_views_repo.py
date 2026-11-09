@@ -487,6 +487,11 @@ class StorageRootsViewsRepo(SQLViewRepo):
         from app.services.sensitivity import flagged_by_root
 
         sensitive_by_root_id = flagged_by_root(self.db, storage_root_ids)
+        from app.services.quotas import by_root as quotas_by_root
+        from app.services.sensitivity import password_files_by_root
+
+        passwords_by_root_id = password_files_by_root(self.db, storage_root_ids)
+        quota_by_root_id = quotas_by_root(self.db, storage_root_ids)
         alerts_by_root_id = self._load_open_alerts_map(storage_root_ids)
         discovered_tree_by_root_id = self._load_discovered_tree_map(storage_root_ids)
         revalidation_by_root_id = self._load_revalidation_map(storage_root_ids)
@@ -507,6 +512,10 @@ class StorageRootsViewsRepo(SQLViewRepo):
             payload["guardian_names"] = guardian_names_by_root_id.get(storage_root_id, [])
             # Files flagged by the last sensitivity scan; None when the folder was never scanned
             payload["sensitive_files"] = sensitive_by_root_id.get(storage_root_id)
+            payload["password_files"] = passwords_by_root_id.get(storage_root_id)
+            # FSRM quota of the folder (None: no quota known)
+            payload.update(quota_by_root_id.get(storage_root_id) or {"quota_status": None, "quota_limit_bytes": None, "quota_used_bytes": None,
+                                                                      "quota_used_percent": None, "quota_pending_requests": 0})
             alert_summary = alerts_by_root_id.get(storage_root_id, {})
             payload["open_alerts_count"] = int(alert_summary.get("open_alerts_count") or 0)
             payload["open_alerts_error_count"] = int(alert_summary.get("open_alerts_error_count") or 0)

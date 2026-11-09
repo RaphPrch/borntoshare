@@ -140,6 +140,9 @@ function varsFromEvent(ev: any) {
     // Why a change was refused or failed, and what it was about
     reason: asStr((ctx as any)?.reason) ?? asStr((ctx as any)?.message) ?? asStr((ctx as any)?.error_message) ?? '',
     share: asStr((ctx as any)?.share) ?? '',
+    // Quotas: the size asked or set, and the note of a refusal
+    size: asStr((ctx as any)?.requested) ?? asStr((ctx as any)?.limit) ?? '',
+    note: asStr((ctx as any)?.note) ?? '',
     folder: asStr((ctx as any)?.dfs_path) ?? asStr((ctx as any)?.folder) ?? '',
     source: sourceLabel,
     target: targetDisplay,

@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 
 ACTION = "scan_smb_sensitivity"
 CATEGORIES = ("password", "credentials_file", "password_vault", "private_key", "cloud_key")
+# What « est:mot-de-passe » means: a password written in clear, a file named after passwords, a password vault
+PASSWORD_CATEGORIES = ("password", "credentials_file", "password_vault")
 
 
 def _now() -> datetime:
@@ -176,3 +178,26 @@ def flagged_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, int]:
         db.rollback()
         return {}
     return {int(root_id): int(flagged or 0) for root_id, flagged in rows}
+
+
+def password_files_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, int]:
+    """Files holding passwords per scanned folder (without the false positives): « est:mot-de-passe »."""
+    ids = sorted({int(value) for value in storage_root_ids if int(value) > 0})
+    if not ids:
+        return {}
+    try:
+        rows = db.execute(
+            text("SELECT storage_root_id, findings_json, ignored_json FROM storage_root_sensitivity WHERE status = 'done' AND storage_root_id IN :ids")
+            .bindparams(bindparam("ids", expanding=True)),
+            {"ids": ids},
+        ).all()
+    except Exception:
+        db.rollback()
+        return {}
+    out: dict[int, int] = {}
+    for root_id, findings, ignored_json in rows:
+        ignored = _ignored_paths(ignored_json)
+        paths = {str(item.get("path", "")).lower() for item in _load(findings, [])
+                 if isinstance(item, dict) and item.get("category") in PASSWORD_CATEGORIES}
+        out[int(root_id)] = len(paths - ignored)
+    return out

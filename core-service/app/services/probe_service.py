@@ -39,6 +39,8 @@ _PROBE_JOB_TYPE_BY_TEMPLATE = {
     "share_delete": "SHARE_DELETE",
     "dfs_folder_create": "DFS_FOLDER_CREATE",
     "scan_smb_sensitivity": "SENSITIVITY_SCAN",
+    "folder_quota_read": "FOLDER_QUOTA_READ",
+    "folder_quota_apply": "FOLDER_QUOTA_APPLY",
     "dfs_folder_delete": "DFS_FOLDER_DELETE",
 }
 
@@ -409,6 +411,47 @@ async def _enrich_folder_payload(
     return target, auth, options, context
 
 
+async def _enrich_quota_payload(
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """FSRM quota of a folder: the folder on its Windows file server, the server account, the DNS name of the server
+    (Kerberos SPN when it is declared by its IP) and a domain controller to ask first."""
+    target = dict(payload.get("target") or {})
+    options = dict(payload.get("options") or {})
+    context = dict(payload.get("context") or {})
+    storage_root_id = positive_int(target.get("storage_root_id")) or positive_int(context.get("storage_root_id"))
+    ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(storage_root_id or 0)) if storage_root_id else None
+    if not isinstance(ctx, dict):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error_code": "STORAGE_ROOT_NOT_FOUND", "message": "Storage root not found"})
+    if str(ctx.get("endpoint_type") or "smb").strip().lower() != "smb":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error_code": "QUOTA_DFS_UNSUPPORTED", "message": "A DFS folder has no quota of its own: set it on its target folder, on the file server"},
+        )
+    host, share, rel_path = _parse_unc_root_path(ctx.get("root_path"))
+    username, secret_ref = _probe_credentials({}, ctx)
+    if not (host and share and username and secret_ref):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error_code": "FOLDER_CONTEXT_INCOMPLETE", "message": "The folder, its share or the file server account is missing",
+                    "storage_root_id": int(storage_root_id or 0)},
+        )
+    operation = str(target.get("operation") or "read").strip().lower()
+    out = {"host": host, "share": share, "path": rel_path, "storage_root_id": int(storage_root_id or 0), "operation": operation,
+           "server_name": str(ctx.get("endpoint_name") or "").strip() or None,
+           "kdc_host": str(ctx.get("identity_source_host") or "").strip() or None}
+    if operation == "set":
+        out.update({"limit_bytes": int(target.get("limit_bytes") or 0), "soft": bool(target.get("soft")),
+                    "warn_percent": int(target.get("warn_percent") or 85), "description": "BornToShare"})
+    auth = {"mode": "kerberos", "username": username, "secret_ref": secret_ref}
+    domain_name = str(ctx.get("domain_name") or "").strip()
+    if domain_name:
+        auth["domain"] = domain_name
+    options["timeout_sec"] = int(options.get("timeout_sec") or 90)
+    context["storage_root_id"] = int(storage_root_id or 0)
+    return out, auth, options, context
+
+
 async def _enrich_storage_root_probe_payload(
     payload: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -536,6 +579,10 @@ def _pick_template(kind: str, protocol: str) -> tuple[str, str]:
         return "folder_create", "v1"
     if kind_norm == "folder" and protocol_norm == "list":
         return "folder_list", "v1"
+    if kind_norm == "folder" and protocol_norm == "quota-read":
+        return "folder_quota_read", "v1"
+    if kind_norm == "folder" and protocol_norm == "quota-apply":
+        return "folder_quota_apply", "v1"
     if kind_norm == "share" and protocol_norm == "create":
         return "share_create", "v1"
     if kind_norm == "share" and protocol_norm == "delete":
@@ -585,6 +632,8 @@ async def submit_probe_run(payload: dict[str, Any]) -> dict[str, Any]:
         target, auth, options, context = await _enrich_storage_root_probe_payload(payload)
     if template_slug in {"folder_inheritance", "folder_delete", "folder_create"}:
         target, auth, options, context = await _enrich_folder_payload(payload)
+    if template_slug in {"folder_quota_read", "folder_quota_apply"}:
+        target, auth, options, context = await _enrich_quota_payload(payload)
 
     identity_source_id = positive_int(context.get("identity_source_id"))
     timeout_sec = int(options.get("timeout_sec") or 30)

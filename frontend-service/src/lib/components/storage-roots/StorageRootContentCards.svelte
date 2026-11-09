@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import { formatDateTime, timeAgo } from '$lib/utils/format';
+  import { formatBytes, formatDateTime, timeAgo } from '$lib/utils/format';
 
   /**
    * Content of a governed folder, as the worker read it during the last check of the folder: size, sub-folders
@@ -19,17 +19,7 @@
   export let content: Content | null = null;
   export let onMeasure: (() => void) | null = null;
 
-  const UNITS = ['o', 'Ko', 'Mo', 'Go', 'To'];
-  const size = (bytes: number | null | undefined) => {
-    if (bytes == null) return '—';
-    let value = bytes;
-    let unit = 0;
-    while (value >= 1024 && unit < UNITS.length - 1) {
-      value /= 1024;
-      unit += 1;
-    }
-    return `${value.toLocaleString('fr-FR', { maximumFractionDigits: value < 10 && unit ? 1 : 0 })} ${UNITS[unit]}`;
-  };
+  const size = (bytes: number | null | undefined) => formatBytes(bytes);
   const count = (value: number | undefined) => (value == null ? '—' : value.toLocaleString('fr-FR'));
   $: top = content?.top ?? [];
   $: maxTop = Math.max(1, ...top.map((row) => row.bytes));

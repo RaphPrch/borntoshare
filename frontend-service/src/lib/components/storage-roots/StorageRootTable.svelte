@@ -2,13 +2,13 @@
   // Kept across visits: coming back from a folder returns to the same filter, zone and sort
   const memory = { filter: 'all' as Filter, zone: '', sort: 'state' as SortKey, desc: false };
   type Filter = 'all' | 'review' | 'no-guardian' | 'ending' | 'blocking';
-  type SortKey = 'name' | 'server' | 'people' | 'guardians' | 'state';
+  type SortKey = 'name' | 'server' | 'people' | 'guardians' | 'quota' | 'state';
 </script>
 
 <script lang="ts">
   import { invalidate } from '$app/navigation';
   import { t } from '$lib/i18n';
-  import { timeAgo } from '$lib/utils/format';
+  import { formatBytes, timeAgo } from '$lib/utils/format';
   import { apiGetData, apiPostData } from '$lib/api/client';
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
@@ -183,6 +183,8 @@
     server: (a, b) => a.server.localeCompare(b.server, 'fr') || SORTS.name(a, b),
     people: (a, b) => people(b) - people(a) || SORTS.name(a, b),
     guardians: (a, b) => a.guardians - b.guardians || SORTS.name(a, b),
+    // The fullest first; folders without quota last
+    quota: (a, b) => Number(b.row?.quota_used_percent ?? -1) - Number(a.row?.quota_used_percent ?? -1) || SORTS.name(a, b),
     state: (a, b) => Number(b.blocking) - Number(a.blocking) || Number(b.review) - Number(a.review) || b.pending - a.pending || SORTS.name(a, b)
   };
   $: visible = zoned
@@ -393,6 +395,7 @@
       <button type="button" on:click={() => sortBy('server')}>{t('Server')}{sortMark('server', sortKey, desc)}</button>
       <button type="button" on:click={() => sortBy('people')}>{t('People')}{sortMark('people', sortKey, desc)}</button>
       <button type="button" on:click={() => sortBy('guardians')}>{t('Guardians')}{sortMark('guardians', sortKey, desc)}</button>
+      <button type="button" on:click={() => sortBy('quota')}>{t('Quota')}{sortMark('quota', sortKey, desc)}</button>
       <button type="button" on:click={() => sortBy('state')}>{t('State')}{sortMark('state', sortKey, desc)}</button>
       <span>{t('ACL read')}</span>
     </div>
@@ -400,7 +403,7 @@
       <div class="tb__row" class:sel={checked.has(line.id)} on:contextmenu={(event) => openMenu(line, event)}>
         {#if isAdmin}<span><input type="checkbox" checked={checked.has(line.id)} on:change={() => toggle(line.id)} aria-label={t('Select {name}', { name: line.name })} /></span>{/if}
         <button type="button" class="tb__name" on:click={() => onOpenRoot(line.id)}>
-          <strong>{line.name}{#if Number(line.row?.sensitive_files ?? 0) > 0}<span class="tb__sens" title={t('{count} sensitive file(s) found by the last scan', { count: Number(line.row?.sensitive_files) })}><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('sensitive')}</span>{/if}</strong>
+          <strong>{line.name}{#if Number(line.row?.sensitive_files ?? 0) > 0}<span class="tb__sens" title={t('{count} sensitive file(s) found by the last scan', { count: Number(line.row?.sensitive_files) })}><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('sensitive')}</span>{/if}{#if Number(line.row?.password_files ?? 0) > 0}<span class="tb__sens" title={t('{count} file(s) holding passwords', { count: Number(line.row?.password_files) })}><i class="bi bi-key" aria-hidden="true"></i>{t('passwords')}</span>{/if}</strong>
           <small title={line.dfsPath || line.path}>{line.dfsPath || line.path}</small>
         </button>
         <span class="tb__server"><span>{line.server}</span><small>{line.zone}</small></span>
@@ -415,6 +418,15 @@
         <span>
           {#if line.noGuardian}<span class="sg-tag warn">{line.guardians ? t('{count} of too few', { count: line.guardians }) : t('None')}</span>
           {:else}<span class="sg-tag">{t('{count} guardian(s)', { count: line.guardians })}</span>{/if}
+        </span>
+        <span class="tb__quota">
+          {#if line.row?.quota_limit_bytes != null}
+            {@const pct = line.row?.quota_used_percent == null ? null : Number(line.row.quota_used_percent)}
+            <span class="tb__qbar" data-tone={pct == null ? 'neutral' : pct >= 100 ? 'danger' : pct >= Number(line.row?.quota_warn_percent ?? 85) ? 'warning' : 'ok'}
+              title={t('{used} of {limit}', { used: formatBytes(line.row?.quota_used_bytes), limit: formatBytes(line.row?.quota_limit_bytes) })}>
+              <i style={`width:${Math.min(100, pct ?? 0)}%`}></i></span>
+            <small>{pct == null ? formatBytes(line.row?.quota_limit_bytes) : `${Math.round(pct)} %`}{#if Number(line.row?.quota_pending_requests ?? 0) > 0} <i class="bi bi-arrow-up-circle" title={t('Request for more room waiting')}></i>{/if}</small>
+          {:else}<span class="muted">—</span>{/if}
         </span>
         <span><span class={`sg-tag ${line.tone}`}>{line.label}</span></span>
         <span class="muted">{line.readAt ? timeAgo(line.readAt) : t('never')}</span>
@@ -516,8 +528,15 @@
   .tb__counters b.warn { color: var(--b2s-color-warning-strong); }
   .tb__counters b.bad { color: var(--b2s-color-danger-strong); }
   .tb__grid { border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); overflow: hidden; }
-  .tb__head, .tb__row { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 0.9fr) 120px 140px 190px 110px; gap: 12px; align-items: center; padding: 0 14px; }
-  .admin .tb__head, .admin .tb__row { grid-template-columns: 24px minmax(0, 1.7fr) minmax(0, 0.9fr) 120px 140px 190px 110px; }
+  .tb__head, .tb__row { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 0.9fr) 120px 140px 96px 190px 110px; gap: 12px; align-items: center; padding: 0 14px; }
+  .admin .tb__head, .admin .tb__row { grid-template-columns: 24px minmax(0, 1.7fr) minmax(0, 0.9fr) 120px 140px 96px 190px 110px; }
+  .tb__quota { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .tb__quota small { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); font-variant-numeric: tabular-nums; }
+  .tb__qbar { position: relative; display: block; height: 6px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); overflow: hidden; --tb-fill: var(--b2s-color-info-strong); }
+  .tb__qbar[data-tone='ok'] { --tb-fill: var(--b2s-color-success-strong, #1a7f37); }
+  .tb__qbar[data-tone='warning'] { --tb-fill: var(--b2s-color-warning-strong, #9a5b00); }
+  .tb__qbar[data-tone='danger'] { --tb-fill: var(--b2s-color-danger-strong, #b42318); }
+  .tb__qbar i { position: absolute; inset: 0 auto 0 0; background: var(--tb-fill); border-radius: inherit; }
   .tb__head { position: sticky; top: 0; z-index: 1; min-height: 40px; background: var(--b2s-color-surface-soft, #f6f7f9); border-bottom: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-xs); color: var(--b2s-color-text-muted); }
   .tb__head button { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 500; text-align: left; cursor: pointer; }
   .tb__row { min-height: 52px; border-top: 1px solid var(--b2s-color-border); }

@@ -433,6 +433,30 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
         logger.warning("POLICIES_AFTER_SCAN_FAILED", exc_info=True)
 
 
+def _persist_quota_result(db: Session, *, job_row: Any, result_json: dict | None, error_message: str | None = None) -> None:
+    """FSRM quota of a folder (folder_quota_read / folder_quota_apply): what the server has now, or why it failed."""
+    from app.services import quotas
+
+    if str(getattr(job_row, "action", "") or "").strip() not in quotas.ACTIONS:
+        return
+    root_id = _extract_storage_root_id_from_probe(job_payload_json=getattr(job_row, "payload_json", None), result_json=result_json)
+    if not root_id:
+        return
+    job_id = int(getattr(job_row, "id", 0) or 0) or None
+    try:
+        if error_message is not None:
+            details = (result_json or {}).get("details") if isinstance(result_json, dict) else None
+            code = (details or {}).get("failure_code") if isinstance(details, dict) else None
+            hint = (details or {}).get("hint") if isinstance(details, dict) else None
+            quotas.record_failure(db, root_id, job_id, code or (result_json or {}).get("error_code"),
+                                  f"{error_message}{' — ' + hint if hint else ''}")
+            return
+        quotas.record_result(db, root_id, job_id, result_json)
+    except Exception:
+        db.rollback()
+        logger.warning("QUOTA_RESULT_NOT_SAVED", exc_info=True)
+
+
 def _persist_storage_root_probe_result(
     db: Session,
     *,
@@ -744,6 +768,8 @@ def get_storage_root_provisioning_context(storage_root_id: int, db: Session = De
               se.id AS storage_endpoint_id,
               se.zone_id,
               se.host,
+              se.name AS endpoint_name,
+              se.endpoint_type,
               se.port AS endpoint_port,
               se.protocol AS endpoint_protocol,
               se.sub_ou_dn,
@@ -1211,6 +1237,7 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
     )
 
     _persist_sensitivity_result(db, job_row=row, result_json=payload.result_json)
+    _persist_quota_result(db, job_row=row, result_json=payload.result_json)
     _record_access_group_outcome(db, job_row=row, succeeded=True, result_json=payload.result_json)
     _apply_infrastructure_results(db, job_row=row, result_json=payload.result_json)
 
@@ -1357,6 +1384,8 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
 
     _persist_sensitivity_result(db, job_row=row, result_json=payload.result_json,
                                 error_message=str(payload.error_message or payload.error_code or "The scan failed"))
+    _persist_quota_result(db, job_row=row, result_json={**(payload.result_json or {}), "error_code": payload.error_code},
+                          error_message=str(payload.error_message or payload.error_code or "The quota operation failed"))
     _record_access_group_outcome(
         db,
         job_row=row,

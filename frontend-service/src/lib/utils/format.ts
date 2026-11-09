@@ -73,3 +73,16 @@ export function timeUntil(iso?: string | null): string {
   return t('in {d} d', { d: Math.round(hr / 24) });
 }
 
+
+const BYTE_UNITS = ['o', 'Ko', 'Mo', 'Go', 'To', 'Po'];
+/** 1,5 Go · 200 Mo: a size the way the folder cards write it ('—' when unknown) */
+export function formatBytes(bytes: unknown, empty = '—'): string {
+  if (bytes == null || bytes === '' || !Number.isFinite(Number(bytes))) return empty;
+  let value = Number(bytes);
+  let unit = 0;
+  while (value >= 1024 && unit < BYTE_UNITS.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toLocaleString('fr-FR', { maximumFractionDigits: value < 10 && unit ? 1 : 0 })} ${BYTE_UNITS[unit]}`;
+}

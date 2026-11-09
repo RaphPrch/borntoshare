@@ -411,6 +411,34 @@ class FolderCreatePayload(FolderOperationPayload):
     path: str = Field(default="", max_length=1024)
 
 
+class FolderQuotaPayload(BaseModel):
+    """FSRM quota of a governed folder, over WinRM with Kerberos (read, set, remove)."""
+    model_config = ConfigDict(extra="forbid")
+
+    host: str = Field(min_length=1, max_length=255)
+    share: str = Field(min_length=1, max_length=255)
+    path: str = Field(default="", max_length=1024)
+    operation: Literal["read", "set", "remove"] = "read"
+    limit_bytes: Optional[int] = Field(default=None, ge=1024 * 1024, le=1024 ** 5)
+    soft: bool = False
+    warn_percent: int = Field(default=85, ge=50, le=100)
+    description: Optional[str] = Field(default=None, max_length=255)
+    # DNS name of the server for its Kerberos SPN when the host is an IP, and a domain controller to ask first
+    server_name: Optional[str] = Field(default=None, max_length=255)
+    kdc_host: Optional[str] = Field(default=None, max_length=255)
+    username: str = Field(min_length=1, max_length=255)
+    password: Optional[str] = Field(default=None, min_length=1, max_length=1024)
+    secret_ref: Optional[str] = Field(default=None, min_length=5, max_length=512)
+    domain: str = Field(default="", max_length=255)
+    timeout_sec: int = Field(default=60, ge=1, le=300)
+
+    @model_validator(mode="after")
+    def _check_secret_or_password(self) -> "FolderQuotaPayload":
+        if not self.password and not self.secret_ref:
+            raise ValueError("password or secret_ref is required")
+        return self
+
+
 class InfraHealthTarget(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

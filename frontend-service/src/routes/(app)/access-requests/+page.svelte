@@ -1,4 +1,5 @@
 <script lang="ts">
+  import QuotaRequestsStrip from '$lib/components/storage-roots/QuotaRequestsStrip.svelte';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { extendAccess } from '$lib/api/storage-root-permissions';
@@ -568,6 +569,8 @@
       {t('New request')}
     </a>
   </header>
+
+  <QuotaRequestsStrip isAdmin={me?.is_admin === true} />
 
   <div class="ar-counters" role="group" aria-label={t('Request status')}>
     {#each counters as counter (counter.key)}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import StorageRootContentCards from '$lib/components/storage-roots/StorageRootContentCards.svelte';
+  import StorageRootQuotaCard from '$lib/components/storage-roots/StorageRootQuotaCard.svelte';
   import StorageRootSensitivityCard from '$lib/components/storage-roots/StorageRootSensitivityCard.svelte';
   import TagPill from '$lib/components/tags/TagPill.svelte';
   import { t } from '$lib/i18n';
@@ -32,6 +33,7 @@
   export let rootId: number | null = null;
   export let onMeasure: (() => void) | null = null;
   export let isAdmin = false;
+  export let isDfs = false;
   export let activity: Array<Record<string, unknown>> = [];
   export let onOpenPermissions: () => void = () => {};
   export let onExplain: (login: string) => void = () => {};
@@ -87,6 +89,7 @@
 <div class="ov">
   <div class="ov__col">
     <StorageRootContentCards {content} {onMeasure} />
+    <StorageRootQuotaCard {rootId} {isAdmin} {isDfs} />
     <StorageRootSensitivityCard {rootId} {sensitivity} {isAdmin} />
     <section class="ov__card" aria-label={t('Who reaches it')}>
       <header><h2>{t('Who reaches it')}</h2><button type="button" class="b2s-link-btn" on:click={onOpenPermissions}>{t('All the permissions')} ›</button></header>

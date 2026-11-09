@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 from app.actions.smb import _LS_ENTRY, _classify_smb_error, run_samba
 
-RULES_VERSION = 1
+RULES_VERSION = 2
 MAX_LISTED = 300_000
 MAX_READ_FILES = 300
 MAX_FILE_BYTES = 1024 * 1024
@@ -27,7 +27,9 @@ NAME_RULES: list[tuple[str, str, re.Pattern[str]]] = [
     ("password_vault", "Password vault", re.compile(r"\.(kdbx|kdb|psafe3|opvault|agilekeychain|1pif)$")),
     ("private_key", "Private key or certificate with key", re.compile(r"(^id_(rsa|dsa|ecdsa|ed25519)$|\.(ppk|pfx|p12|jks|keystore)$)")),
     ("credentials_file", "File named after passwords",
-     re.compile(r"(passwords?|passwd|mots?[ _.-]?de[ _.-]?passe|mdp|credentials?|identifiants?|secrets?|logins?)[^\\/]*\.(txt|xlsx?|xlsm|docx?|csv|ods|odt|json|ini|cfg|conf|md|rtf|one)$")),
+     re.compile(r"(passwords?|passwd|pwd|mots?[ _.-]?de[ _.-]?passe|mdp|credentials?|identifiants?|secrets?|logins?|kennw[oö]rt|passw[oö]rt|contrase[nñ]as?"
+                r"|codes?[ _.-]?(d[ _.'’-]?)?acc[eè]s|comptes?[ _.-]?(admin|de[ _.-]?service|service)|keepass|bitwarden|lastpass|1password)"
+                r"[^\\/]*\.(txt|xlsx?|xlsm|docx?|csv|ods|odt|json|ini|cfg|conf|md|rtf|one|pdf)$")),
     ("credentials_file", "Stored credentials", re.compile(r"^(\.git-credentials|\.netrc|_netrc|\.pgpass|\.my\.cnf|unattend\.xml|autounattend\.xml|sysprep\.inf)$")),
 ]
 
@@ -46,7 +48,11 @@ CONTENT_RULES: list[tuple[str, str, re.Pattern[str], int]] = [
     ("cloud_key", "API key or token",
      re.compile(r"(?i)\b(?:api[_-]?key|secret[_-]?key|client[_-]?secret|access[_-]?token|auth[_-]?token)\b\s*[:=]\s*['\"]?([A-Za-z0-9_\-+/=.]{16,})"), 1),
     ("password", "Password in clear",
-     re.compile(r"(?i)\b(?:password|passwd|pwd|pass|mot\s?de\s?passe|mdp)\b\s*[:=]\s*['\"]?([^\s'\";<>]{4,})"), 1),
+     re.compile(r"(?i)\b(?:password|passwd|pwd|pass|mot\s?de\s?passe|mdp|kennwort|passwort|contrase(?:n|ñ)a|senha)\b\s*[:=]\s*['\"]?([^\s'\";<>]{4,})"), 1),
+    ("password", "Password written in a script",
+     re.compile(r"(?i)ConvertTo-SecureString\s+(?:-String\s+)?['\"]([^'\"]{4,})['\"]\s+-AsPlainText"), 1),
+    ("password", "Password on a net use / net user command",
+     re.compile(r"(?i)\bnet\s+(?:use\s+(?:(?:[a-z]:|\*)\s+)?\\\\\S+|user\s+\S+)\s+([^\s/*]{4,})\s+/(?:user:|add\b)"), 1),
     ("password", "Password in a Windows answer file",
      re.compile(r"(?i)<(?:AdministratorPassword|Password)>\s*<Value>([^<]{4,})</Value>"), 1),
 ]
