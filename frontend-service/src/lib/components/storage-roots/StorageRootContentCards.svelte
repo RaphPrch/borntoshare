@@ -2,6 +2,7 @@
   import { t } from '$lib/i18n';
   import { formatBytes, formatDateTime, timeAgo } from '$lib/utils/format';
   import CountUp from '$lib/components/ui/CountUp.svelte';
+  import StorageRootGrowth from '$lib/components/storage-roots/StorageRootGrowth.svelte';
 
   /**
    * Content of a governed folder, as the worker read it during the last check of the folder: size, sub-folders
@@ -16,17 +17,35 @@
     scanned_at?: string | null;
     top?: Array<{ name: string; bytes: number; files: number }>;
     types?: Array<{ ext: string; files: number }>;
+    cold?: { '1y': { bytes: number; files: number }; '3y': { bytes: number; files: number } };
+    cold_top?: Array<{ path: string; bytes: number; modified: string }>;
+    junk?: { bytes: number; files: number; examples: string[] };
+    last_modified?: string | null;
   };
   export let content: Content | null = null;
   export let onMeasure: (() => void) | null = null;
+  export let rootId: number | null = null;
 
   const size = (bytes: number | null | undefined) => formatBytes(bytes);
   const count = (value: number | undefined) => (value == null ? '—' : value.toLocaleString('fr-FR'));
-  $: top = content?.top ?? [];
+  // Empty sub-folders say nothing about where the weight is
+  $: top = (content?.top ?? []).filter((row) => row.bytes > 0);
   $: maxTop = Math.max(1, ...top.map((row) => row.bytes));
   $: types = content?.types ?? [];
   $: maxType = Math.max(1, ...types.map((row) => row.files));
   $: floor = content?.truncated ? '≥ ' : '';
+  // Age of the data: under a year, 1 to 3 years, over 3 years (share of the bytes)
+  $: total = Number(content?.bytes ?? 0);
+  $: c1 = Number(content?.cold?.['1y']?.bytes ?? 0);
+  $: c3 = Number(content?.cold?.['3y']?.bytes ?? 0);
+  $: ages = content?.cold && total > 0
+    ? [
+        { key: 'fresh', label: t('Changed this year'), bytes: total - c1 },
+        { key: 'cold', label: t('1 to 3 years'), bytes: c1 - c3 },
+        { key: 'frozen', label: t('Over 3 years'), bytes: c3 }
+      ]
+    : [];
+  const pct = (value: number) => (total ? Math.round((value / total) * 100) : 0);
 </script>
 
 <section class="cc" aria-label={t('Content of the folder')}>
@@ -73,6 +92,34 @@
       {/if}
     </div>
     {/key}
+    {#if ages.length}
+      <div class="cc__age">
+        <div class="cc__age-head">
+          <h3>{t('Age of the data')}</h3>
+          {#if content.last_modified}<small>{t('last change {when}', { when: timeAgo(content.last_modified) })}</small>{/if}
+        </div>
+        <div class="cc__stack" role="img" aria-label={ages.map((age) => `${age.label} : ${pct(age.bytes)} %`).join(', ')}>
+          {#each ages as age, rank (age.key)}{#if age.bytes > 0}<i class={`b2s-grow is-${age.key}`} style={`flex:${age.bytes};--i:${rank}`}></i>{/if}{/each}
+        </div>
+        <ul class="cc__legend">
+          {#each ages as age (age.key)}<li><span class={`cc__key is-${age.key}`}></span>{age.label} <b>{pct(age.bytes)} %</b> <small>{size(age.bytes)}</small></li>{/each}
+        </ul>
+        {#if content.cold_top?.length}
+          <details class="cc__more">
+            <summary>{t('Biggest files untouched for a year')}</summary>
+            <ul>{#each content.cold_top as file (file.path)}<li><code title={file.path}>{file.path}</code><span>{size(file.bytes)} · {timeAgo(file.modified)}</span></li>{/each}</ul>
+          </details>
+        {/if}
+      </div>
+    {/if}
+    {#if content.junk?.files}
+      <div class="cc__junk">
+        <i class="bi bi-trash3" aria-hidden="true"></i>
+        <span><b>{t('{count} clutter file(s)', { count: content.junk.files })}</b> · {size(content.junk.bytes)}
+          <small>{t('Thumbnail caches, Office lock files, temporary files, backups and copies')} — {content.junk.examples.slice(0, 3).join(', ')}</small></span>
+      </div>
+    {/if}
+    <StorageRootGrowth {rootId} refreshKey={content.scanned_at} />
   {:else}
     <p class="cc__empty">{t('The size, the sub-folders and the files appear after the next check of the folder by the worker.')}</p>
   {/if}
@@ -98,4 +145,26 @@
   .cc__track i { display: block; height: 100%; border-radius: inherit; background: var(--b2s-color-info-strong); }
   .cc__value { text-align: right; font-variant-numeric: tabular-nums; color: var(--b2s-color-text-muted); }
   .mono { font-family: var(--b2s-font-mono); }
+  .cc__age { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--b2s-color-border); }
+  .cc__age-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .cc__age h3 { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .cc__age-head small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  /* One hue, three steps: light = recent, dark = frozen (sequential); a 2px gap between segments */
+  .cc__stack { display: flex; gap: 2px; height: 12px; border-radius: var(--b2s-radius-pill); overflow: hidden; background: var(--b2s-color-neutral-soft); }
+  .cc__stack i { display: block; height: 100%; }
+  .is-fresh { background: #9ec5fe; }
+  .is-cold { background: #3b82f6; }
+  .is-frozen { background: #1e3a8a; }
+  .cc__legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-xs); }
+  .cc__legend li { display: flex; align-items: center; gap: 6px; }
+  .cc__legend small { color: var(--b2s-color-text-muted); }
+  .cc__key { width: 10px; height: 10px; border-radius: 3px; }
+  .cc__more summary { cursor: pointer; color: var(--b2s-color-info-strong); font-size: var(--b2s-fs-xs); }
+  .cc__more ul { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: var(--b2s-fs-xs); }
+  .cc__more li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+  .cc__more code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--b2s-font-mono); }
+  .cc__more span { color: var(--b2s-color-text-muted); font-variant-numeric: tabular-nums; }
+  .cc__junk { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-warning-soft, #fff4e5); font-size: var(--b2s-fs-sm); }
+  .cc__junk i { color: var(--b2s-color-warning-strong, #9a5b00); margin-top: 2px; }
+  .cc__junk small { display: block; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>

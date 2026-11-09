@@ -355,6 +355,14 @@
       "quota_request_cancelled": {
         "title": "Quota request cancelled",
         "description": "The request for more room in « {target} » is cancelled"
+      },
+      "remediation_requested": {
+        "title": "Correction asked",
+        "description": "The guardians of « {target} » must remove the passwords found"
+      },
+      "remediation_cancelled": {
+        "title": "Correction cancelled",
+        "description": "The correction asked for « {target} » is cancelled"
       }
     },
     "access_request": {
@@ -1242,5 +1250,10 @@
   "Its target server is not declared in BornToShare: declare it in Servers first.": "Its target server is not declared in BornToShare: declare it in Servers first.",
   "Target not declared": "Target not declared",
   "Show the sub-folders of {name}": "Show the sub-folders of {name}",
-  "The folder could not be read.": "The folder could not be read."
+  "The folder could not be read.": "The folder could not be read.",
+  "5S: Sort": "Sort",
+  "5S: Set in order": "Set in order",
+  "5S: Shine": "Shine",
+  "5S: Standardize": "Standardize",
+  "5S: Sustain": "Sustain"
 }

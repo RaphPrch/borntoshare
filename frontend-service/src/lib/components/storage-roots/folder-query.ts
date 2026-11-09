@@ -88,6 +88,13 @@ const STATES: Record<string, (row: Row) => boolean> = {
   sensible: (row) => Number(row?.sensitive_files ?? 0) > 0,
   'non-analyse': (row) => row?.sensitive_files == null,
   'mot-de-passe': (row) => Number(row?.password_files ?? 0) > 0,
+  'cle-ou-jeton': (row) => Number(row?.key_files ?? 0) > 0,
+  correction: (row) => row?.remediation_status === 'open' || row?.remediation_status === 'overdue',
+  'donnees-froides': (row) => {
+    const total = Number(size(row) ?? 0);
+    return total > 0 && Number(row?.cold_1y_bytes ?? 0) > 0.5 * total;
+  },
+  encombre: (row) => Number(row?.junk_files ?? 0) > 0,
   quota: (row) => row?.quota_limit_bytes != null,
   'sans-quota': (row) => row?.quota_limit_bytes == null,
   'quota-plein': (row) => row?.quota_used_percent != null && Number(row.quota_used_percent) >= Number(row?.quota_warn_percent ?? 85),
@@ -145,6 +152,10 @@ const STATE_LABELS = (): Array<[string, string]> => [
   ['sensible', t('with sensitive files')],
   ['non-analyse', t('never scanned for sensitivity')],
   ['mot-de-passe', t('with passwords stored')],
+  ['cle-ou-jeton', t('with keys or tokens')],
+  ['correction', t('correction asked')],
+  ['donnees-froides', t('mostly cold data')],
+  ['encombre', t('with clutter files')],
   ['quota', t('with a quota')],
   ['sans-quota', t('without quota')],
   ['quota-plein', t('quota almost full')],
@@ -224,6 +235,7 @@ export const folderQueryExamples = (): Suggestion[] => [
   { insert: 'est:sensible', label: t('With sensitive files'), hint: 'est:sensible', icon: 'bi-shield-lock' },
   { insert: 'est:mot-de-passe', label: t('With passwords stored'), hint: 'est:mot-de-passe', icon: 'bi-key' },
   { insert: 'est:quota-plein', label: t('Quota almost full'), hint: 'est:quota-plein', icon: 'bi-speedometer2' },
+  { insert: 'est:donnees-froides', label: t('Mostly cold data'), hint: 'est:donnees-froides', icon: 'bi-snow' },
   { insert: 'est:sans-gardien', label: t('Without guardian'), hint: 'est:sans-gardien', icon: 'bi-person-x' },
   { insert: 'est:alerte', label: t('With open alerts'), hint: 'est:alerte', icon: 'bi-exclamation-triangle' },
   { insert: 'est:sans-tag', label: t('Without tag'), hint: 'est:sans-tag', icon: 'bi-tag' },

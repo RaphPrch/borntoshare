@@ -334,6 +334,16 @@ def run_all(db: Session, *, policy_id: int | None = None, only_root_ids: set[int
 
 async def run_all_and_dispatch(db: Session, **kwargs: Any) -> dict[str, Any]:
     summary = run_all(db, **kwargs)
+    # Corrections of passwords past their due date: their folders are scanned again (overdue if still there)
+    try:
+        from app.services import remediations
+
+        rescans = [{"kind": "sensitivity", "storage_root_id": root_id, "policy_id": 0} for root_id in remediations.due_for_rescan(db)]
+        if rescans:
+            summary["jobs"] = [*(summary.get("jobs") or []), *rescans]
+    except Exception:
+        db.rollback()
+        logger.warning("REMEDIATION_RESCAN_FAILED", exc_info=True)
     if summary.get("jobs"):
         summary["queued"] = await dispatch_jobs(db, summary["jobs"])
     summary["jobs"] = len(summary.get("jobs") or [])

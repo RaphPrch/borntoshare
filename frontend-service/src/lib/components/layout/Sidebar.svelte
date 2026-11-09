@@ -30,6 +30,9 @@
     // Everyone has these four menus; their content follows the role (own folders and own activity for a user)
     { href: '/storage-roots', label: t('Folders'), icon: 'bi-folder2-open' },
     { href: '/exposure', label: t('Exposure'), icon: 'bi-shield-exclamation' },
+    // Lean 5S of the shares, and the printable reports (on the folders the person may see)
+    { href: '/five-s', label: t('5S'), icon: 'bi-stars' },
+    { href: '/reports', label: t('Reports'), icon: 'bi-file-earmark-bar-graph' },
     { href: '/access-requests', label: t('Requests'), icon: 'bi-check2-square', count: Number(alertsCount ?? 0) },
     { href: '/observability', label: t('Monitoring'), icon: 'bi-activity', count: canSeeObservability ? Number(criticalAlertsCount ?? 0) : 0, danger: true }
   ] as Item[];

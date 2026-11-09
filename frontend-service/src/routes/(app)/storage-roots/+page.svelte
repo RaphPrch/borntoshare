@@ -1734,6 +1734,7 @@
       selectedRootCodeOrName={String(selectedRow?.storage_root_name ?? selectedRow?.storage_root_code ?? '—')}
       zoneLabel={String(selectedRow?.zone_name ?? '')}
       isDfs={String(selectedRow?.storage_endpoint_type ?? '').toLowerCase() === 'dfs'}
+      selectedRow={selectedRow}
       activeTab={$storageRootsUiStore.detailTab}
       {rootProbeBusy}
       aclFreshness={detailView.aclFreshness}

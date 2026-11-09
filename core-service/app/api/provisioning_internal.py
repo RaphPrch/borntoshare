@@ -422,6 +422,14 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
         return
     sensitivity.record_result(db, root_id, job_id, result_json)
     db.commit()
+    # A correction asked to the guardians closes by itself when the files are gone (or becomes overdue)
+    try:
+        from app.services import remediations
+
+        remediations.after_scan(db, int(root_id))
+    except Exception:
+        db.rollback()
+        logger.warning("REMEDIATION_AFTER_SCAN_FAILED", exc_info=True)
     # The policies about sensitivity apply at once to this folder, without waiting for their schedule
     try:
         from app.services.policies import run_all
@@ -546,6 +554,15 @@ def _persist_storage_root_probe_result(
                 # Files, sub-folders, weight of the first-level sub-folders and file types (worker listing)
                 "content_stats": details.get("content_stats") if isinstance(details.get("content_stats"), dict) else None,
             }
+            # One more point of the growth curve (and of the date the quota will be full)
+            if content_size_bytes is not None:
+                try:
+                    from app.services import content_history
+
+                    content_history.record(int(getattr(root, "id", 0) or 0), measured_at=checked_at.replace(tzinfo=None),
+                                           bytes_=int(content_size_bytes), stats=details.get("content_stats"))
+                except Exception:
+                    logger.warning("CONTENT_HISTORY_NOT_SAVED", exc_info=True)
         endpoint_id = int(getattr(root, "storage_endpoint_id", 0) or 0)
         if endpoint_id > 0:
             endpoint = db.get(StorageEndpoint, endpoint_id)

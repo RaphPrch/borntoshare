@@ -35,6 +35,8 @@ from .identity_list import router as identity_list_router
 from app.api.extensions import router as extensions_router
 from app.api.policies import router as policies_router
 from app.api.quotas import router as quotas_router
+from app.api.folder_insights import router as folder_insights_router
+from app.api.insights import router as insights_router
 
 
 
@@ -58,6 +60,8 @@ router.include_router(observability_router)
 router.include_router(extensions_router)
 router.include_router(policies_router)
 router.include_router(quotas_router)
+router.include_router(folder_insights_router)
+router.include_router(insights_router)
 router.include_router(internal_sso_router)
 router.include_router(governance_alerts_router)
 router.include_router(health_events_router)

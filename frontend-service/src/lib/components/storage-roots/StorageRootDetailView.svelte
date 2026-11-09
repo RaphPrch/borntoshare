@@ -48,6 +48,7 @@
   export let tags: StorageRootTag[] = [];
   export let isAdmin = false;
   export let isDfs = false;
+  export let selectedRow: Record<string, any> | null = null;
   /** Login whose access is explained at once (?explain= from the ⌘K palette) */
   export let explainLogin: string | null = null;
   /** Bumped by the page after an operation on the folder: the permissions are read again */
@@ -174,10 +175,9 @@
 
   <StorageRootTiles
     {permissions}
-    guardianCount={guardianNames.length}
-    guardiansMissing={guardianMissing}
+    row={selectedRow}
+    onOpenContent={() => { onSelectTab('overview'); document.querySelector('.cc')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
     onOpenPermissions={() => onSelectTab('effective-access')}
-    onOpenGuardians={() => onOpenGovernanceDrawer('guardian')}
   />
 
   <StorageRootTodo

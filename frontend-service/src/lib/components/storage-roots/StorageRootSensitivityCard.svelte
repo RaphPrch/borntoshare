@@ -2,6 +2,7 @@
   import { flip } from 'svelte/animate';
   import { dur, flashOn, MOTION, pop } from '$lib/utils/motion';
   import CountUp from '$lib/components/ui/CountUp.svelte';
+  import StorageRootRemediation from '$lib/components/storage-roots/StorageRootRemediation.svelte';
   import { onDestroy } from 'svelte';
   import { apiGetData, apiPostData } from '$lib/api/client';
   import { reportUiError } from '$lib/errors';
@@ -45,6 +46,8 @@
   let showAll = false;
   let timer: ReturnType<typeof setInterval> | null = null;
   let landed = 0;
+  const PASSWORD_CATEGORIES = new Set(['password', 'credentials_file', 'password_vault']);
+  $: passwordFiles = new Set((state?.findings ?? []).filter((item) => PASSWORD_CATEGORIES.has(item.category) && !item.ignored).map((item) => item.path.toLowerCase())).size;
   // A new folder or a reloaded overview: start again from what the page gives (polling keeps `state` fresh in between)
   $: if (sensitivity !== lastProp) adopt(sensitivity);
   function adopt(value: Sensitivity | null) {
@@ -226,6 +229,9 @@
     </p>
   {:else}
     <p class="sc__empty">{t('Looks for passwords, keys and password vaults stored in the folder. Read only; the secrets themselves are never kept.')}</p>
+  {/if}
+  {#if !running && state?.status === 'done'}
+    <StorageRootRemediation {rootId} {isAdmin} {passwordFiles} refreshKey={state?.scanned_at} />
   {/if}
 </section>
 

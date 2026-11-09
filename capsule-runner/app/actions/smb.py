@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -275,14 +276,32 @@ def _discover_share_content_size(
         }
 
 
-_LS_ENTRY = re.compile(r"^\s{2}(?P<name>.+?)\s{2,}(?P<attr>[A-Z]*)\s+(?P<size>\d+)\s+\w{3} \w{3}\s+\d+ [\d:]+ \d{4}$")
+_LS_ENTRY = re.compile(r"^\s{2}(?P<name>.+?)\s{2,}(?P<attr>[A-Z]*)\s+(?P<size>\d+)\s+(?P<date>\w{3} \w{3}\s+\d+ [\d:]+ \d{4})$")
+# Files that only clutter a share: thumbnails caches, Office lock files, temporary files, backups and « copies »
+_JUNK = re.compile(r"(?i)^(thumbs\.db|\.ds_store|~\$.*|.*\.(tmp|temp|bak|old|~)|copie de .*|.* - copie( \(\d+\))?(\.[^.]+)?|.* - copy( \(\d+\))?(\.[^.]+)?)$")
+_DAY = 86400
 _MAX_LISTED = 300_000
 
 
-def parse_recursive_ls(output: str, max_entries: int = _MAX_LISTED, base: str = "") -> dict:
+def _modified(value: str) -> float | None:
+    try:
+        # smbclient writes the dates in the local time of the worker (TZ): read them the same way
+        return datetime.strptime(" ".join(value.split()), "%a %b %d %H:%M:%S %Y").timestamp()
+    except ValueError:
+        return None
+
+
+def parse_recursive_ls(output: str, max_entries: int = _MAX_LISTED, base: str = "", now: float | None = None) -> dict:
     """Totals of a smbclient « recurse ON; ls » listing: bytes, files, sub-folders, the weight of each
-    first-level sub-folder and the most frequent file types. Beyond max_entries the figures are a floor."""
+    first-level sub-folder and the most frequent file types. Beyond max_entries the figures are a floor.
+    Also how old the data is (files not modified for 1 and 3 years, the biggest of them, the last change) and the
+    clutter (thumbnail caches, Office lock files, temporary files, backups, « copies »)."""
+    now = time.time() if now is None else now
     totals = {"bytes": 0, "files": 0, "folders": 0, "truncated": False}
+    cold = {"1y": {"bytes": 0, "files": 0}, "3y": {"bytes": 0, "files": 0}}
+    cold_files: list[tuple[int, str, float]] = []
+    junk = {"bytes": 0, "files": 0, "examples": []}
+    last_modified: float | None = None
     top: dict[str, dict[str, int]] = {}
     types: dict[str, int] = {}
     depth_prefix: list[str] = []
@@ -312,6 +331,25 @@ def parse_recursive_ls(output: str, max_entries: int = _MAX_LISTED, base: str = 
         size = int(match["size"])
         totals["bytes"] += size
         totals["files"] += 1
+        rel = "\\".join([*depth_prefix, match["name"]])
+        stamp = _modified(match["date"])
+        if stamp is not None:
+            last_modified = stamp if last_modified is None else max(last_modified, stamp)
+            age = now - stamp
+            if age > 365 * _DAY:
+                cold["1y"]["bytes"] += size
+                cold["1y"]["files"] += 1
+                cold_files.append((size, rel, stamp))
+                if len(cold_files) > 200:
+                    cold_files = sorted(cold_files, reverse=True)[:20]
+            if age > 3 * 365 * _DAY:
+                cold["3y"]["bytes"] += size
+                cold["3y"]["files"] += 1
+        if _JUNK.match(match["name"]):
+            junk["bytes"] += size
+            junk["files"] += 1
+            if len(junk["examples"]) < 5:
+                junk["examples"].append(rel)
         if first is not None:
             entry = top.setdefault(first, {"bytes": 0, "files": 0})
             entry["bytes"] += size
@@ -320,6 +358,11 @@ def parse_recursive_ls(output: str, max_entries: int = _MAX_LISTED, base: str = 
         types[ext[:10] or "—"] = types.get(ext[:10] or "—", 0) + 1
     totals["top"] = [{"name": name, **value} for name, value in sorted(top.items(), key=lambda kv: -kv[1]["bytes"])[:8]]
     totals["types"] = [{"ext": ext, "files": count} for ext, count in sorted(types.items(), key=lambda kv: -kv[1])[:8]]
+    iso = lambda stamp: datetime.fromtimestamp(stamp, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # noqa: E731
+    totals["cold"] = cold
+    totals["cold_top"] = [{"path": rel, "bytes": size, "modified": iso(stamp)} for size, rel, stamp in sorted(cold_files, reverse=True)[:5]]
+    totals["junk"] = junk
+    totals["last_modified"] = iso(last_modified) if last_modified is not None else None
     return totals
 
 

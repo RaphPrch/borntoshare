@@ -16,6 +16,8 @@ ACTION = "scan_smb_sensitivity"
 CATEGORIES = ("password", "credentials_file", "password_vault", "private_key", "cloud_key")
 # What « est:mot-de-passe » means: a password written in clear, a file named after passwords, a password vault
 PASSWORD_CATEGORIES = ("password", "credentials_file", "password_vault")
+# What « est:cle-ou-jeton » means: a private key, an API key or token
+KEY_CATEGORIES = ("private_key", "cloud_key")
 
 
 def _now() -> datetime:
@@ -180,8 +182,8 @@ def flagged_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, int]:
     return {int(root_id): int(flagged or 0) for root_id, flagged in rows}
 
 
-def password_files_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, int]:
-    """Files holding passwords per scanned folder (without the false positives): « est:mot-de-passe »."""
+def files_by_root(db: Session, storage_root_ids: list[int], categories: tuple[str, ...]) -> dict[int, int]:
+    """Files of these categories per scanned folder (without the false positives)."""
     ids = sorted({int(value) for value in storage_root_ids if int(value) > 0})
     if not ids:
         return {}
@@ -198,6 +200,16 @@ def password_files_by_root(db: Session, storage_root_ids: list[int]) -> dict[int
     for root_id, findings, ignored_json in rows:
         ignored = _ignored_paths(ignored_json)
         paths = {str(item.get("path", "")).lower() for item in _load(findings, [])
-                 if isinstance(item, dict) and item.get("category") in PASSWORD_CATEGORIES}
+                 if isinstance(item, dict) and item.get("category") in categories}
         out[int(root_id)] = len(paths - ignored)
     return out
+
+
+def password_files_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, int]:
+    """Files holding passwords per scanned folder: « est:mot-de-passe »."""
+    return files_by_root(db, storage_root_ids, PASSWORD_CATEGORIES)
+
+
+def key_files_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, int]:
+    """Private keys and API keys or tokens per scanned folder: « est:cle-ou-jeton »."""
+    return files_by_root(db, storage_root_ids, KEY_CATEGORIES)

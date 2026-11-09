@@ -113,6 +113,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
     path.startsWith('/extensions') ||
     path.startsWith('/policies') ||
     path.startsWith('/quota-requests') ||
+    path.startsWith('/insights') ||
     path.startsWith('/zones')
   ) {
     return { service: 'core', path };

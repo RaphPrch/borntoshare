@@ -8,6 +8,15 @@ import { t } from '$lib/i18n';
 export type AlertGuide = { cause: string; steps: string[]; action?: { label: string; tab?: string } };
 
 const GUIDES: Record<string, () => AlertGuide> = {
+  sensitivity_remediation: () => ({
+    cause: t('An administrator asked the guardians to remove the files holding passwords found in this folder, before a due date.'),
+    steps: [
+      t('Open the folder: the Sensitivity card lists the files concerned.'),
+      t('Move the accesses into a password vault, then delete the files (or mark a real false positive).'),
+      t('The next scan closes the correction by itself; at the due date the folder is scanned again automatically.')
+    ],
+    action: { label: t('Open the folder') }
+  }),
   acl_principal_not_governed: () => ({
     cause: t('A user or a group holds a right written straight in the NTFS ACL of the folder, outside the groups that BornToShare governs.'),
     steps: [

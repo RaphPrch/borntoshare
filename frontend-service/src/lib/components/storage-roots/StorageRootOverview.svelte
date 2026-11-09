@@ -90,7 +90,7 @@
 
 <div class="ov">
   <div class="ov__col">
-    <StorageRootContentCards {content} {onMeasure} />
+    <StorageRootContentCards {content} {onMeasure} {rootId} />
     <StorageRootQuotaCard {rootId} {isAdmin} {isDfs} />
     <StorageRootSensitivityCard {rootId} {sensitivity} {isAdmin} />
     <section class="ov__card" aria-label={t('Who reaches it')}>
