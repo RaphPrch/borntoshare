@@ -83,6 +83,8 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'policy.run': { titleKey: 'activity.policy.run.title', descriptionKey: 'activity.policy.run.description', badge: 'info', icon: 'play-circle' },
   'policy.applied': { titleKey: 'activity.policy.applied.title', descriptionKey: 'activity.policy.applied.description', badge: 'info', icon: 'lightning-charge' },
   'infrastructure.policies_run': { titleKey: 'activity.infrastructure.policies_run.title', descriptionKey: 'activity.infrastructure.policies_run.description', badge: 'info', icon: 'lightning-charge' },
+  'storage_root.sensitivity_ignored': { titleKey: 'activity.storage_root.sensitivity_ignored.title', descriptionKey: 'activity.storage_root.sensitivity_ignored.description', badge: 'admin', icon: 'shield-lock' },
+  'storage_root.sensitivity_unignored': { titleKey: 'activity.storage_root.sensitivity_unignored.title', descriptionKey: 'activity.storage_root.sensitivity_unignored.description', badge: 'admin', icon: 'shield-lock' },
   'storage_root.sensitivity_scan_requested': { titleKey: 'activity.storage_root.sensitivity_scan_requested.title', descriptionKey: 'activity.storage_root.sensitivity_scan_requested.description', badge: 'info', icon: 'shield-lock' },
   'storage_root.bulk_check_requested': { titleKey: 'activity.storage_root.bulk_check_requested.title', descriptionKey: 'activity.storage_root.bulk_check_requested.description', badge: 'info', icon: 'arrow-clockwise' },
   'storage_root.acl_repaired': { titleKey: 'activity.storage_root.acl_repaired.title', descriptionKey: 'activity.storage_root.acl_repaired.description', badge: 'admin', icon: 'folder' },

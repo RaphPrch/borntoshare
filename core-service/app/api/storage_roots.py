@@ -1570,6 +1570,42 @@ def get_sensitivity(root_id: int, request: Request, db: Session = Depends(get_db
     return ui_data(sensitivity.get(db, int(root_id)))
 
 
+class SensitivityIgnorePayload(BaseModel):
+    path: str = Field(min_length=1, max_length=1024)
+    ignore: bool = True
+
+
+@router.post("/{root_id}/sensitivity/ignore", dependencies=[Depends(admin_only)])
+def ignore_sensitive_file(root_id: int, payload: SensitivityIgnorePayload, request: Request, db: Session = Depends(get_db)):
+    """A file found by the sensitivity scan is a false positive (or no longer): it stops counting, here and in policies."""
+    from app.services import sensitivity
+    from app.services.policies import run_all
+
+    actor = actor_from_request(request)
+    result = sensitivity.set_ignored(db, int(root_id), payload.path, payload.ignore, actor.display_name)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found in the last scan")
+    log_activity(
+        db,
+        actor_type="user",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name,
+        action="storage_root.sensitivity_ignored" if payload.ignore else "storage_root.sensitivity_unignored",
+        outcome="success",
+        target_type="storage_root",
+        target_id=str(root_id),
+        target_display=payload.path,
+        context_json={"path": payload.path},
+        correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    # The alerts and tags of the sensitivity policies follow at once
+    try:
+        run_all(db, only_root_ids={int(root_id)}, trigger="sensitivity_ignore", allow_jobs=False)
+    except Exception:
+        db.rollback()
+    return ui_data(result)
+
+
 def _create_storage_root(
     payload: StorageRootCreate,
     request: Request,

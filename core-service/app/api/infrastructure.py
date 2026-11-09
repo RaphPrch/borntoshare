@@ -312,6 +312,25 @@ def list_schedules(request: Request, db: Session = Depends(get_db)):
     return ui_list(_schedules(db))
 
 
+@router.get("/schedules/late")
+def list_late_schedules(request: Request, db: Session = Depends(get_db)):
+    """Enabled tasks whose last run is older than two intervals: the scheduler (or the whole platform) stood still."""
+    _admin(request)
+    rows = db.execute(
+        text(
+            """
+            SELECT task, interval_minutes, last_run_at, last_status,
+              TIMESTAMPDIFF(MINUTE, last_run_at, UTC_TIMESTAMP()) AS late_minutes
+            FROM infra_schedules
+            WHERE is_enabled = 1 AND last_run_at IS NOT NULL
+              AND last_run_at < UTC_TIMESTAMP() - INTERVAL (2 * interval_minutes) MINUTE
+            ORDER BY late_minutes DESC
+            """
+        )
+    ).mappings().all()
+    return ui_list([{**dict(row), "last_run_at": row["last_run_at"].isoformat() + "Z"} for row in rows])
+
+
 @router.put("/schedules/{task}")
 def update_schedule(task: Literal["health_check", "data_sync", "access_expiry", "dfs_read", "policies"], payload: SchedulePayload, request: Request, db: Session = Depends(get_db)):
     actor = _admin(request)

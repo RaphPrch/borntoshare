@@ -188,7 +188,7 @@ def _notify(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]]) -> 
 
 
 def _due_jobs(db: Session, policy_id: int, root_ids: list[int], spec: dict[str, Any], now: datetime) -> list[dict[str, Any]]:
-    """The tasks due on the matching folders: never got them, or longer ago than the frequency. Marked as given."""
+    """The tasks due on the matching folders: never got them, or longer ago than the frequency."""
     kinds = [kind for kind in spec.get("kinds") or [] if kind in JOB_KINDS]
     if not kinds or not root_ids:
         return []
@@ -206,38 +206,43 @@ def _due_jobs(db: Session, policy_id: int, root_ids: list[int], spec: dict[str, 
         {"id": int(policy_id), "ids": root_ids, "now": now, "hours": hours, "cap": MAX_JOBS_PER_RUN},
     ).all()
     due = [int(root_id) for (root_id,) in rows]
-    if due:
-        db.execute(
-            text("UPDATE governance_policy_hits SET last_job_at = :now WHERE policy_id = :id AND storage_root_id IN :ids")
-            .bindparams(bindparam("ids", expanding=True)),
-            {"now": now, "id": int(policy_id), "ids": due},
-        )
-    return [{"storage_root_id": root_id, "kind": kind} for root_id in due for kind in kinds]
+    # The date is recorded by dispatch_jobs once the task is really in the queue: a refused one is tried again next run
+    return [{"policy_id": int(policy_id), "storage_root_id": root_id, "kind": kind} for root_id in due for kind in kinds]
 
 
 async def dispatch_jobs(db: Session, jobs: list[dict[str, Any]]) -> dict[str, int]:
-    """Hand the tasks of a run to the workers (job queue). Returns how many were queued per kind."""
-    from app.api.storage_roots import _queue_root_check
+    """Hand the tasks of a run to the workers (job queue); a folder whose tasks all went in gets its date."""
     from app.services import sensitivity
     from app.services.probe_service import submit_probe_run
 
     done = {"check": 0, "sensitivity": 0, "failed": 0}
+    failed: set[tuple[int, int]] = set()
     for job in jobs:
         root_id = int(job["storage_root_id"])
+        key = (int(job.get("policy_id") or 0), root_id)
         try:
-            if job["kind"] == "check":
-                await _queue_root_check(root_id, origin="policy")
-            else:
-                queued = await submit_probe_run({
-                    "kind": "storage-root", "protocol": "sensitivity", "scope": "read",
-                    "target": {"storage_root_id": root_id}, "options": {"timeout_sec": 600},
-                    "context": {"storage_root_id": root_id, "ui_origin": "policy"},
-                })
+            # Same request as the check of a folder, but errors are not swallowed here
+            protocol = "smb" if job["kind"] == "check" else "sensitivity"
+            queued = await submit_probe_run({
+                "kind": "storage-root", "protocol": protocol, "scope": "read",
+                "target": {"storage_root_id": root_id},
+                "options": {"timeout_sec": 30 if protocol == "smb" else 600},
+                "context": {"storage_root_id": root_id, "ui_origin": "policy"},
+            })
+            if job["kind"] == "sensitivity":
                 sensitivity.mark_requested(db, root_id, int(queued.get("job_id") or 0) or None)
             done[job["kind"]] += 1
         except Exception:
             logger.warning("POLICY_JOB_NOT_QUEUED", extra={"storage_root_id": root_id, "kind": job["kind"]}, exc_info=True)
             done["failed"] += 1
+            failed.add(key)
+    given = sorted({(int(job.get("policy_id") or 0), int(job["storage_root_id"])) for job in jobs} - failed)
+    if given:
+        db.execute(
+            text("UPDATE governance_policy_hits SET last_job_at = :now WHERE policy_id = :policy AND storage_root_id = :root"),
+            [{"now": _now(), "policy": policy_id, "root": root_id} for policy_id, root_id in given],
+        )
+        db.commit()
     return done
 
 

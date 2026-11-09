@@ -752,6 +752,21 @@ class DirectorySnapshotsRepo:
                 "snapshot_source": source_label,
             },
         )
+        # Every reading is complete: a group it no longer holds was removed from the directory. Never on a reading
+        # without any group (an empty or broken reading must not wipe the directory).
+        self.db.execute(
+            text(
+                """
+                UPDATE directory_groups
+                SET deleted_at = NOW(6), updated_at = NOW(6)
+                WHERE identity_source_id = :identity_source_id
+                  AND deleted_at IS NULL
+                  AND (snapshot_version IS NULL OR snapshot_version <> :version)
+                  AND EXISTS (SELECT 1 FROM directory_snapshot_groups sg WHERE sg.snapshot_id = :snapshot_id)
+                """
+            ),
+            {"identity_source_id": source_id, "version": version, "snapshot_id": sid},
+        )
 
         self.db.execute(
             text(

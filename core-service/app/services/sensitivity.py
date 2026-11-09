@@ -34,12 +34,33 @@ def mark_requested(db: Session, storage_root_id: int, job_id: int | None) -> Non
     db.commit()
 
 
+def _ignored_paths(value: Any) -> set[str]:
+    return {str(item.get("path", "")).lower() for item in _load(value, []) if isinstance(item, dict)}
+
+
+def visible(findings: list[dict], ignored: set[str], total_flagged: int | None = None) -> tuple[int, dict[str, int]]:
+    """Files flagged and counts per category, without the files marked as false positives. The worker keeps at
+    most 100 findings: files beyond them (total_flagged) still count."""
+    listed = {str(item.get("path", "")).lower() for item in findings}
+    shown = [item for item in findings if str(item.get("path", "")).lower() not in ignored]
+    counts: dict[str, int] = {}
+    for item in shown:
+        counts[item["category"]] = counts.get(item["category"], 0) + 1
+    unlisted = max(0, int(total_flagged or 0) - len(listed))
+    return len({str(item.get("path", "")).lower() for item in shown}) + unlisted, counts
+
+
 def record_result(db: Session, storage_root_id: int, job_id: int | None, result_json: dict | None) -> dict[str, Any] | None:
     details = (result_json or {}).get("details") if isinstance(result_json, dict) else None
     scan = details.get("sensitivity") if isinstance(details, dict) else None
     if not isinstance(scan, dict):
         return None
+    findings = list(scan.get("findings") or [])
     summary = {key: scan.get(key) for key in ("rules_version", "target", "files_listed", "files_read", "bytes_read", "truncated")}
+    summary["files_flagged_total"] = int(scan.get("files_flagged") or 0)
+    # The files marked as false positives stay so through the new scan
+    previous = db.execute(text("SELECT ignored_json FROM storage_root_sensitivity WHERE storage_root_id = :id"), {"id": int(storage_root_id)}).first()
+    flagged, counts = visible(findings, _ignored_paths(previous[0] if previous else None), summary["files_flagged_total"])
     db.execute(
         text(
             """
@@ -53,15 +74,39 @@ def record_result(db: Session, storage_root_id: int, job_id: int | None, result_
         ),
         {
             "id": int(storage_root_id),
-            "flagged": int(scan.get("files_flagged") or 0),
-            "counts": json.dumps(scan.get("counts") or {}),
-            "findings": json.dumps(scan.get("findings") or []),
+            "flagged": flagged,
+            "counts": json.dumps(counts),
+            "findings": json.dumps(findings),
             "summary": json.dumps(summary),
             "job": job_id,
             "now": _now(),
         },
     )
     return scan
+
+
+def set_ignored(db: Session, storage_root_id: int, path: str, ignore: bool, by: str | None) -> dict[str, Any] | None:
+    """Mark a file as a false positive (or not any more), and count again."""
+    row = db.execute(
+        text("SELECT findings_json, summary_json, ignored_json FROM storage_root_sensitivity WHERE storage_root_id = :id"),
+        {"id": int(storage_root_id)},
+    ).mappings().first()
+    if row is None:
+        return None
+    findings = _load(row["findings_json"], [])
+    if not any(str(item.get("path", "")).lower() == path.lower() for item in findings):
+        return None
+    ignored = [item for item in _load(row["ignored_json"], []) if isinstance(item, dict) and str(item.get("path", "")).lower() != path.lower()]
+    if ignore:
+        ignored.append({"path": path, "by": by, "at": _now().isoformat() + "Z"})
+    summary = _load(row["summary_json"], {})
+    flagged, counts = visible(findings, {str(item["path"]).lower() for item in ignored}, summary.get("files_flagged_total"))
+    db.execute(
+        text("UPDATE storage_root_sensitivity SET ignored_json = :ignored, files_flagged = :flagged, counts_json = :counts WHERE storage_root_id = :id"),
+        {"ignored": json.dumps(ignored), "flagged": flagged, "counts": json.dumps(counts), "id": int(storage_root_id)},
+    )
+    db.commit()
+    return get(db, storage_root_id)
 
 
 def record_failure(db: Session, storage_root_id: int, job_id: int | None, message: str | None) -> None:
@@ -97,11 +142,12 @@ def get(db: Session, storage_root_id: int) -> dict[str, Any] | None:
     if row is None:
         return None
     iso = lambda value: value.isoformat() + "Z" if value else None  # noqa: E731
+    ignored = _ignored_paths(row.get("ignored_json"))
     return {
         "status": row["status"],
         "files_flagged": int(row["files_flagged"] or 0),
         "counts": _load(row["counts_json"], {}),
-        "findings": _load(row["findings_json"], []),
+        "findings": [{**item, "ignored": str(item.get("path", "")).lower() in ignored} for item in _load(row["findings_json"], [])],
         **(_load(row["summary_json"], {}) or {}),
         "error": row["error_message"],
         "requested_at": iso(row["requested_at"]),

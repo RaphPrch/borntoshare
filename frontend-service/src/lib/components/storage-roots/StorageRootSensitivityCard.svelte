@@ -9,7 +9,7 @@
    * Sensitivity of the folder: passwords, keys and password vaults the capsule runner found stored in it.
    * Only the path, the rule, the line and a masked excerpt are shown: the secret itself is never kept.
    */
-  type Finding = { path: string; category: string; rule: string; line: number | null; excerpt: string | null };
+  type Finding = { path: string; category: string; rule: string; line: number | null; excerpt: string | null; ignored?: boolean };
   type Sensitivity = {
     status: 'running' | 'done' | 'failed';
     files_flagged: number;
@@ -51,12 +51,28 @@
   $: running ? startPolling() : stopPolling();
   $: findings = state?.findings ?? [];
   // One line per file: a file found by its name and by its content shows both
-  $: files = [...findings.reduce((map, item) => {
+  $: allFiles = [...findings.reduce((map, item) => {
     const key = item.path.toLowerCase();
-    if (!map.has(key)) map.set(key, { path: item.path, items: [] as Finding[] });
+    if (!map.has(key)) map.set(key, { path: item.path, ignored: Boolean(item.ignored), items: [] as Finding[] });
     map.get(key)!.items.push(item);
     return map;
-  }, new Map<string, { path: string; items: Finding[] }>()).values()];
+  }, new Map<string, { path: string; ignored: boolean; items: Finding[] }>()).values()];
+  // A file marked as a false positive no longer counts: listed apart, folded
+  $: files = allFiles.filter((file) => !file.ignored);
+  $: ignoredFiles = allFiles.filter((file) => file.ignored);
+  let showIgnored = false;
+  let ignoringPath: string | null = null;
+  async function setIgnored(path: string, ignore: boolean) {
+    if (!rootId || ignoringPath) return;
+    ignoringPath = path;
+    try {
+      state = await apiPostData<Sensitivity>(fetch, `/storage-roots/${rootId}/sensitivity/ignore`, { path, ignore });
+    } catch (error: unknown) {
+      reportUiError(error, 'Unable to update the file.', 'storage-roots.sensitivity.ignore');
+    } finally {
+      ignoringPath = null;
+    }
+  }
   $: shown = showAll ? files : files.slice(0, 6);
   $: categories = Object.entries(state?.counts ?? {}).sort((a, b) => b[1] - a[1]);
   // The path inside the folder: \\server\share\folder is the same for every finding
@@ -116,6 +132,22 @@
   {:else if state?.status === 'done' && state.files_flagged === 0}
     <p class="sc__ok"><i class="bi bi-check2-circle" aria-hidden="true"></i>
       {t('Nothing sensitive found in {files} file(s), {read} read.', { files: state.files_listed ?? 0, read: state.files_read ?? 0 })}</p>
+    {#if ignoredFiles.length}
+      <div class="sc__ignored">
+        <button type="button" class="b2s-link-btn" aria-expanded={showIgnored} on:click={() => (showIgnored = !showIgnored)}>
+          {t('{count} file(s) marked as false positive', { count: ignoredFiles.length })}
+        </button>
+        {#if showIgnored}
+          <ul>
+            {#each ignoredFiles as file (file.path)}
+              <li><code title={file.path}>{inside(file.path)}</code>
+                {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={ignoringPath !== null} on:click={() => setIgnored(file.path, false)}>{t('Count it again')}</button>{/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
   {:else if state?.status === 'done'}
     <div class="sc__summary">
       <strong>{t('{count} sensitive file(s)', { count: state.files_flagged })}</strong>
@@ -130,7 +162,9 @@
         <li>
           <i class={`bi ${CATEGORY()[file.items[0].category]?.icon ?? 'bi-file-earmark'}`} aria-hidden="true"></i>
           <div>
-            <code title={file.path}>{inside(file.path)}</code>
+            <span class="sc__file"><code title={file.path}>{inside(file.path)}</code>
+              {#if isAdmin}<button type="button" class="b2s-link-btn sc__fp" disabled={ignoringPath !== null} on:click={() => setIgnored(file.path, true)}>{t('False positive')}</button>{/if}
+            </span>
             {#each file.items as item (item.category + (item.line ?? ''))}
               <small>{t(item.rule)}{#if item.line}{' · '}{t('line {line}', { line: item.line })}{/if}</small>
               {#if item.excerpt}<pre>{item.excerpt}</pre>{/if}
@@ -141,6 +175,22 @@
     </ul>
     {#if files.length > shown.length}
       <button type="button" class="b2s-link-btn" on:click={() => (showAll = true)}>{t('Show the {count} others', { count: files.length - shown.length })}</button>
+    {/if}
+    {#if ignoredFiles.length}
+      <div class="sc__ignored">
+        <button type="button" class="b2s-link-btn" aria-expanded={showIgnored} on:click={() => (showIgnored = !showIgnored)}>
+          {t('{count} file(s) marked as false positive', { count: ignoredFiles.length })}
+        </button>
+        {#if showIgnored}
+          <ul>
+            {#each ignoredFiles as file (file.path)}
+              <li><code title={file.path}>{inside(file.path)}</code>
+                {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={ignoringPath !== null} on:click={() => setIgnored(file.path, false)}>{t('Count it again')}</button>{/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
     {/if}
     <p class="sc__note">
       {t('Move the secrets to a vault, delete the copies, then scan again.')}
@@ -175,4 +225,11 @@
   .sc__list code { color: var(--b2s-color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
   .sc__list small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .sc__list pre { margin: 2px 0 0; padding: 4px 8px; overflow: hidden; text-overflow: ellipsis; white-space: pre; border-radius: var(--b2s-radius-sm, 6px); background: var(--b2s-color-surface-soft, #f6f7f9); font-family: var(--b2s-font-mono); font-size: var(--b2s-font-micro); }
+  .sc__file { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+  .sc__fp { flex: none; font-size: var(--b2s-fs-xs); }
+  .sc__ignored { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px dashed var(--b2s-color-border); font-size: var(--b2s-fs-xs); }
+  .sc__ignored .b2s-link-btn { align-self: flex-start; font-size: var(--b2s-fs-xs); }
+  .sc__ignored ul { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+  .sc__ignored li { display: flex; justify-content: space-between; gap: 10px; color: var(--b2s-color-text-muted); }
+  .sc__ignored code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--b2s-font-mono); text-decoration: line-through; }
 </style>

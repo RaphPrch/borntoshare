@@ -1501,6 +1501,14 @@
       "sensitivity_scan_requested": {
         "title": "Analyse de sensibilité demandée",
         "description": "Le capsule runner cherche les mots de passe, clés et coffres stockés dans les dossiers sélectionnés"
+      },
+      "sensitivity_ignored": {
+        "title": "Faux positif signalé",
+        "description": "« {target} » ne compte plus dans la sensibilité du dossier"
+      },
+      "sensitivity_unignored": {
+        "title": "Faux positif retiré",
+        "description": "« {target} » compte de nouveau dans la sensibilité du dossier"
       }
     },
     "access_request": {
@@ -4647,5 +4655,17 @@
   "Built in: the « Local » provider is always there, for a fallback access.": "Intégré : le fournisseur « Local » est toujours là, pour un accès de secours.",
   "Test and first reading": "Test et premier relevé",
   "Each step is checked by a worker, from its network.": "Chaque étape est vérifiée par un capsule runner, depuis son réseau.",
-  "Check and create": "Vérifier et créer"
+  "Check and create": "Vérifier et créer",
+  "{count} scheduled task(s) late": "{count} tâche(s) planifiée(s) en retard",
+  "They have not run for more than two intervals: the scheduler or the platform stood still.": "Elles n'ont pas tourné depuis plus de deux intervalles : le planificateur ou la plateforme s'est arrêté.",
+  "last run {when}": "dernière exécution {when}",
+  "{count} folder(s) queued for a sensitivity scan.": "{count} dossier(s) en file pour une analyse de sensibilité.",
+  "Scan for secrets": "Chercher des secrets",
+  "The worker looks in each folder for passwords, keys and password vaults (read only; the secrets are never kept). The results appear on each folder, and the policies about sensitivity apply at once.": "Le capsule runner cherche dans chaque dossier les mots de passe, clés et coffres (lecture seule ; les secrets ne sont jamais conservés). Les résultats apparaissent sur chaque dossier et les politiques de sensibilité s'appliquent aussitôt.",
+  "Start the scans": "Lancer les analyses",
+  "{count} sensitive file(s) found by the last scan": "{count} fichier(s) sensible(s) trouvé(s) par la dernière analyse",
+  "sensitive": "sensible",
+  "False positive": "Faux positif",
+  "{count} file(s) marked as false positive": "{count} fichier(s) marqué(s) comme faux positif",
+  "Count it again": "Le compter de nouveau"
 }

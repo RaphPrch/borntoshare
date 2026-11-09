@@ -1,6 +1,6 @@
 <script lang="ts">
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
-  import { formatDateTime } from '$lib/utils/format';
+  import { formatDateTime, timeAgo } from '$lib/utils/format';
   import { t } from '$lib/i18n';
   import DashboardShell from './DashboardShell.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
@@ -65,8 +65,21 @@
   };
   const secretHref = (item: MissingSecret) =>
     item.kind === 'storage_endpoint' ? `/admin/storage-endpoints/${item.id}` : '/admin/identity-sources';
+  // Scheduled tasks that have not run for two intervals: the scheduler, or the whole platform, stood still
+  type LateTask = { task: string; interval_minutes: number; last_run_at: string; late_minutes: number };
+  let lateTasks: LateTask[] = [];
+  const TASKS: Record<string, () => string> = {
+    health_check: () => t('Health check'),
+    data_sync: () => t('Data sync'),
+    access_expiry: () => t('Access expiry'),
+    dfs_read: () => t('DFS namespaces'),
+    policies: () => t('Smart policies')
+  };
   onMount(async () => {
-    missingSecrets = await apiGetList<MissingSecret>(fetch, '/infrastructure/secrets/missing').catch(() => []);
+    [missingSecrets, lateTasks] = await Promise.all([
+      apiGetList<MissingSecret>(fetch, '/infrastructure/secrets/missing').catch(() => []),
+      apiGetList<LateTask>(fetch, '/infrastructure/schedules/late').catch(() => [])
+    ]);
   });
 </script>
 
@@ -78,6 +91,17 @@
       <span class="missing-secrets">
         {#each missingSecrets as item (`${item.kind}-${item.id}-${item.purpose}`)}
           <a href={secretHref(item)}>{item.name}{item.purpose ? ` · ${PURPOSES[item.purpose]?.() ?? item.purpose}` : ''}</a>
+        {/each}
+      </span>
+    </InlineAlert>
+  {/if}
+  {#if lateTasks.length}
+    <InlineAlert tone="warning">
+      <strong>{t('{count} scheduled task(s) late', { count: lateTasks.length })}</strong>
+      <span>{t('They have not run for more than two intervals: the scheduler or the platform stood still.')}</span>
+      <span class="missing-secrets">
+        {#each lateTasks as item (item.task)}
+          <a href="/admin/advanced-settings/infrastructure">{TASKS[item.task]?.() ?? item.task} · {t('last run {when}', { when: timeAgo(item.last_run_at) })}</a>
         {/each}
       </span>
     </InlineAlert>

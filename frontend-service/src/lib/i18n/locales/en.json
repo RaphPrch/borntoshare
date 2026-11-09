@@ -323,6 +323,14 @@
       "sensitivity_scan_requested": {
         "title": "Sensitivity scan requested",
         "description": "The worker looks for passwords, keys and vaults stored in the selected folders"
+      },
+      "sensitivity_ignored": {
+        "title": "False positive marked",
+        "description": "\"{target}\" no longer counts in the sensitivity of the folder"
+      },
+      "sensitivity_unignored": {
+        "title": "False positive removed",
+        "description": "\"{target}\" counts again in the sensitivity of the folder"
       }
     },
     "access_request": {

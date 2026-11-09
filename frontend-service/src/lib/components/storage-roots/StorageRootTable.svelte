@@ -230,7 +230,7 @@
   }
 
   // ---- Bulk actions --------------------------------------------------------
-  let action: 'guardians' | 'tags' | 'check' | null = null;
+  let action: 'guardians' | 'tags' | 'check' | 'sensitivity' | null = null;
   let running = false;
   let failures: Failure[] = [];
   let peopleOptions: { id: number; label: string; hint?: string }[] = [];
@@ -245,7 +245,7 @@
     void openAction('guardians');
   }
 
-  async function openAction(kind: 'guardians' | 'tags' | 'check') {
+  async function openAction(kind: 'guardians' | 'tags' | 'check' | 'sensitivity') {
     failures = [];
     action = kind;
     if (kind === 'guardians' && !peopleLoaded) {
@@ -295,12 +295,16 @@
           ? await inBatches('/storage-roots/bulk-guardians', (ids) => ({ root_ids: ids, guardian_ids: guardianIds }), 'updated')
           : action === 'tags'
             ? await inBatches('/storage-roots/bulk-tags', (ids) => ({ root_ids: ids, tag_ids: [...tagIds] }), 'updated')
-            : await inBatches('/storage-roots/bulk-check', (ids) => ({ root_ids: ids }), 'queued');
+            : action === 'sensitivity'
+              ? await inBatches('/storage-roots/sensitivity-scan', (ids) => ({ root_ids: ids }), 'queued')
+              : await inBatches('/storage-roots/bulk-check', (ids) => ({ root_ids: ids }), 'queued');
       failures = result.failed;
       if (result.ok) {
         toast.success(
           action === 'check'
             ? t('{count} folder(s) queued for a test and an ACL read.', { count: result.ok })
+            : action === 'sensitivity'
+              ? t('{count} folder(s) queued for a sensitivity scan.', { count: result.ok })
             : t('{count} folder(s) updated.', { count: result.ok })
         );
       }
@@ -392,7 +396,7 @@
       <div class="tb__row" class:sel={checked.has(line.id)} on:contextmenu={(event) => openMenu(line, event)}>
         {#if isAdmin}<span><input type="checkbox" checked={checked.has(line.id)} on:change={() => toggle(line.id)} aria-label={t('Select {name}', { name: line.name })} /></span>{/if}
         <button type="button" class="tb__name" on:click={() => onOpenRoot(line.id)}>
-          <strong>{line.name}</strong>
+          <strong>{line.name}{#if Number(line.row?.sensitive_files ?? 0) > 0}<span class="tb__sens" title={t('{count} sensitive file(s) found by the last scan', { count: Number(line.row?.sensitive_files) })}><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('sensitive')}</span>{/if}</strong>
           <small title={line.dfsPath || line.path}>{line.dfsPath || line.path}</small>
         </button>
         <span class="tb__server"><span>{line.server}</span><small>{line.zone}</small></span>
@@ -430,6 +434,7 @@
       <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('guardians')}>{t('Add guardians')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('tags')}>{t('Add tags')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('check')}>{t('Read the ACLs')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('sensitivity')}>{t('Scan for secrets')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" on:click={exportCsv}>{t('Export')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm tb__clear" on:click={() => (checked = new Set())}>{t('Clear the selection')}</button>
     </div>
@@ -439,9 +444,9 @@
 <AppModal
   open={action !== null}
   onClose={closeAction}
-  title={action === 'guardians' ? t('Add guardians') : action === 'tags' ? t('Add tags') : t('Read the ACLs')}
+  title={action === 'guardians' ? t('Add guardians') : action === 'tags' ? t('Add tags') : action === 'sensitivity' ? t('Scan for secrets') : t('Read the ACLs')}
   subtitle={t('{count} folder(s) selected', { count: checked.size })}
-  iconClass={action === 'guardians' ? 'bi bi-person-check' : action === 'tags' ? 'bi bi-tags' : 'bi bi-arrow-clockwise'}
+  iconClass={action === 'guardians' ? 'bi bi-person-check' : action === 'tags' ? 'bi bi-tags' : action === 'sensitivity' ? 'bi bi-shield-lock' : 'bi bi-arrow-clockwise'}
 >
   {#if action === 'guardians'}
     <GovernancePicker id="bulk-guardians" label={t('Guardians')} placeholder={t('Search a person…')} options={peopleOptions} bind:selected={guardianIds} />
@@ -463,6 +468,8 @@
     {/if}
   {:else if action === 'check'}
     <p>{t('The worker tests each folder and reads its NTFS permissions. The results appear on each folder in the next minutes.')}</p>
+  {:else if action === 'sensitivity'}
+    <p>{t('The worker looks in each folder for passwords, keys and password vaults (read only; the secrets are never kept). The results appear on each folder, and the policies about sensitivity apply at once.')}</p>
   {/if}
   {#if failures.length}
     <InlineAlert tone="warning">
@@ -476,7 +483,7 @@
       variant="primary"
       busy={running}
       disabled={(action === 'guardians' && !guardianIds.length) || (action === 'tags' && !tagIds.size) || !checked.size}
-      label={action === 'check' ? t('Start the reads') : t('Apply')}
+      label={action === 'check' ? t('Start the reads') : action === 'sensitivity' ? t('Start the scans') : t('Apply')}
       onClick={runAction}
     />
   </svelte:fragment>
@@ -534,4 +541,5 @@
   .tb__failures { margin: 6px 0 0; padding-left: 18px; }
   .sg-search-wrap { position: relative; flex: 0 1 420px; display: flex; flex-direction: column; }
   .sg-search-wrap .sg-search { flex: 1 1 auto; }
+  .tb__sens { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 1px 8px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-danger-soft, #fdecea); color: var(--b2s-color-danger-strong, #b42318); font-size: var(--b2s-font-micro); font-weight: 600; vertical-align: middle; }
 </style>
