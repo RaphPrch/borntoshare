@@ -1,5 +1,5 @@
 import type { FetchLike } from './client';
-import { apiDeleteData, apiGetData, apiPatchData, apiPost, apiPostData } from './client';
+import { apiDeleteData, apiGetData, apiGetList, apiPatchData, apiPost, apiPostData } from './client';
 
 /*
  * =========================================================
@@ -182,3 +182,29 @@ export const getIdentityJob = (
   fetchFn: FetchLike,
   jobId: number
 ) => apiGetData<IdentityJobStatusResponse>(fetchFn, `/identity/jobs/${Number(jobId)}`);
+
+export type IdentityOverview = {
+  id: number; type: string; username: string; display_name: string | null; email: string | null; auth_source: string;
+  external_id: string | null; status: string | null; source_id: number | null; source_name: string | null; dn: string | null;
+  is_active: boolean; created_at: string | null; updated_at: string | null;
+  roles: Array<{ code: string; via: 'default' | 'direct' | 'group' | string }>;
+  guarded: Array<{ id: number; name: string; path: string; share: string; co_guardians: string[]; sole: boolean }>;
+  co_guardians: Array<{ id: number; name: string; shared: number; has_email: boolean }>;
+  requests: Record<string, number>;
+  active_accesses: number;
+};
+
+export const getIdentityOverview = (fetchFn: FetchLike, identityId: number) =>
+  apiGetData<IdentityOverview>(fetchFn, `/identity/${Number(identityId)}/overview`);
+
+export type PlatformAdmins = {
+  direct: Array<{ id: number; username: string; name: string; email: string | null; auth_source: string; is_active: boolean; source_name: string | null }>;
+  groups: Array<{ id: number; name: string; dn: string; source_name: string | null; directory_members: number; members: Array<{ id: number; username: string; name: string }> }>;
+  effective: number;
+  issues: Array<{ code: 'DIRECT_AND_GROUP' | 'SEVERAL_LOCAL_ADMINS' | string; identity_id?: number; name?: string; identities?: Array<{ id: number; name: string }> }>;
+};
+
+export const listPlatformAdmins = (fetchFn: FetchLike) => apiGetData<PlatformAdmins>(fetchFn, '/identity/admins');
+
+export const listGuardianCounts = (fetchFn: FetchLike) =>
+  apiGetList<{ identity_id: number; folders: number; sole: number }>(fetchFn, '/identity/guardians');

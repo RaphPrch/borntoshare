@@ -704,7 +704,7 @@ def get_identity_source_inventory(source_id: int, kind: str = "users", q: str = 
         rows = db.execute(
             text(
                 f"""
-                SELECT g.id, g.name, g.dn, g.description,
+                SELECT g.id, g.name, g.dn, g.description, g.external_id,
                   (SELECT COUNT(*) FROM directory_group_members m WHERE m.group_id = g.id AND m.deleted_at IS NULL) AS members,
                   g.name IN ({_GOVERNED}) AS governed
                 FROM directory_groups g
@@ -719,7 +719,7 @@ def get_identity_source_inventory(source_id: int, kind: str = "users", q: str = 
     rows = db.execute(
         text(
             f"""
-            SELECT u.id, u.username, u.display_name, u.email, u.upn, u.dn,
+            SELECT u.id, u.username, u.display_name, u.email, u.upn, u.dn, u.external_id,
               (SELECT COUNT(*) FROM directory_group_members m WHERE m.directory_user_id = u.id AND m.deleted_at IS NULL) AS groups
             FROM directory_users u
             WHERE u.id IN ({_LATEST_USERS})

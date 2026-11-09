@@ -1512,3 +1512,152 @@ async def import_identity_ad_batch(
         error_code="IDENTITY_IMPORT_BATCH_MOVED_TO_GOVERNANCE",
         message="Batch identity import is orchestrated asynchronously by governance jobs.",
     )
+
+
+@router.get("/guardians", dependencies=[Depends(admin_or_internal)])
+def list_guardian_counts(db: Session = Depends(get_db)):
+    """Folders guarded per identity, and those where it is the only guardian (list of the Identities page)."""
+    rows = db.execute(
+        text(
+            """
+            SELECT r.identity_id, COUNT(*) AS folders,
+              SUM(NOT EXISTS (SELECT 1 FROM storage_root_roles o WHERE o.root_id = r.root_id AND LOWER(o.role) = 'guardian'
+                              AND o.identity_id <> r.identity_id)) AS sole
+            FROM storage_root_roles r WHERE LOWER(r.role) = 'guardian' AND r.identity_id IS NOT NULL
+            GROUP BY r.identity_id
+            """
+        )
+    ).mappings().all()
+    return ui_list([{"identity_id": int(r["identity_id"]), "folders": int(r["folders"]), "sole": int(r["sole"] or 0)} for r in rows])
+
+
+@router.get("/admins", dependencies=[Depends(admin_or_internal)])
+def list_platform_admins(db: Session = Depends(get_db)):
+    """Every path to the platform administrator role (local account, directory account, directory group), who takes
+    it, and what deserves a look: a role held both directly and through a group, several local administrators."""
+    direct = [dict(r) for r in db.execute(
+        text(
+            """
+            SELECT i.id, i.username, COALESCE(NULLIF(i.display_name, ''), i.username) AS name, i.email, i.auth_source,
+              i.is_active, s.name AS source_name
+            FROM identity_roles ir JOIN roles r ON r.id = ir.role_id AND r.code = 'platform_admin'
+            JOIN identities i ON i.id = ir.identity_id LEFT JOIN identity_sources s ON s.id = i.source_id
+            WHERE ir.identity_id IS NOT NULL ORDER BY i.auth_source DESC, name
+            """
+        )
+    ).mappings().all()]
+    groups = []
+    for g in db.execute(
+        text(
+            """
+            SELECT g.id, g.name, g.dn, s.name AS source_name
+            FROM identity_roles ir JOIN roles r ON r.id = ir.role_id AND r.code = 'platform_admin'
+            JOIN directory_groups g ON g.id = ir.directory_group_id LEFT JOIN identity_sources s ON s.id = g.identity_source_id
+            WHERE ir.directory_group_id IS NOT NULL ORDER BY g.name
+            """
+        )
+    ).mappings().all():
+        members = [dict(m) for m in db.execute(
+            text(
+                """
+                SELECT DISTINCT i.id, i.username, COALESCE(NULLIF(i.display_name, ''), i.username) AS name, i.is_active
+                FROM directory_effective_memberships dem
+                JOIN identity_bindings ib ON ib.directory_user_id = dem.directory_user_id AND ib.deleted_at IS NULL
+                JOIN identities i ON i.id = ib.identity_id
+                WHERE dem.directory_group_id = :gid ORDER BY name
+                """
+            ),
+            {"gid": int(g["id"])},
+        ).mappings().all()]
+        directory_members = db.execute(
+            text("SELECT COUNT(DISTINCT directory_user_id) FROM directory_effective_memberships WHERE directory_group_id = :gid"), {"gid": int(g["id"])}
+        ).scalar() or 0
+        groups.append({**dict(g), "members": members, "directory_members": int(directory_members)})
+    effective = db.execute(
+        # A disabled account cannot sign in: it is no administrator, whatever role it keeps
+        text(
+            "SELECT COUNT(DISTINCT v.identity_id) FROM v_identity_effective_roles v JOIN identities i ON i.id = v.identity_id"
+            " WHERE v.role_code = 'platform_admin' AND i.is_active = 1"
+        )
+    ).scalar() or 0
+    through_group = {m["id"] for g in groups for m in g["members"]}
+    issues = []
+    for person in direct:
+        if person["auth_source"] != "local" and person["id"] in through_group:
+            issues.append({"code": "DIRECT_AND_GROUP", "identity_id": person["id"], "name": person["name"]})
+    locals_ = [p for p in direct if p["auth_source"] == "local" and p["is_active"]]
+    if len(locals_) > 1:
+        issues.append({"code": "SEVERAL_LOCAL_ADMINS", "identities": [{"id": p["id"], "name": p["name"]} for p in locals_]})
+    for person in direct:
+        person["is_active"] = bool(person["is_active"])
+    return ui_data({"direct": direct, "groups": groups, "effective": int(effective), "issues": issues})
+
+
+@router.get("/{identity_id}/overview", dependencies=[Depends(admin_or_internal)])
+def get_identity_overview(identity_id: int, db: Session = Depends(get_db)):
+    """The page of a person: roles and how they are held, folders guarded (with co-guardians), requests."""
+    row = db.execute(
+        text(
+            """
+            SELECT i.id, i.type, i.username, i.display_name, i.email, i.auth_source, i.external_id, i.is_active, i.status,
+              i.created_at, i.updated_at, i.source_id, s.name AS source_name,
+              (SELECT du.dn FROM directory_users du WHERE du.identity_source_id = i.source_id
+                 AND (du.external_id = i.external_id OR LOWER(du.username) = LOWER(i.username)) ORDER BY du.id DESC LIMIT 1) AS dn
+            FROM identities i LEFT JOIN identity_sources s ON s.id = i.source_id
+            WHERE i.id = :id
+            """
+        ),
+        {"id": int(identity_id)},
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
+    roles = [dict(r) for r in db.execute(
+        text("SELECT DISTINCT role_code AS code, via FROM v_identity_effective_roles WHERE identity_id = :id"), {"id": int(identity_id)}
+    ).mappings().all()]
+    guarded = db.execute(
+        text(
+            """
+            SELECT sr.id, sr.name, sr.root_path,
+              (SELECT GROUP_CONCAT(COALESCE(NULLIF(o.display_name, ''), o.username) ORDER BY o.username SEPARATOR '|')
+                 FROM storage_root_roles x JOIN identities o ON o.id = x.identity_id
+                 WHERE x.root_id = sr.id AND LOWER(x.role) = 'guardian' AND x.identity_id <> :id) AS others,
+              (SELECT GROUP_CONCAT(x.identity_id) FROM storage_root_roles x
+                 WHERE x.root_id = sr.id AND LOWER(x.role) = 'guardian' AND x.identity_id <> :id) AS other_ids
+            FROM storage_root_roles r JOIN storage_roots sr ON sr.id = r.root_id
+            WHERE r.identity_id = :id AND LOWER(r.role) = 'guardian'
+            ORDER BY sr.root_path
+            """
+        ),
+        {"id": int(identity_id)},
+    ).mappings().all()
+    folders = []
+    partners: dict[int, dict[str, Any]] = {}
+    for item in guarded:
+        others = [name for name in str(item["others"] or "").split("|") if name]
+        other_ids = [int(value) for value in str(item["other_ids"] or "").split(",") if value]
+        parts = [part for part in str(item["root_path"] or "").replace("/", "\\").split("\\") if part]
+        folders.append({"id": int(item["id"]), "name": item["name"], "path": item["root_path"], "share": parts[1] if len(parts) > 1 else "",
+                        "co_guardians": others, "sole": not others})
+        for other_id, name in zip(other_ids, others):
+            partners.setdefault(other_id, {"id": other_id, "name": name, "shared": 0})["shared"] += 1
+    if partners:
+        mails = dict(db.execute(
+            text("SELECT id, email FROM identities WHERE id IN :ids").bindparams(bindparam("ids", expanding=True)), {"ids": list(partners)}
+        ).all())
+        for partner in partners.values():
+            partner["has_email"] = bool(mails.get(partner["id"]))
+    requests = {str(s): int(c) for s, c in db.execute(
+        text("SELECT LOWER(status), COUNT(*) FROM access_requests WHERE requester_identity_id = :id GROUP BY LOWER(status)"), {"id": int(identity_id)}
+    ).all()}
+    iso = lambda value: value.isoformat() + "Z" if value else None  # noqa: E731
+    return ui_data({
+        **{k: row[k] for k in ("id", "type", "username", "display_name", "email", "auth_source", "external_id", "status", "source_id", "source_name", "dn")},
+        "is_active": bool(row["is_active"]),
+        "created_at": iso(row["created_at"]),
+        "updated_at": iso(row["updated_at"]),
+        "roles": roles,
+        "guarded": folders,
+        "co_guardians": sorted(partners.values(), key=lambda p: -p["shared"]),
+        "requests": requests,
+        "active_accesses": sum(requests.get(s, 0) for s in ("approved", "applied", "active")),
+    })
