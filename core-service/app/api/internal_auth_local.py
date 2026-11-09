@@ -59,7 +59,8 @@ class LocalVerifyPayload(BaseModel):
 class LocalChangePasswordPayload(BaseModel):
     username: str = Field(..., min_length=1, max_length=255)
     current_password: str | None = Field(default=None, max_length=512)
-    new_password: str = Field(..., min_length=1, max_length=512)
+    # Local accounts are the fallback access: a long password (the interface asks for the same)
+    new_password: str = Field(..., min_length=12, max_length=512)
 
 
 @router.post("/local/verify", dependencies=[Depends(require_internal_token)])

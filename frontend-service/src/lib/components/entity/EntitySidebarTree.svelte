@@ -35,6 +35,18 @@
   };
 
   export type EntitySidebarFilter = { key: string; label: string; count?: number };
+
+  // « / » jumps to the filter of the list, as in most tools (not while typing somewhere)
+  let paneEl: HTMLElement | null = null;
+  function onWindowKeydown(event: KeyboardEvent) {
+    if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+    const target = event.target as HTMLElement | null;
+    if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+    const input = paneEl?.querySelector<HTMLInputElement>('.b2s-list-pane__search input');
+    if (!input) return;
+    event.preventDefault();
+    input.focus();
+  }
 </script>
 
 <script lang="ts">
@@ -309,7 +321,8 @@
   }
 </script>
 
-<aside class="b2s-list-pane" aria-label={ariaLabel}>
+<svelte:window on:keydown={onWindowKeydown} />
+<aside class="b2s-list-pane" aria-label={ariaLabel} bind:this={paneEl}>
   <div class="b2s-list-pane__head">
     <div class="b2s-list-pane__searchrow">
       <SearchField
@@ -447,9 +460,14 @@
       </div>
     {/if}
   </div>
+  <div class="b2s-list-pane__keys" aria-hidden="true">
+    <span><kbd>↑</kbd><kbd>↓</kbd> {t('browse')}</span><span><kbd>⏎</kbd> {t('open')}</span><span><kbd>/</kbd> {t('filter')}</span>
+  </div>
 </aside>
 
 <style>
+  .b2s-list-pane__keys { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; padding: 8px 4px 0; border-top: 1px solid var(--b2s-color-border); color: var(--b2s-color-text-muted); font-size: 11px; }
+  .b2s-list-pane__keys kbd { color: var(--b2s-color-text-muted); display: inline-grid; place-items: center; min-width: 16px; height: 16px; margin-right: 2px; padding: 0 3px; border: 1px solid var(--b2s-color-border-mid, #cdd2db); border-bottom-width: 2px; border-radius: 4px; background: var(--b2s-color-surface); font-family: var(--b2s-font-mono); font-size: 10px; }
   .b2s-list-pane {
     position: sticky;
     top: 16px;

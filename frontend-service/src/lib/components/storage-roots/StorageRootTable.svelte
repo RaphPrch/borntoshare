@@ -231,6 +231,10 @@
 
   // ---- Bulk actions --------------------------------------------------------
   let action: 'guardians' | 'tags' | 'check' | 'sensitivity' | null = null;
+  // Beyond 50 folders, an action on the selection is confirmed explicitly
+  const BULK_CONFIRM_FROM = 50;
+  let bulkConfirmed = false;
+  $: if (action === null) bulkConfirmed = false;
   let running = false;
   let failures: Failure[] = [];
   let peopleOptions: { id: number; label: string; hint?: string }[] = [];
@@ -471,6 +475,9 @@
   {:else if action === 'sensitivity'}
     <p>{t('The worker looks in each folder for passwords, keys and password vaults (read only; the secrets are never kept). The results appear on each folder, and the policies about sensitivity apply at once.')}</p>
   {/if}
+  {#if checked.size > BULK_CONFIRM_FROM}
+    <label class="tb__confirm"><input type="checkbox" bind:checked={bulkConfirmed} />{t('I confirm the action on {count} folders', { count: checked.size })}</label>
+  {/if}
   {#if failures.length}
     <InlineAlert tone="warning">
       {t('{count} folder(s) not updated:', { count: failures.length })}
@@ -482,7 +489,7 @@
     <EntityActionButton
       variant="primary"
       busy={running}
-      disabled={(action === 'guardians' && !guardianIds.length) || (action === 'tags' && !tagIds.size) || !checked.size}
+      disabled={(action === 'guardians' && !guardianIds.length) || (action === 'tags' && !tagIds.size) || !checked.size || (checked.size > BULK_CONFIRM_FROM && !bulkConfirmed)}
       label={action === 'check' ? t('Start the reads') : action === 'sensitivity' ? t('Start the scans') : t('Apply')}
       onClick={runAction}
     />
@@ -542,4 +549,5 @@
   .sg-search-wrap { position: relative; flex: 0 1 420px; display: flex; flex-direction: column; }
   .sg-search-wrap .sg-search { flex: 1 1 auto; }
   .tb__sens { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 1px 8px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-danger-soft, #fdecea); color: var(--b2s-color-danger-strong, #b42318); font-size: var(--b2s-font-micro); font-weight: 600; vertical-align: middle; }
+  .tb__confirm { display: flex; gap: 8px; align-items: center; margin-top: 10px; padding: 10px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-warning-soft, #fdefd9); color: var(--b2s-color-warning-strong, #9a5b00); font-size: var(--b2s-fs-sm); font-weight: 600; }
 </style>

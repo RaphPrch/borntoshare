@@ -137,6 +137,13 @@ def request_created(db: Session, request_id: int) -> None:
                     """
                     SELECT i.email FROM storage_root_roles srr JOIN identities i ON i.id = srr.identity_id
                     WHERE srr.root_id = :root AND LOWER(srr.role) = 'guardian' AND i.email IS NOT NULL
+                    UNION
+                    -- The backup guardians in force are told as well
+                    SELECT s.email FROM storage_root_roles srr
+                    JOIN guardian_substitutes gs ON gs.identity_id = srr.identity_id AND gs.revoked_at IS NULL
+                      AND gs.starts_at <= UTC_TIMESTAMP() AND gs.ends_at > UTC_TIMESTAMP()
+                    JOIN identities s ON s.id = gs.substitute_identity_id AND s.is_active = 1
+                    WHERE srr.root_id = :root AND LOWER(srr.role) = 'guardian' AND s.email IS NOT NULL
                     """
                 ),
                 {"root": int(row["root_id"])},

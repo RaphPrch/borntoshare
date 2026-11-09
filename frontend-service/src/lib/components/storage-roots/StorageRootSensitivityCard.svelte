@@ -2,14 +2,15 @@
   import { onDestroy } from 'svelte';
   import { apiGetData, apiPostData } from '$lib/api/client';
   import { reportUiError } from '$lib/errors';
+  import { toast } from '$lib/stores/toast';
   import { t } from '$lib/i18n';
-  import { timeAgo } from '$lib/utils/format';
+  import { formatDateTime, timeAgo } from '$lib/utils/format';
 
   /**
    * Sensitivity of the folder: passwords, keys and password vaults the capsule runner found stored in it.
    * Only the path, the rule, the line and a masked excerpt are shown: the secret itself is never kept.
    */
-  type Finding = { path: string; category: string; rule: string; line: number | null; excerpt: string | null; ignored?: boolean };
+  type Finding = { path: string; category: string; rule: string; line: number | null; excerpt: string | null; ignored?: boolean; ignored_reason?: string | null; ignored_by?: string | null };
   type Sensitivity = {
     status: 'running' | 'done' | 'failed';
     files_flagged: number;
@@ -62,17 +63,30 @@
   $: ignoredFiles = allFiles.filter((file) => file.ignored);
   let showIgnored = false;
   let ignoringPath: string | null = null;
-  async function setIgnored(path: string, ignore: boolean) {
+  // « False positive » asks why, in a few words (an exception to a security finding is explained)
+  let reasonFor: string | null = null;
+  let reasonText = '';
+  async function setIgnored(path: string, ignore: boolean, reason: string | null = null) {
     if (!rootId || ignoringPath) return;
     ignoringPath = path;
     try {
-      state = await apiPostData<Sensitivity>(fetch, `/storage-roots/${rootId}/sensitivity/ignore`, { path, ignore });
+      state = await apiPostData<Sensitivity>(fetch, `/storage-roots/${rootId}/sensitivity/ignore`, { path, ignore, reason });
+      reasonFor = null;
+      reasonText = '';
+      const name = path.split('\\').pop();
+      toast.success(ignore ? t('« {name} » no longer counts.', { name }) : t('« {name} » counts again.', { name }), {
+        action: { label: t('Undo'), run: async () => {
+          state = await apiPostData<Sensitivity>(fetch, `/storage-roots/${rootId}/sensitivity/ignore`, { path, ignore: !ignore, reason: reason ?? previousReason(path) ?? 'annulation' });
+        } }
+      });
     } catch (error: unknown) {
       reportUiError(error, 'Unable to update the file.', 'storage-roots.sensitivity.ignore');
     } finally {
       ignoringPath = null;
     }
   }
+  const previousReason = (path: string) => findings.find((item) => item.path === path)?.ignored_reason ?? null;
+
   $: shown = showAll ? files : files.slice(0, 6);
   $: categories = Object.entries(state?.counts ?? {}).sort((a, b) => b[1] - a[1]);
   // The path inside the folder: \\server\share\folder is the same for every finding
@@ -117,7 +131,7 @@
     <h2><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('Sensitivity')}</h2>
     <small>
       {#if running}{t('Scan in progress…')}
-      {:else if state?.scanned_at}{t('scanned {when}', { when: timeAgo(state.scanned_at) })}
+      {:else if state?.scanned_at}<span title={formatDateTime(state.scanned_at)}>{t('scanned {when}', { when: timeAgo(state.scanned_at) })}</span>
       {:else}{t('Never scanned')}{/if}
       {#if isAdmin && !running}
         · <button type="button" class="b2s-link-btn" disabled={busy} on:click={scan}>{state?.scanned_at ? t('Scan again') : t('Scan the folder')}</button>
@@ -140,7 +154,7 @@
         {#if showIgnored}
           <ul>
             {#each ignoredFiles as file (file.path)}
-              <li><code title={file.path}>{inside(file.path)}</code>
+              <li><span class="sc__ign"><code title={file.path}>{inside(file.path)}</code>{#if file.items[0]?.ignored_reason}<small>{file.items[0].ignored_reason}{file.items[0].ignored_by ? ` · ${file.items[0].ignored_by}` : ''}</small>{/if}</span>
                 {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={ignoringPath !== null} on:click={() => setIgnored(file.path, false)}>{t('Count it again')}</button>{/if}
               </li>
             {/each}
@@ -163,8 +177,15 @@
           <i class={`bi ${CATEGORY()[file.items[0].category]?.icon ?? 'bi-file-earmark'}`} aria-hidden="true"></i>
           <div>
             <span class="sc__file"><code title={file.path}>{inside(file.path)}</code>
-              {#if isAdmin}<button type="button" class="b2s-link-btn sc__fp" disabled={ignoringPath !== null} on:click={() => setIgnored(file.path, true)}>{t('False positive')}</button>{/if}
+              {#if isAdmin && reasonFor !== file.path}<button type="button" class="b2s-link-btn sc__fp" disabled={ignoringPath !== null} on:click={() => { reasonFor = file.path; reasonText = ''; }}>{t('False positive')}</button>{/if}
             </span>
+            {#if reasonFor === file.path}
+              <span class="sc__reason">
+                <input class="b2s-input" bind:value={reasonText} maxlength="300" placeholder={t('Why is it a false positive? (test file, sample…)')} aria-label={t('Reason')} />
+                <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={reasonText.trim().length < 3 || ignoringPath !== null} on:click={() => setIgnored(file.path, true, reasonText.trim())}>{t('Confirm')}</button>
+                <button type="button" class="b2s-link-btn" on:click={() => (reasonFor = null)}>{t('Cancel')}</button>
+              </span>
+            {/if}
             {#each file.items as item (item.category + (item.line ?? ''))}
               <small>{t(item.rule)}{#if item.line}{' · '}{t('line {line}', { line: item.line })}{/if}</small>
               {#if item.excerpt}<pre>{item.excerpt}</pre>{/if}
@@ -184,7 +205,7 @@
         {#if showIgnored}
           <ul>
             {#each ignoredFiles as file (file.path)}
-              <li><code title={file.path}>{inside(file.path)}</code>
+              <li><span class="sc__ign"><code title={file.path}>{inside(file.path)}</code>{#if file.items[0]?.ignored_reason}<small>{file.items[0].ignored_reason}{file.items[0].ignored_by ? ` · ${file.items[0].ignored_by}` : ''}</small>{/if}</span>
                 {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={ignoringPath !== null} on:click={() => setIgnored(file.path, false)}>{t('Count it again')}</button>{/if}
               </li>
             {/each}
@@ -232,4 +253,8 @@
   .sc__ignored ul { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
   .sc__ignored li { display: flex; justify-content: space-between; gap: 10px; color: var(--b2s-color-text-muted); }
   .sc__ignored code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--b2s-font-mono); text-decoration: line-through; }
+  .sc__reason { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+  .sc__reason input { flex: 1; min-width: 0; height: 32px; font-size: var(--b2s-fs-xs); }
+  .sc__ign { display: flex; flex-direction: column; min-width: 0; }
+  .sc__ign small { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); text-decoration: none; }
 </style>

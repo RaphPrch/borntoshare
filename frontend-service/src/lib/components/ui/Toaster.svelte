@@ -30,9 +30,12 @@
       out:fade={{ duration: 150 }}
     >
       <div class="d-flex align-items-start">
-        <div class="toast-body d-flex align-items-center gap-2">
+        <div class="toast-body d-flex align-items-center gap-2" style="flex: 1">
           <i class="bi {icon(item.type)}"></i>
           <span>{item.message}</span>
+          {#if item.action}
+            <button type="button" class="b2s-toast-action" on:click={async () => { const action = item.action; toast.remove(item.id); await action?.run(); }}>{item.action.label}</button>
+          {/if}
         </div>
       </div>
     </div>
@@ -50,6 +53,19 @@
     gap: 8px;
     max-width: 380px;
     pointer-events: none;
+  }
+
+  .b2s-toast-action {
+    margin-left: auto;
+    padding: 2px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.22);
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
   }
 
   .toast {

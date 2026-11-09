@@ -2112,8 +2112,11 @@ select.b2s-input {
    One look everywhere: label, value (toned), hint, optional bar.
    ============================================================ */
 .b2s-stat-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.b2s-stat-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 14px 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: box-shadow 0.12s, border-color 0.12s; }
-.b2s-stat-tile:hover { border-color: var(--b2s-color-border-mid, var(--b2s-color-border)); box-shadow: 0 6px 18px rgba(14, 18, 24, 0.06); }
+/* One look for every figure; only a tile that leads somewhere (a link or a button) reacts to the pointer */
+.b2s-stat-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 14px 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); color: inherit; font: inherit; text-align: left; cursor: default; transition: box-shadow 0.12s, border-color 0.12s; text-decoration: none; }
+:is(a, button).b2s-stat-tile { cursor: pointer; }
+:is(a, button).b2s-stat-tile:hover { border-color: var(--b2s-color-border-mid, var(--b2s-color-border)); box-shadow: 0 6px 18px rgba(14, 18, 24, 0.06); }
+.b2s-stat-tile b { font-variant-numeric: tabular-nums; }
 .b2s-stat-tile:focus-visible { outline: none; box-shadow: var(--b2s-focus-ring); }
 .b2s-stat-tile > span:first-child { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
 .b2s-stat-tile b { font-size: 24px; font-weight: 600; line-height: 1.25; }

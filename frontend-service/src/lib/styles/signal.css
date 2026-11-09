@@ -1,7 +1,7 @@
 /* Signal theme: page head, filters and side panels shared by the home screens */
 .sg-head { display: flex; align-items: flex-end; gap: 12px; }
 .sg-title { flex: 1 1 320px; min-width: 0; }
-.sg-title h1 { margin: 0; font-size: 38px; line-height: 1.05; font-weight: 600; letter-spacing: -.03em; }
+.sg-title h1 { margin: 0; font-size: var(--b2s-fs-overview-title, 38px); line-height: 1.05; font-weight: 600; letter-spacing: -.03em; }
 .sg-title p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
 
 .sg-search { flex: 0 1 380px; display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; padding: 0 14px; border-radius: 12px; background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border-strong); color: var(--b2s-color-text-muted); }

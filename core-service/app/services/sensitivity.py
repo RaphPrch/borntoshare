@@ -85,7 +85,7 @@ def record_result(db: Session, storage_root_id: int, job_id: int | None, result_
     return scan
 
 
-def set_ignored(db: Session, storage_root_id: int, path: str, ignore: bool, by: str | None) -> dict[str, Any] | None:
+def set_ignored(db: Session, storage_root_id: int, path: str, ignore: bool, by: str | None, reason: str | None = None) -> dict[str, Any] | None:
     """Mark a file as a false positive (or not any more), and count again."""
     row = db.execute(
         text("SELECT findings_json, summary_json, ignored_json FROM storage_root_sensitivity WHERE storage_root_id = :id"),
@@ -98,7 +98,7 @@ def set_ignored(db: Session, storage_root_id: int, path: str, ignore: bool, by: 
         return None
     ignored = [item for item in _load(row["ignored_json"], []) if isinstance(item, dict) and str(item.get("path", "")).lower() != path.lower()]
     if ignore:
-        ignored.append({"path": path, "by": by, "at": _now().isoformat() + "Z"})
+        ignored.append({"path": path, "by": by, "at": _now().isoformat() + "Z", "reason": reason})
     summary = _load(row["summary_json"], {})
     flagged, counts = visible(findings, {str(item["path"]).lower() for item in ignored}, summary.get("files_flagged_total"))
     db.execute(
@@ -143,11 +143,17 @@ def get(db: Session, storage_root_id: int) -> dict[str, Any] | None:
         return None
     iso = lambda value: value.isoformat() + "Z" if value else None  # noqa: E731
     ignored = _ignored_paths(row.get("ignored_json"))
+    reasons = {str(item.get("path", "")).lower(): item for item in _load(row.get("ignored_json"), []) if isinstance(item, dict)}
     return {
         "status": row["status"],
         "files_flagged": int(row["files_flagged"] or 0),
         "counts": _load(row["counts_json"], {}),
-        "findings": [{**item, "ignored": str(item.get("path", "")).lower() in ignored} for item in _load(row["findings_json"], [])],
+        "findings": [
+            {**item, "ignored": str(item.get("path", "")).lower() in ignored,
+             "ignored_reason": (reasons.get(str(item.get("path", "")).lower()) or {}).get("reason"),
+             "ignored_by": (reasons.get(str(item.get("path", "")).lower()) or {}).get("by")}
+            for item in _load(row["findings_json"], [])
+        ],
         **(_load(row["summary_json"], {}) or {}),
         "error": row["error_message"],
         "requested_at": iso(row["requested_at"]),

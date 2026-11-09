@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { invalidateAll } from '$app/navigation';
   import { apiDeleteData, apiPostData, apiPutData } from '$lib/api/client';
   import { reportUiError } from '$lib/errors';
@@ -8,7 +9,6 @@
   import TagPill from '$lib/components/tags/TagPill.svelte';
   import FolderQueryAssist from '$lib/components/storage-roots/FolderQueryAssist.svelte';
   import { toast } from '$lib/stores/toast';
-  import { timeAgo } from '$lib/utils/format';
 
   /**
    * Smart policies: « if the folders match this condition, then do this ». The condition is the express search
@@ -47,6 +47,10 @@
 
   let draft: Draft | null = null;
   let saving = false;
+  // A policy that would act on many folders at once is confirmed explicitly
+  const POLICY_CONFIRM_FROM = 50;
+  let wideConfirmed = false;
+  $: if (!draft) wideConfirmed = false;
   let busyId: number | null = null;
   let toDelete: Policy | null = null;
   let preview: { count: number; unknown_states: string[]; sample: Array<{ id: number; name: string; path: string }> } | null = null;
@@ -87,7 +91,8 @@
   }
 
   $: draftKinds = draft ? ([draft.jobCheck && 'check', draft.jobSensitivity && 'sensitivity'].filter(Boolean) as Array<'check' | 'sensitivity'>) : [];
-  $: canSave = Boolean(draft && draft.name.trim() && draft.condition.trim() && (draft.alertOn || draft.notify || (draft.tagOn && draft.tagId) || (draft.jobsOn && draftKinds.length)) && !(preview?.unknown_states?.length));
+  $: wide = Boolean(draft?.enabled && (preview?.count ?? 0) > POLICY_CONFIRM_FROM);
+  $: canSave = Boolean(draft && draft.name.trim() && draft.condition.trim() && (draft.alertOn || draft.notify || (draft.tagOn && draft.tagId) || (draft.jobsOn && draftKinds.length)) && !(preview?.unknown_states?.length) && (!wide || wideConfirmed));
 
   async function save() {
     if (!draft || !canSave || saving) return;
@@ -127,8 +132,12 @@
   async function toggle(policy: Policy) {
     busyId = policy.id;
     try {
-      await apiPutData(fetch, `/policies/${policy.id}`, { name: policy.name, description: policy.description, enabled: !policy.enabled, condition: policy.condition, actions: policy.actions });
+      const body = { name: policy.name, description: policy.description, condition: policy.condition, actions: policy.actions };
+      await apiPutData(fetch, `/policies/${policy.id}`, { ...body, enabled: !policy.enabled });
       await invalidateAll();
+      toast.success(policy.enabled ? t('Policy « {name} » disabled.', { name: policy.name }) : t('Policy « {name} » enabled.', { name: policy.name }), {
+        action: { label: t('Undo'), run: async () => { await apiPutData(fetch, `/policies/${policy.id}`, { ...body, enabled: policy.enabled }); await invalidateAll(); } }
+      });
     } catch (error: unknown) {
       reportUiError(error, 'Unable to update the policy.', 'policies.toggle');
     } finally {
@@ -188,7 +197,7 @@
             </a>
             <small>
               {#if policy.last_error}<span class="pc__err">{policy.last_error}</span>
-              {:else if policy.last_run_at}{t('evaluated {when}', { when: timeAgo(policy.last_run_at) })}
+              {:else if policy.last_run_at}{t('evaluated')} <RelativeTime value={policy.last_run_at} />
               {:else}{t('Not evaluated yet')}{/if}
             </small>
             <div class="pc__btns">
@@ -274,6 +283,9 @@
           </div>
         {/if}
       </div>
+      {#if wide}
+        <label class="pf__wide"><input type="checkbox" bind:checked={wideConfirmed} />{t('I confirm: this policy acts at once on {count} folders', { count: preview?.count ?? 0 })}</label>
+      {/if}
       <label class="pf__check"><input type="checkbox" bind:checked={draft.enabled} /><span>{t('Active')}<small>{t('Evaluated every 15 minutes, and right after a sensitivity scan.')}</small></span></label>
     </div>
   {/if}
@@ -290,8 +302,8 @@
 <style>
   .pl { padding: var(--b2s-page-padding, 24px 28px); display: flex; flex-direction: column; gap: 20px; }
   .pl__top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-  .pl__top h1 { margin: 0; font-size: var(--b2s-fs-page-title, 26px); font-weight: 600; letter-spacing: -0.01em; }
-  .pl__top p { margin: 4px 0 0; color: var(--b2s-color-text-muted); }
+  .pl__top h1 { margin: 0; font-size: var(--b2s-fs-overview-title, 38px); line-height: 1.05; font-weight: 600; letter-spacing: -0.03em; }
+  .pl__top p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
   .pl__list { display: flex; flex-direction: column; gap: 10px; }
   .pc { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .pc.is-off { opacity: 0.7; }
@@ -335,5 +347,6 @@
   .pf__check select { min-width: 160px; }
   .pf__jobs { display: flex; flex-direction: column; gap: 6px; margin: -4px 0 0 28px; font-size: var(--b2s-fs-sm); }
   .pf__jobs label { display: flex; gap: 8px; align-items: center; }
+  .pf__wide { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-warning-soft, #fdefd9); color: var(--b2s-color-warning-strong, #9a5b00); font-size: var(--b2s-fs-sm); font-weight: 600; }
   .mono { font-family: var(--b2s-font-mono); }
 </style>

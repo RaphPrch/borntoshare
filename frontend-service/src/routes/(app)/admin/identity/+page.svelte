@@ -7,6 +7,7 @@
   import IdentitiesSidebar from '$lib/components/identity/IdentitiesSidebar.svelte';
   import IdentityAddModal from '$lib/components/identity/IdentityAddModal.svelte';
   import IdentityGroupWorkspace from '$lib/components/identity/IdentityGroupWorkspace.svelte';
+  import IdentityLeaveDialog from '$lib/components/identity/IdentityLeaveDialog.svelte';
   import IdentityWorkspace from '$lib/components/identity/IdentityWorkspace.svelte';
   import ConfirmDeleteDialog from '$lib/components/ui/ConfirmDeleteDialog.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -35,6 +36,8 @@
   let editTarget: Record<string, any> | null = null;
   let deleteTarget: Record<string, any> | null = null;
   let deleteBusy = false;
+  // Deleting or disabling a person goes through the handover of the folders they would leave alone
+  let leave: { item: Record<string, any>; mode: 'delete' | 'disable' } | null = null;
   let workspace: IdentityWorkspace | null = null;
 
   // The page opens on ?selected=, else on the first guardian who needs a look, else the first person
@@ -73,11 +76,20 @@
       toast.warning(t('Default local admin is protected.'));
       return;
     }
-    busy = true;
     const next = String(item.status ?? 'active') === 'inactive';
+    if (!next) {
+      leave = { item, mode: 'disable' };
+      return;
+    }
+    await setActive(item, true);
+  }
+  async function setActive(item: Record<string, any>, next: boolean) {
+    busy = true;
     try {
       await updateIdentity(fetch, item.id, { identity_type: 'user', is_active: next });
-      toast.success(next ? t('{name} enabled.', { name: item.display_name || item.username }) : t('{name} disabled.', { name: item.display_name || item.username }));
+      const who = item.display_name || item.username;
+      if (next) toast.success(t('{name} enabled.', { name: who }));
+      else toast.success(t('{name} disabled.', { name: who }), { action: { label: t('Undo'), run: () => setActive(item, true) } });
       await invalidateAll();
       workspace?.reload();
     } catch (error: unknown) {
@@ -102,8 +114,6 @@
       deleteBusy = false;
     }
   }
-  // The search of the whole application (⌘K)
-  const openGlobalSearch = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, metaKey: true }));
 </script>
 
 {#if !items.length}
@@ -121,22 +131,17 @@
         onOpenAdmins={() => goto('/admin/identity/admins')} />
     </svelte:fragment>
 
-    <button type="button" class="ids__search" on:click={openGlobalSearch}>
-      <i class="bi bi-search" aria-hidden="true"></i>
-      <span>{t('Search a person, a folder, a group…')}</span>
-      <kbd>Ctrl</kbd><kbd>K</kbd>
-    </button>
 
     {#if selected && isGroup(selected)}
       <IdentityGroupWorkspace item={selected} {busy}
         onSetRole={(role) => setRole(selected, role)}
         onDelete={() => (deleteTarget = selected)} />
     {:else if selected}
-      <IdentityWorkspace bind:this={workspace} item={selected} {busy} canDelete={!isDefaultAdmin(selected)} isSelf={Number(selected.id) === Number(data.user?.id ?? 0)}
+      <IdentityWorkspace bind:this={workspace} item={selected} {busy} canDelete={!isDefaultAdmin(selected)} isSelf={Number(selected.id) === Number(data.user?.id ?? 0)} people={items}
         onSetRole={(role) => setRole(selected, role)}
         onToggleActive={() => toggleActive(selected)}
         onEdit={() => (editTarget = selected)}
-        onDelete={() => (deleteTarget = selected)} />
+        onDelete={() => (leave = { item: selected, mode: 'delete' })} />
     {:else}
       <LoadingState block skeleton="detail" />
     {/if}
@@ -149,15 +154,23 @@
 <EditIdentityModal open={editTarget !== null} identity={editTarget} onClose={() => (editTarget = null)}
   on:done={async () => { editTarget = null; await invalidateAll(); workspace?.reload(); }} />
 
-<ConfirmDeleteDialog open={deleteTarget !== null} onClose={() => (deleteTarget = null)} onConfirm={confirmDelete} busy={deleteBusy}
+<IdentityLeaveDialog open={leave !== null} identity={leave?.item ?? null} mode={leave?.mode ?? 'delete'} candidates={items}
+  onClose={() => (leave = null)}
+  onConfirm={async () => {
+    const current = leave;
+    if (!current) return;
+    if (current.mode === 'delete') {
+      deleteTarget = current.item;
+      await confirmDelete();
+    } else {
+      await setActive(current.item, false);
+    }
+    leave = null;
+  }} />
+
+<ConfirmDeleteDialog open={deleteTarget !== null && isGroup(deleteTarget)} onClose={() => (deleteTarget = null)} onConfirm={confirmDelete} busy={deleteBusy}
   title={isGroup(deleteTarget) ? t('Remove the role of this group') : t('Delete the identity')}
   description={String(deleteTarget?.display_name || deleteTarget?.username || '')}
   impactItems={isGroup(deleteTarget)
     ? [t('Its members lose the role it gave them.')]
     : [t('They can no longer sign in to BornToShare.'), t('The folders they guard keep their other guardians.')]} />
-
-<style>
-  .ids__search { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-sm); text-align: left; cursor: pointer; }
-  .ids__search span { flex: 1; }
-  .ids__search kbd { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border: 1px solid var(--b2s-color-border-mid, #cdd2db); border-bottom-width: 2px; border-radius: 5px; background: var(--b2s-color-surface); font-family: var(--b2s-font-mono); font-size: 10px; }
-</style>

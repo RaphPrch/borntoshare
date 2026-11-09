@@ -58,8 +58,16 @@ def get_guardian_storage_root_ids(db: Session, actor: ActorContext) -> list[int]
                 """
                 SELECT DISTINCT srr.root_id
                 FROM storage_root_roles srr
-                WHERE srr.identity_id = :identity_id
-                  AND LOWER(COALESCE(srr.role, '')) = 'guardian'
+                WHERE LOWER(COALESCE(srr.role, '')) = 'guardian'
+                  AND (
+                    srr.identity_id = :identity_id
+                    -- A backup guardian in force acts for the guardian they replace, on all their folders
+                    OR srr.identity_id IN (
+                      SELECT gs.identity_id FROM guardian_substitutes gs
+                      WHERE gs.substitute_identity_id = :identity_id AND gs.revoked_at IS NULL
+                        AND gs.starts_at <= UTC_TIMESTAMP() AND gs.ends_at > UTC_TIMESTAMP()
+                    )
+                  )
                 ORDER BY srr.root_id
                 """
             ),

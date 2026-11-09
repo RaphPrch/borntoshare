@@ -96,7 +96,7 @@ def test_change_local_password_updates_hash_and_commits(monkeypatch) -> None:
         module.LocalChangePasswordPayload(
             username="admin",
             current_password="old_secret",
-            new_password="new_secret",
+            new_password="new_secret_long",
         ),
         request=_FakeRequest(),
         db=db,

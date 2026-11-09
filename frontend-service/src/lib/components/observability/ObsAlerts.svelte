@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { alertMessage, alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -7,7 +8,6 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import { t } from '$lib/i18n';
-  import { formatDateTime } from '$lib/utils/format';
   import { normalizeText } from '$lib/utils/values';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
@@ -256,7 +256,7 @@
                 <td class="obs-main"><strong>{group.title}</strong><small>{group.type}</small></td>
                 <td class="obs-num"><strong>× {group.count}</strong></td>
                 <td>{group.scopes.slice(0, 3).join(', ')}{group.scopes.length > 3 ? ` +${group.scopes.length - 3}` : ''}</td>
-                <td class="obs-date">{formatDateTime(group.lastSeen)}</td>
+                <td class="obs-date"><RelativeTime value={group.lastSeen} /></td>
                 <td class="obs-actions">
                   <button class="b2s-btn b2s-btn-secondary b2s-btn-sm" type="button" on:click={() => showGroup(group.type)}>{t('Show')}</button>
                 </td>
@@ -294,7 +294,7 @@
                 <td>
                   {#if scope.href}<a href={scope.href}>{scope.label}</a>{:else}{scope.label}{/if}
                 </td>
-                <td class="obs-date">{formatDateTime(alert.last_seen_at)}</td>
+                <td class="obs-date"><RelativeTime value={alert.last_seen_at} /></td>
                 <td>
                   <StatusBadge compact showDot={false} variant={STATUS_VARIANT[status] ?? 'muted'} label={statusLabel(status)} />
                 </td>

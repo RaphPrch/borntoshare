@@ -771,6 +771,18 @@
       "group_access_granted": {
         "title": "Group access granted",
         "description": "An access through a group was granted to “{target}”"
+      },
+      "guardianship_handed_over": {
+        "title": "Folders handed over",
+        "description": "The folders of \"{target}\" were handed over to another guardian"
+      },
+      "substitute_set": {
+        "title": "Backup guardian set",
+        "description": "A backup guardian validates the requests of the folders of \"{target}\" during their absence"
+      },
+      "substitute_revoked": {
+        "title": "Backup ended",
+        "description": "The backup of \"{target}\" was ended"
       }
     },
     "job": {

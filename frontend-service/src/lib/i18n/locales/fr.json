@@ -1949,6 +1949,18 @@
       "group_access_granted": {
         "title": "Accès par groupe donné",
         "description": "Un accès par groupe a été donné à « {target} »"
+      },
+      "guardianship_handed_over": {
+        "title": "Dossiers confiés à un autre gardien",
+        "description": "Les dossiers de « {target} » ont été confiés à un autre gardien"
+      },
+      "substitute_set": {
+        "title": "Suppléant désigné",
+        "description": "Un suppléant valide les demandes des dossiers de « {target} » pendant son absence"
+      },
+      "substitute_revoked": {
+        "title": "Suppléance arrêtée",
+        "description": "La suppléance de « {target} » a été arrêtée"
       }
     },
     "job": {
@@ -4802,5 +4814,45 @@
   "Nothing to review: each administrator holds the role once, and one local account remains for the fallback.": "Rien à revoir : chaque administrateur a le rôle une seule fois, et un compte local reste pour le secours.",
   "Recommended: give the role through a directory group. Arrivals and departures are managed in the directory and read again at each synchronization; a local account stays for the fallback.": "Recommandé : donner le rôle par un groupe d'annuaire. Arrivées et départs se gèrent dans l'annuaire et sont relus à chaque synchronisation ; un compte local reste pour le secours.",
   "{name} (you)": "{name} (vous)",
-  "You cannot demote your own account.": "Vous ne pouvez pas rétrograder votre propre compte."
+  "You cannot demote your own account.": "Vous ne pouvez pas rétrograder votre propre compte.",
+  "evaluated": "évaluée",
+  "updated": "mis à jour",
+  "Disable the identity": "Désactiver l'identité",
+  "They can no longer sign in to BornToShare; their requests and history stay.": "Il ne pourra plus se connecter à BornToShare ; ses demandes et son historique restent.",
+  "They can no longer sign in until enabled again.": "Il ne pourra plus se connecter tant qu'il n'est pas réactivé.",
+  "Only active guardian of {count} folder(s): without someone else, nobody but an administrator would validate their requests.": "Seul gardien actif de {count} dossier(s) : sans quelqu'un d'autre, seul un administrateur validerait leurs demandes.",
+  "Hand all their folders over to": "Confier tous ses dossiers à",
+  "Hand these folders over to": "Confier ces dossiers à",
+  "Choose a person": "Choisir une personne",
+  "For an absence, prefer a backup guardian: the folders come back by themselves at its end.": "Pour une absence, préférez un gardien suppléant : les dossiers reviennent d'eux-mêmes à la fin.",
+  "Hand over and delete": "Confier et supprimer",
+  "Hand over and disable": "Confier et désactiver",
+  "in progress": "en cours",
+  "upcoming": "à venir",
+  "ended": "terminée",
+  "Backup guardian set.": "Gardien suppléant désigné.",
+  "Backup of {name} ended.": "Suppléance de {name} arrêtée.",
+  "Backup guardian": "Gardien suppléant",
+  "Set one for an absence": "En désigner un pour une absence",
+  "from {start} to {end}": "du {start} au {end}",
+  "End now": "Arrêter maintenant",
+  "Nobody stands in for them. During an absence, a backup validates the requests of all their folders.": "Personne ne le supplée. Pendant une absence, un suppléant valide les demandes de tous ses dossiers.",
+  "Stands in for {name}": "Supplée {name}",
+  "Backup": "Suppléant",
+  "From": "Du",
+  "To (included)": "Au (inclus)",
+  "Reason (optional)": "Motif (facultatif)",
+  "Holidays, training…": "Congés, formation…",
+  "Set the backup": "Désigner le suppléant",
+  "Search a person, a folder, a server…": "Rechercher une personne, un dossier, un serveur…",
+  "browse": "parcourir",
+  "open": "ouvrir",
+  "filter": "filtrer",
+  "« {name} » no longer counts.": "« {name} » ne compte plus.",
+  "« {name} » counts again.": "« {name} » compte de nouveau.",
+  "Why is it a false positive? (test file, sample…)": "Pourquoi est-ce un faux positif ? (fichier de test, exemple…)",
+  "I confirm the action on {count} folders": "Je confirme l'action sur {count} dossiers",
+  "Policy « {name} » disabled.": "Politique « {name} » désactivée.",
+  "Policy « {name} » enabled.": "Politique « {name} » activée.",
+  "I confirm: this policy acts at once on {count} folders": "Je confirme : cette politique agit aussitôt sur {count} dossiers"
 }

@@ -4,10 +4,15 @@ import { writable } from 'svelte/store';
 // Keep aligned with [`Toaster.svelte`](src/lib/components/ui/Toaster.svelte:1)
 export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading';
 
+/** A reversible action offers its own way back (« Undo »), for a few seconds */
+export type ToastAction = { label: string; run: () => unknown | Promise<unknown> };
+export type ToastOptions = number | { duration?: number; action?: ToastAction };
+
 interface Toast {
   id: number;
   type: ToastType;
   message: string;
+  action?: ToastAction;
 }
 
 const defaultDuration: Record<ToastType, number> = {
@@ -41,12 +46,15 @@ function createToastStore() {
     update(t => t.filter(toast => toast.id !== id));
   }
 
-  function show(type: ToastType, message: string, duration?: number): number {
+  function show(type: ToastType, message: string, options?: ToastOptions): number {
     // Counter, not Date.now(): two toasts in the same millisecond must not share a key
     const id = ++lastId;
+    const opts = typeof options === 'number' ? { duration: options } : options ?? {};
+    // An action needs the time to be read and used
+    const duration = opts.duration ?? (opts.action ? 8000 : defaultDuration[type]);
 
-    update(t => [...t, { id, type, message: formatMessage(type, message) }]);
-    setTimeout(() => remove(id), duration ?? defaultDuration[type]);
+    update(t => [...t, { id, type, message: formatMessage(type, message), action: opts.action }]);
+    setTimeout(() => remove(id), duration);
 
     return id;
   }
@@ -55,11 +63,11 @@ function createToastStore() {
     subscribe,
     show,
     remove,
-    success: (message: string, duration?: number) => show('success', message, duration),
-    error: (message: string, duration?: number) => show('error', message, duration),
-    warning: (message: string, duration?: number) => show('warning', message, duration),
-    info: (message: string, duration?: number) => show('info', message, duration),
-    loading: (message: string, duration?: number) => show('loading', message, duration)
+    success: (message: string, options?: ToastOptions) => show('success', message, options),
+    error: (message: string, options?: ToastOptions) => show('error', message, options),
+    warning: (message: string, options?: ToastOptions) => show('warning', message, options),
+    info: (message: string, options?: ToastOptions) => show('info', message, options),
+    loading: (message: string, options?: ToastOptions) => show('loading', message, options)
   };
 }
 

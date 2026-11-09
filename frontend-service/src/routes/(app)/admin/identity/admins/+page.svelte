@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { updateIdentity, type PlatformAdmins } from '$lib/api/identity';
   import { reportUiError } from '$lib/errors';
+  import { toast } from '$lib/stores/toast';
   import { t } from '$lib/i18n';
 
   /**
@@ -30,17 +31,13 @@
   const KIND = () => ({ local: { label: t('local account'), tone: 'is-local' }, ad: { label: t('direct role'), tone: 'is-direct' }, group: { label: t('directory group'), tone: 'is-group' } });
 
   let busy = false;
-  let undo: { text: string; revert: () => Promise<void> } | null = null;
-  let timer: ReturnType<typeof setTimeout> | null = null;
   async function apply(change: () => Promise<unknown>, text: string, revert: () => Promise<unknown>) {
     if (busy) return;
     busy = true;
     try {
       await change();
       await invalidateAll();
-      if (timer) clearTimeout(timer);
-      undo = { text, revert: async () => { undo = null; await revert(); await invalidateAll(); } };
-      timer = setTimeout(() => (undo = null), 8000);
+      toast.success(text, { action: { label: t('Undo'), run: async () => { await revert(); await invalidateAll(); } } });
     } catch (error: unknown) {
       reportUiError(error, 'The change failed.', 'identity.admins.fix');
     } finally {
@@ -119,16 +116,14 @@
 
   <p class="ad__muted">{t('Recommended: give the role through a directory group. Arrivals and departures are managed in the directory and read again at each synchronization; a local account stays for the fallback.')}</p>
 
-  {#if undo}
-    <div class="ad__undo" role="status"><span>{undo.text}</span><button type="button" on:click={() => undo?.revert()}>{t('Undo')}</button></div>
-  {/if}
+
 </section>
 
 <style>
   .ad { padding: var(--b2s-page-padding, 24px 28px); display: flex; flex-direction: column; gap: 18px; max-width: 1240px; }
   .ad__back { display: inline-flex; align-items: center; gap: 4px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); text-decoration: none; }
-  .ad__top h1 { margin: 4px 0 2px; font-size: var(--b2s-fs-page-title, 26px); font-weight: 700; letter-spacing: -0.02em; }
-  .ad__top p { margin: 0; color: var(--b2s-color-text-muted); }
+  .ad__top h1 { margin: 0; font-size: var(--b2s-fs-overview-title, 38px); line-height: 1.05; font-weight: 600; letter-spacing: -0.03em; }
+  .ad__top p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
   .ad__flow { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 28px; padding: 22px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .ad__paths { display: flex; flex-direction: column; gap: 12px; justify-content: center; }
   .ad__row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--b2s-color-border); border-radius: 12px; transition: opacity 0.2s; }
@@ -163,6 +158,4 @@
   .ad__ok { display: flex; gap: 8px; margin: 0; padding: 12px 16px; border-radius: var(--b2s-radius-lg); background: var(--b2s-color-success-soft, #ddf5e9); color: var(--b2s-color-success-strong, #157a3c); }
   .ad__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
-  .ad__undo { position: fixed; right: 28px; bottom: 24px; z-index: 40; display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 16px; border-radius: 12px; background: #0e1218; color: #ffffff; box-shadow: 0 12px 30px rgba(14, 18, 24, 0.25); }
-  .ad__undo button { border: 0; background: transparent; color: #b6f24a; font: inherit; font-weight: 600; cursor: pointer; }
 </style>

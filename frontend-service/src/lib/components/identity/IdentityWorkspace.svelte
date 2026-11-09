@@ -1,12 +1,15 @@
 <script lang="ts">
+  import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { apiGetList } from '$lib/api/client';
   import { getIdentityOverview, type IdentityOverview } from '$lib/api/identity';
   import ActivityTimeline from '$lib/components/activity/ActivityTimeline.svelte';
-  import EntityActionGroup, { type EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
+  import type { EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
+  import EntityHeroCard from '$lib/components/entity/EntityHeroCard.svelte';
   import EntityTodoCard, { type EntityTodoStep } from '$lib/components/entity/EntityTodoCard.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
+  import IdentitySubstitutes from '$lib/components/identity/IdentitySubstitutes.svelte';
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
   import { timeAgo } from '$lib/utils/format';
@@ -24,14 +27,14 @@
   export let onToggleActive: () => void = () => {};
   export let onEdit: () => void = () => {};
   export let onDelete: () => void = () => {};
+  /** Everyone, to pick a backup guardian */
+  export let people: Array<Record<string, any>> = [];
 
   let data: IdentityOverview | null = null;
   let activity: any[] = [];
   let loadedFor = 0;
   let tab = 'overview';
   let shareFilter = 'all';
-  let undo: { role: 'user' | 'platform_admin'; text: string } | null = null;
-  let undoTimer: ReturnType<typeof setTimeout> | null = null;
 
   $: id = Number(item?.id ?? 0);
   $: if (id && id !== loadedFor) load(id);
@@ -64,18 +67,9 @@
     const previous: 'user' | 'platform_admin' = isAdmin ? 'platform_admin' : 'user';
     if (!(await onSetRole(role))) return;
     await load(id);
-    showUndo(previous, role === 'platform_admin' ? t('{name} is now an administrator.', { name: displayName }) : t('{name} is a user again.', { name: displayName }));
-  }
-  function showUndo(role: 'user' | 'platform_admin', text: string) {
-    if (undoTimer) clearTimeout(undoTimer);
-    undo = { role, text };
-    undoTimer = setTimeout(() => (undo = null), 8000);
-  }
-  async function revert() {
-    if (!undo) return;
-    const role = undo.role;
-    undo = null;
-    if (await onSetRole(role)) await load(id);
+    toast.success(role === 'platform_admin' ? t('{name} is now an administrator.', { name: displayName }) : t('{name} is a user again.', { name: displayName }), {
+      action: { label: t('Undo'), run: async () => { if (await onSetRole(previous)) await load(id); } }
+    });
   }
 
   $: displayName = String(data?.display_name || item?.display_name || item?.username || '—');
@@ -87,14 +81,6 @@
   $: sole = guarded.filter((folder) => folder.sole);
   $: requestsTotal = Object.values(data?.requests ?? {}).reduce((sum, value) => sum + Number(value || 0), 0);
 
-  async function copyDn() {
-    try {
-      await navigator.clipboard.writeText(String(data?.dn ?? ''));
-      toast.success(t('Copied.'));
-    } catch {
-      toast.error(t('Could not copy.'));
-    }
-  }
 
   $: actions = [
     { key: 'edit', label: t('Edit'), icon: 'bi-pencil', variant: 'secondary', onClick: onEdit },
@@ -136,31 +122,27 @@
 </script>
 
 <div class="iw">
-  <header class="iw__hero">
-    <span class="iw__avatar" class:is-ring={active && !local} class:is-off={!active} title={active ? (local ? t('Local account') : t('Synchronized with the directory')) : t('Disabled')}>{initials}</span>
-    <div class="iw__main">
-      <nav class="iw__crumbs" aria-label={t('Location')}>{t('Identities')} <i class="bi bi-chevron-right" aria-hidden="true"></i> {data?.source_name ?? item?.source_name ?? ''}</nav>
-      <div class="iw__title">
-        <h1>{displayName}</h1>
-        <span class="iw__pill" class:is-off={!active}><span aria-hidden="true"></span>{active ? t('Active') : t('Disabled')}</span>
-        {#if data?.updated_at}<small>{t('updated {when}', { when: timeAgo(data.updated_at) })}</small>{/if}
-      </div>
-      <div class="iw__chips">
-        {#if data?.dn}<span class="iw__chip mono">{data.dn}<button type="button" on:click={copyDn}>{t('Copy')}</button></span>{/if}
-        {#if !data?.dn && (data?.username || item?.username)}<span class="iw__chip mono">{data?.username ?? item?.username}</span>{/if}
-        {#if hasMail}<span class="iw__chip">{data?.email ?? item?.email}</span>{:else}<span class="iw__chip is-warn">{t('No e-mail address')}</span>{/if}
-        {#if adminByGroupOnly}<span class="iw__chip"><i class="bi bi-people" aria-hidden="true"></i>{t('Administrator through a directory group')}</span>{/if}
-      </div>
-    </div>
-    <div class="iw__side">
+  <EntityHeroCard
+    avatar={initials} avatarRing={active && !local} avatarOff={!active}
+    crumbs={[t('Identities'), String(data?.source_name ?? item?.source_name ?? '')]}
+    title={displayName}
+    statusLabel={active ? t('Active') : t('Disabled')} statusTone={active ? 'success' : 'neutral'}
+    path={String(data?.dn ?? '')}
+    chips={[
+      ...(!data?.dn && (data?.username || item?.username) ? [{ label: String(data?.username ?? item?.username), mono: true }] : []),
+      hasMail ? { label: String(data?.email ?? item?.email) } : { label: t('No e-mail address'), tone: 'warning' as const },
+      ...(adminByGroupOnly ? [{ label: t('Administrator through a directory group'), icon: 'bi-people' }] : [])
+    ]}
+    {actions} actionsAriaLabel={t('Identity actions')}>
+    <svelte:fragment slot="note">{#if data?.updated_at}{t('updated')} <RelativeTime value={data.updated_at} />{/if}</svelte:fragment>
+    <svelte:fragment slot="side">
       <div class="iw__seg" role="radiogroup" aria-label={t('Role in BornToShare')}>
         <button type="button" role="radio" aria-checked={!isAdmin} class:is-on={!isAdmin} disabled={busy || adminByGroupOnly || !data || (isSelf && isAdmin)} title={isSelf && isAdmin ? t('You cannot demote your own account.') : undefined} on:click={() => setRole('user')}>{t('User')}</button>
         <button type="button" role="radio" aria-checked={isAdmin} class:is-on={isAdmin} disabled={busy || adminByGroupOnly || !data} on:click={() => setRole('platform_admin')}>{t('Administrator')}</button>
       </div>
-      {#if guarded.length}<small>{t('+ guardian of {count} folder(s)', { count: guarded.length })}</small>{/if}
-      <EntityActionGroup {actions} ariaLabel={t('Identity actions')} />
-    </div>
-  </header>
+      {#if guarded.length}<small class="iw__plus">{t('+ guardian of {count} folder(s)', { count: guarded.length })}</small>{/if}
+    </svelte:fragment>
+  </EntityHeroCard>
 
   {#if !data}
     <LoadingState block skeleton="detail" />
@@ -203,6 +185,7 @@
         </section>
 
         <div class="iw__col">
+          <IdentitySubstitutes identityId={id} isGuardian={guarded.length > 0} {people} onChanged={() => load(id)} />
           {#if data.co_guardians.length}
             <section class="iw__card" aria-label={t('Guards with')}>
               <header><h2>{t('Guards with')}</h2></header>
@@ -256,37 +239,11 @@
     {/if}
   {/if}
 
-  {#if undo}
-    <div class="iw__undo" role="status">
-      <span>{undo.text}</span>
-      <button type="button" on:click={revert}>{t('Undo')}</button>
-    </div>
-  {/if}
 </div>
 
 <style>
   .iw { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .iw__hero { display: flex; gap: 20px; align-items: flex-start; padding: 22px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); box-shadow: var(--b2s-shadow-sm, 0 1px 2px rgba(14, 18, 24, 0.04)); }
-  .iw__avatar { flex: 0 0 60px; height: 60px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, var(--b2s-color-info-soft), #c9d9fb); color: var(--b2s-color-info-strong); font-size: 20px; font-weight: 700; }
-  .iw__avatar.is-off { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
-  .iw__avatar.is-ring { animation: iw-ring 2.4s ease-in-out infinite; }
-  @keyframes iw-ring { 0%, 100% { box-shadow: 0 0 0 3px var(--b2s-color-surface), 0 0 0 5px #2f9e5b; } 50% { box-shadow: 0 0 0 3px var(--b2s-color-surface), 0 0 0 8px rgba(47, 158, 91, 0.25); } }
-  @media (prefers-reduced-motion: reduce) { .iw__avatar.is-ring { animation: none; box-shadow: 0 0 0 3px var(--b2s-color-surface), 0 0 0 5px #2f9e5b; } }
-  .iw__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-  .iw__crumbs { display: flex; align-items: center; gap: 6px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .iw__crumbs i { font-size: 10px; }
-  .iw__title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .iw__title h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
-  .iw__title small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .iw__pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-success-soft, #ddf5e9); color: var(--b2s-color-success-strong, #157a3c); font-size: var(--b2s-fs-xs); font-weight: 500; }
-  .iw__pill span { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-  .iw__pill.is-off { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
-  .iw__chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .iw__chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 5px 10px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-sm, 8px); background: var(--b2s-color-surface-soft, #f5f7fa); color: var(--b2s-color-text); font-size: var(--b2s-fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .iw__chip button { padding: 2px 6px; border: 0; border-radius: 6px; background: var(--b2s-color-surface); font: inherit; font-family: var(--b2s-font-sans); cursor: pointer; }
-  .iw__chip.is-warn { border-color: var(--b2s-color-warning-border, #f3d9a8); background: var(--b2s-color-warning-soft, #fdefd9); color: var(--b2s-color-warning-strong, #9a5b00); }
-  .iw__side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex: none; }
-  .iw__side small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .iw__plus { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .iw__seg { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--b2s-color-neutral-soft); }
   .iw__seg button { padding: 8px 14px; border: 0; border-radius: 10px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-sm); font-weight: 600; cursor: pointer; }
   .iw__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(14, 18, 24, 0.12); }
@@ -337,7 +294,4 @@
   .iw__tag { justify-self: end; padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: var(--b2s-fs-xs); font-weight: 500; }
   .iw__tag.is-sole { background: var(--b2s-color-danger-soft, #fdecea); color: var(--b2s-color-danger-strong, #b42318); }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
-  .iw__undo { position: fixed; right: 28px; bottom: 24px; z-index: 40; display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 16px; border-radius: 12px; background: #0e1218; color: #ffffff; font-size: var(--b2s-fs-sm); box-shadow: 0 12px 30px rgba(14, 18, 24, 0.25); animation: iw-rise 0.25s ease-out; }
-  .iw__undo button { border: 0; background: transparent; color: #b6f24a; font: inherit; font-weight: 600; cursor: pointer; }
-  @keyframes iw-rise { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
 </style>

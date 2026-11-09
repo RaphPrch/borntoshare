@@ -383,8 +383,8 @@
 <style>
   .tg { padding: var(--b2s-page-padding, 24px 28px); display: flex; flex-direction: column; gap: 16px; }
   .tg__top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-  .tg__top h1 { margin: 0; font-size: var(--b2s-fs-page-title, 26px); font-weight: 600; letter-spacing: -0.01em; }
-  .tg__top p { margin: 4px 0 0; color: var(--b2s-color-text-muted); }
+  .tg__top h1 { margin: 0; font-size: var(--b2s-fs-overview-title, 38px); line-height: 1.05; font-weight: 600; letter-spacing: -0.03em; }
+  .tg__top p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
   .tg__tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tg__tiles .b2s-stat-tile { text-align: left; text-decoration: none; color: inherit; }
   .tg__tiles .b2s-stat-tile > span:first-child { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }

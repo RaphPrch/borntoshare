@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { apiGetData, apiGetList } from '$lib/api/client';
   import { getHealthSummary, type HealthSummaryDay } from '$lib/api/health';
   import ActivityTimeline from '$lib/components/activity/ActivityTimeline.svelte';
@@ -11,7 +12,7 @@
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import { t } from '$lib/i18n';
   import type { IdentitySourceCardVM } from '$lib/mappers/identity-sources.mapper';
-  import { formatDateTime, timeAgo } from '$lib/utils/format';
+  import { timeAgo } from '$lib/utils/format';
 
   /**
    * One directory, as a page: identity card, figures, « to do », then Overview · Inventory · Synchronisation ·
@@ -164,8 +165,8 @@
     { label: t('Search base'), value: raw.base_dn || '—', mono: true },
     { label: t('Read account'), value: card.bindDn || '—', mono: true },
     { label: t('Certificate'), value: raw.tls_verify ? t('Verified') : t('Not verified') },
-    { label: t('Last test'), value: raw.last_probe_at ? `${timeAgo(raw.last_probe_at)} (${formatDateTime(raw.last_probe_at)})` : t('Never'), warn: Boolean(card.lastProbeStale || !raw.last_probe_at) }
-  ];
+    { label: t('Last test'), value: t('Never'), time: raw.last_probe_at || null, warn: Boolean(card.lastProbeStale || !raw.last_probe_at) }
+  ] as Array<{ label: string; value: string; mono?: boolean; warn?: boolean; time?: string | null }>;
 </script>
 
 <div class="isw">
@@ -199,7 +200,7 @@
               {#each strip as day (day.date)}<span class={`is-${day.tone}`} title={day.title}></span>{/each}
             </div>
             <div class="isw__trio">
-              <div><span>{t('Last')}</span><b>{card.lastSnapshotLabel || t('Never')}</b></div>
+              <div><span>{t('Last')}</span><b><RelativeTime value={raw.last_snapshot_at} empty={t('Never')} /></b></div>
               <div><span>{t('Read')}</span><b>{t('{users} users · {groups} groups', { users: overview?.users ?? card.usersCount ?? 0, groups: overview?.groups ?? card.groupsCount ?? 0 })}</b></div>
               <div><span>{t('Schedule')}</span><a href="/admin/advanced-settings/infrastructure">{t('Settings › Schedules')}</a></div>
             </div>
@@ -232,7 +233,7 @@
           <section class="isw__card" aria-label={t('Connection')}>
             <header><h2>{t('Connection')}</h2><button type="button" class="b2s-link-btn" on:click={onEdit}>{t('Edit')}</button></header>
             <dl class="isw__facts">
-              {#each facts as fact (fact.label)}<dt>{fact.label}</dt><dd class:mono={fact.mono} class:is-warn={fact.warn}>{fact.value}</dd>{/each}
+              {#each facts as fact (fact.label)}<dt>{fact.label}</dt><dd class:mono={fact.mono} class:is-warn={fact.warn}>{#if fact.time}<RelativeTime value={fact.time} />{:else}{fact.value}{/if}</dd>{/each}
             </dl>
           </section>
         {/if}
@@ -310,7 +311,7 @@
       </div>
       <dl class="isw__facts">
         <dt>{t('State')}</dt><dd>{card.snapshotLabel}</dd>
-        <dt>{t('Last run')}</dt><dd>{card.lastSnapshotLabel || t('Never')}</dd>
+        <dt>{t('Last run')}</dt><dd><RelativeTime value={raw.last_snapshot_at} empty={t('Never')} /></dd>
         <dt>{t('Users')}</dt><dd>{card.usersCount ?? '—'}</dd>
         <dt>{t('Groups')}</dt><dd>{card.groupsCount ?? '—'}</dd>
         <dt>{t('Memberships')}</dt><dd>{card.membershipsCount ?? '—'}</dd>
@@ -326,7 +327,7 @@
         </span>
       </header>
       <dl class="isw__facts">
-        {#each facts as fact (fact.label)}<dt>{fact.label}</dt><dd class:mono={fact.mono} class:is-warn={fact.warn}>{fact.value}</dd>{/each}
+        {#each facts as fact (fact.label)}<dt>{fact.label}</dt><dd class:mono={fact.mono} class:is-warn={fact.warn}>{#if fact.time}<RelativeTime value={fact.time} />{:else}{fact.value}{/if}</dd>{/each}
         <dt>{t('Last message')}</dt><dd>{internal?.last_probe_message ?? raw.last_probe_message ?? '—'}</dd>
         <dt>{t('Authentication')}</dt><dd>{raw.capabilities?.auth_mode === 'kerberos' ? 'Kerberos' : 'NTLM'}</dd>
       </dl>

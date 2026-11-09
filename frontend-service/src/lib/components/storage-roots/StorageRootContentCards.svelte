@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import { timeAgo } from '$lib/utils/format';
+  import { formatDateTime, timeAgo } from '$lib/utils/format';
 
   /**
    * Content of a governed folder, as the worker read it during the last check of the folder: size, sub-folders
@@ -42,7 +42,7 @@
   <header>
     <h2>{t('Content')}</h2>
     <small>
-      {#if content?.scanned_at}{t('read {when} by the worker', { when: timeAgo(content.scanned_at) })}{:else}{t('Not measured yet')}{/if}
+      {#if content?.scanned_at}<span title={formatDateTime(content.scanned_at)}>{t('read {when} by the worker', { when: timeAgo(content.scanned_at) })}</span>{:else}{t('Not measured yet')}{/if}
       {#if onMeasure} · <button type="button" class="b2s-link-btn" on:click={onMeasure}>{t('Measure again')}</button>{/if}
     </small>
   </header>

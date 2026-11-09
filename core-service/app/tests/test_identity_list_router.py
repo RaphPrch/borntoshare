@@ -427,7 +427,7 @@ def test_create_identity_local_user_creates_credentials_and_role(monkeypatch) ->
                 "username": "jdoe",
                 "display_name": "John Doe",
                 "email": "john@example.com",
-                "temporary_password": "Secret123!",
+                "temporary_password": "Secret123!Long",
                 "application_role": "user",
             },
             db=db,
@@ -440,7 +440,7 @@ def test_create_identity_local_user_creates_credentials_and_role(monkeypatch) ->
     assert data["application_role"] == "user"
     assert db.commit_calls == 1
     assert any("INSERT INTO identities" in sql for sql, _ in db.calls)
-    assert any("INSERT INTO local_credentials" in sql and call_params.get("password_hash") == "hashed::Secret123!" for sql, call_params in db.calls)
+    assert any("INSERT INTO local_credentials" in sql and call_params.get("password_hash") == "hashed::Secret123!Long" for sql, call_params in db.calls)
     assert any("INSERT INTO identity_roles" in sql for sql, _ in db.calls)
     assert any(entry.get("action") == "identity.account_created" for entry in logged)
 

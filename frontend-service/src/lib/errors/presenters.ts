@@ -35,10 +35,18 @@ export function codeMessage(code: string | null | undefined): string | undefined
   return code ? CODE_MESSAGES[code]?.() : undefined;
 }
 
+const BARE_HTTP = /^(http\s*\d+|request failed|conflict|not found|bad request|forbidden|unauthorized|unprocessable( entity)?|\d{3})\b/i;
+const isExplained = (message: unknown): boolean => {
+  const text = String(message ?? '').trim();
+  return text.length > 8 && !BARE_HTTP.test(text) && !text.startsWith('{') && !text.startsWith('[');
+};
+
 export function presentErrorMessage(error: AppError): string {
   if (error.message?.includes('NT_STATUS_')) return humanizeFileServerMessage(error.message);
   const byCode = codeMessage(error.code);
   if (byCode) return byCode;
+  // A refusal explained by the server (« Vous ne pouvez pas désactiver votre propre compte. ») says more than the status
+  if (error.status && error.status >= 400 && error.status < 500 && error.status !== 401 && isExplained(error.message)) return t(String(error.message));
   if (error.status === 400) return t('Invalid request.');
   if (error.status === 401) return t('Session expired.');
   if (error.status === 403) return t('Action not allowed.');

@@ -156,8 +156,8 @@
 <style>
   .ex { padding: var(--b2s-page-padding, 24px 28px); display: flex; flex-direction: column; gap: 16px; }
   .ex__top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
-  .ex__top h1 { margin: 0; font-size: var(--b2s-fs-page-title, 26px); font-weight: 600; letter-spacing: -0.01em; }
-  .ex__top p { margin: 4px 0 0; color: var(--b2s-color-text-muted); max-width: 70ch; }
+  .ex__top h1 { margin: 0; font-size: var(--b2s-fs-overview-title, 38px); line-height: 1.05; font-weight: 600; letter-spacing: -0.03em; }
+  .ex__top p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }
   .ex__score { display: flex; flex-direction: column; align-items: flex-end; }
   .ex__score b { font-size: 28px; font-weight: 700; color: var(--b2s-color-success-strong); line-height: 1; }
   .ex__score.is-bad b { color: var(--b2s-color-danger-strong); }

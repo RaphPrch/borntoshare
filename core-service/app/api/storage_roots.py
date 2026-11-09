@@ -1573,6 +1573,8 @@ def get_sensitivity(root_id: int, request: Request, db: Session = Depends(get_db
 class SensitivityIgnorePayload(BaseModel):
     path: str = Field(min_length=1, max_length=1024)
     ignore: bool = True
+    # Why it is a false positive: an exception to a security finding is explained (audit)
+    reason: str | None = Field(default=None, max_length=300)
 
 
 @router.post("/{root_id}/sensitivity/ignore", dependencies=[Depends(admin_only)])
@@ -1582,7 +1584,10 @@ def ignore_sensitive_file(root_id: int, payload: SensitivityIgnorePayload, reque
     from app.services.policies import run_all
 
     actor = actor_from_request(request)
-    result = sensitivity.set_ignored(db, int(root_id), payload.path, payload.ignore, actor.display_name)
+    reason = (payload.reason or "").strip()
+    if payload.ignore and len(reason) < 3:
+        raise HTTPException(status_code=422, detail={"code": "SENSITIVITY_REASON_REQUIRED", "message": "Dites en quelques mots pourquoi c'est un faux positif."})
+    result = sensitivity.set_ignored(db, int(root_id), payload.path, payload.ignore, actor.display_name, reason=reason or None)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found in the last scan")
     log_activity(
@@ -1595,7 +1600,7 @@ def ignore_sensitive_file(root_id: int, payload: SensitivityIgnorePayload, reque
         target_type="storage_root",
         target_id=str(root_id),
         target_display=payload.path,
-        context_json={"path": payload.path},
+        context_json={"path": payload.path, "reason": reason or None},
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     # The alerts and tags of the sensitivity policies follow at once

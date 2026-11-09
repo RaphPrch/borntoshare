@@ -227,6 +227,60 @@ def _subject_is_admin(db: Session, *, identity_id: int | None = None, group_id: 
     ).first() is not None
 
 
+def _is_last_local_admin(db: Session, identity_id: int) -> bool:
+    """The only active local account holding the administrator role (the fallback when the directory is down)."""
+    rows = db.execute(
+        text(
+            """
+            SELECT i.id FROM identity_roles ir JOIN roles r ON r.id = ir.role_id AND r.code = 'platform_admin'
+            JOIN identities i ON i.id = ir.identity_id
+            WHERE LOWER(i.auth_source) = 'local' AND i.is_active = 1
+            """
+        )
+    ).all()
+    ids = {int(row[0]) for row in rows}
+    return ids == {int(identity_id)}
+
+
+def _orphaned_folders(db: Session, identity_id: int) -> list[dict[str, Any]]:
+    """Folders this person guards with no other active guardian: they would be left without anyone to validate."""
+    rows = db.execute(
+        text(
+            """
+            SELECT sr.id, sr.name, sr.root_path
+            FROM storage_root_roles r JOIN storage_roots sr ON sr.id = r.root_id
+            WHERE r.identity_id = :id AND LOWER(r.role) = 'guardian'
+              AND NOT EXISTS (
+                SELECT 1 FROM storage_root_roles o JOIN identities oi ON oi.id = o.identity_id
+                WHERE o.root_id = r.root_id AND LOWER(o.role) = 'guardian' AND o.identity_id <> :id AND oi.is_active = 1
+              )
+            ORDER BY sr.root_path
+            """
+        ),
+        {"id": int(identity_id)},
+    ).mappings().all()
+    return [{"id": int(row["id"]), "name": row["name"], "path": row["root_path"]} for row in rows]
+
+
+def _refuse_guardian_gap(db: Session, request: Request, *, action: str, identity_id: int) -> None:
+    """Removing or disabling the only active guardian of a folder is refused: hand the folders over first."""
+    folders = _orphaned_folders(db, identity_id)
+    if not folders:
+        return
+    actor_id, actor_display = _actor_from_headers(request)
+    log_activity(
+        db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
+        action=action, outcome="denied", target_type="identity", target_id=int(identity_id),
+        context_json={"code": "GUARDIAN_HANDOVER_REQUIRED", "folders": [f["id"] for f in folders[:50]]},
+        correlation_id=request.headers.get("x-request-id") or None,
+    )
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"code": "GUARDIAN_HANDOVER_REQUIRED",
+                "message": f"Seul gardien actif de {len(folders)} dossier(s) : confiez-les à quelqu'un d'autre d'abord."},
+    )
+
+
 def _refuse_admin_loss(
     db: Session,
     request: Request,
@@ -244,6 +298,11 @@ def _refuse_admin_loss(
         db, excluding_identity=identity_id, excluding_group=group_id
     ):
         code, message = "LAST_ADMIN_FORBIDDEN", "La plateforme doit garder au moins un administrateur."
+    elif identity_id is not None and _is_last_local_admin(db, int(identity_id)):
+        code, message = (
+            "LAST_LOCAL_ADMIN_FORBIDDEN",
+            "Gardez au moins un administrateur local actif : c'est l'accès de secours quand l'annuaire ne répond plus.",
+        )
     if not code:
         return
     log_activity(
@@ -571,6 +630,11 @@ async def create_identity(
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="username, display_name and temporary_password are required",
+            )
+        if len(password) < 12:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "PASSWORD_TOO_SHORT", "message": "Le mot de passe d'un compte local fait au moins 12 caractères."},
             )
 
         local_source_id = _pick_local_identity_source_id(db, payload.get("identity_source_id"))
@@ -1176,6 +1240,7 @@ async def delete_identity(
     if not user_row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
     _refuse_admin_loss(db, request, action="identity.account_deleted", identity_id=int(identity_id))
+    _refuse_guardian_gap(db, request, action="identity.account_deleted", identity_id=int(identity_id))
 
     if _is_default_local_admin_row(user_row):
         raise HTTPException(
@@ -1296,6 +1361,8 @@ async def update_identity(
         _refuse_admin_loss(db, request, action="identity.application_role_updated", group_id=int(identity_id))
     elif subject_type != "group" and (loses_admin or is_active is False):
         _refuse_admin_loss(db, request, action="identity.application_role_updated", identity_id=int(identity_id))
+    if subject_type != "group" and is_active is False:
+        _refuse_guardian_gap(db, request, action="identity.application_role_updated", identity_id=int(identity_id))
     if subject_type == "group":
         before_row = db.execute(
             text(
@@ -1512,6 +1579,166 @@ async def import_identity_ad_batch(
         error_code="IDENTITY_IMPORT_BATCH_MOVED_TO_GOVERNANCE",
         message="Batch identity import is orchestrated asynchronously by governance jobs.",
     )
+
+
+@router.get("/{identity_id}/handover", dependencies=[Depends(admin_or_internal)])
+def get_handover_needs(identity_id: int, db: Session = Depends(get_db)):
+    """What a deletion or a deactivation would leave without guardian (asked before showing the confirmation)."""
+    return ui_data({"orphaned": _orphaned_folders(db, int(identity_id))})
+
+
+@router.post("/{identity_id}/handover", dependencies=[Depends(admin_or_internal)])
+def hand_over_guardianship(identity_id: int, request: Request, payload: dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Make another person guardian of the folders of this one (all of them, or only those left without guardian),
+    and optionally take this one off them (before a deletion)."""
+    to_id = int(payload.get("to_identity_id") or 0)
+    scope = str(payload.get("scope") or "all")
+    remove = bool(payload.get("remove_from_source"))
+    if to_id <= 0 or to_id == int(identity_id):
+        raise HTTPException(status_code=422, detail={"code": "HANDOVER_TARGET_INVALID", "message": "Choisissez une autre personne."})
+    target = db.execute(text("SELECT id, is_active, type FROM identities WHERE id = :id"), {"id": to_id}).mappings().first()
+    if target is None or not target["is_active"] or str(target["type"]) == "group":
+        raise HTTPException(status_code=422, detail={"code": "HANDOVER_TARGET_INVALID", "message": "La personne choisie doit être active."})
+    folder_ids = [f["id"] for f in _orphaned_folders(db, int(identity_id))] if scope == "orphaned" else [
+        int(row[0]) for row in db.execute(
+            text("SELECT root_id FROM storage_root_roles WHERE identity_id = :id AND LOWER(role) = 'guardian'"), {"id": int(identity_id)}
+        ).all()
+    ]
+    actor_id, actor_display = _actor_from_headers(request)
+    added = 0
+    for root_id in folder_ids:
+        exists = db.execute(
+            text("SELECT 1 FROM storage_root_roles WHERE root_id = :root AND identity_id = :to AND LOWER(role) = 'guardian'"), {"root": root_id, "to": to_id}
+        ).first()
+        if not exists:
+            db.execute(
+                text("INSERT INTO storage_root_roles (root_id, identity_id, role, assigned_by, assigned_at) VALUES (:root, :to, 'guardian', :by, NOW())"),
+                {"root": root_id, "to": to_id, "by": actor_id},
+            )
+            added += 1
+    removed = 0
+    if remove and folder_ids:
+        removed = db.execute(
+            text("DELETE FROM storage_root_roles WHERE identity_id = :id AND LOWER(role) = 'guardian' AND root_id IN :roots")
+            .bindparams(bindparam("roots", expanding=True)),
+            {"id": int(identity_id), "roots": folder_ids},
+        ).rowcount
+    db.commit()
+    log_activity(
+        db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
+        action="identity.guardianship_handed_over", outcome="success", target_type="identity", target_id=int(identity_id),
+        context_json={"to_identity_id": to_id, "folders": len(folder_ids), "added": added, "removed": int(removed or 0), "scope": scope},
+        correlation_id=request.headers.get("x-request-id") or None,
+    )
+    return ui_data({"folders": len(folder_ids), "added": added, "removed": int(removed or 0)})
+
+
+def _substitute_rows(db: Session, where: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = db.execute(
+        text(
+            f"""
+            SELECT gs.id, gs.identity_id, gs.substitute_identity_id, gs.starts_at, gs.ends_at, gs.reason, gs.created_by,
+              COALESCE(NULLIF(g.display_name, ''), g.username) AS guardian_name,
+              COALESCE(NULLIF(s.display_name, ''), s.username) AS substitute_name, s.email AS substitute_email,
+              CASE WHEN gs.starts_at > UTC_TIMESTAMP() THEN 'upcoming' WHEN gs.ends_at > UTC_TIMESTAMP() THEN 'active' ELSE 'past' END AS state
+            FROM guardian_substitutes gs
+            JOIN identities g ON g.id = gs.identity_id JOIN identities s ON s.id = gs.substitute_identity_id
+            WHERE gs.revoked_at IS NULL AND gs.ends_at > UTC_TIMESTAMP() - INTERVAL 30 DAY AND {where}
+            ORDER BY gs.starts_at
+            """
+        ),
+        params,
+    ).mappings().all()
+    iso = lambda value: value.isoformat() + "Z" if value else None  # noqa: E731
+    return [{**dict(row), "starts_at": iso(row["starts_at"]), "ends_at": iso(row["ends_at"])} for row in rows]
+
+
+@router.get("/{identity_id}/substitutes", dependencies=[Depends(admin_or_internal)])
+def list_substitutes(identity_id: int, db: Session = Depends(get_db)):
+    """Backup guardians of this person (current, upcoming and of the last 30 days), and those they ensure."""
+    return ui_data({
+        "for_them": _substitute_rows(db, "gs.identity_id = :id", {"id": int(identity_id)}),
+        "by_them": _substitute_rows(db, "gs.substitute_identity_id = :id", {"id": int(identity_id)}),
+    })
+
+
+@router.post("/{identity_id}/substitutes", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_or_internal)])
+def create_substitute(identity_id: int, request: Request, payload: dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """During an absence, another person validates the requests of all the folders of this guardian."""
+    from datetime import date, datetime, timedelta
+
+    def refuse(code: str, message: str, http: int = 422):
+        raise HTTPException(status_code=http, detail={"code": code, "message": message})
+
+    substitute_id = int(payload.get("substitute_identity_id") or 0)
+    try:
+        start = date.fromisoformat(str(payload.get("starts_on") or ""))
+        end = date.fromisoformat(str(payload.get("ends_on") or ""))
+    except ValueError:
+        refuse("SUBSTITUTE_DATES_INVALID", "Indiquez les dates de début et de fin.")
+    if end < start:
+        refuse("SUBSTITUTE_DATES_INVALID", "La fin vient après le début.")
+    if (end - start).days > 365:
+        refuse("SUBSTITUTE_TOO_LONG", "Une suppléance dure au plus un an : au-delà, confiez les dossiers.")
+    if end < date.today():
+        refuse("SUBSTITUTE_DATES_INVALID", "Cette période est déjà passée.")
+    guardian = db.execute(text("SELECT id FROM identities WHERE id = :id"), {"id": int(identity_id)}).first()
+    if guardian is None:
+        raise HTTPException(status_code=404, detail="Identity not found")
+    if not db.execute(text("SELECT 1 FROM storage_root_roles WHERE identity_id = :id AND LOWER(role) = 'guardian' LIMIT 1"), {"id": int(identity_id)}).first():
+        refuse("SUBSTITUTE_NOT_A_GUARDIAN", "Cette personne ne garde aucun dossier.")
+    target = db.execute(text("SELECT id, is_active, type FROM identities WHERE id = :id"), {"id": substitute_id}).mappings().first()
+    if target is None or substitute_id == int(identity_id) or not target["is_active"] or str(target["type"]) == "group":
+        refuse("SUBSTITUTE_INVALID", "Choisissez une autre personne, active.")
+    # Times in UTC: from the first day 00:00 to the day after the last one 00:00
+    starts_at = datetime.combine(start, datetime.min.time())
+    ends_at = datetime.combine(end + timedelta(days=1), datetime.min.time())
+    overlap = db.execute(
+        text(
+            """
+            SELECT 1 FROM guardian_substitutes WHERE identity_id = :id AND revoked_at IS NULL
+              AND starts_at < :ends AND ends_at > :starts LIMIT 1
+            """
+        ),
+        {"id": int(identity_id), "starts": starts_at, "ends": ends_at},
+    ).first()
+    if overlap:
+        refuse("SUBSTITUTE_OVERLAP", "Une suppléance couvre déjà une partie de cette période.", 409)
+    actor_id, actor_display = _actor_from_headers(request)
+    result = db.execute(
+        text(
+            """
+            INSERT INTO guardian_substitutes (identity_id, substitute_identity_id, starts_at, ends_at, reason, created_by)
+            VALUES (:id, :sub, :starts, :ends, :reason, :by)
+            """
+        ),
+        {"id": int(identity_id), "sub": substitute_id, "starts": starts_at, "ends": ends_at,
+         "reason": (str(payload.get("reason") or "").strip()[:300] or None), "by": actor_display},
+    )
+    db.commit()
+    log_activity(
+        db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
+        action="identity.substitute_set", outcome="success", target_type="identity", target_id=int(identity_id),
+        context_json={"substitute_identity_id": substitute_id, "starts_on": start.isoformat(), "ends_on": end.isoformat(), "reason": payload.get("reason")},
+        correlation_id=request.headers.get("x-request-id") or None,
+    )
+    return ui_data({"id": int(result.lastrowid)})
+
+
+@router.delete("/substitutes/{substitute_id}", dependencies=[Depends(admin_or_internal)])
+def revoke_substitute(substitute_id: int, request: Request, db: Session = Depends(get_db)):
+    actor_id, actor_display = _actor_from_headers(request)
+    row = db.execute(text("SELECT identity_id FROM guardian_substitutes WHERE id = :id AND revoked_at IS NULL"), {"id": int(substitute_id)}).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Substitution not found")
+    db.execute(text("UPDATE guardian_substitutes SET revoked_at = UTC_TIMESTAMP(), revoked_by = :by WHERE id = :id"), {"id": int(substitute_id), "by": actor_display})
+    db.commit()
+    log_activity(
+        db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
+        action="identity.substitute_revoked", outcome="success", target_type="identity", target_id=int(row[0]),
+        context_json={"substitution_id": int(substitute_id)}, correlation_id=request.headers.get("x-request-id") or None,
+    )
+    return ui_data({"revoked": int(substitute_id)})
 
 
 @router.get("/guardians", dependencies=[Depends(admin_or_internal)])

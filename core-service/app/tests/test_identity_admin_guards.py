@@ -15,6 +15,8 @@ def _request(identity: int) -> Request:
 def logged(monkeypatch) -> list[dict]:
     rows: list[dict] = []
     monkeypatch.setattr(router, "log_activity", lambda db, **kwargs: rows.append(kwargs))
+    # Not the last local administrator unless a test says so
+    monkeypatch.setattr(router, "_is_last_local_admin", lambda db, identity_id: False)
     return rows
 
 
@@ -58,3 +60,19 @@ def test_objects_outside_the_directory_are_refused() -> None:
         with pytest.raises(HTTPException) as refused:
             router._refuse_outside_directory(source, dn)
         assert refused.value.detail["code"] == "OUTSIDE_DIRECTORY"
+
+
+def test_the_last_local_administrator_stays(monkeypatch, logged) -> None:
+    monkeypatch.setattr(router, "_subject_is_admin", lambda db, **kwargs: True)
+    monkeypatch.setattr(router, "_other_admin_exists", lambda db, **kwargs: True)
+    monkeypatch.setattr(router, "_is_last_local_admin", lambda db, identity_id: identity_id == 8)
+    assert _refusal(_request(7), identity_id=8)["code"] == "LAST_LOCAL_ADMIN_FORBIDDEN"
+
+
+def test_a_folder_never_loses_its_last_active_guardian(monkeypatch, logged) -> None:
+    monkeypatch.setattr(router, "_orphaned_folders", lambda db, identity_id: [{"id": 1, "name": "Finance", "path": "x"}])
+    with pytest.raises(HTTPException) as refused:
+        router._refuse_guardian_gap(None, _request(7), action="identity.account_deleted", identity_id=8)
+    assert refused.value.detail["code"] == "GUARDIAN_HANDOVER_REQUIRED"
+    monkeypatch.setattr(router, "_orphaned_folders", lambda db, identity_id: [])
+    router._refuse_guardian_gap(None, _request(7), action="identity.account_deleted", identity_id=8)
