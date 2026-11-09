@@ -59,6 +59,10 @@ export const load: LayoutServerLoad = async (event) => {
   const publicSettings = await apiServerGetData<{ banner?: { enabled?: boolean; message?: string; tone?: string } }>('/admin/config/public', event).catch(() => null);
   const banner = publicSettings?.banner?.enabled && publicSettings.banner.message ? publicSettings.banner : null;
 
+  // Optional modules opened by a license and switched on (5S…): their menus follow
+  const featureList = await apiServerGetData<{ features?: Array<{ key: string; enabled: boolean }> }>('/features', event).catch(() => null);
+  const features = (featureList?.features ?? []).filter((feature) => feature.enabled).map((feature) => feature.key);
+
   return {
     me,
     banner,
@@ -68,7 +72,8 @@ export const load: LayoutServerLoad = async (event) => {
       canSeeStorageRoots: me.is_admin || guardianRootIds.length > 0,
       canSeeObservability: me.is_admin,
       canSeeAdmin: me.is_admin,
-      guardianRootIds
+      guardianRootIds,
+      features
     }
   };
 };

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api._helpers import ui_data
 from app.core.db import get_db
-from app.services import five_s, reports
+from app.services import features, five_s, reports
 from app.services.authorization import actor_from_request, filter_storage_root_rows, require_storage_roots_index
 
 router = APIRouter(prefix="/insights", tags=["insights"])
@@ -31,6 +31,7 @@ def _rows(db: Session, request: Request, zone_id: int | None) -> tuple[list[dict
 
 @router.get("/five-s")
 def get_five_s(request: Request, zone_id: int | None = None, db: Session = Depends(get_db)):
+    features.require(db, "fives")
     rows, scope, zones = _rows(db, request, zone_id)
     from app.services.scans import cross_duplicate_total
 
@@ -52,13 +53,18 @@ def get_five_s(request: Request, zone_id: int | None = None, db: Session = Depen
 
 
 @router.get("/reports")
-def list_reports():
-    return ui_data([{"key": key, "title": title, "description": description} for key, (title, description) in reports.KINDS.items()])
+def list_reports(db: Session = Depends(get_db)):
+    # The 5S report belongs to the 5S feature
+    fives = features.enabled(db, "fives")
+    return ui_data([{"key": key, "title": title, "description": description} for key, (title, description) in reports.KINDS.items()
+                    if key != "five_s" or fives])
 
 
 @router.get("/reports/{kind}")
 def get_report(kind: str, request: Request, zone_id: int | None = None, db: Session = Depends(get_db)):
     if kind not in reports.KINDS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    if kind == "five_s":
+        features.require(db, "fives")
     rows, scope, zones = _rows(db, request, zone_id)
     return ui_data({**reports.build(db, kind, rows, scope), "zones": zones})

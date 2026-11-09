@@ -944,6 +944,26 @@
         "title": "Policy applied",
         "description": "Folders started or stopped matching the policy \"{target}\""
       }
+    },
+    "license": {
+      "activated": {
+        "title": "License activated",
+        "description": "License of « {target} »: new features opened"
+      },
+      "removed": {
+        "title": "License removed",
+        "description": "A license was removed"
+      }
+    },
+    "feature": {
+      "enabled": {
+        "title": "Feature switched on",
+        "description": "« {target} » is on"
+      },
+      "disabled": {
+        "title": "Feature switched off",
+        "description": "« {target} » is off"
+      }
     }
   },
   "badges": {

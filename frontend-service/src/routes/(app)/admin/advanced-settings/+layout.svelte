@@ -15,7 +15,8 @@
     { key: 'network', label: t('Network and DNS'), icon: 'bi-diagram-2' },
     { key: 'infrastructure', label: t('Infrastructure'), icon: 'bi-hdd-network' },
     { key: 'notifications', label: t('Notifications'), icon: 'bi-envelope' },
-    { key: 'extensions', label: t('Extensions'), icon: 'bi-plug' }
+    { key: 'extensions', label: t('Extensions'), icon: 'bi-plug' },
+    { key: 'features', label: t('Features'), icon: 'bi-key' }
   ];
 
   const defaultHeader = {
@@ -24,6 +25,10 @@
   };
 
   const headersBySection: Record<string, { title: string; subtitle: string }> = {
+    features: {
+      title: t('Features'),
+      subtitle: t('Optional modules opened by a license key, switched on or off.')
+    },
     infrastructure: {
       title: t('Infrastructure'),
       subtitle: t('State of the platform, database, workers, health check and data sync.')

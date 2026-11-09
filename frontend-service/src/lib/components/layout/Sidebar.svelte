@@ -16,12 +16,15 @@
     canSeeStorageRoots?: boolean;
     canSeeObservability?: boolean;
     canSeeAdmin?: boolean;
+    features?: string[];
   } | null = null;
 
   $: me = normalizeMe(user);
   $: canSeeAdmin = permissions?.canSeeAdmin === true || me?.is_admin === true;
   $: canSeeStorageRoots = permissions?.canSeeStorageRoots === true;
   $: canSeeObservability = permissions?.canSeeObservability === true;
+  // Optional modules switched on (Advanced settings › Features)
+  $: features = permissions?.features ?? [];
 
   type Item = { href: string; label: string; icon: string; count?: number; danger?: boolean };
 
@@ -31,7 +34,7 @@
     { href: '/storage-roots', label: t('Folders'), icon: 'bi-folder2-open' },
     { href: '/exposure', label: t('Exposure'), icon: 'bi-shield-exclamation' },
     // Lean 5S of the shares, and the printable reports (on the folders the person may see)
-    { href: '/five-s', label: t('5S'), icon: 'bi-stars' },
+    ...(features.includes('fives') ? [{ href: '/five-s', label: t('5S'), icon: 'bi-stars' }] : []),
     { href: '/reports', label: t('Reports'), icon: 'bi-file-earmark-bar-graph' },
     { href: '/access-requests', label: t('Requests'), icon: 'bi-check2-square', count: Number(alertsCount ?? 0) },
     { href: '/observability', label: t('Monitoring'), icon: 'bi-activity', count: canSeeObservability ? Number(criticalAlertsCount ?? 0) : 0, danger: true }

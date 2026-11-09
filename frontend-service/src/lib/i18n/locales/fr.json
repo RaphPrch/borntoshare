@@ -2122,6 +2122,26 @@
         "title": "Politique appliquée",
         "description": "Des dossiers ont commencé ou cessé de correspondre à la politique « {target} »"
       }
+    },
+    "license": {
+      "activated": {
+        "title": "Licence activée",
+        "description": "Licence de « {target} » : nouvelles fonctionnalités ouvertes"
+      },
+      "removed": {
+        "title": "Licence retirée",
+        "description": "Une licence a été retirée"
+      }
+    },
+    "feature": {
+      "enabled": {
+        "title": "Fonctionnalité activée",
+        "description": "« {target} » est activée"
+      },
+      "disabled": {
+        "title": "Fonctionnalité désactivée",
+        "description": "« {target} » est désactivée"
+      }
     }
   },
   "badges": {
@@ -5090,5 +5110,32 @@
   "between folders": "entre dossiers",
   "folder(s) concerned": "dossier(s) concerné(s)",
   "{size} inside ({count} group(s))": "{size} dans le dossier ({count} groupe(s))",
-  "{size} also in {count} other folder(s)": "{size} aussi dans {count} autre(s) dossier(s)"
+  "{size} also in {count} other folder(s)": "{size} aussi dans {count} autre(s) dossier(s)",
+  "Features": "Fonctionnalités",
+  "Optional modules opened by a license key, switched on or off.": "Modules optionnels ouverts par une clé de licence, activés ou non.",
+  "Modules": "Modules",
+  "No license": "Sans licence",
+  "Licensed": "Sous licence",
+  "no end date": "sans date de fin",
+  "On": "Actif",
+  "Enter a license key that opens it first": "Saisissez d'abord une clé de licence qui l'ouvre",
+  "License key": "Clé de licence",
+  "Checked here, without any connection: nothing leaves BornToShare.": "Vérifiée ici, sans aucune connexion : rien ne sort de BornToShare.",
+  "Activate": "Activer",
+  "expired on {date}": "expirée le {date}",
+  "activated by {who}": "activée par {who}",
+  "License key accepted.": "Clé de licence acceptée.",
+  "License removed.": "Licence retirée.",
+  "{name} switched off.": "{name} désactivé.",
+  "{name} switched on.": "{name} activé.",
+  "Unable to change the features.": "Impossible de modifier les fonctionnalités.",
+  "The 5S module is not active": "Le module 5S n'est pas actif",
+  "It is opened by a license key, then switched on by an administrator in Advanced settings › Features.": "Il s'ouvre par une clé de licence, puis un administrateur l'active dans Réglages avancés › Fonctionnalités.",
+  "Open Features": "Ouvrir Fonctionnalités",
+  "This is not a BornToShare license key": "Ce n'est pas une clé de licence BornToShare",
+  "This key was not issued for BornToShare (signature refused)": "Cette clé n'a pas été émise pour BornToShare (signature refusée)",
+  "This key opens no feature of this version of BornToShare": "Cette clé n'ouvre aucune fonctionnalité de cette version de BornToShare",
+  "No valid license opens this feature: enter a license key first": "Aucune licence valide n'ouvre cette fonctionnalité : saisissez d'abord une clé de licence",
+  "This feature is not active: an administrator turns it on in Advanced settings › Features": "Cette fonctionnalité n'est pas active : un administrateur l'active dans Réglages avancés › Fonctionnalités",
+  "Remove the license": "Retirer la licence"
 }

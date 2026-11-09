@@ -54,6 +54,7 @@
       canSeeObservability?: boolean;
       canSeeAdmin?: boolean;
       guardianRootIds?: number[];
+      features?: string[];
     };
     theme: string;
   };
