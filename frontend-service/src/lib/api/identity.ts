@@ -1,5 +1,5 @@
 import type { FetchLike } from './client';
-import { apiDeleteData, apiGetData, apiGetList, apiPatchData, apiPost, apiPostData } from './client';
+import { apiDeleteData, apiGetData, apiPatchData, apiPost, apiPostData } from './client';
 
 /*
  * =========================================================
@@ -204,7 +204,3 @@ export type PlatformAdmins = {
   issues: Array<{ code: 'DIRECT_AND_GROUP' | 'SEVERAL_LOCAL_ADMINS' | string; identity_id?: number; name?: string; identities?: Array<{ id: number; name: string }> }>;
 };
 
-export const listPlatformAdmins = (fetchFn: FetchLike) => apiGetData<PlatformAdmins>(fetchFn, '/identity/admins');
-
-export const listGuardianCounts = (fetchFn: FetchLike) =>
-  apiGetList<{ identity_id: number; folders: number; sole: number }>(fetchFn, '/identity/guardians');

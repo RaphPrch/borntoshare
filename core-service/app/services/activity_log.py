@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from contextvars import ContextVar
 from concurrent.futures import ThreadPoolExecutor
 
 from sqlalchemy.orm import Session
@@ -13,10 +12,6 @@ from app.services.activity_bridge import write_activity_event
 logger = get_logger(__name__)
 
 
-_activity_logged_in_request: ContextVar[bool] = ContextVar(
-    "activity_logged_in_request",
-    default=False,
-)
 _activity_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="core-activity")
 
 
@@ -43,12 +38,6 @@ def _write_activity_safe(payload: dict[str, Any]) -> None:
         )
 
 
-def reset_activity_marker() -> None:
-    _activity_logged_in_request.set(False)
-
-
-def has_activity_marker() -> bool:
-    return bool(_activity_logged_in_request.get())
 
 
 def log_activity(
@@ -82,7 +71,6 @@ def log_activity(
         "correlation_id": correlation_id,
     }
 
-    _activity_logged_in_request.set(True)
 
     # The same event goes to the extensions that want it (syslog, Splunk…), in the background
     from app.services.extensions import dispatch, event_from_activity

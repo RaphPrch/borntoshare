@@ -73,7 +73,3 @@ export function timeUntil(iso?: string | null): string {
   return t('in {d} d', { d: Math.round(hr / 24) });
 }
 
-/** Long technical values (DN, templates, paths): allow line breaks after , } \\ / only, never inside words. */
-export function breakable(value: unknown): string {
-  return String(value ?? '').replace(/([,}\\/])/g, '$1\u200b');
-}

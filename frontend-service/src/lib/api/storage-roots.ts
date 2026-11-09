@@ -308,13 +308,6 @@ export const listStorageRootsContext = async (
   }));
 };
 
-export const getStorageRootOverview = async (
-  fetchFn: FetchLike,
-  storageRootId: number
-): Promise<Record<string, unknown>> => {
-  return apiGetData<Record<string, unknown>>(fetchFn, `/storage-roots/${storageRootId}/overview`);
-};
-
 export const getStorageRootOwners = async (
   fetchFn: FetchLike,
   storageRootId: number

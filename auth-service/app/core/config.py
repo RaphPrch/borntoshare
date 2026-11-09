@@ -118,16 +118,6 @@ class Settings(BaseSettings):
         return normalized
 
 
-    def _normalize_enabled_providers(cls, value: object) -> list[str]:
-        if not isinstance(value, list):
-            return ["ad", "local"]
-        normalized: list[str] = []
-        for item in value:
-            key = str(item or "").strip().lower()
-            if key and key not in normalized:
-                normalized.append(key)
-        return normalized or ["local"]
-
     @field_validator(
         "CORE_TIMEOUT_SECONDS",
         "AD_CONNECT_TIMEOUT_SECONDS",

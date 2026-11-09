@@ -8,13 +8,6 @@ export const endpointZoneIdOf = (endpoint: any): number =>
 export const endpointNameOf = (endpoint: any): string =>
   String(endpoint?.storage_endpoint_name ?? endpoint?.name ?? endpoint?.label ?? t('Endpoint #{endpointIdOf}', { endpointIdOf: endpointIdOf(endpoint) }));
 
-export const endpointProtocolOf = (endpoint: any): 'SMB' | 'NFS' | string => {
-  const value = String(endpoint?.protocol ?? endpoint?.storage_endpoint_type ?? endpoint?.type ?? 'SMB')
-    .trim()
-    .toUpperCase();
-  return value || 'SMB';
-};
-
 export const rootLabelFromPath = (value: string): string => {
   const normalized = String(value ?? '').trim().replace(/[\\/]+$/, '');
   const chunks = normalized.split(/[\\/]/).filter(Boolean);

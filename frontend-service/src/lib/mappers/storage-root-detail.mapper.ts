@@ -71,23 +71,6 @@ export const storageRootEndpointLabel = (
   );
 };
 
-export const isSelectedStorageRootRow = (
-  row: unknown,
-  selectedStorageRootId: number | null | undefined,
-  overview: StorageRootDetailModel | null
-): boolean => {
-  const rowId = storageRootIdOf(row);
-  if (!Number.isFinite(rowId) || rowId <= 0) return false;
-
-  const selectedId = Number(selectedStorageRootId ?? 0);
-  if (Number.isFinite(selectedId) && selectedId > 0) {
-    return rowId === selectedId;
-  }
-
-  const overviewId = Number(overview?.storage_root_id ?? overview?.id ?? 0);
-  return Number.isFinite(overviewId) && overviewId > 0 && rowId === overviewId;
-};
-
 export const normalizeStorageRootAvailability = (value: unknown): RootAvailability => {
   const key = String(value ?? '').trim().toLowerCase();
   if (key === 'reachable') return 'reachable';

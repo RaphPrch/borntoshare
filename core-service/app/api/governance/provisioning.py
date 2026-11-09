@@ -13,7 +13,7 @@ from app.core.direct_call import call_route
 from app.api._helpers import ui_data, ui_list
 from app.jobs.b2s_job_contracts.actors import publish_job, run_provisioning_job
 from app.jobs.b2s_job_contracts.contracts import queue_job_types_csv
-from app.schemas.provisioning import EnsureAdGroupIn, EnsureAdGroupMemberIn, RemoveAdGroupMemberIn
+from app.schemas.provisioning import EnsureAdGroupMemberIn, RemoveAdGroupMemberIn
 from app.services.identity_capsule_payloads import (
     build_identity_source_capsule_context,
     infer_identity_source_id_from_group_ref,
@@ -47,13 +47,6 @@ def _normalize_access_level(value: str) -> str:
         raise HTTPException(status_code=422, detail="access_level must be READ or WRITE")
     return level
 
-
-def _request_actor_context(request: Request | None) -> tuple[str | None, str | None]:
-    if request is None:
-        return None, None
-    actor_ip = request.headers.get("x-forwarded-for") or (request.client.host if request.client else None)
-    user_agent = request.headers.get("user-agent")
-    return actor_ip, user_agent
 
 
 _DN_RDN_RE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9-]*)\s*=\s*(.+?)\s*$")
@@ -129,179 +122,6 @@ def access_group_description(root_path: Any, access_level_code: str | None = Non
         return None
     level = {"READ": "lecture", "WRITE": "modification"}.get(str(access_level_code or "").strip().upper())
     return f"{path} — {'accès ' + level if level else 'accès'} (BornToShare)"[:1024]
-
-
-async def ensure_ad_group_via_name(
-    payload: EnsureAdGroupIn,
-    request: Request = None,
-    response: Response = None,
-):
-    correlation_id = (request.headers.get("x-request-id") if request else None) or f"adg_{uuid.uuid4().hex}"
-
-    group_name = str(payload.group_name or "").strip()
-    if not group_name:
-        raise HTTPException(status_code=422, detail="group_name is required")
-
-    root_id = int((payload.context.storage_root_id if payload.context else 0) or 0)
-    target_ou_dn = str(payload.target_ou_dn or "").strip() or None
-    secret_ref = str(payload.secret_ref or "").strip() or None
-    domain_name = str(payload.domain_name or "").strip() or None
-    identity_source_id = int(payload.identity_source_id or 0) or None
-    access_group_id = int((payload.context.storage_root_access_profile_id if payload.context else 0) or 0) or None
-    resolved_host = str(payload.directory_server_hint or "").strip() or None
-    resolved_port: int | None = None
-    resolved_protocol: str | None = None
-    resolved_bind_dn: str | None = None
-
-    description_text = str(payload.description_text or "").strip() or None
-    if root_id > 0:
-        ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(root_id))
-        pctx = build_provisioning_context(ctx)
-        description_text = access_group_description((ctx or {}).get("root_path")) or description_text
-
-        secret_ref = secret_ref or pctx.effective_secret_ref
-        identity_source_id = identity_source_id or pctx.identity_source_id
-        domain_name = domain_name or pctx.domain_name
-        resolved_host = resolved_host or pctx.resolved_host
-        resolved_port = resolved_port or pctx.resolved_port
-        resolved_protocol = resolved_protocol or pctx.resolved_protocol
-        resolved_bind_dn = resolved_bind_dn or pctx.resolved_bind_dn
-        target_ou_dn = target_ou_dn or pctx.effective_group_ou_dn
-
-    if not target_ou_dn:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "message": "target_ou_dn is required",
-                "hint": "Configure zone provisioning base_ou_dn and/or identity_sources.default_group_ou_dn",
-                "storage_root_id": root_id or None,
-            },
-        )
-    try:
-        target_ou_dn = _canonicalize_target_ou_dn(target_ou_dn)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "code": "INVALID_TARGET_OU_DN",
-                "message": "target_ou_dn is invalid",
-                "hint": "Expected LDAP DN, e.g. OU=Groups,DC=corp,DC=local",
-                "reason": str(exc),
-                "target_ou_dn": str(target_ou_dn or "").strip() or None,
-                "storage_root_id": root_id or None,
-            },
-        ) from exc
-    if not secret_ref:
-        raise HTTPException(status_code=422, detail="secret_ref is required (or provide context.storage_root_id)")
-
-    if access_group_id:
-        # A creation job is already in flight for this access group: do not queue another one.
-        active_jobs = await call_route(
-            provisioning_internal.list_provisioning_jobs,
-            storage_root_access_profile_id=int(access_group_id),
-            job_type="AD_GROUP_ENSURE",
-            active_only=True,
-            limit=1,
-        )
-        existing_job = active_jobs[0] if isinstance(active_jobs, list) and active_jobs else None
-        if isinstance(existing_job, dict):
-            existing_status = _normalize_job_status(str(existing_job.get("status") or "QUEUED"))
-            if existing_status in {"QUEUED", "RUNNING", "RETRYING"}:
-                if response is not None:
-                    response.status_code = status.HTTP_202_ACCEPTED
-                return ui_data({
-                    "ok": True,
-                    "job_id": int(existing_job.get("id") or 0),
-                    "status": existing_status,
-                    "correlation_id": existing_job.get("correlation_id"),
-                    "group_name": group_name,
-                    "target_ou_dn": target_ou_dn,
-                })
-
-    try:
-        created = await create_and_publish_job(
-            payload={
-                "correlation_id": correlation_id,
-                "job_type": "AD_GROUP_ENSURE",
-                "action": "ensure_ad_group",
-                "status": "QUEUED",
-                "identity_source_id": identity_source_id,
-                "storage_root_access_profile_id": access_group_id,
-                "payload_json": _job_envelope(
-                    action="ensure_ad_group",
-                    payload={
-                    "template": {"slug": "ensure_ad_group", "version": "v1"},
-                    "group_name": group_name,
-                    "target_ou_dn": target_ou_dn,
-                    "directory_server_hint": resolved_host or payload.directory_server_hint,
-                    "host": resolved_host,
-                    "port": resolved_port,
-                    "protocol": resolved_protocol,
-                    "bind_dn": resolved_bind_dn,
-                    "description_text": description_text,
-                    "domain_name": domain_name,
-                    "secret_ref": secret_ref,
-                    "context": {
-                        "storage_root_id": root_id or None,
-                        "storage_root_access_profile_id": access_group_id,
-                        "zone_id": int((payload.context.zone_id if payload.context else 0) or 0) or None,
-                        "correlation_id": correlation_id,
-                    },
-                    },
-                ),
-            },
-            actor=run_provisioning_job,
-        )
-        job_id = int(created.get("job_id") or 0)
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail={"error_code": str(exc), "message": "Failed to create AD group ensure job"},
-        ) from exc
-
-    actor_id = (
-        (request.headers.get("x-identity-id") if request else None)
-        or (request.headers.get("x-service-name") if request else None)
-        or "system"
-    )
-    actor_ip, user_agent = _request_actor_context(request)
-    log_event(
-        action="ad_group_ensure_queued",
-        event_category="PROVISIONING",
-        event_scope="business",
-        actor_type="user" if str(actor_id).isdigit() else "service",
-        actor_id=actor_id,
-        entity_type="ad_group",
-        entity_id=None,
-        zone_id=int((payload.context.zone_id if payload.context else 0) or 0) or None,
-        storage_root_id=root_id or None,
-        correlation_id=correlation_id,
-        result="in_progress",
-        severity="info",
-        metadata_json={
-            "before": None,
-            "after": {"status": "QUEUED"},
-            "details": {
-                "job_id": job_id,
-                "group_name": group_name,
-                "target_ou_dn": target_ou_dn,
-            },
-        },
-        actor_ip=actor_ip,
-        user_agent=user_agent,
-    )
-
-    if response is not None:
-        response.status_code = status.HTTP_202_ACCEPTED
-
-    return ui_data({
-        "ok": True,
-        "job_id": job_id,
-        "status": "QUEUED",
-        "correlation_id": correlation_id,
-        "group_name": group_name,
-        "target_ou_dn": target_ou_dn,
-    })
 
 
 class ProvisioningStepError(RuntimeError):

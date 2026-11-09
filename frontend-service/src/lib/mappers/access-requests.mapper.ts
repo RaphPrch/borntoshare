@@ -30,15 +30,6 @@ const accessRequestTargetName = (row: any): string =>
     ]) ?? '—'
   );
 
-export const accessRequestTargetPath = (row: any): string =>
-  String(
-    firstNonEmpty([
-      row?.scope_type,
-      row?.target_type,
-      row?.resource_type
-    ]) ?? '—'
-  );
-
 export const accessRequestRequesterName = (row: any): string =>
   String(
     firstNonEmpty([

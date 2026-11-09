@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.services import activity_log
 
 
-def test_log_activity_submits_payload_and_sets_marker(monkeypatch) -> None:
+def test_log_activity_submits_payload(monkeypatch) -> None:
     captured: list[dict] = []
 
     class _FakeExecutor:
@@ -13,9 +13,6 @@ def test_log_activity_submits_payload_and_sets_marker(monkeypatch) -> None:
 
     monkeypatch.setattr(activity_log, "_activity_executor", _FakeExecutor())
     monkeypatch.setattr(activity_log, "write_activity_event", lambda **kwargs: {"ok": True})
-
-    activity_log.reset_activity_marker()
-    assert activity_log.has_activity_marker() is False
 
     result = activity_log.log_activity(
         None,
@@ -32,7 +29,6 @@ def test_log_activity_submits_payload_and_sets_marker(monkeypatch) -> None:
     )
 
     assert result == {"ok": True, "queued": True}
-    assert activity_log.has_activity_marker() is True
     assert len(captured) == 1
     assert captured[0]["action"] == "identity_source.updated"
     assert captured[0]["correlation_id"] == "rid-1"
