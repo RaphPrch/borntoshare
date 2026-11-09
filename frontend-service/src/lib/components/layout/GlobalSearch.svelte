@@ -1,4 +1,27 @@
 <script lang="ts">
+  import { slideIndicator } from '$lib/utils/motion';
+
+  /** The words typed, marked in each result (accents and case ignored) */
+  const foldChar = (char: string) => char.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  function marked(label: string, typed: string): Array<{ text: string; hit: boolean }> {
+    const words = typed.trim().split(/\s+/).filter((word) => word.length > 1).map((word) => [...word].map(foldChar).join(''));
+    const chars = [...String(label ?? '')];
+    if (!words.length) return [{ text: chars.join(''), hit: false }];
+    const folded = chars.map(foldChar);
+    const hit = chars.map(() => false);
+    for (const word of words) {
+      for (let start = 0; start + word.length <= folded.length; start += 1) {
+        if (folded.slice(start, start + word.length).join('') === word) for (let k = 0; k < word.length; k += 1) hit[start + k] = true;
+      }
+    }
+    const out: Array<{ text: string; hit: boolean }> = [];
+    chars.forEach((char, index) => {
+      const last = out[out.length - 1];
+      if (last && last.hit === hit[index]) last.text += char;
+      else out.push({ text: char, hit: hit[index] });
+    });
+    return out;
+  }
   import { goto } from '$app/navigation';
   import { tick } from 'svelte';
   import { t } from '$lib/i18n';
@@ -209,7 +232,8 @@
     <kbd>Esc</kbd>
   </label>
 
-  <ul id="global-search-results" class="global-search__results" role="listbox">
+  <ul id="global-search-results" class="global-search__results" role="listbox"
+    use:slideIndicator={{ selector: '[role="option"].is-active', key: activeIndex, axis: 'y' }}>
     {#each results as result, index}
       {#if index === 0 || results[index - 1].group !== result.group}
         <li class="global-search__group" role="presentation">{result.group}</li>
@@ -224,7 +248,7 @@
         on:keydown={() => {}}
       >
         <i class={`bi ${result.icon}`} aria-hidden="true"></i>
-        <span class="global-search__label">{result.label}</span>
+        <span class="global-search__label">{#each marked(result.label, query) as part}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}</span>
         {#if result.detail}<span class="global-search__detail">{result.detail}</span>{/if}
       </li>
     {:else}
@@ -329,6 +353,12 @@
   [role='option'].is-active {
     background: #eef4ff;
   }
+
+  /* The active result glides with the arrows (slideIndicator) */
+  .global-search__results :global(.b2s-indicator) { border-radius: var(--b2s-radius-sm); background: #eef4ff; }
+  :global(.global-search__results.has-indicator) [role='option'] { position: relative; z-index: 1; }
+  :global(.global-search__results.has-indicator) [role='option'].is-active { background: transparent; }
+  .global-search__label mark { padding: 0; border-radius: 3px; background: #fff1b8; color: inherit; font-weight: 600; }
 
   [role='option'] i {
     color: var(--b2s-color-text-muted);

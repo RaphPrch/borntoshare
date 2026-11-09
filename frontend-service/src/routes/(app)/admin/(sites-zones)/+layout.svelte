@@ -20,7 +20,7 @@
 </script>
 
 {#if zones.length && !addPage}
-  <EntityWorkspace title={t('Zones')}>
+  <EntityWorkspace title={t('Zones')} contentKey={selectedZoneId}>
     <svelte:fragment slot="list">
       <ZonesSidebar
         onAdd={createZone}

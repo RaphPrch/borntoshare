@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pulseOnIncrease } from '$lib/utils/motion';
   import { t } from '$lib/i18n';
   import { normalizeMe } from '$lib/types/me';
   import { initials } from '$lib/utils/format';
@@ -62,7 +63,7 @@
       <a href={item.href} class="sb__item" class:on={isActive(item.href, currentPath)} aria-current={isActive(item.href, currentPath) ? 'page' : undefined}>
         <i class={`bi ${item.icon}`} aria-hidden="true"></i>
         <span>{item.label}</span>
-        {#if item.count}<b class="sb__badge" class:is-danger={item.danger}>{badge(item.count)}</b>{/if}
+        {#if item.count}<b class="sb__badge" class:is-danger={item.danger} use:pulseOnIncrease={item.count}>{badge(item.count)}</b>{/if}
       </a>
     {/each}
   </div>

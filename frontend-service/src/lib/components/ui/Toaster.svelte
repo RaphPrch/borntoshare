@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { fly, fade } from "svelte/transition";
+  import { fly } from "svelte/transition";
+  import { flip } from "svelte/animate";
+  import { dur, MOTION } from "$lib/utils/motion";
   import { toast } from "$lib/stores/toast";
 
   const icon = (type: string) => {
@@ -26,8 +28,9 @@
     <div
       class="toast show shadow-sm {cls(item.type)}"
       role="alert"
-      in:fly={{ y: 10, duration: 150 }}
-      out:fade={{ duration: 150 }}
+      in:fly={{ x: 32, duration: dur(MOTION.slow), opacity: 0 }}
+      out:fly={{ x: 32, duration: dur(MOTION.base), opacity: 0 }}
+      animate:flip={{ duration: dur(MOTION.base) }}
     >
       <div class="d-flex align-items-start">
         <div class="toast-body d-flex align-items-center gap-2" style="flex: 1">
@@ -38,6 +41,8 @@
           {/if}
         </div>
       </div>
+      <!-- Time left before it goes (most useful while « Undo » is offered) -->
+      <span class="b2s-toast-timer" style={`animation-duration:${item.duration}ms`} aria-hidden="true"></span>
     </div>
   {/each}
 </div>
@@ -69,8 +74,26 @@
   }
 
   .toast {
+    position: relative;
+    overflow: hidden;
     pointer-events: auto;
     border-radius: var(--b2s-radius-md);
+  }
+
+  .b2s-toast-timer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.45);
+    transform-origin: left center;
+    animation: b2s-toast-timer linear forwards;
+  }
+
+  @keyframes b2s-toast-timer {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
   }
 
   /* Override bootstrap-ish toast variants for dark topbar context */

@@ -54,7 +54,7 @@
             on:mouseenter={() => (hovered = index)}
             on:mouseleave={() => (hovered = null)}
           >
-            <span class="req-chart__bar" style={`height:${(point.submitted / maxValue) * 100}%`}></span>
+            <span class="req-chart__bar b2s-rise" style={`height:${(point.submitted / maxValue) * 100}%;--i:${index}`}></span>
             {#if hovered === index}
               <div class="req-chart__tip" class:is-right={index > days * 0.7}>
                 <strong>{point.label}</strong>

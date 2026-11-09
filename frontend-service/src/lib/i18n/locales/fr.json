@@ -4946,5 +4946,6 @@
   "Say why the request is refused: the person who asked reads it": "Dites pourquoi la demande est refusée : la personne qui a demandé le lira",
   "Quota request not found": "Demande de quota introuvable",
   "A DFS folder has no quota of its own: set it on its target folder, on the file server": "Un dossier DFS n'a pas de quota propre : réglez-le sur son dossier cible, sur le serveur de fichiers",
-  "Requests for more room": "Demandes d'espace"
+  "Requests for more room": "Demandes d'espace",
+  "sensitive file(s)": "fichier(s) sensible(s)"
 }

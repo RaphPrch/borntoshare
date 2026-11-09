@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pulseOnIncrease } from '$lib/utils/motion';
   import QuotaRequestsStrip from '$lib/components/storage-roots/QuotaRequestsStrip.svelte';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
@@ -575,7 +576,7 @@
   <div class="ar-counters" role="group" aria-label={t('Request status')}>
     {#each counters as counter (counter.key)}
       <button type="button" class:on={activeCounter === counter.key} aria-pressed={activeCounter === counter.key} on:click={() => pickCounter(counter.key)}>
-        <span>{counter.label}</span><b class:warn={counter.tone === 'warn'}>{counter.count}</b>
+        <span>{counter.label}</span><b class:warn={counter.tone === 'warn'} use:pulseOnIncrease={counter.count}>{counter.count}</b>
       </button>
     {/each}
   </div>

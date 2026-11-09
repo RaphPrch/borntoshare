@@ -225,10 +225,10 @@
               <b>{section.family || t('No family')}</b>
               <small>{t('{count} tag(s) · {uses} use(s)', { count: section.tags.length, uses: section.tags.reduce((sum, tag) => sum + tag.usage, 0) })}</small>
             </header>
-            {#each section.tags as tag (tag.id)}
+            {#each section.tags as tag, rank (tag.id)}
               <button type="button" class="tg__row" class:on={selected?.id === tag.id} aria-pressed={selected?.id === tag.id} on:click={() => (selectedId = tag.id)}>
                 <TagPill label={tag.name} color={tag.color} />
-                <span class="tg__bar"><i style="width:{(tag.usage / maxUsage) * 100}%; background:{tag.color ?? 'var(--b2s-color-text-muted)'}"></i></span>
+                <span class="tg__bar"><i class="b2s-grow" style="width:{(tag.usage / maxUsage) * 100}%; background:{tag.color ?? 'var(--b2s-color-text-muted)'}; --i:{rank}"></i></span>
                 <span class="tg__count">{tag.usage}</span>
               </button>
             {/each}

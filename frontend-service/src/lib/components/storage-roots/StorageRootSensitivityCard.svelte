@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { flip } from 'svelte/animate';
+  import { dur, flashOn, MOTION, pop } from '$lib/utils/motion';
+  import CountUp from '$lib/components/ui/CountUp.svelte';
   import { onDestroy } from 'svelte';
   import { apiGetData, apiPostData } from '$lib/api/client';
   import { reportUiError } from '$lib/errors';
@@ -41,6 +44,7 @@
   let busy = false;
   let showAll = false;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let landed = 0;
   // A new folder or a reloaded overview: start again from what the page gives (polling keeps `state` fresh in between)
   $: if (sensitivity !== lastProp) adopt(sensitivity);
   function adopt(value: Sensitivity | null) {
@@ -97,7 +101,10 @@
   async function refresh() {
     if (!rootId) return;
     try {
+      const was = state?.status;
       state = (await apiGetData<Sensitivity | null>(fetch, `/storage-roots/${rootId}/sensitivity`)) ?? state;
+      // The scan landed while the card was open: a short flash says so
+      if (was === 'running' && state?.status === 'done') landed += 1;
     } catch {
       // the next tick tries again
     }
@@ -126,7 +133,7 @@
   }
 </script>
 
-<section class="sc" aria-label={t('Sensitivity')}>
+<section class="sc" aria-label={t('Sensitivity')} use:flashOn={landed}>
   <header>
     <h2><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('Sensitivity')}</h2>
     <small>
@@ -140,7 +147,7 @@
   </header>
 
   {#if running}
-    <div class="sc__running" role="status"><span class="sc__spin" aria-hidden="true"></span>{t('The worker reads the folder: names of the files, then the content of the small text files.')}</div>
+    <div class="sc__running" role="status"><span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{t('The worker reads the folder: names of the files, then the content of the small text files.')}</div>
   {:else if state?.status === 'failed'}
     <p class="sc__error"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i>{state.error ?? t('The scan failed')}</p>
   {:else if state?.status === 'done' && state.files_flagged === 0}
@@ -164,7 +171,7 @@
     {/if}
   {:else if state?.status === 'done'}
     <div class="sc__summary">
-      <strong>{t('{count} sensitive file(s)', { count: state.files_flagged })}</strong>
+      <strong><CountUp value={state.files_flagged} duration={400} /> {t('sensitive file(s)')}</strong>
       <div class="sc__cats">
         {#each categories as [key, count] (key)}
           <span class="sc__cat"><i class={`bi ${CATEGORY()[key]?.icon ?? 'bi-exclamation-triangle'}`} aria-hidden="true"></i>{CATEGORY()[key]?.label ?? key}<b>{count}</b></span>
@@ -173,7 +180,7 @@
     </div>
     <ul class="sc__list">
       {#each shown as file (file.path)}
-        <li>
+        <li animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}>
           <i class={`bi ${CATEGORY()[file.items[0].category]?.icon ?? 'bi-file-earmark'}`} aria-hidden="true"></i>
           <div>
             <span class="sc__file"><code title={file.path}>{inside(file.path)}</code>
@@ -232,8 +239,6 @@
   .sc__ok i { color: var(--b2s-color-success-strong, #1a7f37); }
   .sc__error { color: var(--b2s-color-danger-strong, #b42318); }
   .sc__running { display: flex; gap: 10px; align-items: center; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .sc__spin { width: 14px; height: 14px; border: 2px solid var(--b2s-color-border); border-top-color: var(--b2s-color-info-strong); border-radius: 50%; animation: sc-spin 0.9s linear infinite; }
-  @keyframes sc-spin { to { transform: rotate(360deg); } }
   .sc__summary { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-danger-soft, #fdecea); }
   .sc__summary strong { color: var(--b2s-color-danger-strong, #b42318); }
   .sc__cats { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -13,6 +13,8 @@ interface Toast {
   type: ToastType;
   message: string;
   action?: ToastAction;
+  /** How long it stays (ms): the timer bar of the toast runs for this long */
+  duration: number;
 }
 
 const defaultDuration: Record<ToastType, number> = {
@@ -53,7 +55,7 @@ function createToastStore() {
     // An action needs the time to be read and used
     const duration = opts.duration ?? (opts.action ? 8000 : defaultDuration[type]);
 
-    update(t => [...t, { id, type, message: formatMessage(type, message), action: opts.action }]);
+    update(t => [...t, { id, type, message: formatMessage(type, message), action: opts.action, duration }]);
     setTimeout(() => remove(id), duration);
 
     return id;

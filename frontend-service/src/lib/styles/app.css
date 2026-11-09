@@ -2115,7 +2115,9 @@ select.b2s-input {
 /* One look for every figure; only a tile that leads somewhere (a link or a button) reacts to the pointer */
 .b2s-stat-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 14px 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); color: inherit; font: inherit; text-align: left; cursor: default; transition: box-shadow 0.12s, border-color 0.12s; text-decoration: none; }
 :is(a, button).b2s-stat-tile { cursor: pointer; }
-:is(a, button).b2s-stat-tile:hover { border-color: var(--b2s-color-border-mid, var(--b2s-color-border)); box-shadow: 0 6px 18px rgba(14, 18, 24, 0.06); }
+:is(a, button).b2s-stat-tile { transition: box-shadow var(--b2s-motion-base) var(--b2s-ease-out), border-color var(--b2s-motion-fast), transform var(--b2s-motion-base) var(--b2s-ease-out); }
+:is(a, button).b2s-stat-tile:hover { border-color: var(--b2s-color-border-mid, var(--b2s-color-border)); box-shadow: 0 10px 24px rgba(14, 18, 24, 0.08); transform: translateY(-2px); }
+:is(a, button).b2s-stat-tile:active { transform: translateY(0); }
 .b2s-stat-tile b { font-variant-numeric: tabular-nums; }
 .b2s-stat-tile:focus-visible { outline: none; box-shadow: var(--b2s-focus-ring); }
 .b2s-stat-tile > span:first-child { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
@@ -2139,3 +2141,66 @@ select.b2s-input {
 .b2s-link-btn:hover { text-decoration: underline; }
 .b2s-link-btn:focus-visible { outline: none; border-radius: 4px; box-shadow: var(--b2s-focus-ring); }
 .b2s-link-btn:disabled { color: var(--b2s-color-text-muted); cursor: default; text-decoration: none; }
+
+
+/* ============================================================
+   MOTION (tokens in tokens.css, helpers in lib/utils/motion.ts)
+   ============================================================ */
+
+/* Page change between sections: only the main area cross-fades, the navigation stays */
+.b2s-app-main { view-transition-name: b2s-main; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition-old(b2s-main) { animation: b2s-vt-out var(--b2s-motion-fast) var(--b2s-ease-in-out) both; }
+::view-transition-new(b2s-main) { animation: b2s-vt-in var(--b2s-motion-base) var(--b2s-ease-out) both; }
+@keyframes b2s-vt-out { to { opacity: 0; } }
+@keyframes b2s-vt-in { from { opacity: 0; transform: translateY(6px); } }
+
+/* Another entity selected in a workspace: its content comes in */
+.b2s-enter { animation: b2s-enter var(--b2s-motion-base) var(--b2s-ease-out); }
+@keyframes b2s-enter { from { opacity: 0; transform: translateY(6px); } }
+
+/* A background job landed: short green flash of its card */
+.b2s-flash { animation: b2s-flash 900ms var(--b2s-ease-out); }
+@keyframes b2s-flash {
+  0% { box-shadow: 0 0 0 0 rgba(47, 158, 91, 0); }
+  20% { box-shadow: 0 0 0 4px rgba(47, 158, 91, 0.28); border-color: #2f9e5b; }
+  100% { box-shadow: 0 0 0 0 rgba(47, 158, 91, 0); }
+}
+
+/* A counter that goes up pulses once */
+.b2s-pulse { display: inline-block; animation: b2s-pulse 600ms var(--b2s-ease-out); }
+@keyframes b2s-pulse { 0% { transform: scale(1); } 35% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
+/* Bars of the figures fill when they appear (--i: their rank, for a light stagger) */
+.b2s-grow { transform-origin: left center; animation: b2s-grow var(--b2s-motion-slow) var(--b2s-ease-out) both; animation-delay: calc(var(--i, 0) * 40ms); }
+@keyframes b2s-grow { from { transform: scaleX(0); } }
+
+/* Columns of a chart rise from their baseline */
+.b2s-rise { transform-origin: center bottom; animation: b2s-rise var(--b2s-motion-slow) var(--b2s-ease-out) both; animation-delay: calc(var(--i, 0) * 12ms); }
+@keyframes b2s-rise { from { transform: scaleY(0); } }
+
+/* Gliding highlight (tabs, selected row): see slideIndicator */
+.has-indicator { position: relative; }
+.b2s-indicator { position: absolute; top: 0; left: 0; pointer-events: none; opacity: 0; }
+.b2s-indicator.is-ready { transition: transform var(--b2s-motion-base) var(--b2s-ease-out), width var(--b2s-motion-base) var(--b2s-ease-out), height var(--b2s-motion-base) var(--b2s-ease-out), opacity var(--b2s-motion-fast); }
+
+/* Menus open from their button */
+.b2s-action-menu[open] > .b2s-action-menu__content { transform-origin: top right; animation: b2s-menu-in var(--b2s-motion-fast) var(--b2s-ease-out); }
+@keyframes b2s-menu-in { from { opacity: 0; transform: translateY(-4px) scale(0.96); } }
+
+/* One loading spinner (the small one goes inside a line of text) */
+.b2s-spinner--sm { width: 14px; height: 14px; border-color: var(--b2s-color-border); border-top-color: var(--b2s-color-info-strong); }
+
+/* The person asked the system for less motion: none, anywhere (CSS animations, Svelte transitions, page changes) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* A spinner still says « working », slowly */
+  .b2s-spinner { animation-duration: 2.4s !important; animation-iteration-count: infinite !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

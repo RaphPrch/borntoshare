@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -150,7 +151,7 @@
     {/if}
   </header>
 {#if loading && !info}
-  <EmptyStateInline message={t('Loading…')} />
+  <LoadingState skeleton="rows" rows={4}>{t('Loading…')}</LoadingState>
 {:else if info}
   {#if error || info.error}<InlineAlert tone="error">{error || info.error}</InlineAlert>{/if}
   <div class="tools">

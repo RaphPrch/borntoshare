@@ -404,17 +404,7 @@
   white-space: nowrap;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .b2s-spinner {
-    animation-duration: 2.4s;
-  }
-  .b2s-skeleton__dot::after,
-  .b2s-skeleton__avatar::after,
-  .b2s-skeleton__line::after,
-  .b2s-skeleton__tiles span::after {
-    animation: none;
-  }
-}
+/* Reduced motion: one global rule in app.css */
 
 /* Content panels of the entity workspaces (title bar + body) */
 .b2s-panel {

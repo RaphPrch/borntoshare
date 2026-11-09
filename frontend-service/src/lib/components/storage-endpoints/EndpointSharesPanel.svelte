@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
@@ -133,7 +134,7 @@
   ]} />
 </div>
 {#if loading}
-  <EmptyStateInline message={t('Loading…')} />
+  <LoadingState skeleton="rows" rows={4}>{t('Loading…')}</LoadingState>
 {:else if visible.length}
   <ul class="list">
     {#each visible as share (share.root_path)}

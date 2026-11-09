@@ -1711,7 +1711,7 @@
   />
 {:else}
   <a class="sr-back" href="/storage-roots"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All folders')}</a>
-  <EntityWorkspace title={t('Storage roots')}>
+  <EntityWorkspace title={t('Storage roots')} contentKey={selectedStorageRootId}>
     <svelte:fragment slot="list">
       <StorageRootTreePanel
         onAdd={data.user?.is_admin === true ? openCreateRoot : null}

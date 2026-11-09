@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import { fade, fly } from 'svelte/transition';
+  import { fade } from 'svelte/transition';
+  import { dur, MOTION, pop } from '$lib/utils/motion';
   import { onDestroy, tick } from 'svelte';
   import { browser } from '$app/environment';
 
@@ -22,7 +23,7 @@
   export let stopPropagation = true;
   export let useFly = true;
   export let useFade = true;
-  export let flyConfig: { y?: number; duration?: number } = { y: 24, duration: 180 };
+  export let flyConfig: { y?: number; duration?: number } = { y: 12, duration: 220 };
   export let wrapContent = true;
   /** md = 560px (confirmations), lg = 760px (forms), xl = 1180px (browsers, multi-column forms) */
   export let size: 'md' | 'lg' | 'xl' | null = null;
@@ -147,14 +148,15 @@
   <div
     class={backdropClass}
     use:portal
+    transition:fade={{ duration: dur(useFade ? MOTION.base : 0) }}
     role="presentation"
     on:click={handleBackdropClick}
   >
     <div
       class={`${modalClass}${size ? ` b2s-modal--${size}` : ''}${title ? ' b2s-modal--standard' : ''}`}
       bind:this={modalEl}
-      in:fly={useFly ? flyConfig : { duration: 0 }}
-      out:fade={{ duration: useFly && useFade ? 400 : 0 }}
+      in:pop={{ duration: useFly ? flyConfig.duration ?? MOTION.base : 0, y: flyConfig.y ?? 12 }}
+      out:pop={{ duration: useFly ? MOTION.fast : 0, y: 6 }}
       role={role}
       aria-modal="true"
       aria-labelledby={ariaLabelledby ?? (title ? 'b2s-modal-title' : null)}

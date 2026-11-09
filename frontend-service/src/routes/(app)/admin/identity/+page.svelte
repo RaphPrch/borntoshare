@@ -122,7 +122,7 @@
       ctaLabel={t('Add an identity')} onCta={() => (showAdd = true)} />
   </section>
 {:else}
-  <EntityWorkspace title={t('Identities')}>
+  <EntityWorkspace title={t('Identities')} contentKey={selectedKey}>
     <svelte:fragment slot="list">
       <IdentitiesSidebar {items} {guardians} {selectedKey} {query}
         onQueryChange={(value) => (query = value)}

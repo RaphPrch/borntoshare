@@ -9,13 +9,14 @@
 
 <script lang="ts">
   import { t } from '$lib/i18n';
+  import { slideIndicator } from '$lib/utils/motion';
   export let tabs: TabItem[] = [];
   export let activeKey = '';
   export let onChange: ((key: string) => void) | null = null;
   export let ariaLabel = t('Sections');
 </script>
 
-<nav class="b2s-tabs" aria-label={ariaLabel}>
+<nav class="b2s-tabs" aria-label={ariaLabel} use:slideIndicator={{ selector: 'button.is-active', key: activeKey, axis: 'x' }}>
   {#each tabs as tab (tab.key)}
     <button
       type="button"
@@ -65,6 +66,10 @@
     font-weight: 600;
     box-shadow: inset 0 -2px 0 var(--b2s-topbar-bg);
   }
+
+  /* The underline follows the active tab (slideIndicator); drawn as the bottom 2px of the indicator box */
+  .b2s-tabs :global(.b2s-indicator) { box-shadow: inset 0 -2px 0 var(--b2s-topbar-bg); }
+  :global(.b2s-tabs.has-indicator) button.is-active { box-shadow: none; }
 
   .b2s-tabs__count {
     padding: 0 7px;

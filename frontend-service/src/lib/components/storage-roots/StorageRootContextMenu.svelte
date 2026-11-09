@@ -1,5 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { fade } from 'svelte/transition';
+  import { dur, MOTION, pop } from '$lib/utils/motion';
   import { t } from '$lib/i18n';
   import { goto } from '$app/navigation';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
@@ -82,6 +84,7 @@
 
 {#if row}
   <div bind:this={menuEl} class="cm" role="menu" aria-label={t('Actions on {name}', { name: String(row.storage_root_name ?? '') })}
+    in:pop={{ duration: MOTION.fast, y: -4, scale: 0.96 }} out:fade={{ duration: dur(MOTION.fast) }}
     style={`left: ${position.left}px; top: ${position.top}px`}>
     <div class="cm__head">
       <strong>{row.storage_root_name ?? row.storage_root_code}</strong>
@@ -98,6 +101,7 @@
 {/if}
 
 <style>
+  .cm { transform-origin: top left; }
   .cm {
     position: fixed;
     z-index: 70;

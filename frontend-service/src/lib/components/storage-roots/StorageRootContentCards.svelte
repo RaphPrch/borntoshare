@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { formatBytes, formatDateTime, timeAgo } from '$lib/utils/format';
+  import CountUp from '$lib/components/ui/CountUp.svelte';
 
   /**
    * Content of a governed folder, as the worker read it during the last check of the folder: size, sub-folders
@@ -38,19 +39,21 @@
   </header>
   {#if content}
     <div class="cc__tiles">
-      <div class="cc__tile"><i class="bi bi-hdd" aria-hidden="true"></i><span>{t('Size')}</span><b>{floor}{size(content.bytes)}</b></div>
-      <div class="cc__tile"><i class="bi bi-folder2" aria-hidden="true"></i><span>{t('Sub-folders')}</span><b>{floor}{count(content.folders)}</b></div>
-      <div class="cc__tile"><i class="bi bi-file-earmark" aria-hidden="true"></i><span>{t('Files')}</span><b>{floor}{count(content.files)}</b></div>
+      <div class="cc__tile"><i class="bi bi-hdd" aria-hidden="true"></i><span>{t('Size')}</span><b>{floor}<CountUp value={content.bytes} format={(n) => size(Math.round(n))} /></b></div>
+      <div class="cc__tile"><i class="bi bi-folder2" aria-hidden="true"></i><span>{t('Sub-folders')}</span><b>{floor}<CountUp value={content.folders} /></b></div>
+      <div class="cc__tile"><i class="bi bi-file-earmark" aria-hidden="true"></i><span>{t('Files')}</span><b>{floor}<CountUp value={content.files} /></b></div>
     </div>
     {#if content.truncated}<small class="cc__note">{t('Very large folder: the figures are a minimum (the first 300,000 entries).')}</small>{/if}
+    <!-- Another folder or a new measure: the bars fill again -->
+    {#key content}
     <div class="cc__charts">
       {#if top.length}
         <div class="cc__chart">
           <h3>{t('Where the weight is')}</h3>
-          {#each top as row (row.name)}
+          {#each top as row, rank (row.name)}
             <div class="cc__bar" title={`${row.name} · ${size(row.bytes)} · ${t('{count} file(s)', { count: row.files })}`}>
               <span class="cc__label">{row.name}</span>
-              <span class="cc__track"><i style="width:{Math.max(2, (row.bytes / maxTop) * 100)}%"></i></span>
+              <span class="cc__track"><i class="b2s-grow" style="width:{Math.max(2, (row.bytes / maxTop) * 100)}%;--i:{rank}"></i></span>
               <span class="cc__value">{size(row.bytes)}</span>
             </div>
           {/each}
@@ -59,16 +62,17 @@
       {#if types.length}
         <div class="cc__chart">
           <h3>{t('File types')}</h3>
-          {#each types as row (row.ext)}
+          {#each types as row, rank (row.ext)}
             <div class="cc__bar">
               <span class="cc__label mono">{row.ext === '—' ? t('no extension') : `.${row.ext}`}</span>
-              <span class="cc__track"><i style="width:{Math.max(2, (row.files / maxType) * 100)}%"></i></span>
+              <span class="cc__track"><i class="b2s-grow" style="width:{Math.max(2, (row.files / maxType) * 100)}%;--i:{rank}"></i></span>
               <span class="cc__value">{count(row.files)}</span>
             </div>
           {/each}
         </div>
       {/if}
     </div>
+    {/key}
   {:else}
     <p class="cc__empty">{t('The size, the sub-folders and the files appear after the next check of the folder by the worker.')}</p>
   {/if}

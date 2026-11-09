@@ -140,7 +140,7 @@
             <!-- svelte-ignore a11y-autofocus -->
             <input autofocus bind:value={query} on:input={search} aria-label={t('Search the directory')}
               placeholder={kind === 'group' ? t('Name of the group…') : t('Name, login or e-mail…')} />
-            {#if searching}<span class="ia__spin" aria-hidden="true"></span>{/if}
+            {#if searching}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{/if}
           </label>
           {#if sources.length > 1}
             <select class="b2s-input" bind:value={sourceId} on:change={search} aria-label={t('Directory')}>
@@ -214,8 +214,6 @@
   .ia__searchrow select { max-width: 200px; }
   .ia__search { flex: 1; display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 16px; border: 2px solid var(--b2s-color-text); border-radius: 14px; }
   .ia__search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; color: var(--b2s-color-text); }
-  .ia__spin { width: 14px; height: 14px; border: 2px solid var(--b2s-color-border); border-top-color: var(--b2s-color-info-strong); border-radius: 50%; animation: ia-spin 0.8s linear infinite; }
-  @keyframes ia-spin { to { transform: rotate(360deg); } }
   .ia__results { display: flex; flex-direction: column; max-height: 360px; overflow: auto; border: 1px solid var(--b2s-color-border); border-radius: 14px; }
   .ia__results button { display: flex; gap: 12px; align-items: center; padding: 11px 16px; border: 0; border-top: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .ia__results button:first-child { border-top: 0; }

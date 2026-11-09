@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { onDestroy, onMount } from 'svelte';
@@ -567,7 +568,7 @@
             {#if searchMode}
               {#if !searching}<p class="note">{t('No folder matches this search.')}</p>{/if}
             {:else if loadingFolders}
-              <p class="note">{t('Loading…')}</p>
+              <LoadingState skeleton="rows" rows={5}>{t('Loading…')}</LoadingState>
             {:else if current && !currentFolders.length}
               <div class="empty">
                 <strong>{current.state === 'bad' ? t('Unreachable') : t('Never analysed')}</strong>

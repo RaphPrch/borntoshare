@@ -70,7 +70,7 @@
           ? t('{count} person(s) · {read} read · {write} modify', { count: data.summary.people, read: data.summary.read, write: data.summary.write })
           : t('ACL never read')}
       {:else}
-        {t('Loading…')}
+        <span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span> {t('Loading…')}
       {/if}
     </span>
     {#if pending}<span class="peek__line is-warn"><i></i>{t('{count} request(s) to decide', { count: pending })}</span>{/if}

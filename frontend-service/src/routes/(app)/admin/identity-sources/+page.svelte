@@ -905,7 +905,7 @@
     />
   </section>
 {:else}
-  <EntityWorkspace title={t('Directories')}>
+  <EntityWorkspace title={t('Directories')} contentKey={selectedSourceId}>
     <svelte:fragment slot="list">
       <IdentitySourcesSidebar
         cards={sortedCards}

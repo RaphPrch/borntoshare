@@ -200,5 +200,4 @@
   .ex__cell { background: var(--ex-bg); }
   .ex__cell i, .ex__counts span { color: var(--ex-fg); }
   .ex__bar i { background: var(--ex-fg); }
-  @media (prefers-reduced-motion: reduce) { .ex__cell { transition: none; } }
 </style>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
+  import { enterOn } from '$lib/utils/motion';
 
   /**
    * Page layout shared by zones, storage endpoints and storage roots:
@@ -11,6 +12,8 @@
   export let title: string;
   /** The search of the whole application (Ctrl K), on top of the selected entity */
   export let globalSearch = true;
+  /** The selected entity: when it changes, its content comes in (fade and lift, without remounting) */
+  export let contentKey: unknown = null;
   const openGlobalSearch = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, metaKey: true }));
 
   const WIDTH_KEY = 'b2s.workspace.listWidth';
@@ -97,12 +100,13 @@
           <kbd>Ctrl</kbd><kbd>K</kbd>
         </button>
       {/if}
-      <slot />
+      <div class="b2s-workspace__content" use:enterOn={contentKey}><slot /></div>
     </section>
   </div>
 </div>
 
 <style>
+  .b2s-workspace__content { display: grid; gap: 20px; align-content: start; min-width: 0; }
   .b2s-workspace-page {
     display: grid;
     gap: 20px;

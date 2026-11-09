@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { flip } from 'svelte/animate';
+  import { dur, MOTION, pop } from '$lib/utils/motion';
   import StorageRootContentCards from '$lib/components/storage-roots/StorageRootContentCards.svelte';
   import StorageRootQuotaCard from '$lib/components/storage-roots/StorageRootQuotaCard.svelte';
   import StorageRootSensitivityCard from '$lib/components/storage-roots/StorageRootSensitivityCard.svelte';
@@ -150,8 +152,8 @@
       <div>
         <dt>{t('Guardians')}</dt>
         <dd>
-          {#each guardianNames as name}
-            <span class="ov__chip"><span class="ov__face is-tiny">{initials(name)}</span>{name}</span>
+          {#each guardianNames as name (name)}
+            <span class="ov__chip" animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}><span class="ov__face is-tiny">{initials(name)}</span>{name}</span>
           {:else}
             <span class="ov__warn">{t('None: only the administrators can approve the requests.')}</span>
           {/each}
@@ -162,7 +164,7 @@
       <div>
         <dt>{t('Tags')}</dt>
         <dd>
-          {#each tags as tag (tagId(tag))}<TagPill label={tagLabel(tag)} color={tagColor(tag)} small={true} />{/each}
+          {#each tags as tag (tagId(tag))}<span class="ov__pill" animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}><TagPill label={tagLabel(tag)} color={tagColor(tag)} small={true} /></span>{/each}
           <button type="button" class="ov__add" on:click={onOpenTags}>{tags.length ? t('Manage') : t('+ Tag')}</button>
         </dd>
       </div>
@@ -183,6 +185,7 @@
 </div>
 
 <style>
+  .ov__pill { display: inline-flex; }
   .ov { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
   .ov__col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .ov__card { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { flip } from 'svelte/animate';
+  import { dur, MOTION, pop } from '$lib/utils/motion';
   import { apiDeleteData, apiGetData, apiPostData } from '$lib/api/client';
   import { reportUiError } from '$lib/errors';
   import { t } from '$lib/i18n';
@@ -85,7 +87,7 @@
     </header>
 
     {#each current as row (row.id)}
-      <div class="su__row" class:is-on={row.state === 'active'}>
+      <div class="su__row" class:is-on={row.state === 'active'} animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}>
         <span class="su__badge">{STATE()[row.state]}</span>
         <span class="su__who"><b>{row.substitute_name}</b>
           <small>{t('from {start} to {end}', { start: formatDate(row.starts_at), end: lastDay(row.ends_at) })}{row.reason ? ` · ${row.reason}` : ''}{row.substitute_email ? '' : ` · ${t('no e-mail')}`}</small></span>
@@ -96,7 +98,7 @@
     {/each}
 
     {#each byThem.filter((row) => row.state !== 'past') as row (row.id)}
-      <div class="su__row is-by">
+      <div class="su__row is-by" animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}>
         <span class="su__badge">{STATE()[row.state]}</span>
         <span class="su__who"><b>{t('Stands in for {name}', { name: row.guardian_name })}</b>
           <small>{t('from {start} to {end}', { start: formatDate(row.starts_at), end: lastDay(row.ends_at) })}</small></span>

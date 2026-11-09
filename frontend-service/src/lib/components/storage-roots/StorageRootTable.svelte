@@ -6,6 +6,7 @@
 </script>
 
 <script lang="ts">
+  import { pulseOnIncrease } from '$lib/utils/motion';
   import { invalidate } from '$app/navigation';
   import { t } from '$lib/i18n';
   import { formatBytes, timeAgo } from '$lib/utils/format';
@@ -383,7 +384,7 @@
     {#each counters as counter (counter.key)}
       <button type="button" class:on={filter === counter.key} aria-pressed={filter === counter.key} on:click={() => setFilter(counter.key)}>
         <span>{counter.label}</span>
-        <b class:warn={counter.key !== 'all' && counter.count > 0} class:bad={counter.key === 'blocking' && counter.count > 0}>{counter.count}</b>
+        <b class:warn={counter.key !== 'all' && counter.count > 0} class:bad={counter.key === 'blocking' && counter.count > 0} use:pulseOnIncrease={counter.count}>{counter.count}</b>
       </button>
     {/each}
   </div>

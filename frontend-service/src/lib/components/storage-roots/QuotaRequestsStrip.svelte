@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { flip } from 'svelte/animate';
+  import { dur, MOTION, pop } from '$lib/utils/motion';
   import { onMount } from 'svelte';
   import { decideQuotaRequest, listQuotaRequests, type QuotaRequest } from '$lib/api/quotas';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
@@ -38,7 +40,7 @@
   <section class="qr" aria-label={t('Requests for more room')}>
     <header><i class="bi bi-speedometer2" aria-hidden="true"></i><h2>{t('Requests for more room')}</h2><b>{rows.length}</b></header>
     {#each rows as row (row.id)}
-      <div class="qr__row">
+      <div class="qr__row" animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}>
         <span class="qr__what">
           <b>{row.folder_name || row.root_path}</b>
           <small>{row.requested_by || t('Someone')} · <RelativeTime value={row.created_at} /> · « {row.reason} »</small>

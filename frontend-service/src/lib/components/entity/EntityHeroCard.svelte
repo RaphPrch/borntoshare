@@ -101,5 +101,4 @@
   .ehc__avatar.is-off { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
   .ehc__avatar.is-ring { animation: ehc-ring 2.4s ease-in-out infinite; }
   @keyframes ehc-ring { 0%, 100% { box-shadow: 0 0 0 3px var(--b2s-color-surface), 0 0 0 5px #2f9e5b; } 50% { box-shadow: 0 0 0 3px var(--b2s-color-surface), 0 0 0 8px rgba(47, 158, 91, 0.25); } }
-  @media (prefers-reduced-motion: reduce) { .ehc__avatar.is-ring { animation: none; box-shadow: 0 0 0 3px var(--b2s-color-surface), 0 0 0 5px #2f9e5b; } }
 </style>

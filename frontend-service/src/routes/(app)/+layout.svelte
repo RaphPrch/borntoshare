@@ -26,6 +26,8 @@
   import "$lib/styles/storage-roots.css";
 
   import { page } from "$app/stores";
+  import { onNavigate } from "$app/navigation";
+  import { reducedMotion } from "$lib/utils/motion";
   import { pageTitle } from "$lib/utils/page-title";
 
   import Toaster from "$lib/components/ui/Toaster.svelte";
@@ -57,6 +59,25 @@
   };
 
   bootstrapFrontendCore();
+
+  // Page change between sections (Folders → Servers…): the main area cross-fades (View Transitions).
+  // Within a section (another folder, ?selected=…) the workspace animates its own content instead.
+  const section = (path: string) => {
+    const parts = path.split("/").filter(Boolean);
+    return parts.slice(0, parts[0] === "admin" ? 2 : 1).join("/");
+  };
+  onNavigate((navigation) => {
+    if (typeof document === "undefined" || !("startViewTransition" in document) || reducedMotion()) return;
+    const from = navigation.from?.url.pathname ?? "";
+    const to = navigation.to?.url.pathname ?? "";
+    if (!to || section(from) === section(to)) return;
+    return new Promise<void>((resolve) => {
+      (document as Document & { startViewTransition: (run: () => Promise<void>) => unknown }).startViewTransition(async () => {
+        resolve();
+        await navigation.complete;
+      });
+    });
+  });
 </script>
 
 <svelte:head>

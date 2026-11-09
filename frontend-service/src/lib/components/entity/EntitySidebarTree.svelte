@@ -50,6 +50,7 @@
 </script>
 
 <script lang="ts">
+  import { slideIndicator } from '$lib/utils/motion';
   import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n';
   import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -388,7 +389,8 @@
     {#if rows.length === 0}
       <div class="b2s-list-pane__empty" role="status" aria-live="polite">{emptyLabel}</div>
     {:else}
-      <div class="b2s-tree" role="tree" tabindex="-1" aria-label={ariaLabel} bind:this={treeEl}>
+      <div class="b2s-tree" role="tree" tabindex="-1" aria-label={ariaLabel} bind:this={treeEl}
+        use:slideIndicator={{ selector: '.b2s-tree__row.is-active', key: index.selectedKey, axis: 'y' }}>
         {#each rows as row (row.node.key)}
           {@const node = row.node}
           {@const active = node.selectId != null && String(node.selectId) === String(selectedId)}
@@ -663,6 +665,16 @@
     background: #e8efff;
     box-shadow: inset 3px 0 0 var(--b2s-topbar-bg);
   }
+
+  /* The selection glides from one row to the next (slideIndicator): the row lets it show through */
+  .b2s-tree :global(.b2s-indicator) {
+    border-radius: 8px;
+    background: #e8efff;
+    box-shadow: inset 3px 0 0 var(--b2s-topbar-bg);
+  }
+  :global(.b2s-tree.has-indicator) .b2s-tree__row { position: relative; z-index: 1; }
+  :global(.b2s-tree.has-indicator) .b2s-tree__row.is-active,
+  :global(.b2s-tree.has-indicator) .b2s-tree__row.is-active:hover { background: transparent; box-shadow: none; }
 
   .b2s-tree__row.is-active .b2s-tree__label {
     font-weight: 600;

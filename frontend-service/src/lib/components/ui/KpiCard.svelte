@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CountUp from '$lib/components/ui/CountUp.svelte';
   /** Summary figure shown at the top of a page: icon, label, value and an optional hint or link. */
   export let label: string;
   export let value: string | number;
@@ -15,7 +16,7 @@
   <span class={`b2s-kpi__icon is-${tone}`} aria-hidden="true"><i class={`bi ${icon}`}></i></span>
   <span class="b2s-kpi__body">
     <span class="b2s-kpi__label">{label}</span>
-    <strong class="b2s-kpi__value" class:is-text={isText} title={isText ? String(value) : undefined}>{value}</strong>
+    <strong class="b2s-kpi__value" class:is-text={isText} title={isText ? String(value) : undefined}>{#if typeof value === 'number'}<CountUp {value} />{:else}{value}{/if}</strong>
     {#if hint}<span class="b2s-kpi__hint">{hint}</span>{/if}
   </span>
 </svelte:element>
@@ -35,9 +36,18 @@
     box-shadow: 0 3px 10px rgba(18, 31, 64, 0.04);
   }
 
+  .b2s-kpi.is-link {
+    transition: box-shadow var(--b2s-motion-base) var(--b2s-ease-out), border-color var(--b2s-motion-fast), transform var(--b2s-motion-base) var(--b2s-ease-out);
+  }
+
   .b2s-kpi.is-link:hover {
     border-color: #c9d6ea;
-    box-shadow: 0 6px 18px rgba(18, 31, 64, 0.08);
+    box-shadow: 0 10px 24px rgba(18, 31, 64, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .b2s-kpi.is-link:active {
+    transform: translateY(0);
   }
 
   .b2s-kpi__icon {

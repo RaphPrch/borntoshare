@@ -1265,7 +1265,7 @@
 </div>
 {:else}
 <ShareCreateModal open={showShareModal} endpointId={selectedEndpointId()} onClose={() => (showShareModal = false)} onCreated={() => { sharesVersion += 1; void invalidateAll(); }} />
-<EntityWorkspace title={t('Storage endpoints')}>
+<EntityWorkspace title={t('Storage endpoints')} contentKey={selectedId}>
   <svelte:fragment slot="list">
     <StorageEndpointsSidebar
       onAdd={() => goto(`/admin/storage-endpoints/new${selected?.zone_id ? `?zone=${selected.zone_id}` : ''}`)}

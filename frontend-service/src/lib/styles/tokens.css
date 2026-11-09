@@ -3,6 +3,13 @@
    Keep this file as the single source of truth.
 */
 :root {
+  /* Motion: three durations and one easing for the whole application (see lib/utils/motion.ts) */
+  --b2s-motion-fast: 120ms;
+  --b2s-motion-base: 200ms;
+  --b2s-motion-slow: 320ms;
+  --b2s-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --b2s-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
   /* ===== Colors ===== */
 
   --b2s-accent-orange: #f97316;

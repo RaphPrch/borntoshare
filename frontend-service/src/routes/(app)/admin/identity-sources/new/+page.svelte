@@ -832,9 +832,7 @@
   .dot--ok { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
   .dot--warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
   .dot--failed { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
-  .dot--running { border: 2px solid var(--b2s-color-border-mid); border-top-color: var(--b2s-color-success-strong); background: none; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(1turn); } }
-  @media (prefers-reduced-motion: reduce) { .dot--running { animation: none; } }
+  .dot--running { border: 2px solid var(--b2s-color-border-mid); border-top-color: var(--b2s-color-success-strong); background: none; animation: b2s-spin 0.8s linear infinite; }
   .create { width: 100%; justify-content: center; text-decoration: none; }
   .sync { display: flex; flex-direction: column; gap: 12px; padding-top: 12px; border-top: 1px solid var(--b2s-color-border); }
 
