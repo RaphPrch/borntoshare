@@ -166,3 +166,12 @@ def test_create_access_request_blocks_on_a_disabled_file_server(monkeypatch) -> 
         api.create_access_request(_payload(), _Req(), _Db())
     assert caught.value.status_code == 409
     assert caught.value.detail["code"] == "STORAGE_ENDPOINT_INACTIVE"
+
+
+def test_only_a_dn_shaped_value_is_taken_as_the_principal_dn() -> None:
+    # An identity id or an objectGUID sent as the base of the AD search fails: the login is used instead
+    dn, username, _display = api._extract_principal_identity(
+        {"type": "user", "identity_id": 2, "id": "2", "external_id": "{15757c4f-c00a-4ab3-ab84-0bc48c3463e9}", "username": "b2s-test"})
+    assert dn is None and username == "b2s-test"
+    dn, _username, _display = api._extract_principal_identity({"dn": "CN=Test,OU=CORP,DC=corp,DC=local", "username": "b2s-test"})
+    assert dn == "CN=Test,OU=CORP,DC=corp,DC=local"

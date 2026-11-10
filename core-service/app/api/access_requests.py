@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import json
+import re
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -471,6 +472,13 @@ def _evaluate_access_request_guardrails(
     }
 
 
+_DN_SHAPE = re.compile(r"^\s*[A-Za-z][A-Za-z0-9-]*=[^,]+(,\s*[A-Za-z][A-Za-z0-9-]*=[^,]+)+\s*$")
+
+
+def _looks_like_dn(value: Any) -> bool:
+    return bool(_DN_SHAPE.match(str(value or "")))
+
+
 def _extract_principal_identity(payload: Any | None) -> tuple[str | None, str | None, str | None]:
     data = _coerce_principal_payload(payload)
     nested_payloads = [
@@ -494,8 +502,10 @@ def _extract_principal_identity(payload: Any | None) -> tuple[str | None, str | 
             values.extend(item.get(key) for key in keys)
         return values
 
+    # Only a value shaped as a DN (CN=…,DC=…): an id, an identity id or an objectGUID is not one, and sent as the
+    # base of the search it fails (the worker then finds the principal by its login)
     principal_dn = pick(
-        *values_for(
+        *(value for value in values_for(
             "dn",
             "distinguishedName",
             "distinguished_name",
@@ -504,7 +514,7 @@ def _extract_principal_identity(payload: Any | None) -> tuple[str | None, str | 
             "requested_principal_dn",
             "id",
             "identity_id",
-        ),
+        ) if _looks_like_dn(value)),
     )
     principal_username = pick(
         *values_for(
