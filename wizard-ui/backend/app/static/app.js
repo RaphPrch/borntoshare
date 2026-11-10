@@ -1,0 +1,314 @@
+// BornToShare installation wizard: five steps, the passwords stay in this page (memory only) until the installation.
+const $ = (id) => document.getElementById(id);
+const val = (id) => $(id).value.trim();
+
+const state = { step: 1, done: 1, server: null, serverInfo: null, license: null, installed: false };
+
+const EYE = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5Z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>';
+const CHECK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CROSS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7m0-7-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+function escape(text) {
+  return String(text ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+let toastTimer;
+function toast(message, kind = "error") {
+  const el = $("toast");
+  el.textContent = message;
+  el.dataset.kind = kind;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (el.hidden = true), 6000);
+}
+
+async function api(path, body) {
+  const response = await fetch(path, body === undefined ? {} : {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg).join(" · ") : data.detail;
+    throw new Error(detail || `Erreur ${response.status}`);
+  }
+  return data;
+}
+
+function busy(button, on, label) {
+  if (on) {
+    button.dataset.label = button.textContent;
+    button.textContent = label;
+    button.classList.add("is-busy");
+  } else {
+    button.textContent = button.dataset.label || button.textContent;
+    button.classList.remove("is-busy");
+  }
+  button.disabled = on;
+}
+
+/* ---------- Steps ---------- */
+function show(step) {
+  state.step = step;
+  state.done = Math.max(state.done, step);
+  document.querySelectorAll(".wz__step").forEach((s) => (s.hidden = Number(s.dataset.step) !== step));
+  document.querySelectorAll("#steps li").forEach((li) => {
+    const n = Number(li.dataset.step);
+    li.classList.toggle("is-current", n === step);
+    li.classList.toggle("is-done", n < step || (state.installed && n === 5));
+    li.classList.toggle("is-open", n <= state.done && !state.installed);
+  });
+  if (step === 2) checkExisting();
+  if (step === 5) summary();
+  const first = document.querySelector(`.wz__step[data-step="${step}"] input:not([type=checkbox]), .wz__step[data-step="${step}"] textarea`);
+  first?.focus({ preventScroll: true });
+}
+
+document.querySelectorAll("#steps li").forEach((li) => li.addEventListener("click", () => {
+  const n = Number(li.dataset.step);
+  if (!state.installed && n <= state.done && n !== state.step && canReach(n)) show(n);
+}));
+document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => show(state.step - 1)));
+document.querySelectorAll(".wz__eye").forEach((b) => {
+  b.innerHTML = EYE;
+  b.addEventListener("click", () => {
+    const input = b.previousElementSibling;
+    input.type = input.type === "password" ? "text" : "password";
+    b.classList.toggle("is-on", input.type === "text");
+  });
+});
+
+function canReach(n) {
+  return [true, true, !!state.server, valid2(), valid3(), valid4()].slice(0, n + 1).every(Boolean);
+}
+
+/* ---------- Passwords ---------- */
+const RULES = [
+  ["12 caractères", (p) => p.length >= 12],
+  ["minuscule", (p) => /[a-z]/.test(p)],
+  ["majuscule", (p) => /[A-Z]/.test(p)],
+  ["chiffre", (p) => /\d/.test(p)],
+  ["caractère spécial", (p) => /[^A-Za-z0-9]/.test(p)],
+];
+function rules(prefix, extra = []) {
+  const p = $(`${prefix}_password`).value;
+  const confirm = $(`${prefix}_confirm`).value;
+  const list = [...RULES.map(([label, test]) => [label, test(p)]), ...extra.map(([label, test]) => [label, test(p)]),
+    ["confirmé", p.length > 0 && p === confirm]];
+  document.querySelector(`.wz__rules[data-for="${prefix}"]`).innerHTML = list
+    .map(([label, ok]) => `<li class="${ok ? "is-ok" : ""}">${ok ? CHECK : CROSS}${escape(label)}</li>`).join("");
+  return list.every(([, ok]) => ok);
+}
+const IDENT = /^[A-Za-z0-9_]{1,64}$/;
+const ident = (id) => IDENT.test(val(id)) && val(id).toLowerCase() !== "root";
+function mark(id, ok) { $(id).classList.toggle("is-invalid", !ok && val(id) !== ""); return ok; }
+
+/* ---------- 1. Server ---------- */
+function serverForm() {
+  return { host: val("s_host"), port: Number($("s_port").value || 3306), user: val("s_user"), password: $("s_password").value };
+}
+["s_host", "s_port", "s_user", "s_password"].forEach((id) => $(id).addEventListener("input", () => {
+  state.server = null;
+  $("n1").disabled = true;
+}));
+$("s_test").addEventListener("click", testServer);
+async function testServer() {
+  const server = serverForm();
+  if (!server.host || !server.user || !server.password) return toast("Serveur, compte et mot de passe requis.");
+  const out = $("s_result");
+  busy($("s_test"), true, "Connexion…");
+  try {
+    const info = await api("/api/server/check", server);
+    state.server = server;
+    state.serverInfo = info;
+    const p = info.privileges;
+    const chip = (ok, label) => `<span class="wz__chip ${ok ? "is-ok" : "is-warn"}">${ok ? CHECK : CROSS}${label}</span>`;
+    out.className = `wz__result ${info.ready ? "is-ok" : "is-warn"}`;
+    out.innerHTML = `<div class="wz__result-head"><b>${info.ready ? "Connecté" : "Connecté, droits à vérifier"}</b><span>MariaDB ${escape(info.version)} · ${info.latency_ms} ms</span></div>
+      <div class="wz__chips">${chip(p.create_database, "Créer des bases")}${chip(p.create_user, "Créer des comptes")}${chip(p.grant, "Donner des droits")}</div>
+      ${info.ready ? "" : '<p class="wz__hint">Les droits n\'ont pas pu être confirmés : l\'installation dira précisément ce qui manque.</p>'}
+      <p class="wz__hint">${info.databases.length ? `Bases présentes : ${info.databases.map((d) => `<code>${escape(d)}</code>`).join(" ")}` : "Aucune base sur ce serveur."}</p>`;
+    $("n1").disabled = false;
+  } catch (error) {
+    state.server = null;
+    out.className = "wz__result is-error";
+    out.innerHTML = `<div class="wz__result-head"><b>Connexion refusée</b></div><p class="wz__hint">${escape(error.message)}</p>`;
+    $("n1").disabled = true;
+  } finally {
+    out.hidden = false;
+    busy($("s_test"), false);
+  }
+}
+$("f1").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (state.server) show(2);
+  else testServer();
+});
+
+/* ---------- 2. Databases ---------- */
+function valid2() {
+  const ok = [mark("a_db", ident("a_db")), mark("a_log", ident("a_log")), mark("a_user", ident("a_user"))].every(Boolean)
+    && val("a_db").toLowerCase() !== val("a_log").toLowerCase();
+  return rules("a") && ok;
+}
+function checkExisting() {
+  const present = new Set((state.serverInfo?.databases || []).map((d) => d.toLowerCase()));
+  const found = [val("a_db"), val("a_log")].filter((d) => d && present.has(d.toLowerCase()));
+  const box = $("a_exists");
+  box.hidden = !found.length;
+  box.innerHTML = found.length ? `<b>Déjà sur le serveur : ${found.map((d) => `<code>${escape(d)}</code>`).join(", ")}</b>
+    Elle${found.length > 1 ? "s seront conservées" : " sera conservée"} : rien n'est effacé, les tables manquantes sont créées.` : "";
+}
+["a_db", "a_log", "a_user", "a_password", "a_confirm"].forEach((id) => $(id).addEventListener("input", () => {
+  $("n2").disabled = !valid2();
+  checkExisting();
+}));
+$("f2").addEventListener("submit", (e) => { e.preventDefault(); if (valid2()) show(3); });
+
+/* ---------- 3. Administrator ---------- */
+function valid3() {
+  const name = val("u_name");
+  const email = val("u_email");
+  const ok = rules("u", [["sans l'identifiant", (p) => !name || !p.toLowerCase().includes(name.toLowerCase())]]);
+  return ok && name.length > 0 && (!email || /^[^@\s]+@[^@\s]+$/.test(email));
+}
+["u_name", "u_email", "u_password", "u_confirm"].forEach((id) => $(id).addEventListener("input", () => ($("n3").disabled = !valid3())));
+$("f3").addEventListener("submit", (e) => { e.preventDefault(); if (valid3()) show(4); });
+
+/* ---------- 4. License and modules ---------- */
+const fivesOpen = () => !!state.license?.features.some((f) => f.key === "fives");
+const fivesOn = () => fivesOpen() && $("m_on").checked;
+function valid4() {
+  if (val("l_key") && !state.license) return false;
+  if (!fivesOn()) return true;
+  const ok = [mark("m_db", ident("m_db")), mark("m_inv", ident("m_inv")), mark("m_user", ident("m_user"))].every(Boolean);
+  const names = [val("a_db"), val("a_log"), val("m_db"), val("m_inv")].map((n) => n.toLowerCase());
+  return rules("m") && ok && new Set(names).size === 4 && val("m_user") !== val("a_user");
+}
+function refresh4() {
+  $("m_fives").hidden = !fivesOpen();
+  $("m_fields").hidden = !fivesOn();
+  const n4 = $("n4");
+  n4.textContent = state.license ? "Continuer" : val("l_key") ? "Vérifier la clé d'abord" : "Continuer sans licence";
+  n4.disabled = !valid4();
+}
+$("l_key").addEventListener("input", () => {
+  state.license = null;
+  $("l_result").hidden = true;
+  refresh4();
+});
+$("l_check").addEventListener("click", async () => {
+  if (!val("l_key")) return toast("Coller d'abord la clé de licence.");
+  busy($("l_check"), true, "Vérification…");
+  const out = $("l_result");
+  try {
+    const lic = await api("/api/license/check", { key: $("l_key").value });
+    state.license = lic;
+    const until = lic.expires_on ? `jusqu'au ${new Date(lic.expires_on).toLocaleDateString("fr-FR")}` : "sans date de fin";
+    out.className = "wz__result is-ok";
+    out.innerHTML = `<div class="wz__result-head"><b>${escape(lic.customer)}</b><span>${escape(lic.key_hint)} · ${until}</span></div>
+      <div class="wz__chips">${lic.features.map((f) => `<span class="wz__chip ${f.known ? "is-ok" : ""}">${f.known ? CHECK : ""}${escape(f.label)}${f.known ? "" : " (version suivante)"}</span>`).join("")}</div>`;
+  } catch (error) {
+    state.license = null;
+    out.className = "wz__result is-error";
+    out.innerHTML = `<div class="wz__result-head"><b>Clé refusée</b></div><p class="wz__hint">${escape(error.message)}</p>`;
+  } finally {
+    out.hidden = false;
+    busy($("l_check"), false);
+    refresh4();
+  }
+});
+["m_on", "m_db", "m_inv", "m_user", "m_password", "m_confirm"].forEach((id) => $(id).addEventListener("input", refresh4));
+$("f4").addEventListener("submit", (e) => { e.preventDefault(); if (valid4()) show(5); });
+
+/* ---------- 5. Summary and installation ---------- */
+function plan() {
+  return {
+    server: state.server,
+    app: { db_name: val("a_db"), logging_db_name: val("a_log"), user: val("a_user"), password: $("a_password").value },
+    admin: { username: val("u_name"), email: val("u_email") || null, password: $("u_password").value },
+    license: state.license ? $("l_key").value : null,
+    fives: fivesOn() ? { db_name: val("m_db"), inventory_db_name: val("m_inv"), user: val("m_user"), password: $("m_password").value } : null,
+  };
+}
+function summary() {
+  if (state.installed) return;
+  const p = plan();
+  const row = (label, value) => `<dt>${label}</dt><dd>${value}</dd>`;
+  $("i_summary").innerHTML =
+    row("Serveur", `<code>${escape(p.server.host)}:${p.server.port}</code> · compte ${escape(p.server.user)}`)
+    + row("Bases", `<code>${escape(p.app.db_name)}</code> et <code>${escape(p.app.logging_db_name)}</code> · compte <code>${escape(p.app.user)}</code>`)
+    + row("Administrateur", escape(p.admin.username) + (p.admin.email ? ` · ${escape(p.admin.email)}` : ""))
+    + row("Licence", state.license ? `${escape(state.license.customer)} · ${escape(state.license.key_hint)}` : "aucune (à ajouter plus tard)")
+    + row("Module 5S", p.fives ? `<code>${escape(p.fives.db_name)}</code> et <code>${escape(p.fives.inventory_db_name)}</code> · compte <code>${escape(p.fives.user)}</code>` : "non installé");
+}
+$("i_run").addEventListener("click", async () => {
+  const p = plan();
+  const run = $("i_run");
+  busy(run, true, "Installation…");
+  $("i_back").disabled = true;
+  const progress = $("i_progress");
+  progress.hidden = false;
+  progress.innerHTML = '<li class="is-running"><span class="wz__spin"></span><b>Installation en cours</b><small>Création des bases et application des paquets SQL…</small></li>';
+  try {
+    const result = await api("/api/install", p);
+    progress.innerHTML = result.steps.map((s, i) => `<li class="${s.ok ? "is-ok" : "is-error"}" style="--i:${i}">${s.ok ? CHECK : CROSS}<b>${escape(s.label)}</b><small>${escape(s.detail)}</small></li>`).join("");
+    if (!result.ok) {
+      toast("L'installation s'est arrêtée : corriger puis relancer (rien n'est effacé).");
+      busy(run, false);
+      run.textContent = "Relancer";
+      $("i_back").disabled = false;
+      return;
+    }
+    finish(result.env, p);
+  } catch (error) {
+    progress.innerHTML = `<li class="is-error">${CROSS}<b>Installation refusée</b><small>${escape(error.message)}</small></li>`;
+    busy(run, false);
+    $("i_back").disabled = false;
+  }
+});
+function finish(env, p) {
+  state.installed = true;
+  const secrets = { DB_PASSWORD: p.app.password, FIVES_DB_PASSWORD: p.fives?.password };
+  const lines = (reveal) => env.map(([k, v]) => `${k}=${v === null ? (reveal ? secrets[k] : "••••••••") : v}`).join("\n");
+  $("i_env").textContent = lines(false);
+  $("i_copy").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(lines(true) + "\n");
+      toast("Lignes copiées.", "ok");
+    } catch {
+      toast("Copie impossible dans ce navigateur : recopier les lignes à la main.");
+    }
+  };
+  $("i_admin").textContent = p.admin.username;
+  $("i_title").textContent = "BornToShare est installé";
+  $("i_lead").textContent = "Les bases, les comptes et le premier administrateur sont prêts.";
+  $("i_summary").hidden = true;
+  $("i_done").hidden = false;
+  $("i_run").hidden = true;
+  $("i_back").hidden = true;
+  // The passwords are no longer needed in the fields
+  document.querySelectorAll('input[type="password"]').forEach((input) => (input.value = ""));
+  show(5);
+}
+
+/* ---------- Start ---------- */
+(async () => {
+  try {
+    const d = await api("/api/defaults");
+    $("s_host").value = d.server.host;
+    $("s_port").value = d.server.port;
+    $("a_db").value = d.app.db_name;
+    $("a_log").value = d.app.logging_db_name;
+    $("a_user").value = d.app.user;
+    $("m_db").value = d.fives.db_name;
+    $("m_inv").value = d.fives.inventory_db_name;
+    $("m_user").value = d.fives.user;
+  } catch {
+    /* empty fields: everything is typed */
+  }
+  rules("a");
+  rules("u", [["sans l'identifiant", () => true]]);
+  rules("m");
+  refresh4();
+  show(1);
+})();

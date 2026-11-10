@@ -5,3 +5,4 @@ uvicorn[standard]==0.54.0
 pydantic==2.14.1
 mysql-connector-python==26.7.0
 bcrypt==5.0.0
+cryptography==50.0.2

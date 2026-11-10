@@ -1,236 +1,159 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>BornToShare Wizard v5.0</title>
-  <link rel="stylesheet" href="/static/assets/style.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BornToShare · Installation</title>
+  <link rel="stylesheet" href="/static/style.css" />
 </head>
-
 <body>
-<div class="b2s-app-root">
-
-  <!-- TOPBAR -->
-  <header class="b2s-topbar">
-    <div class="b2s-topbar__left">
-      <span class="b2s-logo">BornToShare</span>
-      <span class="b2s-topbar__title">Wizard d'initialisation</span>
+<div class="wz">
+  <aside class="wz__side">
+    <div class="wz__brand"><span class="wz__logo">B</span><span>BornToShare</span></div>
+    <div class="wz__intro">
+      <h1>Installation</h1>
+      <p>Les bases de données, le premier administrateur et la licence. Une seule fois, avant le premier démarrage.</p>
     </div>
-    <div class="b2s-topbar__right">
-    </div>
-  </header>
+    <ol class="wz__steps" id="steps">
+      <li data-step="1"><span class="wz__num">1</span><span><b>Serveur MariaDB</b><small>Compte administrateur</small></span></li>
+      <li data-step="2"><span class="wz__num">2</span><span><b>Bases BornToShare</b><small>Données, journaux, compte</small></span></li>
+      <li data-step="3"><span class="wz__num">3</span><span><b>Administrateur</b><small>Premier compte local</small></span></li>
+      <li data-step="4"><span class="wz__num">4</span><span><b>Licence et modules</b><small>Facultatif</small></span></li>
+      <li data-step="5"><span class="wz__num">5</span><span><b>Installation</b><small>Récapitulatif</small></span></li>
+    </ol>
+    <p class="wz__note">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 2 3.5v4C2 11 4.6 14 8 15c3.4-1 6-4 6-7.5v-4L8 1Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Les mots de passe restent dans cette page le temps de l'installation : rien n'est enregistré, ni écrit dans un fichier.
+    </p>
+  </aside>
 
-  <main class="b2s-main">
-    <!-- STEPPER -->
-    <aside class="b2s-stepper">
-      <ol>
-        <li data-step="1" class="active">1. Bienvenue</li>
-        <li data-step="2">2. Administrateur</li>
-        <li data-step="3">3. Connexion DB</li>
-        <li data-step="4">4. Base applicative</li>
-        <li data-step="5">5. Base Logging</li>
-        <li data-step="6">6. Validation</li>
-      </ol>
-    </aside>
+  <main class="wz__main">
+    <div class="wz__card">
 
-    <!-- WIZARD -->
-    <section class="b2s-wizard">
-
-      <!-- Progress -->
-      <div class="b2s-progress">
-        <div class="b2s-progress__track">
-          <div class="b2s-progress__bar" id="b2s_progress_bar"></div>
-        </div>
-        <div class="b2s-progress__label" id="b2s_progress_label">Étape 1 sur 6</div>
-      </div>
-
-      <!-- STEP 1 -->
-      <section class="b2s-step active" data-step="1">
-        <div class="b2s-step-inner">
-          <h1>Bienvenue dans BornToShare</h1>
-          <p class="b2s-step-intro">
-            Plateforme de <strong>gouvernance des accès aux données</strong>, auditable, traçable et sécurisée.
-          </p>
-          <div class="b2s-info-box">
-            <strong>Important :</strong><br />
-            Connexion à une <em>base de données externe existante</em>.
+      <!-- 1. Server -->
+      <section class="wz__step" data-step="1">
+        <header><span class="wz__eyebrow">Étape 1 sur 5</span><h2>Serveur MariaDB</h2>
+          <p>Un compte qui peut créer des bases et des comptes (root, en général). Il sert à cette installation seulement.</p></header>
+        <form id="f1" autocomplete="off" novalidate>
+          <div class="wz__grid wz__grid--host">
+            <label>Serveur<input id="s_host" required placeholder="mariadb.example.local" spellcheck="false" /></label>
+            <label>Port<input id="s_port" type="number" min="1" max="65535" value="3306" required /></label>
           </div>
-          <div class="b2s-actions" style="justify-content:center;">
-            <button id="btn_start" type="button" class="b2s-btn b2s-btn-primary">Commencer</button>
+          <div class="wz__grid">
+            <label>Compte administrateur<input id="s_user" value="root" required spellcheck="false" /></label>
+            <label>Mot de passe<span class="wz__pw"><input id="s_password" type="password" required autocomplete="off" /><button type="button" class="wz__eye" aria-label="Afficher">👁</button></span></label>
           </div>
-        </div>
-      </section>
-
-      <!-- STEP 2 -->
-      <section class="b2s-step" data-step="2">
-        <form id="form_admin">
-          <h2>Administrateur applicatif</h2>
-          <div class="form-field">
-            <label>Nom d'utilisateur</label>
-            <input id="admin_username" type="text" value="admin" required autocomplete="username" />
-          </div>
-          <div class="form-field">
-            <label>Email (optionnel)</label>
-            <input id="admin_email" type="email" placeholder="admin@example.com" autocomplete="email" />
-            <small class="b2s-hint">Utilisé pour notifications si renseigné</small>
-          </div>
-          <div class="form-field">
-            <label>Mot de passe</label>
-            <input id="admin_password" type="password" autocomplete="new-password" required />
-          </div>
-
-          <div class="form-field">
-            <label>Confirmer le mot de passe</label>
-            <input id="admin_password_confirm" type="password" autocomplete="new-password" required />
-            <small id="admin_password_mismatch" class="b2s-hint" style="display:none;">Les mots de passe ne correspondent pas.</small>
-          </div>
-
-          <div class="b2s-password-rules">
-            <ul>
-              <li id="rule-length">✖ 12 caractères minimum</li>
-              <li id="rule-lower">✖ minuscule</li>
-              <li id="rule-upper">✖ majuscule</li>
-              <li id="rule-digit">✖ chiffre</li>
-              <li id="rule-special">✖ caractère spécial</li>
-              <li id="rule-forbidden">✖ différent du nom</li>
-            </ul>
-          </div>
-
-          <div class="b2s-actions">
-            <button type="button" id="btn_prev_2" class="b2s-btn b2s-btn-icon" aria-label="Retour">←</button>
-            <button id="admin_next_btn" type="submit" class="b2s-btn b2s-btn-primary b2s-btn-icon" aria-label="Suivant">→</button>
-          </div>
-          <small id="step_guard_2" class="b2s-guard-msg" style="display:none;"></small>
+          <div id="s_result" class="wz__result" hidden></div>
+          <footer>
+            <span></span>
+            <span class="wz__btns">
+              <button type="button" id="s_test" class="wz__btn">Tester la connexion</button>
+              <button type="submit" class="wz__btn wz__btn--primary" id="n1" disabled>Continuer</button>
+            </span>
+          </footer>
         </form>
       </section>
 
-      <!-- STEP 3 -->
-      <section class="b2s-step" data-step="3">
-        <form id="form_db">
-          <h2>Connexion à la base</h2>
-          <div class="form-field">
-            <label>Host</label>
-            <input id="db_host" required autocomplete="off" />
+      <!-- 2. BornToShare databases -->
+      <section class="wz__step" data-step="2" hidden>
+        <header><span class="wz__eyebrow">Étape 2 sur 5</span><h2>Bases BornToShare</h2>
+          <p>La base des données de l'application et celle de son journal d'audit, sur ce serveur, avec un même compte SQL.</p></header>
+        <form id="f2" autocomplete="off" novalidate>
+          <div class="wz__grid">
+            <label>Base des données<small>DB_NAME</small><input id="a_db" required spellcheck="false" /></label>
+            <label>Base des journaux<small>LOGGING_DB_NAME</small><input id="a_log" required spellcheck="false" /></label>
           </div>
-          <div class="form-field">
-            <label>Port</label>
-            <input id="db_port" type="number" value="3306" required autocomplete="off" />
+          <div id="a_exists" class="wz__callout wz__callout--warn" hidden></div>
+          <div class="wz__grid">
+            <label>Compte SQL de l'application<small>DB_USER</small><input id="a_user" required spellcheck="false" /></label>
+            <span></span>
+            <label>Mot de passe<small>DB_PASSWORD</small><span class="wz__pw"><input id="a_password" type="password" required autocomplete="new-password" /><button type="button" class="wz__eye" aria-label="Afficher">👁</button></span></label>
+            <label>Confirmer le mot de passe<input id="a_confirm" type="password" required autocomplete="new-password" /></label>
           </div>
-          <div class="form-field">
-            <label>Utilisateur DB</label>
-            <input id="db_user" value="wizard" required autocomplete="off" />
+          <ul class="wz__rules" data-for="a"></ul>
+          <p class="wz__hint">Si le compte existe déjà, il prend ce mot de passe : c'est celui de <code>DB_PASSWORD</code> dans <code>.env</code>.</p>
+          <footer>
+            <button type="button" class="wz__btn wz__btn--ghost" data-back>Retour</button>
+            <button type="submit" class="wz__btn wz__btn--primary" id="n2" disabled>Continuer</button>
+          </footer>
+        </form>
+      </section>
+
+      <!-- 3. Administrator -->
+      <section class="wz__step" data-step="3" hidden>
+        <header><span class="wz__eyebrow">Étape 3 sur 5</span><h2>Administrateur</h2>
+          <p>Le premier compte local, administrateur de la plateforme. Il ouvre l'assistant de premier lancement (annuaire, serveurs, dossiers).</p></header>
+        <form id="f3" autocomplete="off" novalidate>
+          <div class="wz__grid">
+            <label>Identifiant<input id="u_name" value="admin" required spellcheck="false" autocomplete="off" /></label>
+            <label>E-mail<small>facultatif</small><input id="u_email" type="email" placeholder="admin@example.com" /></label>
+            <label>Mot de passe<span class="wz__pw"><input id="u_password" type="password" required autocomplete="new-password" /><button type="button" class="wz__eye" aria-label="Afficher">👁</button></span></label>
+            <label>Confirmer le mot de passe<input id="u_confirm" type="password" required autocomplete="new-password" /></label>
           </div>
-          <div class="form-field">
-            <label>Mot de passe</label>
-            <input id="db_password" type="password" required autocomplete="current-password" />
-          </div>
-          <div class="b2s-actions">
-            <button type="button" id="btn_prev_3" class="b2s-btn b2s-btn-icon" aria-label="Retour">←</button>
-            <div class="b2s-actions-right">
-              <button id="db_next_btn" type="submit" class="b2s-btn b2s-btn-primary">Tester et continuer</button>
+          <ul class="wz__rules" data-for="u"></ul>
+          <footer>
+            <button type="button" class="wz__btn wz__btn--ghost" data-back>Retour</button>
+            <button type="submit" class="wz__btn wz__btn--primary" id="n3" disabled>Continuer</button>
+          </footer>
+        </form>
+      </section>
+
+      <!-- 4. License and modules -->
+      <section class="wz__step" data-step="4" hidden>
+        <header><span class="wz__eyebrow">Étape 4 sur 5</span><h2>Licence et modules</h2>
+          <p>Une clé de licence ouvre les modules optionnels. Sans clé, BornToShare s'installe sans eux : la clé pourra être ajoutée plus tard dans Réglages avancés › Fonctionnalités.</p></header>
+        <form id="f4" autocomplete="off" novalidate>
+          <label>Clé de licence<textarea id="l_key" rows="3" placeholder="B2S-AAAAA-BBBBB-…" spellcheck="false"></textarea></label>
+          <div class="wz__inline"><button type="button" id="l_check" class="wz__btn">Vérifier la clé</button><span class="wz__hint">Vérifiée ici, sans connexion : rien ne sort de ce serveur.</span></div>
+          <div id="l_result" hidden></div>
+
+          <div id="m_fives" class="wz__module" hidden>
+            <label class="wz__switch"><input type="checkbox" id="m_on" checked /><span></span>
+              <span><b>Module 5S et hygiène des données</b><small>Score 5S, doublons, âge des données, croissance, scanner sans agent. Ses deux bases et son propre compte SQL, sur ce serveur.</small></span></label>
+            <div id="m_fields">
+              <div class="wz__grid">
+                <label>Base du module<small>FIVES_DB_NAME</small><input id="m_db" required spellcheck="false" /></label>
+                <label>Base d'inventaire<small>FIVES_INVENTORY_DB_NAME</small><input id="m_inv" required spellcheck="false" /></label>
+                <label>Compte SQL du module<small>FIVES_DB_USER</small><input id="m_user" required spellcheck="false" /></label>
+                <span></span>
+                <label>Mot de passe<small>FIVES_DB_PASSWORD</small><span class="wz__pw"><input id="m_password" type="password" autocomplete="new-password" /><button type="button" class="wz__eye" aria-label="Afficher">👁</button></span></label>
+                <label>Confirmer le mot de passe<input id="m_confirm" type="password" autocomplete="new-password" /></label>
+              </div>
+              <ul class="wz__rules" data-for="m"></ul>
             </div>
           </div>
-          <small id="step_guard_3" class="b2s-guard-msg" style="display:none;"></small>
+          <footer>
+            <button type="button" class="wz__btn wz__btn--ghost" data-back>Retour</button>
+            <button type="submit" class="wz__btn wz__btn--primary" id="n4">Continuer sans licence</button>
+          </footer>
         </form>
       </section>
 
-      <!-- STEP 4 -->
-      <section class="b2s-step" data-step="4">
-        <form id="form_app_db">
-          <h2>Base applicative</h2>
-          <div class="form-field">
-            <label>Nom de la base</label>
-            <input id="db_name" required autocomplete="off" />
-          </div>
-          <div class="form-field">
-            <label>Compte SQL applicatif</label>
-            <input id="app_sql_user" value="b2s_app" required autocomplete="off" />
-          </div>
-          <div class="form-field">
-            <label>Mot de passe</label>
-            <input id="app_user_password" type="password" required autocomplete="new-password" />
-          </div>
-
-          <div class="form-field">
-            <label>Confirmer le mot de passe</label>
-            <input id="app_user_password_confirm" type="password" required autocomplete="new-password" />
-            <small id="app_password_mismatch" class="b2s-hint" style="display:none;">Les mots de passe ne correspondent pas.</small>
-          </div>
-
-          <div class="b2s-password-rules">
-            <ul>
-              <li id="app-rule-length">✖ 12 caractères minimum</li>
-              <li id="app-rule-lower">✖ minuscule</li>
-              <li id="app-rule-upper">✖ majuscule</li>
-              <li id="app-rule-digit">✖ chiffre</li>
-              <li id="app-rule-special">✖ caractère spécial</li>
-            </ul>
-          </div>
-
-          <div class="b2s-actions">
-            <button type="button" id="btn_prev_4" class="b2s-btn b2s-btn-icon" aria-label="Retour">←</button>
-            <button id="app_next_btn" type="submit" class="b2s-btn b2s-btn-primary b2s-btn-icon" aria-label="Suivant">→</button>
-          </div>
-          <small id="step_guard_4" class="b2s-guard-msg" style="display:none;"></small>
-        </form>
-      </section>
-
-      <!-- STEP 5 -->
-      <section class="b2s-step" data-step="5">
-        <form id="form_logging_db">
-          <h2>Base Logging</h2>
-          <div class="form-field">
-            <label>Nom de la base</label>
-            <input id="logging_db_name" value="borntoshare_logging" required autocomplete="off" />
-          </div>
-          <div class="form-field">
-            <label>Compte SQL logging</label>
-            <input id="logging_sql_user" value="app_user" required autocomplete="off" />
-          </div>
-          <div class="form-field">
-            <label>Mot de passe</label>
-            <input id="logging_user_password" type="password" required autocomplete="new-password" />
-          </div>
-          <div class="form-field">
-            <label>Confirmer le mot de passe</label>
-            <input id="logging_user_password_confirm" type="password" required autocomplete="new-password" />
-            <small id="logging_password_mismatch" class="b2s-hint" style="display:none;">Les mots de passe ne correspondent pas.</small>
-          </div>
-
-          <div class="b2s-password-rules">
-            <ul>
-              <li id="logging-rule-length">✖ 12 caractères minimum</li>
-              <li id="logging-rule-lower">✖ minuscule</li>
-              <li id="logging-rule-upper">✖ majuscule</li>
-              <li id="logging-rule-digit">✖ chiffre</li>
-              <li id="logging-rule-special">✖ caractère spécial</li>
-            </ul>
-          </div>
-
-          <div class="b2s-actions">
-            <button type="button" id="btn_prev_5" class="b2s-btn b2s-btn-icon" aria-label="Retour">←</button>
-            <button id="logging_next_btn" type="submit" class="b2s-btn b2s-btn-primary b2s-btn-icon" aria-label="Suivant">→</button>
-          </div>
-          <small id="step_guard_5" class="b2s-guard-msg" style="display:none;"></small>
-        </form>
-      </section>
-
-      <!-- STEP 6 -->
-      <section class="b2s-step" data-step="6">
-        <h2>Validation</h2>
-
-        <div class="b2s-actions">
-          <button id="btn_prev_6" class="b2s-btn b2s-btn-icon" aria-label="Retour">←</button>
-          <button id="import_btn" class="b2s-btn b2s-btn-primary">Créer la base</button>
+      <!-- 5. Summary and installation -->
+      <section class="wz__step" data-step="5" hidden>
+        <header><span class="wz__eyebrow">Étape 5 sur 5</span><h2 id="i_title">Prêt à installer</h2>
+          <p id="i_lead">Vérifier, puis installer. Une base déjà présente est conservée : rien n'est effacé, les paquets SQL s'appliquent à nouveau.</p></header>
+        <dl class="wz__summary" id="i_summary"></dl>
+        <ol class="wz__progress" id="i_progress" hidden></ol>
+        <div id="i_done" hidden>
+          <h3>À reporter dans <code>.env</code></h3>
+          <p class="wz__hint">Puis arrêter ce wizard et démarrer BornToShare. Le bouton copie les lignes avec les mots de passe saisis ; l'écran les masque.</p>
+          <pre class="wz__env" id="i_env"></pre>
+          <div class="wz__inline"><button type="button" id="i_copy" class="wz__btn">Copier les lignes</button></div>
+          <pre class="wz__env wz__env--cmd">make wizard-down
+make deploy</pre>
+          <p class="wz__hint">Ensuite, se connecter avec le compte <b id="i_admin"></b> : l'assistant de premier lancement prend le relais.</p>
         </div>
+        <footer>
+          <button type="button" class="wz__btn wz__btn--ghost" data-back id="i_back">Retour</button>
+          <button type="button" class="wz__btn wz__btn--primary" id="i_run">Installer</button>
+        </footer>
       </section>
 
-    </section>
+    </div>
   </main>
 </div>
-
-<div id="toast-container"></div>
-
-<!-- ES MODULE ENTRYPOINT -->
-<script type="module" src="/static/js/index.js"></script>
+<div class="wz__toast" id="toast" role="status" hidden></div>
+<script type="module" src="/static/app.js"></script>
 </body>
 </html>

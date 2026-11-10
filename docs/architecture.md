@@ -9,7 +9,7 @@
 | core-service | `b2s-core-service` (Python, FastAPI) | 8000, interne | app, data, jobs | API métier, gouvernance, audit, coffre des secrets, planificateur ; publie les travaux |
 | capsule-runner | `b2s-capsule-runner` (Python, Dramatiq + agent) | 8443 ou 8080, interne | app, jobs | Worker : exécute toutes les actions sur l'AD, les serveurs de fichiers et le DFS |
 | redis | `redis:8.10` | 6379, interne | jobs | File des travaux (base 2) et sessions (base 1), persistée (AOF) |
-| wizard-ui | `b2s-wizard-ui` (Python, FastAPI) | 8080, **publié** le temps de l'installation | app, data | Crée les bases, applique les paquets SQL, crée le premier administrateur |
+| wizard-ui | `b2s-wizard-ui` (Python, FastAPI) | 8080, **publié** le temps de l'installation | app, data | Crée les bases et les comptes (application, audit, module 5S), applique les paquets SQL, crée le premier administrateur, enregistre la licence |
 | MariaDB | externe | 3306 | — | Bases `borntoshare` (données) et `borntoshare_logging` (audit chaîné) |
 
 Le worker est le **seul** conteneur qui modifie l'AD et les serveurs. core-service ne parle jamais à l'AD :

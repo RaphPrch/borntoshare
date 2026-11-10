@@ -216,6 +216,15 @@ services:
     environment:
       TZ: Europe/Paris
       LOG_LEVEL: INFO
+      # The fields start from .env (names only: every password is typed on screen)
+      DB_HOST: ${DB_HOST:-}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-borntoshare}
+      DB_USER: ${DB_USER:-b2s_app}
+      LOGGING_DB_NAME: ${LOGGING_DB_NAME:-borntoshare_logging}
+      FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
+      FIVES_INVENTORY_DB_NAME: ${FIVES_INVENTORY_DB_NAME:-b2s_fives_inventory}
+      FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
     ports:
       - "${WIZARD_PORT:-8080}:8080"
     healthcheck:

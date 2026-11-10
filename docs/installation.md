@@ -28,6 +28,7 @@ chmod 600 .env
 | `DB_HOST`, `DB_PORT` | core-service | Serveur MariaDB |
 | `DB_NAME`, `LOGGING_DB_NAME` | core-service | Bases des données et de l'audit (créées par le wizard, sur le même serveur et avec le même compte) |
 | `DB_USER`, `DB_PASSWORD` | core-service | Compte SQL de l'application, **celui que le wizard crée** (par défaut `b2s_app`) |
+| `FIVES_DB_NAME`, `FIVES_INVENTORY_DB_NAME`, `FIVES_DB_USER`, `FIVES_DB_PASSWORD` | module 5S | Bases et compte du module (créés par le wizard quand la licence l'ouvre) |
 | `REDIS_PASSWORD` | redis, auth, core, worker | Mot de passe Redis, lettres et chiffres uniquement |
 | `B2S_SECRET_MASTER_KEY` | core-service | 32 octets en base64 (`openssl rand -base64 32`) : chiffre les mots de passe stockés. **À sauvegarder à part** |
 | `FRONTEND_PUBLIC_ORIGIN` | frontend | URL publique exacte (schéma, hôte, port) : sert de contrôle d'origine |
@@ -50,26 +51,33 @@ s'il existe :
 
 `B2S_VERSION` n'est pas à renseigner : `make deploy` y met le commit et la date, affichés en bas du menu.
 
-## 2. Le wizard : bases et premier administrateur
+## 2. Le wizard : bases, administrateur et licence
 
 ```bash
 make wizard          # http://<hôte>:8080
 ```
 
-Le wizard demande, étape par étape :
+Le wizard part des noms déjà dans `.env` (jamais des mots de passe, qui se saisissent à l'écran) et demande :
 
-1. **Administrateur applicatif** : identifiant et mot de passe du premier compte local administrateur.
-2. **Connexion à la base** : compte MariaDB avec les droits de création (root), utilisé une seule fois.
-3. **Base applicative** : nom de la base (`DB_NAME`) et compte SQL de l'application (nom, mot de passe).
-4. **Base Logging** : nom de la base d'audit (`LOGGING_DB_NAME`).
-5. **Validation** : vérification des droits, puis import des paquets SQL (schéma, vues, index, journal).
+1. **Serveur MariaDB** : adresse et compte administrateur (root), testés ; utilisé pour cette installation seulement.
+2. **Bases BornToShare** : base des données (`DB_NAME`), base du journal d'audit (`LOGGING_DB_NAME`) et le compte
+   SQL de l'application (`DB_USER`, `DB_PASSWORD`), avec des droits sur ces deux bases.
+3. **Administrateur** : identifiant et mot de passe du premier compte local administrateur.
+4. **Licence et modules** (facultatif) : la clé de licence, vérifiée hors ligne. Si elle ouvre le module 5S : ses deux
+   bases (`FIVES_DB_NAME`, `FIVES_INVENTORY_DB_NAME`) et son propre compte (`FIVES_DB_USER`, `FIVES_DB_PASSWORD`).
+5. **Installation** : récapitulatif, puis chaque action (bases et comptes, paquets SQL, administrateur, licence,
+   module, vérification des comptes) avec son résultat.
 
-Reporter ensuite dans `.env` le compte SQL créé (`DB_USER`, `DB_PASSWORD`), puis :
+Une base déjà présente est conservée : rien n'est effacé, les paquets SQL s'appliquent à nouveau. Reporter dans
+`.env` les lignes affichées à la fin (le bouton les copie avec les mots de passe saisis), puis :
 
 ```bash
 make wizard-down     # le wizard ne doit pas rester exposé
-make up
+make deploy          # démarre aussi le module 5S quand FIVES_DB_PASSWORD est renseigné
 ```
+
+Le module 5S peut aussi être ajouté plus tard : `scripts/modules/fives/install.sh` crée ses bases, puis la clé se
+colle dans Réglages avancés › Fonctionnalités.
 
 ## 3. Premier démarrage dans l'application
 

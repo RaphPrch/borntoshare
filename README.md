@@ -28,7 +28,7 @@ flowchart LR
 | core-service | Données, gouvernance, audit, coffre des secrets, planificateur | [core-service/README.md](core-service/README.md) |
 | capsule-runner | Worker : toutes les actions sur l'AD et les serveurs | [capsule-runner/README.md](capsule-runner/README.md) |
 | redis | File des travaux et sessions | [docs/architecture.md](docs/architecture.md) |
-| wizard-ui | Initialisation de la base, une seule fois | [wizard-ui/README.md](wizard-ui/README.md) |
+| wizard-ui | Installation (bases, administrateur, licence, module 5S), une seule fois | [wizard-ui/README.md](wizard-ui/README.md) |
 
 ## Démarrer
 
