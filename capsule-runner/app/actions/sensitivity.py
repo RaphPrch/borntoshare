@@ -18,7 +18,8 @@ from app.actions.smb import _LS_ENTRY, _classify_smb_error, run_samba
 # 3: personal data (social security number), bank data (IBAN, card), backups and databases, mailboxes, programs
 RULES_VERSION = 3
 MAX_LISTED = 300_000
-MAX_READ_FILES = 300
+# Files whose content is read in one pass (the next pass, queued by the core, goes on)
+MAX_READ_FILES = 1000
 MAX_FILE_BYTES = 1024 * 1024
 MAX_READ_BYTES = 50 * 1024 * 1024
 MAX_FINDINGS = 100

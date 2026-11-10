@@ -157,7 +157,8 @@
   </header>
 
   {#if running}
-    <div class="sc__running" role="status"><span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{t('The worker reads the folder: names of the files, then the content of the small text files.')}</div>
+    <div class="sc__running" role="status"><span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{t('The worker reads the folder: names of the files, then the content of the small text files.')}
+      {#if state?.incremental?.pending}<b>{t('{count} file(s) still to read: the scan goes on by itself, pass after pass.', { count: state.incremental.pending })}</b>{/if}</div>
   {:else if state?.status === 'failed'}
     <p class="sc__error"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i>{state.error ?? t('The scan failed')}</p>
   {:else if state?.status === 'done' && state.files_flagged === 0}
@@ -258,7 +259,7 @@
   .sc__ok, .sc__error { display: flex; gap: 8px; align-items: center; font-size: var(--b2s-fs-sm); }
   .sc__ok i { color: var(--b2s-color-success-strong, #1a7f37); }
   .sc__error { color: var(--b2s-color-danger-strong, #b42318); }
-  .sc__running { display: flex; gap: 10px; align-items: center; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .sc__running { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .sc__summary { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-danger-soft, #fdecea); }
   .sc__summary strong { color: var(--b2s-color-danger-strong, #b42318); }
   .sc__cats { display: flex; flex-wrap: wrap; gap: 6px; }

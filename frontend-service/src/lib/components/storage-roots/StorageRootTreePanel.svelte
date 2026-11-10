@@ -36,14 +36,54 @@
   export let onFolderAction: ((kind: FolderActionKind, row: StorageRootRow) => void) | null = null;
   /** Right click on a server: create a share (a new folder at its root), add folders, open it (administrators) */
   export let onServerAction: ((kind: 'share' | 'add-folders' | 'open', endpointId: number) => void) | null = null;
+  /** Several folders at once (administrators): scan the sensitivity or measure them all */
+  export let onBulkAnalysis: ((kind: 'sensitivity' | 'measure', rows: StorageRootRow[]) => Promise<void> | void) | null = null;
+
+  // Folders ticked (Ctrl/Cmd + click, Shift + click, the box of the row); only those still listed count
+  let checked = new Set<string>();
+  $: checkedRows = rows.filter((row) => checked.has(String(rootId(row))));
+  $: pruneChecked(rows);
+  function pruneChecked(list: StorageRootRow[]) {
+    const present = new Set(list.map((row) => String(rootId(row))));
+    if ([...checked].some((id) => !present.has(id))) checked = new Set([...checked].filter((id) => present.has(id)));
+  }
+  let bulkBusy = false;
+  async function runBulk(kind: 'sensitivity' | 'measure', targets: StorageRootRow[]) {
+    if (!onBulkAnalysis || !targets.length || bulkBusy) return;
+    bulkBusy = true;
+    try {
+      await onBulkAnalysis(kind, targets);
+    } finally {
+      bulkBusy = false;
+    }
+  }
+  const selectRows = (targets: StorageRootRow[]) => (checked = new Set(targets.map((row) => String(rootId(row)))));
+
+  // Right click on a ticked folder while several are ticked: the menu acts on all of them
+  let bulkMenuAt: { x: number; y: number } | null = null;
+  $: bulkMenuItems = [
+    { key: 'sensitivity', label: t('Scan the sensitivity of the {count} folders', { count: checkedRows.length }), icon: 'bi-shield-lock' },
+    { key: 'measure', label: t('Measure the {count} folders', { count: checkedRows.length }), icon: 'bi-rulers' },
+    { key: 'clear', label: t('Clear the selection'), icon: 'bi-x-lg', separated: true }
+  ] satisfies ContextMenuItem[];
+  // The folders under each server node (its menu can select, scan or measure them)
+  const serverRows = new Map<string, StorageRootRow[]>();
 
   // The file server behind each server node (the first SMB one; a DFS namespace takes no share)
   const serverEndpoints = new Map<string, { id: number; label: string; dfs: boolean }>();
-  let serverMenu: { id: number; label: string; dfs: boolean } | null = null;
+  let serverMenu: { id: number; label: string; dfs: boolean; key: string } | null = null;
   let serverMenuAt = { x: 0, y: 0 };
+  $: serverMenuRows = serverMenu ? serverRows.get(serverMenu.key) ?? [] : [];
   $: serverMenuItems = serverMenu
     ? ([
-        { key: 'share', label: t('Create a share (a new folder at the root)'), icon: 'bi-folder-plus', disabled: serverMenu.dfs,
+        ...(onBulkAnalysis && serverMenuRows.length
+          ? [
+              { key: 'scan-all', label: t('Scan the sensitivity of its {count} folders', { count: serverMenuRows.length }), icon: 'bi-shield-lock' },
+              { key: 'measure-all', label: t('Measure its {count} folders', { count: serverMenuRows.length }), icon: 'bi-rulers' },
+              { key: 'select-all', label: t('Select its folders'), icon: 'bi-check2-square' }
+            ]
+          : []),
+        { key: 'share', label: t('Create a share (a new folder at the root)'), icon: 'bi-folder-plus', disabled: serverMenu.dfs, separated: Boolean(onBulkAnalysis && serverMenuRows.length),
           hint: serverMenu.dfs ? t('A DFS namespace has no share of its own') : '' },
         { key: 'add-folders', label: t('Add folders'), icon: 'bi-plus-lg' },
         { key: 'open', label: t('Open the file server'), icon: 'bi-hdd-network', separated: true }
@@ -192,6 +232,7 @@
         serverEndpoints.set(serverKey, { id: endpointId, label: server, dfs });
       }
       entry.rows.push(row);
+      serverRows.set(serverKey, entry.rows);
       let cursor = entry.tree;
       for (const segment of segments.slice(1)) {
         const id = segment.toLowerCase();
@@ -293,14 +334,21 @@
   onViewMode={setViewMode}
   {onQueryChange}
   onSelect={(id) => onSelectRoot(Number(id))}
+  multiSelect={Boolean(onBulkAnalysis)}
+  {checked}
+  onCheckedChange={(next) => (checked = next)}
   onContextMenu={(node, event) => {
         if (node.selectId == null) {
           // A server of the tree
           const server = serverEndpoints.get(node.key);
           if (server && onServerAction) {
             serverMenuAt = menuPositionFor(event);
-            serverMenu = server;
+            serverMenu = { ...server, key: node.key };
           }
+          return;
+        }
+        if (checked.size > 1 && checked.has(String(node.selectId)) && onBulkAnalysis) {
+          bulkMenuAt = menuPositionFor(event);
           return;
         }
         menuRow = rows.find((row) => rootId(row) === Number(node.selectId)) ?? null;
@@ -316,12 +364,48 @@
 >
   <div slot="below-search">
     <FolderQueryAssist {query} {rows} count={visibleRows.length} {onQueryChange} />
+    {#if onBulkAnalysis && checkedRows.length}
+      <div class="tree-bulk" role="region" aria-label={t('Selection')}>
+        <div class="tree-bulk__head">
+          <b>{t('{count} folder(s) selected', { count: checkedRows.length })}</b>
+          {#if visibleRows.length > checkedRows.length}
+            <button type="button" class="b2s-link-btn" on:click={() => selectRows(visibleRows)}>{t('All the {count} shown', { count: visibleRows.length })}</button>
+          {/if}
+          <button type="button" class="tree-bulk__close" title={t('Clear the selection')} aria-label={t('Clear the selection')} on:click={() => (checked = new Set())}>
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="tree-bulk__actions">
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={bulkBusy} on:click={() => runBulk('sensitivity', checkedRows)}>
+            <i class="bi bi-shield-lock" aria-hidden="true"></i>{t('Scan the sensitivity')}
+          </button>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={bulkBusy} on:click={() => runBulk('measure', checkedRows)}>
+            <i class="bi bi-rulers" aria-hidden="true"></i>{t('Measure')}
+          </button>
+        </div>
+      </div>
+    {:else if onBulkAnalysis}
+      <p class="tree-tip">{t('Ctrl + click or Shift + click to select several folders.')}</p>
+    {/if}
   </div>
 </EntitySidebarTree>
 
 <ContextMenu open={Boolean(serverMenu)} title={serverMenu?.label ?? ''} subtitle={t('File server')} items={serverMenuItems} at={serverMenuAt}
   onClose={() => (serverMenu = null)}
-  onPick={(key) => serverMenu && onServerAction?.(key === 'share' ? 'share' : key === 'add-folders' ? 'add-folders' : 'open', serverMenu.id)} />
+  onPick={(key) => {
+    if (!serverMenu) return;
+    if (key === 'scan-all') void runBulk('sensitivity', serverMenuRows);
+    else if (key === 'measure-all') void runBulk('measure', serverMenuRows);
+    else if (key === 'select-all') selectRows(serverMenuRows);
+    else onServerAction?.(key === 'share' ? 'share' : key === 'add-folders' ? 'add-folders' : 'open', serverMenu.id);
+  }} />
+
+<ContextMenu open={Boolean(bulkMenuAt)} title={t('{count} folder(s) selected', { count: checkedRows.length })} items={bulkMenuItems} at={bulkMenuAt ?? { x: 0, y: 0 }}
+  onClose={() => (bulkMenuAt = null)}
+  onPick={(key) => {
+    if (key === 'clear') checked = new Set();
+    else void runBulk(key === 'measure' ? 'measure' : 'sensitivity', checkedRows);
+  }} />
 
 <StorageRootContextMenu
   row={menuRow}
@@ -336,4 +420,10 @@
 
 <style>
   .tree-extra { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .tree-bulk { display: grid; gap: 8px; margin-top: 8px; padding: 8px 10px; border: 1px solid #c7d7fe; border-radius: var(--b2s-radius-md, 8px); background: #eef4ff; font-size: var(--b2s-fs-sm); }
+  .tree-bulk__head { display: flex; align-items: center; gap: 8px; }
+  .tree-bulk__head b { font-weight: 600; }
+  .tree-bulk__close { margin-left: auto; border: 0; background: none; padding: 2px; color: var(--b2s-color-text-muted); cursor: pointer; }
+  .tree-bulk__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tree-tip { margin: 6px 0 0; color: var(--b2s-color-text-faint, #8a94a6); font-size: var(--b2s-fs-xs); }
 </style>

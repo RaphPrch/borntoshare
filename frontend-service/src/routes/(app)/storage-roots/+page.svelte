@@ -663,6 +663,30 @@
     }
   }
 
+  // Several folders ticked in the tree: one request for all of them
+  async function bulkAnalysis(kind: 'sensitivity' | 'measure', rows: any[]) {
+    const ids = [...new Set(rows.map((row) => Number(row?.storage_root_id ?? 0)).filter((id) => id > 0))];
+    if (!ids.length) return;
+    try {
+      const result = await apiPostData<{ queued: number[]; failed: Array<{ storage_root_id: number; message: string }> }>(
+        fetch, kind === 'sensitivity' ? '/storage-roots/sensitivity-scan' : '/storage-roots/measure', { root_ids: ids });
+      const queued = result?.queued?.length ?? 0;
+      if (queued) {
+        toast.success(kind === 'sensitivity'
+          ? t('Sensitivity scan started on {count} folder(s).', { count: queued })
+          : t('Measure started on {count} folder(s).', { count: queued }));
+      }
+      if (result?.failed?.length) {
+        toast.error(t('{count} folder(s) not started: {message}', { count: result.failed.length, message: result.failed[0].message }));
+      }
+      // The folder shown is one of them: its card follows the run
+      if (selectedStorageRootId && ids.includes(Number(selectedStorageRootId))) await invalidateAndReloadDetailsForRoot(Number(selectedStorageRootId));
+      for (const id of ids) detailsCache.delete(id);
+    } catch (error: unknown) {
+      reportUiError(error, kind === 'sensitivity' ? 'Unable to start the scan.' : 'Unable to start the measure.', `storage-roots.bulk-${kind}`);
+    }
+  }
+
   // Right click on a server of the tree
   let shareEndpointId: number | null = null;
   function serverAction(kind: 'share' | 'add-folders' | 'open', endpointId: number) {
@@ -1758,6 +1782,7 @@
         {rootAlertSummary}
         onFolderAction={data.user?.is_admin === true ? folderAction : null}
         onServerAction={data.user?.is_admin === true ? serverAction : null}
+        onBulkAnalysis={data.user?.is_admin === true ? bulkAnalysis : null}
       />
     </svelte:fragment>
 

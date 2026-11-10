@@ -5332,5 +5332,22 @@
   "{days} d {hours} h": "{days} j {hours} h",
   "Identity sources › Synchronise": "Sources d'identité › Synchroniser",
   "Folders › Permissions": "Dossiers › Permissions",
-  "Observability › Health (runs every few minutes)": "Observabilité › Santé (s'exécute toutes les quelques minutes)"
+  "Observability › Health (runs every few minutes)": "Observabilité › Santé (s'exécute toutes les quelques minutes)",
+  "Scan the sensitivity of the {count} folders": "Analyser la sensibilité des {count} dossiers",
+  "Measure the {count} folders": "Mesurer les {count} dossiers",
+  "Scan the sensitivity of its {count} folders": "Analyser la sensibilité de ses {count} dossiers",
+  "Measure its {count} folders": "Mesurer ses {count} dossiers",
+  "Select its folders": "Sélectionner ses dossiers",
+  "All the {count} shown": "Tous les {count} affichés",
+  "Measure": "Mesurer",
+  "Ctrl + click or Shift + click to select several folders.": "Ctrl + clic ou Maj + clic pour sélectionner plusieurs dossiers.",
+  "Select « {name} »": "Sélectionner « {name} »",
+  "Sensitivity scan started on {count} folder(s).": "Analyse de la sensibilité lancée sur {count} dossier(s).",
+  "Measure started on {count} folder(s).": "Mesure lancée sur {count} dossier(s).",
+  "{count} folder(s) not started: {message}": "{count} dossier(s) non lancé(s) : {message}",
+  "{count} folder(s) queued for a measure.": "{count} dossier(s) en file pour une mesure.",
+  "Measure the folders": "Mesurer les dossiers",
+  "The worker walks through each folder (read only): size, number of files, age of the data, clutter and duplicates. The results appear on each folder.": "Le worker parcourt chaque dossier (lecture seule) : taille, nombre de fichiers, âge des données, encombrement et doublons. Les résultats apparaissent sur chaque dossier.",
+  "Start the measures": "Lancer les mesures",
+  "{count} file(s) still to read: the scan goes on by itself, pass after pass.": "{count} fichier(s) encore à lire : l'analyse continue d'elle-même, passe après passe."
 }

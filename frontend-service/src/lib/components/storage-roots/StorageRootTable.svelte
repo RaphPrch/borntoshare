@@ -233,7 +233,7 @@
   }
 
   // ---- Bulk actions --------------------------------------------------------
-  let action: 'guardians' | 'tags' | 'check' | 'sensitivity' | null = null;
+  let action: 'guardians' | 'tags' | 'check' | 'sensitivity' | 'measure' | null = null;
   // Beyond 50 folders, an action on the selection is confirmed explicitly
   const BULK_CONFIRM_FROM = 50;
   let bulkConfirmed = false;
@@ -252,7 +252,7 @@
     void openAction('guardians');
   }
 
-  async function openAction(kind: 'guardians' | 'tags' | 'check' | 'sensitivity') {
+  async function openAction(kind: Exclude<typeof action, null>) {
     failures = [];
     action = kind;
     if (kind === 'guardians' && !peopleLoaded) {
@@ -304,7 +304,9 @@
             ? await inBatches('/storage-roots/bulk-tags', (ids) => ({ root_ids: ids, tag_ids: [...tagIds] }), 'updated')
             : action === 'sensitivity'
               ? await inBatches('/storage-roots/sensitivity-scan', (ids) => ({ root_ids: ids }), 'queued')
-              : await inBatches('/storage-roots/bulk-check', (ids) => ({ root_ids: ids }), 'queued');
+              : action === 'measure'
+                ? await inBatches('/storage-roots/measure', (ids) => ({ root_ids: ids }), 'queued')
+                : await inBatches('/storage-roots/bulk-check', (ids) => ({ root_ids: ids }), 'queued');
       failures = result.failed;
       if (result.ok) {
         toast.success(
@@ -312,6 +314,8 @@
             ? t('{count} folder(s) queued for a test and an ACL read.', { count: result.ok })
             : action === 'sensitivity'
               ? t('{count} folder(s) queued for a sensitivity scan.', { count: result.ok })
+            : action === 'measure'
+              ? t('{count} folder(s) queued for a measure.', { count: result.ok })
             : t('{count} folder(s) updated.', { count: result.ok })
         );
       }
@@ -452,6 +456,7 @@
       <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('tags')}>{t('Add tags')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('check')}>{t('Read the ACLs')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('sensitivity')}>{t('Scan for secrets')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('measure')}>{t('Measure')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" on:click={exportCsv}>{t('Export')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm tb__clear" on:click={() => (checked = new Set())}>{t('Clear the selection')}</button>
     </div>
@@ -461,9 +466,9 @@
 <AppModal
   open={action !== null}
   onClose={closeAction}
-  title={action === 'guardians' ? t('Add guardians') : action === 'tags' ? t('Add tags') : action === 'sensitivity' ? t('Scan for secrets') : t('Read the ACLs')}
+  title={action === 'guardians' ? t('Add guardians') : action === 'tags' ? t('Add tags') : action === 'sensitivity' ? t('Scan for secrets') : action === 'measure' ? t('Measure the folders') : t('Read the ACLs')}
   subtitle={t('{count} folder(s) selected', { count: checked.size })}
-  iconClass={action === 'guardians' ? 'bi bi-person-check' : action === 'tags' ? 'bi bi-tags' : action === 'sensitivity' ? 'bi bi-shield-lock' : 'bi bi-arrow-clockwise'}
+  iconClass={action === 'guardians' ? 'bi bi-person-check' : action === 'tags' ? 'bi bi-tags' : action === 'sensitivity' ? 'bi bi-shield-lock' : action === 'measure' ? 'bi bi-rulers' : 'bi bi-arrow-clockwise'}
 >
   {#if action === 'guardians'}
     <GovernancePicker id="bulk-guardians" label={t('Guardians')} placeholder={t('Search a person…')} options={peopleOptions} bind:selected={guardianIds} />
@@ -487,6 +492,8 @@
     <p>{t('The worker tests each folder and reads its NTFS permissions. The results appear on each folder in the next minutes.')}</p>
   {:else if action === 'sensitivity'}
     <p>{t('The worker looks in each folder for passwords, keys and password vaults (read only; the secrets are never kept). The results appear on each folder, and the policies about sensitivity apply at once.')}</p>
+  {:else if action === 'measure'}
+    <p>{t('The worker walks through each folder (read only): size, number of files, age of the data, clutter and duplicates. The results appear on each folder.')}</p>
   {/if}
   {#if checked.size > BULK_CONFIRM_FROM}
     <label class="tb__confirm"><input type="checkbox" bind:checked={bulkConfirmed} />{t('I confirm the action on {count} folders', { count: checked.size })}</label>
@@ -503,7 +510,7 @@
       variant="primary"
       busy={running}
       disabled={(action === 'guardians' && !guardianIds.length) || (action === 'tags' && !tagIds.size) || !checked.size || (checked.size > BULK_CONFIRM_FROM && !bulkConfirmed)}
-      label={action === 'check' ? t('Start the reads') : action === 'sensitivity' ? t('Start the scans') : t('Apply')}
+      label={action === 'check' ? t('Start the reads') : action === 'sensitivity' ? t('Start the scans') : action === 'measure' ? t('Start the measures') : t('Apply')}
       onClick={runAction}
     />
   </svelte:fragment>

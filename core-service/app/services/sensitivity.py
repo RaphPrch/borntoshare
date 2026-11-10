@@ -306,3 +306,52 @@ def password_files_by_root(db: Session, storage_root_ids: list[int]) -> dict[int
 def key_files_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, int]:
     """Private keys and API keys or tokens per scanned folder: « est:cle-ou-jeton »."""
     return files_by_root(db, storage_root_ids, KEY_CATEGORIES)
+
+
+# A folder too big for one pass is read pass after pass, by itself, until its content is read through
+MAX_PASSES = 1000
+
+
+def continue_if_pending(db: Session, job_row: Any, scan: dict | None) -> int | None:
+    """After a pass that left files to read: the next pass, queued at once (same parameters, the folder's new
+    cursor). Stops when everything is read, when a pass made no progress, when another scan of the folder took
+    over, or after MAX_PASSES. Returns the new job id."""
+    import uuid
+
+    from app.data.repositories.provisioning_jobs_repo import ProvisioningJobsRepo
+    from app.jobs.b2s_job_contracts.actors import publish_job
+
+    incremental = (scan or {}).get("incremental") if isinstance((scan or {}).get("incremental"), dict) else {}
+    pending = int(incremental.get("pending") or 0)
+    if not incremental or incremental.get("complete") or pending <= 0:
+        return None
+    payload = _load(getattr(job_row, "payload_json", None), {})
+    body = payload.get("payload") if isinstance(payload.get("payload"), dict) else None
+    if body is None:
+        return None
+    context = dict(body.get("context") or {})
+    target = dict(body.get("target") or {})
+    root_id = int(context.get("storage_root_id") or target.get("storage_root_id") or 0)
+    passes = int(context.get("pass") or 1)
+    previous = context.get("pending_before")
+    if not root_id or passes >= MAX_PASSES or (previous is not None and pending >= int(previous)):
+        return None
+    job_id = int(getattr(job_row, "id", 0) or 0)
+    current = db.execute(text("SELECT job_id FROM storage_root_sensitivity WHERE storage_root_id = :id"), {"id": root_id}).scalar()
+    if current is not None and int(current) != job_id:
+        return None
+    target.update(incremental_params(root_id))
+    body["target"] = target
+    body["context"] = {**context, "pass": passes + 1, "pending_before": pending, "continues": job_id}
+    row = ProvisioningJobsRepo(db).create(data={
+        "correlation_id": f"prb_{uuid.uuid4().hex}",
+        "job_type": getattr(job_row, "job_type", None),
+        "action": ACTION,
+        "status": "QUEUED",
+        "identity_source_id": getattr(job_row, "identity_source_id", None),
+        "payload_json": payload,
+    })
+    new_id = int(row.id)
+    mark_requested(db, root_id, new_id)
+    publish_job(str(getattr(job_row, "job_type", "") or ""), new_id)
+    return new_id

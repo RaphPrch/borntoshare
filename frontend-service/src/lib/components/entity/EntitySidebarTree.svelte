@@ -82,6 +82,14 @@
   export let onHover: ((node: EntityTreeNode | null, anchor: HTMLElement | null) => void) | null = null;
   /** Right click (or the context-menu key) on a selectable row: the page opens its own menu */
   export let onContextMenu: ((node: EntityTreeNode, event: MouseEvent) => void) | null = null;
+  /**
+   * Several items at once (off by default): Ctrl/Cmd + click adds or removes one, Shift + click takes the range
+   * from the last one, the box on the row too. `checked` holds the selectId of the items (as strings).
+   */
+  export let multiSelect = false;
+  export let checked: Set<string> = new Set();
+  export let onCheckedChange: ((next: Set<string>) => void) | null = null;
+  let anchorId: string | null = null;
   /** « + » next to the search: creates an item of the list (new file server, storage roots, zone) */
   export let onAdd: (() => void) | null = null;
   export let addLabel = t('Add');
@@ -274,10 +282,31 @@
     scrollToRow(key);
   }
 
-  function activate(row: Row): void {
+  function activate(row: Row, event?: MouseEvent | KeyboardEvent): void {
     focusedKey = row.node.key;
+    if (multiSelect && row.node.selectId != null && event && (event.ctrlKey || event.metaKey || event.shiftKey)) {
+      check(row, event.shiftKey ? 'range' : 'toggle');
+      return;
+    }
     if (row.node.selectId != null) onSelect(row.node.selectId, row.node);
     else if (row.hasChildren) toggle(row.node.key);
+  }
+
+  function check(row: Row, mode: 'toggle' | 'range'): void {
+    const id = String(row.node.selectId);
+    const next = new Set(checked);
+    const selectable = rows.filter((item) => item.node.selectId != null).map((item) => String(item.node.selectId));
+    const from = anchorId != null ? selectable.indexOf(anchorId) : -1;
+    if (mode === 'range' && from >= 0) {
+      const to = selectable.indexOf(id);
+      for (const item of selectable.slice(Math.min(from, to), Math.max(from, to) + 1)) next.add(item);
+    } else if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    anchorId = id;
+    onCheckedChange?.(next);
   }
 
   function onKeydown(event: KeyboardEvent): void {
@@ -298,7 +327,8 @@
         else focusRow(row.parent);
       },
       Enter: () => activate(row),
-      ' ': () => activate(row)
+      // Space ticks the item when several can be chosen
+      ' ': () => (multiSelect && row.node.selectId != null ? check(row, 'toggle') : activate(row))
     };
     const action = keyActions[event.key];
     if (!action) return;
@@ -369,6 +399,7 @@
           <div
             class="b2s-tree__row"
             class:is-active={active}
+            class:is-checked={multiSelect && node.selectId != null && checked.has(String(node.selectId))}
             class:is-muted={node.muted}
             class:is-top={row.depth === 0 && isTree}
             class:has-sub={Boolean(node.subtitle)}
@@ -387,11 +418,25 @@
               onHover?.(null, null);
               onContextMenu(node, event);
             }}
-            on:click={() => activate(row)}
+            on:click={(event) => activate(row, event)}
             on:keydown={onKeydown}
             on:focus={() => (focusedKey = node.key)}
           >
             {#each Array(row.depth) as _}<span class="b2s-tree__guide" aria-hidden="true"></span>{/each}
+            {#if multiSelect && node.selectId != null}
+              <input
+                type="checkbox"
+                class="b2s-tree__check"
+                class:is-shown={checked.size > 0}
+                tabindex="-1"
+                aria-label={t('Select « {name} »', { name: node.label })}
+                checked={checked.has(String(node.selectId))}
+                on:click|stopPropagation={(event) => {
+                  event.preventDefault();
+                  check(row, event.shiftKey ? 'range' : 'toggle');
+                }}
+              />
+            {/if}
             {#if isTree}
               {#if row.hasChildren}
                 <button
@@ -618,6 +663,24 @@
 
   .b2s-tree__row.is-active .b2s-tree__label {
     font-weight: 600;
+  }
+
+  /* Multiple selection: the box shows on hover, and on every row once something is selected */
+  .b2s-tree__check {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    margin: 0 6px 0 2px;
+    cursor: pointer;
+    opacity: 0;
+  }
+  .b2s-tree__row:hover .b2s-tree__check,
+  .b2s-tree__check.is-shown,
+  .b2s-tree__check:focus-visible {
+    opacity: 1;
+  }
+  .b2s-tree__row.is-checked {
+    background: #eef4ff;
   }
 
   .b2s-tree__row.is-top .b2s-tree__label {

@@ -1425,5 +1425,22 @@
   "{days} d {hours} h": "{days} d {hours} h",
   "Identity sources › Synchronise": "Identity sources › Synchronise",
   "Folders › Permissions": "Folders › Permissions",
-  "Observability › Health (runs every few minutes)": "Observability › Health (runs every few minutes)"
+  "Observability › Health (runs every few minutes)": "Observability › Health (runs every few minutes)",
+  "Scan the sensitivity of the {count} folders": "Scan the sensitivity of the {count} folders",
+  "Measure the {count} folders": "Measure the {count} folders",
+  "Scan the sensitivity of its {count} folders": "Scan the sensitivity of its {count} folders",
+  "Measure its {count} folders": "Measure its {count} folders",
+  "Select its folders": "Select its folders",
+  "All the {count} shown": "All the {count} shown",
+  "Measure": "Measure",
+  "Ctrl + click or Shift + click to select several folders.": "Ctrl + click or Shift + click to select several folders.",
+  "Select « {name} »": "Select « {name} »",
+  "Sensitivity scan started on {count} folder(s).": "Sensitivity scan started on {count} folder(s).",
+  "Measure started on {count} folder(s).": "Measure started on {count} folder(s).",
+  "{count} folder(s) not started: {message}": "{count} folder(s) not started: {message}",
+  "{count} folder(s) queued for a measure.": "{count} folder(s) queued for a measure.",
+  "Measure the folders": "Measure the folders",
+  "The worker walks through each folder (read only): size, number of files, age of the data, clutter and duplicates. The results appear on each folder.": "The worker walks through each folder (read only): size, number of files, age of the data, clutter and duplicates. The results appear on each folder.",
+  "Start the measures": "Start the measures",
+  "{count} file(s) still to read: the scan goes on by itself, pass after pass.": "{count} file(s) still to read: the scan goes on by itself, pass after pass."
 }

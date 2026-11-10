@@ -344,8 +344,14 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
     if error_message is not None:
         sensitivity.record_failure(db, root_id, job_id, error_message)
         return
-    sensitivity.record_result(db, root_id, job_id, result_json)
+    scan = sensitivity.record_result(db, root_id, job_id, result_json)
     db.commit()
+    # A folder too big for one pass: the next pass starts by itself
+    try:
+        sensitivity.continue_if_pending(db, job_row, scan)
+    except Exception:
+        db.rollback()
+        logger.warning("SENSITIVITY_NEXT_PASS_NOT_QUEUED", exc_info=True)
     # A correction asked to the guardians closes by itself when the files are gone (or becomes overdue)
     try:
         from app.services import remediations
