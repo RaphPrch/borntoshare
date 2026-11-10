@@ -5223,5 +5223,11 @@
   "See its folders": "Voir ses dossiers",
   "No folder in this zone yet": "Aucun dossier dans cette zone",
   "{servers} server(s) and {folders} folder(s) attached: move or remove them first": "{servers} serveur(s) et {folders} dossier(s) rattachés : déplacez-les ou retirez-les d'abord",
-  "Left the directory": "Parti de l'annuaire"
+  "Left the directory": "Parti de l'annuaire",
+  "Scan the sensitivity": "Analyser la sensibilité",
+  "Create a share (a new folder at the root)": "Créer un partage (nouveau dossier à la racine)",
+  "A DFS namespace has no share of its own": "Un espace de noms DFS n'a pas de partage propre",
+  "Open the file server": "Ouvrir le serveur de fichiers",
+  "Sensitivity scan started on « {name} ».": "Analyse de la sensibilité lancée sur « {name} ».",
+  "Measure started on « {name} ».": "Mesure lancée sur « {name} »."
 }

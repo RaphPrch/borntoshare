@@ -24,6 +24,8 @@
     muted?: boolean;
     /** Id passed to onSelect; nodes without one only expand/collapse */
     selectId?: string | number | null;
+    /** Right click opens onContextMenu even without selectId (a server of the folders tree…) */
+    contextMenu?: boolean;
     /** Health dot shown at the end of the row */
     dot?: 'healthy' | 'warning' | 'error' | 'neutral' | null;
     badges?: EntityTreeBadge[];
@@ -380,7 +382,7 @@
             on:mouseenter={(event) => node.selectId != null && onHover?.(node, event.currentTarget)}
             on:mouseleave={() => onHover?.(null, null)}
             on:contextmenu={(event) => {
-              if (!onContextMenu || node.selectId == null) return;
+              if (!onContextMenu || (node.selectId == null && !node.contextMenu)) return;
               event.preventDefault();
               onHover?.(null, null);
               onContextMenu(node, event);

@@ -1315,5 +1315,12 @@
   "See its folders": "See its folders",
   "No folder in this zone yet": "No folder in this zone yet",
   "{servers} server(s) and {folders} folder(s) attached: move or remove them first": "{servers} server(s) and {folders} folder(s) attached: move or remove them first",
-  "Left the directory": "Left the directory"
+  "Left the directory": "Left the directory",
+  "Scan the sensitivity": "Scan the sensitivity",
+  "Create a share (a new folder at the root)": "Create a share (a new folder at the root)",
+  "A DFS namespace has no share of its own": "A DFS namespace has no share of its own",
+  "Open the file server": "Open the file server",
+  "File server": "File server",
+  "Sensitivity scan started on « {name} ».": "Sensitivity scan started on « {name} ».",
+  "Measure started on « {name} ».": "Measure started on « {name} »."
 }

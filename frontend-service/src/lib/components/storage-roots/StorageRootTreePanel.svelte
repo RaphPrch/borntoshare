@@ -9,6 +9,7 @@
   import FolderQueryAssist from '$lib/components/storage-roots/FolderQueryAssist.svelte';
   import StorageRootPeek from '$lib/components/storage-roots/StorageRootPeek.svelte';
   import StorageRootContextMenu from '$lib/components/storage-roots/StorageRootContextMenu.svelte';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
 
@@ -33,6 +34,21 @@
   export let onSelectRoot: (id: number) => void = () => {};
   /** Right-click menu on a storage root (platform admins): operations on its folder on the file server */
   export let onFolderAction: ((kind: FolderActionKind, row: StorageRootRow) => void) | null = null;
+  /** Right click on a server: create a share (a new folder at its root), add folders, open it (administrators) */
+  export let onServerAction: ((kind: 'share' | 'add-folders' | 'open', endpointId: number) => void) | null = null;
+
+  // The file server behind each server node (the first SMB one; a DFS namespace takes no share)
+  const serverEndpoints = new Map<string, { id: number; label: string; dfs: boolean }>();
+  let serverMenu: { id: number; label: string; dfs: boolean } | null = null;
+  let serverMenuAt = { x: 0, y: 0 };
+  $: serverMenuItems = serverMenu
+    ? ([
+        { key: 'share', label: t('Create a share (a new folder at the root)'), icon: 'bi-folder-plus', disabled: serverMenu.dfs,
+          hint: serverMenu.dfs ? t('A DFS namespace has no share of its own') : '' },
+        { key: 'add-folders', label: t('Add folders'), icon: 'bi-plus-lg' },
+        { key: 'open', label: t('Open the file server'), icon: 'bi-hdd-network', separated: true }
+      ] satisfies ContextMenuItem[])
+    : [];
 
   const VIEW_KEY = 'b2s.storageRoots.view';
   let peekRow: StorageRootRow | null = null;
@@ -170,6 +186,11 @@
       }
       const entry = servers.get(serverKey)!;
       if (endpointLabel(row)) entry.endpoints.add(endpointLabel(row));
+      const endpointId = Number((row as any)?.storage_endpoint_id ?? 0);
+      const dfs = String((row as any)?.storage_endpoint_type ?? '').toLowerCase() === 'dfs';
+      if (endpointId && (!serverEndpoints.has(serverKey) || (serverEndpoints.get(serverKey)!.dfs && !dfs))) {
+        serverEndpoints.set(serverKey, { id: endpointId, label: server, dfs });
+      }
       entry.rows.push(row);
       let cursor = entry.tree;
       for (const segment of segments.slice(1)) {
@@ -188,6 +209,7 @@
         hint: [...server.endpoints].join(' · ') || null,
         icon: 'bi-hdd-network',
         iconTone: 'server',
+        contextMenu: Boolean(onServerAction) && serverEndpoints.has(key),
         badges: [countLabel(server.rows.length)],
         collapsedBadges: alertBadges(sumAlerts(server.rows)),
         // A root on the share itself (\\server only) stays directly under the server
@@ -272,6 +294,15 @@
   {onQueryChange}
   onSelect={(id) => onSelectRoot(Number(id))}
   onContextMenu={(node, event) => {
+        if (node.selectId == null) {
+          // A server of the tree
+          const server = serverEndpoints.get(node.key);
+          if (server && onServerAction) {
+            serverMenuAt = menuPositionFor(event);
+            serverMenu = server;
+          }
+          return;
+        }
         menuRow = rows.find((row) => rootId(row) === Number(node.selectId)) ?? null;
         const anchor = event.currentTarget as HTMLElement | null;
         const rect = anchor?.getBoundingClientRect();
@@ -287,6 +318,10 @@
     <FolderQueryAssist {query} {rows} count={visibleRows.length} {onQueryChange} />
   </div>
 </EntitySidebarTree>
+
+<ContextMenu open={Boolean(serverMenu)} title={serverMenu?.label ?? ''} subtitle={t('File server')} items={serverMenuItems} at={serverMenuAt}
+  onClose={() => (serverMenu = null)}
+  onPick={(key) => serverMenu && onServerAction?.(key === 'share' ? 'share' : key === 'add-folders' ? 'add-folders' : 'open', serverMenu.id)} />
 
 <StorageRootContextMenu
   row={menuRow}

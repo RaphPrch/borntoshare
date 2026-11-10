@@ -1,5 +1,5 @@
 <script context="module" lang="ts">
-  export type FolderActionKind = 'inheritance' | 'delete' | 'subfolder';
+  export type FolderActionKind = 'inheritance' | 'delete' | 'subfolder' | 'sensitivity' | 'measure';
   /** The folder an action applies to: the selected storage root, or the one right-clicked in the explorer */
   export type FolderActionTarget = { id: number; name: string; path: string; inheritanceBroken: boolean | null };
 </script>

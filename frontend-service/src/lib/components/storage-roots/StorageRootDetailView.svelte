@@ -201,6 +201,8 @@
   />
 
   {#if activeTab === 'overview'}
+    <!-- One instance per folder: its scans, measures and quota never show on another folder (nor its late answers) -->
+    {#key selectedStorageRootId}
     <StorageRootOverview
       {permissions}
       {guardianNames}
@@ -227,6 +229,7 @@
       onToggleInheritance={() => onFolderAction('inheritance', inheritanceBroken)}
       onChanged={loadPermissions}
     />
+    {/key}
   {:else if activeTab === 'effective-access'}
     <section class="sr-clean-tab-panel">
       <!-- The page is open to admins and to the guardians of the root: both review its requests -->

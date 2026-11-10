@@ -70,6 +70,8 @@
     storageRootOpenAlertSummary
   } from '$lib/mappers/storage-root-alerts.mapper';
   import { toast } from '$lib/stores/toast';
+  import { apiPostData } from '$lib/api/client';
+  import ShareCreateModal from '$lib/components/storage-endpoints/ShareCreateModal.svelte';
   import { dependencyDeleteMessage, isDependencyDeleteError } from '$lib/utils/delete-guard';
   import { apiGetData } from '$lib/api/client';
   import { selectionStore } from '$lib/stores/selection.store';
@@ -634,6 +636,40 @@
   let folderActionKind: FolderActionKind | null = null;
   let folderActionTarget: FolderActionTarget | null = null;
   let detailRefreshKey = 0;
+
+  // Right click (tree or explorer): the analyses start at once on that folder only; the others open their dialog
+  function folderAction(kind: FolderActionKind, row: any) {
+    if (kind === 'sensitivity' || kind === 'measure') void quickAnalysis(kind, row);
+    else openFolderAction(kind, row, row?.inheritance_broken == null ? null : Boolean(row.inheritance_broken));
+  }
+
+  async function quickAnalysis(kind: 'sensitivity' | 'measure', row: any) {
+    const id = Number(row?.storage_root_id ?? 0);
+    const name = String(row?.storage_root_name ?? row?.name ?? id);
+    if (!id) return;
+    try {
+      if (kind === 'sensitivity') {
+        const result = await apiPostData<{ queued: number[]; failed: Array<{ message: string }> }>(fetch, '/storage-roots/sensitivity-scan', { root_ids: [id] });
+        if (result?.failed?.length) throw new Error(result.failed[0].message);
+        toast.success(t('Sensitivity scan started on « {name} ».', { name }));
+      } else {
+        await apiPostData(fetch, `/storage-roots/${id}/measure`, {});
+        toast.success(t('Measure started on « {name} ».', { name }));
+      }
+      // The folder shown is that one: its card follows the run (another folder is not touched)
+      if (id === Number(selectedStorageRootId)) await invalidateAndReloadDetailsForRoot(id);
+    } catch (error: unknown) {
+      reportUiError(error, kind === 'sensitivity' ? 'Unable to start the scan.' : 'Unable to start the measure.', `storage-roots.${kind}`);
+    }
+  }
+
+  // Right click on a server of the tree
+  let shareEndpointId: number | null = null;
+  function serverAction(kind: 'share' | 'add-folders' | 'open', endpointId: number) {
+    if (kind === 'share') shareEndpointId = endpointId;
+    else if (kind === 'add-folders') void goto(`/storage-roots/add?endpoint=${endpointId}`);
+    else void goto(`/admin/storage-endpoints/${endpointId}`);
+  }
 
   function openFolderAction(kind: FolderActionKind, row: any, inheritanceBroken: boolean | null) {
     const id = Number(row?.storage_root_id ?? 0);
@@ -1705,9 +1741,7 @@
     onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
     onOpenRoot={openRootFromBrowser}
     onAdd={data.user?.is_admin === true ? openCreateRoot : null}
-    onFolderAction={data.user?.is_admin === true
-      ? (kind, row) => openFolderAction(kind, row, row?.inheritance_broken == null ? null : Boolean(row.inheritance_broken))
-      : null}
+    onFolderAction={data.user?.is_admin === true ? folderAction : null}
   />
 {:else}
   <a class="sr-back" href="/storage-roots"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All folders')}</a>
@@ -1722,9 +1756,8 @@
         onSelectRoot={selectRoot}
         onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
         {rootAlertSummary}
-        onFolderAction={data.user?.is_admin === true
-          ? (kind, row) => openFolderAction(kind, row, row?.inheritance_broken == null ? null : Boolean(row.inheritance_broken))
-          : null}
+        onFolderAction={data.user?.is_admin === true ? folderAction : null}
+        onServerAction={data.user?.is_admin === true ? serverAction : null}
       />
     </svelte:fragment>
 
@@ -1770,6 +1803,10 @@
       explainLogin={explainParam}
     />
   </EntityWorkspace>
+{/if}
+
+{#if shareEndpointId}
+  <ShareCreateModal open endpointId={shareEndpointId} onClose={() => (shareEndpointId = null)} onCreated={() => (shareEndpointId = null)} />
 {/if}
 
 <StorageRootFolderActions

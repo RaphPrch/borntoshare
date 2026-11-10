@@ -37,6 +37,8 @@
           hint: broken == null ? t('Read the ACL first') : '',
           run: (target: StorageRootRow) => onAction('inheritance', target)
         },
+        { key: 'sensitivity', label: t('Scan the sensitivity'), icon: 'bi-shield-lock', run: (target: StorageRootRow) => onAction('sensitivity', target) },
+        { key: 'measure', label: t('Measure the folder'), icon: 'bi-rulers', run: (target: StorageRootRow) => onAction('measure', target) },
         { key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', run: (target: StorageRootRow) => onAction('subfolder', target) },
         { key: 'delete', label: t('Delete the folder from the server'), icon: 'bi-trash', danger: true, run: (target: StorageRootRow) => onAction('delete', target) }] : [])
       ]
