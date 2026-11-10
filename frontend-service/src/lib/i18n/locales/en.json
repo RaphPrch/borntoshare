@@ -1279,5 +1279,20 @@
   "5S: Set in order": "Set in order",
   "5S: Shine": "Shine",
   "5S: Standardize": "Standardize",
-  "5S: Sustain": "Sustain"
+  "5S: Sustain": "Sustain",
+  "Unreachable": "Unreachable",
+  "{count} tables": "{count} tables",
+  "Application account": "Application account",
+  "Migration account": "Migration account",
+  "Passwords": "Passwords",
+  "Podman secrets (never in .env)": "Podman secrets (never in .env)",
+  "In .env: run make deploy to move them into podman secrets": "In .env: run make deploy to move them into podman secrets",
+  "Tables missing: {tables}. Apply the SQL packs (make deploy).": "Tables missing: {tables}. Apply the SQL packs (make deploy).",
+  "Rights of the application account": "Rights of the application account",
+  "Read and write only: the schema is changed by the migration account, during make deploy.": "Read and write only: the schema is changed by the migration account, during make deploy.",
+  "This account can change the schema: its rights are wider than needed. Run the installation wizard again to give it only what it needs.": "This account can change the schema: its rights are wider than needed. Run the installation wizard again to give it only what it needs.",
+  "Rights": "Rights",
+  "To change the server, the databases or the accounts: the installation wizard (make wizard), then make deploy. The settings are in .env, the passwords in podman secrets.": "To change the server, the databases or the accounts: the installation wizard (make wizard), then make deploy. The settings are in .env, the passwords in podman secrets.",
+  "The license opens the module, but its containers (fives-service, fives-scanner) do not run yet: its databases are not installed on this server.": "The license opens the module, but its containers (fives-service, fives-scanner) do not run yet: its databases are not installed on this server.",
+  "Run the installation wizard again (make wizard on the server) and paste the license key at its step « Licence et modules »: it creates the two databases of the module and its own account, then deploys by itself. Nothing is deleted. Come back here afterwards.": "Run the installation wizard again (make wizard on the server) and paste the license key at its step « Licence et modules »: it creates the two databases of the module and its own account, then deploys by itself. Nothing is deleted. Come back here afterwards."
 }

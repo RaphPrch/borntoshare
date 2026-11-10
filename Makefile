@@ -54,6 +54,9 @@ backup: .env
 wizard: .env
 	install -d -m 700 secrets
 	$(COMPOSE) --profile wizard up -d --build wizard-ui
+	@# After the installation, without a command: .env, make deploy, then the stop of the wizard (scripts/after-wizard.sh)
+	@setsid -f scripts/after-wizard.sh >> secrets/.after-wizard.log 2>&1 < /dev/null
+	@echo "Wizard started. Once the installation is done, the deployment follows by itself."
 
 wizard-down:
 	$(COMPOSE) --profile wizard stop wizard-ui

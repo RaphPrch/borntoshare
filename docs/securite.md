@@ -81,7 +81,7 @@ Chaque service tourne :
 - avec un système de fichiers en lecture seule, et `/tmp` en tmpfs `noexec` ;
 - sans aucune capacité Linux (`cap_drop: ALL`) et avec `no-new-privileges`.
 
-Les seuls montages sont `capsule-runner/certs` (lecture seule) et `config/runtime` (core-service).
+Le seul montage est `capsule-runner/certs` (lecture seule) ; les secrets podman arrivent en fichiers 0400 dans `/run/secrets`.
 Les images partent d'une base fixée (`python:3.14-slim-trixie`, `node:26-alpine`).
 
 ## Rôles dans l'application

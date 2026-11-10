@@ -2,7 +2,7 @@
 -- the quota will be full. And the corrections asked to guardians for the passwords found in their folders: due date,
 -- scan again at the due date, closed by itself when the files are gone. Idempotent: can be applied again.
 
--- (The history of the measures moved to the 5S module: b2s_fives.content_history, scripts/modules/fives/install.sh)
+-- (The history of the measures moved to the 5S module: b2s_fives.content_history, created by the wizard)
 
 CREATE TABLE IF NOT EXISTS sensitivity_remediations (
   id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,

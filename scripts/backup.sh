@@ -7,8 +7,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 . scripts/lib.sh
 TARGET="${1:-backups/$(date +%Y%m%d-%H%M%S)}"
-MIGRATE_USER="$(env_value DB_MIGRATE_USER)"; MIGRATE_USER="${MIGRATE_USER:-b2s_migrate}"
-DATABASES="$(env_value DB_NAME) $(env_value LOGGING_DB_NAME)"
+MIGRATE_USER="$(env_value DB_MIGRATE_USER b2s_migrate)"
+DATABASES="$(env_value DB_NAME borntoshare) $(env_value LOGGING_DB_NAME borntoshare_logging)"
 if has_secret b2s_db_fives; then
   FIVES_DB="$(env_value FIVES_DB_NAME)"; INVENTORY_DB="$(env_value FIVES_INVENTORY_DB_NAME)"
   DATABASES="$DATABASES ${FIVES_DB:-b2s_fives} ${INVENTORY_DB:-b2s_fives_inventory}"

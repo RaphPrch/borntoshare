@@ -10,7 +10,7 @@ echo "0/4 secrets"
 scripts/secrets.sh
 
 SERVICES="core-service frontend-service capsule-runner auth-service"
-# The 5S module runs once its databases are installed (wizard or scripts/modules/fives/install.sh: secret b2s_db_fives)
+# The 5S module runs once its databases are installed (the wizard: secret b2s_db_fives)
 COMPOSE="podman-compose -f podman-compose.yml"
 FIVES=""
 if has_secret b2s_db_fives; then
@@ -19,17 +19,17 @@ if has_secret b2s_db_fives; then
   COMPOSE="podman-compose --profile fives -f podman-compose.yml"
 fi
 # Schema changes with the migration account only (the accounts of the services only read and write)
-MIGRATE_USER="$(env_value DB_MIGRATE_USER)"; MIGRATE_USER="${MIGRATE_USER:-b2s_migrate}"
+MIGRATE_USER="$(env_value DB_MIGRATE_USER b2s_migrate)"
 PACKS="135_access_expiry_schedule 136_storage_root_acl_exceptions 137_close_phantom_revoke_requests 138_tag_family 139_access_request_permission_change 140_identity_source_ldap_settings 141_secret_items 142_worker_agent_token 143_identity_source_flavor 144_integrity 145_dfs_read_schedule 146_access_request_justification 147_extensions 148_notification_log 149_storage_root_sensitivity 150_governance_policies 151_policy_jobs 152_sensitivity_ignores 153_guardian_substitutes 154_storage_root_quotas 155_content_history_remediations 156_folder_scans_duplicates 157_licenses_features 158_scan_progress 159_simplify_tables"
 # Views whose definition changed since the installation: replayed too (CREATE OR REPLACE)
 VIEWS="141_views_workflow 141_views_naming_policy_effective 142_views_zone_policy"
 
 echo "1/4 database (account $MIGRATE_USER): $PACKS, views $VIEWS${FIVES:+, module 5S}"
 for pack in $PACKS; do
-  b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "$(env_value DB_NAME)" < "wizard-ui/backend/app/sql/schema/$pack.sql" >/dev/null
+  b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "$(env_value DB_NAME borntoshare)" < "wizard-ui/backend/app/sql/schema/$pack.sql" >/dev/null
 done
 for view in $VIEWS; do
-  b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "$(env_value DB_NAME)" < "wizard-ui/backend/app/sql/views/$view.sql" >/dev/null
+  b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "$(env_value DB_NAME borntoshare)" < "wizard-ui/backend/app/sql/views/$view.sql" >/dev/null
 done
 if [ -n "$FIVES" ]; then
   FIVES_DB="$(env_value FIVES_DB_NAME)"; INVENTORY_DB="$(env_value FIVES_INVENTORY_DB_NAME)"

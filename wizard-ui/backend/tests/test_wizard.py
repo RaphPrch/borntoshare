@@ -148,14 +148,13 @@ def test_install_all_steps_writes_the_secrets_and_no_password_on_screen(issuer, 
     assert schema.call_args.args[1]["user"] == "b2s_migrate"
     assert lic.call_args.args[4] == ["fives"]
     assert [c.args[1] for c in check.call_args_list] == ["b2s_core", "b2s_fives"]
-    files = {p.name: p for p in tmp_path.iterdir()}
+    files = {p.name: p for p in tmp_path.iterdir() if p.name.startswith("b2s_")}
     assert sorted(files) == ["b2s_db_core", "b2s_db_fives", "b2s_db_migrate"]
     assert {name: oct(path.stat().st_mode & 0o777) for name, path in files.items()} == dict.fromkeys(files, "0o600")
     assert files["b2s_db_core"].read_text() == given["core"] and len(given["core"]) == 40
     assert len(set(given.values())) == 3
-    env = dict(result["env"])
-    assert env["DB_USER"] == "b2s_core" and env["DB_MIGRATE_USER"] == "b2s_migrate" and env["FIVES_DB_USER"] == "b2s_fives"
-    assert not any("PASSWORD" in name for name in env)
+    # The defaults are not repeated: .env needs the server only
+    assert result["env"] == [["DB_HOST", "db"]]
     text = json.dumps(result)
     assert all(value not in text for value in given.values()) and PASSWORD not in text
 
@@ -170,3 +169,42 @@ def test_page_and_health():
     page = client.get("/")
     assert page.status_code == 200 and "Installation" in page.text
     assert client.get("/static/app.js").status_code == 200
+
+
+def test_env_lines_only_for_names_other_than_the_defaults(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    plan = install.validate(_plan(app={"db_name": "b2s_prod", "logging_db_name": "borntoshare_logging", "user": "b2s_core", "migrate_user": "b2s_migrate"}))
+    with patch.object(install, "_databases_and_accounts", return_value=[]), patch.object(install, "run_schema_pack"), \
+         patch.object(install, "run_logging_schema_pack"), patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_check_account"):
+        result = install.run(plan)
+    assert result["env"] == [["DB_HOST", "db"], ["DB_NAME", "b2s_prod"]]
+
+
+def test_a_successful_installation_signals_the_watcher(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    with patch.object(install, "_databases_and_accounts", return_value=[]), patch.object(install, "run_schema_pack"), \
+         patch.object(install, "run_logging_schema_pack"), patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_check_account"):
+        install.run(install.validate(_plan()))
+    assert json.loads((tmp_path / ".installed").read_text()) == {"env": [["DB_HOST", "db"]]}
+    assert client.get("/api/deploy").json()["state"] == "waiting"
+
+
+def test_no_signal_when_the_installation_stops(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    with patch.object(install, "_databases_and_accounts", side_effect=RuntimeError("denied")):
+        install.run(install.validate(_plan()))
+    assert not (tmp_path / ".installed").exists()
+
+
+def test_deploy_status_follows_the_phases_of_deploy(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    monkeypatch.setenv("FRONTEND_PUBLIC_ORIGIN", "https://b2s.example")
+    (tmp_path / ".deploy-status").write_text('{"state": "running", "phase": "3/4 build + recreate: core-service"}')
+    data = client.get("/api/deploy").json()
+    assert (data["state"], data["phase_index"], data["app_url"]) == ("running", 3, "https://b2s.example")
+    (tmp_path / ".deploy-status").write_text('{"state": "failed", "phase": "Error: build"}')
+    (tmp_path / ".deploy.log").write_text("0/4 secrets\nError: build\n")
+    data = client.get("/api/deploy").json()
+    assert data["state"] == "failed" and data["log"][-1] == "Error: build"
+    (tmp_path / ".deploy-status").write_text('{"state": "done", "phase": "BornToShare est démarré"}')
+    assert client.get("/api/deploy").json()["phase_index"] == 5

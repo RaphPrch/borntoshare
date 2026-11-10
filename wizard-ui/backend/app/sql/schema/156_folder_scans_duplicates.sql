@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS storage_root_scans (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- (Fingerprints and the history of the measures moved to the 5S module: b2s_fives_inventory.fingerprints,
--- b2s_fives.content_history, scripts/modules/fives/install.sh)
+-- b2s_fives.content_history, created by the wizard)
 
 -- Incremental sensitivity scan: where the next scan starts (change time, path) and what is still to read
 SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'storage_root_sensitivity' AND COLUMN_NAME = 'content_since');

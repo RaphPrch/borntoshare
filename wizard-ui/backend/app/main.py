@@ -93,6 +93,12 @@ def run_install(payload: Plan) -> dict[str, Any]:
     return result
 
 
+@app.get("/api/deploy")
+def deploy_status() -> dict[str, Any]:
+    """The automatic deployment after the installation (scripts/after-wizard.sh on the host), and where to open BornToShare."""
+    return {**install.deploy_status(), "app_url": _env("FRONTEND_PUBLIC_ORIGIN", "")}
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 

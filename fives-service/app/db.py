@@ -1,4 +1,4 @@
-"""The two databases of the module, created by the installation (scripts/modules/fives/install.sh):
+"""The two databases of the module, created by the installation wizard (make wizard):
 - b2s_fives: what the module computes over time (history of the measures, its settings);
 - b2s_fives_inventory: the fingerprints of the files (duplicates between folders), the one that grows.
 Their tables come from SQL packs applied by the migration account; the module only reads and writes."""

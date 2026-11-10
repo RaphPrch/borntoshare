@@ -57,7 +57,7 @@
     {#if !overview}
       <InlineAlert tone="error">{t('Unable to load the infrastructure state.')}</InlineAlert>
     {:else if active === 'database'}
-      <InfraDatabase info={overview.database} onChanged={refresh} />
+      <InfraDatabase info={overview.database} />
     {:else if active === 'workers'}
       <InfraWorkers workers={overview.workers} onChanged={refresh} />
     {:else if active === 'keycloak'}

@@ -1,285 +1,81 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import { formatDateTime } from '$lib/utils/format';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
-  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
-  import { toast } from '$lib/stores/toast';
-  import { reportUiError } from '$lib/errors';
-  import {
-    resetDatabase,
-    saveDatabase,
-    testDatabase,
-    type DatabaseInfo,
-    type DatabaseInput,
-    type DatabaseTest
-  } from '$lib/api/infrastructure';
+  import type { DatabaseInfo } from '$lib/api/infrastructure';
 
+  /**
+   * The database connection in use, read only: the names come from .env, the passwords are podman secrets, both set
+   * by the installation wizard. Changing the server is an operation (wizard, then make deploy), so that every part
+   * of the platform (core, the 5S module, deploy and backup) keeps using the same one.
+   */
   export let info: DatabaseInfo;
-  export let onChanged: () => Promise<void> | void = () => {};
 
-  let mode: 'fields' | 'dsn' = info.configured?.mode ?? info.running.mode ?? 'fields';
-  let host = String(info.configured?.host ?? info.running.host ?? '');
-  let port = Number(info.configured?.port ?? info.running.port ?? 3306);
-  let name = String(info.configured?.name ?? info.running.name ?? '');
-  let user = String(info.configured?.user ?? info.running.user ?? '');
-  let loggingName = String(info.configured?.logging_name ?? info.running.logging_name ?? '');
-  let password = '';
-  let dsn = '';
-  let loggingDsn = '';
-  let showSecret = false;
-
-  let testing = false;
-  let saving = false;
-  let result: DatabaseTest | null = null;
-  let testedKey = '';
-  let confirmReset = false;
-
-  const setMode = (value: 'fields' | 'dsn') => {
-    mode = value;
-  };
-
-  function input(): DatabaseInput {
-    return mode === 'dsn'
-      ? { mode, dsn: dsn.trim(), logging_dsn: loggingDsn.trim() || undefined }
-      : { mode, host: host.trim(), port: Number(port), name: name.trim(), user: user.trim(), password: password || undefined, logging_name: loggingName.trim() || undefined };
+  // « GRANT SELECT, INSERT ON `borntoshare`.* TO `b2s_core`@`%` » → rights and target
+  function readGrant(grant: string): { rights: string; target: string } {
+    const match = /^GRANT (.+?) ON (.+?) TO /.exec(grant);
+    return match ? { rights: match[1], target: match[2].replace(/`/g, '') } : { rights: grant, target: '' };
   }
-
-  $: formKey = JSON.stringify([mode, host, port, name, user, password, loggingName, dsn, loggingDsn]);
-  // Saving needs a successful test of exactly these values
-  $: canSave = !!result?.ok && testedKey === formKey && !saving;
-  $: complete = mode === 'dsn' ? !!dsn.trim() : !!(host.trim() && name.trim() && user.trim() && port);
-  $: sameAccount = host.trim() === info.running.host && user.trim() === info.running.user;
-
-  async function runTest() {
-    if (!complete || testing) return;
-    testing = true;
-    result = null;
-    const key = formKey;
-    try {
-      result = await testDatabase(fetch, input());
-      testedKey = key;
-    } catch (e) {
-      reportUiError(e, t('Database test failed.'), 'infrastructure.database.test');
-    } finally {
-      testing = false;
-    }
-  }
-
-  async function save() {
-    if (!canSave) return;
-    saving = true;
-    try {
-      info = await saveDatabase(fetch, input());
-      password = '';
-      toast.success(t('Database connection saved. It applies at the next start of core-service.'));
-      await onChanged();
-    } catch (e) {
-      reportUiError(e, t('Unable to save the database connection.'), 'infrastructure.database.save');
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function reset() {
-    confirmReset = false;
-    try {
-      info = await resetDatabase(fetch);
-      toast.success(t('Back to the .env settings at the next start.'));
-      await onChanged();
-    } catch (e) {
-      reportUiError(e, t('Unable to reset the database connection.'), 'infrastructure.database.reset');
-    }
-  }
+  $: grants = (info.grants ?? []).map(readGrant);
 </script>
 
 <div class="db-grid">
   <section class="panel">
     <header class="panel__head">
-      <span class="panel__icon"><i class="bi bi-database-check" aria-hidden="true"></i></span>
+      <span class="panel__icon" class:is-ok={info.ok} class:is-err={info.ok === false}><i class="bi bi-database-check" aria-hidden="true"></i></span>
       <div>
         <h3>{t('Connection in use')}</h3>
-        <p>{info.running.source === 'runtime' ? t('Chosen on this page') : t('From the .env file')}</p>
+        <p>
+          {#if info.ok === false && info.message}{t('Unreachable')}{:else if info.version}MariaDB {info.version} · {info.latency_ms} ms{/if}
+        </p>
       </div>
     </header>
     <dl class="facts">
-      <dt>{t('Server')}</dt><dd class="mono">{info.running.host}:{info.running.port}</dd>
-      <dt>{t('Database')}</dt><dd class="mono">{info.running.name}</dd>
-      <dt>{t('Account')}</dt><dd class="mono">{info.running.user}</dd>
-      <dt>{t('Audit database')}</dt><dd class="mono">{info.running.logging_name ?? '—'}</dd>
+      <dt>{t('Server')}</dt><dd class="mono">{info.host}:{info.port}</dd>
+      <dt>{t('Database')}</dt><dd class="mono">{info.name}{#if info.tables !== undefined} <small>· {t('{count} tables', { count: info.tables })}</small>{/if}</dd>
+      <dt>{t('Audit database')}</dt><dd class="mono">{info.logging_name}{#if info.logging_tables !== undefined} <small>· {t('{count} tables', { count: info.logging_tables })}</small>{/if}</dd>
+      <dt>{t('Application account')}</dt><dd class="mono">{info.user}</dd>
+      <dt>{t('Migration account')}</dt><dd class="mono">{info.migrate_user}</dd>
+      <dt>{t('Passwords')}</dt><dd>{info.password_from === 'secret' ? t('Podman secrets (never in .env)') : t('In .env: run make deploy to move them into podman secrets')}</dd>
     </dl>
-
-    {#if info.pending_restart && !info.configured}
-      <div class="pending">
-        <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
-        <div>
-          <strong>{t('Restart required')}</strong>
-          <span>{t('core-service goes back to the .env settings when it restarts.')}</span>
-        </div>
-      </div>
-    {/if}
-
-    {#if info.pending_restart && info.configured}
-      <div class="pending">
-        <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
-        <div>
-          <strong>{t('Restart required')}</strong>
-          <span>
-            {t('Saved connection: {target}. It applies when core-service restarts.', {
-              target: `${info.configured.host}:${info.configured.port}/${info.configured.name}`
-            })}
-          </span>
-          {#if info.configured.updated_at}
-            <small>{t('Saved by {who} on {when}', { who: info.configured.updated_by ?? '—', when: formatDateTime(info.configured.updated_at) })}</small>
-          {/if}
-        </div>
-      </div>
-    {/if}
-
-    {#if info.configured}
-      <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm reset" on:click={() => (confirmReset = true)}>
-        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
-        {t('Back to the .env settings')}
-      </button>
+    {#if info.ok === false && info.message}
+      <InlineAlert tone="error">{info.message}</InlineAlert>
+    {:else if info.missing_tables?.length}
+      <InlineAlert tone="warning">{t('Tables missing: {tables}. Apply the SQL packs (make deploy).', { tables: info.missing_tables.join(', ') })}</InlineAlert>
     {/if}
   </section>
 
   <section class="panel">
     <header class="panel__head">
-      <span class="panel__icon"><i class="bi bi-sliders" aria-hidden="true"></i></span>
+      <span class="panel__icon"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
       <div>
-        <h3>{t('Change the connection')}</h3>
-        <p>{t('Tested before saving, applied at the next start of core-service.')}</p>
+        <h3>{t('Rights of the application account')}</h3>
+        <p>{t('Read and write only: the schema is changed by the migration account, during make deploy.')}</p>
       </div>
     </header>
-
-    {#if !info.runtime_dir_writable}
-      <InlineAlert tone="warning">
-        {t('The directory {dir} is not writable: mount it read-write on core-service to save a connection here.', { dir: info.runtime_dir })}
-      </InlineAlert>
+    {#if info.schema_rights}
+      <InlineAlert tone="warning">{t('This account can change the schema: its rights are wider than needed. Run the installation wizard again to give it only what it needs.')}</InlineAlert>
     {/if}
-
-    <div class="segmented" role="tablist" aria-label={t('Connection type')}>
-      <button type="button" role="tab" aria-selected={mode === 'fields'} class:is-active={mode === 'fields'} on:click={() => setMode('fields')}>
-        <i class="bi bi-hdd-network" aria-hidden="true"></i>{t('Server')}
-      </button>
-      <button type="button" role="tab" aria-selected={mode === 'dsn'} class:is-active={mode === 'dsn'} on:click={() => setMode('dsn')}>
-        <i class="bi bi-link-45deg" aria-hidden="true"></i>{t('Connection string (DSN)')}
-      </button>
-    </div>
-
-    {#if mode === 'fields'}
-      <div class="form-grid">
-        <label class="f f--wide">
-          <span>{t('Server name or IP')}</span>
-          <input bind:value={host} placeholder="db01.example.com" autocomplete="off" />
-        </label>
-        <label class="f">
-          <span>{t('Port')}</span>
-          <input type="number" min="1" max="65535" bind:value={port} />
-        </label>
-        <label class="f">
-          <span>{t('Database')}</span>
-          <input bind:value={name} placeholder="borntoshare" autocomplete="off" />
-        </label>
-        <label class="f">
-          <span>{t('Audit database')}</span>
-          <input bind:value={loggingName} placeholder="borntoshare_logging" autocomplete="off" />
-        </label>
-        <label class="f">
-          <span>{t('Account')}</span>
-          <input bind:value={user} autocomplete="off" />
-        </label>
-        <label class="f">
-          <span>{t('Password')}</span>
-          <div class="b2s-input-with-action">
-            <input
-              type={showSecret ? 'text' : 'password'}
-              bind:value={password}
-              autocomplete="new-password"
-              placeholder={sameAccount ? t('Unchanged') : ''}
-            />
-            <button type="button" class="b2s-input-action" aria-label={showSecret ? t('Hide password') : t('Show password')} on:click={() => (showSecret = !showSecret)}>
-              <i class={`bi ${showSecret ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
-            </button>
-          </div>
-        </label>
-      </div>
-    {:else}
-      <div class="form-grid">
-        <label class="f f--full">
-          <span>{t('Connection string')}</span>
-          <div class="b2s-input-with-action">
-            <input
-              type={showSecret ? 'text' : 'password'}
-              bind:value={dsn}
-              placeholder="mariadb+pymysql://user:password@db01.example.com:3306/borntoshare"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button type="button" class="b2s-input-action" aria-label={showSecret ? t('Hide password') : t('Show password')} on:click={() => (showSecret = !showSecret)}>
-              <i class={`bi ${showSecret ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
-            </button>
-          </div>
-          <small>{t('Overrides the server fields. The password is part of the string.')}</small>
-        </label>
-        <label class="f f--full">
-          <span>{t('Audit database string (optional)')}</span>
-          <input
-            type={showSecret ? 'text' : 'password'}
-            bind:value={loggingDsn}
-            placeholder="mariadb+pymysql://user:password@db01.example.com:3306/borntoshare_logging"
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </label>
-      </div>
+    {#if grants.length}
+      <table class="rights">
+        <thead><tr><th>{t('Scope')}</th><th>{t('Rights')}</th></tr></thead>
+        <tbody>
+          {#each grants as grant}
+            <tr><td class="mono">{grant.target}</td><td>{grant.rights}</td></tr>
+          {/each}
+        </tbody>
+      </table>
     {/if}
-
-    {#if result}
-      <div class={`result ${result.ok ? 'is-ok' : 'is-err'}`} class:is-outdated={testedKey !== formKey}>
-        <i class={`bi ${result.ok ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}`} aria-hidden="true"></i>
-        <div>
-          <strong>{t(result.message)}</strong>
-          {#if result.version}
-            <span>{result.version} · {result.latency_ms} ms · {t('{n} tables', { n: result.tables ?? 0 })}</span>
-          {/if}
-          {#if result.missing_tables?.length}
-            <span>{t('Missing tables: {tables}', { tables: result.missing_tables.join(', ') })}</span>
-          {/if}
-          {#if testedKey !== formKey}
-            <small>{t('The settings changed since this test: test again.')}</small>
-          {/if}
-        </div>
-      </div>
-    {/if}
-
-    <div class="actions">
-      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={runTest} disabled={!complete || testing}>
-        <i class={`bi ${testing ? 'bi-hourglass-split' : 'bi-plug'}`} aria-hidden="true"></i>
-        {testing ? t('Testing…') : t('Test the connection')}
-      </button>
-      <button type="button" class="b2s-btn b2s-btn-primary" on:click={save} disabled={!canSave || !info.runtime_dir_writable}>
-        <i class="bi bi-save" aria-hidden="true"></i>
-        {saving ? t('Saving…') : t('Save for the next start')}
-      </button>
-    </div>
+    <p class="hint">
+      <i class="bi bi-info-circle" aria-hidden="true"></i>
+      {t('To change the server, the databases or the accounts: the installation wizard (make wizard), then make deploy. The settings are in .env, the passwords in podman secrets.')}
+    </p>
   </section>
 </div>
-
-<ConfirmActionModal
-  open={confirmReset}
-  severity="warning"
-  title={t('Back to the .env settings')}
-  subtitle={t('The connection saved on this page is removed. core-service uses the .env settings at its next start.')}
-  confirmLabel={t('Remove')}
-  onConfirm={reset}
-  onClose={() => (confirmReset = false)}
-/>
 
 <style>
   .db-grid {
     display: grid;
-    grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.4fr);
+    grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.3fr);
     gap: 14px;
     align-items: start;
   }
@@ -307,8 +103,18 @@
     justify-content: center;
     border-radius: var(--b2s-radius-sm);
     background: var(--b2s-color-primary-soft);
-    color: #1e3a8a;
+    color: var(--b2s-color-text-strong);
     font-size: 1.1rem;
+  }
+
+  .panel__icon.is-ok {
+    background: var(--b2s-color-success-soft);
+    color: var(--b2s-color-success-strong);
+  }
+
+  .panel__icon.is-err {
+    background: var(--b2s-color-danger-soft);
+    color: var(--b2s-color-danger-strong);
   }
 
   .panel__head h3 {
@@ -341,155 +147,40 @@
     overflow-wrap: anywhere;
   }
 
+  .facts small {
+    color: var(--b2s-color-text-muted);
+    font-family: var(--b2s-font-sans);
+  }
+
   .mono {
     font-family: var(--b2s-font-mono);
   }
 
-  .pending {
-    display: flex;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: var(--b2s-radius-sm);
-    background: var(--b2s-color-warning-soft);
-    border: 1px solid var(--b2s-color-warning-border);
-    color: #7c2d12;
-    font-size: var(--b2s-fs-sm);
-  }
-
-  .pending div {
-    display: grid;
-    gap: 2px;
-  }
-
-  .pending small {
-    color: #9a3412;
-  }
-
-  .reset {
-    justify-self: start;
-  }
-
-  .segmented {
-    display: inline-flex;
-    padding: 3px;
-    gap: 3px;
-    border-radius: var(--b2s-radius-sm);
-    background: var(--b2s-color-neutral-soft);
-    justify-self: start;
-  }
-
-  .segmented button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 0;
-    background: transparent;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: var(--b2s-fs-sm);
-    color: var(--b2s-color-text-soft);
-    cursor: pointer;
-  }
-
-  .segmented button.is-active {
-    background: var(--b2s-color-surface);
-    color: var(--b2s-color-heading);
-    font-weight: 600;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
-  }
-
-  .form-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-  }
-
-  .f {
-    display: grid;
-    align-content: start;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .f--wide {
-    grid-column: span 2;
-  }
-
-  .f--full {
-    grid-column: 1 / -1;
-  }
-
-  .f span {
-    font-size: var(--b2s-fs-xs);
-    font-weight: 600;
-    color: var(--b2s-color-text-strong);
-  }
-
-  .f small {
-    font-size: var(--b2s-fs-xs);
-    color: var(--b2s-color-text-muted);
-  }
-
-  .f input {
+  .rights {
     width: 100%;
-    height: 38px;
-    padding: 0 12px;
-    border: 1px solid var(--b2s-color-border-soft);
-    border-radius: var(--b2s-radius-sm);
-    font-size: var(--b2s-fs-sm);
-    color: var(--b2s-color-heading);
-    background: var(--b2s-color-surface);
-  }
-
-  .f input:focus {
-    outline: 0;
-    border-color: #8db5ff;
-    box-shadow: 0 0 0 3px rgba(11, 99, 244, 0.12);
-  }
-
-  .result {
-    display: flex;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: var(--b2s-radius-sm);
+    border-collapse: collapse;
     font-size: var(--b2s-fs-sm);
   }
 
-  .result div {
-    display: grid;
-    gap: 2px;
+  .rights th {
+    text-align: left;
+    font-size: var(--b2s-fs-xs);
+    font-weight: 600;
+    color: var(--b2s-color-text-muted);
+    padding: 0 10px 6px 0;
   }
 
-  .result.is-ok {
-    background: var(--b2s-color-success-soft);
-    border: 1px solid var(--b2s-color-success-border);
-    color: #14532d;
+  .rights td {
+    padding: 8px 10px 8px 0;
+    border-top: 1px solid var(--b2s-color-border-soft);
+    vertical-align: top;
   }
 
-  .result.is-err {
-    background: var(--b2s-color-danger-soft);
-    border: 1px solid var(--b2s-color-danger-border);
-    color: var(--b2s-color-danger-strong);
-  }
-
-  .result.is-outdated {
-    opacity: 0.7;
-  }
-
-  .actions {
+  .hint {
     display: flex;
     gap: 8px;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-  }
-
-  @media (max-width: 1000px) {
-    .db-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .form-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+    margin: 0;
+    font-size: var(--b2s-fs-xs);
+    color: var(--b2s-color-text-muted);
   }
 </style>

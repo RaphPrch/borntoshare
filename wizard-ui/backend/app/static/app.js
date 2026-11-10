@@ -273,20 +273,11 @@ $("i_run").addEventListener("click", async () => {
 });
 function finish(result, p) {
   state.installed = true;
-  const lines = result.env.map(([k, v]) => `${k}=${v}`).join("\n");
-  $("i_env").textContent = lines;
-  $("i_secrets").textContent = (result.secrets || []).join(", ");
-  $("i_copy").onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(lines + "\n");
-      toast("Lignes copiées.", "ok");
-    } catch {
-      toast("Copie impossible dans ce navigateur : recopier les lignes à la main.");
-    }
-  };
+  $("i_env").textContent = result.env.map(([k, v]) => `${k}=${v}`).join("\n");
+  followDeploy();
   $("i_admin").textContent = p.admin.username;
   $("i_title").textContent = "BornToShare est installé";
-  $("i_lead").textContent = "Les bases, les comptes et le premier administrateur sont prêts.";
+  $("i_lead").textContent = "Les bases, les comptes et le premier administrateur sont prêts. Le déploiement suit.";
   $("i_summary").hidden = true;
   $("i_done").hidden = false;
   $("i_run").hidden = true;
@@ -294,6 +285,40 @@ function finish(result, p) {
   // The passwords are no longer needed in the fields
   document.querySelectorAll('input[type="password"]').forEach((input) => (input.value = ""));
   show(5);
+}
+
+/* ---------- Automatic deployment (scripts/after-wizard.sh, on the host) ---------- */
+function followDeploy() {
+  const started = Date.now();
+  const tick = async () => {
+    let d;
+    try {
+      d = await api("/api/deploy");
+    } catch {
+      // The wizard stops by itself once deployed: no answer any more is the end
+      setTimeout(tick, 5000);
+      return;
+    }
+    document.querySelectorAll("#d_steps li").forEach((li) => {
+      const n = Number(li.dataset.phase);
+      li.className = n < d.phase_index ? "is-ok" : n === d.phase_index && d.state === "running" ? "is-running" : d.state === "failed" && n === d.phase_index ? "is-error" : "";
+    });
+    $("d_waiting").hidden = !(d.state === "waiting" && Date.now() - started > 20000);
+    if (d.state === "done") {
+      $("d_done").hidden = false;
+      if (d.app_url) $("d_open").href = d.app_url;
+      else $("d_open").hidden = true;
+      document.querySelectorAll("#steps li").forEach((li) => li.classList.add("is-done"));
+      return;
+    }
+    if (d.state === "failed") {
+      $("d_failed").hidden = false;
+      $("d_log").textContent = (d.log || []).join("\n");
+      return;
+    }
+    setTimeout(tick, 3000);
+  };
+  tick();
 }
 
 /* ---------- Start ---------- */

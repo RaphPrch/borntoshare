@@ -40,6 +40,10 @@ APP_RIGHTS = "SELECT, INSERT, UPDATE, DELETE"
 AUDIT_RIGHTS = "SELECT, INSERT, DELETE"
 # Names of the podman secrets (podman-compose.yml), one file each in SECRETS_DIR
 SECRET_NAMES = {"migrate": "b2s_db_migrate", "core": "b2s_db_core", "fives": "b2s_db_fives"}
+# What podman-compose.yml and the scripts take when the line is not in .env
+ENV_DEFAULTS = {"DB_PORT": "3306", "DB_NAME": "borntoshare", "LOGGING_DB_NAME": "borntoshare_logging", "DB_USER": "b2s_core",
+                "DB_MIGRATE_USER": "b2s_migrate", "FIVES_DB_NAME": "b2s_fives", "FIVES_INVENTORY_DB_NAME": "b2s_fives_inventory",
+                "FIVES_DB_USER": "b2s_fives"}
 
 
 class InstallError(ValueError):
@@ -289,8 +293,49 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
     actions.append(("check", "Vérification des droits", accounts))
     ok = all(step(*action) for action in actions)
 
-    env = [["DB_HOST", server["host"]], ["DB_PORT", str(server["port"])], ["DB_NAME", app["db_name"]],
-           ["LOGGING_DB_NAME", app["logging_db_name"]], ["DB_USER", app["user"]], ["DB_MIGRATE_USER", app["migrate_user"]]]
+    # .env needs the server only: the other lines when they differ from the defaults (podman-compose.yml, scripts)
+    env = [["DB_HOST", server["host"]]]
+    chosen = [("DB_PORT", str(server["port"])), ("DB_NAME", app["db_name"]), ("LOGGING_DB_NAME", app["logging_db_name"]),
+              ("DB_USER", app["user"]), ("DB_MIGRATE_USER", app["migrate_user"])]
     if fives:
-        env += [["FIVES_DB_NAME", fives["db_name"]], ["FIVES_INVENTORY_DB_NAME", fives["inventory_db_name"]], ["FIVES_DB_USER", fives["user"]]]
+        chosen += [("FIVES_DB_NAME", fives["db_name"]), ("FIVES_INVENTORY_DB_NAME", fives["inventory_db_name"]), ("FIVES_DB_USER", fives["user"])]
+    env += [[name, value] for name, value in chosen if value != ENV_DEFAULTS[name]]
+    if ok:
+        signal_installed(env)
     return {"ok": ok, "steps": steps, "env": env, "secrets": [SECRET_NAMES[key] for key in passwords]}
+
+
+def signal_installed(env: list[list[str]]) -> None:
+    """For scripts/after-wizard.sh, on the host: the .env lines, then it deploys (no password in it)."""
+    import json
+
+    directory = secrets_dir()
+    tmp = directory / ".installed.tmp"
+    tmp.write_text(json.dumps({"env": env}), encoding="utf-8")
+    os.replace(tmp, directory / ".installed")
+
+
+# The phases of scripts/deploy.sh, in order (its « N/4 » lines)
+DEPLOY_PHASES = ["0/4", "1/4", "2/4", "3/4", "4/4"]
+
+
+def deploy_status() -> dict[str, Any]:
+    """Where the automatic deployment is: waiting (no watcher yet), running (its last phase), done or failed."""
+    import json
+
+    directory = secrets_dir()
+    try:
+        status = json.loads((directory / ".deploy-status").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"state": "waiting", "phase": "", "phase_index": -1, "installed": (directory / ".installed").exists()}
+    phase = str(status.get("phase") or "")
+    index = next((i for i, prefix in enumerate(DEPLOY_PHASES) if phase.startswith(prefix)), -1)
+    if status.get("state") == "done":
+        index = len(DEPLOY_PHASES)
+    out = {"state": str(status.get("state") or "running"), "phase": phase, "phase_index": index, "installed": True}
+    if out["state"] == "failed":
+        try:
+            out["log"] = (directory / ".deploy.log").read_text(encoding="utf-8").splitlines()[-15:]
+        except OSError:
+            out["log"] = []
+    return out

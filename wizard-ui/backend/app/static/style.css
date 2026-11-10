@@ -164,3 +164,16 @@ input.is-invalid { border-color: var(--danger); }
 .wz__rights td { padding: 12px 14px; border-top: 1px solid var(--border-soft); vertical-align: top; }
 .wz__rights td:first-child { white-space: nowrap; }
 .wz__rights td:last-child { color: var(--muted); white-space: nowrap; }
+
+/* Automatic deployment (last step) */
+#d_steps li { grid-template-columns: 22px 1fr; }
+#d_steps li .wz__dot { width: 12px; height: 12px; margin: 4px; border-radius: 999px; border: 2px solid var(--border); grid-row: span 2; }
+#d_steps li.is-ok .wz__dot { border-color: var(--ok); background: var(--ok); }
+#d_steps li.is-running .wz__dot { border-color: var(--text); border-top-color: transparent; animation: wz-spin 800ms linear infinite; }
+#d_steps li.is-error { background: var(--danger-soft); border-color: var(--danger-border); }
+#d_steps li.is-error .wz__dot { border-color: var(--danger); background: var(--danger); }
+#d_steps li:not(.is-ok):not(.is-running):not(.is-error) { color: var(--faint); }
+#i_done > * + * { margin-top: 14px; }
+a.wz__btn { text-decoration: none; }
+.wz__details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.wz__details[open] summary { margin-bottom: 8px; }

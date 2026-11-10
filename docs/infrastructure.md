@@ -78,16 +78,18 @@ Puis relancer les services et vérifier qu'un test d'annuaire réussit : c'est l
 
 ## Base de données
 
-core-service ne peut pas lire la connexion à sa base dans cette même base : elle est écrite dans
-`config/runtime/database.json` (monté en lecture-écriture dans core-service, `B2S_RUNTIME_DIR`) et remplace les `DB_*` du `.env`
-**au prochain démarrage de core-service**.
+La connexion ne peut pas être rangée dans la base qu'elle décrit : elle vient de `.env` (l'adresse du serveur,
+et les noms qui diffèrent de ceux par défaut) et des secrets podman (les mots de passe), tous deux posés par le
+wizard d'installation. Tous les composants lisent les mêmes : core-service, le module 5S, `make deploy` et
+`make backup`.
 
-- Saisie par champs (serveur, port, base, base d'audit, compte, mot de passe) ou par chaîne de connexion (DSN), qui remplace les champs.
-- Le test se connecte, donne la version et vérifie la présence du schéma BornToShare. L'enregistrement n'est possible
-  qu'après un test réussi des mêmes valeurs ; le serveur teste à nouveau avant d'écrire.
-- Le fichier contient le mot de passe, comme le `.env` : il est écrit en 0600 et ignoré par git. L'interface ne le relit jamais.
-- « Revenir aux réglages du .env » supprime le fichier (appliqué au prochain démarrage).
-- Seul core-service lit ce fichier. L'assistant d'installation (wizard-ui) garde ses propres réglages.
+Réglages avancés › Infrastructure › Base de données l'affiche, en lecture seule :
+- le serveur, sa version, la latence, les deux bases et leur nombre de tables (et celles qui manquent) ;
+- le compte de l'application et ses droits réels (`SHOW GRANTS`, sans le hachage du mot de passe), avec une alerte
+  s'il peut modifier le schéma ; le compte de migration ;
+- d'où viennent les mots de passe (secrets podman, ou encore `.env` avant `make deploy`).
+
+Changer de serveur, de bases ou de comptes : le wizard (`make wizard`), puis `make deploy`.
 
 ## Workers
 

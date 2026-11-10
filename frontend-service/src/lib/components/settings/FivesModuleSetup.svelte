@@ -62,12 +62,8 @@
   {#if reachable === null}
     <p class="fm__muted">{t('Checking…')}</p>
   {:else if reachable === false}
-    <p>{t('The license opens the module, but its containers (fives-service, fives-scanner) do not run yet. They need their own databases, created once by an administrator of the MariaDB server:')}</p>
-    <pre class="fm__cmd">read -rs P && printf '%s' "$P" &gt; ~/.b2s-dbadmin && chmod 600 ~/.b2s-dbadmin && unset P
-DB_ADMIN_USER=root DB_ADMIN_PASSWORD_FILE=~/.b2s-dbadmin scripts/modules/fives/install.sh
-rm -f ~/.b2s-dbadmin
-make deploy</pre>
-    <p class="fm__muted">{t('The script creates b2s_fives and b2s_fives_inventory and their own account (read and write on them only), with its password in a podman secret (the installation wizard does the same at the first installation). make deploy then starts the module. Come back here afterwards.')}</p>
+    <p>{t('The license opens the module, but its containers (fives-service, fives-scanner) do not run yet: its databases are not installed on this server.')}</p>
+    <p class="fm__muted">{t('Run the installation wizard again (make wizard on the server) and paste the license key at its step « Licence et modules »: it creates the two databases of the module and its own account, then deploys by itself. Nothing is deleted. Come back here afterwards.')}</p>
     <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={load}>{t('Check again')}</button>
   {:else if !health?.schema}
     <p>{t('The module answers but cannot reach its databases: check FIVES_DB_* in .env and the account b2s_fives.')}</p>
@@ -103,7 +99,6 @@ make deploy</pre>
   .fm__pill { padding: 1px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); font-size: var(--b2s-fs-xs); font-weight: 600; }
   .fm__pill.is-ok { background: var(--b2s-color-success-soft, #eaf7ee); color: var(--b2s-color-success-strong, #1a7f37); }
   .fm__pill.is-warn { background: var(--b2s-color-warning-soft, #fff4e5); color: var(--b2s-color-warning-strong, #9a5b00); }
-  .fm__cmd { margin: 0; padding: 10px 12px; overflow-x: auto; border-radius: var(--b2s-radius-md); background: #0f172a; color: #e2e8f0; font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); white-space: pre; }
   .fm button { align-self: flex-start; }
   .fm__form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .fm__form label { display: flex; flex-direction: column; gap: 5px; font-size: var(--b2s-fs-sm); font-weight: 500; }

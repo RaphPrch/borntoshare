@@ -59,42 +59,24 @@ export type WorkerInput = {
 
 export type AgentCheck = { status: HealthStatus; message: string; latency_ms: number | null; details: InfraWorker['details'] };
 
-export type DatabaseSettings = {
-  mode: 'fields' | 'dsn';
+/** The connection in use (read only: .env and the secret of the account, set by the wizard and make deploy). */
+export type DatabaseInfo = {
   host: string;
   port: number;
   name: string;
+  logging_name: string;
   user: string;
-  logging_name?: string | null;
-};
-
-export type DatabaseInfo = {
-  running: DatabaseSettings & { source: 'env' | 'runtime' };
-  configured: (Partial<DatabaseSettings> & { has_password?: boolean; updated_at?: string; updated_by?: string }) | null;
-  pending_restart: boolean;
-  runtime_dir: string;
-  runtime_dir_writable: boolean;
-};
-
-export type DatabaseInput = {
-  mode: 'fields' | 'dsn';
-  host?: string;
-  port?: number;
-  name?: string;
-  user?: string;
-  password?: string;
-  logging_name?: string;
-  dsn?: string;
-  logging_dsn?: string;
-};
-
-export type DatabaseTest = {
-  ok: boolean;
-  message: string;
-  latency_ms?: number;
+  migrate_user: string;
+  password_from: 'secret' | 'env';
+  ok?: boolean;
+  message?: string;
   version?: string;
+  latency_ms?: number;
   tables?: number;
+  logging_tables?: number;
   missing_tables?: string[];
+  grants?: string[];
+  schema_rights?: boolean;
 };
 
 export type ScheduleTask = 'health_check' | 'data_sync' | 'access_expiry' | 'dfs_read' | 'policies';
@@ -135,11 +117,6 @@ export type InfraOverview = {
 
 export const getInfraOverview = (fetchFn: FetchLike) => apiGetData<InfraOverview>(fetchFn, '/infrastructure/overview');
 
-export const testDatabase = (fetchFn: FetchLike, body: DatabaseInput) =>
-  apiPostData<DatabaseTest>(fetchFn, '/infrastructure/database/test', body, { timeoutMs: 20000 });
-export const saveDatabase = (fetchFn: FetchLike, body: DatabaseInput) =>
-  apiPutData<DatabaseInfo & { test: DatabaseTest }>(fetchFn, '/infrastructure/database', body);
-export const resetDatabase = (fetchFn: FetchLike) => apiDeleteData<DatabaseInfo>(fetchFn, '/infrastructure/database');
 
 export const testWorker = (fetchFn: FetchLike, body: WorkerInput & { worker_id?: number }) =>
   apiPostData<AgentCheck>(fetchFn, '/infrastructure/workers/test', body, { timeoutMs: 20000 });

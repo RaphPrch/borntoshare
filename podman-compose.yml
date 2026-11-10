@@ -84,27 +84,26 @@ services:
     environment:
       <<: *common-env
       B2S_SECRET_MASTER_KEY_FILE: /run/secrets/b2s_master_key
-      DB_HOST: ${DB_HOST}
+      DB_HOST: ${DB_HOST:?DB_HOST must be set}
       DB_PORT: ${DB_PORT:-3306}
-      DB_NAME: ${DB_NAME}
+      DB_NAME: ${DB_NAME:-borntoshare}
       # Its own account: read and write on DB_NAME, insert/read/purge on LOGGING_DB_NAME, no schema change
       DB_USER: ${DB_USER:-b2s_core}
       DB_PASSWORD_FILE: /run/secrets/b2s_db_core
       # Audit database: same server and account as DB_*
-      LOGGING_DB_NAME: ${LOGGING_DB_NAME}
+      LOGGING_DB_NAME: ${LOGGING_DB_NAME:-borntoshare_logging}
+      # Shown on Advanced Settings › Infrastructure › Database: the account of make deploy (never used by core)
+      DB_MIGRATE_USER: ${DB_MIGRATE_USER:-b2s_migrate}
       # The Redis password is added from REDIS_PASSWORD_FILE
       CAPSULE_BROKER_URL: redis://redis:6379/2
       REDIS_PASSWORD_FILE: /run/secrets/b2s_redis
       # The 5S module, when installed: it receives each measure of a folder
       B2S_FIVES_URL: http://fives-service:8000
-      # Database chosen in Advanced Settings › Infrastructure, read at startup (replaces DB_*)
-      B2S_RUNTIME_DIR: /etc/b2s/runtime
     secrets:
       - {source: b2s_master_key, uid: "10002", mode: "0400"}
       - {source: b2s_db_core, uid: "10002", mode: "0400"}
       - {source: b2s_redis, uid: "10002", mode: "0400"}
     volumes:
-      - ./config/runtime:/etc/b2s/runtime:rw,z
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     expose: ["8000"]
     healthcheck:
@@ -169,8 +168,8 @@ services:
     networks: [app]
 
   # Optional module « 5S et hygiène des données » (licensed): its own container and databases
-  # (b2s_fives, b2s_fives_inventory, account FIVES_DB_USER: read and write only), created by the wizard or
-  # scripts/modules/fives/install.sh. Started with the profile « fives » (make deploy does it when the podman
+  # (b2s_fives, b2s_fives_inventory, account FIVES_DB_USER: read and write only), created by the wizard (run it
+  # again to add the module later). Started with the profile « fives » (make deploy does it when the podman
   # secret b2s_db_fives exists).
   fives-service:
     <<: *hardening
@@ -243,8 +242,11 @@ services:
       FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
       FIVES_INVENTORY_DB_NAME: ${FIVES_INVENTORY_DB_NAME:-b2s_fives_inventory}
       FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
-      # The generated passwords of the SQL accounts go there (0600), make deploy turns them into podman secrets
+      # The generated passwords of the SQL accounts go there (0600), make deploy turns them into podman secrets;
+      # the end of the installation too, for scripts/after-wizard.sh (it deploys)
       SECRETS_DIR: /secrets
+      # The link shown once deployed
+      FRONTEND_PUBLIC_ORIGIN: ${FRONTEND_PUBLIC_ORIGIN:-}
     # root of the container = the owner of the files on the host (rootless podman): secrets/ stays readable by it only
     user: "0:0"
     volumes:

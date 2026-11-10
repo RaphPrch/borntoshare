@@ -23,7 +23,7 @@
     </ol>
     <p class="wz__note">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 2 3.5v4C2 11 4.6 14 8 15c3.4-1 6-4 6-7.5v-4L8 1Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-      Le mot de passe administrateur MariaDB sert à cette installation seulement. Ceux des comptes SQL sont générés et écrits dans <code>secrets/</code>, jamais affichés.
+      <span>Le mot de passe administrateur MariaDB sert à cette installation seulement. Ceux des comptes SQL sont générés et écrits dans <code>secrets/</code>, jamais affichés.</span>
     </p>
   </aside>
 
@@ -137,13 +137,25 @@
         <dl class="wz__summary" id="i_summary"></dl>
         <ol class="wz__progress" id="i_progress" hidden></ol>
         <div id="i_done" hidden>
-          <h3>À reporter dans <code>.env</code></h3>
-          <p class="wz__hint">Des noms seulement : aucun mot de passe. Ceux des comptes sont dans <code>secrets/</code> (<span id="i_secrets"></span>) ; <code>make deploy</code> en fait des secrets podman et supprime les fichiers.</p>
-          <pre class="wz__env" id="i_env"></pre>
-          <div class="wz__inline"><button type="button" id="i_copy" class="wz__btn">Copier les lignes</button></div>
-          <pre class="wz__env wz__env--cmd">make wizard-down
-make deploy</pre>
-          <p class="wz__hint">Ensuite, se connecter avec le compte <b id="i_admin"></b> : l'assistant de premier lancement prend le relais.</p>
+          <h3>Déploiement</h3>
+          <p class="wz__hint">Il suit l'installation de lui-même, sur ce serveur : rien à taper.</p>
+          <ol class="wz__progress" id="d_steps">
+            <li data-phase="0"><span class="wz__dot"></span><b>Secrets podman</b><small>les mots de passe des comptes quittent <code>secrets/</code></small></li>
+            <li data-phase="1"><span class="wz__dot"></span><b>Bases</b><small>paquets SQL, avec le compte de migration</small></li>
+            <li data-phase="2"><span class="wz__dot"></span><b>Point de retour</b><small>les images en service sont gardées</small></li>
+            <li data-phase="3"><span class="wz__dot"></span><b>Images et services</b><small>construction, puis démarrage</small></li>
+            <li data-phase="4"><span class="wz__dot"></span><b>Vérification</b><small>chaque service répond</small></li>
+          </ol>
+          <div id="d_waiting" class="wz__callout wz__callout--warn" hidden><b>Le déploiement automatique ne démarre pas</b>
+            Il est lancé par <code>make wizard</code> sur le serveur. Sinon : <code>make deploy</code>.</div>
+          <div id="d_failed" class="wz__result is-error" hidden><div class="wz__result-head"><b>Le déploiement s'est arrêté</b></div>
+            <pre class="wz__env" id="d_log"></pre><p class="wz__hint">Corriger, puis <code>make deploy</code> sur le serveur : il reprend tout, sans rien effacer.</p></div>
+          <div id="d_done" class="wz__result is-ok" hidden><div class="wz__result-head"><b>BornToShare est prêt</b></div>
+            <p class="wz__hint">Se connecter avec le compte <b id="i_admin"></b> : l'assistant de premier lancement prend le relais. Ce wizard s'arrête de lui-même dans quelques minutes.</p>
+            <div class="wz__inline"><a id="d_open" class="wz__btn wz__btn--primary" target="_blank" rel="noopener">Ouvrir BornToShare</a></div></div>
+          <details class="wz__details"><summary>Ajouté à <code>.env</code></summary>
+            <p class="wz__hint">L'adresse du serveur, et les noms qui diffèrent de ceux par défaut : aucun mot de passe.</p>
+            <pre class="wz__env" id="i_env"></pre></details>
         </div>
         <footer>
           <button type="button" class="wz__btn wz__btn--ghost" data-back id="i_back">Retour</button>

@@ -25,10 +25,10 @@ chmod 600 .env
 |---|---|---|
 | `INTERNAL_TOKEN` | tous | Jeton partagé entre les services, 32 caractères aléatoires au moins |
 | `PRINCIPAL_SIGNING_KEY` | auth-service, frontend | Clé de signature du cookie de session, 32 caractères aléatoires au moins ; la clé par défaut est refusée |
-| `DB_HOST`, `DB_PORT` | core-service | Serveur MariaDB |
-| `DB_NAME`, `LOGGING_DB_NAME` | core-service | Bases des données et de l'audit (créées par le wizard, sur le même serveur et avec le même compte) |
-| `DB_USER` | core-service | Compte SQL de l'application (par défaut `b2s_core`) : lecture et écriture, créé par le wizard |
-| `DB_MIGRATE_USER` | `make deploy`, `make backup` | Compte de migration (par défaut `b2s_migrate`) : schéma et données, créé par le wizard |
+| `DB_HOST` | tous | Serveur MariaDB : la seule ligne requise pour la base (`DB_PORT` : 3306 par défaut) |
+| `DB_NAME`, `LOGGING_DB_NAME` | core-service | Facultatifs (`borntoshare`, `borntoshare_logging`) : bases des données et de l'audit, créées par le wizard |
+| `DB_USER` | core-service | Facultatif (`b2s_core`) : compte SQL de l'application, lecture et écriture, créé par le wizard |
+| `DB_MIGRATE_USER` | `make deploy`, `make backup` | Facultatif (`b2s_migrate`) : compte de migration, schéma et données, créé par le wizard |
 | `FIVES_DB_NAME`, `FIVES_INVENTORY_DB_NAME`, `FIVES_DB_USER` | module 5S | Bases et compte du module (créés par le wizard quand la licence l'ouvre) |
 | `FRONTEND_PUBLIC_ORIGIN` | frontend | URL publique exacte (schéma, hôte, port) : sert de contrôle d'origine |
 | `FRONTEND_PUBLISHED_PORT` | compose | Port publié sur l'hôte (3000) |
@@ -66,7 +66,7 @@ s'il existe :
 make wizard          # http://<hôte>:8080
 ```
 
-Le wizard part des noms déjà dans `.env` (jamais des mots de passe, qui se saisissent à l'écran) et demande :
+Le wizard part des noms déjà dans `.env` ; seul le mot de passe de l'administrateur MariaDB s'y saisit. Il demande :
 
 1. **Serveur MariaDB** : adresse et compte administrateur (root), testés ; utilisé pour cette installation seulement.
 2. **Bases BornToShare** : base des données (`DB_NAME`), base du journal d'audit (`LOGGING_DB_NAME`), le compte
@@ -78,17 +78,16 @@ Le wizard part des noms déjà dans `.env` (jamais des mots de passe, qui se sai
 5. **Installation** : récapitulatif, puis chaque action (bases et comptes, paquets SQL, administrateur, licence,
    module, vérification des comptes) avec son résultat.
 
-Une base déjà présente est conservée : rien n'est effacé, les paquets SQL s'appliquent à nouveau. Les mots de
-passe des comptes vont dans `secrets/` (jamais affichés). Reporter dans `.env` les lignes affichées à la fin (des
-noms seulement), puis :
+Une base déjà présente est conservée : rien n'est effacé, les paquets SQL s'appliquent à nouveau.
 
-```bash
-make wizard-down     # le wizard ne doit pas rester exposé
-make deploy          # secrets podman, paquets SQL, services (et le module 5S quand son compte existe)
-```
+**La suite est automatique** (`scripts/after-wizard.sh`, lancé par `make wizard` sur le serveur) : une fois
+l'installation réussie, il ajoute à `.env` les lignes du wizard (l'adresse du serveur, et les noms qui diffèrent de
+ceux par défaut), lance `make deploy` (secrets podman, paquets SQL, images, services) puis arrête le wizard.
+Le dernier écran du wizard suit ce déploiement et donne le lien vers BornToShare. En cas d'échec, il montre la fin
+du journal : corriger, puis `make deploy`.
 
-Le module 5S peut aussi être ajouté plus tard : `scripts/modules/fives/install.sh` crée ses bases, puis la clé se
-colle dans Réglages avancés › Fonctionnalités.
+Le module 5S peut aussi être ajouté plus tard : relancer `make wizard` et coller la clé à l'étape « Licence et
+modules » ; il crée ses bases et son compte, puis déploie de lui-même.
 
 ## 3. Premier démarrage dans l'application
 

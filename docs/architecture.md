@@ -98,8 +98,6 @@ flowchart LR
   (`provisioning_jobs`), planifications (`infra_schedules`), secrets chiffrés (`secret_items`), alertes.
 - `borntoshare_logging` : `audit_event`, chaîné par hachage (`hash_prev`, `hash_current`) ; une ligne ne se
   réécrit jamais.
-- `config/runtime` (monté dans core-service) : connexion à la base choisie dans Réglages avancés ›
-  Infrastructure ; quand elle existe, elle remplace les `DB_*` du `.env`.
 - Redis : file des travaux et sessions ; un redémarrage ne perd ni l'une ni les autres (AOF).
 
 Les paquets SQL sont dans `wizard-ui/backend/app/sql` (schema, views, indexes, logging, seeds). Le wizard les

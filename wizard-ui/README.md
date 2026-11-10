@@ -18,11 +18,15 @@ Ensuite, on l'arrête : les mises à jour du schéma passent par `make deploy`.
 ## Utilisation
 
 ```bash
-make wizard          # http://<hôte>:8080
-# … les cinq étapes …
-make wizard-down
-make deploy
+make wizard          # http://<hôte>:8080, et le déploiement qui suivra l'installation
+# … les cinq étapes : .env, make deploy et l'arrêt du wizard suivent d'eux-mêmes
 ```
+
+`make wizard` lance aussi `scripts/after-wizard.sh` sur l'hôte (le wizard, dans son conteneur, ne peut pas lancer
+podman). Quand l'installation réussit, le wizard écrit `secrets/.installed` (les lignes de `.env`, aucun mot de
+passe) ; le script les ajoute à `.env`, lance `scripts/deploy.sh`, écrit sa progression dans
+`secrets/.deploy-status` (affichée par la dernière étape, `GET /api/deploy`), puis arrête le wizard trois minutes
+après la fin. Sans installation, il s'arrête avec le wizard.
 
 | Étape | Ce qui est demandé |
 |---|---|
@@ -58,6 +62,7 @@ chaque compte ouvre ses bases et que ceux de l'application ne peuvent pas modifi
 | `POST /api/server/check` | Connexion avec le compte administrateur : version, droits, bases présentes |
 | `POST /api/license/check` | La clé : client, échéance, modules (clés publiques de `license_keys.py`, les mêmes que core-service) |
 | `POST /api/install` | Toutes les actions dans l'ordre ; s'arrête à la première erreur et dit laquelle |
+| `GET /api/deploy` | Le déploiement automatique qui suit : en attente, en cours (sa phase), terminé ou arrêté |
 
 ## Paquets SQL
 
@@ -87,7 +92,7 @@ SQL qui existe déjà reçoit un nouveau mot de passe généré.
 - Le mot de passe de l'administrateur MariaDB reste dans la page le temps de l'installation : ni sur disque, ni dans
   les journaux.
 - Les mots de passe des comptes ne quittent pas le serveur : générés, écrits dans `secrets/` (0600), jamais affichés.
-- Le wizard n'écrit pas de `.env` : il affiche les lignes à y reporter (des noms seulement).
+- Le wizard n'écrit pas `.env` lui-même : `scripts/after-wizard.sh`, sur l'hôte, y ajoute ses lignes (des noms seulement).
 - Le conteneur tourne en root pour que les fichiers de `secrets/` appartiennent à l'utilisateur de l'hôte (podman
   sans privilèges : root du conteneur = cet utilisateur).
-- Ne pas le laisser exposé : `make wizard-down` dès la fin.
+- Il ne reste pas exposé : arrêté de lui-même après le déploiement (sinon `make wizard-down`).
