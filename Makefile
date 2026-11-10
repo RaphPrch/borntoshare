@@ -52,6 +52,7 @@ backup: .env
 	./scripts/backup.sh
 
 wizard: .env
+	install -d -m 700 secrets
 	$(COMPOSE) --profile wizard up -d --build wizard-ui
 
 wizard-down:

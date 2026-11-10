@@ -37,7 +37,7 @@ def issuer(monkeypatch):
 def _plan(**over):
     plan = {
         "server": {"host": "db", "port": 3306, "user": "root", "password": "x"},
-        "app": {"db_name": "borntoshare", "logging_db_name": "borntoshare_logging", "user": "app_user", "password": PASSWORD},
+        "app": {"db_name": "borntoshare", "logging_db_name": "borntoshare_logging", "user": "b2s_core", "migrate_user": "b2s_migrate"},
         "admin": {"username": "admin", "email": "", "password": PASSWORD},
         "license": None,
         "fives": None,
@@ -61,7 +61,7 @@ def test_defaults_come_from_env_without_password(monkeypatch):
     monkeypatch.setenv("DB_PASSWORD", "secret")
     data = client.get("/api/defaults").json()
     assert data["server"]["host"] == "192.168.100.12"
-    assert data["app"] == {"db_name": "borntoshare", "logging_db_name": "borntoshare_logging", "user": "app_user"}
+    assert data["app"] == {"db_name": "borntoshare", "logging_db_name": "borntoshare_logging", "user": "app_user", "migrate_user": "b2s_migrate"}
     assert data["fives"]["db_name"] == "b2s_fives"
     assert "secret" not in json.dumps(data)
 
@@ -86,12 +86,12 @@ def test_license_refused(issuer):
 
 
 @pytest.mark.parametrize("over, message", [
-    ({"app": {"db_name": "bad-name", "logging_db_name": "l", "user": "u", "password": PASSWORD}}, "Base de données"),
-    ({"app": {"db_name": "a", "logging_db_name": "a", "user": "u", "password": PASSWORD}}, "propre nom"),
-    ({"app": {"db_name": "a", "logging_db_name": "b", "user": "root", "password": PASSWORD}}, "réservé"),
-    ({"app": {"db_name": "a", "logging_db_name": "b", "user": "u", "password": "short"}}, "12 caractères"),
+    ({"app": {"db_name": "bad-name", "logging_db_name": "l", "user": "u", "migrate_user": "m"}}, "Base de données"),
+    ({"app": {"db_name": "a", "logging_db_name": "a", "user": "u", "migrate_user": "m"}}, "propre nom"),
+    ({"app": {"db_name": "a", "logging_db_name": "b", "user": "root", "migrate_user": "m"}}, "réservé"),
+    ({"app": {"db_name": "a", "logging_db_name": "b", "user": "same", "migrate_user": "same"}}, "propre compte"),
     ({"admin": {"username": "admin", "password": "Admin!Password1"}}, "identifiant"),
-    ({"fives": {"db_name": "f", "inventory_db_name": "i", "user": "f", "password": PASSWORD}}, "ne l'ouvre pas"),
+    ({"fives": {"db_name": "f", "inventory_db_name": "i", "user": "f"}}, "ne l'ouvre pas"),
 ])
 def test_plan_refused(over, message):
     response = client.post("/api/install", json=_plan(**over))
@@ -101,42 +101,63 @@ def test_plan_refused(over, message):
 
 def test_plan_with_module(issuer):
     key = _key({"lic": "L1", "cust": "CORP", "feat": ["fives"]}, issuer)
-    fives = {"db_name": "b2s_fives", "inventory_db_name": "b2s_fives_inventory", "user": "app_user", "password": PASSWORD}
+    fives = {"db_name": "b2s_fives", "inventory_db_name": "b2s_fives_inventory", "user": "b2s_core"}
     with pytest.raises(install.InstallError, match="propre compte"):
         install.validate(_plan(license=key, fives=fives))
     plan = install.validate(_plan(license=key, fives={**fives, "user": "b2s_fives"}))
     assert plan["fives"]["user"] == "b2s_fives" and plan["license"].customer == "CORP"
 
 
-def test_install_stops_at_the_first_failure():
+def test_install_stops_at_the_first_failure(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
     plan = install.validate(_plan())
-    with patch.object(install, "_create", return_value=["borntoshare"]), \
+    with patch.object(install, "_databases_and_accounts", return_value=["borntoshare"]), \
          patch.object(install, "run_schema_pack", side_effect=RuntimeError("table x: syntax error")), \
          patch.object(install, "create_local_admin_if_needed") as admin:
         result = install.run(plan)
     assert result["ok"] is False
-    assert [(s["key"], s["ok"]) for s in result["steps"]] == [("databases", True), ("packs", False)]
-    assert "syntax error" in result["steps"][1]["detail"]
-    assert "déjà présente" in result["steps"][0]["detail"]  # borntoshare_logging was there
+    assert [(s["key"], s["ok"]) for s in result["steps"]] == [("secrets", True), ("databases", True), ("packs", False)]
+    assert "syntax error" in result["steps"][2]["detail"]
+    assert "déjà présente" in result["steps"][1]["detail"]  # borntoshare_logging was there
     admin.assert_not_called()
+    # The passwords given to the accounts are kept even though the installation stopped after
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["b2s_db_core", "b2s_db_migrate"]
 
 
-def test_install_all_steps_and_env_without_passwords(issuer):
+def test_install_refuses_without_the_secrets_directory(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path / "missing"))
+    with patch.object(install, "_databases_and_accounts") as create:
+        result = install.run(install.validate(_plan()))
+    assert result["ok"] is False and result["steps"][0]["key"] == "secrets"
+    create.assert_not_called()
+
+
+def test_install_all_steps_writes_the_secrets_and_no_password_on_screen(issuer, tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
     key = _key({"lic": "L1", "cust": "CORP", "feat": ["fives"]}, issuer)
-    plan = install.validate(_plan(license=key, fives={"db_name": "b2s_fives", "inventory_db_name": "b2s_fives_inventory",
-                                                       "user": "b2s_fives", "password": PASSWORD}))
-    with patch.object(install, "_create", side_effect=lambda server, names, user, password: list(names)), \
-         patch.object(install, "run_schema_pack", return_value=40), patch.object(install, "run_logging_schema_pack", return_value=2), \
-         patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_license") as lic, \
-         patch.object(install, "_opens"):
+    plan = install.validate(_plan(license=key, fives={"db_name": "b2s_fives", "inventory_db_name": "b2s_fives_inventory", "user": "b2s_fives"}))
+    given: dict = {}
+    with patch.object(install, "_databases_and_accounts", side_effect=lambda server, app, fives, passwords: given.update(passwords) or []), \
+         patch.object(install, "run_schema_pack", return_value=40) as schema, patch.object(install, "run_logging_schema_pack", return_value=2), \
+         patch.object(install, "run_fives_packs", return_value=2), patch.object(install, "create_local_admin_if_needed"), \
+         patch.object(install, "_license") as lic, patch.object(install, "_check_account") as check:
         result = install.run(plan)
     assert result["ok"] is True
-    assert [s["key"] for s in result["steps"]] == ["databases", "packs", "admin", "license", "fives", "check"]
+    assert [s["key"] for s in result["steps"]] == ["secrets", "databases", "packs", "admin", "license", "check"]
+    # The packs with the migration account, not the administrator
+    assert schema.call_args.args[1]["user"] == "b2s_migrate"
     assert lic.call_args.args[4] == ["fives"]
+    assert [c.args[1] for c in check.call_args_list] == ["b2s_core", "b2s_fives"]
+    files = {p.name: p for p in tmp_path.iterdir()}
+    assert sorted(files) == ["b2s_db_core", "b2s_db_fives", "b2s_db_migrate"]
+    assert {name: oct(path.stat().st_mode & 0o777) for name, path in files.items()} == dict.fromkeys(files, "0o600")
+    assert files["b2s_db_core"].read_text() == given["core"] and len(given["core"]) == 40
+    assert len(set(given.values())) == 3
     env = dict(result["env"])
-    assert env["DB_PASSWORD"] is None and env["FIVES_DB_PASSWORD"] is None
-    assert env["FIVES_DB_USER"] == "b2s_fives" and env["LOGGING_DB_NAME"] == "borntoshare_logging"
-    assert PASSWORD not in json.dumps(result)
+    assert env["DB_USER"] == "b2s_core" and env["DB_MIGRATE_USER"] == "b2s_migrate" and env["FIVES_DB_USER"] == "b2s_fives"
+    assert not any("PASSWORD" in name for name in env)
+    text = json.dumps(result)
+    assert all(value not in text for value in given.values()) and PASSWORD not in text
 
 
 def test_split_statements():

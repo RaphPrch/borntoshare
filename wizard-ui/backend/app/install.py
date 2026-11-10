@@ -1,32 +1,45 @@
 """The installation done by the wizard, in order, each action reported (done, or the error that stopped it):
 
-1. the database of BornToShare and its audit database, and the SQL account of the application (rights on both);
-2. their SQL packs (tables, views, indexes; audit);
-3. the first local administrator;
-4. the license key, and the modules it opens switched on;
-5. for the 5S module: its two databases and its own SQL account (rights on them only; its tables are created by
-   fives-service when it starts);
-6. a check that each account opens its databases.
+1. the databases (BornToShare, its audit, and the two of the 5S module when the license opens it);
+2. one SQL account per use, each with the least rights, and a password generated here, written to SECRETS_DIR
+   (secrets/ of the host, mode 0600; make deploy turns them into podman secrets and removes the files):
+   - the migration account: schema changes and data, on every database (the wizard and make deploy only);
+   - the account of core-service: read and write on BornToShare, insert/read/purge on the audit;
+   - the account of the 5S module: read and write on its two databases;
+3. the SQL packs, applied with the migration account (tables, views, indexes; audit; module);
+4. the first local administrator, the license and the modules it opens;
+5. a check that each account opens its databases and that the application accounts cannot change the schema.
 
-Everything can be run again on existing databases: nothing is deleted, every pack applies again. The MariaDB
-administrator account is used for this call only, never written.
+The MariaDB administrator account is used for the databases and the accounts only, never written. Everything can be
+run again: nothing is deleted, every pack applies again, each account gets a new password (and its file).
 """
 from __future__ import annotations
 
 import logging
+import os
 import re
+import secrets
+import string
+from pathlib import Path
 from typing import Any, Callable
 
 from .admin_logic import create_local_admin_if_needed
 from .db import get_connection
 from .license import License, decode, record
-from .migrations_runner import run_logging_schema_pack, run_schema_pack
+from .migrations_runner import run_fives_packs, run_logging_schema_pack, run_schema_pack
 from .security import validate_password_complexity
 
 logger = logging.getLogger("wizard.install")
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 SYSTEM_DATABASES = {"information_schema", "mysql", "performance_schema", "sys"}
+
+# Rights of each account, per database role (least privilege)
+MIGRATE_RIGHTS = "SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES, CREATE VIEW, SHOW VIEW"
+APP_RIGHTS = "SELECT, INSERT, UPDATE, DELETE"
+AUDIT_RIGHTS = "SELECT, INSERT, DELETE"
+# Names of the podman secrets (podman-compose.yml), one file each in SECRETS_DIR
+SECRET_NAMES = {"migrate": "b2s_db_migrate", "core": "b2s_db_core", "fives": "b2s_db_fives"}
 
 
 class InstallError(ValueError):
@@ -50,6 +63,19 @@ def check_password(value: str, label: str) -> str:
     return value
 
 
+def generate_password() -> str:
+    """40 characters, letters and digits (nothing to escape in a URL or a shell), from the system random source."""
+    alphabet = string.ascii_letters + string.digits
+    while True:
+        value = "".join(secrets.choice(alphabet) for _ in range(40))
+        if any(c.islower() for c in value) and any(c.isupper() for c in value) and any(c.isdigit() for c in value):
+            return value
+
+
+def secrets_dir() -> Path:
+    return Path(os.getenv("SECRETS_DIR") or "/secrets")
+
+
 def validate(plan: dict[str, Any]) -> dict[str, Any]:
     """The plan checked and normalized; InstallError on the first problem."""
     server, app, admin = plan.get("server") or {}, plan.get("app") or {}, plan.get("admin") or {}
@@ -60,8 +86,8 @@ def validate(plan: dict[str, Any]) -> dict[str, Any]:
                    "password": str(server["password"])},
         "app": {"db_name": check_identifier(app.get("db_name"), "Base de données"),
                 "logging_db_name": check_identifier(app.get("logging_db_name"), "Base des journaux"),
-                "user": check_identifier(app.get("user"), "Compte SQL de l'application"),
-                "password": check_password(str(app.get("password") or ""), "Mot de passe du compte SQL de l'application")},
+                "user": check_identifier(app.get("user"), "Compte de l'application"),
+                "migrate_user": check_identifier(app.get("migrate_user"), "Compte de migration")},
     }
     username = str(admin.get("username") or "").strip()
     if not username or len(username) > 190:
@@ -77,12 +103,12 @@ def validate(plan: dict[str, Any]) -> dict[str, Any]:
             raise InstallError("Module 5S : la clé de licence ne l'ouvre pas.")
         out["fives"] = {"db_name": check_identifier(fives.get("db_name"), "Base du module 5S"),
                         "inventory_db_name": check_identifier(fives.get("inventory_db_name"), "Base d'inventaire du module 5S"),
-                        "user": check_identifier(fives.get("user"), "Compte SQL du module 5S"),
-                        "password": check_password(str(fives.get("password") or ""), "Mot de passe du compte SQL du module 5S")}
-        if out["fives"]["user"] == out["app"]["user"]:
-            raise InstallError("Le module 5S a son propre compte SQL : choisir un autre nom que celui de l'application.")
+                        "user": check_identifier(fives.get("user"), "Compte du module 5S")}
     else:
         out["fives"] = None
+    users = [out["app"]["user"], out["app"]["migrate_user"]] + ([out["fives"]["user"]] if out["fives"] else [])
+    if len({user.lower() for user in users}) != len(users) or out["server"]["user"].lower() in {user.lower() for user in users}:
+        raise InstallError("Chaque usage a son propre compte SQL, distinct du compte administrateur : choisir des noms différents.")
     names = [out["app"]["db_name"], out["app"]["logging_db_name"]] + ([out["fives"]["db_name"], out["fives"]["inventory_db_name"]] if out["fives"] else [])
     if len({name.lower() for name in names}) != len(names):
         raise InstallError("Chaque base doit avoir son propre nom.")
@@ -110,46 +136,79 @@ def check_server(server: dict[str, Any]) -> dict[str, Any]:
             "create_user": all_on_all or "CREATE USER" in grants,
             "grant": "WITH GRANT OPTION" in grants,
         }
-        return {"version": version, "latency_ms": latency, "databases": databases, "privileges": can, "ready": all(can.values())}
+        return {"version": version, "latency_ms": latency, "databases": databases, "privileges": can, "ready": all(can.values()),
+                "secrets_writable": _writable(secrets_dir())}
     finally:
         cur.close()
         conn.close()
 
 
-def _account(cur, user: str, password: str, databases: list[str]) -> None:
-    # The password typed is the one of the account, also when it already exists (it goes to .env)
+def _writable(directory: Path) -> bool:
+    return directory.is_dir() and os.access(directory, os.W_OK)
+
+
+def _account(cur, user: str, password: str, rights: list[tuple[str, str]]) -> None:
+    """The account with this password and exactly these rights (those of an earlier installation are taken back)."""
     cur.execute(f"CREATE USER IF NOT EXISTS `{user}`@'%' IDENTIFIED BY %s", (password,))
     cur.execute(f"ALTER USER `{user}`@'%' IDENTIFIED BY %s", (password,))
-    for name in databases:
-        cur.execute(f"GRANT ALL PRIVILEGES ON `{name}`.* TO `{user}`@'%'")
+    cur.execute(f"REVOKE ALL PRIVILEGES, GRANT OPTION FROM `{user}`@'%'")
+    for privileges, database in rights:
+        cur.execute(f"GRANT {privileges} ON `{database}`.* TO `{user}`@'%'")
 
 
-def _create(server: dict[str, Any], databases: list[str], user: str, password: str) -> list[str]:
-    """Create the databases (those already there are kept), the account and its rights; the names created."""
+def _write_secret(name: str, value: str) -> None:
+    directory = secrets_dir()
+    path = directory / name
+    tmp = directory / f".{name}.tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(value)
+    os.replace(tmp, path)
+
+
+def _databases_and_accounts(server: dict[str, Any], app: dict[str, Any], fives: dict[str, Any] | None,
+                            passwords: dict[str, str]) -> list[str]:
+    """Create the databases (those already there are kept) and the accounts; the names of the databases created."""
+    app_dbs = [app["db_name"], app["logging_db_name"]]
+    module_dbs = [fives["db_name"], fives["inventory_db_name"]] if fives else []
     conn = get_connection(root_cfg=server)
     cur = conn.cursor()
     try:
         cur.execute("SHOW DATABASES")
         existing = {str(row[0]).lower() for row in cur.fetchall()}
-        for name in databases:
+        for name in app_dbs + module_dbs:
             cur.execute(f"CREATE DATABASE IF NOT EXISTS `{name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
-        _account(cur, user, password, databases)
+        _account(cur, app["migrate_user"], passwords["migrate"], [(MIGRATE_RIGHTS, name) for name in app_dbs + module_dbs])
+        _account(cur, app["user"], passwords["core"], [(APP_RIGHTS, app["db_name"]), (AUDIT_RIGHTS, app["logging_db_name"])])
+        if fives:
+            _account(cur, fives["user"], passwords["fives"], [(APP_RIGHTS, name) for name in module_dbs])
         cur.execute("FLUSH PRIVILEGES")
         conn.commit()
-        return [name for name in databases if name.lower() not in existing]
+        return [name for name in app_dbs + module_dbs if name.lower() not in existing]
     finally:
         cur.close()
         conn.close()
 
 
-def _opens(server: dict[str, Any], user: str, password: str, databases: list[str]) -> None:
+def _check_account(server: dict[str, Any], user: str, password: str, databases: list[str]) -> None:
+    """The account opens each of its databases and cannot change their schema."""
     for name in databases:
         conn = get_connection(root_cfg={**server, "user": user, "password": password}, database=True, db_name=name)
-        conn.close()
+        cur = conn.cursor()
+        try:
+            try:
+                cur.execute("CREATE TABLE b2s_wizard_rights_check (id INT)")
+            except Exception:
+                continue  # refused: as expected
+            cur.execute("DROP TABLE b2s_wizard_rights_check")
+            raise InstallError(f"Le compte {user} peut modifier le schéma de {name} : ses droits sont trop larges.")
+        finally:
+            cur.close()
+            conn.close()
 
 
-def _license(server: dict[str, Any], db_name: str, lic: License, by: str, switch_on: list[str]) -> None:
-    conn = get_connection(root_cfg=server, database=True, db_name=db_name)
+def _license(cfg: dict[str, Any], db_name: str, lic: License, by: str, switch_on: list[str]) -> None:
+    conn = get_connection(root_cfg=cfg, database=True, db_name=db_name)
     cur = conn.cursor()
     try:
         record(cur, lic, by=by, switch_on=switch_on)
@@ -159,15 +218,15 @@ def _license(server: dict[str, Any], db_name: str, lic: License, by: str, switch
         conn.close()
 
 
-def _kept(names: list[str], created: list[str]) -> str:
-    kept = [name for name in names if name not in created]
-    return f" ; déjà présente(s), conservée(s) : {', '.join(kept)}" if kept else ""
-
-
 def run(plan: dict[str, Any]) -> dict[str, Any]:
     """Every action in order; stops at the first failure. {ok, steps: [{key, label, ok, detail}], env: [[name, value]]}."""
     server, app, admin, lic, fives = plan["server"], plan["app"], plan["admin"], plan["license"], plan["fives"]
     app_dbs = [app["db_name"], app["logging_db_name"]]
+    module_dbs = [fives["db_name"], fives["inventory_db_name"]] if fives else []
+    passwords = {"migrate": generate_password(), "core": generate_password()}
+    if fives:
+        passwords["fives"] = generate_password()
+    migrate = {**server, "user": app["migrate_user"], "password": passwords["migrate"]}
     steps: list[dict[str, Any]] = []
 
     def step(key: str, label: str, action: Callable[[], str | None]) -> bool:
@@ -175,55 +234,63 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
             detail = action()
             steps.append({"key": key, "label": label, "ok": True, "detail": detail or ""})
             return True
-        except Exception as exc:  # the error is shown on screen, the account passwords are never in it
+        except Exception as exc:  # the error is shown on screen, no password is ever in it
             logger.exception("[INSTALL] %s failed", key)
             steps.append({"key": key, "label": label, "ok": False, "detail": str(exc)[:500]})
             return False
 
+    def writable() -> str:
+        if not _writable(secrets_dir()):
+            raise InstallError(f"{secrets_dir()} n'est pas accessible en écriture : lancer le wizard avec make wizard.")
+        return "les mots de passe des comptes y seront écrits (fichiers 0600), jamais affichés"
+
     def databases() -> str:
-        created = _create(server, app_dbs, app["user"], app["password"])
-        return f"{', '.join(app_dbs)} · compte {app['user']}" + _kept(app_dbs, created)
+        created = _databases_and_accounts(server, app, fives, passwords)
+        # The files right away: a later failure must not lose a password already given to an account
+        for key, value in passwords.items():
+            _write_secret(SECRET_NAMES[key], value)
+        kept = [name for name in app_dbs + module_dbs if name not in created]
+        users = [app["migrate_user"], app["user"]] + ([fives["user"]] if fives else [])
+        return (f"{', '.join(app_dbs + module_dbs)} · comptes {', '.join(users)}"
+                + (f" ; déjà présente(s), conservée(s) : {', '.join(kept)}" if kept else ""))
 
     def packs() -> str:
-        count = run_schema_pack(app["db_name"], server)
-        audit = run_logging_schema_pack(app["logging_db_name"], server)
-        return f"{count} paquets sur {app['db_name']}, {audit} sur {app['logging_db_name']}"
+        count = run_schema_pack(app["db_name"], migrate)
+        audit = run_logging_schema_pack(app["logging_db_name"], migrate)
+        detail = f"{count} paquets sur {app['db_name']}, {audit} sur {app['logging_db_name']}"
+        if fives:
+            module = run_fives_packs(fives["db_name"], fives["inventory_db_name"], migrate)
+            detail += f", {module} pour le module 5S"
+        return detail + f" (compte {app['migrate_user']})"
 
     def administrator() -> str:
-        create_local_admin_if_needed(db_name=app["db_name"], root_cfg=server, username=admin["username"], email=admin["email"],
+        create_local_admin_if_needed(db_name=app["db_name"], root_cfg=migrate, username=admin["username"], email=admin["email"],
                                      password=admin["password"])
         return f"{admin['username']} (compte local, administrateur de la plateforme)"
 
     def license_() -> str:
-        _license(server, app["db_name"], lic, admin["username"], ["fives"] if fives else [])
+        _license(migrate, app["db_name"], lic, admin["username"], ["fives"] if fives else [])
         return f"{lic.customer} · {lic.key_hint}" + (" · module 5S activé" if fives else "")
 
-    def module() -> str:
-        names = [fives["db_name"], fives["inventory_db_name"]]
-        created = _create(server, names, fives["user"], fives["password"])
-        return f"{', '.join(names)} · compte {fives['user']}" + _kept(names, created)
-
     def accounts() -> str:
-        _opens(server, app["user"], app["password"], app_dbs)
+        _check_account(server, app["user"], passwords["core"], app_dbs)
         if fives:
-            _opens(server, fives["user"], fives["password"], [fives["db_name"], fives["inventory_db_name"]])
-        return "chaque compte ouvre ses bases"
+            _check_account(server, fives["user"], passwords["fives"], module_dbs)
+        return "chaque compte ouvre ses bases, les comptes de l'application ne peuvent pas modifier le schéma"
 
     actions: list[tuple[str, str, Callable[[], str | None]]] = [
-        ("databases", "Bases de BornToShare et compte de l'application", databases),
+        ("secrets", "Dossier des mots de passe", writable),
+        ("databases", "Bases et comptes SQL", databases),
         ("packs", "Tables, vues et index", packs),
         ("admin", "Premier administrateur", administrator),
     ]
     if lic:
         actions.append(("license", "Licence", license_))
-    if fives:
-        actions.append(("fives", "Bases du module 5S et son compte", module))
-    actions.append(("check", "Vérification des comptes", accounts))
+    actions.append(("check", "Vérification des droits", accounts))
     ok = all(step(*action) for action in actions)
 
-    env = [["DB_HOST", server["host"]], ["DB_PORT", str(server["port"])], ["DB_NAME", app["db_name"]], ["DB_USER", app["user"]],
-           ["DB_PASSWORD", None], ["LOGGING_DB_NAME", app["logging_db_name"]]]
+    env = [["DB_HOST", server["host"]], ["DB_PORT", str(server["port"])], ["DB_NAME", app["db_name"]],
+           ["LOGGING_DB_NAME", app["logging_db_name"]], ["DB_USER", app["user"]], ["DB_MIGRATE_USER", app["migrate_user"]]]
     if fives:
-        env += [["FIVES_DB_NAME", fives["db_name"]], ["FIVES_INVENTORY_DB_NAME", fives["inventory_db_name"]],
-                ["FIVES_DB_USER", fives["user"]], ["FIVES_DB_PASSWORD", None]]
-    return {"ok": ok, "steps": steps, "env": env}
+        env += [["FIVES_DB_NAME", fives["db_name"]], ["FIVES_INVENTORY_DB_NAME", fives["inventory_db_name"]], ["FIVES_DB_USER", fives["user"]]]
+    return {"ok": ok, "steps": steps, "env": env, "secrets": [SECRET_NAMES[key] for key in passwords]}

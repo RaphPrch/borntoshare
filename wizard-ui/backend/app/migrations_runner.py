@@ -78,3 +78,8 @@ def run_schema_pack(db_name: str, root_cfg: dict) -> int:
 def run_logging_schema_pack(db_name: str, root_cfg: dict) -> int:
     """Tables and indexes of the audit database."""
     return _run(db_name, _files(SQL_DIR / "logging" / "schema") + _files(SQL_DIR / "logging" / "indexes"), root_cfg)
+
+
+def run_fives_packs(db_name: str, inventory_db_name: str, root_cfg: dict) -> int:
+    """Tables of the 5S module: sql/fives on its database, sql/fives_inventory on its inventory."""
+    return _run(db_name, _files(SQL_DIR / "fives"), root_cfg) + _run(inventory_db_name, _files(SQL_DIR / "fives_inventory"), root_cfg)

@@ -83,10 +83,11 @@ Capsules:
 - Capsules are agentless.
 - capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares, NTFS ACLs and DFS (netdfs), Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
 - Capsule execution must remain isolated from the main application network.
-- Job queue: Dramatiq over Redis. Redis is a service of the root `podman-compose.yml`, password-protected (`REDIS_PASSWORD`), with no published port, on the `b2s-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
+- Job queue: Dramatiq over Redis. Redis is a service of the root `podman-compose.yml`, password-protected (podman secret `b2s_redis`, read through `REDIS_PASSWORD_FILE`), with no published port, on the `b2s-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
 
 Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
+- Passwords are podman secrets mounted as files (`NAME_FILE`, read by `secret_files.py`, the same file in every service), never in `.env`. SQL accounts: `b2s_migrate` (schema, packs), `b2s_core` and `b2s_fives` (read/write only): a runtime CREATE/ALTER fails, put it in a pack.
 - There is no Alembic. `wizard-ui/backend/app/migrations_runner.py` applies `schema/` → `views/` → `indexes/`; the logging DB has its own `logging/schema` + `logging/indexes`. Every file must be idempotent: the runner re-applies the whole pack.
 - Tables: `CREATE TABLE IF NOT EXISTS`; indexes: `CREATE INDEX IF NOT EXISTS` in `indexes/020_indexes.sql`.
 - Before v1 there are no migrations: the pack describes the whole schema and the database is recreated from it (re-run the wizard on an empty database). Removing an object = deleting its definition.

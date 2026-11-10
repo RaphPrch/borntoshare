@@ -1,7 +1,8 @@
 # ============================================================
 # BornToShare — every service in one file
-# Configuration: .env (same directory, see .env.example). Each service only
-# receives the variables it reads, never the whole file.
+# Configuration: .env (same directory, see .env.example), without any password. Each service only
+# receives the variables it reads, never the whole file. Passwords and keys are podman secrets (end of this file,
+# scripts/secrets.sh): files in /run/secrets (mode 0400, uid of the service), never in the environment.
 #
 #   make up        build if needed and start everything
 #   make down      stop everything
@@ -36,20 +37,19 @@ services:
     <<: *hardening
     container_name: redis
     image: docker.io/library/redis:8.10
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
-      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    secrets:
+      - {source: b2s_redis, uid: "999", gid: "999", mode: "0400"}
     command:
       - sh
       - -c
-      - exec redis-server --appendonly yes --appendfsync everysec --requirepass "$$REDIS_PASSWORD"
+      - exec redis-server --appendonly yes --appendfsync everysec --requirepass "$$(cat /run/secrets/b2s_redis)"
     read_only: false              # writes its append-only file to /data
     volumes:
       - redis-data:/data
     user: "999:999"               # "redis" user of the official image
     healthcheck:
       <<: *healthcheck
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$(cat /run/secrets/b2s_redis) redis-cli ping | grep -q PONG"]
     networks: [jobs]
 
   auth-service:
@@ -62,7 +62,9 @@ services:
       PRINCIPAL_SIGNING_KEY: ${PRINCIPAL_SIGNING_KEY}
       SESSION_STORE_BACKEND: redis
       REDIS_DB: 1
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_PASSWORD_FILE: /run/secrets/b2s_redis
+    secrets:
+      - {source: b2s_redis, uid: "10001", mode: "0400"}
     volumes:
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     expose: ["8000"]
@@ -81,19 +83,26 @@ services:
     build: ./core-service
     environment:
       <<: *common-env
-      B2S_SECRET_MASTER_KEY: ${B2S_SECRET_MASTER_KEY:?B2S_SECRET_MASTER_KEY must be set}
+      B2S_SECRET_MASTER_KEY_FILE: /run/secrets/b2s_master_key
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      # Its own account: read and write on DB_NAME, insert/read/purge on LOGGING_DB_NAME, no schema change
+      DB_USER: ${DB_USER:-b2s_core}
+      DB_PASSWORD_FILE: /run/secrets/b2s_db_core
       # Audit database: same server and account as DB_*
       LOGGING_DB_NAME: ${LOGGING_DB_NAME}
-      CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
+      # The Redis password is added from REDIS_PASSWORD_FILE
+      CAPSULE_BROKER_URL: redis://redis:6379/2
+      REDIS_PASSWORD_FILE: /run/secrets/b2s_redis
       # The 5S module, when installed: it receives each measure of a folder
       B2S_FIVES_URL: http://fives-service:8000
       # Database chosen in Advanced Settings › Infrastructure, read at startup (replaces DB_*)
       B2S_RUNTIME_DIR: /etc/b2s/runtime
+    secrets:
+      - {source: b2s_master_key, uid: "10002", mode: "0400"}
+      - {source: b2s_db_core, uid: "10002", mode: "0400"}
+      - {source: b2s_redis, uid: "10002", mode: "0400"}
     volumes:
       - ./config/runtime:/etc/b2s/runtime:rw,z
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
@@ -113,8 +122,11 @@ services:
     build: ./capsule-runner
     environment:
       <<: *common-env
-      CAPSULE_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
+      CAPSULE_BROKER_URL: redis://redis:6379/2
+      REDIS_PASSWORD_FILE: /run/secrets/b2s_redis
       RUNNER_MAX_SCOPE: ${RUNNER_MAX_SCOPE:-write}
+    secrets:
+      - {source: b2s_redis, uid: "10003", mode: "0400"}
     # Agent checked by core-service: HTTPS on 8443 with certs/agent.crt + agent.key, else HTTP on 8080
     volumes:
       - ./capsule-runner/certs:/etc/b2s/certs:ro,z
@@ -157,8 +169,9 @@ services:
     networks: [app]
 
   # Optional module « 5S et hygiène des données » (licensed): its own container and databases
-  # (b2s_fives, b2s_fives_inventory, account FIVES_DB_USER), installed by scripts/modules/fives/install.sh.
-  # Started with the profile « fives » (make deploy does it when FIVES_DB_PASSWORD is set).
+  # (b2s_fives, b2s_fives_inventory, account FIVES_DB_USER: read and write only), created by the wizard or
+  # scripts/modules/fives/install.sh. Started with the profile « fives » (make deploy does it when the podman
+  # secret b2s_db_fives exists).
   fives-service:
     <<: *hardening
     container_name: fives-service
@@ -171,9 +184,11 @@ services:
       FIVES_DB_HOST: ${FIVES_DB_HOST:-${DB_HOST}}
       FIVES_DB_PORT: ${DB_PORT:-3306}
       FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
-      FIVES_DB_PASSWORD: ${FIVES_DB_PASSWORD:-}
+      FIVES_DB_PASSWORD_FILE: /run/secrets/b2s_db_fives
       FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
       FIVES_INVENTORY_DB_NAME: ${FIVES_INVENTORY_DB_NAME:-b2s_fives_inventory}
+    secrets:
+      - {source: b2s_db_fives, uid: "10005", mode: "0400"}
     expose: ["8000"]
     healthcheck:
       <<: *healthcheck
@@ -198,9 +213,11 @@ services:
       FIVES_DB_HOST: ${FIVES_DB_HOST:-${DB_HOST}}
       FIVES_DB_PORT: ${DB_PORT:-3306}
       FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
-      FIVES_DB_PASSWORD: ${FIVES_DB_PASSWORD:-}
+      FIVES_DB_PASSWORD_FILE: /run/secrets/b2s_db_fives
       FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
       FIVES_INVENTORY_DB_NAME: ${FIVES_INVENTORY_DB_NAME:-b2s_fives_inventory}
+    secrets:
+      - {source: b2s_db_fives, uid: "10006", mode: "0400"}
     healthcheck:
       <<: *healthcheck
       test: ["CMD", "python", "-c", "import os, time; assert time.time() - os.path.getmtime('/tmp/scanner-alive') < 120"]
@@ -216,21 +233,39 @@ services:
     environment:
       TZ: Europe/Paris
       LOG_LEVEL: INFO
-      # The fields start from .env (names only: every password is typed on screen)
+      # The fields start from .env (names only)
       DB_HOST: ${DB_HOST:-}
       DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME:-borntoshare}
-      DB_USER: ${DB_USER:-b2s_app}
+      DB_USER: ${DB_USER:-b2s_core}
+      DB_MIGRATE_USER: ${DB_MIGRATE_USER:-b2s_migrate}
       LOGGING_DB_NAME: ${LOGGING_DB_NAME:-borntoshare_logging}
       FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
       FIVES_INVENTORY_DB_NAME: ${FIVES_INVENTORY_DB_NAME:-b2s_fives_inventory}
       FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
+      # The generated passwords of the SQL accounts go there (0600), make deploy turns them into podman secrets
+      SECRETS_DIR: /secrets
+    # root of the container = the owner of the files on the host (rootless podman): secrets/ stays readable by it only
+    user: "0:0"
+    volumes:
+      - ./secrets:/secrets:rw,z
     ports:
       - "${WIZARD_PORT:-8080}:8080"
     healthcheck:
       <<: *healthcheck
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=3)"]
     networks: [app, data]
+
+# Podman secrets, created by scripts/secrets.sh (make deploy) from the files the wizard writes in secrets/
+secrets:
+  b2s_master_key:
+    external: true
+  b2s_redis:
+    external: true
+  b2s_db_core:
+    external: true
+  b2s_db_fives:
+    external: true
 
 networks:
   app:

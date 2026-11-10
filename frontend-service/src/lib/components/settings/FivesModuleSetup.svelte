@@ -67,7 +67,7 @@
 DB_ADMIN_USER=root DB_ADMIN_PASSWORD_FILE=~/.b2s-dbadmin scripts/modules/fives/install.sh
 rm -f ~/.b2s-dbadmin
 make deploy</pre>
-    <p class="fm__muted">{t('The script creates b2s_fives and b2s_fives_inventory and their own account (rights on them only) and generates its password in .env (the installation wizard does the same at the first installation). make deploy then starts the module. Come back here afterwards.')}</p>
+    <p class="fm__muted">{t('The script creates b2s_fives and b2s_fives_inventory and their own account (read and write on them only), with its password in a podman secret (the installation wizard does the same at the first installation). make deploy then starts the module. Come back here afterwards.')}</p>
     <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={load}>{t('Check again')}</button>
   {:else if !health?.schema}
     <p>{t('The module answers but cannot reach its databases: check FIVES_DB_* in .env and the account b2s_fives.')}</p>

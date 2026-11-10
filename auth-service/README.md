@@ -28,7 +28,7 @@ locaux et les rôles auprès de core-service (routes `/api/internal/*`, jeton in
 
 ## Variables
 
-`INTERNAL_TOKEN`, `PRINCIPAL_SIGNING_KEY` (obligatoire : refus au démarrage de la clé par défaut), `REDIS_PASSWORD` (et `SESSION_STORE_BACKEND=redis`,
+`INTERNAL_TOKEN`, `PRINCIPAL_SIGNING_KEY` (obligatoire : refus au démarrage de la clé par défaut), `REDIS_PASSWORD` (ou `REDIS_PASSWORD_FILE`, le secret podman `b2s_redis`) (et `SESSION_STORE_BACKEND=redis`,
 `REDIS_DB=1` fixés par la composition) ; autorité privée de Keycloak : `certs/oidc-ca.pem`. Voir
 [docs/installation.md](../docs/installation.md).
 

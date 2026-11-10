@@ -157,3 +157,10 @@ input.is-invalid { border-color: var(--danger); }
 [hidden] { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
+
+/* Accounts and their rights (step 2) */
+.wz__rights { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--border-soft); border-radius: 14px; overflow: hidden; font-size: 13px; }
+.wz__rights th { text-align: left; font-weight: 600; color: var(--muted); background: var(--surface-soft); padding: 10px 14px; font-size: 12px; }
+.wz__rights td { padding: 12px 14px; border-top: 1px solid var(--border-soft); vertical-align: top; }
+.wz__rights td:first-child { white-space: nowrap; }
+.wz__rights td:last-child { color: var(--muted); white-space: nowrap; }

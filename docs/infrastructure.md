@@ -55,10 +55,10 @@ Le premier data sync a lieu un intervalle après l'installation, pas au premier 
 
 Les mots de passe des annuaires et des serveurs de fichiers sont chiffrés (AES-256-GCM) dans la table `secret_items` de la base.
 core-service les chiffre et les déchiffre ; auth-service et les workers les lui demandent par une route interne, avec `INTERNAL_TOKEN`.
-`B2S_SECRET_MASTER_KEY` reste dans `.env` et n'est jamais en base : un dump ou un accès SQL seul ne donne donc pas les mots de passe.
+La clé (`b2s_master_key`, un secret podman monté en fichier dans core-service seul) n'est jamais en base : un dump ou un accès SQL seul ne donne donc pas les mots de passe.
 En revanche, une faille permettant d'exécuter du code dans core-service y donnerait accès, puisqu'il détient la clé et la base.
 
-Une sauvegarde complète comprend **deux éléments** : la base et `B2S_SECRET_MASTER_KEY`, à conserver séparément. Sans la clé, les
+Une sauvegarde complète comprend **deux éléments** : la base et la clé `b2s_master_key` (`podman secret inspect --showsecret --format '{{.SecretData}}' b2s_master_key`), à conserver séparément. Sans la clé, les
 références restent en base mais les annuaires passent en panne (« mot de passe illisible ») jusqu'à leur nouvelle saisie.
 
 Le health check vérifie aussi que chaque référence de mot de passe mène à un secret : s'il en manque (base restaurée

@@ -27,13 +27,28 @@ make deploy
 | Étape | Ce qui est demandé |
 |---|---|
 | 1. Serveur MariaDB | Adresse, port et compte administrateur (root) : connexion, version, droits et bases présentes |
-| 2. Bases BornToShare | `DB_NAME`, `LOGGING_DB_NAME`, compte SQL de l'application (`DB_USER`, `DB_PASSWORD`) |
+| 2. Bases BornToShare | `DB_NAME`, `LOGGING_DB_NAME`, comptes de l'application (`DB_USER`) et des migrations (`DB_MIGRATE_USER`) |
 | 3. Administrateur | Identifiant, e-mail (facultatif) et mot de passe du premier compte local |
-| 4. Licence et modules | Clé de licence (facultative), vérifiée hors ligne ; module 5S : `FIVES_DB_NAME`, `FIVES_INVENTORY_DB_NAME`, `FIVES_DB_USER`, `FIVES_DB_PASSWORD` |
+| 4. Licence et modules | Clé de licence (facultative), vérifiée hors ligne ; module 5S : `FIVES_DB_NAME`, `FIVES_INVENTORY_DB_NAME`, `FIVES_DB_USER` |
 | 5. Installation | Récapitulatif, puis le résultat de chaque action et les lignes à reporter dans `.env` |
 
-Les champs partent des noms déjà dans `.env` (`podman-compose.yml` les passe au wizard). Aucun mot de passe ne
-lui est passé.
+Les champs partent des noms déjà dans `.env` (`podman-compose.yml` les passe au wizard). Seul le mot de passe
+de l'administrateur MariaDB se saisit : il sert à créer les bases et les comptes, jamais enregistré.
+
+## Comptes SQL
+
+Un compte par usage, avec le minimum de droits ; leurs mots de passe (40 caractères) sont générés par le wizard
+et écrits dans `secrets/` (`SECRETS_DIR`, fichiers 0600), jamais affichés. `make deploy` en fait des secrets
+podman et supprime les fichiers.
+
+| Compte | Droits | Utilisé par |
+|---|---|---|
+| `b2s_migrate` (`DB_MIGRATE_USER`) | schéma et données sur toutes les bases | le wizard (paquets SQL), `make deploy`, `make backup` |
+| `b2s_core` (`DB_USER`) | lecture et écriture sur `DB_NAME` ; ajout, lecture et purge sur `LOGGING_DB_NAME` | core-service |
+| `b2s_fives` (`FIVES_DB_USER`) | lecture et écriture sur les deux bases du module | fives-service, fives-scanner |
+
+Un compte qui existe déjà reçoit un nouveau mot de passe et exactement ces droits. La dernière étape vérifie que
+chaque compte ouvre ses bases et que ceux de l'application ne peuvent pas modifier le schéma.
 
 ## API
 
@@ -58,18 +73,21 @@ lui est passé.
 appliqué plusieurs fois. Une vue dont la définition change est ajoutée à `VIEWS`, puis recréée
 (`CREATE OR REPLACE`).
 
-Les tables du module 5S sont créées par fives-service à son démarrage. Le wizard crée ses bases et son compte.
+Les tables du module 5S sont dans `sql/fives/` et `sql/fives_inventory/`, appliquées par le compte de migration
+(wizard, `make deploy`) : fives-service vérifie seulement qu'elles existent.
 
 ## Données
 
 Le wizard ne crée que la structure et le premier administrateur, sans aucune donnée de démonstration. Il peut
 être relancé sur des bases existantes : elles sont conservées et chaque paquet SQL s'applique à nouveau. Un compte
-SQL qui existe déjà prend le mot de passe saisi.
+SQL qui existe déjà reçoit un nouveau mot de passe généré.
 
 ## Sécurité
 
-- Les mots de passe restent dans la page le temps de l'installation. Ils ne sont écrits ni sur disque ni dans les
-  journaux, et les champs sont vidés à la fin.
-- Le wizard n'écrit pas de `.env` : il affiche les lignes à y reporter.
-- Chaque compte SQL n'a de droits que sur ses propres bases.
+- Le mot de passe de l'administrateur MariaDB reste dans la page le temps de l'installation : ni sur disque, ni dans
+  les journaux.
+- Les mots de passe des comptes ne quittent pas le serveur : générés, écrits dans `secrets/` (0600), jamais affichés.
+- Le wizard n'écrit pas de `.env` : il affiche les lignes à y reporter (des noms seulement).
+- Le conteneur tourne en root pour que les fichiers de `secrets/` appartiennent à l'utilisateur de l'hôte (podman
+  sans privilèges : root du conteneur = cet utilisateur).
 - Ne pas le laisser exposé : `make wizard-down` dès la fin.

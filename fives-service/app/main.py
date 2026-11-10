@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from app import core_client
 from app.auth import Actor, actor, check_internal_token
-from app.db import InventorySession, SessionLocal, create_schema
+from app.db import InventorySession, SessionLocal, check_schema
 from app.services import duplicates, five_s, growth, reports, scans
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [FIVES] %(name)s - %(message)s")
@@ -31,11 +31,11 @@ def _startup() -> None:
     global _schema_ready
     for attempt in range(10):
         try:
-            create_schema()
+            check_schema()
             _schema_ready = True
             break
         except Exception:
-            logger.warning("Module databases not reachable yet (attempt %s)", attempt + 1, exc_info=attempt == 9)
+            logger.warning("Module databases not reachable or not installed yet (attempt %s)", attempt + 1, exc_info=attempt == 9)
             time.sleep(3)
     threading.Thread(target=_schedule_loop, name="fives-schedule", daemon=True).start()
 

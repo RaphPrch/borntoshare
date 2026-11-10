@@ -16,14 +16,14 @@
     </div>
     <ol class="wz__steps" id="steps">
       <li data-step="1"><span class="wz__num">1</span><span><b>Serveur MariaDB</b><small>Compte administrateur</small></span></li>
-      <li data-step="2"><span class="wz__num">2</span><span><b>Bases BornToShare</b><small>Données, journaux, compte</small></span></li>
+      <li data-step="2"><span class="wz__num">2</span><span><b>Bases BornToShare</b><small>Données, journaux, comptes</small></span></li>
       <li data-step="3"><span class="wz__num">3</span><span><b>Administrateur</b><small>Premier compte local</small></span></li>
       <li data-step="4"><span class="wz__num">4</span><span><b>Licence et modules</b><small>Facultatif</small></span></li>
       <li data-step="5"><span class="wz__num">5</span><span><b>Installation</b><small>Récapitulatif</small></span></li>
     </ol>
     <p class="wz__note">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 2 3.5v4C2 11 4.6 14 8 15c3.4-1 6-4 6-7.5v-4L8 1Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-      Les mots de passe restent dans cette page le temps de l'installation : rien n'est enregistré, ni écrit dans un fichier.
+      Le mot de passe administrateur MariaDB sert à cette installation seulement. Ceux des comptes SQL sont générés et écrits dans <code>secrets/</code>, jamais affichés.
     </p>
   </aside>
 
@@ -57,7 +57,7 @@
       <!-- 2. BornToShare databases -->
       <section class="wz__step" data-step="2" hidden>
         <header><span class="wz__eyebrow">Étape 2 sur 5</span><h2>Bases BornToShare</h2>
-          <p>La base des données de l'application et celle de son journal d'audit, sur ce serveur, avec un même compte SQL.</p></header>
+          <p>La base des données de l'application et celle de son journal d'audit, sur ce serveur. Chaque usage a son propre compte SQL, avec le minimum de droits ; leurs mots de passe sont générés.</p></header>
         <form id="f2" autocomplete="off" novalidate>
           <div class="wz__grid">
             <label>Base des données<small>DB_NAME</small><input id="a_db" required spellcheck="false" /></label>
@@ -65,13 +65,17 @@
           </div>
           <div id="a_exists" class="wz__callout wz__callout--warn" hidden></div>
           <div class="wz__grid">
-            <label>Compte SQL de l'application<small>DB_USER</small><input id="a_user" required spellcheck="false" /></label>
-            <span></span>
-            <label>Mot de passe<small>DB_PASSWORD</small><span class="wz__pw"><input id="a_password" type="password" required autocomplete="new-password" /><button type="button" class="wz__eye" aria-label="Afficher">👁</button></span></label>
-            <label>Confirmer le mot de passe<input id="a_confirm" type="password" required autocomplete="new-password" /></label>
+            <label>Compte de l'application<small>DB_USER</small><input id="a_user" required spellcheck="false" /></label>
+            <label>Compte de migration<small>DB_MIGRATE_USER</small><input id="a_migrate" required spellcheck="false" /></label>
           </div>
-          <ul class="wz__rules" data-for="a"></ul>
-          <p class="wz__hint">Si le compte existe déjà, il prend ce mot de passe : c'est celui de <code>DB_PASSWORD</code> dans <code>.env</code>.</p>
+          <table class="wz__rights">
+            <thead><tr><th>Compte</th><th>Droits</th><th>Utilisé par</th></tr></thead>
+            <tbody>
+              <tr><td><code data-name="a_user"></code></td><td>lecture et écriture sur <code data-name="a_db"></code> ; ajout, lecture et purge sur <code data-name="a_log"></code></td><td>core-service</td></tr>
+              <tr><td><code data-name="a_migrate"></code></td><td>schéma (tables, vues, index) et données, sur toutes les bases</td><td>ce wizard, <code>make deploy</code></td></tr>
+            </tbody>
+          </table>
+          <p class="wz__hint">Un compte qui existe déjà reçoit un nouveau mot de passe et exactement ces droits.</p>
           <footer>
             <button type="button" class="wz__btn wz__btn--ghost" data-back>Retour</button>
             <button type="submit" class="wz__btn wz__btn--primary" id="n2" disabled>Continuer</button>
@@ -109,17 +113,14 @@
 
           <div id="m_fives" class="wz__module" hidden>
             <label class="wz__switch"><input type="checkbox" id="m_on" checked /><span></span>
-              <span><b>Module 5S et hygiène des données</b><small>Score 5S, doublons, âge des données, croissance, scanner sans agent. Ses deux bases et son propre compte SQL, sur ce serveur.</small></span></label>
+              <span><b>Module 5S et hygiène des données</b><small>Score 5S, doublons, âge des données, croissance, scanner sans agent. Ses deux bases et son propre compte SQL (lecture et écriture sur elles seules), sur ce serveur.</small></span></label>
             <div id="m_fields">
               <div class="wz__grid">
                 <label>Base du module<small>FIVES_DB_NAME</small><input id="m_db" required spellcheck="false" /></label>
                 <label>Base d'inventaire<small>FIVES_INVENTORY_DB_NAME</small><input id="m_inv" required spellcheck="false" /></label>
-                <label>Compte SQL du module<small>FIVES_DB_USER</small><input id="m_user" required spellcheck="false" /></label>
-                <span></span>
-                <label>Mot de passe<small>FIVES_DB_PASSWORD</small><span class="wz__pw"><input id="m_password" type="password" autocomplete="new-password" /><button type="button" class="wz__eye" aria-label="Afficher">👁</button></span></label>
-                <label>Confirmer le mot de passe<input id="m_confirm" type="password" autocomplete="new-password" /></label>
+                <label>Compte du module<small>FIVES_DB_USER</small><input id="m_user" required spellcheck="false" /></label>
               </div>
-              <ul class="wz__rules" data-for="m"></ul>
+
             </div>
           </div>
           <footer>
@@ -137,7 +138,7 @@
         <ol class="wz__progress" id="i_progress" hidden></ol>
         <div id="i_done" hidden>
           <h3>À reporter dans <code>.env</code></h3>
-          <p class="wz__hint">Puis arrêter ce wizard et démarrer BornToShare. Le bouton copie les lignes avec les mots de passe saisis ; l'écran les masque.</p>
+          <p class="wz__hint">Des noms seulement : aucun mot de passe. Ceux des comptes sont dans <code>secrets/</code> (<span id="i_secrets"></span>) ; <code>make deploy</code> en fait des secrets podman et supprime les fichiers.</p>
           <pre class="wz__env" id="i_env"></pre>
           <div class="wz__inline"><button type="button" id="i_copy" class="wz__btn">Copier les lignes</button></div>
           <pre class="wz__env wz__env--cmd">make wizard-down
