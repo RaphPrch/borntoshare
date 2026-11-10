@@ -365,6 +365,19 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
         logger.warning("POLICIES_AFTER_SCAN_FAILED", exc_info=True)
 
 
+def _is_current_folder_job(db: Session, job_row: Any) -> bool:
+    """The folder's scan or measure in progress is this job (not an older one stopped later)."""
+    from app.services import scans, sensitivity
+
+    action = str(getattr(job_row, "action", "") or "").strip()
+    table = {sensitivity.ACTION: "storage_root_sensitivity", scans.ACTION: "storage_root_scans"}.get(action)
+    root_id = _extract_storage_root_id_from_probe(job_payload_json=getattr(job_row, "payload_json", None), result_json=None)
+    if not table or not root_id:
+        return False
+    current = db.execute(text(f"SELECT job_id FROM {table} WHERE storage_root_id = :id"), {"id": int(root_id)}).scalar()
+    return current is None or int(current) == int(getattr(job_row, "id", 0) or 0)
+
+
 def _persist_scan_result(db: Session, *, job_row: Any, result_json: dict | None, error_message: str | None = None) -> None:
     """Measure of a folder (folder_scan): its content, history and fingerprints, or why it failed."""
     from app.services import scans
@@ -851,6 +864,8 @@ def list_provisioning_jobs(
     active_only: bool = False,
     updated_before_seconds: int | None = None,
     limit: int = 200,
+    exclude_job_type: str | None = None,
+    job_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     statuses = _parse_status_csv(status)
@@ -877,6 +892,18 @@ def list_provisioning_jobs(
             placeholders.append(f":{key}")
             params[key] = item
         conds.append(f"UPPER(COALESCE(pj.job_type, '')) IN ({', '.join(placeholders)})")
+
+    excluded = _parse_job_type_csv(exclude_job_type)
+    if excluded:
+        names = []
+        for i, item in enumerate(excluded):
+            params[f"exclude_{i}"] = item
+            names.append(f":exclude_{i}")
+        conds.append(f"UPPER(COALESCE(pj.job_type, '')) NOT IN ({', '.join(names)})")
+
+    if int(job_id or 0) > 0:
+        conds.append("pj.id = :job_id")
+        params["job_id"] = int(job_id)
 
     if int(identity_source_id or 0) > 0:
         conds.append("pj.identity_source_id = :identity_source_id")
@@ -912,6 +939,9 @@ def list_provisioning_jobs(
               pj.created_at,
               pj.updated_at,
               TIMESTAMPDIFF(SECOND, pj.created_at, UTC_TIMESTAMP()) AS queue_age_seconds,
+              TIMESTAMPDIFF(SECOND, pj.created_at, COALESCE(pj.started_at, pj.finished_at, UTC_TIMESTAMP())) AS wait_seconds,
+              CASE WHEN pj.started_at IS NULL THEN NULL
+                   ELSE TIMESTAMPDIFF(SECOND, pj.started_at, COALESCE(pj.finished_at, UTC_TIMESTAMP())) END AS run_seconds,
               CAST(
                 COALESCE(
                   JSON_UNQUOTE(JSON_EXTRACT(pj.metrics_json, '$.watchdog_republish_count')),
@@ -1015,6 +1045,10 @@ def cancel_provisioning_job(job_id: int, payload: JobCancelPayload, db: Session 
             error_code="JOB_CANCELLED",
             error_message=reason,
         )
+    # A folder scan or measure that is stopped is no longer « running » on its folder (when it is that folder's run)
+    if _is_current_folder_job(db, row):
+        _persist_sensitivity_result(db, job_row=row, result_json=None, error_message=reason)
+        _persist_scan_result(db, job_row=row, result_json=None, error_message=reason)
 
     _persist_identity_source_probe_result(
         db,

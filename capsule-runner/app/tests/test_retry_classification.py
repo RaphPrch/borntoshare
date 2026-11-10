@@ -251,3 +251,13 @@ def test_ad_group_ensure_success_uses_complete_not_complete_and_apply(monkeypatc
         "/api/internal/provisioning/jobs/204/complete",
     ]
     assert all("complete-and-apply" not in p for p in paths)
+
+
+def test_a_cancelled_job_is_not_run(monkeypatch) -> None:
+    # Stopped by an operator before a worker took it: no start, no action, no result
+    calls: list[str] = []
+    monkeypatch.setattr(dispatcher, "core_get", lambda path: {"id": 7, "status": "CANCELLED", "correlation_id": "corr-cancelled", "payload_json": {}})
+    monkeypatch.setattr(dispatcher, "core_post", lambda path, payload: calls.append(path))
+    monkeypatch.setattr(dispatcher, "execute_action", lambda *args, **kwargs: calls.append("execute"))
+    dispatcher.run_job(7)
+    assert calls == []

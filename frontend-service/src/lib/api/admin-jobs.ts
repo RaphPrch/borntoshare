@@ -1,5 +1,5 @@
 import type { FetchLike } from './client';
-import { apiGetList, apiPostData } from './client';
+import { apiGetData, apiGetList, apiPostData } from './client';
 
 export type AdminProvisioningJob = {
   id: number;
@@ -21,6 +21,28 @@ export type AdminProvisioningJob = {
   updated_at?: string | null;
   queue_age_seconds?: number | null;
   watchdog_republish_count?: number | null;
+  /** Seconds in the queue before a worker took it, and running (still counting while it runs) */
+  wait_seconds?: number | null;
+  run_seconds?: number | null;
+  timeout_seconds?: number | null;
+  queue?: string | null;
+  attempts?: number | null;
+  /** What it worked on, and its page */
+  target?: { kind: 'folder' | 'server' | 'directory' | 'host'; id: number | null; label: string; href: string | null; detail?: string } | null;
+  origin?: string | null;
+  retry_of?: number | null;
+  /** queue: nobody took it; running: far beyond its timeout */
+  stuck?: 'queue' | 'running' | null;
+  retryable?: boolean;
+  retry_elsewhere?: string | null;
+};
+
+export type AdminJobDetail = AdminProvisioningJob & {
+  payload: Record<string, unknown>;
+  result: Record<string, unknown>;
+  metrics: Record<string, unknown>;
+  error: Record<string, unknown>;
+  retried_by: number[];
 };
 
 type AdminJobsListParams = {
@@ -30,6 +52,7 @@ type AdminJobsListParams = {
   storage_root_access_profile_id?: number;
   active_only?: boolean;
   updated_before_seconds?: number;
+  exclude_job_type?: string;
   limit?: number;
 };
 
@@ -49,6 +72,7 @@ export const listAdminJobs = (
     storage_root_access_profile_id: params?.storage_root_access_profile_id,
     active_only: params?.active_only,
     updated_before_seconds: params?.updated_before_seconds,
+    exclude_job_type: params?.exclude_job_type,
     limit: params?.limit
   });
 
@@ -62,3 +86,13 @@ export const cancelAdminJob = (
     `/admin/jobs/${Number(jobId)}/cancel`,
     payload ?? {}
   );
+
+export const getAdminJob = (fetchFn: FetchLike, jobId: number) => apiGetData<AdminJobDetail>(fetchFn, `/admin/jobs/${Number(jobId)}`);
+
+/** A failed or stopped check or scan, started again (a new job linked to the first) */
+export const retryAdminJob = (fetchFn: FetchLike, jobId: number) =>
+  apiPostData<{ job_id: number | null; retry_of: number; reused: boolean }>(fetchFn, `/admin/jobs/${Number(jobId)}/retry`, {});
+
+/** The stuck jobs (all of them, or some) closed as failed */
+export const flushAdminJobs = (fetchFn: FetchLike, jobIds?: number[]) =>
+  apiPostData<{ flushed: number[]; failed: Array<{ id: number; message: string }> }>(fetchFn, '/admin/jobs/flush', jobIds?.length ? { job_ids: jobIds } : {});

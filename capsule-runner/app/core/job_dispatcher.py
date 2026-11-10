@@ -56,7 +56,8 @@ def run_job(job_id: int, *, retries: int = 0, max_retries: int = 5) -> None:
 
     status = _normalize_status(job.get("status"))
     correlation_id = str(job.get("correlation_id") or "").strip() or None
-    if status in {"SUCCEEDED", "FAILED"}:
+    # Stopped by an operator before a worker took it: it must not run (CANCELLED is terminal too)
+    if status in {"SUCCEEDED", "FAILED", "CANCELLED"}:
         logger.info("dispatcher.skip_terminal", extra={"job_id": numeric_job_id, "status": status})
         return
 

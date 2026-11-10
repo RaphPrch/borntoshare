@@ -11,6 +11,7 @@ from fastapi import Depends, APIRouter, HTTPException, Query, Request, Response,
 from app.api import provisioning_internal
 from app.core.direct_call import call_route
 from app.api._helpers import ui_data, ui_list
+from app.services import job_board
 from app.jobs.b2s_job_contracts.actors import publish_job, run_provisioning_job
 from app.jobs.b2s_job_contracts.contracts import queue_job_types_csv
 from app.schemas.provisioning import EnsureAdGroupMemberIn, RemoveAdGroupMemberIn
@@ -458,6 +459,7 @@ async def list_admin_jobs(
     storage_root_access_profile_id: int | None = None,
     active_only: bool = False,
     updated_before_seconds: int | None = None,
+    exclude_job_type: str | None = None,
     limit: int = 200,
 ):
     rows = await call_route(
@@ -468,10 +470,98 @@ async def list_admin_jobs(
         storage_root_access_profile_id=storage_root_access_profile_id,
         active_only=active_only,
         updated_before_seconds=updated_before_seconds,
+        exclude_job_type=exclude_job_type,
         limit=limit,
     )
     items = rows if isinstance(rows, list) else []
-    return ui_list(items)
+    # What each job worked on, its durations, stuck or not, can it be retried (without the bulky payloads)
+    return ui_list(job_board.summarize_rows(items))
+
+
+async def _job_row(job_id: int) -> dict[str, Any]:
+    rows = await call_route(provisioning_internal.list_provisioning_jobs, job_id=int(job_id), limit=1)
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=404, detail={"code": "JOB_NOT_FOUND", "message": "Job not found"})
+    return dict(rows[0])
+
+
+@router.get("/admin/jobs/{job_id}", dependencies=[Depends(admin_only)])
+async def get_admin_job(job_id: int):
+    """One job in full: its summary, what it was given (secrets hidden), what it answered, its error."""
+    row = await _job_row(job_id)
+    summary = job_board.summarize_rows([row])[0]
+    retries = await call_route(provisioning_internal.list_provisioning_jobs, limit=200, job_type=str(row.get("job_type") or "") or None)
+    later = [item.get("id") for item in (retries if isinstance(retries, list) else [])
+             if (job_board.envelope(dict(item)).get("context") or {}).get("retry_of") == int(job_id)]
+    return ui_data({
+        **summary,
+        "payload": job_board.redact(job_board.envelope(row)),
+        "result": job_board.redact(job_board._load(row.get("result_json"))),
+        "metrics": job_board._load(row.get("metrics_json")),
+        "error": job_board._load(row.get("error_json")),
+        "retried_by": later,
+    })
+
+
+@router.post("/admin/jobs/{job_id}/retry", dependencies=[Depends(admin_only)])
+async def retry_admin_job(job_id: int, request: Request):
+    """A failed or stopped read-only job, started again with what it was given (a new job, linked to the first)."""
+    row = await _job_row(job_id)
+    summary = job_board.summarize_rows([row])[0]
+    if not summary["retryable"]:
+        raise HTTPException(status_code=409, detail={
+            "code": "JOB_NOT_RETRYABLE",
+            "message": f"Start it again from {summary['retry_elsewhere']}" if summary.get("retry_elsewhere") else "Only a failed or stopped check or scan can be started again here",
+        })
+    # The same task with the same parameters, as a new job that remembers the first one
+    payload_json = job_board.retry_payload(row)
+    created = await call_route(provisioning_internal.create_provisioning_job, payload={
+        "correlation_id": f"retry_{uuid.uuid4().hex}",
+        "job_type": row.get("job_type"),
+        "action": row.get("action"),
+        "status": "QUEUED",
+        "identity_source_id": row.get("identity_source_id"),
+        "payload_json": payload_json,
+    })
+    new_id = int(((created or {}).get("data") or {}).get("id") or 0) or None
+    if not new_id:
+        raise HTTPException(status_code=500, detail={"code": "JOB_RETRY_FAILED", "message": "The new job could not be created"})
+    publish_job(str(row.get("job_type") or ""), new_id)
+    job = {"job_id": new_id}
+    new_id = int(job.get("job_id") or 0) or None
+    actor = actor_from_request(request)
+    job_board.after_retry(summary, new_id, actor_id=actor.identity_id, actor_display=actor.display_name)
+    return ui_data({"job_id": new_id, "retry_of": int(job_id), "reused": bool(job.get("reused"))})
+
+
+@router.post("/admin/jobs/flush", dependencies=[Depends(admin_only)])
+async def flush_admin_jobs(request: Request):
+    """The stuck jobs (nobody took them, or they run far beyond their timeout) are closed as failed: the worker
+    skips them and the folder, server or directory they were for no longer waits. job_ids limits it to some."""
+    incoming = await request.json() if (request.headers.get("content-length") or "0") != "0" else {}
+    wanted = {int(value) for value in (incoming or {}).get("job_ids") or [] if str(value).isdigit()}
+    rows = await call_route(provisioning_internal.list_provisioning_jobs, active_only=True, limit=1000)
+    actor = actor_from_request(request)
+    who = actor.display_name or "an administrator"
+    flushed, failed = [], []
+    for row in rows if isinstance(rows, list) else []:
+        row = dict(row)
+        reason = job_board.stuck_reason(row)
+        if not reason or (wanted and int(row["id"]) not in wanted):
+            continue
+        message = ("Waited in the queue without a worker" if reason == "queue" else "Ran far beyond its timeout") + f"; flushed by {who}"
+        try:
+            await call_route(provisioning_internal.fail_provisioning_job, job_id=int(row["id"]), payload={
+                "action": row.get("action"), "error_code": "JOB_FLUSHED", "error_message": message,
+                "result_json": {"success": False, "message": message}, "metrics_json": job_board._load(row.get("metrics_json")),
+                "correlation_id": f"jobflush_{uuid.uuid4().hex}",
+            })
+            flushed.append(int(row["id"]))
+        except Exception as exc:  # one job that refuses does not stop the others
+            failed.append({"id": int(row["id"]), "message": str(getattr(exc, "detail", exc))[:200]})
+    if flushed:
+        job_board.log_flush(flushed, actor_id=actor.identity_id, actor_display=actor.display_name)
+    return ui_data({"flushed": flushed, "failed": failed})
 
 
 @router.post("/admin/jobs/{job_id}/cancel", dependencies=[Depends(admin_only)])

@@ -45,6 +45,8 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'zone.provisioning_policy_updated': { titleKey: 'activity.zone.provisioning_policy_updated.title', descriptionKey: 'activity.zone.provisioning_policy_updated.description', badge: 'admin', scope: 'security', icon: 'shield-check' },
   'zone.storage_endpoint_added': { titleKey: 'activity.zone.storage_endpoint_added.title', descriptionKey: 'activity.zone.storage_endpoint_added.description', badge: 'admin', icon: 'hdd-network' },
   'job.failed': { titleKey: 'activity.job.failed.title', descriptionKey: 'activity.job.failed.description', badge: 'critical', icon: 'x-octagon' },
+  'job.retried': { titleKey: 'activity.job.retried.title', descriptionKey: 'activity.job.retried.description', badge: 'admin', icon: 'arrow-counterclockwise' },
+  'job.flushed': { titleKey: 'activity.job.flushed.title', descriptionKey: 'activity.job.flushed.description', badge: 'admin', icon: 'trash3' },
   'request.refused': { titleKey: 'activity.request.refused.title', descriptionKey: 'activity.request.refused.description', badge: 'info', icon: 'slash-circle' },
   'storage_endpoint.probe_result_recorded': { titleKey: 'activity.storage_endpoint.probe_result_recorded.title', descriptionKey: 'activity.storage_endpoint.probe_result_recorded.description', badge: 'info', icon: 'activity' },
   'storage_root.unavailable_from_endpoint_probe': { titleKey: 'activity.storage_root.unavailable_from_endpoint_probe.title', descriptionKey: 'activity.storage_root.unavailable_from_endpoint_probe.description', badge: 'critical', icon: 'exclamation-triangle' },
