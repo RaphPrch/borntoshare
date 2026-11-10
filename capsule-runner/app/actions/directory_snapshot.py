@@ -81,6 +81,18 @@ def _safe_text(value: Any, max_len: int) -> str | None:
     return raw[: max(1, int(max_len))]
 
 
+def _primary_group_sid(user_sid: Any, primary_group_id: Any) -> str | None:
+    """SID of the primary group of a user: the domain part of its own SID and the RID primaryGroupID."""
+    sid = str(user_sid or "").strip()
+    try:
+        rid = int(str(primary_group_id or "").strip())
+    except ValueError:
+        return None
+    if not sid.upper().startswith("S-1-") or "-" not in sid or rid <= 0:
+        return None
+    return f"{sid.rsplit('-', 1)[0]}-{rid}"
+
+
 def collect_directory_snapshot(params: dict[str, Any]):
     snapshot_id = _as_int(params.get("snapshot_id"), 0)
     source_id = _as_int(params.get("identity_source_id"), 0)
@@ -122,14 +134,18 @@ def collect_directory_snapshot(params: dict[str, Any]):
             return False, "LDAP bind failed", {"snapshot_id": snapshot_id, "host": host, "port": port}
 
         dialect = ldap_dialect.of(params)
+        is_ad = dialect.name == "ad"
+        # AD: the primary group (Domain Users…) is not in `member`: it is the RID primaryGroupID of the user
         user_attrs = dialect.attrs(
             "distinguishedName", "cn", "displayName", dialect.login_attr, dialect.upn_attr, "mail",
             dialect.id_attr, dialect.sid_attr, dialect.changed_attr, dialect.usn_attr,
+            "primaryGroupID" if is_ad else None,
         )
         group_attrs = dialect.attrs(
             "distinguishedName", "cn", dialect.group_login_attr, "description",
             dialect.id_attr, dialect.changed_attr, dialect.usn_attr, "member",
-            None if dialect.name == "ad" else "uniqueMember",
+            dialect.sid_attr if is_ad else None,
+            None if is_ad else "uniqueMember",
         )
 
         ldap_client.search(
@@ -143,6 +159,8 @@ def collect_directory_snapshot(params: dict[str, Any]):
         user_rows = list(getattr(conn, "entries", []) or [])
 
         users: list[dict[str, Any]] = []
+        # (user external id, SID of its primary group): resolved once the groups are read
+        primary_groups: list[tuple[str, str]] = []
         user_external_by_dn: dict[str, str] = {}
         user_external_by_key: dict[str, str] = {}
         for entry in user_rows:
@@ -165,6 +183,11 @@ def collect_directory_snapshot(params: dict[str, Any]):
                 norm = _norm_key(key)
                 if norm:
                     user_external_by_key[norm] = external_id
+
+            primary_group_sid = _primary_group_sid(_row_attr(entry, dialect.sid_attr) if dialect.sid_attr else None,
+                                                   _row_attr(entry, "primaryGroupID") if is_ad else None)
+            if primary_group_sid:
+                primary_groups.append((external_id, primary_group_sid))
 
             users.append(
                 {
@@ -194,6 +217,7 @@ def collect_directory_snapshot(params: dict[str, Any]):
         group_rows = list(getattr(conn, "entries", []) or [])
 
         groups: list[dict[str, Any]] = []
+        group_external_by_sid: dict[str, str] = {}
         group_external_by_dn: dict[str, str] = {}
         group_external_by_key: dict[str, str] = {}
         group_members_raw: list[tuple[str, str]] = []
@@ -207,6 +231,9 @@ def collect_directory_snapshot(params: dict[str, Any]):
             dn_key = _norm_key(dn)
             if dn_key:
                 group_external_by_dn[dn_key] = external_id
+            group_sid = _norm_key(_row_attr(entry, dialect.sid_attr)) if is_ad and dialect.sid_attr else ""
+            if group_sid:
+                group_external_by_sid[group_sid] = external_id
             for key in (
                 external_id,
                 _row_attr(entry, dialect.id_attr),
@@ -274,6 +301,17 @@ def collect_directory_snapshot(params: dict[str, Any]):
                     "member_type": member_type,
                 }
             )
+
+        # The primary group of each user, a membership like the others (its group must be in the snapshot)
+        for user_external_id, group_sid in primary_groups:
+            group_external_id = group_external_by_sid.get(_norm_key(group_sid))
+            if not group_external_id:
+                continue
+            tuple_key = (group_external_id, user_external_id, "user")
+            if tuple_key in seen_memberships:
+                continue
+            seen_memberships.add(tuple_key)
+            memberships.append({"group_external_id": group_external_id, "member_external_id": user_external_id, "member_type": "user"})
 
         payload = {
             "users": users,

@@ -183,3 +183,47 @@ def test_collect_directory_snapshot_keeps_every_member_of_a_group(monkeypatch) -
     assert ok is True
     members = sorted(m["member_external_id"] for m in details["payload"]["memberships"] if m["group_external_id"] == "guid-admins")
     assert members == ["guid-lucie", "guid-marc", "guid-paul"]
+
+
+def test_the_primary_group_of_a_user_is_a_membership(monkeypatch) -> None:
+    # AD: « Domain Users » lists nobody in `member`; each user names it by primaryGroupID (513)
+    domain = "S-1-5-21-1462882648-2800666629-1761798290"
+    conn = _Conn()
+    users = [
+        _Entry(f"CN={name},OU=CORP,DC=corp,DC=local", {
+            "distinguishedName": f"CN={name},OU=CORP,DC=corp,DC=local", "objectGUID": f"guid-{name}", "sAMAccountName": name,
+            "objectSid": f"{domain}-{rid}", "primaryGroupID": 513,
+        })
+        for name, rid in (("paul", 1103), ("lucie", 1158))
+    ]
+    domain_users = _Entry("CN=Domain Users,CN=Users,DC=corp,DC=local", {
+        "distinguishedName": "CN=Domain Users,CN=Users,DC=corp,DC=local", "objectGUID": "guid-du", "cn": "Domain Users",
+        "objectSid": f"{domain}-513",
+    })
+    other = _Entry("CN=Other,OU=CORP,DC=corp,DC=local", {
+        "distinguishedName": "CN=Other,OU=CORP,DC=corp,DC=local", "objectGUID": "guid-other", "cn": "Other",
+        "objectSid": f"{domain}-1200", "member": ["CN=paul,OU=CORP,DC=corp,DC=local"],
+    })
+
+    def _fake_search(_conn, *, search_filter: str, **kwargs):
+        _conn.entries = users if "objectClass=user" in search_filter else [domain_users, other]
+        return []
+
+    monkeypatch.setattr(action.ldap_client, "connect", lambda **kw: conn)
+    monkeypatch.setattr(action.ldap_client, "bind", lambda *a, **kw: True)
+    monkeypatch.setattr(action.ldap_client, "search", _fake_search)
+    ok, _message, details = action.collect_directory_snapshot({
+        "snapshot_id": 1, "identity_source_id": 1, "host": "dc01", "bind_dn": "CN=svc", "password": "secret", "base_dn": "DC=corp,DC=local",
+    })
+    assert ok is True
+    by_group: dict[str, list[str]] = {}
+    for membership in details["payload"]["memberships"]:
+        by_group.setdefault(membership["group_external_id"], []).append(membership["member_external_id"])
+    assert sorted(by_group["guid-du"]) == ["guid-lucie", "guid-paul"]
+    assert by_group["guid-other"] == ["guid-paul"]
+
+
+def test_primary_group_sid() -> None:
+    assert action._primary_group_sid("S-1-5-21-1-2-3-1103", "513") == "S-1-5-21-1-2-3-513"
+    assert action._primary_group_sid("S-1-5-21-1-2-3-1103", None) is None
+    assert action._primary_group_sid("", 513) is None
