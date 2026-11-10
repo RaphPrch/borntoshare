@@ -1314,5 +1314,6 @@
   "Available tokens: {PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}": "Available tokens: {PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}",
   "See its folders": "See its folders",
   "No folder in this zone yet": "No folder in this zone yet",
-  "{servers} server(s) and {folders} folder(s) attached: move or remove them first": "{servers} server(s) and {folders} folder(s) attached: move or remove them first"
+  "{servers} server(s) and {folders} folder(s) attached: move or remove them first": "{servers} server(s) and {folders} folder(s) attached: move or remove them first",
+  "Left the directory": "Left the directory"
 }

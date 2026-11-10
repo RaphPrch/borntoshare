@@ -77,6 +77,8 @@
   $: local = String(data?.auth_source ?? item?.auth_source ?? '') === 'local';
   $: hasMail = Boolean(String(data?.email ?? item?.email ?? '').trim());
   $: active = data ? data.is_active : item?.is_active !== false;
+  // Disabled by the synchronization: the user is no longer in the directory (enabled again if it comes back)
+  $: leftDirectory = !active && String((data as any)?.status ?? (item as any)?.status ?? '') === 'left_directory';
   $: guarded = data?.guarded ?? [];
   $: sole = guarded.filter((folder) => folder.sole);
   $: requestsTotal = Object.values(data?.requests ?? {}).reduce((sum, value) => sum + Number(value || 0), 0);
@@ -126,7 +128,7 @@
     avatar={initials} avatarRing={active && !local} avatarOff={!active}
     crumbs={[t('Identities'), String(data?.source_name ?? item?.source_name ?? '')]}
     title={displayName}
-    statusLabel={active ? t('Active') : t('Disabled')} statusTone={active ? 'success' : 'neutral'}
+    statusLabel={active ? t('Active') : leftDirectory ? t('Left the directory') : t('Disabled')} statusTone={active ? 'success' : leftDirectory ? 'warning' : 'neutral'}
     path={String(data?.dn ?? '')}
     chips={[
       ...(!data?.dn && (data?.username || item?.username) ? [{ label: String(data?.username ?? item?.username), mono: true }] : []),

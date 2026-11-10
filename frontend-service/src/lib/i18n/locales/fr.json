@@ -5222,5 +5222,6 @@
   "Available tokens: {PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}": "Jetons disponibles : {PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}",
   "See its folders": "Voir ses dossiers",
   "No folder in this zone yet": "Aucun dossier dans cette zone",
-  "{servers} server(s) and {folders} folder(s) attached: move or remove them first": "{servers} serveur(s) et {folders} dossier(s) rattachés : déplacez-les ou retirez-les d'abord"
+  "{servers} server(s) and {folders} folder(s) attached: move or remove them first": "{servers} serveur(s) et {folders} dossier(s) rattachés : déplacez-les ou retirez-les d'abord",
+  "Left the directory": "Parti de l'annuaire"
 }

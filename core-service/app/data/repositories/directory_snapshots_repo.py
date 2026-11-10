@@ -1013,9 +1013,47 @@ class DirectorySnapshotsRepo:
             {"snapshot_id": sid},
         )
 
+        self._sync_identities_with_directory(source_id=source_id, snapshot_id=sid)
         self.purge_archived_details(identity_source_id=source_id)
         self.db.commit()
         return self.get(sid)
+
+    def _sync_identities_with_directory(self, *, source_id: int, snapshot_id: int) -> None:
+        """Every reading is complete (as for the groups): a user it no longer holds left the directory. Its identity is
+        disabled (status « left_directory »: it can no longer be chosen nor sign in), and enabled again if the user
+        comes back. Never on a reading without any user (an empty or broken reading must not disable everyone); an
+        identity disabled by an administrator stays so."""
+        params = {"identity_source_id": source_id, "snapshot_id": snapshot_id}
+        present = (
+            "SELECT 1 FROM directory_snapshot_users su WHERE su.snapshot_id = :snapshot_id AND su.external_id = i.external_id"
+        )
+        self.db.execute(
+            text(
+                f"""
+                UPDATE identities i
+                SET i.is_active = 0, i.status = 'left_directory', i.updated_at = NOW(6)
+                WHERE i.source_id = :identity_source_id
+                  AND i.type = 'user'
+                  AND i.is_active = 1
+                  AND i.external_id IS NOT NULL
+                  AND NOT EXISTS ({present})
+                  AND EXISTS (SELECT 1 FROM directory_snapshot_users su WHERE su.snapshot_id = :snapshot_id)
+                """
+            ),
+            params,
+        )
+        self.db.execute(
+            text(
+                f"""
+                UPDATE identities i
+                SET i.is_active = 1, i.status = 'active', i.updated_at = NOW(6)
+                WHERE i.source_id = :identity_source_id
+                  AND i.status = 'left_directory'
+                  AND EXISTS ({present})
+                """
+            ),
+            params,
+        )
 
     def purge_archived_details(self, *, identity_source_id: int, keep_archived: int = SNAPSHOT_DETAIL_KEEP_ARCHIVED) -> int:
         """Delete users/groups/memberships of old ARCHIVED snapshots (retention).
