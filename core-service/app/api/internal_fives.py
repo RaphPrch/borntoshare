@@ -32,7 +32,9 @@ def license_state(db: Session = Depends(get_db)):
     for lic in features.state(db)["licenses"]:
         if "fives" in lic["features"] and not lic["expired"]:
             limits.update(lic.get("limits") or {})
-    return ui_data({"licensed": bool(state.get("licensed")), "enabled": bool(state.get("enabled")), "expires_on": state.get("expires_on"), "limits": limits})
+    # The module asks while it runs: licensed and switched on is enough (« enabled » also needs it to answer)
+    on = bool(state.get("licensed")) and bool(state.get("switched_on"))
+    return ui_data({"licensed": bool(state.get("licensed")), "enabled": on, "expires_on": state.get("expires_on"), "limits": limits})
 
 
 @router.get("/folders")

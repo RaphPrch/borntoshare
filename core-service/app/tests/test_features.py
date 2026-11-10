@@ -61,3 +61,54 @@ def test_the_embedded_public_key_is_an_ed25519_key() -> None:
     for pem in license_keys.PUBLIC_KEYS:
         assert serialization.load_pem_public_key(pem.encode()).public_bytes(
             serialization.Encoding.Raw, serialization.PublicFormat.Raw).__len__() == 32
+
+
+def _state_with(monkeypatch, *, switched_on: bool, installed: bool):
+    from app.services import modules
+
+    monkeypatch.setattr(features, "_licenses", lambda db: [{"features": ["fives"], "expired": False, "expires_on": None}])
+    monkeypatch.setattr(features, "_flags", lambda db: {"fives": {"enabled": switched_on}})
+    monkeypatch.setattr(modules, "fives_installed", lambda: installed)
+    return next(item for item in features.state(None)["features"] if item["key"] == "fives")
+
+
+def test_a_module_is_active_only_once_installed(monkeypatch) -> None:
+    # Licensed and switched on, but its container does not run here: no menu, no page
+    item = _state_with(monkeypatch, switched_on=True, installed=False)
+    assert (item["licensed"], item["switched_on"], item["installed"], item["enabled"]) == (True, True, False, False)
+    item = _state_with(monkeypatch, switched_on=True, installed=True)
+    assert item["enabled"] is True
+
+
+def test_a_module_switched_off_is_not_asked_whether_it_runs(monkeypatch) -> None:
+    from app.services import modules
+
+    calls = []
+    monkeypatch.setattr(features, "_licenses", lambda db: [{"features": ["fives"], "expired": False, "expires_on": None}])
+    monkeypatch.setattr(features, "_flags", lambda db: {"fives": {"enabled": False}})
+    monkeypatch.setattr(modules, "fives_installed", lambda: calls.append(1) or True)
+    item = next(item for item in features.state(None)["features"] if item["key"] == "fives")
+    assert item["enabled"] is False and calls == []
+
+
+def test_fives_installed_reads_its_health_and_caches_it(monkeypatch) -> None:
+    import httpx
+
+    from app.services import modules
+
+    answers = []
+
+    class _Answer:
+        status_code = 200
+
+        def json(self):
+            return {"status": "ok", "schema": True}
+
+    monkeypatch.setenv("B2S_FIVES_URL", "http://fives-service:8000")
+    monkeypatch.setattr(modules, "_installed", {"at": 0.0, "value": False})
+    monkeypatch.setattr(httpx, "get", lambda url, timeout: answers.append(url) or _Answer())
+    assert modules.fives_installed() is True and modules.fives_installed() is True
+    assert answers == ["http://fives-service:8000/health"]
+    monkeypatch.setattr(modules, "_installed", {"at": 0.0, "value": False})
+    monkeypatch.setattr(httpx, "get", lambda url, timeout: (_ for _ in ()).throw(httpx.ConnectError("refused")))
+    assert modules.fives_installed() is False

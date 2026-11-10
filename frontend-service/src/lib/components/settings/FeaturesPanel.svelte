@@ -17,7 +17,7 @@
    */
   /** In the first setup: a lighter header, and what to do next */
   export let inSetup = false;
-  type Feature = { key: string; label: string; description: string; icon: string; licensed: boolean; enabled: boolean; switched_on: boolean;
+  type Feature = { key: string; label: string; description: string; icon: string; licensed: boolean; enabled: boolean; switched_on: boolean; installed?: boolean;
     expires_on: string | null; updated_by: string | null };
   type License = { id: number; license_id: string; customer: string; key_hint: string; features: string[]; issued_on: string | null;
     expires_on: string | null; expired: boolean; activated_at: string | null; activated_by: string | null };
@@ -69,11 +69,12 @@
             <span class="ft__state">
               {#if !feature.licensed}<span class="ft__pill">{t('No license')}</span>
               {:else}<span class="ft__pill is-ok">{t('Licensed')}{feature.expires_on ? ` · ${t('until {date}', { date: formatDate(feature.expires_on) })}` : ` · ${t('no end date')}`}</span>{/if}
-              {#if feature.enabled}<span class="ft__pill is-on">{t('On')}</span>{/if}
+              {#if feature.enabled}<span class="ft__pill is-on">{t('On')}</span>
+              {:else if feature.licensed && feature.switched_on}<span class="ft__pill is-warn">{t('Switched on · not installed on this server')}</span>{/if}
             </span>
           </div>
           <label class="ft__switch" title={feature.licensed ? '' : t('Enter a license key that opens it first')}>
-            <input type="checkbox" role="switch" checked={feature.enabled} disabled={busy || !feature.licensed} on:change={() => toggle(feature)} />
+            <input type="checkbox" role="switch" checked={feature.switched_on} disabled={busy || !feature.licensed} on:change={() => toggle(feature)} />
             <span aria-hidden="true"></span>
             <span class="b2s-visually-hidden">{feature.label}</span>
           </label>
@@ -82,7 +83,7 @@
     </section>
 
     {#if state.features.find((feature) => feature.key === 'fives')?.licensed}
-      <FivesModuleSetup enabled={Boolean(state.features.find((feature) => feature.key === 'fives')?.enabled)} />
+      <FivesModuleSetup enabled={Boolean(state.features.find((feature) => feature.key === 'fives')?.switched_on)} />
     {/if}
 
     <section class="ft__card" aria-label={t('License key')}>
@@ -127,6 +128,7 @@
   .ft__pill { padding: 1px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); font-size: var(--b2s-fs-xs); font-weight: 600; }
   .ft__pill.is-ok { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
   .ft__pill.is-on { background: var(--b2s-color-success-soft, #eaf7ee); color: var(--b2s-color-success-strong, #1a7f37); }
+  .ft__pill.is-warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
   .ft__switch { position: relative; display: inline-flex; width: 46px; height: 26px; cursor: pointer; }
   .ft__switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: inherit; }
   .ft__switch span[aria-hidden] { position: absolute; inset: 0; border-radius: 999px; background: var(--b2s-color-border-strong, #cfd6e0); transition: background-color var(--b2s-motion-base); }

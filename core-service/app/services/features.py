@@ -131,8 +131,16 @@ def _flags(db: Session) -> dict[str, dict[str, Any]]:
             for row in rows}
 
 
+def installed(feature: str) -> bool:
+    """Does the module run on this installation? (its container answers, its databases are there)"""
+    from app.services import modules
+
+    return modules.fives_installed() if feature == "fives" else True
+
+
 def state(db: Session) -> dict[str, Any]:
-    """Every known feature: is it licensed (until when, by which license), is it on, is it usable."""
+    """Every known feature: is it licensed (until when, by which license), switched on, installed; usable (enabled)
+    only when all three: the menu and the pages of a module never show while it cannot answer."""
     licenses = _licenses(db)
     flags = _flags(db)
     features = []
@@ -141,8 +149,10 @@ def state(db: Session) -> dict[str, Any]:
         expires = max((lic["expires_on"] or "9999-12-31" for lic in valid), default=None)
         flag = flags.get(key) or {}
         licensed = bool(valid)
+        switched_on = bool(flag.get("enabled"))
+        ready = installed(key) if licensed and switched_on else False
         features.append({"key": key, **meta, "licensed": licensed, "expires_on": None if expires == "9999-12-31" else expires,
-                         "enabled": licensed and bool(flag.get("enabled")), "switched_on": bool(flag.get("enabled")),
+                         "enabled": licensed and switched_on and ready, "switched_on": switched_on, "installed": ready,
                          "settings": flag.get("settings") or {}, "updated_by": flag.get("updated_by"), "updated_at": flag.get("updated_at")})
     return {"features": features, "licenses": licenses}
 

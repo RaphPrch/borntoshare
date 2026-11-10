@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fivesEnabled } from '$lib/utils/features';
   import { onDestroy, onMount } from 'svelte';
   import { page } from '$app/stores';
   import { apiGetData, apiPostData, apiPutData } from '$lib/api/client';
@@ -40,6 +41,8 @@
     }
   }
   onMount(() => {
+    // Not active (no license, switched off, or not installed): the explanation, no call to the module
+    if (!$fivesEnabled) return;
     load();
     timer = setInterval(load, 5000);
   });
@@ -89,7 +92,9 @@
     </div>
   </header>
 
-  {#if error}
+  {#if !$fivesEnabled}
+    <InlineAlert tone="info">{t('The 5S module is not active')} : {t('It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.')}</InlineAlert>
+  {:else if error}
     <InlineAlert tone="error">{error}</InlineAlert>
   {:else if !data}
     <LoadingState block skeleton="rows" rows={5} />

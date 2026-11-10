@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fivesEnabled } from '$lib/utils/features';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { apiGetData } from '$lib/api/client';
@@ -43,7 +44,11 @@
   let query = '';
   let shown = 30;
 
-  onMount(load);
+  // Not active (no license, switched off, or not installed): the explanation, no call to the module
+  onMount(() => {
+    if ($fivesEnabled) void load();
+    else disabled = true;
+  });
   async function load() {
     error = '';
     try {
@@ -89,7 +94,7 @@
       <i class="bi bi-key" aria-hidden="true"></i>
       <div>
         <b>{t('The 5S module is not active')}</b>
-        <p>{t('It is opened by a license key, then switched on by an administrator in Advanced settings › Features.')}</p>
+        <p>{t('It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.')}</p>
         <a class="b2s-btn b2s-btn-secondary b2s-btn-sm" href="/admin/advanced-settings/features">{t('Open Features')}</a>
       </div>
     </div>

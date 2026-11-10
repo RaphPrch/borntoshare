@@ -20,6 +20,28 @@ def fives_url() -> str:
     return os.getenv("B2S_FIVES_URL", "").strip().rstrip("/")
 
 
+# Is the module installed (its container answers and reaches its tables)? Asked at most every 30 s (10 s when not)
+_installed: dict[str, Any] = {"at": 0.0, "value": False}
+
+
+def fives_installed() -> bool:
+    import time
+
+    now = time.monotonic()
+    if now - _installed["at"] < (30 if _installed["value"] else 10):
+        return bool(_installed["value"])
+    url = fives_url()
+    value = False
+    if url:
+        try:
+            response = httpx.get(f"{url}/health", timeout=2)
+            value = response.status_code == 200 and response.json().get("schema") is True
+        except (httpx.HTTPError, ValueError):
+            value = False
+    _installed.update(at=now, value=value)
+    return value
+
+
 def push_measure(db: Session, storage_root_id: int, *, measured_at: datetime, bytes_: int, stats: dict[str, Any],
                  fingerprints: list[dict[str, Any]]) -> bool:
     from app.services import features
