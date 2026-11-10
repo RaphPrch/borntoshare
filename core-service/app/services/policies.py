@@ -225,12 +225,8 @@ async def dispatch_jobs(db: Session, jobs: list[dict[str, Any]]) -> dict[str, in
         try:
             # Same request as the check of a folder, but errors are not swallowed here
             if job["kind"] == "measure":
-                # The measure is its own job (scan queue), apart from the test of the folder
-                queued = await submit_probe_run({
-                    "kind": "folder", "protocol": "measure", "scope": "read",
-                    "target": {"storage_root_id": root_id}, "context": {"storage_root_id": root_id, "ui_origin": "policy"},
-                })
-                scans.mark_requested(db, root_id, int(queued.get("job_id") or 0) or None)
+                # The scanner of the 5S module when it is on, the worker of the core otherwise
+                await scans.request_measure(db, root_id, reason="policy", by="Politique")
             else:
                 protocol = "smb" if job["kind"] == "check" else "sensitivity"
                 queued = await submit_probe_run({

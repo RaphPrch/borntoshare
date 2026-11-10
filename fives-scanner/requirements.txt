@@ -1,0 +1,10 @@
+# fives-scanner — the scanner of the 5S module (Python 3.14)
+# Pinned: the same library has the same version in every service. Update them together.
+httpx==0.28.1
+sqlalchemy==2.1.5
+pymysql==1.2.3
+cryptography==50.0.2
+# WinRM to the file servers (Kerberos only: gssapi and krb5 are built in the image, see ../capsule-runner/requirements-kerberos.txt)
+pypsrp==0.9.1
+pyspnego==0.12.4
+requests==2.34.2

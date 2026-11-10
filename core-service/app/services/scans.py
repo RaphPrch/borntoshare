@@ -51,9 +51,13 @@ def get(db: Session, storage_root_id: int) -> dict[str, Any] | None:
     row = db.execute(text("SELECT * FROM storage_root_scans WHERE storage_root_id = :id"), {"id": int(storage_root_id)}).mappings().first()
     if not row:
         return None
+    import json
+
+    progress = row.get("progress_json")
     return {"status": row["status"], "job_id": row["job_id"], "method": row["method"], "fallback_reason": row["fallback_reason"],
             "requested_at": _iso(row["requested_at"]), "finished_at": _iso(row["finished_at"]), "elapsed_ms": row["elapsed_ms"],
-            "files": row["files"], "error": row["error_message"]}
+            "files": row["files"], "error": row["error_message"], "mode": row.get("mode"),
+            "progress": json.loads(progress) if progress else None}
 
 
 def record_result(db: Session, storage_root_id: int, job_id: int | None, result_json: dict | None) -> bool:
@@ -112,3 +116,56 @@ def states_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, str]:
     return {int(root_id): str(state) for root_id, state in rows}
 
 
+
+
+def record_module_state(db: Session, storage_root_id: int, *, status: str, stats: dict | None = None, method: str | None = None,
+                        elapsed_ms: int | None = None, files: int | None = None, progress: dict | None = None, error: str | None = None) -> None:
+    """What the scanner of the 5S module reports: running (with its progress), done (with the content), failed."""
+    import json
+
+    from app.data.models.storage_root import StorageRoot
+
+    now = _now()
+    if status == "done" and isinstance(stats, dict):
+        root = db.get(StorageRoot, int(storage_root_id))
+        if root is not None:
+            current = dict(root.discovered_permissions_json) if isinstance(root.discovered_permissions_json, dict) else {}
+            root.discovered_permissions_json = {**current, "content_size_bytes": int(stats.get("bytes") or 0),
+                                                "content_updated_at": now.isoformat() + "+00:00", "content_stats": stats}
+    db.execute(
+        text(
+            """
+            INSERT INTO storage_root_scans (storage_root_id, status, method, requested_at, finished_at, elapsed_ms, files, error_message, progress_json, mode)
+            VALUES (:id, :status, :method, :now, :finished, :elapsed, :files, :error, :progress, :mode)
+            ON DUPLICATE KEY UPDATE status = VALUES(status), method = COALESCE(VALUES(method), method),
+              finished_at = VALUES(finished_at), elapsed_ms = COALESCE(VALUES(elapsed_ms), elapsed_ms), files = COALESCE(VALUES(files), files),
+              error_message = VALUES(error_message), progress_json = VALUES(progress_json), mode = COALESCE(VALUES(mode), mode),
+              fallback_reason = IF(VALUES(status) = 'running', fallback_reason, NULL)
+            """
+        ),
+        {"id": int(storage_root_id), "status": status, "method": method or ("module" if status == "running" else None), "now": now,
+         "finished": now if status in {"done", "failed"} else None, "elapsed": elapsed_ms, "files": files, "error": (error or None) and error[:600],
+         "progress": json.dumps(progress) if progress else None, "mode": (progress or {}).get("mode") or (stats or {}).get("mode")},
+    )
+    db.commit()
+
+
+async def request_measure(db: Session, storage_root_id: int, *, reason: str = "manual", by: str | None = None) -> int | None:
+    """Measure a folder: by the scanner of the 5S module when it is on (incremental, on the server), else by the
+    worker of the core. Returns the job id of the core (None when the module does it)."""
+    from app.services import features, modules
+    from app.services.probe_service import submit_probe_run
+
+    if features.enabled(db, "fives") and modules.request_scan(db, storage_root_id, reason=reason, by=by):
+        mark_requested(db, storage_root_id, None)
+        db.execute(text("UPDATE storage_root_scans SET method = 'module', progress_json = NULL WHERE storage_root_id = :id"), {"id": int(storage_root_id)})
+        db.commit()
+        return None
+    job = await submit_probe_run({
+        "kind": "folder", "protocol": "measure", "scope": "read",
+        "target": {"storage_root_id": int(storage_root_id)},
+        "context": {"storage_root_id": int(storage_root_id), "ui_origin": f"folder_measure_{reason}"},
+    })
+    job_id = int(job.get("job_id") or 0) or None
+    mark_requested(db, storage_root_id, job_id)
+    return job_id

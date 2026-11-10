@@ -60,24 +60,16 @@ def cancel_remediation(root_id: int, request: Request, db: Session = Depends(get
     return ui_data({"current": None, "history": remediations.history(db, root_id)})
 
 
-async def _queue_measure(db: Session, root_id: int) -> int | None:
-    from app.services.probe_service import submit_probe_run
-
-    job = await submit_probe_run({
-        "kind": "folder", "protocol": "measure", "scope": "read",
-        "target": {"storage_root_id": int(root_id)},
-        "context": {"storage_root_id": int(root_id), "ui_origin": "folder_measure"},
-    })
-    job_id = int(job.get("job_id") or 0) or None
-    scans.mark_requested(db, root_id, job_id)
-    return job_id
+async def _queue_measure(db: Session, root_id: int, by: str | None = None) -> int | None:
+    # The scanner of the 5S module when it is on, the worker of the core otherwise
+    return await scans.request_measure(db, int(root_id), reason="manual", by=by)
 
 
 @router.post("/{root_id}/measure")
 async def measure_folder(root_id: int, request: Request, db: Session = Depends(get_db)):
     """Measure the folder (size, age, clutter, duplicates) in the background, on the scan queue: read only."""
     folder = _folder(db, request, root_id)
-    job_id = await _queue_measure(db, int(root_id))
+    job_id = await _queue_measure(db, int(root_id), actor_from_request(request).display_name)
     _audit(db, request, "storage_root.measure_requested", folder, {"job_id": job_id})
     return ui_data(scans.get(db, int(root_id)))
 
@@ -97,7 +89,7 @@ async def measure_folders(payload: MeasurePayload, request: Request, db: Session
             failed.append({"storage_root_id": root_id, "message": "Storage root not found"})
             continue
         try:
-            await _queue_measure(db, root_id)
+            await _queue_measure(db, root_id, actor.display_name)
             queued.append(root_id)
         except HTTPException as exc:
             failed.append({"storage_root_id": root_id, "message": str(exc.detail)[:200]})

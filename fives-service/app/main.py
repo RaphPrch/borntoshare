@@ -7,8 +7,9 @@ b2s_fives_inventory); what it knows of the folders comes from the core (internal
 from __future__ import annotations
 
 import logging
+import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
@@ -17,7 +18,7 @@ from pydantic import BaseModel, Field
 from app import core_client
 from app.auth import Actor, actor, check_internal_token
 from app.db import InventorySession, SessionLocal, create_schema
-from app.services import duplicates, five_s, growth, reports
+from app.services import duplicates, five_s, growth, reports, scans
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [FIVES] %(name)s - %(message)s")
 logger = logging.getLogger("fives")
@@ -32,10 +33,47 @@ def _startup() -> None:
         try:
             create_schema()
             _schema_ready = True
-            return
+            break
         except Exception:
             logger.warning("Module databases not reachable yet (attempt %s)", attempt + 1, exc_info=attempt == 9)
             time.sleep(3)
+    threading.Thread(target=_schedule_loop, name="fives-schedule", daemon=True).start()
+
+
+SYSTEM = Actor(identity_id=None, roles=frozenset({"platform_admin"}), display_name="Planificateur 5S")
+
+
+def _schedule_tick() -> dict[str, Any]:
+    """Each minute: scans stuck without heartbeat go back to the queue; inside the window, the folders due are queued."""
+    from sqlalchemy import text as sql
+
+    with SessionLocal() as db:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        stale = now - timedelta(minutes=10)
+        db.execute(sql("UPDATE scan_runs SET status = 'failed', finished_at = :now, error_message = 'The scanner stopped answering three times'"
+                       " WHERE status = 'running' AND heartbeat_at < :stale AND attempts >= 3"), {"now": now, "stale": stale})
+        requeued = db.execute(sql("UPDATE scan_runs SET status = 'queued', scanner_id = NULL WHERE status = 'running' AND heartbeat_at < :stale"),
+                              {"stale": stale}).rowcount
+        db.commit()
+        if not core_client.license_state().get("enabled"):
+            return {"requeued": requeued, "queued": 0}
+        settings = scans.get_settings(db)
+        if not settings["schedule_enabled"] or not scans.in_window(settings):
+            return {"requeued": requeued, "queued": 0}
+        folders = core_client.folders(SYSTEM)
+        queued = scans.enqueue(db, scans.due(db, folders, settings), reason="schedule", by="Planificateur 5S")
+        return {"requeued": requeued, "queued": len(queued)}
+
+
+def _schedule_loop() -> None:
+    while True:
+        try:
+            result = _schedule_tick()
+            if result.get("queued") or result.get("requeued"):
+                logger.info("Schedule: %s", result)
+        except Exception:
+            logger.warning("Schedule tick failed", exc_info=True)
+        time.sleep(60)
 
 
 @app.get("/health")
@@ -186,3 +224,73 @@ def _retry(work):
             if attempt == 2:
                 raise
             time.sleep(0.2 * (attempt + 1))
+
+
+# ---- scanner of the module: queue, settings ----
+
+@app.get("/scans")
+def get_scans(who: Actor = Depends(_licensed)):
+    rows = core_client.folders(who)
+    names = {int(row["storage_root_id"]): row.get("storage_root_name") for row in rows}
+    with SessionLocal() as db:
+        data = scans.overview(db, list(names))
+        settings = scans.get_settings(db)
+    for run in data["runs"]:
+        run["folder_name"] = names.get(run["storage_root_id"])
+    return _data({**data, "settings": settings, "in_window": scans.in_window(settings)})
+
+
+class ScanRequest(BaseModel):
+    root_ids: list[int] = Field(min_length=1, max_length=1000)
+
+
+@app.post("/scans")
+def request_scans(payload: ScanRequest, who: Actor = Depends(_licensed)):
+    """Scan these folders now (a person asks: no window), among those the person may see."""
+    rows = [row for row in core_client.folders(who) if int(row["storage_root_id"]) in set(payload.root_ids)]
+    with SessionLocal() as db:
+        queued = scans.enqueue(db, rows, reason="manual", by=who.display_name)
+    return _data({"queued": queued, "skipped": sorted(set(payload.root_ids) - set(queued))})
+
+
+@app.post("/scans/{run_id}/cancel")
+def cancel_scan(run_id: int, who: Actor = Depends(_licensed)):
+    if not who.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="platform_admin role required")
+    with SessionLocal() as db:
+        if not scans.cancel(db, run_id):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"error_code": "SCAN_NOT_QUEUED", "message": "Only a scan waiting in the queue can be cancelled"})
+    return _data({"cancelled": run_id})
+
+
+class SettingsPayload(BaseModel):
+    schedule_enabled: bool
+    window_start: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    window_end: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    per_server: int = Field(ge=1, le=8)
+    interval_days: int = Field(ge=1, le=90)
+    full_every_days: int = Field(ge=1, le=365)
+    hash_files_max: int = Field(ge=0, le=500000)
+
+
+@app.put("/settings")
+def put_settings(payload: SettingsPayload, who: Actor = Depends(_licensed)):
+    if not who.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="platform_admin role required")
+    with SessionLocal() as db:
+        return _data(scans.save_settings(db, payload.model_dump(), who.display_name))
+
+
+class InternalScanRequest(BaseModel):
+    roots: list[dict[str, Any]] = Field(min_length=1, max_length=1000)
+    reason: str = Field(default="manual", pattern="^(manual|policy|schedule)$")
+    by: str | None = None
+
+
+@app.post("/internal/scans")
+def internal_scans(payload: InternalScanRequest, request: Request):
+    """The core asks for scans (« Measure » in the folder page, a policy): the scanner of the module does them."""
+    check_internal_token(request)
+    with SessionLocal() as db:
+        queued = scans.enqueue(db, payload.roots, reason=payload.reason, by=payload.by)
+    return _data({"queued": queued})

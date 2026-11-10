@@ -36,3 +36,21 @@ def push_measure(db: Session, storage_root_id: int, *, measured_at: datetime, by
     except httpx.HTTPError:
         logger.warning("FIVES_MEASURE_NOT_SENT", extra={"storage_root_id": storage_root_id}, exc_info=True)
         return False
+
+
+def request_scan(db: Session, storage_root_id: int, *, reason: str, by: str | None) -> bool:
+    """Ask the scanner of the 5S module to measure the folder (False: the module does not answer)."""
+    from sqlalchemy import text
+
+    url = fives_url()
+    if not url:
+        return False
+    row = db.execute(text("SELECT root_path FROM storage_roots WHERE id = :id"), {"id": int(storage_root_id)}).first()
+    body = {"roots": [{"storage_root_id": int(storage_root_id), "root_path": row[0] if row else ""}], "reason": reason, "by": by}
+    try:
+        response = httpx.post(f"{url}/internal/scans", json=body, headers={"x-internal-token": os.getenv("INTERNAL_TOKEN", "")}, timeout=10)
+        response.raise_for_status()
+        return True
+    except httpx.HTTPError:
+        logger.warning("FIVES_SCAN_NOT_REQUESTED", extra={"storage_root_id": storage_root_id}, exc_info=True)
+        return False

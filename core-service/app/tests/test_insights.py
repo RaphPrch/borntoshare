@@ -77,3 +77,37 @@ def test_the_measure_is_its_own_job_and_a_dfs_folder_is_measured_through_smb(mon
 
 def test_doublons_and_tous_states() -> None:
     assert folder_query.matches({"dup_wasted_bytes": 1}, "est:doublons") and folder_query.matches({}, "est:tous")
+
+
+def test_a_measure_goes_to_the_scanner_of_the_module_when_it_is_on(monkeypatch) -> None:
+    import asyncio
+
+    from app.services import features, modules, probe_service, scans
+
+    asked: list = []
+
+    class _Db:
+        def execute(self, *_args, **_kwargs):
+            return None
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(scans, "mark_requested", lambda db, root_id, job_id: asked.append(("marked", root_id, job_id)))
+    monkeypatch.setattr(features, "enabled", lambda db, feature: True)
+    monkeypatch.setattr(modules, "request_scan", lambda db, root_id, **kwargs: asked.append(("module", root_id, kwargs["reason"])) or True)
+
+    async def no_core_job(_payload):
+        raise AssertionError("the worker of the core must not measure")
+
+    monkeypatch.setattr(probe_service, "submit_probe_run", no_core_job)
+    assert asyncio.run(scans.request_measure(_Db(), 7, reason="policy")) is None
+    assert ("module", 7, "policy") in asked
+    # The module does not answer: the worker of the core measures
+    monkeypatch.setattr(modules, "request_scan", lambda db, root_id, **kwargs: False)
+
+    async def core_job(_payload):
+        return {"job_id": 42}
+
+    monkeypatch.setattr(probe_service, "submit_probe_run", core_job)
+    assert asyncio.run(scans.request_measure(_Db(), 8)) == 42

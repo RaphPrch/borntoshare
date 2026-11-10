@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { apiGetData } from '$lib/api/client';
   import CountUp from '$lib/components/ui/CountUp.svelte';
+  import FivesTabs from '$lib/components/fives/FivesTabs.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
@@ -69,6 +70,7 @@
 </script>
 
 <section class="b2s-page b2s-page--admin fs">
+  <FivesTabs />
   <header class="fs__head">
     <div>
       <h1>{t('5S of the shares')}</h1>

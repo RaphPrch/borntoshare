@@ -180,6 +180,32 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
     networks: [app, data]
 
+  # Scanner of the 5S module: walks the folders ON their Windows file servers (WinRM, Kerberos, no agent), from the
+  # queue in b2s_fives; several instances possible (one per site: SCANNER_ID). Built from the root of the repository
+  # (it reuses the WinRM code of capsule-runner).
+  fives-scanner:
+    <<: *hardening
+    container_name: fives-scanner
+    image: b2s-fives-scanner:latest
+    build:
+      context: .
+      dockerfile: fives-scanner/Containerfile
+    profiles: [fives]
+    environment:
+      <<: *common-env
+      CORE_URL: http://core-service:8000
+      SCANNER_ID: ${FIVES_SCANNER_ID:-scanner-1}
+      FIVES_DB_HOST: ${FIVES_DB_HOST:-${DB_HOST}}
+      FIVES_DB_PORT: ${DB_PORT:-3306}
+      FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
+      FIVES_DB_PASSWORD: ${FIVES_DB_PASSWORD:-}
+      FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
+      FIVES_INVENTORY_DB_NAME: ${FIVES_INVENTORY_DB_NAME:-b2s_fives_inventory}
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import os, time; assert time.time() - os.path.getmtime('/tmp/scanner-alive') < 120"]
+    networks: [app, data]
+
   # Database initialization (run once, then stop it: make wizard / make wizard-down)
   wizard-ui:
     <<: *hardening

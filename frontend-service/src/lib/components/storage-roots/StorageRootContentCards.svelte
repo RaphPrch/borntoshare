@@ -27,13 +27,15 @@
     junk?: { bytes: number; files: number; examples: string[] };
     last_modified?: string | null;
     method?: 'server' | 'smb';
+    mode?: 'full' | 'incremental';
     elapsed_ms?: number;
     denied_folders?: number;
     duplicates?: { groups: number; files: number; wasted_bytes: number; truncated: boolean;
       top: Array<{ size: number; files: number; wasted: number; paths: string[] }> };
   };
   type Scan = { status: 'running' | 'done' | 'failed'; method: string | null; fallback_reason: string | null; requested_at: string | null;
-    finished_at: string | null; elapsed_ms: number | null; files: number | null; error: string | null };
+    finished_at: string | null; elapsed_ms: number | null; files: number | null; error: string | null; mode?: string | null;
+    progress?: { mode: string; chunks_total: number; chunks_done: number; chunks_kept: number; files: number; current: string | null } | null };
   type Shared = { files: number; bytes: number; with: number[]; examples: Array<{ path: string; size: number; also_in: string[] }> };
   export let content: Content | null = null;
   export let rootId: number | null = null;
@@ -111,12 +113,19 @@
   <header>
     <h2>{t('Content')}</h2>
     <small>
-      {#if measuring}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span> {t('Measure in progress…')}
-      {:else if content?.scanned_at}<span title={formatDateTime(content.scanned_at)}>{t('measured {when}', { when: timeAgo(content.scanned_at) })}</span>{#if content.method} · {content.method === 'server' ? t('on the server') : t('through SMB')}{content.elapsed_ms != null ? ` (${seconds(content.elapsed_ms)})` : ''}{/if}
+      {#if measuring}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span> {scan?.progress ? t('Scan {done}/{total} · {files} file(s)', { done: scan.progress.chunks_done, total: scan.progress.chunks_total, files: scan.progress.files.toLocaleString('fr-FR') }) : t('Measure in progress…')}
+      {:else if content?.scanned_at}<span title={formatDateTime(content.scanned_at)}>{t('measured {when}', { when: timeAgo(content.scanned_at) })}</span>{#if content.mode === 'incremental'} · {t('incremental')}{/if}{#if content.method} · {content.method === 'server' ? t('on the server') : t('through SMB')}{content.elapsed_ms != null ? ` (${seconds(content.elapsed_ms)})` : ''}{/if}
       {:else}{t('Not measured yet')}{/if}
       {#if rootId && !measuring} · <button type="button" class="b2s-link-btn" disabled={busy} on:click={measure}>{content?.scanned_at ? t('Measure again') : t('Measure the folder')}</button>{/if}
     </small>
   </header>
+  {#if measuring && scan?.progress?.chunks_total}
+    <div class="cc__progress" role="progressbar" aria-valuemin={0} aria-valuemax={scan.progress.chunks_total} aria-valuenow={scan.progress.chunks_done}
+      aria-label={t('Progress of the scan')}>
+      <span style={`width:${Math.round((scan.progress.chunks_done / scan.progress.chunks_total) * 100)}%`}></span>
+    </div>
+    <small class="cc__note">{scan.progress.mode === 'incremental' ? t('Incremental: only the sub-folders changed since the last scan ({kept} kept as they are)', { kept: scan.progress.chunks_kept }) : t('Full walk')}{scan.progress.current ? ` · ${scan.progress.current}` : ''}</small>
+  {/if}
   {#if scan?.status === 'failed'}<p class="cc__fail" role="alert"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i>{t('The last measure failed')}: {scan.error}</p>{/if}
   {#if scan?.fallback_reason && content?.method === 'smb'}<p class="cc__note">{t('Measured through SMB (no duplicates): the server could not be walked on.')} <code>{scan.fallback_reason}</code></p>{/if}
   {#if content}
@@ -252,6 +261,8 @@
   .cc__more li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
   .cc__more code { color: var(--b2s-color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--b2s-font-mono); }
   .cc__more span { color: var(--b2s-color-text-muted); font-variant-numeric: tabular-nums; }
+  .cc__progress { height: 6px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); overflow: hidden; }
+  .cc__progress span { display: block; height: 100%; background: var(--b2s-color-info-strong); transition: width var(--b2s-motion-slow) var(--b2s-ease-out); }
   .cc__fail { display: flex; gap: 8px; margin: 0; color: var(--b2s-color-danger-strong, #b42318); font-size: var(--b2s-fs-sm); }
   .cc__note code { font-family: var(--b2s-font-mono); }
   .cc__dups { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--b2s-color-border); }

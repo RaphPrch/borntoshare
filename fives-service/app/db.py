@@ -51,6 +51,55 @@ SCHEMA = [
     """,
 ]
 
+# The scanner of the module (fives-scanner) works from these tables: a queue in the database, no broker
+SCHEMA += [
+    """
+    CREATE TABLE IF NOT EXISTS scan_runs (
+      id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      storage_root_id BIGINT NOT NULL,
+      host VARCHAR(255) NOT NULL,
+      -- queued · running · done · failed · delegated (measured by the worker of the core through SMB) · cancelled
+      status VARCHAR(16) NOT NULL DEFAULT 'queued',
+      reason VARCHAR(16) NOT NULL DEFAULT 'manual',
+      mode VARCHAR(16) NULL,
+      requested_by VARCHAR(190) NULL,
+      requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      started_at DATETIME NULL,
+      heartbeat_at DATETIME NULL,
+      finished_at DATETIME NULL,
+      scanner_id VARCHAR(64) NULL,
+      attempts INT NOT NULL DEFAULT 0,
+      progress_json LONGTEXT NULL,
+      summary_json LONGTEXT NULL,
+      error_message VARCHAR(600) NULL,
+      KEY ix_scan_runs_queue (status, requested_at),
+      KEY ix_scan_runs_root (storage_root_id, status),
+      KEY ix_scan_runs_host (host, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS scan_chunks (
+      storage_root_id BIGINT NOT NULL,
+      chunk_key VARCHAR(255) NOT NULL,
+      stats_json LONGTEXT NOT NULL,
+      run_id BIGINT NULL,
+      scanned_at DATETIME NOT NULL,
+      PRIMARY KEY (storage_root_id, chunk_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS scan_state (
+      storage_root_id BIGINT NOT NULL PRIMARY KEY,
+      local_path VARCHAR(1024) NULL,
+      volume VARCHAR(16) NULL,
+      journal_id VARCHAR(32) NULL,
+      next_usn BIGINT NULL,
+      last_full_at DATETIME NULL,
+      last_done_at DATETIME NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+]
+
 INVENTORY_SCHEMA = [
     """
     CREATE TABLE IF NOT EXISTS fingerprints (

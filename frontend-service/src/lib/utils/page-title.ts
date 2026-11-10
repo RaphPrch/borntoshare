@@ -5,6 +5,7 @@ const TITLES: [prefix: string, label: string][] = [
   ['/dashboard', 'Dashboard'],
   ['/storage-roots', 'Folders'],
   ['/five-s', '5S'],
+  ['/five-s/scanner', 'Scanner'],
   ['/reports', 'Reports'],
   ['/exposure', 'Exposure'],
   ['/admin/policies', 'Policies'],
