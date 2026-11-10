@@ -9,7 +9,7 @@ et trace ; il ne parle jamais à l'AD ni aux serveurs : il publie des travaux qu
 | Port | 8000, interne (réseaux `b2s-app`, `b2s-data`, `b2s-jobs`) ; API sous `/api` |
 | Appelé par | frontend-service (routes métier), auth-service et capsule-runner (routes `/api/internal/*`) — toujours avec le jeton interne |
 | Appelle | MariaDB (`borntoshare`, `borntoshare_logging`), Redis (base 2, publication), l'agent des workers |
-| Montages | `config/runtime` (connexion à la base choisie dans l'application), `capsule-runner/certs` (lecture seule) |
+| Montages | `capsule-runner/certs` (lecture seule) ; secrets podman `b2s_db_core`, `b2s_redis`, `b2s_master_key` (`/run/secrets`) |
 | Santé | `GET /health` : 503 si la base ou Redis ne répond pas |
 
 ## Organisation du code

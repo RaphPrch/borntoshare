@@ -1,65 +1,72 @@
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime, timedelta
 
-import pytest
 
-from app.core import config, runtime_config
 from app.services import infrastructure_service as infra
 
 
-@pytest.fixture()
-def runtime(tmp_path, monkeypatch):
-    monkeypatch.setenv("B2S_RUNTIME_DIR", str(tmp_path))
-    return tmp_path
+class _Conn:
+    """A connection answering the queries of database_info."""
+
+    def __init__(self, grants):
+        self.grants = grants
+
+    def execute(self, statement, params=None):
+        sql = str(statement)
+        if "VERSION()" in sql:
+            return _Scalar("11.4.13-MariaDB")
+        if "GROUP BY table_schema" in sql:
+            return _All([("borntoshare", 53), ("borntoshare_logging", 1)])
+        if "SHOW GRANTS" in sql:
+            return _All([(g,) for g in self.grants])
+        return _All([(name,) for name in infra.REQUIRED_TABLES])
 
 
-def test_runtime_database_file_overrides_env_at_startup(runtime) -> None:
-    runtime_config.write_database_config({"mode": "fields", "host": "db02.example.com", "port": 3307, "name": "b2s", "user": "app", "password": "pw", "logging_name": "b2s_log"})
+class _Scalar:
+    def __init__(self, value):
+        self.value = value
 
-    settings = config._apply_runtime_database(config.Settings())
-
-    assert settings.DB_CONFIG_SOURCE == "runtime"
-    assert settings.sqlalchemy_url.endswith("@db02.example.com:3307/b2s")
-    assert settings.LOGGING_DB_HOST == "db02.example.com"
-    assert settings.LOGGING_DB_NAME == "b2s_log"
-    assert oct(os.stat(runtime_config.database_file()).st_mode & 0o777) == "0o600"
+    def scalar(self):
+        return self.value
 
 
-def test_dsn_override_wins_over_the_fields(runtime) -> None:
-    runtime_config.write_database_config({"mode": "dsn", "dsn": "mariadb+pymysql://app:pw@db03.example.com:3306/b2s"})
+class _All:
+    def __init__(self, rows):
+        self.rows = rows
 
-    settings = config._apply_runtime_database(config.Settings())
+    def all(self):
+        return self.rows
 
-    assert settings.sqlalchemy_url == "mariadb+pymysql://app:pw@db03.example.com:3306/b2s"
-    assert settings.DB_HOST == "db03.example.com"
-
-
-def test_without_file_the_env_settings_stay(runtime) -> None:
-    settings = config._apply_runtime_database(config.Settings())
-    assert settings.DB_CONFIG_SOURCE == "env"
+    def __iter__(self):
+        return iter(self.rows)
 
 
-def test_an_invalid_dsn_is_refused_before_any_connection(runtime) -> None:
-    result = infra.test_database({"mode": "dsn", "dsn": "not a dsn"})
-    assert result["ok"] is False
+class _Db:
+    def __init__(self, grants):
+        self.conn = _Conn(grants)
+
+    def connection(self):
+        return self.conn
 
 
-def test_a_database_cannot_be_saved_without_a_successful_test(runtime, monkeypatch) -> None:
-    monkeypatch.setattr(infra, "test_database", lambda payload: {"ok": False, "message": "Connection failed"})
-    with pytest.raises(ValueError):
-        infra.save_database({"mode": "fields", "host": "db", "name": "b2s", "user": "app", "password": "pw"}, "admin")
-    assert not runtime_config.database_file().exists()
+def test_database_info_shows_the_rights_of_the_account_without_its_password(monkeypatch) -> None:
+    monkeypatch.setenv("DB_PASSWORD_FILE", "/run/secrets/b2s_db_core")
+    info = infra.database_info(_Db([
+        "GRANT USAGE ON *.* TO `b2s_core`@`%` IDENTIFIED BY PASSWORD '*ABCDEF0123'",
+        "GRANT SELECT, INSERT, UPDATE, DELETE ON `borntoshare`.* TO `b2s_core`@`%`",
+        "GRANT SELECT, INSERT, DELETE ON `borntoshare_logging`.* TO `b2s_core`@`%`",
+    ]))
+    assert info["ok"] is True and info["tables"] == 53 and info["logging_tables"] == 1
+    assert info["schema_rights"] is False and info["password_from"] == "secret"
+    assert len(info["grants"]) == 2
+    assert "ABCDEF" not in json.dumps(info)
 
 
-def test_the_password_is_never_returned(runtime) -> None:
-    runtime_config.write_database_config({"mode": "fields", "host": "db02", "port": 3306, "name": "b2s", "user": "app", "password": "pw"})
-    info = infra.database_info()
-    assert "pw" not in json.dumps(info)
-    assert info["configured"]["has_password"] is True
-    assert info["pending_restart"] is True
+def test_database_info_warns_when_the_account_can_change_the_schema() -> None:
+    info = infra.database_info(_Db(["GRANT ALL PRIVILEGES ON `borntoshare`.* TO `app_user`@`%`"]))
+    assert info["schema_rights"] is True
 
 
 def test_agent_url_brackets_ipv6() -> None:

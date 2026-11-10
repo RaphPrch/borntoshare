@@ -14,6 +14,7 @@ import json
 import hashlib
 import hmac
 import os
+import re
 import ssl
 import time
 import uuid
@@ -21,19 +22,10 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
-from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
-from app.core.runtime_config import (
-    build_url,
-    parse_dsn,
-    read_database_config,
-    runtime_dir,
-    runtime_dir_writable,
-    write_database_config,
-)
 
 # Tables a BornToShare database must have before core-service is pointed at it
 REQUIRED_TABLES = ("identity_sources", "identities", "roles", "storage_endpoints", "storage_roots", "access_requests", "infra_schedules")
@@ -65,137 +57,58 @@ def _json(value: Any) -> Any:
 # ============================================================
 
 
-def database_info() -> dict[str, Any]:
-    """Running connection (no password) and the one saved for the next start, if different."""
+def _grants(conn) -> list[str]:
+    """The rights of the account in use, without the hash of its password."""
+    rows = conn.execute(text("SHOW GRANTS FOR CURRENT_USER")).all()
+    return [re.sub(r" IDENTIFIED BY PASSWORD '[^']*'", "", str(row[0])) for row in rows]
+
+
+_SCHEMA_RIGHTS = re.compile(r"\b(ALL PRIVILEGES|CREATE|ALTER|DROP|INDEX)\b")
+
+
+def database_info(db: Session | None = None) -> dict[str, Any]:
+    """The connection in use (from .env and the secret of the account, never a password): server, databases, the
+    rights of the account. The application account must not be able to change the schema: that is the migration
+    account's job (make deploy)."""
     settings = get_settings()
-    running = {
-        "source": settings.DB_CONFIG_SOURCE,
-        "mode": "dsn" if settings.DATABASE_URL_OVERRIDE else "fields",
+    info: dict[str, Any] = {
         "host": settings.DB_HOST,
         "port": int(settings.DB_PORT),
         "name": settings.DB_NAME,
-        "user": settings.DB_USER,
         "logging_name": settings.LOGGING_DB_NAME,
+        "user": settings.DB_USER,
+        "migrate_user": settings.DB_MIGRATE_USER,
+        "password_from": "secret" if os.getenv("DB_PASSWORD_FILE") else "env",
     }
-    saved = read_database_config()
-    configured = None
-    if saved:
-        if saved["mode"] == "dsn":
-            parts = parse_dsn(saved.get("dsn") or "")
-            configured = {"mode": "dsn", **{k: parts[k] for k in ("host", "port", "name", "user")}, "has_password": parts["has_password"]}
-        else:
-            configured = {
-                "mode": "fields",
-                "host": saved.get("host"),
-                "port": int(saved.get("port") or 3306),
-                "name": saved.get("name"),
-                "user": saved.get("user"),
-                "logging_name": saved.get("logging_name"),
-                "has_password": bool(saved.get("password")),
-            }
-        configured.update(updated_at=saved.get("updated_at"), updated_by=saved.get("updated_by"))
-    pending = bool(
-        configured
-        and any(str(configured.get(k)) != str(running.get(k)) for k in ("host", "port", "name", "user"))
-    ) or (configured is None and running["source"] == "runtime")  # back to .env at the next start
-    return {
-        "running": running,
-        "configured": configured,
-        "pending_restart": pending,
-        "runtime_dir": str(runtime_dir()),
-        "runtime_dir_writable": runtime_dir_writable(),
-    }
-
-
-def _url_from_request(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    """SQLAlchemy URL and the file content to save, from the form (password may be omitted to keep it)."""
-    settings = get_settings()
-    if payload.get("mode") == "dsn":
-        dsn = str(payload.get("dsn") or "").strip()
-        parse_dsn(dsn)
-        return dsn, {"mode": "dsn", "dsn": dsn, "logging_dsn": str(payload.get("logging_dsn") or "").strip() or None}
-
-    host = str(payload.get("host") or "").strip()
-    name = str(payload.get("name") or "").strip()
-    user = str(payload.get("user") or "").strip()
-    port = int(payload.get("port") or 3306)
-    if not host or not name or not user:
-        raise ValueError("Server, database and user are required")
-    password = str(payload.get("password") or "")
-    if not password:
-        # Kept: the saved one, else the running one when the server and account are unchanged
-        saved = read_database_config() or {}
-        if saved.get("mode") == "fields" and saved.get("host") == host and saved.get("user") == user:
-            password = str(saved.get("password") or "")
-        elif host == settings.DB_HOST and user == settings.DB_USER:
-            password = settings.DB_PASSWORD
-    if not password:
-        raise ValueError("The password of the database account is required")
-    url = build_url(driver=settings.DB_DRIVER, host=host, port=port, name=name, user=user, password=password)
-    logging_name = str(payload.get("logging_name") or "").strip() or settings.LOGGING_DB_NAME
-    return url, {"mode": "fields", "host": host, "port": port, "name": name, "user": user, "password": password, "logging_name": logging_name}
-
-
-def test_database(payload: dict[str, Any]) -> dict[str, Any]:
-    """Connect with the proposed settings: server version, latency, BornToShare schema present."""
-    try:
-        url, _config = _url_from_request(payload)
-    except ValueError as exc:
-        return {"ok": False, "message": str(exc)}
+    if db is None:
+        return info
     started = time.monotonic()
-    engine = create_engine(url, poolclass=NullPool, connect_args={"connect_timeout": 5})
     try:
-        with engine.connect() as conn:
-            version = conn.execute(text("SELECT VERSION()")).scalar()
-            latency = int((time.monotonic() - started) * 1000)
-            present = {
-                str(row[0]).lower()
-                for row in conn.execute(
-                    text("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()")
-                )
-            }
-    except Exception as exc:
-        message = str(getattr(exc, "orig", exc))
-        return {"ok": False, "message": f"Connection failed: {message[:300]}"}
-    finally:
-        engine.dispose()
-    missing = [t for t in REQUIRED_TABLES if t not in present]
-    return {
-        "ok": not missing,
-        "latency_ms": latency,
-        "version": str(version or ""),
-        "tables": len(present),
-        "missing_tables": missing,
-        "message": "Connection OK, BornToShare schema present"
-        if not missing
-        else "Connected, but the BornToShare schema is not up to date (apply the migrations)"
-        if len(missing) < len(REQUIRED_TABLES) // 2
-        else "Connected, but this database does not hold the BornToShare schema (run the installation wizard first)",
-    }
-
-
-def save_database(payload: dict[str, Any], actor_display: str | None) -> dict[str, Any]:
-    """Tested again on the server before writing: a wrong database would stop the platform at restart."""
-    if not runtime_dir_writable():
-        raise PermissionError(f"The runtime directory {runtime_dir()} is not writable (mount it read-write)")
-    result = test_database(payload)
-    if not result.get("ok"):
-        raise ValueError(result.get("message") or "Database test failed")
-    _url, config = _url_from_request(payload)
-    config.update(updated_at=_iso(_now()), updated_by=actor_display)
-    write_database_config(config)
-    return {**database_info(), "test": result}
-
-
-def reset_database() -> dict[str, Any]:
-    """Back to the .env settings at the next start."""
-    from app.core.runtime_config import database_file
-
-    try:
-        database_file().unlink()
-    except FileNotFoundError:
-        pass
-    return database_info()
+        conn = db.connection()
+        info["version"] = str(conn.execute(text("SELECT VERSION()")).scalar() or "")
+        info["latency_ms"] = int((time.monotonic() - started) * 1000)
+        counts = {
+            str(row[0]).lower(): int(row[1])
+            for row in conn.execute(
+                text(
+                    "SELECT table_schema, COUNT(*) FROM information_schema.tables "
+                    "WHERE table_schema IN (:name, :logging) GROUP BY table_schema"
+                ),
+                {"name": settings.DB_NAME, "logging": settings.LOGGING_DB_NAME},
+            )
+        }
+        present = {str(row[0]).lower() for row in conn.execute(text("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()"))}
+        grants = _grants(conn)
+    except Exception as exc:  # shown on the page: the platform works without this panel
+        info.update(ok=False, message=str(getattr(exc, "orig", exc))[:300])
+        return info
+    info["tables"] = counts.get(settings.DB_NAME.lower(), 0)
+    info["logging_tables"] = counts.get(settings.LOGGING_DB_NAME.lower(), 0)
+    info["missing_tables"] = [t for t in REQUIRED_TABLES if t not in present]
+    info["grants"] = [g for g in grants if not g.startswith("GRANT USAGE ON *.*")]
+    info["schema_rights"] = any(_SCHEMA_RIGHTS.search(g.split(" ON ", 1)[0]) for g in info["grants"])
+    info["ok"] = not info["missing_tables"]
+    return info
 
 
 # ============================================================

@@ -26,22 +26,20 @@ class Settings(BaseSettings):
 
     # Database (MariaDB)
     DB_DRIVER: str = "mariadb+pymysql"
+    # The names default to those of the wizard: .env needs DB_HOST only; the password is a secret (DB_PASSWORD_FILE)
     DB_HOST: str = Field(min_length=1)
     DB_PORT: int = 3306
-    DB_NAME: str = Field(min_length=1)
-    DB_USER: str = Field(min_length=1)
+    DB_NAME: str = "borntoshare"
+    DB_USER: str = "b2s_core"
     DB_PASSWORD: str = Field(min_length=1)
-    # Full connection string chosen in Advanced Settings › Infrastructure (runtime file), replaces DB_*
-    DATABASE_URL_OVERRIDE: str | None = None
-    # Where the running connection comes from: "env" (.env) or "runtime" (Infrastructure page)
-    DB_CONFIG_SOURCE: str = "env"
+    # Shown on the Infrastructure page: the account of the schema changes (make deploy), never used by this service
+    DB_MIGRATE_USER: str = "b2s_migrate"
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_RECYCLE: int = 1800
     DB_SCHEMA_GUARD_ENABLED: bool = True
 
     # Audit database (borntoshare_logging): same server and account as the main database unless set
-    LOGGING_DATABASE_URL: str | None = None
     LOGGING_DB_NAME: str = "borntoshare_logging"
     LOGGING_DB_HOST: str | None = None
     LOGGING_DB_PORT: int | None = None
@@ -79,8 +77,6 @@ class Settings(BaseSettings):
     # =================================================
     @property
     def sqlalchemy_url(self) -> str:
-        if self.DATABASE_URL_OVERRIDE:
-            return self.DATABASE_URL_OVERRIDE
         user = urllib.parse.quote_plus(self.DB_USER)
         pwd = urllib.parse.quote_plus(self.DB_PASSWORD)
         return (
@@ -91,8 +87,6 @@ class Settings(BaseSettings):
 
     @property
     def logging_sqlalchemy_url(self) -> str:
-        if self.LOGGING_DATABASE_URL:
-            return str(self.LOGGING_DATABASE_URL).strip()
         user = urllib.parse.quote_plus(self.LOGGING_DB_USER)
         pwd = urllib.parse.quote_plus(self.LOGGING_DB_PASSWORD)
         return (
@@ -112,43 +106,6 @@ class Settings(BaseSettings):
         return kwargs
 
 
-def _apply_runtime_database(settings: Settings) -> Settings:
-    """The database chosen on the Infrastructure page wins over .env (applied at startup)."""
-    from app.core.runtime_config import parse_dsn, read_database_config
-
-    config = read_database_config()
-    if not config:
-        return settings
-    updates: dict = {"DB_CONFIG_SOURCE": "runtime"}
-    if config["mode"] == "dsn" and str(config.get("dsn") or "").strip():
-        dsn = str(config["dsn"]).strip()
-        parts = parse_dsn(dsn)
-        updates.update(
-            DATABASE_URL_OVERRIDE=dsn,
-            DB_HOST=parts["host"],
-            DB_PORT=int(parts["port"]),
-            DB_NAME=parts["name"] or settings.DB_NAME,
-            DB_USER=parts["user"] or settings.DB_USER,
-        )
-        if str(config.get("logging_dsn") or "").strip():
-            updates["LOGGING_DATABASE_URL"] = str(config["logging_dsn"]).strip()
-    elif config["mode"] == "fields":
-        updates.update(
-            DB_HOST=str(config.get("host") or settings.DB_HOST),
-            DB_PORT=int(config.get("port") or settings.DB_PORT),
-            DB_NAME=str(config.get("name") or settings.DB_NAME),
-            DB_USER=str(config.get("user") or settings.DB_USER),
-            DB_PASSWORD=str(config.get("password") or settings.DB_PASSWORD),
-            # The logging database lives on the same server
-            LOGGING_DB_HOST=str(config.get("host") or settings.LOGGING_DB_HOST),
-            LOGGING_DB_PORT=int(config.get("port") or settings.LOGGING_DB_PORT),
-            LOGGING_DB_USER=str(config.get("user") or settings.LOGGING_DB_USER),
-            LOGGING_DB_PASSWORD=str(config.get("password") or settings.LOGGING_DB_PASSWORD),
-            LOGGING_DB_NAME=str(config.get("logging_name") or settings.LOGGING_DB_NAME),
-        )
-    return settings.model_copy(update=updates)
-
-
 @lru_cache
 def get_settings() -> Settings:
-    return _apply_runtime_database(Settings())
+    return Settings()

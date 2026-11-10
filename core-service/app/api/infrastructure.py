@@ -63,7 +63,7 @@ def get_overview(request: Request, db: Session = Depends(get_db)):
     data = infra.overview(db)
     data["workers"] = infra.list_workers(db)
     data["schedules"] = _schedules(db)
-    data["database"] = infra.database_info()
+    data["database"] = infra.database_info(db)
     return ui_data(data)
 
 
@@ -72,50 +72,11 @@ def get_overview(request: Request, db: Session = Depends(get_db)):
 # ============================================================
 
 
-class DatabasePayload(BaseModel):
-    mode: Literal["fields", "dsn"] = "fields"
-    host: Optional[str] = Field(default=None, max_length=255)
-    port: Optional[int] = Field(default=3306, ge=1, le=65535)
-    name: Optional[str] = Field(default=None, max_length=64)
-    user: Optional[str] = Field(default=None, max_length=128)
-    password: Optional[str] = Field(default=None, max_length=512)
-    logging_name: Optional[str] = Field(default=None, max_length=64)
-    dsn: Optional[str] = Field(default=None, max_length=1024)
-    logging_dsn: Optional[str] = Field(default=None, max_length=1024)
-
-
 @router.get("/database")
-def get_database(request: Request):
+def get_database(request: Request, db: Session = Depends(get_db)):
+    """Read only: the connection comes from .env and the secret of the account (wizard, make deploy)."""
     _admin(request)
-    return ui_data(infra.database_info())
-
-
-@router.post("/database/test")
-def test_database(payload: DatabasePayload, request: Request):
-    _admin(request)
-    return ui_data(infra.test_database(payload.model_dump()))
-
-
-@router.put("/database")
-def save_database(payload: DatabasePayload, request: Request):
-    actor = _admin(request)
-    try:
-        data = infra.save_database(payload.model_dump(), actor.display_name)
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"error_code": "RUNTIME_DIR_READ_ONLY", "message": str(exc)}) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error_code": "DATABASE_TEST_FAILED", "message": str(exc)}) from exc
-    configured = data.get("configured") or {}
-    _audit(actor, "infrastructure.database_configured", target_type="database", target_display=f"{configured.get('host')}:{configured.get('port')}/{configured.get('name')}", context={"mode": payload.mode, "pending_restart": data.get("pending_restart")})
-    return ui_data(data)
-
-
-@router.delete("/database")
-def reset_database(request: Request):
-    actor = _admin(request)
-    data = infra.reset_database()
-    _audit(actor, "infrastructure.database_reset", target_type="database", context={"back_to": ".env"})
-    return ui_data(data)
+    return ui_data(infra.database_info(db))
 
 
 # ============================================================

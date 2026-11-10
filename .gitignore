@@ -28,8 +28,6 @@ dump/
 *.sqlite
 
 # Database connection saved from Advanced Settings › Infrastructure (holds a password)
-config/runtime/*
-!config/runtime/.gitkeep
 
 # DFS work in progress: stays local, not committed (its edits in tracked files are marked skip-worktree)
 capsule-runner/app/actions/dfs.py
