@@ -18,6 +18,18 @@ CATEGORIES = ("password", "credentials_file", "password_vault", "private_key", "
 PASSWORD_CATEGORIES = ("password", "credentials_file", "password_vault")
 # What « est:cle-ou-jeton » means: a private key, an API key or token
 KEY_CATEGORIES = ("private_key", "cloud_key")
+# Rules version 3 of the worker: numbers checked by their checksum, files that should not sit in a data share
+PERSONAL_CATEGORIES = ("personal_data",)
+BANK_CATEGORIES = ("bank_data",)
+RISKY_CATEGORIES = ("backup_database", "mailbox", "executable")
+# What a folder row says (and the express search reads): files of each group, None when never scanned
+FILE_GROUPS = {
+    "password_files": PASSWORD_CATEGORIES,
+    "key_files": KEY_CATEGORIES,
+    "personal_files": PERSONAL_CATEGORIES,
+    "bank_files": BANK_CATEGORIES,
+    "risky_files": RISKY_CATEGORIES,
+}
 
 
 def _now() -> datetime:
@@ -257,6 +269,32 @@ def files_by_root(db: Session, storage_root_ids: list[int], categories: tuple[st
         paths = {str(item.get("path", "")).lower() for item in _load(findings, [])
                  if isinstance(item, dict) and item.get("category") in categories}
         out[int(root_id)] = len(paths - ignored)
+    return out
+
+
+def file_groups_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, dict[str, int]]:
+    """{root: {password_files, key_files, personal_files, bank_files, risky_files}} in one reading of the results
+    (without the false positives); a folder never scanned is absent."""
+    ids = sorted({int(value) for value in storage_root_ids if int(value) > 0})
+    if not ids:
+        return {}
+    try:
+        rows = db.execute(
+            text("SELECT storage_root_id, findings_json, ignored_json FROM storage_root_sensitivity WHERE status = 'done' AND storage_root_id IN :ids")
+            .bindparams(bindparam("ids", expanding=True)),
+            {"ids": ids},
+        ).all()
+    except Exception:
+        db.rollback()
+        return {}
+    out: dict[int, dict[str, int]] = {}
+    for root_id, findings, ignored_json in rows:
+        ignored = _ignored_paths(ignored_json)
+        items = [item for item in _load(findings, []) if isinstance(item, dict)]
+        out[int(root_id)] = {
+            group: len({str(item.get("path", "")).lower() for item in items if item.get("category") in categories} - ignored)
+            for group, categories in FILE_GROUPS.items()
+        }
     return out
 
 

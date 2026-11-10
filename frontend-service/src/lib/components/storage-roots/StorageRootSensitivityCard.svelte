@@ -39,7 +39,12 @@
     credentials_file: { label: t('Password files'), icon: 'bi-file-earmark-lock' },
     password_vault: { label: t('Password vaults'), icon: 'bi-safe' },
     private_key: { label: t('Private keys'), icon: 'bi-file-earmark-binary' },
-    cloud_key: { label: t('API keys and tokens'), icon: 'bi-cloud-slash' }
+    cloud_key: { label: t('API keys and tokens'), icon: 'bi-cloud-slash' },
+    personal_data: { label: t('Personal data'), icon: 'bi-person-vcard' },
+    bank_data: { label: t('Bank data'), icon: 'bi-credit-card' },
+    backup_database: { label: t('Backups and databases'), icon: 'bi-database' },
+    mailbox: { label: t('Mailboxes'), icon: 'bi-envelope-paper' },
+    executable: { label: t('Programs and scripts'), icon: 'bi-filetype-exe' }
   });
 
   let state: Sensitivity | null = sensitivity;

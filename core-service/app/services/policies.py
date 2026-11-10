@@ -4,7 +4,8 @@ The condition is an express search of the folders (app/services/folder_query.py)
 that match with those that matched before (governance_policy_hits):
 - a folder that starts matching gets the actions once: tag added, guardians told;
 - while it matches, the alert of the policy stays open (and reopens if someone marks it resolved);
-- a folder that stops matching loses its hit and its alert is resolved. The tag stays: removing it is a human choice.
+- a folder that stops matching loses its hit and its alert is resolved. The tag stays (removing it is a human choice),
+  unless the policy says « remove_tag »: then it goes with the condition (automatic tags).
 - tasks (ACL read and content, sensitivity scan) go to the workers for the folders that match, at most once per
   frequency per folder and MAX_JOBS_PER_RUN folders per run: the next runs take the rest.
 """
@@ -284,8 +285,14 @@ def run_policy(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]], 
             {"id": pid, "ids": gone_ids},
         )
     tagged = 0
+    untagged = 0
     if actions.get("add_tag"):
         tagged = sum(1 for root_id in new_ids if _add_tag(db, root_id, int(actions["add_tag"])))
+        if actions.get("remove_tag") and gone_ids:
+            untagged = db.execute(
+                text("DELETE FROM storage_root_tags WHERE tag_id = :tag AND storage_root_id IN :ids").bindparams(bindparam("ids", expanding=True)),
+                {"tag": int(actions["add_tag"]), "ids": gone_ids},
+            ).rowcount or 0
     if actions.get("alert"):
         for row in matched.values():
             _raise_alert(db, policy, row, str((actions.get("alert") or {}).get("severity") or "warning"))
@@ -298,7 +305,7 @@ def run_policy(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]], 
             {"now": now, "matched": len(matched), "new": len(new_ids), "id": pid},
         )
     db.commit()
-    return {"policy_id": pid, "matched": len(matched), "new": len(new_ids), "gone": len(gone_ids), "tagged": tagged,
+    return {"policy_id": pid, "matched": len(matched), "new": len(new_ids), "gone": len(gone_ids), "tagged": tagged, "untagged": untagged,
             "resolved": resolved, "notified": notified, "jobs": jobs}
 
 

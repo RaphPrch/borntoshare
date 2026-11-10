@@ -2,7 +2,7 @@ import { t } from '$lib/i18n';
 
 /**
  * Express search of the folders list: free text plus filters written « key:value ».
- *   tag:Finance  gardien:alice  zone:CORP  serveur:FILER01  dfs:brest  partage:RH
+ *   tag:Finance  gardien:alice  zone:CORP  serveur:FILER01  dfs:brest  partage:RH  chemin:rh (a whole word of the path)
  *   est:alerte | injoignable | sain | sans-gardien | sans-tag | heritage-rompu | demandes | a-revalider | vide | non-mesure
  *   alerte:acl  taille>1Go  taille<10Mo
  * A leading « - » excludes (-tag:Archive); a value with spaces goes in quotes (tag:"Données RH").
@@ -18,6 +18,7 @@ const ALIASES: Record<string, string> = {
   serveur: 'server', server: 'server', filer: 'server',
   dfs: 'dfs', namespace: 'dfs',
   partage: 'share', share: 'share',
+  chemin: 'path', path: 'path',
   est: 'is', is: 'is', etat: 'is',
   alerte: 'alert', alert: 'alert',
   taille: 'size', size: 'size'
@@ -89,6 +90,9 @@ const STATES: Record<string, (row: Row) => boolean> = {
   'non-analyse': (row) => row?.sensitive_files == null,
   'mot-de-passe': (row) => Number(row?.password_files ?? 0) > 0,
   'cle-ou-jeton': (row) => Number(row?.key_files ?? 0) > 0,
+  'donnees-personnelles': (row) => Number(row?.personal_files ?? 0) > 0,
+  bancaire: (row) => Number(row?.bank_files ?? 0) > 0,
+  'fichiers-a-risque': (row) => Number(row?.risky_files ?? 0) > 0,
   correction: (row) => row?.remediation_status === 'open' || row?.remediation_status === 'overdue',
   'donnees-froides': (row) => {
     const total = Number(size(row) ?? 0);
@@ -119,6 +123,12 @@ function test(row: Row, filter: QueryFilter): boolean {
       return has([row?.dfs_path]);
     case 'share':
       return has([pathParts(row)[1]]);
+    case 'path': {
+      // Whole words: chemin:rh finds « Lyon - RH », not « Archives »
+      const words = new Set([...pathParts(row), ...String(row?.dfs_path ?? '').split(/[\\/]+/)].flatMap((part) => fold(part).split(/[^a-z0-9]+/)).filter(Boolean));
+      const wantedWords = wanted.split(/[^a-z0-9]+/).filter(Boolean);
+      return wantedWords.length > 0 && wantedWords.every((word) => words.has(word));
+    }
     case 'alert':
       return has(alertTypes(row));
     case 'is':
@@ -155,6 +165,9 @@ const STATE_LABELS = (): Array<[string, string]> => [
   ['non-analyse', t('never scanned for sensitivity')],
   ['mot-de-passe', t('with passwords stored')],
   ['cle-ou-jeton', t('with keys or tokens')],
+  ['donnees-personnelles', t('with personal data')],
+  ['bancaire', t('with bank data')],
+  ['fichiers-a-risque', t('with risky files')],
   ['correction', t('correction asked')],
   ['donnees-froides', t('mostly cold data')],
   ['encombre', t('with clutter files')],

@@ -16,12 +16,12 @@
    */
   type Kind = 'check' | 'measure' | 'sensitivity';
   type Jobs = { kinds: Kind[]; every_hours: number };
-  type Actions = { add_tag: number | null; alert: { severity: string } | null; notify_guardians: boolean; jobs?: Jobs | null };
+  type Actions = { add_tag: number | null; remove_tag?: boolean; alert: { severity: string } | null; notify_guardians: boolean; jobs?: Jobs | null };
   type Policy = {
     id: number; name: string; description: string | null; enabled: boolean; condition: string; actions: Actions;
     matching: number; last_run_at: string | null; last_new: number | null; last_error: string | null;
   };
-  type Draft = { id: number | null; name: string; description: string; enabled: boolean; condition: string; tagOn: boolean; tagId: number | null; alertOn: boolean; severity: string; notify: boolean;
+  type Draft = { id: number | null; name: string; description: string; enabled: boolean; condition: string; tagOn: boolean; tagId: number | null; tagRemove: boolean; alertOn: boolean; severity: string; notify: boolean;
     jobsOn: boolean; jobCheck: boolean; jobMeasure: boolean; jobSensitivity: boolean; everyHours: number };
 
   export let data: Record<string, any>;
@@ -61,12 +61,12 @@
 
   function edit(policy: Policy | null, template: (typeof templates)[number] | null = null) {
     const source = policy
-      ? { name: policy.name, description: policy.description ?? '', condition: policy.condition, tagId: policy.actions?.add_tag ?? null, severity: policy.actions?.alert?.severity ?? 'warning', notify: Boolean(policy.actions?.notify_guardians), alertOn: Boolean(policy.actions?.alert), enabled: policy.enabled, jobs: policy.actions?.jobs ?? null }
+      ? { name: policy.name, description: policy.description ?? '', condition: policy.condition, tagId: policy.actions?.add_tag ?? null, tagRemove: Boolean(policy.actions?.remove_tag), severity: policy.actions?.alert?.severity ?? 'warning', notify: Boolean(policy.actions?.notify_guardians), alertOn: Boolean(policy.actions?.alert), enabled: policy.enabled, jobs: policy.actions?.jobs ?? null }
       : template
         ? { ...template, alertOn: !(template as any).jobs, enabled: true, jobs: (template as any).jobs ?? null }
-        : { name: '', description: '', condition: '', tagId: null, severity: 'warning', notify: false, alertOn: true, enabled: true, jobs: null };
+        : { name: '', description: '', condition: '', tagId: null, tagRemove: false, severity: 'warning', notify: false, alertOn: true, enabled: true, jobs: null };
     draft = { id: policy?.id ?? null, name: source.name, description: source.description, enabled: source.enabled, condition: source.condition,
-      tagOn: Boolean(source.tagId), tagId: source.tagId ?? null, alertOn: source.alertOn, severity: source.severity, notify: source.notify,
+      tagOn: Boolean(source.tagId), tagId: source.tagId ?? null, tagRemove: Boolean((source as any).tagRemove), alertOn: source.alertOn, severity: source.severity, notify: source.notify,
       jobsOn: Boolean(source.jobs?.kinds?.length), jobCheck: Boolean(source.jobs?.kinds?.includes('check')), jobMeasure: Boolean(source.jobs?.kinds?.includes('measure')),
       jobSensitivity: Boolean(source.jobs?.kinds?.includes('sensitivity')), everyHours: Number(source.jobs?.every_hours ?? 168) };
     preview = null;
@@ -102,7 +102,7 @@
     saving = true;
     const body = {
       name: draft.name.trim(), description: draft.description.trim() || null, enabled: draft.enabled, condition: draft.condition.trim(),
-      actions: { add_tag: draft.tagOn ? draft.tagId : null, alert: draft.alertOn ? { severity: draft.severity } : null, notify_guardians: draft.notify,
+      actions: { add_tag: draft.tagOn ? draft.tagId : null, remove_tag: draft.tagOn && draft.tagRemove, alert: draft.alertOn ? { severity: draft.severity } : null, notify_guardians: draft.notify,
         jobs: draft.jobsOn && draftKinds.length ? { kinds: draftKinds, every_hours: draft.everyHours } : null }
     };
     try {
@@ -188,7 +188,7 @@
             <div class="pc__rule">
               <span class="pc__kw">{t('If')}</span><code>{policy.condition}</code>
               <span class="pc__kw">{t('then')}</span>
-              {#if tag}<span class="pc__act"><i class="bi bi-tag" aria-hidden="true"></i>{t('tag')} <TagPill small label={String(tag.name)} color={tag.color ?? null} /></span>{/if}
+              {#if tag}<span class="pc__act"><i class="bi bi-tag" aria-hidden="true"></i>{t('tag')} <TagPill small label={String(tag.name)} color={tag.color ?? null} />{#if policy.actions?.remove_tag}<small>{t('automatic')}</small>{/if}</span>{/if}
               {#if policy.actions?.alert}<span class="pc__act"><i class="bi bi-bell" aria-hidden="true"></i>{t('alert {severity}', { severity: severityLabel(policy.actions.alert.severity).toLowerCase() })}</span>{/if}
               {#if policy.actions?.notify_guardians}<span class="pc__act"><i class="bi bi-envelope" aria-hidden="true"></i>{t('notice to the guardians')}</span>{/if}
               {#if policy.actions?.jobs?.kinds?.length}<span class="pc__act"><i class="bi bi-cpu" aria-hidden="true"></i>{policy.actions.jobs.kinds.map((kind) => JOB_LABEL()[kind]).join(' + ')} · {frequencyLabel(policy.actions.jobs.every_hours)}</span>{/if}
@@ -260,7 +260,7 @@
           {/if}
         </label>
         <label class="pf__check"><input type="checkbox" bind:checked={draft.tagOn} />
-          <span>{t('Add a tag')}<small>{t('Once, when the folder starts matching. Removing it stays a human choice.')}</small></span>
+          <span>{t('Add a tag')}<small>{draft.tagRemove ? t('When the folder starts matching; taken off when it no longer matches.') : t('Once, when the folder starts matching. Removing it stays a human choice.')}</small></span>
           {#if draft.tagOn}
             <select class="b2s-input" bind:value={draft.tagId} aria-label={t('Tag')}>
               <option value={null}>{t('Choose a tag')}</option>
@@ -268,6 +268,11 @@
             </select>
           {/if}
         </label>
+        {#if draft.tagOn}
+          <label class="pf__check pf__check--sub"><input type="checkbox" bind:checked={draft.tagRemove} />
+            <span>{t('Remove the tag when the folder no longer matches')}<small>{t('An automatic tag: it follows the condition (a scan that no longer finds anything takes it off).')}</small></span>
+          </label>
+        {/if}
         <label class="pf__check"><input type="checkbox" bind:checked={draft.notify} />
           <span>{t('Tell the guardians by e-mail')}<small>{t('Once per folder that starts matching (Settings › Notifications must be on).')}</small></span>
         </label>
@@ -346,6 +351,8 @@
   .pf__bad { color: var(--b2s-color-danger-strong, #b42318); }
   .pf__check { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: start; font-size: var(--b2s-fs-sm); }
   .pf__check input[type='checkbox'] { margin-top: 3px; }
+  .pf__check--sub { margin-left: 28px; }
+  .pc__act small { color: var(--b2s-color-text-muted); }
   .pf__check span { display: flex; flex-direction: column; gap: 2px; }
   .pf__check small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .pf__check select { min-width: 160px; }

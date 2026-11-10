@@ -31,6 +31,8 @@ class PolicyJobs(BaseModel):
 
 class PolicyActions(BaseModel):
     add_tag: int | None = Field(default=None, gt=0)
+    # The tag goes with the condition: removed when the folder no longer matches (automatic tags)
+    remove_tag: bool = False
     alert: PolicyAlert | None = None
     notify_guardians: bool = False
     jobs: PolicyJobs | None = None

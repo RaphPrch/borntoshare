@@ -45,3 +45,19 @@ def test_same_results_as_the_search_field():
 
 def test_unknown_states_are_reported():
     assert fq.unknown_states("est:sensible est:sansgardien") == ["sansgardien"]
+
+
+def test_new_sensitivity_states() -> None:
+    row = {"personal_files": 2, "bank_files": 0, "risky_files": 1}
+    assert fq.matches(row, "est:donnees-personnelles") and fq.matches(row, "est:fichiers-a-risque")
+    assert not fq.matches(row, "est:bancaire") and not fq.matches({}, "est:donnees-personnelles")
+    assert fq.unknown_states("est:donnees-personnelles est:bancaire est:fichiers-a-risque") == []
+
+
+def test_path_matches_whole_words() -> None:
+    rh = {"root_path": "\\\\172.22.98.56\\Lyon\\Lyon - RH"}
+    archives = {"root_path": "\\\\172.22.98.56\\Archives\\Marhaba"}
+    assert fq.matches(rh, "chemin:rh") and not fq.matches(archives, "chemin:rh")
+    assert fq.matches({"root_path": "\\\\srv\\Siège\\Ressources humaines"}, 'chemin:"ressources humaines"')
+    assert fq.matches({"root_path": "\\\\srv\\Data", "dfs_path": "\\\\corp.local\\brest\\Finance"}, "chemin:finance")
+    assert fq.matches(rh, "-chemin:finance")

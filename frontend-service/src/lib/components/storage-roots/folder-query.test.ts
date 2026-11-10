@@ -50,3 +50,15 @@ const ids = (query: string) => rows.filter((row) => matchesFolderQuery(row, pars
     assert.equal(removeFilter('compta tag:RH est:alerte', 'tag:RH'), 'compta est:alerte');
 }
 console.log('folder-query: ok');
+
+// New sensitivity states and « chemin: » (whole words of the path)
+{
+  const row = { personal_files: 2, bank_files: 0, risky_files: 1 };
+  assert.equal(matchesFolderQuery(row, parseFolderQuery('est:donnees-personnelles est:fichiers-a-risque').filters), true);
+  assert.equal(matchesFolderQuery(row, parseFolderQuery('est:bancaire').filters), false);
+  const rh = { root_path: '\\\\172.22.98.56\\Lyon\\Lyon - RH' };
+  const archives = { root_path: '\\\\172.22.98.56\\Archives\\Marhaba' };
+  assert.equal(matchesFolderQuery(rh, parseFolderQuery('chemin:rh').filters), true);
+  assert.equal(matchesFolderQuery(archives, parseFolderQuery('chemin:rh').filters), false);
+  assert.equal(matchesFolderQuery({ root_path: '\\\\srv\\Data', dfs_path: '\\\\corp.local\\brest\\Finance' }, parseFolderQuery('chemin:finance').filters), true);
+}

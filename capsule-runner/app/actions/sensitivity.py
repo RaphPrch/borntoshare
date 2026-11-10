@@ -1,4 +1,4 @@
-"""Sensitivity scan of a governed folder: are there passwords, keys or password vaults stored in it?
+"""Sensitivity scan of a governed folder: passwords, keys, password vaults, personal and bank data, risky files.
 
 Read only. One recursive listing of the folder (smbclient), then the small text files that may hold a secret
 are copied in one SMB session into a private temporary directory, read, and deleted. What is kept is the path
@@ -15,7 +15,8 @@ from datetime import datetime, timezone
 
 from app.actions.smb import _LS_ENTRY, _classify_smb_error, run_samba
 
-RULES_VERSION = 2
+# 3: personal data (social security number), bank data (IBAN, card), backups and databases, mailboxes, programs
+RULES_VERSION = 3
 MAX_LISTED = 300_000
 MAX_READ_FILES = 300
 MAX_FILE_BYTES = 1024 * 1024
@@ -31,6 +32,11 @@ NAME_RULES: list[tuple[str, str, re.Pattern[str]]] = [
                 r"|codes?[ _.-]?(d[ _.'’-]?)?acc[eè]s|comptes?[ _.-]?(admin|de[ _.-]?service|service)|keepass|bitwarden|lastpass|1password)"
                 r"[^\\/]*\.(txt|xlsx?|xlsm|docx?|csv|ods|odt|json|ini|cfg|conf|md|rtf|one|pdf)$")),
     ("credentials_file", "Stored credentials", re.compile(r"^(\.git-credentials|\.netrc|_netrc|\.pgpass|\.my\.cnf|unattend\.xml|autounattend\.xml|sysprep\.inf)$")),
+    # Files that should not sit in a data share: copies of whole databases or machines, mailboxes, programs
+    ("backup_database", "Backup, database or disk image",
+     re.compile(r"\.(bak|bkp|mdb|accdb|sqlite3?|db3|sdf|dump|dmp|vhdx?|vmdk|ova|ovf)$")),
+    ("mailbox", "Mailbox file", re.compile(r"\.(pst|ost|mbox|olm)$")),
+    ("executable", "Program or script", re.compile(r"\.(exe|msi|com|scr|pif|bat|cmd|ps1|vbs|vbe|wsf|hta|jar)$")),
 ]
 
 # Read when small: the files where a secret is typically written in clear
@@ -56,6 +62,72 @@ CONTENT_RULES: list[tuple[str, str, re.Pattern[str], int]] = [
     ("password", "Password in a Windows answer file",
      re.compile(r"(?i)<(?:AdministratorPassword|Password)>\s*<Value>([^<]{4,})</Value>"), 1),
 ]
+
+
+def _digits(value: str) -> str:
+    return re.sub(r"[^0-9A-Za-z]", "", value)
+
+
+def _iban_ok(value: str) -> bool:
+    """Check digits of an IBAN (ISO 13616: mod 97 = 1)."""
+    raw = _digits(value).upper()
+    if not 15 <= len(raw) <= 34:
+        return False
+    moved = raw[4:] + raw[:4]
+    number = "".join(str(int(char, 36)) for char in moved)
+    return int(number) % 97 == 1
+
+
+def _luhn_ok(value: str) -> bool:
+    """A payment card number: 13 to 19 digits, a known first digit, the Luhn checksum."""
+    raw = _digits(value)
+    if not raw.isdigit() or not 13 <= len(raw) <= 19 or raw[0] not in "3456" or len(set(raw)) < 3:
+        return False
+    total = 0
+    for index, char in enumerate(reversed(raw)):
+        digit = int(char)
+        if index % 2:
+            digit = digit * 2 - 9 if digit > 4 else digit * 2
+        total += digit
+    return total % 10 == 0
+
+
+def _nir_ok(value: str) -> bool:
+    """French social security number (NIR): 13 characters and a key, 97 - (number mod 97); Corsica 2A / 2B."""
+    raw = _digits(value).upper()
+    if len(raw) != 15:
+        return False
+    body, key = raw[:13], raw[13:]
+    body = body.replace("2A", "19").replace("2B", "18")
+    return body.isdigit() and key.isdigit() and 97 - int(body) % 97 == int(key)
+
+
+# (category, label, pattern, check, characters kept in the excerpt): numbers found in a text, kept only when their
+# own checksum holds. The excerpt keeps the country of an IBAN (FR76) and the network of a card (4970), nothing of a
+# social security number (its first digits say the sex and the year of birth).
+DATA_RULES: list[tuple[str, str, re.Pattern[str], object, int]] = [
+    ("bank_data", "IBAN", re.compile(r"\b([A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?)\b"), _iban_ok, 4),
+    ("bank_data", "Payment card number", re.compile(r"(?<![\d-])((?:\d[ -]?){12,18}\d)(?![\d-])"), _luhn_ok, 4),
+    ("personal_data", "Social security number",
+     re.compile(r"\b([12] ?\d{2} ?(?:0[1-9]|1[0-2]|[2-9]\d) ?(?:\d{2}|2A|2B) ?\d{3} ?\d{3} ?\d{2})\b"), _nir_ok, 0),
+]
+
+
+def _data_hits(line: str) -> list[tuple[str, str, str, int]]:
+    """(category, label, value, kept) of every valid number of the line, in the order of the rules."""
+    hits = []
+    for category, label, pattern, check, kept in DATA_RULES:
+        for match in pattern.finditer(line):
+            if check(match.group(1)):  # type: ignore[operator]
+                hits.append((category, label, match.group(1), kept))
+    return hits
+
+
+def _mask_data(text: str, hits: list[tuple[str, str, str, int]]) -> str:
+    """Every number found masked in the excerpt, whatever rule flagged the line."""
+    for _category, _label, value, kept in sorted(hits, key=lambda hit: -len(hit[2])):
+        text = text.replace(value, value[:kept] + "•" * 6)
+    return text
 
 
 def _extension(name: str) -> str:
@@ -92,6 +164,8 @@ def content_findings(path: str, text: str, limit: int = 5) -> list[dict]:
     """Secrets written in a text: masked excerpt and line number, at most `limit` per file."""
     out: list[dict] = []
     for number, line in enumerate(text.splitlines(), start=1):
+        found = False
+        hits = _data_hits(line)
         for category, label, pattern, group in CONTENT_RULES:
             match = pattern.search(line)
             if not match:
@@ -101,8 +175,13 @@ def content_findings(path: str, text: str, limit: int = 5) -> list[dict]:
                 continue
             excerpt = line.strip()
             excerpt = excerpt.replace(secret, _mask(secret)) if group else excerpt
-            out.append({"path": path, "category": category, "rule": label, "line": number, "excerpt": excerpt[:160]})
+            out.append({"path": path, "category": category, "rule": label, "line": number, "excerpt": _mask_data(excerpt, hits)[:160]})
+            found = True
             break
+        if not found and hits:
+            # The line without the numbers: what kind of data and where, never the data itself
+            category, label, _value, _kept = hits[0]
+            out.append({"path": path, "category": category, "rule": label, "line": number, "excerpt": _mask_data(line.strip(), hits)[:160]})
         if len(out) >= limit:
             break
     return out

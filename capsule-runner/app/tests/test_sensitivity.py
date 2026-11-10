@@ -159,3 +159,41 @@ def test_a_scan_over_its_budget_goes_on_where_it_stopped(monkeypatch):
 def test_new_rules_scan_everything_again(monkeypatch):
     result, reads = _scan(monkeypatch, INCR, since="2026-11-08T00:00:00+00:00", rules_version=sens.RULES_VERSION - 1)
     assert result["incremental"]["full"] is True and len(reads) == 3
+
+
+# Numbers built for the test (valid checksums), not real ones
+_CARD = "4970101234567893"
+_NIR = "185057800608491"
+_IBAN = "FR76 3000 6000 0112 3456 7890 189"
+
+
+def test_personal_and_bank_data_are_found_and_masked() -> None:
+    text = (f"client;iban;carte\nDupont;{_IBAN};{_CARD[:4]} {_CARD[4:8]} {_CARD[8:12]} {_CARD[12:]}\n"
+            f"secu : {_NIR[0]} {_NIR[1:3]} {_NIR[3:5]} {_NIR[5:7]} {_NIR[7:10]} {_NIR[10:13]} {_NIR[13:]}\n"
+            "commande 2026-11-10 ref 1234567890123 tel 0612345678\n"
+            "FR76 3000 6000 0112 3456 7890 188\n")
+    found = sens.content_findings("\\\\srv\\RH\\export.csv", text)
+    assert [(item["category"], item["line"]) for item in found] == [("bank_data", 2), ("personal_data", 3)]
+    # Nothing of a number left in an excerpt: the IBAN keeps its country, the card its network, the NIR nothing
+    assert found[0]["excerpt"] == "Dupont;FR76••••••;4970••••••"
+    assert found[1]["excerpt"] == "secu : ••••••"
+
+
+def test_checksums_refuse_look_alikes() -> None:
+    assert sens._iban_ok(_IBAN) and not sens._iban_ok(_IBAN[:-1] + "8")
+    assert sens._luhn_ok(_CARD) and not sens._luhn_ok(_CARD[:-1] + "4")
+    assert not sens._luhn_ok("1234567890123")  # an order reference
+    assert sens._nir_ok(_NIR) and not sens._nir_ok(_NIR[:-2] + "92")
+
+
+def test_a_password_line_also_masks_the_numbers_it_holds() -> None:
+    found = sens.content_findings("x.txt", f"password=Sup3rSecret iban {_IBAN}")
+    assert found[0]["category"] == "password" and _IBAN not in found[0]["excerpt"] and "FR76••••••" in found[0]["excerpt"]
+
+
+def test_risky_files_by_their_name() -> None:
+    category = lambda name: [item["category"] for item in sens.name_findings(f"\\\\srv\\Data\\{name}")]  # noqa: E731
+    assert category("base.bak") == ["backup_database"] and category("Archive.pst") == ["mailbox"]
+    assert category("setup.exe") == ["executable"] and category("deploy.ps1") == ["executable"]
+    assert category("Thumbs.db") == [] and category("rapport.pdf") == []
+    assert category("mots de passe.xlsx") == ["credentials_file"]

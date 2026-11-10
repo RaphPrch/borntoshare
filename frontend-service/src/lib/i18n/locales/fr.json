@@ -5229,5 +5229,17 @@
   "A DFS namespace has no share of its own": "Un espace de noms DFS n'a pas de partage propre",
   "Open the file server": "Ouvrir le serveur de fichiers",
   "Sensitivity scan started on « {name} ».": "Analyse de la sensibilité lancée sur « {name} ».",
-  "Measure started on « {name} ».": "Mesure lancée sur « {name} »."
+  "Measure started on « {name} ».": "Mesure lancée sur « {name} ».",
+  "with personal data": "avec des données personnelles",
+  "with bank data": "avec des données bancaires",
+  "with risky files": "avec des fichiers à risque",
+  "Personal data": "Données personnelles",
+  "Bank data": "Données bancaires",
+  "Backups and databases": "Sauvegardes et bases de données",
+  "Mailboxes": "Boîtes mail",
+  "Programs and scripts": "Programmes et scripts",
+  "Remove the tag when the folder no longer matches": "Retirer le tag quand le dossier ne correspond plus",
+  "When the folder starts matching; taken off when it no longer matches.": "Quand le dossier commence à correspondre ; retiré quand il ne correspond plus.",
+  "An automatic tag: it follows the condition (a scan that no longer finds anything takes it off).": "Un tag automatique : il suit la condition (une analyse qui ne trouve plus rien le retire).",
+  "automatic": "automatique"
 }

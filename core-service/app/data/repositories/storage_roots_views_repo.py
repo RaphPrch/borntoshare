@@ -503,10 +503,9 @@ class StorageRootsViewsRepo(SQLViewRepo):
 
         sensitive_by_root_id = flagged_by_root(self.db, storage_root_ids)
         from app.services.quotas import by_root as quotas_by_root
-        from app.services.sensitivity import key_files_by_root, password_files_by_root
+        from app.services.sensitivity import FILE_GROUPS, file_groups_by_root
 
-        passwords_by_root_id = password_files_by_root(self.db, storage_root_ids)
-        keys_by_root_id = key_files_by_root(self.db, storage_root_ids)
+        file_groups_by_root_id = file_groups_by_root(self.db, storage_root_ids)
         quota_by_root_id = quotas_by_root(self.db, storage_root_ids)
         from app.services.remediations import counts_by_root as remediations_by_root
         from app.services.scans import states_by_root
@@ -533,8 +532,10 @@ class StorageRootsViewsRepo(SQLViewRepo):
             payload["guardian_names"] = guardian_names_by_root_id.get(storage_root_id, [])
             # Files flagged by the last sensitivity scan; None when the folder was never scanned
             payload["sensitive_files"] = sensitive_by_root_id.get(storage_root_id)
-            payload["password_files"] = passwords_by_root_id.get(storage_root_id)
-            payload["key_files"] = keys_by_root_id.get(storage_root_id)
+            # Files per group (passwords, keys, personal data, bank data, risky files); None when never scanned
+            groups = file_groups_by_root_id.get(storage_root_id)
+            for group in FILE_GROUPS:
+                payload[group] = groups.get(group) if groups is not None else None
             payload["remediation_status"] = remediation_by_root_id.get(storage_root_id)
             payload["measure_status"] = scan_state_by_root_id.get(storage_root_id)
             # FSRM quota of the folder (None: no quota known)

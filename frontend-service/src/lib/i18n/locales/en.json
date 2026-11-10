@@ -1322,5 +1322,17 @@
   "Open the file server": "Open the file server",
   "File server": "File server",
   "Sensitivity scan started on « {name} ».": "Sensitivity scan started on « {name} ».",
-  "Measure started on « {name} ».": "Measure started on « {name} »."
+  "Measure started on « {name} ».": "Measure started on « {name} ».",
+  "with personal data": "with personal data",
+  "with bank data": "with bank data",
+  "with risky files": "with risky files",
+  "Personal data": "Personal data",
+  "Bank data": "Bank data",
+  "Backups and databases": "Backups and databases",
+  "Mailboxes": "Mailboxes",
+  "Programs and scripts": "Programs and scripts",
+  "Remove the tag when the folder no longer matches": "Remove the tag when the folder no longer matches",
+  "When the folder starts matching; taken off when it no longer matches.": "When the folder starts matching; taken off when it no longer matches.",
+  "An automatic tag: it follows the condition (a scan that no longer finds anything takes it off).": "An automatic tag: it follows the condition (a scan that no longer finds anything takes it off).",
+  "automatic": "automatic"
 }

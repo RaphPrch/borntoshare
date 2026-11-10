@@ -2,9 +2,10 @@
 
 Same language as the search field of the Folders page (frontend lib/components/storage-roots/folder-query.ts):
 free text plus « key:value » filters, « - » to exclude, quotes for a value with spaces.
-  tag: gardien: zone: serveur: dfs: partage: alerte: taille> taille<
+  tag: gardien: zone: serveur: dfs: partage: chemin: alerte: taille> taille<
   est: alerte injoignable sain sans-gardien sans-tag heritage-rompu demandes a-revalider vide non-mesure
-       non-teste dfs sensible non-analyse mot-de-passe cle-ou-jeton correction quota sans-quota quota-plein quota-demande
+       non-teste dfs sensible non-analyse mot-de-passe cle-ou-jeton donnees-personnelles bancaire fichiers-a-risque
+       correction quota sans-quota quota-plein quota-demande
        donnees-froides encombre doublons tous
 """
 from __future__ import annotations
@@ -21,6 +22,8 @@ ALIASES = {
     "serveur": "server", "server": "server", "filer": "server",
     "dfs": "dfs", "namespace": "dfs",
     "partage": "share", "share": "share",
+    # A whole word of the path (chemin:rh finds \\srv\Lyon - RH, not \\srv\Archives)
+    "chemin": "path", "path": "path",
     "est": "is", "is": "is", "etat": "is",
     "alerte": "alert", "alert": "alert",
     "taille": "size", "size": "size",
@@ -112,6 +115,9 @@ STATES: dict[str, Callable[[dict], bool]] = {
     "non-analyse": lambda row: row.get("sensitive_files") is None,
     "mot-de-passe": lambda row: int(row.get("password_files") or 0) > 0,
     "cle-ou-jeton": lambda row: int(row.get("key_files") or 0) > 0,
+    "donnees-personnelles": lambda row: int(row.get("personal_files") or 0) > 0,
+    "bancaire": lambda row: int(row.get("bank_files") or 0) > 0,
+    "fichiers-a-risque": lambda row: int(row.get("risky_files") or 0) > 0,
     "correction": lambda row: row.get("remediation_status") in {"open", "overdue"},
     # More than half of the data untouched for a year · clutter files (caches, lock files, temporary, copies)
     "donnees-froides": lambda row: bool(row.get("cold_1y_bytes")) and float(row["cold_1y_bytes"]) > 0.5 * float(_size(row) or 0) > 0,
@@ -145,6 +151,11 @@ def _test(row: dict, item: Filter) -> bool:
     if item.key == "share":
         parts = _parts(row)
         return has([parts[1] if len(parts) > 1 else ""])
+    if item.key == "path":
+        words = {word for part in [*_parts(row), *re.split(r"[\\/]+", str(row.get("dfs_path") or ""))]
+                 for word in re.split(r"[^a-z0-9]+", fold(part)) if word}
+        wanted_words = [word for word in re.split(r"[^a-z0-9]+", wanted) if word]
+        return bool(wanted_words) and all(word in words for word in wanted_words)
     if item.key == "alert":
         return has(_alert_types(row))
     if item.key == "is":
