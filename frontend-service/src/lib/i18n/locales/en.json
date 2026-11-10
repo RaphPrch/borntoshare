@@ -1442,5 +1442,11 @@
   "Measure the folders": "Measure the folders",
   "The worker walks through each folder (read only): size, number of files, age of the data, clutter and duplicates. The results appear on each folder.": "The worker walks through each folder (read only): size, number of files, age of the data, clutter and duplicates. The results appear on each folder.",
   "Start the measures": "Start the measures",
-  "{count} file(s) still to read: the scan goes on by itself, pass after pass.": "{count} file(s) still to read: the scan goes on by itself, pass after pass."
+  "{count} file(s) still to read: the scan goes on by itself, pass after pass.": "{count} file(s) still to read: the scan goes on by itself, pass after pass.",
+  "Requested by": "Requested by",
+  "the platform (schedule, policy or worker)": "the platform (schedule, policy or worker)",
+  "{count} job(s) started again": "{count} job(s) started again",
+  "Not started again: {ids}": "Not started again: {ids}",
+  "Start again the failed or stopped checks and scans shown": "Start again the failed or stopped checks and scans shown",
+  "Retry the {count} shown": "Retry the {count} shown"
 }

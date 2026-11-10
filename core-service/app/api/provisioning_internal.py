@@ -371,6 +371,23 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
         logger.warning("POLICIES_AFTER_SCAN_FAILED", exc_info=True)
 
 
+def _with_requester(metrics: dict | None) -> dict:
+    """The person who started the job (none for the schedule, the policies, the worker)."""
+    from app.core.actor_context import current_actor
+
+    out = dict(metrics or {})
+    if current_actor() and not out.get("requested_by"):
+        out["requested_by"] = current_actor()
+    return out
+
+
+def _keep_requester(row: Any, metrics: dict | None) -> dict | None:
+    before = getattr(row, "metrics_json", None) or {}
+    if not isinstance(before, dict) or not before.get("requested_by"):
+        return metrics
+    return {**(metrics or {}), "requested_by": before["requested_by"]}
+
+
 def _is_current_folder_job(db: Session, job_row: Any) -> bool:
     """The folder's scan or measure in progress is this job (not an older one stopped later)."""
     from app.services import scans, sensitivity
@@ -850,7 +867,7 @@ def create_provisioning_job(payload: CreateProvisioningJobPayload, db: Session =
             "identity_source_id": payload.identity_source_id,
             "payload_json": payload.payload_json,
             "result_json": payload.result_json,
-            "metrics_json": payload.metrics_json,
+            "metrics_json": _with_requester(payload.metrics_json),
             "error_json": payload.error_json,
             "error_code": payload.error_code,
             "error_message": payload.error_message,
@@ -1055,6 +1072,7 @@ def cancel_provisioning_job(job_id: int, payload: JobCancelPayload, db: Session 
     if _is_current_folder_job(db, row):
         _persist_sensitivity_result(db, job_row=row, result_json=None, error_message=reason)
         _persist_scan_result(db, job_row=row, result_json=None, error_message=reason)
+    _persist_quota_result(db, job_row=row, result_json={"error_code": "JOB_CANCELLED"}, error_message=reason)
 
     _persist_identity_source_probe_result(
         db,
@@ -1159,7 +1177,7 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
             "status": ensure_transition(current=row.status, next_status="SUCCEEDED"),
             "finished_at": utcnow_naive(),
             "result_json": payload.result_json,
-            "metrics_json": payload.metrics_json,
+            "metrics_json": _keep_requester(row, payload.metrics_json),
             "error_json": {},
             "error_code": None,
             "error_message": None,
@@ -1259,7 +1277,7 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
             "status": ensure_transition(current=row.status, next_status="FAILED"),
             "finished_at": utcnow_naive(),
             "result_json": payload.result_json,
-            "metrics_json": payload.metrics_json,
+            "metrics_json": _keep_requester(row, payload.metrics_json),
             "error_json": payload.error_json
             or {
                 "code": payload.error_code,

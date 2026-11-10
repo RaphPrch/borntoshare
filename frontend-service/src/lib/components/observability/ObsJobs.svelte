@@ -104,6 +104,28 @@
     }
   }
 
+  // Every failure shown (filters applied) that can be retried, one after the other
+  let retryingAll = false;
+  async function retryShown() {
+    const targets = filtered.filter((job) => job.retryable);
+    if (!targets.length || retryingAll) return;
+    retryingAll = true;
+    let ok = 0;
+    const failed: string[] = [];
+    for (const job of targets) {
+      try {
+        await retryAdminJob(fetch, Number(job.id));
+        ok += 1;
+      } catch (error: unknown) {
+        failed.push(`#${job.id}`);
+      }
+    }
+    retryingAll = false;
+    if (ok) toast.success(t('{count} job(s) started again', { count: ok }));
+    if (failed.length) toast.error(t('Not started again: {ids}', { ids: failed.join(', ') }));
+    await refresh(true);
+  }
+
   async function confirmCancel() {
     const job = cancelling;
     cancelling = null;
@@ -165,6 +187,7 @@
       { header: t('Action'), value: (job: Job) => job.action },
       { header: t('Target'), value: (job: Job) => job.target?.label ?? '' },
       { header: t('Origin'), value: (job: Job) => jobOriginLabel(job.origin) },
+      { header: t('Requested by'), value: (job: Job) => job.requested_by ?? '' },
       { header: t('Created'), value: (job: Job) => formatDateTime(job.created_at) },
       { header: t('Started'), value: (job: Job) => formatDateTime(job.started_at) },
       { header: t('Finished'), value: (job: Job) => formatDateTime(job.finished_at) },
@@ -215,13 +238,14 @@
       const q = query.trim().toLowerCase();
       if (!q) return true;
       return [job.id, job.correlation_id, jobTypeLabel(job.job_type, job.action), job.job_type, job.action, job.error_code, job.error_message,
-        job.target?.label, job.target?.detail, jobOriginLabel(job.origin)]
+        job.target?.label, job.target?.detail, jobOriginLabel(job.origin), job.requested_by]
         .map((v) => String(v ?? '').toLowerCase())
         .join(' ')
         .includes(q);
     })
     .sort((a, b) => Number(b.id) - Number(a.id));
   $: query, statusFilter, typeFilter, targetFilter, (page = 1);
+  $: retryableShown = filtered.filter((job) => job.retryable).length;
   $: pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
   /** The share of its timeout a running job has used (the bar under its duration) */
   const timeoutShare = (job: Job) =>
@@ -276,7 +300,13 @@
       <input type="checkbox" bind:checked={showRoutine} on:change={() => refresh(false)} />
       {t('Automatic health checks')}
     </label>
-    <button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" on:click={exportJobs} disabled={filtered.length === 0}>
+    {#if retryableShown}
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" disabled={busy || retryingAll} on:click={retryShown}
+        title={t('Start again the failed or stopped checks and scans shown')}>
+        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{t('Retry the {count} shown', { count: retryableShown })}
+      </button>
+    {/if}
+    <button type="button" class="b2s-btn b2s-btn-secondary" class:b2s-toolbar__end={!retryableShown} on:click={exportJobs} disabled={filtered.length === 0}>
       <i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}
     </button>
     <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => refresh(false)} disabled={busy}>
@@ -330,6 +360,7 @@
                 </td>
                 <td class="obs-origin">
                   {jobOriginLabel(job.origin)}
+                  {#if job.requested_by}<small class="obs-sub"><i class="bi bi-person" aria-hidden="true"></i> {job.requested_by}</small>{/if}
                   {#if job.retry_of}<small class="obs-sub">{t('retry of #{id}', { id: job.retry_of })}</small>{/if}
                 </td>
                 <td class="obs-date" title={formatDateTime(job.created_at)}>{timeAgo(job.created_at)}</td>
@@ -423,6 +454,7 @@
             {:else}—{/if}
           </dd>
           <dt>{t('Origin')}</dt><dd>{jobOriginLabel(detail.origin)}</dd>
+          <dt>{t('Requested by')}</dt><dd>{detail.requested_by ?? t('the platform (schedule, policy or worker)')}</dd>
           <dt>{t('Worker queue')}</dt><dd class="mono">{detail.queue ?? '—'}</dd>
           <dt>{t('Attempts')}</dt><dd>{detail.attempts ?? 1}{#if Number(detail.watchdog_republish_count ?? 0) > 0} · {t('sent again {n} time(s) by the watchdog', { n: detail.watchdog_republish_count ?? 0 })}{/if}</dd>
           {#if detail.retry_of}<dt>{t('Retry of')}</dt><dd><button type="button" class="jd__link" on:click={() => openDetail(Number(detail?.retry_of))}>#{detail.retry_of}</button></dd>{/if}

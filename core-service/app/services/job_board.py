@@ -173,6 +173,7 @@ def summarize(db: Session, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "timeout_seconds": timeout_seconds(row),
             "queue": _queue(row.get("job_type")),
             "attempts": 1 + int(metrics.get("retries") or 0),
+            "requested_by": metrics.get("requested_by"),
             "watchdog_republish_count": int(row.get("watchdog_republish_count") or 0),
             "target": subject,
             "origin": _origin(row),

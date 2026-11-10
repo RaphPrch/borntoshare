@@ -350,6 +350,8 @@ def continue_if_pending(db: Session, job_row: Any, scan: dict | None) -> int | N
         "status": "QUEUED",
         "identity_source_id": getattr(job_row, "identity_source_id", None),
         "payload_json": payload,
+        # The next pass is still the request of the person who started the first
+        "metrics_json": {"requested_by": (_load(getattr(job_row, "metrics_json", None), {}) or {}).get("requested_by")},
     })
     new_id = int(row.id)
     mark_requested(db, root_id, new_id)

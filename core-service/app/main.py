@@ -133,10 +133,16 @@ async def request_id_middleware(request: Request, call_next):
     # Restore (not clear): orchestration code calls this app's routes in-process within the same request.
     previous_request_id = get_request_id_context()
     set_request_id_context(request_id)
+    # Who asks (a person through the BFF): kept with the jobs this request starts
+    from app.core.actor_context import reset_actor, set_actor
+
+    actor_token = set_actor(request.headers.get("x-actor-display")) if request.headers.get("x-actor-display") else None
     try:
         response = await call_next(request)
     finally:
         set_request_id_context(previous_request_id)
+        if actor_token is not None:
+            reset_actor(actor_token)
     response.headers["X-Request-ID"] = request_id
     return response
 

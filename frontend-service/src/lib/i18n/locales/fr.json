@@ -5349,5 +5349,11 @@
   "Measure the folders": "Mesurer les dossiers",
   "The worker walks through each folder (read only): size, number of files, age of the data, clutter and duplicates. The results appear on each folder.": "Le worker parcourt chaque dossier (lecture seule) : taille, nombre de fichiers, âge des données, encombrement et doublons. Les résultats apparaissent sur chaque dossier.",
   "Start the measures": "Lancer les mesures",
-  "{count} file(s) still to read: the scan goes on by itself, pass after pass.": "{count} fichier(s) encore à lire : l'analyse continue d'elle-même, passe après passe."
+  "{count} file(s) still to read: the scan goes on by itself, pass after pass.": "{count} fichier(s) encore à lire : l'analyse continue d'elle-même, passe après passe.",
+  "Requested by": "Demandé par",
+  "the platform (schedule, policy or worker)": "la plateforme (planification, politique ou worker)",
+  "{count} job(s) started again": "{count} job(s) relancé(s)",
+  "Not started again: {ids}": "Non relancés : {ids}",
+  "Start again the failed or stopped checks and scans shown": "Relancer les tests et analyses en échec ou arrêtés affichés",
+  "Retry the {count} shown": "Relancer les {count} affichés"
 }

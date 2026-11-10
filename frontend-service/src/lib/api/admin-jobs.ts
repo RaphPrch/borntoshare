@@ -34,6 +34,8 @@ export type AdminProvisioningJob = {
   /** queue: nobody took it; running: far beyond its timeout */
   stuck?: 'queue' | 'running' | null;
   retryable?: boolean;
+  /** The person who started it (none: the schedule, a policy, the worker) */
+  requested_by?: string | null;
   retry_elsewhere?: string | null;
 };
 
