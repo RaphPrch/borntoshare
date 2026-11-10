@@ -3,13 +3,13 @@
   import { t } from '$lib/i18n';
   import { createZone, updateZone, putZoneProvisioningPolicy } from '$lib/api/zones';
   import { createIdentitySource, updateIdentitySource, runIdentitySnapshot } from '$lib/api/identity-sources';
-  import { createStorageEndpoint, updateStorageEndpoint } from '$lib/api/storage-endpoints';
+  import { createStorageEndpoint, updateStorageEndpoint, recordStorageEndpointProbeResult } from '$lib/api/storage-endpoints';
   import { createIdentity } from '$lib/api/identity';
   import { createStorageRoot, updateStorageRootOwners } from '$lib/api/storage-roots';
   import { searchIdentityDirectory } from '$lib/api/identity-browser';
   import { resolveCredentials } from '$lib/api/credentials';
   import { completeSetup } from '$lib/api/admin-advanced-settings';
-  import { runProbeWithPolling, buildIdentitySourceProbeRequest } from '$lib/jobs/probe-runner';
+  import { runProbeWithPolling, buildIdentitySourceProbeRequest, syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
   import { buildStorageEndpointConnectProbeRequest } from '$lib/jobs/probe-builders';
   import { extractDomainFromUsername } from '$lib/jobs/storage-endpoint-probe';
   import TlsCertificateField from '$lib/components/identity-sources/TlsCertificateField.svelte';
@@ -68,6 +68,9 @@
     ref: (status.server?.bind_password_ref ?? null) as string | null
   };
   let serverTested = Boolean(serverId);
+  // The last test of each, made before the object exists: recorded on it once created (state, shares found)
+  let serverProbe: any = null;
+  let directoryProbeRequest: Parameters<typeof buildIdentitySourceProbeRequest>[0] | null = null;
   let serverChecks: Check[] = [];
 
   let groups: Group[] = [];
@@ -170,22 +173,23 @@
       const protocol = directory.protocol;
       directory.ref = await storedRef(`identity-source/${directory.host.trim()}`, directory.account.trim(), directory.password, directory.ref);
       directory.password = '';
+      directoryProbeRequest = {
+        protocol,
+        host: directory.host.trim(),
+        port: Number(directory.port),
+        baseDn: directory.base.trim(),
+        bindDn: directory.account.trim(),
+        secretRef: directory.ref,
+        authMode: 'simple',
+        tlsVerify: directory.verify,
+        tlsCaPem: directory.ca,
+        tlsServerName: directory.tlsName,
+        identitySourceId: sourceId,
+        uiOrigin: 'wizard'
+      };
       const result: any = await runProbeWithPolling({
         fetchFn: fetch,
-        request: buildIdentitySourceProbeRequest({
-          protocol,
-          host: directory.host.trim(),
-          port: Number(directory.port),
-          baseDn: directory.base.trim(),
-          bindDn: directory.account.trim(),
-          secretRef: directory.ref,
-          authMode: 'simple',
-          tlsVerify: directory.verify,
-          tlsCaPem: directory.ca,
-          tlsServerName: directory.tlsName,
-          identitySourceId: sourceId,
-          uiOrigin: 'wizard'
-        }),
+        request: buildIdentitySourceProbeRequest(directoryProbeRequest),
         intervalMs: 1200,
         maxAttempts: 30
       });
@@ -227,6 +231,7 @@
         maxAttempts: 30
       });
       serverTested = Boolean(result.ok);
+      serverProbe = result.ok ? result : null;
       const details = result.result?.details ?? {};
       if (result.ok) {
         const shares = Array.isArray(details.roots) ? details.roots.length : null;
@@ -390,8 +395,18 @@
         auth_enabled: true,
         is_active: true
       };
+      const created = !sourceId;
       if (sourceId) await updateIdentitySource(fetch, sourceId, payload);
       else sourceId = Number((await createIdentitySource(fetch, payload) as any)?.id);
+      // The test passed before the directory existed: again, attached to it, so that its state is recorded
+      if (created && directoryTested && directoryProbeRequest) {
+        void runProbeWithPolling({
+          fetchFn: fetch,
+          request: buildIdentitySourceProbeRequest({ ...directoryProbeRequest, identitySourceId: sourceId }),
+          intervalMs: 1500,
+          maxAttempts: 30
+        }).catch(() => null);
+      }
       await putZoneProvisioningPolicy(fetch, Number(zoneId), {
         enabled: true,
         ou_strategy: 'zone_static',
@@ -420,6 +435,18 @@
       };
       if (serverId) await updateStorageEndpoint(fetch, serverId, payload);
       else serverId = Number((await createStorageEndpoint(fetch, payload))?.id);
+      // The test passed before the server existed: its state and the shares it found, recorded on the server
+      if (serverId && serverProbe) {
+        const probe = serverProbe;
+        serverProbe = null;
+        await recordStorageEndpointProbeResult(fetch, serverId, {
+          last_probe_status: 'success',
+          last_probe_at: new Date().toISOString(),
+          last_probe_message: null,
+          source_type: 'storage_endpoint_ui_probe'
+        } as any).catch(() => null);
+        await syncStorageRootDiscoveryForEndpoint(fetch, serverId, probe.result ?? probe).catch(() => null);
+      }
     }
     if (current === 'roles') {
       for (const group of pickedGroups) {

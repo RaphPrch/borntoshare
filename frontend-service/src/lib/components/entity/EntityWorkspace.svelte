@@ -10,11 +10,8 @@
    * Slots: "list" (EntitySidebarTree), default (entity detail).
    */
   export let title: string;
-  /** The search of the whole application (Ctrl K), on top of the selected entity */
-  export let globalSearch = true;
   /** The selected entity: when it changes, its content comes in (fade and lift, without remounting) */
   export let contentKey: unknown = null;
-  const openGlobalSearch = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, metaKey: true }));
 
   const WIDTH_KEY = 'b2s.workspace.listWidth';
   const DEFAULT_WIDTH = 340;
@@ -93,13 +90,6 @@
       </div>
     {/if}
     <section class="b2s-workspace__detail">
-      {#if globalSearch}
-        <button type="button" class="b2s-workspace__search" on:click={openGlobalSearch}>
-          <i class="bi bi-search" aria-hidden="true"></i>
-          <span>{t('Search a person, a folder, a server…')}</span>
-          <kbd>Ctrl</kbd><kbd>K</kbd>
-        </button>
-      {/if}
       <div class="b2s-workspace__content" use:enterOn={contentKey}><slot /></div>
     </section>
   </div>
@@ -170,10 +160,6 @@
     outline: none;
   }
 
-  .b2s-workspace__search { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-sm); text-align: left; cursor: pointer; }
-  .b2s-workspace__search:hover { border-color: var(--b2s-color-border-strong); }
-  .b2s-workspace__search span { flex: 1; }
-  .b2s-workspace__search kbd { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border: 1px solid var(--b2s-color-border-mid, #cdd2db); border-bottom-width: 2px; border-radius: 5px; background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font-family: var(--b2s-font-mono); font-size: 10px; }
 
   .b2s-workspace__detail {
     min-width: 0;

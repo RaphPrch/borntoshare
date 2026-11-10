@@ -1039,6 +1039,9 @@ def _share_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
     endpoint = db.get(StorageEndpoint, int(endpoint_id))
     if endpoint is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
+    if not endpoint.is_active or str(endpoint.status or "").strip().lower() == "disabled":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail={"code": "STORAGE_ENDPOINT_INACTIVE", "message": "Ce serveur de fichiers est désactivé : réactivez-le d'abord."})
     if not (endpoint.host and endpoint.bind_dn and endpoint.bind_password_ref):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                             detail={"code": "ENDPOINT_CREDENTIALS_MISSING", "message": "Le serveur de fichiers n'a ni hôte ni compte."})

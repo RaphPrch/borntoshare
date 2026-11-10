@@ -376,6 +376,18 @@ def _same_principal(wanted: set[str], existing: set[str]) -> bool:
     return bool(wanted & existing)
 
 
+def _storage_endpoint_inactive(db: Session, storage_root_id: int) -> bool:
+    """Is the file server of this folder disabled? (no new request on it)"""
+    row = db.execute(
+        text(
+            "SELECT se.is_active, se.status FROM storage_roots sr JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id "
+            "WHERE sr.id = :root_id"
+        ),
+        {"root_id": int(storage_root_id)},
+    ).first()
+    return row is not None and (not bool(row[0]) or str(row[1] or "").strip().lower() == "disabled")
+
+
 def _evaluate_access_request_guardrails(
     *,
     db: Session,
@@ -393,6 +405,16 @@ def _evaluate_access_request_guardrails(
             "reason": "INVALID_ACCESS_LEVEL",
             "message": f"Niveau d'acces non supporte: {str(requested_permission or '').strip()}",
             "source": "UNKNOWN",
+        }
+
+    if _storage_endpoint_inactive(db, int(storage_root_id)):
+        return {
+            "can_request": False,
+            "current_access_level": "NONE",
+            "code": "STORAGE_ENDPOINT_INACTIVE",
+            "reason": "STORAGE_ENDPOINT_INACTIVE",
+            "message": "Le serveur de fichiers de ce dossier est désactivé : aucune nouvelle demande n'est possible.",
+            "source": "DB",
         }
 
     existing_request = _find_open_request_for_principal(

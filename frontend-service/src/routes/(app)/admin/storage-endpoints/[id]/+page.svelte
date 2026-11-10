@@ -15,6 +15,7 @@
   import StorageEndpointsSidebar from '$lib/components/storage-endpoints/StorageEndpointsSidebar.svelte';
   import EntityWorkspace from '$lib/components/entity/EntityWorkspace.svelte';
   import StorageEndpointEditModal from '$lib/components/storage-endpoints/StorageEndpointEditModal.svelte';
+  import StorageEndpointContextMenu, { type EndpointMenuAction } from '$lib/components/storage-endpoints/StorageEndpointContextMenu.svelte';
   import ProvisioningPolicyScreen from '$lib/components/provisioning/ProvisioningPolicyScreen.svelte';
   import {
     buildStorageEndpointProvisioningViewModel,
@@ -286,6 +287,49 @@
     goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true });
   }
 
+  let openShareHandledFor: number | null = null;
+  $: if (
+    browser &&
+    selected &&
+    openShareHandledFor !== selectedId &&
+    ['1', 'true'].includes(String($page.url.searchParams.get('openShare') ?? '').toLowerCase())
+  ) {
+    openShareHandledFor = selectedId;
+    showShareModal = true;
+    const next = new URL($page.url);
+    next.searchParams.delete('openShare');
+    goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true });
+  }
+
+  // A disabled server takes nothing new (folders, shares, requests); one with folders cannot be deleted
+  const endpointInactive = (ep: any): boolean =>
+    ep?.is_active === false || ep?.is_active === 0 || String(ep?.status ?? '').toLowerCase() === 'disabled';
+  const endpointFolderCount = (ep: any): number => rootsForEndpoint(ep).length;
+
+  // Right click on a server of the list
+  let menuEndpoint: any | null = null;
+  let menuAt = { x: 0, y: 0 };
+  function openEndpointMenu(ep: any, event: MouseEvent) {
+    const anchor = event.currentTarget as HTMLElement | null;
+    const rect = anchor?.getBoundingClientRect();
+    // The context-menu key gives no pointer position: open under the row
+    menuAt = event.clientX || event.clientY ? { x: event.clientX, y: event.clientY } : { x: (rect?.left ?? 0) + 24, y: rect?.bottom ?? 0 };
+    menuEndpoint = ep;
+  }
+  function endpointMenuAction(kind: EndpointMenuAction, ep: any) {
+    const id = endpointId(ep);
+    const isSelected = id === selectedId;
+    if (kind === 'test') void runEndpointProbe(ep);
+    else if (kind === 'edit') {
+      if (isSelected) showEditModal = true;
+      else void goto(`/admin/storage-endpoints/${id}?openEdit=1`);
+    } else if (kind === 'add-folders') void goto(`/storage-roots/add?endpoint=${id}`);
+    else if (kind === 'share') {
+      if (isSelected) showShareModal = true;
+      else void goto(`/admin/storage-endpoints/${id}?openShare=1`);
+    } else openDeleteModal(ep);
+  }
+
   let search = '';
 
   // The list pane searches by itself (name, host, roots) and highlights the matches
@@ -497,6 +541,9 @@
       endpointHealthValue = 'unhealthy';
     } else if (probeKnown && probeOk) {
       endpointHealthValue = 'healthy';
+    } else if (availability.total > 0 && (availability.rows ?? []).every((row) => String(row.endpoint_status ?? 'unknown').toLowerCase() === 'unknown')) {
+      // Never tested: its folders are not « unavailable », the server is « not tested yet » (not a failure)
+      endpointHealthValue = persistedEndpointHealth(endpointIdValue);
     } else if (availability.total > 0) {
       if (availability.unavailable <= 0) endpointHealthValue = 'healthy';
       else endpointHealthValue = availability.available <= 0 ? 'unhealthy' : 'degraded';
@@ -829,7 +876,6 @@
   // A new share: the Shares tab lists it again at once
   let sharesVersion = 0;
   let showEditModal = false;
-  let editInitialTab: 'endpoint' | 'roots' = 'endpoint';
   let showDeleteModal = false;
   let showRereadConfirm = false;
   let rereadBusy = false;
@@ -1122,9 +1168,12 @@
         label: t('Add folders'),
         icon: 'bi-plus-lg',
         variant: 'primary' as const,
+        disabled: endpointInactive(ep),
+        title: endpointInactive(ep) ? t('This file server is disabled') : undefined,
         onClick: () => goto(`/storage-roots/add?endpoint=${endpointId(ep)}`)
       },
-      { key: 'share', label: t('Create a share'), icon: 'bi-folder-plus', overflow: true, onClick: () => (showShareModal = true) }
+      { key: 'share', label: t('Create a share'), icon: 'bi-folder-plus', overflow: true, disabled: endpointInactive(ep),
+        title: endpointInactive(ep) ? t('This file server is disabled') : undefined, onClick: () => (showShareModal = true) }
     ]),
     {
       key: 'delete',
@@ -1132,6 +1181,8 @@
       icon: 'bi-trash',
       variant: 'danger',
       overflow: true,
+      disabled: endpointFolderCount(ep) > 0,
+      title: endpointFolderCount(ep) > 0 ? t('{count} folder(s) attached: remove them from BornToShare first', { count: endpointFolderCount(ep) }) : undefined,
       onClick: () => openDeleteModal(ep)
     }
   ];
@@ -1264,6 +1315,14 @@
   </main>
 </div>
 {:else}
+<StorageEndpointContextMenu
+  endpoint={menuEndpoint}
+  at={menuAt}
+  folderCount={menuEndpoint ? endpointFolderCount(menuEndpoint) : 0}
+  testing={menuEndpoint ? probingEndpointId === endpointId(menuEndpoint) : false}
+  onClose={() => (menuEndpoint = null)}
+  onAction={endpointMenuAction}
+/>
 <ShareCreateModal open={showShareModal} endpointId={selectedEndpointId()} onClose={() => (showShareModal = false)} onCreated={() => { sharesVersion += 1; void invalidateAll(); }} />
 <EntityWorkspace title={t('Storage endpoints')} contentKey={selectedId}>
   <svelte:fragment slot="list">
@@ -1282,6 +1341,7 @@
       {endpointTone}
       {endpointAlertCount}
       {endpointAlertIndicator}
+      onEndpointMenu={openEndpointMenu}
     />
   </svelte:fragment>
     {#if selected}
@@ -1380,7 +1440,8 @@
             <EndpointSharesPanel endpoint={selected} discoveredAt={catalogEntry?.discovered_at ?? null} onChanged={() => void invalidateAll()} />
           {/key}
         {:else if activeEndpointTab === 'activity'}
-          <ActivityTimeline items={activity} emptyLabel={t('No activity available for this endpoint')} />
+          <!-- The last 10: the rest is in Monitoring -->
+          <ActivityTimeline items={activity} latest={10} emptyLabel={t('No activity available for this endpoint')} />
         {:else}
           <ProvisioningPolicyScreen
             scope="storage-endpoint"
@@ -1414,12 +1475,10 @@
 <StorageEndpointEditModal
   open={showEditModal}
   endpoint={selected}
-  initialTab={editInitialTab}
   {suggestedHost}
-  onClose={() => { showEditModal = false; editInitialTab = 'endpoint'; suggestedHost = null; }}
+  onClose={() => { showEditModal = false; suggestedHost = null; }}
   onSaved={async () => {
     showEditModal = false;
-    editInitialTab = 'endpoint';
     await invalidateAll();
     if (selected) {
       healthLoadedForEndpointId = null;

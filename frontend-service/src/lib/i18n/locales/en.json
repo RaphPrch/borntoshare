@@ -1296,5 +1296,10 @@
   "The license opens the module, but its containers (fives-service, fives-scanner) do not run yet: its databases are not installed on this server.": "The license opens the module, but its containers (fives-service, fives-scanner) do not run yet: its databases are not installed on this server.",
   "Run the installation wizard again (make wizard on the server) and paste the license key at its step « Licence et modules »: it creates the two databases of the module and its own account, then deploys by itself. Nothing is deleted. Come back here afterwards.": "Run the installation wizard again (make wizard on the server) and paste the license key at its step « Licence et modules »: it creates the two databases of the module and its own account, then deploys by itself. Nothing is deleted. Come back here afterwards.",
   "Switched on · not installed on this server": "Switched on · not installed on this server",
-  "It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.": "It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard."
+  "It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.": "It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.",
+  "This file server is disabled": "This file server is disabled",
+  "{count} folder(s) attached: remove them from BornToShare first": "{count} folder(s) attached: remove them from BornToShare first",
+  "See all the activity in Monitoring": "See all the activity in Monitoring",
+  "Disabled": "Disabled",
+  "Last {count} events": "Last {count} events"
 }

@@ -30,6 +30,8 @@
   export let endpointTone: (ep: EndpointRow) => 'healthy' | 'warning' | 'error' = () => 'warning';
   export let endpointAlertCount: (ep: EndpointRow) => number = () => 0;
   export let endpointAlertIndicator: (ep: EndpointRow) => { kind: 'warning' | 'error'; label: string } | null = () => null;
+  /** Right click on a file server (not a DFS namespace): its menu */
+  export let onEndpointMenu: ((ep: EndpointRow, event: MouseEvent) => void) | null = null;
 
   const ROOT_PREFIX = 'root:';
   let filter = 'all';
@@ -116,8 +118,6 @@
     return {
       key: `ep:${id}`,
       label: endpointName(ep),
-      // A namespace sits under its server, named once: no host repeated on every line
-      subtitle: isDfs(ep) ? null : endpointHost(ep) || null,
       icon: String(ep?.type ?? ep?.storage_endpoint_type ?? '').toLowerCase() === 'dfs' ? 'bi-diagram-3' : 'bi-hdd-network',
       iconTone: 'server',
       selectId: id,
@@ -192,4 +192,9 @@
   defaultExpandDepth={1}
   {onQueryChange}
   onSelect={select}
+  onContextMenu={onEndpointMenu ? (node, event) => {
+    if (String(node.selectId).startsWith(ROOT_PREFIX)) return;
+    const ep = allEndpoints.find((row) => endpointId(row) === Number(node.selectId));
+    if (ep && !isDfs(ep)) onEndpointMenu?.(ep, event);
+  } : null}
 />

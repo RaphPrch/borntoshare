@@ -155,15 +155,6 @@
     setExpanded(next);
   }
 
-  function expandAll(): void {
-    setExpanded(new Set(index.containers));
-  }
-
-  function collapseAll(): void {
-    autoOpened = new Set();
-    setExpanded(new Set());
-  }
-
   // Scrolls the list only (never the page) so that the row is visible
   function scrollToRow(key: string | null): void {
     const row = rowEl(key);
@@ -172,14 +163,6 @@
     const top = row.offsetTop - body.offsetTop;
     if (top < body.scrollTop) body.scrollTop = top - 8;
     else if (top + row.offsetHeight > body.scrollTop + body.clientHeight) body.scrollTop = top + row.offsetHeight - body.clientHeight + 8;
-  }
-
-  async function revealSelection(): Promise<void> {
-    if (!index.selectedKey) return;
-    setExpanded(new Set([...expanded, ...ancestors(index.selectedKey)]));
-    focusedKey = index.selectedKey;
-    await tick();
-    scrollToRow(index.selectedKey);
   }
 
   onMount(() => {
@@ -356,7 +339,7 @@
         {/each}
       </div>
     {/if}
-    {#if viewMode || isTree}
+    {#if viewMode}
       <div class="b2s-list-pane__tools">
         {#if viewMode}
           <div class="b2s-list-pane__views" role="group" aria-label={t('Display')}>
@@ -365,19 +348,6 @@
             </button>
             <button type="button" class:is-active={viewMode === 'list'} aria-pressed={viewMode === 'list'} on:click={() => onViewMode('list')}>
               <i class="bi bi-list-ul" aria-hidden="true"></i>{t('List')}
-            </button>
-          </div>
-        {/if}
-        {#if isTree}
-          <div class="b2s-list-pane__actions">
-            <button type="button" title={t('Expand all')} aria-label={t('Expand all')} on:click={expandAll} disabled={Boolean(q)}>
-              <i class="bi bi-arrows-expand" aria-hidden="true"></i>
-            </button>
-            <button type="button" title={t('Collapse all')} aria-label={t('Collapse all')} on:click={collapseAll} disabled={Boolean(q)}>
-              <i class="bi bi-arrows-collapse" aria-hidden="true"></i>
-            </button>
-            <button type="button" title={t('Reveal selection')} aria-label={t('Reveal selection')} on:click={revealSelection} disabled={!index.selectedKey}>
-              <i class="bi bi-crosshair" aria-hidden="true"></i>
             </button>
           </div>
         {/if}
@@ -462,14 +432,9 @@
       </div>
     {/if}
   </div>
-  <div class="b2s-list-pane__keys" aria-hidden="true">
-    <span><kbd>↑</kbd><kbd>↓</kbd> {t('browse')}</span><span><kbd>⏎</kbd> {t('open')}</span><span><kbd>/</kbd> {t('filter')}</span>
-  </div>
 </aside>
 
 <style>
-  .b2s-list-pane__keys { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; padding: 8px 4px 0; border-top: 1px solid var(--b2s-color-border); color: var(--b2s-color-text-muted); font-size: 11px; }
-  .b2s-list-pane__keys kbd { color: var(--b2s-color-text-muted); display: inline-grid; place-items: center; min-width: 16px; height: 16px; margin-right: 2px; padding: 0 3px; border: 1px solid var(--b2s-color-border-mid, #cdd2db); border-bottom-width: 2px; border-radius: 4px; background: var(--b2s-color-surface); font-family: var(--b2s-font-mono); font-size: 10px; }
   .b2s-list-pane {
     position: sticky;
     top: 16px;
@@ -587,33 +552,6 @@
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
   }
 
-  .b2s-list-pane__actions {
-    display: inline-flex;
-    gap: 2px;
-    margin-left: auto;
-  }
-
-  .b2s-list-pane__actions button {
-    width: 28px;
-    height: 28px;
-    display: grid;
-    place-items: center;
-    border: none;
-    border-radius: 7px;
-    background: transparent;
-    color: var(--b2s-color-text-muted);
-    cursor: pointer;
-  }
-
-  .b2s-list-pane__actions button:hover:not(:disabled) {
-    background: var(--b2s-color-neutral-soft);
-    color: var(--b2s-color-text);
-  }
-
-  .b2s-list-pane__actions button:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
 
   .b2s-list-pane__body {
     flex: 1 1 auto;

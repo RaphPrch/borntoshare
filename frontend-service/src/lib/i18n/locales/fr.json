@@ -5206,5 +5206,8 @@
   "The license opens the module, but its containers (fives-service, fives-scanner) do not run yet: its databases are not installed on this server.": "La licence ouvre le module, mais ses conteneurs (fives-service, fives-scanner) ne tournent pas encore : ses bases ne sont pas installées sur ce serveur.",
   "Run the installation wizard again (make wizard on the server) and paste the license key at its step « Licence et modules »: it creates the two databases of the module and its own account, then deploys by itself. Nothing is deleted. Come back here afterwards.": "Relancez le wizard d'installation (make wizard sur le serveur) et collez la clé de licence à son étape « Licence et modules » : il crée les deux bases du module et son propre compte, puis déploie de lui-même. Rien n'est effacé. Revenez ici ensuite.",
   "Switched on · not installed on this server": "Activé · non installé sur ce serveur",
-  "It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.": "Il s'ouvre par une clé de licence et s'active dans Réglages avancés › Fonctionnalités ; ses bases s'installent par le wizard d'installation."
+  "It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.": "Il s'ouvre par une clé de licence et s'active dans Réglages avancés › Fonctionnalités ; ses bases s'installent par le wizard d'installation.",
+  "{count} folder(s) attached: remove them from BornToShare first": "{count} dossier(s) rattaché(s) : retirez-les d'abord de BornToShare",
+  "See all the activity in Monitoring": "Voir toute l'activité dans Suivi",
+  "Last {count} events": "Les {count} derniers événements"
 }

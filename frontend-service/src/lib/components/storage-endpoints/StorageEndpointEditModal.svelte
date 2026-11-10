@@ -8,7 +8,6 @@
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import EntityActionButton from "$lib/components/entity/EntityActionButton.svelte";
   import ActionFooter from "$lib/components/ui/ActionFooter.svelte";
-  import Tabs from "$lib/components/ui/Tabs.svelte";
   import StatusBadge from "$lib/components/ui/StatusBadge.svelte";
 
   import {
@@ -22,7 +21,6 @@
   import { buildStorageEndpointConnectProbeRequest } from "$lib/jobs/probe-builders";
   import { extractDomainFromUsername } from "$lib/jobs/storage-endpoint-probe";
   import { resolveCredentials } from "$lib/api/credentials";
-  import { createStorageRoot } from '$lib/api/storage-roots';
   import { listZones, type ZoneOverview } from "$lib/api/zones";
   import { listIdentitySources, type IdentitySourceListItem } from '$lib/api/identity-sources';
   import { pollProbeJob } from '$lib/jobs/probe-polling';
@@ -43,8 +41,6 @@
   export let endpoint: EditableEndpoint | null = null;
   export let onClose: () => void;
   export let onSaved: (() => void) | null = null;
-  /** Tab shown at the opening: « roots » from « Discover and add » of the storage roots table */
-  export let initialTab: "endpoint" | "roots" = "endpoint";
   /** A new address found for the server (its name resolves elsewhere): filled in, to review and save. */
   export let suggestedHost: string | null = null;
 
@@ -76,12 +72,6 @@
   let identitySourcesError: string | null = null;
 
   let existingEndpoints: StorageEndpointOverview[] = [];
-  let activeTab: "endpoint" | "roots" = "endpoint";
-  let rootsQuery = "";
-  let discoverStatus: "idle" | "running" | "success" | "failed" = "idle";
-  let discoverError: string | null = null;
-  let detectedRoots: string[] = [];
-  let selectedRoots: string[] = [];
   let closeConfirmOpen = false;
   let initialSnapshot: {
     name: string;
@@ -125,23 +115,6 @@
     isActive: Boolean(isActive)
   });
 
-  const normalizeRoot = (value: string) => String(value ?? "").trim();
-  const rootLabel = (value: string) => {
-    const normalized = normalizeRoot(value);
-    const parts = normalized.split("\\");
-    return parts[parts.length - 1] || normalized;
-  };
-  const isSelectedRoot = (value: string) => selectedRoots.includes(normalizeRoot(value));
-  const toggleRoot = (value: string) => {
-    const normalized = normalizeRoot(value);
-    if (!normalized) return;
-    if (selectedRoots.includes(normalized)) {
-      selectedRoots = selectedRoots.filter((r) => r !== normalized);
-    } else {
-      selectedRoots = [...selectedRoots, normalized];
-    }
-  };
-
   $: zoneId = toNullableInt(zoneId);
   $: identitySourceId = toNullableInt(identitySourceId);
 
@@ -170,19 +143,8 @@
     touched = {};
     initialSnapshot = buildSnapshot();
     if (suggestedHost) host = suggestedHost;
-    activeTab = initialTab;
-    rootsQuery = "";
-    discoverStatus = "idle";
-    discoverError = null;
-    detectedRoots = [];
-    selectedRoots = [];
   }
 
-  $: filteredDetectedRoots = (() => {
-    const query = rootsQuery.trim().toLowerCase();
-    if (!query) return detectedRoots;
-    return detectedRoots.filter((root) => root.toLowerCase().includes(query));
-  })();
 
   $: if (open) {
     if (!zonesLoading && zones.length === 0) {
@@ -286,8 +248,7 @@
     void [name, description, protocol, host, port, username, zoneId, identitySourceId, isActive];
     endpointDirty = JSON.stringify(buildSnapshot()) !== JSON.stringify(initialSnapshot ?? buildSnapshot());
   }
-  $: rootsDirty = selectedRoots.length > 0;
-  $: isDirty = endpointDirty || rootsDirty || Boolean(password.trim());
+  $: isDirty = endpointDirty || Boolean(password.trim());
   $: endpointSaveReason = !required(name)
     ? t('Name is required.')
     : !required(host)
@@ -305,7 +266,7 @@
                 : null;
 
   function requestClose() {
-    if (saving || discoverStatus === 'running') return;
+    if (saving) return;
     if (isDirty) {
       closeConfirmOpen = true;
       return;
@@ -507,123 +468,6 @@
     }
   }
 
-  async function discoverStorageRoots() {
-    if (!canSave) {
-      toast.error(t('Complete endpoint fields before running discovery.'));
-      return;
-    }
-
-    discoverStatus = "running";
-    discoverError = null;
-    detectedRoots = [];
-    selectedRoots = [];
-
-    try {
-      let secretRef: string | null =
-        String(endpoint?.auth_secret_ref ?? endpoint?.bind_password_ref ?? "").trim() || null;
-
-      if (password.trim()) {
-        if (!username.trim()) {
-          discoverStatus = "failed";
-          discoverError = "Username required to resolve password.";
-          return;
-        }
-        const resolved = await resolveCredentials(fetch, {
-          username: username.trim(),
-          password: String(password),
-          secret_ref: secretRef
-        }, {
-          secretName: `storage-endpoint/${protocol}/${name.trim() || host.trim() || "endpoint"}`,
-          mode: "edit"
-        });
-        secretRef = resolved.secret_ref ?? secretRef;
-      }
-
-      const targetHost = host.trim();
-      if (!targetHost) {
-        discoverStatus = "failed";
-        discoverError = "Hostname / IP invalide";
-        return;
-      }
-
-      const { job_id } = await runProbeJob(fetch, {
-        kind: "storage-endpoint",
-        protocol: "smb",
-        scope: "read",
-        target: {
-          host: targetHost,
-          port: Number(port)
-        },
-        auth: {
-          mode: "ntlm",
-          username: username.trim(),
-          secret_ref: secretRef ?? undefined,
-          password: secretRef ? undefined : password
-        },
-        options: {
-          timeout_sec: 30,
-          discover: true
-        },
-        context: { ui_origin: "edit-modal" }
-      });
-
-      const polled = await pollProbeJob(fetch, job_id, {
-        intervalMs: 3000,
-        intervalMsByAttempt: (attempt) => (attempt < 2 ? 3000 : attempt < 6 ? 5000 : 8000)
-      });
-
-      if (polled.status === "success") {
-        const job: any = polled.payload;
-        const roots =
-          (job?.result?.details?.roots as string[]) ||
-          (job?.result?.roots as string[]) ||
-          [];
-        detectedRoots = Array.isArray(roots) ? roots.map(normalizeRoot).filter(Boolean) : [];
-        discoverStatus = "success";
-      } else {
-        discoverStatus = "failed";
-        discoverError = polled.errorMessage ?? t('Discovery failed');
-      }
-    } catch (e) {
-      discoverStatus = "failed";
-      discoverError = "Unable to run discovery.";
-    }
-  }
-
-  async function saveSelectedRoots() {
-    const endpointNumericId = Number(pick(endpoint, "id", "storage_endpoint_id") ?? 0);
-    if (!endpointNumericId) {
-      toast.error(t('Invalid server id.'));
-      return;
-    }
-    if (selectedRoots.length === 0) {
-      toast.error(t('No storage root selected.'));
-      return;
-    }
-
-    saving = true;
-    try {
-      const created = await Promise.allSettled(
-        selectedRoots.map((locator) =>
-          createStorageRoot(fetch, {
-            storage_endpoint_id: endpointNumericId,
-            name: locator.split("\\").pop() || locator,
-            root_path: locator,
-            status: "active"
-          })
-        )
-      );
-
-      const ok = created.filter((r) => r.status === "fulfilled").length;
-      const ko = created.length - ok;
-      toast.success(`Storage roots created: ${ok}${ko > 0 ? ` · failures: ${ko}` : ""}.`);
-      onSaved?.();
-    } catch (e) {
-      reportUiError(e, t('Unable to create storage roots.'), 'storage-endpoint.roots-create');
-    } finally {
-      saving = false;
-    }
-  }
 </script>
 
 {#if open}
@@ -645,17 +489,7 @@
   </svelte:fragment>
 
   <div class="se-edit">
-    <Tabs
-      tabs={[
-        { key: "endpoint", label: t('Endpoint'), icon: "bi-hdd-network" },
-        { key: "roots", label: t('Storage roots'), icon: "bi-folder2" }
-      ]}
-      activeKey={activeTab}
-      onChange={(key) => (activeTab = key === "roots" ? "roots" : "endpoint")}
-      ariaLabel={t('Edit storage endpoint')}
-    />
 
-    {#if activeTab === "endpoint"}
 
     <div class="se-form-block">
       <h3>{t('Identity')}</h3>
@@ -834,47 +668,10 @@
       </span>
     </label>
 
-    {:else}
-    <div class="se-form-block">
-      <h3>{t('Storage roots discovery')}</h3>
-      <p class="se-field-hint">{t('Run SMB share discovery and select roots to govern.')}</p>
-
-      {#if discoverStatus === "failed"}
-        <FieldError>{discoverError ?? t('Discovery failed')}</FieldError>
-      {/if}
-
-      <div class="se-form-block">
-        <label for="se-edit-roots-filter">{t('Filter roots')}</label>
-        <input id="se-edit-roots-filter" class="b2s-input" bind:value={rootsQuery} placeholder={t('Filter discovered roots…')} />
-      </div>
-
-      <div class="se-root-rows">
-        {#if filteredDetectedRoots.length === 0}
-          <div class="se-field-hint">{t('No discovered roots yet.')}</div>
-        {:else}
-          {#each filteredDetectedRoots as r}
-            <button type="button" class={`se-root-row ${isSelectedRoot(r) ? 'selected' : ''}`} on:click={() => toggleRoot(r)}>
-              <i class="bi bi-folder-fill se-root-row__icon" aria-hidden="true"></i>
-              <div class="se-root-row__main">
-                <div class="se-root-row__name">{rootLabel(r)}</div>
-                <div class="se-root-row__path mono">{r}</div>
-              </div>
-              <span class="se-root-row__action">
-                <i class={`bi ${isSelectedRoot(r) ? 'bi-check-circle-fill' : 'bi-chevron-right'}`} aria-hidden="true"></i>
-              </span>
-            </button>
-          {/each}
-        {/if}
-      </div>
-
-      <div class="se-field-hint">{t('Selected: {selectedRootsCount}', { selectedRootsCount: selectedRoots.length })}</div>
-    </div>
-    {/if}
   </div>
 
   <svelte:fragment slot="footer">
     <ActionFooter align="end" className="se-edit-drawer__actions">
-      {#if activeTab === "endpoint"}
         <EntityActionButton variant="secondary" label={t('Cancel')} disabled={saving} onClick={requestClose} />
         <EntityActionButton
           variant="primary"
@@ -890,27 +687,6 @@
         {#if endpointSaveReason}
           <div class="se-edit-disabled-reason">{endpointSaveReason}</div>
         {/if}
-      {:else}
-        <EntityActionButton
-          variant="secondary"
-          icon={discoverStatus === "running" ? "bi-arrow-repeat" : "bi-search"}
-          busy={discoverStatus === "running"}
-          label={discoverStatus === "running" ? t('Discovering…') : t('Discover')}
-          disabled={discoverStatus === "running" || saving}
-          onClick={discoverStorageRoots}
-        />
-        <EntityActionButton
-          variant="primary"
-          icon={saving ? "bi-arrow-repeat" : "bi-folder-plus"}
-          busy={saving}
-          label={saving ? t('Saving…') : t('Create selected roots')}
-          disabled={saving || selectedRoots.length === 0}
-          onClick={saveSelectedRoots}
-        />
-        {#if selectedRoots.length === 0}
-          <div class="se-edit-disabled-reason">{t('Select at least one storage root first.')}</div>
-        {/if}
-      {/if}
       {#if isDirty}
         <div class="se-edit-unsaved">{t('Unsaved changes')}</div>
       {/if}

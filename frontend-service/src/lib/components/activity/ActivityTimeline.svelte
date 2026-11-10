@@ -11,6 +11,9 @@
    */
   export let items: any[] = [];
   export let emptyLabel = t('No activity yet.');
+  /** Only the last N events, without figures nor filters (the rest is in Monitoring, at moreHref) */
+  export let latest: number | null = null;
+  export let moreHref = '/observability?tab=events';
 
   type Period = '1' | '7' | '30' | 'all';
   type Filter = 'all' | ActivityCategory;
@@ -25,7 +28,7 @@
 
   let query = '';
   let filter: Filter = 'all';
-  let period: Period = '30';
+  let period: Period = latest ? 'all' : '30';
   let shown = PAGE;
   let selected: any | null = null;
 
@@ -51,7 +54,7 @@
   $: visible = inPeriod
     .filter((row) => filter === 'all' || row.category === filter)
     .filter((row) => !query.trim() || `${row.item.title} ${row.item.subtitle1 ?? ''} ${row.actor}`.toLowerCase().includes(query.trim().toLowerCase()));
-  $: days = groupByDay(visible.slice(0, shown));
+  $: days = groupByDay(visible.slice(0, latest ?? shown));
   $: if (filter || period || query !== undefined) shown = PAGE;
   $: authors = [...visible.reduce((map, row) => map.set(row.actor, (map.get(row.actor) ?? 0) + 1), new Map<string, number>())]
     .sort((a, b) => b[1] - a[1])
@@ -72,15 +75,20 @@
 </script>
 
 <div class="at">
+  {#if !latest}
   <section class="at__sum" aria-label={t('Last 30 days')}>
     <div><span>{t('Accesses granted · 30 d')}</span><b>{summary.granted}</b></div>
     <div><span>{t('Accesses removed · 30 d')}</span><b>{summary.revoked}</b></div>
     <div><span>{t('Configuration changes · 30 d')}</span><b>{summary.config}</b></div>
     <div><span>{t('Failures · 30 d')}</span><b class:bad={summary.failures > 0}>{summary.failures}</b></div>
   </section>
+  {/if}
 
   <div class="at__grid">
     <section class="at__card" aria-label={t('Activity')}>
+      {#if latest}
+        <h2 class="at__latest">{t('Last {count} events', { count: latest })}</h2>
+      {:else}
       <div class="at__tools">
         <label class="at__search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={query} placeholder={t('Search the activity…')} aria-label={t('Search the activity…')} /></label>
         <div class="at__seg" role="group" aria-label={t('Filter by type')}>
@@ -97,6 +105,7 @@
           {/each}
         </div>
       </div>
+      {/if}
 
       {#if days.length}
         {#each days as day (day.key)}
@@ -117,7 +126,9 @@
             {/each}
           </ol>
         {/each}
-        {#if visible.length > shown}
+        {#if latest}
+          {#if items.length > latest}<p class="at__more"><a href={moreHref}>{t('See all the activity in Monitoring')}</a></p>{/if}
+        {:else if visible.length > shown}
           <ShowMore {shown} total={visible.length} page={PAGE} onMore={() => (shown += PAGE)} />
         {/if}
       {:else}
@@ -148,7 +159,7 @@
           <p class="at__muted">{t('Click an event to see who did what, and the values before and after.')}</p>
         {/if}
       </section>
-      {#if authors.length}
+      {#if authors.length && !latest}
         <section class="at__card" aria-label={t('Authors')}>
           <h2>{t('Authors')}</h2>
           {#each authors as [name, count] (name)}
@@ -215,4 +226,6 @@
   .at__author { display: flex; align-items: center; gap: 10px; }
   .at__author b { display: block; font-weight: 500; font-size: var(--b2s-fs-sm); }
   .at__author small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .at__latest { margin: 0 0 4px; font-size: var(--b2s-fs-md); }
+  .at__more { margin: 12px 0 0; font-size: var(--b2s-fs-sm); }
 </style>

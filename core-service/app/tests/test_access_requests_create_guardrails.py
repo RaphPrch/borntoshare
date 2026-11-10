@@ -46,6 +46,7 @@ def _payload(permission: str = "read") -> api.AccessRequestCreate:
 def _no_policy_nor_mail(monkeypatch):
     # The request policy and the e-mails read the settings from the database: tested on their own
     monkeypatch.setattr(api, "_check_request_policy", lambda *args, **kwargs: None)
+    monkeypatch.setattr(api, "_storage_endpoint_inactive", lambda *args, **kwargs: False)
     from app.services import notifications
 
     monkeypatch.setattr(notifications, "request_created", lambda *args, **kwargs: None)
@@ -154,3 +155,14 @@ def test_same_principal_ignores_the_shared_requester_id() -> None:
     assert api._same_principal(alice, claire) is False
     assert api._same_principal(alice, alice_dn) is True
     assert api._same_principal(self_request, claire) is True  # no login on one side: the identity decides
+
+
+def test_create_access_request_blocks_on_a_disabled_file_server(monkeypatch) -> None:
+    monkeypatch.setattr(api, "_storage_endpoint_inactive", lambda *args, **kwargs: True)
+    monkeypatch.setattr(api, "_find_open_request_for_principal", lambda **kwargs: None)
+    monkeypatch.setattr(api, "AccessRequestsRepo", _Repo)
+    monkeypatch.setattr(api, "log_activity", lambda *args, **kwargs: None)
+    with pytest.raises(HTTPException) as caught:
+        api.create_access_request(_payload(), _Req(), _Db())
+    assert caught.value.status_code == 409
+    assert caught.value.detail["code"] == "STORAGE_ENDPOINT_INACTIVE"
