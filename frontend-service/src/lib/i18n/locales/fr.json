@@ -5147,6 +5147,7 @@
   "policy": "politique",
   "schedule": "planification",
   "Scanner settings saved.": "Réglages du scanner enregistrés.",
+  "Unable to read the scanner settings.": "Impossible de lire les réglages du scanner.",
   "Unable to save the settings.": "Impossible d'enregistrer les réglages.",
   "Unable to cancel the scan.": "Impossible d'annuler le scan.",
   "Walks the folders on their file servers, without agent: one server at a time, inside the window, only what changed.": "Parcourt les dossiers sur leurs serveurs de fichiers, sans agent : un serveur à la fois, dans la plage horaire, seulement ce qui a changé.",

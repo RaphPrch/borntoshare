@@ -45,6 +45,11 @@
   });
   onDestroy(() => timer && clearInterval(timer));
 
+  // Long queues (a first planning of hundreds of folders) are shown 20 at a time
+  const PAGE = 20;
+  let showAll = false;
+  $: if (filter) showAll = false;
+  $: shown = showAll ? runs : runs.slice(0, PAGE);
   $: runs = (data?.runs ?? []).filter((run) => filter === 'all' || run.status === 'queued' || run.status === 'running');
   const STATUS = (): Record<string, string> => ({ queued: t('Waiting'), running: t('Walking'), done: t('Done'), failed: t('Failed'),
     delegated: t('Through SMB'), cancelled: t('Cancelled') });
@@ -106,7 +111,7 @@
           <button type="button" class:is-on={filter === 'all'} on:click={() => (filter = 'all')}>{t('Last 7 days')}</button>
         </span>
       </header>
-      {#each runs as run (run.id)}
+      {#each shown as run (run.id)}
         <div class="sc5__run" data-status={run.status}>
           <span class="sc5__status">{STATUS()[run.status] ?? run.status}</span>
           <span class="sc5__what">
@@ -127,6 +132,9 @@
       {:else}
         <p class="sc5__empty">{filter === 'active' ? t('Nothing in progress: the scanner waits.') : t('No scan in the last 7 days.')}</p>
       {/each}
+      {#if runs.length > shown.length}
+        <button type="button" class="b2s-link-btn sc5__more" on:click={() => (showAll = true)}>{t('Show the {count} others', { count: runs.length - shown.length })}</button>
+      {/if}
     </section>
 
     {#if isAdmin && form}
@@ -164,6 +172,7 @@
   .sc5__seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--b2s-color-neutral-soft); }
   .sc5__seg button { padding: 5px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-xs); font-weight: 600; cursor: pointer; }
   .sc5__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(14, 18, 24, 0.12); }
+  .sc5__more { margin-top: 8px; }
   .sc5__run { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 10px 0; border-top: 1px solid var(--b2s-color-border); }
   .sc5__status { justify-self: start; padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); font-size: var(--b2s-fs-xs); font-weight: 600; }
   .sc5__run[data-status='running'] .sc5__status { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }

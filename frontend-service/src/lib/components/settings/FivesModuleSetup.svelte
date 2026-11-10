@@ -18,9 +18,10 @@
   let reachable: boolean | null = null;
   let form: Settings | null = null;
   let busy = false;
+  let settingsFailed = false;
 
   onMount(load);
-  $: if (enabled && reachable && !form) loadSettings();
+  $: if (enabled && reachable && !form && !settingsFailed) loadSettings();
   async function load() {
     // /health answers without the « data » envelope; no answer (503) = the module does not run here
     try {
@@ -32,7 +33,10 @@
     }
   }
   async function loadSettings() {
+    // A failed read shows a retry instead of « Loading… » for ever
+    settingsFailed = false;
     form = await apiGetData<Settings>(fetch, '/modules/fives/settings').catch(() => null);
+    settingsFailed = !form;
   }
   async function save() {
     if (!form || busy) return;
@@ -82,6 +86,9 @@ make deploy</pre>
       <div class="fm__btns"><a class="b2s-link-btn" href="/five-s/scanner">{t('Open the scanner')}</a>
         <button type="submit" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy}>{t('Save')}</button></div>
     </form>
+  {:else if settingsFailed}
+    <p>{t('Unable to read the scanner settings.')}</p>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={loadSettings}>{t('Check again')}</button>
   {:else}
     <p class="fm__muted">{t('Loading…')}</p>
   {/if}
