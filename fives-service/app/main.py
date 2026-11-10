@@ -273,6 +273,14 @@ class SettingsPayload(BaseModel):
     hash_files_max: int = Field(ge=0, le=500000)
 
 
+@app.get("/settings")
+def get_settings_route(who: Actor = Depends(_licensed)):
+    """The settings of the scanner (window, scans per server, frequency, full walk, fingerprints)."""
+    with SessionLocal() as db:
+        settings = scans.get_settings(db)
+    return _data({**settings, "in_window": scans.in_window(settings)})
+
+
 @app.put("/settings")
 def put_settings(payload: SettingsPayload, who: Actor = Depends(_licensed)):
     if not who.is_admin:

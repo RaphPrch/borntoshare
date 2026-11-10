@@ -5176,5 +5176,20 @@
   "Progress of the scan": "Progression du scan",
   "Incremental: only the sub-folders changed since the last scan ({kept} kept as they are)": "Incrémental : seuls les sous-dossiers modifiés depuis le dernier scan ({kept} repris tels quels)",
   "Full walk": "Parcours complet",
-  "Only a scan waiting in the queue can be cancelled": "Seul un scan en attente peut être annulé"
+  "Only a scan waiting in the queue can be cancelled": "Seul un scan en attente peut être annulé",
+  "Optional modules (5S…)": "Modules optionnels (5S…)",
+  "Turn on the optional modules": "Activez les modules optionnels",
+  "A license key opens the modules of BornToShare, such as the 5S and data hygiene. Optional: you can do it later in Advanced settings › Features.": "Une clé de licence ouvre les modules de BornToShare, comme le 5S et l'hygiène des données. Facultatif : vous pourrez le faire plus tard dans Réglages avancés › Fonctionnalités.",
+  "Eight steps.": "Huit étapes.",
+  "Module 5S on this installation": "Module 5S sur cette installation",
+  "Installed": "Installé",
+  "Databases unreachable": "Bases injoignables",
+  "Not installed": "Non installé",
+  "The license opens the module, but its containers (fives-service, fives-scanner) do not run yet. They need their own databases, created once by an administrator of the MariaDB server:": "La licence ouvre le module, mais ses conteneurs (fives-service, fives-scanner) ne tournent pas encore. Il leur faut leurs propres bases, créées une fois par un administrateur du serveur MariaDB :",
+  "The script creates b2s_fives and b2s_fives_inventory and their own account (rights on them only), generates its password in .env, and moves there the history kept so far. make deploy then starts the module. Come back here afterwards.": "Le script crée b2s_fives et b2s_fives_inventory et leur propre compte (droits sur elles seules), génère son mot de passe dans .env et y déplace l'historique déjà conservé. make deploy démarre ensuite le module. Revenez ici ensuite.",
+  "Check again": "Vérifier de nouveau",
+  "The module answers but cannot reach its databases: check FIVES_DB_* in .env and the account b2s_fives.": "Le module répond mais n'atteint pas ses bases : vérifiez FIVES_DB_* dans .env et le compte b2s_fives.",
+  "Switch the module on above to set its scanner.": "Activez le module ci-dessus pour régler son scanner.",
+  "No agent on the file servers: the scanner walks them over WinRM (Kerberos) with the account of each server, at a low priority, inside the window; between two full walks only what the NTFS change journal shows as changed.": "Aucun agent sur les serveurs de fichiers : le scanner les parcourt par WinRM (Kerberos) avec le compte de chaque serveur, en priorité basse, dans la plage horaire ; entre deux parcours complets, seulement ce que le journal des modifications NTFS montre comme changé.",
+  "Open the scanner": "Ouvrir le scanner"
 }

@@ -13,10 +13,11 @@
   import { buildStorageEndpointConnectProbeRequest } from '$lib/jobs/probe-builders';
   import { extractDomainFromUsername } from '$lib/jobs/storage-endpoint-probe';
   import TlsCertificateField from '$lib/components/identity-sources/TlsCertificateField.svelte';
+  import FeaturesPanel from '$lib/components/settings/FeaturesPanel.svelte';
 
   export let data: { status: Record<string, any> };
 
-  type StepKey = 'zone' | 'directory' | 'server' | 'identities' | 'roles' | 'folders' | 'done';
+  type StepKey = 'zone' | 'directory' | 'server' | 'identities' | 'roles' | 'features' | 'folders' | 'done';
   type Group = { key: string; title: string; item: Record<string, any>; role: 'platform_admin' | 'user' };
   type Check = { label: string; ok: boolean | null; value: string };
 
@@ -26,6 +27,8 @@
     { key: 'server', label: () => t('File server'), hint: () => t('Where the folders are') },
     { key: 'identities', label: () => t('Identities'), hint: () => t('Who can sign in') },
     { key: 'roles', label: () => t('Roles'), hint: () => t('Who administers') },
+    // Optional: a license key opens the modules (5S…), their settings follow
+    { key: 'features', label: () => t('Features'), hint: () => t('Optional modules (5S…)') },
     { key: 'folders', label: () => t('Folders'), hint: () => t('Which folders to govern') },
     { key: 'done', label: () => t('Ready'), hint: () => t('Your first folders') }
   ];
@@ -86,7 +89,7 @@
   let importedGroups = Number(status.imported_groups ?? 0);
 
   // Resume at the first step left to do
-  const firstStep = !zoneId ? 0 : !sourceId ? 1 : !serverId ? 2 : status.imported_groups > 0 ? 5 : 3;
+  const firstStep = !zoneId ? 0 : !sourceId ? 1 : !serverId ? 2 : status.imported_groups > 0 ? 5 : 3;  // 5: features (optional), then folders
   const minGuardians = Number(status.min_guardians ?? 2);
   let at = firstStep;
   let top = firstStep;
@@ -109,6 +112,7 @@
     : current === 'directory' ? directoryReady && directoryTested
     : current === 'server' ? serverReady && serverTested
     : current === 'identities' ? pickedGroups.length > 0 || status.imported_groups > 0
+    : current === 'features' ? true
     : current === 'folders' ? pickedShareList.length > 0 && guardianList.length >= minGuardians
     : true;
   $: placed = [
@@ -117,7 +121,8 @@
     { label: t('File server'), value: top > 2 ? `${server.name} · ${server.host}` : '', step: 2 },
     { label: t('Identities'), value: top > 3 ? t('{count} group(s)', { count: importedGroups || pickedGroups.length }) : '', step: 3 },
     { label: t('Roles'), value: top > 4 ? t('Done') : '', step: 4 },
-    { label: t('Folders'), value: top > 5 ? t('{count} folder(s)', { count: foldersCreated }) : '', step: 5 }
+    { label: t('Features'), value: top > 5 ? t('Done') : '', step: 5 },
+    { label: t('Folders'), value: top > 6 ? t('{count} folder(s)', { count: foldersCreated }) : '', step: 6 }
   ];
 
   function touchDirectory() {
@@ -503,7 +508,7 @@
 <div class="sp">
   <aside class="sp-path" aria-label={t('Setup steps')}>
     <div class="sp-brand"><b aria-hidden="true">B</b><strong>BornToShare</strong></div>
-    <h1>{t('Let\'s set everything up.')} <mark>{t('Seven steps.')}</mark></h1>
+    <h1>{t('Let\'s set everything up.')} <mark>{t('Eight steps.')}</mark></h1>
     <p>{t('The application is empty. Each step is saved: you can leave and come back here.')}</p>
     <ol class="sp-steps">
       {#each STEPS as step, index}
@@ -538,6 +543,9 @@
           {:else if current === 'roles'}
             <h2>{t('Give each group a role')}</h2>
             <p class="sp-lead">{t('The role decides what can be done in BornToShare, not what can be opened on the file server.')}</p>
+          {:else if current === 'features'}
+            <h2>{t('Turn on the optional modules')}</h2>
+            <p class="sp-lead">{t('A license key opens the modules of BornToShare, such as the 5S and data hygiene. Optional: you can do it later in Advanced settings › Features.')}</p>
           {:else if current === 'folders'}
             <h2>{t('Choose your first folders')}</h2>
             <p class="sp-lead">{t('Tick the shares to govern, then name their guardians. You can add others later.')}</p>
@@ -660,6 +668,8 @@
             <p class="sp-note">{t('The groups of this step are already imported. Their roles can be changed in Identities.')}</p>
           {/if}
           <p class="sp-note">{t('The guardian role is not given here: it is given folder by folder, with a minimum of guardians per folder.')}</p>
+        {:else if current === 'features'}
+          <FeaturesPanel inSetup />
         {:else if current === 'folders'}
           {#if sharesLoading}
             <p class="sp-note"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('Reading the shares…')}</p>
