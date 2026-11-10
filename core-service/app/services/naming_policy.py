@@ -250,9 +250,9 @@ def load_global_policy(db: Session) -> dict[str, Any]:
     row = db.execute(
         text(
             """
-            SELECT id, group_prefix, template, normalize_uppercase, max_sam_length, replace_map_json, rootcode_strategy
-            FROM naming_policy_global
-            WHERE id = 1
+            SELECT group_prefix, template, normalize_uppercase, max_sam_length, replace_map_json, rootcode_strategy
+            FROM naming_policies
+            WHERE scope_type = 'global' AND scope_id = 0
             """
         )
     ).mappings().first()
@@ -261,7 +261,8 @@ def load_global_policy(db: Session) -> dict[str, Any]:
         return dict(DEFAULT_GLOBAL_POLICY)
 
     out = dict(DEFAULT_GLOBAL_POLICY)
-    out.update(dict(row))
+    # NULL in the global row = the default of the application
+    out.update({key: value for key, value in dict(row).items() if value is not None})
     out["normalize_uppercase"] = _to_bool(out.get("normalize_uppercase"), True)
     out["rootcode_strategy"] = normalize_rootcode_strategy(out.get("rootcode_strategy"))
     try:
@@ -284,7 +285,7 @@ def load_zone_policy(db: Session, zone_id: int) -> dict[str, Any] | None:
               max_sam_length,
               replace_map_json,
               rootcode_strategy
-            FROM naming_policy_overrides
+            FROM naming_policies
             WHERE scope_type = 'zone'
               AND scope_id = :zone_id
             """
@@ -318,7 +319,7 @@ def _load_scope_override_policy(db: Session, *, scope_type: str, scope_id: int) 
               max_sam_length,
               replace_map_json,
               rootcode_strategy
-            FROM naming_policy_overrides
+            FROM naming_policies
             WHERE scope_type = :scope_type
               AND scope_id = :scope_id
             LIMIT 1

@@ -9,45 +9,6 @@ from app.api import provisioning_internal as module
 from app.api.provisioning_internal import EnsureAccessGroupPayload
 
 
-def test_write_governance_event_accepts_empty_chain(monkeypatch) -> None:
-    captured: dict = {}
-
-    class _FakeResult:
-        def mappings(self):
-            return self
-
-        def first(self):
-            return None
-
-    class _FakeDB:
-        def execute(self, statement, params=None):
-            sql = str(statement).lower()
-            if "select event_hash from governance_events" in sql:
-                return _FakeResult()
-            if "insert into governance_events" in sql:
-                captured.update(params or {})
-                return _FakeResult()
-            return _FakeResult()
-
-    monkeypatch.setattr(module, "compute_event_hash", lambda prev_hash, payload: "h" * 64)
-    monkeypatch.setattr(module, "scrub_secrets", lambda payload: payload)
-
-    module._write_governance_event(
-        _FakeDB(),
-        event_type="profile_created",
-        target_type="storage_root_access_profile",
-        target_id=77,
-        storage_root_access_profile_id=77,
-        status_value="CREATED",
-        payload_json={"k": "v"},
-        actor_ip="127.0.0.1",
-        user_agent="pytest",
-    )
-
-    assert captured.get("prev_hash") is None
-    assert captured.get("event_hash") == "h" * 64
-
-
 class _FakeAccessGroups:
     rows: dict[tuple[int, str], dict] = {}
     outcomes: list[tuple] = []
@@ -83,7 +44,6 @@ def access_groups(monkeypatch):
     _FakeAccessGroups.rows = {}
     _FakeAccessGroups.outcomes = []
     monkeypatch.setattr(module, "StorageRootAccessProfilesRepo", _FakeAccessGroups)
-    monkeypatch.setattr(module, "_write_governance_event", lambda *_a, **_k: None)
     return _FakeAccessGroups
 
 

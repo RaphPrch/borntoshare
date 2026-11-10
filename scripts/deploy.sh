@@ -11,9 +11,9 @@ if grep -qE '^FIVES_DB_PASSWORD=.+' .env; then
   SERVICES="$SERVICES fives-service fives-scanner"
   COMPOSE="podman-compose --profile fives -f podman-compose.yml"
 fi
-PACKS="135_access_expiry_schedule 136_storage_root_acl_exceptions 137_close_phantom_revoke_requests 138_tag_family 139_access_request_permission_change 140_identity_source_ldap_settings 141_secret_items 142_worker_agent_token 143_identity_source_flavor 144_integrity 145_dfs_read_schedule 146_access_request_justification 147_extensions 148_notification_log 149_storage_root_sensitivity 150_governance_policies 151_policy_jobs 152_sensitivity_ignores 153_guardian_substitutes 154_storage_root_quotas 155_content_history_remediations 156_folder_scans_duplicates 157_licenses_features 158_scan_progress"
+PACKS="135_access_expiry_schedule 136_storage_root_acl_exceptions 137_close_phantom_revoke_requests 138_tag_family 139_access_request_permission_change 140_identity_source_ldap_settings 141_secret_items 142_worker_agent_token 143_identity_source_flavor 144_integrity 145_dfs_read_schedule 146_access_request_justification 147_extensions 148_notification_log 149_storage_root_sensitivity 150_governance_policies 151_policy_jobs 152_sensitivity_ignores 153_guardian_substitutes 154_storage_root_quotas 155_content_history_remediations 156_folder_scans_duplicates 157_licenses_features 158_scan_progress 159_simplify_tables"
 # Views whose definition changed since the installation: replayed too (CREATE OR REPLACE)
-VIEWS="141_views_workflow"
+VIEWS="141_views_workflow 141_views_naming_policy_effective 142_views_zone_policy"
 
 env_value() { grep -E "^$1=" .env | cut -d= -f2- | sed 's/^"//; s/"$//'; }
 

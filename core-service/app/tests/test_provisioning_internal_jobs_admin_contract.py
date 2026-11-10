@@ -174,7 +174,7 @@ def test_cancel_job_updates_status_metrics_and_error_payload(monkeypatch) -> Non
     monkeypatch.setattr(module, "ProvisioningJobsRepo", _Repo)
     monkeypatch.setattr(module, "utcnow_naive", lambda: fixed_now)
     monkeypatch.setattr(module, "_persist_identity_source_probe_result", lambda *_a, **_k: None)
-    monkeypatch.setattr(module, "_write_governance_event", lambda *_a, **k: event_calls.append(dict(k)))
+    monkeypatch.setattr(module, "log_activity", lambda *_a, **k: event_calls.append(dict(k)))
 
     out = module.cancel_provisioning_job(
         11,
@@ -195,13 +195,14 @@ def test_cancel_job_updates_status_metrics_and_error_payload(monkeypatch) -> Non
     cancel_meta = (_Repo.last_updates or {}).get("metrics_json", {}).get("cancel", {})
     assert cancel_meta.get("correlation_id") == "corr_cancel_03"
     assert cancel_meta.get("requested_by") == "admin-1"
-    assert len(event_calls) == 1
+    # The cancellation goes to the audit journal
+    assert [call["action"] for call in event_calls] == ["provisioning_job_cancelled"]
+    assert event_calls[0]["actor_display"] == "admin-1"
 
 
 def test_watchdog_mark_increments_republish_counter(monkeypatch) -> None:
     fixed_now = datetime(2026, 3, 27, 11, 0, 0)
     db = _FakeDB()
-    write_events = {"count": 0}
 
     class _Repo:
         update_calls = 0
@@ -229,7 +230,6 @@ def test_watchdog_mark_increments_republish_counter(monkeypatch) -> None:
 
     monkeypatch.setattr(module, "ProvisioningJobsRepo", _Repo)
     monkeypatch.setattr(module, "utcnow_naive", lambda: fixed_now)
-    monkeypatch.setattr(module, "_write_governance_event", lambda *_a, **_k: write_events.__setitem__("count", write_events["count"] + 1))
 
     out = module.mark_watchdog_republish(
         12,
@@ -242,7 +242,6 @@ def test_watchdog_mark_increments_republish_counter(monkeypatch) -> None:
     assert out["metrics_json"]["last_republish_correlation_id"] == "corr_watchdog_01"
     assert _Repo.update_calls == 1
     assert db.commit_calls == 1
-    assert write_events["count"] == 1
 
 
 def test_watchdog_mark_is_noop_when_not_queued(monkeypatch) -> None:
@@ -323,8 +322,7 @@ def test_complete_and_fail_return_unchanged_when_job_is_cancelled(monkeypatch) -
     assert _Repo.update_calls == 0
 
 
-def test_complete_job_writes_governance_event(monkeypatch) -> None:
-    event_calls: list[dict] = []
+def test_complete_job_records_its_outcome(monkeypatch) -> None:
 
     class _Repo:
         update_calls = 0
@@ -361,7 +359,6 @@ def test_complete_job_writes_governance_event(monkeypatch) -> None:
 
     monkeypatch.setattr(module, "ProvisioningJobsRepo", _Repo)
     monkeypatch.setattr(module, "_persist_identity_source_probe_result", lambda *_a, **_k: None)
-    monkeypatch.setattr(module, "_write_governance_event", lambda *_a, **kwargs: event_calls.append(dict(kwargs)))
 
     out = module.complete_provisioning_job(
         21,
@@ -375,13 +372,9 @@ def test_complete_job_writes_governance_event(monkeypatch) -> None:
     )
 
     assert out["status"] == "SUCCEEDED"
-    assert len(event_calls) == 1
-    assert event_calls[0]["event_type"] == "provisioning_job_succeeded"
-    assert event_calls[0]["status_value"] == "SUCCEEDED"
 
 
-def test_fail_job_writes_governance_event(monkeypatch) -> None:
-    event_calls: list[dict] = []
+def test_fail_job_records_its_outcome(monkeypatch) -> None:
 
     class _Repo:
         update_calls = 0
@@ -418,7 +411,6 @@ def test_fail_job_writes_governance_event(monkeypatch) -> None:
 
     monkeypatch.setattr(module, "ProvisioningJobsRepo", _Repo)
     monkeypatch.setattr(module, "_persist_identity_source_probe_result", lambda *_a, **_k: None)
-    monkeypatch.setattr(module, "_write_governance_event", lambda *_a, **kwargs: event_calls.append(dict(kwargs)))
 
     out = module.fail_provisioning_job(
         22,
@@ -432,6 +424,3 @@ def test_fail_job_writes_governance_event(monkeypatch) -> None:
     )
 
     assert out["status"] == "FAILED"
-    assert len(event_calls) == 1
-    assert event_calls[0]["event_type"] == "provisioning_job_failed"
-    assert event_calls[0]["status_value"] == "FAILED"

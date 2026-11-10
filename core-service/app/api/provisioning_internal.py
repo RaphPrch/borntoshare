@@ -22,7 +22,6 @@ from app.services.identity_bindings import sync_identity_bindings
 from app.services.health_events import record_health_event
 from app.services.probe_results import ProbeResultService
 from app.services.provisioning_ou_sql import effective_group_ou_case_sql
-from app.core.audit_hash import compute_event_hash, scrub_secrets
 from app.core.internal_auth import require_internal
 from app.utils.status_validation import ensure_transition, normalize_status
 from app.core.values import positive_int, utcnow_naive
@@ -105,81 +104,6 @@ def _normalize_access_level(raw: str) -> str:
     if value not in {"READ", "WRITE"}:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="access_level must be READ or WRITE")
     return value
-
-
-def _write_governance_event(
-    db: Session,
-    *,
-    event_type: str,
-    target_type: str,
-    target_id: int | None,
-    storage_root_access_profile_id: int | None = None,
-    provisioning_job_id: int | None = None,
-    status_value: str | None = None,
-    payload_json: dict | None = None,
-    actor_ip: str | None = None,
-    user_agent: str | None = None,
-) -> None:
-    prev_row = db.execute(text("SELECT event_hash FROM governance_events ORDER BY id DESC LIMIT 1")).mappings().first()
-    prev_hash = str((prev_row or {}).get("event_hash") or "").strip() or None
-    sanitized_payload = scrub_secrets(payload_json or {})
-    event_payload = {
-        "event_type": event_type,
-        "target_type": target_type,
-        "target_id": target_id,
-        "storage_root_access_profile_id": storage_root_access_profile_id,
-        "provisioning_job_id": provisioning_job_id,
-        "status": status_value,
-        "payload_json": sanitized_payload,
-        "actor_ip": actor_ip,
-        "user_agent": user_agent,
-    }
-    event_hash = compute_event_hash(prev_hash, event_payload)
-
-    db.execute(
-        text(
-            """
-            INSERT INTO governance_events (
-              event_type,
-              target_type,
-              target_id,
-              storage_root_access_profile_id,
-              provisioning_job_id,
-              status,
-              payload_json,
-              prev_hash,
-              event_hash,
-              actor_ip,
-              user_agent
-            ) VALUES (
-              :event_type,
-              :target_type,
-              :target_id,
-              :storage_root_access_profile_id,
-              :provisioning_job_id,
-              :status,
-              :payload_json,
-              :prev_hash,
-              :event_hash,
-              :actor_ip,
-              :user_agent
-            )
-            """
-        ),
-        {
-            "event_type": event_type,
-            "target_type": target_type,
-            "target_id": target_id,
-            "storage_root_access_profile_id": storage_root_access_profile_id,
-            "provisioning_job_id": provisioning_job_id,
-            "status": status_value,
-            "payload_json": json.dumps(sanitized_payload, ensure_ascii=False),
-            "prev_hash": prev_hash,
-            "event_hash": event_hash,
-            "actor_ip": actor_ip,
-            "user_agent": user_agent,
-        },
-    )
 
 
 def _probe_result_message(result_json: dict | None, fallback: str | None = None) -> str | None:
@@ -864,20 +788,6 @@ def ensure_storage_root_access_group(payload: EnsureAccessGroupPayload, db: Sess
         access_level_code=access_level_code,
         group_name=payload.group_name,
     )
-    if created:
-        _write_governance_event(
-            db,
-            event_type="access_group_created",
-            target_type="storage_root_access_profile",
-            target_id=int(row["id"]),
-            storage_root_access_profile_id=int(row["id"]),
-            status_value=str(row.get("status") or "PENDING"),
-            payload_json={
-                "storage_root_id": int(payload.storage_root_id),
-                "access_level_code": access_level_code,
-                "group_name": row.get("group_name"),
-            },
-        )
     db.commit()
     return {"created": created, "data": row}
 
@@ -1117,19 +1027,17 @@ def cancel_provisioning_job(job_id: int, payload: JobCancelPayload, db: Session 
         correlation_id=correlation_id,
     )
 
-    _write_governance_event(
+    log_activity(
         db,
-        event_type="provisioning_job_cancelled",
-        target_type="provisioning_job",
+        actor_type="system",
+        actor_id=None,
+        actor_display=str(requested_by or source or "worker"),
+        action="provisioning_job_cancelled",
+        outcome="success",
+        target_type="job",
         target_id=int(getattr(row, "id", 0) or 0),
-        provisioning_job_id=int(getattr(row, "id", 0) or 0),
-        status_value="CANCELLED",
-        payload_json={
-            "reason": reason,
-            "source": source,
-            "requested_by": requested_by,
-            "correlation_id": correlation_id,
-        },
+        context_json={"reason": reason, "source": source, "job_type": getattr(row, "job_type", None)},
+        correlation_id=correlation_id,
     )
     db.commit()
     return repo.to_dict(row)
@@ -1163,18 +1071,6 @@ def mark_watchdog_republish(job_id: int, payload: JobWatchdogRepublishPayload, d
         },
     )
 
-    _write_governance_event(
-        db,
-        event_type="provisioning_job_watchdog_republish",
-        target_type="provisioning_job",
-        target_id=int(getattr(row, "id", 0) or 0),
-        provisioning_job_id=int(getattr(row, "id", 0) or 0),
-        status_value="QUEUED",
-        payload_json={
-            "watchdog_republish_count": next_count,
-            "correlation_id": correlation_id,
-        },
-    )
     db.commit()
     return repo.to_dict(row)
 
@@ -1285,23 +1181,6 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
     _record_access_group_outcome(db, job_row=row, succeeded=True, result_json=payload.result_json)
     _apply_infrastructure_results(db, job_row=row, result_json=payload.result_json)
 
-    _write_governance_event(
-        db,
-        event_type="provisioning_job_succeeded",
-        target_type="provisioning_job",
-        target_id=int(getattr(row, "id", 0) or 0),
-        provisioning_job_id=int(getattr(row, "id", 0) or 0),
-        storage_root_access_profile_id=int(getattr(row, "storage_root_access_profile_id", 0) or 0) or None,
-        status_value="SUCCEEDED",
-        payload_json={
-            "correlation_id": correlation_id,
-            "action": payload.action or getattr(row, "action", None),
-            "result_json": payload.result_json or {},
-            "metrics_json": payload.metrics_json or {},
-        },
-        actor_ip=payload.actor_ip,
-        user_agent=payload.user_agent,
-    )
     db.commit()
     return repo.to_dict(row)
 
@@ -1440,29 +1319,6 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
         error_message=payload.error_message or payload.error_code,
     )
 
-    _write_governance_event(
-        db,
-        event_type="provisioning_job_failed",
-        target_type="provisioning_job",
-        target_id=int(getattr(row, "id", 0) or 0),
-        provisioning_job_id=int(getattr(row, "id", 0) or 0),
-        storage_root_access_profile_id=int(getattr(row, "storage_root_access_profile_id", 0) or 0) or None,
-        status_value="FAILED",
-        payload_json={
-            "correlation_id": correlation_id,
-            "action": payload.action or getattr(row, "action", None),
-            "error_code": payload.error_code,
-            "error_message": payload.error_message,
-            "error_json": payload.error_json
-            or {
-                "code": payload.error_code,
-                "message": payload.error_message,
-            },
-            "metrics_json": payload.metrics_json or {},
-        },
-        actor_ip=payload.actor_ip,
-        user_agent=payload.user_agent,
-    )
     db.commit()
     return repo.to_dict(row)
 

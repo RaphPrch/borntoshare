@@ -73,14 +73,12 @@ def purge_logs(db: Session, *, days: int | None = None, trigger: str, actor_disp
     with LoggingSessionLocal() as logging_db:
         audit = _delete_older(logging_db, "audit_event", "event_time", days)
     health = _delete_older(db, "governance_health_events", "checked_at", days)
-    events = _delete_older(db, "governance_events", "created_at", days)
     checks = _delete_older(db, "infra_check_history", "checked_at", days)
     jobs = _delete_finished_jobs(db, days)
     result = {
         "retention_days": days,
         "audit_events": audit,
         "health_events": health,
-        "governance_events": events,
         "check_history": checks,
         "jobs": jobs,
     }

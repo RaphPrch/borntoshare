@@ -18,7 +18,7 @@ SELECT
   END AS resolved_from_scope,
   COALESCE(oz.updated_at, g.updated_at) AS updated_at
 FROM zones z
-JOIN naming_policy_global g ON g.id = 1
-LEFT JOIN naming_policy_overrides oz
+JOIN naming_policies g ON g.scope_type = 'global' AND g.scope_id = 0
+LEFT JOIN naming_policies oz
   ON oz.scope_type = 'zone'
  AND oz.scope_id = z.id;

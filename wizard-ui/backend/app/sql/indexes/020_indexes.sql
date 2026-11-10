@@ -124,9 +124,6 @@ CREATE INDEX IF NOT EXISTS idx_arie_access_request_id_status
 CREATE INDEX IF NOT EXISTS idx_jobs_root_status ON provisioning_jobs(storage_root_access_profile_id, status);
 CREATE INDEX IF NOT EXISTS idx_provisioning_jobs_type_action ON provisioning_jobs(job_type, action);
 CREATE INDEX IF NOT EXISTS idx_provisioning_status_created ON provisioning_jobs(status, created_at);
-CREATE INDEX IF NOT EXISTS idx_governance_events_type_created ON governance_events(event_type, created_at);
-CREATE INDEX IF NOT EXISTS idx_governance_events_target ON governance_events(target_type, target_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_governance_events_job_id ON governance_events(provisioning_job_id);
 CREATE INDEX IF NOT EXISTS idx_governance_alerts_scope
   ON governance_alerts(scope_type, scope_id, status, severity);
 CREATE INDEX IF NOT EXISTS idx_governance_alerts_root

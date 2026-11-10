@@ -120,11 +120,11 @@ def put_global_naming_policy(payload: GlobalNamingPolicyPayload, db: Session = D
     db.execute(
         text(
             """
-            INSERT INTO naming_policy_global (
-                id, group_prefix, template, normalize_uppercase, max_sam_length, replace_map_json, rootcode_strategy
+            INSERT INTO naming_policies (
+                scope_type, scope_id, override_enabled, group_prefix, template, normalize_uppercase, max_sam_length, replace_map_json, rootcode_strategy
             )
             VALUES (
-                1, :group_prefix, :template, :normalize_uppercase, :max_sam_length, :replace_map_json, :rootcode_strategy
+                'global', 0, 1, :group_prefix, :template, :normalize_uppercase, :max_sam_length, :replace_map_json, :rootcode_strategy
             )
             ON DUPLICATE KEY UPDATE
                 group_prefix = VALUES(group_prefix),
@@ -194,7 +194,7 @@ def put_zone_naming_policy(
     db.execute(
         text(
             """
-            INSERT INTO naming_policy_overrides (
+            INSERT INTO naming_policies (
                 scope_type, scope_id, override_enabled, group_prefix, template, normalize_uppercase, max_sam_length, replace_map_json, rootcode_strategy
             )
             VALUES (
