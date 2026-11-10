@@ -26,7 +26,15 @@ DEFAULT_GLOBAL_POLICY: dict[str, Any] = {
     "rootcode_strategy": "BASENAME",
 }
 
-ALLOWED_TEMPLATE_TOKENS = {"PREFIX", "ROOTCODE", "PERM"}
+ALLOWED_TEMPLATE_TOKENS = {"PREFIX", "ROOTCODE", "PERM", "ZONE", "RAND"}
+
+
+def random_number_for(storage_root_path: str, digits: int = 6) -> str:
+    """{RAND}: a number that looks random (it says nothing of the folder) but is always the same for a folder,
+    so that the name of its group never changes when it is computed again."""
+    normalized = str(storage_root_path or "").strip().replace("/", "\\").rstrip("\\").lower()
+    value = int(hashlib.sha256(normalized.encode("utf-8")).hexdigest(), 16) % (10 ** digits)
+    return str(value).zfill(digits)
 
 
 def _perm_token_equivalent(value: str) -> str:
@@ -115,8 +123,11 @@ def validate_template_tokens(template: str) -> None:
         raise ValueError(
             "Template contains unsupported token(s): "
             + ", ".join(f"{{{t}}}" for t in unknown)
-            + ". Allowed tokens: {PREFIX}, {ROOTCODE}, {PERM}."
+            + ". Allowed tokens: {PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}."
         )
+    # One group per folder and per permission: the folder ({ROOTCODE} or {RAND}) and {PERM} must be in it
+    if "PERM" not in tokens or not tokens & {"ROOTCODE", "RAND"}:
+        raise ValueError("Template must contain {PERM} and {ROOTCODE} or {RAND}: otherwise two folders would share a group.")
 
 
 def sanitize_token(value: str, *, replace_map: dict[str, str], uppercase: bool) -> str:
@@ -221,9 +232,12 @@ def resolve_group_name_from_effective_policy(
 
     template = str(effective_policy.get("template") or "{PREFIX}_{ROOTCODE}_{PERM}")
     validate_template_tokens(template)
+    zone_token = sanitize_token(str(zone_code or ""), replace_map=replace_map, uppercase=uppercase)
     rendered = (
         template.replace("{PREFIX}", prefix)
-        .replace("{ROOTCODE}", rootcode)
+        .replace("{ZONE}", zone_token)
+        .replace("{ROOTCODE}", rootcode if "{ROOTCODE}" in template else "")
+        .replace("{RAND}", random_number_for(storage_root_path) if "{RAND}" in template else "")
         .replace("{PERM}", perm_token)
     )
 

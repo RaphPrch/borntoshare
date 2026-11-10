@@ -1,4 +1,6 @@
 <script lang="ts">
+  import NamingModelPicker from '$lib/components/provisioning/NamingModelPicker.svelte';
+  import { NAMING_TOKENS, checkNamingTemplate, exampleGroupName } from '$lib/utils/naming-templates';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { t } from '$lib/i18n';
   import { goto } from '$app/navigation';
@@ -17,8 +19,7 @@
     groupPrefix: string;
   };
 
-  const TOKENS = ['{PREFIX}', '{ROOTCODE}', '{PERM}'];
-  const ALLOWED = new Set(['PREFIX', 'ROOTCODE', 'PERM']);
+  const TOKENS = NAMING_TOKENS;
 
   let name = '';
   let code = '';
@@ -48,13 +49,10 @@
   $: nameTaken = data.takenNames.includes(name.trim().toLowerCase());
   $: codeTaken = Boolean(code.trim()) && data.takenCodes.includes(code.trim().toUpperCase());
   $: ouInvalid = Boolean(ou.trim()) && !/(^|,)\s*(OU|CN|DC)=/i.test(ou.trim());
-  $: unknownTokens = [...template.matchAll(/\{([^}]*)\}/g)].map((match) => match[1]).filter((token) => !ALLOWED.has(token));
-  $: templateInvalid = !template.trim() || unknownTokens.length > 0 || !template.includes('{ROOTCODE}');
-  $: example = template
-    .replaceAll('{PREFIX}', data.groupPrefix || 'B2S')
-    .replaceAll('{ROOTCODE}', 'ACHATS')
-    .replaceAll('{PERM}', 'RX')
-    .toUpperCase();
+  $: templateCheck = checkNamingTemplate(template);
+  $: unknownTokens = templateCheck.unknown;
+  $: templateInvalid = !template.trim() || unknownTokens.length > 0 || !templateCheck.unique;
+  $: example = exampleGroupName(template, { prefix: data.groupPrefix, zone: code });
 
   $: checks = [
     {
@@ -71,7 +69,7 @@
     {
       title: t('Naming'),
       ok: !templateInvalid,
-      detail: templateInvalid ? t('The template needs {token}', { token: '{ROOTCODE}' }) : example
+      detail: templateInvalid ? t('The template needs {PERM} and {ROOTCODE} or {RAND}') : example
     }
   ];
   $: pendingReason =
@@ -81,7 +79,7 @@
     : codeTaken ? t('A zone already has this code.')
     : ouInvalid ? t('The OU must be a distinguished name, such as OU=Groups,DC=corp,DC=local.')
     : unknownTokens.length ? t('Unknown token: {token}', { token: `{${unknownTokens[0]}}` })
-    : templateInvalid ? t('The template needs {token}', { token: '{ROOTCODE}' })
+    : templateInvalid ? t('The template needs {PERM} and {ROOTCODE} or {RAND}')
     : '';
   $: canCreate = !pendingReason && !creating;
 
@@ -158,12 +156,13 @@
         </div>
         <div class="field">
           <label for="zone-template">{t('Naming template')}</label>
+          <NamingModelPicker {template} prefix={data.groupPrefix} zone={code} onPick={(model) => (template = model)} />
           <input id="zone-template" class="b2s-input mono" bind:value={template} />
           <div class="tokens" role="group" aria-label={t('Insert a token')}>
             {#each TOKENS as token (token)}<button type="button" class="token" on:click={() => insertToken(token)}>{token}</button>{/each}
           </div>
           {#if templateInvalid}
-            <small class="field-error">{unknownTokens.length ? t('Unknown token: {token}', { token: `{${unknownTokens[0]}}` }) : t('The template needs {token}', { token: '{ROOTCODE}' })}</small>
+            <small class="field-error">{unknownTokens.length ? t('Unknown token: {token}', { token: `{${unknownTokens[0]}}` }) : t('The template needs {PERM} and {ROOTCODE} or {RAND}')}</small>
           {:else}
             <small class="muted">{t('Example: {name}', { name: example })}</small>
           {/if}

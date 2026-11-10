@@ -1,4 +1,6 @@
 <script lang="ts">
+  import NamingModelPicker from '$lib/components/provisioning/NamingModelPicker.svelte';
+  import { checkNamingTemplate, exampleGroupName } from '$lib/utils/naming-templates';
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
@@ -51,7 +53,6 @@
   let saving = false;
   let errorMsg: string | null = null;
 
-  const templateTokens = ['{PREFIX}', '{ROOTCODE}', '{PERM}'];
 
   function normalizePolicy(input: GlobalNamingPolicy) {
     const normalizedMaxSamLength = clamp(Number(input.max_sam_length ?? 64), 8, 256);
@@ -71,8 +72,7 @@
   let initialReplaceMapSnapshot = stringifyReplaceMap(initialPolicy.replace_map_json);
 
   $: normalizedCurrent = normalizePolicy(policy);
-  $: templateUpper = normalizedCurrent.template.toUpperCase();
-  $: hasKnownToken = templateTokens.some((token) => templateUpper.includes(token));
+  $: templateCheck = checkNamingTemplate(normalizedCurrent.template.toUpperCase());
   $: parsedReplaceMap = (() => {
     try {
       const parsed = JSON.parse(replaceMapText);
@@ -87,9 +87,11 @@
   $: templateError =
     !normalizedCurrent.template
       ? t('The template is required.')
-      : hasKnownToken
-        ? null
-        : t('Template must contain at least one supported token.');
+      : templateCheck.unknown.length
+        ? t('Unknown token: {token}', { token: `{${templateCheck.unknown[0]}}` })
+        : templateCheck.unique
+          ? null
+          : t('The template needs {PERM} and {ROOTCODE} or {RAND}');
   $: maxSamError =
     Number.isFinite(Number(policy.max_sam_length)) &&
     Number(policy.max_sam_length) >= 8 &&
@@ -139,11 +141,14 @@
 
     <SettingRow
       label={t('Template')}
-      help={t('Available tokens: {tokens}.', { tokens: '{PREFIX}, {ROOTCODE}, {PERM}' })}
+      help={t('Available tokens: {tokens}.', { tokens: '{PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}' })}
     >
+      <NamingModelPicker template={policy.template} prefix={policy.group_prefix} onPick={(model) => (policy.template = model)} />
       <input class="b2s-input" bind:value={policy.template} />
       {#if templateError}
         <FieldError>{templateError}</FieldError>
+      {:else}
+        <small class="nm-example">{t('Example: {name}', { name: exampleGroupName(policy.template, { prefix: policy.group_prefix }) })}</small>
       {/if}
     </SettingRow>
 

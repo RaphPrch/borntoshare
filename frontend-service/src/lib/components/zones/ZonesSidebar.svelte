@@ -23,6 +23,8 @@
   export let addLabel = '';
   export let selectedZoneId: number | null = null;
   export let onSelectZone: ((id: number) => void) | null = null;
+  /** Right click on a zone: its menu */
+  export let onZoneMenu: ((zone: ZonesSidebarZone, event: MouseEvent) => void) | null = null;
 
   let q = "";
   let filter = "all";
@@ -84,4 +86,8 @@
   onFilter={(key) => (filter = key)}
   onQueryChange={(value) => (q = value)}
   onSelect={(id) => onSelectZone?.(Number(id))}
+  onContextMenu={onZoneMenu ? (node, event) => {
+    const zone = zones.find((entry) => Number(entry.id) === Number(node.selectId));
+    if (zone) onZoneMenu?.(zone, event);
+  } : null}
 />

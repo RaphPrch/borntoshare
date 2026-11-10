@@ -130,3 +130,34 @@ def test_rootcode_strategy_normalization_and_storage_serialization() -> None:
     assert serialize_rootcode_strategy_for_storage("BASENAME") == "BASENAME"
     assert serialize_rootcode_strategy_for_storage("unknown") == "BASENAME"
     assert serialize_rootcode_strategy_for_storage("PATH_ALL") == "PATH_ALL"
+
+
+def _policy(template: str) -> dict:
+    return {"group_prefix": "B2S", "template": template, "normalize_uppercase": True, "max_sam_length": 64,
+            "replace_map_json": None, "rootcode_strategy": "BASENAME"}
+
+
+def test_zone_and_random_tokens() -> None:
+    from app.services.naming_policy import random_number_for
+
+    path = "\\\\filer01\\Angers\\Achats"
+    name = resolve_group_name_from_effective_policy(effective_policy=_policy("{PREFIX}_{ZONE}_{RAND}_{PERM}"), zone_code="corp",
+                                                    storage_root_path=path, perm="READ")["samAccountName"]
+    number = random_number_for(path)
+    assert name == f"B2S_CORP_{number}_RX"
+    assert len(number) == 6 and number.isdigit()
+    # Always the same for a folder (its group keeps its name), another for another folder
+    assert random_number_for("\\\\FILER01\\angers\\achats\\") == number
+    assert random_number_for("\\\\filer01\\Angers\\Finance") != number
+
+
+def test_a_template_must_name_the_folder_and_the_permission() -> None:
+    import pytest
+
+    from app.services.naming_policy import validate_template_tokens
+
+    for template in ("{PREFIX}_{ROOTCODE}", "{PREFIX}_{ZONE}_{PERM}", "{PREFIX}_{FOLDER}_{PERM}"):
+        with pytest.raises(ValueError):
+            validate_template_tokens(template)
+    for template in ("{PREFIX}_{ROOTCODE}_{PERM}", "{PREFIX}_{RAND}_{PERM}", "{PERM}_{ZONE}_{ROOTCODE}"):
+        validate_template_tokens(template)

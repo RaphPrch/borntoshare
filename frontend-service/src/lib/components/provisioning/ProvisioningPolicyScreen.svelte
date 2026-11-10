@@ -1,4 +1,6 @@
 <script lang="ts">
+  import NamingModelPicker from '$lib/components/provisioning/NamingModelPicker.svelte';
+  import { NAMING_TOKENS, namingTokenHelp } from '$lib/utils/naming-templates';
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import { onDestroy } from 'svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -27,7 +29,7 @@
   export let onDiscard: (() => void) | null = null;
 
   const PAGE = 25;
-  const TOKENS = ['{PREFIX}', '{ROOTCODE}', '{PERM}'];
+  const TOKENS = NAMING_TOKENS;
 
   $: endpointScope = scope === 'storage-endpoint';
   $: mode = configuration.inheritanceMode ?? (endpointScope ? 'inherit' : 'override');
@@ -159,6 +161,9 @@
       </label>
       <div class="pp__field">
         <label class="b2s-form-label" for="pp-template-{scope}">{t('Naming template')}</label>
+        {#if configuration.onChangeNamingTemplate}
+          <NamingModelPicker template={String(configuration.namingTemplate ?? '')} onPick={(model) => configuration.onChangeNamingTemplate?.(model)} />
+        {/if}
         <input id="pp-template-{scope}" class="b2s-input pp__mono" type="text" value={configuration.namingTemplate}
           readonly={!configuration.onChangeNamingTemplate}
           on:input={(e) => configuration.onChangeNamingTemplate?.(value(e))} />
@@ -170,7 +175,7 @@
           </div>
         {/if}
         <small class="pp__hint">
-          <code>{'{PREFIX}'}</code> {t('prefix')} · <code>{'{ROOTCODE}'}</code> {t('storage root path')} · <code>{'{PERM}'}</code> {t('RX (read) or RW (write)')}
+          {#each namingTokenHelp() as help, index (help.token)}{index ? ' · ' : ''}<code>{help.token}</code> {help.label}{/each}
         </small>
       </div>
       {#if configuration.showUseZoneValuesLink}

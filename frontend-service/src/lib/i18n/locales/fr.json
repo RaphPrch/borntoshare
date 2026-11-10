@@ -5209,5 +5209,18 @@
   "It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.": "Il s'ouvre par une clé de licence et s'active dans Réglages avancés › Fonctionnalités ; ses bases s'installent par le wizard d'installation.",
   "{count} folder(s) attached: remove them from BornToShare first": "{count} dossier(s) rattaché(s) : retirez-les d'abord de BornToShare",
   "See all the activity in Monitoring": "Voir toute l'activité dans Suivi",
-  "Last {count} events": "Les {count} derniers événements"
+  "Last {count} events": "Les {count} derniers événements",
+  "code of the zone": "code de la zone",
+  "random number, always the same for a folder": "numéro aléatoire, toujours le même pour un dossier",
+  "Naming models": "Modèles de nommage",
+  "Prefix, folder, permission": "Préfixe, dossier, permission",
+  "Prefix, zone, folder, permission": "Préfixe, zone, dossier, permission",
+  "Prefix, random number, permission": "Préfixe, numéro aléatoire, permission",
+  "Prefix, zone, random number, permission": "Préfixe, zone, numéro aléatoire, permission",
+  "Prefix, permission, folder": "Préfixe, permission, dossier",
+  "The template needs {PERM} and {ROOTCODE} or {RAND}": "Le modèle doit contenir {PERM} et {ROOTCODE} ou {RAND}",
+  "Available tokens: {PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}": "Jetons disponibles : {PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}",
+  "See its folders": "Voir ses dossiers",
+  "No folder in this zone yet": "Aucun dossier dans cette zone",
+  "{servers} server(s) and {folders} folder(s) attached: move or remove them first": "{servers} serveur(s) et {folders} dossier(s) rattachés : déplacez-les ou retirez-les d'abord"
 }

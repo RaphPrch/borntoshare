@@ -155,8 +155,6 @@
   $: tabs = [
     { key: 'overview', label: t('Overview') },
     ...(card.supportsSnapshot ? [{ key: 'inventory', label: t('Inventory'), count: (overview?.users ?? 0) + (overview?.groups ?? 0) || null }] : []),
-    ...(card.supportsSnapshot ? [{ key: 'sync', label: t('Synchronization') }] : []),
-    ...(card.supportsProbe ? [{ key: 'connection', label: t('Connection') }] : []),
     { key: 'activity', label: t('Activity'), count: activity.length || null }
   ];
   $: facts = [
@@ -234,6 +232,8 @@
             <header><h2>{t('Connection')}</h2><button type="button" class="b2s-link-btn" on:click={onEdit}>{t('Edit')}</button></header>
             <dl class="isw__facts">
               {#each facts as fact (fact.label)}<dt>{fact.label}</dt><dd class:mono={fact.mono} class:is-warn={fact.warn}>{#if fact.time}<RelativeTime value={fact.time} />{:else}{fact.value}{/if}</dd>{/each}
+              <dt>{t('Authentication')}</dt><dd>{raw.capabilities?.auth_mode === 'kerberos' ? 'Kerberos' : 'NTLM'}</dd>
+              {#if internal?.last_probe_message ?? raw.last_probe_message}<dt>{t('Last message')}</dt><dd>{internal?.last_probe_message ?? raw.last_probe_message}</dd>{/if}
             </dl>
           </section>
         {/if}
@@ -301,37 +301,6 @@
     {#if inventoryKind === 'users' && overview && overview.users > overview.users_with_email}
       <p class="isw__note"><i class="bi bi-info-circle" aria-hidden="true"></i>{t('{count} account(s) without an e-mail: technical or administration accounts. They receive neither requests nor notices.', { count: overview.users - overview.users_with_email })}</p>
     {/if}
-  {:else if tab === 'sync'}
-    <section class="isw__card" aria-label={t('Synchronization')}>
-      <header><h2>{t('Synchronization')}</h2>
-        <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={snapshotRunning || busy} on:click={onSync}>{snapshotRunning ? t('Synchronizing…') : t('Synchronize now')}</button>
-      </header>
-      <div class="isw__strip is-big" role="img" aria-label={t('Health of the last 14 days')}>
-        {#each strip as day (day.date)}<span class={`is-${day.tone}`} title={day.title}></span>{/each}
-      </div>
-      <dl class="isw__facts">
-        <dt>{t('State')}</dt><dd>{card.snapshotLabel}</dd>
-        <dt>{t('Last run')}</dt><dd><RelativeTime value={raw.last_snapshot_at} empty={t('Never')} /></dd>
-        <dt>{t('Users')}</dt><dd>{card.usersCount ?? '—'}</dd>
-        <dt>{t('Groups')}</dt><dd>{card.groupsCount ?? '—'}</dd>
-        <dt>{t('Memberships')}</dt><dd>{card.membershipsCount ?? '—'}</dd>
-        <dt>{t('Version')}</dt><dd class="mono">{internal?.last_snapshot_version ?? raw.last_snapshot_version ?? '—'}</dd>
-      </dl>
-    </section>
-  {:else if tab === 'connection'}
-    <section class="isw__card" aria-label={t('Connection')}>
-      <header><h2>{t('Connection')}</h2>
-        <span class="isw__btns">
-          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={onEdit}>{t('Edit')}</button>
-          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={probeRunning || busy} on:click={onTest}>{probeRunning ? t('Testing…') : t('Test the connection')}</button>
-        </span>
-      </header>
-      <dl class="isw__facts">
-        {#each facts as fact (fact.label)}<dt>{fact.label}</dt><dd class:mono={fact.mono} class:is-warn={fact.warn}>{#if fact.time}<RelativeTime value={fact.time} />{:else}{fact.value}{/if}</dd>{/each}
-        <dt>{t('Last message')}</dt><dd>{internal?.last_probe_message ?? raw.last_probe_message ?? '—'}</dd>
-        <dt>{t('Authentication')}</dt><dd>{raw.capabilities?.auth_mode === 'kerberos' ? 'Kerberos' : 'NTLM'}</dd>
-      </dl>
-    </section>
   {:else}
     <section class="isw__card" aria-label={t('Activity')}>
       <ActivityTimeline items={activity} emptyLabel={t('No activity for this directory yet.')} />
@@ -354,7 +323,6 @@
   .isw__muted { margin: 0; }
   .isw__strip { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 4px; }
   .isw__strip span { height: 26px; border-radius: 5px; background: var(--b2s-color-neutral-soft); }
-  .isw__strip.is-big span { height: 40px; }
   .isw__strip .is-ok { background: #2f9e5b; }
   .isw__strip .is-warn { background: #d68a00; }
   .isw__strip .is-bad { background: #c0392b; }

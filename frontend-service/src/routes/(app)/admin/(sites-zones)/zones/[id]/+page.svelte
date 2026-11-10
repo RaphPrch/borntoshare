@@ -780,6 +780,22 @@
   }
 
   $: activeTab = normalizeTab($page.url.searchParams.get("tab"));
+  // ?action=edit|add-server|delete: from the right-click menu of the zones list
+  let handledAction = "";
+  $: {
+    const action = $page.url.searchParams.get("action") ?? "";
+    const key = `${currentZoneId}:${action}`;
+    if (browser && action && data.zone && handledAction !== key) {
+      handledAction = key;
+      if (action === "edit") openEditZone();
+      else if (action === "add-server") void openEndpointAttachChoice();
+      else if (action === "delete") openDeleteZone();
+      const next = new URL($page.url);
+      next.searchParams.delete("action");
+      void goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true, keepFocus: true });
+    }
+    if (!action) handledAction = "";
+  }
   $: {
     const shouldOpenCreate = $page.url.searchParams.get("create") === "1";
     if (shouldOpenCreate && !handledCreateQuery) {
@@ -805,7 +821,6 @@
       onOpenRoot: (rootId: number) => goto(`/storage-roots?selected=${rootId}`),
       onOpenFolders: () => goto(`${foldersHref}&filter=review`),
       onOpenProvisioning: () => setTab("provisioning"),
-      onOpenActivity: () => setTab("activity"),
       onAddServer: openEndpointAttachChoice,
     },
     activity: {

@@ -1301,5 +1301,18 @@
   "{count} folder(s) attached: remove them from BornToShare first": "{count} folder(s) attached: remove them from BornToShare first",
   "See all the activity in Monitoring": "See all the activity in Monitoring",
   "Disabled": "Disabled",
-  "Last {count} events": "Last {count} events"
+  "Last {count} events": "Last {count} events",
+  "code of the zone": "code of the zone",
+  "random number, always the same for a folder": "random number, always the same for a folder",
+  "Naming models": "Naming models",
+  "Prefix, folder, permission": "Prefix, folder, permission",
+  "Prefix, zone, folder, permission": "Prefix, zone, folder, permission",
+  "Prefix, random number, permission": "Prefix, random number, permission",
+  "Prefix, zone, random number, permission": "Prefix, zone, random number, permission",
+  "Prefix, permission, folder": "Prefix, permission, folder",
+  "The template needs {PERM} and {ROOTCODE} or {RAND}": "The template needs {PERM} and {ROOTCODE} or {RAND}",
+  "Available tokens: {PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}": "Available tokens: {PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}",
+  "See its folders": "See its folders",
+  "No folder in this zone yet": "No folder in this zone yet",
+  "{servers} server(s) and {folders} folder(s) attached: move or remove them first": "{servers} server(s) and {folders} folder(s) attached: move or remove them first"
 }

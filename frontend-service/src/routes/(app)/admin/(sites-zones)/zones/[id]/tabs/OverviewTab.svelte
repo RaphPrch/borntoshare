@@ -1,13 +1,12 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { timeAgo } from '$lib/utils/format';
-  import RecentActivityCard from '$lib/components/activity/RecentActivityCard.svelte';
   import { previewRootGroups } from '$lib/api/naming-policies';
   import type { ZoneSummary } from '$lib/components/zones/zone-summary';
 
   /**
    * Overview of a zone in cards: its servers (file servers and DFS namespaces), its folders to review,
-   * its governance (OU, naming, gaps, guardians, directories) and its recent activity.
+   * its governance (OU, naming, gaps, guardians, directories) (its activity has its own tab).
    */
   export let zoneId: number | null = null;
   export let summary: ZoneSummary;
@@ -20,7 +19,6 @@
   export let onOpenRoot: ((rootId: number) => void) | null = null;
   export let onOpenFolders: (() => void) | null = null;
   export let onOpenProvisioning: (() => void) | null = null;
-  export let onOpenActivity: (() => void) | null = null;
   export let onAddServer: (() => void) | null = null;
 
   type Filter = 'all' | 'bad' | 'filer' | 'dfs';
@@ -140,7 +138,6 @@
       </dl>
     </section>
 
-    <RecentActivityCard items={activity} onOpenHistory={onOpenActivity} />
   </div>
 </div>
 

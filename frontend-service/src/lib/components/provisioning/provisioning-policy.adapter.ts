@@ -12,7 +12,7 @@ export type { ProvisioningPolicyViewModel } from './provisioning-policy.types';
 
 const txt = (value: unknown): string => String(value ?? '').trim();
 
-const TOKENS_HINT = 'Available tokens: {PREFIX}, {ROOTCODE}, {PERM}';
+const TOKENS_HINT = 'Available tokens: {PREFIX}, {ZONE}, {ROOTCODE}, {RAND}, {PERM}';
 
 function resolvePreviewStatus(status: string): ProvisioningPreviewModel['status'] {
   const key = txt(status).toLowerCase();
