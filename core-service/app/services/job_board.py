@@ -256,9 +256,9 @@ PURGE_BATCH = 5000
 def purge_history(db: Session) -> int:
     """Old finished jobs are deleted (never a queued or running one), a batch at a time. Returns how many."""
     rules = [
-        ("UPPER(job_type) = 'INFRA_HEALTH' AND UPPER(status) = 'SUCCEEDED'", KEEP_DAYS["health"]),
-        ("UPPER(status) = 'SUCCEEDED'", KEEP_DAYS["succeeded"]),
-        ("UPPER(status) IN ('FAILED', 'CANCELLED')", KEEP_DAYS["finished"]),
+        ("status = 'SUCCEEDED' AND job_type = 'INFRA_HEALTH'", KEEP_DAYS["health"]),
+        ("status = 'SUCCEEDED'", KEEP_DAYS["succeeded"]),
+        ("status IN ('FAILED', 'CANCELLED')", KEEP_DAYS["finished"]),
     ]
     total = 0
     for condition, days in rules:
