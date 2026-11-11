@@ -72,8 +72,9 @@ function varsFromEvent(ev: any) {
     : '';
   const actor =
     asStr(ev?.actor_display_name) ??
-    // The name the services record (auth.login, auth.logout, every action of a person)
+    // The name the services record (auth.login, auth.logout, every action of a person): in the event's metadata
     asStr(ev?.actor_display) ??
+    asStr((ctx as any)?.actor_display) ??
     asStr(ev?.actor_name) ??
     asStr(ev?.actor_username) ??
     asStr(ev?.actor_email) ??
