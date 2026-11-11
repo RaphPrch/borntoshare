@@ -1543,5 +1543,20 @@
   "Main types": "Main types",
   "Biggest files here": "Biggest files here",
   "No big file known here.": "No big file known here.",
-  "Click a block to see it, double-click to go inside. Colour: the share of old data, of duplicates or of clutter.": "Click a block to see it, double-click to go inside. Colour: the share of old data, of duplicates or of clutter."
+  "Click a block to see it, double-click to go inside. Colour: the share of old data, of duplicates or of clutter.": "Click a block to see it, double-click to go inside. Colour: the share of old data, of duplicates or of clutter.",
+  "Type": "Type",
+  "The detailed tree appears after the next measure of this folder with the 5S module (Measure on its page).": "The detailed tree appears after the next measure of this folder with the 5S module (Measure on its page).",
+  "View": "View",
+  "Explorer": "Explorer",
+  "Blocks": "Blocks",
+  "Old > 1 year": "Old > 1 year",
+  "Old > 3 years": "Old > 3 years",
+  "No sub-folder here: see its files in the Explorer view.": "No sub-folder here: see its files in the Explorer view.",
+  "Name": "Name",
+  "Share": "Share",
+  "{count} sub-folder(s)": "{count} sub-folder(s)",
+  "Nothing more known here.": "Nothing more known here.",
+  "{count} file(s) right in this folder ({size}); the files of 1 MB and more are listed.": "{count} file(s) right in this folder ({size}); the files of 1 MB and more are listed.",
+  "Right in it": "Right in it",
+  "Click to see a folder, double-click (or its name) to go inside. The colour tells the share of old data.": "Click to see a folder, double-click (or its name) to go inside. The colour tells the share of old data."
 }

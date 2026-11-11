@@ -4,101 +4,53 @@
   import { t } from '$lib/i18n';
   import { apiGetData } from '$lib/api/client';
   import { formatBytes, formatDateTime } from '$lib/utils/format';
+  import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import FivesTabs from '$lib/components/fives/FivesTabs.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
 
   /**
-   * Explorer of a scanned folder: blocks sized by volume, coloured by what the 5S looks at (age, duplicates,
-   * clutter); a click goes down. Two levels are known (the pieces of the scanner), then the biggest files.
+   * Explorer of a scanned folder, down to the deepest level: blocks sized by volume (coloured by the 5S lens) or
+   * a file-explorer list; a click shows, a double-click (or the name in the list) goes inside.
    */
-  type Chunk = { key: string; bytes: number; files: number; folders: number; last_modified: string | null;
-    cold: Record<string, { bytes: number; files: number }>; junk: { bytes: number | null; files: number | null };
-    duplicates_wasted: number; types: Array<{ ext: string; files: number; bytes?: number }> };
-  type Node = { name: string; path: string[]; bytes: number; files: number; cold1: number; cold3: number; dup: number; junk: number;
-    last: string | null; children: Node[]; leaf: boolean; types: Map<string, number> };
-  type InvFile = { path: string; size: number; modified: string | null };
+  type Folder = { path: string; parent: string | null; name: string; depth: number; bytes: number; files: number; folders: number;
+    direct_bytes: number; direct_files: number; cold1_bytes: number; cold3_bytes: number; last_modified: string | null };
+  type FileRow = { path: string; name: string; size: number; modified: string | null };
+  type Level = { node: Folder | null; children: Folder[]; files: FileRow[] };
 
   let rootName = '';
-  let rootPath = '';
-  let tree: Node | null = null;
-  let files: InvFile[] = [];
+  let level: Level | null = null;
   let loading = true;
+  let busy = false;
   let error: string | null = null;
-  let trail: Node[] = [];
-  let selected: Node | null = null;
-  let colourBy: 'age' | 'duplicates' | 'clutter' = 'age';
+  let trail: Folder[] = [];
+  let selected: Folder | null = null;
+  let colourBy: 'age' | 'old3' = 'age';
+  let view: 'blocks' | 'list' = 'list';
+  let sortBy: 'bytes' | 'name' | 'files' | 'last' = 'bytes';
   let width = 900;
   const HEIGHT = 520;
 
   $: rootId = Number($page.params.id);
 
-  function blank(name: string, path: string[]): Node {
-    return { name, path, bytes: 0, files: 0, cold1: 0, cold3: 0, dup: 0, junk: 0, last: null, children: [], leaf: false, types: new Map() };
-  }
-  function add(node: Node, chunk: Chunk) {
-    node.bytes += chunk.bytes;
-    node.files += chunk.files;
-    node.cold1 += chunk.cold?.['1y']?.bytes ?? 0;
-    node.cold3 += chunk.cold?.['3y']?.bytes ?? 0;
-    node.dup += chunk.duplicates_wasted ?? 0;
-    node.junk += chunk.junk?.bytes ?? 0;
-    if (chunk.last_modified && (!node.last || chunk.last_modified > node.last)) node.last = chunk.last_modified;
-    for (const type of chunk.types ?? []) node.types.set(type.ext, (node.types.get(type.ext) ?? 0) + (type.bytes ?? type.files));
-  }
-  /** The pieces of the scanner (« A », « ~A » + « A\\sub », « » for the files at the root) as a tree */
-  function build(chunks: Chunk[]): Node {
-    const root = blank(rootName, []);
-    const level1 = new Map<string, Node>();
-    for (const chunk of chunks) {
-      add(root, chunk);
-      if (!chunk.key) {
-        const own = blank(t('(files of the folder)'), ['']);
-        own.leaf = true;
-        add(own, chunk);
-        root.children.push(own);
-        continue;
-      }
-      const flat = chunk.key.startsWith('~');
-      const parts = chunk.key.replace(/^~/, '').split('\\');
-      const first = parts[0];
-      if (!level1.has(first)) {
-        const node = blank(first, [first]);
-        level1.set(first, node);
-        root.children.push(node);
-      }
-      const parent = level1.get(first)!;
-      add(parent, chunk);
-      if (flat || parts.length > 1) {
-        const child = blank(flat ? t('(files of « {name} »)', { name: first }) : parts[1], flat ? [first, ''] : [first, parts[1]]);
-        child.leaf = true;
-        add(child, chunk);
-        parent.children.push(child);
-      } else {
-        parent.leaf = true;
-      }
-    }
-    const sort = (node: Node) => {
-      node.children.sort((a, b) => b.bytes - a.bytes);
-      node.children.forEach(sort);
-    };
-    sort(root);
-    return root;
+  async function load(path: string | null): Promise<Level | null> {
+    return apiGetData<Level>(fetch, `/modules/fives/storage-roots/${rootId}/folders`, path == null ? undefined : { path });
   }
 
   onMount(async () => {
     try {
+      try {
+        view = (localStorage.getItem('b2s.fives.explorer.view') as 'blocks' | 'list') || 'list';
+      } catch {
+        // Storage unavailable: the list
+      }
       const overview = await apiGetData<Record<string, any>>(fetch, `/storage-roots/${rootId}/overview`);
       rootName = String(overview?.storage_root_name ?? `#${rootId}`);
-      rootPath = String(overview?.root_path ?? '');
-      const [treeData, inventory] = await Promise.all([
-        apiGetData<{ chunks: Chunk[] }>(fetch, `/modules/fives/storage-roots/${rootId}/tree`),
-        apiGetData<{ files: InvFile[] }>(fetch, `/modules/fives/storage-roots/${rootId}/files`).catch(() => null)
-      ]);
-      files = inventory?.files ?? [];
-      tree = build(treeData?.chunks ?? []);
-      trail = [tree];
-      selected = tree;
+      level = await load(null);
+      if (level?.node) {
+        trail = [level.node];
+        selected = level.node;
+      }
     } catch {
       error = t('Unable to load the scanned tree of this folder.');
     } finally {
@@ -106,19 +58,67 @@
     }
   });
 
-  $: current = trail[trail.length - 1] ?? null;
+  function setView(next: 'blocks' | 'list') {
+    view = next;
+    try {
+      localStorage.setItem('b2s.fives.explorer.view', next);
+    } catch {
+      // Not remembered
+    }
+  }
+
+  async function enter(folder: Folder) {
+    if (busy) return;
+    busy = true;
+    try {
+      const next = await load(folder.path);
+      if (next?.node) {
+        level = next;
+        trail = [...trail, next.node];
+        selected = next.node;
+      }
+    } finally {
+      busy = false;
+    }
+  }
+  async function up(index: number) {
+    if (busy || index === trail.length - 1) return;
+    busy = true;
+    try {
+      const target = trail[index];
+      const next = await load(index === 0 ? null : target.path);
+      if (next?.node) {
+        level = next;
+        trail = trail.slice(0, index + 1);
+        selected = next.node;
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
+  $: current = level?.node ?? null;
+  $: children = [...(level?.children ?? [])].sort((a, b) =>
+    sortBy === 'name' ? a.name.localeCompare(b.name, 'fr', { numeric: true })
+      : sortBy === 'files' ? b.files - a.files
+        : sortBy === 'last' ? String(b.last_modified ?? '').localeCompare(String(a.last_modified ?? ''))
+          : b.bytes - a.bytes);
+  $: files = [...(level?.files ?? [])].sort((a, b) =>
+    sortBy === 'name' ? a.name.localeCompare(b.name, 'fr', { numeric: true })
+      : sortBy === 'last' ? String(b.modified ?? '').localeCompare(String(a.modified ?? '')) : b.size - a.size);
 
   // Squarified treemap: rectangles close to squares, the biggest first
-  type Box = { node: Node; x: number; y: number; w: number; h: number };
-  function layout(items: Node[], x: number, y: number, w: number, h: number): Box[] {
-    const total = items.reduce((sum, item) => sum + item.bytes, 0);
-    if (!items.length || total <= 0 || w <= 0 || h <= 0) return [];
+  type Box = { node: Folder; x: number; y: number; w: number; h: number };
+  function layout(items: Folder[], x: number, y: number, w: number, h: number): Box[] {
+    const list = items.filter((item) => item.bytes > 0).sort((a, b) => b.bytes - a.bytes);
+    const total = list.reduce((sum, item) => sum + item.bytes, 0);
+    if (!list.length || total <= 0 || w <= 0 || h <= 0) return [];
     const scale = (w * h) / total;
     const boxes: Box[] = [];
-    let rest = items.filter((item) => item.bytes > 0);
+    let rest = list;
     while (rest.length) {
       const short = Math.min(w, h);
-      let row: Node[] = [];
+      let row: Folder[] = [];
       let best = Infinity;
       for (const item of rest) {
         const next = [...row, item];
@@ -141,38 +141,28 @@
     }
     return boxes;
   }
-  $: boxes = current ? layout(current.children, 0, 0, width, HEIGHT) : [];
+  $: boxes = view === 'blocks' ? layout(level?.children ?? [], 0, 0, width, HEIGHT) : [];
 
-  /** Share of the block that the chosen 5S lens points at (0 → 1) */
-  const ratio = (node: Node) =>
-    !node.bytes ? 0 : colourBy === 'age' ? node.cold1 / node.bytes : colourBy === 'duplicates' ? Math.min(1, (node.dup / node.bytes) * 4) : Math.min(1, (node.junk / node.bytes) * 20);
-  const colour = (node: Node) => {
-    const r = ratio(node);
-    // calm blue → amber → red as the share grows
-    const hue = 210 - r * 205;
-    return `hsl(${hue} ${45 + r * 35}% ${88 - r * 30}%)`;
-  };
   const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : 0);
+  const oldShare = (folder: Folder) => (folder.bytes ? (colourBy === 'age' ? folder.cold1_bytes : folder.cold3_bytes) / folder.bytes : 0);
+  const colour = (folder: Folder) => {
+    const r = oldShare(folder);
+    return `hsl(${210 - r * 205} ${45 + r * 35}% ${88 - r * 30}%)`;
+  };
+  const ageTone = (folder: Folder) => (oldShare(folder) > 0.8 ? 'is-old' : oldShare(folder) > 0.4 ? 'is-mid' : '');
 
-  function open(node: Node) {
-    selected = node;
-    if (!node.leaf && node.children.length) trail = [...trail, node];
-  }
-  function up(index: number) {
-    trail = trail.slice(0, index + 1);
-    selected = trail[trail.length - 1];
-  }
-  // The biggest files under the selected block (inventory: path relative to the share)
-  $: prefix = selected?.path.filter(Boolean).join('\\') ?? '';
-  $: underSelected = files
-    .filter((file) => {
-      const inside = rootPath ? file.path : file.path;
-      if (!prefix) return true;
-      const lower = inside.toLowerCase();
-      return lower.includes(`\\${prefix.toLowerCase()}\\`) || lower.startsWith(`${prefix.toLowerCase()}\\`);
-    })
-    .slice(0, 12);
-  $: topTypes = selected ? [...selected.types.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5) : [];
+  const exportLevel = () =>
+    downloadCsv(csvFilename(`explorateur-${rootName}`), [
+      { header: t('Type'), value: (row: any) => row.kind },
+      { header: t('Path'), value: (row: any) => row.path },
+      { header: t('Size'), value: (row: any) => row.size },
+      { header: t('Files'), value: (row: any) => row.files ?? '' },
+      { header: t('Not modified for 1 year'), value: (row: any) => row.cold1 ?? '' },
+      { header: t('Last change'), value: (row: any) => row.last ?? '' }
+    ], [
+      ...children.map((f) => ({ kind: 'dossier', path: f.path, size: f.bytes, files: f.files, cold1: f.cold1_bytes, last: f.last_modified })),
+      ...files.map((f) => ({ kind: 'fichier', path: f.path, size: f.size, files: null, cold1: null, last: f.modified }))
+    ]);
 </script>
 
 <FivesTabs />
@@ -186,66 +176,112 @@
     <LoadingState skeleton="rows" />
   {:else if error}
     <InlineAlert tone="error">{error}</InlineAlert>
-  {:else if !tree || !tree.children.length}
-    <InlineAlert tone="info">{t('No scanned tree yet: measure the folder with the 5S module on.')}</InlineAlert>
+  {:else if !current}
+    <InlineAlert tone="info">{t('The detailed tree appears after the next measure of this folder with the 5S module (Measure on its page).')}</InlineAlert>
   {:else}
     <header class="ex__head">
       <nav class="ex__crumbs" aria-label={t('Path')}>
-        {#each trail as step, index (index)}
+        {#each trail as step, index (step.path + index)}
           {#if index}<i class="bi bi-chevron-right" aria-hidden="true"></i>{/if}
-          <button type="button" class:is-current={index === trail.length - 1} on:click={() => up(index)}>{index === 0 ? rootName : step.name}</button>
+          <button type="button" class:is-current={index === trail.length - 1} disabled={busy} on:click={() => up(index)}>{index === 0 ? rootName : step.name}</button>
         {/each}
+        {#if busy}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{/if}
       </nav>
-      <div class="ex__lens" role="radiogroup" aria-label={t('Colour by')}>
-        <span>{t('Colour by')}</span>
-        <button type="button" class:is-on={colourBy === 'age'} on:click={() => (colourBy = 'age')}><i class="bi bi-snow" aria-hidden="true"></i>{t('Age')}</button>
-        <button type="button" class:is-on={colourBy === 'duplicates'} on:click={() => (colourBy = 'duplicates')}><i class="bi bi-files" aria-hidden="true"></i>{t('Duplicates')}</button>
-        <button type="button" class:is-on={colourBy === 'clutter'} on:click={() => (colourBy = 'clutter')}><i class="bi bi-trash3" aria-hidden="true"></i>{t('Clutter')}</button>
+      <div class="ex__tools">
+        <div class="ex__seg" role="radiogroup" aria-label={t('View')}>
+          <button type="button" class:is-on={view === 'list'} on:click={() => setView('list')}><i class="bi bi-list-ul" aria-hidden="true"></i>{t('Explorer')}</button>
+          <button type="button" class:is-on={view === 'blocks'} on:click={() => setView('blocks')}><i class="bi bi-grid-1x2" aria-hidden="true"></i>{t('Blocks')}</button>
+        </div>
+        <div class="ex__seg" role="radiogroup" aria-label={t('Colour by')}>
+          <button type="button" class:is-on={colourBy === 'age'} on:click={() => (colourBy = 'age')}>{t('Old > 1 year')}</button>
+          <button type="button" class:is-on={colourBy === 'old3'} on:click={() => (colourBy = 'old3')}>{t('Old > 3 years')}</button>
+        </div>
+        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={exportLevel}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
       </div>
     </header>
 
     <div class="ex__body">
-      <div class="ex__map" bind:clientWidth={width} style={`height:${HEIGHT}px`}>
-        {#each boxes as box (box.node.path.join('/') + box.node.name)}
-          <button type="button" class="ex__box" class:is-sel={selected === box.node} class:is-leaf={box.node.leaf}
-            style={`left:${box.x}px;top:${box.y}px;width:${Math.max(0, box.w - 2)}px;height:${Math.max(0, box.h - 2)}px;background:${colour(box.node)}`}
-            title={`${box.node.name} · ${formatBytes(box.node.bytes)} · ${box.node.files.toLocaleString('fr-FR')} ${t('files')}`}
-            on:click={() => (selected = box.node)} on:dblclick={() => open(box.node)}>
-            {#if box.w > 70 && box.h > 34}
-              <b>{box.node.name}</b>
-              <small>{formatBytes(box.node.bytes)}{box.h > 52 ? ` · ${pct(box.node.bytes, current?.bytes ?? 0)} %` : ''}</small>
-              {#if !box.node.leaf && box.node.children.length && box.h > 70}<span class="ex__in"><i class="bi bi-box-arrow-in-down-right" aria-hidden="true"></i>{box.node.children.length}</span>{/if}
-            {/if}
-          </button>
-        {/each}
-      </div>
+      {#if view === 'blocks'}
+        <div class="ex__map" bind:clientWidth={width} style={`height:${HEIGHT}px`}>
+          {#each boxes as box (box.node.path)}
+            <button type="button" class="ex__box" class:is-sel={selected === box.node}
+              style={`left:${box.x}px;top:${box.y}px;width:${Math.max(0, box.w - 2)}px;height:${Math.max(0, box.h - 2)}px;background:${colour(box.node)}`}
+              title={`${box.node.name} · ${formatBytes(box.node.bytes)} · ${box.node.files.toLocaleString('fr-FR')} ${t('files')}`}
+              on:click={() => (selected = box.node)} on:dblclick={() => box.node.folders > 0 && enter(box.node)}>
+              {#if box.w > 70 && box.h > 34}
+                <b>{box.node.name}</b>
+                <small>{formatBytes(box.node.bytes)}{box.h > 52 ? ` · ${pct(box.node.bytes, current.bytes)} %` : ''}</small>
+                {#if box.node.folders > 0 && box.h > 70}<span class="ex__in"><i class="bi bi-folder2" aria-hidden="true"></i>{box.node.folders}</span>{/if}
+              {/if}
+            </button>
+          {:else}
+            <p class="ex__empty">{t('No sub-folder here: see its files in the Explorer view.')}</p>
+          {/each}
+        </div>
+      {:else}
+        <div class="ex__list">
+          <table class="b2s-table">
+            <thead>
+              <tr>
+                <th><button type="button" class="ex__sort" class:is-on={sortBy === 'name'} on:click={() => (sortBy = 'name')}>{t('Name')}</button></th>
+                <th class="ex__num"><button type="button" class="ex__sort" class:is-on={sortBy === 'bytes'} on:click={() => (sortBy = 'bytes')}>{t('Size')}</button></th>
+                <th class="ex__share">{t('Share')}</th>
+                <th class="ex__num"><button type="button" class="ex__sort" class:is-on={sortBy === 'files'} on:click={() => (sortBy = 'files')}>{t('Files')}</button></th>
+                <th class="ex__num">{t('Old > 1 year')}</th>
+                <th class="ex__num"><button type="button" class="ex__sort" class:is-on={sortBy === 'last'} on:click={() => (sortBy = 'last')}>{t('Last change')}</button></th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each children as folder (folder.path)}
+                <tr class="ex__row" class:is-sel={selected === folder} on:click={() => (selected = folder)} on:dblclick={() => folder.folders > 0 && enter(folder)}>
+                  <td class="ex__name">
+                    <i class="bi bi-folder-fill ex__folder" aria-hidden="true"></i>
+                    {#if folder.folders > 0}<button type="button" class="b2s-link-btn" on:click|stopPropagation={() => enter(folder)}>{folder.name}</button>{:else}<span>{folder.name}</span>{/if}
+                    {#if folder.folders > 0}<small>{t('{count} sub-folder(s)', { count: folder.folders })}</small>{/if}
+                  </td>
+                  <td class="ex__num">{formatBytes(folder.bytes)}</td>
+                  <td class="ex__share"><span class="ex__bar"><span style={`width:${pct(folder.bytes, current.bytes)}%`}></span></span><small>{pct(folder.bytes, current.bytes)} %</small></td>
+                  <td class="ex__num">{folder.files.toLocaleString('fr-FR')}</td>
+                  <td class={`ex__num ${ageTone(folder)}`}>{pct(folder.cold1_bytes, folder.bytes)} %</td>
+                  <td class="ex__num">{folder.last_modified ? formatDateTime(folder.last_modified) : '—'}</td>
+                </tr>
+              {/each}
+              {#each files as file (file.path)}
+                <tr class="ex__row is-file">
+                  <td class="ex__name"><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path}>{file.name}</code></td>
+                  <td class="ex__num">{formatBytes(file.size)}</td>
+                  <td class="ex__share"><span class="ex__bar"><span style={`width:${pct(file.size, current.bytes)}%`}></span></span></td>
+                  <td class="ex__num">—</td>
+                  <td class="ex__num">—</td>
+                  <td class="ex__num">{file.modified ? formatDateTime(file.modified) : '—'}</td>
+                </tr>
+              {/each}
+              {#if !children.length && !files.length}<tr><td colspan="6" class="ex__empty">{t('Nothing more known here.')}</td></tr>{/if}
+            </tbody>
+          </table>
+          {#if current.direct_files > files.length}
+            <p class="ex__hint">{t('{count} file(s) right in this folder ({size}); the files of 1 MB and more are listed.', { count: current.direct_files.toLocaleString('fr-FR'), size: formatBytes(current.direct_bytes) })}</p>
+          {/if}
+        </div>
+      {/if}
 
       <aside class="ex__side">
         {#if selected}
-          <h2>{selected === tree ? rootName : selected.name}</h2>
-          {#if !selected.leaf && selected.children.length && selected !== current}
-            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" on:click={() => selected && open(selected)}><i class="bi bi-box-arrow-in-down-right" aria-hidden="true"></i>{t('Open ({count} sub-folders)', { count: selected.children.length })}</button>
+          <h2>{selected === trail[0] ? rootName : selected.name}</h2>
+          {#if selected !== current && selected.folders > 0}
+            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={busy} on:click={() => selected && enter(selected)}><i class="bi bi-box-arrow-in-down-right" aria-hidden="true"></i>{t('Open ({count} sub-folders)', { count: selected.folders })}</button>
           {/if}
           <dl>
-            <dt>{t('Volume')}</dt><dd>{formatBytes(selected.bytes)} <small>{pct(selected.bytes, tree.bytes)} % {t('of the folder')}</small></dd>
+            <dt>{t('Volume')}</dt><dd>{formatBytes(selected.bytes)} <small>{pct(selected.bytes, trail[0]?.bytes ?? 0)} % {t('of the folder')}</small></dd>
             <dt>{t('Files')}</dt><dd>{selected.files.toLocaleString('fr-FR')}</dd>
-            <dt>{t('Last change')}</dt><dd>{selected.last ? formatDateTime(selected.last) : '—'}</dd>
-            <dt>{t('Not modified for 1 year')}</dt><dd>{formatBytes(selected.cold1)} <small>{pct(selected.cold1, selected.bytes)} %</small></dd>
-            <dt>{t('Not modified for 3 years')}</dt><dd>{formatBytes(selected.cold3)} <small>{pct(selected.cold3, selected.bytes)} %</small></dd>
-            <dt>{t('Lost to duplicates')}</dt><dd>{formatBytes(selected.dup)}</dd>
-            <dt>{t('Clutter')}</dt><dd>{formatBytes(selected.junk)}</dd>
+            <dt>{t('Sub-folders')}</dt><dd>{selected.folders.toLocaleString('fr-FR')}</dd>
+            <dt>{t('Right in it')}</dt><dd>{selected.direct_files.toLocaleString('fr-FR')} · {formatBytes(selected.direct_bytes)}</dd>
+            <dt>{t('Last change')}</dt><dd>{selected.last_modified ? formatDateTime(selected.last_modified) : '—'}</dd>
+            <dt>{t('Not modified for 1 year')}</dt><dd>{formatBytes(selected.cold1_bytes)} <small>{pct(selected.cold1_bytes, selected.bytes)} %</small></dd>
+            <dt>{t('Not modified for 3 years')}</dt><dd>{formatBytes(selected.cold3_bytes)} <small>{pct(selected.cold3_bytes, selected.bytes)} %</small></dd>
           </dl>
-          {#if topTypes.length}
-            <h3>{t('Main types')}</h3>
-            <p class="ex__types">{#each topTypes as [ext] (ext)}<code>.{ext}</code>{/each}</p>
-          {/if}
-          <h3>{t('Biggest files here')}</h3>
-          <ul class="ex__files">
-            {#each underSelected as file (file.path)}
-              <li><code title={file.path}>{file.path.split('\\').pop()}</code><span>{formatBytes(file.size)}</span></li>
-            {:else}<li class="ex__none">{t('No big file known here.')}</li>{/each}
-          </ul>
-          <p class="ex__hint">{t('Click a block to see it, double-click to go inside. Colour: the share of old data, of duplicates or of clutter.')}</p>
+          <p class="ex__path"><code>{selected.path || '\\'}</code></p>
+          <p class="ex__hint">{t('Click to see a folder, double-click (or its name) to go inside. The colour tells the share of old data.')}</p>
         {/if}
       </aside>
     </div>
@@ -261,31 +297,43 @@
   .ex__crumbs button { border: 0; background: none; padding: 2px 4px; color: var(--b2s-color-primary, #2563eb); cursor: pointer; font: inherit; }
   .ex__crumbs button.is-current { color: inherit; font-weight: 600; cursor: default; }
   .ex__crumbs i { color: var(--b2s-color-text-muted); font-size: 12px; }
-  .ex__lens { display: flex; gap: 4px; align-items: center; font-size: var(--b2s-fs-sm); }
-  .ex__lens span { margin-right: 4px; color: var(--b2s-color-text-muted); }
-  .ex__lens button { display: inline-flex; gap: 6px; align-items: center; padding: 5px 10px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface, #fff); cursor: pointer; }
-  .ex__lens button.is-on { border-color: var(--b2s-topbar-bg, #0e1218); background: var(--b2s-topbar-bg, #0e1218); color: #fff; }
+  .ex__tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .ex__seg { display: inline-flex; padding: 2px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface, #fff); }
+  .ex__seg button { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border: 0; border-radius: 999px; background: none; cursor: pointer; font-size: var(--b2s-fs-sm); }
+  .ex__seg button.is-on { background: var(--b2s-topbar-bg, #0e1218); color: #fff; }
   .ex__body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
   .ex__map { position: relative; overflow: hidden; border-radius: 12px; background: var(--b2s-color-border-soft, #eef1f5); }
-  .ex__box { position: absolute; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; padding: 8px 10px;
-    border: 0; border-radius: 8px; color: #1f2937; text-align: left; overflow: hidden; cursor: pointer; transition: filter 0.15s ease, box-shadow 0.15s ease; }
+  .ex__box { position: absolute; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; border: 0; border-radius: 8px;
+    color: #1f2937; text-align: left; overflow: hidden; cursor: pointer; transition: filter 0.15s ease, box-shadow 0.15s ease; }
   .ex__box:hover { filter: brightness(0.96); box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.35); }
   .ex__box.is-sel { box-shadow: inset 0 0 0 3px #0e1218; }
   .ex__box b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
   .ex__box small { font-size: 11px; opacity: 0.8; }
   .ex__in { position: absolute; right: 8px; bottom: 6px; display: inline-flex; gap: 4px; align-items: center; font-size: 11px; opacity: 0.7; }
+  .ex__list { overflow: auto; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
+  .ex__row { cursor: default; }
+  .ex__row:hover td { background: var(--b2s-color-surface-hover, #f5f8fc); }
+  .ex__row.is-sel td { background: #e8efff; }
+  .ex__name { display: flex; gap: 8px; align-items: center; min-width: 0; }
+  .ex__name small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); white-space: nowrap; }
+  .ex__name code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); max-width: 520px; }
+  .ex__folder { color: #e0a526; }
+  .ex__sort { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; cursor: pointer; color: inherit; }
+  .ex__sort.is-on { text-decoration: underline; }
+  .ex__num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ex__num.is-mid { color: #b45309; }
+  .ex__num.is-old { color: #b42318; font-weight: 600; }
+  .ex__share { width: 150px; white-space: nowrap; }
+  .ex__share small { margin-left: 6px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .ex__bar { display: inline-block; vertical-align: middle; width: 90px; height: 6px; border-radius: 3px; background: var(--b2s-color-border-soft, #eef1f5); overflow: hidden; }
+  .ex__bar span { display: block; height: 100%; background: var(--b2s-color-info-strong, #2563eb); }
+  .ex__empty { padding: 24px; color: var(--b2s-color-text-muted); text-align: center; }
   .ex__side { position: sticky; top: 12px; padding: 16px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
   .ex__side h2 { margin: 0 0 10px; font-size: 17px; overflow-wrap: anywhere; }
-  .ex__side h3 { margin: 14px 0 6px; font-size: var(--b2s-fs-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--b2s-color-text-muted); }
   .ex__side dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 12px 0 0; font-size: var(--b2s-fs-sm); }
   .ex__side dt { color: var(--b2s-color-text-muted); }
   .ex__side dd { margin: 0; text-align: right; }
   .ex__side dd small { color: var(--b2s-color-text-muted); }
-  .ex__types { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
-  .ex__files { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
-  .ex__files li { display: flex; justify-content: space-between; gap: 8px; min-width: 0; }
-  .ex__files code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); }
-  .ex__files span { white-space: nowrap; color: var(--b2s-color-text-muted); }
-  .ex__none { color: var(--b2s-color-text-muted); }
-  .ex__hint { margin: 12px 0 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .ex__path code { font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
+  .ex__hint { margin: 10px 12px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>

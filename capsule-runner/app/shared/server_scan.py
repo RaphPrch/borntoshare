@@ -69,7 +69,7 @@ function Fingerprint([string]$path, [long]$size) {
 _MEASURE = _COMMON + r"""
 $junk = [regex]::new($p.junk_pattern, 'IgnoreCase')
 $t = @{ bytes = [long]0; files = 0; folders = 0 }
-$top = @{}; $types = @{}
+$top = @{}; $types = @{}; $dirStats = @{}
 $cold1 = @{ bytes = [long]0; files = 0 }; $cold3 = @{ bytes = [long]0; files = 0 }
 $coldFiles = New-Object 'System.Collections.Generic.List[object]'
 $junkStat = @{ bytes = [long]0; files = 0; examples = New-Object 'System.Collections.Generic.List[string]' }
@@ -82,6 +82,14 @@ $onFile = {
   param($f)
   $size = [long]$f.Length; $rel = $f.FullName.Substring($cut); $when = $f.LastWriteTimeUtc
   $t.bytes += $size; $t.files++
+  # Every folder (5S scanner only, with_dirs): what is right in it; the scanner adds it up to the root
+  if ($p.with_dirs) {
+    $dk = [IO.Path]::GetDirectoryName($rel); if ($null -eq $dk) { $dk = '' }
+    $ds = $dirStats[$dk]; if ($null -eq $ds) { $ds = @{ b = [long]0; f = 0; c1 = [long]0; c3 = [long]0; l = [DateTime]::MinValue }; $dirStats[$dk] = $ds }
+    $ds.b += $size; $ds.f++
+    if ($when -lt $y1) { $ds.c1 += $size; if ($when -lt $y3) { $ds.c3 += $size } }
+    if ($when -gt $ds.l) { $ds.l = $when }
+  }
   $inside = $f.FullName.Substring($localCut); $slash = $inside.IndexOf('\')
   if ($slash -gt 0) { $first = $inside.Substring(0, $slash); if (-not $top.ContainsKey($first)) { $top[$first] = @{ bytes = [long]0; files = 0 } }; $top[$first].bytes += $size; $top[$first].files++ }
   $ext = $f.Extension.TrimStart('.').ToLowerInvariant(); if (-not $ext) { $ext = '—' } elseif ($ext.Length -gt 10) { $ext = $ext.Substring(0, 10) }
@@ -140,6 +148,11 @@ if ($state.last -gt [DateTime]::MinValue) { $r.last_modified = $state.last.ToStr
 $r.duplicates = @{ groups = [int]$groups.Count; files = [int]$dupFiles; wasted_bytes = [long]$wasted; truncated = [bool]$budgetHit; hashed = [int]$hashed }
 $r.duplicates.top = @($groups | Sort-Object wasted -Descending | Select-Object -First 10)
 $r.fingerprints = @($prints | ForEach-Object { $_ })
+if ($p.with_dirs) {
+  $r.dirs = @($dirStats.GetEnumerator() | Select-Object -First 50000 | ForEach-Object {
+    $l = $null; if ($_.Value.l -gt [DateTime]::MinValue) { $l = $_.Value.l.ToString('yyyy-MM-ddTHH:mm:ssZ') }
+    [pscustomobject]@{ p = [string]$_.Key; b = [long]$_.Value.b; f = [int]$_.Value.f; c1 = [long]$_.Value.c1; c3 = [long]$_.Value.c3; l = $l } })
+}
 $r.walk_ms = [long]$walkMs; $r.elapsed_ms = [long]$watch.ElapsedMilliseconds
 Send-Result $r
 """

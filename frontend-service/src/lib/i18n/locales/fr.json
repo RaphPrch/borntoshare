@@ -5436,5 +5436,17 @@
   "Main types": "Types principaux",
   "Biggest files here": "Plus gros fichiers ici",
   "No big file known here.": "Aucun gros fichier connu ici.",
-  "Click a block to see it, double-click to go inside. Colour: the share of old data, of duplicates or of clutter.": "Cliquez sur un bloc pour le voir, double-cliquez pour y entrer. Couleur : la part de données anciennes, de doublons ou d'encombrement."
+  "Click a block to see it, double-click to go inside. Colour: the share of old data, of duplicates or of clutter.": "Cliquez sur un bloc pour le voir, double-cliquez pour y entrer. Couleur : la part de données anciennes, de doublons ou d'encombrement.",
+  "The detailed tree appears after the next measure of this folder with the 5S module (Measure on its page).": "L'arborescence détaillée apparaît après la prochaine mesure de ce dossier avec le module 5S (Mesurer sur sa page).",
+  "View": "Vue",
+  "Explorer": "Explorateur",
+  "Blocks": "Blocs",
+  "Old > 1 year": "Ancien > 1 an",
+  "Old > 3 years": "Ancien > 3 ans",
+  "No sub-folder here: see its files in the Explorer view.": "Pas de sous-dossier ici : voyez ses fichiers dans la vue Explorateur.",
+  "{count} sub-folder(s)": "{count} sous-dossier(s)",
+  "Nothing more known here.": "Rien de plus de connu ici.",
+  "{count} file(s) right in this folder ({size}); the files of 1 MB and more are listed.": "{count} fichier(s) directement dans ce dossier ({size}) ; les fichiers de 1 Mo et plus sont listés.",
+  "Right in it": "Directement dedans",
+  "Click to see a folder, double-click (or its name) to go inside. The colour tells the share of old data.": "Cliquez pour voir un dossier, double-cliquez (ou cliquez sur son nom) pour y entrer. La couleur indique la part de données anciennes."
 }
