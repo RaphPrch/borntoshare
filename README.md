@@ -74,6 +74,6 @@ make lint              contrôle du code Python des quatre services (Ruff, règl
 | ![Tableau de bord](docs/screenshots/01-tableau-de-bord.png) Tableau de bord | ![Dossiers](docs/screenshots/02-dossiers.png) Dossiers : arborescence et détail |
 | ![Demandes d'accès](docs/screenshots/03-demandes-acces.png) Demandes d'accès | ![Serveurs](docs/screenshots/04-serveurs.png) Serveurs de fichiers |
 | ![Observabilité › Jobs](docs/screenshots/06-observabilite-jobs.png) Observabilité › Jobs | ![Politiques](docs/screenshots/07-politiques.png) Politiques intelligentes |
-| ![Connexion](docs/screenshots/08-connexion.png) Connexion | |
+| ![Zones](docs/screenshots/05-zones.png) Zones | ![Connexion](docs/screenshots/08-connexion.png) Connexion |
 
 Captures faites sur l'instance de démonstration (données de laboratoire).
