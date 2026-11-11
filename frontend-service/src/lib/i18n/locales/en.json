@@ -1473,5 +1473,8 @@
   "Never measured": "Never measured",
   "To scan": "To scan",
   "Sensitivity never scanned": "Sensitivity never scanned",
-  "started {when}": "started {when}"
+  "started {when}": "started {when}",
+  "5S measure": "5S measure",
+  "Measure stopped": "Measure stopped",
+  "Unable to stop the measure": "Unable to stop the measure"
 }

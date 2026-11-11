@@ -36,6 +36,9 @@ export type AdminProvisioningJob = {
   retryable?: boolean;
   /** The person who started it (none: the schedule, a policy, the worker) */
   requested_by?: string | null;
+  /** A measure of the 5S scanner (lives in the module: no detail, stopped through its folder) */
+  external?: boolean;
+  progress?: { chunks_total?: number; chunks_done?: number; files?: number; current?: string | null } | null;
   retry_elsewhere?: string | null;
 };
 

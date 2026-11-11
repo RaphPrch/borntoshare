@@ -269,3 +269,52 @@ def purge_history(db: Session) -> int:
         total += int(result.rowcount or 0)
     db.commit()
     return total
+
+
+_FIVES_STATUS = {"queued": "QUEUED", "running": "RUNNING", "done": "SUCCEEDED", "failed": "FAILED", "delegated": "SUCCEEDED", "cancelled": "CANCELLED"}
+
+
+def fives_jobs(limit: int = 200) -> list[dict[str, Any]]:
+    """The measures of the 5S scanner, shaped like the other jobs (id negative: they live in the module, no detail here)."""
+    from datetime import datetime
+
+    from app.core.db import SessionLocal
+    from app.services.modules import list_runs
+
+    runs = list_runs(limit)
+    if not runs:
+        return []
+
+    def stamp(value: Any) -> datetime | None:
+        try:
+            return datetime.fromisoformat(str(value)) if value else None
+        except ValueError:
+            return None
+
+    now = datetime.utcnow()
+    with SessionLocal() as db:
+        names = _names(db, "storage_roots", {int(run["storage_root_id"]) for run in runs if run.get("storage_root_id")})
+    out = []
+    for run in runs:
+        created, started, finished = stamp(run.get("requested_at")), stamp(run.get("started_at")), stamp(run.get("finished_at"))
+        status = _FIVES_STATUS.get(str(run.get("status") or ""), str(run.get("status") or "").upper())
+        progress = _load(run.get("progress_json"))
+        root_id = _int(run.get("storage_root_id"))
+        heartbeat = stamp(run.get("heartbeat_at"))
+        out.append({
+            "id": -int(run["id"]), "correlation_id": f"5s-run-{run['id']}", "job_type": "FIVES_SCAN", "action": "fives_measure",
+            "status": status, "error_code": "FIVES_SCAN_FAILED" if status == "FAILED" else None, "error_message": run.get("error_message"),
+            "created_at": run.get("requested_at"), "started_at": run.get("started_at"), "finished_at": run.get("finished_at"),
+            "updated_at": run.get("heartbeat_at") or run.get("finished_at") or run.get("requested_at"),
+            # The module writes its request time in local time, its start in UTC: never a negative wait
+            "wait_seconds": max(0, int(((started or now) - created).total_seconds())) if created and started else None,
+            "run_seconds": int(((finished or now) - started).total_seconds()) if started else None,
+            "timeout_seconds": 6 * 3600, "queue": "5s", "attempts": int(run.get("attempts") or 1),
+            "target": {"kind": "folder", "id": root_id, "label": names.get(root_id) or f"#{root_id}", "href": f"/storage-roots?selected={root_id}"} if root_id else None,
+            "origin": str(run.get("reason") or "manual"), "requested_by": run.get("requested_by"),
+            "progress": progress or None,
+            # No news from the scanner for 30 min while running: stuck (its walk died)
+            "stuck": "running" if status == "RUNNING" and heartbeat and (now - heartbeat).total_seconds() > 1800 else None,
+            "retryable": False, "retry_elsewhere": "Folders › Measure", "external": True,
+        })
+    return out

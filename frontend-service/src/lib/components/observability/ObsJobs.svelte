@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
+  import { apiPostData } from '$lib/api/client';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -127,6 +128,20 @@
     await refresh(true);
   }
 
+  // A measure of the 5S scanner: stopped through its folder (the module closes it, the scanner stops before its next batch)
+  async function stopFives(job: Job) {
+    busy = true;
+    try {
+      await apiPostData(fetch, `/storage-roots/${job.target?.id}/stop`, { kind: 'measure' });
+      toast.success(t('Measure stopped'));
+      await refresh(true);
+    } catch (error: unknown) {
+      reportUiError(error, t('Unable to stop the measure'), 'observability.jobs.stop-5s');
+    } finally {
+      busy = false;
+    }
+  }
+
   async function confirmCancel() {
     const job = cancelling;
     cancelling = null;
@@ -244,7 +259,8 @@
         .join(' ')
         .includes(q);
     })
-    .sort((a, b) => Number(b.id) - Number(a.id));
+    // Newest first (the measures of the 5S scanner, listed with negative ids, are mixed in by date)
+    .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')) || Number(b.id) - Number(a.id));
   $: query, statusFilter, typeFilter, targetFilter, (page = 1);
   $: retryableShown = filtered.filter((job) => job.retryable).length;
   $: pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -343,14 +359,15 @@
           <tbody>
             {#each pageRows as job (job.id)}
               {@const share = isActiveJob(job.status) ? timeoutShare(job) : null}
-              <tr class="obs-row" class:is-open={detailId === Number(job.id)} on:click={() => openDetail(Number(job.id))}>
+              <tr class="obs-row" class:is-open={detailId === Number(job.id)} on:click={() => !job.external && openDetail(Number(job.id))}>
                 <td>
                   <StatusBadge compact label={statusText(job)} variant={statusTone(job)} />
                   {#if Number(job.attempts ?? 1) > 1}<small class="obs-sub">{t('Attempt {n}', { n: job.attempts ?? 1 })}</small>{/if}
                 </td>
                 <td class="obs-main">
                   <strong>{jobTypeLabel(job.job_type, job.action)}</strong>
-                  <small class="mono">#{job.id} · {job.action ?? job.job_type}</small>
+                  <small class="mono">{job.external ? `5S · ${job.correlation_id}` : `#${job.id} · ${job.action ?? job.job_type}`}</small>
+                  {#if job.progress?.chunks_total && isActiveJob(job.status)}<small class="obs-sub">{t('Scan {done}/{total} · {files} file(s)', { done: job.progress.chunks_done, total: job.progress.chunks_total, files: Number(job.progress.files ?? 0).toLocaleString('fr-FR') })}</small>{/if}
                 </td>
                 <td class="obs-target">
                   {#if job.target}
@@ -383,7 +400,11 @@
                       <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{t('Retry')}
                     </button>
                   {/if}
-                  {#if job.stuck}
+                  {#if job.external}
+                    {#if isActiveJob(job.status) && job.target?.id}
+                      <button class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" type="button" disabled={busy} on:click={() => stopFives(job)}>{t('Stop')}</button>
+                    {/if}
+                  {:else if job.stuck}
                     <button class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" type="button" disabled={busy} on:click={() => (flushing = [job])}>{t('Flush')}</button>
                   {:else if isActiveJob(job.status)}
                     <button class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" type="button" disabled={busy} on:click={() => (cancelling = job)}>{t('Stop')}</button>

@@ -475,7 +475,11 @@ async def list_admin_jobs(
     )
     items = rows if isinstance(rows, list) else []
     # What each job worked on, its durations, stuck or not, can it be retried (without the bulky payloads)
-    return ui_list(job_board.summarize_rows(items))
+    jobs = job_board.summarize_rows(items)
+    # The measures of the 5S scanner live in the module: listed here too (unless a job type was asked)
+    if not job_type and not identity_source_id and not storage_root_access_profile_id:
+        jobs += [job for job in job_board.fives_jobs(limit) if not active_only or job["status"] in ("QUEUED", "RUNNING")]
+    return ui_list(jobs)
 
 
 async def _job_row(job_id: int) -> dict[str, Any]:

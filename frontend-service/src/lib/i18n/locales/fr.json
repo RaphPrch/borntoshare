@@ -5378,5 +5378,8 @@
   "Never measured": "Jamais mesuré",
   "To scan": "À analyser",
   "Sensitivity never scanned": "Sensibilité jamais analysée",
-  "started {when}": "lancée {when}"
+  "started {when}": "lancée {when}",
+  "5S measure": "Mesure 5S",
+  "Measure stopped": "Mesure arrêtée",
+  "Unable to stop the measure": "Impossible d'arrêter la mesure"
 }

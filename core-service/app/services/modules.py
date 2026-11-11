@@ -60,6 +60,21 @@ def push_measure(db: Session, storage_root_id: int, *, measured_at: datetime, by
         return False
 
 
+def list_runs(limit: int = 200) -> list[dict]:
+    """The scans of the 5S module (empty when it does not answer)."""
+    url = fives_url()
+    if not url:
+        return []
+    try:
+        response = httpx.get(f"{url}/internal/scans/runs", params={"limit": limit},
+                             headers={"x-internal-token": os.getenv("INTERNAL_TOKEN", "")}, timeout=10)
+        response.raise_for_status()
+        data = response.json().get("data")
+        return data if isinstance(data, list) else []
+    except (httpx.HTTPError, ValueError):
+        return []
+
+
 def stop_scan(storage_root_id: int, *, by: str | None) -> bool:
     """Stop the measure of the folder by the scanner of the 5S module (False: the module does not answer)."""
     url = fives_url()

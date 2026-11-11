@@ -27,7 +27,8 @@ const JOB_TYPE_LABELS: Record<string, () => string> = {
   SHARE_CREATE: () => t('Share creation'),
   SHARE_DELETE: () => t('Share deletion'),
   DFS_FOLDER_CREATE: () => t('DFS link creation'),
-  DFS_FOLDER_DELETE: () => t('DFS link deletion')
+  DFS_FOLDER_DELETE: () => t('DFS link deletion'),
+  FIVES_SCAN: () => t('5S measure')
 };
 
 /** Some job types cover several actions: the action tells them apart */
