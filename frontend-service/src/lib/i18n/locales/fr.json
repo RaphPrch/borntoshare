@@ -5367,5 +5367,12 @@
   "Cleaning of the names": "Nettoyage des noms",
   "Characters replaced in the names, e.g. {example}.": "Caractères remplacés dans les noms, par exemple {example}.",
   "Guardians, tags, ACL reading, export": "Gardiens, tags, lecture des ACL, export",
-  "Other actions": "Autres actions"
+  "Other actions": "Autres actions",
+  "Measure in progress": "Mesure en cours",
+  "Sensitivity scan in progress": "Analyse de sensibilité en cours",
+  "To measure": "À mesurer",
+  "Never measured": "Jamais mesuré",
+  "To scan": "À analyser",
+  "Sensitivity never scanned": "Sensibilité jamais analysée",
+  "started {when}": "lancée {when}"
 }

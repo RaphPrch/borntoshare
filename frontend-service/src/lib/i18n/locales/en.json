@@ -1461,5 +1461,13 @@
   "Characters replaced in the names, e.g. {example}.": "Characters replaced in the names, e.g. {example}.",
   "Guardians, tags, ACL reading, export": "Guardians, tags, ACL reading, export",
   "Other actions": "Other actions",
-  "{count} sensitive file(s) found by the last scan": "{count} sensitive file(s) found by the last scan"
+  "{count} sensitive file(s) found by the last scan": "{count} sensitive file(s) found by the last scan",
+  "In progress": "In progress",
+  "Measure in progress": "Measure in progress",
+  "Sensitivity scan in progress": "Sensitivity scan in progress",
+  "To measure": "To measure",
+  "Never measured": "Never measured",
+  "To scan": "To scan",
+  "Sensitivity never scanned": "Sensitivity never scanned",
+  "started {when}": "started {when}"
 }

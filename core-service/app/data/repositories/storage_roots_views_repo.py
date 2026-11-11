@@ -511,6 +511,27 @@ class StorageRootsViewsRepo(SQLViewRepo):
         from app.services.scans import states_by_root
 
         scan_state_by_root_id = states_by_root(self.db, storage_root_ids)
+
+        # Sensitivity scan per folder: running, done, failed (None: never asked)
+
+        sensitivity_state_by_root_id: dict[int, str] = {}
+
+        if storage_root_ids:
+
+            try:
+
+                from sqlalchemy import bindparam as _bp, text as _text
+
+
+                sensitivity_state_by_root_id = {int(r): str(st) for r, st in self.db.execute(
+
+                    _text("SELECT storage_root_id, status FROM storage_root_sensitivity WHERE storage_root_id IN :ids")
+
+                    .bindparams(_bp("ids", expanding=True)), {"ids": [int(i) for i in storage_root_ids]}).all()}
+
+            except Exception:
+
+                self.db.rollback()
         remediation_by_root_id = remediations_by_root(self.db, storage_root_ids)
         alerts_by_root_id = self._load_open_alerts_map(storage_root_ids)
         discovered_tree_by_root_id = self._load_discovered_tree_map(storage_root_ids)
@@ -538,6 +559,7 @@ class StorageRootsViewsRepo(SQLViewRepo):
                 payload[group] = groups.get(group) if groups is not None else None
             payload["remediation_status"] = remediation_by_root_id.get(storage_root_id)
             payload["measure_status"] = scan_state_by_root_id.get(storage_root_id)
+            payload["sensitivity_status"] = sensitivity_state_by_root_id.get(storage_root_id)
             # FSRM quota of the folder (None: no quota known)
             payload.update(quota_by_root_id.get(storage_root_id) or {"quota_status": None, "quota_limit_bytes": None, "quota_used_bytes": None,
                                                                       "quota_used_percent": None, "quota_pending_requests": 0})

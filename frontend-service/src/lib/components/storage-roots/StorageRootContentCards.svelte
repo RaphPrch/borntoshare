@@ -124,7 +124,8 @@
       aria-label={t('Progress of the scan')}>
       <span style={`width:${Math.round((scan.progress.chunks_done / scan.progress.chunks_total) * 100)}%`}></span>
     </div>
-    <small class="cc__note">{scan.progress.mode === 'incremental' ? t('Incremental: only the sub-folders changed since the last scan ({kept} kept as they are)', { kept: scan.progress.chunks_kept }) : t('Full walk')}{scan.progress.current ? ` · ${scan.progress.current}` : ''}</small>
+    <small class="cc__note">{scan.progress.mode === 'incremental' ? t('Incremental: only the sub-folders changed since the last scan ({kept} kept as they are)', { kept: scan.progress.chunks_kept }) : t('Full walk')}{scan.progress.current ? ` · ${scan.progress.current}` : ''}
+      {#if scan.requested_at} · {t('started {when}', { when: timeAgo(scan.requested_at) })}{/if}</small>
   {/if}
   {#if scan?.status === 'failed'}<p class="cc__fail" role="alert"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i>{t('The last measure failed')}: {scan.error}</p>{/if}
   {#if scan?.fallback_reason && content?.method === 'smb'}<p class="cc__note">{t('Measured through SMB (no duplicates): the server could not be walked on.')} <code>{scan.fallback_reason}</code></p>{/if}
