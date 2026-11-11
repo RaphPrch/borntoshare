@@ -1750,7 +1750,8 @@
     onCreateRoot={openCreateRoot}
     onCreateEndpoint={() => goto('/admin/storage-endpoints/new')}
   />
-{:else if browsing}
+{:else if browsing && $page.url.searchParams.get('bulk')}
+  <!-- Only for « ?bulk=… » (guardians given to many folders at once, from another page) -->
   <StorageRootTable
     rows={ctxRows}
     accessRequests={data.accessRequests ?? []}
@@ -1768,7 +1769,6 @@
     onFolderAction={data.user?.is_admin === true ? folderAction : null}
   />
 {:else}
-  <a class="sr-back" href="/storage-roots"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All folders')}</a>
   <EntityWorkspace title={t('Storage roots')} contentKey={selectedStorageRootId}>
     <svelte:fragment slot="list">
       <StorageRootTreePanel
@@ -1786,6 +1786,14 @@
       />
     </svelte:fragment>
 
+    {#if !selectedStorageRootId}
+      <!-- No folder chosen yet: the tree on the left holds them all (made for thousands of folders) -->
+      <div class="sr-none">
+        <i class="bi bi-folder2-open" aria-hidden="true"></i>
+        <h2>{t('Choose a folder in the tree')}</h2>
+        <p>{t('{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together.', { count: ctxRows.length })}</p>
+      </div>
+    {:else}
     <StorageRootDetailView
       {detailsLoading}
       {selectedStorageRootId}
@@ -1827,6 +1835,7 @@
       refreshKey={detailRefreshKey}
       explainLogin={explainParam}
     />
+    {/if}
   </EntityWorkspace>
 {/if}
 
@@ -1929,19 +1938,9 @@
 />
 
 <style>
-  .sr-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    position: relative;
-    z-index: 1;
-    margin: 16px 0 -14px 28px;
-    font-size: 13px;
-    color: var(--b2s-color-text-muted);
-    text-decoration: none;
-  }
 
-  .sr-back:hover {
-    color: var(--b2s-color-text);
-  }
+  .sr-none { display: grid; justify-items: center; gap: 8px; padding: 80px 24px; text-align: center; color: var(--b2s-color-text-muted); }
+  .sr-none i { font-size: 40px; }
+  .sr-none h2 { margin: 0; font-size: var(--b2s-fs-lg, 18px); color: var(--b2s-color-text); }
+  .sr-none p { margin: 0; max-width: 520px; font-size: var(--b2s-fs-sm); }
 </style>

@@ -124,9 +124,9 @@
       // Only what needs a look: a healthy server stays quiet
       dot: endpointTone(ep) === 'healthy' ? null : endpointTone(ep),
       badges: isDfs(ep) ? [] : alertBadge(ep),
-      children: isDfs(ep)
-        ? dfsChildren(ep, id)
-        : (rootsByEndpoint.get(id) ?? []).map((row) => rootNode(row, `ep:${id}|root:${Number(row?.id ?? row?.storage_root_id ?? 0)}`)).sort(byLabel)
+      // Only the servers here: their folders are on the folders page (the count says how many)
+      hint: (rootsByEndpoint.get(id) ?? []).length ? t('{count} folder(s)', { count: (rootsByEndpoint.get(id) ?? []).length }) : null,
+      children: []
     };
   }
 

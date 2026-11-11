@@ -1453,5 +1453,7 @@
   "{count} never measured": "{count} never measured",
   "Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.": "Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.",
   "{percent} % read": "{percent} % read",
-  "{n} stuck (no worker, or far beyond its timeout)": "{n} stuck (no worker, or far beyond its timeout)"
+  "{n} stuck (no worker, or far beyond its timeout)": "{n} stuck (no worker, or far beyond its timeout)",
+  "Choose a folder in the tree": "Choose a folder in the tree",
+  "{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together.": "{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together."
 }
