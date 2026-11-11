@@ -5423,5 +5423,18 @@
   "Unit": "Unité",
   "months": "mois",
   "years": "ans",
-  "{count} of the {total} biggest files": "{count} des {total} plus gros fichiers"
+  "{count} of the {total} biggest files": "{count} des {total} plus gros fichiers",
+  "(files of the folder)": "(fichiers du dossier)",
+  "(files of « {name} »)": "(fichiers de « {name} »)",
+  "Unable to load the scanned tree of this folder.": "Impossible de charger l'arborescence scannée de ce dossier.",
+  "No scanned tree yet: measure the folder with the 5S module on.": "Pas encore d'arborescence scannée : mesurez le dossier avec le module 5S activé.",
+  "Colour by": "Couleur selon",
+  "files": "fichiers",
+  "Open ({count} sub-folders)": "Ouvrir ({count} sous-dossiers)",
+  "of the folder": "du dossier",
+  "Not modified for 3 years": "Non modifié depuis 3 ans",
+  "Main types": "Types principaux",
+  "Biggest files here": "Plus gros fichiers ici",
+  "No big file known here.": "Aucun gros fichier connu ici.",
+  "Click a block to see it, double-click to go inside. Colour: the share of old data, of duplicates or of clutter.": "Cliquez sur un bloc pour le voir, double-cliquez pour y entrer. Couleur : la part de données anciennes, de doublons ou d'encombrement."
 }

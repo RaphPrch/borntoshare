@@ -185,7 +185,7 @@
           <span>{t('Next step')}</span>
         </div>
         {#each folders.slice(0, shown) as folder (folder.id)}
-          <button type="button" class="fs__row" on:click={() => goto(`/five-s/report/${folder.id}`)}>
+          <button type="button" class="fs__row" on:click={() => goto(`/five-s/explore/${folder.id}`)}>
             <span class="fs__name"><b>{folder.name}</b><small>{folder.server} · {folder.zone}{folder.size_bytes != null ? ` · ${formatBytes(folder.size_bytes)}` : ''}</small></span>
             <span><span class="fs__score" data-tone={tone(folder.score)}>{folder.score ?? '—'}</span></span>
             {#each PILLARS as pillar (pillar.key)}

@@ -1529,5 +1529,19 @@
   "Unit": "Unit",
   "months": "months",
   "years": "years",
-  "{count} of the {total} biggest files": "{count} of the {total} biggest files"
+  "{count} of the {total} biggest files": "{count} of the {total} biggest files",
+  "(files of the folder)": "(files of the folder)",
+  "(files of « {name} »)": "(files of « {name} »)",
+  "Unable to load the scanned tree of this folder.": "Unable to load the scanned tree of this folder.",
+  "Report": "Report",
+  "No scanned tree yet: measure the folder with the 5S module on.": "No scanned tree yet: measure the folder with the 5S module on.",
+  "Colour by": "Colour by",
+  "files": "files",
+  "Open ({count} sub-folders)": "Open ({count} sub-folders)",
+  "of the folder": "of the folder",
+  "Not modified for 3 years": "Not modified for 3 years",
+  "Main types": "Main types",
+  "Biggest files here": "Biggest files here",
+  "No big file known here.": "No big file known here.",
+  "Click a block to see it, double-click to go inside. Colour: the share of old data, of duplicates or of clutter.": "Click a block to see it, double-click to go inside. Colour: the share of old data, of duplicates or of clutter."
 }
