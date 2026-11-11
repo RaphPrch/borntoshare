@@ -256,6 +256,10 @@
         "title": "Storage root removed",
         "description": "Storage root \"{root}\" was removed from governance"
       },
+      "run_stopped": {
+        "title": "Run stopped",
+        "description": "A scan or a measure was stopped on the folder « {root} »"
+      },
       "probe_rerun": {
         "title": "Storage root probe re-run",
         "description": "Connectivity probe was re-run for storage root \"{root}\""

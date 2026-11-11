@@ -132,6 +132,19 @@
   }
   onDestroy(stopPolling);
 
+  async function stopRun() {
+    if (!rootId || busy) return;
+    busy = true;
+    try {
+      await apiPostData(fetch, `/storage-roots/${rootId}/stop`, { kind: 'sensitivity' });
+      await refresh();
+    } catch (error: unknown) {
+      reportUiError(error, 'Unable to stop the scan.', 'storage-roots.sensitivity.stop');
+    } finally {
+      busy = false;
+    }
+  }
+
   async function scan() {
     if (!rootId || busy) return;
     busy = true;
@@ -152,6 +165,7 @@
     <h2><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('Sensitivity')}</h2>
     <small>
       {#if running}{t('Scan in progress…')}
+        {#if isAdmin}· <button type="button" class="b2s-link-btn" disabled={busy} on:click={stopRun}>{t('Stop')}</button>{/if}
       {:else if state?.scanned_at}<span title={formatDateTime(state.scanned_at)}>{t('scanned {when}', { when: timeAgo(state.scanned_at) })}</span>
       {:else}{t('Never scanned')}{/if}
       {#if isAdmin && !running}

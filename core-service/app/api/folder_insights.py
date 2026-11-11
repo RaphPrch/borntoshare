@@ -103,3 +103,40 @@ def get_scan(root_id: int, request: Request, db: Session = Depends(get_db)):
     """The last measure of the folder (running, done, failed; on the server or through SMB)."""
     _folder(db, request, root_id)
     return ui_data({"scan": scans.get(db, int(root_id))})
+
+
+class StopPayload(BaseModel):
+    kind: str = Field(pattern="^(sensitivity|measure)$")
+
+
+@router.post("/{root_id}/stop")
+async def stop_run(root_id: int, payload: StopPayload, request: Request, db: Session = Depends(get_db)):
+    """Stop the sensitivity scan or the measure running on this folder: its job is cancelled (the worker skips
+    it), the folder no longer shows it running. A measure by the 5S scanner is marked stopped here."""
+    import uuid
+
+    from sqlalchemy import text as _text
+
+    from app.api import provisioning_internal
+    from app.core.direct_call import call_route
+
+    actor = actor_from_request(request)
+    require_admin(actor)
+    folder = _folder(db, request, root_id)
+    table = "storage_root_sensitivity" if payload.kind == "sensitivity" else "storage_root_scans"
+    row = db.execute(_text(f"SELECT status, job_id FROM {table} WHERE storage_root_id = :id"), {"id": int(root_id)}).mappings().first()
+    if not row or row["status"] != "running":
+        return ui_data({"stopped": False})
+    reason = f"Stopped by {actor.display_name or 'an administrator'} from the folder"
+    if row["job_id"]:
+        await call_route(provisioning_internal.cancel_provisioning_job, job_id=int(row["job_id"]), payload={
+            "correlation_id": f"stop_{uuid.uuid4().hex}", "reason": reason, "requested_by": actor.display_name or "operator", "source": "ui"})
+    if payload.kind == "measure":
+        scans.record_failure(db, int(root_id), row["job_id"], reason)
+    else:
+        from app.services import sensitivity as _sensitivity
+
+        _sensitivity.record_failure(db, int(root_id), row["job_id"], reason)
+        db.commit()
+    _audit(db, request, "storage_root.run_stopped", folder, {"kind": payload.kind, "job_id": row["job_id"]})
+    return ui_data({"stopped": True})

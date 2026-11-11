@@ -90,7 +90,7 @@
 
 <div class="ov">
   <div class="ov__col">
-    <StorageRootContentCards {content} {rootId} {onMeasured} />
+    <StorageRootContentCards {content} {rootId} {onMeasured} {isAdmin} />
     <StorageRootQuotaCard {rootId} {isAdmin} {isDfs} />
     <StorageRootSensitivityCard {rootId} {sensitivity} {isAdmin} />
     {#if ends.length}

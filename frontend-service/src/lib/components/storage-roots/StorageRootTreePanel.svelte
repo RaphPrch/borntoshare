@@ -196,13 +196,13 @@
           : []),
         // What the folder waits for: a run in progress, or never measured / never scanned
         ...((row as any)?.measure_status === 'running' || (row as any)?.sensitivity_status === 'running'
-          ? [{ label: t('In progress'), tone: 'info', icon: 'bi-arrow-repeat',
+          ? [{ label: '', tone: 'info', icon: 'bi-arrow-repeat',
                title: (row as any)?.measure_status === 'running' ? t('Measure in progress') : t('Sensitivity scan in progress') }]
           : [
               ...((row as any)?.content_size_bytes == null && (row as any)?.estimated_size_bytes == null && (row as any)?.measure_status !== 'done'
-                ? [{ label: t('To measure'), tone: 'neutral', icon: 'bi-rulers', title: t('Never measured') }] : []),
+                ? [{ label: '', tone: 'neutral', icon: 'bi-rulers', title: t('Never measured') }] : []),
               ...((row as any)?.sensitive_files == null
-                ? [{ label: t('To scan'), tone: 'neutral', icon: 'bi-shield', title: t('Sensitivity never scanned') }] : [])
+                ? [{ label: '', tone: 'neutral', icon: 'bi-shield', title: t('Sensitivity never scanned') }] : [])
             ]),
         ...(row?.inheritance_broken === true
           ? [{ label: t('No inheritance'), tone: 'neutral', icon: 'bi-scissors', title: t('The NTFS inheritance of this folder is disabled') }]

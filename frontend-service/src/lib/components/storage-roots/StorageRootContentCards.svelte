@@ -39,6 +39,7 @@
   type Shared = { files: number; bytes: number; with: number[]; examples: Array<{ path: string; size: number; also_in: string[] }> };
   export let content: Content | null = null;
   export let rootId: number | null = null;
+  export let isAdmin = false;
   /** A measure landed: the page reads the folder again */
   export let onMeasured: () => void = () => {};
 
@@ -64,6 +65,15 @@
     }
   }
   $: measuring = scan?.status === 'running';
+  async function stopMeasure() {
+    if (!rootId) return;
+    try {
+      await apiPostData(fetch, `/storage-roots/${rootId}/stop`, { kind: 'measure' });
+      await loadScan();
+    } catch (error: unknown) {
+      reportUiError(error, 'Unable to stop the measure.', 'storage-roots.measure.stop');
+    }
+  }
   $: measuring ? start() : stop();
   function start() {
     if (!timer) timer = setInterval(() => rootId && loadScan(), 3000);
@@ -114,6 +124,7 @@
     <h2>{t('Content')}</h2>
     <small>
       {#if measuring}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span> {scan?.progress ? t('Scan {done}/{total} · {files} file(s)', { done: scan.progress.chunks_done, total: scan.progress.chunks_total, files: scan.progress.files.toLocaleString('fr-FR') }) : t('Measure in progress…')}
+      {#if isAdmin}· <button type="button" class="b2s-link-btn" on:click={stopMeasure}>{t('Stop')}</button>{/if}
       {:else if content?.scanned_at}<span title={formatDateTime(content.scanned_at)}>{t('measured {when}', { when: timeAgo(content.scanned_at) })}</span>{#if content.mode === 'incremental'} · {t('incremental')}{/if}{#if content.method} · {content.method === 'server' ? t('on the server') : t('through SMB')}{content.elapsed_ms != null ? ` (${seconds(content.elapsed_ms)})` : ''}{/if}
       {:else}{t('Not measured yet')}{/if}
       {#if rootId && !measuring} · <button type="button" class="b2s-link-btn" disabled={busy} on:click={measure}>{content?.scanned_at ? t('Measure again') : t('Measure the folder')}</button>{/if}

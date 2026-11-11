@@ -45,6 +45,7 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'zone.provisioning_policy_updated': { titleKey: 'activity.zone.provisioning_policy_updated.title', descriptionKey: 'activity.zone.provisioning_policy_updated.description', badge: 'admin', scope: 'security', icon: 'shield-check' },
   'zone.storage_endpoint_added': { titleKey: 'activity.zone.storage_endpoint_added.title', descriptionKey: 'activity.zone.storage_endpoint_added.description', badge: 'admin', icon: 'hdd-network' },
   'job.failed': { titleKey: 'activity.job.failed.title', descriptionKey: 'activity.job.failed.description', badge: 'critical', icon: 'x-octagon' },
+  'storage_root.run_stopped': { titleKey: 'activity.storage_root.run_stopped.title', descriptionKey: 'activity.storage_root.run_stopped.description', badge: 'admin', icon: 'stop-circle' },
   'job.retried': { titleKey: 'activity.job.retried.title', descriptionKey: 'activity.job.retried.description', badge: 'admin', icon: 'arrow-counterclockwise' },
   'job.flushed': { titleKey: 'activity.job.flushed.title', descriptionKey: 'activity.job.flushed.description', badge: 'admin', icon: 'trash3' },
   'request.refused': { titleKey: 'activity.request.refused.title', descriptionKey: 'activity.request.refused.description', badge: 'info', icon: 'slash-circle' },

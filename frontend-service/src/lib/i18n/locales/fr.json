@@ -1434,6 +1434,10 @@
         "title": "Dossier retiré",
         "description": "Le dossier « {root} » a été retiré de la gouvernance"
       },
+      "run_stopped": {
+        "title": "Analyse arrêtée",
+        "description": "Une analyse ou une mesure a été arrêtée sur le dossier « {root} »"
+      },
       "probe_rerun": {
         "title": "Test du dossier relancé",
         "description": "Le test de connectivité a été relancé pour le dossier « {root} »"
