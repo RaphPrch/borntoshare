@@ -1455,5 +1455,8 @@
   "{percent} % read": "{percent} % read",
   "{n} stuck (no worker, or far beyond its timeout)": "{n} stuck (no worker, or far beyond its timeout)",
   "Choose a folder in the tree": "Choose a folder in the tree",
-  "{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together.": "{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together."
+  "{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together.": "{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together.",
+  "Name of the groups": "Name of the groups",
+  "Cleaning of the names": "Cleaning of the names",
+  "Characters replaced in the names, e.g. {example}.": "Characters replaced in the names, e.g. {example}."
 }

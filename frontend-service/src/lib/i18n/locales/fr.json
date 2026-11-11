@@ -5362,5 +5362,8 @@
   "{percent} % read": "{percent} % lu",
   "{n} stuck (no worker, or far beyond its timeout)": "{n} bloqué(s) (aucun worker, ou bien au-delà de son délai)",
   "Choose a folder in the tree": "Choisissez un dossier dans l'arbre",
-  "{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together.": "{count} dossier(s). Cherchez par nom ou chemin, ou avec tag:, gardien:, est:… ; Ctrl + clic en sélectionne plusieurs pour les analyser ou les mesurer ensemble."
+  "{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together.": "{count} dossier(s). Cherchez par nom ou chemin, ou avec tag:, gardien:, est:… ; Ctrl + clic en sélectionne plusieurs pour les analyser ou les mesurer ensemble.",
+  "Name of the groups": "Nom des groupes",
+  "Cleaning of the names": "Nettoyage des noms",
+  "Characters replaced in the names, e.g. {example}.": "Caractères remplacés dans les noms, par exemple {example}."
 }

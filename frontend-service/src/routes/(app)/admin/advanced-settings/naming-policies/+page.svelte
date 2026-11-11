@@ -98,7 +98,8 @@
     Number(policy.max_sam_length) <= 256
       ? null
       : t('Max sAM length must be between 8 and 256.');
-  $: formHasErrors = Boolean(replaceMapError || groupPrefixError || templateError || maxSamError);
+  // The sAM length and the folder code strategy keep their saved value (not shown: defaults that fit)
+  $: formHasErrors = Boolean(replaceMapError || groupPrefixError || templateError);
   $: isDirty = JSON.stringify(normalizedCurrent) !== initialSnapshot || replaceMapText !== initialReplaceMapSnapshot;
   $: canSave = !saving && isDirty && !formHasErrors;
 
@@ -131,6 +132,7 @@
 </script>
 
 <ConfigCard title={t('Naming policy')} subtitle={t('Global naming of the AD groups')} icon="bi-input-cursor-text">
+  <h3 class="nm-section">{t('Name of the groups')}</h3>
   <div class="adv-form-grid">
     <SettingRow label={t('Prefix')} help="Global prefix added to generated groups.">
       <input class="b2s-input" bind:value={policy.group_prefix} />
@@ -152,13 +154,10 @@
       {/if}
     </SettingRow>
 
-    <SettingRow label={t('Max sAM length')}>
-      <input class="b2s-input" type="number" min="8" max="256" bind:value={policy.max_sam_length} />
-      {#if maxSamError}
-        <FieldError>{maxSamError}</FieldError>
-      {/if}
-    </SettingRow>
+  </div>
 
+  <h3 class="nm-section">{t('Cleaning of the names')}</h3>
+  <div class="adv-form-grid">
     <SettingRow label={t('Uppercase normalization')}>
       <label class="checkbox">
         <input type="checkbox" bind:checked={policy.normalize_uppercase} />
@@ -166,14 +165,7 @@
       </label>
     </SettingRow>
 
-    <SettingRow label={t('Rootcode strategy')}>
-      <select class="form-select" bind:value={policy.rootcode_strategy}>
-        <option value="BASENAME">BASENAME</option>
-        <option value="PATH_ALL">PATH_ALL</option>
-      </select>
-    </SettingRow>
-
-    <SettingRow label={t('Replace map (JSON)')}>
+    <SettingRow label={t('Replace map (JSON)')} help={t('Characters replaced in the names, e.g. {example}.', { example: '{"é": "e", " ": "_"}' })}>
       <textarea class="b2s-input" rows="4" bind:value={replaceMapText}></textarea>
       {#if replaceMapError}
         <FieldError>{replaceMapError}</FieldError>
@@ -191,3 +183,8 @@
     </button>
   </div>
 </ConfigCard>
+
+<style>
+  .nm-section { margin: 4px 0 8px; font-size: var(--b2s-fs-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--b2s-color-text-muted); }
+  .nm-section:not(:first-of-type) { margin-top: 20px; }
+</style>

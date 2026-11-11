@@ -228,7 +228,24 @@
     if (!browser) return;
     // ?q=est:sensible (from a policy, a link…): the search opens filled in
     const initialQuery = $page.url.searchParams.get('q');
-    if (initialQuery) storageRootsUiStore.setQuery(initialQuery);
+    // Links from other pages (?zone=, ?endpoint=, ?filter=) become a search of the tree
+    const params = $page.url.searchParams;
+    const quoted = (value: string) => (/\s/.test(value) ? `"${value}"` : value);
+    const terms: string[] = [];
+    const zoneId = params.get('zone');
+    const zoneName = zoneId ? ctxRows.find((row: any) => String(row?.zone_id ?? '') === zoneId)?.zone_name : null;
+    if (zoneName) terms.push(`zone:${quoted(String(zoneName))}`);
+    const endpointParam = params.get('endpoint');
+    const endpointName = endpointParam
+      ? ctxRows.find((row: any) => String(row?.storage_endpoint_id ?? '') === endpointParam)?.storage_endpoint_name
+        ?? (data.endpoints ?? []).find((ep: any) => String(ep?.id ?? '') === endpointParam)?.name
+      : null;
+    if (endpointName) terms.push(`serveur:${quoted(String(endpointName))}`);
+    const FILTERS: Record<string, string> = { review: 'est:alerte', pending: 'est:demandes', 'no-guardian': 'est:sans-gardien' };
+    const filterParam = params.get('filter');
+    if (filterParam && FILTERS[filterParam]) terms.push(FILTERS[filterParam]);
+    if (initialQuery) terms.push(initialQuery);
+    if (terms.length) storageRootsUiStore.setQuery(terms.join(' '));
 
     const onProbeSync = (event: Event) => {
       const custom = event as CustomEvent<{
