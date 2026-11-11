@@ -60,7 +60,8 @@
     if (!silent) loadError = null;
     try {
       jobs = (await listAdminJobs(fetch, { limit: 500, exclude_job_type: showRoutine ? undefined : 'INFRA_HEALTH' })) ?? [];
-      if (detailId && silent) void openDetail(detailId, true);
+      // The open job is followed while it runs (a finished one no longer changes)
+      if (detailId && silent && detail && isActiveJob(detail.status)) void openDetail(detailId, true);
     } catch (error: unknown) {
       if (!silent) loadError = reportUiError(error, t('Unable to load jobs'), 'observability.jobs.refresh');
     } finally {

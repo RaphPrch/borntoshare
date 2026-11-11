@@ -20,7 +20,6 @@ router = APIRouter(prefix="/observability", tags=["observability"])
 
 PERIOD_HOURS = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}
 SEVERITY_RANK = {"critical": 4, "high": 3, "warning": 2, "info": 1}
-STUCK_MINUTES = 5
 
 
 def _iso(value: Any) -> str | None:
@@ -143,15 +142,20 @@ def _jobs(db: Session, hours: int) -> dict[str, Any]:
         ),
         {"hours": hours},
     ).mappings().first() or {}
-    stuck = db.execute(
+    # The same rule as Observability › Jobs: nobody took it, or it runs far beyond its timeout
+    from app.services.job_board import stuck_reason
+
+    active = db.execute(
         text(
             """
-            SELECT COUNT(*) FROM provisioning_jobs
-            WHERE UPPER(status) IN ('QUEUED', 'RETRYING') AND updated_at < NOW() - INTERVAL :minutes MINUTE
+            SELECT id, status, payload_json,
+                   TIMESTAMPDIFF(SECOND, created_at, COALESCE(started_at, UTC_TIMESTAMP())) AS wait_seconds,
+                   CASE WHEN started_at IS NULL THEN NULL ELSE TIMESTAMPDIFF(SECOND, started_at, UTC_TIMESTAMP()) END AS run_seconds
+            FROM provisioning_jobs WHERE status IN ('CREATED', 'QUEUED', 'RETRYING', 'RUNNING')
             """
-        ),
-        {"minutes": STUCK_MINUTES},
-    ).scalar()
+        )
+    ).mappings().all()
+    stuck = sum(1 for row in active if stuck_reason(dict(row)))
     items = [
         {**dict(r), "updated_at": _iso(r["updated_at"])}
         for r in db.execute(

@@ -48,6 +48,24 @@
     if ([...checked].some((id) => !present.has(id))) checked = new Set([...checked].filter((id) => present.has(id)));
   }
   let bulkBusy = false;
+  // The tip about the multiple selection: shown until the selection was used once (remembered in this browser)
+  const TIP_KEY = 'b2s.storageRoots.multiTipSeen';
+  let tipSeen = false;
+  onMount(() => {
+    try {
+      tipSeen = localStorage.getItem(TIP_KEY) === '1';
+    } catch {
+      // Storage unavailable: the tip stays
+    }
+  });
+  $: if (checked.size && !tipSeen) {
+    tipSeen = true;
+    try {
+      localStorage.setItem(TIP_KEY, '1');
+    } catch {
+      // Not remembered
+    }
+  }
   // What was never done on the folders (a click filters them, then Ctrl + A and an action)
   $: neverScanned = rows.filter((row) => matchesFolderQuery(row, parseFolderQuery('est:non-analyse').filters)).length;
   $: neverMeasured = rows.filter((row) => matchesFolderQuery(row, parseFolderQuery('est:non-mesure').filters)).length;
@@ -395,7 +413,7 @@
           {#if neverMeasured}<button type="button" class="b2s-link-btn" on:click={() => onQueryChange('est:non-mesure')}>{t('{count} never measured', { count: neverMeasured })}</button>{/if}
         </p>
       {/if}
-      <p class="tree-tip">{t('Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.')}</p>
+      {#if !tipSeen}<p class="tree-tip">{t('Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.')}</p>{/if}
     {/if}
   </div>
 </EntitySidebarTree>

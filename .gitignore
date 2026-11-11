@@ -35,3 +35,9 @@ capsule-runner/app/tests/test_dfs_action.py
 
 # Copies of the databases (make backup)
 backups/
+
+# Module 5S : livré à part (licence), jamais dans ce dépôt. Les dossiers restent sur le poste pour le build.
+fives-service/
+fives-scanner/
+wizard-ui/backend/app/sql/fives/
+wizard-ui/backend/app/sql/fives_inventory/

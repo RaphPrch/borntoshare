@@ -1452,5 +1452,6 @@
   "{count} never scanned": "{count} never scanned",
   "{count} never measured": "{count} never measured",
   "Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.": "Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.",
-  "{percent} % read": "{percent} % read"
+  "{percent} % read": "{percent} % read",
+  "{n} stuck (no worker, or far beyond its timeout)": "{n} stuck (no worker, or far beyond its timeout)"
 }

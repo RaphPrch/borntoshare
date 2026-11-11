@@ -125,7 +125,7 @@
     <span class="kpi__value"><b class:is-warn={jobs.failed + jobs.stuck > 0}>{jobs.failed + jobs.stuck}</b>
       <span>{t('out of {n} over {period}', { n: jobs.total, period: periodLabel })}</span>
     </span>
-    <span class="kpi__hint">{t('{n} queued for more than 5 min', { n: jobs.stuck })}</span>
+    <span class="kpi__hint">{t('{n} stuck (no worker, or far beyond its timeout)', { n: jobs.stuck })}</span>
   </a>
   <a class="kpi" href={tabHref('health')}>
     <span class="kpi__label">{t('Components down')}</span>

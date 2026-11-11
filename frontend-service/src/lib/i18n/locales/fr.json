@@ -5359,5 +5359,6 @@
   "{count} never scanned": "{count} jamais analysé(s)",
   "{count} never measured": "{count} jamais mesuré(s)",
   "Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.": "Ctrl + clic ou Maj + clic pour sélectionner plusieurs dossiers ; Ctrl + A prend tous ceux affichés, Échap désélectionne.",
-  "{percent} % read": "{percent} % lu"
+  "{percent} % read": "{percent} % lu",
+  "{n} stuck (no worker, or far beyond its timeout)": "{n} bloqué(s) (aucun worker, ou bien au-delà de son délai)"
 }
