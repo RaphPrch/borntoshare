@@ -1513,5 +1513,21 @@
   "{files} file(s) · {share} % of the folder": "{files} file(s) · {share} % of the folder",
   "The biggest old files": "The biggest old files",
   "Based on the date of last modification (Windows rarely keeps the date of last access).": "Based on the date of last modification (Windows rarely keeps the date of last access).",
-  "{count} file(s): copies, temporary and system files": "{count} file(s): copies, temporary and system files"
+  "{count} file(s): copies, temporary and system files": "{count} file(s): copies, temporary and system files",
+  "Path": "Path",
+  "Last change": "Last change",
+  "Show more ({count} groups in all)": "Show more ({count} groups in all)",
+  "Measure the folder again to see the volume of each type.": "Measure the folder again to see the volume of each type.",
+  "Biggest files": "Biggest files",
+  "Filter by path…": "Filter by path…",
+  "Filter by path": "Filter by path",
+  "No file in the inventory of the 5S module yet: measure the folder with the module on.": "No file in the inventory of the 5S module yet: measure the folder with the module on.",
+  "Show more ({count} files)": "Show more ({count} files)",
+  "The {count} biggest files kept by the inventory (files of 1 MB and more).": "The {count} biggest files kept by the inventory (files of 1 MB and more).",
+  "Files not modified for…": "Files not modified for…",
+  "Age": "Age",
+  "Unit": "Unit",
+  "months": "months",
+  "years": "years",
+  "{count} of the {total} biggest files": "{count} of the {total} biggest files"
 }

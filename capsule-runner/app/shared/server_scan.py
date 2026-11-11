@@ -85,7 +85,7 @@ $onFile = {
   $inside = $f.FullName.Substring($localCut); $slash = $inside.IndexOf('\')
   if ($slash -gt 0) { $first = $inside.Substring(0, $slash); if (-not $top.ContainsKey($first)) { $top[$first] = @{ bytes = [long]0; files = 0 } }; $top[$first].bytes += $size; $top[$first].files++ }
   $ext = $f.Extension.TrimStart('.').ToLowerInvariant(); if (-not $ext) { $ext = '—' } elseif ($ext.Length -gt 10) { $ext = $ext.Substring(0, 10) }
-  $types[$ext] = 1 + [int]$types[$ext]
+  if (-not $types.ContainsKey($ext)) { $types[$ext] = @{ files = 0; bytes = [long]0 } }; $types[$ext].files++; $types[$ext].bytes += $size
   if ($when -gt $state.last) { $state.last = $when }
   if ($when -lt $y1) {
     $cold1.bytes += $size; $cold1.files++
@@ -131,7 +131,7 @@ $r = [ordered]@{}
 $r.method = 'server'; $r.local_path = $local
 $r.bytes = [long]$t.bytes; $r.files = [int]$t.files; $r.folders = [int]$t.folders; $r.truncated = $false; $r.denied_folders = [int]$state.denied
 $r.top = @($top.GetEnumerator() | ForEach-Object { [pscustomobject]@{ name = [string]$_.Key; bytes = [long]$_.Value.bytes; files = [int]$_.Value.files } } | Sort-Object bytes -Descending | Select-Object -First 8)
-$r.types = @($types.GetEnumerator() | ForEach-Object { [pscustomobject]@{ ext = [string]$_.Key; files = [int]$_.Value } } | Sort-Object files -Descending | Select-Object -First 8)
+$r.types = @($types.GetEnumerator() | ForEach-Object { [pscustomobject]@{ ext = [string]$_.Key; files = [int]$_.Value.files; bytes = [long]$_.Value.bytes } } | Sort-Object bytes -Descending | Select-Object -First 40)
 $r.cold = @{ '1y' = @{ bytes = [long]$cold1.bytes; files = [int]$cold1.files }; '3y' = @{ bytes = [long]$cold3.bytes; files = [int]$cold3.files } }
 $r.cold_top = @($coldFiles | Sort-Object bytes -Descending | Select-Object -First 5)
 $r.junk = @{ bytes = [long]$junkStat.bytes; files = [int]$junkStat.files; examples = @($junkStat.examples) }

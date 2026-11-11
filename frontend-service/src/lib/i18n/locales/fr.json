@@ -5409,5 +5409,19 @@
   "{files} file(s) · {share} % of the folder": "{files} fichier(s) · {share} % du dossier",
   "The biggest old files": "Les plus gros fichiers anciens",
   "Based on the date of last modification (Windows rarely keeps the date of last access).": "Basé sur la date de dernière modification (Windows tient rarement à jour la date de dernier accès).",
-  "{count} file(s): copies, temporary and system files": "{count} fichier(s) : copies, fichiers temporaires et système"
+  "{count} file(s): copies, temporary and system files": "{count} fichier(s) : copies, fichiers temporaires et système",
+  "Show more ({count} groups in all)": "Afficher plus ({count} groupes au total)",
+  "Measure the folder again to see the volume of each type.": "Mesurez à nouveau le dossier pour voir le volume de chaque type.",
+  "Biggest files": "Plus gros fichiers",
+  "Filter by path…": "Filtrer par chemin…",
+  "Filter by path": "Filtrer par chemin",
+  "No file in the inventory of the 5S module yet: measure the folder with the module on.": "Aucun fichier dans l'inventaire du module 5S : mesurez le dossier avec le module activé.",
+  "Show more ({count} files)": "Afficher plus ({count} fichiers)",
+  "The {count} biggest files kept by the inventory (files of 1 MB and more).": "Les {count} plus gros fichiers gardés par l'inventaire (fichiers de 1 Mo et plus).",
+  "Files not modified for…": "Fichiers non modifiés depuis…",
+  "Age": "Âge",
+  "Unit": "Unité",
+  "months": "mois",
+  "years": "ans",
+  "{count} of the {total} biggest files": "{count} des {total} plus gros fichiers"
 }

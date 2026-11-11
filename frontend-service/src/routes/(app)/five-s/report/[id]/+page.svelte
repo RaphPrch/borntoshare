@@ -13,7 +13,7 @@
   type Stats = {
     bytes?: number; files?: number; folders?: number; scanned_at?: string | null; elapsed_ms?: number; mode?: string; last_modified?: string | null;
     top?: Array<{ name: string; bytes: number; files: number }>;
-    types?: Array<{ ext: string; files: number }>;
+    types?: Array<{ ext: string; files: number; bytes?: number }>;
     cold?: Record<string, { bytes: number; files: number }>;
     cold_top?: Array<{ path: string; bytes: number; modified?: string | null }>;
     junk?: { bytes: number; files: number; examples?: string[] };
@@ -27,6 +27,17 @@
   let error: string | null = null;
   // Old files: the threshold chosen in the table (the measure keeps 1 year and 3 years)
   let coldSpan: '1y' | '3y' = '1y';
+  // Inventory of the 5S module: the biggest files (path, size, last change) and the identical ones among them
+  type InvFile = { path: string; size: number; modified: string | null };
+  type Group = { size: number; files: number; wasted: number; paths: string[] };
+  let invFiles: InvFile[] = [];
+  let invDuplicates: Group[] = [];
+  let fileQuery = '';
+  let showFiles = 50;
+  let showGroups = 30;
+  // Free threshold on the files of the inventory
+  let ageValue = 12;
+  let ageUnit: 'months' | 'years' = 'months';
 
   $: rootId = Number($page.params.id);
   onMount(async () => {
@@ -35,6 +46,9 @@
       name = String(overview?.storage_root_name ?? overview?.name ?? `#${rootId}`);
       path = String(overview?.root_path ?? '');
       stats = (overview?.content as Stats) ?? null;
+      const inventory = await apiGetData<{ files: InvFile[]; duplicates: Group[] }>(fetch, `/modules/fives/storage-roots/${rootId}/files`).catch(() => null);
+      invFiles = inventory?.files ?? [];
+      invDuplicates = inventory?.duplicates ?? [];
     } catch {
       error = t('Unable to load the report of this folder.');
     } finally {
@@ -46,7 +60,32 @@
   $: total = Number(stats?.bytes ?? 0);
   $: cold = stats?.cold?.[coldSpan] ?? null;
   $: duplicates = stats?.duplicates ?? null;
-  $: maxType = Math.max(1, ...(stats?.types ?? []).map((item) => item.files));
+  $: maxType = Math.max(1, ...(stats?.types ?? []).map((item) => item.bytes ?? item.files));
+  // Every group found: by the measure (also the smaller files) and in the inventory (the biggest ones), once each
+  $: allGroups = (() => {
+    const seen = new Map<string, Group>();
+    for (const group of [...(duplicates?.top ?? []), ...invDuplicates]) {
+      const key = `${group.size}|${[...group.paths].sort()[0] ?? ''}`;
+      const known = seen.get(key);
+      if (!known || group.paths.length > known.paths.length) seen.set(key, group);
+    }
+    return [...seen.values()].sort((a, b) => b.wasted - a.wasted);
+  })();
+  $: shownFiles = invFiles.filter((file) => !fileQuery.trim() || file.path.toLowerCase().includes(fileQuery.trim().toLowerCase()));
+  $: cutoff = (() => {
+    const date = new Date();
+    if (ageUnit === 'years') date.setFullYear(date.getFullYear() - Math.max(0, Number(ageValue) || 0));
+    else date.setMonth(date.getMonth() - Math.max(0, Number(ageValue) || 0));
+    return date.getTime();
+  })();
+  $: oldFiles = invFiles.filter((file) => file.modified && new Date(file.modified).getTime() < cutoff);
+  $: oldBytes = oldFiles.reduce((sum, file) => sum + file.size, 0);
+  const exportFiles = (rows: InvFile[], label: string) =>
+    downloadCsv(csvFilename(`${label}-${name}`), [
+      { header: t('Path'), value: (row: InvFile) => row.path },
+      { header: t('Size'), value: (row: InvFile) => row.size },
+      { header: t('Last change'), value: (row: InvFile) => row.modified ?? '' }
+    ], rows);
 
   const exportDuplicates = () =>
     downloadCsv(csvFilename(`doublons-${name}`), [
@@ -54,7 +93,7 @@
       { header: t('Copies'), value: (row: any) => row.files },
       { header: t('Space lost'), value: (row: any) => row.wasted },
       { header: t('Paths'), value: (row: any) => (row.paths ?? []).join(' | ') }
-    ], duplicates?.top ?? []);
+    ], allGroups);
 </script>
 
 <FivesTabs />
@@ -87,17 +126,18 @@
     <div class="rp__grid">
       <section class="rp__card rp__wide">
         <header><h2>{t('Duplicates')}</h2>
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!duplicates?.top?.length} on:click={exportDuplicates}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button></header>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!allGroups.length} on:click={exportDuplicates}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button></header>
         <p class="rp__hint">{t('The biggest groups of identical files (same content); the copies beyond the first are space lost.')}{duplicates?.truncated ? ` ${t('Only part of the files could be compared.')}` : ''}</p>
         <table class="b2s-table">
           <thead><tr><th>{t('Size')}</th><th>{t('Copies')}</th><th>{t('Space lost')}</th><th>{t('Where')}</th></tr></thead>
           <tbody>
-            {#each duplicates?.top ?? [] as group}
+            {#each allGroups.slice(0, showGroups) as group}
               <tr><td>{formatBytes(group.size)}</td><td>{group.files}</td><td><b>{formatBytes(group.wasted)}</b></td>
                 <td class="rp__paths">{#each group.paths as file}<code title={file}>{file}</code>{/each}{#if group.files > group.paths.length}<small>{t('and {count} more', { count: group.files - group.paths.length })}</small>{/if}</td></tr>
             {:else}<tr><td colspan="4">{t('No duplicate found.')}</td></tr>{/each}
           </tbody>
         </table>
+        {#if allGroups.length > showGroups}<button type="button" class="b2s-link-btn" on:click={() => (showGroups += 50)}>{t('Show more ({count} groups in all)', { count: allGroups.length })}</button>{/if}
       </section>
 
       <section class="rp__card">
@@ -113,12 +153,13 @@
       <section class="rp__card">
         <header><h2>{t('File types')}</h2></header>
         <table class="b2s-table">
-          <thead><tr><th>{t('Extension')}</th><th class="rp__num">{t('Files')}</th></tr></thead>
+          <thead><tr><th>{t('Extension')}</th><th class="rp__num">{t('Volume')}</th><th class="rp__num">{t('Files')}</th></tr></thead>
           <tbody>{#each stats.types ?? [] as item}
-            <tr><td><span class="rp__bar" style={`--w:${Math.round((item.files / maxType) * 100)}%`}></span><code>.{item.ext || '—'}</code></td><td class="rp__num">{item.files.toLocaleString('fr-FR')}</td></tr>
+            <tr><td><span class="rp__bar" style={`--w:${Math.round(((item.bytes ?? item.files) / maxType) * 100)}%`}></span><code>.{item.ext || '—'}</code></td>
+              <td class="rp__num">{item.bytes != null ? formatBytes(item.bytes) : '—'}</td><td class="rp__num">{item.files.toLocaleString('fr-FR')}</td></tr>
           {/each}</tbody>
         </table>
-        <small class="rp__hint">{t('The 8 most frequent types.')}</small>
+        {#if (stats.types ?? []).some((item) => item.bytes == null)}<small class="rp__hint">{t('Measure the folder again to see the volume of each type.')}</small>{/if}
       </section>
 
       <section class="rp__card">
@@ -133,6 +174,36 @@
           <li><code title={file.path}>{file.path}</code><span>{formatBytes(file.bytes)}{file.modified ? ` · ${formatDateTime(file.modified)}` : ''}</span></li>
         {/each}</ul>
         <small class="rp__hint">{t('Based on the date of last modification (Windows rarely keeps the date of last access).')}</small>
+      </section>
+
+      <section class="rp__card rp__wide">
+        <header><h2>{t('Biggest files')}</h2>
+          <div class="rp__tools">
+            <input class="b2s-input" placeholder={t('Filter by path…')} bind:value={fileQuery} aria-label={t('Filter by path')} />
+            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!shownFiles.length} on:click={() => exportFiles(shownFiles, 'gros-fichiers')}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
+          </div></header>
+        {#if !invFiles.length}<p class="rp__hint">{t('No file in the inventory of the 5S module yet: measure the folder with the module on.')}</p>{:else}
+        <table class="b2s-table">
+          <thead><tr><th>{t('Path')}</th><th class="rp__num">{t('Size')}</th><th class="rp__num">{t('Last change')}</th></tr></thead>
+          <tbody>{#each shownFiles.slice(0, showFiles) as file}
+            <tr><td class="rp__path"><code title={file.path}>{file.path}</code></td><td class="rp__num">{formatBytes(file.size)}</td><td class="rp__num">{file.modified ? formatDateTime(file.modified) : '—'}</td></tr>
+          {/each}</tbody>
+        </table>
+        {#if shownFiles.length > showFiles}<button type="button" class="b2s-link-btn" on:click={() => (showFiles += 100)}>{t('Show more ({count} files)', { count: shownFiles.length })}</button>{/if}
+        <small class="rp__hint">{t('The {count} biggest files kept by the inventory (files of 1 MB and more).', { count: invFiles.length.toLocaleString('fr-FR') })}</small>{/if}
+      </section>
+
+      <section class="rp__card rp__wide">
+        <header><h2>{t('Files not modified for…')}</h2>
+          <div class="rp__tools">
+            <input class="b2s-input rp__age" type="number" min="0" bind:value={ageValue} aria-label={t('Age')} />
+            <select class="b2s-select" bind:value={ageUnit} aria-label={t('Unit')}><option value="months">{t('months')}</option><option value="years">{t('years')}</option></select>
+            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!oldFiles.length} on:click={() => exportFiles(oldFiles, 'fichiers-anciens')}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
+          </div></header>
+        <p class="rp__big">{formatBytes(oldBytes)} <small>{t('{count} of the {total} biggest files', { count: oldFiles.length.toLocaleString('fr-FR'), total: invFiles.length.toLocaleString('fr-FR') })}</small></p>
+        <ul class="rp__list">{#each oldFiles.slice(0, 15) as file}
+          <li><code title={file.path}>{file.path}</code><span>{formatBytes(file.size)} · {file.modified ? formatDateTime(file.modified) : '—'}</span></li>
+        {/each}</ul>
       </section>
 
       <section class="rp__card">
@@ -166,6 +237,11 @@
   .rp__bar { display: block; height: 3px; width: var(--w); max-width: 100%; margin-bottom: 4px; border-radius: 2px; background: var(--b2s-color-info-strong, #2563eb); }
   .rp__paths { display: grid; gap: 2px; max-width: 640px; }
   .rp__paths code, .rp__list code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); }
+  .rp__tools { display: flex; gap: 6px; align-items: center; }
+  .rp__tools .b2s-input { width: 220px; }
+  .rp__tools .rp__age { width: 80px; }
+  .rp__path { max-width: 720px; }
+  .rp__path code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); }
   .rp__big { margin: 0; font-size: 22px; font-weight: 600; }
   .rp__big small { display: block; font-size: var(--b2s-fs-xs); font-weight: 400; color: var(--b2s-color-text-muted); }
   .rp__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
