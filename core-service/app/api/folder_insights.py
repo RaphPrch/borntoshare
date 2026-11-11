@@ -132,6 +132,10 @@ async def stop_run(root_id: int, payload: StopPayload, request: Request, db: Ses
         await call_route(provisioning_internal.cancel_provisioning_job, job_id=int(row["job_id"]), payload={
             "correlation_id": f"stop_{uuid.uuid4().hex}", "reason": reason, "requested_by": actor.display_name or "operator", "source": "ui"})
     if payload.kind == "measure":
+        # Measured by the scanner of the 5S module: it is told to stop too (it checks before each batch)
+        from app.services import modules
+
+        modules.stop_scan(int(root_id), by=actor.display_name)
         scans.record_failure(db, int(root_id), row["job_id"], reason)
     else:
         from app.services import sensitivity as _sensitivity

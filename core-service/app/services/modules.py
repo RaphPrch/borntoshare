@@ -60,6 +60,21 @@ def push_measure(db: Session, storage_root_id: int, *, measured_at: datetime, by
         return False
 
 
+def stop_scan(storage_root_id: int, *, by: str | None) -> bool:
+    """Stop the measure of the folder by the scanner of the 5S module (False: the module does not answer)."""
+    url = fives_url()
+    if not url:
+        return False
+    try:
+        response = httpx.post(f"{url}/internal/scans/stop", json={"storage_root_id": int(storage_root_id), "by": by},
+                              headers={"x-internal-token": os.getenv("INTERNAL_TOKEN", "")}, timeout=10)
+        response.raise_for_status()
+        return True
+    except httpx.HTTPError:
+        logger.warning("FIVES_SCAN_NOT_STOPPED", extra={"storage_root_id": storage_root_id}, exc_info=True)
+        return False
+
+
 def request_scan(db: Session, storage_root_id: int, *, reason: str, by: str | None) -> bool:
     """Ask the scanner of the 5S module to measure the folder (False: the module does not answer)."""
     from sqlalchemy import text
