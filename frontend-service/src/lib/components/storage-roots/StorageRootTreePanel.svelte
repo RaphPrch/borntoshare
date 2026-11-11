@@ -403,6 +403,10 @@
           <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={bulkBusy} on:click={() => runBulk('measure', checkedRows)}>
             <i class="bi bi-rulers" aria-hidden="true"></i>{t('Measure')}
           </button>
+          <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/storage-roots?bulk=select&ids=${checkedRows.map((row) => rootId(row)).join(',')}`}
+            title={t('Guardians, tags, ACL reading, export')}>
+            <i class="bi bi-three-dots" aria-hidden="true"></i>{t('Other actions')}
+          </a>
         </div>
       </div>
     {:else if onBulkAnalysis}

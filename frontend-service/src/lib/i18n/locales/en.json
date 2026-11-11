@@ -1458,5 +1458,7 @@
   "{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together.": "{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together.",
   "Name of the groups": "Name of the groups",
   "Cleaning of the names": "Cleaning of the names",
-  "Characters replaced in the names, e.g. {example}.": "Characters replaced in the names, e.g. {example}."
+  "Characters replaced in the names, e.g. {example}.": "Characters replaced in the names, e.g. {example}.",
+  "Guardians, tags, ACL reading, export": "Guardians, tags, ACL reading, export",
+  "Other actions": "Other actions"
 }

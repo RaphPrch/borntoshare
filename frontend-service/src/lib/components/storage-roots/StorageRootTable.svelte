@@ -6,6 +6,7 @@
 </script>
 
 <script lang="ts">
+  import { page as pageStore } from '$app/stores';
   import { pulseOnIncrease } from '$lib/utils/motion';
   import { invalidate } from '$app/navigation';
   import { t } from '$lib/i18n';
@@ -246,6 +247,12 @@
   let tagIds = new Set<number>();
 
   let bulkStarted = false;
+  // ?bulk=select&ids=1,2,3: the folders chosen in the tree, ready for an action (guardians, tags, ACL, export)
+  $: if (!bulkStarted && isAdmin && initialBulk === 'select' && visible.length) {
+    bulkStarted = true;
+    const ids = new Set(String($pageStore.url.searchParams.get('ids') ?? '').split(',').map(Number).filter((id) => id > 0));
+    checked = new Set(visible.map((line) => line.id).filter((id) => ids.has(id)));
+  }
   $: if (!bulkStarted && isAdmin && initialBulk === 'guardians' && visible.length) {
     bulkStarted = true;
     checked = new Set(visible.map((line) => line.id));
