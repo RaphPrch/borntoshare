@@ -1460,5 +1460,6 @@
   "Cleaning of the names": "Cleaning of the names",
   "Characters replaced in the names, e.g. {example}.": "Characters replaced in the names, e.g. {example}.",
   "Guardians, tags, ACL reading, export": "Guardians, tags, ACL reading, export",
-  "Other actions": "Other actions"
+  "Other actions": "Other actions",
+  "{count} sensitive file(s) found by the last scan": "{count} sensitive file(s) found by the last scan"
 }

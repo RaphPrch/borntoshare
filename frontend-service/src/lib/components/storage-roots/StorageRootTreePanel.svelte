@@ -188,9 +188,16 @@
       selectId: rootId(row),
       dot: rowDot(row),
       // Only the exception is shown: a folder whose NTFS inheritance is disabled
-      badges: row?.inheritance_broken === true
-        ? [{ label: t('No inheritance'), tone: 'neutral', icon: 'bi-scissors', title: t('The NTFS inheritance of this folder is disabled') }]
-        : [],
+      badges: [
+        // Sensitive files found by the last scan (passwords, keys, personal or bank data, risky files)
+        ...(Number((row as any)?.sensitive_files ?? 0) > 0
+          ? [{ label: String((row as any).sensitive_files), tone: 'error', icon: 'bi-shield-lock',
+               title: t('{count} sensitive file(s) found by the last scan', { count: Number((row as any).sensitive_files) }) }]
+          : []),
+        ...(row?.inheritance_broken === true
+          ? [{ label: t('No inheritance'), tone: 'neutral', icon: 'bi-scissors', title: t('The NTFS inheritance of this folder is disabled') }]
+          : [])
+      ] as EntityTreeBadge[],
       searchText: [
         rootPath(row),
         row?.storage_root_code,

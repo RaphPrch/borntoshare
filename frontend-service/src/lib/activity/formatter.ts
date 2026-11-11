@@ -72,6 +72,8 @@ function varsFromEvent(ev: any) {
     : '';
   const actor =
     asStr(ev?.actor_display_name) ??
+    // The name the services record (auth.login, auth.logout, every action of a person)
+    asStr(ev?.actor_display) ??
     asStr(ev?.actor_name) ??
     asStr(ev?.actor_username) ??
     asStr(ev?.actor_email) ??

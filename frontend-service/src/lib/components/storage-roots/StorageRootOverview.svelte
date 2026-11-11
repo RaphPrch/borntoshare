@@ -93,35 +93,6 @@
     <StorageRootContentCards {content} {rootId} {onMeasured} />
     <StorageRootQuotaCard {rootId} {isAdmin} {isDfs} />
     <StorageRootSensitivityCard {rootId} {sensitivity} {isAdmin} />
-    <section class="ov__card" aria-label={t('Who reaches it')}>
-      <header><h2>{t('Who reaches it')}</h2><button type="button" class="b2s-link-btn" on:click={onOpenPermissions}>{t('All the permissions')} ›</button></header>
-      <form class="ov__who" on:submit|preventDefault={explain}>
-        <input class="b2s-input" bind:value={login} placeholder={t('Who reaches it? Type a login, e.g. paul.martin')} aria-label={t('Who reaches it?')} />
-        <button type="submit" class="b2s-btn b2s-btn-secondary" disabled={!login.trim()}>{t('Check')}</button>
-      </form>
-      {#if permissions?.groups.length}
-        {#each levels as entry (entry.level)}
-          {#each entry.groups as group (group.name)}
-            <div class="ov__level">
-              <span class={`ov__badge is-${entry.level}`}>{entry.level === 'write' ? t('Modify') : t('Read')}</span>
-              <span class="ov__group">
-                <strong>{t('{count} person(s)', { count: entry.people.length })}</strong>
-                <small><code>{group.name}</code> · {t('{count} member(s)', { count: group.members_count })} · {ACE_LABEL[group.ace]?.() ?? t('ACL not read')}</small>
-              </span>
-              <span class="ov__stack">
-                {#each entry.people.slice(0, 5) as person (person.key)}
-                  <span class={`ov__face is-${entry.level}`} title={person.name}>{initials(person.name)}</span>
-                {/each}
-                {#if entry.people.length > 5}<span class="ov__face is-more">+{entry.people.length - 5}</span>{/if}
-              </span>
-            </div>
-          {/each}
-        {/each}
-      {:else}
-        <p class="ov__muted">{permissions?.acl_scanned_at ? t('Nobody reaches this folder through BornToShare yet.') : t('Read the ACL to see who reaches this folder.')}</p>
-      {/if}
-    </section>
-
     {#if ends.length}
       <section class="ov__card" aria-label={t('Next end dates')}>
         <header><h2>{t('Next end dates')}</h2></header>
@@ -192,21 +163,6 @@
   .ov__card header { display: flex; align-items: center; gap: 12px; }
   .ov__card h2 { margin: 0 auto 0 0; font-size: var(--b2s-fs-md); font-weight: 600; }
   .ov__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .ov__who { display: flex; gap: 8px; }
-  .ov__who .b2s-input { flex: 1; min-width: 0; }
-  .ov__level { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); }
-  .ov__badge { padding: 2px 9px; border-radius: var(--b2s-radius-pill); font-size: var(--b2s-fs-xs); font-weight: 600; }
-  .ov__badge.is-read { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
-  .ov__badge.is-write { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .ov__group { display: flex; flex-direction: column; min-width: 0; }
-  .ov__group strong { font-weight: 600; font-size: var(--b2s-fs-sm); }
-  .ov__group small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
-  .ov__group code { font-family: var(--b2s-font-mono); color: inherit; background: none; padding: 0; }
-  .ov__stack { display: flex; }
-  .ov__face { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; margin-left: -7px; border: 2px solid var(--b2s-color-surface); border-radius: 50%; background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: 10px; font-weight: 700; }
-  .ov__stack .ov__face:first-child { margin-left: 0; }
-  .ov__face.is-write { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .ov__face.is-more { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-soft); }
   .ov__face.is-small { margin: 0; border: 0; }
   .ov__face.is-tiny { width: 22px; height: 22px; margin: 0; border: 0; }
   .ov__ends { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
