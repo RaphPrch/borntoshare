@@ -246,3 +246,26 @@ def retry_payload(row: dict[str, Any]) -> dict[str, Any]:
             target.update(incremental_params(root_id))
             body["target"] = target
     return payload
+
+
+# How long the history of the jobs is kept (days); the routine health checks pile up, they go first
+KEEP_DAYS = {"health": 2, "succeeded": 30, "finished": 90}
+PURGE_BATCH = 5000
+
+
+def purge_history(db: Session) -> int:
+    """Old finished jobs are deleted (never a queued or running one), a batch at a time. Returns how many."""
+    rules = [
+        ("UPPER(job_type) = 'INFRA_HEALTH' AND UPPER(status) = 'SUCCEEDED'", KEEP_DAYS["health"]),
+        ("UPPER(status) = 'SUCCEEDED'", KEEP_DAYS["succeeded"]),
+        ("UPPER(status) IN ('FAILED', 'CANCELLED')", KEEP_DAYS["finished"]),
+    ]
+    total = 0
+    for condition, days in rules:
+        result = db.execute(
+            text(f"DELETE FROM provisioning_jobs WHERE {condition} AND created_at < UTC_TIMESTAMP() - INTERVAL :days DAY LIMIT :batch"),
+            {"days": int(days), "batch": PURGE_BATCH},
+        )
+        total += int(result.rowcount or 0)
+    db.commit()
+    return total

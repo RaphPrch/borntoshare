@@ -50,6 +50,16 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
                 + (f" · queue error: {summary['queued_error']}" if summary.get("queued_error") else "")
                 + (f" · password missing for: {', '.join(summary['missing_secrets'])[:200]}" if summary.get("missing_secrets") else "")
             )
+            # The history of the jobs stays readable: the old finished ones go (Observability › Jobs)
+            try:
+                from app.services.job_board import purge_history
+
+                purged = purge_history(db)
+                if purged:
+                    message += f" · {purged} old job(s) removed from the history"
+            except Exception:
+                db.rollback()
+                logger.warning("JOB_HISTORY_PURGE_FAILED", exc_info=True)
         elif task == "data_sync":
             summary = await run_data_sync(db, trigger=trigger)
             status = summary.get("status", "success")

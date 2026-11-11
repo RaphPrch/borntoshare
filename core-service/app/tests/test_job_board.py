@@ -47,3 +47,19 @@ def test_jobs_tied_to_a_request_are_not_retried_here() -> None:
 def test_secrets_are_hidden_but_references_stay() -> None:
     shown = job_board.redact(job_board.envelope(_probe("x", "FAILED")))
     assert shown["auth"] == {"username": "u", "secret_ref": "sm://x", "password": "••••"}
+
+
+def test_the_purge_never_touches_a_job_in_progress() -> None:
+    seen = []
+
+    class _PurgeDb:
+        def execute(self, statement, params=None):
+            seen.append((str(statement), params))
+            return type("R", (), {"rowcount": 2})()
+
+        def commit(self):
+            pass
+
+    assert job_board.purge_history(_PurgeDb()) == 6
+    for statement, params in seen:
+        assert "QUEUED" not in statement and "RUNNING" not in statement and params["days"] >= 2
