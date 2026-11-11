@@ -180,7 +180,7 @@ services:
     environment:
       <<: *common-env
       B2S_CORE_URL: http://core-service:8000
-      FIVES_DB_HOST: ${FIVES_DB_HOST:-${DB_HOST}}
+      FIVES_DB_HOST: ${DB_HOST}
       FIVES_DB_PORT: ${DB_PORT:-3306}
       FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
       FIVES_DB_PASSWORD_FILE: /run/secrets/b2s_db_fives
@@ -209,7 +209,7 @@ services:
       <<: *common-env
       CORE_URL: http://core-service:8000
       SCANNER_ID: ${FIVES_SCANNER_ID:-scanner-1}
-      FIVES_DB_HOST: ${FIVES_DB_HOST:-${DB_HOST}}
+      FIVES_DB_HOST: ${DB_HOST}
       FIVES_DB_PORT: ${DB_PORT:-3306}
       FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
       FIVES_DB_PASSWORD_FILE: /run/secrets/b2s_db_fives
