@@ -48,6 +48,9 @@
     if ([...checked].some((id) => !present.has(id))) checked = new Set([...checked].filter((id) => present.has(id)));
   }
   let bulkBusy = false;
+  // What was never done on the folders (a click filters them, then Ctrl + A and an action)
+  $: neverScanned = rows.filter((row) => matchesFolderQuery(row, parseFolderQuery('est:non-analyse').filters)).length;
+  $: neverMeasured = rows.filter((row) => matchesFolderQuery(row, parseFolderQuery('est:non-mesure').filters)).length;
   async function runBulk(kind: 'sensitivity' | 'measure', targets: StorageRootRow[]) {
     if (!onBulkAnalysis || !targets.length || bulkBusy) return;
     bulkBusy = true;
@@ -385,7 +388,14 @@
         </div>
       </div>
     {:else if onBulkAnalysis}
-      <p class="tree-tip">{t('Ctrl + click or Shift + click to select several folders.')}</p>
+      {#if neverScanned || neverMeasured}
+        <p class="tree-todo">
+          {#if neverScanned}<button type="button" class="b2s-link-btn" on:click={() => onQueryChange('est:non-analyse')}>{t('{count} never scanned', { count: neverScanned })}</button>{/if}
+          {#if neverScanned && neverMeasured} · {/if}
+          {#if neverMeasured}<button type="button" class="b2s-link-btn" on:click={() => onQueryChange('est:non-mesure')}>{t('{count} never measured', { count: neverMeasured })}</button>{/if}
+        </p>
+      {/if}
+      <p class="tree-tip">{t('Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.')}</p>
     {/if}
   </div>
 </EntitySidebarTree>
@@ -425,5 +435,6 @@
   .tree-bulk__head b { font-weight: 600; }
   .tree-bulk__close { margin-left: auto; border: 0; background: none; padding: 2px; color: var(--b2s-color-text-muted); cursor: pointer; }
   .tree-bulk__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tree-todo { margin: 6px 0 0; font-size: var(--b2s-fs-xs); }
   .tree-tip { margin: 6px 0 0; color: var(--b2s-color-text-faint, #8a94a6); font-size: var(--b2s-fs-xs); }
 </style>

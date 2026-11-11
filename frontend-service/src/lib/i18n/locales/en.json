@@ -1448,5 +1448,9 @@
   "{count} job(s) started again": "{count} job(s) started again",
   "Not started again: {ids}": "Not started again: {ids}",
   "Start again the failed or stopped checks and scans shown": "Start again the failed or stopped checks and scans shown",
-  "Retry the {count} shown": "Retry the {count} shown"
+  "Retry the {count} shown": "Retry the {count} shown",
+  "{count} never scanned": "{count} never scanned",
+  "{count} never measured": "{count} never measured",
+  "Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.": "Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.",
+  "{percent} % read": "{percent} % read"
 }

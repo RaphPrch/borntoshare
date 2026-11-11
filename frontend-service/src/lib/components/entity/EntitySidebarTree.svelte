@@ -310,6 +310,17 @@
   }
 
   function onKeydown(event: KeyboardEvent): void {
+    // Several items: Escape clears the selection, Ctrl/Cmd + A takes every item shown
+    if (multiSelect && event.key === 'Escape' && checked.size) {
+      event.preventDefault();
+      onCheckedChange?.(new Set());
+      return;
+    }
+    if (multiSelect && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      onCheckedChange?.(new Set(rows.filter((item) => item.node.selectId != null).map((item) => String(item.node.selectId))));
+      return;
+    }
     const position = rows.findIndex((row) => row.node.key === focusedKey);
     const row = rows[position];
     if (!row) return;

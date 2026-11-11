@@ -5355,5 +5355,9 @@
   "{count} job(s) started again": "{count} job(s) relancé(s)",
   "Not started again: {ids}": "Non relancés : {ids}",
   "Start again the failed or stopped checks and scans shown": "Relancer les tests et analyses en échec ou arrêtés affichés",
-  "Retry the {count} shown": "Relancer les {count} affichés"
+  "Retry the {count} shown": "Relancer les {count} affichés",
+  "{count} never scanned": "{count} jamais analysé(s)",
+  "{count} never measured": "{count} jamais mesuré(s)",
+  "Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.": "Ctrl + clic ou Maj + clic pour sélectionner plusieurs dossiers ; Ctrl + A prend tous ceux affichés, Échap désélectionne.",
+  "{percent} % read": "{percent} % lu"
 }
