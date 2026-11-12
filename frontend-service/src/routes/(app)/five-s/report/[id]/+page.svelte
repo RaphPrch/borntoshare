@@ -252,7 +252,7 @@
 </div>
 
 <style>
-  .rp { display: grid; gap: 16px; }
+  .rp { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; padding: var(--b2s-page-padding); }
   .rp__head h1 { margin: 0 0 4px; font-size: 24px; }
   .rp__head p { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .rp__kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }

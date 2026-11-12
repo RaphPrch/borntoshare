@@ -129,11 +129,11 @@ async def run_access_expiry(db: Session, *, trigger: str) -> dict[str, Any]:
         _last_failure.pop(req_id, None)
 
     if not expired and not failed:
-        message = "No access to close" + (f" ({len(waiting)} waiting after a failure)" if waiting else "")
+        message = "Aucun accès à clore" + (f" ({len(waiting)} en attente après un échec)" if waiting else "")
     else:
-        message = f"{len(expired)} access(es) closed" + (f", {len(failed)} failed (retried in 6 h)" if failed else "")
+        message = f"{len(expired)} accès clos" + (f", {len(failed)} en échec (nouvel essai dans 6 h)" if failed else "")
         if waiting:
-            message += f", {len(waiting)} waiting after a failure"
+            message += f", {len(waiting)} en attente après un échec"
     return {
         "status": "partial" if failed else "success",
         "message": message,

@@ -62,11 +62,9 @@ def principal_of(username: str, realm: str) -> str:
 
 def kdcs_of(realm: str, hint: str | None = None) -> list[str]:
     """Domain controllers: the directory host first, then the A records of the domain from its DNS."""
-    from app.shared.ldap_client import hosts_of
-
     out: list[str] = []
     # Every controller of the directory host (« AD01, AD02 »), in order, then the domain's A records
-    for name in hosts_of(hint):
+    for name in name_resolution.hosts_of(hint):
         address = name_resolution.resolve(name) or name
         if address not in out:
             out.append(address)

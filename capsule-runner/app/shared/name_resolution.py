@@ -18,6 +18,14 @@ _dns_map: list[dict[str, Any]] = []
 _read_at = 0.0
 
 
+
+def hosts_of(value: str | None) -> list[str]:
+    """Domain controllers of a directory: « AD01.corp.local, AD02.corp.local » (commas, semicolons or spaces), in order.
+    Here (and not in ldap_client) because the 5S scanner image copies this module with winrm.py, not ldap_client."""
+    import re
+
+    return [part for part in re.split(r"[,;\s]+", str(value or "").strip()) if part]
+
 def _load() -> list[dict[str, Any]]:
     global _dns_map, _read_at
     if _read_at and time.monotonic() - _read_at < _CACHE_SECONDS:

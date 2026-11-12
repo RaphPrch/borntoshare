@@ -243,7 +243,7 @@
 </ConfirmActionModal>
 
 <style>
-  .dd { display: grid; gap: 14px; }
+  .dd { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; padding: var(--b2s-page-padding); }
   .dd__top { display: flex; justify-content: space-between; font-size: var(--b2s-fs-sm); }
   .dd__top a { display: inline-flex; gap: 6px; align-items: center; }
   .dd__head h1 { margin: 0 0 4px; font-size: 24px; }

@@ -68,5 +68,5 @@ async def run_dfs_read(db: Session, *, trigger: str) -> dict[str, Any]:
             target_display=str(endpoint.name), context_json={"links": links, "path": path, "trigger": trigger},
         )
     status = "failed" if failed and not read else "partial" if failed else "success"
-    message = f"{read} namespace(s) read, {failed} failed, {skipped} skipped" + (f" · {'; '.join(errors)[:300]}" if errors else "")
+    message = f"{read} espace(s) de noms relu(s), {failed} en échec, {skipped} ignoré(s)" + (f" · {'; '.join(errors)[:300]}" if errors else "")
     return {"status": status, "message": message, "read": read, "failed": failed, "skipped": skipped}

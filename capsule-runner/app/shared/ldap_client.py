@@ -6,6 +6,8 @@ from typing import Any
 from ldap3 import ALL, BASE, FIRST, LEVEL, SIMPLE, SUBTREE, Connection, Server, ServerPool, Tls
 from ldap3.core.exceptions import LDAPSSLConfigurationError
 
+from app.shared.name_resolution import hosts_of  # noqa: F401  (also used by the callers of ldap_client)
+
 
 def tls_config(verify_tls: bool, ca_pem: str | None = None, server_name: str | None = None) -> Tls:
     """Certificate check set on the directory: its CA (PEM) and, for a host given by IP, the name in the certificate."""
@@ -21,11 +23,6 @@ def tls_config(verify_tls: bool, ca_pem: str | None = None, server_name: str | N
         raise LDAPSSLConfigurationError(f"Invalid LDAP CA certificate: {exc}") from exc
 
 
-def hosts_of(value: str | None) -> list[str]:
-    """Domain controllers of a directory: « AD01.corp.local, AD02.corp.local » (commas, semicolons or spaces), in order."""
-    import re
-
-    return [part for part in re.split(r"[,;\s]+", str(value or "").strip()) if part]
 
 
 def _server(name: str, *, port: int, use_ssl: bool, verify_tls: bool, timeout: int, ca_pem: str | None, server_name: str | None) -> Server:

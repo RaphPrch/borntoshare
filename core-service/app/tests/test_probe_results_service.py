@@ -117,3 +117,26 @@ def test_a_test_that_reads_the_acl_keeps_the_last_measure(monkeypatch) -> None:
     )
     assert {key: root.discovered_permissions_json.get(key) for key in measured} == measured
     assert root.discovered_permissions_json["permissions_count"] == 1
+
+
+def test_a_test_that_brings_only_a_size_keeps_the_measure_and_its_history(monkeypatch) -> None:
+    """A size without statistics must not wipe the files, the age figures nor the kept previous measures."""
+    previous = [{"content_stats": {"files": 2}, "content_size_bytes": 10}]
+    root = StorageRoot(id=8016, storage_endpoint_id=0, name="Angers", root_path=r"\\files\angers", status="active",
+                       discovered_permissions_json={"permissions": [], "content_size_bytes": 1234, "content_stats": {"files": 280},
+                                                    "content_previous": previous, "content_scan_job_id": 9})
+
+    class _DB:
+        def get(self, model, ident):
+            return root
+
+    monkeypatch.setattr(provisioning_module.ProbeResultService, "record_storage_root_probe", lambda self, root_arg, **kwargs: None)
+    job = type("Job", (), {"id": 56, "action": "test_smb_root_access", "payload_json": {"payload": {"target": {"storage_root_id": 8016}}}})()
+    provisioning_module._persist_storage_root_probe_result(
+        _DB(), job_row=job, status_value="success",
+        result_json={"success": True, "message": "ok", "details": {"checks": [{"name": "root_acl", "ok": True}], "content_size_bytes": 999,
+                                                                   "permissions": [{"principal": "CORP\\g", "rights": "READ"}]}},
+    )
+    saved = root.discovered_permissions_json
+    assert saved["content_stats"] == {"files": 280} and saved["content_previous"] == previous and saved["content_size_bytes"] == 1234
+    assert saved["permissions_count"] == 1

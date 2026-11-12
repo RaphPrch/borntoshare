@@ -490,7 +490,7 @@
 />
 
 <style>
-  .fx { display: grid; gap: 14px; }
+  .fx { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; padding: var(--b2s-page-padding); }
   .fx__top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .fx__links { display: inline-flex; gap: 8px; flex-wrap: wrap; }
   .fx__head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }

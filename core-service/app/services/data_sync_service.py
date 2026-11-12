@@ -158,14 +158,14 @@ async def run_data_sync(db: Session, *, trigger: str) -> dict[str, Any]:
     failures = sum(len(part.get("failed") or []) for part in summary.values() if isinstance(part, dict))
     parts = []
     if "snapshots" in summary:
-        parts.append(f"{summary['snapshots']['started']} snapshot(s)")
+        parts.append(f"{summary['snapshots']['started']} instantané(s)")
     if "shares" in summary:
-        parts.append(f"{summary['shares']['started']} share discovery(ies)")
+        parts.append(f"{summary['shares']['started']} découverte(s) de partages")
     if "acl_drift" in summary:
-        parts.append(f"{summary['acl_drift']['acl_scans_started']} ACL scan(s)")
-    message = ("Started: " + ", ".join(parts)) if parts else "Nothing selected"
+        parts.append(f"{summary['acl_drift']['acl_scans_started']} lecture(s) d'ACL")
+    message = ("Lancé : " + ", ".join(parts)) if parts else "Rien de sélectionné"
     if failures:
-        message += f" · {failures} failed to start"
+        message += f" · {failures} non lancé(s)"
     summary["status"] = "partial" if failures else "success"
     summary["message"] = message
     return summary

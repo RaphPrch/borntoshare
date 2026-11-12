@@ -5645,5 +5645,13 @@
   "SYSTEM, Administrators and Domain admins already count. Add the accounts renamed by your hardening (the built-in Administrator…).": "SYSTEM, Administrateurs et Admins du domaine comptent déjà. Ajoutez les comptes renommés par votre durcissement (l'Administrateur intégré…).",
   "e.g. CORP\\sla-prd": "ex. CORP\\sla-prd",
   "Account name": "Nom du compte",
-  "These accounts are expected on every folder: they no longer raise « account outside BornToShare ».": "Ces comptes sont attendus sur chaque dossier : ils ne lèvent plus « compte hors BornToShare »."
+  "These accounts are expected on every folder: they no longer raise « account outside BornToShare ».": "Ces comptes sont attendus sur chaque dossier : ils ne lèvent plus « compte hors BornToShare ».",
+  "Backup, database or disk image": "Sauvegarde, base de données ou image disque",
+  "IBAN": "IBAN",
+  "Mailbox file": "Fichier de boîte aux lettres",
+  "Password on a net use / net user command": "Mot de passe sur une commande net use / net user",
+  "Password written in a script": "Mot de passe écrit dans un script",
+  "Payment card number": "Numéro de carte bancaire",
+  "Program or script": "Programme ou script",
+  "Social security number": "Numéro de sécurité sociale"
 }

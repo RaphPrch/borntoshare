@@ -537,10 +537,11 @@ def _persist_storage_root_probe_result(
         )
         if permissions or acl_check_succeeded:
             # The test reads the ACL; the content comes from the measure (its own job): kept as it is when the test did not measure
+            # Only the ACL part changes: the measure (content_stats, the kept previous measures, 5S figures) stays as it is,
+            # unless this test brought a full measure of its own. A new dict, so that the JSON column is seen as changed.
             previous = root.discovered_permissions_json if isinstance(root.discovered_permissions_json, dict) else {}
-            kept = {key: previous.get(key) for key in ("content_size_bytes", "content_updated_at", "content_stats", "content_scan_job_id")
-                    if previous.get(key) is not None} if content_size_bytes is None else {}
-            root.discovered_permissions_json = {
+            updated = {
+                **previous,
                 "discovered_at": checked_at.isoformat(),
                 "source": "storage_root_probe",
                 "probe_job_id": int(getattr(job_row, "id", 0) or 0) or None,
@@ -548,13 +549,13 @@ def _persist_storage_root_probe_result(
                 "permissions_count": len(permissions),
                 # Security descriptor flags of the folder: PD = inheritance from the parent broken
                 "control": str(details.get("permissions_control") or "").strip() or None,
-                "content_size_bytes": content_size_bytes,
-                "content_updated_at": content_scanned_at,
-                # Files, sub-folders, weight of the first-level sub-folders and file types (worker listing)
-                "content_stats": details.get("content_stats") if isinstance(details.get("content_stats"), dict) else None,
             }
-            if kept:
-                root.discovered_permissions_json = {**root.discovered_permissions_json, **kept}
+            probe_stats = details.get("content_stats") if isinstance(details.get("content_stats"), dict) else None
+            if probe_stats is not None or previous.get("content_size_bytes") is None:
+                # A measure from the test itself (files, sub-folders, first-level weights, types), or none known yet
+                updated.update({"content_size_bytes": content_size_bytes, "content_updated_at": content_scanned_at,
+                                "content_stats": probe_stats if probe_stats is not None else previous.get("content_stats")})
+            root.discovered_permissions_json = updated
         endpoint_id = int(getattr(root, "storage_endpoint_id", 0) or 0)
         if endpoint_id > 0:
             endpoint = db.get(StorageEndpoint, endpoint_id)

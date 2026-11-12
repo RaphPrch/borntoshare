@@ -329,7 +329,7 @@ def run_all(db: Session, *, policy_id: int | None = None, only_root_ids: set[int
 
     policies = [p for p in list_policies(db) if p["enabled"] and (policy_id is None or p["id"] == int(policy_id))]
     if not policies:
-        return {"status": "success", "message": "No active policy", "results": []}
+        return {"status": "success", "message": "Aucune politique active", "results": []}
     rows = folder_rows(db)
     results, failed = [], []
     for policy in policies:
@@ -352,8 +352,8 @@ def run_all(db: Session, *, policy_id: int | None = None, only_root_ids: set[int
     matched = sum(r["matched"] for r in results)
     new = sum(r["new"] for r in results)
     jobs = [job for r in results for job in r["jobs"]]
-    message = (f"{len(results)} policy(ies): {matched} folder(s) matching, {new} new"
-               + (f", {len(jobs)} task(s) for the workers" if jobs else "") + (f" · failed: {', '.join(failed)}" if failed else ""))
+    message = (f"{len(results)} politique(s) : {matched} dossier(s) concerné(s), {new} nouveau(x)"
+               + (f", {len(jobs)} tâche(s) pour les workers" if jobs else "") + (f" · en échec : {', '.join(failed)}" if failed else ""))
     return {"status": "partial" if failed else "success", "message": message, "results": results, "jobs": jobs}
 
 

@@ -46,9 +46,9 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             summary = await run_health_check(db, trigger=trigger)
             status = "partial" if summary.get("queued_error") or summary.get("core_down") or summary.get("missing_secrets") else "success"
             message = (
-                f"{summary['core_checks']} checked by core-service, {summary['worker_targets']} sent to a worker"
-                + (f" · queue error: {summary['queued_error']}" if summary.get("queued_error") else "")
-                + (f" · password missing for: {', '.join(summary['missing_secrets'])[:200]}" if summary.get("missing_secrets") else "")
+                f"{summary['core_checks']} contrôlé(s) par core-service, {summary['worker_targets']} confié(s) à un worker"
+                + (f" · erreur de file : {summary['queued_error']}" if summary.get("queued_error") else "")
+                + (f" · mot de passe introuvable pour : {', '.join(summary['missing_secrets'])[:200]}" if summary.get("missing_secrets") else "")
             )
             # The history of the jobs stays readable: the old finished ones go (Observability › Jobs)
             try:
@@ -56,7 +56,7 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
 
                 purged = purge_history(db)
                 if purged:
-                    message += f" · {purged} old job(s) removed from the history"
+                    message += f" · {purged} ancienne(s) tâche(s) retirée(s) de l'historique"
             except Exception:
                 db.rollback()
                 logger.warning("JOB_HISTORY_PURGE_FAILED", exc_info=True)
@@ -73,7 +73,7 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
 
             reminders = expiry_reminders(db)
             if reminders:
-                message = f"{message} · {reminders} reminder(s)"
+                message = f"{message} · {reminders} rappel(s) envoyé(s)"
         elif task == "dfs_read":
             summary = await run_dfs_read(db, trigger=trigger)
             status = summary["status"]
