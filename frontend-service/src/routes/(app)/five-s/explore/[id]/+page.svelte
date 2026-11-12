@@ -3,53 +3,63 @@
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
   import { apiGetData } from '$lib/api/client';
-  import { formatBytes, formatDateTime } from '$lib/utils/format';
+  import { formatBytes, formatDate, timeAgo } from '$lib/utils/format';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
 
   /**
-   * Explorer of a scanned folder, down to the deepest level: blocks sized by volume (coloured by the 5S lens) or
-   * a file-explorer list; a click shows, a double-click (or the name in the list) goes inside.
+   * 5S of a scanned folder in one screen: the scanner banner and the figures, then either the explorer (tree and
+   * list, down to the deepest folder) or the 5S workshop (a score per pillar and the decisions to take), and on the
+   * right the sheet of the folder chosen: its dates, its rights and inheritance, its duplicates with the copy to keep.
    */
+  type Ace = { who: string; level: string; inherited: boolean };
   type Folder = { path: string; parent: string | null; name: string; depth: number; bytes: number; files: number; folders: number;
     direct_bytes: number; direct_files: number; cold1_bytes: number; cold3_bytes: number; last_modified: string | null;
-    last_access?: string | null; created_at?: string | null };
+    last_access?: string | null; created_at?: string | null; acl?: Ace[] | null; inheritance_broken?: boolean | null };
   type FileRow = { path: string; name: string; size: number; modified: string | null };
   type Level = { node: Folder | null; children: Folder[]; files: FileRow[] };
+  type Copy = { path: string; modified: string | null };
+  type Group = { fingerprint: string; size: number; wasted: number; copies: Copy[]; decision: { keep_path: string | null } | null };
+  type Scanner = { last: any; running: any; pieces: number; journal: boolean; last_full_at: string | null; window: any };
 
   let rootName = '';
+  let rootPath = '';
+  let junk: { bytes: number; files: number } = { bytes: 0, files: 0 };
+  let scanner: Scanner | null = null;
+  let groups: Group[] = [];
   let level: Level | null = null;
+  let trail: Folder[] = [];
+  let selected: Folder | null = null;
   let loading = true;
   let busy = false;
   let error: string | null = null;
-  let trail: Folder[] = [];
-  let selected: Folder | null = null;
-  let colourBy: 'age' | 'old3' = 'age';
-  let view: 'blocks' | 'list' = 'list';
-  let sortBy: 'bytes' | 'name' | 'files' | 'last' = 'bytes';
-  let width = 900;
-  const HEIGHT = 520;
+  let view: 'explorer' | 'workshop' = 'explorer';
+  let filter: 'all' | 'dormant' | 'dups' | 'broken' = 'all';
 
   $: rootId = Number($page.params.id);
-
-  async function load(path: string | null): Promise<Level | null> {
-    return apiGetData<Level>(fetch, `/modules/fives/storage-roots/${rootId}/folders`, path == null ? undefined : { path });
-  }
+  const NOW = Date.now();
+  const YEAR = 365 * 86400000;
+  const load = (path: string | null) =>
+    apiGetData<Level>(fetch, `/modules/fives/storage-roots/${rootId}/folders`, path == null ? undefined : { path });
 
   onMount(async () => {
     try {
-      try {
-        view = (localStorage.getItem('b2s.fives.explorer.view') as 'blocks' | 'list') || 'list';
-      } catch {
-        // Storage unavailable: the list
-      }
       const overview = await apiGetData<Record<string, any>>(fetch, `/storage-roots/${rootId}/overview`);
       rootName = String(overview?.storage_root_name ?? `#${rootId}`);
-      level = await load(null);
-      if (level?.node) {
-        trail = [level.node];
-        selected = level.node;
+      rootPath = String(overview?.root_path ?? '');
+      junk = { bytes: Number(overview?.content?.junk?.bytes ?? 0), files: Number(overview?.content?.junk?.files ?? 0) };
+      const [first, scan, dups] = await Promise.all([
+        load(null),
+        apiGetData<Scanner>(fetch, `/modules/fives/storage-roots/${rootId}/scanner`).catch(() => null),
+        apiGetData<{ groups: Group[] }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups`).catch(() => null)
+      ]);
+      level = first;
+      scanner = scan;
+      groups = dups?.groups ?? [];
+      if (first?.node) {
+        trail = [first.node];
+        selected = first.node;
       }
     } catch {
       error = t('Unable to load the scanned tree of this folder.');
@@ -58,17 +68,8 @@
     }
   });
 
-  function setView(next: 'blocks' | 'list') {
-    view = next;
-    try {
-      localStorage.setItem('b2s.fives.explorer.view', next);
-    } catch {
-      // Not remembered
-    }
-  }
-
   async function enter(folder: Folder) {
-    if (busy) return;
+    if (busy || folder.folders === 0) return;
     busy = true;
     try {
       const next = await load(folder.path);
@@ -76,6 +77,7 @@
         level = next;
         trail = [...trail, next.node];
         selected = next.node;
+        filter = 'all';
       }
     } finally {
       busy = false;
@@ -85,8 +87,7 @@
     if (busy || index === trail.length - 1) return;
     busy = true;
     try {
-      const target = trail[index];
-      const next = await load(index === 0 ? null : target.path);
+      const next = await load(index === 0 ? null : trail[index].path);
       if (next?.node) {
         level = next;
         trail = trail.slice(0, index + 1);
@@ -97,225 +98,292 @@
     }
   }
 
+  // ---- figures ------------------------------------------------------------------------------------------------
+  const SYSTEM = /^(AUTORITE NT|NT AUTHORITY|BUILTIN|CREATOR|CREATEUR|Tout le monde|Everyone)/i;
+  $: root = trail[0] ?? null;
   $: current = level?.node ?? null;
-  // Content of the folder clicked (without entering it), in the pane on the right
-  let preview: Level | null = null;
-  let previewFor = '';
-  $: if (selected && current && selected.path !== current.path && selected.path !== previewFor) void loadPreview(selected);
-  $: if (selected && current && selected.path === current.path) { preview = level; previewFor = current.path; }
-  async function loadPreview(folder: Folder) {
-    previewFor = folder.path;
-    preview = null;
-    const next = await load(folder.path).catch(() => null);
-    if (previewFor === folder.path) preview = next;
-  }
-  $: children = [...(level?.children ?? [])].sort((a, b) =>
-    sortBy === 'name' ? a.name.localeCompare(b.name, 'fr', { numeric: true })
-      : sortBy === 'files' ? b.files - a.files
-        : sortBy === 'last' ? String(b.last_modified ?? '').localeCompare(String(a.last_modified ?? ''))
-          : b.bytes - a.bytes);
-  $: files = [...(level?.files ?? [])].sort((a, b) =>
-    sortBy === 'name' ? a.name.localeCompare(b.name, 'fr', { numeric: true })
-      : sortBy === 'last' ? String(b.modified ?? '').localeCompare(String(a.modified ?? '')) : b.size - a.size);
+  const under = (path: string, folder: string) => !folder || path.toLowerCase().startsWith(folder.toLowerCase() + '\\');
+  const share = (part: number, whole: number) => (whole > 0 ? part / whole : 0);
+  const pct = (part: number, whole: number) => Math.round(share(part, whole) * 100);
+  const dormant = (folder: Folder) => Boolean(folder.last_access) && NOW - new Date(String(folder.last_access)).getTime() > 2 * YEAR;
+  const groupsUnder = (path: string) => groups.filter((group) => group.copies.some((copy) => under(copy.path, path)));
+  $: wasted = groups.reduce((sum, group) => sum + group.wasted, 0);
+  $: decided = groups.filter((group) => group.decision?.keep_path).length;
+  $: children = level?.children ?? [];
+  $: brokenHere = children.filter((folder) => folder.inheritance_broken);
+  $: explicitHere = children.filter((folder) => (folder.acl ?? []).some((ace) => !ace.inherited && !SYSTEM.test(ace.who)));
+  $: dormantBytes = children.filter(dormant).reduce((sum, folder) => sum + folder.bytes, 0);
 
-  // Squarified treemap: rectangles close to squares, the biggest first
-  type Box = { node: Folder; x: number; y: number; w: number; h: number };
-  function layout(items: Folder[], x: number, y: number, w: number, h: number): Box[] {
-    const list = items.filter((item) => item.bytes > 0).sort((a, b) => b.bytes - a.bytes);
-    const total = list.reduce((sum, item) => sum + item.bytes, 0);
-    if (!list.length || total <= 0 || w <= 0 || h <= 0) return [];
-    const scale = (w * h) / total;
-    const boxes: Box[] = [];
-    let rest = list;
-    while (rest.length) {
-      const short = Math.min(w, h);
-      let row: Folder[] = [];
-      let best = Infinity;
-      for (const item of rest) {
-        const next = [...row, item];
-        const area = next.reduce((sum, n) => sum + n.bytes * scale, 0);
-        const worst = Math.max(...next.map((n) => Math.max((short * short * n.bytes * scale) / (area * area), (area * area) / (short * short * n.bytes * scale))));
-        if (worst > best) break;
-        best = worst;
-        row = next;
-      }
-      const area = row.reduce((sum, n) => sum + n.bytes * scale, 0);
-      const thick = area / short;
-      let offset = 0;
-      for (const node of row) {
-        const length = (node.bytes * scale) / thick;
-        boxes.push(w >= h ? { node, x, y: y + offset, w: thick, h: length } : { node, x: x + offset, y, w: length, h: thick });
-        offset += length;
-      }
-      if (w >= h) { x += thick; w -= thick; } else { y += thick; h -= thick; }
-      rest = rest.slice(row.length);
-    }
-    return boxes;
-  }
-  $: boxes = view === 'blocks' ? layout(level?.children ?? [], 0, 0, width, HEIGHT) : [];
+  // ---- 5S scores (each one is explained on hover) --------------------------------------------------------------
+  $: seiri = root ? Math.round(100 * (1 - Math.min(1, 0.6 * share(root.cold1_bytes, root.bytes) + 4 * share(wasted, root.bytes)))) : 0;
+  $: seiton = root ? Math.round(100 * (1 - Math.min(1, 2 * share(root.direct_files, root.files)))) : 0;
+  $: seiso = root ? Math.round(100 * (1 - Math.min(1, 50 * share(junk.bytes, root.bytes)))) : 0;
+  $: seiketsu = children.length ? Math.round(100 * (1 - Math.min(1, share(brokenHere.length, children.length) + 0.5 * share(explicitHere.length, children.length)))) : 100;
+  $: lastDone = scanner?.last?.finished_at ? new Date(scanner.last.finished_at).getTime() : 0;
+  $: shitsuke = Math.round((lastDone && NOW - lastDone < 30 * 86400000 ? 50 : lastDone ? 25 : 0) + 50 * share(decided, groups.length || 1));
+  $: pillars = [
+    { jp: 'Seiri', fr: t('Sort'), score: seiri, how: t('Less old data and fewer duplicates: 100 − 60 % × share > 1 year − 4 × share lost to duplicates') },
+    { jp: 'Seiton', fr: t('Set in order'), score: seiton, how: t('Files filed in sub-folders rather than loose at the root') },
+    { jp: 'Seiso', fr: t('Shine'), score: seiso, how: t('Few clutter files (copies, temporary and system files)') },
+    { jp: 'Seiketsu', fr: t('Standardise'), score: seiketsu, how: t('Sub-folders that inherit their rights, without accounts added by hand') },
+    { jp: 'Shitsuke', fr: t('Sustain'), score: shitsuke, how: t('A recent measure (less than 30 days) and the duplicates decided') }
+  ];
+  $: score = Math.round(pillars.reduce((sum, pillar) => sum + pillar.score, 0) / pillars.length);
+  const tone = (value: number) => (value >= 70 ? '#047857' : value >= 45 ? '#B45309' : '#B91C1C');
 
-  const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : 0);
-  const oldShare = (folder: Folder) => (folder.bytes ? (colourBy === 'age' ? folder.cold1_bytes : folder.cold3_bytes) / folder.bytes : 0);
-  const colour = (folder: Folder) => {
-    const r = oldShare(folder);
-    return `hsl(${210 - r * 205} ${45 + r * 35}% ${88 - r * 30}%)`;
-  };
-  const ageTone = (folder: Folder) => (oldShare(folder) > 0.8 ? 'is-old' : oldShare(folder) > 0.4 ? 'is-mid' : '');
+  // ---- workshop: the decisions, from what was measured -----------------------------------------------------
+  type Card = { tag: string; tone: string; gain: string; title: string; detail: string; cta: string; href?: string; folder?: Folder };
+  $: columns = [
+    { key: 'seiri', title: t('Sort (Seiri)'), cards: [
+      ...groups.filter((group) => !group.decision?.keep_path).slice(0, 3).map((group): Card => ({
+        tag: t('Duplicate'), tone: 'dup', gain: `−${formatBytes(group.wasted)}`,
+        title: group.copies[0]?.path.split('\\').pop() ?? '', detail: t('{count} identical copies', { count: group.copies.length }),
+        cta: t('Choose the copies'), href: `/five-s/duplicates/${rootId}` })),
+      ...children.filter((folder) => share(folder.cold3_bytes, folder.bytes) > 0.8 && folder.bytes > 0).slice(0, 2).map((folder): Card => ({
+        tag: t('Old'), tone: 'old', gain: formatBytes(folder.cold3_bytes), title: t('« {name} »: nothing changed for 3 years', { name: folder.name }),
+        detail: t('Candidate for archiving.'), cta: t('See the folder'), folder }))
+    ] },
+    { key: 'seiton', title: t('Set in order (Seiton)'), cards: [
+      ...(current && current.direct_files > 50 && current.folders > 0 ? [{ tag: t('Loose files'), tone: 'old', gain: t('{count} files', { count: current.direct_files }),
+        title: t('Files loose at the root of « {name} »', { name: current.name || rootName }), detail: t('File them in the sub-folders.'), cta: t('See the folder'), folder: current } as Card] : [])
+    ] },
+    { key: 'seiso', title: t('Shine (Seiso)'), cards: [
+      ...(junk.files ? [{ tag: t('Clutter'), tone: 'junk', gain: `−${formatBytes(junk.bytes)}`, title: t('{count} clutter files', { count: junk.files }),
+        detail: t('Copies, temporary and system files.'), cta: t('See the report'), href: `/five-s/report/${rootId}` } as Card] : [])
+    ] },
+    { key: 'seiketsu', title: t('Standardise (Seiketsu)'), cards: [
+      ...brokenHere.slice(0, 3).map((folder): Card => ({ tag: t('Inheritance'), tone: 'inh', gain: t('broken'), title: t('« {name} » has its own rights', { name: folder.name }),
+        detail: t('Its inheritance is broken: check why.'), cta: t('See the rights'), folder })),
+      ...explicitHere.filter((folder) => !folder.inheritance_broken).slice(0, 2).map((folder): Card => ({ tag: t('Rights'), tone: 'acl', gain: t('explicit'),
+        title: t('Accounts added by hand on « {name} »', { name: folder.name }), detail: t('Prefer the groups of the folder.'), cta: t('See the rights'), folder }))
+    ] }
+  ];
+  $: decisions = columns.reduce((sum, column) => sum + column.cards.length, 0);
+
+  // ---- list --------------------------------------------------------------------------------------------------
+  $: rows = children.filter((folder) =>
+    filter === 'all' || (filter === 'dormant' && dormant(folder)) || (filter === 'dups' && groupsUnder(folder.path).length > 0) || (filter === 'broken' && folder.inheritance_broken));
+  $: files = filter === 'all' ? level?.files ?? [] : [];
+  const rights = (folder: Folder) =>
+    folder.acl == null ? { label: t('not read yet'), tone: 'none' }
+      : folder.inheritance_broken ? { label: t('Broken'), tone: 'warn' }
+        : (folder.acl ?? []).some((ace) => !ace.inherited && !SYSTEM.test(ace.who)) ? { label: t('Explicit'), tone: 'warn' } : { label: t('Inherited'), tone: 'ok' };
+  const FILTERS = (): Array<[typeof filter, string]> => [['all', t('All')], ['dormant', t('Not opened for 2 years')], ['dups', t('With duplicates')], ['broken', t('Broken inheritance')]];
+
+  // ---- sheet of the folder chosen -----------------------------------------------------------------------------
+  $: sheetGroups = selected ? groupsUnder(selected.path).slice(0, 3) : [];
+  /** The copy to keep: not a « copy », not in a download or backup folder, then the most recently changed */
+  function suggestion(group: Group): string {
+    const weak = /(copie|copy|\(\d+\)|download|t[ée]l[ée]chargement|backup|tmp|temp)/i;
+    const ranked = [...group.copies].sort((a, b) =>
+      Number(weak.test(a.path)) - Number(weak.test(b.path)) || String(b.modified ?? '').localeCompare(String(a.modified ?? '')) || a.path.length - b.path.length);
+    return group.decision?.keep_path ?? ranked[0]?.path ?? '';
+  }
+  $: chain = trail.map((folder) => ({ name: folder.name || rootName, broken: folder.inheritance_broken === true }));
+  const LEVEL = (): Record<string, string> => ({ F: t('Full control'), W: t('Modify'), R: t('Read') });
+  const levelLabel = (value: string) => (value.startsWith('!') ? `${t('Denied')} · ` : '') + (LEVEL()[value.replace('!', '')] ?? value);
 
   const exportLevel = () =>
-    downloadCsv(csvFilename(`explorateur-${rootName}`), [
-      { header: t('Type'), value: (row: any) => row.kind },
+    downloadCsv(csvFilename(`5s-${rootName}`), [
       { header: t('Path'), value: (row: any) => row.path },
-      { header: t('Size'), value: (row: any) => row.size },
-      { header: t('Files'), value: (row: any) => row.files ?? '' },
-      { header: t('Not modified for 1 year'), value: (row: any) => row.cold1 ?? '' },
-      { header: t('Last change'), value: (row: any) => row.last ?? '' }
-    ], [
-      ...children.map((f) => ({ kind: 'dossier', path: f.path, size: f.bytes, files: f.files, cold1: f.cold1_bytes, last: f.last_modified })),
-      ...files.map((f) => ({ kind: 'fichier', path: f.path, size: f.size, files: null, cold1: null, last: f.modified }))
-    ]);
+      { header: t('Size'), value: (row: any) => row.bytes },
+      { header: t('Files'), value: (row: any) => row.files },
+      { header: t('Created'), value: (row: any) => row.created_at ?? '' },
+      { header: t('Last change'), value: (row: any) => row.last_modified ?? '' },
+      { header: t('Last access'), value: (row: any) => row.last_access ?? '' },
+      { header: t('Not modified for 1 year'), value: (row: any) => row.cold1_bytes },
+      { header: t('Inheritance'), value: (row: any) => (row.inheritance_broken == null ? '' : row.inheritance_broken ? 'cassé' : 'hérité') }
+    ], children);
+  const duration = (ms: number | null | undefined) =>
+    ms ? (ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.floor(ms / 60000)} min ${String(Math.round((ms % 60000) / 1000)).padStart(2, '0')} s`) : '—';
 </script>
 
-<div class="ex">
-  <div class="ex__top">
+<div class="fx">
+  <div class="fx__top">
     <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/five-s"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
-    <span class="ex__links">
+    <span class="fx__links">
       <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/duplicates/${rootId}`}><i class="bi bi-files" aria-hidden="true"></i>{t('Duplicates')}</a>
       <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/report/${rootId}`}><i class="bi bi-file-earmark-text" aria-hidden="true"></i>{t('Report')}</a>
+      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={exportLevel} disabled={!children.length}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
     </span>
   </div>
+
   {#if loading}
     <LoadingState skeleton="rows" />
   {:else if error}
     <InlineAlert tone="error">{error}</InlineAlert>
-  {:else if !current}
+  {:else if !current || !root}
     <InlineAlert tone="info">{t('The detailed tree appears after the next measure of this folder with the 5S module (Measure on its page).')}</InlineAlert>
   {:else}
-    <header class="ex__head">
-      <nav class="ex__crumbs" aria-label={t('Path')}>
-        {#each trail as step, index (step.path + index)}
-          {#if index}<i class="bi bi-chevron-right" aria-hidden="true"></i>{/if}
-          <button type="button" class:is-current={index === trail.length - 1} disabled={busy} on:click={() => up(index)}>{index === 0 ? rootName : step.name}</button>
-        {/each}
-        {#if busy}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{/if}
-      </nav>
-      <div class="ex__tools">
-        <div class="ex__seg" role="radiogroup" aria-label={t('View')}>
-          <button type="button" class:is-on={view === 'list'} on:click={() => setView('list')}><i class="bi bi-list-ul" aria-hidden="true"></i>{t('Explorer')}</button>
-          <button type="button" class:is-on={view === 'blocks'} on:click={() => setView('blocks')}><i class="bi bi-grid-1x2" aria-hidden="true"></i>{t('Blocks')}</button>
-        </div>
-        <div class="ex__seg" role="radiogroup" aria-label={t('Colour by')}>
-          <button type="button" class:is-on={colourBy === 'age'} on:click={() => (colourBy = 'age')}>{t('Old > 1 year')}</button>
-          <button type="button" class:is-on={colourBy === 'old3'} on:click={() => (colourBy = 'old3')}>{t('Old > 3 years')}</button>
-        </div>
-        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={exportLevel}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
+    <header class="fx__head">
+      <div>
+        <nav class="fx__crumbs" aria-label={t('Path')}>
+          {#each trail as step, index (step.path + index)}
+            {#if index}<i class="bi bi-chevron-right" aria-hidden="true"></i>{/if}
+            <button type="button" class:is-current={index === trail.length - 1} disabled={busy} on:click={() => up(index)}>{index === 0 ? rootName : step.name}</button>
+          {/each}
+          {#if busy}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{/if}
+        </nav>
+        <h1>{current.name || rootName}</h1>
+      </div>
+      <div class="fx__tabs" role="tablist" aria-label={t('View')}>
+        <button type="button" role="tab" aria-selected={view === 'explorer'} class:is-on={view === 'explorer'} on:click={() => (view = 'explorer')}>{t('Explorer')}</button>
+        <button type="button" role="tab" aria-selected={view === 'workshop'} class:is-on={view === 'workshop'} on:click={() => (view = 'workshop')}>{t('5S workshop')}{#if decisions}<span>{decisions}</span>{/if}</button>
       </div>
     </header>
 
-    <div class="ex__body">
-      {#if view === 'blocks'}
-        <div class="ex__map" bind:clientWidth={width} style={`height:${HEIGHT}px`}>
-          {#each boxes as box (box.node.path)}
-            <button type="button" class="ex__box" class:is-sel={selected === box.node}
-              style={`left:${box.x}px;top:${box.y}px;width:${Math.max(0, box.w - 2)}px;height:${Math.max(0, box.h - 2)}px;background:${colour(box.node)}`}
-              title={`${box.node.name} · ${formatBytes(box.node.bytes)} · ${box.node.files.toLocaleString('fr-FR')} ${t('files')}`}
-              on:click={() => (selected = box.node)} on:dblclick={() => box.node.folders > 0 && enter(box.node)}>
-              {#if box.w > 70 && box.h > 34}
-                <b>{box.node.name}</b>
-                <small>{formatBytes(box.node.bytes)}{box.h > 52 ? ` · ${pct(box.node.bytes, current.bytes)} %` : ''}</small>
-                {#if box.node.folders > 0 && box.h > 70}<span class="ex__in"><i class="bi bi-folder2" aria-hidden="true"></i>{box.node.folders}</span>{/if}
-              {/if}
-            </button>
-          {:else}
-            <p class="ex__empty">{t('No sub-folder here: see its files in the Explorer view.')}</p>
-          {/each}
-        </div>
-      {:else}
-        <div class="ex__list">
-          <table class="b2s-table">
-            <thead>
-              <tr>
-                <th><button type="button" class="ex__sort" class:is-on={sortBy === 'name'} on:click={() => (sortBy = 'name')}>{t('Name')}</button></th>
-                <th class="ex__num"><button type="button" class="ex__sort" class:is-on={sortBy === 'bytes'} on:click={() => (sortBy = 'bytes')}>{t('Size')}</button></th>
-                <th class="ex__num"><button type="button" class="ex__sort" class:is-on={sortBy === 'files'} on:click={() => (sortBy = 'files')}>{t('Files')}</button></th>
-                <th class="ex__num">{t('Old > 1 year')}</th>
-                <th class="ex__num"><button type="button" class="ex__sort" class:is-on={sortBy === 'last'} on:click={() => (sortBy = 'last')}>{t('Last change')}</button></th>
-                <th class="ex__num">{t('Last access')}</th>
-                <th class="ex__num">{t('Created')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each children as folder (folder.path)}
-                <tr class="ex__row" class:is-sel={selected === folder} on:click={() => (selected = folder)} on:dblclick={() => folder.folders > 0 && enter(folder)}>
-                  <td class="ex__name">
-                    <i class="bi bi-folder-fill ex__folder" aria-hidden="true"></i>
-                    {#if folder.folders > 0}<button type="button" class="b2s-link-btn" on:click|stopPropagation={() => enter(folder)}>{folder.name}</button>{:else}<span>{folder.name}</span>{/if}
-                    {#if folder.folders > 0}<small>{t('{count} sub-folder(s)', { count: folder.folders })}</small>{/if}
-                  </td>
-                  <td class="ex__num">{formatBytes(folder.bytes)}</td>
-                  <td class="ex__num">{folder.files.toLocaleString('fr-FR')}</td>
-                  <td class={`ex__num ${ageTone(folder)}`}>{pct(folder.cold1_bytes, folder.bytes)} %</td>
-                  <td class="ex__num">{folder.last_modified ? formatDateTime(folder.last_modified) : '—'}</td>
-                  <td class="ex__num">{folder.last_access ? formatDateTime(folder.last_access) : '—'}</td>
-                  <td class="ex__num">{folder.created_at ? formatDateTime(folder.created_at) : '—'}</td>
-                </tr>
-              {/each}
-              {#each files as file (file.path)}
-                <tr class="ex__row is-file">
-                  <td class="ex__name"><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path}>{file.name}</code></td>
-                  <td class="ex__num">{formatBytes(file.size)}</td>
-                  <td class="ex__num">—</td>
-                  <td class="ex__num">—</td>
-                  <td class="ex__num">{file.modified ? formatDateTime(file.modified) : '—'}</td>
-                  <td class="ex__num">—</td>
-                  <td class="ex__num">—</td>
-                </tr>
-              {/each}
-              {#if !children.length && !files.length}<tr><td colspan="7" class="ex__empty">{t('Nothing more known here.')}</td></tr>{/if}
-            </tbody>
-          </table>
-          {#if current.direct_files > files.length}
-            <p class="ex__hint">{t('{count} file(s) right in this folder ({size}); the files of 1 MB and more are listed.', { count: current.direct_files.toLocaleString('fr-FR'), size: formatBytes(current.direct_bytes) })}</p>
-          {/if}
-        </div>
+    <section class="fx__scan" aria-label={t('Scanner')}>
+      <span class="fx__scan-name"><span class="fx__dot" class:is-busy={Boolean(scanner?.running)} aria-hidden="true"></span>{t('5S scanner')}{scanner?.last?.scanner ? ` · ${scanner.last.scanner}` : ''}</span>
+      {#if scanner?.running}
+        <span>{t('Measure in progress')}{scanner.running.progress?.chunks_total ? ` · ${scanner.running.progress.chunks_done}/${scanner.running.progress.chunks_total}` : ''}</span>
       {/if}
+      <span>{t('Last measure')} <b>{scanner?.last?.finished_at ? `${formatDate(scanner.last.finished_at)} (${timeAgo(scanner.last.finished_at)})` : '—'}</b></span>
+      <span>{t('Mode')} <b>{scanner?.last?.mode === 'incremental' ? t('incremental') : scanner?.last?.mode === 'full' ? t('full') : '—'}</b> · {duration(scanner?.last?.elapsed_ms)}</span>
+      <span>{t('Pieces')} <b>{scanner?.pieces ?? 0}</b>{scanner?.last?.pieces_kept ? ` · ${t('{count} kept', { count: scanner.last.pieces_kept })}` : ''}</span>
+      <span>{t('Change journal')} <b class:is-warn={!scanner?.journal}>{scanner?.journal ? t('available: incremental scans') : t('unavailable: full scans only')}</b></span>
+      {#if scanner?.window}<span>{t('Window')} <b>{scanner.window.window_start}–{scanner.window.window_end}</b>{scanner.window.full_every_days ? ` · ${t('full every {days} d', { days: scanner.window.full_every_days })}` : ''}</span>{/if}
+      {#if scanner?.last?.status === 'failed'}<span class="fx__scan-err">{scanner.last.error}</span>{/if}
+    </section>
 
-      <aside class="ex__side">
+    <section class="fx__kpis" aria-label={t('Figures')}>
+      <div><span>{t('Volume')}</span><b>{formatBytes(current.bytes)}</b><small>{t('{count} files', { count: current.files.toLocaleString('fr-FR') })}</small></div>
+      <div><span>{t('Not modified for 1 year')}</span><b class={share(current.cold1_bytes, current.bytes) > 0.6 ? 'is-warn' : ''}>{pct(current.cold1_bytes, current.bytes)} %</b><small>{formatBytes(current.cold1_bytes)}</small></div>
+      <div><span>{t('Not opened for 2 years')}</span><b class={share(dormantBytes, current.bytes) > 0.4 ? 'is-warn' : ''}>{pct(dormantBytes, current.bytes)} %</b><small>{t('of the sub-folders')}</small></div>
+      <div><span>{t('Duplicates')}</span><b class={wasted ? 'is-bad' : ''}>{formatBytes(wasted)}</b><small>{t('{count} group(s), {done} decided', { count: groups.length, done: decided })}</small></div>
+      <div><span>{t('Rights off the rule')}</span><b class={brokenHere.length || explicitHere.length ? 'is-bad' : ''}>{brokenHere.length + explicitHere.length}</b><small>{t('{count} broken inheritance(s) here', { count: brokenHere.length })}</small></div>
+      <div><span>{t('5S score')}</span><b style={`color:${tone(score)}`}>{score} / 100</b><small>{t('average of the 5 pillars')}</small></div>
+    </section>
+
+    <div class="fx__body">
+      <main class="fx__main">
+        {#if view === 'explorer'}
+          <div class="fx__filters" role="radiogroup" aria-label={t('Filter')}>
+            {#each FILTERS() as [key, label] (key)}
+              <button type="button" class:is-on={filter === key} on:click={() => (filter = key)}>{label}</button>
+            {/each}
+          </div>
+          <div class="fx__table">
+            <table class="b2s-table">
+              <thead><tr>
+                <th>{t('Name')}</th><th class="fx__num">{t('Size')}</th><th>{t('Created')}</th><th>{t('Last change')}</th><th>{t('Last access')}</th>
+                <th>{t('Age')}</th><th>{t('Rights')}</th><th class="fx__num">{t('Duplicates')}</th>
+              </tr></thead>
+              <tbody>
+                {#each rows as folder (folder.path)}
+                  {@const right = rights(folder)}
+                  {@const dups = groupsUnder(folder.path).length}
+                  <tr class:is-sel={selected === folder} on:click={() => (selected = folder)} on:dblclick={() => enter(folder)}>
+                    <td class="fx__name"><i class="bi bi-folder-fill" aria-hidden="true"></i>
+                      {#if folder.folders > 0}<button type="button" class="b2s-link-btn" on:click|stopPropagation={() => enter(folder)}>{folder.name}</button>{:else}<span>{folder.name}</span>{/if}</td>
+                    <td class="fx__num">{formatBytes(folder.bytes)}</td>
+                    <td>{folder.created_at ? formatDate(folder.created_at) : '—'}</td>
+                    <td>{folder.last_modified ? formatDate(folder.last_modified) : '—'}</td>
+                    <td class:is-warn={dormant(folder)}>{folder.last_access ? formatDate(folder.last_access) : '—'}</td>
+                    <td><span class="fx__age" title={t('{fresh} % recent, {mid} % > 1 year, {old} % > 3 years', { fresh: 100 - pct(folder.cold1_bytes, folder.bytes), mid: pct(folder.cold1_bytes - folder.cold3_bytes, folder.bytes), old: pct(folder.cold3_bytes, folder.bytes) })}
+                      style={`--a:${100 - pct(folder.cold1_bytes, folder.bytes)}%;--b:${100 - pct(folder.cold3_bytes, folder.bytes)}%`}></span></td>
+                    <td><span class={`fx__pill is-${right.tone}`}>{right.label}</span></td>
+                    <td class="fx__num" class:is-bad={dups > 0}>{dups || '—'}</td>
+                  </tr>
+                {/each}
+                {#each files as file (file.path)}
+                  <tr class="is-file">
+                    <td class="fx__name"><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path}>{file.name}</code></td>
+                    <td class="fx__num">{formatBytes(file.size)}</td><td>—</td><td>{file.modified ? formatDate(file.modified) : '—'}</td><td>—</td><td></td><td></td>
+                    <td class="fx__num">{groups.some((group) => group.copies.some((copy) => copy.path === file.path)) ? '•' : '—'}</td>
+                  </tr>
+                {/each}
+                {#if !rows.length && !files.length}<tr><td colspan="8" class="fx__empty">{t('Nothing here for this filter.')}</td></tr>{/if}
+              </tbody>
+            </table>
+          </div>
+        {:else}
+          <section class="fx__pillars" aria-label={t('Pillars')}>
+            {#each pillars as pillar (pillar.jp)}
+              <div title={pillar.how}>
+                <span class="fx__pill-head"><b>{pillar.jp}</b><strong style={`color:${tone(pillar.score)}`}>{pillar.score}</strong></span>
+                <small>{pillar.fr}</small>
+                <span class="fx__bar"><span style={`width:${pillar.score}%;background:${tone(pillar.score)}`}></span></span>
+              </div>
+            {/each}
+          </section>
+          <section class="fx__board" aria-label={t('Decisions')}>
+            {#each columns as column (column.key)}
+              <div class="fx__col">
+                <header><b>{column.title}</b><small>{column.cards.length}</small></header>
+                {#each column.cards as card, index (column.key + index)}
+                  <article>
+                    <span class="fx__tags"><span class={`fx__tag is-${card.tone}`}>{card.tag}</span><span class="fx__gain">{card.gain}</span></span>
+                    <b>{card.title}</b>
+                    <small>{card.detail}</small>
+                    {#if card.href}<a class="b2s-btn b2s-btn-sm b2s-btn-primary" href={card.href}>{card.cta}</a>
+                    {:else if card.folder}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => { selected = card.folder ?? selected; view = 'explorer'; }}>{card.cta}</button>{/if}
+                  </article>
+                {:else}
+                  <p class="fx__none">{t('Nothing to decide.')}</p>
+                {/each}
+              </div>
+            {/each}
+          </section>
+        {/if}
+      </main>
+
+      <aside class="fx__sheet" aria-label={t('Sheet of the folder')}>
         {#if selected}
-          <h2>{selected === trail[0] ? rootName : selected.name}</h2>
-          {#if selected !== current && selected.folders > 0}
-            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={busy} on:click={() => selected && enter(selected)}><i class="bi bi-box-arrow-in-down-right" aria-hidden="true"></i>{t('Open ({count} sub-folders)', { count: selected.folders })}</button>
-          {/if}
-          <dl>
-            <dt>{t('Volume')}</dt><dd>{formatBytes(selected.bytes)} <small>{pct(selected.bytes, trail[0]?.bytes ?? 0)} % {t('of the folder')}</small></dd>
-            <dt>{t('Files')}</dt><dd>{selected.files.toLocaleString('fr-FR')}</dd>
-            <dt>{t('Sub-folders')}</dt><dd>{selected.folders.toLocaleString('fr-FR')}</dd>
-            <dt>{t('Right in it')}</dt><dd>{selected.direct_files.toLocaleString('fr-FR')} · {formatBytes(selected.direct_bytes)}</dd>
-            <dt>{t('Last change')}</dt><dd>{selected.last_modified ? formatDateTime(selected.last_modified) : '—'}</dd>
-            <dt>{t('Last access')}</dt><dd>{selected.last_access ? formatDateTime(selected.last_access) : t('not measured yet')}</dd>
-            <dt>{t('Created')}</dt><dd>{selected.created_at ? formatDateTime(selected.created_at) : t('not measured yet')}</dd>
-            <dt>{t('Not modified for 1 year')}</dt><dd>{formatBytes(selected.cold1_bytes)} <small>{pct(selected.cold1_bytes, selected.bytes)} %</small></dd>
-            <dt>{t('Not modified for 3 years')}</dt><dd>{formatBytes(selected.cold3_bytes)} <small>{pct(selected.cold3_bytes, selected.bytes)} %</small></dd>
-          </dl>
-          <p class="ex__path"><code>{selected.path || '\\'}</code></p>
-          <h3>{t('Content')}</h3>
-          {#if !preview}
-            <p class="ex__hint">{t('Loading…')}</p>
-          {:else}
-            <ul class="ex__content">
-              {#each preview.children.slice(0, 12) as child (child.path)}
-                <li><i class="bi bi-folder-fill ex__folder" aria-hidden="true"></i>
-                  <button type="button" class="b2s-link-btn" on:click={() => enter(child)} disabled={child.folders === 0 && !child.direct_files}>{child.name}</button>
-                  <span>{formatBytes(child.bytes)}</span></li>
-              {/each}
-              {#each preview.files.slice(0, 12) as file (file.path)}
-                <li><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path}>{file.name}</code><span>{formatBytes(file.size)}</span></li>
-              {/each}
-              {#if !preview.children.length && !preview.files.length}<li class="ex__hint">{t('Nothing more known here.')}</li>{/if}
-            </ul>
-            {#if preview.children.length > 12 || preview.files.length > 12}<p class="ex__hint">{t('{folders} sub-folder(s) and {files} big file(s) in all: open the folder to see everything.', { folders: preview.children.length, files: preview.files.length })}</p>{/if}
-          {/if}
-          <p class="ex__hint">{t('Click to see a folder, double-click (or its name) to go inside. The colour tells the share of old data.')}</p>
+          <section class="fx__card">
+            <header class="fx__card-head">
+              <h2>{selected.name || rootName}</h2>
+              {#if selected.inheritance_broken}<span class="fx__pill is-warn">{t('Broken inheritance')}</span>{/if}
+            </header>
+            {#if selected !== current && selected.folders > 0}
+              <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" on:click={() => selected && enter(selected)}><i class="bi bi-box-arrow-in-down-right" aria-hidden="true"></i>{t('Open ({count} sub-folders)', { count: selected.folders })}</button>
+            {/if}
+            <ol class="fx__time">
+              <li><span class="is-c"></span><b>{t('Created')}</b><small>{selected.created_at ? formatDate(selected.created_at) : '—'}</small></li>
+              <li><span class="is-m"></span><b>{t('Last change')}</b><small>{selected.last_modified ? formatDate(selected.last_modified) : '—'}</small></li>
+              <li><span class="is-a"></span><b>{t('Last access')}</b><small>{selected.last_access ? formatDate(selected.last_access) : '—'}</small></li>
+            </ol>
+            <dl>
+              <dt>{t('Volume')}</dt><dd>{formatBytes(selected.bytes)} · {pct(selected.bytes, root.bytes)} %</dd>
+              <dt>{t('Files')}</dt><dd>{selected.files.toLocaleString('fr-FR')} · {t('{count} right in it', { count: selected.direct_files })}</dd>
+              <dt>{t('Not modified for 3 years')}</dt><dd>{formatBytes(selected.cold3_bytes)}</dd>
+            </dl>
+            <p class="fx__path"><code>{selected.path || rootPath}</code></p>
+          </section>
+
+          <section class="fx__card">
+            <h3>{t('Rights')}</h3>
+            {#if selected.acl == null}
+              <p class="fx__hint">{t('Read at the next full measure of the folder.')}</p>
+            {:else}
+              <ul class="fx__acl">
+                {#each selected.acl as ace (ace.who + ace.level)}
+                  <li class:is-own={!ace.inherited}>
+                    <span><b>{ace.who}</b><small>{ace.inherited ? t('inherited') : t('set on this folder')}</small></span>
+                    <em class={`is-${ace.level.replace('!', 'deny-')}`}>{levelLabel(ace.level)}</em>
+                  </li>
+                {/each}
+              </ul>
+              <div class="fx__chain"><span>{t('Inheritance')}</span>
+                {#each chain as link, index (index)}<span class:is-broken={link.broken}>{link.broken ? '✕ ' : ''}{link.name}</span>{/each}
+              </div>
+            {/if}
+          </section>
+
+          <section class="fx__card">
+            <h3>{t('Duplicates here')}</h3>
+            {#each sheetGroups as group (group.fingerprint + group.size)}
+              {@const keep = suggestion(group)}
+              <div class="fx__dup">
+                <small>{group.copies[0]?.path.split('\\').pop()} · {formatBytes(group.size)} · {group.fingerprint.slice(0, 10)}…</small>
+                {#each group.copies as copy (copy.path)}
+                  <div class:is-keep={copy.path === keep}><code title={copy.path}>{copy.path}</code><b>{copy.path === keep ? (group.decision?.keep_path ? t('Kept') : t('Suggested')) : t('Copy')}</b></div>
+                {/each}
+              </div>
+            {:else}
+              <p class="fx__hint">{t('No duplicate known here.')}</p>
+            {/each}
+            {#if sheetGroups.length}<a class="b2s-btn b2s-btn-sm b2s-btn-primary" href={`/five-s/duplicates/${rootId}`}>{t('Decide copy by copy')}</a>{/if}
+          </section>
         {/if}
       </aside>
     </div>
@@ -323,53 +391,112 @@
 </div>
 
 <style>
-  .ex { display: grid; gap: 14px; }
-  .ex__top { display: flex; justify-content: space-between; font-size: var(--b2s-fs-sm); }
-  .ex__top a { display: inline-flex; gap: 6px; align-items: center; }
-  .ex__head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
-  .ex__crumbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 16px; }
-  .ex__crumbs button { border: 0; background: none; padding: 2px 4px; color: var(--b2s-color-primary, #2563eb); cursor: pointer; font: inherit; }
-  .ex__crumbs button.is-current { color: inherit; font-weight: 600; cursor: default; }
-  .ex__crumbs i { color: var(--b2s-color-text-muted); font-size: 12px; }
-  .ex__tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .ex__seg { display: inline-flex; padding: 2px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface, #fff); }
-  .ex__seg button { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border: 0; border-radius: 999px; background: none; cursor: pointer; font-size: var(--b2s-fs-sm); }
-  .ex__seg button.is-on { background: var(--b2s-topbar-bg, #0e1218); color: #fff; }
-  .ex__body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
-  .ex__map { position: relative; overflow: hidden; border-radius: 12px; background: var(--b2s-color-border-soft, #eef1f5); }
-  .ex__box { position: absolute; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; border: 0; border-radius: 8px;
-    color: #1f2937; text-align: left; overflow: hidden; cursor: pointer; transition: filter 0.15s ease, box-shadow 0.15s ease; }
-  .ex__box:hover { filter: brightness(0.96); box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.35); }
-  .ex__box.is-sel { box-shadow: inset 0 0 0 3px #0e1218; }
-  .ex__box b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-  .ex__box small { font-size: 11px; opacity: 0.8; }
-  .ex__in { position: absolute; right: 8px; bottom: 6px; display: inline-flex; gap: 4px; align-items: center; font-size: 11px; opacity: 0.7; }
-  .ex__list { overflow: auto; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
-  .ex__row { cursor: default; }
-  .ex__row:hover td { background: var(--b2s-color-surface-hover, #f5f8fc); }
-  .ex__row.is-sel td { background: #e8efff; }
-  .ex__name { display: flex; gap: 8px; align-items: center; min-width: 0; }
-  .ex__name small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); white-space: nowrap; }
-  .ex__name code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); max-width: 520px; }
-  .ex__folder { color: #e0a526; }
-  .ex__sort { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; cursor: pointer; color: inherit; }
-  .ex__sort.is-on { text-decoration: underline; }
-  .ex__num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .ex__num.is-mid { color: #b45309; }
-  .ex__num.is-old { color: #b42318; font-weight: 600; }
-  .ex__empty { padding: 24px; color: var(--b2s-color-text-muted); text-align: center; }
-  .ex__side { position: sticky; top: 12px; padding: 16px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
-  .ex__side h2 { margin: 0 0 10px; font-size: 17px; overflow-wrap: anywhere; }
-  .ex__side dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 12px 0 0; font-size: var(--b2s-fs-sm); }
-  .ex__side dt { color: var(--b2s-color-text-muted); }
-  .ex__side dd { margin: 0; text-align: right; }
-  .ex__side dd small { color: var(--b2s-color-text-muted); }
-  .ex__links { display: inline-flex; gap: 16px; }
-  .ex__side h3 { margin: 14px 0 6px; font-size: var(--b2s-fs-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--b2s-color-text-muted); }
-  .ex__content { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
-  .ex__content li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
-  .ex__content code, .ex__content button { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: var(--b2s-fs-xs); }
-  .ex__content span { white-space: nowrap; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .ex__path code { font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
-  .ex__hint { margin: 10px 12px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fx { display: grid; gap: 14px; }
+  .fx__top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .fx__links { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+  .fx__head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }
+  .fx__head h1 { margin: 2px 0 0; font-size: 26px; }
+  .fx__crumbs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 13px; }
+  .fx__crumbs button { border: 0; background: none; padding: 2px 4px; color: var(--b2s-color-primary, #2563eb); cursor: pointer; font: inherit; }
+  .fx__crumbs button.is-current { color: inherit; font-weight: 600; cursor: default; }
+  .fx__crumbs i { font-size: 11px; color: var(--b2s-color-text-muted); }
+  .fx__tabs { display: inline-flex; padding: 3px; border-radius: 999px; background: #E5E7EB; }
+  .fx__tabs button { display: inline-flex; gap: 6px; align-items: center; height: 34px; padding: 0 16px; border: 0; border-radius: 999px; background: none; font: inherit; font-weight: 600; cursor: pointer; color: #374151; }
+  .fx__tabs button.is-on { background: #0E1218; color: #fff; }
+  .fx__tabs button span { padding: 0 7px; border-radius: 999px; background: #B5F23B; color: #0E1218; font-size: 11px; }
+  .fx__scan { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #0E1218; color: #D1D5DB; font-size: 13px; }
+  .fx__scan b { color: #fff; font-weight: 600; }
+  .fx__scan b.is-warn { color: #FCD34D; }
+  .fx__scan-name { display: inline-flex; gap: 8px; align-items: center; color: #fff; font-weight: 600; }
+  .fx__dot { width: 8px; height: 8px; border-radius: 50%; background: #B5F23B; }
+  .fx__dot.is-busy { background: #60A5FA; }
+  .fx__scan-err { color: #FCA5A5; }
+  .fx__kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  .fx__kpis > div { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
+  .fx__kpis span, .fx__kpis small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fx__kpis b { font-size: 20px; }
+  .fx__kpis b.is-warn { color: #B45309; }
+  .fx__kpis b.is-bad { color: #B91C1C; }
+  .fx__body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; align-items: start; }
+  .fx__main { display: grid; gap: 12px; min-width: 0; }
+  .fx__filters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fx__filters button { height: 30px; padding: 0 12px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface, #fff); font: inherit; font-size: var(--b2s-fs-sm); cursor: pointer; }
+  .fx__filters button.is-on { background: #0E1218; border-color: #0E1218; color: #fff; }
+  .fx__table { overflow-x: auto; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
+  .fx__table tr { cursor: default; }
+  .fx__table tbody tr:hover td { background: #F5F8FC; }
+  .fx__table tr.is-sel td { background: #F5FBE6; }
+  .fx__name { display: flex; gap: 8px; align-items: center; min-width: 0; }
+  .fx__name i.bi-folder-fill { color: #E0A526; }
+  .fx__name code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); max-width: 360px; }
+  .fx__num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.is-warn { color: #B45309; }
+  td.is-bad { color: #B91C1C; font-weight: 600; }
+  .fx__age { display: block; width: 44px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #2563EB 0 var(--a), #F59E0B var(--a) var(--b), #B91C1C var(--b) 100%); }
+  .fx__pill { padding: 2px 9px; border-radius: 999px; font-size: var(--b2s-fs-xs); font-weight: 600; white-space: nowrap; }
+  .fx__pill.is-ok { background: #ECFDF5; color: #047857; }
+  .fx__pill.is-warn { background: #FFF7ED; color: #9A3412; }
+  .fx__pill.is-none { background: #F3F4F6; color: #6B7280; font-weight: 500; }
+  .fx__empty { padding: 20px; text-align: center; color: var(--b2s-color-text-muted); }
+  .fx__pillars { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  .fx__pillars > div { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); cursor: help; }
+  .fx__pill-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .fx__pill-head strong { font-size: 20px; }
+  .fx__pillars small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fx__bar { height: 6px; border-radius: 3px; background: #EEF0F3; overflow: hidden; }
+  .fx__bar span { display: block; height: 100%; }
+  .fx__board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: start; }
+  .fx__col { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: #E9ECEF; }
+  .fx__col header { display: flex; justify-content: space-between; font-size: var(--b2s-fs-sm); }
+  .fx__col article { display: grid; gap: 6px; justify-items: start; padding: 10px; border-radius: 10px; background: #fff; }
+  .fx__col article b { font-size: var(--b2s-fs-sm); line-height: 1.35; overflow-wrap: anywhere; }
+  .fx__col article small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fx__tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fx__tag { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .fx__tag.is-dup { background: #FEE2E2; color: #991B1B; }
+  .fx__tag.is-old { background: #FFEDD5; color: #9A3412; }
+  .fx__tag.is-junk { background: #E5E7EB; color: #1F2937; }
+  .fx__tag.is-inh { background: #FEF3C7; color: #92400E; }
+  .fx__tag.is-acl { background: #E0E7FF; color: #3730A3; }
+  .fx__gain { padding: 2px 8px; border-radius: 999px; background: #F3F4F6; font-size: 11px; }
+  .fx__none { margin: 4px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fx__sheet { position: sticky; top: 12px; display: grid; gap: 10px; }
+  .fx__card { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
+  .fx__card h2 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+  .fx__card h3 { margin: 0; font-size: var(--b2s-fs-sm); }
+  .fx__card-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .fx__card dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; font-size: var(--b2s-fs-sm); }
+  .fx__card dt { color: var(--b2s-color-text-muted); }
+  .fx__card dd { margin: 0; text-align: right; }
+  .fx__time { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .fx__time li { display: grid; gap: 2px; justify-items: center; text-align: center; font-size: var(--b2s-fs-xs); }
+  .fx__time li span { width: 12px; height: 12px; border-radius: 50%; }
+  .fx__time .is-c { background: #9CA3AF; }
+  .fx__time .is-m { background: #F59E0B; }
+  .fx__time .is-a { background: #3B82F6; }
+  .fx__time small { color: var(--b2s-color-text-muted); }
+  .fx__path code { font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
+  .fx__hint { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fx__acl { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
+  .fx__acl li { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .fx__acl li span { display: grid; min-width: 0; }
+  .fx__acl li b { font-weight: 500; overflow-wrap: anywhere; }
+  .fx__acl li small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fx__acl li.is-own b { color: #9A3412; }
+  .fx__acl em { font-style: normal; font-size: var(--b2s-fs-xs); font-weight: 600; white-space: nowrap; }
+  .fx__acl em.is-F { color: #991B1B; }
+  .fx__acl em.is-W { color: #1D4ED8; }
+  .fx__acl em.is-R { color: #047857; }
+  .fx__acl em[class*='is-deny'] { color: #7C2D12; }
+  .fx__chain { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: var(--b2s-fs-xs); }
+  .fx__chain span:first-child { color: var(--b2s-color-text-muted); margin-right: 2px; }
+  .fx__chain span + span { padding: 2px 8px; border-radius: 999px; background: #ECFDF5; color: #047857; }
+  .fx__chain span.is-broken { background: #FFF7ED; color: #9A3412; }
+  .fx__dup { display: grid; gap: 4px; }
+  .fx__dup small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fx__dup div { display: flex; justify-content: space-between; gap: 8px; padding: 5px 8px; border: 1px solid var(--b2s-color-border); border-radius: 8px; font-size: var(--b2s-fs-xs); }
+  .fx__dup div code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fx__dup div b { white-space: nowrap; color: #991B1B; }
+  .fx__dup div.is-keep { border-color: #86EFAC; background: #F0FDF4; }
+  .fx__dup div.is-keep b { color: #047857; }
 </style>

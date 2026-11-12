@@ -69,7 +69,27 @@ function Fingerprint([string]$path, [long]$size) {
 _MEASURE = _COMMON + r"""
 $junk = [regex]::new($p.junk_pattern, 'IgnoreCase')
 $t = @{ bytes = [long]0; files = 0; folders = 0 }
-$top = @{}; $types = @{}; $dirStats = @{}
+$top = @{}; $types = @{}; $dirStats = @{}; $dirAcls = @{}
+# Rights of each folder (5S scanner only, with_dirs): its entries « account|R/W/F|inherited » and whether its
+# inheritance is broken (rules protected); the folder walked first, then each sub-folder met
+$aclOf = {
+  param($path)
+  try {
+    $sec = [System.IO.Directory]::GetAccessControl($path)
+    $relDir = ''; if ($path.Length -ge $cut) { $relDir = $path.Substring($cut) }
+    $entries = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($rule in $sec.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
+      if ($entries.Count -ge 20) { break }
+      $rights = [string]$rule.FileSystemRights
+      $level = if ($rights -match 'FullControl') { 'F' } elseif ($rights -match 'Modify|Write') { 'W' } else { 'R' }
+      if ([string]$rule.AccessControlType -eq 'Deny') { $level = '!' + $level }
+      $inh = if ($rule.IsInherited) { '1' } else { '0' }
+      $entries.Add("$($rule.IdentityReference.Value)|$level|$inh")
+    }
+    $dirAcls[$relDir] = [pscustomobject]@{ p = $relDir; x = [bool]$sec.AreAccessRulesProtected; e = $entries.ToArray() }
+  } catch { }
+}
+if ($p.with_dirs) { & $aclOf $local }
 $cold1 = @{ bytes = [long]0; files = 0 }; $cold3 = @{ bytes = [long]0; files = 0 }
 $coldFiles = New-Object 'System.Collections.Generic.List[object]'
 $junkStat = @{ bytes = [long]0; files = 0; examples = New-Object 'System.Collections.Generic.List[string]' }
@@ -77,7 +97,7 @@ $bySize = New-Object 'System.Collections.Generic.Dictionary[long,object]'
 $big = New-Object 'System.Collections.Generic.List[object]'
 $y1 = $now.AddDays(-365); $y3 = $now.AddDays(-1095)
 $localCut = $local.TrimEnd('\').Length + 1
-$onDir = { param($d) $t.folders++; if ($d.Parent.FullName.TrimEnd('\') -eq $local.TrimEnd('\')) { if (-not $top.ContainsKey($d.Name)) { $top[$d.Name] = @{ bytes = [long]0; files = 0 } } } }
+$onDir = { param($d) $t.folders++; if ($p.with_dirs) { & $aclOf $d.FullName }; if ($d.Parent.FullName.TrimEnd('\') -eq $local.TrimEnd('\')) { if (-not $top.ContainsKey($d.Name)) { $top[$d.Name] = @{ bytes = [long]0; files = 0 } } } }
 $onFile = {
   param($f)
   $size = [long]$f.Length; $rel = $f.FullName.Substring($cut); $when = $f.LastWriteTimeUtc
@@ -150,6 +170,7 @@ $r.duplicates = @{ groups = [int]$groups.Count; files = [int]$dupFiles; wasted_b
 $r.duplicates.top = @($groups | Sort-Object wasted -Descending | Select-Object -First 10)
 $r.fingerprints = @($prints | ForEach-Object { $_ })
 if ($p.with_dirs) {
+  $r.acls = @($dirAcls.Values | Select-Object -First 50000)
   $r.dirs = @($dirStats.GetEnumerator() | Select-Object -First 50000 | ForEach-Object {
     $l = $null; if ($_.Value.l -gt [DateTime]::MinValue) { $l = $_.Value.l.ToString('yyyy-MM-ddTHH:mm:ssZ') }
     $acc = $null; if ($_.Value.a -gt [DateTime]::MinValue) { $acc = $_.Value.a.ToString('yyyy-MM-ddTHH:mm:ssZ') }
