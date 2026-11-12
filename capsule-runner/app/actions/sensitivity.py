@@ -23,6 +23,8 @@ MAX_READ_FILES = 1000
 MAX_FILE_BYTES = 1024 * 1024
 MAX_READ_BYTES = 50 * 1024 * 1024
 MAX_FINDINGS = 100
+# Files fetched per smbclient call (each « get » line is up to ~600 bytes; an argument holds ~128 KB)
+GET_BATCH = 100
 
 # By the name alone: what it is says enough
 NAME_RULES: list[tuple[str, str, re.Pattern[str]]] = [
@@ -324,12 +326,16 @@ def scan_smb_sensitivity(params: dict):
     workdir = tempfile.mkdtemp(prefix="b2s-sens-")
     try:
         if chosen:
-            gets = "; ".join(f'get "{path}" "{os.path.join(workdir, f"{index:05d}")}"' for index, (path, _size, _stamp) in enumerate(chosen))
-            try:
-                run_samba([*base_cmd, "-c", f"prompt OFF; {gets}"], username=username, password=password,
-                          capture_output=True, timeout=timeout, check=False)
-            except subprocess.TimeoutExpired:
-                truncated = True
+            # By batches: one smbclient argument holds at most ~128 KB (E2BIG « Argument list too long » beyond)
+            items = list(enumerate(chosen))
+            for start in range(0, len(items), GET_BATCH):
+                gets = "; ".join(f'get "{path}" "{os.path.join(workdir, f"{index:05d}")}"' for index, (path, _size, _stamp) in items[start:start + GET_BATCH])
+                try:
+                    run_samba([*base_cmd, "-c", f"prompt OFF; {gets}"], username=username, password=password,
+                              capture_output=True, timeout=timeout, check=False)
+                except subprocess.TimeoutExpired:
+                    truncated = True
+                    break
             for index, (path, _size, _stamp) in enumerate(chosen):
                 local = os.path.join(workdir, f"{index:05d}")
                 if not os.path.exists(local):

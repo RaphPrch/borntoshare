@@ -434,20 +434,6 @@
             on:focus={() => (focusedKey = node.key)}
           >
             {#each Array(row.depth) as _}<span class="b2s-tree__guide" aria-hidden="true"></span>{/each}
-            {#if multiSelect && node.selectId != null}
-              <input
-                type="checkbox"
-                class="b2s-tree__check"
-                class:is-shown={checked.size > 0}
-                tabindex="-1"
-                aria-label={t('Select « {name} »', { name: node.label })}
-                checked={checked.has(String(node.selectId))}
-                on:click|stopPropagation={(event) => {
-                  event.preventDefault();
-                  check(row, event.shiftKey ? 'range' : 'toggle');
-                }}
-              />
-            {/if}
             {#if isTree}
               {#if row.hasChildren}
                 <button

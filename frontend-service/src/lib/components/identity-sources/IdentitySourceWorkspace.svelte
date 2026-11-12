@@ -203,27 +203,6 @@
               <div><span>{t('Schedule')}</span><a href="/admin/advanced-settings/infrastructure">{t('Settings › Schedules')}</a></div>
             </div>
           </section>
-          <section class="isw__card" aria-label={t('Groups governed by BornToShare')}>
-            <header><h2>{t('Groups governed by BornToShare')}</h2>
-              {#if overview?.governed_groups}<button type="button" class="b2s-link-btn" on:click={() => { openInventory('groups'); inventoryFilter = 'governed'; }}>{t('See the {count}', { count: overview.governed_groups })}</button>{/if}
-            </header>
-            {#if !overview}
-              <LoadingState skeleton="rows" rows={3} />
-            {:else if overview.governed_sample.length}
-              <p class="isw__muted">{t('One read group and one modify group per governed folder, created by BornToShare.')}</p>
-              <div class="isw__rows">
-                {#each overview.governed_sample as group (group.dn)}
-                  <div class="isw__row">
-                    <code title={group.dn}>{group.name}</code>
-                    <span class={`isw__lvl ${isModify(group.name) ? 'is-rw' : 'is-rx'}`}>{isModify(group.name) ? t('Modify') : t('Read')}</span>
-                    <small>{t('{count} member(s)', { count: group.members })}</small>
-                  </div>
-                {/each}
-              </div>
-            {:else}
-              <EmptyStateInline message={t('No group of this directory gives access to a governed folder yet.')} />
-            {/if}
-          </section>
         {/if}
       </div>
       <div class="isw__col">
@@ -237,29 +216,6 @@
             </dl>
           </section>
         {/if}
-        <section class="isw__card" aria-label={t('Used by')}>
-          <header><h2>{t('Used by')}</h2><small>{overview ? t('{count} server(s)', { count: overview.endpoints.length }) : ''}</small></header>
-          {#if !overview}
-            <LoadingState skeleton="rows" rows={2} />
-          {:else if overview.endpoints.length}
-            {#each smb as ep (ep.id)}
-              <a class="isw__link" href={`/admin/storage-endpoints/${ep.id}`}>
-                <i class="bi bi-hdd-network" aria-hidden="true"></i>
-                <span><strong>{ep.name}</strong><small class="mono">{ep.host} · {t('{count} governed folder(s)', { count: ep.roots })}</small></span>
-                <i class="bi bi-chevron-right" aria-hidden="true"></i>
-              </a>
-            {/each}
-            {#each dfsServers as group (group.server)}
-              <a class="isw__link" href={`/admin/storage-endpoints/${group.namespaces[0].id}`}>
-                <i class="bi bi-diagram-3" aria-hidden="true"></i>
-                <span><strong>{group.server}</strong><small>{t('{count} DFS namespace(s): {names}', { count: group.namespaces.length, names: group.namespaces.slice(0, 3).map((ep) => ep.name).join(', ') + (group.namespaces.length > 3 ? '…' : '') })}</small></span>
-                <i class="bi bi-chevron-right" aria-hidden="true"></i>
-              </a>
-            {/each}
-          {:else}
-            <EmptyStateInline message={t('No server uses this directory.')} />
-          {/if}
-        </section>
       </div>
     </div>
   {:else if tab === 'inventory'}
@@ -333,8 +289,6 @@
   .isw__trio b { font-weight: 600; }
   .isw__rows { display: flex; flex-direction: column; }
   .isw__row { display: grid; grid-template-columns: minmax(0, 1fr) 110px 90px; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-sm); }
-  .isw__row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); color: var(--b2s-color-text); }
-  .isw__row small { text-align: right; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .isw__lvl { justify-self: start; padding: 2px 10px; border-radius: var(--b2s-radius-pill); font-size: var(--b2s-fs-xs); font-weight: 500; }
   .isw__lvl.is-rx { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
   .isw__lvl.is-rw { background: var(--b2s-color-warning-soft, #fdefd9); color: var(--b2s-color-warning-strong, #9a5b00); }
@@ -346,11 +300,6 @@
   .is-warn { color: var(--b2s-color-warning-strong, #9a5b00); font-weight: 600; }
   .isw__link { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); color: inherit; text-decoration: none; }
   .isw__link:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
-  .isw__link > i:first-child { display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
-  .isw__link span { display: flex; flex-direction: column; min-width: 0; }
-  .isw__link strong { font-weight: 500; }
-  .isw__link small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .isw__link > i:last-child { color: var(--b2s-color-text-muted); }
   .isw__tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .isw__search { margin-left: auto; width: 320px; }
   .isw__table { padding: 0; gap: 0; overflow: hidden; }

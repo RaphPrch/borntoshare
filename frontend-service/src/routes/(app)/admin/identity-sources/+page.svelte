@@ -435,6 +435,32 @@
         failureMessage: ({ errorMessage }) => errorMessage ?? t('Probe failed.')
       });
 
+      // Every dedicated account (directory reading, authentication, AD groups) is tested too, with its own password
+      const accounts = Object.entries((internal as any)?.service_accounts ?? {}) as Array<[string, { bind_dn?: string; bind_password_ref?: string }]>;
+      if (accounts.length) {
+        const PURPOSE: Record<string, string> = { snapshot: t('Directory reading'), auth: t('Authentication'), provisioning: t('AD groups') };
+        const results: string[] = [];
+        let failed = 0;
+        for (const [purpose, account] of accounts) {
+          if (!account?.bind_dn || !account?.bind_password_ref) continue;
+          const result = await runProbeWithUi({
+            fetchFn: fetch,
+            request: buildIdentitySourceProbeRequest({
+              protocol: payload.protocol || 'ldaps', tlsVerify: payload.tls_verify, tlsCaPem: payload.tls_ca_pem, tlsServerName: payload.tls_server_name,
+              host: payload.host, port: payload.port, baseDn: payload.base_dn, bindDn: account.bind_dn, secretRef: account.bind_password_ref,
+              authMode: payload?.capabilities?.auth_mode === 'kerberos' ? 'kerberos' : 'ntlm', identitySourceId: Number(source.id), uiOrigin: 'admin'
+            }),
+            intervalMs: 1500,
+            maxAttempts: 30
+          }).catch(() => ({ ok: false, errorMessage: t('Probe failed') }) as any);
+          if (!result.ok) failed += 1;
+          results.push(`${PURPOSE[purpose] ?? purpose} (${account.bind_dn.split(',')[0].replace(/^CN=/i, '')}) : ${result.ok ? 'OK' : (result.errorMessage ?? t('failed'))}`);
+        }
+        if (results.length) {
+          (failed ? toast.error : toast.success)(t('Dedicated accounts: {list}', { list: results.join(' · ') }));
+        }
+      }
+
       if (!final.ok) {
         jobsStore.failJob(identityProbeJobInput(source.id), {
           message: final.errorMessage ?? t('Probe failed'),

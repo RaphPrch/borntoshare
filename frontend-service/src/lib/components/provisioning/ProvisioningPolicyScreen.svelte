@@ -15,6 +15,8 @@
    * typing, with the groups that no longer follow the saved rule.
    */
   export let scope: ProvisioningPolicyScreenProps['scope'];
+  /** The card of the AD groups of the folders (hidden on the server page: one place for them, the folder) */
+  export let showGroups = true;
   export let saveLabel: ProvisioningPolicyScreenProps['saveLabel'] = 'Save changes';
   export let configuration: ProvisioningPolicyScreenProps['configuration'];
   export let effective: ProvisioningPolicyScreenProps['effective'];
@@ -208,6 +210,7 @@
     {/if}
   </section>
 
+  {#if showGroups}
   <section class="pp__card" aria-label={t('Groups of these storage roots')} aria-busy={listLoading}>
     <header class="pp__head">
       <h2>{t('Groups of these storage roots')}</h2>
@@ -250,6 +253,7 @@
     {/if}
     <small class="pp__hint">{t('Existing groups are not renamed: the rule applies to the next folders. A gap is a group that no longer follows the saved rule.')}</small>
   </section>
+  {/if}
 </div>
 
 {#if save && showUnsaved}

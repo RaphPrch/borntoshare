@@ -1444,6 +1444,7 @@
           <ActivityTimeline items={activity} latest={10} emptyLabel={t('No activity available for this endpoint')} />
         {:else}
           <ProvisioningPolicyScreen
+      showGroups={false}
             scope="storage-endpoint"
             saveLabel={t('Save changes')}
             configuration={{ ...endpointProvisioningViewModel.configuration, zoneLabel: endpointZone(selected) }}

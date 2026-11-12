@@ -106,21 +106,6 @@
       {/if}
     </section>
 
-    {#if summary.review.length}
-      <section class="zo__card" aria-label={t('Folders to review')}>
-        <header>
-          <h2>{t('Folders to review')}</h2>
-          {#if onOpenFolders}<button type="button" class="b2s-link-btn" on:click={onOpenFolders}>{t('The {count} in the table', { count: summary.review.length })} ›</button>{/if}
-        </header>
-        {#each summary.review.slice(0, 5) as root (root.id)}
-          <div class="zo__root">
-            <span class="zo__name"><strong>{root.name}</strong><small class="mono" title={root.path}>{root.path}</small></span>
-            <span class={`zo__pill is-${root.blocking ? 'bad' : 'warn'}`}>{root.label}</span>
-            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => onOpenRoot?.(root.id)}>{t('Open')}</button>
-          </div>
-        {/each}
-      </section>
-    {/if}
   </div>
 
   <div class="zo__col">
@@ -175,7 +160,6 @@
   .zo__pill.is-r { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
   .zo__pill.is-n { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
   .zo__root { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--b2s-color-border); }
-  .zo__card header + .zo__root { border-top: 0; }
   dl { margin: 0; }
   dl div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-top: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-sm); }
   dl div:first-child { border-top: 0; }

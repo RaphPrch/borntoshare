@@ -140,7 +140,7 @@
         </dd>
       </div>
       {#if zoneLabel}<div><dt>{t('Zone')}</dt><dd>{zoneLabel}</dd></div>{/if}
-      <div><dt>{t('File server')}</dt><dd>{#if endpointHref}<a href={endpointHref}>{endpointDisplay}</a>{:else}{endpointDisplay}{/if}</dd></div>
+      <div><dt>{t('File server')}</dt><dd>{#if endpointHref}<a class="ov__plain" href={endpointHref}>{endpointDisplay}</a>{:else}{endpointDisplay}{/if}</dd></div>
       <div>
         <dt>{t('Inheritance')}</dt>
         <dd>
@@ -182,4 +182,7 @@
   .ov__warn { color: var(--b2s-color-warning-strong); }
   .ov__add { padding: 1px 8px; border: 1px dashed var(--b2s-color-border-mid); border-radius: 6px; background: transparent; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); cursor: pointer; }
   .ov__add:hover { border-color: var(--b2s-color-info); color: var(--b2s-color-info-strong); }
+  /* The file server: a link that reads as plain text (underlined on hover only) */
+  .ov__plain { color: inherit; text-decoration: none; font-weight: 500; }
+  .ov__plain:hover { color: var(--b2s-color-primary, #2563eb); text-decoration: underline; }
 </style>

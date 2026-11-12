@@ -205,7 +205,7 @@
                 ? [{ label: '', tone: 'neutral', icon: 'bi-shield', title: t('Sensitivity never scanned') }] : [])
             ]),
         ...(row?.inheritance_broken === true
-          ? [{ label: t('No inheritance'), tone: 'neutral', icon: 'bi-scissors', title: t('The NTFS inheritance of this folder is disabled') }]
+          ? [{ label: '', tone: 'neutral', icon: 'bi-scissors', title: t('The NTFS inheritance of this folder is disabled') }]
           : [])
       ] as EntityTreeBadge[],
       searchText: [
@@ -284,8 +284,9 @@
     return [...servers.entries()]
       .map(([key, server]): EntityTreeNode => ({
         key,
-        label: server.label,
-        hint: [...server.endpoints].join(' · ') || null,
+        // The name of the file server (FILER01), its address beside it when they differ
+        label: [...server.endpoints][0] || server.label,
+        hint: [...server.endpoints][0] && [...server.endpoints][0] !== server.label ? server.label : null,
         icon: 'bi-hdd-network',
         iconTone: 'server',
         contextMenu: Boolean(onServerAction) && serverEndpoints.has(key),

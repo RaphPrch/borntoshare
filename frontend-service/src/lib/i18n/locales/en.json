@@ -1608,5 +1608,9 @@
   "Restore": "Restore",
   "Move the copies to quarantine": "Move the copies to quarantine",
   "{count} copies ({size}) leave their folder for « _B2S_Quarantaine » on the same share. The copy kept is checked first, a copy changed since the scan is left as it is, and each one can be restored.": "{count} copies ({size}) leave their folder for « _B2S_Quarantaine » on the same share. The copy kept is checked first, a copy changed since the scan is left as it is, and each one can be restored.",
-  "Move to quarantine": "Move to quarantine"
+  "Move to quarantine": "Move to quarantine",
+  "Directory reading": "Directory reading",
+  "AD groups": "AD groups",
+  "failed": "failed",
+  "Dedicated accounts: {list}": "Dedicated accounts: {list}"
 }
