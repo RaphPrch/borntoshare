@@ -18,6 +18,16 @@ if has_secret b2s_db_fives; then
   SERVICES="$SERVICES fives-service fives-scanner"
   COMPOSE="podman-compose --profile fives -f podman-compose.yml"
 fi
+# A 5S measure running would be cut by the restart (its walk is lost, its result may not reach the core): wait
+# for it, or FORCE=1 make deploy (the scanner queues the interrupted measure again at its start)
+if [ -n "$FIVES" ] && [ "${FORCE:-0}" != "1" ]; then
+  running=$(echo "SELECT COUNT(*) FROM scan_runs WHERE status = 'running'" \
+    | b2s_db b2s_db_fives "$(env_value FIVES_DB_USER b2s_fives)" mariadb -N "$(env_value FIVES_DB_NAME b2s_fives)" 2>/dev/null || echo 0)
+  if [ "${running:-0}" -gt 0 ]; then
+    echo "Une mesure 5S est en cours ($running) : le déploiement la couperait. Attendez sa fin, ou relancez avec FORCE=1 make deploy." >&2
+    exit 2
+  fi
+fi
 # Schema changes with the migration account only (the accounts of the services only read and write)
 MIGRATE_USER="$(env_value DB_MIGRATE_USER b2s_migrate)"
 PACKS="135_access_expiry_schedule 136_storage_root_acl_exceptions 137_close_phantom_revoke_requests 138_tag_family 139_access_request_permission_change 140_identity_source_ldap_settings 141_secret_items 142_worker_agent_token 143_identity_source_flavor 144_integrity 145_dfs_read_schedule 146_access_request_justification 147_extensions 148_notification_log 149_storage_root_sensitivity 150_governance_policies 151_policy_jobs 152_sensitivity_ignores 153_guardian_substitutes 154_storage_root_quotas 155_content_history_remediations 156_folder_scans_duplicates 157_licenses_features 158_scan_progress 159_simplify_tables 160_auto_tags"
