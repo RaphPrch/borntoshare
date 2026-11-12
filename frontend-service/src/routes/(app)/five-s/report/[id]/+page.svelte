@@ -125,7 +125,7 @@
 
     <div class="rp__grid">
       <section class="rp__card rp__wide">
-        <header><h2>{t('Duplicates')}</h2>
+        <header><h2>{t('Duplicates')} <a class="rp__more" href={`/five-s/duplicates/${rootId}`}>{t('Decide copy by copy')} ›</a></h2>
           <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!allGroups.length} on:click={exportDuplicates}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button></header>
         <p class="rp__hint">{t('The biggest groups of identical files (same content); the copies beyond the first are space lost.')}{duplicates?.truncated ? ` ${t('Only part of the files could be compared.')}` : ''}</p>
         <table class="b2s-table">

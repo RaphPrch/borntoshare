@@ -98,6 +98,17 @@
   }
 
   $: current = level?.node ?? null;
+  // Content of the folder clicked (without entering it), in the pane on the right
+  let preview: Level | null = null;
+  let previewFor = '';
+  $: if (selected && current && selected.path !== current.path && selected.path !== previewFor) void loadPreview(selected);
+  $: if (selected && current && selected.path === current.path) { preview = level; previewFor = current.path; }
+  async function loadPreview(folder: Folder) {
+    previewFor = folder.path;
+    preview = null;
+    const next = await load(folder.path).catch(() => null);
+    if (previewFor === folder.path) preview = next;
+  }
   $: children = [...(level?.children ?? [])].sort((a, b) =>
     sortBy === 'name' ? a.name.localeCompare(b.name, 'fr', { numeric: true })
       : sortBy === 'files' ? b.files - a.files
@@ -170,7 +181,10 @@
 <div class="ex">
   <div class="ex__top">
     <a href="/five-s"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
-    <a href={`/five-s/report/${rootId}`}>{t('Report')} ›</a>
+    <span class="ex__links">
+      <a href={`/five-s/duplicates/${rootId}`}><i class="bi bi-files" aria-hidden="true"></i>{t('Duplicates')}</a>
+      <a href={`/five-s/report/${rootId}`}>{t('Report')} ›</a>
+    </span>
   </div>
   {#if loading}
     <LoadingState skeleton="rows" />
@@ -281,6 +295,23 @@
             <dt>{t('Not modified for 3 years')}</dt><dd>{formatBytes(selected.cold3_bytes)} <small>{pct(selected.cold3_bytes, selected.bytes)} %</small></dd>
           </dl>
           <p class="ex__path"><code>{selected.path || '\\'}</code></p>
+          <h3>{t('Content')}</h3>
+          {#if !preview}
+            <p class="ex__hint">{t('Loading…')}</p>
+          {:else}
+            <ul class="ex__content">
+              {#each preview.children.slice(0, 12) as child (child.path)}
+                <li><i class="bi bi-folder-fill ex__folder" aria-hidden="true"></i>
+                  <button type="button" class="b2s-link-btn" on:click={() => enter(child)} disabled={child.folders === 0 && !child.direct_files}>{child.name}</button>
+                  <span>{formatBytes(child.bytes)}</span></li>
+              {/each}
+              {#each preview.files.slice(0, 12) as file (file.path)}
+                <li><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path}>{file.name}</code><span>{formatBytes(file.size)}</span></li>
+              {/each}
+              {#if !preview.children.length && !preview.files.length}<li class="ex__hint">{t('Nothing more known here.')}</li>{/if}
+            </ul>
+            {#if preview.children.length > 12 || preview.files.length > 12}<p class="ex__hint">{t('{folders} sub-folder(s) and {files} big file(s) in all: open the folder to see everything.', { folders: preview.children.length, files: preview.files.length })}</p>{/if}
+          {/if}
           <p class="ex__hint">{t('Click to see a folder, double-click (or its name) to go inside. The colour tells the share of old data.')}</p>
         {/if}
       </aside>
@@ -334,6 +365,12 @@
   .ex__side dt { color: var(--b2s-color-text-muted); }
   .ex__side dd { margin: 0; text-align: right; }
   .ex__side dd small { color: var(--b2s-color-text-muted); }
+  .ex__links { display: inline-flex; gap: 16px; }
+  .ex__side h3 { margin: 14px 0 6px; font-size: var(--b2s-fs-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--b2s-color-text-muted); }
+  .ex__content { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
+  .ex__content li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+  .ex__content code, .ex__content button { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: var(--b2s-fs-xs); }
+  .ex__content span { white-space: nowrap; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .ex__path code { font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
   .ex__hint { margin: 10px 12px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>
