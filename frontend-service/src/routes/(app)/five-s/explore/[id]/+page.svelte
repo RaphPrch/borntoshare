@@ -24,6 +24,8 @@
   type Level = { node: Folder | null; children: Folder[]; files: FileRow[] };
   type Copy = { path: string; modified: string | null };
   type Group = { fingerprint: string; size: number; wasted: number; copies: Copy[]; decision: { keep_path: string | null } | null };
+  type ScorePoint = { measured_at: string; score: number; seiri: number; seiton: number; seiso: number; seiketsu: number; shitsuke: number };
+  let history: ScorePoint[] = [];
   type Scanner = { last: any; running: any; pieces: number; journal: boolean; last_full_at: string | null; window: any };
 
   let rootName = '';
@@ -52,6 +54,7 @@
       rootName = String(overview?.storage_root_name ?? `#${rootId}`);
       rootPath = String(overview?.root_path ?? '');
       junk = { bytes: Number(overview?.content?.junk?.bytes ?? 0), files: Number(overview?.content?.junk?.files ?? 0) };
+      void apiGetData<{ history: ScorePoint[] }>(fetch, `/modules/fives/storage-roots/${rootId}/scores`).then((data) => (history = data?.history ?? [])).catch(() => null);
       const [first, scan, dups] = await Promise.all([
         load(null),
         apiGetData<Scanner>(fetch, `/modules/fives/storage-roots/${rootId}/scanner`).catch(() => null),
@@ -124,14 +127,17 @@
   $: seiketsu = children.length ? Math.round(100 * (1 - Math.min(1, share(brokenHere.length, children.length) + 0.5 * share(explicitHere.length, children.length)))) : 100;
   $: lastDone = scanner?.last?.finished_at ? new Date(scanner.last.finished_at).getTime() : 0;
   $: shitsuke = Math.round((lastDone && NOW - lastDone < 30 * 86400000 ? 50 : lastDone ? 25 : 0) + 50 * share(decided, groups.length || 1));
+  // The scores computed by the scanner at each measure (for the whole folder); the browser's own as long as there is none
+  $: latest = history.length ? history[history.length - 1] : null;
+  $: previousScore = history.length > 1 ? history[history.length - 2].score : null;
   $: pillars = [
-    { jp: 'Seiri', fr: t('Sort'), score: seiri, how: t('Less old data and fewer duplicates: 100 − 60 % × share > 1 year − 4 × share lost to duplicates') },
-    { jp: 'Seiton', fr: t('Set in order'), score: seiton, how: t('Files filed in sub-folders rather than loose at the root') },
-    { jp: 'Seiso', fr: t('Shine'), score: seiso, how: t('Few clutter files (copies, temporary and system files)') },
-    { jp: 'Seiketsu', fr: t('Standardise'), score: seiketsu, how: t('Sub-folders that inherit their rights, without accounts added by hand') },
-    { jp: 'Shitsuke', fr: t('Sustain'), score: shitsuke, how: t('A recent measure (less than 30 days) and the duplicates decided') }
+    { jp: 'Seiri', fr: t('Sort'), score: latest?.seiri ?? seiri, how: t('Less old data and fewer duplicates: 100 − 60 % × share > 1 year − 4 × share lost to duplicates') },
+    { jp: 'Seiton', fr: t('Set in order'), score: latest?.seiton ?? seiton, how: t('Files filed in sub-folders rather than loose at the root') },
+    { jp: 'Seiso', fr: t('Shine'), score: latest?.seiso ?? seiso, how: t('Few clutter files (copies, temporary and system files)') },
+    { jp: 'Seiketsu', fr: t('Standardise'), score: latest?.seiketsu ?? seiketsu, how: t('Sub-folders that inherit their rights, without accounts added by hand') },
+    { jp: 'Shitsuke', fr: t('Sustain'), score: latest?.shitsuke ?? shitsuke, how: t('A recent measure (less than 30 days) and the duplicates decided') }
   ];
-  $: score = Math.round(pillars.reduce((sum, pillar) => sum + pillar.score, 0) / pillars.length);
+  $: score = latest?.score ?? Math.round(pillars.reduce((sum, pillar) => sum + pillar.score, 0) / pillars.length);
   const tone = (value: number) => (value >= 70 ? '#047857' : value >= 45 ? '#B45309' : '#B91C1C');
 
   // ---- workshop: the decisions, from what was measured -----------------------------------------------------
@@ -365,6 +371,16 @@
           </div>
           </div>
         {:else}
+          {#if history.length}
+            <section class="fx__trend" aria-label={t('Trend')}>
+              <span><b style={`color:${tone(score)}`}>{score}</b> / 100
+                {#if previousScore != null}<em class={score >= previousScore ? 'is-up' : 'is-down'}>{score >= previousScore ? '+' : ''}{score - previousScore} {t('since the previous measure')}</em>{/if}</span>
+              <span class="fx__spark" aria-hidden="true">
+                {#each history as point (point.measured_at)}<i style={`height:${Math.max(6, point.score)}%;background:${tone(point.score)}`} title={`${formatDate(point.measured_at)} · ${point.score}`}></i>{/each}
+              </span>
+              <small>{t('{count} measure(s)', { count: history.length })}</small>
+            </section>
+          {/if}
           <section class="fx__pillars" aria-label={t('Pillars')}>
             {#each pillars as pillar (pillar.jp)}
               <div title={pillar.how}>
@@ -530,6 +546,14 @@
   .fx__pill.is-warn { background: #FFF7ED; color: #9A3412; }
   .fx__pill.is-none { background: #F3F4F6; color: #6B7280; font-weight: 500; }
   .fx__empty { padding: 20px; text-align: center; color: var(--b2s-color-text-muted); }
+  .fx__trend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
+  .fx__trend b { font-size: 24px; }
+  .fx__trend em { margin-left: 8px; font-style: normal; font-size: var(--b2s-fs-sm); font-weight: 600; }
+  .fx__trend em.is-up { color: #047857; }
+  .fx__trend em.is-down { color: #B91C1C; }
+  .fx__trend small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fx__spark { display: flex; align-items: flex-end; gap: 3px; height: 36px; flex: 1 1 200px; }
+  .fx__spark i { flex: 0 0 8px; border-radius: 2px; }
   .fx__pillars { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
   .fx__pillars > div { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); cursor: help; }
   .fx__pill-head { display: flex; justify-content: space-between; align-items: baseline; }

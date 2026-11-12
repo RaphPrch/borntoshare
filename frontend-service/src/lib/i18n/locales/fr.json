@@ -5614,5 +5614,8 @@
   "Archive this folder": "Archiver ce dossier",
   "Archive « {name} »": "Archiver « {name} »",
   "Archived": "Archivé",
-  "The folder ({size}) moves whole to « _B2S_Archives » at the root of the same share: its users no longer find it at its place. It can be restored at any time from the duplicates page (Quarantine).": "Le dossier ({size}) part entier dans « _B2S_Archives » à la racine du même partage : ses utilisateurs ne le trouvent plus à sa place. Il se restaure à tout moment depuis la page des doublons (Quarantaine)."
+  "The folder ({size}) moves whole to « _B2S_Archives » at the root of the same share: its users no longer find it at its place. It can be restored at any time from the duplicates page (Quarantine).": "Le dossier ({size}) part entier dans « _B2S_Archives » à la racine du même partage : ses utilisateurs ne le trouvent plus à sa place. Il se restaure à tout moment depuis la page des doublons (Quarantaine).",
+  "Trend": "Tendance",
+  "since the previous measure": "depuis la mesure précédente",
+  "{count} measure(s)": "{count} mesure(s)"
 }
