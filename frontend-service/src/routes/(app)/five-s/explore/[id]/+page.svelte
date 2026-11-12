@@ -407,7 +407,7 @@
             {:else}
               <p class="fx__hint">{t('No duplicate known here.')}</p>
             {/each}
-            {#if sheetGroups.length}<a class="b2s-btn b2s-btn-sm b2s-btn-primary" href={`/five-s/duplicates/${rootId}`}>{t('Decide copy by copy')}</a>{/if}
+            {#if sheetGroups.length}<a class="b2s-btn b2s-btn-sm b2s-btn-primary" href={`/five-s/duplicates/${rootId}${selected.path ? `?path=${encodeURIComponent(selected.path)}` : ''}`}>{t('See the duplicates of this folder ({count})', { count: groupsUnder(selected.path).length })}</a>{/if}
           </section>
         {/if}
       </aside>

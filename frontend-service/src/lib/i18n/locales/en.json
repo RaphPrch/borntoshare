@@ -1699,5 +1699,9 @@
   "Duplicates here": "Duplicates here",
   "Suggested": "Suggested",
   "No duplicate known here.": "No duplicate known here.",
-  "Tree": "Tree"
+  "Tree": "Tree",
+  "Duplicates of « {path} »": "Duplicates of « {path} »",
+  "see all": "see all",
+  "and {count} more copies not listed (the walk keeps 5 paths per group)": "and {count} more copies not listed (the walk keeps 5 paths per group)",
+  "See the duplicates of this folder ({count})": "See the duplicates of this folder ({count})"
 }

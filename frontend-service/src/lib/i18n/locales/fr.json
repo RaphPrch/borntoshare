@@ -5563,5 +5563,9 @@
   "set on this folder": "posé sur ce dossier",
   "Duplicates here": "Doublons ici",
   "Suggested": "Suggérée",
-  "No duplicate known here.": "Aucun doublon connu ici."
+  "No duplicate known here.": "Aucun doublon connu ici.",
+  "Duplicates of « {path} »": "Doublons de « {path} »",
+  "see all": "voir tout",
+  "and {count} more copies not listed (the walk keeps 5 paths per group)": "et {count} autres copies non listées (le parcours garde 5 chemins par groupe)",
+  "See the duplicates of this folder ({count})": "Voir les doublons de ce dossier ({count})"
 }

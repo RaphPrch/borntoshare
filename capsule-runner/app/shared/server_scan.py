@@ -167,7 +167,7 @@ $r.junk = @{ bytes = [long]$junkStat.bytes; files = [int]$junkStat.files; exampl
 $r.last_modified = $null
 if ($state.last -gt [DateTime]::MinValue) { $r.last_modified = $state.last.ToString('yyyy-MM-ddTHH:mm:ssZ') }
 $r.duplicates = @{ groups = [int]$groups.Count; files = [int]$dupFiles; wasted_bytes = [long]$wasted; truncated = [bool]$budgetHit; hashed = [int]$hashed }
-$r.duplicates.top = @($groups | Sort-Object wasted -Descending | Select-Object -First 10)
+$r.duplicates.top = @($groups | Sort-Object wasted -Descending | Select-Object -First 200)
 $r.fingerprints = @($prints | ForEach-Object { $_ })
 if ($p.with_dirs) {
   $r.acls = @($dirAcls.Values | Select-Object -First 50000)

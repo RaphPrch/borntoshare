@@ -15,7 +15,7 @@
   /** The identical files of a folder, group by group: which copy to keep (recorded; nothing is deleted from here). */
   type Copy = { path: string; modified: string | null };
   type Decision = { keep_path: string | null; note: string | null; decided_by: string | null; decided_at: string };
-  type Group = { fingerprint: string; size: number; wasted: number; copies: Copy[]; decision: Decision | null };
+  type Group = { fingerprint: string; size: number; wasted: number; files?: number; copies: Copy[]; decision: Decision | null };
 
   let rootName = '';
   let groups: Group[] = [];
@@ -27,6 +27,8 @@
   let saving: string | null = null;
 
   $: rootId = Number($page.params.id);
+  // ?path=…: only the duplicates with a copy in this sub-folder (opened from the explorer)
+  $: folderPath = $page.url.searchParams.get('path') || '';
 
   // Quarantine: the copies « to delete » moved to \\share\\_B2S_Quarantaine\\<date>\\… (by the scanner), and back
   type Move = { id: number; path: string; quarantine_path: string; keep_path: string | null; size_bytes: number; status: string;
@@ -74,7 +76,7 @@
     try {
       const overview = await apiGetData<Record<string, any>>(fetch, `/storage-roots/${rootId}/overview`);
       rootName = String(overview?.storage_root_name ?? `#${rootId}`);
-      groups = (await apiGetData<{ groups: Group[] }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups`))?.groups ?? [];
+      groups = (await apiGetData<{ groups: Group[] }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups`, folderPath ? { path: folderPath } : undefined))?.groups ?? [];
       await loadMoves();
     } catch {
       error = t('Unable to load the duplicates of this folder.');
@@ -134,6 +136,7 @@
     <header class="dd__head">
       <h1>{t('Duplicates · {name}', { name: rootName })}</h1>
       <p>{t('Identical files (same fingerprint: same size and same content). Choose the copy to keep; the decision is recorded, nothing is deleted from here.')}</p>
+      {#if folderPath}<p class="dd__scope"><i class="bi bi-funnel" aria-hidden="true"></i>{t('Duplicates of « {path} »', { path: folderPath })} · <a href={`/five-s/duplicates/${rootId}`}>{t('see all')}</a></p>{/if}
     </header>
     <section class="dd__kpis">
       <div><span>{t('Groups')}</span><b>{groups.length.toLocaleString('fr-FR')}</b></div>
@@ -159,7 +162,7 @@
         <header>
           <div>
             <b>{base(group.copies[0]?.path ?? '')}</b>
-            <small>{formatBytes(group.size)} × {group.copies.length} · {t('{size} lost', { size: formatBytes(group.wasted) })}</small>
+            <small>{formatBytes(group.size)} × {Math.max(group.files ?? 0, group.copies.length)} · {t('{size} lost', { size: formatBytes(group.wasted) })}</small>
           </div>
           <code class="dd__fp" title={group.fingerprint}>{t('Fingerprint')} {group.fingerprint.slice(0, 16)}…</code>
         </header>
@@ -182,6 +185,7 @@
               {/if}
             </li>
           {/each}
+          {#if (group.files ?? 0) > group.copies.length}<li class="dd__more">{t('and {count} more copies not listed (the walk keeps 5 paths per group)', { count: (group.files ?? 0) - group.copies.length })}</li>{/if}
         </ul>
         {#if group.decision?.keep_path}
           <footer>{t('Decided by {who}, {when}', { who: group.decision.decided_by ?? '—', when: formatDateTime(group.decision.decided_at) })}
@@ -278,5 +282,7 @@
   .dd__state.is-moved { background: #fff4e5; color: #b45309; }
   .dd__state.is-restored { background: #d1f0da; color: #1a7f37; }
   .dd__state.is-failed, .dd__state.is-restore_failed { background: #fde2e1; color: #b42318; }
+  .dd__scope { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px !important; padding: 4px 12px; border-radius: 999px; background: #EEF2FF; color: #3730A3 !important; font-size: var(--b2s-fs-sm); }
+  .dd__more { display: block !important; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .dd__hint { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>
