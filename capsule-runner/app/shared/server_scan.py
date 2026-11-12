@@ -135,11 +135,14 @@ Walk $local $onFile $onDir
 $walkMs = $watch.ElapsedMilliseconds
 # Probable duplicates: same size first, then same fingerprint (biggest sizes first, within the budget)
 $hashed = 0; $budgetHit = $false; $cache = @{}
+# Fingerprints within a time budget too (hash_seconds, 0 = none): thousands of photos of the same size on a slow disk
+# would otherwise hold the walk for many minutes; the duplicates are then marked truncated
+$hashWatch = [Diagnostics.Stopwatch]::StartNew(); $hashSeconds = [int]$p.hash_seconds
 $groups = New-Object 'System.Collections.Generic.List[object]'
 foreach ($size in @($bySize.Keys | Where-Object { $bySize[$_].Count -gt 1 } | Sort-Object -Descending)) {
   $byPrint = @{}
   foreach ($full in $bySize[$size]) {
-    if ($hashed -ge [int]$p.hash_files_max) { $budgetHit = $true; break }
+    if ($hashed -ge [int]$p.hash_files_max -or ($hashSeconds -gt 0 -and $hashWatch.Elapsed.TotalSeconds -gt $hashSeconds)) { $budgetHit = $true; break }
     try { $fp = Fingerprint $full $size; $hashed++; $cache[$full] = $fp } catch { continue }
     if (-not $byPrint.ContainsKey($fp)) { $byPrint[$fp] = New-Object 'System.Collections.Generic.List[string]' }
     $byPrint[$fp].Add($full.Substring($cut))
@@ -153,7 +156,7 @@ foreach ($g in $groups) { $wasted += [long]$g.wasted; $dupFiles += [int]$g.files
 $prints = New-Object 'System.Collections.Generic.List[object]'
 foreach ($b in @($big | Sort-Object size -Descending | Select-Object -First ([int]$p.fingerprints_max))) {
   $fp = $cache[$b.full]
-  if (-not $fp) { if ($hashed -ge [int]$p.hash_files_max) { $budgetHit = $true; break }; try { $fp = Fingerprint $b.full $b.size; $hashed++ } catch { continue } }
+  if (-not $fp) { if ($hashed -ge [int]$p.hash_files_max -or ($hashSeconds -gt 0 -and $hashWatch.Elapsed.TotalSeconds -gt $hashSeconds)) { $budgetHit = $true; break }; try { $fp = Fingerprint $b.full $b.size; $hashed++ } catch { continue } }
   $prints.Add([pscustomobject]@{ path = $b.path; size = $b.size; fingerprint = $fp; modified = $b.modified })
 }
 $r = [ordered]@{}
