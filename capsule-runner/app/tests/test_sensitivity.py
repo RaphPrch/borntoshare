@@ -213,6 +213,7 @@ ACL:CORP\\stagiaire:DENIED/0x10/0x001301bf
 def test_a_file_acl_says_who_can_open_it_and_whether_everyone_can():
     acl = sens.parse_cacls(CACLS)
     assert acl["x"] is False and acl["o"] == "BUILTIN\\Administrateurs" and acl["broad"] is True
+    assert acl["by"] == ["BUILTIN\\Utilisateurs"]
     assert acl["e"] == ["AUTORITE NT\\Système|F|i", "BUILTIN\\Utilisateurs|R|i", "CORP\\GG_Finance_RW|W|", "!CORP\\stagiaire|W|i"]
     own = sens.parse_cacls("CONTROL:SR|PD|DP\nACL:CORP\\GG_Finance_RW:ALLOWED/0x0/RWXD\n")
     assert own["x"] is True and own["broad"] is False and own["e"] == ["CORP\\GG_Finance_RW|W|"]

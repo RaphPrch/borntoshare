@@ -1770,5 +1770,11 @@
   "Own rights": "Own rights",
   "Who can open it ({count})": "Who can open it ({count})",
   "Denied: {who}": "Denied: {who}",
-  "Owner": "Owner"
+  "Owner": "Owner",
+  "Why every user can open them": "Why every user can open them",
+  "the share itself": "the share itself",
+  "gives « {right} » to {who}": "gives « {right} » to {who}",
+  "Inherited: set on this folder or above it, every file inside gets it.": "Inherited: set on this folder or above it, every file inside gets it.",
+  "Set on the files themselves.": "Set on the files themselves.",
+  "{count} sensitive file(s)": "{count} sensitive file(s)"
 }

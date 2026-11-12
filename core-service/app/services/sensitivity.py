@@ -32,6 +32,15 @@ FILE_GROUPS = {
 }
 
 
+# A group this large opens a file to « everyone » as surely as Everyone does (« GG_Tous », « Siège »…):
+# at least this share of the directory accounts, and never fewer than BROAD_GROUP_MIN members
+BROAD_GROUP_SHARE = 0.2
+BROAD_GROUP_MIN = 25
+# Files that warn the guardians when every user can open them: secrets and personal or bank data. An installer or a
+# mailbox open to all is no news.
+EXPOSED_CATEGORIES = (*PASSWORD_CATEGORIES, *KEY_CATEGORIES, *PERSONAL_CATEGORIES, *BANK_CATEGORIES)
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -91,6 +100,110 @@ def _merge(previous: list[dict], scan: dict, same_rules: bool) -> list[dict]:
     return list(unique.values())
 
 
+def wide_groups(db: Session) -> dict[str, int]:
+    """The directory groups large enough to count as everyone: name (and code) in lower case → members."""
+    try:
+        users = int(db.execute(text("SELECT COUNT(*) FROM directory_users WHERE deleted_at IS NULL")).scalar() or 0)
+        rows = db.execute(text("""
+            SELECT g.name, g.code, COUNT(DISTINCT m.directory_user_id) AS n FROM directory_effective_memberships m
+            JOIN directory_groups g ON g.id = m.directory_group_id WHERE g.deleted_at IS NULL
+            GROUP BY g.id HAVING n >= :floor"""), {"floor": max(BROAD_GROUP_MIN, int(users * BROAD_GROUP_SHARE + 0.999))}).all()
+    except Exception:
+        db.rollback()
+        return {}
+    out: dict[str, int] = {}
+    for name, code, members in rows:
+        for key in (name, code):
+            if key:
+                out[str(key).lower()] = max(out.get(str(key).lower(), 0), int(members))
+    return out
+
+
+def widen(findings: list[dict], groups: dict[str, int]) -> list[dict]:
+    """A file readable by a group of `groups` is open to everyone as well: its acl says so, and by which group."""
+    out = []
+    for item in findings:
+        acl = item.get("acl")
+        if not isinstance(acl, dict) or not groups:
+            out.append(item)
+            continue
+        by = list(acl.get("by") or [])
+        for entry in acl.get("e") or []:
+            who = str(entry).split("|", 1)[0]
+            name = who.rsplit("\\", 1)[-1].lower()
+            if not who.startswith("!") and name in groups and who not in by:
+                by.append(who)
+        out.append({**item, "acl": {**acl, "by": by, "broad": bool(by)}} if by != list(acl.get("by") or []) else item)
+    return out
+
+
+def exposed_paths(findings: list[dict], ignored: set[str]) -> list[str]:
+    """Secret, personal or bank files that every user can open, false positives aside."""
+    return sorted({str(item.get("path")) for item in findings
+                   if item.get("category") in EXPOSED_CATEGORIES and (item.get("acl") or {}).get("broad")
+                   and str(item.get("path", "")).lower() not in ignored})
+
+
+def exposure_alert(db: Session, root_id: int, paths: list[str]) -> None:
+    """Sensitive files open to every user raise an alert; the guardians get a mail when it opens (not at every scan).
+    The scan that sees them closed, or marked as false positives, resolves it."""
+    from app.data.repositories.governance_alerts_repo import GovernanceAlertsRepo
+
+    key = f"sensitive_open:{int(root_id)}"
+    try:
+        if not paths:
+            db.execute(text("UPDATE governance_alerts SET status = 'resolved', resolved_at = :now WHERE alert_key = :key AND status <> 'resolved'"),
+                       {"now": _now(), "key": key})
+            db.commit()
+            return
+        already = db.execute(text("SELECT 1 FROM governance_alerts WHERE alert_key = :key AND status <> 'resolved' LIMIT 1"), {"key": key}).first()
+        row = db.execute(text("""SELECT r.name, r.root_path, r.storage_endpoint_id, e.zone_id FROM storage_roots r
+                                 LEFT JOIN storage_endpoints e ON e.id = r.storage_endpoint_id WHERE r.id = :id"""), {"id": int(root_id)}).mappings().first() or {}
+        listed = ", ".join(paths[:5]) + (f" et {len(paths) - 5} autre(s)" if len(paths) > 5 else "")
+        GovernanceAlertsRepo(db)._upsert_alert({
+            "alert_key": key, "scope_type": "storage_root", "scope_id": int(root_id), "alert_type": "sensitive_open",
+            "severity": "high", "title": "Fichiers sensibles ouverts à tous les utilisateurs",
+            "message": f"{len(paths)} fichier(s) sensible(s) lisible(s) par tous : {listed}"[:500],
+            "source_type": "sensitivity", "source_id": str(int(root_id)), "zone_id": row.get("zone_id"),
+            "storage_endpoint_id": row.get("storage_endpoint_id"), "storage_root_id": int(root_id),
+            "metadata_json": {"paths": paths[:50], "storage_root_name": row.get("name")},
+        })
+        db.commit()
+        if not already:
+            _tell_guardians(db, int(root_id), row, paths)
+    except Exception:
+        db.rollback()
+
+
+def refresh_exposure(db: Session, root_id: int) -> None:
+    """The alert of a folder after a scan or a false positive, from what is stored (call it once that is committed)."""
+    row = db.execute(text("SELECT findings_json, ignored_json FROM storage_root_sensitivity WHERE storage_root_id = :id AND status = 'done'"),
+                     {"id": int(root_id)}).mappings().first()
+    if row is None:
+        return
+    exposure_alert(db, int(root_id), exposed_paths([item for item in _load(row["findings_json"], []) if isinstance(item, dict)],
+                                                   _ignored_paths(row["ignored_json"])))
+
+
+def _tell_guardians(db: Session, root_id: int, row: dict, paths: list[str]) -> None:
+    from app.services import notifications
+    from app.services.policies import _guardian_emails
+
+    config = notifications.settings(db)
+    recipients = _guardian_emails(db, [root_id]).get(root_id) or []
+    if not config.get("enabled") or not recipients:
+        return
+    name = row.get("name") or row.get("root_path")
+    notifications.queue(
+        f"sensitive_open:{root_id}:{_now():%Y%m%d%H%M}", recipients,
+        f"[BornToShare] Fichiers sensibles ouverts à tous : {name}",
+        f"Dans le dossier {name} ({row.get('root_path')}), {len(paths)} fichier(s) contenant des mots de passe, des clés ou des données "
+        "personnelles peuvent être ouverts par tous les utilisateurs :\n\n" + "\n".join(f"- {path}" for path in paths[:20])
+        + ("\n…" if len(paths) > 20 else "") + "\n\nDéplacez-les dans un dossier restreint, ou restreignez les droits du dossier."
+        + notifications._link(config, f"/storage-roots?selected={root_id}"),
+    )
+
+
 def incremental_params(storage_root_id: int) -> dict[str, Any]:
     """Where the next scan of the folder starts, and the files whose content was flagged (to know if they are gone)."""
     from app.core.db import SessionLocal
@@ -121,7 +234,7 @@ def record_result(db: Session, storage_root_id: int, job_id: int | None, result_
     previous = db.execute(text("SELECT ignored_json, findings_json, rules_version FROM storage_root_sensitivity WHERE storage_root_id = :id"),
                           {"id": int(storage_root_id)}).mappings().first()
     same_rules = bool(previous) and previous["rules_version"] == scan.get("rules_version")
-    findings = _merge(_load(previous["findings_json"], []) if previous else [], scan, same_rules)
+    findings = widen(_merge(_load(previous["findings_json"], []) if previous else [], scan, same_rules), wide_groups(db))
     incremental = scan.get("incremental") if isinstance(scan.get("incremental"), dict) else {}
     summary = {key: scan.get(key) for key in ("rules_version", "target", "files_listed", "files_read", "bytes_read", "truncated", "method", "fallback_reason")}
     summary["files_flagged_total"] = len({str(item.get("path", "")).lower() for item in findings})
@@ -183,6 +296,7 @@ def set_ignored(db: Session, storage_root_id: int, path: str, ignore: bool, by: 
         {"ignored": json.dumps(ignored), "flagged": flagged, "counts": json.dumps(counts), "id": int(storage_root_id)},
     )
     db.commit()
+    refresh_exposure(db, int(storage_root_id))
     return get(db, storage_root_id)
 
 

@@ -287,8 +287,8 @@ def is_broad(account: str) -> bool:
 
 def parse_cacls(listing: str) -> dict | None:
     """What a file's ACL says: x = its own rights (inheritance cut), o = owner, e = « account|R/W/F|i » (i = inherited,
-    deny entries prefixed with !), broad = everyone can read it."""
-    control, owner, entries, broad = "", "", [], False
+    deny entries prefixed with !), broad = everyone can read it, by = the accounts that open it to everyone."""
+    control, owner, entries, broad_by = "", "", [], []
     for line in listing.splitlines():
         head, _sep, rest = line.partition(":")
         head = head.strip().upper()
@@ -304,12 +304,12 @@ def parse_cacls(listing: str) -> dict | None:
             kind, flags, mask = parts[0].upper(), parts[1].upper(), "/".join(parts[2:])
             inherited = "I" in flags.split("|") or _hex(flags) & 0x10 != 0
             deny = kind.startswith("DENIED")
-            if kind.startswith("ALLOWED") and is_broad(who):
-                broad = True
+            if kind.startswith("ALLOWED") and is_broad(who) and who.strip() not in broad_by:
+                broad_by.append(who.strip())
             entries.append(f"{'!' if deny else ''}{who.strip()}|{_right(mask)}|{'i' if inherited else ''}")
     if not entries and not control:
         return None
-    return {"x": "PD" in control.split("|"), "o": owner, "e": entries[:20], "broad": broad}
+    return {"x": "PD" in control.split("|"), "o": owner, "e": entries[:20], "broad": bool(broad_by), "by": broad_by}
 
 
 def file_acls(base_cmd: list[str], paths: list[str], username: str, password: str, timeout: int = ACL_BUDGET_SECONDS) -> dict[str, dict]:

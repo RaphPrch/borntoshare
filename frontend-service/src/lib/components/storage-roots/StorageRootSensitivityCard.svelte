@@ -16,7 +16,7 @@
    */
   type Finding = { path: string; category: string; rule: string; line: number | null; excerpt: string | null; ignored?: boolean; ignored_reason?: string | null; ignored_by?: string | null; acl?: FileAcl | null };
   // Who can open the file: x = its own rights, e = « account|R/W/F|i » (i inherited, ! deny), broad = every user
-  type FileAcl = { x: boolean; o: string; e: string[]; broad: boolean };
+  type FileAcl = { x: boolean; o: string; e: string[]; broad: boolean; by?: string[] };
   type Sensitivity = {
     status: 'running' | 'done' | 'failed';
     files_flagged: number;
@@ -90,6 +90,28 @@
     return { who: who.replace(/^!/, ''), deny: who.startsWith('!'), right: RIGHT()[right] ?? right, inherited: inherited === 'i' };
   });
   let openAcl: string | null = null;
+  // Why every user can open them: in practice one folder gives read to everyone and all its files inherit it.
+  // One line per cause (the accounts that open them, set on the folder or on the files), on their common folder.
+  const RANK: Record<string, number> = { R: 1, W: 2, F: 3 };
+  const parentOf = (path: string) => path.split('\\').slice(0, -1);
+  const common = (a: string[], b: string[]) => {
+    const out: string[] = [];
+    for (let index = 0; index < a.length && a[index].toLowerCase() === b[index]?.toLowerCase(); index++) out.push(a[index]);
+    return out;
+  };
+  $: causes = [...files.filter((file) => file.acl?.broad).reduce((map, file) => {
+    const by = [...(file.acl?.by ?? [])].sort();
+    const broadEntries = (file.acl?.e ?? []).filter((entry) => !entry.startsWith('!') && by.includes(entry.split('|')[0]));
+    const inherited = broadEntries.length > 0 && broadEntries.every((entry) => entry.split('|')[2] === 'i');
+    const key = `${by.join(',')}|${inherited}`;
+    const cause = map.get(key) ?? { by, inherited, files: [] as string[], folder: null as string[] | null, right: 'R' };
+    cause.files.push(file.path);
+    cause.folder = cause.folder === null ? parentOf(file.path) : common(cause.folder, parentOf(file.path));
+    for (const entry of broadEntries) { const right = entry.split('|')[1]; if ((RANK[right] ?? 0) > (RANK[cause.right] ?? 0)) cause.right = right; }
+    map.set(key, cause);
+    return map;
+  }, new Map<string, { by: string[]; inherited: boolean; files: string[]; folder: string[] | null; right: string }>()).values()]
+    .sort((a, b) => b.files.length - a.files.length);
   $: ignoredFiles = allFiles.filter((file) => file.ignored);
   let showIgnored = false;
   let ignoringPath: string | null = null;
@@ -221,12 +243,28 @@
         {/each}
       </div>
     </div>
+    {#if causes.length}
+      <div class="sc__causes">
+        <b>{t('Why every user can open them')}</b>
+        {#each causes as cause (cause.by.join(',') + cause.inherited)}
+          <div class="sc__cause">
+            <i class="bi bi-folder2-open" aria-hidden="true"></i>
+            <span>
+              <span><code>{cause.folder && cause.folder.length ? inside(cause.folder.join('\\')) : t('the share itself')}</code>
+                {t('gives « {right} » to {who}', { right: RIGHT()[cause.right] ?? cause.right, who: cause.by.join(', ') })}</span>
+              <small>{cause.inherited ? t('Inherited: set on this folder or above it, every file inside gets it.') : t('Set on the files themselves.')}
+                · {t('{count} sensitive file(s)', { count: cause.files.length })}</small>
+            </span>
+          </div>
+        {/each}
+      </div>
+    {/if}
     <ul class="sc__list">
       {#each shown as file (file.path)}
         <li animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}>
           <i class={`bi ${CATEGORY()[file.items[0].category]?.icon ?? 'bi-file-earmark'}`} aria-hidden="true"></i>
           <div>
-            <span class="sc__file"><code title={file.path}>{inside(file.path)}</code>
+            <span class="sc__file"><code title={file.path}>{#if file.acl?.broad}<i class="bi bi-people-fill sc__open-dot" title={t('Every user can open it')} aria-label={t('Every user can open it')}></i>{/if}{inside(file.path)}</code>
               {#if isAdmin && reasonFor !== file.path}<button type="button" class="b2s-link-btn sc__fp" disabled={ignoringPath !== null} on:click={() => { reasonFor = file.path; reasonText = ''; }}>{t('False positive')}</button>{/if}
             </span>
             {#if reasonFor === file.path}
@@ -242,8 +280,7 @@
             {/each}
             {#if file.acl}
               <span class="sc__rights">
-                {#if file.acl.broad}<span class="sc__tag sc__tag--bad"><i class="bi bi-people-fill" aria-hidden="true"></i>{t('Every user can open it')}</span>
-                {:else}<span class="sc__tag"><i class="bi bi-lock" aria-hidden="true"></i>{t('Limited access')}</span>{/if}
+                {#if !file.acl.broad}<span class="sc__tag"><i class="bi bi-lock" aria-hidden="true"></i>{t('Limited access')}</span>{/if}
                 {#if file.acl.x}<span class="sc__tag sc__tag--own" title={t('Rights of its own: they no longer follow the folder')}>{t('Own rights')}</span>{/if}
                 <button type="button" class="b2s-link-btn" aria-expanded={openAcl === file.path} on:click={() => (openAcl = openAcl === file.path ? null : file.path)}>
                   {t('Who can open it ({count})', { count: file.acl.e.filter((entry) => !entry.startsWith('!')).length })}
@@ -347,4 +384,11 @@
   .sc__acl em { flex: none; font-style: normal; color: var(--b2s-color-text-muted); }
   .sc__acl li.is-deny span { color: var(--b2s-color-danger-strong, #b42318); }
   .sc__acl li.sc__owner { margin-top: 2px; padding-top: 4px; border-top: 1px dashed var(--b2s-color-border); color: var(--b2s-color-text-muted); }
+  .sc__causes { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--b2s-color-danger-soft, #fdecea); border-radius: var(--b2s-radius-md); font-size: var(--b2s-fs-sm); }
+  .sc__cause { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
+  .sc__cause > i { margin-top: 2px; color: var(--b2s-color-danger-strong, #b42318); }
+  .sc__cause > span { display: grid; gap: 2px; min-width: 0; }
+  .sc__cause code { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
+  .sc__cause small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .sc__open-dot { margin-right: 6px; color: var(--b2s-color-danger-strong, #b42318); font-size: 11px; }
 </style>

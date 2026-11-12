@@ -346,6 +346,12 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
         return
     scan = sensitivity.record_result(db, root_id, job_id, result_json)
     db.commit()
+    # Secret files every user can open: an alert, and a mail to the guardians when it opens
+    try:
+        sensitivity.refresh_exposure(db, int(root_id))
+    except Exception:
+        db.rollback()
+        logger.warning("SENSITIVITY_EXPOSURE_ALERT_FAILED", exc_info=True)
     # A folder too big for one pass: the next pass starts by itself
     try:
         sensitivity.continue_if_pending(db, job_row, scan)
