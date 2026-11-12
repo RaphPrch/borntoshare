@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 import sys
 from pathlib import Path
 
@@ -40,14 +41,24 @@ def no_creation(monkeypatch):
         raise AssertionError("a folder was created although its guardians were refused")
 
     monkeypatch.setattr(router, "_create_storage_root", _refuse)
-    monkeypatch.setattr(router, "min_guardians", lambda _db: 2)
     monkeypatch.setattr(router, "_load_active_enabled_snapshot_users", lambda _db, identity_source_id: {7})
 
 
-def test_too_few_guardians_refuse_the_batch_before_any_folder(no_creation) -> None:
-    with pytest.raises(HTTPException) as refused:
-        asyncio.run(router.create_roots_in_bulk(_batch([7]), request=None, db=_DB()))
-    assert refused.value.status_code == 422 and refused.value.detail["code"] == "TOO_FEW_GUARDIANS"
+def test_a_single_guardian_is_enough_for_a_batch(monkeypatch) -> None:
+    """No minimum number of guardians any more: one known guardian of the directory passes the checks."""
+    tried = []
+
+    def _create(*_args, **_kwargs):
+        tried.append(True)
+        raise RuntimeError("stop here")
+
+    monkeypatch.setattr(router, "_create_storage_root", _create)
+    monkeypatch.setattr(router, "_load_active_enabled_snapshot_users", lambda _db, identity_source_id: {7})
+    try:
+        asyncio.run(router.create_roots_in_bulk(_batch([7]), request=SimpleNamespace(headers={}), db=_DB()))
+    except Exception:
+        pass  # past the checks, the fake database stops the batch
+    assert tried == [True]
 
 
 def test_a_guardian_outside_the_directory_refuses_the_batch(no_creation) -> None:

@@ -93,7 +93,6 @@
 
   // Resume at the first step left to do
   const firstStep = !zoneId ? 0 : !sourceId ? 1 : !serverId ? 2 : status.imported_groups > 0 ? 5 : 3;  // 5: features (optional), then folders
-  const minGuardians = Number(status.min_guardians ?? 2);
   let at = firstStep;
   let top = firstStep;
   let busy = false;
@@ -116,7 +115,7 @@
     : current === 'server' ? serverReady && serverTested
     : current === 'identities' ? pickedGroups.length > 0 || status.imported_groups > 0
     : current === 'features' ? true
-    : current === 'folders' ? pickedShareList.length > 0 && guardianList.length >= minGuardians
+    : current === 'folders' ? pickedShareList.length > 0
     : true;
   $: placed = [
     { label: t('Zone'), value: top > 0 ? zone.name : '', step: 0 },
@@ -716,7 +715,7 @@
           {/if}
           <div>
             <h3 class="sp-sub">{t('Guardians of these folders')}</h3>
-            <p class="sp-lead sp-lead--tight">{t('Choose at least {count}. You can change them folder by folder later.', { count: minGuardians })} {t('Guardians decide on the access requests of their folders.')}</p>
+            <p class="sp-lead sp-lead--tight">{t('Choose them now or later, folder by folder; a folder without guardian has its requests decided by the administrators.')} {t('Guardians decide on the access requests of their folders.')}</p>
           </div>
           <form class="sp-search" on:submit|preventDefault={loadPeople}>
             <input type="search" bind:value={peopleQuery} aria-label={t('Search a person of the directory')} placeholder={t('Search a person of the directory…')} />

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 from types import SimpleNamespace
 
 import sys
@@ -66,7 +68,6 @@ def test_replace_storage_root_owners_uses_actor_from_request_and_returns_owners(
     monkeypatch.setattr(router, "_guardian_ids_requiring_snapshot_validation", lambda *args, **kwargs: [7, 9])
     monkeypatch.setattr(router, "_reconcile_storage_root_alerts", lambda *args, **kwargs: None)
     monkeypatch.setattr(router, "_load_existing_guardian_ids", lambda *args, **kwargs: {7})
-    monkeypatch.setattr(router, "min_guardians", lambda db: 2)
     monkeypatch.setattr(router, "log_activity", lambda *args, **kwargs: captured.setdefault("activity", kwargs))
     monkeypatch.setattr(router, "StorageRootOwnersRepo", _FakeOwnersRepo)
     monkeypatch.setattr(router, "StorageRootsViewsRepo", _FakeViewsRepo)
@@ -102,7 +103,7 @@ def test_replace_storage_root_owners_uses_actor_from_request_and_returns_owners(
     assert activity["actor_display"] == "Admin Local"
 
 
-def _refused_owners_update(monkeypatch, *, guardian_ids, identity, roles, existing, required=2):
+def _refused_owners_update(monkeypatch, *, guardian_ids, identity, roles, existing, repo=None):
     logged: list[dict] = []
 
     class _Db:
@@ -113,9 +114,8 @@ def _refused_owners_update(monkeypatch, *, guardian_ids, identity, roles, existi
     monkeypatch.setattr(router, "_guardians_in_active_snapshot_enabled", lambda *args, **kwargs: None)
     monkeypatch.setattr(router, "_guardian_ids_requiring_snapshot_validation", lambda *args, **kwargs: [])
     monkeypatch.setattr(router, "_load_existing_guardian_ids", lambda *args, **kwargs: set(existing))
-    monkeypatch.setattr(router, "min_guardians", lambda db: required)
     monkeypatch.setattr(router, "log_activity", lambda db, **kwargs: logged.append(kwargs))
-    monkeypatch.setattr(router, "StorageRootOwnersRepo", _NoWriteRepo)
+    monkeypatch.setattr(router, "StorageRootOwnersRepo", repo or _NoWriteRepo)
     monkeypatch.setattr(router, "_reconcile_storage_root_alerts", lambda *args, **kwargs: None)
 
     app = FastAPI()
@@ -146,8 +146,20 @@ def test_guardian_cannot_remove_themselves_and_the_attempt_is_logged(monkeypatch
     assert logged[0]["context_json"]["guardian_ids_requested"] == [8, 9]
 
 
-def test_a_folder_keeps_the_minimum_of_guardians_even_for_an_administrator(monkeypatch) -> None:
-    res, logged = _refused_owners_update(monkeypatch, guardian_ids=[8], identity=7, roles="platform_admin", existing=[8, 9])
-    assert res.status_code == 422
-    assert res.json()["detail"]["code"] == "TOO_FEW_GUARDIANS"
-    assert logged[0]["context_json"]["code"] == "TOO_FEW_GUARDIANS"
+class _Reached(Exception):
+    pass
+
+
+class _ReachRepo:
+    def __init__(self, db):
+        pass
+
+    def replace_owners(self, **kwargs):
+        raise _Reached(kwargs["guardian_ids"])
+
+
+def test_an_administrator_may_leave_a_folder_with_a_single_guardian(monkeypatch) -> None:
+    """There is no minimum number of guardians any more: the update reaches the write (only self-removal is refused)."""
+    with pytest.raises(_Reached) as reached:
+        _refused_owners_update(monkeypatch, guardian_ids=[8], identity=7, roles="platform_admin", existing=[8, 9], repo=_ReachRepo)
+    assert reached.value.args[0] == [8]

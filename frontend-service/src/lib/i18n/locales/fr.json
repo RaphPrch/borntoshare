@@ -5653,5 +5653,9 @@
   "Password written in a script": "Mot de passe écrit dans un script",
   "Payment card number": "Numéro de carte bancaire",
   "Program or script": "Programme ou script",
-  "Social security number": "Numéro de sécurité sociale"
+  "Social security number": "Numéro de sécurité sociale",
+  "{count} folder(s) without guardian": "{count} dossier(s) sans gardien",
+  "the administrators decide on their requests": "les administrateurs décident de leurs demandes",
+  "Choose them now or later, folder by folder; a folder without guardian has its requests decided by the administrators.": "Choisissez-les maintenant ou plus tard, dossier par dossier ; les demandes d'un dossier sans gardien sont décidées par les administrateurs.",
+  "The folder has no guardian: only the administrators can validate its requests.": "Le dossier n'a pas de gardien : seuls les administrateurs peuvent valider ses demandes."
 }

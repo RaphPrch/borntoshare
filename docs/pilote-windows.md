@@ -65,7 +65,7 @@ Les mots de passe sont saisis dans l'interface, qui les chiffre en base. Ne pas 
 | 2.1 | Serveurs › Ajouter un serveur, découverte des partages | Le partage et ses dossiers sont listés |
 | 2.2 | Dossiers › Ajouter des dossiers : les trois dossiers | Tuiles visibles, zone et serveur corrects |
 | 2.3 | Ouvrir un dossier › Relire l'ACL | Les entrées existantes sont lues ; les noms correspondent à ceux de l'Explorateur Windows |
-| 2.4 | Nommer `pilote.garant` et un second garant sur le premier dossier (minimum réglable dans Réglages avancés › Gouvernance, 2 par défaut) | `pilote.garant` voit ce dossier et seulement lui ; en dessous du minimum, l'enregistrement est refusé |
+| 2.4 | Nommer `pilote.garant` gardien du premier dossier ; laisser le deuxième sans gardien | `pilote.garant` voit ce dossier et seulement lui ; le dossier sans gardien est signalé « Sans gardien » et ses demandes vont aux administrateurs |
 | 2.5 | `pilote.garant` essaie de se retirer des garants | Refus, tentative tracée dans le journal |
 
 ## 3. Demande et approbation

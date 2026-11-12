@@ -64,7 +64,7 @@
           ? [{ key: 'untested', tone: 'warn' as const, icon: 'bi-activity', title: t('Never tested'), detail: t('Test the connection to know whether the server answers.'), label: testBusy ? t('Testing…') : t('Test the connection'), busy: testBusy, run: onTest }]
           : []),
     ...(summary.noGuardian.length
-      ? [{ key: 'guardians', tone: 'warn' as const, icon: 'bi-person-plus', title: t('{count} folder(s) without enough guardians', { count: summary.noGuardian.length }), detail: t('Only the administrators can approve their requests'), label: t('Add guardians'), run: onAddGuardians }]
+      ? [{ key: 'guardians', tone: 'warn' as const, icon: 'bi-person-plus', title: t('{count} folder(s) without guardian', { count: summary.noGuardian.length }), detail: t('Only the administrators can approve their requests'), label: t('Add guardians'), run: onAddGuardians }]
       : []),
     ...(summary.reread.length
       ? [{ key: 'reread', tone: 'warn' as const, icon: 'bi-arrow-clockwise', title: t('{count} folder(s) to read again', { count: summary.reread.length }), detail: t('Failed test or gap in the ACL'), label: rereadBusy ? t('Reading…') : t('Read the ACLs'), busy: rereadBusy, run: onReread }]

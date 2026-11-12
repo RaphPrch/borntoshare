@@ -62,7 +62,6 @@
     identitySources: any[];
     namingPolicyGlobal?: { template?: string | null } | null;
     zones?: Array<{ id?: number; pendingRequests?: number; identitySourceIds?: number[] }>;
-    minGuardians?: number;
   };
 
   $: currentZoneId = Number(data.zone?.id ?? 0) || null;
@@ -382,7 +381,6 @@
     .map((id) => (data.identitySources ?? []).find((source: any) => Number(source?.id) === Number(id)))
     .map((source: any) => String(source?.name ?? source?.display_name ?? "").trim())
     .filter(Boolean);
-  $: minGuardians = Number(data.minGuardians ?? 2) || 2;
   $: serversLabel = [
     summary.files.length ? t('{count} file server(s)', { count: summary.files.length }) : "",
     summary.dfs.length ? t('{count} DFS namespace(s)', { count: summary.dfs.length }) : "",
@@ -814,7 +812,6 @@
       summary,
       namingTemplateLabel: namingSaved.trim(),
       provisioningOu: resolveZoneBaseOu(data.provisioningPolicy) ?? '',
-      minGuardians,
       directories,
       activity,
       onOpenEndpoint: (endpointId: number | string) => goto(`/admin/storage-endpoints/${endpointId}`),
@@ -858,7 +855,6 @@
       <ZoneTiles
         {summary}
         {pendingRequests}
-        {minGuardians}
         onOpenServers={() => setTab("overview")}
         onOpenFolders={() => goto(foldersHref)}
         onOpenRequests={() => goto("/access-requests?status=pending")}

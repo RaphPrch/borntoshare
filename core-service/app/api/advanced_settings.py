@@ -24,9 +24,7 @@ DEFAULT_ADVANCED_SETTINGS: dict = {
         "retentionEnabled": True,
         "retentionDays": 180,
     },
-    "governance": {
-        "minGuardians": 2,
-    },
+    "governance": {},
     "sessions": {
         "ttlSeconds": 8 * 60 * 60,
         "idleSeconds": 30 * 60,
@@ -77,7 +75,6 @@ DEFAULT_ADVANCED_SETTINGS: dict = {
     },
 }
 
-MIN_GUARDIANS_RANGE = (1, 10)
 
 
 DEPRECATED_ADVANCED_SETTINGS_KEYS = {"platform", "discovery", "integrations", "security", "maintenance"}
@@ -97,6 +94,9 @@ def _sanitize_advanced_settings(payload: dict) -> dict:
     cleaned = deepcopy(payload if isinstance(payload, dict) else {})
     for key in DEPRECATED_ADVANCED_SETTINGS_KEYS:
         cleaned.pop(key, None)
+    # The minimum number of guardians per folder is no longer a setting
+    if isinstance(cleaned.get("governance"), dict):
+        cleaned["governance"].pop("minGuardians", None)
     return cleaned
 
 
@@ -145,13 +145,6 @@ def _write_payload(db: Session, payload: dict) -> None:
         {"payload": payload_json},
     )
     db.commit()
-
-
-def min_guardians(db: Session) -> int:
-    """Guardians a storage root must have (Advanced settings > Governance)."""
-    value = (_read_payload(db).get("governance") or {}).get("minGuardians")
-    low, high = MIN_GUARDIANS_RANGE
-    return value if isinstance(value, int) and low <= value <= high else DEFAULT_ADVANCED_SETTINGS["governance"]["minGuardians"]
 
 
 def _changed_settings(before: dict, after: dict, prefix: str = "") -> dict:
@@ -264,13 +257,6 @@ def save_advanced_config(payload: dict, request: Request, db: Session = Depends(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "LOG_RETENTION_INVALID", "message": "La rétention doit être comprise entre 1 et 3650 jours."},
-        )
-    wanted = (merged.get("governance") or {}).get("minGuardians")
-    low, high = MIN_GUARDIANS_RANGE
-    if not isinstance(wanted, int) or isinstance(wanted, bool) or not low <= wanted <= high:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "MIN_GUARDIANS_INVALID", "message": f"Le nombre de gardiens doit être compris entre {low} et {high}."},
         )
     sessions = merged.get("sessions") or {}
     ttl, idle = sessions.get("ttlSeconds"), sessions.get("idleSeconds")
@@ -397,7 +383,6 @@ def get_setup_status(db: Session = Depends(get_db)):
             "group_ou": (policy or {}).get("static_ou_dn"),
             "server": server,
             "imported_groups": imported_groups,
-            "min_guardians": min_guardians(db),
         }
     )
 

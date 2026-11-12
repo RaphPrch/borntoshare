@@ -77,21 +77,7 @@ export const storageRootAlertSummarySubtitle = (alert: GovernanceAlert): string 
   }
   if (type === 'endpoint_unreachable') return t('Storage endpoint failed');
   if (type === 'root_probe_failed') return t('Root probe failed');
-  if (type.includes('missing_guardian')) {
-    // « 1 guardian(s) assigned, 2 required »: say how many there are, not « none »
-    const raw: unknown = alert?.metadata_json;
-    let meta: { guardians?: number; required?: number } = {};
-    try {
-      meta = (typeof raw === 'string' ? JSON.parse(raw) : raw ?? {}) as typeof meta;
-    } catch {
-      meta = {};
-    }
-    const has = Number(meta.guardians ?? 0);
-    const required = Number(meta.required ?? 0);
-    return has > 0 && required > 0
-      ? t('{count} guardian(s) out of the {required} required', { count: has, required })
-      : t('No guardian assigned');
-  }
+  if (type.includes('missing_guardian')) return t('No guardian assigned');
   if (type.includes('pending_access_validation')) return t('Access validation pending');
   return null;
 };

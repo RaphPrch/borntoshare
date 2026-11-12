@@ -31,7 +31,7 @@
           key: 'guardians',
           tone: 'warn' as const,
           icon: 'bi-person-plus',
-          title: t('{count} folder(s) without enough guardians', { count: summary.noGuardian.length }),
+          title: t('{count} folder(s) without guardian', { count: summary.noGuardian.length }),
           detail: t('Only the administrators can approve their requests'),
           label: t('Add guardians'),
           run: onAddGuardians

@@ -5,7 +5,6 @@
   /** The figures of a zone as four tiles: servers reachable, folders to review, pending requests, guardians. */
   export let summary: ZoneSummary;
   export let pendingRequests = 0;
-  export let minGuardians = 2;
   export let onOpenServers: () => void = () => {};
   export let onOpenFolders: () => void = () => {};
   export let onOpenRequests: () => void = () => {};
@@ -38,9 +37,9 @@
     <small>{pendingRequests ? t('to decide by the guardians') : t('nothing to decide')}</small>
   </button>
   <button type="button" class="b2s-stat-tile" on:click={onOpenGuardians}>
-    <span>{t('Without enough guardians')}</span>
+    <span>{t('Without guardian')}</span>
     <b class:is-warn={summary.noGuardian.length > 0}>{summary.noGuardian.length}</b>
-    <small>{t('minimum: {count} guardians per folder', { count: minGuardians })}</small>
+    <small>{t('the administrators decide on their requests')}</small>
   </button>
 </section>
 

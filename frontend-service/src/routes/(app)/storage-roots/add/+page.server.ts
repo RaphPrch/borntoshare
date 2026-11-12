@@ -8,12 +8,11 @@ export const load: PageServerLoad = async (event) => {
   if (me.is_admin !== true) throw error(403, 'Reserved to the administrators of the platform');
 
   event.depends('app:storage-roots-add');
-  const [endpoints, catalog, tags, identity, settings] = await Promise.all([
+  const [endpoints, catalog, tags, identity] = await Promise.all([
     apiServerGetList<Record<string, any>>('/storage-endpoints/context', event),
     apiServerGetList<Record<string, any>>('/storage-roots/discovered/servers', event),
     apiServerGetList<Record<string, any>>('/tags', event).catch(() => []),
-    apiServerGetData<{ users?: Record<string, any>[]; items?: Record<string, any>[] }>('/identity', event).catch(() => null),
-    apiServerGetData<{ governance?: { minGuardians?: number } }>('/admin/config/advanced', event).catch(() => null)
+    apiServerGetData<{ users?: Record<string, any>[]; items?: Record<string, any>[] }>('/identity', event).catch(() => null)
   ]);
   const people = identity?.users ?? (identity?.items ?? []).filter((row) => row?.type !== 'group');
   return {
@@ -26,7 +25,6 @@ export const load: PageServerLoad = async (event) => {
         id: Number(row.id),
         label: String(row.display_name || row.username || row.id),
         hint: String(row.email || row.username || '')
-      })),
-    minGuardians: Number(settings?.governance?.minGuardians ?? 2)
+      }))
   };
 };

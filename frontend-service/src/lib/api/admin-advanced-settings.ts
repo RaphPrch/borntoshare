@@ -52,10 +52,6 @@ export async function purgeLogs(fetchFn: FetchLike) {
   return apiPost<ActionResult>(fetchFn, '/auth/admin/logs/purge', {});
 }
 
-export async function saveGovernanceConfig(fetchFn: FetchLike, minGuardians: number) {
-  return apiPost<ActionResult>(fetchFn, '/admin/config/advanced', { governance: { minGuardians } });
-}
-
 export async function saveSessionLimits(fetchFn: FetchLike, ttlSeconds: number, idleSeconds: number) {
   return apiPost<ActionResult>(fetchFn, '/admin/config/advanced', { sessions: { ttlSeconds, idleSeconds } });
 }

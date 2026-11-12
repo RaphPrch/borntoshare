@@ -80,11 +80,6 @@ function testVisibleAlertsForRootIdsHideLegacyAlerts(): void {
 
   assert(alerts.length === 1, 'legacy hidden alerts should not be counted in visible aggregate filters');
   assert(storageRootAlertSummarySubtitle({ alert_type: 'missing_guardian' }) === 'No guardian assigned', 'missing_guardian subtitle should stay explicit');
-  assert(
-    storageRootAlertSummarySubtitle({ alert_type: 'missing_guardian', metadata_json: { guardians: 1, required: 2 } } as any) ===
-      '1 guardian(s) out of the 2 required',
-    'missing_guardian subtitle should count the guardians already there'
-  );
 }
 
 function testSummaryIgnoresDirectCountWhenVisibleGlobalAlertsAreClean(): void {

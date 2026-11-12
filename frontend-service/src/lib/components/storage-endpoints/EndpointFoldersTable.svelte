@@ -16,7 +16,7 @@
   const TONE_VARIANT: Record<string, 'success' | 'warning' | 'error' | 'muted'> = { ok: 'success', warn: 'warning', bad: 'error', n: 'muted' };
   /** Filter of the list, shared with the tiles of the page */
   export let filter = 'all';
-  /** Folders without enough guardians (summary of the server) */
+  /** Folders without guardian (summary of the server) */
   export let noGuardianIds: Set<number> = new Set();
   let query = '';
   let opened = new Set<string>();
@@ -75,7 +75,7 @@
     { key: 'all', label: t('All'), count: counts.all },
     { key: 'todo', label: t('To review'), count: counts.todo },
     { key: 'down', label: t('Unreachable'), count: counts.down },
-    { key: 'guard', label: t('Without enough guardians'), count: counts.guard },
+    { key: 'guard', label: t('Without guardian'), count: counts.guard },
     { key: 'pending', label: t('Pending requests'), count: counts.pending }
   ]} />
 </div>

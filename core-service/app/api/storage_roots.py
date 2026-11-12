@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.core.db import get_db
-from app.api.advanced_settings import min_guardians
 from app.core.internal_auth import require_internal_token
 from app.data.models.identity import Identity
 from app.data.models.storage_endpoint import StorageEndpoint
@@ -1032,13 +1031,6 @@ def replace_storage_root_owners(
             status.HTTP_403_FORBIDDEN,
             "Un gardien ne peut pas se retirer lui-même d'un dossier : un autre gardien ou un administrateur doit le faire.",
         )
-    required = min_guardians(db)
-    if len(all_ids) < required:
-        refuse(
-            "TOO_FEW_GUARDIANS",
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            f"Un dossier doit avoir au moins {required} gardiens (Réglages avancés > Gouvernance).",
-        )
 
     write_repo = StorageRootOwnersRepo(db)
     write_repo.replace_owners(
@@ -1316,19 +1308,13 @@ def _refusal_text(exc: Exception) -> str:
 
 
 def _check_bulk_guardians(db: Session, *, endpoint_ids: set[int], guardian_ids: list[int]) -> None:
-    """Guardians of a batch, checked before any folder is created: known, enough of them, in each directory."""
+    """Guardians of a batch, checked before any folder is created: known, and in each directory."""
     requested = sorted({int(v) for v in guardian_ids if int(v) > 0})
     if not requested:
         return
     missing = [identity_id for identity_id in requested if db.get(Identity, identity_id) is None]
     if missing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown identity ids: {','.join(str(v) for v in missing)}")
-    required = min_guardians(db)
-    if len(requested) < required:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "TOO_FEW_GUARDIANS", "message": f"Un dossier doit avoir au moins {required} gardiens (Réglages avancés > Gouvernance)."},
-        )
     for endpoint_id in sorted(endpoint_ids):
         source_id = int(db.execute(text("SELECT identity_source_id FROM storage_endpoints WHERE id = :id"), {"id": endpoint_id}).scalar() or 0)
         if source_id <= 0:

@@ -598,25 +598,18 @@ class GovernanceAlertsRepo(SQLViewRepo):
             {"storage_root_id": root_id},
         )
         owner_counts = {str(row.get("role") or "").lower(): int(row.get("count") or 0) for row in owner_rows}
-        from app.api.advanced_settings import min_guardians
-
+        # A folder without any guardian: its requests go to the administrators (no minimum number to reach)
         guardian_count = int(owner_counts.get("guardian") or 0)
-        required_guardians = min_guardians(self.db)
-        if guardian_count < required_guardians:
+        if guardian_count == 0:
             alerts.append(
                 {
                     **base("missing_guardian"),
                     "severity": "warning",
                     "title": "Guardian missing",
-                    "message": f"{guardian_count} guardian(s) assigned, {required_guardians} required",
+                    "message": "No guardian: the administrators decide on its requests",
                     "source_type": "governance_policy",
                     "source_id": str(root_id),
-                    "metadata_json": {
-                        "storage_root_name": root_label,
-                        "role": "guardian",
-                        "guardians": guardian_count,
-                        "required": required_guardians,
-                    },
+                    "metadata_json": {"storage_root_name": root_label, "role": "guardian", "guardians": 0},
                 }
             )
         profile_rows = self._all(

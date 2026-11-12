@@ -26,9 +26,6 @@ export const load: PageServerLoad = async (event: PageServerLoadEvent) => {
     event
   ).catch(() => []);
 
-  // Guardians required per folder (Advanced settings > Governance)
-  const advanced = await apiServerGetData<{ governance?: { minGuardians?: number } }>('/admin/config/advanced', event).catch(() => null);
-
   // Activity: non-blocking (bounded)
   const activity = await apiServerGetData(
     `/activity/by-target?target_type=zone&target_id=${zoneId}&limit=60`,
@@ -49,7 +46,6 @@ export const load: PageServerLoad = async (event: PageServerLoadEvent) => {
     // reuse global datasets loaded in /admin/+layout.server.ts
     identitySources: parentData.identitySources ?? [],
     tags: parentData.tags ?? [],
-    namingPolicyGlobal: parentData.namingPolicyGlobal ?? null,
-    minGuardians: Number(advanced?.governance?.minGuardians ?? 2) || 2
+    namingPolicyGlobal: parentData.namingPolicyGlobal ?? null
   };
 };

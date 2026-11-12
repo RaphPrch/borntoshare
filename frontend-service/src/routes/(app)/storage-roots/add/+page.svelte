@@ -25,7 +25,6 @@
     catalog: Record<string, any>[];
     tags: Option[];
     people: Option[];
-    minGuardians: number;
   };
 
   /**
@@ -202,8 +201,7 @@
 
   $: firstSelected = selected.values().next().value as Folder | undefined;
   $: void refreshPreview(firstSelected);
-  $: guardiansInvalid = guardianIds.length > 0 && guardianIds.length < data.minGuardians;
-  $: canAdd = selected.size > 0 && !guardiansInvalid && !running;
+  $: canAdd = selected.size > 0 && !running;
 
   const stateLabel = (server: Server) =>
     server.state === 'bad' ? t('Unreachable') : server.state === 'none' ? t('To analyse') : t('{count} new', { count: server.newCount });
@@ -652,7 +650,7 @@
                 <summary>{t('Guardians and tags (optional)')}</summary>
                 <div class="gov">
                   <GovernancePicker id="add-guardians" label={t('Guardians')} placeholder={t('Search a person…')} options={data.people} bind:selected={guardianIds} />
-                  {#if guardiansInvalid}<small class="field-error">{t('Choose at least {count} guardians, or none for now.', { count: data.minGuardians })}</small>{/if}
+                  
                   <GovernancePicker id="add-tags" label={t('Tags')} placeholder={t('Search a tag…')} options={data.tags} bind:selected={tagIds} />
                   <small class="muted">{t('Applied to all the checked folders.')}</small>
                 </div>

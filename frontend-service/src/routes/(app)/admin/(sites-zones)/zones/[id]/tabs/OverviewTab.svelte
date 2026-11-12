@@ -12,7 +12,6 @@
   export let summary: ZoneSummary;
   export let namingTemplateLabel = '';
   export let provisioningOu = '';
-  export let minGuardians = 2;
   export let directories: string[] = [];
   export let activity: any[] = [];
   export let onOpenEndpoint: ((endpointId: number) => void) | null = null;
@@ -113,7 +112,6 @@
         <div><dt>{t('OU of the groups')}</dt><dd class="mono">{provisioningOu || t('Default OU of the directory')}</dd></div>
         <div><dt>{t('Naming')}</dt><dd><span class="mono">{namingTemplateLabel || t('Not set')}</span>{#if example}<small>{t('Example: {name}', { name: example })}</small>{/if}</dd></div>
         <div><dt>{t('Gaps')}</dt><dd class:warn={gaps > 0}>{gaps ? t('{count} folder(s) with groups off the rule', { count: gaps }) : t('none')}</dd></div>
-        <div><dt>{t('Guardians')}</dt><dd>{t('{count} minimum per folder', { count: minGuardians })}</dd></div>
         {#if directories.length}<div><dt>{t('Directory')}</dt><dd>{directories.join(', ')}</dd></div>{/if}
         {#if lastChange?.created_at}
           <div><dt>{t('Last change')}</dt><dd>{lastChange.actor_display_name ?? lastChange.actor_display ?? lastChange.actor_username ?? '—'}<small>{timeAgo(lastChange.created_at)}</small></dd></div>

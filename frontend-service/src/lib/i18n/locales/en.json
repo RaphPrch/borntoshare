@@ -1793,5 +1793,10 @@
   "Password written in a script": "Password written in a script",
   "Payment card number": "Payment card number",
   "Program or script": "Program or script",
-  "Social security number": "Social security number"
+  "Social security number": "Social security number",
+  "Without guardian": "Without guardian",
+  "{count} folder(s) without guardian": "{count} folder(s) without guardian",
+  "the administrators decide on their requests": "the administrators decide on their requests",
+  "Choose them now or later, folder by folder; a folder without guardian has its requests decided by the administrators.": "Choose them now or later, folder by folder; a folder without guardian has its requests decided by the administrators.",
+  "The folder has no guardian: only the administrators can validate its requests.": "The folder has no guardian: only the administrators can validate its requests."
 }

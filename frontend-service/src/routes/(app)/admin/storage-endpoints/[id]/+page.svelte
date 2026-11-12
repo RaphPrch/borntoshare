@@ -947,7 +947,7 @@
     return own !== 'unknown' ? own : endpointHealth(selected) === 'unhealthy' ? 'unhealthy' : 'unknown';
   };
 
-  // Filter of the folder list, also set by the tiles (to review, without enough guardians, pending requests)
+  // Filter of the folder list, also set by the tiles (to review, without guardian, pending requests)
   let folderFilter = 'all';
   let folderFilterFor = 0;
   // Another server: its list starts unfiltered

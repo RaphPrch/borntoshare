@@ -340,7 +340,7 @@
     { key: 'all', label: t('All'), count: zonedRows.length },
     { key: 'review', label: t('To review'), count: zonedRows.filter(toReview).length },
     { key: 'pending', label: t('Pending requests'), count: zonedRows.filter((row) => pendingCount(row) > 0).length },
-    { key: 'no-guardian', label: t('Without enough guardians'), count: zonedRows.filter(noGuardian).length }
+    { key: 'no-guardian', label: t('Without guardian'), count: zonedRows.filter(noGuardian).length }
   ].filter((item) => item.key === 'all' || item.count > 0);
 </script>
 

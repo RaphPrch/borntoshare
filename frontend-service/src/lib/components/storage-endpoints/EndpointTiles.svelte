@@ -3,8 +3,8 @@
   import type { ZoneSummary } from '$lib/components/zones/zone-summary';
 
   /**
-   * The figures of a file server as four tiles that filter the folder list below (to review, without enough
-   * guardians, pending requests); the last one opens the Shares tab. The state of the connection is in the header.
+   * The figures of a file server as four tiles that filter the folder list below (to review, without
+   * guardian, pending requests); the last one opens the Shares tab. The state of the connection is in the header.
    */
   export let summary: ZoneSummary;
   export let pendingCount = 0;
@@ -26,7 +26,7 @@
     {#if roots}<span class="b2s-stat-bar" aria-hidden="true"><i style={`flex:${roots - review}`}></i><i class="warn" style={`flex:${review}`}></i></span>{/if}
   </button>
   <button type="button" class="b2s-stat-tile" class:is-on={activeFilter === 'guard'} aria-pressed={activeFilter === 'guard'} on:click={() => toggle('guard')}>
-    <span>{t('Without enough guardians')}</span>
+    <span>{t('Without guardian')}</span>
     <b class:is-warn={summary.noGuardian.length > 0}>{summary.noGuardian.length}</b>
     <small>{summary.noGuardian.length ? t('Only the administrators can approve their requests') : t('all the folders are covered')}</small>
   </button>

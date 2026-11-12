@@ -98,7 +98,7 @@ const GUIDES: Record<string, () => AlertGuide> = {
     steps: [t('Run « Test » on the folder, or a check of every folder from the server page.')]
   }),
   missing_guardian: () => ({
-    cause: t('The folder has no guardian (or not enough): only the administrators can validate its requests.'),
+    cause: t('The folder has no guardian: only the administrators can validate its requests.'),
     steps: [
       t('Open the folder and add at least one guardian (Governance › Guardians).'),
       t('To do it for many folders: select them in the list, then « Guardians ».')

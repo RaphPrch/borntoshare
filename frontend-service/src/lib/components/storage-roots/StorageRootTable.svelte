@@ -166,7 +166,7 @@
   $: counters = [
     { key: 'all' as Filter, label: t('Folders') },
     { key: 'review' as Filter, label: t('To review') },
-    { key: 'no-guardian' as Filter, label: t('Without enough guardians') },
+    { key: 'no-guardian' as Filter, label: t('Without guardian') },
     { key: 'ending' as Filter, label: t('Ending within 30 days') },
     { key: 'blocking' as Filter, label: t('Blocking') }
   ].map((counter) => ({ ...counter, count: zoned.filter(PASSES[counter.key]).length }));
