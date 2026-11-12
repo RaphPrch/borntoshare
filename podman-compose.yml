@@ -259,6 +259,21 @@ services:
     networks: [app, data]
 
 # Podman secrets, created by scripts/secrets.sh (make deploy) from the files the wizard writes in secrets/
+  # Test mail server of the lab (profile « mail », make mail-up): catches every e-mail of BornToShare, nothing
+  # leaves. SMTP on mailpit:1025 for the services only; the mails are read on http://<host>:8025. Kept in memory.
+  mailpit:
+    <<: *hardening
+    container_name: mailpit
+    image: docker.io/axllent/mailpit:v1.21.8
+    profiles: [mail]
+    environment:
+      TZ: Europe/Paris
+      MP_MAX_MESSAGES: "2000"
+    expose: ["1025"]
+    ports: ["8025:8025"]
+    networks: [app]
+
+
 secrets:
   b2s_master_key:
     external: true

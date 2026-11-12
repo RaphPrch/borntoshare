@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: backup help build up down restart ps logs logs-% wizard wizard-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
+.PHONY: backup help build up down restart ps logs logs-% wizard wizard-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
 
 help:
 	@echo "make build          build the images"
@@ -60,6 +60,13 @@ wizard: .env
 
 wizard-down:
 	$(COMPOSE) --profile wizard stop wizard-ui
+
+# Test mail server of the lab: every e-mail of BornToShare ends there (http://<host>:8025), nothing goes out
+mail-up: .env
+	podman-compose --profile mail -f podman-compose.yml up -d mailpit
+
+mail-down:
+	podman-compose --profile mail -f podman-compose.yml stop mailpit
 
 clean: down
 	podman volume rm -f b2s-redis-data
