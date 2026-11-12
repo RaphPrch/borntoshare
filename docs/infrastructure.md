@@ -33,6 +33,8 @@ l'attribut calculé `allowedChildClassesEffective`, si ce compte peut y créer d
 « en panne » (ligne « Group OU ») et bloque les approbations qui y créeraient un groupe
 (voir [droits-ad.md](droits-ad.md#lou-des-groupes-vérifiée-avant-chaque-approbation)).
 
+![Observabilité › Santé : l'annuaire et l'OU des groupes contrôlés avec leurs comptes](screenshots/10-sante.png)
+
 Un worker ne peut pas signaler qu'il est en panne : c'est core-service qui interroge son agent.
 L'historique est gardé 7 jours (`infra_check_history`).
 

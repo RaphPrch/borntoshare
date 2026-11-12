@@ -22,11 +22,13 @@ secours) ; la mise en page est dans `core-service/app/services/mail_templates.py
 Les liens mènent à l'application (« Adresse de BornToShare dans les e-mails ») ; aucune décision ne se prend depuis
 un e-mail.
 
-| Nouvelle demande, au gardien | Alerte « fichiers ouverts à tous » |
-|---|---|
-| ![E-mail « Nouvelle demande d'accès »](screenshots/mail-nouvelle-demande.png) | ![E-mail d'alerte](screenshots/mail-alerte-sensibilite.png) |
+| Nouvelle demande, au gardien | Alerte « fichiers ouverts à tous » | Rappel de fin d'accès |
+|---|---|---|
+| ![E-mail « Nouvelle demande d'accès »](screenshots/mail-nouvelle-demande.png) | ![E-mail d'alerte](screenshots/mail-alerte-sensibilite.png) | ![E-mail de rappel](screenshots/mail-rappel-fin-acces.png) |
 
 ## Régler le serveur SMTP
+
+![Réglages avancés › Notifications](screenshots/14-notifications.png)
 
 | Champ | Effet |
 |---|---|
