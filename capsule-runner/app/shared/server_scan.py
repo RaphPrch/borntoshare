@@ -95,6 +95,8 @@ $coldFiles = New-Object 'System.Collections.Generic.List[object]'
 $junkStat = @{ bytes = [long]0; files = 0; examples = New-Object 'System.Collections.Generic.List[string]' }
 $bySize = New-Object 'System.Collections.Generic.Dictionary[long,object]'
 $big = New-Object 'System.Collections.Generic.List[object]'
+# defer_hash: the last write of each file to fingerprint (ticks), so that an unchanged file keeps its fingerprint
+$ticks = New-Object 'System.Collections.Generic.Dictionary[string,long]'
 $y1 = $now.AddDays(-365); $y3 = $now.AddDays(-1095)
 $localCut = $local.TrimEnd('\').Length + 1
 $onDir = { param($d) $t.folders++; if ($p.with_dirs) { & $aclOf $d.FullName }; if ($d.Parent.FullName.TrimEnd('\') -eq $local.TrimEnd('\')) { if (-not $top.ContainsKey($d.Name)) { $top[$d.Name] = @{ bytes = [long]0; files = 0 } } } }
@@ -125,9 +127,10 @@ $onFile = {
   if ($junk.IsMatch($f.Name)) { $junkStat.bytes += $size; $junkStat.files++; if ($junkStat.examples.Count -lt 5) { $junkStat.examples.Add($rel) } }
   if ($size -ge [long]$p.dup_min_bytes) {
     if ($bySize.ContainsKey($size)) { $bySize[$size].Add($f.FullName) } else { $l = New-Object 'System.Collections.Generic.List[string]'; $l.Add($f.FullName); $bySize[$size] = $l }
+    if ($p.defer_hash) { $ticks[$f.FullName] = $when.Ticks }
   }
   if ($size -ge [long]$p.fingerprint_min_bytes) {
-    $big.Add([pscustomobject]@{ full = $f.FullName; path = $rel; size = $size; modified = $when.ToString('yyyy-MM-ddTHH:mm:ssZ') })
+    $big.Add([pscustomobject]@{ full = $f.FullName; path = $rel; size = $size; modified = $when.ToString('yyyy-MM-ddTHH:mm:ssZ'); t = $when.Ticks })
     if ($big.Count -gt (4 * [int]$p.fingerprints_max)) { $keep = @($big | Sort-Object size -Descending | Select-Object -First ([int]$p.fingerprints_max)); $big.Clear(); foreach ($k in $keep) { $big.Add($k) } }
   }
 }
@@ -180,10 +183,10 @@ if ($p.defer_hash) {
   $same = New-Object 'System.Collections.Generic.List[object]'
   foreach ($size in @($bySize.Keys | Where-Object { $bySize[$_].Count -gt 1 } | Sort-Object -Descending)) {
     if ($same.Count -ge [int]$p.hash_files_max) { break }
-    foreach ($full in $bySize[$size]) { $same.Add([pscustomobject]@{ p = $full.Substring($cut); s = [long]$size }) }
+    foreach ($full in $bySize[$size]) { $same.Add([pscustomobject]@{ p = $full.Substring($cut); s = [long]$size; t = $ticks[$full] }) }
   }
   # Objects, not [path, size] pairs: ConvertTo-Json of PowerShell 5.1 turns nested arrays into {value, Count}
-  $r.hash_todo = @{ same = @($same | ForEach-Object { $_ }); big = @($big | Sort-Object size -Descending | Select-Object -First ([int]$p.fingerprints_max) | ForEach-Object { [pscustomobject]@{ path = $_.path; size = [long]$_.size; modified = $_.modified } }) }
+  $r.hash_todo = @{ same = @($same | ForEach-Object { $_ }); big = @($big | Sort-Object size -Descending | Select-Object -First ([int]$p.fingerprints_max) | ForEach-Object { [pscustomobject]@{ path = $_.path; size = [long]$_.size; modified = $_.modified; t = [long]$_.t } }) }
   $r.duplicates = @{ groups = 0; files = 0; wasted_bytes = [long]0; truncated = $true; hashed = 0; deferred = $true; top = @() }
 }
 if ($p.with_dirs) {

@@ -94,6 +94,8 @@ class MeasureResult(BaseModel):
     files: int | None = None
     progress: dict | None = None
     error: str | None = None
+    # running + stats: the figures of the walk, published before the fingerprints (the history of the measures is not touched)
+    interim: bool = False
 
 
 @router.post("/measure-result")
@@ -102,7 +104,8 @@ def measure_result(payload: MeasureResult, db: Session = Depends(get_db)):
     from app.services import scans
 
     kept, problem = scans.record_module_state(db, payload.storage_root_id, status=payload.status, stats=payload.stats, method=payload.method,
-                                              elapsed_ms=payload.elapsed_ms, files=payload.files, progress=payload.progress, error=payload.error)
+                                              elapsed_ms=payload.elapsed_ms, files=payload.files, progress=payload.progress, error=payload.error,
+                                              interim=payload.interim)
     if kept in ("done", "failed"):
         scans.unreadable_alert(db, int(payload.storage_root_id), problem)
     if kept == "done":

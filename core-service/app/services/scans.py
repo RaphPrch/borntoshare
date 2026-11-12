@@ -82,7 +82,7 @@ def record_result(db: Session, storage_root_id: int, job_id: int | None, result_
     # A new dict: the JSON column is seen as changed (the ACL part of the last test stays as it is)
     root.discovered_permissions_json = {**current, "content_previous": with_previous(current), "content_size_bytes": int(stats.get("bytes") or 0),
                                         "content_updated_at": now.isoformat() + "+00:00", "content_stats": stats,
-                                        "content_scan_job_id": job_id}
+                                        "content_scan_job_id": job_id, "content_interim": False}
     db.execute(
         text(
             """
@@ -126,23 +126,29 @@ def states_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, str]:
 
 def record_module_state(db: Session, storage_root_id: int, *, status: str, stats: dict | None = None, method: str | None = None,
                         elapsed_ms: int | None = None, files: int | None = None, progress: dict | None = None,
-                        error: str | None = None) -> tuple[str, str | None]:
+                        error: str | None = None, interim: bool = False) -> tuple[str, str | None]:
     """What the scanner of the 5S module reports: running (with its progress), done (with the content), failed.
+    interim: running with the figures of the walk, before the fingerprints; they replace the shown content but never
+    enter the kept previous measures (the final « done » takes their place).
     Returns the state kept and its problem (a measure that comes back empty is kept as a failure)."""
     import json
 
     from app.data.models.storage_root import StorageRoot
 
     now = _now()
-    if status == "done" and isinstance(stats, dict):
+    if (status == "done" or (status == "running" and interim)) and isinstance(stats, dict):
         root = db.get(StorageRoot, int(storage_root_id))
         current = dict(root.discovered_permissions_json) if root is not None and isinstance(root.discovered_permissions_json, dict) else {}
         if root is not None and emptied(current, stats):
-            status, stats = "failed", None
-            error = "La mesure n'a trouvé aucun fichier alors que le dossier en contenait : dernière mesure conservée"
+            if status == "done":
+                status, stats = "failed", None
+                error = "La mesure n'a trouvé aucun fichier alors que le dossier en contenait : dernière mesure conservée"
         elif root is not None:
-            root.discovered_permissions_json = {**current, "content_previous": with_previous(current), "content_size_bytes": int(stats.get("bytes") or 0),
-                                                "content_updated_at": now.isoformat() + "+00:00", "content_stats": stats}
+            # An interim content never becomes a previous measure: the one shown before it stays the last kept
+            previous = (current.get("content_previous") or []) if current.get("content_interim") else with_previous(current)
+            root.discovered_permissions_json = {**current, "content_previous": previous, "content_size_bytes": int(stats.get("bytes") or 0),
+                                                "content_updated_at": now.isoformat() + "+00:00", "content_stats": stats,
+                                                "content_interim": status == "running"}
     db.execute(
         text(
             """
@@ -247,6 +253,6 @@ def restore_previous(db: Session, storage_root_id: int, index: int) -> bool:
     if current.get("content_stats"):
         history.insert(0, {"at": current.get("content_updated_at"), "bytes": current.get("content_size_bytes"), "stats": current["content_stats"]})
     root.discovered_permissions_json = {**current, "content_previous": history[:KEEP_PREVIOUS], "content_stats": chosen["stats"],
-                                        "content_size_bytes": chosen.get("bytes"), "content_updated_at": chosen.get("at")}
+                                        "content_size_bytes": chosen.get("bytes"), "content_updated_at": chosen.get("at"), "content_interim": False}
     db.commit()
     return True
