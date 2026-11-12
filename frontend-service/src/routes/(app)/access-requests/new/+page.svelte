@@ -11,6 +11,7 @@
   import { checkExistingAccess, createAccessRequest, listMyAccessRequests } from '$lib/api/access-requests';
   import { parseRequestSentence } from '$lib/utils/request-sentence';
   import { getPublicSettings } from '$lib/api/admin-advanced-settings';
+  import { apiGetData } from '$lib/api/client';
   import { listStorageRootsContext, type StorageRootContext } from '$lib/api/storage-roots';
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
@@ -313,6 +314,24 @@
   }
 
 
+  // ---- suggestions: used by my team, asked for before, most asked for -------------------------------
+  type SuggestionKind = 'team' | 'recent' | 'popular';
+  let suggestions: Record<SuggestionKind, Array<{ storage_root_id: number; count: number }>> = { team: [], recent: [], popular: [] };
+  let suggestionKind: SuggestionKind = 'team';
+  const SUGGESTION_KINDS = (): Array<[SuggestionKind, string]> => [['team', t('Used by your team')], ['recent', t('Asked for before')], ['popular', t('Most asked for')]];
+  onMount(() => {
+    apiGetData<typeof suggestions>(fetch, '/access-requests/suggestions').then((data) => {
+      if (!data) return;
+      suggestions = data;
+      suggestionKind = (['team', 'recent', 'popular'] as SuggestionKind[]).find((key) => (data[key] ?? []).length) ?? 'team';
+    }).catch(() => null);
+  });
+  $: suggestionRows = (suggestions[suggestionKind] ?? [])
+    .map((item) => ({ root: roots.find((root) => root.id === item.storage_root_id), count: item.count }))
+    .filter((row) => row.root)
+    .map((row) => ({ root: row.root as Root, hint: suggestionKind === 'team' ? t('{count} colleague(s) have it', { count: row.count })
+      : suggestionKind === 'popular' ? t('{count} person(s) got it lately', { count: row.count }) : t('you asked for it before') }));
+
   // ---- express entry ------------------------------------------------------------
   const isoDay = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   $: parsed = express.trim() ? parseRequestSentence(express, roots) : null;
@@ -391,6 +410,24 @@
               {/if}
               {#if expressNote}<small class="nr__warn">{expressNote}</small>{/if}
             </form>
+            {#if suggestionRows.length}
+              <div class="nr__sugg" aria-label={t('Suggestions')}>
+                <div class="nr__sugg-tabs" role="tablist">
+                  {#each SUGGESTION_KINDS() as [key, label] (key)}
+                    {#if (suggestions[key] ?? []).length}<button type="button" role="tab" aria-selected={suggestionKind === key} class:on={suggestionKind === key} on:click={() => (suggestionKind = key)}>{label}</button>{/if}
+                  {/each}
+                </div>
+                <div class="nr__sugg-list">
+                  {#each suggestionRows as row (row.root.id)}
+                    <button type="button" class="nr__sugg-card" class:in={cart.has(row.root.id)} on:click={() => (cart.has(row.root.id) ? null : add(row.root.id))}>
+                      <i class="bi bi-folder2" aria-hidden="true"></i>
+                      <span><b>{row.root.name}</b><small>{row.hint}</small></span>
+                      <em>{cart.has(row.root.id) ? '✓' : '+'}</em>
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {/if}
             <div class="nr__search">
               <label><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={query} placeholder={t('Which folder are you looking for?')} aria-label={t('Search a folder')} /></label>
               {#if zones.length > 1}
@@ -613,4 +650,17 @@
   .nr__reasons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .nr__reasons button { padding: 3px 10px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-sm); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); cursor: pointer; }
   .nr__reasons button:hover { color: var(--b2s-color-text); border-color: var(--b2s-color-text); }
+  .nr__sugg { display: grid; gap: 8px; margin-top: 4px; }
+  .nr__sugg-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .nr__sugg-tabs button { height: 30px; padding: 0 12px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface, #fff); font: inherit; font-size: var(--b2s-fs-sm); cursor: pointer; }
+  .nr__sugg-tabs button.on { background: #0E1218; border-color: #0E1218; color: #fff; }
+  .nr__sugg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .nr__sugg-card { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 10px 12px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); font: inherit; text-align: left; cursor: pointer; }
+  .nr__sugg-card:hover { border-color: #0E1218; }
+  .nr__sugg-card.in { border-color: #86EFAC; background: #F0FDF4; cursor: default; }
+  .nr__sugg-card i { color: #B7791F; }
+  .nr__sugg-card span { display: grid; min-width: 0; }
+  .nr__sugg-card b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-sm); }
+  .nr__sugg-card small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .nr__sugg-card em { font-style: normal; font-weight: 700; }
 </style>

@@ -1059,6 +1059,15 @@ def list_access_requests(
     )
 
 
+@router.get("/suggestions")
+def get_request_suggestions(request: Request, db: Session = Depends(get_db)):
+    """Folders to suggest in a new request: used by my team, asked for before, most asked for (not those I have)."""
+    from app.services.request_suggestions import suggestions
+
+    actor = actor_from_request(request)
+    return ui_data(suggestions(db, actor.identity_id))
+
+
 @router.get("/counts-by-status")
 def access_requests_counts_by_status(
     request: Request,
