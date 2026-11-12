@@ -160,6 +160,19 @@
   ];
   $: decisions = columns.reduce((sum, column) => sum + column.cards.length, 0);
 
+  // ---- tree on the left: the path walked from the root, then the sub-folders of the current folder ----------
+  $: treeItems = [
+    ...trail.map((folder, index) => ({ key: `t${index}`, name: index === 0 ? rootName : folder.name, depth: index, bytes: folder.bytes,
+      open: true, current: index === trail.length - 1, folder, index })),
+    ...children.map((folder) => ({ key: `c${folder.path}`, name: folder.name, depth: trail.length, bytes: folder.bytes,
+      open: false, current: false, folder, index: -1 }))
+  ];
+  function pickTree(item: { folder: Folder; index: number }) {
+    if (item.index >= 0) void up(item.index);
+    else if (item.folder.folders > 0) void enter(item.folder);
+    else selected = item.folder;
+  }
+
   // ---- list --------------------------------------------------------------------------------------------------
   $: rows = children.filter((folder) =>
     filter === 'all' || (filter === 'dormant' && dormant(folder)) || (filter === 'dups' && groupsUnder(folder.path).length > 0) || (filter === 'broken' && folder.inheritance_broken));
@@ -262,6 +275,17 @@
               <button type="button" class:is-on={filter === key} on:click={() => (filter = key)}>{label}</button>
             {/each}
           </div>
+          <div class="fx__split">
+          <nav class="fx__tree" aria-label={t('Tree')}>
+            {#each treeItems as item (item.key)}
+              <button type="button" class:is-current={item.current} class:is-sel={selected === item.folder} style={`padding-left:${10 + item.depth * 14}px`}
+                on:click={() => pickTree(item)} title={item.folder.path || rootPath}>
+                <i class={`bi ${item.open ? 'bi-folder2-open' : item.folder.folders > 0 ? 'bi-folder-fill' : 'bi-folder'}`} aria-hidden="true"></i>
+                <span>{item.name}</span>
+                <small>{formatBytes(item.bytes)}</small>
+              </button>
+            {/each}
+          </nav>
           <div class="fx__table">
             <table class="b2s-table">
               <thead><tr>
@@ -295,6 +319,7 @@
                 {#if !rows.length && !files.length}<tr><td colspan="8" class="fx__empty">{t('Nothing here for this filter.')}</td></tr>{/if}
               </tbody>
             </table>
+          </div>
           </div>
         {:else}
           <section class="fx__pillars" aria-label={t('Pillars')}>
@@ -422,6 +447,15 @@
   .fx__filters { display: flex; flex-wrap: wrap; gap: 6px; }
   .fx__filters button { height: 30px; padding: 0 12px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface, #fff); font: inherit; font-size: var(--b2s-fs-sm); cursor: pointer; }
   .fx__filters button.is-on { background: #0E1218; border-color: #0E1218; color: #fff; }
+  .fx__split { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .fx__tree { position: sticky; top: 12px; display: grid; gap: 1px; max-height: 70vh; overflow: auto; padding: 8px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
+  .fx__tree button { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 6px 8px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: var(--b2s-fs-sm); text-align: left; cursor: pointer; color: inherit; }
+  .fx__tree button:hover { background: #F5F8FC; }
+  .fx__tree button.is-current { font-weight: 600; background: #EEF2FF; }
+  .fx__tree button.is-sel { background: #F5FBE6; }
+  .fx__tree i { color: #E0A526; }
+  .fx__tree span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fx__tree small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); white-space: nowrap; }
   .fx__table { overflow-x: auto; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
   .fx__table tr { cursor: default; }
   .fx__table tbody tr:hover td { background: #F5F8FC; }
