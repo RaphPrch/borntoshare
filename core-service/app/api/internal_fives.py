@@ -101,11 +101,11 @@ def measure_result(payload: MeasureResult, db: Session = Depends(get_db)):
     """The scanner of the module reports a measure: its progress, its content (the folder page, the policies), or why it failed."""
     from app.services import scans
 
-    scans.record_module_state(db, payload.storage_root_id, status=payload.status, stats=payload.stats, method=payload.method,
-                              elapsed_ms=payload.elapsed_ms, files=payload.files, progress=payload.progress, error=payload.error)
-    if payload.status in ("done", "failed"):
-        _unreadable_alert(db, int(payload.storage_root_id), payload.error)
-    if payload.status == "done":
+    kept, problem = scans.record_module_state(db, payload.storage_root_id, status=payload.status, stats=payload.stats, method=payload.method,
+                                              elapsed_ms=payload.elapsed_ms, files=payload.files, progress=payload.progress, error=payload.error)
+    if kept in ("done", "failed"):
+        scans.unreadable_alert(db, int(payload.storage_root_id), problem)
+    if kept == "done":
         try:
             from app.services.policies import run_all
 
@@ -113,37 +113,6 @@ def measure_result(payload: MeasureResult, db: Session = Depends(get_db)):
         except Exception:
             db.rollback()
     return ui_data({"stored": True})
-
-
-def _unreadable_alert(db: Session, root_id: int, problem: str | None) -> None:
-    """A folder the scanner could not read (disk error, folder gone, pieces unreadable) raises an alert; the next clean
-    measure resolves it. Without it, a broken disk stays silent and its figures quietly go wrong."""
-    from datetime import datetime, timezone
-
-    from sqlalchemy import text as _text
-
-    from app.data.repositories.governance_alerts_repo import GovernanceAlertsRepo
-
-    key = f"fives_unreadable:{int(root_id)}"
-    try:
-        if not problem:
-            db.execute(_text("UPDATE governance_alerts SET status = 'resolved', resolved_at = :now WHERE alert_key = :key AND status <> 'resolved'"),
-                       {"now": datetime.now(timezone.utc).replace(tzinfo=None), "key": key})
-            db.commit()
-            return
-        row = db.execute(_text("""SELECT r.name, r.storage_endpoint_id, e.zone_id FROM storage_roots r LEFT JOIN storage_endpoints e ON e.id = r.storage_endpoint_id
-                                  WHERE r.id = :id"""), {"id": int(root_id)}).mappings().first() or {}
-        GovernanceAlertsRepo(db)._upsert_alert({
-            "alert_key": key, "scope_type": "storage_root", "scope_id": int(root_id), "alert_type": "fives_unreadable",
-            "severity": "warning", "title": "Dossier en partie illisible pour le scanner 5S",
-            "message": f"{problem[:400]} — vérifiez le disque ou le partage, puis mesurez à nouveau.",
-            "source_type": "fives", "source_id": str(int(root_id)), "zone_id": row.get("zone_id"),
-            "storage_endpoint_id": row.get("storage_endpoint_id"), "storage_root_id": int(root_id),
-            "metadata_json": {"problem": problem[:500], "storage_root_name": row.get("name")},
-        })
-        db.commit()
-    except Exception:
-        db.rollback()
 
 
 class DelegatePayload(BaseModel):

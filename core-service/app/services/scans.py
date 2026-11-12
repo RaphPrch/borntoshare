@@ -73,6 +73,12 @@ def record_result(db: Session, storage_root_id: int, job_id: int | None, result_
         return False
     now = _now()
     current = dict(root.discovered_permissions_json) if isinstance(root.discovered_permissions_json, dict) else {}
+    # Never a good measure replaced by an empty one: kept, the measure fails and the folder is flagged
+    if emptied(current, stats):
+        problem = "La mesure n'a trouvé aucun fichier alors que le dossier en contenait : dernière mesure conservée"
+        record_failure(db, int(storage_root_id), job_id, problem)
+        unreadable_alert(db, int(storage_root_id), problem)
+        return False
     # A new dict: the JSON column is seen as changed (the ACL part of the last test stays as it is)
     root.discovered_permissions_json = {**current, "content_size_bytes": int(stats.get("bytes") or 0),
                                         "content_updated_at": now.isoformat() + "+00:00", "content_stats": stats,
@@ -119,8 +125,10 @@ def states_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, str]:
 
 
 def record_module_state(db: Session, storage_root_id: int, *, status: str, stats: dict | None = None, method: str | None = None,
-                        elapsed_ms: int | None = None, files: int | None = None, progress: dict | None = None, error: str | None = None) -> None:
-    """What the scanner of the 5S module reports: running (with its progress), done (with the content), failed."""
+                        elapsed_ms: int | None = None, files: int | None = None, progress: dict | None = None,
+                        error: str | None = None) -> tuple[str, str | None]:
+    """What the scanner of the 5S module reports: running (with its progress), done (with the content), failed.
+    Returns the state kept and its problem (a measure that comes back empty is kept as a failure)."""
     import json
 
     from app.data.models.storage_root import StorageRoot
@@ -128,8 +136,11 @@ def record_module_state(db: Session, storage_root_id: int, *, status: str, stats
     now = _now()
     if status == "done" and isinstance(stats, dict):
         root = db.get(StorageRoot, int(storage_root_id))
-        if root is not None:
-            current = dict(root.discovered_permissions_json) if isinstance(root.discovered_permissions_json, dict) else {}
+        current = dict(root.discovered_permissions_json) if root is not None and isinstance(root.discovered_permissions_json, dict) else {}
+        if root is not None and emptied(current, stats):
+            status, stats = "failed", None
+            error = "La mesure n'a trouvé aucun fichier alors que le dossier en contenait : dernière mesure conservée"
+        elif root is not None:
             root.discovered_permissions_json = {**current, "content_size_bytes": int(stats.get("bytes") or 0),
                                                 "content_updated_at": now.isoformat() + "+00:00", "content_stats": stats}
     db.execute(
@@ -148,6 +159,7 @@ def record_module_state(db: Session, storage_root_id: int, *, status: str, stats
          "progress": json.dumps(progress) if progress else None, "mode": (progress or {}).get("mode") or (stats or {}).get("mode")},
     )
     db.commit()
+    return status, error
 
 
 async def request_measure(db: Session, storage_root_id: int, *, reason: str = "manual", by: str | None = None) -> int | None:
@@ -169,3 +181,41 @@ async def request_measure(db: Session, storage_root_id: int, *, reason: str = "m
     job_id = int(job.get("job_id") or 0) or None
     mark_requested(db, storage_root_id, job_id)
     return job_id
+
+
+def unreadable_alert(db: Session, root_id: int, problem: str | None) -> None:
+    """A folder the scanner could not read (disk error, folder gone, pieces unreadable) raises an alert; the next clean
+    measure resolves it. Without it, a broken disk stays silent and its figures quietly go wrong."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import text as _text
+
+    from app.data.repositories.governance_alerts_repo import GovernanceAlertsRepo
+
+    key = f"fives_unreadable:{int(root_id)}"
+    try:
+        if not problem:
+            db.execute(_text("UPDATE governance_alerts SET status = 'resolved', resolved_at = :now WHERE alert_key = :key AND status <> 'resolved'"),
+                       {"now": datetime.now(timezone.utc).replace(tzinfo=None), "key": key})
+            db.commit()
+            return
+        row = db.execute(_text("""SELECT r.name, r.storage_endpoint_id, e.zone_id FROM storage_roots r LEFT JOIN storage_endpoints e ON e.id = r.storage_endpoint_id
+                                  WHERE r.id = :id"""), {"id": int(root_id)}).mappings().first() or {}
+        GovernanceAlertsRepo(db)._upsert_alert({
+            "alert_key": key, "scope_type": "storage_root", "scope_id": int(root_id), "alert_type": "fives_unreadable",
+            "severity": "warning", "title": "Dossier en partie illisible pour le scanner 5S",
+            "message": f"{problem[:400]} — vérifiez le disque ou le partage, puis mesurez à nouveau.",
+            "source_type": "fives", "source_id": str(int(root_id)), "zone_id": row.get("zone_id"),
+            "storage_endpoint_id": row.get("storage_endpoint_id"), "storage_root_id": int(root_id),
+            "metadata_json": {"problem": problem[:500], "storage_root_name": row.get("name")},
+        })
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+def emptied(current: dict, stats: dict) -> bool:
+    """A measure that finds no file in a folder that held some: the folder was not read (disk gone, share moved…)
+    far more often than it was emptied. Its figures must not replace the good ones."""
+    before = int(((current or {}).get("content_stats") or {}).get("files") or 0)
+    return before > 0 and int((stats or {}).get("files") or 0) == 0
