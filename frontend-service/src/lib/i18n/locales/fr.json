@@ -5474,5 +5474,21 @@
   "Show more ({count} groups)": "Afficher plus ({count} groupes)",
   "The groups come from the inventory of the biggest files (1 MB and more).": "Les groupes viennent de l'inventaire des plus gros fichiers (1 Mo et plus).",
   "{folders} sub-folder(s) and {files} big file(s) in all: open the folder to see everything.": "{folders} sous-dossier(s) et {files} gros fichier(s) au total : ouvrez le dossier pour tout voir.",
-  "Decide copy by copy": "Décider copie par copie"
+  "Decide copy by copy": "Décider copie par copie",
+  "{count} copy(ies) sent to quarantine ({size}).": "{count} copie(s) envoyée(s) en quarantaine ({size}).",
+  "Unable to apply the decisions.": "Impossible d'appliquer les décisions.",
+  "« {name} » goes back to its place.": "« {name} » retourne à sa place.",
+  "Unable to restore the copy.": "Impossible de restaurer la copie.",
+  "Being moved…": "Déplacement…",
+  "In quarantine": "En quarantaine",
+  "Not moved": "Non déplacée",
+  "Being restored…": "Restauration…",
+  "Restored": "Restaurée",
+  "Not restored": "Non restaurée",
+  "Move the {count} copies to quarantine": "Mettre les {count} copies en quarantaine",
+  "Quarantine": "Quarantaine",
+  "The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them at any time.": "Les copies déplacées restent dans « _B2S_Quarantaine » à la racine du partage, avec leur chemin : restaurez-les à tout moment.",
+  "Move the copies to quarantine": "Mettre les copies en quarantaine",
+  "{count} copies ({size}) leave their folder for « _B2S_Quarantaine » on the same share. The copy kept is checked first, a copy changed since the scan is left as it is, and each one can be restored.": "{count} copies ({size}) quittent leur dossier pour « _B2S_Quarantaine » sur le même partage. La copie gardée est vérifiée d'abord, une copie modifiée depuis l'analyse est laissée telle quelle, et chacune peut être restaurée.",
+  "Move to quarantine": "Mettre en quarantaine"
 }

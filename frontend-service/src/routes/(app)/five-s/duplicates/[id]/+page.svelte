@@ -10,6 +10,8 @@
   import FivesTabs from '$lib/components/fives/FivesTabs.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import { onDestroy } from 'svelte';
 
   /** The identical files of a folder, group by group: which copy to keep (recorded; nothing is deleted from here). */
   type Copy = { path: string; modified: string | null };
@@ -27,11 +29,54 @@
 
   $: rootId = Number($page.params.id);
 
+  // Quarantine: the copies « to delete » moved to \\share\\_B2S_Quarantaine\\<date>\\… (by the scanner), and back
+  type Move = { id: number; path: string; quarantine_path: string; keep_path: string | null; size_bytes: number; status: string;
+    error: string | null; requested_by: string | null; requested_at: string; done_at: string | null; restored_by: string | null };
+  let moves: Move[] = [];
+  let confirming = false;
+  let applying = false;
+  let timer: ReturnType<typeof setInterval> | null = null;
+  async function loadMoves() {
+    moves = (await apiGetData<{ moves: Move[] }>(fetch, `/modules/fives/storage-roots/${rootId}/quarantine`).catch(() => null))?.moves ?? moves;
+    const busy = moves.some((move) => move.status === 'pending' || move.status === 'restore_pending');
+    if (busy && !timer) timer = setInterval(loadMoves, 4000);
+    if (!busy && timer) { clearInterval(timer); timer = null; }
+  }
+  onDestroy(() => timer && clearInterval(timer));
+  $: inQuarantine = new Set(moves.filter((move) => ['pending', 'moved', 'restore_pending'].includes(move.status)).map((move) => move.path));
+  $: toMove = decided.flatMap((group) => group.copies.filter((copy) => copy.path !== group.decision?.keep_path && !inQuarantine.has(copy.path)).map(() => group.size));
+  $: toMoveBytes = toMove.reduce((sum, size) => sum + size, 0);
+  async function applyDecisions() {
+    confirming = false;
+    applying = true;
+    try {
+      const result = await apiPostData<{ queued: number; bytes: number }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups/apply`, {});
+      toast.success(t('{count} copy(ies) sent to quarantine ({size}).', { count: result?.queued ?? 0, size: formatBytes(result?.bytes ?? 0) }));
+      await loadMoves();
+    } catch (e: unknown) {
+      reportUiError(e, t('Unable to apply the decisions.'), 'fives.duplicates.apply');
+    } finally {
+      applying = false;
+    }
+  }
+  async function restore(move: Move) {
+    try {
+      await apiPostData(fetch, `/modules/fives/storage-roots/${rootId}/quarantine/${move.id}/restore`, {});
+      toast.success(t('« {name} » goes back to its place.', { name: base(move.path) }));
+      await loadMoves();
+    } catch (e: unknown) {
+      reportUiError(e, t('Unable to restore the copy.'), 'fives.quarantine.restore');
+    }
+  }
+  const MOVE_LABEL = (): Record<string, string> => ({ pending: t('Being moved…'), moved: t('In quarantine'), failed: t('Not moved'),
+    restore_pending: t('Being restored…'), restored: t('Restored'), restore_failed: t('Not restored') });
+
   onMount(async () => {
     try {
       const overview = await apiGetData<Record<string, any>>(fetch, `/storage-roots/${rootId}/overview`);
       rootName = String(overview?.storage_root_name ?? `#${rootId}`);
       groups = (await apiGetData<{ groups: Group[] }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups`))?.groups ?? [];
+      await loadMoves();
     } catch {
       error = t('Unable to load the duplicates of this folder.');
     } finally {
@@ -107,6 +152,9 @@
       </div>
       <input class="b2s-input" placeholder={t('Filter by name or path…')} bind:value={query} aria-label={t('Filter by name or path')} />
       <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!decided.length} on:click={exportDecisions}><i class="bi bi-download" aria-hidden="true"></i>{t('Export the decisions')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary dd__apply" disabled={!toMove.length || applying} on:click={() => (confirming = true)}>
+        <i class="bi bi-archive" aria-hidden="true"></i>{t('Move the {count} copies to quarantine', { count: toMove.length })}
+      </button>
     </div>
 
     {#each visible.slice(0, shown) as group (group.fingerprint + group.size)}
@@ -148,8 +196,38 @@
     {/each}
     {#if visible.length > shown}<button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => (shown += 50)}>{t('Show more ({count} groups)', { count: visible.length })}</button>{/if}
     <p class="dd__hint">{t('The groups come from the inventory of the biggest files (1 MB and more).')}</p>
+
+    {#if moves.length}
+      <section class="dd__q">
+        <header><h2><i class="bi bi-archive" aria-hidden="true"></i>{t('Quarantine')}</h2>
+          <small>{t('The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them at any time.')}</small></header>
+        <table class="b2s-table">
+          <thead><tr><th>{t('Copy')}</th><th class="dd__num">{t('Size')}</th><th>{t('State')}</th><th>{t('By')}</th><th></th></tr></thead>
+          <tbody>
+            {#each moves as move (move.id)}
+              <tr>
+                <td class="dd__mpath"><span>{base(move.path)}</span><code title={move.path}>{folderOf(move.path)}</code>{#if move.error}<small class="dd__err">{move.error}</small>{/if}</td>
+                <td class="dd__num">{formatBytes(move.size_bytes)}</td>
+                <td><span class={`dd__state is-${move.status}`}>{MOVE_LABEL()[move.status] ?? move.status}</span></td>
+                <td class="dd__by">{move.restored_by && move.status.startsWith('restor') ? move.restored_by : move.requested_by ?? '—'}<small>{formatDateTime(move.done_at ?? move.requested_at)}</small></td>
+                <td>{#if move.status === 'moved' || move.status === 'restore_failed'}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => restore(move)}>{t('Restore')}</button>{/if}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </section>
+    {/if}
   {/if}
 </div>
+
+<ConfirmActionModal
+  open={confirming}
+  title={t('Move the copies to quarantine')}
+  subtitle={t('{count} copies ({size}) leave their folder for « _B2S_Quarantaine » on the same share. The copy kept is checked first, a copy changed since the scan is left as it is, and each one can be restored.', { count: toMove.length, size: formatBytes(toMoveBytes) })}
+  confirmLabel={t('Move to quarantine')}
+  onConfirm={applyDecisions}
+  onClose={() => (confirming = false)}
+/>
 
 <style>
   .dd { display: grid; gap: 14px; }
@@ -188,5 +266,20 @@
   .dd__badge.is-drop { background: #fde2e1; color: #b42318; }
   .dd__group footer { padding: 8px 14px; border-top: 1px solid var(--b2s-color-border-soft, #eef1f5); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .dd__empty { padding: 24px; color: var(--b2s-color-text-muted); text-align: center; }
+  .dd__apply { margin-left: auto; }
+  .dd__q { padding: 16px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
+  .dd__q header { display: grid; gap: 2px; margin-bottom: 10px; }
+  .dd__q h2 { display: flex; gap: 8px; align-items: center; margin: 0; font-size: 16px; }
+  .dd__q header small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .dd__mpath { display: grid; max-width: 560px; }
+  .dd__mpath code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); color: var(--b2s-color-text-muted); }
+  .dd__err { color: #b42318; font-size: var(--b2s-fs-xs); }
+  .dd__num { text-align: right; white-space: nowrap; }
+  .dd__by { display: grid; font-size: var(--b2s-fs-sm); }
+  .dd__by small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .dd__state { padding: 2px 10px; border-radius: 999px; font-size: var(--b2s-fs-xs); font-weight: 600; background: #eef1f5; }
+  .dd__state.is-moved { background: #fff4e5; color: #b45309; }
+  .dd__state.is-restored { background: #d1f0da; color: #1a7f37; }
+  .dd__state.is-failed, .dd__state.is-restore_failed { background: #fde2e1; color: #b42318; }
   .dd__hint { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>
