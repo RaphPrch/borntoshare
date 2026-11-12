@@ -14,7 +14,9 @@
    * Sensitivity of the folder: passwords, keys and password vaults the capsule runner found stored in it.
    * Only the path, the rule, the line and a masked excerpt are shown: the secret itself is never kept.
    */
-  type Finding = { path: string; category: string; rule: string; line: number | null; excerpt: string | null; ignored?: boolean; ignored_reason?: string | null; ignored_by?: string | null };
+  type Finding = { path: string; category: string; rule: string; line: number | null; excerpt: string | null; ignored?: boolean; ignored_reason?: string | null; ignored_by?: string | null; acl?: FileAcl | null };
+  // Who can open the file: x = its own rights, e = « account|R/W/F|i » (i inherited, ! deny), broad = every user
+  type FileAcl = { x: boolean; o: string; e: string[]; broad: boolean };
   type Sensitivity = {
     status: 'running' | 'done' | 'failed';
     files_flagged: number;
@@ -28,6 +30,7 @@
     method?: 'server' | 'smb';
     incremental?: { full: boolean | null; complete: boolean | null; pending: number | null };
     scanned_at?: string | null;
+    files_open_to_all?: number;
     requested_at?: string | null;
   };
   export let rootId: number | null = null;
@@ -72,12 +75,21 @@
   // One line per file: a file found by its name and by its content shows both
   $: allFiles = [...findings.reduce((map, item) => {
     const key = item.path.toLowerCase();
-    if (!map.has(key)) map.set(key, { path: item.path, ignored: Boolean(item.ignored), items: [] as Finding[] });
-    map.get(key)!.items.push(item);
+    if (!map.has(key)) map.set(key, { path: item.path, ignored: Boolean(item.ignored), items: [] as Finding[], acl: null as FileAcl | null });
+    const file = map.get(key)!;
+    file.items.push(item);
+    file.acl = file.acl ?? item.acl ?? null;
     return map;
-  }, new Map<string, { path: string; ignored: boolean; items: Finding[] }>()).values()];
-  // A file marked as a false positive no longer counts: listed apart, folded
-  $: files = allFiles.filter((file) => !file.ignored);
+  }, new Map<string, { path: string; ignored: boolean; items: Finding[]; acl: FileAcl | null }>()).values()];
+  // A file marked as a false positive no longer counts: listed apart, folded. The files every user can open first.
+  $: files = allFiles.filter((file) => !file.ignored).sort((a, b) => Number(Boolean(b.acl?.broad)) - Number(Boolean(a.acl?.broad)));
+  $: openToAll = files.filter((file) => file.acl?.broad).length;
+  const RIGHT = (): Record<string, string> => ({ F: t('Full control'), W: t('Modify'), R: t('Read') });
+  const aclRows = (acl: FileAcl) => acl.e.map((entry) => {
+    const [who, right, inherited] = entry.split('|');
+    return { who: who.replace(/^!/, ''), deny: who.startsWith('!'), right: RIGHT()[right] ?? right, inherited: inherited === 'i' };
+  });
+  let openAcl: string | null = null;
   $: ignoredFiles = allFiles.filter((file) => file.ignored);
   let showIgnored = false;
   let ignoringPath: string | null = null;
@@ -202,6 +214,7 @@
   {:else if state?.status === 'done'}
     <div class="sc__summary">
       <strong><CountUp value={state.files_flagged} duration={400} /> {t('sensitive file(s)')}</strong>
+      {#if openToAll}<span class="sc__open"><i class="bi bi-people-fill" aria-hidden="true"></i>{t('{count} of them can be opened by every user', { count: openToAll })}</span>{/if}
       <div class="sc__cats">
         {#each categories as [key, count] (key)}
           <span class="sc__cat"><i class={`bi ${CATEGORY()[key]?.icon ?? 'bi-exclamation-triangle'}`} aria-hidden="true"></i>{CATEGORY()[key]?.label ?? key}<b>{count}</b></span>
@@ -227,6 +240,24 @@
               <small>{t(item.rule)}{#if item.line}{' · '}{t('line {line}', { line: item.line })}{/if}</small>
               {#if item.excerpt}<pre>{item.excerpt}</pre>{/if}
             {/each}
+            {#if file.acl}
+              <span class="sc__rights">
+                {#if file.acl.broad}<span class="sc__tag sc__tag--bad"><i class="bi bi-people-fill" aria-hidden="true"></i>{t('Every user can open it')}</span>
+                {:else}<span class="sc__tag"><i class="bi bi-lock" aria-hidden="true"></i>{t('Limited access')}</span>{/if}
+                {#if file.acl.x}<span class="sc__tag sc__tag--own" title={t('Rights of its own: they no longer follow the folder')}>{t('Own rights')}</span>{/if}
+                <button type="button" class="b2s-link-btn" aria-expanded={openAcl === file.path} on:click={() => (openAcl = openAcl === file.path ? null : file.path)}>
+                  {t('Who can open it ({count})', { count: file.acl.e.filter((entry) => !entry.startsWith('!')).length })}
+                </button>
+              </span>
+              {#if openAcl === file.path}
+                <ul class="sc__acl">
+                  {#each aclRows(file.acl) as row (row.who + row.right + row.deny)}
+                    <li class:is-deny={row.deny}><span>{row.deny ? t('Denied: {who}', { who: row.who }) : row.who}</span><em>{row.right}{row.inherited ? ` · ${t('inherited')}` : ''}</em></li>
+                  {/each}
+                  {#if file.acl.o}<li class="sc__owner"><span>{t('Owner')}</span><em>{file.acl.o}</em></li>{/if}
+                </ul>
+              {/if}
+            {/if}
           </div>
         </li>
       {/each}
@@ -304,4 +335,16 @@
   .sc__reason input { flex: 1; min-width: 0; height: 32px; font-size: var(--b2s-fs-xs); }
   .sc__ign { display: flex; flex-direction: column; min-width: 0; }
   .sc__ign small { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); text-decoration: none; }
+  .sc__open { display: inline-flex; align-items: center; gap: 6px; color: var(--b2s-color-danger-strong, #b42318); font-size: var(--b2s-fs-sm); font-weight: 600; }
+  .sc__rights { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+  .sc__rights .b2s-link-btn { font-size: var(--b2s-fs-xs); }
+  .sc__tag { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-surface-soft, #f6f7f9); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .sc__tag--bad { background: var(--b2s-color-danger-soft, #fdecea); color: var(--b2s-color-danger-strong, #b42318); font-weight: 600; }
+  .sc__tag--own { background: #FEF3C7; color: #92400E; }
+  .sc__acl { display: grid; gap: 2px; margin: 4px 0 0; padding: 6px 8px; list-style: none; border-radius: var(--b2s-radius-sm, 6px); background: var(--b2s-color-surface-soft, #f6f7f9); font-size: var(--b2s-fs-xs); }
+  .sc__acl li { display: flex; justify-content: space-between; gap: 10px; }
+  .sc__acl li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sc__acl em { flex: none; font-style: normal; color: var(--b2s-color-text-muted); }
+  .sc__acl li.is-deny span { color: var(--b2s-color-danger-strong, #b42318); }
+  .sc__acl li.sc__owner { margin-top: 2px; padding-top: 4px; border-top: 1px dashed var(--b2s-color-border); color: var(--b2s-color-text-muted); }
 </style>

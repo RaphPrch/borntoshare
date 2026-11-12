@@ -1762,5 +1762,13 @@
   "Most asked for": "Most asked for",
   "{count} colleague(s) have it": "{count} colleague(s) have it",
   "{count} person(s) got it lately": "{count} person(s) got it lately",
-  "you asked for it before": "you asked for it before"
+  "you asked for it before": "you asked for it before",
+  "{count} of them can be opened by every user": "{count} of them can be opened by every user",
+  "Every user can open it": "Every user can open it",
+  "Limited access": "Limited access",
+  "Rights of its own: they no longer follow the folder": "Rights of its own: they no longer follow the folder",
+  "Own rights": "Own rights",
+  "Who can open it ({count})": "Who can open it ({count})",
+  "Denied: {who}": "Denied: {who}",
+  "Owner": "Owner"
 }

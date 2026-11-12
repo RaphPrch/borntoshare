@@ -79,11 +79,15 @@ def _merge(previous: list[dict], scan: dict, same_rules: bool) -> list[dict]:
     kept = [item for item in previous
             if same_rules and item.get("line") is not None
             and str(item.get("path", "")).lower() not in read and str(item.get("path", "")).lower() not in gone]
+    # The rights read by this scan are the current ones, also for a file whose content was not read again
+    fresh = {str(item.get("path", "")).lower(): item["acl"] for item in [*(scan.get("acls") or []), *new] if isinstance(item.get("acl"), dict)}
+    kept = [{**item, "acl": fresh[str(item.get("path", "")).lower()]} if str(item.get("path", "")).lower() in fresh else item for item in kept]
     unique: dict[tuple[str, str], dict] = {}
     for item in [*kept, *new]:
         key = (str(item.get("path", "")).lower(), str(item.get("category")))
         if key not in unique or (unique[key].get("line") is None and item.get("line") is not None):
-            unique[key] = item
+            acl = item.get("acl") or (unique.get(key) or {}).get("acl")
+            unique[key] = {**item, "acl": acl} if acl else item
     return list(unique.values())
 
 
@@ -121,6 +125,8 @@ def record_result(db: Session, storage_root_id: int, job_id: int | None, result_
     incremental = scan.get("incremental") if isinstance(scan.get("incremental"), dict) else {}
     summary = {key: scan.get(key) for key in ("rules_version", "target", "files_listed", "files_read", "bytes_read", "truncated", "method", "fallback_reason")}
     summary["files_flagged_total"] = len({str(item.get("path", "")).lower() for item in findings})
+    # Flagged files that every user can open (their ACL gives read to Everyone, Users, Domain users…)
+    summary["files_open_to_all"] = len({str(item.get("path", "")).lower() for item in findings if (item.get("acl") or {}).get("broad")})
     summary["incremental"] = {key: incremental.get(key) for key in ("full", "complete", "pending")}
     # The files marked as false positives stay so through the new scan
     flagged, counts = visible(findings, _ignored_paths(previous["ignored_json"] if previous else None), summary["files_flagged_total"])

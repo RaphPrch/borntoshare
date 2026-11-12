@@ -197,3 +197,48 @@ def test_risky_files_by_their_name() -> None:
     assert category("setup.exe") == ["executable"] and category("deploy.ps1") == ["executable"]
     assert category("Thumbs.db") == [] and category("rapport.pdf") == []
     assert category("mots de passe.xlsx") == ["credentials_file"]
+
+
+CACLS = """REVISION:1
+CONTROL:SR|DI|DP
+OWNER:BUILTIN\\Administrateurs
+GROUP:CORP\\Utilisateurs du domaine
+ACL:AUTORITE NT\\Système:ALLOWED/I/FULL
+ACL:BUILTIN\\Utilisateurs:ALLOWED/I/READ
+ACL:CORP\\GG_Finance_RW:ALLOWED/0x0/CHANGE
+ACL:CORP\\stagiaire:DENIED/0x10/0x001301bf
+"""
+
+
+def test_a_file_acl_says_who_can_open_it_and_whether_everyone_can():
+    acl = sens.parse_cacls(CACLS)
+    assert acl["x"] is False and acl["o"] == "BUILTIN\\Administrateurs" and acl["broad"] is True
+    assert acl["e"] == ["AUTORITE NT\\Système|F|i", "BUILTIN\\Utilisateurs|R|i", "CORP\\GG_Finance_RW|W|", "!CORP\\stagiaire|W|i"]
+    own = sens.parse_cacls("CONTROL:SR|PD|DP\nACL:CORP\\GG_Finance_RW:ALLOWED/0x0/RWXD\n")
+    assert own["x"] is True and own["broad"] is False and own["e"] == ["CORP\\GG_Finance_RW|W|"]
+    assert sens.parse_cacls("NT_STATUS_ACCESS_DENIED") is None
+    assert sens.is_broad("CORP\\Domain Users") and not sens.is_broad("CORP\\GG_Users_Finance")
+
+
+def test_the_flagged_files_carry_their_acl(monkeypatch):
+    import app.shared.samba_auth as samba_auth
+
+    asked = []
+
+    def fake_samba(cmd, **_kwargs):
+        if cmd[0] == "smbcacls":
+            assert cmd == ["smbcacls", "//filer01/S", cmd[2]]  # smbcacls knows no --port
+            asked.append(cmd[2])
+            return SimpleNamespace(returncode=0, stdout=CACLS.encode(), stderr=b"")
+        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(sens, "run_samba", fake_samba)
+    monkeypatch.setattr(samba_auth, "stream_samba", FakeStream(LS))
+    ok, _message, details = sens.scan_smb_sensitivity({"host": "filer01", "share": "S", "path": "Finance", "username": "u", "password": "p",
+                                                       "rules_version": sens.RULES_VERSION, "since": "2099-01-01T00:00:00+00:00",
+                                                       "known_paths": ["Finance\\IT\\web.config"]})
+    result = details["sensitivity"]
+    assert ok and asked and len(asked) == len(set(asked))
+    assert result["acls"] == [{"path": "Finance\\IT\\web.config", "acl": sens.parse_cacls(CACLS)}]
+    assert all(item["acl"]["broad"] for item in result["findings"])
+    assert result["files_open_to_all"] == result["files_flagged"]

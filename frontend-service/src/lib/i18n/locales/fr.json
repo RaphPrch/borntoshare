@@ -5623,5 +5623,13 @@
   "Most asked for": "Souvent demandés",
   "{count} colleague(s) have it": "{count} collègue(s) y ont accès",
   "{count} person(s) got it lately": "{count} personne(s) l'ont obtenu récemment",
-  "you asked for it before": "vous l'avez déjà demandé"
+  "you asked for it before": "vous l'avez déjà demandé",
+  "{count} of them can be opened by every user": "dont {count} ouvert(s) à tous les utilisateurs",
+  "Every user can open it": "Tous les utilisateurs peuvent l'ouvrir",
+  "Limited access": "Accès restreint",
+  "Rights of its own: they no longer follow the folder": "Droits propres : ils ne suivent plus ceux du dossier",
+  "Own rights": "Droits propres",
+  "Who can open it ({count})": "Qui peut l'ouvrir ({count})",
+  "Denied: {who}": "Refusé : {who}",
+  "Owner": "Propriétaire"
 }

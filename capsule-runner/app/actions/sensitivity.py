@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timezone
 
 from app.actions.smb import _LS_ENTRY, _classify_smb_error, run_samba
@@ -240,6 +241,100 @@ def _after(stamp: float | None, path: str, since: float | None, cursor: str) -> 
     return stamp > since or (stamp == since and path > cursor)
 
 
+# The rights of each flagged file: who can open it. Within a budget, the files beyond it keep no ACL.
+ACL_BUDGET_SECONDS = 90
+# Everyone, in English and in French (the names smbcacls prints are the server's)
+BROAD_ACCOUNTS = {
+    "everyone", "tout le monde", "nt authority\\authenticated users", "autorite nt\\utilisateurs authentifiés",
+    "builtin\\users", "builtin\\utilisateurs",
+}
+BROAD_SUFFIXES = ("\\domain users", "\\utilisateurs du domaine")
+
+
+def _right(mask: str) -> str:
+    """F (full), W (modify) or R (read) from a smbcacls mask: FULL, CHANGE, READ, letters (RWXDPO) or hexadecimal."""
+    value = mask.strip().upper()
+    if value == "FULL":
+        return "F"
+    if value == "CHANGE":
+        return "W"
+    if value == "READ":
+        return "R"
+    if value.startswith("0X"):
+        try:
+            number = int(value, 16)
+        except ValueError:
+            return "R"
+        if number & 0x1F01FF == 0x1F01FF or number & 0x10000000:
+            return "F"
+        return "W" if number & (0x2 | 0x4 | 0x10000 | 0x40000000) else "R"
+    if "P" in value or "O" in value:
+        return "F"
+    return "W" if ("W" in value or "D" in value) else "R"
+
+
+def _hex(value: str) -> int:
+    try:
+        return int(value, 16) if value.upper().startswith("0X") else 0
+    except ValueError:
+        return 0
+
+
+def is_broad(account: str) -> bool:
+    name = account.strip().lower()
+    return name in BROAD_ACCOUNTS or name.endswith(BROAD_SUFFIXES)
+
+
+def parse_cacls(listing: str) -> dict | None:
+    """What a file's ACL says: x = its own rights (inheritance cut), o = owner, e = « account|R/W/F|i » (i = inherited,
+    deny entries prefixed with !), broad = everyone can read it."""
+    control, owner, entries, broad = "", "", [], False
+    for line in listing.splitlines():
+        head, _sep, rest = line.partition(":")
+        head = head.strip().upper()
+        if head == "CONTROL":
+            control = rest.strip().upper()
+        elif head == "OWNER":
+            owner = rest.strip()
+        elif head == "ACL":
+            who, _sep, ace = rest.rpartition(":")
+            parts = ace.split("/")
+            if not who or len(parts) < 3:
+                continue
+            kind, flags, mask = parts[0].upper(), parts[1].upper(), "/".join(parts[2:])
+            inherited = "I" in flags.split("|") or _hex(flags) & 0x10 != 0
+            deny = kind.startswith("DENIED")
+            if kind.startswith("ALLOWED") and is_broad(who):
+                broad = True
+            entries.append(f"{'!' if deny else ''}{who.strip()}|{_right(mask)}|{'i' if inherited else ''}")
+    if not entries and not control:
+        return None
+    return {"x": "PD" in control.split("|"), "o": owner, "e": entries[:20], "broad": broad}
+
+
+def file_acls(base_cmd: list[str], paths: list[str], username: str, password: str, timeout: int = ACL_BUDGET_SECONDS) -> dict[str, dict]:
+    """The ACL of each path (share-relative), read with smbcacls, as long as the budget allows. Never fails the scan."""
+    share = base_cmd[1]
+    port = base_cmd[base_cmd.index("-p") + 1] if "-p" in base_cmd else "445"
+    deadline = time.monotonic() + timeout
+    out: dict[str, dict] = {}
+    for path in paths:
+        left = deadline - time.monotonic()
+        if left <= 1:
+            break
+        try:
+            result = run_samba(["smbcacls", share, path, *([] if str(port) == "445" else [f"--option=smb ports={port}"])],
+                               username=username, password=password,
+                               capture_output=True, timeout=min(30, left), check=False)
+        except (subprocess.TimeoutExpired, OSError):
+            continue
+        if result.returncode == 0:
+            parsed = parse_cacls((result.stdout or b"").decode(errors="ignore"))
+            if parsed:
+                out[path.lower()] = parsed
+    return out
+
+
 def scan_smb_sensitivity(params: dict):
     """Incremental: the names of all the files are checked at each scan (cheap); the content only of the text files
     changed since the cursor of the last scan, the oldest first, within the budget of one scan. The next scan starts
@@ -366,6 +461,15 @@ def scan_smb_sensitivity(params: dict):
         if key not in unique or (unique[key]["line"] is None and item["line"] is not None):
             unique[key] = item
     findings = list(unique.values())
+    # Who can open the flagged files: the ACL of each (the first ones, within the budget)
+    # also the files flagged by an earlier pass whose content was not read again (the core keeps their findings)
+    gone_now = {path.lower() for path in gone}
+    listed = list(dict.fromkeys([*(item["path"] for item in findings[:MAX_FINDINGS]), *(path for path in known if path.lower() not in gone_now)]))[:MAX_FINDINGS]
+    acls = file_acls(base_cmd, listed, username, password) if listed else {}
+    for item in findings:
+        if item["path"].lower() in acls:
+            item["acl"] = acls[item["path"].lower()]
+    known_acls = [{"path": path, "acl": acls[path.lower()]} for path in known if path.lower() in acls]
     details = {
         "sensitivity": {
             "rules_version": RULES_VERSION,
@@ -380,6 +484,8 @@ def scan_smb_sensitivity(params: dict):
             "counts": _counts(findings),
             "files_flagged": len({item["path"].lower() for item in findings}),
             "findings": findings[:MAX_FINDINGS],
+            "files_open_to_all": len({item["path"].lower() for item in findings if (item.get("acl") or {}).get("broad")}),
+            "acls": known_acls,
             "incremental": {"full": since is None, "since": since_iso if since is not None else None, "next_since": next_since,
                             "next_cursor": next_cursor, "complete": complete, "pending": max(0, pending_total - len(read_paths)),
                             "read_paths": read_paths, "gone_paths": gone},
