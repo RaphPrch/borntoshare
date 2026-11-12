@@ -1,4 +1,5 @@
 <script lang="ts">
+  import QuickAccessRequestDrawer from '$lib/components/access-requests/QuickAccessRequestDrawer.svelte';
   import { reportUiError } from '$lib/errors/report';
   import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { t } from '$lib/i18n';
@@ -1257,12 +1258,14 @@
     }
   };
 
+  // « Request access » on a folder: a quick panel (level, duration, reason); the full form stays one link away
+  let quickRequest = false;
   const openAccessRequestModal = () => {
     if (!selectedStorageRootId) {
       toast.warning(t('Select a storage root first'));
       return;
     }
-    void goto(`/access-requests/new?root=${encodeURIComponent(String(selectedStorageRootId))}`);
+    quickRequest = true;
   };
 
   let showAlertsDrawer = false;
@@ -1855,6 +1858,15 @@
     {/if}
   </EntityWorkspace>
 {/if}
+
+<QuickAccessRequestDrawer
+  open={quickRequest}
+  rootId={selectedStorageRootId ? Number(selectedStorageRootId) : null}
+  rootName={String(selectedRow?.storage_root_name ?? '')}
+  rootPath={String((selectedRow as any)?.dfs_path ?? selectedRow?.root_path ?? '')}
+  guardians={guardians.map((owner) => String(owner?.display_name ?? owner?.username ?? '')).filter(Boolean)}
+  onClose={() => (quickRequest = false)}
+/>
 
 {#if shareEndpointId}
   <ShareCreateModal open endpointId={shareEndpointId} onClose={() => (shareEndpointId = null)} onCreated={() => (shareEndpointId = null)} />

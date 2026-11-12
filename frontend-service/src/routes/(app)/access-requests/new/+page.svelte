@@ -268,6 +268,18 @@
   $: reasonShort = justification.trim().length < policy.minReasonLength;
   $: step2Ready = !reasonShort && (!forOther || principals.length > 0) && (duration !== 'date' || Boolean(customDate));
   $: requestCount = sendable.length * (forOther ? principals.length : 1);
+  $: summary = !cart.size
+    ? t('Choose at least one folder.')
+    : t('{who}, on {count} folder(s), {until}.', {
+        who: forOther ? (principals.map((p) => p?.display_name ?? p?.username).filter(Boolean).join(', ') || t('someone else')) : t('You'),
+        count: sendable.length,
+        until: endDate ? t('until {date}', { date: dayLabel(endDate) }) : t('with no end')
+      });
+  $: missing = !sendable.length ? t('Add a folder.')
+    : anyChecking ? t('Checking the folders…')
+      : forOther && !principals.length ? t('Choose who the access is for.')
+        : duration === 'date' && !customDate ? t('Choose the end date.')
+          : reasonShort ? t('Write the reason ({count} characters at least).', { count: policy.minReasonLength }) : '';
 
   async function submit() {
     if (submitting || anyChecking || !sendable.length) return;
@@ -300,10 +312,6 @@
     await goto('/access-requests?status=pending', { invalidateAll: true });
   }
 
-  const STEPS = [() => t('Folders'), () => t('Duration and reason'), () => t('Review')];
-  $: canGo = (n: number) => n < step || (n === 2 && sendable.length > 0 && !anyChecking) || (n === 3 && sendable.length > 0 && !anyChecking && step2Ready);
-  $: stepSummary = (n: number) =>
-    n === 1 ? (cart.size ? t('{count} folder(s)', { count: cart.size }) : '') : n === 2 && justification.trim() ? dayLabel(endDate) : '';
 
   // ---- express entry ------------------------------------------------------------
   const isoDay = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -351,15 +359,7 @@
     <a class="nr__back" href="/access-requests"><i class="bi bi-chevron-left" aria-hidden="true"></i>{t('Requests')}</a>
     <div class="nr__title">
       <h1>{t('New access request')}</h1>
-      <ol class="nr__steps">
-        {#each STEPS as label, index}
-          <li class:on={step === index + 1} class:done={step > index + 1}>
-            <button type="button" disabled={step === index + 1 || !canGo(index + 1) || submitting} aria-current={step === index + 1 ? 'step' : undefined} on:click={() => (step = index + 1)}>
-              <span>{step > index + 1 ? '✓' : index + 1}</span>{label()}{#if stepSummary(index + 1) && step !== index + 1}<small>{stepSummary(index + 1)}</small>{/if}
-            </button>
-          </li>
-        {/each}
-      </ol>
+      <p class="nr__lead">{t('Everything on one page: your request takes shape on the right as you fill it in.')}</p>
     </div>
   </header>
 
@@ -369,8 +369,9 @@
     <InlineAlert tone="error">{loadError}</InlineAlert>
   {:else}
     <div class="nr__layout">
-      {#if step === 1}
+      <div class="nr__col">
         <section class="nr__panel" aria-label={t('Folders')}>
+          <h2 class="nr__h"><span>1</span>{t('Which folders?')}</h2>
           {#if lockedRootId}
             <p class="nr__locked"><i class="bi bi-lock" aria-hidden="true"></i>{t('The folder comes from the folder page and cannot be changed here.')}</p>
           {:else}
@@ -442,8 +443,8 @@
             </div>
           {/if}
         </section>
-      {:else if step === 2}
         <section class="nr__panel nr__form" aria-label={t('Duration and reason')}>
+          <h2 class="nr__h"><span>2</span>{t('For whom, for how long and why?')}</h2>
           <div class="nr__q">
             <span class="nr__label">{t('For whom?')}</span>
             <div class="nr__chips">
@@ -477,35 +478,22 @@
             <small class="nr__muted">{t('At least {count} characters · seen by the guardian and in the history of the folder', { count: policy.minReasonLength })}</small>
           </div>
         </section>
-      {:else}
-        <section class="nr__panel" aria-label={t('Review')}>
-          <div class="nr__review">
-            <div><span>{t('For')}</span><b>{forOther ? principals.map((p) => p?.display_name ?? p?.username).join(', ') : t('You')}</b></div>
-            <div><span>{t('Until')}</span><b>{dayLabel(endDate)}</b></div>
-            <div class="wide"><span>{t('Reason')}</span><b>{justification}</b></div>
-          </div>
-          <ol class="nr__next">
-            <li><b>{t('Sending')}</b><small>{requestCount > 1 ? t('{count} requests, one per folder', { count: requestCount }) : t('One request')}</small></li>
-            <li><b>{t('Decision of the guardians')}</b><small>{t('Each guardian decides for their folders.')}</small></li>
-            <li><b>{t('Access in place')}</b><small>{t('Added to the AD group of the folder by the worker, effective within minutes.')}</small></li>
-            <li><b>{t('End')}</b><small>{endDate ? t('Removed automatically on {date}.', { date: dayLabel(endDate) }) : t('No end date.')}</small></li>
-          </ol>
-        </section>
-      {/if}
+      </div>
 
       <aside class="nr__panel nr__cart" aria-label={t('Your request')}>
         <h2>{t('Your request')}<span>{cart.size}</span></h2>
+        <p class="nr__sentence">{summary}</p>
         {#each cartRows as row (row.root.id)}
           <div class="nr__ci">
             <b title={row.root.path}>{row.root.name}</b>
             <span class="nr__lv">
-              <button type="button" class:r={row.level === 'READ'} disabled={step === 3} on:click={() => setLevel(row.root.id, 'READ')}>{t('Read')}</button>
-              <button type="button" class:w={row.level === 'WRITE'} disabled={step === 3} on:click={() => setLevel(row.root.id, 'WRITE')}>{t('Modify')}</button>
+              <button type="button" class:r={row.level === 'READ'} disabled={submitting} on:click={() => setLevel(row.root.id, 'READ')}>{t('Read')}</button>
+              <button type="button" class:w={row.level === 'WRITE'} disabled={submitting} on:click={() => setLevel(row.root.id, 'WRITE')}>{t('Modify')}</button>
             </span>
             <small>
               {row.root.server}
               {#if row.check?.state === 'checking'} · {t('Checking…')}{/if}
-              {#if !lockedRootId && step === 1} · <button type="button" class="nr__rm" on:click={() => toggle(row.root.id)}>{t('Remove')}</button>{/if}
+              {#if !lockedRootId} · <button type="button" class="nr__rm" on:click={() => toggle(row.root.id)}>{t('Remove')}</button>{/if}
             </small>
             {#if row.check?.state === 'blocked'}<small class="nr__bad">{row.check.message}</small>{/if}
             {#if row.check?.state === 'elevation'}<small class="nr__warn">{row.check.message || t('This request will be handled as an elevation.')}</small>{/if}
@@ -513,13 +501,15 @@
         {:else}
           <p class="nr__cartempty">{t('Add folders from the list. You can ask for several at once.')}</p>
         {/each}
-        {#if step === 1}
-          <button type="button" class="b2s-btn b2s-btn-primary nr__wide" disabled={!sendable.length || anyChecking} on:click={() => (step = 2)}>{t('Continue')}</button>
-        {:else if step === 2}
-          <div class="nr__foot"><button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => (step = 1)}>{t('Back')}</button><button type="button" class="b2s-btn b2s-btn-primary" disabled={!step2Ready || !sendable.length} on:click={() => (step = 3)}>{t('Review')}</button></div>
-        {:else}
-          <div class="nr__foot"><button type="button" class="b2s-btn b2s-btn-secondary" disabled={submitting} on:click={() => (step = 2)}>{t('Edit')}</button><button type="button" class="b2s-btn b2s-btn-primary" disabled={submitting || anyChecking || !sendable.length} on:click={submit}>{submitting ? t('Sending…') : requestCount > 1 ? t('Send {count} requests', { count: requestCount }) : t('Send the request')}</button></div>
-        {/if}
+        {#if missing}<p class="nr__todo"><i class="bi bi-info-circle" aria-hidden="true"></i>{missing}</p>{/if}
+        <ol class="nr__next">
+          <li><b>{t('Decision of the guardians')}</b><small>{t('Each guardian decides for their folders.')}</small></li>
+          <li><b>{t('Access in place')}</b><small>{t('Added to the AD group of the folder, effective within minutes.')}</small></li>
+          <li><b>{t('End')}</b><small>{endDate ? t('Removed automatically on {date}.', { date: dayLabel(endDate) }) : t('No end date.')}</small></li>
+        </ol>
+        <button type="button" class="b2s-btn b2s-btn-primary nr__wide nr__send" disabled={submitting || anyChecking || !sendable.length || !step2Ready} on:click={submit}>
+          {submitting ? t('Sending…') : requestCount > 1 ? t('Send {count} requests', { count: requestCount }) : t('Send the request')}
+        </button>
       </aside>
     </div>
   {/if}
@@ -545,18 +535,14 @@
   .nr__back { display: inline-flex; align-items: center; gap: 4px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); text-decoration: none; }
   .nr__title { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 4px; }
   .nr__title h1 { margin: 0; font-size: var(--b2s-fs-page-title, 26px); font-weight: 600; letter-spacing: -0.01em; }
-  .nr__steps { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; }
-  .nr__steps li { display: contents; }
-  .nr__steps button { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-pill); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); cursor: pointer; }
-  .nr__steps button:disabled { cursor: default; }
-  .nr__steps small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .nr__steps small::before { content: '· '; }
-  .nr__steps span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--b2s-color-neutral-soft); font-weight: 600; font-size: 12px; }
-  .nr__steps li.on button { border-color: var(--b2s-color-text); color: var(--b2s-color-text); }
-  .nr__steps li.on button span { background: var(--b2s-color-text); color: #fff; }
-  .nr__steps li.done button:hover { border-color: var(--b2s-color-text); color: var(--b2s-color-text); }
-  .nr__steps li.done span { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
-  .nr__layout { display: grid; grid-template-columns: minmax(0, 760px) 320px; gap: 18px; align-items: start; }
+  .nr__layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; max-width: 1240px; }
+  .nr__col { display: grid; gap: 16px; min-width: 0; }
+  .nr__lead { margin: 4px 0 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .nr__h { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; font-size: 17px; }
+  .nr__h span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #0E1218; color: #fff; font-size: 13px; }
+  .nr__sentence { margin: 4px 0 8px; font-size: 18px; line-height: 1.35; font-weight: 600; }
+  .nr__todo { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 8px 10px; border-radius: var(--b2s-radius-md); background: #FFF7ED; color: #9A3412; font-size: var(--b2s-fs-sm); }
+  .nr__send { height: 46px; font-size: 15px; }
   .nr__panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .nr__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .nr__locked { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--b2s-color-text-muted); }
@@ -592,11 +578,6 @@
   .nr__people { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .nr__people span { padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); font-size: var(--b2s-fs-sm); }
   textarea.b2s-input { min-height: 90px; padding: 10px 12px; resize: vertical; }
-  .nr__review { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .nr__review div { display: flex; flex-direction: column; gap: 2px; padding: 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); }
-  .nr__review .wide { grid-column: 1 / -1; }
-  .nr__review span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-  .nr__review b { font-weight: 500; overflow-wrap: anywhere; }
   .nr__next { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
   .nr__next small { display: block; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .nr__cart { position: sticky; top: 16px; }
@@ -632,5 +613,4 @@
   .nr__reasons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .nr__reasons button { padding: 3px 10px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-sm); background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); cursor: pointer; }
   .nr__reasons button:hover { color: var(--b2s-color-text); border-color: var(--b2s-color-text); }
-  .nr__foot { display: flex; justify-content: flex-end; gap: 8px; }
 </style>
