@@ -56,14 +56,21 @@ def is_expected_system_principal(principal: str | None, service_account: str | N
     name = short_name(raw)
     if name in _BROAD_NAMES:
         return False
-    return namespace in _SYSTEM_NAMESPACES or name in _SYSTEM_NAMES or bool(service_account and name == account_name(service_account))
+    return (namespace in _SYSTEM_NAMESPACES or name in _SYSTEM_NAMES or name in _extra_system_names()
+            or bool(service_account and name == account_name(service_account)))
 
 
-_broad_cache: dict[str, Any] = {"at": 0.0, "names": frozenset()}
+_broad_cache: dict[str, Any] = {"at": 0.0, "names": frozenset(), "system": frozenset()}
 
 
 def forget_broad_cache() -> None:
     _broad_cache["at"] = 0.0
+
+
+def _extra_system_names() -> frozenset[str]:
+    """Administration accounts added in Advanced settings › Governance (a renamed Administrator…)."""
+    _extra_broad_names()
+    return _broad_cache.get("system") or frozenset()
 
 
 def _extra_broad_names() -> frozenset[str]:
@@ -78,10 +85,13 @@ def _extra_broad_names() -> frozenset[str]:
 
             db = SessionLocal()
             try:
-                groups = (_read_payload(db).get("exposure") or {}).get("broadGroups") or []
+                exposure = _read_payload(db).get("exposure") or {}
+                groups = exposure.get("broadGroups") or []
+                accounts = exposure.get("systemAccounts") or []
             finally:
                 db.close()
             _broad_cache["names"] = frozenset(short_name(g) for g in groups if str(g).strip())
+            _broad_cache["system"] = frozenset(short_name(a) for a in accounts if str(a).strip())
         except Exception:
             pass  # database not reachable: the built-in names still apply
     return _broad_cache["names"]

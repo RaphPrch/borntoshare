@@ -5,7 +5,6 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import AdvancedSidebar, { type NavItem } from '$lib/components/settings/AdvancedSidebar.svelte';
 
-  export let data: any;
 
   const nav: NavItem[] = [
     { key: 'naming-policies', label: t('Naming policy'), icon: 'bi-input-cursor-text' },

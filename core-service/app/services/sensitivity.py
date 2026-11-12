@@ -252,7 +252,9 @@ def _exposure_html(db: Session, root_id: int, name: str, paths: list[str], url: 
         blocks.append(mt.notice("Pourquoi", f"{mt.code(folder)} donne la lecture à <strong>{mt.e(', '.join(accounts))}</strong>.",
                                 "Hérité : posé sur ce dossier ou au-dessus, chaque fichier dedans en hérite." if inherited
                                 else "Posé sur les fichiers eux-mêmes."))
-    blocks.append(mt.file_list([(path, label.get(path.lower(), "Sensible")) for path in paths[:8]], more=max(0, len(paths) - 8)))
+    prefix = folder.lower() + "\\" if common else ""
+    shown = [(path[len(prefix):] if prefix and path.lower().startswith(prefix) else path, label.get(path.lower(), "Sensible")) for path in paths[:8]]
+    blocks.append(mt.file_list(shown, more=max(0, len(paths) - 8)))
     return mt.layout(
         preheader=f"{len(paths)} fichier(s) sensible(s) lisible(s) par tous dans {name}",
         eyebrow="Alerte sécurité", alert=True, badge="Priorité haute",

@@ -5,7 +5,6 @@
   import { mapGovernanceOwnerToCardVM } from '../../mappers/governance-owners.mapper';
 
   export let owner: Record<string, unknown> = {};
-  export let role: 'guardian' = 'guardian';
   export let saving = false;
   export let removeLocked = false;
   export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => t('Unknown');

@@ -24,9 +24,10 @@ l'utilisateur.
 Voir [docs/structure.md](docs/structure.md) (dossiers de `src/lib`) et [docs/ui-conventions.md](docs/ui-conventions.md)
 (composants communs, erreurs, traductions).
 
-Pages principales : tableau de bord, Dossiers, Demandes (liste et création en trois étapes), Suivi, Serveurs
-(serveurs de fichiers et espaces de noms DFS), Zones, Annuaires, Identités, Tags, Réglages avancés ;
-`/setup` pour le premier démarrage.
+Pages principales : tableau de bord, Dossiers (fiche, permissions, sensibilité, demande rapide en panneau),
+Demandes (liste, et création sur une seule page avec résumé en direct et suggestions de dossiers), Observabilité,
+Rapports, Carte d'exposition, 5S (partages, explorateur, doublons, rapport, scanner), Serveurs (serveurs de fichiers
+et espaces de noms DFS), Zones, Annuaires, Identités, Tags, Réglages avancés ; `/setup` pour le premier démarrage.
 
 ## Variables
 

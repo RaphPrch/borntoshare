@@ -37,7 +37,6 @@
   export let isAdmin = false;
   export let isDfs = false;
   export let activity: Array<Record<string, unknown>> = [];
-  export let onOpenPermissions: () => void = () => {};
   export let onExplain: (login: string) => void = () => {};
   export let onOpenGuardians: () => void = () => {};
   export let onOpenTags: () => void = () => {};

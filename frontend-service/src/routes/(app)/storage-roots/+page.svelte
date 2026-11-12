@@ -1935,7 +1935,6 @@
   onClose={closeGovernanceDrawer}
   onBrowse={openOwnersBrowser}
   onSave={saveGovernanceChanges}
-  onSelectRoleTab={handleGovernanceRoleTabSelect}
   onRemoveOwner={removeGovernanceOwner}
   lockedIdentityId={data.me?.is_admin === true ? 0 : Number(data.me?.id ?? 0)}
   saving={governanceSaving}
@@ -1960,7 +1959,6 @@
   storageRootId={selectedStorageRootId}
   initialSourceId={rootIdentitySourceId}
   initialGuardianIds={governanceDraftIdentityIds('guardian')}
-  defaultAssignedRole={ownersBrowserDefaultRole}
   onClose={closeOwnersBrowserModal}
   on:activity={handleOwnersBrowserActivity}
   on:save={applyOwnersFromBrowser}

@@ -18,7 +18,7 @@ et trace ; il ne parle jamais à l'AD ni aux serveurs : il publie des travaux qu
 |---|---|
 | `app/api/` | Routes : zones, annuaires, serveurs (`storage_endpoints`), dossiers (`storage_roots`), demandes, tags, infrastructure, réseau, observabilité ; `internal_*` pour les autres services |
 | `app/api/governance/` | Orchestration des demandes (validation, révocation, expiration) ; n'accède jamais à la base directement |
-| `app/services/` | Règles métier : `probe_service` (travaux), `secret_store` (coffre), `activity_bridge` (audit), `dfs_links`, `windows_names`, `infrastructure_service` |
+| `app/services/` | Règles métier : `probe_service` (travaux), `secret_store` (coffre), `activity_bridge` (audit), `dfs_links`, `windows_names`, `infrastructure_service`, `sensitivity`, `scans` (mesures), `policies`, `notifications` et `mail_templates` (e-mails), `server_breaker` (serveur injoignable), `group_ou_check` (OU déléguée), `request_suggestions` |
 | `app/jobs/` | Contrat des travaux, publication, planificateur (`infra_scheduler`), expiration des accès, chien de garde des travaux |
 | `app/data/` | Modèles et dépôts (lecture par vues SQL) |
 
@@ -29,7 +29,12 @@ et trace ; il ne parle jamais à l'AD ni aux serveurs : il publie des travaux qu
 - **Coffre** : `secret_items`, chiffré en AES-GCM par la clé `B2S_SECRET_MASTER_KEY` (secret podman `b2s_master_key`) ; `/api/internal/secrets/resolve`
   pour le worker.
 - **Audit** : `borntoshare_logging.audit_event`, chaîné par hachage. Les refus sont tracés avec leur objet.
-- **Planificateur** : `health_check`, `data_sync`, `access_expiry`, `dfs_read` (voir [docs/architecture.md](../docs/architecture.md#planificateur)).
+- **Planificateur** : `health_check`, `data_sync`, `access_expiry`, `dfs_read`, `policies` (voir [docs/architecture.md](../docs/architecture.md#planificateur)).
+- **E-mails** : demandes, décisions, rappels, alertes, en HTML et en texte ([docs/notifications.md](../docs/notifications.md)).
+- **Garde-fous des travaux** : un serveur injoignable n'est plus relancé en boucle (`server_breaker`) ; une approbation
+  qui créerait un groupe dans une OU non déléguée est bloquée avant la décision (`group_ou_check`).
+- **Module 5S** : routes internes pour le scanner (`internal_fives`), mesures gardées et rétablissables, alerte
+  « dossier illisible » ([docs/module-5s.md](../docs/module-5s.md)).
 - **Sans mode** : pas de documentation interactive de l'API, jamais de requête SQL dans les journaux.
 - **Garde-fous** : un dossier ne se supprime pas tant qu'un accès court, un partage pas tant qu'un dossier géré
   est dedans, un hôte ne change pas sans déplacer les chemins, un espace de noms ne se déclare qu'une fois.

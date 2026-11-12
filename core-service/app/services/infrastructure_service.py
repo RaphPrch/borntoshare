@@ -232,6 +232,12 @@ def record_worker_check(db: Session, worker_id: int, result: dict[str, Any]) -> 
 
 def record_components(db: Session, results: list[dict[str, Any]], *, checked_by: str) -> None:
     now = _now()
+    try:
+        before = {str(row[0]): str(row[1]) for row in db.execute(text("SELECT component, status FROM infra_component_status")).all()}
+    except Exception:
+        db.rollback()
+        before = {}
+    went_down = [item for item in results if item.get("status") == "down" and before.get(str(item["component"])[:96]) not in (None, "down")]
     for item in results:
         status = item.get("status") if item.get("status") in {"healthy", "degraded", "down", "unknown"} else "unknown"
         params = {
@@ -268,6 +274,17 @@ def record_components(db: Session, results: list[dict[str, Any]], *, checked_by:
         text("DELETE FROM infra_check_history WHERE checked_at < :limit"),
         {"limit": now - timedelta(days=HISTORY_DAYS)},
     )
+    # A component that was up and is now down: the administrators are told (once per breakdown)
+    if went_down:
+        from app.services import notifications
+
+        names = [str(item.get("label") or item["component"]) for item in went_down]
+        notifications.admin_alert(
+            db, "health_down:" + ",".join(sorted(str(item["component"]) for item in went_down))[:120] + f":{now:%Y%m%d%H%M}",
+            f"{len(went_down)} composant{'s' if len(went_down) > 1 else ''} en panne : {', '.join(names[:3])}{'…' if len(names) > 3 else ''}",
+            [f"{item.get('label') or item['component']} : {str(item.get('message') or 'en panne')[:200]}" for item in went_down],
+            "/observability?tab=health",
+            intro="Le contrôle de santé vient de trouver en panne des composants qui fonctionnaient.")
 
 
 def _core_side_checks() -> list[dict[str, Any]]:
@@ -332,12 +349,17 @@ def worker_targets(db: Session) -> list[dict[str, Any]]:
         account = load_accounts(db, int(row["id"])).get("snapshot") or {}
         bind_dn = account.get("bind_dn") or row["bind_dn"]
         secret_ref = account.get("bind_password_ref") or row["bind_password_ref"]
-        target = {"component": f"identity_source:{row['id']}", "label": f"Directory · {row['name']}", "category": "directory", "target": f"{row['host']}:{port}"}
-        if bind_dn and secret_ref:
-            target.update({"kind": "ldap", "use_ssl": use_ssl, "verify_tls": bool(row["tls_verify"]), "tls_ca_pem": row["tls_ca_pem"], "tls_server_name": row["tls_server_name"], "base_dn": row["base_dn"], "bind_dn": bind_dn, "secret_ref": secret_ref})
-        else:
-            target["kind"] = "tcp"
-        targets.append(target)
+        # One line per domain controller (« AD01, AD02 »): the first keeps the name of the directory's component
+        hosts = [part for part in re.split(r"[,;\s]+", str(row["host"] or "")) if part]
+        for index, host in enumerate(hosts):
+            target = {"component": f"identity_source:{row['id']}" + (f":{host.lower()}" if index else ""),
+                      "label": f"Directory · {row['name']}" + (f" ({host})" if len(hosts) > 1 else ""), "category": "directory",
+                      "target": f"{host}:{port}"}
+            if bind_dn and secret_ref:
+                target.update({"kind": "ldap", "use_ssl": use_ssl, "verify_tls": bool(row["tls_verify"]), "tls_ca_pem": row["tls_ca_pem"], "tls_server_name": row["tls_server_name"], "base_dn": row["base_dn"], "bind_dn": bind_dn, "secret_ref": secret_ref})
+            else:
+                target["kind"] = "tcp"
+            targets.append(target)
     # The OUs where access groups get created: the provisioning account may create groups there (delegation)
     try:
         from app.services.group_ou_check import ou_targets

@@ -131,3 +131,17 @@ async def delegate_measure(payload: DelegatePayload, db: Session = Depends(get_d
                                   "context": {"storage_root_id": payload.storage_root_id, "ui_origin": "fives_delegate"}})
     scans.mark_requested(db, payload.storage_root_id, int(job.get("job_id") or 0) or None)
     return ui_data({"job_id": job.get("job_id"), "reason": payload.reason})
+
+
+@router.get("/server-state")
+def server_state(host: str, db: Session = Depends(get_db)):
+    """Whether a server is left alone for now (server_breaker): the scanner does not walk on it before its retry time."""
+    from datetime import datetime, timezone
+
+    from app.services import server_breaker
+
+    state = server_breaker.state(db, host)
+    retry_at = state.get("retry_at")
+    wait = int((retry_at - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds()) if state.get("waiting") and retry_at else 0
+    return ui_data({"host": state.get("host"), "down": bool(state.get("down")), "waiting": bool(state.get("waiting")),
+                    "failures": int(state.get("failures") or 0), "wait_seconds": max(0, wait)})

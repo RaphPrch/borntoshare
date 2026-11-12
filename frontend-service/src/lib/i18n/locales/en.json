@@ -1777,5 +1777,13 @@
   "Inherited: set on this folder or above it, every file inside gets it.": "Inherited: set on this folder or above it, every file inside gets it.",
   "Set on the files themselves.": "Set on the files themselves.",
   "{count} sensitive file(s)": "{count} sensitive file(s)",
-  "Gmail: port 587 STARTTLS, the Gmail address as account and as sender, and an app password (16 letters, Google account › Security › App passwords, with 2-step verification on): the usual password is refused.": "Gmail: port 587 STARTTLS, the Gmail address as account and as sender, and an app password (16 letters, Google account › Security › App passwords, with 2-step verification on): the usual password is refused."
+  "Gmail: port 587 STARTTLS, the Gmail address as account and as sender, and an app password (16 letters, Google account › Security › App passwords, with 2-step verification on): the usual password is refused.": "Gmail: port 587 STARTTLS, the Gmail address as account and as sender, and an app password (16 letters, Google account › Security › App passwords, with 2-step verification on): the usual password is refused.",
+  "A breakdown (server unreachable, component down): to the administrators": "A breakdown (server unreachable, component down): to the administrators",
+  "Several domain controllers: separated by commas, tried in order (dc01.corp.local, dc02.corp.local).": "Several domain controllers: separated by commas, tried in order (dc01.corp.local, dc02.corp.local).",
+  "Administration accounts saved.": "Administration accounts saved.",
+  "Expected administration accounts": "Expected administration accounts",
+  "SYSTEM, Administrators and Domain admins already count. Add the accounts renamed by your hardening (the built-in Administrator…).": "SYSTEM, Administrators and Domain admins already count. Add the accounts renamed by your hardening (the built-in Administrator…).",
+  "e.g. CORP\\sla-prd": "e.g. CORP\\sla-prd",
+  "Account name": "Account name",
+  "These accounts are expected on every folder: they no longer raise « account outside BornToShare ».": "These accounts are expected on every folder: they no longer raise « account outside BornToShare »."
 }

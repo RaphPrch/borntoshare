@@ -32,4 +32,5 @@ locaux et les rôles auprès de core-service (routes `/api/internal/*`, jeton in
 `REDIS_DB=1` fixés par la composition) ; autorité privée de Keycloak : `certs/oidc-ca.pem`. Voir
 [docs/installation.md](../docs/installation.md).
 
-Notes de conception : [docs/AUTH_AD_V1.md](docs/AUTH_AD_V1.md), [docs/ACTOR_CONTEXT_V1_NOTE.md](docs/ACTOR_CONTEXT_V1_NOTE.md).
+Comptes de l'annuaire et droits nécessaires : [docs/droits-ad.md](../docs/droits-ad.md) ; rôles donnés par les groupes AD :
+[docs/provisionnement-ad.md](../docs/provisionnement-ad.md#connexion-des-utilisateurs-ad-et-rôles-par-groupe).

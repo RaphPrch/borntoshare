@@ -53,13 +53,13 @@ backup: .env
 
 wizard: .env
 	install -d -m 700 secrets
-	$(COMPOSE) --profile wizard up -d --build wizard-ui
+	podman-compose --profile wizard -f podman-compose.yml up -d --build wizard-ui
 	@# After the installation, without a command: .env, make deploy, then the stop of the wizard (scripts/after-wizard.sh)
 	@setsid -f scripts/after-wizard.sh >> secrets/.after-wizard.log 2>&1 < /dev/null
 	@echo "Wizard started. Once the installation is done, the deployment follows by itself."
 
 wizard-down:
-	$(COMPOSE) --profile wizard stop wizard-ui
+	podman-compose --profile wizard -f podman-compose.yml stop wizard-ui
 
 # Test mail server of the lab: every e-mail of BornToShare ends there (http://<host>:8025), nothing goes out
 mail-up: .env

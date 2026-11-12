@@ -63,3 +63,4 @@
 
 <RequestPolicyCard requests={data.advanced?.requests ?? {}} />
 <BroadGroupsCard groups={data.advanced?.exposure?.broadGroups ?? []} />
+<BroadGroupsCard kind="system" groups={data.advanced?.exposure?.systemAccounts ?? []} />

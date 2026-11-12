@@ -818,8 +818,6 @@
       directories,
       activity,
       onOpenEndpoint: (endpointId: number | string) => goto(`/admin/storage-endpoints/${endpointId}`),
-      onOpenRoot: (rootId: number) => goto(`/storage-roots?selected=${rootId}`),
-      onOpenFolders: () => goto(`${foldersHref}&filter=review`),
       onOpenProvisioning: () => setTab("provisioning"),
       onAddServer: openEndpointAttachChoice,
     },

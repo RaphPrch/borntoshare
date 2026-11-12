@@ -41,7 +41,7 @@ def details(rows: Iterable[tuple[str, str]]) -> str:
     rows = list(rows)
     cells = []
     for index, (label, value) in enumerate(rows):
-        border = "" if index == len(rows) - 1 else f"border-bottom:1px solid #EEF0EC;"
+        border = "" if index == len(rows) - 1 else "border-bottom:1px solid #EEF0EC;"
         cells.append(
             f'<tr><td style="{border}padding:14px 18px;width:120px;vertical-align:top;font:14px {SANS};color:{MUTED}">{e(label)}</td>'
             f'<td style="{border}padding:14px 18px;vertical-align:top;font:14px/1.5 {SANS};color:{INK}">{value}</td></tr>'
@@ -59,7 +59,7 @@ def quote(label: str, text: str) -> str:
 def dark_box(eyebrow: str, path: str, note: str) -> str:
     return (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{INK};border-radius:16px">'
             f'<tr><td style="padding:20px 22px 6px;font:600 12px {SANS};letter-spacing:0.1em;color:#C9D1DA">{e(eyebrow)}</td></tr>'
-            f'<tr><td style="padding:0 22px 8px;font:16px {MONO};color:{ACCENT};word-break:break-all">{e(path)}</td></tr>'
+            f'<tr><td style="padding:0 22px 8px;font:16px {MONO};color:{ACCENT};overflow-wrap:anywhere">{e(path)}</td></tr>'
             f'<tr><td style="padding:0 22px 20px;font:13px/1.55 {SANS};color:#C9D1DA">{e(note)}</td></tr></table>')
 
 
@@ -78,7 +78,7 @@ def file_list(items: Iterable[tuple[str, str]], more: int = 0) -> str:
     for index, (path, label) in enumerate(items):
         border = "" if index == len(items) - 1 and not more else "border-bottom:1px solid #EEF0EC;"
         rows.append(
-            f'<tr><td style="{border}padding:12px 18px;font:13px {MONO};color:#26303B;word-break:break-all">{e(path)}</td>'
+            f'<tr><td style="{border}padding:12px 18px;font:13px {MONO};color:#26303B;overflow-wrap:anywhere">{e(path)}</td>'
             f'<td align="right" style="{border}padding:12px 18px;white-space:nowrap">'
             f'<span style="font:600 12px {SANS};padding:3px 10px;border-radius:999px;background:#FEF3F2;color:#912018">{e(label)}</span></td></tr>'
         )
@@ -103,7 +103,7 @@ def date_block(day: datetime, title: str, path: str, progress: float | None, pro
             f'<div style="font:13px {SANS};color:#C9D1DA">{e(DAYS[day.weekday()])} · {day.year}</div></td>'
             f'<td style="padding:20px 22px;vertical-align:middle">'
             f'<div style="font:600 15px {SANS};color:{INK}">{e(title)}</div>'
-            f'<div style="font:12px {MONO};color:{MUTED};padding-top:3px;word-break:break-all">{e(path)}</div>{bar}</td></tr></table>')
+            f'<div style="font:12px {MONO};color:{MUTED};padding-top:3px;overflow-wrap:anywhere">{e(path)}</div>{bar}</td></tr></table>')
 
 
 def button(label: str, url: str, *, primary: bool = True) -> str:
@@ -121,7 +121,7 @@ def layout(*, preheader: str, eyebrow: str, title: str, intro: str, blocks: Iter
     badge_html = ""
     if badge:
         badge_style = (f"background:{ALERT};color:#FFFFFF;border:1px solid {ALERT}" if alert
-                       else f"color:#C9D1DA;border:1px solid #2A323D")
+                       else "color:#C9D1DA;border:1px solid #2A323D")
         badge_html = f'<span style="{badge_style};border-radius:999px;padding:5px 12px;font:600 12px {SANS}">{e(badge)}</span>'
     spaced = "".join(f'<tr><td style="padding:0 44px 22px">{block}</td></tr>' for block in blocks)
     actions = list(buttons)

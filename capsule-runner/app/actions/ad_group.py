@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict
 from uuid import UUID
 
-from ldap3 import ALL, Connection, Server
+from ldap3 import Connection
 
 from app.shared import ldap_client, ldap_dialect
 
@@ -72,11 +72,10 @@ def ensure_ad_group(params: Dict[str, Any]):
     escaped_cn = _escape_dn_value(group_name)
     group_dn = f"CN={escaped_cn},{target_ou_dn}"
 
-    tls = ldap_client.tls_config(verify_tls, params.get("tls_ca_pem"), params.get("tls_server_name")) if use_ssl else None
-
     conn = None
     try:
-        server = Server(host, port=port, use_ssl=use_ssl, get_info=ALL, connect_timeout=timeout, tls=tls)
+        server = ldap_client.server_or_pool(host=host, port=port, use_ssl=use_ssl, verify_tls=verify_tls, timeout=timeout,
+                                            ca_pem=params.get("tls_ca_pem"), server_name=params.get("tls_server_name"))
         conn = Connection(server, user=bind_dn, password=password, auto_bind=True, receive_timeout=timeout)
 
         # Validate target OU exists and is reachable before group operations.

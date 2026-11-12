@@ -45,6 +45,8 @@ DEFAULT_ADVANCED_SETTINGS: dict = {
     # Accounts that open a folder to everyone, besides Everyone, Users and Domain users (exposure map, alerts)
     "exposure": {
         "broadGroups": [],
+        # Administration accounts expected on folders besides the built-in names (a renamed Administrator, CIS)
+        "systemAccounts": [],
     },
     # Failed sign-ins before a pause (read by auth-service)
     "signIn": {
@@ -70,6 +72,7 @@ DEFAULT_ADVANCED_SETTINGS: dict = {
         "appUrl": "",
         "pendingToGuardians": True,
         "decisionToRequester": True,
+        "adminAlerts": True,
         "expiryReminderDays": 7,
     },
 }
@@ -182,8 +185,11 @@ def _validate_new_sections(db: Session, merged: dict, payload: dict) -> None:
         raise _invalid("REQUEST_POLICY_INVALID", "La longueur minimale du motif va de 1 à 500 caractères.")
     merged["requests"] = {**requests, "durations": durations[:6], "allowPermanent": bool(requests.get("allowPermanent"))}
 
-    groups = (merged.get("exposure") or {}).get("broadGroups") or []
-    merged["exposure"] = {"broadGroups": sorted({str(g).strip() for g in groups if str(g).strip()})[:50]}
+    exposure = merged.get("exposure") or {}
+    groups = exposure.get("broadGroups") or []
+    accounts = exposure.get("systemAccounts") or []
+    merged["exposure"] = {"broadGroups": sorted({str(g).strip() for g in groups if str(g).strip()})[:50],
+                          "systemAccounts": sorted({str(a).strip() for a in accounts if str(a).strip()})[:50]}
 
     sign_in = merged.get("signIn") or {}
     if not (_is_int(sign_in.get("maxFailuresPerAccount"), 3, 50) and _is_int(sign_in.get("maxFailuresPerAddress"), 10, 1000)

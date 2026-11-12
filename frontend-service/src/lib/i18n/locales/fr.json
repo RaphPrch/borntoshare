@@ -5637,5 +5637,13 @@
   "gives « {right} » to {who}": "donne « {right} » à {who}",
   "Inherited: set on this folder or above it, every file inside gets it.": "Hérité : posé sur ce dossier ou au-dessus, chaque fichier dedans en hérite.",
   "Set on the files themselves.": "Posé sur les fichiers eux-mêmes.",
-  "Gmail: port 587 STARTTLS, the Gmail address as account and as sender, and an app password (16 letters, Google account › Security › App passwords, with 2-step verification on): the usual password is refused.": "Gmail : port 587 STARTTLS, l'adresse Gmail comme compte et comme expéditeur, et un mot de passe d'application (16 lettres, Compte Google › Sécurité › Mots de passe des applications, validation en deux étapes activée) : le mot de passe habituel est refusé."
+  "Gmail: port 587 STARTTLS, the Gmail address as account and as sender, and an app password (16 letters, Google account › Security › App passwords, with 2-step verification on): the usual password is refused.": "Gmail : port 587 STARTTLS, l'adresse Gmail comme compte et comme expéditeur, et un mot de passe d'application (16 lettres, Compte Google › Sécurité › Mots de passe des applications, validation en deux étapes activée) : le mot de passe habituel est refusé.",
+  "A breakdown (server unreachable, component down): to the administrators": "Une panne (serveur injoignable, composant en panne) : aux administrateurs",
+  "Several domain controllers: separated by commas, tried in order (dc01.corp.local, dc02.corp.local).": "Plusieurs contrôleurs de domaine : séparés par des virgules, essayés dans l'ordre (dc01.corp.local, dc02.corp.local).",
+  "Administration accounts saved.": "Comptes d'administration enregistrés.",
+  "Expected administration accounts": "Comptes d'administration attendus",
+  "SYSTEM, Administrators and Domain admins already count. Add the accounts renamed by your hardening (the built-in Administrator…).": "SYSTEM, Administrateurs et Admins du domaine comptent déjà. Ajoutez les comptes renommés par votre durcissement (l'Administrateur intégré…).",
+  "e.g. CORP\\sla-prd": "ex. CORP\\sla-prd",
+  "Account name": "Nom du compte",
+  "These accounts are expected on every folder: they no longer raise « account outside BornToShare ».": "Ces comptes sont attendus sur chaque dossier : ils ne lèvent plus « compte hors BornToShare »."
 }

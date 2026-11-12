@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import struct
 import uuid
 import logging
+import re
 
 from app.services.secret_client import resolve_secret
 
@@ -30,11 +31,13 @@ logger = get_logger(__name__)
 
 try:
     # Optional dependency
-    from ldap3 import Connection, Server, ALL, SUBTREE, Tls  # type: ignore
+    from ldap3 import Connection, Server, ServerPool, ALL, FIRST, SUBTREE, Tls  # type: ignore
     from ldap3.core.exceptions import LDAPBindError, LDAPException, LDAPSocketOpenError, LDAPSocketReceiveError  # type: ignore
 except ImportError:  # pragma: no cover
     Connection = None  # type: ignore
     Server = None  # type: ignore
+    ServerPool = None  # type: ignore
+    FIRST = None  # type: ignore
     ALL = None  # type: ignore
     SUBTREE = None  # type: ignore
     Tls = None  # type: ignore
@@ -120,6 +123,7 @@ class ADConfig:
     tls_verify: bool
     tls_ca_pem: str | None
     tls_server_name: str | None
+    urls: tuple[str, ...] = ()
 
 
 @dataclass
@@ -213,7 +217,9 @@ def _build_ad_config(src: dict, *, target: str | None) -> ADConfig:
     if not host:
         raise ProviderMisconfigured("AD identity source missing host")
 
-    url = f"{protocol}://{host}:{port}"
+    # Several domain controllers (« AD01.corp.local, AD02.corp.local »): tried in order, the first that answers is used
+    urls = tuple(f"{protocol}://{name}:{port}" for name in re.split(r"[,;\s]+", host) if name)
+    url = urls[0]
     # Account of the "authenticate users" capability, else the account of the source
     auth_account = (src.get("service_accounts") or {}).get("auth") or {}
     if auth_account.get("bind_dn") and auth_account.get("bind_password_ref"):
@@ -225,6 +231,7 @@ def _build_ad_config(src: dict, *, target: str | None) -> ADConfig:
     return ADConfig(
         source_id=int(src.get("id") or 0) or None,
         url=url,
+        urls=urls,
         base_dn=str(src.get("base_dn") or ""),
         user_filter=str(src.get("user_filter") or "").strip(),
         bind_user=bind_user,
@@ -344,7 +351,9 @@ class ADLDAPProvider(AuthProvider):
         return await asyncio.to_thread(self._authenticate_blocking, cfg, username, password)
 
     def _build_server(self, cfg: ADConfig):
-        return Server(cfg.url, get_info=ALL, connect_timeout=settings.AD_CONNECT_TIMEOUT_SECONDS, tls=_tls_config(cfg))
+        servers = [Server(url, get_info=ALL, connect_timeout=settings.AD_CONNECT_TIMEOUT_SECONDS, tls=_tls_config(cfg))
+                   for url in (cfg.urls or (cfg.url,))]
+        return servers[0] if len(servers) == 1 else ServerPool(servers, FIRST, active=1, exhaust=False)
 
     @staticmethod
     def _bind_user(server, user_dn: str, password: str) -> None:

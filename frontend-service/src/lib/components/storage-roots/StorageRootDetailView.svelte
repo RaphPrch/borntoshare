@@ -221,7 +221,6 @@
       rootId={selectedStorageRootId}
       onMeasured={onReloadDetails}
       {isAdmin}
-      onOpenPermissions={() => onSelectTab('effective-access')}
       onExplain={explainFromOverview}
       onOpenActivity={() => onSelectTab('activity')}
       onOpenGuardians={() => onOpenGovernanceDrawer('guardian')}

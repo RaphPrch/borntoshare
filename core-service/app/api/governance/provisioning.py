@@ -238,6 +238,13 @@ async def queue_ad_access_grant(
             },
             actor=run_provisioning_job,
         )
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        if detail.get("error_code") == "SERVER_UNREACHABLE":
+            # The domain controller stopped answering: said at once, the approval can be run again once it is back
+            raise ProvisioningStepError("SERVER_UNREACHABLE", str(detail.get("message")),
+                                        hint="Approve again once the domain controller answers.") from exc
+        raise
     except RuntimeError as exc:
         raise ProvisioningStepError("JOB_SUBMIT_FAILED", "The provisioning job could not be queued.", reason=str(exc)) from exc
     return {

@@ -5,8 +5,10 @@
   import { reportUiError } from '$lib/errors';
   import { saveAdvancedSections } from '$lib/api/admin-advanced-settings';
 
-  /** Advanced settings › Governance: groups that open a folder to everyone, besides the built-in ones. */
+  /** Advanced settings › Governance: groups that open a folder to everyone, besides the built-in ones; or (kind
+   * « system ») administration accounts expected on every folder, such as a renamed Administrator. */
   export let groups: string[] = [];
+  export let kind: 'broad' | 'system' = 'broad';
 
   let list = [...groups];
   let draft = '';
@@ -19,8 +21,8 @@
   async function save() {
     saving = true;
     try {
-      await saveAdvancedSections(fetch, { exposure: { broadGroups: list } });
-      toast.success(t('Broad groups saved.'));
+      await saveAdvancedSections(fetch, { exposure: kind === 'system' ? { systemAccounts: list } : { broadGroups: list } });
+      toast.success(kind === 'system' ? t('Administration accounts saved.') : t('Broad groups saved.'));
     } catch (e) {
       reportUiError(e, t('Unable to save the broad groups.'), 'advanced_settings.exposure.save');
     } finally {
@@ -29,7 +31,8 @@
   }
 </script>
 
-<ConfigCard title={t('Groups open to everyone')} subtitle={t('Everyone, Users and Domain users already count. Add the groups of your company that hold every employee.')}>
+<ConfigCard title={kind === 'system' ? t('Expected administration accounts') : t('Groups open to everyone')}
+  subtitle={kind === 'system' ? t('SYSTEM, Administrators and Domain admins already count. Add the accounts renamed by your hardening (the built-in Administrator…).') : t('Everyone, Users and Domain users already count. Add the groups of your company that hold every employee.')}>
   <div class="bg__list">
     {#each list as group (group)}
       <span class="bg__chip">{group}<button type="button" aria-label={t('Remove')} on:click={() => (list = list.filter((g) => g !== group))}>×</button></span>
@@ -38,10 +41,10 @@
     {/each}
   </div>
   <div class="bg__add">
-    <input class="b2s-input" bind:value={draft} placeholder={t('e.g. CORP\\GG_All_Staff')} on:keydown={(e) => e.key === 'Enter' && add()} aria-label={t('Group name')} />
+    <input class="b2s-input" bind:value={draft} placeholder={kind === 'system' ? t('e.g. CORP\\sla-prd') : t('e.g. CORP\\GG_All_Staff')} on:keydown={(e) => e.key === 'Enter' && add()} aria-label={kind === 'system' ? t('Account name') : t('Group name')} />
     <button type="button" class="b2s-btn b2s-btn-secondary" on:click={add}>{t('Add')}</button>
   </div>
-  <small class="adv-hint">{t('A folder these groups reach is « open to everyone » on the exposure map and in the alerts.')}</small>
+  <small class="adv-hint">{kind === 'system' ? t('These accounts are expected on every folder: they no longer raise « account outside BornToShare ».') : t('A folder these groups reach is « open to everyone » on the exposure map and in the alerts.')}</small>
   <div class="adv-actions">
     <button class="b2s-btn b2s-btn-primary" type="button" on:click={save} disabled={saving}><i class="bi bi-check2" aria-hidden="true"></i>{saving ? t('Saving…') : t('Save changes')}</button>
   </div>

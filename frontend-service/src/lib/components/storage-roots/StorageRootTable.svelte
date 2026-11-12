@@ -412,7 +412,7 @@
       <span>{t('ACL read')}</span>
     </div>
     {#each page as line (line.id)}
-      <div class="tb__row" class:sel={checked.has(line.id)} on:contextmenu={(event) => openMenu(line, event)}>
+      <div class="tb__row" role="row" tabindex="-1" class:sel={checked.has(line.id)} on:contextmenu={(event) => openMenu(line, event)}>
         {#if isAdmin}<span><input type="checkbox" checked={checked.has(line.id)} on:change={() => toggle(line.id)} aria-label={t('Select {name}', { name: line.name })} /></span>{/if}
         <button type="button" class="tb__name" on:click={() => onOpenRoot(line.id)}>
           <strong>{line.name}{#if Number(line.row?.password_files ?? 0) > 0}<span class="tb__sens" title={t('{count} file(s) holding passwords', { count: Number(line.row?.password_files) })}><i class="bi bi-key" aria-hidden="true"></i>{t('passwords')}</span>{:else if Number(line.row?.sensitive_files ?? 0) > 0}<span class="tb__sens" title={t('{count} sensitive file(s) found by the last scan', { count: Number(line.row?.sensitive_files) })}><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('sensitive')}</span>{/if}</strong>

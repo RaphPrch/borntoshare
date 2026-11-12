@@ -43,3 +43,15 @@ def test_the_admin_test_button_is_never_refused(monkeypatch):
         assert exc.detail["error_code"] == "SERVER_UNREACHABLE" and "dfs01" in exc.detail["message"]
     else:
         raise AssertionError("not refused")
+
+
+def test_directory_jobs_count_by_their_host_and_their_codes():
+    assert sb.host_of_payload({"action": "grant_ad_access", "payload": {"host": "172.22.107.251"}}) == "172.22.107.251"
+    rows = [("FAILED", "The domain controller could not be reached", _ago(i), "AD_UNREACHABLE") for i in (1, 2, 3)]
+    assert sb.evaluate(rows, NOW)["down"] is True
+    assert sb.evaluate([("FAILED", "bind refused", _ago(i), "AD_BIND_FAILED") for i in (1, 2, 3)], NOW)["down"] is False
+
+
+def test_the_wizard_checks_are_never_refused(monkeypatch):
+    monkeypatch.setattr(sb, "state", lambda db, host: {"down": True, "waiting": True, "failures": 5, "host": "ad01", "retry_at": NOW})
+    sb.guard(None, "AD01", "wizard")

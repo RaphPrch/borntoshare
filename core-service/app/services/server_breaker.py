@@ -23,7 +23,10 @@ TRIP_AFTER = 3
 BASE_MINUTES = 5
 MAX_MINUTES = 60
 # Explicit checks by an administrator are never refused
-EXEMPT_ORIGINS = {"admin"}
+EXEMPT_ORIGINS = {"admin", "wizard"}
+# The worker's own codes for « the server did not answer » (LDAP, WinRM, SMB)
+CONNECTION_CODES = {"AD_UNREACHABLE", "LDAP_UNREACHABLE", "WINRM_UNREACHABLE", "WINRM_TIMEOUT", "WINRM_KERBEROS_TIMEOUT",
+                    "DISCOVERY_UNREACHABLE", "SMB_UNREACHABLE"}
 # The server did not answer at all (as opposed to a refused password or a missing folder)
 CONNECTION_ERROR = re.compile(
     r"NT_STATUS_(CONNECTION_REFUSED|HOST_UNREACHABLE|NETWORK_UNREACHABLE|IO_TIMEOUT|CONNECTION_RESET|CONNECTION_DISCONNECTED)"
@@ -55,23 +58,25 @@ def host_of_payload(payload_json: Any) -> str:
             data = json.loads(data)
         except ValueError:
             return ""
-    target = (((data or {}).get("payload") or {}).get("target") or {}) if isinstance(data, dict) else {}
-    return host_key(target.get("host"))
+    inner = ((data or {}).get("payload") or {}) if isinstance(data, dict) else {}
+    target = inner.get("target") or {}
+    # Probes carry the server in target.host; directory jobs (snapshot, groups, members) in payload.host
+    return host_key((target.get("host") if isinstance(target, dict) else None) or inner.get("host"))
 
 
-def is_connection_error(message: Any) -> bool:
-    return bool(CONNECTION_ERROR.search(str(message or "")))
+def is_connection_error(message: Any, code: Any = None) -> bool:
+    return str(code or "").upper() in CONNECTION_CODES or bool(CONNECTION_ERROR.search(str(message or "")))
 
 
 def backoff_minutes(failures: int) -> int:
     return min(MAX_MINUTES, BASE_MINUTES * 2 ** max(0, failures - TRIP_AFTER))
 
 
-def evaluate(history: list[tuple[str, str | None, datetime | None]], now: datetime) -> dict[str, Any]:
-    """history: (status, error message, finished at) of the last finished jobs on the server, newest first."""
+def evaluate(history: list[tuple], now: datetime) -> dict[str, Any]:
+    """history: (status, error message, finished at[, error code]) of the last finished jobs on the server, newest first."""
     failures, first, last = 0, None, None
-    for state, error, finished in history:
-        if str(state).upper() != "FAILED" or not is_connection_error(error):
+    for state, error, finished, *rest in history:
+        if str(state).upper() != "FAILED" or not is_connection_error(error, rest[0] if rest else None):
             break
         failures += 1
         last = last or finished
@@ -85,10 +90,10 @@ def evaluate(history: list[tuple[str, str | None, datetime | None]], now: dateti
 def _rows(db: Session, key: str, sql_status: str, limit: int) -> list[Any]:
     return db.execute(
         text(f"""
-            SELECT status, error_message, finished_at, created_at FROM provisioning_jobs
+            SELECT status, error_message, finished_at, created_at, error_code FROM provisioning_jobs
             WHERE created_at > :since AND status IN ({sql_status})
-              AND (LOWER(JSON_VALUE(payload_json, '$.payload.target.host')) = :key
-                   OR LOWER(JSON_VALUE(payload_json, '$.payload.target.host')) LIKE :like)
+              AND (LOWER(COALESCE(JSON_VALUE(payload_json, '$.payload.target.host'), JSON_VALUE(payload_json, '$.payload.host'))) = :key
+                   OR LOWER(COALESCE(JSON_VALUE(payload_json, '$.payload.target.host'), JSON_VALUE(payload_json, '$.payload.host'))) LIKE :like)
             ORDER BY COALESCE(finished_at, created_at) DESC LIMIT {int(limit)}"""),
         {"since": _now() - timedelta(days=1), "key": key, "like": f"{key}.%" if not _is_ip(key) else key},
     ).all()
@@ -111,7 +116,7 @@ def state(db: Session, host: Any) -> dict[str, Any]:
     except Exception:
         db.rollback()
         return {"down": False, "failures": 0}
-    return {"host": key, **evaluate([(row[0], row[1], row[2] or row[3]) for row in rows], _now())}
+    return {"host": key, **evaluate([(row[0], row[1], row[2] or row[3], row[4]) for row in rows], _now())}
 
 
 def guard(db: Session, host: Any, origin: Any = None) -> None:
@@ -155,6 +160,8 @@ def after_job(db: Session, payload_json: Any) -> None:
                            {"now": _now(), "key": alert_key})
                 db.commit()
             return
+        already = db.execute(text("SELECT 1 FROM governance_alerts WHERE alert_key = :key AND status <> 'resolved' LIMIT 1"),
+                             {"key": alert_key}).first()
         since = current["since"].strftime("%d/%m %H:%M") if current.get("since") else "?"
         retry = current["retry_at"].strftime("%H:%M") if current.get("retry_at") else "?"
         endpoint = db.execute(text("""SELECT id, zone_id FROM storage_endpoints WHERE deleted_at IS NULL
@@ -170,5 +177,15 @@ def after_job(db: Session, payload_json: Any) -> None:
             "source_type": "server", "source_id": key, "metadata_json": {"host": key, "failures": current["failures"]},
         })
         db.commit()
+        if not already:
+            from app.services import notifications
+
+            notifications.admin_alert(
+                db, f"server_unreachable:{key}:{current['since']:%Y%m%d%H%M}" if current.get("since") else f"server_unreachable:{key}",
+                f"Serveur {key} injoignable",
+                [f"{current['failures']} échecs de connexion de suite depuis le {since} UTC.",
+                 f"Tâches automatiques suspendues ; prochain essai vers {retry} UTC."],
+                "/observability?tab=alerts",
+                intro="BornToShare n'arrive plus à joindre ce serveur. Les tâches automatiques qui le visent attendent son retour.")
     except Exception:
         db.rollback()

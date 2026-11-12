@@ -16,8 +16,6 @@
   export let directories: string[] = [];
   export let activity: any[] = [];
   export let onOpenEndpoint: ((endpointId: number) => void) | null = null;
-  export let onOpenRoot: ((rootId: number) => void) | null = null;
-  export let onOpenFolders: (() => void) | null = null;
   export let onOpenProvisioning: (() => void) | null = null;
   export let onAddServer: (() => void) | null = null;
 

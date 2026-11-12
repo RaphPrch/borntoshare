@@ -91,6 +91,22 @@ async def create_and_publish_job(
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
 
+    # Directory jobs (snapshot, groups, members) on a controller that stopped answering wait for its retry time,
+    # like the probes (server_breaker): the approval says so at once instead of waiting for a timeout
+    job_payload = create_payload.get("payload_json") or {}
+    from app.services import server_breaker
+
+    host = server_breaker.host_of_payload(job_payload)
+    if host:
+        from app.core.db import SessionLocal
+
+        breaker_db = SessionLocal()
+        try:
+            context = ((job_payload.get("payload") or {}).get("context") or {}) if isinstance(job_payload, dict) else {}
+            server_breaker.guard(breaker_db, host, context.get("ui_origin"))
+        finally:
+            breaker_db.close()
+
     create_job = await call_route(provisioning_internal.create_provisioning_job, payload=create_payload)
     job = (create_job or {}).get("data") or {}
     created = bool((create_job or {}).get("created"))

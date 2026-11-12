@@ -251,6 +251,43 @@ def request_decided(db: Session, request_id: int, decision: str) -> None:
         logger.warning("NOTIFICATION_DECISION_FAILED", exc_info=True)
 
 
+def _admin_emails(db: Session) -> list[str]:
+    """The platform administrators who have an address."""
+    try:
+        rows = db.execute(text("""
+            SELECT DISTINCT i.email FROM v_identity_effective_roles r JOIN identities i ON i.id = r.identity_id
+            WHERE r.role_code = 'platform_admin' AND i.is_active = 1 AND i.email IS NOT NULL AND i.email <> ''""")).all()
+    except Exception:
+        db.rollback()
+        return []
+    return [str(row[0]) for row in rows]
+
+
+def admin_alert(db: Session, key: str, title: str, lines: list[str], path: str, *, intro: str) -> None:
+    """A breakdown of the platform (server unreachable, component down) told to the administrators, once per key.
+    Never blocks nor fails the caller."""
+    try:
+        config = settings(db)
+        if not config.get("enabled") or not config.get("adminAlerts", True):
+            return
+        recipients = _admin_emails(db)
+        if not recipients:
+            return
+        from app.services import mail_templates as mt
+
+        url = _url(config, path)
+        html = mt.layout(
+            preheader=title, eyebrow="Infrastructure", title=title, intro=intro, alert=True, badge="Panne",
+            blocks=[mt.notice("Constaté", "<br>".join(mt.e(line) for line in lines[:12]),
+                              "Une seule alerte par panne ; elle se ferme d'elle-même au premier contrôle réussi.")],
+            buttons=[mt.button("Ouvrir l'observabilité", url)] if url else [],
+            footer="Vous recevez ce mail parce que vous êtes administrateur de BornToShare.",
+        )
+        queue(key, recipients, f"[BornToShare] {title}", "\n".join([intro, "", *lines]) + _link(config, path), html)
+    except Exception:
+        logger.warning("NOTIFICATION_ADMIN_ALERT_FAILED", exc_info=True)
+
+
 def expiry_reminders(db: Session) -> int:
     """Accesses that end within the reminder days, told once to their holder. Returns how many were queued."""
     config = settings(db)

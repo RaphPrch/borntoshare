@@ -7,7 +7,7 @@
 | `server/` | Server-only code: BFF proxy and routing to services, principal cookie, internal tokens, `require-auth.ts`. |
 | `components/ui/` | Generic widgets: modals, empty states, tables, tabs, toaster, search field. |
 | `components/entity/` | Building blocks of entity consoles (headers, drawers, KPI rows, alert strips, sidebars). |
-| `components/<domain>/` | Domain components: `access-requests`, `activity`, `dashboard`, `identity`, `identity-sources`, `jobs` (probe UI), `layout`, `provisioning`, `settings`, `storage-endpoints`, `storage-roots`, `tags`, `zones`. |
+| `components/<domain>/` | Domain components: `access-requests`, `activity`, `auth`, `dashboard`, `fives` (5S module), `identity`, `identity-sources`, `infrastructure`, `jobs` (probe UI), `layout`, `observability`, `provisioning`, `settings`, `storage-endpoints`, `storage-roots`, `tags`, `zones`. |
 | `mappers/` | Pure functions turning API payloads into view models (unit-tested). |
 | `stores/` | Svelte stores (toast, jobs, selection, snapshots, UI state). |
 | `jobs/` | Background job and probe polling, probe runners. |

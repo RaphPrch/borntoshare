@@ -21,6 +21,7 @@
     appUrl: stored.appUrl || (typeof location !== 'undefined' ? location.origin : ''),
     pendingToGuardians: stored.pendingToGuardians ?? true,
     decisionToRequester: stored.decisionToRequester ?? true,
+    adminAlerts: stored.adminAlerts ?? true,
     expiryReminderDays: stored.expiryReminderDays ?? 7
   };
   let password = '';
@@ -90,6 +91,7 @@
   <div class="nt__events">
     <label><input type="checkbox" bind:checked={notif.pendingToGuardians} /> {t('A new request: to the guardians of the folder')}</label>
     <label><input type="checkbox" bind:checked={notif.decisionToRequester} /> {t('A decision: to the requester, with the comment of the guardian')}</label>
+    <label><input type="checkbox" bind:checked={notif.adminAlerts} /> {t('A breakdown (server unreachable, component down): to the administrators')}</label>
     <label class="nt__reminder">{t('An access about to end: reminder')} <input class="b2s-input" type="number" min="0" max="60" bind:value={notif.expiryReminderDays} /> {t('days before (0: none)')}</label>
   </div>
   <div class="adv-actions">

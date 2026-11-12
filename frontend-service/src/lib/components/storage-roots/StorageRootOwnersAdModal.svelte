@@ -22,7 +22,6 @@
   export let storageRootId: number | null = null;
   export let initialSourceId: number | null = null;
   export let initialGuardianIds: number[] = [];
-  export let defaultAssignedRole: 'guardian' = 'guardian';
   export let onClose: () => void = () => {};
 
   type IdentityBrowserSelectionEvent = {

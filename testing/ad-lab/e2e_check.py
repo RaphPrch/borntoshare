@@ -193,14 +193,30 @@ def acl(share: str, folder: str) -> str:
 
 # ---------------------------------------------------------------- BornToShare helpers
 
+# Waits are bounded in time, not in turns: a worker busy with a long scan (sensitivity, 5S) answers later, never
+# wrongly. E2E_WAIT_SECONDS stretches every wait at once on a slow lab.
+WAIT = int(os.environ.get("E2E_WAIT_SECONDS", "240"))
+
+
+def wait_for(fetch, *, seconds: int = WAIT, every: float = 2.0):
+    """fetch() until it returns something true, or the deadline: its last value either way."""
+    deadline = time.monotonic() + seconds
+    while True:
+        value = fetch()
+        if value or time.monotonic() >= deadline:
+            return value
+        time.sleep(every)
+
+
 def wait_probe(api: Api, payload: dict) -> dict:
     job = api.call("POST", "/probes/run", payload)
-    for _ in range(45):
-        state = api.call("GET", f"/probes/jobs/{job['job_id']}")
-        if str(state.get("status") or "").lower() in {"success", "succeeded", "failed", "partial", "timed_out", "cancelled"}:
-            return state
-        time.sleep(2)
-    return {"status": "timeout"}
+    done = {"success", "succeeded", "failed", "partial", "timed_out", "cancelled"}
+
+    def state() -> dict | None:
+        current = api.call("GET", f"/probes/jobs/{job['job_id']}")
+        return current if str(current.get("status") or "").lower() in done else None
+
+    return wait_for(state) or {"status": "timeout"}
 
 
 def request_access(api: Api, root_id: int, level: str, principal: dict, expires_at: str | None = None) -> int:
@@ -229,27 +245,25 @@ def add_root(api: Api, endpoint_id: int, share: str, folder: str) -> int:
 
 
 def snapshot(api: Api, source_id: int) -> bool:
-    before = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
-    for _ in range(40):
+    last = lambda: str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")  # noqa: E731
+    before = last()
+
+    def started() -> bool:
+        nonlocal before
         status, _body = api.call("POST", "/identity/snapshots/run", {"identity_source_id": source_id, "mode": "full", "force_full": True}, raw=True)
-        if status != 409:  # 409: one is already running (the schedule): wait for it, then ours
-            break
-        time.sleep(3)
-        before = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
-    for _ in range(30):
-        time.sleep(3)
-        after = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
-        if after and after != before:
-            return True
-    return False
+        if status == 409:  # one is already running (the schedule): wait for it, then ours
+            before = last()
+            return False
+        return True
+
+    wait_for(started, every=3)
+    return bool(wait_for(lambda: (lambda after: bool(after and after != before))(last()), every=3))
 
 
 def read_acl(api: Api, root_id: int) -> bool:
     """« Read the ACL » of the Permissions tab: storage root probe with the discovery of the permissions."""
-    for _ in range(30):  # the rights reach the content of the folder in the background after an approval
-        if (api.call("GET", f"/storage-roots/{root_id}/permissions").get("propagation") or {}).get("state") != "running":
-            break
-        time.sleep(2)
+    # the rights reach the content of the folder in the background after an approval
+    wait_for(lambda: (api.call("GET", f"/storage-roots/{root_id}/permissions").get("propagation") or {}).get("state") != "running")
     state = wait_probe(api, {"kind": "storage-root", "protocol": "smb", "scope": "read", "target": {"storage_root_id": root_id},
                              "options": {"timeout_sec": 30, "discover_permissions": True},
                              "context": {"storage_root_id": root_id, "ui_origin": "admin"}})
@@ -340,14 +354,18 @@ def main() -> int:
           str(probe.get("status")))
 
     section("2. Regular health check")
+    overview = lambda: {c["component"]: c for c in rows(api.call("GET", "/infrastructure/overview").get("components"))}  # noqa: E731
+    checked_before = str((overview().get(f"identity_source:{source_id}") or {}).get("checked_at") or "")
     api.call("POST", "/infrastructure/schedules/health_check/run")
     components: dict[str, dict] = {}
-    for _ in range(15):
-        time.sleep(3)
-        components = {c["component"]: c for c in rows(api.call("GET", "/infrastructure/overview").get("components"))}
-        directory = components.get(f"identity_source:{source_id}") or {}
-        if "bind" in str(directory.get("message") or ""):
-            break
+
+    def fresh() -> bool:
+        # A result of this run, not the one left by the last scheduled check
+        nonlocal components
+        components = overview()
+        return str((components.get(f"identity_source:{source_id}") or {}).get("checked_at") or "") > checked_before
+
+    wait_for(fresh, every=3)
     directory = components.get(f"identity_source:{source_id}") or {}
     files = components.get(f"storage_endpoint:{endpoint_id}") or {}
     check("directory checked by a real LDAPS bind", directory.get("status") == "healthy" and "bind" in str(directory.get("message")),
@@ -378,10 +396,7 @@ def main() -> int:
     create_user(login_d, "Dora")
     before = str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")
     api.call("POST", "/infrastructure/schedules/data_sync/run")
-    for _ in range(40):
-        time.sleep(3)
-        if str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "") != before:
-            break
+    wait_for(lambda: str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "") != before, every=3)
     check("scheduled data sync imports a new AD user", principal_of(api, source_id, login_d) is not None, login_d)
 
     section("4. Access group created at the approval (naming policy, OU of the zone)")

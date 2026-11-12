@@ -536,6 +536,7 @@
           {#if showErrors && !normalize(form.host)}
             <FieldError>{t('Required')}</FieldError>
           {/if}
+          <small class="identity-edit-hint">{t('Several domain controllers: separated by commas, tried in order (dc01.corp.local, dc02.corp.local).')}</small>
         </label>
         <label class="identity-edit-field">
           <span>{t('Port')}</span>
