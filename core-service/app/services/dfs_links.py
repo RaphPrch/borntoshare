@@ -192,3 +192,28 @@ def _compute(db: Session) -> tuple[dict[int, str], dict[int, list[int]]]:
                         rest = [part for part in str(row["root_path"]).split("\\") if part][depth:]
                         paths.setdefault(int(row["id"]), "\\".join([link["dfs_path"], *rest]))
     return paths, replicas
+
+
+def namespace_of(db: Session, root_path: str) -> dict[str, Any] | None:
+    """The DFS namespace a UNC path is the root of (\\\\DFS01\\Angers, \\\\DFS01.corp.local\\Angers), with the targets of
+    its links; None for a path on a real file server. A namespace root holds only links: the folders to govern are
+    their targets, the DFS path is then shown on them by itself."""
+    from app.data.models.storage_endpoint import StorageEndpoint
+
+    parts = [part for part in str(root_path or "").replace("/", "\\").split("\\") if part]
+    if len(parts) < 2:
+        return None
+    server, share = parts[0].lower(), parts[1].lower()
+    label = server.split(".")[0]
+    for namespace in db.query(StorageEndpoint).filter(StorageEndpoint.endpoint_type == "dfs").all():
+        host = str(namespace.host or "").lower()
+        if str(namespace.name or "").lower() != share or label != host.split(".")[0]:
+            continue
+        targets: list[str] = []
+        try:
+            for link in describe_links(db, namespace):
+                targets.extend(str(target.get("unc") or target.get("root_path") or "") for target in link.get("targets") or [])
+        except Exception:
+            pass
+        return {"id": int(namespace.id), "name": namespace.name, "targets": sorted({target for target in targets if target})[:10]}
+    return None

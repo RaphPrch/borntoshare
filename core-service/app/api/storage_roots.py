@@ -1623,6 +1623,18 @@ def _create_storage_root(
         data["last_probe_status"] = _normalize_probe_status_value(data.get("last_probe_status"))
 
     endpoint = db.get(StorageEndpoint, int(data["storage_endpoint_id"]))
+    # The root of a DFS namespace holds only links: governed twice with its targets otherwise (same files)
+    if endpoint is not None and str(getattr(endpoint, "endpoint_type", "") or "").lower() != "dfs":
+        from app.services.dfs_links import namespace_of
+
+        namespace = namespace_of(db, str(data.get("root_path") or ""))
+        if namespace:
+            targets = ", ".join(namespace["targets"][:3])
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={
+                "error_code": "DFS_NAMESPACE_ROOT",
+                "message": f"This path is the DFS namespace « {namespace['name']} »: add its target folders instead"
+                           + (f" ({targets}…)" if targets else "") + "; their DFS path is shown on them by itself.",
+            })
     if endpoint is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
     if str(endpoint.endpoint_type or "").lower() == "dfs":
