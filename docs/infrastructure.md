@@ -18,13 +18,20 @@ Il tourne selon la fréquence de l'onglet Planification (5 min par défaut), en 
 | Contrôlé par | Composants |
 |---|---|
 | core-service | base de données et base d'audit (requête SQL), file de tâches (Redis), chaque worker via son agent |
-| un worker (tâche `INFRA_HEALTH`) | services de la plateforme, port de la base, contrôleurs de domaine des sources d'identité, serveurs de fichiers (port 445), Keycloak, composants ajoutés à la main |
+| un worker (tâche `INFRA_HEALTH`) | services de la plateforme, port de la base, contrôleurs de domaine des sources d'identité, OU des groupes, serveurs de fichiers (port 445), Keycloak, composants ajoutés à la main |
 
 Les sources d'identité AD sont contrôlées comme un annuaire, pas seulement par leur port : connexion LDAPS
 (certificat vérifié selon le réglage de l'annuaire), bind avec le compte qui lit l'annuaire (compte « snapshot »,
 sinon celui de la source) et lecture du DN de base. Un compte désactivé, expiré ou refusé, un certificat
 invalide ou un DNS faux passent la source « en panne » avec la cause. Un mot de passe changé dans l'AD
 reste accepté une heure par le contrôleur de domaine (comportement d'Active Directory).
+
+Un annuaire déclaré avec plusieurs contrôleurs de domaine a **une ligne par contrôleur** : on voit lequel est tombé.
+
+Chaque **OU des groupes** utilisée par un dossier est contrôlée avec le compte de provisioning : l'AD dit, par
+l'attribut calculé `allowedChildClassesEffective`, si ce compte peut y créer des groupes. Une OU non déléguée passe
+« en panne » (ligne « Group OU ») et bloque les approbations qui y créeraient un groupe
+(voir [droits-ad.md](droits-ad.md#lou-des-groupes-vérifiée-avant-chaque-approbation)).
 
 Un worker ne peut pas signaler qu'il est en panne : c'est core-service qui interroge son agent.
 L'historique est gardé 7 jours (`infra_check_history`).
@@ -50,6 +57,34 @@ Le premier data sync a lieu un intervalle après l'installation, pas au premier 
 - **Espaces de noms DFS** (6 h par défaut) : chaque espace de noms est relu par un worker avec son compte ; un
   dossier DFS ajouté ou retiré dans la console DFS apparaît sans « Relire ». Le résultat est tracé
   (`storage_endpoint.dfs_read`).
+
+## Serveur injoignable
+
+Un serveur qui ne répond plus n'est pas interrogé en boucle. L'état se lit dans les travaux eux-mêmes (aucune table
+en plus) : après **3 échecs de connexion de suite** sur un même serveur (`DFS01`, `dfs01` et `DFS01.corp.local`
+comptent pour un), les tâches automatiques qui le visent sont refusées (`SERVER_UNREACHABLE`) jusqu'à une heure
+de nouvel essai, qui double à chaque nouvel échec : 5, 10, 20, 40 minutes, puis toutes les heures. À cette heure, un
+seul travail essaie ; son succès rouvre tout.
+
+- Seuls les échecs de connexion comptent (port fermé, hôte injoignable, délai dépassé) ; un mot de passe refusé ou
+  un dossier absent, non.
+- Une alerte « Serveur X injoignable » (`server_unreachable:<serveur>`, gravité haute) reste ouverte pendant la
+  panne et se ferme au premier succès.
+- Le bouton de test d'un administrateur (et l'assistant d'installation) passe toujours : après une réparation, on vérifie tout de suite.
+- Sont concernés les tests, scans et mesures du worker, et les travaux d'annuaire (instantanés, groupes, membres) :
+  un contrôleur de domaine injoignable refuse aussitôt une approbation (`SERVER_UNREACHABLE`), qu'on relance à son retour.
+  Les codes `AD_UNREACHABLE`, `LDAP_UNREACHABLE` et `WINRM_*` comptent comme des échecs de connexion.
+- Le scanner du module 5S demande l'état du serveur avant de partir : un parcours sur un serveur en attente retourne
+  dans la file pour l'heure du nouvel essai, au lieu d'attendre le délai de WinRM.
+- Les administrateurs reçoivent un e-mail à l'ouverture de l'alerte ([notifications.md](notifications.md)).
+
+## Plusieurs contrôleurs de domaine
+
+Le champ « Hôte » d'un annuaire accepte une liste : `dc01.corp.local, dc02.corp.local` (virgules, points-virgules ou
+espaces). Le worker et la connexion des utilisateurs les essaient dans l'ordre et prennent le premier qui répond
+(`ServerPool` de ldap3) ; Kerberos (WinRM) reçoit une ligne `kdc` par contrôleur. Le certificat de chacun doit porter
+son nom (ou celui de « Nom dans le certificat »). L'assistant de création analyse un seul hôte : ajouter les autres
+ensuite, dans la fiche de l'annuaire.
 
 ## Secrets et sauvegarde
 

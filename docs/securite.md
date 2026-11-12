@@ -45,24 +45,22 @@ ressaisir, et la fiche de chaque serveur propose « Ressaisir le mot de passe »
 
 ## Comptes de service et droits à déléguer
 
+Un compte par usage, aucun administrateur du domaine. Le détail (droits exacts, commandes, vérification, ce qu'il
+ne faut pas donner) est dans [droits-ad.md](droits-ad.md).
+
 | Compte | Utilisé pour | Droits minimaux |
 |---|---|---|
-| Lecture de l'annuaire (source AD) | Instantanés, recherche de personnes et de groupes | Utilisateur du domaine ; bind LDAPS |
-| Connexion des utilisateurs (facultatif, dédié) | Retrouver l'utilisateur avant de vérifier son mot de passe | Utilisateur du domaine |
-| Gestion des groupes AD (« Gérer les groupes AD ») | Créer les groupes d'accès, ajouter et retirer les membres | Sur l'OU des groupes de la zone : créer et supprimer des objets groupe, lire et écrire les propriétés des groupes (dont `member`) |
-| Serveur de fichiers (un par serveur) | Lire les ACL, poser les ACE des groupes, créer et supprimer dossiers et partages | Administrateur local du serveur (accès à `C$`/`ADMIN$` et à l'API de partage) |
-| Espace de noms DFS (un par espace) | Lire l'espace de noms ; créer ou supprimer des dossiers DFS | Lecture : utilisateur du domaine ; modification : gestion déléguée de l'espace de noms (console DFS › Déléguer les autorisations de gestion) |
+| Lecture de l'annuaire (`svc-b2s-sync`) | Instantanés, recherche de personnes et de groupes, santé, lecture du DFS | Aucun droit ajouté (lecture par défaut) |
+| Connexion des utilisateurs (`svc-b2s-auth`) | Retrouver l'utilisateur avant que l'AD vérifie son mot de passe | Aucun droit ajouté |
+| Gestion des groupes (`svc-b2s-prov`) | Créer les groupes d'accès, ajouter et retirer les membres | Sur l'OU des groupes seulement : créer des objets groupe, écrire `member` des groupes ; refus explicite sur le groupe d'administration de BornToShare |
+| Serveur de fichiers (un par serveur) | ACL NTFS, dossiers et partages, mesures, sensibilité, quotas FSRM | Administrateur local du serveur ; aucun droit dans l'AD |
+| Espace de noms DFS | Lecture ; création de dossiers DFS si utilisée | Lecture : aucun droit ; modification : gestion déléguée de l'espace de noms |
 
-Délégation sur l'OU des groupes, par exemple :
+Tous ces comptes sont marqués « sensible, ne peut pas être délégué », sans SPN.
 
-```powershell
-dsacls "OU=B2S Groups,OU=CORP,DC=CORP,DC=LOCAL" /G "CORP\b2s:CCDC;group"
-dsacls "OU=B2S Groups,OU=CORP,DC=CORP,DC=LOCAL" /I:S /G "CORP\b2s:RPWP;;group"
-```
-
-Un refus de l'AD ou du serveur est rendu tel quel, avec ce qu'il faut corriger. Par exemple : « le compte n'est
-pas autorisé à créer des groupes dans cette OU », « doit être administrateur local du serveur », ou « déléguez-lui
-la gestion de l'espace de noms ». BornToShare ne contourne jamais un refus.
+L'OU où un groupe sera créé est vérifiée **avant** l'approbation (contrôle de santé et aperçu d'approbation,
+blocage `GROUP_OU_NOT_DELEGATED`). Un refus de l'AD ou du serveur est rendu tel quel, avec ce qu'il faut corriger.
+BornToShare ne contourne jamais un refus.
 
 ## Protocoles vers l'AD et les serveurs
 
@@ -71,8 +69,12 @@ la gestion de l'espace de noms ». BornToShare ne contourne jamais un refus.
   en clair sur 389.
 - **SMB 3 (445)** : authentification NTLM avec le compte du serveur ; déclarer le serveur par son adresse IP
   si son nom n'a pas de SPN Kerberos.
+- **WinRM (5985)** : PowerShell sur les serveurs Windows (mesures, sensibilité, quotas FSRM, module 5S), en
+  **Kerberos uniquement** (chiffrement du message par Kerberos, pas de NTLM, pas de délégation). Le mot de passe
+  passe par l'entrée standard de `kinit`, dans un cache de tickets propre à chaque travail.
 - **DFS** : référencements SMB pour lire, RPC netdfs pour modifier, sur le serveur racine de l'espace.
-- **Kerberos (88)** : test de connexion ; le worker ne fait jamais de délégation Kerberos.
+- **Kerberos (88)** : tickets pour WinRM et test de connexion ; le worker ne fait jamais de délégation Kerberos.
+- **SMTP** : e-mails envoyés par core-service (STARTTLS ou TLS), voir [notifications.md](notifications.md).
 
 ## Conteneurs
 
@@ -109,7 +111,7 @@ Un gardien ne valide pas sa propre demande : un autre gardien ou un administrate
 - Agent du worker en HTTPS (`capsule-runner/certs/agent.crt` et `agent.key`).
 - `make wizard-down` dès la fin de l'installation.
 - Sauvegarde des bases (`make backup`) **et**, à part, de la clé `b2s_master_key`.
-- Comptes de service dédiés, mots de passe longs, droits limités à ce tableau.
+- Comptes de service dédiés, mots de passe longs, droits limités à ceux de [droits-ad.md](droits-ad.md), non délégables.
 
 ## Extensions (Réglages avancés › Extensions)
 

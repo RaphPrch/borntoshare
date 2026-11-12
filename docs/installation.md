@@ -7,8 +7,8 @@
 | Hôte | Linux (RHEL 9 ou équivalent), Podman 4+ et podman-compose, `make`, `git` ; 2 vCPU, 4 Go de RAM au minimum |
 | Base | MariaDB 10.6+ ou 11.x, joignable en 3306 ; un compte avec les droits de création (root) le temps du wizard |
 | Réseau | Les flux de [architecture.md](architecture.md#flux-à-ouvrir-vers-lextérieur) ouverts depuis l'hôte |
-| Annuaire | Un AD joignable en LDAPS (636) avec le certificat de son autorité ; un compte de service de lecture et, pour les accès, un compte délégué sur l'OU des groupes (voir [securite.md](securite.md#comptes-de-service-et-droits-à-déléguer)) |
-| Serveurs de fichiers | SMB 3 (445) ; un compte administrateur local par serveur (lecture des ACL, création des partages) |
+| Annuaire | Un AD joignable en LDAPS (636) et Kerberos (88) avec le certificat de son autorité ; un compte de lecture, un compte de connexion et, pour les accès, un compte délégué sur l'OU des groupes seulement (voir [droits-ad.md](droits-ad.md)) |
+| Serveurs de fichiers | SMB 3 (445) et WinRM (5985, Kerberos) ; un compte administrateur local par serveur, sans droit dans l'AD (voir [droits-ad.md](droits-ad.md)) |
 | Accès des utilisateurs | Un proxy inverse HTTPS devant le port 3000 est recommandé ; `FRONTEND_PUBLIC_ORIGIN` = son URL |
 
 ## 1. Le fichier `.env`
@@ -98,7 +98,8 @@ les identités autorisées à se connecter et les administrateurs, puis les prem
 Ensuite, dans Réglages avancés : Réseau et DNS (serveurs DNS de chaque domaine), Infrastructure (workers,
 planifications), Politique de nommage des groupes AD, Gouvernance (nombre minimal de gardiens, durées et motif
 des demandes, groupes « ouverts à tous » de l'entreprise), Sessions (durées, échecs de connexion), Notifications
-(serveur SMTP, e-mails envoyés, bandeau de maintenance), Extensions (syslog, Splunk, Centreon).
+(serveur SMTP, e-mails envoyés, bandeau de maintenance : voir [notifications.md](notifications.md)), Extensions
+(syslog, Splunk, Centreon).
 
 ## 4. Mises à jour
 
@@ -111,8 +112,10 @@ make deploy
 
 1. applique les paquets SQL de `PACKS`, tous rejouables, puis les vues de `VIEWS` dont la définition a changé ;
 2. étiquette les images en service `rollback-<date>` ;
-3. reconstruit et recrée core, frontend, worker et auth (en passant `B2S_VERSION`) ;
+3. reconstruit et recrée core, frontend, worker et auth, et le module 5S s'il est installé (en passant `B2S_VERSION`) ;
 4. attend que les services soient sains.
+
+Il refuse de redémarrer pendant un parcours du scanner 5S (`FORCE=1 make deploy` pour passer outre).
 
 Un nouveau paquet SQL va dans `wizard-ui/backend/app/sql/schema/` et dans `PACKS` ; il doit pouvoir être
 rejoué sans erreur, y compris après les paquets suivants.

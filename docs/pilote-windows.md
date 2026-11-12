@@ -9,26 +9,30 @@ Chaque étape indique le résultat attendu. Noter tout écart, avec l'heure et l
 
 Tous les noms ci-dessous sont des exemples, à adapter.
 
-**Comptes de service**, ni administrateurs du domaine ni administrateurs locaux :
+**Comptes de service**, ni administrateurs du domaine ni membres d'un groupe, marqués « sensible, ne peut pas être
+délégué » ; droits exacts et vérification : [droits-ad.md](droits-ad.md).
 
 | Compte | Sert à | Droits |
 |---|---|---|
-| `svc-b2s-read` | inventaire et connexion des utilisateurs | lecture de l'annuaire (par défaut) |
+| `svc-b2s-sync` | inventaire, recherche, santé de l'annuaire | lecture par défaut, rien à ajouter |
+| `svc-b2s-auth` | connexion des utilisateurs | lecture par défaut, rien à ajouter |
 | `svc-b2s-prov` | création des groupes et des membres | délégation sur l'OU ci-dessous |
-| `svc-b2s-files` | lecture et pose des ACL | voir « Serveur de fichiers » |
+| `svc-b2s-files` | ACL, dossiers, mesures, sensibilité, quotas | administrateur local du serveur de fichiers, aucun droit dans l'AD |
 
 **OU dédiée** aux groupes, par exemple `OU=B2S Groups,DC=example,DC=test`, avec la délégation :
 
 ```bat
-dsacls "OU=B2S Groups,DC=example,DC=test" /I:T /G "EXAMPLE\svc-b2s-prov:CC;group"
+dsacls "OU=B2S Groups,DC=example,DC=test" /G "EXAMPLE\svc-b2s-prov:CC;group"
 dsacls "OU=B2S Groups,DC=example,DC=test" /I:S /G "EXAMPLE\svc-b2s-prov:WP;member;group"
 ```
 
-**Serveur de fichiers** : un partage de test, par exemple `\\files.example.test\pilote`, contenant
-trois dossiers. `svc-b2s-files` a le contrôle total sur le dossier du partage (NTFS) et sur le partage lui-même.
+Le groupe qui donnera le rôle d'administrateur de BornToShare (`GG_B2S_Pilot_Admins` ci-dessous) se range **hors**
+de cette OU, ou reçoit un refus explicite (`dsacls "<DN du groupe>" /D "EXAMPLE\svc-b2s-prov:WP;member"`).
 
-Ce compte n'a pas besoin d'être administrateur local, sauf pour créer des partages depuis BornToShare : sans ce droit,
-la création est refusée avec un message clair et tout le reste fonctionne sur les partages où il a le contrôle total.
+**Serveur de fichiers** : un partage de test, par exemple `\\files.example.test\pilote`, contenant trois dossiers.
+`svc-b2s-files` est administrateur local du serveur : lecture et pose des ACL, création de partages, quotas FSRM, et
+PowerShell à distance (WinRM 5985, Kerberos) pour les mesures et la sensibilité. Le serveur se déclare de préférence
+par son nom DNS (Kerberos).
 
 **Utilisateurs et groupes de test** :
 
@@ -36,7 +40,7 @@ la création est refusée avec un message clair et tout le reste fonctionne sur 
 - `pilote.garant` et `pilote.user`, sans groupe particulier ;
 - un compte désactivé et un compte dont le mot de passe a expiré.
 
-**Réseau**, depuis le worker : LDAPS 636 vers le contrôleur de domaine, SMB 445 vers le serveur de fichiers.
+**Réseau**, depuis le worker : LDAPS 636 et Kerberos 88 vers le contrôleur de domaine, SMB 445 et WinRM 5985 vers le serveur de fichiers.
 
 **Certificat** : l'autorité qui signe le certificat LDAPS, au format PEM. Elle se colle dans le formulaire de l'annuaire.
 
@@ -47,6 +51,7 @@ Les mots de passe sont saisis dans l'interface, qui les chiffre en base. Ne pas 
 | # | Action | Résultat attendu |
 |---|---|---|
 | 1.1 | Annuaires › Nouvel annuaire, avec les comptes ci-dessus, puis Tester la connexion | Test réussi, certificat vérifié |
+| 1.1b | Observabilité › Santé, après un contrôle | Ligne « Group OU » de l'OU dédiée : opérationnelle (le compte de provisioning peut y créer des groupes) |
 | 1.2 | Synchroniser maintenant | Utilisateurs, groupes et appartenances au bon nombre, comparés à l'AD |
 | 1.3 | Identités › Créer › Groupe de l'annuaire : `GG_B2S_Pilot_Admins`, rôle administrateur | Le groupe apparaît, « Voir les membres » liste `pilote.admin` |
 | 1.4 | Connexion avec `pilote.admin`, puis `EXAMPLE\pilote.admin`, puis `pilote.admin@example.test` | Accès administrateur les trois fois |
@@ -99,7 +104,7 @@ Le ticket Kerberos d'une session ouverte ne contient pas le nouveau groupe : c'e
 | 5.1 | Couper le 445 vers le serveur de fichiers, approuver | Demande en attente, message clair ; serveur « en panne » dans Suivi |
 | 5.2 | Rétablir, réapprouver | Appliquée, rien en double |
 | 5.3 | Changer le mot de passe de `svc-b2s-read` | Annuaire « en panne » avec la cause, au plus tard une heure après (délai propre à AD) |
-| 5.4 | Arrêter le contrôleur de domaine utilisé, s'il y en a un second | Comportement à noter : BornToShare interroge l'hôte configuré |
+| 5.4 | Avec deux contrôleurs dans l'hôte de l'annuaire (`dc01, dc02`), arrêter le premier | Connexions, synchronisation et approbations passent par le second ; Observabilité › Santé montre le premier en panne et les administrateurs reçoivent un e-mail |
 
 ## 6. Volume réel
 

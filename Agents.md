@@ -81,7 +81,8 @@ Access model:
 
 Capsules:
 - Capsules are agentless.
-- capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares, NTFS ACLs and DFS (netdfs), Kerberos (`kinit`) for tests. No WinRM, PowerShell or SSH.
+- capsule-runner talks to targets over protocols only: LDAP/LDAPS (`ldap3`) for AD, SMB (Samba `smbclient`, `smbcacls`, `rpcclient`) for shares, NTFS ACLs and DFS (netdfs), and WinRM/PSRP on 5985 (`app/shared/winrm.py`) for measures, sensitivity listing and FSRM quotas. WinRM is Kerberos only: no NTLM, no CredSSP, no Kerberos delegation; the ticket comes from `kinit` in a per-call cache, the session runs in a child process. No SSH.
+- Service accounts keep least privilege (`docs/droits-ad.md`): only the provisioning account writes in AD (create groups, write `member`, in the groups OU only). A feature that needs a new AD right documents it there first.
 - Capsule execution must remain isolated from the main application network.
 - Job queue: Dramatiq over Redis. Redis is a service of the root `podman-compose.yml`, password-protected (podman secret `b2s_redis`, read through `REDIS_PASSWORD_FILE`), with no published port, on the `b2s-jobs` network shared only by core-service (publishes jobs) and capsule-runner (Dramatiq worker).
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.

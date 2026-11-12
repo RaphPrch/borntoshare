@@ -10,11 +10,16 @@
 | capsule-runner | `b2s-capsule-runner` (Python, Dramatiq + agent) | 8443 ou 8080, interne | app, jobs | Worker : exécute toutes les actions sur l'AD, les serveurs de fichiers et le DFS |
 | redis | `redis:8.10` | 6379, interne | jobs | File des travaux (base 2) et sessions (base 1), persistée (AOF) |
 | wizard-ui | `b2s-wizard-ui` (Python, FastAPI) | 8080, **publié** le temps de l'installation | app, data | Crée les bases et les comptes (application, audit, module 5S), applique les paquets SQL, crée le premier administrateur, enregistre la licence |
-| MariaDB | externe | 3306 | — | Bases `borntoshare` (données) et `borntoshare_logging` (audit chaîné) |
+| fives-service | `b2s-fives-service` (Python, FastAPI) | 8000, interne | app, data | Module 5S (sous licence, profil `fives`) : API `/modules/fives/*` derrière le BFF |
+| fives-scanner | `b2s-fives-scanner` (Python) | aucun | app, data | Module 5S : parcourt les dossiers sur leurs serveurs Windows (WinRM), déplace doublons et archives |
+| mailpit | `axllent/mailpit` | 1025 interne, 8025 publié | app | Laboratoire seulement (profil `mail`) : reçoit les e-mails sans les envoyer |
+| MariaDB | externe | 3306 | — | Bases `borntoshare` (données), `borntoshare_logging` (audit chaîné), `b2s_fives` et `b2s_fives_inventory` (module 5S) |
 
-Le worker est le **seul** conteneur qui modifie l'AD et les serveurs. core-service ne parle jamais à l'AD :
-il publie un travail, le worker l'exécute avec le compte de service du serveur ou de l'annuaire, puis rend
-le résultat à core-service par son API interne.
+Le worker est le **seul** conteneur qui modifie l'AD, et le seul avec le scanner du module 5S à agir sur les
+serveurs. core-service ne parle jamais à l'AD : il publie un travail, le worker l'exécute avec le compte de service
+du serveur ou de l'annuaire, puis rend le résultat à core-service par son API interne.
+
+Détail du module 5S : [module-5s.md](module-5s.md).
 
 ## Réseaux Podman
 
@@ -63,6 +68,8 @@ flowchart TB
 | capsule-runner | core-service | 8000 `/api/internal/*` | Début et fin de travail, résolution d'un secret, DNS des domaines | Jeton interne |
 | core-service | capsule-runner | 8443 (HTTPS) ou 8080 | Agent : santé du worker | Identifiants d'agent |
 | core-service, wizard-ui | MariaDB | 3306 | Données et audit | Compte SQL de l'application |
+| fives-service, fives-scanner | MariaDB | 3306 | Bases du module 5S | Compte SQL `b2s_fives` |
+| fives-service, fives-scanner | core-service | 8000 `/api/internal/*` | Dossiers, comptes, résultats des mesures | Jeton interne |
 
 ## Flux à ouvrir vers l'extérieur
 
@@ -73,11 +80,13 @@ L'hôte BornToShare doit pouvoir joindre :
 | MariaDB | 3306/TCP | MySQL | core-service, wizard-ui | Données et journal d'audit |
 | Contrôleurs de domaine | 636/TCP | LDAPS | worker, auth-service | Annuaire : lecture, groupes, membres ; connexion des utilisateurs |
 | Contrôleurs de domaine | 389/TCP | LDAP | worker (découverte) | Lecture du rootDSE ; le bind simple en clair est refusé par un AD durci |
-| Contrôleurs de domaine | 88/TCP+UDP | Kerberos | worker | Test Kerberos |
+| Contrôleurs de domaine | 88/TCP+UDP | Kerberos | worker, fives-scanner | Tickets pour WinRM, test Kerberos |
 | Serveurs DNS des domaines | 53/TCP+UDP | DNS | worker | Résolution des serveurs (Réglages avancés › Réseau et DNS) |
-| Serveurs de fichiers | 445/TCP | SMB 3 | worker | Partages, dossiers, ACL NTFS, création et suppression de partages |
+| Serveurs de fichiers | 445/TCP | SMB 3 | worker | Partages, dossiers, ACL NTFS, création et suppression de partages, droits des fichiers sensibles |
+| Serveurs de fichiers Windows | 5985/TCP | WinRM (HTTP, message chiffré par Kerberos) | worker, fives-scanner | Mesures, sensibilité, quotas FSRM, module 5S |
 | Serveurs racine DFS et contrôleurs | 445/TCP | SMB + RPC netdfs | worker | Lecture des espaces de noms, référencements, dossiers DFS |
 | Keycloak (si SSO) | 443/TCP | HTTPS OIDC | auth-service, navigateurs | Connexion SSO |
+| Serveur SMTP | 587/TCP (ou 465) | SMTP STARTTLS (ou TLS) | core-service | E-mails ([notifications.md](notifications.md)) |
 
 Ouvert vers l'hôte : 3000/TCP (ou 443 via un proxy inverse) pour les utilisateurs ; 8080/TCP pour le wizard,
 seulement pendant l'installation. Rien d'autre n'est publié.
@@ -87,9 +96,10 @@ flowchart LR
   users([Utilisateurs]) -- 443/3000 --> host[Hôte BornToShare]
   host -- 3306 --> db[(MariaDB)]
   host -- 636, 389, 88, 53 --> dc[Contrôleurs de domaine]
-  host -- 445 --> fs[Serveurs de fichiers]
+  host -- 445, 5985 --> fs[Serveurs de fichiers]
   host -- 445 --> dfs[Serveurs racine DFS]
   host -- 443 --> kc[Keycloak]
+  host -- 587 --> smtp[Serveur SMTP]
 ```
 
 ## Données
@@ -142,5 +152,9 @@ seule instance les lance.
 | `data_sync` | 6 h | Instantanés d'annuaire, découverte des partages, dérive des ACL et des groupes |
 | `access_expiry` | 15 min | Retire des groupes AD les accès arrivés à échéance |
 | `dfs_read` | 6 h | Relit chaque espace de noms DFS |
+| `policies` | 15 min | Applique les politiques (étiquettes, alertes, e-mails, tâches) aux dossiers qui y correspondent |
+
+Un serveur qui ne répond plus n'est pas relancé en boucle : après 3 échecs de connexion de suite, les tâches
+automatiques qui le visent attendent (voir [infrastructure.md](infrastructure.md#serveur-injoignable)).
 
 Les intervalles se règlent dans Réglages avancés › Infrastructure › Planification.

@@ -5,6 +5,10 @@ Un utilisateur demande un accès à un dossier, un gardien du dossier le valide,
 groupe AD créé dans l'OU de la zone, membre ajouté, ACL NTFS posée sur le dossier. À la fin de l'accès
 ou à la révocation, le membre est retiré. Tout est tracé dans un journal d'audit chaîné.
 
+Autour de ce cycle : la sensibilité des dossiers (secrets et données personnelles, et qui peut les ouvrir), la carte
+d'exposition, des politiques automatiques, des e-mails aux gardiens et aux demandeurs, et, sous licence, le module 5S
+qui mesure et range les partages. Chaque compte de service n'a que les droits dont il a besoin.
+
 ## Vue d'ensemble
 
 ```mermaid
@@ -17,8 +21,13 @@ flowchart LR
   worker -- API interne --> core
   core --> db[(MariaDB<br/>borntoshare + borntoshare_logging)]
   auth --> redis
-  worker -- LDAPS, Kerberos, SMB, DNS --> ad[[Active Directory<br/>serveurs de fichiers, DFS]]
+  worker -- LDAPS, Kerberos, SMB, WinRM, DNS --> ad[[Active Directory<br/>serveurs de fichiers, DFS]]
   auth -- LDAPS --> ad
+  front --> fives[fives-service<br/>module 5S]
+  fives --> core
+  scanner[fives-scanner] -- WinRM --> ad
+  scanner --> core
+  core -- SMTP --> mail[[Serveur SMTP]]
 ```
 
 | Conteneur | Rôle | Documentation |
@@ -29,6 +38,8 @@ flowchart LR
 | capsule-runner | Worker : toutes les actions sur l'AD et les serveurs | [capsule-runner/README.md](capsule-runner/README.md) |
 | redis | File des travaux et sessions | [docs/architecture.md](docs/architecture.md) |
 | wizard-ui | Installation (bases, administrateur, licence, module 5S), une seule fois | [wizard-ui/README.md](wizard-ui/README.md) |
+| fives-service, fives-scanner | Module 5S, sous licence : mesures, doublons, archives, scores | [docs/module-5s.md](docs/module-5s.md) |
+| mailpit | Laboratoire seulement : serveur SMTP de test (`make mail-up`) | [docs/notifications.md](docs/notifications.md) |
 
 ## Démarrer
 
@@ -47,9 +58,13 @@ Mises à jour : `make deploy` (paquets SQL, point de retour, reconstruction). Vo
 |---|---|
 | Architecture, réseaux, flux à ouvrir | [docs/architecture.md](docs/architecture.md) |
 | Installation, `.env`, wizard, mises à jour, sauvegarde | [docs/installation.md](docs/installation.md) |
-| Sécurité : jetons, secrets, comptes de service, droits AD | [docs/securite.md](docs/securite.md) |
-| Provisionnement AD (groupes, OU, adoption) | [docs/provisionnement-ad.md](docs/provisionnement-ad.md) |
-| Infrastructure : santé, planifications, workers | [docs/infrastructure.md](docs/infrastructure.md) |
+| Sécurité : jetons, secrets, protocoles, conteneurs | [docs/securite.md](docs/securite.md) |
+| **Droits minimums des comptes dans l'AD et sur les serveurs** | [docs/droits-ad.md](docs/droits-ad.md) |
+| Provisionnement AD (groupes, OU, adoption, aperçu d'approbation) | [docs/provisionnement-ad.md](docs/provisionnement-ad.md) |
+| Sensibilité des dossiers et carte d'exposition | [docs/sensibilite.md](docs/sensibilite.md) |
+| Notifications par e-mail (SMTP, Gmail, Mailpit) | [docs/notifications.md](docs/notifications.md) |
+| Module 5S | [docs/module-5s.md](docs/module-5s.md) |
+| Infrastructure : santé, planifications, workers, serveur injoignable | [docs/infrastructure.md](docs/infrastructure.md) |
 | SSO Keycloak | [docs/keycloak.md](docs/keycloak.md) |
 | Observabilité | [docs/observability.md](docs/observability.md) |
 | Pilote sur un AD Windows | [docs/pilote-windows.md](docs/pilote-windows.md) |
@@ -60,10 +75,11 @@ Mises à jour : `make deploy` (paquets SQL, point de retour, reconstruction). Vo
 
 ```text
 make up | down | restart | ps | logs | logs-<service>
-make deploy            mise à jour : paquets SQL, point de retour, reconstruction
+make deploy            mise à jour : paquets SQL, point de retour, reconstruction (FORCE=1 pendant une mesure 5S)
 make backup            sauvegarde des deux bases dans backups/ (pas la clé des secrets)
 make wizard            wizard d'initialisation ; make wizard-down pour l'arrêter
 make ad-lab-up         AD de test pour les tests de bout en bout (jamais en production)
+make mail-up           serveur de mails de test Mailpit, http://<hôte>:8025 (jamais en production)
 make lint              contrôle du code Python des quatre services (Ruff, règles dans ruff.toml)
 ```
 

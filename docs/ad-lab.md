@@ -59,7 +59,9 @@ le certificat, coller ce fichier dans « Autorité de certification » de l'annu
 
 ## Recette automatique
 
-`e2e_check.py` rejoue la recette complète (32 contrôles, environ 3 minutes). Chaque passage crée ses propres
+`e2e_check.py` rejoue la recette complète (une soixantaine de contrôles, quelques minutes). Chaque attente est bornée
+dans le temps (240 s par défaut, `E2E_WAIT_SECONDS` pour l'allonger) et ne se satisfait que d'un résultat postérieur à
+son lancement : un worker occupé par un long scan répond plus tard, sans faire échouer la recette. Chaque passage crée ses propres
 utilisateurs et dossiers `e2e-<horodatage>` : il peut être relancé à volonté. À lancer après `register.py`, depuis
 l'image du labo (outils LDAP et SMB), sur le réseau `b2s-app` :
 

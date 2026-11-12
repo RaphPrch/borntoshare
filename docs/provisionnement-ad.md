@@ -21,6 +21,12 @@ dans le journal de la demande (Demandes d'accès › tiroir de la demande › Jo
 
 Une nouvelle approbation peut être lancée sans risque : rien n'est fait deux fois.
 
+**Avant l'approbation**, l'aperçu (tiroir de la demande) dit ce qui va se passer : groupe créé ou réutilisé, dans
+quelle OU, membre, ACL. Il bloque l'approbation quand elle échouerait à coup sûr : aucun compte dans l'annuaire pour
+le bénéficiaire, gestion des groupes désactivée, aucune OU, ou une OU **non déléguée** au compte de provisioning
+(`GROUP_OU_NOT_DELEGATED`, voir [droits-ad.md](droits-ad.md#lou-des-groupes-vérifiée-avant-chaque-approbation)).
+La route d'approbation applique les mêmes blocages.
+
 **Nom du groupe.** Il vient du modèle de nommage de la zone (Zones › Provisionnement), par exemple `{PREFIX}_{ROOTCODE}_{PERM}`
 qui donne `B2S_CORP_FINANCE_RW`. Le nom est fixé à la 1ʳᵉ approbation, puis gardé : modifier le modèle ensuite ne renomme pas les groupes existants.
 Il fait 64 caractères au plus, sans `" / \ [ ] : ; | = , + * ? < > @`.
@@ -40,8 +46,9 @@ l'approbation s'arrête sur « Un groupe portant ce nom existe déjà ailleurs d
 Un administrateur de la plateforme peut cliquer sur **Adopter ce groupe et approuver** : BornToShare utilise alors ce groupe
 pour ce niveau de cette racine, au lieu d'en créer un.
 
-Le compte de service doit pouvoir modifier les membres du groupe adopté. Ce groupe étant hors de l'OU déléguée, il faut,
-au choix, déléguer « Écrire l'attribut member » sur ce groupe, ou déplacer le groupe dans l'OU de la zone.
+Le compte de service doit pouvoir modifier les membres du groupe adopté. Ce groupe étant hors de l'OU déléguée, le
+plus sûr est de le **déplacer dans l'OU de la zone** : déléguer « Écrire l'attribut member » sur un groupe isolé
+reste possible, mais chaque exception élargit les droits du compte.
 
 ## Prérequis Active Directory
 
@@ -64,19 +71,13 @@ Les mots de passe sont chiffrés en base, un secret par compte. L'interface ne l
 
 Si « Gérer les groupes AD » est désactivée, l'approbation s'arrête sur `AD_PROVISIONING_DISABLED`.
 
-Le compte « provisioning » ne doit pas être administrateur du domaine. Sur l'OU de chaque zone, déléguer seulement :
+Le compte « provisioning » ne doit pas être administrateur du domaine. Sur l'OU des groupes de chaque zone, il
+reçoit seulement la création d'objets groupe et l'écriture de l'attribut `member` des groupes ; le groupe qui donne
+le rôle d'administrateur de BornToShare lui est interdit. Commandes, vérification et ce qu'il ne faut pas donner :
+[droits-ad.md](droits-ad.md).
 
-```bat
-dsacls "OU=B2S Groups,DC=corp,DC=example" /I:T /G "CORP\svc-b2s-prov:CC;group"
-dsacls "OU=B2S Groups,DC=corp,DC=example" /I:S /G "CORP\svc-b2s-prov:WP;member;group"
-```
-
-- la 1ʳᵉ ligne autorise la création d'objets Groupe dans l'OU ;
-- la 2ᵉ autorise l'écriture de l'attribut `member` des groupes de l'OU.
-
-La lecture des utilisateurs, accordée par défaut aux utilisateurs authentifiés, suffit pour retrouver le demandeur.
-
-Le compte de l'endpoint de stockage, qui applique l'ACL NTFS, doit pouvoir modifier les permissions des dossiers partagés.
+Le compte de l'endpoint de stockage, qui applique l'ACL NTFS, est administrateur local du serveur de fichiers et
+n'a aucun droit dans l'AD.
 
 ## Connexion des utilisateurs AD et rôles par groupe
 
@@ -139,16 +140,18 @@ certains certificats autogénérés ne l'ont pas et sont refusés (`AD_TLS_FAILE
 | Code | Cause | Action |
 |---|---|---|
 | `ZONE_GROUP_OU_MISSING` | aucune OU pour les groupes de la zone | la définir dans Zones › Provisionnement |
+| `GROUP_OU_NOT_DELEGATED` | l'OU de la zone n'est pas déléguée au compte de provisioning (vu avant l'approbation) | déléguer l'OU ([droits-ad.md](droits-ad.md)) ou choisir l'OU des groupes dans la zone |
 | `AD_TARGET_OU_NOT_FOUND` | l'OU de la zone n'existe pas dans l'AD | corriger l'OU ou la créer |
 | `IDENTITY_SOURCE_REQUIRED` | l'endpoint n'a pas de source d'identité AD | lier une source d'identité AD à l'endpoint |
 | `AD_PROVISIONING_DISABLED` | « Gérer les groupes AD » est désactivée sur la source | l'activer sur la source d'identité |
 | `IDENTITY_SOURCE_INCOMPLETE` | hôte, compte, mot de passe ou DN de base manquant | compléter la source d'identité |
 | `AD_BIND_FAILED` | le compte de service ne peut pas se connecter | vérifier le compte « provisioning » (ou le compte principal) et son mot de passe |
 | `AD_TLS_FAILED` | certificat du contrôleur refusé | vérifier l'autorité de certification de l'annuaire et le nom d'hôte |
-| `AD_GROUP_CREATE_DENIED` | pas le droit de créer des groupes dans l'OU | délégation « CC;group » ci-dessus |
-| `AD_MEMBER_WRITE_DENIED` | pas le droit de modifier les membres du groupe | délégation « WP;member » ci-dessus |
+| `AD_GROUP_CREATE_DENIED` | pas le droit de créer des groupes dans l'OU | délégation « créer des groupes » ([droits-ad.md](droits-ad.md)) |
+| `AD_MEMBER_WRITE_DENIED` | pas le droit de modifier les membres du groupe | délégation « écrire member » ; groupe hors de l'OU déléguée : le déplacer |
 | `AD_GROUP_NAME_CONFLICT` | même nom hors de l'OU de la zone | adopter le groupe ou le renommer dans l'AD |
 | `AD_PRINCIPAL_NOT_FOUND` | demandeur introuvable dans l'AD | vérifier le compte du demandeur |
 | `AD_UNREACHABLE` | contrôleur de domaine injoignable | réseau ou DNS ; la tâche est relancée automatiquement |
+| `SERVER_UNREACHABLE` | le serveur ne répond plus depuis 3 tentatives : les tâches automatiques attendent | voir [infrastructure.md](infrastructure.md#serveur-injoignable) |
 | `AD_JOB_STILL_RUNNING` | l'AD n'a pas répondu dans le délai (90 s) | approuver à nouveau dans quelques minutes |
 | `ACL_APPLY_FAILED` | le demandeur est dans le groupe, mais l'ACL n'a pas pu être posée | approuver à nouveau pour réappliquer |
