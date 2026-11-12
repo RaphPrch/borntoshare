@@ -665,6 +665,17 @@ async def submit_probe_run(payload: dict[str, Any]) -> dict[str, Any]:
             target["server_name"] = str(ctx.get("endpoint_name") or "").strip() or None
             target["kdc_host"] = str(ctx.get("identity_source_host") or "").strip() or None
 
+    # A server that stopped answering is not asked again and again (automatic tasks wait for its retry time)
+    if target.get("host"):
+        from app.core.db import SessionLocal
+        from app.services import server_breaker
+
+        breaker_db = SessionLocal()
+        try:
+            server_breaker.guard(breaker_db, target.get("host"), context.get("ui_origin"))
+        finally:
+            breaker_db.close()
+
     identity_source_id = positive_int(context.get("identity_source_id"))
     timeout_sec = int(options.get("timeout_sec") or 30)
     active_job = await _find_equivalent_active_probe(

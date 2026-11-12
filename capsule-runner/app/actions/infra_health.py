@@ -93,8 +93,58 @@ def check_ldap(target: dict, password: str | None, timeout: float) -> dict:
     return {"status": _status_for(latency), "latency_ms": latency, "message": f"{tls}, bind and base DN OK ({target.get('bind_dn')})"}
 
 
+def groups_allowed(classes: list) -> bool:
+    """allowedChildClassesEffective of an OU, read as the account: it may create groups there."""
+    return any(str(value).strip().lower() == "group" for value in classes or [])
+
+
+def check_group_ou(target: dict, password: str | None, timeout: float) -> dict:
+    """The account that creates the access groups may create groups in this OU (delegation), read before any
+    approval needs it: AD computes allowedChildClassesEffective for the account that reads it."""
+    from ldap3 import BASE
+
+    from app.shared import ldap_client
+
+    ou = str(target.get("ou_dn") or "")
+    if not password:
+        return {"status": "down", "latency_ms": None, "message": "The password of the provisioning account could not be read",
+                "details": {"code": "OU_CHECK_FAILED", "ou_dn": ou}}
+    host, port = _split_host_port(str(target.get("target") or ""))
+    started = time.monotonic()
+    conn = None
+    try:
+        conn = ldap_client.connect(host=host, port=port, use_ssl=bool(target.get("use_ssl", True)), verify_tls=bool(target.get("verify_tls")),
+                                   ca_pem=target.get("tls_ca_pem"), server_name=target.get("tls_server_name"), timeout=int(timeout))
+        if not ldap_client.bind(conn, bind_dn=str(target.get("bind_dn") or ""), password=password):
+            return {"status": "down", "latency_ms": None, "message": f"{target.get('bind_dn')} could not sign in",
+                    "details": {"code": "OU_CHECK_FAILED", "ou_dn": ou}}
+        try:
+            conn.search(search_base=ou, search_filter="(objectClass=*)", search_scope=BASE, attributes=["allowedChildClassesEffective"])
+            entries = list(conn.entries)
+        except Exception:  # noSuchObject: the OU is not there
+            entries = []
+        latency = int((time.monotonic() - started) * 1000)
+        if not entries:
+            return {"status": "down", "latency_ms": latency, "message": f"The OU {ou} does not exist",
+                    "details": {"code": "OU_NOT_FOUND", "ou_dn": ou}}
+        classes = (getattr(entries[0], "entry_attributes_as_dict", {}) or {}).get("allowedChildClassesEffective") or []
+        if not groups_allowed(classes):
+            return {"status": "down", "latency_ms": latency, "message": f"{target.get('bind_dn')} may not create groups in {ou}",
+                    "details": {"code": "OU_NOT_DELEGATED", "ou_dn": ou}}
+        return {"status": _status_for(latency), "latency_ms": latency, "message": f"{target.get('bind_dn')} may create groups in {ou}",
+                "details": {"code": "OU_DELEGATED", "ou_dn": ou}}
+    except Exception as exc:
+        return {"status": "down", "latency_ms": None, "message": str(exc)[:250], "details": {"code": "OU_CHECK_FAILED", "ou_dn": ou}}
+    finally:
+        try:
+            if conn is not None:
+                conn.unbind()
+        except Exception:
+            pass
+
+
 def _ldap_passwords(targets: list[dict]) -> dict[str, str]:
-    refs = sorted({str(t.get("secret_ref")) for t in targets if str(t.get("kind") or "").lower() == "ldap" and t.get("secret_ref")})
+    refs = sorted({str(t.get("secret_ref")) for t in targets if str(t.get("kind") or "").lower() in {"ldap", "ldap_ou"} and t.get("secret_ref")})
     if not refs:
         return {}
     from app.services.secret_client import resolve_secret_refs
@@ -121,6 +171,8 @@ def run_infra_health_check(params: dict):
         value = str(target.get("target") or "")
         if kind == "ldap":
             result = check_ldap(target, passwords.get(str(target.get("secret_ref") or "")), timeout)
+        elif kind == "ldap_ou":
+            result = check_group_ou(target, passwords.get(str(target.get("secret_ref") or "")), timeout)
         elif kind == "tcp":
             result = check_tcp(value, timeout)
         else:

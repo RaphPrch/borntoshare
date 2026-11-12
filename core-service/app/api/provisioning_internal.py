@@ -1190,6 +1190,12 @@ def complete_provisioning_job(job_id: int, payload: JobCompletePayload, db: Sess
         },
     )
     _reconcile_after_propagation(db, row)
+    try:
+        from app.services import server_breaker
+
+        server_breaker.after_job(db, getattr(row, "payload_json", None))
+    except Exception:
+        db.rollback()
 
     if str(getattr(row, "job_type", "") or "").strip().upper() == "DIRECTORY_SNAPSHOT":
         _apply_directory_snapshot_success(
@@ -1294,6 +1300,12 @@ def fail_provisioning_job(job_id: int, payload: JobFailPayload, db: Session = De
         },
     )
     _reconcile_after_propagation(db, row)
+    try:
+        from app.services import server_breaker
+
+        server_breaker.after_job(db, getattr(row, "payload_json", None))
+    except Exception:
+        db.rollback()
     # Snapshot failures have their own entry below
     if str(getattr(row, "job_type", "") or "").strip().upper() != "DIRECTORY_SNAPSHOT":
         log_activity(

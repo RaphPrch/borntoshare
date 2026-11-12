@@ -5636,5 +5636,6 @@
   "the share itself": "la racine du partage",
   "gives « {right} » to {who}": "donne « {right} » à {who}",
   "Inherited: set on this folder or above it, every file inside gets it.": "Hérité : posé sur ce dossier ou au-dessus, chaque fichier dedans en hérite.",
-  "Set on the files themselves.": "Posé sur les fichiers eux-mêmes."
+  "Set on the files themselves.": "Posé sur les fichiers eux-mêmes.",
+  "Gmail: port 587 STARTTLS, the Gmail address as account and as sender, and an app password (16 letters, Google account › Security › App passwords, with 2-step verification on): the usual password is refused.": "Gmail : port 587 STARTTLS, l'adresse Gmail comme compte et comme expéditeur, et un mot de passe d'application (16 lettres, Compte Google › Sécurité › Mots de passe des applications, validation en deux étapes activée) : le mot de passe habituel est refusé."
 }

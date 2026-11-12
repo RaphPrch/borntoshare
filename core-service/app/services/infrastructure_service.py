@@ -338,6 +338,13 @@ def worker_targets(db: Session) -> list[dict[str, Any]]:
         else:
             target["kind"] = "tcp"
         targets.append(target)
+    # The OUs where access groups get created: the provisioning account may create groups there (delegation)
+    try:
+        from app.services.group_ou_check import ou_targets
+
+        targets.extend(ou_targets(db))
+    except Exception:
+        db.rollback()
     for row in db.execute(
         text("SELECT id, name, host, port FROM storage_endpoints WHERE host IS NOT NULL AND host <> ''")
     ).mappings():
@@ -445,7 +452,7 @@ def apply_worker_health_results(db: Session, *, job_payload: dict[str, Any], res
             **item,
             "label": target.get("label") or item.get("component"),
             "category": target.get("category") or "service",
-            "details": {"target": item.get("target"), "kind": item.get("kind")},
+            "details": {"target": item.get("target"), "kind": item.get("kind"), **(item.get("details") if isinstance(item.get("details"), dict) else {})},
         })
     record_components(db, results, checked_by=checked_by)
 

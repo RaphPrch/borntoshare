@@ -75,3 +75,10 @@ def test_one_unreadable_secret_does_not_hide_the_others(monkeypatch) -> None:
     passwords = infra_health._ldap_passwords([_target(secret_ref="sm://bad"), _target()])
 
     assert passwords == {"sm://ref": "pw"}
+
+
+def test_an_ou_lets_the_account_create_groups_only_when_ad_lists_group():
+    from app.actions.infra_health import groups_allowed
+
+    assert groups_allowed(["organizationalUnit", "group", "user"])
+    assert not groups_allowed(["contact"]) and not groups_allowed([])

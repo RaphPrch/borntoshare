@@ -1220,6 +1220,13 @@ def get_access_request_approval_preview(
             out["problems"].append({"code": "AD_PROVISIONING_DISABLED", "message": "La gestion des groupes AD est désactivée pour cet annuaire."})
         if out["group_action"] == "create" and not out["target_ou_dn"]:
             out["problems"].append({"code": "ZONE_GROUP_OU_MISSING", "message": "Aucune unité d'organisation n'est configurée pour les groupes de cette zone."})
+        elif out["group_action"] == "create" and source:
+            # AD would refuse the group after the approval: said before anyone approves
+            from app.services.group_ou_check import verdict
+
+            ou_state = verdict(db, source_id, out["target_ou_dn"])
+            if ou_state["denied"]:
+                out["problems"].append({"code": "GROUP_OU_NOT_DELEGATED", "message": ou_state["message"]})
         items.append(out)
 
     for item in items:
@@ -1618,6 +1625,19 @@ def ensure_requests_approvable(ids: list[int], request: Request, db: Session = D
     """Called before anything is changed in AD or on the file server."""
     for req_id in ids:
         _refuse_own_request(db, request, int(req_id), action="access_request.approve", code="SELF_APPROVAL_FORBIDDEN")
+    # A group that AD would refuse to create: the approval would fail after the decision
+    for req_id in ids:
+        try:
+            preview = (get_access_request_approval_preview(int(req_id), request, db) or {}).get("data") or {}
+        except Exception:  # no plan for it: the approval goes on as before, the worker reports what fails
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            continue
+        refused = [problem for item in preview.get("items") or [] for problem in item.get("problems") or [] if problem.get("code") == "GROUP_OU_NOT_DELEGATED"]
+        if refused:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "GROUP_OU_NOT_DELEGATED", "message": refused[0]["message"]})
 
 
 class ChangePermissionPayload(BaseModel):

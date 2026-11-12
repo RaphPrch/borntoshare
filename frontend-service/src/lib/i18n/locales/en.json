@@ -1776,5 +1776,6 @@
   "gives « {right} » to {who}": "gives « {right} » to {who}",
   "Inherited: set on this folder or above it, every file inside gets it.": "Inherited: set on this folder or above it, every file inside gets it.",
   "Set on the files themselves.": "Set on the files themselves.",
-  "{count} sensitive file(s)": "{count} sensitive file(s)"
+  "{count} sensitive file(s)": "{count} sensitive file(s)",
+  "Gmail: port 587 STARTTLS, the Gmail address as account and as sender, and an app password (16 letters, Google account › Security › App passwords, with 2-step verification on): the usual password is refused.": "Gmail: port 587 STARTTLS, the Gmail address as account and as sender, and an app password (16 letters, Google account › Security › App passwords, with 2-step verification on): the usual password is refused."
 }

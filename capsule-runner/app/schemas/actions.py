@@ -476,13 +476,18 @@ class InfraHealthTarget(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     component: str = Field(min_length=1, max_length=96)
-    kind: str = Field(default="http", pattern="^(http|tcp|ldap)$")
+    kind: str = Field(default="http", pattern="^(http|tcp|ldap|ldap_ou)$")
     target: str = Field(min_length=1, max_length=512)
     # ldap: bind with the account that reads the directory (password resolved from the secret broker)
     use_ssl: bool = True
+    verify_tls: bool = False
+    tls_ca_pem: Optional[str] = Field(default=None, max_length=20000)
+    tls_server_name: Optional[str] = Field(default=None, max_length=255)
     base_dn: Optional[str] = Field(default=None, max_length=512)
     bind_dn: Optional[str] = Field(default=None, max_length=512)
     secret_ref: Optional[str] = Field(default=None, max_length=512)
+    # ldap_ou: the OU where the access groups get created (may the provisioning account create groups there)
+    ou_dn: Optional[str] = Field(default=None, max_length=512)
 
 
 class InfraHealthPayload(BaseModel):

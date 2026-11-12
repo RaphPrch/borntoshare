@@ -24,6 +24,7 @@
     expiryReminderDays: stored.expiryReminderDays ?? 7
   };
   let password = '';
+  $: gmail = /(^|\.)(gmail|googlemail)\.com$/i.test(String(notif.host || '').trim());
   const hasPassword = Boolean(stored.hasPassword);
   let savingMail = false;
   let testTo = data.me?.email ?? '';
@@ -75,7 +76,9 @@
     <SettingRow label={t('Send the e-mails')}>
       <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="nt-on" bind:checked={notif.enabled} /><label class="form-check-label" for="nt-on">{notif.enabled ? t('Enabled') : t('Disabled')}</label></div>
     </SettingRow>
-    <SettingRow label={t('SMTP server')}><input class="b2s-input" bind:value={notif.host} placeholder="smtp.corp.local" /></SettingRow>
+    <SettingRow label={t('SMTP server')}><input class="b2s-input" bind:value={notif.host} placeholder="smtp.corp.local" />
+      {#if gmail}<small class="adv-hint">{t('Gmail: port 587 STARTTLS, the Gmail address as account and as sender, and an app password (16 letters, Google account › Security › App passwords, with 2-step verification on): the usual password is refused.')}</small>{/if}
+    </SettingRow>
     <SettingRow label={t('Port')}><input class="b2s-input" type="number" min="1" max="65535" bind:value={notif.port} /></SettingRow>
     <SettingRow label={t('Security')}><SegmentedFilter bind:value={notif.security} options={[{ key: 'starttls', label: 'STARTTLS' }, { key: 'tls', label: 'TLS' }, { key: 'none', label: t('None') }]} /></SettingRow>
     <SettingRow label={t('Sender')}><input class="b2s-input" type="email" bind:value={notif.sender} placeholder="borntoshare@corp.local" /></SettingRow>
