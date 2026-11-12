@@ -138,11 +138,14 @@ $hashed = 0; $budgetHit = $false; $cache = @{}
 # Fingerprints within a time budget too (hash_seconds, 0 = none): thousands of photos of the same size on a slow disk
 # would otherwise hold the walk for many minutes; the duplicates are then marked truncated
 $hashWatch = [Diagnostics.Stopwatch]::StartNew(); $hashSeconds = [int]$p.hash_seconds
+# defer_hash (5S scanner): no fingerprint in the walk; the files to fingerprint are sent back (hash_todo) and a pass of
+# their own computes them after the walk, within its budget, resumable
+$hashMax = if ($p.defer_hash) { 0 } else { [int]$p.hash_files_max }
 $groups = New-Object 'System.Collections.Generic.List[object]'
 foreach ($size in @($bySize.Keys | Where-Object { $bySize[$_].Count -gt 1 } | Sort-Object -Descending)) {
   $byPrint = @{}
   foreach ($full in $bySize[$size]) {
-    if ($hashed -ge [int]$p.hash_files_max -or ($hashSeconds -gt 0 -and $hashWatch.Elapsed.TotalSeconds -gt $hashSeconds)) { $budgetHit = $true; break }
+    if ($hashed -ge $hashMax -or ($hashSeconds -gt 0 -and $hashWatch.Elapsed.TotalSeconds -gt $hashSeconds)) { $budgetHit = $true; break }
     try { $fp = Fingerprint $full $size; $hashed++; $cache[$full] = $fp } catch { continue }
     if (-not $byPrint.ContainsKey($fp)) { $byPrint[$fp] = New-Object 'System.Collections.Generic.List[string]' }
     $byPrint[$fp].Add($full.Substring($cut))
@@ -156,7 +159,7 @@ foreach ($g in $groups) { $wasted += [long]$g.wasted; $dupFiles += [int]$g.files
 $prints = New-Object 'System.Collections.Generic.List[object]'
 foreach ($b in @($big | Sort-Object size -Descending | Select-Object -First ([int]$p.fingerprints_max))) {
   $fp = $cache[$b.full]
-  if (-not $fp) { if ($hashed -ge [int]$p.hash_files_max -or ($hashSeconds -gt 0 -and $hashWatch.Elapsed.TotalSeconds -gt $hashSeconds)) { $budgetHit = $true; break }; try { $fp = Fingerprint $b.full $b.size; $hashed++ } catch { continue } }
+  if (-not $fp) { if ($hashed -ge $hashMax -or ($hashSeconds -gt 0 -and $hashWatch.Elapsed.TotalSeconds -gt $hashSeconds)) { $budgetHit = $true; break }; try { $fp = Fingerprint $b.full $b.size; $hashed++ } catch { continue } }
   $prints.Add([pscustomobject]@{ path = $b.path; size = $b.size; fingerprint = $fp; modified = $b.modified })
 }
 $r = [ordered]@{}
@@ -172,6 +175,17 @@ if ($state.last -gt [DateTime]::MinValue) { $r.last_modified = $state.last.ToStr
 $r.duplicates = @{ groups = [int]$groups.Count; files = [int]$dupFiles; wasted_bytes = [long]$wasted; truncated = [bool]$budgetHit; hashed = [int]$hashed }
 $r.duplicates.top = @($groups | Sort-Object wasted -Descending | Select-Object -First 200)
 $r.fingerprints = @($prints | ForEach-Object { $_ })
+if ($p.defer_hash) {
+  # Same-size files (biggest sizes first, at most hash_files_max) and the biggest files: [path from the share, size]
+  $same = New-Object 'System.Collections.Generic.List[object]'
+  foreach ($size in @($bySize.Keys | Where-Object { $bySize[$_].Count -gt 1 } | Sort-Object -Descending)) {
+    if ($same.Count -ge [int]$p.hash_files_max) { break }
+    foreach ($full in $bySize[$size]) { $same.Add([pscustomobject]@{ p = $full.Substring($cut); s = [long]$size }) }
+  }
+  # Objects, not [path, size] pairs: ConvertTo-Json of PowerShell 5.1 turns nested arrays into {value, Count}
+  $r.hash_todo = @{ same = @($same | ForEach-Object { $_ }); big = @($big | Sort-Object size -Descending | Select-Object -First ([int]$p.fingerprints_max) | ForEach-Object { [pscustomobject]@{ path = $_.path; size = [long]$_.size; modified = $_.modified } }) }
+  $r.duplicates = @{ groups = 0; files = 0; wasted_bytes = [long]0; truncated = $true; hashed = 0; deferred = $true; top = @() }
+}
 if ($p.with_dirs) {
   $r.acls = @($dirAcls.Values | Select-Object -First 50000)
   $r.dirs = @($dirStats.GetEnumerator() | Select-Object -First 50000 | ForEach-Object {
