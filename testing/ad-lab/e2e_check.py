@@ -51,6 +51,15 @@ def check(name: str, ok: bool, detail: str = "") -> bool:
     return bool(ok)
 
 
+skipped: list[tuple[str, str]] = []
+
+
+def skip(name: str, reason: str) -> None:
+    """A check this lab cannot run (a precondition is missing): said, never counted as passed or failed."""
+    skipped.append((name, reason))
+    print(f"  SKIP {name}  ({reason})", flush=True)
+
+
 def section(title: str) -> None:
     print(f"\n== {title}", flush=True)
 
@@ -245,19 +254,25 @@ def add_root(api: Api, endpoint_id: int, share: str, folder: str) -> int:
 
 
 def snapshot(api: Api, source_id: int) -> bool:
-    last = lambda: str(api.call("GET", f"/identity-sources/{source_id}/internal").get("last_snapshot_at") or "")  # noqa: E731
-    before = last()
+    """A snapshot of OUR request, finished: not one already running (a scheduled data sync) that ends meanwhile."""
+    internal = lambda: api.call("GET", f"/identity-sources/{source_id}/internal")  # noqa: E731
+    before = ""
 
     def started() -> bool:
         nonlocal before
+        before = str(internal().get("last_snapshot_at") or "")  # read just before the request that is accepted
         status, _body = api.call("POST", "/identity/snapshots/run", {"identity_source_id": source_id, "mode": "full", "force_full": True}, raw=True)
-        if status == 409:  # one is already running (the schedule): wait for it, then ours
-            before = last()
-            return False
-        return True
+        return status != 409  # 409: one is already running: wait for it, then ask again
 
-    wait_for(started, every=3)
-    return bool(wait_for(lambda: (lambda after: bool(after and after != before))(last()), every=3))
+    if not wait_for(started, every=3):
+        return False
+
+    def finished() -> bool:
+        state = internal()
+        after = str(state.get("last_snapshot_at") or "")
+        return bool(after and after != before and not state.get("snapshot_running"))
+
+    return bool(wait_for(finished, every=3))
 
 
 def read_acl(api: Api, root_id: int) -> bool:
@@ -491,7 +506,9 @@ def main() -> int:
     check("a revoked person can request again", req_t > 0, f"REQ {req_t}")
     approve(api, req_t)
     check("ACL read on the file server", read_acl(api, root_a))
-    snapshot(api, source_id)
+    # The members of the groups come from the directory snapshot: the one taken now must have finished
+    started = time.monotonic()
+    check("directory snapshot after the approval", snapshot(api, source_id), f"{time.monotonic() - started:.0f} s")
     perms = api.call("GET", f"/storage-roots/{root_a}/permissions")
     people = {p.get("username"): p for p in perms.get("people", [])}
     check("ACL compliant", perms.get("status") == "ok", f"{perms.get('status')}, gaps: {[g.get('principal') for g in perms.get('gaps', [])]}")
@@ -586,9 +603,15 @@ def main() -> int:
     if not bool(api.call("GET", f"/identity-sources/{source_id}/internal").get("auth_enabled")):
         check("sign-in skipped: sign-in is disabled on the AD lab source", True, "another source signs in example.test")
     else:
-        user_api = Api()
-        status, _ = user_api.call("POST", "/auth/login", {"username": "marc.admin@example.test", "password": USER_PASSWORD}, raw=True)
-        check("marc.admin (GG_B2S_Admins) signs in", status == 200, f"HTTP {status}")
+        declared = any(str(row.get("username") or "").lower() == "gg_b2s_admins" and row.get("roles")
+                       for row in rows(api.call("GET", "/identity")) if row.get("type") == "group")
+        if not declared:
+            skip("marc.admin (GG_B2S_Admins) signs in",
+                 "GG_B2S_Admins has no role in BornToShare: Identities › Create › Directory group, with a role")
+        else:
+            user_api = Api()
+            status, _ = user_api.call("POST", "/auth/login", {"username": "marc.admin@example.test", "password": USER_PASSWORD}, raw=True)
+            check("marc.admin (GG_B2S_Admins) signs in", status == 200, f"HTTP {status}")
         status, _ = Api().call("POST", "/auth/login", {"username": "marc.admin@example.test", "password": "wrong-password"}, raw=True)
         check("wrong password refused", status in (401, 403), f"HTTP {status}")
         status, _ = Api().call("POST", "/auth/login", {"username": f"{login_b}@example.test", "password": USER_PASSWORD}, raw=True)
@@ -604,9 +627,11 @@ def main() -> int:
 
 def summary() -> int:
     failed = [r for r in results if not r[1]]
-    print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    print(f"\n{len(results) - len(failed)}/{len(results)} checks passed" + (f", {len(skipped)} skipped" if skipped else ""))
     for name, _ok, detail in failed:
         print(f"  KO {name} {detail}")
+    for name, reason in skipped:
+        print(f"  SKIP {name}: {reason}")
     return 1 if failed else 0
 
 

@@ -82,8 +82,11 @@ podman run --rm --network b2s-app -e B2S_URL=http://frontend-service:3000 -e B2S
 | Révocation | membre retiré, l'autre conservé, groupe et ACE conservés |
 | Connexion utilisateur | membre de `GG_B2S_Admins` (groupe AD avec rôle) accepté, mauvais mot de passe refusé, utilisateur AD sans rôle refusé |
 
-La connexion des utilisateurs n'est testée que si la source « AD lab » l'a activée, et le groupe `GG_B2S_Admins`
-doit être déclaré dans Identités avec un rôle.
+La connexion des utilisateurs n'est testée que si la source « AD lab » l'a activée. La connexion d'un membre de
+`GG_B2S_Admins` demande en plus que ce groupe soit déclaré dans Identités avec un rôle : sinon ce contrôle est
+marqué `SKIP` avec la marche à suivre (il ne compte ni comme réussi ni comme échoué). Les membres des groupes lus
+par l'onglet Permissions viennent d'un instantané : la recette attend la fin du sien, pas celle d'un instantané
+planifié qui se terminerait au même moment.
 
 ## Scénario de bout en bout vérifié
 
