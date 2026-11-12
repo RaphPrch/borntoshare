@@ -175,6 +175,17 @@ def _notify(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]]) -> 
         if not recipients:
             continue
         name = row.get("storage_root_name") or row.get("root_path")
+        from app.services import mail_templates as mt
+
+        url = notifications._url(config, f"/storage-roots?selected={root_id}")
+        html = mt.layout(
+            preheader=f"{name} correspond à la politique « {policy['name']} »", eyebrow="Politique", title=f"{policy['name']} : {name}",
+            intro=policy.get("description") or f"Le dossier {name} correspond à la politique « {policy['name']} ».",
+            blocks=[mt.details([("Dossier", f"<strong>{mt.e(name)}</strong><br>{mt.code(row.get('root_path') or '')}"),
+                                ("Condition", mt.code(policy["condition"]))])],
+            buttons=[mt.button("Voir le dossier", url)] if url else [],
+            footer=f"Vous recevez ce mail parce que vous êtes gardien du dossier {name}.",
+        )
         notifications.queue(
             f"policy:{policy['id']}:root:{root_id}:{_now():%Y%m%d%H%M}",
             recipients,
@@ -183,6 +194,7 @@ def _notify(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]]) -> 
             + (f"\n{policy['description']}\n" if policy.get("description") else "")
             + f"\nCondition : {policy['condition']}"
             + notifications._link(config, f"/storage-roots?selected={root_id}"),
+            html,
         )
         sent += 1
     return sent

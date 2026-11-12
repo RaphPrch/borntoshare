@@ -325,8 +325,16 @@ def test_notifications(payload: dict, request: Request, db: Session = Depends(ge
     if not str(config.get("host") or "").strip():
         raise _invalid("SMTP_TEST_INVALID", "Enregistrez d'abord le serveur SMTP.")
     try:
+        from app.services import mail_templates as mt
+
+        test_html = mt.layout(
+            preheader="Les notifications de BornToShare arrivent bien.", eyebrow="E-mail de test",
+            title="Les notifications de BornToShare arrivent bien",
+            intro="Ce serveur d'envoi fonctionne : les gardiens recevront les nouvelles demandes, les demandeurs les décisions et les rappels.",
+            footer="Envoyé depuis Paramètres avancés › Notifications.",
+        )
         send_mail(config, resolve(db, config["passwordRef"]) if config.get("passwordRef") else None, [to],
-                  "[BornToShare] E-mail de test", "Les notifications de BornToShare arrivent bien.")
+                  "[BornToShare] E-mail de test", "Les notifications de BornToShare arrivent bien.", test_html)
     except Exception as exc:
         return ui_data({"ok": False, "error": str(exc)[:300]})
     return ui_data({"ok": True})

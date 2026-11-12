@@ -194,6 +194,7 @@ def _tell_guardians(db: Session, root_id: int, row: dict, paths: list[str]) -> N
     if not config.get("enabled") or not recipients:
         return
     name = row.get("name") or row.get("root_path")
+    html = _exposure_html(db, root_id, name, paths, notifications._url(config, f"/storage-roots?selected={root_id}"))
     notifications.queue(
         f"sensitive_open:{root_id}:{_now():%Y%m%d%H%M}", recipients,
         f"[BornToShare] Fichiers sensibles ouverts à tous : {name}",
@@ -201,6 +202,67 @@ def _tell_guardians(db: Session, root_id: int, row: dict, paths: list[str]) -> N
         "personnelles peuvent être ouverts par tous les utilisateurs :\n\n" + "\n".join(f"- {path}" for path in paths[:20])
         + ("\n…" if len(paths) > 20 else "") + "\n\nDéplacez-les dans un dossier restreint, ou restreignez les droits du dossier."
         + notifications._link(config, f"/storage-roots?selected={root_id}"),
+        html,
+    )
+
+
+CATEGORY_LABELS = {
+    "password": "Mot de passe", "credentials_file": "Fichier de mots de passe", "password_vault": "Coffre de mots de passe",
+    "private_key": "Clé privée", "cloud_key": "Clé ou jeton", "personal_data": "Données personnelles", "bank_data": "Données bancaires",
+}
+
+
+def _exposure_html(db: Session, root_id: int, name: str, paths: list[str], url: str) -> str | None:
+    """The alert mail: why everyone can open them (accounts, common folder), the files, what to do."""
+    from app.services import mail_templates as mt
+
+    try:
+        row = db.execute(text("SELECT findings_json FROM storage_root_sensitivity WHERE storage_root_id = :id"), {"id": int(root_id)}).first()
+        findings = [item for item in _load(row[0] if row else None, []) if isinstance(item, dict)]
+    except Exception:
+        db.rollback()
+        findings = []
+    wanted = {path.lower() for path in paths}
+    label: dict[str, str] = {}
+    accounts: list[str] = []
+    inherited = True
+    for item in findings:
+        key = str(item.get("path", "")).lower()
+        if key not in wanted or item.get("category") not in EXPOSED_CATEGORIES:
+            continue
+        label.setdefault(key, CATEGORY_LABELS.get(str(item.get("category")), str(item.get("category"))))
+        acl = item.get("acl") or {}
+        for who in acl.get("by") or []:
+            if who not in accounts:
+                accounts.append(who)
+        for entry in acl.get("e") or []:
+            parts = str(entry).split("|")
+            if parts[0] in (acl.get("by") or []) and (len(parts) < 3 or parts[2] != "i"):
+                inherited = False
+    folders = [path.split("\\")[:-1] for path in paths]
+    common: list[str] = folders[0] if folders else []
+    for parts in folders[1:]:
+        same = 0
+        while same < min(len(common), len(parts)) and common[same].lower() == parts[same].lower():
+            same += 1
+        common = common[:same]
+    folder = "\\".join(common) or name
+    blocks = []
+    if accounts:
+        blocks.append(mt.notice("Pourquoi", f"{mt.code(folder)} donne la lecture à <strong>{mt.e(', '.join(accounts))}</strong>.",
+                                "Hérité : posé sur ce dossier ou au-dessus, chaque fichier dedans en hérite." if inherited
+                                else "Posé sur les fichiers eux-mêmes."))
+    blocks.append(mt.file_list([(path, label.get(path.lower(), "Sensible")) for path in paths[:8]], more=max(0, len(paths) - 8)))
+    return mt.layout(
+        preheader=f"{len(paths)} fichier(s) sensible(s) lisible(s) par tous dans {name}",
+        eyebrow="Alerte sécurité", alert=True, badge="Priorité haute",
+        title=f"{len(paths)} fichier{'s' if len(paths) > 1 else ''} sensible{'s' if len(paths) > 1 else ''} du dossier « {name} » "
+              f"{'peuvent' if len(paths) > 1 else 'peut'} être ouvert{'s' if len(paths) > 1 else ''} par tous les utilisateurs",
+        intro="Ils contiennent des mots de passe, des clés ou des données personnelles. N'importe quel compte du domaine peut les lire aujourd'hui.",
+        blocks=[*blocks, mt.notice("Que faire", mt.e("Déplacez ces fichiers dans un dossier réservé à l'équipe, ou restreignez les droits du dossier."),
+                                   "L'alerte se ferme toute seule au scan suivant.", tone="soft")],
+        buttons=[mt.button("Voir les fichiers", url)] if url else [],
+        footer=f"Vous recevez ce mail parce que vous êtes gardien du dossier {name}. Il n'est envoyé qu'une fois par alerte.",
     )
 
 
