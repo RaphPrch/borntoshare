@@ -2,7 +2,10 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
-  import { apiGetData } from '$lib/api/client';
+  import { apiGetData, apiPostData } from '$lib/api/client';
+  import { toast } from '$lib/stores/toast';
+  import { reportUiError } from '$lib/errors';
+  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { formatBytes, formatDate, timeAgo } from '$lib/utils/format';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
@@ -132,7 +135,47 @@
   const tone = (value: number) => (value >= 70 ? '#047857' : value >= 45 ? '#B45309' : '#B91C1C');
 
   // ---- workshop: the decisions, from what was measured -----------------------------------------------------
-  type Card = { tag: string; tone: string; gain: string; title: string; detail: string; cta: string; href?: string; folder?: Folder };
+  type Card = { tag: string; tone: string; gain: string; title: string; detail: string; cta: string; href?: string; folder?: Folder; act?: 'archive' | 'inherit' };
+
+  // ---- real actions: restore the inheritance (worker, administrators), archive a folder (scanner, reversible) ----
+  $: isAdmin = Boolean(($page.data as any)?.me?.is_admin);
+  let acting = false;
+  let archiving: Folder | null = null;
+  async function restoreInheritance(folder: Folder) {
+    if (acting || !folder.path) return;
+    acting = true;
+    try {
+      await apiPostData(fetch, `/storage-roots/${rootId}/folders/inheritance`, { path: folder.path, mode: 'restore' });
+      folder.inheritance_broken = false;
+      if (folder.acl) folder.acl = folder.acl.map((ace) => ({ ...ace }));
+      level = level;
+      selected = selected;
+      toast.success(t('Inheritance restored on « {name} »: its rights now come from its parent.', { name: folder.name }));
+    } catch (e: unknown) {
+      reportUiError(e, t('Unable to restore the inheritance.'), 'fives.inheritance');
+    } finally {
+      acting = false;
+    }
+  }
+  async function confirmArchive() {
+    const folder = archiving;
+    archiving = null;
+    if (!folder) return;
+    acting = true;
+    try {
+      await apiPostData(fetch, `/modules/fives/storage-roots/${rootId}/folders/archive`, { path: folder.path, size: folder.bytes });
+      toast.success(t('« {name} » goes to the archives: the scanner moves it in a moment (restorable).', { name: folder.name }));
+    } catch (e: unknown) {
+      reportUiError(e, t('Unable to archive the folder.'), 'fives.archive');
+    } finally {
+      acting = false;
+    }
+  }
+  function runCard(card: Card) {
+    if (card.act === 'archive' && card.folder) archiving = card.folder;
+    else if (card.act === 'inherit' && card.folder) void restoreInheritance(card.folder);
+    else if (card.folder) { selected = card.folder; view = 'explorer'; }
+  }
   $: columns = [
     { key: 'seiri', title: t('Sort (Seiri)'), cards: [
       ...groups.filter((group) => !group.decision?.keep_path).slice(0, 3).map((group): Card => ({
@@ -141,7 +184,7 @@
         cta: t('Choose the copies'), href: `/five-s/duplicates/${rootId}` })),
       ...children.filter((folder) => share(folder.cold3_bytes, folder.bytes) > 0.8 && folder.bytes > 0).slice(0, 2).map((folder): Card => ({
         tag: t('Old'), tone: 'old', gain: formatBytes(folder.cold3_bytes), title: t('« {name} »: nothing changed for 3 years', { name: folder.name }),
-        detail: t('Candidate for archiving.'), cta: t('See the folder'), folder }))
+        detail: t('Candidate for archiving.'), cta: t('Archive'), folder, act: 'archive' }))
     ] },
     { key: 'seiton', title: t('Set in order (Seiton)'), cards: [
       ...(current && current.direct_files > 50 && current.folders > 0 ? [{ tag: t('Loose files'), tone: 'old', gain: t('{count} files', { count: current.direct_files }),
@@ -153,7 +196,7 @@
     ] },
     { key: 'seiketsu', title: t('Standardise (Seiketsu)'), cards: [
       ...brokenHere.slice(0, 3).map((folder): Card => ({ tag: t('Inheritance'), tone: 'inh', gain: t('broken'), title: t('« {name} » has its own rights', { name: folder.name }),
-        detail: t('Its inheritance is broken: check why.'), cta: t('See the rights'), folder })),
+        detail: t('Its inheritance is broken: check why.'), cta: isAdmin ? t('Restore the inheritance') : t('See the rights'), folder, act: isAdmin ? 'inherit' : undefined })),
       ...explicitHere.filter((folder) => !folder.inheritance_broken).slice(0, 2).map((folder): Card => ({ tag: t('Rights'), tone: 'acl', gain: t('explicit'),
         title: t('Accounts added by hand on « {name} »', { name: folder.name }), detail: t('Prefer the groups of the folder.'), cta: t('See the rights'), folder }))
     ] }
@@ -341,7 +384,7 @@
                     <b>{card.title}</b>
                     <small>{card.detail}</small>
                     {#if card.href}<a class="b2s-btn b2s-btn-sm b2s-btn-primary" href={card.href}>{card.cta}</a>
-                    {:else if card.folder}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => { selected = card.folder ?? selected; view = 'explorer'; }}>{card.cta}</button>{/if}
+                    {:else if card.folder}<button type="button" class={`b2s-btn b2s-btn-sm ${card.act ? 'b2s-btn-primary' : 'b2s-btn-secondary'}`} disabled={acting} on:click={() => runCard(card)}>{card.cta}</button>{/if}
                   </article>
                 {:else}
                   <p class="fx__none">{t('Nothing to decide.')}</p>
@@ -373,6 +416,9 @@
               <dt>{t('Not modified for 3 years')}</dt><dd>{formatBytes(selected.cold3_bytes)}</dd>
             </dl>
             <p class="fx__path"><code>{selected.path || rootPath}</code></p>
+            {#if selected !== root && selected.path}
+              <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={acting} on:click={() => (archiving = selected)}><i class="bi bi-archive" aria-hidden="true"></i>{t('Archive this folder')}</button>
+            {/if}
           </section>
 
           <section class="fx__card">
@@ -388,6 +434,9 @@
                   </li>
                 {/each}
               </ul>
+              {#if selected.inheritance_broken && isAdmin && selected.path}
+                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={acting} on:click={() => selected && restoreInheritance(selected)}><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{t('Restore the inheritance')}</button>
+              {/if}
               <div class="fx__chain"><span>{t('Inheritance')}</span>
                 {#each chain as link, index (index)}<span class:is-broken={link.broken}>{link.broken ? '✕ ' : ''}{link.name}</span>{/each}
               </div>
@@ -414,6 +463,15 @@
     </div>
   {/if}
 </div>
+
+<ConfirmActionModal
+  open={Boolean(archiving)}
+  title={t('Archive « {name} »', { name: archiving?.name ?? '' })}
+  subtitle={t('The folder ({size}) moves whole to « _B2S_Archives » at the root of the same share: its users no longer find it at its place. It can be restored at any time from the duplicates page (Quarantine).', { size: formatBytes(archiving?.bytes ?? 0) })}
+  confirmLabel={t('Archive')}
+  onConfirm={confirmArchive}
+  onClose={() => (archiving = null)}
+/>
 
 <style>
   .fx { display: grid; gap: 14px; }

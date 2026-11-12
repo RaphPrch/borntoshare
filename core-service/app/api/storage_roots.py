@@ -2173,6 +2173,7 @@ async def _run_folder_job(
     action: str,
     inheritance: str | None = None,
     folder_name: str | None = None,
+    share_path: str | None = None,
     timeout_sec: int = 90,
 ) -> dict[str, Any]:
     """Folder operation of the worker on the file server, waited for; raises a 502 with the worker's message on failure."""
@@ -2187,7 +2188,7 @@ async def _run_folder_job(
     queued = await submit_probe_run({
         "kind": "folder", "protocol": protocol, "scope": "write",
         "target": {"storage_root_id": int(root_id), **({"inheritance": inheritance} if inheritance else {}),
-                   **({"folder_name": folder_name} if folder_name else {})},
+                   **({"folder_name": folder_name} if folder_name else {}), **({"share_path": share_path} if share_path else {})},
         "options": {"timeout_sec": timeout_sec}, "context": {"storage_root_id": int(root_id), "ui_origin": "admin"},
     })
     job_id = int((queued or {}).get("job_id") or 0)
@@ -2335,6 +2336,35 @@ async def set_root_inheritance(root_id: int, payload: InheritancePayload, reques
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     return ui_data({"storage_root_id": int(root_id), "inheritance_broken": payload.mode == "break"})
+
+
+class InnerInheritancePayload(BaseModel):
+    path: str = Field(min_length=1, max_length=1024)
+    mode: str = Field(pattern="^(break|restore)$")
+
+
+@router.post("/{root_id}/folders/inheritance")
+async def set_inner_folder_inheritance(root_id: int, payload: InnerInheritancePayload, request: Request, db: Session = Depends(get_db)):
+    """Restore (or break) the NTFS inheritance of a sub-folder of the storage root (5S explorer: path in the share)."""
+    actor = actor_from_request(request)
+    require_admin(actor)
+    root = db.get(StorageRoot, root_id)
+    if root is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    job = await _run_folder_job(
+        root, "inheritance", request=request, inheritance=payload.mode, share_path=payload.path,
+        action=f"storage_root.inheritance_{'broken' if payload.mode == 'break' else 'restored'}",
+    )
+    result = job.get("result") if isinstance(job.get("result"), dict) else {}
+    details = result.get("details") if isinstance(result.get("details"), dict) else result
+    log_activity(
+        db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
+        action=f"storage_root.inheritance_{'broken' if payload.mode == 'break' else 'restored'}", outcome="success",
+        target_type="storage_root", target_id=int(root_id), target_display=f"{root.name} › {payload.path}",
+        context_json={"path": payload.path, "job_id": job.get("id")}, correlation_id=(request.headers.get("x-request-id") or None),
+    )
+    return ui_data({"storage_root_id": int(root_id), "path": payload.path, "inheritance_broken": payload.mode == "break",
+                    "duplicates_removed": details.get("duplicates_removed")})
 
 
 class SubfolderPayload(BaseModel):

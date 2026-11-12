@@ -392,6 +392,14 @@ async def _enrich_folder_payload(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error_code": "STORAGE_ROOT_NOT_FOUND", "message": "Storage root not found"})
     host, share, rel_path = _parse_unc_root_path(ctx.get("root_path"))
     username, secret_ref = _probe_credentials({}, ctx)
+    # A sub-folder of the storage root (path in its share, from the 5S explorer): only inside the root, never above it
+    inner = str(target.get("share_path") or "").replace("/", "\\").strip("\\")
+    if inner:
+        base = (rel_path or "").strip("\\")
+        if ".." in inner.split("\\") or (base and not inner.lower().startswith(base.lower() + "\\")) or inner.lower() == base.lower():
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                detail={"error_code": "FOLDER_OUTSIDE_ROOT", "message": "The folder is not a sub-folder of this storage root"})
+        rel_path = inner
     # A sub-folder can be created right under a share; its root itself is never deleted nor changed
     creating = str(payload.get("protocol") or "").strip().lower() == "create"
     if not (host and share and (rel_path or creating) and username and secret_ref):

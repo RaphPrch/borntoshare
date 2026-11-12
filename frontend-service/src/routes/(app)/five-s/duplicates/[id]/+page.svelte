@@ -31,7 +31,7 @@
   $: folderPath = $page.url.searchParams.get('path') || '';
 
   // Quarantine: the copies « to delete » moved to \\share\\_B2S_Quarantaine\\<date>\\… (by the scanner), and back
-  type Move = { id: number; path: string; quarantine_path: string; keep_path: string | null; size_bytes: number; status: string;
+  type Move = { id: number; kind?: string; path: string; quarantine_path: string; keep_path: string | null; size_bytes: number; status: string;
     error: string | null; requested_by: string | null; requested_at: string; done_at: string | null; restored_by: string | null };
   let moves: Move[] = [];
   let confirming = false;
@@ -217,7 +217,7 @@
               <tr>
                 <td class="dd__mpath"><span>{base(move.path)}</span><code title={move.path}>{folderOf(move.path)}</code>{#if move.error}<small class="dd__err">{move.error}</small>{/if}</td>
                 <td class="dd__num">{formatBytes(move.size_bytes)}</td>
-                <td><span class={`dd__state is-${move.status}`}>{MOVE_LABEL()[move.status] ?? move.status}</span></td>
+                <td><span class={`dd__state is-${move.status}`}>{move.kind === 'archive' && move.status === 'moved' ? t('Archived') : MOVE_LABEL()[move.status] ?? move.status}</span></td>
                 <td class="dd__by">{move.restored_by && move.status.startsWith('restor') ? move.restored_by : move.requested_by ?? '—'}<small>{formatDateTime(move.done_at ?? move.requested_at)}</small></td>
                 <td>{#if move.status === 'moved' || move.status === 'restore_failed'}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => restore(move)}>{t('Restore')}</button>{/if}</td>
               </tr>
