@@ -212,11 +212,19 @@
     try {
       const targets = forOther && principals.length ? principals : [null];
       for (const principal of targets) {
-        const result: any = await checkExistingAccess(fetch, {
-          storage_root_id: id,
-          access_level: level,
-          ...(principal ? { requested_principal: principalPayload(principal) } : {})
-        } as any);
+        // Never stuck on « Checking… »: past 15 s the folder goes on (the core checks again when the request is sent)
+        const result: any = await Promise.race([
+          checkExistingAccess(fetch, {
+            storage_root_id: id,
+            access_level: level,
+            ...(principal ? { requested_principal: principalPayload(principal) } : {})
+          } as any),
+          new Promise((resolve) => setTimeout(() => resolve({ can_request: true, timed_out: true }), 15000))
+        ]);
+        if (result?.timed_out) {
+          checks = { ...checks, [id]: { state: 'ok', message: t('Not checked in time: checked again when the request is sent.') } };
+          return;
+        }
         if (!result?.can_request) {
           checks = { ...checks, [id]: { state: 'blocked', message: String(result?.message ?? t('This request cannot be submitted.')) } };
           return;

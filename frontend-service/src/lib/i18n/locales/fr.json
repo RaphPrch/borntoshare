@@ -5493,5 +5493,9 @@
   "Move to quarantine": "Mettre en quarantaine",
   "Directory reading": "Lecture de l'annuaire",
   "failed": "échec",
-  "Dedicated accounts: {list}": "Comptes dédiés : {list}"
+  "Dedicated accounts: {list}": "Comptes dédiés : {list}",
+  "Not checked in time: checked again when the request is sent.": "Non vérifié à temps : revérifié à l'envoi de la demande.",
+  "Welcome, {name}": "Bienvenue, {name}",
+  "Last access": "Dernier accès",
+  "not measured yet": "pas encore mesuré"
 }

@@ -54,7 +54,7 @@
 </script>
 
 <section class="b2s-page b2s-page--admin rv">
-  <nav class="rv__crumbs no-print"><a href="/reports"><i class="bi bi-arrow-left" aria-hidden="true"></i> {t('All the reports')}</a></nav>
+  <nav class="rv__crumbs no-print"><a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/reports"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the reports')}</a></nav>
   {#if error}
     <InlineAlert tone="error">{error}</InlineAlert>
   {:else if !report}

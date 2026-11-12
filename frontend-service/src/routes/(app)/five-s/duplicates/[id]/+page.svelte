@@ -7,7 +7,6 @@
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
-  import FivesTabs from '$lib/components/fives/FivesTabs.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -122,12 +121,10 @@
     })));
 </script>
 
-<FivesTabs />
-
 <div class="dd">
   <div class="dd__top">
-    <a href={`/five-s/explore/${rootId}`}><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('Explorer')}</a>
-    <a href={`/five-s/report/${rootId}`}>{t('Report')} ›</a>
+    <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/explore/${rootId}`}><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('Explorer')}</a>
+    <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/report/${rootId}`}><i class="bi bi-file-earmark-text" aria-hidden="true"></i>{t('Report')}</a>
   </div>
   {#if loading}
     <LoadingState skeleton="rows" />

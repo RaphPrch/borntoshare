@@ -1612,5 +1612,10 @@
   "Directory reading": "Directory reading",
   "AD groups": "AD groups",
   "failed": "failed",
-  "Dedicated accounts: {list}": "Dedicated accounts: {list}"
+  "Dedicated accounts: {list}": "Dedicated accounts: {list}",
+  "Not checked in time: checked again when the request is sent.": "Not checked in time: checked again when the request is sent.",
+  "Welcome, {name}": "Welcome, {name}",
+  "Last access": "Last access",
+  "Created": "Created",
+  "not measured yet": "not measured yet"
 }

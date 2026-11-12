@@ -5,7 +5,6 @@
   import { apiGetData } from '$lib/api/client';
   import { formatBytes, formatDateTime } from '$lib/utils/format';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
-  import FivesTabs from '$lib/components/fives/FivesTabs.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
 
@@ -96,10 +95,8 @@
     ], allGroups);
 </script>
 
-<FivesTabs />
-
 <div class="rp">
-  <a class="rp__back" href="/five-s"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
+  <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/five-s"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
   {#if loading}
     <LoadingState skeleton="rows" />
   {:else if error}
@@ -217,7 +214,6 @@
 
 <style>
   .rp { display: grid; gap: 16px; }
-  .rp__back { display: inline-flex; gap: 6px; align-items: center; font-size: var(--b2s-fs-sm); }
   .rp__head h1 { margin: 0 0 4px; font-size: 24px; }
   .rp__head p { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .rp__kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }

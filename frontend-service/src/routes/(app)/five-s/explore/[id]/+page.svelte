@@ -5,7 +5,6 @@
   import { apiGetData } from '$lib/api/client';
   import { formatBytes, formatDateTime } from '$lib/utils/format';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
-  import FivesTabs from '$lib/components/fives/FivesTabs.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
 
@@ -14,7 +13,8 @@
    * a file-explorer list; a click shows, a double-click (or the name in the list) goes inside.
    */
   type Folder = { path: string; parent: string | null; name: string; depth: number; bytes: number; files: number; folders: number;
-    direct_bytes: number; direct_files: number; cold1_bytes: number; cold3_bytes: number; last_modified: string | null };
+    direct_bytes: number; direct_files: number; cold1_bytes: number; cold3_bytes: number; last_modified: string | null;
+    last_access?: string | null; created_at?: string | null };
   type FileRow = { path: string; name: string; size: number; modified: string | null };
   type Level = { node: Folder | null; children: Folder[]; files: FileRow[] };
 
@@ -176,14 +176,12 @@
     ]);
 </script>
 
-<FivesTabs />
-
 <div class="ex">
   <div class="ex__top">
-    <a href="/five-s"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
+    <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/five-s"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
     <span class="ex__links">
-      <a href={`/five-s/duplicates/${rootId}`}><i class="bi bi-files" aria-hidden="true"></i>{t('Duplicates')}</a>
-      <a href={`/five-s/report/${rootId}`}>{t('Report')} ›</a>
+      <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/duplicates/${rootId}`}><i class="bi bi-files" aria-hidden="true"></i>{t('Duplicates')}</a>
+      <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/report/${rootId}`}><i class="bi bi-file-earmark-text" aria-hidden="true"></i>{t('Report')}</a>
     </span>
   </div>
   {#if loading}
@@ -239,10 +237,11 @@
               <tr>
                 <th><button type="button" class="ex__sort" class:is-on={sortBy === 'name'} on:click={() => (sortBy = 'name')}>{t('Name')}</button></th>
                 <th class="ex__num"><button type="button" class="ex__sort" class:is-on={sortBy === 'bytes'} on:click={() => (sortBy = 'bytes')}>{t('Size')}</button></th>
-                <th class="ex__share">{t('Share')}</th>
                 <th class="ex__num"><button type="button" class="ex__sort" class:is-on={sortBy === 'files'} on:click={() => (sortBy = 'files')}>{t('Files')}</button></th>
                 <th class="ex__num">{t('Old > 1 year')}</th>
                 <th class="ex__num"><button type="button" class="ex__sort" class:is-on={sortBy === 'last'} on:click={() => (sortBy = 'last')}>{t('Last change')}</button></th>
+                <th class="ex__num">{t('Last access')}</th>
+                <th class="ex__num">{t('Created')}</th>
               </tr>
             </thead>
             <tbody>
@@ -254,23 +253,25 @@
                     {#if folder.folders > 0}<small>{t('{count} sub-folder(s)', { count: folder.folders })}</small>{/if}
                   </td>
                   <td class="ex__num">{formatBytes(folder.bytes)}</td>
-                  <td class="ex__share"><span class="ex__bar"><span style={`width:${pct(folder.bytes, current.bytes)}%`}></span></span><small>{pct(folder.bytes, current.bytes)} %</small></td>
                   <td class="ex__num">{folder.files.toLocaleString('fr-FR')}</td>
                   <td class={`ex__num ${ageTone(folder)}`}>{pct(folder.cold1_bytes, folder.bytes)} %</td>
                   <td class="ex__num">{folder.last_modified ? formatDateTime(folder.last_modified) : '—'}</td>
+                  <td class="ex__num">{folder.last_access ? formatDateTime(folder.last_access) : '—'}</td>
+                  <td class="ex__num">{folder.created_at ? formatDateTime(folder.created_at) : '—'}</td>
                 </tr>
               {/each}
               {#each files as file (file.path)}
                 <tr class="ex__row is-file">
                   <td class="ex__name"><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path}>{file.name}</code></td>
                   <td class="ex__num">{formatBytes(file.size)}</td>
-                  <td class="ex__share"><span class="ex__bar"><span style={`width:${pct(file.size, current.bytes)}%`}></span></span></td>
                   <td class="ex__num">—</td>
                   <td class="ex__num">—</td>
                   <td class="ex__num">{file.modified ? formatDateTime(file.modified) : '—'}</td>
+                  <td class="ex__num">—</td>
+                  <td class="ex__num">—</td>
                 </tr>
               {/each}
-              {#if !children.length && !files.length}<tr><td colspan="6" class="ex__empty">{t('Nothing more known here.')}</td></tr>{/if}
+              {#if !children.length && !files.length}<tr><td colspan="7" class="ex__empty">{t('Nothing more known here.')}</td></tr>{/if}
             </tbody>
           </table>
           {#if current.direct_files > files.length}
@@ -291,6 +292,8 @@
             <dt>{t('Sub-folders')}</dt><dd>{selected.folders.toLocaleString('fr-FR')}</dd>
             <dt>{t('Right in it')}</dt><dd>{selected.direct_files.toLocaleString('fr-FR')} · {formatBytes(selected.direct_bytes)}</dd>
             <dt>{t('Last change')}</dt><dd>{selected.last_modified ? formatDateTime(selected.last_modified) : '—'}</dd>
+            <dt>{t('Last access')}</dt><dd>{selected.last_access ? formatDateTime(selected.last_access) : t('not measured yet')}</dd>
+            <dt>{t('Created')}</dt><dd>{selected.created_at ? formatDateTime(selected.created_at) : t('not measured yet')}</dd>
             <dt>{t('Not modified for 1 year')}</dt><dd>{formatBytes(selected.cold1_bytes)} <small>{pct(selected.cold1_bytes, selected.bytes)} %</small></dd>
             <dt>{t('Not modified for 3 years')}</dt><dd>{formatBytes(selected.cold3_bytes)} <small>{pct(selected.cold3_bytes, selected.bytes)} %</small></dd>
           </dl>
@@ -354,10 +357,6 @@
   .ex__num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .ex__num.is-mid { color: #b45309; }
   .ex__num.is-old { color: #b42318; font-weight: 600; }
-  .ex__share { width: 150px; white-space: nowrap; }
-  .ex__share small { margin-left: 6px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .ex__bar { display: inline-block; vertical-align: middle; width: 90px; height: 6px; border-radius: 3px; background: var(--b2s-color-border-soft, #eef1f5); overflow: hidden; }
-  .ex__bar span { display: block; height: 100%; background: var(--b2s-color-info-strong, #2563eb); }
   .ex__empty { padding: 24px; color: var(--b2s-color-text-muted); text-align: center; }
   .ex__side { position: sticky; top: 12px; padding: 16px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
   .ex__side h2 { margin: 0 0 10px; font-size: 17px; overflow-wrap: anywhere; }

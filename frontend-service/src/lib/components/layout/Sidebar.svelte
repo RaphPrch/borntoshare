@@ -88,7 +88,6 @@
   <div class="sb__bottom">
     <GlobalSearch {canSeeAdmin} {canSeeStorageRoots} {canSeeObservability} />
     <LanguageSwitcher tone="light" />
-    <span class="sb__user" title={name} aria-label={t('Signed-in user {label}', { label: name })}>{initials(name, 'U')}</span>
     <span class="sb__version" title={t('Built on {date}', { date: new Date(__B2S_BUILT_AT__).toLocaleString() })}>{__B2S_VERSION__}</span>
     <form method="POST" action="/logout">
       <button type="submit" class="sb__item sb__logout">

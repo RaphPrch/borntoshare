@@ -85,10 +85,11 @@ $onFile = {
   # Every folder (5S scanner only, with_dirs): what is right in it; the scanner adds it up to the root
   if ($p.with_dirs) {
     $dk = [IO.Path]::GetDirectoryName($rel); if ($null -eq $dk) { $dk = '' }
-    $ds = $dirStats[$dk]; if ($null -eq $ds) { $ds = @{ b = [long]0; f = 0; c1 = [long]0; c3 = [long]0; l = [DateTime]::MinValue }; $dirStats[$dk] = $ds }
+    $ds = $dirStats[$dk]; if ($null -eq $ds) { $made = [DateTime]::MinValue; try { $made = $f.Directory.CreationTimeUtc } catch { }; $ds = @{ b = [long]0; f = 0; c1 = [long]0; c3 = [long]0; l = [DateTime]::MinValue; a = [DateTime]::MinValue; c = $made }; $dirStats[$dk] = $ds }
     $ds.b += $size; $ds.f++
     if ($when -lt $y1) { $ds.c1 += $size; if ($when -lt $y3) { $ds.c3 += $size } }
     if ($when -gt $ds.l) { $ds.l = $when }
+    $seen = $f.LastAccessTimeUtc; if ($seen -gt $ds.a) { $ds.a = $seen }
   }
   $inside = $f.FullName.Substring($localCut); $slash = $inside.IndexOf('\')
   if ($slash -gt 0) { $first = $inside.Substring(0, $slash); if (-not $top.ContainsKey($first)) { $top[$first] = @{ bytes = [long]0; files = 0 } }; $top[$first].bytes += $size; $top[$first].files++ }
@@ -151,7 +152,9 @@ $r.fingerprints = @($prints | ForEach-Object { $_ })
 if ($p.with_dirs) {
   $r.dirs = @($dirStats.GetEnumerator() | Select-Object -First 50000 | ForEach-Object {
     $l = $null; if ($_.Value.l -gt [DateTime]::MinValue) { $l = $_.Value.l.ToString('yyyy-MM-ddTHH:mm:ssZ') }
-    [pscustomobject]@{ p = [string]$_.Key; b = [long]$_.Value.b; f = [int]$_.Value.f; c1 = [long]$_.Value.c1; c3 = [long]$_.Value.c3; l = $l } })
+    $acc = $null; if ($_.Value.a -gt [DateTime]::MinValue) { $acc = $_.Value.a.ToString('yyyy-MM-ddTHH:mm:ssZ') }
+    $cre = $null; if ($_.Value.c -gt [DateTime]::MinValue) { $cre = $_.Value.c.ToString('yyyy-MM-ddTHH:mm:ssZ') }
+    [pscustomobject]@{ p = [string]$_.Key; b = [long]$_.Value.b; f = [int]$_.Value.f; c1 = [long]$_.Value.c1; c3 = [long]$_.Value.c3; l = $l; a = $acc; c = $cre } })
 }
 $r.walk_ms = [long]$walkMs; $r.elapsed_ms = [long]$watch.ElapsedMilliseconds
 Send-Result $r
