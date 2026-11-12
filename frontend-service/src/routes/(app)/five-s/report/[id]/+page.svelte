@@ -2,7 +2,9 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
-  import { apiGetData } from '$lib/api/client';
+  import { apiGetData, apiPostData } from '$lib/api/client';
+  import { toast } from '$lib/stores/toast';
+  import { reportUiError } from '$lib/errors';
   import { formatBytes, formatDateTime } from '$lib/utils/format';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
@@ -39,7 +41,28 @@
   let ageUnit: 'months' | 'years' = 'months';
 
   $: rootId = Number($page.params.id);
+  // The measures kept for the folder: the current one and up to 3 previous ones (a bad one can be undone)
+  type MeasureLine = { at: string | null; bytes: number | null; files: number | null; wasted: number | null; mode: string | null };
+  let measures: { current: MeasureLine | null; previous: MeasureLine[] } = { current: null, previous: [] };
+  let restoring = -1;
+  const loadMeasures = async () => {
+    measures = (await apiGetData<typeof measures>(fetch, `/storage-roots/${rootId}/measures`).catch(() => null)) ?? measures;
+  };
+  async function restore(index: number) {
+    restoring = index;
+    try {
+      await apiPostData(fetch, `/storage-roots/${rootId}/measures/restore`, { index });
+      toast.success(t('Previous measure restored.'));
+      location.reload();
+    } catch (error: unknown) {
+      reportUiError(error, t('Unable to restore this measure.'), 'fives.measures.restore');
+    } finally {
+      restoring = -1;
+    }
+  }
+
   onMount(async () => {
+    void loadMeasures();
     try {
       const overview = await apiGetData<Record<string, any>>(fetch, `/storage-roots/${rootId}/overview`);
       name = String(overview?.storage_root_name ?? overview?.name ?? `#${rootId}`);
@@ -109,6 +132,22 @@
       <p><code>{path}</code> · {t('measured {when}', { when: formatDateTime(stats.scanned_at) })}{stats.elapsed_ms ? ` · ${Math.round(stats.elapsed_ms / 60000)} min` : ''}
         · <a href={`/storage-roots?selected=${rootId}`}>{t('Open the folder')}</a></p>
     </header>
+
+    {#if measures.previous.length}
+      <section class="rp__card rp__measures" aria-label={t('Measures')}>
+        <header><h2>{t('Measures')}</h2><small>{t('The current one and the previous ones kept: go back to one if the last measure is wrong.')}</small></header>
+        <table class="b2s-table">
+          <thead><tr><th>{t('Date')}</th><th class="rp__num">{t('Volume')}</th><th class="rp__num">{t('Files')}</th><th class="rp__num">{t('Lost to duplicates')}</th><th></th></tr></thead>
+          <tbody>
+            {#if measures.current}<tr class="is-current"><td>{measures.current.at ? formatDateTime(measures.current.at) : '—'} · <b>{t('current')}</b></td><td class="rp__num">{formatBytes(measures.current.bytes ?? 0)}</td><td class="rp__num">{(measures.current.files ?? 0).toLocaleString('fr-FR')}</td><td class="rp__num">{formatBytes(measures.current.wasted ?? 0)}</td><td></td></tr>{/if}
+            {#each measures.previous as item, index (index)}
+              <tr><td>{item.at ? formatDateTime(item.at) : '—'}</td><td class="rp__num">{formatBytes(item.bytes ?? 0)}</td><td class="rp__num">{(item.files ?? 0).toLocaleString('fr-FR')}</td><td class="rp__num">{formatBytes(item.wasted ?? 0)}</td>
+                <td><button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={restoring >= 0} on:click={() => restore(index)}>{t('Go back to this measure')}</button></td></tr>
+            {/each}
+          </tbody>
+        </table>
+      </section>
+    {/if}
 
     <section class="rp__kpis">
       <div><span>{t('Volume')}</span><b>{formatBytes(stats.bytes)}</b></div>
@@ -238,6 +277,9 @@
   .rp__tools .rp__age { width: 80px; }
   .rp__path { max-width: 720px; }
   .rp__path code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); }
+  .rp__measures header { display: grid; gap: 2px; margin-bottom: 8px; }
+  .rp__measures header small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .rp__measures tr.is-current td { background: #F5FBE6; }
   .rp__big { margin: 0; font-size: 22px; font-weight: 600; }
   .rp__big small { display: block; font-size: var(--b2s-fs-xs); font-weight: 400; color: var(--b2s-color-text-muted); }
   .rp__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }

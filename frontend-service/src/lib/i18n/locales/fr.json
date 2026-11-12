@@ -1434,6 +1434,10 @@
         "title": "Dossier retiré",
         "description": "Le dossier « {root} » a été retiré de la gouvernance"
       },
+      "measure_restored": {
+        "title": "Mesure précédente rétablie",
+        "description": "Le dossier « {root} » est revenu à une mesure précédente"
+      },
       "run_stopped": {
         "title": "Analyse arrêtée",
         "description": "Une analyse ou une mesure a été arrêtée sur le dossier « {root} »"
@@ -5567,5 +5571,15 @@
   "Duplicates of « {path} »": "Doublons de « {path} »",
   "see all": "voir tout",
   "and {count} more copies not listed (the walk keeps 5 paths per group)": "et {count} autres copies non listées (le parcours garde 5 chemins par groupe)",
-  "See the duplicates of this folder ({count})": "Voir les doublons de ce dossier ({count})"
+  "See the duplicates of this folder ({count})": "Voir les doublons de ce dossier ({count})",
+  "Deleted (purge)": "Supprimée (purge)",
+  "The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them within 30 days, then they are deleted for good.": "Les copies déplacées restent dans « _B2S_Quarantaine » à la racine du partage, avec leur chemin : restaurables 30 jours, puis supprimées définitivement.",
+  "I confirm moving {size}: a large volume": "Je confirme le déplacement de {size} : un gros volume",
+  "Tick the confirmation: more than 50 GB would be moved.": "Cochez la confirmation : plus de 50 Go seraient déplacés.",
+  "Previous measure restored.": "Mesure précédente rétablie.",
+  "Unable to restore this measure.": "Impossible de rétablir cette mesure.",
+  "Measures": "Mesures",
+  "The current one and the previous ones kept: go back to one if the last measure is wrong.": "La mesure actuelle et les précédentes conservées : revenez-y si la dernière est fausse.",
+  "current": "actuelle",
+  "Go back to this measure": "Revenir à cette mesure"
 }

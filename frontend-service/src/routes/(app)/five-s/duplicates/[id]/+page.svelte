@@ -35,6 +35,10 @@
     error: string | null; requested_by: string | null; requested_at: string; done_at: string | null; restored_by: string | null };
   let moves: Move[] = [];
   let confirming = false;
+  // Above 50 GB the move asks a second, explicit confirmation (the server refuses it otherwise)
+  const LARGE = 50 * 1024 ** 3;
+  let confirmLarge = false;
+  $: if (!confirming) confirmLarge = false;
   let applying = false;
   let timer: ReturnType<typeof setInterval> | null = null;
   async function loadMoves() {
@@ -48,10 +52,14 @@
   $: toMove = decided.flatMap((group) => group.copies.filter((copy) => copy.path !== group.decision?.keep_path && !inQuarantine.has(copy.path)).map(() => group.size));
   $: toMoveBytes = toMove.reduce((sum, size) => sum + size, 0);
   async function applyDecisions() {
+    if (toMoveBytes > LARGE && !confirmLarge) {
+      toast.error(t('Tick the confirmation: more than 50 GB would be moved.'));
+      return;
+    }
     confirming = false;
     applying = true;
     try {
-      const result = await apiPostData<{ queued: number; bytes: number }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups/apply`, {});
+      const result = await apiPostData<{ queued: number; bytes: number }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups/apply`, { confirm_large: confirmLarge });
       toast.success(t('{count} copy(ies) sent to quarantine ({size}).', { count: result?.queued ?? 0, size: formatBytes(result?.bytes ?? 0) }));
       await loadMoves();
     } catch (e: unknown) {
@@ -70,7 +78,7 @@
     }
   }
   const MOVE_LABEL = (): Record<string, string> => ({ pending: t('Being moved…'), moved: t('In quarantine'), failed: t('Not moved'),
-    restore_pending: t('Being restored…'), restored: t('Restored'), restore_failed: t('Not restored') });
+    restore_pending: t('Being restored…'), restored: t('Restored'), restore_failed: t('Not restored'), purged: t('Deleted (purge)') });
 
   onMount(async () => {
     try {
@@ -201,7 +209,7 @@
     {#if moves.length}
       <section class="dd__q">
         <header><h2><i class="bi bi-archive" aria-hidden="true"></i>{t('Quarantine')}</h2>
-          <small>{t('The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them at any time.')}</small></header>
+          <small>{t('The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them within 30 days, then they are deleted for good.')}</small></header>
         <table class="b2s-table">
           <thead><tr><th>{t('Copy')}</th><th class="dd__num">{t('Size')}</th><th>{t('State')}</th><th>{t('By')}</th><th></th></tr></thead>
           <tbody>
@@ -228,7 +236,11 @@
   confirmLabel={t('Move to quarantine')}
   onConfirm={applyDecisions}
   onClose={() => (confirming = false)}
-/>
+>
+  {#if toMoveBytes > LARGE}
+    <label class="dd__large"><input type="checkbox" bind:checked={confirmLarge} />{t('I confirm moving {size}: a large volume', { size: formatBytes(toMoveBytes) })}</label>
+  {/if}
+</ConfirmActionModal>
 
 <style>
   .dd { display: grid; gap: 14px; }
@@ -284,5 +296,6 @@
   .dd__state.is-failed, .dd__state.is-restore_failed { background: #fde2e1; color: #b42318; }
   .dd__scope { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px !important; padding: 4px 12px; border-radius: 999px; background: #EEF2FF; color: #3730A3 !important; font-size: var(--b2s-fs-sm); }
   .dd__more { display: block !important; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .dd__large { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-weight: 600; color: #9A3412; }
   .dd__hint { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>

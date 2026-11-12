@@ -144,3 +144,35 @@ async def stop_run(root_id: int, payload: StopPayload, request: Request, db: Ses
         db.commit()
     _audit(db, request, "storage_root.run_stopped", folder, {"kind": payload.kind, "job_id": row["job_id"]})
     return ui_data({"stopped": True})
+
+
+
+@router.get("/{root_id}/measures")
+def list_measures(root_id: int, request: Request, db: Session = Depends(get_db)):
+    """The current measure of the folder and the previous ones kept (date, volume, files, duplicates lost)."""
+    _folder(db, request, root_id)
+    root = db.get(StorageRoot, int(root_id))
+    data = root.discovered_permissions_json if root is not None and isinstance(root.discovered_permissions_json, dict) else {}
+
+    def line(at, size, stats):
+        stats = stats or {}
+        return {"at": at, "bytes": size, "files": stats.get("files"), "wasted": (stats.get("duplicates") or {}).get("wasted_bytes"), "mode": stats.get("mode")}
+
+    return ui_data({"current": line(data.get("content_updated_at"), data.get("content_size_bytes"), data.get("content_stats")) if data.get("content_stats") else None,
+                    "previous": [line(item.get("at"), item.get("bytes"), item.get("stats")) for item in data.get("content_previous") or []]})
+
+
+class RestorePayload(BaseModel):
+    index: int = Field(ge=0, le=10)
+
+
+@router.post("/{root_id}/measures/restore")
+def restore_measure(root_id: int, payload: RestorePayload, request: Request, db: Session = Depends(get_db)):
+    """Back to a previous measure of the folder (the current one goes to the history)."""
+    actor = actor_from_request(request)
+    require_admin(actor)
+    folder = _folder(db, request, root_id)
+    if not scans.restore_previous(db, int(root_id), payload.index):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error_code": "MEASURE_NOT_FOUND", "message": "No such previous measure"})
+    _audit(db, request, "storage_root.measure_restored", folder, {"index": payload.index})
+    return ui_data({"restored": True})

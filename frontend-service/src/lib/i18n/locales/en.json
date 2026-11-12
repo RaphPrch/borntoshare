@@ -256,6 +256,10 @@
         "title": "Storage root removed",
         "description": "Storage root \"{root}\" was removed from governance"
       },
+      "measure_restored": {
+        "title": "Previous measure restored",
+        "description": "The folder « {root} » went back to a previous measure"
+      },
       "run_stopped": {
         "title": "Run stopped",
         "description": "A scan or a measure was stopped on the folder « {root} »"
@@ -1703,5 +1707,16 @@
   "Duplicates of « {path} »": "Duplicates of « {path} »",
   "see all": "see all",
   "and {count} more copies not listed (the walk keeps 5 paths per group)": "and {count} more copies not listed (the walk keeps 5 paths per group)",
-  "See the duplicates of this folder ({count})": "See the duplicates of this folder ({count})"
+  "See the duplicates of this folder ({count})": "See the duplicates of this folder ({count})",
+  "Deleted (purge)": "Deleted (purge)",
+  "The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them within 30 days, then they are deleted for good.": "The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them within 30 days, then they are deleted for good.",
+  "I confirm moving {size}: a large volume": "I confirm moving {size}: a large volume",
+  "Tick the confirmation: more than 50 GB would be moved.": "Tick the confirmation: more than 50 GB would be moved.",
+  "Previous measure restored.": "Previous measure restored.",
+  "Unable to restore this measure.": "Unable to restore this measure.",
+  "Measures": "Measures",
+  "The current one and the previous ones kept: go back to one if the last measure is wrong.": "The current one and the previous ones kept: go back to one if the last measure is wrong.",
+  "Date": "Date",
+  "current": "current",
+  "Go back to this measure": "Go back to this measure"
 }

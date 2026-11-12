@@ -80,7 +80,7 @@ def record_result(db: Session, storage_root_id: int, job_id: int | None, result_
         unreadable_alert(db, int(storage_root_id), problem)
         return False
     # A new dict: the JSON column is seen as changed (the ACL part of the last test stays as it is)
-    root.discovered_permissions_json = {**current, "content_size_bytes": int(stats.get("bytes") or 0),
+    root.discovered_permissions_json = {**current, "content_previous": with_previous(current), "content_size_bytes": int(stats.get("bytes") or 0),
                                         "content_updated_at": now.isoformat() + "+00:00", "content_stats": stats,
                                         "content_scan_job_id": job_id}
     db.execute(
@@ -141,7 +141,7 @@ def record_module_state(db: Session, storage_root_id: int, *, status: str, stats
             status, stats = "failed", None
             error = "La mesure n'a trouvé aucun fichier alors que le dossier en contenait : dernière mesure conservée"
         elif root is not None:
-            root.discovered_permissions_json = {**current, "content_size_bytes": int(stats.get("bytes") or 0),
+            root.discovered_permissions_json = {**current, "content_previous": with_previous(current), "content_size_bytes": int(stats.get("bytes") or 0),
                                                 "content_updated_at": now.isoformat() + "+00:00", "content_stats": stats}
     db.execute(
         text(
@@ -219,3 +219,34 @@ def emptied(current: dict, stats: dict) -> bool:
     far more often than it was emptied. Its figures must not replace the good ones."""
     before = int(((current or {}).get("content_stats") or {}).get("files") or 0)
     return before > 0 and int((stats or {}).get("files") or 0) == 0
+
+
+
+# Measures kept per folder besides the current one: a bad one can be undone, two can be compared
+KEEP_PREVIOUS = 3
+
+
+def with_previous(current: dict) -> list[dict]:
+    """The history once the current measure becomes the previous one (newest first, at most KEEP_PREVIOUS)."""
+    history = [item for item in (current or {}).get("content_previous") or [] if isinstance(item, dict)]
+    if (current or {}).get("content_stats"):
+        history.insert(0, {"at": current.get("content_updated_at"), "bytes": current.get("content_size_bytes"), "stats": current["content_stats"]})
+    return history[:KEEP_PREVIOUS]
+
+
+def restore_previous(db: Session, storage_root_id: int, index: int) -> bool:
+    """Back to a previous measure (the current one takes its place in the history)."""
+    from app.data.models.storage_root import StorageRoot
+
+    root = db.get(StorageRoot, int(storage_root_id))
+    current = dict(root.discovered_permissions_json) if root is not None and isinstance(root.discovered_permissions_json, dict) else {}
+    history = [item for item in current.get("content_previous") or [] if isinstance(item, dict)]
+    if root is None or not 0 <= int(index) < len(history):
+        return False
+    chosen = history.pop(int(index))
+    if current.get("content_stats"):
+        history.insert(0, {"at": current.get("content_updated_at"), "bytes": current.get("content_size_bytes"), "stats": current["content_stats"]})
+    root.discovered_permissions_json = {**current, "content_previous": history[:KEEP_PREVIOUS], "content_stats": chosen["stats"],
+                                        "content_size_bytes": chosen.get("bytes"), "content_updated_at": chosen.get("at")}
+    db.commit()
+    return True
