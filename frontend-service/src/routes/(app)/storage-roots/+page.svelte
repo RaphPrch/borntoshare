@@ -1658,13 +1658,13 @@
     governanceRoleTab = role;
   }
 
-  async function applyOwnersFromBrowser(event: CustomEvent<OwnersBrowserSelectionEvent>) {
+  async function applyOwnersFromBrowser(detail: OwnersBrowserSelectionEvent) {
     const appliedSelection = applyOwnersBrowserSelectionToDraft({
       currentDraft: governanceCurrentDraft() as unknown as {
         guardianIds: number[];
         metadataByIdentityId?: Record<number, Record<string, unknown>>;
       },
-      eventDetail: (event?.detail ?? {}) as OwnersBrowserSelectionEvent,
+      eventDetail: (detail ?? {}) as OwnersBrowserSelectionEvent,
       selectedStorageRootId
     });
 
@@ -1708,15 +1708,14 @@
   }
 
   async function handleOwnersBrowserActivity(
-    event: CustomEvent<{
+    detail: {
       action: string;
       outcome: string;
       severity: string;
       message: string;
       context?: Record<string, unknown>;
-    }>
+    }
   ) {
-    const detail = event?.detail;
     if (!detail?.action || !detail?.message) return;
     await recordStorageRootUiActivity(selectedStorageRootId, {
       action: String(detail.action),
@@ -1989,8 +1988,8 @@
   initialSourceId={rootIdentitySourceId}
   initialGuardianIds={governanceDraftIdentityIds('guardian')}
   onClose={closeOwnersBrowserModal}
-  on:activity={handleOwnersBrowserActivity}
-  on:save={applyOwnersFromBrowser}
+  onActivity={handleOwnersBrowserActivity}
+  onSave={applyOwnersFromBrowser}
 />
 
 <style>

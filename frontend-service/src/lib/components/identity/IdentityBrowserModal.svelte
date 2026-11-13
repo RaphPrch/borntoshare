@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { run as run_1 } from 'svelte/legacy';
 
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -8,7 +7,7 @@
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import { t } from '$lib/i18n';
   import { formatDateTime, initials, timeAgo } from '$lib/utils/format';
-  import { createEventDispatcher, onDestroy } from 'svelte';
+  import { createEventDispatcher, onDestroy, untrack } from 'svelte';
   import TreeNode from './TreeNode.svelte';
   import IdentitySelectedPrincipalRow from './IdentitySelectedPrincipalRow.svelte';
   import { invalidateIdentitySourceInternalCache, loadIdentitySourceLastSync } from '../../api/identity-browser';
@@ -258,8 +257,7 @@
     return null;
   }
 
-  async function toggleTreeNode(event: CustomEvent<{ dn: string; expanded: boolean }>) {
-    const { dn, expanded } = event.detail;
+  async function toggleTreeNode({ dn, expanded }: { dn: string; expanded: boolean }) {
     if (!dn || !selectedSourceId) return;
     if (!expanded) {
       const next = new Set(expandedDns);
@@ -284,8 +282,8 @@
     }
   }
 
-  function selectTreeNode(event: CustomEvent<{ dn: string }>) {
-    store.setActiveDn(event.detail.dn);
+  function selectTreeNode(dn: string) {
+    store.setActiveDn(dn);
     void executeSearch();
   }
 
@@ -393,10 +391,10 @@
 
   // A snapshot already running on the selected source: follow it (button greyed meanwhile)
   let followedSourceId: number | null = $state(null);
-  run_1(() => {
+  $effect.pre(() => {
     if (open && selectedSource?.snapshotRunning && !syncing && followedSourceId !== Number(selectedSource.id)) {
       followedSourceId = Number(selectedSource.id);
-      void syncDirectory({ follow: true });
+      untrack(() => void syncDirectory({ follow: true }));
     }
   });
 
@@ -482,17 +480,17 @@
     onSelect?.(payload);
   }
 
-  run_1(() => {
+  $effect.pre(() => {
     if (open && !wasOpen) {
       wasOpen = true;
-      void initializeForOpen();
+      untrack(() => void initializeForOpen());
     }
   });
 
-  run_1(() => {
+  $effect.pre(() => {
     if (!open && wasOpen) {
       wasOpen = false;
-      abortAllRequests();
+      untrack(abortAllRequests);
     }
   });
 </script>
@@ -608,7 +606,7 @@
             <p class="idb-muted">{searchable ? t('No organizational unit.') : '—'}</p>
           {:else}
             {#each $store.tree as node (node.dn)}
-              <TreeNode {node} activeDn={$store.activeDn} {expandedDns} {loadingDns} on:toggle={toggleTreeNode} on:select={selectTreeNode} />
+              <TreeNode {node} activeDn={$store.activeDn} {expandedDns} {loadingDns} onToggle={toggleTreeNode} onSelect={selectTreeNode} />
             {/each}
           {/if}
         </div>

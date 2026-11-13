@@ -9,18 +9,30 @@
    * are folded (« 10 in order · Show »), so that hundreds of folders stay readable.
    */
   type Row = { id: number; name: string; path: string; pendingCount: number | null; health?: string | null; alertCount?: number; guardians?: number };
-  export let rows: Row[] = [];
-  /** \\host\ shown once in the page header: the rows show the path inside the server */
-  export let host = '';
+  
 
   const TONE_VARIANT: Record<string, 'success' | 'warning' | 'error' | 'muted'> = { ok: 'success', warn: 'warning', bad: 'error', n: 'muted' };
-  /** Filter of the list, shared with the tiles of the page */
-  export let filter = 'all';
-  /** Folders without guardian (summary of the server) */
-  export let noGuardianIds: Set<number> = new Set();
-  let query = '';
+  
+  
+  interface Props {
+    rows?: Row[];
+    /** \\host\ shown once in the page header: the rows show the path inside the server */
+    host?: string;
+    /** Filter of the list, shared with the tiles of the page */
+    filter?: string;
+    /** Folders without guardian (summary of the server) */
+    noGuardianIds?: Set<number>;
+  }
+
+  let {
+    rows = [],
+    host = '',
+    filter = $bindable('all'),
+    noGuardianIds = new Set()
+  }: Props = $props();
+  let query = $state('');
   let opened = new Set<string>();
-  let calmShown = new Set<string>();
+  let calmShown = $state(new Set<string>());
 
   const parts = (row: Row) => {
     let list = row.path.split(/[\\/]+/).filter(Boolean);
@@ -36,7 +48,7 @@
   };
   const down = (row: Row) => row.health === 'unhealthy';
   const todo = (row: Row) => down(row) || Boolean(row.alertCount) || row.health === 'degraded';
-  const state = (row: Row) =>
+  const rowState = (row: Row) =>
     down(row) ? { label: t('Unreachable'), tone: 'bad' }
     : row.alertCount ? { label: t('{count} alert(s)', { count: row.alertCount }), tone: 'warn' }
     : row.health === 'healthy' ? null
@@ -44,18 +56,18 @@
 
   const keepRow = (row: Row, key: string) =>
     key === 'all' || (key === 'todo' ? todo(row) : key === 'down' ? down(row) : key === 'guard' ? noGuardianIds.has(row.id) : (row.pendingCount ?? 0) > 0);
-  $: counts = { all: rows.length, todo: rows.filter(todo).length, down: rows.filter(down).length, guard: rows.filter((row) => noGuardianIds.has(row.id)).length, pending: rows.filter((row) => (row.pendingCount ?? 0) > 0).length };
-  $: needle = query.trim().toLowerCase();
-  $: matching = rows
+  let counts = $derived({ all: rows.length, todo: rows.filter(todo).length, down: rows.filter(down).length, guard: rows.filter((row) => noGuardianIds.has(row.id)).length, pending: rows.filter((row) => (row.pendingCount ?? 0) > 0).length });
+  let needle = $derived(query.trim().toLowerCase());
+  let matching = $derived(rows
     .filter((row) => keepRow(row, filter))
-    .filter((row) => !needle || `${row.name} ${row.path}`.toLowerCase().includes(needle));
-  $: groups = [...new Set(matching.map(shareOf))]
+    .filter((row) => !needle || `${row.name} ${row.path}`.toLowerCase().includes(needle)));
+  let groups = $derived([...new Set(matching.map(shareOf))]
     .map((share) => {
       const list = matching.filter((row) => shareOf(row) === share).sort((a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }));
       const hot = list.filter((row) => todo(row) || (row.pendingCount ?? 0) > 0 || noGuardianIds.has(row.id));
       return { share, hot, calm: list.filter((row) => !hot.includes(row)), total: list.length };
     })
-    .sort((a, b) => b.hot.length - a.hot.length || a.share.localeCompare(b.share, 'fr', { numeric: true }));
+    .sort((a, b) => b.hot.length - a.hot.length || a.share.localeCompare(b.share, 'fr', { numeric: true })));
   // A share with something to do opens by itself; a search or a filter shows everything that matches
   const isOpen = (group: { share: string; hot: Row[] }, searching: boolean) => searching || group.hot.length > 0 || opened.has(group.share);
   function toggle(share: string) {
@@ -85,7 +97,7 @@
     {#each groups as group (group.share)}
       {@const open = isOpen(group, Boolean(needle) || filter !== 'all')}
       <section class="share">
-        <button type="button" class="share__head" aria-expanded={open} on:click={() => toggle(group.share)}>
+        <button type="button" class="share__head" aria-expanded={open} onclick={() => toggle(group.share)}>
           <span class="car" aria-hidden="true">{open ? '▾' : '▸'}</span>
           <code title={`\\\\${host}\\${group.share}`} data-copy={`\\\\${host}\\${group.share}`}>\\{host}\{group.share}</code>
           <span class="share__sum">
@@ -96,7 +108,7 @@
         {#if open}
           <div class="row row--head" aria-hidden="true"><span>{t('Folder')}</span><span>{t('Guardians')}</span><span>{t('Requests')}</span><span>{t('State')}</span></div>
           {#each [...group.hot, ...(calmShown.has(group.share) || needle || filter !== 'all' ? group.calm : [])] as row (row.id)}
-            {@const s = state(row)}
+            {@const s = rowState(row)}
             <a class="row" href={`/storage-roots?selected=${row.id}`}>
               <span class="name"><strong>{row.name}</strong>{#if inside(row)}<small>{inside(row)}</small>{/if}</span>
               <span class="muted">{Number.isFinite(row.guardians) ? row.guardians : '—'}</span>
@@ -105,7 +117,7 @@
             </a>
           {/each}
           {#if group.calm.length && !(calmShown.has(group.share) || needle || filter !== 'all')}
-            <div class="calm"><span>{t('{count} folder(s) in order', { count: group.calm.length })}</span><button type="button" class="b2s-link-btn" on:click={() => showCalm(group.share)}>{t('Show')}</button></div>
+            <div class="calm"><span>{t('{count} folder(s) in order', { count: group.calm.length })}</span><button type="button" class="b2s-link-btn" onclick={() => showCalm(group.share)}>{t('Show')}</button></div>
           {/if}
         {/if}
       </section>

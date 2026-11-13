@@ -224,6 +224,25 @@ with sync_playwright() as p:
         check("keep editing stays on the page", page.url.endswith("/logging"))
     step("unsaved", unsaved)
 
+    def runes_cards():
+        """Components moved to Svelte 5 runes (batch 3): each one still shows"""
+        goto(page, "/storage-roots?selected=80", 3000)
+        check("folder overview: quota and sensitivity cards", page.locator(".qc").count() > 0 and page.locator(".sc").count() > 0,
+              f"quota {page.locator('.qc').count()}, sensitivity {page.locator('.sc').count()}")
+        goto(page, "/storage-roots?selected=80&tab=permissions", 3000)
+        check("folder permissions card", page.locator(".pm").count() > 0)
+        goto(page, "/admin/advanced-settings/features", 2000)
+        check("features panel", page.locator(".ft").count() > 0)
+        goto(page, "/observability?tab=events", 3000)
+        check("events: pagination", page.locator(".b2s-pagination").count() > 0)
+        goto(page, "/admin/identity", 2500)
+        page.get_by_role("button", name=re.compile(r"^\s*Ajouter")).first.click()
+        page.wait_for_timeout(1200)
+        check("identity add window opens", page.locator(".ia").count() > 0)
+        shot(page, "13-identity-add")
+        page.keyboard.press("Escape")
+    step("runes cards", runes_cards)
+
     if os.environ.get("B2S_EXPECT_TOAST"):
         def toast():
             goto(page, "/dashboard", 1000)

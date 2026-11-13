@@ -1,7 +1,4 @@
 <script lang="ts">
-  import { createBubbler, preventDefault } from 'svelte/legacy';
-
-  const bubble = createBubbler();
   import { t } from '$lib/i18n';
   import { applySuggestion, folderQueryExamples, folderSuggestions, parseFolderQuery, removeFilter } from '$lib/components/storage-roots/folder-query';
 
@@ -62,7 +59,7 @@
       {#each list as item (item.insert)}
         <li role="option" aria-selected="false">
           <!-- mousedown: the search field keeps the focus -->
-          <button type="button" onmousedown={preventDefault(bubble('mousedown'))} onclick={() => pick(item.insert)}>
+          <button type="button" onmousedown={(event) => event.preventDefault()} onclick={() => pick(item.insert)}>
             <i class={`bi ${item.icon}`} aria-hidden="true"></i><span>{item.label}</span><code>{item.hint}</code>
           </button>
         </li>

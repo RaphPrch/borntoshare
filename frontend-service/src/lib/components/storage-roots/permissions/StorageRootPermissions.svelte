@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+
+  import { onDestroy, untrack } from 'svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -25,22 +26,10 @@
   import AccessExplainDrawer from './AccessExplainDrawer.svelte';
   import { expiryProgress, levelLabel, viaLabel } from './permissions-format';
 
-  /**
-   * Storage roots › Permissions, in cards: the state of the ACL, « who reaches it? » with the path
-   * person → AD group → folder, the path of the accesses per AD group (click = filter), the people,
-   * and on the side the entries set outside BornToShare, the AD groups and the next end dates.
-   */
-  export let data: StorageRootPermissionsData | null = null;
-  export let loading = false;
-  export let error: string | null = null;
-  export let rootId: number | null = null;
-  export let rootName = '';
-  export let canManage = false;
-  export let isAdmin = false;
-  export let onChanged: () => void = () => {};
+  
 
-  let repairing = false;
-  let repairAsked = false;
+  let repairing = $state(false);
+  let repairAsked = $state(false);
   async function repairAcl(): Promise<void> {
     if (!rootId) return;
     repairAsked = false;
@@ -57,19 +46,42 @@
   }
 
   // The tab follows a propagation in progress
-  let propagationTimer: ReturnType<typeof setTimeout> | null = null;
-  $: if (data?.propagation?.state === 'running' && !propagationTimer) {
-    propagationTimer = setTimeout(() => {
-      propagationTimer = null;
-      onChanged();
-    }, 15000);
-  }
+  let propagationTimer: ReturnType<typeof setTimeout> | null = $state(null);
   onDestroy(() => {
     if (propagationTimer) clearTimeout(propagationTimer);
   });
-  export let onToggleInheritance: () => void = () => {};
-  /** Login to explain at once (⌘K palette, link from another page) */
-  export let explainLogin: string | null = null;
+  
+  interface Props {
+    /**
+   * Storage roots › Permissions, in cards: the state of the ACL, « who reaches it? » with the path
+   * person → AD group → folder, the path of the accesses per AD group (click = filter), the people,
+   * and on the side the entries set outside BornToShare, the AD groups and the next end dates.
+   */
+    data?: StorageRootPermissionsData | null;
+    loading?: boolean;
+    error?: string | null;
+    rootId?: number | null;
+    rootName?: string;
+    canManage?: boolean;
+    isAdmin?: boolean;
+    onChanged?: () => void;
+    onToggleInheritance?: () => void;
+    /** Login to explain at once (⌘K palette, link from another page) */
+    explainLogin?: string | null;
+  }
+
+  let {
+    data = null,
+    loading = false,
+    error = null,
+    rootId = null,
+    rootName = '',
+    canManage = false,
+    isAdmin = false,
+    onChanged = () => {},
+    onToggleInheritance = () => {},
+    explainLogin = null
+  }: Props = $props();
 
   const STATE: Record<StorageRootPermissionsData['status'], { tone: string; word: () => string }> = {
     ok: { tone: 'ok', word: () => t('Compliant.') },
@@ -78,21 +90,14 @@
     missing_ace: { tone: 'bad', word: () => t('Incomplete.') },
     never_scanned: { tone: 'idle', word: () => t('Not read yet.') }
   };
-  $: state = data ? STATE[data.status] : null;
-  $: openGaps = data?.gaps.filter((g) => !g.accepted) ?? [];
-  $: acceptedGaps = data?.gaps.filter((g) => g.accepted) ?? [];
-  $: outsidePeople = data?.people.filter((p) => p.via.every((v) => v.kind === 'outside')) ?? [];
-  $: governedPeople = data?.people.filter((p) => !p.via.every((v) => v.kind === 'outside')) ?? [];
 
   // ---------------------------------------------------------------- checker
-  let query = '';
-  let checking = false;
-  let checked: AccessExplanation | null = null;
-  $: checkedMissing = notFound(checked);
+  let query = $state('');
+  let checking = $state(false);
+  let checked: AccessExplanation | null = $state(null);
   let timer: ReturnType<typeof setTimeout> | null = null;
   let checkSeq = 0;
 
-  $: scheduleCheck(query);
   function scheduleCheck(value: string) {
     if (timer) clearTimeout(timer);
     const login = value.trim();
@@ -121,44 +126,22 @@
   type Band = { key: string; group: string; level: 'read' | 'write' | null; managed: boolean; state: string; rights: string | null; members: PermissionPerson[] };
   const groupOfVia = (p: PermissionPerson) =>
     p.via.filter((v) => v.kind !== 'request' && 'group' in v).map((v) => String((v as { group: string }).group));
-  $: bands = [
-    ...(data?.groups ?? []).map(
-      (g): Band => ({ key: `g:${g.name}`, group: g.name, level: g.level, managed: true, state: g.ace, rights: g.rights_label,
-        members: data?.people.filter((p) => groupOfVia(p).includes(g.name)) ?? [] })
-    ),
-    ...openGaps
-      .filter((g) => (g.members_count ?? 0) > 0 || g.kind === 'broad')
-      .map((g): Band => ({ key: `x:${g.principal}`, group: g.name, level: g.level, managed: false, state: 'outside', rights: g.rights_label,
-        members: data?.people.filter((p) => groupOfVia(p).includes(g.name)) ?? [] }))
-  ];
 
   // ---------------------------------------------------------------- people
-  let filter: 'all' | 'read' | 'write' | 'ending' = 'all';
-  let groupFilter: string | null = null;
-  let search = '';
-  $: horizon = Date.now() + 30 * 86400000;
-  $: people = governedPeople.filter((p) => {
-    if (filter === 'read' || filter === 'write') if (p.level !== filter) return false;
-    if (filter === 'ending' && !(p.expires_at && Date.parse(p.expires_at) <= horizon)) return false;
-    if (groupFilter && !groupOfVia(p).includes(groupFilter)) return false;
-    const q = search.trim().toLowerCase();
-    return !q || `${p.name} ${p.username ?? ''}`.toLowerCase().includes(q);
-  });
+  let filter: 'all' | 'read' | 'write' | 'ending' = $state('all');
+  let groupFilter: string | null = $state(null);
+  let search = $state('');
 
   const toggleGroup = (name: string) => (groupFilter = groupFilter === name ? null : name);
   const mainRequest = (p: PermissionPerson) =>
     p.via.find((v) => v.kind === 'request' && v.level === p.level) as Extract<PermissionPerson['via'][number], { kind: 'request' }> | undefined;
 
   // ---------------------------------------------------------------- drawer, actions
-  let explainFor: string | null = null;
-  let explainedFrom: string | null = null;
-  $: if (explainLogin && explainLogin !== explainedFrom) {
-    explainedFrom = explainLogin;
-    explainFor = explainLogin;
-  }
-  let revoking: PermissionPerson | null = null;
-  let showSystem = false;
-  let busy = false;
+  let explainFor: string | null = $state(null);
+  let explainedFrom: string | null = $state(null);
+  let revoking: PermissionPerson | null = $state(null);
+  let showSystem = $state(false);
+  let busy = $state(false);
 
   async function revoke() {
     const target = revoking;
@@ -204,12 +187,7 @@
 
   const gapPeople = (gap: AclEntry) => outsidePeople.filter((p) => groupOfVia(p).includes(gap.name));
 
-  // ---------------------------------------------------------------- end dates
-  $: ends = (data?.people ?? [])
-    .filter((p) => p.expires_at)
-    .sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)))
-    .slice(0, 5);
-  let extending: string | null = null;
+  let extending: string | null = $state(null);
   async function extend(person: PermissionPerson) {
     const request = mainRequest(person) ?? (person.via.find((v) => v.kind === 'request' && v.expires_at) as ReturnType<typeof mainRequest>);
     if (!request) return;
@@ -225,7 +203,6 @@
     }
   }
 
-  $: ringShare = data && data.summary.groups ? Math.round((data.summary.groups_ok / data.summary.groups) * 100) : 0;
   const ACE_LABEL: Record<string, () => string> = {
     ok: () => t('ACE in place'),
     missing: () => t('ACE missing'),
@@ -238,13 +215,61 @@
       : entry.origin === 'both'
         ? t('{rights}, set on the folder and inherited from the parent folder', { rights: t(entry.rights_label) })
         : t('{rights}, set directly on the file server', { rights: t(entry.rights_label) });
+  $effect.pre(() => {
+    if (data?.propagation?.state === 'running' && !propagationTimer) {
+      propagationTimer = setTimeout(() => {
+        propagationTimer = null;
+        onChanged();
+      }, 15000);
+    }
+  });
+  let aclView = $derived(data ? STATE[data.status] : null);
+  let openGaps = $derived(data?.gaps.filter((g) => !g.accepted) ?? []);
+  let acceptedGaps = $derived(data?.gaps.filter((g) => g.accepted) ?? []);
+  let outsidePeople = $derived(data?.people.filter((p) => p.via.every((v) => v.kind === 'outside')) ?? []);
+  let governedPeople = $derived(data?.people.filter((p) => !p.via.every((v) => v.kind === 'outside')) ?? []);
+  let checkedMissing = $derived(notFound(checked));
+  $effect.pre(() => {
+    const q = query; // only « query » starts it again (as the former « $: »)
+    untrack(() => scheduleCheck(q));
+  });
+  let bands = $derived([
+    ...(data?.groups ?? []).map(
+      (g): Band => ({ key: `g:${g.name}`, group: g.name, level: g.level, managed: true, state: g.ace, rights: g.rights_label,
+        members: data?.people.filter((p) => groupOfVia(p).includes(g.name)) ?? [] })
+    ),
+    ...openGaps
+      .filter((g) => (g.members_count ?? 0) > 0 || g.kind === 'broad')
+      .map((g): Band => ({ key: `x:${g.principal}`, group: g.name, level: g.level, managed: false, state: 'outside', rights: g.rights_label,
+        members: data?.people.filter((p) => groupOfVia(p).includes(g.name)) ?? [] }))
+  ]);
+  let horizon = $derived(Date.now() + 30 * 86400000);
+  let people = $derived(governedPeople.filter((p) => {
+    if (filter === 'read' || filter === 'write') if (p.level !== filter) return false;
+    if (filter === 'ending' && !(p.expires_at && Date.parse(p.expires_at) <= horizon)) return false;
+    if (groupFilter && !groupOfVia(p).includes(groupFilter)) return false;
+    const q = search.trim().toLowerCase();
+    return !q || `${p.name} ${p.username ?? ''}`.toLowerCase().includes(q);
+  }));
+  $effect.pre(() => {
+    if (explainLogin && explainLogin !== explainedFrom) {
+      explainedFrom = explainLogin;
+      explainFor = explainLogin;
+    }
+  });
+  // ---------------------------------------------------------------- end dates
+  let ends = $derived((data?.people ?? [])
+    .filter((p) => p.expires_at)
+    .sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)))
+    .slice(0, 5));
+  let ringShare = $derived(data && data.summary.groups ? Math.round((data.summary.groups_ok / data.summary.groups) * 100) : 0);
 </script>
 
 {#if loading && !data}
   <LoadingState block>{t('Reading the permissions…')}</LoadingState>
 {:else if error && !data}
   <InlineAlert tone="error">{error}</InlineAlert>
-{:else if data && state}
+{:else if data && aclView}
   <div class="pm">
     <div class="pm-col">
       <!-- state of the ACL -->
@@ -252,14 +277,14 @@
         <header>
           <h2>{t('State of the ACL')}</h2>
           {#if (canManage || isAdmin) && data.summary.groups > 0}
-            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={repairing} on:click={() => (repairAsked = true)}>{repairing ? t('Repairing…') : t('Repair the ACL')}</button>
+            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={repairing} onclick={() => (repairAsked = true)}>{repairing ? t('Repairing…') : t('Repair the ACL')}</button>
           {/if}
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!data.people.length} on:click={exportCsv}><i class="bi bi-download" aria-hidden="true"></i>{t('Export')}</button>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!data.people.length} onclick={exportCsv}><i class="bi bi-download" aria-hidden="true"></i>{t('Export')}</button>
         </header>
         <div class="pm-state">
-          <span class={`pm-ring is-${state.tone}`} style={`--share:${ringShare}%`} aria-hidden="true"><b>{data.summary.groups_ok}/{data.summary.groups}</b></span>
+          <span class={`pm-ring is-${aclView.tone}`} style={`--share:${ringShare}%`} aria-hidden="true"><b>{data.summary.groups_ok}/{data.summary.groups}</b></span>
           <div class="pm-state__text">
-            <strong class={`is-${state.tone}`}>{state.word().replace(/\.$/, '')}</strong>
+            <strong class={`is-${aclView.tone}`}>{aclView.word().replace(/\.$/, '')}</strong>
             <p>
               {#if !data.acl_scanned_at}
                 {t('Read the ACL to see who reaches this folder.')}
@@ -280,7 +305,7 @@
                 <span class:is-warn={data.inheritance.broken}>
                   <i class={`bi ${data.inheritance.broken ? 'bi-scissors' : 'bi-diagram-3'}`} aria-hidden="true"></i>
                   {data.inheritance.broken ? t('inheritance broken') : t('inherits from the parent folder')}
-                  {#if isAdmin}· <button type="button" class="b2s-link-btn" on:click={onToggleInheritance}>{data.inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
+                  {#if isAdmin}· <button type="button" class="b2s-link-btn" onclick={onToggleInheritance}>{data.inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
                 </span>
               {/if}
             </div>
@@ -307,7 +332,7 @@
             <div class="pm-answer">
               <p><strong>{checked.person.name}</strong> {checked.person.level === 'write' ? t('modifies this folder') : t('reads this folder')}
                 {#if checked.person.expires_at}<span class="is-write">· {t('ends {date}', { date: formatDate(checked.person.expires_at) })}</span>{/if}
-                <button type="button" class="b2s-link-btn" on:click={() => checked?.found && (explainFor = checked.person.username ?? checked.person.name)}>{t('Details')} ›</button>
+                <button type="button" class="b2s-link-btn" onclick={() => checked?.found && (explainFor = checked.person.username ?? checked.person.name)}>{t('Details')} ›</button>
               </p>
               <div class="pm-chain">
                 <span class="pm-step is-ok"><b>{checked.person.name}</b><small>{checked.person.username ?? ''}</small></span>
@@ -331,7 +356,7 @@
                   : t('No directory account named {name}', { name: checkedMissing.username })}
               </p>
               {#if checkedMissing.known_in_directory && rootId}
-                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" on:click={() => goto(`/access-requests/new?root=${rootId}`)}>{t('Request an access')}</button>
+                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" onclick={() => goto(`/access-requests/new?root=${rootId}`)}>{t('Request an access')}</button>
               {/if}
             </div>
           {:else}
@@ -345,7 +370,7 @@
         <section class="pm-card" aria-label={t('Path of the accesses')}>
           <header><h2>{t('Path of the accesses')}</h2><small class="pm-muted">{t('Click a group to see only its members')}</small></header>
           {#each bands as band (band.key)}
-            <button type="button" class={`pm-path is-${band.managed ? band.level ?? 'read' : 'outside'}`} class:is-active={groupFilter === band.group} aria-pressed={groupFilter === band.group} on:click={() => toggleGroup(band.group)}>
+            <button type="button" class={`pm-path is-${band.managed ? band.level ?? 'read' : 'outside'}`} class:is-active={groupFilter === band.group} aria-pressed={groupFilter === band.group} onclick={() => toggleGroup(band.group)}>
               <span class="pm-path__who">
                 <span class="pm-stack">{#each band.members.slice(0, 4) as member (member.key)}<span class={`pm-face is-${band.level ?? 'read'}`}>{initials(member.name)}</span>{/each}</span>
                 <span><b>{band.members.length ? t('{count} person(s)', { count: band.members.length }) : t('No member yet')}</b><small>{band.level === 'write' ? t('in modification') : t('in read')}</small></span>
@@ -365,12 +390,12 @@
         <div class="pm-tools">
           <label class="pm-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={search} placeholder={t('Search a person')} aria-label={t('Search a person')} /></label>
           <div class="pm-seg" role="group" aria-label={t('Filter by level')}>
-            <button type="button" class:on={filter === 'all'} on:click={() => (filter = 'all')}>{t('All')}<span>{governedPeople.length}</span></button>
-            <button type="button" class:on={filter === 'read'} on:click={() => (filter = 'read')}>{t('Read')}<span>{data.summary.read}</span></button>
-            <button type="button" class:on={filter === 'write'} on:click={() => (filter = 'write')}>{t('Modify')}<span>{data.summary.write}</span></button>
-            <button type="button" class:on={filter === 'ending'} on:click={() => (filter = 'ending')}>{t('Ending within 30 days')}<span>{data.summary.expiring_30d}</span></button>
+            <button type="button" class:on={filter === 'all'} onclick={() => (filter = 'all')}>{t('All')}<span>{governedPeople.length}</span></button>
+            <button type="button" class:on={filter === 'read'} onclick={() => (filter = 'read')}>{t('Read')}<span>{data.summary.read}</span></button>
+            <button type="button" class:on={filter === 'write'} onclick={() => (filter = 'write')}>{t('Modify')}<span>{data.summary.write}</span></button>
+            <button type="button" class:on={filter === 'ending'} onclick={() => (filter = 'ending')}>{t('Ending within 30 days')}<span>{data.summary.expiring_30d}</span></button>
           </div>
-          {#if groupFilter}<button type="button" class="pm-chip is-filter" on:click={() => (groupFilter = null)}>{groupFilter} <i class="bi bi-x" aria-hidden="true"></i></button>{/if}
+          {#if groupFilter}<button type="button" class="pm-chip is-filter" onclick={() => (groupFilter = null)}>{groupFilter} <i class="bi bi-x" aria-hidden="true"></i></button>{/if}
         </div>
         {#if people.length}
           <ul class="pm-rows">
@@ -378,7 +403,7 @@
               {@const request = mainRequest(person)}
               {@const progress = person.expires_at ? expiryProgress(request?.decided_at ?? null, person.expires_at) : null}
               <li>
-                <button type="button" class="pm-who" on:click={() => (explainFor = person.username ?? person.name)}>
+                <button type="button" class="pm-who" onclick={() => (explainFor = person.username ?? person.name)}>
                   <span class={`pm-face is-lg is-${person.level}`}>{initials(person.name)}</span>
                   <span><strong>{person.name}</strong><small>{person.username ?? ''}</small></span>
                 </button>
@@ -399,10 +424,10 @@
                 </span>
                 <span class="pm-actions">
                   {#if canManage && person.expires_at && request}
-                    <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={extending === person.key} on:click={() => extend(person)}>+30 j</button>
+                    <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={extending === person.key} onclick={() => extend(person)}>+30 j</button>
                   {/if}
                   {#if canManage && person.revocable_request_ids.length}
-                    <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" disabled={busy} on:click={() => (revoking = person)}>{t('Revoke')}</button>
+                    <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" disabled={busy} onclick={() => (revoking = person)}>{t('Revoke')}</button>
                   {/if}
                 </span>
               </li>
@@ -414,7 +439,7 @@
         {#if data.system.length}
           <div class="pm-system">
             <span><i class="bi bi-gear" aria-hidden="true"></i> {t('+ {count} expected system account(s)', { count: data.system.length })}</span>
-            <button type="button" class="b2s-link-btn" aria-expanded={showSystem} on:click={() => (showSystem = !showSystem)}>{showSystem ? t('Hide') : t('Show')}</button>
+            <button type="button" class="b2s-link-btn" aria-expanded={showSystem} onclick={() => (showSystem = !showSystem)}>{showSystem ? t('Hide') : t('Show')}</button>
           </div>
           {#if showSystem}
             <ul class="pm-system__list">
@@ -438,13 +463,13 @@
               <small>{originText(gap)}</small>
               {#if gapPeople(gap).length}
                 <span class="pm-gap__people">
-                  {#each gapPeople(gap).slice(0, 4) as person (person.key)}<button type="button" class="b2s-link-btn" on:click={() => (explainFor = person.username ?? person.name)}>{person.name}</button>{/each}
+                  {#each gapPeople(gap).slice(0, 4) as person (person.key)}<button type="button" class="b2s-link-btn" onclick={() => (explainFor = person.username ?? person.name)}>{person.name}</button>{/each}
                 </span>
               {:else if gap.members_count}
                 <small>{t('{count} member(s) without a request or a guardian', { count: gap.members_count })}</small>
               {/if}
             </span>
-            {#if isAdmin}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} on:click={() => toggleGap(gap, true)}>{t('Accept the gap')}</button>{/if}
+            {#if isAdmin}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} onclick={() => toggleGap(gap, true)}>{t('Accept the gap')}</button>{/if}
           </div>
         {:else}
           <p class="pm-ok"><i class="bi bi-check2-circle" aria-hidden="true"></i> {t('Nothing: every access goes through BornToShare.')}</p>
@@ -452,7 +477,7 @@
         {#if acceptedGaps.length}
           <small class="pm-muted">{t('{count} accepted gap(s):', { count: acceptedGaps.length })}</small>
           {#each acceptedGaps as gap (gap.principal)}
-            <div class="pm-accepted"><span class="mono">{gap.name}</span>{#if isAdmin}<button type="button" class="b2s-link-btn" disabled={busy} on:click={() => toggleGap(gap, false)}>{t('Report again')}</button>{/if}</div>
+            <div class="pm-accepted"><span class="mono">{gap.name}</span>{#if isAdmin}<button type="button" class="b2s-link-btn" disabled={busy} onclick={() => toggleGap(gap, false)}>{t('Report again')}</button>{/if}</div>
           {/each}
         {/if}
       </section>
@@ -481,7 +506,7 @@
               <span class={`pm-face is-${person.level}`}>{initials(person.name)}</span>
               <span class="pm-end__name"><b>{person.name}</b><span class="pm-time" class:is-soon={progress.soon} aria-hidden="true"><span style={`width: ${progress.percentLeft}%`}></span></span></span>
               <small class="pm-muted">{t('in {days} d', { days: progress.daysLeft })}</small>
-              {#if canManage && request}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={extending === person.key} on:click={() => extend(person)}>+30 j</button>{/if}
+              {#if canManage && request}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={extending === person.key} onclick={() => extend(person)}>+30 j</button>{/if}
             </div>
           {/each}
         </section>

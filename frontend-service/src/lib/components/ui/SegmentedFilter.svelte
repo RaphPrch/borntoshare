@@ -4,10 +4,19 @@
    * value is bound; a count after the label is optional.
    */
   type Option = { key: string; label: string; count?: number | null };
-  export let options: Option[] = [];
-  export let value: string;
-  export let ariaLabel: string | null = null;
-  export let onChange: (key: string) => void = () => {};
+  interface Props {
+    options?: Option[];
+    value: string;
+    ariaLabel?: string | null;
+    onChange?: (key: string) => void;
+  }
+
+  let {
+    options = [],
+    value = $bindable(),
+    ariaLabel = null,
+    onChange = () => {}
+  }: Props = $props();
 
   function pick(key: string) {
     value = key;
@@ -17,7 +26,7 @@
 
 <div class="seg" role="group" aria-label={ariaLabel}>
   {#each options as option (option.key)}
-    <button type="button" class:on={value === option.key} aria-pressed={value === option.key} on:click={() => pick(option.key)}>
+    <button type="button" class:on={value === option.key} aria-pressed={value === option.key} onclick={() => pick(option.key)}>
       {option.label}{#if option.count != null}<span>{option.count}</span>{/if}
     </button>
   {/each}

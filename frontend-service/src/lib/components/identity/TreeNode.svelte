@@ -1,39 +1,40 @@
 <script lang="ts">
+  import TreeNode from './TreeNode.svelte';
   import { t } from '$lib/i18n';
-  import { createEventDispatcher } from 'svelte';
   import type { IdentityTreeNode } from '../../types/identity-browser';
 
-  export let node: IdentityTreeNode;
-  export let level = 0;
-  export let activeDn: string | null = null;
-  export let expandedDns: Set<string> = new Set();
-  export let loadingDns: Set<string> = new Set();
+  interface Props {
+    node: IdentityTreeNode;
+    level?: number;
+    activeDn?: string | null;
+    expandedDns?: Set<string>;
+    loadingDns?: Set<string>;
+    onToggle?: (change: { dn: string; expanded: boolean }) => void;
+    onSelect?: (dn: string) => void;
+  }
 
-  const dispatch = createEventDispatcher<{
-    toggle: { dn: string; expanded: boolean };
-    select: { dn: string };
-  }>();
+  let { node, level = 0, activeDn = null, expandedDns = new Set(), loadingDns = new Set(), onToggle, onSelect }: Props = $props();
 
-  $: isExpanded = expandedDns.has(node.dn);
-  $: isLoading = loadingDns.has(node.dn);
-  $: isActive = activeDn === node.dn;
-  $: isFolder = String(node?.type ?? 'ou').toLowerCase() !== 'group';
+  let isExpanded = $derived(expandedDns.has(node.dn));
+  let isLoading = $derived(loadingDns.has(node.dn));
+  let isActive = $derived(activeDn === node.dn);
+  let isFolder = $derived(String(node?.type ?? 'ou').toLowerCase() !== 'group');
 
   function toggleNode() {
     if (!node?.dn) return;
-    dispatch('toggle', { dn: node.dn, expanded: !isExpanded });
+    onToggle?.({ dn: node.dn, expanded: !isExpanded });
   }
 
   function selectNode() {
     if (!node?.dn) return;
-    dispatch('select', { dn: node.dn });
+    onSelect?.(node.dn);
   }
 </script>
 
 <div class="idb-tree-node-wrap">
   <div class={`idb-tree-node ${isActive ? 'is-active' : ''}`} style={`padding-left:${6 + level * 16}px;`}>
     {#if node.has_children}
-      <button class="idb-tree-toggle" type="button" on:click={toggleNode} aria-label={t('Toggle node')}>
+      <button class="idb-tree-toggle" type="button" onclick={toggleNode} aria-label={t('Toggle node')}>
         {#if isLoading}
           <span class="b2s-spinner" aria-hidden="true"></span>
         {:else}
@@ -44,7 +45,7 @@
       <span class="idb-tree-leaf-dot" aria-hidden="true"></span>
     {/if}
 
-    <button type="button" class="idb-tree-select" on:click={selectNode}>
+    <button type="button" class="idb-tree-select" onclick={selectNode}>
       <i class={`bi ${isFolder ? (isExpanded ? 'bi-folder2-open' : 'bi-folder2') : 'bi-folder'}`}></i>
       <span class="idb-tree-label text-truncate">{node.name}</span>
     </button>
@@ -52,14 +53,14 @@
 
   {#if isExpanded && Array.isArray(node.children) && node.children.length > 0}
     {#each node.children as child (child.dn)}
-      <svelte:self
+      <TreeNode
         node={child}
         level={level + 1}
         {activeDn}
         {expandedDns}
         {loadingDns}
-        on:toggle
-        on:select
+        {onToggle}
+        {onSelect}
       />
     {/each}
   {/if}

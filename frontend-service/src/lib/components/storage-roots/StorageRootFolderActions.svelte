@@ -5,7 +5,6 @@
 </script>
 
 <script lang="ts">
-  import { run as run_1 } from 'svelte/legacy';
 
   import { tick } from 'svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -122,7 +121,7 @@
       onSubfolderCreated(created?.storage_root_id ?? null);
     }, t('The folder was not created.'), 'storage-root.subfolder');
   }
-  run_1(() => {
+  $effect.pre(() => {
     if (kind !== 'subfolder') {
       folderName = '';
       nameError = '';

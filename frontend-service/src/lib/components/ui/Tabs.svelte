@@ -10,10 +10,19 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { slideIndicator } from '$lib/utils/motion';
-  export let tabs: TabItem[] = [];
-  export let activeKey = '';
-  export let onChange: ((key: string) => void) | null = null;
-  export let ariaLabel = t('Sections');
+  interface Props {
+    tabs?: TabItem[];
+    activeKey?: string;
+    onChange?: ((key: string) => void) | null;
+    ariaLabel?: any;
+  }
+
+  let {
+    tabs = [],
+    activeKey = '',
+    onChange = null,
+    ariaLabel = t('Sections')
+  }: Props = $props();
 </script>
 
 <nav class="b2s-tabs" aria-label={ariaLabel} use:slideIndicator={{ selector: 'button.is-active', key: activeKey, axis: 'x' }}>
@@ -22,7 +31,7 @@
       type="button"
       class:is-active={tab.key === activeKey}
       aria-current={tab.key === activeKey ? 'page' : undefined}
-      on:click={() => onChange?.(tab.key)}
+      onclick={() => onChange?.(tab.key)}
     >
       {#if tab.icon}
         <i class={`bi ${tab.icon}`} aria-hidden="true"></i>

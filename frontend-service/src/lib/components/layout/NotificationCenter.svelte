@@ -16,10 +16,10 @@
    */
   type Notice = { id: number; kind: string; severity: string; title: string; body: string | null; link: string | null; created_at: string; read_at: string | null };
 
-  let open = false;
-  let loading = false;
-  let items: Notice[] = [];
-  let filter: 'all' | 'unread' = 'all';
+  let open = $state(false);
+  let loading = $state(false);
+  let items: Notice[] = $state([]);
+  let filter = $state<'all' | 'unread'>('all');
 
   const ICON: Record<string, string> = { request: 'bi-inbox', decision: 'bi-check2-circle', expiry: 'bi-hourglass-split', alert: 'bi-exclamation-octagon', task: 'bi-check2-all' };
   const kindLabel = (kind: string) =>
@@ -75,11 +75,11 @@
   });
   onDestroy(stop);
 
-  $: unread = $live.unread;
-  $: shown = filter === 'unread' ? items.filter((n) => !n.read_at) : items;
+  let unread = $derived($live.unread);
+  let shown = $derived(filter === 'unread' ? items.filter((n) => !n.read_at) : items);
 </script>
 
-<button type="button" class="nc-trigger" class:has-unread={unread > 0} on:click={show}
+<button type="button" class="nc-trigger" class:has-unread={unread > 0} onclick={show}
   aria-label={unread ? t('Notifications ({count} unread)', { count: unread }) : t('Notifications')}
   title={unread ? t('Notifications ({count} unread)', { count: unread }) : t('Notifications')}>
   <i class="bi bi-bell" aria-hidden="true"></i>
@@ -91,10 +91,10 @@
   iconClass="bi bi-bell" showFooter={false} ariaLabelledby="nc-title">
   <div class="nc-tools">
     <div class="nc-filter" role="group" aria-label={t('Show')}>
-      <button type="button" class:is-on={filter === 'all'} aria-pressed={filter === 'all'} on:click={() => (filter = 'all')}>{t('All')}</button>
-      <button type="button" class:is-on={filter === 'unread'} aria-pressed={filter === 'unread'} on:click={() => (filter = 'unread')}>{t('Unread')}</button>
+      <button type="button" class:is-on={filter === 'all'} aria-pressed={filter === 'all'} onclick={() => (filter = 'all')}>{t('All')}</button>
+      <button type="button" class:is-on={filter === 'unread'} aria-pressed={filter === 'unread'} onclick={() => (filter = 'unread')}>{t('Unread')}</button>
     </div>
-    <button type="button" class="b2s-link-btn" disabled={!items.some((n) => !n.read_at)} on:click={() => markRead('all')}>{t('Mark all as read')}</button>
+    <button type="button" class="b2s-link-btn" disabled={!items.some((n) => !n.read_at)} onclick={() => markRead('all')}>{t('Mark all as read')}</button>
   </div>
   {#if loading && !items.length}
     <LoadingState skeleton="rows" rows={5} />
@@ -104,7 +104,7 @@
     <ul class="nc-list">
       {#each shown as notice (notice.id)}
         <li class:is-unread={!notice.read_at} class={`is-${notice.severity}`}>
-          <button type="button" on:click={() => openNotice(notice)}>
+          <button type="button" onclick={() => openNotice(notice)}>
             <span class="nc-icon" aria-hidden="true"><i class={`bi ${ICON[notice.kind] ?? 'bi-bell'}`}></i></span>
             <span class="nc-text">
               <small>{kindLabel(notice.kind)} · <RelativeTime value={notice.created_at} /></small>

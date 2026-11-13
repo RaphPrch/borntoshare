@@ -1,8 +1,13 @@
 <script lang="ts">
   import { LOCALES, LOCALE_COOKIE, getLocale, t, type Locale } from '$lib/i18n';
 
-  /** 'dark' on the navy top bar, 'light' on white pages (login) */
-  export let tone: 'dark' | 'light' = 'dark';
+  
+  interface Props {
+    /** 'dark' on the navy top bar, 'light' on white pages (login) */
+    tone?: 'dark' | 'light';
+  }
+
+  let { tone = 'dark' }: Props = $props();
 
   const current = getLocale();
 
@@ -21,7 +26,7 @@
       aria-pressed={locale === current}
       lang={locale}
       title={locale === 'fr' ? 'Français' : 'English'}
-      on:click={() => choose(locale)}
+      onclick={() => choose(locale)}
     >
       {locale.toUpperCase()}
     </button>

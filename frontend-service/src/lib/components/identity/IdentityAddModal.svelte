@@ -1,4 +1,6 @@
 <script lang="ts">
+
+  import { untrack } from 'svelte';
   import { apiGetList } from '$lib/api/client';
   import { createIdentity, type CreateIdentityPayload } from '$lib/api/identity';
   import { listIdentitySources } from '$lib/api/identity-sources';
@@ -8,31 +10,40 @@
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
 
-  /**
+  
+  interface Props {
+    /**
    * Add an identity in one screen: a person or a group found in the last reading of a directory (instant search,
    * the people already in BornToShare marked), or a local fallback account. A preview says what it will be able to do.
    */
-  export let open = false;
-  export let existing: Array<Record<string, any>> = [];
-  export let onClose: () => void = () => {};
-  export let onDone: (id: number | null) => void = () => {};
+    open?: boolean;
+    existing?: Array<Record<string, any>>;
+    onClose?: () => void;
+    onDone?: (id: number | null) => void;
+  }
+
+  let {
+    open = false,
+    existing = [],
+    onClose = () => {},
+    onDone = () => {}
+  }: Props = $props();
 
   type Kind = 'user' | 'group' | 'local';
   type Row = { id: number; username?: string; display_name?: string; name?: string; email?: string | null; upn?: string | null; dn?: string; external_id?: string | null; groups?: number; members?: number };
-  let kind: Kind = 'user';
-  let sources: Array<{ id: number; name: string }> = [];
-  let sourceId = 0;
-  let query = '';
-  let results: Row[] = [];
-  let searching = false;
-  let picked: Row | null = null;
-  let role: 'user' | 'platform_admin' = 'user';
-  let saving = false;
-  let error = '';
+  let kind = $state<Kind>('user');
+  let sources: Array<{ id: number; name: string }> = $state([]);
+  let sourceId = $state(0);
+  let query = $state('');
+  let results: Row[] = $state([]);
+  let searching = $state(false);
+  let picked: Row | null = $state(null);
+  let role = $state<'user' | 'platform_admin'>('user');
+  let saving = $state(false);
+  let error = $state('');
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let local = { username: '', display_name: '', email: '', password: '', change: true };
+  let local = $state({ username: '', display_name: '', email: '', password: '', change: true });
 
-  $: if (open) init();
   let initialized = false;
   async function init() {
     if (initialized) return;
@@ -79,25 +90,13 @@
   const label = (row: Row) => String(row.display_name || row.name || row.username || '');
   const login = (row: Row) => String(row.username || row.name || '');
   const fold = (value: unknown) => String(value ?? '').toLowerCase();
-  // Already in BornToShare: same login, or same directory object
-  $: present = new Set(existing.flatMap((item) => [fold(item?.username), fold(item?.external_id), fold(item?.dn)].filter(Boolean)));
   const isPresent = (row: Row) => [login(row), row.external_id, row.dn].some((value) => value && present.has(fold(value)));
   function parts(text: string) {
     const at = query.trim() ? text.toLowerCase().indexOf(query.trim().toLowerCase()) : -1;
     return at < 0 ? { pre: text, hit: '', post: '' } : { pre: text.slice(0, at), hit: text.slice(at, at + query.trim().length), post: text.slice(at + query.trim().length) };
   }
-  $: if (results.length && (!picked || !results.some((row) => row.id === picked?.id))) picked = results.find((row) => !isPresent(row)) ?? null;
   const initials = (text: string) => text.split(/[ .\-_]/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
 
-  $: previewName = kind === 'local' ? local.display_name || local.username || t('New local account') : picked ? label(picked) : t('Choose in the list');
-  $: previewMail = kind === 'local' ? local.email : picked?.email ?? '';
-  $: blocked = kind === 'local' ? !(local.username.trim() && local.password.length >= 12) : !picked || isPresent(picked);
-  $: can = role === 'platform_admin'
-    ? [t('Everything a user does'), t('Declare servers, directories and folders'), t('Give the roles, validate every request')]
-    : kind === 'group'
-      ? [t('Every member signs in with their Windows account'), t('Every member can request access to a folder')]
-      : [kind === 'local' ? t('Sign in with this login and password') : t('Sign in with their Windows account'), t('Request access to a folder'),
-         previewMail ? t('Receive the decisions by e-mail') : t('See the decisions in BornToShare (no e-mail)')];
 
   async function save() {
     if (blocked || saving) return;
@@ -122,28 +121,45 @@
       saving = false;
     }
   }
+  $effect.pre(() => {
+    if (open) untrack(init); // only « open » starts it again (as the former « $: »)
+  });
+  // Already in BornToShare: same login, or same directory object
+  let present = $derived(new Set(existing.flatMap((item) => [fold(item?.username), fold(item?.external_id), fold(item?.dn)].filter(Boolean))));
+  $effect.pre(() => {
+    if (results.length && (!picked || !results.some((row) => row.id === picked?.id))) picked = results.find((row) => !isPresent(row)) ?? null;
+  });
+  let previewName = $derived(kind === 'local' ? local.display_name || local.username || t('New local account') : picked ? label(picked) : t('Choose in the list'));
+  let previewMail = $derived(kind === 'local' ? local.email : picked?.email ?? '');
+  let blocked = $derived(kind === 'local' ? !(local.username.trim() && local.password.length >= 12) : !picked || isPresent(picked));
+  let can = $derived(role === 'platform_admin'
+    ? [t('Everything a user does'), t('Declare servers, directories and folders'), t('Give the roles, validate every request')]
+    : kind === 'group'
+      ? [t('Every member signs in with their Windows account'), t('Every member can request access to a folder')]
+      : [kind === 'local' ? t('Sign in with this login and password') : t('Sign in with their Windows account'), t('Request access to a folder'),
+         previewMail ? t('Receive the decisions by e-mail') : t('See the decisions in BornToShare (no e-mail)')]);
 </script>
 
 <AppModal open={open} onClose={close} size="xl" title={t('Add an identity')} iconClass="bi bi-person-plus" closeOnBackdrop={false}>
   <div class="ia">
     <div class="ia__main">
       <div class="ia__kinds" role="tablist" aria-label={t('What are you adding?')}>
-        <button type="button" role="tab" aria-selected={kind === 'user'} class:is-on={kind === 'user'} on:click={() => setKind('user')}>{t('A person')}</button>
-        <button type="button" role="tab" aria-selected={kind === 'group'} class:is-on={kind === 'group'} on:click={() => setKind('group')}>{t('A directory group')}</button>
-        <button type="button" role="tab" aria-selected={kind === 'local'} class:is-on={kind === 'local'} on:click={() => setKind('local')}>{t('A local account')}</button>
+        <button type="button" role="tab" aria-selected={kind === 'user'} class:is-on={kind === 'user'} onclick={() => setKind('user')}>{t('A person')}</button>
+        <button type="button" role="tab" aria-selected={kind === 'group'} class:is-on={kind === 'group'} onclick={() => setKind('group')}>{t('A directory group')}</button>
+        <button type="button" role="tab" aria-selected={kind === 'local'} class:is-on={kind === 'local'} onclick={() => setKind('local')}>{t('A local account')}</button>
       </div>
 
       {#if kind !== 'local'}
         <div class="ia__searchrow">
           <label class="ia__search">
             <i class="bi bi-search" aria-hidden="true"></i>
-            <!-- svelte-ignore a11y-autofocus -->
-            <input autofocus bind:value={query} on:input={search} aria-label={t('Search the directory')}
+            <!-- svelte-ignore a11y_autofocus -->
+            <input autofocus bind:value={query} oninput={search} aria-label={t('Search the directory')}
               placeholder={kind === 'group' ? t('Name of the group…') : t('Name, login or e-mail…')} />
             {#if searching}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{/if}
           </label>
           {#if sources.length > 1}
-            <select class="b2s-input" bind:value={sourceId} on:change={search} aria-label={t('Directory')}>
+            <select class="b2s-input" bind:value={sourceId} onchange={search} aria-label={t('Directory')}>
               {#each sources as source (source.id)}<option value={source.id}>{source.name}</option>{/each}
             </select>
           {/if}
@@ -151,7 +167,7 @@
         <div class="ia__results" role="listbox" aria-label={t('Results')}>
           {#each results as row (row.id)}
             {@const text = parts(label(row))}
-            <button type="button" role="option" aria-selected={picked?.id === row.id} class:is-on={picked?.id === row.id} class:is-in={isPresent(row)} on:click={() => (picked = row)}>
+            <button type="button" role="option" aria-selected={picked?.id === row.id} class:is-on={picked?.id === row.id} class:is-in={isPresent(row)} onclick={() => (picked = row)}>
               <span class="ia__av" class:is-group={kind === 'group'}>{kind === 'group' ? '' : initials(label(row))}{#if kind === 'group'}<i class="bi bi-people" aria-hidden="true"></i>{/if}</span>
               <span class="ia__who"><b>{text.pre}<mark>{text.hit}</mark>{text.post}</b>
                 <small class="mono">{kind === 'group' ? t('{count} member(s)', { count: row.members ?? 0 }) : `${login(row)} · ${row.email || t('no e-mail')}`}</small></span>
@@ -182,10 +198,10 @@
       </div>
       <fieldset class="ia__roles">
         <legend>{t('Role')}</legend>
-        <button type="button" role="radio" aria-checked={role === 'user'} class:is-on={role === 'user'} on:click={() => (role = 'user')}>
+        <button type="button" role="radio" aria-checked={role === 'user'} class:is-on={role === 'user'} onclick={() => (role = 'user')}>
           <b>{t('User')}</b><small>{t('Requests access, sees their folders. Becomes guardian when a folder names them.')}</small>
         </button>
-        <button type="button" role="radio" aria-checked={role === 'platform_admin'} class:is-on={role === 'platform_admin'} on:click={() => (role = 'platform_admin')}>
+        <button type="button" role="radio" aria-checked={role === 'platform_admin'} class:is-on={role === 'platform_admin'} onclick={() => (role = 'platform_admin')}>
           <b>{t('Administrator')}</b><small>{t('Manages the whole platform.')}</small>
         </button>
       </fieldset>
@@ -197,7 +213,7 @@
         {/if}
       </div>
       {#if error}<InlineAlert tone="error">{error}</InlineAlert>{/if}
-      <button type="button" class="b2s-btn b2s-btn-primary ia__cta" disabled={blocked || saving} on:click={save}>
+      <button type="button" class="b2s-btn b2s-btn-primary ia__cta" disabled={blocked || saving} onclick={save}>
         {saving ? t('Adding…') : picked && isPresent(picked) && kind !== 'local' ? t('{name} is already in BornToShare', { name: previewName }) : t('Add {name}', { name: previewName })}
       </button>
     </aside>

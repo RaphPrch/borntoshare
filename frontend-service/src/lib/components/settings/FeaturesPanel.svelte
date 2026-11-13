@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { preventDefault } from 'svelte/legacy';
+
   import { onMount } from 'svelte';
   import { invalidateAll } from '$app/navigation';
   import FivesModuleSetup from '$lib/components/settings/FivesModuleSetup.svelte';
@@ -15,27 +17,32 @@
    * a module keeps its data; its menu and its pages disappear. Shared by Advanced settings › Features and the
    * step « Features » of the first setup.
    */
-  /** In the first setup: a lighter header, and what to do next */
-  export let inSetup = false;
+  
+  interface Props {
+    /** In the first setup: a lighter header, and what to do next */
+    inSetup?: boolean;
+  }
+
+  let { inSetup = false }: Props = $props();
   type Feature = { key: string; label: string; description: string; icon: string; licensed: boolean; enabled: boolean; switched_on: boolean; installed?: boolean;
     expires_on: string | null; updated_by: string | null };
   type License = { id: number; license_id: string; customer: string; key_hint: string; features: string[]; issued_on: string | null;
     expires_on: string | null; expired: boolean; activated_at: string | null; activated_by: string | null };
   type State = { features: Feature[]; licenses: License[] };
 
-  let state: State | null = null;
-  let key = '';
-  let busy = false;
+  let catalog: State | null = $state(null);
+  let key = $state('');
+  let busy = $state(false);
   onMount(async () => {
-    state = await apiGetData<State>(fetch, '/features').catch(() => ({ features: [], licenses: [] }));
+    catalog = await apiGetData<State>(fetch, '/features').catch(() => ({ features: [], licenses: [] }));
   });
-  const name = (featureKey: string) => state?.features.find((feature) => feature.key === featureKey)?.label ?? featureKey;
+  const name = (featureKey: string) => catalog?.features.find((feature) => feature.key === featureKey)?.label ?? featureKey;
 
   async function run(work: () => Promise<State>, done: string, context: string) {
     if (busy) return;
     busy = true;
     try {
-      state = await work();
+      catalog = await work();
       if (done) toast.success(done);
       await invalidateAll(); // the menu follows
     } catch (error: unknown) {
@@ -54,13 +61,13 @@
     feature.switched_on ? t('{name} switched off.', { name: feature.label }) : t('{name} switched on.', { name: feature.label }), 'features.switch');
 </script>
 
-{#if !state}
+{#if !catalog}
   <LoadingState block skeleton="rows" rows={3} />
 {:else}
   <div class="ft" class:is-setup={inSetup}>
     <section class="ft__card" aria-label={t('Features')}>
       <header><h2>{t('Modules')}</h2></header>
-      {#each state.features as feature (feature.key)}
+      {#each catalog.features as feature (feature.key)}
         <div class="ft__feature" class:is-on={feature.enabled}>
           <span class="ft__icon"><i class={`bi ${feature.icon}`} aria-hidden="true"></i></span>
           <div class="ft__what">
@@ -74,7 +81,7 @@
             </span>
           </div>
           <label class="ft__switch" title={feature.licensed ? '' : t('Enter a license key that opens it first')}>
-            <input type="checkbox" role="switch" checked={feature.switched_on} disabled={busy || !feature.licensed} on:change={() => toggle(feature)} />
+            <input type="checkbox" role="switch" checked={feature.switched_on} disabled={busy || !feature.licensed} onchange={() => toggle(feature)} />
             <span aria-hidden="true"></span>
             <span class="b2s-visually-hidden">{feature.label}</span>
           </label>
@@ -82,27 +89,27 @@
       {/each}
     </section>
 
-    {#if state.features.find((feature) => feature.key === 'fives')?.licensed}
-      <FivesModuleSetup enabled={Boolean(state.features.find((feature) => feature.key === 'fives')?.switched_on)} />
+    {#if catalog.features.find((feature) => feature.key === 'fives')?.licensed}
+      <FivesModuleSetup enabled={Boolean(catalog.features.find((feature) => feature.key === 'fives')?.switched_on)} />
     {/if}
 
     <section class="ft__card" aria-label={t('License key')}>
       <header><h2>{t('License key')}</h2><small>{t('Checked here, without any connection: nothing leaves BornToShare.')}</small></header>
-      <form class="ft__key" on:submit|preventDefault={activate}>
+      <form class="ft__key" onsubmit={preventDefault(activate)}>
         <textarea class="b2s-input" rows="3" bind:value={key} spellcheck="false" autocomplete="off" placeholder="B2S-AAAAA-BBBBB-…"
           aria-label={t('License key')}></textarea>
         <button type="submit" class="b2s-btn b2s-btn-primary" disabled={busy || key.trim().length < 20}><i class="bi bi-key" aria-hidden="true"></i>{t('Activate')}</button>
       </form>
-      {#if state.licenses.length}
+      {#if catalog.licenses.length}
         <ul class="ft__licenses">
-          {#each state.licenses as license (license.id)}
+          {#each catalog.licenses as license (license.id)}
             <li class:is-expired={license.expired}>
               <div>
                 <b>{license.customer}</b> <code>{license.key_hint}</code>
                 <small>{license.features.map(name).join(', ')} · {license.expires_on ? (license.expired ? t('expired on {date}', { date: formatDate(license.expires_on) }) : t('until {date}', { date: formatDate(license.expires_on) })) : t('no end date')}
                   · {t('activated by {who}', { who: license.activated_by ?? '—' })} {license.activated_at ? formatDate(license.activated_at) : ''}</small>
               </div>
-              {#if !inSetup}<button type="button" class="b2s-link-btn" disabled={busy} on:click={() => remove(license)}>{t('Remove the license')}</button>{/if}
+              {#if !inSetup}<button type="button" class="b2s-link-btn" disabled={busy} onclick={() => remove(license)}>{t('Remove the license')}</button>{/if}
             </li>
           {/each}
         </ul>

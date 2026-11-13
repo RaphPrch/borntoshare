@@ -1,11 +1,12 @@
 <script lang="ts">
+
   import { copyText } from '$lib/utils/clipboard';
   import { flip } from 'svelte/animate';
   import { dur, flashOn, MOTION, pop } from '$lib/utils/motion';
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import StorageRootRemediation from '$lib/components/storage-roots/StorageRootRemediation.svelte';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import { apiGetData, apiPostData } from '$lib/api/client';
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
@@ -35,9 +36,13 @@
     files_open_to_all?: number;
     requested_at?: string | null;
   };
-  export let rootId: number | null = null;
-  export let sensitivity: Sensitivity | null = null;
-  export let isAdmin = false;
+  interface Props {
+    rootId?: number | null;
+    sensitivity?: Sensitivity | null;
+    isAdmin?: boolean;
+  }
+
+  let { rootId = null, sensitivity = null, isAdmin = false }: Props = $props();
 
   const CATEGORY = (): Record<string, { label: string; icon: string }> => ({
     password: { label: t('Passwords in clear'), icon: 'bi-key' },
@@ -52,46 +57,26 @@
     executable: { label: t('Programs and scripts'), icon: 'bi-filetype-exe' }
   });
 
-  let state: Sensitivity | null = sensitivity;
-  let lastProp: Sensitivity | null = sensitivity;
-  let busy = false;
-  let showAll = false;
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let sensitivityScan: Sensitivity | null = $state(sensitivity);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let lastProp: Sensitivity | null = $state(sensitivity);
+  let busy = $state(false);
+  let showAll = $state(false);
   let timer: ReturnType<typeof setInterval> | null = null;
-  let landed = 0;
+  let landed = $state(0);
   const PASSWORD_CATEGORIES = new Set(['password', 'credentials_file', 'password_vault']);
-  $: passwordFiles = new Set((state?.findings ?? []).filter((item) => PASSWORD_CATEGORIES.has(item.category) && !item.ignored).map((item) => item.path.toLowerCase())).size;
-  // A new folder or a reloaded overview: start again from what the page gives (polling keeps `state` fresh in between)
-  $: if (sensitivity !== lastProp) adopt(sensitivity);
   function adopt(value: Sensitivity | null) {
     lastProp = value;
-    state = value;
+    sensitivityScan = value;
     showAll = false;
   }
-  $: running = state?.status === 'running';
-  // Share of the folder already read, while a long scan goes on pass after pass
-  $: progress = state?.incremental?.pending && state?.files_listed
-    ? Math.max(0, Math.min(99, Math.round((1 - Number(state.incremental.pending) / Number(state.files_listed)) * 100)))
-    : null;
-  $: running ? startPolling() : stopPolling();
-  $: findings = state?.findings ?? [];
-  // One line per file: a file found by its name and by its content shows both
-  $: allFiles = [...findings.reduce((map, item) => {
-    const key = item.path.toLowerCase();
-    if (!map.has(key)) map.set(key, { path: item.path, ignored: Boolean(item.ignored), items: [] as Finding[], acl: null as FileAcl | null });
-    const file = map.get(key)!;
-    file.items.push(item);
-    file.acl = file.acl ?? item.acl ?? null;
-    return map;
-  }, new Map<string, { path: string; ignored: boolean; items: Finding[]; acl: FileAcl | null }>()).values()];
-  // A file marked as a false positive no longer counts: listed apart, folded. The files every user can open first.
-  $: files = allFiles.filter((file) => !file.ignored).sort((a, b) => Number(Boolean(b.acl?.broad)) - Number(Boolean(a.acl?.broad)));
-  $: openToAll = files.filter((file) => file.acl?.broad).length;
   const RIGHT = (): Record<string, string> => ({ F: t('Full control'), W: t('Modify'), R: t('Read') });
   const aclRows = (acl: FileAcl) => acl.e.map((entry) => {
     const [who, right, inherited] = entry.split('|');
     return { who: who.replace(/^!/, ''), deny: who.startsWith('!'), right: RIGHT()[right] ?? right, inherited: inherited === 'i' };
   });
-  let openAcl: string | null = null;
+  let openAcl: string | null = $state(null);
   // Why every user can open them: in practice one folder gives read to everyone and all its files inherit it.
   // One line per cause (the accounts that open them, set on the folder or on the files), on their common folder.
   const RANK: Record<string, number> = { R: 1, W: 2, F: 3 };
@@ -101,27 +86,13 @@
     for (let index = 0; index < a.length && a[index].toLowerCase() === b[index]?.toLowerCase(); index++) out.push(a[index]);
     return out;
   };
-  $: causes = [...files.filter((file) => file.acl?.broad).reduce((map, file) => {
-    const by = [...(file.acl?.by ?? [])].sort();
-    const broadEntries = (file.acl?.e ?? []).filter((entry) => !entry.startsWith('!') && by.includes(entry.split('|')[0]));
-    const inherited = broadEntries.length > 0 && broadEntries.every((entry) => entry.split('|')[2] === 'i');
-    const key = `${by.join(',')}|${inherited}`;
-    const cause = map.get(key) ?? { by, inherited, files: [] as string[], folder: null as string[] | null, right: 'R' };
-    cause.files.push(file.path);
-    cause.folder = cause.folder === null ? parentOf(file.path) : common(cause.folder, parentOf(file.path));
-    for (const entry of broadEntries) { const right = entry.split('|')[1]; if ((RANK[right] ?? 0) > (RANK[cause.right] ?? 0)) cause.right = right; }
-    map.set(key, cause);
-    return map;
-  }, new Map<string, { by: string[]; inherited: boolean; files: string[]; folder: string[] | null; right: string }>()).values()]
-    .sort((a, b) => b.files.length - a.files.length);
-  $: ignoredFiles = allFiles.filter((file) => file.ignored);
-  let showIgnored = false;
-  let ignoringPath: string | null = null;
+  let showIgnored = $state(false);
+  let ignoringPath: string | null = $state(null);
   // « False positive » asks why, in a few words (an exception to a security finding is explained)
-  let reasonFor: string | null = null;
-  let reasonText = '';
+  let reasonFor: string | null = $state(null);
+  let reasonText = $state('');
   // ---- right click on a file: false positive, who can open it, copy ----
-  let menu: { path: string; hasAcl: boolean; at: { x: number; y: number } } | null = null;
+  let menu: { path: string; hasAcl: boolean; at: { x: number; y: number } } | null = $state(null);
   function openMenu(file: { path: string; acl?: FileAcl | null }, event: MouseEvent) {
     event.preventDefault();
     menu = { path: file.path, hasAcl: Boolean(file.acl), at: menuPositionFor(event) };
@@ -148,13 +119,13 @@
     if (!rootId || ignoringPath) return;
     ignoringPath = path;
     try {
-      state = await apiPostData<Sensitivity>(fetch, `/storage-roots/${rootId}/sensitivity/ignore`, { path, ignore, reason });
+      sensitivityScan = await apiPostData<Sensitivity>(fetch, `/storage-roots/${rootId}/sensitivity/ignore`, { path, ignore, reason });
       reasonFor = null;
       reasonText = '';
       const name = path.split('\\').pop();
       toast.success(ignore ? t('« {name} » no longer counts.', { name }) : t('« {name} » counts again.', { name }), {
         action: { label: t('Undo'), run: async () => {
-          state = await apiPostData<Sensitivity>(fetch, `/storage-roots/${rootId}/sensitivity/ignore`, { path, ignore: !ignore, reason: reason ?? previousReason(path) ?? 'annulation' });
+          sensitivityScan = await apiPostData<Sensitivity>(fetch, `/storage-roots/${rootId}/sensitivity/ignore`, { path, ignore: !ignore, reason: reason ?? previousReason(path) ?? 'annulation' });
         } }
       });
     } catch (error: unknown) {
@@ -165,20 +136,15 @@
   }
   const previousReason = (path: string) => findings.find((item) => item.path === path)?.ignored_reason ?? null;
 
-  $: shown = showAll ? files : files.slice(0, 6);
-  $: categories = Object.entries(state?.counts ?? {}).sort((a, b) => b[1] - a[1]);
-  // The path inside the folder: \\server\share\folder is the same for every finding
-  // \\server\share\folder: the findings are relative to the share, shown relative to the folder
-  $: prefix = (state?.target ?? '').split('\\').filter(Boolean).slice(2).join('\\');
   const inside = (path: string) => (prefix && path.toLowerCase().startsWith(prefix.toLowerCase() + '\\') ? path.slice(prefix.length + 1) : path);
 
   async function refresh() {
     if (!rootId) return;
     try {
-      const was = state?.status;
-      state = (await apiGetData<Sensitivity | null>(fetch, `/storage-roots/${rootId}/sensitivity`)) ?? state;
+      const was = sensitivityScan?.status;
+      sensitivityScan = (await apiGetData<Sensitivity | null>(fetch, `/storage-roots/${rootId}/sensitivity`)) ?? sensitivityScan;
       // The scan landed while the card was open: a short flash says so
-      if (was === 'running' && state?.status === 'done') landed += 1;
+      if (was === 'running' && sensitivityScan?.status === 'done') landed += 1;
     } catch {
       // the next tick tries again
     }
@@ -211,13 +177,59 @@
     try {
       const result = await apiPostData<{ queued: number[]; failed: Array<{ message: string }> }>(fetch, '/storage-roots/sensitivity-scan', { root_ids: [rootId] });
       if (result?.failed?.length) throw new Error(result.failed[0].message);
-      state = { ...(state ?? { files_flagged: 0, counts: {}, findings: [] }), status: 'running', error: null };
+      sensitivityScan = { ...(sensitivityScan ?? { files_flagged: 0, counts: {}, findings: [] }), status: 'running', error: null };
     } catch (error: unknown) {
       reportUiError(error, 'Unable to start the scan.', 'storage-roots.sensitivity');
     } finally {
       busy = false;
     }
   }
+  let passwordFiles = $derived(new Set((sensitivityScan?.findings ?? []).filter((item) => PASSWORD_CATEGORIES.has(item.category) && !item.ignored).map((item) => item.path.toLowerCase())).size);
+  // A new folder or a reloaded overview: start again from what the page gives (polling keeps `state` fresh in between)
+  $effect.pre(() => {
+    if (sensitivity !== lastProp) untrack(() => adopt(sensitivity));
+  });
+  let running = $derived(sensitivityScan?.status === 'running');
+  // Share of the folder already read, while a long scan goes on pass after pass
+  let progress = $derived(sensitivityScan?.incremental?.pending && sensitivityScan?.files_listed
+    ? Math.max(0, Math.min(99, Math.round((1 - Number(sensitivityScan.incremental.pending) / Number(sensitivityScan.files_listed)) * 100)))
+    : null);
+  $effect.pre(() => {
+    const on = running; // only « running » starts it again (as the former « $: »)
+    untrack(() => (on ? startPolling() : stopPolling()));
+  });
+  let findings = $derived(sensitivityScan?.findings ?? []);
+  // One line per file: a file found by its name and by its content shows both
+  let allFiles = $derived([...findings.reduce((map, item) => {
+    const key = item.path.toLowerCase();
+    if (!map.has(key)) map.set(key, { path: item.path, ignored: Boolean(item.ignored), items: [] as Finding[], acl: null as FileAcl | null });
+    const file = map.get(key)!;
+    file.items.push(item);
+    file.acl = file.acl ?? item.acl ?? null;
+    return map;
+  }, new Map<string, { path: string; ignored: boolean; items: Finding[]; acl: FileAcl | null }>()).values()]);
+  // A file marked as a false positive no longer counts: listed apart, folded. The files every user can open first.
+  let files = $derived(allFiles.filter((file) => !file.ignored).sort((a, b) => Number(Boolean(b.acl?.broad)) - Number(Boolean(a.acl?.broad))));
+  let openToAll = $derived(files.filter((file) => file.acl?.broad).length);
+  let causes = $derived([...files.filter((file) => file.acl?.broad).reduce((map, file) => {
+    const by = [...(file.acl?.by ?? [])].sort();
+    const broadEntries = (file.acl?.e ?? []).filter((entry) => !entry.startsWith('!') && by.includes(entry.split('|')[0]));
+    const inherited = broadEntries.length > 0 && broadEntries.every((entry) => entry.split('|')[2] === 'i');
+    const key = `${by.join(',')}|${inherited}`;
+    const cause = map.get(key) ?? { by, inherited, files: [] as string[], folder: null as string[] | null, right: 'R' };
+    cause.files.push(file.path);
+    cause.folder = cause.folder === null ? parentOf(file.path) : common(cause.folder, parentOf(file.path));
+    for (const entry of broadEntries) { const right = entry.split('|')[1]; if ((RANK[right] ?? 0) > (RANK[cause.right] ?? 0)) cause.right = right; }
+    map.set(key, cause);
+    return map;
+  }, new Map<string, { by: string[]; inherited: boolean; files: string[]; folder: string[] | null; right: string }>()).values()]
+    .sort((a, b) => b.files.length - a.files.length));
+  let ignoredFiles = $derived(allFiles.filter((file) => file.ignored));
+  let shown = $derived(showAll ? files : files.slice(0, 6));
+  let categories = $derived(Object.entries(sensitivityScan?.counts ?? {}).sort((a, b) => b[1] - a[1]));
+  // The path inside the folder: \\server\share\folder is the same for every finding
+  // \\server\share\folder: the findings are relative to the share, shown relative to the folder
+  let prefix = $derived((sensitivityScan?.target ?? '').split('\\').filter(Boolean).slice(2).join('\\'));
 </script>
 
 <section class="sc" aria-label={t('Sensitivity')} use:flashOn={landed}>
@@ -225,43 +237,43 @@
     <h2><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('Sensitivity')}</h2>
     <small>
       {#if running}{t('Scan in progress…')}
-        {#if isAdmin}· <button type="button" class="b2s-link-btn" disabled={busy} on:click={stopRun}>{t('Stop')}</button>{/if}
-      {:else if state?.scanned_at}<span title={formatDateTime(state.scanned_at)}>{t('scanned {when}', { when: timeAgo(state.scanned_at) })}</span>
+        {#if isAdmin}· <button type="button" class="b2s-link-btn" disabled={busy} onclick={stopRun}>{t('Stop')}</button>{/if}
+      {:else if sensitivityScan?.scanned_at}<span title={formatDateTime(sensitivityScan.scanned_at)}>{t('scanned {when}', { when: timeAgo(sensitivityScan.scanned_at) })}</span>
       {:else}{t('Never scanned')}{/if}
       {#if isAdmin && !running}
-        · <button type="button" class="b2s-link-btn" disabled={busy} on:click={scan}>{state?.scanned_at ? t('Scan again') : t('Scan the folder')}</button>
+        · <button type="button" class="b2s-link-btn" disabled={busy} onclick={scan}>{sensitivityScan?.scanned_at ? t('Scan again') : t('Scan the folder')}</button>
       {/if}
     </small>
   </header>
 
   {#if running}
     <div class="sc__running" role="status"><span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{t('The worker reads the folder: names of the files, then the content of the small text files.')}
-      {#if state?.incremental?.pending}<b>{t('{count} file(s) still to read: the scan goes on by itself, pass after pass.', { count: state.incremental.pending })}</b>
+      {#if sensitivityScan?.incremental?.pending}<b>{t('{count} file(s) still to read: the scan goes on by itself, pass after pass.', { count: sensitivityScan.incremental.pending })}</b>
         {#if progress != null}<span class="sc__progress" title={t('{percent} % read', { percent: progress })}><span style={`width:${progress}%`}></span></span><small>{progress} %</small>{/if}{/if}</div>
-  {:else if state?.status === 'failed'}
-    <p class="sc__error"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i>{state.error ?? t('The scan failed')}</p>
-  {:else if state?.status === 'done' && state.files_flagged === 0}
+  {:else if sensitivityScan?.status === 'failed'}
+    <p class="sc__error"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i>{sensitivityScan.error ?? t('The scan failed')}</p>
+  {:else if sensitivityScan?.status === 'done' && sensitivityScan.files_flagged === 0}
     <p class="sc__ok"><i class="bi bi-check2-circle" aria-hidden="true"></i>
-      {t('Nothing sensitive found in {files} file(s), {read} read.', { files: state.files_listed ?? 0, read: state.files_read ?? 0 })}</p>
+      {t('Nothing sensitive found in {files} file(s), {read} read.', { files: sensitivityScan.files_listed ?? 0, read: sensitivityScan.files_read ?? 0 })}</p>
     {#if ignoredFiles.length}
       <div class="sc__ignored">
-        <button type="button" class="b2s-link-btn" aria-expanded={showIgnored} on:click={() => (showIgnored = !showIgnored)}>
+        <button type="button" class="b2s-link-btn" aria-expanded={showIgnored} onclick={() => (showIgnored = !showIgnored)}>
           {t('{count} file(s) marked as false positive', { count: ignoredFiles.length })}
         </button>
         {#if showIgnored}
           <ul>
             {#each ignoredFiles as file (file.path)}
               <li><span class="sc__ign"><code title={file.path} data-copy={file.path}>{inside(file.path)}</code>{#if file.items[0]?.ignored_reason}<small>{file.items[0].ignored_reason}{file.items[0].ignored_by ? ` · ${file.items[0].ignored_by}` : ''}</small>{/if}</span>
-                {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={ignoringPath !== null} on:click={() => setIgnored(file.path, false)}>{t('Count it again')}</button>{/if}
+                {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={ignoringPath !== null} onclick={() => setIgnored(file.path, false)}>{t('Count it again')}</button>{/if}
               </li>
             {/each}
           </ul>
         {/if}
       </div>
     {/if}
-  {:else if state?.status === 'done'}
+  {:else if sensitivityScan?.status === 'done'}
     <div class="sc__summary">
-      <strong><CountUp value={state.files_flagged} duration={400} /> {t('sensitive file(s)')}</strong>
+      <strong><CountUp value={sensitivityScan.files_flagged} duration={400} /> {t('sensitive file(s)')}</strong>
       {#if openToAll}<span class="sc__open"><i class="bi bi-people-fill" aria-hidden="true"></i>{t('{count} of them can be opened by every user', { count: openToAll })}</span>{/if}
       <div class="sc__cats">
         {#each categories as [key, count] (key)}
@@ -287,17 +299,17 @@
     {/if}
     <ul class="sc__list">
       {#each shown as file (file.path)}
-        <li animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }} on:contextmenu={(event) => openMenu(file, event)}>
+        <li animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }} oncontextmenu={(event) => openMenu(file, event)}>
           <i class={`bi ${CATEGORY()[file.items[0].category]?.icon ?? 'bi-file-earmark'}`} aria-hidden="true"></i>
           <div>
             <span class="sc__file"><code title={file.path} data-copy={file.path}>{#if file.acl?.broad}<i class="bi bi-people-fill sc__open-dot" title={t('Every user can open it')} aria-label={t('Every user can open it')}></i>{/if}{inside(file.path)}</code>
-              {#if isAdmin && reasonFor !== file.path}<button type="button" class="b2s-link-btn sc__fp" disabled={ignoringPath !== null} on:click={() => { reasonFor = file.path; reasonText = ''; }}>{t('False positive')}</button>{/if}
+              {#if isAdmin && reasonFor !== file.path}<button type="button" class="b2s-link-btn sc__fp" disabled={ignoringPath !== null} onclick={() => { reasonFor = file.path; reasonText = ''; }}>{t('False positive')}</button>{/if}
             </span>
             {#if reasonFor === file.path}
               <span class="sc__reason">
                 <input class="b2s-input" bind:value={reasonText} maxlength="300" placeholder={t('Why is it a false positive? (test file, sample…)')} aria-label={t('Reason')} />
-                <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={reasonText.trim().length < 3 || ignoringPath !== null} on:click={() => setIgnored(file.path, true, reasonText.trim())}>{t('Confirm')}</button>
-                <button type="button" class="b2s-link-btn" on:click={() => (reasonFor = null)}>{t('Cancel')}</button>
+                <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={reasonText.trim().length < 3 || ignoringPath !== null} onclick={() => setIgnored(file.path, true, reasonText.trim())}>{t('Confirm')}</button>
+                <button type="button" class="b2s-link-btn" onclick={() => (reasonFor = null)}>{t('Cancel')}</button>
               </span>
             {/if}
             {#each file.items as item (item.category + (item.line ?? ''))}
@@ -308,7 +320,7 @@
               <span class="sc__rights">
                 {#if !file.acl.broad}<span class="sc__tag"><i class="bi bi-lock" aria-hidden="true"></i>{t('Limited access')}</span>{/if}
                 {#if file.acl.x}<span class="sc__tag sc__tag--own" title={t('Rights of its own: they no longer follow the folder')}>{t('Own rights')}</span>{/if}
-                <button type="button" class="b2s-link-btn" aria-expanded={openAcl === file.path} on:click={() => (openAcl = openAcl === file.path ? null : file.path)}>
+                <button type="button" class="b2s-link-btn" aria-expanded={openAcl === file.path} onclick={() => (openAcl = openAcl === file.path ? null : file.path)}>
                   {t('Who can open it ({count})', { count: file.acl.e.filter((entry) => !entry.startsWith('!')).length })}
                 </button>
               </span>
@@ -326,18 +338,18 @@
       {/each}
     </ul>
     {#if files.length > shown.length}
-      <button type="button" class="b2s-link-btn" on:click={() => (showAll = true)}>{t('Show the {count} others', { count: files.length - shown.length })}</button>
+      <button type="button" class="b2s-link-btn" onclick={() => (showAll = true)}>{t('Show the {count} others', { count: files.length - shown.length })}</button>
     {/if}
     {#if ignoredFiles.length}
       <div class="sc__ignored">
-        <button type="button" class="b2s-link-btn" aria-expanded={showIgnored} on:click={() => (showIgnored = !showIgnored)}>
+        <button type="button" class="b2s-link-btn" aria-expanded={showIgnored} onclick={() => (showIgnored = !showIgnored)}>
           {t('{count} file(s) marked as false positive', { count: ignoredFiles.length })}
         </button>
         {#if showIgnored}
           <ul>
             {#each ignoredFiles as file (file.path)}
               <li><span class="sc__ign"><code title={file.path} data-copy={file.path}>{inside(file.path)}</code>{#if file.items[0]?.ignored_reason}<small>{file.items[0].ignored_reason}{file.items[0].ignored_by ? ` · ${file.items[0].ignored_by}` : ''}</small>{/if}</span>
-                {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={ignoringPath !== null} on:click={() => setIgnored(file.path, false)}>{t('Count it again')}</button>{/if}
+                {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={ignoringPath !== null} onclick={() => setIgnored(file.path, false)}>{t('Count it again')}</button>{/if}
               </li>
             {/each}
           </ul>
@@ -346,20 +358,20 @@
     {/if}
     <p class="sc__note">
       {t('Move the secrets to a vault, delete the copies, then scan again.')}
-      {#if state.truncated}{t('Large folder: only part of the files was read.')}{/if}
+      {#if sensitivityScan.truncated}{t('Large folder: only part of the files was read.')}{/if}
     </p>
   {:else}
     <p class="sc__empty">{t('Looks for passwords, keys and password vaults stored in the folder. Read only; the secrets themselves are never kept.')}</p>
   {/if}
-  {#if !running && state?.status === 'done' && state.incremental}
+  {#if !running && sensitivityScan?.status === 'done' && sensitivityScan.incremental}
     <p class="sc__note">
-      {state.incremental.full ? t('Full scan') : t('Incremental scan: only the files changed since the last one were read')}
-      · {t('{count} read', { count: state.files_read ?? 0 })}{state.method === 'server' ? ` · ${t('listed on the server')}` : ''}
-      {#if state.incremental.pending}· <b>{t('{count} changed file(s) left: read at the next scan', { count: state.incremental.pending })}</b>{/if}
+      {sensitivityScan.incremental.full ? t('Full scan') : t('Incremental scan: only the files changed since the last one were read')}
+      · {t('{count} read', { count: sensitivityScan.files_read ?? 0 })}{sensitivityScan.method === 'server' ? ` · ${t('listed on the server')}` : ''}
+      {#if sensitivityScan.incremental.pending}· <b>{t('{count} changed file(s) left: read at the next scan', { count: sensitivityScan.incremental.pending })}</b>{/if}
     </p>
   {/if}
-  {#if !running && state?.status === 'done'}
-    <StorageRootRemediation {rootId} {isAdmin} {passwordFiles} refreshKey={state?.scanned_at} />
+  {#if !running && sensitivityScan?.status === 'done'}
+    <StorageRootRemediation {rootId} {isAdmin} {passwordFiles} refreshKey={sensitivityScan?.scanned_at} />
   {/if}
 </section>
 

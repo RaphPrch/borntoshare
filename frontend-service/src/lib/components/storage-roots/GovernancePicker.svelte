@@ -3,21 +3,31 @@
 
   type Option = { id: number; label: string; hint?: string };
 
-  export let id: string;
-  export let label: string;
-  export let placeholder: string;
-  export let options: Option[] = [];
-  export let selected: number[] = [];
+  interface Props {
+    id: string;
+    label: string;
+    placeholder: string;
+    options?: Option[];
+    selected?: number[];
+  }
 
-  let query = '';
+  let {
+    id,
+    label,
+    placeholder,
+    options = [],
+    selected = $bindable([])
+  }: Props = $props();
+
+  let query = $state('');
   const MAX_SHOWN = 8;
 
-  $: chosen = options.filter((option) => selected.includes(option.id));
-  $: matches = query.trim()
+  let chosen = $derived(options.filter((option) => selected.includes(option.id)));
+  let matches = $derived(query.trim()
     ? options
         .filter((option) => !selected.includes(option.id))
         .filter((option) => `${option.label} ${option.hint ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
-    : [];
+    : []);
 
   function add(option: Option) {
     selected = [...selected, option.id];
@@ -32,7 +42,7 @@
       {#each chosen as option (option.id)}
         <li>
           {option.label}
-          <button type="button" aria-label={t('Remove {name}', { name: option.label })} on:click={() => (selected = selected.filter((value) => value !== option.id))}>×</button>
+          <button type="button" aria-label={t('Remove {name}', { name: option.label })} onclick={() => (selected = selected.filter((value) => value !== option.id))}>×</button>
         </li>
       {/each}
     </ul>
@@ -41,7 +51,7 @@
   {#if query.trim()}
     <div class="matches">
       {#each matches.slice(0, MAX_SHOWN) as option (option.id)}
-        <button type="button" on:click={() => add(option)}>
+        <button type="button" onclick={() => add(option)}>
           <span>{option.label}</span>
           {#if option.hint}<small>{option.hint}</small>{/if}
         </button>

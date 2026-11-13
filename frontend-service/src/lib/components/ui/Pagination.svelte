@@ -1,18 +1,34 @@
 <script lang="ts">
+
   import { t } from '$lib/i18n';
 
-  /** Total number of rows */
-  export let total = 0;
-  /** Current page, starting at 1 */
-  export let page = 1;
-  export let pageSize = 25;
-  export let pageSizes: number[] = [10, 25, 50, 100];
+  
+  
+  interface Props {
+    /** Total number of rows */
+    total?: number;
+    /** Current page, starting at 1 */
+    page?: number;
+    pageSize?: number;
+    pageSizes?: number[];
+  }
 
-  $: totalPages = Math.max(1, Math.ceil(total / pageSize));
-  $: if (page > totalPages) page = totalPages;
-  $: if (page < 1) page = 1;
-  $: start = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  $: end = Math.min(total, page * pageSize);
+  let {
+    total = 0,
+    page = $bindable(1),
+    pageSize = $bindable(25),
+    pageSizes = [10, 25, 50, 100]
+  }: Props = $props();
+
+  let totalPages = $derived(Math.max(1, Math.ceil(total / pageSize)));
+  $effect.pre(() => {
+    if (page > totalPages) page = totalPages;
+  });
+  $effect.pre(() => {
+    if (page < 1) page = 1;
+  });
+  let start = $derived(total === 0 ? 0 : (page - 1) * pageSize + 1);
+  let end = $derived(Math.min(total, page * pageSize));
 
   const go = (target: number) => {
     page = Math.min(Math.max(1, target), totalPages);
@@ -22,7 +38,7 @@
 <div class="b2s-pagination">
   <label class="b2s-pagination__size">
     {t('Rows per page:')}
-    <select bind:value={pageSize} on:change={() => (page = 1)}>
+    <select bind:value={pageSize} onchange={() => (page = 1)}>
       {#each pageSizes as size}
         <option value={size}>{size}</option>
       {/each}
@@ -30,17 +46,17 @@
   </label>
   <div class="b2s-pagination__nav">
     <span>{t('{start}–{end} of {total}', { start, end, total })}</span>
-    <button type="button" aria-label={t('First page')} disabled={page <= 1} on:click={() => go(1)}>
+    <button type="button" aria-label={t('First page')} disabled={page <= 1} onclick={() => go(1)}>
       <i class="bi bi-chevron-bar-left" aria-hidden="true"></i>
     </button>
-    <button type="button" aria-label={t('Previous page')} disabled={page <= 1} on:click={() => go(page - 1)}>
+    <button type="button" aria-label={t('Previous page')} disabled={page <= 1} onclick={() => go(page - 1)}>
       <i class="bi bi-chevron-left" aria-hidden="true"></i>
     </button>
     <strong>{page}</strong>
-    <button type="button" aria-label={t('Next page')} disabled={page >= totalPages} on:click={() => go(page + 1)}>
+    <button type="button" aria-label={t('Next page')} disabled={page >= totalPages} onclick={() => go(page + 1)}>
       <i class="bi bi-chevron-right" aria-hidden="true"></i>
     </button>
-    <button type="button" aria-label={t('Last page')} disabled={page >= totalPages} on:click={() => go(totalPages)}>
+    <button type="button" aria-label={t('Last page')} disabled={page >= totalPages} onclick={() => go(totalPages)}>
       <i class="bi bi-chevron-bar-right" aria-hidden="true"></i>
     </button>
   </div>

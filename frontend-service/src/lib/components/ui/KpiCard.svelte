@@ -1,23 +1,36 @@
 <script lang="ts">
+
   import CountUp from '$lib/components/ui/CountUp.svelte';
-  /** Summary figure shown at the top of a page: icon, label, value and an optional hint or link. */
-  export let label: string;
-  export let value: string | number;
-  export let icon: string;
-  export let tone: 'info' | 'success' | 'warning' | 'danger' | 'purple' | 'neutral' = 'info';
-  export let hint: string | null = null;
-  export let href: string | null = null;
+  
+  interface Props {
+    /** Summary figure shown at the top of a page: icon, label, value and an optional hint or link. */
+    label: string;
+    value: string | number;
+    icon: string;
+    tone?: 'info' | 'success' | 'warning' | 'danger' | 'purple' | 'neutral';
+    hint?: string | null;
+    href?: string | null;
+  }
+
+  let {
+    label,
+    value,
+    icon,
+    tone = 'info',
+    hint = null,
+    href = null
+  }: Props = $props();
 
   // Numbers keep the large size; a text value (« 27 min ago », « Never ») is set smaller
-  $: isText = typeof value === 'string' && !/^[\d\s.,%+-]*$/.test(value);
+  let isText = $derived(typeof value === 'string' && !/^[\d\s.,%+-]*$/.test(value));
   // « 1 204 » or « 42 % » counts too: whole numbers written as text keep their suffix
-  $: counted = typeof value === 'number' ? { n: value, suffix: '' } : (() => {
+  let counted = $derived(typeof value === 'number' ? { n: value, suffix: '' } : (() => {
     const m = /^\s*(\d[\d\s\u00a0\u202f]*)\s*(%?)\s*$/.exec(String(value));
     return m ? { n: Number(m[1].replace(/\D/g, '')), suffix: m[2] ? ' %' : '' } : null;
-  })();
+  })());
 </script>
 
-<svelte:element this={href ? 'a' : 'article'} {href} role={href ? undefined : 'group'} class="b2s-kpi" class:is-link={Boolean(href)} on:click>
+<svelte:element this={href ? 'a' : 'article'} {href} role={href ? undefined : 'group'} class="b2s-kpi" class:is-link={Boolean(href)}>
   <span class={`b2s-kpi__icon is-${tone}`} aria-hidden="true"><i class={`bi ${icon}`}></i></span>
   <span class="b2s-kpi__body">
     <span class="b2s-kpi__label">{label}</span>

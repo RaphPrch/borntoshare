@@ -1,7 +1,4 @@
 <script lang="ts">
-  import { createBubbler, stopPropagation } from 'svelte/legacy';
-
-  const bubble = createBubbler();
   import { copyText } from '$lib/utils/clipboard';
   import { resizableColumns } from '$lib/utils/resizable-columns';
   import { onDestroy, onMount, untrack } from 'svelte';
@@ -391,7 +388,7 @@
                 <td class="obs-target">
                   {#if job.target}
                     <i class={`bi ${TARGET_ICON[job.target.kind] ?? 'bi-bullseye'}`} aria-hidden="true"></i>
-                    {#if job.target.href}<a href={job.target.href} onclick={stopPropagation(bubble('click'))}>{job.target.label}</a>{:else}<span>{job.target.label}</span>{/if}
+                    {#if job.target.href}<a href={job.target.href} onclick={(event) => event.stopPropagation()}>{job.target.label}</a>{:else}<span>{job.target.label}</span>{/if}
                     {#if job.target.detail}<small class="obs-sub">{job.target.detail}</small>{/if}
                   {:else}—{/if}
                 </td>
@@ -413,7 +410,7 @@
                 <td class="obs-error">
                   {#if errorText(job)}<span title={String(job.error_code ?? '')}>{errorText(job)}</span>{:else}—{/if}
                 </td>
-                <td class="obs-actions" onclick={stopPropagation(bubble('click'))}>
+                <td class="obs-actions" onclick={(event) => event.stopPropagation()}>
                   {#if job.retryable}
                     <button class="b2s-btn b2s-btn-sm b2s-btn-secondary" type="button" disabled={busy} onclick={() => retry(job)} title={t('Start it again with the same parameters')}>
                       <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{t('Retry')}

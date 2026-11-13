@@ -1,7 +1,7 @@
 <script lang="ts">
+
   import { t } from '$lib/i18n';
-  import { createEventDispatcher } from 'svelte';
-  import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
+    import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
   import { importIdentityAdBatch, listIdentityOverview } from '$lib/api/identity';
   import { sameOwnerIdSet } from '$lib/utils/storage-root-governance';
   import {
@@ -18,18 +18,13 @@
   } from './storage-root-owners.browser';
   import { toast } from '$lib/stores/toast';
 
-  export let open = false;
-  export let storageRootId: number | null = null;
-  export let initialSourceId: number | null = null;
-  export let initialGuardianIds: number[] = [];
-  export let onClose: () => void = () => {};
 
   type IdentityBrowserSelectionEvent = {
     selectedItems?: OwnerBrowserPrincipal[];
     sourceId?: number | null;
   };
 
-  const dispatch = createEventDispatcher<{
+  type OwnersModalEvents = {
     close: void;
     activity: {
       action: string;
@@ -45,13 +40,32 @@
       metadataByIdentityId?: Record<number, Record<string, unknown>>;
       unresolvedPrincipalLabels?: string[];
     };
-  }>();
+  };
+  interface Props {
+    open?: boolean;
+    storageRootId?: number | null;
+    initialSourceId?: number | null;
+    initialGuardianIds?: number[];
+    onClose?: () => void;
+    onActivity?: (detail: OwnersModalEvents['activity']) => void;
+    onSave?: (detail: OwnersModalEvents['save']) => void;
+  }
 
-  let saving = false;
-  let importing = false;
+  let {
+    open = $bindable(false),
+    storageRootId = null,
+    initialSourceId = null,
+    initialGuardianIds = [],
+    onClose = () => {},
+    onActivity = () => {},
+    onSave = () => {}
+  }: Props = $props();
+
+  let saving = $state(false);
+  let importing = $state(false);
   let selectedSourceId: number | null = null;
-  let initialSelectedKeys: string[] = [];
-  let initialRoleByKey: Record<string, { guardian?: boolean }> = {};
+  let initialSelectedKeys: string[] = $state([]);
+  let initialRoleByKey: Record<string, { guardian?: boolean }> = $state({});
 
   const keyFromId = (id: number) => `id:${id}`;
 
@@ -62,21 +76,25 @@
     message: string;
     context?: Record<string, unknown>;
   }) {
-    dispatch('activity', payload);
+    onActivity(payload);
   }
 
-  $: initialSelectedKeys = [
-    ...initialGuardianIds.map((id) => keyFromId(id))
-  ];
+  $effect.pre(() => {
+    initialSelectedKeys = [
+      ...initialGuardianIds.map((id) => keyFromId(id))
+    ];
+  });
 
-  $: initialRoleByKey = Object.fromEntries(
-    Array.from(new Set(initialSelectedKeys)).map((key) => [
-      key,
-      {
-        guardian: initialGuardianIds.some((id) => key === keyFromId(id)),
-      }
-    ])
-  );
+  $effect.pre(() => {
+    initialRoleByKey = Object.fromEntries(
+      Array.from(new Set(initialSelectedKeys)).map((key) => [
+        key,
+        {
+          guardian: initialGuardianIds.some((id) => key === keyFromId(id)),
+        }
+      ])
+    );
+  });
 
   async function onConfirm(event: CustomEvent<IdentityBrowserSelectionEvent>) {
     if (saving) return;
@@ -385,7 +403,7 @@
         return;
       }
 
-      dispatch('save', payloadPreview);
+      onSave(payloadPreview);
       handleClose();
     } finally {
       importing = false;
@@ -394,7 +412,6 @@
   }
 
   function handleClose() {
-    dispatch('close');
     onClose();
   }
 </script>

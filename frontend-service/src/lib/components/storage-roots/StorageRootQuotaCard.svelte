@@ -1,9 +1,10 @@
 <script lang="ts">
+
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { flip } from 'svelte/animate';
   import { dur, flashOn, MOTION, pop } from '$lib/utils/motion';
   import CountUp from '$lib/components/ui/CountUp.svelte';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import { page } from '$app/stores';
   import {
     decideQuotaRequest,
@@ -20,56 +21,51 @@
   import { toast } from '$lib/stores/toast';
   import { formatBytes } from '$lib/utils/format';
 
-  /**
+  
+  
+  interface Props {
+    /**
    * Quota of the folder, held by its Windows file server (FSRM): how full it is, and how to get more room.
    * Administrators set, change or remove it; guardians ask for more with a reason; an administrator decides.
    * The server stays the truth: after every change the worker reads the quota back from it.
    */
-  export let rootId: number | null = null;
-  export let isAdmin = false;
-  /** DFS folders have no quota of their own: it lives on their target folder */
-  export let isDfs = false;
+    rootId?: number | null;
+    isAdmin?: boolean;
+    /** DFS folders have no quota of their own: it lives on their target folder */
+    isDfs?: boolean;
+  }
+
+  let { rootId = null, isAdmin = false, isDfs = false }: Props = $props();
 
   const UNITS: Array<[string, number]> = [['Mo', 1024 ** 2], ['Go', 1024 ** 3], ['To', 1024 ** 4]];
   const WARN = [75, 80, 85, 90, 95];
 
-  let state: FolderQuotaState | null = null;
-  let loadedFor: number | null = null;
-  let loading = false;
-  let busy = false;
+  let quotaState: FolderQuotaState | null = $state(null);
+  let loadedFor: number | null = $state(null);
+  let loading = $state(false);
+  let busy = $state(false);
   let timer: ReturnType<typeof setInterval> | null = null;
   let polls = 0;
   // Grows each time a job of the server lands while the card is open (flash)
-  let landed = 0;
+  let landed = $state(0);
   // Forms: the quota (administrators), more room (guardians), refusal note (administrators)
-  let mode: 'none' | 'edit' | 'ask' | 'reject' | 'remove' = 'none';
-  let amount = 10;
-  let unit = 'Go';
-  let soft = false;
-  let warn = 85;
-  let reason = '';
-  let note = '';
+  let mode: 'none' | 'edit' | 'ask' | 'reject' | 'remove' = $state('none');
+  let amount = $state(10);
+  let unit = $state('Go');
+  let soft = $state(false);
+  let warn = $state(85);
+  let reason = $state('');
+  let note = $state('');
 
-  $: if (rootId && rootId !== loadedFor && !isDfs) load();
-  $: quota = state?.quota ?? null;
-  $: pending = state?.pending_request ?? null;
-  $: decided = (state?.requests ?? []).filter((row) => row.status !== 'pending').slice(0, 3);
-  $: has = !!quota && quota.status !== 'none' && quota.limit_bytes != null && !(quota.status === 'failed' && !quota.read_at);
-  $: working = quota?.status === 'pending' || quota?.pending_operation === 'read';
-  $: working ? startPolling() : stopPolling();
-  $: percent = quota?.used_percent ?? null;
-  $: tone = percent == null ? 'neutral' : percent >= 100 ? 'danger' : percent >= (quota?.warn_percent ?? 85) ? 'warning' : 'ok';
-  $: myId = Number($page.data?.user?.id ?? 0);
-  $: bytes = Math.round(Number(amount || 0) * (UNITS.find(([name]) => name === unit)?.[1] ?? 1024 ** 3));
 
   async function load() {
     loadedFor = rootId;
     mode = 'none';
     loading = true;
     try {
-      state = await getFolderQuota(fetch, Number(rootId));
+      quotaState = await getFolderQuota(fetch, Number(rootId));
     } catch {
-      state = null;
+      quotaState = null;
     } finally {
       loading = false;
     }
@@ -82,9 +78,9 @@
       if (!rootId || polls > 60) return stopPolling();
       try {
         const next = await getFolderQuota(fetch, rootId);
-        const before = state?.quota?.status;
-        const wasWorking = state?.quota?.status === 'pending' || state?.quota?.pending_operation === 'read';
-        state = next;
+        const before = quotaState?.quota?.status;
+        const wasWorking = quotaState?.quota?.status === 'pending' || quotaState?.quota?.pending_operation === 'read';
+        quotaState = next;
         if (wasWorking && next.quota?.status !== 'pending' && !next.quota?.pending_operation && next.quota?.status !== 'failed') landed += 1;
         if (before === 'pending' && next.quota?.status === 'failed') toast.error(t('The server refused the quota: {message}', { message: next.quota.error_message ?? '' }));
       } catch {
@@ -121,7 +117,7 @@
     if (busy || !rootId) return;
     busy = true;
     try {
-      state = await work();
+      quotaState = await work();
       mode = 'none';
       if (done) toast.success(done);
     } catch (error: unknown) {
@@ -141,6 +137,22 @@
   const reject = () => pending && run(() => decideQuotaRequest(fetch, pending!.id, { decision: 'reject', note: note.trim() }),
     t('Request refused.'), 'quota.reject');
   const cancel = () => pending && run(() => decideQuotaRequest(fetch, pending!.id, { decision: 'cancel' }), t('Request cancelled.'), 'quota.cancel');
+  $effect.pre(() => {
+    if (rootId && rootId !== loadedFor && !isDfs) untrack(load);
+  });
+  let quota = $derived(quotaState?.quota ?? null);
+  let pending = $derived(quotaState?.pending_request ?? null);
+  let decided = $derived((quotaState?.requests ?? []).filter((row) => row.status !== 'pending').slice(0, 3));
+  let has = $derived(!!quota && quota.status !== 'none' && quota.limit_bytes != null && !(quota.status === 'failed' && !quota.read_at));
+  let working = $derived(quota?.status === 'pending' || quota?.pending_operation === 'read');
+  $effect.pre(() => {
+    const on = working; // only « working » starts it again (as the former « $: »)
+    untrack(() => (on ? startPolling() : stopPolling()));
+  });
+  let percent = $derived(quota?.used_percent ?? null);
+  let tone = $derived(percent == null ? 'neutral' : percent >= 100 ? 'danger' : percent >= (quota?.warn_percent ?? 85) ? 'warning' : 'ok');
+  let myId = $derived(Number($page.data?.user?.id ?? 0));
+  let bytes = $derived(Math.round(Number(amount || 0) * (UNITS.find(([name]) => name === unit)?.[1] ?? 1024 ** 3)));
 </script>
 
 {#if rootId}
@@ -154,7 +166,7 @@
 
     {#if isDfs}
       <p class="qc__muted">{t('A DFS folder has no quota of its own: it is set on its target folder, on the file server.')}</p>
-    {:else if loading && !state}
+    {:else if loading && !quotaState}
       <LoadingState skeleton="rows" rows={2}>{t('Loading…')}</LoadingState>
     {:else}
       {#if working}
@@ -199,17 +211,17 @@
             <label class="qc__field">{t('Why is it refused? The person who asked reads it.')}
               <input class="b2s-input" bind:value={note} maxlength="500" placeholder={t('e.g. Archive the 2019 projects first')} /></label>
             <div class="qc__btns">
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (mode = 'none')}>{t('Back')}</button>
-              <button type="button" class="b2s-btn b2s-btn-danger b2s-btn-sm" disabled={busy || note.trim().length < 3} on:click={reject}>{t('Refuse')}</button>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => (mode = 'none')}>{t('Back')}</button>
+              <button type="button" class="b2s-btn b2s-btn-danger b2s-btn-sm" disabled={busy || note.trim().length < 3} onclick={reject}>{t('Refuse')}</button>
             </div>
           {:else}
             <div class="qc__btns">
               {#if Number(pending.requested_by_identity_id) === myId && !isAdmin}
-                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} on:click={cancel}>{t('Cancel my request')}</button>
+                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} onclick={cancel}>{t('Cancel my request')}</button>
               {/if}
               {#if isAdmin}
-                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} on:click={() => { note = ''; mode = 'reject'; }}>{t('Refuse')}</button>
-                <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy || working} on:click={approve}>
+                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} onclick={() => { note = ''; mode = 'reject'; }}>{t('Refuse')}</button>
+                <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy || working} onclick={approve}>
                   {t('Approve: {size}', { size: formatBytes(pending.requested_limit_bytes) })}</button>
               {/if}
             </div>
@@ -228,8 +240,8 @@
           {#if mode === 'edit'}
             <div class="qc__field">{t('When it is full')}
               <span class="qc__seg" role="radiogroup" aria-label={t('When it is full')}>
-                <button type="button" role="radio" aria-checked={!soft} class:is-on={!soft} on:click={() => (soft = false)}>{t('Block writes')}</button>
-                <button type="button" role="radio" aria-checked={soft} class:is-on={soft} on:click={() => (soft = true)}>{t('Only warn')}</button>
+                <button type="button" role="radio" aria-checked={!soft} class:is-on={!soft} onclick={() => (soft = false)}>{t('Block writes')}</button>
+                <button type="button" role="radio" aria-checked={soft} class:is-on={soft} onclick={() => (soft = true)}>{t('Only warn')}</button>
               </span>
             </div>
             <label class="qc__field">{t('Warn from')}
@@ -243,12 +255,12 @@
               <input class="b2s-input" bind:value={reason} maxlength="500" placeholder={t('e.g. The 2027 budget files arrive in January')} /></label>
           {/if}
           <div class="qc__btns qc__wide">
-            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (mode = 'none')}>{t('Cancel')}</button>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => (mode = 'none')}>{t('Cancel')}</button>
             {#if mode === 'edit'}
-              <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy || bytes < 1024 ** 2} on:click={save}>
+              <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy || bytes < 1024 ** 2} onclick={save}>
                 {has ? t('Change to {size}', { size: formatBytes(bytes) }) : t('Set {size}', { size: formatBytes(bytes) })}</button>
             {:else}
-              <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy || reason.trim().length < 5 || bytes <= (quota?.limit_bytes ?? 0)} on:click={ask}>
+              <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy || reason.trim().length < 5 || bytes <= (quota?.limit_bytes ?? 0)} onclick={ask}>
                 {t('Ask for {size}', { size: formatBytes(bytes) })}</button>
             {/if}
           </div>
@@ -257,22 +269,22 @@
         <div class="qc__form">
           <p class="qc__wide">{t('The folder will be able to grow until the disk is full. The server keeps no trace of the quota.')}</p>
           <div class="qc__btns qc__wide">
-            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (mode = 'none')}>{t('Cancel')}</button>
-            <button type="button" class="b2s-btn b2s-btn-danger b2s-btn-sm" disabled={busy} on:click={remove}>{t('Remove the quota')}</button>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => (mode = 'none')}>{t('Cancel')}</button>
+            <button type="button" class="b2s-btn b2s-btn-danger b2s-btn-sm" disabled={busy} onclick={remove}>{t('Remove the quota')}</button>
           </div>
         </div>
       {:else if !working}
         <div class="qc__actions">
           {#if isAdmin}
-            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={openEdit}>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={openEdit}>
               <i class="bi bi-sliders" aria-hidden="true"></i>{has ? t('Change') : t('Set a quota')}</button>
-            {#if has}<button type="button" class="b2s-link-btn" on:click={() => (mode = 'remove')}>{t('Remove')}</button>{/if}
+            {#if has}<button type="button" class="b2s-link-btn" onclick={() => (mode = 'remove')}>{t('Remove')}</button>{/if}
           {/if}
           {#if has && !pending}
-            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={openAsk}><i class="bi bi-arrow-up-circle" aria-hidden="true"></i>{t('Ask for more room')}</button>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={openAsk}><i class="bi bi-arrow-up-circle" aria-hidden="true"></i>{t('Ask for more room')}</button>
           {/if}
           {#if has || quota?.status === 'failed'}
-            <button type="button" class="b2s-link-btn" disabled={busy} on:click={refresh}>{t('Read again')}</button>
+            <button type="button" class="b2s-link-btn" disabled={busy} onclick={refresh}>{t('Read again')}</button>
           {/if}
         </div>
       {/if}

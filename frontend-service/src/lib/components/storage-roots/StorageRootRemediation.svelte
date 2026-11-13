@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import { apiGetData, apiPostData } from '$lib/api/client';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { reportUiError } from '$lib/errors';
@@ -7,45 +9,51 @@
   import { formatDate } from '$lib/utils/format';
   import { pop } from '$lib/utils/motion';
 
-  /**
+  
+  
+  
+  interface Props {
+    /**
    * Correction of the passwords found in the folder: an administrator asks the guardians to remove or move the
    * files before a due date. Each new scan looks again: done by itself when they are gone, overdue (critical alert)
    * when they are still there at the due date — the folder is scanned again on that day.
    */
-  export let rootId: number | null = null;
-  export let isAdmin = false;
-  /** Files holding passwords in the last scan (without the false positives) */
-  export let passwordFiles = 0;
-  /** Changes after each scan: the state is read again */
-  export let refreshKey: unknown = null;
+    rootId?: number | null;
+    isAdmin?: boolean;
+    /** Files holding passwords in the last scan (without the false positives) */
+    passwordFiles?: number;
+    /** Changes after each scan: the state is read again */
+    refreshKey?: unknown;
+  }
+
+  let {
+    rootId = null,
+    isAdmin = false,
+    passwordFiles = 0,
+    refreshKey = null
+  }: Props = $props();
 
   type Item = { id: number; status: 'open' | 'overdue' | 'done' | 'cancelled'; files_at_request: number; paths: string[]; note: string | null;
     requested_by: string | null; requested_at: string; due_at: string; closed_at: string | null; closed_by: string | null };
   type State = { current: Item | null; history: Item[] };
-  let state: State | null = null;
-  let loadedFor = '';
-  let asking = false;
-  let busy = false;
-  let days = 14;
-  let note = '';
+  let remediationState: State | null = $state(null);
+  let loadedFor = $state('');
+  let asking = $state(false);
+  let busy = $state(false);
+  let days = $state(14);
+  let note = $state('');
 
-  $: key = `${rootId}:${String(refreshKey)}`;
-  $: if (rootId && key !== loadedFor) load();
   async function load() {
     loadedFor = key;
     asking = false;
-    state = await apiGetData<State>(fetch, `/storage-roots/${rootId}/remediation`).catch(() => null);
+    remediationState = await apiGetData<State>(fetch, `/storage-roots/${rootId}/remediation`).catch(() => null);
   }
-  $: current = state?.current ?? null;
-  // The last one closed by the scan, shown for a month: « corrected on … »
-  $: lastDone = (state?.history ?? []).find((item) => item.status === 'done' && item.closed_at && Date.now() - Date.parse(item.closed_at) < 30 * 86400000) ?? null;
-  $: daysLeft = current ? Math.ceil((Date.parse(current.due_at) - Date.now()) / 86400000) : 0;
 
   async function ask() {
     if (busy || !rootId) return;
     busy = true;
     try {
-      state = await apiPostData<State>(fetch, `/storage-roots/${rootId}/remediation`, { due_days: days, note: note.trim() || null });
+      remediationState = await apiPostData<State>(fetch, `/storage-roots/${rootId}/remediation`, { due_days: days, note: note.trim() || null });
       asking = false;
       note = '';
       toast.success(t('Correction asked to the guardians.'));
@@ -59,7 +67,7 @@
     if (busy || !rootId) return;
     busy = true;
     try {
-      state = await apiPostData<State>(fetch, `/storage-roots/${rootId}/remediation/cancel`, {});
+      remediationState = await apiPostData<State>(fetch, `/storage-roots/${rootId}/remediation/cancel`, {});
       toast.success(t('Correction cancelled.'));
     } catch (error: unknown) {
       reportUiError(error, 'Unable to cancel the correction.', 'remediation.cancel');
@@ -67,6 +75,14 @@
       busy = false;
     }
   }
+  let key = $derived(`${rootId}:${String(refreshKey)}`);
+  $effect.pre(() => {
+    if (rootId && key !== loadedFor) untrack(load);
+  });
+  let current = $derived(remediationState?.current ?? null);
+  // The last one closed by the scan, shown for a month: « corrected on … »
+  let lastDone = $derived((remediationState?.history ?? []).find((item) => item.status === 'done' && item.closed_at && Date.now() - Date.parse(item.closed_at) < 30 * 86400000) ?? null);
+  let daysLeft = $derived(current ? Math.ceil((Date.parse(current.due_at) - Date.now()) / 86400000) : 0);
 </script>
 
 {#if current}
@@ -80,7 +96,7 @@
       <small>{t('Asked by {who}', { who: current.requested_by ?? '—' })} · <RelativeTime value={current.requested_at} />
         · {t('{count} file(s) to remove or move', { count: current.files_at_request })}{current.note ? ` · « ${current.note} »` : ''}</small>
     </div>
-    {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={busy} on:click={cancel}>{t('Cancel')}</button>{/if}
+    {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={busy} onclick={cancel}>{t('Cancel')}</button>{/if}
   </div>
 {:else if passwordFiles > 0 && isAdmin}
   {#if asking}
@@ -92,12 +108,12 @@
         <input class="b2s-input" bind:value={note} maxlength="500" placeholder={t('e.g. Put the accesses in the team vault')} /></label>
       <p class="rm__wide rm__hint">{t('The guardians see it in the to-do list of the folder (and by e-mail when notifications are on). The folder is scanned again at the due date.')}</p>
       <div class="rm__btns rm__wide">
-        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (asking = false)}>{t('Cancel')}</button>
-        <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy} on:click={ask}>{t('Ask the guardians')}</button>
+        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => (asking = false)}>{t('Cancel')}</button>
+        <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy} onclick={ask}>{t('Ask the guardians')}</button>
       </div>
     </div>
   {:else}
-    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm rm__ask" on:click={() => (asking = true)}>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm rm__ask" onclick={() => (asking = true)}>
       <i class="bi bi-send" aria-hidden="true"></i>{t('Ask the guardians to correct it')}</button>
   {/if}
 {:else if lastDone}
