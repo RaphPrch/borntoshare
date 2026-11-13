@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copyText } from '$lib/utils/clipboard';
   import { resizableColumns } from '$lib/utils/resizable-columns';
   import { onDestroy, onMount } from 'svelte';
   import { recall, remember } from '$lib/utils/remember';
@@ -183,7 +184,7 @@
 
   async function copy(value: string) {
     try {
-      await navigator.clipboard.writeText(value);
+      if (!(await copyText(value))) throw new Error('copy refused');
       toast.success(t('Copied'));
     } catch {
       toast.error(t('Unable to copy'));

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copyText } from '$lib/utils/clipboard';
   import SavedViews from '$lib/components/ui/SavedViews.svelte';
   import { resizableColumns } from '$lib/utils/resizable-columns';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
@@ -204,7 +205,7 @@
     else if (key === 'open') { const href = scopeOf(alert).href; if (href) void goto(href); }
     else if (key === 'copy') {
       const text = [alert.title ? alertTitle(alert) : alert.alert_type, alert.message ? alertMessage(alert) : ''].filter(Boolean).join(' — ');
-      void navigator.clipboard?.writeText(text).then(() => toast.success(t('Message copied.')));
+      void copyText(text).then((ok) => ok && toast.success(t('Message copied.')));
     }
   }
 

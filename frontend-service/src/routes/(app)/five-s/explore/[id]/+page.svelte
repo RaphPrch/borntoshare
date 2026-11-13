@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copyText } from '$lib/utils/clipboard';
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
@@ -204,7 +205,7 @@
     if (!folder) return;
     if (key === 'open') void enter(folder);
     else if (key === 'dups') void goto(`/five-s/duplicates/${rootId}?path=${encodeURIComponent(folder.path)}`);
-    else if (key === 'copy') void navigator.clipboard?.writeText(fullPath(folder)).then(() => toast.success(t('Path copied.')));
+    else if (key === 'copy') void copyText(fullPath(folder)).then((ok) => ok && toast.success(t('Path copied.')));
     else if (key === 'measure') void measureAgain();
     else if (key === 'inherit') void restoreInheritance(folder);
     else if (key === 'archive') archiving = folder;

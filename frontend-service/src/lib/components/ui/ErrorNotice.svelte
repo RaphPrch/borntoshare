@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copyText } from '$lib/utils/clipboard';
   import { t } from '$lib/i18n';
   import type { AppError } from '$lib/errors';
   import InlineAlert from './InlineAlert.svelte';
@@ -10,7 +11,7 @@
 
   function copyRequestId() {
     if (error?.requestId) {
-      navigator.clipboard.writeText(error.requestId);
+      copyText(error.requestId);
     }
   }
 </script>

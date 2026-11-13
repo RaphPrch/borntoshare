@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copyText } from '$lib/utils/clipboard';
   import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
@@ -258,7 +259,7 @@
 
   async function copy(value: string) {
     try {
-      await navigator.clipboard.writeText(value);
+      if (!(await copyText(value))) throw new Error('copy refused');
       toast.success(t('Copied.'));
     } catch {
       toast.error(t('Copy unavailable: select the text.'));

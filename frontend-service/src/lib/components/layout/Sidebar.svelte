@@ -92,21 +92,25 @@
   {/if}
 
   <div class="sb__bottom">
-    <NotificationCenter />
-    <GlobalSearch {canSeeAdmin} {canSeeStorageRoots} {canSeeObservability} />
-    <button type="button" class="sb__item sb__density" on:click={() => density.toggle()} aria-pressed={$density === 'compact'}
-      title={$density === 'compact' ? t('Compact display: click for the comfortable one') : t('Comfortable display: click for the compact one')}>
-      <i class={`bi ${$density === 'compact' ? 'bi-arrows-expand' : 'bi-arrows-collapse'}`} aria-hidden="true"></i>
-      <span>{$density === 'compact' ? t('Compact') : t('Comfortable')}</span>
-    </button>
+    <!-- Tools as icons, two per line: the rail stays whole on a 900 px high screen (labels in the tooltips) -->
+    <div class="sb__tools">
+      <NotificationCenter />
+      <GlobalSearch {canSeeAdmin} {canSeeStorageRoots} {canSeeObservability} />
+      <button type="button" class="sb__item sb__density" on:click={() => density.toggle()} aria-pressed={$density === 'compact'}
+        aria-label={$density === 'compact' ? t('Compact display: click for the comfortable one') : t('Comfortable display: click for the compact one')}
+        title={$density === 'compact' ? t('Compact display: click for the comfortable one') : t('Comfortable display: click for the compact one')}>
+        <i class={`bi ${$density === 'compact' ? 'bi-arrows-expand' : 'bi-arrows-collapse'}`} aria-hidden="true"></i>
+        <span>{$density === 'compact' ? t('Compact') : t('Comfortable')}</span>
+      </button>
+      <form method="POST" action="/logout">
+        <button type="submit" class="sb__item sb__logout" aria-label={t('Logout')} title={t('Logout')}>
+          <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+          <span>{t('Logout')}</span>
+        </button>
+      </form>
+    </div>
     <LanguageSwitcher tone="light" />
     <span class="sb__version" title={t('Built on {date}', { date: new Date(__B2S_BUILT_AT__).toLocaleString() })}>{__B2S_VERSION__}</span>
-    <form method="POST" action="/logout">
-      <button type="submit" class="sb__item sb__logout">
-        <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-        <span>{t('Logout')}</span>
-      </button>
-    </form>
   </div>
 </nav>
 
@@ -211,6 +215,21 @@
 
   .sb__badge.is-danger {
     background: var(--b2s-color-danger-strong);
+  }
+
+  .sb__tools { display: grid; grid-template-columns: repeat(2, 36px); gap: 4px 8px; justify-content: center; }
+  .sb__tools form { margin: 0; }
+  .sb__tools :global(.nc-trigger),
+  .sb__tools :global(.global-search-trigger),
+  .sb__tools .sb__item { width: 36px; min-height: 36px; height: 36px; padding: 0; border-radius: 10px; }
+  .sb__tools :global(.nc-trigger > span),
+  .sb__tools :global(.global-search-trigger > span),
+  .sb__tools .sb__item > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .sb__tools :global(.nc-badge) { top: -4px; right: -6px; }
+  /* A lower screen: the menu items tighten so that the whole rail fits */
+  @media (max-height: 960px) {
+    .sb__item { min-height: 44px; }
+    .sb { gap: 4px; }
   }
 
   .sb__bottom {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copyText } from '$lib/utils/clipboard';
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
   import EntityActionGroup, { type EntityActionItem } from './EntityActionGroup.svelte';
@@ -27,7 +28,7 @@
 
   async function copyPath() {
     try {
-      await navigator.clipboard.writeText(path);
+      if (!(await copyText(path))) throw new Error('copy refused');
       toast.success(t('Path copied.'));
     } catch {
       toast.error(t('The path could not be copied.'));

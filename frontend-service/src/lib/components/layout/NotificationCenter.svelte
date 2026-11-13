@@ -80,7 +80,8 @@
 </script>
 
 <button type="button" class="nc-trigger" class:has-unread={unread > 0} on:click={show}
-  aria-label={unread ? t('Notifications ({count} unread)', { count: unread }) : t('Notifications')}>
+  aria-label={unread ? t('Notifications ({count} unread)', { count: unread }) : t('Notifications')}
+  title={unread ? t('Notifications ({count} unread)', { count: unread }) : t('Notifications')}>
   <i class="bi bi-bell" aria-hidden="true"></i>
   <span>{t('Notifications')}</span>
   {#if unread}<b class="nc-badge" use:pulseOnIncrease={unread}>{unread > 99 ? '99+' : unread}</b>{/if}

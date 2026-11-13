@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copyText } from '$lib/utils/clipboard';
   import { flip } from 'svelte/animate';
   import { dur, flashOn, MOTION, pop } from '$lib/utils/motion';
   import CountUp from '$lib/components/ui/CountUp.svelte';
@@ -136,7 +137,7 @@
   function pickMenu(key: string) {
     const path = menu?.path;
     if (!path) return;
-    const copy = (text: string) => void navigator.clipboard?.writeText(text).then(() => toast.success(t('Path copied.')));
+    const copy = (text: string) => void copyText(text).then((ok) => ok && toast.success(t('Path copied.')));
     if (key === 'acl') openAcl = openAcl === path ? null : path;
     else if (key === 'copy') copy(path);
     else if (key === 'copy-folder') copy(path.split('\\').slice(0, -1).join('\\'));

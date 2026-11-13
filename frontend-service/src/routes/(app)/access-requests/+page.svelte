@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copyText } from '$lib/utils/clipboard';
   import SavedViews from '$lib/components/ui/SavedViews.svelte';
   import ColumnPicker from '$lib/components/ui/ColumnPicker.svelte';
   import { resizableColumns } from '$lib/utils/resizable-columns';
@@ -530,7 +531,7 @@
     if (key === 'approve' || key === 'reject') quickDecide(row, key);
     else if (key === 'open') selectRequest(row);
     else if (key === 'folder') void goto(`/storage-roots?selected=${storageRootIdFromRow(row)}`);
-    else if (key === 'copy') void navigator.clipboard?.writeText(requestCode(row)).then(() => toast.success(t('Reference copied.')));
+    else if (key === 'copy') void copyText(requestCode(row)).then((ok) => ok && toast.success(t('Reference copied.')));
   }
 
   function quickDecide(row: any, decision: 'approve' | 'reject'): void {

@@ -271,7 +271,7 @@
 
 <svelte:window on:keydown={onWindowKeydown} />
 
-<button type="button" class="global-search-trigger" on:click={show} aria-label={t('Search (Ctrl+K)')}>
+<button type="button" class="global-search-trigger" on:click={show} aria-label={t('Search (Ctrl+K)')} title={t('Search (Ctrl+K)')}>
   <i class="bi bi-search" aria-hidden="true"></i>
   <span>{t('Search')}</span>
 </button>
