@@ -9,7 +9,6 @@ from collections import Counter
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.data.repositories import observability_sql
@@ -127,19 +126,7 @@ def _sign_ins(hours: int) -> dict[str, Any]:
     from app.core.logging_db import LoggingSessionLocal
 
     with LoggingSessionLocal() as logging_db:
-        rows = logging_db.execute(
-            text(
-                """
-                SELECT result,
-                       JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.reason')) AS reason,
-                       COUNT(*) AS n
-                FROM audit_event
-                WHERE action = 'auth.login' AND event_time >= UTC_TIMESTAMP() - INTERVAL :hours HOUR
-                GROUP BY result, reason
-                """
-            ),
-            {"hours": hours},
-        ).mappings().all()
+        rows = observability_sql.sign_in_counts(logging_db, hours)
     refused = Counter()
     total = 0
     for row in rows:

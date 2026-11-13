@@ -42,3 +42,27 @@ def attachment_names_1(db: Session, params: Any) -> Any:
         text("SELECT name, root_path FROM storage_roots WHERE id = :id"),
         params,
     )
+
+
+# ---- tag links of folders (SQLAlchemy Core statements of the routes) ----
+def tag_has_links(db: Session, tag_id: int) -> bool:
+    from sqlalchemy import select
+
+    from app.data.models.storage_root_tag import storage_root_tag
+
+    return db.execute(select(storage_root_tag.c.tag_id).where(storage_root_tag.c.tag_id == tag_id).limit(1)).first() is not None
+
+
+def drop_tag_links(db: Session, tag_id: int) -> None:
+    from app.data.models.storage_root_tag import storage_root_tag
+
+    db.execute(storage_root_tag.delete().where(storage_root_tag.c.tag_id == int(tag_id)))
+
+
+def link(db: Session, table: Any, resource_col: str, resource_id: int, tag_id: int) -> None:
+    """Adds the link (raises IntegrityError when it exists: the route treats it as already attached)."""
+    db.execute(table.insert().values({resource_col: int(resource_id), "tag_id": int(tag_id)}))
+
+
+def unlink(db: Session, table: Any, resource_col: str, resource_id: int, tag_id: int) -> None:
+    db.execute(table.delete().where((table.c[resource_col] == int(resource_id)) & (table.c.tag_id == int(tag_id))))

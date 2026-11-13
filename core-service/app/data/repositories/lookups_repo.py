@@ -92,3 +92,49 @@ def auth_identity_sources(db: Session, source_type: str) -> list[IdentitySource]
     if "auth_enabled" not in available:
         rows = [row for row in rows if source_auth_enabled(row)]
     return rows
+
+
+# ---- objects the routes list or check (ORM reads moved out of the routes) ----
+def endpoints_by_name(db: Session) -> list:
+    from app.data.models.storage_endpoint import StorageEndpoint
+
+    return db.query(StorageEndpoint).order_by(StorageEndpoint.name).all()
+
+
+def dfs_endpoints(db: Session) -> list:
+    from app.data.models.storage_endpoint import StorageEndpoint
+
+    return db.query(StorageEndpoint).filter(StorageEndpoint.endpoint_type == "dfs").all()
+
+
+def roots_of_endpoint(db: Session, endpoint_id: int) -> list:
+    from app.data.models.storage_root import StorageRoot
+
+    return db.query(StorageRoot).filter(StorageRoot.storage_endpoint_id == int(endpoint_id)).all()
+
+
+def endpoint_has_roots(db: Session, endpoint_id: int) -> bool:
+    from app.data.models.storage_root import StorageRoot
+
+    return db.query(StorageRoot.id).filter(StorageRoot.storage_endpoint_id == int(endpoint_id)).limit(1).first() is not None
+
+
+def source_has_endpoints(db: Session, source_id: int) -> bool:
+    from app.data.models.storage_endpoint import StorageEndpoint
+
+    return db.query(StorageEndpoint.id).filter(StorageEndpoint.identity_source_id == int(source_id)).limit(1).first() is not None
+
+
+def identity_source_loaded(db: Session, source_id: int, load_opt: Any = None):
+    query = db.query(IdentitySource)
+    if load_opt is not None:
+        query = query.options(load_opt)
+    return query.filter(IdentitySource.id == source_id).first()
+
+
+def identity_sources_but_sso(db: Session, load_opt: Any = None) -> list:
+    """Every identity source but those of the SSO providers (type oidc, managed in Advanced Settings), newest first."""
+    query = db.query(IdentitySource)
+    if load_opt is not None:
+        query = query.options(load_opt)
+    return query.filter(IdentitySource.type != "oidc").order_by(IdentitySource.id.desc()).all()

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from app.data.repositories import lookups_repo
 from app.data.repositories import storage_endpoints_sql
 from app.services.secret_store import forget_unused
 from app.services.windows_names import dfs_folder_error, share_name_error
@@ -254,7 +255,7 @@ def _assert_namespace_free(db: Session, path: str | None) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "DFS_NAMESPACE_PATH_INVALID", "message": "Read the namespace before adding it"},
         )
-    for endpoint in db.query(StorageEndpoint).filter(StorageEndpoint.endpoint_type == "dfs").all():
+    for endpoint in lookups_repo.dfs_endpoints(db):
         if str(snapshot(endpoint).get("path") or "").strip().rstrip("\\").lower() == wanted:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -710,7 +711,7 @@ def _guard_endpoint_change(db: Session, endpoint: Any, updates: dict[str, Any], 
     new_host = str(updates.get("host") or "").strip()
     if not new_host or same_host(new_host, endpoint.host):
         return []
-    roots = db.query(StorageRoot).filter(StorageRoot.storage_endpoint_id == endpoint_id).all()
+    roots = lookups_repo.roots_of_endpoint(db, endpoint_id)
     if not roots:
         return []
     if not rewrite_root_paths:
@@ -1449,13 +1450,7 @@ def delete_endpoint(
             detail="Storage endpoint not found",
         )
 
-    roots_linked = (
-        db.query(StorageRoot.id)
-        .filter(StorageRoot.storage_endpoint_id == int(endpoint_id))
-        .limit(1)
-        .first()
-        is not None
-    )
+    roots_linked = lookups_repo.endpoint_has_roots(db, int(endpoint_id))
     if roots_linked:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

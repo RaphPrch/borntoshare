@@ -6,7 +6,6 @@ import logging
 import os
 import httpx
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.data.repositories import identity_list_sql
@@ -755,16 +754,7 @@ async def update_identity(
     if subject_type == "group":
         if group_updates:
             group_updates.append("updated_at = NOW(6)")
-            db.execute(
-                text(
-                    f"""
-                    UPDATE directory_groups
-                    SET {", ".join(group_updates)}
-                    WHERE id = :id
-                    """
-                ),
-                group_params,
-            )
+            identity_list_sql.update_identity_5(db, group_params, group_updates=group_updates)
         if application_role is not None:
             _set_subject_application_role(
                 db=db,
@@ -775,16 +765,7 @@ async def update_identity(
     else:
         if updates or application_role is not None:
             updates.append("updated_at = NOW(6)")
-            db.execute(
-                text(
-                    f"""
-                    UPDATE identities
-                    SET {", ".join(updates)}
-                    WHERE id = :id
-                    """
-                ),
-                params,
-            )
+            identity_list_sql.update_identity_6(db, params, updates=updates)
         if application_role is not None:
             _set_subject_application_role(
                 db=db,
@@ -947,21 +928,7 @@ def hand_over_guardianship(identity_id: int, request: Request, payload: dict[str
 
 
 def _substitute_rows(db: Session, where: str, params: dict[str, Any]) -> list[dict[str, Any]]:
-    rows = db.execute(
-        text(
-            f"""
-            SELECT gs.id, gs.identity_id, gs.substitute_identity_id, gs.starts_at, gs.ends_at, gs.reason, gs.created_by,
-              COALESCE(NULLIF(g.display_name, ''), g.username) AS guardian_name,
-              COALESCE(NULLIF(s.display_name, ''), s.username) AS substitute_name, s.email AS substitute_email,
-              CASE WHEN gs.starts_at > UTC_TIMESTAMP() THEN 'upcoming' WHEN gs.ends_at > UTC_TIMESTAMP() THEN 'active' ELSE 'past' END AS state
-            FROM guardian_substitutes gs
-            JOIN identities g ON g.id = gs.identity_id JOIN identities s ON s.id = gs.substitute_identity_id
-            WHERE gs.revoked_at IS NULL AND gs.ends_at > UTC_TIMESTAMP() - INTERVAL 30 DAY AND {where}
-            ORDER BY gs.starts_at
-            """
-        ),
-        params,
-    ).mappings().all()
+    rows = identity_list_sql.substitute_rows_1(db, params, where=where).mappings().all()
     iso = lambda value: value.isoformat() + "Z" if value else None  # noqa: E731
     return [{**dict(row), "starts_at": iso(row["starts_at"]), "ends_at": iso(row["ends_at"])} for row in rows]
 

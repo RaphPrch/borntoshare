@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.data.repositories import lookups_repo
 from app.data.repositories import identity_sources_sql
 from app.services.secret_store import forget_unused
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy import text
 from sqlalchemy.orm import Session, load_only
 
 from app.core.db import get_db
@@ -57,11 +57,7 @@ def _identity_source_load_only(db: Session):
 
 
 def _get_identity_source(db: Session, source_id: int) -> IdentitySource | None:
-    query = db.query(IdentitySource)
-    load_opt = _identity_source_load_only(db)
-    if load_opt is not None:
-        query = query.options(load_opt)
-    return query.filter(IdentitySource.id == source_id).first()
+    return lookups_repo.identity_source_loaded(db, source_id, _identity_source_load_only(db))
 
 
 def _public_row(src: IdentitySource) -> dict:
@@ -129,13 +125,7 @@ def _is_identity_source_used(db: Session, src: IdentitySource) -> bool:
     source_id = int(getattr(src, "id", 0) or 0)
     if source_id <= 0:
         return False
-    linked_endpoint = (
-        db.query(StorageEndpoint.id)
-        .filter(StorageEndpoint.identity_source_id == source_id)
-        .limit(1)
-        .first()
-    )
-    return linked_endpoint is not None
+    return lookups_repo.source_has_endpoints(db, source_id)
 
 
 def _identity_source_dependency_counts(db: Session, source_id: int) -> dict[str, int]:
@@ -153,10 +143,7 @@ def _identity_source_dependency_counts(db: Session, source_id: int) -> dict[str,
     counts: dict[str, int] = {}
     for label, (table_name, column_name) in checks.items():
         try:
-            count = db.execute(
-                text(f"SELECT COUNT(*) FROM {table_name} WHERE {column_name} = :source_id"),
-                {"source_id": source_key},
-            ).scalar()
+            count = identity_sources_sql.identity_source_dependency_counts_1(db, {"source_id": source_key}, column_name=column_name, table_name=table_name).scalar()
         except Exception:
             continue
         numeric = int(count or 0)
@@ -218,12 +205,8 @@ def ensure_unique_source(
 
 @router.get("", summary="List identity sources", dependencies=[Depends(admin_or_internal)])
 def list_identity_sources(db: Session = Depends(get_db)):
-    query = db.query(IdentitySource)
-    load_opt = _identity_source_load_only(db)
-    if load_opt is not None:
-        query = query.options(load_opt)
     # SSO providers own an identity source of type oidc: managed in Advanced Settings › Infrastructure
-    rows = query.filter(IdentitySource.type != "oidc").order_by(IdentitySource.id.desc()).all()
+    rows = lookups_repo.identity_sources_but_sso(db, _identity_source_load_only(db))
 
     latest_snapshot_map = IdentitySourcesViewsRepo(db).list_latest_snapshot_meta_by_source()
     running = DirectorySnapshotsRepo(db).running_runs()
@@ -644,23 +627,9 @@ def get_identity_source_overview(source_id: int, db: Session = Depends(get_db)):
     if db.get(IdentitySource, int(source_id)) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity source not found")
     params = {"id": int(source_id)}
-    users = db.execute(
-        text(f"SELECT COUNT(*) AS total, SUM(email IS NOT NULL AND email <> '') AS with_email FROM directory_users WHERE id IN ({_LATEST_USERS})"),
-        params,
-    ).mappings().first() or {}
-    groups_total = db.execute(text(f"SELECT COUNT(*) FROM directory_groups WHERE id IN ({_LATEST_GROUPS})"), params).scalar() or 0
-    governed = db.execute(
-        text(
-            f"""
-            SELECT g.name, g.dn,
-              (SELECT COUNT(*) FROM directory_group_members m WHERE m.group_id = g.id AND m.deleted_at IS NULL) AS members
-            FROM directory_groups g
-            WHERE g.id IN ({_LATEST_GROUPS}) AND g.name IN ({_GOVERNED})
-            ORDER BY g.name
-            """
-        ),
-        params,
-    ).mappings().all()
+    users = identity_sources_sql.get_identity_source_overview_2(db, params, _LATEST_USERS=_LATEST_USERS).mappings().first() or {}
+    groups_total = identity_sources_sql.get_identity_source_overview_3(db, params, _LATEST_GROUPS=_LATEST_GROUPS).scalar() or 0
+    governed = identity_sources_sql.get_identity_source_overview_4(db, params, _GOVERNED=_GOVERNED, _LATEST_GROUPS=_LATEST_GROUPS).mappings().all()
     endpoints = identity_sources_sql.get_identity_source_overview_1(db, params).mappings().all()
     return ui_data({
         "users": int(users.get("total") or 0),
@@ -678,32 +647,7 @@ def get_identity_source_inventory(source_id: int, kind: str = "users", q: str = 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity source not found")
     params: dict[str, Any] = {"id": int(source_id), "q": f"%{q.strip()}%", "limit": max(1, min(int(limit), 500))}
     if kind == "groups":
-        rows = db.execute(
-            text(
-                f"""
-                SELECT g.id, g.name, g.dn, g.description, g.external_id,
-                  (SELECT COUNT(*) FROM directory_group_members m WHERE m.group_id = g.id AND m.deleted_at IS NULL) AS members,
-                  g.name IN ({_GOVERNED}) AS governed
-                FROM directory_groups g
-                WHERE g.id IN ({_LATEST_GROUPS})
-                  AND (:q = '%%' OR g.name LIKE :q OR g.dn LIKE :q)
-                ORDER BY governed DESC, g.name LIMIT :limit
-                """
-            ),
-            params,
-        ).mappings().all()
+        rows = identity_sources_sql.get_identity_source_inventory_1(db, params, _GOVERNED=_GOVERNED, _LATEST_GROUPS=_LATEST_GROUPS).mappings().all()
         return ui_list([{**dict(row), "governed": bool(row["governed"])} for row in rows])
-    rows = db.execute(
-        text(
-            f"""
-            SELECT u.id, u.username, u.display_name, u.email, u.upn, u.dn, u.external_id,
-              (SELECT COUNT(*) FROM directory_group_members m WHERE m.directory_user_id = u.id AND m.deleted_at IS NULL) AS groups
-            FROM directory_users u
-            WHERE u.id IN ({_LATEST_USERS})
-              AND (:q = '%%' OR u.username LIKE :q OR u.display_name LIKE :q OR u.email LIKE :q)
-            ORDER BY (u.email IS NULL OR u.email = ''), u.display_name LIMIT :limit
-            """
-        ),
-        params,
-    ).mappings().all()
+    rows = identity_sources_sql.get_identity_source_inventory_2(db, params, _LATEST_USERS=_LATEST_USERS).mappings().all()
     return ui_list([dict(row) for row in rows])

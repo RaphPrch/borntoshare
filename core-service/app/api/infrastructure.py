@@ -7,10 +7,10 @@ from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.data.repositories import partial_updates_repo
 from app.data.repositories import infrastructure_sql
 from app.api._helpers import ui_data, ui_list
 from app.core.db import get_db
@@ -165,9 +165,8 @@ async def update_worker(worker_id: int, payload: WorkerUpdate, request: Request,
         check = await infra.check_agent(merged)
         if check["status"] not in {"healthy", "degraded"}:
             raise HTTPException(status_code=422, detail={"error_code": "WORKER_UNREACHABLE", "message": check.get("message") or "Agent unreachable"})
-    assignments = ", ".join(f"{k} = :{k}" for k in updates)
     try:
-        db.execute(text(f"UPDATE infra_workers SET {assignments} WHERE id = :id"), {**updates, "id": int(worker_id)})
+        partial_updates_repo.update_columns(db, "infra_workers", int(worker_id), updates)
         if check:
             infra.record_worker_check(db, worker_id, check)
         db.commit()
@@ -273,10 +272,8 @@ def update_schedule(task: Literal["health_check", "data_sync", "access_expiry", 
     if payload.options is not None and task == "data_sync":
         updates["options_json"] = json.dumps({k: bool(payload.options.get(k, True)) for k in ("snapshots", "shares", "acl_drift")})
     if updates:
-        assignments = ", ".join(f"{k} = :{k}" for k in updates)
         # A new interval applies from now
-        reschedule = ", next_run_at = UTC_TIMESTAMP() + INTERVAL :interval_minutes MINUTE" if "interval_minutes" in updates else ""
-        db.execute(text(f"UPDATE infra_schedules SET {assignments}{reschedule} WHERE task = :task"), {**updates, "task": task})
+        partial_updates_repo.update_columns(db, "infra_schedules", task, updates, reschedule_minutes="interval_minutes" in updates)
         db.commit()
         _audit(actor, "infrastructure.schedule_updated", target_type="schedule", target_display=task, context={k: v for k, v in updates.items()})
     return ui_data(next(s for s in _schedules(db) if s["task"] == task))

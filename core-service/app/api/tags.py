@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -169,9 +168,7 @@ def delete_tag(tag_id: int, request: Request, db: Session = Depends(get_db)):
     if tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
 
-    has_root = db.execute(
-        select(storage_root_tag.c.tag_id).where(storage_root_tag.c.tag_id == tag_id).limit(1)
-    ).first()
+    has_root = tags_sql.tag_has_links(db, tag_id)
     if has_root:
         raise HTTPException(
             status_code=409,
@@ -214,7 +211,7 @@ def merge_tag(tag_id: int, payload: TagMerge, request: Request, db: Session = De
     source_display = str(source.name or source.id)
     # One transaction: a folder carrying both tags keeps a single link to the target
     moved = tags_sql.merge_tag_1(db, {"target": int(target.id), "source": int(tag_id)}).rowcount
-    db.execute(storage_root_tag.delete().where(storage_root_tag.c.tag_id == int(tag_id)))
+    tags_sql.drop_tag_links(db, tag_id)
     db.expire(source)
     db.delete(source)
     db.commit()
@@ -281,14 +278,7 @@ def attach_tag(payload: TagAttachmentRequest, request: Request, db: Session = De
 
     already_attached = False
     try:
-        db.execute(
-            table.insert().values(
-                {
-                    resource_col: int(payload.resource_id),
-                    "tag_id": int(payload.tag_id),
-                }
-            )
-        )
+        tags_sql.link(db, table, resource_col, int(payload.resource_id), int(payload.tag_id))
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -342,12 +332,7 @@ def detach_tag(payload: TagAttachmentRequest, request: Request, db: Session = De
 
     resource_col = f"{payload.resource_type}_id"
 
-    db.execute(
-        table.delete().where(
-            (table.c[resource_col] == int(payload.resource_id))
-            & (table.c.tag_id == int(payload.tag_id))
-        )
-    )
+    tags_sql.unlink(db, table, resource_col, int(payload.resource_id), int(payload.tag_id))
     db.commit()
 
     tag_label, resource_name = _attachment_names(db, payload)

@@ -6,9 +6,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from app.data.repositories import partial_updates_repo
 from app.data.repositories import zones_sql
 from app.core.db import get_db
 from app.api._helpers import ui_action, ui_data, ui_list
@@ -327,10 +327,7 @@ def update_zone(zone_id: int, payload: ZoneUpdate, db: Session = Depends(get_db)
     data = {k: v for k, v in requested.items() if k in allowed_fields}
     if data:
         _refuse_duplicate_zone(db, name=data.get("name"), code=data.get("code"), excluding=int(zone_id))
-        set_clause = ", ".join(f"{field} = :{field}" for field in data.keys())
-        params = dict(data)
-        params["id"] = int(zone_id)
-        db.execute(text(f"UPDATE zones SET {set_clause} WHERE id = :id"), params)
+        partial_updates_repo.update_columns(db, "zones", int(zone_id), data)
 
     after = {
         "name": data.get("name", before.get("name")),

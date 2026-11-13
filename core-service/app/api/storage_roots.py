@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
+from app.data.repositories import lookups_repo
 from app.data.repositories import storage_roots_sql
 from app.services.root_payload import merge_root_payload
 from sqlalchemy.orm import Session
@@ -624,7 +625,7 @@ def _discovered_snapshots(db: Session) -> list[tuple[StorageEndpoint, dict[str, 
     for endpoint_id, root_path in rows:
         managed.setdefault(int(endpoint_id), set()).add(_normalize_root_path(root_path))
     out = []
-    for endpoint in db.query(StorageEndpoint).order_by(StorageEndpoint.name).all():
+    for endpoint in lookups_repo.endpoints_by_name(db):
         if not endpoint.is_active or str(endpoint.status or "").strip().lower() == "disabled":
             continue
         if str(endpoint.endpoint_type or "").lower() == "dfs":
@@ -1024,11 +1025,7 @@ def sync_storage_root_discovery(
 ):
     discovered_at = _parse_discovered_at(payload.discovered_at)
 
-    roots = (
-        db.query(StorageRoot)
-        .filter(StorageRoot.storage_endpoint_id == int(payload.storage_endpoint_id))
-        .all()
-    )
+    roots = lookups_repo.roots_of_endpoint(db, int(payload.storage_endpoint_id))
     by_path = {_normalize_root_path(r.root_path): r for r in roots}
     discovered_keys: set[str] = set()
 

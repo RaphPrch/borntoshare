@@ -103,3 +103,12 @@ def get_badge_1(db: Session) -> Any:
     return db.execute(
         text("SELECT COUNT(*) FROM governance_alerts WHERE status = 'open' AND severity IN ('critical', 'high')"),
     )
+
+
+def sign_in_counts(logging_db: Session, hours: int) -> list:
+    """Sign-ins of the last hours by result and reason (audit log database)."""
+    return logging_db.execute(
+        text("""SELECT result, JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.reason')) AS reason, COUNT(*) AS n FROM audit_event
+                WHERE action = 'auth.login' AND event_time >= UTC_TIMESTAMP() - INTERVAL :hours HOUR GROUP BY result, reason"""),
+        {"hours": hours},
+    ).mappings().all()

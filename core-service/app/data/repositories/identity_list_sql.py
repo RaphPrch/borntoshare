@@ -1154,3 +1154,50 @@ def get_identity_overview_5(db: Session, params: Any) -> Any:
         text("SELECT LOWER(status), COUNT(*) FROM access_requests WHERE requester_identity_id = :id GROUP BY LOWER(status)"),
         params,
     )
+
+
+def update_identity_5(db: Session, params: Any, *, group_updates: Any) -> Any:
+    """UPDATE directory_groups SET"""
+    return db.execute(
+        text(
+                            f"""
+                            UPDATE directory_groups
+                            SET {", ".join(group_updates)}
+                            WHERE id = :id
+                            """
+                        ),
+        params,
+    )
+
+
+def update_identity_6(db: Session, params: Any, *, updates: Any) -> Any:
+    """UPDATE identities SET"""
+    return db.execute(
+        text(
+                            f"""
+                            UPDATE identities
+                            SET {", ".join(updates)}
+                            WHERE id = :id
+                            """
+                        ),
+        params,
+    )
+
+
+def substitute_rows_1(db: Session, params: Any, *, where: Any) -> Any:
+    """SELECT gs.id, gs.identity_id, gs.substitute_identity_id, gs.starts_at, gs.ends_at, gs.reason, gs.created_by, C"""
+    return db.execute(
+        text(
+                    f"""
+                    SELECT gs.id, gs.identity_id, gs.substitute_identity_id, gs.starts_at, gs.ends_at, gs.reason, gs.created_by,
+                      COALESCE(NULLIF(g.display_name, ''), g.username) AS guardian_name,
+                      COALESCE(NULLIF(s.display_name, ''), s.username) AS substitute_name, s.email AS substitute_email,
+                      CASE WHEN gs.starts_at > UTC_TIMESTAMP() THEN 'upcoming' WHEN gs.ends_at > UTC_TIMESTAMP() THEN 'active' ELSE 'past' END AS state
+                    FROM guardian_substitutes gs
+                    JOIN identities g ON g.id = gs.identity_id JOIN identities s ON s.id = gs.substitute_identity_id
+                    WHERE gs.revoked_at IS NULL AND gs.ends_at > UTC_TIMESTAMP() - INTERVAL 30 DAY AND {where}
+                    ORDER BY gs.starts_at
+                    """
+                ),
+        params,
+    )
