@@ -92,6 +92,7 @@ def test_license_refused(issuer):
     ({"app": {"db_name": "a", "logging_db_name": "b", "user": "same", "migrate_user": "same"}}, "propre compte"),
     ({"admin": {"username": "admin", "password": "Admin!Password1"}}, "identifiant"),
     ({"fives": {"db_name": "f", "inventory_db_name": "i", "user": "f"}}, "ne l'ouvre pas"),
+    ({"modules": {"governance": False, "fives": False}}, "Modules"),
 ])
 def test_plan_refused(over, message):
     response = client.post("/api/install", json=_plan(**over))
@@ -140,10 +141,12 @@ def test_install_all_steps_writes_the_secrets_and_no_password_on_screen(issuer, 
     with patch.object(install, "_databases_and_accounts", side_effect=lambda server, app, fives, passwords: given.update(passwords) or []), \
          patch.object(install, "run_schema_pack", return_value=40) as schema, patch.object(install, "run_logging_schema_pack", return_value=2), \
          patch.object(install, "run_fives_packs", return_value=2), patch.object(install, "create_local_admin_if_needed"), \
-         patch.object(install, "_license") as lic, patch.object(install, "_check_account") as check:
+         patch.object(install, "_license") as lic, patch.object(install, "_switch") as switch, patch.object(install, "_check_account") as check:
         result = install.run(plan)
     assert result["ok"] is True
-    assert [s["key"] for s in result["steps"]] == ["secrets", "databases", "packs", "admin", "license", "check"]
+    assert [s["key"] for s in result["steps"]] == ["secrets", "databases", "packs", "admin", "license", "modules", "check"]
+    # Both modules: the governance stays on
+    assert switch.call_args.args[2:4] == ("governance", True)
     # The packs with the migration account, not the administrator
     assert schema.call_args.args[1]["user"] == "b2s_migrate"
     assert lic.call_args.args[4] == ["fives"]
@@ -183,7 +186,8 @@ def test_env_lines_only_for_names_other_than_the_defaults(tmp_path, monkeypatch)
 def test_a_successful_installation_signals_the_watcher(tmp_path, monkeypatch):
     monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
     with patch.object(install, "_databases_and_accounts", return_value=[]), patch.object(install, "run_schema_pack"), \
-         patch.object(install, "run_logging_schema_pack"), patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_check_account"):
+         patch.object(install, "run_logging_schema_pack"), patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_check_account"), \
+         patch.object(install, "_switch"):
         install.run(install.validate(_plan()))
     assert json.loads((tmp_path / ".installed").read_text()) == {"env": [["DB_HOST", "db"]]}
     assert client.get("/api/deploy").json()["state"] == "waiting"
@@ -208,3 +212,28 @@ def test_deploy_status_follows_the_phases_of_deploy(tmp_path, monkeypatch):
     assert data["state"] == "failed" and data["log"][-1] == "Error: build"
     (tmp_path / ".deploy-status").write_text('{"state": "done", "phase": "BornToShare est démarré"}')
     assert client.get("/api/deploy").json()["phase_index"] == 5
+
+
+def test_a_5s_only_installation_switches_the_governance_off(issuer, tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    key = _key({"lic": "L1", "cust": "CORP", "feat": ["fives"]}, issuer)
+    plan = install.validate(_plan(license=key, modules={"governance": False, "fives": True},
+                                  fives={"db_name": "b2s_fives", "inventory_db_name": "b2s_fives_inventory", "user": "b2s_fives"}))
+    assert plan["governance"] is False
+    with patch.object(install, "_databases_and_accounts", return_value=[]), patch.object(install, "run_schema_pack", return_value=1), \
+         patch.object(install, "run_logging_schema_pack", return_value=1), patch.object(install, "run_fives_packs", return_value=1), \
+         patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_license"), \
+         patch.object(install, "_switch") as switch, patch.object(install, "_check_account"):
+        result = install.run(plan)
+    assert result["ok"] is True
+    switch.assert_called_once()
+    assert switch.call_args.args[2:4] == ("governance", False)
+
+
+def test_the_first_administrator_changes_its_password_at_the_first_sign_in():
+    from backend.app import admin_logic
+    import inspect
+
+    source = inspect.getsource(admin_logic.create_local_admin_if_needed)
+    # Created or synchronised by the wizard: its password is temporary in both cases
+    assert source.count("must_change_password") >= 2

@@ -82,6 +82,8 @@ def verify_local_credentials(payload: LocalVerifyPayload, db: Session = Depends(
         "username": row.get("username") or payload.username,
         "display_name": row.get("display_name"),
         "email": row.get("email"),
+        # A temporary password (the first administrator, set by the installation wizard): changed before anything else
+        "must_change_password": bool(row.get("must_change_password")),
     }
 
 
@@ -105,7 +107,11 @@ def change_local_password(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    local_credentials_repo.set_password_hash(db, int(row.get("identity_id") or 0), _hash_b2s_password(payload.new_password), now)
+    if current_password and _verify_b2s_password(payload.new_password, str(row.get("password_hash") or "")):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={
+            "error_code": "PASSWORD_UNCHANGED", "message": "The new password must differ from the current one"})
+    local_credentials_repo.set_password_hash(db, int(row.get("identity_id") or 0), _hash_b2s_password(payload.new_password), now,
+                                             chosen_by_owner=bool(current_password))
 
     actor_id, actor_display = _actor_from_headers(request)
     target_id = int(row.get("identity_id") or 0)

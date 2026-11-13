@@ -23,7 +23,7 @@
   }
 
   let { inSetup = false }: Props = $props();
-  type Feature = { key: string; label: string; description: string; icon: string; licensed: boolean; enabled: boolean; switched_on: boolean; installed?: boolean;
+  type Feature = { key: string; label: string; description: string; icon: string; included?: boolean; licensed: boolean; enabled: boolean; switched_on: boolean; installed?: boolean;
     expires_on: string | null; updated_by: string | null };
   type License = { id: number; license_id: string; customer: string; key_hint: string; features: string[]; issued_on: string | null;
     expires_on: string | null; expired: boolean; activated_at: string | null; activated_by: string | null };
@@ -73,7 +73,8 @@
             <b>{feature.label}</b>
             <small>{feature.description}</small>
             <span class="ft__state">
-              {#if !feature.licensed}<span class="ft__pill">{t('No license')}</span>
+              {#if feature.included}<span class="ft__pill is-ok">{t('Included')}</span>
+              {:else if !feature.licensed}<span class="ft__pill">{t('No license')}</span>
               {:else}<span class="ft__pill is-ok">{t('Licensed')}{feature.expires_on ? ` · ${t('until {date}', { date: formatDate(feature.expires_on) })}` : ` · ${t('no end date')}`}</span>{/if}
               {#if feature.enabled}<span class="ft__pill is-on">{t('On')}</span>
               {:else if feature.licensed && feature.switched_on}<span class="ft__pill is-warn">{t('Switched on · not installed on this server')}</span>{/if}

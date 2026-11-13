@@ -5,6 +5,7 @@
   import { dur, MOTION, pop } from '$lib/utils/motion';
   import { t } from '$lib/i18n';
   import { goto } from '$app/navigation';
+  import { governanceEnabled } from '$lib/utils/features';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
 
@@ -73,12 +74,12 @@
   let items = $derived(row
     ? [
         { key: 'open', label: t('Open'), icon: 'bi-box-arrow-in-right', run: (target: StorageRootRow) => onOpen(target) },
-        {
+        ...($governanceEnabled ? [{
           key: 'request',
           label: t('Request access'),
           icon: 'bi-key',
           run: (target: StorageRootRow) => void goto(`/access-requests/new?root=${Number(target?.storage_root_id ?? 0)}`)
-        },
+        }] : []),
         ...(canManage ? [{
           key: 'inheritance',
           label: broken ? t('Restore the inheritance') : t('Break the inheritance'),

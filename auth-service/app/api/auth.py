@@ -1320,6 +1320,7 @@ async def purge_admin_logs(user: UserInfo = Depends(get_current_user)) -> dict:
 @router.post("/change-password", response_model=ChangePasswordResponse)
 async def change_password(
     request: Request,
+    response: Response,
     payload: ChangePasswordRequest,
     user: UserInfo = Depends(get_current_user),
 ) -> ChangePasswordResponse:
@@ -1433,6 +1434,13 @@ async def change_password(
         provider=user.auth_source,
         outcome="success",
     )
+    # A temporary password is over: the session opens the application again
+    if user.must_change_password:
+        session_id = request.cookies.get(settings.SESSION_COOKIE_NAME)
+        updated = user.model_copy(update={"must_change_password": False})
+        if session_id:
+            store.update_user(session_id, updated)
+        _set_principal_cookie(request, response, updated)
     return ChangePasswordResponse()
 
 

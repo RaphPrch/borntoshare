@@ -109,16 +109,6 @@ input.is-invalid { border-color: var(--danger); }
 .wz__callout--warn { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn-border); }
 
 /* Module switch */
-.wz__module { display: grid; gap: 18px; padding: 20px; border: 1px solid var(--border-soft); border-radius: 16px; background: var(--surface-soft); animation: wz-in 200ms var(--ease); }
-.wz__switch { display: flex; gap: 14px; align-items: flex-start; cursor: pointer; font-weight: 400; }
-.wz__switch input { position: absolute; opacity: 0; pointer-events: none; }
-.wz__switch > span:first-of-type { flex: none; width: 44px; height: 26px; border-radius: 999px; background: var(--border); position: relative; transition: background 200ms var(--ease); margin-top: 2px; }
-.wz__switch > span:first-of-type::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: transform 200ms var(--ease); }
-.wz__switch input:checked + span { background: var(--accent-strong); }
-.wz__switch input:checked + span::after { transform: translateX(18px); }
-.wz__switch input:focus-visible + span { box-shadow: var(--focus); }
-.wz__switch b { display: block; font-size: 14px; }
-.wz__switch small { display: block; color: var(--muted); font: 13px var(--font); margin: 2px 0 0; }
 #m_fields { display: grid; gap: 20px; }
 
 /* Buttons (buttons.css of the application) */
@@ -177,3 +167,15 @@ input.is-invalid { border-color: var(--danger); }
 a.wz__btn { text-decoration: none; }
 .wz__details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .wz__details[open] summary { margin-bottom: 8px; }
+
+/* 4. Modules: two cards, at least one ticked */
+.wz__mods { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.wz__mod { position: relative; display: block; padding: 18px 18px 16px; border: 1px solid var(--border-soft); border-radius: 16px; background: var(--surface-soft); cursor: pointer; font-weight: 400; transition: border-color 200ms var(--ease), box-shadow 200ms var(--ease); }
+.wz__mod:hover { border-color: var(--border); }
+.wz__mod.is-on { border-color: var(--accent-strong); box-shadow: 0 0 0 3px rgba(0, 0, 0, .04); background: #fff; }
+.wz__mod input { position: absolute; top: 16px; right: 16px; width: 18px; height: 18px; accent-color: var(--accent-strong); }
+.wz__mod > span { display: grid; gap: 6px; padding-right: 26px; }
+.wz__mod small { font: 400 13px/1.45 inherit; color: var(--muted); margin-top: 0; }
+.wz__mod em { font-style: normal; justify-self: start; }
+#m_fives { display: grid; gap: 14px; }
+#m_fives[hidden], #m_fields[hidden] { display: none; }

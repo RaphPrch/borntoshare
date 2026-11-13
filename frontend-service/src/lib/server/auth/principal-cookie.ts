@@ -134,6 +134,7 @@ function toSnapshot(value: unknown): PrincipalSnapshot | null {
     email: value.email == null ? null : String(value.email),
     roles,
     is_admin: isAdmin,
+    must_change_password: value.must_change_password === true,
     ver,
     exp
   };
@@ -170,7 +171,8 @@ export function principalToMe(snapshot: PrincipalSnapshot): Me {
     display_name: snapshot.display_name ?? null,
     email: snapshot.email ?? null,
     roles: [...snapshot.roles],
-    is_admin: isAdmin
+    is_admin: isAdmin,
+    must_change_password: snapshot.must_change_password === true
   };
 }
 
@@ -191,6 +193,7 @@ export async function issuePrincipalCookieFromMe(
       const normalized = String(role).toLowerCase();
       return normalized === 'platform_admin' || normalized === 'admin';
     }),
+    must_change_password: me.must_change_password === true,
     ver: 1,
     exp
   };

@@ -18,7 +18,7 @@
       <li data-step="1"><span class="wz__num">1</span><span><b>Serveur MariaDB</b><small>Compte administrateur</small></span></li>
       <li data-step="2"><span class="wz__num">2</span><span><b>Bases BornToShare</b><small>Données, journaux, comptes</small></span></li>
       <li data-step="3"><span class="wz__num">3</span><span><b>Administrateur</b><small>Premier compte local</small></span></li>
-      <li data-step="4"><span class="wz__num">4</span><span><b>Licence et modules</b><small>Facultatif</small></span></li>
+      <li data-step="4"><span class="wz__num">4</span><span><b>Modules</b><small>Gouvernance, 5S ou les deux</small></span></li>
       <li data-step="5"><span class="wz__num">5</span><span><b>Installation</b><small>Récapitulatif</small></span></li>
     </ol>
     <p class="wz__note">
@@ -86,7 +86,7 @@
       <!-- 3. Administrator -->
       <section class="wz__step" data-step="3" hidden>
         <header><span class="wz__eyebrow">Étape 3 sur 5</span><h2>Administrateur</h2>
-          <p>Le premier compte local, administrateur de la plateforme. Il ouvre l'assistant de premier lancement (annuaire, serveurs, dossiers).</p></header>
+          <p>Le premier compte local, administrateur de la plateforme. Il ouvre l'assistant de premier lancement (annuaire, serveurs, dossiers). Ce mot de passe est provisoire : il sera à changer à la première connexion.</p></header>
         <form id="f3" autocomplete="off" novalidate>
           <div class="wz__grid">
             <label>Identifiant<input id="u_name" value="admin" required spellcheck="false" autocomplete="off" /></label>
@@ -102,30 +102,37 @@
         </form>
       </section>
 
-      <!-- 4. License and modules -->
+      <!-- 4. Modules -->
       <section class="wz__step" data-step="4" hidden>
-        <header><span class="wz__eyebrow">Étape 4 sur 5</span><h2>Licence et modules</h2>
-          <p>Une clé de licence ouvre les modules optionnels. Sans clé, BornToShare s'installe sans eux : la clé pourra être ajoutée plus tard dans Réglages avancés › Fonctionnalités.</p></header>
+        <header><span class="wz__eyebrow">Étape 4 sur 5</span><h2>Modules</h2>
+          <p>À quoi servira BornToShare : la gouvernance des accès, le 5S, ou les deux. Le module non choisi pourra être ajouté plus tard dans Réglages avancés › Fonctionnalités.</p></header>
         <form id="f4" autocomplete="off" novalidate>
-          <label>Clé de licence<textarea id="l_key" rows="3" placeholder="B2S-AAAAA-BBBBB-…" spellcheck="false"></textarea></label>
-          <div class="wz__inline"><button type="button" id="l_check" class="wz__btn">Vérifier la clé</button><span class="wz__hint">Vérifiée ici, sans connexion : rien ne sort de ce serveur.</span></div>
-          <div id="l_result" hidden></div>
+          <div class="wz__mods">
+            <label class="wz__mod"><input type="checkbox" id="m_gov" checked />
+              <span><b>Gouvernance des accès</b><small>Demandes d'accès et décisions des gardiens, groupes créés dans l'annuaire, exposition des dossiers.</small>
+                <em class="wz__chip is-ok">Inclus</em></span></label>
+            <label class="wz__mod"><input type="checkbox" id="m_on" />
+              <span><b>5S et hygiène des données</b><small>Score 5S, doublons, âge des données, fichiers parasites, croissance, scanner sans agent, rapport 5S. Ses deux bases et son propre compte SQL.</small>
+                <em class="wz__chip">Licence requise</em></span></label>
+          </div>
+          <p id="m_none" class="wz__callout wz__callout--warn" hidden>Choisir au moins un module.</p>
+          <p id="m_only" class="wz__hint" hidden>5S seul : BornToShare lit l'annuaire et les serveurs, sans rien y créer. Les demandes d'accès, les gardiens et l'exposition restent masqués.</p>
 
-          <div id="m_fives" class="wz__module" hidden>
-            <label class="wz__switch"><input type="checkbox" id="m_on" checked /><span></span>
-              <span><b>Module 5S et hygiène des données</b><small>Score 5S, doublons, âge des données, croissance, scanner sans agent. Ses deux bases et son propre compte SQL (lecture et écriture sur elles seules), sur ce serveur.</small></span></label>
-            <div id="m_fields">
+          <div id="m_fives" hidden>
+            <label>Clé de licence du 5S<textarea id="l_key" rows="3" placeholder="B2S-AAAAA-BBBBB-…" spellcheck="false"></textarea></label>
+            <div class="wz__inline"><button type="button" id="l_check" class="wz__btn">Vérifier la clé</button><span class="wz__hint">Vérifiée ici, sans connexion : rien ne sort de ce serveur.</span></div>
+            <div id="l_result" hidden></div>
+            <div id="m_fields" hidden>
               <div class="wz__grid">
                 <label>Base du module<small>FIVES_DB_NAME</small><input id="m_db" required spellcheck="false" /></label>
                 <label>Base d'inventaire<small>FIVES_INVENTORY_DB_NAME</small><input id="m_inv" required spellcheck="false" /></label>
                 <label>Compte du module<small>FIVES_DB_USER</small><input id="m_user" required spellcheck="false" /></label>
               </div>
-
             </div>
           </div>
           <footer>
             <button type="button" class="wz__btn wz__btn--ghost" data-back>Retour</button>
-            <button type="submit" class="wz__btn wz__btn--primary" id="n4">Continuer sans licence</button>
+            <button type="submit" class="wz__btn wz__btn--primary" id="n4">Continuer</button>
           </footer>
         </form>
       </section>
@@ -151,7 +158,7 @@
           <div id="d_failed" class="wz__result is-error" hidden><div class="wz__result-head"><b>Le déploiement s'est arrêté</b></div>
             <pre class="wz__env" id="d_log"></pre><p class="wz__hint">Corriger, puis <code>make deploy</code> sur le serveur : il reprend tout, sans rien effacer.</p></div>
           <div id="d_done" class="wz__result is-ok" hidden><div class="wz__result-head"><b>BornToShare est prêt</b></div>
-            <p class="wz__hint">Se connecter avec le compte <b id="i_admin"></b> : l'assistant de premier lancement prend le relais. Ce wizard s'arrête de lui-même dans quelques minutes.</p>
+            <p class="wz__hint">Se connecter avec le compte <b id="i_admin"></b> et changer son mot de passe provisoire : l'assistant de premier lancement prend ensuite le relais. Ce wizard s'arrête de lui-même dans quelques minutes.</p>
             <div class="wz__inline"><a id="d_open" class="wz__btn wz__btn--primary" target="_blank" rel="noopener">Ouvrir BornToShare</a></div></div>
           <details class="wz__details"><summary>Ajouté à <code>.env</code></summary>
             <p class="wz__hint">L'adresse du serveur, et les noms qui diffèrent de ceux par défaut : aucun mot de passe.</p>

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fastapi import HTTPException
 
 from app.api import internal_auth_local as module
@@ -89,7 +90,8 @@ def test_change_local_password_updates_hash_and_commits(monkeypatch) -> None:
         "password_hash": "b2s$v=1$bcrypt$old",
     }
     db = _FakeDB(row)
-    monkeypatch.setattr(module, "_verify_b2s_password", lambda *_a, **_k: True)
+    # Only the current password matches the stored hash
+    monkeypatch.setattr(module, "_verify_b2s_password", lambda password, _hash: password == "old_secret")
     monkeypatch.setattr(module, "_hash_b2s_password", lambda _pwd: "b2s$v=1$bcrypt$new")
 
     out = module.change_local_password(
@@ -107,3 +109,15 @@ def test_change_local_password_updates_hash_and_commits(monkeypatch) -> None:
     assert isinstance(db.update_params, dict)
     assert db.update_params["identity_id"] == 77
     assert db.update_params["password_hash"] == "b2s$v=1$bcrypt$new"
+    # Chosen by the person: a temporary password is over
+    assert db.update_params["owner"] == 1
+
+
+def test_the_new_password_must_differ_from_the_temporary_one(monkeypatch) -> None:
+    row = {"identity_id": 1, "is_active": 1, "auth_source": "local", "password_hash": "b2s$v=1$bcrypt$old"}
+    monkeypatch.setattr(module, "_verify_b2s_password", lambda password, _hash: password == "Temp!Password1")
+    with pytest.raises(HTTPException) as error:
+        module.change_local_password(
+            module.LocalChangePasswordPayload(username="admin", current_password="Temp!Password1", new_password="Temp!Password1"),
+            request=_FakeRequest(), db=_FakeDB(row))
+    assert error.value.status_code == 422

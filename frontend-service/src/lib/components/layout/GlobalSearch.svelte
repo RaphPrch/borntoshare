@@ -24,6 +24,7 @@
     return out;
   }
   import { goto } from '$app/navigation';
+  import { governanceEnabled } from '$lib/utils/features';
   import { tick } from 'svelte';
   import { t } from '$lib/i18n';
   import AppModal from '$lib/components/ui/AppModal.svelte';
@@ -136,13 +137,13 @@
     const key = event.key.toLowerCase();
     if (Date.now() - pendingG < 1200) {
       pendingG = 0;
-      const href = { d: '/dashboard', r: '/access-requests', f: canSeeStorageRoots ? '/storage-roots' : '', a: canSeeObservability ? '/observability?tab=alerts' : '' }[key];
+      const href = { d: '/dashboard', r: $governanceEnabled ? '/access-requests' : '', f: canSeeStorageRoots ? '/storage-roots' : '', a: canSeeObservability ? '/observability?tab=alerts' : '' }[key];
       if (href) { void goto(href); return true; }
       return false;
     }
     if (key === '/') { void show(); return true; }
     if (key === '?') { helpOpen = true; return true; }
-    if (key === 'n' && !event.shiftKey) { void goto('/access-requests/new'); return true; }
+    if (key === 'n' && !event.shiftKey && $governanceEnabled) { void goto('/access-requests/new'); return true; }
     if (key === 'g' && !event.shiftKey) { pendingG = Date.now(); return true; }
     return false;
   }
@@ -206,7 +207,7 @@
   // Pages are translated when read
   let pages = $derived([
     { title: 'Dashboard', href: '/dashboard', icon: 'bi-speedometer2', show: true },
-    { title: 'Access requests', href: '/access-requests', icon: 'bi-clipboard-check', show: true },
+    { title: 'Access requests', href: '/access-requests', icon: 'bi-clipboard-check', show: $governanceEnabled },
     ...searchPages.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots })),
     { title: 'Observability', href: '/observability', icon: 'bi-activity', show: canSeeObservability },
     { title: 'Alerts', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', show: canSeeObservability },
@@ -218,8 +219,13 @@
     .map((page): Result => ({ group: t('Pages'), label: t(page.title), detail: '', href: page.href, icon: page.icon ?? 'bi-file-earmark' })));
   // ---- actions: the palette acts, not only navigates ----
   let baseActions = $derived([
-    { group: t('Actions'), label: t('New access request'), detail: t('For you or for someone else'), href: '/access-requests/new', icon: 'bi-plus-lg', key: 'N' },
-    { group: t('Actions'), label: t('Requests waiting for a decision'), detail: '', href: '/access-requests', icon: 'bi-clipboard-check', key: 'G R' },
+    // An installation for the 5S only takes no access request
+    ...($governanceEnabled
+      ? [
+          { group: t('Actions'), label: t('New access request'), detail: t('For you or for someone else'), href: '/access-requests/new', icon: 'bi-plus-lg', key: 'N' },
+          { group: t('Actions'), label: t('Requests waiting for a decision'), detail: '', href: '/access-requests', icon: 'bi-clipboard-check', key: 'G R' }
+        ]
+      : []),
     ...(canSeeObservability
       ? [
           { group: t('Actions'), label: t('Run a health check'), detail: t('Directories, group OUs, servers, worker'), href: '/observability?tab=health', icon: 'bi-heart-pulse' },
@@ -234,14 +240,15 @@
   let matchedRoot = $derived(q ? entities.find((r) => r.rootId && normalizeText(r.label).includes(q)) : undefined);
   let rootActions = $derived(matchedRoot
     ? ([
-        { group: t('Actions'), label: t('New access request to {name}', { name: matchedRoot.label }), detail: matchedRoot.detail, href: `/access-requests/new?root=${matchedRoot.rootId}`, icon: 'bi-plus-lg' },
+        ...($governanceEnabled ? [{ group: t('Actions'), label: t('New access request to {name}', { name: matchedRoot.label }), detail: matchedRoot.detail, href: `/access-requests/new?root=${matchedRoot.rootId}`, icon: 'bi-plus-lg' }] : []),
         { group: t('Actions'), label: t('Who can open {name}', { name: matchedRoot.label }), detail: '', href: `/storage-roots?selected=${matchedRoot.rootId}&tab=permissions`, icon: 'bi-people' }
       ] as Result[])
     : []);
   $effect.pre(() => {
     schedulePeople(query);
   });
-  let personResults = $derived(people.flatMap((person): Result[] => [
+  // Without the governance, a person who reaches no folder leads nowhere: not listed
+  let personResults = $derived(people.flatMap((person): Result[] => !person.roots.length && !$governanceEnabled ? [] : [
     {
       group: t('People'),
       label: person.name,
@@ -258,7 +265,7 @@
   // Actions on the first person found: the palette acts, not only navigates
   let actionResults = $derived(people.length
     ? [
-        { group: t('Actions'), label: t('Request access for {name}…', { name: people[0].name }), detail: '', href: requestHref(people[0]), icon: 'bi-plus-lg' },
+        ...($governanceEnabled ? [{ group: t('Actions'), label: t('Request access for {name}…', { name: people[0].name }), detail: '', href: requestHref(people[0]), icon: 'bi-plus-lg' }] : []),
         ...people[0].roots.slice(0, 4).map((root) => ({
           group: t('Actions'),
           label: t('Why {name} reaches {folder}', { name: people[0].name, folder: root.name }),

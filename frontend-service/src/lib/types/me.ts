@@ -5,6 +5,8 @@ export type Me = {
   email?: string | null;
   roles: string[];
   is_admin: boolean;
+  /** A temporary local password (the first administrator): to change before anything else */
+  must_change_password?: boolean;
 };
 
 function toNumber(value: unknown): number | null {
@@ -44,6 +46,7 @@ export function normalizeMe(raw: unknown): Me {
     display_name: obj.display_name == null ? null : String(obj.display_name),
     email: obj.email == null ? null : String(obj.email),
     roles,
-    is_admin: isAdminRole
+    is_admin: isAdminRole,
+    must_change_password: obj.must_change_password === true
   };
 }

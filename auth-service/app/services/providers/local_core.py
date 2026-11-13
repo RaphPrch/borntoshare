@@ -127,6 +127,7 @@ class CoreLocalProvider(AuthProvider):
             auth_source="local",
             external_id=identity_id,
             is_admin=False,
+            must_change_password=bool(data.get("must_change_password")),
         )
 
     async def change_password(

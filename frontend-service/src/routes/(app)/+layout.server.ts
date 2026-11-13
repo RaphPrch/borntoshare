@@ -62,6 +62,15 @@ export const load: LayoutServerLoad = async (event) => {
   // Optional modules opened by a license and switched on (5S…): their menus follow
   const featureList = await apiServerGetData<{ features?: Array<{ key: string; enabled: boolean }> }>('/features', event).catch(() => null);
   const features = (featureList?.features ?? []).filter((feature) => feature.enabled).map((feature) => feature.key);
+  // Unknown (the core did not answer): the governance stays shown, as on every installation before the 5S-only one
+  if (!featureList) features.push('governance');
+
+  // An installation for the 5S only: no access request, no exposure; the dashboard of a user is the 5S
+  if (!features.includes('governance')) {
+    const path = event.url.pathname;
+    const home = features.includes('fives') ? '/five-s' : '/storage-roots';
+    if (path.startsWith('/access-requests') || path.startsWith('/exposure') || (path === '/dashboard' && !me.is_admin)) throw redirect(302, home);
+  }
 
   return {
     me,

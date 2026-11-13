@@ -65,6 +65,11 @@ export async function saveDnsDomains(fetchFn: FetchLike, dns: DnsDomain[]) {
   });
 }
 
+/** First step of the setup: the access governance, the 5S (licensed), or both */
+export async function chooseSetupModules(fetchFn: FetchLike, modules: { governance: boolean; fives: boolean }) {
+  return apiPost<ActionResult>(fetchFn, '/admin/setup/modules', modules);
+}
+
 export async function completeSetup(fetchFn: FetchLike) {
   return apiPost<ActionResult>(fetchFn, '/admin/setup/complete', {});
 }

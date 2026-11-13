@@ -6,6 +6,7 @@
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import { formatActivityItem } from '$lib/activity/format';
   import RequestsActivityChart from './RequestsActivityChart.svelte';
+  import { governanceEnabled } from '$lib/utils/features';
   import { onMount } from 'svelte';
   import { apiGetList } from '$lib/api/client';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -55,6 +56,9 @@
     { key: 'admins', label: t('Admins'), href: '/admin/identity', icon: 'bi-person-gear', tone: 'info' },
     { key: 'pending_requests', label: t('Pending Requests'), href: '/access-requests', icon: 'bi-hourglass-split', tone: 'warning' }
   ] as const;
+
+  // An installation for the 5S only has no access request: their figures and their curve are not shown
+  const shown = (key: string) => $governanceEnabled || !key.includes('requests');
 
   const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -114,7 +118,7 @@
     </InlineAlert>
   {/if}
   <div class="b2s-kpi-grid">
-    {#each kpi as item}
+    {#each kpi.filter((item) => shown(item.key)) as item}
       <KpiCard label={item.label} value={num(stats[item.key])} icon={item.icon} tone={item.tone} href={item.href} />
     {/each}
   </div>
@@ -122,7 +126,7 @@
   <section class="dashboard-attention" aria-labelledby="dashboard-attention-title">
     <h2 id="dashboard-attention-title">{t('Needs attention')}</h2>
     <div class="b2s-kpi-grid">
-      {#each attention as item}
+      {#each attention.filter((item) => shown(item.key)) as item}
         <KpiCard
           label={item.label}
           value={num(stats[item.key])}
@@ -135,8 +139,8 @@
     </div>
   </section>
 
-  <div class="dashboard-columns">
-  <RequestsActivityChart series={requestsSeries} />
+  <div class="dashboard-columns" class:is-single={!$governanceEnabled}>
+  {#if $governanceEnabled}<RequestsActivityChart series={requestsSeries} />{/if}
 
   <section class="panel">
     <div class="panel__header">
@@ -178,6 +182,8 @@
     font-size: var(--b2s-fs-lg);
     font-weight: 600;
   }
+
+  .dashboard-columns.is-single { grid-template-columns: minmax(0, 1fr); }
 
   .dashboard-columns {
     display: grid;

@@ -177,22 +177,28 @@ function valid3() {
 ["u_name", "u_email", "u_password", "u_confirm"].forEach((id) => $(id).addEventListener("input", () => ($("n3").disabled = !valid3())));
 $("f3").addEventListener("submit", (e) => { e.preventDefault(); if (valid3()) show(4); });
 
-/* ---------- 4. License and modules ---------- */
+/* ---------- 4. Modules: the governance (included), the 5S (licensed) ---------- */
+const govOn = () => $("m_gov").checked;
+const fivesWanted = () => $("m_on").checked;
 const fivesOpen = () => !!state.license?.features.some((f) => f.key === "fives");
-const fivesOn = () => fivesOpen() && $("m_on").checked;
+const fivesOn = () => fivesWanted() && fivesOpen();
 function valid4() {
-  if (val("l_key") && !state.license) return false;
-  if (!fivesOn()) return true;
+  if (!govOn() && !fivesWanted()) return false;
+  if (!fivesWanted()) return true;
+  if (!fivesOpen()) return false;
   const ok = [mark("m_db", ident("m_db")), mark("m_inv", ident("m_inv")), mark("m_user", ident("m_user"))].every(Boolean);
   const names = [val("a_db"), val("a_log"), val("m_db"), val("m_inv")].map((n) => n.toLowerCase());
   const users = [val("a_user"), val("a_migrate"), val("m_user")].map((n) => n.toLowerCase());
   return ok && new Set(names).size === 4 && new Set(users).size === 3;
 }
 function refresh4() {
-  $("m_fives").hidden = !fivesOpen();
+  document.querySelectorAll(".wz__mod").forEach((card) => card.classList.toggle("is-on", card.querySelector("input").checked));
+  $("m_none").hidden = govOn() || fivesWanted();
+  $("m_only").hidden = govOn() || !fivesWanted();
+  $("m_fives").hidden = !fivesWanted();
   $("m_fields").hidden = !fivesOn();
   const n4 = $("n4");
-  n4.textContent = state.license ? "Continuer" : val("l_key") ? "Vérifier la clé d'abord" : "Continuer sans licence";
+  n4.textContent = fivesWanted() && !fivesOpen() ? (val("l_key") ? "Vérifier la clé d'abord" : "Coller la clé du 5S") : "Continuer";
   n4.disabled = !valid4();
 }
 $("l_key").addEventListener("input", () => {
@@ -208,9 +214,11 @@ $("l_check").addEventListener("click", async () => {
     const lic = await api("/api/license/check", { key: $("l_key").value });
     state.license = lic;
     const until = lic.expires_on ? `jusqu'au ${new Date(lic.expires_on).toLocaleDateString("fr-FR")}` : "sans date de fin";
-    out.className = "wz__result is-ok";
+    const opens = lic.features.some((f) => f.key === "fives");
+    out.className = `wz__result ${opens ? "is-ok" : "is-error"}`;
     out.innerHTML = `<div class="wz__result-head"><b>${escape(lic.customer)}</b><span>${escape(lic.key_hint)} · ${until}</span></div>
-      <div class="wz__chips">${lic.features.map((f) => `<span class="wz__chip ${f.known ? "is-ok" : ""}">${f.known ? CHECK : ""}${escape(f.label)}${f.known ? "" : " (version suivante)"}</span>`).join("")}</div>`;
+      <div class="wz__chips">${lic.features.map((f) => `<span class="wz__chip ${f.known ? "is-ok" : ""}">${f.known ? CHECK : ""}${escape(f.label)}${f.known ? "" : " (version suivante)"}</span>`).join("")}</div>`
+      + (opens ? "" : '<p class="wz__hint">Cette clé n\'ouvre pas le 5S.</p>');
   } catch (error) {
     state.license = null;
     out.className = "wz__result is-error";
@@ -221,7 +229,7 @@ $("l_check").addEventListener("click", async () => {
     refresh4();
   }
 });
-["m_on", "m_db", "m_inv", "m_user"].forEach((id) => $(id).addEventListener("input", refresh4));
+["m_gov", "m_on", "m_db", "m_inv", "m_user"].forEach((id) => $(id).addEventListener("input", refresh4));
 $("f4").addEventListener("submit", (e) => { e.preventDefault(); if (valid4()) show(5); });
 
 /* ---------- 5. Summary and installation ---------- */
@@ -230,7 +238,8 @@ function plan() {
     server: state.server,
     app: { db_name: val("a_db"), logging_db_name: val("a_log"), user: val("a_user"), migrate_user: val("a_migrate") },
     admin: { username: val("u_name"), email: val("u_email") || null, password: $("u_password").value },
-    license: state.license ? $("l_key").value : null,
+    modules: { governance: govOn(), fives: fivesOn() },
+    license: fivesOn() ? $("l_key").value : null,
     fives: fivesOn() ? { db_name: val("m_db"), inventory_db_name: val("m_inv"), user: val("m_user") } : null,
   };
 }
@@ -243,7 +252,8 @@ function summary() {
     + row("Bases", `<code>${escape(p.app.db_name)}</code> et <code>${escape(p.app.logging_db_name)}</code>`)
     + row("Comptes", `<code>${escape(p.app.user)}</code> (application), <code>${escape(p.app.migrate_user)}</code> (migration)${p.fives ? `, <code>${escape(p.fives.user)}</code> (module 5S)` : ""} · mots de passe générés`)
     + row("Administrateur", escape(p.admin.username) + (p.admin.email ? ` · ${escape(p.admin.email)}` : ""))
-    + row("Licence", state.license ? `${escape(state.license.customer)} · ${escape(state.license.key_hint)}` : "aucune (à ajouter plus tard)")
+    + row("Modules", [p.modules.governance ? "Gouvernance des accès" : "", p.modules.fives ? "5S et hygiène des données" : ""].filter(Boolean).join(" + "))
+    + row("Licence", p.license ? `${escape(state.license.customer)} · ${escape(state.license.key_hint)}` : "aucune (à ajouter plus tard)")
     + row("Module 5S", p.fives ? `<code>${escape(p.fives.db_name)}</code> et <code>${escape(p.fives.inventory_db_name)}</code> · compte <code>${escape(p.fives.user)}</code>` : "non installé");
 }
 $("i_run").addEventListener("click", async () => {

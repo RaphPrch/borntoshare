@@ -10,12 +10,13 @@ from sqlalchemy.orm import Session
 
 def local_account(db: Session, username: str) -> dict[str, Any] | None:
     """The identity with a local password, found by its login (case ignored): identity_id, username, display_name,
-    email, is_active, auth_source, password_hash."""
+    email, is_active, auth_source, password_hash, must_change_password."""
     row = db.execute(
         text(
             """
             SELECT i.id AS identity_id, i.username, i.display_name, i.email, COALESCE(i.is_active, 0) AS is_active,
-                   COALESCE(i.auth_source, '') AS auth_source, lc.password_hash
+                   COALESCE(i.auth_source, '') AS auth_source, lc.password_hash,
+                   COALESCE(lc.must_change_password, 0) AS must_change_password
             FROM identities i JOIN local_credentials lc ON lc.identity_id = i.id
             WHERE LOWER(COALESCE(i.username, '')) = LOWER(:username)
             LIMIT 1
@@ -26,10 +27,13 @@ def local_account(db: Session, username: str) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
-def set_password_hash(db: Session, identity_id: int, password_hash: str, rotated_at: datetime) -> None:
+def set_password_hash(db: Session, identity_id: int, password_hash: str, rotated_at: datetime, *, chosen_by_owner: bool = False) -> None:
+    """chosen_by_owner: the person changed its own password (its current one given): a temporary password is over."""
     db.execute(
         text("""UPDATE local_credentials SET password_hash = :password_hash, password_version = 'b2s$v=1$bcrypt',
-                last_rotated_at = :last_rotated_at WHERE identity_id = :identity_id"""),
-        {"identity_id": int(identity_id), "password_hash": password_hash, "last_rotated_at": rotated_at},
+                last_rotated_at = :last_rotated_at,
+                must_change_password = CASE WHEN :owner = 1 THEN 0 ELSE must_change_password END
+                WHERE identity_id = :identity_id"""),
+        {"identity_id": int(identity_id), "password_hash": password_hash, "last_rotated_at": rotated_at, "owner": 1 if chosen_by_owner else 0},
     )
     db.commit()

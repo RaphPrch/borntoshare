@@ -9,12 +9,13 @@
   import { createStorageRoot, updateStorageRootOwners } from '$lib/api/storage-roots';
   import { searchIdentityDirectory } from '$lib/api/identity-browser';
   import { resolveCredentials } from '$lib/api/credentials';
-  import { completeSetup } from '$lib/api/admin-advanced-settings';
+  import { chooseSetupModules, completeSetup } from '$lib/api/admin-advanced-settings';
+  import { apiPostData } from '$lib/api/client';
+  import { formatDate } from '$lib/utils/format';
   import { runProbeWithPolling, buildIdentitySourceProbeRequest, syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
   import { buildStorageEndpointConnectProbeRequest } from '$lib/jobs/probe-builders';
   import { extractDomainFromUsername } from '$lib/jobs/storage-endpoint-probe';
   import TlsCertificateField from '$lib/components/identity-sources/TlsCertificateField.svelte';
-  import FeaturesPanel from '$lib/components/settings/FeaturesPanel.svelte';
 
   interface Props {
     data: { status: Record<string, any> };
@@ -22,19 +23,19 @@
 
   let { data }: Props = $props();
 
-  type StepKey = 'zone' | 'directory' | 'server' | 'identities' | 'roles' | 'features' | 'folders' | 'done';
+  type StepKey = 'modules' | 'zone' | 'directory' | 'server' | 'identities' | 'roles' | 'folders' | 'done';
   type Group = { key: string; title: string; item: Record<string, any>; role: 'platform_admin' | 'user' };
   type Check = { label: string; ok: boolean | null; value: string };
 
+  // The same steps for every installation; what each one asks follows the modules chosen at the first one
   const STEPS: { key: StepKey; label: () => string; hint: () => string }[] = [
+    { key: 'modules', label: () => t('Modules'), hint: () => t('Governance, 5S or both') },
     { key: 'zone', label: () => t('Zone'), hint: () => t('Where your servers are') },
     { key: 'directory', label: () => t('Directory'), hint: () => t('Who your users are') },
     { key: 'server', label: () => t('File server'), hint: () => t('Where the folders are') },
     { key: 'identities', label: () => t('Identities'), hint: () => t('Who can sign in') },
     { key: 'roles', label: () => t('Roles'), hint: () => t('Who administers') },
-    // Optional: a license key opens the modules (5S…), their settings follow
-    { key: 'features', label: () => t('Features'), hint: () => t('Optional modules (5S…)') },
-    { key: 'folders', label: () => t('Folders'), hint: () => t('Which folders to govern') },
+    { key: 'folders', label: () => t('Folders'), hint: () => (modules.governance ? t('Which folders to govern') : t('Which shares to measure')) },
     { key: 'done', label: () => t('Ready'), hint: () => t('Your first folders') }
   ];
 
@@ -42,6 +43,18 @@
   const status = data.status ?? {};
   const baseToDomain = (dn: string) =>
     dn.split(',').map((part) => part.trim()).filter((part) => /^dc=/i.test(part)).map((part) => part.slice(3)).join('.');
+
+  // Modules: chosen once (the first step), then switched in Advanced settings › Features. The 5S needs a license.
+  const chosen: string[] | null = Array.isArray(status.modules) ? status.modules : null;
+  let modules = $state({
+    governance: chosen ? chosen.includes('governance') : true,
+    fives: chosen ? chosen.includes('fives') : Boolean(status.features?.fives?.switched_on && status.features?.fives?.licensed)
+  });
+  let fivesLicense = $state<{ licensed: boolean; expires_on: string | null }>({ licensed: Boolean(status.features?.fives?.licensed), expires_on: null });
+  let licenseKey = $state('');
+  let licenseBusy = $state(false);
+  let licenseError = $state('');
+  let gov = $derived(modules.governance);
 
   let zoneId: number | null = status.zone?.id ?? null;
   let zone = $state({ name: status.zone?.name ?? '', description: status.zone?.description ?? '' });
@@ -98,7 +111,7 @@
   let importedGroups = $state(Number(status.imported_groups ?? 0));
 
   // Resume at the first step left to do
-  const firstStep = !zoneId ? 0 : !sourceId ? 1 : !serverId ? 2 : status.imported_groups > 0 ? 5 : 3;  // 5: features (optional), then folders
+  const firstStep = !chosen ? 0 : !zoneId ? 1 : !sourceId ? 2 : !serverId ? 3 : status.imported_groups > 0 ? 6 : 4;  // 6: folders
   let at = $state(firstStep);
   let top = $state(firstStep);
   let busy = $state(false);
@@ -113,25 +126,50 @@
   let guardianList = $derived(Object.values(guardians));
   let directoryReady =
     $derived(!!directory.name.trim() && !!directory.host.trim() && !!directory.base.trim() && !!directory.account.trim() &&
-    (!!directory.password || !!directory.ref) && !!directory.ou.trim());
+    (!!directory.password || !!directory.ref) && (!gov || !!directory.ou.trim()));
   let serverReady = $derived(!!server.name.trim() && !!server.host.trim() && !!server.account.trim() && (!!server.password || !!server.ref));
   let canContinue =
-    $derived(current === 'zone' ? !!zone.name.trim()
+    $derived(current === 'modules' ? (modules.governance || modules.fives) && (!modules.fives || fivesLicense.licensed)
+    : current === 'zone' ? !!zone.name.trim()
     : current === 'directory' ? directoryReady && directoryTested
     : current === 'server' ? serverReady && serverTested
-    : current === 'identities' ? pickedGroups.length > 0 || status.imported_groups > 0
-    : current === 'features' ? true
+    // The governance gives its accesses to the groups imported here; the 5S alone can start with the local account
+    : current === 'identities' ? !gov || pickedGroups.length > 0 || status.imported_groups > 0
     : current === 'folders' ? pickedShareList.length > 0
     : true);
+  let moduleNames = $derived([modules.governance ? t('Governance') : '', modules.fives ? '5S' : ''].filter(Boolean).join(' + '));
+
   let placed = $derived([
-    { label: t('Zone'), value: top > 0 ? zone.name : '', step: 0 },
-    { label: t('Directory'), value: top > 1 ? `${directory.name} · ${directory.protocol.toUpperCase()}` : '', step: 1 },
-    { label: t('File server'), value: top > 2 ? `${server.name} · ${server.host}` : '', step: 2 },
-    { label: t('Identities'), value: top > 3 ? t('{count} group(s)', { count: importedGroups || pickedGroups.length }) : '', step: 3 },
-    { label: t('Roles'), value: top > 4 ? t('Done') : '', step: 4 },
-    { label: t('Features'), value: top > 5 ? t('Done') : '', step: 5 },
+    { label: t('Modules'), value: top > 0 ? moduleNames : '', step: 0 },
+    { label: t('Zone'), value: top > 1 ? zone.name : '', step: 1 },
+    { label: t('Directory'), value: top > 2 ? `${directory.name} · ${directory.protocol.toUpperCase()}` : '', step: 2 },
+    { label: t('File server'), value: top > 3 ? `${server.name} · ${server.host}` : '', step: 3 },
+    { label: t('Identities'), value: top > 4 ? t('{count} group(s)', { count: importedGroups || pickedGroups.length }) : '', step: 4 },
+    { label: t('Roles'), value: top > 5 ? t('Done') : '', step: 5 },
     { label: t('Folders'), value: top > 6 ? t('{count} folder(s)', { count: foldersCreated }) : '', step: 6 }
   ]);
+
+  /** The 5S is licensed: the key is checked here, offline, as in Advanced settings › Features */
+  async function activateLicense() {
+    if (licenseBusy) return;
+    licenseBusy = true;
+    licenseError = '';
+    try {
+      const next: any = await apiPostData(fetch, '/admin/advanced-settings/license', { key: licenseKey.trim() });
+      const item = (next?.features ?? []).find((feature: any) => feature.key === 'fives');
+      if (item?.licensed) {
+        fivesLicense = { licensed: true, expires_on: item.expires_on ?? null };
+        modules.fives = true;
+        licenseKey = '';
+      } else {
+        licenseError = t('This key does not open the 5S.');
+      }
+    } catch (error) {
+      licenseError = message(error, t('This license key is refused.'));
+    } finally {
+      licenseBusy = false;
+    }
+  }
 
   function touchDirectory() {
     directoryTested = false;
@@ -348,7 +386,7 @@
     if (STEPS[at].key === 'identities') void loadGroups();
     if (STEPS[at].key === 'folders') {
       if (!shares.length) void loadShares();
-      if (!people.length) void loadPeople();
+      if (gov && !people.length) void loadPeople();
     }
   }
 
@@ -375,6 +413,9 @@
   }
 
   async function saveStep() {
+    if (current === 'modules') {
+      await chooseSetupModules(fetch, { governance: modules.governance, fives: modules.fives });
+    }
     if (current === 'zone') {
       const code = zone.name.normalize('NFD').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 16) || 'ZONE';
       const payload = { name: zone.name.trim(), code, description: zone.description.trim() || null };
@@ -396,7 +437,8 @@
         tls_verify: directory.verify,
         tls_ca_pem: directory.ca.trim() || null,
         tls_server_name: directory.tlsName.trim() || null,
-        capabilities: { auth: true, import_groups: true, snapshot_enabled: true, provisioning: true },
+        // Without the governance, BornToShare creates nothing in the directory: it reads it (sign-in, Kerberos of the scanner)
+        capabilities: { auth: true, import_groups: true, snapshot_enabled: true, provisioning: gov },
         auth_enabled: true,
         is_active: true
       };
@@ -412,12 +454,14 @@
           maxAttempts: 30
         }).catch(() => null);
       }
-      await putZoneProvisioningPolicy(fetch, Number(zoneId), {
-        enabled: true,
-        ou_strategy: 'zone_static',
-        static_ou_dn: directory.ou.trim(),
-        base_ou_dn: directory.ou.trim()
-      } as any);
+      if (gov) {
+        await putZoneProvisioningPolicy(fetch, Number(zoneId), {
+          enabled: true,
+          ou_strategy: 'zone_static',
+          static_ou_dn: directory.ou.trim(),
+          base_ou_dn: directory.ou.trim()
+        } as any);
+      }
       if (!snapshotStarted) {
         snapshotStarted = true;
         await runIdentitySnapshot(fetch, sourceId, 'full').catch(() => null);
@@ -560,34 +604,77 @@
       <div class="sp-form">
         <div>
           <span class="sp-count">{t('Step {at} of {total}', { at: at + 1, total: STEPS.length })}</span>
-          {#if current === 'zone'}
+          {#if current === 'modules'}
+            <h2>{t('What is BornToShare for here?')}</h2>
+            <p class="sp-lead">{t('Choose the access governance, the 5S, or both. The next steps only ask what the chosen modules need; the other one can be added later in Advanced settings › Features.')}</p>
+          {:else if current === 'zone'}
             <h2>{t('Start by creating a zone')}</h2>
             <p class="sp-lead">{t('A zone groups the servers of a place or an entity. You can add others later.')}</p>
           {:else if current === 'directory'}
             <h2>{t('Connect your directory')}</h2>
-            <p class="sp-lead">{t('Your colleagues sign in with it, and BornToShare creates in it the groups that give the accesses.')}</p>
+            <p class="sp-lead">{gov ? t('Your colleagues sign in with it, and BornToShare creates in it the groups that give the accesses.') : t('Your colleagues sign in with it, and the 5S scanner signs in to the servers through it (Kerberos). BornToShare only reads it.')}</p>
           {:else if current === 'server'}
             <h2>{t('Add a file server')}</h2>
-            <p class="sp-lead">{t('The server that holds the folders to govern in the zone {zone}.', { zone: zone.name })}</p>
+            <p class="sp-lead">{gov ? t('The server that holds the folders to govern in the zone {zone}.', { zone: zone.name }) : t('The server that holds the shares to measure in the zone {zone}.', { zone: zone.name })}</p>
           {:else if current === 'identities'}
             <h2>{t('Choose who can sign in')}</h2>
-            <p class="sp-lead">{t('Import the groups of the directory whose members will use BornToShare.')}</p>
+            <p class="sp-lead">{gov ? t('Import the groups of the directory whose members will use BornToShare.') : t('Import the groups whose members will see the 5S. Optional: the local administrator account is enough to start.')}</p>
           {:else if current === 'roles'}
             <h2>{t('Give each group a role')}</h2>
             <p class="sp-lead">{t('The role decides what can be done in BornToShare, not what can be opened on the file server.')}</p>
-          {:else if current === 'features'}
-            <h2>{t('Turn on the optional modules')}</h2>
-            <p class="sp-lead">{t('A license key opens the modules of BornToShare, such as the 5S and data hygiene. Optional: you can do it later in Advanced settings › Features.')}</p>
           {:else if current === 'folders'}
-            <h2>{t('Choose your first folders')}</h2>
-            <p class="sp-lead">{t('Tick the shares to govern, then name their guardians. You can add others later.')}</p>
+            <h2>{gov ? t('Choose your first folders') : t('Choose the shares to measure')}</h2>
+            <p class="sp-lead">{gov ? t('Tick the shares to govern, then name their guardians. You can add others later.') : t('The 5S scanner measures them at its next window: size, age, duplicates, clutter. You can add others later.')}</p>
           {:else}
             <h2>{t('BornToShare is ready')}</h2>
-            <p class="sp-lead">{foldersCreated ? t('Your folders are in place: what is left is to ask for accesses.') : t('No folder yet: add them from the Folders menu.')}</p>
+            <p class="sp-lead">{!foldersCreated ? t('No folder yet: add them from the Folders menu.') : gov ? t('Your folders are in place: what is left is to ask for accesses.') : t('Your shares are in place: their first 5S measure starts at the next window of the scanner.')}</p>
           {/if}
         </div>
 
-        {#if current === 'zone'}
+        {#if current === 'modules'}
+          <div class="sp-mods">
+            <label class="sp-mod" class:on={modules.governance}>
+              <input type="checkbox" bind:checked={modules.governance} />
+              <i class="bi bi-shield-check" aria-hidden="true"></i>
+              <span>
+                <strong>{t('Access governance')}</strong>
+                <small>{t('Access requests and their decisions by the guardians, groups created in the directory, exposure of the folders.')}</small>
+                <em class="sp-tag">{t('Included')}</em>
+              </span>
+            </label>
+            <label class="sp-mod" class:on={modules.fives}>
+              <input type="checkbox" bind:checked={modules.fives} />
+              <i class="bi bi-stars" aria-hidden="true"></i>
+              <span>
+                <strong>{t('5S and data hygiene')}</strong>
+                <small>{t('5S score of the shares, duplicates, age of the data, clutter, growth, a scanner on the servers without agent, and the 5S report.')}</small>
+                {#if fivesLicense.licensed}
+                  <em class="sp-tag ok">{t('Licensed')}{fivesLicense.expires_on ? ` · ${t('until {date}', { date: formatDate(fivesLicense.expires_on) })}` : ''}</em>
+                {:else}
+                  <em class="sp-tag">{t('License required')}</em>
+                {/if}
+              </span>
+            </label>
+          </div>
+          {#if modules.fives && !fivesLicense.licensed}
+            <form class="sp-key" onsubmit={(event) => { event.preventDefault(); void activateLicense(); }}>
+              <label class="sp-f wide" for="sp-license">{t('License key of the 5S')}
+                <textarea id="sp-license" rows="3" bind:value={licenseKey} spellcheck="false" autocomplete="off" placeholder="B2S-AAAAA-BBBBB-…"></textarea>
+                <small>{t('Checked here, without any connection: nothing leaves BornToShare.')}</small>
+              </label>
+              <button type="submit" class="sp-btn" disabled={licenseBusy || licenseKey.trim().length < 20}>
+                {#if licenseBusy}<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>{/if}
+                {t('Activate')}
+              </button>
+            </form>
+            {#if licenseError}<p class="sp-note bad" role="alert">{licenseError}</p>{/if}
+          {/if}
+          {#if !modules.governance && !modules.fives}
+            <p class="sp-note warn">{t('Choose at least one module.')}</p>
+          {:else if !modules.governance}
+            <p class="sp-note">{t('5S only: BornToShare reads the directory and the servers and creates nothing in them. Access requests, guardians and exposure stay hidden.')}</p>
+          {/if}
+        {:else if current === 'zone'}
           <div class="sp-grid">
             <label class="sp-f" for="sp-zone-name">{t('Zone name')}<input id="sp-zone-name" bind:value={zone.name} autocomplete="off" /></label>
             <label class="sp-f" for="sp-zone-desc">{t('Description')}<input id="sp-zone-desc" bind:value={zone.description} autocomplete="off" /><small>{t('Optional')}</small></label>
@@ -613,7 +700,9 @@
             <label class="sp-f" for="sp-dir-base">{t('Base DN')}<input id="sp-dir-base" class="mono" bind:value={directory.base} placeholder="DC=example,DC=test" autocomplete="off" /></label>
             <label class="sp-f" for="sp-dir-account">{t('Service account')}<input id="sp-dir-account" class="mono" bind:value={directory.account} autocomplete="off" placeholder={directory.flavor === 'ad' ? 'svc-b2s@example.test' : 'cn=b2s,ou=services,dc=example,dc=test'} /></label>
             <label class="sp-f" for="sp-dir-password">{t('Password')}<input id="sp-dir-password" type="password" bind:value={directory.password} autocomplete="new-password" placeholder={directory.ref ? t('Already saved') : ''} /><small>{t('Stored encrypted, never shown again.')}</small></label>
-            <label class="sp-f wide" for="sp-dir-ou">{t('Where to create the groups of this zone')}<input id="sp-dir-ou" class="mono" bind:value={directory.ou} placeholder="OU=B2S Groups,DC=example,DC=test" autocomplete="off" /></label>
+            {#if gov}
+              <label class="sp-f wide" for="sp-dir-ou">{t('Where to create the groups of this zone')}<input id="sp-dir-ou" class="mono" bind:value={directory.ou} placeholder="OU=B2S Groups,DC=example,DC=test" autocomplete="off" /></label>
+            {/if}
             {#if isLdaps}
               <label class="sp-switch wide" for="sp-dir-verify"><input id="sp-dir-verify" type="checkbox" bind:checked={directory.verify} onchange={touchDirectory} /> {t('Check the server certificate')}</label>
               {#if directory.verify}
@@ -642,7 +731,7 @@
           <div class="sp-grid" oninput={touchServer}>
             <label class="sp-f" for="sp-srv-name">{t('Name')}<input id="sp-srv-name" bind:value={server.name} autocomplete="off" /></label>
             <label class="sp-f" for="sp-srv-host">{t('Hostname / IP')}<input id="sp-srv-host" class="mono" bind:value={server.host} autocomplete="off" /></label>
-            <label class="sp-f" for="sp-srv-account">{t('Service account')}<input id="sp-srv-account" class="mono" bind:value={server.account} autocomplete="off" placeholder="EXAMPLE\svc-b2s-files" /><small>{t('Full control on the shares to govern. Local administrator only to create shares from BornToShare.')}</small></label>
+            <label class="sp-f" for="sp-srv-account">{t('Service account')}<input id="sp-srv-account" class="mono" bind:value={server.account} autocomplete="off" placeholder="EXAMPLE\svc-b2s-files" /><small>{gov ? t('Full control on the shares to govern. Local administrator only to create shares from BornToShare.') : t('Read access to the shares to measure. Local administrator to run the 5S scanner on the server (WinRM); without it, the shares are measured through the network.')}</small></label>
             <label class="sp-f" for="sp-srv-password">{t('Password')}<input id="sp-srv-password" type="password" bind:value={server.password} autocomplete="new-password" placeholder={server.ref ? t('Already saved') : ''} /><small>{t('Stored encrypted, never shown again.')}</small></label>
           </div>
           <div class="sp-test">
@@ -699,9 +788,9 @@
           {:else}
             <p class="sp-note">{t('The groups of this step are already imported. Their roles can be changed in Identities.')}</p>
           {/if}
-          <p class="sp-note">{t('The guardian role is not given here: it is given folder by folder, with a minimum of guardians per folder.')}</p>
-        {:else if current === 'features'}
-          <FeaturesPanel inSetup />
+          {#if gov}
+            <p class="sp-note">{t('The guardian role is not given here: it is given folder by folder, with a minimum of guardians per folder.')}</p>
+          {/if}
         {:else if current === 'folders'}
           {#if sharesLoading}
             <p class="sp-note"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('Reading the shares…')}</p>
@@ -719,40 +808,48 @@
               {/each}
             </div>
           {/if}
-          <div>
-            <h3 class="sp-sub">{t('Guardians of these folders')}</h3>
-            <p class="sp-lead sp-lead--tight">{t('Choose them now or later, folder by folder; a folder without guardian has its requests decided by the administrators.')} {t('Guardians decide on the access requests of their folders.')}</p>
-          </div>
-          <form class="sp-search" onsubmit={(event) => { event.preventDefault(); loadPeople(); }}>
-            <input type="search" bind:value={peopleQuery} aria-label={t('Search a person of the directory')} placeholder={t('Search a person of the directory…')} />
-            <button type="submit" class="sp-btn sm">{t('Search')}</button>
-          </form>
-          {#if peopleLoading}
-            <p class="sp-note"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('Reading the directory…')}</p>
-          {:else if people.length === 0}
-            <p class="sp-note">{t('Nobody found.')}</p>
-          {:else}
-            <div class="sp-list">
-              {#each people as person (person.key)}
-                <label class="sp-pick">
-                  <input type="checkbox" checked={Boolean(guardians[person.key])} onchange={(event) => toggleGuardian(person, event.currentTarget.checked)} />
-                  <span><strong>{person.title}</strong><small class="mono">{person.item.username ?? ''}</small></span>
-                </label>
-              {/each}
+          {#if gov}
+            <div>
+              <h3 class="sp-sub">{t('Guardians of these folders')}</h3>
+              <p class="sp-lead sp-lead--tight">{t('Choose them now or later, folder by folder; a folder without guardian has its requests decided by the administrators.')} {t('Guardians decide on the access requests of their folders.')}</p>
             </div>
-          {/if}
-          {#if guardianList.length}
-            <p class="sp-note tip">{guardianList.map((person) => person.title).join(', ')}</p>
+            <form class="sp-search" onsubmit={(event) => { event.preventDefault(); loadPeople(); }}>
+              <input type="search" bind:value={peopleQuery} aria-label={t('Search a person of the directory')} placeholder={t('Search a person of the directory…')} />
+              <button type="submit" class="sp-btn sm">{t('Search')}</button>
+            </form>
+            {#if peopleLoading}
+              <p class="sp-note"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('Reading the directory…')}</p>
+            {:else if people.length === 0}
+              <p class="sp-note">{t('Nobody found.')}</p>
+            {:else}
+              <div class="sp-list">
+                {#each people as person (person.key)}
+                  <label class="sp-pick">
+                    <input type="checkbox" checked={Boolean(guardians[person.key])} onchange={(event) => toggleGuardian(person, event.currentTarget.checked)} />
+                    <span><strong>{person.title}</strong><small class="mono">{person.item.username ?? ''}</small></span>
+                  </label>
+                {/each}
+              </div>
+            {/if}
+            {#if guardianList.length}
+              <p class="sp-note tip">{guardianList.map((person) => person.title).join(', ')}</p>
+            {/if}
           {/if}
         {:else}
           <div class="sp-checks">
+            <div><span>{t('Modules')}</span><i class="ok">{moduleNames}</i></div>
             <div><span>{t('Zone')}</span><i class="ok">{zone.name}</i></div>
             <div><span>{t('Directory')}</span><i class="ok">{directory.name}</i></div>
             <div><span>{t('File server')}</span><i class="ok">{server.name}</i></div>
             <div><span>{t('Folders')}</span><i class="ok">{foldersCreated}</i></div>
           </div>
           <div class="sp-row">
-            <button type="button" class="sp-btn pri" disabled={busy} onclick={() => finish('/storage-roots')}>{t('See my folders')}</button>
+            {#if modules.fives && !gov}
+              <button type="button" class="sp-btn pri" disabled={busy} onclick={() => finish('/five-s')}>{t('Open the 5S')}</button>
+              <button type="button" class="sp-btn" disabled={busy} onclick={() => finish('/storage-roots')}>{t('See my folders')}</button>
+            {:else}
+              <button type="button" class="sp-btn pri" disabled={busy} onclick={() => finish('/storage-roots')}>{t('See my folders')}</button>
+            {/if}
             <button type="button" class="sp-btn" disabled={busy} onclick={() => finish('/dashboard')}>{t('Go to the dashboard')}</button>
           </div>
         {/if}
@@ -801,6 +898,20 @@
   .sp-path h1 { margin: 0; font-size: 38px; line-height: 1.05; font-weight: 600; letter-spacing: -.03em; }
   .sp-path h1 mark { background: var(--b2s-accent); color: inherit; padding: 0 .14em; border-radius: .14em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
   .sp-path > p { margin: 0; color: var(--b2s-color-text-muted); font-size: 15px; }
+  .sp-mods { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .sp-mod { position: relative; display: flex; gap: 14px; align-items: flex-start; padding: 18px; border: 1px solid var(--b2s-color-border); border-radius: 14px; background: var(--b2s-color-surface); cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+  .sp-mod:hover { border-color: var(--b2s-color-border-strong, #c9ced6); }
+  .sp-mod.on { border-color: var(--b2s-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--b2s-accent) 25%, transparent); }
+  .sp-mod input { position: absolute; top: 16px; right: 16px; width: 18px; height: 18px; accent-color: var(--b2s-accent); }
+  .sp-mod > i { font-size: 24px; color: var(--b2s-color-heading); }
+  .sp-mod span { display: flex; flex-direction: column; gap: 6px; padding-right: 24px; }
+  .sp-mod strong { font-weight: 600; }
+  .sp-mod small { color: var(--b2s-color-text-muted); font-size: 13px; line-height: 1.45; }
+  .sp-tag { align-self: flex-start; font-style: normal; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
+  .sp-tag.ok { background: var(--b2s-color-success-soft, #e6f6ec); color: var(--b2s-color-success, #1f7a43); }
+  .sp-key { display: flex; gap: 12px; align-items: flex-end; }
+  .sp-key .sp-f { flex: 1; }
+  .sp-key textarea { font-family: var(--b2s-font-mono, monospace); resize: vertical; padding: 10px 12px; }
   .sp-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
   .sp-step { width: 100%; display: flex; align-items: flex-start; gap: 12px; padding: 10px; border: 0; border-radius: 12px; background: none; color: inherit; text-align: left; cursor: pointer; }
   .sp-step:disabled { cursor: default; }

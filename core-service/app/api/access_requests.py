@@ -18,6 +18,7 @@ from app.data.repositories.access_requests_repo import AccessRequestsRepo
 from app.data.repositories.access_requests_views_repo import AccessRequestsViewsRepo
 from app.data.repositories.storage_roots_views_repo import StorageRootsViewsRepo
 from app.core.internal_auth import require_internal
+from app.services import features
 from app.services.activity_log import log_activity
 from app.services.authorization import (
     actor_from_request,
@@ -1226,6 +1227,8 @@ def create_access_request(
       - GET /access-requests
       - GET /access-requests/{id}/overview
     """
+    # An installation for the 5S only takes no access request (Advanced settings › Features › Governance)
+    features.require(db, "governance")
     data = payload.model_dump()
     items = data.pop("items", [])
     permissions = data.pop("permissions", None) or []

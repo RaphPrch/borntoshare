@@ -867,3 +867,36 @@ def test_refused_sign_ins_are_audited(monkeypatch, _no_activity_forwarding) -> N
     assert event["actor_display"] == "lucie.user"
     assert event["metadata_json"]["reason"] == "ACCOUNT_NOT_AUTHORIZED"
     assert "secret" not in str(event)
+
+
+def test_a_temporary_password_is_in_the_snapshot_and_over_once_changed(monkeypatch) -> None:
+    """The first administrator (installation wizard) changes its password before anything else; once it is done,
+    the session and the principal snapshot no longer say so."""
+    from datetime import datetime, timezone
+
+    from app.api import auth as auth_api
+    from app.core.principal_snapshot import principal_payload_from_user
+    from app.schemas.auth import UserInfo
+    from app.services.session_store import SessionRecord
+
+    user = UserInfo(identity_id="1", username="admin", auth_source="local", is_admin=True, roles=["platform_admin"], must_change_password=True)
+    assert principal_payload_from_user(user)["must_change_password"] is True
+
+    rec = SessionRecord(session_id="sid-1", user=user, created_at=datetime.now(timezone.utc), last_seen=datetime.now(timezone.utc))
+    updated: list[UserInfo] = []
+    monkeypatch.setattr(auth_api.store, "get", lambda sid: rec if sid == "sid-1" else None)
+    monkeypatch.setattr(auth_api.store, "update_user", lambda sid, new: updated.append(new))
+
+    class _Provider:
+        name = "local"
+
+        async def change_password(self, username, current_password, new_password):
+            return None
+
+    monkeypatch.setattr(auth_api, "choose_provider", lambda _: _Provider())
+    with _new_client() as client:
+        client.cookies.set("b2s_session", "sid-1")
+        res = client.post("/auth/change-password", json={"current_password": "Temp!Password1", "new_password": "Mine!Password22"})
+        assert res.status_code == 200
+        assert "b2s_principal=" in "; ".join(res.headers.get_list("set-cookie"))
+    assert len(updated) == 1 and updated[0].must_change_password is False

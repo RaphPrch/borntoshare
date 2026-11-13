@@ -41,6 +41,7 @@ def principal_payload_from_user(user: UserInfo, ttl_seconds: int | None = None) 
         "email": user.email,
         "roles": roles,
         "is_admin": "platform_admin" in normalized_roles or "admin" in normalized_roles,
+        "must_change_password": bool(getattr(user, "must_change_password", False)),
         "ver": 1,
         "exp": _principal_exp(ttl_seconds),
     }

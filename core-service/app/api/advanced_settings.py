@@ -11,6 +11,9 @@ from app.data.repositories import settings_repo
 from app.core.db import get_db
 from app.core.internal_auth import require_internal_token
 from app.api._helpers import ui_action, ui_data
+from pydantic import BaseModel
+
+from app.services import features
 from app.services.activity_log import log_activity
 from app.services.authorization import actor_from_request, admin_only, admin_or_internal
 
@@ -329,10 +332,15 @@ def get_setup_status(db: Session = Depends(get_db)):
     roots, zone, directory, server, policy = snapshot["roots"], snapshot["zone"], snapshot["directory"], snapshot["server"], snapshot["policy"]
     imported_groups = snapshot["imported_groups"]
     # An installation that already governs folders has no use for the guided setup
-    completed = bool((_read_payload(db).get("setup") or {}).get("completed")) or roots > 0
+    setup = _read_payload(db).get("setup") or {}
+    completed = bool(setup.get("completed")) or roots > 0
     return ui_data(
         {
             "completed": completed,
+            # The modules chosen at the first step (None: not chosen yet), and the state of each one now
+            "modules": setup.get("modules") or _modules_from_wizard(db),
+            "features": {item["key"]: {"licensed": item["licensed"], "switched_on": item["switched_on"], "enabled": item["enabled"]}
+                         for item in features.state(db)["features"]},
             "zone": zone,
             "directory": directory,
             "group_ou": (policy or {}).get("static_ou_dn"),
@@ -342,12 +350,50 @@ def get_setup_status(db: Session = Depends(get_db)):
     )
 
 
+def _modules_from_wizard(db: Session) -> list[str] | None:
+    """The modules chosen in the installation wizard (it records the governance switch): None when nobody chose yet."""
+    flags = features._flags(db)
+    if "governance" not in flags:
+        return None
+    on = {item["key"] for item in features.state(db)["features"] if item["switched_on"] and item["licensed"]}
+    return [key for key in ("governance", "fives") if key in on]
+
+
+class SetupModules(BaseModel):
+    governance: bool
+    fives: bool
+
+
+@router.post("/setup/modules", dependencies=[Depends(admin_only)])
+def choose_setup_modules(payload: SetupModules, request: Request, db: Session = Depends(get_db)):
+    """First step of the setup: what this installation is for, the access governance, the 5S, or both. The 5S is
+    licensed: a valid key opens it first (Advanced settings › Features, or the same step)."""
+    if not payload.governance and not payload.fives:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={
+            "error_code": "SETUP_NO_MODULE", "message": "Choose the access governance, the 5S, or both"})
+    fives = next((item for item in features.state(db)["features"] if item["key"] == "fives"), None)
+    if payload.fives and not (fives and fives["licensed"]):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={
+            "error_code": "FEATURE_NOT_LICENSED", "message": "No valid license opens the 5S: enter a license key first"})
+    actor = actor_from_request(request)
+    features.switch(db, "governance", payload.governance, actor.display_name)
+    if fives and fives["licensed"]:
+        features.switch(db, "fives", payload.fives, actor.display_name)
+    chosen = [key for key, on in (("governance", payload.governance), ("fives", payload.fives)) if on]
+    current = _read_payload(db)
+    _write_payload(db, {**current, "setup": {**(current.get("setup") or {}), "modules": chosen}})
+    log_activity(db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name, action="advanced_settings.setup_modules",
+                 outcome="success", target_type="advanced_settings", target_display="Guided setup", context_json={"modules": chosen},
+                 correlation_id=(request.headers.get("x-request-id") or None))
+    return ui_data({"modules": chosen})
+
+
 @router.post("/setup/complete", dependencies=[Depends(admin_only)])
 async def complete_setup(request: Request, db: Session = Depends(get_db)):
     from app.services.infrastructure_service import register_local_worker
 
     current = _read_payload(db)
-    _write_payload(db, {**current, "setup": {"completed": True}})
+    _write_payload(db, {**current, "setup": {**(current.get("setup") or {}), "completed": True}})
     worker = await register_local_worker(db)
     actor = actor_from_request(request)
     log_activity(

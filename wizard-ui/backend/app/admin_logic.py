@@ -198,7 +198,8 @@ def create_local_admin_if_needed(
                 UPDATE local_credentials
                 SET password_hash = %s,
                     password_version = 'b2s$v=1$bcrypt',
-                    last_rotated_at = NOW(6)
+                    last_rotated_at = NOW(6),
+                    must_change_password = 1
                 WHERE identity_id = %s
                 """,
                 (pwd_hash, identity_id),
@@ -211,9 +212,10 @@ def create_local_admin_if_needed(
                     identity_id,
                     password_hash,
                     password_version,
-                    last_rotated_at
+                    last_rotated_at,
+                    must_change_password
                 )
-                VALUES (%s, %s, 'b2s$v=1$bcrypt', NOW(6))
+                VALUES (%s, %s, 'b2s$v=1$bcrypt', NOW(6), 1)
                 """,
                 (identity_id, pwd_hash),
             )

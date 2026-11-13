@@ -77,6 +77,8 @@ class Plan(BaseModel):
     server: dict[str, Any]
     app: dict[str, Any]
     admin: dict[str, Any]
+    # The access governance (included) and the 5S (licensed): at least one
+    modules: Optional[dict[str, Any]] = None
     license: Optional[str] = Field(default=None, max_length=4000)
     fives: Optional[dict[str, Any]] = None
 

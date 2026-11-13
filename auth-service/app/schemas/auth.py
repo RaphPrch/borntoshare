@@ -42,6 +42,10 @@ class UserInfo(BaseModel):
 
     is_admin: bool = False
 
+    # A temporary local password (the first administrator, set by the installation wizard): nothing else opens
+    # before it is changed (the frontend sends every page to « change your password », the BFF refuses the API)
+    must_change_password: bool = False
+
     # Convenience projection derived from roles at session build time.
     roles: List[str] = Field(default_factory=list)
 

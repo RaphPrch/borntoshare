@@ -7,7 +7,8 @@
    - the account of core-service: read and write on BornToShare, insert/read/purge on the audit;
    - the account of the 5S module: read and write on its two databases;
 3. the SQL packs, applied with the migration account (tables, views, indexes; audit; module);
-4. the first local administrator, the license and the modules it opens;
+4. the first local administrator (a temporary password, changed at the first sign-in), the license and the modules
+   chosen (the governance can be left off: an installation for the 5S only);
 5. a check that each account opens its databases and that the application accounts cannot change the schema.
 
 The MariaDB administrator account is used for the databases and the accounts only, never written. Everything can be
@@ -110,6 +111,11 @@ def validate(plan: dict[str, Any]) -> dict[str, Any]:
                         "user": check_identifier(fives.get("user"), "Compte du module 5S")}
     else:
         out["fives"] = None
+    # An installation for the 5S only: the governance stays off (no access request, nothing created in the directory)
+    modules = plan.get("modules") or {}
+    out["governance"] = bool(modules.get("governance", True))
+    if not out["governance"] and not out["fives"]:
+        raise InstallError("Modules : choisir la gouvernance des accès, le 5S, ou les deux.")
     users = [out["app"]["user"], out["app"]["migrate_user"]] + ([out["fives"]["user"]] if out["fives"] else [])
     if len({user.lower() for user in users}) != len(users) or out["server"]["user"].lower() in {user.lower() for user in users}:
         raise InstallError("Chaque usage a son propre compte SQL, distinct du compte administrateur : choisir des noms différents.")
@@ -222,6 +228,19 @@ def _license(cfg: dict[str, Any], db_name: str, lic: License, by: str, switch_on
         conn.close()
 
 
+def _switch(cfg: dict[str, Any], db_name: str, feature: str, on: bool, by: str) -> None:
+    """A module switched on or off, as Réglages avancés › Fonctionnalités does (the governance needs no license)."""
+    conn = get_connection(root_cfg=cfg, database=True, db_name=db_name)
+    cur = conn.cursor()
+    try:
+        cur.execute("INSERT INTO feature_flags (feature, enabled, updated_by) VALUES (%s, %s, %s) "
+                    "ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), updated_by = VALUES(updated_by)", (feature, 1 if on else 0, by))
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+
 def run(plan: dict[str, Any]) -> dict[str, Any]:
     """Every action in order; stops at the first failure. {ok, steps: [{key, label, ok, detail}], env: [[name, value]]}."""
     server, app, admin, lic, fives = plan["server"], plan["app"], plan["admin"], plan["license"], plan["fives"]
@@ -276,6 +295,11 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
         _license(migrate, app["db_name"], lic, admin["username"], ["fives"] if fives else [])
         return f"{lic.customer} · {lic.key_hint}" + (" · module 5S activé" if fives else "")
 
+    def modules() -> str:
+        _switch(migrate, app["db_name"], "governance", plan["governance"], admin["username"])
+        chosen = (["gouvernance des accès"] if plan["governance"] else []) + (["5S"] if fives else [])
+        return " + ".join(chosen)
+
     def accounts() -> str:
         _check_account(server, app["user"], passwords["core"], app_dbs)
         if fives:
@@ -290,6 +314,7 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
     ]
     if lic:
         actions.append(("license", "Licence", license_))
+    actions.append(("modules", "Modules", modules))
     actions.append(("check", "Vérification des droits", accounts))
     ok = all(step(*action) for action in actions)
 

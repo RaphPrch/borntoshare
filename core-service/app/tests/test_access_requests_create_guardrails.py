@@ -47,6 +47,8 @@ def _no_policy_nor_mail(monkeypatch):
     # The request policy and the e-mails read the settings from the database: tested on their own
     monkeypatch.setattr(api, "_check_request_policy", lambda *args, **kwargs: None)
     monkeypatch.setattr(api, "_storage_endpoint_inactive", lambda *args, **kwargs: False)
+    # The governance is on (every installation but a 5S-only one): tested on its own below
+    monkeypatch.setattr(api.features, "enabled", lambda db, feature: True)
     from app.services import notifications
 
     monkeypatch.setattr(notifications, "request_created", lambda *args, **kwargs: None)
@@ -175,3 +177,10 @@ def test_only_a_dn_shaped_value_is_taken_as_the_principal_dn() -> None:
     assert dn is None and username == "b2s-test"
     dn, _username, _display = api._extract_principal_identity({"dn": "CN=Test,OU=CORP,DC=corp,DC=local", "username": "b2s-test"})
     assert dn == "CN=Test,OU=CORP,DC=corp,DC=local"
+
+
+def test_a_5s_only_installation_takes_no_access_request(monkeypatch) -> None:
+    monkeypatch.setattr(api.features, "enabled", lambda db, feature: feature != "governance")
+    with pytest.raises(HTTPException) as error:
+        api.create_access_request(_payload("read"), _Req(), _Db())
+    assert error.value.status_code == 403 and error.value.detail["error_code"] == "FEATURE_DISABLED"

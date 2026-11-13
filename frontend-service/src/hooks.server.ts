@@ -95,6 +95,13 @@ const handleRequest: Handle = async ({ event, resolve }) => {
   if (url.pathname.startsWith('/api/')) {
     if (!shouldSkipHydration(url.pathname) && !url.pathname.startsWith('/api/auth/')) {
       await tryHydrateUserContext();
+      // A temporary password: only the sign-in service answers (change it, sign out) until it is changed
+      if ((locals.me as { must_change_password?: boolean } | null)?.must_change_password) {
+        return new Response(
+          JSON.stringify({ code: 'PASSWORD_CHANGE_REQUIRED', message: 'Change your temporary password first' }),
+          { status: 403, headers: { 'content-type': 'application/json' } }
+        );
+      }
     }
     return proxyApi(event);
   }
@@ -138,6 +145,14 @@ const handleRequest: Handle = async ({ event, resolve }) => {
       303,
       `/login?redirect=${encodeURIComponent(wanted)}`
     );
+  }
+
+  /* ======================================================
+   * 4.5️⃣ Temporary password: every page leads to its change
+   * ====================================================== */
+  const mustChange = (locals.me as { must_change_password?: boolean } | null)?.must_change_password === true;
+  if (mustChange && url.pathname !== '/password' && !url.pathname.startsWith('/password/')) {
+    throw redirect(303, '/password');
   }
 
   /* ======================================================

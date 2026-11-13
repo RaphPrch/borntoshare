@@ -5,6 +5,7 @@ export type PrincipalSnapshot = {
   email?: string | null;
   roles: string[];
   is_admin: boolean;
+  must_change_password?: boolean;
   ver: number;
   exp: number;
 };

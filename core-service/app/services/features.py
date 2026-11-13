@@ -19,7 +19,15 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 # The modules the application knows. A key may open features of a later version: they are listed, not usable.
-FEATURES: dict[str, dict[str, str]] = {
+# « included »: part of every installation, no license needed, on unless an administrator switched it off (an
+# installation for the 5S only switches the governance off at its first setup).
+FEATURES: dict[str, dict[str, Any]] = {
+    "governance": {
+        "label": "Gouvernance des accès",
+        "description": "Demandes d'accès et leurs décisions, gardiens, groupes créés dans l'annuaire, exposition des dossiers.",
+        "icon": "bi-shield-check",
+        "included": True,
+    },
     "fives": {
         "label": "5S et hygiène des données",
         "description": "Score 5S des partages, doublons, âge des données, fichiers parasites, croissance, "
@@ -145,11 +153,12 @@ def state(db: Session) -> dict[str, Any]:
     flags = _flags(db)
     features = []
     for key, meta in FEATURES.items():
+        included = bool(meta.get("included"))
         valid = [lic for lic in licenses if key in lic["features"] and not lic["expired"]]
-        expires = max((lic["expires_on"] or "9999-12-31" for lic in valid), default=None)
+        expires = None if included else max((lic["expires_on"] or "9999-12-31" for lic in valid), default=None)
         flag = flags.get(key) or {}
-        licensed = bool(valid)
-        switched_on = bool(flag.get("enabled"))
+        licensed = included or bool(valid)
+        switched_on = bool(flag.get("enabled", included))
         ready = installed(key) if licensed and switched_on else False
         features.append({"key": key, **meta, "licensed": licensed, "expires_on": None if expires == "9999-12-31" else expires,
                          "enabled": licensed and switched_on and ready, "switched_on": switched_on, "installed": ready,
@@ -174,7 +183,7 @@ def activate(db: Session, key: str, by: str | None) -> License:
     lic = decode(key)
     if not lic.valid_on(_today()):
         raise LicenseError("LICENSE_EXPIRED", f"This key expired on {lic.expires_on.isoformat() if lic.expires_on else ''}")
-    known = [feature for feature in lic.features if feature in FEATURES]
+    known = [feature for feature in lic.features if feature in FEATURES and not FEATURES[feature].get("included")]
     if not known:
         raise LicenseError("LICENSE_NO_FEATURE", "This key opens no feature of this version of BornToShare")
     db.execute(

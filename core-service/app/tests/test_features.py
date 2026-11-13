@@ -112,3 +112,28 @@ def test_fives_installed_reads_its_health_and_caches_it(monkeypatch) -> None:
     monkeypatch.setattr(modules, "_installed", {"at": 0.0, "value": False})
     monkeypatch.setattr(httpx, "get", lambda url, timeout: (_ for _ in ()).throw(httpx.ConnectError("refused")))
     assert modules.fives_installed() is False
+
+
+def _governance(monkeypatch, flags: dict) -> dict:
+    monkeypatch.setattr(features, "_licenses", lambda db: [])
+    monkeypatch.setattr(features, "_flags", lambda db: flags)
+    return next(item for item in features.state(None)["features"] if item["key"] == "governance")
+
+
+def test_governance_is_included_and_on_by_default(monkeypatch) -> None:
+    # No license and no flag (every installation before the 5S-only setup): the governance stays as it was
+    item = _governance(monkeypatch, {})
+    assert item["licensed"] and item["switched_on"] and item["enabled"] and item["expires_on"] is None
+
+
+def test_governance_switched_off_for_a_5s_only_installation(monkeypatch) -> None:
+    item = _governance(monkeypatch, {"governance": {"enabled": False}})
+    assert item["licensed"] and not item["switched_on"] and not item["enabled"]
+
+
+def test_a_key_cannot_sell_what_is_included(issuer, monkeypatch) -> None:
+    # A key that would only « open » the governance opens nothing
+    key = _issue(issuer, feat=["governance"])
+    with pytest.raises(features.LicenseError) as error:
+        features.activate(None, key, "admin")
+    assert error.value.code == "LICENSE_NO_FEATURE"
