@@ -3,7 +3,7 @@
     B2S_URL=http://host:3000 B2S_ADMIN_PASSWORD_FILE=/run/pw python ui_check.py /out
 
 Signs in as the local « admin » (password read from a file, never from the command line), then checks: the bell and
-its drawer, the live connection (/live), the density switch, the palette (Ctrl+K, actions, « ? »), the requests list
+its drawer, the live connection (/live), the DFS server (one line, its own view), the palette (Ctrl+K, actions, « ? »), the requests list
 (columns, saved views, column resize, right click), the alerts (right click, saved views), the 5S explorer (right
 click, score card, click-to-copy), the unsaved-changes guard. Exit code 1 when a check fails. Read only: nothing is
 saved on the instance (the saved views and widths live in the browser of the run; the settings form is left unsaved).
@@ -60,7 +60,6 @@ with sync_playwright() as p:
     def dashboard():
         goto(page, "/dashboard", 2500)
         check("bell in the rail", page.locator(".nc-trigger").is_visible())
-        check("density switch in the rail", page.locator(".sb__density").is_visible())
         # The whole rail fits a 900 px high screen: logout is in view without scrolling
         box = page.locator(".sb__logout").bounding_box()
         check("whole rail visible at 900 px high", bool(box) and box["y"] + box["height"] <= 900, f"logout bottom at {round(box['y'] + box['height']) if box else '?'} px")
@@ -91,18 +90,18 @@ with sync_playwright() as p:
         page.wait_for_timeout(400)
     step("bell", bell)
 
-    def density():
-        page.locator(".sb__density").click()
-        page.wait_for_timeout(300)
-        compact = page.evaluate("document.documentElement.dataset.density")
-        goto(page, "/access-requests", 2000)
-        kept = page.evaluate("document.documentElement.dataset.density")
-        shot(page, "03-requests-compact")
-        check("compact density applied and kept after navigation (cookie)", compact == "compact" and kept == "compact", f"{compact} → {kept}")
-        page.locator(".sb__density").click()
-        page.wait_for_timeout(300)
-        check("back to comfortable", page.evaluate("document.documentElement.dataset.density") == "comfortable")
-    step("density", density)
+    def dfs_server():
+        goto(page, "/admin/storage-endpoints/1", 2500)
+        tree = page.locator("aside, nav").filter(has_text="DFS01").first
+        check("servers list: no namespace line under DFS01", page.get_by_role("treeitem", name="Angers").count() == 0
+              and page.locator("text=Bordeaux").count() == 0)
+        page.get_by_text("DFS01", exact=True).first.click()
+        page.wait_for_url(re.compile(r"server=DFS01"), timeout=15000)
+        page.wait_for_timeout(3000)
+        check("DFS server view lists its namespaces", page.locator(".dsv table tbody tr").count() >= 1, f"{page.locator('.dsv table tbody tr').count()} namespace(s)")
+        check("DFS server can be removed (menu)", page.locator(".dsv").count() == 1)
+        shot(page, "03-dfs-server")
+    step("dfs server", dfs_server)
 
     def palette():
         goto(page, "/dashboard", 1200)

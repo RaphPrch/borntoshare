@@ -28,7 +28,6 @@
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import searchPages from './search-pages';
-  import { density } from '$lib/stores/density';
   import { listStorageRootsContext } from '$lib/api/storage-roots';
   import { listZones } from '$lib/api/zones';
   import { listStorageEndpoints } from '$lib/api/storage-endpoints';
@@ -130,7 +129,6 @@
           { group: t('Actions'), label: t('See the open alerts'), detail: '', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', key: 'G A' }
         ]
       : []),
-    { group: t('Actions'), label: $density === 'compact' ? t('Comfortable display') : t('Compact display'), detail: t('Rows, tiles and margins'), href: '', icon: 'bi-arrows-collapse', run: () => density.toggle() },
     { group: t('Actions'), label: t('Notifications'), detail: '', href: '', icon: 'bi-bell', run: () => document.querySelector<HTMLButtonElement>('.nc-trigger')?.click() },
     { group: t('Actions'), label: t('Keyboard shortcuts'), detail: '', href: '', icon: 'bi-keyboard', key: '?', run: () => (helpOpen = true) }
   ] as Result[];

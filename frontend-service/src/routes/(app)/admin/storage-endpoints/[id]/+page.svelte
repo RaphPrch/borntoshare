@@ -34,6 +34,7 @@
   import EndpointSharesPanel from '$lib/components/storage-endpoints/EndpointSharesPanel.svelte';
   import DfsNamespacePanel from '$lib/components/storage-endpoints/DfsNamespacePanel.svelte';
   import DfsTiles from '$lib/components/storage-endpoints/DfsTiles.svelte';
+  import DfsServerView from '$lib/components/storage-endpoints/DfsServerView.svelte';
   import EntityTodoCard, { type EntityTodoStep } from '$lib/components/entity/EntityTodoCard.svelte';
   import {
     dfsCounts,
@@ -360,6 +361,11 @@
   const selectSidebarEndpoint = (id: number): void => {
     if (id > 0) goto(`/admin/storage-endpoints/${id}`);
   };
+  // A DFS server (DFS01): one line in the list, its own view (?server=); its namespaces keep their pages
+  const dfsServerOf = (ep: any): string => (endpointHost(ep) || '—').split('.')[0].toUpperCase();
+  $: dfsServerParam = ($page.url.searchParams.get('server') ?? '').toUpperCase();
+  $: dfsServerNamespaces = dfsServerParam ? endpoints.filter((ep) => isDfsEndpoint(ep) && dfsServerOf(ep) === dfsServerParam) : [];
+  $: sidebarSelected = dfsServerParam || isDfsEndpoint(selected) ? `dfs-server:${dfsServerParam || dfsServerOf(selected)}` : selectedId;
 
   $: selectedRoots = roots.filter((r) => Number(r?.storage_endpoint_id ?? 0) === selectedId);
 
@@ -1331,9 +1337,10 @@
       addLabel={t('New endpoint')}
       query={search}
       groups={sidebarGroups}
-      selectedEndpointId={selectedId}
+      selectedEndpointId={sidebarSelected}
       {roots}
       onSelectEndpoint={selectSidebarEndpoint}
+      onSelectDfsServer={(server, first) => goto(`/admin/storage-endpoints/${first}?server=${encodeURIComponent(server)}`)}
       onQueryChange={(value) => (search = value)}
       {endpointId}
       {endpointName}
@@ -1344,7 +1351,11 @@
       onEndpointMenu={openEndpointMenu}
     />
   </svelte:fragment>
-    {#if selected}
+    {#if dfsServerParam && dfsServerNamespaces.length}
+      {#key dfsServerParam}
+        <DfsServerView server={dfsServerParam} zoneName={endpointZone(dfsServerNamespaces[0])} namespaces={dfsServerNamespaces} {endpointId} {endpointName} />
+      {/key}
+    {:else if selected}
       <EntityConsoleShell>
         <svelte:fragment slot="header">
           {#key healthState}

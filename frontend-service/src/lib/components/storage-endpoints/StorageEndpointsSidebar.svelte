@@ -21,7 +21,9 @@
   export let addLabel = '';
   export let groups: EndpointZoneGroup[] = [];
   export let roots: RootRow[] = [];
-  export let selectedEndpointId: number | null = null;
+  /** A server id, or « dfs-server:DFS01 » for a DFS server (its namespaces have no line of their own) */
+  export let selectedEndpointId: number | string | null = null;
+  export let onSelectDfsServer: (server: string, firstNamespaceId: number) => void = () => {};
   export let onSelectEndpoint: (id: number) => void = () => {};
   export let onQueryChange: (value: string) => void = () => {};
   export let endpointId: (ep: EndpointRow) => number = () => 0;
@@ -34,6 +36,7 @@
   export let onEndpointMenu: ((ep: EndpointRow, event: MouseEvent) => void) | null = null;
 
   const ROOT_PREFIX = 'root:';
+  const DFS_PREFIX = 'dfs-server:';
   let filter = 'all';
 
   const byLabel = (a: { label: string }, b: { label: string }): number =>
@@ -153,14 +156,17 @@
           ...[...new Set(endpoints.filter(isDfs).map(serverOf))].sort().map((server): EntityTreeNode => {
             const namespaces = endpoints.filter((ep) => isDfs(ep) && serverOf(ep) === server);
             const review = namespaces.filter((ep) => endpointTone(ep) !== 'healthy').length;
+            // The server only: its namespaces are listed on its page, and their folders on the folders page
             return {
               key: `dfs:${zone.zone_id}:${server}`,
               label: server,
               subtitle: t('{count} DFS namespace(s)', { count: namespaces.length }),
               icon: 'bi-diagram-3',
               iconTone: 'server',
+              selectId: `${DFS_PREFIX}${server}`,
+              dot: namespaces.some((ep) => endpointTone(ep) === 'error') ? 'error' : null,
               badges: review ? [{ label: String(review), tone: 'warning-quiet', icon: 'bi-exclamation-triangle-fill', title: t('{count} to review', { count: review }) }] : [],
-              children: namespaces.map(endpointNode).sort(byLabel)
+              children: []
             };
           })
         ]
@@ -171,7 +177,11 @@
   function select(id: string | number): void {
     const value = String(id);
     if (value.startsWith(ROOT_PREFIX)) goto(`/storage-roots?selected=${value.slice(ROOT_PREFIX.length)}`);
-    else onSelectEndpoint(Number(id));
+    else if (value.startsWith(DFS_PREFIX)) {
+      const server = value.slice(DFS_PREFIX.length);
+      const first = allEndpoints.filter((ep) => isDfs(ep) && serverOf(ep) === server).map(endpointId).sort((a, b) => a - b)[0];
+      if (first) onSelectDfsServer(server, first);
+    } else onSelectEndpoint(Number(id));
   }
 </script>
 
@@ -193,7 +203,7 @@
   {onQueryChange}
   onSelect={select}
   onContextMenu={onEndpointMenu ? (node, event) => {
-    if (String(node.selectId).startsWith(ROOT_PREFIX)) return;
+    if (String(node.selectId).startsWith(ROOT_PREFIX) || String(node.selectId).startsWith(DFS_PREFIX)) return;
     const ep = allEndpoints.find((row) => endpointId(row) === Number(node.selectId));
     if (ep && !isDfs(ep)) onEndpointMenu?.(ep, event);
   } : null}

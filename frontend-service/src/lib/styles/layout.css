@@ -477,31 +477,6 @@
   overflow-wrap: break-word;
 }
 
-/* =========================================================
-   Display density « compact » (rail › Density): tighter rows, tiles and margins.
-   Global override of the scoped tables and tiles, hence !important on the paddings only.
-   ========================================================= */
-:root[data-density='compact'] {
-  --b2s-page-padding: 14px 20px 24px;
-}
-:root[data-density='compact'] table td {
-  height: auto !important;
-  padding-top: 5px !important;
-  padding-bottom: 5px !important;
-}
-:root[data-density='compact'] table th {
-  padding-top: 7px !important;
-  padding-bottom: 7px !important;
-}
-:root[data-density='compact'] .b2s-table td { height: 38px !important; }
-:root[data-density='compact'] .b2s-kpi { min-height: 68px; padding: 10px 14px; gap: 12px; }
-:root[data-density='compact'] .b2s-kpi__icon { width: 34px; height: 34px; }
-:root[data-density='compact'] .b2s-stat-tile { padding: 9px 12px; }
-:root[data-density='compact'] .b2s-stat-tile b { font-size: 20px; }
-:root[data-density='compact'] .b2s-stat-tiles { gap: 8px; }
-:root[data-density='compact'] .b2s-card,
-:root[data-density='compact'] .b2s-panel { padding: 12px 14px; }
-
 /* Click-to-copy (data-copy): a path or a reference copies itself on click */
 [data-copy] { cursor: copy; border-radius: 4px; transition: background-color 120ms ease, box-shadow 120ms ease; }
 [data-copy]:hover { background-color: #eef4ff; box-shadow: 0 0 0 2px #eef4ff; }

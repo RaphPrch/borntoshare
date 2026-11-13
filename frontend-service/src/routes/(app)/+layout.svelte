@@ -29,7 +29,6 @@
   import { invalidate, onNavigate } from "$app/navigation";
   import { onDestroy, onMount } from "svelte";
   import { connectLive, live, onLiveChange } from "$lib/stores/live";
-  import { density } from "$lib/stores/density";
   import TasksDock from "$lib/components/layout/TasksDock.svelte";
   import UnsavedChangesDialog from "$lib/components/ui/UnsavedChangesDialog.svelte";
   import { unsavedPrompt } from "$lib/utils/unsaved";
@@ -72,7 +71,6 @@
   // Live updates (/live): badges, bell, tasks; the pages whose data moved reload it themselves
   const stops: Array<() => void> = [];
   onMount(() => {
-    density.sync();
     stops.push(installCopyOnClick());
     stops.push(connectLive());
     stops.push(onLiveChange((s) => s.requestsStamp, () => void invalidate("b2s:requests")));

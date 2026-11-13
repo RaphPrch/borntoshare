@@ -7,7 +7,6 @@
   import GlobalSearch from '$lib/components/layout/GlobalSearch.svelte';
   import NotificationCenter from '$lib/components/layout/NotificationCenter.svelte';
   import { live } from '$lib/stores/live';
-  import { density } from '$lib/stores/density';
 
   /** Main navigation of the app: a rail on the left, the pages take the whole height. */
   export let user: unknown = null;
@@ -96,12 +95,6 @@
     <div class="sb__tools">
       <NotificationCenter />
       <GlobalSearch {canSeeAdmin} {canSeeStorageRoots} {canSeeObservability} />
-      <button type="button" class="sb__item sb__density" on:click={() => density.toggle()} aria-pressed={$density === 'compact'}
-        aria-label={$density === 'compact' ? t('Compact display: click for the comfortable one') : t('Comfortable display: click for the compact one')}
-        title={$density === 'compact' ? t('Compact display: click for the comfortable one') : t('Comfortable display: click for the compact one')}>
-        <i class={`bi ${$density === 'compact' ? 'bi-arrows-expand' : 'bi-arrows-collapse'}`} aria-hidden="true"></i>
-        <span>{$density === 'compact' ? t('Compact') : t('Comfortable')}</span>
-      </button>
       <form method="POST" action="/logout">
         <button type="submit" class="sb__item sb__logout" aria-label={t('Logout')} title={t('Logout')}>
           <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
