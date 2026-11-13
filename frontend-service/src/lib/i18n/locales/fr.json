@@ -5785,5 +5785,6 @@
   "Also on the sub-folders": "Aussi sur les sous-dossiers",
   "The sub-folders whose name matches (chemin:…) or that hold the files found (est:mot-de-passe…) get the tag too; it follows the condition.": "Les sous-dossiers dont le nom correspond (chemin:…) ou qui contiennent les fichiers trouvés (est:mot-de-passe…) reçoivent aussi le tag ; il suit la condition.",
   "Only chemin:… and the sensitivity states (est:sensible, est:mot-de-passe…) are judged on the sub-folders.": "Sur les sous-dossiers, seuls chemin:… et les états de sensibilité (est:sensible, est:mot-de-passe…) sont évalués.",
-  "Tagged sub-folders": "Sous-dossiers tagués"
+  "Tagged sub-folders": "Sous-dossiers tagués",
+  "from the measure of the parent folder": "d'après la mesure du dossier parent"
 }

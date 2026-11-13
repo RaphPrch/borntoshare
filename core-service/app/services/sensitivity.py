@@ -59,6 +59,16 @@ def mark_requested(db: Session, storage_root_id: int, job_id: int | None) -> Non
     db.commit()
 
 
+# Folders of the system or of other machines (recycle bin, restore points, Mac metadata): what lies there is not
+# the content of the share, never counted nor tagged (the 5S scanner leaves them out the same way)
+SYSTEM_FOLDERS = {"$recycle.bin", "recycler", "system volume information", ".trashes", ".spotlight-v100", ".fseventsd",
+                  ".temporaryitems", ".documentrevisions-v100"}
+
+
+def in_system_folder(path: str) -> bool:
+    return any(part.lower() in SYSTEM_FOLDERS or part.startswith("~") for part in str(path or "").replace("/", "\\").split("\\"))
+
+
 def _ignored_paths(value: Any) -> set[str]:
     return {str(item.get("path", "")).lower() for item in _load(value, []) if isinstance(item, dict)}
 
@@ -66,6 +76,7 @@ def _ignored_paths(value: Any) -> set[str]:
 def visible(findings: list[dict], ignored: set[str], total_flagged: int | None = None) -> tuple[int, dict[str, int]]:
     """Files flagged and counts per category, without the files marked as false positives. The worker keeps at
     most 100 findings: files beyond them (total_flagged) still count."""
+    findings = [item for item in findings if not in_system_folder(str(item.get("path", "")))]
     listed = {str(item.get("path", "")).lower() for item in findings}
     shown = [item for item in findings if str(item.get("path", "")).lower() not in ignored]
     counts: dict[str, int] = {}
@@ -299,6 +310,7 @@ def record_result(db: Session, storage_root_id: int, job_id: int | None, result_
                           {"id": int(storage_root_id)}).mappings().first()
     same_rules = bool(previous) and previous["rules_version"] == scan.get("rules_version")
     findings = widen(_merge(_load(previous["findings_json"], []) if previous else [], scan, same_rules), wide_groups(db))
+    findings = [item for item in findings if not in_system_folder(str(item.get("path", "")))]
     incremental = scan.get("incremental") if isinstance(scan.get("incremental"), dict) else {}
     summary = {key: scan.get(key) for key in ("rules_version", "target", "files_listed", "files_read", "bytes_read", "truncated", "method", "fallback_reason")}
     summary["files_flagged_total"] = len({str(item.get("path", "")).lower() for item in findings})
@@ -474,7 +486,7 @@ def file_groups_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, d
     out: dict[int, dict[str, int]] = {}
     for root_id, findings, ignored_json in rows:
         ignored = _ignored_paths(ignored_json)
-        items = [item for item in _load(findings, []) if isinstance(item, dict)]
+        items = [item for item in _load(findings, []) if isinstance(item, dict) and not in_system_folder(str(item.get("path", "")))]
         out[int(root_id)] = {
             group: len({str(item.get("path", "")).lower() for item in items if item.get("category") in categories} - ignored)
             for group, categories in FILE_GROUPS.items()

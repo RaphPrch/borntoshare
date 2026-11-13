@@ -60,6 +60,16 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             except Exception:
                 db.rollback()
                 logger.warning("JOB_HISTORY_PURGE_FAILED", exc_info=True)
+            # Folders declared inside a measured one and never measured themselves: their part of its measure
+            try:
+                from app.services.derived_measure import derive_missing
+
+                derived = derive_missing(db)
+                if derived:
+                    message += f" · {derived} dossier(s) mesuré(s) d'après leur parent"
+            except Exception:
+                db.rollback()
+                logger.warning("DERIVED_MEASURE_FAILED", exc_info=True)
             # The bell keeps what is unread; what was read more than 90 days ago goes
             from app.services.inbox import purge_read
 

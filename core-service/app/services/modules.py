@@ -121,3 +121,19 @@ def folder_paths(storage_root_id: int) -> list[str]:
         return [str(path) for path in (data.get("data") if isinstance(data, dict) else data) or []]
     except (httpx.HTTPError, ValueError):
         return []
+
+
+def derive(parent_root_id: int, child_root_id: int, path: str) -> dict[str, Any] | None:
+    """The part of the parent's last measure that belongs to a folder declared inside it (copied in the module).
+    {derived, stats} or None without the module / on error."""
+    url = fives_url()
+    if not url:
+        return None
+    try:
+        response = httpx.post(f"{url}/internal/derive", json={"parent_root_id": int(parent_root_id), "child_root_id": int(child_root_id), "path": path},
+                              headers={"x-internal-token": os.getenv("INTERNAL_TOKEN", "")}, timeout=60)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("data") if isinstance(data, dict) else None
+    except (httpx.HTTPError, ValueError):
+        return None

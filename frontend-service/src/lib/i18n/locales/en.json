@@ -1950,5 +1950,6 @@
   "Also on the sub-folders": "Also on the sub-folders",
   "The sub-folders whose name matches (chemin:…) or that hold the files found (est:mot-de-passe…) get the tag too; it follows the condition.": "The sub-folders whose name matches (chemin:…) or that hold the files found (est:mot-de-passe…) get the tag too; it follows the condition.",
   "Only chemin:… and the sensitivity states (est:sensible, est:mot-de-passe…) are judged on the sub-folders.": "Only chemin:… and the sensitivity states (est:sensible, est:mot-de-passe…) are judged on the sub-folders.",
-  "Tagged sub-folders": "Tagged sub-folders"
+  "Tagged sub-folders": "Tagged sub-folders",
+  "from the measure of the parent folder": "from the measure of the parent folder"
 }

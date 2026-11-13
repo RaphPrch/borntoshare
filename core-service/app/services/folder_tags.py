@@ -40,13 +40,11 @@ def _categories() -> dict[str, tuple[str, ...]]:
     return STATE_CATEGORIES
 
 
-# Folders of the system or of other machines (recycle bin, restore points, Mac metadata): never tagged
-SYSTEM_FOLDERS = {"$recycle.bin", "recycler", "system volume information", ".trashes", ".spotlight-v100", ".fseventsd",
-                  ".temporaryitems", ".documentrevisions-v100"}
-
-
 def _system(path: str) -> bool:
-    return any(part.lower() in SYSTEM_FOLDERS or part.startswith("~") for part in path.split("\\"))
+    """Recycle bin, restore points… (same list as the sensitivity counts): never tagged."""
+    from app.services.sensitivity import in_system_folder
+
+    return in_system_folder(path)
 
 
 def path_hash(path: str) -> str:

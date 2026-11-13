@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from datetime import datetime, timezone
 import json
 from typing import Any
@@ -40,6 +42,7 @@ from app.services.storage_root_permissions import StorageRootPermissions
 from app.services.storage_guards import root_access_counts, root_access_group_count, same_host, unc_host
 from app.services.windows_names import RESERVED_MESSAGE, folder_name_error
 
+logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/storage-roots",
     tags=["storage_roots"],
@@ -1279,6 +1282,16 @@ async def create_root(
 
 async def _queue_root_check(root_id: int, origin: str = "storage_root_create") -> None:
     """A new folder is unverified until the worker has really opened it and read its ACL."""
+    # Inside a folder already measured: measured too, at once (its part of the parent's measure)
+    try:
+        from app.core.db import SessionLocal
+        from app.services.derived_measure import derive
+
+        with SessionLocal() as _db:
+            derive(_db, int(root_id))
+    except Exception:
+        logger.warning("DERIVED_MEASURE_FAILED", exc_info=True)
+
     from app.services.probe_service import submit_probe_run
 
     try:

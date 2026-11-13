@@ -26,7 +26,7 @@
     cold_top?: Array<{ path: string; bytes: number; modified: string }>;
     junk?: { bytes: number; files: number; examples: string[] };
     last_modified?: string | null;
-    method?: 'server' | 'smb';
+    method?: 'server' | 'smb' | 'derived';
     mode?: 'full' | 'incremental';
     elapsed_ms?: number;
     denied_folders?: number;
@@ -125,7 +125,7 @@
     <small>
       {#if measuring}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span> {scan?.progress ? t('Scan {done}/{total} · {files} file(s)', { done: scan.progress.chunks_done, total: scan.progress.chunks_total, files: scan.progress.files.toLocaleString('fr-FR') }) : t('Measure in progress…')}
       {#if isAdmin}· <button type="button" class="b2s-link-btn" on:click={stopMeasure}>{t('Stop')}</button>{/if}
-      {:else if content?.scanned_at}<span title={formatDateTime(content.scanned_at)}>{t('measured {when}', { when: timeAgo(content.scanned_at) })}</span>{#if content.mode === 'incremental'} · {t('incremental')}{/if}{#if content.method} · {content.method === 'server' ? t('on the server') : t('through SMB')}{content.elapsed_ms != null ? ` (${seconds(content.elapsed_ms)})` : ''}{/if}
+      {:else if content?.scanned_at}<span title={formatDateTime(content.scanned_at)}>{t('measured {when}', { when: timeAgo(content.scanned_at) })}</span>{#if content.mode === 'incremental'} · {t('incremental')}{/if}{#if content.method} · {content.method === 'derived' ? t('from the measure of the parent folder') : content.method === 'server' ? t('on the server') : t('through SMB')}{content.elapsed_ms != null ? ` (${seconds(content.elapsed_ms)})` : ''}{/if}
       {:else}{t('Not measured yet')}{/if}
       {#if rootId && !measuring} · <button type="button" class="b2s-link-btn" disabled={busy} on:click={measure}>{content?.scanned_at ? t('Measure again') : t('Measure the folder')}</button>{/if}
     </small>
