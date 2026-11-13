@@ -14,7 +14,12 @@
   import type { LogLevel } from '$lib/api/admin-advanced-settings';
   import { saveLoggingConfig, purgeLogs } from '$lib/api/admin-advanced-settings';
 
-  export let data: any;
+  interface Props {
+    data: any;
+  }
+
+  let { data }: Props = $props();
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
   const settings = data.settings;
 
   const initialLogging = {
@@ -23,11 +28,11 @@
     retentionDays: Number(settings.logging.retentionDays ?? 180)
   };
 
-  let form = { ...initialLogging };
-  let saving = false;
-  let purging = false;
-  let purgeConfirmOpen = false;
-  let errorMsg: string | null = null;
+  let form = $state({ ...initialLogging });
+  let saving = $state(false);
+  let purging = $state(false);
+  let purgeConfirmOpen = $state(false);
+  let errorMsg = $state<string | null>(null);
 
   const levels: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
   const normalize = (input: typeof form) => ({
@@ -36,16 +41,16 @@
     retentionDays: clamp(Number(input.retentionDays ?? 180), 1, 3650)
   });
 
-  let initialSnapshot = JSON.stringify(normalize(initialLogging));
+  let initialSnapshot = $state(JSON.stringify(normalize(initialLogging)));
 
-  $: retentionError =
-    form.retentionEnabled && !(Number(form.retentionDays) >= 1 && Number(form.retentionDays) <= 3650)
+  let retentionError =
+    $derived(form.retentionEnabled && !(Number(form.retentionDays) >= 1 && Number(form.retentionDays) <= 3650)
       ? t('Retention must be between 1 and 3650 days.')
-      : null;
-  $: levelError = levels.includes(form.level as LogLevel) ? null : t('Invalid log level.');
-  $: hasErrors = Boolean(retentionError || levelError);
-  $: isDirty = JSON.stringify(normalize(form)) !== initialSnapshot;
-  $: canSave = !saving && isDirty && !hasErrors;
+      : null);
+  let levelError = $derived(levels.includes(form.level as LogLevel) ? null : t('Invalid log level.'));
+  let hasErrors = $derived(Boolean(retentionError || levelError));
+  let isDirty = $derived(JSON.stringify(normalize(form)) !== initialSnapshot);
+  let canSave = $derived(!saving && isDirty && !hasErrors);
   guardUnsaved(() => isDirty);
 
   async function save() {
@@ -143,7 +148,7 @@
   {/if}
 
   <div class="adv-actions">
-    <button class="b2s-btn b2s-btn-primary" type="button" on:click={save} disabled={!canSave}>
+    <button class="b2s-btn b2s-btn-primary" type="button" onclick={save} disabled={!canSave}>
       {saving ? t('Saving…') : t('Save changes')}
     </button>
   </div>
@@ -151,7 +156,7 @@
 
 <DangerZone title={t('Danger zone')} subtitle={t('Cleanup / purge')}>
   <div class="adv-btn-row">
-    <button class="b2s-btn b2s-btn-danger" type="button" on:click={purge} disabled={purging}>
+    <button class="b2s-btn b2s-btn-danger" type="button" onclick={purge} disabled={purging}>
       <i class="bi bi-trash"></i> {t('Purge old logs')}
     </button>
   </div>

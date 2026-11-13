@@ -45,8 +45,10 @@
 
   // ---------------------------------------------------------
   // Data from layout.server.ts
-  // ---------------------------------------------------------
-  export let data: {
+  
+  interface Props {
+    // ---------------------------------------------------------
+    data: {
     me: {
       id: number;
       username?: string;
@@ -65,6 +67,10 @@
     };
     theme: string;
   };
+    children?: import('svelte').Snippet;
+  }
+
+  let { data, children }: Props = $props();
 
   bootstrapFrontendCore();
 
@@ -115,7 +121,7 @@
     {#if data.banner}
       <div class="b2s-banner is-{data.banner.tone ?? 'info'}" role="status"><i class="bi bi-megaphone" aria-hidden="true"></i>{data.banner.message}</div>
     {/if}
-    <slot />
+    {@render children?.()}
   </main>
 </div>
 

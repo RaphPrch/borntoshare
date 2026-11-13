@@ -14,14 +14,14 @@
 
   let { data, children }: Props = $props();
 
-  let selectedZoneId: number | null = $state(null);
+  let selectedZoneId = $state<number | null>(null);
 
   function createZone() {
     goto('/admin/zones/new');
   }
 
   // Right click on a zone: its actions (those of the zone page, reached by ?action= / ?tab=)
-  let menuZone: ZonesSidebarZone | null = $state(null);
+  let menuZone = $state<ZonesSidebarZone | null>(null);
   let menuAt = $state({ x: 0, y: 0 });
   function zoneMenuItems(zone: ZonesSidebarZone): ContextMenuItem[] {
     const servers = Number(zone.endpointCount ?? 0);

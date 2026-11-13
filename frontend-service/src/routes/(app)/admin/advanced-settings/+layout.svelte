@@ -4,6 +4,11 @@
 
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import AdvancedSidebar, { type NavItem } from '$lib/components/settings/AdvancedSidebar.svelte';
+  interface Props {
+    children?: import('svelte').Snippet;
+  }
+
+  let { children }: Props = $props();
 
 
   const nav: NavItem[] = [
@@ -38,8 +43,8 @@
     }
   };
 
-  $: current = $page.url.pathname.split('/').pop() ?? 'naming-policies';
-  $: header = headersBySection[current] ?? defaultHeader;
+  let current = $derived($page.url.pathname.split('/').pop() ?? 'naming-policies');
+  let header = $derived(headersBySection[current] ?? defaultHeader);
 </script>
 
 <div class="b2s-adv">
@@ -48,7 +53,7 @@
   <div class="b2s-adv-grid">
     <AdvancedSidebar {current} items={nav} />
     <main class="b2s-adv-main">
-      <slot />
+      {@render children?.()}
     </main>
   </div>
 </div>

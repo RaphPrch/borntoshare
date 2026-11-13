@@ -298,9 +298,9 @@
   /* Sidebar + selection                                                        */
   /* -------------------------------------------------------------------------- */
 
-  let selectedStorageRootId: number | null = $state(null);
-  let selectedRow: StorageRootRow | null = $state(null);
-  let lastAppliedSelectedParam: number | null = $state(null);
+  let selectedStorageRootId = $state<number | null>(null);
+  let selectedRow = $state<StorageRootRow | null>(null);
+  let lastAppliedSelectedParam = $state<number | null>(null);
 
   let ctxRows = $derived((data.storageRoots ?? []).map(normalizeStorageRootRow));
 
@@ -333,7 +333,7 @@
 
   // ?explain=<login> (⌘K palette): open Permissions on « why does this person reach the folder »
   let explainParam = $derived(String($page.url.searchParams.get('explain') ?? '').trim() || null);
-  let explainApplied: string | null = $state(null);
+  let explainApplied = $state<string | null>(null);
   $effect.pre(() => {
     if (explainParam && explainParam !== explainApplied) {
       explainApplied = explainParam;
@@ -384,7 +384,7 @@
   /* Details load                                                               */
   /* -------------------------------------------------------------------------- */
 
-  let overview: StorageRootDetailModel | null = $state(null);
+  let overview = $state<StorageRootDetailModel | null>(null);
   let detailsLoading = $state(false);
   const detailsCache = new Map<number, StorageRootDetailModel>();
   let detailsRequestToken = 0;
@@ -467,7 +467,7 @@
     await loadDetails(normalizedRootId);
   };
 
-  let detailsLoadedForRootId: number | null = $state(null);
+  let detailsLoadedForRootId = $state<number | null>(null);
 
   $effect.pre(() => {
     const currentRootId = Number(selectedStorageRootId ?? 0);
@@ -591,7 +591,7 @@
     return storageRootOpenAlertSummary(row, data.storageRootAlerts ?? []);
   };
 
-  let selectedRootAlerts: StorageRootDetailAlertItem[] = $state([]);
+  let selectedRootAlerts = $state<StorageRootDetailAlertItem[]>([]);
   $effect.pre(() => {
     const selectedAlertRootId = Number(selectedRow?.storage_root_id ?? 0);
     const selectedOverviewRootId = Number(overview?.storage_root_id ?? overview?.id ?? 0);
@@ -622,8 +622,8 @@
   /* -------------------------------------------------------------------------- */
 
   let rootModalOpen = $state(false);
-  let rootModalMode: 'create' | 'edit' | 'delete' = $state('create');
-  let editingRoot: any | null = $state(null);
+  let rootModalMode = $state<'create' | 'edit' | 'delete'>('create');
+  let editingRoot = $state<any | null>(null);
   let deleteRootModalOpen = $state(false);
 
   const canDeleteStorageRoot = () =>
@@ -672,8 +672,8 @@
   }
 
   // Operations on the folder on the file server (header menu or right click in the explorer)
-  let folderActionKind: FolderActionKind | null = $state(null);
-  let folderActionTarget: FolderActionTarget | null = $state(null);
+  let folderActionKind = $state<FolderActionKind | null>(null);
+  let folderActionTarget = $state<FolderActionTarget | null>(null);
   let detailRefreshKey = $state(0);
 
   // Right click (tree or explorer): the analyses start at once on that folder only; the others open their dialog
@@ -727,7 +727,7 @@
   }
 
   // Right click on a server of the tree
-  let shareEndpointId: number | null = $state(null);
+  let shareEndpointId = $state<number | null>(null);
   function serverAction(kind: 'share' | 'add-folders' | 'open', endpointId: number) {
     if (kind === 'share') shareEndpointId = endpointId;
     else if (kind === 'add-folders') void goto(`/storage-roots/add?endpoint=${endpointId}`);
@@ -842,7 +842,7 @@
   });
 
   let rootProbeBusy = $state(false);
-  let rootProbeStateByRootId: Record<number, RootProbeExecutionState> = $state({});
+  let rootProbeStateByRootId = $state<Record<number, RootProbeExecutionState>>({});
 
   const rootProbeState = (rootId: number | null | undefined): RootProbeExecutionState => {
     const id = Number(rootId ?? 0);
@@ -1291,8 +1291,8 @@
 
   let showAlertsDrawer = $state(false);
   let activityLoading = $state(false);
-  let activityRows: Array<Record<string, unknown>> = $state([]);
-  let activityLoadedForRootId: number | null = $state(null);
+  let activityRows = $state<Array<Record<string, unknown>>>([]);
+  let activityLoadedForRootId = $state<number | null>(null);
   let activityRequestToken = 0;
 
   const activityRowsForSelectedRoot = (): Array<Record<string, unknown>> => {
@@ -1461,18 +1461,18 @@
   /* -------------------------------------------------------------------------- */
 
   let showGovernanceDrawer = $state(false);
-  let governanceRoleTab: 'guardian' = $state('guardian');
-  let governanceOwners: StorageRootOwner[] = $state([]);
-  let governanceDraftGuardianIds: number[] = $state([]);
-  let governanceDraftMetadataByIdentityId: Record<number, Partial<StorageRootOwner>> = $state({});
+  let governanceRoleTab = $state<'guardian'>('guardian');
+  let governanceOwners = $state<StorageRootOwner[]>([]);
+  let governanceDraftGuardianIds = $state<number[]>([]);
+  let governanceDraftMetadataByIdentityId = $state<Record<number, Partial<StorageRootOwner>>>({});
   let governanceDraftDirty = $state(false);
-  let governanceUnresolvedPrincipalLabels: string[] = $state([]);
+  let governanceUnresolvedPrincipalLabels = $state<string[]>([]);
   let governanceOwnersLoadToken = 0;
   let governanceLoading = $state(false);
   let governanceSaving = $state(false);
-  let governanceError: string | null = $state(null);
+  let governanceError = $state<string | null>(null);
   let governanceOwnersLoadedForRootId: number | null = null;
-  let governanceRoleRows: Array<StorageRootOwner & Record<string, any>> = $state([]);
+  let governanceRoleRows = $state<Array<StorageRootOwner & Record<string, any>>>([]);
   let showOwnersBrowserModal = $state(false);
   let ownersBrowserDefaultRole: 'guardian' = 'guardian';
 

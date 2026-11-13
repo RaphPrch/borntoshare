@@ -12,23 +12,29 @@
   import { reportUiError } from '$lib/errors';
   import { getInfraOverview, type InfraOverview as Overview, type InfraService } from '$lib/api/infrastructure';
 
-  export let data: { overview: Overview | null; services: InfraService[] };
+  interface Props {
+    data: { overview: Overview | null; services: InfraService[] };
+  }
 
-  let overview: Overview | null = data.overview;
-  let services: InfraService[] = data.services ?? [];
+  let { data }: Props = $props();
+
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let overview = $state<Overview | null>(data.overview);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let services = $state<InfraService[]>(data.services ?? []);
 
   // Platform health lives in Observability › Health; this page only configures
   type TabKey = 'database' | 'workers' | 'keycloak' | 'schedules' | 'components';
   const TAB_KEYS: TabKey[] = ['database', 'workers', 'keycloak', 'schedules', 'components'];
 
-  $: active = (TAB_KEYS.includes($page.url.searchParams.get('tab') as TabKey) ? $page.url.searchParams.get('tab') : 'database') as TabKey;
-  $: tabs = [
+  let active = $derived((TAB_KEYS.includes($page.url.searchParams.get('tab') as TabKey) ? $page.url.searchParams.get('tab') : 'database') as TabKey);
+  let tabs = $derived([
     { key: 'database', label: t('Database'), icon: 'bi-database' },
     { key: 'workers', label: t('Workers'), icon: 'bi-cpu', count: overview?.workers.length ?? null },
     { key: 'keycloak', label: t('Keycloak'), icon: 'bi-key' },
     { key: 'schedules', label: t('Schedules'), icon: 'bi-calendar-check' },
     { key: 'components', label: t('Monitored components'), icon: 'bi-broadcast' }
-  ];
+  ]);
 
   function setTab(key: string) {
     const url = new URL($page.url);

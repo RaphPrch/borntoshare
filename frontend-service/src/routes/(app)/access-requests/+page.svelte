@@ -1,4 +1,5 @@
 <script lang="ts">
+
   import { copyText } from '$lib/utils/clipboard';
   import SavedViews from '$lib/components/ui/SavedViews.svelte';
   import ColumnPicker from '$lib/components/ui/ColumnPicker.svelte';
@@ -23,7 +24,7 @@
   import ApprovalPlan from '$lib/components/access-requests/ApprovalPlan.svelte';
   import { listActivityByTarget, type ActivityEvent } from '$lib/api/activity';
   import { renderActivity } from '$lib/activity/formatter';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import { toast } from '$lib/stores/toast';
   import { initials, formatDateTime, formatDate, timeAgo } from '$lib/utils/format';
   import { getRequestStatusMeta, requestToneVariant } from '$lib/utils/access-request-status';
@@ -42,30 +43,27 @@
   type Segment = 'pending' | 'applied' | 'closed' | 'all';
   type AccessKind = 'read' | 'write' | 'other';
 
-  export let data: {
+  interface Props {
+    data: {
     requests: any[];
     segment?: Segment;
     query?: string;
     me?: unknown;
     navigation?: { guardianRootIds?: number[] };
   };
+  }
+
+  let { data }: Props = $props();
 
   const DAY = 86_400_000;
 
-  let segment: Segment = data.segment ?? 'pending';
-  let searchText = data.query ?? '';
-  let accessFilter = recall('requests', { accessFilter: 'all' }).accessFilter as 'all' | AccessKind;
-  $: remember('requests', { accessFilter });
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let segment = $state<Segment>(data.segment ?? 'pending');
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let searchText = $state(data.query ?? '');
+  let accessFilter = $state(recall('requests', { accessFilter: 'all' }).accessFilter as 'all' | AccessKind);
   // Optional columns, kept in this browser; saved views of the filters
-  let hiddenCols = (recall('requests-columns', { hidden: [] as unknown[] }).hidden as string[]).filter((k) => typeof k === 'string');
-  $: remember('requests-columns', { hidden: hiddenCols });
-  $: OPTIONAL_COLS = [
-    { key: 'path', label: t('Path of the folder') },
-    { key: 'level', label: t('Level') },
-    { key: 'end', label: t('End') },
-    { key: 'decision', label: t('Decision') }
-  ];
-  $: show = (key: string) => !hiddenCols.includes(key);
+  let hiddenCols = $state((recall('requests-columns', { hidden: [] as unknown[] }).hidden as string[]).filter((k) => typeof k === 'string'));
   function applyView(state: Record<string, unknown>) {
     accessFilter = (state.accessFilter as typeof accessFilter) ?? 'all';
     searchText = String(state.searchText ?? '');
@@ -74,20 +72,20 @@
     if (wanted !== segment) selectSegment(wanted);
   }
   const PAGE = 50;
-  let shown = PAGE;
+  let shown = $state(PAGE);
   // Two more views of the counters: accesses ending within 30 days, requests refused in the last 30 days
-  let extra: 'none' | 'ending' | 'refused' = 'none';
+  let extra = $state<'none' | 'ending' | 'refused'>('none');
 
-  let selectedRequestId: number | null = null;
-  let selectedRequestDetail: any | null = null;
-  let detailLoading = false;
-  let detailError = '';
+  let selectedRequestId = $state<number | null>(null);
+  let selectedRequestDetail = $state<any | null>(null);
+  let detailLoading = $state(false);
+  let detailError = $state('');
   let detailLoadToken = 0;
-  let decisionComment = '';
-  let decisionRunning: 'approve' | 'reject' | 'revoke' | null = null;
-  let showRevokeConfirm = false;
-  let showCancelConfirm = false;
-  let cancelling = false;
+  let decisionComment = $state('');
+  let decisionRunning = $state<'approve' | 'reject' | 'revoke' | null>(null);
+  let showRevokeConfirm = $state(false);
+  let showCancelConfirm = $state(false);
+  let cancelling = $state(false);
   async function cancelSelected() {
     showCancelConfirm = false;
     const id = selectedRequest ? accessRequestId(selectedRequest) : 0;
@@ -105,23 +103,23 @@
     }
   }
   // Provisioning log of the open request (one entry per step, written by the server as it goes)
-  let provisioningLog: ActivityEvent[] = [];
+  let provisioningLog = $state<ActivityEvent[]>([]);
   // What the approval will do (reviewers), then what it did once applied
-  let approvalPreview: ApprovalPreview | null = null;
-  let appliedPreview: ApprovalPreview | null = null;
+  let approvalPreview = $state<ApprovalPreview | null>(null);
+  let appliedPreview = $state<ApprovalPreview | null>(null);
   let logTimer: ReturnType<typeof setInterval> | null = null;
   // Last failed decision: code, hint and, for a name conflict, the group an admin can adopt
-  let decisionFailure: { code?: string | null; hint?: string | null; access_profile_id?: number | null; existing_dn?: string | null } | null = null;
-  let adopting = false;
-  let levelEditing = false;
-  let levelReason = '';
-  let levelSaving = false;
-  let checkedIds = new Set<number>();
-  let bulkDecisionAsked: 'approve' | 'reject' | null = null;
-  let bulkRunning = false;
-  let bulkDone = 0;
-  let requestParamId: number | null = null;
-  let lastAutoSelectedRequestId: number | null = null;
+  let decisionFailure: { code?: string | null; hint?: string | null; access_profile_id?: number | null; existing_dn?: string | null } | null = $state(null);
+  let adopting = $state(false);
+  let levelEditing = $state(false);
+  let levelReason = $state('');
+  let levelSaving = $state(false);
+  let checkedIds = $state(new Set<number>());
+  let bulkDecisionAsked = $state<'approve' | 'reject' | null>(null);
+  let bulkRunning = $state(false);
+  let bulkDone = $state(0);
+  let requestParamId = $state<number | null>(null);
+  let lastAutoSelectedRequestId = $state<number | null>(null);
 
   const norm = (value: unknown): string => String(value ?? '').trim().toLowerCase();
   const statusOf = (row: any): string => norm(row?.status ?? row?.workflow_status ?? row?.decision_status) || 'pending';
@@ -183,86 +181,20 @@
     return Number.isFinite(value) && value > 0 ? value : null;
   };
 
-  $: requests = Array.isArray(data.requests) ? data.requests : [];
-  $: me = normalizeMe(data.me);
-  $: guardianRootIds = (data.navigation?.guardianRootIds ?? []).map(Number).filter((value) => value > 0);
-  $: canReviewAny = me?.is_admin === true || guardianRootIds.length > 0;
-  $: isReviewAllowed = (row: any): boolean =>
-    me?.is_admin === true || (storageRootIdFromRow(row) !== null && guardianRootIds.includes(storageRootIdFromRow(row) as number));
 
-  // Counters (computed on every request the user can see)
-  $: now = Date.now();
-  $: pendingRows = requests.filter(isPending);
-  $: appliedRows = requests.filter(isApplied);
 
   const decidedMs = (row: any): number => new Date(String(row?.decided_at ?? row?.revoked_at ?? row?.updated_at ?? '')).getTime() || 0;
   const endingSoon = (row: any): boolean => isApplied(row) && expiresMs(row) > now && expiresMs(row) - now <= 30 * DAY;
   const refusedRecently = (row: any): boolean => statusOf(row) === 'rejected' && now - decidedMs(row) <= 30 * DAY;
-  $: counters = [
-    { key: 'pending', label: t('To review'), count: pendingRows.length, tone: pendingRows.length ? 'warn' : '' },
-    { key: 'applied', label: t('In force'), count: appliedRows.length, tone: '' },
-    { key: 'ending', label: t('Ending within 30 days'), count: requests.filter(endingSoon).length, tone: '' },
-    { key: 'refused', label: t('Refused · 30 d'), count: requests.filter(refusedRecently).length, tone: '' },
-    { key: 'all', label: t('All'), count: requests.length, tone: '' }
-  ];
-  $: activeCounter = extra !== 'none' ? extra : segment === 'closed' ? 'all' : segment;
   function pickCounter(key: string): void {
     if (key === 'ending') { extra = 'ending'; selectSegment('applied'); }
     else if (key === 'refused') { extra = 'refused'; selectSegment('closed'); }
     else { extra = 'none'; selectSegment(key as Segment); }
   }
 
-  $: visibleRequests = requests
-    .filter((row) => segment === 'all' || segmentOf(row) === segment)
-    .filter((row) => extra === 'none' || (extra === 'ending' ? endingSoon(row) : refusedRecently(row)))
-    .filter((row) => accessFilter === 'all' || accessKind(row) === accessFilter)
-    .filter((row) => {
-      const q = norm(searchText);
-      if (!q) return true;
-      return [requesterName(row), requesterDepartment(row), resourceName(row), resourcePath(row), requestCode(row)].map(norm).join(' ').includes(q);
-    })
-    .sort((a, b) => createdMs(b) - createdMs(a));
-  $: segment, extra, accessFilter, searchText, (shown = PAGE);
-  $: pageRequests = visibleRequests.slice(0, shown);
 
-  $: selectedRequest = selectedRequestId
-    ? selectedRequestDetail ?? requests.find((row) => accessRequestId(row) === selectedRequestId) ?? null
-    : null;
-  $: canReviewSelected = Boolean(selectedRequest) && isPending(selectedRequest) && isReviewAllowed(selectedRequest);
-  // A guardian does not decide on their own request; an administrator does (and it is traced)
-  $: ownRequestBlocked = Boolean(selectedRequest?.own_request) && me?.is_admin !== true;
-  $: canChangeLevel = Boolean(selectedRequest?.can_change_permission) && isPending(selectedRequest);
-  $: originalLevel = String(selectedRequest?.original_permission ?? '').trim().toLowerCase();
-  $: canRevokeSelected =
-    Boolean(selectedRequest) && isApplied(selectedRequest) && isReviewAllowed(selectedRequest) &&
-    (!expiresMs(selectedRequest) || expiresMs(selectedRequest) > now);
 
-  $: {
-    // Former links (?create=1&root=…&principal_dn=…) open the creation page with the same parameters
-    if (browser && ['1', 'true'].includes(norm($page.url.searchParams.get('create')))) {
-      const params = new URLSearchParams($page.url.searchParams);
-      params.delete('create');
-      void goto(`/access-requests/new${params.toString() ? `?${params}` : ''}`, { replaceState: true });
-    }
-    const targetRequestId = Number($page.url.searchParams.get('request') ?? 0);
-    requestParamId = targetRequestId > 0 ? targetRequestId : null;
-  }
-  $: if (!requestParamId) lastAutoSelectedRequestId = null;
-  $: if (requestParamId && requestParamId !== lastAutoSelectedRequestId) {
-    lastAutoSelectedRequestId = requestParamId;
-    const target = requests.find((row) => accessRequestId(row) === requestParamId);
-    if (target) selectRequest(target);
-    else openRequest(requestParamId);
-  }
 
-  $: checkable = (row: any): boolean => isPending(row) && isReviewAllowed(row);
-  $: pageCheckable = pageRequests.filter(checkable);
-  $: allPageChecked = pageCheckable.length > 0 && pageCheckable.every((row) => checkedIds.has(accessRequestId(row)));
-  // A selection never outlives its rows (decided elsewhere, filtered by the API)
-  $: if (requests) {
-    const live = new Set(requests.filter(isPending).map(accessRequestId));
-    if ([...checkedIds].some((id) => !live.has(id))) checkedIds = new Set([...checkedIds].filter((id) => live.has(id)));
-  }
 
   function toggleChecked(id: number): void {
     if (checkedIds.has(id)) checkedIds.delete(id);
@@ -337,7 +269,7 @@
   }
 
   // Guardians move the end of an access in force
-  let extending = false;
+  let extending = $state(false);
   async function extendSelected(): Promise<void> {
     const id = selectedRequest ? accessRequestId(selectedRequest) : 0;
     if (!id || extending) return;
@@ -381,13 +313,6 @@
     }
   }
 
-  // created, reused, adopted… from the provisioning log of the approval
-  $: groupOutcome =
-    provisioningLog
-      .map((event) => String(event.action ?? ''))
-      .filter((action) => /^ad_group_(created|recreated|reused|adopted)$/.test(action))
-      .map((action) => action.replace('ad_group_', ''))
-      .pop() ?? null;
 
   async function loadProvisioningLog(id: number): Promise<void> {
     try {
@@ -502,9 +427,9 @@
 
   // ---- Right click and quick decisions: the decision leaves after QUICK_DELAY, « Undo » until then ----------------
   const QUICK_DELAY = 5000;
-  let menu: { row: any; at: { x: number; y: number } } | null = null;
-  let quick = new Map<number, { decision: 'approve' | 'reject'; timer: ReturnType<typeof setTimeout> }>();
-  let justDone = new Set<number>();
+  let menu: { row: any; at: { x: number; y: number } } | null = $state(null);
+  let quick = $state(new Map<number, { decision: 'approve' | 'reject'; timer: ReturnType<typeof setTimeout> }>());
+  let justDone = $state(new Set<number>());
 
   function openMenu(row: any, event: MouseEvent): void {
     event.preventDefault();
@@ -631,27 +556,7 @@
 
 
 
-  // Progress of the selected request: submitted -> guardian review -> applied -> ends
-  $: progress = selectedRequest
-    ? [
-        { label: t('Submitted'), value: formatDateTime(selectedRequest.created_at), state: 'done' },
-        isPending(selectedRequest)
-          ? { label: t('Guardian review'), value: t('In progress'), state: 'current' }
-          : { label: statusMeta(selectedRequest).label, value: formatDateTime(selectedRequest.decided_at ?? selectedRequest.updated_at), state: isApplied(selectedRequest) ? 'done' : 'stopped' },
-        {
-          label: t('Applied'),
-          value: isApplied(selectedRequest) ? t('AD group membership') : '—',
-          state: isApplied(selectedRequest) ? 'done' : 'waiting'
-        },
-        {
-          label: t('Ends'),
-          value: expiresMs(selectedRequest) ? formatDate(selectedRequest.expires_at) : durationLabel(selectedRequest),
-          state: expiresMs(selectedRequest) && expiresMs(selectedRequest) < now ? 'done' : 'waiting'
-        }
-      ]
-    : [];
 
-  $: timeline = selectedRequest && Array.isArray(selectedRequest.timeline) ? selectedRequest.timeline : [];
 
   // Workflow event types -> readable labels (unknown types keep their own label)
   // (v_access_request_timeline: provision = execution queued or running, enforce = done, enforce_failed = failed)
@@ -673,6 +578,121 @@
   }
   const eventActor = (event: any): string =>
     String(event?.actor_display ?? event?.actor_name ?? event?.actor ?? '').trim();
+  $effect.pre(() => {
+    remember('requests', { accessFilter });
+  });
+  $effect.pre(() => {
+    remember('requests-columns', { hidden: hiddenCols });
+  });
+  let OPTIONAL_COLS = $derived([
+    { key: 'path', label: t('Path of the folder') },
+    { key: 'level', label: t('Level') },
+    { key: 'end', label: t('End') },
+    { key: 'decision', label: t('Decision') }
+  ]);
+  let show = $derived((key: string) => !hiddenCols.includes(key));
+  let requests = $derived(Array.isArray(data.requests) ? data.requests : []);
+  let me = $derived(normalizeMe(data.me));
+  let guardianRootIds = $derived((data.navigation?.guardianRootIds ?? []).map(Number).filter((value) => value > 0));
+  let canReviewAny = $derived(me?.is_admin === true || guardianRootIds.length > 0);
+  let isReviewAllowed = $derived((row: any): boolean =>
+    me?.is_admin === true || (storageRootIdFromRow(row) !== null && guardianRootIds.includes(storageRootIdFromRow(row) as number)));
+  // Counters (computed on every request the user can see)
+  let now = $derived(Date.now());
+  let pendingRows = $derived(requests.filter(isPending));
+  let appliedRows = $derived(requests.filter(isApplied));
+  let counters = $derived([
+    { key: 'pending', label: t('To review'), count: pendingRows.length, tone: pendingRows.length ? 'warn' : '' },
+    { key: 'applied', label: t('In force'), count: appliedRows.length, tone: '' },
+    { key: 'ending', label: t('Ending within 30 days'), count: requests.filter(endingSoon).length, tone: '' },
+    { key: 'refused', label: t('Refused · 30 d'), count: requests.filter(refusedRecently).length, tone: '' },
+    { key: 'all', label: t('All'), count: requests.length, tone: '' }
+  ]);
+  let activeCounter = $derived(extra !== 'none' ? extra : segment === 'closed' ? 'all' : segment);
+  let visibleRequests = $derived(requests
+    .filter((row) => segment === 'all' || segmentOf(row) === segment)
+    .filter((row) => extra === 'none' || (extra === 'ending' ? endingSoon(row) : refusedRecently(row)))
+    .filter((row) => accessFilter === 'all' || accessKind(row) === accessFilter)
+    .filter((row) => {
+      const q = norm(searchText);
+      if (!q) return true;
+      return [requesterName(row), requesterDepartment(row), resourceName(row), resourcePath(row), requestCode(row)].map(norm).join(' ').includes(q);
+    })
+    .sort((a, b) => createdMs(b) - createdMs(a)));
+  $effect.pre(() => {
+    void [segment, extra, accessFilter, searchText]; // only these start it again (as the former « $: »)
+    untrack(() => { shown = PAGE; });
+  });
+  let pageRequests = $derived(visibleRequests.slice(0, shown));
+  let selectedRequest = $derived(selectedRequestId
+    ? selectedRequestDetail ?? requests.find((row) => accessRequestId(row) === selectedRequestId) ?? null
+    : null);
+  let canReviewSelected = $derived(Boolean(selectedRequest) && isPending(selectedRequest) && isReviewAllowed(selectedRequest));
+  // A guardian does not decide on their own request; an administrator does (and it is traced)
+  let ownRequestBlocked = $derived(Boolean(selectedRequest?.own_request) && me?.is_admin !== true);
+  let canChangeLevel = $derived(Boolean(selectedRequest?.can_change_permission) && isPending(selectedRequest));
+  let originalLevel = $derived(String(selectedRequest?.original_permission ?? '').trim().toLowerCase());
+  let canRevokeSelected =
+    $derived(Boolean(selectedRequest) && isApplied(selectedRequest) && isReviewAllowed(selectedRequest) &&
+    (!expiresMs(selectedRequest) || expiresMs(selectedRequest) > now));
+  $effect.pre(() => {
+    // Former links (?create=1&root=…&principal_dn=…) open the creation page with the same parameters
+    if (browser && ['1', 'true'].includes(norm($page.url.searchParams.get('create')))) {
+      const params = new URLSearchParams($page.url.searchParams);
+      params.delete('create');
+      untrack(() => void goto(`/access-requests/new${params.toString() ? `?${params}` : ''}`, { replaceState: true }));
+    }
+    const targetRequestId = Number($page.url.searchParams.get('request') ?? 0);
+    requestParamId = targetRequestId > 0 ? targetRequestId : null;
+  });
+  $effect.pre(() => {
+    if (!requestParamId) lastAutoSelectedRequestId = null;
+  });
+  $effect.pre(() => {
+    if (requestParamId && requestParamId !== lastAutoSelectedRequestId) {
+      lastAutoSelectedRequestId = requestParamId;
+      const target = requests.find((row) => accessRequestId(row) === requestParamId);
+      const id = requestParamId;
+      untrack(() => (target ? selectRequest(target) : openRequest(id)));
+    }
+  });
+  let checkable = $derived((row: any): boolean => isPending(row) && isReviewAllowed(row));
+  let pageCheckable = $derived(pageRequests.filter(checkable));
+  // A selection never outlives its rows (decided elsewhere, filtered by the API)
+  $effect.pre(() => {
+    if (requests) {
+      const live = new Set(requests.filter(isPending).map(accessRequestId));
+      if ([...checkedIds].some((id) => !live.has(id))) checkedIds = new Set([...checkedIds].filter((id) => live.has(id)));
+    }
+  });
+  let allPageChecked = $derived(pageCheckable.length > 0 && pageCheckable.every((row) => checkedIds.has(accessRequestId(row))));
+  // created, reused, adopted… from the provisioning log of the approval
+  let groupOutcome =
+    $derived(provisioningLog
+      .map((event) => String(event.action ?? ''))
+      .filter((action) => /^ad_group_(created|recreated|reused|adopted)$/.test(action))
+      .map((action) => action.replace('ad_group_', ''))
+      .pop() ?? null);
+  // Progress of the selected request: submitted -> guardian review -> applied -> ends
+  let progress = $derived(selectedRequest
+    ? [
+        { label: t('Submitted'), value: formatDateTime(selectedRequest.created_at), state: 'done' },
+        isPending(selectedRequest)
+          ? { label: t('Guardian review'), value: t('In progress'), state: 'current' }
+          : { label: statusMeta(selectedRequest).label, value: formatDateTime(selectedRequest.decided_at ?? selectedRequest.updated_at), state: isApplied(selectedRequest) ? 'done' : 'stopped' },
+        {
+          label: t('Applied'),
+          value: isApplied(selectedRequest) ? t('AD group membership') : '—',
+          state: isApplied(selectedRequest) ? 'done' : 'waiting'
+        },
+        {
+          label: t('Ends'),
+          value: expiresMs(selectedRequest) ? formatDate(selectedRequest.expires_at) : durationLabel(selectedRequest),
+          state: expiresMs(selectedRequest) && expiresMs(selectedRequest) < now ? 'done' : 'waiting'
+        }
+      ]
+    : []);
+  let timeline = $derived(selectedRequest && Array.isArray(selectedRequest.timeline) ? selectedRequest.timeline : []);
 </script>
 
 <div class="ar-page">
@@ -694,7 +714,7 @@
 
   <div class="ar-counters" role="group" aria-label={t('Request status')}>
     {#each counters as counter (counter.key)}
-      <button type="button" class:on={activeCounter === counter.key} aria-pressed={activeCounter === counter.key} on:click={() => pickCounter(counter.key)}>
+      <button type="button" class:on={activeCounter === counter.key} aria-pressed={activeCounter === counter.key} onclick={() => pickCounter(counter.key)}>
         <span>{counter.label}</span><b class:warn={counter.tone === 'warn'} use:pulseOnIncrease={counter.count}>{counter.count}</b>
       </button>
     {/each}
@@ -703,14 +723,14 @@
   <div class="ar-filters">
     <div class="sg-seg" role="group" aria-label={t('Access')}>
       {#each [{ key: 'all', label: t('All levels') }, { key: 'read', label: t('Read') }, { key: 'write', label: t('Modify') }] as item}
-        <button type="button" class:on={accessFilter === item.key} aria-pressed={accessFilter === item.key} on:click={() => (accessFilter = item.key as typeof accessFilter)}>{item.label}</button>
+        <button type="button" class:on={accessFilter === item.key} aria-pressed={accessFilter === item.key} onclick={() => (accessFilter = item.key as typeof accessFilter)}>{item.label}</button>
       {/each}
     </div>
     <SavedViews key="requests" current={{ segment, extra, accessFilter, searchText }} apply={applyView} />
     <span class="ar-filters__end">
       <ColumnPicker columns={OPTIONAL_COLS} hidden={hiddenCols} onChange={(next) => (hiddenCols = next)} />
     </span>
-    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm ar-export" on:click={exportRequests} disabled={visibleRequests.length === 0}>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm ar-export" onclick={exportRequests} disabled={visibleRequests.length === 0}>
       <i class="bi bi-download" aria-hidden="true"></i>
       {t('Export')}
     </button>
@@ -719,9 +739,9 @@
   {#if checkedIds.size > 0}
     <div class="ar-bulk" role="status">
       <strong>{t('{count} selected', { count: checkedIds.size })}</strong>
-      <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" on:click={() => (bulkDecisionAsked = 'approve')}>{t('Approve all')}</button>
-      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (bulkDecisionAsked = 'reject')}>{t('Reject all')}</button>
-      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (checkedIds = new Set())}>{t('Clear the selection')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" onclick={() => (bulkDecisionAsked = 'approve')}>{t('Approve all')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => (bulkDecisionAsked = 'reject')}>{t('Reject all')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => (checkedIds = new Set())}>{t('Clear the selection')}</button>
     </div>
   {/if}
 
@@ -733,7 +753,7 @@
           <tr>
             <th class="ar-check">
               {#if pageCheckable.length > 0}
-                <input type="checkbox" aria-label={t('Select all')} checked={allPageChecked} on:change={togglePage} />
+                <input type="checkbox" aria-label={t('Select all')} checked={allPageChecked} onchange={togglePage} />
               {/if}
             </th>
             <th>{t('Requester')}</th>
@@ -764,17 +784,17 @@
                 class:is-quick={quick.has(accessRequestId(request))}
                 class:is-done={justDone.has(accessRequestId(request))}
                 tabindex="0"
-                on:click={() => selectRequest(request)}
-                on:contextmenu={(event) => openMenu(request, event)}
-                on:keydown={(event) => rowKeydown(event, request)}
+                onclick={() => selectRequest(request)}
+                oncontextmenu={(event) => openMenu(request, event)}
+                onkeydown={(event) => rowKeydown(event, request)}
               >
-                <td class="ar-check" on:click|stopPropagation on:keydown|stopPropagation>
+                <td class="ar-check" onclick={(event) => event.stopPropagation()} onkeydown={(event) => event.stopPropagation()}>
                   {#if checkable(request)}
                     <input
                       type="checkbox"
                       aria-label={t('Select {name}', { name: requesterName(request) })}
                       checked={checkedIds.has(accessRequestId(request))}
-                      on:change={() => toggleChecked(accessRequestId(request))}
+                      onchange={() => toggleChecked(accessRequestId(request))}
                     />
                   {/if}
                 </td>
@@ -829,7 +849,7 @@
       <div class="ar-foot">
         <span>{t('{shown} of {total} request(s)', { shown: pageRequests.length, total: visibleRequests.length })}</span>
         {#if pageRequests.length < visibleRequests.length}
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => (shown += PAGE)}>{t('Show {count} more', { count: Math.min(PAGE, visibleRequests.length - pageRequests.length) })}</button>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={() => (shown += PAGE)}>{t('Show {count} more', { count: Math.min(PAGE, visibleRequests.length - pageRequests.length) })}</button>
         {/if}
       </div>
     {/if}
@@ -845,7 +865,7 @@
           <small class="ar-mono">{requestCode(selectedRequest)}</small>
         </div>
       </div>
-      <button type="button" class="ar-close" aria-label={t('Close')} on:click={closeDetail}><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+      <button type="button" class="ar-close" aria-label={t('Close')} onclick={closeDetail}><i class="bi bi-x-lg" aria-hidden="true"></i></button>
     </div>
     <p class="ar-sentence">
       {accessKind(selectedRequest) === 'write' ? t('requests write access to') : accessKind(selectedRequest) === 'read' ? t('requests read access to') : t('requests access to')}
@@ -869,7 +889,7 @@
             <div class="ar-conflict">
               <span class="ar-mono">{decisionFailure.existing_dn}</span>
               {#if me?.is_admin === true && decisionFailure?.access_profile_id}
-                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={adopting || Boolean(decisionRunning)} on:click={adoptAndApprove}>
+                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={adopting || Boolean(decisionRunning)} onclick={adoptAndApprove}>
                   <i class="bi bi-link-45deg" aria-hidden="true"></i>
                   {adopting ? t('Adopting…') : t('Adopt this group and approve')}
                 </button>
@@ -985,11 +1005,11 @@
             </label>
             <textarea id="level-reason" class="ar-textarea" maxlength="500" bind:value={levelReason}></textarea>
             <div class="ar-level-actions">
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={levelSaving} on:click={() => { levelEditing = false; levelReason = ''; }}>{t('Cancel')}</button>
-              <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={levelSaving || !levelReason.trim()} on:click={changeLevel}>{t('Confirm the change')}</button>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={levelSaving} onclick={() => { levelEditing = false; levelReason = ''; }}>{t('Cancel')}</button>
+              <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={levelSaving || !levelReason.trim()} onclick={changeLevel}>{t('Confirm the change')}</button>
             </div>
           {:else}
-            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={Boolean(decisionRunning)} on:click={() => (levelEditing = true)}>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={Boolean(decisionRunning)} onclick={() => (levelEditing = true)}>
               <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
               {accessKind(selectedRequest) === 'write' ? t('Change to read') : t('Change to write')}
             </button>
@@ -1031,12 +1051,12 @@
       </a>
     {/if}
     {#if selectedRequest?.can_cancel}
-      <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={cancelling} on:click={() => (showCancelConfirm = true)}>
+      <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={cancelling} onclick={() => (showCancelConfirm = true)}>
         <i class="bi bi-x-circle" aria-hidden="true"></i>{cancelling ? t('Cancelling…') : t('Cancel my request')}
       </button>
     {/if}
     {#if canReviewSelected}
-      <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={Boolean(decisionRunning)} on:click={() => runDecision('reject')}>
+      <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={Boolean(decisionRunning)} onclick={() => runDecision('reject')}>
         <i class="bi bi-x-lg" aria-hidden="true"></i>
         {decisionRunning === 'reject' ? t('Rejecting…') : t('Reject')}
       </button>
@@ -1045,19 +1065,19 @@
         class="b2s-btn b2s-btn-primary"
         disabled={Boolean(decisionRunning) || approvalPreview?.can_approve === false}
         title={ownRequestBlocked ? t('This is your own request: another guardian or an administrator approves it.') : approvalPreview?.can_approve === false ? t('Fix the configuration shown above first') : undefined}
-        on:click={() => runDecision('approve')}
+        onclick={() => runDecision('approve')}
       >
         <i class="bi bi-check2" aria-hidden="true"></i>
         {decisionRunning === 'approve' ? t('Approving…') : t('Approve')}
       </button>
     {:else}
       {#if canRevokeSelected && expiresMs(selectedRequest)}
-        <button type="button" class="b2s-btn b2s-btn-secondary" disabled={extending} on:click={extendSelected}>
+        <button type="button" class="b2s-btn b2s-btn-secondary" disabled={extending} onclick={extendSelected}>
           <i class="bi bi-calendar-plus" aria-hidden="true"></i>{extending ? t('Extending…') : t('Extend by 30 days')}
         </button>
       {/if}
       {#if canRevokeSelected}
-        <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={Boolean(decisionRunning)} on:click={() => (showRevokeConfirm = true)}>
+        <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={Boolean(decisionRunning)} onclick={() => (showRevokeConfirm = true)}>
           <i class="bi bi-person-x" aria-hidden="true"></i>
           {t('Revoke access')}
         </button>

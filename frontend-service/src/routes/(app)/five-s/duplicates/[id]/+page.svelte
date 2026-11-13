@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+
+  import { onMount, untrack } from 'svelte';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
   import { apiGetData, apiPostData } from '$lib/api/client';
@@ -17,29 +18,25 @@
   type Decision = { keep_path: string | null; note: string | null; decided_by: string | null; decided_at: string };
   type Group = { fingerprint: string; size: number; wasted: number; files?: number; copies: Copy[]; decision: Decision | null };
 
-  let rootName = '';
-  let groups: Group[] = [];
-  let loading = true;
-  let error: string | null = null;
-  let filter: 'todo' | 'done' | 'all' = 'todo';
-  let query = '';
-  let shown = 30;
-  let saving: string | null = null;
+  let rootName = $state('');
+  let groups = $state<Group[]>([]);
+  let loading = $state(true);
+  let error = $state<string | null>(null);
+  let filter = $state<'todo' | 'done' | 'all'>('todo');
+  let query = $state('');
+  let shown = $state(30);
+  let saving = $state<string | null>(null);
 
-  $: rootId = Number($page.params.id);
-  // ?path=…: only the duplicates with a copy in this sub-folder (opened from the explorer)
-  $: folderPath = $page.url.searchParams.get('path') || '';
 
   // Quarantine: the copies « to delete » moved to \\share\\_B2S_Quarantaine\\<date>\\… (by the scanner), and back
   type Move = { id: number; kind?: string; path: string; quarantine_path: string; keep_path: string | null; size_bytes: number; status: string;
     error: string | null; requested_by: string | null; requested_at: string; done_at: string | null; restored_by: string | null };
-  let moves: Move[] = [];
-  let confirming = false;
+  let moves = $state<Move[]>([]);
+  let confirming = $state(false);
   // Above 50 GB the move asks a second, explicit confirmation (the server refuses it otherwise)
   const LARGE = 50 * 1024 ** 3;
-  let confirmLarge = false;
-  $: if (!confirming) confirmLarge = false;
-  let applying = false;
+  let confirmLarge = $state(false);
+  let applying = $state(false);
   let timer: ReturnType<typeof setInterval> | null = null;
   async function loadMoves() {
     moves = (await apiGetData<{ moves: Move[] }>(fetch, `/modules/fives/storage-roots/${rootId}/quarantine`).catch(() => null))?.moves ?? moves;
@@ -48,9 +45,6 @@
     if (!busy && timer) { clearInterval(timer); timer = null; }
   }
   onDestroy(() => timer && clearInterval(timer));
-  $: inQuarantine = new Set(moves.filter((move) => ['pending', 'moved', 'restore_pending'].includes(move.status)).map((move) => move.path));
-  $: toMove = decided.flatMap((group) => group.copies.filter((copy) => copy.path !== group.decision?.keep_path && !inQuarantine.has(copy.path)).map(() => group.size));
-  $: toMoveBytes = toMove.reduce((sum, size) => sum + size, 0);
   async function applyDecisions() {
     if (toMoveBytes > LARGE && !confirmLarge) {
       toast.error(t('Tick the confirmation: more than 50 GB would be moved.'));
@@ -110,13 +104,6 @@
     }
   }
 
-  $: total = groups.reduce((sum, group) => sum + group.wasted, 0);
-  $: decided = groups.filter((group) => group.decision?.keep_path);
-  $: freed = decided.reduce((sum, group) => sum + group.wasted, 0);
-  $: visible = groups
-    .filter((group) => filter === 'all' || (filter === 'done') === Boolean(group.decision?.keep_path))
-    .filter((group) => !query.trim() || group.copies.some((copy) => copy.path.toLowerCase().includes(query.trim().toLowerCase())));
-  $: query, filter, (shown = 30);
 
   const exportDecisions = () =>
     downloadCsv(csvFilename(`doublons-decisions-${rootName}`), [
@@ -129,6 +116,25 @@
       fingerprint: group.fingerprint, size: group.size, keep: group.decision?.keep_path,
       drop: group.copies.filter((copy) => copy.path !== group.decision?.keep_path).map((copy) => copy.path).join(' | '), by: group.decision?.decided_by ?? ''
     })));
+  let rootId = $derived(Number($page.params.id));
+  // ?path=…: only the duplicates with a copy in this sub-folder (opened from the explorer)
+  let folderPath = $derived($page.url.searchParams.get('path') || '');
+  $effect.pre(() => {
+    if (!confirming) confirmLarge = false;
+  });
+  let inQuarantine = $derived(new Set(moves.filter((move) => ['pending', 'moved', 'restore_pending'].includes(move.status)).map((move) => move.path)));
+  let decided = $derived(groups.filter((group) => group.decision?.keep_path));
+  let toMove = $derived(decided.flatMap((group) => group.copies.filter((copy) => copy.path !== group.decision?.keep_path && !inQuarantine.has(copy.path)).map(() => group.size)));
+  let toMoveBytes = $derived(toMove.reduce((sum, size) => sum + size, 0));
+  let total = $derived(groups.reduce((sum, group) => sum + group.wasted, 0));
+  let freed = $derived(decided.reduce((sum, group) => sum + group.wasted, 0));
+  let visible = $derived(groups
+    .filter((group) => filter === 'all' || (filter === 'done') === Boolean(group.decision?.keep_path))
+    .filter((group) => !query.trim() || group.copies.some((copy) => copy.path.toLowerCase().includes(query.trim().toLowerCase()))));
+  $effect.pre(() => {
+    void [query, filter]; // only these start it again (as the former « $: »)
+    untrack(() => { shown = 30; });
+  });
 </script>
 
 <div class="dd">
@@ -154,13 +160,13 @@
     </section>
     <div class="dd__tools">
       <div class="dd__seg" role="radiogroup" aria-label={t('Show')}>
-        <button type="button" class:is-on={filter === 'todo'} on:click={() => (filter = 'todo')}>{t('To decide')}</button>
-        <button type="button" class:is-on={filter === 'done'} on:click={() => (filter = 'done')}>{t('Decided')}</button>
-        <button type="button" class:is-on={filter === 'all'} on:click={() => (filter = 'all')}>{t('All')}</button>
+        <button type="button" class:is-on={filter === 'todo'} onclick={() => (filter = 'todo')}>{t('To decide')}</button>
+        <button type="button" class:is-on={filter === 'done'} onclick={() => (filter = 'done')}>{t('Decided')}</button>
+        <button type="button" class:is-on={filter === 'all'} onclick={() => (filter = 'all')}>{t('All')}</button>
       </div>
       <input class="b2s-input" placeholder={t('Filter by name or path…')} bind:value={query} aria-label={t('Filter by name or path')} />
-      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!decided.length} on:click={exportDecisions}><i class="bi bi-download" aria-hidden="true"></i>{t('Export the decisions')}</button>
-      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary dd__apply" disabled={!toMove.length || applying} on:click={() => (confirming = true)}>
+      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!decided.length} onclick={exportDecisions}><i class="bi bi-download" aria-hidden="true"></i>{t('Export the decisions')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary dd__apply" disabled={!toMove.length || applying} onclick={() => (confirming = true)}>
         <i class="bi bi-archive" aria-hidden="true"></i>{t('Move the {count} copies to quarantine', { count: toMove.length })}
       </button>
     </div>
@@ -189,7 +195,7 @@
               {:else if group.decision?.keep_path}
                 <span class="dd__badge is-drop">{t('To delete')}</span>
               {:else}
-                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={saving === group.fingerprint} on:click={() => decide(group, copy.path)}>{t('Keep this one')}</button>
+                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={saving === group.fingerprint} onclick={() => decide(group, copy.path)}>{t('Keep this one')}</button>
               {/if}
             </li>
           {/each}
@@ -197,13 +203,13 @@
         </ul>
         {#if group.decision?.keep_path}
           <footer>{t('Decided by {who}, {when}', { who: group.decision.decided_by ?? '—', when: formatDateTime(group.decision.decided_at) })}
-            · <button type="button" class="b2s-link-btn" disabled={saving === group.fingerprint} on:click={() => decide(group, null)}>{t('Change my mind')}</button></footer>
+            · <button type="button" class="b2s-link-btn" disabled={saving === group.fingerprint} onclick={() => decide(group, null)}>{t('Change my mind')}</button></footer>
         {/if}
       </article>
     {:else}
       <p class="dd__empty">{filter === 'todo' && groups.length ? t('Every group is decided.') : t('No duplicate known in this folder.')}</p>
     {/each}
-    {#if visible.length > shown}<button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => (shown += 50)}>{t('Show more ({count} groups)', { count: visible.length })}</button>{/if}
+    {#if visible.length > shown}<button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => (shown += 50)}>{t('Show more ({count} groups)', { count: visible.length })}</button>{/if}
     <p class="dd__hint">{t('The groups come from the inventory of the biggest files (1 MB and more).')}</p>
 
     {#if moves.length}
@@ -219,7 +225,7 @@
                 <td class="dd__num">{formatBytes(move.size_bytes)}</td>
                 <td><span class={`dd__state is-${move.status}`}>{move.kind === 'archive' && move.status === 'moved' ? t('Archived') : MOVE_LABEL()[move.status] ?? move.status}</span></td>
                 <td class="dd__by">{move.restored_by && move.status.startsWith('restor') ? move.restored_by : move.requested_by ?? '—'}<small>{formatDateTime(move.done_at ?? move.requested_at)}</small></td>
-                <td>{#if move.status === 'moved' || move.status === 'restore_failed'}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => restore(move)}>{t('Restore')}</button>{/if}</td>
+                <td>{#if move.status === 'moved' || move.status === 'restore_failed'}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={() => restore(move)}>{t('Restore')}</button>{/if}</td>
               </tr>
             {/each}
           </tbody>

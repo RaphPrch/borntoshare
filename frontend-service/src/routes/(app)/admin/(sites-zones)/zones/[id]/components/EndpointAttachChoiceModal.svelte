@@ -10,14 +10,26 @@
     zoneName?: string | null;
   };
 
-  export let open = false;
-  export let existingEndpoints: EndpointChoiceItem[] = [];
-  export let loading = false;
-  export let busyAttachId: number | null = null;
 
-  export let onClose: () => void = () => {};
-  export let onCreateNew: () => void = () => {};
-  export let onAttachExisting: (endpointId: number) => void = () => {};
+  interface Props {
+    open?: boolean;
+    existingEndpoints?: EndpointChoiceItem[];
+    loading?: boolean;
+    busyAttachId?: number | null;
+    onClose?: () => void;
+    onCreateNew?: () => void;
+    onAttachExisting?: (endpointId: number) => void;
+  }
+
+  let {
+    open = false,
+    existingEndpoints = [],
+    loading = false,
+    busyAttachId = null,
+    onClose = () => {},
+    onCreateNew = () => {},
+    onAttachExisting = () => {}
+  }: Props = $props();
 </script>
 
 <AppModal
@@ -31,7 +43,7 @@
   <section class="z-ep-choice">
 
     <div class="z-ep-choice__actions">
-      <button type="button" class="b2s-btn b2s-btn-primary" on:click={onCreateNew}>
+      <button type="button" class="b2s-btn b2s-btn-primary" onclick={onCreateNew}>
         <i class="bi bi-plus-lg"></i>
         {t('Create new endpoint')}
       </button>
@@ -56,7 +68,7 @@
               <button
                 type="button"
                 class="b2s-btn b2s-btn-secondary b2s-btn-sm"
-                on:click={() => onAttachExisting(ep.id)}
+                onclick={() => onAttachExisting(ep.id)}
                 disabled={busyAttachId === ep.id}
               >
                 {busyAttachId === ep.id ? t('Attaching…') : t('Attach')}

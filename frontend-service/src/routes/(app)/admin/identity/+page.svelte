@@ -35,16 +35,16 @@
   const isGroup = (item: Record<string, any> | null) => String(item?.type ?? '').toLowerCase() === 'group';
   const keyOf = (item: Record<string, any>) => `${isGroup(item) ? 'group' : 'user'}:${item.id}`;
 
-  let selectedKey: string | null = $state(null);
+  let selectedKey = $state<string | null>(null);
   let query = $state('');
   let busy = $state(false);
   let showAdd = $state(false);
-  let editTarget: Record<string, any> | null = $state(null);
-  let deleteTarget: Record<string, any> | null = $state(null);
+  let editTarget = $state<Record<string, any> | null>(null);
+  let deleteTarget = $state<Record<string, any> | null>(null);
   let deleteBusy = $state(false);
   // Deleting or disabling a person goes through the handover of the folders they would leave alone
   let leave: { item: Record<string, any>; mode: 'delete' | 'disable' } | null = $state(null);
-  let workspace: IdentityWorkspace | null = $state(null);
+  let workspace = $state<IdentityWorkspace | null>(null);
 
   // The page opens on ?selected=, else on the first guardian who needs a look, else the first person
   $effect.pre(() => {
@@ -164,7 +164,7 @@
   onDone={async (id) => { await invalidateAll(); if (id) selectedKey = `user:${id}`; }} />
 
 <EditIdentityModal open={editTarget !== null} identity={editTarget} onClose={() => (editTarget = null)}
-  on:done={async () => { editTarget = null; await invalidateAll(); workspace?.reload(); }} />
+  onDone={async () => { editTarget = null; await invalidateAll(); workspace?.reload(); }} />
 
 <IdentityLeaveDialog open={leave !== null} identity={leave?.item ?? null} mode={leave?.mode ?? 'delete'} candidates={items}
   onClose={() => (leave = null)}

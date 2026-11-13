@@ -10,8 +10,13 @@
   import '$lib/styles/buttons.css';
   import Toaster from '$lib/components/ui/Toaster.svelte';
   import SessionIdleBanner from '$lib/components/layout/SessionIdleBanner.svelte';
+  interface Props {
+    children?: import('svelte').Snippet;
+  }
+
+  let { children }: Props = $props();
 </script>
 
-<slot />
+{@render children?.()}
 <SessionIdleBanner />
 <Toaster />

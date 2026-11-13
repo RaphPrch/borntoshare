@@ -45,8 +45,8 @@
     { key: 'critical', label: () => t('Critical') }
   ];
 
-  let extensions: Extension[] = $state([]);
-  let deliveries: ExtensionDelivery[] = $state([]);
+  let extensions = $state<Extension[]>([]);
+  let deliveries = $state<ExtensionDelivery[]>([]);
   let healthPath = $state('/monitoring/health');
   let loading = $state(true);
 
@@ -88,9 +88,9 @@
     !item ? '' : item.key === 'centreon' ? t('Platform state, on request') : item.key === 'servicenow' ? t('Incidents from the alerts') : [item.routes.audit ? t('Audit') : '', item.routes.alerts ? t('Alerts') : ''].filter(Boolean).join(' · ') || '—';
 
   // ---- drawer -----------------------------------------------------------------------------------
-  let editing: Extension | null = $state(null);
-  let form: Record<string, any> = $state({});
-  let routes: ExtensionRoutes = $state({ audit: true, alerts: true, min_severity: 'high' });
+  let editing = $state<Extension | null>(null);
+  let form = $state<Record<string, any>>({});
+  let routes = $state<ExtensionRoutes>({ audit: true, alerts: true, min_severity: 'high' });
   let enabled = $state(false);
   let secret = $state('');
   let saving = $state(false);

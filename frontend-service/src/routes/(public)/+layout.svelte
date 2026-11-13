@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import { t } from '$lib/i18n';
   // Global styles for public routes (/login, /logout, ...)
   import '@fontsource-variable/geist';
@@ -16,6 +18,11 @@
   import { toast, type ToastType } from '$lib/stores/toast';
   import { browser } from '$app/environment';
   import { bootstrapFrontendCore } from '$lib/bootstrap.client';
+  interface Props {
+    children?: import('svelte').Snippet;
+  }
+
+  let { children }: Props = $props();
 
   bootstrapFrontendCore();
 
@@ -37,38 +44,40 @@
     }
   };
 
-  let lastUrlToastKey: string | null = null;
-  let lastFormToastKey: string | null = null;
+  let lastUrlToastKey = $state<string | null>(null);
+  let lastFormToastKey = $state<string | null>(null);
 
   // ==================================================
   // Toast via URL (?toast=xxx)
   // 👉 CLIENT ONLY (history)
   // ==================================================
-  $: if (browser) {
-    const key = $page.url.searchParams.get('toast');
+  $effect.pre(() => {
+    if (browser) {
+      const key = $page.url.searchParams.get('toast');
 
-    if (key && key !== lastUrlToastKey) {
-      lastUrlToastKey = key;
+      if (key && key !== lastUrlToastKey) {
+        lastUrlToastKey = key;
 
-      const entry = toastMap[key] ?? {
-        type: 'info',
-        message: key
-      };
+        const entry = toastMap[key] ?? {
+          type: 'info',
+          message: key
+        };
 
-      toast.show(entry.type, entry.message);
+        untrack(() => toast.show(entry.type, entry.message));
 
-      // Nettoyage URL (CSR uniquement)
-      const url = new URL($page.url);
-      url.searchParams.delete('toast');
-      history.replaceState(history.state, '', url);
+        // Nettoyage URL (CSR uniquement)
+        const url = new URL($page.url);
+        url.searchParams.delete('toast');
+        history.replaceState(history.state, '', url);
+      }
     }
-  }
+  });
 
   // ==================================================
   // Toast via form actions (fail / success)
   // (SSR compatible)
   // ==================================================
-  $: {
+  $effect.pre(() => {
     const ft = ($page.form as { toast?: { message?: string; type?: ToastType; duration?: number } } | null)?.toast;
 
     if (ft?.message) {
@@ -77,19 +86,19 @@
       if (key !== lastFormToastKey) {
         lastFormToastKey = key;
 
-        toast.show(
+        untrack(() => toast.show(
           ft.type ?? 'error',
           // Action messages are English: translate them for display
           t(ft.message),
           ft.duration ?? 3500
-        );
+        ));
       }
     }
-  }
+  });
 </script>
 
 <!-- Layout minimal pour les pages publiques (auth) -->
-<slot />
+{@render children?.()}
 
 <Toaster />
 <TopProgress />

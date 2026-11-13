@@ -1,4 +1,5 @@
 <script lang="ts">
+
   import NamingModelPicker from '$lib/components/provisioning/NamingModelPicker.svelte';
   import { NAMING_TOKENS, checkNamingTemplate, exampleGroupName } from '$lib/utils/naming-templates';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
@@ -10,30 +11,38 @@
   import { toUiAppError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
 
-  /** Add a zone in one page: its name and code, then where and how its AD groups are created. */
-  export let data: {
+  
+  interface Props {
+    /** Add a zone in one page: its name and code, then where and how its AD groups are created. */
+    data: {
     sources: Array<{ id: number; name: string; ou: string; template: string }>;
     takenNames: string[];
     takenCodes: string[];
     globalTemplate: string;
     groupPrefix: string;
   };
+  }
+
+  let { data }: Props = $props();
 
   const TOKENS = NAMING_TOKENS;
 
-  let name = '';
-  let code = '';
-  let codeEdited = false;
-  let start = 'global';
-  let ou = '';
-  let template = data.globalTemplate;
-  let creating = false;
-  let createError = '';
+  let name = $state('');
+  let code = $state('');
+  let codeEdited = $state(false);
+  let start = $state('global');
+  let ou = $state('');
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let template = $state(data.globalTemplate);
+  let creating = $state(false);
+  let createError = $state('');
 
   const codeFrom = (value: string) =>
     value.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32);
 
-  $: if (!codeEdited) code = codeFrom(name);
+  $effect.pre(() => {
+    if (!codeEdited) code = codeFrom(name);
+  });
 
   function applyStart(value: string) {
     start = value;
@@ -46,15 +55,15 @@
     template = template.trim() ? `${template.trim()}_${token}` : token;
   }
 
-  $: nameTaken = data.takenNames.includes(name.trim().toLowerCase());
-  $: codeTaken = Boolean(code.trim()) && data.takenCodes.includes(code.trim().toUpperCase());
-  $: ouInvalid = Boolean(ou.trim()) && !/(^|,)\s*(OU|CN|DC)=/i.test(ou.trim());
-  $: templateCheck = checkNamingTemplate(template);
-  $: unknownTokens = templateCheck.unknown;
-  $: templateInvalid = !template.trim() || unknownTokens.length > 0 || !templateCheck.unique;
-  $: example = exampleGroupName(template, { prefix: data.groupPrefix, zone: code });
+  let nameTaken = $derived(data.takenNames.includes(name.trim().toLowerCase()));
+  let codeTaken = $derived(Boolean(code.trim()) && data.takenCodes.includes(code.trim().toUpperCase()));
+  let ouInvalid = $derived(Boolean(ou.trim()) && !/(^|,)\s*(OU|CN|DC)=/i.test(ou.trim()));
+  let templateCheck = $derived(checkNamingTemplate(template));
+  let unknownTokens = $derived(templateCheck.unknown);
+  let templateInvalid = $derived(!template.trim() || unknownTokens.length > 0 || !templateCheck.unique);
+  let example = $derived(exampleGroupName(template, { prefix: data.groupPrefix, zone: code }));
 
-  $: checks = [
+  let checks = $derived([
     {
       title: t('Zone'),
       ok: Boolean(name.trim() && code.trim()) && !nameTaken && !codeTaken,
@@ -71,17 +80,17 @@
       ok: !templateInvalid,
       detail: templateInvalid ? t('The template needs {PERM} and {ROOTCODE} or {RAND}') : example
     }
-  ];
-  $: pendingReason =
-    !name.trim() ? t('Enter the name of the zone.')
+  ]);
+  let pendingReason =
+    $derived(!name.trim() ? t('Enter the name of the zone.')
     : nameTaken ? t('A zone already has this name.')
     : !code.trim() ? t('Enter the code of the zone.')
     : codeTaken ? t('A zone already has this code.')
     : ouInvalid ? t('The OU must be a distinguished name, such as OU=Groups,DC=corp,DC=local.')
     : unknownTokens.length ? t('Unknown token: {token}', { token: `{${unknownTokens[0]}}` })
     : templateInvalid ? t('The template needs {PERM} and {ROOTCODE} or {RAND}')
-    : '';
-  $: canCreate = !pendingReason && !creating;
+    : '');
+  let canCreate = $derived(!pendingReason && !creating);
 
   async function create() {
     if (!canCreate) return;
@@ -132,7 +141,7 @@
           </div>
           <div class="field">
             <label for="zone-code">{t('Code')}</label>
-            <input id="zone-code" class="b2s-input mono" bind:value={code} on:input={() => (codeEdited = true)} placeholder="BREST" />
+            <input id="zone-code" class="b2s-input mono" bind:value={code} oninput={() => (codeEdited = true)} placeholder="BREST" />
             {#if codeTaken}<small class="field-error">{t('A zone already has this code.')}</small>{:else}<small class="muted">{t('Proposed from the name.')}</small>{/if}
           </div>
         </div>
@@ -159,7 +168,7 @@
           <NamingModelPicker {template} prefix={data.groupPrefix} zone={code} onPick={(model) => (template = model)} />
           <input id="zone-template" class="b2s-input mono" bind:value={template} />
           <div class="tokens" role="group" aria-label={t('Insert a token')}>
-            {#each TOKENS as token (token)}<button type="button" class="token" on:click={() => insertToken(token)}>{token}</button>{/each}
+            {#each TOKENS as token (token)}<button type="button" class="token" onclick={() => insertToken(token)}>{token}</button>{/each}
           </div>
           {#if templateInvalid}
             <small class="field-error">{unknownTokens.length ? t('Unknown token: {token}', { token: `{${unknownTokens[0]}}` }) : t('The template needs {PERM} and {ROOTCODE} or {RAND}')}</small>
@@ -180,7 +189,7 @@
           </li>
         {/each}
       </ul>
-      <button type="button" class="b2s-btn b2s-btn-primary wide" disabled={!canCreate} on:click={create}>{creating ? t('Creating…') : t('Create the zone')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary wide" disabled={!canCreate} onclick={create}>{creating ? t('Creating…') : t('Create the zone')}</button>
       {#if pendingReason}<small class="muted">{pendingReason}</small>{:else}<small class="muted">{t('Next: add its file servers or DFS namespaces.')}</small>{/if}
       {#if createError}<InlineAlert tone="error">{createError}</InlineAlert>{/if}
     </aside>

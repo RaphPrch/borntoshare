@@ -1,4 +1,5 @@
 <script lang="ts">
+
   import { guardUnsaved } from '$lib/utils/unsaved';
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
@@ -29,38 +30,32 @@
 
   const PAGE = 40;
   // Durations, permanent access, longest access and reason: Advanced settings › Governance (core-service checks them too)
-  let policy = { durations: [7, 30, 90], allowPermanent: true, maxDays: 365, minReasonLength: 10 };
-  $: DURATIONS = [
-    ...policy.durations.map((days) => ({ key: String(days), days, label: () => t('{count} days', { count: days }) })),
-    ...(policy.allowPermanent ? [{ key: 'permanent', days: 0, label: () => t('Permanent') }] : [])
-  ];
-  $: if (duration !== 'date' && DURATIONS.length && !DURATIONS.some((option) => option.key === duration)) duration = DURATIONS[Math.min(1, DURATIONS.length - 1)].key;
-  $: maxDate = new Date(Date.now() + policy.maxDays * 86_400_000).toISOString().slice(0, 10);
+  let policy = $state({ durations: [7, 30, 90], allowPermanent: true, maxDays: 365, minReasonLength: 10 });
 
-  let roots: Root[] = [];
-  let loading = true;
-  let loadError = '';
+  let roots = $state<Root[]>([]);
+  let loading = $state(true);
+  let loadError = $state('');
   let step = 1;
-  let query = '';
-  let zoneFilter = '';
-  let shown = PAGE;
+  let query = $state('');
+  let zoneFilter = $state('');
+  let shown = $state(PAGE);
   let closed = new Set<string>();
   const GROUP_KEY = 'b2s.newRequest.groupBy';
-  let groupBy: GroupBy = 'zone';
-  let recent: Root[] = [];
-  let express = '';
-  let expressNote = '';
-  let cart = new Map<number, Level>();
-  let checks: Record<number, Check> = {};
-  let lockedRootId: number | null = null;
+  let groupBy = $state<GroupBy>('zone');
+  let recent = $state<Root[]>([]);
+  let express = $state('');
+  let expressNote = $state('');
+  let cart = $state(new Map<number, Level>());
+  let checks = $state<Record<number, Check>>({});
+  let lockedRootId = $state<number | null>(null);
 
-  let forOther = false;
-  let principals: any[] = [];
-  let showBrowser = false;
-  let duration = '30';
-  let customDate = '';
-  let justification = '';
-  let submitting = false;
+  let forOther = $state(false);
+  let principals = $state<any[]>([]);
+  let showBrowser = $state(false);
+  let duration = $state('30');
+  let customDate = $state('');
+  let justification = $state('');
+  let submitting = $state(false);
   // A request being written (a reason typed, or folders chosen and the next step reached) asks before it is left
   let sent = false;
   guardUnsaved(() => !sent && (justification.trim().length > 0 || (cart.size > 0 && step > 1)));
@@ -134,44 +129,12 @@
     }
   }
 
-  // ---- folders ----------------------------------------------------------------
-  $: zones = [...new Set(roots.map((root) => root.zone))].sort((a, b) => a.localeCompare(b, 'fr'));
-  $: needle = query.trim().toLowerCase();
   const outsideDfs = () => t('Outside DFS');
   // Two levels for each grouping: zone → server, server alone, DFS root alone (folders outside DFS last)
   const groupKeys = (root: Root, by: GroupBy): [string, string] =>
     by === 'zone' ? [root.zone, root.server] : by === 'server' ? [root.server, ''] : [root.dfsRoot || outsideDfs(), ''];
   const sortKey = (root: Root, by: GroupBy) => (by === 'dfs' && !root.dfsRoot ? '\uffff' : '') + groupKeys(root, by).join('|');
-  $: visible = roots
-    .filter((root) => !zoneFilter || root.zone === zoneFilter)
-    .filter((root) => !needle || `${root.name} ${root.path} ${root.dfsPath}`.toLowerCase().includes(needle))
-    .sort((a, b) => sortKey(a, groupBy).localeCompare(sortKey(b, groupBy), 'fr') || a.name.localeCompare(b.name, 'fr', { numeric: true }));
-  $: if (query || zoneFilter || groupBy) shown = PAGE;
   type Sub = { key: string; label: string; count: number; rows: Root[] };
-  $: tree = (() => {
-    const out: Array<{ key: string; label: string; count: number; subs: Sub[] }> = [];
-    let budget = shown;
-    for (const root of visible) {
-      const [first, second] = groupKeys(root, groupBy);
-      let group = out.find((entry) => entry.label === first);
-      if (!group) out.push((group = { key: `${groupBy}|${first}`, label: first, count: 0, subs: [] }));
-      let sub = group.subs.find((entry) => entry.label === second);
-      if (!sub) group.subs.push((sub = { key: `${group.key}|${second}`, label: second, count: 0, rows: [] }));
-      group.count += 1;
-      sub.count += 1;
-      if (budget > 0) {
-        sub.rows.push(root);
-        budget -= 1;
-      }
-    }
-    return out;
-  })();
-  $: groupOptions = [
-    { key: 'zone', label: t('By zone') },
-    { key: 'server', label: t('By file server') },
-    ...(roots.some((root) => root.dfsRoot) ? [{ key: 'dfs', label: t('By DFS root') }] : [])
-  ];
-  $: hidden = Math.max(0, visible.length - shown);
   const isOpen = (key: string, searching: boolean) => searching || !closed.has(key);
   function toggleGroup(key: string) {
     if (closed.has(key)) closed.delete(key);
@@ -244,9 +207,6 @@
       checks = { ...checks, [id]: { state: 'ok', message: '' } };
     }
   }
-  $: cartRows = [...cart.entries()].map(([id, level]) => ({ root: roots.find((root) => root.id === id), level, check: checks[id] })).filter((row) => row.root) as Array<{ root: Root; level: Level; check?: Check }>;
-  $: sendable = cartRows.filter((row) => row.check?.state !== 'blocked');
-  $: anyChecking = cartRows.some((row) => row.check?.state === 'checking');
 
   // ---- who, how long, why -------------------------------------------------------
   function onSelectIdentity(payload: any) {
@@ -258,11 +218,6 @@
     forOther = value;
     for (const id of cart.keys()) void check(id);
   }
-  $: endDate = (() => {
-    if (duration === 'date') return customDate ? new Date(`${customDate}T23:59:00`) : null;
-    const days = DURATIONS.find((d) => d.key === duration)?.days ?? 0;
-    return days ? new Date(Date.now() + days * 86_400_000) : null;
-  })();
   const dayLabel = (date: Date | null) => (date ? date.toLocaleDateString() : t('no end'));
   const REASONS = [() => t('Monthly closing'), () => t('Replacing a colleague'), () => t('Audit in progress'), () => t('New project')];
   function useReason(label: string) {
@@ -270,21 +225,6 @@
     if (!current.startsWith(label)) justification = current ? `${label} : ${current}` : `${label} : `;
     document.getElementById('nr-why')?.focus();
   }
-  $: reasonShort = justification.trim().length < policy.minReasonLength;
-  $: step2Ready = !reasonShort && (!forOther || principals.length > 0) && (duration !== 'date' || Boolean(customDate));
-  $: requestCount = sendable.length * (forOther ? principals.length : 1);
-  $: summary = !cart.size
-    ? t('Choose at least one folder.')
-    : t('{who}, on {count} folder(s), {until}.', {
-        who: forOther ? (principals.map((p) => p?.display_name ?? p?.username).filter(Boolean).join(', ') || t('someone else')) : t('You'),
-        count: sendable.length,
-        until: endDate ? t('until {date}', { date: dayLabel(endDate) }) : t('with no end')
-      });
-  $: missing = !sendable.length ? t('Add a folder.')
-    : anyChecking ? t('Checking the folders…')
-      : forOther && !principals.length ? t('Choose who the access is for.')
-        : duration === 'date' && !customDate ? t('Choose the end date.')
-          : reasonShort ? t('Write the reason ({count} characters at least).', { count: policy.minReasonLength }) : '';
 
   async function submit() {
     if (submitting || anyChecking || !sendable.length) return;
@@ -321,8 +261,8 @@
 
   // ---- suggestions: used by my team, asked for before, most asked for -------------------------------
   type SuggestionKind = 'team' | 'recent' | 'popular';
-  let suggestions: Record<SuggestionKind, Array<{ storage_root_id: number; count: number }>> = { team: [], recent: [], popular: [] };
-  let suggestionKind: SuggestionKind = 'team';
+  let suggestions: Record<SuggestionKind, Array<{ storage_root_id: number; count: number }>> = $state({ team: [], recent: [], popular: [] });
+  let suggestionKind = $state<SuggestionKind>('team');
   const SUGGESTION_KINDS = (): Array<[SuggestionKind, string]> => [['team', t('Used by your team')], ['recent', t('Asked for before')], ['popular', t('Most asked for')]];
   onMount(() => {
     apiGetData<typeof suggestions>(fetch, '/access-requests/suggestions').then((data) => {
@@ -331,23 +271,9 @@
       suggestionKind = (['team', 'recent', 'popular'] as SuggestionKind[]).find((key) => (data[key] ?? []).length) ?? 'team';
     }).catch(() => null);
   });
-  $: suggestionRows = (suggestions[suggestionKind] ?? [])
-    .map((item) => ({ root: roots.find((root) => root.id === item.storage_root_id), count: item.count }))
-    .filter((row) => row.root)
-    .map((row) => ({ root: row.root as Root, hint: suggestionKind === 'team' ? t('{count} colleague(s) have it', { count: row.count })
-      : suggestionKind === 'popular' ? t('{count} person(s) got it lately', { count: row.count }) : t('you asked for it before') }));
 
   // ---- express entry ------------------------------------------------------------
   const isoDay = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  $: parsed = express.trim() ? parseRequestSentence(express, roots) : null;
-  $: parsedNames = parsed ? parsed.rootIds.map((id) => roots.find((root) => root.id === id)?.name).filter(Boolean).join(', ') : '';
-  $: parsedDuration = !parsed?.duration
-    ? ''
-    : 'permanent' in parsed.duration
-      ? t('Permanent')
-      : 'days' in parsed.duration
-        ? t('{count} days', { count: parsed.duration.days })
-        : t('until {date}', { date: new Date(`${parsed.duration.date}T12:00:00`).toLocaleDateString() });
   function applyExpress() {
     if (!parsed) return;
     const result = parsed;
@@ -374,6 +300,85 @@
     express = '';
     if (!unclear && cart.size) step = result.reason && found ? 3 : 2;
   }
+  let DURATIONS = $derived([
+    ...policy.durations.map((days) => ({ key: String(days), days, label: () => t('{count} days', { count: days }) })),
+    ...(policy.allowPermanent ? [{ key: 'permanent', days: 0, label: () => t('Permanent') }] : [])
+  ]);
+  $effect.pre(() => {
+    if (duration !== 'date' && DURATIONS.length && !DURATIONS.some((option) => option.key === duration)) duration = DURATIONS[Math.min(1, DURATIONS.length - 1)].key;
+  });
+  let maxDate = $derived(new Date(Date.now() + policy.maxDays * 86_400_000).toISOString().slice(0, 10));
+  // ---- folders ----------------------------------------------------------------
+  let zones = $derived([...new Set(roots.map((root) => root.zone))].sort((a, b) => a.localeCompare(b, 'fr')));
+  let needle = $derived(query.trim().toLowerCase());
+  let visible = $derived(roots
+    .filter((root) => !zoneFilter || root.zone === zoneFilter)
+    .filter((root) => !needle || `${root.name} ${root.path} ${root.dfsPath}`.toLowerCase().includes(needle))
+    .sort((a, b) => sortKey(a, groupBy).localeCompare(sortKey(b, groupBy), 'fr') || a.name.localeCompare(b.name, 'fr', { numeric: true })));
+  $effect.pre(() => {
+    if (query || zoneFilter || groupBy) shown = PAGE;
+  });
+  let tree = $derived((() => {
+    const out: Array<{ key: string; label: string; count: number; subs: Sub[] }> = [];
+    let budget = shown;
+    for (const root of visible) {
+      const [first, second] = groupKeys(root, groupBy);
+      let group = out.find((entry) => entry.label === first);
+      if (!group) out.push((group = { key: `${groupBy}|${first}`, label: first, count: 0, subs: [] }));
+      let sub = group.subs.find((entry) => entry.label === second);
+      if (!sub) group.subs.push((sub = { key: `${group.key}|${second}`, label: second, count: 0, rows: [] }));
+      group.count += 1;
+      sub.count += 1;
+      if (budget > 0) {
+        sub.rows.push(root);
+        budget -= 1;
+      }
+    }
+    return out;
+  })());
+  let groupOptions = $derived([
+    { key: 'zone', label: t('By zone') },
+    { key: 'server', label: t('By file server') },
+    ...(roots.some((root) => root.dfsRoot) ? [{ key: 'dfs', label: t('By DFS root') }] : [])
+  ]);
+  let hidden = $derived(Math.max(0, visible.length - shown));
+  let cartRows = $derived([...cart.entries()].map(([id, level]) => ({ root: roots.find((root) => root.id === id), level, check: checks[id] })).filter((row) => row.root) as Array<{ root: Root; level: Level; check?: Check }>);
+  let sendable = $derived(cartRows.filter((row) => row.check?.state !== 'blocked'));
+  let anyChecking = $derived(cartRows.some((row) => row.check?.state === 'checking'));
+  let endDate = $derived((() => {
+    if (duration === 'date') return customDate ? new Date(`${customDate}T23:59:00`) : null;
+    const days = DURATIONS.find((d) => d.key === duration)?.days ?? 0;
+    return days ? new Date(Date.now() + days * 86_400_000) : null;
+  })());
+  let reasonShort = $derived(justification.trim().length < policy.minReasonLength);
+  let step2Ready = $derived(!reasonShort && (!forOther || principals.length > 0) && (duration !== 'date' || Boolean(customDate)));
+  let requestCount = $derived(sendable.length * (forOther ? principals.length : 1));
+  let summary = $derived(!cart.size
+    ? t('Choose at least one folder.')
+    : t('{who}, on {count} folder(s), {until}.', {
+        who: forOther ? (principals.map((p) => p?.display_name ?? p?.username).filter(Boolean).join(', ') || t('someone else')) : t('You'),
+        count: sendable.length,
+        until: endDate ? t('until {date}', { date: dayLabel(endDate) }) : t('with no end')
+      }));
+  let missing = $derived(!sendable.length ? t('Add a folder.')
+    : anyChecking ? t('Checking the folders…')
+      : forOther && !principals.length ? t('Choose who the access is for.')
+        : duration === 'date' && !customDate ? t('Choose the end date.')
+          : reasonShort ? t('Write the reason ({count} characters at least).', { count: policy.minReasonLength }) : '');
+  let suggestionRows = $derived((suggestions[suggestionKind] ?? [])
+    .map((item) => ({ root: roots.find((root) => root.id === item.storage_root_id), count: item.count }))
+    .filter((row) => row.root)
+    .map((row) => ({ root: row.root as Root, hint: suggestionKind === 'team' ? t('{count} colleague(s) have it', { count: row.count })
+      : suggestionKind === 'popular' ? t('{count} person(s) got it lately', { count: row.count }) : t('you asked for it before') })));
+  let parsed = $derived(express.trim() ? parseRequestSentence(express, roots) : null);
+  let parsedNames = $derived(parsed ? parsed.rootIds.map((id) => roots.find((root) => root.id === id)?.name).filter(Boolean).join(', ') : '');
+  let parsedDuration = $derived(!parsed?.duration
+    ? ''
+    : 'permanent' in parsed.duration
+      ? t('Permanent')
+      : 'days' in parsed.duration
+        ? t('{count} days', { count: parsed.duration.days })
+        : t('until {date}', { date: new Date(`${parsed.duration.date}T12:00:00`).toLocaleDateString() }));
 </script>
 
 <svelte:head><title>{t('New access request')} · BornToShare</title></svelte:head>
@@ -399,7 +404,7 @@
           {#if lockedRootId}
             <p class="nr__locked"><i class="bi bi-lock" aria-hidden="true"></i>{t('The folder comes from the folder page and cannot be changed here.')}</p>
           {:else}
-            <form class="nr__express" on:submit|preventDefault={applyExpress}>
+            <form class="nr__express" onsubmit={(event) => { event.preventDefault(); applyExpress(); }}>
               <label for="nr-express"><i class="bi bi-lightning-charge" aria-hidden="true"></i>{t('Express entry')}</label>
               <div class="nr__expressrow">
                 <input id="nr-express" class="b2s-input" bind:value={express} autocomplete="off" placeholder={t('E.g. read on Purchasing and Accounting for 30 days: November closing')} />
@@ -419,12 +424,12 @@
               <div class="nr__sugg" aria-label={t('Suggestions')}>
                 <div class="nr__sugg-tabs" role="tablist">
                   {#each SUGGESTION_KINDS() as [key, label] (key)}
-                    {#if (suggestions[key] ?? []).length}<button type="button" role="tab" aria-selected={suggestionKind === key} class:on={suggestionKind === key} on:click={() => (suggestionKind = key)}>{label}</button>{/if}
+                    {#if (suggestions[key] ?? []).length}<button type="button" role="tab" aria-selected={suggestionKind === key} class:on={suggestionKind === key} onclick={() => (suggestionKind = key)}>{label}</button>{/if}
                   {/each}
                 </div>
                 <div class="nr__sugg-list">
                   {#each suggestionRows as row (row.root.id)}
-                    <button type="button" class="nr__sugg-card" class:in={cart.has(row.root.id)} on:click={() => (cart.has(row.root.id) ? null : add(row.root.id))}>
+                    <button type="button" class="nr__sugg-card" class:in={cart.has(row.root.id)} onclick={() => (cart.has(row.root.id) ? null : add(row.root.id))}>
                       <i class="bi bi-folder2" aria-hidden="true"></i>
                       <span><b>{row.root.name}</b><small>{row.hint}</small></span>
                       <em>{cart.has(row.root.id) ? '✓' : '+'}</em>
@@ -447,28 +452,28 @@
               <div class="nr__recent">
                 <span>{t('Recently requested')}</span>
                 {#each recent as root (root.id)}
-                  <button type="button" class:on={cart.has(root.id)} title={root.dfsPath || root.path} on:click={() => toggle(root.id)}>{cart.has(root.id) ? '✓' : '+'} {root.name}<small>{root.server}</small></button>
+                  <button type="button" class:on={cart.has(root.id)} title={root.dfsPath || root.path} onclick={() => toggle(root.id)}>{cart.has(root.id) ? '✓' : '+'} {root.name}<small>{root.server}</small></button>
                 {/each}
               </div>
             {/if}
             <div class="nr__tree">
               {#each tree as group (group.key)}
                 {@const groupOpen = isOpen(group.key, Boolean(needle))}
-                <button type="button" class="nr__zone" class:unc={groupBy === 'dfs' && group.label.startsWith('\\\\')} on:click={() => toggleGroup(group.key)}>
+                <button type="button" class="nr__zone" class:unc={groupBy === 'dfs' && group.label.startsWith('\\\\')} onclick={() => toggleGroup(group.key)}>
                   <span class="nr__car">{groupOpen ? '▾' : '▸'}</span>{group.label}<em>{t('{count} folder(s)', { count: group.count })}</em>
                 </button>
                 {#if groupOpen}
                   {#each group.subs as sub (sub.key)}
                     {@const subOpen = !sub.label || isOpen(sub.key, Boolean(needle))}
                     {#if sub.label}
-                      <button type="button" class="nr__server" on:click={() => toggleGroup(sub.key)}>
+                      <button type="button" class="nr__server" onclick={() => toggleGroup(sub.key)}>
                         <span class="nr__car">{subOpen ? '▾' : '▸'}</span>{sub.label}<em>{sub.count}</em>
                       </button>
                     {/if}
                     {#if subOpen}
                       {#each sub.rows as root (root.id)}
                         {@const shownPath = groupBy === 'server' ? root.path : root.dfsPath || root.path}
-                        <button type="button" class="nr__item" class:flat={!sub.label} class:on={cart.has(root.id)} on:click={() => toggle(root.id)}>
+                        <button type="button" class="nr__item" class:flat={!sub.label} class:on={cart.has(root.id)} onclick={() => toggle(root.id)}>
                           <span class="nr__tick">{cart.has(root.id) ? '✓' : ''}</span>
                           <span class="nr__name"><b>{root.name}</b><small title={shownPath}>{shownPath}</small></span>
                         </button>
@@ -490,13 +495,13 @@
           <div class="nr__q">
             <span class="nr__label">{t('For whom?')}</span>
             <div class="nr__chips">
-              <button type="button" class:on={!forOther} on:click={() => setForOther(false)}>{t('For me')}</button>
-              <button type="button" class:on={forOther} on:click={() => setForOther(true)}>{t('For someone else')}</button>
+              <button type="button" class:on={!forOther} onclick={() => setForOther(false)}>{t('For me')}</button>
+              <button type="button" class:on={forOther} onclick={() => setForOther(true)}>{t('For someone else')}</button>
             </div>
             {#if forOther}
               <div class="nr__people">
                 {#each principals as principal, index (index)}<span>{principal?.display_name ?? principal?.username ?? principal?.dn}</span>{/each}
-                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => (showBrowser = true)}>{principals.length ? t('Change') : t('Choose in the directory')}</button>
+                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={() => (showBrowser = true)}>{principals.length ? t('Change') : t('Choose in the directory')}</button>
               </div>
             {/if}
           </div>
@@ -504,9 +509,9 @@
             <span class="nr__label">{t('For how long?')}</span>
             <div class="nr__chips">
               {#each DURATIONS as option (option.key)}
-                <button type="button" class:on={duration === option.key} on:click={() => (duration = option.key)}>{option.label()}<small>{option.days ? t('until {date}', { date: dayLabel(new Date(Date.now() + option.days * 86_400_000)) }) : t('no end')}</small></button>
+                <button type="button" class:on={duration === option.key} onclick={() => (duration = option.key)}>{option.label()}<small>{option.days ? t('until {date}', { date: dayLabel(new Date(Date.now() + option.days * 86_400_000)) }) : t('no end')}</small></button>
               {/each}
-              <button type="button" class:on={duration === 'date'} on:click={() => (duration = 'date')}>{t('A date…')}<small>{customDate ? dayLabel(endDate) : t('calendar')}</small></button>
+              <button type="button" class:on={duration === 'date'} onclick={() => (duration = 'date')}>{t('A date…')}<small>{customDate ? dayLabel(endDate) : t('calendar')}</small></button>
             </div>
             {#if duration === 'date'}<input class="b2s-input nr__date" type="date" bind:value={customDate} min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)} max={maxDate} />{/if}
           </div>
@@ -515,7 +520,7 @@
             <textarea id="nr-why" class="b2s-input" bind:value={justification} placeholder={t('E.g. monthly closing of November. The guardian reads it before deciding.')}></textarea>
             <div class="nr__reasons">
               <small class="nr__muted">{t('Frequent reasons:')}</small>
-              {#each REASONS as reason}<button type="button" on:click={() => useReason(reason())}>{reason()}</button>{/each}
+              {#each REASONS as reason}<button type="button" onclick={() => useReason(reason())}>{reason()}</button>{/each}
             </div>
             <small class="nr__muted">{t('At least {count} characters · seen by the guardian and in the history of the folder', { count: policy.minReasonLength })}</small>
           </div>
@@ -529,13 +534,13 @@
           <div class="nr__ci">
             <b title={row.root.path}>{row.root.name}</b>
             <span class="nr__lv">
-              <button type="button" class:r={row.level === 'READ'} disabled={submitting} on:click={() => setLevel(row.root.id, 'READ')}>{t('Read')}</button>
-              <button type="button" class:w={row.level === 'WRITE'} disabled={submitting} on:click={() => setLevel(row.root.id, 'WRITE')}>{t('Modify')}</button>
+              <button type="button" class:r={row.level === 'READ'} disabled={submitting} onclick={() => setLevel(row.root.id, 'READ')}>{t('Read')}</button>
+              <button type="button" class:w={row.level === 'WRITE'} disabled={submitting} onclick={() => setLevel(row.root.id, 'WRITE')}>{t('Modify')}</button>
             </span>
             <small>
               {row.root.server}
               {#if row.check?.state === 'checking'} · {t('Checking…')}{/if}
-              {#if !lockedRootId} · <button type="button" class="nr__rm" on:click={() => toggle(row.root.id)}>{t('Remove')}</button>{/if}
+              {#if !lockedRootId} · <button type="button" class="nr__rm" onclick={() => toggle(row.root.id)}>{t('Remove')}</button>{/if}
             </small>
             {#if row.check?.state === 'blocked'}<small class="nr__bad">{row.check.message}</small>{/if}
             {#if row.check?.state === 'elevation'}<small class="nr__warn">{row.check.message || t('This request will be handled as an elevation.')}</small>{/if}
@@ -549,7 +554,7 @@
           <li><b>{t('Access in place')}</b><small>{t('Added to the AD group of the folder, effective within minutes.')}</small></li>
           <li><b>{t('End')}</b><small>{endDate ? t('Removed automatically on {date}.', { date: dayLabel(endDate) }) : t('No end date.')}</small></li>
         </ol>
-        <button type="button" class="b2s-btn b2s-btn-primary nr__wide nr__send" disabled={submitting || anyChecking || !sendable.length || !step2Ready} on:click={submit}>
+        <button type="button" class="b2s-btn b2s-btn-primary nr__wide nr__send" disabled={submitting || anyChecking || !sendable.length || !step2Ready} onclick={submit}>
           {submitting ? t('Sending…') : requestCount > 1 ? t('Send {count} requests', { count: requestCount }) : t('Send the request')}
         </button>
       </aside>

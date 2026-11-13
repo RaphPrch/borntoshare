@@ -16,25 +16,35 @@
     type RootcodeStrategy
   } from '$lib/api/naming-policies';
 
-  export let data: {
+  interface Props {
+    data: {
     globalPolicy: Partial<GlobalNamingPolicy> | null;
   };
+  }
+
+  let { data }: Props = $props();
 
   const initialPolicy: GlobalNamingPolicy = {
+    // svelte-ignore state_referenced_locally (an initial value, read once as before)
     group_prefix: data.globalPolicy?.group_prefix ?? 'B2S',
+    // svelte-ignore state_referenced_locally (an initial value, read once as before)
     template: data.globalPolicy?.template ?? '{PREFIX}_{ROOTCODE}_{PERM}',
+    // svelte-ignore state_referenced_locally (an initial value, read once as before)
     normalize_uppercase: Boolean(data.globalPolicy?.normalize_uppercase ?? true),
+    // svelte-ignore state_referenced_locally (an initial value, read once as before)
     max_sam_length: Number(data.globalPolicy?.max_sam_length ?? 64),
+    // svelte-ignore state_referenced_locally (an initial value, read once as before)
     replace_map_json: data.globalPolicy?.replace_map_json ?? {
       '\\': '_',
       '/': '_',
       ' ': '_',
       '-': '_'
     },
+    // svelte-ignore state_referenced_locally (an initial value, read once as before)
     rootcode_strategy: (data.globalPolicy?.rootcode_strategy as RootcodeStrategy) ?? 'BASENAME'
   };
 
-  let policy: GlobalNamingPolicy = { ...initialPolicy };
+  let policy = $state<GlobalNamingPolicy>({ ...initialPolicy });
 
   const stringifyReplaceMap = (input: unknown): string => {
     if (typeof input === 'string') return input;
@@ -48,10 +58,10 @@
     return '{"\\":"_","/":"_"," ":"_","-":"_"}';
   };
 
-  let replaceMapText = stringifyReplaceMap(initialPolicy.replace_map_json);
+  let replaceMapText = $state(stringifyReplaceMap(initialPolicy.replace_map_json));
 
-  let saving = false;
-  let errorMsg: string | null = null;
+  let saving = $state(false);
+  let errorMsg = $state<string | null>(null);
 
 
   function normalizePolicy(input: GlobalNamingPolicy) {
@@ -68,12 +78,12 @@
     };
   }
 
-  let initialSnapshot = JSON.stringify(normalizePolicy(initialPolicy));
-  let initialReplaceMapSnapshot = stringifyReplaceMap(initialPolicy.replace_map_json);
+  let initialSnapshot = $state(JSON.stringify(normalizePolicy(initialPolicy)));
+  let initialReplaceMapSnapshot = $state(stringifyReplaceMap(initialPolicy.replace_map_json));
 
-  $: normalizedCurrent = normalizePolicy(policy);
-  $: templateCheck = checkNamingTemplate(normalizedCurrent.template.toUpperCase());
-  $: parsedReplaceMap = (() => {
+  let normalizedCurrent = $derived(normalizePolicy(policy));
+  let templateCheck = $derived(checkNamingTemplate(normalizedCurrent.template.toUpperCase()));
+  let parsedReplaceMap = $derived((() => {
     try {
       const parsed = JSON.parse(replaceMapText);
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
@@ -81,27 +91,27 @@
     } catch {
       return null;
     }
-  })();
-  $: replaceMapError = parsedReplaceMap ? null : t('Invalid JSON for the replace map.');
-  $: groupPrefixError = normalizedCurrent.group_prefix ? null : t('Prefix is required.');
-  $: templateError =
-    !normalizedCurrent.template
+  })());
+  let replaceMapError = $derived(parsedReplaceMap ? null : t('Invalid JSON for the replace map.'));
+  let groupPrefixError = $derived(normalizedCurrent.group_prefix ? null : t('Prefix is required.'));
+  let templateError =
+    $derived(!normalizedCurrent.template
       ? t('The template is required.')
       : templateCheck.unknown.length
         ? t('Unknown token: {token}', { token: `{${templateCheck.unknown[0]}}` })
         : templateCheck.unique
           ? null
-          : t('The template needs {PERM} and {ROOTCODE} or {RAND}');
-  $: maxSamError =
-    Number.isFinite(Number(policy.max_sam_length)) &&
+          : t('The template needs {PERM} and {ROOTCODE} or {RAND}'));
+  let maxSamError =
+    $derived(Number.isFinite(Number(policy.max_sam_length)) &&
     Number(policy.max_sam_length) >= 8 &&
     Number(policy.max_sam_length) <= 256
       ? null
-      : t('Max sAM length must be between 8 and 256.');
+      : t('Max sAM length must be between 8 and 256.'));
   // The sAM length and the folder code strategy keep their saved value (not shown: defaults that fit)
-  $: formHasErrors = Boolean(replaceMapError || groupPrefixError || templateError);
-  $: isDirty = JSON.stringify(normalizedCurrent) !== initialSnapshot || replaceMapText !== initialReplaceMapSnapshot;
-  $: canSave = !saving && isDirty && !formHasErrors;
+  let formHasErrors = $derived(Boolean(replaceMapError || groupPrefixError || templateError));
+  let isDirty = $derived(JSON.stringify(normalizedCurrent) !== initialSnapshot || replaceMapText !== initialReplaceMapSnapshot);
+  let canSave = $derived(!saving && isDirty && !formHasErrors);
 
   function mapToString(input: unknown): string {
     if (typeof input === 'string') return input;
@@ -178,7 +188,7 @@
   {/if}
 
   <div class="adv-actions">
-    <button class="b2s-btn b2s-btn-primary" type="button" on:click={saveGlobal} disabled={!canSave}>
+    <button class="b2s-btn b2s-btn-primary" type="button" onclick={saveGlobal} disabled={!canSave}>
       {saving ? t('Saving…') : t('Save changes')}
     </button>
   </div>

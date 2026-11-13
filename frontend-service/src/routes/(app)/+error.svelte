@@ -3,14 +3,14 @@
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
 
-  $: status = $page.status;
-  $: forbidden = status === 403;
-  $: title = forbidden ? t('Access denied') : status === 404 ? t('Page not found') : t('Something went wrong');
-  $: text = forbidden
+  let status = $derived($page.status);
+  let forbidden = $derived(status === 403);
+  let title = $derived(forbidden ? t('Access denied') : status === 404 ? t('Page not found') : t('Something went wrong'));
+  let text = $derived(forbidden
     ? t('This page is reserved to the administrators of the platform.')
     : status === 404
       ? t('The page you are looking for does not exist or has been moved.')
-      : t('Try again in a moment. If it goes on, contact an administrator.');
+      : t('Try again in a moment. If it goes on, contact an administrator.'));
 </script>
 
 <svelte:head><title>{title} · BornToShare</title></svelte:head>

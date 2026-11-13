@@ -90,30 +90,30 @@
     return validTabs.has(raw as ZoneTabKey) ? (raw as ZoneTabKey) : "overview";
   };
 
-  let activeTab: ZoneTabKey = $state("overview");
+  let activeTab = $state<ZoneTabKey>("overview");
   let loadingTab = $state(true);
-  let activeComponent: any = $state(null);
+  let activeComponent = $state<any>(null);
   let loadedComponents: Partial<Record<ZoneTabKey, any>> = {};
 
   let zoneModalOpen = $state(false);
-  let zoneModalMode: "create" | "edit" | "delete" = $state("edit");
-  let editingZone: ZoneOverview | null = $state(null);
+  let zoneModalMode = $state<"create" | "edit" | "delete">("edit");
+  let editingZone = $state<ZoneOverview | null>(null);
 
   let showEndpointAttachChoice = $state(false);
   let attachEndpointsLoading = $state(false);
-  let attachEndpointBusyId: number | null = $state(null);
+  let attachEndpointBusyId = $state<number | null>(null);
   let attachableEndpoints: Array<{ id: number; name: string; host?: string | null; zoneName?: string | null }> = $state([]);
   let discoverRunning = false;
-  let probeResultsByEndpoint: Record<string, string> = $state({});
+  let probeResultsByEndpoint = $state<Record<string, string>>({});
 
   let policySaving = $state(false);
-  let policyError: string | null = $state(null);
+  let policyError = $state<string | null>(null);
   let policyNotice = $state("");
   let handledCreateQuery = $state(false);
   let showRereadConfirm = $state(false);
   let rereadBusy = $state(false);
   let showLeaveProvisioningConfirm = $state(false);
-  let pendingTabAfterConfirm: ZoneTabKey | null = $state(null);
+  let pendingTabAfterConfirm = $state<ZoneTabKey | null>(null);
   let probeSyncRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   const resolveZoneBaseOu = (incoming: ZoneProvisioningPolicy | null | undefined): string | null => {
@@ -140,7 +140,7 @@
     });
 
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let policyDraft: ZoneProvisioningPolicy = $state(buildPolicyDraftFromData(data.provisioningPolicy));
+  let policyDraft = $state<ZoneProvisioningPolicy>(buildPolicyDraftFromData(data.provisioningPolicy));
 
   // Naming template of the zone (naming policy override); empty or equal to the global one = inherit the global template
   const initialNamingTemplate = (): string =>
@@ -156,7 +156,7 @@
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
   let policySavedSnapshot = $state(buildPolicySnapshot(data.provisioningPolicy));
 
-  let policyDraftHydratedForZoneId: number | null = $state(null);
+  let policyDraftHydratedForZoneId = $state<number | null>(null);
 
   const isLikelyDn = (value: string) => /(^|,)\s*[A-Z]{1,3}=/i.test(String(value || "").trim());
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+
   import { recall, remember } from '$lib/utils/remember';
   import { fivesEnabled } from '$lib/utils/features';
   import { onMount } from 'svelte';
@@ -36,15 +37,17 @@
   const verdict = (score: number | null | undefined) =>
     score == null ? t('Not enough data') : score >= 80 ? t('Well kept') : score >= 60 ? t('To improve') : t('To take in hand');
 
-  let data: FiveS | null = null;
-  let error = '';
+  let data = $state<FiveS | null>(null);
+  let error = $state('');
   // The 5S is an optional module: switched off, the page says where to turn it on
-  let disabled = false;
-  let zoneId = 0;
-  let pillarSort = recall('five-s', { pillarSort: 'score' }).pillarSort as Pillar | 'score';
-  $: remember('five-s', { pillarSort });
-  let query = '';
-  let shown = 30;
+  let disabled = $state(false);
+  let zoneId = $state(0);
+  let pillarSort = $state(recall('five-s', { pillarSort: 'score' }).pillarSort as Pillar | 'score');
+  $effect.pre(() => {
+    remember('five-s', { pillarSort });
+  });
+  let query = $state('');
+  let shown = $state(30);
 
   // Not active (no license, switched off, or not installed): the explanation, no call to the module
   onMount(() => {
@@ -62,15 +65,15 @@
       else error = failure instanceof Error ? failure.message : t('Unable to load the 5S.');
     }
   }
-  $: needle = query.trim().toLowerCase();
-  $: folders = (data?.folders ?? [])
+  let needle = $derived(query.trim().toLowerCase());
+  let folders = $derived((data?.folders ?? [])
     .filter((f) => !needle || `${f.name} ${f.path} ${f.server} ${f.zone}`.toLowerCase().includes(needle))
     .slice()
     .sort((a, b) => {
       const va = pillarSort === 'score' ? a.score : a.pillars[pillarSort];
       const vb = pillarSort === 'score' ? b.score : b.pillars[pillarSort];
       return (va ?? 101) - (vb ?? 101);
-    });
+    }));
   // Ring of the overall score
   const R = 52;
   const C = 2 * Math.PI * R;
@@ -84,7 +87,7 @@
       <p>{t('Sort, set in order, shine, standardize, sustain: how well the folders are kept, and what to do first.')}</p>
     </div>
     {#if data?.zones?.length}
-      <select class="b2s-input fs__zone" bind:value={zoneId} on:change={load} aria-label={t('Zone')}>
+      <select class="b2s-input fs__zone" bind:value={zoneId} onchange={load} aria-label={t('Zone')}>
         <option value={0}>{t('All the zones')}</option>
         {#each data.zones as zone (zone.id)}<option value={zone.id}>{zone.name}</option>{/each}
       </select>
@@ -120,7 +123,7 @@
       <div class="fs__pillars">
         {#each PILLARS as pillar, rank (pillar.key)}
           <button type="button" class="fs__pillar" class:is-on={pillarSort === pillar.key} data-tone={tone(data.pillars[pillar.key])}
-            on:click={() => (pillarSort = pillarSort === pillar.key ? 'score' : pillar.key)} aria-pressed={pillarSort === pillar.key}
+            onclick={() => (pillarSort = pillarSort === pillar.key ? 'score' : pillar.key)} aria-pressed={pillarSort === pillar.key}
             title={t('Sort the folders by this pillar')}>
             <span class="fs__p-head"><i class={`bi ${pillar.icon}`} aria-hidden="true"></i><b>{pillar.label()}</b><small>{pillar.jp}</small></span>
             <span class="fs__p-score">{#if data.pillars[pillar.key] == null}—{:else}<CountUp value={data.pillars[pillar.key]} />{/if}</span>
@@ -187,7 +190,7 @@
           <span>{t('Next step')}</span>
         </div>
         {#each folders.slice(0, shown) as folder (folder.id)}
-          <button type="button" class="fs__row" on:click={() => goto(`/five-s/explore/${folder.id}`)}>
+          <button type="button" class="fs__row" onclick={() => goto(`/five-s/explore/${folder.id}`)}>
             <span class="fs__name"><b>{folder.name}</b><small>{folder.server} · {folder.zone}{folder.size_bytes != null ? ` · ${formatBytes(folder.size_bytes)}` : ''}</small></span>
             <span><span class="fs__score" data-tone={tone(folder.score)}>{folder.score ?? '—'}</span></span>
             {#each PILLARS as pillar (pillar.key)}
@@ -200,7 +203,7 @@
         {/each}
       </div>
       {#if folders.length > shown}
-        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm fs__more" on:click={() => (shown += 30)}>{t('Show {count} more', { count: Math.min(30, folders.length - shown) })}</button>
+        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm fs__more" onclick={() => (shown += 30)}>{t('Show {count} more', { count: Math.min(30, folders.length - shown) })}</button>
       {/if}
     </section>
   {/if}

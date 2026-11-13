@@ -1,4 +1,5 @@
 <script lang="ts">
+
   import { goto } from '$app/navigation';
   import { t } from '$lib/i18n';
   import { createZone, updateZone, putZoneProvisioningPolicy } from '$lib/api/zones';
@@ -15,7 +16,11 @@
   import TlsCertificateField from '$lib/components/identity-sources/TlsCertificateField.svelte';
   import FeaturesPanel from '$lib/components/settings/FeaturesPanel.svelte';
 
-  export let data: { status: Record<string, any> };
+  interface Props {
+    data: { status: Record<string, any> };
+  }
+
+  let { data }: Props = $props();
 
   type StepKey = 'zone' | 'directory' | 'server' | 'identities' | 'roles' | 'features' | 'folders' | 'done';
   type Group = { key: string; title: string; item: Record<string, any>; role: 'platform_admin' | 'user' };
@@ -33,15 +38,16 @@
     { key: 'done', label: () => t('Ready'), hint: () => t('Your first folders') }
   ];
 
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
   const status = data.status ?? {};
   const baseToDomain = (dn: string) =>
     dn.split(',').map((part) => part.trim()).filter((part) => /^dc=/i.test(part)).map((part) => part.slice(3)).join('.');
 
   let zoneId: number | null = status.zone?.id ?? null;
-  let zone = { name: status.zone?.name ?? '', description: status.zone?.description ?? '' };
+  let zone = $state({ name: status.zone?.name ?? '', description: status.zone?.description ?? '' });
 
   let sourceId: number | null = status.directory?.id ?? null;
-  let directory = {
+  let directory = $state({
     name: status.directory?.name ?? '',
     flavor: (status.directory?.directory_flavor ?? 'ad') as 'ad' | 'openldap',
     protocol: (status.directory?.protocol ?? 'ldaps') as 'ldap' | 'ldaps',
@@ -55,69 +61,69 @@
     ca: status.directory?.tls_ca_pem ?? '',
     tlsName: status.directory?.tls_server_name ?? '',
     ou: status.group_ou ?? ''
-  };
-  let directoryTested = Boolean(sourceId);
-  let directoryChecks: Check[] = [];
+  });
+  let directoryTested = $state(Boolean(sourceId));
+  let directoryChecks = $state<Check[]>([]);
 
   let serverId: number | null = status.server?.id ?? null;
-  let server = {
+  let server = $state({
     name: status.server?.name ?? '',
     host: status.server?.host ?? '',
     account: status.server?.bind_dn ?? '',
     password: '',
     ref: (status.server?.bind_password_ref ?? null) as string | null
-  };
-  let serverTested = Boolean(serverId);
+  });
+  let serverTested = $state(Boolean(serverId));
   // The last test of each, made before the object exists: recorded on it once created (state, shares found)
   let serverProbe: any = null;
   let directoryProbeRequest: Parameters<typeof buildIdentitySourceProbeRequest>[0] | null = null;
-  let serverChecks: Check[] = [];
+  let serverChecks = $state<Check[]>([]);
 
-  let groups: Group[] = [];
-  let picked: Record<string, Group> = {};
-  let query = '';
-  let groupsLoading = false;
-  let groupsError = '';
+  let groups = $state<Group[]>([]);
+  let picked = $state<Record<string, Group>>({});
+  let query = $state('');
+  let groupsLoading = $state(false);
+  let groupsError = $state('');
   let snapshotStarted = false;
 
-  let shares: string[] = [];
-  let sharesLoading = false;
-  let sharesError = '';
-  let pickedShares: Record<string, boolean> = {};
-  let peopleQuery = '';
-  let people: Group[] = [];
-  let peopleLoading = false;
-  let guardians: Record<string, Group> = {};
-  let foldersCreated = 0;
-  let importedGroups = Number(status.imported_groups ?? 0);
+  let shares = $state<string[]>([]);
+  let sharesLoading = $state(false);
+  let sharesError = $state('');
+  let pickedShares = $state<Record<string, boolean>>({});
+  let peopleQuery = $state('');
+  let people = $state<Group[]>([]);
+  let peopleLoading = $state(false);
+  let guardians = $state<Record<string, Group>>({});
+  let foldersCreated = $state(0);
+  let importedGroups = $state(Number(status.imported_groups ?? 0));
 
   // Resume at the first step left to do
   const firstStep = !zoneId ? 0 : !sourceId ? 1 : !serverId ? 2 : status.imported_groups > 0 ? 5 : 3;  // 5: features (optional), then folders
-  let at = firstStep;
-  let top = firstStep;
-  let busy = false;
-  let testing = false;
-  let errorMessage = '';
+  let at = $state(firstStep);
+  let top = $state(firstStep);
+  let busy = $state(false);
+  let testing = $state(false);
+  let errorMessage = $state('');
 
-  $: current = STEPS[at].key;
-  $: pickedGroups = Object.values(picked);
-  $: admins = pickedGroups.filter((group) => group.role === 'platform_admin').length;
-  $: isLdaps = directory.protocol === 'ldaps';
-  $: pickedShareList = shares.filter((share) => pickedShares[share]);
-  $: guardianList = Object.values(guardians);
-  $: directoryReady =
-    !!directory.name.trim() && !!directory.host.trim() && !!directory.base.trim() && !!directory.account.trim() &&
-    (!!directory.password || !!directory.ref) && !!directory.ou.trim();
-  $: serverReady = !!server.name.trim() && !!server.host.trim() && !!server.account.trim() && (!!server.password || !!server.ref);
-  $: canContinue =
-    current === 'zone' ? !!zone.name.trim()
+  let current = $derived(STEPS[at].key);
+  let pickedGroups = $derived(Object.values(picked));
+  let admins = $derived(pickedGroups.filter((group) => group.role === 'platform_admin').length);
+  let isLdaps = $derived(directory.protocol === 'ldaps');
+  let pickedShareList = $derived(shares.filter((share) => pickedShares[share]));
+  let guardianList = $derived(Object.values(guardians));
+  let directoryReady =
+    $derived(!!directory.name.trim() && !!directory.host.trim() && !!directory.base.trim() && !!directory.account.trim() &&
+    (!!directory.password || !!directory.ref) && !!directory.ou.trim());
+  let serverReady = $derived(!!server.name.trim() && !!server.host.trim() && !!server.account.trim() && (!!server.password || !!server.ref));
+  let canContinue =
+    $derived(current === 'zone' ? !!zone.name.trim()
     : current === 'directory' ? directoryReady && directoryTested
     : current === 'server' ? serverReady && serverTested
     : current === 'identities' ? pickedGroups.length > 0 || status.imported_groups > 0
     : current === 'features' ? true
     : current === 'folders' ? pickedShareList.length > 0
-    : true;
-  $: placed = [
+    : true);
+  let placed = $derived([
     { label: t('Zone'), value: top > 0 ? zone.name : '', step: 0 },
     { label: t('Directory'), value: top > 1 ? `${directory.name} · ${directory.protocol.toUpperCase()}` : '', step: 1 },
     { label: t('File server'), value: top > 2 ? `${server.name} · ${server.host}` : '', step: 2 },
@@ -125,7 +131,7 @@
     { label: t('Roles'), value: top > 4 ? t('Done') : '', step: 4 },
     { label: t('Features'), value: top > 5 ? t('Done') : '', step: 5 },
     { label: t('Folders'), value: top > 6 ? t('{count} folder(s)', { count: foldersCreated }) : '', step: 6 }
-  ];
+  ]);
 
   function touchDirectory() {
     directoryTested = false;
@@ -540,7 +546,7 @@
       {#each STEPS as step, index}
         {@const state = index === at ? 'cur' : index < top ? 'done' : ''}
         <li class={state}>
-          <button type="button" class={`sp-step ${state}`} disabled={index > top} aria-current={index === at ? 'step' : undefined} on:click={() => goToStep(index)}>
+          <button type="button" class={`sp-step ${state}`} disabled={index > top} aria-current={index === at ? 'step' : undefined} onclick={() => goToStep(index)}>
             <span class="sp-pip" aria-hidden="true">{state === 'done' ? '✓' : index + 1}</span>
             <span><strong>{step.label()}</strong><small>{step.hint()}</small></span>
           </button>
@@ -589,18 +595,18 @@
         {:else if current === 'directory'}
           <div class="sp-row">
             <div class="sp-seg" role="group" aria-label={t('Directory type')}>
-              <button type="button" class:on={directory.flavor === 'ad'} on:click={() => setFlavor('ad')}>Active Directory</button>
-              <button type="button" class:on={directory.flavor === 'openldap'} on:click={() => setFlavor('openldap')}>OpenLDAP</button>
+              <button type="button" class:on={directory.flavor === 'ad'} onclick={() => setFlavor('ad')}>Active Directory</button>
+              <button type="button" class:on={directory.flavor === 'openldap'} onclick={() => setFlavor('openldap')}>OpenLDAP</button>
             </div>
             <div class="sp-seg" role="group" aria-label={t('Connection')}>
-              <button type="button" class:on={isLdaps} on:click={() => setProtocol('ldaps')}>LDAPS</button>
-              <button type="button" class:on={!isLdaps} on:click={() => setProtocol('ldap')}>LDAP</button>
+              <button type="button" class:on={isLdaps} onclick={() => setProtocol('ldaps')}>LDAPS</button>
+              <button type="button" class:on={!isLdaps} onclick={() => setProtocol('ldap')}>LDAP</button>
             </div>
           </div>
           {#if !isLdaps}
             <p class="sp-note warn">{t('LDAP · port 389. The password of the service account travels unencrypted.')}</p>
           {/if}
-          <div class="sp-grid" on:input={touchDirectory}>
+          <div class="sp-grid" oninput={touchDirectory}>
             <label class="sp-f" for="sp-dir-name">{t('Name')}<input id="sp-dir-name" bind:value={directory.name} autocomplete="off" /></label>
             <label class="sp-f" for="sp-dir-host">{t('Hostname / IP')}<input id="sp-dir-host" class="mono" bind:value={directory.host} autocomplete="off" /></label>
             <label class="sp-f" for="sp-dir-port">{t('Port')}<input id="sp-dir-port" type="number" min="1" max="65535" bind:value={directory.port} /></label>
@@ -609,7 +615,7 @@
             <label class="sp-f" for="sp-dir-password">{t('Password')}<input id="sp-dir-password" type="password" bind:value={directory.password} autocomplete="new-password" placeholder={directory.ref ? t('Already saved') : ''} /><small>{t('Stored encrypted, never shown again.')}</small></label>
             <label class="sp-f wide" for="sp-dir-ou">{t('Where to create the groups of this zone')}<input id="sp-dir-ou" class="mono" bind:value={directory.ou} placeholder="OU=B2S Groups,DC=example,DC=test" autocomplete="off" /></label>
             {#if isLdaps}
-              <label class="sp-switch wide" for="sp-dir-verify"><input id="sp-dir-verify" type="checkbox" bind:checked={directory.verify} on:change={touchDirectory} /> {t('Check the server certificate')}</label>
+              <label class="sp-switch wide" for="sp-dir-verify"><input id="sp-dir-verify" type="checkbox" bind:checked={directory.verify} onchange={touchDirectory} /> {t('Check the server certificate')}</label>
               {#if directory.verify}
                 <div class="sp-f wide">
                   <label for="sp-dir-ca">{t('Certificate authority (PEM)')}</label>
@@ -622,7 +628,7 @@
             {/if}
           </div>
           <div class="sp-test">
-            <button type="button" class="sp-btn" disabled={!directoryReady || testing} on:click={testDirectory}>
+            <button type="button" class="sp-btn" disabled={!directoryReady || testing} onclick={testDirectory}>
               {#if testing}<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>{/if}
               {testing ? t('Testing…') : t('Test the directory')}
             </button>
@@ -633,14 +639,14 @@
             {/if}
           </div>
         {:else if current === 'server'}
-          <div class="sp-grid" on:input={touchServer}>
+          <div class="sp-grid" oninput={touchServer}>
             <label class="sp-f" for="sp-srv-name">{t('Name')}<input id="sp-srv-name" bind:value={server.name} autocomplete="off" /></label>
             <label class="sp-f" for="sp-srv-host">{t('Hostname / IP')}<input id="sp-srv-host" class="mono" bind:value={server.host} autocomplete="off" /></label>
             <label class="sp-f" for="sp-srv-account">{t('Service account')}<input id="sp-srv-account" class="mono" bind:value={server.account} autocomplete="off" placeholder="EXAMPLE\svc-b2s-files" /><small>{t('Full control on the shares to govern. Local administrator only to create shares from BornToShare.')}</small></label>
             <label class="sp-f" for="sp-srv-password">{t('Password')}<input id="sp-srv-password" type="password" bind:value={server.password} autocomplete="new-password" placeholder={server.ref ? t('Already saved') : ''} /><small>{t('Stored encrypted, never shown again.')}</small></label>
           </div>
           <div class="sp-test">
-            <button type="button" class="sp-btn" disabled={!serverReady || testing} on:click={testServer}>
+            <button type="button" class="sp-btn" disabled={!serverReady || testing} onclick={testServer}>
               {#if testing}<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>{/if}
               {testing ? t('Testing…') : t('Test the connection')}
             </button>
@@ -651,7 +657,7 @@
             {/if}
           </div>
         {:else if current === 'identities'}
-          <form class="sp-search" on:submit|preventDefault={loadGroups}>
+          <form class="sp-search" onsubmit={(event) => { event.preventDefault(); loadGroups(); }}>
             <input type="search" bind:value={query} aria-label={t('Search a group of the directory')} placeholder={t('Search a group of the directory…')} />
             <button type="submit" class="sp-btn sm">{t('Search')}</button>
           </form>
@@ -665,7 +671,7 @@
             <div class="sp-list">
               {#each groups as group (group.key)}
                 <label class="sp-pick">
-                  <input type="checkbox" checked={Boolean(picked[group.key])} on:change={(event) => togglePick(group, event.currentTarget.checked)} />
+                  <input type="checkbox" checked={Boolean(picked[group.key])} onchange={(event) => togglePick(group, event.currentTarget.checked)} />
                   <span><strong>{group.title}</strong><small class="mono">{group.item.dn ?? ''}</small></span>
                 </label>
               {/each}
@@ -717,7 +723,7 @@
             <h3 class="sp-sub">{t('Guardians of these folders')}</h3>
             <p class="sp-lead sp-lead--tight">{t('Choose them now or later, folder by folder; a folder without guardian has its requests decided by the administrators.')} {t('Guardians decide on the access requests of their folders.')}</p>
           </div>
-          <form class="sp-search" on:submit|preventDefault={loadPeople}>
+          <form class="sp-search" onsubmit={(event) => { event.preventDefault(); loadPeople(); }}>
             <input type="search" bind:value={peopleQuery} aria-label={t('Search a person of the directory')} placeholder={t('Search a person of the directory…')} />
             <button type="submit" class="sp-btn sm">{t('Search')}</button>
           </form>
@@ -729,7 +735,7 @@
             <div class="sp-list">
               {#each people as person (person.key)}
                 <label class="sp-pick">
-                  <input type="checkbox" checked={Boolean(guardians[person.key])} on:change={(event) => toggleGuardian(person, event.currentTarget.checked)} />
+                  <input type="checkbox" checked={Boolean(guardians[person.key])} onchange={(event) => toggleGuardian(person, event.currentTarget.checked)} />
                   <span><strong>{person.title}</strong><small class="mono">{person.item.username ?? ''}</small></span>
                 </label>
               {/each}
@@ -746,8 +752,8 @@
             <div><span>{t('Folders')}</span><i class="ok">{foldersCreated}</i></div>
           </div>
           <div class="sp-row">
-            <button type="button" class="sp-btn pri" disabled={busy} on:click={() => finish('/storage-roots')}>{t('See my folders')}</button>
-            <button type="button" class="sp-btn" disabled={busy} on:click={() => finish('/dashboard')}>{t('Go to the dashboard')}</button>
+            <button type="button" class="sp-btn pri" disabled={busy} onclick={() => finish('/storage-roots')}>{t('See my folders')}</button>
+            <button type="button" class="sp-btn" disabled={busy} onclick={() => finish('/dashboard')}>{t('Go to the dashboard')}</button>
           </div>
         {/if}
 
@@ -764,12 +770,12 @@
             {t('Each step is saved: you will resume here at your next sign-in.')}
           {/if}
         </span>
-        {#if at > 0}<button type="button" class="sp-btn" disabled={busy} on:click={() => goToStep(at - 1)}>{t('Back')}</button>{/if}
+        {#if at > 0}<button type="button" class="sp-btn" disabled={busy} onclick={() => goToStep(at - 1)}>{t('Back')}</button>{/if}
         {#if current === 'folders'}
-          <button type="button" class="sp-btn" disabled={busy} on:click={skipFolders}>{t('Skip for now')}</button>
+          <button type="button" class="sp-btn" disabled={busy} onclick={skipFolders}>{t('Skip for now')}</button>
         {/if}
         {#if current !== 'done'}
-          <button type="button" class="sp-btn pri" disabled={!canContinue || busy} on:click={next}>{busy ? t('Saving…') : t('Continue')}</button>
+          <button type="button" class="sp-btn pri" disabled={!canContinue || busy} onclick={next}>{busy ? t('Saving…') : t('Continue')}</button>
         {/if}
       </div>
     </section>

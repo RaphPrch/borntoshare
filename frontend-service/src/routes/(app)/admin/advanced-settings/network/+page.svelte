@@ -9,13 +9,19 @@
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
 
-  export let data: { configured: DnsDomain[]; proposed: DnsDomain[]; failed: boolean };
+  interface Props {
+    data: { configured: DnsDomain[]; proposed: DnsDomain[]; failed: boolean };
+  }
+
+  let { data }: Props = $props();
 
   type Row = { domain: string; servers: string };
   const toRows = (list: DnsDomain[]): Row[] => list.map((entry) => ({ domain: entry.domain, servers: entry.servers.join(', ') }));
-  let rows: Row[] = toRows(data.configured);
-  let saved = JSON.stringify(rows);
-  let saving = false;
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let rows = $state<Row[]>(toRows(data.configured));
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let saved = $state(JSON.stringify(rows));
+  let saving = $state(false);
 
   const domainOk = (value: string) => /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(value.trim());
   const ipOk = (value: string) => /^(\d{1,3}\.){3}\d{1,3}$/.test(value) && value.split('.').every((part) => Number(part) <= 255);
@@ -27,12 +33,12 @@
     if (!list.length || list.length > 3 || !list.every(ipOk)) return t('From 1 to 3 DNS servers, given by IP address.');
     return null;
   };
-  $: errors = rows.map(rowError);
-  $: dirty = JSON.stringify(rows) !== saved;
+  let errors = $derived(rows.map(rowError));
+  let dirty = $derived(JSON.stringify(rows) !== saved);
   guardUnsaved(() => dirty);
-  $: canSave = dirty && !saving && errors.every((error) => !error);
+  let canSave = $derived(dirty && !saving && errors.every((error) => !error));
   // The domains a directory proposes and that no line replaces
-  $: proposedOnly = data.proposed.filter((entry) => !rows.some((row) => row.domain.trim().toLowerCase() === entry.domain));
+  let proposedOnly = $derived(data.proposed.filter((entry) => !rows.some((row) => row.domain.trim().toLowerCase() === entry.domain)));
 
   function add(entry?: DnsDomain) {
     rows = [...rows, entry ? { domain: entry.domain, servers: entry.servers.join(', ') } : { domain: '', servers: '' }];
@@ -52,9 +58,9 @@
     }
   }
 
-  let testName = '';
-  let testing = false;
-  let testResult: { ok: boolean; text: string } | null = null;
+  let testName = $state('');
+  let testing = $state(false);
+  let testResult: { ok: boolean; text: string } | null = $state(null);
 
   async function testResolution() {
     if (!testName.trim() || testing) return;
@@ -101,14 +107,14 @@
             <input class="b2s-input mono" aria-label={t('DNS servers')} placeholder="172.20.3.86" bind:value={row.servers} />
             {#if (row.domain || row.servers) && errors[index]}<small class="error">{errors[index]}</small>{/if}
           </td>
-          <td class="end"><button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" aria-label={t('Remove {name}', { name: row.domain })} on:click={() => (rows = rows.filter((_, i) => i !== index))}>{t('Remove')}</button></td>
+          <td class="end"><button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" aria-label={t('Remove {name}', { name: row.domain })} onclick={() => (rows = rows.filter((_, i) => i !== index))}>{t('Remove')}</button></td>
         </tr>
       {/each}
       {#each proposedOnly as entry (entry.domain)}
         <tr class="proposed">
           <td class="mono">{entry.domain}</td>
           <td><span class="mono">{entry.servers.join(', ')}</span> <StatusBadge compact showDot={false} variant="info" label={t('Proposed by the directory {name}', { name: entry.source ?? '' })} /></td>
-          <td class="end"><button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => add(entry)}>{t('Set')}</button></td>
+          <td class="end"><button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => add(entry)}>{t('Set')}</button></td>
         </tr>
       {/each}
       {#if !rows.length && !proposedOnly.length}
@@ -118,15 +124,15 @@
   </table>
   {#if proposedOnly.length}<p class="note">{t('A domain proposed by a directory is only asked for the names the usual DNS does not know. Set it to use it first.')}</p>{/if}
   <div class="actions">
-    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => add()}>{t('Add a domain')}</button>
-    <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={!canSave} on:click={save}>{saving ? t('Saving…') : t('Save')}</button>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => add()}>{t('Add a domain')}</button>
+    <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={!canSave} onclick={save}>{saving ? t('Saving…') : t('Save')}</button>
   </div>
 </ConfigCard>
 
 <ConfigCard title={t('Test a name')} icon="bi-search" subtitle={t('Resolved by the worker, as for an SMB, LDAP or DFS access.')}>
   <div class="test">
-    <input class="b2s-input mono" aria-label={t('Name to test')} placeholder="FILER01" bind:value={testName} on:keydown={(event) => event.key === 'Enter' && testResolution()} />
-    <button type="button" class="b2s-btn b2s-btn-secondary" disabled={!testName.trim() || testing} on:click={testResolution}>{testing ? t('Resolving…') : t('Resolve from the worker')}</button>
+    <input class="b2s-input mono" aria-label={t('Name to test')} placeholder="FILER01" bind:value={testName} onkeydown={(event) => event.key === 'Enter' && testResolution()} />
+    <button type="button" class="b2s-btn b2s-btn-secondary" disabled={!testName.trim() || testing} onclick={testResolution}>{testing ? t('Resolving…') : t('Resolve from the worker')}</button>
   </div>
   {#if testResult}<InlineAlert tone={testResult.ok ? 'success' : 'error'}>{testResult.text}</InlineAlert>{/if}
   {#if dirty}<small class="muted">{t('Save first: the test uses the saved settings.')}</small>{/if}

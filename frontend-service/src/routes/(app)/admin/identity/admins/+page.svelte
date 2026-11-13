@@ -5,18 +5,23 @@
   import { toast } from '$lib/stores/toast';
   import { t } from '$lib/i18n';
 
-  /**
+  
+  interface Props {
+    /**
    * Who administers BornToShare: each path to the role (local account, directory account, directory group) drawn
    * as a flow towards the role, the people it gives the role to, and the fixes to apply in one click (undo kept).
    */
-  export let data: Record<string, any>;
-  $: admins = (data.admins ?? { direct: [], groups: [], effective: 0, issues: [] }) as PlatformAdmins;
+    data: Record<string, any>;
+  }
+
+  let { data }: Props = $props();
+  let admins = $derived((data.admins ?? { direct: [], groups: [], effective: 0, issues: [] }) as PlatformAdmins);
   // Nobody disables or demotes their own account (the server refuses it too)
-  $: meId = Number(data.user?.id ?? 0);
+  let meId = $derived(Number(data.user?.id ?? 0));
 
   type Path = { key: string; initials: string; name: string; sub: string; kind: 'local' | 'ad' | 'group'; off: boolean; href: string | null };
   const initials = (text: string) => text.split(/[ .\-_]/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
-  $: paths = [
+  let paths = $derived([
     ...admins.direct.map((person): Path => ({
       key: `u${person.id}`, initials: initials(person.name), name: person.name,
       sub: `${person.username} · ${person.source_name ?? (person.auth_source === 'local' ? 'Local' : '')}`,
@@ -27,10 +32,10 @@
       sub: `${group.source_name ?? ''} · ${group.members.length ? t('members: {names}', { names: group.members.map((m) => m.username).join(', ') }) : t('no member in BornToShare')}`,
       kind: 'group', off: false, href: null
     }))
-  ];
+  ]);
   const KIND = () => ({ local: { label: t('local account'), tone: 'is-local' }, ad: { label: t('direct role'), tone: 'is-direct' }, group: { label: t('directory group'), tone: 'is-group' } });
 
-  let busy = false;
+  let busy = $state(false);
   async function apply(change: () => Promise<unknown>, text: string, revert: () => Promise<unknown>) {
     if (busy) return;
     busy = true;
@@ -93,7 +98,7 @@
           {#if issue.code === 'DIRECT_AND_GROUP'}
             <strong>{t('{name} is an administrator twice', { name: issue.name ?? '' })}</strong>
             <p>{t('Directly and through a directory group. The direct role would survive their leaving the group: remove it so that the directory decides alone.')}</p>
-            {#if issue.identity_id !== meId}<button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} on:click={() => issue.identity_id && removeDirect(issue.identity_id, issue.name ?? '')}>{t('Remove the direct role')}</button>{/if}
+            {#if issue.identity_id !== meId}<button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} onclick={() => issue.identity_id && removeDirect(issue.identity_id, issue.name ?? '')}>{t('Remove the direct role')}</button>{/if}
           {:else if issue.code === 'SEVERAL_LOCAL_ADMINS'}
             <strong>{t('{count} local administrator accounts', { count: issue.identities?.length ?? 0 })}</strong>
             <p>{t('A local account is the fallback when the directory no longer answers. Keep one, password in a vault, and disable the others.')}</p>
@@ -102,7 +107,7 @@
                 {#if person.id === meId}
                   <span class="ad__me">{t('{name} (you)', { name: person.name })}</span>
                 {:else}
-                  <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} on:click={() => disableLocal(person.id, person.name)}>{t('Disable {name}', { name: person.name })}</button>
+                  <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} onclick={() => disableLocal(person.id, person.name)}>{t('Disable {name}', { name: person.name })}</button>
                 {/if}
               {/each}
             </div>

@@ -1,26 +1,43 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import { t } from '$lib/i18n';
   import { timeAgo } from '$lib/utils/format';
   import { previewRootGroups } from '$lib/api/naming-policies';
   import type { ZoneSummary } from '$lib/components/zones/zone-summary';
 
-  /**
+  
+  interface Props {
+    /**
    * Overview of a zone in cards: its servers (file servers and DFS namespaces), its folders to review,
    * its governance (OU, naming, gaps, guardians, directories) (its activity has its own tab).
    */
-  export let zoneId: number | null = null;
-  export let summary: ZoneSummary;
-  export let namingTemplateLabel = '';
-  export let provisioningOu = '';
-  export let directories: string[] = [];
-  export let activity: any[] = [];
-  export let onOpenEndpoint: ((endpointId: number) => void) | null = null;
-  export let onOpenProvisioning: (() => void) | null = null;
-  export let onAddServer: (() => void) | null = null;
+    zoneId?: number | null;
+    summary: ZoneSummary;
+    namingTemplateLabel?: string;
+    provisioningOu?: string;
+    directories?: string[];
+    activity?: any[];
+    onOpenEndpoint?: ((endpointId: number) => void) | null;
+    onOpenProvisioning?: (() => void) | null;
+    onAddServer?: (() => void) | null;
+  }
+
+  let {
+    zoneId = null,
+    summary,
+    namingTemplateLabel = '',
+    provisioningOu = '',
+    directories = [],
+    activity = [],
+    onOpenEndpoint = null,
+    onOpenProvisioning = null,
+    onAddServer = null
+  }: Props = $props();
 
   type Filter = 'all' | 'bad' | 'filer' | 'dfs';
-  let query = '';
-  let filter: Filter = 'all';
+  let query = $state('');
+  let filter = $state<Filter>('all');
 
   const STATE: Record<string, { label: () => string; tone: string }> = {
     reachable: { label: () => t('Reachable'), tone: 'ok' },
@@ -30,22 +47,11 @@
     unknown: { label: () => t('Not tested'), tone: 'n' }
   };
 
-  $: servers = summary.servers;
-  $: segments = [
-    { key: 'all' as Filter, label: t('All'), count: servers.length },
-    { key: 'bad' as Filter, label: t('Unreachable'), count: summary.unreachable.length },
-    { key: 'filer' as Filter, label: t('Files'), count: summary.files.length },
-    { key: 'dfs' as Filter, label: t('DFS'), count: summary.dfs.length }
-  ].filter((segment) => segment.key === 'all' || segment.count > 0);
-  $: visible = servers
-    .filter((server) => filter === 'all' || (filter === 'bad' ? server.state === 'unreachable' : filter === 'dfs' ? server.dfs : !server.dfs))
-    .filter((server) => `${server.name} ${server.host}`.toLowerCase().includes(query.trim().toLowerCase()));
 
   // An example of group name and the gaps to the saved rule, read once per zone and rule
-  let example = '';
-  let gaps = 0;
-  let exampleKey = '';
-  $: if (zoneId && `${zoneId}|${namingTemplateLabel}` !== exampleKey) void loadExample(`${zoneId}|${namingTemplateLabel}`);
+  let example = $state('');
+  let gaps = $state(0);
+  let exampleKey = $state('');
   async function loadExample(key: string) {
     exampleKey = key;
     try {
@@ -59,25 +65,41 @@
     }
   }
 
-  $: lastChange = activity[0] ?? null;
+  let servers = $derived(summary.servers);
+  let segments = $derived([
+    { key: 'all' as Filter, label: t('All'), count: servers.length },
+    { key: 'bad' as Filter, label: t('Unreachable'), count: summary.unreachable.length },
+    { key: 'filer' as Filter, label: t('Files'), count: summary.files.length },
+    { key: 'dfs' as Filter, label: t('DFS'), count: summary.dfs.length }
+  ].filter((segment) => segment.key === 'all' || segment.count > 0));
+  let visible = $derived(servers
+    .filter((server) => filter === 'all' || (filter === 'bad' ? server.state === 'unreachable' : filter === 'dfs' ? server.dfs : !server.dfs))
+    .filter((server) => `${server.name} ${server.host}`.toLowerCase().includes(query.trim().toLowerCase())));
+  $effect.pre(() => {
+    if (zoneId && `${zoneId}|${namingTemplateLabel}` !== exampleKey) {
+      const k = `${zoneId}|${namingTemplateLabel}`;
+      untrack(() => void loadExample(k));
+    }
+  });
+  let lastChange = $derived(activity[0] ?? null);
 </script>
 
 <div class="zo">
   <div class="zo__col">
     <section class="zo__card" aria-label={t('Servers of the zone')}>
-      <header><h2>{t('Servers of the zone')}</h2>{#if onAddServer}<button type="button" class="b2s-link-btn" on:click={onAddServer}>+ {t('Add')}</button>{/if}</header>
+      <header><h2>{t('Servers of the zone')}</h2>{#if onAddServer}<button type="button" class="b2s-link-btn" onclick={onAddServer}>+ {t('Add')}</button>{/if}</header>
       {#if servers.length}
         <div class="zo__tools">
           <input class="b2s-input" type="search" aria-label={t('Filter the servers')} placeholder={t('Filter the servers…')} bind:value={query} />
           <div class="zo__seg" role="group" aria-label={t('Filter by state')}>
             {#each segments as segment (segment.key)}
-              <button type="button" class:on={filter === segment.key} aria-pressed={filter === segment.key} on:click={() => (filter = segment.key)}>{segment.label}<span>{segment.count}</span></button>
+              <button type="button" class:on={filter === segment.key} aria-pressed={filter === segment.key} onclick={() => (filter = segment.key)}>{segment.label}<span>{segment.count}</span></button>
             {/each}
           </div>
         </div>
         {#each visible as server (server.id)}
           {@const state = server.dfs ? { label: () => t('Namespace'), tone: 'r' } : STATE[server.state]}
-          <button type="button" class="zo__srv" on:click={() => onOpenEndpoint?.(server.id)}>
+          <button type="button" class="zo__srv" onclick={() => onOpenEndpoint?.(server.id)}>
             <i class={`bi ${server.dfs ? 'bi-diagram-3' : 'bi-hdd-network'}`} aria-hidden="true"></i>
             <span class="zo__name"><strong>{server.name}</strong><small class="mono">{server.host}</small></span>
             <span class="zo__health">
@@ -107,7 +129,7 @@
 
   <div class="zo__col">
     <section class="zo__card" aria-label={t('Governance')}>
-      <header><h2>{t('Governance')}</h2>{#if onOpenProvisioning}<button type="button" class="b2s-link-btn" on:click={onOpenProvisioning}>{t('Provisioning')} ›</button>{/if}</header>
+      <header><h2>{t('Governance')}</h2>{#if onOpenProvisioning}<button type="button" class="b2s-link-btn" onclick={onOpenProvisioning}>{t('Provisioning')} ›</button>{/if}</header>
       <dl>
         <div><dt>{t('OU of the groups')}</dt><dd class="mono">{provisioningOu || t('Default OU of the directory')}</dd></div>
         <div><dt>{t('Naming')}</dt><dd><span class="mono">{namingTemplateLabel || t('Not set')}</span>{#if example}<small>{t('Example: {name}', { name: example })}</small>{/if}</dd></div>

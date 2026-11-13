@@ -1,4 +1,5 @@
 <script lang="ts">
+
   import { fivesEnabled } from '$lib/utils/features';
   import { onDestroy, onMount } from 'svelte';
   import { page } from '$app/stores';
@@ -23,13 +24,12 @@
   type Settings = { schedule_enabled: boolean; window_start: string; window_end: string; per_server: number; interval_days: number; full_every_days: number; hash_files_max: number };
   type Data = { runs: Run[]; counts: Record<string, number>; scanners: Array<{ id: string; last_seen: string }>; settings: Settings; in_window: boolean };
 
-  let data: Data | null = null;
-  let error = '';
-  let form: Settings | null = null;
-  let busy = false;
-  let filter: 'active' | 'all' = 'active';
+  let data = $state<Data | null>(null);
+  let error = $state('');
+  let form = $state<Settings | null>(null);
+  let busy = $state(false);
+  let filter = $state<'active' | 'all'>('active');
   let timer: ReturnType<typeof setInterval> | null = null;
-  $: isAdmin = ($page.data as any)?.me?.is_admin === true;
 
   async function load() {
     try {
@@ -50,10 +50,7 @@
 
   // Long queues (a first planning of hundreds of folders) are shown 20 at a time
   const PAGE = 20;
-  let showAll = false;
-  $: if (filter) showAll = false;
-  $: shown = showAll ? runs : runs.slice(0, PAGE);
-  $: runs = (data?.runs ?? []).filter((run) => filter === 'all' || run.status === 'queued' || run.status === 'running');
+  let showAll = $state(false);
   const STATUS = (): Record<string, string> => ({ queued: t('Waiting'), running: t('Walking'), done: t('Done'), failed: t('Failed'),
     delegated: t('Through SMB'), cancelled: t('Cancelled') });
   const REASON = (): Record<string, string> => ({ manual: t('asked'), policy: t('policy'), schedule: t('schedule') });
@@ -81,6 +78,12 @@
       reportUiError(failure, 'Unable to cancel the scan.', 'fives.cancel');
     }
   }
+  let isAdmin = $derived(($page.data as any)?.me?.is_admin === true);
+  $effect.pre(() => {
+    if (filter) showAll = false;
+  });
+  let runs = $derived((data?.runs ?? []).filter((run) => filter === 'all' || run.status === 'queued' || run.status === 'running'));
+  let shown = $derived(showAll ? runs : runs.slice(0, PAGE));
 </script>
 
 <section class="b2s-page b2s-page--admin sc5">
@@ -112,8 +115,8 @@
       <header>
         <h2>{t('Scans')}</h2>
         <span class="sc5__seg">
-          <button type="button" class:is-on={filter === 'active'} on:click={() => (filter = 'active')}>{t('In progress')}</button>
-          <button type="button" class:is-on={filter === 'all'} on:click={() => (filter = 'all')}>{t('Last 7 days')}</button>
+          <button type="button" class:is-on={filter === 'active'} onclick={() => (filter = 'active')}>{t('In progress')}</button>
+          <button type="button" class:is-on={filter === 'all'} onclick={() => (filter = 'all')}>{t('Last 7 days')}</button>
         </span>
       </header>
       {#each shown as run (run.id)}
@@ -132,20 +135,20 @@
               <small class="sc5__err">{run.error}</small>
             {/if}
           </span>
-          {#if isAdmin && run.status === 'queued'}<button type="button" class="b2s-link-btn" on:click={() => cancel(run)}>{t('Cancel')}</button>{/if}
+          {#if isAdmin && run.status === 'queued'}<button type="button" class="b2s-link-btn" onclick={() => cancel(run)}>{t('Cancel')}</button>{/if}
         </div>
       {:else}
         <p class="sc5__empty">{filter === 'active' ? t('Nothing in progress: the scanner waits.') : t('No scan in the last 7 days.')}</p>
       {/each}
       {#if runs.length > shown.length}
-        <button type="button" class="b2s-link-btn sc5__more" on:click={() => (showAll = true)}>{t('Show the {count} others', { count: runs.length - shown.length })}</button>
+        <button type="button" class="b2s-link-btn sc5__more" onclick={() => (showAll = true)}>{t('Show the {count} others', { count: runs.length - shown.length })}</button>
       {/if}
     </section>
 
     {#if isAdmin && form}
       <section class="sc5__card" aria-label={t('Settings')}>
         <header><h2>{t('Settings')}</h2></header>
-        <form class="sc5__form" on:submit|preventDefault={save}>
+        <form class="sc5__form" onsubmit={(event) => { event.preventDefault(); save(); }}>
           <label class="sc5__check"><input type="checkbox" bind:checked={form.schedule_enabled} /> {t('Scan every folder on schedule')}</label>
           <label>{t('Window from')}<input class="b2s-input" type="time" bind:value={form.window_start} /></label>
           <label>{t('to')}<input class="b2s-input" type="time" bind:value={form.window_end} /></label>

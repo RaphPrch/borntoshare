@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { preventDefault } from 'svelte/legacy';
 
   import { onMount } from 'svelte';
   import { invalidateAll } from '$app/navigation';
@@ -95,7 +94,7 @@
 
     <section class="ft__card" aria-label={t('License key')}>
       <header><h2>{t('License key')}</h2><small>{t('Checked here, without any connection: nothing leaves BornToShare.')}</small></header>
-      <form class="ft__key" onsubmit={preventDefault(activate)}>
+      <form class="ft__key" onsubmit={(event) => { event.preventDefault(); activate(); }}>
         <textarea class="b2s-input" rows="3" bind:value={key} spellcheck="false" autocomplete="off" placeholder="B2S-AAAAA-BBBBB-…"
           aria-label={t('License key')}></textarea>
         <button type="submit" class="b2s-btn b2s-btn-primary" disabled={busy || key.trim().length < 20}><i class="bi bi-key" aria-hidden="true"></i>{t('Activate')}</button>

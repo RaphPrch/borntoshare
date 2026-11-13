@@ -1,6 +1,6 @@
 <script lang="ts">
   import PoliciesPage from './PoliciesPage.svelte';
-  export let data;
+  let { data } = $props();
 </script>
 
 <PoliciesPage {data} />

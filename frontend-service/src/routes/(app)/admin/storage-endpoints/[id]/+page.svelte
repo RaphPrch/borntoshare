@@ -110,13 +110,13 @@
   let { data }: Props = $props();
 
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let endpoints: any[] = $state(Array.isArray(data.endpoints) ? data.endpoints : []);
+  let endpoints = $state<any[]>(Array.isArray(data.endpoints) ? data.endpoints : []);
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let roots: any[] = $state(Array.isArray(data.roots) ? data.roots : []);
+  let roots = $state<any[]>(Array.isArray(data.roots) ? data.roots : []);
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let activity: any[] = $state(Array.isArray(data.activity) ? data.activity : []);
+  let activity = $state<any[]>(Array.isArray(data.activity) ? data.activity : []);
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let pendingRequests: any[] = $state(Array.isArray(data.pendingRequests) ? data.pendingRequests : []);
+  let pendingRequests = $state<any[]>(Array.isArray(data.pendingRequests) ? data.pendingRequests : []);
 
 
   const norm = (v?: string | null) => (v ?? '').toLowerCase().trim();
@@ -157,13 +157,13 @@
   };
 
   type HealthValue = 'healthy' | 'degraded' | 'unhealthy' | 'unknown';
-  let endpointHealthById: Record<string, HealthValue> = $state({});
-  let rootHealthByEndpointId: Record<string, Record<string, HealthValue>> = $state({});
+  let endpointHealthById = $state<Record<string, HealthValue>>({});
+  let rootHealthByEndpointId = $state<Record<string, Record<string, HealthValue>>>({});
   let rootAvailabilityRowsByEndpointId: Record<string, StorageRootAvailabilitySummary['rows']> = {};
-  let healthLoadingByEndpointId: Record<string, string> = $state({});
-  let manualHealthRefreshByEndpointId: Record<string, boolean> = $state({});
-  let probingEndpointId: number | null = $state(null);
-  let healthLoadedForEndpointId: number | null = $state(null);
+  let healthLoadingByEndpointId = $state<Record<string, string>>({});
+  let manualHealthRefreshByEndpointId = $state<Record<string, boolean>>({});
+  let probingEndpointId = $state<number | null>(null);
+  let healthLoadedForEndpointId = $state<number | null>(null);
 
   function statusToHealth(status: string): HealthValue {
     const normalized = String(status ?? '').toLowerCase().trim();
@@ -271,9 +271,9 @@
 
 
 
-  let openEditHandledFor: number | null = $state(null);
+  let openEditHandledFor = $state<number | null>(null);
 
-  let openShareHandledFor: number | null = $state(null);
+  let openShareHandledFor = $state<number | null>(null);
 
   // A disabled server takes nothing new (folders, shares, requests); one with folders cannot be deleted
   const endpointInactive = (ep: any): boolean =>
@@ -281,7 +281,7 @@
   const endpointFolderCount = (ep: any): number => rootsForEndpoint(ep).length;
 
   // Right click on a server of the list
-  let menuEndpoint: any | null = $state(null);
+  let menuEndpoint = $state<any | null>(null);
   let menuAt = $state({ x: 0, y: 0 });
   function openEndpointMenu(ep: any, event: MouseEvent) {
     const anchor = event.currentTarget as HTMLElement | null;
@@ -322,11 +322,11 @@
   let namespacePath = $state('');
 
   // A DFS namespace: its DFS folders, read here so that the tiles, « To do » and the list share them
-  let dfsInfo: DfsInfo | null = $state(null);
+  let dfsInfo = $state<DfsInfo | null>(null);
   let dfsLoading = $state(false);
   let dfsError = $state('');
   let dfsReading = $state(false);
-  let dfsBusy: Record<string, boolean> = $state({});
+  let dfsBusy = $state<Record<string, boolean>>({});
   let dfsLoadedFor = $state(0);
 
   async function loadDfs(id: number) {
@@ -381,14 +381,14 @@
     }
   }
 
-  let dfsSteps: EntityTodoStep[] = $state([]);
+  let dfsSteps = $state<EntityTodoStep[]>([]);
   // Last change made by a person (creation, edit…), shown in the Connection card
-  let activeEndpointTab: EndpointTabKey = $state('overview');
+  let activeEndpointTab = $state<EndpointTabKey>('overview');
 
   let endpointProvisioningBusy = $state(false);
-  let endpointProvisioningError: string | null = $state(null);
-  let endpointProvisioningPolicy: StorageEndpointProvisioningPolicy | null = $state(null);
-  let endpointProvisioningLoadedForId: number | null = $state(null);
+  let endpointProvisioningError = $state<string | null>(null);
+  let endpointProvisioningPolicy = $state<StorageEndpointProvisioningPolicy | null>(null);
+  let endpointProvisioningLoadedForId = $state<number | null>(null);
 
   let endpointProvisioningDraft: {
     policyMode: 'inherit' | 'override';
@@ -400,7 +400,7 @@
     namingTemplate: ''
   });
 
-  let lastSelectedEndpointIdForTabReset: number | null = $state(null);
+  let lastSelectedEndpointIdForTabReset = $state<number | null>(null);
 
   const selectedEndpointId = () => endpointId(selected);
 
@@ -720,7 +720,7 @@
   let showShareModal = $state(false);
   // A server declared by its address that no longer answers: does its name lead elsewhere now (VM restarted…)?
   let movedTo: { endpointId: number; address: string } | null = $state(null);
-  let suggestedHost: string | null = $state(null);
+  let suggestedHost = $state<string | null>(null);
   let movedCheckedFor = $state(0);
   const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
 
@@ -749,7 +749,7 @@
   let showRereadConfirm = $state(false);
   let rereadBusy = $state(false);
   let deleteBusy = $state(false);
-  let endpointToDelete: any | null = $state(null);
+  let endpointToDelete = $state<any | null>(null);
 
   function openDeleteModal(ep: any) {
     if (!ep) return;

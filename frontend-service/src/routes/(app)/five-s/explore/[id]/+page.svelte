@@ -1,7 +1,8 @@
 <script lang="ts">
+
   import TagPill from '$lib/components/tags/TagPill.svelte';
   import { copyText } from '$lib/utils/clipboard';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
   import { apiGetData, apiGetList, apiPostData } from '$lib/api/client';
@@ -29,43 +30,45 @@
   type Copy = { path: string; modified: string | null };
   type Group = { fingerprint: string; size: number; wasted: number; copies: Copy[]; decision: { keep_path: string | null } | null };
   type ScorePoint = { measured_at: string; score: number; seiri: number; seiton: number; seiso: number; seiketsu: number; shitsuke: number };
-  let history: ScorePoint[] = [];
+  let history = $state<ScorePoint[]>([]);
   type Scanner = { last: any; running: any; pieces: number; journal: boolean; last_full_at: string | null; window: any };
 
-  let rootName = '';
-  let rootPath = '';
-  let junk: { bytes: number; files: number } = { bytes: 0, files: 0 };
-  let scanner: Scanner | null = null;
-  let groups: Group[] = [];
-  let level: Level | null = null;
-  let trail: Folder[] = [];
-  let selected: Folder | null = null;
-  let loading = true;
-  let busy = false;
-  let error: string | null = null;
-  let view: 'explorer' | 'workshop' = 'explorer';
-  let filter: 'all' | 'dormant' | 'dups' | 'broken' = 'all';
+  let rootName = $state('');
+  let rootPath = $state('');
+  let junk: { bytes: number; files: number } = $state({ bytes: 0, files: 0 });
+  let scanner = $state<Scanner | null>(null);
+  let groups = $state<Group[]>([]);
+  let level = $state<Level | null>(null);
+  let trail = $state<Folder[]>([]);
+  let selected = $state<Folder | null>(null);
+  let loading = $state(true);
+  let busy = $state(false);
+  let error = $state<string | null>(null);
+  let view = $state<'explorer' | 'workshop'>('explorer');
+  let filter = $state<'all' | 'dormant' | 'dups' | 'broken'>('all');
 
-  $: rootId = Number($page.params.id);
+  let rootId = $derived(Number($page.params.id));
   const NOW = Date.now();
   const YEAR = 365 * 86400000;
   const load = (path: string | null) =>
     apiGetData<Level>(fetch, `/modules/fives/storage-roots/${rootId}/folders`, path == null ? undefined : { path });
 
   // ---- tags of the sub-folders (policies « also on the sub-folders »), by lower-case path from the share ----
-  let folderTags = new Map<string, Array<{ id: number; name: string; color: string | null }>>();
-  $: if (rootId) void apiGetList<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }>(fetch, `/storage-roots/${rootId}/folder-tags`)
-    .then((rows) => (folderTags = new Map(rows.map((row) => [row.path.toLowerCase(), row.tags]))))
-    .catch(() => null);
+  let folderTags = $state(new Map<string, Array<{ id: number; name: string; color: string | null }>>());
+  $effect.pre(() => {
+    if (rootId) void apiGetList<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }>(fetch, `/storage-roots/${rootId}/folder-tags`)
+      .then((rows) => (folderTags = new Map(rows.map((row) => [row.path.toLowerCase(), row.tags]))))
+      .catch(() => null);
+  });
 
   // ---- the files of the open folder, as they are now on the file server (read by a worker) ----
   // The inventory of the module only knows the files fingerprinted for the duplicates: it stays as the fallback.
   type LiveListing = { folders: string[]; files: Array<{ n: string; s: number; t: string | null }>; files_total: number };
-  let liveFor: string | null = null;
-  let liveFiles: FileRow[] | null = null;
-  let liveTotal = 0;
-  let liveState: 'idle' | 'loading' | 'ok' | 'failed' = 'idle';
-  let liveError = '';
+  let liveFor = $state<string | null>(null);
+  let liveFiles = $state<FileRow[] | null>(null);
+  let liveTotal = $state(0);
+  let liveState = $state<'idle' | 'loading' | 'ok' | 'failed'>('idle');
+  let liveError = $state('');
   let liveSeq = 0;
   async function loadLive(path: string) {
     const seq = ++liveSeq;
@@ -85,7 +88,12 @@
       liveError = error instanceof Error ? error.message : '';
     }
   }
-  $: if (level?.node && level.node.path !== liveFor) void loadLive(level.node.path);
+  $effect.pre(() => {
+    if (level?.node && level.node.path !== liveFor) {
+      const path = level.node.path;
+      untrack(() => void loadLive(path));
+    }
+  });
 
   onMount(async () => {
     try {
@@ -145,47 +153,47 @@
 
   // ---- figures ------------------------------------------------------------------------------------------------
   const SYSTEM = /^(AUTORITE NT|NT AUTHORITY|BUILTIN|CREATOR|CREATEUR|Tout le monde|Everyone)/i;
-  $: root = trail[0] ?? null;
-  $: current = level?.node ?? null;
+  let root = $derived(trail[0] ?? null);
+  let current = $derived(level?.node ?? null);
   const under = (path: string, folder: string) => !folder || path.toLowerCase().startsWith(folder.toLowerCase() + '\\');
   const share = (part: number, whole: number) => (whole > 0 ? part / whole : 0);
   const pct = (part: number, whole: number) => Math.round(share(part, whole) * 100);
   const dormant = (folder: Folder) => Boolean(folder.last_access) && NOW - new Date(String(folder.last_access)).getTime() > 2 * YEAR;
   const groupsUnder = (path: string) => groups.filter((group) => group.copies.some((copy) => under(copy.path, path)));
-  $: wasted = groups.reduce((sum, group) => sum + group.wasted, 0);
-  $: decided = groups.filter((group) => group.decision?.keep_path).length;
-  $: children = level?.children ?? [];
-  $: brokenHere = children.filter((folder) => folder.inheritance_broken);
-  $: explicitHere = children.filter((folder) => (folder.acl ?? []).some((ace) => !ace.inherited && !SYSTEM.test(ace.who)));
-  $: dormantBytes = children.filter(dormant).reduce((sum, folder) => sum + folder.bytes, 0);
+  let wasted = $derived(groups.reduce((sum, group) => sum + group.wasted, 0));
+  let decided = $derived(groups.filter((group) => group.decision?.keep_path).length);
+  let children = $derived(level?.children ?? []);
+  let brokenHere = $derived(children.filter((folder) => folder.inheritance_broken));
+  let explicitHere = $derived(children.filter((folder) => (folder.acl ?? []).some((ace) => !ace.inherited && !SYSTEM.test(ace.who))));
+  let dormantBytes = $derived(children.filter(dormant).reduce((sum, folder) => sum + folder.bytes, 0));
 
   // ---- 5S scores (each one is explained on hover) --------------------------------------------------------------
-  $: seiri = root ? Math.round(100 * (1 - Math.min(1, 0.6 * share(root.cold1_bytes, root.bytes) + 4 * share(wasted, root.bytes)))) : 0;
-  $: seiton = root ? Math.round(100 * (1 - Math.min(1, 2 * share(root.direct_files, root.files)))) : 0;
-  $: seiso = root ? Math.round(100 * (1 - Math.min(1, 50 * share(junk.bytes, root.bytes)))) : 0;
-  $: seiketsu = children.length ? Math.round(100 * (1 - Math.min(1, share(brokenHere.length, children.length) + 0.5 * share(explicitHere.length, children.length)))) : 100;
-  $: lastDone = scanner?.last?.finished_at ? new Date(scanner.last.finished_at).getTime() : 0;
-  $: shitsuke = Math.round((lastDone && NOW - lastDone < 30 * 86400000 ? 50 : lastDone ? 25 : 0) + 50 * share(decided, groups.length || 1));
+  let seiri = $derived(root ? Math.round(100 * (1 - Math.min(1, 0.6 * share(root.cold1_bytes, root.bytes) + 4 * share(wasted, root.bytes)))) : 0);
+  let seiton = $derived(root ? Math.round(100 * (1 - Math.min(1, 2 * share(root.direct_files, root.files)))) : 0);
+  let seiso = $derived(root ? Math.round(100 * (1 - Math.min(1, 50 * share(junk.bytes, root.bytes)))) : 0);
+  let seiketsu = $derived(children.length ? Math.round(100 * (1 - Math.min(1, share(brokenHere.length, children.length) + 0.5 * share(explicitHere.length, children.length)))) : 100);
+  let lastDone = $derived(scanner?.last?.finished_at ? new Date(scanner.last.finished_at).getTime() : 0);
+  let shitsuke = $derived(Math.round((lastDone && NOW - lastDone < 30 * 86400000 ? 50 : lastDone ? 25 : 0) + 50 * share(decided, groups.length || 1)));
   // The scores computed by the scanner at each measure (for the whole folder); the browser's own as long as there is none
-  $: latest = history.length ? history[history.length - 1] : null;
-  $: previousScore = history.length > 1 ? history[history.length - 2].score : null;
-  $: pillars = [
+  let latest = $derived(history.length ? history[history.length - 1] : null);
+  let previousScore = $derived(history.length > 1 ? history[history.length - 2].score : null);
+  let pillars = $derived([
     { jp: 'Seiri', fr: t('Sort'), score: latest?.seiri ?? seiri, how: t('Less old data and fewer duplicates: 100 − 60 % × share > 1 year − 4 × share lost to duplicates') },
     { jp: 'Seiton', fr: t('Set in order'), score: latest?.seiton ?? seiton, how: t('Files filed in sub-folders rather than loose at the root') },
     { jp: 'Seiso', fr: t('Shine'), score: latest?.seiso ?? seiso, how: t('Few clutter files (copies, temporary and system files)') },
     { jp: 'Seiketsu', fr: t('Standardise'), score: latest?.seiketsu ?? seiketsu, how: t('Sub-folders that inherit their rights, without accounts added by hand') },
     { jp: 'Shitsuke', fr: t('Sustain'), score: latest?.shitsuke ?? shitsuke, how: t('A recent measure (less than 30 days) and the duplicates decided') }
-  ];
-  $: score = latest?.score ?? Math.round(pillars.reduce((sum, pillar) => sum + pillar.score, 0) / pillars.length);
+  ]);
+  let score = $derived(latest?.score ?? Math.round(pillars.reduce((sum, pillar) => sum + pillar.score, 0) / pillars.length));
   const tone = (value: number) => (value >= 70 ? '#047857' : value >= 45 ? '#B45309' : '#B91C1C');
 
   // ---- workshop: the decisions, from what was measured -----------------------------------------------------
   type Card = { tag: string; tone: string; gain: string; title: string; detail: string; cta: string; href?: string; folder?: Folder; act?: 'archive' | 'inherit' };
 
   // ---- real actions: restore the inheritance (worker, administrators), archive a folder (scanner, reversible) ----
-  $: isAdmin = Boolean(($page.data as any)?.me?.is_admin);
-  let acting = false;
-  let archiving: Folder | null = null;
+  let isAdmin = $derived(Boolean(($page.data as any)?.me?.is_admin));
+  let acting = $state(false);
+  let archiving = $state<Folder | null>(null);
   async function restoreInheritance(folder: Folder) {
     if (acting || !folder.path) return;
     acting = true;
@@ -217,7 +225,7 @@
     }
   }
   // ---- right click on a folder: what the sheet offers, without opening it ----
-  let menu: { folder: Folder; at: { x: number; y: number } } | null = null;
+  let menu: { folder: Folder; at: { x: number; y: number } } | null = $state(null);
   const fullPath = (folder: Folder) => (folder.path ? `${rootPath.replace(/\\$/, '')}\\${folder.path}` : rootPath);
   function openMenu(folder: Folder, event: MouseEvent) {
     event.preventDefault();
@@ -286,7 +294,7 @@
     else if (card.act === 'inherit' && card.folder) void restoreInheritance(card.folder);
     else if (card.folder) { selected = card.folder; view = 'explorer'; }
   }
-  $: columns = [
+  let columns = $derived([
     { key: 'seiri', title: t('Sort (Seiri)'), cards: [
       ...groups.filter((group) => !group.decision?.keep_path).slice(0, 3).map((group): Card => ({
         tag: t('Duplicate'), tone: 'dup', gain: `−${formatBytes(group.wasted)}`,
@@ -310,16 +318,16 @@
       ...explicitHere.filter((folder) => !folder.inheritance_broken).slice(0, 2).map((folder): Card => ({ tag: t('Rights'), tone: 'acl', gain: t('explicit'),
         title: t('Accounts added by hand on « {name} »', { name: folder.name }), detail: t('Prefer the groups of the folder.'), cta: t('See the rights'), folder }))
     ] }
-  ];
-  $: decisions = columns.reduce((sum, column) => sum + column.cards.length, 0);
+  ]);
+  let decisions = $derived(columns.reduce((sum, column) => sum + column.cards.length, 0));
 
   // ---- tree on the left: the path walked from the root, then the sub-folders of the current folder ----------
-  $: treeItems = [
+  let treeItems = $derived([
     ...trail.map((folder, index) => ({ key: `t${index}`, name: index === 0 ? rootName : folder.name, depth: index, bytes: folder.bytes,
       open: true, current: index === trail.length - 1, folder, index })),
     ...children.map((folder) => ({ key: `c${folder.path}`, name: folder.name, depth: trail.length, bytes: folder.bytes,
       open: false, current: false, folder, index: -1 }))
-  ];
+  ]);
   function pickTree(item: { folder: Folder; index: number }) {
     if (item.index >= 0) void up(item.index);
     else if (item.folder.folders > 0) void enter(item.folder);
@@ -327,9 +335,9 @@
   }
 
   // ---- list --------------------------------------------------------------------------------------------------
-  $: rows = children.filter((folder) =>
-    filter === 'all' || (filter === 'dormant' && dormant(folder)) || (filter === 'dups' && groupsUnder(folder.path).length > 0) || (filter === 'broken' && folder.inheritance_broken));
-  $: files = filter === 'all' ? (liveState === 'ok' && liveFiles ? liveFiles : level?.files ?? []) : [];
+  let rows = $derived(children.filter((folder) =>
+    filter === 'all' || (filter === 'dormant' && dormant(folder)) || (filter === 'dups' && groupsUnder(folder.path).length > 0) || (filter === 'broken' && folder.inheritance_broken)));
+  let files = $derived(filter === 'all' ? (liveState === 'ok' && liveFiles ? liveFiles : level?.files ?? []) : []);
   const rights = (folder: Folder) =>
     folder.acl == null ? { label: t('not read yet'), tone: 'none' }
       : folder.inheritance_broken ? { label: t('Broken'), tone: 'warn' }
@@ -337,7 +345,7 @@
   const FILTERS = (): Array<[typeof filter, string]> => [['all', t('All')], ['dormant', t('Not opened for 2 years')], ['dups', t('With duplicates')], ['broken', t('Broken inheritance')]];
 
   // ---- sheet of the folder chosen -----------------------------------------------------------------------------
-  $: sheetGroups = selected ? groupsUnder(selected.path).slice(0, 3) : [];
+  let sheetGroups = $derived(selected ? groupsUnder(selected.path).slice(0, 3) : []);
   /** The copy to keep: not a « copy », not in a download or backup folder, then the most recently changed */
   function suggestion(group: Group): string {
     const weak = /(copie|copy|\(\d+\)|download|t[ée]l[ée]chargement|backup|tmp|temp)/i;
@@ -345,7 +353,7 @@
       Number(weak.test(a.path)) - Number(weak.test(b.path)) || String(b.modified ?? '').localeCompare(String(a.modified ?? '')) || a.path.length - b.path.length);
     return group.decision?.keep_path ?? ranked[0]?.path ?? '';
   }
-  $: chain = trail.map((folder) => ({ name: folder.name || rootName, broken: folder.inheritance_broken === true }));
+  let chain = $derived(trail.map((folder) => ({ name: folder.name || rootName, broken: folder.inheritance_broken === true })));
   const LEVEL = (): Record<string, string> => ({ F: t('Full control'), W: t('Modify'), R: t('Read') });
   const levelLabel = (value: string) => (value.startsWith('!') ? `${t('Denied')} · ` : '') + (LEVEL()[value.replace('!', '')] ?? value);
 
@@ -370,7 +378,7 @@
     <span class="fx__links">
       <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/duplicates/${rootId}`}><i class="bi bi-files" aria-hidden="true"></i>{t('Duplicates')}</a>
       <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/report/${rootId}`}><i class="bi bi-file-earmark-text" aria-hidden="true"></i>{t('Report')}</a>
-      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={exportLevel} disabled={!children.length}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={exportLevel} disabled={!children.length}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
     </span>
   </div>
 
@@ -384,19 +392,19 @@
     <header class="fx__head">
       <div>
         <nav class="fx__crumbs" aria-label={t('Path')}>
-          <button type="button" class="fx__up" disabled={busy || trail.length < 2} on:click={() => up(trail.length - 2)}
+          <button type="button" class="fx__up" disabled={busy || trail.length < 2} onclick={() => up(trail.length - 2)}
             title={t('Parent folder (Backspace)')} aria-label={t('Parent folder')}><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
           {#each trail as step, index (step.path + index)}
             {#if index}<i class="bi bi-chevron-right" aria-hidden="true"></i>{/if}
-            <button type="button" class:is-current={index === trail.length - 1} disabled={busy} on:click={() => up(index)}>{index === 0 ? rootName : step.name}</button>
+            <button type="button" class:is-current={index === trail.length - 1} disabled={busy} onclick={() => up(index)}>{index === 0 ? rootName : step.name}</button>
           {/each}
           {#if busy}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{/if}
         </nav>
         <h1>{current.name || rootName}</h1>
       </div>
       <div class="fx__tabs" role="tablist" aria-label={t('View')}>
-        <button type="button" role="tab" aria-selected={view === 'explorer'} class:is-on={view === 'explorer'} on:click={() => (view = 'explorer')}>{t('Explorer')}</button>
-        <button type="button" role="tab" aria-selected={view === 'workshop'} class:is-on={view === 'workshop'} on:click={() => (view = 'workshop')}>{t('5S workshop')}{#if decisions}<span>{decisions}</span>{/if}</button>
+        <button type="button" role="tab" aria-selected={view === 'explorer'} class:is-on={view === 'explorer'} onclick={() => (view = 'explorer')}>{t('Explorer')}</button>
+        <button type="button" role="tab" aria-selected={view === 'workshop'} class:is-on={view === 'workshop'} onclick={() => (view = 'workshop')}>{t('5S workshop')}{#if decisions}<span>{decisions}</span>{/if}</button>
       </div>
     </header>
 
@@ -435,14 +443,14 @@
         {#if view === 'explorer'}
           <div class="fx__filters" role="radiogroup" aria-label={t('Filter')}>
             {#each FILTERS() as [key, label] (key)}
-              <button type="button" class:is-on={filter === key} on:click={() => (filter = key)}>{label}</button>
+              <button type="button" class:is-on={filter === key} onclick={() => (filter = key)}>{label}</button>
             {/each}
           </div>
           <div class="fx__split">
           <nav class="fx__tree" aria-label={t('Tree')}>
             {#each treeItems as item (item.key)}
               <button type="button" class:is-current={item.current} class:is-sel={selected === item.folder} style={`padding-left:${10 + item.depth * 14}px`}
-                on:click={() => pickTree(item)} on:contextmenu={(event) => openMenu(item.folder, event)} title={item.folder.path || rootPath}>
+                onclick={() => pickTree(item)} oncontextmenu={(event) => openMenu(item.folder, event)} title={item.folder.path || rootPath}>
                 <i class={`bi ${item.open ? 'bi-folder2-open' : item.folder.folders > 0 ? 'bi-folder-fill' : 'bi-folder'}`} aria-hidden="true"></i>
                 <span>{item.name}</span>
                 <small>{formatBytes(item.bytes)}</small>
@@ -459,9 +467,9 @@
                 {#each rows as folder (folder.path)}
                   {@const right = rights(folder)}
                   {@const dups = groupsUnder(folder.path).length}
-                  <tr class:is-sel={selected === folder} on:click={() => (selected = folder)} on:dblclick={() => enter(folder)} on:contextmenu={(event) => openMenu(folder, event)}>
+                  <tr class:is-sel={selected === folder} onclick={() => (selected = folder)} ondblclick={() => enter(folder)} oncontextmenu={(event) => openMenu(folder, event)}>
                     <td class="fx__name"><i class="bi bi-folder-fill" aria-hidden="true"></i>
-                      {#if folder.folders > 0}<button type="button" class="b2s-link-btn" on:click|stopPropagation={() => enter(folder)}>{folder.name}</button>{:else}<span>{folder.name}</span>{/if}
+                      {#if folder.folders > 0}<button type="button" class="b2s-link-btn" onclick={(event) => { event.stopPropagation(); enter(folder); }}>{folder.name}</button>{:else}<span>{folder.name}</span>{/if}
                       {#each folderTags.get(folder.path.toLowerCase()) ?? [] as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} />{/each}</td>
                     <td class="fx__num">{formatBytes(folder.bytes)}</td>
                     <td>{folder.created_at ? formatDate(folder.created_at) : '—'}</td>
@@ -485,10 +493,10 @@
                 {:else if filter === 'all' && liveState === 'failed' && level?.files_source === 'inventory'}
                   <tr class="fx__live is-info"><td colspan="8"><i class="bi bi-clock-history" aria-hidden="true"></i>{t('State of the measure of {date}: the server cannot be read now ({error}).', { date: level.files_at ? formatDateTime(level.files_at) : '—', error: liveError || '—' })}
                     {#if (level.files_total ?? 0) > files.length} {t('The {shown} biggest files of {total} are listed.', { shown: files.length.toLocaleString('fr-FR'), total: (level.files_total ?? 0).toLocaleString('fr-FR') })}{/if}
-                    <button type="button" class="b2s-link-btn" on:click={() => level?.node && loadLive(level.node.path)}>{t('Try again')}</button></td></tr>
+                    <button type="button" class="b2s-link-btn" onclick={() => level?.node && loadLive(level.node.path)}>{t('Try again')}</button></td></tr>
                 {:else if filter === 'all' && liveState === 'failed'}
                   <tr class="fx__live is-warn"><td colspan="8"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{t('Partial list: only the files followed for the duplicates are shown (the server could not be read: {error}).', { error: liveError || '—' })}
-                    <button type="button" class="b2s-link-btn" on:click={() => level?.node && loadLive(level.node.path)}>{t('Try again')}</button></td></tr>
+                    <button type="button" class="b2s-link-btn" onclick={() => level?.node && loadLive(level.node.path)}>{t('Try again')}</button></td></tr>
                 {:else if filter === 'all' && liveState === 'ok' && liveTotal > files.length}
                   <tr class="fx__live"><td colspan="8">{t('The {shown} biggest files of {total} are listed.', { shown: files.length.toLocaleString('fr-FR'), total: liveTotal.toLocaleString('fr-FR') })}</td></tr>
                 {/if}
@@ -527,7 +535,7 @@
                     <b>{card.title}</b>
                     <small>{card.detail}</small>
                     {#if card.href}<a class="b2s-btn b2s-btn-sm b2s-btn-primary" href={card.href}>{card.cta}</a>
-                    {:else if card.folder}<button type="button" class={`b2s-btn b2s-btn-sm ${card.act ? 'b2s-btn-primary' : 'b2s-btn-secondary'}`} disabled={acting} on:click={() => runCard(card)}>{card.cta}</button>{/if}
+                    {:else if card.folder}<button type="button" class={`b2s-btn b2s-btn-sm ${card.act ? 'b2s-btn-primary' : 'b2s-btn-secondary'}`} disabled={acting} onclick={() => runCard(card)}>{card.cta}</button>{/if}
                   </article>
                 {:else}
                   <p class="fx__none">{t('Nothing to decide.')}</p>
@@ -546,7 +554,7 @@
               {#if selected.inheritance_broken}<span class="fx__pill is-warn">{t('Broken inheritance')}</span>{/if}
             </header>
             {#if selected !== current && selected.folders > 0}
-              <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" on:click={() => selected && enter(selected)}><i class="bi bi-box-arrow-in-down-right" aria-hidden="true"></i>{t('Open ({count} sub-folders)', { count: selected.folders })}</button>
+              <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" onclick={() => selected && enter(selected)}><i class="bi bi-box-arrow-in-down-right" aria-hidden="true"></i>{t('Open ({count} sub-folders)', { count: selected.folders })}</button>
             {/if}
             <ol class="fx__time">
               <li><span class="is-c"></span><b>{t('Created')}</b><small>{selected.created_at ? formatDate(selected.created_at) : '—'}</small></li>
@@ -560,7 +568,7 @@
             </dl>
             <p class="fx__path"><code data-copy={fullPath(selected)}>{selected.path || rootPath}</code></p>
             {#if selected !== root && selected.path}
-              <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={acting} on:click={() => (archiving = selected)}><i class="bi bi-archive" aria-hidden="true"></i>{t('Archive this folder')}</button>
+              <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={acting} onclick={() => (archiving = selected)}><i class="bi bi-archive" aria-hidden="true"></i>{t('Archive this folder')}</button>
             {/if}
           </section>
 
@@ -578,7 +586,7 @@
                 {/each}
               </ul>
               {#if selected.inheritance_broken && isAdmin && selected.path}
-                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={acting} on:click={() => selected && restoreInheritance(selected)}><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{t('Restore the inheritance')}</button>
+                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={acting} onclick={() => selected && restoreInheritance(selected)}><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{t('Restore the inheritance')}</button>
               {/if}
               <div class="fx__chain"><span>{t('Inheritance')}</span>
                 {#each chain as link, index (index)}<span class:is-broken={link.broken}>{link.broken ? '✕ ' : ''}{link.name}</span>{/each}
@@ -616,7 +624,7 @@
   onClose={() => (archiving = null)}
 />
 
-<svelte:window on:keydown={onKeys} />
+<svelte:window onkeydown={onKeys} />
 
 <ContextMenu open={Boolean(menu)} title={menu?.folder.name || rootName} subtitle={menu ? fullPath(menu.folder) : ''}
   items={menu ? menuItems(menu.folder) : []} at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={pickMenu} />

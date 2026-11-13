@@ -2,10 +2,14 @@
   import AdminDashboard from '$lib/components/dashboard/AdminDashboard.svelte';
   import UserDashboard from '$lib/components/dashboard/UserDashboard.svelte';
 
-  export let data: {
+  interface Props {
+    data: {
     mode: 'admin' | 'user';
     payload: any;
   };
+  }
+
+  let { data }: Props = $props();
 </script>
 
 {#if data.mode === 'admin'}

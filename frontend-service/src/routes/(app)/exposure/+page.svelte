@@ -1,4 +1,5 @@
 <script lang="ts">
+
   import { recall, remember } from '$lib/utils/remember';
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import { onMount } from 'svelte';
@@ -28,13 +29,15 @@
   ];
   const meta = (level: Level) => LEVELS.find((entry) => entry.key === level) ?? LEVELS[4];
 
-  let data: Exposure | null = null;
-  let error = '';
+  let data = $state<Exposure | null>(null);
+  let error = $state('');
   const savedExposure = recall('exposure', { filter: 'all', zoneFilter: 0 });
-  let filter = savedExposure.filter as Level | 'all';
-  let zoneFilter = savedExposure.zoneFilter;
-  $: remember('exposure', { filter, zoneFilter });
-  let query = '';
+  let filter = $state(savedExposure.filter as Level | 'all');
+  let zoneFilter = $state(savedExposure.zoneFilter);
+  $effect.pre(() => {
+    remember('exposure', { filter, zoneFilter });
+  });
+  let query = $state('');
 
   onMount(async () => {
     try {
@@ -44,12 +47,12 @@
     }
   });
 
-  $: needle = query.trim().toLowerCase();
+  let needle = $derived(query.trim().toLowerCase());
   const keep = (folder: Folder, level: Level | 'all', text: string) =>
     (level === 'all' || folder.level === level) && (!text || `${folder.name} ${folder.path}`.toLowerCase().includes(text));
   // Zones, servers and shares without a folder left after the filters are hidden; the worst folders come first
   const ORDER: Level[] = ['open_write', 'open_read', 'outside', 'unknown', 'governed'];
-  $: zones = (data?.zones ?? [])
+  let zones = $derived((data?.zones ?? [])
     .filter((zone) => !zoneFilter || zone.zone_id === zoneFilter)
     .map((zone) => ({
       ...zone,
@@ -62,9 +65,9 @@
         }))
         .filter((server) => server.shares.length)
     }))
-    .filter((zone) => zone.servers.length);
-  $: total = data?.summary.total ?? 0;
-  $: atRisk = (data?.summary.open_write ?? 0) + (data?.summary.open_read ?? 0);
+    .filter((zone) => zone.servers.length));
+  let total = $derived(data?.summary.total ?? 0);
+  let atRisk = $derived((data?.summary.open_write ?? 0) + (data?.summary.open_read ?? 0));
 
   const counts = (folders: Folder[]) => ORDER.map((level) => ({ level, count: folders.filter((folder) => folder.level === level).length })).filter((entry) => entry.count);
   const tileTitle = (folder: Folder) =>
@@ -99,7 +102,7 @@
   {:else}
     <div class="b2s-stat-tiles ex__tiles">
       {#each LEVELS as level (level.key)}
-        <button type="button" class="b2s-stat-tile ex__tile is-{level.key}" class:is-on={filter === level.key} aria-pressed={filter === level.key} on:click={() => (filter = filter === level.key ? 'all' : level.key)}>
+        <button type="button" class="b2s-stat-tile ex__tile is-{level.key}" class:is-on={filter === level.key} aria-pressed={filter === level.key} onclick={() => (filter = filter === level.key ? 'all' : level.key)}>
           <span class="ex__tile-head"><i class="bi {level.icon}" aria-hidden="true"></i>{level.label()}</span>
           <b><CountUp value={Number(data.summary[level.key] ?? 0)} /></b>
           <small>{level.hint()}</small>
@@ -118,7 +121,7 @@
           {#each data.zones as zone (zone.zone_id)}<option value={zone.zone_id}>{zone.zone}</option>{/each}
         </select>
       {/if}
-      {#if filter !== 'all'}<button type="button" class="b2s-link-btn" on:click={() => (filter = 'all')}>{t('Show every level')}</button>{/if}
+      {#if filter !== 'all'}<button type="button" class="b2s-link-btn" onclick={() => (filter = 'all')}>{t('Show every level')}</button>{/if}
     </div>
 
     {#each zones as zone (zone.zone_id)}

@@ -21,30 +21,30 @@
     duplicates?: { groups: number; files: number; wasted_bytes: number; truncated?: boolean; top?: Array<{ size: number; files: number; wasted: number; paths: string[] }> };
   };
 
-  let name = '';
-  let path = '';
-  let stats: Stats | null = null;
-  let loading = true;
-  let error: string | null = null;
+  let name = $state('');
+  let path = $state('');
+  let stats = $state<Stats | null>(null);
+  let loading = $state(true);
+  let error = $state<string | null>(null);
   // Old files: the threshold chosen in the table (the measure keeps 1 year and 3 years)
-  let coldSpan: '1y' | '3y' = '1y';
+  let coldSpan = $state<'1y' | '3y'>('1y');
   // Inventory of the 5S module: the biggest files (path, size, last change) and the identical ones among them
   type InvFile = { path: string; size: number; modified: string | null };
   type Group = { size: number; files: number; wasted: number; paths: string[] };
-  let invFiles: InvFile[] = [];
-  let invDuplicates: Group[] = [];
-  let fileQuery = '';
-  let showFiles = 50;
-  let showGroups = 30;
+  let invFiles = $state<InvFile[]>([]);
+  let invDuplicates = $state<Group[]>([]);
+  let fileQuery = $state('');
+  let showFiles = $state(50);
+  let showGroups = $state(30);
   // Free threshold on the files of the inventory
-  let ageValue = 12;
-  let ageUnit: 'months' | 'years' = 'months';
+  let ageValue = $state(12);
+  let ageUnit = $state<'months' | 'years'>('months');
 
-  $: rootId = Number($page.params.id);
+  let rootId = $derived(Number($page.params.id));
   // The measures kept for the folder: the current one and up to 3 previous ones (a bad one can be undone)
   type MeasureLine = { at: string | null; bytes: number | null; files: number | null; wasted: number | null; mode: string | null };
-  let measures: { current: MeasureLine | null; previous: MeasureLine[] } = { current: null, previous: [] };
-  let restoring = -1;
+  let measures: { current: MeasureLine | null; previous: MeasureLine[] } = $state({ current: null, previous: [] });
+  let restoring = $state(-1);
   const loadMeasures = async () => {
     measures = (await apiGetData<typeof measures>(fetch, `/storage-roots/${rootId}/measures`).catch(() => null)) ?? measures;
   };
@@ -79,12 +79,12 @@
   });
 
   const share = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : 0);
-  $: total = Number(stats?.bytes ?? 0);
-  $: cold = stats?.cold?.[coldSpan] ?? null;
-  $: duplicates = stats?.duplicates ?? null;
-  $: maxType = Math.max(1, ...(stats?.types ?? []).map((item) => item.bytes ?? item.files));
+  let total = $derived(Number(stats?.bytes ?? 0));
+  let cold = $derived(stats?.cold?.[coldSpan] ?? null);
+  let duplicates = $derived(stats?.duplicates ?? null);
+  let maxType = $derived(Math.max(1, ...(stats?.types ?? []).map((item) => item.bytes ?? item.files)));
   // Every group found: by the measure (also the smaller files) and in the inventory (the biggest ones), once each
-  $: allGroups = (() => {
+  let allGroups = $derived((() => {
     const seen = new Map<string, Group>();
     for (const group of [...(duplicates?.top ?? []), ...invDuplicates]) {
       const key = `${group.size}|${[...group.paths].sort()[0] ?? ''}`;
@@ -92,16 +92,16 @@
       if (!known || group.paths.length > known.paths.length) seen.set(key, group);
     }
     return [...seen.values()].sort((a, b) => b.wasted - a.wasted);
-  })();
-  $: shownFiles = invFiles.filter((file) => !fileQuery.trim() || file.path.toLowerCase().includes(fileQuery.trim().toLowerCase()));
-  $: cutoff = (() => {
+  })());
+  let shownFiles = $derived(invFiles.filter((file) => !fileQuery.trim() || file.path.toLowerCase().includes(fileQuery.trim().toLowerCase())));
+  let cutoff = $derived((() => {
     const date = new Date();
     if (ageUnit === 'years') date.setFullYear(date.getFullYear() - Math.max(0, Number(ageValue) || 0));
     else date.setMonth(date.getMonth() - Math.max(0, Number(ageValue) || 0));
     return date.getTime();
-  })();
-  $: oldFiles = invFiles.filter((file) => file.modified && new Date(file.modified).getTime() < cutoff);
-  $: oldBytes = oldFiles.reduce((sum, file) => sum + file.size, 0);
+  })());
+  let oldFiles = $derived(invFiles.filter((file) => file.modified && new Date(file.modified).getTime() < cutoff));
+  let oldBytes = $derived(oldFiles.reduce((sum, file) => sum + file.size, 0));
   const exportFiles = (rows: InvFile[], label: string) =>
     downloadCsv(csvFilename(`${label}-${name}`), [
       { header: t('Path'), value: (row: InvFile) => row.path },
@@ -142,7 +142,7 @@
             {#if measures.current}<tr class="is-current"><td>{measures.current.at ? formatDateTime(measures.current.at) : '—'} · <b>{t('current')}</b></td><td class="rp__num">{formatBytes(measures.current.bytes ?? 0)}</td><td class="rp__num">{(measures.current.files ?? 0).toLocaleString('fr-FR')}</td><td class="rp__num">{formatBytes(measures.current.wasted ?? 0)}</td><td></td></tr>{/if}
             {#each measures.previous as item, index (index)}
               <tr><td>{item.at ? formatDateTime(item.at) : '—'}</td><td class="rp__num">{formatBytes(item.bytes ?? 0)}</td><td class="rp__num">{(item.files ?? 0).toLocaleString('fr-FR')}</td><td class="rp__num">{formatBytes(item.wasted ?? 0)}</td>
-                <td><button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={restoring >= 0} on:click={() => restore(index)}>{t('Go back to this measure')}</button></td></tr>
+                <td><button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={restoring >= 0} onclick={() => restore(index)}>{t('Go back to this measure')}</button></td></tr>
             {/each}
           </tbody>
         </table>
@@ -162,7 +162,7 @@
     <div class="rp__grid">
       <section class="rp__card rp__wide">
         <header><h2>{t('Duplicates')} <a class="rp__more" href={`/five-s/duplicates/${rootId}`}>{t('Decide copy by copy')} ›</a></h2>
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!allGroups.length} on:click={exportDuplicates}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button></header>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!allGroups.length} onclick={exportDuplicates}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button></header>
         <p class="rp__hint">{t('The biggest groups of identical files (same content); the copies beyond the first are space lost.')}{duplicates?.truncated ? ` ${t('Only part of the files could be compared.')}` : ''}</p>
         <table class="b2s-table">
           <thead><tr><th>{t('Size')}</th><th>{t('Copies')}</th><th>{t('Space lost')}</th><th>{t('Where')}</th></tr></thead>
@@ -173,7 +173,7 @@
             {:else}<tr><td colspan="4">{t('No duplicate found.')}</td></tr>{/each}
           </tbody>
         </table>
-        {#if allGroups.length > showGroups}<button type="button" class="b2s-link-btn" on:click={() => (showGroups += 50)}>{t('Show more ({count} groups in all)', { count: allGroups.length })}</button>{/if}
+        {#if allGroups.length > showGroups}<button type="button" class="b2s-link-btn" onclick={() => (showGroups += 50)}>{t('Show more ({count} groups in all)', { count: allGroups.length })}</button>{/if}
       </section>
 
       <section class="rp__card">
@@ -216,7 +216,7 @@
         <header><h2>{t('Biggest files')}</h2>
           <div class="rp__tools">
             <input class="b2s-input" placeholder={t('Filter by path…')} bind:value={fileQuery} aria-label={t('Filter by path')} />
-            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!shownFiles.length} on:click={() => exportFiles(shownFiles, 'gros-fichiers')}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
+            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!shownFiles.length} onclick={() => exportFiles(shownFiles, 'gros-fichiers')}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
           </div></header>
         {#if !invFiles.length}<p class="rp__hint">{t('No file in the inventory of the 5S module yet: measure the folder with the module on.')}</p>{:else}
         <table class="b2s-table">
@@ -225,7 +225,7 @@
             <tr><td class="rp__path"><code title={file.path} data-copy={file.path}>{file.path}</code></td><td class="rp__num">{formatBytes(file.size)}</td><td class="rp__num">{file.modified ? formatDateTime(file.modified) : '—'}</td></tr>
           {/each}</tbody>
         </table>
-        {#if shownFiles.length > showFiles}<button type="button" class="b2s-link-btn" on:click={() => (showFiles += 100)}>{t('Show more ({count} files)', { count: shownFiles.length })}</button>{/if}
+        {#if shownFiles.length > showFiles}<button type="button" class="b2s-link-btn" onclick={() => (showFiles += 100)}>{t('Show more ({count} files)', { count: shownFiles.length })}</button>{/if}
         <small class="rp__hint">{t('The {count} biggest files kept by the inventory (files of 1 MB and more).', { count: invFiles.length.toLocaleString('fr-FR') })}</small>{/if}
       </section>
 
@@ -234,7 +234,7 @@
           <div class="rp__tools">
             <input class="b2s-input rp__age" type="number" min="0" bind:value={ageValue} aria-label={t('Age')} />
             <select class="b2s-select" bind:value={ageUnit} aria-label={t('Unit')}><option value="months">{t('months')}</option><option value="years">{t('years')}</option></select>
-            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!oldFiles.length} on:click={() => exportFiles(oldFiles, 'fichiers-anciens')}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
+            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!oldFiles.length} onclick={() => exportFiles(oldFiles, 'fichiers-anciens')}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
           </div></header>
         <p class="rp__big">{formatBytes(oldBytes)} <small>{t('{count} of the {total} biggest files', { count: oldFiles.length.toLocaleString('fr-FR'), total: invFiles.length.toLocaleString('fr-FR') })}</small></p>
         <ul class="rp__list">{#each oldFiles.slice(0, 15) as file}

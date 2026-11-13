@@ -1,6 +1,6 @@
 <script lang="ts">
   import TagsPage from "./TagsPage.svelte";
-  export let data;
+  let { data } = $props();
 </script>
 
 <TagsPage {data} />

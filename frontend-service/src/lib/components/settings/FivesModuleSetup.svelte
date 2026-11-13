@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { preventDefault } from 'svelte/legacy';
 
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { onMount } from 'svelte';
@@ -80,7 +79,7 @@
   {:else if !enabled}
     <p class="fm__muted">{t('Switch the module on above to set its scanner.')}</p>
   {:else if form}
-    <form class="fm__form" onsubmit={preventDefault(save)}>
+    <form class="fm__form" onsubmit={(event) => { event.preventDefault(); save(); }}>
       <label class="fm__check"><input type="checkbox" bind:checked={form.schedule_enabled} /> {t('Scan every folder on schedule')}</label>
       <label>{t('Window from')}<input class="b2s-input" type="time" bind:value={form.window_start} /></label>
       <label>{t('to')}<input class="b2s-input" type="time" bind:value={form.window_end} /></label>

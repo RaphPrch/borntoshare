@@ -7,7 +7,7 @@
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import { t } from '$lib/i18n';
   import { formatDateTime, initials, timeAgo } from '$lib/utils/format';
-  import { createEventDispatcher, onDestroy, untrack } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import TreeNode from './TreeNode.svelte';
   import IdentitySelectedPrincipalRow from './IdentitySelectedPrincipalRow.svelte';
   import { invalidateIdentitySourceInternalCache, loadIdentitySourceLastSync } from '../../api/identity-browser';
@@ -42,6 +42,7 @@
    */
     open?: boolean;
     onClose?: () => void;
+    onConfirm?: (payload: IdentityBrowserSelectionPayload) => void;
     onSelect?: ((payload: IdentityBrowserSelectionPayload) => void) | null;
     identitySources?: IdentityBrowserSource[];
     initialSourceId?: number | null;
@@ -65,6 +66,7 @@
   let {
     open = $bindable(false),
     onClose = () => {},
+    onConfirm,
     onSelect = null,
     identitySources = [],
     initialSourceId = null,
@@ -85,7 +87,6 @@
     confirmBusyLabel = t('Applying…')
   }: Props = $props();
 
-  const dispatch = createEventDispatcher<{ close: void; confirm: IdentityBrowserSelectionPayload }>();
   const store = createIdentityBrowserStore();
   const STALE_AFTER_MS = 24 * 3600 * 1000;
 
@@ -470,13 +471,12 @@
   function closeModal() {
     abortAllRequests();
     open = false;
-    dispatch('close');
     onClose();
   }
 
   function confirmSelection() {
     const payload = selectionPayload();
-    dispatch('confirm', payload);
+    onConfirm?.(payload);
     onSelect?.(payload);
   }
 

@@ -132,8 +132,8 @@
       selectedTitle={t('Assigned tags')}
       getItemKey={(item) => Number(item?.id ?? 0)}
       itemLabel={(item) => String(item?.label ?? item?.name ?? item?.code ?? '-')}
-      on:add={(event) => toggleTag(Number(event.detail.item?.id ?? 0), true)}
-      on:remove={(event) => toggleTag(Number(event.detail.item?.id ?? 0), false)}
+      onAdd={(item) => toggleTag(Number(item?.id ?? 0), true)}
+      onRemove={(item) => toggleTag(Number(item?.id ?? 0), false)}
     >
       {#snippet renderItem({ item })}
           

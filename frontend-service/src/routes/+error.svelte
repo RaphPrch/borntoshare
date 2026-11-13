@@ -1,16 +1,27 @@
 <script lang="ts">
+  // SvelteKit gives an error page no props: the status and the error come from the page store
+  import { page } from '$app/stores';
   import { t } from '$lib/i18n';
-  export let error: { message?: string } | null;
-  export let status: number;
 
-  const isNotFound = status === 404;
-  const isUnauthenticated = status === 401;
-  const isForbidden = status === 403;
-  const isServiceUnavailable = status === 503;
+  let status = $derived($page.status);
+  let error = $derived($page.error as { message?: string } | null);
+
+  let isNotFound = $derived(
+    status === 404
+  );
+  let isUnauthenticated = $derived(
+    status === 401
+  );
+  let isForbidden = $derived(
+    status === 403
+  );
+  let isServiceUnavailable = $derived(
+    status === 503
+  );
 
   const showDetails = import.meta.env.DEV;
 
-  const title =
+  let title = $derived(
     isNotFound
       ? t('Page not found')
       : isUnauthenticated
@@ -19,9 +30,10 @@
       ? t('Access denied')
       : isServiceUnavailable
       ? t('Service unavailable')
-      : t('Unexpected error');
+      : t('Unexpected error')
+  );
 
-  const heading =
+  let heading = $derived(
     isNotFound
       ? t('Page not found')
       : isUnauthenticated
@@ -30,9 +42,10 @@
       ? t('Access denied')
       : isServiceUnavailable
       ? t('Service temporarily unavailable')
-      : t('Something went wrong');
+      : t('Something went wrong')
+  );
 
-  const description =
+  let description = $derived(
     isNotFound
       ? t('The page you are looking for does not exist or has been moved.')
       : isUnauthenticated
@@ -41,7 +54,8 @@
       ? t('You do not have permission to access this resource.')
       : isServiceUnavailable
       ? t('Authentication services are temporarily unavailable. Please try again later.')
-      : t('An unexpected error occurred while rendering the application.');
+      : t('An unexpected error occurred while rendering the application.')
+  );
 
   function reload() {
     location.reload();
@@ -70,7 +84,7 @@
       {:else if isForbidden}
         <a href="/dashboard" class="b2s-btn b2s-btn-primary">{t('Back to dashboard')}</a>
       {:else if isServiceUnavailable}
-        <button class="b2s-btn b2s-btn-primary" on:click={reload}>
+        <button class="b2s-btn b2s-btn-primary" onclick={reload}>
           {t('Retry')}
         </button>
       {:else if isNotFound}

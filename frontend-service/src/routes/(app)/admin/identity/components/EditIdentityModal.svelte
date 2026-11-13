@@ -5,7 +5,7 @@
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import { t } from '$lib/i18n';
   import { normalizeText } from '$lib/utils/values';
-  import { createEventDispatcher } from 'svelte';
+  
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import { adminChangePassword, updateIdentity } from '$lib/api/identity';
@@ -16,20 +16,19 @@
     open?: boolean;
     identity?: any;
     onClose?: (() => void) | null;
+    onDone?: () => void;
   }
 
-  let { open = false, identity = null, onClose = null }: Props = $props();
-
-  const dispatch = createEventDispatcher<{ done: void }>();
+  let { open = false, identity = null, onClose = null, onDone }: Props = $props();
 
   let displayName = $state('');
   let active = $state(true);
-  let selectedRole: 'user' | 'platform_admin' = $state('user');
+  let selectedRole = $state<'user' | 'platform_admin'>('user');
   let currentPassword = $state('');
   let newPassword = $state('');
   let confirmPassword = $state('');
   let loading = $state(false);
-  let error: string | null = $state(null);
+  let error = $state<string | null>(null);
   let initKey = $state('');
   let closeConfirmOpen = $state(false);
   let attemptedSubmit = $state(false);
@@ -37,7 +36,7 @@
   let isGroup = $derived(identity?.type === 'group');
   let isUser = $derived(identity?.type !== 'group');
   let isLocalUser = $derived(isUser && normalizeText(identity?.auth_source ?? identity?.source) === 'local');
-  let currentRole: 'platform_admin' | 'user' = $state('user');
+  let currentRole = $state<'platform_admin' | 'user'>('user');
   $effect.pre(() => {
     currentRole = Array.isArray(identity?.roles) && identity.roles.some((role: string) => normalizeText(role) === 'platform_admin')
       ? 'platform_admin'
@@ -170,7 +169,7 @@
       }
 
       toast.success(t('Identity updated.'));
-      dispatch('done');
+      onDone?.();
       close();
     } catch (err: any) {
       error = err?.message ?? t('Failed to save changes.');

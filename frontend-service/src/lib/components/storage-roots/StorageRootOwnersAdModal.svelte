@@ -96,7 +96,7 @@
     );
   });
 
-  async function onConfirm(event: CustomEvent<IdentityBrowserSelectionEvent>) {
+  async function onConfirm(selection: IdentityBrowserSelectionEvent) {
     if (saving) return;
     if (!storageRootId || storageRootId <= 0) {
       emitActivity({
@@ -111,7 +111,7 @@
 
     saving = true;
     try {
-      const { selectedItems = [], sourceId = null } = event.detail ?? {};
+      const { selectedItems = [], sourceId = null } = selection ?? {};
       selectedSourceId = Number(sourceId ?? 0) > 0 ? Number(sourceId) : null;
 
       if (!selectedSourceId) {
@@ -432,5 +432,5 @@
   initialSelectedKeys={initialSelectedKeys}
   initialRoleByKey={initialRoleByKey}
   busy={saving || importing}
-  on:confirm={onConfirm}
+  {onConfirm}
 />

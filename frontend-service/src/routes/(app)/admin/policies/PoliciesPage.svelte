@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { run as run_1 } from 'svelte/legacy';
 
   import { parseFolderQuery } from '$lib/components/storage-roots/folder-query';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
@@ -55,16 +54,16 @@
     { name: t('Broken inheritance without tag'), description: t('Permissions set apart, and nothing says why.'), condition: 'est:heritage-rompu est:sans-tag', tagId: null, severity: 'info', notify: false, icon: 'bi-scissors' }
   ]);
 
-  let draft: Draft | null = $state(null);
+  let draft = $state<Draft | null>(null);
   let saving = $state(false);
   // A policy that would act on many folders at once is confirmed explicitly
   const POLICY_CONFIRM_FROM = 50;
   let wideConfirmed = $state(false);
-  run_1(() => {
+  $effect.pre(() => {
     if (!draft) wideConfirmed = false;
   });
-  let busyId: number | null = $state(null);
-  let toDelete: Policy | null = $state(null);
+  let busyId = $state<number | null>(null);
+  let toDelete = $state<Policy | null>(null);
   let preview: { count: number; unknown_states: string[]; sample: Array<{ id: number; name: string; path: string }> } | null = $state(null);
   let previewTimer: ReturnType<typeof setTimeout> | null = null;
 

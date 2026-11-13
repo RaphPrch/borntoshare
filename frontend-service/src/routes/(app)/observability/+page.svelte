@@ -26,11 +26,11 @@
   const TAB_KEYS: TabKey[] = ['overview', 'alerts', 'events', 'jobs', 'health'];
 
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let overview: Overview | null = $state(data.overview);
+  let overview = $state<Overview | null>(data.overview);
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let infra: InfraData | null = $state(data.infra);
+  let infra = $state<InfraData | null>(data.infra);
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let period: ObsPeriod = $state(data.period);
+  let period = $state<ObsPeriod>(data.period);
   let refreshing = $state(false);
   let checking = $state(false);
   let timer: ReturnType<typeof setInterval> | null = null;

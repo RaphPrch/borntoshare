@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { preventDefault } from 'svelte/legacy';
 
   import { t } from '$lib/i18n';
   import { recall, remember } from '$lib/utils/remember';
@@ -61,7 +60,7 @@
     </span>
   {/each}
   {#if naming}
-    <form class="sv__form" onsubmit={preventDefault(save)}>
+    <form class="sv__form" onsubmit={(event) => { event.preventDefault(); save(); }}>
       <input bind:this={input} bind:value={name} class="b2s-input" maxlength="40" placeholder={t('Name of the view')} aria-label={t('Name of the view')}
         onkeydown={(event) => { if (event.key === 'Escape') { naming = false; name = ''; } }} />
       <button type="submit" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={!name.trim()}>{t('Save')}</button>

@@ -15,18 +15,26 @@
   import SettingRow from '$lib/components/settings/SettingRow.svelte';
   import FieldError from '$lib/components/ui/FieldError.svelte';
 
-  export let data: any;
 
-  let ttlHours = Math.round(Number(data.settings?.sessions?.ttlSeconds ?? 28800) / 3600);
-  let idleMinutes = Math.round(Number(data.settings?.sessions?.idleSeconds ?? 1800) / 60);
-  let savedLimits = `${ttlHours}/${idleMinutes}`;
-  let savingLimits = false;
+  interface Props {
+    data: any;
+  }
 
-  $: limitsError =
-    Number.isInteger(Number(ttlHours)) && ttlHours >= 1 && ttlHours <= 720 && Number.isInteger(Number(idleMinutes)) && idleMinutes >= 1 && idleMinutes <= ttlHours * 60
+  let { data }: Props = $props();
+
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let ttlHours = $state(Math.round(Number(data.settings?.sessions?.ttlSeconds ?? 28800) / 3600));
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let idleMinutes = $state(Math.round(Number(data.settings?.sessions?.idleSeconds ?? 1800) / 60));
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let savedLimits = $state(`${ttlHours}/${idleMinutes}`);
+  let savingLimits = $state(false);
+
+  let limitsError =
+    $derived(Number.isInteger(Number(ttlHours)) && ttlHours >= 1 && ttlHours <= 720 && Number.isInteger(Number(idleMinutes)) && idleMinutes >= 1 && idleMinutes <= ttlHours * 60
       ? null
-      : t('From 1 to 720 hours; inactivity from 1 minute to the maximum duration.');
-  $: canSaveLimits = !savingLimits && !limitsError && `${ttlHours}/${idleMinutes}` !== savedLimits;
+      : t('From 1 to 720 hours; inactivity from 1 minute to the maximum duration.'));
+  let canSaveLimits = $derived(!savingLimits && !limitsError && `${ttlHours}/${idleMinutes}` !== savedLimits);
 
   async function saveLimits() {
     if (!canSaveLimits) return;
@@ -42,36 +50,37 @@
     }
   }
 
-  let sessions: UserSession[] = data.sessions ?? [];
-  let isLoading = false;
-  let revokingId: string | null = null;
-  let query = '';
-  let statusFilter: 'all' | 'active' | 'expired' | 'revoked' = 'all';
-  let sortBy: 'user' | 'last_seen' | 'created_at' | 'status' = 'last_seen';
-  let sortDir: 'asc' | 'desc' = 'desc';
-  let confirmDisconnectOpen = false;
-  let pendingSessionId: string | null = null;
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let sessions = $state<UserSession[]>(data.sessions ?? []);
+  let isLoading = $state(false);
+  let revokingId = $state<string | null>(null);
+  let query = $state('');
+  let statusFilter = $state<'all' | 'active' | 'expired' | 'revoked'>('all');
+  let sortBy = $state<'user' | 'last_seen' | 'created_at' | 'status'>('last_seen');
+  let sortDir = $state<'asc' | 'desc'>('desc');
+  let confirmDisconnectOpen = $state(false);
+  let pendingSessionId = $state<string | null>(null);
 
   const toTimestamp = (value: unknown) => {
     const time = new Date(String(value ?? '')).getTime();
     return Number.isFinite(time) ? time : 0;
   };
 
-  $: filteredSessions = sessions.filter((s) => {
+  let filteredSessions = $derived(sessions.filter((s) => {
     if (statusFilter !== 'all' && s.status !== statusFilter) return false;
     const q = normalizeText(query);
     if (!q) return true;
     const haystack = [s.user, s.auth_source, s.status, (s.roles ?? []).join(' ')].map(normalizeText).join(' ');
     return haystack.includes(q);
-  });
+  }));
 
-  $: sortedSessions = [...filteredSessions].sort((a, b) => {
+  let sortedSessions = $derived([...filteredSessions].sort((a, b) => {
     const dir = sortDir === 'asc' ? 1 : -1;
     if (sortBy === 'user') return a.user.localeCompare(b.user, 'en', { sensitivity: 'base' }) * dir;
     if (sortBy === 'status') return String(a.status).localeCompare(String(b.status)) * dir;
     if (sortBy === 'created_at') return (toTimestamp(a.created_at) - toTimestamp(b.created_at)) * dir;
     return (toTimestamp(a.last_seen) - toTimestamp(b.last_seen)) * dir;
-  });
+  }));
 
   async function refresh() {
     isLoading = true;
@@ -131,7 +140,7 @@
     </SettingRow>
   </div>
   <div class="adv-actions">
-    <button class="b2s-btn b2s-btn-primary" type="button" on:click={saveLimits} disabled={!canSaveLimits}>
+    <button class="b2s-btn b2s-btn-primary" type="button" onclick={saveLimits} disabled={!canSaveLimits}>
       {savingLimits ? t('Saving…') : t('Save changes')}
     </button>
   </div>
@@ -152,10 +161,10 @@
         <option value="user">{t('Sort: User')}</option>
         <option value="status">{t('Sort: Status')}</option>
       </select>
-      <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}>
+      <button class="b2s-btn b2s-btn-secondary" type="button" onclick={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}>
         {sortDir === 'asc' ? `↑ ${t('Ascending')}` : `↓ ${t('Descending')}`}
       </button>
-    <button class="b2s-btn b2s-btn-secondary b2s-toolbar__end" type="button" on:click={refresh} disabled={isLoading || !!revokingId}>
+    <button class="b2s-btn b2s-btn-secondary b2s-toolbar__end" type="button" onclick={refresh} disabled={isLoading || !!revokingId}>
       {isLoading ? t('Loading…') : t('Refresh')}
     </button>
   </div>
@@ -200,7 +209,7 @@
               <button
                 class="b2s-btn b2s-btn-danger-outline b2s-btn-sm"
                 type="button"
-                on:click={() => requestRevoke(s.id)}
+                onclick={() => requestRevoke(s.id)}
                 disabled={isLoading || !!revokingId}
               >
                 {revokingId === s.id ? t('Disconnecting…') : t('Disconnect')}

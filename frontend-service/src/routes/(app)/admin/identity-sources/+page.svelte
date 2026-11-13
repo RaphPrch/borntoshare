@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { run as run_1 } from 'svelte/legacy';
 
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import { sleep } from '$lib/utils/values';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -60,27 +59,27 @@
   let { data }: Props = $props();
 
   let showDetailsDrawer = false;
-  let selectedSourceId: number | null = $state(null);
+  let selectedSourceId = $state<number | null>(null);
   let showEditModal = $state(false);
-  let editSource: IdentitySourceRow | null = $state(null);
+  let editSource = $state<IdentitySourceRow | null>(null);
   let showDeleteModal = $state(false);
   let showDisableUsedConfirm = $state(false);
-  let pendingToggleSource: IdentitySourceRow | null = $state(null);
+  let pendingToggleSource = $state<IdentitySourceRow | null>(null);
   let busy = $state(false);
-  let actionError: string | null = $state(null);
-  let selectedSource: IdentitySourceRow | null = $state(null);
+  let actionError = $state<string | null>(null);
+  let selectedSource = $state<IdentitySourceRow | null>(null);
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let fetchError: string | null = $state(data?.fetch_error ?? null);
+  let fetchError = $state<string | null>(data?.fetch_error ?? null);
   let listLoading = $state(false);
   let internalLoading = false;
   let internalError: string | null = null;
-  let selectedInternal: IdentitySourceInternalMeta | null = $state(null);
+  let selectedInternal = $state<IdentitySourceInternalMeta | null>(null);
   let hasSources = $state(false);
-  let existingSourceNames: string[] = $state([]);
-  let sortedCards: IdentitySourceCardVM[] = $state([]);
+  let existingSourceNames = $state<string[]>([]);
+  let sortedCards = $state<IdentitySourceCardVM[]>([]);
   let summary = $state({ total: 0, healthy: 0, issues: 0, neverSynced: 0 });
-  let selectedCard: IdentitySourceCardVM | null = $state(null);
-  let detailCard: IdentitySourceCardVM | null = $state(null);
+  let selectedCard = $state<IdentitySourceCardVM | null>(null);
+  let detailCard = $state<IdentitySourceCardVM | null>(null);
 
   let listQuery = '';
   let typeFilter = 'all';
@@ -89,17 +88,17 @@
   let sortBy: IdentitySourceSortKey = 'name-asc';
   let rowsPerPage = 25;
   let currentPage = $state(1);
-  let paginatedCards: IdentitySourceCardVM[] = $state([]);
+  let paginatedCards = $state<IdentitySourceCardVM[]>([]);
   let pageStart = $state(0);
   let pageEnd = $state(0);
   let totalPages = $state(1);
   let selectedRecentHealth: Array<{ key: string; label: string; tone: string; title: string; icon: string }> = $state([]);
-  let healthSummaryBySourceId: Record<number, HealthSummaryDay[]> = $state({});
+  let healthSummaryBySourceId = $state<Record<number, HealthSummaryDay[]>>({});
   let healthSummaryLoadingSourceId: number | null = null;
   let healthSummaryLoadedSourceId: number | null = null;
 
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let sources: IdentitySourceRow[] = $state(data.identity_sources ?? []);
+  let sources = $state<IdentitySourceRow[]>(data.identity_sources ?? []);
 
   const typeOptions = [
     { value: 'all', label: t('Type') },
@@ -302,7 +301,7 @@
     identitySnapshotJob(sourceId)?.status === 'running' || serverSnapshotRunning.has(Number(sourceId));
 
   // Follow a snapshot started elsewhere until it ends
-  let snapshotWatchTimer: ReturnType<typeof setTimeout> | null = $state(null);
+  let snapshotWatchTimer = $state<ReturnType<typeof setTimeout> | null>(null);
   onDestroy(() => {
     if (snapshotWatchTimer) clearTimeout(snapshotWatchTimer);
   });
@@ -842,19 +841,19 @@
 
 
 
-  run_1(() => {
+  $effect.pre(() => {
     if (Array.isArray(data?.identity_sources)) {
       sources = data.identity_sources;
     }
   });
-  run_1(() => {
+  $effect.pre(() => {
     if (typeof data?.fetch_error === 'string') {
       fetchError = data.fetch_error;
     }
   });
   // Snapshots running on the server, whoever started them (page reload, another admin, scheduler)
   let serverSnapshotRunning = $derived(new Set(sources.filter((s) => s.snapshot_running).map((s) => Number(s.id))));
-  run_1(() => {
+  $effect.pre(() => {
     if (browser && serverSnapshotRunning.size > 0 && !snapshotWatchTimer) {
       snapshotWatchTimer = setTimeout(async () => {
         await refreshList();
@@ -862,29 +861,29 @@
       }, 5000);
     }
   });
-  run_1(() => {
+  $effect.pre(() => {
     hasSources = sources.length > 0;
   });
-  run_1(() => {
+  $effect.pre(() => {
     existingSourceNames = sources
       .map((s) => String(s?.name ?? s?.display_name ?? '').trim())
       .filter(Boolean);
   });
   // A deleted directory: the page opens on another one
-  run_1(() => {
+  $effect.pre(() => {
     if (selectedSourceId !== null && sources.length && !sources.some((source) => Number(source?.id ?? 0) === selectedSourceId)) {
       selectedSourceId = null;
     }
   });
-  run_1(() => {
+  $effect.pre(() => {
     if (browser && selectedSourceId === null && sources.length) {
       const wanted = Number($page.url.searchParams.get('selected') ?? 0);
       const byName = [...sources].sort((x, y) => String(x?.name ?? '').localeCompare(String(y?.name ?? ''), 'fr'));
       const first = sources.find((source) => Number(source?.id ?? 0) === wanted) ?? byName[0];
-      selectSourceById(Number(first?.id ?? 0));
+      untrack(() => selectSourceById(Number(first?.id ?? 0)));
     }
   });
-  run_1(() => {
+  $effect.pre(() => {
     ({
       sortedCards,
       summary,
@@ -918,43 +917,44 @@
       selectedSourceId
     }));
   });
-  run_1(() => {
+  $effect.pre(() => {
     detailCard = selectedCard ?? sortedCards[0] ?? null;
   });
-  run_1(() => {
+  $effect.pre(() => {
     totalPages = Math.max(1, Math.ceil(sortedCards.length / rowsPerPage));
   });
-  run_1(() => {
+  $effect.pre(() => {
     if (currentPage > totalPages) {
       currentPage = totalPages;
     }
   });
-  run_1(() => {
+  $effect.pre(() => {
     pageStart = sortedCards.length === 0 ? 0 : (currentPage - 1) * rowsPerPage;
   });
-  run_1(() => {
+  $effect.pre(() => {
     pageEnd = Math.min(sortedCards.length, pageStart + rowsPerPage);
   });
-  run_1(() => {
+  $effect.pre(() => {
     paginatedCards = sortedCards.slice(pageStart, pageEnd);
   });
   // Browser only: during SSR the component fetch cannot resolve relative /api URLs
-  run_1(() => {
+  $effect.pre(() => {
     if (browser && detailCard?.id) {
-      void loadHealthSummaryForSource(detailCard.id);
+      const id = detailCard.id;
+      untrack(() => void loadHealthSummaryForSource(id));
     }
   });
-  run_1(() => {
+  $effect.pre(() => {
     selectedRecentHealth = buildRecentHealth(
       detailCard,
       detailCard?.id ? healthSummaryBySourceId[detailCard.id] ?? null : null
     );
   });
-  run_1(() => {
+  $effect.pre(() => {
     if (browser && selectedSourceId !== null && Number($page.url.searchParams.get('selected') ?? 0) !== selectedSourceId) {
       const next = new URL($page.url);
       next.searchParams.set('selected', String(selectedSourceId));
-      goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true, keepFocus: true });
+      untrack(() => goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true, keepFocus: true }));
     }
   });
 </script>

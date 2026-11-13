@@ -1,4 +1,5 @@
 <script lang="ts">
+
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import { invalidateAll } from '$app/navigation';
   import { reportUiError } from '$lib/errors/report';
@@ -23,52 +24,58 @@
   type Tag = { id: number; name: string; color: string | null; family: string | null; usage: number; folders: Folder[] };
   type Overview = { tags: Tag[]; coverage: { total: number; tagged: number; untagged_open: number } };
 
-  export let data: { overview: unknown };
+  interface Props {
+    data: { overview: unknown };
+  }
+
+  let { data }: Props = $props();
 
   const NO_FAMILY = '';
-  $: overview = (data.overview ?? {}) as Partial<Overview>;
-  $: tags = (overview.tags ?? []).map((tag) => ({ ...tag, usage: Number(tag.usage ?? 0), family: String(tag.family ?? '').trim() }));
-  $: coverage = overview.coverage ?? { total: 0, tagged: 0, untagged_open: 0 };
-  $: families = [...new Set(tags.map((tag) => tag.family).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
-  $: maxUsage = Math.max(1, ...tags.map((tag) => tag.usage));
-  $: taggedPct = coverage.total ? Math.round((coverage.tagged / coverage.total) * 100) : 0;
+  let overview = $derived((data.overview ?? {}) as Partial<Overview>);
+  let tags = $derived((overview.tags ?? []).map((tag) => ({ ...tag, usage: Number(tag.usage ?? 0), family: String(tag.family ?? '').trim() })));
+  let coverage = $derived(overview.coverage ?? { total: 0, tagged: 0, untagged_open: 0 });
+  let families = $derived([...new Set(tags.map((tag) => tag.family).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')));
+  let maxUsage = $derived(Math.max(1, ...tags.map((tag) => tag.usage)));
+  let taggedPct = $derived(coverage.total ? Math.round((coverage.tagged / coverage.total) * 100) : 0);
 
-  let query = '';
-  let sortBy = 'usage';
-  $: needle = fold(query);
-  $: sections = [...families, NO_FAMILY]
+  let query = $state('');
+  let sortBy = $state('usage');
+  let needle = $derived(fold(query));
+  let sections = $derived([...families, NO_FAMILY]
     .map((family) => ({
       family,
       tags: tags
         .filter((tag) => tag.family === family && (!needle || fold(tag.name).includes(needle) || fold(family).includes(needle)))
         .sort((a, b) => (sortBy === 'usage' ? b.usage - a.usage : 0) || a.name.localeCompare(b.name, 'fr'))
     }))
-    .filter((section) => section.tags.length);
+    .filter((section) => section.tags.length));
 
-  let selectedId: number | null = null;
-  $: selected = tags.find((tag) => tag.id === selectedId) ?? sections[0]?.tags[0] ?? null;
+  let selectedId = $state<number | null>(null);
+  let selected = $derived(tags.find((tag) => tag.id === selectedId) ?? sections[0]?.tags[0] ?? null);
 
   // ---- create / edit ---------------------------------------------------------------
-  let formOpen = false;
-  let editing: Tag | null = null;
-  let name = '';
-  let family = NO_FAMILY;
-  let newFamily = '';
-  let addingFamily = false;
-  let color = '';
-  let saving = false;
-  let folders: Folder[] | null = null;
-  let folderQuery = '';
-  let picked = new Set<number>();
+  let formOpen = $state(false);
+  let editing = $state<Tag | null>(null);
+  let name = $state('');
+  let family = $state(NO_FAMILY);
+  let newFamily = $state('');
+  let addingFamily = $state(false);
+  let color = $state('');
+  let saving = $state(false);
+  let folders = $state<Folder[] | null>(null);
+  let folderQuery = $state('');
+  let picked = $state(new Set<number>());
 
-  $: effectiveFamily = addingFamily ? newFamily.trim() : family;
-  $: shades = familyShades(effectiveFamily);
-  $: if (formOpen && !shades.includes(color) && !(editing && color === editing.color)) color = shades[0];
-  $: clash = nameClash(name, tags.filter((tag) => tag.id !== editing?.id).map((tag) => tag.name));
-  $: canSave = !saving && Boolean(name.trim()) && clash?.kind !== 'same' && (!addingFamily || Boolean(newFamily.trim()));
-  $: pickedFolders = (folders ?? []).filter((folder) => picked.has(folder.id));
-  $: folderMatches = (folders ?? []).filter((folder) => !fold(folderQuery) || fold(`${folder.name} ${folder.path}`).includes(fold(folderQuery))).slice(0, 40);
-  $: preview = { name: name.trim() || t('New tag'), color };
+  let effectiveFamily = $derived(addingFamily ? newFamily.trim() : family);
+  let shades = $derived(familyShades(effectiveFamily));
+  $effect.pre(() => {
+    if (formOpen && !shades.includes(color) && !(editing && color === editing.color)) color = shades[0];
+  });
+  let clash = $derived(nameClash(name, tags.filter((tag) => tag.id !== editing?.id).map((tag) => tag.name)));
+  let canSave = $derived(!saving && Boolean(name.trim()) && clash?.kind !== 'same' && (!addingFamily || Boolean(newFamily.trim())));
+  let pickedFolders = $derived((folders ?? []).filter((folder) => picked.has(folder.id)));
+  let folderMatches = $derived((folders ?? []).filter((folder) => !fold(folderQuery) || fold(`${folder.name} ${folder.path}`).includes(fold(folderQuery))).slice(0, 40));
+  let preview = $derived({ name: name.trim() || t('New tag'), color });
 
   async function openForm(tag: Tag | null) {
     editing = tag;
@@ -133,10 +140,10 @@
   }
 
   // ---- merge / delete -----------------------------------------------------------------
-  let mergeOpen = false;
-  let mergeTargetId = 0;
-  let merging = false;
-  $: mergeTarget = tags.find((tag) => tag.id === Number(mergeTargetId)) ?? null;
+  let mergeOpen = $state(false);
+  let mergeTargetId = $state(0);
+  let merging = $state(false);
+  let mergeTarget = $derived(tags.find((tag) => tag.id === Number(mergeTargetId)) ?? null);
   async function merge() {
     if (!selected || !mergeTarget) return;
     merging = true;
@@ -153,8 +160,8 @@
     }
   }
 
-  let deleteOpen = false;
-  let deleting = false;
+  let deleteOpen = $state(false);
+  let deleting = $state(false);
   async function remove() {
     if (!selected) return;
     deleting = true;
@@ -188,7 +195,7 @@
         <h1>{t('Tags')}</h1>
         <p>{t('Classify the folders to find and govern them more easily.')}</p>
       </div>
-      <button type="button" class="b2s-btn b2s-btn-primary" on:click={() => openForm(null)}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Create a tag')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary" onclick={() => openForm(null)}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Create a tag')}</button>
     </header>
 
     <div class="b2s-stat-tiles tg__tiles">
@@ -227,7 +234,7 @@
               <small>{t('{count} tag(s) · {uses} use(s)', { count: section.tags.length, uses: section.tags.reduce((sum, tag) => sum + tag.usage, 0) })}</small>
             </header>
             {#each section.tags as tag, rank (tag.id)}
-              <button type="button" class="tg__row" class:on={selected?.id === tag.id} aria-pressed={selected?.id === tag.id} on:click={() => (selectedId = tag.id)}>
+              <button type="button" class="tg__row" class:on={selected?.id === tag.id} aria-pressed={selected?.id === tag.id} onclick={() => (selectedId = tag.id)}>
                 <TagPill label={tag.name} color={tag.color} />
                 <span class="tg__bar"><i class="b2s-grow" style="width:{(tag.usage / maxUsage) * 100}%; background:{tag.color ?? 'var(--b2s-color-text-muted)'}; --i:{rank}"></i></span>
                 <span class="tg__count">{tag.usage}</span>
@@ -258,9 +265,9 @@
             <p class="tg__unused"><i class="bi bi-info-circle" aria-hidden="true"></i>{t('This tag is set on no folder: merge it into another one, or delete it.')}</p>
           {/if}
           <div class="tg__actions">
-            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => openForm(selected)}><i class="bi bi-pencil" aria-hidden="true"></i>{t('Edit')}</button>
-            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={tags.length < 2} on:click={() => { mergeTargetId = 0; mergeOpen = true; }}><i class="bi bi-intersect" aria-hidden="true"></i>{t('Merge…')}</button>
-            <button type="button" class="b2s-btn b2s-btn-danger-outline b2s-btn-sm" disabled={selected.usage > 0} title={selected.usage > 0 ? t('Merge it first: it is set on folders') : ''} on:click={() => (deleteOpen = true)}><i class="bi bi-trash" aria-hidden="true"></i>{t('Delete')}</button>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => openForm(selected)}><i class="bi bi-pencil" aria-hidden="true"></i>{t('Edit')}</button>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={tags.length < 2} onclick={() => { mergeTargetId = 0; mergeOpen = true; }}><i class="bi bi-intersect" aria-hidden="true"></i>{t('Merge…')}</button>
+            <button type="button" class="b2s-btn b2s-btn-danger-outline b2s-btn-sm" disabled={selected.usage > 0} title={selected.usage > 0 ? t('Merge it first: it is set on folders') : ''} onclick={() => (deleteOpen = true)}><i class="bi bi-trash" aria-hidden="true"></i>{t('Delete')}</button>
           </div>
         </aside>
       {/if}
@@ -269,7 +276,7 @@
 {/if}
 
 <AppModal open={formOpen} onClose={() => (formOpen = false)} size="xl" ariaLabelledby="tag-form-title">
-  <form class="tf" on:submit|preventDefault={save}>
+  <form class="tf" onsubmit={(event) => { event.preventDefault(); save(); }}>
     <header class="tf__head">
       <h2 id="tag-form-title">{editing ? t('Edit tag') : t('Create a tag')}</h2>
       <p>{editing ? editing.name : t('Its family gives its colour; set it on folders right away.')}</p>
@@ -278,7 +285,7 @@
       <div class="tf__fields">
         <label class="tf__field">
           <span>{t('Tag name')}</span>
-          <!-- svelte-ignore a11y-autofocus -->
+          <!-- svelte-ignore a11y_autofocus -->
           <input class="b2s-input tf__name" bind:value={name} placeholder={t('e.g. Confidential')} autocomplete="off" autofocus />
           {#if clash?.kind === 'same'}<small class="tf__hint is-bad">{t('« {name} » already exists: use it rather than a second one.', { name: clash.name })}</small>
           {:else if clash}<small class="tf__hint is-warn">{t('Close to « {name} »: the same thing? One tag keeps the searches right.', { name: clash.name })}</small>{/if}
@@ -287,14 +294,14 @@
           <span>{t('Family')}</span>
           <div class="tf__families">
             {#each [...families, NO_FAMILY] as option (option)}
-              <button type="button" class:on={!addingFamily && family === option} aria-pressed={!addingFamily && family === option} on:click={() => { addingFamily = false; family = option; }}>
+              <button type="button" class:on={!addingFamily && family === option} aria-pressed={!addingFamily && family === option} onclick={() => { addingFamily = false; family = option; }}>
                 <i style="background:{familyShades(option)[0]}"></i>{option || t('No family')}
               </button>
             {/each}
             {#if addingFamily}
               <input class="b2s-input tf__newfam" bind:value={newFamily} placeholder={t('New family')} aria-label={t('New family')} />
             {:else}
-              <button type="button" on:click={() => (addingFamily = true)}>+ {t('New family')}</button>
+              <button type="button" onclick={() => (addingFamily = true)}>+ {t('New family')}</button>
             {/if}
           </div>
         </div>
@@ -302,7 +309,7 @@
           <span>{t('Shade')}</span>
           <div class="tf__shades">
             {#each shades as shade (shade)}
-              <button type="button" style="background:{shade}" aria-label={shade} aria-pressed={color === shade} class:on={color === shade} on:click={() => (color = shade)}></button>
+              <button type="button" style="background:{shade}" aria-label={shade} aria-pressed={color === shade} class:on={color === shade} onclick={() => (color = shade)}></button>
             {/each}
           </div>
         </div>
@@ -315,7 +322,7 @@
                 <LoadingState skeleton="rows" rows={3}>{t('Loading…')}</LoadingState>
               {:else}
                 {#each folderMatches as folder (folder.id)}
-                  <label><input type="checkbox" checked={picked.has(folder.id)} on:change={() => togglePick(folder.id)} /><span>{folder.name}</span><small>{folder.server}</small></label>
+                  <label><input type="checkbox" checked={picked.has(folder.id)} onchange={() => togglePick(folder.id)} /><span>{folder.name}</span><small>{folder.server}</small></label>
                 {:else}
                   <small class="tf__none">{t('No folder matches.')}</small>
                 {/each}
@@ -343,7 +350,7 @@
       </aside>
     </div>
     <footer class="tf__foot">
-      <button type="button" class="b2s-btn b2s-btn-secondary" disabled={saving} on:click={() => (formOpen = false)}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary" disabled={saving} onclick={() => (formOpen = false)}>{t('Cancel')}</button>
       <button type="submit" class="b2s-btn b2s-btn-primary" disabled={!canSave}>
         <i class="bi {saving ? 'bi-arrow-repeat' : 'bi-check2'}" aria-hidden="true"></i>
         {editing ? t('Save changes') : picked.size ? t('Create and set on {count} folder(s)', { count: picked.size }) : t('Create the tag')}
@@ -365,8 +372,8 @@
       </select>
       {#if mergeTarget}<small class="tf__hint is-warn">{t('{count} folders move to {target}, then {source} is deleted. This cannot be undone.', { count: selected.usage, target: mergeTarget.name, source: selected.name })}</small>{/if}
       <footer class="tf__foot">
-        <button type="button" class="b2s-btn b2s-btn-secondary" disabled={merging} on:click={() => (mergeOpen = false)}>{t('Cancel')}</button>
-        <button type="button" class="b2s-btn b2s-btn-primary" disabled={!mergeTarget || merging} on:click={merge}><i class="bi bi-intersect" aria-hidden="true"></i>{t('Merge')}</button>
+        <button type="button" class="b2s-btn b2s-btn-secondary" disabled={merging} onclick={() => (mergeOpen = false)}>{t('Cancel')}</button>
+        <button type="button" class="b2s-btn b2s-btn-primary" disabled={!mergeTarget || merging} onclick={merge}><i class="bi bi-intersect" aria-hidden="true"></i>{t('Merge')}</button>
       </footer>
     </div>
   {/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
+
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { beforeNavigate, goto } from '$app/navigation';
   import { t } from '$lib/i18n';
   import { resolveCredentials } from '$lib/api/credentials';
@@ -14,102 +15,61 @@
   import { isValidHostname, isValidIPv4 } from '$lib/utils/host-validate';
 
   type Endpoint = { id: number; isDfs: boolean; name: string; host: string; zoneId: number; account: string; secretRef: string; identitySourceId: number | null };
-  export let data: {
+  interface Props {
+    data: {
     zones: { id: number; name: string }[];
     endpoints: Endpoint[];
     sources: { id: number; name: string; domain: string }[];
     zoneId: number | null;
     kind: 'filer' | 'dfs';
   };
+  }
+
+  let { data }: Props = $props();
   type Namespace = { name: string; path: string; type: 'domain' | 'standalone'; root_targets: string[]; links: { path: string; targets: string[] }[]; error: string | null };
 
   // One way for every server: the test reads its shares and the DFS namespaces it hosts; a path \\domain\name
   // given instead of an address is a namespace on its own
-  let namespaces: Namespace[] = [];
-  let dfsChecked = false;
-  let asFiler = true;
-  let asFilerTouched = false;
-  let picked = new Set<string>();
-  let dfsServer = '';
+  let namespaces = $state<Namespace[]>([]);
+  let dfsChecked = $state(false);
+  let asFiler = $state(true);
+  let asFilerTouched = $state(false);
+  let picked = $state(new Set<string>());
+  let dfsServer = $state('');
   type State = 'idle' | 'running' | 'ok' | 'warn' | 'failed';
   type Found = { address?: string; dialect?: string | null; netbios_name?: string | null; dns_name?: string | null; domain?: string | null };
 
-  let host = '';
-  let port = 445;
-  let analysedHost = '';
-  let analysis: State = 'idle';
-  let analysisMessage = '';
-  let found: Found = {};
-  let zoneId: number | null = data.zoneId ?? (data.zones.length === 1 ? data.zones[0].id : null);
-  let name = '';
+  let host = $state('');
+  let port = $state(445);
+  let analysedHost = $state('');
+  let analysis = $state<State>('idle');
+  let analysisMessage = $state('');
+  let found = $state<Found>({});
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let zoneId = $state<number | null>(data.zoneId ?? (data.zones.length === 1 ? data.zones[0].id : null));
+  let name = $state('');
   let autoName = '';
-  let sourceId: number | null = null;
+  let sourceId = $state<number | null>(null);
 
   // Account: taken from a server of the same zone, or typed
-  let reuseFrom: number | null = null;
-  let account = '';
-  let password = '';
-  let secretRef: string | null = null;
-  let test: State = 'idle';
-  let testMessage = '';
-  let testedKey = '';
-  let shares: string[] = [];
-  let probeResult: any = null;
+  let reuseFrom = $state<number | null>(null);
+  let account = $state('');
+  let password = $state('');
+  let secretRef = $state<string | null>(null);
+  let test = $state<State>('idle');
+  let testMessage = $state('');
+  let testedKey = $state('');
+  let shares = $state<string[]>([]);
+  let probeResult = $state<any>(null);
 
-  let creating = false;
-  let createError = '';
+  let creating = $state(false);
+  let createError = $state('');
 
   const strip = (value: string) => value.trim().replace(/^\\\\|^\/\//, '').split(/[\\/]/)[0];
-  $: cleanHost = strip(host);
-  $: hostValid = isValidIPv4(cleanHost) || isValidHostname(cleanHost);
-  $: if (analysedHost && cleanHost !== analysedHost) resetAnalysis();
-  $: zoneServers = data.endpoints.filter((endpoint) => endpoint.zoneId === zoneId && endpoint.account && endpoint.secretRef);
-  $: if (reuseFrom && !zoneServers.some((endpoint) => endpoint.id === reuseFrom)) reuseFrom = null;
-  $: reused = zoneServers.find((endpoint) => endpoint.id === reuseFrom) ?? null;
-  $: effectiveAccount = reused ? reused.account : account.trim();
   // The same server under another name (IP / short name / FQDN) is caught with what it announced
   const isIp = (value: string) => /^[0-9.]+$/.test(value) || value.includes(':');
   const shortName = (value: string) => (isIp(value) ? value : value.split('.')[0]);
-  // \\corp.local\brest or \\DFS01\lorient: a namespace given by its path
-  $: namespacePath = (() => {
-    const parts = host.trim().replace(/\//g, '\\').split('\\').filter(Boolean);
-    return host.trim().startsWith('\\') && parts.length >= 2 ? `\\\\${parts[0]}\\${parts[1]}` : null;
-  })();
-  // The shares that are the roots of its namespaces are not folders to govern
-  $: rootShares = new Set(namespaces.flatMap((namespace) => namespace.root_targets ?? [])
-    .map((target) => target.split('\\').filter(Boolean))
-    .filter((parts) => parts.length >= 2 && [cleanHost, dfsServer, found.netbios_name, found.dns_name, found.address]
-      .filter(Boolean).some((name) => String(name).split('.')[0].toLowerCase() === parts[0].split('.')[0].toLowerCase()))
-    .map((parts) => parts[1].toLowerCase()));
-  $: otherShares = shares.filter((share) => !rootShares.has(share.toLowerCase()));
-  // A server holding namespaces only is not declared as a file server, unless asked
-  $: if (!asFilerTouched) asFiler = !namespacePath && (otherShares.length > 0 || namespaces.length === 0);
-  $: if (namespacePath) asFiler = false;
-  // Namespaces already followed (same name on the same server) are not added twice
-  $: knownNamespaces = new Set(data.endpoints.filter((endpoint) => endpoint.isDfs).map((endpoint) =>
-    `${endpoint.host.split('.')[0].toLowerCase()}|${endpoint.name.toLowerCase()}`));
   const alreadyFollowed = (namespace: Namespace) => knownNamespaces.has(`${(dfsServer || cleanHost).split('.')[0].toLowerCase()}|${namespace.name.toLowerCase()}`);
-  $: duplicate = !asFiler ? null : data.endpoints.filter((endpoint) => !endpoint.isDfs).find((endpoint) => {
-    const known = endpoint.host.toLowerCase();
-    const names = [cleanHost, found.address, found.netbios_name, found.dns_name].filter(Boolean).map((value) => String(value).toLowerCase());
-    return known && names.some((value) => value === known || (!isIp(value) && !isIp(known) && shortName(value) === shortName(known)));
-  }) ?? null;
-  // Windows servers hardened to check the name they are reached by (SPN) refuse an alias: their address works
-  $: aliasRefused = test === 'failed' && /ACCESS_DENIED|n’a pas les droits|refusé/i.test(testMessage) && !isIp(cleanHost) && Boolean(found.address) &&
-    cleanHost.toLowerCase() !== String(found.dns_name ?? '').toLowerCase();
-  $: key = JSON.stringify([cleanHost, port, effectiveAccount, reuseFrom, password, secretRef]);
-  $: if (testedKey && key !== testedKey) {
-    testedKey = '';
-    test = 'idle';
-    shares = [];
-    probeResult = null;
-    namespaces = [];
-    dfsChecked = false;
-    picked = new Set();
-  }
-  $: if (password && secretRef) secretRef = null;
-  $: canCreate = hostValid && Boolean(zoneId) && test === 'ok' && !creating && (asFiler || picked.size > 0)
-    && (!asFiler || (!duplicate && Boolean(name.trim())));
 
   function togglePick(name: string) {
     if (picked.has(name)) picked.delete(name);
@@ -318,7 +278,65 @@
     if ((host.trim() || account.trim() || password) && !window.confirm(t('Leave this page? What you entered will be lost.'))) navigation.cancel();
   });
 
-  $: checks = [
+  let cleanHost = $derived(strip(host));
+  let hostValid = $derived(isValidIPv4(cleanHost) || isValidHostname(cleanHost));
+  $effect.pre(() => {
+    if (analysedHost && cleanHost !== analysedHost) untrack(resetAnalysis);
+  });
+  let zoneServers = $derived(data.endpoints.filter((endpoint) => endpoint.zoneId === zoneId && endpoint.account && endpoint.secretRef));
+  $effect.pre(() => {
+    if (reuseFrom && !zoneServers.some((endpoint) => endpoint.id === reuseFrom)) reuseFrom = null;
+  });
+  let reused = $derived(zoneServers.find((endpoint) => endpoint.id === reuseFrom) ?? null);
+  let effectiveAccount = $derived(reused ? reused.account : account.trim());
+  // \\corp.local\brest or \\DFS01\lorient: a namespace given by its path
+  let namespacePath = $derived((() => {
+    const parts = host.trim().replace(/\//g, '\\').split('\\').filter(Boolean);
+    return host.trim().startsWith('\\') && parts.length >= 2 ? `\\\\${parts[0]}\\${parts[1]}` : null;
+  })());
+  $effect.pre(() => {
+    if (password && secretRef) secretRef = null;
+  });
+  let key = $derived(JSON.stringify([cleanHost, port, effectiveAccount, reuseFrom, password, secretRef]));
+  $effect.pre(() => {
+    if (testedKey && key !== testedKey) {
+      testedKey = '';
+      test = 'idle';
+      shares = [];
+      probeResult = null;
+      namespaces = [];
+      dfsChecked = false;
+      picked = new Set();
+    }
+  });
+  // The shares that are the roots of its namespaces are not folders to govern
+  let rootShares = $derived(new Set(namespaces.flatMap((namespace) => namespace.root_targets ?? [])
+    .map((target) => target.split('\\').filter(Boolean))
+    .filter((parts) => parts.length >= 2 && [cleanHost, dfsServer, found.netbios_name, found.dns_name, found.address]
+      .filter(Boolean).some((name) => String(name).split('.')[0].toLowerCase() === parts[0].split('.')[0].toLowerCase()))
+    .map((parts) => parts[1].toLowerCase())));
+  let otherShares = $derived(shares.filter((share) => !rootShares.has(share.toLowerCase())));
+  // A server holding namespaces only is not declared as a file server, unless asked
+  $effect.pre(() => {
+    if (!asFilerTouched) asFiler = !namespacePath && (otherShares.length > 0 || namespaces.length === 0);
+  });
+  $effect.pre(() => {
+    if (namespacePath) asFiler = false;
+  });
+  // Namespaces already followed (same name on the same server) are not added twice
+  let knownNamespaces = $derived(new Set(data.endpoints.filter((endpoint) => endpoint.isDfs).map((endpoint) =>
+    `${endpoint.host.split('.')[0].toLowerCase()}|${endpoint.name.toLowerCase()}`)));
+  let duplicate = $derived(!asFiler ? null : data.endpoints.filter((endpoint) => !endpoint.isDfs).find((endpoint) => {
+    const known = endpoint.host.toLowerCase();
+    const names = [cleanHost, found.address, found.netbios_name, found.dns_name].filter(Boolean).map((value) => String(value).toLowerCase());
+    return known && names.some((value) => value === known || (!isIp(value) && !isIp(known) && shortName(value) === shortName(known)));
+  }) ?? null);
+  // Windows servers hardened to check the name they are reached by (SPN) refuse an alias: their address works
+  let aliasRefused = $derived(test === 'failed' && /ACCESS_DENIED|n’a pas les droits|refusé/i.test(testMessage) && !isIp(cleanHost) && Boolean(found.address) &&
+    cleanHost.toLowerCase() !== String(found.dns_name ?? '').toLowerCase());
+  let canCreate = $derived(hostValid && Boolean(zoneId) && test === 'ok' && !creating && (asFiler || picked.size > 0)
+    && (!asFiler || (!duplicate && Boolean(name.trim()))));
+  let checks = $derived([
     {
       state: analysis,
       title: t('Server'),
@@ -340,15 +358,15 @@
         : test === 'failed' ? testMessage
         : t('Not tested yet')
     }
-  ];
-  $: pendingReason =
-    !hostValid ? t('Enter the address of the server.')
+  ]);
+  let pendingReason =
+    $derived(!hostValid ? t('Enter the address of the server.')
     : duplicate ? t('This file server is already declared as {name}', { name: duplicate.name })
     : !zoneId ? t('Choose the zone of this server.')
     : asFiler && !name.trim() ? t('Enter a name for this server.')
     : test !== 'ok' ? t('Test the service account to continue.')
     : !asFiler && !picked.size ? t('Check at least one namespace, or govern its shares.')
-    : '';
+    : '');
 </script>
 
 <svelte:head><title>{t('Add a file server')} · BornToShare</title></svelte:head>
@@ -366,9 +384,9 @@
         <div class="card-head"><h2>{t('Server')}</h2>{#if analysis === 'ok'}<StatusBadge compact variant="success" label={t('Detected')} />{/if}</div>
         <div class="row">
           <input class="b2s-input mono big" aria-label={t('Hostname / IP')} placeholder={'filer01.example.com  ·  \\\\example.com\\brest'} bind:value={host}
-            on:keydown={(event) => event.key === 'Enter' && analyse()} on:blur={() => hostValid && cleanHost !== analysedHost && analyse()} />
+            onkeydown={(event) => event.key === 'Enter' && analyse()} onblur={() => hostValid && cleanHost !== analysedHost && analyse()} />
           <input class="b2s-input mono port" type="number" min="1" max="65535" aria-label={t('Port')} bind:value={port} />
-          <button type="button" class="b2s-btn b2s-btn-secondary" disabled={!hostValid || analysis === 'running'} on:click={analyse}>
+          <button type="button" class="b2s-btn b2s-btn-secondary" disabled={!hostValid || analysis === 'running'} onclick={analyse}>
             {analysis === 'running' ? t('Analysing…') : t('Analyse')}
           </button>
         </div>
@@ -428,20 +446,20 @@
             <div class="field"><label for="srv-password">{t('Password')}</label><input id="srv-password" class="b2s-input" type="password" autocomplete="new-password" placeholder={secretRef ? t('Password stored. Type to replace it.') : ''} bind:value={password} /></div>
           </div>
         {/if}
-        <button type="button" class="b2s-btn b2s-btn-secondary start" disabled={test === 'running' || !hostValid || !effectiveAccount} on:click={testAccount}>
+        <button type="button" class="b2s-btn b2s-btn-secondary start" disabled={test === 'running' || !hostValid || !effectiveAccount} onclick={testAccount}>
           {test === 'running' ? t('Testing…') : namespacePath ? t('Test the account and read the namespace') : t('Test the account and read the server')}
         </button>
         {#if test === 'failed'}<InlineAlert tone="error">{testMessage}</InlineAlert>{/if}
         {#if aliasRefused}
           <InlineAlert tone="info">
             {t('This server may refuse the name {host}: it only accepts its own name ({name}) or its address.', { host: cleanHost, name: found.dns_name ?? found.netbios_name ?? '—' })}
-            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={useAddress}>{t('Use {address}', { address: String(found.address) })}</button>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={useAddress}>{t('Use {address}', { address: String(found.address) })}</button>
           </InlineAlert>
         {/if}
         {#if test === 'ok'}
           {#if !namespacePath}
             <label class="pick-filer">
-              <input type="checkbox" checked={asFiler} on:change={(event) => { asFiler = event.currentTarget.checked; asFilerTouched = true; }} />
+              <input type="checkbox" checked={asFiler} onchange={(event) => { asFiler = event.currentTarget.checked; asFilerTouched = true; }} />
               <span><strong>{t('Govern the shares of this server')}</strong>
                 <small class="muted">{otherShares.length ? t('{count} share(s): you choose the folders right after.', { count: otherShares.length }) : t('No share besides the roots of its namespaces.')}</small></span>
             </label>
@@ -455,7 +473,7 @@
               {#each namespaces as namespace (namespace.name)}
                 <li>
                   <label>
-                    <input type="checkbox" checked={picked.has(namespace.name)} disabled={alreadyFollowed(namespace)} on:change={() => togglePick(namespace.name)} />
+                    <input type="checkbox" checked={picked.has(namespace.name)} disabled={alreadyFollowed(namespace)} onchange={() => togglePick(namespace.name)} />
                     <span class="ns-name"><strong>{namespace.name}</strong><small class="mono">{namespace.path}</small></span>
                     <StatusBadge compact showDot={false} variant={namespace.type === 'domain' ? 'success' : 'muted'} label={namespace.type === 'domain' ? t('Domain') : t('Standalone')} />
                     <small class="muted">{alreadyFollowed(namespace) ? t('Already followed') : namespace.error ? t('Not read: {message}', { message: namespace.error }) : t('{count} DFS folder(s)', { count: namespace.links.length })}</small>
@@ -481,7 +499,7 @@
           </li>
         {/each}
       </ul>
-      <button type="button" class="b2s-btn b2s-btn-primary wide" disabled={!canCreate} on:click={create}>{creating ? t('Creating…') : asFiler && picked.size ? t('Add the server and {count} namespace(s)', { count: picked.size }) : picked.size ? t('Add {count} namespace(s)', { count: picked.size }) : t('Create the server')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary wide" disabled={!canCreate} onclick={create}>{creating ? t('Creating…') : asFiler && picked.size ? t('Add the server and {count} namespace(s)', { count: picked.size }) : picked.size ? t('Add {count} namespace(s)', { count: picked.size }) : t('Create the server')}</button>
       {#if pendingReason}<small class="muted">{pendingReason}</small>{:else}<small class="muted">{asFiler && otherShares.length ? t('Next: choose the folders to manage.') : t('Next: the page of the server.')}</small>{/if}
       {#if createError}<InlineAlert tone="error">{createError}</InlineAlert>{/if}
     </aside>

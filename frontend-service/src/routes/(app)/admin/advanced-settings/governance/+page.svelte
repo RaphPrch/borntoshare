@@ -2,7 +2,11 @@
   import RequestPolicyCard from '$lib/components/settings/RequestPolicyCard.svelte';
   import BroadGroupsCard from '$lib/components/settings/BroadGroupsCard.svelte';
 
-  export let data: any;
+  interface Props {
+    data: any;
+  }
+
+  let { data }: Props = $props();
 </script>
 
 <RequestPolicyCard requests={data.advanced?.requests ?? {}} />

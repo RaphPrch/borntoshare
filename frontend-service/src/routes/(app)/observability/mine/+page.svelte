@@ -13,7 +13,7 @@
 
   let { data }: Props = $props();
 
-  let filter: 'all' | 'failed' = $state('all');
+  let filter = $state<'all' | 'failed'>('all');
   const isFailure = (event: Record<string, any>) => /fail|error|denied|refus/i.test(String(event.outcome ?? event.result ?? ''));
   let shown = $derived(data.events.filter((event) => filter === 'all' || isFailure(event)));
   let failures = $derived(data.events.filter(isFailure).length);

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import { page } from '$app/stores';
   import { apiGetData } from '$lib/api/client';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -16,13 +18,10 @@
   type Report = { key: string; title: string; description: string; generated_at: string; scope: string; kpis: Kpi[]; sections: Section[];
     zones: Array<{ id: number; name: string }> };
 
-  let report: Report | null = null;
-  let error = '';
-  let zoneId = 0;
-  let loadedFor = '';
-  $: kind = $page.params.kind;
-  $: key = `${kind}:${zoneId}`;
-  $: if (kind && key !== loadedFor) load();
+  let report = $state<Report | null>(null);
+  let error = $state('');
+  let zoneId = $state(0);
+  let loadedFor = $state('');
   async function load() {
     loadedFor = key;
     error = '';
@@ -51,6 +50,11 @@
     const text = String(value ?? '');
     return /retard|plein|non demandée/.test(text) ? 'bad' : /surveiller|en cours/.test(text) ? 'warn' : /ok|corrigée/.test(text) ? 'ok' : '';
   };
+  let kind = $derived($page.params.kind);
+  let key = $derived(`${kind}:${zoneId}`);
+  $effect.pre(() => {
+    if (kind && key !== loadedFor) untrack(load);
+  });
 </script>
 
 <section class="b2s-page b2s-page--admin rv">
@@ -74,7 +78,7 @@
             {#each report.zones as zone (zone.id)}<option value={zone.id}>{zone.name}</option>{/each}
           </select>
         {/if}
-        <button type="button" class="b2s-btn b2s-btn-primary" on:click={() => window.print()}>
+        <button type="button" class="b2s-btn b2s-btn-primary" onclick={() => window.print()}>
           <i class="bi bi-printer" aria-hidden="true"></i>{t('Print or save as PDF')}</button>
       </div>
     </header>

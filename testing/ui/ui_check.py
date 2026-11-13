@@ -5,7 +5,8 @@
 Signs in as the local « admin » (password read from a file, never from the command line), then checks: the bell and
 its drawer, the live connection (/live), the DFS server (one line, its own view), the palette (Ctrl+K, actions, « ? »), the requests list
 (columns, saved views, column resize, right click), the alerts (right click, saved views), the 5S explorer (right
-click, score card, click-to-copy), the unsaved-changes guard. Exit code 1 when a check fails. Read only: nothing is
+click, score card, click-to-copy), the unsaved-changes guard, the cards and pages moved to Svelte 5 runes (every page opens with content
+and without a script error, the sign-in page, the not-found page). Exit code 1 when a check fails. Read only: nothing is
 saved on the instance (the saved views and widths live in the browser of the run; the settings form is left unsaved).
 Optional: B2S_EXPECT_TOAST=1 waits up to 60 s for a new notice pushed while the page is open (insert one meanwhile).
 """
@@ -242,6 +243,41 @@ with sync_playwright() as p:
         shot(page, "13-identity-add")
         page.keyboard.press("Escape")
     step("runes cards", runes_cards)
+
+    def every_page():
+        """Each page opens with content and without a script error (Svelte 5 batch 4: the routes)"""
+        paths = ["/dashboard", "/access-requests/new", "/storage-roots/add", "/exposure", "/reports", "/reports/governance",
+                 "/five-s", "/five-s/scanner", "/admin/zones/new", "/admin/zones/1?tab=provisioning", "/admin/storage-endpoints/new?zone=1",
+                 "/admin/identity-sources", "/admin/identity-sources/new", "/admin/identity/admins", "/admin/tags", "/admin/policies",
+                 "/admin/advanced-settings/infrastructure", "/admin/advanced-settings/logging", "/admin/advanced-settings/naming-policies",
+                 "/admin/advanced-settings/network", "/admin/advanced-settings/notifications", "/admin/advanced-settings/user-sessions",
+                 "/admin/advanced-settings/governance"]
+        goto(page, "/five-s", 2500)
+        row = page.locator("button.fs__row").first
+        if row.count():  # the 5S pages of the first scored folder
+            row.click()
+            page.wait_for_url(re.compile(r"/five-s/explore/\d+"), timeout=15000)
+            root = re.search(r"/five-s/explore/(\d+)", page.url).group(1)
+            paths += [f"/five-s/explore/{root}", f"/five-s/report/{root}", f"/five-s/duplicates/{root}"]
+        bad = []
+        for path in paths:
+            before = len(errors)
+            goto(page, path, 2000)
+            text = page.locator("main, .b2s-main, body").first.inner_text().strip()
+            if len(errors) > before or len(text) < 80 or "Something went wrong" in text or "Une erreur est survenue" in text:
+                bad.append(f"{path} ({errors[before] if len(errors) > before else str(len(text)) + ' chars'})")
+                shot(page, "page-" + re.sub(r"\W+", "_", path).strip("_"))
+        check(f"{len(paths)} pages open with content", not bad, "; ".join(bad[:4]))
+        goto(page, "/no-such-page", 1500)
+        check("unknown page: not-found page", page.get_by_text(re.compile(r"introuvable|not found", re.I)).count() > 0)
+        anon = browser.new_context(viewport={"width": 1440, "height": 900}, locale="fr-FR")
+        login_page = anon.new_page()
+        login_page.on("pageerror", lambda error: errors.append("login: " + str(error)[:200]))
+        login_page.goto(BASE + "/login", wait_until="load", timeout=30000)
+        login_page.wait_for_timeout(1500)
+        check("sign-in page shows its form", login_page.locator("input[type=password]").count() == 1)
+        anon.close()
+    step("every page", every_page)
 
     if os.environ.get("B2S_EXPECT_TOAST"):
         def toast():

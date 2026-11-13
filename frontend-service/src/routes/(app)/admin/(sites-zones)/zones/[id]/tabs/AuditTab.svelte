@@ -1,7 +1,11 @@
 <script lang="ts">
   import ActivityTimeline from '$lib/components/activity/ActivityTimeline.svelte';
 
-  export let activity: any[] = [];
+  interface Props {
+    activity?: any[];
+  }
+
+  let { activity = [] }: Props = $props();
 </script>
 
 <ActivityTimeline items={activity} />

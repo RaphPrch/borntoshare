@@ -11,13 +11,16 @@ const config = {
       'a11y_label_has_associated_control',
       'a11y_click_events_have_key_events',
       'a11y_consider_explicit_label',
-      'a11y_role_supports_aria_props',
-      'export_let_unused'
+      'a11y_role_supports_aria_props'
     ]);
 
     if (ignoredCodes.has(warning?.code)) return;
     handler(warning);
   },
+
+  // Svelte 5 runes everywhere: a component written the former way (export let, $:, slots) no longer compiles.
+  // (No third-party Svelte library in the app; one written the former way would need an exception here.)
+  compilerOptions: { runes: true },
 
   kit: {
     // CSRF: SvelteKit only accepts form POSTs whose Origin matches the app origin,

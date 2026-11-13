@@ -52,7 +52,6 @@
 </script>
 
 <script lang="ts">
-  import { stopPropagation } from 'svelte/legacy';
 
   import { slideIndicator } from '$lib/utils/motion';
   import { onMount, tick } from 'svelte';
@@ -488,7 +487,7 @@
                   tabindex="-1"
                   aria-label={row.expanded ? t('Collapse') : t('Expand')}
                   disabled={Boolean(q)}
-                  onclick={stopPropagation(() => toggle(node.key))}
+                  onclick={(event) => { event.stopPropagation(); toggle(node.key); }}
                 >
                   <i class={`bi ${row.expanded ? 'bi-chevron-down' : 'bi-chevron-right'}`} aria-hidden="true"></i>
                 </button>

@@ -8,7 +8,7 @@
   /** The reports of the governed folders: read on screen, printed or saved as PDF from the browser. */
   type Report = { key: string; title: string; description: string; source?: 'core' | 'fives' };
   const ICONS: Record<string, string> = { storage: 'bi-hdd-stack', security: 'bi-shield-lock', governance: 'bi-diagram-3', 'fives-5s': 'bi-stars', 'fives-hygiene': 'bi-recycle' };
-  let reports: Report[] | null = null;
+  let reports = $state<Report[] | null>(null);
   onMount(async () => {
     // The reports of the core, then those of the 5S module when it is on
     const [core, module] = await Promise.all([

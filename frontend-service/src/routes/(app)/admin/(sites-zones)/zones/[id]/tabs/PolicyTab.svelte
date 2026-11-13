@@ -1,41 +1,57 @@
 <script lang="ts">
+
   import { t } from '$lib/i18n';
   import type { ZoneProvisioningPolicy } from "$lib/api/zones";
   import ProvisioningPolicyScreen from "$lib/components/provisioning/ProvisioningPolicyScreen.svelte";
   import { buildZoneProvisioningViewModel } from "$lib/components/provisioning/provisioning-policy.adapter";
   import type { ProvisioningPolicyViewModel } from "$lib/components/provisioning/provisioning-policy.types";
 
-  export let policy: ZoneProvisioningPolicy;
-  export let zoneId: number | null = null;
-  export let namingTemplateLabel = '';
-  export let saving = false;
-  export let error: string | null = null;
-  export let isDirty = false;
-  export let canSave = true;
 
-  export let onChange: ((next: ZoneProvisioningPolicy) => void) | null = null;
-  export let onSave: (() => void) | null = null;
-  export let onDiscard: (() => void) | null = null;
-  export let onChangeNamingTemplate: ((value: string) => void) | null = null;
+  interface Props {
+    policy: ZoneProvisioningPolicy;
+    zoneId?: number | null;
+    namingTemplateLabel?: string;
+    saving?: boolean;
+    error?: string | null;
+    isDirty?: boolean;
+    canSave?: boolean;
+    onChange?: ((next: ZoneProvisioningPolicy) => void) | null;
+    onSave?: (() => void) | null;
+    onDiscard?: (() => void) | null;
+    onChangeNamingTemplate?: ((value: string) => void) | null;
+  }
 
-  let viewModel: ProvisioningPolicyViewModel = buildZoneProvisioningViewModel(policy);
+  let {
+    policy,
+    zoneId = null,
+    namingTemplateLabel = '',
+    saving = false,
+    error = null,
+    isDirty = false,
+    canSave = true,
+    onChange = null,
+    onSave = null,
+    onDiscard = null,
+    onChangeNamingTemplate = null
+  }: Props = $props();
 
-  $: viewModel = buildZoneProvisioningViewModel(policy);
-
-  $: viewModel = {
-    ...viewModel,
-    configuration: {
-      ...viewModel.configuration,
-      onChangeOrganizationalUnit: (value: string) => {
-        onChange?.({ ...policy, ou_strategy: "identity_default", base_ou_dn: value, static_ou_dn: null });
-      },
-      onChangeNamingTemplate: onChangeNamingTemplate ?? undefined,
-      onSavePolicy: onSave ?? undefined,
-      savePolicyBusy: saving,
-      savePolicyDisabled: !canSave,
-      savePolicyLabel: t('Save policy')
-    }
-  };
+  let viewModel: ProvisioningPolicyViewModel = $derived.by(() => {
+    const base = buildZoneProvisioningViewModel(policy);
+    return {
+      ...base,
+      configuration: {
+        ...base.configuration,
+        onChangeOrganizationalUnit: (value: string) => {
+          onChange?.({ ...policy, ou_strategy: "identity_default", base_ou_dn: value, static_ou_dn: null });
+        },
+        onChangeNamingTemplate: onChangeNamingTemplate ?? undefined,
+        onSavePolicy: onSave ?? undefined,
+        savePolicyBusy: saving,
+        savePolicyDisabled: !canSave,
+        savePolicyLabel: t('Save policy')
+      }
+    };
+  });
 
 </script>
 

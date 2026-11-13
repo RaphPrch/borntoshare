@@ -1,8 +1,9 @@
 <script lang="ts">
+
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { beforeNavigate, invalidate } from '$app/navigation';
   import { t } from '$lib/i18n';
   import { apiGetData, apiPostData } from '$lib/api/client';
@@ -20,12 +21,16 @@
   import { formatDateTime } from '$lib/utils/format';
 
   type Option = { id: number; label: string; hint?: string };
-  export let data: {
+  interface Props {
+    data: {
     endpoints: Record<string, any>[];
     catalog: Record<string, any>[];
     tags: Option[];
     people: Option[];
   };
+  }
+
+  let { data }: Props = $props();
 
   /**
    * A folder to add. From a DFS namespace: its DFS folder, governed on its targets (the declared file servers where
@@ -61,89 +66,49 @@
 
   const keyOf = (folder: Pick<Folder, 'storage_endpoint_id' | 'root_path'>) => `${folder.storage_endpoint_id}|${folder.root_path}`;
 
-  let foldersByServer: Record<number, Folder[]> = {};
-  let loadError = '';
-  let loadingFolders = false;
-  let currentId: number | null = null;
-  let scanning: Record<number, boolean> = {};
-  let scanErrors: Record<number, string> = {};
+  let foldersByServer = $state<Record<number, Folder[]>>({});
+  let loadError = $state('');
+  let loadingFolders = $state(false);
+  let currentId = $state<number | null>(null);
+  let scanning = $state<Record<number, boolean>>({});
+  let scanErrors = $state<Record<number, string>>({});
 
-  let selected = new Map<string, Folder>();
+  let selected = $state(new Map<string, Folder>());
   let anchor: number | null = null;
 
-  let serverQuery = '';
-  let serverFilter: 'all' | 'selected' | 'bad' = 'all';
-  let openZones: Record<string, boolean> = {};
-  let folderQuery = '';
-  let folderFilter: 'new' | 'managed' | 'all' = 'new';
+  let serverQuery = $state('');
+  let serverFilter = $state<'all' | 'selected' | 'bad'>('all');
+  let openZones = $state<Record<string, boolean>>({});
+  let folderQuery = $state('');
+  let folderFilter = $state<'new' | 'managed' | 'all'>('new');
 
-  let globalQuery = '';
-  let globalItems: Folder[] = [];
-  let globalTotal = 0;
-  let searching = false;
+  let globalQuery = $state('');
+  let globalItems = $state<Folder[]>([]);
+  let globalTotal = $state(0);
+  let searching = $state(false);
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let searchTicket = 0;
 
-  let guardianIds: number[] = [];
-  let tagIds: number[] = [];
-  let groupPreview: { read: string; write: string } | null = null;
+  let guardianIds = $state<number[]>([]);
+  let tagIds = $state<number[]>([]);
+  let groupPreview: { read: string; write: string } | null = $state(null);
   let previewKey = '';
 
-  let running = false;
-  let done = 0;
-  let total = 0;
-  let createdIds: number[] = [];
-  let warnings: string[] = [];
-  let failures: Failure[] = [];
-  let finished = false;
+  let running = $state(false);
+  let done = $state(0);
+  let total = $state(0);
+  let createdIds = $state<number[]>([]);
+  let warnings = $state<string[]>([]);
+  let failures = $state<Failure[]>([]);
+  let finished = $state(false);
 
-  $: catalogById = new Map(data.catalog.map((row) => [Number(row.storage_endpoint_id), row]));
-  // A disabled server cannot receive new folders
-  $: servers = data.endpoints
-    .filter((raw) => raw?.is_active !== false && raw?.is_active !== 0 && String(raw?.status ?? '').toLowerCase() !== 'disabled')
-    .map((raw): Server => {
-      const id = endpointIdOf(raw);
-      const entry = catalogById.get(id);
-      const probe = String(raw?.last_probe_status ?? raw?.probe_status ?? '').toLowerCase();
-      const discoveredAt = entry?.discovered_at ?? null;
-      return {
-        id,
-        name: endpointNameOf(raw),
-        zoneId: endpointZoneIdOf(raw),
-        zone: String(raw?.zone_name ?? t('Unassigned zone')),
-        state: /fail|error|unreach/.test(probe) || scanErrors[id] ? 'bad' : discoveredAt ? 'ok' : 'none',
-        newCount: Number(entry?.new_count ?? 0),
-        total: Number(entry?.roots_count ?? 0),
-        discoveredAt,
-        raw
-      };
-    })
-    .sort((a, b) => a.zone.localeCompare(b.zone) || a.name.localeCompare(b.name));
 
-  $: current = servers.find((server) => server.id === currentId) ?? null;
-  $: selectedByServer = [...selected.values()].reduce<Record<number, number>>((acc, folder) => {
-    acc[folder.storage_endpoint_id] = (acc[folder.storage_endpoint_id] ?? 0) + 1;
-    return acc;
-  }, {});
-  $: selectedServers = servers.filter((server) => selectedByServer[server.id]);
-  $: badCount = servers.filter((server) => server.state === 'bad').length;
-  $: forcedOpen = Boolean(serverQuery.trim()) || serverFilter !== 'all';
-  $: visibleServers = servers
-    .filter((server) => `${server.name} ${server.zone}`.toLowerCase().includes(serverQuery.trim().toLowerCase()))
-    .filter((server) => serverFilter === 'all' || (serverFilter === 'selected' ? selectedByServer[server.id] : server.state === 'bad'));
-  $: zones = [...new Set(visibleServers.map((server) => server.zone))].map((zone) => {
-    const list = visibleServers.filter((server) => server.zone === zone);
-    return { zone, list, picked: list.reduce((sum, server) => sum + (selectedByServer[server.id] ?? 0), 0) };
-  });
 
-  $: currentFolders = currentId ? foldersByServer[currentId] ?? [] : [];
-  $: managedCount = currentFolders.filter((folder) => folder.managed).length;
-  $: searchMode = Boolean(globalQuery.trim());
   // Sub-folders read on demand, under their parent (key of the parent -> its sub-folders)
-  let childrenOf: Record<string, Folder[]> = {};
-  let expanded = new Set<string>();
-  let browsing: Record<string, boolean> = {};
-  let browseErrors: Record<string, string> = {};
+  let childrenOf = $state<Record<string, Folder[]>>({});
+  let expanded = $state(new Set<string>());
+  let browsing = $state<Record<string, boolean>>({});
+  let browseErrors = $state<Record<string, string>>({});
   let governedPaths: Set<string> | null = null;
   const browseTarget = (folder: Folder) =>
     folder.blocked ? null : folder.targets?.length ? folder.targets[0] : folder.dfsPath ? null : { storage_endpoint_id: folder.storage_endpoint_id, root_path: folder.root_path };
@@ -190,18 +155,7 @@
   }
   const withChildren = (list: Folder[], open: Set<string>, kids: Record<string, Folder[]>): Folder[] =>
     list.flatMap((folder) => [folder, ...(open.has(keyOf(folder)) ? withChildren(kids[keyOf(folder)] ?? [], open, kids) : [])]);
-  $: baseRows = searchMode
-    ? globalItems
-    : currentFolders
-        .filter((folder) => folderFilter === 'all' || (folderFilter === 'new' ? !folder.managed : folder.managed))
-        .filter((folder) => `${folder.name} ${folder.root_path}`.toLowerCase().includes(folderQuery.trim().toLowerCase()));
-  $: rows = searchMode ? baseRows : withChildren(baseRows, expanded, childrenOf);
-  $: selectable = rows.filter((folder) => !folder.managed && !folder.blocked);
-  $: allChecked = selectable.length > 0 && selectable.every((folder) => selected.has(keyOf(folder)));
 
-  $: firstSelected = selected.values().next().value as Folder | undefined;
-  $: void refreshPreview(firstSelected);
-  $: canAdd = selected.size > 0 && !running;
 
   const stateLabel = (server: Server) =>
     server.state === 'bad' ? t('Unreachable') : server.state === 'none' ? t('To analyse') : t('{count} new', { count: server.newCount });
@@ -440,6 +394,60 @@
   });
 
   onDestroy(() => clearTimeout(searchTimer));
+  let catalogById = $derived(new Map(data.catalog.map((row) => [Number(row.storage_endpoint_id), row])));
+  // A disabled server cannot receive new folders
+  let servers = $derived(data.endpoints
+    .filter((raw) => raw?.is_active !== false && raw?.is_active !== 0 && String(raw?.status ?? '').toLowerCase() !== 'disabled')
+    .map((raw): Server => {
+      const id = endpointIdOf(raw);
+      const entry = catalogById.get(id);
+      const probe = String(raw?.last_probe_status ?? raw?.probe_status ?? '').toLowerCase();
+      const discoveredAt = entry?.discovered_at ?? null;
+      return {
+        id,
+        name: endpointNameOf(raw),
+        zoneId: endpointZoneIdOf(raw),
+        zone: String(raw?.zone_name ?? t('Unassigned zone')),
+        state: /fail|error|unreach/.test(probe) || scanErrors[id] ? 'bad' : discoveredAt ? 'ok' : 'none',
+        newCount: Number(entry?.new_count ?? 0),
+        total: Number(entry?.roots_count ?? 0),
+        discoveredAt,
+        raw
+      };
+    })
+    .sort((a, b) => a.zone.localeCompare(b.zone) || a.name.localeCompare(b.name)));
+  let current = $derived(servers.find((server) => server.id === currentId) ?? null);
+  let selectedByServer = $derived([...selected.values()].reduce<Record<number, number>>((acc, folder) => {
+    acc[folder.storage_endpoint_id] = (acc[folder.storage_endpoint_id] ?? 0) + 1;
+    return acc;
+  }, {}));
+  let selectedServers = $derived(servers.filter((server) => selectedByServer[server.id]));
+  let badCount = $derived(servers.filter((server) => server.state === 'bad').length);
+  let forcedOpen = $derived(Boolean(serverQuery.trim()) || serverFilter !== 'all');
+  let visibleServers = $derived(servers
+    .filter((server) => `${server.name} ${server.zone}`.toLowerCase().includes(serverQuery.trim().toLowerCase()))
+    .filter((server) => serverFilter === 'all' || (serverFilter === 'selected' ? selectedByServer[server.id] : server.state === 'bad')));
+  let zones = $derived([...new Set(visibleServers.map((server) => server.zone))].map((zone) => {
+    const list = visibleServers.filter((server) => server.zone === zone);
+    return { zone, list, picked: list.reduce((sum, server) => sum + (selectedByServer[server.id] ?? 0), 0) };
+  }));
+  let currentFolders = $derived(currentId ? foldersByServer[currentId] ?? [] : []);
+  let managedCount = $derived(currentFolders.filter((folder) => folder.managed).length);
+  let searchMode = $derived(Boolean(globalQuery.trim()));
+  let baseRows = $derived(searchMode
+    ? globalItems
+    : currentFolders
+        .filter((folder) => folderFilter === 'all' || (folderFilter === 'new' ? !folder.managed : folder.managed))
+        .filter((folder) => `${folder.name} ${folder.root_path}`.toLowerCase().includes(folderQuery.trim().toLowerCase())));
+  let rows = $derived(searchMode ? baseRows : withChildren(baseRows, expanded, childrenOf));
+  let selectable = $derived(rows.filter((folder) => !folder.managed && !folder.blocked));
+  let allChecked = $derived(selectable.length > 0 && selectable.every((folder) => selected.has(keyOf(folder))));
+  let firstSelected = $derived(selected.values().next().value as Folder | undefined);
+  $effect.pre(() => {
+    const first = firstSelected; // only this starts it again (as the former « $: »)
+    untrack(() => void refreshPreview(first));
+  });
+  let canAdd = $derived(selected.size > 0 && !running);
 </script>
 
 <section class="add-page">
@@ -453,7 +461,7 @@
       aria-label={t('Search all the servers')}
       placeholder={t('Search a folder on the {count} servers…', { count: servers.length })}
       bind:value={globalQuery}
-      on:input={onGlobalInput}
+      oninput={onGlobalInput}
     />
   </header>
 
@@ -477,7 +485,7 @@
         <div class="scroll">
           {#each zones as group (group.zone)}
             {@const opened = forcedOpen || openZones[group.zone]}
-            <button type="button" class="zone" aria-expanded={Boolean(opened)} on:click={() => (openZones = { ...openZones, [group.zone]: !openZones[group.zone] })}>
+            <button type="button" class="zone" aria-expanded={Boolean(opened)} onclick={() => (openZones = { ...openZones, [group.zone]: !openZones[group.zone] })}>
               <i class={`bi ${opened ? 'bi-chevron-down' : 'bi-chevron-right'}`} aria-hidden="true"></i>
               <span>{group.zone}</span>
               {#if group.picked}<span class="badge">{group.picked}</span>{/if}
@@ -485,7 +493,7 @@
             </button>
             {#if opened}
               {#each group.list as server (server.id)}
-                <button type="button" class="server" class:on={server.id === currentId && !searchMode} on:click={() => selectServer(server)}>
+                <button type="button" class="server" class:on={server.id === currentId && !searchMode} onclick={() => selectServer(server)}>
                   <span class={`dot dot--${server.state}`} aria-hidden="true"></span>
                   <span class="ell">{server.name}</span>
                   {#if selectedByServer[server.id]}
@@ -508,11 +516,11 @@
             <div class="ctx">
               <h2>{searching ? t('Searching…') : t('{count} results', { count: globalTotal })}</h2>
               <small>{t('Folders not managed yet, on all the servers')}</small>
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm right" on:click={clearSearch}>{t('Clear')}</button>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm right" onclick={clearSearch}>{t('Clear')}</button>
             </div>
             {#if selectable.length}
               <div class="tools">
-                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={toggleAll}>
+                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={toggleAll}>
                   {allChecked ? t('Uncheck all') : t('Check the {count} shown', { count: selectable.length })}
                 </button>
               </div>
@@ -523,7 +531,7 @@
               <small class="ell">
                 {t('Zone {name}', { name: current.zone })}{current.discoveredAt ? ` · ${t('analysed on {date}', { date: formatDateTime(current.discoveredAt) })}` : ''}
               </small>
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm right" disabled={scanning[current.id]} on:click={() => current && rescan(current)}>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm right" disabled={scanning[current.id]} onclick={() => current && rescan(current)}>
                 {scanning[current.id] ? t('Searching…') : t('Search the server again')}
               </button>
             </div>
@@ -535,7 +543,7 @@
                   { key: 'managed', label: t('Managed'), count: managedCount },
                   { key: 'all', label: t('All'), count: currentFolders.length }
                 ]} />
-                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={!selectable.length} on:click={toggleAll}>
+                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={!selectable.length} onclick={toggleAll}>
                   {allChecked ? t('Uncheck all') : t('Check {count}', { count: selectable.length })}
                 </button>
               </div>
@@ -550,11 +558,11 @@
           {#each rows as folder, index (keyOf(folder))}
             <div class="fline" style="--depth:{folder.depth ?? 0}">
             {#if !searchMode}
-              <button type="button" class="exp" disabled={!browseTarget(folder)} aria-expanded={expanded.has(keyOf(folder))} aria-label={t('Show the sub-folders of {name}', { name: folder.name })} title={browseErrors[keyOf(folder)] ?? ''} on:click={() => toggleExpand(folder)}>
+              <button type="button" class="exp" disabled={!browseTarget(folder)} aria-expanded={expanded.has(keyOf(folder))} aria-label={t('Show the sub-folders of {name}', { name: folder.name })} title={browseErrors[keyOf(folder)] ?? ''} onclick={() => toggleExpand(folder)}>
                 {#if browsing[keyOf(folder)]}<i class="bi bi-arrow-repeat" aria-hidden="true"></i>{:else if browseErrors[keyOf(folder)]}<i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{:else}{expanded.has(keyOf(folder)) ? '▾' : '▸'}{/if}
               </button>
             {/if}
-            <button type="button" class="folder" class:folder--search={searchMode} class:sel={selected.has(keyOf(folder))} disabled={folder.managed || Boolean(folder.blocked)} title={folder.blocked ?? (folder.dfsPath ? `${folder.dfsPath} → ${folder.root_path}` : folder.root_path)} on:click={(event) => toggleRow(event, folder, index)}>
+            <button type="button" class="folder" class:folder--search={searchMode} class:sel={selected.has(keyOf(folder))} disabled={folder.managed || Boolean(folder.blocked)} title={folder.blocked ?? (folder.dfsPath ? `${folder.dfsPath} → ${folder.root_path}` : folder.root_path)} onclick={(event) => toggleRow(event, folder, index)}>
               <span class="check" aria-hidden="true">{#if selected.has(keyOf(folder))}<i class="bi bi-check-lg"></i>{/if}</span>
               <span class="ell name">{folder.name}</span>
               {#if searchMode}<span class="ell mono muted">{folder.storage_endpoint_name}</span>{/if}
@@ -571,7 +579,7 @@
               <div class="empty">
                 <strong>{current.state === 'bad' ? t('Unreachable') : t('Never analysed')}</strong>
                 <span>{current.state === 'bad' ? t('Check that the server is started and that its firewall allows it, then search again.') : t('Search this server to list its folders.')}</span>
-                <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={scanning[current.id]} on:click={() => current && rescan(current)}>
+                <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={scanning[current.id]} onclick={() => current && rescan(current)}>
                   {scanning[current.id] ? t('Searching…') : t('Search the folders')}
                 </button>
               </div>
@@ -620,7 +628,7 @@
           </div>
           {#if finished}
             <div class="panel-foot">
-              <button type="button" class="b2s-btn b2s-btn-primary wide" on:click={() => { finished = false; guardianIds = []; tagIds = []; }}>{t('Add other folders')}</button>
+              <button type="button" class="b2s-btn b2s-btn-primary wide" onclick={() => { finished = false; guardianIds = []; tagIds = []; }}>{t('Add other folders')}</button>
               <a class="b2s-btn b2s-btn-secondary wide" href={createdIds[0] ? `/storage-roots?selected=${createdIds[0]}` : '/storage-roots'}>{t('See the folders')}</a>
             </div>
           {/if}
@@ -632,9 +640,9 @@
               <div>
                 {#each selectedServers.slice(0, 5) as server (server.id)}
                   <div class="by">
-                    <button type="button" class="ell link" on:click={() => selectServer(server)}>{server.name}</button>
+                    <button type="button" class="ell link" onclick={() => selectServer(server)}>{server.name}</button>
                     <span class="badge">{selectedByServer[server.id]}</span>
-                    <button type="button" class="x" aria-label={t('Remove {name}', { name: server.name })} on:click={() => removeServer(server.id)}>×</button>
+                    <button type="button" class="x" aria-label={t('Remove {name}', { name: server.name })} onclick={() => removeServer(server.id)}>×</button>
                   </div>
                 {/each}
                 {#if selectedServers.length > 5}<small class="muted">{t('and {count} other servers', { count: selectedServers.length - 5 })}</small>{/if}
@@ -661,7 +669,7 @@
           </div>
           <div class="panel-foot">
             <small class="muted">{t('No permission changes now: they apply at the first approved request.')}</small>
-            <button type="button" class="b2s-btn b2s-btn-primary wide" disabled={!canAdd} on:click={addFolders}>
+            <button type="button" class="b2s-btn b2s-btn-primary wide" disabled={!canAdd} onclick={addFolders}>
               {selected.size === 0 ? t('Add folders') : selected.size === 1 ? t('Add 1 folder') : t('Add {count} folders', { count: selected.size })}
             </button>
           </div>

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { beforeNavigate, goto } from '$app/navigation';
   import { getIdentityJob } from '$lib/api/identity';
@@ -31,7 +33,11 @@
     type ServiceAccountPurpose
   } from '$lib/utils/service-accounts';
 
-  export let data: { existingNames: string[]; authDomains: { name: string; domain: string }[] };
+  interface Props {
+    data: { existingNames: string[]; authDomains: { name: string; domain: string }[] };
+  }
+
+  let { data }: Props = $props();
 
   type Certificate = {
     certificate_pem: string;
@@ -46,85 +52,52 @@
   type SyncStep = { label: string; state: CheckState };
 
   // Server: filled by the analysis, and editable in the advanced options
-  let host = '';
-  let analysedHost = '';
-  let analysis: CheckState = 'idle';
-  let analysisMessage = '';
-  let protocol: 'ldap' | 'ldaps' = 'ldaps';
-  let port: number | null = 636;
-  let flavor: 'ad' | 'openldap' = 'ad';
-  let baseDn = '';
-  let domain = '';
-  let tlsVerify = true;
-  let tlsPem = '';
-  let tlsName = '';
-  let certificate: Certificate | null = null;
-  let showAdvanced = false;
+  let host = $state('');
+  let analysedHost = $state('');
+  let analysis = $state<CheckState>('idle');
+  let analysisMessage = $state('');
+  let protocol = $state<'ldap' | 'ldaps'>('ldaps');
+  let port = $state<number | null>(636);
+  let flavor = $state<'ad' | 'openldap'>('ad');
+  let baseDn = $state('');
+  let domain = $state('');
+  let tlsVerify = $state(true);
+  let tlsPem = $state('');
+  let tlsName = $state('');
+  let certificate = $state<Certificate | null>(null);
+  let showAdvanced = $state(false);
   // Filled by the analysis, so a new analysis may replace them; what the administrator typed stays
   let trustedPem = '';
   let autoName = '';
 
   // Main account: the password is stored once, and only typing a new one replaces it
-  let bindDn = '';
-  let password = '';
-  let showPassword = false;
-  let bindRef: string | null = null;
-  let accountTest: CheckState = 'idle';
-  let accountMessage = '';
-  let testedKey = '';
-  let createWithoutTest = false;
+  let bindDn = $state('');
+  let password = $state('');
+  let showPassword = $state(false);
+  let bindRef = $state<string | null>(null);
+  let accountTest = $state<CheckState>('idle');
+  let accountMessage = $state('');
+  let testedKey = $state('');
+  let createWithoutTest = $state(false);
 
-  let capabilities = { snapshot_enabled: true, import_groups: true, auth: true, provisioning: false };
-  let serviceAccounts = emptyServiceAccountDrafts();
-  let accountResults: Partial<Record<ServiceAccountPurpose, { key: string; ok: boolean }>> = {};
-  let name = '';
+  let capabilities = $state({ snapshot_enabled: true, import_groups: true, auth: true, provisioning: false });
+  let serviceAccounts = $state(emptyServiceAccountDrafts());
+  let accountResults: Partial<Record<ServiceAccountPurpose, { key: string; ok: boolean }>> = $state({});
+  let name = $state('');
 
-  let showErrors = false;
-  let creating = false;
-  let createError = '';
-  let createdId: number | null = null;
-  let syncState: CheckState = 'idle';
-  let syncMessage = '';
-  let syncSteps: SyncStep[] = [];
+  let showErrors = $state(false);
+  let creating = $state(false);
+  let createError = $state('');
+  let createdId = $state<number | null>(null);
+  let syncState = $state<CheckState>('idle');
+  let syncMessage = $state('');
+  let syncSteps = $state<SyncStep[]>([]);
 
   const isIpAddress = (value: string) => isValidIPv4(value) || value.includes(':');
   const fingerprint = (value: string) => (value.match(/.{2}/g) ?? []).join(':').toUpperCase();
   const draftKey = (purpose: ServiceAccountPurpose) =>
     `${serviceAccounts[purpose].bind_dn}|${serviceAccounts[purpose].password}`;
 
-  // A pasted address such as ldaps://dc01.example.com:636 also works
-  $: hostParts = host.trim().replace(/^ldaps?:\/\//i, '').split('/')[0].split(':');
-  $: cleanHost = hostParts.length === 2 ? hostParts[0] : host.trim().replace(/^ldaps?:\/\//i, '').split('/')[0];
-  $: typedPort = hostParts.length === 2 ? Number(hostParts[1]) || null : null;
-  $: hostValid = isValidIPv4(cleanHost) || isValidHostname(cleanHost);
-  $: if (analysedHost && cleanHost !== analysedHost) forgetAnalysis();
-  $: connectionKey = JSON.stringify([cleanHost, protocol, port, baseDn, bindDn, bindRef, password, tlsVerify, tlsPem, tlsName]);
-  $: if (testedKey && connectionKey !== testedKey) {
-    testedKey = '';
-    accountTest = 'idle';
-    accountMessage = '';
-  }
-  $: if (password && bindRef) bindRef = null;
-  $: duplicateName = data.existingNames.some((other) => other.trim().toLowerCase() === name.trim().toLowerCase());
-  $: draftError = serviceAccountDraftError(draftsForCapabilities(serviceAccounts, capabilities));
-  $: certificatePending = Boolean(certificate) && protocol === 'ldaps' && tlsVerify && !tlsPem;
-  $: effectiveDomain = (domain.trim() || domainFromBaseDn(baseDn)).toLowerCase();
-  $: domainOwner = capabilities.auth && effectiveDomain ? data.authDomains.find((source) => source.domain === effectiveDomain) ?? null : null;
-  $: noUse = !Object.values(capabilities).some(Boolean);
-  $: dedicatedEnabled = (['snapshot', 'auth', 'provisioning'] as ServiceAccountPurpose[]).filter(
-    (purpose) => serviceAccounts[purpose].dedicated && Boolean(draftsForCapabilities(serviceAccounts, capabilities)[purpose].dedicated)
-  );
-  $: dedicatedResults = dedicatedEnabled.map((purpose) => {
-    const result = accountResults[purpose];
-    return result && result.key === `${serviceAccounts[purpose].bind_dn}|${serviceAccounts[purpose].password}` ? result.ok : null;
-  });
-  $: anyTestFailed = accountTest === 'failed' || dedicatedResults.includes(false);
-  $: allTestsPassed = accountTest === 'ok' && dedicatedResults.every((ok) => ok === true);
-  $: formComplete =
-    hostValid && Boolean(port) && Boolean(baseDn.trim()) && Boolean(bindDn.trim()) && Boolean(password || bindRef) &&
-    Boolean(name.trim()) && !duplicateName && !draftError && !noUse && !domainOwner;
-  $: canCreate = formComplete && !certificatePending && (allTestsPassed || (anyTestFailed && createWithoutTest));
-  $: locked = creating || createdId !== null;
 
   function forgetAnalysis() {
     analysedHost = '';
@@ -318,56 +291,8 @@
     };
   }
 
-  $: certificateCheck = (protocol === 'ldap'
-    ? { state: 'warn', title: t('Unencrypted connection'), detail: t('The password of the service account travels unencrypted.') }
-    : !tlsVerify
-      ? { state: 'warn', title: t('Server certificate'), detail: t('The connection is encrypted, but the identity of the server is not verified.') }
-      : tlsPem
-        ? { state: 'ok', title: t('Server certificate'), detail: t('Certificate trusted') }
-        : certificate
-          ? { state: 'warn', title: t('Server certificate'), detail: t('Compare the fingerprint, then trust the certificate.') }
-          : { state: 'idle', title: t('Server certificate'), detail: analysis === 'failed' ? t('Not read: paste it in the advanced options if needed.') : t('Waiting for the analysis') }) as { state: CheckState; title: string; detail: string };
 
-  $: checks = [
-    {
-      state: analysis,
-      title: t('Server'),
-      detail:
-        analysis === 'ok' ? `${protocol.toUpperCase()}, ${t('port {port}', { port: port ?? '' })}`
-        : analysis === 'warn' ? t('Base DN not found: enter it in the advanced options.')
-        : analysis === 'running' ? t('Analysis in progress…')
-        : analysis === 'failed' ? analysisMessage
-        : t('Waiting for the address')
-    },
-    certificateCheck,
-    {
-      state: accountTest,
-      title: t('Service account'),
-      detail:
-        accountTest === 'running' ? t('Testing…')
-        : accountTest === 'idle' ? t('Not tested yet')
-        : accountMessage
-    },
-    usageCheck('snapshot', t('Snapshot inventory'), capabilities.snapshot_enabled, accountResults, accountTest, serviceAccounts),
-    usageCheck(null, t('Import groups'), capabilities.import_groups, accountResults, accountTest, serviceAccounts),
-    usageCheck('auth', t('Authenticate users'), capabilities.auth, accountResults, accountTest, serviceAccounts),
-    usageCheck('provisioning', t('Manage AD groups'), capabilities.provisioning, accountResults, accountTest, serviceAccounts)
-  ].filter(Boolean) as { state: CheckState; title: string; detail: string }[];
 
-  $: pendingReason =
-    !hostValid ? t('Enter the address of the server.')
-    : !baseDn.trim() ? t('Enter the base DN in the advanced options.')
-    : certificatePending ? t('Trust the certificate of the server, or paste a PEM.')
-    : !bindDn.trim() || !(password || bindRef) ? t('Enter the service account and its password.')
-    : !name.trim() ? t('Enter a name for this directory.')
-    : duplicateName ? t('This name already exists. Please choose another one.')
-    : noUse ? t('Turn on at least one use.')
-    : domainOwner ? t('“{name}” already authenticates this domain: turn off “Authenticate users”.', { name: domainOwner.name })
-    : draftError ? t('Complete the dedicated accounts you turned on.')
-    : anyTestFailed && !createWithoutTest ? t('Fix the failed test, or create it anyway.')
-    : accountTest === 'idle' || accountTest === 'running' ? t('Test the service account to continue.')
-    : dedicatedResults.includes(null) ? t('Test the dedicated accounts to continue.')
-    : '';
 
   function setSyncStep(index: number, state: CheckState) {
     syncSteps = syncSteps.map((step, i) => (i === index ? { ...step, state } : step));
@@ -488,13 +413,100 @@
   ] as const;
 
   // Wizard: type › connection › test and creation. The steps out of view stay in the page (nothing typed is lost).
-  let step = 0;
-  let kind: 'ad' = 'ad';
-  $: wizardSteps = [
+  let step = $state(0);
+  let kind = $state<'ad'>('ad');
+  // A pasted address such as ldaps://dc01.example.com:636 also works
+  let hostParts = $derived(host.trim().replace(/^ldaps?:\/\//i, '').split('/')[0].split(':'));
+  let cleanHost = $derived(hostParts.length === 2 ? hostParts[0] : host.trim().replace(/^ldaps?:\/\//i, '').split('/')[0]);
+  let typedPort = $derived(hostParts.length === 2 ? Number(hostParts[1]) || null : null);
+  let hostValid = $derived(isValidIPv4(cleanHost) || isValidHostname(cleanHost));
+  $effect.pre(() => {
+    if (analysedHost && cleanHost !== analysedHost) untrack(forgetAnalysis);
+  });
+  $effect.pre(() => {
+    if (password && bindRef) bindRef = null;
+  });
+  let connectionKey = $derived(JSON.stringify([cleanHost, protocol, port, baseDn, bindDn, bindRef, password, tlsVerify, tlsPem, tlsName]));
+  $effect.pre(() => {
+    if (testedKey && connectionKey !== testedKey) {
+      testedKey = '';
+      accountTest = 'idle';
+      accountMessage = '';
+    }
+  });
+  let duplicateName = $derived(data.existingNames.some((other) => other.trim().toLowerCase() === name.trim().toLowerCase()));
+  let draftError = $derived(serviceAccountDraftError(draftsForCapabilities(serviceAccounts, capabilities)));
+  let certificatePending = $derived(Boolean(certificate) && protocol === 'ldaps' && tlsVerify && !tlsPem);
+  let effectiveDomain = $derived((domain.trim() || domainFromBaseDn(baseDn)).toLowerCase());
+  let domainOwner = $derived(capabilities.auth && effectiveDomain ? data.authDomains.find((source) => source.domain === effectiveDomain) ?? null : null);
+  let noUse = $derived(!Object.values(capabilities).some(Boolean));
+  let dedicatedEnabled = $derived((['snapshot', 'auth', 'provisioning'] as ServiceAccountPurpose[]).filter(
+    (purpose) => serviceAccounts[purpose].dedicated && Boolean(draftsForCapabilities(serviceAccounts, capabilities)[purpose].dedicated)
+  ));
+  let dedicatedResults = $derived(dedicatedEnabled.map((purpose) => {
+    const result = accountResults[purpose];
+    return result && result.key === `${serviceAccounts[purpose].bind_dn}|${serviceAccounts[purpose].password}` ? result.ok : null;
+  }));
+  let anyTestFailed = $derived(accountTest === 'failed' || dedicatedResults.includes(false));
+  let allTestsPassed = $derived(accountTest === 'ok' && dedicatedResults.every((ok) => ok === true));
+  let formComplete =
+    $derived(hostValid && Boolean(port) && Boolean(baseDn.trim()) && Boolean(bindDn.trim()) && Boolean(password || bindRef) &&
+    Boolean(name.trim()) && !duplicateName && !draftError && !noUse && !domainOwner);
+  let canCreate = $derived(formComplete && !certificatePending && (allTestsPassed || (anyTestFailed && createWithoutTest)));
+  let locked = $derived(creating || createdId !== null);
+  let certificateCheck = $derived((protocol === 'ldap'
+    ? { state: 'warn', title: t('Unencrypted connection'), detail: t('The password of the service account travels unencrypted.') }
+    : !tlsVerify
+      ? { state: 'warn', title: t('Server certificate'), detail: t('The connection is encrypted, but the identity of the server is not verified.') }
+      : tlsPem
+        ? { state: 'ok', title: t('Server certificate'), detail: t('Certificate trusted') }
+        : certificate
+          ? { state: 'warn', title: t('Server certificate'), detail: t('Compare the fingerprint, then trust the certificate.') }
+          : { state: 'idle', title: t('Server certificate'), detail: analysis === 'failed' ? t('Not read: paste it in the advanced options if needed.') : t('Waiting for the analysis') }) as { state: CheckState; title: string; detail: string });
+  let checks = $derived([
+    {
+      state: analysis,
+      title: t('Server'),
+      detail:
+        analysis === 'ok' ? `${protocol.toUpperCase()}, ${t('port {port}', { port: port ?? '' })}`
+        : analysis === 'warn' ? t('Base DN not found: enter it in the advanced options.')
+        : analysis === 'running' ? t('Analysis in progress…')
+        : analysis === 'failed' ? analysisMessage
+        : t('Waiting for the address')
+    },
+    certificateCheck,
+    {
+      state: accountTest,
+      title: t('Service account'),
+      detail:
+        accountTest === 'running' ? t('Testing…')
+        : accountTest === 'idle' ? t('Not tested yet')
+        : accountMessage
+    },
+    usageCheck('snapshot', t('Snapshot inventory'), capabilities.snapshot_enabled, accountResults, accountTest, serviceAccounts),
+    usageCheck(null, t('Import groups'), capabilities.import_groups, accountResults, accountTest, serviceAccounts),
+    usageCheck('auth', t('Authenticate users'), capabilities.auth, accountResults, accountTest, serviceAccounts),
+    usageCheck('provisioning', t('Manage AD groups'), capabilities.provisioning, accountResults, accountTest, serviceAccounts)
+  ].filter(Boolean) as { state: CheckState; title: string; detail: string }[]);
+  let pendingReason =
+    $derived(!hostValid ? t('Enter the address of the server.')
+    : !baseDn.trim() ? t('Enter the base DN in the advanced options.')
+    : certificatePending ? t('Trust the certificate of the server, or paste a PEM.')
+    : !bindDn.trim() || !(password || bindRef) ? t('Enter the service account and its password.')
+    : !name.trim() ? t('Enter a name for this directory.')
+    : duplicateName ? t('This name already exists. Please choose another one.')
+    : noUse ? t('Turn on at least one use.')
+    : domainOwner ? t('“{name}” already authenticates this domain: turn off “Authenticate users”.', { name: domainOwner.name })
+    : draftError ? t('Complete the dedicated accounts you turned on.')
+    : anyTestFailed && !createWithoutTest ? t('Fix the failed test, or create it anyway.')
+    : accountTest === 'idle' || accountTest === 'running' ? t('Test the service account to continue.')
+    : dedicatedResults.includes(null) ? t('Test the dedicated accounts to continue.')
+    : '');
+  let wizardSteps = $derived([
     { label: t('Type'), hint: t('AD, SSO, local') },
     { label: t('Connection'), hint: t('server, account, uses') },
     { label: t('Test'), hint: t('checks and creation') }
-  ];
+  ]);
 </script>
 
 <section class="b2s-page b2s-page--admin new-source">
@@ -505,7 +517,7 @@
       <ol class="wz__steps">
         {#each wizardSteps as item, index (item.label)}
           <li>
-            <button type="button" class="wz__step" class:is-current={index === step} disabled={index > 0 && kind !== 'ad'} on:click={() => (step = index)}>
+            <button type="button" class="wz__step" class:is-current={index === step} disabled={index > 0 && kind !== 'ad'} onclick={() => (step = index)}>
               <span class="wz__num" class:is-done={index < step} class:is-current={index === step}>{#if index < step}<i class="bi bi-check-lg" aria-hidden="true"></i>{:else}{index + 1}{/if}</span>
               <span><strong>{item.label}</strong><small>{item.hint}</small></span>
             </button>
@@ -523,7 +535,7 @@
             <p>{t('It provides the people and the groups; BornToShare creates the access groups of the folders in it.')}</p>
           </div>
           <div class="wz__kinds">
-            <button type="button" class="wz__kind" class:is-on={kind === 'ad'} on:click={() => (kind = 'ad')}>
+            <button type="button" class="wz__kind" class:is-on={kind === 'ad'} onclick={() => (kind = 'ad')}>
               <span class="wz__badge is-ad">AD</span>
               <span><strong>{t('Active Directory / LDAP')} <em>{t('recommended')}</em></strong><small>{t('People and groups of the domain; BornToShare creates the access groups and writes the NTFS ACLs. The address is enough: the rest is detected.')}</small></span>
             </button>
@@ -553,10 +565,10 @@
             aria-label={t('Hostname / IP')}
             placeholder={t('dc01.example.com or 192.0.2.10')}
             bind:value={host}
-            on:keydown={onHostKeydown}
-            on:blur={() => { if (hostValid && cleanHost !== analysedHost) void analyse(); }}
+            onkeydown={onHostKeydown}
+            onblur={() => { if (hostValid && cleanHost !== analysedHost) void analyse(); }}
           />
-          <button type="button" class="b2s-btn b2s-btn-secondary" disabled={!hostValid || analysis === 'running'} on:click={analyse}>
+          <button type="button" class="b2s-btn b2s-btn-secondary" disabled={!hostValid || analysis === 'running'} onclick={analyse}>
             <i class={`bi ${analysis === 'running' ? 'bi-hourglass-split' : 'bi-search'}`} aria-hidden="true"></i>
             {analysis === 'running' ? t('Analysing…') : t('Analyse')}
           </button>
@@ -588,13 +600,13 @@
                   : t('This is the server certificate: at its renewal, the connection stops until the new one is accepted here.')}
               </small>
             </div>
-            <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" on:click={trustCertificate}>{t('Keep this certificate')}</button>
+            <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" onclick={trustCertificate}>{t('Keep this certificate')}</button>
           </div>
         {:else if tlsPem && protocol === 'ldaps' && tlsVerify}
           <p class="trusted"><i class="bi bi-shield-check" aria-hidden="true"></i>{t('Certificate trusted')}</p>
         {/if}
 
-        <button type="button" class="link" aria-expanded={showAdvanced} on:click={() => (showAdvanced = !showAdvanced)}>
+        <button type="button" class="link" aria-expanded={showAdvanced} onclick={() => (showAdvanced = !showAdvanced)}>
           <i class={`bi ${showAdvanced ? 'bi-chevron-down' : 'bi-chevron-right'}`} aria-hidden="true"></i>
           {t('Advanced options')}
         </button>
@@ -609,7 +621,7 @@
             </div>
             <div class="field">
               <label for="source-protocol">{t('Encryption')}</label>
-              <select id="source-protocol" class="b2s-input" value={protocol} on:change={(e) => setProtocol(e.currentTarget.value === 'ldap' ? 'ldap' : 'ldaps')}>
+              <select id="source-protocol" class="b2s-input" value={protocol} onchange={(e) => setProtocol(e.currentTarget.value === 'ldap' ? 'ldap' : 'ldaps')}>
                 <option value="ldaps">LDAPS</option>
                 <option value="ldap">LDAP</option>
               </select>
@@ -667,10 +679,10 @@
               placeholder={bindRef ? t('Password stored. Type to replace it.') : ''}
               bind:value={password}
             />
-            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-icon" aria-label={showPassword ? t('Hide') : t('Show')} on:click={() => (showPassword = !showPassword)}>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-icon" aria-label={showPassword ? t('Hide') : t('Show')} onclick={() => (showPassword = !showPassword)}>
               <i class={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
             </button>
-            <button type="button" class="b2s-btn b2s-btn-secondary" disabled={accountTest === 'running' || certificatePending} on:click={testAccount}>
+            <button type="button" class="b2s-btn b2s-btn-secondary" disabled={accountTest === 'running' || certificatePending} onclick={testAccount}>
               {accountTest === 'running' ? t('Testing…') : t('Test')}
             </button>
           </div>
@@ -737,7 +749,7 @@
             {t('Create it even though the test failed')}
           </label>
         {/if}
-        <button type="button" class="b2s-btn b2s-btn-primary create" disabled={!canCreate || creating} on:click={create}>
+        <button type="button" class="b2s-btn b2s-btn-primary create" disabled={!canCreate || creating} onclick={create}>
           {creating ? t('Creating…') : t('Create the directory')}
         </button>
         {#if pendingReason}<small class="muted">{pendingReason}</small>{/if}
@@ -759,7 +771,7 @@
             <InlineAlert tone={syncState === 'failed' ? 'error' : syncState === 'warn' ? 'warning' : 'success'}>{syncMessage}</InlineAlert>
           {/if}
           {#if syncState === 'failed' && createdId > 0}
-            <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => createdId && runFirstSync(createdId)}>{t('Try the synchronization again')}</button>
+            <button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => createdId && runFirstSync(createdId)}>{t('Try the synchronization again')}</button>
           {/if}
           {#if syncState !== 'running'}
             <a class="b2s-btn b2s-btn-primary create" href="/admin/identity-sources">{t('See the directories')}</a>
@@ -771,9 +783,9 @@
       <footer class="wz__foot">
         <a class="b2s-btn b2s-btn-secondary" href="/admin/identity-sources">{t('Cancel')}</a>
         <span class="wz__spacer"></span>
-        {#if step > 0}<button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => (step -= 1)}>{t('Previous')}</button>{/if}
+        {#if step > 0}<button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => (step -= 1)}>{t('Previous')}</button>{/if}
         {#if step < 2}
-          <button type="button" class="b2s-btn b2s-btn-primary" disabled={kind !== 'ad'} on:click={() => (step += 1)}>{step === 0 ? t('Continue') : t('Check and create')}</button>
+          <button type="button" class="b2s-btn b2s-btn-primary" disabled={kind !== 'ad'} onclick={() => (step += 1)}>{step === 0 ? t('Continue') : t('Check and create')}</button>
         {/if}
       </footer>
     </div>

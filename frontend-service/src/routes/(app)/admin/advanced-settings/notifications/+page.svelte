@@ -8,11 +8,17 @@
   import { reportUiError } from '$lib/errors';
   import { saveAdvancedSections, sendTestEmail } from '$lib/api/admin-advanced-settings';
 
-  /** Advanced settings › Notifications: the e-mails of BornToShare (SMTP server, which notices) and the banner. */
-  export let data: any;
+  
+  interface Props {
+    /** Advanced settings › Notifications: the e-mails of BornToShare (SMTP server, which notices) and the banner. */
+    data: any;
+  }
 
+  let { data }: Props = $props();
+
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
   const stored = data.advanced?.notifications ?? {};
-  let notif = {
+  let notif = $state({
     enabled: Boolean(stored.enabled),
     host: stored.host ?? '',
     port: stored.port ?? 587,
@@ -24,15 +30,16 @@
     decisionToRequester: stored.decisionToRequester ?? true,
     adminAlerts: stored.adminAlerts ?? true,
     expiryReminderDays: stored.expiryReminderDays ?? 7
-  };
-  let password = '';
+  });
+  let password = $state('');
   let savedNotif = JSON.stringify(notif);
-  $: gmail = /(^|\.)(gmail|googlemail)\.com$/i.test(String(notif.host || '').trim());
+  let gmail = $derived(/(^|\.)(gmail|googlemail)\.com$/i.test(String(notif.host || '').trim()));
   const hasPassword = Boolean(stored.hasPassword);
-  let savingMail = false;
-  let testTo = data.me?.email ?? '';
-  let testing = false;
-  let testResult: { ok: boolean; text: string } | null = null;
+  let savingMail = $state(false);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let testTo = $state(data.me?.email ?? '');
+  let testing = $state(false);
+  let testResult: { ok: boolean; text: string } | null = $state(null);
 
   async function saveMail() {
     savingMail = true;
@@ -59,9 +66,10 @@
     }
   }
 
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
   const storedBanner = data.advanced?.banner ?? {};
-  let banner = { enabled: Boolean(storedBanner.enabled), message: storedBanner.message ?? '', tone: storedBanner.tone ?? 'info' };
-  let savingBanner = false;
+  let banner = $state({ enabled: Boolean(storedBanner.enabled), message: storedBanner.message ?? '', tone: storedBanner.tone ?? 'info' });
+  let savingBanner = $state(false);
   let savedBanner = JSON.stringify(banner);
   guardUnsaved(() => JSON.stringify(notif) !== savedNotif || Boolean(password) || JSON.stringify(banner) !== savedBanner);
   async function saveBanner() {
@@ -101,11 +109,11 @@
     <label class="nt__reminder">{t('An access about to end: reminder')} <input class="b2s-input" type="number" min="0" max="60" bind:value={notif.expiryReminderDays} /> {t('days before (0: none)')}</label>
   </div>
   <div class="adv-actions">
-    <button class="b2s-btn b2s-btn-primary" type="button" on:click={saveMail} disabled={savingMail}><i class="bi bi-check2" aria-hidden="true"></i>{savingMail ? t('Saving…') : t('Save changes')}</button>
+    <button class="b2s-btn b2s-btn-primary" type="button" onclick={saveMail} disabled={savingMail}><i class="bi bi-check2" aria-hidden="true"></i>{savingMail ? t('Saving…') : t('Save changes')}</button>
   </div>
   <div class="nt__test">
     <input class="b2s-input" type="email" bind:value={testTo} placeholder={t('Test address')} aria-label={t('Test address')} />
-    <button class="b2s-btn b2s-btn-secondary" type="button" on:click={test} disabled={testing || !testTo.includes('@')}><i class="bi bi-envelope-check" aria-hidden="true"></i>{testing ? t('Sending…') : t('Send a test e-mail')}</button>
+    <button class="b2s-btn b2s-btn-secondary" type="button" onclick={test} disabled={testing || !testTo.includes('@')}><i class="bi bi-envelope-check" aria-hidden="true"></i>{testing ? t('Sending…') : t('Send a test e-mail')}</button>
   </div>
   <small class="adv-hint">{t('The test uses the saved settings.')}</small>
   {#if testResult}<p class="nt__result" class:is-ok={testResult.ok} class:is-bad={!testResult.ok}>{testResult.text}</p>{/if}
@@ -123,7 +131,7 @@
   </SettingRow>
   {#if banner.message}<div class="nt__preview is-{banner.tone}"><i class="bi bi-megaphone" aria-hidden="true"></i>{banner.message}</div>{/if}
   <div class="adv-actions">
-    <button class="b2s-btn b2s-btn-primary" type="button" on:click={saveBanner} disabled={savingBanner || (banner.enabled && !banner.message.trim())}><i class="bi bi-check2" aria-hidden="true"></i>{savingBanner ? t('Saving…') : t('Save changes')}</button>
+    <button class="b2s-btn b2s-btn-primary" type="button" onclick={saveBanner} disabled={savingBanner || (banner.enabled && !banner.message.trim())}><i class="bi bi-check2" aria-hidden="true"></i>{savingBanner ? t('Saving…') : t('Save changes')}</button>
   </div>
 </ConfigCard>
 
