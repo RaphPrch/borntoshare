@@ -1,44 +1,41 @@
-<script context="module" lang="ts">
+<script module lang="ts">
   export type EndpointMenuAction = 'test' | 'edit' | 'add-folders' | 'share' | 'delete';
 </script>
 
 <script lang="ts">
+  
+
   import { tick } from 'svelte';
   import { fade } from 'svelte/transition';
   import { dur, MOTION, pop } from '$lib/utils/motion';
   import { t } from '$lib/i18n';
 
-  /** Right-click menu of a file server in the list: test it, edit it, add folders or a share, delete it. */
-  export let endpoint: Record<string, any> | null = null;
-  export let at = { x: 0, y: 0 };
-  /** Folders attached to it: it cannot be deleted while there are some */
-  export let folderCount = 0;
-  export let testing = false;
-  export let onClose: () => void = () => {};
-  export let onAction: (kind: EndpointMenuAction, endpoint: Record<string, any>) => void = () => {};
+  
+  
+  interface Props {
+    /** Right-click menu of a file server in the list: test it, edit it, add folders or a share, delete it. */
+    endpoint?: Record<string, any> | null;
+    at?: any;
+    /** Folders attached to it: it cannot be deleted while there are some */
+    folderCount?: number;
+    testing?: boolean;
+    onClose?: () => void;
+    onAction?: (kind: EndpointMenuAction, endpoint: Record<string, any>) => void;
+  }
 
-  let menuEl: HTMLDivElement | null = null;
-  let position = { left: 0, top: 0 };
+  let {
+    endpoint = null,
+    at = { x: 0, y: 0 },
+    folderCount = 0,
+    testing = false,
+    onClose = () => {},
+    onAction = () => {}
+  }: Props = $props();
 
-  $: inactive = endpoint ? endpoint.is_active === false || endpoint.is_active === 0 || String(endpoint.status ?? '').toLowerCase() === 'disabled' : false;
-  $: items = endpoint
-    ? [
-        { key: 'test' as const, label: testing ? t('Testing…') : t('Test the connection'), icon: 'bi-activity', disabled: testing, hint: '' },
-        { key: 'edit' as const, label: t('Edit'), icon: 'bi-pencil', disabled: false, hint: '' },
-        { key: 'add-folders' as const, label: t('Add folders'), icon: 'bi-plus-lg', disabled: inactive, hint: inactive ? t('This file server is disabled') : '' },
-        { key: 'share' as const, label: t('Create a share'), icon: 'bi-folder-plus', disabled: inactive, hint: inactive ? t('This file server is disabled') : '' },
-        {
-          key: 'delete' as const,
-          label: t('Delete storage endpoint'),
-          icon: 'bi-trash',
-          danger: true,
-          disabled: folderCount > 0,
-          hint: folderCount > 0 ? t('{count} folder(s) attached: remove them from BornToShare first', { count: folderCount }) : ''
-        }
-      ]
-    : [];
+  let menuEl: HTMLDivElement | null = $state(null);
+  let position = $state({ left: 0, top: 0 });
 
-  $: if (endpoint) void place();
+
   async function place() {
     await tick();
     const width = menuEl?.offsetWidth ?? 240;
@@ -74,9 +71,29 @@
   function onPointerDown(event: PointerEvent) {
     if (endpoint && menuEl && !menuEl.contains(event.target as Node)) onClose();
   }
+  let inactive = $derived(endpoint ? endpoint.is_active === false || endpoint.is_active === 0 || String(endpoint.status ?? '').toLowerCase() === 'disabled' : false);
+  let items = $derived(endpoint
+    ? [
+        { key: 'test' as const, label: testing ? t('Testing…') : t('Test the connection'), icon: 'bi-activity', disabled: testing, hint: '' },
+        { key: 'edit' as const, label: t('Edit'), icon: 'bi-pencil', disabled: false, hint: '' },
+        { key: 'add-folders' as const, label: t('Add folders'), icon: 'bi-plus-lg', disabled: inactive, hint: inactive ? t('This file server is disabled') : '' },
+        { key: 'share' as const, label: t('Create a share'), icon: 'bi-folder-plus', disabled: inactive, hint: inactive ? t('This file server is disabled') : '' },
+        {
+          key: 'delete' as const,
+          label: t('Delete storage endpoint'),
+          icon: 'bi-trash',
+          danger: true,
+          disabled: folderCount > 0,
+          hint: folderCount > 0 ? t('{count} folder(s) attached: remove them from BornToShare first', { count: folderCount }) : ''
+        }
+      ]
+    : []);
+  $effect.pre(() => {
+    if (endpoint) void place();
+  });
 </script>
 
-<svelte:window on:keydown={onKeydown} on:pointerdown={onPointerDown} on:scroll|capture={() => endpoint && onClose()} on:resize={() => endpoint && onClose()} />
+<svelte:window onkeydown={onKeydown} onpointerdown={onPointerDown} onscrollcapture={() => endpoint && onClose()} onresize={() => endpoint && onClose()} />
 
 {#if endpoint}
   <div bind:this={menuEl} class="cm" role="menu" aria-label={t('Actions on {name}', { name: String(endpoint.name ?? '') })}
@@ -89,7 +106,7 @@
     {#each items as item (item.key)}
       {#if item.key === 'delete'}<hr />{/if}
       <button type="button" role="menuitem" class="cm__item" class:is-danger={item.danger} disabled={item.disabled}
-        title={item.hint || undefined} on:click={() => pick(item)}>
+        title={item.hint || undefined} onclick={() => pick(item)}>
         <i class={`bi ${item.icon}`} aria-hidden="true"></i>
         <span>{item.label}{#if item.disabled && item.hint}<small>{item.hint}</small>{/if}</span>
       </button>

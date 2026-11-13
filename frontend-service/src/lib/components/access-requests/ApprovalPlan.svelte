@@ -2,13 +2,19 @@
   import { t } from '$lib/i18n';
   import type { ApprovalPreview, ApprovalPreviewItem } from '$lib/api/access-requests';
 
-  /** What the approval does, step by step: before (« will ») or after it succeeded (« done ») */
-  export let preview: ApprovalPreview;
-  export let done = false;
-  /** Outcome of the group step read from the provisioning log, once applied: created, reused, adopted… */
-  export let groupOutcome: string | null = null;
+  
+  
+  interface Props {
+    /** What the approval does, step by step: before (« will ») or after it succeeded (« done ») */
+    preview: ApprovalPreview;
+    done?: boolean;
+    /** Outcome of the group step read from the provisioning log, once applied: created, reused, adopted… */
+    groupOutcome?: string | null;
+  }
 
-  $: who = preview.principal?.display || preview.principal?.username || t('the requester');
+  let { preview, done = false, groupOutcome = null }: Props = $props();
+
+  let who = $derived(preview.principal?.display || preview.principal?.username || t('the requester'));
 
   function groupLine(item: ApprovalPreviewItem): string {
     const action = done && groupOutcome ? groupOutcome : item.group_action;

@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import { apiGetData, apiPostData } from '$lib/api/client';
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -6,24 +8,34 @@
   import { reportUiError } from '$lib/errors';
   import { t } from '$lib/i18n';
 
-  /**
+  
+  interface Props {
+    /**
    * Deleting or disabling a person: the folders they would leave without any active guardian are listed, and
    * someone takes them over before the change (the server refuses it otherwise).
    */
-  export let open = false;
-  export let identity: Record<string, any> | null = null;
-  export let mode: 'delete' | 'disable' = 'delete';
-  export let candidates: Array<Record<string, any>> = [];
-  export let onClose: () => void = () => {};
-  export let onConfirm: () => Promise<void> = async () => {};
+    open?: boolean;
+    identity?: Record<string, any> | null;
+    mode?: 'delete' | 'disable';
+    candidates?: Array<Record<string, any>>;
+    onClose?: () => void;
+    onConfirm?: () => Promise<void>;
+  }
+
+  let {
+    open = false,
+    identity = null,
+    mode = 'delete',
+    candidates = [],
+    onClose = () => {},
+    onConfirm = async () => {}
+  }: Props = $props();
 
   type Folder = { id: number; name: string; path: string };
-  let orphaned: Folder[] | null = null;
-  let heir = 0;
-  let busy = false;
-  let loadedFor = '';
-  $: key = open && identity ? `${mode}:${identity.id}` : '';
-  $: if (key && key !== loadedFor) load();
+  let orphaned: Folder[] | null = $state(null);
+  let heir = $state(0);
+  let busy = $state(false);
+  let loadedFor = $state('');
   async function load() {
     loadedFor = key;
     orphaned = null;
@@ -34,8 +46,6 @@
       orphaned = [];
     }
   }
-  $: people = candidates.filter((item) => String(item.type ?? 'user') !== 'group' && item.status !== 'inactive' && item.is_active !== false && Number(item.id) !== Number(identity?.id));
-  $: name = String(identity?.display_name || identity?.username || '');
 
   async function confirm() {
     if (busy || (orphaned?.length && !heir)) return;
@@ -53,6 +63,12 @@
       busy = false;
     }
   }
+  let key = $derived(open && identity ? `${mode}:${identity.id}` : '');
+  $effect.pre(() => {
+    if (key && key !== loadedFor) load();
+  });
+  let people = $derived(candidates.filter((item) => String(item.type ?? 'user') !== 'group' && item.status !== 'inactive' && item.is_active !== false && Number(item.id) !== Number(identity?.id)));
+  let name = $derived(String(identity?.display_name || identity?.username || ''));
 </script>
 
 <AppModal {open} onClose={() => { loadedFor = ''; onClose(); }} iconClass={mode === 'delete' ? 'bi bi-trash' : 'bi bi-pause-circle'}
@@ -76,12 +92,14 @@
       {#if mode === 'disable'}<small class="ld__hint">{t('For an absence, prefer a backup guardian: the folders come back by themselves at its end.')}</small>{/if}
     {/if}
   </div>
-  <svelte:fragment slot="footer">
-    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => { loadedFor = ''; onClose(); }}>{t('Cancel')}</button>
-    <button type="button" class={`b2s-btn ${mode === 'delete' ? 'b2s-btn-danger' : 'b2s-btn-primary'}`} disabled={busy || orphaned === null || (orphaned.length > 0 && !heir)} on:click={confirm}>
-      {orphaned?.length ? (mode === 'delete' ? t('Hand over and delete') : t('Hand over and disable')) : mode === 'delete' ? t('Delete') : t('Disable')}
-    </button>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => { loadedFor = ''; onClose(); }}>{t('Cancel')}</button>
+      <button type="button" class={`b2s-btn ${mode === 'delete' ? 'b2s-btn-danger' : 'b2s-btn-primary'}`} disabled={busy || orphaned === null || (orphaned.length > 0 && !heir)} onclick={confirm}>
+        {orphaned?.length ? (mode === 'delete' ? t('Hand over and delete') : t('Hand over and disable')) : mode === 'delete' ? t('Delete') : t('Disable')}
+      </button>
+    
+  {/snippet}
 </AppModal>
 
 <style>

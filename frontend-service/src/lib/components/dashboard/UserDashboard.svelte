@@ -9,11 +9,16 @@
   import type { DashboardRequest, UserDashboardMePayload } from '$lib/api/dashboard';
   import DashboardShell from './DashboardShell.svelte';
 
-  /** Dashboard of a user who is not an administrator; a guardian also sees the requests on their folders. */
-  export let data: UserDashboardMePayload;
+  
+  interface Props {
+    /** Dashboard of a user who is not an administrator; a guardian also sees the requests on their folders. */
+    data: UserDashboardMePayload;
+  }
 
-  $: guardian = data.role === 'guardian' ? data.guardian : undefined;
-  $: mine = data.mine;
+  let { data }: Props = $props();
+
+  let guardian = $derived(data.role === 'guardian' ? data.guardian : undefined);
+  let mine = $derived(data.mine);
 
   const href = (row: DashboardRequest, status = 'all') => `/access-requests?status=${status}&request=${row.request_id}`;
   const access = (row: DashboardRequest) =>
@@ -26,9 +31,11 @@
   title={t('Dashboard')}
   subtitle={guardian ? t('Your requests and the folders you guard') : t('Your requests and your accesses')}
 >
-  <a slot="actions" class="b2s-btn b2s-btn-primary" href="/access-requests/new">
-    <i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}
-  </a>
+  {#snippet actions()}
+    <a  class="b2s-btn b2s-btn-primary" href="/access-requests/new">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}
+    </a>
+  {/snippet}
 
   {#if guardian}
     <section aria-labelledby="guardian-title">

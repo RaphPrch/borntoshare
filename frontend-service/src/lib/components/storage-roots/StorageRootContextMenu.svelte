@@ -1,4 +1,5 @@
 <script lang="ts">
+  
   import { tick } from 'svelte';
   import { fade } from 'svelte/transition';
   import { dur, MOTION, pop } from '$lib/utils/motion';
@@ -7,44 +8,32 @@
   import type { StorageRootRow } from '$lib/utils/storage-roots';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
 
-  /** Right-click menu of a storage root in the explorer: open it, and the operations on its folder on the file server. */
-  export let row: StorageRootRow | null = null;
-  export let at = { x: 0, y: 0 };
-  export let onClose: () => void = () => {};
-  export let onOpen: (row: StorageRootRow) => void = () => {};
-  export let onAction: (kind: FolderActionKind, row: StorageRootRow) => void = () => {};
-  /** Platform administrators: the operations on the folder of the file server; everyone can request an access */
-  export let canManage = true;
+  
+  
+  interface Props {
+    /** Right-click menu of a storage root in the explorer: open it, and the operations on its folder on the file server. */
+    row?: StorageRootRow | null;
+    at?: any;
+    onClose?: () => void;
+    onOpen?: (row: StorageRootRow) => void;
+    onAction?: (kind: FolderActionKind, row: StorageRootRow) => void;
+    /** Platform administrators: the operations on the folder of the file server; everyone can request an access */
+    canManage?: boolean;
+  }
 
-  let menuEl: HTMLDivElement | null = null;
-  let position = { left: 0, top: 0 };
+  let {
+    row = null,
+    at = { x: 0, y: 0 },
+    onClose = () => {},
+    onOpen = () => {},
+    onAction = () => {},
+    canManage = true
+  }: Props = $props();
 
-  $: broken = row?.inheritance_broken;
-  $: items = row
-    ? [
-        { key: 'open', label: t('Open'), icon: 'bi-box-arrow-in-right', run: (target: StorageRootRow) => onOpen(target) },
-        {
-          key: 'request',
-          label: t('Request access'),
-          icon: 'bi-key',
-          run: (target: StorageRootRow) => void goto(`/access-requests/new?root=${Number(target?.storage_root_id ?? 0)}`)
-        },
-        ...(canManage ? [{
-          key: 'inheritance',
-          label: broken ? t('Restore the inheritance') : t('Break the inheritance'),
-          icon: broken ? 'bi-diagram-3' : 'bi-scissors',
-          disabled: broken == null,
-          hint: broken == null ? t('Read the ACL first') : '',
-          run: (target: StorageRootRow) => onAction('inheritance', target)
-        },
-        { key: 'sensitivity', label: t('Scan the sensitivity'), icon: 'bi-shield-lock', run: (target: StorageRootRow) => onAction('sensitivity', target) },
-        { key: 'measure', label: t('Measure the folder'), icon: 'bi-rulers', run: (target: StorageRootRow) => onAction('measure', target) },
-        { key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', run: (target: StorageRootRow) => onAction('subfolder', target) },
-        { key: 'delete', label: t('Delete the folder from the server'), icon: 'bi-trash', danger: true, run: (target: StorageRootRow) => onAction('delete', target) }] : [])
-      ]
-    : [];
+  let menuEl: HTMLDivElement | null = $state(null);
+  let position = $state({ left: 0, top: 0 });
 
-  $: if (row) void place();
+
   async function place() {
     await tick();
     const width = menuEl?.offsetWidth ?? 240;
@@ -80,9 +69,36 @@
   function onPointerDown(event: PointerEvent) {
     if (row && menuEl && !menuEl.contains(event.target as Node)) onClose();
   }
+  let broken = $derived(row?.inheritance_broken);
+  let items = $derived(row
+    ? [
+        { key: 'open', label: t('Open'), icon: 'bi-box-arrow-in-right', run: (target: StorageRootRow) => onOpen(target) },
+        {
+          key: 'request',
+          label: t('Request access'),
+          icon: 'bi-key',
+          run: (target: StorageRootRow) => void goto(`/access-requests/new?root=${Number(target?.storage_root_id ?? 0)}`)
+        },
+        ...(canManage ? [{
+          key: 'inheritance',
+          label: broken ? t('Restore the inheritance') : t('Break the inheritance'),
+          icon: broken ? 'bi-diagram-3' : 'bi-scissors',
+          disabled: broken == null,
+          hint: broken == null ? t('Read the ACL first') : '',
+          run: (target: StorageRootRow) => onAction('inheritance', target)
+        },
+        { key: 'sensitivity', label: t('Scan the sensitivity'), icon: 'bi-shield-lock', run: (target: StorageRootRow) => onAction('sensitivity', target) },
+        { key: 'measure', label: t('Measure the folder'), icon: 'bi-rulers', run: (target: StorageRootRow) => onAction('measure', target) },
+        { key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', run: (target: StorageRootRow) => onAction('subfolder', target) },
+        { key: 'delete', label: t('Delete the folder from the server'), icon: 'bi-trash', danger: true, run: (target: StorageRootRow) => onAction('delete', target) }] : [])
+      ]
+    : []);
+  $effect.pre(() => {
+    if (row) void place();
+  });
 </script>
 
-<svelte:window on:keydown={onKeydown} on:pointerdown={onPointerDown} on:scroll|capture={() => row && onClose()} on:resize={() => row && onClose()} />
+<svelte:window onkeydown={onKeydown} onpointerdown={onPointerDown} onscrollcapture={() => row && onClose()} onresize={() => row && onClose()} />
 
 {#if row}
   <div bind:this={menuEl} class="cm" role="menu" aria-label={t('Actions on {name}', { name: String(row.storage_root_name ?? '') })}
@@ -95,7 +111,7 @@
     {#each items as item (item.key)}
       {#if item.key === 'delete'}<hr />{/if}
       <button type="button" role="menuitem" class="cm__item" class:is-danger={item.danger} disabled={item.disabled}
-        title={item.hint || undefined} on:click={() => pick(item)}>
+        title={item.hint || undefined} onclick={() => pick(item)}>
         <i class={`bi ${item.icon}`} aria-hidden="true"></i>{item.label}
       </button>
     {/each}

@@ -2,12 +2,23 @@
   import { t } from '$lib/i18n';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
-  /** Admins can create; other users only see why the list is empty */
-  export let canManage = false;
-  /** A storage root needs a storage endpoint: without one, the action creates the endpoint first */
-  export let hasEndpoints = false;
-  export let onCreateRoot: () => void = () => {};
-  export let onCreateEndpoint: () => void = () => {};
+  
+  
+  interface Props {
+    /** Admins can create; other users only see why the list is empty */
+    canManage?: boolean;
+    /** A storage root needs a storage endpoint: without one, the action creates the endpoint first */
+    hasEndpoints?: boolean;
+    onCreateRoot?: () => void;
+    onCreateEndpoint?: () => void;
+  }
+
+  let {
+    canManage = false,
+    hasEndpoints = false,
+    onCreateRoot = () => {},
+    onCreateEndpoint = () => {}
+  }: Props = $props();
 </script>
 
 <EmptyState

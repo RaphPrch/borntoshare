@@ -1,40 +1,77 @@
 <script lang="ts">
+
   import { t } from '$lib/i18n';
   import { fade } from 'svelte/transition';
   import { dur, MOTION, pop } from '$lib/utils/motion';
   import { onDestroy, tick } from 'svelte';
   import { browser } from '$app/environment';
 
-  export let open = false;
-  export let onClose: () => void;
 
-  export let backdropClass = 'b2s-modal-backdrop';
-  export let modalClass = 'b2s-modal';
-  export let contentClass = 'b2s-modal-content';
-  export let ariaLabelledby: string | null = null;
-  export let role: 'dialog' | 'alertdialog' = 'dialog';
-  export let closeLabel = t('Close');
-  export let showClose = true;
-  export let closeClass = 'b2s-modal-close';
-  export let closeOnBackdrop = true;
-  export let closeOnEscape = true;
-  export let trapFocus = true;
-  export let restoreFocusOnClose = true;
-  export let stopPropagation = true;
-  export let useFly = true;
-  export let useFade = true;
-  export let flyConfig: { y?: number; duration?: number } = { y: 12, duration: 220 };
-  export let wrapContent = true;
-  /** md = 560px (confirmations), lg = 760px (forms), xl = 1180px (browsers, multi-column forms) */
-  export let size: 'md' | 'lg' | 'xl' | null = null;
-  /** Standard header (icon + title + subtitle + close); omit title to render a custom header */
-  export let title: string | null = null;
-  export let subtitle: string | null = null;
-  export let iconClass: string | null = null;
+  
+  
+  interface Props {
+    open?: boolean;
+    onClose: () => void;
+    backdropClass?: string;
+    modalClass?: string;
+    contentClass?: string;
+    ariaLabelledby?: string | null;
+    role?: 'dialog' | 'alertdialog';
+    closeLabel?: any;
+    showClose?: boolean;
+    closeClass?: string;
+    closeOnBackdrop?: boolean;
+    closeOnEscape?: boolean;
+    trapFocus?: boolean;
+    restoreFocusOnClose?: boolean;
+    stopPropagation?: boolean;
+    useFly?: boolean;
+    useFade?: boolean;
+    flyConfig?: { y?: number; duration?: number };
+    wrapContent?: boolean;
+    /** md = 560px (confirmations), lg = 760px (forms), xl = 1180px (browsers, multi-column forms) */
+    size?: 'md' | 'lg' | 'xl' | null;
+    /** Standard header (icon + title + subtitle + close); omit title to render a custom header */
+    title?: string | null;
+    subtitle?: string | null;
+    iconClass?: string | null;
+    children?: import('svelte').Snippet;
+    footer?: import('svelte').Snippet;
+    footerStart?: import('svelte').Snippet;
+  }
 
-  let modalEl: HTMLDivElement | null = null;
-  let wasOpen = false;
-  let lastFocusedElement: HTMLElement | null = null;
+  let {
+    open = false,
+    onClose,
+    backdropClass = 'b2s-modal-backdrop',
+    modalClass = 'b2s-modal',
+    contentClass = 'b2s-modal-content',
+    ariaLabelledby = null,
+    role = 'dialog',
+    closeLabel = t('Close'),
+    showClose = true,
+    closeClass = 'b2s-modal-close',
+    closeOnBackdrop = true,
+    closeOnEscape = true,
+    trapFocus = true,
+    restoreFocusOnClose = true,
+    stopPropagation = true,
+    useFly = true,
+    useFade = true,
+    flyConfig = { y: 12, duration: 220 },
+    wrapContent = true,
+    size = null,
+    title = null,
+    subtitle = null,
+    iconClass = null,
+    children,
+    footer,
+    footerStart
+  }: Props = $props();
+
+  let modalEl: HTMLDivElement | null = $state(null);
+  let wasOpen = $state(false);
+  let lastFocusedElement: HTMLElement | null = $state(null);
 
   const FOCUSABLE_SELECTOR = [
     'a[href]',
@@ -76,16 +113,20 @@
   }
 
   // Focus handling only exists in the browser (a modal can be open at SSR, e.g. ?create=1)
-  $: if (browser && open && !wasOpen) {
-    wasOpen = true;
-    lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    focusFirstElementInModal();
-  }
+  $effect.pre(() => {
+    if (browser && open && !wasOpen) {
+      wasOpen = true;
+      lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      focusFirstElementInModal();
+    }
+  });
 
-  $: if (!open && wasOpen) {
-    wasOpen = false;
-    restorePreviousFocus();
-  }
+  $effect.pre(() => {
+    if (!open && wasOpen) {
+      wasOpen = false;
+      restorePreviousFocus();
+    }
+  });
 
   onDestroy(() => {
     if (wasOpen) restorePreviousFocus();
@@ -150,7 +191,7 @@
     use:portal
     transition:fade={{ duration: dur(useFade ? MOTION.base : 0) }}
     role="presentation"
-    on:click={handleBackdropClick}
+    onclick={handleBackdropClick}
   >
     <div
       class={`${modalClass}${size ? ` b2s-modal--${size}` : ''}${title ? ' b2s-modal--standard' : ''}`}
@@ -161,8 +202,8 @@
       aria-modal="true"
       aria-labelledby={ariaLabelledby ?? (title ? 'b2s-modal-title' : null)}
       tabindex="-1"
-      on:click={handleModalClick}
-      on:keydown={handleKeydown}
+      onclick={handleModalClick}
+      onkeydown={handleKeydown}
     >
       {#if title}
         <header class="b2s-modal__header">
@@ -174,29 +215,29 @@
             {#if subtitle}<p>{subtitle}</p>{/if}
           </div>
           {#if showClose}
-            <button type="button" class="b2s-modal__close" aria-label={closeLabel} on:click={onClose}>
+            <button type="button" class="b2s-modal__close" aria-label={closeLabel} onclick={onClose}>
               <i class="bi bi-x-lg" aria-hidden="true"></i>
             </button>
           {/if}
         </header>
       {:else if showClose}
-        <button class={closeClass} aria-label={closeLabel} on:click={onClose}>×</button>
+        <button class={closeClass} aria-label={closeLabel} onclick={onClose}>×</button>
       {/if}
 
       {#if wrapContent}
         <div class={contentClass}>
-          <slot />
+          {@render children?.()}
         </div>
       {:else}
-        <slot />
+        {@render children?.()}
       {/if}
 
-      {#if $$slots.footer}
+      {#if footer}
         <footer class="b2s-modal__footer">
-          {#if $$slots['footer-start']}
-            <div class="b2s-modal__footer-start"><slot name="footer-start" /></div>
+          {#if footerStart}
+            <div class="b2s-modal__footer-start">{@render footerStart?.()}</div>
           {/if}
-          <slot name="footer" />
+          {@render footer?.()}
         </footer>
       {/if}
     </div>

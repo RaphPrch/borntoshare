@@ -11,23 +11,34 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
 
-  /**
+  
+  interface Props {
+    /**
    * A server that hosts DFS namespaces (DFS01): shown once, as a server. Its namespaces are listed here (each keeps
    * its own page, to manage its DFS folders); the server can be read again or removed from BornToShare as a whole.
    */
-  export let server: string;
-  export let zoneName = '';
-  export let namespaces: Array<Record<string, any>> = [];
-  export let endpointId: (ep: Record<string, any>) => number;
-  export let endpointName: (ep: Record<string, any>) => string;
+    server: string;
+    zoneName?: string;
+    namespaces?: Array<Record<string, any>>;
+    endpointId: (ep: Record<string, any>) => number;
+    endpointName: (ep: Record<string, any>) => string;
+  }
+
+  let {
+    server,
+    zoneName = '',
+    namespaces = [],
+    endpointId,
+    endpointName
+  }: Props = $props();
 
   type Row = { id: number; name: string; info: DfsInfo | null; error: string };
-  let rows: Row[] = [];
-  let loading = true;
-  let reading = false;
-  let readDone = 0;
-  let askDelete = false;
-  let deleting = false;
+  let rows: Row[] = $state([]);
+  let loading = $state(true);
+  let reading = $state(false);
+  let readDone = $state(0);
+  let askDelete = $state(false);
+  let deleting = $state(false);
 
   async function load() {
     loading = true;
@@ -43,13 +54,13 @@
   }
   onMount(load);
 
-  $: totals = rows.reduce((sum, row) => {
+  let totals = $derived(rows.reduce((sum, row) => {
     const counts = dfsCounts(row.info);
     return { links: sum.links + counts.all, managed: sum.managed + counts.managed, todo: sum.todo + counts.todo };
-  }, { links: 0, managed: 0, todo: 0 });
-  $: failed = rows.filter((row) => row.error || row.info?.error).length;
-  $: stale = rows.filter((row) => !row.error && !row.info?.error && dfsReadIsStale(row.info)).length;
-  $: account = String(namespaces[0]?.bind_dn ?? namespaces[0]?.auth_username ?? '');
+  }, { links: 0, managed: 0, todo: 0 }));
+  let failed = $derived(rows.filter((row) => row.error || row.info?.error).length);
+  let stale = $derived(rows.filter((row) => !row.error && !row.info?.error && dfsReadIsStale(row.info)).length);
+  let account = $derived(String(namespaces[0]?.bind_dn ?? namespaces[0]?.auth_username ?? ''));
 
   async function readAll() {
     if (reading) return;

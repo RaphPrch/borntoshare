@@ -5,8 +5,12 @@
    */
   import { siGrafana, siOpentelemetry, siSplunk } from 'simple-icons';
 
-  export let product: string;
-  export let size = 40;
+  interface Props {
+    product: string;
+    size?: number;
+  }
+
+  let { product, size = 40 }: Props = $props();
 
   const ICONS: Record<string, { path: string; hex: string; title: string }> = {
     splunk: siSplunk,
@@ -14,7 +18,7 @@
     otel: siOpentelemetry
   };
   const MONOGRAMS: Record<string, string> = { syslog: 'SL', centreon: 'CE', servicenow: 'SN' };
-  $: icon = ICONS[product];
+  let icon = $derived(ICONS[product]);
 </script>
 
 <span class="ext-icon" style="--ext-size:{size}px; --ext-color:{icon ? `#${icon.hex}` : 'var(--b2s-color-text)'}" aria-hidden="true">

@@ -3,20 +3,34 @@
   import { enhance } from '$app/forms';
   import LanguageSwitcher from '$lib/components/ui/LanguageSwitcher.svelte';
 
-  export let form: { error?: string } | null = {};
-  /** Enabled SSO providers (Advanced Settings › Infrastructure › Keycloak) */
-  export let ssoProviders: { id: number; label: string }[] = [];
-  /** Page to open after the sign-in */
-  export let redirectTo: string | null = null;
-  /** Enabled sign-in providers: a directory adds the « Directory » tab */
-  export let providers: string[] = [];
+  
+  
+  
+  interface Props {
+    form?: { error?: string } | null;
+    /** Enabled SSO providers (Advanced Settings › Infrastructure › Keycloak) */
+    ssoProviders?: { id: number; label: string }[];
+    /** Page to open after the sign-in */
+    redirectTo?: string | null;
+    /** Enabled sign-in providers: a directory adds the « Directory » tab */
+    providers?: string[];
+    children?: import('svelte').Snippet;
+  }
 
-  let showPassword = false;
-  let loading = false;
+  let {
+    form = {},
+    ssoProviders = [],
+    redirectTo = null,
+    providers = [],
+    children
+  }: Props = $props();
 
-  $: hasDirectory = providers.some((name) => name !== 'local');
-  let mode: 'directory' | 'local' | null = null;
-  $: activeMode = hasDirectory ? (mode ?? 'directory') : 'local';
+  let showPassword = $state(false);
+  let loading = $state(false);
+
+  let hasDirectory = $derived(providers.some((name) => name !== 'local'));
+  let mode: 'directory' | 'local' | null = $state(null);
+  let activeMode = $derived(hasDirectory ? (mode ?? 'directory') : 'local');
 
   function togglePassword() {
     showPassword = !showPassword;
@@ -57,8 +71,8 @@
 
     {#if hasDirectory}
       <div class="lg__seg" role="group" aria-label={t('Account type')}>
-        <button type="button" class:on={activeMode === 'directory'} aria-pressed={activeMode === 'directory'} on:click={() => (mode = 'directory')}>{t('Directory')}</button>
-        <button type="button" class:on={activeMode === 'local'} aria-pressed={activeMode === 'local'} on:click={() => (mode = 'local')}>{t('Local account')}</button>
+        <button type="button" class:on={activeMode === 'directory'} aria-pressed={activeMode === 'directory'} onclick={() => (mode = 'directory')}>{t('Directory')}</button>
+        <button type="button" class:on={activeMode === 'local'} aria-pressed={activeMode === 'local'} onclick={() => (mode = 'local')}>{t('Local account')}</button>
       </div>
     {/if}
 
@@ -89,7 +103,7 @@
         <span>{t('Password')}</span>
         <span class="lg__password">
           <input type={showPassword ? 'text' : 'password'} name="password" autocomplete="current-password" required />
-          <button type="button" on:click={togglePassword} aria-label={showPassword ? t('Hide password') : t('Show password')}>
+          <button type="button" onclick={togglePassword} aria-label={showPassword ? t('Hide password') : t('Show password')}>
             <i class="bi {showPassword ? 'bi-eye-slash' : 'bi-eye'}" aria-hidden="true"></i>
           </button>
         </span>
@@ -113,7 +127,7 @@
       {/each}
     {/if}
 
-    <slot />
+    {@render children?.()}
   </main>
 </div>
 

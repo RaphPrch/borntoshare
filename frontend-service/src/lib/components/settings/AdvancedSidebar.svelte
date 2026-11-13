@@ -10,9 +10,13 @@
 
 <script lang="ts">
   import { t } from '$lib/i18n';
-  export let current: string;
-  export let items: NavItem[];
-  export let basePath: string = '/admin/advanced-settings';
+  interface Props {
+    current: string;
+    items: NavItem[];
+    basePath?: string;
+  }
+
+  let { current, items, basePath = '/admin/advanced-settings' }: Props = $props();
 
   function href(key: string) {
     return `${basePath}/${key}`;

@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { createBubbler, stopPropagation } from 'svelte/legacy';
+
+  const bubble = createBubbler();
   import { copyText } from '$lib/utils/clipboard';
   import { resizableColumns } from '$lib/utils/resizable-columns';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { recall, remember } from '$lib/utils/remember';
   import { apiPostData } from '$lib/api/client';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
@@ -29,31 +32,39 @@
   import { reportUiError } from '$lib/errors';
   import { formatSeconds, isActiveJob, jobOriginLabel, jobStatusLabel, jobStatusVariant, jobTypeLabel, normalizeJobStatus } from '$lib/utils/jobs';
 
-  /** Opened from the overview: « FAILED » or « stuck » */
-  export let initialStatus: string = 'all';
+  
+  interface Props {
+    /** Opened from the overview: « FAILED » or « stuck » */
+    initialStatus?: string;
+  }
+
+  let { initialStatus = 'all' }: Props = $props();
 
   const POLL_INTERVAL_MS = 5000;
   type Job = AdminProvisioningJob;
 
-  let jobs: Job[] = [];
-  let loading = true;
-  let loadError: string | null = null;
-  let query = '';
+  let jobs: Job[] = $state([]);
+  let loading = $state(true);
+  let loadError: string | null = $state(null);
+  let query = $state('');
   const savedJobs = recall('jobs', { statusFilter: 'all', typeFilter: 'all', targetFilter: 'all', pageSize: 25 });
-  let statusFilter = initialStatus && initialStatus !== 'all' ? initialStatus : savedJobs.statusFilter;
-  let typeFilter = savedJobs.typeFilter;
-  let targetFilter = savedJobs.targetFilter;
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let statusFilter = $state(initialStatus && initialStatus !== 'all' ? initialStatus : savedJobs.statusFilter);
+  let typeFilter = $state(savedJobs.typeFilter);
+  let targetFilter = $state(savedJobs.targetFilter);
   // The health checks run every few minutes: hidden unless asked, they would bury the rest
-  let showRoutine = false;
-  let page = 1;
-  let pageSize = savedJobs.pageSize;
-  $: remember('jobs', { statusFilter, typeFilter, targetFilter, pageSize });
-  let busy = false;
-  let cancelling: Job | null = null;
-  let flushing: Job[] | null = null;
-  let detail: AdminJobDetail | null = null;
-  let detailId: number | null = null;
-  let detailLoading = false;
+  let showRoutine = $state(false);
+  let page = $state(1);
+  let pageSize = $state(savedJobs.pageSize);
+  $effect.pre(() => {
+    remember('jobs', { statusFilter, typeFilter, targetFilter, pageSize });
+  });
+  let busy = $state(false);
+  let cancelling: Job | null = $state(null);
+  let flushing: Job[] | null = $state(null);
+  let detail: AdminJobDetail | null = $state(null);
+  let detailId: number | null = $state(null);
+  let detailLoading = $state(false);
   let timer: ReturnType<typeof setInterval> | null = null;
 
   const TARGET_ICON: Record<string, string> = { folder: 'bi-folder2', server: 'bi-hdd-network', directory: 'bi-diagram-3', host: 'bi-pc-display' };
@@ -112,7 +123,7 @@
   }
 
   // Every failure shown (filters applied) that can be retried, one after the other
-  let retryingAll = false;
+  let retryingAll = $state(false);
   async function retryShown() {
     const targets = filtered.filter((job) => job.retryable);
     if (!targets.length || retryingAll) return;
@@ -228,23 +239,23 @@
   const dayAgo = () => Date.now() - 24 * 3600 * 1000;
   const recent = (job: Job) => new Date(String(job.created_at ?? '').replace(' ', 'T') + (String(job.created_at ?? '').endsWith('Z') ? '' : 'Z')).getTime() >= dayAgo();
 
-  $: stuckJobs = jobs.filter((job) => Boolean(job.stuck));
-  $: last24 = jobs.filter(recent);
-  $: counts = {
+  let stuckJobs = $derived(jobs.filter((job) => Boolean(job.stuck)));
+  let last24 = $derived(jobs.filter(recent));
+  let counts = $derived({
     active: jobs.filter((job) => isActiveJob(job.status) && !job.stuck).length,
     failed: last24.filter((job) => normalizeJobStatus(job.status) === 'FAILED').length,
     stuck: stuckJobs.length,
     succeeded: last24.filter((job) => normalizeJobStatus(job.status) === 'SUCCEEDED').length,
     retryable: jobs.filter((job) => job.retryable && normalizeJobStatus(job.status) === 'FAILED').length
-  };
-  $: finished24 = counts.failed + counts.succeeded;
-  $: failureRate = finished24 ? Math.round((counts.failed / finished24) * 100) : null;
-  $: medianRun = median(last24.filter((job) => normalizeJobStatus(job.status) === 'SUCCEEDED' && job.run_seconds != null).map((job) => Number(job.run_seconds)));
-  $: typesPresent = [...new Set(jobs.map((job) => `${job.job_type ?? ''}|${job.action ?? ''}`))]
+  });
+  let finished24 = $derived(counts.failed + counts.succeeded);
+  let failureRate = $derived(finished24 ? Math.round((counts.failed / finished24) * 100) : null);
+  let medianRun = $derived(median(last24.filter((job) => normalizeJobStatus(job.status) === 'SUCCEEDED' && job.run_seconds != null).map((job) => Number(job.run_seconds))));
+  let typesPresent = $derived([...new Set(jobs.map((job) => `${job.job_type ?? ''}|${job.action ?? ''}`))]
     .map((key) => ({ key, label: jobTypeLabel(key.split('|')[0], key.split('|')[1]) }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-  $: targetsPresent = [...new Set(jobs.map((job) => job.target?.kind).filter(Boolean))] as string[];
-  $: filtered = jobs
+    .sort((a, b) => a.label.localeCompare(b.label)));
+  let targetsPresent = $derived([...new Set(jobs.map((job) => job.target?.kind).filter(Boolean))] as string[]);
+  let filtered = $derived(jobs
     .filter((job) => {
       const s = normalizeJobStatus(job.status);
       if (statusFilter === 'all') return true;
@@ -265,10 +276,13 @@
         .includes(q);
     })
     // Newest first (the measures of the 5S scanner, listed with negative ids, are mixed in by date)
-    .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')) || Number(b.id) - Number(a.id));
-  $: query, statusFilter, typeFilter, targetFilter, (page = 1);
-  $: retryableShown = filtered.filter((job) => job.retryable).length;
-  $: pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+    .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')) || Number(b.id) - Number(a.id)));
+  $effect.pre(() => {
+    void [query, statusFilter, typeFilter, targetFilter]; // only these start it again (as the former « $: »)
+    untrack(() => { page = 1; });
+  });
+  let retryableShown = $derived(filtered.filter((job) => job.retryable).length);
+  let pageRows = $derived(filtered.slice((page - 1) * pageSize, page * pageSize));
   /** The share of its timeout a running job has used (the bar under its duration) */
   const timeoutShare = (job: Job) =>
     job.run_seconds != null && job.timeout_seconds ? Math.min(100, Math.round((Number(job.run_seconds) / Number(job.timeout_seconds)) * 100)) : null;
@@ -292,7 +306,7 @@
     <InlineAlert tone="warning">
       <div class="obs-banner">
         <span>{t('{count} job(s) are stuck: nobody took them, or they run far beyond their timeout. Their folder or server waits for them.', { count: counts.stuck })}</span>
-        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} on:click={() => (flushing = stuckJobs)}>
+        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} onclick={() => (flushing = stuckJobs)}>
           <i class="bi bi-trash3" aria-hidden="true"></i>{t('Flush the stuck jobs')}
         </button>
       </div>
@@ -319,19 +333,19 @@
       {#each targetsPresent as kind (kind)}<option value={kind}>{TARGET_LABEL()[kind] ?? kind}</option>{/each}
     </select>
     <label class="obs-toggle">
-      <input type="checkbox" bind:checked={showRoutine} on:change={() => refresh(false)} />
+      <input type="checkbox" bind:checked={showRoutine} onchange={() => refresh(false)} />
       {t('Automatic health checks')}
     </label>
     {#if retryableShown}
-      <button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" disabled={busy || retryingAll} on:click={retryShown}
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" disabled={busy || retryingAll} onclick={retryShown}
         title={t('Start again the failed or stopped checks and scans shown')}>
         <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{t('Retry the {count} shown', { count: retryableShown })}
       </button>
     {/if}
-    <button type="button" class="b2s-btn b2s-btn-secondary" class:b2s-toolbar__end={!retryableShown} on:click={exportJobs} disabled={filtered.length === 0}>
+    <button type="button" class="b2s-btn b2s-btn-secondary" class:b2s-toolbar__end={!retryableShown} onclick={exportJobs} disabled={filtered.length === 0}>
       <i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}
     </button>
-    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => refresh(false)} disabled={busy}>
+    <button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => refresh(false)} disabled={busy}>
       <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>{t('Refresh')}
     </button>
   </div>
@@ -364,7 +378,7 @@
           <tbody>
             {#each pageRows as job (job.id)}
               {@const share = isActiveJob(job.status) ? timeoutShare(job) : null}
-              <tr class="obs-row" class:is-open={detailId === Number(job.id)} on:click={() => !job.external && openDetail(Number(job.id))}>
+              <tr class="obs-row" class:is-open={detailId === Number(job.id)} onclick={() => !job.external && openDetail(Number(job.id))}>
                 <td>
                   <StatusBadge compact label={statusText(job)} variant={statusTone(job)} />
                   {#if Number(job.attempts ?? 1) > 1}<small class="obs-sub">{t('Attempt {n}', { n: job.attempts ?? 1 })}</small>{/if}
@@ -377,7 +391,7 @@
                 <td class="obs-target">
                   {#if job.target}
                     <i class={`bi ${TARGET_ICON[job.target.kind] ?? 'bi-bullseye'}`} aria-hidden="true"></i>
-                    {#if job.target.href}<a href={job.target.href} on:click|stopPropagation>{job.target.label}</a>{:else}<span>{job.target.label}</span>{/if}
+                    {#if job.target.href}<a href={job.target.href} onclick={stopPropagation(bubble('click'))}>{job.target.label}</a>{:else}<span>{job.target.label}</span>{/if}
                     {#if job.target.detail}<small class="obs-sub">{job.target.detail}</small>{/if}
                   {:else}—{/if}
                 </td>
@@ -399,20 +413,20 @@
                 <td class="obs-error">
                   {#if errorText(job)}<span title={String(job.error_code ?? '')}>{errorText(job)}</span>{:else}—{/if}
                 </td>
-                <td class="obs-actions" on:click|stopPropagation>
+                <td class="obs-actions" onclick={stopPropagation(bubble('click'))}>
                   {#if job.retryable}
-                    <button class="b2s-btn b2s-btn-sm b2s-btn-secondary" type="button" disabled={busy} on:click={() => retry(job)} title={t('Start it again with the same parameters')}>
+                    <button class="b2s-btn b2s-btn-sm b2s-btn-secondary" type="button" disabled={busy} onclick={() => retry(job)} title={t('Start it again with the same parameters')}>
                       <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{t('Retry')}
                     </button>
                   {/if}
                   {#if job.external}
                     {#if isActiveJob(job.status) && job.target?.id}
-                      <button class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" type="button" disabled={busy} on:click={() => stopFives(job)}>{t('Stop')}</button>
+                      <button class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" type="button" disabled={busy} onclick={() => stopFives(job)}>{t('Stop')}</button>
                     {/if}
                   {:else if job.stuck}
-                    <button class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" type="button" disabled={busy} on:click={() => (flushing = [job])}>{t('Flush')}</button>
+                    <button class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" type="button" disabled={busy} onclick={() => (flushing = [job])}>{t('Flush')}</button>
                   {:else if isActiveJob(job.status)}
-                    <button class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" type="button" disabled={busy} on:click={() => (cancelling = job)}>{t('Stop')}</button>
+                    <button class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" type="button" disabled={busy} onclick={() => (cancelling = job)}>{t('Stop')}</button>
                   {/if}
                 </td>
               </tr>
@@ -484,14 +498,14 @@
           <dt>{t('Requested by')}</dt><dd>{detail.requested_by ?? t('the platform (schedule, policy or worker)')}</dd>
           <dt>{t('Worker queue')}</dt><dd class="mono">{detail.queue ?? '—'}</dd>
           <dt>{t('Attempts')}</dt><dd>{detail.attempts ?? 1}{#if Number(detail.watchdog_republish_count ?? 0) > 0} · {t('sent again {n} time(s) by the watchdog', { n: detail.watchdog_republish_count ?? 0 })}{/if}</dd>
-          {#if detail.retry_of}<dt>{t('Retry of')}</dt><dd><button type="button" class="jd__link" on:click={() => openDetail(Number(detail?.retry_of))}>#{detail.retry_of}</button></dd>{/if}
+          {#if detail.retry_of}<dt>{t('Retry of')}</dt><dd><button type="button" class="jd__link" onclick={() => openDetail(Number(detail?.retry_of))}>#{detail.retry_of}</button></dd>{/if}
           {#if detail.retried_by?.length}
             <dt>{t('Started again as')}</dt>
-            <dd>{#each detail.retried_by as id, index (id)}{#if index}, {/if}<button type="button" class="jd__link" on:click={() => openDetail(Number(id))}>#{id}</button>{/each}</dd>
+            <dd>{#each detail.retried_by as id, index (id)}{#if index}, {/if}<button type="button" class="jd__link" onclick={() => openDetail(Number(id))}>#{id}</button>{/each}</dd>
           {/if}
           <dt>{t('Correlation ID')}</dt>
           <dd class="mono jd__copy">{detail.correlation_id ?? '—'}
-            {#if detail.correlation_id}<button type="button" class="jd__icon" title={t('Copy')} aria-label={t('Copy')} on:click={() => copy(String(detail?.correlation_id))}><i class="bi bi-copy" aria-hidden="true"></i></button>{/if}
+            {#if detail.correlation_id}<button type="button" class="jd__icon" title={t('Copy')} aria-label={t('Copy')} onclick={() => copy(String(detail?.correlation_id))}><i class="bi bi-copy" aria-hidden="true"></i></button>{/if}
           </dd>
         </dl>
       </section>
@@ -523,21 +537,23 @@
     </div>
   {/if}
 
-  <svelte:fragment slot="footer">
-    {#if detail}
-      {#if detail.stuck}
-        <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={busy} on:click={() => detail && (flushing = [detail])}>{t('Flush')}</button>
-      {:else if isActiveJob(detail.status)}
-        <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={busy} on:click={() => (cancelling = detail)}>{t('Stop')}</button>
+  {#snippet footer()}
+  
+      {#if detail}
+        {#if detail.stuck}
+          <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={busy} onclick={() => detail && (flushing = [detail])}>{t('Flush')}</button>
+        {:else if isActiveJob(detail.status)}
+          <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={busy} onclick={() => (cancelling = detail)}>{t('Stop')}</button>
+        {/if}
+        {#if detail.retryable}
+          <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy} onclick={() => detail && retry(detail)}>
+            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{t('Retry')}
+          </button>
+        {/if}
       {/if}
-      {#if detail.retryable}
-        <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy} on:click={() => detail && retry(detail)}>
-          <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{t('Retry')}
-        </button>
-      {/if}
-    {/if}
-    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={closeDetail}>{t('Close')}</button>
-  </svelte:fragment>
+      <button type="button" class="b2s-btn b2s-btn-secondary" onclick={closeDetail}>{t('Close')}</button>
+    
+  {/snippet}
 </Drawer>
 
 <ConfirmActionModal

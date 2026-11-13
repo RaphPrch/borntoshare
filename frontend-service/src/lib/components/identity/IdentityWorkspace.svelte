@@ -1,4 +1,5 @@
 <script lang="ts">
+  
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { apiGetList } from '$lib/api/client';
@@ -15,30 +16,45 @@
   import { toast } from '$lib/stores/toast';
   import { timeAgo } from '$lib/utils/format';
 
-  /**
+  
+  
+  
+  interface Props {
+    /**
    * One person, as a page: identity card with the role as a switch (undo for a few seconds), « to do », figures,
    * then what they guard (map by share, sole guardian folders, co-guardians), their requests and the activity.
    */
-  export let item: Record<string, any>;
-  export let canDelete = true;
-  /** The signed-in person: no demotion, disabling or deletion of one's own account */
-  export let isSelf = false;
-  export let busy = false;
-  export let onSetRole: (role: 'user' | 'platform_admin') => Promise<boolean> = async () => false;
-  export let onToggleActive: () => void = () => {};
-  export let onEdit: () => void = () => {};
-  export let onDelete: () => void = () => {};
-  /** Everyone, to pick a backup guardian */
-  export let people: Array<Record<string, any>> = [];
+    item: Record<string, any>;
+    canDelete?: boolean;
+    /** The signed-in person: no demotion, disabling or deletion of one's own account */
+    isSelf?: boolean;
+    busy?: boolean;
+    onSetRole?: (role: 'user' | 'platform_admin') => Promise<boolean>;
+    onToggleActive?: () => void;
+    onEdit?: () => void;
+    onDelete?: () => void;
+    /** Everyone, to pick a backup guardian */
+    people?: Array<Record<string, any>>;
+  }
 
-  let data: IdentityOverview | null = null;
-  let activity: any[] = [];
-  let loadedFor = 0;
-  let tab = 'overview';
-  let shareFilter = 'all';
+  let {
+    item,
+    canDelete = true,
+    isSelf = false,
+    busy = false,
+    onSetRole = async () => false,
+    onToggleActive = () => {},
+    onEdit = () => {},
+    onDelete = () => {},
+    people = []
+  }: Props = $props();
 
-  $: id = Number(item?.id ?? 0);
-  $: if (id && id !== loadedFor) load(id);
+  let data: IdentityOverview | null = $state(null);
+  let activity: any[] = $state([]);
+  let loadedFor = $state(0);
+  let tab = $state('overview');
+  let shareFilter = $state('all');
+
   async function load(identityId: number) {
     loadedFor = identityId;
     data = null;
@@ -59,10 +75,6 @@
   }
   export const reload = () => id && load(id);
 
-  // Role: held directly (switchable) or through a directory group (shown, not switchable here)
-  $: adminVia = (data?.roles ?? []).filter((role) => role.code === 'platform_admin').map((role) => role.via);
-  $: isAdmin = adminVia.length > 0;
-  $: adminByGroupOnly = isAdmin && !adminVia.includes('direct');
   async function setRole(role: 'user' | 'platform_admin') {
     if (busy || adminByGroupOnly || (role === 'platform_admin') === isAdmin) return;
     const previous: 'user' | 'platform_admin' = isAdmin ? 'platform_admin' : 'user';
@@ -73,55 +85,63 @@
     });
   }
 
-  $: displayName = String(data?.display_name || item?.display_name || item?.username || '—');
-  $: initials = displayName.split(/[ .\-_]/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
-  $: local = String(data?.auth_source ?? item?.auth_source ?? '') === 'local';
-  $: hasMail = Boolean(String(data?.email ?? item?.email ?? '').trim());
-  $: active = data ? data.is_active : item?.is_active !== false;
+
+
+
+
+  const REQUEST_TONES: Record<string, string> = { approved: '#2f9e5b', applied: '#2f9e5b', active: '#2f9e5b', pending: '#3b6fd8', revoked: '#8a93a3', rejected: '#c0392b', cancelled: '#cdd2db', expired: '#b9c0cc' };
+  const REQUEST_LABEL = (): Record<string, string> => ({ approved: t('approved'), applied: t('applied'), active: t('active'), pending: t('pending'), revoked: t('revoked'), rejected: t('rejected'), cancelled: t('cancelled'), expired: t('expired') });
+
+  let id = $derived(Number(item?.id ?? 0));
+  $effect.pre(() => {
+    if (id && id !== loadedFor) load(id);
+  });
+  // Role: held directly (switchable) or through a directory group (shown, not switchable here)
+  let adminVia = $derived((data?.roles ?? []).filter((role) => role.code === 'platform_admin').map((role) => role.via));
+  let isAdmin = $derived(adminVia.length > 0);
+  let adminByGroupOnly = $derived(isAdmin && !adminVia.includes('direct'));
+  let displayName = $derived(String(data?.display_name || item?.display_name || item?.username || '—'));
+  let initials = $derived(displayName.split(/[ .\-_]/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?');
+  let local = $derived(String(data?.auth_source ?? item?.auth_source ?? '') === 'local');
+  let hasMail = $derived(Boolean(String(data?.email ?? item?.email ?? '').trim()));
+  let active = $derived(data ? data.is_active : item?.is_active !== false);
   // Disabled by the synchronization: the user is no longer in the directory (enabled again if it comes back)
-  $: leftDirectory = !active && String((data as any)?.status ?? (item as any)?.status ?? '') === 'left_directory';
-  $: guarded = data?.guarded ?? [];
-  $: sole = guarded.filter((folder) => folder.sole);
-  $: requestsTotal = Object.values(data?.requests ?? {}).reduce((sum, value) => sum + Number(value || 0), 0);
-
-
-  $: actions = [
+  let leftDirectory = $derived(!active && String((data as any)?.status ?? (item as any)?.status ?? '') === 'left_directory');
+  let guarded = $derived(data?.guarded ?? []);
+  let sole = $derived(guarded.filter((folder) => folder.sole));
+  let requestsTotal = $derived(Object.values(data?.requests ?? {}).reduce((sum, value) => sum + Number(value || 0), 0));
+  let actions = $derived([
     { key: 'edit', label: t('Edit'), icon: 'bi-pencil', variant: 'secondary', onClick: onEdit },
     ...(isSelf ? [] : [
       { key: 'toggle', label: active ? t('Disable') : t('Enable'), icon: active ? 'bi-pause-circle' : 'bi-play-circle', overflow: true, onClick: onToggleActive },
       { key: 'delete', label: t('Delete'), icon: 'bi-trash', variant: 'danger', overflow: true, disabled: !canDelete, onClick: onDelete }
     ])
-  ] as EntityActionItem[];
-
-  $: steps = [
+  ] as EntityActionItem[]);
+  let steps = $derived([
     ...(!active && guarded.length ? [{ key: 'off', tone: 'bad' as const, icon: 'bi-pause-circle', title: t('Disabled, but guardian of {count} folder(s)', { count: guarded.length }), detail: t('Its requests wait for the other guardians or an administrator.'), label: t('Enable'), run: onToggleActive }] : []),
     ...(active && guarded.length && !hasMail ? [{ key: 'mail', tone: 'warn' as const, icon: 'bi-envelope-slash', title: t('{count} folder(s) wait for their validations, but there is no e-mail', { count: guarded.length }), detail: local ? t('Neither requests nor reminders reach them. Add an e-mail address.') : t('Neither requests nor reminders reach them. Fill the mail attribute in the directory: it is read again at the next synchronization.'), label: local ? t('Edit') : t('See the folders'), run: local ? onEdit : () => (tab = 'guarded') }] : []),
     ...(sole.length ? [{ key: 'sole', tone: 'info' as const, icon: 'bi-person-exclamation', title: t('Only guardian of {count} folder(s)', { count: sole.length }), detail: t('Without them, only an administrator validates the requests of these folders.'), label: t('See them'), run: () => { tab = 'guarded'; shareFilter = 'sole'; } }] : [])
-  ] as EntityTodoStep[];
-
+  ] as EntityTodoStep[]);
   // Map of what they guard: one tile per share, one cell per folder (red: only guardian)
-  $: shares = [...guarded.reduce((map, folder) => {
+  let shares = $derived([...guarded.reduce((map, folder) => {
     const key = folder.share || '—';
     if (!map.has(key)) map.set(key, { share: key, folders: [] as typeof guarded });
     map.get(key)!.folders.push(folder);
     return map;
-  }, new Map<string, { share: string; folders: typeof guarded }>()).values()].sort((a, b) => b.folders.length - a.folders.length || a.share.localeCompare(b.share, 'fr'));
-  $: shownShares = shares.slice(0, 20);
-  $: shareChips = [
+  }, new Map<string, { share: string; folders: typeof guarded }>()).values()].sort((a, b) => b.folders.length - a.folders.length || a.share.localeCompare(b.share, 'fr')));
+  let shownShares = $derived(shares.slice(0, 20));
+  let shareChips = $derived([
     { key: 'all', label: t('All'), count: guarded.length },
     ...(sole.length ? [{ key: 'sole', label: t('Only guardian'), count: sole.length }] : []),
     ...shares.slice(0, 8).map((share) => ({ key: `share:${share.share}`, label: share.share, count: share.folders.length }))
-  ];
-  $: rows = guarded.filter((folder) => shareFilter === 'all' || (shareFilter === 'sole' ? folder.sole : `share:${folder.share}` === shareFilter));
-  const REQUEST_TONES: Record<string, string> = { approved: '#2f9e5b', applied: '#2f9e5b', active: '#2f9e5b', pending: '#3b6fd8', revoked: '#8a93a3', rejected: '#c0392b', cancelled: '#cdd2db', expired: '#b9c0cc' };
-  $: requestParts = Object.entries(data?.requests ?? {}).filter(([, count]) => Number(count) > 0).sort((a, b) => Number(b[1]) - Number(a[1]));
-  const REQUEST_LABEL = (): Record<string, string> => ({ approved: t('approved'), applied: t('applied'), active: t('active'), pending: t('pending'), revoked: t('revoked'), rejected: t('rejected'), cancelled: t('cancelled'), expired: t('expired') });
-
-  $: tabs = [
+  ]);
+  let rows = $derived(guarded.filter((folder) => shareFilter === 'all' || (shareFilter === 'sole' ? folder.sole : `share:${folder.share}` === shareFilter)));
+  let requestParts = $derived(Object.entries(data?.requests ?? {}).filter(([, count]) => Number(count) > 0).sort((a, b) => Number(b[1]) - Number(a[1])));
+  let tabs = $derived([
     { key: 'overview', label: t('Overview') },
     { key: 'guarded', label: t('Guarded folders'), count: guarded.length || null },
     { key: 'activity', label: t('Activity'), count: activity.length || null }
-  ];
+  ]);
 </script>
 
 <div class="iw">
@@ -137,14 +157,18 @@
       ...(adminByGroupOnly ? [{ label: t('Administrator through a directory group'), icon: 'bi-people' }] : [])
     ]}
     {actions} actionsAriaLabel={t('Identity actions')}>
-    <svelte:fragment slot="note">{#if data?.updated_at}{t('updated')} <RelativeTime value={data.updated_at} />{/if}</svelte:fragment>
-    <svelte:fragment slot="side">
-      <div class="iw__seg" role="radiogroup" aria-label={t('Role in BornToShare')}>
-        <button type="button" role="radio" aria-checked={!isAdmin} class:is-on={!isAdmin} disabled={busy || adminByGroupOnly || !data || (isSelf && isAdmin)} title={isSelf && isAdmin ? t('You cannot demote your own account.') : undefined} on:click={() => setRole('user')}>{t('User')}</button>
-        <button type="button" role="radio" aria-checked={isAdmin} class:is-on={isAdmin} disabled={busy || adminByGroupOnly || !data} on:click={() => setRole('platform_admin')}>{t('Administrator')}</button>
-      </div>
-      {#if guarded.length}<small class="iw__plus">{t('+ guardian of {count} folder(s)', { count: guarded.length })}</small>{/if}
-    </svelte:fragment>
+    {#snippet noteContent()}
+        {#if data?.updated_at}{t('updated')} <RelativeTime value={data.updated_at} />{/if}
+      {/snippet}
+    {#snippet side()}
+      
+        <div class="iw__seg" role="radiogroup" aria-label={t('Role in BornToShare')}>
+          <button type="button" role="radio" aria-checked={!isAdmin} class:is-on={!isAdmin} disabled={busy || adminByGroupOnly || !data || (isSelf && isAdmin)} title={isSelf && isAdmin ? t('You cannot demote your own account.') : undefined} onclick={() => setRole('user')}>{t('User')}</button>
+          <button type="button" role="radio" aria-checked={isAdmin} class:is-on={isAdmin} disabled={busy || adminByGroupOnly || !data} onclick={() => setRole('platform_admin')}>{t('Administrator')}</button>
+        </div>
+        {#if guarded.length}<small class="iw__plus">{t('+ guardian of {count} folder(s)', { count: guarded.length })}</small>{/if}
+      
+      {/snippet}
   </EntityHeroCard>
 
   {#if !data}
@@ -152,7 +176,7 @@
   {:else}
     <div class="b2s-stat-tiles iw__tiles">
       <div class="b2s-stat-tile"><span>{t('Role')}</span><b>{isAdmin ? t('Administrator') : guarded.length ? t('Guardian') : t('User')}</b><small>{isAdmin && guarded.length ? t('and guardian') : guarded.length ? t('and user') : ''}</small></div>
-      <button type="button" class="b2s-stat-tile" on:click={() => (tab = 'guarded')}><span>{t('Guarded folders')}</span><b><CountUp value={Number(guarded.length)} /></b><small>{sole.length ? t('{count} as only guardian', { count: sole.length }) : t('always with another guardian')}</small></button>
+      <button type="button" class="b2s-stat-tile" onclick={() => (tab = 'guarded')}><span>{t('Guarded folders')}</span><b><CountUp value={Number(guarded.length)} /></b><small>{sole.length ? t('{count} as only guardian', { count: sole.length }) : t('always with another guardian')}</small></button>
       <div class="b2s-stat-tile"><span>{t('Accesses in progress')}</span><b><CountUp value={Number(data.active_accesses)} /></b><small>{data.active_accesses ? '' : t('no folder open for them')}</small></div>
       <div class="b2s-stat-tile"><span>{t('Requests')}</span><b><CountUp value={Number(requestsTotal)} /></b><small>{requestParts.map(([status, count]) => `${count} ${REQUEST_LABEL()[status] ?? status}`).join(' · ')}</small></div>
     </div>
@@ -168,7 +192,7 @@
           {#if guarded.length}
             <div class="iw__map">
               {#each shownShares as share (share.share)}
-                <button type="button" class="iw__site" title={t('{share}: {count} folder(s)', { share: share.share, count: share.folders.length })} on:click={() => { tab = 'guarded'; shareFilter = `share:${share.share}`; }}>
+                <button type="button" class="iw__site" title={t('{share}: {count} folder(s)', { share: share.share, count: share.folders.length })} onclick={() => { tab = 'guarded'; shareFilter = `share:${share.share}`; }}>
                   <span class="iw__site-head"><b>{share.share}</b><span>{share.folders.length}</span></span>
                   <span class="iw__cells" aria-hidden="true">{#each share.folders.slice(0, 20) as folder (folder.id)}<span class="iw__cell" class:is-sole={folder.sole}></span>{/each}</span>
                 </button>
@@ -221,7 +245,7 @@
     {:else if tab === 'guarded'}
       <div class="iw__chipsbar" role="group" aria-label={t('Filter the folders')}>
         {#each shareChips as chip (chip.key)}
-          <button type="button" class:is-on={shareFilter === chip.key} on:click={() => (shareFilter = chip.key)}>{chip.label} <span>{chip.count}</span></button>
+          <button type="button" class:is-on={shareFilter === chip.key} onclick={() => (shareFilter = chip.key)}>{chip.label} <span>{chip.count}</span></button>
         {/each}
       </div>
       <section class="iw__card iw__table" aria-label={t('Guarded folders')}>

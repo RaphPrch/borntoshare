@@ -1,4 +1,6 @@
   <script lang="ts">
+  
+
   import { t } from '$lib/i18n';
   import { toast } from "$lib/stores/toast";
   import { runProbeWithPolling } from "$lib/jobs/probe-runner";
@@ -21,12 +23,15 @@
     status?: string | null;
   };
 
-  export let open = false;
-  export let mode: "create" | "edit" | "delete" = "create";
-  export let root: any | null = null;
 
-  // Select data
-  export let endpoints: Array<{
+  
+
+  interface Props {
+    open?: boolean;
+    mode?: "create" | "edit" | "delete";
+    root?: any | null;
+    // Select data
+    endpoints?: Array<{
     id?: number;
     storage_endpoint_id?: number;
     name?: string;
@@ -42,14 +47,25 @@
     bind_password_ref?: string;
     protocol?: string;
     type?: string;
-  }> = [];
-  export let endpointId: number | null = null;
+  }>;
+    endpointId?: number | null;
+    onClose: () => void;
+    onSubmit: (payload: StorageRootForm) => void;
+    onDelete: () => void;
+  }
 
-  export let onClose: () => void;
-  export let onSubmit: (payload: StorageRootForm) => void;
-  export let onDelete: () => void;
+  let {
+    open = false,
+    mode = "create",
+    root = null,
+    endpoints = [],
+    endpointId = null,
+    onClose,
+    onSubmit,
+    onDelete
+  }: Props = $props();
 
-  let form: StorageRootForm = {
+  let form: StorageRootForm = $state({
     name: "",
     display_name: "",
     storage_endpoint_id: 0,
@@ -57,33 +73,33 @@
     discovery_roots: [],
     path: "",
     status: "active"
-  };
+  });
 
-  let discoveryRootsText = "";
-  let probeBusy = false;
-  let discoverBusy = false;
-  let probeOk = false;
-  let probeError: string | null = null;
-  let detectedRoots: string[] = [];
-  let deleteConfirmation = "";
+  let discoveryRootsText = $state("");
+  let probeBusy = $state(false);
+  let discoverBusy = $state(false);
+  let probeOk = $state(false);
+  let probeError: string | null = $state(null);
+  let detectedRoots: string[] = $state([]);
+  let deleteConfirmation = $state("");
 
   const DELETE_CONFIRM_TOKEN = "DELETE";
-  $: drawerTitle =
-    mode === 'edit'
+  let drawerTitle =
+    $derived(mode === 'edit'
       ? t('Edit storage root')
       : mode === 'delete'
         ? t('Delete storage root')
-        : t('Create storage root');
+        : t('Create storage root'));
 
-  $: drawerSubtitle =
-    mode === 'delete'
+  let drawerSubtitle =
+    $derived(mode === 'delete'
       ? t('This action is irreversible. Confirm the deletion of this storage root.')
       : mode === 'edit'
         ? t('Update identity and root path of the selected storage root.')
-        : t('Register a new governed storage root.');
+        : t('Register a new governed storage root.'));
 
-  $: entityName = root?.display_name ?? root?.storage_root_name ?? root?.name ?? null;
-  $: entityPath = root?.root_path ?? root?.locator ?? root?.path ?? null;
+  let entityName = $derived(root?.display_name ?? root?.storage_root_name ?? root?.name ?? null);
+  let entityPath = $derived(root?.root_path ?? root?.locator ?? root?.path ?? null);
 
   const endpointIdOf = (endpoint: any): number =>
     Number(endpoint?.storage_endpoint_id ?? endpoint?.id ?? 0);
@@ -108,29 +124,33 @@
     return chunks[chunks.length - 1] ?? normalized;
   };
 
-  $: if (open && mode !== "delete") {
-    const displayName = root?.display_name ?? root?.storage_root_name ?? root?.name ?? "";
-    const rootPath = root?.root_path ?? root?.locator ?? root?.path ?? "";
+  $effect.pre(() => {
+    if (open && mode !== "delete") {
+      const displayName = root?.display_name ?? root?.storage_root_name ?? root?.name ?? "";
+      const rootPath = root?.root_path ?? root?.locator ?? root?.path ?? "";
 
-    form = {
-      name: displayName,
-      display_name: displayName,
-      storage_endpoint_id: root?.storage_endpoint_id ?? endpointId ?? 0,
-      root_path: rootPath,
-      discovery_roots: rootPath ? [rootPath] : [],
-      path: rootPath,
-      status: root?.status ?? "active"
-    };
+      form = {
+        name: displayName,
+        display_name: displayName,
+        storage_endpoint_id: root?.storage_endpoint_id ?? endpointId ?? 0,
+        root_path: rootPath,
+        discovery_roots: rootPath ? [rootPath] : [],
+        path: rootPath,
+        status: root?.status ?? "active"
+      };
 
-    discoveryRootsText = rootPath;
-    probeOk = false;
-    probeError = null;
-    detectedRoots = [];
-  }
+      discoveryRootsText = rootPath;
+      probeOk = false;
+      probeError = null;
+      detectedRoots = [];
+    }
+  });
 
-  $: if (open && mode === "delete") {
-    deleteConfirmation = "";
-  }
+  $effect.pre(() => {
+    if (open && mode === "delete") {
+      deleteConfirmation = "";
+    }
+  });
 
   const parseDiscoveryRoots = (value: string): string[] => {
     const parts = value
@@ -391,7 +411,7 @@
                 <div class="sr-discovered-title">{t('Roots available on selected endpoint')}</div>
                 <div class="sr-discovered-list">
                   {#each detectedRoots as rootPath}
-                    <button class="sr-discovered-item" type="button" on:click={() => useDiscoveredRoot(rootPath)} title={rootPath}>
+                    <button class="sr-discovered-item" type="button" onclick={() => useDiscoveredRoot(rootPath)} title={rootPath}>
                       <i class="bi bi-folder2-open" aria-hidden="true"></i>
                       <span>{rootPath}</span>
                     </button>
@@ -420,24 +440,26 @@
       {/if}
     </div>
 
-    <svelte:fragment slot="footer">
-      <div class="sr-modal-actions">
-        <EntityActionButton variant="secondary" label={t('Cancel')} onClick={onClose} />
-        {#if mode === "delete"}
-          <EntityActionButton
-            variant="danger"
-            icon="bi-trash"
-            label={t('Delete storage root')}
-            disabled={deleteConfirmation.trim() !== DELETE_CONFIRM_TOKEN}
-            onClick={confirmDelete}
-          />
-        {:else if mode === "edit"}
-          <EntityActionButton variant="primary" icon="bi-check2" label={t('Save changes')} onClick={submit} />
-        {:else}
-          <EntityActionButton variant="primary" icon="bi-plus-lg" label={t('Create storage root')} onClick={submit} />
-        {/if}
-      </div>
-    </svelte:fragment>
+    {#snippet footer()}
+      
+        <div class="sr-modal-actions">
+          <EntityActionButton variant="secondary" label={t('Cancel')} onClick={onClose} />
+          {#if mode === "delete"}
+            <EntityActionButton
+              variant="danger"
+              icon="bi-trash"
+              label={t('Delete storage root')}
+              disabled={deleteConfirmation.trim() !== DELETE_CONFIRM_TOKEN}
+              onClick={confirmDelete}
+            />
+          {:else if mode === "edit"}
+            <EntityActionButton variant="primary" icon="bi-check2" label={t('Save changes')} onClick={submit} />
+          {:else}
+            <EntityActionButton variant="primary" icon="bi-plus-lg" label={t('Create storage root')} onClick={submit} />
+          {/if}
+        </div>
+      
+      {/snippet}
   </StorageRootDrawerShell>
 {/if}
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { apiGetData, apiGetList } from '$lib/api/client';
@@ -15,34 +17,48 @@
   import type { IdentitySourceCardVM } from '$lib/mappers/identity-sources.mapper';
   import { timeAgo } from '$lib/utils/format';
 
-  /**
+  
+  interface Props {
+    /**
    * One directory, as a page: identity card, figures, « to do », then Overview · Inventory · Synchronisation ·
    * Connection · Activity. Same grammar as the Servers and Folders pages.
    */
-  export let card: IdentitySourceCardVM;
-  export let internal: Record<string, any> | null = null;
-  export let probeRunning = false;
-  export let snapshotRunning = false;
-  export let busy = false;
-  export let onEdit: () => void = () => {};
-  export let onTest: () => void = () => {};
-  export let onSync: () => void = () => {};
-  export let onToggle: () => void = () => {};
-  export let onDelete: () => void = () => {};
+    card: IdentitySourceCardVM;
+    internal?: Record<string, any> | null;
+    probeRunning?: boolean;
+    snapshotRunning?: boolean;
+    busy?: boolean;
+    onEdit?: () => void;
+    onTest?: () => void;
+    onSync?: () => void;
+    onToggle?: () => void;
+    onDelete?: () => void;
+  }
+
+  let {
+    card,
+    internal = null,
+    probeRunning = false,
+    snapshotRunning = false,
+    busy = false,
+    onEdit = () => {},
+    onTest = () => {},
+    onSync = () => {},
+    onToggle = () => {},
+    onDelete = () => {}
+  }: Props = $props();
 
   type Overview = {
     users: number; users_with_email: number; groups: number; governed_groups: number;
     governed_sample: Array<{ name: string; dn: string; members: number }>;
     endpoints: Array<{ id: number; name: string; endpoint_type: string; host: string; roots: number }>;
   };
-  let overview: Overview | null = null;
-  let health: HealthSummaryDay[] = [];
-  let activity: any[] = [];
-  let tab = 'overview';
-  let loadedFor = 0;
+  let overview: Overview | null = $state(null);
+  let health: HealthSummaryDay[] = $state([]);
+  let activity: any[] = $state([]);
+  let tab = $state('overview');
+  let loadedFor = $state(0);
 
-  $: raw = (card?.raw ?? {}) as Record<string, any>;
-  $: if (card && card.id !== loadedFor) load(card.id);
 
   async function load(id: number) {
     loadedFor = id;
@@ -65,67 +81,25 @@
 
   // Identity card
   const TONE: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = { success: 'success', warning: 'warning', error: 'danger', danger: 'danger' };
-  $: endpointUrl = raw.host ? `${String(raw.protocol || 'ldaps')}://${raw.host}${raw.port ? `:${raw.port}` : ''}` : '';
-  $: chips = [
-    raw.domain_name ? { label: t('Domain {domain}', { domain: raw.domain_name }) } : null,
-    raw.base_dn ? { label: String(raw.base_dn), mono: true } : null,
-    card.bindDn && card.bindDn !== '—' ? { label: t('Read account {account}', { account: card.bindDn }), icon: 'bi-person-badge' } : null,
-    card.supportsProbe ? { label: raw.tls_verify ? t('Certificate verified') : t('Certificate not verified'), icon: raw.tls_verify ? 'bi-shield-check' : 'bi-shield-exclamation' } : null,
-    { label: raw.auth_enabled ? t('Sign-in of its users: on') : t('Sign-in of its users: off'), icon: 'bi-box-arrow-in-right' }
-  ].filter(Boolean) as Array<{ label: string; icon?: string; mono?: boolean }>;
-  $: actions = [
-    { key: 'edit', label: t('Edit'), icon: 'bi-pencil', variant: 'secondary', disabled: card.isLocal, onClick: onEdit },
-    ...(card.supportsProbe ? [{ key: 'test', label: probeRunning ? t('Testing…') : t('Test the connection'), icon: 'bi-plug', variant: 'secondary', disabled: probeRunning || busy, onClick: onTest }] : []),
-    ...(card.supportsSnapshot ? [{ key: 'sync', label: snapshotRunning ? t('Synchronizing…') : t('Synchronize'), icon: 'bi-arrow-repeat', variant: 'primary', disabled: snapshotRunning || busy, onClick: onSync }] : []),
-    { key: 'toggle', label: card.isEnabled ? t('Disable') : t('Enable'), icon: card.isEnabled ? 'bi-pause-circle' : 'bi-play-circle', overflow: true, onClick: onToggle },
-    { key: 'delete', label: t('Delete'), icon: 'bi-trash', variant: 'danger', overflow: true, onClick: onDelete }
-  ] as EntityActionItem[];
 
-  // To do
-  $: failed = card.healthTone === 'error';
-  $: steps = [
-    ...(!card.isEnabled ? [{ key: 'off', tone: 'info' as const, icon: 'bi-pause-circle', title: t('This directory is disabled'), detail: t('Its users cannot sign in and it is no longer synchronized.'), label: t('Enable'), run: onToggle }] : []),
-    ...(card.isEnabled && failed ? [{ key: 'probe', tone: 'bad' as const, icon: 'bi-plug', title: t('The last connection test failed'), detail: String(internal?.last_probe_message ?? raw.last_probe_message ?? ''), label: t('Edit the connection'), run: onEdit }] : []),
-    ...(card.isEnabled && !failed && card.supportsProbe && (card.lastProbeStale || !raw.last_probe_at)
-      ? [{ key: 'stale', tone: 'warn' as const, icon: 'bi-clock-history', title: raw.last_probe_at ? t('Connection not tested for {age}', { age: timeAgo(raw.last_probe_at).replace(/^il y a /, '') }) : t('Connection never tested'), detail: t('The synchronization may pass while the full test (bind, certificate, search) has not been run again.'), label: t('Test the connection'), busy: probeRunning, run: onTest }]
-      : []),
-    ...(card.isEnabled && card.supportsSnapshot && card.neverSynced ? [{ key: 'never', tone: 'warn' as const, icon: 'bi-cloud-arrow-down', title: t('Never synchronized'), detail: t('No user or group read yet: requests cannot target its people.'), label: t('Synchronize'), busy: snapshotRunning, run: onSync }] : []),
-    ...(card.isEnabled && card.supportsSnapshot && !card.neverSynced && card.snapshotTone === 'error' ? [{ key: 'snap', tone: 'bad' as const, icon: 'bi-cloud-slash', title: t('The last synchronization failed'), detail: card.snapshotLabel, label: t('Synchronize'), busy: snapshotRunning, run: onSync }] : [])
-  ] as EntityTodoStep[];
 
-  // Figures
-  $: smb = (overview?.endpoints ?? []).filter((ep) => ep.endpoint_type !== 'dfs');
-  $: dfs = (overview?.endpoints ?? []).filter((ep) => ep.endpoint_type === 'dfs');
-  $: dfsServers = [...new Set(dfs.map((ep) => String(ep.host || '').split('.')[0].toUpperCase()))].map((server) => ({ server, namespaces: dfs.filter((ep) => String(ep.host || '').split('.')[0].toUpperCase() === server) }));
-  $: tiles = [
-    { key: 'users', label: t('Users'), value: overview?.users ?? card.usersCount, hint: overview ? t('{count} with an e-mail', { count: overview.users_with_email }) : '', go: () => openInventory('users') },
-    { key: 'groups', label: t('Groups'), value: overview?.groups ?? card.groupsCount, hint: overview ? t('{count} governed by BornToShare', { count: overview.governed_groups }) : '', go: () => openInventory('groups') },
-    { key: 'members', label: t('Memberships'), value: card.membershipsCount, hint: t('user ↔ group'), go: () => openInventory('users') },
-    { key: 'servers', label: t('Linked servers'), value: overview?.endpoints.length ?? null, hint: overview ? t('{smb} file server(s) · {dfs} DFS namespace(s)', { smb: smb.length, dfs: dfs.length }) : '', go: () => (tab = 'overview') }
-  ];
 
   // Health strip (14 days)
   const DAY_TONE: Record<string, string> = { success: 'ok', warning: 'warn', failed: 'bad', running: 'run' };
-  $: strip = Array.from({ length: 14 }, (_, index) => {
-    const date = new Date(Date.now() - (13 - index) * 86400000).toISOString().slice(0, 10);
-    const day = health.find((item) => String(item.date).slice(0, 10) === date);
-    return { date, tone: day ? DAY_TONE[String(day.status)] ?? 'none' : 'none', title: day ? `${date} · ${day.checks} ${t('check(s)')}${day.failures ? ` · ${day.failures} ${t('failure(s)')}` : ''}` : `${date} · ${t('no check')}` };
-  });
 
   // Inventory
-  let inventoryKind: 'users' | 'groups' = 'users';
-  let inventoryFilter = 'all';
-  let inventoryQuery = '';
-  let inventory: any[] = [];
-  let inventoryLoading = false;
-  let inventoryFor = '';
+  let inventoryKind: 'users' | 'groups' = $state('users');
+  let inventoryFilter = $state('all');
+  let inventoryQuery = $state('');
+  let inventory: any[] = $state([]);
+  let inventoryLoading = $state(false);
+  let inventoryFor = $state('');
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   function openInventory(kind: 'users' | 'groups') {
     inventoryKind = kind;
     inventoryFilter = 'all';
     tab = 'inventory';
   }
-  $: if (tab === 'inventory' && card && `${card.id}:${inventoryKind}:${inventoryQuery}` !== inventoryFor) queueInventory();
   function queueInventory() {
     if (searchTimer) clearTimeout(searchTimer);
     const key = `${card.id}:${inventoryKind}:${inventoryQuery}`;
@@ -142,30 +116,78 @@
       }
     }, inventoryQuery ? 300 : 0);
   }
-  $: hasMail = (row: any) => Boolean(String(row?.email ?? '').trim());
-  $: shownRows = inventory.filter((row) =>
-    inventoryFilter === 'all' ||
-    (inventoryKind === 'users' ? (inventoryFilter === 'people' ? hasMail(row) : !hasMail(row)) : inventoryFilter === 'governed' ? row.governed : !row.governed)
-  );
-  $: filterOptions = inventoryKind === 'users'
-    ? [{ key: 'all', label: t('All'), count: inventory.length }, { key: 'people', label: t('People'), count: inventory.filter(hasMail).length }, { key: 'tech', label: t('Technical accounts'), count: inventory.filter((row) => !hasMail(row)).length }]
-    : [{ key: 'all', label: t('All'), count: inventory.length }, { key: 'governed', label: t('Governed by BornToShare'), count: inventory.filter((row) => row.governed).length }, { key: 'other', label: t('Others'), count: inventory.filter((row) => !row.governed).length }];
   const isModify = (name: string) => /_RW$/i.test(String(name));
   const initials = (value: string) => String(value || '?').split(/[ .\-_]/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('');
 
-  $: tabs = [
+  let raw = $derived((card?.raw ?? {}) as Record<string, any>);
+  $effect.pre(() => {
+    if (card && card.id !== loadedFor) load(card.id);
+  });
+  let endpointUrl = $derived(raw.host ? `${String(raw.protocol || 'ldaps')}://${raw.host}${raw.port ? `:${raw.port}` : ''}` : '');
+  let chips = $derived([
+    raw.domain_name ? { label: t('Domain {domain}', { domain: raw.domain_name }) } : null,
+    raw.base_dn ? { label: String(raw.base_dn), mono: true } : null,
+    card.bindDn && card.bindDn !== '—' ? { label: t('Read account {account}', { account: card.bindDn }), icon: 'bi-person-badge' } : null,
+    card.supportsProbe ? { label: raw.tls_verify ? t('Certificate verified') : t('Certificate not verified'), icon: raw.tls_verify ? 'bi-shield-check' : 'bi-shield-exclamation' } : null,
+    { label: raw.auth_enabled ? t('Sign-in of its users: on') : t('Sign-in of its users: off'), icon: 'bi-box-arrow-in-right' }
+  ].filter(Boolean) as Array<{ label: string; icon?: string; mono?: boolean }>);
+  let actions = $derived([
+    { key: 'edit', label: t('Edit'), icon: 'bi-pencil', variant: 'secondary', disabled: card.isLocal, onClick: onEdit },
+    ...(card.supportsProbe ? [{ key: 'test', label: probeRunning ? t('Testing…') : t('Test the connection'), icon: 'bi-plug', variant: 'secondary', disabled: probeRunning || busy, onClick: onTest }] : []),
+    ...(card.supportsSnapshot ? [{ key: 'sync', label: snapshotRunning ? t('Synchronizing…') : t('Synchronize'), icon: 'bi-arrow-repeat', variant: 'primary', disabled: snapshotRunning || busy, onClick: onSync }] : []),
+    { key: 'toggle', label: card.isEnabled ? t('Disable') : t('Enable'), icon: card.isEnabled ? 'bi-pause-circle' : 'bi-play-circle', overflow: true, onClick: onToggle },
+    { key: 'delete', label: t('Delete'), icon: 'bi-trash', variant: 'danger', overflow: true, onClick: onDelete }
+  ] as EntityActionItem[]);
+  // To do
+  let failed = $derived(card.healthTone === 'error');
+  let steps = $derived([
+    ...(!card.isEnabled ? [{ key: 'off', tone: 'info' as const, icon: 'bi-pause-circle', title: t('This directory is disabled'), detail: t('Its users cannot sign in and it is no longer synchronized.'), label: t('Enable'), run: onToggle }] : []),
+    ...(card.isEnabled && failed ? [{ key: 'probe', tone: 'bad' as const, icon: 'bi-plug', title: t('The last connection test failed'), detail: String(internal?.last_probe_message ?? raw.last_probe_message ?? ''), label: t('Edit the connection'), run: onEdit }] : []),
+    ...(card.isEnabled && !failed && card.supportsProbe && (card.lastProbeStale || !raw.last_probe_at)
+      ? [{ key: 'stale', tone: 'warn' as const, icon: 'bi-clock-history', title: raw.last_probe_at ? t('Connection not tested for {age}', { age: timeAgo(raw.last_probe_at).replace(/^il y a /, '') }) : t('Connection never tested'), detail: t('The synchronization may pass while the full test (bind, certificate, search) has not been run again.'), label: t('Test the connection'), busy: probeRunning, run: onTest }]
+      : []),
+    ...(card.isEnabled && card.supportsSnapshot && card.neverSynced ? [{ key: 'never', tone: 'warn' as const, icon: 'bi-cloud-arrow-down', title: t('Never synchronized'), detail: t('No user or group read yet: requests cannot target its people.'), label: t('Synchronize'), busy: snapshotRunning, run: onSync }] : []),
+    ...(card.isEnabled && card.supportsSnapshot && !card.neverSynced && card.snapshotTone === 'error' ? [{ key: 'snap', tone: 'bad' as const, icon: 'bi-cloud-slash', title: t('The last synchronization failed'), detail: card.snapshotLabel, label: t('Synchronize'), busy: snapshotRunning, run: onSync }] : [])
+  ] as EntityTodoStep[]);
+  // Figures
+  let smb = $derived((overview?.endpoints ?? []).filter((ep) => ep.endpoint_type !== 'dfs'));
+  let dfs = $derived((overview?.endpoints ?? []).filter((ep) => ep.endpoint_type === 'dfs'));
+  let dfsServers = $derived([...new Set(dfs.map((ep) => String(ep.host || '').split('.')[0].toUpperCase()))].map((server) => ({ server, namespaces: dfs.filter((ep) => String(ep.host || '').split('.')[0].toUpperCase() === server) })));
+  let tiles = $derived([
+    { key: 'users', label: t('Users'), value: overview?.users ?? card.usersCount, hint: overview ? t('{count} with an e-mail', { count: overview.users_with_email }) : '', go: () => openInventory('users') },
+    { key: 'groups', label: t('Groups'), value: overview?.groups ?? card.groupsCount, hint: overview ? t('{count} governed by BornToShare', { count: overview.governed_groups }) : '', go: () => openInventory('groups') },
+    { key: 'members', label: t('Memberships'), value: card.membershipsCount, hint: t('user ↔ group'), go: () => openInventory('users') },
+    { key: 'servers', label: t('Linked servers'), value: overview?.endpoints.length ?? null, hint: overview ? t('{smb} file server(s) · {dfs} DFS namespace(s)', { smb: smb.length, dfs: dfs.length }) : '', go: () => (tab = 'overview') }
+  ]);
+  let strip = $derived(Array.from({ length: 14 }, (_, index) => {
+    const date = new Date(Date.now() - (13 - index) * 86400000).toISOString().slice(0, 10);
+    const day = health.find((item) => String(item.date).slice(0, 10) === date);
+    return { date, tone: day ? DAY_TONE[String(day.status)] ?? 'none' : 'none', title: day ? `${date} · ${day.checks} ${t('check(s)')}${day.failures ? ` · ${day.failures} ${t('failure(s)')}` : ''}` : `${date} · ${t('no check')}` };
+  }));
+  $effect.pre(() => {
+    if (tab === 'inventory' && card && `${card.id}:${inventoryKind}:${inventoryQuery}` !== inventoryFor) queueInventory();
+  });
+  let hasMail = $derived((row: any) => Boolean(String(row?.email ?? '').trim()));
+  let shownRows = $derived(inventory.filter((row) =>
+    inventoryFilter === 'all' ||
+    (inventoryKind === 'users' ? (inventoryFilter === 'people' ? hasMail(row) : !hasMail(row)) : inventoryFilter === 'governed' ? row.governed : !row.governed)
+  ));
+  let filterOptions = $derived(inventoryKind === 'users'
+    ? [{ key: 'all', label: t('All'), count: inventory.length }, { key: 'people', label: t('People'), count: inventory.filter(hasMail).length }, { key: 'tech', label: t('Technical accounts'), count: inventory.filter((row) => !hasMail(row)).length }]
+    : [{ key: 'all', label: t('All'), count: inventory.length }, { key: 'governed', label: t('Governed by BornToShare'), count: inventory.filter((row) => row.governed).length }, { key: 'other', label: t('Others'), count: inventory.filter((row) => !row.governed).length }]);
+  let tabs = $derived([
     { key: 'overview', label: t('Overview') },
     ...(card.supportsSnapshot ? [{ key: 'inventory', label: t('Inventory'), count: (overview?.users ?? 0) + (overview?.groups ?? 0) || null }] : []),
     { key: 'activity', label: t('Activity'), count: activity.length || null }
-  ];
-  $: facts = [
+  ]);
+  let facts = $derived([
     { label: t('Server'), value: raw.host ? `${raw.host}${raw.port ? ` · ${t('port')} ${raw.port}` : ''}` : '—', mono: true },
     { label: t('Protocol'), value: String(raw.protocol || '—').toUpperCase() },
     { label: t('Search base'), value: raw.base_dn || '—', mono: true },
     { label: t('Read account'), value: card.bindDn || '—', mono: true },
     { label: t('Certificate'), value: raw.tls_verify ? t('Verified') : t('Not verified') },
     { label: t('Last test'), value: t('Never'), time: raw.last_probe_at || null, warn: Boolean(card.lastProbeStale || !raw.last_probe_at) }
-  ] as Array<{ label: string; value: string; mono?: boolean; warn?: boolean; time?: string | null }>;
+  ] as Array<{ label: string; value: string; mono?: boolean; warn?: boolean; time?: string | null }>);
 </script>
 
 <div class="isw">
@@ -176,7 +198,7 @@
   {#if card.supportsSnapshot}
     <div class="b2s-stat-tiles isw__tiles">
       {#each tiles as tile (tile.key)}
-        <button type="button" class="b2s-stat-tile" on:click={tile.go}>
+        <button type="button" class="b2s-stat-tile" onclick={tile.go}>
           <span>{tile.label}</span>
           <b><CountUp value={tile.value == null ? null : Number(tile.value)} /></b>
           <small>{tile.hint}</small>
@@ -209,7 +231,7 @@
       <div class="isw__col">
         {#if card.supportsProbe}
           <section class="isw__card" aria-label={t('Connection')}>
-            <header><h2>{t('Connection')}</h2><button type="button" class="b2s-link-btn" on:click={onEdit}>{t('Edit')}</button></header>
+            <header><h2>{t('Connection')}</h2><button type="button" class="b2s-link-btn" onclick={onEdit}>{t('Edit')}</button></header>
             <dl class="isw__facts">
               {#each facts as fact (fact.label)}<dt>{fact.label}</dt><dd class:mono={fact.mono} class:is-warn={fact.warn}>{#if fact.time}<RelativeTime value={fact.time} />{:else}{fact.value}{/if}</dd>{/each}
               <dt>{t('Authentication')}</dt><dd>{raw.capabilities?.auth_mode === 'kerberos' ? 'Kerberos' : 'NTLM'}</dd>

@@ -16,27 +16,34 @@
   import { getObservabilityOverview, type ObsOverview as Overview, type ObsPeriod } from '$lib/api/observability';
   import { getInfraOverview, runSchedule, type InfraOverview as InfraData } from '$lib/api/infrastructure';
 
-  export let data: { period: ObsPeriod; overview: Overview | null; infra: InfraData | null };
+  interface Props {
+    data: { period: ObsPeriod; overview: Overview | null; infra: InfraData | null };
+  }
+
+  let { data }: Props = $props();
 
   type TabKey = 'overview' | 'alerts' | 'events' | 'jobs' | 'health';
   const TAB_KEYS: TabKey[] = ['overview', 'alerts', 'events', 'jobs', 'health'];
 
-  let overview: Overview | null = data.overview;
-  let infra: InfraData | null = data.infra;
-  let period: ObsPeriod = data.period;
-  let refreshing = false;
-  let checking = false;
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let overview: Overview | null = $state(data.overview);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let infra: InfraData | null = $state(data.infra);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let period: ObsPeriod = $state(data.period);
+  let refreshing = $state(false);
+  let checking = $state(false);
   let timer: ReturnType<typeof setInterval> | null = null;
 
-  $: params = $page.url.searchParams;
-  $: active = (TAB_KEYS.includes(params.get('tab') as TabKey) ? params.get('tab') : 'overview') as TabKey;
-  $: tabs = [
+  let params = $derived($page.url.searchParams);
+  let active = $derived((TAB_KEYS.includes(params.get('tab') as TabKey) ? params.get('tab') : 'overview') as TabKey);
+  let tabs = $derived([
     { key: 'overview', label: t('Overview'), icon: 'bi-speedometer2' },
     { key: 'alerts', label: t('Alerts'), icon: 'bi-exclamation-triangle', count: overview?.alerts.critical_open || null },
     { key: 'events', label: t('Events'), icon: 'bi-list-ul' },
     { key: 'jobs', label: t('Jobs'), icon: 'bi-activity', count: overview ? overview.jobs.failed + overview.jobs.stuck || null : null },
     { key: 'health', label: t('Health'), icon: 'bi-heart-pulse', count: overview?.health.down.length || null }
-  ];
+  ]);
 
   /** A tab with its filters, the period kept */
   function tabHref(tab: string, extra: Record<string, string> = {}): string {
@@ -96,19 +103,21 @@
 
 <div class="obs-page">
   <PageHeader title={t('Monitoring')} subtitle={t('Platform health, alerts, events and jobs in one place.')}>
-    <svelte:fragment slot="actions">
-      <label class="obs-period">
-        <span>{t('Period')}</span>
-        <select class="b2s-select" value={period} on:change={(e) => setPeriod(e.currentTarget.value as ObsPeriod)}>
-          <option value="24h">{t('Last 24 h')}</option>
-          <option value="7d">{t('7 days')}</option>
-          <option value="30d">{t('30 days')}</option>
-        </select>
-      </label>
-      <button class="b2s-btn b2s-btn-secondary" type="button" on:click={refresh} disabled={refreshing}>
-        <i class={`bi ${refreshing ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} aria-hidden="true"></i>{t('Refresh')}
-      </button>
-    </svelte:fragment>
+    {#snippet actions()}
+      
+        <label class="obs-period">
+          <span>{t('Period')}</span>
+          <select class="b2s-select" value={period} onchange={(e) => setPeriod(e.currentTarget.value as ObsPeriod)}>
+            <option value="24h">{t('Last 24 h')}</option>
+            <option value="7d">{t('7 days')}</option>
+            <option value="30d">{t('30 days')}</option>
+          </select>
+        </label>
+        <button class="b2s-btn b2s-btn-secondary" type="button" onclick={refresh} disabled={refreshing}>
+          <i class={`bi ${refreshing ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} aria-hidden="true"></i>{t('Refresh')}
+        </button>
+      
+      {/snippet}
   </PageHeader>
 
   <Tabs {tabs} activeKey={active} onChange={setTab} ariaLabel={t('Observability')} />

@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import NamingModelPicker from '$lib/components/provisioning/NamingModelPicker.svelte';
   import { NAMING_TOKENS, namingTokenHelp } from '$lib/utils/naming-templates';
@@ -10,37 +12,51 @@
   import { previewRootGroups, type RootGroupsPreviewItem } from '$lib/api/naming-policies';
   import type { ProvisioningPolicyScreenProps } from './provisioning-policy.types';
 
-  /**
+  
+  
+  
+  
+  interface Props {
+    /**
    * Provisioning policy of a zone or a file server: the rule on the left (where the AD groups are created,
    * how they are named), the groups of its storage roots on the right, a page at a time and updated while
    * typing, with the groups that no longer follow the saved rule.
    */
-  export let scope: ProvisioningPolicyScreenProps['scope'];
-  /** The card of the AD groups of the folders (hidden on the server page: one place for them, the folder) */
-  export let showGroups = true;
-  export let saveLabel: ProvisioningPolicyScreenProps['saveLabel'] = 'Save changes';
-  export let configuration: ProvisioningPolicyScreenProps['configuration'];
-  export let effective: ProvisioningPolicyScreenProps['effective'];
-  export let onSave: ProvisioningPolicyScreenProps['onSave'] | null = null;
-  export let saveDisabled: ProvisioningPolicyScreenProps['saveDisabled'] = false;
-  export let saveBusy: ProvisioningPolicyScreenProps['saveBusy'] = false;
-  export let errorMessage: ProvisioningPolicyScreenProps['errorMessage'] = null;
-  export let showUnsaved: ProvisioningPolicyScreenProps['showUnsaved'] = false;
-  /** Whose storage roots are previewed */
-  export let previewTarget: { zone_id?: number | null; storage_endpoint_id?: number | null } = {};
-  /** Undo the unsaved changes */
-  export let onDiscard: (() => void) | null = null;
+    scope: ProvisioningPolicyScreenProps['scope'];
+    /** The card of the AD groups of the folders (hidden on the server page: one place for them, the folder) */
+    showGroups?: boolean;
+    saveLabel?: ProvisioningPolicyScreenProps['saveLabel'];
+    configuration: ProvisioningPolicyScreenProps['configuration'];
+    effective: ProvisioningPolicyScreenProps['effective'];
+    onSave?: ProvisioningPolicyScreenProps['onSave'] | null;
+    saveDisabled?: ProvisioningPolicyScreenProps['saveDisabled'];
+    saveBusy?: ProvisioningPolicyScreenProps['saveBusy'];
+    errorMessage?: ProvisioningPolicyScreenProps['errorMessage'];
+    showUnsaved?: ProvisioningPolicyScreenProps['showUnsaved'];
+    /** Whose storage roots are previewed */
+    previewTarget?: { zone_id?: number | null; storage_endpoint_id?: number | null };
+    /** Undo the unsaved changes */
+    onDiscard?: (() => void) | null;
+  }
+
+  let {
+    scope,
+    showGroups = true,
+    saveLabel = 'Save changes',
+    configuration,
+    effective,
+    onSave = null,
+    saveDisabled = false,
+    saveBusy = false,
+    errorMessage = null,
+    showUnsaved = false,
+    previewTarget = {},
+    onDiscard = null
+  }: Props = $props();
 
   const PAGE = 25;
   const TOKENS = NAMING_TOKENS;
 
-  $: endpointScope = scope === 'storage-endpoint';
-  $: mode = configuration.inheritanceMode ?? (endpointScope ? 'inherit' : 'override');
-  $: locked = endpointScope && Boolean(configuration.inheritanceModeLocked);
-  $: editing = endpointScope ? mode === 'override' && !locked && Boolean(configuration.canEditOverrideFields) : true;
-  $: save = onSave ?? configuration.onSavePolicy ?? null;
-  $: busy = Boolean(saveBusy || configuration.savePolicyBusy);
-  $: disabled = Boolean(saveDisabled || configuration.savePolicyDisabled) || busy || !save;
 
   const value = (event: Event) => String((event.currentTarget as HTMLInputElement | null)?.value ?? '');
 
@@ -50,21 +66,18 @@
   }
 
   // Groups of the storage roots, with the template being typed (an inherited endpoint previews the zone rule)
-  let items: RootGroupsPreviewItem[] = [];
-  let total = 0;
-  let driftTotal = 0;
-  let existingGroups = 0;
-  let listError: string | null = null;
-  let listLoading = false;
-  let query = '';
-  let driftOnly = false;
-  let shown = PAGE;
+  let items: RootGroupsPreviewItem[] = $state([]);
+  let total = $state(0);
+  let driftTotal = $state(0);
+  let existingGroups = $state(0);
+  let listError: string | null = $state(null);
+  let listLoading = $state(false);
+  let query = $state('');
+  let driftOnly = $state(false);
+  let shown = $state(PAGE);
   let timer: ReturnType<typeof setTimeout> | null = null;
   let requestSeq = 0;
 
-  $: draftTemplate = endpointScope ? (mode === 'override' ? configuration.namingTemplate : '') : configuration.namingTemplate;
-  $: targetKey = `${previewTarget.zone_id ?? ''}|${previewTarget.storage_endpoint_id ?? ''}`;
-  $: schedule(targetKey, draftTemplate, query, driftOnly, shown);
 
   function schedule(key: string, template: string, search: string, drift: boolean, limit: number) {
     if (timer) clearTimeout(timer);
@@ -120,6 +133,18 @@
     inherited: () => t('Inherited from the zone'),
     global: () => t('Global policy')
   };
+  let endpointScope = $derived(scope === 'storage-endpoint');
+  let mode = $derived(configuration.inheritanceMode ?? (endpointScope ? 'inherit' : 'override'));
+  let locked = $derived(endpointScope && Boolean(configuration.inheritanceModeLocked));
+  let editing = $derived(endpointScope ? mode === 'override' && !locked && Boolean(configuration.canEditOverrideFields) : true);
+  let save = $derived(onSave ?? configuration.onSavePolicy ?? null);
+  let busy = $derived(Boolean(saveBusy || configuration.savePolicyBusy));
+  let disabled = $derived(Boolean(saveDisabled || configuration.savePolicyDisabled) || busy || !save);
+  let draftTemplate = $derived(endpointScope ? (mode === 'override' ? configuration.namingTemplate : '') : configuration.namingTemplate);
+  let targetKey = $derived(`${previewTarget.zone_id ?? ''}|${previewTarget.storage_endpoint_id ?? ''}`);
+  $effect.pre(() => {
+    schedule(targetKey, draftTemplate, query, driftOnly, shown);
+  });
 </script>
 
 <div class="pp" data-scope={scope}>
@@ -135,7 +160,7 @@
       <div class="pp__modes" role="radiogroup" aria-label={t('Provisioning mode')}>
         <label class="pp__mode" class:is-active={mode === 'inherit'}>
           <input type="radio" name="pp-mode-{scope}" checked={mode === 'inherit'} disabled={locked}
-            on:change={() => configuration.onChangeInheritanceMode?.('inherit')} />
+            onchange={() => configuration.onChangeInheritanceMode?.('inherit')} />
           <span>
             <strong>{t('Inherit the zone policy')}</strong>
             <small>{configuration.zoneLabel ?? t('Zone of the file server')}</small>
@@ -144,7 +169,7 @@
         {#if !locked}
           <label class="pp__mode" class:is-active={mode === 'override'}>
             <input type="radio" name="pp-mode-{scope}" checked={mode === 'override'}
-              on:change={() => configuration.onChangeInheritanceMode?.('override')} />
+              onchange={() => configuration.onChangeInheritanceMode?.('override')} />
             <span>
               <strong>{t('Specific to this file server')}</strong>
               <small>{t('Own OU or naming template')}</small>
@@ -160,7 +185,7 @@
         <input class="b2s-input pp__mono" type="text" value={configuration.organizationalUnit}
           placeholder="OU=Groups,DC=example,DC=org"
           readonly={!configuration.onChangeOrganizationalUnit}
-          on:input={(e) => configuration.onChangeOrganizationalUnit?.(value(e))} />
+          oninput={(e) => configuration.onChangeOrganizationalUnit?.(value(e))} />
       </label>
       <div class="pp__field">
         <label class="b2s-form-label" for="pp-template-{scope}">{t('Naming template')}</label>
@@ -169,11 +194,11 @@
         {/if}
         <input id="pp-template-{scope}" class="b2s-input pp__mono" type="text" value={configuration.namingTemplate}
           readonly={!configuration.onChangeNamingTemplate}
-          on:input={(e) => configuration.onChangeNamingTemplate?.(value(e))} />
+          oninput={(e) => configuration.onChangeNamingTemplate?.(value(e))} />
         {#if configuration.onChangeNamingTemplate}
           <div class="pp__tokens" role="group" aria-label={t('Insert a token')}>
             {#each TOKENS as token (token)}
-              <button type="button" class="pp__token" on:click={() => insertToken(token)}>{token}</button>
+              <button type="button" class="pp__token" onclick={() => insertToken(token)}>{token}</button>
             {/each}
           </div>
         {/if}
@@ -182,7 +207,7 @@
         </small>
       </div>
       {#if configuration.showUseZoneValuesLink}
-        <button type="button" class="pp__link" on:click={() => configuration.onUseZoneValues?.()}>
+        <button type="button" class="pp__link" onclick={() => configuration.onUseZoneValues?.()}>
           {t('Use the zone values')}
         </button>
       {/if}
@@ -204,7 +229,7 @@
 
     {#if save && !showUnsaved}
       <div class="pp__actions">
-        <button type="button" class="b2s-btn b2s-btn-primary" {disabled} on:click={() => save?.()}>
+        <button type="button" class="b2s-btn b2s-btn-primary" {disabled} onclick={() => save?.()}>
           {busy ? t('Saving…') : saveLabel ?? t('Save changes')}
         </button>
       </div>
@@ -219,10 +244,10 @@
     </header>
     <div class="pp__tools">
       <input class="b2s-input" type="search" aria-label={t('Filter the folders')} placeholder={t('Filter the folders…')}
-        bind:value={query} on:input={() => (shown = PAGE)} />
+        bind:value={query} oninput={() => (shown = PAGE)} />
       <div class="pp__seg" role="group" aria-label={t('Filter by state')}>
-        <button type="button" class:on={!driftOnly} aria-pressed={!driftOnly} on:click={() => setDriftOnly(false)}>{t('All')}{#if !driftOnly}<span>{total}</span>{/if}</button>
-        <button type="button" class:on={driftOnly} aria-pressed={driftOnly} on:click={() => setDriftOnly(true)}>{t('Gaps')}<span>{driftTotal}</span></button>
+        <button type="button" class:on={!driftOnly} aria-pressed={!driftOnly} onclick={() => setDriftOnly(false)}>{t('All')}{#if !driftOnly}<span>{total}</span>{/if}</button>
+        <button type="button" class:on={driftOnly} aria-pressed={driftOnly} onclick={() => setDriftOnly(true)}>{t('Gaps')}<span>{driftTotal}</span></button>
       </div>
     </div>
 
@@ -262,8 +287,8 @@
 {#if save && showUnsaved}
   <div class="pp__bar" role="status">
     <span>{t('Unsaved changes')}</span>
-    {#if onDiscard}<button type="button" class="b2s-btn b2s-btn-secondary pp__bar-undo" on:click={() => onDiscard?.()}>{t('Cancel')}</button>{/if}
-    <button type="button" class="b2s-btn b2s-btn-primary" {disabled} on:click={() => save?.()}>
+    {#if onDiscard}<button type="button" class="b2s-btn b2s-btn-secondary pp__bar-undo" onclick={() => onDiscard?.()}>{t('Cancel')}</button>{/if}
+    <button type="button" class="b2s-btn b2s-btn-primary" {disabled} onclick={() => save?.()}>
       {busy ? t('Saving…') : saveLabel ?? t('Save changes')}
     </button>
   </div>

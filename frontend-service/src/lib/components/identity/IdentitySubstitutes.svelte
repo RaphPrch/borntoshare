@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import { flip } from 'svelte/animate';
   import { dur, MOTION, pop } from '$lib/utils/motion';
   import { apiDeleteData, apiGetData, apiPostData } from '$lib/api/client';
@@ -7,33 +9,41 @@
   import { toast } from '$lib/stores/toast';
   import { formatDate } from '$lib/utils/format';
 
-  /**
+  
+  interface Props {
+    /**
    * Backup guardians: during an absence, another person validates the requests of all the folders of this guardian,
    * sees them and receives their notices. Nothing is copied: the right ends by itself on the last day.
    */
-  export let identityId: number;
-  export let isGuardian = false;
-  export let people: Array<Record<string, any>> = [];
-  export let onChanged: () => void = () => {};
+    identityId: number;
+    isGuardian?: boolean;
+    people?: Array<Record<string, any>>;
+    onChanged?: () => void;
+  }
+
+  let {
+    identityId,
+    isGuardian = false,
+    people = [],
+    onChanged = () => {}
+  }: Props = $props();
 
   type Row = { id: number; identity_id: number; substitute_identity_id: number; starts_at: string; ends_at: string; reason: string | null;
     guardian_name: string; substitute_name: string; substitute_email: string | null; state: 'active' | 'upcoming' | 'past' };
-  let forThem: Row[] = [];
-  let byThem: Row[] = [];
-  let loadedFor = 0;
-  let open = false;
-  let busy = false;
+  let forThem: Row[] = $state([]);
+  let byThem: Row[] = $state([]);
+  let loadedFor = $state(0);
+  let open = $state(false);
+  let busy = $state(false);
   const today = new Date().toISOString().slice(0, 10);
-  let form = { substitute: 0, starts: today, ends: today, reason: '' };
+  let form = $state({ substitute: 0, starts: today, ends: today, reason: '' });
 
-  $: if (identityId && identityId !== loadedFor) load();
   async function load() {
     loadedFor = identityId;
     const data = await apiGetData<{ for_them: Row[]; by_them: Row[] }>(fetch, `/identity/${identityId}/substitutes`).catch(() => null);
     forThem = data?.for_them ?? [];
     byThem = data?.by_them ?? [];
   }
-  $: candidates = people.filter((p) => String(p.type ?? 'user') !== 'group' && p.status !== 'inactive' && p.is_active !== false && Number(p.id) !== Number(identityId));
   // The last day shown is the day before the end (the right ends at 00:00 the day after)
   const lastDay = (iso: string) => formatDate(new Date(new Date(iso).getTime() - 1000).toISOString());
   const STATE = () => ({ active: t('in progress'), upcoming: t('upcoming'), past: t('ended') });
@@ -76,14 +86,18 @@
       busy = false;
     }
   }
-  $: current = forThem.filter((row) => row.state !== 'past');
+  $effect.pre(() => {
+    if (identityId && identityId !== loadedFor) load();
+  });
+  let candidates = $derived(people.filter((p) => String(p.type ?? 'user') !== 'group' && p.status !== 'inactive' && p.is_active !== false && Number(p.id) !== Number(identityId)));
+  let current = $derived(forThem.filter((row) => row.state !== 'past'));
 </script>
 
 {#if isGuardian || current.length || byThem.some((row) => row.state !== 'past')}
   <section class="su" aria-label={t('Backup guardian')}>
     <header>
       <h2>{t('Backup guardian')}</h2>
-      {#if isGuardian && !open}<button type="button" class="b2s-link-btn" on:click={() => (open = true)}>{t('Set one for an absence')}</button>{/if}
+      {#if isGuardian && !open}<button type="button" class="b2s-link-btn" onclick={() => (open = true)}>{t('Set one for an absence')}</button>{/if}
     </header>
 
     {#each current as row (row.id)}
@@ -91,7 +105,7 @@
         <span class="su__badge">{STATE()[row.state]}</span>
         <span class="su__who"><b>{row.substitute_name}</b>
           <small>{t('from {start} to {end}', { start: formatDate(row.starts_at), end: lastDay(row.ends_at) })}{row.reason ? ` · ${row.reason}` : ''}{row.substitute_email ? '' : ` · ${t('no e-mail')}`}</small></span>
-        <button type="button" class="b2s-link-btn" disabled={busy} on:click={() => end(row)}>{row.state === 'active' ? t('End now') : t('Cancel')}</button>
+        <button type="button" class="b2s-link-btn" disabled={busy} onclick={() => end(row)}>{row.state === 'active' ? t('End now') : t('Cancel')}</button>
       </div>
     {:else}
       {#if isGuardian && !open}<p class="su__muted">{t('Nobody stands in for them. During an absence, a backup validates the requests of all their folders.')}</p>{/if}
@@ -117,8 +131,8 @@
         <label>{t('To (included)')}<input class="b2s-input" type="date" bind:value={form.ends} min={form.starts} /></label>
         <label class="su__wide">{t('Reason (optional)')}<input class="b2s-input" bind:value={form.reason} maxlength="300" placeholder={t('Holidays, training…')} /></label>
         <div class="su__btns">
-          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => (open = false)}>{t('Cancel')}</button>
-          <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy || !form.substitute || form.ends < form.starts} on:click={save}>{t('Set the backup')}</button>
+          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => (open = false)}>{t('Cancel')}</button>
+          <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy || !form.substitute || form.ends < form.starts} onclick={save}>{t('Set the backup')}</button>
         </div>
       </div>
     {/if}

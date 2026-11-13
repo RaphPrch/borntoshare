@@ -20,8 +20,12 @@
     type WorkerInput
   } from '$lib/api/infrastructure';
 
-  export let workers: InfraWorker[] = [];
-  export let onChanged: () => Promise<void> | void = () => {};
+  interface Props {
+    workers?: InfraWorker[];
+    onChanged?: () => Promise<void> | void;
+  }
+
+  let { workers = $bindable([]), onChanged = () => {} }: Props = $props();
 
   const QUEUE_LABELS: Record<string, string> = {
     capsule_identity: 'Directory',
@@ -31,20 +35,20 @@
   };
 
   // ---- Drawer (add / edit)
-  let drawerOpen = false;
-  let editing: InfraWorker | null = null;
-  let form = { name: '', host: '', port: 8443, use_tls: true, verify_tls: true, is_enabled: true };
-  let showErrors = false;
-  let testing = false;
-  let saving = false;
-  let check: AgentCheck | null = null;
-  let checkedKey = '';
-  let busyId: number | null = null;
-  let removing: InfraWorker | null = null;
+  let drawerOpen = $state(false);
+  let editing: InfraWorker | null = $state(null);
+  let form = $state({ name: '', host: '', port: 8443, use_tls: true, verify_tls: true, is_enabled: true });
+  let showErrors = $state(false);
+  let testing = $state(false);
+  let saving = $state(false);
+  let check: AgentCheck | null = $state(null);
+  let checkedKey = $state('');
+  let busyId: number | null = $state(null);
+  let removing: InfraWorker | null = $state(null);
 
-  $: formKey = JSON.stringify([form.host, form.port, form.use_tls, form.verify_tls]);
-  $: valid = !!form.name.trim() && !!form.host.trim() && !!form.port;
-  $: checkFresh = !!check && checkedKey === formKey;
+  let formKey = $derived(JSON.stringify([form.host, form.port, form.use_tls, form.verify_tls]));
+  let valid = $derived(!!form.name.trim() && !!form.host.trim() && !!form.port);
+  let checkFresh = $derived(!!check && checkedKey === formKey);
 
   /** Default ports of the agent: 8443 in HTTPS, 8080 in HTTP; a port chosen by hand is kept */
   function setTls(useTls: boolean) {
@@ -72,7 +76,7 @@
   }
 
   let savedForm = '';
-  let closeConfirmOpen = false;
+  let closeConfirmOpen = $state(false);
   function requestCloseDrawer() {
     if (JSON.stringify(form) !== savedForm) closeConfirmOpen = true;
     else closeDrawer();
@@ -176,7 +180,7 @@
 
 <div class="toolbar">
   <p>{t('Workers run the jobs (directory, AD groups, ACL, checks). The platform checks each one through its HTTPS agent.')}</p>
-  <button type="button" class="b2s-btn b2s-btn-primary" on:click={openAdd}>
+  <button type="button" class="b2s-btn b2s-btn-primary" onclick={openAdd}>
     <i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Add a worker')}
   </button>
 </div>
@@ -242,17 +246,17 @@
       </div>
 
       <footer class="card__actions">
-        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => recheck(worker)} disabled={busyId === worker.id || !worker.is_enabled}>
+        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => recheck(worker)} disabled={busyId === worker.id || !worker.is_enabled}>
           <i class={`bi ${busyId === worker.id ? 'bi-hourglass-split' : 'bi-arrow-repeat'}`} aria-hidden="true"></i>{t('Check')}
         </button>
-        <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" on:click={() => openEdit(worker)}>
+        <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" onclick={() => openEdit(worker)}>
           <i class="bi bi-pencil" aria-hidden="true"></i>{t('Edit')}
         </button>
-        <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" on:click={() => toggleEnabled(worker)} disabled={busyId === worker.id}>
+        <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" onclick={() => toggleEnabled(worker)} disabled={busyId === worker.id}>
           <i class={`bi ${worker.is_enabled ? 'bi-pause-circle' : 'bi-play-circle'}`} aria-hidden="true"></i>
           {worker.is_enabled ? t('Disable') : t('Enable')}
         </button>
-        <button type="button" class="b2s-btn b2s-btn-danger-outline b2s-btn-sm card__remove" aria-label={t('Remove')} on:click={() => (removing = worker)}>
+        <button type="button" class="b2s-btn b2s-btn-danger-outline b2s-btn-sm card__remove" aria-label={t('Remove')} onclick={() => (removing = worker)}>
           <i class="bi bi-trash3" aria-hidden="true"></i>
         </button>
       </footer>
@@ -298,7 +302,7 @@
     </label>
     <div class="toggles f--full">
       <label class="toggle">
-        <input type="checkbox" class="cap-switch" checked={form.use_tls} on:change={(e) => setTls(e.currentTarget.checked)} />
+        <input type="checkbox" class="cap-switch" checked={form.use_tls} onchange={(e) => setTls(e.currentTarget.checked)} />
         <span>{t('HTTPS (recommended)')}</span>
       </label>
       <label class="toggle" class:is-off={!form.use_tls}>
@@ -330,17 +334,19 @@
     {/if}
   </div>
 
-  <svelte:fragment slot="footer">
-    <div class="dfoot">
-      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={requestCloseDrawer}>{t('Cancel')}</button>
-      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={runTest} disabled={testing || saving}>
-        <i class={`bi ${testing ? 'bi-hourglass-split' : 'bi-plug'}`} aria-hidden="true"></i>{testing ? t('Testing…') : t('Test the agent')}
-      </button>
-      <button type="button" class="b2s-btn b2s-btn-primary" on:click={save} disabled={saving || testing}>
-        {saving ? t('Saving…') : editing ? t('Save changes') : t('Add the worker')}
-      </button>
-    </div>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <div class="dfoot">
+        <button type="button" class="b2s-btn b2s-btn-secondary" onclick={requestCloseDrawer}>{t('Cancel')}</button>
+        <button type="button" class="b2s-btn b2s-btn-secondary" onclick={runTest} disabled={testing || saving}>
+          <i class={`bi ${testing ? 'bi-hourglass-split' : 'bi-plug'}`} aria-hidden="true"></i>{testing ? t('Testing…') : t('Test the agent')}
+        </button>
+        <button type="button" class="b2s-btn b2s-btn-primary" onclick={save} disabled={saving || testing}>
+          {saving ? t('Saving…') : editing ? t('Save changes') : t('Add the worker')}
+        </button>
+      </div>
+    
+  {/snippet}
 </Drawer>
 
 <UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={() => { closeConfirmOpen = false; closeDrawer(); }} />

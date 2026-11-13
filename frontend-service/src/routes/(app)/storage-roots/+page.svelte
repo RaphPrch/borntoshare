@@ -1,4 +1,5 @@
 <script lang="ts">
+  
   import QuickAccessRequestDrawer from '$lib/components/access-requests/QuickAccessRequestDrawer.svelte';
   import { reportUiError } from '$lib/errors/report';
   import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
@@ -107,7 +108,8 @@
   import ConfirmDeleteDialog from '$lib/components/ui/ConfirmDeleteDialog.svelte';
   import { canDeleteManagedObject } from '$lib/utils/permissions';
 
-  export let data: {
+  interface Props {
+    data: {
     me?: { id?: number; is_admin?: boolean };
     user?: {
       id?: string | number;
@@ -125,6 +127,9 @@
     storageRootActivity?: Array<Record<string, unknown>>;
     storageRootActivityRootId?: number | null;
   };
+  }
+
+  let { data = $bindable() }: Props = $props();
 
   const PROBE_SYNC_EVENT = 'b2s:storage-endpoint-probe-updated';
 
@@ -293,62 +298,78 @@
   /* Sidebar + selection                                                        */
   /* -------------------------------------------------------------------------- */
 
-  let selectedStorageRootId: number | null = null;
-  let selectedRow: StorageRootRow | null = null;
-  let lastAppliedSelectedParam: number | null = null;
+  let selectedStorageRootId: number | null = $state(null);
+  let selectedRow: StorageRootRow | null = $state(null);
+  let lastAppliedSelectedParam: number | null = $state(null);
 
-  $: ctxRows = (data.storageRoots ?? []).map(normalizeStorageRootRow);
+  let ctxRows = $derived((data.storageRoots ?? []).map(normalizeStorageRootRow));
 
   // No folder in the URL: the tiles / list home; a folder opens on the detail page
-  $: browsing = !(Number($page.url.searchParams.get('selected') ?? 0) > 0);
-  $: if (browsing) lastAppliedSelectedParam = null;
+  let browsing = $derived(!(Number($page.url.searchParams.get('selected') ?? 0) > 0));
+  $effect.pre(() => {
+    if (browsing) lastAppliedSelectedParam = null;
+  });
 
   const openRootFromBrowser = (id: number) => {
     storageRootsUiStore.setDetailTab('overview');
     void goto(`/storage-roots?selected=${id}`);
   };
 
-  $: if (browser && ctxRows.length > 0) {
-    const selectedParam = Number($page.url.searchParams.get('selected') ?? 0);
-    if (Number.isFinite(selectedParam) && selectedParam > 0 && selectedParam !== lastAppliedSelectedParam) {
-      const exists = ctxRows.some((r) => Number(r.storage_root_id) === selectedParam);
-      if (exists && selectedStorageRootId !== selectedParam) {
-        selectedStorageRootId = selectedParam;
+  $effect.pre(() => {
+    if (browser && ctxRows.length > 0) {
+      const selectedParam = Number($page.url.searchParams.get('selected') ?? 0);
+      if (Number.isFinite(selectedParam) && selectedParam > 0 && selectedParam !== lastAppliedSelectedParam) {
+        const exists = ctxRows.some((r) => Number(r.storage_root_id) === selectedParam);
+        if (exists && selectedStorageRootId !== selectedParam) {
+          selectedStorageRootId = selectedParam;
+        }
+        // ?tab=permissions (exposure map): open the folder on its Permissions tab
+        if (exists && $page.url.searchParams.get('tab') === 'permissions') storageRootsUiStore.setDetailTab('effective-access');
+        else if (exists && $page.url.searchParams.get('tab') === 'activity') storageRootsUiStore.setDetailTab('activity');
+        lastAppliedSelectedParam = selectedParam;
       }
-      // ?tab=permissions (exposure map): open the folder on its Permissions tab
-      if (exists && $page.url.searchParams.get('tab') === 'permissions') storageRootsUiStore.setDetailTab('effective-access');
-      else if (exists && $page.url.searchParams.get('tab') === 'activity') storageRootsUiStore.setDetailTab('activity');
-      lastAppliedSelectedParam = selectedParam;
     }
-  }
+  });
 
   // ?explain=<login> (⌘K palette): open Permissions on « why does this person reach the folder »
-  $: explainParam = String($page.url.searchParams.get('explain') ?? '').trim() || null;
-  let explainApplied: string | null = null;
-  $: if (explainParam && explainParam !== explainApplied) {
-    explainApplied = explainParam;
-    storageRootsUiStore.setDetailTab('effective-access');
-  }
+  let explainParam = $derived(String($page.url.searchParams.get('explain') ?? '').trim() || null);
+  let explainApplied: string | null = $state(null);
+  $effect.pre(() => {
+    if (explainParam && explainParam !== explainApplied) {
+      explainApplied = explainParam;
+      storageRootsUiStore.setDetailTab('effective-access');
+    }
+  });
 
-  $: if (!selectedStorageRootId && ctxRows.length > 0) {
-    selectedStorageRootId = ctxRows[0].storage_root_id;
-  }
+  $effect.pre(() => {
+    if (!selectedStorageRootId && ctxRows.length > 0) {
+      selectedStorageRootId = ctxRows[0].storage_root_id;
+    }
+  });
 
-  $: if (selectedStorageRootId && !ctxRows.some((r) => r.storage_root_id === selectedStorageRootId)) {
-    selectedStorageRootId = ctxRows.length > 0 ? ctxRows[0].storage_root_id : null;
-  }
+  $effect.pre(() => {
+    if (selectedStorageRootId && !ctxRows.some((r) => r.storage_root_id === selectedStorageRootId)) {
+      selectedStorageRootId = ctxRows.length > 0 ? ctxRows[0].storage_root_id : null;
+    }
+  });
 
-  $: selectedRow = selectedStorageRootId
-    ? ctxRows.find((r) => r.storage_root_id === selectedStorageRootId) ?? null
-    : null;
+  $effect.pre(() => {
+    selectedRow = selectedStorageRootId
+      ? ctxRows.find((r) => r.storage_root_id === selectedStorageRootId) ?? null
+      : null;
+  });
 
-  $: if (selectedStorageRootId !== $selectionStore.selectedStorageRootId) {
-    selectionStore.setSelectedStorageRootId(selectedStorageRootId);
-  }
+  $effect.pre(() => {
+    if (selectedStorageRootId !== $selectionStore.selectedStorageRootId) {
+      selectionStore.setSelectedStorageRootId(selectedStorageRootId);
+    }
+  });
 
-  $: if (selectedStorageRootId !== $storageRootsUiStore.selectedStorageRootId) {
-    storageRootsUiStore.setSelectedStorageRootId(selectedStorageRootId);
-  }
+  $effect.pre(() => {
+    if (selectedStorageRootId !== $storageRootsUiStore.selectedStorageRootId) {
+      storageRootsUiStore.setSelectedStorageRootId(selectedStorageRootId);
+    }
+  });
 
   const selectRoot = (id: number) => {
     if (selectedStorageRootId === id) return;
@@ -363,8 +384,8 @@
   /* Details load                                                               */
   /* -------------------------------------------------------------------------- */
 
-  let overview: StorageRootDetailModel | null = null;
-  let detailsLoading = false;
+  let overview: StorageRootDetailModel | null = $state(null);
+  let detailsLoading = $state(false);
   const detailsCache = new Map<number, StorageRootDetailModel>();
   let detailsRequestToken = 0;
 
@@ -446,9 +467,9 @@
     await loadDetails(normalizedRootId);
   };
 
-  let detailsLoadedForRootId: number | null = null;
+  let detailsLoadedForRootId: number | null = $state(null);
 
-  $: {
+  $effect.pre(() => {
     const currentRootId = Number(selectedStorageRootId ?? 0);
     if (currentRootId > 0 && currentRootId !== detailsLoadedForRootId) {
       detailsLoadedForRootId = currentRootId;
@@ -457,7 +478,7 @@
     if (currentRootId <= 0) {
       detailsLoadedForRootId = null;
     }
-  }
+  });
 
   /* -------------------------------------------------------------------------- */
   /* Read helpers                                                               */
@@ -506,7 +527,7 @@
   };
 
 
-  $: guardians = (overview?.owners ?? []).filter((o: any) => normalizeAssignedRole(o?.role) === 'guardian');
+  let guardians = $derived((overview?.owners ?? []).filter((o: any) => normalizeAssignedRole(o?.role) === 'guardian'));
 
   const selectedOverviewReady = () => {
     const overviewRootId = Number(overview?.storage_root_id ?? overview?.id ?? 0);
@@ -570,8 +591,8 @@
     return storageRootOpenAlertSummary(row, data.storageRootAlerts ?? []);
   };
 
-  let selectedRootAlerts: StorageRootDetailAlertItem[] = [];
-  $: {
+  let selectedRootAlerts: StorageRootDetailAlertItem[] = $state([]);
+  $effect.pre(() => {
     const selectedAlertRootId = Number(selectedRow?.storage_root_id ?? 0);
     const selectedOverviewRootId = Number(overview?.storage_root_id ?? overview?.id ?? 0);
     const selectedOverviewAlerts = (overview as any)?.governance_alerts;
@@ -587,7 +608,7 @@
     void selectedOverviewAlerts;
     void loadedAlerts;
     void isLoadingDetails;
-  }
+  });
 
   const selectDetailTab = (tab: StorageRootsDetailTab) => {
     storageRootsUiStore.setDetailTab(tab);
@@ -600,10 +621,10 @@
   /* CRUD root                                                                   */
   /* -------------------------------------------------------------------------- */
 
-  let rootModalOpen = false;
-  let rootModalMode: 'create' | 'edit' | 'delete' = 'create';
-  let editingRoot: any | null = null;
-  let deleteRootModalOpen = false;
+  let rootModalOpen = $state(false);
+  let rootModalMode: 'create' | 'edit' | 'delete' = $state('create');
+  let editingRoot: any | null = $state(null);
+  let deleteRootModalOpen = $state(false);
 
   const canDeleteStorageRoot = () =>
     canDeleteManagedObject(data?.user?.roles);
@@ -651,9 +672,9 @@
   }
 
   // Operations on the folder on the file server (header menu or right click in the explorer)
-  let folderActionKind: FolderActionKind | null = null;
-  let folderActionTarget: FolderActionTarget | null = null;
-  let detailRefreshKey = 0;
+  let folderActionKind: FolderActionKind | null = $state(null);
+  let folderActionTarget: FolderActionTarget | null = $state(null);
+  let detailRefreshKey = $state(0);
 
   // Right click (tree or explorer): the analyses start at once on that folder only; the others open their dialog
   function folderAction(kind: FolderActionKind, row: any) {
@@ -706,7 +727,7 @@
   }
 
   // Right click on a server of the tree
-  let shareEndpointId: number | null = null;
+  let shareEndpointId: number | null = $state(null);
   function serverAction(kind: 'share' | 'add-folders' | 'open', endpointId: number) {
     if (kind === 'share') shareEndpointId = endpointId;
     else if (kind === 'add-folders') void goto(`/storage-roots/add?endpoint=${endpointId}`);
@@ -820,8 +841,8 @@
     checks: []
   });
 
-  let rootProbeBusy = false;
-  let rootProbeStateByRootId: Record<number, RootProbeExecutionState> = {};
+  let rootProbeBusy = $state(false);
+  let rootProbeStateByRootId: Record<number, RootProbeExecutionState> = $state({});
 
   const rootProbeState = (rootId: number | null | undefined): RootProbeExecutionState => {
     const id = Number(rootId ?? 0);
@@ -1259,7 +1280,7 @@
   };
 
   // « Request access » on a folder: a quick panel (level, duration, reason); the full form stays one link away
-  let quickRequest = false;
+  let quickRequest = $state(false);
   const openAccessRequestModal = () => {
     if (!selectedStorageRootId) {
       toast.warning(t('Select a storage root first'));
@@ -1268,10 +1289,10 @@
     quickRequest = true;
   };
 
-  let showAlertsDrawer = false;
-  let activityLoading = false;
-  let activityRows: Array<Record<string, unknown>> = [];
-  let activityLoadedForRootId: number | null = null;
+  let showAlertsDrawer = $state(false);
+  let activityLoading = $state(false);
+  let activityRows: Array<Record<string, unknown>> = $state([]);
+  let activityLoadedForRootId: number | null = $state(null);
   let activityRequestToken = 0;
 
   const activityRowsForSelectedRoot = (): Array<Record<string, unknown>> => {
@@ -1394,22 +1415,26 @@
     await loadStorageRootActivity(rootId);
   }
 
-  $: if (
-    activityLoadedForRootId === null &&
-    Number(data.storageRootActivityRootId ?? 0) > 0 &&
-    Array.isArray(data.storageRootActivity)
-  ) {
-    activityRows = data.storageRootActivity as Array<Record<string, unknown>>;
-    activityLoadedForRootId = Number(data.storageRootActivityRootId);
-  }
+  $effect.pre(() => {
+    if (
+      activityLoadedForRootId === null &&
+      Number(data.storageRootActivityRootId ?? 0) > 0 &&
+      Array.isArray(data.storageRootActivity)
+    ) {
+      activityRows = data.storageRootActivity as Array<Record<string, unknown>>;
+      activityLoadedForRootId = Number(data.storageRootActivityRootId);
+    }
+  });
 
-  $: if (
-    browser &&
-    selectedStorageRootId &&
-    activityLoadedForRootId !== Number(selectedStorageRootId)
-  ) {
-    void loadStorageRootActivity(Number(selectedStorageRootId));
-  }
+  $effect.pre(() => {
+    if (
+      browser &&
+      selectedStorageRootId &&
+      activityLoadedForRootId !== Number(selectedStorageRootId)
+    ) {
+      void loadStorageRootActivity(Number(selectedStorageRootId));
+    }
+  });
 
   function openAlertsDrawer() {
     showAlertsDrawer = true;
@@ -1419,7 +1444,7 @@
   /* Tags                                                                        */
   /* -------------------------------------------------------------------------- */
 
-  let showTagsModal = false;
+  let showTagsModal = $state(false);
 
   const openTagsModal = () => {
     showTagsModal = true;
@@ -1435,20 +1460,20 @@
   /* Governance                                                                  */
   /* -------------------------------------------------------------------------- */
 
-  let showGovernanceDrawer = false;
-  let governanceRoleTab: 'guardian' = 'guardian';
-  let governanceOwners: StorageRootOwner[] = [];
-  let governanceDraftGuardianIds: number[] = [];
-  let governanceDraftMetadataByIdentityId: Record<number, Partial<StorageRootOwner>> = {};
-  let governanceDraftDirty = false;
-  let governanceUnresolvedPrincipalLabels: string[] = [];
+  let showGovernanceDrawer = $state(false);
+  let governanceRoleTab: 'guardian' = $state('guardian');
+  let governanceOwners: StorageRootOwner[] = $state([]);
+  let governanceDraftGuardianIds: number[] = $state([]);
+  let governanceDraftMetadataByIdentityId: Record<number, Partial<StorageRootOwner>> = $state({});
+  let governanceDraftDirty = $state(false);
+  let governanceUnresolvedPrincipalLabels: string[] = $state([]);
   let governanceOwnersLoadToken = 0;
-  let governanceLoading = false;
-  let governanceSaving = false;
-  let governanceError: string | null = null;
+  let governanceLoading = $state(false);
+  let governanceSaving = $state(false);
+  let governanceError: string | null = $state(null);
   let governanceOwnersLoadedForRootId: number | null = null;
-  let governanceRoleRows: Array<StorageRootOwner & Record<string, any>> = [];
-  let showOwnersBrowserModal = false;
+  let governanceRoleRows: Array<StorageRootOwner & Record<string, any>> = $state([]);
+  let showOwnersBrowserModal = $state(false);
   let ownersBrowserDefaultRole: 'guardian' = 'guardian';
 
   const GOVERNANCE_HELPER_TEXT = {
@@ -1518,15 +1543,17 @@
     return t('User');
   };
 
-  $: governanceRoleRows = buildGovernanceOwnersDraftForRole(
-    governanceRoleTab,
-    Number(selectedStorageRootId ?? 0),
-    governanceOwners,
-    {
-      guardianIds: normalizeOwnerIds(governanceDraftGuardianIds),
-      metadataByIdentityId: governanceDraftMetadataByIdentityId ?? {}
-    }
-  ) as Array<StorageRootOwner & Record<string, any>>;
+  $effect.pre(() => {
+    governanceRoleRows = buildGovernanceOwnersDraftForRole(
+      governanceRoleTab,
+      Number(selectedStorageRootId ?? 0),
+      governanceOwners,
+      {
+        guardianIds: normalizeOwnerIds(governanceDraftGuardianIds),
+        metadataByIdentityId: governanceDraftMetadataByIdentityId ?? {}
+      }
+    ) as Array<StorageRootOwner & Record<string, any>>;
+  });
 
   const resetGovernanceDraftFromOwners = () => {
     const nextDraft = buildGovernanceDraftFromOwners(governanceOwners ?? []);
@@ -1746,12 +1773,12 @@
       governanceSaving = false;
     }
   }
-  $: rootIdentitySourceId = ((..._deps: unknown[]) => selectedRootIdentitySourceId())(overview, selectedRow, data);
+  let rootIdentitySourceId = $derived(((..._deps: unknown[]) => selectedRootIdentitySourceId())(overview, selectedRow, data));
 
   // Values shown by StorageRootDetailView. The helpers read overview, selectedRow, probe and
   // activity state themselves; listing those here makes Svelte recompute when any of them changes
   // (a call like {selectedProbeState()} in the markup would only run once).
-  $: detailView = ((..._deps: unknown[]) => ({
+  let detailView = $derived(((..._deps: unknown[]) => ({
     probeState: selectedProbeState(),
     aclFreshness: aclFreshnessFromOverview(),
     endpointLabel: endpointLabel(),
@@ -1760,7 +1787,7 @@
     rootAvailabilityTone: rootAvailabilityTone(),
     tags: displayTags(selectedRow),
     activityRemainder: activityRowsForSelectedRoot()
-  }))(overview, selectedRow, selectedStorageRootId, rootProbeStateByRootId, activityRows, activityLoadedForRootId, data);
+  }))(overview, selectedRow, selectedStorageRootId, rootProbeStateByRootId, activityRows, activityLoadedForRootId, data));
 </script>
 
 {#if !hasRoots()}
@@ -1790,21 +1817,23 @@
   />
 {:else}
   <EntityWorkspace title={t('Storage roots')} contentKey={selectedStorageRootId}>
-    <svelte:fragment slot="list">
-      <StorageRootTreePanel
-        onAdd={data.user?.is_admin === true ? openCreateRoot : null}
-        addLabel={t('Add storage roots')}
-        rows={ctxRows}
-        query={$storageRootsUiStore.query}
-        {selectedStorageRootId}
-        onSelectRoot={selectRoot}
-        onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
-        {rootAlertSummary}
-        onFolderAction={data.user?.is_admin === true ? folderAction : null}
-        onServerAction={data.user?.is_admin === true ? serverAction : null}
-        onBulkAnalysis={data.user?.is_admin === true ? bulkAnalysis : null}
-      />
-    </svelte:fragment>
+    {#snippet list()}
+          
+        <StorageRootTreePanel
+          onAdd={data.user?.is_admin === true ? openCreateRoot : null}
+          addLabel={t('Add storage roots')}
+          rows={ctxRows}
+          query={$storageRootsUiStore.query}
+          {selectedStorageRootId}
+          onSelectRoot={selectRoot}
+          onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
+          {rootAlertSummary}
+          onFolderAction={data.user?.is_admin === true ? folderAction : null}
+          onServerAction={data.user?.is_admin === true ? serverAction : null}
+          onBulkAnalysis={data.user?.is_admin === true ? bulkAnalysis : null}
+        />
+      
+          {/snippet}
 
     {#if !selectedStorageRootId}
       <!-- No folder chosen yet: the tree on the left holds them all (made for thousands of folders) -->

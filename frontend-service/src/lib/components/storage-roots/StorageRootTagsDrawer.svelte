@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import { t } from '$lib/i18n';
   import StorageRootDrawerShell from './StorageRootDrawerShell.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -11,39 +13,57 @@
   import { toast } from '$lib/stores/toast';
   import type { StorageRootTagLike } from '$lib/utils/storage-roots';
 
-  export let open = false;
-  export let storageRootId: number | null = null;
-  /** Every tag that can be attached */
-  export let catalog: StorageRootTagLike[] = [];
-  /** Tags currently attached to the storage root */
-  export let currentTags: StorageRootTagLike[] = [];
-  export let onClose: () => void;
-  /** Called with the new tag set once attach/detach calls succeeded */
-  export let onSaved: (tags: StorageRootTagLike[]) => Promise<void> | void = () => {};
+  
+  
+  
+  interface Props {
+    open?: boolean;
+    storageRootId?: number | null;
+    /** Every tag that can be attached */
+    catalog?: StorageRootTagLike[];
+    /** Tags currently attached to the storage root */
+    currentTags?: StorageRootTagLike[];
+    onClose: () => void;
+    /** Called with the new tag set once attach/detach calls succeeded */
+    onSaved?: (tags: StorageRootTagLike[]) => Promise<void> | void;
+  }
 
-  let selectedTagIds: number[] = [];
-  let search = '';
-  let saving = false;
-  let wasOpen = false;
+  let {
+    open = false,
+    storageRootId = null,
+    catalog = [],
+    currentTags = [],
+    onClose,
+    onSaved = () => {}
+  }: Props = $props();
+
+  let selectedTagIds: number[] = $state([]);
+  let search = $state('');
+  let saving = $state(false);
+  let wasOpen = $state(false);
 
   const validIds = (tags: StorageRootTagLike[]): number[] =>
     tags.map((tag) => tagId(tag)).filter((id) => Number.isFinite(id) && id > 0);
 
-  $: if (open && !wasOpen) {
-    wasOpen = true;
-    selectedTagIds = validIds(currentTags);
-    search = '';
-  }
-  $: if (!open) wasOpen = false;
+  $effect.pre(() => {
+    if (open && !wasOpen) {
+      wasOpen = true;
+      selectedTagIds = validIds(currentTags);
+      search = '';
+    }
+  });
+  $effect.pre(() => {
+    if (!open) wasOpen = false;
+  });
 
   const matches = (tag: UiTag, needle: string) =>
     !needle || [tag.label, tag.name, tag.code].map((v) => String(v ?? '').toLowerCase()).join(' ').includes(needle);
 
-  $: selectedSet = new Set(selectedTagIds);
-  $: needle = search.trim().toLowerCase();
-  $: catalogTags = normalizeTagsCatalog(catalog);
-  $: availableTags = catalogTags.filter((tag) => !selectedSet.has(Number(tag.id)) && matches(tag, needle));
-  $: selectedTags = catalogTags.filter((tag) => selectedSet.has(Number(tag.id)) && matches(tag, needle));
+  let selectedSet = $derived(new Set(selectedTagIds));
+  let needle = $derived(search.trim().toLowerCase());
+  let catalogTags = $derived(normalizeTagsCatalog(catalog));
+  let availableTags = $derived(catalogTags.filter((tag) => !selectedSet.has(Number(tag.id)) && matches(tag, needle)));
+  let selectedTags = $derived(catalogTags.filter((tag) => selectedSet.has(Number(tag.id)) && matches(tag, needle)));
 
   function toggleTag(id: number, checked: boolean) {
     if (!Number.isFinite(id) || id <= 0) return;
@@ -115,23 +135,27 @@
       on:add={(event) => toggleTag(Number(event.detail.item?.id ?? 0), true)}
       on:remove={(event) => toggleTag(Number(event.detail.item?.id ?? 0), false)}
     >
-      <svelte:fragment slot="item" let:item>
-        <TagPill label={item.label} color={item.color_rgb ?? null} />
-      </svelte:fragment>
+      {#snippet renderItem({ item })}
+          
+          <TagPill label={item.label} color={item.color_rgb ?? null} />
+        
+          {/snippet}
     </DualListPicker>
   </div>
 
-  <svelte:fragment slot="footer">
-    <div class="sr-modal-actions sr-tags-modal-actions">
-      <EntityActionButton variant="secondary" label={t('Cancel')} disabled={saving} onClick={onClose} />
-      <EntityActionButton
-        variant="primary"
-        icon={saving ? 'bi-arrow-repeat' : 'bi-check2'}
-        busy={saving}
-        label={saving ? t('Saving…') : t('Save tag changes')}
-        disabled={saving}
-        onClick={save}
-      />
-    </div>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <div class="sr-modal-actions sr-tags-modal-actions">
+        <EntityActionButton variant="secondary" label={t('Cancel')} disabled={saving} onClick={onClose} />
+        <EntityActionButton
+          variant="primary"
+          icon={saving ? 'bi-arrow-repeat' : 'bi-check2'}
+          busy={saving}
+          label={saving ? t('Saving…') : t('Save tag changes')}
+          disabled={saving}
+          onClick={save}
+        />
+      </div>
+    
+  {/snippet}
 </StorageRootDrawerShell>

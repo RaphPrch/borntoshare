@@ -90,6 +90,17 @@ with sync_playwright() as p:
         page.wait_for_timeout(400)
     step("bell", bell)
 
+    def named_slots():
+        # Zones passed by named slots / snippets (they vanished silently once during the Svelte 5 migration)
+        goto(page, "/admin/storage-endpoints/1", 2500)
+        check("server page: header and tree shown", page.locator("h1, .ehc__title").filter(has_text="FILER01").count() > 0
+              and page.locator(".b2s-tree[role=tree] [role=treeitem]").count() > 0)
+        goto(page, "/admin/zones/1", 2500)
+        check("zone page: tabs shown", page.locator("nav.b2s-tabs button").count() >= 2)
+        goto(page, "/observability", 2500)
+        check("monitoring: header actions shown", page.locator(".b2s-page-header button, .b2s-page-header a, header button").count() > 0)
+    step("named slots", named_slots)
+
     def dfs_server():
         goto(page, "/admin/storage-endpoints/1", 2500)
         # Only the tree of the servers (the folders of FILER01 shown beside it carry the same names)

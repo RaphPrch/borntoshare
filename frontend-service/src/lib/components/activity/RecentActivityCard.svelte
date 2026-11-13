@@ -3,19 +3,29 @@
   import { timeAgo } from '$lib/utils/format';
   import { formatActivityItem } from '$lib/activity/format';
 
-  /** The last events of an entity in a card, with a link to its full history. */
-  export let items: any[] = [];
-  export let limit = 5;
-  export let emptyLabel = t('No activity yet.');
-  export let onOpenHistory: (() => void) | null = null;
+  
+  interface Props {
+    /** The last events of an entity in a card, with a link to its full history. */
+    items?: any[];
+    limit?: number;
+    emptyLabel?: any;
+    onOpenHistory?: (() => void) | null;
+  }
 
-  $: recent = items.slice(0, limit).map((entry) => ({ entry, item: formatActivityItem(entry) }));
+  let {
+    items = [],
+    limit = 5,
+    emptyLabel = t('No activity yet.'),
+    onOpenHistory = null
+  }: Props = $props();
+
+  let recent = $derived(items.slice(0, limit).map((entry) => ({ entry, item: formatActivityItem(entry) })));
 </script>
 
 <section class="rac" aria-label={t('Recent activity')}>
   <header>
     <h2>{t('Recent activity')}</h2>
-    {#if onOpenHistory}<button type="button" on:click={onOpenHistory}>{t('All the history')} ›</button>{/if}
+    {#if onOpenHistory}<button type="button" onclick={onOpenHistory}>{t('All the history')} ›</button>{/if}
   </header>
   {#if recent.length}
     <ul>

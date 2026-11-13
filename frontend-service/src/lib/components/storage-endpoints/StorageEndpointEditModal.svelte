@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import { reportUiError } from '$lib/errors/report';
   import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import { upstreamErrorOf } from '$lib/errors/normalize';
@@ -27,7 +29,6 @@
   import { isValidHostname, isValidIPv4 } from '$lib/utils/host-validate';
   import { toast } from "$lib/stores/toast";
 
-  export let open = false;
   type EditableEndpoint = {
     id?: number;
     storage_endpoint_id?: number;
@@ -38,41 +39,53 @@
     [key: string]: unknown;
   };
 
-  export let endpoint: EditableEndpoint | null = null;
-  export let onClose: () => void;
-  export let onSaved: (() => void) | null = null;
-  /** A new address found for the server (its name resolves elsewhere): filled in, to review and save. */
-  export let suggestedHost: string | null = null;
+  
+  interface Props {
+    open?: boolean;
+    endpoint?: EditableEndpoint | null;
+    onClose: () => void;
+    onSaved?: (() => void) | null;
+    /** A new address found for the server (its name resolves elsewhere): filled in, to review and save. */
+    suggestedHost?: string | null;
+  }
 
-  let saving = false;
-  let showPassword = false;
-  let resolveHint: { ok: boolean; message: string } | null = null;
+  let {
+    open = false,
+    endpoint = null,
+    onClose,
+    onSaved = null,
+    suggestedHost = null
+  }: Props = $props();
 
-  let name = "";
-  let description = "";
-  let protocol: string = "smb";
-  let host = "";
-  let port: number | null = 445;
-  let username = "";
-  let password = "";
-  let zoneId: number | null = null;
-  let identitySourceId: number | null = null;
-  let isActive: boolean = true;
+  let saving = $state(false);
+  let showPassword = $state(false);
+  let resolveHint: { ok: boolean; message: string } | null = $state(null);
 
-  let touched: Record<string, boolean> = {};
+  let name = $state("");
+  let description = $state("");
+  let protocol: string = $state("smb");
+  let host = $state("");
+  let port: number | null = $state(445);
+  let username = $state("");
+  let password = $state("");
+  let zoneId: number | null = $state(null);
+  let identitySourceId: number | null = $state(null);
+  let isActive: boolean = $state(true);
 
-  let zones: ZoneOverview[] = [];
-  let zonesLoading = false;
-  let zonesError: string | null = null;
+  let touched: Record<string, boolean> = $state({});
+
+  let zones: ZoneOverview[] = $state([]);
+  let zonesLoading = $state(false);
+  let zonesError: string | null = $state(null);
 
   type IdentitySourceOption = IdentitySourceListItem;
 
-  let identitySources: IdentitySourceOption[] = [];
-  let identitySourcesLoading = false;
-  let identitySourcesError: string | null = null;
+  let identitySources: IdentitySourceOption[] = $state([]);
+  let identitySourcesLoading = $state(false);
+  let identitySourcesError: string | null = $state(null);
 
-  let existingEndpoints: StorageEndpointOverview[] = [];
-  let closeConfirmOpen = false;
+  let existingEndpoints: StorageEndpointOverview[] = $state([]);
+  let closeConfirmOpen = $state(false);
   let initialSnapshot: {
     name: string;
     description: string | null;
@@ -83,7 +96,7 @@
     zoneId: number | null;
     identitySourceId: number | null;
     isActive: boolean;
-  } | null = null;
+  } | null = $state(null);
 
   const pick = (obj: Record<string, unknown> | null | undefined, ...keys: string[]) => {
     for (const k of keys) {
@@ -115,70 +128,78 @@
     isActive: Boolean(isActive)
   });
 
-  $: zoneId = toNullableInt(zoneId);
-  $: identitySourceId = toNullableInt(identitySourceId);
+  $effect.pre(() => {
+    zoneId = toNullableInt(zoneId);
+  });
+  $effect.pre(() => {
+    identitySourceId = toNullableInt(identitySourceId);
+  });
 
-  $: if (open && endpoint) {
-    name = String(pick(endpoint, "name", "storage_endpoint_name") ?? "");
-    description = String(pick(endpoint, "description") ?? "");
-    protocol = String(
-      pick(endpoint, "type", "protocol", "storage_endpoint_type", "endpoint_type") ?? "smb"
-    ).toLowerCase();
-    host = String(pick(endpoint, "host") ?? "");
-    port = pick(endpoint, "port") != null ? Number(pick(endpoint, "port")) : 445;
-    // The account is stored as bind_dn (auth_username only on older rows)
-    username = String(pick(endpoint, "auth_username", "bind_dn") ?? "");
-    password = "";
-    zoneId =
-      pick(endpoint, "zone_id") != null
-        ? toNullableInt(pick(endpoint, "zone_id"))
-        : pick(endpoint, "zone", "id") != null
-          ? toNullableInt(endpoint?.zone?.id)
-          : null;
-    identitySourceId = toNullableInt(pick(endpoint, "identity_source_id"));
-    isActive = endpoint.is_active !== false;
+  $effect.pre(() => {
+    if (open && endpoint) {
+      name = String(pick(endpoint, "name", "storage_endpoint_name") ?? "");
+      description = String(pick(endpoint, "description") ?? "");
+      protocol = String(
+        pick(endpoint, "type", "protocol", "storage_endpoint_type", "endpoint_type") ?? "smb"
+      ).toLowerCase();
+      host = String(pick(endpoint, "host") ?? "");
+      port = pick(endpoint, "port") != null ? Number(pick(endpoint, "port")) : 445;
+      // The account is stored as bind_dn (auth_username only on older rows)
+      username = String(pick(endpoint, "auth_username", "bind_dn") ?? "");
+      password = "";
+      zoneId =
+        pick(endpoint, "zone_id") != null
+          ? toNullableInt(pick(endpoint, "zone_id"))
+          : pick(endpoint, "zone", "id") != null
+            ? toNullableInt(endpoint?.zone?.id)
+            : null;
+      identitySourceId = toNullableInt(pick(endpoint, "identity_source_id"));
+      isActive = endpoint.is_active !== false;
 
-    showPassword = false;
-    resolveHint = null;
-    touched = {};
-    initialSnapshot = buildSnapshot();
-    if (suggestedHost) host = suggestedHost;
-  }
-
-
-  $: if (open) {
-    if (!zonesLoading && zones.length === 0) {
-      zonesLoading = true;
-      zonesError = null;
-      listZones(fetch)
-        .then((z) => (zones = z))
-        .catch((e: unknown) => {
-          zones = [];
-          zonesError = String((e as { message?: string })?.message ?? t('Unable to load zones.'));
-        })
-        .finally(() => (zonesLoading = false));
+      showPassword = false;
+      resolveHint = null;
+      touched = {};
+      initialSnapshot = buildSnapshot();
+      if (suggestedHost) host = suggestedHost;
     }
+  });
 
-    if (!identitySourcesLoading && identitySources.length === 0) {
-      identitySourcesLoading = true;
-      identitySourcesError = null;
-      listIdentitySources(fetch)
-        .then((rows: IdentitySourceListItem[]) => {
-          identitySources = rows;
-        })
-        .catch((e: unknown) => {
-          identitySources = [];
-          identitySourcesError = String((e as { message?: string })?.message ?? t('Unable to load identity sources.'));
-        })
-        .finally(() => (identitySourcesLoading = false));
-    }
 
-    if (existingEndpoints.length === 0) {
-      listStorageEndpoints(fetch)
-        .then((rows) => (existingEndpoints = rows))
-        .catch(() => (existingEndpoints = []));
+  $effect.pre(() => {
+    if (open) {
+      if (!zonesLoading && zones.length === 0) {
+        zonesLoading = true;
+        zonesError = null;
+        listZones(fetch)
+          .then((z) => (zones = z))
+          .catch((e: unknown) => {
+            zones = [];
+            zonesError = String((e as { message?: string })?.message ?? t('Unable to load zones.'));
+          })
+          .finally(() => (zonesLoading = false));
+      }
+
+      if (!identitySourcesLoading && identitySources.length === 0) {
+        identitySourcesLoading = true;
+        identitySourcesError = null;
+        listIdentitySources(fetch)
+          .then((rows: IdentitySourceListItem[]) => {
+            identitySources = rows;
+          })
+          .catch((e: unknown) => {
+            identitySources = [];
+            identitySourcesError = String((e as { message?: string })?.message ?? t('Unable to load identity sources.'));
+          })
+          .finally(() => (identitySourcesLoading = false));
+      }
+
+      if (existingEndpoints.length === 0) {
+        listStorageEndpoints(fetch)
+          .then((rows) => (existingEndpoints = rows))
+          .catch(() => (existingEndpoints = []));
+      }
     }
-  }
+  });
 
   function touch(field: "name" | "host" | "port" | "username") {
     touched = { ...touched, [field]: true };
@@ -208,8 +229,8 @@
   const required = (v?: string | number | null) =>
     v !== undefined && v !== null && String(v).trim().length > 0;
 
-  $: currentNormalizedHost = normalizedHost(host);
-  $: duplicateEndpoint = existingEndpoints.find((ep) => {
+  let currentNormalizedHost = $derived(normalizedHost(host));
+  let duplicateEndpoint = $derived(existingEndpoints.find((ep) => {
     const id = Number(ep?.id ?? 0);
     const currentId = Number(endpoint?.id ?? endpoint?.storage_endpoint_id ?? 0);
     if (id && currentId && id === currentId) return false;
@@ -218,22 +239,22 @@
     if (isDfs(ep) || isDfs(endpoint)) return false;
     const candidateHost = normalizedHost(String(ep?.host ?? ""));
     return Boolean(candidateHost && candidateHost === currentNormalizedHost);
-  });
+  }));
 
-  $: errName = Boolean(touched.name) && !required(name);
-  $: errHost = Boolean(touched.host) && !required(host);
-  $: errHostFormat = Boolean(touched.host) && required(host) && !isValidIPv4(host) && !isValidHostname(host);
-  $: errPort = Boolean(touched.port) && (!required(port) || Number(port) < 1 || Number(port) > 65535);
-  $: errUsername = Boolean(touched.username) && !required(username);
+  let errName = $derived(Boolean(touched.name) && !required(name));
+  let errHost = $derived(Boolean(touched.host) && !required(host));
+  let errHostFormat = $derived(Boolean(touched.host) && required(host) && !isValidIPv4(host) && !isValidHostname(host));
+  let errPort = $derived(Boolean(touched.port) && (!required(port) || Number(port) < 1 || Number(port) > 65535));
+  let errUsername = $derived(Boolean(touched.username) && !required(username));
 
-  $: activeAdIdentitySources = identitySources.filter((s) => {
+  let activeAdIdentitySources = $derived(identitySources.filter((s) => {
     const kind = String(s?.type ?? "").trim().toUpperCase();
     const active = s?.is_active !== false;
     return active && (kind === "AD" || kind === "LDAP" || kind === "LDAPS");
-  });
+  }));
 
-  $: canSave =
-    required(name) &&
+  let canSave =
+    $derived(required(name) &&
     required(host) &&
     (isValidIPv4(host) || isValidHostname(host)) &&
     required(port) &&
@@ -241,15 +262,15 @@
     Number(port) <= 65535 &&
     zoneId !== null &&
     required(username) &&
-    !duplicateEndpoint;
+    !duplicateEndpoint);
   // buildSnapshot() hides what it reads: the fields are named here so the state follows them
-  let endpointDirty = false;
-  $: {
+  let endpointDirty = $state(false);
+  $effect.pre(() => {
     void [name, description, protocol, host, port, username, zoneId, identitySourceId, isActive];
     endpointDirty = JSON.stringify(buildSnapshot()) !== JSON.stringify(initialSnapshot ?? buildSnapshot());
-  }
-  $: isDirty = endpointDirty || Boolean(password.trim());
-  $: endpointSaveReason = !required(name)
+  });
+  let isDirty = $derived(endpointDirty || Boolean(password.trim()));
+  let endpointSaveReason = $derived(!required(name)
     ? t('Name is required.')
     : !required(host)
       ? t('Hostname or IP is required.')
@@ -263,7 +284,7 @@
               ? t('Username is required.')
               : duplicateEndpoint
                 ? t('A storage endpoint with the same host already exists.')
-                : null;
+                : null);
 
   function requestClose() {
     if (saving) return;
@@ -281,8 +302,8 @@
 
   /** Guard steps of a save, each asked once: connection test, disabling, root paths of a host change */
   type SaveOptions = { testDone?: boolean; disableConfirmed?: boolean; rewriteRootPaths?: boolean };
-  let guard: { title: string; subtitle: string; items: string[]; confirmLabel: string; next: SaveOptions } | null = null;
-  let guardBusy = false;
+  let guard: { title: string; subtitle: string; items: string[]; confirmLabel: string; next: SaveOptions } | null = $state(null);
+  let guardBusy = $state(false);
 
   async function testConnection(secretRef: string | null): Promise<string | null> {
     const request = buildStorageEndpointConnectProbeRequest({
@@ -484,9 +505,9 @@
   rootClass="se-edit-drawer"
   showFooter={true}
 >
-  <svelte:fragment slot="header-meta">
+  {#snippet headerMeta()}
     <StatusBadge compact showDot={false} variant="info" label={`SMB · ${t('Windows / Samba shares')}`} />
-  </svelte:fragment>
+  {/snippet}
 
   <div class="se-edit">
 
@@ -502,7 +523,7 @@
             class:invalid={errName}
             bind:value={name}
             placeholder={t('Main file server')}
-            on:blur={() => touch("name")}
+            onblur={() => touch("name")}
           />
           {#if errName}
             <FieldError>{t('Name is required.')}</FieldError>
@@ -573,14 +594,14 @@
               class:invalid={errHost || errHostFormat}
               bind:value={host}
               placeholder={t('fileserver.domain.local or 10.0.0.12')}
-              on:blur={() => touch("host")}
+              onblur={() => touch("host")}
             />
             <button
               class="b2s-input-action"
               type="button"
               tabindex="-1"
               aria-label={t('Resolve host')}
-              on:click={resolveHostInput}
+              onclick={resolveHostInput}
             >
               <i class="bi bi-search" aria-hidden="true"></i>
             </button>
@@ -609,7 +630,7 @@
             max="65535"
             class:invalid={errPort}
             bind:value={port}
-            on:blur={() => touch("port")}
+            onblur={() => touch("port")}
           />
           {#if errPort}
             <FieldError>{t('Port must be between 1 and 65535.')}</FieldError>
@@ -629,7 +650,7 @@
             class:invalid={errUsername}
             bind:value={username}
             placeholder="DOMAIN\service-account"
-            on:blur={() => touch("username")}
+            onblur={() => touch("username")}
           />
           {#if errUsername}
             <FieldError>{t('Username is required.')}</FieldError>
@@ -651,7 +672,7 @@
               type="button"
               tabindex="-1"
               aria-label={showPassword ? t('Hide password') : t('Show password')}
-              on:click={() => (showPassword = !showPassword)}
+              onclick={() => (showPassword = !showPassword)}
             >
               <i class={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`} aria-hidden="true"></i>
             </button>
@@ -670,28 +691,30 @@
 
   </div>
 
-  <svelte:fragment slot="footer">
-    <ActionFooter align="end" className="se-edit-drawer__actions">
-        <EntityActionButton variant="secondary" label={t('Cancel')} disabled={saving} onClick={requestClose} />
-        <EntityActionButton
-          variant="primary"
-          icon={saving ? "bi-arrow-repeat" : "bi-check2"}
-          busy={saving}
-          label={guardBusy ? t('Testing the connection…') : saving ? t('Saving…') : t('Save changes')}
-          disabled={saving || !canSave}
-          onClick={() => save()}
-        />
-        {#if guardBusy}
-          <div class="se-edit-disabled-reason">{t('Testing the SMB access to {host} with {account}…', { host: host.trim(), account: username.trim() })}</div>
+  {#snippet footer()}
+      
+      <ActionFooter align="end" className="se-edit-drawer__actions">
+          <EntityActionButton variant="secondary" label={t('Cancel')} disabled={saving} onClick={requestClose} />
+          <EntityActionButton
+            variant="primary"
+            icon={saving ? "bi-arrow-repeat" : "bi-check2"}
+            busy={saving}
+            label={guardBusy ? t('Testing the connection…') : saving ? t('Saving…') : t('Save changes')}
+            disabled={saving || !canSave}
+            onClick={() => save()}
+          />
+          {#if guardBusy}
+            <div class="se-edit-disabled-reason">{t('Testing the SMB access to {host} with {account}…', { host: host.trim(), account: username.trim() })}</div>
+          {/if}
+          {#if endpointSaveReason}
+            <div class="se-edit-disabled-reason">{endpointSaveReason}</div>
+          {/if}
+        {#if isDirty}
+          <div class="se-edit-unsaved">{t('Unsaved changes')}</div>
         {/if}
-        {#if endpointSaveReason}
-          <div class="se-edit-disabled-reason">{endpointSaveReason}</div>
-        {/if}
-      {#if isDirty}
-        <div class="se-edit-unsaved">{t('Unsaved changes')}</div>
-      {/if}
-    </ActionFooter>
-  </svelte:fragment>
+      </ActionFooter>
+    
+      {/snippet}
 </Drawer>
 {/if}
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import { onDestroy } from 'svelte';
   import { apiGetData, apiPostData } from '$lib/api/client';
   import { reportUiError } from '$lib/errors';
@@ -37,19 +39,28 @@
     finished_at: string | null; elapsed_ms: number | null; files: number | null; error: string | null; mode?: string | null;
     progress?: { mode: string; chunks_total: number; chunks_done: number; chunks_kept: number; files: number; current: string | null } | null };
   type Shared = { files: number; bytes: number; with: number[]; examples: Array<{ path: string; size: number; also_in: string[] }> };
-  export let content: Content | null = null;
-  export let rootId: number | null = null;
-  export let isAdmin = false;
-  /** A measure landed: the page reads the folder again */
-  export let onMeasured: () => void = () => {};
+  
+  interface Props {
+    content?: Content | null;
+    rootId?: number | null;
+    isAdmin?: boolean;
+    /** A measure landed: the page reads the folder again */
+    onMeasured?: () => void;
+  }
 
-  let scan: Scan | null = null;
-  let shared: Shared | null = null;
-  let loadedFor: number | null = null;
-  let busy = false;
-  let landed = 0;
+  let {
+    content = null,
+    rootId = null,
+    isAdmin = false,
+    onMeasured = () => {}
+  }: Props = $props();
+
+  let scan: Scan | null = $state(null);
+  let shared: Shared | null = $state(null);
+  let loadedFor: number | null = $state(null);
+  let busy = $state(false);
+  let landed = $state(0);
   let timer: ReturnType<typeof setInterval> | null = null;
-  $: if (rootId && rootId !== loadedFor) loadScan();
   async function loadScan() {
     loadedFor = rootId;
     const data = await apiGetData<{ scan: Scan | null }>(fetch, `/storage-roots/${rootId}/scan`).catch(() => null);
@@ -64,7 +75,6 @@
       onMeasured();
     }
   }
-  $: measuring = scan?.status === 'running';
   async function stopMeasure() {
     if (!rootId) return;
     try {
@@ -74,7 +84,6 @@
       reportUiError(error, 'Unable to stop the measure.', 'storage-roots.measure.stop');
     }
   }
-  $: measuring ? start() : stop();
   function start() {
     if (!timer) timer = setInterval(() => rootId && loadScan(), 3000);
   }
@@ -94,29 +103,36 @@
       busy = false;
     }
   }
-  $: dups = content?.duplicates ?? null;
   const seconds = (ms: number | null | undefined) => (ms == null ? '' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s`);
 
   const size = (bytes: number | null | undefined) => formatBytes(bytes);
   const count = (value: number | undefined) => (value == null ? '—' : value.toLocaleString('fr-FR'));
+  const pct = (value: number) => (total ? Math.round((value / total) * 100) : 0);
+  $effect.pre(() => {
+    if (rootId && rootId !== loadedFor) loadScan();
+  });
+  let measuring = $derived(scan?.status === 'running');
+  $effect.pre(() => {
+    measuring ? start() : stop();
+  });
+  let dups = $derived(content?.duplicates ?? null);
   // Empty sub-folders say nothing about where the weight is
-  $: top = (content?.top ?? []).filter((row) => row.bytes > 0);
-  $: maxTop = Math.max(1, ...top.map((row) => row.bytes));
-  $: types = content?.types ?? [];
-  $: maxType = Math.max(1, ...types.map((row) => row.files));
-  $: floor = content?.truncated ? '≥ ' : '';
+  let top = $derived((content?.top ?? []).filter((row) => row.bytes > 0));
+  let maxTop = $derived(Math.max(1, ...top.map((row) => row.bytes)));
+  let types = $derived(content?.types ?? []);
+  let maxType = $derived(Math.max(1, ...types.map((row) => row.files)));
+  let floor = $derived(content?.truncated ? '≥ ' : '');
   // Age of the data: under a year, 1 to 3 years, over 3 years (share of the bytes)
-  $: total = Number(content?.bytes ?? 0);
-  $: c1 = Number(content?.cold?.['1y']?.bytes ?? 0);
-  $: c3 = Number(content?.cold?.['3y']?.bytes ?? 0);
-  $: ages = content?.cold && total > 0
+  let total = $derived(Number(content?.bytes ?? 0));
+  let c1 = $derived(Number(content?.cold?.['1y']?.bytes ?? 0));
+  let c3 = $derived(Number(content?.cold?.['3y']?.bytes ?? 0));
+  let ages = $derived(content?.cold && total > 0
     ? [
         { key: 'fresh', label: t('Changed this year'), bytes: total - c1 },
         { key: 'cold', label: t('1 to 3 years'), bytes: c1 - c3 },
         { key: 'frozen', label: t('Over 3 years'), bytes: c3 }
       ]
-    : [];
-  const pct = (value: number) => (total ? Math.round((value / total) * 100) : 0);
+    : []);
 </script>
 
 <section class="cc" aria-label={t('Content of the folder')} use:flashOn={landed}>
@@ -124,10 +140,10 @@
     <h2>{t('Content')}</h2>
     <small>
       {#if measuring}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span> {scan?.progress ? t('Scan {done}/{total} · {files} file(s)', { done: scan.progress.chunks_done, total: scan.progress.chunks_total, files: scan.progress.files.toLocaleString('fr-FR') }) : t('Measure in progress…')}
-      {#if isAdmin}· <button type="button" class="b2s-link-btn" on:click={stopMeasure}>{t('Stop')}</button>{/if}
+      {#if isAdmin}· <button type="button" class="b2s-link-btn" onclick={stopMeasure}>{t('Stop')}</button>{/if}
       {:else if content?.scanned_at}<span title={formatDateTime(content.scanned_at)}>{t('measured {when}', { when: timeAgo(content.scanned_at) })}</span>{#if content.mode === 'incremental'} · {t('incremental')}{/if}{#if content.method} · {content.method === 'derived' ? t('from the measure of the parent folder') : content.method === 'server' ? t('on the server') : t('through SMB')}{content.elapsed_ms != null ? ` (${seconds(content.elapsed_ms)})` : ''}{/if}
       {:else}{t('Not measured yet')}{/if}
-      {#if rootId && !measuring} · <button type="button" class="b2s-link-btn" disabled={busy} on:click={measure}>{content?.scanned_at ? t('Measure again') : t('Measure the folder')}</button>{/if}
+      {#if rootId && !measuring} · <button type="button" class="b2s-link-btn" disabled={busy} onclick={measure}>{content?.scanned_at ? t('Measure again') : t('Measure the folder')}</button>{/if}
     </small>
   </header>
   {#if measuring && scan?.progress?.chunks_total}

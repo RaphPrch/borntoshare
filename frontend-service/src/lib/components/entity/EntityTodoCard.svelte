@@ -1,4 +1,4 @@
-<script context="module" lang="ts">
+<script module lang="ts">
   export type EntityTodoStep = {
     key: string;
     tone: 'bad' | 'warn' | 'info';
@@ -12,9 +12,14 @@
 </script>
 
 <script lang="ts">
-  /** « To do on this … »: one line per problem, each with the action that settles it; hidden when empty. */
-  export let title: string;
-  export let steps: EntityTodoStep[] = [];
+  
+  interface Props {
+    /** « To do on this … »: one line per problem, each with the action that settles it; hidden when empty. */
+    title: string;
+    steps?: EntityTodoStep[];
+  }
+
+  let { title, steps = [] }: Props = $props();
 </script>
 
 {#if steps.length}
@@ -24,7 +29,7 @@
       <div class="todo__row">
         <span class={`todo__icon is-${step.tone}`} aria-hidden="true"><i class={`bi ${step.icon}`}></i></span>
         <span class="todo__text"><strong>{step.title}</strong>{#if step.detail}<small>{step.detail}</small>{/if}</span>
-        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={step.busy} on:click={step.run}>{step.label}</button>
+        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={step.busy} onclick={step.run}>{step.label}</button>
       </div>
     {/each}
   </section>

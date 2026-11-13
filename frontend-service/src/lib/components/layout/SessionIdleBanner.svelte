@@ -12,17 +12,17 @@
   const STORAGE_KEY = 'b2s.session.lastActivity';
   const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'wheel'] as const;
 
-  let limitSeconds = 0;
-  let remainingSeconds = Number.POSITIVE_INFINITY;
+  let limitSeconds = $state(0);
+  let remainingSeconds = $state(Number.POSITIVE_INFINITY);
   let lastActivity = Date.now();
   let lastPing = Date.now();
-  let closing = false;
+  let closing = $state(false);
   let timer: ReturnType<typeof setInterval> | undefined;
 
-  $: warning = limitSeconds > 0 && remainingSeconds <= WARNING_SECONDS;
-  $: minutes = Math.floor(Math.max(remainingSeconds, 0) / 60);
-  $: seconds = Math.max(remainingSeconds, 0) % 60;
-  $: time = `${minutes}:${String(seconds).padStart(2, '0')}`;
+  let warning = $derived(limitSeconds > 0 && remainingSeconds <= WARNING_SECONDS);
+  let minutes = $derived(Math.floor(Math.max(remainingSeconds, 0) / 60));
+  let seconds = $derived(Math.max(remainingSeconds, 0) % 60);
+  let time = $derived(`${minutes}:${String(seconds).padStart(2, '0')}`);
 
   function storeActivity(now: number): void {
     lastActivity = now;
@@ -124,7 +124,7 @@
       {t('Your session will close in {time} because of inactivity.', { time })}
       <small>{t('Unsaved changes will be lost.')}</small>
     </span>
-    <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" on:click={stay}>{t('Stay signed in')}</button>
+    <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" onclick={stay}>{t('Stay signed in')}</button>
   </div>
 {/if}
 

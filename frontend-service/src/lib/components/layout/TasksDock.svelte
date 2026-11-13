@@ -9,13 +9,13 @@
    * Tasks in progress (administrators): measures, access being applied, directory reads… pushed live by /live.
    * Folded into a pill by default; a task that ends leaves the list on the next push.
    */
-  let expanded = false;
-  let dismissedKey = '';
+  let expanded = $state(false);
+  let dismissedKey = $state('');
 
-  $: tasks = $live.tasks;
-  $: key = tasks.map((task) => `${task.id}:${task.status}`).join(',');
+  let tasks = $derived($live.tasks);
+  let key = $derived(tasks.map((task) => `${task.id}:${task.status}`).join(','));
   // Hidden by the person until the list changes
-  $: visible = tasks.length > 0 && key !== dismissedKey;
+  let visible = $derived(tasks.length > 0 && key !== dismissedKey);
   const percent = (task: LiveTask): number | null => {
     const p = task.progress as { chunks_done?: number; chunks_total?: number } | null;
     return p?.chunks_total ? Math.min(100, Math.round((100 * Number(p.chunks_done ?? 0)) / Number(p.chunks_total))) : null;
@@ -32,13 +32,13 @@
 {#if visible}
   <aside class="td" class:is-open={expanded} aria-label={t('Tasks in progress')} transition:fly={{ y: 16, duration: dur(MOTION.base) }}>
     <header>
-      <button type="button" class="td__head" aria-expanded={expanded} on:click={() => (expanded = !expanded)}>
+      <button type="button" class="td__head" aria-expanded={expanded} onclick={() => (expanded = !expanded)}>
         <span class="td__spin" aria-hidden="true"></span>
         <strong>{t('{count} task(s) in progress', { count: tasks.length })}</strong>
         <i class={`bi ${expanded ? 'bi-chevron-down' : 'bi-chevron-up'}`} aria-hidden="true"></i>
       </button>
       <a href="/observability?tab=jobs" class="td__all">{t('See all')}</a>
-      <button type="button" class="td__close" aria-label={t('Hide')} on:click={() => (dismissedKey = key)}><i class="bi bi-x" aria-hidden="true"></i></button>
+      <button type="button" class="td__close" aria-label={t('Hide')} onclick={() => (dismissedKey = key)}><i class="bi bi-x" aria-hidden="true"></i></button>
     </header>
     {#if expanded}
       <ul>

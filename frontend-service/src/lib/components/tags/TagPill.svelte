@@ -1,5 +1,8 @@
 <script lang="ts">
-  /**
+  
+
+  interface Props {
+    /**
    * TagPill
    * -------
    * Normalized tag display component.
@@ -10,10 +13,12 @@
    * - Color comes from backend
    * - Styled via `app.css`
    */
+    label: string;
+    color?: string | null;
+    small?: boolean;
+  }
 
-  export let label: string;
-  export let color: string | null = null;
-  export let small = false;
+  let { label, color = null, small = false }: Props = $props();
 </script>
 
 <span

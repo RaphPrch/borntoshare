@@ -52,6 +52,8 @@
 </script>
 
 <script lang="ts">
+  import { stopPropagation } from 'svelte/legacy';
+
   import { slideIndicator } from '$lib/utils/motion';
   import { onMount, tick } from 'svelte';
   import { t } from '$lib/i18n';
@@ -59,60 +61,100 @@
 
   type Row = { node: EntityTreeNode; depth: number; parent: string | null; hasChildren: boolean; expanded: boolean };
 
-  /**
+  
+  
+  
+  
+  
+  let anchorId: string | null = null;
+  
+  
+  
+  
+  interface Props {
+    /**
    * List pane of the entity workspaces (zones, storage endpoints, storage roots):
    * search, quick filters and a tree in the style of a file explorer
    * (collapsible levels, guides, keyboard navigation, remembered expanded nodes).
    */
-  export let ariaLabel = t('Entity list');
-  export let searchPlaceholder = t('Search');
-  export let searchAriaLabel = t('Search');
-  export let emptyLabel = t('No item matches your search.');
-  export let query = '';
-  /** What the nodes are matched against when it differs from the text typed (express filters taken out) */
-  export let matchQuery: string | null = null;
-  export let nodes: EntityTreeNode[] = [];
-  export let selectedId: string | number | null = null;
-  export let filters: EntitySidebarFilter[] = [];
-  export let activeFilter = '';
-  export let onFilter: (key: string) => void = () => {};
-  export let onSelect: (id: string | number, node: EntityTreeNode) => void = () => {};
-  export let onQueryChange: (value: string) => void = () => {};
-  /** Pointer over a selectable row (null when it leaves): a page can show a preview next to it */
-  export let onHover: ((node: EntityTreeNode | null, anchor: HTMLElement | null) => void) | null = null;
-  /** Right click (or the context-menu key) on a selectable row: the page opens its own menu */
-  export let onContextMenu: ((node: EntityTreeNode, event: MouseEvent) => void) | null = null;
-  /**
+    ariaLabel?: any;
+    searchPlaceholder?: any;
+    searchAriaLabel?: any;
+    emptyLabel?: any;
+    query?: string;
+    /** What the nodes are matched against when it differs from the text typed (express filters taken out) */
+    matchQuery?: string | null;
+    nodes?: EntityTreeNode[];
+    selectedId?: string | number | null;
+    filters?: EntitySidebarFilter[];
+    activeFilter?: string;
+    onFilter?: (key: string) => void;
+    onSelect?: (id: string | number, node: EntityTreeNode) => void;
+    onQueryChange?: (value: string) => void;
+    /** Pointer over a selectable row (null when it leaves): a page can show a preview next to it */
+    onHover?: ((node: EntityTreeNode | null, anchor: HTMLElement | null) => void) | null;
+    /** Right click (or the context-menu key) on a selectable row: the page opens its own menu */
+    onContextMenu?: ((node: EntityTreeNode, event: MouseEvent) => void) | null;
+    /**
    * Several items at once (off by default): Ctrl/Cmd + click adds or removes one, Shift + click takes the range
    * from the last one, the box on the row too. `checked` holds the selectId of the items (as strings).
    */
-  export let multiSelect = false;
-  export let checked: Set<string> = new Set();
-  export let onCheckedChange: ((next: Set<string>) => void) | null = null;
-  let anchorId: string | null = null;
-  /** « + » next to the search: creates an item of the list (new file server, storage roots, zone) */
-  export let onAdd: (() => void) | null = null;
-  export let addLabel = t('Add');
-  /** localStorage key of the expanded nodes (none: not remembered) */
-  export let storageKey: string | null = null;
-  /** Levels expanded the first time (before anything is remembered) */
-  export let defaultExpandDepth = 1;
-  /** Optional Tree / List switch */
-  export let viewMode: 'tree' | 'list' | null = null;
-  export let onViewMode: (mode: 'tree' | 'list') => void = () => {};
+    multiSelect?: boolean;
+    checked?: Set<string>;
+    onCheckedChange?: ((next: Set<string>) => void) | null;
+    /** « + » next to the search: creates an item of the list (new file server, storage roots, zone) */
+    onAdd?: (() => void) | null;
+    addLabel?: any;
+    /** localStorage key of the expanded nodes (none: not remembered) */
+    storageKey?: string | null;
+    /** Levels expanded the first time (before anything is remembered) */
+    defaultExpandDepth?: number;
+    /** Optional Tree / List switch */
+    viewMode?: 'tree' | 'list' | null;
+    onViewMode?: (mode: 'tree' | 'list') => void;
+    belowSearch?: import('svelte').Snippet;
+  }
 
-  let expanded = new Set<string>();
+  let {
+    ariaLabel = t('Entity list'),
+    searchPlaceholder = t('Search'),
+    searchAriaLabel = t('Search'),
+    emptyLabel = t('No item matches your search.'),
+    query = '',
+    matchQuery = null,
+    nodes = [],
+    selectedId = null,
+    filters = [],
+    activeFilter = '',
+    onFilter = () => {},
+    onSelect = () => {},
+    onQueryChange = () => {},
+    onHover = null,
+    onContextMenu = null,
+    multiSelect = false,
+    checked = new Set(),
+    onCheckedChange = null,
+    onAdd = null,
+    addLabel = t('Add'),
+    storageKey = null,
+    defaultExpandDepth = 1,
+    viewMode = null,
+    onViewMode = () => {},
+    belowSearch
+  }: Props = $props();
+
+  let expanded = $state(new Set<string>());
   /** Branches opened only to reveal the selection: closed again when the selection moves elsewhere */
-  let autoOpened = new Set<string>();
-  let initialized = false;
-  let focusedKey: string | null = null;
-  let treeEl: HTMLDivElement;
+  let autoOpened = $state(new Set<string>());
+  let initialized = $state(false);
+  let focusedKey: string | null = $state(null);
+  let treeEl: HTMLDivElement = $state();
 
   const norm = (value: unknown): string => String(value ?? '').trim().toLowerCase();
   const hasChildren = (node: EntityTreeNode): boolean => Array.isArray(node.children) && node.children.length > 0;
 
   // Index of the full tree: parent of each key, keys of the containers, key of the selected entity
-  $: index = (() => {
+  let index = $derived((() => {
     const parents = new Map<string, string | null>();
     const containers: string[] = [];
     let selectedKey: string | null = null;
@@ -128,8 +170,8 @@
     };
     walk(nodes, null, 0);
     return { parents, containers, selectedKey };
-  })();
-  $: isTree = index.containers.length > 0;
+  })());
+  let isTree = $derived(index.containers.length > 0);
 
   function ancestors(key: string | null): string[] {
     const out: string[] = [];
@@ -203,23 +245,25 @@
   });
 
   // The selected entity is always visible (deep link, Ctrl+K search, selection from another page)
-  let revealedFor: string | null = null;
-  $: if (initialized && index.selectedKey && index.selectedKey !== revealedFor) {
-    revealedFor = index.selectedKey;
-    const path = ancestors(index.selectedKey);
-    const next = new Set(expanded);
-    for (const key of autoOpened) {
-      if (!path.includes(key)) next.delete(key);
+  let revealedFor: string | null = $state(null);
+  $effect.pre(() => {
+    if (initialized && index.selectedKey && index.selectedKey !== revealedFor) {
+      revealedFor = index.selectedKey;
+      const path = ancestors(index.selectedKey);
+      const next = new Set(expanded);
+      for (const key of autoOpened) {
+        if (!path.includes(key)) next.delete(key);
+      }
+      const missing = path.filter((key) => !next.has(key));
+      autoOpened = new Set([...[...autoOpened].filter((key) => path.includes(key)), ...missing]);
+      for (const key of missing) next.add(key);
+      setExpanded(next);
+      tick().then(() => scrollToRow(index.selectedKey));
     }
-    const missing = path.filter((key) => !next.has(key));
-    autoOpened = new Set([...[...autoOpened].filter((key) => path.includes(key)), ...missing]);
-    for (const key of missing) next.add(key);
-    setExpanded(next);
-    tick().then(() => scrollToRow(index.selectedKey));
-  }
+  });
 
   // Search: keeps matching nodes and their ancestors, and opens the branches that lead to them
-  $: q = norm(matchQuery ?? query);
+  let q = $derived(norm(matchQuery ?? query));
   const matches = (node: EntityTreeNode): boolean =>
     [node.label, node.hint, node.subtitle, node.searchText].map(norm).join(' ').includes(q);
 
@@ -237,7 +281,7 @@
     return out;
   }
 
-  $: rows = (() => {
+  let rows = $derived((() => {
     const out: Row[] = [];
     const walk = (items: EntityTreeNode[], depth: number, parent: string | null) => {
       for (const node of items) {
@@ -249,11 +293,13 @@
     };
     walk(filterTree(nodes), 0, null);
     return out;
-  })();
+  })());
 
-  $: if (rows.length > 0 && (!focusedKey || !rows.some((row) => row.node.key === focusedKey))) {
-    focusedKey = index.selectedKey && rows.some((row) => row.node.key === index.selectedKey) ? index.selectedKey : rows[0].node.key;
-  }
+  $effect.pre(() => {
+    if (rows.length > 0 && (!focusedKey || !rows.some((row) => row.node.key === focusedKey))) {
+      focusedKey = index.selectedKey && rows.some((row) => row.node.key === index.selectedKey) ? index.selectedKey : rows[0].node.key;
+    }
+  });
 
   function highlight(label: string): Array<{ text: string; hit: boolean }> {
     if (!q) return [{ text: label, hit: false }];
@@ -348,7 +394,7 @@
   }
 </script>
 
-<svelte:window on:keydown={onWindowKeydown} />
+<svelte:window onkeydown={onWindowKeydown} />
 <aside class="b2s-list-pane" aria-label={ariaLabel} bind:this={paneEl}>
   <div class="b2s-list-pane__head">
     <div class="b2s-list-pane__searchrow">
@@ -360,12 +406,12 @@
         onChange={(value) => onQueryChange(value)}
       />
       {#if onAdd}
-        <button type="button" class="b2s-btn b2s-btn-primary b2s-list-pane__add" title={addLabel} aria-label={addLabel} on:click={() => onAdd?.()}>
+        <button type="button" class="b2s-btn b2s-btn-primary b2s-list-pane__add" title={addLabel} aria-label={addLabel} onclick={() => onAdd?.()}>
           <i class="bi bi-plus-lg" aria-hidden="true"></i>
         </button>
       {/if}
     </div>
-    <slot name="below-search" />
+    {@render belowSearch?.()}
     {#if filters.length > 0}
       <div class="b2s-list-pane__filters" role="group" aria-label={t('Quick filters')}>
         {#each filters as filter (filter.key)}
@@ -374,7 +420,7 @@
             class="b2s-list-pane__filter"
             class:is-active={filter.key === activeFilter}
             aria-pressed={filter.key === activeFilter}
-            on:click={() => onFilter(filter.key)}
+            onclick={() => onFilter(filter.key)}
           >
             {filter.label}
             {#if filter.count !== undefined}<span>{filter.count}</span>{/if}
@@ -386,10 +432,10 @@
       <div class="b2s-list-pane__tools">
         {#if viewMode}
           <div class="b2s-list-pane__views" role="group" aria-label={t('Display')}>
-            <button type="button" class:is-active={viewMode === 'tree'} aria-pressed={viewMode === 'tree'} on:click={() => onViewMode('tree')}>
+            <button type="button" class:is-active={viewMode === 'tree'} aria-pressed={viewMode === 'tree'} onclick={() => onViewMode('tree')}>
               <i class="bi bi-diagram-3" aria-hidden="true"></i>{t('Tree')}
             </button>
-            <button type="button" class:is-active={viewMode === 'list'} aria-pressed={viewMode === 'list'} on:click={() => onViewMode('list')}>
+            <button type="button" class:is-active={viewMode === 'list'} aria-pressed={viewMode === 'list'} onclick={() => onViewMode('list')}>
               <i class="bi bi-list-ul" aria-hidden="true"></i>{t('List')}
             </button>
           </div>
@@ -421,17 +467,17 @@
             tabindex={node.key === focusedKey ? 0 : -1}
             title={node.title ?? undefined}
             data-key={node.key}
-            on:mouseenter={(event) => node.selectId != null && onHover?.(node, event.currentTarget)}
-            on:mouseleave={() => onHover?.(null, null)}
-            on:contextmenu={(event) => {
+            onmouseenter={(event) => node.selectId != null && onHover?.(node, event.currentTarget)}
+            onmouseleave={() => onHover?.(null, null)}
+            oncontextmenu={(event) => {
               if (!onContextMenu || (node.selectId == null && !node.contextMenu)) return;
               event.preventDefault();
               onHover?.(null, null);
               onContextMenu(node, event);
             }}
-            on:click={(event) => activate(row, event)}
-            on:keydown={onKeydown}
-            on:focus={() => (focusedKey = node.key)}
+            onclick={(event) => activate(row, event)}
+            onkeydown={onKeydown}
+            onfocus={() => (focusedKey = node.key)}
           >
             {#each Array(row.depth) as _}<span class="b2s-tree__guide" aria-hidden="true"></span>{/each}
             {#if isTree}
@@ -442,7 +488,7 @@
                   tabindex="-1"
                   aria-label={row.expanded ? t('Collapse') : t('Expand')}
                   disabled={Boolean(q)}
-                  on:click|stopPropagation={() => toggle(node.key)}
+                  onclick={stopPropagation(() => toggle(node.key))}
                 >
                   <i class={`bi ${row.expanded ? 'bi-chevron-down' : 'bi-chevron-right'}`} aria-hidden="true"></i>
                 </button>

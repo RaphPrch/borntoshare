@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import { copyText } from '$lib/utils/clipboard';
   import SavedViews from '$lib/components/ui/SavedViews.svelte';
   import { resizableColumns } from '$lib/utils/resizable-columns';
@@ -21,7 +23,7 @@
     type GovernanceAlert
   } from '$lib/api/governance-alerts';
   import type { StatusVariant } from '$lib/utils/status';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { recall, remember } from '$lib/utils/remember';
   import { onLiveChange } from '$lib/stores/live';
   import { listZones } from '$lib/api/zones';
@@ -31,28 +33,35 @@
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { goto } from '$app/navigation';
 
-  /** Opened from the overview: an initial filter (« critical » = critical or high) */
-  export let initialSeverity: string = 'all';
-  export let initialType: string = '';
+  
+  interface Props {
+    /** Opened from the overview: an initial filter (« critical » = critical or high) */
+    initialSeverity?: string;
+    initialType?: string;
+  }
 
-  let alerts: GovernanceAlert[] = [];
-  let loadFailed = false;
-  let loading = true;
-  let query = initialType;
+  let { initialSeverity = 'all', initialType = '' }: Props = $props();
+
+  let alerts: GovernanceAlert[] = $state([]);
+  let loadFailed = $state(false);
+  let loading = $state(true);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let query = $state(initialType);
   // A link with a severity or a type opens that view; otherwise the list reopens as it was left
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
   const fromLink = Boolean(initialType) || (initialSeverity || 'all') !== 'all';
   const saved = recall('alerts', { statusFilter: 'active', zoneFilter: 'all', grouped: true, pageSize: 25 });
-  let statusFilter = (fromLink ? 'active' : saved.statusFilter) as 'active' | 'open' | 'acknowledged' | 'resolved' | 'all';
-  let severityFilter = initialSeverity || 'all';
-  let zoneFilter = fromLink ? 'all' : saved.zoneFilter;
+  let statusFilter = $state((fromLink ? 'active' : saved.statusFilter) as 'active' | 'open' | 'acknowledged' | 'resolved' | 'all');
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let severityFilter = $state(initialSeverity || 'all');
+  let zoneFilter = $state(fromLink ? 'all' : saved.zoneFilter);
   // By type first: a filter coming from the overview shows the alerts themselves
-  let grouped = fromLink ? false : saved.grouped;
-  let zones: { id: number; name: string }[] = [];
-  let page = 1;
-  let pageSize = saved.pageSize;
-  $: remember('alerts', { statusFilter, zoneFilter, grouped, pageSize });
-  let busyId: string | null = null;
-  let refreshing = false;
+  let grouped = $state(fromLink ? false : saved.grouped);
+  let zones: { id: number; name: string }[] = $state([]);
+  let page = $state(1);
+  let pageSize = $state(saved.pageSize);
+  let busyId: string | null = $state(null);
+  let refreshing = $state(false);
 
   const SEVERITY_RANK: Record<string, number> = { critical: 1, high: 2, warning: 3, info: 4 };
   const SEVERITY_VARIANT: Record<string, StatusVariant> = { critical: 'error', high: 'error', warning: 'warning', info: 'info' };
@@ -90,51 +99,7 @@
     return { label: String(alert.scope_type ?? '—'), href: null };
   };
 
-  $: active = alerts.filter((a) => statusOf(a) !== 'resolved');
-  $: counts = {
-    critical: active.filter((a) => ['critical', 'high'].includes(severityOf(a)) && statusOf(a) === 'open').length,
-    warning: active.filter((a) => severityOf(a) === 'warning' && statusOf(a) === 'open').length,
-    acknowledged: active.filter((a) => statusOf(a) === 'acknowledged').length,
-    resolved: alerts.filter((a) => statusOf(a) === 'resolved').length
-  };
-  $: filtered = alerts
-    .filter((a) => {
-      const status = statusOf(a);
-      if (statusFilter === 'active') return status !== 'resolved';
-      return statusFilter === 'all' || status === statusFilter;
-    })
-    .filter((a) =>
-      severityFilter === 'all' ||
-      (severityFilter === 'critical_high' ? ['critical', 'high'].includes(severityOf(a)) : severityOf(a) === severityFilter)
-    )
-    .filter((a) => zoneFilter === 'all' || String(a.zone_id ?? '') === zoneFilter)
-    .filter((a) => {
-      const q = normalizeText(query);
-      if (!q) return true;
-      return normalizeText([a.title, a.message, typeOf(a), scopeOf(a).label].join(' ')).includes(q);
-    })
-    .sort(
-      (a, b) =>
-        (SEVERITY_RANK[severityOf(a)] ?? 9) - (SEVERITY_RANK[severityOf(b)] ?? 9) ||
-        String(b.last_seen_at ?? '').localeCompare(String(a.last_seen_at ?? ''))
-    );
-  $: query, statusFilter, severityFilter, zoneFilter, grouped, (page = 1);
-  $: pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  /** « Endpoint unreachable × 86 »: one line per type, worst severity first */
-  $: groups = Object.values(
-    filtered.reduce<Record<string, { type: string; title: string; severity: string; count: number; scopes: string[]; lastSeen: string }>>((acc, a) => {
-      const type = typeOf(a);
-      const group = (acc[type] ??= { type, title: a.title ? alertTitle(a) : type, severity: severityOf(a), count: 0, scopes: [], lastSeen: '' });
-      group.count += 1;
-      if ((SEVERITY_RANK[severityOf(a)] ?? 9) < (SEVERITY_RANK[group.severity] ?? 9)) group.severity = severityOf(a);
-      const scope = scopeOf(a).label;
-      if (scope && !group.scopes.includes(scope)) group.scopes.push(scope);
-      if (String(a.last_seen_at ?? '') > group.lastSeen) group.lastSeen = String(a.last_seen_at ?? '');
-      return acc;
-    }, {})
-  ).sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) || b.count - a.count);
-  $: groupRows = groups.slice((page - 1) * pageSize, page * pageSize);
 
   function typeOf(alert: GovernanceAlert): string {
     return String(alert.alert_type ?? 'other').split(':')[0];
@@ -170,10 +135,7 @@
   }
 
   // « Resolve » opens how to fix the cause first: marking it resolved alone does not fix anything
-  let guideAlert: GovernanceAlert | null = null;
-  $: guide = guideAlert ? alertGuide(guideAlert.alert_type) : null;
-  $: guideScope = guideAlert ? scopeOf(guideAlert) : null;
-  $: guideHref = guideScope?.href && guide?.action?.tab ? `${guideScope.href}&tab=${guide.action.tab}` : guideScope?.href ?? null;
+  let guideAlert: GovernanceAlert | null = $state(null);
   async function resolveFromGuide() {
     if (!guideAlert) return;
     const alert = guideAlert;
@@ -182,7 +144,7 @@
   }
 
   // ---- right click on an alert: the row's actions plus the object it concerns ----
-  let menu: { alert: GovernanceAlert; at: { x: number; y: number } } | null = null;
+  let menu: { alert: GovernanceAlert; at: { x: number; y: number } } | null = $state(null);
   function openMenu(alert: GovernanceAlert, event: MouseEvent) {
     event.preventDefault();
     menu = { alert, at: menuPositionFor(event) };
@@ -228,6 +190,59 @@
       busyId = null;
     }
   }
+  $effect.pre(() => {
+    remember('alerts', { statusFilter, zoneFilter, grouped, pageSize });
+  });
+  let active = $derived(alerts.filter((a) => statusOf(a) !== 'resolved'));
+  let counts = $derived({
+    critical: active.filter((a) => ['critical', 'high'].includes(severityOf(a)) && statusOf(a) === 'open').length,
+    warning: active.filter((a) => severityOf(a) === 'warning' && statusOf(a) === 'open').length,
+    acknowledged: active.filter((a) => statusOf(a) === 'acknowledged').length,
+    resolved: alerts.filter((a) => statusOf(a) === 'resolved').length
+  });
+  let filtered = $derived(alerts
+    .filter((a) => {
+      const status = statusOf(a);
+      if (statusFilter === 'active') return status !== 'resolved';
+      return statusFilter === 'all' || status === statusFilter;
+    })
+    .filter((a) =>
+      severityFilter === 'all' ||
+      (severityFilter === 'critical_high' ? ['critical', 'high'].includes(severityOf(a)) : severityOf(a) === severityFilter)
+    )
+    .filter((a) => zoneFilter === 'all' || String(a.zone_id ?? '') === zoneFilter)
+    .filter((a) => {
+      const q = normalizeText(query);
+      if (!q) return true;
+      return normalizeText([a.title, a.message, typeOf(a), scopeOf(a).label].join(' ')).includes(q);
+    })
+    .sort(
+      (a, b) =>
+        (SEVERITY_RANK[severityOf(a)] ?? 9) - (SEVERITY_RANK[severityOf(b)] ?? 9) ||
+        String(b.last_seen_at ?? '').localeCompare(String(a.last_seen_at ?? ''))
+    ));
+  $effect.pre(() => {
+    void [query, statusFilter, severityFilter, zoneFilter, grouped]; // only these start it again (as the former « $: »)
+    untrack(() => { page = 1; });
+  });
+  let pageRows = $derived(filtered.slice((page - 1) * pageSize, page * pageSize));
+  /** « Endpoint unreachable × 86 »: one line per type, worst severity first */
+  let groups = $derived(Object.values(
+    filtered.reduce<Record<string, { type: string; title: string; severity: string; count: number; scopes: string[]; lastSeen: string }>>((acc, a) => {
+      const type = typeOf(a);
+      const group = (acc[type] ??= { type, title: a.title ? alertTitle(a) : type, severity: severityOf(a), count: 0, scopes: [], lastSeen: '' });
+      group.count += 1;
+      if ((SEVERITY_RANK[severityOf(a)] ?? 9) < (SEVERITY_RANK[group.severity] ?? 9)) group.severity = severityOf(a);
+      const scope = scopeOf(a).label;
+      if (scope && !group.scopes.includes(scope)) group.scopes.push(scope);
+      if (String(a.last_seen_at ?? '') > group.lastSeen) group.lastSeen = String(a.last_seen_at ?? '');
+      return acc;
+    }, {})
+  ).sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) || b.count - a.count));
+  let groupRows = $derived(groups.slice((page - 1) * pageSize, page * pageSize));
+  let guide = $derived(guideAlert ? alertGuide(guideAlert.alert_type) : null);
+  let guideScope = $derived(guideAlert ? scopeOf(guideAlert) : null);
+  let guideHref = $derived(guideScope?.href && guide?.action?.tab ? `${guideScope.href}&tab=${guide.action.tab}` : guideScope?.href ?? null);
 </script>
 
 <div class="obs-alerts">
@@ -263,7 +278,7 @@
       <input type="checkbox" class="obs-switch" bind:checked={grouped} />
       <span>{t('Group by type')}</span>
     </label>
-    <button class="b2s-btn b2s-btn-secondary b2s-toolbar__end" type="button" on:click={refresh} disabled={refreshing}>
+    <button class="b2s-btn b2s-btn-secondary b2s-toolbar__end" type="button" onclick={refresh} disabled={refreshing}>
       <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
       {t('Refresh')}
     </button>
@@ -306,7 +321,7 @@
                 <td>{group.scopes.slice(0, 3).join(', ')}{group.scopes.length > 3 ? ` +${group.scopes.length - 3}` : ''}</td>
                 <td class="obs-date"><RelativeTime value={group.lastSeen} /></td>
                 <td class="obs-actions">
-                  <button class="b2s-btn b2s-btn-secondary b2s-btn-sm" type="button" on:click={() => showGroup(group.type)}>{t('Show')}</button>
+                  <button class="b2s-btn b2s-btn-secondary b2s-btn-sm" type="button" onclick={() => showGroup(group.type)}>{t('Show')}</button>
                 </td>
               </tr>
             {/each}
@@ -331,7 +346,7 @@
             {#each pageRows as alert (alert.id)}
               {@const scope = scopeOf(alert)}
               {@const status = statusOf(alert)}
-              <tr on:contextmenu={(event) => openMenu(alert, event)}>
+              <tr oncontextmenu={(event) => openMenu(alert, event)}>
                 <td>
                   <StatusBadge compact variant={SEVERITY_VARIANT[severityOf(alert)] ?? 'muted'} label={severityLabel(severityOf(alert))} />
                 </td>
@@ -348,12 +363,12 @@
                 </td>
                 <td class="obs-actions">
                   {#if status === 'open'}
-                    <button class="b2s-btn b2s-btn-secondary b2s-btn-sm" type="button" title={t('I have seen it and I am dealing with it: the alert stays, marked as taken care of')} disabled={busyId !== null} on:click={() => changeStatus(alert, 'acknowledge')}>
+                    <button class="b2s-btn b2s-btn-secondary b2s-btn-sm" type="button" title={t('I have seen it and I am dealing with it: the alert stays, marked as taken care of')} disabled={busyId !== null} onclick={() => changeStatus(alert, 'acknowledge')}>
                       {t('Acknowledge')}
                     </button>
                   {/if}
                   {#if status !== 'resolved'}
-                    <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled={busyId !== null} on:click={() => (guideAlert = alert)}>
+                    <button class="b2s-btn b2s-btn-primary b2s-btn-sm" type="button" disabled={busyId !== null} onclick={() => (guideAlert = alert)}>
                       {t('Resolve')}
                     </button>
                   {/if}
@@ -382,13 +397,15 @@
         {t('The checks close the alert by themselves once the cause is gone. Marking it resolved by hand hides it until the next check: if the cause is still there, it opens again.')}</p>
     </div>
   {/if}
-  <svelte:fragment slot="footer-start">
+  {#snippet footerStart()}
     {#if guideHref}<a class="b2s-btn b2s-btn-secondary" href={guideHref}>{guide?.action?.label ?? t('Open the item')}</a>{/if}
-  </svelte:fragment>
-  <svelte:fragment slot="footer">
-    <button class="b2s-btn b2s-btn-secondary" type="button" on:click={() => (guideAlert = null)}>{t('Cancel')}</button>
-    <button class="b2s-btn b2s-btn-primary" type="button" disabled={busyId !== null} on:click={resolveFromGuide}>{t('It is fixed: mark resolved')}</button>
-  </svelte:fragment>
+  {/snippet}
+  {#snippet footer()}
+  
+      <button class="b2s-btn b2s-btn-secondary" type="button" onclick={() => (guideAlert = null)}>{t('Cancel')}</button>
+      <button class="b2s-btn b2s-btn-primary" type="button" disabled={busyId !== null} onclick={resolveFromGuide}>{t('It is fixed: mark resolved')}</button>
+    
+  {/snippet}
 </AppModal>
 
 <ContextMenu open={Boolean(menu)} title={menu ? (menu.alert.title ? alertTitle(menu.alert) : String(menu.alert.alert_type ?? '')) : ''} subtitle={menu ? scopeOf(menu.alert).label : ''}

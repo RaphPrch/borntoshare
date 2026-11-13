@@ -14,25 +14,29 @@
     type ServiceInput
   } from '$lib/api/infrastructure';
 
-  export let services: InfraService[] = [];
+  interface Props {
+    services?: InfraService[];
+  }
+
+  let { services = $bindable([]) }: Props = $props();
 
   const CATEGORY_OPTIONS = CATEGORIES.filter((c) => !['worker', 'directory'].includes(c.key));
   const empty = (): ServiceInput => ({ label: '', category: 'custom', check_kind: 'http', target: '', is_enabled: true });
 
-  let draft: ServiceInput = empty();
-  let editingId: number | null = null;
-  let adding = false;
-  let saving = false;
-  let removing: InfraService | null = null;
+  let draft: ServiceInput = $state(empty());
+  let editingId: number | null = $state(null);
+  let adding = $state(false);
+  let saving = $state(false);
+  let removing: InfraService | null = $state(null);
 
-  $: draftError = (() => {
+  let draftError = $derived((() => {
     const target = draft.target.trim();
     if (!draft.label.trim() || !target) return null;
     if (draft.check_kind === 'http' && !/^https?:\/\//.test(target)) return t('An http:// or https:// URL is expected');
     if (draft.check_kind === 'tcp' && !/^[^\s/]+:\d{1,5}$/.test(target)) return t('host:port is expected');
     return null;
-  })();
-  $: draftValid = !!draft.label.trim() && !!draft.target.trim() && !draftError;
+  })());
+  let draftValid = $derived(!!draft.label.trim() && !!draft.target.trim() && !draftError);
 
   function categoryLabel(key: string) {
     return CATEGORIES.find((c) => c.key === key)?.label() ?? key;
@@ -100,7 +104,7 @@
 
 <div class="toolbar">
   <p>{t('Checked from a worker at every health check. Directories, file servers, workers and Keycloak are added automatically.')}</p>
-  <button type="button" class="b2s-btn b2s-btn-primary" on:click={startAdd} disabled={adding}>
+  <button type="button" class="b2s-btn b2s-btn-primary" onclick={startAdd} disabled={adding}>
     <i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Add a component')}
   </button>
 </div>
@@ -139,8 +143,8 @@
             </td>
             <td class="center"><input type="checkbox" class="cap-switch" bind:checked={draft.is_enabled} aria-label={t('Monitored')} /></td>
             <td class="right nowrap">
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={cancel}>{t('Cancel')}</button>
-              <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" on:click={submit} disabled={!draftValid || saving}>{t('Save')}</button>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={cancel}>{t('Cancel')}</button>
+              <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" onclick={submit} disabled={!draftValid || saving}>{t('Save')}</button>
             </td>
           </tr>
         {:else}
@@ -153,14 +157,14 @@
             <td><span class="kind">{service.check_kind === 'http' ? 'HTTP(S)' : 'TCP'}</span></td>
             <td class="mono target" title={service.target}>{service.target}</td>
             <td class="center">
-              <input type="checkbox" class="cap-switch" checked={service.is_enabled} on:change={() => toggle(service)} aria-label={t('Monitored')} />
+              <input type="checkbox" class="cap-switch" checked={service.is_enabled} onchange={() => toggle(service)} aria-label={t('Monitored')} />
             </td>
             <td class="right nowrap">
-              <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" on:click={() => startEdit(service)} aria-label={t('Edit')}>
+              <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" onclick={() => startEdit(service)} aria-label={t('Edit')}>
                 <i class="bi bi-pencil" aria-hidden="true"></i>
               </button>
               {#if !service.is_builtin}
-                <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" on:click={() => (removing = service)} aria-label={t('Remove')}>
+                <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" onclick={() => (removing = service)} aria-label={t('Remove')}>
                   <i class="bi bi-trash3" aria-hidden="true"></i>
                 </button>
               {/if}
@@ -188,8 +192,8 @@
           </td>
           <td class="center"><input type="checkbox" class="cap-switch" bind:checked={draft.is_enabled} aria-label={t('Monitored')} /></td>
           <td class="right nowrap">
-            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={cancel}>{t('Cancel')}</button>
-            <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" on:click={submit} disabled={!draftValid || saving}>{t('Add')}</button>
+            <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={cancel}>{t('Cancel')}</button>
+            <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" onclick={submit} disabled={!draftValid || saving}>{t('Add')}</button>
           </td>
         </tr>
       {/if}

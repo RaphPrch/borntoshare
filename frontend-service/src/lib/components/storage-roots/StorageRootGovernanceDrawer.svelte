@@ -9,30 +9,57 @@
   import EmptyState from '../ui/EmptyState.svelte';
   import EntityActionButton from '../entity/EntityActionButton.svelte';
 
-  export let open = false;
-  export let onClose: () => void = () => {};
-  export let onBrowse: (role: 'guardian') => void = () => {};
-  export let onSave: () => void = () => {};
-  export let onRemoveOwner: (owner: Record<string, unknown>) => void = () => {};
-  /** This guardian cannot remove themselves (0: no lock, for administrators) */
-  export let lockedIdentityId = 0;
+  
 
-  export let saving = false;
-  export let loading = false;
-  export let roleTab: 'guardian' = 'guardian';
-  export let draftDirty = false;
-  export let canSave = false;
-  export let unsavedChangesCount = 0;
-  export let selectedRootLabel = t('Storage root');
-  export let helperText = '';
-  export let browseDisabled = false;
-  export let errorMessage: string | null = null;
-  export let unresolvedPrincipalLabels: string[] = [];
-  export let emptyTitle = t('No guardian assigned yet');
-  export let roleRows: Array<Record<string, unknown>> = [];
 
-  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => t('Unknown');
-  export let ownerTypeLabel: (owner: Record<string, unknown>) => string = () => t('User');
+  interface Props {
+    open?: boolean;
+    onClose?: () => void;
+    onBrowse?: (role: 'guardian') => void;
+    onSave?: () => void;
+    onRemoveOwner?: (owner: Record<string, unknown>) => void;
+    /** This guardian cannot remove themselves (0: no lock, for administrators) */
+    lockedIdentityId?: number;
+    saving?: boolean;
+    loading?: boolean;
+    roleTab?: 'guardian';
+    draftDirty?: boolean;
+    canSave?: boolean;
+    unsavedChangesCount?: number;
+    selectedRootLabel?: any;
+    helperText?: string;
+    browseDisabled?: boolean;
+    errorMessage?: string | null;
+    unresolvedPrincipalLabels?: string[];
+    emptyTitle?: any;
+    roleRows?: Array<Record<string, unknown>>;
+    ownerDisplayName?: (owner: Record<string, unknown>) => string;
+    ownerTypeLabel?: (owner: Record<string, unknown>) => string;
+  }
+
+  let {
+    open = false,
+    onClose = () => {},
+    onBrowse = () => {},
+    onSave = () => {},
+    onRemoveOwner = () => {},
+    lockedIdentityId = 0,
+    saving = false,
+    loading = false,
+    roleTab = 'guardian',
+    draftDirty = false,
+    canSave = false,
+    unsavedChangesCount = 0,
+    selectedRootLabel = t('Storage root'),
+    helperText = '',
+    browseDisabled = false,
+    errorMessage = null,
+    unresolvedPrincipalLabels = [],
+    emptyTitle = t('No guardian assigned yet'),
+    roleRows = [],
+    ownerDisplayName = () => t('Unknown'),
+    ownerTypeLabel = () => t('User')
+  }: Props = $props();
 
   const assignedSectionTitle = () => t('Assigned guardians');
 
@@ -65,16 +92,18 @@
       aria-label={t('Assigned guardians')}
     >
       <SectionHeaderRow title={assignedSectionTitle()} count={roleRows.length} compact={true}>
-        <svelte:fragment slot="actions">
-          <EntityActionButton
-            variant="primary"
-            icon="bi-search"
-            label={t('Browse directory')}
-            className="governance-drawer__browse"
-            disabled={browseDisabled}
-            onClick={() => onBrowse(roleTab)}
-          />
-        </svelte:fragment>
+        {#snippet actions()}
+              
+            <EntityActionButton
+              variant="primary"
+              icon="bi-search"
+              label={t('Browse directory')}
+              className="governance-drawer__browse"
+              disabled={browseDisabled}
+              onClick={() => onBrowse(roleTab)}
+            />
+          
+              {/snippet}
       </SectionHeaderRow>
 
       <p class="governance-drawer__helper">{helperText}</p>
@@ -132,24 +161,26 @@
     </div>
   </div>
 
-  <svelte:fragment slot="footer">
-    <div class="governance-drawer__footer">
-      <ActionFooter
-        infoText={draftDirty ? unsavedLabel() : null}
-        showInfoDot={draftDirty}
-      >
-        <EntityActionButton variant="secondary" label={t('Cancel')} disabled={saving} onClick={onClose} />
-        <EntityActionButton
-          variant="primary"
-          label={saving ? t('Saving…') : t('Save changes')}
-          icon={saving ? 'bi-arrow-repeat' : 'bi-check2'}
-          busy={saving}
-          disabled={saving || !canSave}
-          onClick={onSave}
-        />
-      </ActionFooter>
-    </div>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <div class="governance-drawer__footer">
+        <ActionFooter
+          infoText={draftDirty ? unsavedLabel() : null}
+          showInfoDot={draftDirty}
+        >
+          <EntityActionButton variant="secondary" label={t('Cancel')} disabled={saving} onClick={onClose} />
+          <EntityActionButton
+            variant="primary"
+            label={saving ? t('Saving…') : t('Save changes')}
+            icon={saving ? 'bi-arrow-repeat' : 'bi-check2'}
+            busy={saving}
+            disabled={saving || !canSave}
+            onClick={onSave}
+          />
+        </ActionFooter>
+      </div>
+    
+  {/snippet}
 </StorageRootDrawerShell>
 
 <style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  
   import { t } from '$lib/i18n';
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
@@ -6,20 +7,22 @@
   import ZonesSidebar, { type ZonesSidebarZone } from "$lib/components/zones/ZonesSidebar.svelte";
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from "$lib/components/ui/ContextMenu.svelte";
 
-  export let data: { zones: any[]; selectedZoneId?: number | null };
+  interface Props {
+    data: { zones: any[]; selectedZoneId?: number | null };
+    children?: import('svelte').Snippet;
+  }
 
-  $: zones = data.zones ?? [];
-  let selectedZoneId: number | null = null;
-  $: selectedZoneId = data?.selectedZoneId ?? selectedZoneId;
+  let { data, children }: Props = $props();
+
+  let selectedZoneId: number | null = $state(null);
 
   function createZone() {
     goto('/admin/zones/new');
   }
 
   // Right click on a zone: its actions (those of the zone page, reached by ?action= / ?tab=)
-  let menuZone: ZonesSidebarZone | null = null;
-  let menuAt = { x: 0, y: 0 };
-  $: menuItems = menuZone ? zoneMenuItems(menuZone) : [];
+  let menuZone: ZonesSidebarZone | null = $state(null);
+  let menuAt = $state({ x: 0, y: 0 });
   function zoneMenuItems(zone: ZonesSidebarZone): ContextMenuItem[] {
     const servers = Number(zone.endpointCount ?? 0);
     const folders = Number(zone.storage_roots_count ?? 0);
@@ -44,8 +47,13 @@
     else void goto(`/admin/zones/${id}?action=${key}`);
   }
 
+  let zones = $derived(data.zones ?? []);
+  $effect.pre(() => {
+    selectedZoneId = data?.selectedZoneId ?? selectedZoneId;
+  });
+  let menuItems = $derived(menuZone ? zoneMenuItems(menuZone) : []);
   // The add page stands alone, like the one of the servers
-  $: addPage = /\/admin\/zones\/new\/?$/.test($page.url.pathname);
+  let addPage = $derived(/\/admin\/zones\/new\/?$/.test($page.url.pathname));
 </script>
 
 <ContextMenu open={Boolean(menuZone)} title={String(menuZone?.name ?? "")} subtitle={String(menuZone?.code ?? "")}
@@ -53,24 +61,26 @@
 
 {#if zones.length && !addPage}
   <EntityWorkspace title={t('Zones')} contentKey={selectedZoneId}>
-    <svelte:fragment slot="list">
-      <ZonesSidebar
-        onAdd={createZone}
-        addLabel={t('New zone')}
-        {zones}
-        {selectedZoneId}
-        onSelectZone={(id) => {
-          selectedZoneId = id;
-          goto(`/admin/zones/${id}`);
-        }}
-        onZoneMenu={(zone, event) => {
-          menuAt = menuPositionFor(event);
-          menuZone = zone;
-        }}
-      />
-    </svelte:fragment>
-    <slot />
+    {#snippet list()}
+      
+        <ZonesSidebar
+          onAdd={createZone}
+          addLabel={t('New zone')}
+          {zones}
+          {selectedZoneId}
+          onSelectZone={(id) => {
+            selectedZoneId = id;
+            goto(`/admin/zones/${id}`);
+          }}
+          onZoneMenu={(zone, event) => {
+            menuAt = menuPositionFor(event);
+            menuZone = zone;
+          }}
+        />
+      
+      {/snippet}
+    {@render children?.()}
   </EntityWorkspace>
 {:else}
-  <slot />
+  {@render children?.()}
 {/if}

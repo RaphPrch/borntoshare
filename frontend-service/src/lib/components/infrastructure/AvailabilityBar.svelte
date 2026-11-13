@@ -4,12 +4,17 @@
   import { statusLabel } from '$lib/utils/infrastructure';
   import type { HistoryPoint } from '$lib/api/infrastructure';
 
-  /** Last checks of a component, oldest first (one segment each, empty slots on the left) */
-  export let points: HistoryPoint[] = [];
-  export let slots = 32;
+  
+  interface Props {
+    /** Last checks of a component, oldest first (one segment each, empty slots on the left) */
+    points?: HistoryPoint[];
+    slots?: number;
+  }
 
-  $: recent = points.slice(-slots);
-  $: padding = Math.max(0, slots - recent.length);
+  let { points = [], slots = 32 }: Props = $props();
+
+  let recent = $derived(points.slice(-slots));
+  let padding = $derived(Math.max(0, slots - recent.length));
 </script>
 
 <div class="avail" role="img" aria-label={t('Availability over the last checks')}>

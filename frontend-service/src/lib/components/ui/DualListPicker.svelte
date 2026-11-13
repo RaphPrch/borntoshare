@@ -2,14 +2,27 @@
   import { t } from '$lib/i18n';
   import { createEventDispatcher } from 'svelte';
 
-  export let availableItems: any[] = [];
-  export let selectedItems: any[] = [];
 
-  export let availableTitle = t('Available');
-  export let selectedTitle = t('Selected');
 
-  export let getItemKey: (item: any) => string | number = (item: any) => String(item?.id ?? item ?? '');
-  export let itemLabel: (item: any) => string = (item: any) => String(item?.label ?? item?.name ?? item ?? '-');
+  interface Props {
+    availableItems?: any[];
+    selectedItems?: any[];
+    availableTitle?: any;
+    selectedTitle?: any;
+    getItemKey?: (item: any) => string | number;
+    itemLabel?: (item: any) => string;
+    renderItem?: import('svelte').Snippet<[any]>;
+  }
+
+  let {
+    availableItems = [],
+    selectedItems = [],
+    availableTitle = t('Available'),
+    selectedTitle = t('Selected'),
+    getItemKey = (item: any) => String(item?.id ?? item ?? ''),
+    itemLabel = (item: any) => String(item?.label ?? item?.name ?? item ?? '-'),
+    renderItem
+  }: Props = $props();
 
   const dispatch = createEventDispatcher<{ add: { item: any }; remove: { item: any } }>();
 </script>
@@ -22,10 +35,10 @@
         <div class="sr-muted">{t('No item available.')}</div>
       {:else}
         {#each availableItems as item (getItemKey(item))}
-          <button type="button" class="sr-tag-transfer-row" on:click={() => dispatch('add', { item })}>
-            <slot name="item" {item} side="available">
+          <button type="button" class="sr-tag-transfer-row" onclick={() => dispatch('add', { item })}>
+            {#if renderItem}{@render renderItem({ item, side: "available", })}{:else}
               <span>{itemLabel(item)}</span>
-            </slot>
+            {/if}
             <span class="sr-tag-transfer-icon">+</span>
           </button>
         {/each}
@@ -40,10 +53,10 @@
         <div class="sr-muted">{t('No item selected.')}</div>
       {:else}
         {#each selectedItems as item (getItemKey(item))}
-          <button type="button" class="sr-tag-transfer-row selected" on:click={() => dispatch('remove', { item })}>
-            <slot name="item" {item} side="selected">
+          <button type="button" class="sr-tag-transfer-row selected" onclick={() => dispatch('remove', { item })}>
+            {#if renderItem}{@render renderItem({ item, side: "selected", })}{:else}
               <span>{itemLabel(item)}</span>
-            </slot>
+            {/if}
             <span class="sr-tag-transfer-icon">×</span>
           </button>
         {/each}

@@ -3,23 +3,38 @@
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
 
-  export let title: string;
-  export let subtitle: string | null = null;
+  interface Props {
+    title: string;
+    subtitle?: string | null;
+    actions?: import('svelte').Snippet;
+    children?: import('svelte').Snippet;
+  }
+
+  let {
+    title,
+    subtitle = null,
+    actions,
+    children
+  }: Props = $props();
   // « Welcome, First Last »: the display name of the person (a directory account carries first and last name)
-  $: person = String(($page.data as any)?.me?.display_name || ($page.data as any)?.user?.display_name || ($page.data as any)?.me?.username || '').trim();
-  $: heading = person ? t('Welcome, {name}', { name: person }) : title;
-  $: under = person ? [title, subtitle].filter(Boolean).join(' · ') : subtitle;
+  let person = $derived(String(($page.data as any)?.me?.display_name || ($page.data as any)?.user?.display_name || ($page.data as any)?.me?.username || '').trim());
+  let heading = $derived(person ? t('Welcome, {name}', { name: person }) : title);
+  let under = $derived(person ? [title, subtitle].filter(Boolean).join(' · ') : subtitle);
+
+  const actions_render = $derived(actions);
 </script>
 
 <div class="b2s-dashboard">
   <PageHeader title={heading} subtitle={under}>
-    <svelte:fragment slot="actions">
-      <slot name="actions" />
-    </svelte:fragment>
+    {#snippet actions()}
+      
+        {@render actions_render?.()}
+      
+      {/snippet}
   </PageHeader>
 
   <div class="b2s-dashboard__content">
-    <slot />
+    {@render children?.()}
   </div>
 </div>
 

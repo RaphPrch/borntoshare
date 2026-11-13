@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run as run_1 } from 'svelte/legacy';
+
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t, intlLocale } from '$lib/i18n';
   import { browser } from '$app/environment';
@@ -48,50 +50,56 @@
   import { snapshotStore } from '$lib/stores/snapshot.store';
   import type { IdentitySourceRow } from '$lib/types/identity-sources';
 
-  export let data: {
+  interface Props {
+    data: {
     identity_sources?: IdentitySourceRow[];
     fetch_error?: string | null;
   };
+  }
+
+  let { data }: Props = $props();
 
   let showDetailsDrawer = false;
-  let selectedSourceId: number | null = null;
-  let showEditModal = false;
-  let editSource: IdentitySourceRow | null = null;
-  let showDeleteModal = false;
-  let showDisableUsedConfirm = false;
-  let pendingToggleSource: IdentitySourceRow | null = null;
-  let busy = false;
-  let actionError: string | null = null;
-  let selectedSource: IdentitySourceRow | null = null;
-  let fetchError: string | null = data?.fetch_error ?? null;
-  let listLoading = false;
+  let selectedSourceId: number | null = $state(null);
+  let showEditModal = $state(false);
+  let editSource: IdentitySourceRow | null = $state(null);
+  let showDeleteModal = $state(false);
+  let showDisableUsedConfirm = $state(false);
+  let pendingToggleSource: IdentitySourceRow | null = $state(null);
+  let busy = $state(false);
+  let actionError: string | null = $state(null);
+  let selectedSource: IdentitySourceRow | null = $state(null);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let fetchError: string | null = $state(data?.fetch_error ?? null);
+  let listLoading = $state(false);
   let internalLoading = false;
   let internalError: string | null = null;
-  let selectedInternal: IdentitySourceInternalMeta | null = null;
-  let hasSources = false;
-  let existingSourceNames: string[] = [];
-  let sortedCards: IdentitySourceCardVM[] = [];
-  let summary = { total: 0, healthy: 0, issues: 0, neverSynced: 0 };
-  let selectedCard: IdentitySourceCardVM | null = null;
-  let detailCard: IdentitySourceCardVM | null = null;
+  let selectedInternal: IdentitySourceInternalMeta | null = $state(null);
+  let hasSources = $state(false);
+  let existingSourceNames: string[] = $state([]);
+  let sortedCards: IdentitySourceCardVM[] = $state([]);
+  let summary = $state({ total: 0, healthy: 0, issues: 0, neverSynced: 0 });
+  let selectedCard: IdentitySourceCardVM | null = $state(null);
+  let detailCard: IdentitySourceCardVM | null = $state(null);
 
   let listQuery = '';
   let typeFilter = 'all';
-  let statusFilter = 'all';
+  let statusFilter = $state('all');
   let snapshotFilter = 'all';
   let sortBy: IdentitySourceSortKey = 'name-asc';
   let rowsPerPage = 25;
-  let currentPage = 1;
-  let paginatedCards: IdentitySourceCardVM[] = [];
-  let pageStart = 0;
-  let pageEnd = 0;
-  let totalPages = 1;
-  let selectedRecentHealth: Array<{ key: string; label: string; tone: string; title: string; icon: string }> = [];
-  let healthSummaryBySourceId: Record<number, HealthSummaryDay[]> = {};
+  let currentPage = $state(1);
+  let paginatedCards: IdentitySourceCardVM[] = $state([]);
+  let pageStart = $state(0);
+  let pageEnd = $state(0);
+  let totalPages = $state(1);
+  let selectedRecentHealth: Array<{ key: string; label: string; tone: string; title: string; icon: string }> = $state([]);
+  let healthSummaryBySourceId: Record<number, HealthSummaryDay[]> = $state({});
   let healthSummaryLoadingSourceId: number | null = null;
   let healthSummaryLoadedSourceId: number | null = null;
 
-  let sources: IdentitySourceRow[] = data.identity_sources ?? [];
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let sources: IdentitySourceRow[] = $state(data.identity_sources ?? []);
 
   const typeOptions = [
     { value: 'all', label: t('Type') },
@@ -255,13 +263,7 @@
     void loadInternal(id);
   };
 
-  $: if (Array.isArray(data?.identity_sources)) {
-    sources = data.identity_sources;
-  }
 
-  $: if (typeof data?.fetch_error === 'string') {
-    fetchError = data.fetch_error;
-  }
 
   const normalizeDebugValue = (value: unknown): string | null => {
     const normalized = String(value ?? '').trim();
@@ -295,20 +297,12 @@
   const identitySnapshotJob = (sourceId: number) =>
     $jobsStore[jobsStore.keyOf(identitySnapshotJobInput(sourceId))] ?? null;
 
-  // Snapshots running on the server, whoever started them (page reload, another admin, scheduler)
-  $: serverSnapshotRunning = new Set(sources.filter((s) => s.snapshot_running).map((s) => Number(s.id)));
 
   const identitySnapshotRunning = (sourceId: number) =>
     identitySnapshotJob(sourceId)?.status === 'running' || serverSnapshotRunning.has(Number(sourceId));
 
   // Follow a snapshot started elsewhere until it ends
-  let snapshotWatchTimer: ReturnType<typeof setTimeout> | null = null;
-  $: if (browser && serverSnapshotRunning.size > 0 && !snapshotWatchTimer) {
-    snapshotWatchTimer = setTimeout(async () => {
-      await refreshList();
-      snapshotWatchTimer = null;
-    }, 5000);
-  }
+  let snapshotWatchTimer: ReturnType<typeof setTimeout> | null = $state(null);
   onDestroy(() => {
     if (snapshotWatchTimer) clearTimeout(snapshotWatchTimer);
   });
@@ -841,80 +835,128 @@
     }
   };
 
-  $: hasSources = sources.length > 0;
-  $: existingSourceNames = sources
-    .map((s) => String(s?.name ?? s?.display_name ?? '').trim())
-    .filter(Boolean);
 
   // The page opens on a directory: ?selected=, else the first by name. Placed before the cards are composed:
   // a reactive statement does not run again for a value changed by a later one.
-  let sidebarQuery = '';
-  $: if (browser && selectedSourceId === null && sources.length) {
-    const wanted = Number($page.url.searchParams.get('selected') ?? 0);
-    const byName = [...sources].sort((x, y) => String(x?.name ?? '').localeCompare(String(y?.name ?? ''), 'fr'));
-    const first = sources.find((source) => Number(source?.id ?? 0) === wanted) ?? byName[0];
-    selectSourceById(Number(first?.id ?? 0));
-  }
+  let sidebarQuery = $state('');
 
-  $: ({
-    sortedCards,
-    summary,
-    selectedCard
-  } = composeIdentitySourceCards(sources, {
-    snapshotMetaBySourceId: Object.fromEntries(
-      (Array.isArray(sources) ? sources : []).map((source) => {
-        const sourceId = Number(source?.id ?? 0);
-        return [sourceId, $snapshotStore[sourceId] ?? null] as const;
-      })
-    ),
-    probeJobStatusBySourceId: Object.fromEntries(
-      (Array.isArray(sources) ? sources : []).map((source) => {
-        const sourceId = Number(source?.id ?? 0);
-        return [sourceId, identityProbeJob(sourceId)?.status ?? null] as const;
-      })
-    ),
-    snapshotJobStatusBySourceId: Object.fromEntries(
-      (Array.isArray(sources) ? sources : []).map((source) => {
-        const sourceId = Number(source?.id ?? 0);
-        return [sourceId, identitySnapshotJob(sourceId)?.status ?? null] as const;
-      })
-    ),
-    filters: {
-      query: listQuery,
-      type: typeFilter,
-      status: statusFilter,
-      snapshot: snapshotFilter
-    },
-    sortBy,
-    selectedSourceId
-  }));
-  $: detailCard = selectedCard ?? sortedCards[0] ?? null;
-  $: totalPages = Math.max(1, Math.ceil(sortedCards.length / rowsPerPage));
-  $: if (currentPage > totalPages) {
-    currentPage = totalPages;
-  }
-  $: pageStart = sortedCards.length === 0 ? 0 : (currentPage - 1) * rowsPerPage;
-  $: pageEnd = Math.min(sortedCards.length, pageStart + rowsPerPage);
-  $: paginatedCards = sortedCards.slice(pageStart, pageEnd);
-  // Browser only: during SSR the component fetch cannot resolve relative /api URLs
-  $: if (browser && detailCard?.id) {
-    void loadHealthSummaryForSource(detailCard.id);
-  }
-  $: selectedRecentHealth = buildRecentHealth(
-    detailCard,
-    detailCard?.id ? healthSummaryBySourceId[detailCard.id] ?? null : null
-  );
 
+
+  run_1(() => {
+    if (Array.isArray(data?.identity_sources)) {
+      sources = data.identity_sources;
+    }
+  });
+  run_1(() => {
+    if (typeof data?.fetch_error === 'string') {
+      fetchError = data.fetch_error;
+    }
+  });
+  // Snapshots running on the server, whoever started them (page reload, another admin, scheduler)
+  let serverSnapshotRunning = $derived(new Set(sources.filter((s) => s.snapshot_running).map((s) => Number(s.id))));
+  run_1(() => {
+    if (browser && serverSnapshotRunning.size > 0 && !snapshotWatchTimer) {
+      snapshotWatchTimer = setTimeout(async () => {
+        await refreshList();
+        snapshotWatchTimer = null;
+      }, 5000);
+    }
+  });
+  run_1(() => {
+    hasSources = sources.length > 0;
+  });
+  run_1(() => {
+    existingSourceNames = sources
+      .map((s) => String(s?.name ?? s?.display_name ?? '').trim())
+      .filter(Boolean);
+  });
   // A deleted directory: the page opens on another one
-  $: if (selectedSourceId !== null && sources.length && !sources.some((source) => Number(source?.id ?? 0) === selectedSourceId)) {
-    selectedSourceId = null;
-  }
-
-  $: if (browser && selectedSourceId !== null && Number($page.url.searchParams.get('selected') ?? 0) !== selectedSourceId) {
-    const next = new URL($page.url);
-    next.searchParams.set('selected', String(selectedSourceId));
-    goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true, keepFocus: true });
-  }
+  run_1(() => {
+    if (selectedSourceId !== null && sources.length && !sources.some((source) => Number(source?.id ?? 0) === selectedSourceId)) {
+      selectedSourceId = null;
+    }
+  });
+  run_1(() => {
+    if (browser && selectedSourceId === null && sources.length) {
+      const wanted = Number($page.url.searchParams.get('selected') ?? 0);
+      const byName = [...sources].sort((x, y) => String(x?.name ?? '').localeCompare(String(y?.name ?? ''), 'fr'));
+      const first = sources.find((source) => Number(source?.id ?? 0) === wanted) ?? byName[0];
+      selectSourceById(Number(first?.id ?? 0));
+    }
+  });
+  run_1(() => {
+    ({
+      sortedCards,
+      summary,
+      selectedCard
+    } = composeIdentitySourceCards(sources, {
+      snapshotMetaBySourceId: Object.fromEntries(
+        (Array.isArray(sources) ? sources : []).map((source) => {
+          const sourceId = Number(source?.id ?? 0);
+          return [sourceId, $snapshotStore[sourceId] ?? null] as const;
+        })
+      ),
+      probeJobStatusBySourceId: Object.fromEntries(
+        (Array.isArray(sources) ? sources : []).map((source) => {
+          const sourceId = Number(source?.id ?? 0);
+          return [sourceId, identityProbeJob(sourceId)?.status ?? null] as const;
+        })
+      ),
+      snapshotJobStatusBySourceId: Object.fromEntries(
+        (Array.isArray(sources) ? sources : []).map((source) => {
+          const sourceId = Number(source?.id ?? 0);
+          return [sourceId, identitySnapshotJob(sourceId)?.status ?? null] as const;
+        })
+      ),
+      filters: {
+        query: listQuery,
+        type: typeFilter,
+        status: statusFilter,
+        snapshot: snapshotFilter
+      },
+      sortBy,
+      selectedSourceId
+    }));
+  });
+  run_1(() => {
+    detailCard = selectedCard ?? sortedCards[0] ?? null;
+  });
+  run_1(() => {
+    totalPages = Math.max(1, Math.ceil(sortedCards.length / rowsPerPage));
+  });
+  run_1(() => {
+    if (currentPage > totalPages) {
+      currentPage = totalPages;
+    }
+  });
+  run_1(() => {
+    pageStart = sortedCards.length === 0 ? 0 : (currentPage - 1) * rowsPerPage;
+  });
+  run_1(() => {
+    pageEnd = Math.min(sortedCards.length, pageStart + rowsPerPage);
+  });
+  run_1(() => {
+    paginatedCards = sortedCards.slice(pageStart, pageEnd);
+  });
+  // Browser only: during SSR the component fetch cannot resolve relative /api URLs
+  run_1(() => {
+    if (browser && detailCard?.id) {
+      void loadHealthSummaryForSource(detailCard.id);
+    }
+  });
+  run_1(() => {
+    selectedRecentHealth = buildRecentHealth(
+      detailCard,
+      detailCard?.id ? healthSummaryBySourceId[detailCard.id] ?? null : null
+    );
+  });
+  run_1(() => {
+    if (browser && selectedSourceId !== null && Number($page.url.searchParams.get('selected') ?? 0) !== selectedSourceId) {
+      const next = new URL($page.url);
+      next.searchParams.set('selected', String(selectedSourceId));
+      goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true, keepFocus: true });
+    }
+  });
 </script>
 
 {#if !hasSources && !listLoading && !fetchError}
@@ -932,16 +974,18 @@
   </section>
 {:else}
   <EntityWorkspace title={t('Directories')} contentKey={selectedSourceId}>
-    <svelte:fragment slot="list">
-      <IdentitySourcesSidebar
-        cards={sortedCards}
-        selectedId={selectedSourceId}
-        query={sidebarQuery}
-        onQueryChange={(value) => (sidebarQuery = value)}
-        onSelect={selectSourceById}
-        onAdd={() => goto('/admin/identity-sources/new')}
-      />
-    </svelte:fragment>
+    {#snippet list()}
+      
+        <IdentitySourcesSidebar
+          cards={sortedCards}
+          selectedId={selectedSourceId}
+          query={sidebarQuery}
+          onQueryChange={(value) => (sidebarQuery = value)}
+          onSelect={selectSourceById}
+          onAdd={() => goto('/admin/identity-sources/new')}
+        />
+      
+      {/snippet}
     {#if fetchError}<InlineAlert tone="error">{fetchError}</InlineAlert>{/if}
     {#if selectedCard}
       <IdentitySourceWorkspace

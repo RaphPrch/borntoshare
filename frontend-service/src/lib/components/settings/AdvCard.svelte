@@ -1,10 +1,23 @@
 <script lang="ts">
-  export let title: string;
-  export let subtitle: string | undefined = undefined;
-  export let icon: string | undefined = undefined;
-  export let tone: 'default' | 'warning' | 'danger' = 'default';
+  interface Props {
+    title: string;
+    subtitle?: string | undefined;
+    icon?: string | undefined;
+    tone?: 'default' | 'warning' | 'danger';
+    headerActions?: import('svelte').Snippet;
+    children?: import('svelte').Snippet;
+  }
 
-  $: toneClass = tone === 'warning' ? 'adv-tone-warning' : tone === 'danger' ? 'adv-tone-danger' : '';
+  let {
+    title,
+    subtitle = undefined,
+    icon = undefined,
+    tone = 'default',
+    headerActions,
+    children
+  }: Props = $props();
+
+  let toneClass = $derived(tone === 'warning' ? 'adv-tone-warning' : tone === 'danger' ? 'adv-tone-danger' : '');
 </script>
 
 <section class={['adv-card', toneClass].filter(Boolean).join(' ')}>
@@ -14,9 +27,9 @@
       <h2>{title}</h2>
       {#if subtitle}<p class="muted">{subtitle}</p>{/if}
     </div>
-    <div style="margin-left:auto;"><slot name="header-actions" /></div>
+    <div style="margin-left:auto;">{@render headerActions?.()}</div>
   </header>
   <div class="adv-card-body">
-    <slot />
+    {@render children?.()}
   </div>
 </section>

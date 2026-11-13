@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { t } from '$lib/i18n';
   import { initials, timeAgo } from '$lib/utils/format';
@@ -15,44 +17,46 @@
   type AlertItem = { key: string; type?: string; title: string; subtitle?: string | null; tone?: 'warning' | 'error' };
   type Step = { key: string; tone: 'bad' | 'warn'; icon: string; title: string; detail: string; label: string; run: () => void };
 
-  /**
+  
+  interface Props {
+    /**
    * « To do on this folder »: its open alerts, each with the action that settles it, then its pending
    * requests decided in place (validating shows what the worker will do before it runs).
    */
-  export let rootId: number | null = null;
-  export let alertItems: AlertItem[] = [];
-  export let busy = false;
-  export let onRunProbe: () => void = () => {};
-  export let onOpenGuardians: () => void = () => {};
-  export let onOpenPermissions: () => void = () => {};
-  export let onViewAllAlerts: () => void = () => {};
-  export let onDecided: () => void = () => {};
+    rootId?: number | null;
+    alertItems?: AlertItem[];
+    busy?: boolean;
+    onRunProbe?: () => void;
+    onOpenGuardians?: () => void;
+    onOpenPermissions?: () => void;
+    onViewAllAlerts?: () => void;
+    onDecided?: () => void;
+  }
+
+  let {
+    rootId = null,
+    alertItems = [],
+    busy = false,
+    onRunProbe = () => {},
+    onOpenGuardians = () => {},
+    onOpenPermissions = () => {},
+    onViewAllAlerts = () => {},
+    onDecided = () => {}
+  }: Props = $props();
 
   const PROBE_TYPES = ['root_probe_failed', 'root_probe_unknown', 'endpoint_unreachable', 'endpoint_probe_failed'];
   const PERMISSION_TYPES = ['acl_principal_not_governed', 'acl_inherited_not_governed', 'acl_profile_missing', 'ad_group_read_failed', 'acl_gap', 'missing_ace'];
 
   const typeOf = (item: AlertItem) => item.type || (String(item.key).match(/[a-z_]+$/)?.[0] ?? '');
 
-  $: steps = alertItems
-    .filter((item) => typeOf(item) !== 'pending_access_validation')
-    .map((item): Step => {
-      const type = typeOf(item);
-      const base = { key: item.key, tone: item.tone === 'error' ? 'bad' as const : 'warn' as const, title: item.title, detail: item.subtitle ?? '' };
-      if (PROBE_TYPES.includes(type)) return { ...base, icon: 'bi-wifi-off', label: t('Test again'), run: onRunProbe };
-      if (type === 'missing_guardian') return { ...base, icon: 'bi-person-plus', label: t('Add guardians'), run: onOpenGuardians };
-      if (PERMISSION_TYPES.includes(type)) return { ...base, icon: 'bi-shield-exclamation', label: t('See the permissions'), run: onOpenPermissions };
-      return { ...base, icon: 'bi-exclamation-triangle', label: t('Details'), run: onViewAllAlerts };
-    })
-    .sort((a, b) => Number(b.tone === 'bad') - Number(a.tone === 'bad'));
 
-  let requests: PendingRootRequest[] = [];
-  let loadedFor: number | null = null;
+  let requests: PendingRootRequest[] = $state([]);
+  let loadedFor: number | null = $state(null);
   let seq = 0;
-  let deciding: { request: PendingRootRequest; decision: 'approve' | 'reject' } | null = null;
-  let preview: ApprovalPreview | null = null;
-  let decidingBusy = false;
+  let deciding: { request: PendingRootRequest; decision: 'approve' | 'reject' } | null = $state(null);
+  let preview: ApprovalPreview | null = $state(null);
+  let decidingBusy = $state(false);
 
-  $: if (rootId !== loadedFor) void load(rootId);
 
   async function load(id: number | null) {
     loadedFor = id;
@@ -81,21 +85,6 @@
     }
   }
 
-  $: previewItem = preview?.items?.[0];
-  $: impact = deciding?.decision === 'approve'
-    ? [
-        ...(previewItem
-          ? [
-              previewItem.group_action === 'create'
-                ? t('The AD group {group} is created in {ou}.', { group: previewItem.group_name ?? '', ou: previewItem.target_ou_dn ?? '' })
-                : t('The AD group {group} is reused.', { group: previewItem.group_name ?? '' }),
-              t('{name} is added to the group by the worker.', { name: deciding.request.requested_for_display ?? '' }),
-              previewItem.acl === 'modify' ? t('The group gets Modify on the folder.') : t('The group gets Read and execute on the folder.')
-            ]
-          : []),
-        ...(preview?.blockers ?? []).map((b) => b.message)
-      ]
-    : [t('{name} is told that the request is refused; nothing changes on the folder.', { name: deciding?.request.requested_for_display ?? '' })];
 
   async function decide() {
     const target = deciding;
@@ -117,7 +106,36 @@
   }
 
   const levelLabel = (code: string | null) => (String(code ?? '').toLowerCase() === 'write' ? t('modify') : t('read'));
-  $: total = steps.length + requests.length;
+  let steps = $derived(alertItems
+    .filter((item) => typeOf(item) !== 'pending_access_validation')
+    .map((item): Step => {
+      const type = typeOf(item);
+      const base = { key: item.key, tone: item.tone === 'error' ? 'bad' as const : 'warn' as const, title: item.title, detail: item.subtitle ?? '' };
+      if (PROBE_TYPES.includes(type)) return { ...base, icon: 'bi-wifi-off', label: t('Test again'), run: onRunProbe };
+      if (type === 'missing_guardian') return { ...base, icon: 'bi-person-plus', label: t('Add guardians'), run: onOpenGuardians };
+      if (PERMISSION_TYPES.includes(type)) return { ...base, icon: 'bi-shield-exclamation', label: t('See the permissions'), run: onOpenPermissions };
+      return { ...base, icon: 'bi-exclamation-triangle', label: t('Details'), run: onViewAllAlerts };
+    })
+    .sort((a, b) => Number(b.tone === 'bad') - Number(a.tone === 'bad')));
+  $effect.pre(() => {
+    if (rootId !== loadedFor) void load(rootId);
+  });
+  let previewItem = $derived(preview?.items?.[0]);
+  let impact = $derived(deciding?.decision === 'approve'
+    ? [
+        ...(previewItem
+          ? [
+              previewItem.group_action === 'create'
+                ? t('The AD group {group} is created in {ou}.', { group: previewItem.group_name ?? '', ou: previewItem.target_ou_dn ?? '' })
+                : t('The AD group {group} is reused.', { group: previewItem.group_name ?? '' }),
+              t('{name} is added to the group by the worker.', { name: deciding.request.requested_for_display ?? '' }),
+              previewItem.acl === 'modify' ? t('The group gets Modify on the folder.') : t('The group gets Read and execute on the folder.')
+            ]
+          : []),
+        ...(preview?.blockers ?? []).map((b) => b.message)
+      ]
+    : [t('{name} is told that the request is refused; nothing changes on the folder.', { name: deciding?.request.requested_for_display ?? '' })]);
+  let total = $derived(steps.length + requests.length);
 </script>
 
 {#if total}
@@ -127,7 +145,7 @@
       <div class="todo__row">
         <span class={`todo__icon is-${step.tone}`} aria-hidden="true"><i class={`bi ${step.icon}`}></i></span>
         <span class="todo__text"><strong>{step.title}</strong>{#if step.detail}<small>{step.detail}</small>{/if}</span>
-        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} on:click={step.run}>{step.label}</button>
+        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} onclick={step.run}>{step.label}</button>
       </div>
     {/each}
     {#each requests.slice(0, 5) as request (request.request_id)}
@@ -140,8 +158,8 @@
           </small>
         </span>
         <span class="todo__decide">
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={decidingBusy} on:click={() => ask(request, 'reject')}>{t('Refuse')}</button>
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={decidingBusy} on:click={() => ask(request, 'approve')}>{t('Validate')}</button>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={decidingBusy} onclick={() => ask(request, 'reject')}>{t('Refuse')}</button>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={decidingBusy} onclick={() => ask(request, 'approve')}>{t('Validate')}</button>
         </span>
       </div>
     {/each}

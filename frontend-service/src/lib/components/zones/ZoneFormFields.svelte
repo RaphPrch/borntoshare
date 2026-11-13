@@ -1,12 +1,16 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  export let form: {
+
+  interface Props {
+    form: {
     name: string;
     code?: string;
     description?: string;
   };
+    mode?: "create" | "edit" | "delete";
+  }
 
-  export let mode: "create" | "edit" | "delete" = "create";
+  let { form = $bindable(), mode = "create" }: Props = $props();
 </script>
 
 <!-- =====================================================

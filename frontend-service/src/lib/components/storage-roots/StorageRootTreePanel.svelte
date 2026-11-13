@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
   import EntitySidebarTree, {
@@ -19,38 +21,57 @@
   type PathNode = { key: string; segment: string; children: Map<string, PathNode>; rows: StorageRootRow[] };
   type Alerts = { count: number; tone: AlertTone | null };
 
-  /**
+  
+  
+  
+  
+  
+  interface Props {
+    /**
    * List pane of the storage roots page, like a file explorer:
    * zone > server > folders of the UNC path > storage roots (or a flat list per zone).
    */
-  export let rows: StorageRootRow[] = [];
-  /** « + » next to the search (see EntitySidebarTree) */
-  export let onAdd: (() => void) | null = null;
-  export let addLabel = '';
-  export let query = '';
-  export let selectedStorageRootId: number | null = null;
-  export let rootAlertSummary: (row: StorageRootRow) => RootAlertSummary = () => null;
-  export let onQueryChange: (value: string) => void = () => {};
-  export let onSelectRoot: (id: number) => void = () => {};
-  /** Right-click menu on a storage root (platform admins): operations on its folder on the file server */
-  export let onFolderAction: ((kind: FolderActionKind, row: StorageRootRow) => void) | null = null;
-  /** Right click on a server: create a share (a new folder at its root), add folders, open it (administrators) */
-  export let onServerAction: ((kind: 'share' | 'add-folders' | 'open', endpointId: number) => void) | null = null;
-  /** Several folders at once (administrators): scan the sensitivity or measure them all */
-  export let onBulkAnalysis: ((kind: 'sensitivity' | 'measure', rows: StorageRootRow[]) => Promise<void> | void) | null = null;
+    rows?: StorageRootRow[];
+    /** « + » next to the search (see EntitySidebarTree) */
+    onAdd?: (() => void) | null;
+    addLabel?: string;
+    query?: string;
+    selectedStorageRootId?: number | null;
+    rootAlertSummary?: (row: StorageRootRow) => RootAlertSummary;
+    onQueryChange?: (value: string) => void;
+    onSelectRoot?: (id: number) => void;
+    /** Right-click menu on a storage root (platform admins): operations on its folder on the file server */
+    onFolderAction?: ((kind: FolderActionKind, row: StorageRootRow) => void) | null;
+    /** Right click on a server: create a share (a new folder at its root), add folders, open it (administrators) */
+    onServerAction?: ((kind: 'share' | 'add-folders' | 'open', endpointId: number) => void) | null;
+    /** Several folders at once (administrators): scan the sensitivity or measure them all */
+    onBulkAnalysis?: ((kind: 'sensitivity' | 'measure', rows: StorageRootRow[]) => Promise<void> | void) | null;
+  }
+
+  let {
+    rows = [],
+    onAdd = null,
+    addLabel = '',
+    query = '',
+    selectedStorageRootId = null,
+    rootAlertSummary = () => null,
+    onQueryChange = () => {},
+    onSelectRoot = () => {},
+    onFolderAction = null,
+    onServerAction = null,
+    onBulkAnalysis = null
+  }: Props = $props();
 
   // Folders ticked (Ctrl/Cmd + click, Shift + click, the box of the row); only those still listed count
-  let checked = new Set<string>();
-  $: checkedRows = rows.filter((row) => checked.has(String(rootId(row))));
-  $: pruneChecked(rows);
+  let checked = $state(new Set<string>());
   function pruneChecked(list: StorageRootRow[]) {
     const present = new Set(list.map((row) => String(rootId(row))));
     if ([...checked].some((id) => !present.has(id))) checked = new Set([...checked].filter((id) => present.has(id)));
   }
-  let bulkBusy = false;
+  let bulkBusy = $state(false);
   // The tip about the multiple selection: shown until the selection was used once (remembered in this browser)
   const TIP_KEY = 'b2s.storageRoots.multiTipSeen';
-  let tipSeen = false;
+  let tipSeen = $state(false);
   onMount(() => {
     try {
       tipSeen = localStorage.getItem(TIP_KEY) === '1';
@@ -58,17 +79,6 @@
       // Storage unavailable: the tip stays
     }
   });
-  $: if (checked.size && !tipSeen) {
-    tipSeen = true;
-    try {
-      localStorage.setItem(TIP_KEY, '1');
-    } catch {
-      // Not remembered
-    }
-  }
-  // What was never done on the folders (a click filters them, then Ctrl + A and an action)
-  $: neverScanned = rows.filter((row) => matchesFolderQuery(row, parseFolderQuery('est:non-analyse').filters)).length;
-  $: neverMeasured = rows.filter((row) => matchesFolderQuery(row, parseFolderQuery('est:non-mesure').filters)).length;
   async function runBulk(kind: 'sensitivity' | 'measure', targets: StorageRootRow[]) {
     if (!onBulkAnalysis || !targets.length || bulkBusy) return;
     bulkBusy = true;
@@ -81,43 +91,22 @@
   const selectRows = (targets: StorageRootRow[]) => (checked = new Set(targets.map((row) => String(rootId(row)))));
 
   // Right click on a ticked folder while several are ticked: the menu acts on all of them
-  let bulkMenuAt: { x: number; y: number } | null = null;
-  $: bulkMenuItems = [
-    { key: 'sensitivity', label: t('Scan the sensitivity of the {count} folders', { count: checkedRows.length }), icon: 'bi-shield-lock' },
-    { key: 'measure', label: t('Measure the {count} folders', { count: checkedRows.length }), icon: 'bi-rulers' },
-    { key: 'clear', label: t('Clear the selection'), icon: 'bi-x-lg', separated: true }
-  ] satisfies ContextMenuItem[];
+  let bulkMenuAt: { x: number; y: number } | null = $state(null);
   // The folders under each server node (its menu can select, scan or measure them)
   const serverRows = new Map<string, StorageRootRow[]>();
 
   // The file server behind each server node (the first SMB one; a DFS namespace takes no share)
   const serverEndpoints = new Map<string, { id: number; label: string; dfs: boolean }>();
-  let serverMenu: { id: number; label: string; dfs: boolean; key: string } | null = null;
-  let serverMenuAt = { x: 0, y: 0 };
-  $: serverMenuRows = serverMenu ? serverRows.get(serverMenu.key) ?? [] : [];
-  $: serverMenuItems = serverMenu
-    ? ([
-        ...(onBulkAnalysis && serverMenuRows.length
-          ? [
-              { key: 'scan-all', label: t('Scan the sensitivity of its {count} folders', { count: serverMenuRows.length }), icon: 'bi-shield-lock' },
-              { key: 'measure-all', label: t('Measure its {count} folders', { count: serverMenuRows.length }), icon: 'bi-rulers' },
-              { key: 'select-all', label: t('Select its folders'), icon: 'bi-check2-square' }
-            ]
-          : []),
-        { key: 'share', label: t('Create a share (a new folder at the root)'), icon: 'bi-folder-plus', disabled: serverMenu.dfs, separated: Boolean(onBulkAnalysis && serverMenuRows.length),
-          hint: serverMenu.dfs ? t('A DFS namespace has no share of its own') : '' },
-        { key: 'add-folders', label: t('Add folders'), icon: 'bi-plus-lg' },
-        { key: 'open', label: t('Open the file server'), icon: 'bi-hdd-network', separated: true }
-      ] satisfies ContextMenuItem[])
-    : [];
+  let serverMenu: { id: number; label: string; dfs: boolean; key: string } | null = $state(null);
+  let serverMenuAt = $state({ x: 0, y: 0 });
 
   const VIEW_KEY = 'b2s.storageRoots.view';
-  let peekRow: StorageRootRow | null = null;
-  let peekAnchor: HTMLElement | null = null;
-  let menuRow: StorageRootRow | null = null;
-  let menuAt = { x: 0, y: 0 };
-  let filter = 'all';
-  let viewMode: 'tree' | 'list' = 'tree';
+  let peekRow: StorageRootRow | null = $state(null);
+  let peekAnchor: HTMLElement | null = $state(null);
+  let menuRow: StorageRootRow | null = $state(null);
+  let menuAt = $state({ x: 0, y: 0 });
+  let filter = $state('all');
+  let viewMode: 'tree' | 'list' = $state('tree');
 
   onMount(() => {
     try {
@@ -301,19 +290,60 @@
       .sort(byLabel);
   }
 
-  let zoneFilter = '';
-  $: zoneOptions = [...new Map(rows.map((row) => [zoneKey(row), zoneLabel(row)])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
-  $: if (zoneFilter && !zoneOptions.some(([key]) => key === zoneFilter)) zoneFilter = '';
-  $: zonedRows = zoneFilter ? rows.filter((row) => zoneKey(row) === zoneFilter) : rows;
+  let zoneFilter = $state('');
+
+
+
+  let checkedRows = $derived(rows.filter((row) => checked.has(String(rootId(row)))));
+  $effect.pre(() => {
+    pruneChecked(rows);
+  });
+  $effect.pre(() => {
+    if (checked.size && !tipSeen) {
+      tipSeen = true;
+      try {
+        localStorage.setItem(TIP_KEY, '1');
+      } catch {
+        // Not remembered
+      }
+    }
+  });
+  // What was never done on the folders (a click filters them, then Ctrl + A and an action)
+  let neverScanned = $derived(rows.filter((row) => matchesFolderQuery(row, parseFolderQuery('est:non-analyse').filters)).length);
+  let neverMeasured = $derived(rows.filter((row) => matchesFolderQuery(row, parseFolderQuery('est:non-mesure').filters)).length);
+  let bulkMenuItems = $derived([
+    { key: 'sensitivity', label: t('Scan the sensitivity of the {count} folders', { count: checkedRows.length }), icon: 'bi-shield-lock' },
+    { key: 'measure', label: t('Measure the {count} folders', { count: checkedRows.length }), icon: 'bi-rulers' },
+    { key: 'clear', label: t('Clear the selection'), icon: 'bi-x-lg', separated: true }
+  ] satisfies ContextMenuItem[]);
+  let serverMenuRows = $derived(serverMenu ? serverRows.get(serverMenu.key) ?? [] : []);
+  let serverMenuItems = $derived(serverMenu
+    ? ([
+        ...(onBulkAnalysis && serverMenuRows.length
+          ? [
+              { key: 'scan-all', label: t('Scan the sensitivity of its {count} folders', { count: serverMenuRows.length }), icon: 'bi-shield-lock' },
+              { key: 'measure-all', label: t('Measure its {count} folders', { count: serverMenuRows.length }), icon: 'bi-rulers' },
+              { key: 'select-all', label: t('Select its folders'), icon: 'bi-check2-square' }
+            ]
+          : []),
+        { key: 'share', label: t('Create a share (a new folder at the root)'), icon: 'bi-folder-plus', disabled: serverMenu.dfs, separated: Boolean(onBulkAnalysis && serverMenuRows.length),
+          hint: serverMenu.dfs ? t('A DFS namespace has no share of its own') : '' },
+        { key: 'add-folders', label: t('Add folders'), icon: 'bi-plus-lg' },
+        { key: 'open', label: t('Open the file server'), icon: 'bi-hdd-network', separated: true }
+      ] satisfies ContextMenuItem[])
+    : []);
+  let zoneOptions = $derived([...new Map(rows.map((row) => [zoneKey(row), zoneLabel(row)])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr')));
+  $effect.pre(() => {
+    if (zoneFilter && !zoneOptions.some(([key]) => key === zoneFilter)) zoneFilter = '';
+  });
+  let zonedRows = $derived(zoneFilter ? rows.filter((row) => zoneKey(row) === zoneFilter) : rows);
   // Express search: « tag:Finance gardien:alice est:sans-gardien … » filter the rows, the rest of the text searches the tree
-  $: parsed = parseFolderQuery(query);
-  $: visibleRows = zonedRows.filter((row) =>
+  let parsed = $derived(parseFolderQuery(query));
+  let visibleRows = $derived(zonedRows.filter((row) =>
     (filter === 'all' || (filter === 'review' ? toReview(row) : filter === 'no-guardian' ? noGuardian(row) : pendingCount(row) > 0)) &&
     matchesFolderQuery(row, parsed.filters)
-  );
-
-
-  $: nodes = (() => {
+  ));
+  let nodes = $derived((() => {
     const zones = new Map<string, { label: string; rows: StorageRootRow[] }>();
     for (const row of visibleRows) {
       const key = zoneKey(row);
@@ -334,14 +364,13 @@
             : zone.rows.map((row) => rootNode(row, `z:${id}|r:${rootId(row)}`, rootPath(row) || null)).sort(byLabel)
       }))
       .sort(byLabel);
-  })();
-
-  $: filters = [
+  })());
+  let filters = $derived([
     { key: 'all', label: t('All'), count: zonedRows.length },
     { key: 'review', label: t('To review'), count: zonedRows.filter(toReview).length },
     { key: 'pending', label: t('Pending requests'), count: zonedRows.filter((row) => pendingCount(row) > 0).length },
     { key: 'no-guardian', label: t('Without guardian'), count: zonedRows.filter(noGuardian).length }
-  ].filter((item) => item.key === 'all' || item.count > 0);
+  ].filter((item) => item.key === 'all' || item.count > 0));
 </script>
 
 {#if zoneOptions.length > 1}
@@ -401,24 +430,24 @@
     peekAnchor = anchor;
   }}
 >
-  <div slot="below-search">
+  {#snippet belowSearch()}<div>
     <FolderQueryAssist {query} {rows} count={visibleRows.length} {onQueryChange} />
     {#if onBulkAnalysis && checkedRows.length}
       <div class="tree-bulk" role="region" aria-label={t('Selection')}>
         <div class="tree-bulk__head">
           <b>{t('{count} folder(s) selected', { count: checkedRows.length })}</b>
           {#if visibleRows.length > checkedRows.length}
-            <button type="button" class="b2s-link-btn" on:click={() => selectRows(visibleRows)}>{t('All the {count} shown', { count: visibleRows.length })}</button>
+            <button type="button" class="b2s-link-btn" onclick={() => selectRows(visibleRows)}>{t('All the {count} shown', { count: visibleRows.length })}</button>
           {/if}
-          <button type="button" class="tree-bulk__close" title={t('Clear the selection')} aria-label={t('Clear the selection')} on:click={() => (checked = new Set())}>
+          <button type="button" class="tree-bulk__close" title={t('Clear the selection')} aria-label={t('Clear the selection')} onclick={() => (checked = new Set())}>
             <i class="bi bi-x-lg" aria-hidden="true"></i>
           </button>
         </div>
         <div class="tree-bulk__actions">
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={bulkBusy} on:click={() => runBulk('sensitivity', checkedRows)}>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={bulkBusy} onclick={() => runBulk('sensitivity', checkedRows)}>
             <i class="bi bi-shield-lock" aria-hidden="true"></i>{t('Scan the sensitivity')}
           </button>
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={bulkBusy} on:click={() => runBulk('measure', checkedRows)}>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={bulkBusy} onclick={() => runBulk('measure', checkedRows)}>
             <i class="bi bi-rulers" aria-hidden="true"></i>{t('Measure')}
           </button>
           <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/storage-roots?bulk=select&ids=${checkedRows.map((row) => rootId(row)).join(',')}`}
@@ -430,14 +459,14 @@
     {:else if onBulkAnalysis}
       {#if neverScanned || neverMeasured}
         <p class="tree-todo">
-          {#if neverScanned}<button type="button" class="b2s-link-btn" on:click={() => onQueryChange('est:non-analyse')}>{t('{count} never scanned', { count: neverScanned })}</button>{/if}
+          {#if neverScanned}<button type="button" class="b2s-link-btn" onclick={() => onQueryChange('est:non-analyse')}>{t('{count} never scanned', { count: neverScanned })}</button>{/if}
           {#if neverScanned && neverMeasured} · {/if}
-          {#if neverMeasured}<button type="button" class="b2s-link-btn" on:click={() => onQueryChange('est:non-mesure')}>{t('{count} never measured', { count: neverMeasured })}</button>{/if}
+          {#if neverMeasured}<button type="button" class="b2s-link-btn" onclick={() => onQueryChange('est:non-mesure')}>{t('{count} never measured', { count: neverMeasured })}</button>{/if}
         </p>
       {/if}
       {#if !tipSeen}<p class="tree-tip">{t('Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.')}</p>{/if}
     {/if}
-  </div>
+  </div>{/snippet}
 </EntitySidebarTree>
 
 <ContextMenu open={Boolean(serverMenu)} title={serverMenu?.label ?? ''} subtitle={t('File server')} items={serverMenuItems} at={serverMenuAt}

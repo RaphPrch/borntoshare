@@ -7,16 +7,29 @@
    * A guardian without an e-mail is marked: the requests to validate never reach them.
    */
   type Item = Record<string, any>;
-  export let items: Item[] = [];
-  export let guardians: Record<number, { folders: number; sole: number }> = {};
-  export let selectedKey: string | null = null;
-  export let query = '';
-  export let onSelect: (key: string) => void = () => {};
-  export let onQueryChange: (value: string) => void = () => {};
-  export let onAdd: (() => void) | null = null;
-  export let onOpenAdmins: () => void = () => {};
+  interface Props {
+    items?: Item[];
+    guardians?: Record<number, { folders: number; sole: number }>;
+    selectedKey?: string | null;
+    query?: string;
+    onSelect?: (key: string) => void;
+    onQueryChange?: (value: string) => void;
+    onAdd?: (() => void) | null;
+    onOpenAdmins?: () => void;
+  }
 
-  let filter = 'all';
+  let {
+    items = [],
+    guardians = {},
+    selectedKey = null,
+    query = '',
+    onSelect = () => {},
+    onQueryChange = () => {},
+    onAdd = null,
+    onOpenAdmins = () => {}
+  }: Props = $props();
+
+  let filter = $state('all');
   const isGroup = (item: Item) => String(item?.type ?? '').toLowerCase() === 'group';
   const isAdmin = (item: Item) => Boolean(item?.is_admin) || (Array.isArray(item?.roles) && item.roles.includes('platform_admin'));
   const active = (item: Item) => item?.is_active !== false && String(item?.status ?? 'active').toLowerCase() !== 'inactive';
@@ -28,12 +41,12 @@
   const keyOf = (item: Item) => `${isGroup(item) ? 'group' : 'user'}:${item?.id}`;
   const nameOf = (item: Item) => String(item?.display_name || item?.username || item?.name || '—');
 
-  $: filters = [
+  let filters = $derived([
     { key: 'all', label: t('All'), count: items.length },
     { key: 'review', label: t('To review'), count: items.filter(toReview).length },
     { key: 'nomail', label: t('Without e-mail'), count: items.filter((item) => !isGroup(item) && !hasMail(item)).length },
     { key: 'inactive', label: t('Inactive'), count: items.filter((item) => !active(item)).length }
-  ].filter((item) => item.key === 'all' || item.count > 0);
+  ].filter((item) => item.key === 'all' || item.count > 0));
 
   const KINDS = () => [
     { key: 'admins', label: t('Administrators'), icon: 'bi-shield-lock', match: (item: Item) => isAdmin(item) },
@@ -48,7 +61,7 @@
     return folders ? t('{count} folder(s) · {source}', { count: folders, source }) : item?.username && nameOf(item) !== item.username ? `${item.username} · ${source}` : source;
   }
 
-  $: nodes = KINDS()
+  let nodes = $derived(KINDS()
     .map((kind): EntityTreeNode => {
       const list = items.filter((item) => kind.match(item) && keep(item, filter)).sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'fr'));
       return {
@@ -70,7 +83,7 @@
         }))
       };
     })
-    .filter((node) => (node.children ?? []).length > 0);
+    .filter((node) => (node.children ?? []).length > 0));
 </script>
 
 <EntitySidebarTree
@@ -91,9 +104,9 @@
   {onQueryChange}
   onSelect={(id) => onSelect(String(id))}
 >
-  <div slot="below-search" class="ids-admins">
-    <button type="button" class="b2s-link-btn" on:click={onOpenAdmins}><i class="bi bi-diagram-3" aria-hidden="true"></i>{t('Who administers BornToShare')}</button>
-  </div>
+  {#snippet belowSearch()}<div class="ids-admins">
+    <button type="button" class="b2s-link-btn" onclick={onOpenAdmins}><i class="bi bi-diagram-3" aria-hidden="true"></i>{t('Who administers BornToShare')}</button>
+  </div>{/snippet}
 </EntitySidebarTree>
 
 <style>

@@ -15,23 +15,29 @@
     requested_for: string;
     status: string;
   };
-  export let data: { inForce: Access[]; waiting: Access[]; isAdmin: boolean };
+  interface Props {
+    data: { inForce: Access[]; waiting: Access[]; isAdmin: boolean };
+  }
 
-  let query = '';
+  let { data }: Props = $props();
+
+  let query = $state('');
   const matches = (row: Access) => `${row.storage_root_name} ${row.target_path} ${row.requested_for}`.toLowerCase().includes(query.trim().toLowerCase());
   const access = (row: Access) => (row.permission.toLowerCase().includes('write') ? t('Modify') : t('Read'));
-  $: inForce = data.inForce.filter(matches);
-  $: waiting = data.waiting.filter(matches);
+  let inForce = $derived(data.inForce.filter(matches));
+  let waiting = $derived(data.waiting.filter(matches));
 </script>
 
 <svelte:head><title>{t('My folders')} · BornToShare</title></svelte:head>
 
 <section class="b2s-page mine">
   <PageHeader title={t('My folders')} subtitle={t('The folders you reach through your requests.')}>
-    <svelte:fragment slot="actions">
-      <input class="b2s-input" aria-label={t('Search my folders')} placeholder={t('Search a folder…')} bind:value={query} />
-      <a class="b2s-btn b2s-btn-primary" href="/access-requests/new"><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}</a>
-    </svelte:fragment>
+    {#snippet actions()}
+      
+        <input class="b2s-input" aria-label={t('Search my folders')} placeholder={t('Search a folder…')} bind:value={query} />
+        <a class="b2s-btn b2s-btn-primary" href="/access-requests/new"><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}</a>
+      
+      {/snippet}
   </PageHeader>
 
   <section class="panel">

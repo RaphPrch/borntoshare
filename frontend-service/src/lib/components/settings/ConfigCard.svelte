@@ -1,10 +1,20 @@
 <script lang="ts">
   import AdvCard from './AdvCard.svelte';
-  export let title: string;
-  export let subtitle: string | undefined = undefined;
-  export let icon: string | undefined = undefined;
+  interface Props {
+    title: string;
+    subtitle?: string | undefined;
+    icon?: string | undefined;
+    children?: import('svelte').Snippet;
+  }
+
+  let {
+    title,
+    subtitle = undefined,
+    icon = undefined,
+    children
+  }: Props = $props();
 </script>
 
 <AdvCard {title} {subtitle} {icon}>
-  <slot />
+  {@render children?.()}
 </AdvCard>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  
   import { reportUiError } from '$lib/errors/report';
   import ShareCreateModal from '$lib/components/storage-endpoints/ShareCreateModal.svelte';
   import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
@@ -95,7 +96,8 @@
 
   const PROBE_SYNC_EVENT = 'b2s:storage-endpoint-probe-updated';
 
-  export let data: {
+  interface Props {
+    data: {
     endpoints: any[];
     roots: any[];
     storageRootAlerts?: GovernanceAlert[];
@@ -103,16 +105,19 @@
     pendingRequests?: any[];
     identitySourceNames?: Record<string, string>;
   };
+  }
 
-  let endpoints: any[] = Array.isArray(data.endpoints) ? data.endpoints : [];
-  let roots: any[] = Array.isArray(data.roots) ? data.roots : [];
-  let activity: any[] = Array.isArray(data.activity) ? data.activity : [];
-  let pendingRequests: any[] = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
+  let { data }: Props = $props();
 
-  $: endpoints = Array.isArray(data.endpoints) ? data.endpoints : [];
-  $: roots = Array.isArray(data.roots) ? data.roots : [];
-  $: activity = Array.isArray(data.activity) ? data.activity : [];
-  $: pendingRequests = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let endpoints: any[] = $state(Array.isArray(data.endpoints) ? data.endpoints : []);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let roots: any[] = $state(Array.isArray(data.roots) ? data.roots : []);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let activity: any[] = $state(Array.isArray(data.activity) ? data.activity : []);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let pendingRequests: any[] = $state(Array.isArray(data.pendingRequests) ? data.pendingRequests : []);
+
 
   const norm = (v?: string | null) => (v ?? '').toLowerCase().trim();
   const endpointId = (ep: any) => Number(ep?.id ?? ep?.storage_endpoint_id ?? 0);
@@ -152,13 +157,13 @@
   };
 
   type HealthValue = 'healthy' | 'degraded' | 'unhealthy' | 'unknown';
-  let endpointHealthById: Record<string, HealthValue> = {};
-  let rootHealthByEndpointId: Record<string, Record<string, HealthValue>> = {};
+  let endpointHealthById: Record<string, HealthValue> = $state({});
+  let rootHealthByEndpointId: Record<string, Record<string, HealthValue>> = $state({});
   let rootAvailabilityRowsByEndpointId: Record<string, StorageRootAvailabilitySummary['rows']> = {};
-  let healthLoadingByEndpointId: Record<string, string> = {};
-  let manualHealthRefreshByEndpointId: Record<string, boolean> = {};
-  let probingEndpointId: number | null = null;
-  let healthLoadedForEndpointId: number | null = null;
+  let healthLoadingByEndpointId: Record<string, string> = $state({});
+  let manualHealthRefreshByEndpointId: Record<string, boolean> = $state({});
+  let probingEndpointId: number | null = $state(null);
+  let healthLoadedForEndpointId: number | null = $state(null);
 
   function statusToHealth(status: string): HealthValue {
     const normalized = String(status ?? '').toLowerCase().trim();
@@ -264,43 +269,11 @@
           : 'overview';
   }
 
-  $: hasEndpoints = endpoints.length > 0;
-  $: selectedId = Number($page.params.id);
-  $: selected = hasEndpoints
-    ? endpoints.find((e) => Number(e?.id ?? e?.storage_endpoint_id) === selectedId) ?? null
-    : null;
 
-  $: if (browser && hasEndpoints && !selected) {
-    goto(`/admin/storage-endpoints/${endpointId(endpoints[0])}`, { replaceState: true });
-  }
 
-  let openEditHandledFor: number | null = null;
-  $: if (
-    browser &&
-    selected &&
-    openEditHandledFor !== selectedId &&
-    ['1', 'true'].includes(String($page.url.searchParams.get('openEdit') ?? '').toLowerCase())
-  ) {
-    openEditHandledFor = selectedId;
-    showEditModal = true;
-    const next = new URL($page.url);
-    next.searchParams.delete('openEdit');
-    goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true });
-  }
+  let openEditHandledFor: number | null = $state(null);
 
-  let openShareHandledFor: number | null = null;
-  $: if (
-    browser &&
-    selected &&
-    openShareHandledFor !== selectedId &&
-    ['1', 'true'].includes(String($page.url.searchParams.get('openShare') ?? '').toLowerCase())
-  ) {
-    openShareHandledFor = selectedId;
-    showShareModal = true;
-    const next = new URL($page.url);
-    next.searchParams.delete('openShare');
-    goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true });
-  }
+  let openShareHandledFor: number | null = $state(null);
 
   // A disabled server takes nothing new (folders, shares, requests); one with folders cannot be deleted
   const endpointInactive = (ep: any): boolean =>
@@ -308,8 +281,8 @@
   const endpointFolderCount = (ep: any): number => rootsForEndpoint(ep).length;
 
   // Right click on a server of the list
-  let menuEndpoint: any | null = null;
-  let menuAt = { x: 0, y: 0 };
+  let menuEndpoint: any | null = $state(null);
+  let menuAt = $state({ x: 0, y: 0 });
   function openEndpointMenu(ep: any, event: MouseEvent) {
     const anchor = event.currentTarget as HTMLElement | null;
     const rect = anchor?.getBoundingClientRect();
@@ -331,62 +304,30 @@
     } else openDeleteModal(ep);
   }
 
-  let search = '';
+  let search = $state('');
 
-  // The list pane searches by itself (name, host, roots) and highlights the matches
-  $: sidebarEndpoints = endpoints;
 
-  $: sidebarGroups = (() => {
-    const map = new Map<string, { zone_id: string | number; zone_name: string; endpoints: any[] }>();
-    for (const ep of sidebarEndpoints) {
-      // Every server in its zone; the sidebar puts the DFS namespaces under their namespace server
-      const zoneName = endpointZone(ep) || t('Unavailable');
-      const rawZoneId = Number(ep?.zone_id ?? ep?.zone?.id ?? 0);
-      const resolvedZoneId = Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId(ep)}`;
-      const key = String(resolvedZoneId);
-      if (!map.has(key)) {
-        map.set(key, {
-          zone_id: resolvedZoneId,
-          zone_name: zoneName,
-          endpoints: []
-        });
-      }
-      map.get(key)?.endpoints.push(ep);
-    }
-    return Array.from(map.values()).sort((a, b) =>
-      a.zone_name.localeCompare(b.zone_name, 'en', { sensitivity: 'base' })
-    );
-  })();
 
   const selectSidebarEndpoint = (id: number): void => {
     if (id > 0) goto(`/admin/storage-endpoints/${id}`);
   };
   // A DFS server (DFS01): one line in the list, its own view (?server=); its namespaces keep their pages
   const dfsServerOf = (ep: any): string => (endpointHost(ep) || '—').split('.')[0].toUpperCase();
-  $: dfsServerParam = ($page.url.searchParams.get('server') ?? '').toUpperCase();
-  $: dfsServerNamespaces = dfsServerParam ? endpoints.filter((ep) => isDfsEndpoint(ep) && dfsServerOf(ep) === dfsServerParam) : [];
-  $: sidebarSelected = dfsServerParam || isDfsEndpoint(selected) ? `dfs-server:${dfsServerParam || dfsServerOf(selected)}` : selectedId;
 
-  $: selectedRoots = roots.filter((r) => Number(r?.storage_endpoint_id ?? 0) === selectedId);
 
   type EndpointTabKey = 'overview' | 'shares' | 'activity' | 'provisioning';
   // Failures of the last 7 days are counted on the Activity tab (the overview no longer lists the activity)
   const isFailure = (entry: any) => ['failed', 'failure', 'error'].includes(String(entry?.outcome ?? entry?.result ?? '').toLowerCase());
-  $: recentFailures = activity.filter(
-    (entry) => isFailure(entry) && Date.now() - new Date(String(entry?.created_at ?? '')).getTime() < 7 * 24 * 3600 * 1000
-  ).length;
   const isDfsEndpoint = (ep: any): boolean => String(ep?.type ?? ep?.storage_endpoint_type ?? ep?.endpoint_type ?? '').toLowerCase() === 'dfs';
-  $: selectedIsDfs = isDfsEndpoint(selected);
-  let namespacePath = '';
+  let namespacePath = $state('');
 
   // A DFS namespace: its DFS folders, read here so that the tiles, « To do » and the list share them
-  let dfsInfo: DfsInfo | null = null;
-  let dfsLoading = false;
-  let dfsError = '';
-  let dfsReading = false;
-  let dfsBusy: Record<string, boolean> = {};
-  let dfsLoadedFor = 0;
-  $: if (selected && selectedIsDfs && endpointId(selected) !== dfsLoadedFor) void loadDfs(endpointId(selected));
+  let dfsInfo: DfsInfo | null = $state(null);
+  let dfsLoading = $state(false);
+  let dfsError = $state('');
+  let dfsReading = $state(false);
+  let dfsBusy: Record<string, boolean> = $state({});
+  let dfsLoadedFor = $state(0);
 
   async function loadDfs(id: number) {
     if (id !== dfsLoadedFor) dfsInfo = null;
@@ -440,65 +381,26 @@
     }
   }
 
-  $: dfsCount = dfsCounts(dfsInfo);
-  $: dfsAge = dfsReadAge(dfsInfo);
-  $: dfsTodoLinks = (dfsInfo?.links ?? []).filter((link) => link.state === 'to_manage' || link.state === 'partial').map((link) => link.path);
-  let dfsSteps: EntityTodoStep[] = [];
-  $: dfsSteps = !dfsInfo
-    ? (dfsError
-        ? [{ key: 'read', tone: 'bad' as const, icon: 'bi-x-octagon', title: t('Unable to read this namespace.'), detail: dfsError, label: t('Edit the connection'), run: () => (showEditModal = true) }]
-        : [])
-    : [
-        ...(dfsInfo.error || dfsError
-          ? [{ key: 'error', tone: 'bad' as const, icon: 'bi-x-octagon', title: t('The last read failed'), detail: dfsError || dfsInfo.error || '', label: dfsReading ? t('Reading…') : t('Read the namespace again'), busy: dfsReading, run: dfsReadAgainNow }]
-          : dfsReadIsStale(dfsInfo)
-            ? [{ key: 'stale', tone: 'warn' as const, icon: 'bi-clock-history', title: dfsAge === null ? t('Never read') : t('Read {days} days ago', { days: dfsAge }), detail: t('DFS folders added since then are not shown.'), label: dfsReading ? t('Reading…') : t('Read the namespace again'), busy: dfsReading, run: dfsReadAgainNow }]
-            : []),
-        ...(dfsInfo.manage_denied
-          ? [{ key: 'delegation', tone: 'bad' as const, icon: 'bi-person-lock', title: t('The account cannot manage this namespace'), detail: t('{account} was refused when creating or deleting a DFS folder: delegate the management of the namespace to it (DFS console › Delegate Management Permissions), or use another account.', { account: dfsInfo.manage_denied.account ?? '' }), label: t('Edit the connection'), run: () => (showEditModal = true) }]
-          : []),
-        ...(dfsCount.unknownServers.length
-          ? [{ key: 'unknown', tone: 'bad' as const, icon: 'bi-hdd-network', title: t('{count} target server(s) not declared', { count: dfsCount.unknownServers.length }), detail: t('{names}: their DFS folders cannot be managed.', { names: dfsCount.unknownServers.join(', ') }), label: t('Declare the server'), run: () => goto(`/admin/storage-endpoints/new${selected?.zone_id ? `?zone=${selected.zone_id}` : ''}`) }]
-          : []),
-        ...(dfsCount.todo
-          ? [{ key: 'todo', tone: 'warn' as const, icon: 'bi-folder-plus', title: t('{count} DFS folder(s) to manage', { count: dfsCount.todo }), detail: t('Their target folders become governed folders, on every target.'), label: t('Manage the {count} to manage', { count: dfsCount.todo }), busy: dfsBusy['*'], run: () => dfsManage(dfsTodoLinks) }]
-          : []),
-        ...(dfsCount.noTarget
-          ? [{ key: 'notarget', tone: 'info' as const, icon: 'bi-signpost', title: t('{count} DFS folder(s) without a target', { count: dfsCount.noTarget }), detail: t('They lead nowhere: check them in the DFS console.'), label: t('Read the namespace again'), busy: dfsReading, run: dfsReadAgainNow }]
-          : [])
-      ];
-  $: endpointTabs = selectedIsDfs ? [
-    { key: 'overview', label: t('DFS folders'), icon: 'bi-diagram-3' },
-    { key: 'activity', label: t('Activity'), icon: 'bi-activity', count: recentFailures || null }
-  ] : [
-    { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
-    { key: 'shares', label: t('Shares'), icon: 'bi-folder-plus', count: catalogEntry?.new_count || null },
-    { key: 'activity', label: t('Activity'), icon: 'bi-activity', count: recentFailures || null },
-    { key: 'provisioning', label: t('Provisioning'), icon: 'bi-shield-check' }
-  ];
+  let dfsSteps: EntityTodoStep[] = $state([]);
   // Last change made by a person (creation, edit…), shown in the Connection card
-  let activeEndpointTab: EndpointTabKey = 'overview';
+  let activeEndpointTab: EndpointTabKey = $state('overview');
 
-  let endpointProvisioningBusy = false;
-  let endpointProvisioningError: string | null = null;
-  let endpointProvisioningPolicy: StorageEndpointProvisioningPolicy | null = null;
-  let endpointProvisioningLoadedForId: number | null = null;
+  let endpointProvisioningBusy = $state(false);
+  let endpointProvisioningError: string | null = $state(null);
+  let endpointProvisioningPolicy: StorageEndpointProvisioningPolicy | null = $state(null);
+  let endpointProvisioningLoadedForId: number | null = $state(null);
 
   let endpointProvisioningDraft: {
     policyMode: 'inherit' | 'override';
     ouDn: string;
     namingTemplate: string;
-  } = {
+  } = $state({
     policyMode: 'inherit',
     ouDn: '',
     namingTemplate: ''
-  };
+  });
 
-  let lastSelectedEndpointIdForTabReset: number | null = null;
-  $: if (selectedId > 0 && lastSelectedEndpointIdForTabReset !== selectedId) {
-    activeEndpointTab = 'overview';
-    lastSelectedEndpointIdForTabReset = selectedId;
-  }
+  let lastSelectedEndpointIdForTabReset: number | null = $state(null);
 
   const selectedEndpointId = () => endpointId(selected);
 
@@ -591,47 +493,14 @@
     }
   }
 
-  // Browser only: during SSR the component fetch cannot resolve relative /api URLs
-  $: if (browser && selected && selectedId > 0 && healthLoadedForEndpointId !== selectedId) {
-    healthLoadedForEndpointId = selectedId;
-    void refreshEndpointHealth(selected);
-  }
 
-  $: if (
-    browser &&
-    selectedEndpointId() > 0 &&
-    activeEndpointTab === 'provisioning' &&
-    !endpointProvisioningBusy &&
-    endpointProvisioningLoadedForId !== selectedEndpointId()
-  ) {
-    void loadEndpointProvisioningPolicy(selectedEndpointId());
-  }
 
   const resetEndpointProvisioningDraft = (policy: StorageEndpointProvisioningPolicy | null) => {
     endpointProvisioningDraft = createProvisioningDraft(policy);
   };
 
-  $: endpointCurrentMode = endpointProvisioningPolicy?.policy_mode === 'override' ? 'override' : 'inherit';
-  $: endpointCurrentOuDn = String(
-    endpointCurrentMode === 'override'
-      ? endpointProvisioningPolicy?.endpoint_values?.ou_dn
-      : endpointProvisioningPolicy?.inherited_values?.ou_dn
-  ).trim();
-  $: endpointCurrentNamingTemplate = String(
-    endpointCurrentMode === 'override'
-      ? endpointProvisioningPolicy?.endpoint_values?.naming_template
-      : endpointProvisioningPolicy?.inherited_values?.naming_template
-  ).trim();
 
-  $: endpointIsDirty =
-    endpointProvisioningDraft.policyMode !== endpointCurrentMode ||
-    String(endpointProvisioningDraft.ouDn ?? '').trim() !== endpointCurrentOuDn ||
-    String(endpointProvisioningDraft.namingTemplate ?? '').trim() !== endpointCurrentNamingTemplate;
 
-  $: endpointCanSave =
-    Boolean(selected && selectedId && endpointProvisioningPolicy) &&
-    !endpointProvisioningBusy &&
-    endpointIsDirty;
 
   async function loadEndpointProvisioningPolicy(id: number) {
     try {
@@ -848,18 +717,12 @@
     }
   }
 
-  // Shares of the last search (managed or not), for the counter and the Shares tab
-  $: catalogEntry = selected ? (data as any).catalog?.[String(endpointId(selected))] ?? null : null;
-  let showShareModal = false;
+  let showShareModal = $state(false);
   // A server declared by its address that no longer answers: does its name lead elsewhere now (VM restarted…)?
-  let movedTo: { endpointId: number; address: string } | null = null;
-  let suggestedHost: string | null = null;
-  let movedCheckedFor = 0;
+  let movedTo: { endpointId: number; address: string } | null = $state(null);
+  let suggestedHost: string | null = $state(null);
+  let movedCheckedFor = $state(0);
   const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
-  // endpointHealthById is read inside endpointHealth(): listed so that the check follows the health checks
-  $: if (selected && !selectedIsDfs && endpointHealthById && endpointHealth(selected) === 'unhealthy' && IPV4.test(String(selected.host ?? '')) && endpointId(selected) !== movedCheckedFor) {
-    void checkNewAddress(selected);
-  }
 
   async function checkNewAddress(ep: any) {
     const id = endpointId(ep);
@@ -880,13 +743,13 @@
     }
   }
   // A new share: the Shares tab lists it again at once
-  let sharesVersion = 0;
-  let showEditModal = false;
-  let showDeleteModal = false;
-  let showRereadConfirm = false;
-  let rereadBusy = false;
-  let deleteBusy = false;
-  let endpointToDelete: any | null = null;
+  let sharesVersion = $state(0);
+  let showEditModal = $state(false);
+  let showDeleteModal = $state(false);
+  let showRereadConfirm = $state(false);
+  let rereadBusy = $state(false);
+  let deleteBusy = $state(false);
+  let endpointToDelete: any | null = $state(null);
 
   function openDeleteModal(ep: any) {
     if (!ep) return;
@@ -938,15 +801,6 @@
     return Number.isFinite(embedded) && embedded > 0 ? embedded : 0;
   };
 
-  // Open alerts per storage root, for the state column of the table
-  $: rootAlertCounts = selectVisibleStorageRootAlertsForRootIds(
-    selectedRoots.map((row) => rootId(row)),
-    data.storageRootAlerts ?? []
-  ).reduce<Record<string, number>>((counts, alert) => {
-    const key = String(storageRootAlertRootId(alert));
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
 
   const rootProbeHealth = (row: any): HealthValue => {
     const own = statusToHealth(String(row?.last_probe_status ?? row?.probe_status ?? ''));
@@ -954,24 +808,8 @@
   };
 
   // Filter of the folder list, also set by the tiles (to review, without guardian, pending requests)
-  let folderFilter = 'all';
-  let folderFilterFor = 0;
-  // Another server: its list starts unfiltered
-  $: if (selected && endpointId(selected) !== folderFilterFor) {
-    folderFilterFor = endpointId(selected);
-    folderFilter = 'all';
-  }
-  $: rootsFilteredRows = selectedRoots
-    .map((row) => ({
-      id: rootId(row),
-      name: String(rootName(row) || '').replace(/^\s*\[[^\]]+\]\s*/, ''),
-      path: rootPath(row),
-      pendingCount: pendingCountForRoot(row),
-      // Result of the root's own last test (as on the Storage roots page), not its availability for requests
-      health: rootProbeHealth(row),
-      alertCount: rootAlertCounts[String(rootId(row))] ?? 0,
-      guardians: Number((row as any)?.guardian_count ?? (row as any)?.guardians_count ?? NaN)
-    }));
+  let folderFilter = $state('all');
+  let folderFilterFor = $state(0);
 
 
   const endpointLastProbeRaw = (ep: any): string | null =>
@@ -1029,15 +867,6 @@
     return lastResult || t('probe or configuration needs review');
   };
 
-  // The folders of this server to review, read from their open alerts (same reading as the zone page)
-  // endpointHealthById is read inside endpointHealth(): listed so that the summary follows the health checks
-  $: endpointSummary = ((_health: unknown) => summarizeZone(
-    selected ? [{ ...selected, id: endpointId(selected), operational_state: ({ healthy: 'reachable', unhealthy: 'unreachable' } as Record<string, string>)[endpointHealth(selected)] ?? 'unknown' }] : [],
-    selectedRoots,
-    (data.storageRootAlerts ?? []) as GovernanceAlert[]
-  ))(endpointHealthById);
-  $: sharesNotManaged = catalogEntry ? Number(catalogEntry.new_count ?? 0) : null;
-  $: foldersHref = selected ? `/storage-roots?endpoint=${endpointId(selected)}` : '/storage-roots';
 
   async function rereadFolders() {
     showRereadConfirm = false;
@@ -1059,7 +888,6 @@
     }
   }
 
-  $: provisioningWarnings = endpointProvisioningPolicy?.warnings?.map((w) => String(w?.message ?? '').trim()).filter(Boolean) ?? [];
 
   const endpointOperationalTone = (ep: any) => endpointHealthToOperationalTone(endpointHealth(ep));
 
@@ -1139,9 +967,6 @@
     };
   };
 
-  // Health, probe and refresh state are read inside the helpers: list them so Svelte recomputes
-  $: healthState = [endpointHealthById, rootHealthByEndpointId, healthLoadingByEndpointId,
-                    manualHealthRefreshByEndpointId, probingEndpointId];
 
   // The extra arguments (reading state of a namespace…) only make the header follow them
   const endpointHeaderActions = (ep: any, ..._deps: unknown[]): EntityActionItem[] => [
@@ -1194,9 +1019,167 @@
   ];
 
   let endpointProvisioningViewModel: ProvisioningPolicyViewModel =
-    buildStorageEndpointProvisioningViewModel(null);
+    $state(buildStorageEndpointProvisioningViewModel(null));
 
-  $: {
+  $effect.pre(() => {
+    endpoints = Array.isArray(data.endpoints) ? data.endpoints : [];
+  });
+  $effect.pre(() => {
+    roots = Array.isArray(data.roots) ? data.roots : [];
+  });
+  $effect.pre(() => {
+    activity = Array.isArray(data.activity) ? data.activity : [];
+  });
+  $effect.pre(() => {
+    pendingRequests = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
+  });
+  let hasEndpoints = $derived(endpoints.length > 0);
+  let selectedId = $derived(Number($page.params.id));
+  let selected = $derived(hasEndpoints
+    ? endpoints.find((e) => Number(e?.id ?? e?.storage_endpoint_id) === selectedId) ?? null
+    : null);
+  $effect.pre(() => {
+    if (browser && hasEndpoints && !selected) {
+      goto(`/admin/storage-endpoints/${endpointId(endpoints[0])}`, { replaceState: true });
+    }
+  });
+  $effect.pre(() => {
+    if (
+      browser &&
+      selected &&
+      openEditHandledFor !== selectedId &&
+      ['1', 'true'].includes(String($page.url.searchParams.get('openEdit') ?? '').toLowerCase())
+    ) {
+      openEditHandledFor = selectedId;
+      showEditModal = true;
+      const next = new URL($page.url);
+      next.searchParams.delete('openEdit');
+      goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true });
+    }
+  });
+  $effect.pre(() => {
+    if (
+      browser &&
+      selected &&
+      openShareHandledFor !== selectedId &&
+      ['1', 'true'].includes(String($page.url.searchParams.get('openShare') ?? '').toLowerCase())
+    ) {
+      openShareHandledFor = selectedId;
+      showShareModal = true;
+      const next = new URL($page.url);
+      next.searchParams.delete('openShare');
+      goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true });
+    }
+  });
+  // The list pane searches by itself (name, host, roots) and highlights the matches
+  let sidebarEndpoints = $derived(endpoints);
+  let sidebarGroups = $derived((() => {
+    const map = new Map<string, { zone_id: string | number; zone_name: string; endpoints: any[] }>();
+    for (const ep of sidebarEndpoints) {
+      // Every server in its zone; the sidebar puts the DFS namespaces under their namespace server
+      const zoneName = endpointZone(ep) || t('Unavailable');
+      const rawZoneId = Number(ep?.zone_id ?? ep?.zone?.id ?? 0);
+      const resolvedZoneId = Number.isFinite(rawZoneId) && rawZoneId > 0 ? rawZoneId : `unassigned-${endpointId(ep)}`;
+      const key = String(resolvedZoneId);
+      if (!map.has(key)) {
+        map.set(key, {
+          zone_id: resolvedZoneId,
+          zone_name: zoneName,
+          endpoints: []
+        });
+      }
+      map.get(key)?.endpoints.push(ep);
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      a.zone_name.localeCompare(b.zone_name, 'en', { sensitivity: 'base' })
+    );
+  })());
+  let dfsServerParam = $derived(($page.url.searchParams.get('server') ?? '').toUpperCase());
+  let dfsServerNamespaces = $derived(dfsServerParam ? endpoints.filter((ep) => isDfsEndpoint(ep) && dfsServerOf(ep) === dfsServerParam) : []);
+  let sidebarSelected = $derived(dfsServerParam || isDfsEndpoint(selected) ? `dfs-server:${dfsServerParam || dfsServerOf(selected)}` : selectedId);
+  let selectedRoots = $derived(roots.filter((r) => Number(r?.storage_endpoint_id ?? 0) === selectedId));
+  let recentFailures = $derived(activity.filter(
+    (entry) => isFailure(entry) && Date.now() - new Date(String(entry?.created_at ?? '')).getTime() < 7 * 24 * 3600 * 1000
+  ).length);
+  let selectedIsDfs = $derived(isDfsEndpoint(selected));
+  $effect.pre(() => {
+    if (selected && selectedIsDfs && endpointId(selected) !== dfsLoadedFor) void loadDfs(endpointId(selected));
+  });
+  let dfsCount = $derived(dfsCounts(dfsInfo));
+  let dfsAge = $derived(dfsReadAge(dfsInfo));
+  let dfsTodoLinks = $derived((dfsInfo?.links ?? []).filter((link) => link.state === 'to_manage' || link.state === 'partial').map((link) => link.path));
+  $effect.pre(() => {
+    dfsSteps = !dfsInfo
+      ? (dfsError
+          ? [{ key: 'read', tone: 'bad' as const, icon: 'bi-x-octagon', title: t('Unable to read this namespace.'), detail: dfsError, label: t('Edit the connection'), run: () => (showEditModal = true) }]
+          : [])
+      : [
+          ...(dfsInfo.error || dfsError
+            ? [{ key: 'error', tone: 'bad' as const, icon: 'bi-x-octagon', title: t('The last read failed'), detail: dfsError || dfsInfo.error || '', label: dfsReading ? t('Reading…') : t('Read the namespace again'), busy: dfsReading, run: dfsReadAgainNow }]
+            : dfsReadIsStale(dfsInfo)
+              ? [{ key: 'stale', tone: 'warn' as const, icon: 'bi-clock-history', title: dfsAge === null ? t('Never read') : t('Read {days} days ago', { days: dfsAge }), detail: t('DFS folders added since then are not shown.'), label: dfsReading ? t('Reading…') : t('Read the namespace again'), busy: dfsReading, run: dfsReadAgainNow }]
+              : []),
+          ...(dfsInfo.manage_denied
+            ? [{ key: 'delegation', tone: 'bad' as const, icon: 'bi-person-lock', title: t('The account cannot manage this namespace'), detail: t('{account} was refused when creating or deleting a DFS folder: delegate the management of the namespace to it (DFS console › Delegate Management Permissions), or use another account.', { account: dfsInfo.manage_denied.account ?? '' }), label: t('Edit the connection'), run: () => (showEditModal = true) }]
+            : []),
+          ...(dfsCount.unknownServers.length
+            ? [{ key: 'unknown', tone: 'bad' as const, icon: 'bi-hdd-network', title: t('{count} target server(s) not declared', { count: dfsCount.unknownServers.length }), detail: t('{names}: their DFS folders cannot be managed.', { names: dfsCount.unknownServers.join(', ') }), label: t('Declare the server'), run: () => goto(`/admin/storage-endpoints/new${selected?.zone_id ? `?zone=${selected.zone_id}` : ''}`) }]
+            : []),
+          ...(dfsCount.todo
+            ? [{ key: 'todo', tone: 'warn' as const, icon: 'bi-folder-plus', title: t('{count} DFS folder(s) to manage', { count: dfsCount.todo }), detail: t('Their target folders become governed folders, on every target.'), label: t('Manage the {count} to manage', { count: dfsCount.todo }), busy: dfsBusy['*'], run: () => dfsManage(dfsTodoLinks) }]
+            : []),
+          ...(dfsCount.noTarget
+            ? [{ key: 'notarget', tone: 'info' as const, icon: 'bi-signpost', title: t('{count} DFS folder(s) without a target', { count: dfsCount.noTarget }), detail: t('They lead nowhere: check them in the DFS console.'), label: t('Read the namespace again'), busy: dfsReading, run: dfsReadAgainNow }]
+            : [])
+        ];
+  });
+  // Shares of the last search (managed or not), for the counter and the Shares tab
+  let catalogEntry = $derived(selected ? (data as any).catalog?.[String(endpointId(selected))] ?? null : null);
+  let endpointTabs = $derived(selectedIsDfs ? [
+    { key: 'overview', label: t('DFS folders'), icon: 'bi-diagram-3' },
+    { key: 'activity', label: t('Activity'), icon: 'bi-activity', count: recentFailures || null }
+  ] : [
+    { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
+    { key: 'shares', label: t('Shares'), icon: 'bi-folder-plus', count: catalogEntry?.new_count || null },
+    { key: 'activity', label: t('Activity'), icon: 'bi-activity', count: recentFailures || null },
+    { key: 'provisioning', label: t('Provisioning'), icon: 'bi-shield-check' }
+  ]);
+  $effect.pre(() => {
+    if (selectedId > 0 && lastSelectedEndpointIdForTabReset !== selectedId) {
+      activeEndpointTab = 'overview';
+      lastSelectedEndpointIdForTabReset = selectedId;
+    }
+  });
+  // Browser only: during SSR the component fetch cannot resolve relative /api URLs
+  $effect.pre(() => {
+    if (browser && selected && selectedId > 0 && healthLoadedForEndpointId !== selectedId) {
+      healthLoadedForEndpointId = selectedId;
+      void refreshEndpointHealth(selected);
+    }
+  });
+  $effect.pre(() => {
+    if (
+      browser &&
+      selectedEndpointId() > 0 &&
+      activeEndpointTab === 'provisioning' &&
+      !endpointProvisioningBusy &&
+      endpointProvisioningLoadedForId !== selectedEndpointId()
+    ) {
+      void loadEndpointProvisioningPolicy(selectedEndpointId());
+    }
+  });
+  let endpointCurrentMode = $derived(endpointProvisioningPolicy?.policy_mode === 'override' ? 'override' : 'inherit');
+  let endpointCurrentOuDn = $derived(String(
+    endpointCurrentMode === 'override'
+      ? endpointProvisioningPolicy?.endpoint_values?.ou_dn
+      : endpointProvisioningPolicy?.inherited_values?.ou_dn
+  ).trim());
+  let endpointCurrentNamingTemplate = $derived(String(
+    endpointCurrentMode === 'override'
+      ? endpointProvisioningPolicy?.endpoint_values?.naming_template
+      : endpointProvisioningPolicy?.inherited_values?.naming_template
+  ).trim());
+  $effect.pre(() => {
     const policy = endpointProvisioningPolicy;
     const draft = endpointProvisioningDraft;
 
@@ -1303,7 +1286,61 @@
         }
       }
     };
-  }
+  });
+  let endpointIsDirty =
+    $derived(endpointProvisioningDraft.policyMode !== endpointCurrentMode ||
+    String(endpointProvisioningDraft.ouDn ?? '').trim() !== endpointCurrentOuDn ||
+    String(endpointProvisioningDraft.namingTemplate ?? '').trim() !== endpointCurrentNamingTemplate);
+  let endpointCanSave =
+    $derived(Boolean(selected && selectedId && endpointProvisioningPolicy) &&
+    !endpointProvisioningBusy &&
+    endpointIsDirty);
+  // endpointHealthById is read inside endpointHealth(): listed so that the check follows the health checks
+  $effect.pre(() => {
+    if (selected && !selectedIsDfs && endpointHealthById && endpointHealth(selected) === 'unhealthy' && IPV4.test(String(selected.host ?? '')) && endpointId(selected) !== movedCheckedFor) {
+      void checkNewAddress(selected);
+    }
+  });
+  // Open alerts per storage root, for the state column of the table
+  let rootAlertCounts = $derived(selectVisibleStorageRootAlertsForRootIds(
+    selectedRoots.map((row) => rootId(row)),
+    data.storageRootAlerts ?? []
+  ).reduce<Record<string, number>>((counts, alert) => {
+    const key = String(storageRootAlertRootId(alert));
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {}));
+  // Another server: its list starts unfiltered
+  $effect.pre(() => {
+    if (selected && endpointId(selected) !== folderFilterFor) {
+      folderFilterFor = endpointId(selected);
+      folderFilter = 'all';
+    }
+  });
+  let rootsFilteredRows = $derived(selectedRoots
+    .map((row) => ({
+      id: rootId(row),
+      name: String(rootName(row) || '').replace(/^\s*\[[^\]]+\]\s*/, ''),
+      path: rootPath(row),
+      pendingCount: pendingCountForRoot(row),
+      // Result of the root's own last test (as on the Storage roots page), not its availability for requests
+      health: rootProbeHealth(row),
+      alertCount: rootAlertCounts[String(rootId(row))] ?? 0,
+      guardians: Number((row as any)?.guardian_count ?? (row as any)?.guardians_count ?? NaN)
+    })));
+  // The folders of this server to review, read from their open alerts (same reading as the zone page)
+  // endpointHealthById is read inside endpointHealth(): listed so that the summary follows the health checks
+  let endpointSummary = $derived(((_health: unknown) => summarizeZone(
+    selected ? [{ ...selected, id: endpointId(selected), operational_state: ({ healthy: 'reachable', unhealthy: 'unreachable' } as Record<string, string>)[endpointHealth(selected)] ?? 'unknown' }] : [],
+    selectedRoots,
+    (data.storageRootAlerts ?? []) as GovernanceAlert[]
+  ))(endpointHealthById));
+  let sharesNotManaged = $derived(catalogEntry ? Number(catalogEntry.new_count ?? 0) : null);
+  let foldersHref = $derived(selected ? `/storage-roots?endpoint=${endpointId(selected)}` : '/storage-roots');
+  let provisioningWarnings = $derived(endpointProvisioningPolicy?.warnings?.map((w) => String(w?.message ?? '').trim()).filter(Boolean) ?? []);
+  // Health, probe and refresh state are read inside the helpers: list them so Svelte recomputes
+  let healthState = $derived([endpointHealthById, rootHealthByEndpointId, healthLoadingByEndpointId,
+                    manualHealthRefreshByEndpointId, probingEndpointId]);
 </script>
 
 {#if !hasEndpoints}
@@ -1331,109 +1368,115 @@
 />
 <ShareCreateModal open={showShareModal} endpointId={selectedEndpointId()} onClose={() => (showShareModal = false)} onCreated={() => { sharesVersion += 1; void invalidateAll(); }} />
 <EntityWorkspace title={t('Storage endpoints')} contentKey={selectedId}>
-  <svelte:fragment slot="list">
-    <StorageEndpointsSidebar
-      onAdd={() => goto(`/admin/storage-endpoints/new${selected?.zone_id ? `?zone=${selected.zone_id}` : ''}`)}
-      addLabel={t('New endpoint')}
-      query={search}
-      groups={sidebarGroups}
-      selectedEndpointId={sidebarSelected}
-      {roots}
-      onSelectEndpoint={selectSidebarEndpoint}
-      onSelectDfsServer={(server, first) => goto(`/admin/storage-endpoints/${first}?server=${encodeURIComponent(server)}`)}
-      onQueryChange={(value) => (search = value)}
-      {endpointId}
-      {endpointName}
-      {endpointHost}
-      {endpointTone}
-      {endpointAlertCount}
-      {endpointAlertIndicator}
-      onEndpointMenu={openEndpointMenu}
-    />
-  </svelte:fragment>
+  {#snippet list()}
+      
+      <StorageEndpointsSidebar
+        onAdd={() => goto(`/admin/storage-endpoints/new${selected?.zone_id ? `?zone=${selected.zone_id}` : ''}`)}
+        addLabel={t('New endpoint')}
+        query={search}
+        groups={sidebarGroups}
+        selectedEndpointId={sidebarSelected}
+        {roots}
+        onSelectEndpoint={selectSidebarEndpoint}
+        onSelectDfsServer={(server, first) => goto(`/admin/storage-endpoints/${first}?server=${encodeURIComponent(server)}`)}
+        onQueryChange={(value) => (search = value)}
+        {endpointId}
+        {endpointName}
+        {endpointHost}
+        {endpointTone}
+        {endpointAlertCount}
+        {endpointAlertIndicator}
+        onEndpointMenu={openEndpointMenu}
+      />
+    
+      {/snippet}
     {#if dfsServerParam && dfsServerNamespaces.length}
       {#key dfsServerParam}
         <DfsServerView server={dfsServerParam} zoneName={endpointZone(dfsServerNamespaces[0])} namespaces={dfsServerNamespaces} {endpointId} {endpointName} />
       {/key}
     {:else if selected}
       <EntityConsoleShell>
-        <svelte:fragment slot="header">
-          {#key healthState}
-          <div class="sed-top">
-            <EntityHeroCard
-              icon={selectedIsDfs ? 'bi-diagram-3' : 'bi-hdd-network'}
-              iconTone="blue"
-              crumbs={selectedIsDfs ? [t('DFS namespaces'), endpointZone(selected)] : [t('Storage endpoints'), endpointZone(selected)]}
-              title={endpointName(selected)}
-              statusLabel={selectedIsDfs ? (dfsInfo?.error || dfsError ? t('Read failed') : dfsInfo?.read_at ? (dfsReadIsStale(dfsInfo) ? t('To read again') : t('Up to date')) : dfsInfo ? t('Never read') : '') : healthLabel(endpointHealth(selected))}
-              statusTone={selectedIsDfs ? (dfsInfo?.error || dfsError ? 'danger' : dfsInfo?.read_at && !dfsReadIsStale(dfsInfo) ? 'success' : 'warning') : pillTone(endpointOperationalTone(selected))}
-              path={selectedIsDfs && namespacePath ? namespacePath : endpointHasHost(selected) ? `\\\\${endpointHost(selected)}${selected?.port && Number(selected.port) !== 445 ? `:${selected.port}` : ''}` : ''}
-              chips={[
-                ...(!endpointHasHost(selected) && !selectedIsDfs ? [{ label: t('No host configured'), icon: 'bi-exclamation-triangle' }] : []),
-                ...(selectedIsDfs
-                  ? [
-                      ...(dfsInfo?.type ? [{ label: dfsInfo.type === 'domain' ? t('Domain namespace') : t('Standalone namespace') }] : []),
-                      ...(dfsInfo?.root_targets?.length ? [{ label: t('root on {servers}', { servers: dfsInfo.root_targets.map((target) => target.split('\\').filter(Boolean)[0]).join(', ') }), icon: 'bi-hdd-network' }] : [])
-                    ]
-                  : [
-                      { label: String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase() },
-                      { label: endpointLastProbeRaw(selected) ? t('tested {when}', { when: timeAgo(String(endpointLastProbeRaw(selected))) }) : t('never tested'), icon: 'bi-activity' }
-                    ]),
-                ...((selected?.bind_dn || selected?.auth_username) ? [{ label: String(selected?.bind_dn || selected?.auth_username), icon: 'bi-person-badge', mono: true }] : []),
-                // Right to manage the DFS folders, as the namespace last answered (for the account of the connection)
-                ...(selectedIsDfs && dfsInfo?.manage_denied ? [{ label: t('management refused'), icon: 'bi-person-lock' }] : []),
-                ...(selectedIsDfs && !dfsInfo?.manage_denied && dfsInfo?.manage_ok ? [{ label: t('management delegated · checked {date}', { date: formatDateTime(dfsInfo.manage_ok.at) }), icon: 'bi-shield-check' }] : []),
-                ...(selected?.identity_source_id ? [{ label: data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`, icon: 'bi-diagram-3' }] : [])
-              ]}
-              actions={endpointHeaderActions(selected, dfsReading, dfsInfo, probingEndpointId)}
-              actionsAriaLabel={t('Storage endpoint actions')}
-            />
-            {#if selectedIsDfs}
-              <DfsTiles info={dfsInfo} counts={dfsCount} onOpenFolders={() => (activeEndpointTab = 'overview')} />
-              <EntityTodoCard title={t('To do on this namespace')} steps={dfsSteps} />
-            {:else}
-              <EndpointTiles
-                summary={endpointSummary}
-                pendingCount={rootsFilteredRows.reduce((sum, row) => sum + (row.pendingCount ?? 0), 0)}
-                {sharesNotManaged}
-                activeFilter={folderFilter}
-                onFilter={(key) => { folderFilter = key; activeEndpointTab = 'overview'; }}
-                onOpenShares={() => (activeEndpointTab = 'shares')}
+        {#snippet header()}
+                  
+            {#key healthState}
+            <div class="sed-top">
+              <EntityHeroCard
+                icon={selectedIsDfs ? 'bi-diagram-3' : 'bi-hdd-network'}
+                iconTone="blue"
+                crumbs={selectedIsDfs ? [t('DFS namespaces'), endpointZone(selected)] : [t('Storage endpoints'), endpointZone(selected)]}
+                title={endpointName(selected)}
+                statusLabel={selectedIsDfs ? (dfsInfo?.error || dfsError ? t('Read failed') : dfsInfo?.read_at ? (dfsReadIsStale(dfsInfo) ? t('To read again') : t('Up to date')) : dfsInfo ? t('Never read') : '') : healthLabel(endpointHealth(selected))}
+                statusTone={selectedIsDfs ? (dfsInfo?.error || dfsError ? 'danger' : dfsInfo?.read_at && !dfsReadIsStale(dfsInfo) ? 'success' : 'warning') : pillTone(endpointOperationalTone(selected))}
+                path={selectedIsDfs && namespacePath ? namespacePath : endpointHasHost(selected) ? `\\\\${endpointHost(selected)}${selected?.port && Number(selected.port) !== 445 ? `:${selected.port}` : ''}` : ''}
+                chips={[
+                  ...(!endpointHasHost(selected) && !selectedIsDfs ? [{ label: t('No host configured'), icon: 'bi-exclamation-triangle' }] : []),
+                  ...(selectedIsDfs
+                    ? [
+                        ...(dfsInfo?.type ? [{ label: dfsInfo.type === 'domain' ? t('Domain namespace') : t('Standalone namespace') }] : []),
+                        ...(dfsInfo?.root_targets?.length ? [{ label: t('root on {servers}', { servers: dfsInfo.root_targets.map((target) => target.split('\\').filter(Boolean)[0]).join(', ') }), icon: 'bi-hdd-network' }] : [])
+                      ]
+                    : [
+                        { label: String(selected?.protocol ?? selected?.storage_endpoint_type ?? 'SMB').toUpperCase() },
+                        { label: endpointLastProbeRaw(selected) ? t('tested {when}', { when: timeAgo(String(endpointLastProbeRaw(selected))) }) : t('never tested'), icon: 'bi-activity' }
+                      ]),
+                  ...((selected?.bind_dn || selected?.auth_username) ? [{ label: String(selected?.bind_dn || selected?.auth_username), icon: 'bi-person-badge', mono: true }] : []),
+                  // Right to manage the DFS folders, as the namespace last answered (for the account of the connection)
+                  ...(selectedIsDfs && dfsInfo?.manage_denied ? [{ label: t('management refused'), icon: 'bi-person-lock' }] : []),
+                  ...(selectedIsDfs && !dfsInfo?.manage_denied && dfsInfo?.manage_ok ? [{ label: t('management delegated · checked {date}', { date: formatDateTime(dfsInfo.manage_ok.at) }), icon: 'bi-shield-check' }] : []),
+                  ...(selected?.identity_source_id ? [{ label: data.identitySourceNames?.[String(selected.identity_source_id)] || `#${selected.identity_source_id}`, icon: 'bi-diagram-3' }] : [])
+                ]}
+                actions={endpointHeaderActions(selected, dfsReading, dfsInfo, probingEndpointId)}
+                actionsAriaLabel={t('Storage endpoint actions')}
               />
-              <EndpointTodo
-                summary={endpointSummary}
-                health={endpointHealth(selected)}
-                hostMissing={!endpointHasHost(selected)}
-                lastResult={endpointHealth(selected) === 'unhealthy' ? humanizeFileServerMessage(t(endpointLastResultLabel(selected))) : ''}
-                pendingRequests={endpointPendingCount(selected)}
-                sharesNotManaged={sharesNotManaged ?? 0}
-                {provisioningWarnings}
-                {rereadBusy}
-                testBusy={probingEndpointId === endpointId(selected)}
-                onEditConnection={() => (showEditModal = true)}
-                movedTo={movedTo?.endpointId === endpointId(selected) ? movedTo.address : null}
-                secretMissing={endpointSecretMissing(selected, endpointHealthById)}
-                onUseAddress={(address) => { suggestedHost = address; showEditModal = true; }}
-                onTest={() => runEndpointProbe(selected)}
-                onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian&bulk=guardians`)}
-                onReread={() => (showRereadConfirm = true)}
-                onOpenRequests={() => goto('/access-requests?status=pending')}
-                onOpenShares={() => (activeEndpointTab = 'shares')}
-                onOpenProvisioning={() => (activeEndpointTab = 'provisioning')}
-              />
-            {/if}
-          </div>
-          {/key}
-        </svelte:fragment>
+              {#if selectedIsDfs}
+                <DfsTiles info={dfsInfo} counts={dfsCount} onOpenFolders={() => (activeEndpointTab = 'overview')} />
+                <EntityTodoCard title={t('To do on this namespace')} steps={dfsSteps} />
+              {:else}
+                <EndpointTiles
+                  summary={endpointSummary}
+                  pendingCount={rootsFilteredRows.reduce((sum, row) => sum + (row.pendingCount ?? 0), 0)}
+                  {sharesNotManaged}
+                  activeFilter={folderFilter}
+                  onFilter={(key) => { folderFilter = key; activeEndpointTab = 'overview'; }}
+                  onOpenShares={() => (activeEndpointTab = 'shares')}
+                />
+                <EndpointTodo
+                  summary={endpointSummary}
+                  health={endpointHealth(selected)}
+                  hostMissing={!endpointHasHost(selected)}
+                  lastResult={endpointHealth(selected) === 'unhealthy' ? humanizeFileServerMessage(t(endpointLastResultLabel(selected))) : ''}
+                  pendingRequests={endpointPendingCount(selected)}
+                  sharesNotManaged={sharesNotManaged ?? 0}
+                  {provisioningWarnings}
+                  {rereadBusy}
+                  testBusy={probingEndpointId === endpointId(selected)}
+                  onEditConnection={() => (showEditModal = true)}
+                  movedTo={movedTo?.endpointId === endpointId(selected) ? movedTo.address : null}
+                  secretMissing={endpointSecretMissing(selected, endpointHealthById)}
+                  onUseAddress={(address) => { suggestedHost = address; showEditModal = true; }}
+                  onTest={() => runEndpointProbe(selected)}
+                  onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian&bulk=guardians`)}
+                  onReread={() => (showRereadConfirm = true)}
+                  onOpenRequests={() => goto('/access-requests?status=pending')}
+                  onOpenShares={() => (activeEndpointTab = 'shares')}
+                  onOpenProvisioning={() => (activeEndpointTab = 'provisioning')}
+                />
+              {/if}
+            </div>
+            {/key}
+          
+                  {/snippet}
 
-        <svelte:fragment slot="tabs">
-          <Tabs
-            tabs={endpointTabs}
-            activeKey={activeEndpointTab}
-            ariaLabel={t('Storage endpoint sections')}
-            onChange={handleEndpointTabChange}
-          />
-        </svelte:fragment>
+        {#snippet tabs()}
+                  
+            <Tabs
+              tabs={endpointTabs}
+              activeKey={activeEndpointTab}
+              ariaLabel={t('Storage endpoint sections')}
+              onChange={handleEndpointTabChange}
+            />
+          
+                  {/snippet}
 
         {#if activeEndpointTab === 'overview' && selectedIsDfs}
           <div class="sed-overview">

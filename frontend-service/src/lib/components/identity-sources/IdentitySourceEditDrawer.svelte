@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import TlsCertificateField from './TlsCertificateField.svelte';
   import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -31,12 +33,23 @@
     type ServiceAccountPurpose
   } from '$lib/utils/service-accounts';
 
-  /** Source to edit, already merged with its internal metadata. Only AD / LDAP sources exist. */
-  export let open = false;
-  export let source: IdentitySourceRow | null = null;
-  export let sourceCard: IdentitySourceCardVM | null = null;
-  export let onClose: () => void;
-  export let onSaved: (sourceId: number) => Promise<void> | void = () => {};
+  
+  interface Props {
+    /** Source to edit, already merged with its internal metadata. Only AD / LDAP sources exist. */
+    open?: boolean;
+    source?: IdentitySourceRow | null;
+    sourceCard?: IdentitySourceCardVM | null;
+    onClose: () => void;
+    onSaved?: (sourceId: number) => Promise<void> | void;
+  }
+
+  let {
+    open = false,
+    source = null,
+    sourceCard = null,
+    onClose,
+    onSaved = () => {}
+  }: Props = $props();
 
   type ProbeResult = {
     ok: boolean;
@@ -67,52 +80,56 @@
     is_active: true
   });
 
-  let form = emptyForm();
-  let initializedFor: IdentitySourceRow | null = null;
-  let showErrors = false;
-  let showPassword = false;
-  let saving = false;
-  let probeRunning = false;
-  let probeResult: ProbeResult | null = null;
-  let actionError: string | null = null;
+  let form = $state(emptyForm());
+  let initializedFor: IdentitySourceRow | null = $state(null);
+  let showErrors = $state(false);
+  let showPassword = $state(false);
+  let saving = $state(false);
+  let probeRunning = $state(false);
+  let probeResult: ProbeResult | null = $state(null);
+  let actionError: string | null = $state(null);
 
   const normalize = (value: unknown) => String(value ?? '').trim();
   const defaultPort = (protocol: string | undefined) => (protocol === 'ldap' ? 389 : 636);
 
-  $: if (open && source && source !== initializedFor) {
-    initializedFor = source;
-    form = {
-      display_name: normalize(source.display_name ?? source.name),
-      // Sources saved as "ldap" on port 636 do use LDAPS
-      protocol: source.protocol === 'ldap' && Number(source.port) !== 636 ? 'ldap' : 'ldaps',
-      directory_flavor: source.directory_flavor ?? 'ad',
-      tls_verify: source.tls_verify ?? true,
-      tls_ca_pem: source.tls_ca_pem ?? '',
-      tls_server_name: source.tls_server_name ?? '',
-      user_filter: source.user_filter ?? '',
-      host: source.host ?? '',
-      port: source.port ?? defaultPort(source.protocol),
-      base_dn: source.base_dn ?? '',
-      domain_name: source.domain_name ?? '',
-      bind_dn: source.bind_dn ?? '',
-      bind_password_ref: source.bind_password_ref ?? '',
-      bind_password: '',
-      capabilities: {
-        auth: source.capabilities?.auth ?? true,
-        import_groups: source.capabilities?.import_groups ?? true,
-        snapshot_enabled: source.capabilities?.snapshot_enabled ?? false,
-        provisioning: source.capabilities?.provisioning ?? false
-      },
-      service_accounts: serviceAccountDraftsFrom(source.service_accounts),
-      is_active: source.is_active ?? true
-    };
-    showErrors = false;
-    showPassword = false;
-    probeResult = null;
-    probeRunning = false;
-    actionError = null;
-  }
-  $: if (!open) initializedFor = null;
+  $effect.pre(() => {
+    if (open && source && source !== initializedFor) {
+      initializedFor = source;
+      form = {
+        display_name: normalize(source.display_name ?? source.name),
+        // Sources saved as "ldap" on port 636 do use LDAPS
+        protocol: source.protocol === 'ldap' && Number(source.port) !== 636 ? 'ldap' : 'ldaps',
+        directory_flavor: source.directory_flavor ?? 'ad',
+        tls_verify: source.tls_verify ?? true,
+        tls_ca_pem: source.tls_ca_pem ?? '',
+        tls_server_name: source.tls_server_name ?? '',
+        user_filter: source.user_filter ?? '',
+        host: source.host ?? '',
+        port: source.port ?? defaultPort(source.protocol),
+        base_dn: source.base_dn ?? '',
+        domain_name: source.domain_name ?? '',
+        bind_dn: source.bind_dn ?? '',
+        bind_password_ref: source.bind_password_ref ?? '',
+        bind_password: '',
+        capabilities: {
+          auth: source.capabilities?.auth ?? true,
+          import_groups: source.capabilities?.import_groups ?? true,
+          snapshot_enabled: source.capabilities?.snapshot_enabled ?? false,
+          provisioning: source.capabilities?.provisioning ?? false
+        },
+        service_accounts: serviceAccountDraftsFrom(source.service_accounts),
+        is_active: source.is_active ?? true
+      };
+      showErrors = false;
+      showPassword = false;
+      probeResult = null;
+      probeRunning = false;
+      actionError = null;
+    }
+  });
+  $effect.pre(() => {
+    if (!open) initializedFor = null;
+  });
 
   const setProtocol = (value: 'ldap' | 'ldaps') => {
     form.protocol = value;
@@ -150,45 +167,45 @@
     );
   };
 
-  $: requiredOk =
-    !!normalize(form.display_name) &&
+  let requiredOk =
+    $derived(!!normalize(form.display_name) &&
     !!normalize(form.host) &&
     !!normalize(form.base_dn) &&
     !!normalize(form.bind_dn) &&
-    !serviceAccountDraftError(draftsForCapabilities(form.service_accounts, form.capabilities));
-  $: suggestedDomain = domainFromBaseDn(form.base_dn);
-  $: canSave = requiredOk && hasChanges(source, form);
+    !serviceAccountDraftError(draftsForCapabilities(form.service_accounts, form.capabilities)));
+  let suggestedDomain = $derived(domainFromBaseDn(form.base_dn));
+  let canSave = $derived(requiredOk && hasChanges(source, form));
 
-  let closeConfirmOpen = false;
+  let closeConfirmOpen = $state(false);
   function requestClose() {
     if (saving) return;
     if (hasChanges(source, form)) closeConfirmOpen = true;
     else onClose();
   }
 
-  $: endpointLabel = (() => {
+  let endpointLabel = $derived((() => {
     const host = normalize(form.host || source?.host);
     const port = Number(form.port || source?.port || 0);
     return host ? `${host}${port > 0 ? `:${port}` : ''}` : '—';
-  })();
+  })());
 
-  $: healthLabel = probeRunning
+  let healthLabel = $derived(probeRunning
     ? t('Checking')
     : probeResult
       ? (probeResult.ok ? t('Healthy') : t('Unhealthy'))
-      : sourceCard?.healthLabel ?? t('Unknown');
+      : sourceCard?.healthLabel ?? t('Unknown'));
 
-  $: healthTone = probeRunning
+  let healthTone = $derived(probeRunning
     ? 'info'
     : probeResult
       ? (probeResult.ok ? 'success' : 'error')
-      : sourceCard?.healthTone ?? 'muted';
+      : sourceCard?.healthTone ?? 'muted');
 
-  $: checkedLabel = (() => {
+  let checkedLabel = $derived((() => {
     if (probeRunning) return t('Testing now');
     const checked = probeResult?.checkedAt ?? source?.last_probe_at ?? null;
     return checked ? t('Last tested {formatRelativeTimestamp}', { formatRelativeTimestamp: formatRelativeTimestamp(checked) }) : t('No test yet');
-  })();
+  })());
 
   const probeResultValue = (keys: string[]): unknown => {
     const result = probeResult?.result;
@@ -202,7 +219,7 @@
   const checkTone = (value: unknown) => (value === true ? 'success' : value === false ? 'error' : 'muted');
   const checkIcon = (value: unknown) => (value === true ? 'bi-check-lg' : value === false ? 'bi-x-lg' : 'bi-dash');
 
-  $: validationChecks = (() => {
+  let validationChecks = $derived((() => {
     const status = normalize(probeResult?.status ?? source?.status).toLowerCase();
     const lastMessage = normalize(probeResult?.message ?? source?.last_probe_message);
     const ok = probeResult?.ok ?? ['active', 'healthy', 'connected', 'online', 'success', 'succeeded'].includes(status);
@@ -265,7 +282,7 @@
         icon: 'bi-speedometer2'
       }
     ];
-  })();
+  })());
 
   const connectionPayload = () => ({
     type: 'ad' as const,
@@ -307,15 +324,17 @@
   };
 
   // A new server, port, protocol, account or password is tested before it is saved (same rule as a file server)
-  let saveAnyway = false;
-  $: connectionChanged = Boolean(source) && (
+  let saveAnyway = $state(false);
+  let connectionChanged = $derived(Boolean(source) && (
     normalize(form.host) !== normalize(source?.host) ||
     (source?.port != null && Number(form.port) !== Number(source.port)) ||
     (Boolean(source?.protocol) && normalize(form.protocol).toLowerCase() !== normalize(source?.protocol).toLowerCase()) ||
     normalize(form.bind_dn) !== normalize(source?.bind_dn) ||
     Boolean(normalize(form.bind_password))
-  );
-  $: if (!connectionChanged) saveAnyway = false;
+  ));
+  $effect.pre(() => {
+    if (!connectionChanged) saveAnyway = false;
+  });
 
   const handleSave = async () => {
     if (!source) return;
@@ -429,7 +448,7 @@
   ariaLabelledby="identity-source-edit-title"
   onClose={requestClose}
 >
-  <svelte:fragment slot="header-meta">
+  {#snippet headerMeta()}
     <StatusBadge
       status={form.is_active ? 'active' : 'disabled'}
       label={form.is_active ? t('Active') : t('Disabled')}
@@ -439,7 +458,7 @@
     {#if source?.used}
       <StatusBadge status="in-use" label={t('In use')} variant="info" compact={true} />
     {/if}
-  </svelte:fragment>
+  {/snippet}
 
   <div class="identity-edit-shell">
     <section class="identity-edit-summary" aria-label={t('Identity source summary')}>
@@ -492,7 +511,7 @@
               class="form-check-input"
               type="checkbox"
               checked={form.protocol === 'ldaps'}
-              on:change={(event) => setProtocol(event.currentTarget.checked ? 'ldaps' : 'ldap')}
+              onchange={(event) => setProtocol(event.currentTarget.checked ? 'ldaps' : 'ldap')}
             />
             <label class="form-check-label" for="identity-edit-ldaps">{t('Use LDAPS (encrypted connection)')}</label>
           </div>
@@ -588,7 +607,7 @@
             <button
               type="button"
               aria-label={showPassword ? t('Hide password') : t('Show password')}
-              on:click={() => (showPassword = !showPassword)}
+              onclick={() => (showPassword = !showPassword)}
             >
               <i class={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
             </button>
@@ -723,7 +742,7 @@
     {/if}
   </div>
 
-  <svelte:fragment slot="footer-start">
+  {#snippet footerStart()}
     <div class="identity-edit-footer-state">
       <strong>{canSave ? t('Unsaved changes') : t('No unsaved changes')}</strong>
       <span class={probeResult?.ok === false ? 'is-error' : 'is-success'}>
@@ -731,18 +750,20 @@
         {checkedLabel}
       </span>
     </div>
-  </svelte:fragment>
-  <svelte:fragment slot="footer">
-    <div class="identity-edit-drawer-footer">
-      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={requestClose} disabled={saving || probeRunning}>{t('Cancel')}</button>
-      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => handleTestConnection()} disabled={saving || probeRunning}>
-        {probeRunning ? t('Testing…') : t('Test connection')}
-      </button>
-      <button type="button" class="b2s-btn b2s-btn-primary" on:click={handleSave} disabled={saving || !canSave || probeRunning}>
-        {saving ? t('Saving…') : t('Save changes')}
-      </button>
-    </div>
-  </svelte:fragment>
+  {/snippet}
+  {#snippet footer()}
+  
+      <div class="identity-edit-drawer-footer">
+        <button type="button" class="b2s-btn b2s-btn-secondary" onclick={requestClose} disabled={saving || probeRunning}>{t('Cancel')}</button>
+        <button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => handleTestConnection()} disabled={saving || probeRunning}>
+          {probeRunning ? t('Testing…') : t('Test connection')}
+        </button>
+        <button type="button" class="b2s-btn b2s-btn-primary" onclick={handleSave} disabled={saving || !canSave || probeRunning}>
+          {saving ? t('Saving…') : t('Save changes')}
+        </button>
+      </div>
+    
+  {/snippet}
 </Drawer>
 
 <UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={() => { closeConfirmOpen = false; onClose(); }} />

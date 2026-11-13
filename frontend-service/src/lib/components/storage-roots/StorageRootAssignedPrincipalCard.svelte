@@ -4,17 +4,28 @@
   import IconTile from '../ui/IconTile.svelte';
   import { mapGovernanceOwnerToCardVM } from '../../mappers/governance-owners.mapper';
 
-  export let owner: Record<string, unknown> = {};
-  export let saving = false;
-  export let removeLocked = false;
-  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => t('Unknown');
-  export let ownerTypeLabel: (owner: Record<string, unknown>) => string = () => t('User');
-  export let onRemove: (owner: Record<string, unknown>) => void = () => {};
+  interface Props {
+    owner?: Record<string, unknown>;
+    saving?: boolean;
+    removeLocked?: boolean;
+    ownerDisplayName?: (owner: Record<string, unknown>) => string;
+    ownerTypeLabel?: (owner: Record<string, unknown>) => string;
+    onRemove?: (owner: Record<string, unknown>) => void;
+  }
 
-  $: vm = mapGovernanceOwnerToCardVM(owner, {
+  let {
+    owner = {},
+    saving = false,
+    removeLocked = false,
+    ownerDisplayName = () => t('Unknown'),
+    ownerTypeLabel = () => t('User'),
+    onRemove = () => {}
+  }: Props = $props();
+
+  let vm = $derived(mapGovernanceOwnerToCardVM(owner, {
     displayName: ownerDisplayName(owner),
     typeLabel: ownerTypeLabel(owner)
-  });
+  }));
 </script>
 
 <div
@@ -29,22 +40,26 @@
     tertiary={vm.tertiary}
     typeLabel={vm.typeLabel}
   >
-    <svelte:fragment slot="icon">
-      <IconTile iconClass={vm.iconClass} kind={vm.iconKind} />
-    </svelte:fragment>
+    {#snippet icon()}
+      
+        <IconTile iconClass={vm.iconClass} kind={vm.iconKind} />
+      
+      {/snippet}
 
-    <svelte:fragment slot="actions">
-      <button
-        type="button"
-        class="assigned-principal-card__remove"
-        on:click={() => onRemove(owner)}
-        disabled={saving || removeLocked}
-        aria-label={t('Remove {role}', { role: t('guardian') })}
-        title={removeLocked ? t('You cannot remove yourself: another guardian or an administrator does it.') : t('Remove {role}', { role: t('guardian') })}
-      >
-        <i class="bi bi-x-lg"></i>
-      </button>
-    </svelte:fragment>
+    {#snippet actions()}
+      
+        <button
+          type="button"
+          class="assigned-principal-card__remove"
+          onclick={() => onRemove(owner)}
+          disabled={saving || removeLocked}
+          aria-label={t('Remove {role}', { role: t('guardian') })}
+          title={removeLocked ? t('You cannot remove yourself: another guardian or an administrator does it.') : t('Remove {role}', { role: t('guardian') })}
+        >
+          <i class="bi bi-x-lg"></i>
+        </button>
+      
+      {/snippet}
   </EntityRowCard>
 </div>
 

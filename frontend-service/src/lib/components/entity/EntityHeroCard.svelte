@@ -9,22 +9,47 @@
    * (code, directory…), an optional path to copy, and the actions.
    */
   type Tone = 'success' | 'warning' | 'danger' | 'neutral';
-  export let icon = 'bi-box';
-  export let iconTone: 'green' | 'blue' | 'neutral' = 'neutral';
-  export let crumbs: string[] = [];
-  export let title = '';
-  export let statusLabel = '';
-  export let statusTone: Tone = 'neutral';
-  export let chips: Array<{ label: string; icon?: string; mono?: boolean; tone?: 'warning' }> = [];
-  /** A person: initials in a round avatar instead of the icon; ringed while synchronized with the directory */
-  export let avatar = '';
-  export let avatarRing = false;
-  export let avatarOff = false;
-  /** Small text after the status (« updated 9 days ago ») */
-  export let note = '';
-  export let path = '';
-  export let actions: EntityActionItem[] = [];
-  export let actionsAriaLabel = t('Entity actions');
+  
+  
+  interface Props {
+    icon?: string;
+    iconTone?: 'green' | 'blue' | 'neutral';
+    crumbs?: string[];
+    title?: string;
+    statusLabel?: string;
+    statusTone?: Tone;
+    chips?: Array<{ label: string; icon?: string; mono?: boolean; tone?: 'warning' }>;
+    /** A person: initials in a round avatar instead of the icon; ringed while synchronized with the directory */
+    avatar?: string;
+    avatarRing?: boolean;
+    avatarOff?: boolean;
+    /** Small text after the status (« updated 9 days ago ») */
+    note?: string;
+    path?: string;
+    actions?: EntityActionItem[];
+    actionsAriaLabel?: any;
+    noteContent?: import('svelte').Snippet;
+    side?: import('svelte').Snippet;
+  }
+
+  let {
+    icon = 'bi-box',
+    iconTone = 'neutral',
+    crumbs = [],
+    title = '',
+    statusLabel = '',
+    statusTone = 'neutral',
+    chips = [],
+    avatar = '',
+    avatarRing = false,
+    avatarOff = false,
+    note = '',
+    path = '',
+    actions = [],
+    actionsAriaLabel = t('Entity actions'),
+    noteContent,
+    side
+  }: Props = $props();
 
   async function copyPath() {
     try {
@@ -51,11 +76,11 @@
     <div class="ehc__title">
       <h1>{title}</h1>
       {#if statusLabel}<span class={`ehc__pill is-${statusTone}`}><span aria-hidden="true"></span>{statusLabel}</span>{/if}
-      {#if note || $$slots.note}<small class="ehc__note"><slot name="note">{note}</slot></small>{/if}
+      {#if note || noteContent}<small class="ehc__note">{#if noteContent}{@render noteContent()}{:else}{note}{/if}</small>{/if}
     </div>
   </div>
   <div class="ehc__actions">
-    {#if $$slots.side}<div class="ehc__side"><slot name="side" /></div>{/if}
+    {#if side}<div class="ehc__side">{@render side?.()}</div>{/if}
     <EntityActionGroup {actions} ariaLabel={actionsAriaLabel} />
   </div>
   {#if path || chips.length}
@@ -63,7 +88,7 @@
       {#if path}
         <span class="ehc__path">
           <code title={path}>{path}</code>
-          <button type="button" on:click={copyPath} aria-label={t('Copy the path')}><i class="bi bi-copy" aria-hidden="true"></i>{t('Copy')}</button>
+          <button type="button" onclick={copyPath} aria-label={t('Copy the path')}><i class="bi bi-copy" aria-hidden="true"></i>{t('Copy')}</button>
         </span>
       {/if}
       {#each chips as chip (chip.label)}

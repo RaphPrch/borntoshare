@@ -16,19 +16,29 @@
 
 <script lang="ts">
   import { t } from '$lib/i18n';
-  export let actions: EntityActionItem[] = [];
-  export let ariaLabel = t('Entity actions');
-  export let align: 'start' | 'end' = 'end';
-  /** Opens the « … » menu upwards (bottom of a drawer) */
-  export let menuUp = false;
+  
+  interface Props {
+    actions?: EntityActionItem[];
+    ariaLabel?: any;
+    align?: 'start' | 'end';
+    /** Opens the « … » menu upwards (bottom of a drawer) */
+    menuUp?: boolean;
+  }
+
+  let {
+    actions = [],
+    ariaLabel = t('Entity actions'),
+    align = 'end',
+    menuUp = false
+  }: Props = $props();
 
   const buttonClass = (action: EntityActionItem): string => {
     const variant = action.variant ?? 'secondary';
     return `b2s-btn b2s-btn-${variant === 'probe' ? 'primary' : variant}`;
   };
 
-  $: visibleActions = actions.filter((action) => !action.overflow);
-  $: overflowActions = actions.filter((action) => action.overflow);
+  let visibleActions = $derived(actions.filter((action) => !action.overflow));
+  let overflowActions = $derived(actions.filter((action) => action.overflow));
 </script>
 
 <div class={`b2s-action-group is-${align}`} role="toolbar" aria-label={ariaLabel}>
@@ -36,7 +46,7 @@
     <button
       type="button"
       class={buttonClass(action)}
-      on:click={() => action.onClick?.()}
+      onclick={() => action.onClick?.()}
       disabled={Boolean(action.disabled)}
       title={action.title}
       aria-label={action.ariaLabel}
@@ -59,7 +69,7 @@
           <button
             type="button"
             class={`b2s-action-menu__item is-${action.variant ?? 'secondary'}`}
-            on:click={(event) => {
+            onclick={(event) => {
               event.currentTarget.closest('details')?.removeAttribute('open');
               action.onClick?.();
             }}

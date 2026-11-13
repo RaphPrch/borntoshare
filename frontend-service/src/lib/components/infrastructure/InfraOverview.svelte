@@ -6,18 +6,22 @@
   import { STATUS_VARIANT, groupComponents, statusLabel, worstStatus } from '$lib/utils/infrastructure';
   import type { HealthStatus, InfraOverview } from '$lib/api/infrastructure';
 
-  export let overview: InfraOverview;
-  export let running = false;
-  export let onRunHealthCheck: () => void;
+  interface Props {
+    overview: InfraOverview;
+    running?: boolean;
+    onRunHealthCheck: () => void;
+  }
 
-  let filter: HealthStatus | 'all' = 'all';
+  let { overview, running = false, onRunHealthCheck }: Props = $props();
 
-  $: components = overview.components ?? [];
-  $: overall = components.length ? worstStatus(components) : 'unknown';
-  $: lastCheck = components.reduce<string | null>((latest, c) => (c.checked_at && (!latest || c.checked_at > latest) ? c.checked_at : latest), null);
-  $: health = (overview.schedules ?? []).find((s) => s.task === 'health_check');
-  $: visible = filter === 'all' ? components : components.filter((c) => c.status === filter);
-  $: groups = groupComponents(visible);
+  let filter: HealthStatus | 'all' = $state('all');
+
+  let components = $derived(overview.components ?? []);
+  let overall = $derived(components.length ? worstStatus(components) : 'unknown');
+  let lastCheck = $derived(components.reduce<string | null>((latest, c) => (c.checked_at && (!latest || c.checked_at > latest) ? c.checked_at : latest), null));
+  let health = $derived((overview.schedules ?? []).find((s) => s.task === 'health_check'));
+  let visible = $derived(filter === 'all' ? components : components.filter((c) => c.status === filter));
+  let groups = $derived(groupComponents(visible));
 
   const HERO: Record<HealthStatus, { icon: string; title: () => string; text: () => string }> = {
     healthy: { icon: 'bi-check-circle-fill', title: () => t('All systems operational'), text: () => t('Every monitored component answers normally.') },
@@ -48,7 +52,7 @@
       {#if health?.is_enabled && health.next_run_at}· {t('next check {when}', { when: timeUntil(health.next_run_at) })}{/if}
     </p>
   </div>
-  <button type="button" class="b2s-btn b2s-btn-primary hero__action" on:click={onRunHealthCheck} disabled={running}>
+  <button type="button" class="b2s-btn b2s-btn-primary hero__action" onclick={onRunHealthCheck} disabled={running}>
     <i class={`bi ${running ? 'bi-hourglass-split' : 'bi-activity'}`} aria-hidden="true"></i>
     {running ? t('Checking…') : t('Run a health check')}
   </button>
@@ -61,7 +65,7 @@
       class={`kpi is-${kpi.key}`}
       class:is-active={filter === kpi.key}
       aria-pressed={filter === kpi.key}
-      on:click={() => toggleFilter(kpi.key)}
+      onclick={() => toggleFilter(kpi.key)}
     >
       <i class={`bi ${kpi.icon}`} aria-hidden="true"></i>
       <span class="kpi__value">{overview.summary?.[kpi.key] ?? 0}</span>
@@ -73,7 +77,7 @@
 {#if filter !== 'all'}
   <div class="filter-note">
     {t('Showing: {status}', { status: statusLabel(filter) })}
-    <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" on:click={() => (filter = 'all')}>{t('Show all')}</button>
+    <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" onclick={() => (filter = 'all')}>{t('Show all')}</button>
   </div>
 {/if}
 

@@ -1,19 +1,32 @@
 <script lang="ts">
+  
+
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import { t } from '$lib/i18n';
   import { formatDate, formatDateTime, initials } from '$lib/utils/format';
   import { formatActivityItem } from '$lib/activity/format';
   import { activitySummary, categoryOf, changedValues, eventTime, groupByDay, dayKey, type ActivityCategory } from '$lib/activity/timeline';
 
-  /**
+  
+  
+  interface Props {
+    /**
    * Activity of an entity (folder, zone, server): four figures of the last 30 days, a timeline grouped
    * by day with one icon per category, filters in one click, and the detail of an event on the side.
    */
-  export let items: any[] = [];
-  export let emptyLabel = t('No activity yet.');
-  /** Only the last N events, without figures nor filters (the rest is in Monitoring, at moreHref) */
-  export let latest: number | null = null;
-  export let moreHref = '/observability?tab=events';
+    items?: any[];
+    emptyLabel?: any;
+    /** Only the last N events, without figures nor filters (the rest is in Monitoring, at moreHref) */
+    latest?: number | null;
+    moreHref?: string;
+  }
+
+  let {
+    items = [],
+    emptyLabel = t('No activity yet.'),
+    latest = null,
+    moreHref = '/observability?tab=events'
+  }: Props = $props();
 
   type Period = '1' | '7' | '30' | 'all';
   type Filter = 'all' | ActivityCategory;
@@ -26,39 +39,42 @@
     failure: { label: () => t('Failures'), icon: 'bi-exclamation-triangle' }
   };
 
-  let query = '';
-  let filter: Filter = 'all';
-  let period: Period = latest ? 'all' : '30';
-  let shown = PAGE;
-  let selected: any | null = null;
+  let query = $state('');
+  let filter: Filter = $state('all');
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let period: Period = $state(latest ? 'all' : '30');
+  let shown = $state(PAGE);
+  let selected: any | null = $state(null);
 
   const actorOf = (entry: any): string => {
     const name = String(entry?.actor_display_name ?? entry?.actor_display ?? entry?.actor_username ?? entry?.actor_name ?? '').trim();
     return !name || name.toLowerCase() === 'system' ? t('System') : name;
   };
 
-  $: rows = items.map((entry, index) => {
+  let rows = $derived(items.map((entry, index) => {
     const item = formatActivityItem(entry);
     return { key: String(entry?.id ?? index), entry, item, ms: eventTime(entry), category: categoryOf(entry), actor: actorOf(entry) };
-  });
-  $: summary = activitySummary(items);
-  $: since = period === 'all' ? 0 : Date.now() - Number(period) * 86_400_000;
-  $: inPeriod = rows.filter((row) => period === 'all' || (row.ms ?? 0) >= since);
-  $: counts = {
+  }));
+  let summary = $derived(activitySummary(items));
+  let since = $derived(period === 'all' ? 0 : Date.now() - Number(period) * 86_400_000);
+  let inPeriod = $derived(rows.filter((row) => period === 'all' || (row.ms ?? 0) >= since));
+  let counts = $derived({
     all: inPeriod.length,
     access: inPeriod.filter((row) => row.category === 'access').length,
     config: inPeriod.filter((row) => row.category === 'config').length,
     check: inPeriod.filter((row) => row.category === 'check').length,
     failure: inPeriod.filter((row) => row.category === 'failure').length
-  };
-  $: visible = inPeriod
+  });
+  let visible = $derived(inPeriod
     .filter((row) => filter === 'all' || row.category === filter)
-    .filter((row) => !query.trim() || `${row.item.title} ${row.item.subtitle1 ?? ''} ${row.actor}`.toLowerCase().includes(query.trim().toLowerCase()));
-  $: days = groupByDay(visible.slice(0, latest ?? shown));
-  $: if (filter || period || query !== undefined) shown = PAGE;
-  $: authors = [...visible.reduce((map, row) => map.set(row.actor, (map.get(row.actor) ?? 0) + 1), new Map<string, number>())]
+    .filter((row) => !query.trim() || `${row.item.title} ${row.item.subtitle1 ?? ''} ${row.actor}`.toLowerCase().includes(query.trim().toLowerCase())));
+  let days = $derived(groupByDay(visible.slice(0, latest ?? shown)));
+  $effect.pre(() => {
+    if (filter || period || query !== undefined) shown = PAGE;
+  });
+  let authors = $derived([...visible.reduce((map, row) => map.set(row.actor, (map.get(row.actor) ?? 0) + 1), new Map<string, number>())]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+    .slice(0, 5));
 
   const today = dayKey(Date.now());
   const yesterday = dayKey(Date.now() - 86_400_000);
@@ -66,8 +82,8 @@
     key === today ? t('Today') : key === yesterday ? t('Yesterday') : ms ? formatDate(new Date(ms).toISOString()) : t('Unknown date');
   const hour = (ms: number | null) => (ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 
-  $: detail = selected ? rows.find((row) => row.entry === selected) ?? null : null;
-  $: changes = detail ? changedValues(detail.entry) : [];
+  let detail = $derived(selected ? rows.find((row) => row.entry === selected) ?? null : null);
+  let changes = $derived(detail ? changedValues(detail.entry) : []);
   const safeContext = (entry: any) => {
     const ctx = entry?.context_json && typeof entry.context_json === 'object' ? entry.context_json : {};
     return JSON.stringify(ctx, (key, value) => (/secret|password|hash/i.test(key) ? undefined : value), 2);
@@ -92,16 +108,16 @@
       <div class="at__tools">
         <label class="at__search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={query} placeholder={t('Search the activity…')} aria-label={t('Search the activity…')} /></label>
         <div class="at__seg" role="group" aria-label={t('Filter by type')}>
-          <button type="button" class:on={filter === 'all'} on:click={() => (filter = 'all')}>{t('All')}<span>{counts.all}</span></button>
+          <button type="button" class:on={filter === 'all'} onclick={() => (filter = 'all')}>{t('All')}<span>{counts.all}</span></button>
           {#each Object.entries(CATEGORY) as [key, category] (key)}
             {#if counts[key] > 0}
-              <button type="button" class:on={filter === key} on:click={() => (filter = key as Filter)}>{category.label()}<span>{counts[key]}</span></button>
+              <button type="button" class:on={filter === key} onclick={() => (filter = key as Filter)}>{category.label()}<span>{counts[key]}</span></button>
             {/if}
           {/each}
         </div>
         <div class="at__seg at__period" role="group" aria-label={t('Period')}>
           {#each [['1', t('24 h')], ['7', t('7 d')], ['30', t('30 d')], ['all', t('All')]] as [key, label] (key)}
-            <button type="button" class:on={period === key} on:click={() => (period = key as Period)}>{label}</button>
+            <button type="button" class:on={period === key} onclick={() => (period = key as Period)}>{label}</button>
           {/each}
         </div>
       </div>
@@ -113,7 +129,7 @@
           <ol class="at__list">
             {#each day.rows as row (row.key)}
               <li>
-                <button type="button" class="at__ev" class:sel={selected === row.entry} on:click={() => (selected = row.entry)}>
+                <button type="button" class="at__ev" class:sel={selected === row.entry} onclick={() => (selected = row.entry)}>
                   <span class={`at__icon is-${row.category}`} aria-hidden="true"><i class={`bi ${CATEGORY[row.category].icon}`}></i></span>
                   <span class="at__body">
                     <strong>{row.item.title}</strong>

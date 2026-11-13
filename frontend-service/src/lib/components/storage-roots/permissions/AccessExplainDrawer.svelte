@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
@@ -12,22 +14,32 @@
   import { explainStorageRootAccess, extendAccess, notFound, type AccessExplanation } from '$lib/api/storage-root-permissions';
   import { expiryProgress, levelLabel } from './permissions-format';
 
-  /** « Why does this person reach the folder? »: request -> AD group -> ACE -> effective level, with its actions */
-  export let open = false;
-  export let rootId: number | null = null;
-  export let username: string | null = null;
-  export let canManage = false;
-  export let onClose: () => void = () => {};
-  export let onChanged: () => void = () => {};
+  
+  interface Props {
+    /** « Why does this person reach the folder? »: request -> AD group -> ACE -> effective level, with its actions */
+    open?: boolean;
+    rootId?: number | null;
+    username?: string | null;
+    canManage?: boolean;
+    onClose?: () => void;
+    onChanged?: () => void;
+  }
 
-  let explanation: AccessExplanation | null = null;
-  let loading = false;
-  let busy = false;
-  let confirmRevoke = false;
-  let loadedFor = '';
+  let {
+    open = false,
+    rootId = null,
+    username = null,
+    canManage = false,
+    onClose = () => {},
+    onChanged = () => {}
+  }: Props = $props();
 
-  $: key = open && rootId && username ? `${rootId}:${username}` : '';
-  $: if (key && key !== loadedFor) void load(key);
+  let explanation: AccessExplanation | null = $state(null);
+  let loading = $state(false);
+  let busy = $state(false);
+  let confirmRevoke = $state(false);
+  let loadedFor = $state('');
+
 
   async function load(target: string) {
     loadedFor = target;
@@ -42,12 +54,6 @@
     }
   }
 
-  $: person = explanation?.found ? explanation.person : null;
-  $: missing = notFound(explanation);
-  $: requestVia = person?.via.find((v) => v.kind === 'request' && v.level === person?.level) as
-    | Extract<NonNullable<typeof person>['via'][number], { kind: 'request' }>
-    | undefined;
-  $: progress = person?.expires_at ? expiryProgress(requestVia?.decided_at ?? null, person.expires_at) : null;
 
   async function extend() {
     if (!requestVia) return;
@@ -80,6 +86,16 @@
       busy = false;
     }
   }
+  let key = $derived(open && rootId && username ? `${rootId}:${username}` : '');
+  $effect.pre(() => {
+    if (key && key !== loadedFor) void load(key);
+  });
+  let person = $derived(explanation?.found ? explanation.person : null);
+  let missing = $derived(notFound(explanation));
+  let requestVia = $derived(person?.via.find((v) => v.kind === 'request' && v.level === person?.level) as
+    | Extract<NonNullable<typeof person>['via'][number], { kind: 'request' }>
+    | undefined);
+  let progress = $derived(person?.expires_at ? expiryProgress(requestVia?.decided_at ?? null, person.expires_at) : null);
 </script>
 
 <Drawer
@@ -90,14 +106,14 @@
   subtitle={person?.username ?? null}
   ariaLabelledby="access-explain-title"
 >
-  <svelte:fragment slot="header-meta">
+  {#snippet headerMeta()}
     {#if person?.level}
       <StatusBadge compact showDot={false} variant={person.level === 'write' ? 'warning' : 'info'} label={levelLabel(person.level)} />
     {/if}
     {#if explanation?.snapshot_at}
       <StatusBadge compact showDot={false} variant="success" label={t('Directory read {ago}', { ago: timeAgo(explanation.snapshot_at) })} />
     {/if}
-  </svelte:fragment>
+  {/snippet}
 
   {#if loading}
     <LoadingState skeleton="detail" />
@@ -185,20 +201,22 @@
     </div>
   {/if}
 
-  <svelte:fragment slot="footer">
-    {#if person && canManage}
-      {#if person.revocable_request_ids.length}
-        <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={busy} on:click={() => (confirmRevoke = true)}>
-          <i class="bi bi-person-x" aria-hidden="true"></i>{t('Revoke')}
-        </button>
+  {#snippet footer()}
+  
+      {#if person && canManage}
+        {#if person.revocable_request_ids.length}
+          <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={busy} onclick={() => (confirmRevoke = true)}>
+            <i class="bi bi-person-x" aria-hidden="true"></i>{t('Revoke')}
+          </button>
+        {/if}
+        {#if requestVia?.expires_at}
+          <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy} onclick={extend}>
+            <i class="bi bi-calendar-plus" aria-hidden="true"></i>{t('Extend by 30 days')}
+          </button>
+        {/if}
       {/if}
-      {#if requestVia?.expires_at}
-        <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy} on:click={extend}>
-          <i class="bi bi-calendar-plus" aria-hidden="true"></i>{t('Extend by 30 days')}
-        </button>
-      {/if}
-    {/if}
-  </svelte:fragment>
+    
+  {/snippet}
 </Drawer>
 
 <ConfirmActionModal

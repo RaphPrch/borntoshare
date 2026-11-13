@@ -1,4 +1,5 @@
 <script lang="ts">
+  
   import { reportUiError } from '$lib/errors/report';
   import { formatDateTime } from '$lib/utils/format';
   import { t } from '$lib/i18n';
@@ -50,7 +51,8 @@
 
   type ZoneTabKey = "overview" | "activity" | "provisioning";
 
-  export let data: {
+  interface Props {
+    data: {
     zone: ZoneOverview & { site_name?: string; last_probe_at?: string | null };
     endpoints: any[];
     storageRoots: any[];
@@ -63,11 +65,14 @@
     namingPolicyGlobal?: { template?: string | null } | null;
     zones?: Array<{ id?: number; pendingRequests?: number; identitySourceIds?: number[] }>;
   };
+  }
 
-  $: currentZoneId = Number(data.zone?.id ?? 0) || null;
-  $: globalNamingTemplateDefault = String(data?.namingPolicyGlobal?.template ?? "").trim();
+  let { data }: Props = $props();
 
-  const tabs: { key: ZoneTabKey; label: string; icon: string }[] = [
+  let currentZoneId = $derived(Number(data.zone?.id ?? 0) || null);
+  let globalNamingTemplateDefault = $derived(String(data?.namingPolicyGlobal?.template ?? "").trim());
+
+  const zoneTabs: { key: ZoneTabKey; label: string; icon: string }[] = [
     { key: "overview", label: t('Overview'), icon: "bi-grid" },
     { key: "provisioning", label: t('Provisioning'), icon: "bi-shield-check" },
     { key: "activity", label: t('Activity'), icon: "bi-activity" },
@@ -79,36 +84,36 @@
     provisioning: () => import("./tabs/PolicyTab.svelte"),
   };
 
-  const validTabs = new Set<ZoneTabKey>(tabs.map((tab) => tab.key));
+  const validTabs = new Set<ZoneTabKey>(zoneTabs.map((tab) => tab.key));
   const normalizeTab = (raw: string | null): ZoneTabKey => {
     if (!raw) return "overview";
     return validTabs.has(raw as ZoneTabKey) ? (raw as ZoneTabKey) : "overview";
   };
 
-  let activeTab: ZoneTabKey = "overview";
-  let loadingTab = true;
-  let activeComponent: any = null;
+  let activeTab: ZoneTabKey = $state("overview");
+  let loadingTab = $state(true);
+  let activeComponent: any = $state(null);
   let loadedComponents: Partial<Record<ZoneTabKey, any>> = {};
 
-  let zoneModalOpen = false;
-  let zoneModalMode: "create" | "edit" | "delete" = "edit";
-  let editingZone: ZoneOverview | null = null;
+  let zoneModalOpen = $state(false);
+  let zoneModalMode: "create" | "edit" | "delete" = $state("edit");
+  let editingZone: ZoneOverview | null = $state(null);
 
-  let showEndpointAttachChoice = false;
-  let attachEndpointsLoading = false;
-  let attachEndpointBusyId: number | null = null;
-  let attachableEndpoints: Array<{ id: number; name: string; host?: string | null; zoneName?: string | null }> = [];
+  let showEndpointAttachChoice = $state(false);
+  let attachEndpointsLoading = $state(false);
+  let attachEndpointBusyId: number | null = $state(null);
+  let attachableEndpoints: Array<{ id: number; name: string; host?: string | null; zoneName?: string | null }> = $state([]);
   let discoverRunning = false;
-  let probeResultsByEndpoint: Record<string, string> = {};
+  let probeResultsByEndpoint: Record<string, string> = $state({});
 
-  let policySaving = false;
-  let policyError: string | null = null;
-  let policyNotice = "";
-  let handledCreateQuery = false;
-  let showRereadConfirm = false;
-  let rereadBusy = false;
-  let showLeaveProvisioningConfirm = false;
-  let pendingTabAfterConfirm: ZoneTabKey | null = null;
+  let policySaving = $state(false);
+  let policyError: string | null = $state(null);
+  let policyNotice = $state("");
+  let handledCreateQuery = $state(false);
+  let showRereadConfirm = $state(false);
+  let rereadBusy = $state(false);
+  let showLeaveProvisioningConfirm = $state(false);
+  let pendingTabAfterConfirm: ZoneTabKey | null = $state(null);
   let probeSyncRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   const resolveZoneBaseOu = (incoming: ZoneProvisioningPolicy | null | undefined): string | null => {
@@ -134,52 +139,57 @@
       static_ou_dn: null,
     });
 
-  let policyDraft: ZoneProvisioningPolicy = buildPolicyDraftFromData(data.provisioningPolicy);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let policyDraft: ZoneProvisioningPolicy = $state(buildPolicyDraftFromData(data.provisioningPolicy));
 
   // Naming template of the zone (naming policy override); empty or equal to the global one = inherit the global template
   const initialNamingTemplate = (): string =>
     (data?.zoneNamingPolicy?.override_enabled ? String(data?.zoneNamingPolicy?.template ?? "").trim() : "") ||
     String(data?.namingPolicyGlobal?.template ?? "").trim();
-  let namingDraft = initialNamingTemplate();
-  let namingSaved = namingDraft;
+  let namingDraft = $state(initialNamingTemplate());
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let namingSaved = $state(namingDraft);
   function setNamingDraft(value: string): void {
     namingDraft = value;
   }
 
-  let policySavedSnapshot = buildPolicySnapshot(data.provisioningPolicy);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let policySavedSnapshot = $state(buildPolicySnapshot(data.provisioningPolicy));
 
-  let policyDraftHydratedForZoneId: number | null = null;
+  let policyDraftHydratedForZoneId: number | null = $state(null);
 
   const isLikelyDn = (value: string) => /(^|,)\s*[A-Z]{1,3}=/i.test(String(value || "").trim());
 
-  $: normalizedPolicyDraft = {
+  let normalizedPolicyDraft = $derived({
     enabled: true,
     ou_strategy: "identity_default" as const,
     base_ou_dn: String(policyDraft.base_ou_dn ?? "").trim() || null,
     static_ou_dn: null,
-  };
+  });
 
-  $: if (currentZoneId && policyDraftHydratedForZoneId !== currentZoneId) {
-    policyDraftHydratedForZoneId = currentZoneId;
-    policyDraft = buildPolicyDraftFromData(data.provisioningPolicy);
-    policySavedSnapshot = buildPolicySnapshot(data.provisioningPolicy);
-    const zoneTemplate = initialNamingTemplate();
-    namingDraft = zoneTemplate;
-    namingSaved = zoneTemplate;
-    policyError = null;
-    policyNotice = "";
-  }
+  $effect.pre(() => {
+    if (currentZoneId && policyDraftHydratedForZoneId !== currentZoneId) {
+      policyDraftHydratedForZoneId = currentZoneId;
+      policyDraft = buildPolicyDraftFromData(data.provisioningPolicy);
+      policySavedSnapshot = buildPolicySnapshot(data.provisioningPolicy);
+      const zoneTemplate = initialNamingTemplate();
+      namingDraft = zoneTemplate;
+      namingSaved = zoneTemplate;
+      policyError = null;
+      policyNotice = "";
+    }
+  });
 
-  $: policyValidationErrors = {
+  let policyValidationErrors = $derived({
     base_ou_dn:
       normalizedPolicyDraft.base_ou_dn && !isLikelyDn(normalizedPolicyDraft.base_ou_dn)
         ? t('Invalid DN format (example: OU=Groups,DC=corp,DC=local)')
         : undefined,
     static_ou_dn: undefined,
-  };
+  });
 
-  $: hasPolicyValidationError = Boolean(policyValidationErrors.base_ou_dn || policyValidationErrors.static_ou_dn);
-  $: isPolicyDirty = JSON.stringify(normalizedPolicyDraft) !== policySavedSnapshot || namingDraft.trim() !== namingSaved.trim();
+  let hasPolicyValidationError = $derived(Boolean(policyValidationErrors.base_ou_dn || policyValidationErrors.static_ou_dn));
+  let isPolicyDirty = $derived(JSON.stringify(normalizedPolicyDraft) !== policySavedSnapshot || namingDraft.trim() !== namingSaved.trim());
   const endpointHost = (ep: any) => String(ep?.host ?? "").trim();
   const endpointAuthReady = (ep: any) => {
     const username = String(ep?.auth_username ?? ep?.username ?? ep?.bind_dn ?? "").trim();
@@ -242,11 +252,11 @@
 
   const canonicalProbeStatus = (raw: unknown): "success" | "running" | "failed" | "unknown" =>
     normalizeProbeStatus(String(raw ?? ""));
-  $: endpoints = Array.isArray(data.endpoints) ? data.endpoints : [];
-  $: storageRoots = Array.isArray(data.storageRoots) ? data.storageRoots : [];
-  $: activity = Array.isArray(data.activity) ? data.activity : [];
-  $: hasAttachedEndpoints = endpoints.length > 0;
-  $: hasAttachedStorageRoots = storageRoots.length > 0;
+  let endpoints = $derived(Array.isArray(data.endpoints) ? data.endpoints : []);
+  let storageRoots = $derived(Array.isArray(data.storageRoots) ? data.storageRoots : []);
+  let activity = $derived(Array.isArray(data.activity) ? data.activity : []);
+  let hasAttachedEndpoints = $derived(endpoints.length > 0);
+  let hasAttachedStorageRoots = $derived(storageRoots.length > 0);
 
   const zoneLabel = () => String(data.zone?.name ?? data.zone?.code ?? t('Zone #{value}', { value: (currentZoneId ?? "-") }));
 
@@ -340,20 +350,20 @@
     }
   }
 
-  $: endpointStates = endpoints.map((ep) => ({
+  let endpointStates = $derived(endpoints.map((ep) => ({
     endpoint: ep,
     state: endpointBusinessState(ep),
-  }));
-  $: endpointCount = endpointStates.length;
-  $: reachableCount = endpointStates.filter((row) => row.state.reachability === "reachable").length;
-  $: runnableCount = endpoints.filter((ep) => endpointHost(ep) && endpointAuthReady(ep)).length;
+  })));
+  let endpointCount = $derived(endpointStates.length);
+  let reachableCount = $derived(endpointStates.filter((row) => row.state.reachability === "reachable").length);
+  let runnableCount = $derived(endpoints.filter((ep) => endpointHost(ep) && endpointAuthReady(ep)).length);
 
   const normalizedZoneOperationalSummary = (): 'healthy' | 'attention' => {
     const raw = String(data?.operationalSummary ?? '').trim().toLowerCase();
     return raw === 'healthy' ? 'healthy' : 'attention';
   };
 
-  $: healthSummary = {
+  let healthSummary = $derived({
     endpointCount,
     reachableCount,
     runnableCount,
@@ -369,23 +379,23 @@
     lastProbeAt: string | null;
     unhealthyCount: number;
     healthLabel: "ok" | "warning";
-  };
+  });
 
   // Servers reachable or not and folders to review, from the open alerts of the folders of the zone
-  $: summary = summarizeZone(endpoints, storageRoots, (data.storageRootAlerts ?? []) as any[], (id) =>
+  let summary = $derived(summarizeZone(endpoints, storageRoots, (data.storageRootAlerts ?? []) as any[], (id) =>
     normalizeProbeStatus(probeResultsByEndpoint[String(id)] ?? "") === "running" ? "checking" : null
-  );
-  $: zoneEntry = (data.zones ?? []).find((zone) => Number(zone?.id) === currentZoneId);
-  $: pendingRequests = Number(zoneEntry?.pendingRequests ?? 0);
-  $: directories = (zoneEntry?.identitySourceIds ?? [])
+  ));
+  let zoneEntry = $derived((data.zones ?? []).find((zone) => Number(zone?.id) === currentZoneId));
+  let pendingRequests = $derived(Number(zoneEntry?.pendingRequests ?? 0));
+  let directories = $derived((zoneEntry?.identitySourceIds ?? [])
     .map((id) => (data.identitySources ?? []).find((source: any) => Number(source?.id) === Number(id)))
     .map((source: any) => String(source?.name ?? source?.display_name ?? "").trim())
-    .filter(Boolean);
-  $: serversLabel = [
+    .filter(Boolean));
+  let serversLabel = $derived([
     summary.files.length ? t('{count} file server(s)', { count: summary.files.length }) : "",
     summary.dfs.length ? t('{count} DFS namespace(s)', { count: summary.dfs.length }) : "",
-  ].filter(Boolean).join(" · ");
-  $: foldersHref = `/storage-roots?zone=${currentZoneId ?? ""}`;
+  ].filter(Boolean).join(" · "));
+  let foldersHref = $derived(`/storage-roots?zone=${currentZoneId ?? ""}`);
 
   // Folders whose test failed or whose ACL has a gap, on servers that answer: read again by the worker
   async function rereadFolders() {
@@ -777,10 +787,12 @@
     }
   }
 
-  $: activeTab = normalizeTab($page.url.searchParams.get("tab"));
+  $effect.pre(() => {
+    activeTab = normalizeTab($page.url.searchParams.get("tab"));
+  });
   // ?action=edit|add-server|delete: from the right-click menu of the zones list
-  let handledAction = "";
-  $: {
+  let handledAction = $state("");
+  $effect.pre(() => {
     const action = $page.url.searchParams.get("action") ?? "";
     const key = `${currentZoneId}:${action}`;
     if (browser && action && data.zone && handledAction !== key) {
@@ -793,8 +805,8 @@
       void goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true, keepFocus: true });
     }
     if (!action) handledAction = "";
-  }
-  $: {
+  });
+  $effect.pre(() => {
     const shouldOpenCreate = $page.url.searchParams.get("create") === "1";
     if (shouldOpenCreate && !handledCreateQuery) {
       handledCreateQuery = true;
@@ -803,10 +815,12 @@
     if (!shouldOpenCreate) {
       handledCreateQuery = false;
     }
-  }
+  });
   // Browser only: during SSR the component fetch cannot resolve relative /api URLs
-  $: if (browser) void ensureTabLoaded(activeTab);
-  $: tabProps = {
+  $effect.pre(() => {
+    if (browser) void ensureTabLoaded(activeTab);
+  });
+  let tabProps = $derived({
     overview: {
       zoneId: currentZoneId,
       summary,
@@ -836,57 +850,62 @@
       onDiscard: discardPolicyChanges,
       onReset: resetPolicyDefaults,
     },
-  };
+  });
 </script>
 
 <EntityConsoleShell>
-  <svelte:fragment slot="header">
-    <div class="zone-top">
-      <ZoneHero
-        zone={data.zone}
-        endpointCount={endpoints.length}
-        healthLabel={healthSummary.healthLabel}
-        {directories}
-        {serversLabel}
-        onEdit={openEditZone}
-        onDelete={openDeleteZone}
-        onAddEndpoint={openEndpointAttachChoice}
-      />
-      <ZoneTiles
-        {summary}
-        {pendingRequests}
-        onOpenServers={() => setTab("overview")}
-        onOpenFolders={() => goto(foldersHref)}
-        onOpenRequests={() => goto("/access-requests?status=pending")}
-        onOpenGuardians={() => goto(`${foldersHref}&filter=no-guardian`)}
-      />
-      <ZoneTodo
-        {summary}
-        {pendingRequests}
-        ouMissing={!resolveZoneBaseOu(data.provisioningPolicy)}
-        {rereadBusy}
-        onOpenServer={(id) => goto(`/admin/storage-endpoints/${id}`)}
-        onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian&bulk=guardians`)}
-        onReread={() => (showRereadConfirm = true)}
-        onOpenRequests={() => goto("/access-requests?status=pending")}
-        onOpenProvisioning={() => setTab("provisioning")}
-      />
-    </div>
-  </svelte:fragment>
+  {#snippet header()}
+  
+      <div class="zone-top">
+        <ZoneHero
+          zone={data.zone}
+          endpointCount={endpoints.length}
+          healthLabel={healthSummary.healthLabel}
+          {directories}
+          {serversLabel}
+          onEdit={openEditZone}
+          onDelete={openDeleteZone}
+          onAddEndpoint={openEndpointAttachChoice}
+        />
+        <ZoneTiles
+          {summary}
+          {pendingRequests}
+          onOpenServers={() => setTab("overview")}
+          onOpenFolders={() => goto(foldersHref)}
+          onOpenRequests={() => goto("/access-requests?status=pending")}
+          onOpenGuardians={() => goto(`${foldersHref}&filter=no-guardian`)}
+        />
+        <ZoneTodo
+          {summary}
+          {pendingRequests}
+          ouMissing={!resolveZoneBaseOu(data.provisioningPolicy)}
+          {rereadBusy}
+          onOpenServer={(id) => goto(`/admin/storage-endpoints/${id}`)}
+          onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian&bulk=guardians`)}
+          onReread={() => (showRereadConfirm = true)}
+          onOpenRequests={() => goto("/access-requests?status=pending")}
+          onOpenProvisioning={() => setTab("provisioning")}
+        />
+      </div>
+    
+  {/snippet}
 
-  <svelte:fragment slot="tabs">
-    <Tabs
-      {tabs}
-      activeKey={activeTab}
-      ariaLabel={t('Zone sections')}
-      onChange={(key) => setTab(normalizeTab(String(key ?? 'overview')))}
-    />
-  </svelte:fragment>
+  {#snippet tabs()}
+  
+      <Tabs
+        tabs={zoneTabs}
+        activeKey={activeTab}
+        ariaLabel={t('Zone sections')}
+        onChange={(key) => setTab(normalizeTab(String(key ?? 'overview')))}
+      />
+    
+  {/snippet}
 
   {#if loadingTab || !activeComponent}
     <div class="zone-console__skeleton" aria-label={t('Loading tab content')}></div>
   {:else}
-    <svelte:component this={activeComponent} {...tabProps[activeTab]} />
+    {@const SvelteComponent = activeComponent}
+    <SvelteComponent {...tabProps[activeTab]} />
   {/if}
 </EntityConsoleShell>
 

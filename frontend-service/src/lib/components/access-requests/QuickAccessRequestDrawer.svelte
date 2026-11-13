@@ -1,4 +1,5 @@
 <script lang="ts">
+
   import { goto } from '$app/navigation';
   import { t } from '$lib/i18n';
   import Drawer from '$lib/components/ui/Drawer.svelte';
@@ -7,27 +8,37 @@
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
 
-  /**
+  
+  interface Props {
+    /**
    * Access to one folder, asked from its page: the folder and its guardians are known, only the level, the
    * duration and the reason are left. For someone else or several folders: the full form, this folder added.
    */
-  export let open = false;
-  export let rootId: number | null = null;
-  export let rootName = '';
-  export let rootPath = '';
-  export let guardians: string[] = [];
-  export let onClose: () => void = () => {};
+    open?: boolean;
+    rootId?: number | null;
+    rootName?: string;
+    rootPath?: string;
+    guardians?: string[];
+    onClose?: () => void;
+  }
 
-  let policy = { durations: [7, 30, 90], allowPermanent: true, maxDays: 365, minReasonLength: 10 };
-  let level: 'READ' | 'WRITE' = 'READ';
-  let duration = '30';
-  let reason = '';
-  let sending = false;
-  let state: { kind: 'checking' | 'ok' | 'blocked' | 'elevation'; message: string } = { kind: 'checking', message: '' };
-  let loadedFor: number | null = null;
+  let {
+    open = false,
+    rootId = null,
+    rootName = '',
+    rootPath = '',
+    guardians = [],
+    onClose = () => {}
+  }: Props = $props();
 
-  $: if (open && rootId && loadedFor !== rootId) void prepare(rootId);
-  $: if (open && rootId) void check(rootId, level);
+  let policy = $state({ durations: [7, 30, 90], allowPermanent: true, maxDays: 365, minReasonLength: 10 });
+  let level: 'READ' | 'WRITE' = $state('READ');
+  let duration = $state('30');
+  let reason = $state('');
+  let sending = $state(false);
+  let verdict: { kind: 'checking' | 'ok' | 'blocked' | 'elevation'; message: string } = $state({ kind: 'checking', message: '' });
+  let loadedFor: number | null = $state(null);
+
 
   async function prepare(id: number) {
     loadedFor = id;
@@ -42,32 +53,26 @@
   let checkToken = 0;
   async function check(id: number, wanted: 'READ' | 'WRITE') {
     const token = ++checkToken;
-    state = { kind: 'checking', message: '' };
+    verdict = { kind: 'checking', message: '' };
     try {
       const result: any = await Promise.race([
         checkExistingAccess(fetch, { storage_root_id: id, access_level: wanted } as any),
         new Promise((resolve) => setTimeout(() => resolve({ can_request: true, timed_out: true }), 15000))
       ]);
       if (token !== checkToken) return;
-      state = !result?.can_request
+      verdict = !result?.can_request
         ? { kind: 'blocked', message: String(result?.message ?? t('This request cannot be submitted.')) }
         : result?.code === 'ELEVATION_ALLOWED' || result?.reason === 'ELEVATION_ALLOWED'
           ? { kind: 'elevation', message: String(result?.message ?? t('This request will be handled as an elevation.')) }
           : { kind: 'ok', message: result?.timed_out ? t('Not checked in time: checked again when the request is sent.') : '' };
     } catch {
-      if (token === checkToken) state = { kind: 'ok', message: '' };
+      if (token === checkToken) verdict = { kind: 'ok', message: '' };
     }
   }
 
-  $: options = [
-    ...policy.durations.map((days) => ({ key: String(days), label: t('{count} days', { count: days }) })),
-    ...(policy.allowPermanent ? [{ key: 'permanent', label: t('Permanent') }] : [])
-  ];
-  $: endDate = duration === 'permanent' ? null : new Date(Date.now() + Number(duration) * 86_400_000);
-  $: tooShort = reason.trim().length < policy.minReasonLength;
 
   async function send() {
-    if (!rootId || sending || tooShort || state.kind === 'blocked' || state.kind === 'checking') return;
+    if (!rootId || sending || tooShort || verdict.kind === 'blocked' || verdict.kind === 'checking') return;
     sending = true;
     try {
       await createAccessRequest(fetch, {
@@ -84,6 +89,18 @@
       sending = false;
     }
   }
+  $effect.pre(() => {
+    if (open && rootId && loadedFor !== rootId) void prepare(rootId);
+  });
+  $effect.pre(() => {
+    if (open && rootId) void check(rootId, level);
+  });
+  let options = $derived([
+    ...policy.durations.map((days) => ({ key: String(days), label: t('{count} days', { count: days }) })),
+    ...(policy.allowPermanent ? [{ key: 'permanent', label: t('Permanent') }] : [])
+  ]);
+  let endDate = $derived(duration === 'permanent' ? null : new Date(Date.now() + Number(duration) * 86_400_000));
+  let tooShort = $derived(reason.trim().length < policy.minReasonLength);
 </script>
 
 <Drawer {open} {onClose} title={t('Access to « {name} »', { name: rootName })} subtitle={rootPath} iconClass="bi bi-key">
@@ -91,9 +108,9 @@
     <div class="qr__who">
       <i class="bi bi-person-check" aria-hidden="true"></i>
       <span><b>{guardians.length ? t('Guardians: {names}', { names: guardians.join(', ') }) : t('No guardian: an administrator decides')}</b>
-        <small>{state.kind === 'checking' ? t('Checking…') : state.kind === 'blocked' ? state.message : state.kind === 'elevation' ? state.message : state.message || t('You can ask for this access.')}</small></span>
+        <small>{verdict.kind === 'checking' ? t('Checking…') : verdict.kind === 'blocked' ? verdict.message : verdict.kind === 'elevation' ? verdict.message : verdict.message || t('You can ask for this access.')}</small></span>
     </div>
-    {#if state.kind === 'blocked'}<p class="qr__bad">{state.message}</p>{/if}
+    {#if verdict.kind === 'blocked'}<p class="qr__bad">{verdict.message}</p>{/if}
 
     <fieldset class="qr__levels">
       <legend>{t('I need to')}</legend>
@@ -105,7 +122,7 @@
       <legend>{t('For how long?')}</legend>
       <div>
         {#each options as option (option.key)}
-          <button type="button" class:is-on={duration === option.key} on:click={() => (duration = option.key)}>{option.label}</button>
+          <button type="button" class:is-on={duration === option.key} onclick={() => (duration = option.key)}>{option.label}</button>
         {/each}
       </div>
       <small>{endDate ? t('Removed automatically on {date}.', { date: endDate.toLocaleDateString() }) : t('No end date.')}</small>
@@ -116,16 +133,18 @@
       <small class:is-bad={reason.length > 0 && tooShort}>{t('At least {count} characters', { count: policy.minReasonLength })}</small>
     </label>
 
-    <button type="button" class="qr__more" on:click={() => { onClose(); void goto(`/access-requests/new?root=${rootId}`); }}>
+    <button type="button" class="qr__more" onclick={() => { onClose(); void goto(`/access-requests/new?root=${rootId}`); }}>
       <i class="bi bi-people" aria-hidden="true"></i>{t('For someone else, or several folders')}
     </button>
   </div>
-  <svelte:fragment slot="footer">
-    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={onClose}>{t('Cancel')}</button>
-    <button type="button" class="b2s-btn b2s-btn-primary" disabled={sending || tooShort || state.kind === 'blocked' || state.kind === 'checking'} on:click={send}>
-      {sending ? t('Sending…') : t('Ask for the access')}
-    </button>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <button type="button" class="b2s-btn b2s-btn-secondary" onclick={onClose}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary" disabled={sending || tooShort || verdict.kind === 'blocked' || verdict.kind === 'checking'} onclick={send}>
+        {sending ? t('Sending…') : t('Ask for the access')}
+      </button>
+    
+  {/snippet}
 </Drawer>
 
 <style>

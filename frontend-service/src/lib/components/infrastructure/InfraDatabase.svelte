@@ -3,19 +3,24 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import type { DatabaseInfo } from '$lib/api/infrastructure';
 
-  /**
+  
+  interface Props {
+    /**
    * The database connection in use, read only: the names come from .env, the passwords are podman secrets, both set
    * by the installation wizard. Changing the server is an operation (wizard, then make deploy), so that every part
    * of the platform (core, the 5S module, deploy and backup) keeps using the same one.
    */
-  export let info: DatabaseInfo;
+    info: DatabaseInfo;
+  }
+
+  let { info }: Props = $props();
 
   // « GRANT SELECT, INSERT ON `borntoshare`.* TO `b2s_core`@`%` » → rights and target
   function readGrant(grant: string): { rights: string; target: string } {
     const match = /^GRANT (.+?) ON (.+?) TO /.exec(grant);
     return match ? { rights: match[1], target: match[2].replace(/`/g, '') } : { rights: grant, target: '' };
   }
-  $: grants = (info.grants ?? []).map(readGrant);
+  let grants = $derived((info.grants ?? []).map(readGrant));
 </script>
 
 <div class="db-grid">

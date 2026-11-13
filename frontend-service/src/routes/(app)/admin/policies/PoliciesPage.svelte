@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run as run_1 } from 'svelte/legacy';
+
   import { parseFolderQuery } from '$lib/components/storage-roots/folder-query';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { invalidateAll } from '$app/navigation';
@@ -25,10 +27,14 @@
   type Draft = { id: number | null; name: string; description: string; enabled: boolean; condition: string; tagOn: boolean; tagId: number | null; tagRemove: boolean; subfolders: boolean; alertOn: boolean; severity: string; notify: boolean;
     jobsOn: boolean; jobCheck: boolean; jobMeasure: boolean; jobSensitivity: boolean; everyHours: number };
 
-  export let data: Record<string, any>;
+  interface Props {
+    data: Record<string, any>;
+  }
 
-  $: policies = (data.policies ?? []) as Policy[];
-  $: tags = (data.tags ?? []) as Array<Record<string, any>>;
+  let { data }: Props = $props();
+
+  let policies = $derived((data.policies ?? []) as Policy[]);
+  let tags = $derived((data.tags ?? []) as Array<Record<string, any>>);
   const tagOf = (id: number | null | undefined) => tags.find((tag) => Number(tag.id) === Number(id)) ?? null;
   const tagNamed = (name: string) => tags.find((tag) => String(tag.name).toLowerCase() === name.toLowerCase())?.id ?? null;
   const SEVERITIES = (): Array<[string, string]> => [['info', t('Information')], ['warning', t('Warning')], ['high', t('High')], ['critical', t('Critical')]];
@@ -38,7 +44,7 @@
   const JOB_LABEL = (): Record<string, string> => ({ check: t('reread the ACL and the content'), sensitivity: t('sensitivity scan') });
 
   // Starting points: the common needs, to adjust
-  $: templates = [
+  let templates = $derived([
     { name: t('Sensitive files'), description: t('Passwords, keys or vaults found by the sensitivity scan.'), condition: 'est:sensible', tagId: tagNamed('Critical'), severity: 'high', notify: true, icon: 'bi-shield-lock' },
     { name: t('Folder without guardian'), description: t('Nobody but the administrators can validate its requests.'), condition: 'est:sans-gardien', tagId: null, severity: 'warning', notify: false, icon: 'bi-person-x' },
     { name: t('Unreachable folder'), description: t('The worker can no longer open it.'), condition: 'est:injoignable', tagId: null, severity: 'high', notify: true, icon: 'bi-wifi-off' },
@@ -47,17 +53,19 @@
     { name: t('Duplicates'), description: t('Copies of the same files inside the folder or in other folders.'), condition: 'est:doublons', tagId: null, severity: 'info', notify: false, icon: 'bi-files' },
     { name: t('Large folder'), description: t('More than 50 GB: to check with its guardians.'), condition: 'taille>50Go', tagId: null, severity: 'info', notify: false, icon: 'bi-hdd' },
     { name: t('Broken inheritance without tag'), description: t('Permissions set apart, and nothing says why.'), condition: 'est:heritage-rompu est:sans-tag', tagId: null, severity: 'info', notify: false, icon: 'bi-scissors' }
-  ];
+  ]);
 
-  let draft: Draft | null = null;
-  let saving = false;
+  let draft: Draft | null = $state(null);
+  let saving = $state(false);
   // A policy that would act on many folders at once is confirmed explicitly
   const POLICY_CONFIRM_FROM = 50;
-  let wideConfirmed = false;
-  $: if (!draft) wideConfirmed = false;
-  let busyId: number | null = null;
-  let toDelete: Policy | null = null;
-  let preview: { count: number; unknown_states: string[]; sample: Array<{ id: number; name: string; path: string }> } | null = null;
+  let wideConfirmed = $state(false);
+  run_1(() => {
+    if (!draft) wideConfirmed = false;
+  });
+  let busyId: number | null = $state(null);
+  let toDelete: Policy | null = $state(null);
+  let preview: { count: number; unknown_states: string[]; sample: Array<{ id: number; name: string; path: string }> } | null = $state(null);
   let previewTimer: ReturnType<typeof setTimeout> | null = null;
 
   function edit(policy: Policy | null, template: (typeof templates)[number] | null = null) {
@@ -94,17 +102,17 @@
     schedulePreview(value);
   }
 
-  $: draftKinds = draft ? ([draft.jobCheck && 'check', draft.jobMeasure && 'measure', draft.jobSensitivity && 'sensitivity'].filter(Boolean) as Kind[]) : [];
-  $: wide = Boolean(draft?.enabled && (preview?.count ?? 0) > POLICY_CONFIRM_FROM);
-  $: canSave = Boolean(draft && draft.name.trim() && draft.condition.trim() && (draft.alertOn || draft.notify || (draft.tagOn && draft.tagId) || (draft.jobsOn && draftKinds.length)) && !(preview?.unknown_states?.length) && (!wide || wideConfirmed));
+  let draftKinds = $derived(draft ? ([draft.jobCheck && 'check', draft.jobMeasure && 'measure', draft.jobSensitivity && 'sensitivity'].filter(Boolean) as Kind[]) : []);
+  let wide = $derived(Boolean(draft?.enabled && (preview?.count ?? 0) > POLICY_CONFIRM_FROM));
+  let canSave = $derived(Boolean(draft && draft.name.trim() && draft.condition.trim() && (draft.alertOn || draft.notify || (draft.tagOn && draft.tagId) || (draft.jobsOn && draftKinds.length)) && !(preview?.unknown_states?.length) && (!wide || wideConfirmed)));
 
   // Criteria a sub-folder can be judged on (same rule as core-service folder_tags.supported)
   const SUBFOLDER_STATES = ['sensible', 'mot-de-passe', 'cle-ou-jeton', 'donnees-personnelles', 'bancaire', 'fichiers-a-risque'];
-  $: subfoldersSupported = (() => {
+  let subfoldersSupported = $derived((() => {
     const parsed = parseFolderQuery(draft?.condition ?? '');
     return !parsed.text.trim() && parsed.filters.length > 0
       && parsed.filters.every((item) => item.key === 'path' || (item.key === 'is' && SUBFOLDER_STATES.includes(item.value.toLowerCase())));
-  })();
+  })());
 
   async function save() {
     if (!draft || !canSave || saving) return;
@@ -180,7 +188,7 @@
       <h1>{t('Policies')}</h1>
       <p>{t('When folders match a condition, BornToShare acts: tag, alert in Monitoring, notice to the guardians.')}</p>
     </div>
-    <button type="button" class="b2s-btn b2s-btn-primary" on:click={() => edit(null)}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('New policy')}</button>
+    <button type="button" class="b2s-btn b2s-btn-primary" onclick={() => edit(null)}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('New policy')}</button>
   </header>
 
   {#if policies.length}
@@ -213,10 +221,10 @@
               {:else}{t('Not evaluated yet')}{/if}
             </small>
             <div class="pc__btns">
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busyId !== null || !policy.enabled} on:click={() => run(policy)}><i class="bi bi-play" aria-hidden="true"></i>{t('Run')}</button>
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => edit(policy)}>{t('Edit')}</button>
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busyId !== null} on:click={() => toggle(policy)}>{policy.enabled ? t('Disable') : t('Enable')}</button>
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" aria-label={t('Delete')} title={t('Delete')} on:click={() => (toDelete = policy)}><i class="bi bi-trash" aria-hidden="true"></i></button>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busyId !== null || !policy.enabled} onclick={() => run(policy)}><i class="bi bi-play" aria-hidden="true"></i>{t('Run')}</button>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => edit(policy)}>{t('Edit')}</button>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busyId !== null} onclick={() => toggle(policy)}>{policy.enabled ? t('Disable') : t('Enable')}</button>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" aria-label={t('Delete')} title={t('Delete')} onclick={() => (toDelete = policy)}><i class="bi bi-trash" aria-hidden="true"></i></button>
             </div>
           </div>
         </article>
@@ -228,7 +236,7 @@
     <h2>{policies.length ? t('Add from a template') : t('Start from a template')}</h2>
     <div class="pl__tpls">
       {#each templates as template (template.condition)}
-        <button type="button" class="tp" on:click={() => edit(null, template)}>
+        <button type="button" class="tp" onclick={() => edit(null, template)}>
           <i class={`bi ${template.icon}`} aria-hidden="true"></i>
           <span><strong>{template.name}</strong><small>{template.description}</small><code>{template.condition}</code></span>
         </button>
@@ -247,7 +255,7 @@
       <div class="pf__block">
         <span class="pf__label">{t('If the folder matches')}</span>
         <input class="b2s-input mono" value={draft.condition} maxlength="500" placeholder="est:sensible tag:Finance" aria-label={t('Condition')}
-          on:input={(event) => setCondition(event.currentTarget.value)} />
+          oninput={(event) => setCondition(event.currentTarget.value)} />
         <FolderQueryAssist query={draft.condition} rows={data.folders ?? []} tags={tags.map((tag) => String(tag.name))} onQueryChange={setCondition} />
         {#if preview?.unknown_states?.length}
           <p class="pf__bad">{t('Unknown state: {states}', { states: preview.unknown_states.join(', ') })}</p>
@@ -312,10 +320,12 @@
       <label class="pf__check"><input type="checkbox" bind:checked={draft.enabled} /><span>{t('Active')}<small>{t('Evaluated every 15 minutes, and right after a sensitivity scan.')}</small></span></label>
     </div>
   {/if}
-  <svelte:fragment slot="footer">
-    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => (draft = null)}>{t('Cancel')}</button>
-    <button type="button" class="b2s-btn b2s-btn-primary" disabled={!canSave || saving} on:click={save}>{draft?.id ? t('Save') : t('Create the policy')}</button>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => (draft = null)}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary" disabled={!canSave || saving} onclick={save}>{draft?.id ? t('Save') : t('Create the policy')}</button>
+    
+  {/snippet}
 </AppModal>
 
 <ConfirmDeleteDialog open={toDelete !== null} onClose={() => (toDelete = null)} onConfirm={remove} busy={busyId !== null}

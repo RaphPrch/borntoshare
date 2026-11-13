@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { t } from '$lib/i18n';
   import Tabs from '$lib/components/ui/Tabs.svelte';
@@ -22,69 +24,113 @@
     tone?: 'warning' | 'error';
   };
 
-  export let detailsLoading = false;
-  export let selectedStorageRootId: number | null = null;
-  export let selectedRootCodeOrName = '—';
-  export let zoneLabel = '';
-  export let activeTab: StorageRootTabKey = 'overview';
 
-  export let rootProbeBusy = false;
-  export let aclFreshness: Record<string, unknown> | null = null;
 
-  export let alertItems: StorageRootAlertItem[] = [];
 
-  export let endpointLabel = '—';
-  export let endpointAddress = '—';
-  export let pathLabel = '—';
-  export let content: any = null;
-  export let sensitivity: any = null;
-  export let endpointHref: string | null = null;
 
-  export let guardians: Array<Record<string, unknown>> = [];
 
-  export let rootAvailabilityText = t('Unknown');
-  export let rootAvailabilityTone: 'success' | 'warning' | 'error' = 'warning';
 
-  export let tags: StorageRootTag[] = [];
-  export let isAdmin = false;
-  export let isDfs = false;
-  export let selectedRow: Record<string, any> | null = null;
-  /** Login whose access is explained at once (?explain= from the ⌘K palette) */
-  export let explainLogin: string | null = null;
-  /** Bumped by the page after an operation on the folder: the permissions are read again */
-  export let refreshKey = 0;
-  export let activityRemainder: Array<Record<string, unknown>> = [];
-  export let activityLoading = false;
-  export let tagId: (tag: StorageRootTag) => number = () => 0;
-  export let tagLabel: (tag: StorageRootTag) => string = () => t('Tag');
-  export let tagColor: (tag: StorageRootTag) => string | null = () => null;
-  export let ownerDisplayName: (owner: Record<string, unknown>) => string = () => t('Unknown');
+  
+  
 
-  export let onSelectTab: (tab: StorageRootTabKey) => void = () => {};
-  export let onEditRoot: () => void = () => {};
-  export let onDeleteRoot: () => void = () => {};
-  export let onRunRootProbe: () => void = () => {};
-  /** A measure landed: the overview is read again */
-  export let onReloadDetails: () => void = () => {};
-  export let onNewAccessRequest: () => void = () => {};
-  export let onOpenGovernanceDrawer: (role?: 'guardian') => void = () => {};
-  export let onOpenTagsModal: () => void = () => {};
-  export let onViewAllAlerts: () => void = () => {};
-  /** Operation on the folder on the file server (inheritance, deletion, sub-folder), run by the page */
-  export let onFolderAction: (kind: FolderActionKind, inheritanceBroken: boolean | null) => void = () => {};
+  
+  
+  interface Props {
+    detailsLoading?: boolean;
+    selectedStorageRootId?: number | null;
+    selectedRootCodeOrName?: string;
+    zoneLabel?: string;
+    activeTab?: StorageRootTabKey;
+    rootProbeBusy?: boolean;
+    aclFreshness?: Record<string, unknown> | null;
+    alertItems?: StorageRootAlertItem[];
+    endpointLabel?: string;
+    endpointAddress?: string;
+    pathLabel?: string;
+    content?: any;
+    sensitivity?: any;
+    endpointHref?: string | null;
+    guardians?: Array<Record<string, unknown>>;
+    rootAvailabilityText?: any;
+    rootAvailabilityTone?: 'success' | 'warning' | 'error';
+    tags?: StorageRootTag[];
+    isAdmin?: boolean;
+    isDfs?: boolean;
+    selectedRow?: Record<string, any> | null;
+    /** Login whose access is explained at once (?explain= from the ⌘K palette) */
+    explainLogin?: string | null;
+    /** Bumped by the page after an operation on the folder: the permissions are read again */
+    refreshKey?: number;
+    activityRemainder?: Array<Record<string, unknown>>;
+    activityLoading?: boolean;
+    tagId?: (tag: StorageRootTag) => number;
+    tagLabel?: (tag: StorageRootTag) => string;
+    tagColor?: (tag: StorageRootTag) => string | null;
+    ownerDisplayName?: (owner: Record<string, unknown>) => string;
+    onSelectTab?: (tab: StorageRootTabKey) => void;
+    onEditRoot?: () => void;
+    onDeleteRoot?: () => void;
+    onRunRootProbe?: () => void;
+    /** A measure landed: the overview is read again */
+    onReloadDetails?: () => void;
+    onNewAccessRequest?: () => void;
+    onOpenGovernanceDrawer?: (role?: 'guardian') => void;
+    onOpenTagsModal?: () => void;
+    onViewAllAlerts?: () => void;
+    /** Operation on the folder on the file server (inheritance, deletion, sub-folder), run by the page */
+    onFolderAction?: (kind: FolderActionKind, inheritanceBroken: boolean | null) => void;
+  }
 
-  $: showBlockingLoading = detailsLoading && selectedRootCodeOrName === '—';
-  $: endpointDisplay = endpointAddress && endpointAddress !== '—' ? endpointAddress : endpointLabel;
-  $: aclScannedAt = String(aclFreshness?.scanned_at ?? aclFreshness?.discovered_at ?? '').trim();
+  let {
+    detailsLoading = false,
+    selectedStorageRootId = null,
+    selectedRootCodeOrName = '—',
+    zoneLabel = '',
+    activeTab = 'overview',
+    rootProbeBusy = false,
+    aclFreshness = null,
+    alertItems = [],
+    endpointLabel = '—',
+    endpointAddress = '—',
+    pathLabel = '—',
+    content = null,
+    sensitivity = null,
+    endpointHref = null,
+    guardians = [],
+    rootAvailabilityText = t('Unknown'),
+    rootAvailabilityTone = 'warning',
+    tags = [],
+    isAdmin = false,
+    isDfs = false,
+    selectedRow = null,
+    explainLogin = null,
+    refreshKey = 0,
+    activityRemainder = [],
+    activityLoading = false,
+    tagId = () => 0,
+    tagLabel = () => t('Tag'),
+    tagColor = () => null,
+    ownerDisplayName = () => t('Unknown'),
+    onSelectTab = () => {},
+    onEditRoot = () => {},
+    onDeleteRoot = () => {},
+    onRunRootProbe = () => {},
+    onReloadDetails = () => {},
+    onNewAccessRequest = () => {},
+    onOpenGovernanceDrawer = () => {},
+    onOpenTagsModal = () => {},
+    onViewAllAlerts = () => {},
+    onFolderAction = () => {}
+  }: Props = $props();
+
 
   // Permissions: one computation (ACL read on the file server x AD groups x requests) for the tab and the KPIs.
   // Loaded again when another root is selected, when an ACL read ends and after an action in the tab.
-  let permissions: StorageRootPermissionsData | null = null;
-  let permissionsLoading = false;
-  let permissionsError: string | null = null;
+  let permissions: StorageRootPermissionsData | null = $state(null);
+  let permissionsLoading = $state(false);
+  let permissionsError: string | null = $state(null);
   let permissionsKey = '';
   let permissionsSeq = 0;
-  $: if (selectedStorageRootId && !rootProbeBusy) syncPermissions(`${selectedStorageRootId}:${aclScannedAt}:${refreshKey}`);
 
   function syncPermissions(key: string) {
     if (key === permissionsKey) return;
@@ -117,27 +163,10 @@
     missing_ace: { label: () => t('ACE missing'), tone: 'danger' },
     never_scanned: { label: () => t('To verify'), tone: 'neutral' }
   } as const;
-  $: unreachable = rootAvailabilityTone === 'error';
-  $: guardianMissing = alertItems.some((item) => item.type === 'missing_guardian' || /missing_guardian/.test(String(item.key ?? '')));
-  $: aclState = permissions?.status ?? 'never_scanned';
-  // « Compliant » only speaks of a folder with nothing left to do: its guardians count too
-  $: pill = unreachable
-    ? { label: rootAvailabilityText, tone: 'danger' as const }
-    : aclState === 'ok' && guardianMissing
-      ? { label: t('Guardians missing'), tone: 'warning' as const }
-      : { label: ACL_PILL[aclState].label(), tone: ACL_PILL[aclState].tone };
-  $: inheritanceBroken = permissions?.inheritance?.known ? permissions.inheritance.broken : null;
 
-  $: tabs = [
-    { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
-    { key: 'effective-access', label: t('Permissions'), icon: 'bi-shield-lock', count: permissions?.summary.people },
-    { key: 'activity', label: t('Activity'), icon: 'bi-clock-history' }
-  ];
-  $: guardianNames = guardians.map((owner) => ownerDisplayName(owner)).filter(Boolean);
 
   // « Who reaches it? » typed in the overview opens the permissions tab on that login
-  let explainTyped: string | null = null;
-  $: if (selectedStorageRootId) explainTyped = null;
+  let explainTyped: string | null = $state(null);
   function explainFromOverview(login: string) {
     explainTyped = login;
     onSelectTab('effective-access');
@@ -148,6 +177,31 @@
     if (key === 'activity') return 'activity';
     return 'overview';
   };
+  let showBlockingLoading = $derived(detailsLoading && selectedRootCodeOrName === '—');
+  let endpointDisplay = $derived(endpointAddress && endpointAddress !== '—' ? endpointAddress : endpointLabel);
+  let aclScannedAt = $derived(String(aclFreshness?.scanned_at ?? aclFreshness?.discovered_at ?? '').trim());
+  $effect.pre(() => {
+    if (selectedStorageRootId && !rootProbeBusy) syncPermissions(`${selectedStorageRootId}:${aclScannedAt}:${refreshKey}`);
+  });
+  let unreachable = $derived(rootAvailabilityTone === 'error');
+  let guardianMissing = $derived(alertItems.some((item) => item.type === 'missing_guardian' || /missing_guardian/.test(String(item.key ?? ''))));
+  let aclState = $derived(permissions?.status ?? 'never_scanned');
+  // « Compliant » only speaks of a folder with nothing left to do: its guardians count too
+  let pill = $derived(unreachable
+    ? { label: rootAvailabilityText, tone: 'danger' as const }
+    : aclState === 'ok' && guardianMissing
+      ? { label: t('Guardians missing'), tone: 'warning' as const }
+      : { label: ACL_PILL[aclState].label(), tone: ACL_PILL[aclState].tone });
+  let inheritanceBroken = $derived(permissions?.inheritance?.known ? permissions.inheritance.broken : null);
+  let tabs = $derived([
+    { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
+    { key: 'effective-access', label: t('Permissions'), icon: 'bi-shield-lock', count: permissions?.summary.people },
+    { key: 'activity', label: t('Activity'), icon: 'bi-clock-history' }
+  ]);
+  let guardianNames = $derived(guardians.map((owner) => ownerDisplayName(owner)).filter(Boolean));
+  $effect.pre(() => {
+    if (selectedStorageRootId) explainTyped = null;
+  });
 </script>
 
 <div class="sr-detail">

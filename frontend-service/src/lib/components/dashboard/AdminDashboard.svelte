@@ -12,11 +12,18 @@
 
   // Expected (safe) shape:
   // data.stats: { storage_roots, storage_endpoints, admins, pending_requests }
-  // data.activities: [{ action, target_type, target_name, created_at, actor_display_name }]
-  export let data: any;
+  
+  interface Props {
+    // data.activities: [{ action, target_type, target_name, created_at, actor_display_name }]
+    data: any;
+  }
 
+  let { data }: Props = $props();
+
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
   const stats = data?.stats ?? data?.summary ?? {};
   // Sign-ins are frequent and say little about platform changes: keep them out of this card
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
   const activities = (Array.isArray(data?.activities) ? data.activities : []).filter(
     (a: any) => String(a?.action ?? '') !== 'auth.login'
   );
@@ -57,7 +64,7 @@
 
   // Passwords gone from the secret store: every use of these objects fails until they are entered again
   type MissingSecret = { kind: 'storage_endpoint' | 'identity_source'; id: number; name: string; purpose: string | null };
-  let missingSecrets: MissingSecret[] = [];
+  let missingSecrets: MissingSecret[] = $state([]);
   const PURPOSES: Record<string, () => string> = {
     provisioning: () => t('Manage AD groups'),
     snapshot: () => t('Snapshot inventory'),
@@ -67,7 +74,7 @@
     item.kind === 'storage_endpoint' ? `/admin/storage-endpoints/${item.id}` : '/admin/identity-sources';
   // Scheduled tasks that have not run for two intervals: the scheduler, or the whole platform, stood still
   type LateTask = { task: string; interval_minutes: number; last_run_at: string; late_minutes: number };
-  let lateTasks: LateTask[] = [];
+  let lateTasks: LateTask[] = $state([]);
   const TASKS: Record<string, () => string> = {
     health_check: () => t('Health check'),
     data_sync: () => t('Data sync'),

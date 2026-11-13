@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run as run_1 } from 'svelte/legacy';
+
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -29,58 +31,85 @@
   type TypeFilter = 'all' | 'user' | 'group' | 'ou';
   type BrowserError = { message: string; detail: string | null };
 
-  /**
+  
+
+
+
+
+  interface Props {
+    /**
    * Directory browser (users and groups of an AD identity source), read from its last snapshot:
    * OU tree, results, preview of the selected principal. Single or multiple selection.
    */
-  export let open = false;
-  export let onClose: () => void = () => {};
-  export let onSelect: ((payload: IdentityBrowserSelectionPayload) => void) | null = null;
+    open?: boolean;
+    onClose?: () => void;
+    onSelect?: ((payload: IdentityBrowserSelectionPayload) => void) | null;
+    identitySources?: IdentityBrowserSource[];
+    initialSourceId?: number | null;
+    sourceId?: number | null;
+    storageRootId?: number | null;
+    title?: any;
+    subtitle?: any;
+    previewTitle?: any;
+    selectedItemsTitle?: any;
+    mode?: DirectoryMode;
+    allowedPrincipalType?: TypeFilter;
+    includeImportCandidates?: boolean;
+    searchLimit?: number;
+    initialSelectedKeys?: string[];
+    initialRoleByKey?: Record<string, { guardian?: boolean }>;
+    busy?: boolean;
+    confirmLabel?: any;
+    confirmBusyLabel?: any;
+  }
 
-  export let identitySources: IdentityBrowserSource[] = [];
-  export let initialSourceId: number | null = null;
-  export let sourceId: number | null = null;
-  export let storageRootId: number | null = null;
-
-  export let title = t('Browse Active Directory');
-  export let subtitle = t('Select users or groups to add to this governance role.');
-  export let previewTitle = t('Preview');
-  export let selectedItemsTitle = t('Selected items');
-  export let mode: DirectoryMode = 'multiple';
-  export let allowedPrincipalType: TypeFilter = 'all';
-  export let includeImportCandidates = true;
-  export let searchLimit = 50;
-
-  export let initialSelectedKeys: string[] = [];
-  export let initialRoleByKey: Record<string, { guardian?: boolean }> = {};
-
-  export let busy = false;
-  export let confirmLabel = t('Use Selected');
-  export let confirmBusyLabel = t('Applying…');
+  let {
+    open = $bindable(false),
+    onClose = () => {},
+    onSelect = null,
+    identitySources = [],
+    initialSourceId = null,
+    sourceId = null,
+    storageRootId = null,
+    title = t('Browse Active Directory'),
+    subtitle = t('Select users or groups to add to this governance role.'),
+    previewTitle = t('Preview'),
+    selectedItemsTitle = t('Selected items'),
+    mode = 'multiple',
+    allowedPrincipalType = 'all',
+    includeImportCandidates = true,
+    searchLimit = 50,
+    initialSelectedKeys = [],
+    initialRoleByKey = {},
+    busy = false,
+    confirmLabel = t('Use Selected'),
+    confirmBusyLabel = t('Applying…')
+  }: Props = $props();
 
   const dispatch = createEventDispatcher<{ close: void; confirm: IdentityBrowserSelectionPayload }>();
   const store = createIdentityBrowserStore();
   const STALE_AFTER_MS = 24 * 3600 * 1000;
 
-  let wasOpen = false;
-  let typeFilter: TypeFilter = allowedPrincipalType;
-  let expandedDns = new Set<string>();
-  let loadingDns = new Set<string>();
-  let selectedSourceId: number | null = null;
+  let wasOpen = $state(false);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let typeFilter: TypeFilter = $state(allowedPrincipalType);
+  let expandedDns = $state(new Set<string>());
+  let loadingDns = $state(new Set<string>());
+  let selectedSourceId: number | null = $state(null);
   let resolvedRootDn: string | null = null;
-  let syncing = false;
-  let lastSyncAt: string | null = null;
-  let error: BrowserError | null = null;
+  let syncing = $state(false);
+  let lastSyncAt: string | null = $state(null);
+  let error: BrowserError | null = $state(null);
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-  $: selectedSource = ($store.sources ?? []).find((src) => Number(src?.id ?? 0) === Number(selectedSourceId ?? 0)) ?? null;
-  $: searchable = selectedSource?.searchable !== false;
-  $: snapshotAt = selectedSource?.lastSnapshotAt ?? lastSyncAt;
-  $: snapshotStale = Boolean(snapshotAt) && Date.now() - new Date(String(snapshotAt)).getTime() > STALE_AFTER_MS;
-  $: showTypeFilter = allowedPrincipalType === 'all';
-  $: TYPE_FILTERS = [['all', t('All')], ['user', t('Users')], ['group', t('Groups')]] as Array<[TypeFilter, string]>;
-  $: limit = Math.max(1, Math.min(200, Math.trunc(Number(searchLimit || 50) || 50)));
-  $: limitReached = $store.rows.length >= limit;
+  let selectedSource = $derived(($store.sources ?? []).find((src) => Number(src?.id ?? 0) === Number(selectedSourceId ?? 0)) ?? null);
+  let searchable = $derived(selectedSource?.searchable !== false);
+  let snapshotAt = $derived(selectedSource?.lastSnapshotAt ?? lastSyncAt);
+  let snapshotStale = $derived(Boolean(snapshotAt) && Date.now() - new Date(String(snapshotAt)).getTime() > STALE_AFTER_MS);
+  let showTypeFilter = $derived(allowedPrincipalType === 'all');
+  let TYPE_FILTERS = $derived([['all', t('All')], ['user', t('Users')], ['group', t('Groups')]] as Array<[TypeFilter, string]>);
+  let limit = $derived(Math.max(1, Math.min(200, Math.trunc(Number(searchLimit || 50) || 50))));
+  let limitReached = $derived($store.rows.length >= limit);
 
   // ---- Errors: readable message + raw detail for the support
   function toBrowserError(raw: unknown, fallback: string): BrowserError {
@@ -132,7 +161,7 @@
   const isImported = (row: any): boolean => !row?.is_import_candidate;
   const isSelected = (row: PrincipalSearchItem): boolean => $store.selectedKeys.includes(principalKey(row));
 
-  $: previewFields = (() => {
+  let previewFields = $derived((() => {
     const p: any = $store.preview;
     if (!p) return [];
     return [
@@ -142,7 +171,7 @@
       { label: t('Distinguished name'), value: p.dn, mono: true },
       { label: t('Members'), value: typeOf(p) === 'group' ? p.member_count ?? p.group_count : null }
     ].filter((field) => field.value !== null && field.value !== undefined && String(field.value).trim() !== '' && String(field.value) !== '-');
-  })();
+  })());
 
   // ---- Opening and source selection
   function normalizeSelectionFromProps() {
@@ -363,11 +392,13 @@
   }
 
   // A snapshot already running on the selected source: follow it (button greyed meanwhile)
-  let followedSourceId: number | null = null;
-  $: if (open && selectedSource?.snapshotRunning && !syncing && followedSourceId !== Number(selectedSource.id)) {
-    followedSourceId = Number(selectedSource.id);
-    void syncDirectory({ follow: true });
-  }
+  let followedSourceId: number | null = $state(null);
+  run_1(() => {
+    if (open && selectedSource?.snapshotRunning && !syncing && followedSourceId !== Number(selectedSource.id)) {
+      followedSourceId = Number(selectedSource.id);
+      void syncDirectory({ follow: true });
+    }
+  });
 
   // ---- Selection and preview
   function updateSelection(item: PrincipalSearchItem, checked: boolean) {
@@ -451,15 +482,19 @@
     onSelect?.(payload);
   }
 
-  $: if (open && !wasOpen) {
-    wasOpen = true;
-    void initializeForOpen();
-  }
+  run_1(() => {
+    if (open && !wasOpen) {
+      wasOpen = true;
+      void initializeForOpen();
+    }
+  });
 
-  $: if (!open && wasOpen) {
-    wasOpen = false;
-    abortAllRequests();
-  }
+  run_1(() => {
+    if (!open && wasOpen) {
+      wasOpen = false;
+      abortAllRequests();
+    }
+  });
 </script>
 
 <AppModal
@@ -480,7 +515,7 @@
         aria-label={t('Identity source')}
         value={selectedSourceId ?? ''}
         disabled={$store.loadingSources || busy || syncing}
-        on:change={onSourceSelectChange}
+        onchange={onSourceSelectChange}
       >
         {#if $store.sources.length === 0}
           <option value="">{t('No active source')}</option>
@@ -503,7 +538,7 @@
       {#if showTypeFilter}
         <div class="idb-segments" role="group" aria-label={t('Type')}>
           {#each TYPE_FILTERS as [value, label]}
-            <button type="button" class:is-active={typeFilter === value} aria-pressed={typeFilter === value} disabled={!searchable} on:click={() => setTypeFilter(value)}>
+            <button type="button" class:is-active={typeFilter === value} aria-pressed={typeFilter === value} disabled={!searchable} onclick={() => setTypeFilter(value)}>
               {label}
             </button>
           {/each}
@@ -521,7 +556,7 @@
           </span>
         {/if}
         {#if selectedSource?.canRunSnapshot}
-          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy || syncing || !selectedSourceId} on:click={() => syncDirectory()}>
+          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy || syncing || !selectedSourceId} onclick={() => syncDirectory()}>
             <i class={`bi ${syncing ? 'bi-hourglass-split' : 'bi-arrow-repeat'}`} aria-hidden="true"></i>
             {syncing ? t('Synchronizing…') : t('Synchronize')}
           </button>
@@ -556,7 +591,7 @@
         <i class="bi bi-database-x" aria-hidden="true"></i>
         <strong>{t('Nothing to show until the source is synchronized.')}</strong>
         {#if selectedSource.canRunSnapshot}
-          <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy || syncing} on:click={() => syncDirectory()}>
+          <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy || syncing} onclick={() => syncDirectory()}>
             <i class={`bi ${syncing ? 'bi-hourglass-split' : 'bi-arrow-repeat'}`} aria-hidden="true"></i>
             {syncing ? t('Synchronizing…') : t('Synchronize now')}
           </button>
@@ -606,7 +641,7 @@
                     class:is-previewed={$store.selectedKey === principalKey(row)}
                     aria-pressed={selected}
                     disabled={busy}
-                    on:click={() => activateRow(row)}
+                    onclick={() => activateRow(row)}
                   >
                     {#if mode === 'multiple'}
                       <span class="idb-check" aria-hidden="true"><i class={`bi ${selected ? 'bi-check-square-fill' : 'bi-square'}`}></i></span>
@@ -672,19 +707,23 @@
     {/if}
   </div>
 
-  <svelte:fragment slot="footer-start">
-    {#if mode === 'single'}
-      {$store.selectedKeys.length ? labelFor($store.selectedCache[$store.selectedKeys[0]]) || t('1 selected') : t('Nothing selected')}
-    {:else}
-      {t('{count} selected', { count: $store.selectedKeys.length })}
-    {/if}
-  </svelte:fragment>
-  <svelte:fragment slot="footer">
-    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={closeModal} disabled={busy}>{t('Cancel')}</button>
-    <button type="button" class="b2s-btn b2s-btn-primary" on:click={confirmSelection} disabled={busy || $store.selectedKeys.length === 0}>
-      {busy ? confirmBusyLabel : mode === 'multiple' ? `${confirmLabel} (${$store.selectedKeys.length})` : confirmLabel}
-    </button>
-  </svelte:fragment>
+  {#snippet footerStart()}
+  
+      {#if mode === 'single'}
+        {$store.selectedKeys.length ? labelFor($store.selectedCache[$store.selectedKeys[0]]) || t('1 selected') : t('Nothing selected')}
+      {:else}
+        {t('{count} selected', { count: $store.selectedKeys.length })}
+      {/if}
+    
+  {/snippet}
+  {#snippet footer()}
+  
+      <button type="button" class="b2s-btn b2s-btn-secondary" onclick={closeModal} disabled={busy}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary" onclick={confirmSelection} disabled={busy || $store.selectedKeys.length === 0}>
+        {busy ? confirmBusyLabel : mode === 'multiple' ? `${confirmLabel} (${$store.selectedKeys.length})` : confirmLabel}
+      </button>
+    
+  {/snippet}
 </AppModal>
 
 <style>

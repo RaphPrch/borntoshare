@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import { listIdentityGroupMembers, type IdentityGroupMember } from '$lib/api/identity';
   import type { EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import EntityHeroCard from '$lib/components/entity/EntityHeroCard.svelte';
@@ -6,23 +8,35 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { t } from '$lib/i18n';
 
-  /** A directory group with a role in BornToShare: every member gets it, the directory decides who is in. */
-  export let item: Record<string, any>;
-  export let busy = false;
-  export let onSetRole: (role: 'user' | 'platform_admin') => Promise<boolean> = async () => false;
-  export let onDelete: () => void = () => {};
+  
+  interface Props {
+    /** A directory group with a role in BornToShare: every member gets it, the directory decides who is in. */
+    item: Record<string, any>;
+    busy?: boolean;
+    onSetRole?: (role: 'user' | 'platform_admin') => Promise<boolean>;
+    onDelete?: () => void;
+  }
 
-  let members: IdentityGroupMember[] | null = null;
-  let loadedFor = '';
-  $: key = String(item?.id ?? '');
-  $: if (key && key !== loadedFor) load();
+  let {
+    item,
+    busy = false,
+    onSetRole = async () => false,
+    onDelete = () => {}
+  }: Props = $props();
+
+  let members: IdentityGroupMember[] | null = $state(null);
+  let loadedFor = $state('');
   async function load() {
     loadedFor = key;
     members = null;
     members = await listIdentityGroupMembers(fetch, item.id).catch(() => []);
   }
-  $: isAdmin = Array.isArray(item?.roles) && item.roles.includes('platform_admin');
-  $: actions = [{ key: 'delete', label: t('Remove the role'), icon: 'bi-trash', variant: 'danger', overflow: true, onClick: onDelete }] as EntityActionItem[];
+  let key = $derived(String(item?.id ?? ''));
+  $effect.pre(() => {
+    if (key && key !== loadedFor) load();
+  });
+  let isAdmin = $derived(Array.isArray(item?.roles) && item.roles.includes('platform_admin'));
+  let actions = $derived([{ key: 'delete', label: t('Remove the role'), icon: 'bi-trash', variant: 'danger', overflow: true, onClick: onDelete }] as EntityActionItem[]);
 </script>
 
 <div class="gw">
@@ -30,12 +44,14 @@
     title={String(item?.display_name || item?.username || '')} path={String(item?.dn ?? '')}
     statusLabel={isAdmin ? t('Administrator') : t('User')} statusTone={isAdmin ? 'warning' : 'neutral'}
     {actions} actionsAriaLabel={t('Group actions')}>
-    <svelte:fragment slot="side">
-      <div class="gw__seg" role="radiogroup" aria-label={t('Role of its members')}>
-        <button type="button" role="radio" aria-checked={!isAdmin} class:is-on={!isAdmin} disabled={busy} on:click={() => isAdmin && onSetRole('user')}>{t('User')}</button>
-        <button type="button" role="radio" aria-checked={isAdmin} class:is-on={isAdmin} disabled={busy} on:click={() => !isAdmin && onSetRole('platform_admin')}>{t('Administrator')}</button>
-      </div>
-    </svelte:fragment>
+    {#snippet side()}
+      
+        <div class="gw__seg" role="radiogroup" aria-label={t('Role of its members')}>
+          <button type="button" role="radio" aria-checked={!isAdmin} class:is-on={!isAdmin} disabled={busy} onclick={() => isAdmin && onSetRole('user')}>{t('User')}</button>
+          <button type="button" role="radio" aria-checked={isAdmin} class:is-on={isAdmin} disabled={busy} onclick={() => !isAdmin && onSetRole('platform_admin')}>{t('Administrator')}</button>
+        </div>
+      
+      {/snippet}
   </EntityHeroCard>
   <p class="gw__note">{t('Every member of this group gets the role. Arrivals and departures are managed in the directory and read again at each synchronization.')}</p>
   <section class="gw__card" aria-label={t('Members')}>

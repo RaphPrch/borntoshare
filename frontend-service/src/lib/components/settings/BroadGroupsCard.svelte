@@ -5,14 +5,20 @@
   import { reportUiError } from '$lib/errors';
   import { saveAdvancedSections } from '$lib/api/admin-advanced-settings';
 
-  /** Advanced settings › Governance: groups that open a folder to everyone, besides the built-in ones; or (kind
+  
+  interface Props {
+    /** Advanced settings › Governance: groups that open a folder to everyone, besides the built-in ones; or (kind
    * « system ») administration accounts expected on every folder, such as a renamed Administrator. */
-  export let groups: string[] = [];
-  export let kind: 'broad' | 'system' = 'broad';
+    groups?: string[];
+    kind?: 'broad' | 'system';
+  }
 
-  let list = [...groups];
-  let draft = '';
-  let saving = false;
+  let { groups = [], kind = 'broad' }: Props = $props();
+
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let list = $state([...groups]);
+  let draft = $state('');
+  let saving = $state(false);
   function add() {
     const name = draft.trim();
     if (name && !list.some((g) => g.toLowerCase() === name.toLowerCase())) list = [...list, name];
@@ -35,18 +41,18 @@
   subtitle={kind === 'system' ? t('SYSTEM, Administrators and Domain admins already count. Add the accounts renamed by your hardening (the built-in Administrator…).') : t('Everyone, Users and Domain users already count. Add the groups of your company that hold every employee.')}>
   <div class="bg__list">
     {#each list as group (group)}
-      <span class="bg__chip">{group}<button type="button" aria-label={t('Remove')} on:click={() => (list = list.filter((g) => g !== group))}>×</button></span>
+      <span class="bg__chip">{group}<button type="button" aria-label={t('Remove')} onclick={() => (list = list.filter((g) => g !== group))}>×</button></span>
     {:else}
       <small class="adv-hint">{t('No group added.')}</small>
     {/each}
   </div>
   <div class="bg__add">
-    <input class="b2s-input" bind:value={draft} placeholder={kind === 'system' ? t('e.g. CORP\\sla-prd') : t('e.g. CORP\\GG_All_Staff')} on:keydown={(e) => e.key === 'Enter' && add()} aria-label={kind === 'system' ? t('Account name') : t('Group name')} />
-    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={add}>{t('Add')}</button>
+    <input class="b2s-input" bind:value={draft} placeholder={kind === 'system' ? t('e.g. CORP\\sla-prd') : t('e.g. CORP\\GG_All_Staff')} onkeydown={(e) => e.key === 'Enter' && add()} aria-label={kind === 'system' ? t('Account name') : t('Group name')} />
+    <button type="button" class="b2s-btn b2s-btn-secondary" onclick={add}>{t('Add')}</button>
   </div>
   <small class="adv-hint">{kind === 'system' ? t('These accounts are expected on every folder: they no longer raise « account outside BornToShare ».') : t('A folder these groups reach is « open to everyone » on the exposure map and in the alerts.')}</small>
   <div class="adv-actions">
-    <button class="b2s-btn b2s-btn-primary" type="button" on:click={save} disabled={saving}><i class="bi bi-check2" aria-hidden="true"></i>{saving ? t('Saving…') : t('Save changes')}</button>
+    <button class="b2s-btn b2s-btn-primary" type="button" onclick={save} disabled={saving}><i class="bi bi-check2" aria-hidden="true"></i>{saving ? t('Saving…') : t('Save changes')}</button>
   </div>
 </ConfigCard>
 

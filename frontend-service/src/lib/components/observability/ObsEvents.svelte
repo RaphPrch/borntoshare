@@ -1,6 +1,8 @@
 <script lang="ts">
+  
+
   import { recall, remember } from '$lib/utils/remember';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
@@ -15,26 +17,35 @@
   import { searchEvents, type EventSearch, type ObsPeriod } from '$lib/api/observability';
   import type { StatusVariant } from '$lib/utils/status';
 
-  export let period: ObsPeriod = '24h';
-  /** Opened from the overview: « failure » shows the refused sign-ins and other failures */
-  export let initialOutcome: '' | 'success' | 'failure' = '';
-  export let initialModule = '';
+  
+  interface Props {
+    period?: ObsPeriod;
+    /** Opened from the overview: « failure » shows the refused sign-ins and other failures */
+    initialOutcome?: '' | 'success' | 'failure';
+    initialModule?: string;
+  }
 
-  let items: Record<string, unknown>[] = [];
-  let total = 0;
-  let modules: string[] = [];
-  let page = 1;
-  let pageSize = recall('events', { pageSize: 50 }).pageSize;
-  $: remember('events', { pageSize });
-  let module = initialModule;
-  let severity = '';
-  let outcome: '' | 'success' | 'failure' = initialOutcome;
-  let actor = '';
-  let query = '';
-  let loading = true;
-  let loadError: string | null = null;
+  let { period = '24h', initialOutcome = '', initialModule = '' }: Props = $props();
+
+  let items: Record<string, unknown>[] = $state([]);
+  let total = $state(0);
+  let modules: string[] = $state([]);
+  let page = $state(1);
+  let pageSize = $state(recall('events', { pageSize: 50 }).pageSize);
+  $effect.pre(() => {
+    remember('events', { pageSize });
+  });
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let module = $state(initialModule);
+  let severity = $state('');
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let outcome: '' | 'success' | 'failure' = $state(initialOutcome);
+  let actor = $state('');
+  let query = $state('');
+  let loading = $state(true);
+  let loadError: string | null = $state(null);
   let debounce: ReturnType<typeof setTimeout> | null = null;
-  let mounted = false;
+  let mounted = $state(false);
   let requestSeq = 0;
 
   const MODULE_LABELS: Record<string, () => string> = {
@@ -84,9 +95,18 @@
     }, wait);
   }
 
-  $: period, module, severity, outcome, refilter(0);
-  $: actor, query, refilter(350);
-  $: page, pageSize, mounted && void load();
+  $effect.pre(() => {
+    void [period, module, severity, outcome]; // only these start it again (as the former « $: »)
+    untrack(() => { refilter(0); });
+  });
+  $effect.pre(() => {
+    void [actor, query]; // only these start it again (as the former « $: »)
+    untrack(() => { refilter(350); });
+  });
+  $effect.pre(() => {
+    void [page, pageSize, mounted]; // only these start it again (as the former « $: »)
+    untrack(() => { mounted && void load(); });
+  });
 
   onMount(() => {
     mounted = true;
@@ -120,9 +140,9 @@
     };
   }
 
-  $: rows = items.map(row);
+  let rows = $derived(items.map(row));
 
-  let exporting = false;
+  let exporting = $state(false);
   async function exportCsv() {
     exporting = true;
     try {
@@ -169,7 +189,7 @@
       <option value="critical">{t('Critical')}</option>
     </select>
     <input class="obs-actor" bind:value={actor} placeholder={t('Actor')} aria-label={t('Actor')} />
-    <button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" on:click={exportCsv} disabled={exporting || total === 0}>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" onclick={exportCsv} disabled={exporting || total === 0}>
       <i class={`bi ${exporting ? 'bi-hourglass-split' : 'bi-download'}`} aria-hidden="true"></i>{t('Export CSV')}
     </button>
   </div>

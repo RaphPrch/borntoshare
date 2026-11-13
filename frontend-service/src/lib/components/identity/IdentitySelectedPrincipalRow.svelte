@@ -5,12 +5,16 @@
   import { mapPrincipalToDisplayVM } from '../../mappers/principals.mapper';
   import { principalLabel, type PrincipalSearchItem } from '../../utils/principal-search';
 
-  export let item: PrincipalSearchItem | undefined;
-  export let selectionKey = '';
-  export let onRemove: (key: string) => void = () => {};
+  interface Props {
+    item: PrincipalSearchItem | undefined;
+    selectionKey?: string;
+    onRemove?: (key: string) => void;
+  }
 
-  $: vm = mapPrincipalToDisplayVM((item ?? { id: selectionKey, display_name: selectionKey, type: 'other' }) as Record<string, unknown>);
-  $: removeLabel = item ? principalLabel(item as Record<string, unknown>) : selectionKey;
+  let { item, selectionKey = '', onRemove = () => {} }: Props = $props();
+
+  let vm = $derived(mapPrincipalToDisplayVM((item ?? { id: selectionKey, display_name: selectionKey, type: 'other' }) as Record<string, unknown>));
+  let removeLabel = $derived(item ? principalLabel(item as Record<string, unknown>) : selectionKey);
 </script>
 
 <EntityRowCard
@@ -21,20 +25,24 @@
   tertiary={null}
   typeLabel={vm.typeLabel}
 >
-  <svelte:fragment slot="icon">
-    <IconTile iconClass={vm.iconClass} kind={vm.iconKind} size="sm" />
-  </svelte:fragment>
+  {#snippet icon()}
+  
+      <IconTile iconClass={vm.iconClass} kind={vm.iconKind} size="sm" />
+    
+  {/snippet}
 
-  <svelte:fragment slot="actions">
-    <button
-      type="button"
-      class="idb-selected-row__remove"
-      aria-label={t('Remove {removeLabel}', { removeLabel })}
-      on:click={() => onRemove(selectionKey)}
-    >
-      <i class="bi bi-x-lg"></i>
-    </button>
-  </svelte:fragment>
+  {#snippet actions()}
+  
+      <button
+        type="button"
+        class="idb-selected-row__remove"
+        aria-label={t('Remove {removeLabel}', { removeLabel })}
+        onclick={() => onRemove(selectionKey)}
+      >
+        <i class="bi bi-x-lg"></i>
+      </button>
+    
+  {/snippet}
 </EntityRowCard>
 
 <style>

@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import { flip } from 'svelte/animate';
   import { apiGetList } from '$lib/api/client';
   import { dur, MOTION, pop } from '$lib/utils/motion';
@@ -20,64 +22,75 @@
    */
   type Tag = Record<string, unknown>;
 
-  export let permissions: StorageRootPermissionsData | null = null;
-  export let guardianNames: string[] = [];
-  export let guardiansMissing = false;
-  export let tags: Tag[] = [];
-  export let tagId: (tag: Tag) => number = () => 0;
-  export let tagLabel: (tag: Tag) => string = () => '';
-  export let tagColor: (tag: Tag) => string | null = () => null;
-  export let zoneLabel = '';
-  export let endpointDisplay = '';
-  export let endpointHref: string | null = null;
-  /** Size, sub-folders, files of the folder (last check by the worker) */
-  export let content: any = null;
-  export let sensitivity: any = null;
-  export let rootId: number | null = null;
-  export let onMeasured: () => void = () => {};
-  export let isAdmin = false;
-  export let isDfs = false;
-  export let activity: Array<Record<string, unknown>> = [];
-  export let onExplain: (login: string) => void = () => {};
-  export let onOpenGuardians: () => void = () => {};
-  export let onOpenTags: () => void = () => {};
+  
   // Sub-folders tagged by the policies « also on the sub-folders » (path from the share)
-  let subTags: Array<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }> = [];
-  let subTagsAll = false;
-  let subTagsFor: number | null = null;
-  $: if (rootId && rootId !== subTagsFor) {
-    subTagsFor = rootId;
-    subTagsAll = false;
-    void apiGetList<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }>(fetch, `/storage-roots/${rootId}/folder-tags`)
-      .then((rows) => { if (subTagsFor === rootId) subTags = rows; })
-      .catch(() => (subTags = []));
-  }
+  let subTags: Array<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }> = $state([]);
+  let subTagsAll = $state(false);
+  let subTagsFor: number | null = $state(null);
   const inner = (path: string) => path;
-  export let onOpenActivity: () => void = () => {};
-  export let onToggleInheritance: () => void = () => {};
-  export let onChanged: () => void = () => {};
+  interface Props {
+    permissions?: StorageRootPermissionsData | null;
+    guardianNames?: string[];
+    guardiansMissing?: boolean;
+    tags?: Tag[];
+    tagId?: (tag: Tag) => number;
+    tagLabel?: (tag: Tag) => string;
+    tagColor?: (tag: Tag) => string | null;
+    zoneLabel?: string;
+    endpointDisplay?: string;
+    endpointHref?: string | null;
+    /** Size, sub-folders, files of the folder (last check by the worker) */
+    content?: any;
+    sensitivity?: any;
+    rootId?: number | null;
+    onMeasured?: () => void;
+    isAdmin?: boolean;
+    isDfs?: boolean;
+    activity?: Array<Record<string, unknown>>;
+    onExplain?: (login: string) => void;
+    onOpenGuardians?: () => void;
+    onOpenTags?: () => void;
+    onOpenActivity?: () => void;
+    onToggleInheritance?: () => void;
+    onChanged?: () => void;
+  }
+
+  let {
+    permissions = null,
+    guardianNames = [],
+    guardiansMissing = false,
+    tags = [],
+    tagId = () => 0,
+    tagLabel = () => '',
+    tagColor = () => null,
+    zoneLabel = '',
+    endpointDisplay = '',
+    endpointHref = null,
+    content = null,
+    sensitivity = null,
+    rootId = null,
+    onMeasured = () => {},
+    isAdmin = false,
+    isDfs = false,
+    activity = [],
+    onExplain = () => {},
+    onOpenGuardians = () => {},
+    onOpenTags = () => {},
+    onOpenActivity = () => {},
+    onToggleInheritance = () => {},
+    onChanged = () => {}
+  }: Props = $props();
 
   const requestOf = (p: PermissionPerson) =>
     p.via.find((v) => v.kind === 'request' && v.expires_at) as Extract<PermissionPerson['via'][number], { kind: 'request' }> | undefined;
 
-  $: people = permissions?.people ?? [];
-  $: levels = (['read', 'write'] as const).map((level) => ({
-    level,
-    groups: (permissions?.groups ?? []).filter((group) => group.level === level),
-    people: people.filter((person) => person.level === level)
-  }));
-  $: ends = people
-    .filter((p) => p.expires_at)
-    .sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)))
-    .slice(0, 4);
-  $: inheritance = permissions?.inheritance;
 
   let login = '';
   function explain() {
     if (login.trim()) onExplain(login.trim());
   }
 
-  let extending: string | null = null;
+  let extending: string | null = $state(null);
   async function extend(person: PermissionPerson) {
     const request = requestOf(person);
     if (!request) return;
@@ -98,6 +111,26 @@
     missing: () => t('ACE missing'),
     mismatch: () => t('Unexpected rights')
   };
+  $effect.pre(() => {
+    if (rootId && rootId !== subTagsFor) {
+      subTagsFor = rootId;
+      subTagsAll = false;
+      void apiGetList<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }>(fetch, `/storage-roots/${rootId}/folder-tags`)
+        .then((rows) => { if (subTagsFor === rootId) subTags = rows; })
+        .catch(() => (subTags = []));
+    }
+  });
+  let people = $derived(permissions?.people ?? []);
+  let levels = $derived((['read', 'write'] as const).map((level) => ({
+    level,
+    groups: (permissions?.groups ?? []).filter((group) => group.level === level),
+    people: people.filter((person) => person.level === level)
+  })));
+  let ends = $derived(people
+    .filter((p) => p.expires_at)
+    .sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)))
+    .slice(0, 4));
+  let inheritance = $derived(permissions?.inheritance);
 </script>
 
 <div class="ov">
@@ -118,7 +151,7 @@
               <span class="ov__bar" class:is-soon={progress.soon} aria-hidden="true"><span style={`width: ${progress.percentLeft}%`}></span></span>
               <span class="ov__when" title={formatDate(person.expires_at)}>{t('in {days} d', { days: progress.daysLeft })}</span>
               {#if request}
-                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={extending === person.key} on:click={() => extend(person)}>+30 j</button>
+                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={extending === person.key} onclick={() => extend(person)}>+30 j</button>
               {/if}
             </li>
           {/each}
@@ -141,14 +174,14 @@
             <span class="ov__warn">{t('None: only the administrators can approve the requests.')}</span>
           {/each}
           {#if guardiansMissing && guardianNames.length}<span class="ov__warn">{t('Too few')}</span>{/if}
-          <button type="button" class="ov__add" on:click={onOpenGuardians}>{guardianNames.length ? t('Manage') : t('+ Add')}</button>
+          <button type="button" class="ov__add" onclick={onOpenGuardians}>{guardianNames.length ? t('Manage') : t('+ Add')}</button>
         </dd>
       </div>
       <div>
         <dt>{t('Tags')}</dt>
         <dd>
           {#each tags as tag (tagId(tag))}<span class="ov__pill" animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}><TagPill label={tagLabel(tag)} color={tagColor(tag)} small={true} /></span>{/each}
-          <button type="button" class="ov__add" on:click={onOpenTags}>{tags.length ? t('Manage') : t('+ Tag')}</button>
+          <button type="button" class="ov__add" onclick={onOpenTags}>{tags.length ? t('Manage') : t('+ Tag')}</button>
         </dd>
       </div>
       {#if subTags.length}
@@ -159,7 +192,7 @@
               <span class="ov__subtag"><a class="ov__plain" href={`/five-s/explore/${rootId}`} title={row.path}><i class="bi bi-folder" aria-hidden="true"></i>{inner(row.path)}</a>
                 {#each row.tags as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} />{/each}</span>
             {/each}
-            {#if subTags.length > 4 && !subTagsAll}<button type="button" class="ov__add" on:click={() => (subTagsAll = true)}>{t('Show the {count} others', { count: subTags.length - 4 })}</button>{/if}
+            {#if subTags.length > 4 && !subTagsAll}<button type="button" class="ov__add" onclick={() => (subTagsAll = true)}>{t('Show the {count} others', { count: subTags.length - 4 })}</button>{/if}
           </dd>
         </div>
       {/if}
@@ -171,7 +204,7 @@
           {#if !inheritance?.known}<span class="ov__muted">{t('Known at the next ACL read')}</span>
           {:else if inheritance.broken}<span>{t('Broken: the folder keeps its own entries')}</span>
           {:else}<span>{t('Inherited from the parent folder')}</span>{/if}
-          {#if isAdmin && inheritance?.known}<button type="button" class="b2s-link-btn" on:click={onToggleInheritance}>{inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
+          {#if isAdmin && inheritance?.known}<button type="button" class="b2s-link-btn" onclick={onToggleInheritance}>{inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
         </dd>
       </div>
       <div><dt>{t('Directory')}</dt><dd>{permissions?.snapshot_at ? t('Synchronised {ago}', { ago: timeAgo(permissions.snapshot_at) }) : '—'}</dd></div>

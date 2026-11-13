@@ -8,32 +8,44 @@
   import NotificationCenter from '$lib/components/layout/NotificationCenter.svelte';
   import { live } from '$lib/stores/live';
 
-  /** Main navigation of the app: a rail on the left, the pages take the whole height. */
-  export let user: unknown = null;
-  export let currentPath = '';
-  export let alertsCount = 0;
-  /** Open critical or high alerts (administrators only) */
-  export let criticalAlertsCount = 0;
-  export let permissions: {
+  
+  
+  interface Props {
+    /** Main navigation of the app: a rail on the left, the pages take the whole height. */
+    user?: unknown;
+    currentPath?: string;
+    alertsCount?: number;
+    /** Open critical or high alerts (administrators only) */
+    criticalAlertsCount?: number;
+    permissions?: {
     canSeeStorageRoots?: boolean;
     canSeeObservability?: boolean;
     canSeeAdmin?: boolean;
     features?: string[];
-  } | null = null;
+  } | null;
+  }
 
-  $: me = normalizeMe(user);
-  $: canSeeAdmin = permissions?.canSeeAdmin === true || me?.is_admin === true;
-  $: canSeeStorageRoots = permissions?.canSeeStorageRoots === true;
-  $: canSeeObservability = permissions?.canSeeObservability === true;
+  let {
+    user = null,
+    currentPath = '',
+    alertsCount = 0,
+    criticalAlertsCount = 0,
+    permissions = null
+  }: Props = $props();
+
+  let me = $derived(normalizeMe(user));
+  let canSeeAdmin = $derived(permissions?.canSeeAdmin === true || me?.is_admin === true);
+  let canSeeStorageRoots = $derived(permissions?.canSeeStorageRoots === true);
+  let canSeeObservability = $derived(permissions?.canSeeObservability === true);
   // Optional modules switched on (Advanced settings › Features)
-  $: features = permissions?.features ?? [];
+  let features = $derived(permissions?.features ?? []);
 
   type Item = { href: string; label: string; icon: string; count?: number; danger?: boolean };
   // Badges follow the live updates once connected; the values of the page load until then
-  $: pendingCount = $live.pending ?? Number(alertsCount ?? 0);
-  $: criticalCount = $live.critical ?? Number(criticalAlertsCount ?? 0);
+  let pendingCount = $derived($live.pending ?? Number(alertsCount ?? 0));
+  let criticalCount = $derived($live.critical ?? Number(criticalAlertsCount ?? 0));
 
-  $: main = [
+  let main = $derived([
     { href: '/dashboard', label: t('Dashboard'), icon: 'bi-speedometer2' },
     // Everyone has these four menus; their content follows the role (own folders and own activity for a user)
     { href: '/storage-roots', label: t('Folders'), icon: 'bi-folder2-open' },
@@ -43,8 +55,8 @@
     { href: '/reports', label: t('Reports'), icon: 'bi-file-earmark-bar-graph' },
     { href: '/access-requests', label: t('Requests'), icon: 'bi-check2-square', count: pendingCount },
     { href: '/observability', label: t('Monitoring'), icon: 'bi-activity', count: canSeeObservability ? criticalCount : 0, danger: true }
-  ] as Item[];
-  $: admin = (canSeeAdmin
+  ] as Item[]);
+  let admin = $derived((canSeeAdmin
     ? [
         { href: '/admin/storage-endpoints', label: t('Servers'), icon: 'bi-hdd-network' },
         { href: '/admin/zones', label: t('Zones'), icon: 'bi-geo-alt' },
@@ -54,7 +66,7 @@
         { href: '/admin/policies', label: t('Policies'), icon: 'bi-lightning-charge' },
         { href: '/admin/advanced-settings', label: t('Settings'), icon: 'bi-sliders' }
       ]
-    : []) as Item[];
+    : []) as Item[]);
 
   const isActive = (href: string, path: string) => path === href || path.startsWith(`${href}/`);
   const badge = (count: number) => (count > 99 ? '99+' : String(count));
@@ -63,7 +75,7 @@
     const u = input as { display_name?: unknown; username?: unknown; email?: unknown } | null;
     return String(u?.display_name || u?.username || u?.email || t('User'));
   }
-  $: name = displayName(me ?? user);
+  let name = $derived(displayName(me ?? user));
 </script>
 
 <nav class="sb" aria-label={t('Main navigation')}>

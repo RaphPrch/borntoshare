@@ -7,24 +7,30 @@
   import { formatActivityItem } from '$lib/activity/format';
   import { formatDateTime } from '$lib/utils/format';
 
-  export let data: { events: Record<string, any>[]; failed: boolean };
+  interface Props {
+    data: { events: Record<string, any>[]; failed: boolean };
+  }
 
-  let filter: 'all' | 'failed' = 'all';
+  let { data }: Props = $props();
+
+  let filter: 'all' | 'failed' = $state('all');
   const isFailure = (event: Record<string, any>) => /fail|error|denied|refus/i.test(String(event.outcome ?? event.result ?? ''));
-  $: shown = data.events.filter((event) => filter === 'all' || isFailure(event));
-  $: failures = data.events.filter(isFailure).length;
+  let shown = $derived(data.events.filter((event) => filter === 'all' || isFailure(event)));
+  let failures = $derived(data.events.filter(isFailure).length);
 </script>
 
 <svelte:head><title>{t('Monitoring')} · BornToShare</title></svelte:head>
 
 <section class="b2s-page mine">
   <PageHeader title={t('Monitoring')} subtitle={t('What happened to your requests, your accesses and the folders you guard.')}>
-    <svelte:fragment slot="actions">
-      <SegmentedFilter ariaLabel={t('Filter the events')} bind:value={filter} options={[
-        { key: 'all', label: t('All'), count: data.events.length },
-        { key: 'failed', label: t('Failures'), count: failures }
-      ]} />
-    </svelte:fragment>
+    {#snippet actions()}
+      
+        <SegmentedFilter ariaLabel={t('Filter the events')} bind:value={filter} options={[
+          { key: 'all', label: t('All'), count: data.events.length },
+          { key: 'failed', label: t('Failures'), count: failures }
+        ]} />
+      
+      {/snippet}
   </PageHeader>
 
   {#if data.failed}<InlineAlert tone="warning">{t('The activity log cannot be read for now.')}</InlineAlert>{/if}

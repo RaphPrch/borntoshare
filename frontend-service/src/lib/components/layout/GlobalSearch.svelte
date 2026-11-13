@@ -1,4 +1,5 @@
 <script lang="ts">
+  
   import { slideIndicator } from '$lib/utils/motion';
 
   /** The words typed, marked in each result (accents and case ignored) */
@@ -34,34 +35,26 @@
   import { normalizeText } from '$lib/utils/values';
   import { searchPeople, type PersonSearchResult } from '$lib/api/storage-root-permissions';
 
-  /** Ctrl+K / ⌘K palette: jump to a page, storage root, zone or storage endpoint, or to a person and the folders they reach. */
-  export let canSeeAdmin = false;
-  export let canSeeStorageRoots = false;
-  export let canSeeObservability = false;
+  
+  interface Props {
+    /** Ctrl+K / ⌘K palette: jump to a page, storage root, zone or storage endpoint, or to a person and the folders they reach. */
+    canSeeAdmin?: boolean;
+    canSeeStorageRoots?: boolean;
+    canSeeObservability?: boolean;
+  }
+
+  let { canSeeAdmin = false, canSeeStorageRoots = false, canSeeObservability = false }: Props = $props();
 
   type Result = { group: string; label: string; detail: string; href: string; icon: string; key?: string; rootId?: number; run?: () => void };
 
-  let open = false;
-  let query = '';
-  let loading = false;
+  let open = $state(false);
+  let query = $state('');
+  let loading = $state(false);
   let loaded = false;
-  let entities: Result[] = [];
-  let activeIndex = 0;
-  let inputEl: HTMLInputElement | null = null;
+  let entities: Result[] = $state([]);
+  let activeIndex = $state(0);
+  let inputEl: HTMLInputElement | null = $state(null);
 
-  // Pages are translated when read
-  $: pages = [
-    { title: 'Dashboard', href: '/dashboard', icon: 'bi-speedometer2', show: true },
-    { title: 'Access requests', href: '/access-requests', icon: 'bi-clipboard-check', show: true },
-    ...searchPages.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots })),
-    { title: 'Observability', href: '/observability', icon: 'bi-activity', show: canSeeObservability },
-    { title: 'Alerts', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', show: canSeeObservability },
-    { title: 'Events', href: '/observability?tab=events', icon: 'bi-list-ul', show: canSeeObservability },
-    { title: 'Jobs', href: '/observability?tab=jobs', icon: 'bi-gear-wide-connected', show: canSeeObservability },
-    ...searchPages.admin.map((item) => ({ ...item, show: canSeeAdmin }))
-  ]
-    .filter((page) => page.show)
-    .map((page): Result => ({ group: t('Pages'), label: t(page.title), detail: '', href: page.href, icon: page.icon ?? 'bi-file-earmark' }));
 
   async function loadEntities() {
     if (loaded || loading) return;
@@ -119,30 +112,9 @@
     else void goto(result.href);
   }
 
-  // ---- actions: the palette acts, not only navigates ----
-  $: baseActions = [
-    { group: t('Actions'), label: t('New access request'), detail: t('For you or for someone else'), href: '/access-requests/new', icon: 'bi-plus-lg', key: 'N' },
-    { group: t('Actions'), label: t('Requests waiting for a decision'), detail: '', href: '/access-requests', icon: 'bi-clipboard-check', key: 'G R' },
-    ...(canSeeObservability
-      ? [
-          { group: t('Actions'), label: t('Run a health check'), detail: t('Directories, group OUs, servers, worker'), href: '/observability?tab=health', icon: 'bi-heart-pulse' },
-          { group: t('Actions'), label: t('See the open alerts'), detail: '', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', key: 'G A' }
-        ]
-      : []),
-    { group: t('Actions'), label: t('Notifications'), detail: '', href: '', icon: 'bi-bell', run: () => document.querySelector<HTMLButtonElement>('.nc-trigger')?.click() },
-    { group: t('Actions'), label: t('Keyboard shortcuts'), detail: '', href: '', icon: 'bi-keyboard', key: '?', run: () => (helpOpen = true) }
-  ] as Result[];
-  // A folder typed: what can be done on it, before the folder itself
-  $: matchedRoot = q ? entities.find((r) => r.rootId && normalizeText(r.label).includes(q)) : undefined;
-  $: rootActions = matchedRoot
-    ? ([
-        { group: t('Actions'), label: t('New access request to {name}', { name: matchedRoot.label }), detail: matchedRoot.detail, href: `/access-requests/new?root=${matchedRoot.rootId}`, icon: 'bi-plus-lg' },
-        { group: t('Actions'), label: t('Who can open {name}', { name: matchedRoot.label }), detail: '', href: `/storage-roots?selected=${matchedRoot.rootId}&tab=permissions`, icon: 'bi-people' }
-      ] as Result[])
-    : [];
 
   // ---- keyboard shortcuts, outside of fields: / search, N new request, G then D/R/A/F, ? the list ----
-  let helpOpen = false;
+  let helpOpen = $state(false);
   let pendingG = 0;
   const SHORTCUTS = (): Array<[string, string]> => [
     ['Ctrl K  /', t('Search or run an action')],
@@ -176,10 +148,9 @@
   }
 
   // People of the directory, searched on the server (2 characters or more)
-  let people: PersonSearchResult[] = [];
+  let people: PersonSearchResult[] = $state([]);
   let peopleTimer: ReturnType<typeof setTimeout> | null = null;
   let peopleSeq = 0;
-  $: schedulePeople(query);
   function schedulePeople(value: string) {
     if (peopleTimer) clearTimeout(peopleTimer);
     const text = value.trim();
@@ -208,41 +179,8 @@
     return `/access-requests?${params}`;
   }
 
-  $: personResults = people.flatMap((person): Result[] => [
-    {
-      group: t('People'),
-      label: person.name,
-      detail: person.roots.length
-        ? t('reaches {count} folder(s): {list}', {
-            count: person.roots.length,
-            list: person.roots.slice(0, 3).map((r) => `${r.name} (${levelWord(r.level)})`).join(', ')
-          })
-        : t('{login} · no folder', { login: person.username }),
-      href: person.roots.length ? explainHref(person.roots[0].storage_root_id, person.username) : requestHref(person),
-      icon: 'bi-person'
-    }
-  ]);
-  // Actions on the first person found: the palette acts, not only navigates
-  $: actionResults = people.length
-    ? [
-        { group: t('Actions'), label: t('Request access for {name}…', { name: people[0].name }), detail: '', href: requestHref(people[0]), icon: 'bi-plus-lg' },
-        ...people[0].roots.slice(0, 4).map((root) => ({
-          group: t('Actions'),
-          label: t('Why {name} reaches {folder}', { name: people[0].name, folder: root.name }),
-          detail: levelWord(root.level),
-          href: explainHref(root.storage_root_id, people[0].username),
-          icon: 'bi-diagram-3'
-        }))
-      ]
-    : [];
 
-  $: q = normalizeText(query);
-  let results: Result[] = [];
-  $: results = (q
-    ? [...rootActions, ...personResults, ...actionResults, ...[...baseActions, ...pages, ...entities].filter((r) => normalizeText(`${r.label} ${r.detail}`).includes(q))]
-    : [...baseActions, ...pages]
-  ).slice(0, 30);
-  $: if (activeIndex >= results.length) activeIndex = Math.max(0, results.length - 1);
+  let results: Result[] = $state([]);
 
   function onWindowKeydown(event: KeyboardEvent) {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -265,11 +203,85 @@
       select(results[activeIndex]);
     }
   }
+  // Pages are translated when read
+  let pages = $derived([
+    { title: 'Dashboard', href: '/dashboard', icon: 'bi-speedometer2', show: true },
+    { title: 'Access requests', href: '/access-requests', icon: 'bi-clipboard-check', show: true },
+    ...searchPages.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots })),
+    { title: 'Observability', href: '/observability', icon: 'bi-activity', show: canSeeObservability },
+    { title: 'Alerts', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', show: canSeeObservability },
+    { title: 'Events', href: '/observability?tab=events', icon: 'bi-list-ul', show: canSeeObservability },
+    { title: 'Jobs', href: '/observability?tab=jobs', icon: 'bi-gear-wide-connected', show: canSeeObservability },
+    ...searchPages.admin.map((item) => ({ ...item, show: canSeeAdmin }))
+  ]
+    .filter((page) => page.show)
+    .map((page): Result => ({ group: t('Pages'), label: t(page.title), detail: '', href: page.href, icon: page.icon ?? 'bi-file-earmark' })));
+  // ---- actions: the palette acts, not only navigates ----
+  let baseActions = $derived([
+    { group: t('Actions'), label: t('New access request'), detail: t('For you or for someone else'), href: '/access-requests/new', icon: 'bi-plus-lg', key: 'N' },
+    { group: t('Actions'), label: t('Requests waiting for a decision'), detail: '', href: '/access-requests', icon: 'bi-clipboard-check', key: 'G R' },
+    ...(canSeeObservability
+      ? [
+          { group: t('Actions'), label: t('Run a health check'), detail: t('Directories, group OUs, servers, worker'), href: '/observability?tab=health', icon: 'bi-heart-pulse' },
+          { group: t('Actions'), label: t('See the open alerts'), detail: '', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', key: 'G A' }
+        ]
+      : []),
+    { group: t('Actions'), label: t('Notifications'), detail: '', href: '', icon: 'bi-bell', run: () => document.querySelector<HTMLButtonElement>('.nc-trigger')?.click() },
+    { group: t('Actions'), label: t('Keyboard shortcuts'), detail: '', href: '', icon: 'bi-keyboard', key: '?', run: () => (helpOpen = true) }
+  ] as Result[]);
+  let q = $derived(normalizeText(query));
+  // A folder typed: what can be done on it, before the folder itself
+  let matchedRoot = $derived(q ? entities.find((r) => r.rootId && normalizeText(r.label).includes(q)) : undefined);
+  let rootActions = $derived(matchedRoot
+    ? ([
+        { group: t('Actions'), label: t('New access request to {name}', { name: matchedRoot.label }), detail: matchedRoot.detail, href: `/access-requests/new?root=${matchedRoot.rootId}`, icon: 'bi-plus-lg' },
+        { group: t('Actions'), label: t('Who can open {name}', { name: matchedRoot.label }), detail: '', href: `/storage-roots?selected=${matchedRoot.rootId}&tab=permissions`, icon: 'bi-people' }
+      ] as Result[])
+    : []);
+  $effect.pre(() => {
+    schedulePeople(query);
+  });
+  let personResults = $derived(people.flatMap((person): Result[] => [
+    {
+      group: t('People'),
+      label: person.name,
+      detail: person.roots.length
+        ? t('reaches {count} folder(s): {list}', {
+            count: person.roots.length,
+            list: person.roots.slice(0, 3).map((r) => `${r.name} (${levelWord(r.level)})`).join(', ')
+          })
+        : t('{login} · no folder', { login: person.username }),
+      href: person.roots.length ? explainHref(person.roots[0].storage_root_id, person.username) : requestHref(person),
+      icon: 'bi-person'
+    }
+  ]));
+  // Actions on the first person found: the palette acts, not only navigates
+  let actionResults = $derived(people.length
+    ? [
+        { group: t('Actions'), label: t('Request access for {name}…', { name: people[0].name }), detail: '', href: requestHref(people[0]), icon: 'bi-plus-lg' },
+        ...people[0].roots.slice(0, 4).map((root) => ({
+          group: t('Actions'),
+          label: t('Why {name} reaches {folder}', { name: people[0].name, folder: root.name }),
+          detail: levelWord(root.level),
+          href: explainHref(root.storage_root_id, people[0].username),
+          icon: 'bi-diagram-3'
+        }))
+      ]
+    : []);
+  $effect.pre(() => {
+    results = (q
+      ? [...rootActions, ...personResults, ...actionResults, ...[...baseActions, ...pages, ...entities].filter((r) => normalizeText(`${r.label} ${r.detail}`).includes(q))]
+      : [...baseActions, ...pages]
+    ).slice(0, 30);
+  });
+  $effect.pre(() => {
+    if (activeIndex >= results.length) activeIndex = Math.max(0, results.length - 1);
+  });
 </script>
 
-<svelte:window on:keydown={onWindowKeydown} />
+<svelte:window onkeydown={onWindowKeydown} />
 
-<button type="button" class="global-search-trigger" on:click={show} aria-label={t('Search (Ctrl+K)')} title={t('Search (Ctrl+K)')}>
+<button type="button" class="global-search-trigger" onclick={show} aria-label={t('Search (Ctrl+K)')} title={t('Search (Ctrl+K)')}>
   <i class="bi bi-search" aria-hidden="true"></i>
   <span>{t('Search')}</span>
 </button>
@@ -281,7 +293,7 @@
     <input
       bind:this={inputEl}
       bind:value={query}
-      on:keydown={onInputKeydown}
+      onkeydown={onInputKeydown}
       type="text"
       placeholder={t('Search a person, a storage root, a page…')}
       role="combobox"
@@ -304,9 +316,9 @@
         role="option"
         aria-selected={index === activeIndex}
         class:is-active={index === activeIndex}
-        on:mousemove={() => (activeIndex = index)}
-        on:click={() => select(result)}
-        on:keydown={() => {}}
+        onmousemove={() => (activeIndex = index)}
+        onclick={() => select(result)}
+        onkeydown={() => {}}
       >
         <i class={`bi ${result.icon}`} aria-hidden="true"></i>
         <span class="global-search__label">{#each marked(result.label, query) as part}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}</span>

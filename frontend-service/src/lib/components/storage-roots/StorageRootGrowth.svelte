@@ -1,24 +1,30 @@
 <script lang="ts">
+  
+
   import { apiGetData } from '$lib/api/client';
   import { t } from '$lib/i18n';
   import { formatBytes, formatDate } from '$lib/utils/format';
 
-  /**
+  
+  
+  interface Props {
+    /**
    * How the folder grows: one line of its size over the last 180 days (one point per measure), its pace and, when
    * it has a quota, the date the quota will be full at this pace. The trend needs a week of measures.
    */
-  export let rootId: number | null = null;
-  /** Changes after a new measure: the curve is read again */
-  export let refreshKey: unknown = null;
+    rootId?: number | null;
+    /** Changes after a new measure: the curve is read again */
+    refreshKey?: unknown;
+  }
+
+  let { rootId = null, refreshKey = null }: Props = $props();
 
   type Point = { at: string; bytes: number };
   type History = { points: Point[]; bytes_per_day: number | null; days_until_full: number | null; full_at: string | null; trend_after_days: number };
-  let data: History | null = null;
-  let loadedFor = '';
-  let hovered: number | null = null;
+  let data: History | null = $state(null);
+  let loadedFor = $state('');
+  let hovered: number | null = $state(null);
 
-  $: key = `${rootId}:${String(refreshKey)}`;
-  $: if (rootId && key !== loadedFor) load();
   async function load() {
     loadedFor = key;
     data = await apiGetData<History>(fetch, `/modules/fives/storage-roots/${rootId}/growth`).catch(() => null);
@@ -26,15 +32,19 @@
 
   const W = 320;
   const H = 64;
-  $: points = data?.points ?? [];
-  $: times = points.map((p) => Date.parse(p.at));
-  $: minT = Math.min(...times);
-  $: maxT = Math.max(...times);
-  $: maxB = Math.max(1, ...points.map((p) => p.bytes));
-  $: xy = points.map((p, i) => [maxT > minT ? ((times[i] - minT) / (maxT - minT)) * W : W, H - 4 - (p.bytes / maxB) * (H - 12)] as const);
-  $: line = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-  $: area = xy.length > 1 ? `${line} L${W},${H} L0,${H} Z` : '';
   const pace = (value: number) => `${value >= 0 ? '+' : '−'}${formatBytes(Math.abs(value))}`;
+  let key = $derived(`${rootId}:${String(refreshKey)}`);
+  $effect.pre(() => {
+    if (rootId && key !== loadedFor) load();
+  });
+  let points = $derived(data?.points ?? []);
+  let times = $derived(points.map((p) => Date.parse(p.at)));
+  let minT = $derived(Math.min(...times));
+  let maxT = $derived(Math.max(...times));
+  let maxB = $derived(Math.max(1, ...points.map((p) => p.bytes)));
+  let xy = $derived(points.map((p, i) => [maxT > minT ? ((times[i] - minT) / (maxT - minT)) * W : W, H - 4 - (p.bytes / maxB) * (H - 12)] as const));
+  let line = $derived(xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' '));
+  let area = $derived(xy.length > 1 ? `${line} L${W},${H} L0,${H} Z` : '');
 </script>
 
 {#if data}
@@ -47,11 +57,11 @@
     </div>
     {#if points.length > 1}
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={t('Size of the folder over time')}
-        on:mouseleave={() => (hovered = null)}>
+        onmouseleave={() => (hovered = null)}>
         <path class="gr__area" d={area} />
         <path class="gr__line" d={line} />
         {#each xy as [x, y], index (index)}
-          <rect x={x - 6} y="0" width="12" height={H} fill="transparent" role="presentation" on:mouseenter={() => (hovered = index)} />
+          <rect x={x - 6} y="0" width="12" height={H} fill="transparent" role="presentation" onmouseenter={() => (hovered = index)} />
           {#if hovered === index}<circle cx={x} cy={y} r="4" class="gr__dot" />{/if}
         {/each}
       </svg>

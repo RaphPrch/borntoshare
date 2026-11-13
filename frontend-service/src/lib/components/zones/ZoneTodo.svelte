@@ -5,18 +5,33 @@
 
   type Step = EntityTodoStep;
 
-  /** « To do on this zone »: each problem grouped, with the action that settles it. */
-  export let summary: ZoneSummary;
-  export let pendingRequests = 0;
-  export let ouMissing = false;
-  export let rereadBusy = false;
-  export let onOpenServer: (id: number) => void = () => {};
-  export let onAddGuardians: () => void = () => {};
-  export let onReread: () => void = () => {};
-  export let onOpenRequests: () => void = () => {};
-  export let onOpenProvisioning: () => void = () => {};
+  
+  interface Props {
+    /** « To do on this zone »: each problem grouped, with the action that settles it. */
+    summary: ZoneSummary;
+    pendingRequests?: number;
+    ouMissing?: boolean;
+    rereadBusy?: boolean;
+    onOpenServer?: (id: number) => void;
+    onAddGuardians?: () => void;
+    onReread?: () => void;
+    onOpenRequests?: () => void;
+    onOpenProvisioning?: () => void;
+  }
 
-  $: steps = [
+  let {
+    summary,
+    pendingRequests = 0,
+    ouMissing = false,
+    rereadBusy = false,
+    onOpenServer = () => {},
+    onAddGuardians = () => {},
+    onReread = () => {},
+    onOpenRequests = () => {},
+    onOpenProvisioning = () => {}
+  }: Props = $props();
+
+  let steps = $derived([
     ...summary.unreachable.map((server): Step => ({
       key: `down-${server.id}`,
       tone: 'bad',
@@ -71,7 +86,7 @@
           run: onOpenProvisioning
         }]
       : [])
-  ];
+  ]);
 </script>
 
 <EntityTodoCard title={t('To do on this zone')} {steps} />

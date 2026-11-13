@@ -9,14 +9,19 @@
   import { toast } from '$lib/stores/toast';
   import { formatBytes } from '$lib/utils/format';
 
-  /**
+  
+  interface Props {
+    /**
    * Requests for more room in folders, waiting for an administrator (guardians see those of their folders).
    * Approving sends the new quota to the server at once; a refusal is explained in the folder, where its note is asked.
    */
-  export let isAdmin = false;
+    isAdmin?: boolean;
+  }
 
-  let rows: QuotaRequest[] = [];
-  let busyId: number | null = null;
+  let { isAdmin = false }: Props = $props();
+
+  let rows: QuotaRequest[] = $state([]);
+  let busyId: number | null = $state(null);
 
   onMount(load);
   async function load() {
@@ -49,7 +54,7 @@
         <span class="qr__btns">
           <a class="b2s-btn b2s-btn-secondary b2s-btn-sm" href={`/storage-roots?selected=${row.storage_root_id}`}>{t('Open the folder')}</a>
           {#if isAdmin}
-            <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busyId !== null} on:click={() => approve(row)}>{t('Approve')}</button>
+            <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busyId !== null} onclick={() => approve(row)}>{t('Approve')}</button>
           {/if}
         </span>
       </div>

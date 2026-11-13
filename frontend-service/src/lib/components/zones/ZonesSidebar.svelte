@@ -17,36 +17,49 @@
     type EntityTreeNode
   } from "$lib/components/entity/EntitySidebarTree.svelte";
 
-  export let zones: ZonesSidebarZone[] = [];
-  /** « + » next to the search (see EntitySidebarTree) */
-  export let onAdd: (() => void) | null = null;
-  export let addLabel = '';
-  export let selectedZoneId: number | null = null;
-  export let onSelectZone: ((id: number) => void) | null = null;
-  /** Right click on a zone: its menu */
-  export let onZoneMenu: ((zone: ZonesSidebarZone, event: MouseEvent) => void) | null = null;
+  
+  
+  interface Props {
+    zones?: ZonesSidebarZone[];
+    /** « + » next to the search (see EntitySidebarTree) */
+    onAdd?: (() => void) | null;
+    addLabel?: string;
+    selectedZoneId?: number | null;
+    onSelectZone?: ((id: number) => void) | null;
+    /** Right click on a zone: its menu */
+    onZoneMenu?: ((zone: ZonesSidebarZone, event: MouseEvent) => void) | null;
+  }
 
-  let q = "";
-  let filter = "all";
+  let {
+    zones = [],
+    onAdd = null,
+    addLabel = '',
+    selectedZoneId = null,
+    onSelectZone = null,
+    onZoneMenu = null
+  }: Props = $props();
 
-  $: sortedZones = [...zones].sort((a, b) => {
+  let q = $state("");
+  let filter = $state("all");
+
+  let sortedZones = $derived([...zones].sort((a, b) => {
     const byName = String(a?.name ?? "").localeCompare(String(b?.name ?? ""), "fr", {
       sensitivity: "base",
     });
     if (byName !== 0) return byName;
     return Number(a?.id ?? 0) - Number(b?.id ?? 0);
-  });
+  }));
 
-  $: filtered = sortedZones.filter((z) => filter === "all" || z.healthLabel === "warning");
-  $: warningCount = zones.filter((z) => z.healthLabel === "warning").length;
-  $: filters = [
+  let filtered = $derived(sortedZones.filter((z) => filter === "all" || z.healthLabel === "warning"));
+  let warningCount = $derived(zones.filter((z) => z.healthLabel === "warning").length);
+  let filters = $derived([
     { key: "all", label: t("All"), count: zones.length },
     { key: "warning", label: t("Needs attention"), count: warningCount }
-  ];
+  ]);
   const endpointsLabel = (count: number) =>
     count === 1 ? t("1 endpoint") : t("{count} endpoints", { count });
 
-  $: nodes = filtered.map((zone): EntityTreeNode => ({
+  let nodes = $derived(filtered.map((zone): EntityTreeNode => ({
     key: `zone:${zone.id}`,
     label: zone.name,
     subtitle: [
@@ -68,7 +81,7 @@
         }
       : null,
     searchText: zone.code ?? null
-  }));
+  })));
 </script>
 
 <EntitySidebarTree

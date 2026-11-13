@@ -3,23 +3,36 @@
   import { t } from '$lib/i18n';
   import { enterOn } from '$lib/utils/motion';
 
-  /**
+  
+  
+  interface Props {
+    /**
    * Page layout shared by zones, storage endpoints and storage roots:
    * list pane on the left (resizable), selected entity on the right. No title band: the top menu says where
    * we are and the entity header carries the page title. `title` names the page for screen readers.
    * Slots: "list" (EntitySidebarTree), default (entity detail).
    */
-  export let title: string;
-  /** The selected entity: when it changes, its content comes in (fade and lift, without remounting) */
-  export let contentKey: unknown = null;
+    title: string;
+    /** The selected entity: when it changes, its content comes in (fade and lift, without remounting) */
+    contentKey?: unknown;
+    list?: import('svelte').Snippet;
+    children?: import('svelte').Snippet;
+  }
+
+  let {
+    title,
+    contentKey = null,
+    list,
+    children
+  }: Props = $props();
 
   const WIDTH_KEY = 'b2s.workspace.listWidth';
   const DEFAULT_WIDTH = 340;
   const MIN_WIDTH = 260;
   const MAX_WIDTH = 560;
 
-  let listWidth = DEFAULT_WIDTH;
-  let dragStart: { x: number; width: number } | null = null;
+  let listWidth = $state(DEFAULT_WIDTH);
+  let dragStart: { x: number; width: number } | null = $state(null);
 
   const clamp = (value: number): number => Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, value)));
 
@@ -65,11 +78,11 @@
 </script>
 
 <div class="b2s-workspace-page" role="region" aria-label={title}>
-  <div class="b2s-workspace" class:has-list={$$slots.list} class:is-resizing={Boolean(dragStart)} style={`--b2s-list-width:${listWidth}px`}>
-    {#if $$slots.list}
+  <div class="b2s-workspace" class:has-list={list} class:is-resizing={Boolean(dragStart)} style={`--b2s-list-width:${listWidth}px`}>
+    {#if list}
       <div class="b2s-workspace__list">
-        <slot name="list" />
-        <!-- svelte-ignore a11y-no-noninteractive-tabindex a11y-no-noninteractive-element-interactions -->
+        {@render list?.()}
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
         <div
           class="b2s-workspace__resizer"
           role="separator"
@@ -80,17 +93,17 @@
           aria-valuemax={MAX_WIDTH}
           tabindex="0"
           title={t('Drag to resize · double-click to reset')}
-          on:pointerdown={startDrag}
-          on:pointermove={drag}
-          on:pointerup={endDrag}
-          on:pointercancel={endDrag}
-          on:dblclick={() => saveWidth(DEFAULT_WIDTH)}
-          on:keydown={resizeWithKeys}
+          onpointerdown={startDrag}
+          onpointermove={drag}
+          onpointerup={endDrag}
+          onpointercancel={endDrag}
+          ondblclick={() => saveWidth(DEFAULT_WIDTH)}
+          onkeydown={resizeWithKeys}
         ></div>
       </div>
     {/if}
     <section class="b2s-workspace__detail">
-      <div class="b2s-workspace__content" use:enterOn={contentKey}><slot /></div>
+      <div class="b2s-workspace__content" use:enterOn={contentKey}>{@render children?.()}</div>
     </section>
   </div>
 </div>

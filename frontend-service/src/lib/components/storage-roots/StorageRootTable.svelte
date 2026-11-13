@@ -1,4 +1,4 @@
-<script context="module" lang="ts">
+<script module lang="ts">
   import { recall, remember } from '$lib/utils/remember';
   // Kept across visits (and sessions, in this browser): the list reopens with the same filter, zone and sort
   const memory = recall('storage-roots', { filter: 'all' as Filter, zone: '', sort: 'state' as SortKey, desc: false });
@@ -7,6 +7,8 @@
 </script>
 
 <script lang="ts">
+  
+
   import { page as pageStore } from '$app/stores';
   import { pulseOnIncrease } from '$lib/utils/motion';
   import { invalidate } from '$app/navigation';
@@ -51,48 +53,69 @@
   };
   type Failure = { name: string; message: string };
 
-  /**
+  
+  
+  
+  
+  interface Props {
+    /**
    * Home of the folders: one compact table made for hundreds of folders, with counters that filter,
    * sorting, and (administrators) actions on a selection: guardians, tags, ACL read, export.
    */
-  export let rows: StorageRootRow[] = [];
-  export let accessRequests: any[] = [];
-  export let tags: Array<Record<string, any>> = [];
-  export let query = '';
-  export let isAdmin = false;
-  export let initialFilter: string | null = null;
-  /** Zone id from the link of a zone page (?zone=) */
-  export let initialZone: string | null = null;
-  /** File server id from the link of a server page (?endpoint=): only its folders */
-  export let initialEndpoint: string | null = null;
-  /** ?bulk=guardians: the folders shown are selected and the guardians dialog opens at once */
-  export let initialBulk: string | null = null;
-  export let rootAlertSummary: (row: StorageRootRow) => Alert = () => null;
-  export let onQueryChange: (value: string) => void = () => {};
-  export let onOpenRoot: (id: number) => void = () => {};
-  export let onAdd: (() => void) | null = null;
-  export let onFolderAction: ((kind: FolderActionKind, row: StorageRootRow) => void) | null = null;
+    rows?: StorageRootRow[];
+    accessRequests?: any[];
+    tags?: Array<Record<string, any>>;
+    query?: string;
+    isAdmin?: boolean;
+    initialFilter?: string | null;
+    /** Zone id from the link of a zone page (?zone=) */
+    initialZone?: string | null;
+    /** File server id from the link of a server page (?endpoint=): only its folders */
+    initialEndpoint?: string | null;
+    /** ?bulk=guardians: the folders shown are selected and the guardians dialog opens at once */
+    initialBulk?: string | null;
+    rootAlertSummary?: (row: StorageRootRow) => Alert;
+    onQueryChange?: (value: string) => void;
+    onOpenRoot?: (id: number) => void;
+    onAdd?: (() => void) | null;
+    onFolderAction?: ((kind: FolderActionKind, row: StorageRootRow) => void) | null;
+  }
+
+  let {
+    rows = [],
+    accessRequests = [],
+    tags = [],
+    query = '',
+    isAdmin = false,
+    initialFilter = null,
+    initialZone = null,
+    initialEndpoint = null,
+    initialBulk = null,
+    rootAlertSummary = () => null,
+    onQueryChange = () => {},
+    onOpenRoot = () => {},
+    onAdd = null,
+    onFolderAction = null
+  }: Props = $props();
 
   const PAGE = 50;
   const BATCH = 25;
   const DAY = 86_400_000;
 
-  let filter: Filter = (['all', 'review', 'no-guardian', 'ending', 'blocking'] as const).includes(initialFilter as Filter)
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let filter: Filter = $state((['all', 'review', 'no-guardian', 'ending', 'blocking'] as const).includes(initialFilter as Filter)
+    // svelte-ignore state_referenced_locally (an initial value, read once as before)
     ? (initialFilter as Filter)
-    : memory.filter;
-  let zoneFilter = initialZone || memory.zone;
-  let sortKey: SortKey = memory.sort;
-  let desc = memory.desc;
-  let shown = PAGE;
-  let checked = new Set<number>();
-  let menuRow: StorageRootRow | null = null;
-  let menuAt = { x: 0, y: 0 };
+    : memory.filter);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let zoneFilter = $state(initialZone || memory.zone);
+  let sortKey: SortKey = $state(memory.sort);
+  let desc = $state(memory.desc);
+  let shown = $state(PAGE);
+  let checked = $state(new Set<number>());
+  let menuRow: StorageRootRow | null = $state(null);
+  let menuAt = $state({ x: 0, y: 0 });
 
-  $: memory.filter = filter;
-  $: memory.zone = zoneFilter;
-  $: memory.sort = sortKey;
-  $: memory.desc = desc;
-  $: remember('storage-roots', { filter, zone: zoneFilter, sort: sortKey, desc });
 
   // Accesses granted through requests and still running (an NTFS entry set by hand is not counted)
   function grantsByRoot(list: any[]): Map<number, Grants> {
@@ -148,15 +171,8 @@
     };
   }
 
-  $: grants = grantsByRoot(accessRequests);
-  $: lines = rows.map((row) => lineOf(row, grants)).filter((line) => line.id > 0);
-  $: zones = [...new Map(lines.map((line) => [line.zoneKey, line.zone])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
-  $: if (zoneFilter && !zones.some(([key]) => key === zoneFilter)) zoneFilter = '';
-  let endpointFilter = Number(initialEndpoint ?? 0) || 0;
-  $: endpointName = endpointFilter ? lines.find((line) => Number((line.row as any)?.storage_endpoint_id ?? 0) === endpointFilter)?.server ?? '' : '';
-  $: zoned = (zoneFilter ? lines.filter((line) => line.zoneKey === zoneFilter) : lines).filter(
-    (line) => !endpointFilter || Number((line.row as any)?.storage_endpoint_id ?? 0) === endpointFilter
-  );
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let endpointFilter = $state(Number(initialEndpoint ?? 0) || 0);
 
   const PASSES: Record<Filter, (line: Line) => boolean> = {
     all: () => true,
@@ -165,18 +181,8 @@
     ending: (line) => line.grants.ending > 0,
     blocking: (line) => line.blocking
   };
-  $: counters = [
-    { key: 'all' as Filter, label: t('Folders') },
-    { key: 'review' as Filter, label: t('To review') },
-    { key: 'no-guardian' as Filter, label: t('Without guardian') },
-    { key: 'ending' as Filter, label: t('Ending within 30 days') },
-    { key: 'blocking' as Filter, label: t('Blocking') }
-  ].map((counter) => ({ ...counter, count: zoned.filter(PASSES[counter.key]).length }));
 
-  // Express search: « tag:… gardien:… est:… » filter, the rest of the text is searched
-  $: parsed = parseFolderQuery(query);
-  $: needle = parsed.text.trim().toLowerCase();
-  let searchFocused = false;
+  let searchFocused = $state(false);
   const haystack = (line: Line) =>
     [line.name, line.path, line.dfsPath, line.server, line.zone, ...(Array.isArray(line.row?.tags) ? line.row.tags.map((tag: any) => tag?.label ?? tag?.name ?? '') : [])]
       .join(' ')
@@ -191,12 +197,6 @@
     quota: (a, b) => Number(b.row?.quota_used_percent ?? -1) - Number(a.row?.quota_used_percent ?? -1) || SORTS.name(a, b),
     state: (a, b) => Number(b.blocking) - Number(a.blocking) || Number(b.review) - Number(a.review) || b.pending - a.pending || SORTS.name(a, b)
   };
-  $: visible = zoned
-    .filter(PASSES[filter])
-    .filter((line) => !needle || haystack(line).includes(needle))
-    .filter((line) => matchesFolderQuery(line.row, parsed.filters))
-    .sort((a, b) => (desc ? -1 : 1) * SORTS[sortKey](a, b));
-  $: page = visible.slice(0, shown);
 
   function setFilter(next: Filter) {
     filter = next;
@@ -212,9 +212,6 @@
   }
   const sortMark = (key: SortKey, current: SortKey, reversed: boolean) => (key === current ? (reversed ? ' ↑' : ' ↓') : '');
 
-  // Selection (administrators): kept while filtering, cleared after an action
-  $: checkedLines = lines.filter((line) => checked.has(line.id));
-  $: allVisibleChecked = visible.length > 0 && visible.every((line) => checked.has(line.id));
   function toggle(id: number) {
     if (checked.has(id)) checked.delete(id);
     else checked.add(id);
@@ -236,30 +233,18 @@
   }
 
   // ---- Bulk actions --------------------------------------------------------
-  let action: 'guardians' | 'tags' | 'check' | 'sensitivity' | 'measure' | null = null;
+  let action: 'guardians' | 'tags' | 'check' | 'sensitivity' | 'measure' | null = $state(null);
   // Beyond 50 folders, an action on the selection is confirmed explicitly
   const BULK_CONFIRM_FROM = 50;
-  let bulkConfirmed = false;
-  $: if (action === null) bulkConfirmed = false;
-  let running = false;
-  let failures: Failure[] = [];
-  let peopleOptions: { id: number; label: string; hint?: string }[] = [];
+  let bulkConfirmed = $state(false);
+  let running = $state(false);
+  let failures: Failure[] = $state([]);
+  let peopleOptions: { id: number; label: string; hint?: string }[] = $state([]);
   let peopleLoaded = false;
-  let guardianIds: number[] = [];
-  let tagIds = new Set<number>();
+  let guardianIds: number[] = $state([]);
+  let tagIds = $state(new Set<number>());
 
-  let bulkStarted = false;
-  // ?bulk=select&ids=1,2,3: the folders chosen in the tree, ready for an action (guardians, tags, ACL, export)
-  $: if (!bulkStarted && isAdmin && initialBulk === 'select' && visible.length) {
-    bulkStarted = true;
-    const ids = new Set(String($pageStore.url.searchParams.get('ids') ?? '').split(',').map(Number).filter((id) => id > 0));
-    checked = new Set(visible.map((line) => line.id).filter((id) => ids.has(id)));
-  }
-  $: if (!bulkStarted && isAdmin && initialBulk === 'guardians' && visible.length) {
-    bulkStarted = true;
-    checked = new Set(visible.map((line) => line.id));
-    void openAction('guardians');
-  }
+  let bulkStarted = $state(false);
 
   async function openAction(kind: Exclude<typeof action, null>) {
     failures = [];
@@ -355,6 +340,68 @@
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   }
+  $effect.pre(() => {
+    memory.filter = filter;
+  });
+  let grants = $derived(grantsByRoot(accessRequests));
+  let lines = $derived(rows.map((row) => lineOf(row, grants)).filter((line) => line.id > 0));
+  let zones = $derived([...new Map(lines.map((line) => [line.zoneKey, line.zone])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr')));
+  $effect.pre(() => {
+    if (zoneFilter && !zones.some(([key]) => key === zoneFilter)) zoneFilter = '';
+  });
+  $effect.pre(() => {
+    memory.zone = zoneFilter;
+  });
+  $effect.pre(() => {
+    memory.sort = sortKey;
+  });
+  $effect.pre(() => {
+    memory.desc = desc;
+  });
+  $effect.pre(() => {
+    remember('storage-roots', { filter, zone: zoneFilter, sort: sortKey, desc });
+  });
+  let endpointName = $derived(endpointFilter ? lines.find((line) => Number((line.row as any)?.storage_endpoint_id ?? 0) === endpointFilter)?.server ?? '' : '');
+  let zoned = $derived((zoneFilter ? lines.filter((line) => line.zoneKey === zoneFilter) : lines).filter(
+    (line) => !endpointFilter || Number((line.row as any)?.storage_endpoint_id ?? 0) === endpointFilter
+  ));
+  let counters = $derived([
+    { key: 'all' as Filter, label: t('Folders') },
+    { key: 'review' as Filter, label: t('To review') },
+    { key: 'no-guardian' as Filter, label: t('Without guardian') },
+    { key: 'ending' as Filter, label: t('Ending within 30 days') },
+    { key: 'blocking' as Filter, label: t('Blocking') }
+  ].map((counter) => ({ ...counter, count: zoned.filter(PASSES[counter.key]).length })));
+  // Express search: « tag:… gardien:… est:… » filter, the rest of the text is searched
+  let parsed = $derived(parseFolderQuery(query));
+  let needle = $derived(parsed.text.trim().toLowerCase());
+  let visible = $derived(zoned
+    .filter(PASSES[filter])
+    .filter((line) => !needle || haystack(line).includes(needle))
+    .filter((line) => matchesFolderQuery(line.row, parsed.filters))
+    .sort((a, b) => (desc ? -1 : 1) * SORTS[sortKey](a, b)));
+  let page = $derived(visible.slice(0, shown));
+  // ?bulk=select&ids=1,2,3: the folders chosen in the tree, ready for an action (guardians, tags, ACL, export)
+  $effect.pre(() => {
+    if (!bulkStarted && isAdmin && initialBulk === 'select' && visible.length) {
+      bulkStarted = true;
+      const ids = new Set(String($pageStore.url.searchParams.get('ids') ?? '').split(',').map(Number).filter((id) => id > 0));
+      checked = new Set(visible.map((line) => line.id).filter((id) => ids.has(id)));
+    }
+  });
+  $effect.pre(() => {
+    if (!bulkStarted && isAdmin && initialBulk === 'guardians' && visible.length) {
+      bulkStarted = true;
+      checked = new Set(visible.map((line) => line.id));
+      void openAction('guardians');
+    }
+  });
+  // Selection (administrators): kept while filtering, cleared after an action
+  let checkedLines = $derived(lines.filter((line) => checked.has(line.id)));
+  let allVisibleChecked = $derived(visible.length > 0 && visible.every((line) => checked.has(line.id)));
+  $effect.pre(() => {
+    if (action === null) bulkConfirmed = false;
+  });
 </script>
 
 <div class="tb">
@@ -367,15 +414,15 @@
       <label class="sg-search">
         <i class="bi bi-search" aria-hidden="true"></i>
         <input type="search" aria-label={t('Search all folders')} placeholder={t('Search, or tag:… gardien:… est:…')} value={query}
-          on:focus={() => (searchFocused = true)} on:blur={() => (searchFocused = false)}
-          on:input={(event) => { onQueryChange(event.currentTarget.value); shown = PAGE; }} />
+          onfocus={() => (searchFocused = true)} onblur={() => (searchFocused = false)}
+          oninput={(event) => { onQueryChange(event.currentTarget.value); shown = PAGE; }} />
       </label>
       <FolderQueryAssist floating focused={searchFocused} {query} rows={zoned.map((line) => line.row)}
         tags={tags.map((tag) => String(tag?.label ?? tag?.name ?? '')).filter(Boolean)}
         onQueryChange={(value) => { onQueryChange(value); shown = PAGE; }} />
     </div>
     {#if endpointFilter}
-      <button type="button" class="b2s-btn b2s-btn-secondary tb__scope" on:click={() => (endpointFilter = 0)} title={t('Show the folders of every server')}>
+      <button type="button" class="b2s-btn b2s-btn-secondary tb__scope" onclick={() => (endpointFilter = 0)} title={t('Show the folders of every server')}>
         <i class="bi bi-hdd-network" aria-hidden="true"></i>{endpointName || t('Server')}<i class="bi bi-x" aria-hidden="true"></i>
       </button>
     {/if}
@@ -385,17 +432,17 @@
         {#each zones as [key, label] (key)}<option value={key}>{label}</option>{/each}
       </select>
     {/if}
-    <button type="button" class="b2s-btn b2s-btn-secondary" on:click={exportCsv} disabled={!visible.length}>
+    <button type="button" class="b2s-btn b2s-btn-secondary" onclick={exportCsv} disabled={!visible.length}>
       <i class="bi bi-download" aria-hidden="true"></i>{t('Export')}
     </button>
     {#if onAdd}
-      <button type="button" class="b2s-btn b2s-btn-primary" on:click={onAdd}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Add folders')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary" onclick={onAdd}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Add folders')}</button>
     {/if}
   </header>
 
   <div class="tb__counters" role="group" aria-label={t('Filters')}>
     {#each counters as counter (counter.key)}
-      <button type="button" class:on={filter === counter.key} aria-pressed={filter === counter.key} on:click={() => setFilter(counter.key)}>
+      <button type="button" class:on={filter === counter.key} aria-pressed={filter === counter.key} onclick={() => setFilter(counter.key)}>
         <span>{counter.label}</span>
         <b class:warn={counter.key !== 'all' && counter.count > 0} class:bad={counter.key === 'blocking' && counter.count > 0} use:pulseOnIncrease={counter.count}>{counter.count}</b>
       </button>
@@ -404,19 +451,19 @@
 
   <div class="tb__grid" class:admin={isAdmin}>
     <div class="tb__head">
-      {#if isAdmin}<span><input type="checkbox" checked={allVisibleChecked} on:change={toggleAll} aria-label={t('Select the folders shown')} /></span>{/if}
-      <button type="button" on:click={() => sortBy('name')}>{t('Folder')}{sortMark('name', sortKey, desc)}</button>
-      <button type="button" on:click={() => sortBy('server')}>{t('Server')}{sortMark('server', sortKey, desc)}</button>
-      <button type="button" on:click={() => sortBy('people')}>{t('People')}{sortMark('people', sortKey, desc)}</button>
-      <button type="button" on:click={() => sortBy('guardians')}>{t('Guardians')}{sortMark('guardians', sortKey, desc)}</button>
-      <button type="button" on:click={() => sortBy('quota')}>{t('Quota')}{sortMark('quota', sortKey, desc)}</button>
-      <button type="button" on:click={() => sortBy('state')}>{t('State')}{sortMark('state', sortKey, desc)}</button>
+      {#if isAdmin}<span><input type="checkbox" checked={allVisibleChecked} onchange={toggleAll} aria-label={t('Select the folders shown')} /></span>{/if}
+      <button type="button" onclick={() => sortBy('name')}>{t('Folder')}{sortMark('name', sortKey, desc)}</button>
+      <button type="button" onclick={() => sortBy('server')}>{t('Server')}{sortMark('server', sortKey, desc)}</button>
+      <button type="button" onclick={() => sortBy('people')}>{t('People')}{sortMark('people', sortKey, desc)}</button>
+      <button type="button" onclick={() => sortBy('guardians')}>{t('Guardians')}{sortMark('guardians', sortKey, desc)}</button>
+      <button type="button" onclick={() => sortBy('quota')}>{t('Quota')}{sortMark('quota', sortKey, desc)}</button>
+      <button type="button" onclick={() => sortBy('state')}>{t('State')}{sortMark('state', sortKey, desc)}</button>
       <span>{t('ACL read')}</span>
     </div>
     {#each page as line (line.id)}
-      <div class="tb__row" role="row" tabindex="-1" class:sel={checked.has(line.id)} on:contextmenu={(event) => openMenu(line, event)}>
-        {#if isAdmin}<span><input type="checkbox" checked={checked.has(line.id)} on:change={() => toggle(line.id)} aria-label={t('Select {name}', { name: line.name })} /></span>{/if}
-        <button type="button" class="tb__name" on:click={() => onOpenRoot(line.id)}>
+      <div class="tb__row" role="row" tabindex="-1" class:sel={checked.has(line.id)} oncontextmenu={(event) => openMenu(line, event)}>
+        {#if isAdmin}<span><input type="checkbox" checked={checked.has(line.id)} onchange={() => toggle(line.id)} aria-label={t('Select {name}', { name: line.name })} /></span>{/if}
+        <button type="button" class="tb__name" onclick={() => onOpenRoot(line.id)}>
           <strong>{line.name}{#if Number(line.row?.password_files ?? 0) > 0}<span class="tb__sens" title={t('{count} file(s) holding passwords', { count: Number(line.row?.password_files) })}><i class="bi bi-key" aria-hidden="true"></i>{t('passwords')}</span>{:else if Number(line.row?.sensitive_files ?? 0) > 0}<span class="tb__sens" title={t('{count} sensitive file(s) found by the last scan', { count: Number(line.row?.sensitive_files) })}><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('sensitive')}</span>{/if}</strong>
           <small title={line.dfsPath || line.path}>{line.dfsPath || line.path}</small>
         </button>
@@ -451,7 +498,7 @@
     <footer class="tb__foot">
       <span>{t('{shown} of {total} folder(s)', { shown: page.length, total: visible.length })}</span>
       {#if page.length < visible.length}
-        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" on:click={() => (shown += PAGE)}>
+        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={() => (shown += PAGE)}>
           {t('Show {count} more', { count: Math.min(PAGE, visible.length - page.length) })}
         </button>
       {/if}
@@ -461,13 +508,13 @@
   {#if isAdmin && checked.size}
     <div class="tb__bulk" role="region" aria-label={t('Selection')}>
       <b>{t('{count} folder(s) selected', { count: checked.size })}</b>
-      <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('guardians')}>{t('Add guardians')}</button>
-      <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('tags')}>{t('Add tags')}</button>
-      <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('check')}>{t('Read the ACLs')}</button>
-      <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('sensitivity')}>{t('Scan for secrets')}</button>
-      <button type="button" class="b2s-btn b2s-btn-sm" on:click={() => openAction('measure')}>{t('Measure')}</button>
-      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" on:click={exportCsv}>{t('Export')}</button>
-      <button type="button" class="b2s-btn b2s-btn-sm tb__clear" on:click={() => (checked = new Set())}>{t('Clear the selection')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('guardians')}>{t('Add guardians')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('tags')}>{t('Add tags')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('check')}>{t('Read the ACLs')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('sensitivity')}>{t('Scan for secrets')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('measure')}>{t('Measure')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" onclick={exportCsv}>{t('Export')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm tb__clear" onclick={() => (checked = new Set())}>{t('Clear the selection')}</button>
     </div>
   {/if}
 </div>
@@ -488,7 +535,7 @@
         {#each tags as tag (tag.id)}
           <label class="tb__tag">
             <input type="checkbox" checked={tagIds.has(Number(tag.id))}
-              on:change={() => { if (tagIds.has(Number(tag.id))) tagIds.delete(Number(tag.id)); else tagIds.add(Number(tag.id)); tagIds = tagIds; }} />
+              onchange={() => { if (tagIds.has(Number(tag.id))) tagIds.delete(Number(tag.id)); else tagIds.add(Number(tag.id)); tagIds = tagIds; }} />
             {tag.label ?? tag.name ?? tag.code}
           </label>
         {/each}
@@ -513,16 +560,18 @@
       <ul class="tb__failures">{#each failures.slice(0, 8) as failure}<li><strong>{failure.name}</strong> — {failure.message}</li>{/each}</ul>
     </InlineAlert>
   {/if}
-  <svelte:fragment slot="footer">
-    <EntityActionButton variant="secondary" label={t('Cancel')} onClick={closeAction} />
-    <EntityActionButton
-      variant="primary"
-      busy={running}
-      disabled={(action === 'guardians' && !guardianIds.length) || (action === 'tags' && !tagIds.size) || !checked.size || (checked.size > BULK_CONFIRM_FROM && !bulkConfirmed)}
-      label={action === 'check' ? t('Start the reads') : action === 'sensitivity' ? t('Start the scans') : action === 'measure' ? t('Start the measures') : t('Apply')}
-      onClick={runAction}
-    />
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <EntityActionButton variant="secondary" label={t('Cancel')} onClick={closeAction} />
+      <EntityActionButton
+        variant="primary"
+        busy={running}
+        disabled={(action === 'guardians' && !guardianIds.length) || (action === 'tags' && !tagIds.size) || !checked.size || (checked.size > BULK_CONFIRM_FROM && !bulkConfirmed)}
+        label={action === 'check' ? t('Start the reads') : action === 'sensitivity' ? t('Start the scans') : action === 'measure' ? t('Start the measures') : t('Apply')}
+        onClick={runAction}
+      />
+    
+  {/snippet}
 </AppModal>
 
 <StorageRootContextMenu

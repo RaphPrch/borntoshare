@@ -1,4 +1,5 @@
 <script lang="ts">
+  
   import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import FieldError from '$lib/components/ui/FieldError.svelte';
@@ -11,67 +12,75 @@
   import { toast } from '$lib/stores/toast';
   import { initials } from '$lib/utils/format';
 
-  export let open = false;
-  export let identity: any = null;
-  export let onClose: (() => void) | null = null;
+  interface Props {
+    open?: boolean;
+    identity?: any;
+    onClose?: (() => void) | null;
+  }
+
+  let { open = false, identity = null, onClose = null }: Props = $props();
 
   const dispatch = createEventDispatcher<{ done: void }>();
 
-  let displayName = '';
-  let active = true;
-  let selectedRole: 'user' | 'platform_admin' = 'user';
-  let currentPassword = '';
-  let newPassword = '';
-  let confirmPassword = '';
-  let loading = false;
-  let error: string | null = null;
-  let initKey = '';
-  let closeConfirmOpen = false;
-  let attemptedSubmit = false;
+  let displayName = $state('');
+  let active = $state(true);
+  let selectedRole: 'user' | 'platform_admin' = $state('user');
+  let currentPassword = $state('');
+  let newPassword = $state('');
+  let confirmPassword = $state('');
+  let loading = $state(false);
+  let error: string | null = $state(null);
+  let initKey = $state('');
+  let closeConfirmOpen = $state(false);
+  let attemptedSubmit = $state(false);
 
-  $: isGroup = identity?.type === 'group';
-  $: isUser = identity?.type !== 'group';
-  $: isLocalUser = isUser && normalizeText(identity?.auth_source ?? identity?.source) === 'local';
-  let currentRole: 'platform_admin' | 'user' = 'user';
-  $: currentRole = Array.isArray(identity?.roles) && identity.roles.some((role: string) => normalizeText(role) === 'platform_admin')
-    ? 'platform_admin'
-    : 'user';
-  $: currentKey = `${open ? 'open' : 'closed'}:${identity?.type ?? 'none'}:${identity?.id ?? 'none'}`;
-  $: if (currentKey !== initKey) {
-    displayName = String(identity?.display_name ?? identity?.username ?? '');
-    active = identity?.status !== 'inactive';
-    selectedRole = currentRole;
-    currentPassword = '';
-    newPassword = '';
-    confirmPassword = '';
-    error = null;
-    initKey = currentKey;
-  }
+  let isGroup = $derived(identity?.type === 'group');
+  let isUser = $derived(identity?.type !== 'group');
+  let isLocalUser = $derived(isUser && normalizeText(identity?.auth_source ?? identity?.source) === 'local');
+  let currentRole: 'platform_admin' | 'user' = $state('user');
+  $effect.pre(() => {
+    currentRole = Array.isArray(identity?.roles) && identity.roles.some((role: string) => normalizeText(role) === 'platform_admin')
+      ? 'platform_admin'
+      : 'user';
+  });
+  let currentKey = $derived(`${open ? 'open' : 'closed'}:${identity?.type ?? 'none'}:${identity?.id ?? 'none'}`);
+  $effect.pre(() => {
+    if (currentKey !== initKey) {
+      displayName = String(identity?.display_name ?? identity?.username ?? '');
+      active = identity?.status !== 'inactive';
+      selectedRole = currentRole;
+      currentPassword = '';
+      newPassword = '';
+      confirmPassword = '';
+      error = null;
+      initKey = currentKey;
+    }
+  });
 
-  $: title = isGroup ? t('Edit group') : t('Edit account');
-  $: subtitle = String(identity?.display_name ?? identity?.username ?? '').trim() || t('Unknown identity');
-  $: canEditPassword = isLocalUser;
-  $: canToggleActive = isUser;
-  $: baselineDisplayName = String(identity?.display_name ?? identity?.username ?? '').trim();
-  $: baselineActive = identity?.status !== 'inactive';
-  $: isDirty =
-    displayName.trim() !== baselineDisplayName ||
+  let title = $derived(isGroup ? t('Edit group') : t('Edit account'));
+  let subtitle = $derived(String(identity?.display_name ?? identity?.username ?? '').trim() || t('Unknown identity'));
+  let canEditPassword = $derived(isLocalUser);
+  let canToggleActive = $derived(isUser);
+  let baselineDisplayName = $derived(String(identity?.display_name ?? identity?.username ?? '').trim());
+  let baselineActive = $derived(identity?.status !== 'inactive');
+  let isDirty =
+    $derived(displayName.trim() !== baselineDisplayName ||
     active !== baselineActive ||
     selectedRole !== currentRole ||
-    Boolean(currentPassword || newPassword || confirmPassword);
-  $: displayNameError = attemptedSubmit && !displayName.trim() ? t('Display name is required.') : '';
-  $: currentPasswordError =
-    attemptedSubmit && canEditPassword && Boolean(newPassword || confirmPassword) && !currentPassword.trim()
+    Boolean(currentPassword || newPassword || confirmPassword));
+  let displayNameError = $derived(attemptedSubmit && !displayName.trim() ? t('Display name is required.') : '');
+  let currentPasswordError =
+    $derived(attemptedSubmit && canEditPassword && Boolean(newPassword || confirmPassword) && !currentPassword.trim()
       ? t('Current password is required.')
-      : '';
-  $: newPasswordError =
-    attemptedSubmit && canEditPassword && Boolean(currentPassword || confirmPassword) && !newPassword.trim()
+      : '');
+  let newPasswordError =
+    $derived(attemptedSubmit && canEditPassword && Boolean(currentPassword || confirmPassword) && !newPassword.trim()
       ? t('New password is required.')
-      : '';
-  $: confirmPasswordError =
-    attemptedSubmit && canEditPassword && Boolean(newPassword) && newPassword !== confirmPassword
+      : '');
+  let confirmPasswordError =
+    $derived(attemptedSubmit && canEditPassword && Boolean(newPassword) && newPassword !== confirmPassword
       ? t('Password confirmation must match.')
-      : '';
+      : '');
 
   function close() {
     if (loading) return;
@@ -182,15 +191,17 @@
   bodyClass="identity-edit-drawer__body"
   footerClass="identity-edit-drawer__footer"
 >
-  <div class="identity-edit-head" slot="header-icon">
-    <span class={`identity-edit-head__avatar ${isGroup ? 'is-group' : 'is-user'}`} aria-hidden="true">
-      {#if isGroup}
-        <i class="bi bi-people"></i>
-      {:else}
-        {initials(subtitle)}
-      {/if}
-    </span>
-  </div>
+  {#snippet headerIcon()}
+    <div class="identity-edit-head" >
+      <span class={`identity-edit-head__avatar ${isGroup ? 'is-group' : 'is-user'}`} aria-hidden="true">
+        {#if isGroup}
+          <i class="bi bi-people"></i>
+        {:else}
+          {initials(subtitle)}
+        {/if}
+      </span>
+    </div>
+  {/snippet}
 
   <div class="identity-edit-shell">
     <section class="identity-edit-section">
@@ -323,17 +334,19 @@
     {/if}
   </div>
 
-  <svelte:fragment slot="footer">
-    <div class="identity-edit-actions">
-      {#if isDirty}
-        <span class="identity-edit-unsaved">{t('Unsaved changes')}</span>
-      {/if}
-      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={close} disabled={loading}>{t('Cancel')}</button>
-      <button type="button" class="b2s-btn b2s-btn-primary" on:click={submit} disabled={loading}>
-        <i class="bi {loading ? 'bi-arrow-repeat' : 'bi-check2'}" aria-hidden="true"></i>{loading ? t('Saving changes…') : t('Save changes')}
-      </button>
-    </div>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <div class="identity-edit-actions">
+        {#if isDirty}
+          <span class="identity-edit-unsaved">{t('Unsaved changes')}</span>
+        {/if}
+        <button type="button" class="b2s-btn b2s-btn-secondary" onclick={close} disabled={loading}>{t('Cancel')}</button>
+        <button type="button" class="b2s-btn b2s-btn-primary" onclick={submit} disabled={loading}>
+          <i class="bi {loading ? 'bi-arrow-repeat' : 'bi-check2'}" aria-hidden="true"></i>{loading ? t('Saving changes…') : t('Save changes')}
+        </button>
+      </div>
+    
+  {/snippet}
 </Drawer>
 
 <UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={discardAndClose} />

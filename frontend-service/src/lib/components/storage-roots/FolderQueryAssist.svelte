@@ -1,26 +1,45 @@
 <script lang="ts">
+  import { createBubbler, preventDefault } from 'svelte/legacy';
+
+  const bubble = createBubbler();
   import { t } from '$lib/i18n';
   import { applySuggestion, folderQueryExamples, folderSuggestions, parseFolderQuery, removeFilter } from '$lib/components/storage-roots/folder-query';
 
-  /**
+  
+  
+  
+  
+  interface Props {
+    /**
    * Express search of the folders: the active filters as chips (× removes one), and proposals for the word
    * being typed (« fin » -> tag:Finance, gardien:… ; « gardien: » -> the guardians). Before typing, examples.
    */
-  export let query = '';
-  export let rows: Array<Record<string, any>> = [];
-  export let tags: string[] = [];
-  /** Folders left by the filters */
-  export let count: number | null = null;
-  export let onQueryChange: (value: string) => void = () => {};
-  /** Proposals over the content (under a search field in a header) instead of in the flow */
-  export let floating = false;
-  /** The search field has the focus: the examples show while it is empty */
-  export let focused = false;
+    query?: string;
+    rows?: Array<Record<string, any>>;
+    tags?: string[];
+    /** Folders left by the filters */
+    count?: number | null;
+    onQueryChange?: (value: string) => void;
+    /** Proposals over the content (under a search field in a header) instead of in the flow */
+    floating?: boolean;
+    /** The search field has the focus: the examples show while it is empty */
+    focused?: boolean;
+  }
 
-  let showExamples = false;
-  $: parsed = parseFolderQuery(query);
-  $: suggestions = /\s$/.test(query) ? [] : folderSuggestions(query, rows, tags);
-  $: list = suggestions.length ? suggestions : (showExamples || (focused && !query.trim())) ? folderQueryExamples() : [];
+  let {
+    query = '',
+    rows = [],
+    tags = [],
+    count = null,
+    onQueryChange = () => {},
+    floating = false,
+    focused = false
+  }: Props = $props();
+
+  let showExamples = $state(false);
+  let parsed = $derived(parseFolderQuery(query));
+  let suggestions = $derived(/\s$/.test(query) ? [] : folderSuggestions(query, rows, tags));
+  let list = $derived(suggestions.length ? suggestions : (showExamples || (focused && !query.trim())) ? folderQueryExamples() : []);
   function pick(insert: string) {
     onQueryChange(applySuggestion(query, insert));
     showExamples = false;
@@ -31,7 +50,7 @@
   {#if parsed.filters.length && !floating}
     <div class="xq__chips" aria-label={t('Active filters')}>
       {#each parsed.filters as item (item.raw)}
-        <button type="button" class="xq__chip" class:is-neg={item.neg} title={t('Remove this filter')} on:click={() => onQueryChange(removeFilter(query, item.raw))}>
+        <button type="button" class="xq__chip" class:is-neg={item.neg} title={t('Remove this filter')} onclick={() => onQueryChange(removeFilter(query, item.raw))}>
           {item.raw}<i class="bi bi-x" aria-hidden="true"></i>
         </button>
       {/each}
@@ -43,7 +62,7 @@
       {#each list as item (item.insert)}
         <li role="option" aria-selected="false">
           <!-- mousedown: the search field keeps the focus -->
-          <button type="button" on:mousedown|preventDefault on:click={() => pick(item.insert)}>
+          <button type="button" onmousedown={preventDefault(bubble('mousedown'))} onclick={() => pick(item.insert)}>
             <i class={`bi ${item.icon}`} aria-hidden="true"></i><span>{item.label}</span><code>{item.hint}</code>
           </button>
         </li>
@@ -51,7 +70,7 @@
     </ul>
   {/if}
   {#if !floating && !query.trim()}
-    <button type="button" class="b2s-link-btn xq__help" aria-expanded={showExamples} on:click={() => (showExamples = !showExamples)}>
+    <button type="button" class="b2s-link-btn xq__help" aria-expanded={showExamples} onclick={() => (showExamples = !showExamples)}>
       <i class="bi bi-lightning" aria-hidden="true"></i>{showExamples ? t('Hide the express filters') : t('Express filters: by tag, guardian, state…')}
     </button>
   {/if}

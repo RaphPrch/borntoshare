@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
@@ -16,52 +18,70 @@
   import { listStorageEndpoints } from '$lib/api/storage-endpoints';
   import { createDfsFolder, deleteDfsFolder, type DfsInfo, type DfsLink } from './dfs-namespace';
 
-  /**
+  
+  
+  interface Props {
+    /**
    * The DFS folders of a namespace and the file server folders they lead to, with what is managed.
    * Hundreds stay readable: filter, states, a page at a time. Read and managed by the page (dfs-namespace.ts).
    */
-  export let endpoint: Record<string, any>;
-  export let info: DfsInfo | null = null;
-  export let loading = false;
-  export let error = '';
-  export let busy: Record<string, boolean> = {};
-  export let onManage: (paths: string[]) => void = () => {};
-  /** A DFS folder was created or removed: the page reads the namespace again. */
-  export let onChanged: () => void = () => {};
-  export let onReadAgain: () => void = () => {};
-  export let reading = false;
+    endpoint: Record<string, any>;
+    info?: DfsInfo | null;
+    loading?: boolean;
+    error?: string;
+    busy?: Record<string, boolean>;
+    onManage?: (paths: string[]) => void;
+    /** A DFS folder was created or removed: the page reads the namespace again. */
+    onChanged?: () => void;
+    onReadAgain?: () => void;
+    reading?: boolean;
+  }
+
+  let {
+    endpoint,
+    info = null,
+    loading = false,
+    error = '',
+    busy = {},
+    onManage = () => {},
+    onChanged = () => {},
+    onReadAgain = () => {},
+    reading = false
+  }: Props = $props();
 
   const PAGE = 50;
-  let query = '';
-  let filter: 'all' | 'todo' | 'managed' | 'unknown' = 'all';
-  let shown = PAGE;
+  let query = $state('');
+  let filter: 'all' | 'todo' | 'managed' | 'unknown' = $state('all');
+  let shown = $state(PAGE);
 
-  $: links = info?.links ?? [];
-  $: manageable = links.filter((link) => link.state === 'to_manage' || link.state === 'partial');
-  $: counts = {
+  let links = $derived(info?.links ?? []);
+  let manageable = $derived(links.filter((link) => link.state === 'to_manage' || link.state === 'partial'));
+  let counts = $derived({
     all: links.length,
     todo: manageable.length,
     managed: links.filter((link) => link.state === 'managed').length,
     unknown: links.filter((link) => link.state === 'unknown_server').length
-  };
-  $: visible = links
+  });
+  let visible = $derived(links
     .filter((link) => filter === 'all' || (filter === 'todo' ? manageable.includes(link) : filter === 'managed' ? link.state === 'managed' : link.state === 'unknown_server'))
-    .filter((link) => `${link.path} ${link.targets.map((target) => target.unc).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
-  $: if (query || filter) shown = PAGE;
+    .filter((link) => `${link.path} ${link.targets.map((target) => target.unc).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())));
+  $effect.pre(() => {
+    if (query || filter) shown = PAGE;
+  });
 
-  $: endpointNumber = Number(endpoint?.id ?? endpoint?.storage_endpoint_id ?? 0);
+  let endpointNumber = $derived(Number(endpoint?.id ?? endpoint?.storage_endpoint_id ?? 0));
 
   // A new DFS folder under the namespace, leading to a share
-  let creating = false;
-  let createOpen = false;
-  let newFolder = '';
-  let newTarget = '';
-  let createError = '';
-  $: canCreate = Boolean(newFolder.trim()) && /^\\\\[^\\]+\\[^\\]+/.test(newTarget.trim());
+  let creating = $state(false);
+  let createOpen = $state(false);
+  let newFolder = $state('');
+  let newTarget = $state('');
+  let createError = $state('');
+  let canCreate = $derived(Boolean(newFolder.trim()) && /^\\\\[^\\]+\\[^\\]+/.test(newTarget.trim()));
 
-  let manageAfter = true;
+  let manageAfter = $state(true);
   // The shares of the file servers of the zone, as DFS targets (\\\\FILER01\\Finance)
-  let targetChoices: { value: string; label: string }[] = [];
+  let targetChoices: { value: string; label: string }[] = $state([]);
 
   // A DFS target names its server as Windows knows it: the declared name when it is one, else its address
   const serverName = (ep: { name: string; host?: string | null }) =>
@@ -114,8 +134,8 @@
   const lastLevel = (path: string | null | undefined) => String(path ?? '').split('\\').filter(Boolean).pop() ?? '';
 
   // A DFS folder that BornToShare does not manage can be removed; the shares behind it stay
-  let toDelete: DfsLink | null = null;
-  let deleting = false;
+  let toDelete: DfsLink | null = $state(null);
+  let deleting = $state(false);
 
   async function confirmDelete() {
     const link = toDelete;
@@ -146,8 +166,8 @@
   <header>
     <h2>{t('DFS folders')}</h2>
     {#if info}
-      <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" disabled={reading} on:click={onReadAgain}><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{reading ? t('Reading…') : t('Read again')}</button>
-      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={openCreate}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('New DFS folder')}</button>
+      <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" disabled={reading} onclick={onReadAgain}><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{reading ? t('Reading…') : t('Read again')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={openCreate}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('New DFS folder')}</button>
     {/if}
   </header>
 {#if loading && !info}
@@ -180,14 +200,14 @@
           <StatusBadge compact variant={TONE_VARIANT[state.tone]} label={link.targets.length > 1 && link.state !== 'unknown_server' ? t('{label} · {count} targets', { label: state.label(), count: link.targets.length }) : state.label()} />
           <span class="act">
             {#if link.state === 'to_manage' || link.state === 'partial'}
-              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy[link.path]} on:click={() => onManage([link.path])}>{t('Manage')}</button>
+              <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy[link.path]} onclick={() => onManage([link.path])}>{t('Manage')}</button>
             {:else if link.state === 'unknown_server'}
               <a class="b2s-btn b2s-btn-secondary b2s-btn-sm" href={`/admin/storage-endpoints/new${endpoint.zone_id ? `?zone=${endpoint.zone_id}` : ''}`}>{t('Declare the server')}</a>
             {:else if link.state === 'managed'}
               <a class="link" href={`/storage-roots?selected=${link.targets[0]?.storage_root_id}`}>{t('Open')}</a>
             {/if}
             {#if link.state !== 'managed' && link.state !== 'partial'}
-              <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" aria-label={t('Delete the DFS folder {path}', { path: link.path })} title={t('Delete the DFS folder')} on:click={() => (toDelete = link)}><i class="bi bi-trash" aria-hidden="true"></i></button>
+              <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" aria-label={t('Delete the DFS folder {path}', { path: link.path })} title={t('Delete the DFS folder')} onclick={() => (toDelete = link)}><i class="bi bi-trash" aria-hidden="true"></i></button>
             {/if}
           </span>
         </li>
@@ -225,10 +245,12 @@
     </label>
     {#if createError}<InlineAlert tone="error">{createError}</InlineAlert>{/if}
   </div>
-  <svelte:fragment slot="footer">
-    <button type="button" class="b2s-btn b2s-btn-secondary" disabled={creating} on:click={() => (createOpen = false)}>{t('Cancel')}</button>
-    <button type="button" class="b2s-btn b2s-btn-primary" disabled={creating || !canCreate} on:click={submitCreate}>{creating ? t('Creating…') : t('Create the DFS folder')}</button>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <button type="button" class="b2s-btn b2s-btn-secondary" disabled={creating} onclick={() => (createOpen = false)}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary" disabled={creating || !canCreate} onclick={submitCreate}>{creating ? t('Creating…') : t('Create the DFS folder')}</button>
+    
+  {/snippet}
 </AppModal>
 
 <ConfirmActionModal

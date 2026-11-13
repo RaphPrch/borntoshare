@@ -1,15 +1,20 @@
 <script lang="ts">
   import { t, intlLocale } from '$lib/i18n';
 
-  /** Access requests submitted per day; missing days are drawn as zero. */
-  export let series: { day: string; submitted: number; applied: number }[] = [];
-  export let days = 30;
+  
+  interface Props {
+    /** Access requests submitted per day; missing days are drawn as zero. */
+    series?: { day: string; submitted: number; applied: number }[];
+    days?: number;
+  }
+
+  let { series = [], days = 30 }: Props = $props();
 
   const pad = (n: number) => String(n).padStart(2, '0');
   const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-  $: byDay = new Map(series.map((row) => [row.day, row]));
-  $: points = Array.from({ length: days }, (_, index) => {
+  let byDay = $derived(new Map(series.map((row) => [row.day, row])));
+  let points = $derived(Array.from({ length: days }, (_, index) => {
     const date = new Date();
     date.setHours(12, 0, 0, 0);
     date.setDate(date.getDate() - (days - 1 - index));
@@ -21,17 +26,17 @@
       submitted: Number(row?.submitted ?? 0),
       applied: Number(row?.applied ?? 0)
     };
-  });
-  $: total = points.reduce((sum, p) => sum + p.submitted, 0);
+  }));
+  let total = $derived(points.reduce((sum, p) => sum + p.submitted, 0));
   // Clean axis maximum: next "nice" number above the highest day
-  $: maxValue = (() => {
+  let maxValue = $derived((() => {
     const peak = Math.max(1, ...points.map((p) => p.submitted));
     const step = peak <= 5 ? 1 : peak <= 10 ? 2 : peak <= 25 ? 5 : 10;
     return Math.ceil(peak / step) * step;
-  })();
-  $: ticks = [maxValue, maxValue / 2, 0].map((v) => Math.round(v));
+  })());
+  let ticks = $derived([maxValue, maxValue / 2, 0].map((v) => Math.round(v)));
 
-  let hovered: number | null = null;
+  let hovered: number | null = $state(null);
 </script>
 
 <figure class="req-chart">
@@ -51,8 +56,8 @@
           <div
             class="req-chart__slot"
             role="presentation"
-            on:mouseenter={() => (hovered = index)}
-            on:mouseleave={() => (hovered = null)}
+            onmouseenter={() => (hovered = index)}
+            onmouseleave={() => (hovered = null)}
           >
             <span class="req-chart__bar b2s-rise" style={`height:${(point.submitted / maxValue) * 100}%;--i:${index}`}></span>
             {#if hovered === index}

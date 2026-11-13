@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import { copyText } from '$lib/utils/clipboard';
   import UnsavedChangesDialog from '$lib/components/ui/UnsavedChangesDialog.svelte';
   import { onMount } from 'svelte';
@@ -26,32 +28,32 @@
     type SsoTestResult
   } from '$lib/api/infrastructure';
 
-  let providers: SsoProvider[] = [];
-  let roles: { code: string; label: string }[] = [];
-  let loading = true;
+  let providers: SsoProvider[] = $state([]);
+  let roles: { code: string; label: string }[] = $state([]);
+  let loading = $state(true);
 
   // ---- drawer
-  let open = false;
+  let open = $state(false);
   let savedForm = '';
-  let closeConfirmOpen = false;
+  let closeConfirmOpen = $state(false);
   function requestClose() {
     if (JSON.stringify(form) !== savedForm) closeConfirmOpen = true;
     else open = false;
   }
-  let editing: SsoProvider | null = null;
-  let showErrors = false;
-  let saving = false;
-  let testing = false;
-  let testResult: SsoTestResult | null = null;
-  let testedKey = '';
-  let secret = '';
-  let showSecret = false;
-  let publicClient = false;
-  let claimPreset: 'realm' | 'client' | 'groups' | 'custom' = 'realm';
-  let form: SsoProviderInput = blank();
-  let removing: SsoProvider | null = null;
-  let busyId: number | null = null;
-  let origin = '';
+  let editing: SsoProvider | null = $state(null);
+  let showErrors = $state(false);
+  let saving = $state(false);
+  let testing = $state(false);
+  let testResult: SsoTestResult | null = $state(null);
+  let testedKey = $state('');
+  let secret = $state('');
+  let showSecret = $state(false);
+  let publicClient = $state(false);
+  let claimPreset: 'realm' | 'client' | 'groups' | 'custom' = $state('realm');
+  let form: SsoProviderInput = $state(blank());
+  let removing: SsoProvider | null = $state(null);
+  let busyId: number | null = $state(null);
+  let origin = $state('');
 
   function blank(): SsoProviderInput {
     return {
@@ -71,19 +73,25 @@
     };
   }
 
-  $: redirectUri = `${origin}/sso/callback`;
-  $: formKey = JSON.stringify([form.base_url, form.realm, form.client_id, secret, publicClient, form.verify_tls]);
-  $: urlError = form.base_url && !/^https?:\/\/[^\s/]+/.test(form.base_url.trim())
+  let redirectUri = $derived(`${origin}/sso/callback`);
+  let formKey = $derived(JSON.stringify([form.base_url, form.realm, form.client_id, secret, publicClient, form.verify_tls]));
+  let urlError = $derived(form.base_url && !/^https?:\/\/[^\s/]+/.test(form.base_url.trim())
     ? t('An http:// or https:// URL is expected')
     : /\/realms\//.test(form.base_url)
       ? t('Without /realms/…: the realm has its own field')
-      : null;
-  $: valid =
-    !!form.name.trim() && !!form.base_url.trim() && !urlError && !!form.realm.trim() && !!form.client_id.trim() &&
-    (publicClient || !!secret || !!editing?.has_client_secret);
-  $: if (claimPreset === 'realm') form.roles_claim = 'realm_access.roles';
-  $: if (claimPreset === 'client') form.roles_claim = `resource_access.${form.client_id || 'client'}.roles`;
-  $: if (claimPreset === 'groups') form.roles_claim = 'groups';
+      : null);
+  let valid =
+    $derived(!!form.name.trim() && !!form.base_url.trim() && !urlError && !!form.realm.trim() && !!form.client_id.trim() &&
+    (publicClient || !!secret || !!editing?.has_client_secret));
+  $effect.pre(() => {
+    if (claimPreset === 'realm') form.roles_claim = 'realm_access.roles';
+  });
+  $effect.pre(() => {
+    if (claimPreset === 'client') form.roles_claim = `resource_access.${form.client_id || 'client'}.roles`;
+  });
+  $effect.pre(() => {
+    if (claimPreset === 'groups') form.roles_claim = 'groups';
+  });
 
   async function load() {
     loading = true;
@@ -273,7 +281,7 @@
 
 <div class="toolbar">
   <p>{t('Single sign-on with Keycloak (OpenID Connect). Each enabled server adds a button to the sign-in page.')}</p>
-  <button type="button" class="b2s-btn b2s-btn-primary" on:click={openAdd}>
+  <button type="button" class="b2s-btn b2s-btn-primary" onclick={openAdd}>
     <i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Add a Keycloak server')}
   </button>
 </div>
@@ -320,13 +328,13 @@
           </span>
         </div>
         <footer class="card__actions">
-          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={() => quickTest(provider)} disabled={busyId === provider.id}>
+          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => quickTest(provider)} disabled={busyId === provider.id}>
             <i class={`bi ${busyId === provider.id ? 'bi-hourglass-split' : 'bi-plug'}`} aria-hidden="true"></i>{t('Test')}
           </button>
-          <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" on:click={() => openEdit(provider)}>
+          <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" onclick={() => openEdit(provider)}>
             <i class="bi bi-pencil" aria-hidden="true"></i>{t('Edit')}
           </button>
-          <button type="button" class="b2s-btn b2s-btn-danger-outline b2s-btn-sm card__remove" aria-label={t('Remove')} on:click={() => (removing = provider)}>
+          <button type="button" class="b2s-btn b2s-btn-danger-outline b2s-btn-sm card__remove" aria-label={t('Remove')} onclick={() => (removing = provider)}>
             <i class="bi bi-trash3" aria-hidden="true"></i>
           </button>
         </footer>
@@ -379,7 +387,7 @@
               autocomplete="new-password"
               placeholder={publicClient ? t('Public client: no secret') : editing?.has_client_secret ? t('Unchanged') : ''}
             />
-            <button type="button" class="b2s-input-action" aria-label={showSecret ? t('Hide password') : t('Show password')} on:click={() => (showSecret = !showSecret)}>
+            <button type="button" class="b2s-input-action" aria-label={showSecret ? t('Hide password') : t('Show password')} onclick={() => (showSecret = !showSecret)}>
               <i class={`bi ${showSecret ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
             </button>
           </div>
@@ -393,7 +401,7 @@
           <span>{t('Redirect URI to declare on the Keycloak client')}</span>
           <div class="redirect__row">
             <code>{redirectUri}</code>
-            <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" on:click={() => copy(redirectUri)}>
+            <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" onclick={() => copy(redirectUri)}>
               <i class="bi bi-clipboard" aria-hidden="true"></i>{t('Copy')}
             </button>
           </div>
@@ -433,12 +441,12 @@
             <select class="b2s-select" bind:value={mapping.role} aria-label={t('BornToShare role')}>
               {#each roles as role (role.code)}<option value={role.code}>{role.label}</option>{/each}
             </select>
-            <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" aria-label={t('Remove')} on:click={() => removeMapping(i)}>
+            <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" aria-label={t('Remove')} onclick={() => removeMapping(i)}>
               <i class="bi bi-x-lg" aria-hidden="true"></i>
             </button>
           </div>
         {/each}
-        <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm add-map" on:click={addMapping}>
+        <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm add-map" onclick={addMapping}>
           <i class="bi bi-plus" aria-hidden="true"></i>{t('Add a mapping')}
         </button>
       </div>
@@ -493,17 +501,19 @@
     {/if}
   </div>
 
-  <svelte:fragment slot="footer">
-    <div class="dfoot">
-      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={requestClose}>{t('Cancel')}</button>
-      <button type="button" class="b2s-btn b2s-btn-secondary" on:click={runTest} disabled={testing || saving}>
-        <i class={`bi ${testing ? 'bi-hourglass-split' : 'bi-plug'}`} aria-hidden="true"></i>{testing ? t('Testing…') : t('Test')}
-      </button>
-      <button type="button" class="b2s-btn b2s-btn-primary" on:click={save} disabled={saving || testing}>
-        {saving ? t('Saving…') : editing ? t('Save changes') : t('Add the server')}
-      </button>
-    </div>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <div class="dfoot">
+        <button type="button" class="b2s-btn b2s-btn-secondary" onclick={requestClose}>{t('Cancel')}</button>
+        <button type="button" class="b2s-btn b2s-btn-secondary" onclick={runTest} disabled={testing || saving}>
+          <i class={`bi ${testing ? 'bi-hourglass-split' : 'bi-plug'}`} aria-hidden="true"></i>{testing ? t('Testing…') : t('Test')}
+        </button>
+        <button type="button" class="b2s-btn b2s-btn-primary" onclick={save} disabled={saving || testing}>
+          {saving ? t('Saving…') : editing ? t('Save changes') : t('Add the server')}
+        </button>
+      </div>
+    
+  {/snippet}
 </Drawer>
 
 <UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={() => { closeConfirmOpen = false; open = false; }} />

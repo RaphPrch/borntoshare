@@ -5,16 +5,31 @@
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { runProbeWithPolling } from '$lib/jobs/probe-runner';
 
-  /** Certificate authority or server certificate trusted for this directory (PEM) */
-  export let pem = '';
-  /** Name in the certificate: filled when the host is an IP address */
-  export let serverName = '';
-  export let host = '';
-  export let port: number | string | null = 636;
-  export let id = 'tls-certificate';
-  export let inputClass = '';
-  export let hintClass = '';
-  export let onChange: () => void = () => {};
+  
+  
+  interface Props {
+    /** Certificate authority or server certificate trusted for this directory (PEM) */
+    pem?: string;
+    /** Name in the certificate: filled when the host is an IP address */
+    serverName?: string;
+    host?: string;
+    port?: number | string | null;
+    id?: string;
+    inputClass?: string;
+    hintClass?: string;
+    onChange?: () => void;
+  }
+
+  let {
+    pem = $bindable(''),
+    serverName = $bindable(''),
+    host = '',
+    port = 636,
+    id = 'tls-certificate',
+    inputClass = '',
+    hintClass = '',
+    onChange = () => {}
+  }: Props = $props();
 
   type Found = {
     certificate_pem: string;
@@ -26,8 +41,8 @@
     server_names: string[];
   };
 
-  let fetching = false;
-  let found: Found | null = null;
+  let fetching = $state(false);
+  let found: Found | null = $state(null);
 
   const isIpAddress = (value: string) => /^[0-9.]+$/.test(value) || value.includes(':');
   const fingerprint = (value: string) => (value.match(/.{2}/g) ?? []).join(':').toUpperCase();
@@ -72,14 +87,14 @@
     toast.success(t('Certificate kept. Test the directory to confirm.'));
   }
 
-  $: expired = found ? new Date(found.not_after).getTime() < Date.now() : false;
+  let expired = $derived(found ? new Date(found.not_after).getTime() < Date.now() : false);
 </script>
 
-<button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm tls-fetch" disabled={fetching} on:click={fetchCertificate}>
+<button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm tls-fetch" disabled={fetching} onclick={fetchCertificate}>
   <i class="bi bi-cloud-download" aria-hidden="true"></i>
   {fetching ? t('Reading…') : t('Fetch the certificate')}
 </button>
-<textarea {id} class={inputClass} rows="4" bind:value={pem} on:input={onChange} placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+<textarea {id} class={inputClass} rows="4" bind:value={pem} oninput={onChange} placeholder="-----BEGIN CERTIFICATE-----"></textarea>
 <small class={hintClass}>{t('Fetch it from the server, or paste the public certificate of the authority that signed the domain controller.')}</small>
 
 <ConfirmActionModal

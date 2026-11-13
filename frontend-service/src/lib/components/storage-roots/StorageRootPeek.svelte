@@ -1,4 +1,4 @@
-<script context="module" lang="ts">
+<script module lang="ts">
   import type { StorageRootPermissionsData } from '$lib/api/storage-root-permissions';
 
   // One read per storage root and per page visit: the preview is a glance, the detail is one click away
@@ -6,23 +6,29 @@
 </script>
 
 <script lang="ts">
+  
+
   import { onDestroy } from 'svelte';
   import { t } from '$lib/i18n';
   import { getStorageRootPermissions } from '$lib/api/storage-root-permissions';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
 
-  /** Preview of a storage root next to its row of the explorer, on hover: path, who reaches it, what is wrong. */
-  export let row: StorageRootRow | null = null;
-  export let anchor: HTMLElement | null = null;
-  export let alert: { count: number; tone: 'warning' | 'error'; label?: string } | null = null;
+  
+  interface Props {
+    /** Preview of a storage root next to its row of the explorer, on hover: path, who reaches it, what is wrong. */
+    row?: StorageRootRow | null;
+    anchor?: HTMLElement | null;
+    alert?: { count: number; tone: 'warning' | 'error'; label?: string } | null;
+  }
 
-  let shown: StorageRootRow | null = null;
-  let position = { top: 0, left: 0 };
-  let data: StorageRootPermissionsData | null = null;
+  let { row = null, anchor = null, alert = null }: Props = $props();
+
+  let shown: StorageRootRow | null = $state(null);
+  let position = $state({ top: 0, left: 0 });
+  let data: StorageRootPermissionsData | null = $state(null);
   let timer: ReturnType<typeof setTimeout> | null = null;
   let seq = 0;
 
-  $: schedule(row, anchor);
   function schedule(next: StorageRootRow | null, element: HTMLElement | null) {
     if (timer) clearTimeout(timer);
     if (!next || !element) {
@@ -46,13 +52,16 @@
     if (timer) clearTimeout(timer);
   });
 
-  $: pending = Number(shown?.pending_validation_count ?? 0);
-  $: issue =
-    data?.status === 'missing_ace'
+  $effect.pre(() => {
+    schedule(row, anchor);
+  });
+  let pending = $derived(Number(shown?.pending_validation_count ?? 0));
+  let issue =
+    $derived(data?.status === 'missing_ace'
       ? t('An AD group has lost its ACE')
       : data?.status === 'gap'
         ? t('{count} entry(ies) set outside BornToShare', { count: data.summary.gaps })
-        : null;
+        : null);
 </script>
 
 {#if shown}

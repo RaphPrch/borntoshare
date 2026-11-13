@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { preventDefault } from 'svelte/legacy';
+
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { onMount } from 'svelte';
   import { apiGetData, apiPutData } from '$lib/api/client';
@@ -6,23 +8,27 @@
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
 
-  /**
+  
+  interface Props {
+    /**
    * The module « 5S et hygiène des données » on this installation: is it installed (its containers answer, its
    * databases are reachable), how to install it, and the settings of its scanner once it is on.
    */
-  export let enabled = false;
+    enabled?: boolean;
+  }
+
+  let { enabled = false }: Props = $props();
 
   type Health = { status: string; schema: boolean };
   type Settings = { schedule_enabled: boolean; window_start: string; window_end: string; per_server: number; interval_days: number;
     full_every_days: number; hash_files_max: number; in_window?: boolean };
-  let health: Health | null = null;
-  let reachable: boolean | null = null;
-  let form: Settings | null = null;
-  let busy = false;
-  let settingsFailed = false;
+  let health: Health | null = $state(null);
+  let reachable: boolean | null = $state(null);
+  let form: Settings | null = $state(null);
+  let busy = $state(false);
+  let settingsFailed = $state(false);
 
   onMount(load);
-  $: if (enabled && reachable && !form && !settingsFailed) loadSettings();
   async function load() {
     // /health answers without the « data » envelope; no answer (503) = the module does not run here
     try {
@@ -52,6 +58,9 @@
       busy = false;
     }
   }
+  $effect.pre(() => {
+    if (enabled && reachable && !form && !settingsFailed) loadSettings();
+  });
 </script>
 
 <section class="fm" aria-label={t('Module 5S on this installation')}>
@@ -65,13 +74,13 @@
   {:else if reachable === false}
     <p>{t('The license opens the module, but its containers (fives-service, fives-scanner) do not run yet: its databases are not installed on this server.')}</p>
     <p class="fm__muted">{t('Run the installation wizard again (make wizard on the server) and paste the license key at its step « Licence et modules »: it creates the two databases of the module and its own account, then deploys by itself. Nothing is deleted. Come back here afterwards.')}</p>
-    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={load}>{t('Check again')}</button>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={load}>{t('Check again')}</button>
   {:else if !health?.schema}
     <p>{t('The module answers but cannot reach its databases: check FIVES_DB_* in .env and the account b2s_fives.')}</p>
   {:else if !enabled}
     <p class="fm__muted">{t('Switch the module on above to set its scanner.')}</p>
   {:else if form}
-    <form class="fm__form" on:submit|preventDefault={save}>
+    <form class="fm__form" onsubmit={preventDefault(save)}>
       <label class="fm__check"><input type="checkbox" bind:checked={form.schedule_enabled} /> {t('Scan every folder on schedule')}</label>
       <label>{t('Window from')}<input class="b2s-input" type="time" bind:value={form.window_start} /></label>
       <label>{t('to')}<input class="b2s-input" type="time" bind:value={form.window_end} /></label>
@@ -85,7 +94,7 @@
     </form>
   {:else if settingsFailed}
     <p>{t('Unable to read the scanner settings.')}</p>
-    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={loadSettings}>{t('Check again')}</button>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={loadSettings}>{t('Check again')}</button>
   {:else}
     <LoadingState skeleton="rows" rows={3}>{t('Loading…')}</LoadingState>
   {/if}

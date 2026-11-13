@@ -16,25 +16,30 @@
   import { deleteStorageEndpointShare } from '$lib/api/storage-endpoints';
   import { reportUiError } from '$lib/errors/report';
 
-  /** Shares found on the server by its last search: the managed ones, and those to add (one by one, or several at once). */
-  export let endpoint: Record<string, any>;
-  export let discoveredAt: string | null = null;
-  export let onChanged: () => void = () => {};
+  
+  interface Props {
+    /** Shares found on the server by its last search: the managed ones, and those to add (one by one, or several at once). */
+    endpoint: Record<string, any>;
+    discoveredAt?: string | null;
+    onChanged?: () => void;
+  }
+
+  let { endpoint, discoveredAt = null, onChanged = () => {} }: Props = $props();
 
   type Share = { name: string; root_path: string; managed: boolean; managed_below?: number };
-  let shares: Share[] = [];
-  let loading = true;
-  let searching = false;
-  let error = '';
-  let query = '';
-  let filter: 'new' | 'managed' | 'all' = 'new';
-  let adding: Record<string, boolean> = {};
+  let shares: Share[] = $state([]);
+  let loading = $state(true);
+  let searching = $state(false);
+  let error = $state('');
+  let query = $state('');
+  let filter: 'new' | 'managed' | 'all' = $state('new');
+  let adding: Record<string, boolean> = $state({});
 
-  $: id = Number(endpoint?.id ?? endpoint?.storage_endpoint_id ?? 0);
-  $: counts = { new: shares.filter((s) => !s.managed).length, managed: shares.filter((s) => s.managed).length, all: shares.length };
-  $: visible = shares
+  let id = $derived(Number(endpoint?.id ?? endpoint?.storage_endpoint_id ?? 0));
+  let counts = $derived({ new: shares.filter((s) => !s.managed).length, managed: shares.filter((s) => s.managed).length, all: shares.length });
+  let visible = $derived(shares
     .filter((s) => filter === 'all' || (filter === 'new' ? !s.managed : s.managed))
-    .filter((s) => `${s.name} ${s.root_path}`.toLowerCase().includes(query.trim().toLowerCase()));
+    .filter((s) => `${s.name} ${s.root_path}`.toLowerCase().includes(query.trim().toLowerCase())));
 
   async function load() {
     loading = true;
@@ -90,10 +95,10 @@
   }
 
   // A share that BornToShare does not manage can be removed from the server; its files stay there
-  let toDelete: Share | null = null;
-  let deleting = false;
+  let toDelete: Share | null = $state(null);
+  let deleting = $state(false);
   // Its folder too, when empty (rmdir on the server refuses a folder that still holds files)
-  let removeEmptyFolder = true;
+  let removeEmptyFolder = $state(true);
 
   async function confirmDelete() {
     const share = toDelete;
@@ -121,7 +126,7 @@
 
 <div class="head">
   <small class="muted">{discoveredAt ? t('Last search on {date}', { date: formatDateTime(discoveredAt) }) : t('This server has never been searched.')}</small>
-  <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={searching} on:click={searchAgain}>{searching ? t('Searching…') : t('Search the server again')}</button>
+  <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={searching} onclick={searchAgain}>{searching ? t('Searching…') : t('Search the server again')}</button>
   {#if counts.new > 1}<a class="b2s-btn b2s-btn-primary b2s-btn-sm" href={`/storage-roots/add?endpoint=${id}`}>{t('Add several')}</a>{/if}
 </div>
 {#if error}<InlineAlert tone="error">{error}</InlineAlert>{/if}
@@ -143,11 +148,11 @@
         {#if share.managed}
           <StatusBadge compact variant="success" label={t('Managed')} />
         {:else}
-          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={adding[share.root_path]} on:click={() => add(share)}>{adding[share.root_path] ? t('Adding…') : t('Manage')}</button>
+          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={adding[share.root_path]} onclick={() => add(share)}>{adding[share.root_path] ? t('Adding…') : t('Manage')}</button>
           {#if share.managed_below}
             <span class="muted" title={t('BornToShare manages folders in this share: remove them from BornToShare first.')}>{t('{count} managed folder(s)', { count: share.managed_below })}</span>
           {:else}
-            <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" aria-label={t('Delete the share {name}', { name: share.name })} title={t('Delete the share')} on:click={() => (toDelete = share)}><i class="bi bi-trash" aria-hidden="true"></i></button>
+            <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" aria-label={t('Delete the share {name}', { name: share.name })} title={t('Delete the share')} onclick={() => (toDelete = share)}><i class="bi bi-trash" aria-hidden="true"></i></button>
           {/if}
         {/if}
       </li>

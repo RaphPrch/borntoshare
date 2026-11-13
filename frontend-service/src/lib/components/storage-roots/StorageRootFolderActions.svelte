@@ -1,10 +1,12 @@
-<script context="module" lang="ts">
+<script module lang="ts">
   export type FolderActionKind = 'inheritance' | 'delete' | 'subfolder' | 'sensitivity' | 'measure';
   /** The folder an action applies to: the selected storage root, or the one right-clicked in the explorer */
   export type FolderActionTarget = { id: number; name: string; path: string; inheritanceBroken: boolean | null };
 </script>
 
 <script lang="ts">
+  import { run as run_1 } from 'svelte/legacy';
+
   import { tick } from 'svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { t } from '$lib/i18n';
@@ -12,32 +14,39 @@
   import { toast } from '$lib/stores/toast';
   import { createSubfolder, deleteStorageRootFolder, setFolderInheritance } from '$lib/api/storage-root-permissions';
 
-  /**
+  
+  
+  
+  interface Props {
+    /**
    * Operations of the worker on the folder of a storage root, on the file server (platform admins):
    * break / restore the NTFS inheritance, delete the folder, create a sub-folder.
    */
-  export let kind: FolderActionKind | null = null;
-  export let target: FolderActionTarget | null = null;
-  export let onClose: () => void = () => {};
-  /** The inheritance changed: the page reads the ACL again */
-  export let onInheritanceChanged: (rootId: number) => void = () => {};
-  export let onDeleted: (rootId: number) => void = () => {};
-  /** A sub-folder was created; rootId is its storage root when it was registered */
-  export let onSubfolderCreated: (rootId: number | null) => void = () => {};
-
-  let busy = false;
-  let folderName = '';
-  let register = true;
-  let nameError = '';
-
-  let nameInput: HTMLInputElement | null = null;
-  $: if (kind !== 'subfolder') {
-    folderName = '';
-    nameError = '';
-    register = true;
-  } else {
-    void focusName();
+    kind?: FolderActionKind | null;
+    target?: FolderActionTarget | null;
+    onClose?: () => void;
+    /** The inheritance changed: the page reads the ACL again */
+    onInheritanceChanged?: (rootId: number) => void;
+    onDeleted?: (rootId: number) => void;
+    /** A sub-folder was created; rootId is its storage root when it was registered */
+    onSubfolderCreated?: (rootId: number | null) => void;
   }
+
+  let {
+    kind = null,
+    target = null,
+    onClose = () => {},
+    onInheritanceChanged = () => {},
+    onDeleted = () => {},
+    onSubfolderCreated = () => {}
+  }: Props = $props();
+
+  let busy = $state(false);
+  let folderName = $state('');
+  let register = $state(true);
+  let nameError = $state('');
+
+  let nameInput: HTMLInputElement | null = $state(null);
   // The right click leaves the focus on the explorer row: put it in the name field
   async function focusName() {
     await tick();
@@ -113,6 +122,15 @@
       onSubfolderCreated(created?.storage_root_id ?? null);
     }, t('The folder was not created.'), 'storage-root.subfolder');
   }
+  run_1(() => {
+    if (kind !== 'subfolder') {
+      folderName = '';
+      nameError = '';
+      register = true;
+    } else {
+      void focusName();
+    }
+  });
 </script>
 
 <ConfirmActionModal
@@ -166,7 +184,7 @@
     <label class="sub__field">
       <span>{t('Folder name')}</span>
       <input bind:this={nameInput} class="b2s-input" type="text" bind:value={folderName} maxlength="255" autocomplete="off"
-        aria-invalid={Boolean(nameError)} on:input={() => (nameError = '')} />
+        aria-invalid={Boolean(nameError)} oninput={() => (nameError = '')} />
       {#if nameError}<small class="sub__error">{nameError}</small>{/if}
       {#if folderName && !nameError}<small class="sub__path">{target?.path}\{folderName}</small>{/if}
     </label>

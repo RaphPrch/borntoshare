@@ -3,7 +3,7 @@
   import { t } from '$lib/i18n';
 
   /** The options of the 5S menu: the scores, and the scanner of the module */
-  $: path = $page.url.pathname;
+  let path = $derived($page.url.pathname);
   const items = [
     { href: '/five-s', label: () => t('Overview'), icon: 'bi-stars' },
     { href: '/five-s/scanner', label: () => t('Scanner'), icon: 'bi-radar' }

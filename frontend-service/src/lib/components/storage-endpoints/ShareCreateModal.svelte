@@ -1,27 +1,41 @@
 <script lang="ts">
+  
+
   import { t } from '$lib/i18n';
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { createStorageEndpointShare } from '$lib/api/storage-endpoints';
   import { toast } from '$lib/stores/toast';
 
-  /** New share on a file server; its account must be a local administrator of the server. */
-  export let open = false;
-  export let endpointId: number;
-  export let onClose: () => void = () => {};
-  export let onCreated: () => void = () => {};
-
-  let name = '';
-  let path = '';
-  let busy = false;
-  let errorMessage = '';
-
-  $: if (open) {
-    name = '';
-    path = '';
-    errorMessage = '';
+  
+  interface Props {
+    /** New share on a file server; its account must be a local administrator of the server. */
+    open?: boolean;
+    endpointId: number;
+    onClose?: () => void;
+    onCreated?: () => void;
   }
-  $: defaultPath = `C:\\Shares\\${name.trim() || '…'}`;
+
+  let {
+    open = false,
+    endpointId,
+    onClose = () => {},
+    onCreated = () => {}
+  }: Props = $props();
+
+  let name = $state('');
+  let path = $state('');
+  let busy = $state(false);
+  let errorMessage = $state('');
+
+  $effect.pre(() => {
+    if (open) {
+      name = '';
+      path = '';
+      errorMessage = '';
+    }
+  });
+  let defaultPath = $derived(`C:\\Shares\\${name.trim() || '…'}`);
 
   async function submit(): Promise<void> {
     busy = true;
@@ -52,12 +66,14 @@
     </label>
     {#if errorMessage}<InlineAlert tone="error">{errorMessage}</InlineAlert>{/if}
   </div>
-  <svelte:fragment slot="footer">
-    <button type="button" class="b2s-btn b2s-btn-secondary" disabled={busy} on:click={onClose}>{t('Cancel')}</button>
-    <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy || !name.trim()} on:click={submit}>
-      {busy ? t('Creating…') : t('Create the share')}
-    </button>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <button type="button" class="b2s-btn b2s-btn-secondary" disabled={busy} onclick={onClose}>{t('Cancel')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary" disabled={busy || !name.trim()} onclick={submit}>
+        {busy ? t('Creating…') : t('Create the share')}
+      </button>
+    
+  {/snippet}
 </AppModal>
 
 <style>

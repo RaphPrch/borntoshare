@@ -4,16 +4,21 @@
   import { timeAgo } from '$lib/utils/format';
   import type { DfsCounts, DfsInfo } from './dfs-namespace';
 
-  /** The figures of a DFS namespace as four tiles: its DFS folders, managed, to manage, target servers. */
-  export let info: DfsInfo | null = null;
-  export let counts: DfsCounts;
-  export let onOpenFolders: () => void = () => {};
+  
+  interface Props {
+    /** The figures of a DFS namespace as four tiles: its DFS folders, managed, to manage, target servers. */
+    info?: DfsInfo | null;
+    counts: DfsCounts;
+    onOpenFolders?: () => void;
+  }
 
-  $: rest = Math.max(0, counts.all - counts.managed - counts.todo - counts.unknown);
+  let { info = null, counts, onOpenFolders = () => {} }: Props = $props();
+
+  let rest = $derived(Math.max(0, counts.all - counts.managed - counts.todo - counts.unknown));
 </script>
 
 <section class="b2s-stat-tiles" aria-label={t('Namespace summary')}>
-  <button type="button" class="b2s-stat-tile" on:click={onOpenFolders}>
+  <button type="button" class="b2s-stat-tile" onclick={onOpenFolders}>
     <span>{t('DFS folders')}</span>
     <b>{info ? counts.all : '—'}</b>
     <small>{info?.read_at ? t('read {ago}', { ago: timeAgo(info.read_at) }) : t('never read')}</small>
@@ -23,17 +28,17 @@
       </span>
     {/if}
   </button>
-  <button type="button" class="b2s-stat-tile" on:click={onOpenFolders}>
+  <button type="button" class="b2s-stat-tile" onclick={onOpenFolders}>
     <span>{t('Managed')}</span>
     <b class:is-ok={counts.all > 0 && counts.managed === counts.all}><CountUp value={Number(counts.managed)} /></b>
     <small>{t('their targets are governed folders')}</small>
   </button>
-  <button type="button" class="b2s-stat-tile" on:click={onOpenFolders}>
+  <button type="button" class="b2s-stat-tile" onclick={onOpenFolders}>
     <span>{t('To manage')}</span>
     <b class:is-warn={counts.todo > 0}><CountUp value={Number(counts.todo)} /></b>
     <small>{counts.todo ? t('one click manages them on every target') : t('nothing left to manage')}</small>
   </button>
-  <button type="button" class="b2s-stat-tile" on:click={onOpenFolders}>
+  <button type="button" class="b2s-stat-tile" onclick={onOpenFolders}>
     <span>{t('Target servers')}</span>
     <b><CountUp value={Number(counts.servers)} /></b>
     <small class:is-bad={counts.unknownServers.length > 0}>

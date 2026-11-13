@@ -7,11 +7,15 @@
   import { HEALTH_INTERVALS, SYNC_INTERVALS, intervalLabel } from '$lib/utils/infrastructure';
   import { runSchedule, updateSchedule, type InfraSchedule, type ScheduleTask } from '$lib/api/infrastructure';
 
-  export let schedules: InfraSchedule[] = [];
-  export let onChanged: () => Promise<void> | void = () => {};
+  interface Props {
+    schedules?: InfraSchedule[];
+    onChanged?: () => Promise<void> | void;
+  }
 
-  let busy: ScheduleTask | null = null;
-  let running: ScheduleTask | null = null;
+  let { schedules = $bindable([]), onChanged = () => {} }: Props = $props();
+
+  let busy: ScheduleTask | null = $state(null);
+  let running: ScheduleTask | null = $state(null);
 
   const TASKS: Record<ScheduleTask, { icon: string; title: () => string; text: () => string; intervals: number[] }> = {
     health_check: {
@@ -126,7 +130,7 @@
             class="cap-switch"
             checked={schedule.is_enabled}
             disabled={busy === schedule.task}
-            on:change={(e) => save(schedule.task, { is_enabled: e.currentTarget.checked })}
+            onchange={(e) => save(schedule.task, { is_enabled: e.currentTarget.checked })}
           />
           <span>{schedule.is_enabled ? t('Enabled') : t('Disabled')}</span>
         </label>
@@ -139,7 +143,7 @@
             class="b2s-select"
             value={schedule.interval_minutes}
             disabled={busy === schedule.task}
-            on:change={(e) => save(schedule.task, { interval_minutes: Number(e.currentTarget.value) })}
+            onchange={(e) => save(schedule.task, { interval_minutes: Number(e.currentTarget.value) })}
           >
             {#each meta.intervals.includes(schedule.interval_minutes) ? meta.intervals : [...meta.intervals, schedule.interval_minutes].sort((a, b) => a - b) as minutes (minutes)}
               <option value={minutes}>{intervalLabel(minutes)}</option>
@@ -188,7 +192,7 @@
                   class="cap-switch"
                   checked={schedule.options?.[part.key] !== false}
                   disabled={busy === schedule.task}
-                  on:change={(e) => toggleOption(schedule, part.key, e.currentTarget.checked)}
+                  onchange={(e) => toggleOption(schedule, part.key, e.currentTarget.checked)}
                 />
               </label>
             {/each}
@@ -197,7 +201,7 @@
       </div>
 
       <footer class="card__foot">
-        <button type="button" class="b2s-btn b2s-btn-secondary" on:click={() => runNow(schedule.task)} disabled={running !== null || schedule.last_status === 'running'}>
+        <button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => runNow(schedule.task)} disabled={running !== null || schedule.last_status === 'running'}>
           <i class={`bi ${running === schedule.task ? 'bi-hourglass-split' : 'bi-play-fill'}`} aria-hidden="true"></i>
           {running === schedule.task ? t('Running…') : t('Run now')}
         </button>

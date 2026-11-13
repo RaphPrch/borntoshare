@@ -1,4 +1,6 @@
 <script lang="ts">
+  
+
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import Drawer from "$lib/components/ui/Drawer.svelte";
@@ -8,75 +10,90 @@
 
   import type { ZoneOverview } from "$lib/api/zones";
 
-  export let open: boolean;
-  export let zone: ZoneOverview | null;
-  export let mode: "create" | "edit" | "delete";
 
-  export let onClose: () => void;
-  export let onSubmit: (payload: any) => Promise<void> | void;
-  export let onDelete: () => Promise<void> | void;
+  interface Props {
+    open: boolean;
+    zone: ZoneOverview | null;
+    mode: "create" | "edit" | "delete";
+    onClose: () => void;
+    onSubmit: (payload: any) => Promise<void> | void;
+    onDelete: () => Promise<void> | void;
+  }
 
-  let form = {
+  let {
+    open,
+    zone,
+    mode,
+    onClose,
+    onSubmit,
+    onDelete
+  }: Props = $props();
+
+  let form = $state({
     name: "",
     code: "",
     description: "",
-  };
+  });
 
-  let busy = false;
-  let closeConfirmOpen = false;
+  let busy = $state(false);
+  let closeConfirmOpen = $state(false);
 
-  $: saved = mode === "create" ? { name: "", code: "", description: "" } : { name: zone?.name ?? "", code: zone?.code ?? "", description: zone?.description ?? "" };
-  $: isDirty = mode !== "delete" && JSON.stringify(form) !== JSON.stringify(saved);
+  let saved = $derived(mode === "create" ? { name: "", code: "", description: "" } : { name: zone?.name ?? "", code: zone?.code ?? "", description: zone?.description ?? "" });
+  let isDirty = $derived(mode !== "delete" && JSON.stringify(form) !== JSON.stringify(saved));
 
   function requestClose() {
     if (busy) return;
     if (isDirty) closeConfirmOpen = true;
     else onClose();
   }
-  let errorMsg: string | null = null;
+  let errorMsg: string | null = $state(null);
 
-  $: if (mode === "create") {
-    errorMsg = null;
-    form = {
-      name: "",
-      code: "",
-      description: "",
-    };
-  }
+  $effect.pre(() => {
+    if (mode === "create") {
+      errorMsg = null;
+      form = {
+        name: "",
+        code: "",
+        description: "",
+      };
+    }
+  });
 
-  $: if (zone && mode !== "create") {
-    errorMsg = null;
-    form = {
-      name: zone.name ?? "",
-      code: zone.code ?? "",
-      description: zone.description ?? "",
-    };
-  }
+  $effect.pre(() => {
+    if (zone && mode !== "create") {
+      errorMsg = null;
+      form = {
+        name: zone.name ?? "",
+        code: zone.code ?? "",
+        description: zone.description ?? "",
+      };
+    }
+  });
 
-  $: drawerTitle =
-    mode === "create"
+  let drawerTitle =
+    $derived(mode === "create"
       ? t('Create zone')
       : mode === "edit"
         ? t('Edit zone')
-        : t('Delete zone');
-  $: drawerSubtitle =
-    mode === "delete"
+        : t('Delete zone'));
+  let drawerSubtitle =
+    $derived(mode === "delete"
       ? t('This action is permanent.')
       : mode === "create"
         ? t('Define the zone identity and default governance context.')
-        : String((zone as any)?.name ?? (zone as any)?.zone_name ?? '') || t('Update the zone identity and default governance context.');
-  $: confirmLabel =
-    mode === "delete"
+        : String((zone as any)?.name ?? (zone as any)?.zone_name ?? '') || t('Update the zone identity and default governance context.'));
+  let confirmLabel =
+    $derived(mode === "delete"
       ? t('Delete')
       : mode === "create"
         ? t('Create')
-        : t('Save changes');
-  $: busyLabel =
-    mode === "delete"
+        : t('Save changes'));
+  let busyLabel =
+    $derived(mode === "delete"
       ? t('Deleting...')
       : mode === "create"
         ? t('Creating...')
-        : t('Saving...');
+        : t('Saving...'));
 
   async function submit() {
     errorMsg = null;
@@ -156,19 +173,21 @@
     {/if}
   </div>
 
-  <svelte:fragment slot="footer">
-    <div class="zone-form-drawer__actions">
-      <EntityActionButton variant="secondary" label={t('Cancel')} disabled={busy} onClick={requestClose} />
-      <EntityActionButton
-        variant={mode === "delete" ? "danger" : "primary"}
-        icon={busy ? "bi-arrow-repeat" : mode === "delete" ? "bi-trash" : "bi-check2"}
-        busy={busy}
-        label={busy ? busyLabel : confirmLabel}
-        disabled={busy}
-        onClick={confirm}
-      />
-    </div>
-  </svelte:fragment>
+  {#snippet footer()}
+  
+      <div class="zone-form-drawer__actions">
+        <EntityActionButton variant="secondary" label={t('Cancel')} disabled={busy} onClick={requestClose} />
+        <EntityActionButton
+          variant={mode === "delete" ? "danger" : "primary"}
+          icon={busy ? "bi-arrow-repeat" : mode === "delete" ? "bi-trash" : "bi-check2"}
+          busy={busy}
+          label={busy ? busyLabel : confirmLabel}
+          disabled={busy}
+          onClick={confirm}
+        />
+      </div>
+    
+  {/snippet}
 </Drawer>
 
 <UnsavedChangesDialog open={closeConfirmOpen} onKeepEditing={() => (closeConfirmOpen = false)} onDiscard={() => { closeConfirmOpen = false; onClose(); }} />

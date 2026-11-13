@@ -7,15 +7,24 @@
   import { reportUiError } from '$lib/errors';
   import { saveAdvancedSections } from '$lib/api/admin-advanced-settings';
 
-  /** Advanced settings › Governance: the durations offered to a new request, the permanent access, the reason. */
-  export let requests: { durations?: number[]; allowPermanent?: boolean; maxDays?: number; minReasonLength?: number } = {};
+  
+  interface Props {
+    /** Advanced settings › Governance: the durations offered to a new request, the permanent access, the reason. */
+    requests?: { durations?: number[]; allowPermanent?: boolean; maxDays?: number; minReasonLength?: number };
+  }
 
-  let durations = [...(requests.durations ?? [7, 30, 90])];
-  let allowPermanent = requests.allowPermanent ?? true;
-  let maxDays = requests.maxDays ?? 365;
-  let minReasonLength = requests.minReasonLength ?? 10;
-  let newDuration = '';
-  let saving = false;
+  let { requests = {} }: Props = $props();
+
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let durations = $state([...(requests.durations ?? [7, 30, 90])]);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let allowPermanent = $state(requests.allowPermanent ?? true);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let maxDays = $state(requests.maxDays ?? 365);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let minReasonLength = $state(requests.minReasonLength ?? 10);
+  let newDuration = $state('');
+  let saving = $state(false);
   const snap = () => JSON.stringify([durations, allowPermanent, Number(maxDays), Number(minReasonLength)]);
   let savedSnap = snap();
   guardUnsaved(() => snap() !== savedSnap);
@@ -25,11 +34,11 @@
     if (Number.isInteger(days) && days > 0 && days <= 3650 && !durations.includes(days)) durations = [...durations, days].sort((a, b) => a - b);
     newDuration = '';
   }
-  $: error = !durations.length && !allowPermanent
+  let error = $derived(!durations.length && !allowPermanent
     ? t('Offer at least one duration, or allow the permanent access.')
     : durations.some((days) => days > maxDays)
       ? t('A duration offered goes beyond the longest access.')
-      : null;
+      : null);
 
   async function save() {
     saving = true;
@@ -50,10 +59,10 @@
     <SettingRow label={t('Durations offered')}>
       <div class="rp__chips">
         {#each durations as days (days)}
-          <span class="rp__chip">{t('{count} days', { count: days })}<button type="button" aria-label={t('Remove')} on:click={() => (durations = durations.filter((d) => d !== days))}>×</button></span>
+          <span class="rp__chip">{t('{count} days', { count: days })}<button type="button" aria-label={t('Remove')} onclick={() => (durations = durations.filter((d) => d !== days))}>×</button></span>
         {/each}
-        <input class="b2s-input rp__add" type="number" min="1" max="3650" bind:value={newDuration} placeholder={t('days')} on:keydown={(e) => e.key === 'Enter' && addDuration()} aria-label={t('Add a duration')} />
-        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={addDuration}>{t('Add')}</button>
+        <input class="b2s-input rp__add" type="number" min="1" max="3650" bind:value={newDuration} placeholder={t('days')} onkeydown={(e) => e.key === 'Enter' && addDuration()} aria-label={t('Add a duration')} />
+        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={addDuration}>{t('Add')}</button>
       </div>
       <small class="adv-hint">{t('The requester can also pick a date, within the longest access.')}</small>
     </SettingRow>
@@ -72,7 +81,7 @@
   </div>
   {#if error}<small class="rp__error">{error}</small>{/if}
   <div class="adv-actions">
-    <button class="b2s-btn b2s-btn-primary" type="button" on:click={save} disabled={saving || Boolean(error)}><i class="bi bi-check2" aria-hidden="true"></i>{saving ? t('Saving…') : t('Save changes')}</button>
+    <button class="b2s-btn b2s-btn-primary" type="button" onclick={save} disabled={saving || Boolean(error)}><i class="bi bi-check2" aria-hidden="true"></i>{saving ? t('Saving…') : t('Save changes')}</button>
   </div>
 </ConfigCard>
 

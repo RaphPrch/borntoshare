@@ -3,14 +3,27 @@
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import type { EntityAlertStripItem } from '$lib/components/entity/entity-alerts.types';
 
-  export let open = false;
-  export let title = t('Alerts');
-  export let subtitle: string | null = null;
-  export let items: EntityAlertStripItem[] = [];
-  export let emptyLabel = t('No alert found.');
-  export let onClose: () => void = () => {};
-  export let ariaLabelledby = 'entity-alerts-drawer-title';
-  export let size: 'md' | 'lg' = 'md';
+  interface Props {
+    open?: boolean;
+    title?: any;
+    subtitle?: string | null;
+    items?: EntityAlertStripItem[];
+    emptyLabel?: any;
+    onClose?: () => void;
+    ariaLabelledby?: string;
+    size?: 'md' | 'lg';
+  }
+
+  let {
+    open = false,
+    title = t('Alerts'),
+    subtitle = null,
+    items = [],
+    emptyLabel = t('No alert found.'),
+    onClose = () => {},
+    ariaLabelledby = 'entity-alerts-drawer-title',
+    size = 'md'
+  }: Props = $props();
 </script>
 
 <Drawer

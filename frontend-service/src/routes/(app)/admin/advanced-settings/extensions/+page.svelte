@@ -45,19 +45,19 @@
     { key: 'critical', label: () => t('Critical') }
   ];
 
-  let extensions: Extension[] = [];
-  let deliveries: ExtensionDelivery[] = [];
-  let healthPath = '/monitoring/health';
-  let loading = true;
+  let extensions: Extension[] = $state([]);
+  let deliveries: ExtensionDelivery[] = $state([]);
+  let healthPath = $state('/monitoring/health');
+  let loading = $state(true);
 
   const TAB_KEYS = ['catalog', 'routing', 'deliveries'];
-  $: active = TAB_KEYS.includes($page.url.searchParams.get('tab') ?? '') ? String($page.url.searchParams.get('tab')) : 'catalog';
-  $: failedCount = extensions.filter((item) => item.enabled && item.stats?.last_status === 'failed').length;
-  $: tabs = [
+  let active = $derived(TAB_KEYS.includes($page.url.searchParams.get('tab') ?? '') ? String($page.url.searchParams.get('tab')) : 'catalog');
+  let failedCount = $derived(extensions.filter((item) => item.enabled && item.stats?.last_status === 'failed').length);
+  let tabs = $derived([
     { key: 'catalog', label: t('Extensions'), icon: 'bi-plug', count: extensions.filter((item) => item.enabled).length },
     { key: 'routing', label: t('What goes where'), icon: 'bi-signpost-split' },
     { key: 'deliveries', label: t('Deliveries'), icon: 'bi-send-check', count: failedCount || null }
-  ];
+  ]);
   function setTab(key: string) {
     const url = new URL($page.url);
     url.searchParams.set('tab', key);
@@ -88,15 +88,15 @@
     !item ? '' : item.key === 'centreon' ? t('Platform state, on request') : item.key === 'servicenow' ? t('Incidents from the alerts') : [item.routes.audit ? t('Audit') : '', item.routes.alerts ? t('Alerts') : ''].filter(Boolean).join(' · ') || '—';
 
   // ---- drawer -----------------------------------------------------------------------------------
-  let editing: Extension | null = null;
-  let form: Record<string, any> = {};
-  let routes: ExtensionRoutes = { audit: true, alerts: true, min_severity: 'high' };
-  let enabled = false;
-  let secret = '';
-  let saving = false;
-  let testing = false;
-  let testResult: { ok: boolean; text: string } | null = null;
-  let shownToken = '';
+  let editing: Extension | null = $state(null);
+  let form: Record<string, any> = $state({});
+  let routes: ExtensionRoutes = $state({ audit: true, alerts: true, min_severity: 'high' });
+  let enabled = $state(false);
+  let secret = $state('');
+  let saving = $state(false);
+  let testing = $state(false);
+  let testResult: { ok: boolean; text: string } | null = $state(null);
+  let shownToken = $state('');
 
   function open(key: string) {
     const item = byKey(key);
@@ -118,8 +118,8 @@
     shownToken = '';
   }
   // Grafana keeps its Loki and annotation tokens together; an empty field keeps the saved value
-  let lokiSecret = '';
-  let grafanaSecret = '';
+  let lokiSecret = $state('');
+  let grafanaSecret = $state('');
   const payload = () => {
     if (editing?.key === 'grafana') {
       const keys = Object.fromEntries(Object.entries({ loki: lokiSecret.trim(), grafana: grafanaSecret.trim() }).filter(([, value]) => value));
@@ -178,16 +178,16 @@
       reportUiError(error, t('Unable to renew the token.'), 'extensions.token');
     }
   }
-  $: checkUrl = `${$page.url.origin}${healthPath}`;
-  $: syslogPreview =
-    form.format === 'json'
+  let checkUrl = $derived(`${$page.url.origin}${healthPath}`);
+  let syslogPreview =
+    $derived(form.format === 'json'
       ? `{"app":"${form.app_name || 'borntoshare'}","type":"audit","action":"access_request.created","actor":"paul.martin","target":"Paris - Finance",…}`
       : form.format === 'cef'
         ? 'CEF:0|BornToShare|BornToShare|1.0|access_request.created|access_request.created REQ-927|3|act=access_request.created suser=paul.martin fname=Paris - Finance'
-        : `<${(({ local0: 16, local1: 17, local2: 18, local3: 19, local4: 20, local5: 21, local6: 22, local7: 23, auth: 4 } as Record<string, number>)[form.facility] ?? 20) * 8 + 6}>1 2026-11-04T10:41:55Z b2s-core ${form.app_name || 'borntoshare'} - access_request.created [b2s@32473 actor="paul.martin" target="Paris - Finance"] access_request.created REQ-927`;
+        : `<${(({ local0: 16, local1: 17, local2: 18, local3: 19, local4: 20, local5: 21, local6: 22, local7: 23, auth: 4 } as Record<string, number>)[form.facility] ?? 20) * 8 + 6}>1 2026-11-04T10:41:55Z b2s-core ${form.app_name || 'borntoshare'} - access_request.created [b2s@32473 actor="paul.martin" target="Paris - Finance"] access_request.created REQ-927`);
 
   // ---- routing grid ---------------------------------------------------------------------------------
-  let routingBusy = false;
+  let routingBusy = $state(false);
   async function saveRoutes() {
     routingBusy = true;
     try {
@@ -233,9 +233,9 @@
               <small class="ext__muted">{product.key === 'centreon' ? t('Nothing is sent: Centreon asks.') : t('Nothing sent yet.')}</small>
             {/if}
             <footer>
-              <button type="button" class="b2s-link-btn" on:click={() => open(product.key)}>{item?.configured ? t('Configure') : t('Connect')} ›</button>
+              <button type="button" class="b2s-link-btn" onclick={() => open(product.key)}>{item?.configured ? t('Configure') : t('Connect')} ›</button>
               <label class="form-check form-switch" title={item?.enabled ? t('Disable') : t('Enable')}>
-                <input class="form-check-input" type="checkbox" role="switch" checked={Boolean(item?.enabled)} on:change={() => toggle(product.key)} aria-label={t('Enable {name}', { name: product.name })} />
+                <input class="form-check-input" type="checkbox" role="switch" checked={Boolean(item?.enabled)} onchange={() => toggle(product.key)} aria-label={t('Enable {name}', { name: product.name })} />
               </label>
             </footer>
           {:else}
@@ -265,7 +265,7 @@
           </tr>
         </tbody>
       </table>
-      <footer><small class="ext__muted">{t('Centreon receives nothing: it asks for the platform state. An extension not configured yet is greyed.')}</small><button type="button" class="b2s-btn b2s-btn-primary" disabled={routingBusy} on:click={saveRoutes}><i class="bi bi-check2" aria-hidden="true"></i>{t('Save')}</button></footer>
+      <footer><small class="ext__muted">{t('Centreon receives nothing: it asks for the platform state. An extension not configured yet is greyed.')}</small><button type="button" class="b2s-btn b2s-btn-primary" disabled={routingBusy} onclick={saveRoutes}><i class="bi bi-check2" aria-hidden="true"></i>{t('Save')}</button></footer>
     </section>
   {:else}
     <section class="ext__panel">
@@ -294,7 +294,9 @@
 </div>
 
 <Drawer open={Boolean(editing)} onClose={() => (editing = null)} title={editing ? nameOf(editing.key) : ''} subtitle={editing ? PRODUCTS.find((p) => p.key === editing?.key)?.description() ?? '' : ''} size="lg">
-  <svelte:fragment slot="header-icon">{#if editing}<ExtensionIcon product={editing.key} size={36} />{/if}</svelte:fragment>
+  {#snippet headerIcon()}
+    {#if editing}<ExtensionIcon product={editing.key} size={36} />{/if}
+  {/snippet}
   {#if editing}
     <div class="ext__form">
       {#if editing.key === 'syslog'}
@@ -382,7 +384,7 @@
         {#if shownToken}
           <div class="ext__field"><span>{t('Token (shown once: copy it into Centreon)')}</span><code class="ext__preview is-token">{shownToken}</code></div>
         {:else if editing.has_secret}
-          <div class="ext__line"><small class="ext__muted">{t('A token is set. Renewing it stops the previous one.')}</small><button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={renewToken}><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{t('Renew the token')}</button></div>
+          <div class="ext__line"><small class="ext__muted">{t('A token is set. Renewing it stops the previous one.')}</small><button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={renewToken}><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{t('Renew the token')}</button></div>
         {:else}
           <small class="ext__muted">{t('The token is created when you save with the extension enabled.')}</small>
         {/if}
@@ -390,14 +392,18 @@
       {#if testResult}<p class="ext__result" class:is-ok={testResult.ok} class:is-bad={!testResult.ok}>{testResult.text}</p>{/if}
     </div>
   {/if}
-  <svelte:fragment slot="footer-start">
-    <label class="form-check form-switch ext__enable"><input class="form-check-input" type="checkbox" role="switch" bind:checked={enabled} />{enabled ? t('Enabled') : t('Disabled')}</label>
-  </svelte:fragment>
-  <svelte:fragment slot="footer">
-    <button type="button" class="b2s-btn b2s-btn-secondary" disabled={saving} on:click={() => (editing = null)}>{t('Cancel')}</button>
-    {#if editing?.events.length}<button type="button" class="b2s-btn b2s-btn-secondary" disabled={testing || saving} on:click={runTest}><i class="bi bi-lightning-charge" aria-hidden="true"></i>{testing ? t('Testing…') : t('Send a test')}</button>{/if}
-    <button type="button" class="b2s-btn b2s-btn-primary" disabled={saving} on:click={save}><i class="bi {saving ? 'bi-arrow-repeat' : 'bi-check2'}" aria-hidden="true"></i>{t('Save')}</button>
-  </svelte:fragment>
+  {#snippet footerStart()}
+  
+      <label class="form-check form-switch ext__enable"><input class="form-check-input" type="checkbox" role="switch" bind:checked={enabled} />{enabled ? t('Enabled') : t('Disabled')}</label>
+    
+  {/snippet}
+  {#snippet footer()}
+  
+      <button type="button" class="b2s-btn b2s-btn-secondary" disabled={saving} onclick={() => (editing = null)}>{t('Cancel')}</button>
+      {#if editing?.events.length}<button type="button" class="b2s-btn b2s-btn-secondary" disabled={testing || saving} onclick={runTest}><i class="bi bi-lightning-charge" aria-hidden="true"></i>{testing ? t('Testing…') : t('Send a test')}</button>{/if}
+      <button type="button" class="b2s-btn b2s-btn-primary" disabled={saving} onclick={save}><i class="bi {saving ? 'bi-arrow-repeat' : 'bi-check2'}" aria-hidden="true"></i>{t('Save')}</button>
+    
+  {/snippet}
 </Drawer>
 
 <style>

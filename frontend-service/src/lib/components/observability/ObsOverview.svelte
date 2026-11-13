@@ -9,9 +9,14 @@
   import { alertMessage } from '$lib/mappers/storage-root-alerts.mapper';
   import type { StatusVariant } from '$lib/utils/status';
 
-  export let data: ObsOverview;
-  /** Link to a tab of the page, with its filters */
-  export let tabHref: (tab: string, params?: Record<string, string>) => string;
+  
+  interface Props {
+    data: ObsOverview;
+    /** Link to a tab of the page, with its filters */
+    tabHref: (tab: string, params?: Record<string, string>) => string;
+  }
+
+  let { data, tabHref }: Props = $props();
 
   const SEVERITY_VARIANT: Record<string, StatusVariant> = { critical: 'error', high: 'error', warning: 'warning', info: 'info' };
   const severityLabel = (value: string): string =>
@@ -19,19 +24,19 @@
   const PERIOD_LABEL: Record<string, () => string> = { '24h': () => t('24 h'), '7d': () => t('7 days'), '30d': () => t('30 days') };
   const CORE_FAMILIES = new Set(['service', 'data', 'queue', 'web']);
 
-  $: health = data.health;
-  $: alerts = data.alerts;
-  $: jobs = data.jobs;
-  $: signIns = data.sign_ins;
-  $: periodLabel = PERIOD_LABEL[data.period]?.() ?? data.period;
-  $: platformDown = health.down.length > 0 && data.health.families.some((f) => f.down > 0 && CORE_FAMILIES.has(f.key));
-  $: state = health.summary.total === 0
+  let health = $derived(data.health);
+  let alerts = $derived(data.alerts);
+  let jobs = $derived(data.jobs);
+  let signIns = $derived(data.sign_ins);
+  let periodLabel = $derived(PERIOD_LABEL[data.period]?.() ?? data.period);
+  let platformDown = $derived(health.down.length > 0 && data.health.families.some((f) => f.down > 0 && CORE_FAMILIES.has(f.key)));
+  let state = $derived(health.summary.total === 0
     ? 'unknown'
     : platformDown
       ? 'down'
       : health.down.length || health.degraded.length || alerts.critical_open
         ? 'degraded'
-        : 'healthy';
+        : 'healthy');
 
   const HERO: Record<string, { title: () => string; icon: string }> = {
     healthy: { title: () => t('All systems operational'), icon: 'bi-check-lg' },
@@ -40,7 +45,7 @@
     unknown: { title: () => t('State not known yet'), icon: 'bi-question-lg' }
   };
 
-  $: heroText = [
+  let heroText = $derived([
     health.down.length
       ? t('{n} component(s) down ({names})', {
           n: health.down.length,
@@ -53,15 +58,15 @@
           : t('No health check yet'),
     alerts.critical_open ? t('{n} critical alert(s) to handle', { n: alerts.critical_open }) : t('No critical alert'),
     health.last_check_at ? t('last check {ago}', { ago: timeAgo(health.last_check_at) }) : ''
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(' · '));
 
-  $: heroAction = health.down.length
+  let heroAction = $derived(health.down.length
     ? { label: t('See what is down'), href: tabHref('health') }
     : alerts.critical_open
       ? { label: t('See the critical alerts'), href: tabHref('alerts', { severity: 'critical_high' }) }
-      : null;
+      : null);
 
-  $: families = CATEGORIES.map((c) => ({ ...c, family: health.families.find((f) => f.key === c.key) })).filter((c) => c.family);
+  let families = $derived(CATEGORIES.map((c) => ({ ...c, family: health.families.find((f) => f.key === c.key) })).filter((c) => c.family));
 
   function eventRow(entry: Record<string, unknown>) {
     const rendered = formatActivityItem(entry as never);
@@ -77,7 +82,7 @@
     };
   }
 
-  $: events = data.events.slice(0, 7).map(eventRow);
+  let events = $derived(data.events.slice(0, 7).map(eventRow));
 
   const hourOf = (iso: string) => {
     const d = new Date(iso);
@@ -90,7 +95,7 @@
       UNAUTHENTICATED: t('wrong password'),
       FORBIDDEN: t('inactive account')
     } as Record<string, string>)[code] ?? code.toLowerCase();
-  $: refusedHint = Object.entries(
+  let refusedHint = $derived(Object.entries(
     Object.entries(signIns.reasons).reduce<Record<string, number>>((acc, [code, n]) => {
       const label = reasonLabel(code);
       acc[label] = (acc[label] ?? 0) + n;
@@ -98,7 +103,7 @@
     }, {})
   )
     .map(([label, n]) => `${n} ${label}`)
-    .join(' · ');
+    .join(' · '));
 </script>
 
 <section class={`hero is-${state}`}>

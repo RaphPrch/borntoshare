@@ -14,30 +14,55 @@
     endpoints: EndpointRow[];
   };
 
-  /** List pane of the storage endpoints page: zone > endpoint > its storage roots (links to the storage roots page). */
-  export let query = '';
-  /** « + » next to the search (see EntitySidebarTree) */
-  export let onAdd: (() => void) | null = null;
-  export let addLabel = '';
-  export let groups: EndpointZoneGroup[] = [];
-  export let roots: RootRow[] = [];
-  /** A server id, or « dfs-server:DFS01 » for a DFS server (its namespaces have no line of their own) */
-  export let selectedEndpointId: number | string | null = null;
-  export let onSelectDfsServer: (server: string, firstNamespaceId: number) => void = () => {};
-  export let onSelectEndpoint: (id: number) => void = () => {};
-  export let onQueryChange: (value: string) => void = () => {};
-  export let endpointId: (ep: EndpointRow) => number = () => 0;
-  export let endpointName: (ep: EndpointRow) => string = () => t('Endpoint');
-  export let endpointHost: (ep: EndpointRow) => string = () => '';
-  export let endpointTone: (ep: EndpointRow) => 'healthy' | 'warning' | 'error' = () => 'warning';
-  export let endpointAlertCount: (ep: EndpointRow) => number = () => 0;
-  export let endpointAlertIndicator: (ep: EndpointRow) => { kind: 'warning' | 'error'; label: string } | null = () => null;
-  /** Right click on a file server (not a DFS namespace): its menu */
-  export let onEndpointMenu: ((ep: EndpointRow, event: MouseEvent) => void) | null = null;
+  
+  
+  
+  
+  interface Props {
+    /** List pane of the storage endpoints page: zone > endpoint > its storage roots (links to the storage roots page). */
+    query?: string;
+    /** « + » next to the search (see EntitySidebarTree) */
+    onAdd?: (() => void) | null;
+    addLabel?: string;
+    groups?: EndpointZoneGroup[];
+    roots?: RootRow[];
+    /** A server id, or « dfs-server:DFS01 » for a DFS server (its namespaces have no line of their own) */
+    selectedEndpointId?: number | string | null;
+    onSelectDfsServer?: (server: string, firstNamespaceId: number) => void;
+    onSelectEndpoint?: (id: number) => void;
+    onQueryChange?: (value: string) => void;
+    endpointId?: (ep: EndpointRow) => number;
+    endpointName?: (ep: EndpointRow) => string;
+    endpointHost?: (ep: EndpointRow) => string;
+    endpointTone?: (ep: EndpointRow) => 'healthy' | 'warning' | 'error';
+    endpointAlertCount?: (ep: EndpointRow) => number;
+    endpointAlertIndicator?: (ep: EndpointRow) => { kind: 'warning' | 'error'; label: string } | null;
+    /** Right click on a file server (not a DFS namespace): its menu */
+    onEndpointMenu?: ((ep: EndpointRow, event: MouseEvent) => void) | null;
+  }
+
+  let {
+    query = '',
+    onAdd = null,
+    addLabel = '',
+    groups = [],
+    roots = [],
+    selectedEndpointId = null,
+    onSelectDfsServer = () => {},
+    onSelectEndpoint = () => {},
+    onQueryChange = () => {},
+    endpointId = () => 0,
+    endpointName = () => t('Endpoint'),
+    endpointHost = () => '',
+    endpointTone = () => 'warning',
+    endpointAlertCount = () => 0,
+    endpointAlertIndicator = () => null,
+    onEndpointMenu = null
+  }: Props = $props();
 
   const ROOT_PREFIX = 'root:';
   const DFS_PREFIX = 'dfs-server:';
-  let filter = 'all';
+  let filter = $state('all');
 
   const byLabel = (a: { label: string }, b: { label: string }): number =>
     a.label.localeCompare(b.label, 'fr', { sensitivity: 'base', numeric: true });
@@ -48,12 +73,12 @@
   // DFS01.CORP.LOCAL -> DFS01: the namespace server, named once above its namespaces
   const serverOf = (ep: EndpointRow) => (endpointHost(ep) || '—').split('.')[0].toUpperCase();
 
-  $: rootsByEndpoint = roots.reduce((map, row) => {
+  let rootsByEndpoint = $derived(roots.reduce((map, row) => {
     const id = Number(row?.storage_endpoint_id ?? 0);
     if (!map.has(id)) map.set(id, []);
     map.get(id)!.push(row);
     return map;
-  }, new Map<number, RootRow[]>());
+  }, new Map<number, RootRow[]>()));
 
   // \\corp.local\brest: the folders reached through the namespace hang under it, along their DFS path
   const capabilitiesOf = (ep: EndpointRow): Record<string, any> => {
@@ -133,14 +158,14 @@
     };
   }
 
-  $: allEndpoints = groups.flatMap((zone) => zone.endpoints);
-  $: filters = [
+  let allEndpoints = $derived(groups.flatMap((zone) => zone.endpoints));
+  let filters = $derived([
     { key: 'all', label: t('All'), count: allEndpoints.length },
     { key: 'todo', label: t('To review'), count: allEndpoints.filter((ep) => endpointTone(ep) !== 'healthy').length },
     { key: 'unreachable', label: t('Unreachable'), count: allEndpoints.filter((ep) => endpointTone(ep) === 'error').length }
-  ];
+  ]);
 
-  $: nodes = groups
+  let nodes = $derived(groups
     .map((zone): EntityTreeNode => {
       const endpoints = zone.endpoints.filter(keep);
       const alerts = endpoints.reduce((total, ep) => total + endpointAlertCount(ep), 0);
@@ -172,7 +197,7 @@
         ]
       };
     })
-    .filter((zone) => (zone.children ?? []).length > 0);
+    .filter((zone) => (zone.children ?? []).length > 0));
 
   function select(id: string | number): void {
     const value = String(id);

@@ -1,32 +1,49 @@
 <script lang="ts">
   import type { EntityActionVariant } from './EntityActionGroup.svelte';
 
-  export let label = '';
-  export let icon = '';
-  export let busyIcon = 'bi-hourglass-split';
-  export let busy = false;
-  export let disabled = false;
-  export let variant: EntityActionVariant = 'secondary';
-  export let iconOnly = false;
-  export let className = '';
-  export let title: string | null = null;
-  export let ariaLabel: string | null = null;
-  export let stopPropagation = false;
-  export let onClick: () => void = () => {};
+  interface Props {
+    label?: string;
+    icon?: string;
+    busyIcon?: string;
+    busy?: boolean;
+    disabled?: boolean;
+    variant?: EntityActionVariant;
+    iconOnly?: boolean;
+    className?: string;
+    title?: string | null;
+    ariaLabel?: string | null;
+    stopPropagation?: boolean;
+    onClick?: () => void;
+  }
+
+  let {
+    label = '',
+    icon = '',
+    busyIcon = 'bi-hourglass-split',
+    busy = false,
+    disabled = false,
+    variant = 'secondary',
+    iconOnly = false,
+    className = '',
+    title = null,
+    ariaLabel = null,
+    stopPropagation = false,
+    onClick = () => {}
+  }: Props = $props();
 
   // 'probe' is kept for existing callers and looks like a primary action
   const variantClass = (value: EntityActionVariant): string =>
     `b2s-btn-${value === 'probe' ? 'primary' : value}`;
 
-  $: resolvedIcon = busy ? busyIcon : icon;
-  $: classes = [
+  let resolvedIcon = $derived(busy ? busyIcon : icon);
+  let classes = $derived([
     'b2s-btn',
     variantClass(variant),
     iconOnly ? 'b2s-btn-icon b2s-entity-action-button--icon' : '',
     className
   ]
     .filter(Boolean)
-    .join(' ');
+    .join(' '));
 
   const handleClick = (event: MouseEvent) => {
     if (stopPropagation) event.stopPropagation();
@@ -41,7 +58,7 @@
   aria-label={ariaLabel ?? (iconOnly ? label : undefined)}
   aria-busy={busy}
   disabled={disabled || busy}
-  on:click={handleClick}
+  onclick={handleClick}
 >
   {#if resolvedIcon}
     <i class={`bi ${resolvedIcon} ${busy ? 'sed-spin' : ''}`} aria-hidden="true"></i>

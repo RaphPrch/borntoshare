@@ -1,34 +1,68 @@
 <script lang="ts">
+
   import { tick } from 'svelte';
   import { t } from '$lib/i18n';
-  /**
+  
+  interface Props {
+    /**
    * Side panel opening from the right (single drawer component of the app).
    * Header: icon + title + subtitle (+ "header-meta" badges) + close button.
    * Sizes: md = 560px (lists, simple actions), lg = 760px (rich forms).
    * Footer: "footer-start" (state, left) and "footer" (buttons, right).
    */
-  export let open = false;
-  export let title: string | null = null;
-  export let subtitle: string | null = null;
-  export let iconClass: string | null = null;
-  export let size: 'md' | 'lg' = 'md';
-  export let closeOnBackdrop = true;
-  export let closeOnEscape = true;
-  export let showHeader = true;
-  export let showFooter = true;
-  export let ariaLabelledby = 'b2s-drawer-title';
-  export let rootClass = '';
-  export let backdropClass = '';
-  export let panelClass = '';
-  export let contentClass = '';
-  export let bodyClass = '';
-  export let footerClass = '';
-  export let onClose: (() => void) | null = null;
+    open?: boolean;
+    title?: string | null;
+    subtitle?: string | null;
+    iconClass?: string | null;
+    size?: 'md' | 'lg';
+    closeOnBackdrop?: boolean;
+    closeOnEscape?: boolean;
+    showHeader?: boolean;
+    showFooter?: boolean;
+    ariaLabelledby?: string;
+    rootClass?: string;
+    backdropClass?: string;
+    panelClass?: string;
+    contentClass?: string;
+    bodyClass?: string;
+    footerClass?: string;
+    onClose?: (() => void) | null;
+    headerIcon?: import('svelte').Snippet;
+    headerMeta?: import('svelte').Snippet;
+    children?: import('svelte').Snippet;
+    footer?: import('svelte').Snippet;
+    footerStart?: import('svelte').Snippet;
+  }
 
-  $: width = size === 'lg' ? '760px' : '560px';
+  let {
+    open = false,
+    title = null,
+    subtitle = null,
+    iconClass = null,
+    size = 'md',
+    closeOnBackdrop = true,
+    closeOnEscape = true,
+    showHeader = true,
+    showFooter = true,
+    ariaLabelledby = 'b2s-drawer-title',
+    rootClass = '',
+    backdropClass = '',
+    panelClass = '',
+    contentClass = '',
+    bodyClass = '',
+    footerClass = '',
+    onClose = null,
+    headerIcon,
+    headerMeta,
+    children,
+    footer,
+    footerStart
+  }: Props = $props();
+
+  let width = $derived(size === 'lg' ? '760px' : '560px');
 
   // Keyboard users land in the panel, and back where they were when it closes
-  let panel: HTMLDivElement | null = null;
+  let panel: HTMLDivElement | null = $state(null);
   let opener: HTMLElement | null = null;
   async function moveFocus(isOpen: boolean): Promise<void> {
     if (typeof document === 'undefined') return;
@@ -41,7 +75,9 @@
       opener = null;
     }
   }
-  $: void moveFocus(open);
+  $effect.pre(() => {
+    void moveFocus(open);
+  });
 
   const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
 
@@ -73,7 +109,7 @@
   };
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />
 
 {#if open}
   <div
@@ -85,7 +121,7 @@
       type="button"
       class={`b2s-drawer__backdrop ${backdropClass}`.trim()}
       aria-label={t('Close drawer')}
-      on:click={() => closeOnBackdrop && onClose?.()}
+      onclick={() => closeOnBackdrop && onClose?.()}
     ></button>
 
     <div
@@ -102,42 +138,42 @@
           <section class="b2s-entity-drawer__layout">
             <header class="b2s-entity-drawer__header">
               <div class="b2s-entity-drawer__title-row">
-                <slot name="header-icon">
+                {#if headerIcon}{@render headerIcon()}{:else}
                   {#if iconClass}
                     <span class="b2s-entity-drawer__icon" aria-hidden="true">
                       <i class={iconClass}></i>
                     </span>
                   {/if}
-                </slot>
+                {/if}
                 <div class="b2s-entity-drawer__header-copy">
                   <h2 id={ariaLabelledby}>{title ?? ''}</h2>
                   {#if subtitle}
                     <p>{subtitle}</p>
                   {/if}
-                  {#if $$slots['header-meta']}
-                    <div class="b2s-entity-drawer__meta"><slot name="header-meta" /></div>
+                  {#if headerMeta}
+                    <div class="b2s-entity-drawer__meta">{@render headerMeta?.()}</div>
                   {/if}
                 </div>
               </div>
-              <button type="button" class="b2s-entity-drawer__close" aria-label={t('Close drawer')} on:click={() => onClose?.()}>
+              <button type="button" class="b2s-entity-drawer__close" aria-label={t('Close drawer')} onclick={() => onClose?.()}>
                 <i class="bi bi-x-lg" aria-hidden="true"></i>
               </button>
             </header>
             <div class={`b2s-entity-drawer__body ${bodyClass}`.trim()}>
-              <slot />
+              {@render children?.()}
             </div>
           </section>
         {:else}
-          <slot />
+          {@render children?.()}
         {/if}
       </div>
 
-      {#if showFooter && ($$slots.footer || $$slots['footer-start'])}
+      {#if showFooter && (footer || footerStart)}
         <footer class={`b2s-drawer__footer b2s-entity-drawer__footer ${footerClass}`.trim()}>
-          {#if $$slots['footer-start']}
-            <div class="b2s-drawer__footer-start"><slot name="footer-start" /></div>
+          {#if footerStart}
+            <div class="b2s-drawer__footer-start">{@render footerStart?.()}</div>
           {/if}
-          <slot name="footer" />
+          {@render footer?.()}
         </footer>
       {/if}
     </div>

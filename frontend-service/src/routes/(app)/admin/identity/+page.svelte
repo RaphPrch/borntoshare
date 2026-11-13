@@ -1,4 +1,5 @@
 <script lang="ts">
+  
   import { browser } from '$app/environment';
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
@@ -18,41 +19,50 @@
   import { normalizeText } from '$lib/utils/values';
   import EditIdentityModal from './components/EditIdentityModal.svelte';
 
-  /**
+  
+  interface Props {
+    /**
    * Identities: the people and directory groups that have a place in BornToShare. List by what they do on the left,
    * the selected one on the right (same grammar as Servers, Folders and Directories).
    */
-  export let data: Record<string, any>;
+    data: Record<string, any>;
+  }
 
-  $: items = (data.items ?? []) as Array<Record<string, any>>;
-  $: guardians = Object.fromEntries(((data.guardians ?? []) as Array<{ identity_id: number; folders: number; sole: number }>).map((row) => [row.identity_id, row]));
+  let { data }: Props = $props();
+
+  let items = $derived((data.items ?? []) as Array<Record<string, any>>);
+  let guardians = $derived(Object.fromEntries(((data.guardians ?? []) as Array<{ identity_id: number; folders: number; sole: number }>).map((row) => [row.identity_id, row])));
   const isGroup = (item: Record<string, any> | null) => String(item?.type ?? '').toLowerCase() === 'group';
   const keyOf = (item: Record<string, any>) => `${isGroup(item) ? 'group' : 'user'}:${item.id}`;
 
-  let selectedKey: string | null = null;
-  let query = '';
-  let busy = false;
-  let showAdd = false;
-  let editTarget: Record<string, any> | null = null;
-  let deleteTarget: Record<string, any> | null = null;
-  let deleteBusy = false;
+  let selectedKey: string | null = $state(null);
+  let query = $state('');
+  let busy = $state(false);
+  let showAdd = $state(false);
+  let editTarget: Record<string, any> | null = $state(null);
+  let deleteTarget: Record<string, any> | null = $state(null);
+  let deleteBusy = $state(false);
   // Deleting or disabling a person goes through the handover of the folders they would leave alone
-  let leave: { item: Record<string, any>; mode: 'delete' | 'disable' } | null = null;
-  let workspace: IdentityWorkspace | null = null;
+  let leave: { item: Record<string, any>; mode: 'delete' | 'disable' } | null = $state(null);
+  let workspace: IdentityWorkspace | null = $state(null);
 
   // The page opens on ?selected=, else on the first guardian who needs a look, else the first person
-  $: if (browser && items.length && (!selectedKey || !items.some((item) => keyOf(item) === selectedKey))) {
-    const wanted = $page.url.searchParams.get('selected');
-    const toReview = items.find((item) => !isGroup(item) && (guardians[Number(item.id)]?.folders ?? 0) > 0 && !String(item.email ?? '').trim());
-    const first = items.find((item) => keyOf(item) === wanted) ?? toReview ?? items[0];
-    selectedKey = keyOf(first);
-  }
-  $: if (browser && selectedKey && $page.url.searchParams.get('selected') !== selectedKey) {
-    const next = new URL($page.url);
-    next.searchParams.set('selected', selectedKey);
-    goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true, keepFocus: true });
-  }
-  $: selected = items.find((item) => keyOf(item) === selectedKey) ?? null;
+  $effect.pre(() => {
+    if (browser && items.length && (!selectedKey || !items.some((item) => keyOf(item) === selectedKey))) {
+      const wanted = $page.url.searchParams.get('selected');
+      const toReview = items.find((item) => !isGroup(item) && (guardians[Number(item.id)]?.folders ?? 0) > 0 && !String(item.email ?? '').trim());
+      const first = items.find((item) => keyOf(item) === wanted) ?? toReview ?? items[0];
+      selectedKey = keyOf(first);
+    }
+  });
+  $effect.pre(() => {
+    if (browser && selectedKey && $page.url.searchParams.get('selected') !== selectedKey) {
+      const next = new URL($page.url);
+      next.searchParams.set('selected', selectedKey);
+      goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true, keepFocus: true });
+    }
+  });
+  let selected = $derived(items.find((item) => keyOf(item) === selectedKey) ?? null);
 
   // The default local administrator (provisioned by the system) can be neither deleted nor disabled
   const isDefaultAdmin = (item: Record<string, any> | null) =>
@@ -123,13 +133,15 @@
   </section>
 {:else}
   <EntityWorkspace title={t('Identities')} contentKey={selectedKey}>
-    <svelte:fragment slot="list">
-      <IdentitiesSidebar {items} {guardians} {selectedKey} {query}
-        onQueryChange={(value) => (query = value)}
-        onSelect={(key) => (selectedKey = key)}
-        onAdd={() => (showAdd = true)}
-        onOpenAdmins={() => goto('/admin/identity/admins')} />
-    </svelte:fragment>
+    {#snippet list()}
+      
+        <IdentitiesSidebar {items} {guardians} {selectedKey} {query}
+          onQueryChange={(value) => (query = value)}
+          onSelect={(key) => (selectedKey = key)}
+          onAdd={() => (showAdd = true)}
+          onOpenAdmins={() => goto('/admin/identity/admins')} />
+      
+      {/snippet}
 
 
     {#if selected && isGroup(selected)}

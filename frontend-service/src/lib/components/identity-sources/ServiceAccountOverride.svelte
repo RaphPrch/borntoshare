@@ -1,24 +1,42 @@
 <script lang="ts">
+  
+
   import { t } from '$lib/i18n';
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import type { ServiceAccountDraft } from '$lib/utils/service-accounts';
 
-  export let idPrefix: string;
-  export let icon: string;
-  export let title: string;
-  export let description: string;
-  export let draft: ServiceAccountDraft;
-  export let showErrors = false;
-  export let placeholder = 'svc-account@example.test';
-  /** Probe the directory with this account; null hides the button */
-  export let onTest: (() => Promise<boolean>) | null = null;
+  
+  interface Props {
+    idPrefix: string;
+    icon: string;
+    title: string;
+    description: string;
+    draft: ServiceAccountDraft;
+    showErrors?: boolean;
+    placeholder?: string;
+    /** Probe the directory with this account; null hides the button */
+    onTest?: (() => Promise<boolean>) | null;
+  }
 
-  let testState: 'idle' | 'running' | 'ok' | 'failed' = 'idle';
+  let {
+    idPrefix,
+    icon,
+    title,
+    description,
+    draft = $bindable(),
+    showErrors = false,
+    placeholder = 'svc-account@example.test',
+    onTest = null
+  }: Props = $props();
+
+  let testState: 'idle' | 'running' | 'ok' | 'failed' = $state('idle');
   // The result is for the account tested: a new DN or password needs a new test
-  $: draftKey = `${draft.bind_dn}|${draft.password}`;
-  let testedKey = '';
-  $: if (testState !== 'idle' && testState !== 'running' && draftKey !== testedKey) testState = 'idle';
-  $: canTest = !!onTest && !!draft.bind_dn.trim() && (!!draft.password.trim() || draft.has_password);
+  let draftKey = $derived(`${draft.bind_dn}|${draft.password}`);
+  let testedKey = $state('');
+  $effect.pre(() => {
+    if (testState !== 'idle' && testState !== 'running' && draftKey !== testedKey) testState = 'idle';
+  });
+  let canTest = $derived(!!onTest && !!draft.bind_dn.trim() && (!!draft.password.trim() || draft.has_password));
 
   async function runTest() {
     if (!onTest || testState === 'running') return;
@@ -31,7 +49,7 @@
     }
   }
 
-  let showPassword = false;
+  let showPassword = $state(false);
 </script>
 
 <div class="sa" class:sa--on={draft.dedicated}>
@@ -72,7 +90,7 @@
             class="b2s-input-action"
             type="button"
             aria-label={showPassword ? t('Hide password') : t('Show password')}
-            on:click={() => (showPassword = !showPassword)}
+            onclick={() => (showPassword = !showPassword)}
           >
             <i class={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
           </button>
@@ -85,7 +103,7 @@
       </div>
       {#if onTest}
         <div class="sa-test">
-          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={!canTest || testState === 'running'} on:click={runTest}>
+          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={!canTest || testState === 'running'} onclick={runTest}>
             <i class={`bi ${testState === 'running' ? 'bi-hourglass-split' : 'bi-activity'}`} aria-hidden="true"></i>
             {testState === 'running' ? t('Testing…') : t('Test this account')}
           </button>
