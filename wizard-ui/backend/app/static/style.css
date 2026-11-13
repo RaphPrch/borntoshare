@@ -179,10 +179,3 @@ a.wz__btn { text-decoration: none; }
 .wz__mod em { font-style: normal; justify-self: start; }
 #m_fives { display: grid; gap: 14px; }
 #m_fives[hidden], #m_fields[hidden] { display: none; }
-
-/* Opened without the token of make wizard */
-.wz__locked { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(245, 246, 248, .96); }
-.wz__locked[hidden] { display: none; }
-.wz__locked > div { max-width: 480px; padding: 28px; border-radius: 16px; background: #fff; border: 1px solid var(--border-soft); }
-.wz__locked h2 { margin: 0 0 8px; }
-.wz__locked p { margin: 0; color: var(--muted); line-height: 1.5; }

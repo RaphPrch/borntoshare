@@ -18,14 +18,9 @@ Ensuite, on l'arrête : les mises à jour du schéma passent par `make deploy`.
 ## Utilisation
 
 ```bash
-make wizard          # affiche l'adresse à ouvrir : http://<hôte>:8080/?t=<jeton>, et le déploiement suivra
-make wizard-url      # la réaffiche
+make wizard          # http://<hôte>:8080, et le déploiement qui suivra l'installation
 # … les cinq étapes : .env, make deploy et l'arrêt du wizard suivent d'eux-mêmes
 ```
-
-Le wizard est joignable sur le réseau le temps de l'installation : seule l'adresse donnée par `make wizard` l'ouvre.
-Chaque `make wizard` écrit un nouveau jeton dans `secrets/.wizard-token` (0600) ; l'API refuse tout appel sans lui
-(en-tête `X-Wizard-Token`, que la page envoie d'elle-même après l'avoir lu dans l'adresse). Il est supprimé à l'arrêt.
 
 Le mot de passe de l'administrateur est provisoire : il le change à sa première connexion. Perdu plus tard,
 `make reset-admin` (sur le serveur, `ACCOUNT=` pour un autre compte local) en pose un nouveau, provisoire lui aussi.

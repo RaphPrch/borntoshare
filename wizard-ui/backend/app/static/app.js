@@ -23,27 +23,10 @@ function toast(message, kind = "error") {
   toastTimer = setTimeout(() => (el.hidden = true), 6000);
 }
 
-// The one-time token of make wizard: in the address (?t=…) once, then kept in this tab only and out of the address
-const TOKEN = (() => {
-  const url = new URL(location.href);
-  const given = url.searchParams.get("t");
-  if (given) {
-    sessionStorage.setItem("wizard-token", given);
-    url.searchParams.delete("t");
-    history.replaceState(null, "", url.pathname + url.search);
-  }
-  return sessionStorage.getItem("wizard-token") || "";
-})();
-
 async function api(path, body) {
-  const headers = { "X-Wizard-Token": TOKEN };
-  const response = await fetch(path, body === undefined ? { headers } : {
-    method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body),
+  const response = await fetch(path, body === undefined ? {} : {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   });
-  if (response.status === 403) {
-    $("locked").hidden = false;
-    throw new Error("Adresse incomplète : ouvrir celle que donne make wizard.");
-  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg).join(" · ") : data.detail;
