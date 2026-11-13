@@ -92,9 +92,10 @@ with sync_playwright() as p:
 
     def dfs_server():
         goto(page, "/admin/storage-endpoints/1", 2500)
-        tree = page.locator("aside, nav").filter(has_text="DFS01").first
-        check("servers list: no namespace line under DFS01", page.get_by_role("treeitem", name="Angers").count() == 0
-              and page.locator("text=Bordeaux").count() == 0)
+        # Only the tree of the servers (the folders of FILER01 shown beside it carry the same names)
+        tree = page.locator(".b2s-tree[role=tree]").first
+        check("servers list: no namespace line under DFS01", tree.get_by_text("Bordeaux", exact=True).count() == 0
+              and tree.get_by_text("Angers", exact=True).count() == 0, f"DFS01 lines: {tree.get_by_text('DFS01').count()}")
         page.get_by_text("DFS01", exact=True).first.click()
         page.wait_for_url(re.compile(r"server=DFS01"), timeout=15000)
         page.wait_for_timeout(3000)
