@@ -2,11 +2,21 @@
   import { t } from '$lib/i18n';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
 
-  /** Asked before a form with unsaved edits closes. */
-  export let open = false;
-  export let onKeepEditing: () => void;
-  export let onDiscard: () => void;
-  export let impact: string | null = null;
+  
+  interface Props {
+    /** Asked before a form with unsaved edits closes. */
+    open?: boolean;
+    onKeepEditing: () => void;
+    onDiscard: () => void;
+    impact?: string | null;
+  }
+
+  let {
+    open = false,
+    onKeepEditing,
+    onDiscard,
+    impact = null
+  }: Props = $props();
 </script>
 
 <ConfirmActionModal

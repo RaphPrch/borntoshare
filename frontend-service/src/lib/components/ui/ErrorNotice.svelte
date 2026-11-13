@@ -4,10 +4,14 @@
   import type { AppError } from '$lib/errors';
   import InlineAlert from './InlineAlert.svelte';
 
-  export let error: AppError | null = null;
-  export let collapsible: boolean = true;
+  interface Props {
+    error?: AppError | null;
+    collapsible?: boolean;
+  }
 
-  let showDetails = false;
+  let { error = null, collapsible = true }: Props = $props();
+
+  let showDetails = $state(false);
 
   function copyRequestId() {
     if (error?.requestId) {
@@ -28,19 +32,21 @@
       <div class="error-meta">
         <span>{t('Request ID :')}</span>
         <code>{error.requestId}</code>
-        <button class="link-btn" type="button" on:click={copyRequestId} title={t('Copy the request ID')}>
+        <button class="link-btn" type="button" onclick={copyRequestId} title={t('Copy the request ID')}>
           {t('Copy')}
         </button>
       </div>
     {/if}
 
-    <svelte:fragment slot="actions">
-      {#if collapsible && error.hint}
-        <button class="link-btn" type="button" on:click={() => (showDetails = !showDetails)}>
-          {showDetails ? t('Hide details') : t('View details')}
-        </button>
-      {/if}
-    </svelte:fragment>
+    {#snippet actions()}
+      
+        {#if collapsible && error.hint}
+          <button class="link-btn" type="button" onclick={() => (showDetails = !showDetails)}>
+            {showDetails ? t('Hide details') : t('View details')}
+          </button>
+        {/if}
+      
+      {/snippet}
   </InlineAlert>
 {/if}
 

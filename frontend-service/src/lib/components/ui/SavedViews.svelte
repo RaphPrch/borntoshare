@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { preventDefault } from 'svelte/legacy';
+
   import { t } from '$lib/i18n';
   import { recall, remember } from '$lib/utils/remember';
   import { toast } from '$lib/stores/toast';
@@ -8,18 +10,25 @@
    * saved under a name in this browser, applied again in one click.
    */
   type View = { name: string; state: Record<string, unknown> };
-  export let key: string;
-  /** The filters of the moment (what a view saves) */
-  export let current: Record<string, unknown>;
-  export let apply: (state: Record<string, unknown>) => void;
+  
+  interface Props {
+    key: string;
+    /** The filters of the moment (what a view saves) */
+    current: Record<string, unknown>;
+    apply: (state: Record<string, unknown>) => void;
+  }
 
-  let views: View[] = (recall(`views:${key}`, { views: [] as unknown[] }).views as View[]).filter((v) => v && typeof v.name === 'string');
-  let naming = false;
-  let name = '';
-  let input: HTMLInputElement | null = null;
+  let { key, current, apply }: Props = $props();
+
+  // Read once: the key of a list does not change while it is shown
+  // svelte-ignore state_referenced_locally
+  let views: View[] = $state((recall(`views:${key}`, { views: [] as unknown[] }).views as View[]).filter((v) => v && typeof v.name === 'string'));
+  let naming = $state(false);
+  let name = $state('');
+  let input: HTMLInputElement | null = $state(null);
 
   const same = (a: Record<string, unknown>, b: Record<string, unknown>) => JSON.stringify(a) === JSON.stringify(b);
-  $: active = views.find((view) => same(view.state, current))?.name ?? null;
+  let active = $derived(views.find((view) => same(view.state, current))?.name ?? null);
 
   function persist() {
     remember(`views:${key}`, { views });
@@ -47,18 +56,18 @@
 <div class="sv" role="group" aria-label={t('Saved views')}>
   {#each views as view (view.name)}
     <span class="sv__chip" class:is-on={active === view.name}>
-      <button type="button" on:click={() => apply({ ...view.state })} aria-pressed={active === view.name}><i class="bi bi-bookmark" aria-hidden="true"></i>{view.name}</button>
-      <button type="button" class="sv__x" aria-label={t('Delete the view {name}', { name: view.name })} on:click={() => remove(view)}><i class="bi bi-x" aria-hidden="true"></i></button>
+      <button type="button" onclick={() => apply({ ...view.state })} aria-pressed={active === view.name}><i class="bi bi-bookmark" aria-hidden="true"></i>{view.name}</button>
+      <button type="button" class="sv__x" aria-label={t('Delete the view {name}', { name: view.name })} onclick={() => remove(view)}><i class="bi bi-x" aria-hidden="true"></i></button>
     </span>
   {/each}
   {#if naming}
-    <form class="sv__form" on:submit|preventDefault={save}>
+    <form class="sv__form" onsubmit={preventDefault(save)}>
       <input bind:this={input} bind:value={name} class="b2s-input" maxlength="40" placeholder={t('Name of the view')} aria-label={t('Name of the view')}
-        on:keydown={(event) => { if (event.key === 'Escape') { naming = false; name = ''; } }} />
+        onkeydown={(event) => { if (event.key === 'Escape') { naming = false; name = ''; } }} />
       <button type="submit" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={!name.trim()}>{t('Save')}</button>
     </form>
   {:else if !active}
-    <button type="button" class="b2s-link-btn sv__add" on:click={startNaming}><i class="bi bi-bookmark-plus" aria-hidden="true"></i>{t('Save this view')}</button>
+    <button type="button" class="b2s-link-btn sv__add" onclick={startNaming}><i class="bi bi-bookmark-plus" aria-hidden="true"></i>{t('Save this view')}</button>
   {/if}
 </div>
 

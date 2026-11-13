@@ -1,6 +1,11 @@
 <script lang="ts">
-  export let title = '';
-  export let subtitle: string | null = null;
+  interface Props {
+    title?: string;
+    subtitle?: string | null;
+    actions?: import('svelte').Snippet;
+  }
+
+  let { title = '', subtitle = null, actions }: Props = $props();
 </script>
 
 <header class="b2s-page-header">
@@ -12,7 +17,7 @@
       {/if}
     </div>
     <div class="b2s-page-header__actions">
-      <slot name="actions" />
+      {@render actions?.()}
     </div>
   </div>
 </header>

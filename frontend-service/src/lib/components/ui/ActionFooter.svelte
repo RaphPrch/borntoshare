@@ -1,8 +1,19 @@
 <script lang="ts">
-  export let infoText: string | null = null;
-  export let showInfoDot = false;
-  export let align = 'between';
-  export let className = '';
+  interface Props {
+    infoText?: string | null;
+    showInfoDot?: boolean;
+    align?: string;
+    className?: string;
+    children?: import('svelte').Snippet;
+  }
+
+  let {
+    infoText = null,
+    showInfoDot = false,
+    align = 'between',
+    className = '',
+    children
+  }: Props = $props();
 </script>
 
 <div class={`b2s-action-footer ${align === 'end' ? 'is-end' : ''} ${className}`.trim()}>
@@ -16,7 +27,7 @@
   </div>
 
   <div class="b2s-action-footer__actions">
-    <slot />
+    {@render children?.()}
   </div>
 </div>
 

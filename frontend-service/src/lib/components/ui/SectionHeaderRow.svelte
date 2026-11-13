@@ -1,10 +1,23 @@
 <script lang="ts">
-  export let title = '';
-  export let subtitle: string | null = null;
-  export let helper: string | null = null;
-  export let count: number | null = null;
-  export let compact = false;
-  export let rowClass = '';
+  interface Props {
+    title?: string;
+    subtitle?: string | null;
+    helper?: string | null;
+    count?: number | null;
+    compact?: boolean;
+    rowClass?: string;
+    actions?: import('svelte').Snippet;
+  }
+
+  let {
+    title = '',
+    subtitle = null,
+    helper = null,
+    count = null,
+    compact = false,
+    rowClass = '',
+    actions
+  }: Props = $props();
 </script>
 
 <div class={`b2s-section-header-row ${compact ? 'is-compact' : ''} ${rowClass}`.trim()}>
@@ -26,7 +39,7 @@
   </div>
 
   <div class="b2s-section-header-row__actions">
-    <slot name="actions" />
+    {@render actions?.()}
   </div>
 </div>
 

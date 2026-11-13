@@ -1,4 +1,4 @@
-<script context="module" lang="ts">
+<script module lang="ts">
   export type ContextMenuItem = {
     key: string;
     label: string;
@@ -19,24 +19,37 @@
 </script>
 
 <script lang="ts">
+
   import { tick } from 'svelte';
   import { fade } from 'svelte/transition';
   import { dur, MOTION, pop } from '$lib/utils/motion';
   import { t } from '$lib/i18n';
 
-  /** Right-click menu of an item of a list (zone, directory…): its actions, the impossible ones greyed with why. */
-  export let open = false;
-  export let title = '';
-  export let subtitle = '';
-  export let items: ContextMenuItem[] = [];
-  export let at = { x: 0, y: 0 };
-  export let onClose: () => void = () => {};
-  export let onPick: (key: string) => void = () => {};
+  
+  interface Props {
+    /** Right-click menu of an item of a list (zone, directory…): its actions, the impossible ones greyed with why. */
+    open?: boolean;
+    title?: string;
+    subtitle?: string;
+    items?: ContextMenuItem[];
+    at?: any;
+    onClose?: () => void;
+    onPick?: (key: string) => void;
+  }
 
-  let menuEl: HTMLDivElement | null = null;
-  let position = { left: 0, top: 0 };
+  let {
+    open = false,
+    title = '',
+    subtitle = '',
+    items = [],
+    at = { x: 0, y: 0 },
+    onClose = () => {},
+    onPick = () => {}
+  }: Props = $props();
 
-  $: if (open) void place();
+  let menuEl: HTMLDivElement | null = $state(null);
+  let position = $state({ left: 0, top: 0 });
+
   async function place() {
     await tick();
     const width = menuEl?.offsetWidth ?? 240;
@@ -72,9 +85,12 @@
     if (open && menuEl && !menuEl.contains(event.target as Node)) onClose();
   }
 
+  $effect(() => {
+    if (open) void place();
+  });
 </script>
 
-<svelte:window on:keydown={onKeydown} on:pointerdown={onPointerDown} on:scroll|capture={() => open && onClose()} on:resize={() => open && onClose()} />
+<svelte:window onkeydown={onKeydown} onpointerdown={onPointerDown} onscrollcapture={() => open && onClose()} onresize={() => open && onClose()} />
 
 {#if open}
   <div bind:this={menuEl} class="cm" role="menu" aria-label={t('Actions on {name}', { name: title })}
@@ -87,7 +103,7 @@
     {#each items as item (item.key)}
       {#if item.separated}<hr />{/if}
       <button type="button" role="menuitem" class="cm__item" class:is-danger={item.danger} disabled={item.disabled}
-        title={item.hint || undefined} on:click={() => pick(item)}>
+        title={item.hint || undefined} onclick={() => pick(item)}>
         <i class={`bi ${item.icon}`} aria-hidden="true"></i>
         <span>{item.label}{#if item.disabled && item.hint}<small>{item.hint}</small>{/if}</span>
       </button>

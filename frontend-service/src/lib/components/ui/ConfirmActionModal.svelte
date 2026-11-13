@@ -1,47 +1,81 @@
 <script lang="ts">
+
   import { t } from '$lib/i18n';
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import ModalActionBar from '$lib/components/ui/ModalActionBar.svelte';
 
-  export let open = false;
-  export let onClose: () => void;
-  export let onConfirm: () => void;
 
-  export let ariaLabelledby = 'confirm-action-modal-title';
-  export let role: 'dialog' | 'alertdialog' = 'alertdialog';
-  export let backdropClass = 'b2s-modal-backdrop';
-  export let modalClass: string | null = null;
-  export let severity: 'warning' | 'danger' = 'danger';
 
-  export let title = t('Confirm action');
-  export let subtitle: string | null = null;
-  export let impactTitle = t('Impact');
-  export let impactItems: string[] = [];
 
-  export let cancelLabel = t('Cancel');
-  export let confirmLabel = t('Confirm');
-  export let confirmBusyLabel: string | null = null;
-  export let busy = false;
-  export let confirmVariant: 'primary' | 'secondary' | 'ghost' | 'danger' | 'warning' | null = null;
-  export let actionsClass = 'b2s-confirm-actions';
-  export let cancelClass = 'b2s-btn b2s-btn-secondary';
-  export let confirmClass: string | null = null;
 
-  export let requireTextConfirm = false;
-  export let requiredText = '';
-  export let textConfirmLabel = t('Type confirmation text');
-  export let textConfirmPlaceholder = 'Type text';
-
-  let typedConfirm = '';
-  $: normalizedTyped = typedConfirm.trim();
-  $: textConfirmValid = !requireTextConfirm || normalizedTyped === requiredText;
-  $: resolvedConfirmVariant = confirmVariant ?? (severity === 'danger' ? 'danger' : 'warning');
-  $: resolvedModalClass = modalClass ?? `b2s-modal b2s-confirm-modal b2s-confirm-modal--${severity}`;
-  $: confirmDisabled = !textConfirmValid;
-
-  $: if (!open) {
-    typedConfirm = '';
+  interface Props {
+    open?: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    ariaLabelledby?: string;
+    role?: 'dialog' | 'alertdialog';
+    backdropClass?: string;
+    modalClass?: string | null;
+    severity?: 'warning' | 'danger';
+    title?: any;
+    subtitle?: string | null;
+    impactTitle?: any;
+    impactItems?: string[];
+    cancelLabel?: any;
+    confirmLabel?: any;
+    confirmBusyLabel?: string | null;
+    busy?: boolean;
+    confirmVariant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'warning' | null;
+    actionsClass?: string;
+    cancelClass?: string;
+    confirmClass?: string | null;
+    requireTextConfirm?: boolean;
+    requiredText?: string;
+    textConfirmLabel?: any;
+    textConfirmPlaceholder?: string;
+    children?: import('svelte').Snippet;
   }
+
+  let {
+    open = false,
+    onClose,
+    onConfirm,
+    ariaLabelledby = 'confirm-action-modal-title',
+    role = 'alertdialog',
+    backdropClass = 'b2s-modal-backdrop',
+    modalClass = null,
+    severity = 'danger',
+    title = t('Confirm action'),
+    subtitle = null,
+    impactTitle = t('Impact'),
+    impactItems = [],
+    cancelLabel = t('Cancel'),
+    confirmLabel = t('Confirm'),
+    confirmBusyLabel = null,
+    busy = false,
+    confirmVariant = null,
+    actionsClass = 'b2s-confirm-actions',
+    cancelClass = 'b2s-btn b2s-btn-secondary',
+    confirmClass = null,
+    requireTextConfirm = false,
+    requiredText = '',
+    textConfirmLabel = t('Type confirmation text'),
+    textConfirmPlaceholder = 'Type text',
+    children
+  }: Props = $props();
+
+  let typedConfirm = $state('');
+  let normalizedTyped = $derived(typedConfirm.trim());
+  let textConfirmValid = $derived(!requireTextConfirm || normalizedTyped === requiredText);
+  let resolvedConfirmVariant = $derived(confirmVariant ?? (severity === 'danger' ? 'danger' : 'warning'));
+  let resolvedModalClass = $derived(modalClass ?? `b2s-modal b2s-confirm-modal b2s-confirm-modal--${severity}`);
+  let confirmDisabled = $derived(!textConfirmValid);
+
+  $effect(() => {
+    if (!open) {
+      typedConfirm = '';
+    }
+  });
 </script>
 
 <AppModal
@@ -72,7 +106,7 @@
       </div>
     {/if}
 
-    <slot />
+    {@render children?.()}
 
     {#if requireTextConfirm}
       <label class="b2s-confirm-input-wrap">

@@ -1,12 +1,17 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
 
-  /** Which optional columns a table shows: a small menu of checkboxes (the choice is kept by the page). */
-  export let columns: Array<{ key: string; label: string }>;
-  export let hidden: string[] = [];
-  export let onChange: (hidden: string[]) => void;
-  let open = false;
-  let root: HTMLElement | null = null;
+  
+  interface Props {
+    /** Which optional columns a table shows: a small menu of checkboxes (the choice is kept by the page). */
+    columns: Array<{ key: string; label: string }>;
+    hidden?: string[];
+    onChange: (hidden: string[]) => void;
+  }
+
+  let { columns, hidden = [], onChange }: Props = $props();
+  let open = $state(false);
+  let root: HTMLElement | null = $state(null);
 
   function toggle(key: string) {
     onChange(hidden.includes(key) ? hidden.filter((k) => k !== key) : [...hidden, key]);
@@ -16,17 +21,17 @@
   }
 </script>
 
-<svelte:window on:click={outside} on:keydown={(event) => { if (event.key === 'Escape') open = false; }} />
+<svelte:window onclick={outside} onkeydown={(event) => { if (event.key === 'Escape') open = false; }} />
 
 <div class="cp" bind:this={root}>
-  <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" aria-expanded={open} on:click={() => (open = !open)}>
+  <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" aria-expanded={open} onclick={() => (open = !open)}>
     <i class="bi bi-layout-three-columns" aria-hidden="true"></i>{t('Columns')}{#if hidden.length}<span class="cp__n">{columns.length - hidden.length}/{columns.length}</span>{/if}
   </button>
   {#if open}
     <div class="cp__menu" role="group" aria-label={t('Columns')}>
       {#each columns as column (column.key)}
         <label>
-          <input type="checkbox" checked={!hidden.includes(column.key)} on:change={() => toggle(column.key)} />{column.label}
+          <input type="checkbox" checked={!hidden.includes(column.key)} onchange={() => toggle(column.key)} />{column.label}
         </label>
       {/each}
       <small>{t('Drag the edge of a column title to widen it; double-click to reset.')}</small>

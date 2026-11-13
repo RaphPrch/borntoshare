@@ -1,13 +1,27 @@
 <script lang="ts">
-  export let iconClass: string | null = null;
-  export let title: string;
-  export let description: string | null = null;
-  export let ctaLabel: string | null = null;
-  export let onCta: (() => void) | null = null;
-  export let hint: string | null = null;
-  /** The whole page is empty: only this card shows, centred (no file server, no tag, …) */
-  export let page = false;
-  export let containerClass = '';
+  
+  interface Props {
+    iconClass?: string | null;
+    title: string;
+    description?: string | null;
+    ctaLabel?: string | null;
+    onCta?: (() => void) | null;
+    hint?: string | null;
+    /** The whole page is empty: only this card shows, centred (no file server, no tag, …) */
+    page?: boolean;
+    containerClass?: string;
+  }
+
+  let {
+    iconClass = null,
+    title,
+    description = null,
+    ctaLabel = null,
+    onCta = null,
+    hint = null,
+    page = false,
+    containerClass = ''
+  }: Props = $props();
 </script>
 
 <div class={`b2s-empty-state ${page ? 'b2s-empty-page' : ''} ${containerClass}`.replace(/\s+/g, ' ').trim()}>
@@ -27,7 +41,7 @@
     {/if}
 
     {#if ctaLabel && onCta}
-      <button class="b2s-btn b2s-btn-primary b2s-empty-cta" type="button" on:click={onCta}>
+      <button class="b2s-btn b2s-btn-primary b2s-empty-cta" type="button" onclick={onCta}>
         {ctaLabel}
       </button>
     {/if}

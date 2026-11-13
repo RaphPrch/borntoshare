@@ -2,19 +2,37 @@
   import { t } from '$lib/i18n';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
 
-  export let open = false;
-  export let onClose: () => void;
-  export let onConfirm: () => void;
-  export let ariaLabelledby = 'confirm-delete-dialog-title';
-  export let title = t('Delete item');
-  export let description: string | null = null;
-  export let impactTitle = t('Impact');
-  export let impactItems: string[] = [];
-  export let busy = false;
-  export let deleteLabel = t('Delete');
-  export let deleteBusyLabel = t('Deleting...');
-  /** A final deletion: the name of what goes is typed to confirm it (same rule on every screen). */
-  export let confirmName: string | null = null;
+  
+  interface Props {
+    open?: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    ariaLabelledby?: string;
+    title?: any;
+    description?: string | null;
+    impactTitle?: any;
+    impactItems?: string[];
+    busy?: boolean;
+    deleteLabel?: any;
+    deleteBusyLabel?: any;
+    /** A final deletion: the name of what goes is typed to confirm it (same rule on every screen). */
+    confirmName?: string | null;
+  }
+
+  let {
+    open = false,
+    onClose,
+    onConfirm,
+    ariaLabelledby = 'confirm-delete-dialog-title',
+    title = t('Delete item'),
+    description = null,
+    impactTitle = t('Impact'),
+    impactItems = [],
+    busy = false,
+    deleteLabel = t('Delete'),
+    deleteBusyLabel = t('Deleting...'),
+    confirmName = null
+  }: Props = $props();
 </script>
 
 <ConfirmActionModal

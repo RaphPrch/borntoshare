@@ -1,12 +1,25 @@
 <script lang="ts">
-  export let value = "";
-  export let placeholder = "Search";
-  export let ariaLabel = "Search";
-  export let wrapperClass = "";
-  export let inputClass = "";
-  export let disabled = false;
-  export let onChange: ((next: string) => void) | null = null;
-  export let onEnter: ((value: string) => void) | null = null;
+  interface Props {
+    value?: string;
+    placeholder?: string;
+    ariaLabel?: string;
+    wrapperClass?: string;
+    inputClass?: string;
+    disabled?: boolean;
+    onChange?: ((next: string) => void) | null;
+    onEnter?: ((value: string) => void) | null;
+  }
+
+  let {
+    value = $bindable(""),
+    placeholder = "Search",
+    ariaLabel = "Search",
+    wrapperClass = "",
+    inputClass = "",
+    disabled = false,
+    onChange = null,
+    onEnter = null
+  }: Props = $props();
 </script>
 
 <label class={`b2s-search-field ${wrapperClass}`.trim()}>
@@ -18,8 +31,8 @@
     aria-label={ariaLabel}
     {disabled}
     bind:value
-    on:input={() => onChange?.(value)}
-    on:keydown={(event) => {
+    oninput={() => onChange?.(value)}
+    onkeydown={(event) => {
       if (event.key === 'Enter') {
         onEnter?.(value);
       }

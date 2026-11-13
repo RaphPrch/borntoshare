@@ -1,19 +1,30 @@
 <script lang="ts">
-  /**
+  
+  interface Props {
+    /**
    * Loading indicator. Inline: spinner + message. In a panel, a list or a detail, a skeleton with the shape of what
    * comes (the message stays for screen readers): `block` and `skeleton="rows"` draw rows, `skeleton="detail"` a card,
    * `skeleton="page"` the tiles of figures then rows (a folder, a 5S screen).
    */
-  export let block = false;
-  export let skeleton: 'rows' | 'detail' | 'page' | null = null;
-  export let rows = 4;
+    block?: boolean;
+    skeleton?: 'rows' | 'detail' | 'page' | null;
+    rows?: number;
+    children?: import('svelte').Snippet;
+  }
 
-  $: shape = skeleton ?? (block ? 'rows' : null);
+  let {
+    block = false,
+    skeleton = null,
+    rows = 4,
+    children
+  }: Props = $props();
+
+  let shape = $derived(skeleton ?? (block ? 'rows' : null));
 </script>
 
 {#if shape}
   <div class="b2s-skeleton" class:is-detail={shape === 'detail'} role="status" aria-live="polite" aria-busy="true">
-    <span class="b2s-visually-hidden"><slot /></span>
+    <span class="b2s-visually-hidden">{@render children?.()}</span>
     {#if shape === 'detail'}
       <div class="b2s-skeleton__head"><span class="b2s-skeleton__avatar"></span><span class="b2s-skeleton__line is-title"></span></div>
       <span class="b2s-skeleton__line"></span>
@@ -43,6 +54,6 @@
 {:else}
   <div class="b2s-loading" role="status" aria-live="polite">
     <span class="b2s-spinner" aria-hidden="true"></span>
-    <span><slot /></span>
+    <span>{@render children?.()}</span>
   </div>
 {/if}

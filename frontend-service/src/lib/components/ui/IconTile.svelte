@@ -1,8 +1,17 @@
 <script lang="ts">
-  export let iconClass = 'bi-person';
-  export let kind: 'user' | 'group' | 'neutral' = 'neutral';
-  export let size: 'sm' | 'md' = 'md';
-  export let className = '';
+  interface Props {
+    iconClass?: string;
+    kind?: 'user' | 'group' | 'neutral';
+    size?: 'sm' | 'md';
+    className?: string;
+  }
+
+  let {
+    iconClass = 'bi-person',
+    kind = 'neutral',
+    size = 'md',
+    className = ''
+  }: Props = $props();
 </script>
 
 <span class={`b2s-icon-tile is-${kind} is-${size} ${className}`.trim()} aria-hidden="true">

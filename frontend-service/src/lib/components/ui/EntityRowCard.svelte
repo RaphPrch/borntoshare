@@ -1,14 +1,29 @@
 <script lang="ts">
-  export let title = '';
-  export let subtitle: string | null = null;
-  export let tertiary: string | null = null;
-  export let typeLabel: string | null = null;
-  export let compact = false;
-  export let className = '';
+  interface Props {
+    title?: string;
+    subtitle?: string | null;
+    tertiary?: string | null;
+    typeLabel?: string | null;
+    compact?: boolean;
+    className?: string;
+    icon?: import('svelte').Snippet;
+    actions?: import('svelte').Snippet;
+  }
+
+  let {
+    title = '',
+    subtitle = null,
+    tertiary = null,
+    typeLabel = null,
+    compact = false,
+    className = '',
+    icon,
+    actions
+  }: Props = $props();
 </script>
 
 <article class={`b2s-entity-row-card ${compact ? 'is-compact' : ''} ${className}`.trim()}>
-  <slot name="icon" />
+  {@render icon?.()}
 
   <div class="b2s-entity-row-card__content">
     <div class="b2s-entity-row-card__title-row">
@@ -28,7 +43,7 @@
   </div>
 
   <div class="b2s-entity-row-card__actions">
-    <slot name="actions" />
+    {@render actions?.()}
   </div>
 </article>
 

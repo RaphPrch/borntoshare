@@ -37,7 +37,7 @@
           <i class="bi {icon(item.type)}"></i>
           <span>{item.message}</span>
           {#if item.action}
-            <button type="button" class="b2s-toast-action" on:click={async () => { const action = item.action; toast.remove(item.id); await action?.run(); }}>{item.action.label}</button>
+            <button type="button" class="b2s-toast-action" onclick={async () => { const action = item.action; toast.remove(item.id); await action?.run(); }}>{item.action.label}</button>
           {/if}
         </div>
       </div>
