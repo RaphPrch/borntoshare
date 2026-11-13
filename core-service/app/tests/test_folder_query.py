@@ -61,3 +61,19 @@ def test_path_matches_whole_words() -> None:
     assert fq.matches({"root_path": "\\\\srv\\Siège\\Ressources humaines"}, 'chemin:"ressources humaines"')
     assert fq.matches({"root_path": "\\\\srv\\Data", "dfs_path": "\\\\corp.local\\brest\\Finance"}, "chemin:finance")
     assert fq.matches(rh, "-chemin:finance")
+
+
+def test_duplicates_and_media_criteria():
+    from app.services.folder_query import matches
+
+    data = {"content_size_bytes": 659 * 1024**3, "dup_wasted_bytes": 102 * 1024**3, "media_bytes": 576 * 1024**3}
+    assert matches(data, "doublons>10Go")
+    assert not matches(data, "doublons>200Go")
+    assert matches(data, "doublons<200Go")
+    assert matches(data, "medias>50%")
+    assert not matches(data, "medias>90%")
+    assert matches(data, "medias>50")
+    # Not measured: no criterion matches (never a false hit)
+    assert not matches({"content_size_bytes": None}, "doublons>1Go")
+    assert not matches({"content_size_bytes": 10, "media_bytes": None}, "medias>10%")
+    assert not matches(data, "-medias>50%")

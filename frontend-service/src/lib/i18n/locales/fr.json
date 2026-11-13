@@ -5766,5 +5766,20 @@
   "Remove {server}": "Retirer {server}",
   "Its {count} DFS namespace(s) are no longer read by BornToShare.": "Ses {count} espace(s) de noms DFS ne sont plus lus par BornToShare.",
   "The DFS paths (\\\\corp.local\\…) no longer show in Folders; the governed folders stay, on their file servers.": "Les chemins DFS (\\\\corp.local\\…) ne s'affichent plus dans Dossiers ; les dossiers gouvernés restent, sur leurs serveurs de fichiers.",
-  "It can be declared again later (Servers › New endpoint).": "Il peut être déclaré de nouveau plus tard (Serveurs › Nouveau serveur)."
+  "It can be declared again later (Servers › New endpoint).": "Il peut être déclaré de nouveau plus tard (Serveurs › Nouveau serveur).",
+  "More than 10 GB of duplicates": "Plus de 10 Go de doublons",
+  "Mostly videos, photos or music": "Surtout des vidéos, photos ou musique",
+  "Give its address: BornToShare checks that it answers in SMB, reads its shares and the DFS namespaces it hosts. A namespace path (\\\\\\\\domain\\\\name) also works.": "Donnez son adresse : BornToShare vérifie qu'il répond en SMB, lit ses partages et les espaces de noms DFS qu'il héberge. Le chemin d'un espace de noms (\\\\\\\\domaine\\\\nom) fonctionne aussi.",
+  "Test the account and read the namespace": "Tester le compte et lire l'espace de noms",
+  "Test the account and read the server": "Tester le compte et lire le serveur",
+  "Govern the shares of this server": "Gouverner les partages de ce serveur",
+  "{count} share(s): you choose the folders right after.": "{count} partage(s) : vous choisissez les dossiers juste après.",
+  "No share besides the roots of its namespaces.": "Aucun partage en dehors des racines de ses espaces de noms.",
+  "DFS namespaces hosted here": "Espaces de noms DFS hébergés ici",
+  "Already followed": "Déjà suivi",
+  "The server shows as one line in Servers; you manage its DFS folders from each namespace page.": "Le serveur apparaît sur une seule ligne dans Serveurs ; ses dossiers DFS se gèrent depuis la page de chaque espace de noms.",
+  "This path leads to no DFS namespace.": "Ce chemin ne mène à aucun espace de noms DFS.",
+  "Add the server and {count} namespace(s)": "Ajouter le serveur et {count} espace(s) de noms",
+  "Next: the page of the server.": "Ensuite : la page du serveur.",
+  "Check at least one namespace, or govern its shares.": "Cochez au moins un espace de noms, ou gouvernez ses partages."
 }

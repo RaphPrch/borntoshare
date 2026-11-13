@@ -1930,5 +1930,21 @@
   "Remove {server}": "Remove {server}",
   "Its {count} DFS namespace(s) are no longer read by BornToShare.": "Its {count} DFS namespace(s) are no longer read by BornToShare.",
   "The DFS paths (\\\\corp.local\\…) no longer show in Folders; the governed folders stay, on their file servers.": "The DFS paths (\\\\corp.local\\…) no longer show in Folders; the governed folders stay, on their file servers.",
-  "It can be declared again later (Servers › New endpoint).": "It can be declared again later (Servers › New endpoint)."
+  "It can be declared again later (Servers › New endpoint).": "It can be declared again later (Servers › New endpoint).",
+  "More than 10 GB of duplicates": "More than 10 GB of duplicates",
+  "Mostly videos, photos or music": "Mostly videos, photos or music",
+  "Add a server": "Add a server",
+  "Give its address: BornToShare checks that it answers in SMB, reads its shares and the DFS namespaces it hosts. A namespace path (\\\\\\\\domain\\\\name) also works.": "Give its address: BornToShare checks that it answers in SMB, reads its shares and the DFS namespaces it hosts. A namespace path (\\\\\\\\domain\\\\name) also works.",
+  "Test the account and read the namespace": "Test the account and read the namespace",
+  "Test the account and read the server": "Test the account and read the server",
+  "Govern the shares of this server": "Govern the shares of this server",
+  "{count} share(s): you choose the folders right after.": "{count} share(s): you choose the folders right after.",
+  "No share besides the roots of its namespaces.": "No share besides the roots of its namespaces.",
+  "DFS namespaces hosted here": "DFS namespaces hosted here",
+  "Already followed": "Already followed",
+  "The server shows as one line in Servers; you manage its DFS folders from each namespace page.": "The server shows as one line in Servers; you manage its DFS folders from each namespace page.",
+  "This path leads to no DFS namespace.": "This path leads to no DFS namespace.",
+  "Add the server and {count} namespace(s)": "Add the server and {count} namespace(s)",
+  "Next: the page of the server.": "Next: the page of the server.",
+  "Check at least one namespace, or govern its shares.": "Check at least one namespace, or govern its shares."
 }

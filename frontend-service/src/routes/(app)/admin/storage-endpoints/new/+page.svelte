@@ -23,9 +23,12 @@
   };
   type Namespace = { name: string; path: string; type: 'domain' | 'standalone'; root_targets: string[]; links: { path: string; targets: string[] }[]; error: string | null };
 
-  // One page for both: a file server (its shares) or a DFS namespace (its folders and their targets)
-  let kind: 'filer' | 'dfs' = data.kind;
+  // One way for every server: the test reads its shares and the DFS namespaces it hosts; a path \\domain\name
+  // given instead of an address is a namespace on its own
   let namespaces: Namespace[] = [];
+  let dfsChecked = false;
+  let asFiler = true;
+  let asFilerTouched = false;
   let picked = new Set<string>();
   let dfsServer = '';
   type State = 'idle' | 'running' | 'ok' | 'warn' | 'failed';
@@ -68,11 +71,25 @@
   const isIp = (value: string) => /^[0-9.]+$/.test(value) || value.includes(':');
   const shortName = (value: string) => (isIp(value) ? value : value.split('.')[0]);
   // \\corp.local\brest or \\DFS01\lorient: a namespace given by its path
-  $: namespacePath = kind === 'dfs' ? (() => {
+  $: namespacePath = (() => {
     const parts = host.trim().replace(/\//g, '\\').split('\\').filter(Boolean);
-    return parts.length >= 2 ? `\\\\${parts[0]}\\${parts[1]}` : null;
-  })() : null;
-  $: duplicate = kind === 'dfs' ? null : data.endpoints.filter((endpoint) => !endpoint.isDfs).find((endpoint) => {
+    return host.trim().startsWith('\\') && parts.length >= 2 ? `\\\\${parts[0]}\\${parts[1]}` : null;
+  })();
+  // The shares that are the roots of its namespaces are not folders to govern
+  $: rootShares = new Set(namespaces.flatMap((namespace) => namespace.root_targets ?? [])
+    .map((target) => target.split('\\').filter(Boolean))
+    .filter((parts) => parts.length >= 2 && [cleanHost, dfsServer, found.netbios_name, found.dns_name, found.address]
+      .filter(Boolean).some((name) => String(name).split('.')[0].toLowerCase() === parts[0].split('.')[0].toLowerCase()))
+    .map((parts) => parts[1].toLowerCase()));
+  $: otherShares = shares.filter((share) => !rootShares.has(share.toLowerCase()));
+  // A server holding namespaces only is not declared as a file server, unless asked
+  $: if (!asFilerTouched) asFiler = !namespacePath && (otherShares.length > 0 || namespaces.length === 0);
+  $: if (namespacePath) asFiler = false;
+  // Namespaces already followed (same name on the same server) are not added twice
+  $: knownNamespaces = new Set(data.endpoints.filter((endpoint) => endpoint.isDfs).map((endpoint) =>
+    `${endpoint.host.split('.')[0].toLowerCase()}|${endpoint.name.toLowerCase()}`));
+  const alreadyFollowed = (namespace: Namespace) => knownNamespaces.has(`${(dfsServer || cleanHost).split('.')[0].toLowerCase()}|${namespace.name.toLowerCase()}`);
+  $: duplicate = !asFiler ? null : data.endpoints.filter((endpoint) => !endpoint.isDfs).find((endpoint) => {
     const known = endpoint.host.toLowerCase();
     const names = [cleanHost, found.address, found.netbios_name, found.dns_name].filter(Boolean).map((value) => String(value).toLowerCase());
     return known && names.some((value) => value === known || (!isIp(value) && !isIp(known) && shortName(value) === shortName(known)));
@@ -87,23 +104,12 @@
     shares = [];
     probeResult = null;
     namespaces = [];
+    dfsChecked = false;
     picked = new Set();
   }
   $: if (password && secretRef) secretRef = null;
-  $: canCreate = kind === 'dfs'
-    ? hostValid && Boolean(zoneId) && test === 'ok' && picked.size > 0 && !creating
-    : hostValid && !duplicate && Boolean(zoneId) && Boolean(name.trim()) && test === 'ok' && !creating;
-
-  function switchKind(next: 'filer' | 'dfs') {
-    if (next === kind) return;
-    kind = next;
-    test = 'idle';
-    testMessage = '';
-    testedKey = '';
-    shares = [];
-    namespaces = [];
-    picked = new Set();
-  }
+  $: canCreate = hostValid && Boolean(zoneId) && test === 'ok' && !creating && (asFiler || picked.size > 0)
+    && (!asFiler || (!duplicate && Boolean(name.trim())));
 
   function togglePick(name: string) {
     if (picked.has(name)) picked.delete(name);
@@ -173,8 +179,9 @@
         password = '';
       }
       const domain = effectiveAccount.includes('\\') ? effectiveAccount.split('\\')[0] : effectiveAccount.includes('@') ? effectiveAccount.split('@')[1] : null;
-      if (kind === 'dfs') {
-        const dnsDomain = found.domain || data.sources.find((source) => source.id === sourceId)?.domain || null;
+      const dnsDomain = found.domain || data.sources.find((source) => source.id === sourceId)?.domain || null;
+      // The DFS namespaces it hosts (or the one given by its path); silent when it hosts none
+      const readNamespaces = async (quiet: boolean): Promise<string | null> => {
         const read: any = await runProbeWithPolling({
           fetchFn: fetch,
           request: {
@@ -188,16 +195,21 @@
           } as any,
           intervalMs: 1500,
           maxAttempts: 100
-        });
+        }).catch(() => ({ ok: false }));
+        dfsChecked = true;
         if (!read.ok) {
-          test = 'failed';
-          testMessage = humanizeFileServerMessage(t(String(read.errorMessage ?? read.result?.message ?? 'The DFS server could not be read')));
-        } else {
-          test = 'ok';
-          dfsServer = String(read.result?.details?.server ?? cleanHost);
-          namespaces = (read.result?.details?.namespaces ?? []) as Namespace[];
-          picked = new Set(namespaces.map((namespace) => namespace.name));
+          namespaces = [];
+          return quiet ? null : humanizeFileServerMessage(t(String(read.errorMessage ?? read.result?.message ?? 'The DFS server could not be read')));
         }
+        dfsServer = String(read.result?.details?.server ?? cleanHost);
+        namespaces = (read.result?.details?.namespaces ?? []) as Namespace[];
+        picked = new Set(namespaces.filter((namespace) => !alreadyFollowed(namespace)).map((namespace) => namespace.name));
+        return null;
+      };
+      if (namespacePath) {
+        const refused = await readNamespaces(false);
+        test = refused ? 'failed' : 'ok';
+        testMessage = refused ?? '';
         testedKey = JSON.stringify([cleanHost, port, effectiveAccount, reuseFrom, password, secretRef]);
         return;
       }
@@ -211,9 +223,10 @@
         test = 'failed';
         testMessage = humanizeFileServerMessage(t(String(final.errorMessage ?? final.result?.message ?? 'Connection test failed')));
       } else {
-        test = 'ok';
         probeResult = final.result;
         shares = parseStorageEndpointProbeRoots(final.result).map((path) => path.split(/[\\/]/).filter(Boolean).pop() ?? path);
+        await readNamespaces(true);
+        test = 'ok';
       }
     } catch (error) {
       test = 'failed';
@@ -250,24 +263,17 @@
     }
     if (refused.length) createError = refused.join(' · ');
     if (createdIds.length) {
-      done = true;
-      await goto(`/admin/storage-endpoints/${createdIds[0]}`);
     }
+    return createdIds;
   }
 
   async function create() {
     if (!canCreate) return;
     creating = true;
     createError = '';
-    if (kind === 'dfs') {
-      try {
-        await createNamespaces();
-      } finally {
-        creating = false;
-      }
-      return;
-    }
     try {
+      let filerId: number | null = null;
+      if (asFiler) {
       const created = await createStorageEndpoint(fetch, {
         name: name.trim(),
         description: null,
@@ -288,8 +294,15 @@
       } as any);
       // The shares read by the test become the list of folders to add, without searching again
       if (probeResult) await syncStorageRootDiscoveryForEndpoint(fetch, created.id, probeResult).catch(() => null);
+      filerId = created.id;
+      }
+      const namespaceIds = picked.size ? await createNamespaces() : [];
+      if (!filerId && !namespaceIds.length) return;
       done = true;
-      await goto(shares.length ? `/storage-roots/add?endpoint=${created.id}` : `/admin/storage-endpoints/${created.id}`);
+      // Next: the folders to govern on the file server, else the page of the DFS server
+      if (filerId && otherShares.length) await goto(`/storage-roots/add?endpoint=${filerId}`);
+      else if (namespaceIds.length && !filerId) await goto(`/admin/storage-endpoints/${namespaceIds[0]}?server=${encodeURIComponent(dfsServer.split('.')[0].toUpperCase())}`);
+      else await goto(`/admin/storage-endpoints/${filerId}`);
     } catch (error) {
       const appError = toUiAppError(error, t('Creation failed'), 'ui', { action: 'storage_endpoint_new.create' });
       createError = appError.message;
@@ -322,8 +335,8 @@
       title: t('Service account'),
       detail:
         test === 'running' ? t('Testing…')
-        : test === 'ok' && kind === 'dfs' ? t('{count} namespace(s) read', { count: namespaces.length })
-        : test === 'ok' ? t('{count} share(s) read', { count: shares.length })
+        : test === 'ok' ? [namespacePath ? '' : t('{count} share(s) read', { count: otherShares.length }),
+            namespaces.length ? t('{count} DFS namespace(s)', { count: namespaces.length }) : ''].filter(Boolean).join(' · ')
         : test === 'failed' ? testMessage
         : t('Not tested yet')
     }
@@ -332,9 +345,9 @@
     !hostValid ? t('Enter the address of the server.')
     : duplicate ? t('This file server is already declared as {name}', { name: duplicate.name })
     : !zoneId ? t('Choose the zone of this server.')
-    : kind === 'filer' && !name.trim() ? t('Enter a name for this server.')
+    : asFiler && !name.trim() ? t('Enter a name for this server.')
     : test !== 'ok' ? t('Test the service account to continue.')
-    : kind === 'dfs' && !picked.size ? t('Check at least one namespace.')
+    : !asFiler && !picked.size ? t('Check at least one namespace, or govern its shares.')
     : '';
 </script>
 
@@ -343,20 +356,16 @@
 <section class="b2s-page new-server">
   <header class="head">
     <a class="crumb" href="/admin/storage-endpoints"><i class="bi bi-chevron-left" aria-hidden="true"></i>{t('Servers')}</a>
-    <h1>{t('Add')}</h1>
-    <div class="kind" role="tablist" aria-label={t('What to add')}>
-      <button type="button" role="tab" aria-selected={kind === 'filer'} class:on={kind === 'filer'} on:click={() => switchKind('filer')}><i class="bi bi-hdd-network" aria-hidden="true"></i>{t('File server')}</button>
-      <button type="button" role="tab" aria-selected={kind === 'dfs'} class:on={kind === 'dfs'} on:click={() => switchKind('dfs')}><i class="bi bi-diagram-3" aria-hidden="true"></i>{t('DFS namespace')}</button>
-    </div>
-    <p>{kind === 'dfs' ? t('Give the DFS server or the path of a namespace: BornToShare reads its DFS folders and their targets.') : t('Give its address: BornToShare checks that it answers in SMB and reads its shares.')}</p>
+    <h1>{t('Add a server')}</h1>
+    <p>{t('Give its address: BornToShare checks that it answers in SMB, reads its shares and the DFS namespaces it hosts. A namespace path (\\\\domain\\name) also works.')}</p>
   </header>
 
   <div class="layout">
     <fieldset class="form" disabled={creating}>
       <section class="card">
-        <div class="card-head"><h2>{kind === 'dfs' ? t('DFS server or namespace') : t('Server')}</h2>{#if analysis === 'ok'}<StatusBadge compact variant="success" label={t('Detected')} />{/if}</div>
+        <div class="card-head"><h2>{t('Server')}</h2>{#if analysis === 'ok'}<StatusBadge compact variant="success" label={t('Detected')} />{/if}</div>
         <div class="row">
-          <input class="b2s-input mono big" aria-label={t('Hostname / IP')} placeholder={kind === 'dfs' ? 'dfs01.example.com  ·  \\\\example.com\\brest' : 'filer01.example.com'} bind:value={host}
+          <input class="b2s-input mono big" aria-label={t('Hostname / IP')} placeholder={'filer01.example.com  ·  \\\\example.com\\brest'} bind:value={host}
             on:keydown={(event) => event.key === 'Enter' && analyse()} on:blur={() => hostValid && cleanHost !== analysedHost && analyse()} />
           <input class="b2s-input mono port" type="number" min="1" max="65535" aria-label={t('Port')} bind:value={port} />
           <button type="button" class="b2s-btn b2s-btn-secondary" disabled={!hostValid || analysis === 'running'} on:click={analyse}>
@@ -382,7 +391,7 @@
             </select>
             {#if !data.zones.length}<small class="field-error">{t('Create a zone before adding a storage endpoint.')}</small>{/if}
           </div>
-          {#if kind === 'filer'}
+          {#if asFiler}
             <div class="field">
               <label for="srv-name">{t('Display name')}</label>
               <input id="srv-name" class="b2s-input" bind:value={name} />
@@ -420,7 +429,7 @@
           </div>
         {/if}
         <button type="button" class="b2s-btn b2s-btn-secondary start" disabled={test === 'running' || !hostValid || !effectiveAccount} on:click={testAccount}>
-          {test === 'running' ? t('Testing…') : kind === 'dfs' ? t('Test the account and read the namespaces') : t('Test the account and read the shares')}
+          {test === 'running' ? t('Testing…') : namespacePath ? t('Test the account and read the namespace') : t('Test the account and read the server')}
         </button>
         {#if test === 'failed'}<InlineAlert tone="error">{testMessage}</InlineAlert>{/if}
         {#if aliasRefused}
@@ -429,30 +438,34 @@
             <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={useAddress}>{t('Use {address}', { address: String(found.address) })}</button>
           </InlineAlert>
         {/if}
-        {#if test === 'ok' && kind === 'dfs'}
+        {#if test === 'ok'}
+          {#if !namespacePath}
+            <label class="pick-filer">
+              <input type="checkbox" checked={asFiler} on:change={(event) => { asFiler = event.currentTarget.checked; asFilerTouched = true; }} />
+              <span><strong>{t('Govern the shares of this server')}</strong>
+                <small class="muted">{otherShares.length ? t('{count} share(s): you choose the folders right after.', { count: otherShares.length }) : t('No share besides the roots of its namespaces.')}</small></span>
+            </label>
+            {#if asFiler && otherShares.length}
+              <div class="shares">{#each otherShares.slice(0, 40) as share}<span>{share}</span>{/each}{#if otherShares.length > 40}<span>+{otherShares.length - 40}</span>{/if}</div>
+            {/if}
+          {/if}
           {#if namespaces.length}
+            <h3 class="ns-title">{t('DFS namespaces hosted here')}</h3>
             <ul class="ns">
               {#each namespaces as namespace (namespace.name)}
                 <li>
                   <label>
-                    <input type="checkbox" checked={picked.has(namespace.name)} on:change={() => togglePick(namespace.name)} />
+                    <input type="checkbox" checked={picked.has(namespace.name)} disabled={alreadyFollowed(namespace)} on:change={() => togglePick(namespace.name)} />
                     <span class="ns-name"><strong>{namespace.name}</strong><small class="mono">{namespace.path}</small></span>
                     <StatusBadge compact showDot={false} variant={namespace.type === 'domain' ? 'success' : 'muted'} label={namespace.type === 'domain' ? t('Domain') : t('Standalone')} />
-                    <small class="muted">{namespace.error ? t('Not read: {message}', { message: namespace.error }) : t('{count} DFS folder(s)', { count: namespace.links.length })}</small>
+                    <small class="muted">{alreadyFollowed(namespace) ? t('Already followed') : namespace.error ? t('Not read: {message}', { message: namespace.error }) : t('{count} DFS folder(s)', { count: namespace.links.length })}</small>
                   </label>
                 </li>
               {/each}
             </ul>
-            <small class="muted">{t('You manage their DFS folders right after, from the namespace page.')}</small>
-          {:else}
-            <small class="muted">{t('This server holds no DFS namespace.')}</small>
-          {/if}
-        {:else if test === 'ok'}
-          {#if shares.length}
-            <div class="shares">{#each shares.slice(0, 40) as share}<span>{share}</span>{/each}{#if shares.length > 40}<span>+{shares.length - 40}</span>{/if}</div>
-            <small class="muted">{t('You choose those to manage right after the creation.')}</small>
-          {:else}
-            <small class="muted">{t('No share found: you can create one from the server page.')}</small>
+            <small class="muted">{t('The server shows as one line in Servers; you manage its DFS folders from each namespace page.')}</small>
+          {:else if dfsChecked && namespacePath}
+            <small class="muted">{t('This path leads to no DFS namespace.')}</small>
           {/if}
         {/if}
       </section>
@@ -468,8 +481,8 @@
           </li>
         {/each}
       </ul>
-      <button type="button" class="b2s-btn b2s-btn-primary wide" disabled={!canCreate} on:click={create}>{creating ? t('Creating…') : kind === 'dfs' ? t('Add {count} namespace(s)', { count: picked.size }) : t('Create the server')}</button>
-      {#if pendingReason}<small class="muted">{pendingReason}</small>{:else}<small class="muted">{kind === 'dfs' ? t('Next: the namespace page, to manage its DFS folders.') : t('Next: choose the folders to manage.')}</small>{/if}
+      <button type="button" class="b2s-btn b2s-btn-primary wide" disabled={!canCreate} on:click={create}>{creating ? t('Creating…') : asFiler && picked.size ? t('Add the server and {count} namespace(s)', { count: picked.size }) : picked.size ? t('Add {count} namespace(s)', { count: picked.size }) : t('Create the server')}</button>
+      {#if pendingReason}<small class="muted">{pendingReason}</small>{:else}<small class="muted">{asFiler && otherShares.length ? t('Next: choose the folders to manage.') : t('Next: the page of the server.')}</small>{/if}
       {#if createError}<InlineAlert tone="error">{createError}</InlineAlert>{/if}
     </aside>
   </div>
@@ -502,9 +515,9 @@
   .found span { display: block; color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); }
   .found strong { font-size: var(--b2s-text-sm); overflow-wrap: anywhere; }
   .start { align-self: flex-start; }
-  .kind { display: inline-flex; gap: 4px; margin: 12px 0 8px; padding: 4px; border-radius: var(--b2s-radius-lg); background: var(--b2s-color-neutral-soft); }
-  .kind button { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border: 0; border-radius: var(--b2s-radius-md); background: transparent; color: var(--b2s-color-text-muted); font-weight: 500; cursor: pointer; }
-  .kind button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; box-shadow: var(--b2s-shadow-sm); }
+  .pick-filer { display: flex; align-items: flex-start; gap: 10px; margin-top: 4px; cursor: pointer; }
+  .pick-filer span { display: grid; gap: 2px; }
+  .ns-title { margin: 8px 0 0; font-size: var(--b2s-fs-sm); font-weight: 600; }
   .ns { margin: 0; padding: 0; list-style: none; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); }
   .ns li + li { border-top: 1px solid var(--b2s-color-border); }
   .ns label { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto 140px; gap: 10px; align-items: center; padding: 9px 12px; cursor: pointer; }

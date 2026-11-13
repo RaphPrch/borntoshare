@@ -14,6 +14,14 @@ from app.services.naming_policy import resolve_storage_root_group_name
 ACCESS_LEVELS: tuple[str, str] = ("READ", "WRITE")
 
 
+# Extensions counted as media (videos, photos, music) for « medias>N% » (same list in the frontend folder-query.ts)
+MEDIA_EXTENSIONS = frozenset({
+    "mp4", "mkv", "avi", "mov", "wmv", "m4v", "mpg", "mpeg", "flv", "webm", "ts", "3gp", "vob",
+    "jpg", "jpeg", "png", "gif", "heic", "heif", "raw", "cr2", "nef", "arw", "dng", "tif", "tiff", "bmp", "webp",
+    "mp3", "flac", "wav", "aac", "m4a", "ogg", "wma",
+})
+
+
 class StorageRootsViewsRepo(SQLViewRepo):
     """
     Read-model repository for Storage Roots (v4 minimal)
@@ -160,6 +168,10 @@ class StorageRootsViewsRepo(SQLViewRepo):
         dups = stats.get("duplicates") if isinstance(stats.get("duplicates"), dict) else {}
         payload["dup_wasted_bytes"] = dups.get("wasted_bytes") if dups else None
         payload["dup_groups"] = dups.get("groups") if dups else None
+        # Videos, photos and music among the types of the measure (« medias>50% »: a share full of personal media)
+        types = stats.get("types") if isinstance(stats.get("types"), list) else None
+        payload["media_bytes"] = (sum(int(item.get("bytes") or 0) for item in types if isinstance(item, dict)
+                                      and str(item.get("ext") or "").lower() in MEDIA_EXTENSIONS) if types is not None else None)
         payload["effective_availability"] = self._compute_effective_availability(payload)
         # NTFS inheritance of the folder (PD in the CONTROL flags of the last ACL read); None until read
         control = str(acl_payload.get("control") or "").upper()

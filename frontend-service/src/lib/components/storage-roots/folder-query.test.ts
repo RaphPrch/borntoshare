@@ -36,6 +36,20 @@ const ids = (query: string) => rows.filter((row) => matchesFolderQuery(row, pars
     assert.deepEqual(ids('serveur:filer01 partage:archives'), [2]);
 }
 
+// doublons> (bytes lost in duplicates) and medias> (share of the size): never a hit when not measured
+{
+  const data = { content_size_bytes: 659 * 1024 ** 3, dup_wasted_bytes: 102 * 1024 ** 3, media_bytes: 576 * 1024 ** 3 };
+  const hit = (query: string, row: Record<string, unknown> = data) => matchesFolderQuery(row, parseFolderQuery(query).filters);
+  assert.equal(hit('doublons>10Go'), true);
+  assert.equal(hit('doublons>200Go'), false);
+  assert.equal(hit('doublons<200Go'), true);
+  assert.equal(hit('medias>50%'), true);
+  assert.equal(hit('medias>90%'), false);
+  assert.equal(hit('medias>50'), true);
+  assert.equal(hit('doublons>1Go', { content_size_bytes: null }), false);
+  assert.equal(hit('medias>10%', { content_size_bytes: 10, media_bytes: null }), false);
+}
+
 // proposes values for the key being typed and for a plain word
 {
     assert.deepEqual(folderSuggestions('gardien:al', rows).map((s) => s.insert), ['gardien:"Alice Martin"']);

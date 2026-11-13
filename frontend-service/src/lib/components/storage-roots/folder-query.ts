@@ -21,7 +21,10 @@ const ALIASES: Record<string, string> = {
   chemin: 'path', path: 'path',
   est: 'is', is: 'is', etat: 'is',
   alerte: 'alert', alert: 'alert',
-  taille: 'size', size: 'size'
+  taille: 'size', size: 'size',
+  // Bytes lost in duplicates, share of videos/photos/music in the size (same as core-service folder_query.py)
+  doublons: 'dups', duplicates: 'dups',
+  medias: 'media', media: 'media'
 };
 
 const fold = (value: unknown) => String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -138,6 +141,21 @@ function test(row: Row, filter: QueryFilter): boolean {
       const value = size(row);
       if (limit == null || value == null) return false;
       return filter.op === '<' ? value < limit : filter.op === '>' ? value > limit : value === limit;
+    }
+    case 'dups': {
+      const limit = bytesOf(filter.value);
+      const value = row?.dup_wasted_bytes;
+      if (limit == null || value == null) return false;
+      return filter.op === '<' ? Number(value) < limit : Number(value) >= limit;
+    }
+    case 'media': {
+      const match = /^(\d+(?:[.,]\d+)?)\s*%?$/.exec(wanted);
+      const total = size(row);
+      const media = row?.media_bytes;
+      if (!match || !total || media == null) return false;
+      const share = (100 * Number(media)) / total;
+      const limit = Number(match[1].replace(',', '.'));
+      return filter.op === '<' ? share < limit : share >= limit;
     }
     default:
       return true;
@@ -260,6 +278,8 @@ export const folderQueryExamples = (): Suggestion[] => [
   { insert: 'dfs:', label: t('By DFS namespace'), hint: 'dfs:brest', icon: 'bi-diagram-3' },
   { insert: 'serveur:', label: t('By server'), hint: 'serveur:FILER01', icon: 'bi-hdd-network' },
   { insert: 'taille>1Go', label: t('Larger than 1 GB'), hint: 'taille>1Go', icon: 'bi-hdd' },
+  { insert: 'doublons>10Go', label: t('More than 10 GB of duplicates'), hint: 'doublons>10Go', icon: 'bi-files' },
+  { insert: 'medias>50%', label: t('Mostly videos, photos or music'), hint: 'medias>50%', icon: 'bi-film' },
   { insert: 'est:', label: t('By state'), hint: 'est:injoignable', icon: 'bi-funnel' }
 ];
 

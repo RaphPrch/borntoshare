@@ -2,7 +2,7 @@
 
 Same language as the search field of the Folders page (frontend lib/components/storage-roots/folder-query.ts):
 free text plus « key:value » filters, « - » to exclude, quotes for a value with spaces.
-  tag: gardien: zone: serveur: dfs: partage: chemin: alerte: taille> taille<
+  tag: gardien: zone: serveur: dfs: partage: chemin: alerte: taille> taille< doublons> (bytes wasted) medias> (% of the size)
   est: alerte injoignable sain sans-gardien sans-tag heritage-rompu demandes a-revalider vide non-mesure
        non-teste dfs sensible non-analyse mot-de-passe cle-ou-jeton donnees-personnelles bancaire fichiers-a-risque
        correction quota sans-quota quota-plein quota-demande
@@ -27,6 +27,8 @@ ALIASES = {
     "est": "is", "is": "is", "etat": "is",
     "alerte": "alert", "alert": "alert",
     "taille": "size", "size": "size",
+    "doublons": "dups", "duplicates": "dups",
+    "medias": "media", "media": "media",
 }
 _TOKEN = re.compile(r'(-?)([a-zA-Zéèêà]+)([:<>])("[^"]*"?|\S*)')
 
@@ -166,6 +168,19 @@ def _test(row: dict, item: Filter) -> bool:
         if limit is None or value is None:
             return False
         return value < limit if item.op == "<" else value > limit if item.op == ">" else value == limit
+    if item.key == "dups":
+        limit, value = bytes_of(item.value), row.get("dup_wasted_bytes")
+        if limit is None or value is None:
+            return False
+        return float(value) < limit if item.op == "<" else float(value) >= limit
+    if item.key == "media":
+        match = re.match(r"^(\d+(?:[.,]\d+)?)\s*%?$", wanted)
+        size, media = _size(row), row.get("media_bytes")
+        if not match or not size or media is None:
+            return False
+        share = 100.0 * float(media) / float(size)
+        limit = float(match.group(1).replace(",", "."))
+        return share < limit if item.op == "<" else share >= limit
     return True
 
 
