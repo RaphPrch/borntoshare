@@ -13,6 +13,7 @@ from app.api.access_requests import router as access_requests_router
 
 # Directory / bindings / misc
 from app.api.activity_views import router as activity_views_router
+from app.api.inbox import router as inbox_router
 from app.api.dashboard import router as dashboard_router
 from app.api.advanced_settings import router as advanced_settings_router
 from app.api.naming_policies import router as naming_policies_router
@@ -54,6 +55,7 @@ router.include_router(access_requests_router)
 router.include_router(access_requests_internal_router)
 
 router.include_router(activity_views_router)
+router.include_router(inbox_router)
 router.include_router(dashboard_router)
 router.include_router(advanced_settings_router)
 router.include_router(naming_policies_router)

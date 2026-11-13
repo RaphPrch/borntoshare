@@ -83,17 +83,3 @@ make mail-up           serveur de mails de test Mailpit, http://<hôte>:8025 (ja
 make lint              contrôle du code Python des quatre services (Ruff, règles dans ruff.toml)
 ```
 
-## Aperçu
-
-| | |
-|---|---|
-| ![Tableau de bord](docs/screenshots/01-tableau-de-bord.png) Tableau de bord | ![Dossiers](docs/screenshots/02-dossiers.png) Dossiers : arborescence, mesure, demandes à traiter |
-| ![Nouvelle demande](docs/screenshots/09-nouvelle-demande.png) Nouvelle demande : une page, résumé en direct, suggestions | ![Demandes d'accès](docs/screenshots/03-demandes-acces.png) Demandes d'accès |
-| ![Sensibilité](docs/screenshots/sensibilite.png) Sensibilité : la cause, et qui peut ouvrir chaque fichier | ![Carte d'exposition](docs/screenshots/11-exposition.png) Carte d'exposition |
-| ![5S](docs/screenshots/12-5s.png) 5S des partages | ![Explorateur 5S](docs/screenshots/5s-explorateur.png) Explorateur 5S |
-| ![Suivi](docs/screenshots/06-observabilite.png) Suivi : alertes, tâches, activité | ![Santé](docs/screenshots/10-sante.png) Santé : annuaire, OU des groupes, serveurs |
-| ![Serveurs](docs/screenshots/04-serveurs.png) Serveurs de fichiers | ![Zones](docs/screenshots/05-zones.png) Zones |
-| ![Politiques](docs/screenshots/07-politiques.png) Politiques intelligentes | ![Connexion](docs/screenshots/08-connexion.png) Connexion |
-| ![E-mail au gardien](docs/screenshots/mail-nouvelle-demande.png) E-mail « Nouvelle demande » | ![E-mail d'alerte](docs/screenshots/mail-alerte-sensibilite.png) E-mail « Fichiers ouverts à tous » |
-
-Captures faites le 12 novembre 2026 sur l'instance de build, avec les données du laboratoire CORP.LOCAL.

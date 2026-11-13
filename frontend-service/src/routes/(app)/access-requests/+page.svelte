@@ -1,4 +1,9 @@
 <script lang="ts">
+  import SavedViews from '$lib/components/ui/SavedViews.svelte';
+  import ColumnPicker from '$lib/components/ui/ColumnPicker.svelte';
+  import { resizableColumns } from '$lib/utils/resizable-columns';
+  import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
+  import { recall, remember } from '$lib/utils/remember';
   import { pulseOnIncrease } from '$lib/utils/motion';
   import QuotaRequestsStrip from '$lib/components/storage-roots/QuotaRequestsStrip.svelte';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
@@ -48,7 +53,25 @@
 
   let segment: Segment = data.segment ?? 'pending';
   let searchText = data.query ?? '';
-  let accessFilter: 'all' | AccessKind = 'all';
+  let accessFilter = recall('requests', { accessFilter: 'all' }).accessFilter as 'all' | AccessKind;
+  $: remember('requests', { accessFilter });
+  // Optional columns, kept in this browser; saved views of the filters
+  let hiddenCols = (recall('requests-columns', { hidden: [] as unknown[] }).hidden as string[]).filter((k) => typeof k === 'string');
+  $: remember('requests-columns', { hidden: hiddenCols });
+  $: OPTIONAL_COLS = [
+    { key: 'path', label: t('Path of the folder') },
+    { key: 'level', label: t('Level') },
+    { key: 'end', label: t('End') },
+    { key: 'decision', label: t('Decision') }
+  ];
+  $: show = (key: string) => !hiddenCols.includes(key);
+  function applyView(state: Record<string, unknown>) {
+    accessFilter = (state.accessFilter as typeof accessFilter) ?? 'all';
+    searchText = String(state.searchText ?? '');
+    extra = (state.extra as typeof extra) ?? 'none';
+    const wanted = (state.segment as Segment) ?? 'pending';
+    if (wanted !== segment) selectSegment(wanted);
+  }
   const PAGE = 50;
   let shown = PAGE;
   // Two more views of the counters: accesses ending within 30 days, requests refused in the last 30 days
@@ -682,6 +705,10 @@
         <button type="button" class:on={accessFilter === item.key} aria-pressed={accessFilter === item.key} on:click={() => (accessFilter = item.key as typeof accessFilter)}>{item.label}</button>
       {/each}
     </div>
+    <SavedViews key="requests" current={{ segment, extra, accessFilter, searchText }} apply={applyView} />
+    <span class="ar-filters__end">
+      <ColumnPicker columns={OPTIONAL_COLS} hidden={hiddenCols} onChange={(next) => (hiddenCols = next)} />
+    </span>
     <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm ar-export" on:click={exportRequests} disabled={visibleRequests.length === 0}>
       <i class="bi bi-download" aria-hidden="true"></i>
       {t('Export')}
@@ -700,7 +727,7 @@
   <div class="ar-body">
   <section class="b2s-panel ar-list">
     <div class="b2s-table-wrap">
-      <table class="b2s-table ar-table">
+      <table class="b2s-table ar-table" use:resizableColumns={'requests'}>
         <thead>
           <tr>
             <th class="ar-check">
@@ -710,16 +737,22 @@
             </th>
             <th>{t('Requester')}</th>
             <th>{t('Folder')}</th>
-            <th>{t('Level')}</th>
+            {#if show('level')}<th>{t('Level')}</th>{/if}
             <th>{t('Status')}</th>
-            {#if !selectedRequest}<th>{t('End')}</th><th>{t('Decision')}</th>{/if}
+            {#if !selectedRequest}{#if show('end')}<th>{t('End')}</th>{/if}{#if show('decision')}<th>{t('Decision')}</th>{/if}{/if}
           </tr>
         </thead>
         <tbody>
           {#if pageRequests.length === 0}
             <tr>
               <td colspan="7" class="ar-empty">
-                {segment === 'pending' ? t('No request is waiting for a review.') : t('No request matches these filters.')}
+                {#if accessFilter !== 'all' || searchText || extra !== 'none'}
+                  <EmptyStateInline message={t('No request matches these filters.')} actionLabel={t('Clear the filters')} actionIcon="bi-x-circle"
+                    onAction={() => { accessFilter = 'all'; searchText = ''; extra = 'none'; }} />
+                {:else}
+                  <EmptyStateInline message={segment === 'pending' ? t('No request is waiting for a review.') : t('No request matches these filters.')}
+                    actionLabel={t('New access request')} href="/access-requests/new" actionIcon="bi-plus-lg" shortcut="N" />
+                {/if}
               </td>
             </tr>
           {:else}
@@ -755,11 +788,13 @@
                 </td>
                 <td>
                   <strong>{resourceName(request)}</strong>
-                  {#if resourcePath(request)}<small class="ar-mono">{resourcePath(request)}</small>{/if}
+                  {#if show('path') && resourcePath(request)}<small class="ar-mono">{resourcePath(request)}</small>{/if}
                 </td>
+                {#if show('level')}
                 <td>
                   <StatusBadge compact showDot={false} variant={accessKind(request) === 'write' ? 'warning' : 'info'} label={accessLabel(request)} />
                 </td>
+                {/if}
                 <td>
                   {#if quick.has(accessRequestId(request))}
                     <span class="ar-quick">{quick.get(accessRequestId(request))?.decision === 'approve' ? t('Approved · sent in 5 s') : t('Rejected · sent in 5 s')}<span class="ar-quick__bar" aria-hidden="true"></span></span>
@@ -770,6 +805,7 @@
                   {/if}
                 </td>
                 {#if !selectedRequest}
+                  {#if show('end')}
                   <td class="ar-end">
                     {#if isApplied(request) && expiresMs(request)}
                       {@const left = Math.max(0, Math.ceil((expiresMs(request) - now) / DAY))}
@@ -777,7 +813,10 @@
                       <span class="ar-bar" aria-hidden="true"><span class:soon={left <= 7} style={`width:${Math.min(100, Math.round((left / Math.max(1, durationDays(request))) * 100))}%`}></span></span>
                     {:else if isApplied(request)}<small>{t('Permanent')}</small>{:else}<small class="ar-dim">—</small>{/if}
                   </td>
+                  {/if}
+                  {#if show('decision')}
                   <td class="ar-nowrap"><small class="ar-dim">{decidedMs(request) && !isPending(request) ? formatDate(new Date(decidedMs(request)).toISOString()) : '—'}</small></td>
+                  {/if}
                 {/if}
               </tr>
             {/each}
@@ -1087,6 +1126,7 @@
 
   .ar-filters {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
   }
@@ -1099,7 +1139,7 @@
 
 
   .ar-export {
-    margin-left: auto;
+    margin-left: 0;
   }
 
   /* The selection floats at the bottom of the window: its actions stay in reach while the list scrolls */
@@ -1503,4 +1543,5 @@
   .ar-foot { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--b2s-color-border); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .ar-foot span { margin-right: auto; }
   .ar-person small { white-space: nowrap; }
+  .ar-filters__end { margin-left: auto; }
 </style>

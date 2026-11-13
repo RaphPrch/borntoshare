@@ -8,8 +8,10 @@ import { requireAuth } from '$lib/server/require-auth';
 const SEGMENTS = ['pending', 'applied', 'closed', 'all'] as const;
 type Segment = (typeof SEGMENTS)[number];
 
-export const load: PageServerLoad = async (event: RequestEvent) => {
+export const load: PageServerLoad = async (event) => {
   await requireAuth(event);
+  // Reloaded by the live updates when a request moves (layout of the app)
+  event.depends('b2s:requests');
 
   const rawStatus = String(event.url.searchParams.get('status') ?? 'pending').toLowerCase();
   const segment: Segment = (SEGMENTS as readonly string[]).includes(rawStatus) ? (rawStatus as Segment) : 'pending';

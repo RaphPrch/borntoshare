@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from '$lib/utils/unsaved';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
@@ -28,6 +29,7 @@
   };
   $: errors = rows.map(rowError);
   $: dirty = JSON.stringify(rows) !== saved;
+  guardUnsaved(() => dirty);
   $: canSave = dirty && !saving && errors.every((error) => !error);
   // The domains a directory proposes and that no line replaces
   $: proposedOnly = data.proposed.filter((entry) => !rows.some((row) => row.domain.trim().toLowerCase() === entry.domain));

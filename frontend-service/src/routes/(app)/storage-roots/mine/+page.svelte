@@ -44,7 +44,9 @@
         <small>{row.expires_at ? t('Ends on {date}', { date: formatDate(row.expires_at) }) : t('No end date')}</small>
       </a>
     {:else}
-      <EmptyStateInline message={query ? t('No folder matches this search.') : t('You have no access in force yet: request one.')} />
+      <EmptyStateInline message={query ? t('No folder matches this search.') : t('You have no access in force yet: request one.')}
+        actionLabel={query ? t('Clear the search') : t('New access request')} href={query ? null : '/access-requests/new'} onAction={() => (query = '')}
+        actionIcon={query ? 'bi-x-circle' : 'bi-plus-lg'} shortcut={query ? null : 'N'} />
     {/each}
   </section>
 

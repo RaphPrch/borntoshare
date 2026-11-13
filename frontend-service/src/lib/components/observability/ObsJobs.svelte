@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { resizableColumns } from '$lib/utils/resizable-columns';
   import { onDestroy, onMount } from 'svelte';
+  import { recall, remember } from '$lib/utils/remember';
   import { apiPostData } from '$lib/api/client';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -36,13 +38,15 @@
   let loading = true;
   let loadError: string | null = null;
   let query = '';
-  let statusFilter = initialStatus || 'all';
-  let typeFilter = 'all';
-  let targetFilter = 'all';
+  const savedJobs = recall('jobs', { statusFilter: 'all', typeFilter: 'all', targetFilter: 'all', pageSize: 25 });
+  let statusFilter = initialStatus && initialStatus !== 'all' ? initialStatus : savedJobs.statusFilter;
+  let typeFilter = savedJobs.typeFilter;
+  let targetFilter = savedJobs.targetFilter;
   // The health checks run every few minutes: hidden unless asked, they would bury the rest
   let showRoutine = false;
   let page = 1;
-  let pageSize = 25;
+  let pageSize = savedJobs.pageSize;
+  $: remember('jobs', { statusFilter, typeFilter, targetFilter, pageSize });
   let busy = false;
   let cancelling: Job | null = null;
   let flushing: Job[] | null = null;
@@ -342,7 +346,7 @@
       <EmptyStateInline message={t('No job found.')} />
     {:else}
       <div class="b2s-table-wrap">
-        <table class="b2s-table obs-table">
+        <table class="b2s-table obs-table" use:resizableColumns={'jobs'}>
           <thead>
             <tr>
               <th>{t('Status')}</th>

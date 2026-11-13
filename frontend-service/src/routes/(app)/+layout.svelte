@@ -26,9 +26,17 @@
   import "$lib/styles/storage-roots.css";
 
   import { page } from "$app/stores";
-  import { onNavigate } from "$app/navigation";
+  import { invalidate, onNavigate } from "$app/navigation";
+  import { onDestroy, onMount } from "svelte";
+  import { connectLive, live, onLiveChange } from "$lib/stores/live";
+  import { density } from "$lib/stores/density";
+  import TasksDock from "$lib/components/layout/TasksDock.svelte";
+  import UnsavedChangesDialog from "$lib/components/ui/UnsavedChangesDialog.svelte";
+  import { unsavedPrompt } from "$lib/utils/unsaved";
+  import { installCopyOnClick } from "$lib/utils/copy-on-click";
   import { reducedMotion } from "$lib/utils/motion";
   import { pageTitle } from "$lib/utils/page-title";
+  import { t } from "$lib/i18n";
 
   import Toaster from "$lib/components/ui/Toaster.svelte";
   import SessionIdleBanner from "$lib/components/layout/SessionIdleBanner.svelte";
@@ -61,6 +69,17 @@
 
   bootstrapFrontendCore();
 
+  // Live updates (/live): badges, bell, tasks; the pages whose data moved reload it themselves
+  const stops: Array<() => void> = [];
+  onMount(() => {
+    density.sync();
+    stops.push(installCopyOnClick());
+    stops.push(connectLive());
+    stops.push(onLiveChange((s) => s.requestsStamp, () => void invalidate("b2s:requests")));
+    stops.push(onLiveChange((s) => s.alertsStamp, () => void invalidate("b2s:alerts")));
+  });
+  onDestroy(() => stops.splice(0).forEach((stop) => stop()));
+
   // Page change between sections (Folders → Servers…): the main area cross-fades (View Transitions).
   // Within a section (another folder, ?selected=…) the workspace animates its own content instead.
   const section = (path: string) => {
@@ -82,7 +101,7 @@
 </script>
 
 <svelte:head>
-  <title>{pageTitle($page.url.pathname, Number(data.topbarAlertsCount ?? 0))}</title>
+  <title>{pageTitle($page.url.pathname, $live.pending ?? Number(data.topbarAlertsCount ?? 0))}</title>
 </svelte:head>
 
 <div class="b2s-app-root">
@@ -102,6 +121,9 @@
   </main>
 </div>
 
+{#if data.navigation?.canSeeAdmin}<TasksDock />{/if}
+<UnsavedChangesDialog open={$unsavedPrompt.open} impact={t("The edits made on this page will be lost.")}
+  onKeepEditing={() => unsavedPrompt.set({ open: false, discard: null })} onDiscard={() => $unsavedPrompt.discard?.()} />
 <SessionIdleBanner />
 <Toaster />
 <TopProgress />

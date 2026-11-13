@@ -5,6 +5,9 @@
   import { initials } from '$lib/utils/format';
   import LanguageSwitcher from '$lib/components/ui/LanguageSwitcher.svelte';
   import GlobalSearch from '$lib/components/layout/GlobalSearch.svelte';
+  import NotificationCenter from '$lib/components/layout/NotificationCenter.svelte';
+  import { live } from '$lib/stores/live';
+  import { density } from '$lib/stores/density';
 
   /** Main navigation of the app: a rail on the left, the pages take the whole height. */
   export let user: unknown = null;
@@ -27,6 +30,9 @@
   $: features = permissions?.features ?? [];
 
   type Item = { href: string; label: string; icon: string; count?: number; danger?: boolean };
+  // Badges follow the live updates once connected; the values of the page load until then
+  $: pendingCount = $live.pending ?? Number(alertsCount ?? 0);
+  $: criticalCount = $live.critical ?? Number(criticalAlertsCount ?? 0);
 
   $: main = [
     { href: '/dashboard', label: t('Dashboard'), icon: 'bi-speedometer2' },
@@ -36,8 +42,8 @@
     // Lean 5S of the shares, and the printable reports (on the folders the person may see)
     ...(features.includes('fives') ? [{ href: '/five-s', label: t('5S'), icon: 'bi-stars' }] : []),
     { href: '/reports', label: t('Reports'), icon: 'bi-file-earmark-bar-graph' },
-    { href: '/access-requests', label: t('Requests'), icon: 'bi-check2-square', count: Number(alertsCount ?? 0) },
-    { href: '/observability', label: t('Monitoring'), icon: 'bi-activity', count: canSeeObservability ? Number(criticalAlertsCount ?? 0) : 0, danger: true }
+    { href: '/access-requests', label: t('Requests'), icon: 'bi-check2-square', count: pendingCount },
+    { href: '/observability', label: t('Monitoring'), icon: 'bi-activity', count: canSeeObservability ? criticalCount : 0, danger: true }
   ] as Item[];
   $: admin = (canSeeAdmin
     ? [
@@ -86,7 +92,13 @@
   {/if}
 
   <div class="sb__bottom">
+    <NotificationCenter />
     <GlobalSearch {canSeeAdmin} {canSeeStorageRoots} {canSeeObservability} />
+    <button type="button" class="sb__item sb__density" on:click={() => density.toggle()} aria-pressed={$density === 'compact'}
+      title={$density === 'compact' ? t('Compact display: click for the comfortable one') : t('Comfortable display: click for the compact one')}>
+      <i class={`bi ${$density === 'compact' ? 'bi-arrows-expand' : 'bi-arrows-collapse'}`} aria-hidden="true"></i>
+      <span>{$density === 'compact' ? t('Compact') : t('Comfortable')}</span>
+    </button>
     <LanguageSwitcher tone="light" />
     <span class="sb__version" title={t('Built on {date}', { date: new Date(__B2S_BUILT_AT__).toLocaleString() })}>{__B2S_VERSION__}</span>
     <form method="POST" action="/logout">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
@@ -191,9 +192,9 @@
                 <StatusBadge compact status={s.status} />
               {/if}
             </td>
-            <td>{timeAgo(s.last_seen)}</td>
+            <td><RelativeTime value={s.last_seen} /></td>
             <td>{s.auth_source ?? '-'}</td>
-            <td>{timeAgo(s.created_at)}</td>
+            <td><RelativeTime value={s.created_at} /></td>
             <td class="text-end">
               {#if !s.is_current}
               <button

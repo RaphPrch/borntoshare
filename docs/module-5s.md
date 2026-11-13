@@ -25,10 +25,6 @@ Bases : `b2s_fives` (résultats, décisions, quarantaine, historique des scores)
 | Rapport (`/five-s/report/<dossier>`) | volumes, âges, types, et les trois mesures précédentes, rétablissables |
 | Scanner (`/five-s/scanner`) | file et parcours en cours, réglages (fréquence, parcours complet, scans simultanés par serveur, empreintes par morceau) |
 
-![Explorateur 5S](screenshots/5s-explorateur.png)
-
-![Doublons d'un dossier](screenshots/13-5s-doublons.png)
-
 ## Actions
 
 | Action | Effet | Garde-fous |

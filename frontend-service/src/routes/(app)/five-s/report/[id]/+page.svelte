@@ -207,7 +207,7 @@
         <p class="rp__big">{formatBytes(cold?.bytes ?? 0)} <small>{t('{files} file(s) · {share} % of the folder', { files: (cold?.files ?? 0).toLocaleString('fr-FR'), share: share(cold?.bytes ?? 0, total) })}</small></p>
         <h3>{t('The biggest old files')}</h3>
         <ul class="rp__list">{#each stats.cold_top ?? [] as file}
-          <li><code title={file.path}>{file.path}</code><span>{formatBytes(file.bytes)}{file.modified ? ` · ${formatDateTime(file.modified)}` : ''}</span></li>
+          <li><code title={file.path} data-copy={file.path}>{file.path}</code><span>{formatBytes(file.bytes)}{file.modified ? ` · ${formatDateTime(file.modified)}` : ''}</span></li>
         {/each}</ul>
         <small class="rp__hint">{t('Based on the date of last modification (Windows rarely keeps the date of last access).')}</small>
       </section>
@@ -222,7 +222,7 @@
         <table class="b2s-table">
           <thead><tr><th>{t('Path')}</th><th class="rp__num">{t('Size')}</th><th class="rp__num">{t('Last change')}</th></tr></thead>
           <tbody>{#each shownFiles.slice(0, showFiles) as file}
-            <tr><td class="rp__path"><code title={file.path}>{file.path}</code></td><td class="rp__num">{formatBytes(file.size)}</td><td class="rp__num">{file.modified ? formatDateTime(file.modified) : '—'}</td></tr>
+            <tr><td class="rp__path"><code title={file.path} data-copy={file.path}>{file.path}</code></td><td class="rp__num">{formatBytes(file.size)}</td><td class="rp__num">{file.modified ? formatDateTime(file.modified) : '—'}</td></tr>
           {/each}</tbody>
         </table>
         {#if shownFiles.length > showFiles}<button type="button" class="b2s-link-btn" on:click={() => (showFiles += 100)}>{t('Show more ({count} files)', { count: shownFiles.length })}</button>{/if}
@@ -238,7 +238,7 @@
           </div></header>
         <p class="rp__big">{formatBytes(oldBytes)} <small>{t('{count} of the {total} biggest files', { count: oldFiles.length.toLocaleString('fr-FR'), total: invFiles.length.toLocaleString('fr-FR') })}</small></p>
         <ul class="rp__list">{#each oldFiles.slice(0, 15) as file}
-          <li><code title={file.path}>{file.path}</code><span>{formatBytes(file.size)} · {file.modified ? formatDateTime(file.modified) : '—'}</span></li>
+          <li><code title={file.path} data-copy={file.path}>{file.path}</code><span>{formatBytes(file.size)} · {file.modified ? formatDateTime(file.modified) : '—'}</span></li>
         {/each}</ul>
       </section>
 

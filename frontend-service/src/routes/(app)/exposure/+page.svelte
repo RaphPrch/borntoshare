@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { recall, remember } from '$lib/utils/remember';
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
@@ -29,8 +30,10 @@
 
   let data: Exposure | null = null;
   let error = '';
-  let filter: Level | 'all' = 'all';
-  let zoneFilter = 0;
+  const savedExposure = recall('exposure', { filter: 'all', zoneFilter: 0 });
+  let filter = savedExposure.filter as Level | 'all';
+  let zoneFilter = savedExposure.zoneFilter;
+  $: remember('exposure', { filter, zoneFilter });
   let query = '';
 
   onMount(async () => {
@@ -149,7 +152,7 @@
         {/each}
       </section>
     {:else}
-      <EmptyStateInline message={t('No folder matches these filters.')} />
+      <EmptyStateInline message={t('No folder matches these filters.')} actionLabel={filter !== 'all' || zoneFilter || query ? t('Clear the filters') : null} actionIcon="bi-x-circle" onAction={() => { filter = 'all'; zoneFilter = 0; query = ''; }} />
     {/each}
   {/if}
 </section>

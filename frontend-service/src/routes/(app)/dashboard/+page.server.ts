@@ -9,6 +9,8 @@ import {
 
 export const load: PageServerLoad = async (event) => {
   const { fetch, setHeaders } = event;
+  // Reloaded by the live updates when a request moves (layout of the app)
+  event.depends('b2s:requests');
   /* ======================================================
    * NO CACHE (dashboard must always be fresh)
    * ====================================================== */

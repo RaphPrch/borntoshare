@@ -58,7 +58,7 @@
 {#if shown}
   <div class="peek" style={`top: ${position.top}px; left: ${position.left}px`} role="tooltip">
     <strong>{shown.storage_root_name ?? shown.storage_root_code}</strong>
-    <code>{shown.root_path ?? ''}</code>
+    <code data-copy={shown.root_path ?? ''}>{shown.root_path ?? ''}</code>
     {#if data?.summary.people}
       <span class="peek__split" aria-hidden="true">
         <span class="is-read" style={`flex: ${data.summary.read}`}></span><span class="is-write" style={`flex: ${data.summary.write}`}></span>

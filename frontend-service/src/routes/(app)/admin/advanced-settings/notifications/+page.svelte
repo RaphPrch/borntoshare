@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from '$lib/utils/unsaved';
   import { t } from '$lib/i18n';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
   import SettingRow from '$lib/components/settings/SettingRow.svelte';
@@ -25,6 +26,7 @@
     expiryReminderDays: stored.expiryReminderDays ?? 7
   };
   let password = '';
+  let savedNotif = JSON.stringify(notif);
   $: gmail = /(^|\.)(gmail|googlemail)\.com$/i.test(String(notif.host || '').trim());
   const hasPassword = Boolean(stored.hasPassword);
   let savingMail = false;
@@ -37,6 +39,7 @@
     try {
       await saveAdvancedSections(fetch, { notifications: { ...notif, port: Number(notif.port), expiryReminderDays: Number(notif.expiryReminderDays), ...(password ? { password } : {}) } });
       password = '';
+      savedNotif = JSON.stringify(notif);
       toast.success(t('Notifications saved.'));
     } catch (e) {
       reportUiError(e, t('Unable to save the notifications.'), 'advanced_settings.notifications.save');
@@ -59,10 +62,13 @@
   const storedBanner = data.advanced?.banner ?? {};
   let banner = { enabled: Boolean(storedBanner.enabled), message: storedBanner.message ?? '', tone: storedBanner.tone ?? 'info' };
   let savingBanner = false;
+  let savedBanner = JSON.stringify(banner);
+  guardUnsaved(() => JSON.stringify(notif) !== savedNotif || Boolean(password) || JSON.stringify(banner) !== savedBanner);
   async function saveBanner() {
     savingBanner = true;
     try {
       await saveAdvancedSections(fetch, { banner });
+      savedBanner = JSON.stringify(banner);
       toast.success(banner.enabled ? t('Banner shown to every user.') : t('Banner hidden.'));
     } catch (e) {
       reportUiError(e, t('Unable to save the banner.'), 'advanced_settings.banner.save');

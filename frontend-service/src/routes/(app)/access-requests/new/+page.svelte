@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from '$lib/utils/unsaved';
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { onMount } from 'svelte';
@@ -60,6 +61,9 @@
   let customDate = '';
   let justification = '';
   let submitting = false;
+  // A request being written (a reason typed, or folders chosen and the next step reached) asks before it is left
+  let sent = false;
+  guardUnsaved(() => !sent && (justification.trim().length > 0 || (cart.size > 0 && step > 1)));
 
   const text = (v: unknown) => String(v ?? '').trim();
   const toRoot = (row: StorageRootContext & Record<string, any>): Root => ({
@@ -310,6 +314,7 @@
       reportUiError(new Error(failed.join(' · ')), t('Some requests could not be created.'), 'access-requests.new');
       return;
     }
+    sent = true;
     await goto('/access-requests?status=pending', { invalidateAll: true });
   }
 

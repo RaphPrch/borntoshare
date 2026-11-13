@@ -44,8 +44,6 @@ Le bloc Sensibilité regroupe les fichiers par **cause** : le dossier commun, le
 droit est hérité (posé sur ce dossier ou au-dessus) ou posé sur les fichiers. Il n'y a souvent qu'une cause : un
 dossier qui donne la lecture à tout le monde.
 
-![Sensibilité d'un dossier : cause et fichiers ouverts à tous](screenshots/sensibilite.png)
-
 ## L'alerte « fichiers sensibles ouverts à tous »
 
 Quand des fichiers de mots de passe, de clés ou de données personnelles ou bancaires sont ouverts à tous, une alerte
@@ -64,6 +62,3 @@ attendus), ou pas encore lu. Réglages avancés › Gouvernance complète les de
 - les **comptes d'administration attendus** : un Administrateur renommé par un durcissement CIS (ex. `CORP\sla-prd`)
   n'est alors plus signalé comme « compte hors BornToShare ».
 
-![Carte d'exposition](screenshots/11-exposition.png)
-
-![Réglages avancés › Gouvernance : comptes d'administration attendus](screenshots/15-gouvernance.png)

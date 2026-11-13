@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from '$lib/utils/unsaved';
   import FieldError from '$lib/components/ui/FieldError.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
@@ -45,6 +46,7 @@
   $: hasErrors = Boolean(retentionError || levelError);
   $: isDirty = JSON.stringify(normalize(form)) !== initialSnapshot;
   $: canSave = !saving && isDirty && !hasErrors;
+  guardUnsaved(() => isDirty);
 
   async function save() {
     if (!canSave) return;

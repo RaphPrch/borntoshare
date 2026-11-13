@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from '$lib/utils/unsaved';
   import { t } from '$lib/i18n';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
   import SettingRow from '$lib/components/settings/SettingRow.svelte';
@@ -15,6 +16,9 @@
   let minReasonLength = requests.minReasonLength ?? 10;
   let newDuration = '';
   let saving = false;
+  const snap = () => JSON.stringify([durations, allowPermanent, Number(maxDays), Number(minReasonLength)]);
+  let savedSnap = snap();
+  guardUnsaved(() => snap() !== savedSnap);
 
   function addDuration() {
     const days = Number(newDuration);
@@ -31,6 +35,7 @@
     saving = true;
     try {
       await saveAdvancedSections(fetch, { requests: { durations, allowPermanent, maxDays: Number(maxDays), minReasonLength: Number(minReasonLength) } });
+      savedSnap = snap();
       toast.success(t('Request policy saved.'));
     } catch (e) {
       reportUiError(e, t('Unable to save the request policy.'), 'advanced_settings.requests.save');

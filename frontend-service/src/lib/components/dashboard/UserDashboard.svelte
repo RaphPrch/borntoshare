@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { t } from '$lib/i18n';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -75,7 +76,7 @@
             {:else}
               <StatusBadge variant={row.overdue ? 'error' : 'warning'} label={row.overdue ? t('Overdue') : t('To decide')} />
             {/if}
-            <small class="row__when">{timeAgo(row.created_at)}</small>
+            <small class="row__when"><RelativeTime value={row.created_at} /></small>
           </a>
         {:else}
           <EmptyStateInline message={t('Nothing to decide.')} />
@@ -87,10 +88,10 @@
           <a class="row" href={href(row)}>
             <span class="row__main"><strong>{row.storage_root_name ?? '—'}</strong><small>{row.request_code ?? ''} · {access(row)}</small></span>
             <StatusBadge variant={failed(row) ? 'error' : requestToneVariant(meta.tone)} label={failed(row) ? t('In error') : meta.label} />
-            <small class="row__when">{timeAgo(row.created_at)}</small>
+            <small class="row__when"><RelativeTime value={row.created_at} /></small>
           </a>
         {:else}
-          <EmptyStateInline message={t('No request yet.')} />
+          <EmptyStateInline message={t('No request yet.')} actionLabel={t('New access request')} href="/access-requests/new" actionIcon="bi-plus-lg" shortcut="N" />
         {/each}
       {/if}
     </section>

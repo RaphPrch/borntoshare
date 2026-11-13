@@ -250,7 +250,7 @@
         {#if showIgnored}
           <ul>
             {#each ignoredFiles as file (file.path)}
-              <li><span class="sc__ign"><code title={file.path}>{inside(file.path)}</code>{#if file.items[0]?.ignored_reason}<small>{file.items[0].ignored_reason}{file.items[0].ignored_by ? ` · ${file.items[0].ignored_by}` : ''}</small>{/if}</span>
+              <li><span class="sc__ign"><code title={file.path} data-copy={file.path}>{inside(file.path)}</code>{#if file.items[0]?.ignored_reason}<small>{file.items[0].ignored_reason}{file.items[0].ignored_by ? ` · ${file.items[0].ignored_by}` : ''}</small>{/if}</span>
                 {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={ignoringPath !== null} on:click={() => setIgnored(file.path, false)}>{t('Count it again')}</button>{/if}
               </li>
             {/each}
@@ -289,7 +289,7 @@
         <li animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }} on:contextmenu={(event) => openMenu(file, event)}>
           <i class={`bi ${CATEGORY()[file.items[0].category]?.icon ?? 'bi-file-earmark'}`} aria-hidden="true"></i>
           <div>
-            <span class="sc__file"><code title={file.path}>{#if file.acl?.broad}<i class="bi bi-people-fill sc__open-dot" title={t('Every user can open it')} aria-label={t('Every user can open it')}></i>{/if}{inside(file.path)}</code>
+            <span class="sc__file"><code title={file.path} data-copy={file.path}>{#if file.acl?.broad}<i class="bi bi-people-fill sc__open-dot" title={t('Every user can open it')} aria-label={t('Every user can open it')}></i>{/if}{inside(file.path)}</code>
               {#if isAdmin && reasonFor !== file.path}<button type="button" class="b2s-link-btn sc__fp" disabled={ignoringPath !== null} on:click={() => { reasonFor = file.path; reasonText = ''; }}>{t('False positive')}</button>{/if}
             </span>
             {#if reasonFor === file.path}
@@ -335,7 +335,7 @@
         {#if showIgnored}
           <ul>
             {#each ignoredFiles as file (file.path)}
-              <li><span class="sc__ign"><code title={file.path}>{inside(file.path)}</code>{#if file.items[0]?.ignored_reason}<small>{file.items[0].ignored_reason}{file.items[0].ignored_by ? ` · ${file.items[0].ignored_by}` : ''}</small>{/if}</span>
+              <li><span class="sc__ign"><code title={file.path} data-copy={file.path}>{inside(file.path)}</code>{#if file.items[0]?.ignored_reason}<small>{file.items[0].ignored_reason}{file.items[0].ignored_by ? ` · ${file.items[0].ignored_by}` : ''}</small>{/if}</span>
                 {#if isAdmin}<button type="button" class="b2s-link-btn" disabled={ignoringPath !== null} on:click={() => setIgnored(file.path, false)}>{t('Count it again')}</button>{/if}
               </li>
             {/each}

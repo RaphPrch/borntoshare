@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from '$lib/utils/unsaved';
   import { t } from '$lib/i18n';
   import ConfigCard from '$lib/components/settings/ConfigCard.svelte';
   import SettingRow from '$lib/components/settings/SettingRow.svelte';
@@ -13,10 +14,14 @@
   let perAddress = signIn.maxFailuresPerAddress ?? 50;
   let windowMinutes = signIn.windowMinutes ?? 15;
   let saving = false;
+  const snap = () => JSON.stringify([Number(perAccount), Number(perAddress), Number(windowMinutes)]);
+  let savedSnap = snap();
+  guardUnsaved(() => snap() !== savedSnap);
   async function save() {
     saving = true;
     try {
       await saveAdvancedSections(fetch, { signIn: { maxFailuresPerAccount: Number(perAccount), maxFailuresPerAddress: Number(perAddress), windowMinutes: Number(windowMinutes) } });
+      savedSnap = snap();
       toast.success(t('Sign-in limits saved.'));
     } catch (e) {
       reportUiError(e, t('Unable to save the sign-in limits.'), 'advanced_settings.sign_in.save');

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import SavedViews from '$lib/components/ui/SavedViews.svelte';
+  import { resizableColumns } from '$lib/utils/resizable-columns';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { alertMessage, alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
@@ -18,7 +20,9 @@
     type GovernanceAlert
   } from '$lib/api/governance-alerts';
   import type { StatusVariant } from '$lib/utils/status';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import { recall, remember } from '$lib/utils/remember';
+  import { onLiveChange } from '$lib/stores/live';
   import { listZones } from '$lib/api/zones';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import AppModal from '$lib/components/ui/AppModal.svelte';
@@ -34,14 +38,18 @@
   let loadFailed = false;
   let loading = true;
   let query = initialType;
-  let statusFilter: 'active' | 'open' | 'acknowledged' | 'resolved' | 'all' = 'active';
+  // A link with a severity or a type opens that view; otherwise the list reopens as it was left
+  const fromLink = Boolean(initialType) || (initialSeverity || 'all') !== 'all';
+  const saved = recall('alerts', { statusFilter: 'active', zoneFilter: 'all', grouped: true, pageSize: 25 });
+  let statusFilter = (fromLink ? 'active' : saved.statusFilter) as 'active' | 'open' | 'acknowledged' | 'resolved' | 'all';
   let severityFilter = initialSeverity || 'all';
-  let zoneFilter = 'all';
+  let zoneFilter = fromLink ? 'all' : saved.zoneFilter;
   // By type first: a filter coming from the overview shows the alerts themselves
-  let grouped = !initialType && (initialSeverity || 'all') === 'all';
+  let grouped = fromLink ? false : saved.grouped;
   let zones: { id: number; name: string }[] = [];
   let page = 1;
-  let pageSize = 25;
+  let pageSize = saved.pageSize;
+  $: remember('alerts', { statusFilter, zoneFilter, grouped, pageSize });
   let busyId: string | null = null;
   let refreshing = false;
 
@@ -143,6 +151,9 @@
       .map((z) => ({ id: Number(z.id), name: String(z.name ?? z.id) }))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
+
+  // An alert raised or closed elsewhere: the list follows without a click
+  onDestroy(onLiveChange((state) => state.alertsStamp, () => { if (!refreshing && busyId === null) void refresh(); }));
 
   async function refresh() {
     refreshing = true;
@@ -256,6 +267,10 @@
       {t('Refresh')}
     </button>
   </div>
+  <div class="obs-views">
+    <SavedViews key="alerts" current={{ statusFilter, severityFilter, zoneFilter, query, grouped }}
+      apply={(view) => { statusFilter = (view.statusFilter ?? 'active') as typeof statusFilter; severityFilter = String(view.severityFilter ?? 'all'); zoneFilter = String(view.zoneFilter ?? 'all'); query = String(view.query ?? ''); grouped = Boolean(view.grouped); }} />
+  </div>
 
   {#if loadFailed}
     <InlineAlert tone="error">{t('Unable to load alerts.')}</InlineAlert>
@@ -265,10 +280,12 @@
     {#if loading}
       <LoadingState skeleton="rows" />
     {:else if filtered.length === 0}
-      <EmptyStateInline message={statusFilter === 'active' ? t('No open alert. Everything looks fine.') : t('No alert matches these filters.')} />
+      <EmptyStateInline message={statusFilter === 'active' && !query && severityFilter === 'all' && zoneFilter === 'all' ? t('No open alert. Everything looks fine.') : t('No alert matches these filters.')}
+        actionLabel={statusFilter !== 'active' || query || severityFilter !== 'all' || zoneFilter !== 'all' ? t('Clear the filters') : null} actionIcon="bi-x-circle"
+        onAction={() => { statusFilter = 'active'; query = ''; severityFilter = 'all'; zoneFilter = 'all'; }} />
     {:else if grouped}
       <div class="b2s-table-wrap">
-        <table class="b2s-table">
+        <table class="b2s-table" use:resizableColumns={'alerts'}>
           <thead>
             <tr>
               <th>{t('Severity')}</th>
@@ -298,7 +315,7 @@
       <Pagination total={groups.length} bind:page bind:pageSize />
     {:else}
       <div class="b2s-table-wrap">
-        <table class="b2s-table">
+        <table class="b2s-table" use:resizableColumns={'alerts'}>
           <thead>
             <tr>
               <th>{t('Severity')}</th>
@@ -467,4 +484,5 @@
   .guide ol { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
   .guide__msg { padding: 8px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft, #f6f7f9); color: var(--b2s-color-text-muted); }
   .guide__note { display: flex; gap: 8px; margin-top: 10px !important; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .obs-views { margin: -4px 0 12px; }
 </style>

@@ -73,8 +73,10 @@ const handleRequest: Handle = async ({ event, resolve }) => {
   locals.locale = isLocale(cookieLocale)
     ? cookieLocale
     : localeFromAcceptLanguage(event.request.headers.get('accept-language'));
+  // Display density chosen by the person (cookie, set by the rail): applied before the first paint, no flash
+  const density = event.cookies.get('b2s_density') === 'compact' ? 'compact' : 'comfortable';
   const setHtmlLang = ({ html }: { html: string }) =>
-    html.replace('<html lang="fr">', `<html lang="${locals.locale}">`);
+    html.replace('<html lang="fr">', `<html lang="${locals.locale}" data-density="${density}">`);
 
   const tryHydrateUserContext = async () => {
     try {

@@ -192,7 +192,7 @@
         {#if content.cold_top?.length}
           <details class="cc__more">
             <summary>{t('Biggest files untouched for a year')}</summary>
-            <ul>{#each content.cold_top as file (file.path)}<li><code title={file.path}>{file.path}</code><span>{size(file.bytes)} · {timeAgo(file.modified)}</span></li>{/each}</ul>
+            <ul>{#each content.cold_top as file (file.path)}<li><code title={file.path} data-copy={file.path}>{file.path}</code><span>{size(file.bytes)} · {timeAgo(file.modified)}</span></li>{/each}</ul>
           </details>
         {/if}
       </div>
@@ -207,7 +207,7 @@
           <p><b>{size(dups.wasted_bytes)}</b> {t('to free in the folder')} · {t('{count} group(s) of copies, {files} file(s)', { count: dups.groups, files: dups.files })}</p>
           <ul class="cc__dup-list">
             {#each dups.top.slice(0, 5) as group (group.paths.join('|'))}
-              <li><span class="cc__dup-n">×{group.files}</span><span class="cc__dup-paths">{#each group.paths.slice(0, 3) as path (path)}<code title={path}>{path}</code>{/each}</span><span class="cc__dup-size">{size(group.size)}</span></li>
+              <li><span class="cc__dup-n">×{group.files}</span><span class="cc__dup-paths">{#each group.paths.slice(0, 3) as path (path)}<code title={path} data-copy={path}>{path}</code>{/each}</span><span class="cc__dup-size">{size(group.size)}</span></li>
             {/each}
           </ul>
         {/if}
@@ -215,7 +215,7 @@
           <p><b>{size(shared.bytes)}</b> {t('also present in {count} other folder(s)', { count: shared.with.length })}</p>
           <ul class="cc__dup-list">
             {#each shared.examples as file (file.path)}
-              <li><span class="cc__dup-n"><i class="bi bi-files" aria-hidden="true"></i></span><span class="cc__dup-paths"><code title={file.path}>{file.path}</code><small>{t('also in')} {file.also_in.join(', ')}</small></span><span class="cc__dup-size">{size(file.size)}</span></li>
+              <li><span class="cc__dup-n"><i class="bi bi-files" aria-hidden="true"></i></span><span class="cc__dup-paths"><code title={file.path} data-copy={file.path}>{file.path}</code><small>{t('also in')} {file.also_in.join(', ')}</small></span><span class="cc__dup-size">{size(file.size)}</span></li>
             {/each}
           </ul>
         {/if}

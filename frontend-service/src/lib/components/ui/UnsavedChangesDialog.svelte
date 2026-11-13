@@ -6,6 +6,7 @@
   export let open = false;
   export let onKeepEditing: () => void;
   export let onDiscard: () => void;
+  export let impact: string | null = null;
 </script>
 
 <ConfirmActionModal
@@ -18,5 +19,5 @@
   confirmLabel={t('Discard changes')}
   confirmVariant="warning"
   severity="warning"
-  impactItems={[t('All unsaved edits in this drawer will be lost.')]}
+  impactItems={[impact ?? t('All unsaved edits in this drawer will be lost.')]}
 />

@@ -193,6 +193,7 @@
       { key: 'open', label: t('Open'), icon: 'bi-folder2-open', disabled: folder.folders <= 0, hint: folder.folders <= 0 ? t('No sub-folder') : undefined },
       { key: 'dups', label: dups ? t('See its {count} duplicate group(s)', { count: dups }) : t('No duplicate here'), icon: 'bi-files', disabled: !dups },
       { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard' },
+      { key: 'measure', label: t('Measure the governed folder again'), icon: 'bi-arrow-clockwise', disabled: measuring, hint: measuring ? t('A measure is already asked') : undefined },
       { key: 'inherit', label: t('Restore the inheritance'), icon: 'bi-arrow-repeat', separated: true,
         disabled: !(folder.inheritance_broken && isAdmin && folder.path), hint: !folder.inheritance_broken ? t('The inheritance is not broken') : !isAdmin ? t('Administrators only') : undefined },
       { key: 'archive', label: t('Archive this folder'), icon: 'bi-archive', danger: true, disabled: !folder.path, hint: !folder.path ? t('The governed folder itself cannot be archived') : undefined }
@@ -204,8 +205,43 @@
     if (key === 'open') void enter(folder);
     else if (key === 'dups') void goto(`/five-s/duplicates/${rootId}?path=${encodeURIComponent(folder.path)}`);
     else if (key === 'copy') void navigator.clipboard?.writeText(fullPath(folder)).then(() => toast.success(t('Path copied.')));
+    else if (key === 'measure') void measureAgain();
     else if (key === 'inherit') void restoreInheritance(folder);
     else if (key === 'archive') archiving = folder;
+  }
+
+  // A new measure of the whole governed folder (the scanner walks it again; the page follows the module's figures)
+  let measuring = false;
+  async function measureAgain() {
+    measuring = true;
+    try {
+      await apiPostData(fetch, `/storage-roots/${rootId}/measure`, {});
+      toast.success(t('Measure asked: the figures follow when the scanner has walked the folder.'));
+    } catch (e) {
+      measuring = false;
+      reportUiError(e, t('Unable to measure the folder.'), 'fives.measure');
+    }
+  }
+
+  // ---- keyboard: ↑ ↓ choose, Enter open, Backspace / Alt+↑ parent folder ----
+  function onKeys(event: KeyboardEvent) {
+    const el = event.target as HTMLElement | null;
+    if (menu || archiving || event.ctrlKey || event.metaKey || (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable || el.closest('[role="dialog"]')))) return;
+    const index = selected ? rows.indexOf(selected) : -1;
+    if (event.key === 'Backspace' || (event.altKey && event.key === 'ArrowUp')) {
+      if (trail.length > 1) { event.preventDefault(); void up(trail.length - 2); }
+    } else if (event.altKey) {
+      return;
+    } else if (event.key === 'ArrowDown' && rows.length) {
+      event.preventDefault();
+      selected = rows[Math.min(rows.length - 1, index + 1)];
+    } else if (event.key === 'ArrowUp' && rows.length) {
+      event.preventDefault();
+      selected = rows[Math.max(0, index - 1)];
+    } else if (event.key === 'Enter' && selected && index >= 0) {
+      event.preventDefault();
+      void enter(selected);
+    }
   }
 
   function runCard(card: Card) {
@@ -311,6 +347,8 @@
     <header class="fx__head">
       <div>
         <nav class="fx__crumbs" aria-label={t('Path')}>
+          <button type="button" class="fx__up" disabled={busy || trail.length < 2} on:click={() => up(trail.length - 2)}
+            title={t('Parent folder (Backspace)')} aria-label={t('Parent folder')}><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
           {#each trail as step, index (step.path + index)}
             {#if index}<i class="bi bi-chevron-right" aria-hidden="true"></i>{/if}
             <button type="button" class:is-current={index === trail.length - 1} disabled={busy} on:click={() => up(index)}>{index === 0 ? rootName : step.name}</button>
@@ -399,7 +437,7 @@
                 {/each}
                 {#each files as file (file.path)}
                   <tr class="is-file">
-                    <td class="fx__name"><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path}>{file.name}</code></td>
+                    <td class="fx__name"><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path} data-copy={file.path}>{file.name}</code></td>
                     <td class="fx__num">{formatBytes(file.size)}</td><td>—</td><td>{file.modified ? formatDate(file.modified) : '—'}</td><td>—</td><td></td><td></td>
                     <td class="fx__num">{groups.some((group) => group.copies.some((copy) => copy.path === file.path)) ? '•' : '—'}</td>
                   </tr>
@@ -470,7 +508,7 @@
               <dt>{t('Files')}</dt><dd>{selected.files.toLocaleString('fr-FR')} · {t('{count} right in it', { count: selected.direct_files })}</dd>
               <dt>{t('Not modified for 3 years')}</dt><dd>{formatBytes(selected.cold3_bytes)}</dd>
             </dl>
-            <p class="fx__path"><code>{selected.path || rootPath}</code></p>
+            <p class="fx__path"><code data-copy={fullPath(selected)}>{selected.path || rootPath}</code></p>
             {#if selected !== root && selected.path}
               <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={acting} on:click={() => (archiving = selected)}><i class="bi bi-archive" aria-hidden="true"></i>{t('Archive this folder')}</button>
             {/if}
@@ -505,7 +543,7 @@
               <div class="fx__dup">
                 <small>{group.copies[0]?.path.split('\\').pop()} · {formatBytes(group.size)} · {group.fingerprint.slice(0, 10)}…</small>
                 {#each group.copies as copy (copy.path)}
-                  <div class:is-keep={copy.path === keep}><code title={copy.path}>{copy.path}</code><b>{copy.path === keep ? (group.decision?.keep_path ? t('Kept') : t('Suggested')) : t('Copy')}</b></div>
+                  <div class:is-keep={copy.path === keep}><code title={copy.path} data-copy={copy.path}>{copy.path}</code><b>{copy.path === keep ? (group.decision?.keep_path ? t('Kept') : t('Suggested')) : t('Copy')}</b></div>
                 {/each}
               </div>
             {:else}
@@ -527,6 +565,8 @@
   onConfirm={confirmArchive}
   onClose={() => (archiving = null)}
 />
+
+<svelte:window on:keydown={onKeys} />
 
 <ContextMenu open={Boolean(menu)} title={menu?.folder.name || rootName} subtitle={menu ? fullPath(menu.folder) : ''}
   items={menu ? menuItems(menu.folder) : []} at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={pickMenu} />
@@ -668,4 +708,6 @@
   .fx__score-row > i { height: 6px; border-radius: 999px; background: #1F2630; overflow: hidden; }
   .fx__score-row > i > i { display: block; height: 100%; border-radius: 999px; }
   .fx__score-row b { text-align: right; color: #FFFFFF; }
+  .fx__crumbs button.fx__up { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; margin-right: 4px; border: 1px solid var(--b2s-color-border); border-radius: 8px; color: var(--b2s-color-text); }
+  .fx__crumbs button.fx__up:disabled { opacity: 0.4; cursor: default; }
 </style>

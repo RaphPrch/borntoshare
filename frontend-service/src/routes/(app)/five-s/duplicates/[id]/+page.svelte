@@ -181,7 +181,7 @@
               <i class={`bi ${kept ? 'bi-check-circle-fill' : group.decision?.keep_path ? 'bi-trash3' : 'bi-file-earmark'}`} aria-hidden="true"></i>
               <div class="dd__copy">
                 <span class="dd__name">{base(copy.path)}</span>
-                <code title={copy.path}>{folderOf(copy.path)}</code>
+                <code title={copy.path} data-copy={copy.path}>{folderOf(copy.path)}</code>
               </div>
               <span class="dd__date">{copy.modified ? formatDateTime(copy.modified) : '—'}</span>
               {#if kept}
@@ -215,7 +215,7 @@
           <tbody>
             {#each moves as move (move.id)}
               <tr>
-                <td class="dd__mpath"><span>{base(move.path)}</span><code title={move.path}>{folderOf(move.path)}</code>{#if move.error}<small class="dd__err">{move.error}</small>{/if}</td>
+                <td class="dd__mpath"><span>{base(move.path)}</span><code title={move.path} data-copy={move.path}>{folderOf(move.path)}</code>{#if move.error}<small class="dd__err">{move.error}</small>{/if}</td>
                 <td class="dd__num">{formatBytes(move.size_bytes)}</td>
                 <td><span class={`dd__state is-${move.status}`}>{move.kind === 'archive' && move.status === 'moved' ? t('Archived') : MOVE_LABEL()[move.status] ?? move.status}</span></td>
                 <td class="dd__by">{move.restored_by && move.status.startsWith('restor') ? move.restored_by : move.requested_by ?? '—'}<small>{formatDateTime(move.done_at ?? move.requested_at)}</small></td>

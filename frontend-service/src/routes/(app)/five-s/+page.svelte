@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { recall, remember } from '$lib/utils/remember';
   import { fivesEnabled } from '$lib/utils/features';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
@@ -40,7 +41,8 @@
   // The 5S is an optional module: switched off, the page says where to turn it on
   let disabled = false;
   let zoneId = 0;
-  let pillarSort: Pillar | 'score' = 'score';
+  let pillarSort = recall('five-s', { pillarSort: 'score' }).pillarSort as Pillar | 'score';
+  $: remember('five-s', { pillarSort });
   let query = '';
   let shown = 30;
 
@@ -103,7 +105,7 @@
   {:else if !data}
     <LoadingState block skeleton="detail" />
   {:else if !data.folders_count}
-    <EmptyStateInline message={t('No folder to score yet.')} />
+    <EmptyStateInline message={t('No folder to score yet.')} actionLabel={t('Open the scanner')} href="/five-s/scanner" actionIcon="bi-broadcast" />
   {:else}
     <div class="fs__top">
       <div class="fs__ring" data-tone={tone(data.score)}>

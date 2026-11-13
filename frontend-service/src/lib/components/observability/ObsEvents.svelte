@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { recall, remember } from '$lib/utils/remember';
   import { onDestroy, onMount } from 'svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -23,7 +24,8 @@
   let total = 0;
   let modules: string[] = [];
   let page = 1;
-  let pageSize = 50;
+  let pageSize = recall('events', { pageSize: 50 }).pageSize;
+  $: remember('events', { pageSize });
   let module = initialModule;
   let severity = '';
   let outcome: '' | 'success' | 'failure' = initialOutcome;

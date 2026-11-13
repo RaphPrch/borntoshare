@@ -87,7 +87,7 @@
       <section class="share">
         <button type="button" class="share__head" aria-expanded={open} on:click={() => toggle(group.share)}>
           <span class="car" aria-hidden="true">{open ? '▾' : '▸'}</span>
-          <code title={`\\\\${host}\\${group.share}`}>\\{host}\{group.share}</code>
+          <code title={`\\\\${host}\\${group.share}`} data-copy={`\\\\${host}\\${group.share}`}>\\{host}\{group.share}</code>
           <span class="share__sum">
             {#if group.hot.length}<StatusBadge compact variant="warning" label={t('{count} to review', { count: group.hot.length })} />{/if}
             <small>{t('{count} folder(s)', { count: group.total })}</small>

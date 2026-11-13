@@ -22,13 +22,22 @@ secours) ; la mise en page est dans `core-service/app/services/mail_templates.py
 Les liens mènent à l'application (« Adresse de BornToShare dans les e-mails ») ; aucune décision ne se prend depuis
 un e-mail.
 
-| Nouvelle demande, au gardien | Alerte « fichiers ouverts à tous » | Rappel de fin d'accès |
-|---|---|---|
-| ![E-mail « Nouvelle demande d'accès »](screenshots/mail-nouvelle-demande.png) | ![E-mail d'alerte](screenshots/mail-alerte-sensibilite.png) | ![E-mail de rappel](screenshots/mail-rappel-fin-acces.png) |
+## Dans l'application : la cloche
+
+Les mêmes événements arrivent aussi dans la cloche du menu (centre de notifications), **que l'e-mail soit activé ou
+non** et même sans adresse sur le compte : nouvelle demande pour les gardiens du dossier (les administrateurs s'il n'a
+aucun gardien), décision pour le demandeur, fin d'accès proche pour son titulaire, panne pour les administrateurs.
+Une notification par personne et par événement (table `user_notifications`, pack SQL 161) ; « Tout marquer comme lu »
+ne concerne que soi.
+
+L'application est tenue à jour sans recharger : le navigateur garde une connexion ouverte sur `/live`
+(Server-Sent Events), par laquelle le serveur pousse, toutes les 5 secondes et seulement quand ils changent, les
+notifications non lues, le nombre de demandes en attente, les alertes critiques et, pour les administrateurs, les
+tâches en cours (volet en bas à gauche). Une page dont les données ont bougé (demandes, alertes) se recharge seule.
+Derrière un proxy inverse, ne pas mettre en tampon les réponses `text/event-stream` (l'en-tête
+`X-Accel-Buffering: no` est envoyé pour nginx).
 
 ## Régler le serveur SMTP
-
-![Réglages avancés › Notifications](screenshots/14-notifications.png)
 
 | Champ | Effet |
 |---|---|

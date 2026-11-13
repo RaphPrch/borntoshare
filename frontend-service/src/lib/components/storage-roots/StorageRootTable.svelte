@@ -1,6 +1,7 @@
 <script context="module" lang="ts">
-  // Kept across visits: coming back from a folder returns to the same filter, zone and sort
-  const memory = { filter: 'all' as Filter, zone: '', sort: 'state' as SortKey, desc: false };
+  import { recall, remember } from '$lib/utils/remember';
+  // Kept across visits (and sessions, in this browser): the list reopens with the same filter, zone and sort
+  const memory = recall('storage-roots', { filter: 'all' as Filter, zone: '', sort: 'state' as SortKey, desc: false });
   type Filter = 'all' | 'review' | 'no-guardian' | 'ending' | 'blocking';
   type SortKey = 'name' | 'server' | 'people' | 'guardians' | 'quota' | 'state';
 </script>
@@ -91,6 +92,7 @@
   $: memory.zone = zoneFilter;
   $: memory.sort = sortKey;
   $: memory.desc = desc;
+  $: remember('storage-roots', { filter, zone: zoneFilter, sort: sortKey, desc });
 
   // Accesses granted through requests and still running (an NTFS entry set by hand is not counted)
   function grantsByRoot(list: any[]): Map<number, Grants> {

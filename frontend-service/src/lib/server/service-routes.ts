@@ -98,6 +98,11 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
     return { service: 'core', path };
   }
 
+  // Notification centre (the bell) and the pulse of the live updates
+  if (path === '/me/pulse' || path === '/me/notifications' || path === '/me/notifications/read') {
+    return { service: 'core', path };
+  }
+
   if (path.startsWith('/admin/jobs') || path.startsWith('/probes')) {
     return governanceRoute(path);
   }

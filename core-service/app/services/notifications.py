@@ -142,7 +142,23 @@ def _request(db: Session, request_id: int) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
+def _bell_request_created(db: Session, request_id: int) -> None:
+    from app.services import inbox
+
+    row = _request(db, request_id)
+    if not row or not row["root_id"]:
+        return
+    verb, _meaning = _level(row["permission"])
+    inbox.push(db, inbox.guardians_of(db, int(row["root_id"])), f"request:{row['id']}:created", kind="request", severity="warning",
+               title=f"{row['requester']} demande à {verb.lower()} « {row['root_name']} »",
+               body=row["justification"] or None, link=f"/access-requests?status=pending&focus={row['id']}")
+
+
 def request_created(db: Session, request_id: int) -> None:
+    try:
+        _bell_request_created(db, request_id)
+    except Exception:
+        logger.warning("INBOX_REQUEST_FAILED", exc_info=True)
     try:
         config = settings(db)
         if not config.get("enabled") or not config.get("pendingToGuardians"):
@@ -203,7 +219,23 @@ def request_created(db: Session, request_id: int) -> None:
         logger.warning("NOTIFICATION_REQUEST_FAILED", exc_info=True)
 
 
+def _bell_request_decided(db: Session, request_id: int, decision: str) -> None:
+    from app.services import inbox
+
+    row = _request(db, request_id)
+    if not row or not row.get("requester_identity_id"):
+        return
+    accepted = decision in {"approved", "approve"}
+    inbox.push(db, [row["requester_identity_id"]], f"request:{row['id']}:{decision}", kind="decision", severity="success" if accepted else "danger",
+               title=(f"Votre accès à « {row['root_name']} » est accordé" if accepted else f"Votre demande d'accès à « {row['root_name']} » est refusée"),
+               body=row.get("decision_comment") or None, link=f"/access-requests?focus={row['id']}")
+
+
 def request_decided(db: Session, request_id: int, decision: str) -> None:
+    try:
+        _bell_request_decided(db, request_id, decision)
+    except Exception:
+        logger.warning("INBOX_DECISION_FAILED", exc_info=True)
     try:
         config = settings(db)
         if not config.get("enabled") or not config.get("decisionToRequester"):
@@ -267,6 +299,12 @@ def admin_alert(db: Session, key: str, title: str, lines: list[str], path: str, 
     """A breakdown of the platform (server unreachable, component down) told to the administrators, once per key.
     Never blocks nor fails the caller."""
     try:
+        from app.services import inbox
+
+        inbox.push(db, inbox.admins(db), key, kind="alert", severity="danger", title=title, body="\n".join([intro, *lines[:4]]), link=path)
+    except Exception:
+        logger.warning("INBOX_ADMIN_ALERT_FAILED", exc_info=True)
+    try:
         config = settings(db)
         if not config.get("enabled") or not config.get("adminAlerts", True):
             return
@@ -292,13 +330,15 @@ def expiry_reminders(db: Session) -> int:
     """Accesses that end within the reminder days, told once to their holder. Returns how many were queued."""
     config = settings(db)
     days = int(config.get("expiryReminderDays") or 0)
-    if not config.get("enabled") or days <= 0:
+    if days <= 0:
         return 0
+    # The bell tells every holder; the mail goes only when it is switched on and the holder has an address
+    mail_on = bool(config.get("enabled"))
     rows = db.execute(
         text(
             """
             SELECT ar.id, ar.code, ari.expires_at, ari.permission, COALESCE(ar.decided_at, ar.created_at) AS since,
-                   req.email, sr.name AS root_name, sr.root_path
+                   req.email, ar.requester_identity_id, sr.name AS root_name, sr.root_path
             FROM access_requests ar
             JOIN access_request_items ari ON ari.access_request_id = ar.id
             JOIN identities req ON req.id = ar.requester_identity_id
@@ -306,7 +346,6 @@ def expiry_reminders(db: Session) -> int:
             WHERE LOWER(ar.status) IN ('approved', 'applied', 'active')
               AND ari.expires_at IS NOT NULL
               AND ari.expires_at BETWEEN NOW() AND NOW() + INTERVAL :days DAY
-              AND req.email IS NOT NULL
             """
         ),
         {"days": days},
@@ -315,9 +354,19 @@ def expiry_reminders(db: Session) -> int:
 
     from app.services import mail_templates as mt
 
+    from app.services import inbox
+
     now = _dt.utcnow()
+    queued = 0
     for row in rows:
         verb, _meaning = _level(row["permission"])
+        inbox.push(db, [row["requester_identity_id"]], f"request:{row['id']}:expiry", kind="expiry", severity="warning",
+                   title=f"Votre accès à « {row['root_name']} » se termine le {row['expires_at']:%d/%m/%Y}",
+                   body="Vos droits seront retirés automatiquement ce jour-là. Besoin de plus de temps ? Faites une nouvelle demande.",
+                   link=f"/access-requests?focus={row['id']}")
+        if not mail_on or not row.get("email"):
+            continue
+        queued += 1
         left = max(0, (row["expires_at"] - now).days)
         total = (row["expires_at"] - row["since"]).total_seconds() if row.get("since") else 0
         used = (now - row["since"]).total_seconds() if row.get("since") else 0
@@ -345,4 +394,4 @@ def expiry_reminders(db: Session) -> int:
             + _link(config, "/access-requests/new"),
             html,
         )
-    return len(rows)
+    return queued

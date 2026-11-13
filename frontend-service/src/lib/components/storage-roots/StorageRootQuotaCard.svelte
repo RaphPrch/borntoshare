@@ -184,7 +184,7 @@
             <span class="qc__chip">{t('Warning at {percent} %', { percent: quota.warn_percent })}</span>
             {#if quota.peak_bytes}<span class="qc__chip">{t('Peak {size}', { size: formatBytes(quota.peak_bytes) })}</span>{/if}
           </div>
-          {#if quota.local_path}<code class="qc__path" title={t('Path on the server')}>{quota.local_path}</code>{/if}
+          {#if quota.local_path}<code class="qc__path" title={t('Path on the server')} data-copy={quota.local_path}>{quota.local_path}</code>{/if}
         </div>
       {:else if !working && quota?.status !== 'failed'}
         <p class="qc__muted">{t('No quota on the server: the folder can grow until the disk is full.')}</p>
