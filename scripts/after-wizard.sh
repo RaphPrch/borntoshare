@@ -23,9 +23,9 @@ status() { printf '{"state": "%s", "phase": "%s"}\n' "$1" "$2" > "$DIR/.deploy-s
 running() { [ "$(podman inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null)" = "true" ]; }
 
 rm -f "$DIR/.installed" "$DIR/.deploy-status" "$DIR/.deploy.log"
-# Wait for the installation (the wizard may stay open for a long time)
+# Wait for the installation (the wizard may stay open for a long time); stopped without one: its token goes too
 until [ -f "$DIR/.installed" ]; do
-  running || exit 0
+  running || { rm -f "$DIR/.wizard-token"; exit 0; }
   sleep 3
 done
 
@@ -54,4 +54,4 @@ if [ "${PIPESTATUS[0]}" -eq 0 ]; then status done "BornToShare est démarré"; e
 
 sleep "$STOP_AFTER"
 podman stop "$CONTAINER" >/dev/null 2>&1 || true
-rm -f "$DIR/.installed"
+rm -f "$DIR/.installed" "$DIR/.wizard-token"

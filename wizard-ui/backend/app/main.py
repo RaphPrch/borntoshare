@@ -7,8 +7,10 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+import hmac
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -22,6 +24,30 @@ logging.getLogger("mysql.connector").setLevel(logging.WARNING)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 app = FastAPI(title="BornToShare — installation", openapi_url=None, docs_url=None, redoc_url=None)
+
+
+TOKEN_FILE = ".wizard-token"
+
+
+def expected_token() -> str:
+    """The one-time token of this run, written by make wizard in secrets/ (0600): read at each call, it changes with
+    every make wizard. No file: nothing is answered (the wizard is started by make wizard only)."""
+    try:
+        return (install.secrets_dir() / TOKEN_FILE).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+@app.middleware("http")
+async def require_token(request: Request, call_next):
+    """The wizard is reachable on the network while it installs: only whoever has the address given by make wizard
+    (its token) may use it. The page and its files are public, they hold nothing; the API is not."""
+    if request.url.path.startswith("/api/"):
+        token = expected_token()
+        given = request.headers.get("x-wizard-token", "")
+        if not token or not hmac.compare_digest(given.encode(), token.encode()):
+            return JSONResponse(status_code=403, content={"detail": "Adresse incomplète : ouvrir celle que donne make wizard (make wizard-url)."})
+    return await call_next(request)
 
 
 @app.get("/health", include_in_schema=False)

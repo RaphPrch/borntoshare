@@ -14,8 +14,17 @@ from backend.app.license import LicenseError, decode
 from backend.app.main import app
 from backend.app.migrations_runner import split_statements
 
-client = TestClient(app)
+TOKEN = "one-time-token-of-the-tests"
+client = TestClient(app, headers={"X-Wizard-Token": TOKEN})
 PASSWORD = "Str0ng!Password"
+
+
+@pytest.fixture(autouse=True)
+def _token(monkeypatch):
+    # make wizard writes it in secrets/.wizard-token
+    from backend.app import main
+
+    monkeypatch.setattr(main, "expected_token", lambda: TOKEN)
 
 
 def _key(payload: dict, private: Ed25519PrivateKey) -> str:
@@ -237,3 +246,20 @@ def test_the_first_administrator_changes_its_password_at_the_first_sign_in():
     source = inspect.getsource(admin_logic.create_local_admin_if_needed)
     # Created or synchronised by the wizard: its password is temporary in both cases
     assert source.count("must_change_password") >= 2
+
+
+def test_the_api_needs_the_token_of_make_wizard(tmp_path, monkeypatch):
+    from backend.app import main
+
+    stranger = TestClient(app)
+    assert stranger.get("/api/defaults").status_code == 403
+    assert TestClient(app, headers={"X-Wizard-Token": "guess"}).get("/api/defaults").status_code == 403
+    assert stranger.post("/api/install", json={}).status_code == 403
+    # The page itself holds nothing: it opens, then asks for the right address
+    assert stranger.get("/").status_code == 200 and stranger.get("/health").status_code == 200
+    # No token file (not started by make wizard): nobody gets in
+    monkeypatch.undo()
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    assert client.get("/api/defaults").status_code == 403
+    (tmp_path / main.TOKEN_FILE).write_text(TOKEN + "\n")
+    assert client.get("/api/defaults").status_code == 200
