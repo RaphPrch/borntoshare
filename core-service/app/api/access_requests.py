@@ -6,10 +6,10 @@ import re
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
+from app.data.repositories import access_requests_sql
 from app.core.db import get_db
 from app.core.logging import get_logger, log_event
 from app.api._helpers import ui_action, ui_data, ui_list
@@ -108,18 +108,7 @@ def _resolve_implicit_governed_group(
             },
         }
 
-    row = db.execute(
-        text(
-            """
-            SELECT sr.id AS storage_root_id, se.identity_source_id
-            FROM storage_roots sr
-            JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-            WHERE sr.id = :storage_root_id
-            LIMIT 1
-            """
-        ),
-        {"storage_root_id": int(storage_root_id)},
-    ).mappings().first()
+    row = access_requests_sql.resolve_implicit_governed_group_1(db, {"storage_root_id": int(storage_root_id)}).mappings().first()
 
     if not row:
         return {
@@ -261,21 +250,7 @@ def _current_access_level_for_principal(
 
 def _granted_level_from_requests(*, db: Session, storage_root_id: int, wanted: set[str]) -> str:
     """Highest level of the approved requests of this principal on the root, neither revoked nor expired."""
-    rows = db.execute(
-        text(
-            """
-            SELECT ar.requester_identity_id, ar.requested_principal_json, ari.permission
-            FROM access_requests ar
-            JOIN access_request_items ari ON ari.access_request_id = ar.id
-            WHERE LOWER(COALESCE(ar.status, '')) IN ('approved', 'executed')
-              AND ar.revoked_at IS NULL
-              AND LOWER(COALESCE(ari.target_type, '')) = 'storage_root'
-              AND ari.target_id = :storage_root_id
-              AND (ari.expires_at IS NULL OR ari.expires_at > UTC_TIMESTAMP())
-            """
-        ),
-        {"storage_root_id": int(storage_root_id)},
-    ).mappings().all()
+    rows = access_requests_sql.granted_level_from_requests_1(db, {"storage_root_id": int(storage_root_id)}).mappings().all()
     # Match on DN / login when known: the identity id may be the requester's, not the principal's
     wanted_text = {key for key in wanted if key.startswith("text:")} or wanted
     level = "NONE"
@@ -326,24 +301,7 @@ def _find_open_request_for_principal(
     if not wanted:
         return None
 
-    rows = db.execute(
-        text(
-            """
-            SELECT
-              ar.id,
-              ar.code,
-              ar.requester_identity_id,
-              ar.requested_principal_json
-            FROM access_requests ar
-            JOIN access_request_items ari ON ari.access_request_id = ar.id
-            WHERE LOWER(COALESCE(ar.status, '')) = 'pending'
-              AND LOWER(COALESCE(ari.target_type, '')) = 'storage_root'
-              AND ari.target_id = :storage_root_id
-            ORDER BY ar.id DESC
-            """
-        ),
-        {"storage_root_id": int(storage_root_id)},
-    ).mappings().all()
+    rows = access_requests_sql.find_open_request_for_principal_1(db, {"storage_root_id": int(storage_root_id)}).mappings().all()
 
     for row in rows:
         existing_dn, existing_username, _ = _resolve_request_principal(
@@ -379,13 +337,7 @@ def _same_principal(wanted: set[str], existing: set[str]) -> bool:
 
 def _storage_endpoint_inactive(db: Session, storage_root_id: int) -> bool:
     """Is the file server of this folder disabled? (no new request on it)"""
-    row = db.execute(
-        text(
-            "SELECT se.is_active, se.status FROM storage_roots sr JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id "
-            "WHERE sr.id = :root_id"
-        ),
-        {"root_id": int(storage_root_id)},
-    ).first()
+    row = access_requests_sql.storage_endpoint_inactive_1(db, {"root_id": int(storage_root_id)}).first()
     return row is not None and (not bool(row[0]) or str(row[1] or "").strip().lower() == "disabled")
 
 
@@ -583,37 +535,7 @@ def _resolve_principal_from_identity_id(
     if rid <= 0:
         return None
 
-    row = db.execute(
-        text(
-            """
-            SELECT
-              COALESCE(NULLIF(TRIM(du.dn), ''), NULLIF(TRIM(du.external_id), ''), NULLIF(TRIM(i.external_id), '')) AS principal_dn,
-              COALESCE(
-                NULLIF(TRIM(du.username), ''),
-                NULLIF(TRIM(du.upn), ''),
-                NULLIF(TRIM(i.username), ''),
-                NULLIF(TRIM(i.email), '')
-              ) AS principal_username,
-              COALESCE(
-                NULLIF(TRIM(i.display_name), ''),
-                NULLIF(TRIM(du.display_name), ''),
-                NULLIF(TRIM(i.username), ''),
-                NULLIF(TRIM(du.username), ''),
-                CAST(i.id AS CHAR)
-              ) AS principal_display
-            FROM identities i
-            LEFT JOIN identity_bindings ib
-              ON ib.identity_id = i.id
-             AND ib.deleted_at IS NULL
-            LEFT JOIN directory_users du
-              ON du.id = ib.directory_user_id
-            WHERE i.id = :id
-            ORDER BY ib.id DESC
-            LIMIT 1
-            """
-        ),
-        {"id": rid},
-    ).mappings().first()
+    row = access_requests_sql.resolve_principal_from_identity_id_1(db, {"id": rid}).mappings().first()
 
     if not row:
         return None
@@ -683,61 +605,16 @@ def _insert_item_execution(
         correlation_id = str(requested_payload_json.get("correlation_id") or "").strip() or None
 
     if correlation_id:
-        existing = db.execute(
-            text(
-                """
-                SELECT id
-                FROM access_request_item_executions
-                WHERE access_request_id = :access_request_id
-                  AND (
-                    (:access_request_item_id IS NULL AND access_request_item_id IS NULL)
-                    OR access_request_item_id = :access_request_item_id
-                  )
-                  AND UPPER(COALESCE(status, '')) = :status
-                  AND JSON_UNQUOTE(JSON_EXTRACT(requested_payload_json, '$.correlation_id')) = :correlation_id
-                ORDER BY id DESC
-                LIMIT 1
-                """
-            ),
-            {
+        existing = access_requests_sql.insert_item_execution_1(db, {
                 "access_request_id": int(access_request_id),
                 "access_request_item_id": int(access_request_item_id) if access_request_item_id else None,
                 "status": str(status_value or "DONE").upper(),
                 "correlation_id": correlation_id,
-            },
-        ).mappings().first()
+            }).mappings().first()
         if existing:
             return
 
-    db.execute(
-        text(
-            """
-            INSERT INTO access_request_item_executions (
-              access_request_id,
-              access_request_item_id,
-              status,
-              error_message,
-              requested_payload_json,
-              result_json,
-              started_at,
-              finished_at,
-              created_at,
-              updated_at
-            ) VALUES (
-              :access_request_id,
-              :access_request_item_id,
-              :status,
-              :error_message,
-              :requested_payload_json,
-              :result_json,
-              NOW(6),
-              NOW(6),
-              NOW(6),
-              NOW(6)
-            )
-            """
-        ),
-        {
+    access_requests_sql.insert_item_execution_2(db, {
             "access_request_id": int(access_request_id),
             "access_request_item_id": int(access_request_item_id) if access_request_item_id else None,
             "status": str(status_value or "DONE").upper(),
@@ -748,8 +625,7 @@ def _insert_item_execution(
                 if isinstance(result_json, dict)
                 else None
             ),
-        },
-    )
+        })
 
 
 def _build_access_request_provisioning_plan(
@@ -757,17 +633,7 @@ def _build_access_request_provisioning_plan(
     db: Session,
     access_request_id: int,
 ) -> dict[str, Any]:
-    req_row = db.execute(
-        text(
-            """
-            SELECT id, requester_identity_id, requested_principal_json
-            FROM access_requests
-            WHERE id = :id
-            LIMIT 1
-            """
-        ),
-        {"id": int(access_request_id)},
-    ).mappings().first()
+    req_row = access_requests_sql.build_access_request_provisioning_plan_1(db, {"id": int(access_request_id)}).mappings().first()
 
     if not req_row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access request not found")
@@ -778,17 +644,7 @@ def _build_access_request_provisioning_plan(
         requester_identity_id=req_row.get("requester_identity_id"),
     )
 
-    rows = db.execute(
-        text(
-            """
-            SELECT id, target_type, target_id, permission
-            FROM access_request_items
-            WHERE access_request_id = :id
-            ORDER BY id ASC
-            """
-        ),
-        {"id": int(access_request_id)},
-    ).mappings().all()
+    rows = access_requests_sql.build_access_request_provisioning_plan_2(db, {"id": int(access_request_id)}).mappings().all()
 
     items: list[dict[str, Any]] = []
     errors: list[str] = []
@@ -890,18 +746,7 @@ def _summarize_visibility_sources_for_request(
     db: Session,
     access_request_id: int,
 ) -> dict[str, Any]:
-    rows = db.execute(
-        text(
-            """
-            SELECT result_json
-            FROM access_request_item_executions
-            WHERE access_request_id = :id
-              AND UPPER(COALESCE(status, '')) = 'DONE'
-            ORDER BY id DESC
-            """
-        ),
-        {"id": int(access_request_id)},
-    ).mappings().all()
+    rows = access_requests_sql.summarize_visibility_sources_for_request_1(db, {"id": int(access_request_id)}).mappings().all()
 
     visibility_sources: set[str] = set()
     active_snapshot_ids: set[int] = set()
@@ -1125,10 +970,7 @@ def get_access_request_details(
     actor = actor_from_request(request)
     require_access_request_access(db, actor, int(access_request_id))
     is_requester = actor.identity_id is not None and int(row.get("requester_identity_id") or 0) == actor.identity_id
-    stored = db.execute(
-        text("SELECT requester_identity_id, status, decision_comment, decided_at FROM access_requests WHERE id = :id"),
-        {"id": int(access_request_id)},
-    ).mappings().first() or {}
+    stored = access_requests_sql.get_access_request_details_1(db, {"id": int(access_request_id)}).mappings().first() or {}
     is_requester = is_requester or (actor.identity_id is not None and int(stored.get("requester_identity_id") or 0) == actor.identity_id)
     row = {
         **row,
@@ -1156,7 +998,7 @@ def get_access_request_approval_preview(
 
     plan = get_access_request_provisioning_plan_internal(int(access_request_id), request, db)
     principal = dict(plan.get("principal") or {})
-    workers = db.execute(text("SELECT status FROM infra_workers WHERE is_enabled = 1")).scalars().all()
+    workers = access_requests_sql.get_access_request_approval_preview_1(db).scalars().all()
     blockers: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
     if not principal.get("dn") and not principal.get("username"):
@@ -1194,10 +1036,7 @@ def get_access_request_approval_preview(
         source_id = int(ctx.get("identity_source_id") or 0) or None
         source = None
         if source_id:
-            source = db.execute(
-                text("SELECT name, capabilities, write_enabled, is_active FROM identity_sources WHERE id = :id"),
-                {"id": source_id},
-            ).mappings().first()
+            source = access_requests_sql.get_access_request_approval_preview_2(db, {"id": source_id}).mappings().first()
         capabilities = (source or {}).get("capabilities")
         if isinstance(capabilities, str):
             try:
@@ -1260,71 +1099,25 @@ def forget_direct_membership(
     Permissions and the "already has this access" check read this copy, which otherwise stays stale
     until the next inventory. That inventory rewrites these rows from AD anyway.
     """
-    group = db.execute(
-        text(
-            """
-            SELECT id, identity_source_id, external_id, dn, name
-            FROM directory_groups
-            WHERE deleted_at IS NULL
-              AND (:source_id IS NULL OR identity_source_id = :source_id)
-              AND (LOWER(name) = LOWER(:group_ref) OR LOWER(dn) = LOWER(:group_ref))
-            ORDER BY id DESC
-            LIMIT 1
-            """
-        ),
-        {"source_id": identity_source_id, "group_ref": group_ref},
-    ).mappings().first()
+    group = access_requests_sql.forget_direct_membership_1(db, {"source_id": identity_source_id, "group_ref": group_ref}).mappings().first()
     if not group:
         return False
-    user = db.execute(
-        text(
-            """
-            SELECT id, external_id, dn
-            FROM directory_users
-            WHERE identity_source_id = :source_id
-              AND (LOWER(dn) = LOWER(:dn) OR LOWER(username) = LOWER(:username))
-            ORDER BY LOWER(dn) = LOWER(:dn) DESC
-            LIMIT 1
-            """
-        ),
-        {"source_id": group["identity_source_id"], "dn": principal_dn or "", "username": principal_username or ""},
-    ).mappings().first()
+    user = access_requests_sql.forget_direct_membership_2(db, {"source_id": group["identity_source_id"], "dn": principal_dn or "", "username": principal_username or ""}).mappings().first()
     if not user:
         return False
     ids = {"group_id": group["id"], "user_id": user["id"]}
-    db.execute(
-        text(
-            """
-            DELETE FROM directory_effective_memberships
-            WHERE directory_group_id = :group_id AND directory_user_id = :user_id AND depth = 0
-            """
-        ),
-        ids,
-    )
-    db.execute(
-        text("DELETE FROM directory_group_members WHERE group_id = :group_id AND directory_user_id = :user_id"),
-        ids,
-    )
+    access_requests_sql.forget_direct_membership_3(db, ids)
+    access_requests_sql.forget_direct_membership_4(db, ids)
     snapshot_id = StorageRootsViewsRepo(db)._active_snapshot_id_for_source(identity_source_id=group["identity_source_id"])
     if snapshot_id:
-        db.execute(
-            text(
-                """
-                DELETE FROM directory_snapshot_memberships
-                WHERE snapshot_id = :snapshot_id
-                  AND LOWER(group_external_id) IN (LOWER(:group_external_id), LOWER(:group_dn), LOWER(:group_name))
-                  AND LOWER(member_external_id) IN (LOWER(:member_external_id), LOWER(:member_dn))
-                """
-            ),
-            {
+        access_requests_sql.forget_direct_membership_5(db, {
                 "snapshot_id": snapshot_id,
                 "group_external_id": group["external_id"] or "",
                 "group_dn": group["dn"] or "",
                 "group_name": group["name"] or "",
                 "member_external_id": user["external_id"] or "",
                 "member_dn": user["dn"] or "",
-            },
-        )
+            })
     db.commit()
     return True
 
@@ -1339,10 +1132,7 @@ def other_active_request_for_level(
 
     A revocation or an expiry keeps the person in the AD group while such a request exists.
     """
-    current = db.execute(
-        text("SELECT requester_identity_id, requested_principal_json FROM access_requests WHERE id = :id"),
-        {"id": int(access_request_id)},
-    ).mappings().first()
+    current = access_requests_sql.other_active_request_for_level_1(db, {"id": int(access_request_id)}).mappings().first()
     if not current:
         return None
     payload = current.get("requested_principal_json")
@@ -1357,22 +1147,7 @@ def other_active_request_for_level(
         principal_dn=payload.get("dn"),
         principal_username=payload.get("username"),
     )
-    rows = db.execute(
-        text(
-            """
-            SELECT ar.id, ar.code, ar.requester_identity_id, ar.requested_principal_json, ari.permission
-            FROM access_requests ar
-            JOIN access_request_items ari ON ari.access_request_id = ar.id
-            WHERE ar.id <> :id
-              AND LOWER(COALESCE(ar.status, '')) IN ('approved', 'executed')
-              AND ar.revoked_at IS NULL
-              AND LOWER(COALESCE(ari.target_type, '')) = 'storage_root'
-              AND ari.target_id = :root_id
-              AND (ari.expires_at IS NULL OR ari.expires_at > UTC_TIMESTAMP())
-            """
-        ),
-        {"id": int(access_request_id), "root_id": int(storage_root_id)},
-    ).mappings().all()
+    rows = access_requests_sql.other_active_request_for_level_2(db, {"id": int(access_request_id), "root_id": int(storage_root_id)}).mappings().all()
     level = str(access_level_code or "").strip().upper()
     for row in rows:
         if normalize_requested_permission(str(row.get("permission") or "")) != level:
@@ -1397,18 +1172,7 @@ def other_active_request_for_level(
 def _request_event_labels(db: Session, access_request_id: int) -> dict[str, Any]:
     """Beneficiary, level and storage root of an existing request, for its activity entries."""
     try:
-        row = db.execute(
-            text(
-                """
-                SELECT ar.requested_principal_json, ari.target_type, ari.target_id, ari.permission
-                FROM access_requests ar
-                JOIN access_request_items ari ON ari.access_request_id = ar.id
-                WHERE ar.id = :id
-                LIMIT 1
-                """
-            ),
-            {"id": int(access_request_id)},
-        ).mappings().first()
+        row = access_requests_sql.request_event_labels_1(db, {"id": int(access_request_id)}).mappings().first()
     except Exception:  # a label only
         return {}
     if not row:
@@ -1440,9 +1204,7 @@ def _created_event_labels(db: Session, *, items: list[dict[str, Any]], principal
     if level:
         labels["profile"] = "Write access" if level == "WRITE" else "Read access"
     try:
-        root = db.execute(
-            text("SELECT name FROM storage_roots WHERE id = :id"), {"id": int(first.get("target_id") or 0)}
-        ).scalar()
+        root = access_requests_sql.created_event_labels_1(db, {"id": int(first.get("target_id") or 0)}).scalar()
     except Exception:  # a label only: never block the request for it
         root = None
     if root:
@@ -1654,10 +1416,7 @@ def change_access_request_permission(
 ):
     """Change the level of a pending request (read <-> write), by its requester or a reviewer, before the decision."""
     actor = actor_from_request(request)
-    row = db.execute(
-        text("SELECT status, requester_identity_id, requested_principal_json FROM access_requests WHERE id = :id"),
-        {"id": int(access_request_id)},
-    ).mappings().first()
+    row = access_requests_sql.change_access_request_permission_1(db, {"id": int(access_request_id)}).mappings().first()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access request not found")
     is_requester = actor.identity_id is not None and int(row.get("requester_identity_id") or 0) == actor.identity_id
@@ -1669,15 +1428,7 @@ def change_access_request_permission(
     labels = _request_event_labels(db, int(access_request_id))
     current_level = None
     conflict: tuple[str, str] | None = None
-    items = db.execute(
-        text(
-            """
-            SELECT id, target_id, permission FROM access_request_items
-            WHERE access_request_id = :id AND LOWER(COALESCE(target_type, '')) = 'storage_root'
-            """
-        ),
-        {"id": int(access_request_id)},
-    ).mappings().all()
+    items = access_requests_sql.change_access_request_permission_2(db, {"id": int(access_request_id)}).mappings().all()
     if items:
         current_level = normalize_requested_permission(str(items[0].get("permission") or ""))
     if not reason:
@@ -1722,27 +1473,13 @@ def change_access_request_permission(
         journal("denied", code=conflict[0])
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": conflict[0], "message": conflict[1]})
 
-    db.execute(
-        text(
-            """
-            UPDATE access_request_items
-            SET original_permission = COALESCE(original_permission, permission),
-                permission = :permission,
-                permission_changed_by = :actor_id,
-                permission_changed_by_display = :actor_display,
-                permission_changed_at = UTC_TIMESTAMP(),
-                permission_change_reason = :reason
-            WHERE access_request_id = :id AND LOWER(COALESCE(target_type, '')) = 'storage_root'
-            """
-        ),
-        {
+    access_requests_sql.change_access_request_permission_3(db, {
             "permission": payload.permission,
             "actor_id": actor.identity_id,
             "actor_display": actor.display_name,
             "reason": reason,
             "id": int(access_request_id),
-        },
-    )
+        })
     db.commit()
     journal("success")
     return ui_data({"id": int(access_request_id), "permission": payload.permission})
@@ -1756,10 +1493,7 @@ def cancel_access_request(
 ):
     """The requester withdraws their own request while it waits for a decision; nothing was done on the folder yet."""
     actor = actor_from_request(request)
-    row = db.execute(
-        text("SELECT id, requester_identity_id, status FROM access_requests WHERE id = :id"),
-        {"id": int(access_request_id)},
-    ).mappings().first()
+    row = access_requests_sql.cancel_access_request_1(db, {"id": int(access_request_id)}).mappings().first()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access request not found")
     if actor.identity_id is None or int(row.get("requester_identity_id") or 0) != int(actor.identity_id):
@@ -1772,10 +1506,7 @@ def cancel_access_request(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "CANCEL_NOT_PENDING", "message": "Only a request waiting for a decision can be cancelled"},
         )
-    db.execute(
-        text("UPDATE access_requests SET status = 'cancelled', decided_at = :now, updated_at = :now WHERE id = :id AND status = 'pending'"),
-        {"id": int(access_request_id), "now": datetime.utcnow()},
-    )
+    access_requests_sql.cancel_access_request_2(db, {"id": int(access_request_id), "now": datetime.utcnow()})
     db.commit()
     labels = _request_event_labels(db, int(access_request_id))
     log_activity(
@@ -1821,17 +1552,7 @@ def extend_access_request(
     days = int(payload.days)
     if days < 1 or days > 365:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="days must be between 1 and 365")
-    row = db.execute(
-        text(
-            """
-            SELECT ar.status, ar.revoked_at, MIN(ari.expires_at) AS expires_at, COUNT(ari.id) AS items,
-                   SUM(ari.expires_at IS NULL) AS permanent
-            FROM access_requests ar JOIN access_request_items ari ON ari.access_request_id = ar.id
-            WHERE ar.id = :id GROUP BY ar.status, ar.revoked_at
-            """
-        ),
-        {"id": int(access_request_id)},
-    ).mappings().first()
+    row = access_requests_sql.extend_access_request_1(db, {"id": int(access_request_id)}).mappings().first()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access request not found")
     if str(row["status"] or "").lower() not in {"approved", "executed"} or row["revoked_at"] is not None:
@@ -1844,19 +1565,8 @@ def extend_access_request(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "ACCESS_PERMANENT", "message": "Cet accès n'a pas de date de fin."},
         )
-    db.execute(
-        text(
-            """
-            UPDATE access_request_items
-            SET expires_at = GREATEST(expires_at, UTC_TIMESTAMP()) + INTERVAL :days DAY
-            WHERE access_request_id = :id AND expires_at IS NOT NULL
-            """
-        ),
-        {"id": int(access_request_id), "days": days},
-    )
-    new_end = db.execute(
-        text("SELECT MAX(expires_at) FROM access_request_items WHERE access_request_id = :id"), {"id": int(access_request_id)}
-    ).scalar()
+    access_requests_sql.extend_access_request_2(db, {"id": int(access_request_id), "days": days})
+    new_end = access_requests_sql.extend_access_request_3(db, {"id": int(access_request_id)}).scalar()
     db.commit()
     log_activity(
         db,
@@ -1962,18 +1672,7 @@ def bulk_decision(
         updated_ids = []
         for req_id in requested_ids:
             try:
-                db.execute(
-                    text(
-                        """
-                        UPDATE access_requests
-                        SET status = 'revoked',
-                            revoked_at = COALESCE(revoked_at, :now),
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE id = :id
-                        """
-                    ),
-                    {"id": int(req_id), "now": datetime.utcnow()},
-                )
+                access_requests_sql.bulk_decision_1(db, {"id": int(req_id), "now": datetime.utcnow()})
                 db.commit()
                 executions_started += 1
                 updated_ids.append(int(req_id))

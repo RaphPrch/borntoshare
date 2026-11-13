@@ -135,7 +135,6 @@ async def stop_run(root_id: int, payload: StopPayload, request: Request, db: Ses
     it), the folder no longer shows it running. A measure by the 5S scanner is marked stopped here."""
     import uuid
 
-    from sqlalchemy import text as _text
 
     from app.api import provisioning_internal
     from app.core.direct_call import call_route

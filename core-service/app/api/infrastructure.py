@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.data.repositories import infrastructure_sql
 from app.api._helpers import ui_data, ui_list
 from app.core.db import get_db
 from app.services import infrastructure_service as infra
@@ -137,15 +138,7 @@ async def create_worker(payload: WorkerPayload, request: Request, db: Session = 
     if check["status"] not in {"healthy", "degraded"}:
         raise HTTPException(status_code=422, detail={"error_code": "WORKER_UNREACHABLE", "message": check.get("message") or "Agent unreachable"})
     try:
-        result = db.execute(
-            text(
-                """
-                INSERT INTO infra_workers (name, host, port, use_tls, verify_tls, is_enabled)
-                VALUES (:name, :host, :port, :use_tls, :verify_tls, :is_enabled)
-                """
-            ),
-            payload.model_dump(),
-        )
+        result = infrastructure_sql.create_worker_1(db, payload.model_dump())
         worker_id = int(result.lastrowid)
         infra.record_worker_check(db, worker_id, check)
         db.commit()
@@ -191,8 +184,8 @@ def delete_worker(worker_id: int, request: Request, db: Session = Depends(get_db
     row = infra.get_worker_row(db, worker_id)
     if not row:
         raise HTTPException(status_code=404, detail="Worker not found")
-    db.execute(text("DELETE FROM infra_workers WHERE id = :id"), {"id": int(worker_id)})
-    db.execute(text("DELETE FROM infra_component_status WHERE component = :c"), {"c": f"worker:{int(worker_id)}"})
+    infrastructure_sql.delete_worker_1(db, {"id": int(worker_id)})
+    infrastructure_sql.delete_worker_2(db, {"c": f"worker:{int(worker_id)}"})
     db.commit()
     _audit(actor, "infrastructure.worker_removed", target_type="worker", target_id=worker_id, target_display=row.get("name"))
     return ui_data({"ok": True})
@@ -229,19 +222,7 @@ def _with_job_outcome(db: Session, item: dict[str, Any]) -> None:
     """Started is not done: what the jobs of the last data sync really gave, read from the jobs themselves."""
     if not item.get("last_run_at") or item.get("last_status") == "running":
         return
-    rows = db.execute(
-        text(
-            """
-            SELECT UPPER(status) AS status, COUNT(*) AS n
-            FROM provisioning_jobs
-            WHERE created_at >= :since
-              AND (job_type = 'DIRECTORY_SNAPSHOT'
-                   OR JSON_VALUE(payload_json, '$.payload.context.origin') = 'data_sync')
-            GROUP BY UPPER(status)
-            """
-        ),
-        {"since": item["last_run_at"]},
-    ).mappings().all()
+    rows = infrastructure_sql.with_job_outcome_1(db, {"since": item["last_run_at"]}).mappings().all()
     counts = {str(row["status"]): int(row["n"]) for row in rows}
     failed = sum(counts.get(s, 0) for s in ("FAILED", "TIMED_OUT", "CANCELLED"))
     pending = sum(counts.get(s, 0) for s in ("QUEUED", "RUNNING"))
@@ -253,7 +234,7 @@ def _with_job_outcome(db: Session, item: dict[str, Any]) -> None:
 
 def _schedules(db: Session) -> list[dict[str, Any]]:
     out = []
-    for row in db.execute(text("SELECT * FROM infra_schedules ORDER BY task")).mappings():
+    for row in infrastructure_sql.schedules_1(db).mappings():
         item = dict(row)
         for key in ("options_json", "last_summary_json"):
             value = item.pop(key)
@@ -277,18 +258,7 @@ def list_schedules(request: Request, db: Session = Depends(get_db)):
 def list_late_schedules(request: Request, db: Session = Depends(get_db)):
     """Enabled tasks whose last run is older than two intervals: the scheduler (or the whole platform) stood still."""
     _admin(request)
-    rows = db.execute(
-        text(
-            """
-            SELECT task, interval_minutes, last_run_at, last_status,
-              TIMESTAMPDIFF(MINUTE, last_run_at, UTC_TIMESTAMP()) AS late_minutes
-            FROM infra_schedules
-            WHERE is_enabled = 1 AND last_run_at IS NOT NULL
-              AND last_run_at < UTC_TIMESTAMP() - INTERVAL (2 * interval_minutes) MINUTE
-            ORDER BY late_minutes DESC
-            """
-        )
-    ).mappings().all()
+    rows = infrastructure_sql.list_late_schedules_1(db).mappings().all()
     return ui_list([{**dict(row), "last_run_at": row["last_run_at"].isoformat() + "Z"} for row in rows])
 
 
@@ -318,15 +288,7 @@ async def run_schedule(task: Literal["health_check", "data_sync", "access_expiry
 
     actor = _admin(request)
     # A service stopped during a run leaves it « running » for ever: after 30 minutes it no longer blocks
-    running = db.execute(
-        text(
-            """
-            SELECT last_status = 'running' AND last_run_at > UTC_TIMESTAMP() - INTERVAL 30 MINUTE
-            FROM infra_schedules WHERE task = :task
-            """
-        ),
-        {"task": task},
-    ).scalar()
+    running = infrastructure_sql.run_schedule_1(db, {"task": task}).scalar()
     if running:
         raise HTTPException(status_code=409, detail={"error_code": "TASK_ALREADY_RUNNING", "message": "This task is already running"})
     result = await run_task(db, task, trigger="manual")
@@ -359,7 +321,7 @@ class ServicePayload(BaseModel):
 
 
 def _services(db: Session) -> list[dict[str, Any]]:
-    rows = [dict(r) for r in db.execute(text("SELECT * FROM infra_services ORDER BY is_builtin DESC, label")).mappings()]
+    rows = [dict(r) for r in infrastructure_sql.services_1(db).mappings()]
     for row in rows:
         row["is_builtin"] = bool(row["is_builtin"])
         row["is_enabled"] = bool(row["is_enabled"])
@@ -379,15 +341,7 @@ def create_service(payload: ServicePayload, request: Request, db: Session = Depe
     actor = _admin(request)
     key = re.sub(r"[^a-z0-9]+", "_", payload.label.lower()).strip("_")[:48] or "service"
     try:
-        db.execute(
-            text(
-                """
-                INSERT INTO infra_services (component_key, label, category, check_kind, target, is_enabled)
-                VALUES (:key, :label, :category, :check_kind, :target, :is_enabled)
-                """
-            ),
-            {**payload.model_dump(), "key": f"custom_{key}"},
-        )
+        infrastructure_sql.create_service_1(db, {**payload.model_dump(), "key": f"custom_{key}"})
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -399,15 +353,12 @@ def create_service(payload: ServicePayload, request: Request, db: Session = Depe
 @router.put("/services/{service_id}")
 def update_service(service_id: int, payload: ServicePayload, request: Request, db: Session = Depends(get_db)):
     actor = _admin(request)
-    row = db.execute(text("SELECT * FROM infra_services WHERE id = :id"), {"id": service_id}).mappings().first()
+    row = infrastructure_sql.update_service_1(db, {"id": service_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Monitored component not found")
-    db.execute(
-        text("UPDATE infra_services SET label = :label, category = :category, check_kind = :check_kind, target = :target, is_enabled = :is_enabled WHERE id = :id"),
-        {**payload.model_dump(), "id": service_id},
-    )
+    infrastructure_sql.update_service_2(db, {**payload.model_dump(), "id": service_id})
     if not payload.is_enabled:
-        db.execute(text("DELETE FROM infra_component_status WHERE component = :c"), {"c": f"service:{row['component_key']}"})
+        infrastructure_sql.update_service_3(db, {"c": f"service:{row['component_key']}"})
     db.commit()
     _audit(actor, "infrastructure.service_updated", target_type="infra_service", target_id=service_id, target_display=payload.label, context={"target": payload.target, "enabled": payload.is_enabled})
     return ui_list(_services(db))
@@ -416,13 +367,13 @@ def update_service(service_id: int, payload: ServicePayload, request: Request, d
 @router.delete("/services/{service_id}")
 def delete_service(service_id: int, request: Request, db: Session = Depends(get_db)):
     actor = _admin(request)
-    row = db.execute(text("SELECT * FROM infra_services WHERE id = :id"), {"id": service_id}).mappings().first()
+    row = infrastructure_sql.delete_service_1(db, {"id": service_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Monitored component not found")
     if row["is_builtin"]:
         raise HTTPException(status_code=409, detail={"error_code": "SERVICE_BUILTIN", "message": "A platform component can be disabled, not deleted"})
-    db.execute(text("DELETE FROM infra_services WHERE id = :id"), {"id": service_id})
-    db.execute(text("DELETE FROM infra_component_status WHERE component = :c"), {"c": f"service:{row['component_key']}"})
+    infrastructure_sql.delete_service_2(db, {"id": service_id})
+    infrastructure_sql.delete_service_3(db, {"c": f"service:{row['component_key']}"})
     db.commit()
     _audit(actor, "infrastructure.service_removed", target_type="infra_service", target_id=service_id, target_display=row["label"])
     return ui_list(_services(db))
@@ -475,7 +426,7 @@ class SsoProviderPayload(BaseModel):
 
 
 def _check_roles(db: Session, payload: SsoProviderPayload) -> None:
-    known = {r[0] for r in db.execute(text("SELECT code FROM roles"))}
+    known = {r[0] for r in infrastructure_sql.check_roles_1(db)}
     used = {m.role for m in payload.role_mapping} | ({payload.default_role} if payload.default_role else set())
     unknown = sorted(used - known)
     if unknown:
@@ -487,7 +438,7 @@ def list_sso_providers(request: Request, db: Session = Depends(get_db)):
     from app.services import sso_service
 
     _admin(request)
-    roles = [dict(r) for r in db.execute(text("SELECT code, label FROM roles ORDER BY id")).mappings()]
+    roles = [dict(r) for r in infrastructure_sql.list_sso_providers_1(db).mappings()]
     return ui_data({"providers": sso_service.list_providers(db), "roles": roles})
 
 
@@ -536,7 +487,7 @@ def delete_sso_provider(provider_id: int, request: Request, db: Session = Depend
     if not row:
         raise HTTPException(status_code=404, detail="SSO provider not found")
     sso_service.delete_provider(db, provider_id)
-    db.execute(text("DELETE FROM infra_component_status WHERE component = :c"), {"c": f"sso:{int(provider_id)}"})
+    infrastructure_sql.delete_sso_provider_1(db, {"c": f"sso:{int(provider_id)}"})
     db.commit()
     _audit(actor, "infrastructure.sso_provider_removed", target_type="sso_provider", target_id=provider_id, target_display=row.get("name"))
     return ui_data({"ok": True})
@@ -551,9 +502,6 @@ class SsoStatusPayload(BaseModel):
 def record_sso_status(provider_id: int, payload: SsoStatusPayload, request: Request, db: Session = Depends(get_db)):
     """Result of « Test » (run by auth-service, which holds the client secret)."""
     _admin(request)
-    db.execute(
-        text("UPDATE sso_providers SET status = :status, last_message = :message, last_check_at = UTC_TIMESTAMP() WHERE id = :id"),
-        {"status": payload.status, "message": payload.message, "id": int(provider_id)},
-    )
+    infrastructure_sql.record_sso_status_1(db, {"status": payload.status, "message": payload.message, "id": int(provider_id)})
     db.commit()
     return ui_data({"ok": True})

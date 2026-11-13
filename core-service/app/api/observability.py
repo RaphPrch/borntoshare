@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.data.repositories import observability_sql
 from app.api._helpers import ui_data
 from app.core.db import get_db
 from app.services.authorization import actor_from_request, require_observability
@@ -46,7 +47,7 @@ def _health(db: Session) -> dict[str, Any]:
             "down" if entry["down"] else "degraded" if entry["degraded"] else "unknown" if entry["unknown"] == entry["total"] else "healthy"
         )
     uptimes = [c["uptime_24h"] for c in data["components"] if c["uptime_24h"] is not None]
-    schedule = db.execute(text("SELECT next_run_at FROM infra_schedules WHERE task = 'health_check'")).scalar()
+    schedule = observability_sql.health_1(db).scalar()
 
     def brief(c: dict[str, Any]) -> dict[str, Any]:
         return {"component": c["component"], "label": c["label"], "message": c["message"]}
@@ -65,31 +66,10 @@ def _health(db: Session) -> dict[str, Any]:
 def _alerts(db: Session, hours: int) -> dict[str, Any]:
     rows = [
         dict(r)
-        for r in db.execute(
-            text(
-                """
-                SELECT ga.id, ga.alert_type, ga.severity, ga.status, ga.title, ga.message, ga.storage_root_id,
-                       ga.storage_endpoint_id, ga.identity_source_id, ga.first_seen_at, ga.last_seen_at,
-                       COALESCE(sr.name, se.name, s.name) AS scope_name
-                FROM governance_alerts ga
-                LEFT JOIN storage_roots sr ON sr.id = ga.storage_root_id
-                LEFT JOIN storage_endpoints se ON se.id = ga.storage_endpoint_id
-                LEFT JOIN identity_sources s ON s.id = ga.identity_source_id
-                WHERE ga.status IN ('open', 'acknowledged')
-                """
-            )
-        ).mappings()
+        for r in observability_sql.alerts_1(db).mappings()
     ]
     critical = [r for r in rows if r["status"] == "open" and r["severity"] in {"critical", "high"}]
-    new_critical = db.execute(
-        text(
-            """
-            SELECT COUNT(*) FROM governance_alerts
-            WHERE severity IN ('critical', 'high') AND first_seen_at >= UTC_TIMESTAMP() - INTERVAL :hours HOUR
-            """
-        ),
-        {"hours": hours},
-    ).scalar()
+    new_critical = observability_sql.alerts_2(db, {"hours": hours}).scalar()
 
     # « Endpoint unreachable × 47 » rather than 47 lines: one group per type, worst severity first
     groups: dict[str, dict[str, Any]] = {}
@@ -130,52 +110,15 @@ def _alerts(db: Session, hours: int) -> dict[str, Any]:
 
 
 def _jobs(db: Session, hours: int) -> dict[str, Any]:
-    counts = db.execute(
-        text(
-            """
-            SELECT
-              COUNT(*) AS total,
-              SUM(UPPER(status) = 'FAILED') AS failed
-            FROM provisioning_jobs
-            WHERE created_at >= NOW() - INTERVAL :hours HOUR
-            """
-        ),
-        {"hours": hours},
-    ).mappings().first() or {}
+    counts = observability_sql.jobs_1(db, {"hours": hours}).mappings().first() or {}
     # The same rule as Observability › Jobs: nobody took it, or it runs far beyond its timeout
     from app.services.job_board import stuck_reason
 
-    active = db.execute(
-        text(
-            """
-            SELECT id, status, payload_json,
-                   TIMESTAMPDIFF(SECOND, created_at, COALESCE(started_at, UTC_TIMESTAMP())) AS wait_seconds,
-                   CASE WHEN started_at IS NULL THEN NULL ELSE TIMESTAMPDIFF(SECOND, started_at, UTC_TIMESTAMP()) END AS run_seconds
-            FROM provisioning_jobs WHERE status IN ('CREATED', 'QUEUED', 'RETRYING', 'RUNNING')
-            """
-        )
-    ).mappings().all()
+    active = observability_sql.jobs_2(db).mappings().all()
     stuck = sum(1 for row in active if stuck_reason(dict(row)))
     items = [
         {**dict(r), "updated_at": _iso(r["updated_at"])}
-        for r in db.execute(
-            text(
-                """
-                (SELECT id, job_type, action, status, error_code, error_message, identity_source_id,
-                        storage_root_access_profile_id, updated_at
-                 FROM provisioning_jobs
-                 WHERE UPPER(status) = 'FAILED' AND created_at >= NOW() - INTERVAL :hours HOUR
-                 ORDER BY updated_at DESC LIMIT 4)
-                UNION ALL
-                (SELECT id, job_type, action, status, error_code, error_message, identity_source_id,
-                        storage_root_access_profile_id, updated_at
-                 FROM provisioning_jobs
-                 WHERE UPPER(status) IN ('QUEUED', 'RUNNING', 'RETRYING')
-                 ORDER BY updated_at DESC LIMIT 3)
-                """
-            ),
-            {"hours": hours},
-        ).mappings()
+        for r in observability_sql.jobs_3(db, {"hours": hours}).mappings()
     ]
     return {"total": int(counts.get("total") or 0), "failed": int(counts.get("failed") or 0), "stuck": int(stuck or 0), "items": items}
 
@@ -236,7 +179,5 @@ def get_overview(request: Request, period: Literal["24h", "7d", "30d"] = "24h", 
 def get_badge(request: Request, db: Session = Depends(get_db)):
     """Open critical or high alerts, for the top bar pill (cheap: one count)."""
     require_observability(actor_from_request(request))
-    count = db.execute(
-        text("SELECT COUNT(*) FROM governance_alerts WHERE status = 'open' AND severity IN ('critical', 'high')")
-    ).scalar()
+    count = observability_sql.get_badge_1(db).scalar()
     return ui_data({"critical_open": int(count or 0)})

@@ -1,12 +1,10 @@
 """Smart policies (Policies page): « if the folders match this condition, then tag / alert / tell the guardians »."""
 from __future__ import annotations
 
-import json
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api._helpers import ui_data

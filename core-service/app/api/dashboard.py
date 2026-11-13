@@ -9,7 +9,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 from app.data.repositories import lookups_repo

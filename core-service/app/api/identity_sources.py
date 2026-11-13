@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.data.repositories import identity_sources_sql
 from app.services.secret_store import forget_unused
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import text
@@ -197,29 +198,14 @@ def ensure_unique_source(
     (the login could not tell which directory checks the password)."""
     params = {"exclude_id": int(exclude_id or 0)}
     if str(name or "").strip():
-        taken = db.execute(
-            text(
-                "SELECT id FROM identity_sources WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) AND id <> :exclude_id LIMIT 1"
-            ),
-            {**params, "name": str(name)},
-        ).first()
+        taken = identity_sources_sql.ensure_unique_source_1(db, {**params, "name": str(name)}).first()
         if taken:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail={"error_code": "IDENTITY_SOURCE_NAME_TAKEN", "message": "An identity source with this name already exists"},
             )
     if auth_enabled and source_type == "ad" and str(domain_name or "").strip():
-        taken = db.execute(
-            text(
-                """
-                SELECT name FROM identity_sources
-                WHERE LOWER(TRIM(domain_name)) = LOWER(TRIM(:domain_name))
-                  AND LOWER(type) = 'ad' AND auth_enabled = 1 AND is_active = 1 AND id <> :exclude_id
-                LIMIT 1
-                """
-            ),
-            {**params, "domain_name": str(domain_name)},
-        ).first()
+        taken = identity_sources_sql.ensure_unique_source_2(db, {**params, "domain_name": str(domain_name)}).first()
         if taken:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -437,7 +423,7 @@ def delete_identity_source(source_id: int, request: Request, db: Session = Depen
     db.delete(src)
     db.flush()
     forget_unused(db, secret_refs)
-    db.execute(text("DELETE FROM infra_component_status WHERE component = :c"), {"c": f"identity_source:{int(source_id)}"})
+    identity_sources_sql.delete_identity_source_1(db, {"c": f"identity_source:{int(source_id)}"})
     db.commit()
 
     actor_id, actor_display = _actor_from_headers(request)
@@ -675,16 +661,7 @@ def get_identity_source_overview(source_id: int, db: Session = Depends(get_db)):
         ),
         params,
     ).mappings().all()
-    endpoints = db.execute(
-        text(
-            """
-            SELECT id, name, endpoint_type, host,
-              (SELECT COUNT(*) FROM storage_roots r WHERE r.storage_endpoint_id = e.id) AS roots
-            FROM storage_endpoints e WHERE identity_source_id = :id ORDER BY endpoint_type <> 'smb', name
-            """
-        ),
-        params,
-    ).mappings().all()
+    endpoints = identity_sources_sql.get_identity_source_overview_1(db, params).mappings().all()
     return ui_data({
         "users": int(users.get("total") or 0),
         "users_with_email": int(users.get("with_email") or 0),

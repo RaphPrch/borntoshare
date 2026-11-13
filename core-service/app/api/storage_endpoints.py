@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from app.data.repositories import storage_endpoints_sql
 from app.services.secret_store import forget_unused
 from app.services.windows_names import dfs_folder_error, share_name_error
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import bindparam, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -278,7 +278,7 @@ def _same_server(db: Session, host: str | None, *, exclude_id: int | None = None
     wanted = str(host or "").strip()
     if not wanted:
         return []
-    rows = db.execute(text("SELECT id, name, host, zone_id FROM storage_endpoints WHERE host IS NOT NULL")).mappings().all()
+    rows = storage_endpoints_sql.same_server_1(db).mappings().all()
     return [dict(row) for row in rows if row["id"] != exclude_id and same_host(str(row["host"]), wanted)]
 
 
@@ -286,7 +286,7 @@ def _assert_zone_of_server(db: Session, host: str | None, zone_id: int | None) -
     """A server belongs to one zone: a new namespace of a DFS server goes in the zone of the server."""
     other = next((row for row in _same_server(db, host) if zone_id and int(row["zone_id"] or 0) != int(zone_id)), None)
     if other:
-        zone = db.execute(text("SELECT name FROM zones WHERE id = :id"), {"id": other["zone_id"]}).scalar()
+        zone = storage_endpoints_sql.assert_zone_of_server_1(db, {"id": other["zone_id"]}).scalar()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "STORAGE_ENDPOINT_ZONE_OF_SERVER",
@@ -301,9 +301,7 @@ def _assert_host_free(db: Session, host: str | None, *, exclude_id: int | None =
     wanted = str(host or "").strip()
     if not wanted:
         return
-    rows = db.execute(
-        text("SELECT id, name, host FROM storage_endpoints WHERE host IS NOT NULL AND LOWER(endpoint_type) <> 'dfs'")
-    ).mappings().all()
+    rows = storage_endpoints_sql.assert_host_free_1(db).mappings().all()
     taken = next((row for row in rows if row["id"] != exclude_id and same_host(str(row["host"]), wanted)), None)
     if taken is None:
         # The same server by its name and by its address (or two names): compared by what they resolve to
@@ -728,10 +726,7 @@ def _guard_endpoint_change(db: Session, endpoint: Any, updates: dict[str, Any], 
         )
     rewrites = [(root, rewrite_unc_host(root.root_path, new_host)) for root in roots if unc_host(root.root_path)]
     for root, new_path in rewrites:
-        clash = db.execute(
-            text("SELECT id FROM storage_roots WHERE normalized_root_path = :path AND id <> :id LIMIT 1"),
-            {"path": normalize_root_path(new_path), "id": int(root.id)},
-        ).scalar()
+        clash = storage_endpoints_sql.guard_endpoint_change_1(db, {"path": normalize_root_path(new_path), "id": int(root.id)}).scalar()
         if clash:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -846,8 +841,7 @@ def update_endpoint(
         if host_moved and not zone_moved and siblings:
             endpoint.zone_id = siblings[0]["zone_id"]
         elif siblings:
-            db.execute(text("UPDATE storage_endpoints SET zone_id = :zone WHERE id IN :ids").bindparams(bindparam("ids", expanding=True)),
-                       {"zone": int(endpoint.zone_id), "ids": [row["id"] for row in siblings]})
+            storage_endpoints_sql.update_endpoint_1(db, {"zone": int(endpoint.zone_id), "ids": [row["id"] for row in siblings]})
     if {"bind_dn", "bind_password_ref"} & set(updates):
         # Another account: its right to manage a DFS namespace is not known yet
         _remember_dfs_delegation(endpoint, denied=False)
@@ -1334,11 +1328,7 @@ async def delete_endpoint_share(endpoint_id: int, share: str, request: Request, 
         raise operation.refused(status.HTTP_422_UNPROCESSABLE_ENTITY, "SHARE_NAME_INVALID", "This share cannot be deleted from BornToShare")
     prefix = normalize_root_path(unc)
     managed = [
-        str(path) for (path,) in db.execute(
-            text("SELECT root_path FROM storage_roots WHERE storage_endpoint_id = :id AND deleted_at IS NULL "
-                 "AND (normalized_root_path = :prefix OR normalized_root_path LIKE :below)"),
-            {"id": int(endpoint_id), "prefix": prefix, "below": prefix + "/%"},
-        ).all()
+        str(path) for (path,) in storage_endpoints_sql.delete_endpoint_share_1(db, {"id": int(endpoint_id), "prefix": prefix, "below": prefix + "/%"}).all()
     ]
     if managed:
         raise operation.refused(status.HTTP_409_CONFLICT, "SHARE_HAS_STORAGE_ROOTS",
@@ -1491,7 +1481,7 @@ def delete_endpoint(
     db.delete(endpoint)
     db.flush()
     forget_unused(db, [secret_ref])
-    db.execute(text("DELETE FROM infra_component_status WHERE component = :c"), {"c": f"storage_endpoint:{int(endpoint_id)}"})
+    storage_endpoints_sql.delete_endpoint_1(db, {"c": f"storage_endpoint:{int(endpoint_id)}"})
     db.commit()
 
     actor_id, actor_display = _actor_from_headers(request)

@@ -6,9 +6,9 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.services import naming_policy as naming_policy_service
 from app.core.db import get_db
 from app.api._helpers import ui_data
 from app.services.naming_policy import (
@@ -55,18 +55,7 @@ def _audit(actor, action: str, *, target_id: Any = None, target_display: str | N
 
 
 def _zone_exists(db: Session, zone_id: int) -> bool:
-    row = db.execute(
-        text(
-            """
-            SELECT id
-            FROM zones
-            WHERE id = :zone_id
-            LIMIT 1
-            """
-        ),
-        {"zone_id": int(zone_id)},
-    ).mappings().first()
-    return row is not None
+    return naming_policy_service.zone_exists(db, zone_id)
 
 
 class GlobalNamingPolicyPayload(BaseModel):
@@ -117,35 +106,15 @@ def put_global_naming_policy(payload: GlobalNamingPolicyPayload, db: Session = D
         validate_template_tokens(payload.template)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    db.execute(
-        text(
-            """
-            INSERT INTO naming_policies (
-                scope_type, scope_id, override_enabled, group_prefix, template, normalize_uppercase, max_sam_length, replace_map_json, rootcode_strategy
-            )
-            VALUES (
-                'global', 0, 1, :group_prefix, :template, :normalize_uppercase, :max_sam_length, :replace_map_json, :rootcode_strategy
-            )
-            ON DUPLICATE KEY UPDATE
-                group_prefix = VALUES(group_prefix),
-                template = VALUES(template),
-                normalize_uppercase = VALUES(normalize_uppercase),
-                max_sam_length = VALUES(max_sam_length),
-                replace_map_json = VALUES(replace_map_json),
-                rootcode_strategy = VALUES(rootcode_strategy),
-                updated_at = CURRENT_TIMESTAMP
-            """
-        ),
-        {
-            "group_prefix": payload.group_prefix,
-            "template": payload.template,
-            "normalize_uppercase": 1 if payload.normalize_uppercase else 0,
-            "max_sam_length": int(payload.max_sam_length),
-            "replace_map_json": _replace_map_json(payload.replace_map_json),
-            "rootcode_strategy": serialize_rootcode_strategy_for_storage(payload.rootcode_strategy),
-        },
-    )
-    db.commit()
+    naming_policy_service.save_policy_row(db, "global", 0, {
+        "override_enabled": 1,
+        "group_prefix": payload.group_prefix,
+        "template": payload.template,
+        "normalize_uppercase": 1 if payload.normalize_uppercase else 0,
+        "max_sam_length": int(payload.max_sam_length),
+        "replace_map_json": _replace_map_json(payload.replace_map_json),
+        "rootcode_strategy": serialize_rootcode_strategy_for_storage(payload.rootcode_strategy),
+    })
     _audit(actor, "naming_policy.global_updated", target_display="global", context={"template": payload.template, "group_prefix": payload.group_prefix})
     return ui_data(load_global_policy(db))
 
@@ -191,44 +160,15 @@ def put_zone_naming_policy(
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    db.execute(
-        text(
-            """
-            INSERT INTO naming_policies (
-                scope_type, scope_id, override_enabled, group_prefix, template, normalize_uppercase, max_sam_length, replace_map_json, rootcode_strategy
-            )
-            VALUES (
-                'zone', :zone_id, :override_enabled, :group_prefix, :template, :normalize_uppercase, :max_sam_length, :replace_map_json, :rootcode_strategy
-            )
-            ON DUPLICATE KEY UPDATE
-                override_enabled = VALUES(override_enabled),
-                group_prefix = VALUES(group_prefix),
-                template = VALUES(template),
-                normalize_uppercase = VALUES(normalize_uppercase),
-                max_sam_length = VALUES(max_sam_length),
-                replace_map_json = VALUES(replace_map_json),
-                rootcode_strategy = VALUES(rootcode_strategy),
-                updated_at = CURRENT_TIMESTAMP
-            """
-        ),
-        {
-            "zone_id": int(zone_id),
-            "override_enabled": 1 if payload.override_enabled else 0,
-            "group_prefix": payload.group_prefix,
-            "template": payload.template,
-            "normalize_uppercase": None
-            if payload.normalize_uppercase is None
-            else (1 if payload.normalize_uppercase else 0),
-            "max_sam_length": payload.max_sam_length,
-            "replace_map_json": _replace_map_json(payload.replace_map_json),
-            "rootcode_strategy": (
-                serialize_rootcode_strategy_for_storage(payload.rootcode_strategy)
-                if payload.rootcode_strategy is not None
-                else None
-            ),
-        },
-    )
-    db.commit()
+    naming_policy_service.save_policy_row(db, "zone", int(zone_id), {
+        "override_enabled": 1 if payload.override_enabled else 0,
+        "group_prefix": payload.group_prefix,
+        "template": payload.template,
+        "normalize_uppercase": None if payload.normalize_uppercase is None else (1 if payload.normalize_uppercase else 0),
+        "max_sam_length": payload.max_sam_length,
+        "replace_map_json": _replace_map_json(payload.replace_map_json),
+        "rootcode_strategy": serialize_rootcode_strategy_for_storage(payload.rootcode_strategy) if payload.rootcode_strategy is not None else None,
+    })
     _audit(actor, "naming_policy.zone_updated", target_id=int(zone_id), target_display=f"zone {zone_id}", context={"override_enabled": payload.override_enabled, "template": payload.template})
     return ui_data(load_zone_policy(db, zone_id), meta={"zone_id": int(zone_id)})
 
@@ -258,43 +198,13 @@ def preview_root_groups(payload: NamingRootsPreviewPayload, db: Session = Depend
     follows the saved rule (renamed by hand, or created under an older rule).
     """
     if payload.storage_endpoint_id:
-        scope, where, params = "storage_endpoint", "sr.storage_endpoint_id = :id", {"id": int(payload.storage_endpoint_id)}
+        scope = "storage_endpoint"
     elif payload.zone_id:
-        scope, where, params = "zone", "se.zone_id = :id", {"id": int(payload.zone_id)}
+        scope = "zone"
     else:
         raise HTTPException(status_code=422, detail="zone_id or storage_endpoint_id is required")
-    query = str(payload.query or "").strip()
-    if query:
-        where += " AND (sr.name LIKE :q OR sr.root_path LIKE :q)"
-        params = {**params, "q": f"%{query}%"}
-    rows = db.execute(
-        text(
-            f"""
-            SELECT sr.id, sr.name, sr.root_path
-            FROM storage_roots sr
-            JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-            WHERE {where}
-            ORDER BY sr.name, sr.id
-            LIMIT :scan
-            """
-        ),
-        {**params, "scan": _PREVIEW_SCAN_LIMIT},
-    ).mappings().all()
-    existing_by_root: dict[int, dict[str, str]] = {}
-    if rows:
-        for row in db.execute(
-            text(
-                f"""
-                SELECT p.storage_root_id, UPPER(p.access_level_code) AS level, p.group_name
-                FROM storage_root_access_profiles p
-                JOIN storage_roots sr ON sr.id = p.storage_root_id
-                JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-                WHERE {where} AND UPPER(COALESCE(p.status, '')) IN ('SUCCEEDED', 'ADOPTING')
-                """
-            ),
-            params,
-        ).mappings():
-            existing_by_root.setdefault(int(row["storage_root_id"]), {})[str(row["level"])] = str(row["group_name"])
+    rows, existing_by_root = naming_policy_service.preview_roots(db, endpoint_id=payload.storage_endpoint_id, zone_id=payload.zone_id,
+                                                                 query=str(payload.query or "").strip(), limit=_PREVIEW_SCAN_LIMIT)
 
     def names(root_id: int, template: str | None) -> dict[str, str] | None:
         naming = resolve_storage_root_naming(db, root_id, draft_scope=scope, draft_template=template)
@@ -356,11 +266,7 @@ def preview_group_name(payload: NamingPreviewPayload, db: Session = Depends(get_
             effective_policy = resolve_effective_policy(db, zone_id)
             endpoint_id = int(payload.storage_endpoint_id or 0) or None
             if endpoint_id is not None:
-                row = db.execute(
-                    text("SELECT naming_template FROM storage_endpoints WHERE id = :endpoint_id LIMIT 1"),
-                    {"endpoint_id": int(endpoint_id)},
-                ).mappings().first()
-                endpoint_template = str((row or {}).get("naming_template") or "").strip() or None
+                endpoint_template = naming_policy_service.endpoint_template(db, endpoint_id)
                 if endpoint_template:
                     effective_policy = {**effective_policy, "template": endpoint_template}
 

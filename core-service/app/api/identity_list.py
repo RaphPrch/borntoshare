@@ -6,9 +6,10 @@ import logging
 import os
 import httpx
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
-from sqlalchemy import bindparam, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.data.repositories import identity_list_sql
 from app.services.identity_source_fields import source_capabilities
 from app.services.identity_bindings import sync_identity_bindings
 from app.core.db import get_db
@@ -42,17 +43,7 @@ def _pick_identity_source(db: Session, source_id: int | None) -> IdentitySource 
         if src and str(getattr(src, "type", "") or "").lower() == "ad" and bool(getattr(src, "is_active", True)):
             return src
 
-    row = db.execute(
-        text(
-            """
-            SELECT id
-            FROM identity_sources
-            WHERE type = 'ad' AND is_active = 1
-            ORDER BY id ASC
-            LIMIT 1
-            """
-        )
-    ).mappings().first()
+    row = identity_list_sql.pick_identity_source_1(db).mappings().first()
     if not row:
         return None
     return db.get(IdentitySource, int(row["id"]))
@@ -60,49 +51,15 @@ def _pick_identity_source(db: Session, source_id: int | None) -> IdentitySource 
 
 def _pick_local_identity_source_id(db: Session, source_id: int | None) -> int | None:
     if source_id is not None:
-        row = db.execute(
-            text(
-                """
-                SELECT id
-                FROM identity_sources
-                WHERE id = :id
-                  AND LOWER(COALESCE(type, '')) IN ('local', 'internal')
-                  AND is_active = 1
-                LIMIT 1
-                """
-            ),
-            {"id": int(source_id)},
-        ).mappings().first()
+        row = identity_list_sql.pick_local_identity_source_id_1(db, {"id": int(source_id)}).mappings().first()
         if row:
             return int(row["id"])
 
-    row = db.execute(
-        text(
-            """
-            SELECT id
-            FROM identity_sources
-            WHERE LOWER(COALESCE(type, '')) IN ('local', 'internal')
-              AND is_active = 1
-            ORDER BY id ASC
-            LIMIT 1
-            """
-        )
-    ).mappings().first()
+    row = identity_list_sql.pick_local_identity_source_id_2(db).mappings().first()
     if row:
         return int(row["id"])
 
-    row = db.execute(
-        text(
-            """
-            SELECT source_id AS id
-            FROM identities
-            WHERE LOWER(COALESCE(auth_source, '')) IN ('local', 'internal')
-              AND source_id IS NOT NULL
-            ORDER BY id ASC
-            LIMIT 1
-            """
-        )
-    ).mappings().first()
+    row = identity_list_sql.pick_local_identity_source_id_3(db).mappings().first()
     if row:
         return int(row["id"])
     return None
@@ -147,17 +104,7 @@ def _is_default_local_admin_row(row: dict[str, Any] | None) -> bool:
 
 
 def _ensure_role_id(db: Session, role_code: str) -> int:
-    row = db.execute(
-        text(
-            """
-            SELECT id
-            FROM roles
-            WHERE code = :code
-            LIMIT 1
-            """
-        ),
-        {"code": role_code},
-    ).mappings().first()
+    row = identity_list_sql.ensure_role_id_1(db, {"code": role_code}).mappings().first()
     if row:
         return int(row["id"])
 
@@ -166,30 +113,12 @@ def _ensure_role_id(db: Session, role_code: str) -> int:
         "platform_admin": ("Platform administrator", "Full administrative access within the application"),
     }
     label, description = labels.get(role_code, (role_code.replace("_", " ").title(), None))
-    db.execute(
-        text(
-            """
-            INSERT INTO roles (code, label, description, created_at, updated_at)
-            VALUES (:code, :label, :description, NOW(), NOW())
-            """
-        ),
-        {
+    identity_list_sql.ensure_role_id_2(db, {
             "code": role_code,
             "label": label,
             "description": description,
-        },
-    )
-    row = db.execute(
-        text(
-            """
-            SELECT id
-            FROM roles
-            WHERE code = :code
-            LIMIT 1
-            """
-        ),
-        {"code": role_code},
-    ).mappings().first()
+        })
+    row = identity_list_sql.ensure_role_id_3(db, {"code": role_code}).mappings().first()
     if not row:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Application role '{role_code}' is unavailable")
     return int(row["id"])
@@ -197,68 +126,24 @@ def _ensure_role_id(db: Session, role_code: str) -> int:
 
 def _other_admin_exists(db: Session, *, excluding_identity: int | None = None, excluding_group: int | None = None) -> bool:
     """Someone else keeps the platform administrator role: an active person, or a directory group that holds it."""
-    row = db.execute(
-        text(
-            """
-            SELECT 1
-            FROM identity_roles ir
-            JOIN roles r ON r.id = ir.role_id AND r.code = 'platform_admin'
-            LEFT JOIN identities i ON i.id = ir.identity_id
-            WHERE (ir.identity_id IS NOT NULL AND i.is_active = 1 AND ir.identity_id <> COALESCE(:identity, 0))
-               OR (ir.directory_group_id IS NOT NULL AND ir.directory_group_id <> COALESCE(:grp, 0))
-            LIMIT 1
-            """
-        ),
-        {"identity": excluding_identity, "grp": excluding_group},
-    ).first()
+    row = identity_list_sql.other_admin_exists_1(db, {"identity": excluding_identity, "grp": excluding_group}).first()
     return row is not None
 
 
 def _subject_is_admin(db: Session, *, identity_id: int | None = None, group_id: int | None = None) -> bool:
-    return db.execute(
-        text(
-            """
-            SELECT 1 FROM identity_roles ir JOIN roles r ON r.id = ir.role_id AND r.code = 'platform_admin'
-            WHERE (:identity IS NOT NULL AND ir.identity_id = :identity) OR (:grp IS NOT NULL AND ir.directory_group_id = :grp)
-            LIMIT 1
-            """
-        ),
-        {"identity": identity_id, "grp": group_id},
-    ).first() is not None
+    return identity_list_sql.subject_is_admin_1(db, {"identity": identity_id, "grp": group_id}).first() is not None
 
 
 def _is_last_local_admin(db: Session, identity_id: int) -> bool:
     """The only active local account holding the administrator role (the fallback when the directory is down)."""
-    rows = db.execute(
-        text(
-            """
-            SELECT i.id FROM identity_roles ir JOIN roles r ON r.id = ir.role_id AND r.code = 'platform_admin'
-            JOIN identities i ON i.id = ir.identity_id
-            WHERE LOWER(i.auth_source) = 'local' AND i.is_active = 1
-            """
-        )
-    ).all()
+    rows = identity_list_sql.is_last_local_admin_1(db).all()
     ids = {int(row[0]) for row in rows}
     return ids == {int(identity_id)}
 
 
 def _orphaned_folders(db: Session, identity_id: int) -> list[dict[str, Any]]:
     """Folders this person guards with no other active guardian: they would be left without anyone to validate."""
-    rows = db.execute(
-        text(
-            """
-            SELECT sr.id, sr.name, sr.root_path
-            FROM storage_root_roles r JOIN storage_roots sr ON sr.id = r.root_id
-            WHERE r.identity_id = :id AND LOWER(r.role) = 'guardian'
-              AND NOT EXISTS (
-                SELECT 1 FROM storage_root_roles o JOIN identities oi ON oi.id = o.identity_id
-                WHERE o.root_id = r.root_id AND LOWER(o.role) = 'guardian' AND o.identity_id <> :id AND oi.is_active = 1
-              )
-            ORDER BY sr.root_path
-            """
-        ),
-        {"id": int(identity_id)},
-    ).mappings().all()
+    rows = identity_list_sql.orphaned_folders_1(db, {"id": int(identity_id)}).mappings().all()
     return [{"id": int(row["id"]), "name": row["name"], "path": row["root_path"]} for row in rows]
 
 
@@ -346,49 +231,15 @@ def _set_subject_application_role(
     role_code: str,
 ) -> None:
     role_id = _ensure_role_id(db, role_code)
-    db.execute(
-        text(
-            """
-            DELETE ir
-            FROM identity_roles ir
-            JOIN roles r ON r.id = ir.role_id
-            WHERE (
-                (:identity_id IS NOT NULL AND ir.identity_id = :identity_id)
-                OR
-                (:directory_group_id IS NOT NULL AND ir.directory_group_id = :directory_group_id)
-            )
-              AND r.code IN ('user', 'platform_admin')
-            """
-        ),
-        {
+    identity_list_sql.set_subject_application_role_1(db, {
             "identity_id": int(identity_id) if identity_id is not None else None,
             "directory_group_id": int(directory_group_id) if directory_group_id is not None else None,
-        },
-    )
-    db.execute(
-        text(
-            """
-            INSERT INTO identity_roles (
-              identity_id,
-              directory_group_id,
-              role_id,
-              source,
-              created_at
-            ) VALUES (
-              :identity_id,
-              :directory_group_id,
-              :role_id,
-              'manual',
-              NOW()
-            )
-            """
-        ),
-        {
+        })
+    identity_list_sql.set_subject_application_role_2(db, {
             "identity_id": int(identity_id) if identity_id is not None else None,
             "directory_group_id": int(directory_group_id) if directory_group_id is not None else None,
             "role_id": int(role_id),
-        },
-    )
+        })
 
 
 @router.get("", dependencies=[Depends(admin_or_internal)])
@@ -400,99 +251,11 @@ def list_identity_overview(
     admin_login_scope = normalized_scope in {"admin_login", "admin", "login"}
 
     if admin_login_scope:
-        user_rows = db.execute(
-            text(
-                """
-                SELECT
-                  i.id,
-                  i.username,
-                  i.display_name,
-                  i.email,
-                  i.auth_source,
-                  i.external_id,
-                  i.source_id,
-                  i.is_active,
-                  i.type,
-                  i.snapshot_source,
-                  COALESCE(i.provisioning_source, 'explicit') AS provisioning_source,
-                  i.status,
-                  i.created_at,
-                  i.updated_at,
-                  i.last_snapshot_at,
-                  ids.name AS source_name
-                FROM identities i
-                LEFT JOIN identity_sources ids ON ids.id = i.source_id
-                WHERE LOWER(COALESCE(i.type, 'user')) = 'user'
-                  AND LOWER(COALESCE(i.auth_source, '')) = 'local'
-                ORDER BY i.id DESC
-                LIMIT 500
-                """
-            )
-        ).mappings().all()
+        user_rows = identity_list_sql.list_identity_overview_1(db).mappings().all()
         group_rows = []
     else:
-        user_rows = db.execute(
-            text(
-                """
-                SELECT
-                  i.id,
-                  i.username,
-                  i.display_name,
-                  i.email,
-                  i.auth_source,
-                  i.external_id,
-                  i.source_id,
-                  i.is_active,
-                  i.type,
-                  i.snapshot_source,
-                  COALESCE(i.provisioning_source, 'explicit') AS provisioning_source,
-                  i.status,
-                  i.created_at,
-                  i.updated_at,
-                  i.last_snapshot_at,
-                  ids.name AS source_name
-                FROM identities i
-                LEFT JOIN identity_sources ids ON ids.id = i.source_id
-                WHERE COALESCE(i.provisioning_source, 'explicit') <> 'legacy_auto_snapshot'
-                ORDER BY i.id DESC
-                LIMIT 500
-                """
-            )
-        ).mappings().all()
-        group_rows = db.execute(
-            text(
-                """
-                SELECT
-                  dg.id,
-                  dg.external_id,
-                  dg.dn,
-                  dg.identity_source_id,
-                  dg.name AS display_name,
-                  dg.created_at,
-                  dg.updated_at,
-                  dg.last_snapshot_at,
-                  ids.name AS source_name,
-                  (
-                    SELECT COUNT(*)
-                    FROM directory_group_members dgm
-                    WHERE dgm.group_id = dg.id
-                      AND dgm.deleted_at IS NULL
-                  ) AS members_count
-                FROM directory_groups dg
-                LEFT JOIN identity_sources ids ON ids.id = dg.identity_source_id
-                WHERE dg.deleted_at IS NULL
-                  AND EXISTS (
-                    SELECT 1
-                    FROM identity_roles ir
-                    JOIN roles r ON r.id = ir.role_id
-                    WHERE ir.directory_group_id = dg.id
-                      AND r.code IN ('user', 'platform_admin')
-                  )
-                ORDER BY dg.id DESC
-                LIMIT 500
-                """
-            )
-        ).mappings().all()
+        user_rows = identity_list_sql.list_identity_overview_2(db).mappings().all()
+        group_rows = identity_list_sql.list_identity_overview_3(db).mappings().all()
 
     identity_ids = [int(row.get("id")) for row in user_rows if row.get("id") is not None]
     group_ids = [int(row.get("id")) for row in group_rows if row.get("id") is not None]
@@ -500,33 +263,12 @@ def list_identity_overview(
     group_roles: dict[int, list[str]] = {}
 
     if identity_ids:
-        role_rows = db.execute(
-            text(
-                """
-                SELECT identity_id, role_code
-                FROM v_identity_effective_roles
-                WHERE identity_id IN :ids
-                ORDER BY identity_id, role_code
-                """
-            ).bindparams(bindparam("ids", expanding=True)),
-            {"ids": identity_ids},
-        ).mappings().all()
+        role_rows = identity_list_sql.list_identity_overview_4(db, {"ids": identity_ids}).mappings().all()
         for role_row in role_rows:
             user_roles.setdefault(int(role_row["identity_id"]), []).append(str(role_row["role_code"]))
 
     if group_ids:
-        role_rows = db.execute(
-            text(
-                """
-                SELECT ir.directory_group_id, r.code AS role_code
-                FROM identity_roles ir
-                JOIN roles r ON r.id = ir.role_id
-                WHERE ir.directory_group_id IN :ids
-                ORDER BY ir.directory_group_id, r.code
-                """
-            ).bindparams(bindparam("ids", expanding=True)),
-            {"ids": group_ids},
-        ).mappings().all()
+        role_rows = identity_list_sql.list_identity_overview_5(db, {"ids": group_ids}).mappings().all()
         for role_row in role_rows:
             group_roles.setdefault(int(role_row["directory_group_id"]), []).append(str(role_row["role_code"]))
 
@@ -641,108 +383,26 @@ async def create_identity(
         if local_source_id is None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No active local identity source is configured")
 
-        duplicate = db.execute(
-            text(
-                """
-                SELECT id
-                FROM identities
-                WHERE LOWER(COALESCE(username, '')) = LOWER(:username)
-                  AND LOWER(COALESCE(auth_source, '')) IN ('local', 'internal')
-                LIMIT 1
-                """
-            ),
-            {"username": username},
-        ).mappings().first()
+        duplicate = identity_list_sql.create_identity_1(db, {"username": username}).mappings().first()
         if duplicate:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A local identity with this username already exists")
 
-        db.execute(
-            text(
-                """
-                INSERT INTO identities (
-                  source_id,
-                  username,
-                  type,
-                  external_id,
-                  display_name,
-                  email,
-                  auth_source,
-                  is_active,
-                  snapshot_version,
-                  snapshot_source,
-                  provisioning_source,
-                  status,
-                  created_at,
-                  updated_at
-                ) VALUES (
-                  :source_id,
-                  :username,
-                  'user',
-                  :external_id,
-                  :display_name,
-                  :email,
-                  'local',
-                  1,
-                  1,
-                  NULL,
-                  'explicit',
-                  'active',
-                  NOW(),
-                  NOW()
-                )
-                """
-            ),
-            {
+        identity_list_sql.create_identity_2(db, {
                 "source_id": int(local_source_id),
                 "username": username,
                 "external_id": username,
                 "display_name": display_name,
                 "email": email,
-            },
-        )
-        row = db.execute(
-            text(
-                """
-                SELECT id, username, display_name, email, auth_source, external_id, source_id, is_active, type
-                FROM identities
-                WHERE source_id = :source_id
-                  AND external_id = :external_id
-                LIMIT 1
-                """
-            ),
-            {"source_id": int(local_source_id), "external_id": username},
-        ).mappings().first()
+            })
+        row = identity_list_sql.create_identity_3(db, {"source_id": int(local_source_id), "external_id": username}).mappings().first()
         if not row:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Local identity creation failed")
 
         target_id = int(row["id"])
-        db.execute(
-            text(
-                """
-                INSERT INTO local_credentials (
-                  identity_id,
-                  password_hash,
-                  password_version,
-                  last_rotated_at,
-                  created_at,
-                  updated_at,
-                  deleted_at
-                ) VALUES (
-                  :identity_id,
-                  :password_hash,
-                  'b2s$v=1$bcrypt',
-                  NOW(),
-                  NOW(),
-                  NOW(),
-                  NULL
-                )
-                """
-            ),
-            {
+        identity_list_sql.create_identity_4(db, {
                 "identity_id": target_id,
                 "password_hash": _hash_b2s_password(password),
-            },
-        )
+            })
         _set_subject_application_role(
             db=db,
             identity_id=target_id,
@@ -764,112 +424,26 @@ async def create_identity(
         if not external_id or not display_name:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="principal external_id/dn and display_name are required")
 
-        existing = db.execute(
-            text(
-                """
-                SELECT id, username, display_name, email, auth_source, external_id, source_id, is_active, type
-                FROM identities
-                WHERE source_id = :source_id
-                  AND external_id = :external_id
-                LIMIT 1
-                """
-            ),
-            {"source_id": int(identity_source.id), "external_id": external_id},
-        ).mappings().first()
+        existing = identity_list_sql.create_identity_5(db, {"source_id": int(identity_source.id), "external_id": external_id}).mappings().first()
 
         if existing:
             target_id = int(existing["id"])
-            db.execute(
-                text(
-                    """
-                    UPDATE identities
-                    SET username = :username,
-                        display_name = :display_name,
-                        email = :email,
-                        auth_source = 'ad',
-                        is_active = 1,
-                        snapshot_source = NULL,
-                        provisioning_source = 'explicit',
-                        status = 'active',
-                        updated_at = NOW(6)
-                    WHERE id = :id
-                    """
-                ),
-                {
+            identity_list_sql.create_identity_6(db, {
                     "id": target_id,
                     "username": username,
                     "display_name": display_name,
                     "email": email,
-                },
-            )
-            row = db.execute(
-                text(
-                    """
-                    SELECT id, username, display_name, email, auth_source, external_id, source_id, is_active, type
-                    FROM identities
-                    WHERE id = :id
-                    LIMIT 1
-                    """
-                ),
-                {"id": target_id},
-            ).mappings().first()
+                })
+            row = identity_list_sql.create_identity_7(db, {"id": target_id}).mappings().first()
         else:
-            db.execute(
-                text(
-                    """
-                    INSERT INTO identities (
-                      source_id,
-                      username,
-                      type,
-                      external_id,
-                      display_name,
-                      email,
-                      auth_source,
-                      is_active,
-                      snapshot_version,
-                      snapshot_source,
-                      provisioning_source,
-                      status,
-                      created_at,
-                      updated_at
-                    ) VALUES (
-                      :source_id,
-                      :username,
-                      'user',
-                      :external_id,
-                      :display_name,
-                      :email,
-                      'ad',
-                      1,
-                      1,
-                      NULL,
-                      'explicit',
-                      'active',
-                      NOW(),
-                      NOW()
-                    )
-                    """
-                ),
-                {
+            identity_list_sql.create_identity_8(db, {
                     "source_id": int(identity_source.id),
                     "username": username,
                     "external_id": external_id,
                     "display_name": display_name,
                     "email": email,
-                },
-            )
-            row = db.execute(
-                text(
-                    """
-                    SELECT id, username, display_name, email, auth_source, external_id, source_id, is_active, type
-                    FROM identities
-                    WHERE source_id = :source_id
-                      AND external_id = :external_id
-                    LIMIT 1
-                    """
-                ),
-                {"source_id": int(identity_source.id), "external_id": external_id},
-            ).mappings().first()
+                })
+            row = identity_list_sql.create_identity_9(db, {"source_id": int(identity_source.id), "external_id": external_id}).mappings().first()
             created = True
             if row:
                 target_id = int(row["id"])
@@ -904,93 +478,24 @@ async def create_identity(
         if not external_id or not display_name:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="principal external_id/dn and display_name are required")
 
-        group_row = db.execute(
-            text(
-                """
-                SELECT id, name, external_id, identity_source_id
-                FROM directory_groups
-                WHERE identity_source_id = :source_id
-                  AND external_id = :external_id
-                  AND deleted_at IS NULL
-                LIMIT 1
-                """
-            ),
-            {"source_id": int(identity_source.id), "external_id": external_id},
-        ).mappings().first()
+        group_row = identity_list_sql.create_identity_10(db, {"source_id": int(identity_source.id), "external_id": external_id}).mappings().first()
 
         if group_row:
             target_id = int(group_row["id"])
-            db.execute(
-                text(
-                    """
-                    UPDATE directory_groups
-                    SET name = :display_name,
-                        dn = :dn,
-                        snapshot_source = NULL,
-                        updated_at = NOW(6)
-                    WHERE id = :id
-                    """
-                ),
-                {
+            identity_list_sql.create_identity_11(db, {
                     "id": target_id,
                     "display_name": display_name,
                     "dn": dn,
-                },
-            )
+                })
         else:
-            db.execute(
-                text(
-                    """
-                    INSERT INTO directory_groups (
-                      identity_source_id,
-                      external_id,
-                      dn,
-                      name,
-                      snapshot_version,
-                      snapshot_source,
-                      snapshot_hash,
-                      last_snapshot_at,
-                      captured_at,
-                      created_at,
-                      updated_at,
-                      deleted_at
-                    ) VALUES (
-                      :source_id,
-                      :external_id,
-                      :dn,
-                      :display_name,
-                      1,
-                      NULL,
-                      NULL,
-                      NULL,
-                      NOW(),
-                      NOW(),
-                      NOW(),
-                      NULL
-                    )
-                    """
-                ),
-                {
+            identity_list_sql.create_identity_12(db, {
                     "source_id": int(identity_source.id),
                     "external_id": external_id,
                     "dn": dn,
                     "display_name": display_name,
-                },
-            )
+                })
             created = True
-            group_row = db.execute(
-                text(
-                    """
-                    SELECT id, name, external_id, identity_source_id
-                    FROM directory_groups
-                    WHERE identity_source_id = :source_id
-                      AND external_id = :external_id
-                      AND deleted_at IS NULL
-                    LIMIT 1
-                    """
-                ),
-                {"source_id": int(identity_source.id), "external_id": external_id},
-            ).mappings().first()
+            group_row = identity_list_sql.create_identity_13(db, {"source_id": int(identity_source.id), "external_id": external_id}).mappings().first()
             if group_row:
                 target_id = int(group_row["id"])
 
@@ -1003,26 +508,7 @@ async def create_identity(
             directory_group_id=target_id,
             role_code=application_role,
         )
-        row = db.execute(
-            text(
-                """
-                SELECT
-                  dg.id,
-                  'group' AS type,
-                  dg.name AS username,
-                  dg.name AS display_name,
-                  NULL AS email,
-                  'ad' AS auth_source,
-                  dg.external_id,
-                  dg.identity_source_id AS source_id,
-                  NULL AS is_active
-                FROM directory_groups dg
-                WHERE id = :id
-                LIMIT 1
-                """
-            ),
-            {"id": target_id},
-        ).mappings().first()
+        row = identity_list_sql.create_identity_14(db, {"id": target_id}).mappings().first()
 
     if not row or target_id is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Identity creation failed")
@@ -1074,24 +560,7 @@ def list_identity_group_members(
     group_id: int,
     db: Session = Depends(get_db),
 ):
-    rows = db.execute(
-        text(
-            """
-            SELECT
-              du.id,
-              du.username,
-              du.display_name,
-              du.email
-            FROM directory_group_members dgm
-            JOIN directory_users du ON du.id = dgm.directory_user_id
-            WHERE dgm.group_id = :group_id
-              AND dgm.deleted_at IS NULL
-            ORDER BY COALESCE(NULLIF(TRIM(du.display_name), ''), du.username, du.email, CAST(du.id AS CHAR))
-            LIMIT 500
-            """
-        ),
-        {"group_id": int(group_id)},
-    ).mappings().all()
+    rows = identity_list_sql.list_identity_group_members_1(db, {"group_id": int(group_id)}).mappings().all()
     return ui_list(
         [
             {
@@ -1118,37 +587,12 @@ async def delete_identity(
     correlation_id = request.headers.get("x-request-id") or None
 
     if normalized_type == "group":
-        group_row = db.execute(
-            text(
-                """
-                SELECT
-                  dg.id,
-                  dg.name AS display_name,
-                  dg.external_id,
-                  dg.identity_source_id AS source_id,
-                  'ad' AS auth_source,
-                  'group' AS type
-                FROM directory_groups dg
-                WHERE dg.id = :id
-                  AND dg.deleted_at IS NULL
-                LIMIT 1
-                """
-            ),
-            {"id": int(identity_id)},
-        ).mappings().first()
+        group_row = identity_list_sql.delete_identity_1(db, {"id": int(identity_id)}).mappings().first()
         if not group_row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
 
         _refuse_admin_loss(db, request, action="identity.group_access_revoked", group_id=int(identity_id))
-        db.execute(
-            text(
-                """
-                DELETE FROM identity_roles
-                WHERE directory_group_id = :id
-                """
-            ),
-            {"id": int(identity_id)},
-        )
+        identity_list_sql.delete_identity_2(db, {"id": int(identity_id)})
         db.commit()
 
         log_activity(
@@ -1170,54 +614,13 @@ async def delete_identity(
             meta={"identity_id": int(identity_id), "identity_type": "group", "deleted": True},
         )
 
-    user_row = db.execute(
-        text(
-            """
-            SELECT
-              i.id,
-              i.username,
-              i.display_name,
-              i.auth_source,
-              i.provisioning_source,
-              i.type
-            FROM identities i
-            WHERE i.id = :id
-            LIMIT 1
-            """
-        ),
-        {"id": int(identity_id)},
-    ).mappings().first()
+    user_row = identity_list_sql.delete_identity_3(db, {"id": int(identity_id)}).mappings().first()
 
     if not user_row and normalized_type is None:
-        group_row = db.execute(
-            text(
-                """
-                SELECT
-                  dg.id,
-                  dg.name AS display_name,
-                  dg.external_id,
-                  dg.identity_source_id AS source_id,
-                  'ad' AS auth_source,
-                  'group' AS type
-                FROM directory_groups dg
-                WHERE dg.id = :id
-                  AND dg.deleted_at IS NULL
-                LIMIT 1
-                """
-            ),
-            {"id": int(identity_id)},
-        ).mappings().first()
+        group_row = identity_list_sql.delete_identity_4(db, {"id": int(identity_id)}).mappings().first()
         if group_row:
             _refuse_admin_loss(db, request, action="identity.group_access_revoked", group_id=int(identity_id))
-            db.execute(
-                text(
-                    """
-                    DELETE FROM identity_roles
-                    WHERE directory_group_id = :id
-                    """
-                ),
-                {"id": int(identity_id)},
-            )
+            identity_list_sql.delete_identity_5(db, {"id": int(identity_id)})
             db.commit()
             log_activity(
                 db,
@@ -1248,33 +651,9 @@ async def delete_identity(
             detail="Default local admin cannot be deleted",
         )
 
-    db.execute(
-        text(
-            """
-            DELETE FROM identity_bindings
-            WHERE identity_id = :id
-            """
-        ),
-        {"id": int(identity_id)},
-    )
-    db.execute(
-        text(
-            """
-            DELETE FROM local_credentials
-            WHERE identity_id = :id
-            """
-        ),
-        {"id": int(identity_id)},
-    )
-    db.execute(
-        text(
-            """
-            DELETE FROM identities
-            WHERE id = :id
-            """
-        ),
-        {"id": int(identity_id)},
-    )
+    identity_list_sql.delete_identity_6(db, {"id": int(identity_id)})
+    identity_list_sql.delete_identity_7(db, {"id": int(identity_id)})
+    identity_list_sql.delete_identity_8(db, {"id": int(identity_id)})
     db.commit()
     _close_sessions(int(identity_id))
 
@@ -1364,35 +743,9 @@ async def update_identity(
     if subject_type != "group" and is_active is False:
         _refuse_guardian_gap(db, request, action="identity.application_role_updated", identity_id=int(identity_id))
     if subject_type == "group":
-        before_row = db.execute(
-            text(
-                """
-                SELECT
-                  dg.id,
-                  dg.name AS display_name,
-                  NULL AS username,
-                  NULL AS is_active,
-                  'group' AS type,
-                  'ad' AS auth_source
-                FROM directory_groups dg
-                WHERE id = :id
-                LIMIT 1
-                """
-            ),
-            {"id": int(identity_id)},
-        ).mappings().first()
+        before_row = identity_list_sql.update_identity_1(db, {"id": int(identity_id)}).mappings().first()
     else:
-        before_row = db.execute(
-            text(
-                """
-                SELECT id, username, display_name, is_active, type, auth_source
-                FROM identities
-                WHERE id = :id
-                LIMIT 1
-                """
-            ),
-            {"id": int(identity_id)},
-        ).mappings().first()
+        before_row = identity_list_sql.update_identity_2(db, {"id": int(identity_id)}).mappings().first()
         if before_row:
             subject_type = str(before_row.get("type") or "user").strip().lower() or "user"
 
@@ -1445,38 +798,9 @@ async def update_identity(
         _close_sessions(int(identity_id))
 
     if subject_type == "group":
-        row = db.execute(
-            text(
-                """
-                SELECT
-                  dg.id,
-                  'group' AS type,
-                  dg.name AS username,
-                  dg.name AS display_name,
-                  NULL AS email,
-                  'ad' AS auth_source,
-                  dg.external_id,
-                  dg.identity_source_id AS source_id,
-                  NULL AS is_active
-                FROM directory_groups dg
-                WHERE id = :id
-                LIMIT 1
-                """
-            ),
-            {"id": int(identity_id)},
-        ).mappings().first()
+        row = identity_list_sql.update_identity_3(db, {"id": int(identity_id)}).mappings().first()
     else:
-        row = db.execute(
-            text(
-                """
-                SELECT id, username, display_name, email, auth_source, external_id, source_id, is_active, type
-                FROM identities
-                WHERE id = :id
-                LIMIT 1
-                """
-            ),
-            {"id": int(identity_id)},
-        ).mappings().first()
+        row = identity_list_sql.update_identity_4(db, {"id": int(identity_id)}).mappings().first()
 
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
@@ -1596,33 +920,22 @@ def hand_over_guardianship(identity_id: int, request: Request, payload: dict[str
     remove = bool(payload.get("remove_from_source"))
     if to_id <= 0 or to_id == int(identity_id):
         raise HTTPException(status_code=422, detail={"code": "HANDOVER_TARGET_INVALID", "message": "Choisissez une autre personne."})
-    target = db.execute(text("SELECT id, is_active, type FROM identities WHERE id = :id"), {"id": to_id}).mappings().first()
+    target = identity_list_sql.hand_over_guardianship_1(db, {"id": to_id}).mappings().first()
     if target is None or not target["is_active"] or str(target["type"]) == "group":
         raise HTTPException(status_code=422, detail={"code": "HANDOVER_TARGET_INVALID", "message": "La personne choisie doit être active."})
     folder_ids = [f["id"] for f in _orphaned_folders(db, int(identity_id))] if scope == "orphaned" else [
-        int(row[0]) for row in db.execute(
-            text("SELECT root_id FROM storage_root_roles WHERE identity_id = :id AND LOWER(role) = 'guardian'"), {"id": int(identity_id)}
-        ).all()
+        int(row[0]) for row in identity_list_sql.hand_over_guardianship_2(db, {"id": int(identity_id)}).all()
     ]
     actor_id, actor_display = _actor_from_headers(request)
     added = 0
     for root_id in folder_ids:
-        exists = db.execute(
-            text("SELECT 1 FROM storage_root_roles WHERE root_id = :root AND identity_id = :to AND LOWER(role) = 'guardian'"), {"root": root_id, "to": to_id}
-        ).first()
+        exists = identity_list_sql.hand_over_guardianship_3(db, {"root": root_id, "to": to_id}).first()
         if not exists:
-            db.execute(
-                text("INSERT INTO storage_root_roles (root_id, identity_id, role, assigned_by, assigned_at) VALUES (:root, :to, 'guardian', :by, NOW())"),
-                {"root": root_id, "to": to_id, "by": actor_id},
-            )
+            identity_list_sql.hand_over_guardianship_4(db, {"root": root_id, "to": to_id, "by": actor_id})
             added += 1
     removed = 0
     if remove and folder_ids:
-        removed = db.execute(
-            text("DELETE FROM storage_root_roles WHERE identity_id = :id AND LOWER(role) = 'guardian' AND root_id IN :roots")
-            .bindparams(bindparam("roots", expanding=True)),
-            {"id": int(identity_id), "roots": folder_ids},
-        ).rowcount
+        removed = identity_list_sql.hand_over_guardianship_5(db, {"id": int(identity_id), "roots": folder_ids}).rowcount
     db.commit()
     log_activity(
         db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
@@ -1682,39 +995,23 @@ def create_substitute(identity_id: int, request: Request, payload: dict[str, Any
         refuse("SUBSTITUTE_TOO_LONG", "Une suppléance dure au plus un an : au-delà, confiez les dossiers.")
     if end < date.today():
         refuse("SUBSTITUTE_DATES_INVALID", "Cette période est déjà passée.")
-    guardian = db.execute(text("SELECT id FROM identities WHERE id = :id"), {"id": int(identity_id)}).first()
+    guardian = identity_list_sql.create_substitute_1(db, {"id": int(identity_id)}).first()
     if guardian is None:
         raise HTTPException(status_code=404, detail="Identity not found")
-    if not db.execute(text("SELECT 1 FROM storage_root_roles WHERE identity_id = :id AND LOWER(role) = 'guardian' LIMIT 1"), {"id": int(identity_id)}).first():
+    if not identity_list_sql.create_substitute_2(db, {"id": int(identity_id)}).first():
         refuse("SUBSTITUTE_NOT_A_GUARDIAN", "Cette personne ne garde aucun dossier.")
-    target = db.execute(text("SELECT id, is_active, type FROM identities WHERE id = :id"), {"id": substitute_id}).mappings().first()
+    target = identity_list_sql.create_substitute_3(db, {"id": substitute_id}).mappings().first()
     if target is None or substitute_id == int(identity_id) or not target["is_active"] or str(target["type"]) == "group":
         refuse("SUBSTITUTE_INVALID", "Choisissez une autre personne, active.")
     # Times in UTC: from the first day 00:00 to the day after the last one 00:00
     starts_at = datetime.combine(start, datetime.min.time())
     ends_at = datetime.combine(end + timedelta(days=1), datetime.min.time())
-    overlap = db.execute(
-        text(
-            """
-            SELECT 1 FROM guardian_substitutes WHERE identity_id = :id AND revoked_at IS NULL
-              AND starts_at < :ends AND ends_at > :starts LIMIT 1
-            """
-        ),
-        {"id": int(identity_id), "starts": starts_at, "ends": ends_at},
-    ).first()
+    overlap = identity_list_sql.create_substitute_4(db, {"id": int(identity_id), "starts": starts_at, "ends": ends_at}).first()
     if overlap:
         refuse("SUBSTITUTE_OVERLAP", "Une suppléance couvre déjà une partie de cette période.", 409)
     actor_id, actor_display = _actor_from_headers(request)
-    result = db.execute(
-        text(
-            """
-            INSERT INTO guardian_substitutes (identity_id, substitute_identity_id, starts_at, ends_at, reason, created_by)
-            VALUES (:id, :sub, :starts, :ends, :reason, :by)
-            """
-        ),
-        {"id": int(identity_id), "sub": substitute_id, "starts": starts_at, "ends": ends_at,
-         "reason": (str(payload.get("reason") or "").strip()[:300] or None), "by": actor_display},
-    )
+    result = identity_list_sql.create_substitute_5(db, {"id": int(identity_id), "sub": substitute_id, "starts": starts_at, "ends": ends_at,
+         "reason": (str(payload.get("reason") or "").strip()[:300] or None), "by": actor_display})
     db.commit()
     log_activity(
         db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
@@ -1728,10 +1025,10 @@ def create_substitute(identity_id: int, request: Request, payload: dict[str, Any
 @router.delete("/substitutes/{substitute_id}", dependencies=[Depends(admin_or_internal)])
 def revoke_substitute(substitute_id: int, request: Request, db: Session = Depends(get_db)):
     actor_id, actor_display = _actor_from_headers(request)
-    row = db.execute(text("SELECT identity_id FROM guardian_substitutes WHERE id = :id AND revoked_at IS NULL"), {"id": int(substitute_id)}).first()
+    row = identity_list_sql.revoke_substitute_1(db, {"id": int(substitute_id)}).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Substitution not found")
-    db.execute(text("UPDATE guardian_substitutes SET revoked_at = UTC_TIMESTAMP(), revoked_by = :by WHERE id = :id"), {"id": int(substitute_id), "by": actor_display})
+    identity_list_sql.revoke_substitute_2(db, {"id": int(substitute_id), "by": actor_display})
     db.commit()
     log_activity(
         db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
@@ -1744,17 +1041,7 @@ def revoke_substitute(substitute_id: int, request: Request, db: Session = Depend
 @router.get("/guardians", dependencies=[Depends(admin_or_internal)])
 def list_guardian_counts(db: Session = Depends(get_db)):
     """Folders guarded per identity, and those where it is the only guardian (list of the Identities page)."""
-    rows = db.execute(
-        text(
-            """
-            SELECT r.identity_id, COUNT(*) AS folders,
-              SUM(NOT EXISTS (SELECT 1 FROM storage_root_roles o WHERE o.root_id = r.root_id AND LOWER(o.role) = 'guardian'
-                              AND o.identity_id <> r.identity_id)) AS sole
-            FROM storage_root_roles r WHERE LOWER(r.role) = 'guardian' AND r.identity_id IS NOT NULL
-            GROUP BY r.identity_id
-            """
-        )
-    ).mappings().all()
+    rows = identity_list_sql.list_guardian_counts_1(db).mappings().all()
     return ui_list([{"identity_id": int(r["identity_id"]), "folders": int(r["folders"]), "sole": int(r["sole"] or 0)} for r in rows])
 
 
@@ -1762,51 +1049,13 @@ def list_guardian_counts(db: Session = Depends(get_db)):
 def list_platform_admins(db: Session = Depends(get_db)):
     """Every path to the platform administrator role (local account, directory account, directory group), who takes
     it, and what deserves a look: a role held both directly and through a group, several local administrators."""
-    direct = [dict(r) for r in db.execute(
-        text(
-            """
-            SELECT i.id, i.username, COALESCE(NULLIF(i.display_name, ''), i.username) AS name, i.email, i.auth_source,
-              i.is_active, s.name AS source_name
-            FROM identity_roles ir JOIN roles r ON r.id = ir.role_id AND r.code = 'platform_admin'
-            JOIN identities i ON i.id = ir.identity_id LEFT JOIN identity_sources s ON s.id = i.source_id
-            WHERE ir.identity_id IS NOT NULL ORDER BY i.auth_source DESC, name
-            """
-        )
-    ).mappings().all()]
+    direct = [dict(r) for r in identity_list_sql.list_platform_admins_1(db).mappings().all()]
     groups = []
-    for g in db.execute(
-        text(
-            """
-            SELECT g.id, g.name, g.dn, s.name AS source_name
-            FROM identity_roles ir JOIN roles r ON r.id = ir.role_id AND r.code = 'platform_admin'
-            JOIN directory_groups g ON g.id = ir.directory_group_id LEFT JOIN identity_sources s ON s.id = g.identity_source_id
-            WHERE ir.directory_group_id IS NOT NULL ORDER BY g.name
-            """
-        )
-    ).mappings().all():
-        members = [dict(m) for m in db.execute(
-            text(
-                """
-                SELECT DISTINCT i.id, i.username, COALESCE(NULLIF(i.display_name, ''), i.username) AS name, i.is_active
-                FROM directory_effective_memberships dem
-                JOIN identity_bindings ib ON ib.directory_user_id = dem.directory_user_id AND ib.deleted_at IS NULL
-                JOIN identities i ON i.id = ib.identity_id
-                WHERE dem.directory_group_id = :gid ORDER BY name
-                """
-            ),
-            {"gid": int(g["id"])},
-        ).mappings().all()]
-        directory_members = db.execute(
-            text("SELECT COUNT(DISTINCT directory_user_id) FROM directory_effective_memberships WHERE directory_group_id = :gid"), {"gid": int(g["id"])}
-        ).scalar() or 0
+    for g in identity_list_sql.list_platform_admins_2(db).mappings().all():
+        members = [dict(m) for m in identity_list_sql.list_platform_admins_3(db, {"gid": int(g["id"])}).mappings().all()]
+        directory_members = identity_list_sql.list_platform_admins_4(db, {"gid": int(g["id"])}).scalar() or 0
         groups.append({**dict(g), "members": members, "directory_members": int(directory_members)})
-    effective = db.execute(
-        # A disabled account cannot sign in: it is no administrator, whatever role it keeps
-        text(
-            "SELECT COUNT(DISTINCT v.identity_id) FROM v_identity_effective_roles v JOIN identities i ON i.id = v.identity_id"
-            " WHERE v.role_code = 'platform_admin' AND i.is_active = 1"
-        )
-    ).scalar() or 0
+    effective = identity_list_sql.list_platform_admins_5(db).scalar() or 0
     through_group = {m["id"] for g in groups for m in g["members"]}
     issues = []
     for person in direct:
@@ -1823,40 +1072,11 @@ def list_platform_admins(db: Session = Depends(get_db)):
 @router.get("/{identity_id}/overview", dependencies=[Depends(admin_or_internal)])
 def get_identity_overview(identity_id: int, db: Session = Depends(get_db)):
     """The page of a person: roles and how they are held, folders guarded (with co-guardians), requests."""
-    row = db.execute(
-        text(
-            """
-            SELECT i.id, i.type, i.username, i.display_name, i.email, i.auth_source, i.external_id, i.is_active, i.status,
-              i.created_at, i.updated_at, i.source_id, s.name AS source_name,
-              (SELECT du.dn FROM directory_users du WHERE du.identity_source_id = i.source_id
-                 AND (du.external_id = i.external_id OR LOWER(du.username) = LOWER(i.username)) ORDER BY du.id DESC LIMIT 1) AS dn
-            FROM identities i LEFT JOIN identity_sources s ON s.id = i.source_id
-            WHERE i.id = :id
-            """
-        ),
-        {"id": int(identity_id)},
-    ).mappings().first()
+    row = identity_list_sql.get_identity_overview_1(db, {"id": int(identity_id)}).mappings().first()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
-    roles = [dict(r) for r in db.execute(
-        text("SELECT DISTINCT role_code AS code, via FROM v_identity_effective_roles WHERE identity_id = :id"), {"id": int(identity_id)}
-    ).mappings().all()]
-    guarded = db.execute(
-        text(
-            """
-            SELECT sr.id, sr.name, sr.root_path,
-              (SELECT GROUP_CONCAT(COALESCE(NULLIF(o.display_name, ''), o.username) ORDER BY o.username SEPARATOR '|')
-                 FROM storage_root_roles x JOIN identities o ON o.id = x.identity_id
-                 WHERE x.root_id = sr.id AND LOWER(x.role) = 'guardian' AND x.identity_id <> :id) AS others,
-              (SELECT GROUP_CONCAT(x.identity_id) FROM storage_root_roles x
-                 WHERE x.root_id = sr.id AND LOWER(x.role) = 'guardian' AND x.identity_id <> :id) AS other_ids
-            FROM storage_root_roles r JOIN storage_roots sr ON sr.id = r.root_id
-            WHERE r.identity_id = :id AND LOWER(r.role) = 'guardian'
-            ORDER BY sr.root_path
-            """
-        ),
-        {"id": int(identity_id)},
-    ).mappings().all()
+    roles = [dict(r) for r in identity_list_sql.get_identity_overview_2(db, {"id": int(identity_id)}).mappings().all()]
+    guarded = identity_list_sql.get_identity_overview_3(db, {"id": int(identity_id)}).mappings().all()
     folders = []
     partners: dict[int, dict[str, Any]] = {}
     for item in guarded:
@@ -1868,14 +1088,10 @@ def get_identity_overview(identity_id: int, db: Session = Depends(get_db)):
         for other_id, name in zip(other_ids, others):
             partners.setdefault(other_id, {"id": other_id, "name": name, "shared": 0})["shared"] += 1
     if partners:
-        mails = dict(db.execute(
-            text("SELECT id, email FROM identities WHERE id IN :ids").bindparams(bindparam("ids", expanding=True)), {"ids": list(partners)}
-        ).all())
+        mails = dict(identity_list_sql.get_identity_overview_4(db, {"ids": list(partners)}).all())
         for partner in partners.values():
             partner["has_email"] = bool(mails.get(partner["id"]))
-    requests = {str(s): int(c) for s, c in db.execute(
-        text("SELECT LOWER(status), COUNT(*) FROM access_requests WHERE requester_identity_id = :id GROUP BY LOWER(status)"), {"id": int(identity_id)}
-    ).all()}
+    requests = {str(s): int(c) for s, c in identity_list_sql.get_identity_overview_5(db, {"id": int(identity_id)}).all()}
     iso = lambda value: value.isoformat() + "Z" if value else None  # noqa: E731
     return ui_data({
         **{k: row[k] for k in ("id", "type", "username", "display_name", "email", "auth_source", "external_id", "status", "source_id", "source_name", "dn")},

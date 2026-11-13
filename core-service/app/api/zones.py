@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from app.data.repositories import zones_sql
 from app.core.db import get_db
 from app.api._helpers import ui_action, ui_data, ui_list
 from app.schemas.zone import ZoneCreate, ZoneUpdate
@@ -33,21 +34,7 @@ def _clean_text(value: Any) -> str | None:
 
 
 def _get_zone_write_row(db: Session, zone_id: int) -> dict[str, Any] | None:
-    row = db.execute(
-        text(
-            """
-            SELECT
-              id,
-              name,
-              code,
-              description
-            FROM zones
-            WHERE id = :id
-            LIMIT 1
-            """
-        ),
-        {"id": int(zone_id)},
-    ).mappings().first()
+    row = zones_sql.get_zone_write_row_1(db, {"id": int(zone_id)}).mappings().first()
     return dict(row) if row else None
 
 
@@ -206,30 +193,14 @@ def put_zone_provisioning_policy(zone_id: int, payload: dict, request: Request, 
             )
 
     # upsert
-    db.execute(
-        text(
-            """
-            INSERT INTO zone_provisioning_policy
-              (zone_id, enabled, policy_mode, ou_strategy, base_ou_dn, static_ou_dn)
-            VALUES
-              (:zone_id, :enabled, :policy_mode, :ou_strategy, :base_ou_dn, :static_ou_dn)
-            ON DUPLICATE KEY UPDATE
-              enabled = VALUES(enabled),
-              policy_mode = VALUES(policy_mode),
-              ou_strategy = VALUES(ou_strategy),
-              base_ou_dn = VALUES(base_ou_dn),
-              static_ou_dn = VALUES(static_ou_dn)
-            """
-        ),
-        {
+    zones_sql.put_zone_provisioning_policy_1(db, {
             "zone_id": zone_id,
             "enabled": int(normalized.get("enabled") or 0),
             "policy_mode": str(normalized.get("policy_mode") or "ON_FIRST_ACCESS_REQUEST"),
             "ou_strategy": str(normalized.get("ou_strategy") or "IDENTITY_DEFAULT"),
             "base_ou_dn": normalized.get("base_ou_dn"),
             "static_ou_dn": normalized.get("static_ou_dn"),
-        },
-    )
+        })
     db.commit()
     # Decides where the groups of the zone are created: part of the history
     log_activity(
@@ -279,16 +250,7 @@ def get_zone(zone_id: int, db: Session = Depends(get_db)):
 # ============================================================
 
 def _refuse_duplicate_zone(db: Session, *, name: str | None, code: str | None, excluding: int = 0) -> None:
-    taken = db.execute(
-        text(
-            """
-            SELECT 1 FROM zones
-            WHERE id <> :excluding AND (LOWER(name) = LOWER(:name) OR (:code <> '' AND LOWER(code) = LOWER(:code)))
-            LIMIT 1
-            """
-        ),
-        {"excluding": excluding, "name": name or "", "code": code or ""},
-    ).first()
+    taken = zones_sql.refuse_duplicate_zone_1(db, {"excluding": excluding, "name": name or "", "code": code or ""}).first()
     if taken:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -304,19 +266,11 @@ def create_zone(payload: ZoneCreate, db: Session = Depends(get_db), request: Req
     data = payload.model_dump()
     _refuse_duplicate_zone(db, name=data.get("name"), code=data.get("code"))
 
-    result = db.execute(
-        text(
-            """
-            INSERT INTO zones (name, code, description)
-            VALUES (:name, :code, :description)
-            """
-        ),
-        {
+    result = zones_sql.create_zone_1(db, {
             "name": data.get("name"),
             "code": data.get("code"),
             "description": data.get("description"),
-        },
-    )
+        })
 
     try:
         db.commit()
@@ -329,7 +283,7 @@ def create_zone(payload: ZoneCreate, db: Session = Depends(get_db), request: Req
 
     zone_id = int(getattr(result, "lastrowid", 0) or 0)
     if zone_id <= 0:
-        zone_id = int(db.execute(text("SELECT LAST_INSERT_ID()")).scalar() or 0)
+        zone_id = int(zones_sql.create_zone_2(db).scalar() or 0)
 
     # Activity (same transaction)
     log_activity(
@@ -418,16 +372,7 @@ def delete_zone(zone_id: int, db: Session = Depends(get_db), request: Request = 
         )
 
     attached_endpoints = int(
-        db.execute(
-            text(
-                """
-                SELECT COUNT(1)
-                FROM storage_endpoints
-                WHERE zone_id = :zone_id
-                """
-            ),
-            {"zone_id": int(zone_id)},
-        ).scalar()
+        zones_sql.delete_zone_1(db, {"zone_id": int(zone_id)}).scalar()
         or 0
     )
     if attached_endpoints > 0:
@@ -436,15 +381,7 @@ def delete_zone(zone_id: int, db: Session = Depends(get_db), request: Request = 
             detail="Zone cannot be deleted while storage endpoints are still attached",
         )
 
-    db.execute(
-        text(
-            """
-            DELETE FROM zones
-            WHERE id = :zone_id
-            """
-        ),
-        {"zone_id": int(zone_id)},
-    )
+    zones_sql.delete_zone_2(db, {"zone_id": int(zone_id)})
 
     # Activity (same transaction, capture display before commit)
     log_activity(

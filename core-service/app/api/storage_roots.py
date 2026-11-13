@@ -8,8 +8,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
+from app.data.repositories import storage_roots_sql
 from app.services.root_payload import merge_root_payload
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -67,29 +67,7 @@ def _load_active_enabled_snapshot_users(
     *,
     identity_source_id: int,
 ) -> set[int]:
-    rows = db.execute(
-        text(
-            """
-            SELECT DISTINCT ib.identity_id
-            FROM directory_snapshots ds
-            JOIN directory_snapshot_users dsu
-              ON dsu.snapshot_id = ds.id
-            JOIN directory_users du
-              ON du.identity_source_id = dsu.identity_source_id
-             AND (
-                  LOWER(TRIM(COALESCE(du.external_id, ''))) = LOWER(TRIM(COALESCE(dsu.external_id, '')))
-               OR LOWER(TRIM(COALESCE(du.dn, ''))) = LOWER(TRIM(COALESCE(dsu.dn, '')))
-             )
-            JOIN identity_bindings ib
-              ON ib.directory_user_id = du.id
-            WHERE ds.identity_source_id = :identity_source_id
-              AND UPPER(COALESCE(ds.status, '')) IN ('ACTIVE', 'SUCCEEDED')
-              AND COALESCE(dsu.is_active, 0) = 1
-              AND COALESCE(ib.identity_id, 0) > 0
-            """
-        ),
-        {"identity_source_id": int(identity_source_id)},
-    ).mappings().all()
+    rows = storage_roots_sql.load_active_enabled_snapshot_users_1(db, {"identity_source_id": int(identity_source_id)}).mappings().all()
     out: set[int] = set()
     for row in rows:
         try:
@@ -111,18 +89,7 @@ def _guardians_in_active_snapshot_enabled(
     if not requested:
         return
 
-    row = db.execute(
-        text(
-            """
-            SELECT se.identity_source_id
-            FROM storage_roots sr
-            JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-            WHERE sr.id = :storage_root_id
-            LIMIT 1
-            """
-        ),
-        {"storage_root_id": int(storage_root_id)},
-    ).mappings().first()
+    row = storage_roots_sql.guardians_in_active_snapshot_enabled_1(db, {"storage_root_id": int(storage_root_id)}).mappings().first()
     identity_source_id = int((row or {}).get("identity_source_id") or 0)
     if identity_source_id <= 0:
         # Identity source is optional on storage roots in V1.
@@ -146,17 +113,7 @@ def _load_existing_guardian_ids(
     *,
     storage_root_id: int,
 ) -> set[int]:
-    rows = db.execute(
-        text(
-            """
-            SELECT DISTINCT srr.identity_id
-            FROM storage_root_roles srr
-            WHERE srr.root_id = :storage_root_id
-              AND LOWER(srr.role) = 'guardian'
-            """
-        ),
-        {"storage_root_id": int(storage_root_id)},
-    ).mappings().all()
+    rows = storage_roots_sql.load_existing_guardian_ids_1(db, {"storage_root_id": int(storage_root_id)}).mappings().all()
 
     out: set[int] = set()
     for row in rows:
@@ -207,7 +164,7 @@ def _root_zone_id(root: StorageRoot) -> int | None:
 def _root_zone_name(db: Session, zone_id: int | None) -> str | None:
     if not zone_id:
         return None
-    return db.execute(text("SELECT name FROM zones WHERE id = :id"), {"id": int(zone_id)}).scalar()
+    return storage_roots_sql.root_zone_name_1(db, {"id": int(zone_id)}).scalar()
 
 
 class StorageRootOwnersUpdatePayload(BaseModel):
@@ -445,9 +402,7 @@ def _assert_root_on_endpoint_host(db: Session, *, storage_endpoint_id: int, root
     host = unc_host(root_path)
     if not host:
         return
-    endpoint_host = db.execute(
-        text("SELECT host FROM storage_endpoints WHERE id = :id"), {"id": int(storage_endpoint_id)}
-    ).scalar()
+    endpoint_host = storage_roots_sql.assert_root_on_endpoint_host_1(db, {"id": int(storage_endpoint_id)}).scalar()
     if endpoint_host and not same_host(host, endpoint_host):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -512,21 +467,10 @@ def _resolve_parent_storage_root_id(
     if not normalized:
         return None
 
-    rows = db.execute(
-        text(
-            """
-            SELECT id, normalized_root_path, root_path
-            FROM storage_roots
-            WHERE storage_endpoint_id = :storage_endpoint_id
-              AND (:exclude_root_id IS NULL OR id <> :exclude_root_id)
-              AND deleted_at IS NULL
-            """
-        ),
-        {
+    rows = storage_roots_sql.resolve_parent_storage_root_id_1(db, {
             "storage_endpoint_id": int(storage_endpoint_id),
             "exclude_root_id": int(exclude_root_id) if exclude_root_id else None,
-        },
-    ).mappings().all()
+        }).mappings().all()
 
     candidates: list[tuple[int, str]] = []
     for row in rows:
@@ -553,24 +497,11 @@ def _assert_unique_storage_root_path(
     normalized = _normalize_storage_root_path(normalized_root_path)
     if not normalized:
         return
-    row = db.execute(
-        text(
-            """
-            SELECT id
-            FROM storage_roots
-            WHERE storage_endpoint_id = :storage_endpoint_id
-              AND COALESCE(NULLIF(normalized_root_path, ''), LOWER(TRIM(TRAILING '/' FROM REPLACE(root_path, '\\\\', '/')))) = :normalized_root_path
-              AND (:exclude_root_id IS NULL OR id <> :exclude_root_id)
-              AND deleted_at IS NULL
-            LIMIT 1
-            """
-        ),
-        {
+    row = storage_roots_sql.assert_unique_storage_root_path_1(db, {
             "storage_endpoint_id": int(storage_endpoint_id),
             "normalized_root_path": normalized,
             "exclude_root_id": int(exclude_root_id) if exclude_root_id else None,
-        },
-    ).mappings().first()
+        }).mappings().first()
     if row:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -643,18 +574,7 @@ def _validate_parent_storage_root(
 
 def _child_storage_roots(db: Session, *, parent_storage_root_id: int) -> list[dict[str, Any]]:
     return list(
-        db.execute(
-            text(
-                """
-                SELECT id, name, root_path, storage_endpoint_id
-                FROM storage_roots
-                WHERE parent_storage_root_id = :parent_storage_root_id
-                  AND deleted_at IS NULL
-                ORDER BY name, id
-                """
-            ),
-            {"parent_storage_root_id": int(parent_storage_root_id)},
-        ).mappings().all()
+        storage_roots_sql.child_storage_roots_1(db, {"parent_storage_root_id": int(parent_storage_root_id)}).mappings().all()
     )
 
 
@@ -700,7 +620,7 @@ def _parse_discovered_at(value: str | None) -> datetime:
 def _discovered_snapshots(db: Session) -> list[tuple[StorageEndpoint, dict[str, Any], set[str]]]:
     """Each file server, the folders found by its last discovery, and the paths already managed."""
     managed: dict[int, set[str]] = {}
-    rows = db.execute(text("SELECT storage_endpoint_id, root_path FROM storage_roots")).all()
+    rows = storage_roots_sql.discovered_snapshots_1(db).all()
     for endpoint_id, root_path in rows:
         managed.setdefault(int(endpoint_id), set()).add(_normalize_root_path(root_path))
     out = []
@@ -802,7 +722,7 @@ def get_storage_roots_exposure(request: Request, db: Session = Depends(get_db)):
     require_storage_roots_index(db, actor)
     allowed = None
     if not is_platform_administrator(actor):
-        rows = db.execute(text("SELECT id AS storage_root_id FROM storage_roots WHERE deleted_at IS NULL")).mappings().all()
+        rows = storage_roots_sql.get_storage_roots_exposure_1(db).mappings().all()
         allowed = {int(r["storage_root_id"]) for r in filter_storage_root_rows(db, actor, [dict(r) for r in rows])}
     return ui_data(build_exposure(db, allowed))
 
@@ -1329,7 +1249,7 @@ def _check_bulk_guardians(db: Session, *, endpoint_ids: set[int], guardian_ids: 
     if missing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown identity ids: {','.join(str(v) for v in missing)}")
     for endpoint_id in sorted(endpoint_ids):
-        source_id = int(db.execute(text("SELECT identity_source_id FROM storage_endpoints WHERE id = :id"), {"id": endpoint_id}).scalar() or 0)
+        source_id = int(storage_roots_sql.check_bulk_guardians_1(db, {"id": endpoint_id}).scalar() or 0)
         if source_id <= 0:
             continue
         eligible = _load_active_enabled_snapshot_users(db, identity_source_id=source_id)
@@ -2050,9 +1970,7 @@ def explain_root_access(root_id: int, username: str, request: Request, db: Sessi
         (p for p in result["people"] if wanted in {str(p.get("username") or "").lower(), str(p.get("name") or "").lower()}),
         None,
     )
-    known = db.execute(
-        text("SELECT display_name FROM directory_users WHERE LOWER(username) = :u LIMIT 1"), {"u": wanted}
-    ).scalar()
+    known = storage_roots_sql.explain_root_access_1(db, {"u": wanted}).scalar()
     if person is None:
         return ui_data({"found": False, "username": username, "known_in_directory": bool(known), "display_name": known,
                         "acl_scanned_at": result["acl_scanned_at"], "snapshot_at": result["snapshot_at"]})
@@ -2119,16 +2037,7 @@ def accept_acl_gap(root_id: int, payload: AclExceptionPayload, request: Request,
     if root is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
     principal = payload.principal.strip().lower()
-    db.execute(
-        text(
-            """
-            INSERT INTO storage_root_acl_exceptions (storage_root_id, principal, note, accepted_by)
-            VALUES (:root, :principal, :note, :by)
-            ON DUPLICATE KEY UPDATE note = VALUES(note), accepted_by = VALUES(accepted_by), accepted_at = CURRENT_TIMESTAMP
-            """
-        ),
-        {"root": int(root_id), "principal": principal, "note": payload.note, "by": actor.display_name},
-    )
+    storage_roots_sql.accept_acl_gap_1(db, {"root": int(root_id), "principal": principal, "note": payload.note, "by": actor.display_name})
     db.commit()
     log_activity(
         db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
@@ -2146,10 +2055,7 @@ def reopen_acl_gap(root_id: int, principal: str, request: Request, db: Session =
     root = db.get(StorageRoot, root_id)
     if root is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
-    db.execute(
-        text("DELETE FROM storage_root_acl_exceptions WHERE storage_root_id = :root AND principal = :principal"),
-        {"root": int(root_id), "principal": principal.strip().lower()},
-    )
+    storage_roots_sql.reopen_acl_gap_1(db, {"root": int(root_id), "principal": principal.strip().lower()})
     db.commit()
     log_activity(
         db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
@@ -2266,16 +2172,7 @@ async def repair_root_acl(root_id: int, request: Request, db: Session = Depends(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
     profiles = [
         dict(row)
-        for row in db.execute(
-            text(
-                """
-                SELECT access_level_code, group_name
-                FROM storage_root_access_profiles
-                WHERE storage_root_id = :root_id AND status = 'SUCCEEDED' AND group_name IS NOT NULL
-                """
-            ),
-            {"root_id": int(root_id)},
-        ).mappings()
+        for row in storage_roots_sql.repair_root_acl_1(db, {"root_id": int(root_id)}).mappings()
     ]
     if not profiles:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
@@ -2420,25 +2317,8 @@ async def create_root_subfolder(root_id: int, payload: SubfolderPayload, request
         created_root_id = int((created or {}).get("data", {}).get("id") or (created or {}).get("id") or 0) or None
         if created_root_id:
             # The sub-folder starts with the guardians and the tags of its parent (copied, then managed on their own)
-            db.execute(
-                text(
-                    """
-                    INSERT INTO storage_root_roles (root_id, identity_id, role, assigned_by, assigned_at)
-                    SELECT :child, identity_id, role, :actor, CURRENT_TIMESTAMP FROM storage_root_roles WHERE root_id = :parent
-                    """
-                ),
-                {"child": created_root_id, "parent": int(root.id), "actor": actor.identity_id},
-            )
-            db.execute(
-                text(
-                    """
-                    INSERT INTO storage_root_tags (storage_root_id, tag_id, created_at, updated_at)
-                    SELECT :child, tag_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-                    FROM storage_root_tags WHERE storage_root_id = :parent AND deleted_at IS NULL
-                    """
-                ),
-                {"child": created_root_id, "parent": int(root.id)},
-            )
+            storage_roots_sql.create_root_subfolder_1(db, {"child": created_root_id, "parent": int(root.id), "actor": actor.identity_id})
+            storage_roots_sql.create_root_subfolder_2(db, {"child": created_root_id, "parent": int(root.id)})
             db.commit()
             _reconcile_storage_root_alerts(db, created_root_id)
     return ui_data({"path": path, "storage_root_id": created_root_id})

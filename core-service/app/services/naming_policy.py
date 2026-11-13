@@ -503,3 +503,59 @@ def resolve_storage_root_group_name(db: Session, *, storage_root_id: int, access
     )
     name = str((group or {}).get("samAccountName") or "").strip()
     return name[:128] or None
+
+
+# ---- storage of the naming policies and what their previews read (the routes hold no SQL) ----
+_POLICY_COLUMNS = ("override_enabled", "group_prefix", "template", "normalize_uppercase", "max_sam_length", "replace_map_json", "rootcode_strategy")
+
+
+def zone_exists(db: Session, zone_id: int) -> bool:
+    return db.execute(text("SELECT id FROM zones WHERE id = :zone_id LIMIT 1"), {"zone_id": int(zone_id)}).first() is not None
+
+
+def save_policy_row(db: Session, scope_type: str, scope_id: int, values: dict) -> None:
+    """The global policy (scope « global », id 0) or the override of a zone; commits."""
+    params = {key: values.get(key) for key in _POLICY_COLUMNS}
+    params.update({"scope_type": scope_type, "scope_id": int(scope_id)})
+    db.execute(
+        text(
+            """
+            INSERT INTO naming_policies (scope_type, scope_id, override_enabled, group_prefix, template, normalize_uppercase,
+                                         max_sam_length, replace_map_json, rootcode_strategy)
+            VALUES (:scope_type, :scope_id, :override_enabled, :group_prefix, :template, :normalize_uppercase, :max_sam_length,
+                    :replace_map_json, :rootcode_strategy)
+            ON DUPLICATE KEY UPDATE override_enabled = VALUES(override_enabled), group_prefix = VALUES(group_prefix),
+              template = VALUES(template), normalize_uppercase = VALUES(normalize_uppercase), max_sam_length = VALUES(max_sam_length),
+              replace_map_json = VALUES(replace_map_json), rootcode_strategy = VALUES(rootcode_strategy), updated_at = CURRENT_TIMESTAMP
+            """
+        ),
+        params,
+    )
+    db.commit()
+
+
+def preview_roots(db: Session, *, endpoint_id: int | None, zone_id: int | None, query: str, limit: int) -> tuple[list[dict], dict[int, dict[str, str]]]:
+    """The governed folders of a file server (or of a zone), filtered by name or path, and their groups in the directory."""
+    if endpoint_id:
+        where, params = "sr.storage_endpoint_id = :id", {"id": int(endpoint_id)}
+    else:
+        where, params = "se.zone_id = :id", {"id": int(zone_id or 0)}
+    if query:
+        where += " AND (sr.name LIKE :q OR sr.root_path LIKE :q)"
+        params = {**params, "q": f"%{query}%"}
+    rows = [dict(row) for row in db.execute(
+        text(f"""SELECT sr.id, sr.name, sr.root_path FROM storage_roots sr JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
+                 WHERE {where} ORDER BY sr.name, sr.id LIMIT :scan"""), {**params, "scan": int(limit)}).mappings().all()]
+    existing: dict[int, dict[str, str]] = {}
+    if rows:
+        for row in db.execute(
+            text(f"""SELECT p.storage_root_id, UPPER(p.access_level_code) AS level, p.group_name FROM storage_root_access_profiles p
+                     JOIN storage_roots sr ON sr.id = p.storage_root_id JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
+                     WHERE {where} AND UPPER(COALESCE(p.status, '')) IN ('SUCCEEDED', 'ADOPTING')"""), params).mappings():
+            existing.setdefault(int(row["storage_root_id"]), {})[str(row["level"])] = str(row["group_name"])
+    return rows, existing
+
+
+def endpoint_template(db: Session, endpoint_id: int) -> str | None:
+    row = db.execute(text("SELECT naming_template FROM storage_endpoints WHERE id = :endpoint_id LIMIT 1"), {"endpoint_id": int(endpoint_id)}).mappings().first()
+    return str((row or {}).get("naming_template") or "").strip() or None

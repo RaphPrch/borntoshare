@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.data.repositories import tags_sql
 from app.core.db import get_db
 from app.data.repositories.tags_views_repo import TagsViewsRepo
 from app.api._helpers import ui_action, ui_data, ui_list
@@ -45,17 +46,7 @@ def tags_overview(request: Request, db: Session = Depends(get_db)):
     from app.services.exposure import build_exposure
 
     tags = [dict(r) for r in TagsViewsRepo(db).list()]
-    carriers = db.execute(
-        text(
-            """
-            SELECT srt.tag_id, sr.id, sr.name, sr.root_path, se.name AS server
-            FROM storage_root_tags srt
-            JOIN storage_roots sr ON sr.id = srt.storage_root_id AND sr.deleted_at IS NULL
-            JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-            ORDER BY sr.name
-            """
-        )
-    ).mappings().all()
+    carriers = tags_sql.tags_overview_1(db).mappings().all()
     folders: dict[int, list[dict]] = {}
     tagged: set[int] = set()
     for row in carriers:
@@ -222,15 +213,7 @@ def merge_tag(tag_id: int, payload: TagMerge, request: Request, db: Session = De
 
     source_display = str(source.name or source.id)
     # One transaction: a folder carrying both tags keeps a single link to the target
-    moved = db.execute(
-        text(
-            """
-            INSERT IGNORE INTO storage_root_tags (storage_root_id, tag_id)
-            SELECT storage_root_id, :target FROM storage_root_tags WHERE tag_id = :source
-            """
-        ),
-        {"target": int(target.id), "source": int(tag_id)},
-    ).rowcount
+    moved = tags_sql.merge_tag_1(db, {"target": int(target.id), "source": int(tag_id)}).rowcount
     db.execute(storage_root_tag.delete().where(storage_root_tag.c.tag_id == int(tag_id)))
     db.expire(source)
     db.delete(source)
@@ -272,9 +255,7 @@ def _attachment_names(db: Session, payload: TagAttachmentRequest) -> tuple[str, 
     tag_label = str(getattr(tag, "label", None) or getattr(tag, "name", None) or f"#{payload.tag_id}")
     resource = f"{payload.resource_type}:{payload.resource_id}"
     if payload.resource_type == "storage_root":
-        row = db.execute(
-            text("SELECT name, root_path FROM storage_roots WHERE id = :id"), {"id": int(payload.resource_id)}
-        ).mappings().first()
+        row = tags_sql.attachment_names_1(db, {"id": int(payload.resource_id)}).mappings().first()
         if row:
             resource = str(row.get("name") or row.get("root_path") or resource)
     return tag_label, resource

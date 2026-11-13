@@ -12,7 +12,7 @@ API = Path(__file__).resolve().parents[1] / "api"
 SQL = re.compile(r"\btext\(|\bdb\.(?:query|get|add|delete|execute)\(")
 
 # Left to move (2026-11-13): file -> SQL calls it still holds
-REMAINING = {'access_requests.py': 62, 'identity_list.py': 144, 'identity_sources.py': 27, 'infrastructure.py': 42, 'internal_identities.py': 12, 'naming_policies.py': 12, 'observability.py': 15, 'provisioning_internal.py': 12, 'storage_endpoints.py': 32, 'storage_roots.py': 64, 'tags.py': 18, 'zones.py': 16}
+REMAINING = {'identity_list.py': 8, 'identity_sources.py': 19, 'infrastructure.py': 4, 'observability.py': 1, 'provisioning_internal.py': 10, 'storage_endpoints.py': 18, 'storage_roots.py': 30, 'tags.py': 12, 'zones.py': 2}
 
 
 def _count(path: Path) -> int:

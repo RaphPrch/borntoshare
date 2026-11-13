@@ -5,7 +5,6 @@ from copy import deepcopy
 from json import JSONDecodeError
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.data.repositories import settings_repo

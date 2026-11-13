@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.data.repositories import provisioning_internal_sql
 from app.core.db import get_db
 from app.data.models.storage_endpoint import StorageEndpoint
 from app.data.models.storage_root import StorageRoot
@@ -160,25 +161,13 @@ def _persist_identity_source_probe_result(
         else None
     )
 
-    db.execute(
-        text(
-            """
-            UPDATE identity_sources
-            SET last_probe_at = :last_probe_at,
-                last_probe_message = :last_probe_message,
-                status = COALESCE(:status, status),
-                updated_at = :updated_at
-            WHERE id = :identity_source_id
-            """
-        ),
-        {
+    provisioning_internal_sql.persist_identity_source_probe_result_1(db, {
             "identity_source_id": source_id,
             "last_probe_at": checked_at,
             "last_probe_message": message,
             "status": source_status,
             "updated_at": checked_at,
-        },
-    )
+        })
     record_health_event(
         db,
         entity_type="identity_source",

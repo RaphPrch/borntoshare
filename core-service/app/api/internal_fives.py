@@ -5,7 +5,6 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 from app.data.repositories import lookups_repo
