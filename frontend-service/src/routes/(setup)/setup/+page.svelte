@@ -672,7 +672,7 @@
           {#if !modules.governance && !modules.fives}
             <p class="sp-note warn">{t('Choose at least one module.')}</p>
           {:else if !modules.governance}
-            <p class="sp-note">{t('5S only: BornToShare reads the directory and the servers and creates nothing in them. Access requests, guardians and exposure stay hidden.')}</p>
+            <p class="sp-note">{t('5S only: BornToShare reads the directory and the servers and creates nothing in them. Access requests and exposure stay hidden; the guardians of a folder see its 5S.')}</p>
           {/if}
         {:else if current === 'zone'}
           <div class="sp-grid">

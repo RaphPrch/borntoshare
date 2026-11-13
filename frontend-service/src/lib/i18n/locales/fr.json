@@ -5788,7 +5788,7 @@
   "Tagged sub-folders": "Sous-dossiers tagués",
   "from the measure of the parent folder": "d'après la mesure du dossier parent",
   "5S and data hygiene": "5S et hygiène des données",
-  "5S only: BornToShare reads the directory and the servers and creates nothing in them. Access requests, guardians and exposure stay hidden.": "5S seul : BornToShare lit l'annuaire et les serveurs, sans rien y créer. Les demandes d'accès, les gardiens et l'exposition restent masqués.",
+  "5S only: BornToShare reads the directory and the servers and creates nothing in them. Access requests and exposure stay hidden; the guardians of a folder see its 5S.": "5S seul : BornToShare lit l'annuaire et les serveurs, sans rien y créer. Les demandes d'accès et l'exposition restent masquées ; les gardiens d'un dossier y voient son 5S.",
   "5S score of the shares, duplicates, age of the data, clutter, growth, a scanner on the servers without agent, and the 5S report.": "Score 5S des partages, doublons, âge des données, fichiers parasites, croissance, scanner sur les serveurs sans agent, et rapport 5S.",
   "Access governance": "Gouvernance des accès",
   "Access requests and their decisions by the guardians, groups created in the directory, exposure of the folders.": "Demandes d'accès et décisions des gardiens, groupes créés dans l'annuaire, exposition des dossiers.",

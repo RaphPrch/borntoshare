@@ -28,11 +28,12 @@ def local_account(db: Session, username: str) -> dict[str, Any] | None:
 
 
 def set_password_hash(db: Session, identity_id: int, password_hash: str, rotated_at: datetime, *, chosen_by_owner: bool = False) -> None:
-    """chosen_by_owner: the person changed its own password (its current one given): a temporary password is over."""
+    """chosen_by_owner: the person changed its own password (its current one given): a temporary password is over.
+    Otherwise an administrator set it: it is temporary, changed by the person at its next sign-in."""
     db.execute(
         text("""UPDATE local_credentials SET password_hash = :password_hash, password_version = 'b2s$v=1$bcrypt',
                 last_rotated_at = :last_rotated_at,
-                must_change_password = CASE WHEN :owner = 1 THEN 0 ELSE must_change_password END
+                must_change_password = CASE WHEN :owner = 1 THEN 0 ELSE 1 END
                 WHERE identity_id = :identity_id"""),
         {"identity_id": int(identity_id), "password_hash": password_hash, "last_rotated_at": rotated_at, "owner": 1 if chosen_by_owner else 0},
     )

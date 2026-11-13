@@ -175,7 +175,7 @@ a.wz__btn { text-decoration: none; }
 .wz__mod.is-on { border-color: var(--accent-strong); box-shadow: 0 0 0 3px rgba(0, 0, 0, .04); background: #fff; }
 .wz__mod input { position: absolute; top: 16px; right: 16px; width: 18px; height: 18px; accent-color: var(--accent-strong); }
 .wz__mod > span { display: grid; gap: 6px; padding-right: 26px; }
-.wz__mod small { font: 400 13px/1.45 inherit; color: var(--muted); margin-top: 0; }
+.wz__mod small { font-family: inherit; font-size: 13px; font-weight: 400; line-height: 1.45; color: var(--muted); margin-top: 0; }
 .wz__mod em { font-style: normal; justify-self: start; }
 #m_fives { display: grid; gap: 14px; }
 #m_fives[hidden], #m_fields[hidden] { display: none; }

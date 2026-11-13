@@ -58,7 +58,10 @@ function show(step) {
     li.classList.toggle("is-done", n < step || (state.installed && n === 5));
     li.classList.toggle("is-open", n <= state.done && !state.installed);
   });
-  if (step === 2) checkExisting();
+  // A step already filled (the defaults of .env, a step done before): its button follows the fields at once
+  if (step === 2) { checkExisting(); $("n2").disabled = !valid2(); }
+  if (step === 3) $("n3").disabled = !valid3();
+  if (step === 4) refresh4();
   if (step === 5) summary();
   const first = document.querySelector(`.wz__step[data-step="${step}"] input:not([type=checkbox]), .wz__step[data-step="${step}"] textarea`);
   first?.focus({ preventScroll: true });

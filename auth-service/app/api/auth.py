@@ -35,6 +35,7 @@ from app.services.identity_enrich import enrich_user_flags
 from app.services.internal_clients import (
     IdentitySourceNotFound,
     core_get,
+    core_get_active_identity_source,
     core_get_identity_roles,
     core_post,
     core_resolve_login_identity,
@@ -281,6 +282,15 @@ async def providers() -> dict:
     registry = build_registry()
     ordered = ordered_providers(registry)
     names = [p.name for p in ordered] if ordered else sorted(registry.keys())
+    # No directory set up for the sign-in yet (a new installation): the local account only, no « Directory » tab.
+    # The core not answering says nothing: the directory stays offered.
+    if "ad" in names:
+        try:
+            await core_get_active_identity_source("ad")
+        except IdentitySourceNotFound:
+            names = [name for name in names if name != "ad"]
+        except Exception:
+            pass
     default_provider = DEFAULT_AUTH_PROVIDER
     if default_provider not in names:
         default_provider = names[0] if names else "local"

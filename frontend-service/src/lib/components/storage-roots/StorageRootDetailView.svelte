@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   
 
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
@@ -189,13 +190,14 @@
   // « Compliant » only speaks of a folder with nothing left to do: its guardians count too
   let pill = $derived(unreachable
     ? { label: rootAvailabilityText, tone: 'danger' as const }
-    : aclState === 'ok' && guardianMissing
+    : aclState === 'ok' && guardianMissing && $governanceEnabled
       ? { label: t('Guardians missing'), tone: 'warning' as const }
       : { label: ACL_PILL[aclState].label(), tone: ACL_PILL[aclState].tone });
   let inheritanceBroken = $derived(permissions?.inheritance?.known ? permissions.inheritance.broken : null);
   let tabs = $derived([
     { key: 'overview', label: t('Overview'), icon: 'bi-grid' },
-    { key: 'effective-access', label: t('Permissions'), icon: 'bi-shield-lock', count: permissions?.summary.people },
+    // Who reaches the folder: the exposure, part of the governance
+    ...($governanceEnabled ? [{ key: 'effective-access', label: t('Permissions'), icon: 'bi-shield-lock', count: permissions?.summary.people }] : []),
     { key: 'activity', label: t('Activity'), icon: 'bi-clock-history' }
   ]);
   let guardianNames = $derived(guardians.map((owner) => ownerDisplayName(owner)).filter(Boolean));
@@ -254,7 +256,7 @@
     onChange={(key) => onSelectTab(normalizeTabKey(key))}
   />
 
-  {#if activeTab === 'overview'}
+  {#if activeTab === 'overview' || (activeTab === 'effective-access' && !$governanceEnabled)}
     <!-- One instance per folder: its scans, measures and quota never show on another folder (nor its late answers) -->
     {#key selectedStorageRootId}
     <StorageRootOverview

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import { t } from '$lib/i18n';
   import type { ZoneSummary } from '$lib/components/zones/zone-summary';
@@ -38,6 +39,7 @@
     <small>{t('{count} managed folder(s)', { count: roots })}</small>
     {#if roots}<span class="b2s-stat-bar" aria-hidden="true"><i style={`flex:${roots - review}`}></i><i class="warn" style={`flex:${review}`}></i></span>{/if}
   </button>
+  {#if $governanceEnabled}
   <button type="button" class="b2s-stat-tile" class:is-on={activeFilter === 'guard'} aria-pressed={activeFilter === 'guard'} onclick={() => toggle('guard')}>
     <span>{t('Without guardian')}</span>
     <b class:is-warn={summary.noGuardian.length > 0}><CountUp value={Number(summary.noGuardian.length)} /></b>
@@ -48,6 +50,7 @@
     <b class:is-warn={pendingCount > 0}><CountUp value={Number(pendingCount)} /></b>
     <small>{pendingCount ? t('waiting for a guardian') : t('nothing waits')}</small>
   </button>
+  {/if}
   <button type="button" class="b2s-stat-tile" onclick={onOpenShares}>
     <span>{t('Shares not managed')}</span>
     <b>{sharesNotManaged ?? '—'}</b>

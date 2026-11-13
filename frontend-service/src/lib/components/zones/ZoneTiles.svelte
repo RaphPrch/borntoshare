@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import { t } from '$lib/i18n';
   import type { ZoneSummary } from './zone-summary';
@@ -44,6 +45,7 @@
     <small>{review ? t('{count} to review', { count: review }) : roots ? t('all in order') : t('No managed folder')}</small>
     {#if roots}<span class="b2s-stat-bar" aria-hidden="true"><i style={`flex:${roots - review}`}></i><i class="warn" style={`flex:${review}`}></i></span>{/if}
   </button>
+  {#if $governanceEnabled}
   <button type="button" class="b2s-stat-tile" onclick={onOpenRequests}>
     <span>{t('Pending requests')}</span>
     <b class:is-warn={pendingRequests > 0}><CountUp value={Number(pendingRequests)} /></b>
@@ -54,5 +56,6 @@
     <b class:is-warn={summary.noGuardian.length > 0}><CountUp value={Number(summary.noGuardian.length)} /></b>
     <small>{t('the administrators decide on their requests')}</small>
   </button>
+  {/if}
 </section>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   
 
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -108,6 +109,8 @@
   const levelLabel = (code: string | null) => (String(code ?? '').toLowerCase() === 'write' ? t('modify') : t('read'));
   let steps = $derived(alertItems
     .filter((item) => typeOf(item) !== 'pending_access_validation')
+    // Without the governance (5S only): no guardian to add for the requests, no permissions tab to open
+    .filter((item) => $governanceEnabled || (typeOf(item) !== 'missing_guardian' && !PERMISSION_TYPES.includes(typeOf(item))))
     .map((item): Step => {
       const type = typeOf(item);
       const base = { key: item.key, tone: item.tone === 'error' ? 'bad' as const : 'warn' as const, title: item.title, detail: item.subtitle ?? '' };

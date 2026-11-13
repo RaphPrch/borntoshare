@@ -900,3 +900,22 @@ def test_a_temporary_password_is_in_the_snapshot_and_over_once_changed(monkeypat
         assert res.status_code == 200
         assert "b2s_principal=" in "; ".join(res.headers.get_list("set-cookie"))
     assert len(updated) == 1 and updated[0].must_change_password is False
+
+
+def test_a_new_installation_offers_the_local_account_only(monkeypatch) -> None:
+    """No directory for the sign-in yet: no « Directory » tab; once there, it is offered again."""
+    from app.api import auth as auth_api
+    from app.services.internal_clients import IdentitySourceNotFound
+
+    async def _none(_type="ad"):
+        raise IdentitySourceNotFound()
+
+    async def _one(_type="ad"):
+        return {"id": 1}
+
+    with _new_client() as client:
+        monkeypatch.setattr(auth_api, "core_get_active_identity_source", _none)
+        assert "ad" not in client.get("/auth/providers").json()["enabled"]
+        monkeypatch.setattr(auth_api, "core_get_active_identity_source", _one)
+        enabled = client.get("/auth/providers").json()["enabled"]
+    assert "local" in enabled

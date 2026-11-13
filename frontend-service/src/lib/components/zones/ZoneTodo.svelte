@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   import { t } from '$lib/i18n';
   import EntityTodoCard, { type EntityTodoStep } from '$lib/components/entity/EntityTodoCard.svelte';
   import type { ZoneSummary } from './zone-summary';
@@ -41,7 +42,7 @@
       label: t('Edit the connection'),
       run: () => onOpenServer(server.id)
     })),
-    ...(summary.noGuardian.length
+    ...($governanceEnabled && summary.noGuardian.length
       ? [{
           key: 'guardians',
           tone: 'warn' as const,
@@ -64,7 +65,7 @@
           run: onReread
         }]
       : []),
-    ...(pendingRequests
+    ...($governanceEnabled && pendingRequests
       ? [{
           key: 'requests',
           tone: 'info' as const,
@@ -75,7 +76,7 @@
           run: onOpenRequests
         }]
       : []),
-    ...(ouMissing
+    ...($governanceEnabled && ouMissing
       ? [{
           key: 'ou',
           tone: 'warn' as const,

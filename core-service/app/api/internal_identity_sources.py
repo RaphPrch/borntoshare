@@ -115,7 +115,7 @@ def resolve_active_identity_source_by_domain(
 
 
 @router.get(
-    "/{source_id}",
+    "/{source_id:int}",  # a number only: « /active » and « /resolve » are not ids
     summary="Get active identity source by id (internal, with secrets metadata)",
 )
 def get_identity_source_by_id(
