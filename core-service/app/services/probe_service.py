@@ -815,7 +815,16 @@ async def list_storage_root_folder(storage_root_id: int, inner: str | None) -> d
     sub = str(inner or "").replace("/", "\\").strip("\\")
     if any(part in {".", ".."} for part in sub.split("\\")):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error_code": "FOLDER_OUTSIDE_ROOT", "message": "The folder is not inside this storage root"})
-    path = "\\".join(part for part in ((rel_path or "").strip("\\"), sub) if part)
+    # The 5S explorer gives paths from the share (as its measures keep them): the governed folder or below it
+    base = (rel_path or "").strip("\\")
+    if not sub:
+        path = base
+    elif not base or sub.lower() == base.lower() or sub.lower().startswith(base.lower() + "\\"):
+        path = sub
+    else:
+        path = f"{base}\\{sub}"
+    if base and not (path.lower() == base.lower() or path.lower().startswith(base.lower() + "\\")):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error_code": "FOLDER_OUTSIDE_ROOT", "message": "The folder is not inside this storage root"})
     if not (host and share and username and secret_ref):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                             detail={"error_code": "FOLDER_CONTEXT_INCOMPLETE", "message": "The folder, its share or the file server account is missing"})

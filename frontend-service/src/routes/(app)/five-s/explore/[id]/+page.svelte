@@ -9,7 +9,7 @@
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { goto } from '$app/navigation';
-  import { formatBytes, formatDate, timeAgo } from '$lib/utils/format';
+  import { formatBytes, formatDate, formatDateTime, timeAgo } from '$lib/utils/format';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -24,7 +24,7 @@
     direct_bytes: number; direct_files: number; cold1_bytes: number; cold3_bytes: number; last_modified: string | null;
     last_access?: string | null; created_at?: string | null; acl?: Ace[] | null; inheritance_broken?: boolean | null };
   type FileRow = { path: string; name: string; size: number; modified: string | null };
-  type Level = { node: Folder | null; children: Folder[]; files: FileRow[] };
+  type Level = { node: Folder | null; children: Folder[]; files: FileRow[]; files_source?: 'inventory' | 'fingerprints'; files_total?: number; files_at?: string | null };
   type Copy = { path: string; modified: string | null };
   type Group = { fingerprint: string; size: number; wasted: number; copies: Copy[]; decision: { keep_path: string | null } | null };
   type ScorePoint = { measured_at: string; score: number; seiri: number; seiton: number; seiso: number; seiketsu: number; shitsuke: number };
@@ -474,6 +474,10 @@
                 {/each}
                 {#if filter === 'all' && liveState === 'loading'}
                   <tr class="fx__live"><td colspan="8"><span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{t('Reading the files of this folder on the server…')}</td></tr>
+                {:else if filter === 'all' && liveState === 'failed' && level?.files_source === 'inventory'}
+                  <tr class="fx__live is-info"><td colspan="8"><i class="bi bi-clock-history" aria-hidden="true"></i>{t('State of the measure of {date}: the server cannot be read now ({error}).', { date: level.files_at ? formatDateTime(level.files_at) : '—', error: liveError || '—' })}
+                    {#if (level.files_total ?? 0) > files.length} {t('The {shown} biggest files of {total} are listed.', { shown: files.length.toLocaleString('fr-FR'), total: (level.files_total ?? 0).toLocaleString('fr-FR') })}{/if}
+                    <button type="button" class="b2s-link-btn" on:click={() => level?.node && loadLive(level.node.path)}>{t('Try again')}</button></td></tr>
                 {:else if filter === 'all' && liveState === 'failed'}
                   <tr class="fx__live is-warn"><td colspan="8"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{t('Partial list: only the files followed for the duplicates are shown (the server could not be read: {error}).', { error: liveError || '—' })}
                     <button type="button" class="b2s-link-btn" on:click={() => level?.node && loadLive(level.node.path)}>{t('Try again')}</button></td></tr>
@@ -753,4 +757,5 @@
   .fx__live .b2s-spinner, .fx__live i { margin-right: 8px; }
   .fx__live.is-warn td { color: var(--b2s-color-warning-strong); background: var(--b2s-color-warning-soft); }
   .fx__live .b2s-link-btn { margin-left: 8px; }
+  .fx__live.is-info td { color: var(--b2s-color-info-strong); background: var(--b2s-color-info-soft); }
 </style>

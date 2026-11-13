@@ -5743,5 +5743,6 @@
   "Reading the files of this folder on the server…": "Lecture des fichiers de ce dossier sur le serveur…",
   "Partial list: only the files followed for the duplicates are shown (the server could not be read: {error}).": "Liste partielle : seuls les fichiers suivis pour les doublons sont affichés (le serveur n'a pas pu être lu : {error}).",
   "Try again": "Réessayer",
-  "The {shown} biggest files of {total} are listed.": "Les {shown} plus gros fichiers sur {total} sont listés."
+  "The {shown} biggest files of {total} are listed.": "Les {shown} plus gros fichiers sur {total} sont listés.",
+  "State of the measure of {date}: the server cannot be read now ({error}).": "État de la mesure du {date} : le serveur ne peut pas être lu en ce moment ({error})."
 }

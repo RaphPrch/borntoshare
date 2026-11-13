@@ -97,6 +97,8 @@ $bySize = New-Object 'System.Collections.Generic.Dictionary[long,object]'
 $big = New-Object 'System.Collections.Generic.List[object]'
 # defer_hash: the last write of each file to fingerprint (ticks), so that an unchanged file keeps its fingerprint
 $ticks = New-Object 'System.Collections.Generic.Dictionary[string,long]'
+# with_files (5S scanner only): every file met, « size|yyyyMMddHHmmss|path from the share », at most files_max per walk
+$allFiles = New-Object 'System.Collections.Generic.List[string]'; $filesMax = [int]$p.files_max; $filesCut = $false
 $y1 = $now.AddDays(-365); $y3 = $now.AddDays(-1095)
 $localCut = $local.TrimEnd('\').Length + 1
 $onDir = { param($d) $t.folders++; if ($p.with_dirs) { & $aclOf $d.FullName }; if ($d.Parent.FullName.TrimEnd('\') -eq $local.TrimEnd('\')) { if (-not $top.ContainsKey($d.Name)) { $top[$d.Name] = @{ bytes = [long]0; files = 0 } } } }
@@ -104,6 +106,7 @@ $onFile = {
   param($f)
   $size = [long]$f.Length; $rel = $f.FullName.Substring($cut); $when = $f.LastWriteTimeUtc
   $t.bytes += $size; $t.files++
+  if ($p.with_files) { if ($allFiles.Count -lt $filesMax) { $allFiles.Add("$size|$($when.ToString('yyyyMMddHHmmss'))|$rel") } else { $filesCut = $true } }
   # Every folder (5S scanner only, with_dirs): what is right in it; the scanner adds it up to the root
   if ($p.with_dirs) {
     $dk = [IO.Path]::GetDirectoryName($rel); if ($null -eq $dk) { $dk = '' }
@@ -197,6 +200,7 @@ if ($p.with_dirs) {
     $cre = $null; if ($_.Value.c -gt [DateTime]::MinValue) { $cre = $_.Value.c.ToString('yyyy-MM-ddTHH:mm:ssZ') }
     [pscustomobject]@{ p = [string]$_.Key; b = [long]$_.Value.b; f = [int]$_.Value.f; c1 = [long]$_.Value.c1; c3 = [long]$_.Value.c3; l = $l; a = $acc; c = $cre } })
 }
+if ($p.with_files) { $r.file_list = $allFiles.ToArray(); $r.file_list_truncated = [bool]$filesCut }
 $r.walk_ms = [long]$walkMs; $r.elapsed_ms = [long]$watch.ElapsedMilliseconds
 Send-Result $r
 """

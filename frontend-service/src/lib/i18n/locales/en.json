@@ -1899,5 +1899,6 @@
   "Reading the files of this folder on the server…": "Reading the files of this folder on the server…",
   "Partial list: only the files followed for the duplicates are shown (the server could not be read: {error}).": "Partial list: only the files followed for the duplicates are shown (the server could not be read: {error}).",
   "Try again": "Try again",
-  "The {shown} biggest files of {total} are listed.": "The {shown} biggest files of {total} are listed."
+  "The {shown} biggest files of {total} are listed.": "The {shown} biggest files of {total} are listed.",
+  "State of the measure of {date}: the server cannot be read now ({error}).": "State of the measure of {date}: the server cannot be read now ({error})."
 }
