@@ -5739,5 +5739,9 @@
   "Delete the view {name}": "Supprimer la vue {name}",
   "Comfortable display": "Affichage confortable",
   "Compact display": "Affichage compact",
-  "Rows, tiles and margins": "Lignes, tuiles et marges"
+  "Rows, tiles and margins": "Lignes, tuiles et marges",
+  "Reading the files of this folder on the server…": "Lecture des fichiers de ce dossier sur le serveur…",
+  "Partial list: only the files followed for the duplicates are shown (the server could not be read: {error}).": "Liste partielle : seuls les fichiers suivis pour les doublons sont affichés (le serveur n'a pas pu être lu : {error}).",
+  "Try again": "Réessayer",
+  "The {shown} biggest files of {total} are listed.": "Les {shown} plus gros fichiers sur {total} sont listés."
 }

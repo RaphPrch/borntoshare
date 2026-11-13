@@ -107,6 +107,16 @@ async def measure_folders(payload: MeasurePayload, request: Request, db: Session
     return ui_data({"queued": queued, "failed": failed})
 
 
+@router.get("/{root_id}/files")
+async def list_folder_files(root_id: int, request: Request, path: str | None = None, db: Session = Depends(get_db)):
+    """What the folder (or a sub-folder, path relative to it) holds now on its file server: the files right in it,
+    biggest first (5S explorer). Read by a worker at the time of the request."""
+    from app.services.probe_service import list_storage_root_folder
+
+    _folder(db, request, root_id)
+    return ui_data(await list_storage_root_folder(int(root_id), path))
+
+
 @router.get("/{root_id}/scan")
 def get_scan(root_id: int, request: Request, db: Session = Depends(get_db)):
     """The last measure of the folder (running, done, failed; on the server or through SMB)."""

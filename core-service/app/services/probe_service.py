@@ -797,3 +797,51 @@ async def submit_acl_propagation(storage_root_id: int, access_level_code: str, g
             },
         }
     )
+
+
+async def list_storage_root_folder(storage_root_id: int, inner: str | None) -> dict[str, Any]:
+    """What a governed folder (or one of its sub-folders, `inner` relative to it) holds right now, read by a worker
+    with the account of its file server: {folders: [names], files: [{n, s, t}], files_total}. 502 when the worker
+    could not list it. Only inside the governed folder, never above it."""
+    import asyncio
+
+    from app.api import provisioning_internal
+
+    ctx = await call_route(provisioning_internal.get_storage_root_provisioning_context, storage_root_id=int(storage_root_id))
+    if not isinstance(ctx, dict):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error_code": "STORAGE_ROOT_NOT_FOUND", "message": "Storage root not found"})
+    host, share, rel_path = _parse_unc_root_path(ctx.get("root_path"))
+    username, secret_ref = _probe_credentials({}, ctx)
+    sub = str(inner or "").replace("/", "\\").strip("\\")
+    if any(part in {".", ".."} for part in sub.split("\\")):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error_code": "FOLDER_OUTSIDE_ROOT", "message": "The folder is not inside this storage root"})
+    path = "\\".join(part for part in ((rel_path or "").strip("\\"), sub) if part)
+    if not (host and share and username and secret_ref):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={"error_code": "FOLDER_CONTEXT_INCOMPLETE", "message": "The folder, its share or the file server account is missing"})
+    auth = {"mode": "ntlm", "username": username, "secret_ref": secret_ref}
+    if str(ctx.get("domain_name") or "").strip():
+        auth["domain"] = str(ctx.get("domain_name")).strip()
+    queued = await submit_probe_run({
+        "kind": "folder", "protocol": "list", "scope": "read",
+        "target": {"host": host, "share": share, "path": path},
+        "auth": auth,
+        "options": {"timeout_sec": 30},
+        "context": {"storage_root_id": int(storage_root_id), "ui_origin": "fives_explorer"},
+    })
+    job_id = int((queued or {}).get("job_id") or 0)
+    job: dict[str, Any] = {}
+    for _ in range(50):
+        job = dict(await fetch_probe_job(job_id) or {})
+        state = str(job.get("status") or "").lower()
+        if state == "succeeded":
+            result = job.get("result") if isinstance(job.get("result"), dict) else {}
+            details = result.get("details") if isinstance(result.get("details"), dict) else result
+            return {"folders": list(details.get("folders") or []), "files": list(details.get("files") or []),
+                    "files_total": int(details.get("files_total") or len(details.get("files") or []))}
+        if state in {"failed", "timed_out", "cancelled"}:
+            break
+        await asyncio.sleep(0.5)
+    error = job.get("error") if isinstance(job.get("error"), dict) else {}
+    raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail={"error_code": "FOLDER_LIST_FAILED", "message": str(error.get("message") or job.get("message") or "The worker did not list the folder")[:300]})

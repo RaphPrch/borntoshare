@@ -1895,5 +1895,9 @@
   "Comfortable display": "Comfortable display",
   "Compact display": "Compact display",
   "Rows, tiles and margins": "Rows, tiles and margins",
-  "Task": "Task"
+  "Task": "Task",
+  "Reading the files of this folder on the server…": "Reading the files of this folder on the server…",
+  "Partial list: only the files followed for the duplicates are shown (the server could not be read: {error}).": "Partial list: only the files followed for the duplicates are shown (the server could not be read: {error}).",
+  "Try again": "Try again",
+  "The {shown} biggest files of {total} are listed.": "The {shown} biggest files of {total} are listed."
 }

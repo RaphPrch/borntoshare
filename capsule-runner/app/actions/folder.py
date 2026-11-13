@@ -300,6 +300,27 @@ def parse_ls_folders(output: str) -> list[str]:
     return sorted(set(names), key=str.lower)
 
 
+_LS_FILE = re.compile(r"^\s*(?P<name>.+?)(?:\s+(?P<attr>[A-Z]+))?\s+(?P<size>\d+)\s+(?P<when>\w{3} \w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2} \d{4})\s*$")
+FILES_KEPT = 5000
+
+
+def parse_ls_files(output: str) -> list[dict[str, Any]]:
+    """Files in a smbclient « ls » listing: {n: name, s: size, t: modified ISO}; folders, . and .. left out."""
+    from datetime import datetime
+
+    files: list[dict[str, Any]] = []
+    for line in output.splitlines():
+        match = _LS_FILE.match(line)
+        if not match or "D" in (match.group("attr") or "") or match.group("name") in {".", ".."}:
+            continue
+        try:
+            when = datetime.strptime(" ".join(match.group("when").split()), "%a %b %d %H:%M:%S %Y").isoformat()
+        except ValueError:
+            when = None
+        files.append({"n": match.group("name"), "s": int(match.group("size")), "t": when})
+    return files
+
+
 def list_folders(params: Dict[str, Any]):
     """Sub-folders of a folder of a share (or of the share itself): read only, to choose what to govern."""
     host = str(params.get("host") or "").strip()
@@ -321,5 +342,9 @@ def list_folders(params: Dict[str, Any]):
         return False, status[:300], {**details, "failure_code": "FOLDER_LIST_FAILED"}
     folders = parse_ls_folders(output)
     details["folders"] = folders
-    return True, f"{len(folders)} sub-folder(s)", details
+    # The files right in it too (the 5S explorer shows a folder as it is now); the biggest first, bounded
+    files = sorted(parse_ls_files(output), key=lambda item: -item["s"])
+    details["files_total"] = len(files)
+    details["files"] = files[:FILES_KEPT]
+    return True, f"{len(folders)} sub-folder(s), {len(files)} file(s)", details
 

@@ -51,6 +51,35 @@
   const load = (path: string | null) =>
     apiGetData<Level>(fetch, `/modules/fives/storage-roots/${rootId}/folders`, path == null ? undefined : { path });
 
+  // ---- the files of the open folder, as they are now on the file server (read by a worker) ----
+  // The inventory of the module only knows the files fingerprinted for the duplicates: it stays as the fallback.
+  type LiveListing = { folders: string[]; files: Array<{ n: string; s: number; t: string | null }>; files_total: number };
+  let liveFor: string | null = null;
+  let liveFiles: FileRow[] | null = null;
+  let liveTotal = 0;
+  let liveState: 'idle' | 'loading' | 'ok' | 'failed' = 'idle';
+  let liveError = '';
+  let liveSeq = 0;
+  async function loadLive(path: string) {
+    const seq = ++liveSeq;
+    liveFor = path;
+    liveFiles = null;
+    liveState = 'loading';
+    try {
+      const data = await apiGetData<LiveListing>(fetch, `/storage-roots/${rootId}/files`, path ? { path } : undefined);
+      if (seq !== liveSeq) return;
+      const prefix = path ? `${path}\\` : '';
+      liveFiles = (data?.files ?? []).map((file) => ({ path: prefix + file.n, name: file.n, size: Number(file.s) || 0, modified: file.t ? `${file.t}Z` : null }));
+      liveTotal = Number(data?.files_total ?? liveFiles.length);
+      liveState = 'ok';
+    } catch (error) {
+      if (seq !== liveSeq) return;
+      liveState = 'failed';
+      liveError = error instanceof Error ? error.message : '';
+    }
+  }
+  $: if (level?.node && level.node.path !== liveFor) void loadLive(level.node.path);
+
   onMount(async () => {
     try {
       const overview = await apiGetData<Record<string, any>>(fetch, `/storage-roots/${rootId}/overview`);
@@ -293,7 +322,7 @@
   // ---- list --------------------------------------------------------------------------------------------------
   $: rows = children.filter((folder) =>
     filter === 'all' || (filter === 'dormant' && dormant(folder)) || (filter === 'dups' && groupsUnder(folder.path).length > 0) || (filter === 'broken' && folder.inheritance_broken));
-  $: files = filter === 'all' ? level?.files ?? [] : [];
+  $: files = filter === 'all' ? (liveState === 'ok' && liveFiles ? liveFiles : level?.files ?? []) : [];
   const rights = (folder: Folder) =>
     folder.acl == null ? { label: t('not read yet'), tone: 'none' }
       : folder.inheritance_broken ? { label: t('Broken'), tone: 'warn' }
@@ -443,7 +472,15 @@
                     <td class="fx__num">{groups.some((group) => group.copies.some((copy) => copy.path === file.path)) ? '•' : '—'}</td>
                   </tr>
                 {/each}
-                {#if !rows.length && !files.length}<tr><td colspan="8" class="fx__empty">{t('Nothing here for this filter.')}</td></tr>{/if}
+                {#if filter === 'all' && liveState === 'loading'}
+                  <tr class="fx__live"><td colspan="8"><span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{t('Reading the files of this folder on the server…')}</td></tr>
+                {:else if filter === 'all' && liveState === 'failed'}
+                  <tr class="fx__live is-warn"><td colspan="8"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{t('Partial list: only the files followed for the duplicates are shown (the server could not be read: {error}).', { error: liveError || '—' })}
+                    <button type="button" class="b2s-link-btn" on:click={() => level?.node && loadLive(level.node.path)}>{t('Try again')}</button></td></tr>
+                {:else if filter === 'all' && liveState === 'ok' && liveTotal > files.length}
+                  <tr class="fx__live"><td colspan="8">{t('The {shown} biggest files of {total} are listed.', { shown: files.length.toLocaleString('fr-FR'), total: liveTotal.toLocaleString('fr-FR') })}</td></tr>
+                {/if}
+                {#if !rows.length && !files.length && liveState !== 'loading'}<tr><td colspan="8" class="fx__empty">{t('Nothing here for this filter.')}</td></tr>{/if}
               </tbody>
             </table>
           </div>
@@ -711,4 +748,9 @@
   .fx__score-row b { text-align: right; color: #FFFFFF; }
   .fx__crumbs button.fx__up { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; margin-right: 4px; border: 1px solid var(--b2s-color-border); border-radius: 8px; color: var(--b2s-color-text); }
   .fx__crumbs button.fx__up:disabled { opacity: 0.4; cursor: default; }
+  .fx__live td { padding: 10px 14px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .fx__live td { display: table-cell; }
+  .fx__live .b2s-spinner, .fx__live i { margin-right: 8px; }
+  .fx__live.is-warn td { color: var(--b2s-color-warning-strong); background: var(--b2s-color-warning-soft); }
+  .fx__live .b2s-link-btn { margin-left: 8px; }
 </style>
