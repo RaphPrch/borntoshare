@@ -60,6 +60,12 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             except Exception:
                 db.rollback()
                 logger.warning("JOB_HISTORY_PURGE_FAILED", exc_info=True)
+            # The bell keeps what is unread; what was read more than 90 days ago goes
+            from app.services.inbox import purge_read
+
+            purged_notices = purge_read(db)
+            if purged_notices:
+                message += f" · {purged_notices} notification(s) lue(s) retirée(s)"
         elif task == "data_sync":
             summary = await run_data_sync(db, trigger=trigger)
             status = summary.get("status", "success")

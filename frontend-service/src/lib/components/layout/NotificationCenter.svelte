@@ -21,9 +21,9 @@
   let items: Notice[] = [];
   let filter: 'all' | 'unread' = 'all';
 
-  const ICON: Record<string, string> = { request: 'bi-inbox', decision: 'bi-check2-circle', expiry: 'bi-hourglass-split', alert: 'bi-exclamation-octagon' };
+  const ICON: Record<string, string> = { request: 'bi-inbox', decision: 'bi-check2-circle', expiry: 'bi-hourglass-split', alert: 'bi-exclamation-octagon', task: 'bi-check2-all' };
   const kindLabel = (kind: string) =>
-    ({ request: t('Request to decide'), decision: t('Decision'), expiry: t('End of access'), alert: t('Platform') })[kind] ?? kind;
+    ({ request: t('Request to decide'), decision: t('Decision'), expiry: t('End of access'), alert: t('Platform'), task: t('Task') })[kind] ?? kind;
 
   async function load() {
     loading = true;

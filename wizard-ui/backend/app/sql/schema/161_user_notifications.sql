@@ -16,3 +16,8 @@ CREATE TABLE IF NOT EXISTS user_notifications (
   UNIQUE KEY uq_user_notifications_notice (identity_id, notice_key),
   KEY ix_user_notifications_unread (identity_id, read_at, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Who asked for the running measure or sensitivity scan of a folder: told in the bell when it ends (once; a scheduled
+-- scan has nobody to tell).
+ALTER TABLE storage_root_scans ADD COLUMN IF NOT EXISTS requested_by_identity BIGINT NULL;
+ALTER TABLE storage_root_sensitivity ADD COLUMN IF NOT EXISTS requested_by_identity BIGINT NULL;

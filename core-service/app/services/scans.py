@@ -98,6 +98,7 @@ def record_result(db: Session, storage_root_id: int, job_id: int | None, result_
     # History, growth and duplicates between folders: the 5S module (its own databases), when it is on
     modules.push_measure(db, int(storage_root_id), measured_at=now, bytes_=int(stats.get("bytes") or 0), stats=stats,
                          fingerprints=list(details.get("fingerprints") or []))
+    tell_end(db, int(storage_root_id), ok=True, stats=stats)
     return True
 
 
@@ -107,6 +108,19 @@ def record_failure(db: Session, storage_root_id: int, job_id: int | None, messag
         {"id": int(storage_root_id), "job": job_id, "now": _now(), "message": (message or "")[:600]},
     )
     db.commit()
+    tell_end(db, int(storage_root_id), ok=False, problem=message)
+
+
+def tell_end(db: Session, storage_root_id: int, *, ok: bool, stats: dict | None = None, problem: str | None = None) -> None:
+    """The person who asked for this measure is told in the bell (nobody for a scheduled one)."""
+    from app.services import inbox
+
+    if ok and isinstance(stats, dict):
+        files, size = int(stats.get("files") or 0), int(stats.get("bytes") or 0)
+        detail = f"{files:,} fichier(s) · {size / 1024 ** 3:,.1f} Go".replace(",", " ")
+    else:
+        detail = (problem or "")[:300] or None
+    inbox.tell_requester(db, "measure", storage_root_id, ok=ok, detail=detail)
 
 
 def states_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, str]:

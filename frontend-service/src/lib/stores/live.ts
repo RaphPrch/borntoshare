@@ -38,55 +38,96 @@ export function markNoticesRead(count: number | 'all') {
   state.update((s) => ({ ...s, unread: count === 'all' ? 0 : Math.max(0, s.unread - count) }));
 }
 
+// One connection per browser, not per tab: the tab holding the lock « b2s-live » (Web Locks) opens /live and relays
+// what it receives to the other tabs (BroadcastChannel); when it closes, another tab takes the lock and the connection.
+// A browser without these APIs connects each tab itself.
+const CHANNEL = 'b2s-live';
+let channel: BroadcastChannel | null = null;
 let source: EventSource | null = null;
+let releaseLock: (() => void) | null = null;
 let users = 0;
+const lastMessages = new Map<string, string>();
+
+function applyMessage(name: string, raw: string) {
+  try {
+    const data = JSON.parse(raw);
+    if (name === 'pulse') {
+      state.update((s) => ({
+        ...s,
+        connected: true,
+        unread: Number(data.unread ?? 0) || 0,
+        latest: data.latest ? { ...data.latest, id: Number(data.latest.id) } : null,
+        pending: data.pending == null ? s.pending : Number(data.pending) || 0,
+        critical: data.alerts_stamp == null ? s.critical : Number(data.critical_open ?? 0) || 0,
+        requestsStamp: data.requests_stamp ?? null,
+        alertsStamp: data.alerts_stamp ?? null
+      }));
+    } else if (name === 'tasks') {
+      state.update((s) => ({ ...s, tasks: Array.isArray(data) ? data : [] }));
+    } else if (name === 'signed-out') {
+      state.set(initial);
+    }
+  } catch {
+    /* a malformed message is skipped */
+  }
+}
+
+function openSource() {
+  source = new EventSource('/live');
+  source.addEventListener('open', () => state.update((s) => ({ ...s, connected: true })));
+  source.addEventListener('error', () => state.update((s) => ({ ...s, connected: false })));
+  for (const name of ['pulse', 'tasks', 'signed-out']) {
+    source.addEventListener(name, (event) => {
+      const raw = (event as MessageEvent).data as string;
+      lastMessages.set(name, raw);
+      applyMessage(name, raw);
+      channel?.postMessage({ name, raw });
+      // The session ended: no reconnection loop, the next navigation goes to the sign-in page
+      if (name === 'signed-out') closeSource();
+    });
+  }
+}
+
+function closeSource() {
+  source?.close();
+  source = null;
+}
 
 export function connectLive(): () => void {
   users += 1;
-  if (!source && typeof EventSource !== 'undefined') {
-    source = new EventSource('/live');
-    source.addEventListener('open', () => state.update((s) => ({ ...s, connected: true })));
-    source.addEventListener('error', () => state.update((s) => ({ ...s, connected: false })));
-    source.addEventListener('pulse', (event) => {
-      try {
-        const data = JSON.parse((event as MessageEvent).data) as Record<string, any>;
-        state.update((s) => ({
-          ...s,
-          connected: true,
-          unread: Number(data.unread ?? 0) || 0,
-          latest: data.latest ? { ...data.latest, id: Number(data.latest.id) } : null,
-          pending: data.pending == null ? s.pending : Number(data.pending) || 0,
-          critical: data.alerts_stamp == null ? s.critical : Number(data.critical_open ?? 0) || 0,
-          requestsStamp: data.requests_stamp ?? null,
-          alertsStamp: data.alerts_stamp ?? null
-        }));
-      } catch {
-        /* a malformed message is skipped */
-      }
-    });
-    source.addEventListener('tasks', (event) => {
-      try {
-        const tasks = JSON.parse((event as MessageEvent).data) as LiveTask[];
-        state.update((s) => ({ ...s, tasks: Array.isArray(tasks) ? tasks : [] }));
-      } catch {
-        /* skipped */
-      }
-    });
-    // The session ended: no reconnection loop, the next navigation goes to the sign-in page
-    source.addEventListener('signed-out', () => {
-      source?.close();
-      source = null;
-      state.set(initial);
-    });
+  if (users === 1 && typeof EventSource !== 'undefined') {
+    const locks = (typeof navigator !== 'undefined' ? (navigator as Navigator & { locks?: LockManager }).locks : undefined);
+    if (typeof BroadcastChannel !== 'undefined' && locks) {
+      channel = new BroadcastChannel(CHANNEL);
+      channel.onmessage = (event: MessageEvent<{ name: string; raw?: string }>) => {
+        const { name, raw } = event.data ?? {};
+        // A tab that just opened asks the relay for the last state (the server only sends what changes)
+        if (name === 'hello') {
+          if (source) lastMessages.forEach((value, key) => channel?.postMessage({ name: key, raw: value }));
+          return;
+        }
+        if (name && raw != null) applyMessage(name, raw);
+      };
+      channel.postMessage({ name: 'hello' });
+      void locks.request(CHANNEL, () => new Promise<void>((resolve) => {
+        releaseLock = () => { closeSource(); resolve(); };
+        if (users > 0) openSource(); else resolve();
+      })).catch(() => undefined);
+    } else {
+      openSource();
+    }
   }
   return () => {
     users -= 1;
-    if (users <= 0 && source) {
-      source.close();
-      source = null;
-      users = 0;
-      state.set(initial);
-    }
+    if (users > 0) return;
+    users = 0;
+    closeSource();
+    releaseLock?.();
+    releaseLock = null;
+    channel?.close();
+    channel = null;
+    lastMessages.clear();
+    state.set(initial);
   };
 }
 

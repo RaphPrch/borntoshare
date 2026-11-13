@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-KINDS = {"request", "decision", "expiry", "alert"}
+KINDS = {"request", "decision", "expiry", "alert", "task"}
 SEVERITIES = {"info", "success", "warning", "danger"}
 
 
@@ -119,6 +119,62 @@ def mark_read(db: Session, identity_id: int, ids: list[int] | None) -> int:
         return int(result.rowcount or 0)
     except Exception:
         db.rollback()
+        return 0
+
+
+_TASK_TABLES = {"measure": "storage_root_scans", "sensitivity": "storage_root_sensitivity"}
+
+
+def remember_requester(db: Session, task: str, root_id: int, identity_id: int | None) -> None:
+    """The person who asked for this measure or scan of the folder, to tell them when it ends."""
+    table = _TASK_TABLES.get(task)
+    if not table or not identity_id:
+        return
+    try:
+        db.execute(text(f"UPDATE {table} SET requested_by_identity = :who WHERE storage_root_id = :id"), {"who": int(identity_id), "id": int(root_id)})
+        db.commit()
+    except Exception:  # column not there yet (pack 161)
+        db.rollback()
+
+
+def tell_requester(db: Session, task: str, root_id: int, *, ok: bool, detail: str | None = None) -> bool:
+    """The measure or scan asked by someone ended: a notice to that person, once (the column is cleared). Never raises."""
+    table = _TASK_TABLES.get(task)
+    if not table:
+        return False
+    try:
+        row = db.execute(
+            text(f"SELECT t.requested_by_identity, sr.name FROM {table} t LEFT JOIN storage_roots sr ON sr.id = t.storage_root_id WHERE t.storage_root_id = :id"),
+            {"id": int(root_id)},
+        ).first()
+        if not row or not row[0]:
+            return False
+        db.execute(text(f"UPDATE {table} SET requested_by_identity = NULL WHERE storage_root_id = :id"), {"id": int(root_id)})
+        db.commit()
+    except Exception:
+        db.rollback()
+        return False
+    name = row[1] or f"#{root_id}"
+    what = "La mesure" if task == "measure" else "Le scan de sensibilité"
+    from datetime import datetime, timezone
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    title = (f"{what} de « {name} » est terminé{'e' if task == 'measure' else ''}" if ok
+             else f"{what} de « {name} » a échoué")
+    return push(db, [row[0]], f"{task}:{root_id}:{stamp}", kind="task", severity="success" if ok else "danger",
+                title=title, body=detail, link=f"/storage-roots?selected={int(root_id)}") > 0
+
+
+def purge_read(db: Session, days: int = 90) -> int:
+    """Notices read more than `days` ago are deleted (unread ones stay, whatever their age). Never raises."""
+    try:
+        result = db.execute(text("DELETE FROM user_notifications WHERE read_at IS NOT NULL AND read_at < UTC_TIMESTAMP() - INTERVAL :days DAY"),
+                            {"days": max(1, int(days))})
+        db.commit()
+        return int(result.rowcount or 0)
+    except Exception:
+        db.rollback()
+        logger.warning("INBOX_PURGE_FAILED", exc_info=True)
         return 0
 
 

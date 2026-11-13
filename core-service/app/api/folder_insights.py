@@ -69,7 +69,11 @@ async def _queue_measure(db: Session, root_id: int, by: str | None = None) -> in
 async def measure_folder(root_id: int, request: Request, db: Session = Depends(get_db)):
     """Measure the folder (size, age, clutter, duplicates) in the background, on the scan queue: read only."""
     folder = _folder(db, request, root_id)
-    job_id = await _queue_measure(db, int(root_id), actor_from_request(request).display_name)
+    actor = actor_from_request(request)
+    job_id = await _queue_measure(db, int(root_id), actor.display_name)
+    from app.services import inbox
+
+    inbox.remember_requester(db, "measure", int(root_id), actor.identity_id)
     _audit(db, request, "storage_root.measure_requested", folder, {"job_id": job_id})
     return ui_data(scans.get(db, int(root_id)))
 
@@ -91,6 +95,11 @@ async def measure_folders(payload: MeasurePayload, request: Request, db: Session
         try:
             await _queue_measure(db, root_id, actor.display_name)
             queued.append(root_id)
+            # A few folders: each end is told in the bell; a large batch would flood it (the tasks panel shows it)
+            if len(payload.root_ids) <= 5:
+                from app.services import inbox
+
+                inbox.remember_requester(db, "measure", root_id, actor.identity_id)
         except HTTPException as exc:
             failed.append({"storage_root_id": root_id, "message": str(exc.detail)[:200]})
     _audit(db, request, "storage_root.measure_requested", {"id": queued[0] if len(queued) == 1 else 0, "name": f"{len(queued)} folder(s)"},

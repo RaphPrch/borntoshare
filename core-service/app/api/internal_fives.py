@@ -108,6 +108,7 @@ def measure_result(payload: MeasureResult, db: Session = Depends(get_db)):
                                               interim=payload.interim)
     if kept in ("done", "failed"):
         scans.unreadable_alert(db, int(payload.storage_root_id), problem)
+        scans.tell_end(db, int(payload.storage_root_id), ok=kept == "done", stats=payload.stats, problem=problem or payload.error)
     if kept == "done":
         try:
             from app.services.policies import run_all

@@ -57,3 +57,48 @@ def test_mark_read_targets_only_the_person():
     db = _Db()
     inbox.mark_read(db, 5, None)
     assert "id IN" not in db.calls[0][0]
+
+
+def test_purge_read_keeps_unread_and_never_raises():
+    db = _Db()
+    inbox.purge_read(db, 90)
+    sql, params = db.calls[0]
+    assert "read_at IS NOT NULL" in sql and params["days"] == 90
+    assert inbox.purge_read(_Db(fail=True)) == 0
+
+
+class _Row:
+    def __init__(self, values):
+        self.values = values
+
+    def first(self):
+        return self.values
+
+
+class _TaskDb(_Db):
+    """SELECT returns the requester once; UPDATE clears it."""
+    def __init__(self, requester):
+        super().__init__()
+        self.requester = requester
+
+    def execute(self, statement, params=None):
+        sql = str(statement)
+        self.calls.append((sql, params))
+        if sql.startswith("SELECT t.requested_by_identity"):
+            return _Row((self.requester, "Angers") if self.requester else None)
+        if "requested_by_identity = NULL" in sql:
+            self.requester = None
+        return _Result()
+
+
+def test_tell_requester_tells_once_then_nobody():
+    db = _TaskDb(requester=12)
+    assert inbox.tell_requester(db, "measure", 4, ok=True, detail="3 fichier(s)")
+    insert = [params for sql, params in db.calls if "INSERT IGNORE" in sql][0]
+    assert insert["identity"] == 12 and insert["kind"] == "task" and "Angers" in insert["title"] and insert["severity"] == "success"
+    assert not inbox.tell_requester(db, "measure", 4, ok=True)
+
+
+def test_tell_requester_without_requester_or_unknown_task():
+    assert not inbox.tell_requester(_TaskDb(requester=None), "sensitivity", 4, ok=False)
+    assert not inbox.tell_requester(_TaskDb(requester=3), "other", 4, ok=True)

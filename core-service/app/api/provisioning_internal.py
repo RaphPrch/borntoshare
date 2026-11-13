@@ -331,6 +331,15 @@ def _persist_storage_endpoint_probe_result(
     )
 
 
+def _tell_sensitivity_end(db: Session, root_id: int, *, ok: bool, detail: str | None) -> None:
+    try:
+        from app.services import inbox
+
+        inbox.tell_requester(db, "sensitivity", root_id, ok=ok, detail=detail)
+    except Exception:
+        db.rollback()
+
+
 def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict | None, error_message: str | None = None) -> None:
     """Sensitivity scan of a folder (scan_smb_sensitivity): its findings, or why it failed."""
     from app.services import sensitivity
@@ -343,6 +352,7 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
     job_id = int(getattr(job_row, "id", 0) or 0) or None
     if error_message is not None:
         sensitivity.record_failure(db, root_id, job_id, error_message)
+        _tell_sensitivity_end(db, int(root_id), ok=False, detail=error_message[:300])
         return
     scan = sensitivity.record_result(db, root_id, job_id, result_json)
     db.commit()
@@ -353,11 +363,17 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
         db.rollback()
         logger.warning("SENSITIVITY_EXPOSURE_ALERT_FAILED", exc_info=True)
     # A folder too big for one pass: the next pass starts by itself
+    next_pass = None
     try:
-        sensitivity.continue_if_pending(db, job_row, scan)
+        next_pass = sensitivity.continue_if_pending(db, job_row, scan)
     except Exception:
         db.rollback()
         logger.warning("SENSITIVITY_NEXT_PASS_NOT_QUEUED", exc_info=True)
+    # The last pass: the person who asked is told (once)
+    if not next_pass:
+        flagged = sensitivity.flagged_by_root(db, [int(root_id)]).get(int(root_id), 0)
+        _tell_sensitivity_end(db, int(root_id), ok=True,
+                              detail=f"{flagged} fichier(s) sensible(s) trouvé(s)" if flagged else "Aucun fichier sensible trouvé")
     # A correction asked to the guardians closes by itself when the files are gone (or becomes overdue)
     try:
         from app.services import remediations

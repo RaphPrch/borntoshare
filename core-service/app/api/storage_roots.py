@@ -1527,6 +1527,10 @@ async def scan_sensitivity(payload: SensitivityScanPayload, request: Request, db
             continue
         sensitivity.mark_requested(db, root_id, int(job.get("job_id") or 0) or None)
         queued.append(root_id)
+        if len(payload.root_ids) <= 5:
+            from app.services import inbox
+
+            inbox.remember_requester(db, "sensitivity", root_id, actor_from_request(request).identity_id)
     actor = actor_from_request(request)
     log_activity(
         db,
