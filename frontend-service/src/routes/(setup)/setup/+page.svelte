@@ -9,7 +9,7 @@
   import { createStorageRoot, updateStorageRootOwners } from '$lib/api/storage-roots';
   import { searchIdentityDirectory } from '$lib/api/identity-browser';
   import { resolveCredentials } from '$lib/api/credentials';
-  import { chooseSetupModules, completeSetup, skipSetupDirectory } from '$lib/api/admin-advanced-settings';
+  import { chooseSetupModules, completeSetup, skipSetupStep } from '$lib/api/admin-advanced-settings';
   import { apiPostData } from '$lib/api/client';
   import { formatDate } from '$lib/utils/format';
   import { runProbeWithPolling, buildIdentitySourceProbeRequest, syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
@@ -113,10 +113,16 @@
   // Resume at the first step left to do
   // Started without directory: the local accounts only; identities and roles (groups of the directory) are skipped
   let directorySkipped = $state(Boolean(status.directory_skipped));
+  // Started without file server: added later in Servers, its folders too
+  let serverSkipped = $state(Boolean(status.server_skipped));
   const SKIPPED_WITHOUT_DIRECTORY: StepKey[] = ['identities', 'roles'];
-  const skipped = (index: number) => directorySkipped && SKIPPED_WITHOUT_DIRECTORY.includes(STEPS[index]?.key);
-  const firstStep = !chosen ? 0 : !zoneId ? 1 : !sourceId && !status.directory_skipped ? 2 : !serverId ? 3
+  const skipped = (index: number) =>
+    (directorySkipped && SKIPPED_WITHOUT_DIRECTORY.includes(STEPS[index]?.key)) || (serverSkipped && STEPS[index]?.key === 'folders');
+  const resumeAt = !chosen ? 0 : !zoneId ? 1 : !sourceId && !status.directory_skipped ? 2 : !serverId && !status.server_skipped ? 3
     : status.directory_skipped || status.imported_groups > 0 ? 6 : 4;  // 6: folders
+  let firstStep = resumeAt;
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  while (skipped(firstStep)) firstStep += 1;
   let at = $state(firstStep);
   let top = $state(firstStep);
   let busy = $state(false);
@@ -148,10 +154,10 @@
     { label: t('Modules'), value: top > 0 ? moduleNames : '', step: 0 },
     { label: t('Zone'), value: top > 1 ? zone.name : '', step: 1 },
     { label: t('Directory'), value: directorySkipped ? t('None: local accounts') : top > 2 ? `${directory.name} · ${directory.protocol.toUpperCase()}` : '', step: 2 },
-    { label: t('File server'), value: top > 3 ? `${server.name} · ${server.host}` : '', step: 3 },
+    { label: t('File server'), value: serverSkipped ? t('Later, in Servers') : top > 3 ? `${server.name} · ${server.host}` : '', step: 3 },
     { label: t('Identities'), value: directorySkipped ? t('Skipped') : top > 4 ? t('{count} group(s)', { count: importedGroups || pickedGroups.length }) : '', step: 4 },
     { label: t('Roles'), value: directorySkipped ? t('Skipped') : top > 5 ? t('Done') : '', step: 5 },
-    { label: t('Folders'), value: top > 6 ? t('{count} folder(s)', { count: foldersCreated }) : '', step: 6 }
+    { label: t('Folders'), value: serverSkipped ? t('Skipped') : top > 6 ? t('{count} folder(s)', { count: foldersCreated }) : '', step: 6 }
   ]);
 
   /** The 5S is licensed: the key is checked here, offline, as in Advanced settings › Features */
@@ -474,6 +480,7 @@
       }
     }
     if (current === 'server') {
+      serverSkipped = false;
       const payload: any = {
         name: server.name.trim(),
         endpoint_type: 'smb',
@@ -554,16 +561,22 @@
     }
   }
 
+  /** To a step, over those skipped; reaching the end without folders to create: the setup is over there */
+  async function moveTo(index: number) {
+    while (skipped(index)) index += 1;
+    if (STEPS[index]?.key === 'done') await completeSetup(fetch);
+    at = index;
+    top = Math.max(top, at);
+    enterStep();
+  }
+
   async function next() {
     if (!canContinue || busy) return;
     busy = true;
     errorMessage = '';
     try {
       await saveStep();
-      at += 1;
-      while (skipped(at)) at += 1;
-      top = Math.max(top, at);
-      enterStep();
+      await moveTo(at + 1);
     } catch (error) {
       errorMessage = message(error, t('Unable to save this step.'));
     } finally {
@@ -571,17 +584,16 @@
     }
   }
 
-  /** Without directory: local accounts only, the directory is added later from the console (Directories) */
-  async function skipDirectory() {
+  /** A step left for later, done from the console: the directory (local accounts only) or the file server */
+  async function skipStep(step: 'directory' | 'server') {
     if (busy) return;
     busy = true;
     errorMessage = '';
     try {
-      await skipSetupDirectory(fetch);
-      directorySkipped = true;
-      at = STEPS.findIndex((step) => step.key === 'server');
-      top = Math.max(top, at);
-      enterStep();
+      await skipSetupStep(fetch, step);
+      if (step === 'directory') directorySkipped = true;
+      else serverSkipped = true;
+      await moveTo(at + 1);
     } catch (error) {
       errorMessage = message(error, t('Unable to save this step.'));
     } finally {
@@ -603,6 +615,8 @@
   }
 
   enterStep();
+  // Resumed at the end (the steps left were skipped): the setup is over
+  if (STEPS[firstStep].key === 'done') void completeSetup(fetch).catch(() => null);
 </script>
 
 <svelte:head><title>{t('First start')} · BornToShare</title></svelte:head>
@@ -614,12 +628,12 @@
     <p>{t('The application is empty. Each step is saved: you can leave and come back here.')}</p>
     <ol class="sp-steps">
       {#each STEPS as step, index}
-        {@const off = skipped(index) || (step.key === 'directory' && directorySkipped && index !== at)}
+        {@const off = skipped(index) || (index !== at && ((step.key === 'directory' && directorySkipped) || (step.key === 'server' && serverSkipped)))}
         {@const state = index === at ? 'cur' : off ? 'skip' : index < top ? 'done' : ''}
         <li class={state}>
           <button type="button" class={`sp-step ${state}`} disabled={index > top || skipped(index)} aria-current={index === at ? 'step' : undefined} onclick={() => goToStep(index)}>
             <span class="sp-pip" aria-hidden="true">{state === 'done' ? '✓' : state === 'skip' ? '–' : index + 1}</span>
-            <span><strong>{step.label()}</strong><small>{off ? (step.key === 'directory' ? t('Local accounts for now') : t('Skipped: no directory')) : step.hint()}</small></span>
+            <span><strong>{step.label()}</strong><small>{off ? (step.key === 'directory' ? t('Local accounts for now') : step.key === 'server' ? t('Later, in Servers') : step.key === 'folders' ? t('Skipped: no server') : t('Skipped: no directory')) : step.hint()}</small></span>
           </button>
         </li>
       {/each}
@@ -643,7 +657,8 @@
           {:else if current === 'server'}
             <h2>{t('Add a file server')}</h2>
             <p class="sp-lead">{gov ? t('The server that holds the folders to govern in the zone {zone}.', { zone: zone.name }) : t('The server that holds the shares to measure in the zone {zone}.', { zone: zone.name })}</p>
-          {:else if current === 'identities'}
+            <p class="sp-note">{t('No file server yet? « Skip: later » goes on without it: add it in Servers, then its folders.')}</p>
+        {:else if current === 'identities'}
             <h2>{t('Choose who can sign in')}</h2>
             <p class="sp-lead">{gov ? t('Import the groups of the directory whose members will use BornToShare.') : t('Import the groups whose members will see the 5S. Optional: the local administrator account is enough to start.')}</p>
           {:else if current === 'roles'}
@@ -654,7 +669,7 @@
             <p class="sp-lead">{gov ? t('Tick the shares to govern, then name their guardians. You can add others later.') : t('The 5S scanner measures them at its next window: size, age, duplicates, clutter. You can add others later.')}</p>
           {:else}
             <h2>{t('BornToShare is ready')}</h2>
-            <p class="sp-lead">{!foldersCreated ? t('No folder yet: add them from the Folders menu.') : gov ? t('Your folders are in place: what is left is to ask for accesses.') : t('Your shares are in place: their first 5S measure starts at the next window of the scanner.')}</p>
+            <p class="sp-lead">{serverSkipped ? t('No file server yet: add it in Servers, then its folders.') : !foldersCreated ? t('No folder yet: add them from the Folders menu.') : gov ? t('Your folders are in place: what is left is to ask for accesses.') : t('Your shares are in place: their first 5S measure starts at the next window of the scanner.')}</p>
           {/if}
         </div>
 
@@ -868,7 +883,7 @@
             <div><span>{t('Modules')}</span><i class="ok">{moduleNames}</i></div>
             <div><span>{t('Zone')}</span><i class="ok">{zone.name}</i></div>
             <div><span>{t('Directory')}</span><i class="ok">{directorySkipped ? t('None: local accounts') : directory.name}</i></div>
-            <div><span>{t('File server')}</span><i class="ok">{server.name}</i></div>
+            <div><span>{t('File server')}</span><i class="ok">{serverSkipped ? t('Later, in Servers') : server.name}</i></div>
             <div><span>{t('Folders')}</span><i class="ok">{foldersCreated}</i></div>
           </div>
           <div class="sp-row">
@@ -897,7 +912,10 @@
         </span>
         {#if at > 0}<button type="button" class="sp-btn" disabled={busy} onclick={() => goToStep(at - 1)}>{t('Back')}</button>{/if}
         {#if current === 'directory'}
-          <button type="button" class="sp-btn" disabled={busy || testing} onclick={skipDirectory} title={t('Local accounts only: the directory is added later in Directories')}>{t('Skip: local accounts')}</button>
+          <button type="button" class="sp-btn" disabled={busy || testing} onclick={() => skipStep('directory')} title={t('Local accounts only: the directory is added later in Directories')}>{t('Skip: local accounts')}</button>
+        {/if}
+        {#if current === 'server'}
+          <button type="button" class="sp-btn" disabled={busy || testing} onclick={() => skipStep('server')} title={t('The file server is added later in Servers, then its folders')}>{t('Skip: later')}</button>
         {/if}
         {#if current === 'folders'}
           <button type="button" class="sp-btn" disabled={busy} onclick={skipFolders}>{t('Skip for now')}</button>

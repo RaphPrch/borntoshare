@@ -70,9 +70,9 @@ export async function chooseSetupModules(fetchFn: FetchLike, modules: { governan
   return apiPost<ActionResult>(fetchFn, '/admin/setup/modules', modules);
 }
 
-/** Start without LDAP / OpenLDAP directory: local accounts only, the directory is added later (Directories) */
-export async function skipSetupDirectory(fetchFn: FetchLike) {
-  return apiPost<ActionResult>(fetchFn, '/admin/setup/skip-directory', {});
+/** A step of the first setup left for later: the directory (local accounts only, added in Directories) or the file server (Servers) */
+export async function skipSetupStep(fetchFn: FetchLike, step: 'directory' | 'server') {
+  return apiPost<ActionResult>(fetchFn, `/admin/setup/skip/${step}`, {});
 }
 
 export async function completeSetup(fetchFn: FetchLike) {

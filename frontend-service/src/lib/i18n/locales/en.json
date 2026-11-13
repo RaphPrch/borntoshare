@@ -782,9 +782,9 @@
         "title": "Modules chosen",
         "description": "Governance, 5S or both, at the first start"
       },
-      "setup_directory_skipped": {
-        "title": "Started without a directory",
-        "description": "Local accounts only: the directory is added from Directories"
+      "setup_step_skipped": {
+        "title": "Step skipped",
+        "description": "A step of the first start is left for later"
       }
     },
     "identity": {

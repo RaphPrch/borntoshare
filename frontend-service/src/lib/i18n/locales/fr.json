@@ -1960,9 +1960,9 @@
         "title": "Modules choisis",
         "description": "Gouvernance, 5S ou les deux, au premier démarrage"
       },
-      "setup_directory_skipped": {
-        "title": "Démarrage sans annuaire",
-        "description": "Comptes locaux seulement : l'annuaire sera ajouté depuis Annuaires"
+      "setup_step_skipped": {
+        "title": "Étape passée",
+        "description": "Une étape du premier démarrage est laissée pour plus tard"
       }
     },
     "identity": {
@@ -5838,5 +5838,11 @@
   "Skipped: no directory": "Passé : pas d'annuaire",
   "Local accounts only: the directory is added later in Directories": "Comptes locaux seulement : l'annuaire s'ajoutera ensuite dans Annuaires",
   "Skip: local accounts": "Passer : comptes locaux",
-  "No directory yet? « Skip: local accounts » starts with the local accounts only; the directory is added later in Directories. For Windows servers, declare then the DNS of their domain in Advanced settings › Network: the domain controller is found through it.": "Pas encore d'annuaire ? « Passer : comptes locaux » démarre avec les comptes locaux seulement ; l'annuaire s'ajoutera ensuite dans Annuaires. Pour des serveurs Windows, déclarez alors le DNS de leur domaine dans Réglages avancés › Réseau : c'est par lui que le contrôleur de domaine est trouvé."
+  "No directory yet? « Skip: local accounts » starts with the local accounts only; the directory is added later in Directories. For Windows servers, declare then the DNS of their domain in Advanced settings › Network: the domain controller is found through it.": "Pas encore d'annuaire ? « Passer : comptes locaux » démarre avec les comptes locaux seulement ; l'annuaire s'ajoutera ensuite dans Annuaires. Pour des serveurs Windows, déclarez alors le DNS de leur domaine dans Réglages avancés › Réseau : c'est par lui que le contrôleur de domaine est trouvé.",
+  "The file server is added later in Servers, then its folders": "Le serveur de fichiers s'ajoutera ensuite dans Serveurs, puis ses dossiers",
+  "Skip: later": "Passer : plus tard",
+  "Later, in Servers": "Plus tard, dans Serveurs",
+  "Skipped: no server": "Passé : pas de serveur",
+  "No file server yet: add it in Servers, then its folders.": "Pas encore de serveur de fichiers : ajoutez-le dans Serveurs, puis ses dossiers.",
+  "No file server yet? « Skip: later » goes on without it: add it in Servers, then its folders.": "Pas encore de serveur de fichiers ? « Passer : plus tard » continue sans lui : ajoutez-le ensuite dans Serveurs, puis ses dossiers."
 }
