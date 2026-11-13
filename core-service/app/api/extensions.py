@@ -124,19 +124,7 @@ def save_extension(key: str, payload: ExtensionPayload, request: Request, db: Se
         secret_ref = store(db, "extension/centreon", token)
     if payload.enabled and ext.CATALOG[key]["secret"] and not secret_ref:
         raise HTTPException(status_code=422, detail={"code": "EXTENSION_SECRET_REQUIRED", "message": "The token is required"})
-    db.execute(
-        text(
-            """
-            INSERT INTO extensions (ext_key, enabled, config_json, routes_json, secret_ref, updated_by)
-            VALUES (:key, :enabled, :config, :routes, :secret_ref, :by)
-            ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), config_json = VALUES(config_json),
-              routes_json = VALUES(routes_json), secret_ref = VALUES(secret_ref), updated_by = VALUES(updated_by)
-            """
-        ),
-        {"key": key, "enabled": int(payload.enabled), "config": json.dumps(config), "routes": json.dumps(payload.routes.model_dump()),
-         "secret_ref": secret_ref, "by": actor.display_name},
-    )
-    db.commit()
+    ext.save_extension(db, key, enabled=payload.enabled, config=config, routes=payload.routes.model_dump(), secret_ref=secret_ref, by=actor.display_name)
     ext.forget_cache()
     log_activity(
         db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
@@ -182,16 +170,7 @@ def renew_centreon_token(request: Request, db: Session = Depends(get_db)):
     require_admin(actor)
     token = secrets.token_urlsafe(32)
     ref = store(db, "extension/centreon", token)
-    db.execute(
-        text(
-            """
-            INSERT INTO extensions (ext_key, enabled, secret_ref, updated_by) VALUES ('centreon', 1, :ref, :by)
-            ON DUPLICATE KEY UPDATE secret_ref = VALUES(secret_ref), updated_by = VALUES(updated_by)
-            """
-        ),
-        {"ref": ref, "by": actor.display_name},
-    )
-    db.commit()
+    ext.set_centreon_secret(db, ref, actor.display_name)
     log_activity(
         db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
         action="extension.token_renewed", outcome="success", target_type="extension", target_display="centreon",
@@ -203,19 +182,7 @@ def renew_centreon_token(request: Request, db: Session = Depends(get_db)):
 @router.get("/deliveries")
 def list_deliveries(request: Request, limit: int = 50, db: Session = Depends(get_db)):
     require_admin(actor_from_request(request))
-    try:
-        rows = db.execute(
-            text(
-                """
-                SELECT id, ext_key, event_type, summary, status, detail, attempts, latency_ms, created_at
-                FROM extension_deliveries ORDER BY id DESC LIMIT :limit
-                """
-            ),
-            {"limit": max(1, min(int(limit), 200))},
-        ).mappings().all()
-    except Exception:
-        db.rollback()
-        rows = []
+    rows = ext.recent_deliveries(db, limit)
     return ui_data([{**dict(row), "created_at": row["created_at"].isoformat() + "Z"} for row in rows])
 
 

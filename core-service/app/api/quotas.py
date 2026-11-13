@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.data.repositories import lookups_repo
 from app.api._helpers import ui_data
 from app.core.db import get_db
 from app.services import quotas
@@ -37,7 +38,7 @@ def _folder(db: Session, request: Request, root_id: int) -> dict[str, Any]:
 
     actor = actor_from_request(request)
     require_storage_roots_index(db, actor)
-    root = db.get(StorageRoot, int(root_id))
+    root = lookups_repo.storage_root(db, int(root_id))
     if root is None or not filter_storage_root_rows(db, actor, [{"storage_root_id": int(root_id)}]):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
     return {"id": int(root.id), "name": root.name, "root_path": root.root_path}

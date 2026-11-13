@@ -400,3 +400,35 @@ def forget_policy(db: Session, policy_id: int) -> None:
     except Exception:
         db.rollback()
     db.commit()
+
+
+# ---- storage of the policies (the routes hold no SQL) ----
+def tag_exists(db: Session, tag_id: int) -> bool:
+    return db.execute(text("SELECT 1 FROM tags WHERE id = :id"), {"id": int(tag_id)}).first() is not None
+
+
+def hit_counts(db: Session) -> dict[int, int]:
+    """{policy: folders it matches now}."""
+    return {int(pid): int(count) for pid, count in db.execute(text("SELECT policy_id, COUNT(*) FROM governance_policy_hits GROUP BY policy_id")).all()}
+
+
+def save_policy(db: Session, policy_id: int | None, *, name: str, description: str | None, enabled: bool, condition: str,
+                actions: dict[str, Any], by: str | None) -> int:
+    """Creates (policy_id None) or updates a policy; commits. Returns its id."""
+    params = {"name": name.strip(), "description": description, "enabled": int(enabled), "condition": condition.strip(),
+              "actions": json.dumps(actions), "by": by}
+    if policy_id is None:
+        result = db.execute(text("""INSERT INTO governance_policies (name, description, enabled, condition_query, actions_json, created_by, updated_by)
+                                    VALUES (:name, :description, :enabled, :condition, :actions, :by, :by)"""), params)
+        db.commit()
+        return int(result.lastrowid)
+    db.execute(text("""UPDATE governance_policies SET name = :name, description = :description, enabled = :enabled,
+                         condition_query = :condition, actions_json = :actions, updated_by = :by WHERE id = :id"""), {**params, "id": int(policy_id)})
+    db.commit()
+    return int(policy_id)
+
+
+def delete_policy(db: Session, policy_id: int) -> None:
+    forget_policy(db, policy_id)
+    db.execute(text("DELETE FROM governance_policies WHERE id = :id"), {"id": int(policy_id)})
+    db.commit()

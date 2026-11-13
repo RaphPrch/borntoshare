@@ -341,3 +341,32 @@ def stats(db: Session) -> dict[str, dict[str, Any]]:
             entry["failed"] += 1
             entry["failed_buckets"][bucket] += 1
     return out
+
+
+# ---- storage of the extensions (the routes hold no SQL) ----
+def save_extension(db: Session, key: str, *, enabled: bool, config: dict, routes: dict, secret_ref: str | None, by: str | None) -> None:
+    db.execute(
+        text("""INSERT INTO extensions (ext_key, enabled, config_json, routes_json, secret_ref, updated_by)
+                VALUES (:key, :enabled, :config, :routes, :secret_ref, :by)
+                ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), config_json = VALUES(config_json),
+                  routes_json = VALUES(routes_json), secret_ref = VALUES(secret_ref), updated_by = VALUES(updated_by)"""),
+        {"key": key, "enabled": int(enabled), "config": json.dumps(config), "routes": json.dumps(routes), "secret_ref": secret_ref, "by": by},
+    )
+    db.commit()
+
+
+def set_centreon_secret(db: Session, secret_ref: str, by: str | None) -> None:
+    db.execute(text("""INSERT INTO extensions (ext_key, enabled, secret_ref, updated_by) VALUES ('centreon', 1, :ref, :by)
+                       ON DUPLICATE KEY UPDATE secret_ref = VALUES(secret_ref), updated_by = VALUES(updated_by)"""),
+               {"ref": secret_ref, "by": by})
+    db.commit()
+
+
+def recent_deliveries(db: Session, limit: int = 50) -> list[dict]:
+    try:
+        rows = db.execute(text("""SELECT id, ext_key, event_type, summary, status, detail, attempts, latency_ms, created_at
+                                  FROM extension_deliveries ORDER BY id DESC LIMIT :limit"""), {"limit": max(1, min(int(limit), 200))}).mappings().all()
+    except Exception:  # table not created yet
+        db.rollback()
+        return []
+    return [dict(row) for row in rows]

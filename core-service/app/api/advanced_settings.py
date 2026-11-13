@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.data.repositories import settings_repo
 from app.core.db import get_db
 from app.core.internal_auth import require_internal_token
 from app.api._helpers import ui_action, ui_data
@@ -101,20 +102,9 @@ def _sanitize_advanced_settings(payload: dict) -> dict:
 
 
 def _read_payload(db: Session) -> dict:
-    row = db.execute(
-        text(
-            """
-            SELECT payload_json
-            FROM advanced_settings_config
-            WHERE id = 1
-            """
-        )
-    ).mappings().first()
-
-    if not row or row.get("payload_json") is None:
+    raw = settings_repo.read_payload_raw(db)
+    if raw is None:
         return deepcopy(DEFAULT_ADVANCED_SETTINGS)
-
-    raw = row.get("payload_json")
     if isinstance(raw, str):
         try:
             parsed = json.loads(raw)
@@ -131,20 +121,7 @@ def _read_payload(db: Session) -> dict:
 
 
 def _write_payload(db: Session, payload: dict) -> None:
-    payload_json = json.dumps(payload, ensure_ascii=False)
-    db.execute(
-        text(
-            """
-            INSERT INTO advanced_settings_config (id, payload_json)
-            VALUES (1, :payload)
-            ON DUPLICATE KEY UPDATE
-              payload_json = :payload,
-              updated_at = CURRENT_TIMESTAMP
-            """
-        ),
-        {"payload": payload_json},
-    )
-    db.commit()
+    settings_repo.write_payload_raw(db, json.dumps(payload, ensure_ascii=False))
 
 
 def _changed_settings(before: dict, after: dict, prefix: str = "") -> dict:
@@ -346,35 +323,14 @@ def purge_old_logs(payload: dict | None = None, db: Session = Depends(get_db)):
 # First start: the guided setup shown to an administrator while the application is empty
 # ============================================================
 
-def _first_row(db: Session, sql: str) -> dict | None:
-    row = db.execute(text(sql)).mappings().first()
-    return dict(row) if row else None
-
-
 @router.get("/setup/status", dependencies=[Depends(admin_or_internal)])
 def get_setup_status(db: Session = Depends(get_db)):
     """What is already configured, so that the setup resumes at the right step. No password here."""
-    roots = int(db.execute(text("SELECT COUNT(*) FROM storage_roots")).scalar() or 0)
+    snapshot = settings_repo.setup_snapshot(db)
+    roots, zone, directory, server, policy = snapshot["roots"], snapshot["zone"], snapshot["directory"], snapshot["server"], snapshot["policy"]
+    imported_groups = snapshot["imported_groups"]
     # An installation that already governs folders has no use for the guided setup
     completed = bool((_read_payload(db).get("setup") or {}).get("completed")) or roots > 0
-    zone = _first_row(db, "SELECT id, name, code, description FROM zones ORDER BY id LIMIT 1")
-    directory = _first_row(
-        db,
-        """
-        SELECT id, name, directory_flavor, protocol, host, port, domain_name, base_dn, bind_dn,
-               bind_password_ref, tls_verify, tls_ca_pem, tls_server_name
-        FROM identity_sources WHERE LOWER(type) = 'ad' AND is_active = 1 ORDER BY id LIMIT 1
-        """,
-    )
-    server = _first_row(
-        db, "SELECT id, name, host, port, bind_dn, bind_password_ref FROM storage_endpoints ORDER BY id LIMIT 1"
-    )
-    policy = (
-        _first_row(db, f"SELECT static_ou_dn FROM zone_provisioning_policy WHERE zone_id = {int(zone['id'])}") if zone else None
-    )
-    imported_groups = int(
-        db.execute(text("SELECT COUNT(DISTINCT directory_group_id) FROM identity_roles WHERE directory_group_id IS NOT NULL")).scalar() or 0
-    )
     return ui_data(
         {
             "completed": completed,

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.data.repositories import lookups_repo
 from app.api._helpers import ui_data
 from app.api.quotas import _audit, _folder
 from app.core.db import get_db
@@ -89,7 +90,7 @@ async def measure_folders(payload: MeasurePayload, request: Request, db: Session
     queued: list[int] = []
     failed: list[dict] = []
     for root_id in dict.fromkeys(int(value) for value in payload.root_ids):
-        if db.get(StorageRoot, root_id) is None:
+        if lookups_repo.storage_root(db, root_id) is None:
             failed.append({"storage_root_id": root_id, "message": "Storage root not found"})
             continue
         try:
@@ -142,8 +143,7 @@ async def stop_run(root_id: int, payload: StopPayload, request: Request, db: Ses
     actor = actor_from_request(request)
     require_admin(actor)
     folder = _folder(db, request, root_id)
-    table = "storage_root_sensitivity" if payload.kind == "sensitivity" else "storage_root_scans"
-    row = db.execute(_text(f"SELECT status, job_id FROM {table} WHERE storage_root_id = :id"), {"id": int(root_id)}).mappings().first()
+    row = lookups_repo.folder_task_state(db, payload.kind, int(root_id))
     if not row or row["status"] != "running":
         return ui_data({"stopped": False})
     reason = f"Stopped by {actor.display_name or 'an administrator'} from the folder"
@@ -170,7 +170,7 @@ async def stop_run(root_id: int, payload: StopPayload, request: Request, db: Ses
 def list_measures(root_id: int, request: Request, db: Session = Depends(get_db)):
     """The current measure of the folder and the previous ones kept (date, volume, files, duplicates lost)."""
     _folder(db, request, root_id)
-    root = db.get(StorageRoot, int(root_id))
+    root = lookups_repo.storage_root(db, int(root_id))
     data = root.discovered_permissions_json if root is not None and isinstance(root.discovered_permissions_json, dict) else {}
 
     def line(at, size, stats):

@@ -8,6 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
+from app.data.repositories import lookups_repo
 from app.api._helpers import ui_data
 from app.core.db import get_db
 from app.services import features
@@ -52,9 +53,7 @@ def folders(request: Request, zone_id: int | None = None, root_id: int | None = 
     ids = [int(row.get("storage_root_id") or 0) for row in rows]
     scanned: dict[int, object] = {}
     if ids:
-        scanned = {int(root): at for root, at in db.execute(
-            text("SELECT storage_root_id, scanned_at FROM storage_root_sensitivity WHERE scanned_at IS NOT NULL AND storage_root_id IN :ids")
-            .bindparams(bindparam("ids", expanding=True)), {"ids": ids}).all()}
+        scanned = lookups_repo.sensitivity_scanned_at(db, ids)
     out = []
     for row in rows:
         item = {key: row.get(key) for key in FIELDS}

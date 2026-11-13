@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.data.repositories import lookups_repo
 from app.core.db import get_db
 from app.core.internal_auth import require_internal
 from app.services import sso_service
@@ -23,7 +24,7 @@ router = APIRouter(
 @router.get("")
 def list_enabled_providers(db: Session = Depends(get_db)) -> dict[str, Any]:
     """Buttons of the login page."""
-    rows = db.execute(text("SELECT id, name, button_label FROM sso_providers WHERE is_enabled = 1 ORDER BY name")).mappings()
+    rows = lookups_repo.enabled_sso_providers(db)
     return {"providers": [{"id": int(r["id"]), "name": r["name"], "label": r["button_label"] or r["name"]} for r in rows]}
 
 

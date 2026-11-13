@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
+from app.data.repositories import lookups_repo
 from app.core.db import get_db
 from app.data.repositories.access_requests_views_repo import AccessRequestsViewsRepo
 from app.data.repositories.dashboard_views_repo import DashboardViewsRepo
@@ -94,13 +95,7 @@ def get_user_dashboard_me(
         "my_ending": [_card(row) for row in mine if _status(row) == "approved" and _ends_soon(row, now)][:8],
     }
     if guardian_root_ids:
-        alerts = db.execute(
-            text(
-                "SELECT COUNT(DISTINCT storage_root_id) FROM governance_alerts "
-                "WHERE status = 'open' AND storage_root_id IN :ids AND alert_type <> 'pending_access_validation'"
-            ).bindparams(bindparam("ids", expanding=True)),
-            {"ids": sorted(guardian_root_ids)},
-        ).scalar()
+        alerts = lookups_repo.folders_with_open_alerts(db, sorted(guardian_root_ids))
         to_decide = [row for row in guarded if _status(row) == "pending"]
         payload["guardian"] = {
             "folders": len(guardian_root_ids),

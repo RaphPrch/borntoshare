@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import load_only
 from sqlalchemy.orm import Session
 
+from app.data.repositories import lookups_repo
 from app.core.db import get_db
 from app.core.logging import get_logger
 from app.core.internal_auth import require_internal
@@ -22,45 +22,6 @@ router = APIRouter(
     dependencies=[require_internal({"jobs:read"})],
 )
 logger = get_logger("core-identity-sources")
-
-
-def _source_is_active(src: IdentitySource) -> bool:
-    if "is_active" in src.__dict__:
-        return bool(src.__dict__.get("is_active"))
-    status = str(src.__dict__.get("status") or "").strip().lower()
-    if status:
-        return status == "active"
-    return True
-
-
-def _query_identity_sources(db: Session, source_type: str) -> list[IdentitySource]:
-    available = identity_source_columns(db)
-    query = db.query(IdentitySource)
-    if available:
-        attrs = [
-            getattr(IdentitySource, col.name)
-            for col in IdentitySource.__table__.columns
-            if col.name in available
-        ]
-        if attrs:
-            query = query.options(load_only(*attrs))
-
-    query = query.filter(IdentitySource.type == source_type)
-    if "is_active" in available:
-        query = query.filter(IdentitySource.is_active.is_(True))
-    if "auth_enabled" in available:
-        query = query.filter(IdentitySource.auth_enabled.is_(True))
-    if "auth_priority" in available:
-        query = query.order_by(IdentitySource.auth_priority.asc(), IdentitySource.id.desc())
-    else:
-        query = query.order_by(IdentitySource.id.desc())
-
-    rows = query.all()
-    if "is_active" not in available:
-        rows = [row for row in rows if _source_is_active(row)]
-    if "auth_enabled" not in available:
-        rows = [row for row in rows if source_auth_enabled(row)]
-    return rows
 
 
 def _norm_domain(value: str | None) -> str:
@@ -128,7 +89,7 @@ def resolve_active_identity_source_by_domain(
         raise HTTPException(status_code=400, detail="domain is required")
 
     logger.info("identity source resolve by domain", extra={"type": type, "domain": domain})
-    rows = _query_identity_sources(db, type)
+    rows = lookups_repo.auth_identity_sources(db, type)
 
     src = None
     for row in rows:
@@ -162,10 +123,10 @@ def get_identity_source_by_id(
     db: Session = Depends(get_db),
 ):
     logger.info("identity source resolve by id", extra={"id": int(source_id)})
-    src = db.get(IdentitySource, int(source_id))
+    src = lookups_repo.identity_source(db, int(source_id))
     if not src:
         raise HTTPException(status_code=404, detail="Identity source not found")
-    if not _source_is_active(src) or not source_auth_enabled(src):
+    if not lookups_repo._source_is_active(src) or not source_auth_enabled(src):
         raise HTTPException(status_code=404, detail="Identity source not active for authentication")
     return _to_payload(src, db)
 
@@ -179,7 +140,7 @@ def get_active_identity_source(
     db: Session = Depends(get_db),
 ):
     logger.info("identity source resolve", extra={"type": type})
-    rows = _query_identity_sources(db, type)
+    rows = lookups_repo.auth_identity_sources(db, type)
 
     logger.debug("identity source candidates", extra={"count": len(rows)})
 

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.data.repositories import local_credentials_repo
 from app.core.db import get_db
 from app.core.internal_auth import require_internal_token
 from app.services.activity_log import log_activity
@@ -65,25 +66,7 @@ class LocalChangePasswordPayload(BaseModel):
 
 @router.post("/local/verify", dependencies=[Depends(require_internal_token)])
 def verify_local_credentials(payload: LocalVerifyPayload, db: Session = Depends(get_db)):
-    row = db.execute(
-        text(
-            """
-            SELECT
-              i.id AS identity_id,
-              i.username,
-              i.display_name,
-              i.email,
-              COALESCE(i.is_active, 0) AS is_active,
-              COALESCE(i.auth_source, '') AS auth_source,
-              lc.password_hash
-            FROM identities i
-            JOIN local_credentials lc ON lc.identity_id = i.id
-            WHERE LOWER(COALESCE(i.username, '')) = LOWER(:username)
-            LIMIT 1
-            """
-        ),
-        {"username": payload.username},
-    ).mappings().first()
+    row = local_credentials_repo.local_account(db, payload.username)
 
     if not row:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
@@ -109,22 +92,7 @@ def change_local_password(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    row = db.execute(
-        text(
-            """
-            SELECT
-              i.id AS identity_id,
-              COALESCE(i.is_active, 0) AS is_active,
-              COALESCE(i.auth_source, '') AS auth_source,
-              lc.password_hash
-            FROM identities i
-            JOIN local_credentials lc ON lc.identity_id = i.id
-            WHERE LOWER(COALESCE(i.username, '')) = LOWER(:username)
-            LIMIT 1
-            """
-        ),
-        {"username": payload.username},
-    ).mappings().first()
+    row = local_credentials_repo.local_account(db, payload.username)
 
     if not row:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
@@ -138,23 +106,7 @@ def change_local_password(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    db.execute(
-        text(
-            """
-            UPDATE local_credentials
-            SET password_hash = :password_hash,
-                password_version = 'b2s$v=1$bcrypt',
-                last_rotated_at = :last_rotated_at
-            WHERE identity_id = :identity_id
-            """
-        ),
-        {
-            "identity_id": int(row.get("identity_id") or 0),
-            "password_hash": _hash_b2s_password(payload.new_password),
-            "last_rotated_at": now,
-        },
-    )
-    db.commit()
+    local_credentials_repo.set_password_hash(db, int(row.get("identity_id") or 0), _hash_b2s_password(payload.new_password), now)
 
     actor_id, actor_display = _actor_from_headers(request)
     target_id = int(row.get("identity_id") or 0)
