@@ -9,7 +9,7 @@
   import { createStorageRoot, updateStorageRootOwners } from '$lib/api/storage-roots';
   import { searchIdentityDirectory } from '$lib/api/identity-browser';
   import { resolveCredentials } from '$lib/api/credentials';
-  import { chooseSetupModules, completeSetup } from '$lib/api/admin-advanced-settings';
+  import { chooseSetupModules, completeSetup, skipSetupDirectory } from '$lib/api/admin-advanced-settings';
   import { apiPostData } from '$lib/api/client';
   import { formatDate } from '$lib/utils/format';
   import { runProbeWithPolling, buildIdentitySourceProbeRequest, syncStorageRootDiscoveryForEndpoint } from '$lib/jobs/probe-runner';
@@ -111,7 +111,12 @@
   let importedGroups = $state(Number(status.imported_groups ?? 0));
 
   // Resume at the first step left to do
-  const firstStep = !chosen ? 0 : !zoneId ? 1 : !sourceId ? 2 : !serverId ? 3 : status.imported_groups > 0 ? 6 : 4;  // 6: folders
+  // Started without directory: the local accounts only; identities and roles (groups of the directory) are skipped
+  let directorySkipped = $state(Boolean(status.directory_skipped));
+  const SKIPPED_WITHOUT_DIRECTORY: StepKey[] = ['identities', 'roles'];
+  const skipped = (index: number) => directorySkipped && SKIPPED_WITHOUT_DIRECTORY.includes(STEPS[index]?.key);
+  const firstStep = !chosen ? 0 : !zoneId ? 1 : !sourceId && !status.directory_skipped ? 2 : !serverId ? 3
+    : status.directory_skipped || status.imported_groups > 0 ? 6 : 4;  // 6: folders
   let at = $state(firstStep);
   let top = $state(firstStep);
   let busy = $state(false);
@@ -142,10 +147,10 @@
   let placed = $derived([
     { label: t('Modules'), value: top > 0 ? moduleNames : '', step: 0 },
     { label: t('Zone'), value: top > 1 ? zone.name : '', step: 1 },
-    { label: t('Directory'), value: top > 2 ? `${directory.name} · ${directory.protocol.toUpperCase()}` : '', step: 2 },
+    { label: t('Directory'), value: directorySkipped ? t('None: local accounts') : top > 2 ? `${directory.name} · ${directory.protocol.toUpperCase()}` : '', step: 2 },
     { label: t('File server'), value: top > 3 ? `${server.name} · ${server.host}` : '', step: 3 },
-    { label: t('Identities'), value: top > 4 ? t('{count} group(s)', { count: importedGroups || pickedGroups.length }) : '', step: 4 },
-    { label: t('Roles'), value: top > 5 ? t('Done') : '', step: 5 },
+    { label: t('Identities'), value: directorySkipped ? t('Skipped') : top > 4 ? t('{count} group(s)', { count: importedGroups || pickedGroups.length }) : '', step: 4 },
+    { label: t('Roles'), value: directorySkipped ? t('Skipped') : top > 5 ? t('Done') : '', step: 5 },
     { label: t('Folders'), value: top > 6 ? t('{count} folder(s)', { count: foldersCreated }) : '', step: 6 }
   ]);
 
@@ -423,6 +428,7 @@
       else zoneId = Number((await createZone(fetch, payload) as any)?.id);
     }
     if (current === 'directory') {
+      directorySkipped = false;
       const payload: any = {
         type: 'ad',
         name: directory.name.trim(),
@@ -555,6 +561,25 @@
     try {
       await saveStep();
       at += 1;
+      while (skipped(at)) at += 1;
+      top = Math.max(top, at);
+      enterStep();
+    } catch (error) {
+      errorMessage = message(error, t('Unable to save this step.'));
+    } finally {
+      busy = false;
+    }
+  }
+
+  /** Without directory: local accounts only, the directory is added later from the console (Directories) */
+  async function skipDirectory() {
+    if (busy) return;
+    busy = true;
+    errorMessage = '';
+    try {
+      await skipSetupDirectory(fetch);
+      directorySkipped = true;
+      at = STEPS.findIndex((step) => step.key === 'server');
       top = Math.max(top, at);
       enterStep();
     } catch (error) {
@@ -565,6 +590,7 @@
   }
 
   function goToStep(index: number) {
+    while (index > 0 && skipped(index)) index -= 1;
     if (index > top) return;
     errorMessage = '';
     at = index;
@@ -588,11 +614,12 @@
     <p>{t('The application is empty. Each step is saved: you can leave and come back here.')}</p>
     <ol class="sp-steps">
       {#each STEPS as step, index}
-        {@const state = index === at ? 'cur' : index < top ? 'done' : ''}
+        {@const off = skipped(index) || (step.key === 'directory' && directorySkipped && index !== at)}
+        {@const state = index === at ? 'cur' : off ? 'skip' : index < top ? 'done' : ''}
         <li class={state}>
-          <button type="button" class={`sp-step ${state}`} disabled={index > top} aria-current={index === at ? 'step' : undefined} onclick={() => goToStep(index)}>
-            <span class="sp-pip" aria-hidden="true">{state === 'done' ? '✓' : index + 1}</span>
-            <span><strong>{step.label()}</strong><small>{step.hint()}</small></span>
+          <button type="button" class={`sp-step ${state}`} disabled={index > top || skipped(index)} aria-current={index === at ? 'step' : undefined} onclick={() => goToStep(index)}>
+            <span class="sp-pip" aria-hidden="true">{state === 'done' ? '✓' : state === 'skip' ? '–' : index + 1}</span>
+            <span><strong>{step.label()}</strong><small>{off ? (step.key === 'directory' ? t('Local accounts for now') : t('Skipped: no directory')) : step.hint()}</small></span>
           </button>
         </li>
       {/each}
@@ -727,6 +754,7 @@
               </div>
             {/if}
           </div>
+          <p class="sp-note">{t('No directory yet? « Skip: local accounts » starts with the local accounts only; the directory is added later in Directories. For Windows servers, declare then the DNS of their domain in Advanced settings › Network: the domain controller is found through it.')}</p>
         {:else if current === 'server'}
           <div class="sp-grid" oninput={touchServer}>
             <label class="sp-f" for="sp-srv-name">{t('Name')}<input id="sp-srv-name" bind:value={server.name} autocomplete="off" /></label>
@@ -808,7 +836,7 @@
               {/each}
             </div>
           {/if}
-          {#if gov}
+          {#if gov && !directorySkipped}
             <div>
               <h3 class="sp-sub">{t('Guardians of these folders')}</h3>
               <p class="sp-lead sp-lead--tight">{t('Choose them now or later, folder by folder; a folder without guardian has its requests decided by the administrators.')} {t('Guardians decide on the access requests of their folders.')}</p>
@@ -839,7 +867,7 @@
           <div class="sp-checks">
             <div><span>{t('Modules')}</span><i class="ok">{moduleNames}</i></div>
             <div><span>{t('Zone')}</span><i class="ok">{zone.name}</i></div>
-            <div><span>{t('Directory')}</span><i class="ok">{directory.name}</i></div>
+            <div><span>{t('Directory')}</span><i class="ok">{directorySkipped ? t('None: local accounts') : directory.name}</i></div>
             <div><span>{t('File server')}</span><i class="ok">{server.name}</i></div>
             <div><span>{t('Folders')}</span><i class="ok">{foldersCreated}</i></div>
           </div>
@@ -868,6 +896,9 @@
           {/if}
         </span>
         {#if at > 0}<button type="button" class="sp-btn" disabled={busy} onclick={() => goToStep(at - 1)}>{t('Back')}</button>{/if}
+        {#if current === 'directory'}
+          <button type="button" class="sp-btn" disabled={busy || testing} onclick={skipDirectory} title={t('Local accounts only: the directory is added later in Directories')}>{t('Skip: local accounts')}</button>
+        {/if}
         {#if current === 'folders'}
           <button type="button" class="sp-btn" disabled={busy} onclick={skipFolders}>{t('Skip for now')}</button>
         {/if}
@@ -920,6 +951,7 @@
   .sp-pip { flex: none; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
   .cur .sp-pip { background: var(--b2s-accent); color: #10140a; }
   .done .sp-pip { background: var(--b2s-color-success); color: #fff; }
+  .skip .sp-step { opacity: .6; }
   .sp-step strong { display: block; font-weight: 500; }
   .sp-step small { display: block; color: var(--b2s-color-text-muted); font-size: 12px; }
   .sp-stage { flex: 1 1 520px; min-width: 0; }

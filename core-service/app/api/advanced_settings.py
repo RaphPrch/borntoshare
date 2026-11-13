@@ -339,6 +339,8 @@ def get_setup_status(db: Session = Depends(get_db)):
             "completed": completed,
             # The modules chosen at the first step (None: not chosen yet), and the state of each one now
             "modules": setup.get("modules") or _modules_from_wizard(db),
+            # Started with the local accounts only: the directory is added later (Directories)
+            "directory_skipped": bool(setup.get("directory_skipped")) and not directory,
             "features": {item["key"]: {"licensed": item["licensed"], "switched_on": item["switched_on"], "enabled": item["enabled"]}
                          for item in features.state(db)["features"]},
             "zone": zone,
@@ -386,6 +388,19 @@ def choose_setup_modules(payload: SetupModules, request: Request, db: Session = 
                  outcome="success", target_type="advanced_settings", target_display="Guided setup", context_json={"modules": chosen},
                  correlation_id=(request.headers.get("x-request-id") or None))
     return ui_data({"modules": chosen})
+
+
+@router.post("/setup/skip-directory", dependencies=[Depends(admin_only)])
+def skip_setup_directory(request: Request, db: Session = Depends(get_db)):
+    """Start without LDAP / OpenLDAP directory: the local accounts sign in, the directory is added later from the
+    console (Directories). The steps that need it (identities, roles, guardians) are skipped too."""
+    current = _read_payload(db)
+    _write_payload(db, {**current, "setup": {**(current.get("setup") or {}), "directory_skipped": True}})
+    actor = actor_from_request(request)
+    log_activity(db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name, action="advanced_settings.setup_directory_skipped",
+                 outcome="success", target_type="advanced_settings", target_display="Guided setup", context_json={},
+                 correlation_id=(request.headers.get("x-request-id") or None))
+    return ui_data({"directory_skipped": True})
 
 
 @router.post("/setup/complete", dependencies=[Depends(admin_only)])

@@ -777,6 +777,14 @@
       "setup_completed": {
         "title": "Setup completed",
         "description": "The initial setup of BornToShare is complete"
+      },
+      "setup_modules": {
+        "title": "Modules chosen",
+        "description": "Governance, 5S or both, at the first start"
+      },
+      "setup_directory_skipped": {
+        "title": "Started without a directory",
+        "description": "Local accounts only: the directory is added from Directories"
       }
     },
     "identity": {
