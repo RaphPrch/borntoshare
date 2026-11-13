@@ -507,6 +507,9 @@ class StorageRootsViewsRepo(SQLViewRepo):
 
         rows = self._all(sql, params)
         storage_root_ids = [int(r.get("storage_root_id") or 0) for r in rows if int(r.get("storage_root_id") or 0) > 0]
+        from app.services.folder_tags import names_by_root
+
+        subfolder_tags = names_by_root(self.db)
         tags_by_root_id = self._load_tags_map(storage_root_ids)
         pending_counts_by_root_id = self._load_pending_validation_counts(storage_root_ids)
         guardian_counts_by_root_id = self._load_guardian_counts(storage_root_ids)
@@ -580,6 +583,8 @@ class StorageRootsViewsRepo(SQLViewRepo):
             payload["open_alerts_error_count"] = int(alert_summary.get("open_alerts_error_count") or 0)
             payload["open_alert_types"] = str(alert_summary.get("open_alert_types") or "")
             payload["discovered_tree_json"] = discovered_tree_by_root_id.get(storage_root_id)
+            # Tags of its sub-folders (policies « also on the sub-folders »): « tag:… » finds the folder too
+            payload["subfolder_tags"] = subfolder_tags.get(storage_root_id, [])
             out.append(payload)
         return out
 

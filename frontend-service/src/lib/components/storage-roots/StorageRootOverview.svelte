@@ -1,5 +1,6 @@
 <script lang="ts">
   import { flip } from 'svelte/animate';
+  import { apiGetList } from '$lib/api/client';
   import { dur, MOTION, pop } from '$lib/utils/motion';
   import StorageRootContentCards from '$lib/components/storage-roots/StorageRootContentCards.svelte';
   import StorageRootQuotaCard from '$lib/components/storage-roots/StorageRootQuotaCard.svelte';
@@ -40,6 +41,18 @@
   export let onExplain: (login: string) => void = () => {};
   export let onOpenGuardians: () => void = () => {};
   export let onOpenTags: () => void = () => {};
+  // Sub-folders tagged by the policies « also on the sub-folders » (path from the share)
+  let subTags: Array<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }> = [];
+  let subTagsAll = false;
+  let subTagsFor: number | null = null;
+  $: if (rootId && rootId !== subTagsFor) {
+    subTagsFor = rootId;
+    subTagsAll = false;
+    void apiGetList<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }>(fetch, `/storage-roots/${rootId}/folder-tags`)
+      .then((rows) => { if (subTagsFor === rootId) subTags = rows; })
+      .catch(() => (subTags = []));
+  }
+  const inner = (path: string) => path;
   export let onOpenActivity: () => void = () => {};
   export let onToggleInheritance: () => void = () => {};
   export let onChanged: () => void = () => {};
@@ -138,6 +151,18 @@
           <button type="button" class="ov__add" on:click={onOpenTags}>{tags.length ? t('Manage') : t('+ Tag')}</button>
         </dd>
       </div>
+      {#if subTags.length}
+        <div>
+          <dt>{t('Tagged sub-folders')}</dt>
+          <dd class="ov__subtags">
+            {#each subTags.slice(0, subTagsAll ? subTags.length : 4) as row (row.path)}
+              <span class="ov__subtag"><a class="ov__plain" href={`/five-s/explore/${rootId}`} title={row.path}><i class="bi bi-folder" aria-hidden="true"></i>{inner(row.path)}</a>
+                {#each row.tags as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} />{/each}</span>
+            {/each}
+            {#if subTags.length > 4 && !subTagsAll}<button type="button" class="ov__add" on:click={() => (subTagsAll = true)}>{t('Show the {count} others', { count: subTags.length - 4 })}</button>{/if}
+          </dd>
+        </div>
+      {/if}
       {#if zoneLabel}<div><dt>{t('Zone')}</dt><dd>{zoneLabel}</dd></div>{/if}
       <div><dt>{t('File server')}</dt><dd>{#if endpointHref}<a class="ov__plain" href={endpointHref}>{endpointDisplay}</a>{:else}{endpointDisplay}{/if}</dd></div>
       <div>
@@ -184,4 +209,7 @@
   /* The file server: a link that reads as plain text (underlined on hover only) */
   .ov__plain { color: inherit; text-decoration: none; font-weight: 500; }
   .ov__plain:hover { color: var(--b2s-color-primary, #2563eb); text-decoration: underline; }
+  .ov__subtags { display: grid; gap: 6px; }
+  .ov__subtag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .ov__subtag a { display: inline-flex; align-items: center; gap: 6px; font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
 </style>

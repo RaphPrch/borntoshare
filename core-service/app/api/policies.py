@@ -33,6 +33,8 @@ class PolicyActions(BaseModel):
     add_tag: int | None = Field(default=None, gt=0)
     # The tag goes with the condition: removed when the folder no longer matches (automatic tags)
     remove_tag: bool = False
+    # The tag also on the sub-folders that match (their name for chemin:, the files found in them for est:…)
+    subfolders: bool = False
     alert: PolicyAlert | None = None
     notify_guardians: bool = False
     jobs: PolicyJobs | None = None
@@ -59,6 +61,14 @@ def _check(db: Session, payload: PolicyPayload) -> None:
         raise HTTPException(status_code=422, detail={"code": "POLICY_NO_ACTION", "message": "Choisissez au moins une action"})
     if actions.add_tag and db.execute(text("SELECT 1 FROM tags WHERE id = :id"), {"id": actions.add_tag}).first() is None:
         raise HTTPException(status_code=422, detail={"code": "POLICY_TAG_UNKNOWN", "message": "Ce tag n'existe pas"})
+    if actions.subfolders:
+        from app.services.folder_tags import supported
+
+        if not actions.add_tag:
+            raise HTTPException(status_code=422, detail={"code": "POLICY_SUBFOLDERS_NEED_TAG", "message": "Les sous-dossiers reçoivent un tag : choisissez-le"})
+        if not supported(payload.condition):
+            raise HTTPException(status_code=422, detail={"code": "POLICY_SUBFOLDERS_UNSUPPORTED",
+                                                         "message": "Sur les sous-dossiers, seuls chemin:… et les états de sensibilité (est:mot-de-passe, est:sensible…) sont évalués"})
 
 
 def _audit(db: Session, request: Request, action: str, policy_id: int, name: str, context: dict | None = None) -> None:

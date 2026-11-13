@@ -1,9 +1,10 @@
 <script lang="ts">
+  import TagPill from '$lib/components/tags/TagPill.svelte';
   import { copyText } from '$lib/utils/clipboard';
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
-  import { apiGetData, apiPostData } from '$lib/api/client';
+  import { apiGetData, apiGetList, apiPostData } from '$lib/api/client';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
@@ -50,6 +51,12 @@
   const YEAR = 365 * 86400000;
   const load = (path: string | null) =>
     apiGetData<Level>(fetch, `/modules/fives/storage-roots/${rootId}/folders`, path == null ? undefined : { path });
+
+  // ---- tags of the sub-folders (policies « also on the sub-folders »), by lower-case path from the share ----
+  let folderTags = new Map<string, Array<{ id: number; name: string; color: string | null }>>();
+  $: if (rootId) void apiGetList<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }>(fetch, `/storage-roots/${rootId}/folder-tags`)
+    .then((rows) => (folderTags = new Map(rows.map((row) => [row.path.toLowerCase(), row.tags]))))
+    .catch(() => null);
 
   // ---- the files of the open folder, as they are now on the file server (read by a worker) ----
   // The inventory of the module only knows the files fingerprinted for the duplicates: it stays as the fallback.
@@ -454,7 +461,8 @@
                   {@const dups = groupsUnder(folder.path).length}
                   <tr class:is-sel={selected === folder} on:click={() => (selected = folder)} on:dblclick={() => enter(folder)} on:contextmenu={(event) => openMenu(folder, event)}>
                     <td class="fx__name"><i class="bi bi-folder-fill" aria-hidden="true"></i>
-                      {#if folder.folders > 0}<button type="button" class="b2s-link-btn" on:click|stopPropagation={() => enter(folder)}>{folder.name}</button>{:else}<span>{folder.name}</span>{/if}</td>
+                      {#if folder.folders > 0}<button type="button" class="b2s-link-btn" on:click|stopPropagation={() => enter(folder)}>{folder.name}</button>{:else}<span>{folder.name}</span>{/if}
+                      {#each folderTags.get(folder.path.toLowerCase()) ?? [] as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} />{/each}</td>
                     <td class="fx__num">{formatBytes(folder.bytes)}</td>
                     <td>{folder.created_at ? formatDate(folder.created_at) : '—'}</td>
                     <td>{folder.last_modified ? formatDate(folder.last_modified) : '—'}</td>

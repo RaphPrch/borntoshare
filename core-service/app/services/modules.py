@@ -106,3 +106,18 @@ def request_scan(db: Session, storage_root_id: int, *, reason: str, by: str | No
     except httpx.HTTPError:
         logger.warning("FIVES_SCAN_NOT_REQUESTED", extra={"storage_root_id": storage_root_id}, exc_info=True)
         return False
+
+
+def folder_paths(storage_root_id: int) -> list[str]:
+    """The sub-folders of a governed folder known by the 5S module (paths from the share); [] without the module."""
+    url = fives_url()
+    if not url:
+        return []
+    try:
+        response = httpx.get(f"{url}/internal/folders/{int(storage_root_id)}/paths",
+                             headers={"x-internal-token": os.getenv("INTERNAL_TOKEN", "")}, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return [str(path) for path in (data.get("data") if isinstance(data, dict) else data) or []]
+    except (httpx.HTTPError, ValueError):
+        return []

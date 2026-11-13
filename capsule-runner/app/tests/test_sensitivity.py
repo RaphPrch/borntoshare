@@ -186,6 +186,15 @@ def test_checksums_refuse_look_alikes() -> None:
     assert sens._nir_ok(_NIR) and not sens._nir_ok(_NIR[:-2] + "92")
 
 
+def test_decimals_of_a_number_are_not_a_card() -> None:
+    # GPS coordinates of Google Photos metadata: the decimals passed the Luhn check by chance
+    meta = '{"geoData": {"latitude": 47.' + _CARD + ', "longitude": -3.' + _CARD + '}}'
+    assert sens.content_findings("x.jpg.supplemental-metadata.json", meta) == []
+    assert sens.content_findings("x.csv", "montant;" + _CARD + ",50") == []
+    # A card on its own is still found
+    assert [item["category"] for item in sens.content_findings("x.csv", "carte;" + _CARD)] == ["bank_data"]
+
+
 def test_a_password_line_also_masks_the_numbers_it_holds() -> None:
     found = sens.content_findings("x.txt", f"password=Sup3rSecret iban {_IBAN}")
     assert found[0]["category"] == "password" and _IBAN not in found[0]["excerpt"] and "FR76••••••" in found[0]["excerpt"]

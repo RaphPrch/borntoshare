@@ -115,7 +115,7 @@ function test(row: Row, filter: QueryFilter): boolean {
   const has = (values: unknown[]) => values.some((value) => fold(value).includes(wanted));
   switch (filter.key) {
     case 'tag':
-      return has(tagNames(row));
+      return has([...tagNames(row), ...((row?.subfolder_tags as string[] | undefined) ?? [])]);
     case 'guardian':
       return has(guardians(row));
     case 'zone':

@@ -141,7 +141,7 @@ def _test(row: dict, item: Filter) -> bool:
         return any(wanted in fold(value) for value in values)
 
     if item.key == "tag":
-        return has(tag_names(row))
+        return has([*tag_names(row), *list(row.get("subfolder_tags") or [])])
     if item.key == "guardian":
         return has(list(row.get("guardian_names") or []))
     if item.key == "zone":

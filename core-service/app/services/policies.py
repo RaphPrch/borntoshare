@@ -305,6 +305,19 @@ def run_policy(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]], 
                 text("DELETE FROM storage_root_tags WHERE tag_id = :tag AND storage_root_id IN :ids").bindparams(bindparam("ids", expanding=True)),
                 {"tag": int(actions["add_tag"]), "ids": gone_ids},
             ).rowcount or 0
+    # The tag on the sub-folders too (their name, the files found in them); gone with the option
+    sub_added = sub_removed = 0
+    if actions.get("add_tag"):
+        from app.services import folder_tags
+
+        if actions.get("subfolders") and folder_tags.supported(policy["condition"]):
+            for row in scope:
+                paths = folder_tags.matching_folders(db, row, policy["condition"])
+                added, removed = folder_tags.apply(db, pid, int(actions["add_tag"]), int(row["storage_root_id"]), paths,
+                                                   remove=True)  # known only through the policy: they follow the condition
+                sub_added, sub_removed = sub_added + added, sub_removed + removed
+        elif only_root_ids is None:
+            sub_removed = db.execute(text("DELETE FROM folder_tags WHERE policy_id = :id"), {"id": pid}).rowcount or 0
     if actions.get("alert"):
         for row in matched.values():
             _raise_alert(db, policy, row, str((actions.get("alert") or {}).get("severity") or "warning"))
@@ -318,6 +331,7 @@ def run_policy(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]], 
         )
     db.commit()
     return {"policy_id": pid, "matched": len(matched), "new": len(new_ids), "gone": len(gone_ids), "tagged": tagged, "untagged": untagged,
+            "subfolders_tagged": sub_added, "subfolders_untagged": sub_removed,
             "resolved": resolved, "notified": notified, "jobs": jobs}
 
 
@@ -381,4 +395,8 @@ def forget_policy(db: Session, policy_id: int) -> None:
     """A deleted (or disabled) policy: its alerts close, its hits go. The tags it added stay."""
     _resolve_alerts(db, int(policy_id))
     db.execute(text("DELETE FROM governance_policy_hits WHERE policy_id = :id"), {"id": int(policy_id)})
+    try:  # the tags it set on sub-folders follow it (they are only known through it)
+        db.execute(text("DELETE FROM folder_tags WHERE policy_id = :id"), {"id": int(policy_id)})
+    except Exception:
+        db.rollback()
     db.commit()

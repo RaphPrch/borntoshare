@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseFolderQuery } from '$lib/components/storage-roots/folder-query';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { invalidateAll } from '$app/navigation';
   import { apiDeleteData, apiPostData, apiPutData } from '$lib/api/client';
@@ -16,12 +17,12 @@
    */
   type Kind = 'check' | 'measure' | 'sensitivity';
   type Jobs = { kinds: Kind[]; every_hours: number };
-  type Actions = { add_tag: number | null; remove_tag?: boolean; alert: { severity: string } | null; notify_guardians: boolean; jobs?: Jobs | null };
+  type Actions = { add_tag: number | null; remove_tag?: boolean; subfolders?: boolean; alert: { severity: string } | null; notify_guardians: boolean; jobs?: Jobs | null };
   type Policy = {
     id: number; name: string; description: string | null; enabled: boolean; condition: string; actions: Actions;
     matching: number; last_run_at: string | null; last_new: number | null; last_error: string | null;
   };
-  type Draft = { id: number | null; name: string; description: string; enabled: boolean; condition: string; tagOn: boolean; tagId: number | null; tagRemove: boolean; alertOn: boolean; severity: string; notify: boolean;
+  type Draft = { id: number | null; name: string; description: string; enabled: boolean; condition: string; tagOn: boolean; tagId: number | null; tagRemove: boolean; subfolders: boolean; alertOn: boolean; severity: string; notify: boolean;
     jobsOn: boolean; jobCheck: boolean; jobMeasure: boolean; jobSensitivity: boolean; everyHours: number };
 
   export let data: Record<string, any>;
@@ -61,12 +62,12 @@
 
   function edit(policy: Policy | null, template: (typeof templates)[number] | null = null) {
     const source = policy
-      ? { name: policy.name, description: policy.description ?? '', condition: policy.condition, tagId: policy.actions?.add_tag ?? null, tagRemove: Boolean(policy.actions?.remove_tag), severity: policy.actions?.alert?.severity ?? 'warning', notify: Boolean(policy.actions?.notify_guardians), alertOn: Boolean(policy.actions?.alert), enabled: policy.enabled, jobs: policy.actions?.jobs ?? null }
+      ? { name: policy.name, description: policy.description ?? '', condition: policy.condition, tagId: policy.actions?.add_tag ?? null, tagRemove: Boolean(policy.actions?.remove_tag), subfolders: Boolean(policy.actions?.subfolders), severity: policy.actions?.alert?.severity ?? 'warning', notify: Boolean(policy.actions?.notify_guardians), alertOn: Boolean(policy.actions?.alert), enabled: policy.enabled, jobs: policy.actions?.jobs ?? null }
       : template
         ? { ...template, alertOn: !(template as any).jobs, enabled: true, jobs: (template as any).jobs ?? null }
         : { name: '', description: '', condition: '', tagId: null, tagRemove: false, severity: 'warning', notify: false, alertOn: true, enabled: true, jobs: null };
     draft = { id: policy?.id ?? null, name: source.name, description: source.description, enabled: source.enabled, condition: source.condition,
-      tagOn: Boolean(source.tagId), tagId: source.tagId ?? null, tagRemove: Boolean((source as any).tagRemove), alertOn: source.alertOn, severity: source.severity, notify: source.notify,
+      tagOn: Boolean(source.tagId), tagId: source.tagId ?? null, tagRemove: Boolean((source as any).tagRemove), subfolders: Boolean((source as any).subfolders), alertOn: source.alertOn, severity: source.severity, notify: source.notify,
       jobsOn: Boolean(source.jobs?.kinds?.length), jobCheck: Boolean(source.jobs?.kinds?.includes('check')), jobMeasure: Boolean(source.jobs?.kinds?.includes('measure')),
       jobSensitivity: Boolean(source.jobs?.kinds?.includes('sensitivity')), everyHours: Number(source.jobs?.every_hours ?? 168) };
     preview = null;
@@ -97,12 +98,20 @@
   $: wide = Boolean(draft?.enabled && (preview?.count ?? 0) > POLICY_CONFIRM_FROM);
   $: canSave = Boolean(draft && draft.name.trim() && draft.condition.trim() && (draft.alertOn || draft.notify || (draft.tagOn && draft.tagId) || (draft.jobsOn && draftKinds.length)) && !(preview?.unknown_states?.length) && (!wide || wideConfirmed));
 
+  // Criteria a sub-folder can be judged on (same rule as core-service folder_tags.supported)
+  const SUBFOLDER_STATES = ['sensible', 'mot-de-passe', 'cle-ou-jeton', 'donnees-personnelles', 'bancaire', 'fichiers-a-risque'];
+  $: subfoldersSupported = (() => {
+    const parsed = parseFolderQuery(draft?.condition ?? '');
+    return !parsed.text.trim() && parsed.filters.length > 0
+      && parsed.filters.every((item) => item.key === 'path' || (item.key === 'is' && SUBFOLDER_STATES.includes(item.value.toLowerCase())));
+  })();
+
   async function save() {
     if (!draft || !canSave || saving) return;
     saving = true;
     const body = {
       name: draft.name.trim(), description: draft.description.trim() || null, enabled: draft.enabled, condition: draft.condition.trim(),
-      actions: { add_tag: draft.tagOn ? draft.tagId : null, remove_tag: draft.tagOn && draft.tagRemove, alert: draft.alertOn ? { severity: draft.severity } : null, notify_guardians: draft.notify,
+      actions: { add_tag: draft.tagOn ? draft.tagId : null, remove_tag: draft.tagOn && draft.tagRemove, subfolders: draft.tagOn && draft.subfolders, alert: draft.alertOn ? { severity: draft.severity } : null, notify_guardians: draft.notify,
         jobs: draft.jobsOn && draftKinds.length ? { kinds: draftKinds, every_hours: draft.everyHours } : null }
     };
     try {
@@ -271,6 +280,11 @@
         {#if draft.tagOn}
           <label class="pf__check pf__check--sub"><input type="checkbox" bind:checked={draft.tagRemove} />
             <span>{t('Remove the tag when the folder no longer matches')}<small>{t('An automatic tag: it follows the condition (a scan that no longer finds anything takes it off).')}</small></span>
+          </label>
+          <label class="pf__check pf__check--sub" class:is-off={!subfoldersSupported}><input type="checkbox" bind:checked={draft.subfolders} disabled={!subfoldersSupported && !draft.subfolders} />
+            <span>{t('Also on the sub-folders')}<small>{subfoldersSupported
+              ? t('The sub-folders whose name matches (chemin:…) or that hold the files found (est:mot-de-passe…) get the tag too; it follows the condition.')
+              : t('Only chemin:… and the sensitivity states (est:sensible, est:mot-de-passe…) are judged on the sub-folders.')}</small></span>
           </label>
         {/if}
         <label class="pf__check"><input type="checkbox" bind:checked={draft.notify} />

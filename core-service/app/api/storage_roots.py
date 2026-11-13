@@ -1560,6 +1560,22 @@ def get_sensitivity(root_id: int, request: Request, db: Session = Depends(get_db
     return ui_data(sensitivity.get(db, int(root_id)))
 
 
+@router.get("/{root_id}/folder-tags")
+def get_folder_tags(root_id: int, request: Request, db: Session = Depends(get_db)):
+    """Tags of the sub-folders of the folder (set by the policies « also on the sub-folders »): [{path, tags}]."""
+    from app.services import folder_tags
+
+    actor = actor_from_request(request)
+    require_storage_roots_index(db, actor)
+    if not filter_storage_root_rows(db, actor, [{"storage_root_id": int(root_id)}]):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage root not found")
+    try:
+        return ui_list(folder_tags.for_root(db, int(root_id)))
+    except Exception:  # table not created yet (pack 162)
+        db.rollback()
+        return ui_list([])
+
+
 class SensitivityIgnorePayload(BaseModel):
     path: str = Field(min_length=1, max_length=1024)
     ignore: bool = True

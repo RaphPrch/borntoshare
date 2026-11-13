@@ -17,7 +17,8 @@ from datetime import datetime, timezone
 from app.actions.smb import _LS_ENTRY, _classify_smb_error, run_samba
 
 # 3: personal data (social security number), bank data (IBAN, card), backups and databases, mailboxes, programs
-RULES_VERSION = 3
+# 4: no card number in the decimals of a number (GPS coordinates of photo metadata)
+RULES_VERSION = 4
 MAX_LISTED = 300_000
 # Files whose content is read in one pass (the next pass, queued by the core, goes on)
 MAX_READ_FILES = 1000
@@ -111,7 +112,8 @@ def _nir_ok(value: str) -> bool:
 # social security number (its first digits say the sex and the year of birth).
 DATA_RULES: list[tuple[str, str, re.Pattern[str], object, int]] = [
     ("bank_data", "IBAN", re.compile(r"\b([A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?)\b"), _iban_ok, 4),
-    ("bank_data", "Payment card number", re.compile(r"(?<![\d-])((?:\d[ -]?){12,18}\d)(?![\d-])"), _luhn_ok, 4),
+    # Not the decimals of a number (GPS coordinates of photo metadata: "longitude": -3.3322…, a Luhn hit by chance)
+    ("bank_data", "Payment card number", re.compile(r"(?<![\d.,-])((?:\d[ -]?){12,18}\d)(?![\d-]|[.,]\d)"), _luhn_ok, 4),
     ("personal_data", "Social security number",
      re.compile(r"\b([12] ?\d{2} ?(?:0[1-9]|1[0-2]|[2-9]\d) ?(?:\d{2}|2A|2B) ?\d{3} ?\d{3} ?\d{2})\b"), _nir_ok, 0),
 ]
