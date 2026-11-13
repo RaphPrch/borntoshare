@@ -11,6 +11,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from app.services.root_payload import merge_root_payload
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
@@ -80,9 +81,9 @@ def record_result(db: Session, storage_root_id: int, job_id: int | None, result_
         unreadable_alert(db, int(storage_root_id), problem)
         return False
     # A new dict: the JSON column is seen as changed (the ACL part of the last test stays as it is)
-    root.discovered_permissions_json = {**current, "content_previous": with_previous(current), "content_size_bytes": int(stats.get("bytes") or 0),
+    merge_root_payload(root, {"content_previous": with_previous(current), "content_size_bytes": int(stats.get("bytes") or 0),
                                         "content_updated_at": now.isoformat() + "+00:00", "content_stats": stats,
-                                        "content_scan_job_id": job_id, "content_interim": False}
+                                        "content_scan_job_id": job_id, "content_interim": False})
     db.execute(
         text(
             """
@@ -160,9 +161,9 @@ def record_module_state(db: Session, storage_root_id: int, *, status: str, stats
         elif root is not None:
             # An interim content never becomes a previous measure: the one shown before it stays the last kept
             previous = (current.get("content_previous") or []) if current.get("content_interim") else with_previous(current)
-            root.discovered_permissions_json = {**current, "content_previous": previous, "content_size_bytes": int(stats.get("bytes") or 0),
+            merge_root_payload(root, {"content_previous": previous, "content_size_bytes": int(stats.get("bytes") or 0),
                                                 "content_updated_at": now.isoformat() + "+00:00", "content_stats": stats,
-                                                "content_interim": status == "running"}
+                                                "content_interim": status == "running"})
     db.execute(
         text(
             """
@@ -266,7 +267,7 @@ def restore_previous(db: Session, storage_root_id: int, index: int) -> bool:
     chosen = history.pop(int(index))
     if current.get("content_stats"):
         history.insert(0, {"at": current.get("content_updated_at"), "bytes": current.get("content_size_bytes"), "stats": current["content_stats"]})
-    root.discovered_permissions_json = {**current, "content_previous": history[:KEEP_PREVIOUS], "content_stats": chosen["stats"],
-                                        "content_size_bytes": chosen.get("bytes"), "content_updated_at": chosen.get("at"), "content_interim": False}
+    merge_root_payload(root, {"content_previous": history[:KEEP_PREVIOUS], "content_stats": chosen["stats"],
+                                        "content_size_bytes": chosen.get("bytes"), "content_updated_at": chosen.get("at"), "content_interim": False})
     db.commit()
     return True

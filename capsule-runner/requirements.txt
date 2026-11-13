@@ -1,7 +1,7 @@
 # capsule-runner — runtime dependencies (Python 3.14)
 # Pinned: the same library has the same version in every service. Update them together.
-fastapi==0.156.5
-pydantic==2.14.1
+fastapi==0.162.5
+pydantic==2.14.3
 httpx==0.28.1
 ldap3==2.9.1
 # DFS referrals (namespaces and their targets)

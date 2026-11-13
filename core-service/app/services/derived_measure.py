@@ -12,6 +12,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
+from app.services.root_payload import merge_root_payload
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -101,9 +102,9 @@ def derive(db: Session, root_id: int) -> bool:
     stats = dict(answer.get("stats") or {})
     measured_at = str(stats.pop("measured_at", "") or datetime.now(timezone.utc).isoformat())
     current = dict(root.discovered_permissions_json) if isinstance(root.discovered_permissions_json, dict) else {}
-    root.discovered_permissions_json = {**current, "content_stats": stats, "content_size_bytes": int(stats.get("bytes") or 0),
+    merge_root_payload(root, {"content_stats": stats, "content_size_bytes": int(stats.get("bytes") or 0),
                                         "content_updated_at": measured_at.replace("Z", "+00:00"), "content_interim": False,
-                                        "content_derived_from": int(parent.id)}
+                                        "content_derived_from": int(parent.id)})
     db.execute(text("""INSERT INTO storage_root_scans (storage_root_id, status, method, finished_at, files, error_message)
                        VALUES (:id, 'done', 'derived', UTC_TIMESTAMP(), :files, NULL)
                        ON DUPLICATE KEY UPDATE status = 'done', method = 'derived', finished_at = VALUES(finished_at), files = VALUES(files), error_message = NULL"""),

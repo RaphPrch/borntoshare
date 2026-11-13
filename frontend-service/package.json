@@ -36,15 +36,15 @@
     "cookie": "0.7.2"
   },
   "devDependencies": {
-    "@sveltejs/adapter-node": "^5.5.7",
-    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/adapter-node": "^5.5.8",
+    "@sveltejs/kit": "^2.70.4",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@types/node": "^26.6.5",
-    "simple-icons": "^16.36.0",
-    "svelte": "^5.57.2",
-    "svelte-check": "^4.7.7",
+    "@types/node": "^26.6.6",
+    "simple-icons": "^16.37.0",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
     "typescript": "^6.0.3",
-    "vite": "^8.3.5"
+    "vite": "^8.3.8"
   },
   "engines": {
     "node": ">=26"

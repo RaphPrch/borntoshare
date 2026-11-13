@@ -53,6 +53,14 @@ echo "2/4 rollback point: rollback-$TS"
 for s in $SERVICES; do
   podman tag "localhost/b2s-$s:latest" "localhost/b2s-$s:rollback-$TS" 2>/dev/null || echo "  (no image yet for $s)"
 done
+# Only the last 3 rollback points of each service are kept (each deploy left one more: 25 GB of images after 170)
+KEEP_ROLLBACKS=${KEEP_ROLLBACKS:-3}
+for s in $SERVICES; do
+  # « podman untag IMAGE NAME »: only this name goes (« podman untag NAME » alone removes every name of the image,
+  # :latest too when it is the same image)
+  { podman images --format '{{.Repository}}:{{.Tag}}' | grep "^localhost/b2s-$s:rollback-" || true; } | sort -u -r | tail -n +$((KEEP_ROLLBACKS + 1)) |
+    while read -r old; do podman untag "$old" "$old" >/dev/null 2>&1 || true; done
+done
 
 # Shown in the menu of the application: commit and date of this deploy
 export B2S_VERSION="$(git describe --always --dirty 2>/dev/null || echo unknown) · $(date +%Y-%m-%d)"
@@ -70,6 +78,9 @@ for _ in $(seq 1 40); do
   [ "$unhealthy" = "0" ] && break
 done
 podman ps --format '{{.Names}}  {{.Status}}' | grep -E "$pattern"
+
+# The layers left without a name by this build (the running images and the rollback points stay)
+podman image prune -f >/dev/null 2>&1 || true
 
 cat <<ROLLBACK
 

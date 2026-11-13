@@ -1,8 +1,8 @@
 # wizard-ui — runtime dependencies (Python 3.14)
 # Pinned: the same library has the same version in every service. Update them together.
-fastapi==0.156.5
+fastapi==0.162.5
 uvicorn[standard]==0.54.0
-pydantic==2.14.1
-mysql-connector-python==26.7.0
+pydantic==2.14.3
+mysql-connector-python==26.10.0
 bcrypt==5.0.0
 cryptography==50.0.2

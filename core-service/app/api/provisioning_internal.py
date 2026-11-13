@@ -565,7 +565,6 @@ def _persist_storage_root_probe_result(
             # unless this test brought a full measure of its own. A new dict, so that the JSON column is seen as changed.
             previous = root.discovered_permissions_json if isinstance(root.discovered_permissions_json, dict) else {}
             updated = {
-                **previous,
                 "discovered_at": checked_at.isoformat(),
                 "source": "storage_root_probe",
                 "probe_job_id": int(getattr(job_row, "id", 0) or 0) or None,
@@ -579,7 +578,9 @@ def _persist_storage_root_probe_result(
                 # A measure from the test itself (files, sub-folders, first-level weights, types), or none known yet
                 updated.update({"content_size_bytes": content_size_bytes, "content_updated_at": content_scanned_at,
                                 "content_stats": probe_stats if probe_stats is not None else previous.get("content_stats")})
-            root.discovered_permissions_json = updated
+            from app.services.root_payload import merge_root_payload
+
+            merge_root_payload(root, updated)
         endpoint_id = int(getattr(root, "storage_endpoint_id", 0) or 0)
         if endpoint_id > 0:
             endpoint = db.get(StorageEndpoint, endpoint_id)

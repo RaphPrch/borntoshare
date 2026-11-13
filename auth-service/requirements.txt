@@ -1,9 +1,9 @@
 # auth-service — runtime dependencies (Python 3.14)
 # Pinned: the same library has the same version in every service. Update them together.
-fastapi==0.156.5
+fastapi==0.162.5
 uvicorn[standard]==0.54.0
-pydantic==2.14.1
-pydantic-settings==2.16.1
+pydantic==2.14.3
+pydantic-settings==2.16.3
 httpx==0.28.1
 ldap3==2.9.1
 redis==8.1.0

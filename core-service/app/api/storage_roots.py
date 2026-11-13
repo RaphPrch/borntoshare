@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
+from app.services.root_payload import merge_root_payload
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -1132,12 +1133,10 @@ def sync_storage_root_discovery(
         previous_payload = dict(root.discovered_permissions_json or {}) if isinstance(root.discovered_permissions_json, dict) else {}
         # Only the rights change: the measure (content_stats, the kept previous measures, 5S figures) stays as it
         # is, and the share listing has no security descriptor flags (the inheritance read by the last ACL scan stays)
-        root.discovered_permissions_json = {
-            **previous_payload,
-            "discovered_at": discovered_at.isoformat(),
+        merge_root_payload(root, {"discovered_at": discovered_at.isoformat(),
             "permissions": item.permissions or [],
             "probe_error": None,
-        }
+        })
         probe_results.record_storage_root_probe(
             root,
             status_value="success",
@@ -1168,12 +1167,10 @@ def sync_storage_root_discovery(
             root.last_discovery_at = discovered_at
             # Unreachable now: its rights are unknown, its last measure stays (never a measure lost to an outage)
             previous_payload = dict(root.discovered_permissions_json or {}) if isinstance(root.discovered_permissions_json, dict) else {}
-            root.discovered_permissions_json = {
-                **previous_payload,
-                "discovered_at": discovered_at.isoformat(),
+            merge_root_payload(root, {"discovered_at": discovered_at.isoformat(),
                 "permissions": [],
                 "probe_error": "root_not_discovered_or_unreachable",
-            }
+            })
             probe_results.record_storage_root_probe(
                 root,
                 status_value="failed",
@@ -2345,10 +2342,8 @@ async def set_root_inheritance(root_id: int, payload: InheritancePayload, reques
     result = job.get("result") if isinstance(job.get("result"), dict) else {}
     details = result.get("details") if isinstance(result.get("details"), dict) else result
     db.refresh(root)
-    acl = dict(root.discovered_permissions_json or {}) if isinstance(root.discovered_permissions_json, dict) else {}
     # The state shows at once; the ACL read that follows refreshes the entries
-    acl["control"] = str(details.get("control") or ("SR|PD|DP" if payload.mode == "break" else "SR|DP"))
-    root.discovered_permissions_json = acl
+    merge_root_payload(root, {"control": str(details.get("control") or ("SR|PD|DP" if payload.mode == "break" else "SR|DP"))})
     db.commit()
     log_activity(
         db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
