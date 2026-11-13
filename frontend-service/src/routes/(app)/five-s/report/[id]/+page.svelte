@@ -121,7 +121,7 @@
 <div class="rp">
   <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/five-s"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
   {#if loading}
-    <LoadingState skeleton="rows" />
+    <LoadingState skeleton="page" rows={6} />
   {:else if error}
     <InlineAlert tone="error">{error}</InlineAlert>
   {:else if !stats}

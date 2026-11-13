@@ -39,7 +39,7 @@
   export let canSeeStorageRoots = false;
   export let canSeeObservability = false;
 
-  type Result = { group: string; label: string; detail: string; href: string; icon: string };
+  type Result = { group: string; label: string; detail: string; href: string; icon: string; key?: string; rootId?: number; run?: () => void };
 
   let open = false;
   let query = '';
@@ -78,7 +78,8 @@
         label: String(root.storage_root_name ?? root.name ?? root.storage_root_id),
         detail: String(root.normalized_root_path ?? root.root_path ?? root.path ?? ''),
         href: `/storage-roots?selected=${root.storage_root_id}`,
-        icon: 'bi-folder2-open'
+        icon: 'bi-folder2-open',
+        rootId: Number(root.storage_root_id)
       });
     }
     for (const zone of zones) {
@@ -114,7 +115,63 @@
   function select(result: Result | undefined) {
     if (!result) return;
     close();
-    void goto(result.href);
+    if (result.run) result.run();
+    else void goto(result.href);
+  }
+
+  // ---- actions: the palette acts, not only navigates ----
+  $: baseActions = [
+    { group: t('Actions'), label: t('New access request'), detail: t('For you or for someone else'), href: '/access-requests/new', icon: 'bi-plus-lg', key: 'N' },
+    { group: t('Actions'), label: t('Requests waiting for a decision'), detail: '', href: '/access-requests', icon: 'bi-clipboard-check', key: 'G R' },
+    ...(canSeeObservability
+      ? [
+          { group: t('Actions'), label: t('Run a health check'), detail: t('Directories, group OUs, servers, worker'), href: '/observability?tab=health', icon: 'bi-heart-pulse' },
+          { group: t('Actions'), label: t('See the open alerts'), detail: '', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', key: 'G A' }
+        ]
+      : []),
+    { group: t('Actions'), label: t('Keyboard shortcuts'), detail: '', href: '', icon: 'bi-keyboard', key: '?', run: () => (helpOpen = true) }
+  ] as Result[];
+  // A folder typed: what can be done on it, before the folder itself
+  $: matchedRoot = q ? entities.find((r) => r.rootId && normalizeText(r.label).includes(q)) : undefined;
+  $: rootActions = matchedRoot
+    ? ([
+        { group: t('Actions'), label: t('New access request to {name}', { name: matchedRoot.label }), detail: matchedRoot.detail, href: `/access-requests/new?root=${matchedRoot.rootId}`, icon: 'bi-plus-lg' },
+        { group: t('Actions'), label: t('Who can open {name}', { name: matchedRoot.label }), detail: '', href: `/storage-roots?selected=${matchedRoot.rootId}&tab=permissions`, icon: 'bi-people' }
+      ] as Result[])
+    : [];
+
+  // ---- keyboard shortcuts, outside of fields: / search, N new request, G then D/R/A/F, ? the list ----
+  let helpOpen = false;
+  let pendingG = 0;
+  const SHORTCUTS = (): Array<[string, string]> => [
+    ['Ctrl K  /', t('Search or run an action')],
+    ['N', t('New access request')],
+    ['G  D', t('Go to the dashboard')],
+    ['G  R', t('Go to the access requests')],
+    ['G  F', t('Go to the folders')],
+    ['G  A', t('Go to the alerts')],
+    ['V  ·  R', t('Approve · reject the selected request')],
+    ['Shift F10', t('Actions of the selected row')],
+    ['?', t('This list')]
+  ];
+  function typing(target: EventTarget | null): boolean {
+    const el = target as HTMLElement | null;
+    return Boolean(el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.closest('[role="dialog"]')));
+  }
+  function shortcut(event: KeyboardEvent): boolean {
+    if (open || event.ctrlKey || event.metaKey || event.altKey || typing(event.target)) return false;
+    const key = event.key.toLowerCase();
+    if (Date.now() - pendingG < 1200) {
+      pendingG = 0;
+      const href = { d: '/dashboard', r: '/access-requests', f: canSeeStorageRoots ? '/storage-roots' : '', a: canSeeObservability ? '/observability?tab=alerts' : '' }[key];
+      if (href) { void goto(href); return true; }
+      return false;
+    }
+    if (key === '/') { void show(); return true; }
+    if (key === '?') { helpOpen = true; return true; }
+    if (key === 'n' && !event.shiftKey) { void goto('/access-requests/new'); return true; }
+    if (key === 'g' && !event.shiftKey) { pendingG = Date.now(); return true; }
+    return false;
   }
 
   // People of the directory, searched on the server (2 characters or more)
@@ -179,9 +236,10 @@
     : [];
 
   $: q = normalizeText(query);
+  let results: Result[] = [];
   $: results = (q
-    ? [...personResults, ...actionResults, ...[...pages, ...entities].filter((r) => normalizeText(`${r.label} ${r.detail}`).includes(q))]
-    : pages
+    ? [...rootActions, ...personResults, ...actionResults, ...[...baseActions, ...pages, ...entities].filter((r) => normalizeText(`${r.label} ${r.detail}`).includes(q))]
+    : [...baseActions, ...pages]
   ).slice(0, 30);
   $: if (activeIndex >= results.length) activeIndex = Math.max(0, results.length - 1);
 
@@ -189,6 +247,8 @@
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
       open ? close() : void show();
+    } else if (shortcut(event)) {
+      event.preventDefault();
     }
   }
 
@@ -250,6 +310,7 @@
         <i class={`bi ${result.icon}`} aria-hidden="true"></i>
         <span class="global-search__label">{#each marked(result.label, query) as part}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}</span>
         {#if result.detail}<span class="global-search__detail">{result.detail}</span>{/if}
+        {#if result.key}<kbd class="global-search__key">{result.key}</kbd>{/if}
       </li>
     {:else}
       <li class="global-search__empty" role="presentation">{t('No result for “{query}”.', { query })}</li>
@@ -258,9 +319,28 @@
       <li class="global-search__empty" role="presentation"><LoadingState>{t('Loading…')}</LoadingState></li>
     {/if}
   </ul>
+  <footer class="global-search__foot">
+    <span><kbd>↑ ↓</kbd> {t('choose')}</span><span><kbd>{t('Enter')}</kbd> {t('run')}</span>
+    <span class="global-search__foot-end"><kbd>?</kbd> {t('all the shortcuts')}</span>
+  </footer>
+</AppModal>
+
+<AppModal open={helpOpen} onClose={() => (helpOpen = false)} size="md" title={t('Keyboard shortcuts')}>
+  <dl class="global-search__keys">
+    {#each SHORTCUTS() as [keys, what]}
+      <dt>{#each keys.split('  ') as part}<kbd>{part}</kbd>{/each}</dt><dd>{what}</dd>
+    {/each}
+  </dl>
 </AppModal>
 
 <style>
+  .global-search__key { margin-left: auto; flex: none; font-family: var(--b2s-font-mono, monospace); font-size: 11px; color: var(--b2s-color-text-muted); }
+  .global-search__foot { display: flex; gap: 18px; padding: 10px 16px; border-top: 1px solid var(--b2s-color-border-soft); font-size: 12px; color: var(--b2s-color-text-muted); }
+  .global-search__foot kbd, .global-search__keys kbd { font-family: var(--b2s-font-mono, monospace); font-size: 11px; padding: 1px 6px; border: 1px solid var(--b2s-color-border); border-radius: 5px; background: var(--b2s-color-surface); }
+  .global-search__foot-end { margin-left: auto; }
+  .global-search__keys { display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; margin: 0; align-items: center; }
+  .global-search__keys dt { display: flex; gap: 4px; }
+  .global-search__keys dd { margin: 0; }
   /* Item of the navigation rail */
   .global-search-trigger {
     width: 74px;

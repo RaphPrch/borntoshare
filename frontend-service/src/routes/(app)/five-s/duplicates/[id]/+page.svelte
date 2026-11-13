@@ -137,7 +137,7 @@
     <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/report/${rootId}`}><i class="bi bi-file-earmark-text" aria-hidden="true"></i>{t('Report')}</a>
   </div>
   {#if loading}
-    <LoadingState skeleton="rows" />
+    <LoadingState skeleton="page" rows={6} />
   {:else if error}
     <InlineAlert tone="error">{error}</InlineAlert>
   {:else}

@@ -375,6 +375,8 @@
 .b2s-skeleton__line.is-tag { width: 64px; margin-left: auto; flex: none; }
 .b2s-skeleton__tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 6px; }
 .b2s-skeleton__tiles span { height: 64px; border-radius: var(--b2s-radius-md); }
+.b2s-skeleton__tiles.is-four { grid-template-columns: repeat(4, 1fr); margin: 0 0 10px; }
+.b2s-skeleton__tiles.is-four span { height: 82px; }
 
 .b2s-skeleton__dot::after,
 .b2s-skeleton__avatar::after,

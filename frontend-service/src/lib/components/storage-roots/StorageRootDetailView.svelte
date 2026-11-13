@@ -1,11 +1,11 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { t } from '$lib/i18n';
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import StorageRootHeader from '$lib/components/storage-roots/StorageRootHeader.svelte';
   import StorageRootTiles from '$lib/components/storage-roots/StorageRootTiles.svelte';
   import StorageRootTodo from '$lib/components/storage-roots/StorageRootTodo.svelte';
   import StorageRootOverview from '$lib/components/storage-roots/StorageRootOverview.svelte';
-  import StorageRootLoadingState from '$lib/components/storage-roots/StorageRootLoadingState.svelte';
   import StorageRootPermissions from '$lib/components/storage-roots/permissions/StorageRootPermissions.svelte';
   import ActivityTimeline from '$lib/components/activity/ActivityTimeline.svelte';
   import { presentErrorMessage, toAppError } from '$lib/errors';
@@ -152,7 +152,7 @@
 
 <div class="sr-detail">
   {#if showBlockingLoading}
-    <StorageRootLoadingState label={t('Loading storage root data…')} />
+    <LoadingState skeleton="page" rows={5}>{t('Loading storage root data…')}</LoadingState>
   {/if}
 
   <StorageRootHeader
@@ -248,7 +248,7 @@
   {:else if activeTab === 'activity'}
     <section class="sr-clean-tab-panel">
       {#if activityLoading}
-        <StorageRootLoadingState label={t('Loading activity...')} />
+        <LoadingState skeleton="rows" rows={6}>{t('Loading activity...')}</LoadingState>
       {:else}
         <ActivityTimeline items={activityRemainder} emptyLabel={t('No activity found for this storage root.')} />
       {/if}

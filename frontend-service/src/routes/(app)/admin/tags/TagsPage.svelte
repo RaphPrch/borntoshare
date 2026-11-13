@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CountUp from '$lib/components/ui/CountUp.svelte';
   import { invalidateAll } from '$app/navigation';
   import { reportUiError } from '$lib/errors/report';
   import { t } from '$lib/i18n';
@@ -193,7 +194,7 @@
     <div class="b2s-stat-tiles tg__tiles">
       <div class="b2s-stat-tile">
         <span>{t('Folders classified')}</span>
-        <b>{taggedPct} %</b>
+        <b><CountUp value={Number(taggedPct)} format={(n) => `${Math.round(n)} %`} /></b>
         <span class="b2s-stat-bar" aria-hidden="true">
           {#each families as name (name)}<i style="flex:{tags.filter((tag) => tag.family === name).reduce((sum, tag) => sum + tag.usage, 0)}; background:{familyShades(name)[0]}"></i>{/each}
           <i style="flex:{Math.max(0, coverage.total - coverage.tagged)}; background:transparent"></i>
@@ -202,12 +203,12 @@
       </div>
       <a class="b2s-stat-tile" class:is-warn={coverage.untagged_open > 0} href="/exposure">
         <span>{t('Open to everyone, without a tag')}</span>
-        <b>{coverage.untagged_open}</b>
+        <b><CountUp value={Number(coverage.untagged_open)} /></b>
         <small>{t('Folders that Everyone or Users reach and that no tag classifies · exposure map')}</small>
       </a>
       <div class="b2s-stat-tile">
         <span>{t('Families')}</span>
-        <b>{families.length}</b>
+        <b><CountUp value={Number(families.length)} /></b>
         <small>{t('One colour per family, its tags are shades of it')}</small>
       </div>
     </div>

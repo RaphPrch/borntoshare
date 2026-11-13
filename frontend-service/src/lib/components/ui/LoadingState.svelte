@@ -1,10 +1,11 @@
 <script lang="ts">
   /**
    * Loading indicator. Inline: spinner + message. In a panel, a list or a detail, a skeleton with the shape of what
-   * comes (the message stays for screen readers): `block` and `skeleton="rows"` draw rows, `skeleton="detail"` a card.
+   * comes (the message stays for screen readers): `block` and `skeleton="rows"` draw rows, `skeleton="detail"` a card,
+   * `skeleton="page"` the tiles of figures then rows (a folder, a 5S screen).
    */
   export let block = false;
-  export let skeleton: 'rows' | 'detail' | null = null;
+  export let skeleton: 'rows' | 'detail' | 'page' | null = null;
   export let rows = 4;
 
   $: shape = skeleton ?? (block ? 'rows' : null);
@@ -18,6 +19,17 @@
       <span class="b2s-skeleton__line"></span>
       <span class="b2s-skeleton__line is-short"></span>
       <div class="b2s-skeleton__tiles"><span></span><span></span><span></span></div>
+    {:else if shape === 'page'}
+      <div class="b2s-skeleton__tiles is-four">
+        {#each Array(4) as _, index}<span style="--b2s-skeleton-delay: {index * 70}ms"></span>{/each}
+      </div>
+      {#each Array(rows) as _, index}
+        <div class="b2s-skeleton__row" style="--b2s-skeleton-delay: {280 + index * 90}ms">
+          <span class="b2s-skeleton__dot"></span>
+          <span class="b2s-skeleton__line" style="width: {78 - (index % 3) * 14}%"></span>
+          <span class="b2s-skeleton__line is-tag"></span>
+        </div>
+      {/each}
     {:else}
       {#each Array(rows) as _, index}
         <div class="b2s-skeleton__row" style="--b2s-skeleton-delay: {index * 90}ms">

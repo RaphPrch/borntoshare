@@ -7,6 +7,7 @@
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { t } from '$lib/i18n';
   import { goto, invalidateAll } from '$app/navigation';
   import { browser } from '$app/environment';
@@ -475,6 +476,100 @@
     }
   }
 
+  // ---- Right click and quick decisions: the decision leaves after QUICK_DELAY, « Undo » until then ----------------
+  const QUICK_DELAY = 5000;
+  let menu: { row: any; at: { x: number; y: number } } | null = null;
+  let quick = new Map<number, { decision: 'approve' | 'reject'; timer: ReturnType<typeof setTimeout> }>();
+  let justDone = new Set<number>();
+
+  function openMenu(row: any, event: MouseEvent): void {
+    event.preventDefault();
+    menu = { row, at: menuPositionFor(event) };
+  }
+
+  function menuItems(row: any): ContextMenuItem[] {
+    const can = checkable(row);
+    const own = Boolean(row?.own_request) && me?.is_admin !== true;
+    const why = !isPending(row) ? t('Already decided') : own ? t('This is your own request: another guardian or an administrator approves it.') : !can ? t('You do not decide on this folder') : undefined;
+    const rootId = storageRootIdFromRow(row);
+    return [
+      { key: 'approve', label: t('Approve') + ' (V)', icon: 'bi-check2-circle', disabled: !can || own, hint: why },
+      { key: 'reject', label: t('Reject') + ' (R)', icon: 'bi-x-circle', disabled: !can || own, hint: why },
+      { key: 'open', label: t('See the request'), icon: 'bi-layout-sidebar-reverse', separated: true },
+      { key: 'folder', label: t('Open the folder'), icon: 'bi-folder2-open', disabled: !rootId },
+      { key: 'copy', label: t('Copy the reference'), icon: 'bi-clipboard' }
+    ];
+  }
+
+  function pickMenu(key: string): void {
+    const row = menu?.row;
+    if (!row) return;
+    if (key === 'approve' || key === 'reject') quickDecide(row, key);
+    else if (key === 'open') selectRequest(row);
+    else if (key === 'folder') void goto(`/storage-roots?selected=${storageRootIdFromRow(row)}`);
+    else if (key === 'copy') void navigator.clipboard?.writeText(requestCode(row)).then(() => toast.success(t('Reference copied.')));
+  }
+
+  function quickDecide(row: any, decision: 'approve' | 'reject'): void {
+    const id = accessRequestId(row);
+    if (!id || quick.has(id) || !checkable(row) || (row?.own_request && me?.is_admin !== true)) return;
+    const name = requesterName(row);
+    const timer = setTimeout(() => void sendQuick(row, id, decision), QUICK_DELAY);
+    quick.set(id, { decision, timer });
+    quick = quick;
+    toast.info(decision === 'approve' ? t('Approval of {name}: sent in 5 s.', { name }) : t('Rejection of {name}: sent in 5 s.', { name }), {
+      duration: QUICK_DELAY,
+      action: { label: t('Undo'), run: () => undoQuick(id) }
+    });
+  }
+
+  function undoQuick(id: number): void {
+    const pending = quick.get(id);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    quick.delete(id);
+    quick = quick;
+    toast.info(t('Decision cancelled: nothing was sent.'));
+  }
+
+  async function sendQuick(row: any, id: number, decision: 'approve' | 'reject'): Promise<void> {
+    try {
+      const result = await bulkDecision(fetch, [id], decision);
+      if (Number(result?.failed_ids?.length ?? 0) > 0) {
+        const mapped = decision === 'approve'
+          ? mapAccessRequestDecisionErrorFromBulk(result, { fallbackStorageRootId: storageRootIdFromRow(row) })
+          : mapAccessRequestDecisionError({ detail: result?.failed_details?.[id] ?? null, reason: result?.failed_reasons?.[id] ?? null,
+                                            fallbackStorageRootId: storageRootIdFromRow(row) });
+        toast.error(mapped.message);
+        selectRequest(row);
+        return;
+      }
+      toast.success(decision === 'approve' ? t('Request approved.') : t('Request rejected.'));
+      justDone.add(id);
+      justDone = justDone;
+      setTimeout(() => { justDone.delete(id); justDone = justDone; }, 4000);
+      await invalidateAll();
+    } catch (error: unknown) {
+      reportUiError(error, decision === 'approve' ? t('Approval failed.') : t('Rejection failed.'), 'access-requests.quick-decision');
+    } finally {
+      quick.delete(id);
+      quick = quick;
+    }
+  }
+
+  function rowKeydown(event: KeyboardEvent, row: any): void {
+    if (event.key === 'Enter') selectRequest(row);
+    else if (event.key === 'v' || event.key === 'V') quickDecide(row, 'approve');
+    else if (event.key === 'r' || event.key === 'R') quickDecide(row, 'reject');
+    else if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+      event.preventDefault();
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      menu = { row, at: { x: rect.left + 24, y: rect.bottom } };
+    }
+  }
+
+  onDestroy(() => { for (const pending of quick.values()) clearTimeout(pending.timer); });
+
   // Name conflict: a platform admin takes over the existing group, then the approval runs again
   async function adoptAndApprove(): Promise<void> {
     const profileId = Number(decisionFailure?.access_profile_id ?? 0);
@@ -632,9 +727,12 @@
               {@const meta = statusMeta(request)}
               <tr
                 class:selected={selectedRequestId === accessRequestId(request)}
+                class:is-quick={quick.has(accessRequestId(request))}
+                class:is-done={justDone.has(accessRequestId(request))}
                 tabindex="0"
                 on:click={() => selectRequest(request)}
-                on:keydown={(event) => event.key === 'Enter' && selectRequest(request)}
+                on:contextmenu={(event) => openMenu(request, event)}
+                on:keydown={(event) => rowKeydown(event, request)}
               >
                 <td class="ar-check" on:click|stopPropagation on:keydown|stopPropagation>
                   {#if checkable(request)}
@@ -662,7 +760,15 @@
                 <td>
                   <StatusBadge compact showDot={false} variant={accessKind(request) === 'write' ? 'warning' : 'info'} label={accessLabel(request)} />
                 </td>
-                <td><StatusBadge compact variant={requestToneVariant(meta.tone)} label={meta.label} /></td>
+                <td>
+                  {#if quick.has(accessRequestId(request))}
+                    <span class="ar-quick">{quick.get(accessRequestId(request))?.decision === 'approve' ? t('Approved · sent in 5 s') : t('Rejected · sent in 5 s')}<span class="ar-quick__bar" aria-hidden="true"></span></span>
+                  {:else if justDone.has(accessRequestId(request))}
+                    <span class="ar-done"><i class="bi bi-check2" aria-hidden="true"></i>{t('Done')}</span>
+                  {:else}
+                    <StatusBadge compact variant={requestToneVariant(meta.tone)} label={meta.label} />
+                  {/if}
+                </td>
                 {#if !selectedRequest}
                   <td class="ar-end">
                     {#if isApplied(request) && expiresMs(request)}
@@ -961,6 +1067,9 @@
 />
 
 
+<ContextMenu open={Boolean(menu)} title={menu ? requesterName(menu.row) : ''} subtitle={menu ? `${requestCode(menu.row)} · ${resourceName(menu.row)}` : ''}
+  items={menu ? menuItems(menu.row) : []} at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={pickMenu} />
+
 <style>
   .ar-page {
     display: flex;
@@ -993,15 +1102,31 @@
     margin-left: auto;
   }
 
+  /* The selection floats at the bottom of the window: its actions stay in reach while the list scrolls */
   .ar-bulk {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 40;
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 14px;
+    min-width: 520px;
+    padding: 10px 12px 10px 18px;
     border-radius: 18px;
     background: var(--b2s-color-text);
     color: #fff;
+    box-shadow: 0 16px 36px rgba(14, 18, 24, 0.28);
+    animation: ar-rise 180ms ease-out;
   }
+  @keyframes ar-rise { from { opacity: 0; transform: translate(-50%, 12px); } }
+  .ar-table tr.is-quick td { background: #F7FCEC; }
+  .ar-quick { display: inline-grid; gap: 4px; font-size: var(--b2s-fs-xs); font-weight: 600; color: #3F6212; }
+  .ar-quick__bar { display: block; height: 3px; border-radius: 999px; background: #B5F23B; animation: ar-count 5s linear forwards; transform-origin: left; }
+  @keyframes ar-count { to { transform: scaleX(0); } }
+  .ar-done { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: #B5F23B; color: #0E1218; font-size: var(--b2s-fs-xs); font-weight: 700; animation: ar-pulse 1.4s ease-out 2; }
+  @keyframes ar-pulse { 0% { box-shadow: 0 0 0 0 rgba(181, 242, 59, 0.75); } 70% { box-shadow: 0 0 0 10px rgba(181, 242, 59, 0); } 100% { box-shadow: 0 0 0 0 rgba(181, 242, 59, 0); } }
 
   .ar-bulk strong {
     flex: 1;

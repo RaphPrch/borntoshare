@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CountUp from '$lib/components/ui/CountUp.svelte';
   import { t } from '$lib/i18n';
   import { timeAgo } from '$lib/utils/format';
   import type { DfsCounts, DfsInfo } from './dfs-namespace';
@@ -24,17 +25,17 @@
   </button>
   <button type="button" class="b2s-stat-tile" on:click={onOpenFolders}>
     <span>{t('Managed')}</span>
-    <b class:is-ok={counts.all > 0 && counts.managed === counts.all}>{counts.managed}</b>
+    <b class:is-ok={counts.all > 0 && counts.managed === counts.all}><CountUp value={Number(counts.managed)} /></b>
     <small>{t('their targets are governed folders')}</small>
   </button>
   <button type="button" class="b2s-stat-tile" on:click={onOpenFolders}>
     <span>{t('To manage')}</span>
-    <b class:is-warn={counts.todo > 0}>{counts.todo}</b>
+    <b class:is-warn={counts.todo > 0}><CountUp value={Number(counts.todo)} /></b>
     <small>{counts.todo ? t('one click manages them on every target') : t('nothing left to manage')}</small>
   </button>
   <button type="button" class="b2s-stat-tile" on:click={onOpenFolders}>
     <span>{t('Target servers')}</span>
-    <b>{counts.servers}</b>
+    <b><CountUp value={Number(counts.servers)} /></b>
     <small class:is-bad={counts.unknownServers.length > 0}>
       {counts.unknownServers.length ? t('{count} not declared: {names}', { count: counts.unknownServers.length, names: counts.unknownServers.join(', ') }) : t('all declared')}
     </small>

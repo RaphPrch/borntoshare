@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CountUp from '$lib/components/ui/CountUp.svelte';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { apiGetData, apiGetList } from '$lib/api/client';
   import { getHealthSummary, type HealthSummaryDay } from '$lib/api/health';
@@ -177,7 +178,7 @@
       {#each tiles as tile (tile.key)}
         <button type="button" class="b2s-stat-tile" on:click={tile.go}>
           <span>{tile.label}</span>
-          <b>{tile.value ?? '—'}</b>
+          <b><CountUp value={tile.value == null ? null : Number(tile.value)} /></b>
           <small>{tile.hint}</small>
         </button>
       {/each}

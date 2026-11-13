@@ -23,6 +23,8 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import { alertGuide } from '$lib/components/observability/alert-guides';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { goto } from '$app/navigation';
 
   /** Opened from the overview: an initial filter (« critical » = critical or high) */
   export let initialSeverity: string = 'all';
@@ -167,6 +169,34 @@
     guideAlert = null;
   }
 
+  // ---- right click on an alert: the row's actions plus the object it concerns ----
+  let menu: { alert: GovernanceAlert; at: { x: number; y: number } } | null = null;
+  function openMenu(alert: GovernanceAlert, event: MouseEvent) {
+    event.preventDefault();
+    menu = { alert, at: menuPositionFor(event) };
+  }
+  function menuItems(alert: GovernanceAlert): ContextMenuItem[] {
+    const status = statusOf(alert);
+    const scope = scopeOf(alert);
+    return [
+      { key: 'ack', label: t('Acknowledge'), icon: 'bi-eye', disabled: status !== 'open' || busyId !== null, hint: status !== 'open' ? t('Already taken care of') : undefined },
+      { key: 'resolve', label: t('How to resolve it'), icon: 'bi-check2-circle', disabled: status === 'resolved' || busyId !== null },
+      { key: 'open', label: scope.href ? t('Open {name}', { name: scope.label }) : t('No object to open'), icon: 'bi-box-arrow-up-right', disabled: !scope.href, separated: true },
+      { key: 'copy', label: t('Copy the message'), icon: 'bi-clipboard' }
+    ];
+  }
+  function pickMenu(key: string) {
+    const alert = menu?.alert;
+    if (!alert) return;
+    if (key === 'ack') void changeStatus(alert, 'acknowledge');
+    else if (key === 'resolve') guideAlert = alert;
+    else if (key === 'open') { const href = scopeOf(alert).href; if (href) void goto(href); }
+    else if (key === 'copy') {
+      const text = [alert.title ? alertTitle(alert) : alert.alert_type, alert.message ? alertMessage(alert) : ''].filter(Boolean).join(' — ');
+      void navigator.clipboard?.writeText(text).then(() => toast.success(t('Message copied.')));
+    }
+  }
+
   async function changeStatus(alert: GovernanceAlert, action: 'acknowledge' | 'resolve') {
     const id = String(alert.id ?? '');
     if (!id || busyId) return;
@@ -283,7 +313,7 @@
             {#each pageRows as alert (alert.id)}
               {@const scope = scopeOf(alert)}
               {@const status = statusOf(alert)}
-              <tr>
+              <tr on:contextmenu={(event) => openMenu(alert, event)}>
                 <td>
                   <StatusBadge compact variant={SEVERITY_VARIANT[severityOf(alert)] ?? 'muted'} label={severityLabel(severityOf(alert))} />
                 </td>
@@ -342,6 +372,9 @@
     <button class="b2s-btn b2s-btn-primary" type="button" disabled={busyId !== null} on:click={resolveFromGuide}>{t('It is fixed: mark resolved')}</button>
   </svelte:fragment>
 </AppModal>
+
+<ContextMenu open={Boolean(menu)} title={menu ? (menu.alert.title ? alertTitle(menu.alert) : String(menu.alert.alert_type ?? '')) : ''} subtitle={menu ? scopeOf(menu.alert).label : ''}
+  items={menu ? menuItems(menu.alert) : []} at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={pickMenu} />
 
 <style>
   .obs-alerts {

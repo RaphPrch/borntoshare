@@ -2,6 +2,7 @@
   import { flip } from 'svelte/animate';
   import { dur, flashOn, MOTION, pop } from '$lib/utils/motion';
   import CountUp from '$lib/components/ui/CountUp.svelte';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import StorageRootRemediation from '$lib/components/storage-roots/StorageRootRemediation.svelte';
   import { onDestroy } from 'svelte';
   import { apiGetData, apiPostData } from '$lib/api/client';
@@ -118,6 +119,30 @@
   // « False positive » asks why, in a few words (an exception to a security finding is explained)
   let reasonFor: string | null = null;
   let reasonText = '';
+  // ---- right click on a file: false positive, who can open it, copy ----
+  let menu: { path: string; hasAcl: boolean; at: { x: number; y: number } } | null = null;
+  function openMenu(file: { path: string; acl?: FileAcl | null }, event: MouseEvent) {
+    event.preventDefault();
+    menu = { path: file.path, hasAcl: Boolean(file.acl), at: menuPositionFor(event) };
+  }
+  function menuItems(current: NonNullable<typeof menu>): ContextMenuItem[] {
+    return [
+      { key: 'acl', label: openAcl === current.path ? t('Hide who can open it') : t('See who can open it'), icon: 'bi-people', disabled: !current.hasAcl, hint: !current.hasAcl ? t('Rights not read yet') : undefined },
+      { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard' },
+      { key: 'copy-folder', label: t('Copy the folder path'), icon: 'bi-folder2' },
+      { key: 'fp', label: t('Mark as false positive…'), icon: 'bi-slash-circle', separated: true, disabled: !isAdmin || ignoringPath !== null, hint: !isAdmin ? t('Administrators only') : undefined }
+    ];
+  }
+  function pickMenu(key: string) {
+    const path = menu?.path;
+    if (!path) return;
+    const copy = (text: string) => void navigator.clipboard?.writeText(text).then(() => toast.success(t('Path copied.')));
+    if (key === 'acl') openAcl = openAcl === path ? null : path;
+    else if (key === 'copy') copy(path);
+    else if (key === 'copy-folder') copy(path.split('\\').slice(0, -1).join('\\'));
+    else if (key === 'fp') { reasonFor = path; reasonText = ''; }
+  }
+
   async function setIgnored(path: string, ignore: boolean, reason: string | null = null) {
     if (!rootId || ignoringPath) return;
     ignoringPath = path;
@@ -261,7 +286,7 @@
     {/if}
     <ul class="sc__list">
       {#each shown as file (file.path)}
-        <li animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}>
+        <li animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }} on:contextmenu={(event) => openMenu(file, event)}>
           <i class={`bi ${CATEGORY()[file.items[0].category]?.icon ?? 'bi-file-earmark'}`} aria-hidden="true"></i>
           <div>
             <span class="sc__file"><code title={file.path}>{#if file.acl?.broad}<i class="bi bi-people-fill sc__open-dot" title={t('Every user can open it')} aria-label={t('Every user can open it')}></i>{/if}{inside(file.path)}</code>
@@ -336,6 +361,9 @@
     <StorageRootRemediation {rootId} {isAdmin} {passwordFiles} refreshKey={state?.scanned_at} />
   {/if}
 </section>
+
+<ContextMenu open={Boolean(menu)} title={menu ? (menu.path.split('\\').pop() ?? menu.path) : ''} subtitle={menu ? inside(menu.path) : ''}
+  items={menu ? menuItems(menu) : []} at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={pickMenu} />
 
 <style>
   .sc { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CountUp from '$lib/components/ui/CountUp.svelte';
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
   import { apiGetData } from '$lib/api/client';
@@ -97,7 +98,7 @@
       {#each LEVELS as level (level.key)}
         <button type="button" class="b2s-stat-tile ex__tile is-{level.key}" class:is-on={filter === level.key} aria-pressed={filter === level.key} on:click={() => (filter = filter === level.key ? 'all' : level.key)}>
           <span class="ex__tile-head"><i class="bi {level.icon}" aria-hidden="true"></i>{level.label()}</span>
-          <b>{data.summary[level.key]}</b>
+          <b><CountUp value={Number(data.summary[level.key] ?? 0)} /></b>
           <small>{level.hint()}</small>
         </button>
       {/each}

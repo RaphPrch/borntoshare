@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CountUp from '$lib/components/ui/CountUp.svelte';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { apiGetList } from '$lib/api/client';
   import { getIdentityOverview, type IdentityOverview } from '$lib/api/identity';
@@ -151,9 +152,9 @@
   {:else}
     <div class="b2s-stat-tiles iw__tiles">
       <div class="b2s-stat-tile"><span>{t('Role')}</span><b>{isAdmin ? t('Administrator') : guarded.length ? t('Guardian') : t('User')}</b><small>{isAdmin && guarded.length ? t('and guardian') : guarded.length ? t('and user') : ''}</small></div>
-      <button type="button" class="b2s-stat-tile" on:click={() => (tab = 'guarded')}><span>{t('Guarded folders')}</span><b>{guarded.length}</b><small>{sole.length ? t('{count} as only guardian', { count: sole.length }) : t('always with another guardian')}</small></button>
-      <div class="b2s-stat-tile"><span>{t('Accesses in progress')}</span><b>{data.active_accesses}</b><small>{data.active_accesses ? '' : t('no folder open for them')}</small></div>
-      <div class="b2s-stat-tile"><span>{t('Requests')}</span><b>{requestsTotal}</b><small>{requestParts.map(([status, count]) => `${count} ${REQUEST_LABEL()[status] ?? status}`).join(' · ')}</small></div>
+      <button type="button" class="b2s-stat-tile" on:click={() => (tab = 'guarded')}><span>{t('Guarded folders')}</span><b><CountUp value={Number(guarded.length)} /></b><small>{sole.length ? t('{count} as only guardian', { count: sole.length }) : t('always with another guardian')}</small></button>
+      <div class="b2s-stat-tile"><span>{t('Accesses in progress')}</span><b><CountUp value={Number(data.active_accesses)} /></b><small>{data.active_accesses ? '' : t('no folder open for them')}</small></div>
+      <div class="b2s-stat-tile"><span>{t('Requests')}</span><b><CountUp value={Number(requestsTotal)} /></b><small>{requestParts.map(([status, count]) => `${count} ${REQUEST_LABEL()[status] ?? status}`).join(' · ')}</small></div>
     </div>
 
     {#if steps.length}<EntityTodoCard title={t('To do on this identity')} {steps} />{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { onMount } from 'svelte';
   import { apiGetData, apiPutData } from '$lib/api/client';
   import { reportUiError } from '$lib/errors';
@@ -86,7 +87,7 @@
     <p>{t('Unable to read the scanner settings.')}</p>
     <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" on:click={loadSettings}>{t('Check again')}</button>
   {:else}
-    <p class="fm__muted">{t('Loading…')}</p>
+    <LoadingState skeleton="rows" rows={3}>{t('Loading…')}</LoadingState>
   {/if}
 </section>
 

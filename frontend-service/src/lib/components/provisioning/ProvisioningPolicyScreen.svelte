@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import NamingModelPicker from '$lib/components/provisioning/NamingModelPicker.svelte';
   import { NAMING_TOKENS, namingTokenHelp } from '$lib/utils/naming-templates';
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
@@ -227,9 +228,11 @@
 
     {#if listError}
       <InlineAlert tone="error">{listError}</InlineAlert>
+    {:else if items.length === 0 && listLoading}
+      <LoadingState skeleton="rows" rows={5}>{t('Loading…')}</LoadingState>
     {:else if items.length === 0}
       <p class="pp__empty">
-        {listLoading ? t('Loading…') : driftOnly ? t('Every group follows the rule.') : query.trim() ? t('No folder matches this search.') : t('No storage root yet: the groups are named when the first access is approved.')}
+        {driftOnly ? t('Every group follows the rule.') : query.trim() ? t('No folder matches this search.') : t('No storage root yet: the groups are named when the first access is approved.')}
       </p>
     {:else}
       <ul class="pp__list" class:is-loading={listLoading}>

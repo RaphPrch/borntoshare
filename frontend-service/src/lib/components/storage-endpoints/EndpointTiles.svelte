@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CountUp from '$lib/components/ui/CountUp.svelte';
   import { t } from '$lib/i18n';
   import type { ZoneSummary } from '$lib/components/zones/zone-summary';
 
@@ -21,18 +22,18 @@
 <section class="b2s-stat-tiles" aria-label={t('Storage endpoint summary')}>
   <button type="button" class="b2s-stat-tile" class:is-on={activeFilter === 'todo'} aria-pressed={activeFilter === 'todo'} on:click={() => toggle('todo')}>
     <span>{t('To review')}</span>
-    <b class:is-warn={review > 0}>{review}</b>
+    <b class:is-warn={review > 0}><CountUp value={Number(review)} /></b>
     <small>{t('{count} managed folder(s)', { count: roots })}</small>
     {#if roots}<span class="b2s-stat-bar" aria-hidden="true"><i style={`flex:${roots - review}`}></i><i class="warn" style={`flex:${review}`}></i></span>{/if}
   </button>
   <button type="button" class="b2s-stat-tile" class:is-on={activeFilter === 'guard'} aria-pressed={activeFilter === 'guard'} on:click={() => toggle('guard')}>
     <span>{t('Without guardian')}</span>
-    <b class:is-warn={summary.noGuardian.length > 0}>{summary.noGuardian.length}</b>
+    <b class:is-warn={summary.noGuardian.length > 0}><CountUp value={Number(summary.noGuardian.length)} /></b>
     <small>{summary.noGuardian.length ? t('Only the administrators can approve their requests') : t('all the folders are covered')}</small>
   </button>
   <button type="button" class="b2s-stat-tile" class:is-on={activeFilter === 'pending'} aria-pressed={activeFilter === 'pending'} on:click={() => toggle('pending')}>
     <span>{t('Pending requests')}</span>
-    <b class:is-warn={pendingCount > 0}>{pendingCount}</b>
+    <b class:is-warn={pendingCount > 0}><CountUp value={Number(pendingCount)} /></b>
     <small>{pendingCount ? t('waiting for a guardian') : t('nothing waits')}</small>
   </button>
   <button type="button" class="b2s-stat-tile" on:click={onOpenShares}>

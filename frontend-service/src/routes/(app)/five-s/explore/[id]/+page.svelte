@@ -6,6 +6,8 @@
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { goto } from '$app/navigation';
   import { formatBytes, formatDate, timeAgo } from '$lib/utils/format';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
@@ -177,6 +179,35 @@
       acting = false;
     }
   }
+  // ---- right click on a folder: what the sheet offers, without opening it ----
+  let menu: { folder: Folder; at: { x: number; y: number } } | null = null;
+  const fullPath = (folder: Folder) => (folder.path ? `${rootPath.replace(/\\$/, '')}\\${folder.path}` : rootPath);
+  function openMenu(folder: Folder, event: MouseEvent) {
+    event.preventDefault();
+    selected = folder;
+    menu = { folder, at: menuPositionFor(event) };
+  }
+  function menuItems(folder: Folder): ContextMenuItem[] {
+    const dups = groupsUnder(folder.path).length;
+    return [
+      { key: 'open', label: t('Open'), icon: 'bi-folder2-open', disabled: folder.folders <= 0, hint: folder.folders <= 0 ? t('No sub-folder') : undefined },
+      { key: 'dups', label: dups ? t('See its {count} duplicate group(s)', { count: dups }) : t('No duplicate here'), icon: 'bi-files', disabled: !dups },
+      { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard' },
+      { key: 'inherit', label: t('Restore the inheritance'), icon: 'bi-arrow-repeat', separated: true,
+        disabled: !(folder.inheritance_broken && isAdmin && folder.path), hint: !folder.inheritance_broken ? t('The inheritance is not broken') : !isAdmin ? t('Administrators only') : undefined },
+      { key: 'archive', label: t('Archive this folder'), icon: 'bi-archive', danger: true, disabled: !folder.path, hint: !folder.path ? t('The governed folder itself cannot be archived') : undefined }
+    ];
+  }
+  function pickMenu(key: string) {
+    const folder = menu?.folder;
+    if (!folder) return;
+    if (key === 'open') void enter(folder);
+    else if (key === 'dups') void goto(`/five-s/duplicates/${rootId}?path=${encodeURIComponent(folder.path)}`);
+    else if (key === 'copy') void navigator.clipboard?.writeText(fullPath(folder)).then(() => toast.success(t('Path copied.')));
+    else if (key === 'inherit') void restoreInheritance(folder);
+    else if (key === 'archive') archiving = folder;
+  }
+
   function runCard(card: Card) {
     if (card.act === 'archive' && card.folder) archiving = card.folder;
     else if (card.act === 'inherit' && card.folder) void restoreInheritance(card.folder);
@@ -271,7 +302,7 @@
   </div>
 
   {#if loading}
-    <LoadingState skeleton="rows" />
+    <LoadingState skeleton="page" rows={6} />
   {:else if error}
     <InlineAlert tone="error">{error}</InlineAlert>
   {:else if !current || !root}
@@ -313,7 +344,15 @@
       <div><span>{t('Not opened for 2 years')}</span><b class={share(dormantBytes, current.bytes) > 0.4 ? 'is-warn' : ''}>{pct(dormantBytes, current.bytes)} %</b><small>{t('of the sub-folders')}</small></div>
       <div><span>{t('Duplicates')}</span><b class={wasted ? 'is-bad' : ''}>{formatBytes(wasted)}</b><small>{t('{count} group(s), {done} decided', { count: groups.length, done: decided })}</small></div>
       <div><span>{t('Rights off the rule')}</span><b class={brokenHere.length || explicitHere.length ? 'is-bad' : ''}>{brokenHere.length + explicitHere.length}</b><small>{t('{count} broken inheritance(s) here', { count: brokenHere.length })}</small></div>
-      <div><span>{t('5S score')}</span><b style={`color:${tone(score)}`}>{score} / 100</b><small>{t('average of the 5 pillars')}</small></div>
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div class="fx__score" tabindex="0" role="group" aria-describedby="fx-score-card"><span>{t('5S score')}</span><b style={`color:${tone(score)}`}>{score} / 100</b><small>{t('average of the 5 pillars')}</small>
+        <div class="fx__score-card" id="fx-score-card" role="tooltip">
+          <strong>{t('5S score of {name}', { name: rootName })}{#if previousScore != null}<em>{previousScore} → {score}</em>{/if}</strong>
+          {#each pillars as pillar (pillar.jp)}
+            <span class="fx__score-row"><span>{pillar.fr}</span><i aria-hidden="true"><i style={`width:${Math.max(2, pillar.score)}%;background:${tone(pillar.score)}`}></i></i><b>{pillar.score}</b></span>
+          {/each}
+        </div>
+      </div>
     </section>
 
     <div class="fx__body">
@@ -328,7 +367,7 @@
           <nav class="fx__tree" aria-label={t('Tree')}>
             {#each treeItems as item (item.key)}
               <button type="button" class:is-current={item.current} class:is-sel={selected === item.folder} style={`padding-left:${10 + item.depth * 14}px`}
-                on:click={() => pickTree(item)} title={item.folder.path || rootPath}>
+                on:click={() => pickTree(item)} on:contextmenu={(event) => openMenu(item.folder, event)} title={item.folder.path || rootPath}>
                 <i class={`bi ${item.open ? 'bi-folder2-open' : item.folder.folders > 0 ? 'bi-folder-fill' : 'bi-folder'}`} aria-hidden="true"></i>
                 <span>{item.name}</span>
                 <small>{formatBytes(item.bytes)}</small>
@@ -345,7 +384,7 @@
                 {#each rows as folder (folder.path)}
                   {@const right = rights(folder)}
                   {@const dups = groupsUnder(folder.path).length}
-                  <tr class:is-sel={selected === folder} on:click={() => (selected = folder)} on:dblclick={() => enter(folder)}>
+                  <tr class:is-sel={selected === folder} on:click={() => (selected = folder)} on:dblclick={() => enter(folder)} on:contextmenu={(event) => openMenu(folder, event)}>
                     <td class="fx__name"><i class="bi bi-folder-fill" aria-hidden="true"></i>
                       {#if folder.folders > 0}<button type="button" class="b2s-link-btn" on:click|stopPropagation={() => enter(folder)}>{folder.name}</button>{:else}<span>{folder.name}</span>{/if}</td>
                     <td class="fx__num">{formatBytes(folder.bytes)}</td>
@@ -489,6 +528,9 @@
   onClose={() => (archiving = null)}
 />
 
+<ContextMenu open={Boolean(menu)} title={menu?.folder.name || rootName} subtitle={menu ? fullPath(menu.folder) : ''}
+  items={menu ? menuItems(menu.folder) : []} at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={pickMenu} />
+
 <style>
   .fx { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; padding: var(--b2s-page-padding); }
   .fx__top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
@@ -615,4 +657,15 @@
   .fx__dup div b { white-space: nowrap; color: #991B1B; }
   .fx__dup div.is-keep { border-color: #86EFAC; background: #F0FDF4; }
   .fx__dup div.is-keep b { color: #047857; }
+  .fx__score { position: relative; outline: none; }
+  .fx__score-card { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: 300px; display: grid; gap: 8px; padding: 14px; border-radius: 14px;
+    background: #0E1218; color: #F3F4F6; box-shadow: 0 18px 40px rgba(14, 18, 24, 0.3); opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity 140ms ease, transform 140ms ease, visibility 140ms; pointer-events: none; }
+  .fx__score:hover .fx__score-card, .fx__score:focus-within .fx__score-card, .fx__score:focus .fx__score-card { opacity: 1; visibility: visible; transform: none; }
+  .fx__score-card strong { display: flex; justify-content: space-between; font-size: var(--b2s-fs-sm); }
+  .fx__score-card em { font-style: normal; font-weight: 500; color: #C9D1DA; }
+  .fx__score-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 28px; gap: 8px; align-items: center; font-size: 12px; color: #D1D5DB; }
+  .fx__score-row > i { height: 6px; border-radius: 999px; background: #1F2630; overflow: hidden; }
+  .fx__score-row > i > i { display: block; height: 100%; border-radius: 999px; }
+  .fx__score-row b { text-align: right; color: #FFFFFF; }
 </style>

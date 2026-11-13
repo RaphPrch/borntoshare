@@ -10,13 +10,18 @@
 
   // Numbers keep the large size; a text value (« 27 min ago », « Never ») is set smaller
   $: isText = typeof value === 'string' && !/^[\d\s.,%+-]*$/.test(value);
+  // « 1 204 » or « 42 % » counts too: whole numbers written as text keep their suffix
+  $: counted = typeof value === 'number' ? { n: value, suffix: '' } : (() => {
+    const m = /^\s*(\d[\d\s\u00a0\u202f]*)\s*(%?)\s*$/.exec(String(value));
+    return m ? { n: Number(m[1].replace(/\D/g, '')), suffix: m[2] ? ' %' : '' } : null;
+  })();
 </script>
 
 <svelte:element this={href ? 'a' : 'article'} {href} role={href ? undefined : 'group'} class="b2s-kpi" class:is-link={Boolean(href)} on:click>
   <span class={`b2s-kpi__icon is-${tone}`} aria-hidden="true"><i class={`bi ${icon}`}></i></span>
   <span class="b2s-kpi__body">
     <span class="b2s-kpi__label">{label}</span>
-    <strong class="b2s-kpi__value" class:is-text={isText} title={isText ? String(value) : undefined}>{#if typeof value === 'number'}<CountUp {value} />{:else}{value}{/if}</strong>
+    <strong class="b2s-kpi__value" class:is-text={isText} title={isText ? String(value) : undefined}>{#if counted}<CountUp value={counted.n} format={(n) => Math.round(n).toLocaleString('fr-FR') + (counted?.suffix ?? '')} />{:else}{value}{/if}</strong>
     {#if hint}<span class="b2s-kpi__hint">{hint}</span>{/if}
   </span>
 </svelte:element>

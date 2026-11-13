@@ -67,13 +67,13 @@
   {#if expiring > 0}
     <button type="button" class="b2s-stat-tile" on:click={onOpenPermissions}>
       <span>{t('Ending within 30 days')}</span>
-      <b class="is-warn">{expiring}</b>
+      <b class="is-warn"><CountUp value={Number(expiring)} /></b>
       <small>{nextEnd ? t('Next: {name}, in {days} d', { name: nextEnd.name, days: nextDays ?? 0 }) : t('No end date to come')}</small>
     </button>
   {:else if $fivesEnabled}
     <button type="button" class="b2s-stat-tile" on:click={onOpenContent}>
       <span>{t('Cold data')}</span>
-      <b class:is-warn={cold != null && cold > 0.5}>{cold == null ? '—' : `${Math.round(cold * 100)} %`}</b>
+      <b class:is-warn={cold != null && cold > 0.5}>{#if cold == null}—{:else}<CountUp value={Math.round(cold * 100)} format={(n) => `${Math.round(n)} %`} />{/if}</b>
       <small>{cold == null ? t('Not measured yet') : t('untouched for more than a year')}</small>
     </button>
   {:else}
