@@ -18,7 +18,8 @@ from app.actions.smb import _LS_ENTRY, _classify_smb_error, run_samba
 
 # 3: personal data (social security number), bank data (IBAN, card), backups and databases, mailboxes, programs
 # 4: no card number in the decimals of a number (GPS coordinates of photo metadata)
-RULES_VERSION = 4
+# 5: a card written in one block only with the length and network of a real card, never inside an identifier
+RULES_VERSION = 5
 MAX_LISTED = 300_000
 # Files whose content is read in one pass (the next pass, queued by the core, goes on)
 MAX_READ_FILES = 1000
@@ -97,6 +98,20 @@ def _luhn_ok(value: str) -> bool:
     return total % 10 == 0
 
 
+def _card_ok(value: str) -> bool:
+    """A payment card: written with spaces or hyphens, any card the Luhn check accepts; written in one block, only
+    the lengths and networks of real cards (Visa 16, Mastercard 16, Amex 15): long numeric identifiers of photo
+    and message exports (Facebook, Google Photos, SmartSwitch) pass the Luhn check one time in ten."""
+    if not _luhn_ok(value):
+        return False
+    if re.search(r"[ -]", value.strip()):
+        return True
+    raw = _digits(value)
+    if len(raw) == 16:
+        return raw[0] == "4" or 51 <= int(raw[:2]) <= 55 or 2221 <= int(raw[:4]) <= 2720
+    return len(raw) == 15 and raw[:2] in {"34", "37"}
+
+
 def _nir_ok(value: str) -> bool:
     """French social security number (NIR): 13 characters and a key, 97 - (number mod 97); Corsica 2A / 2B."""
     raw = _digits(value).upper()
@@ -113,7 +128,8 @@ def _nir_ok(value: str) -> bool:
 DATA_RULES: list[tuple[str, str, re.Pattern[str], object, int]] = [
     ("bank_data", "IBAN", re.compile(r"\b([A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?)\b"), _iban_ok, 4),
     # Not the decimals of a number (GPS coordinates of photo metadata: "longitude": -3.3322…, a Luhn hit by chance)
-    ("bank_data", "Payment card number", re.compile(r"(?<![\d.,-])((?:\d[ -]?){12,18}\d)(?![\d-]|[.,]\d)"), _luhn_ok, 4),
+    # Nor a piece of an identifier (letters, « _ » around it): 11745607_10153393681804000_4063182375852511500.json
+    ("bank_data", "Payment card number", re.compile(r"(?<![\w.,-])((?:\d[ -]?){12,18}\d)(?![\w-]|[.,]\d)"), _card_ok, 4),
     ("personal_data", "Social security number",
      re.compile(r"\b([12] ?\d{2} ?(?:0[1-9]|1[0-2]|[2-9]\d) ?(?:\d{2}|2A|2B) ?\d{3} ?\d{3} ?\d{2})\b"), _nir_ok, 0),
 ]

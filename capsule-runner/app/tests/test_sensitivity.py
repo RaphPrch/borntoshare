@@ -195,6 +195,17 @@ def test_decimals_of_a_number_are_not_a_card() -> None:
     assert [item["category"] for item in sens.content_findings("x.csv", "carte;" + _CARD)] == ["bank_data"]
 
 
+def test_identifiers_of_exports_are_not_cards() -> None:
+    # A 19-digit identifier starting with 4 that passes Luhn (Facebook export), alone or inside a name
+    ident = "4063182375852511500"
+    assert sens._luhn_ok(ident) and not sens._card_ok(ident)
+    assert sens.content_findings("x.json", '{"id": "11745607_10153393681804000_' + ident + '"}') == []
+    assert sens.content_findings("x.json", '{"media_id": ' + ident + '}') == []
+    # A real card is still found, in one block or with spaces
+    assert sens._card_ok(_CARD) and sens._card_ok("4970 1012 3456 7893")
+    assert [item["category"] for item in sens.content_findings("x.csv", "cb;" + _CARD)] == ["bank_data"]
+
+
 def test_a_password_line_also_masks_the_numbers_it_holds() -> None:
     found = sens.content_findings("x.txt", f"password=Sup3rSecret iban {_IBAN}")
     assert found[0]["category"] == "password" and _IBAN not in found[0]["excerpt"] and "FR76••••••" in found[0]["excerpt"]
