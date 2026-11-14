@@ -38,3 +38,15 @@ def test_the_domain_of_a_namespace_comes_from_its_path():
     assert action.domain_of_path(r"\\DFS01\lorient", "DFS01.CORP.LOCAL") == ""
     assert action.domain_of_path(r"\\dfs01.corp.local\lorient", "DFS01") == ""
     assert action.domain_of_path("", "DFS01") == ""
+
+
+def test_a_dfs_folder_without_target_is_not_a_link():
+    """\\\\corp.local\\Grenoble: Corporate\\TEST is a DFS folder without target, marked by a hidden « .DFSFolderLink »
+    reparse point whose referral is empty (it made the whole namespace « not read: list index out of range »)."""
+    tree = {
+        r"\\s\Grenoble": [("Corporate", True, False)],
+        r"\\s\Grenoble\Corporate": [("Direction", True, True), ("TEST", True, False)],
+        r"\\s\Grenoble\Corporate\TEST": [(".DFSFolderLink", True, True), ("Sub", True, True)],
+    }
+    links = action.walk_links(r"\\s\Grenoble", lambda path: tree.get(path, []), max_links=100)
+    assert links == ["Corporate\\Direction", "Corporate\\TEST\\Sub"]

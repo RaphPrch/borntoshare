@@ -16,6 +16,9 @@ from app.shared.windows_names import dfs_folder_error
 _SYSTEM_SHARES = {"ADMIN$", "IPC$", "PRINT$", "SYSVOL", "NETLOGON"}
 _REPARSE_POINT = 0x400
 _MAX_DEPTH = 8
+# Hidden marker Windows puts in a DFS folder without target (a folder of the namespace that only holds other
+# folders): not a link, and its referral is empty
+_FOLDER_MARKER = ".dfsfolderlink"
 
 
 def _clean_target(path: str) -> str:
@@ -36,7 +39,7 @@ def walk_links(
     while pending and len(found) < max_links:
         rel, depth = pending.pop(0)
         for name, is_dir, is_reparse in list_dir(root + ("\\" + rel if rel else "")):
-            if not is_dir or name in {".", ".."}:
+            if not is_dir or name in {".", ".."} or name.lower() == _FOLDER_MARKER:
                 continue
             child = f"{rel}\\{name}" if rel else name
             if is_reparse:
@@ -146,11 +149,12 @@ def read_dfs_namespaces(params: dict[str, Any]):
         tree, _ = get_smb_tree(f"\\\\{address}\\IPC$", username=username, password=password, port=port, connection_timeout=15)
 
         def referral(path: str) -> tuple[bool, list[str]] | None:
+            # An empty answer (no target) raises while reading it: no referral, as an unknown path
             try:
                 entry = ReferralEntry(dfs_request(tree, path))
+                return entry.is_root, [_clean_target(target.target_path) for target in entry.target_list]
             except Exception:
                 return None
-            return entry.is_root, [_clean_target(target.target_path) for target in entry.target_list]
 
         def list_dir(path: str):
             for item in smbclient.scandir(path, username=username, password=password, port=port):

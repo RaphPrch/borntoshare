@@ -5844,5 +5844,9 @@
   "Later, in Servers": "Plus tard, dans Serveurs",
   "Skipped: no server": "Passé : pas de serveur",
   "No file server yet: add it in Servers, then its folders.": "Pas encore de serveur de fichiers : ajoutez-le dans Serveurs, puis ses dossiers.",
-  "No file server yet? « Skip: later » goes on without it: add it in Servers, then its folders.": "Pas encore de serveur de fichiers ? « Passer : plus tard » continue sans lui : ajoutez-le ensuite dans Serveurs, puis ses dossiers."
+  "No file server yet? « Skip: later » goes on without it: add it in Servers, then its folders.": "Pas encore de serveur de fichiers ? « Passer : plus tard » continue sans lui : ajoutez-le ensuite dans Serveurs, puis ses dossiers.",
+  "{count} namespace(s)": "{count} espace(s) de noms",
+  "DFS server": "Serveur DFS",
+  "DFS namespace {name}": "Espace de noms DFS {name}",
+  "DFS server: its namespaces below": "Serveur DFS : ses espaces de noms en dessous"
 }

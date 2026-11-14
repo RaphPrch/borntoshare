@@ -57,8 +57,13 @@
     newCount: number;
     total: number;
     discoveredAt: string | null;
+    /** A DFS namespace: shown under the server that hosts it (host) */
+    isDfs: boolean;
+    host: string;
     raw: Record<string, any>;
   };
+  /** The tree of a zone: the file servers, the DFS namespaces under their server (a heading when it is not declared) */
+  type ServerNode = { key: string; label: string; server: Server | null; children: Server[] };
   type Failure = { name: string; root_path: string; message: string };
 
   const BATCH_SIZE = 25;
@@ -412,6 +417,8 @@
         newCount: Number(entry?.new_count ?? 0),
         total: Number(entry?.roots_count ?? 0),
         discoveredAt,
+        isDfs: String(raw?.storage_endpoint_type ?? raw?.endpoint_type ?? '').toLowerCase() === 'dfs',
+        host: String(raw?.host ?? ''),
         raw
       };
     })
@@ -427,9 +434,25 @@
   let visibleServers = $derived(servers
     .filter((server) => `${server.name} ${server.zone}`.toLowerCase().includes(serverQuery.trim().toLowerCase()))
     .filter((server) => serverFilter === 'all' || (serverFilter === 'selected' ? selectedByServer[server.id] : server.state === 'bad')));
+  const shortHost = (value: string) => value.trim().replace(/^\\+/, '').split(/[.\\]/)[0].toLowerCase();
+  function treeOf(list: Server[]): ServerNode[] {
+    const nodes: ServerNode[] = list.filter((server) => !server.isDfs)
+      .map((server) => ({ key: `s${server.id}`, label: server.name, server, children: [] }));
+    for (const namespace of list.filter((server) => server.isDfs)) {
+      const host = shortHost(namespace.host);
+      let parent = nodes.find((node) => node.server && [shortHost(node.server.host), shortHost(node.server.name)].includes(host))
+        ?? nodes.find((node) => !node.server && node.key === `h${host}`);
+      if (!parent) {
+        parent = { key: `h${host}`, label: host.toUpperCase() || t('DFS server'), server: null, children: [] };
+        nodes.push(parent);
+      }
+      parent.children.push(namespace);
+    }
+    return nodes.sort((a, b) => a.label.localeCompare(b.label));
+  }
   let zones = $derived([...new Set(visibleServers.map((server) => server.zone))].map((zone) => {
     const list = visibleServers.filter((server) => server.zone === zone);
-    return { zone, list, picked: list.reduce((sum, server) => sum + (selectedByServer[server.id] ?? 0), 0) };
+    return { zone, list, nodes: treeOf(list), picked: list.reduce((sum, server) => sum + (selectedByServer[server.id] ?? 0), 0) };
   }));
   let currentFolders = $derived(currentId ? foldersByServer[currentId] ?? [] : []);
   let managedCount = $derived(currentFolders.filter((folder) => folder.managed).length);
@@ -472,6 +495,18 @@
       <a class="b2s-btn b2s-btn-primary" href="/admin/storage-endpoints">{t('Open the servers')}</a>
     </div>
   {:else}
+    {#snippet serverRow(server: Server, child: boolean)}
+      <button type="button" class="server" class:child class:on={server.id === currentId && !searchMode} onclick={() => selectServer(server)}
+        title={child ? t('DFS namespace {name}', { name: server.name }) : server.name}>
+        {#if child}<i class="bi bi-diagram-3" aria-hidden="true"></i>{:else}<span class={`dot dot--${server.state}`} aria-hidden="true"></span>{/if}
+        <span class="ell">{server.name}</span>
+        {#if selectedByServer[server.id]}
+          <span class="badge">{selectedByServer[server.id]}</span>
+        {:else}
+          <small>{stateLabel(server)}</small>
+        {/if}
+      </button>
+    {/snippet}
     <div class="work">
       <section class="pane">
         <div class="pane-head">
@@ -492,16 +527,19 @@
               <small>{t('{count} servers', { count: group.list.length })}</small>
             </button>
             {#if opened}
-              {#each group.list as server (server.id)}
-                <button type="button" class="server" class:on={server.id === currentId && !searchMode} onclick={() => selectServer(server)}>
-                  <span class={`dot dot--${server.state}`} aria-hidden="true"></span>
-                  <span class="ell">{server.name}</span>
-                  {#if selectedByServer[server.id]}
-                    <span class="badge">{selectedByServer[server.id]}</span>
-                  {:else}
-                    <small>{stateLabel(server)}</small>
-                  {/if}
-                </button>
+              {#each group.nodes as node (node.key)}
+                {#if node.server}
+                  {@render serverRow(node.server, false)}
+                {:else}
+                  <div class="server host" title={t('DFS server: its namespaces below')}>
+                    <i class="bi bi-hdd-network" aria-hidden="true"></i>
+                    <span class="ell">{node.label}</span>
+                    <small>{t('{count} namespace(s)', { count: node.children.length })}</small>
+                  </div>
+                {/if}
+                {#each node.children as namespace (namespace.id)}
+                  {@render serverRow(namespace, true)}
+                {/each}
               {/each}
             {/if}
           {:else}
@@ -700,6 +738,13 @@
   .zone small { margin-left: auto; font-weight: 400; color: var(--b2s-color-text-muted); }
   .server { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 9px; align-items: center; width: 100%; padding: 8px 14px; border: 0; border-bottom: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); text-align: left; font-size: var(--b2s-text-sm); cursor: pointer; }
   .server:hover { background: var(--b2s-color-surface-soft); }
+  /* The tree: a namespace under its DFS server, a DFS server not declared as a heading */
+  .server.child, .server.host { grid-template-columns: 14px minmax(0, 1fr) auto; }
+  .server.child { position: relative; padding-left: 36px; }
+  .server.child::before { content: ''; position: absolute; left: 21px; top: 0; bottom: 50%; width: 9px; border-left: 1px solid var(--b2s-color-border-strong, #c9ced6); border-bottom: 1px solid var(--b2s-color-border-strong, #c9ced6); }
+  .server.child > i { font-size: 12px; color: var(--b2s-color-text-muted); }
+  .server.host { cursor: default; font-weight: 600; color: var(--b2s-color-text); }
+  .server.host > i { font-size: 13px; color: var(--b2s-color-text-muted); }
   .server.on { background: var(--b2s-accent-soft); box-shadow: inset 3px 0 0 var(--b2s-accent-strong); }
   .server small { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--b2s-color-border-mid); }

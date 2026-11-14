@@ -163,7 +163,8 @@
         }
         dfsServer = String(read.result?.details?.server ?? cleanHost);
         namespaces = (read.result?.details?.namespaces ?? []) as Namespace[];
-        picked = new Set(namespaces.filter((namespace) => !alreadyFollowed(namespace)).map((namespace) => namespace.name));
+        // Nothing checked: the server is added; its namespaces only when chosen
+        picked = new Set();
         return null;
       };
       if (namespacePath) {
@@ -318,7 +319,8 @@
   let otherShares = $derived(shares.filter((share) => !rootShares.has(share.toLowerCase())));
   // A server holding namespaces only is not declared as a file server, unless asked
   $effect.pre(() => {
-    if (!asFilerTouched) asFiler = !namespacePath && (otherShares.length > 0 || namespaces.length === 0);
+    // The server itself is always added (a DFS server too); a namespace path adds that namespace only
+    if (!asFilerTouched) asFiler = !namespacePath;
   });
   $effect.pre(() => {
     if (namespacePath) asFiler = false;
@@ -499,7 +501,7 @@
           </li>
         {/each}
       </ul>
-      <button type="button" class="b2s-btn b2s-btn-primary wide" disabled={!canCreate} onclick={create}>{creating ? t('Creating…') : asFiler && picked.size ? t('Add the server and {count} namespace(s)', { count: picked.size }) : picked.size ? t('Add {count} namespace(s)', { count: picked.size }) : t('Create the server')}</button>
+      <button type="button" class="b2s-btn b2s-btn-primary wide" disabled={!canCreate} onclick={create}>{creating ? t('Creating…') : asFiler && picked.size ? t('Add the server and {count} namespace(s)', { count: picked.size }) : picked.size ? t('Add {count} namespace(s)', { count: picked.size }) : t('Add the server')}</button>
       {#if pendingReason}<small class="muted">{pendingReason}</small>{:else}<small class="muted">{asFiler && otherShares.length ? t('Next: choose the folders to manage.') : t('Next: the page of the server.')}</small>{/if}
       {#if createError}<InlineAlert tone="error">{createError}</InlineAlert>{/if}
     </aside>
