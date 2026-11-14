@@ -1,6 +1,7 @@
 """Regular infrastructure tasks (Advanced Settings › Infrastructure › Schedules).
 
-Every 30 s, the tasks whose next run is due are started: health check, data sync, access expiry and DFS namespaces.
+Every 30 s, the tasks whose next run is due are started: health check, data sync, access expiry, file servers
+(task « dfs_read »: the servers, optionally their folders, and the DFS namespaces) and smart policies.
 The smart policies run in core-service; the others hand the work to the workers through the job queue. A MariaDB lock keeps a single scheduler active when
 several core-service instances run.
 """
@@ -25,7 +26,7 @@ LOCK_NAME = "b2s_infra_scheduler"
 async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
     """Run one task now and record its outcome on the schedule."""
     from app.jobs.access_expiry import run_access_expiry
-    from app.services.dfs_refresh import run_dfs_read
+    from app.services.file_server_health import run_file_servers
     from app.services.data_sync_service import run_data_sync
     from app.services.infrastructure_service import run_health_check
 
@@ -91,7 +92,8 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             if reminders:
                 message = f"{message} · {reminders} rappel(s) envoyé(s)"
         elif task == "dfs_read":
-            summary = await run_dfs_read(db, trigger=trigger)
+            # The file servers (and, chosen in its options, their folders and the DFS namespaces)
+            summary = await run_file_servers(db, trigger=trigger)
             status = summary["status"]
             message = summary["message"]
         elif task == "policies":

@@ -5867,5 +5867,9 @@
   "Starts at": "Démarre à",
   "Stops at": "S'arrête à",
   "Set the schedule of the scanner": "Régler la planification du scanner",
-  "No agent on the file servers: the scanner walks them over WinRM (Kerberos) with the account of each server, at a low priority; between two full walks only what the NTFS change journal shows as changed.": "Aucun agent sur les serveurs de fichiers : le scanner les parcourt par WinRM (Kerberos) avec le compte de chaque serveur, en priorité basse ; entre deux parcours complets, seulement ce que le journal des modifications NTFS signale."
+  "No agent on the file servers: the scanner walks them over WinRM (Kerberos) with the account of each server, at a low priority; between two full walks only what the NTFS change journal shows as changed.": "Aucun agent sur les serveurs de fichiers : le scanner les parcourt par WinRM (Kerberos) avec le compte de chaque serveur, en priorité basse ; entre deux parcours complets, seulement ce que le journal des modifications NTFS signale.",
+  "Tests every file server through a worker, with its own account; on demand its folders too, and the DFS namespaces read again.": "Teste chaque serveur de fichiers par un worker, avec son propre compte ; au choix ses dossiers aussi, et les espaces de noms DFS relus.",
+  "Their folders too": "Leurs dossiers aussi",
+  "Each governed folder of the server: reached, ACL read (as « Read the ACL »).": "Chaque dossier géré du serveur : joint, ACL relue (comme « Lire l'ACL »).",
+  "Read again: DFS folders added or removed outside BornToShare show without « Read again ».": "Relus : les dossiers DFS ajoutés ou retirés hors de BornToShare apparaissent sans « Relire »."
 }

@@ -37,9 +37,9 @@
       intervals: HEALTH_INTERVALS
     },
     dfs_read: {
-      icon: 'bi-diagram-3',
-      title: () => t('DFS namespaces'),
-      text: () => t('Reads every DFS namespace again, through a worker: DFS folders added or removed outside BornToShare show without « Read again ».'),
+      icon: 'bi-hdd-network',
+      title: () => t('File servers'),
+      text: () => t('Tests every file server through a worker, with its own account; on demand its folders too, and the DFS namespaces read again.'),
       intervals: SYNC_INTERVALS
     },
     policies: {
@@ -50,7 +50,15 @@
     }
   };
 
-  const SYNC_PARTS: { key: 'snapshots' | 'shares' | 'acl_drift'; icon: string; title: () => string; text: () => string }[] = [
+  type Part = { key: string; icon: string; title: () => string; text: () => string; byDefault?: boolean };
+  // File servers (task dfs_read): their folders on demand (off unless chosen), the DFS namespaces read again (on)
+  const FILE_SERVER_PARTS: Part[] = [
+    { key: 'folders', icon: 'bi-folder2-open', title: () => t('Their folders too'), text: () => t('Each governed folder of the server: reached, ACL read (as « Read the ACL »).'), byDefault: false },
+    { key: 'dfs', icon: 'bi-diagram-3', title: () => t('DFS namespaces'), text: () => t('Read again: DFS folders added or removed outside BornToShare show without « Read again ».'), byDefault: true }
+  ];
+  const partOn = (schedule: { options?: Record<string, unknown> | null }, part: Part) =>
+    schedule.options?.[part.key] === undefined ? part.byDefault !== false : schedule.options?.[part.key] !== false;
+  const SYNC_PARTS: Part[] = [
     { key: 'snapshots', icon: 'bi-cloud-arrow-down', title: () => t('Directory snapshots'), text: () => t('Users, groups and memberships of every source with “Snapshot inventory”.') },
     { key: 'shares', icon: 'bi-folder-symlink', title: () => t('Share discovery'), text: () => t('Shares of every file server: storage roots found or unreachable.') },
     { key: 'acl_drift', icon: 'bi-shield-exclamation', title: () => t('ACL and group drift'), text: () => t('ACL scan of every governed root, AD group members compared with the granted accesses. Differences raise alerts.') }
@@ -99,7 +107,7 @@
     }
   }
 
-  function toggleOption(schedule: InfraSchedule, key: 'snapshots' | 'shares' | 'acl_drift', value: boolean) {
+  function toggleOption(schedule: InfraSchedule, key: string, value: boolean) {
     void save(schedule.task, { options: { ...schedule.options, [key]: value } });
   }
 
@@ -178,10 +186,10 @@
           <p class="last-line"><i class="bi bi-dot" aria-hidden="true"></i>{line}</p>
         {/each}
 
-        {#if schedule.task === 'data_sync'}
+        {#if schedule.task === 'data_sync' || schedule.task === 'dfs_read'}
           <div class="parts">
-            {#each SYNC_PARTS as part (part.key)}
-              <label class="part" class:is-on={schedule.options?.[part.key] !== false}>
+            {#each schedule.task === 'data_sync' ? SYNC_PARTS : FILE_SERVER_PARTS as part (part.key)}
+              <label class="part" class:is-on={partOn(schedule, part)}>
                 <span class="part__icon"><i class={`bi ${part.icon}`} aria-hidden="true"></i></span>
                 <span class="part__copy">
                   <strong>{part.title()}</strong>
@@ -190,7 +198,7 @@
                 <input
                   type="checkbox"
                   class="cap-switch"
-                  checked={schedule.options?.[part.key] !== false}
+                  checked={partOn(schedule, part)}
                   disabled={busy === schedule.task}
                   onchange={(e) => toggleOption(schedule, part.key, e.currentTarget.checked)}
                 />

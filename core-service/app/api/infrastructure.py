@@ -271,6 +271,11 @@ def update_schedule(task: Literal["health_check", "data_sync", "access_expiry", 
         updates["interval_minutes"] = payload.interval_minutes
     if payload.options is not None and task == "data_sync":
         updates["options_json"] = json.dumps({k: bool(payload.options.get(k, True)) for k in ("snapshots", "shares", "acl_drift")})
+    if payload.options is not None and task == "dfs_read":
+        # File servers: their folders on demand, the DFS namespaces read again by default
+        from app.services.file_server_health import DEFAULT_OPTIONS
+
+        updates["options_json"] = json.dumps({k: bool(payload.options.get(k, default)) for k, default in DEFAULT_OPTIONS.items()})
     if updates:
         # A new interval applies from now
         partial_updates_repo.update_columns(db, "infra_schedules", task, updates, reschedule_minutes="interval_minutes" in updates)
