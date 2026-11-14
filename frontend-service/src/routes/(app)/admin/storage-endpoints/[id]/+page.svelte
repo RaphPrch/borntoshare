@@ -1096,7 +1096,10 @@
   })());
   let dfsServerParam = $derived(($page.url.searchParams.get('server') ?? '').toUpperCase());
   let dfsServerNamespaces = $derived(dfsServerParam ? endpoints.filter((ep) => isDfsEndpoint(ep) && dfsServerOf(ep) === dfsServerParam) : []);
-  let sidebarSelected = $derived(dfsServerParam || isDfsEndpoint(selected) ? `dfs-server:${dfsServerParam || dfsServerOf(selected)}` : selectedId);
+  // A file server that hosts DFS namespaces is the line of its DFS server
+  let hostsNamespaces = $derived(Boolean(selected) && !isDfsEndpoint(selected) && endpoints.some((ep) => isDfsEndpoint(ep) && dfsServerOf(ep) === dfsServerOf(selected)));
+  let sidebarSelected = $derived(dfsServerParam || isDfsEndpoint(selected) || hostsNamespaces ? `dfs-server:${dfsServerParam || dfsServerOf(selected)}` : selectedId);
+  let dfsFileServer = $derived(dfsServerParam ? endpoints.find((ep) => !isDfsEndpoint(ep) && dfsServerOf(ep) === dfsServerParam) ?? null : null);
   let selectedRoots = $derived(roots.filter((r) => Number(r?.storage_endpoint_id ?? 0) === selectedId));
   let recentFailures = $derived(activity.filter(
     (entry) => isFailure(entry) && Date.now() - new Date(String(entry?.created_at ?? '')).getTime() < 7 * 24 * 3600 * 1000
@@ -1392,7 +1395,8 @@
       {/snippet}
     {#if dfsServerParam && dfsServerNamespaces.length}
       {#key dfsServerParam}
-        <DfsServerView server={dfsServerParam} zoneName={endpointZone(dfsServerNamespaces[0])} namespaces={dfsServerNamespaces} {endpointId} {endpointName} />
+        <DfsServerView server={dfsServerParam} zoneName={endpointZone(dfsServerNamespaces[0])} namespaces={dfsServerNamespaces} {endpointId} {endpointName}
+          fileServerHref={dfsFileServer ? `/admin/storage-endpoints/${endpointId(dfsFileServer)}` : null} />
       {/key}
     {:else if selected}
       <EntityConsoleShell>

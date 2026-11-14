@@ -289,6 +289,10 @@ export const deleteStorageRoot = async (
  * List storage roots context (READ-MODEL).
  * GET /storage-roots/context
  */
+/** The folders anyone signed in may ask an access to (name, zone, server, DFS path): the new request form */
+export const listRequestableStorageRoots = async (fetchFn: FetchLike): Promise<Array<Record<string, any>>> =>
+  apiGetList<Record<string, any>>(fetchFn, "/storage-roots/requestable");
+
 export const listStorageRootsContext = async (
   fetchFn: FetchLike
 ): Promise<StorageRootContext[]> => {

@@ -57,3 +57,16 @@ def test_a_dns_answer_is_decoded():
         assert nr.query_a("filer01.corp.local", "10.0.0.1") == "10.0.0.5"
     finally:
         nr.socket.socket = original
+
+
+def test_the_5s_scanner_gives_its_own_source_of_dns(monkeypatch):
+    """The 5S scanner reuses this module without the settings of capsule-runner: its own client to the core gives the
+    DNS of the domains (before, the import failed silently and filer01.corp.local was never resolved)."""
+    monkeypatch.setattr(nr, "query_a", lambda name, server, timeout=3.0: "10.0.0.5" if name.lower() == "filer01.corp.local" else None)
+    monkeypatch.setattr(nr, "_source", None)
+    nr.use_dns_source(lambda: DNS)
+    try:
+        assert nr._load() == DNS
+        assert nr.domain_resolve("filer01.corp.local")[0] == "10.0.0.5"
+    finally:
+        nr.use_dns_source(None)

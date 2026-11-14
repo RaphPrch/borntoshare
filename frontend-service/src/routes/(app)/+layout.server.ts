@@ -65,11 +65,18 @@ export const load: LayoutServerLoad = async (event) => {
   // Unknown (the core did not answer): the governance stays shown, as on every installation before the 5S-only one
   if (!featureList) features.push('governance');
 
-  // An installation for the 5S only: no access request, no exposure; the dashboard of a user is the 5S
+  const path = event.url.pathname;
+  // A user who neither administers nor guards a folder: his requests and his folders only, not the screens about
+  // the folders (monitoring, reports, 5S, exposure)
+  const staff = me.is_admin || guardianRootIds.length > 0;
+  if (!staff && ['/observability', '/reports', '/five-s', '/exposure'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+    throw redirect(302, '/dashboard');
+  }
+
+  // An installation for the 5S only: no access request, no exposure; the dashboard of a guardian is the 5S
   if (!features.includes('governance')) {
-    const path = event.url.pathname;
-    const home = features.includes('fives') ? '/five-s' : '/storage-roots';
-    if (path.startsWith('/access-requests') || path.startsWith('/exposure') || (path === '/dashboard' && !me.is_admin)) throw redirect(302, home);
+    const home = features.includes('fives') && staff ? '/five-s' : '/dashboard';
+    if (path.startsWith('/access-requests') || path.startsWith('/exposure') || (path === '/dashboard' && staff && !me.is_admin)) throw redirect(302, home);
   }
 
   return {

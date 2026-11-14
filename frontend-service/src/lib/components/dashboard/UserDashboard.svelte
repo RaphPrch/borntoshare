@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { t } from '$lib/i18n';
   import KpiCard from '$lib/components/ui/KpiCard.svelte';
@@ -27,6 +28,12 @@
   const tone = (count: number, alarm: 'warning' | 'danger') => (count > 0 ? alarm : 'success');
 </script>
 
+{#if !$governanceEnabled}
+  <!-- A 5S-only installation: no request; the 5S of the folders is for their guardians and the administrators -->
+  <DashboardShell title={t('Dashboard')} subtitle={t('BornToShare')}>
+    <EmptyStateInline message={t('Nothing to do here: the 5S of the folders is followed by their guardians and the administrators.')} />
+  </DashboardShell>
+{:else}
 <DashboardShell
   title={t('Dashboard')}
   subtitle={guardian ? t('Your requests and the folders you guard') : t('Your requests and your accesses')}
@@ -116,6 +123,7 @@
     </section>
   </div>
 </DashboardShell>
+{/if}
 
 <style>
   h2 { margin: 8px 0 12px; font-size: var(--b2s-fs-lg); font-weight: 600; color: var(--b2s-color-text); }

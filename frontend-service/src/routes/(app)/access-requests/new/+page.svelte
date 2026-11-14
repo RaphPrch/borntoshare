@@ -14,7 +14,7 @@
   import { parseRequestSentence } from '$lib/utils/request-sentence';
   import { getPublicSettings } from '$lib/api/admin-advanced-settings';
   import { apiGetData } from '$lib/api/client';
-  import { listStorageRootsContext, type StorageRootContext } from '$lib/api/storage-roots';
+  import { listRequestableStorageRoots, type StorageRootContext } from '$lib/api/storage-roots';
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
 
@@ -75,7 +75,8 @@
   onMount(async () => {
     getPublicSettings(fetch).then((settings) => { if (settings?.requests) policy = settings.requests; }).catch(() => null);
     try {
-      roots = ((await listStorageRootsContext(fetch)) as any[]).map(toRoot).filter((root) => root.id > 0);
+      // Every folder declared by the administrators: anyone may ask (the guardians of the folder decide)
+      roots = ((await listRequestableStorageRoots(fetch)) as any[]).map(toRoot).filter((root) => root.id > 0);
     } catch (error) {
       loadError = error instanceof Error ? error.message : t('Unable to load the folders.');
     } finally {

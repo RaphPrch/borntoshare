@@ -26,15 +26,30 @@ def hosts_of(value: str | None) -> list[str]:
 
     return [part for part in re.split(r"[,;\s]+", str(value or "").strip()) if part]
 
+# Where the DNS of the domains come from: the core, through the client of capsule-runner by default; the 5S scanner
+# (which reuses this module without the settings of capsule-runner) gives its own (use_dns_source)
+_source: Any = None
+
+
+def use_dns_source(source: Any) -> None:
+    """source(): the rows of /api/internal/network/dns ([{"domain", "servers"}])."""
+    global _source, _read_at
+    _source = source
+    _read_at = 0.0
+
+
 def _load() -> list[dict[str, Any]]:
     global _dns_map, _read_at
     if _read_at and time.monotonic() - _read_at < _CACHE_SECONDS:
         return _dns_map
     _read_at = time.monotonic()
     try:
-        from app.services.core_client import core_get
+        if _source is not None:
+            data = _source() or []
+        else:
+            from app.services.core_client import core_get
 
-        data = (core_get("/api/internal/network/dns", timeout=5) or {}).get("data") or []
+            data = (core_get("/api/internal/network/dns", timeout=5) or {}).get("data") or []
         _dns_map = [row for row in data if isinstance(row, dict) and row.get("domain") and row.get("servers")]
     except Exception:
         pass  # core-service does not answer: the last known settings stay

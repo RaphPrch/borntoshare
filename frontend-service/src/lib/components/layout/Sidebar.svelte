@@ -37,6 +37,9 @@
   let canSeeAdmin = $derived(permissions?.canSeeAdmin === true || me?.is_admin === true);
   let canSeeStorageRoots = $derived(permissions?.canSeeStorageRoots === true);
   let canSeeObservability = $derived(permissions?.canSeeObservability === true);
+  // Administrators and guardians: the screens about folders (exposure, 5S, reports, monitoring); a user without
+  // folder to guard has his requests and his folders only
+  let staff = $derived(canSeeAdmin || canSeeStorageRoots);
   // Optional modules switched on (Advanced settings › Features)
   let features = $derived(permissions?.features ?? []);
   let governance = $derived(features.includes('governance'));
@@ -50,12 +53,12 @@
     { href: '/dashboard', label: t('Dashboard'), icon: 'bi-speedometer2' },
     // Everyone has these four menus; their content follows the role (own folders and own activity for a user)
     { href: '/storage-roots', label: t('Folders'), icon: 'bi-folder2-open' },
-    ...(governance ? [{ href: '/exposure', label: t('Exposure'), icon: 'bi-shield-exclamation' }] : []),
+    ...(governance && staff ? [{ href: '/exposure', label: t('Exposure'), icon: 'bi-shield-exclamation' }] : []),
     // Lean 5S of the shares, and the printable reports (on the folders the person may see)
-    ...(features.includes('fives') ? [{ href: '/five-s', label: t('5S'), icon: 'bi-stars' }] : []),
-    { href: '/reports', label: t('Reports'), icon: 'bi-file-earmark-bar-graph' },
+    ...(features.includes('fives') && staff ? [{ href: '/five-s', label: t('5S'), icon: 'bi-stars' }] : []),
+    ...(staff ? [{ href: '/reports', label: t('Reports'), icon: 'bi-file-earmark-bar-graph' }] : []),
     ...(governance ? [{ href: '/access-requests', label: t('Requests'), icon: 'bi-check2-square', count: pendingCount }] : []),
-    { href: '/observability', label: t('Monitoring'), icon: 'bi-activity', count: canSeeObservability ? criticalCount : 0, danger: true }
+    ...(staff ? [{ href: '/observability', label: t('Monitoring'), icon: 'bi-activity', count: canSeeObservability ? criticalCount : 0, danger: true }] : [])
   ] as Item[]);
   let admin = $derived((canSeeAdmin
     ? [

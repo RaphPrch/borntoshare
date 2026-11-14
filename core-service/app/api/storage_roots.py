@@ -767,6 +767,33 @@ def list_storage_roots_context(
     )
 
 
+@router.get("/requestable")
+def list_requestable_storage_roots(request: Request, db: Session = Depends(get_db)):
+    """The folders anyone signed in may ask an access to: every folder the administrators declared. Only what is
+    needed to choose one (name, zone, server, DFS path): no rights, no guardians, no figures. The access governance
+    only (a 5S-only installation takes no request)."""
+    from app.services import features
+    from app.services.dfs_links import dfs_paths_and_replicas
+
+    actor = actor_from_request(request)
+    if actor.identity_id is None and not is_platform_administrator(actor):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in first")
+    features.require(db, "governance")
+    rows = StorageRootsViewsRepo(db).list_context(zone_id=None)
+    try:
+        dfs_paths, _replicas = dfs_paths_and_replicas(db)
+    except Exception:
+        dfs_paths = {}
+    keys = ("storage_root_id", "storage_root_name", "root_path", "zone_id", "zone_name", "storage_endpoint_id", "storage_endpoint_name")
+    out = []
+    for row in rows:
+        root_id = int(row.get("storage_root_id") or row.get("id") or 0)
+        if root_id <= 0:
+            continue
+        out.append({**{key: row.get(key) for key in keys}, "storage_root_id": root_id, "dfs_path": dfs_paths.get(root_id)})
+    return ui_list(out, meta={"count": len(out)})
+
+
 @router.get("/{storage_root_id}/overview")
 def get_storage_root_overview(
     storage_root_id: int,

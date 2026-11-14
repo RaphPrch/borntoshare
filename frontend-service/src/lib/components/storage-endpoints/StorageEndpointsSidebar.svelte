@@ -177,8 +177,13 @@
         badges: [{ label: String(endpoints.length), title: t('{count} endpoints', { count: endpoints.length }) }],
         collapsedBadges: alerts > 0 ? [{ label: String(alerts), tone: 'warning-quiet', icon: 'bi-exclamation-triangle-fill', title: t('{count} alerts', { count: alerts }) }] : [],
         children: [
-          ...endpoints.filter((ep) => !isDfs(ep)).map(endpointNode).sort(byLabel),
-          ...[...new Set(endpoints.filter(isDfs).map(serverOf))].sort().map((server): EntityTreeNode => {
+          // A file server that hosts DFS namespaces (DFS01) stays one line: its page lists them
+          ...endpoints.filter((ep) => !isDfs(ep)).map((ep) => {
+            const node = endpointNode(ep);
+            const hosted = endpoints.filter((other) => isDfs(other) && serverOf(other) === serverOf(ep)).length;
+            return hosted ? { ...node, subtitle: t('{count} DFS namespace(s)', { count: hosted }), selectId: `${DFS_PREFIX}${serverOf(ep)}` } : node;
+          }).sort(byLabel),
+          ...[...new Set(endpoints.filter(isDfs).map(serverOf))].filter((server) => !endpoints.some((ep) => !isDfs(ep) && serverOf(ep) === server)).sort().map((server): EntityTreeNode => {
             const namespaces = endpoints.filter((ep) => isDfs(ep) && serverOf(ep) === server);
             const review = namespaces.filter((ep) => endpointTone(ep) !== 'healthy').length;
             // The server only: its namespaces are listed on its page, and their folders on the folders page

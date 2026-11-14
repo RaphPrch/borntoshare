@@ -22,6 +22,8 @@
     namespaces?: Array<Record<string, any>>;
     endpointId: (ep: Record<string, any>) => number;
     endpointName: (ep: Record<string, any>) => string;
+    /** The same server declared as a file server too (its own test, its shares): its page */
+    fileServerHref?: string | null;
   }
 
   let {
@@ -29,7 +31,8 @@
     zoneName = '',
     namespaces = [],
     endpointId,
-    endpointName
+    endpointName,
+    fileServerHref = null
   }: Props = $props();
 
   type Row = { id: number; name: string; info: DfsInfo | null; error: string };
@@ -120,6 +123,7 @@
     actions={[
       { key: 'read', label: reading ? t('Reading {done}/{total}…', { done: readDone, total: rows.length }) : t('Read every namespace again'),
         icon: reading ? 'bi-arrow-repeat sed-spin' : 'bi-arrow-clockwise', variant: 'primary', disabled: reading || loading, onClick: () => void readAll() },
+      ...(fileServerHref ? [{ key: 'file-server', label: t('File server: test, shares'), icon: 'bi-hdd-network', variant: 'secondary' as const, onClick: () => void goto(fileServerHref!) }] : []),
       { key: 'delete', label: t('Remove {server} from BornToShare', { server }), icon: 'bi-trash', variant: 'danger', overflow: true, onClick: () => (askDelete = true) }
     ]}
     actionsAriaLabel={t('DFS server actions')}

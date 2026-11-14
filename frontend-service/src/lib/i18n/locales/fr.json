@@ -5889,5 +5889,7 @@
   "Failures only": "Échecs seulement",
   "Refused sign-ins, failed jobs, refused changes: nothing else of the audit log": "Connexions refusées, tâches en échec, changements refusés : rien d'autre du journal d'audit",
   "Failures only to {name}": "Échecs seulement vers {name}",
-  "Every action written in the audit log, by family below": "Chaque action écrite au journal d'audit, par famille ci-dessous"
+  "Every action written in the audit log, by family below": "Chaque action écrite au journal d'audit, par famille ci-dessous",
+  "File server: test, shares": "Serveur de fichiers : test, partages",
+  "Nothing to do here: the 5S of the folders is followed by their guardians and the administrators.": "Rien à faire ici : le 5S des dossiers est suivi par leurs gardiens et les administrateurs."
 }
