@@ -2,6 +2,9 @@
 
 - syslog: audit and alerts to a syslog collector (RFC 5424, CEF or JSON; UDP, TCP or TLS)
 - splunk: the same to a Splunk HTTP Event Collector
+- otel: the same as OTLP/HTTP logs (plus traces and metrics) to an OpenTelemetry collector
+The audit events carry a category (sign-ins, access requests, identities, folders…): each extension chooses its
+categories, and may take the failures only.
 - centreon: Centreon polls the platform state (GET /monitoring/health with a read-only token), nothing is pushed
 
 Events leave from core-service in the background: a send never slows down nor fails a request. Each send is
@@ -39,7 +42,26 @@ CATALOG: dict[str, dict[str, Any]] = {
     # One incident per new alert, resolved when the alert closes
     "servicenow": {"events": ["alerts", "alerts_resolved"], "secret": True},
 }
-DEFAULT_ROUTES = {"audit": True, "alerts": True, "min_severity": "high"}
+DEFAULT_ROUTES = {"audit": True, "alerts": True, "min_severity": "high", "categories": None, "failures_only": False}
+# The audit events by family, from the start of their action (« storage_root.created » → folders): each extension
+# takes all of them (categories None) or a choice, and may take the failures only
+AUDIT_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "auth": ("auth", "security"),
+    "access": ("access_request", "request"),
+    "identities": ("identity", "identity_source", "role"),
+    "folders": ("storage_root", "storage_endpoint", "zone"),
+    "policies": ("policy", "tag", "naming_policy", "governance_alert"),
+    "jobs": ("job", "infrastructure"),
+    "settings": ("advanced_settings", "extension", "license", "feature", "logs"),
+    "fives": ("fives", "five_s"),
+    "other": (),
+}
+FAILURES = {"failure", "failed", "denied", "error"}
+
+
+def category_of(action: str) -> str:
+    family = str(action or "").split(".", 1)[0].lower()
+    return next((key for key, prefixes in AUDIT_CATEGORIES.items() if family in prefixes), "other")
 RETRY_DELAYS = (0, 2, 10)
 
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="b2s-extensions")
@@ -53,6 +75,7 @@ def event_from_activity(payload: dict[str, Any]) -> dict[str, Any]:
     target = payload.get("target_display") or payload.get("target_id") or ""
     return {
         "type": "audit",
+        "category": category_of(action),
         "action": action,
         "outcome": payload.get("outcome"),
         "severity": "warning" if str(payload.get("outcome") or "") in {"failure", "denied"} else "info",
@@ -67,6 +90,7 @@ def event_from_activity(payload: dict[str, Any]) -> dict[str, Any]:
 def event_from_alert(alert: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "alerts",
+        "category": "alerts",
         "action": str(alert.get("alert_type") or "alert"),
         "outcome": "open",
         "severity": str(alert.get("severity") or "warning"),
@@ -91,6 +115,12 @@ def wanted(routes: dict[str, Any], event: dict[str, Any]) -> bool:
         floor = SEVERITIES.index(routes.get("min_severity", "high")) if routes.get("min_severity") in SEVERITIES else 2
         level = SEVERITIES.index(event["severity"]) if event["severity"] in SEVERITIES else 1
         return level >= floor
+    if kind == "audit":
+        if routes.get("failures_only") and str(event.get("outcome") or "").lower() not in FAILURES:
+            return False
+        chosen = routes.get("categories")
+        if isinstance(chosen, list) and event.get("category", "other") not in chosen:
+            return False
     return True
 
 
@@ -106,31 +136,38 @@ def _cef_escape(value: Any, header: bool = False) -> str:
     return text_value.replace("|", "\\|") if header else text_value.replace("=", "\\=").replace("\n", " ")
 
 
+def _cef(event: dict[str, Any]) -> str:
+    extension = " ".join(
+        f"{key}={_cef_escape(value)}"
+        for key, value in (("cat", event.get("category")), ("act", event["action"]), ("outcome", event["outcome"]), ("suser", event["actor"]), ("fname", event["target"]), ("msg", event["summary"]))
+        if value
+    )
+    return (
+        f"CEF:0|BornToShare|BornToShare|1.0|{_cef_escape(event['action'], True)}|"
+        f"{_cef_escape(event['summary'], True)}|{_CEF_SEVERITY.get(event['severity'], 3)}|{extension}"
+    )
+
+
 def syslog_line(event: dict[str, Any], config: dict[str, Any]) -> str:
+    """One syslog message, always with its RFC 5424 header (priority, time, host, app, id): CEF and JSON are its
+    message, as « CEF over syslog » (a collector expects the header; a raw CEF or JSON line is refused by most)."""
     fmt = str(config.get("format") or "rfc5424")
     app = str(config.get("app_name") or "borntoshare")[:48]
-    if fmt == "json":
-        return json.dumps({"app": app, **event}, ensure_ascii=False, default=str)
-    if fmt == "cef":
-        extension = " ".join(
-            f"{key}={_cef_escape(value)}"
-            for key, value in (("act", event["action"]), ("outcome", event["outcome"]), ("suser", event["actor"]), ("fname", event["target"]), ("msg", event["summary"]))
-            if value
-        )
-        return (
-            f"CEF:0|BornToShare|BornToShare|1.0|{_cef_escape(event['action'], True)}|"
-            f"{_cef_escape(event['summary'], True)}|{_CEF_SEVERITY.get(event['severity'], 3)}|{extension}"
-        )
     pri = _FACILITIES.get(str(config.get("facility") or "local4"), 20) * 8 + _SYSLOG_SEVERITY.get(event["severity"], 6)
     host = socket.gethostname()[:255] or "-"
+    msgid = str(event["action"] or "-")[:32].replace(" ", "_")
+    header = f"<{pri}>1 {event['at']} {host} {app} - {msgid}"
+    if fmt == "json":
+        return f"{header} - " + json.dumps({"app": app, **event}, ensure_ascii=False, default=str)
+    if fmt == "cef":
+        return f"{header} - {_cef(event)}"
     data = " ".join(
         f'{key}="{str(value).replace(chr(92), chr(92) * 2).replace(chr(34), chr(92) + chr(34)).replace("]", chr(92) + "]")}"'
-        for key, value in (("actor", event["actor"]), ("target", event["target"]), ("outcome", event["outcome"]))
+        for key, value in (("category", event.get("category")), ("actor", event["actor"]), ("target", event["target"]), ("outcome", event["outcome"]))
         if value
     )
     structured = f"[b2s@32473 {data}]" if data else "-"
-    msgid = str(event["action"] or "-")[:32].replace(" ", "_")
-    return f"<{pri}>1 {event['at']} {host} {app} - {msgid} {structured} {event['summary']}"
+    return f"{header} {structured} {event['summary']}"
 
 
 # ---- senders ----------------------------------------------------------------------------------

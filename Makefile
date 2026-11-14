@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: backup help build up down restart ps logs logs-% wizard wizard-down reset-admin mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
+.PHONY: backup help build up down restart ps logs logs-% wizard wizard-down reset-admin otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
 
 help:
 	@echo "make build          build the images"
@@ -67,6 +67,15 @@ reset-admin: .env
 	@./scripts/reset-admin.sh "$(or $(ACCOUNT),admin)"
 
 # Test mail server of the lab: every e-mail of BornToShare ends there (http://<host>:8025), nothing goes out
+otel-up: .env
+	podman-compose --profile otel -f podman-compose.yml up -d otel-lab
+
+otel-logs:
+	podman logs -f --tail=100 otel-lab
+
+otel-down:
+	podman-compose --profile otel -f podman-compose.yml stop otel-lab
+
 mail-up: .env
 	podman-compose --profile mail -f podman-compose.yml up -d mailpit
 

@@ -99,7 +99,7 @@ def _attr(key: str, value: Any) -> dict[str, Any]:
 
 def otel_log_payload(config: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
     number, text_severity = _OTEL_SEVERITY.get(event["severity"], (9, "INFO"))
-    attributes = [_attr(f"b2s.{key}", event[key]) for key in ("type", "action", "outcome", "actor", "target") if event.get(key) not in (None, "")]
+    attributes = [_attr(f"b2s.{key}", event[key]) for key in ("type", "category", "action", "outcome", "actor", "target") if event.get(key) not in (None, "")]
     record = {"timeUnixNano": str(time.time_ns()), "severityNumber": number, "severityText": text_severity, "body": {"stringValue": event["summary"]}, "attributes": attributes}
     return {"resourceLogs": [{"resource": otel_resource(config), "scopeLogs": [{"scope": {"name": "borntoshare.events"}, "logRecords": [record]}]}]}
 

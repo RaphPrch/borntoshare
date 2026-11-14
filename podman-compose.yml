@@ -273,6 +273,22 @@ services:
     ports: ["8025:8025"]
     networks: [app]
 
+  # Lab OpenTelemetry Collector (profile « otel », make otel-up): receives what Advanced settings › Extensions sends,
+  # as OTLP (http://otel-lab:4318), syslog (otel-lab:54526 TCP RFC 5424) and Splunk HEC (http://otel-lab:8088), and
+  # shows it in its log (make otel-logs). testing/otel/collector.yaml; never in production.
+  otel-lab:
+    <<: *hardening
+    container_name: otel-lab
+    image: docker.io/otel/opentelemetry-collector-contrib:0.115.1
+    profiles: [otel]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev
+      - /data:rw,noexec,nosuid,nodev,mode=1777
+    volumes:
+      - ./testing/otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro,z
+    expose: ["4318", "54526", "8088"]
+    networks: [app]
+
 
 secrets:
   b2s_master_key:

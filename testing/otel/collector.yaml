@@ -1,0 +1,41 @@
+# Lab OpenTelemetry Collector (profile « otel », make otel-up): one container receives what Advanced settings ›
+# Extensions sends, the three ways, and shows it (make otel-logs) and keeps it (/data/events.jsonl in the container).
+#   OpenTelemetry  endpoint http://otel-lab:4318                  (logs, traces, metrics over OTLP/HTTP)
+#   Syslog         server otel-lab, port 54526, TCP, RFC 5424     (CEF and JSON arrive as the message)
+#   Splunk         HEC URL http://otel-lab:8088/services/collector, any token
+# Never in production: no authentication, nothing kept after the container is removed.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+  syslog:
+    tcp:
+      listen_address: 0.0.0.0:54526
+    protocol: rfc5424
+  splunk_hec:
+    endpoint: 0.0.0.0:8088
+
+processors:
+  batch: {}
+
+exporters:
+  debug:
+    verbosity: detailed
+  file:
+    path: /data/events.jsonl
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp, syslog, splunk_hec]
+      processors: [batch]
+      exporters: [debug, file]
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]

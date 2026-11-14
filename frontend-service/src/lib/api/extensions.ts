@@ -1,7 +1,10 @@
 import { apiGetData, apiPostData, apiPutData, type FetchLike } from './client';
 
 export type ExtensionKey = 'syslog' | 'splunk' | 'centreon' | 'grafana' | 'otel' | 'servicenow';
-export type ExtensionRoutes = { audit: boolean; alerts: boolean; min_severity: 'info' | 'warning' | 'high' | 'critical' };
+export type AuditCategory = 'auth' | 'access' | 'identities' | 'folders' | 'policies' | 'jobs' | 'settings' | 'fives' | 'other';
+/** categories: the families of audit events sent (null: all); failures_only: refused sign-ins, failed jobs… only */
+export type ExtensionRoutes = { audit: boolean; alerts: boolean; min_severity: 'info' | 'warning' | 'high' | 'critical';
+  categories?: AuditCategory[] | null; failures_only?: boolean };
 export type ExtensionStats = { sent: number; failed: number; last_status: string; last_at: string; last_detail: string | null; buckets: number[]; failed_buckets: number[] };
 export type Extension = {
   key: ExtensionKey;

@@ -5,7 +5,7 @@ import hmac
 import json
 import secrets
 import time
-from typing import Any, Literal
+from typing import Optional, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -25,6 +25,9 @@ class ExtensionRoutes(BaseModel):
     audit: bool = True
     alerts: bool = True
     min_severity: Literal["info", "warning", "high", "critical"] = "high"
+    # The families of audit events sent (None: all of them); only the failures (refused sign-ins, failed jobs…)
+    categories: Optional[list[Literal["auth", "access", "identities", "folders", "policies", "jobs", "settings", "fives", "other"]]] = None
+    failures_only: bool = False
 
 
 class ExtensionPayload(BaseModel):

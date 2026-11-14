@@ -25,8 +25,10 @@ def test_syslog_formats() -> None:
     assert line.startswith("<166>1 2026-11-04T10:41:55+00:00 ")  # local4 (20) * 8 + info (6)
     assert ' borntoshare - access_request.created [b2s@32473 actor="paul.martin" target="Paris - Finance" outcome="success"] ' in line
     cef = ext.syslog_line({**EVENT, "summary": "a|b"}, {"format": "cef"})
-    assert cef.startswith("CEF:0|BornToShare|BornToShare|1.0|access_request.created|a\\|b|3|") and "suser=paul.martin" in cef
-    assert json.loads(ext.syslog_line(EVENT, {"format": "json"}))["actor"] == "paul.martin"
+    # CEF and JSON travel as the message of an RFC 5424 header (« CEF over syslog »)
+    assert cef.startswith("<166>1 ") and "- CEF:0|BornToShare|BornToShare|1.0|access_request.created|a\\|b|3|" in cef and "suser=paul.martin" in cef
+    as_json = ext.syslog_line(EVENT, {"format": "json"})
+    assert as_json.startswith("<166>1 ") and json.loads("{" + as_json.split(" - {", 1)[1])["actor"] == "paul.martin"
 
 
 def test_alerts_below_the_minimal_severity_stay_home() -> None:

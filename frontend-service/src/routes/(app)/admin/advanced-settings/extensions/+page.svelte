@@ -22,7 +22,8 @@
     type Extension,
     type ExtensionDelivery,
     type ExtensionKey,
-    type ExtensionRoutes
+    type ExtensionRoutes,
+    type AuditCategory
   } from '$lib/api/extensions';
 
   /**
@@ -38,6 +39,25 @@
     { key: 'centreon', name: 'Centreon', category: () => t('Supervision and ITSM'), description: () => t('Centreon checks the state of the BornToShare components.'), live: true },
     { key: 'servicenow', name: 'ServiceNow ITSM', category: () => t('Supervision and ITSM'), description: () => t('One incident per critical alert, resolved when the alert closes.'), live: true }
   ];
+  // The families of the audit log, as core-service sorts them (the start of each action)
+  const CATEGORIES: Array<{ key: AuditCategory; label: () => string; hint: () => string }> = [
+    { key: 'auth', label: () => t('Sign-ins'), hint: () => t('Sign-ins and sign-outs, refused passwords, sessions') },
+    { key: 'access', label: () => t('Access requests'), hint: () => t('Requests, decisions, renewals, revocations') },
+    { key: 'identities', label: () => t('Identities'), hint: () => t('Accounts, roles, passwords, directories') },
+    { key: 'folders', label: () => t('Folders and servers'), hint: () => t('Folders, file servers, zones, ACL, quotas') },
+    { key: 'policies', label: () => t('Policies and tags'), hint: () => t('Smart policies, tags, naming, governance alerts handled') },
+    { key: 'jobs', label: () => t('Jobs and infrastructure'), hint: () => t('Jobs of the workers, schedules, health checks') },
+    { key: 'settings', label: () => t('Settings'), hint: () => t('Advanced settings, extensions, licenses, features, logs') },
+    { key: 'fives', label: () => t('5S'), hint: () => t('Measures and scans of the 5S module') },
+    { key: 'other', label: () => t('Others'), hint: () => t('Every other action') }
+  ];
+  const categoryOn = (routes: ExtensionRoutes, key: AuditCategory) => !Array.isArray(routes.categories) || routes.categories.includes(key);
+  function toggleCategory(routes: ExtensionRoutes, key: AuditCategory, on: boolean) {
+    const current = Array.isArray(routes.categories) ? routes.categories : CATEGORIES.map((category) => category.key);
+    const next = on ? [...new Set([...current, key])] : current.filter((value) => value !== key);
+    // Every family checked: « all », so that the families of a later version come too
+    routes.categories = next.length === CATEGORIES.length ? null : next;
+  }
   const SEVERITIES: Array<{ key: ExtensionRoutes['min_severity']; label: () => string }> = [
     { key: 'info', label: () => t('Information') },
     { key: 'warning', label: () => t('Warning') },
@@ -179,12 +199,14 @@
     }
   }
   let checkUrl = $derived(`${$page.url.origin}${healthPath}`);
+  // Every format travels with its RFC 5424 header: CEF and JSON are the message (« CEF over syslog »)
+  let syslogHeader = $derived(`<${(({ local0: 16, local1: 17, local2: 18, local3: 19, local4: 20, local5: 21, local6: 22, local7: 23, auth: 4 } as Record<string, number>)[form.facility] ?? 20) * 8 + 6}>1 2026-11-04T10:41:55Z b2s-core ${form.app_name || 'borntoshare'} - access_request.created`);
   let syslogPreview =
     $derived(form.format === 'json'
-      ? `{"app":"${form.app_name || 'borntoshare'}","type":"audit","action":"access_request.created","actor":"paul.martin","target":"Paris - Finance",…}`
+      ? `${syslogHeader} - {"app":"${form.app_name || 'borntoshare'}","type":"audit","category":"access","action":"access_request.created","actor":"paul.martin","target":"Paris - Finance",…}`
       : form.format === 'cef'
-        ? 'CEF:0|BornToShare|BornToShare|1.0|access_request.created|access_request.created REQ-927|3|act=access_request.created suser=paul.martin fname=Paris - Finance'
-        : `<${(({ local0: 16, local1: 17, local2: 18, local3: 19, local4: 20, local5: 21, local6: 22, local7: 23, auth: 4 } as Record<string, number>)[form.facility] ?? 20) * 8 + 6}>1 2026-11-04T10:41:55Z b2s-core ${form.app_name || 'borntoshare'} - access_request.created [b2s@32473 actor="paul.martin" target="Paris - Finance"] access_request.created REQ-927`);
+        ? `${syslogHeader} - CEF:0|BornToShare|BornToShare|1.0|access_request.created|access_request.created REQ-927|3|cat=access act=access_request.created suser=paul.martin fname=Paris - Finance`
+        : `${syslogHeader} [b2s@32473 category="access" actor="paul.martin" target="Paris - Finance"] access_request.created REQ-927`);
 
   // ---- routing grid ---------------------------------------------------------------------------------
   let routingBusy = $state(false);
@@ -250,8 +272,21 @@
         <thead><tr><th>{t('Event')}</th>{#each extensions.filter((item) => item.events.length) as item (item.key)}<th>{nameOf(item.key)}</th>{/each}</tr></thead>
         <tbody>
           <tr>
-            <td><b>{t('Audit log')}</b><small>{t('Sign-ins, requests, decisions, changes of rights')}</small></td>
+            <td><b>{t('Audit log')}</b><small>{t('Every action written in the audit log, by family below')}</small></td>
             {#each extensions.filter((item) => item.events.length) as item (item.key)}<td><input type="checkbox" bind:checked={item.routes.audit} disabled={!item.configured || !item.events.includes('audit')} aria-label={t('Audit to {name}', { name: nameOf(item.key) })} /></td>{/each}
+          </tr>
+          {#each CATEGORIES as category (category.key)}
+            <tr class="ext__sub">
+              <td><span>{category.label()}</span><small>{category.hint()}</small></td>
+              {#each extensions.filter((item) => item.events.length) as item (item.key)}<td><input type="checkbox" checked={categoryOn(item.routes, category.key)}
+                onchange={(event) => toggleCategory(item.routes, category.key, event.currentTarget.checked)}
+                disabled={!item.configured || !item.events.includes('audit') || !item.routes.audit} aria-label={t('{family} to {name}', { family: category.label(), name: nameOf(item.key) })} /></td>{/each}
+            </tr>
+          {/each}
+          <tr class="ext__sub">
+            <td><span>{t('Failures only')}</span><small>{t('Refused sign-ins, failed jobs, refused changes: nothing else of the audit log')}</small></td>
+            {#each extensions.filter((item) => item.events.length) as item (item.key)}<td><input type="checkbox" bind:checked={item.routes.failures_only}
+              disabled={!item.configured || !item.events.includes('audit') || !item.routes.audit} aria-label={t('Failures only to {name}', { name: nameOf(item.key) })} /></td>{/each}
           </tr>
           <tr>
             <td><b>{t('Governance alerts')}</b><small>{t('New alerts: ACL gaps, folders open to everyone, missing guardians')}</small></td>
@@ -429,6 +464,8 @@
   .ext__routing th, .ext__routing td, .ext__log th, .ext__log td { padding: 10px 12px; border-bottom: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-sm); text-align: left; }
   .ext__routing td:not(:first-child), .ext__routing th:not(:first-child) { text-align: center; }
   .ext__routing th, .ext__log th { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .ext__routing tr.ext__sub td:first-child { padding-left: 28px; }
+  .ext__routing tr.ext__sub td { padding-top: 6px; padding-bottom: 6px; }
   .ext__routing td small { display: block; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .ext__routing input[type='checkbox'] { width: 16px; height: 16px; }
   .ext__sev { width: auto; height: 32px; margin: 0 auto; }
