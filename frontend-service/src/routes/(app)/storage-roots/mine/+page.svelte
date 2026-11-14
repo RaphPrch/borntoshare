@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -35,7 +36,7 @@
     {#snippet actions()}
       
         <input class="b2s-input" aria-label={t('Search my folders')} placeholder={t('Search a folder…')} bind:value={query} />
-        <a class="b2s-btn b2s-btn-primary" href="/access-requests/new"><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}</a>
+        {#if $governanceEnabled}<a class="b2s-btn b2s-btn-primary" href="/access-requests/new"><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}</a>{/if}
       
       {/snippet}
   </PageHeader>

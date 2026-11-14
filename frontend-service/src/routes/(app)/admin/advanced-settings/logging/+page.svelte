@@ -143,15 +143,6 @@
     </SettingRow>
   </div>
 
-  {#if errorMsg}
-    <InlineAlert tone="error">{errorMsg}</InlineAlert>
-  {/if}
-
-  <div class="adv-actions">
-    <button class="b2s-btn b2s-btn-primary" type="button" onclick={save} disabled={!canSave}>
-      {saving ? t('Saving…') : t('Save changes')}
-    </button>
-  </div>
 </ConfigCard>
 
 <DangerZone title={t('Danger zone')} subtitle={t('Cleanup / purge')}>
@@ -161,6 +152,16 @@
     </button>
   </div>
 </DangerZone>
+
+<!-- The changes of the settings above, saved at the bottom of the page (under the danger zone) -->
+{#if errorMsg}
+  <InlineAlert tone="error">{errorMsg}</InlineAlert>
+{/if}
+<div class="adv-actions">
+  <button class="b2s-btn b2s-btn-primary" type="button" onclick={save} disabled={!canSave}>
+    {saving ? t('Saving…') : t('Save changes')}
+  </button>
+</div>
 
 <ConfirmActionModal
   open={purgeConfirmOpen}

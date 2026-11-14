@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
 
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -693,9 +694,9 @@
                 </div>
               {/if}
               <details>
-                <summary>{t('Guardians and tags (optional)')}</summary>
+                <summary>{$governanceEnabled ? t('Guardians and tags (optional)') : t('Tags (optional)')}</summary>
                 <div class="gov">
-                  <GovernancePicker id="add-guardians" label={t('Guardians')} placeholder={t('Search a person…')} options={data.people} bind:selected={guardianIds} />
+                  {#if $governanceEnabled}<GovernancePicker id="add-guardians" label={t('Guardians')} placeholder={t('Search a person…')} options={data.people} bind:selected={guardianIds} />{/if}
                   
                   <GovernancePicker id="add-tags" label={t('Tags')} placeholder={t('Search a tag…')} options={data.tags} bind:selected={tagIds} />
                   <small class="muted">{t('Applied to all the checked folders.')}</small>

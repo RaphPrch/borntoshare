@@ -80,17 +80,18 @@
           icon: 'bi-key',
           run: (target: StorageRootRow) => void goto(`/access-requests/new?root=${Number(target?.storage_root_id ?? 0)}`)
         }] : []),
-        ...(canManage ? [{
+        ...(canManage && $governanceEnabled ? [{
           key: 'inheritance',
           label: broken ? t('Restore the inheritance') : t('Break the inheritance'),
           icon: broken ? 'bi-diagram-3' : 'bi-scissors',
           disabled: broken == null,
           hint: broken == null ? t('Read the ACL first') : '',
           run: (target: StorageRootRow) => onAction('inheritance', target)
-        },
+        }] : []),
+        ...(canManage ? [
         { key: 'sensitivity', label: t('Scan the sensitivity'), icon: 'bi-shield-lock', run: (target: StorageRootRow) => onAction('sensitivity', target) },
         { key: 'measure', label: t('Measure the folder'), icon: 'bi-rulers', run: (target: StorageRootRow) => onAction('measure', target) },
-        { key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', run: (target: StorageRootRow) => onAction('subfolder', target) },
+        ...($governanceEnabled ? [{ key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', run: (target: StorageRootRow) => onAction('subfolder', target) }] : []),
         { key: 'delete', label: t('Delete the folder from the server'), icon: 'bi-trash', danger: true, run: (target: StorageRootRow) => onAction('delete', target) }] : [])
       ]
     : []);

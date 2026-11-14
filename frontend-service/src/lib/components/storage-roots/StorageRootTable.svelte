@@ -7,6 +7,7 @@
 </script>
 
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   
 
   import { page as pageStore } from '$app/stores';
@@ -368,8 +369,8 @@
   let counters = $derived([
     { key: 'all' as Filter, label: t('Folders') },
     { key: 'review' as Filter, label: t('To review') },
-    { key: 'no-guardian' as Filter, label: t('Without guardian') },
-    { key: 'ending' as Filter, label: t('Ending within 30 days') },
+    // Guardians and accesses ending: the governance
+    ...($governanceEnabled ? [{ key: 'no-guardian' as Filter, label: t('Without guardian') }, { key: 'ending' as Filter, label: t('Ending within 30 days') }] : []),
     { key: 'blocking' as Filter, label: t('Blocking') }
   ].map((counter) => ({ ...counter, count: zoned.filter(PASSES[counter.key]).length })));
   // Express search: « tag:… gardien:… est:… » filter, the rest of the text is searched
@@ -449,13 +450,13 @@
     {/each}
   </div>
 
-  <div class="tb__grid" class:admin={isAdmin}>
+  <div class="tb__grid" class:admin={isAdmin} class:no-gov={!$governanceEnabled}>
     <div class="tb__head">
       {#if isAdmin}<span><input type="checkbox" checked={allVisibleChecked} onchange={toggleAll} aria-label={t('Select the folders shown')} /></span>{/if}
       <button type="button" onclick={() => sortBy('name')}>{t('Folder')}{sortMark('name', sortKey, desc)}</button>
       <button type="button" onclick={() => sortBy('server')}>{t('Server')}{sortMark('server', sortKey, desc)}</button>
       <button type="button" onclick={() => sortBy('people')}>{t('People')}{sortMark('people', sortKey, desc)}</button>
-      <button type="button" onclick={() => sortBy('guardians')}>{t('Guardians')}{sortMark('guardians', sortKey, desc)}</button>
+      {#if $governanceEnabled}<button type="button" onclick={() => sortBy('guardians')}>{t('Guardians')}{sortMark('guardians', sortKey, desc)}</button>{/if}
       <button type="button" onclick={() => sortBy('quota')}>{t('Quota')}{sortMark('quota', sortKey, desc)}</button>
       <button type="button" onclick={() => sortBy('state')}>{t('State')}{sortMark('state', sortKey, desc)}</button>
       <span>{t('ACL read')}</span>
@@ -476,10 +477,12 @@
             </span>
           {:else}<span class="muted">—</span>{/if}
         </span>
+        {#if $governanceEnabled}
         <span>
           {#if line.noGuardian}<span class="sg-tag warn">{line.guardians ? t('{count} of too few', { count: line.guardians }) : t('None')}</span>
           {:else}<span class="sg-tag">{t('{count} guardian(s)', { count: line.guardians })}</span>{/if}
         </span>
+        {/if}
         <span class="tb__quota">
           {#if line.row?.quota_limit_bytes != null}
             {@const pct = line.row?.quota_used_percent == null ? null : Number(line.row.quota_used_percent)}
@@ -508,7 +511,7 @@
   {#if isAdmin && checked.size}
     <div class="tb__bulk" role="region" aria-label={t('Selection')}>
       <b>{t('{count} folder(s) selected', { count: checked.size })}</b>
-      <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('guardians')}>{t('Add guardians')}</button>
+      {#if $governanceEnabled}<button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('guardians')}>{t('Add guardians')}</button>{/if}
       <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('tags')}>{t('Add tags')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('check')}>{t('Read the ACLs')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('sensitivity')}>{t('Scan for secrets')}</button>
@@ -586,7 +589,7 @@
 <style>
   .tb { display: flex; flex-direction: column; gap: 16px; padding: 24px 28px 36px; }
   .tb__zone { width: auto; max-width: 220px; }
-  .tb__counters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  .tb__counters { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; }
   .tb__counters button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); text-align: left; cursor: pointer; }
   .tb__counters button.on { border-color: var(--b2s-color-text); box-shadow: inset 0 0 0 1px var(--b2s-color-text); }
   .tb__counters span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
@@ -596,6 +599,9 @@
   .tb__grid { border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); overflow: hidden; }
   .tb__head, .tb__row { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 0.9fr) 120px 140px 96px 190px 110px; gap: 12px; align-items: center; padding: 0 14px; }
   .admin .tb__head, .admin .tb__row { grid-template-columns: 24px minmax(0, 1.7fr) minmax(0, 0.9fr) 120px 140px 96px 190px 110px; }
+  /* 5S only: no guardians column */
+  .no-gov .tb__head, .no-gov .tb__row { grid-template-columns: minmax(0, 1.7fr) minmax(0, 0.9fr) 120px 96px 190px 110px; }
+  .admin.no-gov .tb__head, .admin.no-gov .tb__row { grid-template-columns: 24px minmax(0, 1.7fr) minmax(0, 0.9fr) 120px 96px 190px 110px; }
   .tb__quota { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .tb__quota small { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); font-variant-numeric: tabular-nums; }
   .tb__qbar { position: relative; display: block; height: 6px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); overflow: hidden; --tb-fill: var(--b2s-color-info-strong); }

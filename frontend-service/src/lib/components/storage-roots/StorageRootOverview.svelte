@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   
 
   import { flip } from 'svelte/animate';
@@ -163,8 +164,9 @@
   </div>
 
   <section class="ov__card ov__side" aria-label={t('Governance')}>
-    <header><h2>{t('Governance')}</h2></header>
+    <header><h2>{$governanceEnabled ? t('Governance') : t('Details')}</h2></header>
     <dl>
+      {#if $governanceEnabled}
       <div>
         <dt>{t('Guardians')}</dt>
         <dd>
@@ -177,6 +179,7 @@
           <button type="button" class="ov__add" onclick={onOpenGuardians}>{guardianNames.length ? t('Manage') : t('+ Add')}</button>
         </dd>
       </div>
+      {/if}
       <div>
         <dt>{t('Tags')}</dt>
         <dd>
@@ -198,6 +201,7 @@
       {/if}
       {#if zoneLabel}<div><dt>{t('Zone')}</dt><dd>{zoneLabel}</dd></div>{/if}
       <div><dt>{t('File server')}</dt><dd>{#if endpointHref}<a class="ov__plain" href={endpointHref}>{endpointDisplay}</a>{:else}{endpointDisplay}{/if}</dd></div>
+      {#if $governanceEnabled}
       <div>
         <dt>{t('Inheritance')}</dt>
         <dd>
@@ -208,6 +212,7 @@
         </dd>
       </div>
       <div><dt>{t('Directory')}</dt><dd>{permissions?.snapshot_at ? t('Synchronised {ago}', { ago: timeAgo(permissions.snapshot_at) }) : '—'}</dd></div>
+      {/if}
     </dl>
   </section>
 </div>

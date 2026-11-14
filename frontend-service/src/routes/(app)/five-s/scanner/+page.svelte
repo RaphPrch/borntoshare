@@ -11,7 +11,7 @@
   import { reportUiError } from '$lib/errors';
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
-  import { formatBytes } from '$lib/utils/format';
+  import { formatBytes, formatDateTime } from '$lib/utils/format';
 
   /**
    * 5S › Scanner: the queue of the scanner of the module (one or more instances, no agent on the file servers), what
@@ -21,8 +21,10 @@
     requested_by: string | null; requested_at: string | null; started_at: string | null; finished_at: string | null; scanner_id: string | null;
     progress: { chunks_total: number; chunks_done: number; chunks_kept: number; files: number; current: string | null; mode: string } | null;
     summary: { mode: string; chunks_walked: number; chunks_kept: number; files: number; bytes: number; elapsed_ms: number } | null; error: string | null };
-  type Settings = { schedule_enabled: boolean; window_start: string; window_end: string; per_server: number; interval_days: number; full_every_days: number; hash_files_max: number };
-  type Data = { runs: Run[]; counts: Record<string, number>; scanners: Array<{ id: string; last_seen: string }>; settings: Settings; in_window: boolean };
+  type Settings = { schedule_enabled: boolean; frequency: 'days' | 'hours'; window_start: string; window_end: string; per_server: number; interval_days: number;
+    interval_hours: number; full_every_days: number; hash_files_max: number };
+  type Data = { runs: Run[]; counts: Record<string, number>; scanners: Array<{ id: string; last_seen: string }>; settings: Settings; in_window: boolean;
+    next_window_at: string | null };
 
   let data = $state<Data | null>(null);
   let error = $state('');
@@ -78,6 +80,19 @@
       reportUiError(failure, 'Unable to cancel the scan.', 'fives.cancel');
     }
   }
+  /** The schedule in words: « Every day from 20:00 to 06:00 », « Every 6 hours » */
+  function scheduleText(settings: Settings): string {
+    if (!settings.schedule_enabled) return t('Off: only the scans asked by a person or a policy');
+    if (settings.frequency === 'hours') return t('Every {count} hour(s), at any time', { count: settings.interval_hours });
+    return settings.interval_days === 1
+      ? t('Every day, from {start} to {end}', { start: settings.window_start, end: settings.window_end })
+      : t('Every {count} days, from {start} to {end}', { count: settings.interval_days, start: settings.window_start, end: settings.window_end });
+  }
+  function nextText(value: Data): string {
+    if (!value.next_window_at) return t('No scheduled scan');
+    if (value.in_window) return value.settings.frequency === 'hours' ? t('runs continuously: each folder when its time comes') : t('running now, until {end}', { end: value.settings.window_end });
+    return t('next run: {date}', { date: formatDateTime(value.next_window_at) });
+  }
   let isAdmin = $derived(($page.data as any)?.me?.is_admin === true);
   $effect.pre(() => {
     if (filter) showAll = false;
@@ -103,8 +118,8 @@
     <LoadingState block skeleton="rows" rows={5} />
   {:else}
     <div class="sc5__kpis">
-      <div class:is-on={data.in_window}><span>{t('Window')}</span><b>{data.settings.window_start} → {data.settings.window_end}</b>
-        <small>{data.in_window ? t('open now: the scheduled scans run') : t('closed: only the scans asked by a person run')}</small></div>
+      <div class:is-on={data.in_window && data.settings.schedule_enabled}><span>{t('Schedule')}</span><b class="sc5__sched">{scheduleText(data.settings)}</b>
+        <small>{nextText(data)}</small></div>
       <div><span>{t('Walking')}</span><b>{data.counts.running ?? 0}</b><small>{t('at most {count} per server', { count: data.settings.per_server })}</small></div>
       <div><span>{t('Waiting')}</span><b>{data.counts.queued ?? 0}</b><small>{t('scans in the queue')}</small></div>
       <div><span>{t('Scanners')}</span><b>{data.scanners.length}</b>
@@ -150,9 +165,20 @@
         <header><h2>{t('Settings')}</h2></header>
         <form class="sc5__form" onsubmit={(event) => { event.preventDefault(); save(); }}>
           <label class="sc5__check"><input type="checkbox" bind:checked={form.schedule_enabled} /> {t('Scan every folder on schedule')}</label>
-          <label>{t('Window from')}<input class="b2s-input" type="time" bind:value={form.window_start} /></label>
-          <label>{t('to')}<input class="b2s-input" type="time" bind:value={form.window_end} /></label>
-          <label>{t('Every (days)')}<input class="b2s-input" type="number" min="1" max="90" bind:value={form.interval_days} /></label>
+          {#if form.schedule_enabled}
+            <div class="sc5__freq" role="radiogroup" aria-label={t('Frequency')}>
+              <label><input type="radio" name="frequency" value="days" bind:group={form.frequency} /> {t('Every N days, at set hours')}</label>
+              <label><input type="radio" name="frequency" value="hours" bind:group={form.frequency} /> {t('Every N hours, at any time')}</label>
+            </div>
+            {#if form.frequency === 'hours'}
+              <label>{t('Every (hours)')}<input class="b2s-input" type="number" min="1" max="24" bind:value={form.interval_hours} /></label>
+            {:else}
+              <label>{t('Every (days, 1 = once a day)')}<input class="b2s-input" type="number" min="1" max="90" bind:value={form.interval_days} /></label>
+              <label>{t('Starts at')}<input class="b2s-input" type="time" bind:value={form.window_start} /></label>
+              <label>{t('Stops at')}<input class="b2s-input" type="time" bind:value={form.window_end} /></label>
+            {/if}
+            <p class="sc5__hint sc5__summary">{scheduleText(form)}</p>
+          {/if}
           <label>{t('Scans at a time per server')}<input class="b2s-input" type="number" min="1" max="8" bind:value={form.per_server} /></label>
           <label>{t('Full walk every (days)')}<input class="b2s-input" type="number" min="1" max="365" bind:value={form.full_every_days} /></label>
           <label>{t('Fingerprints per piece (duplicates)')}<input class="b2s-input" type="number" min="0" max="500000" step="1000" bind:value={form.hash_files_max} /></label>
@@ -172,6 +198,10 @@
   .sc5__kpis > div { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .sc5__kpis > div.is-on { border-color: var(--b2s-color-success-border, #cfe9d9); background: var(--b2s-color-success-soft, #f3fbf6); }
   .sc5__kpis span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .sc5__kpis b.sc5__sched { font-size: 15px; line-height: 1.3; }
+  .sc5__freq { grid-column: 1 / -1; display: flex; gap: 18px; }
+  .sc5__freq label { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+  .sc5__summary { font-weight: 600; color: var(--b2s-color-text); }
   .sc5__kpis b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .sc5__kpis small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .sc5__card { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }

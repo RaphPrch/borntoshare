@@ -88,7 +88,19 @@ def storage(db: Session, rows: list[dict]) -> dict[str, Any]:
     }
 
 
-def security(db: Session, rows: list[dict]) -> dict[str, Any]:
+# Reports of the access governance only: not listed nor served on a 5S-only installation
+GOVERNANCE_KINDS = {"governance"}
+
+
+def kinds(governance: bool) -> dict[str, tuple[str, str]]:
+    if governance:
+        return KINDS
+    return {key: (title, "Volume des dossiers, par serveur, les plus gros et leurs quotas." if key == "storage" else
+                  "Mots de passe et clés trouvés, corrections demandées." if key == "security" else description)
+            for key, (title, description) in KINDS.items() if key not in GOVERNANCE_KINDS}
+
+
+def security(db: Session, rows: list[dict], governance: bool = True) -> dict[str, Any]:
     ids = [int(row.get("storage_root_id") or 0) for row in rows]
     by_id = {int(row.get("storage_root_id") or 0): row for row in rows}
     scanned = [row for row in rows if row.get("sensitive_files") is not None]
@@ -126,11 +138,11 @@ def security(db: Session, rows: list[dict]) -> dict[str, Any]:
              "rows": [{"folder": _folder(by_id.get(int(c["storage_root_id"]), {"storage_root_id": c["storage_root_id"]})), "status": labels.get(c["status"], c["status"]),
                        "files": c["files_at_request"], "requested_at": _iso(c["requested_at"]), "due_at": _iso(c["due_at"]), "closed_at": _iso(c["closed_at"])}
                       for c in corrections], "empty": "Aucune correction demandée."},
-            {"title": "Gardiens insuffisants", "description": "Moins de deux gardiens : une absence bloque la validation des demandes.",
+            *([] if not governance else [{"title": "Gardiens insuffisants", "description": "Moins de deux gardiens : une absence bloque la validation des demandes.",
              "columns": [_col("folder", "Dossier", "folder"), _col("guardians", "Gardiens", "int")],
              "rows": [{"folder": _folder(row), "guardians": int(row.get("guardians_count") or 0)} for row in few_guardians], "empty": "Tous les dossiers ont au moins deux gardiens."},
             {"title": "Héritage rompu", "columns": [_col("folder", "Dossier", "folder")], "rows": [{"folder": _folder(row)} for row in broken],
-             "empty": "Aucun dossier à l'héritage rompu."},
+             "empty": "Aucun dossier à l'héritage rompu."}]),
         ],
     }
 
@@ -169,7 +181,7 @@ def _iso(value: Any) -> str | None:
 BUILDERS = {"storage": storage, "security": security, "governance": governance}
 
 
-def build(db: Session, kind: str, rows: list[dict], scope: str) -> dict[str, Any]:
-    title, description = KINDS[kind]
-    return {"key": kind, "title": title, "description": description, "generated_at": _now().isoformat() + "Z", "scope": scope,
-            **BUILDERS[kind](db, rows)}
+def build(db: Session, kind: str, rows: list[dict], scope: str, governance: bool = True) -> dict[str, Any]:
+    title, description = kinds(governance)[kind]
+    body = BUILDERS[kind](db, rows, governance) if kind == "security" else BUILDERS[kind](db, rows)
+    return {"key": kind, "title": title, "description": description, "generated_at": _now().isoformat() + "Z", "scope": scope, **body}

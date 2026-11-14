@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   
 
   import { t } from '$lib/i18n';
@@ -66,11 +67,12 @@
         title: t('Test the folder and read its NTFS permissions on the file server'),
         onClick: onRunRootProbe
       },
-      { key: 'access-request', label: t('Request access'), icon: 'bi-plus-lg', variant: 'primary', disabled, onClick: onNewAccessRequest },
+      // Access requests, inheritance and sub-folders belong to the governance (not in a 5S-only installation)
+      ...($governanceEnabled ? [{ key: 'access-request', label: t('Request access'), icon: 'bi-plus-lg', variant: 'primary' as const, disabled, onClick: onNewAccessRequest }] : []),
       { key: 'edit', label: t('Edit storage root'), icon: 'bi-pencil-square', overflow: true, disabled, onClick: onEditRoot },
       ...(isAdmin
         ? ([
-            {
+            ...($governanceEnabled ? [{
               key: 'inheritance',
               label: inheritanceBroken ? t('Restore the inheritance') : t('Break the inheritance'),
               icon: inheritanceBroken ? 'bi-link-45deg' : 'bi-scissors',
@@ -79,7 +81,7 @@
               title: inheritanceBroken === null ? t('Read the ACL first') : undefined,
               onClick: onToggleInheritance
             },
-            { key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', overflow: true, disabled, onClick: onCreateSubfolder },
+            { key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', overflow: true, disabled, onClick: onCreateSubfolder }] : []),
             { key: 'delete', label: t('Remove from BornToShare'), icon: 'bi-x-circle', overflow: true, disabled, onClick: onDeleteRoot },
             { key: 'delete-folder', label: t('Delete the folder from the server'), icon: 'bi-trash', variant: 'danger', overflow: true, disabled, onClick: onDeleteFolder }
           ] satisfies EntityActionItem[])

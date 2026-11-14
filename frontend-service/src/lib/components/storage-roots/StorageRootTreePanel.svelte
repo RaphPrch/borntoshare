@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { governanceEnabled } from '$lib/utils/features';
   
 
   import { onMount } from 'svelte';
@@ -368,8 +369,8 @@
   let filters = $derived([
     { key: 'all', label: t('All'), count: zonedRows.length },
     { key: 'review', label: t('To review'), count: zonedRows.filter(toReview).length },
-    { key: 'pending', label: t('Pending requests'), count: zonedRows.filter((row) => pendingCount(row) > 0).length },
-    { key: 'no-guardian', label: t('Without guardian'), count: zonedRows.filter(noGuardian).length }
+    ...($governanceEnabled ? [{ key: 'pending', label: t('Pending requests'), count: zonedRows.filter((row) => pendingCount(row) > 0).length }] : []),
+    ...($governanceEnabled ? [{ key: 'no-guardian', label: t('Without guardian'), count: zonedRows.filter(noGuardian).length }] : [])
   ].filter((item) => item.key === 'all' || item.count > 0));
 </script>
 

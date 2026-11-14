@@ -164,22 +164,12 @@
       {/if}
     </SettingRow>
 
-  </div>
 
-  <h3 class="nm-section">{t('Cleaning of the names')}</h3>
-  <div class="adv-form-grid">
-    <SettingRow label={t('Uppercase normalization')}>
+    <SettingRow label={t('Uppercase names')} help={t('The generated names are written in uppercase.')}>
       <label class="checkbox">
         <input type="checkbox" bind:checked={policy.normalize_uppercase} />
         <span>{t('Enabled')}</span>
       </label>
-    </SettingRow>
-
-    <SettingRow label={t('Replace map (JSON)')} help={t('Characters replaced in the names, e.g. {example}.', { example: '{"é": "e", " ": "_"}' })}>
-      <textarea class="b2s-input" rows="4" bind:value={replaceMapText}></textarea>
-      {#if replaceMapError}
-        <FieldError>{replaceMapError}</FieldError>
-      {/if}
     </SettingRow>
   </div>
 
