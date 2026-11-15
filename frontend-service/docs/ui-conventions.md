@@ -13,6 +13,9 @@ One element, one shared component or class. Before styling something locally, us
 | Long list | `ShowMore` (a page at a time) or the table footer « N of M » with a secondary button |
 | Empty list | `EmptyStateInline` (one sentence) or `EmptyState` (title, text, action) |
 | Confirmation | `ConfirmActionModal` / `ConfirmDeleteDialog`; a final deletion asks to type the name (`confirmName`) |
+| Page head, figures, list of a v2 screen | classes of `styles/v2.css`: `v2-head`, `v2-stats`/`v2-stat`, `v2-list`/`v2-row`, `v2-pager`, `v2-bulk` |
+| Several pages under one menu entry | `tabs` of the item in `layout/nav.ts` (drawn by `SectionTabs`), not a tab bar in the page |
+| Right-click on a row (folder, job, tag, policy, identity…) | `ContextMenu` with the row's actions; the same actions stay reachable by a visible button (`⋯`) |
 | Loading | `LoadingState`: inline spinner in a line; in a panel, list or drawer a skeleton (`block`, `skeleton="rows"` or `"detail"`) |
 
 Behaviour:

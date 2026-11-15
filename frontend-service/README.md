@@ -24,10 +24,27 @@ l'utilisateur.
 Voir [docs/structure.md](docs/structure.md) (dossiers de `src/lib`) et [docs/ui-conventions.md](docs/ui-conventions.md)
 (composants communs, erreurs, traductions).
 
-Pages principales : tableau de bord, Dossiers (fiche, permissions, sensibilité, demande rapide en panneau),
-Demandes (liste, et création sur une seule page avec résumé en direct et suggestions de dossiers), Observabilité,
-Rapports, Carte d'exposition, 5S (partages, explorateur, doublons, rapport, scanner), Serveurs (serveurs de fichiers
-et espaces de noms DFS), Zones, Annuaires, Identités, Tags, Réglages avancés ; `/setup` pour le premier démarrage.
+## Écrans
+
+Menu latéral en quatre sections (`src/lib/components/layout/nav.ts`) ; la barre du haut porte le fil d'Ariane, la
+recherche ⌘K et la cloche des notifications. Une entrée qui regroupe plusieurs pages les montre en onglets sous la barre.
+Les noms du menu sont des noms de produit, en anglais dans les deux langues.
+
+| Section | Entrée | Pages |
+|---|---|---|
+| Workspace | Dashboard (`/dashboard`) | Journal du jour : titre, « À la une », fil du jour, carte des dossiers, question à Pilot |
+| | Pilot (`/pilot`, administrateurs et gardiens) | questions en français sur les dossiers (« exporte-moi tous les utilisateurs du dossier TEST »), réponses en liste, export CSV, copie, historique |
+| Governance | Storage Roots (`/storage-roots`) | liste (filtres, tri, actions groupées, aperçu latéral), fiche du dossier en onglets : vue d'ensemble, permissions, stockage · 5S, sensibilité, quota, activité |
+| | Access Management (`/access-requests`) | onglets Demandes et Exposition (`/exposure`) |
+| | Governance Jobs (`/observability`) | vue d'ensemble, alertes, événements, jobs, santé |
+| Storage Intelligence | Explorer, Inventory, Analytics (`/five-s/…`) | module 5S, s'il est installé (voir [docs/module-5s.md](../docs/module-5s.md)) |
+| | Insights & Recommendations (`/reports`) | onglets Rapports et Politiques (`/admin/policies`) |
+| Administration | Storage Endpoints (`/admin/storage-endpoints`) | onglets Serveurs (serveurs de fichiers, espaces DFS) et Zones |
+| | Identity & Users (`/admin/identity`) | onglets Identités, Administrateurs, Annuaires |
+| | Settings (`/admin/advanced-settings`) | onglets Réglages (nommage, gouvernance, journalisation, sessions, réseau et DNS, infrastructure et workers, notifications, extensions, fonctionnalités) et Tags |
+
+Les listes ont un menu au clic droit (dossiers, jobs, exposition, tags, politiques, identités). `/setup` sert au
+premier démarrage. Interface pour poste de travail uniquement.
 
 ## Variables
 

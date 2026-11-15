@@ -1,6 +1,6 @@
 # Connexion avec Keycloak (SSO)
 
-Administration › Paramètres avancés › Infrastructure › **Keycloak**. Chaque serveur activé ajoute un bouton
+Administration › Settings › Infrastructure › **Keycloak**. Chaque serveur activé ajoute un bouton
 « Se connecter avec votre organisation » sur la page de connexion. Protocole : OpenID Connect, code d'autorisation avec PKCE.
 
 ## Côté Keycloak

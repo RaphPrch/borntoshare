@@ -16,7 +16,7 @@
 | Élément | Où | Rôle | Protection |
 |---|---|---|---|
 | `INTERNAL_TOKEN` | Tous les services | En-tête `X-Internal-Token` sur chaque appel entre services | Comparaison à temps constant ; refusé si absent ; jamais exposé au navigateur |
-| Cookie `b2s_session` | Navigateur ↔ frontend | Session de l'utilisateur, stockée dans Redis (base 1) | `HttpOnly`, `Secure` en HTTPS, `SameSite=Lax` ; durées réglables (Réglages avancés › Sessions utilisateur) ; révocable |
+| Cookie `b2s_session` | Navigateur ↔ frontend | Session de l'utilisateur, stockée dans Redis (base 1) | `HttpOnly`, `Secure` en HTTPS, `SameSite=Lax` ; durées réglables (Settings › Sessions utilisateur) ; révocable |
 | Cookie `b2s_principal` | Navigateur ↔ frontend | Identité et rôles de l'utilisateur, signés par `PRINCIPAL_SIGNING_KEY` | Signature vérifiée à chaque requête ; durée de 60 s : un changement de droits ou une révocation s'applique en une minute |
 | Identité de l'utilisateur | frontend → core | En-têtes `X-Identity-Id`, `X-Roles`, posés par le BFF | core-service exige le jeton interne sur **toutes** ses requêtes (sauf `/health`) : sans lui, ces en-têtes ne sont pas lus (401). Le navigateur ne peut pas les forger |
 | Clé `b2s_master_key` | core-service | Chiffre les mots de passe stockés (AES-256-GCM, la référence du secret comme donnée associée) | Secret podman (fichier 0400 dans core-service seul, ni dans `.env` ni dans l'environnement) ; jamais en base ; à sauvegarder à part |
@@ -40,7 +40,7 @@ stockés en clair :
 5. un secret qui n'est plus utilisé par aucun objet est supprimé.
 
 Le test de santé planifié vérifie que chaque référence mène bien à un secret. Si ce n'est pas le cas (base
-restaurée sans sa clé, coffre réinitialisé…), le tableau de bord des administrateurs nomme les objets à
+restaurée sans sa clé, coffre réinitialisé…), le Dashboard des administrateurs nomme les objets à
 ressaisir, et la fiche de chaque serveur propose « Ressaisir le mot de passe ».
 
 ## Comptes de service et droits à déléguer
@@ -102,7 +102,7 @@ Un gardien ne valide pas sa propre demande : un autre gardien ou un administrate
 - Les refus sont tracés une seule fois, rattachés à l'objet visé.
 - Les lignes sont chaînées (`hash_prev` → `hash_current`) : une ligne modifiée ou supprimée casse la chaîne.
   On ne réécrit jamais l'historique ; une correction est un nouvel événement.
-- La rétention se règle dans Réglages avancés › Journalisation (purge quotidienne tracée).
+- La rétention se règle dans Settings › Journalisation (purge quotidienne tracée).
 
 ## À faire en production
 
@@ -113,7 +113,7 @@ Un gardien ne valide pas sa propre demande : un autre gardien ou un administrate
 - Sauvegarde des bases (`make backup`) **et**, à part, de la clé `b2s_master_key`.
 - Comptes de service dédiés, mots de passe longs, droits limités à ceux de [droits-ad.md](droits-ad.md), non délégables.
 
-## Extensions (Réglages avancés › Extensions)
+## Extensions (Settings › Extensions)
 
 - Syslog et Splunk reçoivent le journal d'audit et les nouvelles alertes de gouvernance, envoyés par core-service en
   arrière-plan (3 essais, journal des envois gardé 7 jours). Le jeton HEC de Splunk est rangé dans le coffre.

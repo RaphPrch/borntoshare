@@ -361,32 +361,43 @@
   .global-search__keys { display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; margin: 0; align-items: center; }
   .global-search__keys dt { display: flex; gap: 4px; }
   .global-search__keys dd { margin: 0; }
-  /* Item of the navigation rail */
+  /* Search field of the top bar (opens the ⌘K palette) */
   .global-search-trigger {
-    width: 74px;
-    min-height: 50px;
+    width: 320px;
+    height: 38px;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 2px;
-    border: 0;
-    border-radius: 12px;
-    background: transparent;
+    gap: 8px;
+    padding: 0 12px;
+    border: 1px solid var(--b2s-color-border-soft);
+    border-radius: 11px;
+    background: var(--b2s-color-surface-soft);
     color: var(--b2s-color-text-muted);
     font: inherit;
-    font-size: 11px;
+    font-size: var(--b2s-fs-sm);
     cursor: pointer;
   }
 
   .global-search-trigger i {
-    font-size: 18px;
+    font-size: 14px;
     line-height: 1;
   }
 
   .global-search-trigger:hover {
-    background: var(--b2s-color-neutral-soft);
-    color: var(--b2s-color-text);
+    border-color: var(--b2s-color-border);
+    background: var(--b2s-color-surface);
+  }
+
+  .global-search-trigger::after {
+    content: '⌘K';
+    margin-left: auto;
+    padding: 0 6px;
+    border: 1px solid var(--b2s-color-border);
+    border-radius: 6px;
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-text-muted);
+    font-size: 11px;
+    font-weight: 600;
   }
 
   kbd {

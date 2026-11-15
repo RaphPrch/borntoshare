@@ -60,10 +60,10 @@ with sync_playwright() as p:
 
     def dashboard():
         goto(page, "/dashboard", 2500)
-        check("bell in the rail", page.locator(".nc-trigger").is_visible())
-        # The whole rail fits a 900 px high screen: logout is in view without scrolling
+        check("bell in the top bar", page.locator(".nc-trigger").is_visible())
+        # The whole sidebar fits a 900 px high screen: logout is in view without scrolling
         box = page.locator(".sb__logout").bounding_box()
-        check("whole rail visible at 900 px high", bool(box) and box["y"] + box["height"] <= 900, f"logout bottom at {round(box['y'] + box['height']) if box else '?'} px")
+        check("whole sidebar visible at 900 px high", bool(box) and box["y"] + box["height"] <= 900, f"logout bottom at {round(box['y'] + box['height']) if box else '?'} px")
         shot(page, "01-dashboard")
     step("dashboard", dashboard)
 

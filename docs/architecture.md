@@ -81,7 +81,7 @@ L'hôte BornToShare doit pouvoir joindre :
 | Contrôleurs de domaine | 636/TCP | LDAPS | worker, auth-service | Annuaire : lecture, groupes, membres ; connexion des utilisateurs |
 | Contrôleurs de domaine | 389/TCP | LDAP | worker (découverte) | Lecture du rootDSE ; le bind simple en clair est refusé par un AD durci |
 | Contrôleurs de domaine | 88/TCP+UDP | Kerberos | worker, fives-scanner | Tickets pour WinRM, test Kerberos |
-| Serveurs DNS des domaines | 53/TCP+UDP | DNS | worker | Résolution des serveurs (Réglages avancés › Réseau et DNS) |
+| Serveurs DNS des domaines | 53/TCP+UDP | DNS | worker | Résolution des serveurs (Settings › Réseau et DNS) |
 | Serveurs de fichiers | 445/TCP | SMB 3 | worker | Partages, dossiers, ACL NTFS, création et suppression de partages, droits des fichiers sensibles |
 | Serveurs de fichiers Windows | 5985/TCP | WinRM (HTTP, message chiffré par Kerberos) | worker, fives-scanner | Mesures, sensibilité, quotas FSRM, module 5S |
 | Serveurs racine DFS et contrôleurs | 445/TCP | SMB + RPC netdfs | worker | Lecture des espaces de noms, référencements, dossiers DFS |
@@ -157,4 +157,4 @@ seule instance les lance.
 Un serveur qui ne répond plus n'est pas relancé en boucle : après 3 échecs de connexion de suite, les tâches
 automatiques qui le visent attendent (voir [infrastructure.md](infrastructure.md#serveur-injoignable)).
 
-Les intervalles se règlent dans Réglages avancés › Infrastructure › Planification.
+Les intervalles se règlent dans Settings › Infrastructure › Planification.

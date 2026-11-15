@@ -56,9 +56,9 @@ s'il existe :
 | `agent.crt` + `agent.key` | worker | Agent en HTTPS sur 8443 ; sans eux, HTTP sur 8080 (réseau interne uniquement) |
 | `agent-ca.pem` | core-service | Autorité privée des certificats d'agent |
 | `oidc-ca.pem` | auth-service | Autorité privée des serveurs Keycloak (SSO) |
-| `syslog-ca.pem`, `splunk-ca.pem` | core-service | Autorité privée du collecteur syslog (TLS) ou du HEC Splunk (Réglages avancés › Extensions) |
+| `syslog-ca.pem`, `splunk-ca.pem` | core-service | Autorité privée du collecteur syslog (TLS) ou du HEC Splunk (Settings › Extensions) |
 
-`B2S_VERSION` n'est pas à renseigner : `make deploy` y met le commit et la date, affichés en bas du menu.
+`B2S_VERSION` n'est pas à renseigner : `make deploy` y met le commit et la date, affichés en bas du menu latéral.
 
 ## 2. Le wizard : bases, administrateur et licence
 
@@ -95,7 +95,7 @@ modules » ; il crée ses bases et son compte, puis déploie de lui-même.
 l'annuaire (LDAPS, certificat, compte de service), le premier serveur de fichiers (compte, partages trouvés),
 les identités autorisées à se connecter et les administrateurs, puis les premiers dossiers gouvernés.
 
-Ensuite, dans Réglages avancés : Réseau et DNS (serveurs DNS de chaque domaine), Infrastructure (workers,
+Ensuite, dans Administration › Settings : Réseau et DNS (serveurs DNS de chaque domaine), Infrastructure (workers,
 planifications), Politique de nommage des groupes AD, Gouvernance (durées et motif
 des demandes, groupes « ouverts à tous » de l'entreprise), Sessions (durées, échecs de connexion), Notifications
 (serveur SMTP, e-mails envoyés, bandeau de maintenance : voir [notifications.md](notifications.md)), Extensions
@@ -130,7 +130,7 @@ make backup          # backups/<date>/<base>.sql.gz pour chaque base
 ```
 
 La sauvegarde (avec le compte de migration ; les bases du module 5S aussi) **ne contient pas** la clé
-`b2s_master_key` ni le `.env`. Conservez-les ailleurs, de manière sûre (`podman secret inspect --showsecret --format '{{.SecretData}}' b2s_master_key`) : une base restaurée sans sa clé laisse tous les mots de passe stockés illisibles. Le tableau de bord
+`b2s_master_key` ni le `.env`. Conservez-les ailleurs, de manière sûre (`podman secret inspect --showsecret --format '{{.SecretData}}' b2s_master_key`) : une base restaurée sans sa clé laisse tous les mots de passe stockés illisibles. Le Dashboard
 signale alors « mot de passe introuvable » pour chaque objet touché, et il faut les ressaisir.
 
 Restauration : recharger les deux dumps dans une base vide (`gzip -dc … | mariadb …`), remettre le même
@@ -144,5 +144,5 @@ make ps              # tous les services « healthy » : /health vérifie la bas
 make logs-core-service
 ```
 
-Dans l'application : Réglages avancés › Infrastructure (bases, file, workers, composants), et Suivi.
+Dans l'application : Settings › Infrastructure (bases, file, workers, composants), et Governance Jobs.
 Tests de bout en bout sur un AD de test : [ad-lab.md](ad-lab.md).

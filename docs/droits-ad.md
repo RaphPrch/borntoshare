@@ -13,7 +13,7 @@ Les noms (`svc-b2s-*`, `CORP`, `OU=B2S Groups`) sont ceux du laboratoire `CORP.L
 | `svc-b2s-sync` | Annuaire › compte principal et compte « snapshot » | Instantanés (utilisateurs, groupes, appartenances), recherche de personnes, contrôle de santé de l'annuaire, lecture des espaces de noms DFS | **Aucun droit ajouté** : la lecture accordée par défaut aux utilisateurs authentifiés suffit |
 | `svc-b2s-auth` | Annuaire › compte « auth » | Retrouver l'utilisateur qui se connecte, avant que l'AD vérifie son mot de passe | **Aucun droit ajouté** |
 | `svc-b2s-prov` | Annuaire › compte « provisioning » | Créer les groupes d'accès, ajouter et retirer leurs membres | Délégation sur l'OU des groupes, détaillée ci-dessous |
-| Compte du serveur de fichiers (ex. `userfiler01`) | Serveurs › compte du serveur | Partages, ACL NTFS, mesures et sensibilité, quotas FSRM, WinRM | Administrateur local du serveur de fichiers ; **aucun droit dans l'AD** |
+| Compte du serveur de fichiers (ex. `userfiler01`) | Storage Endpoints › Serveurs › compte du serveur | Partages, ACL NTFS, mesures et sensibilité, quotas FSRM, WinRM | Administrateur local du serveur de fichiers ; **aucun droit dans l'AD** |
 
 Les trois comptes `svc-b2s-*` vivent dans une OU à part (`OU=Comptes de service,OU=CORP`) et n'appartiennent à
 aucun groupe. Le compte du serveur de fichiers peut être membre d'un groupe de tier (ici `T1-Comptes`), qui lui
@@ -88,12 +88,12 @@ mais BornToShare ne peut plus en changer les membres : le déplacer dans l'OU de
 
 ## L'OU des groupes, vérifiée avant chaque approbation
 
-L'OU où un groupe sera créé vient de la zone (Zones › Provisionnement), sinon de l'annuaire. BornToShare vérifie
+L'OU où un groupe sera créé vient de la zone (Storage Endpoints › Zones › Provisionnement), sinon de l'annuaire. BornToShare vérifie
 qu'elle est bien déléguée **avant** qu'un gardien approuve :
 
 - le contrôle de santé (toutes les 5 minutes) lit, avec le compte `svc-b2s-prov`, l'attribut calculé
   `allowedChildClassesEffective` de chaque OU utilisée : l'AD y liste les classes que ce compte peut y créer. Le
-  résultat apparaît dans Observabilité › Santé, une ligne « Group OU » par OU ;
+  résultat apparaît dans Governance Jobs › Santé, une ligne « Group OU » par OU ;
 - un refus de création récent (`AD_GROUP_CREATE_DENIED`) compte aussi ; l'information la plus récente l'emporte ;
 - l'aperçu d'approbation affiche alors le blocage `GROUP_OU_NOT_DELEGATED`, et la route d'approbation le refuse
   (409) : on ne découvre plus le refus de l'AD après la décision du gardien.

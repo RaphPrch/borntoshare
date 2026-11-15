@@ -9,6 +9,14 @@ Autour de ce cycle : la sensibilité des dossiers (secrets et données personnel
 d'exposition, des politiques automatiques, des e-mails aux gardiens et aux demandeurs, et, sous licence, le module 5S
 qui mesure et range les partages. Chaque compte de service n'a que les droits dont il a besoin.
 
+## Interface
+
+Un menu latéral en quatre sections : **Workspace** (Dashboard avec le Journal du jour, Pilot pour poser des questions
+sur les dossiers et exporter les réponses), **Governance** (Storage Roots, Access Management, Governance Jobs),
+**Storage Intelligence** (Explorer, Inventory et Analytics du module 5S ; Insights & Recommendations) et
+**Administration** (Storage Endpoints, Identity & Users, Settings). Détail des écrans :
+[frontend-service/README.md](frontend-service/README.md#écrans).
+
 ## Vue d'ensemble
 
 ```mermaid
@@ -38,7 +46,7 @@ flowchart LR
 | capsule-runner | Worker : toutes les actions sur l'AD et les serveurs | [capsule-runner/README.md](capsule-runner/README.md) |
 | redis | File des travaux et sessions | [docs/architecture.md](docs/architecture.md) |
 | wizard-ui | Installation (bases, administrateur, licence, module 5S), une seule fois | [wizard-ui/README.md](wizard-ui/README.md) |
-| fives-service, fives-scanner | Module 5S, sous licence : mesures, doublons, archives, scores | [docs/module-5s.md](docs/module-5s.md) |
+| fives-service, fives-scanner | Module 5S, sous licence, livré dans un dépôt privé à part : mesures, doublons, archives, scores | [docs/module-5s.md](docs/module-5s.md) |
 | mailpit | Laboratoire seulement : serveur SMTP de test (`make mail-up`) | [docs/notifications.md](docs/notifications.md) |
 
 ## Démarrer
@@ -63,10 +71,10 @@ Mises à jour : `make deploy` (paquets SQL, point de retour, reconstruction). Vo
 | Provisionnement AD (groupes, OU, adoption, aperçu d'approbation) | [docs/provisionnement-ad.md](docs/provisionnement-ad.md) |
 | Sensibilité des dossiers et carte d'exposition | [docs/sensibilite.md](docs/sensibilite.md) |
 | Notifications par e-mail (SMTP, Gmail, Mailpit) | [docs/notifications.md](docs/notifications.md) |
-| Module 5S | [docs/module-5s.md](docs/module-5s.md) |
+| Module 5S : écrans, installation depuis son dépôt | [docs/module-5s.md](docs/module-5s.md) |
 | Infrastructure : santé, planifications, workers, serveur injoignable | [docs/infrastructure.md](docs/infrastructure.md) |
 | SSO Keycloak | [docs/keycloak.md](docs/keycloak.md) |
-| Observabilité | [docs/observability.md](docs/observability.md) |
+| Governance Jobs : alertes, événements, jobs, santé | [docs/observability.md](docs/observability.md) |
 | Pilote sur un AD Windows | [docs/pilote-windows.md](docs/pilote-windows.md) |
 | AD de test et tests de bout en bout | [docs/ad-lab.md](docs/ad-lab.md) |
 | Règles de travail sur le code | [Agents.md](Agents.md) |

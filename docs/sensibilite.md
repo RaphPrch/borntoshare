@@ -4,7 +4,7 @@ Deux vues répondent à la même question, « qui peut lire quoi » :
 
 - la **sensibilité** d'un dossier : les fichiers qui contiennent des secrets ou des données personnelles, et qui
   peut les ouvrir ;
-- la **carte d'exposition** (`/exposure`) : jusqu'où chaque dossier gouverné est ouvert, d'après la dernière lecture
+- la **carte d'exposition** (Access Management › Exposition, `/exposure`) : jusqu'où chaque dossier gouverné est ouvert, d'après la dernière lecture
   de ses droits sur le serveur.
 
 ## Scan de sensibilité
@@ -57,7 +57,7 @@ Corriger : déplacer les fichiers dans un dossier réservé à l'équipe, ou ret
 
 Chaque dossier gouverné est classé d'après la dernière lecture de son ACL : ouvert à tous en modification, ouvert
 à tous en lecture, comptes posés hors de BornToShare, gouverné (seulement ses groupes AD et les comptes système
-attendus), ou pas encore lu. Réglages avancés › Gouvernance complète les deux listes intégrées :
+attendus), ou pas encore lu. Settings › Gouvernance complète les deux listes intégrées :
 - les **groupes ouverts à tous** de l'entreprise (ex. `CORP\GG_Tous`) ;
 - les **comptes d'administration attendus** : un Administrateur renommé par un durcissement CIS (ex. `CORP\sla-prd`)
   n'est alors plus signalé comme « compte hors BornToShare ».

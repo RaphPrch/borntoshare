@@ -82,7 +82,7 @@ export function buildNav(ctx: NavContext): NavSection[] {
 
 const covers = (prefix: string, path: string) => path === prefix || path.startsWith(`${prefix}/`);
 
-/** The item of the current page: the longest matching prefix wins (Workers before Settings, Explorer before Analytics). */
+/** The item of the current page: the longest matching prefix wins (Explorer before Analytics). */
 export function activeItem(sections: NavSection[], path: string): { section: NavSection; item: NavItem } | null {
   let best: { section: NavSection; item: NavItem; length: number } | null = null;
   for (const section of sections) {

@@ -24,7 +24,7 @@ locaux et les rôles auprès de core-service (routes `/api/internal/*`, jeton in
 - Cookie `b2s_session` (HttpOnly) → session dans Redis (`bts:auth:*`, base 1), qui survit aux redémarrages.
 - Cookie `b2s_principal` signé par `PRINCIPAL_SIGNING_KEY` (60 s), relu par le frontend à chaque requête.
 - Limite de connexion : 5 échecs par compte, 50 par adresse, sur 15 minutes.
-- Durées et sessions ouvertes : Réglages avancés › Sessions utilisateur (révocation possible).
+- Durées et sessions ouvertes : Settings › Sessions utilisateur (révocation possible).
 
 ## Variables
 

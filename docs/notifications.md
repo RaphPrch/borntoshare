@@ -1,6 +1,6 @@
 # Notifications par e-mail
 
-Réglages avancés › **Notifications** (administrateurs). Les e-mails partent en arrière-plan, depuis core-service,
+Administration › Settings › **Notifications** (administrateurs). Les e-mails partent en arrière-plan, depuis core-service,
 par le serveur SMTP réglé ici. Un même message n'est jamais envoyé deux fois (clé unique, table `notification_log`,
 avec l'état « envoyé » ou « échec » et la raison).
 
@@ -24,7 +24,7 @@ un e-mail.
 
 ## Dans l'application : la cloche
 
-Les mêmes événements arrivent aussi dans la cloche du menu (centre de notifications), **que l'e-mail soit activé ou
+Les mêmes événements arrivent aussi dans la cloche de la barre du haut (centre de notifications), **que l'e-mail soit activé ou
 non** et même sans adresse sur le compte : nouvelle demande pour les gardiens du dossier (les administrateurs s'il n'a
 aucun gardien), décision pour le demandeur, fin d'accès proche pour son titulaire, panne pour les administrateurs.
 Une notification par personne et par événement (table `user_notifications`, pack SQL 161) ; « Tout marquer comme lu »
@@ -68,5 +68,5 @@ l'arrête. Jamais en production.
 ## Destinataires
 
 Les adresses sont celles des identités. Pour un compte de l'annuaire, elle est reprise de l'attribut `mail` de l'AD
-quand l'identité est importée (Identités › Créer › Utilisateur de l'annuaire, ou un nouvel import du même compte).
+quand l'identité est importée (Identity & Users › Identités › Créer › Utilisateur de l'annuaire, ou un nouvel import du même compte).
 Un gardien sans adresse ne reçoit rien : la liste des destinataires est vide et rien n'est envoyé.

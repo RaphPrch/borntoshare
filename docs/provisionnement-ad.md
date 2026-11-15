@@ -27,13 +27,13 @@ le bénéficiaire, gestion des groupes désactivée, aucune OU, ou une OU **non 
 (`GROUP_OU_NOT_DELEGATED`, voir [droits-ad.md](droits-ad.md#lou-des-groupes-vérifiée-avant-chaque-approbation)).
 La route d'approbation applique les mêmes blocages.
 
-**Nom du groupe.** Il vient du modèle de nommage de la zone (Zones › Provisionnement), par exemple `{PREFIX}_{ROOTCODE}_{PERM}`
+**Nom du groupe.** Il vient du modèle de nommage de la zone (Storage Endpoints › Zones › Provisionnement), par exemple `{PREFIX}_{ROOTCODE}_{PERM}`
 qui donne `B2S_CORP_FINANCE_RW`. Le nom est fixé à la 1ʳᵉ approbation, puis gardé : modifier le modèle ensuite ne renomme pas les groupes existants.
 Il fait 64 caractères au plus, sans `" / \ [ ] : ; | = , + * ? < > @`.
 
 **OU de création**, par ordre de priorité :
 1. l'OU propre à l'endpoint de stockage, si elle est définie ;
-2. l'OU de la zone (Zones › Provisionnement › Unité d'organisation) ;
+2. l'OU de la zone (Storage Endpoints › Zones › Provisionnement › Unité d'organisation) ;
 3. l'OU par défaut de la source d'identité.
 
 **Révocation et expiration.** L'utilisateur est retiré du groupe. Le groupe est conservé, même vide,
@@ -87,8 +87,8 @@ sert à choisir la bonne source quand il y en a plusieurs.
 
 L'AD vérifie le mot de passe. BornToShare donne ensuite l'accès :
 
-- **utilisateur importé** (Identités › Créer › Utilisateur de l'annuaire) : accès avec son rôle ;
-- **membre d'un groupe AD qui a un rôle** (Identités › Créer › Groupe de l'annuaire, puis choisir le rôle,
+- **utilisateur importé** (Identity & Users › Identités › Créer › Utilisateur de l'annuaire) : accès avec son rôle ;
+- **membre d'un groupe AD qui a un rôle** (Identity & Users › Identités › Créer › Groupe de l'annuaire, puis choisir le rôle,
   par exemple Administrateur de la plateforme) : l'identité est créée à la 1ʳᵉ connexion. Les groupes imbriqués comptent ;
 - sinon : refus « Ce compte n'est pas autorisé dans BornToShare ».
 
@@ -121,13 +121,13 @@ auth-service se connecte directement au contrôleur pour authentifier les utilis
 
 ### Journal d'audit
 
-Sont tracés (Observabilité › Journal) : création, modification et suppression d'une source ; demande de snapshot (avec son auteur),
+Sont tracés (Governance Jobs › Événements) : création, modification et suppression d'une source ; demande de snapshot (avec son auteur),
 fin du snapshot (volumes) ou échec (raison) ; connexions réussies et refusées (motif : mot de passe, compte non autorisé…, jamais le mot de passe) ;
 identité créée à la 1ʳᵉ connexion par un groupe qui a un rôle.
 
 ### LDAPS vérifié
 
-La vérification se règle sur chaque annuaire (Annuaires › Modifier), elle est active par défaut :
+La vérification se règle sur chaque annuaire (Identity & Users › Annuaires › Modifier), elle est active par défaut :
 
 1. cliquer sur « Récupérer le certificat » et comparer l'empreinte affichée avec celle du serveur avant de valider, ou coller le certificat de l'autorité (format PEM). Si le serveur n'envoie que son propre certificat, c'est celui-ci qui est conservé : à son renouvellement, la connexion s'arrête jusqu'à ce que le nouveau soit validé. Coller l'autorité évite cette étape ;
 2. renseigner comme hôte le nom présent dans le certificat, ou, si l'hôte est une adresse IP, ce nom dans « Nom dans le certificat ».
@@ -139,7 +139,7 @@ certains certificats autogénérés ne l'ont pas et sont refusés (`AD_TLS_FAILE
 
 | Code | Cause | Action |
 |---|---|---|
-| `ZONE_GROUP_OU_MISSING` | aucune OU pour les groupes de la zone | la définir dans Zones › Provisionnement |
+| `ZONE_GROUP_OU_MISSING` | aucune OU pour les groupes de la zone | la définir dans Storage Endpoints › Zones › Provisionnement |
 | `GROUP_OU_NOT_DELEGATED` | l'OU de la zone n'est pas déléguée au compte de provisioning (vu avant l'approbation) | déléguer l'OU ([droits-ad.md](droits-ad.md)) ou choisir l'OU des groupes dans la zone |
 | `AD_TARGET_OU_NOT_FOUND` | l'OU de la zone n'existe pas dans l'AD | corriger l'OU ou la créer |
 | `IDENTITY_SOURCE_REQUIRED` | l'endpoint n'a pas de source d'identité AD | lier une source d'identité AD à l'endpoint |

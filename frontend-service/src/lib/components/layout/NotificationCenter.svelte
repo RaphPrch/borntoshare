@@ -11,7 +11,7 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
 
   /**
-   * The bell of the rail: what concerns the person (a request to decide, a decision on theirs, an access that ends,
+   * The bell of the top bar: what concerns the person (a request to decide, a decision on theirs, an access that ends,
    * a breakdown for the administrators). Pushed live; a new notice also shows as a toast that opens it.
    */
   type Notice = { id: number; kind: string; severity: string; title: string; body: string | null; link: string | null; created_at: string; read_at: string | null };
@@ -83,7 +83,6 @@
   aria-label={unread ? t('Notifications ({count} unread)', { count: unread }) : t('Notifications')}
   title={unread ? t('Notifications ({count} unread)', { count: unread }) : t('Notifications')}>
   <i class="bi bi-bell" aria-hidden="true"></i>
-  <span>{t('Notifications')}</span>
   {#if unread}<b class="nc-badge" use:pulseOnIncrease={unread}>{unread > 99 ? '99+' : unread}</b>{/if}
 </button>
 
@@ -120,12 +119,12 @@
 </Drawer>
 
 <style>
-  .nc-trigger { position: relative; width: 74px; min-height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    border: 0; border-radius: 12px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-size: 11px; cursor: pointer; }
+  .nc-trigger { position: relative; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; padding: 0;
+    border: 1px solid var(--b2s-color-border-soft); border-radius: 11px; background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font: inherit; cursor: pointer; }
   .nc-trigger:hover { background: var(--b2s-color-surface-muted, #f1f4f9); color: var(--b2s-color-text); }
-  .nc-trigger i { font-size: 18px; }
+  .nc-trigger i { font-size: 16px; }
   .nc-trigger.has-unread i { color: var(--b2s-color-text); }
-  .nc-badge { position: absolute; top: 4px; right: 14px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #dc2626; color: #fff;
+  .nc-badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border: 2px solid #fff; border-radius: 999px; background: #dc2626; color: #fff;
     font-size: 10px; font-weight: 700; line-height: 18px; text-align: center; }
   .nc-tools { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   .nc-filter { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--b2s-color-surface-muted, #f1f4f9); }

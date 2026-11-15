@@ -1,11 +1,11 @@
 # Infrastructure
 
-Administration › Paramètres avancés › **Infrastructure** (administrateurs de la plateforme).
+Administration › Settings › **Infrastructure** (administrateurs de la plateforme).
 Cinq onglets : base de données, workers, Keycloak, planification, composants surveillés.
 Keycloak est décrit dans [keycloak.md](keycloak.md). L'état de la plateforme se consulte dans
-**Observabilité › Santé** (voir [observability.md](observability.md)).
+**Governance Jobs › Santé** (voir [observability.md](observability.md)).
 
-## Santé (Observabilité)
+## Santé (Governance Jobs)
 
 État de chaque composant : opérationnel, dégradé (réponse en plus de 1,5 s ou partielle), en panne, inconnu
 (aucun résultat depuis trois intervalles du health check). Chaque ligne montre les derniers contrôles,
@@ -97,7 +97,7 @@ Une sauvegarde complète comprend **deux éléments** : la base et la clé `b2s_
 références restent en base mais les annuaires passent en panne (« mot de passe illisible ») jusqu'à leur nouvelle saisie.
 
 Le health check vérifie aussi que chaque référence de mot de passe mène à un secret : s'il en manque (base restaurée
-sans sa clé, coffre réinitialisé), son résultat les nomme, le tableau de bord des administrateurs les liste avec
+sans sa clé, coffre réinitialisé), son résultat les nomme, le Dashboard des administrateurs les liste avec
 un lien vers chaque objet, et la fiche d'un serveur propose « Ressaisir le mot de passe »
 (`GET /api/infrastructure/secrets/missing`).
 
@@ -118,7 +118,7 @@ et les noms qui diffèrent de ceux par défaut) et des secrets podman (les mots 
 wizard d'installation. Tous les composants lisent les mêmes : core-service, le module 5S, `make deploy` et
 `make backup`.
 
-Réglages avancés › Infrastructure › Base de données l'affiche, en lecture seule :
+Settings › Infrastructure › Base de données l'affiche, en lecture seule :
 - le serveur, sa version, la latence, les deux bases et leur nombre de tables (et celles qui manquent) ;
 - le compte de l'application et ses droits réels (`SHOW GRANTS`, sans le hachage du mot de passe), avec une alerte
   s'il peut modifier le schéma ; le compte de migration ;

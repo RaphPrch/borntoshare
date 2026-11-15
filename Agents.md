@@ -34,7 +34,9 @@ Frontend:
 - Follow the `src/lib` layout and shared helpers described in `frontend-service/docs/structure.md`.
 - One shared component or class per element (fields `b2s-input`, `SegmentedFilter`, `StatusBadge`, `b2s-stat-tile`, `ShowMore`, `b2s-link-btn`, `EmptyStateInline`): see `frontend-service/docs/ui-conventions.md`. Report failures with `reportUiError`; every audited event needs a wording in `lib/activity/templates.ts`.
 - No glassmorphism.
-- Page titles go through `PageHeader` (list pages) or `EntityHeader` (entity consoles); pages use `padding: var(--b2s-page-padding)`.
+- Navigation lives in `lib/components/layout/nav.ts` (sections Workspace, Governance, Storage Intelligence, Administration): a new page joins an existing entry (its `also` prefixes, or one of its `tabs`) rather than adding a menu item. Menu names stay in English in both languages.
+- Page heads of the v2 screens use the classes of `lib/styles/v2.css` (`v2-head`, `v2-stats`, `v2-list`…); older pages keep `PageHeader` or `EntityHeader` until they are reworked. Pages use `padding: var(--b2s-page-padding)`.
+- Lists offer a right-click menu (`ContextMenu`) with the row's actions, also reachable by a visible button.
 - Typography and radius only from `lib/styles/tokens.css`: system font (`--b2s-font-sans`, `--b2s-font-mono` for paths, DNs and IDs only), sizes `--b2s-fs-xs|sm|md|lg|xl|2xl|page-title|console-title`, radius `--b2s-radius-sm|md|lg|pill`.
 - Keep the BornToShare theme:
   - Background: #F5F7FB
@@ -88,6 +90,7 @@ Capsules:
 - Never put passwords on a command line: Samba tools (smbclient, smbcacls, rpcclient) go through `run_samba` (`capsule-runner/app/shared/samba_auth.py`), which uses a temporary auth file.
 
 Database (MariaDB, SQL packs in `wizard-ui/backend/app/sql/`):
+- The 5S module (`fives-service/`, `fives-scanner/`, `wizard-ui/backend/app/sql/fives*/`) is licensed and lives in its own private repository: it is gitignored here and must never be committed to this public repository. Its screens (`frontend-service/src/routes/(app)/five-s`) are versioned here.
 - Passwords are podman secrets mounted as files (`NAME_FILE`, read by `secret_files.py`, the same file in every service), never in `.env`. SQL accounts: `b2s_migrate` (schema, packs), `b2s_core` and `b2s_fives` (read/write only): a runtime CREATE/ALTER fails, put it in a pack.
 - There is no Alembic. `wizard-ui/backend/app/migrations_runner.py` applies `schema/` → `views/` → `indexes/`; the logging DB has its own `logging/schema` + `logging/indexes`. Every file must be idempotent: the runner re-applies the whole pack.
 - Tables: `CREATE TABLE IF NOT EXISTS`; indexes: `CREATE INDEX IF NOT EXISTS` in `indexes/020_indexes.sql`.

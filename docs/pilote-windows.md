@@ -50,10 +50,10 @@ Les mots de passe sont saisis dans l'interface, qui les chiffre en base. Ne pas 
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| 1.1 | Annuaires › Nouvel annuaire, avec les comptes ci-dessus, puis Tester la connexion | Test réussi, certificat vérifié |
-| 1.1b | Observabilité › Santé, après un contrôle | Ligne « Group OU » de l'OU dédiée : opérationnelle (le compte de provisioning peut y créer des groupes) |
+| 1.1 | Identity & Users › Annuaires › Nouvel annuaire, avec les comptes ci-dessus, puis Tester la connexion | Test réussi, certificat vérifié |
+| 1.1b | Governance Jobs › Santé, après un contrôle | Ligne « Group OU » de l'OU dédiée : opérationnelle (le compte de provisioning peut y créer des groupes) |
 | 1.2 | Synchroniser maintenant | Utilisateurs, groupes et appartenances au bon nombre, comparés à l'AD |
-| 1.3 | Identités › Créer › Groupe de l'annuaire : `GG_B2S_Pilot_Admins`, rôle administrateur | Le groupe apparaît, « Voir les membres » liste `pilote.admin` |
+| 1.3 | Identity & Users › Identités › Créer › Groupe de l'annuaire : `GG_B2S_Pilot_Admins`, rôle administrateur | Le groupe apparaît, « Voir les membres » liste `pilote.admin` |
 | 1.4 | Connexion avec `pilote.admin`, puis `EXAMPLE\pilote.admin`, puis `pilote.admin@example.test` | Accès administrateur les trois fois |
 | 1.5 | Connexion du compte désactivé, puis du compte expiré | Refus avec un message clair |
 | 1.6 | 5 mauvais mots de passe avec `pilote.user`, puis le bon | Blocage temporaire de 15 min ; le compte n'est **pas** verrouillé dans l'AD si le seuil du domaine est supérieur à 5 |
@@ -62,8 +62,8 @@ Les mots de passe sont saisis dans l'interface, qui les chiffre en base. Ne pas 
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| 2.1 | Serveurs › Ajouter un serveur, découverte des partages | Le partage et ses dossiers sont listés |
-| 2.2 | Dossiers › Ajouter des dossiers : les trois dossiers | Tuiles visibles, zone et serveur corrects |
+| 2.1 | Storage Endpoints › Serveurs › Ajouter un serveur, découverte des partages | Le partage et ses dossiers sont listés |
+| 2.2 | Storage Roots › Ajouter des dossiers : les trois dossiers | Tuiles visibles, zone et serveur corrects |
 | 2.3 | Ouvrir un dossier › Relire l'ACL | Les entrées existantes sont lues ; les noms correspondent à ceux de l'Explorateur Windows |
 | 2.4 | Nommer `pilote.garant` gardien du premier dossier ; laisser le deuxième sans gardien | `pilote.garant` voit ce dossier et seulement lui ; le dossier sans gardien est signalé « Sans gardien » et ses demandes vont aux administrateurs |
 | 2.5 | `pilote.garant` essaie de se retirer des garants | Refus, tentative tracée dans le journal |
@@ -101,18 +101,18 @@ Le ticket Kerberos d'une session ouverte ne contient pas le nouveau groupe : c'e
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| 5.1 | Couper le 445 vers le serveur de fichiers, approuver | Demande en attente, message clair ; serveur « en panne » dans Suivi |
+| 5.1 | Couper le 445 vers le serveur de fichiers, approuver | Demande en attente, message clair ; serveur « en panne » dans Governance Jobs |
 | 5.2 | Rétablir, réapprouver | Appliquée, rien en double |
 | 5.3 | Changer le mot de passe de `svc-b2s-read` | Annuaire « en panne » avec la cause, au plus tard une heure après (délai propre à AD) |
-| 5.4 | Avec deux contrôleurs dans l'hôte de l'annuaire (`dc01, dc02`), arrêter le premier | Connexions, synchronisation et approbations passent par le second ; Observabilité › Santé montre le premier en panne et les administrateurs reçoivent un e-mail |
+| 5.4 | Avec deux contrôleurs dans l'hôte de l'annuaire (`dc01, dc02`), arrêter le premier | Connexions, synchronisation et approbations passent par le second ; Governance Jobs › Santé montre le premier en panne et les administrateurs reçoivent un e-mail |
 
 ## 6. Volume réel
 
 Mesurer sur le parc du pilote, ou sur un échantillon représentatif :
 
-- durée de l'inventaire et de la synchronisation complète (Réglages › Infrastructure › Planification) ;
+- durée de l'inventaire et de la synchronisation complète (Settings › Infrastructure › Planification) ;
 - durée d'une lecture d'ACL sur un dossier contenant beaucoup de sous-dossiers ;
-- temps d'affichage de Dossiers et de Demandes.
+- temps d'affichage de Storage Roots et de Access Management › Demandes.
 
 ## Bilan
 
