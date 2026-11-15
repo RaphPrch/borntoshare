@@ -99,7 +99,9 @@ UI_V2 = UI_V2_PORT=$(UI_V2_PORT) \
 	podman-compose --env-file $(B2S_MAIN_DIR)/.env -p b2s-ui-v2 -f podman-compose.ui-v2.yml
 
 ui-v2-up:
-	$(UI_V2) up -d --build
+	$(UI_V2) build
+	@# A new image is not enough: the container is recreated on it (up -d alone keeps the old one)
+	$(UI_V2) up -d --force-recreate
 
 ui-v2-down:
 	$(UI_V2) down
