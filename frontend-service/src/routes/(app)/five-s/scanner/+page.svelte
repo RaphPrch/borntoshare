@@ -1,20 +1,22 @@
 <script lang="ts">
-
   import { fivesEnabled } from '$lib/utils/features';
   import { onDestroy, onMount } from 'svelte';
   import { page } from '$app/stores';
-  import { apiGetData, apiPostData, apiPutData } from '$lib/api/client';
+  import { goto } from '$app/navigation';
+  import { apiGetData, apiGetList, apiPostData, apiPutData } from '$lib/api/client';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { reportUiError } from '$lib/errors';
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
   import { formatBytes, formatDateTime } from '$lib/utils/format';
 
   /**
-   * 5S › Scanner: the queue of the scanner of the module (one or more instances, no agent on the file servers), what
-   * it is walking now, its last scans (full or incremental through the NTFS change journal), and its settings.
+   * Inventory (v2): the scanner of the 5S module (no agent on the file servers) in a dark band — its schedule, what
+   * it walks, its queue — then three tabs: the scans (queue and last 7 days), the inventory of every folder
+   * (last measure, files, volume, state) and the settings of the scanner.
    */
   type Run = { id: number; storage_root_id: number; folder_name: string | null; host: string; status: string; reason: string; mode: string | null;
     requested_by: string | null; requested_at: string | null; started_at: string | null; finished_at: string | null; scanner_id: string | null;
@@ -24,11 +26,14 @@
     interval_hours: number; full_every_days: number; hash_files_max: number };
   type Data = { runs: Run[]; counts: Record<string, number>; scanners: Array<{ id: string; last_seen: string }>; settings: Settings; in_window: boolean;
     next_window_at: string | null };
+  type Root = Record<string, any>;
 
   let data = $state<Data | null>(null);
+  let roots = $state<Root[]>([]);
   let error = $state('');
   let form = $state<Settings | null>(null);
   let busy = $state(false);
+  let tab = $state<'queue' | 'folders' | 'settings'>('queue');
   let filter = $state<'active' | 'all'>('active');
   let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -41,10 +46,12 @@
       error = failure instanceof Error ? failure.message : t('Unable to load the scanner.');
     }
   }
+  const loadRoots = async () => (roots = await apiGetList<Root>(fetch, '/storage-roots/context').catch(() => roots));
   onMount(() => {
     // Not active (no license, switched off, or not installed): the explanation, no call to the module
     if (!$fivesEnabled) return;
-    load();
+    void load();
+    void loadRoots();
     timer = setInterval(load, 5000);
   });
   onDestroy(() => timer && clearInterval(timer));
@@ -54,6 +61,7 @@
   let showAll = $state(false);
   const STATUS = (): Record<string, string> => ({ queued: t('Waiting'), running: t('Walking'), done: t('Done'), failed: t('Failed'),
     delegated: t('Through SMB'), cancelled: t('Cancelled') });
+  const STATUS_TONE: Record<string, string> = { queued: 'mut', running: 'info', done: 'ok', failed: 'bad', delegated: 'warn', cancelled: 'mut' };
   const REASON = (): Record<string, string> => ({ manual: t('asked'), policy: t('policy'), schedule: t('schedule') });
   const seconds = (ms: number) => (ms < 1000 ? `${ms} ms` : ms < 60000 ? `${(ms / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s` : `${Math.round(ms / 60000)} min`);
 
@@ -79,6 +87,16 @@
       reportUiError(failure, 'Unable to cancel the scan.', 'fives.cancel');
     }
   }
+  async function measure(ids: number[]) {
+    if (!ids.length) return;
+    try {
+      const result = await apiPostData<{ queued: number[] }>(fetch, '/storage-roots/measure', { root_ids: ids });
+      toast.success(t('Measure started on {count} folder(s).', { count: result?.queued?.length ?? ids.length }));
+      await Promise.all([load(), loadRoots()]);
+    } catch (failure: unknown) {
+      reportUiError(failure, t('Unable to start the measure.'), 'fives.measure');
+    }
+  }
   /** The schedule in words: « Every day from 20:00 to 06:00 », « Every 6 hours » */
   function scheduleText(settings: Settings): string {
     if (!settings.schedule_enabled) return t('Off: only the scans asked by a person or a policy');
@@ -98,15 +116,66 @@
   });
   let runs = $derived((data?.runs ?? []).filter((run) => filter === 'all' || run.status === 'queued' || run.status === 'running'));
   let shown = $derived(showAll ? runs : runs.slice(0, PAGE));
+
+  // ---- inventory of the folders ----
+  type FolderFilter = 'all' | 'active' | 'failed' | 'never' | 'done';
+  let folderFilter = $state<FolderFilter>('all');
+  let folderQuery = $state('');
+  let folderShown = $state(50);
+  const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
+  const stateOf = (row: Root): { key: FolderFilter; label: string; tone: string } => {
+    const status = String(row.measure_status ?? '');
+    if (status === 'running' || status === 'queued') return { key: 'active', label: status === 'running' ? t('Walking') : t('Waiting'), tone: 'info' };
+    if (status === 'failed') return { key: 'failed', label: t('Failed'), tone: 'bad' };
+    if (row.content_size_bytes == null && status !== 'done') return { key: 'never', label: t('Never measured'), tone: 'warn' };
+    return { key: 'done', label: t('Measured'), tone: 'ok' };
+  };
+  const FILTERS: Array<{ key: FolderFilter; label: () => string }> = [
+    { key: 'all', label: () => t('All') }, { key: 'active', label: () => t('In progress') }, { key: 'failed', label: () => t('Failed') },
+    { key: 'never', label: () => t('Never measured') }, { key: 'done', label: () => t('Measured') }
+  ];
+  let folderNeedle = $derived(folderQuery.trim().toLowerCase());
+  let folderRows = $derived(roots
+    .filter((row) => (folderFilter === 'all' || stateOf(row).key === folderFilter) &&
+      (!folderNeedle || `${row.storage_root_name ?? ''} ${row.root_path ?? ''} ${row.storage_endpoint_name ?? ''}`.toLowerCase().includes(folderNeedle)))
+    .slice()
+    .sort((a, b) => String(b.content_updated_at ?? '').localeCompare(String(a.content_updated_at ?? ''))));
+  let neverIds = $derived(roots.filter((row) => stateOf(row).key === 'never').map((row) => Number(row.storage_root_id)));
+
+  // ---- right click on a scan or a folder ----
+  type Target = { id: number; name: string; run?: Run };
+  let menu = $state<{ target: Target; at: { x: number; y: number } } | null>(null);
+  let menuItems = $derived<ContextMenuItem[]>([
+    { key: 'open', label: t('Open the folder sheet'), icon: 'bi-folder2-open' },
+    { key: 'explore', label: t('Explore the content'), icon: 'bi-columns-gap' },
+    ...(isAdmin ? [{ key: 'measure', label: t('Measure now'), icon: 'bi-rulers', separated: true }] : []),
+    ...(isAdmin && menu?.target.run?.status === 'queued' ? [{ key: 'cancel', label: t('Cancel the scan'), icon: 'bi-x-circle', danger: true }] : [])
+  ]);
+  function onPick(key: string) {
+    const target = menu?.target;
+    if (!target) return;
+    if (key === 'open') void goto(`/storage-roots?selected=${target.id}`);
+    if (key === 'explore') void goto(`/five-s/explore/${target.id}`);
+    if (key === 'measure') void measure([target.id]);
+    if (key === 'cancel' && target.run) void cancel(target.run);
+  }
+  const openMenu = (target: Target) => (event: MouseEvent) => {
+    event.preventDefault();
+    menu = { target, at: menuPositionFor(event) };
+  };
 </script>
 
-<section class="b2s-page b2s-page--admin sc5">
-  <header class="sc5__head">
+<section class="v2 sc5">
+  <div class="v2-head">
     <div>
-      <h1>{t('Scanner')}</h1>
-      <p>{t('Walks the folders on their file servers, without agent: one server at a time, inside the window, only what changed.')}</p>
+      <h1>Inventory</h1>
+      <p>{t('The measures of the folders: full or incremental (NTFS change journal), without agent, one server at a time, inside the window.')}</p>
     </div>
-  </header>
+    {#if isAdmin && neverIds.length}
+      <div class="v2-head__act"><button type="button" class="b2s-btn b2s-btn-primary" onclick={() => measure(neverIds)}>
+        <i class="bi bi-rulers" aria-hidden="true"></i>{t('Measure the {count} folder(s) never measured', { count: neverIds.length })}</button></div>
+    {/if}
+  </div>
 
   {#if !$fivesEnabled}
     <InlineAlert tone="info">{t('The 5S module is not active')} : {t('It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.')}</InlineAlert>
@@ -115,115 +184,149 @@
   {:else if !data}
     <LoadingState block skeleton="rows" rows={5} />
   {:else}
-    <div class="sc5__kpis">
-      <div class:is-on={data.in_window && data.settings.schedule_enabled}><span>{t('Schedule')}</span><b class="sc5__sched">{scheduleText(data.settings)}</b>
-        <small>{nextText(data)}</small></div>
-      <div><span>{t('Walking')}</span><b>{data.counts.running ?? 0}</b><small>{t('at most {count} per server', { count: data.settings.per_server })}</small></div>
-      <div><span>{t('Waiting')}</span><b>{data.counts.queued ?? 0}</b><small>{t('scans in the queue')}</small></div>
-      <div><span>{t('Scanners')}</span><b>{data.scanners.length}</b>
-        <small>{data.scanners.length ? data.scanners.map((scanner) => scanner.id).join(', ') : t('none seen in the last 24 h')}</small></div>
+    <div class="v2-band sc5__band">
+      <div class="sc5__sched" class:is-on={data.in_window && data.settings.schedule_enabled}>
+        <small>{t('Schedule')}</small><b>{scheduleText(data.settings)}</b><span>{nextText(data)}</span>
+      </div>
+      <div class="v2-stats sc5__stats">
+        <div class="v2-stat"><small>{t('Walking')}</small><b>{data.counts.running ?? 0}</b><span>{t('at most {count} per server', { count: data.settings.per_server })}</span></div>
+        <div class="v2-stat"><small>{t('Waiting')}</small><b>{data.counts.queued ?? 0}</b><span>{t('scans in the queue')}</span></div>
+        <div class="v2-stat"><small>{t('Scanners')}</small><b>{data.scanners.length}</b><span>{data.scanners.length ? data.scanners.map((scanner) => scanner.id).join(', ') : t('none seen in the last 24 h')}</span></div>
+        <div class="v2-stat"><small>{t('Never measured')}</small><b>{neverIds.length}</b><span>{t('{count} folder(s) in all', { count: roots.length })}</span></div>
+      </div>
     </div>
 
-    <section class="sc5__card" aria-label={t('Queue')}>
-      <header>
-        <h2>{t('Scans')}</h2>
-        <span class="sc5__seg">
-          <button type="button" class:is-on={filter === 'active'} onclick={() => (filter = 'active')}>{t('In progress')}</button>
-          <button type="button" class:is-on={filter === 'all'} onclick={() => (filter = 'all')}>{t('Last 7 days')}</button>
-        </span>
-      </header>
-      {#each shown as run (run.id)}
-        <div class="sc5__run" data-status={run.status}>
-          <span class="sc5__status">{STATUS()[run.status] ?? run.status}</span>
-          <span class="sc5__what">
-            <a href={`/storage-roots?selected=${run.storage_root_id}`}><b>{run.folder_name ?? `#${run.storage_root_id}`}</b></a>
-            <small>{run.host} · {REASON()[run.reason] ?? run.reason}{run.requested_by ? ` · ${run.requested_by}` : ''} · <RelativeTime value={run.requested_at} />{run.scanner_id ? ` · ${run.scanner_id}` : ''}</small>
-            {#if run.status === 'running' && run.progress}
-              <span class="sc5__bar"><i style={`width:${run.progress.chunks_total ? Math.round((run.progress.chunks_done / run.progress.chunks_total) * 100) : 0}%`}></i></span>
-              <small>{run.progress.mode === 'incremental' ? t('incremental') : t('full walk')} · {run.progress.chunks_done}/{run.progress.chunks_total} · {run.progress.files.toLocaleString('fr-FR')} {t('file(s)')}{run.progress.current ? ` · ${run.progress.current}` : ''}</small>
-            {:else if run.summary}
-              <small>{run.summary.mode === 'incremental' ? t('incremental: {walked} sub-folder(s) walked, {kept} kept', { walked: run.summary.chunks_walked, kept: run.summary.chunks_kept }) : t('full walk')}
-                · {run.summary.files.toLocaleString('fr-FR')} {t('file(s)')} · {formatBytes(run.summary.bytes)} · {seconds(run.summary.elapsed_ms)}</small>
-            {:else if run.error}
-              <small class="sc5__err">{run.error}</small>
-            {/if}
-          </span>
-          {#if isAdmin && run.status === 'queued'}<button type="button" class="b2s-link-btn" onclick={() => cancel(run)}>{t('Cancel')}</button>{/if}
-        </div>
-      {:else}
-        <p class="sc5__empty">{filter === 'active' ? t('Nothing in progress: the scanner waits.') : t('No scan in the last 7 days.')}</p>
-      {/each}
-      {#if runs.length > shown.length}
-        <button type="button" class="b2s-link-btn sc5__more" onclick={() => (showAll = true)}>{t('Show the {count} others', { count: runs.length - shown.length })}</button>
-      {/if}
-    </section>
+    <div class="v2-tabs" role="tablist" aria-label={t('Inventory')}>
+      <button type="button" role="tab" class:is-on={tab === 'queue'} aria-selected={tab === 'queue'} onclick={() => (tab = 'queue')}>{t('Scans')}{#if (data.counts.running ?? 0) + (data.counts.queued ?? 0)}<b>{(data.counts.running ?? 0) + (data.counts.queued ?? 0)}</b>{/if}</button>
+      <button type="button" role="tab" class:is-on={tab === 'folders'} aria-selected={tab === 'folders'} onclick={() => (tab = 'folders')}>{t('Folders')}<b>{roots.length}</b></button>
+      {#if isAdmin && form}<button type="button" role="tab" class:is-on={tab === 'settings'} aria-selected={tab === 'settings'} onclick={() => (tab = 'settings')}>{t('Settings')}</button>{/if}
+    </div>
 
-    {#if isAdmin && form}
-      <section class="sc5__card" aria-label={t('Settings')}>
-        <header><h2>{t('Settings')}</h2></header>
-        <form class="sc5__form" onsubmit={(event) => { event.preventDefault(); save(); }}>
-          <label class="sc5__check"><input type="checkbox" bind:checked={form.schedule_enabled} /> {t('Scan every folder on schedule')}</label>
-          {#if form.schedule_enabled}
-            <div class="sc5__freq" role="radiogroup" aria-label={t('Frequency')}>
-              <label><input type="radio" name="frequency" value="days" bind:group={form.frequency} /> {t('Every N days, at set hours')}</label>
-              <label><input type="radio" name="frequency" value="hours" bind:group={form.frequency} /> {t('Every N hours, at any time')}</label>
+    {#if tab === 'queue'}
+      <div class="v2-sec">
+        <div class="v2-sh">
+          <div class="v2-seg" role="group" aria-label={t('Show')}>
+            <button type="button" class:is-on={filter === 'active'} onclick={() => (filter = 'active')}>{t('In progress')}</button>
+            <button type="button" class:is-on={filter === 'all'} onclick={() => (filter = 'all')}>{t('Last 7 days')}</button>
+          </div>
+          <div class="v2-sh__r"><span class="v2-hint">{t('Right click: open, explore, measure again, cancel')}</span></div>
+        </div>
+        <div class="v2-list">
+          {#each shown as run (run.id)}
+            <div class="v2-row sc5__run" role="row" tabindex="-1" oncontextmenu={openMenu({ id: run.storage_root_id, name: run.folder_name ?? `#${run.storage_root_id}`, run })}>
+              <span><span class={`v2-tag is-${STATUS_TONE[run.status] ?? 'mut'}`}>{STATUS()[run.status] ?? run.status}</span></span>
+              <span class="v2-nm">
+                <a href={`/storage-roots?selected=${run.storage_root_id}`}>{run.folder_name ?? `#${run.storage_root_id}`}</a>
+                <span class="v2-sub">{run.host} · {REASON()[run.reason] ?? run.reason}{run.requested_by ? ` · ${run.requested_by}` : ''} · <RelativeTime value={run.requested_at} />{run.scanner_id ? ` · ${run.scanner_id}` : ''}</span>
+                {#if run.status === 'running' && run.progress}
+                  <span class="v2-bar is-accent sc5__bar"><i style={`width:${run.progress.chunks_total ? Math.round((run.progress.chunks_done / run.progress.chunks_total) * 100) : 0}%`}></i></span>
+                  <span class="v2-sub">{run.progress.mode === 'incremental' ? t('incremental') : t('full walk')} · {run.progress.chunks_done}/{run.progress.chunks_total} · {run.progress.files.toLocaleString('fr-FR')} {t('file(s)')}{run.progress.current ? ` · ${run.progress.current}` : ''}</span>
+                {:else if run.summary}
+                  <span class="v2-sub">{run.summary.mode === 'incremental' ? t('incremental: {walked} sub-folder(s) walked, {kept} kept', { walked: run.summary.chunks_walked, kept: run.summary.chunks_kept }) : t('full walk')}
+                    · {run.summary.files.toLocaleString('fr-FR')} {t('file(s)')} · {formatBytes(run.summary.bytes)} · {seconds(run.summary.elapsed_ms)}</span>
+                {:else if run.error}
+                  <span class="v2-sub sc5__err">{run.error}</span>
+                {/if}
+              </span>
+              <span class="sc5__end">
+                {#if isAdmin && run.status === 'queued'}<button type="button" class="b2s-link-btn" onclick={() => cancel(run)}>{t('Cancel')}</button>{/if}
+                <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: run.folder_name ?? '' })}
+                  onclick={openMenu({ id: run.storage_root_id, name: run.folder_name ?? `#${run.storage_root_id}`, run })}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
+              </span>
             </div>
-            {#if form.frequency === 'hours'}
-              <label>{t('Every (hours)')}<input class="b2s-input" type="number" min="1" max="24" bind:value={form.interval_hours} /></label>
-            {:else}
-              <label>{t('Every (days, 1 = once a day)')}<input class="b2s-input" type="number" min="1" max="90" bind:value={form.interval_days} /></label>
-              <label>{t('Starts at')}<input class="b2s-input" type="time" bind:value={form.window_start} /></label>
-              <label>{t('Stops at')}<input class="b2s-input" type="time" bind:value={form.window_end} /></label>
-            {/if}
-            <p class="sc5__hint sc5__summary">{scheduleText(form)}</p>
+          {:else}
+            <p class="v2-empty">{filter === 'active' ? t('Nothing in progress: the scanner waits.') : t('No scan in the last 7 days.')}</p>
+          {/each}
+        </div>
+        {#if runs.length > shown.length}
+          <button type="button" class="b2s-link-btn sc5__more" onclick={() => (showAll = true)}>{t('Show the {count} others', { count: runs.length - shown.length })}</button>
+        {/if}
+      </div>
+    {:else if tab === 'folders'}
+      <div class="v2-sec">
+        <div class="v2-sh">
+          <div class="v2-seg" role="group" aria-label={t('Quick filters')}>
+            {#each FILTERS as item (item.key)}
+              <button type="button" class:is-on={folderFilter === item.key} onclick={() => { folderFilter = item.key; folderShown = 50; }}>
+                {item.label()} <b>{item.key === 'all' ? roots.length : roots.filter((row) => stateOf(row).key === item.key).length}</b></button>
+            {/each}
+          </div>
+          <div class="v2-sh__r"><label class="v2-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={folderQuery} placeholder={t('Folder, path, server…')} aria-label={t('Search a folder')} /></label></div>
+        </div>
+        <div class="v2-list">
+          <div class="v2-row is-head sc5__g"><span>{t('Folder')}</span><span>{t('Server')}</span><span>{t('Files')}</span><span>{t('Volume')}</span><span>{t('Measured')}</span><span>{t('State')}</span><span></span></div>
+          {#each folderRows.slice(0, folderShown) as row (row.storage_root_id)}
+            {@const state = stateOf(row)}
+            {@const target = { id: Number(row.storage_root_id), name: String(row.storage_root_name ?? '') }}
+            <div class="v2-row sc5__g" role="row" tabindex="-1" oncontextmenu={openMenu(target)}>
+              <span class="v2-nm"><a href={`/storage-roots?selected=${row.storage_root_id}`}>{row.storage_root_name}</a><small>{row.root_path}</small></span>
+              <span class="v2-nm"><span>{row.storage_endpoint_name ?? '—'}</span><span class="v2-sub">{row.zone_name ?? ''}</span></span>
+              <span>{row.content_files != null ? num(row.content_files).toLocaleString('fr-FR') : '—'}</span>
+              <span>{row.content_size_bytes != null ? formatBytes(num(row.content_size_bytes)) : '—'}</span>
+              <span class="v2-sub">{#if row.content_updated_at}<RelativeTime value={row.content_updated_at} />{:else}—{/if}</span>
+              <span><span class={`v2-tag is-${state.tone}`}>{state.label}</span></span>
+              <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: target.name })} onclick={openMenu(target)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
+            </div>
+          {:else}
+            <p class="v2-empty">{t('No folder matches.')}</p>
+          {/each}
+        </div>
+        {#if folderRows.length > folderShown}
+          <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm sc5__more" onclick={() => (folderShown += 50)}>{t('Show {count} more', { count: Math.min(50, folderRows.length - folderShown) })}</button>
+        {/if}
+      </div>
+    {:else if tab === 'settings' && isAdmin && form}
+      <form class="sc5__form" onsubmit={(event) => { event.preventDefault(); save(); }}>
+        <label class="sc5__check"><input type="checkbox" bind:checked={form.schedule_enabled} /> {t('Scan every folder on schedule')}</label>
+        {#if form.schedule_enabled}
+          <div class="sc5__freq" role="radiogroup" aria-label={t('Frequency')}>
+            <label><input type="radio" name="frequency" value="days" bind:group={form.frequency} /> {t('Every N days, at set hours')}</label>
+            <label><input type="radio" name="frequency" value="hours" bind:group={form.frequency} /> {t('Every N hours, at any time')}</label>
+          </div>
+          {#if form.frequency === 'hours'}
+            <label>{t('Every (hours)')}<input class="b2s-input" type="number" min="1" max="24" bind:value={form.interval_hours} /></label>
+          {:else}
+            <label>{t('Every (days, 1 = once a day)')}<input class="b2s-input" type="number" min="1" max="90" bind:value={form.interval_days} /></label>
+            <label>{t('Starts at')}<input class="b2s-input" type="time" bind:value={form.window_start} /></label>
+            <label>{t('Stops at')}<input class="b2s-input" type="time" bind:value={form.window_end} /></label>
           {/if}
-          <label>{t('Scans at a time per server')}<input class="b2s-input" type="number" min="1" max="8" bind:value={form.per_server} /></label>
-          <label>{t('Full walk every (days)')}<input class="b2s-input" type="number" min="1" max="365" bind:value={form.full_every_days} /></label>
-          <label>{t('Fingerprints per piece (duplicates)')}<input class="b2s-input" type="number" min="0" max="500000" step="1000" bind:value={form.hash_files_max} /></label>
-          <p class="sc5__hint">{t('Between two full walks, only the sub-folders where the NTFS change journal shows a change are walked again. A server that cannot be walked on (DFS namespace, no WinRM) is measured through SMB by the worker of the core.')}</p>
-          <div class="sc5__btns"><button type="submit" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={busy}>{t('Save')}</button></div>
-        </form>
-      </section>
+          <p class="sc5__hint sc5__summary">{scheduleText(form)}</p>
+        {/if}
+        <label>{t('Scans at a time per server')}<input class="b2s-input" type="number" min="1" max="8" bind:value={form.per_server} /></label>
+        <label>{t('Full walk every (days)')}<input class="b2s-input" type="number" min="1" max="365" bind:value={form.full_every_days} /></label>
+        <label>{t('Fingerprints per piece (duplicates)')}<input class="b2s-input" type="number" min="0" max="500000" step="1000" bind:value={form.hash_files_max} /></label>
+        <p class="sc5__hint">{t('Between two full walks, only the sub-folders where the NTFS change journal shows a change are walked again. A server that cannot be walked on (DFS namespace, no WinRM) is measured through SMB by the worker of the core.')}</p>
+        <div class="sc5__btns"><button type="submit" class="b2s-btn b2s-btn-primary" disabled={busy}>{t('Save')}</button></div>
+      </form>
     {/if}
   {/if}
 </section>
 
+<ContextMenu open={menu != null} title={menu?.target.name ?? ''} items={menuItems} at={menu?.at} onClose={() => (menu = null)} {onPick} />
+
 <style>
-  .sc5 { display: flex; flex-direction: column; gap: 18px; padding: var(--b2s-page-padding, 24px 28px); }
-  .sc5__head h1 { margin: 0; font-size: var(--b2s-fs-page-title, 24px); font-weight: 650; }
-  .sc5__head p { margin: 4px 0 0; color: var(--b2s-color-text-muted); }
-  .sc5__kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-  .sc5__kpis > div { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
-  .sc5__kpis > div.is-on { border-color: var(--b2s-color-success-border, #cfe9d9); background: var(--b2s-color-success-soft, #f3fbf6); }
-  .sc5__kpis span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .sc5__kpis b.sc5__sched { font-size: 15px; line-height: 1.3; }
-  .sc5__freq { grid-column: 1 / -1; display: flex; gap: 18px; }
-  .sc5__freq label { display: flex; align-items: center; gap: 6px; font-weight: 500; }
-  .sc5__summary { font-weight: 600; color: var(--b2s-color-text); }
-  .sc5__kpis b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
-  .sc5__kpis small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .sc5__card { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
-  .sc5__card > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  .sc5__card h2 { margin: 0; font-size: var(--b2s-fs-md); font-weight: 600; }
-  .sc5__seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--b2s-color-neutral-soft); }
-  .sc5__seg button { padding: 5px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-xs); font-weight: 600; cursor: pointer; }
-  .sc5__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(14, 18, 24, 0.12); }
-  .sc5__more { margin-top: 8px; }
-  .sc5__run { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 10px 0; border-top: 1px solid var(--b2s-color-border); }
-  .sc5__status { justify-self: start; padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); font-size: var(--b2s-fs-xs); font-weight: 600; }
-  .sc5__run[data-status='running'] .sc5__status { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
-  .sc5__run[data-status='done'] .sc5__status { background: var(--b2s-color-success-soft, #eaf7ee); color: var(--b2s-color-success-strong, #1a7f37); }
-  .sc5__run[data-status='failed'] .sc5__status { background: var(--b2s-color-danger-soft, #fdecea); color: var(--b2s-color-danger-strong, #b42318); }
-  .sc5__what { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-  .sc5__what a { color: inherit; text-decoration: none; }
-  .sc5__what small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .sc5__err { color: var(--b2s-color-danger-strong, #b42318) !important; }
-  .sc5__bar { height: 6px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); overflow: hidden; max-width: 420px; }
-  .sc5__bar i { display: block; height: 100%; background: var(--b2s-color-info-strong); transition: width var(--b2s-motion-slow) var(--b2s-ease-out); }
-  .sc5__empty { margin: 8px 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .sc5__form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .sc5__band { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 24px; }
+  .sc5__sched { display: flex; flex-direction: column; gap: 3px; min-width: 260px; }
+  .sc5__sched small { color: #a6adba; font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; }
+  .sc5__sched b { color: #fff; font-size: 19px; font-weight: 600; }
+  .sc5__sched span { color: #a6adba; font-size: 13px; }
+  .sc5__sched.is-on b::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; background: var(--b2s-accent); vertical-align: 2px; }
+  .sc5__stats { flex: 1 1 440px; margin-left: auto; border: 0; }
+  .sc5__stats .v2-stat { padding: 4px 18px 4px 0; }
+  .sc5__stats .v2-stat b { font-size: 24px; }
+  .sc5__run { grid-template-columns: 120px minmax(0, 1fr) auto; align-items: start; }
+  .sc5__run .v2-nm { gap: 4px; }
+  .sc5__bar { max-width: 420px; height: 5px; }
+  .sc5__err { color: var(--b2s-color-danger-strong, #b42318); }
+  .sc5__end { display: flex; align-items: center; gap: 8px; }
+  .sc5__g { grid-template-columns: minmax(220px, 2fr) minmax(130px, 1fr) 100px 110px 130px 140px 36px; min-width: 900px; }
+  .sc5__more { align-self: center; }
+  .sc5__form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 20px; max-width: 980px; }
   .sc5__form label { display: flex; flex-direction: column; gap: 5px; font-size: var(--b2s-fs-sm); font-weight: 500; }
   .sc5__form label.sc5__check { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 8px; }
+  .sc5__freq { grid-column: 1 / -1; display: flex; gap: 18px; }
+  .sc5__freq label { flex-direction: row !important; align-items: center; gap: 6px; }
   .sc5__hint { grid-column: 1 / -1; margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .sc5__summary { font-weight: 600; color: var(--b2s-color-text); }
   .sc5__btns { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 </style>

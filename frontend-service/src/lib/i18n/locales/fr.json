@@ -5996,5 +5996,12 @@
   "Their requests go to the administrators.": "Leurs demandes reviennent aux administrateurs.",
   "Untouched for more than a year; {count} folder(s) are mostly cold: candidates for the archive.": "Non modifiées depuis plus d'un an ; {count} dossier(s) sont surtout froids : à archiver.",
   "What the last measures, scans and ACL reads of the folders you may see reveal, and the reports to print or save as PDF.": "Ce que révèlent les dernières mesures, analyses et lectures d'ACL des dossiers que vous voyez, et les rapports à imprimer ou enregistrer en PDF.",
-  "~$*, Thumbs.db, .tmp… in {count} folder(s): they can go.": "~$*, Thumbs.db, .tmp… dans {count} dossier(s) : supprimables."
+  "~$*, Thumbs.db, .tmp… in {count} folder(s): they can go.": "~$*, Thumbs.db, .tmp… dans {count} dossier(s) : supprimables.",
+  "Cancel the scan": "Annuler l'analyse",
+  "Folder, path, server…": "Dossier, chemin, serveur…",
+  "Measure now": "Mesurer maintenant",
+  "Measured": "Mesuré",
+  "Right click: open, explore, measure again, cancel": "Clic droit : ouvrir, explorer, remesurer, annuler",
+  "The measures of the folders: full or incremental (NTFS change journal), without agent, one server at a time, inside the window.": "Les mesures des dossiers : complètes ou incrémentales (journal des modifications NTFS), sans agent, un serveur à la fois, dans la plage horaire.",
+  "{count} folder(s) in all": "{count} dossier(s) en tout"
 }
