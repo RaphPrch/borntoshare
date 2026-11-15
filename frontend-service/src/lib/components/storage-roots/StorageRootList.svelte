@@ -17,6 +17,7 @@
   import StorageRootContextMenu, { type FolderMenuExtra } from '$lib/components/storage-roots/StorageRootContextMenu.svelte';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
   import { menuPositionFor } from '$lib/components/ui/ContextMenu.svelte';
+  import StorageRootSidePeek from '$lib/components/storage-roots/StorageRootSidePeek.svelte';
 
   interface Props {
     /**
@@ -149,6 +150,16 @@
     selected = new Set();
   }
 
+  // ---- side preview: « Preview » and a click on the name open it here; the other entries go to the page ----
+  let peekRow = $state<StorageRootRow | null>(null);
+  const extra = (key: FolderMenuExtra, row: StorageRootRow) => {
+    if (key === 'peek') peekRow = row;
+    else {
+      peekRow = null;
+      onExtra?.(key, row);
+    }
+  };
+
   // ---- menu ----
   let menuRow = $state<StorageRootRow | null>(null);
   let menuAt = $state({ x: 0, y: 0 });
@@ -221,7 +232,7 @@
       <div class="v2-row srl__g" class:is-picked={selected.has(id(row))} role="row" tabindex="-1" oncontextmenu={openMenu(row)}>
         <input type="checkbox" checked={selected.has(id(row))} onchange={() => toggle(row)} aria-label={t('Select {name}', { name: String(row.storage_root_name ?? '') })} />
         <div class="v2-nm">
-          <button type="button" onclick={() => onExtra ? onExtra('peek', row) : onOpenRoot(id(row))}>{row.storage_root_name ?? row.storage_root_code}</button>
+          <button type="button" onclick={() => (peekRow = row)}>{row.storage_root_name ?? row.storage_root_code}</button>
           <small title={String(row.dfs_path ?? row.root_path ?? '')}>{row.dfs_path ?? row.root_path ?? ''}</small>
         </div>
         <div class="v2-nm"><span>{row.storage_endpoint_name ?? '—'}</span><span class="v2-sub">{row.zone_name ?? ''}</span></div>
@@ -265,7 +276,11 @@
 </div>
 
 <StorageRootContextMenu row={menuRow} at={menuAt} onClose={() => (menuRow = null)} onOpen={(row) => onOpenRoot(id(row))}
-  onAction={(kind, row) => onFolderAction?.(kind, row)} canManage={isAdmin && Boolean(onFolderAction)} {onExtra} />
+  onAction={(kind, row) => onFolderAction?.(kind, row)} canManage={isAdmin && Boolean(onFolderAction)} onExtra={extra} />
+
+<StorageRootSidePeek row={peekRow} score={peekRow ? scoreOf(peekRow) : null} {isAdmin} onClose={() => (peekRow = null)}
+  onOpen={(rootId) => { peekRow = null; onOpenRoot(rootId); }}
+  onAnalysis={onBulkAnalysis ? (kind, row) => void onBulkAnalysis?.(kind, [row]) : null} onExtra={extra} />
 
 <style>
   .srl { border: 1px solid var(--b2s-color-border-soft); border-radius: 16px; background: #fff; overflow: hidden; }

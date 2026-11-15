@@ -6003,5 +6003,6 @@
   "Measured": "Mesuré",
   "Right click: open, explore, measure again, cancel": "Clic droit : ouvrir, explorer, remesurer, annuler",
   "The measures of the folders: full or incremental (NTFS change journal), without agent, one server at a time, inside the window.": "Les mesures des dossiers : complètes ou incrémentales (journal des modifications NTFS), sans agent, un serveur à la fois, dans la plage horaire.",
-  "{count} folder(s) in all": "{count} dossier(s) en tout"
+  "{count} folder(s) in all": "{count} dossier(s) en tout",
+  "{count} password or key file(s)": "{count} fichier(s) avec mot de passe ou clé"
 }

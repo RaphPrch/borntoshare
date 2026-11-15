@@ -374,7 +374,7 @@
 
 <div class="fx">
   <div class="fx__top">
-    <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/five-s"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
+    <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/five-s/explore"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
     <span class="fx__links">
       <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/duplicates/${rootId}`}><i class="bi bi-files" aria-hidden="true"></i>{t('Duplicates')}</a>
       <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/report/${rootId}`}><i class="bi bi-file-earmark-text" aria-hidden="true"></i>{t('Report')}</a>
@@ -630,7 +630,7 @@
   items={menu ? menuItems(menu.folder) : []} at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={pickMenu} />
 
 <style>
-  .fx { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; padding: var(--b2s-page-padding); }
+  .fx { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; max-width: 1480px; padding: 26px 28px 80px; }
   .fx__top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .fx__links { display: inline-flex; gap: 8px; flex-wrap: wrap; }
   .fx__head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }

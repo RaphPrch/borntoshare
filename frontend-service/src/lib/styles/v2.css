@@ -139,3 +139,7 @@ button.v2-fi { width: 100%; border: 0; border-bottom: 1px solid #f0f2f5; backgro
 
 /* ---- Future (Évolution) marker ---- */
 .v2-future { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border: 1px dashed #d97706; border-radius: 16px; background: #fffbeb; }
+
+/* Dark button (the main action of a side panel) */
+.b2s-btn.b2s-btn-dark { border-color: #0e1218; background: #0e1218; color: #fff; }
+.b2s-btn.b2s-btn-dark:hover { border-color: #252b35; background: #252b35; color: #fff; }
