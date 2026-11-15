@@ -24,6 +24,8 @@
   import "$lib/styles/signal.css";
   import "$lib/styles/buttons.css";
   import "$lib/styles/storage-roots.css";
+  // 4️⃣ v2 interface: shared pieces of the reworked screens, last so that they win
+  import "$lib/styles/v2.css";
 
   import { page } from "$app/stores";
   import { invalidate, onNavigate } from "$app/navigation";
@@ -41,6 +43,7 @@
   import SessionIdleBanner from "$lib/components/layout/SessionIdleBanner.svelte";
   import TopProgress from "$lib/components/ui/TopProgress.svelte";
   import Sidebar from "$lib/components/layout/Sidebar.svelte";
+  import Topbar from "$lib/components/layout/Topbar.svelte";
   import { bootstrapFrontendCore } from "$lib/bootstrap.client";
 
   // ---------------------------------------------------------
@@ -118,6 +121,7 @@
   />
 
   <main class="b2s-app-main">
+    <Topbar user={data.me} permissions={data.navigation} currentPath={$page.url.pathname} />
     {#if data.banner}
       <div class="b2s-banner is-{data.banner.tone ?? 'info'}" role="status"><i class="bi bi-megaphone" aria-hidden="true"></i>{data.banner.message}</div>
     {/if}
