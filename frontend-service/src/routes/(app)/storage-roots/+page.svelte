@@ -327,7 +327,8 @@
         }
         // ?tab=permissions (exposure map): open the folder on its Permissions tab
         if (exists && $page.url.searchParams.get('tab') === 'permissions') storageRootsUiStore.setDetailTab('effective-access');
-        else if (exists && $page.url.searchParams.get('tab') === 'activity') storageRootsUiStore.setDetailTab('activity');
+        else if (exists && ['activity', 'storage', 'sensitivity', 'quota'].includes(String($page.url.searchParams.get('tab'))))
+          storageRootsUiStore.setDetailTab($page.url.searchParams.get('tab') as StorageRootsDetailTab);
         lastAppliedSelectedParam = selectedParam;
       }
     }
