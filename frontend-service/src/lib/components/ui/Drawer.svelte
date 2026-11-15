@@ -101,6 +101,13 @@
     }
   }
 
+  // Render at the end of <body> (as AppModal does): a sticky, filtered or transformed ancestor (the top bar of the
+  // notifications) would otherwise trap the fixed panel inside it, under the rest of the page
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return { destroy: () => node.remove() };
+  }
+
   const handleKeydown = (event: KeyboardEvent) => {
     if (open && event.key === 'Tab') keepFocusInside(event);
     if (!open || !closeOnEscape || event.key !== 'Escape') return;
@@ -113,6 +120,7 @@
 
 {#if open}
   <div
+    use:portal
     class={`b2s-drawer b2s-entity-drawer ${rootClass}`.trim()}
     role="presentation"
     style={`--b2s-drawer-width:${width};--b2s-drawer-top:0;`}

@@ -69,7 +69,6 @@ export function buildNav(ctx: NavContext): NavSection[] {
         ? [
             { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack', also: ['/admin/zones'],
               tabs: [{ href: '/admin/storage-endpoints', label: t('Servers') }, { href: '/admin/zones', label: t('Zones') }] },
-            { href: '/admin/advanced-settings/infrastructure', label: 'Workers', icon: 'bi-cpu' },
             { href: '/admin/identity', label: 'Identity & Users', icon: 'bi-people', also: ['/admin/identity-sources'],
               tabs: [{ href: '/admin/identity', label: t('Identities') }, { href: '/admin/identity/admins', label: t('Administrators') }, { href: '/admin/identity-sources', label: t('Directories') }] },
             { href: '/admin/advanced-settings', label: 'Settings', icon: 'bi-sliders', also: ['/admin/tags'],

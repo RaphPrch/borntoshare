@@ -1,5 +1,7 @@
 <script lang="ts">
 
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { goto as gotoPage } from '$app/navigation';
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import { invalidateAll } from '$app/navigation';
   import { reportUiError } from '$lib/errors/report';
@@ -177,6 +179,24 @@
       deleting = false;
     }
   }
+  // Right click on a tag: edit it, see its folders, merge, delete
+  let menuTag: Tag | null = $state(null);
+  let menuAt = $state({ x: 0, y: 0 });
+  let menuItems = $derived<ContextMenuItem[]>(menuTag ? [
+    { key: 'edit', label: t('Edit'), icon: 'bi-pencil' },
+    { key: 'folders', label: t('See its folders'), icon: 'bi-folder2-open' },
+    { key: 'merge', label: t('Merge…'), icon: 'bi-intersect', disabled: tags.length < 2 },
+    { key: 'delete', label: t('Delete'), icon: 'bi-trash', danger: true, separated: true, disabled: Number(menuTag.usage ?? 0) > 0, hint: Number(menuTag.usage ?? 0) > 0 ? t('Merge it first: it is set on folders') : '' }
+  ] : []);
+  function onMenuPick(key: string) {
+    const tag = menuTag;
+    if (!tag) return;
+    selectedId = tag.id;
+    if (key === 'edit') void openForm(tag);
+    if (key === 'folders') void gotoPage(`/storage-roots?q=${encodeURIComponent(`tag:${/\s/.test(tag.name) ? `"${tag.name}"` : tag.name}`)}`);
+    if (key === 'merge') { mergeTargetId = 0; mergeOpen = true; }
+    if (key === 'delete') deleteOpen = true;
+  }
 </script>
 
 {#if !tags.length}
@@ -234,7 +254,8 @@
               <small>{t('{count} tag(s) · {uses} use(s)', { count: section.tags.length, uses: section.tags.reduce((sum, tag) => sum + tag.usage, 0) })}</small>
             </header>
             {#each section.tags as tag, rank (tag.id)}
-              <button type="button" class="tg__row" class:on={selected?.id === tag.id} aria-pressed={selected?.id === tag.id} onclick={() => (selectedId = tag.id)}>
+              <button type="button" class="tg__row" class:on={selected?.id === tag.id} aria-pressed={selected?.id === tag.id} onclick={() => (selectedId = tag.id)}
+                oncontextmenu={(event) => { event.preventDefault(); menuAt = menuPositionFor(event); menuTag = tag; }}>
                 <TagPill label={tag.name} color={tag.color} />
                 <span class="tg__bar"><i class="b2s-grow" style="width:{(tag.usage / maxUsage) * 100}%; background:{tag.color ?? 'var(--b2s-color-text-muted)'}; --i:{rank}"></i></span>
                 <span class="tg__count">{tag.usage}</span>
@@ -387,6 +408,8 @@
   title={t('Delete the tag {name}?', { name: selected?.name ?? '' })}
   impactItems={[t('Irreversible deletion of this tag.')]}
 />
+
+<ContextMenu open={menuTag != null} title={menuTag?.name ?? ''} items={menuItems} at={menuAt} onClose={() => (menuTag = null)} onPick={onMenuPick} />
 
 <style>
   .tg { padding: var(--b2s-page-padding, 24px 28px); display: flex; flex-direction: column; gap: 16px; }

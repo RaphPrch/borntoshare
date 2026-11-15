@@ -13,7 +13,7 @@
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
 
   /**
-   * Sheet of a folder (v2): a dark band with its identity, its actions and its figures, then underlined tabs —
+   * Sheet of a folder (v2): its identity card, its actions and its figures, then underlined tabs —
    * Overview, Permissions, Storage · 5S, Sensitivity, Quota, Activity.
    */
   type StorageRootTag = Record<string, unknown>;
@@ -217,7 +217,7 @@
     <LoadingState skeleton="page" rows={5}>{t('Loading storage root data…')}</LoadingState>
   {/if}
 
-  <div class="v2-band sr-band">
+  <div class="sr-head">
     <StorageRootHeader
       title={selectedRootCodeOrName}
       {zoneLabel}
@@ -333,24 +333,5 @@
     align-content: start;
   }
 
-  /* The header card and the figure tiles, drawn inside the dark band */
-  .sr-band { gap: 18px; padding: 22px 24px; }
-  .sr-band :global(.ehc),
-  .sr-band :global(.b2s-stat-tiles) { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
-  .sr-band :global(.ehc__icon) { background: #1a1f27; color: var(--b2s-accent); }
-  .sr-band :global(.ehc__title h1) { color: #fff; font-size: 28px; }
-  .sr-band :global(.ehc__crumbs) { color: #a6adba; }
-  .sr-band :global(.ehc__path), .sr-band :global(.ehc__chip) { background: #1a1f27; color: #c9ced8; }
-  .sr-band :global(.ehc__path button) { background: #252b35; color: #e9ebf0; }
-  .sr-band :global(.b2s-btn-secondary), .sr-band :global(.b2s-btn-ghost) { border-color: #3f4755; background: transparent; color: #fff; }
-  .sr-band :global(.b2s-btn-secondary:hover), .sr-band :global(.b2s-btn-ghost:hover) { background: #252b35; }
-  .sr-band :global(.b2s-stat-tiles) { display: flex; flex-wrap: wrap; gap: 0; border-top: 1px solid #252b35; }
-  .sr-band :global(.b2s-stat-tile) { flex: 1 1 160px; min-width: 0; margin: 0; padding: 14px 20px 4px 0; border: 0; border-right: 1px solid #252b35; border-radius: 0;
-    background: transparent; box-shadow: none; color: #e9ebf0; text-align: left; }
-  .sr-band :global(.b2s-stat-tile + .b2s-stat-tile) { padding-left: 20px; }
-  .sr-band :global(.b2s-stat-tile:last-child) { border-right: 0; }
-  .sr-band :global(.b2s-stat-tile:hover) { background: transparent; }
-  .sr-band :global(.b2s-stat-tile:hover b) { color: var(--b2s-accent); }
-  .sr-band :global(.b2s-stat-tile span), .sr-band :global(.b2s-stat-tile small) { color: #a6adba; }
-  .sr-band :global(.b2s-stat-tile b) { color: #fff; }
+  .sr-head { display: grid; gap: 16px; }
 </style>

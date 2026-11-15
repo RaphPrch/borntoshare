@@ -8,6 +8,10 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { goto } from '$app/navigation';
+  import { copyText } from '$lib/utils/clipboard';
+  import { toast } from '$lib/stores/toast';
 
   /**
    * Exposure map: every governed folder by zone, server and share, coloured by how widely its last ACL read opens it.
@@ -77,6 +81,23 @@
       ...folder.broad.map((entry) => `${entry.principal} · ${entry.write ? t('modify') : t('read')}${entry.inherited ? ` (${t('inherited')})` : ''}`),
       folder.outside_count ? t('{count} account(s) outside BornToShare', { count: folder.outside_count }) : ''
     ].filter(Boolean).join('\n');
+  // Right click on a folder tile: open it, its permissions, ask Pilot who reaches it, copy its path
+  let menuFolder: { id: number; name: string; path: string } | null = $state(null);
+  let menuAt = $state({ x: 0, y: 0 });
+  const MENU: ContextMenuItem[] = [
+    { key: 'permissions', label: t('Permissions and who reaches it'), icon: 'bi-shield-lock' },
+    { key: 'open', label: t('Open the folder sheet'), icon: 'bi-folder2-open' },
+    { key: 'pilot', label: t('List and export with Pilot'), icon: 'bi-chat-square-text' },
+    { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', separated: true }
+  ];
+  function onMenuPick(key: string) {
+    const folder = menuFolder;
+    if (!folder) return;
+    if (key === 'permissions') void goto(`/storage-roots?selected=${folder.id}&tab=permissions`);
+    if (key === 'open') void goto(`/storage-roots?selected=${folder.id}`);
+    if (key === 'pilot') void goto(`/pilot?q=${encodeURIComponent(`Exporte-moi tous les utilisateurs du dossier ${folder.name}`)}`);
+    if (key === 'copy') void copyText(folder.path).then((ok) => ok && toast.success(t('Copied: {value}', { value: folder.path })));
+  }
 </script>
 
 <svelte:head><title>{t('Exposure map')} · BornToShare</title></svelte:head>
@@ -141,7 +162,8 @@
                   </header>
                   <div class="ex__grid">
                     {#each share.folders as folder (folder.id)}
-                      <a class="ex__cell is-{folder.level}" href={`/storage-roots?selected=${folder.id}&tab=permissions`} title={tileTitle(folder)}>
+                      <a class="ex__cell is-{folder.level}" href={`/storage-roots?selected=${folder.id}&tab=permissions`} title={tileTitle(folder)}
+                        oncontextmenu={(event) => { event.preventDefault(); menuAt = menuPositionFor(event); menuFolder = { id: folder.id, name: folder.name, path: folder.path }; }}>
                         <i class="bi {meta(folder.level).icon}" aria-hidden="true"></i>
                         <span>{folder.name}</span>
                         <span class="b2s-visually-hidden">{meta(folder.level).label()}</span>
@@ -159,6 +181,8 @@
     {/each}
   {/if}
 </section>
+
+<ContextMenu open={menuFolder != null} title={menuFolder?.name ?? ''} subtitle={menuFolder?.path ?? ''} items={MENU} at={menuAt} onClose={() => (menuFolder = null)} onPick={onMenuPick} />
 
 <style>
   .ex { padding: var(--b2s-page-padding, 24px 28px); display: flex; flex-direction: column; gap: 16px; }

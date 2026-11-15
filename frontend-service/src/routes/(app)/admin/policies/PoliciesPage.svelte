@@ -1,5 +1,7 @@
 <script lang="ts">
 
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { goto as gotoPage } from '$app/navigation';
   import { parseFolderQuery } from '$lib/components/storage-roots/folder-query';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { invalidateAll } from '$app/navigation';
@@ -179,6 +181,25 @@
       busyId = null;
     }
   }
+  // Right click on a policy: run it, see its folders, edit, switch it on or off, delete
+  let menuPolicy: Policy | null = $state(null);
+  let menuAt = $state({ x: 0, y: 0 });
+  let menuItems = $derived<ContextMenuItem[]>(menuPolicy ? [
+    { key: 'run', label: t('Run'), icon: 'bi-play', disabled: busyId !== null || !menuPolicy.enabled },
+    { key: 'folders', label: t('See the folders'), icon: 'bi-folder2-open' },
+    { key: 'edit', label: t('Edit'), icon: 'bi-pencil' },
+    { key: 'toggle', label: menuPolicy.enabled ? t('Disable') : t('Enable'), icon: menuPolicy.enabled ? 'bi-pause' : 'bi-play-circle', disabled: busyId !== null },
+    { key: 'delete', label: t('Delete'), icon: 'bi-trash', danger: true, separated: true }
+  ] : []);
+  function onMenuPick(key: string) {
+    const policy = menuPolicy;
+    if (!policy) return;
+    if (key === 'run') void run(policy);
+    if (key === 'folders') void gotoPage(`/storage-roots?q=${encodeURIComponent(policy.condition)}`);
+    if (key === 'edit') edit(policy);
+    if (key === 'toggle') void toggle(policy);
+    if (key === 'delete') toDelete = policy;
+  }
 </script>
 
 <section class="pl">
@@ -194,7 +215,8 @@
     <div class="pl__list">
       {#each policies as policy (policy.id)}
         {@const tag = tagOf(policy.actions?.add_tag)}
-        <article class="pc" class:is-off={!policy.enabled}>
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions (the right click repeats the buttons of the card) -->
+        <article class="pc" class:is-off={!policy.enabled} oncontextmenu={(event) => { event.preventDefault(); menuAt = menuPositionFor(event); menuPolicy = policy; }}>
           <div class="pc__main">
             <div class="pc__title">
               <h2>{policy.name}</h2>
@@ -330,6 +352,8 @@
 <ConfirmDeleteDialog open={toDelete !== null} onClose={() => (toDelete = null)} onConfirm={remove} busy={busyId !== null}
   title={t('Delete the policy')} description={toDelete?.name ?? null}
   impactItems={[t('Its open alerts are closed.'), t('The tags it added stay on the folders.')]} />
+
+<ContextMenu open={menuPolicy != null} title={menuPolicy?.name ?? ''} subtitle={menuPolicy?.condition ?? ''} items={menuItems} at={menuAt} onClose={() => (menuPolicy = null)} onPick={onMenuPick} />
 
 <style>
   .pl { padding: var(--b2s-page-padding, 24px 28px); display: flex; flex-direction: column; gap: 20px; }

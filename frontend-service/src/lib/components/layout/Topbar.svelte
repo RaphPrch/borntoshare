@@ -38,14 +38,16 @@
   .tb {
     position: sticky;
     top: 0;
-    z-index: 40;
+    /* Above the side menu (50): the drawers it holds (notifications, ⌘K) cover the whole page */
+    z-index: 60;
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 11px 28px;
     border-bottom: 1px solid var(--b2s-color-border-soft);
-    background: rgba(255, 255, 255, 0.86);
-    backdrop-filter: saturate(1.4) blur(10px);
+    /* Plain white, no backdrop-filter: a filter would make the bar the containing block of the fixed drawers inside
+       it (notifications, ⌘K) and trap them under its 60 px instead of over the page */
+    background: #fff;
   }
   .tb__crumb { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .tb__crumb i { font-size: 10px; }

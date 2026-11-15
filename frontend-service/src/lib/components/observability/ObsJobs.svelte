@@ -14,6 +14,8 @@
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import Drawer from '$lib/components/ui/Drawer.svelte';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { goto } from '$app/navigation';
   import { t } from '$lib/i18n';
   import { formatDateTime, timeAgo } from '$lib/utils/format';
   import {
@@ -188,6 +190,30 @@
     } finally {
       busy = false;
     }
+  }
+
+  // ---- right click on a job: its actions ----
+  let menuJob: Job | null = $state(null);
+  let menuAt = $state({ x: 0, y: 0 });
+  let menuItems = $derived<ContextMenuItem[]>(menuJob ? [
+    ...(menuJob.external ? [] : [{ key: 'detail', label: t('Details'), icon: 'bi-info-circle' }]),
+    ...(menuJob.target?.href ? [{ key: 'target', label: t('Open the target'), icon: 'bi-box-arrow-up-right' }] : []),
+    ...(menuJob.retryable ? [{ key: 'retry', label: t('Retry'), icon: 'bi-arrow-counterclockwise', separated: true }] : []),
+    ...(menuJob.external && isActiveJob(menuJob.status) && menuJob.target?.id ? [{ key: 'stop-fives', label: t('Stop'), icon: 'bi-stop-circle', danger: true }] : []),
+    ...(!menuJob.external && menuJob.stuck ? [{ key: 'flush', label: t('Flush'), icon: 'bi-trash', danger: true }] : []),
+    ...(!menuJob.external && !menuJob.stuck && isActiveJob(menuJob.status) ? [{ key: 'stop', label: t('Stop'), icon: 'bi-stop-circle', danger: true }] : []),
+    { key: 'copy', label: t('Copy the identifier'), icon: 'bi-clipboard', separated: true }
+  ] : []);
+  function onMenuPick(key: string) {
+    const job = menuJob;
+    if (!job) return;
+    if (key === 'detail') void openDetail(Number(job.id));
+    if (key === 'target' && job.target?.href) void goto(job.target.href);
+    if (key === 'retry') void retry(job);
+    if (key === 'stop-fives') void stopFives(job);
+    if (key === 'flush') flushing = [job];
+    if (key === 'stop') cancelling = job;
+    if (key === 'copy') void copy(job.external ? String(job.correlation_id ?? job.id) : String(job.id));
   }
 
   async function copy(value: string) {
@@ -375,7 +401,8 @@
           <tbody>
             {#each pageRows as job (job.id)}
               {@const share = isActiveJob(job.status) ? timeoutShare(job) : null}
-              <tr class="obs-row" class:is-open={detailId === Number(job.id)} onclick={() => !job.external && openDetail(Number(job.id))}>
+              <tr class="obs-row" class:is-open={detailId === Number(job.id)} onclick={() => !job.external && openDetail(Number(job.id))}
+                oncontextmenu={(event) => { event.preventDefault(); menuAt = menuPositionFor(event); menuJob = job; }}>
                 <td>
                   <StatusBadge compact label={statusText(job)} variant={statusTone(job)} />
                   {#if Number(job.attempts ?? 1) > 1}<small class="obs-sub">{t('Attempt {n}', { n: job.attempts ?? 1 })}</small>{/if}
@@ -435,6 +462,9 @@
     {/if}
   </section>
 </div>
+
+<ContextMenu open={menuJob != null} title={menuJob ? jobTypeLabel(menuJob.job_type, menuJob.action) : ''} subtitle={menuJob?.target?.label ?? ''} items={menuItems} at={menuAt}
+  onClose={() => (menuJob = null)} onPick={onMenuPick} />
 
 <Drawer
   open={detailId != null}

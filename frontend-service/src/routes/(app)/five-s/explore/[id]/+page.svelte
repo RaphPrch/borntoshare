@@ -2,7 +2,7 @@
 
   import TagPill from '$lib/components/tags/TagPill.svelte';
   import { copyText } from '$lib/utils/clipboard';
-  import { onMount, untrack } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
   import { apiGetData, apiGetList, apiPostData } from '$lib/api/client';
@@ -114,12 +114,52 @@
         trail = [first.node];
         selected = first.node;
       }
+      // No tree yet (first measure) or a measure walking: follow the scanner until the tree is there
+      if (!first?.node || scan?.running) watchScanner();
     } catch {
       error = t('Unable to load the scanned tree of this folder.');
     } finally {
       loading = false;
     }
   });
+
+  // ---- follow a measure: the tree, the figures and the duplicates come when the scanner has walked the folder ----
+  let watchTimer: ReturnType<typeof setInterval> | null = null;
+  // A measure just asked waits in the queue before it walks: the page keeps watching (at most 10 minutes) until it ended
+  let awaitingRuns = 0;
+  async function refreshTree() {
+    const [first, dups] = await Promise.all([
+      load(null).catch(() => null),
+      apiGetData<{ groups: Group[] }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups`).catch(() => null)
+    ]);
+    if (!first) return;
+    groups = dups?.groups ?? groups;
+    // The person may have gone down the tree meanwhile: the root level is replaced only when they stand on it
+    if (trail.length <= 1 || !level?.node) {
+      level = first;
+      if (first.node) {
+        trail = [first.node];
+        selected = first.node;
+      }
+    }
+  }
+  function watchScanner() {
+    if (watchTimer) return;
+    watchTimer = setInterval(async () => {
+      const wasRunning = Boolean(scanner?.running);
+      const scan = await apiGetData<Scanner>(fetch, `/modules/fives/storage-roots/${rootId}/scanner`).catch(() => null);
+      if (scan) scanner = scan;
+      const running = Boolean(scan?.running);
+      const ended = wasRunning && !running;
+      if (!level?.node || ended) await refreshTree();
+      if (ended || awaitingRuns > 0) awaitingRuns = ended ? 0 : awaitingRuns - 1;
+      if (level?.node && !running && awaitingRuns === 0 && watchTimer) {
+        clearInterval(watchTimer);
+        watchTimer = null;
+      }
+    }, 6000);
+  }
+  onDestroy(() => watchTimer && clearInterval(watchTimer));
 
   async function enter(folder: Folder) {
     if (busy || folder.folders === 0) return;
@@ -262,6 +302,8 @@
     try {
       await apiPostData(fetch, `/storage-roots/${rootId}/measure`, {});
       toast.success(t('Measure asked: the figures follow when the scanner has walked the folder.'));
+      awaitingRuns = 100;
+      watchScanner();
     } catch (e) {
       measuring = false;
       reportUiError(e, t('Unable to measure the folder.'), 'fives.measure');

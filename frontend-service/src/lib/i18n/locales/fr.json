@@ -6029,5 +6029,9 @@
   "{count} subject(s) to handle, {urgent} of them urgent.": "{count} sujet(s) à traiter, dont {urgent} urgent(s).",
   "{file} downloaded: {count} line(s).": "{file} téléchargé : {count} ligne(s).",
   "{size} measured": "{size} mesurés",
-  "Ask the question again": "Reposer la question"
+  "Ask the question again": "Reposer la question",
+  "Copy the e-mail": "Copier l’e-mail",
+  "Copy the identifier": "Copier l’identifiant",
+  "Copy the login": "Copier le login",
+  "Open the target": "Ouvrir la cible"
 }

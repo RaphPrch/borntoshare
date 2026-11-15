@@ -1,6 +1,9 @@
 <script lang="ts">
   import EntitySidebarTree, { type EntityTreeNode } from '$lib/components/entity/EntitySidebarTree.svelte';
   import { t } from '$lib/i18n';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { copyText } from '$lib/utils/clipboard';
+  import { toast } from '$lib/stores/toast';
 
   /**
    * List pane of the Identities page, grouped by what people do: administrators, guardians, users, directory groups.
@@ -84,6 +87,22 @@
       };
     })
     .filter((node) => (node.children ?? []).length > 0));
+
+  // Right click on a person or a group: open it, copy its login or its e-mail
+  let menuItem: Item | null = $state(null);
+  let menuAt = $state({ x: 0, y: 0 });
+  let menuItems = $derived<ContextMenuItem[]>(menuItem ? [
+    { key: 'open', label: t('Open'), icon: 'bi-box-arrow-in-right' },
+    ...(menuItem.username ? [{ key: 'login', label: t('Copy the login'), icon: 'bi-clipboard', separated: true }] : []),
+    ...(hasMail(menuItem) ? [{ key: 'mail', label: t('Copy the e-mail'), icon: 'bi-envelope' }] : [])
+  ] : []);
+  function onMenuPick(key: string) {
+    const item = menuItem;
+    if (!item) return;
+    if (key === 'open') onSelect(keyOf(item));
+    const value = key === 'login' ? String(item.username ?? '') : key === 'mail' ? String(item.email ?? '') : '';
+    if (value) void copyText(value).then((ok) => ok && toast.success(t('Copied: {value}', { value })));
+  }
 </script>
 
 <EntitySidebarTree
@@ -103,11 +122,19 @@
   defaultExpandDepth={1}
   {onQueryChange}
   onSelect={(id) => onSelect(String(id))}
+  onContextMenu={(node, event) => {
+    const item = items.find((entry) => keyOf(entry) === String(node.selectId ?? ''));
+    if (!item) return;
+    menuAt = menuPositionFor(event);
+    menuItem = item;
+  }}
 >
   {#snippet belowSearch()}<div class="ids-admins">
     <button type="button" class="b2s-link-btn" onclick={onOpenAdmins}><i class="bi bi-diagram-3" aria-hidden="true"></i>{t('Who administers BornToShare')}</button>
   </div>{/snippet}
 </EntitySidebarTree>
+
+<ContextMenu open={menuItem != null} title={menuItem ? nameOf(menuItem) : ''} subtitle={menuItem?.source_name ?? ''} items={menuItems} at={menuAt} onClose={() => (menuItem = null)} onPick={onMenuPick} />
 
 <style>
   .ids-admins { margin: -4px 0 8px; }

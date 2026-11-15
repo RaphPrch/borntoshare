@@ -101,30 +101,13 @@
   let serverMenu: { id: number; label: string; dfs: boolean; key: string } | null = $state(null);
   let serverMenuAt = $state({ x: 0, y: 0 });
 
-  const VIEW_KEY = 'b2s.storageRoots.view';
   let peekRow: StorageRootRow | null = $state(null);
   let peekAnchor: HTMLElement | null = $state(null);
   let menuRow: StorageRootRow | null = $state(null);
   let menuAt = $state({ x: 0, y: 0 });
   let filter = $state('all');
-  let viewMode: 'tree' | 'list' = $state('tree');
-
-  onMount(() => {
-    try {
-      if (localStorage.getItem(VIEW_KEY) === 'list') viewMode = 'list';
-    } catch {
-      // Storage unavailable: tree by default
-    }
-  });
-
-  function setViewMode(mode: 'tree' | 'list'): void {
-    viewMode = mode;
-    try {
-      localStorage.setItem(VIEW_KEY, mode);
-    } catch {
-      // Not remembered
-    }
-  }
+  // Always the tree (zone > server > folders): the tree/list switch is gone
+  const viewMode: 'tree' | 'list' = 'tree';
 
   const byLabel = (a: { label: string }, b: { label: string }): number =>
     a.label.localeCompare(b.label, 'fr', { sensitivity: 'base', numeric: true });
@@ -399,8 +382,6 @@
   onFilter={(key) => (filter = key)}
   storageKey="b2s.storageRoots.tree"
   defaultExpandDepth={0}
-  {viewMode}
-  onViewMode={setViewMode}
   {onQueryChange}
   onSelect={(id) => onSelectRoot(Number(id))}
   multiSelect={Boolean(onBulkAnalysis)}
@@ -465,7 +446,6 @@
           {#if neverMeasured}<button type="button" class="b2s-link-btn" onclick={() => onQueryChange('est:non-mesure')}>{t('{count} never measured', { count: neverMeasured })}</button>{/if}
         </p>
       {/if}
-      {#if !tipSeen}<p class="tree-tip">{t('Ctrl + click or Shift + click to select several folders; Ctrl + A takes all those shown, Escape clears.')}</p>{/if}
     {/if}
   </div>{/snippet}
 </EntitySidebarTree>
@@ -506,5 +486,4 @@
   .tree-bulk__close { margin-left: auto; border: 0; background: none; padding: 2px; color: var(--b2s-color-text-muted); cursor: pointer; }
   .tree-bulk__actions { display: flex; flex-wrap: wrap; gap: 6px; }
   .tree-todo { margin: 6px 0 0; font-size: var(--b2s-fs-xs); }
-  .tree-tip { margin: 6px 0 0; color: var(--b2s-color-text-faint, #8a94a6); font-size: var(--b2s-fs-xs); }
 </style>
