@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: backup help build up down restart ps logs logs-% wizard wizard-down reset-admin otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
+.PHONY: backup help build up down restart ps logs logs-% wizard wizard-down reset-admin otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint ui-v2-up ui-v2-down ui-v2-logs
 
 help:
 	@echo "make build          build the images"
@@ -20,6 +20,8 @@ help:
 	@echo "make clean          stop, then remove unused images and the Redis queue"
 	@echo "make deploy         database packs, rollback point, build and recreate the services"
 	@echo "make lint           Python lint of the four services (Ruff, rules in ruff.toml)"
+	@echo "make ui-v2-up       new interface (branch borntoshare-ui-v2) beside the current one, port 3001 (UI_V2_PORT)"
+	@echo "make ui-v2-down     stop it             make ui-v2-logs: its logs"
 	@echo "make ad-lab-up      test Active Directory adlab.example.test (end-to-end tests, never in production)"
 	@echo "make ad-lab-down    stop it (data kept)     make ad-lab-reset: stop and delete its domain"
 
@@ -85,6 +87,25 @@ mail-down:
 clean: down
 	podman volume rm -f b2s-redis-data
 	podman image prune -f
+
+# ------------------------------------------------------------
+# UI v2 (branch borntoshare-ui-v2): the new interface beside the current one, same services and data.
+# The variables come from the .env of the main checkout; the origin is its host on the UI v2 port.
+# ------------------------------------------------------------
+B2S_MAIN_DIR ?= ../services
+UI_V2_PORT ?= 3001
+UI_V2 = UI_V2_PORT=$(UI_V2_PORT) \
+	UI_V2_PUBLIC_ORIGIN=$$(sed -n 's/^FRONTEND_PUBLIC_ORIGIN=//p' $(B2S_MAIN_DIR)/.env | sed -E 's/:[0-9]+$$//'):$(UI_V2_PORT) \
+	podman-compose --env-file $(B2S_MAIN_DIR)/.env -p b2s-ui-v2 -f podman-compose.ui-v2.yml
+
+ui-v2-up:
+	$(UI_V2) up -d --build
+
+ui-v2-down:
+	$(UI_V2) down
+
+ui-v2-logs:
+	podman logs -f --tail=100 frontend-ui-v2
 
 # ------------------------------------------------------------
 # Test Active Directory (testing/ad-lab): end-to-end tests only
