@@ -3,8 +3,13 @@
  * The sidebar draws it, the top bar takes its breadcrumb from it (section › page).
  * The menu names are product names (kept in English in both languages, as chosen for v2).
  */
+import { t } from '$lib/i18n';
+
+export type NavTab = { href: string; label: string; also?: string[] };
 export type NavItem = {
   href: string;
+  /** Pages gathered under this entry: underlined tabs under the top bar */
+  tabs?: NavTab[];
   label: string;
   icon: string;
   /** Paths (prefixes) that belong to this item, besides its href */
@@ -33,7 +38,8 @@ export function buildNav(ctx: NavContext): NavSection[] {
       label: 'Governance',
       items: [
         { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open' },
-        ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/exposure'], count: ctx.pending }] : []),
+        ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/exposure'], count: ctx.pending,
+            tabs: [{ href: '/access-requests', label: t('Requests') }, ...(ctx.staff ? [{ href: '/exposure', label: t('Exposure') }] : [])] }] : []),
         ...(ctx.staff ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.admin ? ctx.critical : 0, danger: true }] : [])
       ]
     },
@@ -48,7 +54,8 @@ export function buildNav(ctx: NavContext): NavSection[] {
               { href: '/five-s', label: 'Analytics', icon: 'bi-bar-chart', also: ['/five-s/report'] }
             ]
           : []),
-        ...(ctx.staff ? [{ href: '/reports', label: 'Insights & Recommendations', icon: 'bi-lightbulb', also: ctx.admin ? ['/admin/policies'] : [] }] : [])
+        ...(ctx.staff ? [{ href: '/reports', label: 'Insights & Recommendations', icon: 'bi-lightbulb', also: ctx.admin ? ['/admin/policies'] : [],
+            tabs: [{ href: '/reports', label: t('Reports') }, ...(ctx.admin ? [{ href: '/admin/policies', label: t('Policies') }] : [])] }] : [])
       ]
     },
     {
@@ -56,10 +63,13 @@ export function buildNav(ctx: NavContext): NavSection[] {
       label: 'Administration',
       items: ctx.admin
         ? [
-            { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack', also: ['/admin/zones'] },
+            { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack', also: ['/admin/zones'],
+              tabs: [{ href: '/admin/storage-endpoints', label: t('Servers') }, { href: '/admin/zones', label: t('Zones') }] },
             { href: '/admin/advanced-settings/infrastructure', label: 'Workers', icon: 'bi-cpu' },
-            { href: '/admin/identity', label: 'Identity & Users', icon: 'bi-people', also: ['/admin/identity-sources'] },
-            { href: '/admin/advanced-settings', label: 'Settings', icon: 'bi-sliders', also: ['/admin/tags'] }
+            { href: '/admin/identity', label: 'Identity & Users', icon: 'bi-people', also: ['/admin/identity-sources'],
+              tabs: [{ href: '/admin/identity', label: t('Identities') }, { href: '/admin/identity/admins', label: t('Administrators') }, { href: '/admin/identity-sources', label: t('Directories') }] },
+            { href: '/admin/advanced-settings', label: 'Settings', icon: 'bi-sliders', also: ['/admin/tags'],
+              tabs: [{ href: '/admin/advanced-settings', label: t('Settings') }, { href: '/admin/tags', label: t('Tags') }] }
           ]
         : []
     }

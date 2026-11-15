@@ -4,7 +4,6 @@
   import { onDestroy, onMount } from 'svelte';
   import { page } from '$app/stores';
   import { apiGetData, apiPostData, apiPutData } from '$lib/api/client';
-  import FivesTabs from '$lib/components/fives/FivesTabs.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
@@ -102,7 +101,6 @@
 </script>
 
 <section class="b2s-page b2s-page--admin sc5">
-  <FivesTabs />
   <header class="sc5__head">
     <div>
       <h1>{t('Scanner')}</h1>

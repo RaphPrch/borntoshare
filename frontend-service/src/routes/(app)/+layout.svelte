@@ -44,6 +44,8 @@
   import TopProgress from "$lib/components/ui/TopProgress.svelte";
   import Sidebar from "$lib/components/layout/Sidebar.svelte";
   import Topbar from "$lib/components/layout/Topbar.svelte";
+  import SectionTabs from "$lib/components/layout/SectionTabs.svelte";
+  import { activeItem, buildNav } from "$lib/components/layout/nav";
   import { bootstrapFrontendCore } from "$lib/bootstrap.client";
 
   // ---------------------------------------------------------
@@ -76,6 +78,16 @@
   let { data, children }: Props = $props();
 
   bootstrapFrontendCore();
+
+  // Menu entry of the page: its tabs when it gathers several pages (Access Management: requests, exposure…)
+  let hereItem = $derived(activeItem(buildNav({
+    admin: data.navigation?.canSeeAdmin === true,
+    staff: data.navigation?.canSeeAdmin === true || data.navigation?.canSeeStorageRoots === true,
+    features: data.navigation?.features ?? [],
+    pending: 0,
+    critical: 0
+  }), $page.url.pathname)?.item ?? null);
+  let sectionTabs = $derived(hereItem?.tabs ?? []);
 
   // Live updates (/live): badges, bell, tasks; the pages whose data moved reload it themselves
   const stops: Array<() => void> = [];
@@ -125,6 +137,9 @@
     {#if data.banner}
       <div class="b2s-banner is-{data.banner.tone ?? 'info'}" role="status"><i class="bi bi-megaphone" aria-hidden="true"></i>{data.banner.message}</div>
     {/if}
+    {#if sectionTabs.length > 1}
+      <div class="b2s-section-tabs"><SectionTabs tabs={sectionTabs} label={hereItem?.label ?? ''} /></div>
+    {/if}
     {@render children?.()}
   </main>
 </div>
@@ -137,6 +152,7 @@
 <TopProgress />
 
 <style>
+  .b2s-section-tabs { padding: 14px 28px 0; }
   .b2s-banner { display: flex; align-items: center; gap: 10px; margin: 16px 28px 0; padding: 10px 16px; border-radius: var(--b2s-radius-md); font-size: var(--b2s-fs-sm); font-weight: 500; }
   .b2s-banner.is-info { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
   .b2s-banner.is-warning { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
