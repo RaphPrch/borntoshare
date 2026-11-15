@@ -69,7 +69,7 @@ export const load: LayoutServerLoad = async (event) => {
   // A user who neither administers nor guards a folder: his requests and his folders only, not the screens about
   // the folders (monitoring, reports, 5S, exposure)
   const staff = me.is_admin || guardianRootIds.length > 0;
-  if (!staff && ['/observability', '/reports', '/five-s', '/exposure'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+  if (!staff && ['/observability', '/reports', '/five-s', '/exposure', '/pilot'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
     throw redirect(302, '/dashboard');
   }
 

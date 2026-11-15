@@ -32,7 +32,11 @@ export function buildNav(ctx: NavContext): NavSection[] {
   const governance = ctx.features.includes('governance');
   const fives = ctx.features.includes('fives');
   const sections: NavSection[] = [
-    { key: 'workspace', label: 'Workspace', items: [{ href: '/dashboard', label: 'Dashboard', icon: 'bi-grid-1x2', also: ['/live'] }] },
+    { key: 'workspace', label: 'Workspace', items: [
+      { href: '/dashboard', label: 'Dashboard', icon: 'bi-grid-1x2', also: ['/live'] },
+      // Questions on the folders, answered as lists to export (administrators and guardians)
+      ...(ctx.staff ? [{ href: '/pilot', label: 'Pilot', icon: 'bi-chat-square-text' }] : [])
+    ] },
     {
       key: 'governance',
       label: 'Governance',

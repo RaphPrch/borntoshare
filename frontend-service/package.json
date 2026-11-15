@@ -30,7 +30,8 @@
     "test:folder-query": "npx tsx ./src/lib/components/storage-roots/folder-query.test.ts",
     "test:request-sentence": "npx tsx ./src/lib/utils/request-sentence.test.ts",
     "test:tag-colors": "npx tsx ./src/lib/utils/tag-colors.test.ts",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test:pilot-engine": "npx tsx ./src/lib/components/pilot/pilot-engine.test.ts"
   },
   "overrides": {
     "cookie": "0.7.2"
