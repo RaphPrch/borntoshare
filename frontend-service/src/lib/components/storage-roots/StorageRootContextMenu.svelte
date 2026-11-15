@@ -1,11 +1,17 @@
+<script module lang="ts">
+  /** Other entries of the v2 menu, handled by the page: the side preview and the sections of the folder sheet */
+  export type FolderMenuExtra = 'peek' | 'tags' | 'guardians' | 'quota' | 'permissions';
+</script>
+
 <script lang="ts">
-  
   import { tick } from 'svelte';
   import { fade } from 'svelte/transition';
   import { dur, MOTION, pop } from '$lib/utils/motion';
   import { t } from '$lib/i18n';
   import { goto } from '$app/navigation';
-  import { governanceEnabled } from '$lib/utils/features';
+  import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
+  import { copyText } from '$lib/utils/clipboard';
+  import { toast } from '$lib/stores/toast';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
 
@@ -20,6 +26,8 @@
     onAction?: (kind: FolderActionKind, row: StorageRootRow) => void;
     /** Platform administrators: the operations on the folder of the file server; everyone can request an access */
     canManage?: boolean;
+    /** v2: preview, tags, guardians, quota, permissions (absent: those entries are not shown) */
+    onExtra?: ((key: FolderMenuExtra, row: StorageRootRow) => void) | null;
   }
 
   let {
@@ -28,7 +36,8 @@
     onClose = () => {},
     onOpen = () => {},
     onAction = () => {},
-    canManage = true
+    canManage = true,
+    onExtra = null
   }: Props = $props();
 
   let menuEl: HTMLDivElement | null = $state(null);
@@ -74,6 +83,20 @@
   let items = $derived(row
     ? [
         { key: 'open', label: t('Open'), icon: 'bi-box-arrow-in-right', run: (target: StorageRootRow) => onOpen(target) },
+        ...(onExtra ? [{ key: 'peek', label: t('Preview'), icon: 'bi-layout-sidebar-reverse', run: (target: StorageRootRow) => onExtra?.('peek', target) }] : []),
+        ...($fivesEnabled ? [{ key: 'explore', label: t('Explore the content'), icon: 'bi-columns-gap',
+          run: (target: StorageRootRow) => void goto(`/five-s/explore/${Number(target?.storage_root_id ?? 0)}`) }] : []),
+        ...(onExtra && $governanceEnabled ? [{ key: 'permissions', label: t('Permissions and who reaches it'), icon: 'bi-shield-lock', separated: true,
+          run: (target: StorageRootRow) => onExtra?.('permissions', target) }] : []),
+        ...(onExtra ? [
+          { key: 'tags', label: t('Tags…'), icon: 'bi-tags', run: (target: StorageRootRow) => onExtra?.('tags', target) },
+          ...($governanceEnabled ? [{ key: 'guardians', label: t('Guardians…'), icon: 'bi-person-check', run: (target: StorageRootRow) => onExtra?.('guardians', target) }] : []),
+          { key: 'quota', label: t('Quota…'), icon: 'bi-speedometer', run: (target: StorageRootRow) => onExtra?.('quota', target) }
+        ] : []),
+        { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', run: (target: StorageRootRow) => {
+          const path = String((target as Record<string, unknown>)?.dfs_path ?? target?.root_path ?? '');
+          void copyText(path).then((ok) => ok && toast.success(t('Copied: {value}', { value: path })));
+        } },
         ...($governanceEnabled ? [{
           key: 'request',
           label: t('Request access'),
@@ -111,7 +134,7 @@
       <small>{row.root_path ?? ''}</small>
     </div>
     {#each items as item (item.key)}
-      {#if item.key === 'delete'}<hr />{/if}
+      {#if item.key === 'delete' || (item as { separated?: boolean }).separated}<hr />{/if}
       <button type="button" role="menuitem" class="cm__item" class:is-danger={item.danger} disabled={item.disabled}
         title={item.hint || undefined} onclick={() => pick(item)}>
         <i class={`bi ${item.icon}`} aria-hidden="true"></i>{item.label}

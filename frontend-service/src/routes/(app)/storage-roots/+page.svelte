@@ -5,7 +5,7 @@
   import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { t } from '$lib/i18n';
   import type { StorageRootEndpointSummary } from '$lib/types/storage-roots';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import { goto, invalidate } from '$app/navigation';
@@ -97,6 +97,8 @@
   import StorageRootGovernanceDrawer from '$lib/components/storage-roots/StorageRootGovernanceDrawer.svelte';
   import StorageRootTreePanel from '$lib/components/storage-roots/StorageRootTreePanel.svelte';
   import StorageRootTable from '$lib/components/storage-roots/StorageRootTable.svelte';
+  import StorageRootList from '$lib/components/storage-roots/StorageRootList.svelte';
+  import type { FolderMenuExtra } from '$lib/components/storage-roots/StorageRootContextMenu.svelte';
   import EntityWorkspace from '$lib/components/entity/EntityWorkspace.svelte';
   import StorageRootDetailView from '$lib/components/storage-roots/StorageRootDetailView.svelte';
   import StorageRootFolderActions, {
@@ -1450,6 +1452,18 @@
     showTagsModal = true;
   };
 
+  // v2 list: the entries of its menu open the folder, then the part asked (tags, guardians, quota, permissions)
+  async function listExtra(key: FolderMenuExtra, row: StorageRootRow) {
+    const id = Number(row?.storage_root_id ?? 0);
+    if (!id) return;
+    selectRoot(id);
+    await tick();
+    if (key === 'tags') openTagsModal();
+    else if (key === 'guardians') openGovernanceDrawer('guardian');
+    else if (key === 'permissions') selectDetailTab('effective-access');
+    else if (key === 'quota') document.querySelector('.sr-quota, [data-section="quota"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   const handleTagsSaved = async (tags: StorageRootTagLike[]) => {
     const rootId = Number(selectedRow?.storage_root_id ?? 0);
     if (rootId > 0) setOverviewForRoot(rootId, { ...(overview ?? {}), tags });
@@ -1835,12 +1849,18 @@
           {/snippet}
 
     {#if !selectedStorageRootId}
-      <!-- No folder chosen yet: the tree on the left holds them all (made for thousands of folders) -->
-      <div class="sr-none">
-        <i class="bi bi-folder2-open" aria-hidden="true"></i>
-        <h2>{t('Choose a folder in the tree')}</h2>
-        <p>{t('{count} folder(s). Search by name or path, or with tag:, gardien:, est:… ; Ctrl + click selects several to scan or measure them together.', { count: ctxRows.length })}</p>
-      </div>
+      <!-- No folder chosen yet: the list of all the folders (or of the search), next to the tree -->
+      <StorageRootList
+        rows={ctxRows}
+        query={$storageRootsUiStore.query}
+        isAdmin={data.user?.is_admin === true}
+        onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
+        onOpenRoot={selectRoot}
+        onFolderAction={data.user?.is_admin === true ? folderAction : null}
+        onExtra={listExtra}
+        onBulkAnalysis={data.user?.is_admin === true ? bulkAnalysis : null}
+        onAdd={data.user?.is_admin === true ? openCreateRoot : null}
+      />
     {:else}
     <StorageRootDetailView
       {detailsLoading}
@@ -1993,9 +2013,4 @@
 />
 
 <style>
-
-  .sr-none { display: grid; justify-items: center; gap: 8px; padding: 80px 24px; text-align: center; color: var(--b2s-color-text-muted); }
-  .sr-none i { font-size: 40px; }
-  .sr-none h2 { margin: 0; font-size: var(--b2s-fs-lg, 18px); color: var(--b2s-color-text); }
-  .sr-none p { margin: 0; max-width: 520px; font-size: var(--b2s-fs-sm); }
 </style>

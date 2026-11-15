@@ -2,6 +2,11 @@
    Fewer boxes: one white surface, figures in a bar split by thin rules, sections separated by space and a title,
    full-width lists with a sticky head, split panes (tree on the left, list, detail). */
 
+/* One white surface under the sticky top bar (62 px): the side panes stick below it */
+.b2s-app-root { background: #fff; }
+.b2s-list-pane { top: 78px !important; max-height: calc(100vh - 94px) !important; box-shadow: none !important; }
+.b2s-adv-sidebar { top: 78px !important; }
+
 .v2 { display: flex; flex-direction: column; gap: 26px; width: 100%; max-width: 1480px; padding: 26px 28px 80px; }
 
 /* ---- Page head ---- */
