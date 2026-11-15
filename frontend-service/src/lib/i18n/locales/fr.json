@@ -5969,5 +5969,9 @@
   "{count} measure(s) failed": "{count} mesure(s) en échec",
   "{count} open alert(s)": "{count} alerte(s) ouverte(s)",
   "{count} quota(s) over 85 %": "{count} quota(s) au-delà de 85 %",
-  "{count} space request(s) waiting": "{count} demande(s) d'espace en attente"
+  "{count} space request(s) waiting": "{count} demande(s) d'espace en attente",
+  "5S of this folder": "5S de ce dossier",
+  "No duplicate found here.": "Aucun doublon trouvé ici.",
+  "The 5S of a zone, a server or a folder: choose it in the tree, everything is computed again.": "Le 5S d’une zone, d’un serveur ou d’un dossier : choisissez-le dans l’arbre, tout se recalcule.",
+  "{size} to free": "{size} à libérer"
 }
