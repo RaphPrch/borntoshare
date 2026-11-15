@@ -54,9 +54,12 @@
     onOpenActivity?: () => void;
     onToggleInheritance?: () => void;
     onChanged?: () => void;
+    /** v2: which part of the folder sheet (the tabs Overview, Storage · 5S, Sensitivity, Quota) */
+    section?: 'overview' | 'storage' | 'sensitivity' | 'quota';
   }
 
   let {
+    section = 'overview',
     permissions = null,
     guardianNames = [],
     guardiansMissing = false,
@@ -134,11 +137,15 @@
   let inheritance = $derived(permissions?.inheritance);
 </script>
 
+{#if section === 'storage'}
+  <div class="ov__one"><StorageRootContentCards {content} {rootId} {onMeasured} {isAdmin} /></div>
+{:else if section === 'sensitivity'}
+  <div class="ov__one"><StorageRootSensitivityCard {rootId} {sensitivity} {isAdmin} /></div>
+{:else if section === 'quota'}
+  <div class="ov__one"><StorageRootQuotaCard {rootId} {isAdmin} {isDfs} /></div>
+{:else}
 <div class="ov">
   <div class="ov__col">
-    <StorageRootContentCards {content} {rootId} {onMeasured} {isAdmin} />
-    <StorageRootQuotaCard {rootId} {isAdmin} {isDfs} />
-    <StorageRootSensitivityCard {rootId} {sensitivity} {isAdmin} />
     {#if ends.length}
       <section class="ov__card" aria-label={t('Next end dates')}>
         <header><h2>{t('Next end dates')}</h2></header>
@@ -216,8 +223,10 @@
     </dl>
   </section>
 </div>
+{/if}
 
 <style>
+  .ov__one { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .ov__pill { display: inline-flex; }
   .ov { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
   .ov__col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }

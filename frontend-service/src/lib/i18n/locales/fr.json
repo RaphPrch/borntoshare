@@ -5932,5 +5932,6 @@
   "{count} folder(s) · {servers} server(s)": "{count} dossier(s) · {servers} serveur(s)",
   "{count} key file(s)": "{count} clé(s) / jeton(s)",
   "{count} password file(s)": "{count} mot(s) de passe",
-  "{count} personal data": "{count} données perso"
+  "{count} personal data": "{count} données perso",
+  "Storage · 5S": "Stockage · 5S"
 }

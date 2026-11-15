@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-export type StorageRootsDetailTab = 'overview' | 'effective-access' | 'activity';
+export type StorageRootsDetailTab = 'overview' | 'effective-access' | 'storage' | 'sensitivity' | 'quota' | 'activity';
 type StorageRootsQuickFilter = 'all' | 'alerts' | 'no_owner' | 'unreachable';
 
 type StorageRootsUiState = {

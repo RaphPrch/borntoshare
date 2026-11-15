@@ -32,6 +32,9 @@
     onToggleInheritance?: () => void;
     onDeleteFolder?: () => void;
     onCreateSubfolder?: () => void;
+    /** v2: measure the folder and scan its sensitivity from the header (administrators) */
+    onMeasure?: (() => void) | null;
+    onScanSensitivity?: (() => void) | null;
   }
 
   let {
@@ -51,13 +54,17 @@
     onDeleteRoot = () => {},
     onToggleInheritance = () => {},
     onDeleteFolder = () => {},
-    onCreateSubfolder = () => {}
+    onCreateSubfolder = () => {},
+    onMeasure = null,
+    onScanSensitivity = null
   }: Props = $props();
 
   let disabled = $derived(!selectedStorageRootId);
   let actions: EntityActionItem[] = $state([]);
   $effect.pre(() => {
     actions = [
+      ...(isAdmin && onMeasure ? [{ key: 'measure', label: t('Measure'), icon: 'bi-rulers', variant: 'secondary' as const, disabled, onClick: onMeasure }] : []),
+      ...(isAdmin && onScanSensitivity ? [{ key: 'sensitivity', label: t('Scan the sensitivity'), icon: 'bi-shield-lock', variant: 'secondary' as const, disabled, onClick: onScanSensitivity }] : []),
       {
         key: 'probe',
         label: rootProbeBusy ? t('Reading…') : t('Read the ACL'),

@@ -1461,7 +1461,7 @@
     if (key === 'tags') openTagsModal();
     else if (key === 'guardians') openGovernanceDrawer('guardian');
     else if (key === 'permissions') selectDetailTab('effective-access');
-    else if (key === 'quota') document.querySelector('.sr-quota, [data-section="quota"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else if (key === 'quota') selectDetailTab('quota');
   }
 
   const handleTagsSaved = async (tags: StorageRootTagLike[]) => {
@@ -1900,6 +1900,8 @@
       onOpenTagsModal={openTagsModal}
       onViewAllAlerts={openAlertsDrawer}
       onFolderAction={(kind, inheritanceBroken) => openFolderAction(kind, selectedRow, inheritanceBroken)}
+      onMeasure={data.user?.is_admin === true ? () => void quickAnalysis('measure', selectedRow) : null}
+      onScanSensitivity={data.user?.is_admin === true ? () => void quickAnalysis('sensitivity', selectedRow) : null}
       refreshKey={detailRefreshKey}
       explainLogin={explainParam}
     />
