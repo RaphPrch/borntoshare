@@ -858,6 +858,10 @@
       "fives_settings_updated": {
         "title": "5S module settings changed",
         "description": "{reason}"
+      },
+      "monthly_report_sent": {
+        "title": "Monthly report sent",
+        "description": "To {count} recipient(s): {reason}"
       }
     },
     "naming_policy": {
@@ -920,6 +924,24 @@
       "disabled": {
         "title": "Feature switched off",
         "description": "« {target} » is off"
+      }
+    },
+    "access_review": {
+      "opened": {
+        "title": "Access review opened",
+        "description": "« {target} »: {count} accesses to review"
+      },
+      "decided": {
+        "title": "Accesses reviewed",
+        "description": "{count} accesses decided in « {target} »"
+      },
+      "applied": {
+        "title": "Removals applied",
+        "description": "{count} removal(s) handled for the review {target}"
+      },
+      "closed": {
+        "title": "Access review closed",
+        "description": "« {target} » is over"
       }
     }
   },

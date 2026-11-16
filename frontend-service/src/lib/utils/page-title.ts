@@ -5,6 +5,7 @@ const TITLES: [prefix: string, label: string][] = [
   ['/storage-roots', 'Storage Roots'],
   ['/access-requests', 'Access Management'],
   ['/exposure', 'Access Management'],
+  ['/access-reviews', 'Access Management'],
   ['/observability', 'Governance Jobs'],
   ['/admin/policies', 'Policies'],
   ['/five-s', 'Analytics'],

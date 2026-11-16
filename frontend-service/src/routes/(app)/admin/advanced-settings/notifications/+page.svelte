@@ -7,6 +7,7 @@
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
   import { saveAdvancedSections, sendTestEmail } from '$lib/api/admin-advanced-settings';
+  import { apiGetData, apiPostData } from '$lib/api/client';
 
   
   interface Props {
@@ -29,7 +30,8 @@
     pendingToGuardians: stored.pendingToGuardians ?? true,
     decisionToRequester: stored.decisionToRequester ?? true,
     adminAlerts: stored.adminAlerts ?? true,
-    expiryReminderDays: stored.expiryReminderDays ?? 7
+    expiryReminderDays: stored.expiryReminderDays ?? 7,
+    monthlyReport: stored.monthlyReport ?? false
   });
   let password = $state('');
   let savedNotif = JSON.stringify(notif);
@@ -54,6 +56,32 @@
       savingMail = false;
     }
   }
+  // ---- monthly report: its preview (the last 30 days) and sending it now ----
+  let report = $state<{ label: string; sections: Array<[string, Array<[string, string]>]> } | null>(null);
+  let reportBusy = $state(false);
+  async function previewReport() {
+    reportBusy = true;
+    try {
+      report = await apiGetData(fetch, '/monthly-report/preview');
+    } catch (failure) {
+      reportUiError(failure, t('Unable to build the report.'), 'monthly-report.preview');
+    } finally {
+      reportBusy = false;
+    }
+  }
+  async function sendReport(to: string | null) {
+    reportBusy = true;
+    try {
+      const result = await apiPostData<{ recipients: string[]; mail_enabled: boolean }>(fetch, '/monthly-report/send', { to });
+      if (!result?.mail_enabled) toast.warning(t('The e-mails are switched off: switch them on above to send the report.'));
+      else toast.success(t('Report sent to {list}.', { list: (result.recipients ?? []).join(', ') || '—' }));
+    } catch (failure) {
+      reportUiError(failure, t('Unable to send the report.'), 'monthly-report.send');
+    } finally {
+      reportBusy = false;
+    }
+  }
+
   async function test() {
     testing = true;
     try {
@@ -106,11 +134,26 @@
     <label><input type="checkbox" bind:checked={notif.pendingToGuardians} /> {t('A new request: to the guardians of the folder')}</label>
     <label><input type="checkbox" bind:checked={notif.decisionToRequester} /> {t('A decision: to the requester, with the comment of the guardian')}</label>
     <label><input type="checkbox" bind:checked={notif.adminAlerts} /> {t('A breakdown (server unreachable, component down): to the administrators')}</label>
+    <label><input type="checkbox" bind:checked={notif.monthlyReport} /> {t('The monthly report, on the 1st of each month: to the administrators')}</label>
     <label class="nt__reminder">{t('An access about to end: reminder')} <input class="b2s-input" type="number" min="0" max="60" bind:value={notif.expiryReminderDays} /> {t('days before (0: none)')}</label>
   </div>
   <div class="adv-actions">
     <button class="b2s-btn b2s-btn-primary" type="button" onclick={saveMail} disabled={savingMail}><i class="bi bi-check2" aria-hidden="true"></i>{savingMail ? t('Saving…') : t('Save changes')}</button>
   </div>
+  <h3 class="nt__title">{t('Monthly report')}</h3>
+  <p class="nt__hint">{t('What the governance did in the month (requests, decisions, removals, accesses in force, alerts, access reviews) and, with the 5S module, the volume, the duplicates and the 5S score.')}</p>
+  <div class="nt__report-btns">
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={reportBusy} onclick={previewReport}><i class="bi bi-eye" aria-hidden="true"></i>{t('Preview (last 30 days)')}</button>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={reportBusy || !testTo} onclick={() => sendReport(testTo)}><i class="bi bi-send" aria-hidden="true"></i>{t('Send it to the test address')}</button>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={reportBusy} onclick={() => sendReport(null)}><i class="bi bi-people" aria-hidden="true"></i>{t('Send it to the administrators now')}</button>
+  </div>
+  {#if report}
+    <div class="nt__report">
+      {#each report.sections as [title, rows] (title)}
+        <div><b>{title}</b><dl>{#each rows as [label, value] (label)}<dt>{label}</dt><dd>{value}</dd>{/each}</dl></div>
+      {/each}
+    </div>
+  {/if}
   <div class="nt__test">
     <input class="b2s-input" type="email" bind:value={testTo} placeholder={t('Test address')} aria-label={t('Test address')} />
     <button class="b2s-btn b2s-btn-secondary" type="button" onclick={test} disabled={testing || !testTo.includes('@')}><i class="bi bi-envelope-check" aria-hidden="true"></i>{testing ? t('Sending…') : t('Send a test e-mail')}</button>
@@ -148,4 +191,12 @@
   .nt__preview.is-info { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
   .nt__preview.is-warning { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
   .nt__preview.is-danger { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
+  .nt__hint { margin: 0 0 8px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .nt__report-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .nt__report { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .nt__report > div { padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: 12px; }
+  .nt__report b { display: block; margin-bottom: 6px; font-size: var(--b2s-fs-sm); }
+  .nt__report dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; font-size: var(--b2s-fs-sm); }
+  .nt__report dt { color: var(--b2s-color-text-muted); }
+  .nt__report dd { margin: 0; font-weight: 600; text-align: right; }
 </style>

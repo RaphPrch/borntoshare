@@ -25,6 +25,14 @@
   let name = $state('');
   let path = $state('');
   let stats = $state<Stats | null>(null);
+  // What changed between the previous measure and the last one (fives-service keeps the previous folders)
+  type Change = { path: string; bytes: number; files?: number; delta?: number; files_delta?: number };
+  type Changes = { available: boolean; previous_at: string | null; current_at: string | null; added?: Change[]; removed?: Change[]; growth?: Change[];
+    rights?: Array<{ path: string; added: string[]; removed: string[]; inheritance: 'broken' | 'restored' | null }>;
+    counts?: { added: number; removed: number; grown: number; shrunk: number; rights: number } };
+  let changes = $state<Changes | null>(null);
+  let changesTab = $state<'growth' | 'added' | 'removed' | 'rights'>('growth');
+  const entry = (value: string) => { const [who, level] = value.split('|'); return `${who} · ${({ R: t('Read'), W: t('Modify'), F: t('Full control') } as Record<string, string>)[level?.replace('!', '').toUpperCase()] ?? level}`; };
   let loading = $state(true);
   let error = $state<string | null>(null);
   // Old files: the threshold chosen in the table (the measure keeps 1 year and 3 years)
@@ -69,6 +77,7 @@
       name = String(overview?.storage_root_name ?? overview?.name ?? `#${rootId}`);
       path = String(overview?.root_path ?? '');
       stats = (overview?.content as Stats) ?? null;
+      changes = await apiGetData<Changes>(fetch, `/modules/fives/storage-roots/${rootId}/changes`).catch(() => null);
       const inventory = await apiGetData<{ files: InvFile[]; duplicates: Group[] }>(fetch, `/modules/fives/storage-roots/${rootId}/files`).catch(() => null);
       invFiles = inventory?.files ?? [];
       invDuplicates = inventory?.duplicates ?? [];
@@ -158,6 +167,42 @@
       <div class="v2-stat"><small>{t('Not modified for 1 year')}</small><b>{formatBytes(stats.cold?.['1y']?.bytes ?? 0)}</b><span>{share(stats.cold?.['1y']?.bytes ?? 0, total)} %</span></div>
       <div class="v2-stat"><small>{t('Clutter')}</small><b>{formatBytes(stats.junk?.bytes ?? 0)}</b><span>{t('{count} file(s)', { count: stats.junk?.files ?? 0 })}</span></div>
     </section>
+
+    {#if changes}
+      <section class="v2-sec rp__changes" aria-label={t('Since the previous measure')}>
+        <div class="v2-sh"><h2>{t('Since the previous measure')}</h2>
+          {#if changes.available}<span class="v2-sub">{changes.previous_at ? formatDateTime(changes.previous_at) : '—'} → {changes.current_at ? formatDateTime(changes.current_at) : '—'}</span>{/if}</div>
+        {#if !changes.available}
+          <p class="v2-empty">{t('The comparison starts at the next measure of this folder.')}</p>
+        {:else if changes.counts}
+          <div class="v2-seg" role="group" aria-label={t('Changes')}>
+            <button type="button" class:is-on={changesTab === 'growth'} onclick={() => (changesTab = 'growth')}>{t('Grew or shrank')} <b>{changes.counts.grown + changes.counts.shrunk}</b></button>
+            <button type="button" class:is-on={changesTab === 'added'} onclick={() => (changesTab = 'added')}>{t('New folders')} <b>{changes.counts.added}</b></button>
+            <button type="button" class:is-on={changesTab === 'removed'} onclick={() => (changesTab = 'removed')}>{t('Folders gone')} <b>{changes.counts.removed}</b></button>
+            <button type="button" class:is-on={changesTab === 'rights'} onclick={() => (changesTab = 'rights')}>{t('Rights changed')} <b>{changes.counts.rights}</b></button>
+          </div>
+          <div class="v2-list">
+            {#if changesTab === 'growth'}
+              {#each changes.growth ?? [] as row (row.path)}
+                <div class="v2-row rp__chg"><code>{row.path}</code><span class:rp__up={(row.delta ?? 0) > 0} class:rp__down={(row.delta ?? 0) < 0}>{(row.delta ?? 0) > 0 ? '+' : '−'}{formatBytes(Math.abs(row.delta ?? 0))}</span>
+                  <span class="v2-sub">{formatBytes(row.bytes)} · {(row.files_delta ?? 0) >= 0 ? '+' : ''}{row.files_delta ?? 0} {t('file(s)')}</span></div>
+              {:else}<p class="v2-empty">{t('No folder changed size.')}</p>{/each}
+            {:else if changesTab === 'added' || changesTab === 'removed'}
+              {#each (changesTab === 'added' ? changes.added : changes.removed) ?? [] as row (row.path)}
+                <div class="v2-row rp__chg"><code>{row.path}</code><span>{formatBytes(row.bytes)}</span><span class="v2-sub">{t('{count} file(s)', { count: row.files ?? 0 })}</span></div>
+              {:else}<p class="v2-empty">{t('None.')}</p>{/each}
+            {:else}
+              {#each changes.rights ?? [] as row (row.path)}
+                <div class="v2-row rp__chg rp__rights"><code>{row.path}</code>
+                  <span class="rp__acl">{#if row.inheritance}<span class="v2-tag is-warn">{row.inheritance === 'broken' ? t('Inheritance broken') : t('Inheritance restored')}</span>{/if}
+                    {#each row.added as value (value)}<span class="rp__plus">+ {entry(value)}</span>{/each}
+                    {#each row.removed as value (value)}<span class="rp__minus">− {entry(value)}</span>{/each}</span></div>
+              {:else}<p class="v2-empty">{t('No right changed.')}</p>{/each}
+            {/if}
+          </div>
+        {/if}
+      </section>
+    {/if}
 
     <div class="rp__grid">
       <section class="rp__card rp__wide">
@@ -280,4 +325,12 @@
   .rp__list li { display: flex; justify-content: space-between; gap: 12px; min-width: 0; font-size: var(--b2s-fs-sm); }
   .rp__list span { white-space: nowrap; color: var(--b2s-color-text-muted); }
   .rp__warn { color: var(--b2s-color-warning-strong, #b54708); }
+  .rp__changes { display: grid; gap: 10px; }
+  .rp__changes h2 { margin: 0; font-size: 17px; }
+  .rp__chg { grid-template-columns: minmax(240px, 2fr) 120px minmax(140px, 1fr); }
+  .rp__chg code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rp__rights { grid-template-columns: minmax(240px, 1fr) minmax(240px, 2fr); }
+  .rp__acl { display: flex; flex-wrap: wrap; gap: 6px; font-size: var(--b2s-fs-xs); }
+  .rp__up, .rp__plus { color: #9a3412; font-weight: 600; }
+  .rp__down, .rp__minus { color: #1d4ed8; font-weight: 600; }
 </style>

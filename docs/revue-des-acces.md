@@ -1,0 +1,27 @@
+# Revues des accès
+
+Governance › Access Management › **Revues** (`/access-reviews`). Une campagne fait vérifier, à un moment donné, chaque
+accès aux dossiers gouvernés par leurs gardiens ; la revue close est la preuve du contrôle (ISO 27001, NIS2).
+
+## Déroulement
+
+1. **Ouverture** (administrateur) : un nom, une date de fin, tous les dossiers gouvernés ou certains. Chaque personne
+   qui accède à chaque dossier à cet instant est listée, avec son niveau et ses chemins d'accès (demande, groupe AD
+   de BornToShare, groupe hors BornToShare, groupe imbriqué), tels que les calcule l'onglet Permissions du dossier.
+   Les gardiens sont prévenus (cloche, et e-mail si les notifications sont activées).
+2. **Revue** (gardiens, et administrateurs) : pour chaque personne, **Garder** ou **Retirer** ; « Garder tous les
+   autres » pour finir un dossier. Un gardien ne voit que ses dossiers.
+3. **Retraits** : « Appliquer les retraits » révoque les accès accordés par une demande, par le chemin habituel
+   (la personne sort du groupe AD du dossier, la demande passe à révoquée). Un accès que BornToShare n'a pas accordé
+   (groupe hors BornToShare, droit posé à la main) est marqué « à retirer à la main », avec le groupe à quitter.
+4. **Clôture** (administrateur) : la revue ne change plus ; « Exporter la preuve » donne le CSV de chaque décision
+   (qui, quand, résultat). Les accès non revus restent tels quels et l'export le dit.
+
+Chaque ouverture, décision, application et clôture est dans le journal d'audit chaîné (`access_review.*`).
+
+## Technique
+
+- Tables `access_reviews` et `access_review_items` (paquet `164_access_reviews.sql`).
+- Routes `GET|POST /access-reviews`, `GET /access-reviews/{id}`, `POST /access-reviews/{id}/decisions`,
+  `POST /access-reviews/{id}/close` (core-service) ; `POST /governance/access-reviews/{id}/apply` (orchestration :
+  révocations).

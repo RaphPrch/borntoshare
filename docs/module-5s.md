@@ -40,7 +40,7 @@ Bases : `b2s_fives` (résultats, décisions, quarantaine, historique des scores)
 | Doublons (`/five-s/duplicates/<dossier>`) | groupes de fichiers identiques (empreinte), filtre par sous-dossier, décision par groupe |
 | Inventory (`/five-s/scanner`) | bandeau du scanner, puis trois onglets : **Scans** (file et parcours en cours), **Dossiers** (inventaire par dossier, mesure des jamais mesurés, clic droit : fiche, explorer, mesurer, annuler), **Quarantaine** (copies et dossiers archivés de tous les dossiers, filtres, restauration, durée de purge), **Réglages** (administrateurs : fréquence, parcours complet, scans simultanés par serveur, empreintes par morceau, propriétaires des fichiers, purge) |
 | Analytics (`/five-s`) | score de chaque dossier sur 100, par pilier, sur tout le parc ou une branche de l'arborescence ; « Quoi faire d'abord » : les actions qui relèvent le plus de dossiers |
-| Rapport (`/five-s/report/<dossier>`) | volumes, âges, types, et les trois mesures précédentes, rétablissables |
+| Rapport (`/five-s/report/<dossier>`), avec « Depuis la mesure précédente » : dossiers apparus et disparus, ceux qui ont grossi ou diminué, droits et héritage modifiés | volumes, âges, types, et les trois mesures précédentes, rétablissables |
 
 Dans l'Explorer, chaque fichier montre sa taille, sa création, sa dernière modification, son dernier accès
 (indicatif), son extension, son propriétaire NTFS si l'administrateur l'a demandé (Inventory › Réglages : une

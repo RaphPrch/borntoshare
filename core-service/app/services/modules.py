@@ -137,3 +137,18 @@ def derive(parent_root_id: int, child_root_id: int, path: str) -> dict[str, Any]
         return data.get("data") if isinstance(data, dict) else None
     except (httpx.HTTPError, ValueError):
         return None
+
+
+def fives_summary(since: datetime) -> dict[str, Any] | None:
+    """What the 5S module did and found since a date (monthly report); None when it does not answer."""
+    url = fives_url()
+    if not url:
+        return None
+    try:
+        response = httpx.get(f"{url}/internal/summary", params={"since": since.isoformat()}, headers={"x-internal-token": os.getenv("INTERNAL_TOKEN", "")}, timeout=15)
+        response.raise_for_status()
+        body = response.json()
+        return body.get("data", body) if isinstance(body, dict) else None
+    except (httpx.HTTPError, ValueError):
+        logger.warning("FIVES_SUMMARY_UNAVAILABLE", exc_info=True)
+        return None

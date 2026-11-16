@@ -69,6 +69,7 @@ Mises à jour : `make deploy` (paquets SQL, point de retour, reconstruction). Vo
 | Sécurité : jetons, secrets, protocoles, conteneurs | [docs/securite.md](docs/securite.md) |
 | **Droits minimums des comptes dans l'AD et sur les serveurs** | [docs/droits-ad.md](docs/droits-ad.md) |
 | Provisionnement AD (groupes, OU, adoption, aperçu d'approbation) | [docs/provisionnement-ad.md](docs/provisionnement-ad.md) |
+| Revues des accès (campagnes, retraits, preuve) | [docs/revue-des-acces.md](docs/revue-des-acces.md) |
 | Sensibilité des dossiers et carte d'exposition | [docs/sensibilite.md](docs/sensibilite.md) |
 | Notifications par e-mail (SMTP, Gmail, Mailpit) | [docs/notifications.md](docs/notifications.md) |
 | Module 5S : écrans, installation depuis son dépôt | [docs/module-5s.md](docs/module-5s.md) |

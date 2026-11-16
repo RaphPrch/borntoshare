@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 from app.api import (
+    access_reviews,
     activity_views,
     advanced_settings,
     health_events,
@@ -57,6 +58,8 @@ GUARDED = [
     (identity_orchestration, ["run_identity_snapshot", "update_identity", "discover_identity"], admin_only),
     (identity_orchestration, ["import_identity_ad", "import_identity_ad_batch"], admin_or_guardian),
     (identity_orchestration, ["search_identity"], signed_in_or_internal),
+    (access_reviews, ["open_access_review", "close_access_review"], admin_only),
+    (access_reviews, ["list_access_reviews", "get_access_review", "decide_access_review", "list_access_review_removals"], admin_or_guardian),
 ]
 
 

@@ -36,6 +36,11 @@ def code(value: str) -> str:
     return f'<span style="font-family:{MONO};font-size:13px;color:{INK}">{e(value)}</span>'
 
 
+def heading(label: str) -> str:
+    """A small title over a block (the sections of the monthly report)."""
+    return f'<p style="margin:10px 0 8px;font:600 12px {SANS};letter-spacing:0.08em;text-transform:uppercase;color:{MUTED}">{e(label)}</p>'
+
+
 def details(rows: Iterable[tuple[str, str]]) -> str:
     """Label / value rows in a framed table; values are HTML already (built with e() or code())."""
     rows = list(rows)

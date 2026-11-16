@@ -39,6 +39,8 @@ from app.api.quotas import router as quotas_router
 from app.api.folder_insights import router as folder_insights_router
 from app.api.insights import router as insights_router
 from app.api.features import router as features_router
+from app.api.access_reviews import internal_router as access_reviews_internal_router, router as access_reviews_router
+from app.api.monthly_report import router as monthly_report_router
 from app.api.internal_fives import router as internal_fives_router
 
 
@@ -68,6 +70,9 @@ router.include_router(folder_insights_router)
 router.include_router(insights_router)
 router.include_router(features_router)
 router.include_router(internal_fives_router)
+router.include_router(access_reviews_router)
+router.include_router(access_reviews_internal_router)
+router.include_router(monthly_report_router)
 router.include_router(internal_sso_router)
 router.include_router(governance_alerts_router)
 router.include_router(health_events_router)

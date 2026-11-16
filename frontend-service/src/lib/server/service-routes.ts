@@ -54,7 +54,8 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
     return rest.startsWith('/internal') ? null : { service: 'fives', path: rest };
   }
 
-  if (path === '/access-requests/bulk' || /^\/storage-root-access-profiles\/\d+\/adopt$/.test(path)) {
+  // Orchestration: revocations of a request batch or of an access review, adoption of an access profile
+  if (path === '/access-requests/bulk' || /^\/access-reviews\/\d+\/apply$/.test(path) || /^\/storage-root-access-profiles\/\d+\/adopt$/.test(path)) {
     return governanceRoute(path);
   }
 

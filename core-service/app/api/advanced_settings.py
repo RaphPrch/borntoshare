@@ -75,6 +75,8 @@ DEFAULT_ADVANCED_SETTINGS: dict = {
         "decisionToRequester": True,
         "adminAlerts": True,
         "expiryReminderDays": 7,
+        # The monthly report to the administrators, on the 1st of each month (services/monthly_report.py)
+        "monthlyReport": False,
     },
 }
 

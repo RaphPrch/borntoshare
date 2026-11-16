@@ -70,3 +70,13 @@ l'arrête. Jamais en production.
 Les adresses sont celles des identités. Pour un compte de l'annuaire, elle est reprise de l'attribut `mail` de l'AD
 quand l'identité est importée (Identity & Users › Identités › Créer › Utilisateur de l'annuaire, ou un nouvel import du même compte).
 Un gardien sans adresse ne reçoit rien : la liste des destinataires est vide et rien n'est envoyé.
+
+## Rapport mensuel
+
+Option « Le rapport mensuel, le 1er de chaque mois : aux administrateurs » (désactivée par défaut). Le 1er du mois,
+la tâche d'expiration des accès envoie une fois le rapport du mois précédent (clé `monthly_report:AAAA-MM`) :
+demandes reçues, accordées, refusées et retirées, accès en vigueur, revues des accès (campagnes ouvertes, accès
+revus, retraits, restant à revoir), alertes ouvertes et, si le module 5S est actif, ce qu'il fournit
+(`GET /internal/summary` de fives-service) : volume et croissance, doublons, données de plus de 3 ans, score 5S moyen,
+quarantaine, archives, mesures partielles. Dans la même page : aperçu des 30 derniers jours, envoi à l'adresse de
+test ou aux administrateurs (`GET /monthly-report/preview`, `POST /monthly-report/send`, tracé dans le journal).

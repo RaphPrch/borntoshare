@@ -1710,6 +1710,10 @@
       "fives_settings_updated": {
         "title": "Réglages du module 5S modifiés",
         "description": "{reason}"
+      },
+      "monthly_report_sent": {
+        "title": "Rapport mensuel envoyé",
+        "description": "À {count} destinataire(s) : {reason}"
       }
     },
     "naming_policy": {
@@ -1772,6 +1776,24 @@
       "disabled": {
         "title": "Fonctionnalité désactivée",
         "description": "« {target} » est désactivée"
+      }
+    },
+    "access_review": {
+      "opened": {
+        "title": "Revue des accès ouverte",
+        "description": "« {target} » : {count} accès à revoir"
+      },
+      "decided": {
+        "title": "Accès revus",
+        "description": "{count} accès décidés dans « {target} »"
+      },
+      "applied": {
+        "title": "Retraits appliqués",
+        "description": "{count} retrait(s) traités pour la revue {target}"
+      },
+      "closed": {
+        "title": "Revue des accès close",
+        "description": "« {target} » est terminée"
       }
     }
   },
@@ -5442,5 +5464,89 @@
   "Choose a folder to see who reaches it and why.": "Choisissez un dossier pour voir qui y accède et pourquoi.",
   "Define and manage governance tags.": "Définir et gérer les tags de gouvernance.",
   "Manage local accounts and directory users or groups.": "Gérer les comptes locaux et les utilisateurs ou groupes de l'annuaire.",
-  "Manage sites and zones topology.": "Gérer la topologie des sites et des zones."
+  "Manage sites and zones topology.": "Gérer la topologie des sites et des zones.",
+  "Reviews": "Revues",
+  "Unable to build the report.": "Impossible de construire le rapport.",
+  "The e-mails are switched off: switch them on above to send the report.": "Les e-mails sont désactivés : activez-les ci-dessus pour envoyer le rapport.",
+  "Report sent to {list}.": "Rapport envoyé à {list}.",
+  "Unable to send the report.": "Impossible d'envoyer le rapport.",
+  "The monthly report, on the 1st of each month: to the administrators": "Le rapport mensuel, le 1er de chaque mois : aux administrateurs",
+  "Monthly report": "Rapport mensuel",
+  "What the governance did in the month (requests, decisions, removals, accesses in force, alerts, access reviews) and, with the 5S module, the volume, the duplicates and the 5S score.": "Ce que la gouvernance a fait dans le mois (demandes, décisions, retraits, accès en vigueur, alertes, revues des accès) et, avec le module 5S, le volume, les doublons et le score 5S.",
+  "Preview (last 30 days)": "Aperçu (30 derniers jours)",
+  "Send it to the test address": "L'envoyer à l'adresse de test",
+  "Send it to the administrators now": "L'envoyer aux administrateurs maintenant",
+  "Since the previous measure": "Depuis la mesure précédente",
+  "The comparison starts at the next measure of this folder.": "La comparaison commence à la prochaine mesure de ce dossier.",
+  "Changes": "Changements",
+  "Grew or shrank": "Ont grossi ou diminué",
+  "New folders": "Nouveaux dossiers",
+  "Folders gone": "Dossiers disparus",
+  "Rights changed": "Droits modifiés",
+  "No folder changed size.": "Aucun dossier n'a changé de taille.",
+  "None.": "Aucun.",
+  "Inheritance restored": "Héritage rétabli",
+  "No right changed.": "Aucun droit n'a changé.",
+  "Unable to load the reviews.": "Impossible de charger les revues.",
+  "Review opened: {count} access(es) to review on {folders} folder(s), {guardians} guardian(s) told.": "Revue ouverte : {count} accès à revoir sur {folders} dossier(s), {guardians} gardien(s) prévenu(s).",
+  "Unable to open the review.": "Impossible d'ouvrir la revue.",
+  "Access reviews": "Revues des accès",
+  "At a given time, every person who reaches a folder is listed for its guardians, who keep or remove each access. The closed review is the evidence of the control.": "À un moment donné, chaque personne qui accède à un dossier est listée pour ses gardiens, qui gardent ou retirent chaque accès. La revue close est la preuve du contrôle.",
+  "New review": "Nouvelle revue",
+  "{folders} folder(s) · opened {date} by {who}": "{folders} dossier(s) · ouverte le {date} par {who}",
+  "{done} / {total} reviewed": "{done} / {total} revus",
+  "{keep} kept · {revoke} removed": "{keep} gardés · {revoke} retirés",
+  "{count} by hand": "{count} à la main",
+  "Closed": "Close",
+  "No review yet: open the first one to have every access checked by the guardians.": "Aucune revue pour l'instant : ouvrez la première pour faire vérifier chaque accès par les gardiens.",
+  "No review of your folders for now.": "Aucune revue de vos dossiers pour l'instant.",
+  "New access review": "Nouvelle revue des accès",
+  "To finish by": "À terminer avant le",
+  "Every governed folder": "Tous les dossiers gouvernés",
+  "Some folders": "Certains dossiers",
+  "{count} folder(s) chosen": "{count} dossier(s) choisi(s)",
+  "The guardians are told (bell, and e-mail when it is switched on). The list is the one of today: a person who gets an access later is not in this review.": "Les gardiens sont prévenus (cloche, et e-mail s'il est activé). La liste est celle d'aujourd'hui : une personne qui obtient un accès plus tard n'est pas dans cette revue.",
+  "Open the review": "Ouvrir la revue",
+  "Unable to load the review.": "Impossible de charger la revue.",
+  "{revoked} access(es) removed, {manual} to remove by hand, {failed} failed.": "{revoked} accès retiré(s), {manual} à retirer à la main, {failed} en échec.",
+  "Unable to apply the removals.": "Impossible d'appliquer les retraits.",
+  "Review closed.": "Revue close.",
+  "Unable to close the review.": "Impossible de clore la revue.",
+  "request {code}": "demande {code}",
+  "{group} (outside BornToShare)": "{group} (hors BornToShare)",
+  "{group} (added in the directory)": "{group} (ajouté dans l'annuaire)",
+  "nested group": "groupe imbriqué",
+  "Removed": "Retiré",
+  "To remove by hand": "À retirer à la main",
+  "Removal failed": "Retrait en échec",
+  "Through": "Par",
+  "All the reviews": "Toutes les revues",
+  "Opened {date} by {who}": "Ouverte le {date} par {who}",
+  "closed {date}": "close le {date}",
+  "Export the evidence": "Exporter la preuve",
+  "Apply the {count} removal(s)": "Appliquer les {count} retrait(s)",
+  "Close the review": "Clore la revue",
+  "of {count} access(es)": "sur {count} accès",
+  "To remove": "À retirer",
+  "{count} not applied yet": "{count} pas encore appliqué(s)",
+  "all applied": "tous appliqués",
+  "accesses that BornToShare did not grant": "accès que BornToShare n'a pas accordés",
+  "Person, folder…": "Personne, dossier…",
+  "Keep all the others": "Garder tous les autres",
+  "Not granted by BornToShare: a removal is done by hand": "Pas accordé par BornToShare : un retrait se fait à la main",
+  "Everything is reviewed here.": "Tout est revu ici.",
+  "Apply the removals": "Appliquer les retraits",
+  "{count} access(es) decided « remove »: those granted by a request are revoked now (the person leaves the AD group of the folder); the others are marked « to remove by hand ».": "{count} accès décidé(s) « retirer » : ceux accordés par une demande sont révoqués maintenant (la personne sort du groupe AD du dossier) ; les autres sont marqués « à retirer à la main ».",
+  "Remove the accesses": "Retirer les accès",
+  "{count} access(es) are not reviewed: they stay as they are, and the export will say so.": "{count} accès ne sont pas revus : ils restent tels quels, et l'export le dira.",
+  "Every access is reviewed. The review becomes the evidence of the control.": "Chaque accès est revu. La revue devient la preuve du contrôle.",
+  "Only an administrator opens a review": "Seul un administrateur ouvre une revue",
+  "No governed folder to review": "Aucun dossier gouverné à revoir",
+  "Review not found": "Revue introuvable",
+  "You guard no folder of this review": "Vous ne gardez aucun dossier de cette revue",
+  "This review is closed": "Cette revue est close",
+  "Keep or revoke": "Garder ou retirer",
+  "Only an administrator closes a review": "Seul un administrateur clôt une revue",
+  "This review is already closed": "Cette revue est déjà close",
+  "Remove the access": "Retirer"
 }

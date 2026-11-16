@@ -35,7 +35,7 @@ Les noms du menu sont des noms de produit, en anglais dans les deux langues.
 | Workspace | Dashboard (`/dashboard`) | Journal du jour : titre, « À la une », fil du jour, carte des dossiers, question à Pilot |
 | | Pilot (`/pilot`, administrateurs et gardiens) | questions en français sur les dossiers (« exporte-moi tous les utilisateurs du dossier TEST »), réponses en liste, export CSV, copie, historique |
 | Governance | Storage Roots (`/storage-roots`) | liste (filtres, tri, actions groupées, aperçu latéral), fiche du dossier en onglets : vue d'ensemble, permissions, stockage · 5S, sensibilité, quota, activité |
-| | Access Management (`/access-requests`) | onglets Demandes et Exposition (`/exposure`) |
+| | Access Management (`/access-requests`) | onglets Demandes, Exposition (`/exposure`) et Revues (`/access-reviews` : campagnes de revue des accès) |
 | | Governance Jobs (`/observability`) | vue d'ensemble, alertes, événements, jobs, santé |
 | | Policies (`/admin/policies`, administrateurs) | automatismes de gouvernance : tags, alertes, scans sur une règle |
 | Storage Intelligence | Explorer (`/five-s/explore`) | recherche de fichiers dans tous les dossiers, puis la fiche d'un dossier en onglets : Contenu, Atelier 5S, Doublons, Droits à revoir, Rapport (module 5S, voir [docs/module-5s.md](../docs/module-5s.md)) |

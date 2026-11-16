@@ -42,8 +42,9 @@ export function buildNav(ctx: NavContext): NavSection[] {
       label: 'Governance',
       items: [
         { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open' },
-        ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/exposure'], count: ctx.pending,
-            tabs: [{ href: '/access-requests', label: t('Requests') }, ...(ctx.staff ? [{ href: '/exposure', label: t('Exposure') }] : [])] }] : []),
+        ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/exposure', '/access-reviews'], count: ctx.pending,
+            tabs: [{ href: '/access-requests', label: t('Requests') },
+              ...(ctx.staff ? [{ href: '/exposure', label: t('Exposure') }, { href: '/access-reviews', label: t('Reviews') }] : [])] }] : []),
         ...(ctx.staff ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.admin ? ctx.critical : 0, danger: true }] : []),
         // Automations of the governance (tags, alerts, scans… on a rule): administrators
         ...(ctx.admin ? [{ href: '/admin/policies', label: 'Policies', icon: 'bi-magic' }] : [])

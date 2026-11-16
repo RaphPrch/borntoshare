@@ -91,6 +91,11 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             reminders = expiry_reminders(db)
             if reminders:
                 message = f"{message} · {reminders} rappel(s) envoyé(s)"
+            # The 1st of the month: the monthly report of the month before, once (Settings › Notifications)
+            from app.services.monthly_report import maybe_send
+
+            if maybe_send(db):
+                message = f"{message} · rapport mensuel envoyé"
         elif task == "dfs_read":
             # The file servers (and, chosen in its options, their folders and the DFS namespaces)
             summary = await run_file_servers(db, trigger=trigger)
