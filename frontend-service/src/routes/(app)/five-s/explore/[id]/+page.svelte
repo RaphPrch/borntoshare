@@ -27,7 +27,8 @@
     direct_bytes: number; direct_files: number; cold1_bytes: number; cold3_bytes: number; last_modified: string | null;
     last_access?: string | null; created_at?: string | null; acl?: Ace[] | null; inheritance_broken?: boolean | null;
     acl_total?: number | null; acl_orphans?: number | null; partial?: boolean };
-  type FileRow = { path: string; name: string; size: number; modified: string | null };
+  type FileRow = { path: string; name: string; size: number; modified: string | null; created?: string | null; accessed?: string | null;
+    extension?: string | null; owner?: string | null };
   type Level = { node: Folder | null; children: Folder[]; files: FileRow[]; files_source?: 'inventory' | 'fingerprints'; files_total?: number; files_at?: string | null;
     completeness?: Completeness | null };
   type Copy = { path: string; modified: string | null };
@@ -68,6 +69,64 @@
       .catch(() => null);
   });
 
+  // ---- sensitive files: the findings of the sensitivity scan of the core (never a detection of this page) ----
+  type Finding = { path: string; category: string; rule: string };
+  let sensitive = $state<Finding[]>([]);
+  $effect.pre(() => {
+    if (rootId) void apiGetData<{ findings?: Finding[] }>(fetch, `/storage-roots/${rootId}/sensitivity`)
+      .then((data) => (sensitive = (data?.findings ?? []).filter((item: any) => !item.ignored)))
+      .catch(() => null);
+  });
+  const sensitiveOf = (path: string) => {
+    const lower = path.toLowerCase();
+    return sensitive.find((item) => lower === item.path.toLowerCase() || lower.endsWith(`\\${item.path.toLowerCase()}`));
+  };
+
+  // ---- who reaches the folder chosen and why (Permission Intelligence: resolved by the core with its directory) ----
+  type Via = { kind: 'group' | 'direct'; group?: string; account?: string; nested?: boolean; rights: string; deny: boolean; inherited: boolean };
+  type AccessPerson = { username: string | null; display_name: string | null; rights: string | null; denied: boolean; via: Via[] };
+  type Principal = { who: string; kind: string; rights: string; deny: boolean; inherited: boolean; members: number | null };
+  type AccessData = { read: boolean; entries_total?: number; entries_cut?: boolean; inheritance_broken?: boolean | null;
+    analysis?: { principals: Principal[]; people: AccessPerson[]; people_total: number; findings: Array<{ code: string; who: string; rights: string }>; snapshot_at: string | null };
+    drift?: { added: Array<{ who: string; level: string }>; removed: Array<{ who: string; level: string }>; parent_known: boolean } };
+  let access = $state<AccessData | null>(null);
+  let accessFor = $state<string | null>(null);
+  let accessState = $state<'idle' | 'loading' | 'ok' | 'failed'>('idle');
+  let accessAll = $state(false);
+  let accessQuery = $state('');
+  async function loadAccess(path: string) {
+    accessFor = path;
+    accessState = 'loading';
+    accessAll = false;
+    accessQuery = '';
+    try {
+      const data = await apiGetData<AccessData>(fetch, `/modules/fives/storage-roots/${rootId}/folders/access`, path ? { path } : undefined);
+      if (accessFor !== path) return;
+      access = data;
+      accessState = 'ok';
+    } catch {
+      if (accessFor === path) accessState = 'failed';
+    }
+  }
+  $effect.pre(() => {
+    if (selected && selected.path !== accessFor) {
+      const path = selected.path;
+      untrack(() => void loadAccess(path));
+    }
+  });
+  const RIGHTS = (): Record<string, string> => ({ read: t('Read'), modify: t('Modify'), full: t('Full control') });
+  const KIND = (): Record<string, string> => ({ group: t('Group'), user: t('Account'), system: t('System'), broad: t('Everyone'), orphan: t('Orphan SID'), unknown: t('Unknown') });
+  const FINDING = (): Record<string, string> => ({
+    BROAD_WRITE: t('Open to the whole company in writing'), BROAD_READ: t('Readable by the whole company'),
+    USER_ACE: t('Account added by hand (not through a group)'), FULL_CONTROL: t('Full control outside the administrators'),
+    ORPHAN_SID: t('Account deleted from the directory still has rights'), UNKNOWN_ACCOUNT: t('Account unknown to the directory (local or other domain)'),
+    DENY_ENTRY: t('A deny entry: hard to read, check it')
+  });
+  const SEVERE = new Set(['BROAD_WRITE', 'FULL_CONTROL', 'ORPHAN_SID']);
+  let accessPeople = $derived((access?.analysis?.people ?? []).filter((person) => !accessQuery.trim()
+    || `${person.display_name ?? ''} ${person.username ?? ''}`.toLowerCase().includes(accessQuery.trim().toLowerCase())));
+  const viaText = (via: Via) => via.kind === 'direct' ? t('directly') : via.nested ? t('through {group} (nested group)', { group: via.group ?? '' }) : t('through {group}', { group: via.group ?? '' });
+
   // ---- the files of the open folder, as they are now on the file server (read by a worker) ----
   // The inventory of the module only knows the files fingerprinted for the duplicates: it stays as the fallback.
   type LiveListing = { folders: string[]; files: Array<{ n: string; s: number; t: string | null }>; files_total: number };
@@ -86,7 +145,12 @@
       const data = await apiGetData<LiveListing>(fetch, `/storage-roots/${rootId}/files`, path ? { path } : undefined);
       if (seq !== liveSeq) return;
       const prefix = path ? `${path}\\` : '';
-      liveFiles = (data?.files ?? []).map((file) => ({ path: prefix + file.n, name: file.n, size: Number(file.s) || 0, modified: file.t ? `${file.t}Z` : null }));
+      // The worker reads names, sizes and dates now; creation, last access and owner come from the last measure
+      const known = new Map((level?.files ?? []).map((file) => [file.name.toLowerCase(), file]));
+      liveFiles = (data?.files ?? []).map((file) => {
+        const measured = known.get(String(file.n).toLowerCase());
+        return { ...measured, path: prefix + file.n, name: file.n, size: Number(file.s) || 0, modified: file.t ? `${file.t}Z` : null };
+      });
       liveTotal = Number(data?.files_total ?? liveFiles.length);
       liveState = 'ok';
     } catch (error) {
@@ -526,9 +590,13 @@
                   </tr>
                 {/each}
                 {#each files as file (file.path)}
+                  {@const flag = sensitiveOf(file.path)}
                   <tr class="is-file">
-                    <td class="fx__name"><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path} data-copy={file.path}>{file.name}</code></td>
-                    <td class="fx__num">{formatBytes(file.size)}</td><td>—</td><td>{file.modified ? formatDate(file.modified) : '—'}</td><td>—</td><td></td><td></td>
+                    <td class="fx__name"><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path} data-copy={file.path}>{file.name}</code>
+                      {#if flag}<span class="fx__pill is-bad" title={flag.rule}><i class="bi bi-shield-exclamation" aria-hidden="true"></i> {t('Sensitive')}</span>{/if}</td>
+                    <td class="fx__num">{formatBytes(file.size)}</td><td>{file.created ? formatDate(file.created) : '—'}</td><td>{file.modified ? formatDate(file.modified) : '—'}</td>
+                    <td title={t('Indicative: Windows updates it late, or not at all when it is turned off')}>{file.accessed ? formatDate(file.accessed) : '—'}</td><td></td>
+                    <td class="fx__owner">{#if file.owner}<span title={t('NTFS owner')}>{file.owner}</span>{/if}</td>
                     <td class="fx__num">{groups.some((group) => group.copies.some((copy) => copy.path === file.path)) ? '•' : '—'}</td>
                   </tr>
                 {/each}
@@ -632,13 +700,55 @@
                   </li>
                 {/each}
               </ul>
-              {#if (selected.acl_total ?? 0) > selected.acl.length}<p class="fx__hint">{t('and {count} more right(s) not kept by the measure (20 shown at most)', { count: (selected.acl_total ?? 0) - selected.acl.length })}</p>{/if}
+              {#if (selected.acl_total ?? 0) > selected.acl.length}<p class="fx__hint">{t('and {count} more right(s) not kept by the measure (64 kept at most)', { count: (selected.acl_total ?? 0) - selected.acl.length })}</p>{/if}
               {#if selected.inheritance_broken && isAdmin && selected.path}
                 <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={acting} onclick={() => selected && restoreInheritance(selected)}><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{t('Restore the inheritance')}</button>
               {/if}
               <div class="fx__chain"><span>{t('Inheritance')}</span>
                 {#each chain as link, index (index)}<span class:is-broken={link.broken}>{link.broken ? '✕ ' : ''}{link.name}</span>{/each}
               </div>
+            {/if}
+          </section>
+
+          <section class="fx__card">
+            <h3>{t('Who has access and why')}</h3>
+            {#if accessState === 'loading'}
+              <LoadingState>{t('Resolving the groups with the directory…')}</LoadingState>
+            {:else if accessState === 'failed'}
+              <p class="fx__hint">{t('The rights of this folder could not be analysed now.')}</p>
+            {:else if access && !access.read}
+              <p class="fx__hint">{t('Read at the next full measure of the folder.')}</p>
+            {:else if access?.analysis}
+              {#each access.analysis.findings as finding (finding.code + finding.who)}
+                <p class={`fx__finding ${SEVERE.has(finding.code) ? 'is-bad' : 'is-warn'}`}><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                  <span><b>{FINDING()[finding.code] ?? finding.code}</b><small>{finding.who} · {RIGHTS()[finding.rights] ?? finding.rights}</small></span></p>
+              {/each}
+              {#if access.drift?.added.length || access.drift?.removed.length}
+                <div class="fx__drift">
+                  <small>{t('Compared with its parent folder')}</small>
+                  {#each access.drift.added as entry (entry.who + entry.level)}<span class="is-add">+ {entry.who} · {levelLabel(entry.level)}</span>{/each}
+                  {#each access.drift.removed as entry (entry.who + entry.level)}<span class="is-del">− {entry.who} · {levelLabel(entry.level)}</span>{/each}
+                </div>
+              {/if}
+              <ul class="fx__princ">
+                {#each access.analysis.principals.filter((p) => p.kind !== 'system') as principal (principal.who + principal.rights + principal.deny)}
+                  <li><span><b>{principal.who}</b><small>{KIND()[principal.kind] ?? principal.kind}{principal.members != null ? ` · ${t('{count} member(s), nested groups included', { count: principal.members })}` : ''}</small></span>
+                    <em>{principal.deny ? `${t('Denied')} · ` : ''}{RIGHTS()[principal.rights] ?? principal.rights}</em></li>
+                {/each}
+              </ul>
+              {#if access.analysis.people_total}
+                <div class="fx__people-head"><b>{t('{count} person(s)', { count: access.analysis.people_total })}</b>
+                  {#if access.analysis.people_total > 8}<input class="b2s-input" placeholder={t('Find a person…')} bind:value={accessQuery} aria-label={t('Find a person')} />{/if}</div>
+                <ul class="fx__people">
+                  {#each accessPeople.slice(0, accessAll || accessQuery ? 200 : 8) as person (person.username ?? person.display_name)}
+                    <li class:is-denied={person.denied}><span><b>{person.display_name}</b><small>{person.via.map(viaText).join(' · ')}</small></span>
+                      <em>{person.denied ? t('Denied') : RIGHTS()[person.rights ?? ''] ?? '—'}</em></li>
+                  {/each}
+                </ul>
+                {#if !accessAll && !accessQuery && accessPeople.length > 8}<button type="button" class="b2s-link-btn" onclick={() => (accessAll = true)}>{t('Show the {count} others', { count: accessPeople.length - 8 })}</button>{/if}
+              {/if}
+              <p class="fx__hint">{t('Rights of the last measure; groups resolved with the directory as of {date}.', { date: access.analysis.snapshot_at ? formatDate(access.analysis.snapshot_at) : '—' })}
+                {#if access.entries_cut} {t('Only part of the entries could be kept.')}{/if}</p>
             {/if}
           </section>
 
@@ -789,6 +899,26 @@
   .fx__acl li.is-own b { color: #9A3412; }
   .fx__acl li.is-orphan b { color: #6b7280; text-decoration: line-through dotted; }
   .fx__partial { color: #b45309; font-size: 12px; }
+  .fx__pill.is-bad { background: #fde8e8; color: #991b1b; }
+  .fx__owner { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fx__finding { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 6px 10px; border-radius: 8px; font-size: var(--b2s-fs-sm); }
+  .fx__finding span { display: grid; }
+  .fx__finding small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
+  .fx__finding.is-bad { background: #fde8e8; color: #991b1b; }
+  .fx__finding.is-warn { background: #fff4e5; color: #8a4b00; }
+  .fx__drift { display: grid; gap: 2px; font-size: var(--b2s-fs-xs); }
+  .fx__drift small { color: var(--b2s-color-text-muted); }
+  .fx__drift .is-add { color: #9a3412; }
+  .fx__drift .is-del { color: #1d4ed8; }
+  .fx__princ, .fx__people { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
+  .fx__princ li, .fx__people li { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .fx__princ li span, .fx__people li span { display: grid; min-width: 0; }
+  .fx__princ b, .fx__people b { font-weight: 500; overflow-wrap: anywhere; }
+  .fx__princ small, .fx__people small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .fx__princ em, .fx__people em { font-style: normal; font-size: var(--b2s-fs-xs); font-weight: 600; white-space: nowrap; }
+  .fx__people li.is-denied b { text-decoration: line-through; }
+  .fx__people-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .fx__people-head .b2s-input { width: 160px; height: 30px; }
   .fx__acl em { font-style: normal; font-size: var(--b2s-fs-xs); font-weight: 600; white-space: nowrap; }
   .fx__acl em.is-F { color: #991B1B; }
   .fx__acl em.is-W { color: #1D4ED8; }

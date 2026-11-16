@@ -206,3 +206,23 @@ def fives_audit(payload: FivesAuditPayload, request: Request, db: Session = Depe
         background=False,
     )
     return ui_data({"recorded": True})
+
+
+class FolderAcesPayload(BaseModel):
+    storage_root_id: int = Field(gt=0)
+    # The entries the 5S scanner read on one sub-folder: {who, level R/W/F (« ! » for a deny), inherited}
+    entries: list[dict] = Field(default_factory=list, max_length=500)
+
+
+@router.post("/folder-access")
+def folder_access(payload: FolderAcesPayload, db: Session = Depends(get_db)):
+    """Who reaches a sub-folder and why (nested groups, direct accounts, system, the whole company, orphan SIDs),
+    resolved with the directory of the core: the 5S module never rebuilds the identities."""
+    from fastapi import HTTPException
+
+    from app.services.storage_root_permissions import analyze_folder_aces
+
+    result = analyze_folder_aces(db, payload.storage_root_id, payload.entries)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Storage root not found")
+    return ui_data(jsonable_encoder(result))

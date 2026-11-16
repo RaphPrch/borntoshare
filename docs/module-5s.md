@@ -40,6 +40,16 @@ Bases : `b2s_fives` (résultats, décisions, quarantaine, historique des scores)
 | Analytics (`/five-s`) | score de chaque dossier sur 100, par pilier, sur tout le parc ou une branche de l'arborescence ; « Quoi faire d'abord » : les actions qui relèvent le plus de dossiers |
 | Rapport (`/five-s/report/<dossier>`, depuis Analytics) | volumes, âges, types, et les trois mesures précédentes, rétablissables |
 
+Dans l'Explorer, chaque fichier montre sa taille, sa création, sa dernière modification, son dernier accès
+(indicatif), son extension, son propriétaire NTFS si l'administrateur l'a demandé (Inventory › Réglages : une
+lecture de plus par fichier, désactivée par défaut) et la marque « Sensible » quand l'analyse de sensibilité du
+Core l'a relevé. La fiche d'un sous-dossier dit **qui y a accès et pourquoi** : chaque entrée de ses droits est
+résolue par le Core avec son annuaire (groupe et ses membres, groupes imbriqués compris ; compte ; comptes système ;
+« tout le monde » ; SID orphelin ; compte inconnu), puis les personnes avec leur niveau et chaque chemin qui y mène,
+les droits excessifs (écriture pour toute l'entreprise, contrôle total hors administrateurs, compte ajouté à la main,
+SID orphelin, refus) et ce que le dossier change par rapport à son parent. Le module ne garde aucune identité : il
+envoie les droits lus au Core (`POST /internal/modules/fives/folder-access`).
+
 La fiche d'un dossier (Governance › Storage Roots) résume aussi le module dans son onglet **Stockage · 5S**, et
 Pilot répond aux questions de volume (dossiers jamais mesurés, données froides, doublons, quotas).
 
@@ -70,7 +80,7 @@ générique) et par le script PowerShell, sur les chemins complets résolus, ava
   (`hash_files_max`) ou empreintes encore en cours. Les doublons **entre** dossiers sont toujours une estimation
   (plus gros fichiers de chaque dossier).
 - Les droits sont lus en SID : un compte supprimé de l'annuaire reste visible comme SID orphelin, au lieu de faire
-  disparaître tous les droits du dossier ; au plus 20 entrées gardées par dossier, le total est indiqué.
+  disparaître tous les droits du dossier ; au plus 64 entrées gardées par dossier, le total est indiqué.
 - Les dossiers vides ont leur ligne dans l'arborescence.
 - Le dernier accès est indicatif : Windows le met à jour en différé, ou pas du tout s'il est désactivé.
 - Un seul calcul du score 5S (fives-service) : la tendance de l'atelier enregistre, après chaque mesure, le même

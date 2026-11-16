@@ -24,7 +24,7 @@
     progress: { chunks_total: number; chunks_done: number; chunks_kept: number; files: number; current: string | null; mode: string } | null;
     summary: { mode: string; chunks_walked: number; chunks_kept: number; files: number; bytes: number; elapsed_ms: number; completeness?: Completeness } | null; error: string | null };
   type Settings = { schedule_enabled: boolean; frequency: 'days' | 'hours'; window_start: string; window_end: string; per_server: number; interval_days: number;
-    interval_hours: number; full_every_days: number; hash_files_max: number; quarantine_purge_days: number };
+    interval_hours: number; full_every_days: number; hash_files_max: number; quarantine_purge_days: number; file_owners: boolean };
   type Data = { runs: Run[]; counts: Record<string, number>; scanners: Array<{ id: string; last_seen: string }>; settings: Settings; in_window: boolean;
     next_window_at: string | null };
   type Root = Record<string, any>;
@@ -297,6 +297,8 @@
         <label>{t('Scans at a time per server')}<input class="b2s-input" type="number" min="1" max="8" bind:value={form.per_server} /></label>
         <label>{t('Full walk every (days)')}<input class="b2s-input" type="number" min="1" max="365" bind:value={form.full_every_days} /></label>
         <label>{t('Fingerprints per piece (duplicates)')}<input class="b2s-input" type="number" min="0" max="500000" step="1000" bind:value={form.hash_files_max} /></label>
+        <label class="sc5__check"><input type="checkbox" bind:checked={form.file_owners} />
+          {t('Read the NTFS owner of each file (one more read per file: walks take longer)')}</label>
         <fieldset class="sc5__purge">
           <legend>{t('Quarantine of duplicates')}</legend>
           <label class="sc5__check"><input type="radio" name="purge" checked={!form.quarantine_purge_days} onchange={() => form && (form.quarantine_purge_days = 0)} />

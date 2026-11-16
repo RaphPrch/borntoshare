@@ -553,3 +553,90 @@ class StorageRootPermissions:
             if current is None or level == "write":
                 best[int(row["id"])] = {"storage_root_id": int(row["id"]), "name": row["name"], "level": level}
         return sorted(best.values(), key=lambda r: str(r["name"]).lower())
+
+
+# ---------------------------------------------------------------- 5S module: rights of any sub-folder
+
+# Levels of the 5S scanner (« R », « W », « F », « !R »… for a deny) → the words of this module
+_SCAN_LEVEL = {"R": "read", "W": "modify", "F": "full"}
+_LEVEL_RANK = {"read": 1, "modify": 2, "full": 3}
+
+
+def _scan_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    raw = str(entry.get("level") or "R").upper()
+    deny = raw.startswith("!")
+    return {"who": str(entry.get("who") or "").strip(), "rights": _SCAN_LEVEL.get(raw.lstrip("!"), "read"), "deny": deny,
+            "inherited": bool(entry.get("inherited"))}
+
+
+def analyze_folder_aces(db: Session, root_id: int, entries: list[dict[str, Any]], people_limit: int = 500) -> dict[str, Any] | None:
+    """Who reaches a sub-folder of a governed folder and why, from the rights the 5S scanner read on it: each entry
+    resolved with the directory of the folder's server (group with its nested members, user, system account, the
+    whole company, orphan SID, unknown account), the people with their strongest level and every path to it, and
+    what looks excessive. The identities stay those of the core (its snapshot of the directory)."""
+    service = StorageRootPermissions(db)
+    root = service._root(int(root_id))
+    if root is None:
+        return None
+    source_id = root.get("identity_source_id")
+    principals: list[dict[str, Any]] = []
+    people: dict[str, dict[str, Any]] = {}
+    findings: list[dict[str, Any]] = []
+
+    def reach(user: dict[str, Any], entry: dict[str, Any], via: dict[str, Any]) -> None:
+        key = str(user.get("username") or user.get("upn") or user.get("display_name") or "").lower()
+        if not key:
+            return
+        person = people.setdefault(key, {"username": user.get("username"), "display_name": user.get("display_name") or user.get("username"),
+                                         "rights": None, "denied": False, "via": []})
+        if entry["deny"]:
+            person["denied"] = True
+        elif _LEVEL_RANK[entry["rights"]] > _LEVEL_RANK.get(person["rights"] or "", 0):
+            person["rights"] = entry["rights"]
+        if len(person["via"]) < 10:
+            person["via"].append({**via, "rights": entry["rights"], "deny": entry["deny"], "inherited": entry["inherited"]})
+
+    for entry in (_scan_entry(item) for item in entries):
+        who = entry["who"]
+        if not who:
+            continue
+        name = short_name(who)
+        row: dict[str, Any] = {**entry, "kind": "unknown", "members": None}
+        if who.upper().startswith("S-1-"):
+            row["kind"] = "orphan"
+            findings.append({"code": "ORPHAN_SID", "who": who, "rights": entry["rights"]})
+        elif is_expected_system_principal(who, root.get("endpoint_account")):
+            row["kind"] = "system"
+        elif is_broad_principal(who):
+            row["kind"] = "broad"
+            if not entry["deny"]:
+                findings.append({"code": "BROAD_WRITE" if entry["rights"] != "read" else "BROAD_READ", "who": who, "rights": entry["rights"]})
+        elif service._group_info(name, source_id):
+            members = service.group_members(name, source_id)
+            row.update({"kind": "group", "members": len(members)})
+            for member in members:
+                reach(member, entry, {"kind": "group", "group": who, "nested": int(member.get("depth") or 0) > 0})
+            if entry["rights"] == "full" and not entry["deny"]:
+                findings.append({"code": "FULL_CONTROL", "who": who, "rights": "full"})
+        else:
+            user = service._one(
+                """SELECT username, display_name, upn FROM directory_users
+                   WHERE identity_source_id = :source AND (LOWER(username) = LOWER(:name) OR LOWER(COALESCE(upn, '')) = LOWER(:name)) LIMIT 1""",
+                {"source": int(source_id or 0), "name": name},
+            ) if source_id else None
+            if user:
+                row["kind"] = "user"
+                reach(user, entry, {"kind": "direct", "account": who})
+                if not entry["inherited"] and not entry["deny"]:
+                    findings.append({"code": "USER_ACE", "who": who, "rights": entry["rights"]})
+                if entry["rights"] == "full" and not entry["deny"]:
+                    findings.append({"code": "FULL_CONTROL", "who": who, "rights": "full"})
+            else:
+                findings.append({"code": "UNKNOWN_ACCOUNT", "who": who, "rights": entry["rights"]})
+        if entry["deny"]:
+            findings.append({"code": "DENY_ENTRY", "who": who, "rights": entry["rights"]})
+        principals.append(row)
+    ordered = sorted(people.values(), key=lambda p: (p["denied"], -_LEVEL_RANK.get(p["rights"] or "", 0), str(p["display_name"] or "").lower()))
+    unique = {(f["code"], f["who"].lower()): f for f in findings}
+    return {"principals": principals, "people": ordered[:people_limit], "people_total": len(ordered),
+            "findings": list(unique.values()), "snapshot_at": service._snapshot_at(source_id)}

@@ -70,7 +70,7 @@ _MEASURE = _COMMON + r"""
 $junk = [regex]::new($p.junk_pattern, 'IgnoreCase')
 $t = @{ bytes = [long]0; files = 0; folders = 0 }
 $top = @{}; $types = @{}; $dirStats = @{}; $dirAcls = @{}
-# Rights of each folder (5S scanner only, with_dirs): its entries « account|R/W/F|inherited » (at most 20, n = how many
+# Rights of each folder (5S scanner only, with_dirs): its entries « account|R/W/F|inherited » (at most 64, n = how many
 # there are) and whether its inheritance is broken (rules protected); the folder walked first, then each sub-folder
 # met. Read as SIDs and translated one by one: an account deleted from the directory (orphan SID) stays as its SID
 # (u = how many) instead of making the whole list unreadable.
@@ -89,7 +89,7 @@ $aclOf = {
         try { $sidNames[$sid] = $rule.IdentityReference.Translate([System.Security.Principal.NTAccount]).Value } catch { $sidNames[$sid] = $null }
       }
       $who = $sidNames[$sid]; if (-not $who) { $who = $sid; $unresolved++ }
-      if ($entries.Count -ge 20) { continue }
+      if ($entries.Count -ge 64) { continue }
       $rights = [string]$rule.FileSystemRights
       $level = if ($rights -match 'FullControl') { 'F' } elseif ($rights -match 'Modify|Write') { 'W' } else { 'R' }
       if ([string]$rule.AccessControlType -eq 'Deny') { $level = '!' + $level }
@@ -116,7 +116,8 @@ $bySize = New-Object 'System.Collections.Generic.Dictionary[long,object]'
 $big = New-Object 'System.Collections.Generic.List[object]'
 # defer_hash: the last write of each file to fingerprint (ticks), so that an unchanged file keeps its fingerprint
 $ticks = New-Object 'System.Collections.Generic.Dictionary[string,long]'
-# with_files (5S scanner only): every file met, « size|yyyyMMddHHmmss|path from the share », at most files_max per walk
+# with_files (5S scanner only): every file met, « size|written|created|accessed|owner|path from the share » (times
+# yyyyMMddHHmmss, UTC; owner only with file_owners: one read of the security descriptor per file), at most files_max
 $allFiles = New-Object 'System.Collections.Generic.List[string]'; $filesMax = [int]$p.files_max; $filesCut = $false
 $y1 = $now.AddDays(-365); $y3 = $now.AddDays(-1095)
 $localCut = $local.TrimEnd('\').Length + 1
@@ -125,7 +126,13 @@ $onFile = {
   param($f)
   $size = [long]$f.Length; $rel = $f.FullName.Substring($cut); $when = $f.LastWriteTimeUtc
   $t.bytes += $size; $t.files++
-  if ($p.with_files) { if ($allFiles.Count -lt $filesMax) { $allFiles.Add("$size|$($when.ToString('yyyyMMddHHmmss'))|$rel") } else { $filesCut = $true } }
+  if ($p.with_files) {
+    if ($allFiles.Count -lt $filesMax) {
+      $own = ''
+      if ($p.file_owners) { try { $sd = $f.GetAccessControl('Owner'); try { $own = $sd.GetOwner([System.Security.Principal.NTAccount]).Value } catch { $own = $sd.GetOwner([System.Security.Principal.SecurityIdentifier]).Value } } catch { } }
+      $allFiles.Add("$size|$($when.ToString('yyyyMMddHHmmss'))|$($f.CreationTimeUtc.ToString('yyyyMMddHHmmss'))|$($f.LastAccessTimeUtc.ToString('yyyyMMddHHmmss'))|$own|$rel")
+    } else { $filesCut = $true }
+  }
   # Every folder (5S scanner only, with_dirs): what is right in it; the scanner adds it up to the root
   if ($p.with_dirs) {
     $dk = [IO.Path]::GetDirectoryName($rel); if ($null -eq $dk) { $dk = '' }
