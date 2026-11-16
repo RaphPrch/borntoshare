@@ -151,7 +151,7 @@
   }
 
   .req-chart__grid span {
-    border-top: 1px solid #eef2f7;
+    border-top: 1px solid #eef0f4;
   }
 
   .req-chart__grid span:last-child {
@@ -175,14 +175,14 @@
   }
 
   .req-chart__slot:hover {
-    background: rgba(59, 111, 216, 0.06);
+    background: rgba(14, 18, 24, 0.04);
   }
 
   .req-chart__bar {
     width: 100%;
     max-width: 20px;
     border-radius: 4px 4px 0 0;
-    background: #3b6fd8;
+    background: #0e1218;
   }
 
   .req-chart__tip {
@@ -197,7 +197,7 @@
     border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-sm);
     background: var(--b2s-color-surface);
-    box-shadow: 0 6px 18px rgba(18, 31, 64, 0.12);
+    box-shadow: 0 6px 18px rgba(14, 18, 24, 0.12);
     color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-xs);
     white-space: nowrap;

@@ -123,6 +123,6 @@
   .ud { display: grid; gap: 18px; padding: var(--b2s-page-padding); }
   .ud__kick { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); font-weight: 600; }
   .ud h2 { margin: 0; font-size: 17px; font-weight: 600; }
-  .ud__warn { color: #b45309; }
-  .ud__bad { color: #b42318; }
+  .ud__warn { color: #8a4b00; }
+  .ud__bad { color: #a32626; }
 </style>
