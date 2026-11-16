@@ -124,6 +124,8 @@
 
   /* ===== Entity sidebars ===== */
   --b2s-entity-sidebar-width: 320px;
+  /* Height of the sticky top bar (52 px) and context bar (44 px): sticky panels of the pages start under them */
+  --b2s-shell-top: 96px;
   --b2s-modal-shadow: 0 40px 120px rgba(0, 0, 0, 0.35);
 
   /* ===== Button defaults ===== */

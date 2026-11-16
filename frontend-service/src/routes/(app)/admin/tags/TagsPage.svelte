@@ -439,7 +439,7 @@
   .tg__bar { height: 6px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); overflow: hidden; }
   .tg__bar i { display: block; height: 100%; min-width: 2px; border-radius: inherit; }
   .tg__count { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .tg__side { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 12px; padding: 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
+  .tg__side { position: sticky; top: calc(var(--b2s-shell-top) + 16px); display: flex; flex-direction: column; gap: 12px; padding: 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .tg__side dl { display: grid; gap: 8px; margin: 0; }
   .tg__side dt { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
   .tg__side dd { margin: 0; }

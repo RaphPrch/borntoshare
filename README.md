@@ -11,7 +11,7 @@ qui mesure et range les partages. Chaque compte de service n'a que les droits do
 
 ## Interface
 
-Un menu latéral en quatre sections : **Workspace** (Dashboard avec le Journal du jour, Pilot pour poser des questions
+Un menu ☰ en haut à gauche, en quatre sections (la page garde toute la largeur) : **Workspace** (Dashboard avec le Journal du jour, Pilot pour poser des questions
 sur les dossiers et exporter les réponses), **Governance** (Storage Roots, Access Management, Governance Jobs, Policies),
 **Storage Intelligence** (Explorer, Inventory et Analytics du module 5S ; Insights & Recommendations) et
 **Administration** (Storage Endpoints, Identity & Users, Settings). Détail des écrans :

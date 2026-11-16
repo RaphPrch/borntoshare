@@ -195,7 +195,7 @@
   .at__sum b { font-size: 22px; font-weight: 600; }
   .at__sum b.bad { color: var(--b2s-color-danger-strong); }
   .at__grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
-  .at__side { display: flex; flex-direction: column; gap: 14px; min-width: 0; position: sticky; top: 16px; }
+  .at__side { display: flex; flex-direction: column; gap: 14px; min-width: 0; position: sticky; top: calc(var(--b2s-shell-top) + 16px); }
   .at__card { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .at__card h2 { margin: 0; font-size: var(--b2s-fs-md); font-weight: 600; }
   .at__tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

@@ -31,7 +31,7 @@
   import { invalidate, onNavigate } from "$app/navigation";
   import { onDestroy, onMount } from "svelte";
   import { connectLive, live, onLiveChange } from "$lib/stores/live";
-  import TasksDock from "$lib/components/layout/TasksDock.svelte";
+  import RecentTasks from "$lib/components/layout/RecentTasks.svelte";
   import UnsavedChangesDialog from "$lib/components/ui/UnsavedChangesDialog.svelte";
   import { unsavedPrompt } from "$lib/utils/unsaved";
   import { installCopyOnClick } from "$lib/utils/copy-on-click";
@@ -42,10 +42,8 @@
   import Toaster from "$lib/components/ui/Toaster.svelte";
   import SessionIdleBanner from "$lib/components/layout/SessionIdleBanner.svelte";
   import TopProgress from "$lib/components/ui/TopProgress.svelte";
-  import Sidebar from "$lib/components/layout/Sidebar.svelte";
-  import Topbar from "$lib/components/layout/Topbar.svelte";
-  import SectionTabs from "$lib/components/layout/SectionTabs.svelte";
-  import { activeItem, buildNav } from "$lib/components/layout/nav";
+  import AppHeader from "$lib/components/layout/AppHeader.svelte";
+  import ContextBar from "$lib/components/layout/ContextBar.svelte";
   import { bootstrapFrontendCore } from "$lib/bootstrap.client";
 
   // ---------------------------------------------------------
@@ -79,15 +77,9 @@
 
   bootstrapFrontendCore();
 
-  // Menu entry of the page: its tabs when it gathers several pages (Access Management: requests, exposure…)
-  let hereItem = $derived(activeItem(buildNav({
-    admin: data.navigation?.canSeeAdmin === true,
-    staff: data.navigation?.canSeeAdmin === true || data.navigation?.canSeeStorageRoots === true,
-    features: data.navigation?.features ?? [],
-    pending: 0,
-    critical: 0
-  }), $page.url.pathname)?.item ?? null);
-  let sectionTabs = $derived(hereItem?.tabs ?? []);
+  // No side menu: the top bar (☰, search, tasks, account), then where you are and the tabs of the page
+  let admin = $derived(data.navigation?.canSeeAdmin === true);
+  let staff = $derived(admin || data.navigation?.canSeeStorageRoots === true);
 
   // Live updates (/live): badges, bell, tasks; the pages whose data moved reload it themselves
   const stops: Array<() => void> = [];
@@ -124,27 +116,23 @@
 </svelte:head>
 
 <div class="b2s-app-root">
-  <Sidebar
+  <AppHeader
     user={data.me}
     permissions={data.navigation}
     alertsCount={Number(data.topbarAlertsCount ?? 0)}
     criticalAlertsCount={Number(data.topbarCriticalAlerts ?? 0)}
     currentPath={$page.url.pathname}
   />
-
+  <ContextBar currentPath={$page.url.pathname} {admin} {staff} features={data.navigation?.features ?? []} />
   <main class="b2s-app-main">
-    <Topbar user={data.me} permissions={data.navigation} currentPath={$page.url.pathname} />
     {#if data.banner}
       <div class="b2s-banner is-{data.banner.tone ?? 'info'}" role="status"><i class="bi bi-megaphone" aria-hidden="true"></i>{data.banner.message}</div>
     {/if}
-    {#if sectionTabs.length > 1}
-      <div class="b2s-section-tabs"><SectionTabs tabs={sectionTabs} label={hereItem?.label ?? ''} /></div>
-    {/if}
     {@render children?.()}
   </main>
+  {#if admin}<RecentTasks />{/if}
 </div>
 
-{#if data.navigation?.canSeeAdmin}<TasksDock />{/if}
 <UnsavedChangesDialog open={$unsavedPrompt.open} impact={t("The edits made on this page will be lost.")}
   onKeepEditing={() => unsavedPrompt.set({ open: false, discard: null })} onDiscard={() => $unsavedPrompt.discard?.()} />
 <SessionIdleBanner />
@@ -152,7 +140,8 @@
 <TopProgress />
 
 <style>
-  .b2s-section-tabs { padding: 14px 28px 0; }
+  /* Top bar, context bar, the page (whole width), the recent tasks at the bottom */
+  .b2s-app-root { flex-direction: column; }
   .b2s-banner { display: flex; align-items: center; gap: 10px; margin: 16px 28px 0; padding: 10px 16px; border-radius: var(--b2s-radius-md); font-size: var(--b2s-fs-sm); font-weight: 500; }
   .b2s-banner.is-info { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
   .b2s-banner.is-warning { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }

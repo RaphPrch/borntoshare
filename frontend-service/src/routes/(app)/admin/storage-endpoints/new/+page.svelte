@@ -546,7 +546,7 @@
   .shares { display: flex; flex-wrap: wrap; gap: 6px; }
   .shares span { padding: 3px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); font-family: var(--b2s-font-mono); font-size: var(--b2s-font-micro); }
   .muted { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); }
-  .panel { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+  .panel { position: sticky; top: calc(var(--b2s-shell-top) + 16px); display: flex; flex-direction: column; gap: 14px; padding: 18px; }
   .checks { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
   .checks li { display: grid; grid-template-columns: 18px 1fr; gap: 9px; font-size: var(--b2s-text-sm); }
   .checks strong, .checks small { display: block; }

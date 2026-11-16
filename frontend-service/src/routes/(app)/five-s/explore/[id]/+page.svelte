@@ -872,7 +872,7 @@
   .fx__tag.is-acl { background: #E0E7FF; color: #3730A3; }
   .fx__gain { padding: 2px 8px; border-radius: 999px; background: #F3F4F6; font-size: 11px; }
   .fx__none { margin: 4px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .fx__sheet { position: sticky; top: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+  .fx__sheet { position: sticky; top: calc(var(--b2s-shell-top) + 12px); display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
   .fx__card { display: grid; gap: 10px; min-width: 0; padding: 14px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
   .fx__card h2 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
   .fx__card h3 { margin: 0; font-size: var(--b2s-fs-sm); }

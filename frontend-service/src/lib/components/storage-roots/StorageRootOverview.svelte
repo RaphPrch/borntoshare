@@ -243,7 +243,7 @@
   .ov__bar span { display: block; height: 4px; background: var(--b2s-color-info); }
   .ov__bar.is-soon span { background: var(--b2s-color-warning); }
   .ov__when { flex: none; color: var(--b2s-color-text-soft); font-size: var(--b2s-fs-xs); white-space: nowrap; }
-  .ov__side { position: sticky; top: 16px; }
+  .ov__side { position: sticky; top: calc(var(--b2s-shell-top) + 16px); }
   .ov__side dl { margin: 0; }
   .ov__side dl div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; padding: 9px 0; border-top: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-sm); }
   .ov__side dl div:first-child { border-top: 0; }

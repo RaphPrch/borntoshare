@@ -5652,5 +5652,17 @@
   "room to win back": "place à récupérer",
   "{count} folder(s) scored": "{count} dossier(s) notés",
   "{count} identical copies, {size} each.": "{count} copies identiques, {size} chacune.",
-  "{count} refused: see the folder sheet.": "{count} refusé(s) : voir la fiche du dossier."
+  "{count} refused: see the folder sheet.": "{count} refusé(s) : voir la fiche du dossier.",
+  "Close the menu": "Fermer le menu",
+  "Fold": "Replier",
+  "Menu": "Menu",
+  "No task lately.": "Aucune tâche récente.",
+  "Nothing running": "Rien en cours",
+  "Recent": "Récents",
+  "Recent tasks": "Tâches récentes",
+  "Start": "Début",
+  "Started by": "Lancée par",
+  "Unfold": "Déplier",
+  "{count} failure(s) in 24 h": "{count} échec(s) en 24 h",
+  "{count} in progress": "{count} en cours"
 }

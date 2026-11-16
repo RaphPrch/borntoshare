@@ -625,7 +625,7 @@
   textarea.b2s-input { min-height: 90px; padding: 10px 12px; resize: vertical; }
   .nr__next { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
   .nr__next small { display: block; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .nr__cart { position: sticky; top: 16px; }
+  .nr__cart { position: sticky; top: calc(var(--b2s-shell-top) + 16px); }
   .nr__cart h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--b2s-fs-md); font-weight: 600; }
   .nr__cart h2 span { margin-left: auto; padding: 0 9px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-text); color: #fff; font-size: var(--b2s-fs-xs); }
   .nr__ci { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--b2s-color-border); }

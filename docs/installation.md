@@ -58,7 +58,7 @@ s'il existe :
 | `oidc-ca.pem` | auth-service | Autorité privée des serveurs Keycloak (SSO) |
 | `syslog-ca.pem`, `splunk-ca.pem` | core-service | Autorité privée du collecteur syslog (TLS) ou du HEC Splunk (Settings › Extensions) |
 
-`B2S_VERSION` n'est pas à renseigner : `make deploy` y met le commit et la date, affichés en bas du menu latéral.
+`B2S_VERSION` n'est pas à renseigner : `make deploy` y met le commit et la date, affichés dans le menu du compte (en haut à droite).
 
 ## 2. Le wizard : bases, administrateur et licence
 

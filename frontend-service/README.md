@@ -26,8 +26,11 @@ Voir [docs/structure.md](docs/structure.md) (dossiers de `src/lib`) et [docs/ui-
 
 ## Écrans
 
-Menu latéral en quatre sections (`src/lib/components/layout/nav.ts`) ; la barre du haut porte le fil d'Ariane, la
-recherche ⌘K et la cloche des notifications. Une entrée qui regroupe plusieurs pages les montre en onglets sous la barre.
+Pas de menu latéral : la barre du haut (`AppHeader`) porte le bouton ☰, qui ouvre le menu en quatre sections
+(`src/lib/components/layout/nav.ts`, chaque entrée avec ses pages et les pages récentes), la recherche ⌘K, les tâches en
+cours, la cloche et le compte. Dessous, la barre de contexte (`ContextBar`) donne le fil d'Ariane et les onglets de
+l'entrée ; en bas, les tâches récentes (`RecentTasks`, administrateurs). Les pages prennent toute la largeur ; leurs
+panneaux collants partent de `--b2s-shell-top`.
 Les noms du menu sont des noms de produit, en anglais dans les deux langues.
 
 | Section | Entrée | Pages |

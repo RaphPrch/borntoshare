@@ -293,7 +293,7 @@
   .rd__row.is-cursor { box-shadow: inset 3px 0 0 var(--b2s-color-text); }
   .rd__keys { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .rd__keys kbd { margin: 0 2px; padding: 0 5px; border: 1px solid var(--b2s-color-border); border-radius: 5px; font-size: 11px; }
-  .rd__bulk { position: sticky; top: 64px; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .rd__bulk { position: sticky; top: calc(var(--b2s-shell-top) + 4px); z-index: 5; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .rd__row.is-revoke { background: #fff5f5; }
   .rd__state { display: grid; gap: 2px; }
   .rd__state small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }

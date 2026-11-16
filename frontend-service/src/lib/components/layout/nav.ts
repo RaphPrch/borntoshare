@@ -1,6 +1,6 @@
 /**
  * Main navigation of the v2 interface: four sections, each item with the paths it covers.
- * The sidebar draws it, the top bar takes its breadcrumb from it (section › page).
+ * The ☰ menu of the top bar draws it, the context bar takes its breadcrumb and tabs from it (section › page).
  * The menu names are product names (kept in English in both languages, as chosen for v2).
  */
 import { t } from '$lib/i18n';

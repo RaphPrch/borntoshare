@@ -4,7 +4,7 @@
 
 /* One white surface under the sticky top bar (62 px): the side panes stick below it */
 .b2s-app-root { background: #fff; }
-.b2s-list-pane { top: 78px !important; max-height: calc(100vh - 94px) !important; box-shadow: none !important; }
+.b2s-list-pane { top: calc(var(--b2s-shell-top) + 16px) !important; max-height: calc(100vh - var(--b2s-shell-top) - 32px) !important; box-shadow: none !important; }
 .b2s-adv-sidebar { top: 78px !important; }
 
 .v2 { display: flex; flex-direction: column; gap: 26px; width: 100%; max-width: 1480px; padding: 26px 28px 80px; }
@@ -77,7 +77,7 @@ button.v2-fi { width: 100%; border: 0; border-bottom: 1px solid #f0f2f5; backgro
 /* ---- Workspace: tree pane + main ---- */
 .v2-ws { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 620px; border: 1px solid var(--b2s-color-border-soft); border-radius: 16px; overflow: hidden; background: #fff; }
 .v2-ws.is-3 { grid-template-columns: 260px minmax(0, 1fr) 340px; }
-.v2-pane { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 140px); padding: 12px 10px; overflow: auto; border-right: 1px solid var(--b2s-color-border-soft); background: #fafbfc; position: sticky; top: 62px; align-self: start; }
+.v2-pane { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - var(--b2s-shell-top) - 80px); padding: 12px 10px; overflow: auto; border-right: 1px solid var(--b2s-color-border-soft); background: #fafbfc; position: sticky; top: calc(var(--b2s-shell-top) + 2px); align-self: start; }
 .v2-pane h3 { margin: 2px 6px; color: var(--b2s-color-text-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; }
 .v2-search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: 1px solid var(--b2s-color-border-soft); border-radius: 10px; background: #fff; }
 .v2-search i { color: var(--b2s-color-text-muted); font-size: 13px; }
@@ -130,7 +130,7 @@ button.v2-fi { width: 100%; border: 0; border-bottom: 1px solid #f0f2f5; backgro
 .v2-band .v2-stat b { color: #fff; }
 
 /* ---- Bulk bar ---- */
-.v2-bulk { position: sticky; top: 62px; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 16px 0; padding: 8px 10px 8px 16px;
+.v2-bulk { position: sticky; top: calc(var(--b2s-shell-top) + 2px); z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 16px 0; padding: 8px 10px 8px 16px;
   border-radius: 14px; background: #0e1218; color: #fff; box-shadow: 0 18px 36px -18px rgba(14, 18, 24, 0.7); }
 .v2-bulk b { color: var(--b2s-accent); }
 .v2-bulk button { min-height: 32px; padding: 0 11px; border: 0; border-radius: 9px; background: transparent; color: #e9ebf0; font: inherit; font-size: 12.5px; cursor: pointer; }

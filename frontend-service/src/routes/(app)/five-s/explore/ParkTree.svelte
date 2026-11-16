@@ -104,7 +104,7 @@
 </aside>
 
 <style>
-  .pt { position: sticky; top: 12px; display: grid; gap: 8px; align-content: start; max-height: calc(100vh - 96px); overflow: auto; margin: 26px 0 26px 24px;
+  .pt { position: sticky; top: calc(var(--b2s-shell-top) + 12px); display: grid; gap: 8px; align-content: start; max-height: calc(100vh - var(--b2s-shell-top) - 60px); overflow: auto; margin: 26px 0 26px 24px;
     padding: 10px; border: 1px solid var(--b2s-color-border-soft, #e1e4ea); border-radius: 16px; background: var(--b2s-color-surface, #fff); }
   .pt__find { display: flex; gap: 8px; align-items: center; height: 34px; padding: 0 10px; border: 1px solid var(--b2s-color-border-soft, #e1e4ea); border-radius: 9px;
     color: var(--b2s-color-text-muted); font-size: 13px; }
