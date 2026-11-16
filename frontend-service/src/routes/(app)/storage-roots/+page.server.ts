@@ -68,19 +68,16 @@ export const load: PageServerLoad = async (event) => {
   // --------------------------------------------------
   // 📡 Backend calls (READ MODELS)
   // --------------------------------------------------
-  const [storageRootsRaw, tagsRaw, endpointsRaw, effectiveAccessRaw] = await Promise.all([
+  // Everything at once: the page waited for each answer in turn. The accesses granted through requests (the API
+  // filters by role) give the volumes and end dates of the folders home
+  const [storageRootsRaw, tagsRaw, endpointsRaw, effectiveAccessRaw, storageRootAlertsRaw, accessRequestsRaw] = await Promise.all([
     apiServerGetList('/storage-roots/context', event),
     apiServerGetList('/tags', event),
     isAdmin ? apiServerGetList('/storage-endpoints/context', event) : Promise.resolve([]),
-    isAdmin ? Promise.resolve([]) : apiServerGetList('/storage-roots/effective-access', event)
+    isAdmin ? Promise.resolve([]) : apiServerGetList('/storage-roots/effective-access', event),
+    apiServerGetList('/governance-alerts?scope_type=storage_root&status=open&limit=2000', event).catch(() => []),
+    apiServerGetList('/access-requests', event).catch(() => [])
   ]);
-  const storageRootAlertsRaw = await apiServerGetList(
-    '/governance-alerts?scope_type=storage_root&status=open&limit=2000',
-    event
-  ).catch(() => []);
-
-  // Accesses granted through requests (the API filters by role): volumes and end dates of the folders home
-  const accessRequestsRaw = await apiServerGetList('/access-requests', event).catch(() => []);
 
   const normalizeId = (v: unknown) => String(v ?? '').trim().toLowerCase();
   const meId = normalizeId(typedUser?.id);

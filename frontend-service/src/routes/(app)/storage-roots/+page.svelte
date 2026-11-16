@@ -590,8 +590,21 @@
     tone: storageRootAlertTone(alert)
   });
 
+  // The open alerts grouped by folder once: each line of the tree and the list reads its own (with thousands of
+  // folders and alerts, filtering the whole list for every line cost millions of steps per render)
+  let alertsByRoot = $derived.by(() => {
+    const out = new Map<number, GovernanceAlert[]>();
+    for (const alert of data.storageRootAlerts ?? []) {
+      const id = storageRootAlertRootId(alert);
+      if (!id) continue;
+      const list = out.get(id);
+      if (list) list.push(alert);
+      else out.set(id, [alert]);
+    }
+    return out;
+  });
   const rootAlertSummary = (row: StorageRootRow): StorageRootTreeAlertSummary => {
-    return storageRootOpenAlertSummary(row, data.storageRootAlerts ?? []);
+    return storageRootOpenAlertSummary(row, alertsByRoot.get(Number(row?.storage_root_id ?? (row as any)?.id ?? 0)) ?? []);
   };
 
   let selectedRootAlerts = $state<StorageRootDetailAlertItem[]>([]);

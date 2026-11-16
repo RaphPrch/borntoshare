@@ -1189,35 +1189,54 @@ class StorageRootsViewsRepo(SQLViewRepo):
             out.append(row)
         return out
 
+    # ---- members of a group named in an ACL ----
+    # The columns compare without case already (utf8mb4_unicode_ci): plain equalities, one per column, keep the indexes
+    # (LOWER()/COALESCE() and OR between columns made MariaDB read every group and membership for each name).
+    def _rows(self, sql: str, params: dict[str, Any], *expanding: str) -> list[dict[str, Any]]:
+        from sqlalchemy import bindparam
+
+        statement = text(sql)
+        if expanding:
+            statement = statement.bindparams(*(bindparam(name, expanding=True) for name in expanding))
+        return [dict(row) for row in self.db.execute(statement, params).mappings().all()]
+
+    def _group_ids_for_ref(self, *, group_ref: str, identity_source_id: int | None) -> list[int]:
+        ref = str(group_ref or "").strip()
+        if not ref:
+            return []
+        source = "AND dg.identity_source_id = :identity_source_id" if identity_source_id else ""
+        params = {"group_ref": ref, "identity_source_id": int(identity_source_id) if identity_source_id else None}
+        ids: list[int] = []
+        for column in ("name", "external_id", "dn"):
+            for row in self._rows(f"SELECT dg.id FROM directory_groups dg WHERE dg.{column} = :group_ref {source} AND dg.deleted_at IS NULL", params):
+                if int(row["id"]) not in ids:
+                    ids.append(int(row["id"]))
+        return ids
+
     def _ad_group_exists_for_identity_source(
         self,
         *,
         group_ref: str,
         identity_source_id: int | None,
     ) -> bool:
-        normalized = str(group_ref or "").strip()
-        if not normalized:
-            return False
+        return bool(self._group_ids_for_ref(group_ref=group_ref, identity_source_id=identity_source_id))
 
-        row = self._one_dict(
-            """
-            SELECT 1 AS ok
-            FROM directory_groups dg
-            WHERE dg.deleted_at IS NULL
-              AND (:identity_source_id IS NULL OR dg.identity_source_id = :identity_source_id)
-              AND (
-                LOWER(COALESCE(dg.name, '')) = LOWER(:group_ref)
-                OR LOWER(COALESCE(dg.external_id, '')) = LOWER(:group_ref)
-                OR LOWER(COALESCE(dg.dn, '')) = LOWER(:group_ref)
-              )
-            LIMIT 1
-            """,
+    @staticmethod
+    def _member_rows(rows: list[dict[str, Any]], *, with_snapshot: bool) -> list[dict[str, Any]]:
+        rows = sorted(rows, key=lambda row: str(row.get("display_name") or row.get("username") or row.get("email") or row.get("identity_id") or "").lower())
+        return [
             {
-                "group_ref": normalized,
-                "identity_source_id": int(identity_source_id) if identity_source_id else None,
-            },
-        )
-        return row is not None
+                "identity_id": int(row.get("identity_id") or 0),
+                "display_name": row.get("display_name"),
+                "username": row.get("username"),
+                "email": row.get("email"),
+                "upn": row.get("upn"),
+                "snapshot_id": (int(row.get("snapshot_id") or 0) or None) if with_snapshot else None,
+                "source": "inherited",
+            }
+            for row in rows
+            if int(row.get("identity_id") or 0) > 0
+        ]
 
     def _list_group_members_from_effective_memberships(
         self,
@@ -1225,7 +1244,10 @@ class StorageRootsViewsRepo(SQLViewRepo):
         group_ref: str,
         identity_source_id: int | None,
     ) -> list[dict[str, Any]]:
-        rows = self._all_dicts(
+        ids = self._group_ids_for_ref(group_ref=group_ref, identity_source_id=identity_source_id)
+        if not ids:
+            return []
+        rows = self._rows(
             """
             SELECT DISTINCT
               i.id AS identity_id,
@@ -1234,10 +1256,10 @@ class StorageRootsViewsRepo(SQLViewRepo):
               i.email AS email,
               du.upn AS upn,
               dem.snapshot_id AS snapshot_id
-            FROM directory_groups dg
-            JOIN directory_effective_memberships dem
-              ON dem.directory_group_id = dg.id
-             AND dem.identity_source_id = dg.identity_source_id
+            FROM directory_effective_memberships dem
+            JOIN directory_groups dg
+              ON dg.id = dem.directory_group_id
+             AND dg.identity_source_id = dem.identity_source_id
             JOIN directory_users du
               ON du.id = dem.directory_user_id
             JOIN identity_bindings ib
@@ -1247,35 +1269,13 @@ class StorageRootsViewsRepo(SQLViewRepo):
               ON i.id = ib.identity_id
             LEFT JOIN directory_snapshots ds
               ON ds.id = dem.snapshot_id
-            WHERE dg.deleted_at IS NULL
-              AND (
-                LOWER(dg.name) = LOWER(:group_ref)
-                OR LOWER(COALESCE(dg.external_id, '')) = LOWER(:group_ref)
-                OR LOWER(COALESCE(dg.dn, '')) = LOWER(:group_ref)
-              )
-              AND (:identity_source_id IS NULL OR dg.identity_source_id = :identity_source_id)
-              AND (dem.snapshot_id IS NULL OR UPPER(COALESCE(ds.status, '')) = 'ACTIVE')
-            ORDER BY COALESCE(i.display_name, i.username, i.email, CAST(i.id AS CHAR)) ASC
+            WHERE dem.directory_group_id IN :ids
+              AND (dem.snapshot_id IS NULL OR ds.status = 'ACTIVE')
             """,
-            {
-                "group_ref": str(group_ref or "").strip(),
-                "identity_source_id": int(identity_source_id) if identity_source_id else None,
-            },
+            {"ids": ids},
+            "ids",
         )
-
-        return [
-            {
-                "identity_id": int(row.get("identity_id") or 0),
-                "display_name": row.get("display_name"),
-                "username": row.get("username"),
-                "email": row.get("email"),
-                "upn": row.get("upn"),
-                "snapshot_id": int(row.get("snapshot_id") or 0) or None,
-                "source": "inherited",
-            }
-            for row in rows
-            if int(row.get("identity_id") or 0) > 0
-        ]
+        return self._member_rows(rows, with_snapshot=True)
 
     def _list_group_members_from_directory_group_members(
         self,
@@ -1283,7 +1283,10 @@ class StorageRootsViewsRepo(SQLViewRepo):
         group_ref: str,
         identity_source_id: int | None,
     ) -> list[dict[str, Any]]:
-        rows = self._all_dicts(
+        ids = self._group_ids_for_ref(group_ref=group_ref, identity_source_id=identity_source_id)
+        if not ids:
+            return []
+        rows = self._rows(
             """
             SELECT DISTINCT
               i.id AS identity_id,
@@ -1291,10 +1294,7 @@ class StorageRootsViewsRepo(SQLViewRepo):
               i.username AS username,
               i.email AS email,
               du.upn AS upn
-            FROM directory_groups dg
-            JOIN directory_group_members dgm
-              ON dgm.group_id = dg.id
-             AND dgm.deleted_at IS NULL
+            FROM directory_group_members dgm
             JOIN directory_users du
               ON du.id = dgm.directory_user_id
             JOIN identity_bindings ib
@@ -1302,34 +1302,13 @@ class StorageRootsViewsRepo(SQLViewRepo):
              AND ib.deleted_at IS NULL
             JOIN identities i
               ON i.id = ib.identity_id
-            WHERE dg.deleted_at IS NULL
-              AND (
-                LOWER(dg.name) = LOWER(:group_ref)
-                OR LOWER(COALESCE(dg.external_id, '')) = LOWER(:group_ref)
-                OR LOWER(COALESCE(dg.dn, '')) = LOWER(:group_ref)
-              )
-              AND (:identity_source_id IS NULL OR dg.identity_source_id = :identity_source_id)
-            ORDER BY COALESCE(i.display_name, i.username, i.email, CAST(i.id AS CHAR)) ASC
+            WHERE dgm.group_id IN :ids
+              AND dgm.deleted_at IS NULL
             """,
-            {
-                "group_ref": str(group_ref or "").strip(),
-                "identity_source_id": int(identity_source_id) if identity_source_id else None,
-            },
+            {"ids": ids},
+            "ids",
         )
-
-        return [
-            {
-                "identity_id": int(row.get("identity_id") or 0),
-                "display_name": row.get("display_name"),
-                "username": row.get("username"),
-                "email": row.get("email"),
-                "upn": row.get("upn"),
-                "snapshot_id": None,
-                "source": "inherited",
-            }
-            for row in rows
-            if int(row.get("identity_id") or 0) > 0
-        ]
+        return self._member_rows(rows, with_snapshot=False)
 
     def _list_group_members_from_active_snapshot_payload(
         self,
@@ -1337,75 +1316,68 @@ class StorageRootsViewsRepo(SQLViewRepo):
         group_ref: str,
         identity_source_id: int | None,
     ) -> list[dict[str, Any]]:
-        rows = self._all_dicts(
-            """
-            SELECT DISTINCT
-              COALESCE(ib.identity_id, 0) AS identity_id,
-              COALESCE(i.display_name, su.display_name, su.username, su.upn, su.email, su.external_id) AS display_name,
-              COALESCE(i.username, su.username) AS username,
-              COALESCE(i.email, su.email) AS email,
-              su.upn AS upn,
-              ds.id AS snapshot_id
-            FROM directory_snapshots ds
-            JOIN directory_snapshot_groups sg
-              ON sg.snapshot_id = ds.id
-            JOIN directory_snapshot_memberships sm
-              ON sm.snapshot_id = ds.id
-             AND (
-               LOWER(COALESCE(sm.group_external_id, '')) = LOWER(COALESCE(sg.external_id, ''))
-               OR LOWER(COALESCE(sm.group_external_id, '')) = LOWER(COALESCE(sg.dn, ''))
-               OR LOWER(COALESCE(sm.group_external_id, '')) = LOWER(COALESCE(sg.name, ''))
-             )
-            JOIN directory_snapshot_users su
-              ON su.snapshot_id = ds.id
-             AND (
-               LOWER(COALESCE(sm.member_external_id, '')) = LOWER(COALESCE(su.external_id, ''))
-               OR LOWER(COALESCE(sm.member_external_id, '')) = LOWER(COALESCE(su.dn, ''))
-               OR LOWER(COALESCE(sm.member_external_id, '')) = LOWER(COALESCE(su.username, ''))
-               OR LOWER(COALESCE(sm.member_external_id, '')) = LOWER(COALESCE(su.upn, ''))
-               OR LOWER(COALESCE(sm.member_external_id, '')) = LOWER(COALESCE(su.email, ''))
-             )
-            LEFT JOIN directory_users du
-              ON du.identity_source_id = su.identity_source_id
-             AND (
-               LOWER(TRIM(COALESCE(du.external_id, ''))) = LOWER(TRIM(COALESCE(su.external_id, '')))
-               OR LOWER(TRIM(COALESCE(du.dn, ''))) = LOWER(TRIM(COALESCE(su.dn, '')))
-             )
-            LEFT JOIN identity_bindings ib
-              ON ib.directory_user_id = du.id
-             AND ib.deleted_at IS NULL
-            LEFT JOIN identities i
-              ON i.id = ib.identity_id
-            WHERE UPPER(COALESCE(ds.status, '')) = 'ACTIVE'
-              AND (:identity_source_id IS NULL OR ds.identity_source_id = :identity_source_id)
-              AND (
-                LOWER(COALESCE(sg.name, '')) = LOWER(:group_ref)
-                OR LOWER(COALESCE(sg.external_id, '')) = LOWER(:group_ref)
-                OR LOWER(COALESCE(sg.dn, '')) = LOWER(:group_ref)
-              )
-            ORDER BY COALESCE(i.display_name, su.display_name, su.username, su.upn, su.email, su.external_id) ASC
-            """,
-            {
-                "group_ref": str(group_ref or "").strip(),
-                "identity_source_id": int(identity_source_id) if identity_source_id else None,
-            },
-        )
-
-        out: list[dict[str, Any]] = []
-        for row in rows:
-            identity_id = int(row.get("identity_id") or 0)
-            out.append(
-                {
-                    "identity_id": identity_id if identity_id > 0 else None,
-                    "display_name": row.get("display_name"),
-                    "username": row.get("username"),
-                    "email": row.get("email"),
-                    "upn": row.get("upn"),
-                    "snapshot_id": int(row.get("snapshot_id") or 0) or None,
-                    "source": "inherited",
-                }
+        """Last resort: the members as the active snapshot keeps them (group and members named by id, DN or login)."""
+        ref = str(group_ref or "").strip()
+        if not ref:
+            return []
+        source = "AND ds.identity_source_id = :identity_source_id" if identity_source_id else ""
+        params: dict[str, Any] = {"group_ref": ref, "identity_source_id": int(identity_source_id) if identity_source_id else None}
+        groups: list[dict[str, Any]] = []
+        for column in ("name", "external_id", "dn"):
+            groups += self._rows(
+                f"""
+                SELECT sg.snapshot_id, sg.identity_source_id, sg.external_id, sg.dn, sg.name
+                FROM directory_snapshots ds
+                JOIN directory_snapshot_groups sg ON sg.snapshot_id = ds.id AND sg.{column} = :group_ref
+                WHERE ds.status = 'ACTIVE' {source}
+                """,
+                params,
             )
-        return out
+        out: list[dict[str, Any]] = []
+        seen: set[tuple[int, str]] = set()
+        for group in groups:
+            snapshot_id = int(group["snapshot_id"])
+            # A membership names its group by id, DN or name
+            names = [value for value in {group.get("external_id"), group.get("dn"), group.get("name")} if value]
+            members = [row["member_external_id"] for row in self._rows(
+                """SELECT DISTINCT member_external_id FROM directory_snapshot_memberships
+                   WHERE snapshot_id = :snapshot_id AND group_external_id IN :names AND member_type = 'user'""",
+                {"snapshot_id": snapshot_id, "names": names}, "names")]
+            if not members:
+                continue
+            users: dict[str, dict[str, Any]] = {}
+            for column in ("external_id", "dn", "username", "upn", "email"):
+                for user in self._rows(
+                    f"""SELECT external_id, dn, username, upn, email, display_name FROM directory_snapshot_users
+                        WHERE snapshot_id = :snapshot_id AND {column} IN :members""",
+                    {"snapshot_id": snapshot_id, "members": members}, "members"):
+                    users.setdefault(str(user.get("external_id") or user.get("dn") or user.get("username")), user)
+            if not users:
+                continue
+            bound = {str(row["external_id"]).lower(): row for row in self._rows(
+                """SELECT du.external_id, i.id AS identity_id, i.display_name, i.username, i.email
+                   FROM directory_users du
+                   JOIN identity_bindings ib ON ib.directory_user_id = du.id AND ib.deleted_at IS NULL
+                   JOIN identities i ON i.id = ib.identity_id
+                   WHERE du.identity_source_id = :source AND du.external_id IN :ids""",
+                {"source": int(group["identity_source_id"]), "ids": [u["external_id"] for u in users.values() if u.get("external_id")] or [""]}, "ids")}
+            for user in users.values():
+                identity = bound.get(str(user.get("external_id") or "").lower()) or {}
+                key = (snapshot_id, str(user.get("external_id") or user.get("dn") or user.get("username")))
+                if key in seen:
+                    continue
+                seen.add(key)
+                identity_id = int(identity.get("identity_id") or 0)
+                out.append({
+                    "identity_id": identity_id if identity_id > 0 else None,
+                    "display_name": identity.get("display_name") or user.get("display_name") or user.get("username") or user.get("upn") or user.get("email") or user.get("external_id"),
+                    "username": identity.get("username") or user.get("username"),
+                    "email": identity.get("email") or user.get("email"),
+                    "upn": user.get("upn"),
+                    "snapshot_id": snapshot_id,
+                    "source": "inherited",
+                })
+        return sorted(out, key=lambda row: str(row.get("display_name") or "").lower())
 
     def list_ad_group_members(
         self,
