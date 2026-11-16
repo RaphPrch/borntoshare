@@ -15,22 +15,29 @@
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import MeasureCompleteness, { type Completeness } from '$lib/components/storage-roots/MeasureCompleteness.svelte';
 
   /**
    * 5S of a scanned folder in one screen: the scanner banner and the figures, then either the explorer (tree and
    * list, down to the deepest folder) or the 5S workshop (a score per pillar and the decisions to take), and on the
    * right the sheet of the folder chosen: its dates, its rights and inheritance, its duplicates with the copy to keep.
    */
-  type Ace = { who: string; level: string; inherited: boolean };
+  type Ace = { who: string; level: string; inherited: boolean; orphan?: boolean };
   type Folder = { path: string; parent: string | null; name: string; depth: number; bytes: number; files: number; folders: number;
     direct_bytes: number; direct_files: number; cold1_bytes: number; cold3_bytes: number; last_modified: string | null;
-    last_access?: string | null; created_at?: string | null; acl?: Ace[] | null; inheritance_broken?: boolean | null };
+    last_access?: string | null; created_at?: string | null; acl?: Ace[] | null; inheritance_broken?: boolean | null;
+    acl_total?: number | null; acl_orphans?: number | null; partial?: boolean };
   type FileRow = { path: string; name: string; size: number; modified: string | null };
-  type Level = { node: Folder | null; children: Folder[]; files: FileRow[]; files_source?: 'inventory' | 'fingerprints'; files_total?: number; files_at?: string | null };
+  type Level = { node: Folder | null; children: Folder[]; files: FileRow[]; files_source?: 'inventory' | 'fingerprints'; files_total?: number; files_at?: string | null;
+    completeness?: Completeness | null };
   type Copy = { path: string; modified: string | null };
   type Group = { fingerprint: string; size: number; wasted: number; copies: Copy[]; decision: { keep_path: string | null } | null };
-  type ScorePoint = { measured_at: string; score: number; seiri: number; seiton: number; seiso: number; seiketsu: number; shitsuke: number };
-  let history = $state<ScorePoint[]>([]);
+  type ScorePoint = { measured_at: string; score: number; seiri: number | null; seiton: number | null; seiso: number | null; seiketsu: number | null; shitsuke: number | null };
+  // The 5S score of the folder: the one of the 5S page (fives-service), now and at each measure; never computed here
+  type Scores = { current: { score: number | null; pillars: Record<string, number | null>; actions: Array<{ pillar: string; text: string }> };
+    history: ScorePoint[]; former_model_points: number };
+  let scores = $state<Scores | null>(null);
+  let history = $derived(scores?.history ?? []);
   type Scanner = { last: any; running: any; pieces: number; journal: boolean; last_full_at: string | null; window: any };
 
   let rootName = $state('');
@@ -101,7 +108,7 @@
       rootName = String(overview?.storage_root_name ?? `#${rootId}`);
       rootPath = String(overview?.root_path ?? '');
       junk = { bytes: Number(overview?.content?.junk?.bytes ?? 0), files: Number(overview?.content?.junk?.files ?? 0) };
-      void apiGetData<{ history: ScorePoint[] }>(fetch, `/modules/fives/storage-roots/${rootId}/scores`).then((data) => (history = data?.history ?? [])).catch(() => null);
+      void apiGetData<Scores>(fetch, `/modules/fives/storage-roots/${rootId}/scores`).then((data) => (scores = data)).catch(() => null);
       const [first, scan, dups] = await Promise.all([
         load(null),
         apiGetData<Scanner>(fetch, `/modules/fives/storage-roots/${rootId}/scanner`).catch(() => null),
@@ -207,26 +214,18 @@
   let explicitHere = $derived(children.filter((folder) => (folder.acl ?? []).some((ace) => !ace.inherited && !SYSTEM.test(ace.who))));
   let dormantBytes = $derived(children.filter(dormant).reduce((sum, folder) => sum + folder.bytes, 0));
 
-  // ---- 5S scores (each one is explained on hover) --------------------------------------------------------------
-  let seiri = $derived(root ? Math.round(100 * (1 - Math.min(1, 0.6 * share(root.cold1_bytes, root.bytes) + 4 * share(wasted, root.bytes)))) : 0);
-  let seiton = $derived(root ? Math.round(100 * (1 - Math.min(1, 2 * share(root.direct_files, root.files)))) : 0);
-  let seiso = $derived(root ? Math.round(100 * (1 - Math.min(1, 50 * share(junk.bytes, root.bytes)))) : 0);
-  let seiketsu = $derived(children.length ? Math.round(100 * (1 - Math.min(1, share(brokenHere.length, children.length) + 0.5 * share(explicitHere.length, children.length)))) : 100);
-  let lastDone = $derived(scanner?.last?.finished_at ? new Date(scanner.last.finished_at).getTime() : 0);
-  let shitsuke = $derived(Math.round((lastDone && NOW - lastDone < 30 * 86400000 ? 50 : lastDone ? 25 : 0) + 50 * share(decided, groups.length || 1)));
-  // The scores computed by the scanner at each measure (for the whole folder); the browser's own as long as there is none
+  // ---- 5S scores (each one is explained on hover): the same computation as the 5S page, from fives-service ----------
   let latest = $derived(history.length ? history[history.length - 1] : null);
   let previousScore = $derived(history.length > 1 ? history[history.length - 2].score : null);
   let pillars = $derived([
-    { jp: 'Seiri', fr: t('Sort'), score: latest?.seiri ?? seiri, how: t('Less old data and fewer duplicates: 100 − 60 % × share > 1 year − 4 × share lost to duplicates') },
-    { jp: 'Seiton', fr: t('Set in order'), score: latest?.seiton ?? seiton, how: t('Files filed in sub-folders rather than loose at the root') },
-    { jp: 'Seiso', fr: t('Shine'), score: latest?.seiso ?? seiso, how: t('Few clutter files (copies, temporary and system files)') },
-    { jp: 'Seiketsu', fr: t('Standardise'), score: latest?.seiketsu ?? seiketsu, how: t('Sub-folders that inherit their rights, without accounts added by hand') },
-    { jp: 'Shitsuke', fr: t('Sustain'), score: latest?.shitsuke ?? shitsuke, how: t('A recent measure (less than 30 days) and the duplicates decided') }
-  ]);
-  let score = $derived(latest?.score ?? Math.round(pillars.reduce((sum, pillar) => sum + pillar.score, 0) / pillars.length));
-  const tone = (value: number) => (value >= 70 ? '#047857' : value >= 45 ? '#B45309' : '#B91C1C');
-
+    { key: 'sort', jp: 'Seiri', fr: t('Sort'), how: t('Data untouched for 1 to 3 years counts half, over 3 years fully; duplicates in the folder fully, shared with other folders half') },
+    { key: 'order', jp: 'Seiton', fr: t('Set in order'), how: t('Two guardians or more, a tag and a quota') },
+    { key: 'shine', jp: 'Seiso', fr: t('Shine'), how: t('No password, key or token in the files, few clutter files') },
+    { key: 'standard', jp: 'Seiketsu', fr: t('Standardise'), how: t('Inheritance as expected, no error alert, the folder reachable') },
+    { key: 'sustain', jp: 'Shitsuke', fr: t('Sustain'), how: t('Measured within 30 days, sensitivity scanned within 90 days, corrections and requests handled') }
+  ].map((pillar) => ({ ...pillar, score: scores?.current.pillars[pillar.key] ?? null })));
+  let score = $derived(scores?.current.score ?? null);
+  const tone = (value: number | null) => (value == null ? '#6b7280' : value >= 70 ? '#047857' : value >= 45 ? '#B45309' : '#B91C1C');
   // ---- workshop: the decisions, from what was measured -----------------------------------------------------
   type Card = { tag: string; tone: string; gain: string; title: string; detail: string; cta: string; href?: string; folder?: Folder; act?: 'archive' | 'inherit' };
 
@@ -461,7 +460,9 @@
       <span>{t('Change journal')} <b class:is-warn={!scanner?.journal}>{scanner?.journal ? t('available: incremental scans') : t('unavailable: full scans only')}</b></span>
       {#if scanner?.window}<span>{t('Window')} <b>{scanner.window.window_start}–{scanner.window.window_end}</b>{scanner.window.full_every_days ? ` · ${t('full every {days} d', { days: scanner.window.full_every_days })}` : ''}</span>{/if}
       {#if scanner?.last?.status === 'failed'}<span class="fx__scan-err">{scanner.last.error}</span>{/if}
+      {#if level?.completeness ?? scanner?.last?.completeness}<span><MeasureCompleteness value={level?.completeness ?? scanner?.last?.completeness} compact /></span>{/if}
     </section>
+    <MeasureCompleteness value={level?.completeness ?? scanner?.last?.completeness} />
 
     <section class="fx__kpis" aria-label={t('Figures')}>
       <div><span>{t('Volume')}</span><b>{formatBytes(current.bytes)}</b><small>{t('{count} files', { count: current.files.toLocaleString('fr-FR') })}</small></div>
@@ -470,11 +471,11 @@
       <div><span>{t('Duplicates')}</span><b class={wasted ? 'is-bad' : ''}>{formatBytes(wasted)}</b><small>{t('{count} group(s), {done} decided', { count: groups.length, done: decided })}</small></div>
       <div><span>{t('Rights off the rule')}</span><b class={brokenHere.length || explicitHere.length ? 'is-bad' : ''}>{brokenHere.length + explicitHere.length}</b><small>{t('{count} broken inheritance(s) here', { count: brokenHere.length })}</small></div>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-      <div class="fx__score" tabindex="0" role="group" aria-describedby="fx-score-card"><span>{t('5S score')}</span><b style={`color:${tone(score)}`}>{score} / 100</b><small>{t('average of the 5 pillars')}</small>
+      <div class="fx__score" tabindex="0" role="group" aria-describedby="fx-score-card"><span>{t('5S score')}</span><b style={`color:${tone(score)}`}>{score ?? '—'} / 100</b><small>{t('same score as the 5S page')}</small>
         <div class="fx__score-card" id="fx-score-card" role="tooltip">
           <strong>{t('5S score of {name}', { name: rootName })}{#if previousScore != null}<em>{previousScore} → {score}</em>{/if}</strong>
           {#each pillars as pillar (pillar.jp)}
-            <span class="fx__score-row"><span>{pillar.fr}</span><i aria-hidden="true"><i style={`width:${Math.max(2, pillar.score)}%;background:${tone(pillar.score)}`}></i></i><b>{pillar.score}</b></span>
+            <span class="fx__score-row"><span>{pillar.fr}</span><i aria-hidden="true"><i style={`width:${Math.max(2, pillar.score ?? 0)}%;background:${tone(pillar.score)}`}></i></i><b>{pillar.score ?? '—'}</b></span>
           {/each}
         </div>
       </div>
@@ -495,6 +496,7 @@
                 onclick={() => pickTree(item)} oncontextmenu={(event) => openMenu(item.folder, event)} title={item.folder.path || rootPath}>
                 <i class={`bi ${item.open ? 'bi-folder2-open' : item.folder.folders > 0 ? 'bi-folder-fill' : 'bi-folder'}`} aria-hidden="true"></i>
                 <span>{item.name}</span>
+                {#if item.folder.partial}<i class="bi bi-exclamation-triangle fx__partial" title={t('Seen in part by the last measure')} aria-label={t('Seen in part by the last measure')}></i>{/if}
                 <small>{formatBytes(item.bytes)}</small>
               </button>
             {/each}
@@ -550,20 +552,22 @@
         {:else}
           {#if history.length}
             <section class="fx__trend" aria-label={t('Trend')}>
-              <span><b style={`color:${tone(score)}`}>{score}</b> / 100
-                {#if previousScore != null}<em class={score >= previousScore ? 'is-up' : 'is-down'}>{score >= previousScore ? '+' : ''}{score - previousScore} {t('since the previous measure')}</em>{/if}</span>
+              <span><b style={`color:${tone(latest?.score ?? null)}`}>{latest?.score}</b> / 100
+                {#if previousScore != null && latest}<em class={latest.score >= previousScore ? 'is-up' : 'is-down'}>{latest.score >= previousScore ? '+' : ''}{latest.score - previousScore} {t('since the previous measure')}</em>{/if}</span>
               <span class="fx__spark" aria-hidden="true">
                 {#each history as point (point.measured_at)}<i style={`height:${Math.max(6, point.score)}%;background:${tone(point.score)}`} title={`${formatDate(point.measured_at)} · ${point.score}`}></i>{/each}
               </span>
               <small>{t('{count} measure(s)', { count: history.length })}</small>
             </section>
+          {:else}
+            <p class="fx__hint">{t('The trend starts with the next measure: each measure keeps the score of the 5S page.')}{#if scores?.former_model_points} {t('{count} older point(s) of a former computation are not shown.', { count: scores.former_model_points })}{/if}</p>
           {/if}
           <section class="fx__pillars" aria-label={t('Pillars')}>
             {#each pillars as pillar (pillar.jp)}
               <div title={pillar.how}>
-                <span class="fx__pill-head"><b>{pillar.jp}</b><strong style={`color:${tone(pillar.score)}`}>{pillar.score}</strong></span>
-                <small>{pillar.fr}</small>
-                <span class="fx__bar"><span style={`width:${pillar.score}%;background:${tone(pillar.score)}`}></span></span>
+                <span class="fx__pill-head"><b>{pillar.jp}</b><strong style={`color:${tone(pillar.score)}`}>{pillar.score ?? '—'}</strong></span>
+                <small>{pillar.score == null ? t('not judged: no measure or scan yet') : pillar.fr}</small>
+                <span class="fx__bar"><span style={`width:${pillar.score ?? 0}%;background:${tone(pillar.score)}`}></span></span>
               </div>
             {/each}
           </section>
@@ -594,6 +598,7 @@
             <header class="fx__card-head">
               <h2>{selected.name || rootName}</h2>
               {#if selected.inheritance_broken}<span class="fx__pill is-warn">{t('Broken inheritance')}</span>{/if}
+              {#if selected.partial}<span class="fx__pill is-warn" title={t('A part of this folder could not be read or listed in full by the last measure: its figures may be below reality.')}>{t('Seen in part')}</span>{/if}
             </header>
             {#if selected !== current && selected.folders > 0}
               <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" onclick={() => selected && enter(selected)}><i class="bi bi-box-arrow-in-down-right" aria-hidden="true"></i>{t('Open ({count} sub-folders)', { count: selected.folders })}</button>
@@ -601,7 +606,7 @@
             <ol class="fx__time">
               <li><span class="is-c"></span><b>{t('Created')}</b><small>{selected.created_at ? formatDate(selected.created_at) : '—'}</small></li>
               <li><span class="is-m"></span><b>{t('Last change')}</b><small>{selected.last_modified ? formatDate(selected.last_modified) : '—'}</small></li>
-              <li><span class="is-a"></span><b>{t('Last access')}</b><small>{selected.last_access ? formatDate(selected.last_access) : '—'}</small></li>
+              <li title={t('Windows updates the last access late (up to an hour) or not at all when it is turned off on the server: an indication only.')}><span class="is-a"></span><b>{t('Last access (indicative)')}</b><small>{selected.last_access ? formatDate(selected.last_access) : '—'}</small></li>
             </ol>
             <dl>
               <dt>{t('Volume')}</dt><dd>{formatBytes(selected.bytes)} · {pct(selected.bytes, root.bytes)} %</dd>
@@ -621,12 +626,13 @@
             {:else}
               <ul class="fx__acl">
                 {#each selected.acl as ace (ace.who + ace.level)}
-                  <li class:is-own={!ace.inherited}>
-                    <span><b>{ace.who}</b><small>{ace.inherited ? t('inherited') : t('set on this folder')}</small></span>
+                  <li class:is-own={!ace.inherited} class:is-orphan={ace.orphan}>
+                    <span><b>{ace.who}</b><small>{ace.orphan ? `${t('account deleted from the directory (orphan SID)')} · ` : ''}{ace.inherited ? t('inherited') : t('set on this folder')}</small></span>
                     <em class={`is-${ace.level.replace('!', 'deny-')}`}>{levelLabel(ace.level)}</em>
                   </li>
                 {/each}
               </ul>
+              {#if (selected.acl_total ?? 0) > selected.acl.length}<p class="fx__hint">{t('and {count} more right(s) not kept by the measure (20 shown at most)', { count: (selected.acl_total ?? 0) - selected.acl.length })}</p>{/if}
               {#if selected.inheritance_broken && isAdmin && selected.path}
                 <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={acting} onclick={() => selected && restoreInheritance(selected)}><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{t('Restore the inheritance')}</button>
               {/if}
@@ -660,7 +666,7 @@
 <ConfirmActionModal
   open={Boolean(archiving)}
   title={t('Archive « {name} »', { name: archiving?.name ?? '' })}
-  subtitle={t('The folder ({size}) moves whole to « _B2S_Archives » at the root of the same share: its users no longer find it at its place. It can be restored at any time from the duplicates page (Quarantine).', { size: formatBytes(archiving?.bytes ?? 0) })}
+  subtitle={t('The folder ({size}) moves whole to « _B2S_Archives » at the root of the same share: its users no longer find it at its place. Nothing is deleted, it can be restored at any time from Duplicates › Quarantine, and the move is written to the audit log.', { size: formatBytes(archiving?.bytes ?? 0) })}
   confirmLabel={t('Archive')}
   onConfirm={confirmArchive}
   onClose={() => (archiving = null)}
@@ -781,6 +787,8 @@
   .fx__acl li b { font-weight: 500; overflow-wrap: anywhere; }
   .fx__acl li small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .fx__acl li.is-own b { color: #9A3412; }
+  .fx__acl li.is-orphan b { color: #6b7280; text-decoration: line-through dotted; }
+  .fx__partial { color: #b45309; font-size: 12px; }
   .fx__acl em { font-style: normal; font-size: var(--b2s-fs-xs); font-weight: 600; white-space: nowrap; }
   .fx__acl em.is-F { color: #991B1B; }
   .fx__acl em.is-W { color: #1D4ED8; }

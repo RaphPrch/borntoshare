@@ -147,3 +147,62 @@ def server_state(host: str, db: Session = Depends(get_db)):
     wait = int((retry_at - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds()) if state.get("waiting") and retry_at else 0
     return ui_data({"host": state.get("host"), "down": bool(state.get("down")), "waiting": bool(state.get("waiting")),
                     "failures": int(state.get("failures") or 0), "wait_seconds": max(0, wait)})
+
+
+# What the 5S module does to the files (moves, archives, restores, purges) and its settings: written to the chained
+# audit log of the core, never only to the module's own tables. The module sends the person (x-identity-id…) when a
+# person acted, nothing when its scanner did.
+FIVES_AUDIT_ACTIONS = (
+    "storage_root.duplicate_decided",
+    "storage_root.duplicate_decision_removed",
+    "storage_root.duplicates_quarantine_requested",
+    "storage_root.duplicates_quarantined",
+    "storage_root.folder_archive_requested",
+    "storage_root.folder_archived",
+    "storage_root.quarantine_restore_requested",
+    "storage_root.quarantine_restored",
+    "storage_root.quarantine_purged",
+    "infrastructure.fives_settings_updated",
+)
+
+
+class FivesAuditPayload(BaseModel):
+    action: str = Field(min_length=3, max_length=80)
+    outcome: str = Field(default="success", pattern="^(success|failure)$")
+    storage_root_id: int | None = Field(default=None, gt=0)
+    context: dict = Field(default_factory=dict)
+
+
+@router.post("/audit")
+def fives_audit(payload: FivesAuditPayload, request: Request, db: Session = Depends(get_db)):
+    from fastapi import HTTPException
+
+    from app.services.activity_log import log_activity
+
+    if payload.action not in FIVES_AUDIT_ACTIONS:
+        raise HTTPException(status_code=422, detail={"error_code": "FIVES_AUDIT_ACTION_UNKNOWN", "message": "Unknown 5S audit action"})
+    actor = actor_from_request(request)
+    target_type = target_id = target_display = None
+    if payload.storage_root_id:
+        root = lookups_repo.storage_root(db, int(payload.storage_root_id))
+        if root is None:
+            raise HTTPException(status_code=404, detail="Storage root not found")
+        target_type, target_id, target_display = "storage_root", str(root.id), str(root.root_path or root.name or root.id)
+    elif payload.action.startswith("infrastructure."):
+        target_type, target_display = "infrastructure", "Module 5S"
+    # Written before the module answers the person: the event is in the log even if the action then fails
+    log_activity(
+        db,
+        actor_type="user" if actor.identity_id is not None else "system",
+        actor_id=actor.identity_id,
+        actor_display=actor.display_name or ("Module 5S" if actor.identity_id is None else None),
+        action=payload.action,
+        outcome=payload.outcome,
+        target_type=target_type,
+        target_id=target_id,
+        target_display=target_display,
+        context_json={**payload.context, "module": "fives"},
+        correlation_id=(request.headers.get("x-request-id") or None),
+        background=False,
+    )
+    return ui_data({"recorded": True})

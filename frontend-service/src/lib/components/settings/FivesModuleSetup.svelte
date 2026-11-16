@@ -12,7 +12,7 @@
 
   let { enabled = false }: Props = $props();
 
-  type Health = { status: string; schema: boolean };
+  type Health = { status: string; schema: boolean; missing?: string[] };
   let health: Health | null = $state(null);
   let reachable: boolean | null = $state(null);
 
@@ -31,7 +31,7 @@
 
 <section class="fm" aria-label={t('Module 5S on this installation')}>
   <header><h2>{t('Module 5S on this installation')}</h2>
-    {#if reachable === true}<span class="fm__pill" class:is-ok={health?.schema}>{health?.schema ? t('Installed') : t('Databases unreachable')}</span>
+    {#if reachable === true}<span class="fm__pill" class:is-ok={health?.schema}>{health?.schema ? t('Installed') : health?.missing?.length && !health.missing.includes('databases unreachable') ? t('Databases incomplete') : t('Databases unreachable')}</span>
     {:else if reachable === false}<span class="fm__pill is-warn">{t('Not installed')}</span>{/if}
   </header>
 
@@ -40,6 +40,10 @@
   {:else if reachable === false}
     <p>{t('The license opens the module, but its containers (fives-service, fives-scanner) do not run yet: its databases are not installed on this server.')}</p>
     <p class="fm__muted">{t('Run the installation wizard again (make wizard on the server) and paste the license key at its step « Licence et modules »: it creates the two databases of the module and its own account, then deploys by itself. Nothing is deleted. Come back here afterwards.')}</p>
+    <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={load}>{t('Check again')}</button>
+  {:else if !health?.schema && health?.missing?.length && !health.missing.includes('databases unreachable')}
+    <p>{t('The databases of the module miss tables or columns: the module waits and moves nothing until they are complete. Run make deploy on the server: it applies the SQL packs of the module.')}</p>
+    <p class="fm__muted">{t('Missing: {list}', { list: health.missing.slice(0, 8).join(', ') })}</p>
     <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={load}>{t('Check again')}</button>
   {:else if !health?.schema}
     <p>{t('The module answers but cannot reach its databases: check FIVES_DB_* in .env and the account b2s_fives.')}</p>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MeasureCompleteness, { type Completeness } from '$lib/components/storage-roots/MeasureCompleteness.svelte';
   import { fivesEnabled } from '$lib/utils/features';
   import { onDestroy, onMount } from 'svelte';
   import { page } from '$app/stores';
@@ -21,9 +22,9 @@
   type Run = { id: number; storage_root_id: number; folder_name: string | null; host: string; status: string; reason: string; mode: string | null;
     requested_by: string | null; requested_at: string | null; started_at: string | null; finished_at: string | null; scanner_id: string | null;
     progress: { chunks_total: number; chunks_done: number; chunks_kept: number; files: number; current: string | null; mode: string } | null;
-    summary: { mode: string; chunks_walked: number; chunks_kept: number; files: number; bytes: number; elapsed_ms: number } | null; error: string | null };
+    summary: { mode: string; chunks_walked: number; chunks_kept: number; files: number; bytes: number; elapsed_ms: number; completeness?: Completeness } | null; error: string | null };
   type Settings = { schedule_enabled: boolean; frequency: 'days' | 'hours'; window_start: string; window_end: string; per_server: number; interval_days: number;
-    interval_hours: number; full_every_days: number; hash_files_max: number };
+    interval_hours: number; full_every_days: number; hash_files_max: number; quarantine_purge_days: number };
   type Data = { runs: Run[]; counts: Record<string, number>; scanners: Array<{ id: string; last_seen: string }>; settings: Settings; in_window: boolean;
     next_window_at: string | null };
   type Root = Record<string, any>;
@@ -222,6 +223,7 @@
                   <span class="v2-bar is-accent sc5__bar"><i style={`width:${run.progress.chunks_total ? Math.round((run.progress.chunks_done / run.progress.chunks_total) * 100) : 0}%`}></i></span>
                   <span class="v2-sub">{run.progress.mode === 'incremental' ? t('incremental') : t('full walk')} · {run.progress.chunks_done}/{run.progress.chunks_total} · {run.progress.files.toLocaleString('fr-FR')} {t('file(s)')}{run.progress.current ? ` · ${run.progress.current}` : ''}</span>
                 {:else if run.summary}
+                  {#if run.summary.completeness}<span><MeasureCompleteness value={run.summary.completeness} compact /></span>{/if}
                   <span class="v2-sub">{run.summary.mode === 'incremental' ? t('incremental: {walked} sub-folder(s) walked, {kept} kept', { walked: run.summary.chunks_walked, kept: run.summary.chunks_kept }) : t('full walk')}
                     · {run.summary.files.toLocaleString('fr-FR')} {t('file(s)')} · {formatBytes(run.summary.bytes)} · {seconds(run.summary.elapsed_ms)}</span>
                 {:else if run.error}
@@ -295,6 +297,17 @@
         <label>{t('Scans at a time per server')}<input class="b2s-input" type="number" min="1" max="8" bind:value={form.per_server} /></label>
         <label>{t('Full walk every (days)')}<input class="b2s-input" type="number" min="1" max="365" bind:value={form.full_every_days} /></label>
         <label>{t('Fingerprints per piece (duplicates)')}<input class="b2s-input" type="number" min="0" max="500000" step="1000" bind:value={form.hash_files_max} /></label>
+        <fieldset class="sc5__purge">
+          <legend>{t('Quarantine of duplicates')}</legend>
+          <label class="sc5__check"><input type="radio" name="purge" checked={!form.quarantine_purge_days} onchange={() => form && (form.quarantine_purge_days = 0)} />
+            {t('Keep the copies in quarantine until someone restores or deletes them (recommended)')}</label>
+          <label class="sc5__check"><input type="radio" name="purge" checked={form.quarantine_purge_days > 0} onchange={() => form && (form.quarantine_purge_days = form.quarantine_purge_days || 90)} />
+            {t('Delete them for good after')}
+            <input class="b2s-input sc5__days" type="number" min="1" max="3650" disabled={!form.quarantine_purge_days} bind:value={form.quarantine_purge_days} aria-label={t('Days in quarantine before deletion')} /> {t('days')}</label>
+          {#if form.quarantine_purge_days > 0}
+            <p class="sc5__warn"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {t('A purged copy cannot come back. Each copy is checked identical to the copy kept before it moves, and checked again before it is deleted; every purge is written to the audit log.')}</p>
+          {/if}
+        </fieldset>
         <p class="sc5__hint">{t('Between two full walks, only the sub-folders where the NTFS change journal shows a change are walked again. A server that cannot be walked on (DFS namespace, no WinRM) is measured through SMB by the worker of the core.')}</p>
         <div class="sc5__btns"><button type="submit" class="b2s-btn b2s-btn-primary" disabled={busy}>{t('Save')}</button></div>
       </form>
@@ -329,4 +342,9 @@
   .sc5__hint { grid-column: 1 / -1; margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .sc5__summary { font-weight: 600; color: var(--b2s-color-text); }
   .sc5__btns { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+  .sc5__purge { grid-column: 1 / -1; display: grid; gap: 8px; margin: 4px 0 0; padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: 12px; }
+  .sc5__purge legend { padding: 0 6px; font-size: var(--b2s-fs-sm); font-weight: 600; }
+  .sc5__purge .sc5__check { font-weight: 400; }
+  .sc5__days { width: 90px; height: 32px; }
+  .sc5__warn { margin: 0; color: #8a4b00; font-size: var(--b2s-fs-xs); }
 </style>

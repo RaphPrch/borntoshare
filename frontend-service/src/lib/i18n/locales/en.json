@@ -268,6 +268,42 @@
       "measure_requested": {
         "title": "Measure requested",
         "description": "The worker measures « {target} »: size, age of the data, clutter and duplicates"
+      },
+      "duplicate_decided": {
+        "title": "Copy to keep chosen",
+        "description": "« {folder} » kept among {count} identical copies"
+      },
+      "duplicate_decision_removed": {
+        "title": "Decision on duplicates taken back",
+        "description": "No copy chosen any more for this group of {count} copies"
+      },
+      "duplicates_quarantine_requested": {
+        "title": "Quarantine requested",
+        "description": "{count} copy(ies), {volume}, of « {target} » to verify then move"
+      },
+      "duplicates_quarantined": {
+        "title": "Duplicates moved to quarantine",
+        "description": "{count} copy(ies) verified identical and moved in « {target} » {reason}"
+      },
+      "folder_archive_requested": {
+        "title": "Archive requested",
+        "description": "« {folder} » will be moved to the archives of the share"
+      },
+      "folder_archived": {
+        "title": "Folder archived",
+        "description": "« {folder} » moved to the archives {reason}"
+      },
+      "quarantine_restore_requested": {
+        "title": "Restore requested",
+        "description": "« {folder} » goes back to its place"
+      },
+      "quarantine_restored": {
+        "title": "Restored",
+        "description": "« {folder} » is back in its place {reason}"
+      },
+      "quarantine_purged": {
+        "title": "Quarantine purged",
+        "description": "{count} copy(ies) deleted for good from « {target} » (purge after {days} days)"
       }
     },
     "access_request": {
@@ -818,6 +854,10 @@
       "policies_run": {
         "title": "Policies evaluated",
         "description": "The smart policies were evaluated on every folder"
+      },
+      "fives_settings_updated": {
+        "title": "5S module settings changed",
+        "description": "{reason}"
       }
     },
     "naming_policy": {

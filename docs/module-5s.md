@@ -45,20 +45,45 @@ Pilot répond aux questions de volume (dossiers jamais mesurés, données froide
 
 ## Actions
 
+Réservées aux **administrateurs** et aux **gardiens du dossier** (vérifié par fives-service auprès du Core, quelle
+que soit l'interface), et seulement **sous** le dossier gouverné : jamais le dossier lui-même, un dossier voisin du
+même partage, ni les dossiers `_B2S_Quarantaine` et `_B2S_Archives`. Chaque demande et chaque résultat est inscrit
+au **journal d'audit chaîné du Core** ; si le journal ne peut pas l'enregistrer, rien n'est fait.
+
 | Action | Effet | Garde-fous |
 |---|---|---|
-| Écarter des doublons | les copies vont en **quarantaine** (`_B2S_Quarantaine\<date>\…` sur le même partage) | confirmation au-delà de 50 Go ; restauration possible ; purge à 30 jours |
+| Écarter des doublons | les copies vont en **quarantaine** (`_B2S_Quarantaine\<date>\…` sur le même partage) | juste avant le déplacement, sur le serveur : SHA-256 **complet** de la copie et de la copie gardée, comparés ; taille et date de modification égales à celles de la mesure ; vérifiée de nouveau une fois déplacée (remise en place si elle a changé) ; confirmation au-delà de 50 Go ; rien n'est écrasé |
+| Restaurer | la copie ou le dossier revient à sa place | refusé si quelque chose occupe la place ; signale une copie modifiée en quarantaine |
+| Purger la quarantaine | suppression définitive des copies | **désactivée par défaut** ; un administrateur choisit un délai (Inventory › Réglages) ; empreinte vérifiée avant suppression |
 | Archiver un dossier | il part dans `_B2S_Archives\<date>\<chemin>` | jamais purgé ; restaurable |
 | Rétablir l'héritage d'un sous-dossier | réactive l'héritage NTFS et retire les entrées en double | administrateurs ; chemin limité à l'intérieur du dossier gouverné |
 
+Les chemins sont contrôlés deux fois : par fives-service (chemin relatif au partage, sans `..`, `:` ni caractère
+générique) et par le script PowerShell, sur les chemins complets résolus, avant tout déplacement ou suppression.
+
 ## Fiabilité des mesures
 
+- **Complète, partielle ou échantillonnée** : chaque mesure le dit, avec ses raisons et les dossiers concernés
+  (Explorer, Inventory, fiche du dossier). Partielle : liste de fichiers coupée (300 000 par morceau), plus de
+  50 000 dossiers ou ACL dans un morceau, dossiers illisibles, droits illisibles, morceau illisible (sa mesure
+  précédente est gardée). Échantillonnée : doublons cherchés sur une partie des fichiers de même taille
+  (`hash_files_max`) ou empreintes encore en cours. Les doublons **entre** dossiers sont toujours une estimation
+  (plus gros fichiers de chaque dossier).
+- Les droits sont lus en SID : un compte supprimé de l'annuaire reste visible comme SID orphelin, au lieu de faire
+  disparaître tous les droits du dossier ; au plus 20 entrées gardées par dossier, le total est indiqué.
+- Les dossiers vides ont leur ligne dans l'arborescence.
+- Le dernier accès est indicatif : Windows le met à jour en différé, ou pas du tout s'il est désactivé.
+- Un seul calcul du score 5S (fives-service) : la tendance de l'atelier enregistre, après chaque mesure, le même
+  score que la page Analytics. Les anciens points (calcul du scanner, avant 11/2026) sont gardés mais pas mélangés.
 - Une mesure vide ne remplace jamais une mesure pleine : le dossier passe en alerte « dossier illisible » et garde
   ses chiffres (`fives_unreadable:<dossier>`).
 - Les trois mesures précédentes sont gardées, et rétablissables depuis le Rapport.
 - Un parcours interrompu par un redémarrage reprend au démarrage du scanner ; les appels vers core-service sont
   relancés (2, 5, 15, 30, 60 s).
 - `make deploy` refuse de redémarrer le module pendant un parcours (`FORCE=1` pour passer outre).
+- Schéma : fives-service et fives-scanner vérifient toutes les tables et colonnes des paquets SQL du module. Tant
+  qu'il en manque, le service répond 503 `SCHEMA_NOT_READY` (l'écran Settings › Fonctionnalités dit lesquelles) et
+  le scanner ne prend ni scan ni déplacement.
 
 Le compte du serveur de fichiers doit pouvoir ouvrir une session WinRM en Kerberos et lire tout le dossier : voir
 [droits-ad.md](droits-ad.md#le-compte-du-serveur-de-fichiers).

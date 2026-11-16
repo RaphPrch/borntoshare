@@ -228,7 +228,7 @@
           </ul>
         {/if}
         {#if shared?.files}
-          <p><b>{size(shared.bytes)}</b> {t('also present in {count} other folder(s)', { count: shared.with.length })}</p>
+          <p title={t('Estimate from the biggest files of each folder only')}>{t('At least')} <b>{size(shared.bytes)}</b> {t('also present in {count} other folder(s)', { count: shared.with.length })}</p>
           <ul class="cc__dup-list">
             {#each shared.examples as file (file.path)}
               <li><span class="cc__dup-n"><i class="bi bi-files" aria-hidden="true"></i></span><span class="cc__dup-paths"><code title={file.path} data-copy={file.path}>{file.path}</code><small>{t('also in')} {file.also_in.join(', ')}</small></span><span class="cc__dup-size">{size(file.size)}</span></li>

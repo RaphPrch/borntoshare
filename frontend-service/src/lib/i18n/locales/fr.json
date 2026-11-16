@@ -1125,6 +1125,42 @@
       "measure_requested": {
         "title": "Mesure demandée",
         "description": "Le worker mesure « {target} » : taille, âge des données, fichiers parasites et doublons"
+      },
+      "duplicate_decided": {
+        "title": "Copie à garder choisie",
+        "description": "« {folder} » gardée parmi {count} copies identiques"
+      },
+      "duplicate_decision_removed": {
+        "title": "Décision sur des doublons reprise",
+        "description": "Plus de copie choisie pour ce groupe de {count} copies"
+      },
+      "duplicates_quarantine_requested": {
+        "title": "Mise en quarantaine demandée",
+        "description": "{count} copie(s), {volume}, de « {target} » à vérifier puis déplacer"
+      },
+      "duplicates_quarantined": {
+        "title": "Doublons mis en quarantaine",
+        "description": "{count} copie(s) vérifiée(s) à l'identique et déplacée(s) dans « {target} » {reason}"
+      },
+      "folder_archive_requested": {
+        "title": "Archivage demandé",
+        "description": "« {folder} » sera déplacé dans les archives du partage"
+      },
+      "folder_archived": {
+        "title": "Dossier archivé",
+        "description": "« {folder} » déplacé dans les archives {reason}"
+      },
+      "quarantine_restore_requested": {
+        "title": "Restauration demandée",
+        "description": "« {folder} » doit revenir à sa place"
+      },
+      "quarantine_restored": {
+        "title": "Restauré",
+        "description": "« {folder} » est revenu à sa place {reason}"
+      },
+      "quarantine_purged": {
+        "title": "Quarantaine purgée",
+        "description": "{count} copie(s) supprimée(s) définitivement de « {target} » (purge après {days} jours)"
       }
     },
     "access_request": {
@@ -1675,6 +1711,10 @@
       "policies_run": {
         "title": "Politiques évaluées",
         "description": "Les politiques intelligentes ont été évaluées sur tous les dossiers"
+      },
+      "fives_settings_updated": {
+        "title": "Réglages du module 5S modifiés",
+        "description": "{reason}"
       }
     },
     "naming_policy": {
@@ -5281,5 +5321,75 @@
   "Copy the e-mail": "Copier l’e-mail",
   "Copy the identifier": "Copier l’identifiant",
   "Copy the login": "Copier le login",
-  "Open the target": "Ouvrir la cible"
+  "Open the target": "Ouvrir la cible",
+  "Complete inventory": "Inventaire complet",
+  "Partial inventory": "Inventaire partiel",
+  "Sampled duplicates": "Doublons échantillonnés",
+  "File list cut: more than 300,000 files in {count} part(s), the explorer does not show them all": "Liste des fichiers coupée : plus de 300 000 fichiers dans {count} partie(s), l'Explorer ne les montre pas tous",
+  "More than 50,000 folders in {count} part(s): the tree is incomplete there": "Plus de 50 000 dossiers dans {count} partie(s) : l'arborescence y est incomplète",
+  "Rights of more than 50,000 folders in {count} part(s): not all kept": "Droits de plus de 50 000 dossiers dans {count} partie(s) : pas tous conservés",
+  "Rights of {count} folder(s) could not be read": "Les droits de {count} dossier(s) n'ont pas pu être lus",
+  "{count} folder(s) could not be opened (access refused): their content is not counted": "{count} dossier(s) n'ont pas pu être ouverts (accès refusé) : leur contenu n'est pas compté",
+  "{count} part(s) unreadable: their previous measure is kept": "{count} partie(s) illisible(s) : leur mesure précédente est conservée",
+  "Duplicates searched among part of the same-size files only ({count} part(s))": "Doublons cherchés parmi une partie seulement des fichiers de même taille ({count} partie(s))",
+  "Fingerprints not all computed yet ({count} part(s)): duplicates are provisional": "Empreintes pas encore toutes calculées ({count} partie(s)) : doublons provisoires",
+  "This inventory is partial": "Cet inventaire est partiel",
+  "Duplicates are an estimate": "Les doublons sont une estimation",
+  "{count} right(s) given to accounts deleted from the directory (orphan SIDs)": "{count} droit(s) donné(s) à des comptes supprimés de l'annuaire (SID orphelins)",
+  "Quarantine of duplicates": "Quarantaine des doublons",
+  "Keep the copies in quarantine until someone restores or deletes them (recommended)": "Garder les copies en quarantaine jusqu'à ce qu'on les restaure ou les supprime (recommandé)",
+  "Delete them for good after": "Les supprimer définitivement après",
+  "Days in quarantine before deletion": "Jours en quarantaine avant suppression",
+  "A purged copy cannot come back. Each copy is checked identical to the copy kept before it moves, and checked again before it is deleted; every purge is written to the audit log.": "Une copie purgée ne peut plus revenir. Chaque copie est vérifiée identique à la copie gardée avant d'être déplacée, puis vérifiée de nouveau avant d'être supprimée ; chaque purge est inscrite au journal d'audit.",
+  "Not a duplicate: its whole content differs from the copy kept. Left in place.": "Pas un doublon : son contenu complet diffère de la copie gardée. Laissée en place.",
+  "Modified since the measure: left in place. Measure the folder again.": "Modifiée depuis la mesure : laissée en place. Mesurez de nouveau le dossier.",
+  "The copy to keep is no longer there: nothing was moved.": "La copie à garder n'est plus là : rien n'a été déplacé.",
+  "The file is no longer there.": "Le fichier n'est plus là.",
+  "Something is already at the destination: nothing is overwritten.": "Quelque chose existe déjà à la destination : rien n'est écrasé.",
+  "The copy to move is the copy kept.": "La copie à déplacer est la copie gardée.",
+  "Path outside the governed folder: refused.": "Chemin hors du dossier gouverné : refusé.",
+  "Not a file: refused.": "Pas un fichier : refusé.",
+  "The copy changed while in quarantine.": "La copie a changé pendant qu'elle était en quarantaine.",
+  "{count} copy(ies) to verify then move ({size}): the scanner compares each one with the copy kept first.": "{count} copie(s) à vérifier puis déplacer ({size}) : le scanner compare d'abord chacune avec la copie gardée.",
+  "{count} copy(ies) left aside: the copy kept is no longer known or the path is outside the folder. Measure the folder again.": "{count} copie(s) laissée(s) de côté : la copie gardée n'est plus connue ou le chemin sort du dossier. Mesurez de nouveau le dossier.",
+  "Probable duplicates: same size and same fingerprint (start and end of the files). Choose the copy to keep; the decision is recorded, nothing moves from here.": "Doublons probables : même taille et même empreinte (début et fin des fichiers). Choisissez la copie à garder ; la décision est enregistrée, rien ne bouge depuis cette page.",
+  "Before a copy moves to quarantine, the scanner compares its whole content with the copy kept, on the server: a copy that differs, or that changed since the measure, stays in place.": "Avant qu'une copie parte en quarantaine, le scanner compare son contenu complet avec la copie gardée, sur le serveur : une copie différente, ou modifiée depuis la mesure, reste en place.",
+  "The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them within {days} days, then they are deleted for good.": "Les copies déplacées restent dans « _B2S_Quarantaine » à la racine du partage, avec leur chemin : restaurez-les dans les {days} jours, ensuite elles sont supprimées définitivement.",
+  "The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path, until someone restores them: nothing is deleted automatically.": "Les copies déplacées restent dans « _B2S_Quarantaine » à la racine du partage, avec leur chemin, jusqu'à ce qu'on les restaure : rien n'est supprimé automatiquement.",
+  "Verified identical to the copy kept": "Vérifiée identique à la copie gardée",
+  "{count} copies ({size}) leave their folder for « _B2S_Quarantaine » on the same share. Each one is first compared in full with the copy kept: only an identical copy moves, and each one can be restored.": "{count} copies ({size}) quittent leur dossier pour « _B2S_Quarantaine » sur le même partage. Chacune est d'abord comparée en entier à la copie gardée : seule une copie identique est déplacée, et chacune peut être restaurée.",
+  "Data untouched for 1 to 3 years counts half, over 3 years fully; duplicates in the folder fully, shared with other folders half": "Données non modifiées depuis 1 à 3 ans comptées à moitié, depuis plus de 3 ans en entier ; doublons du dossier en entier, partagés avec d'autres dossiers à moitié",
+  "Two guardians or more, a tag and a quota": "Deux gardiens ou plus, un tag et un quota",
+  "No password, key or token in the files, few clutter files": "Aucun mot de passe, clé ou jeton dans les fichiers, peu de fichiers parasites",
+  "Inheritance as expected, no error alert, the folder reachable": "Héritage conforme, aucune alerte en erreur, dossier joignable",
+  "Measured within 30 days, sensitivity scanned within 90 days, corrections and requests handled": "Mesuré depuis moins de 30 jours, sensibilité analysée depuis moins de 90 jours, corrections et demandes traitées",
+  "same score as the 5S page": "le même score que la page 5S",
+  "Seen in part by the last measure": "Vu en partie par la dernière mesure",
+  "The trend starts with the next measure: each measure keeps the score of the 5S page.": "La tendance commence à la prochaine mesure : chaque mesure garde le score de la page 5S.",
+  "{count} older point(s) of a former computation are not shown.": "{count} point(s) plus ancien(s), d'un calcul précédent, ne sont pas affichés.",
+  "not judged: no measure or scan yet": "non évalué : pas encore de mesure ni d'analyse",
+  "A part of this folder could not be read or listed in full by the last measure: its figures may be below reality.": "Une partie de ce dossier n'a pas pu être lue ou listée entièrement par la dernière mesure : ses chiffres peuvent être en dessous de la réalité.",
+  "Seen in part": "Vu en partie",
+  "Windows updates the last access late (up to an hour) or not at all when it is turned off on the server: an indication only.": "Windows met à jour le dernier accès en différé (jusqu'à une heure), ou pas du tout quand c'est désactivé sur le serveur : une indication seulement.",
+  "Last access (indicative)": "Dernier accès (indicatif)",
+  "account deleted from the directory (orphan SID)": "compte supprimé de l'annuaire (SID orphelin)",
+  "and {count} more right(s) not kept by the measure (20 shown at most)": "et {count} autre(s) droit(s) non conservé(s) par la mesure (20 affichés au plus)",
+  "The folder ({size}) moves whole to « _B2S_Archives » at the root of the same share: its users no longer find it at its place. Nothing is deleted, it can be restored at any time from Duplicates › Quarantine, and the move is written to the audit log.": "Le dossier ({size}) part en entier dans « _B2S_Archives » à la racine du même partage : ses utilisateurs ne le trouvent plus à sa place. Rien n'est supprimé, il peut être restauré à tout moment depuis Doublons › Quarantaine, et le déplacement est inscrit au journal d'audit.",
+  "Databases incomplete": "Bases incomplètes",
+  "The databases of the module miss tables or columns: the module waits and moves nothing until they are complete. Run make deploy on the server: it applies the SQL packs of the module.": "Il manque des tables ou des colonnes aux bases du module : il attend et ne déplace rien tant qu'elles ne sont pas complètes. Lancez make deploy sur le serveur : il applique les paquets SQL du module.",
+  "Missing: {list}": "Manquant : {list}",
+  "at least {size} also in {count} other folder(s)": "au moins {size} aussi dans {count} autre(s) dossier(s)",
+  "Between folders: an estimate from the biggest files of each folder (at least this much); inside a folder: every file of the same size, compared by fingerprint.": "Entre dossiers : une estimation à partir des plus gros fichiers de chaque dossier (au moins ce volume) ; dans un dossier : tous les fichiers de même taille, comparés par empreinte.",
+  "Estimate from the biggest files of each folder only": "Estimation à partir des plus gros fichiers de chaque dossier seulement",
+  "At least": "Au moins",
+  "Only the administrators and the guardians of this folder may do this": "Seuls les administrateurs et les gardiens de ce dossier peuvent faire cela",
+  "Sign in to act on this folder": "Connectez-vous pour agir sur ce dossier",
+  "This path is not inside the governed folder": "Ce chemin n'est pas dans le dossier gouverné",
+  "The governed folder itself cannot be moved: choose one of its sub-folders": "Le dossier gouverné lui-même ne peut pas être déplacé : choisissez un de ses sous-dossiers",
+  "The path holds an empty, « . » or « .. » part": "Le chemin contient une partie vide, « . » ou « .. »",
+  "The path holds a forbidden character": "Le chemin contient un caractère interdit",
+  "The quarantine and archive folders of the module cannot be acted on": "Les dossiers de quarantaine et d'archives du module ne peuvent pas être touchés",
+  "No path given": "Aucun chemin indiqué",
+  "This copy is not in the group any more: measure the folder again": "Cette copie ne fait plus partie du groupe : mesurez de nouveau le dossier",
+  "This folder, or a part of it, is already archived or being moved": "Ce dossier, ou une partie, est déjà archivé ou en cours de déplacement"
 }

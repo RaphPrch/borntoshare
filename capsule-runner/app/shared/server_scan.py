@@ -33,7 +33,7 @@ if (-not (Test-Path -LiteralPath $local -PathType Container)) { Send-Result @{ e
 $cut = $base.Length + 1
 $now = [DateTime]::UtcNow
 $watch = [Diagnostics.Stopwatch]::StartNew()
-$state = @{ denied = 0; last = [DateTime]::MinValue; listed = 0; pending = 0 }
+$state = @{ denied = 0; last = [DateTime]::MinValue; listed = 0; pending = 0; aclFailed = 0 }
 # Depth-first walk that goes on when a folder cannot be read (counted in $denied)
 function Walk([string]$root, [scriptblock]$onFile, [scriptblock]$onDir) {
   $stack = New-Object 'System.Collections.Generic.Stack[System.IO.DirectoryInfo]'
@@ -70,26 +70,45 @@ _MEASURE = _COMMON + r"""
 $junk = [regex]::new($p.junk_pattern, 'IgnoreCase')
 $t = @{ bytes = [long]0; files = 0; folders = 0 }
 $top = @{}; $types = @{}; $dirStats = @{}; $dirAcls = @{}
-# Rights of each folder (5S scanner only, with_dirs): its entries « account|R/W/F|inherited » and whether its
-# inheritance is broken (rules protected); the folder walked first, then each sub-folder met
+# Rights of each folder (5S scanner only, with_dirs): its entries « account|R/W/F|inherited » (at most 20, n = how many
+# there are) and whether its inheritance is broken (rules protected); the folder walked first, then each sub-folder
+# met. Read as SIDs and translated one by one: an account deleted from the directory (orphan SID) stays as its SID
+# (u = how many) instead of making the whole list unreadable.
+$sidNames = @{}
 $aclOf = {
   param($path)
   try {
     $sec = [System.IO.Directory]::GetAccessControl($path)
     $relDir = ''; if ($path.Length -ge $cut) { $relDir = $path.Substring($cut) }
     $entries = New-Object 'System.Collections.Generic.List[string]'
-    foreach ($rule in $sec.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])) {
-      if ($entries.Count -ge 20) { break }
+    $total = 0; $unresolved = 0
+    foreach ($rule in $sec.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
+      $total++
+      $sid = $rule.IdentityReference.Value
+      if (-not $sidNames.ContainsKey($sid)) {
+        try { $sidNames[$sid] = $rule.IdentityReference.Translate([System.Security.Principal.NTAccount]).Value } catch { $sidNames[$sid] = $null }
+      }
+      $who = $sidNames[$sid]; if (-not $who) { $who = $sid; $unresolved++ }
+      if ($entries.Count -ge 20) { continue }
       $rights = [string]$rule.FileSystemRights
       $level = if ($rights -match 'FullControl') { 'F' } elseif ($rights -match 'Modify|Write') { 'W' } else { 'R' }
       if ([string]$rule.AccessControlType -eq 'Deny') { $level = '!' + $level }
       $inh = if ($rule.IsInherited) { '1' } else { '0' }
-      $entries.Add("$($rule.IdentityReference.Value)|$level|$inh")
+      $entries.Add("$who|$level|$inh")
     }
-    $dirAcls[$relDir] = [pscustomobject]@{ p = $relDir; x = [bool]$sec.AreAccessRulesProtected; e = $entries.ToArray() }
-  } catch { }
+    $dirAcls[$relDir] = [pscustomobject]@{ p = $relDir; x = [bool]$sec.AreAccessRulesProtected; e = $entries.ToArray(); n = $total; u = $unresolved }
+  } catch { $state.aclFailed++ }
 }
-if ($p.with_dirs) { & $aclOf $local }
+# Every folder met has its line (5S scanner only, with_dirs), files or not: an empty folder shows in the explorer
+$dirOf = {
+  param($d)
+  $dk = ''; if ($d.FullName.Length -ge $cut) { $dk = $d.FullName.Substring($cut).TrimEnd('\') }
+  if (-not $dirStats.ContainsKey($dk)) {
+    $made = [DateTime]::MinValue; try { $made = $d.CreationTimeUtc } catch { }
+    $dirStats[$dk] = @{ b = [long]0; f = 0; c1 = [long]0; c3 = [long]0; l = [DateTime]::MinValue; a = [DateTime]::MinValue; c = $made }
+  }
+}
+if ($p.with_dirs) { & $aclOf $local; & $dirOf ([System.IO.DirectoryInfo]::new($local)) }
 $cold1 = @{ bytes = [long]0; files = 0 }; $cold3 = @{ bytes = [long]0; files = 0 }
 $coldFiles = New-Object 'System.Collections.Generic.List[object]'
 $junkStat = @{ bytes = [long]0; files = 0; examples = New-Object 'System.Collections.Generic.List[string]' }
@@ -101,7 +120,7 @@ $ticks = New-Object 'System.Collections.Generic.Dictionary[string,long]'
 $allFiles = New-Object 'System.Collections.Generic.List[string]'; $filesMax = [int]$p.files_max; $filesCut = $false
 $y1 = $now.AddDays(-365); $y3 = $now.AddDays(-1095)
 $localCut = $local.TrimEnd('\').Length + 1
-$onDir = { param($d) $t.folders++; if ($p.with_dirs) { & $aclOf $d.FullName }; if ($d.Parent.FullName.TrimEnd('\') -eq $local.TrimEnd('\')) { if (-not $top.ContainsKey($d.Name)) { $top[$d.Name] = @{ bytes = [long]0; files = 0 } } } }
+$onDir = { param($d) $t.folders++; if ($p.with_dirs) { & $aclOf $d.FullName; & $dirOf $d }; if ($d.Parent.FullName.TrimEnd('\') -eq $local.TrimEnd('\')) { if (-not $top.ContainsKey($d.Name)) { $top[$d.Name] = @{ bytes = [long]0; files = 0 } } } }
 $onFile = {
   param($f)
   $size = [long]$f.Length; $rel = $f.FullName.Substring($cut); $when = $f.LastWriteTimeUtc
@@ -188,11 +207,16 @@ if ($p.defer_hash) {
     if ($same.Count -ge [int]$p.hash_files_max) { break }
     foreach ($full in $bySize[$size]) { $same.Add([pscustomobject]@{ p = $full.Substring($cut); s = [long]$size; t = $ticks[$full] }) }
   }
+  # Same-size files that would need a fingerprint, and whether hash_files_max cut that list (duplicates then sampled)
+  $candidates = 0; foreach ($size in @($bySize.Keys | Where-Object { $bySize[$_].Count -gt 1 })) { $candidates += [int]$bySize[$size].Count }
   # Objects, not [path, size] pairs: ConvertTo-Json of PowerShell 5.1 turns nested arrays into {value, Count}
-  $r.hash_todo = @{ same = @($same | ForEach-Object { $_ }); big = @($big | Sort-Object size -Descending | Select-Object -First ([int]$p.fingerprints_max) | ForEach-Object { [pscustomobject]@{ path = $_.path; size = [long]$_.size; modified = $_.modified; t = [long]$_.t } }) }
+  $r.hash_todo = @{ candidates = [int]$candidates; cut = [bool]($same.Count -lt $candidates); same = @($same | ForEach-Object { $_ }); big = @($big | Sort-Object size -Descending | Select-Object -First ([int]$p.fingerprints_max) | ForEach-Object { [pscustomobject]@{ path = $_.path; size = [long]$_.size; modified = $_.modified; t = [long]$_.t } }) }
   $r.duplicates = @{ groups = 0; files = 0; wasted_bytes = [long]0; truncated = $true; hashed = 0; deferred = $true; top = @() }
 }
 if ($p.with_dirs) {
+  # What did not fit in the answer is said, never dropped silently
+  $r.dirs_total = [int]$dirStats.Count; $r.dirs_truncated = [bool]($dirStats.Count -gt 50000)
+  $r.acls_truncated = [bool]($dirAcls.Count -gt 50000); $r.acls_failed = [int]$state.aclFailed
   $r.acls = @($dirAcls.Values | Select-Object -First 50000)
   $r.dirs = @($dirStats.GetEnumerator() | Select-Object -First 50000 | ForEach-Object {
     $l = $null; if ($_.Value.l -gt [DateTime]::MinValue) { $l = $_.Value.l.ToString('yyyy-MM-ddTHH:mm:ssZ') }

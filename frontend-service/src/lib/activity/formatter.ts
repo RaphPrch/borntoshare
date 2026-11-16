@@ -146,6 +146,10 @@ function varsFromEvent(ev: any) {
     // Quotas: the size asked or set, and the note of a refusal
     size: asStr((ctx as any)?.requested) ?? asStr((ctx as any)?.limit) ?? '',
     note: asStr((ctx as any)?.note) ?? '',
+    // 5S module: how many copies, their volume, the purge delay
+    count: asStr((ctx as any)?.count) ?? '',
+    volume: asStr((ctx as any)?.volume) ?? '',
+    days: asStr((ctx as any)?.days) ?? '',
     folder: asStr((ctx as any)?.dfs_path) ?? asStr((ctx as any)?.folder) ?? '',
     source: sourceLabel,
     target: targetDisplay,

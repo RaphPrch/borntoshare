@@ -244,11 +244,12 @@
                 {#each dupFolders.slice(0, 8) as folder (folder.id)}
                   <li><a class="v2-fi" href={`/five-s/duplicates/${folder.id}`}>
                     <div class="v2-fi__t"><b>{folder.name}</b>
-                      <small>{#if folder.inside}{t('{size} inside ({count} group(s))', { size: formatBytes(folder.inside), count: folder.groups })}{/if}{#if folder.inside && folder.shared}{' · '}{/if}{#if folder.shared}{t('{size} also in {count} other folder(s)', { size: formatBytes(folder.shared), count: folder.with })}{/if}</small></div>
+                      <small>{#if folder.inside}{t('{size} inside ({count} group(s))', { size: formatBytes(folder.inside), count: folder.groups })}{/if}{#if folder.inside && folder.shared}{' · '}{/if}{#if folder.shared}{t('at least {size} also in {count} other folder(s)', { size: formatBytes(folder.shared), count: folder.with })}{/if}</small></div>
                     <span class="v2-fi__r"><b>{formatBytes(folder.inside + folder.shared)}</b></span>
                   </a></li>
                 {/each}
               </ul>
+              {#if dupShared}<p class="fs__muted">{t('Between folders: an estimate from the biggest files of each folder (at least this much); inside a folder: every file of the same size, compared by fingerprint.')}</p>{/if}
             {/if}
           </div>
           <div class="v2-sec">

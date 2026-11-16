@@ -30,7 +30,25 @@
 
   // Quarantine: the copies « to delete » moved to \\share\\_B2S_Quarantaine\\<date>\\… (by the scanner), and back
   type Move = { id: number; kind?: string; path: string; quarantine_path: string; keep_path: string | null; size_bytes: number; status: string;
-    error: string | null; requested_by: string | null; requested_at: string; done_at: string | null; restored_by: string | null };
+    error: string | null; requested_by: string | null; requested_at: string; done_at: string | null; restored_by: string | null; content_sha256?: string | null };
+  // Days a copy stays in quarantine before it is deleted for good; 0: never (the default, an administrator changes it)
+  let purgeDays = $state(0);
+  /** Why a copy did not move, in plain words (the code comes first in the error of the scanner) */
+  function moveError(error: string | null): string {
+    const code = String(error ?? '').split(':', 1)[0].trim();
+    const texts: Record<string, string> = {
+      CONTENT_DIFFERS: t('Not a duplicate: its whole content differs from the copy kept. Left in place.'),
+      CHANGED: t('Modified since the measure: left in place. Measure the folder again.'),
+      KEEP_MISSING: t('The copy to keep is no longer there: nothing was moved.'),
+      SOURCE_MISSING: t('The file is no longer there.'),
+      TARGET_EXISTS: t('Something is already at the destination: nothing is overwritten.'),
+      SAME_FILE: t('The copy to move is the copy kept.'),
+      OUTSIDE: t('Path outside the governed folder: refused.'),
+      NOT_A_FILE: t('Not a file: refused.'),
+      CHANGED_IN_QUARANTINE: t('The copy changed while in quarantine.')
+    };
+    return texts[code] ?? String(error ?? '');
+  }
   let moves = $state<Move[]>([]);
   let confirming = $state(false);
   // Above 50 GB the move asks a second, explicit confirmation (the server refuses it otherwise)
@@ -53,8 +71,9 @@
     confirming = false;
     applying = true;
     try {
-      const result = await apiPostData<{ queued: number; bytes: number }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups/apply`, { confirm_large: confirmLarge });
-      toast.success(t('{count} copy(ies) sent to quarantine ({size}).', { count: result?.queued ?? 0, size: formatBytes(result?.bytes ?? 0) }));
+      const result = await apiPostData<{ queued: number; bytes: number; skipped?: number }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups/apply`, { confirm_large: confirmLarge });
+      toast.success(t('{count} copy(ies) to verify then move ({size}): the scanner compares each one with the copy kept first.', { count: result?.queued ?? 0, size: formatBytes(result?.bytes ?? 0) }));
+      if (result?.skipped) toast.info(t('{count} copy(ies) left aside: the copy kept is no longer known or the path is outside the folder. Measure the folder again.', { count: result.skipped }));
       await loadMoves();
     } catch (e: unknown) {
       reportUiError(e, t('Unable to apply the decisions.'), 'fives.duplicates.apply');
@@ -80,6 +99,7 @@
       rootName = String(overview?.storage_root_name ?? `#${rootId}`);
       groups = (await apiGetData<{ groups: Group[] }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups`, folderPath ? { path: folderPath } : undefined))?.groups ?? [];
       await loadMoves();
+      purgeDays = Number((await apiGetData<{ quarantine_purge_days?: number }>(fetch, '/modules/fives/settings').catch(() => null))?.quarantine_purge_days ?? 0);
     } catch {
       error = t('Unable to load the duplicates of this folder.');
     } finally {
@@ -149,7 +169,8 @@
   {:else}
     <header class="dd__head">
       <h1>{t('Duplicates · {name}', { name: rootName })}</h1>
-      <p>{t('Identical files (same fingerprint: same size and same content). Choose the copy to keep; the decision is recorded, nothing is deleted from here.')}</p>
+      <p>{t('Probable duplicates: same size and same fingerprint (start and end of the files). Choose the copy to keep; the decision is recorded, nothing moves from here.')}</p>
+      <p class="dd__safe"><i class="bi bi-shield-check" aria-hidden="true"></i>{t('Before a copy moves to quarantine, the scanner compares its whole content with the copy kept, on the server: a copy that differs, or that changed since the measure, stays in place.')}</p>
       {#if folderPath}<p class="dd__scope"><i class="bi bi-funnel" aria-hidden="true"></i>{t('Duplicates of « {path} »', { path: folderPath })} · <a href={`/five-s/duplicates/${rootId}`}>{t('see all')}</a></p>{/if}
     </header>
     <section class="dd__kpis">
@@ -215,13 +236,15 @@
     {#if moves.length}
       <section class="dd__q">
         <header><h2><i class="bi bi-archive" aria-hidden="true"></i>{t('Quarantine')}</h2>
-          <small>{t('The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them within 30 days, then they are deleted for good.')}</small></header>
+          <small>{purgeDays ? t('The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them within {days} days, then they are deleted for good.', { days: purgeDays })
+            : t('The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path, until someone restores them: nothing is deleted automatically.')}</small></header>
         <table class="b2s-table">
           <thead><tr><th>{t('Copy')}</th><th class="dd__num">{t('Size')}</th><th>{t('State')}</th><th>{t('By')}</th><th></th></tr></thead>
           <tbody>
             {#each moves as move (move.id)}
               <tr>
-                <td class="dd__mpath"><span>{base(move.path)}</span><code title={move.path} data-copy={move.path}>{folderOf(move.path)}</code>{#if move.error}<small class="dd__err">{move.error}</small>{/if}</td>
+                <td class="dd__mpath"><span>{base(move.path)}</span><code title={move.path} data-copy={move.path}>{folderOf(move.path)}</code>{#if move.error}<small class={move.status === 'restored' ? 'dd__note' : 'dd__err'} title={move.error}>{moveError(move.error)}</small>{/if}
+                  {#if move.content_sha256 && move.status === 'moved'}<small class="dd__ok" title={`SHA-256 ${move.content_sha256}`}><i class="bi bi-shield-check" aria-hidden="true"></i>{t('Verified identical to the copy kept')}</small>{/if}</td>
                 <td class="dd__num">{formatBytes(move.size_bytes)}</td>
                 <td><span class={`dd__state is-${move.status}`}>{move.kind === 'archive' && move.status === 'moved' ? t('Archived') : MOVE_LABEL()[move.status] ?? move.status}</span></td>
                 <td class="dd__by">{move.restored_by && move.status.startsWith('restor') ? move.restored_by : move.requested_by ?? '—'}<small>{formatDateTime(move.done_at ?? move.requested_at)}</small></td>
@@ -238,7 +261,7 @@
 <ConfirmActionModal
   open={confirming}
   title={t('Move the copies to quarantine')}
-  subtitle={t('{count} copies ({size}) leave their folder for « _B2S_Quarantaine » on the same share. The copy kept is checked first, a copy changed since the scan is left as it is, and each one can be restored.', { count: toMove.length, size: formatBytes(toMoveBytes) })}
+  subtitle={t('{count} copies ({size}) leave their folder for « _B2S_Quarantaine » on the same share. Each one is first compared in full with the copy kept: only an identical copy moves, and each one can be restored.', { count: toMove.length, size: formatBytes(toMoveBytes) })}
   confirmLabel={t('Move to quarantine')}
   onConfirm={applyDecisions}
   onClose={() => (confirming = false)}
@@ -293,6 +316,9 @@
   .dd__mpath { display: grid; max-width: 560px; }
   .dd__mpath code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); color: var(--b2s-color-text-muted); }
   .dd__err { color: #b42318; font-size: var(--b2s-fs-xs); }
+  .dd__note { color: #8a4b00; font-size: var(--b2s-fs-xs); }
+  .dd__ok { display: inline-flex; gap: 4px; align-items: center; color: #1a7f37; font-size: var(--b2s-fs-xs); }
+  .dd__safe { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px !important; padding: 8px 12px; border-radius: 10px; background: #effaf2; color: #14532d !important; }
   .dd__num { text-align: right; white-space: nowrap; }
   .dd__by { display: grid; font-size: var(--b2s-fs-sm); }
   .dd__by small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
