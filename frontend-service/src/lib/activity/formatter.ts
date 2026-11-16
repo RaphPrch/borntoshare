@@ -155,6 +155,7 @@ function varsFromEvent(ev: any) {
     target: targetDisplay,
     resource: targetDisplay,
     tag: tagLabel,
+    policy: asStr((ctx as any)?.policy) ?? '',
     owners_count: ownersCount,
     guardians_count: guardianIds.length,
     changes,

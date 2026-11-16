@@ -66,9 +66,9 @@
     apiGetData<Level>(fetch, `/modules/fives/storage-roots/${rootId}/folders`, path == null ? undefined : { path });
 
   // ---- tags of the sub-folders (policies « also on the sub-folders »), by lower-case path from the share ----
-  let folderTags = $state(new Map<string, Array<{ id: number; name: string; color: string | null }>>());
+  let folderTags = $state(new Map<string, Array<{ id: number; name: string; color: string | null; policy?: string | null; automatic?: boolean }>>());
   $effect.pre(() => {
-    if (rootId) void apiGetList<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }>(fetch, `/storage-roots/${rootId}/folder-tags`)
+    if (rootId) void apiGetList<{ path: string; tags: Array<{ id: number; name: string; color: string | null; policy?: string | null; automatic?: boolean }> }>(fetch, `/storage-roots/${rootId}/folder-tags`)
       .then((rows) => (folderTags = new Map(rows.map((row) => [row.path.toLowerCase(), row.tags]))))
       .catch(() => null);
   });
@@ -562,7 +562,7 @@
                   <tr class:is-sel={selected === folder} onclick={() => (selected = folder)} ondblclick={() => enter(folder)} oncontextmenu={(event) => openMenu(folder, event)}>
                     <td class="fx__name"><i class="bi bi-folder-fill" aria-hidden="true"></i>
                       {#if folder.folders > 0}<button type="button" class="b2s-link-btn" onclick={(event) => { event.stopPropagation(); enter(folder); }}>{folder.name}</button>{:else}<span>{folder.name}</span>{/if}
-                      {#each folderTags.get(folder.path.toLowerCase()) ?? [] as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} />{/each}</td>
+                      {#each folderTags.get(folder.path.toLowerCase()) ?? [] as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} policy={tag.policy ?? null} automatic={Boolean(tag.automatic)} />{/each}</td>
                     <td class="fx__num">{formatBytes(folder.bytes)}</td>
                     <td>{folder.created_at ? formatDate(folder.created_at) : '—'}</td>
                     <td>{folder.last_modified ? formatDate(folder.last_modified) : '—'}</td>

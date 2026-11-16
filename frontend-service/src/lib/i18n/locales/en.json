@@ -134,6 +134,14 @@
       "merged": {
         "title": "Tags merged",
         "description": "A tag was merged into \"{target}\""
+      },
+      "auto_attached": {
+        "title": "Tag set by a policy",
+        "description": "Tag \"{tag}\" was set on \"{target}\" by the policy \"{policy}\""
+      },
+      "auto_detached": {
+        "title": "Tag removed by a policy",
+        "description": "Tag \"{tag}\" was removed from \"{target}\": the folder no longer matches the policy \"{policy}\""
       }
     },
     "storage_root": {

@@ -54,9 +54,18 @@ def tag_has_links(db: Session, tag_id: int) -> bool:
 
 
 def drop_tag_links(db: Session, tag_id: int) -> None:
+    """The tag leaves every folder, and every sub-folder."""
     from app.data.models.storage_root_tag import storage_root_tag
 
     db.execute(storage_root_tag.delete().where(storage_root_tag.c.tag_id == int(tag_id)))
+    db.execute(text("DELETE FROM folder_tags WHERE tag_id = :tag"), {"tag": int(tag_id)})
+
+
+def move_folder_tags(db: Session, source_id: int, target_id: int) -> None:
+    """Two tags merged: the sub-folders that carried the first carry the second (once)."""
+    db.execute(text("""INSERT IGNORE INTO folder_tags (storage_root_id, path, path_hash, tag_id, policy_id, created_at)
+                       SELECT storage_root_id, path, path_hash, :target, policy_id, created_at FROM folder_tags WHERE tag_id = :source"""),
+               {"source": int(source_id), "target": int(target_id)})
 
 
 def link(db: Session, table: Any, resource_col: str, resource_id: int, tag_id: int) -> None:

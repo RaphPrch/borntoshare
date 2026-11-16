@@ -137,7 +137,7 @@
     >
       {#snippet renderItem({ item })}
           
-          <TagPill label={item.label} color={item.color_rgb ?? null} />
+          <TagPill label={item.label} color={item.color_rgb ?? null} policy={item.policy ?? null} automatic={Boolean(item.automatic)} />
         
           {/snippet}
     </DualListPicker>

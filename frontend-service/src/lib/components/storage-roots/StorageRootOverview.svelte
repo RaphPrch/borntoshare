@@ -25,7 +25,7 @@
 
   
   // Sub-folders tagged by the policies « also on the sub-folders » (path from the share)
-  let subTags: Array<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }> = $state([]);
+  let subTags: Array<{ path: string; tags: Array<{ id: number; name: string; color: string | null; policy?: string | null; automatic?: boolean }> }> = $state([]);
   let subTagsAll = $state(false);
   let subTagsFor: number | null = $state(null);
   const inner = (path: string) => path;
@@ -119,7 +119,7 @@
     if (rootId && rootId !== subTagsFor) {
       subTagsFor = rootId;
       subTagsAll = false;
-      void apiGetList<{ path: string; tags: Array<{ id: number; name: string; color: string | null }> }>(fetch, `/storage-roots/${rootId}/folder-tags`)
+      void apiGetList<{ path: string; tags: Array<{ id: number; name: string; color: string | null; policy?: string | null; automatic?: boolean }> }>(fetch, `/storage-roots/${rootId}/folder-tags`)
         .then((rows) => { if (subTagsFor === rootId) subTags = rows; })
         .catch(() => (subTags = []));
     }
@@ -190,7 +190,7 @@
       <div>
         <dt>{t('Tags')}</dt>
         <dd>
-          {#each tags as tag (tagId(tag))}<span class="ov__pill" animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}><TagPill label={tagLabel(tag)} color={tagColor(tag)} small={true} /></span>{/each}
+          {#each tags as tag (tagId(tag))}<span class="ov__pill" animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}><TagPill label={tagLabel(tag)} color={tagColor(tag)} small={true} policy={(tag as any).policy ?? null} automatic={Boolean((tag as any).automatic)} /></span>{/each}
           <button type="button" class="ov__add" onclick={onOpenTags}>{tags.length ? t('Manage') : t('+ Tag')}</button>
         </dd>
       </div>
@@ -200,7 +200,7 @@
           <dd class="ov__subtags">
             {#each subTags.slice(0, subTagsAll ? subTags.length : 4) as row (row.path)}
               <span class="ov__subtag"><a class="ov__plain" href={`/five-s/explore/${rootId}`} title={row.path}><i class="bi bi-folder" aria-hidden="true"></i>{inner(row.path)}</a>
-                {#each row.tags as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} />{/each}</span>
+                {#each row.tags as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} policy={tag.policy ?? null} automatic={Boolean(tag.automatic)} />{/each}</span>
             {/each}
             {#if subTags.length > 4 && !subTagsAll}<button type="button" class="ov__add" onclick={() => (subTagsAll = true)}>{t('Show the {count} others', { count: subTags.length - 4 })}</button>{/if}
           </dd>

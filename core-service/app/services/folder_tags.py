@@ -135,12 +135,16 @@ def apply(db: Session, policy_id: int, tag_id: int, root_id: int, paths: list[st
 
 
 def for_root(db: Session, root_id: int) -> list[dict[str, Any]]:
-    """[{path, tags: [{id, name, color}]}] of the sub-folders of a governed folder."""
-    rows = db.execute(text("""SELECT ft.path, t.id, t.name, t.color FROM folder_tags ft JOIN tags t ON t.id = ft.tag_id AND t.deleted_at IS NULL
+    """[{path, tags: [{id, name, color, policy, policy_id, automatic}]}] of the sub-folders of a governed folder
+    (a policy sets them all: its name says why the sub-folder carries the tag)."""
+    rows = db.execute(text("""SELECT ft.path, t.id, t.name, t.color, p.id, p.name FROM folder_tags ft
+                              JOIN tags t ON t.id = ft.tag_id AND t.deleted_at IS NULL
+                              LEFT JOIN governance_policies p ON p.id = ft.policy_id
                               WHERE ft.storage_root_id = :root ORDER BY ft.path, t.name"""), {"root": int(root_id)}).all()
     out: dict[str, dict[str, Any]] = {}
-    for path, tag_id, name, color in rows:
-        out.setdefault(path.lower(), {"path": path, "tags": []})["tags"].append({"id": int(tag_id), "name": name, "color": color})
+    for path, tag_id, name, color, policy_id, policy in rows:
+        out.setdefault(path.lower(), {"path": path, "tags": []})["tags"].append(
+            {"id": int(tag_id), "name": name, "color": color, "policy": policy, "policy_id": int(policy_id) if policy_id else None, "automatic": True})
     return list(out.values())
 
 

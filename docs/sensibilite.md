@@ -62,3 +62,25 @@ attendus), ou pas encore lu. Settings › Gouvernance complète les deux listes 
 - les **comptes d'administration attendus** : un Administrateur renommé par un durcissement CIS (ex. `CORP\sla-prd`)
   n'est alors plus signalé comme « compte hors BornToShare ».
 
+
+## Politiques et tags automatiques
+
+Une politique (Governance › Politiques) dit « si le dossier correspond à cette condition, alors… » : poser un tag,
+ouvrir une alerte, prévenir les gardiens, lancer des tâches. La condition est une recherche de dossiers
+(`est:mot-de-passe`, `chemin:rh`, `tag:Finance`…). Huit politiques de tags automatiques sont livrées (mots de passe,
+clés et jetons, données personnelles, bancaires, fichiers à risque, RH, Finance, Juridique).
+
+- **Quand elles s'appliquent** : à l'enregistrement, toutes les 15 minutes, et une fois à la fin de chaque scan de
+  sensibilité (à la dernière passe, quand un gros dossier est lu en plusieurs fois).
+- **Aperçu** : avant d'enregistrer, l'écran montre les dossiers et les sous-dossiers concernés, et ce que
+  l'enregistrement fait tout de suite (tags posés, mails envoyés aux gardiens, tâches).
+- **Tag automatique** (« retirer le tag quand le dossier ne correspond plus ») : le tag suit la condition. Sans
+  cette option, il est posé une fois et le retirer reste un choix humain ; un tag retiré à la main n'est pas remis
+  tant que le dossier correspond toujours.
+- **Sous-dossiers** : avec `chemin:…` et les états de sensibilité seulement ; le tag va aux sous-dossiers dont le
+  nom correspond, ou qui contiennent les fichiers trouvés.
+- **D'où vient un tag** : un éclair sur le tag, et une bulle qui nomme la politique. L'historique du dossier
+  garde chaque tag posé ou retiré par une politique.
+- **Tags et politiques liés** : un tag qu'une politique pose ne peut pas être supprimé (changer son tag, ou
+  supprimer la politique, d'abord) ; fusionner deux tags fait suivre les politiques et les sous-dossiers. Une
+  politique dont le tag a disparu s'arrête et affiche l'erreur.

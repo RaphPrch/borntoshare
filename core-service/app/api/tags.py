@@ -168,6 +168,15 @@ def delete_tag(tag_id: int, request: Request, db: Session = Depends(get_db)):
     if tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
 
+    from app.services import policies
+
+    users = policies.using_tag(db, tag_id)
+    if users:
+        names = ", ".join(f"« {p['name']} »" for p in users)
+        raise HTTPException(status_code=409, detail={
+            "code": "TAG_USED_BY_POLICY",
+            "message": f"Ce tag est posé par la politique {names} : choisissez-lui un autre tag, ou supprimez-la, avant de supprimer le tag.",
+        })
     has_root = tags_sql.tag_has_links(db, tag_id)
     if has_root:
         raise HTTPException(
@@ -177,6 +186,7 @@ def delete_tag(tag_id: int, request: Request, db: Session = Depends(get_db)):
 
     target_display = str(tag.name or tag.id)
     context = {"name": tag.name, "color": tag.color}
+    tags_sql.drop_tag_links(db, tag_id)  # nothing on the folders (checked above); its sub-folders let go too
     db.delete(tag)
     db.commit()
 
@@ -211,6 +221,10 @@ def merge_tag(tag_id: int, payload: TagMerge, request: Request, db: Session = De
     source_display = str(source.name or source.id)
     # One transaction: a folder carrying both tags keeps a single link to the target
     moved = tags_sql.merge_tag_1(db, {"target": int(target.id), "source": int(tag_id)}).rowcount
+    tags_sql.move_folder_tags(db, tag_id, int(target.id))
+    from app.services import policies
+
+    retagged = policies.retag(db, tag_id, int(target.id))  # the policies set the merged tag from now on
     tags_sql.drop_tag_links(db, tag_id)
     db.expire(source)
     db.delete(source)
@@ -227,7 +241,7 @@ def merge_tag(tag_id: int, payload: TagMerge, request: Request, db: Session = De
         target_type="tag",
         target_id=int(target.id),
         target_display=str(target.name or target.id),
-        context_json={"merged_tag_id": int(tag_id), "merged_tag_name": source_display, "moved": int(moved or 0)},
+        context_json={"merged_tag_id": int(tag_id), "merged_tag_name": source_display, "moved": int(moved or 0), "policies": retagged},
         correlation_id=(request.headers.get("x-request-id") or None),
     )
     return ui_action(

@@ -986,6 +986,14 @@
       "merged": {
         "title": "Tags fusionnés",
         "description": "Un tag a été fusionné dans « {target} »"
+      },
+      "auto_attached": {
+        "title": "Tag posé par une politique",
+        "description": "Le tag « {tag} » a été posé sur « {target} » par la politique « {policy} »"
+      },
+      "auto_detached": {
+        "title": "Tag retiré par une politique",
+        "description": "Le tag « {tag} » a été retiré de « {target} » : le dossier ne correspond plus à la politique « {policy} »"
       }
     },
     "storage_root": {
@@ -5612,5 +5620,16 @@
   "Find a tag…": "Chercher un tag…",
   "Find a tag": "Chercher un tag",
   "No tag matches.": "Aucun tag ne correspond.",
-  "No tag yet: create them in Settings › Tags.": "Aucun tag pour l'instant : créez-les dans Settings › Tags."
+  "No tag yet: create them in Settings › Tags.": "Aucun tag pour l'instant : créez-les dans Settings › Tags.",
+  "Automatic: set by the policy « {name} », taken off when the folder no longer matches.": "Automatique : posé par la politique « {name} », retiré quand le dossier ne correspond plus.",
+  "Set by the policy « {name} »; removing it stays a human choice.": "Posé par la politique « {name} » ; le retirer reste un choix humain.",
+  "{count} folder(s) get the tag « {tag} »": "{count} dossier(s) reçoivent le tag « {tag} »",
+  "{count} sub-folder(s) get it too": "{count} sous-dossier(s) le reçoivent aussi",
+  "{count} alert(s) open in Monitoring": "{count} alerte(s) ouvertes dans Monitoring",
+  "{count} e-mail(s) to the guardians, now": "{count} mail(s) aux gardiens, tout de suite",
+  "no e-mail: none of these folders has a guardian with an address": "aucun mail : aucun de ces dossiers n'a de gardien avec une adresse",
+  "tasks sent to the workers for {count} folder(s)": "des tâches envoyées aux workers pour {count} dossier(s)",
+  "{count} sub-folder(s) match now": "{count} sous-dossier(s) correspondent maintenant",
+  "(first 200 folders)": "(200 premiers dossiers)",
+  "On saving, at once:": "À l'enregistrement, tout de suite :"
 }

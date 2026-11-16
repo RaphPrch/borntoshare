@@ -59,6 +59,7 @@ class StorageRootsViewsRepo(SQLViewRepo):
             params,
         )
 
+        policy_of = self._policy_tags(in_clause, params)
         out: dict[int, list[dict]] = {rid: [] for rid in normalized_ids}
         for row in rows:
             storage_root_id = int(row.get("storage_root_id") or 0)
@@ -77,8 +78,39 @@ class StorageRootsViewsRepo(SQLViewRepo):
                     "label": name or None,
                     "color": color,
                     "color_rgb": color,
+                    # Set by a policy the folder matches: its name, and whether the tag follows the condition
+                    **policy_of.get((storage_root_id, tag_id), {}),
                 }
             )
+        return out
+
+    def _policy_tags(self, in_clause: str, params: dict) -> dict[tuple[int, int], dict]:
+        """{(folder, tag): {policy, policy_id, automatic}} for the tags a policy sets on the folders it matches now."""
+        import json
+
+        try:
+            rows = self._all(
+                f"""
+                SELECT h.storage_root_id, p.id, p.name, p.actions_json FROM governance_policy_hits h
+                JOIN governance_policies p ON p.id = h.policy_id
+                WHERE h.storage_root_id IN ({in_clause}) AND p.enabled = 1
+                ORDER BY p.name
+                """,
+                params,
+            )
+        except Exception:  # policies not installed yet (pack 150)
+            self.db.rollback()
+            return {}
+        out: dict[tuple[int, int], dict] = {}
+        for row in rows:
+            try:
+                actions = json.loads(row.get("actions_json") or "{}")
+            except ValueError:
+                continue
+            tag_id = int(actions.get("add_tag") or 0) if isinstance(actions, dict) else 0
+            if tag_id > 0:
+                out.setdefault((int(row["storage_root_id"]), tag_id),
+                               {"policy": row.get("name"), "policy_id": int(row["id"]), "automatic": bool(actions.get("remove_tag"))})
         return out
 
     @staticmethod

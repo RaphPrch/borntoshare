@@ -103,6 +103,34 @@ def _guardian_emails(db: Session, root_ids: list[int]) -> dict[int, list[str]]:
     return out
 
 
+def preview_effects(db: Session, condition: str, rows: list[dict[str, Any]], policy_id: int | None = None) -> dict[str, Any]:
+    """What saving would do now: the folders that start matching (all of them for a new policy), how many of them
+    have a guardian to tell by e-mail, and the sub-folders the condition reaches (when it can be judged on them)."""
+    from app.services import folder_tags
+
+    matched = [int(row["storage_root_id"]) for row in matching(rows, condition)]
+    before: set[int] = set()
+    if policy_id is not None:
+        before = {int(value) for (value,) in db.execute(text("SELECT storage_root_id FROM governance_policy_hits WHERE policy_id = :id"),
+                                                         {"id": int(policy_id)}).all()}
+    new = [root_id for root_id in matched if root_id not in before]
+    out: dict[str, Any] = {"new": len(new), "with_guardians": len(_guardian_emails(db, new)), "subfolders": None}
+    if folder_tags.supported(condition):
+        names = {int(row["storage_root_id"]): str(row.get("storage_root_name") or "") for row in rows}
+        found: list[str] = []
+        count = 0
+        for row in rows[:PREVIEW_ROOTS]:
+            paths = folder_tags.matching_folders(db, row, condition)
+            count += len(paths)
+            found += [f"{names.get(int(row['storage_root_id']))} › {path}" for path in sorted(paths)[: 8 - len(found)]]
+        out["subfolders"] = {"count": count, "sample": found, "partial": len(rows) > PREVIEW_ROOTS}
+    return out
+
+
+# The preview judges the sub-folders of this many folders at most (it stays quick)
+PREVIEW_ROOTS = 200
+
+
 def _alert_key(policy_id: int, root_id: int) -> str:
     return f"policy:{int(policy_id)}:storage_root:{int(root_id)}"
 
@@ -157,8 +185,43 @@ def _add_tag(db: Session, root_id: int, tag_id: int) -> bool:
     params = {"root": int(root_id), "tag": int(tag_id)}
     if db.execute(text("SELECT 1 FROM storage_root_tags WHERE storage_root_id = :root AND tag_id = :tag"), params).first():
         return False
-    db.execute(text("INSERT IGNORE INTO storage_root_tags (storage_root_id, tag_id) VALUES (:root, :tag)"), params)
-    return True
+    # Counted only when the line is really written (never « tagged » for a tag that went away)
+    return bool(db.execute(text("INSERT IGNORE INTO storage_root_tags (storage_root_id, tag_id) VALUES (:root, :tag)"), params).rowcount)
+
+
+def _tag_name(db: Session, tag_id: int) -> str | None:
+    return db.execute(text("SELECT name FROM tags WHERE id = :id AND deleted_at IS NULL"), {"id": int(tag_id)}).scalar()
+
+
+def _log_tag_changes(policy: dict[str, Any], tag: str, names: dict[int, str], added: list[int], removed: list[int]) -> None:
+    """One line per folder in its history: which tag, set or removed, by which policy (« why does it carry it? »)."""
+    from app.services.activity_log import log_activity
+
+    for action, ids in (("tag.auto_attached", added), ("tag.auto_detached", removed)):
+        for root_id in ids:
+            log_activity(
+                None, actor_type="system", actor_id=None, actor_display="policies", action=action, outcome="success",
+                target_type="storage_root", target_id=int(root_id), target_display=names.get(int(root_id)) or f"#{root_id}",
+                context_json={"tag_id": int(policy["actions"]["add_tag"]), "tag": tag, "policy_id": int(policy["id"]), "policy": policy["name"]},
+            )
+
+
+def using_tag(db: Session, tag_id: int) -> list[dict[str, Any]]:
+    """The policies that set this tag ([{id, name}]): the tag cannot go while they use it."""
+    return [{"id": p["id"], "name": p["name"]} for p in list_policies(db) if int((p.get("actions") or {}).get("add_tag") or 0) == int(tag_id)]
+
+
+def retag(db: Session, source_id: int, target_id: int) -> int:
+    """Two tags merged: the policies that set the first set the second from now on. Returns how many changed (no commit)."""
+    changed = 0
+    for policy in list_policies(db):
+        actions = dict(policy.get("actions") or {})
+        if int(actions.get("add_tag") or 0) == int(source_id):
+            actions["add_tag"] = int(target_id)
+            db.execute(text("UPDATE governance_policies SET actions_json = :actions WHERE id = :id"),
+                       {"actions": json.dumps(actions), "id": int(policy["id"])})
+            changed += 1
+    return changed
 
 
 def _notify(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]]) -> int:
@@ -278,6 +341,10 @@ def run_policy(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]], 
     new_ids = sorted(set(matched) - before)
     gone_ids = sorted(before - set(matched))
     actions = policy.get("actions") or {}
+    tag_name = _tag_name(db, int(actions["add_tag"])) if actions.get("add_tag") else None
+    if actions.get("add_tag") and tag_name is None:
+        # Nothing is judged with a tag that no longer exists: the policy shows the error until a tag is chosen
+        raise ValueError("Le tag de cette politique n'existe plus : choisissez-en un autre.")
     now = _now()
 
     if matched:
@@ -299,12 +366,21 @@ def run_policy(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]], 
     tagged = 0
     untagged = 0
     if actions.get("add_tag"):
-        tagged = sum(1 for root_id in new_ids if _add_tag(db, root_id, int(actions["add_tag"])))
+        added = [root_id for root_id in new_ids if _add_tag(db, root_id, int(actions["add_tag"]))]
+        removed: list[int] = []
         if actions.get("remove_tag") and gone_ids:
-            untagged = db.execute(
-                text("DELETE FROM storage_root_tags WHERE tag_id = :tag AND storage_root_id IN :ids").bindparams(bindparam("ids", expanding=True)),
+            removed = [int(root_id) for (root_id,) in db.execute(
+                text("SELECT storage_root_id FROM storage_root_tags WHERE tag_id = :tag AND storage_root_id IN :ids").bindparams(bindparam("ids", expanding=True)),
                 {"tag": int(actions["add_tag"]), "ids": gone_ids},
-            ).rowcount or 0
+            ).all()]
+            if removed:
+                db.execute(
+                    text("DELETE FROM storage_root_tags WHERE tag_id = :tag AND storage_root_id IN :ids").bindparams(bindparam("ids", expanding=True)),
+                    {"tag": int(actions["add_tag"]), "ids": removed},
+                )
+        tagged, untagged = len(added), len(removed)
+        names = {int(row["storage_root_id"]): str(row.get("storage_root_name") or row.get("root_path") or "") for row in rows}
+        tag_changes = (str(tag_name), names, added, removed)
     # The tag on the sub-folders too (their name, the files found in them); gone with the option
     sub_added = sub_removed = 0
     if actions.get("add_tag"):
@@ -330,6 +406,8 @@ def run_policy(db: Session, policy: dict[str, Any], rows: list[dict[str, Any]], 
             {"now": now, "matched": len(matched), "new": len(new_ids), "id": pid},
         )
     db.commit()
+    if actions.get("add_tag"):
+        _log_tag_changes(policy, *tag_changes)
     return {"policy_id": pid, "matched": len(matched), "new": len(new_ids), "gone": len(gone_ids), "tagged": tagged, "untagged": untagged,
             "subfolders_tagged": sub_added, "subfolders_untagged": sub_removed,
             "resolved": resolved, "notified": notified, "jobs": jobs}

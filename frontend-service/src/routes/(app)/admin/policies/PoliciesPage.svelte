@@ -66,7 +66,8 @@
   });
   let busyId = $state<number | null>(null);
   let toDelete = $state<Policy | null>(null);
-  let preview: { count: number; unknown_states: string[]; sample: Array<{ id: number; name: string; path: string }> } | null = $state(null);
+  let preview: { count: number; unknown_states: string[]; sample: Array<{ id: number; name: string; path: string }>;
+    new?: number; with_guardians?: number; subfolders?: { count: number; sample: string[]; partial: boolean } | null } | null = $state(null);
   let previewTimer: ReturnType<typeof setTimeout> | null = null;
 
   function edit(policy: Policy | null, template: (typeof templates)[number] | null = null) {
@@ -91,7 +92,7 @@
     }
     previewTimer = setTimeout(async () => {
       try {
-        preview = await apiPostData(fetch, '/policies/preview', { condition });
+        preview = await apiPostData(fetch, '/policies/preview', { condition, policy_id: draft?.id ?? null });
       } catch {
         preview = null;
       }
@@ -102,6 +103,23 @@
     draft = { ...draft, condition: value };
     schedulePreview(value);
   }
+
+  // What saving does at once (the policy runs right away): tags, sub-folders, e-mails, tasks
+  let effects = $derived.by(() => {
+    if (!draft?.enabled || !preview || preview.unknown_states?.length || preview.new === undefined) return [] as string[];
+    const out: string[] = [];
+    const fresh = preview.new ?? 0;
+    const tagName = tags.find((tag) => Number(tag.id) === Number(draft?.tagId))?.name;
+    if (draft.tagOn && tagName && fresh) out.push(t('{count} folder(s) get the tag « {tag} »', { count: fresh, tag: String(tagName) }));
+    if (draft.tagOn && tagName && draft.subfolders && subfoldersSupported && preview.subfolders?.count)
+      out.push(t('{count} sub-folder(s) get it too', { count: preview.subfolders.count }));
+    if (draft.alertOn && preview.count) out.push(t('{count} alert(s) open in Monitoring', { count: preview.count }));
+    if (draft.notify && fresh) out.push(preview.with_guardians
+      ? t('{count} e-mail(s) to the guardians, now', { count: preview.with_guardians })
+      : t('no e-mail: none of these folders has a guardian with an address'));
+    if (draft.jobsOn && draftKinds.length && preview.count) out.push(t('tasks sent to the workers for {count} folder(s)', { count: Math.min(preview.count, 50) }));
+    return out;
+  });
 
   let draftKinds = $derived(draft ? ([draft.jobCheck && 'check', draft.jobMeasure && 'measure', draft.jobSensitivity && 'sensitivity'].filter(Boolean) as Kind[]) : []);
   let wide = $derived(Boolean(draft?.enabled && (preview?.count ?? 0) > POLICY_CONFIRM_FROM));
@@ -284,6 +302,11 @@
           <p class="pf__preview"><b>{t('{count} folder(s) match now', { count: preview.count })}</b>
             {#if preview.sample.length}<span>{preview.sample.map((item) => item.name).join(' · ')}{preview.count > preview.sample.length ? ' …' : ''}</span>{/if}
           </p>
+          {#if preview.subfolders}
+            <p class="pf__preview"><b>{t('{count} sub-folder(s) match now', { count: preview.subfolders.count })}{preview.subfolders.partial ? ' ' + t('(first 200 folders)') : ''}</b>
+              {#if preview.subfolders.sample.length}<span>{preview.subfolders.sample.join(' · ')}{preview.subfolders.count > preview.subfolders.sample.length ? ' …' : ''}</span>{/if}
+            </p>
+          {/if}
         {/if}
       </div>
 
@@ -335,6 +358,12 @@
           </div>
         {/if}
       </div>
+      {#if effects.length}
+        <div class="pf__effects" role="status">
+          <b><i class="bi bi-lightning-charge" aria-hidden="true"></i>{t('On saving, at once:')}</b>
+          <ul>{#each effects as line (line)}<li>{line}</li>{/each}</ul>
+        </div>
+      {/if}
       {#if wide}
         <label class="pf__wide"><input type="checkbox" bind:checked={wideConfirmed} />{t('I confirm: this policy acts at once on {count} folders', { count: preview?.count ?? 0 })}</label>
       {/if}
@@ -393,6 +422,9 @@
   .pf > label:not(.pf__check) { display: flex; flex-direction: column; gap: 4px; font-size: var(--b2s-fs-sm); font-weight: 500; }
   .pf__block { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); }
   .pf__label { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .pf__effects { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--b2s-color-border); border-radius: 10px; background: var(--b2s-color-surface-muted, #f6f7f9); font-size: var(--b2s-fs-sm); }
+  .pf__effects b { display: flex; gap: 6px; align-items: center; }
+  .pf__effects ul { margin: 0; padding-left: 22px; color: var(--b2s-color-text-muted); }
   .pf__preview, .pf__bad { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: var(--b2s-fs-sm); }
   .pf__preview span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .pf__bad { color: var(--b2s-color-danger-strong, #b42318); }

@@ -87,6 +87,8 @@ export const activityTemplates: Record<string, ActivityTemplate> = {
   'policy.updated': { titleKey: 'activity.policy.updated.title', descriptionKey: 'activity.policy.updated.description', badge: 'admin', icon: 'lightning-charge' },
   'policy.deleted': { titleKey: 'activity.policy.deleted.title', descriptionKey: 'activity.policy.deleted.description', badge: 'admin', icon: 'trash' },
   'policy.run': { titleKey: 'activity.policy.run.title', descriptionKey: 'activity.policy.run.description', badge: 'info', icon: 'play-circle' },
+  'tag.auto_attached': { titleKey: 'activity.tag.auto_attached.title', descriptionKey: 'activity.tag.auto_attached.description', badge: 'info', icon: 'lightning-charge' },
+  'tag.auto_detached': { titleKey: 'activity.tag.auto_detached.title', descriptionKey: 'activity.tag.auto_detached.description', badge: 'info', icon: 'lightning-charge' },
   'policy.applied': { titleKey: 'activity.policy.applied.title', descriptionKey: 'activity.policy.applied.description', badge: 'info', icon: 'lightning-charge' },
   'infrastructure.policies_run': { titleKey: 'activity.infrastructure.policies_run.title', descriptionKey: 'activity.infrastructure.policies_run.description', badge: 'info', icon: 'lightning-charge' },
   'storage_root.sensitivity_ignored': { titleKey: 'activity.storage_root.sensitivity_ignored.title', descriptionKey: 'activity.storage_root.sensitivity_ignored.description', badge: 'admin', icon: 'shield-lock' },

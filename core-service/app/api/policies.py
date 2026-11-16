@@ -48,6 +48,8 @@ class PolicyPayload(BaseModel):
 
 class PreviewPayload(BaseModel):
     condition: str = Field(min_length=1, max_length=500)
+    # The policy being edited: « new » counts only the folders that would start matching
+    policy_id: int | None = Field(default=None, gt=0)
 
 
 def _check(db: Session, payload: PolicyPayload) -> None:
@@ -90,11 +92,13 @@ def preview(payload: PreviewPayload, request: Request, db: Session = Depends(get
     """The folders the condition matches now (the same evaluation as the runs)."""
     require_admin(actor_from_request(request))
     unknown = folder_query.unknown_states(payload.condition)
-    rows = engine.matching(engine.folder_rows(db), payload.condition)
+    every = engine.folder_rows(db)
+    rows = engine.matching(every, payload.condition)
     return ui_data({
         "count": len(rows),
         "unknown_states": unknown,
         "sample": [{"id": int(row["storage_root_id"]), "name": row.get("storage_root_name"), "path": row.get("dfs_path") or row.get("root_path")} for row in rows[:8]],
+        **({} if unknown else engine.preview_effects(db, payload.condition, every, payload.policy_id)),
     })
 
 
