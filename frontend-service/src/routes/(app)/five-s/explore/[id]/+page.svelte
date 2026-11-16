@@ -19,6 +19,7 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import MeasureCompleteness, { type Completeness } from '$lib/components/storage-roots/MeasureCompleteness.svelte';
+  import { inside } from '../explore-state.svelte';
 
   /**
    * 5S of a scanned folder in one screen: the scanner banner and the figures, then either the explorer (tree and
@@ -146,6 +147,7 @@
       }
       // Opened on a folder found by the file search of the explorer entry page
       const wanted = $page.url.searchParams.get('open');
+      wantedFile = $page.url.searchParams.get('file');
       if (wanted && first?.node) void openFolder(wanted);
       // No tree yet (first measure) or a measure walking: follow the scanner until the tree is there
       if (!first?.node || scan?.running) watchScanner();
@@ -203,6 +205,7 @@
         level = next;
         trail = [...trail, next.node];
         selected = next.node;
+        pickedFile = null;
         filter = 'all';
       }
     } finally {
@@ -231,6 +234,7 @@
         level = last;
         trail = steps;
         selected = last.node;
+        pickedFile = null;
         filter = 'all';
       }
     } finally {
@@ -246,6 +250,7 @@
         level = next;
         trail = trail.slice(0, index + 1);
         selected = next.node;
+        pickedFile = null;
       }
     } finally {
       busy = false;
@@ -424,10 +429,41 @@
       open: false, current: false, folder, index: -1 }))
   ]);
   function pickTree(item: { folder: Folder; index: number }) {
+    pickedFile = null;
     if (item.index >= 0) void up(item.index);
     else if (item.folder.folders > 0) void enter(item.folder);
     else selected = item.folder;
   }
+  // The tree is drawn by the explorer layout, under this folder: its items and what a click does
+  $effect(() => {
+    const items = treeItems;
+    inside.rootId = rootId;
+    inside.items = items.map((item) => ({ key: item.key, name: item.name, depth: item.depth, bytes: item.bytes, current: item.current }));
+    inside.pick = (key: string) => {
+      const item = items.find((entry) => entry.key === key);
+      if (item) pickTree(item);
+    };
+  });
+  onDestroy(() => {
+    inside.rootId = null;
+    inside.items = [];
+    inside.pick = null;
+  });
+
+  // ---- a file chosen in the list (or found by the search): its sheet on the right ----
+  let pickedFile = $state<FileRow | null>(null);
+  let wantedFile = $state<string | null>(null);
+  $effect(() => {
+    if (!wantedFile) return;
+    const hit = files.find((file) => file.path.toLowerCase() === wantedFile?.toLowerCase());
+    if (hit) {
+      pickedFile = hit;
+      wantedFile = null;
+    }
+  });
+  let fileSensitive = $derived(pickedFile ? sensitiveOf(pickedFile.path) : null);
+  let fileGroup = $derived(pickedFile ? groups.find((group) => group.copies.some((copy) => copy.path === pickedFile?.path)) ?? null : null);
+  const fileFullPath = (file: FileRow) => `${rootPath.replace(/\\$/, '')}\\${file.path}`;
 
   // ---- list --------------------------------------------------------------------------------------------------
   let rows = $derived(children.filter((folder) =>
@@ -531,24 +567,12 @@
     <div class="fx__body">
       <main class="fx__main">
         {#if view === 'explorer'}
-          <FileSearch {rootId} onOpen={(hit) => void openFolder(hit.path.split('\\').slice(0, -1).join('\\'))} />
+          <FileSearch {rootId} onOpen={(hit) => { wantedFile = hit.path; void openFolder(hit.path.split('\\').slice(0, -1).join('\\')); }} />
           <div class="fx__filters" role="radiogroup" aria-label={t('Filter')}>
             {#each FILTERS() as [key, label] (key)}
               <button type="button" class:is-on={filter === key} onclick={() => (filter = key)}>{label}</button>
             {/each}
           </div>
-          <div class="fx__split">
-          <nav class="fx__tree" aria-label={t('Tree')}>
-            {#each treeItems as item (item.key)}
-              <button type="button" class:is-current={item.current} class:is-sel={selected === item.folder} style={`padding-left:${10 + item.depth * 14}px`}
-                onclick={() => pickTree(item)} oncontextmenu={(event) => openMenu(item.folder, event)} title={item.folder.path || rootPath}>
-                <i class={`bi ${item.open ? 'bi-folder2-open' : item.folder.folders > 0 ? 'bi-folder-fill' : 'bi-folder'}`} aria-hidden="true"></i>
-                <span>{item.name}</span>
-                {#if item.folder.partial}<i class="bi bi-exclamation-triangle fx__partial" title={t('Seen in part by the last measure')} aria-label={t('Seen in part by the last measure')}></i>{/if}
-                <small>{formatBytes(item.bytes)}</small>
-              </button>
-            {/each}
-          </nav>
           <div class="fx__table">
             <table class="b2s-table">
               <thead><tr>
@@ -559,7 +583,7 @@
                 {#each rows as folder (folder.path)}
                   {@const right = rights(folder)}
                   {@const dups = groupsUnder(folder.path).length}
-                  <tr class:is-sel={selected === folder} onclick={() => (selected = folder)} ondblclick={() => enter(folder)} oncontextmenu={(event) => openMenu(folder, event)}>
+                  <tr class:is-sel={selected === folder && !pickedFile} onclick={() => { selected = folder; pickedFile = null; }} ondblclick={() => enter(folder)} oncontextmenu={(event) => openMenu(folder, event)}>
                     <td class="fx__name"><i class="bi bi-folder-fill" aria-hidden="true"></i>
                       {#if folder.folders > 0}<button type="button" class="b2s-link-btn" onclick={(event) => { event.stopPropagation(); enter(folder); }}>{folder.name}</button>{:else}<span>{folder.name}</span>{/if}
                       {#each folderTags.get(folder.path.toLowerCase()) ?? [] as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} policy={tag.policy ?? null} automatic={Boolean(tag.automatic)} />{/each}</td>
@@ -575,7 +599,7 @@
                 {/each}
                 {#each files as file (file.path)}
                   {@const flag = sensitiveOf(file.path)}
-                  <tr class="is-file">
+                  <tr class="is-file" class:is-sel={pickedFile?.path === file.path} onclick={() => (pickedFile = file)}>
                     <td class="fx__name"><i class="bi bi-file-earmark" aria-hidden="true"></i><code title={file.path} data-copy={file.path}>{file.name}</code>
                       {#if flag}<span class="fx__pill is-bad" title={flag.rule}><i class="bi bi-shield-exclamation" aria-hidden="true"></i> {t('Sensitive')}</span>{/if}</td>
                     <td class="fx__num">{formatBytes(file.size)}</td><td>{file.created ? formatDate(file.created) : '—'}</td><td>{file.modified ? formatDate(file.modified) : '—'}</td>
@@ -599,7 +623,6 @@
                 {#if !rows.length && !files.length && liveState !== 'loading'}<tr><td colspan="8" class="fx__empty">{t('Nothing here for this filter.')}</td></tr>{/if}
               </tbody>
             </table>
-          </div>
           </div>
         {:else}
           {#if history.length}
@@ -644,8 +667,44 @@
         {/if}
       </main>
 
-      <aside class="fx__sheet" aria-label={t('Sheet of the folder')}>
-        {#if selected}
+      <aside class="fx__sheet" aria-label={pickedFile ? t('Sheet of the file') : t('Sheet of the folder')}>
+        {#if pickedFile}
+          <section class="fx__card">
+            <header class="fx__card-head">
+              <h2 class="fx__file-name"><i class="bi bi-file-earmark" aria-hidden="true"></i>{pickedFile.name}</h2>
+              <button type="button" class="fx__close" onclick={() => (pickedFile = null)} aria-label={t('Close the sheet of the file')}><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </header>
+            {#if fileSensitive}
+              <p class="fx__note is-bad"><b>{t('Sensitive file')}</b>{fileSensitive.rule}</p>
+            {/if}
+            {#if fileGroup}
+              <p class="fx__note is-warn"><b>{t('Duplicate')}</b>{t('{count} identical copies, {size} each.', { count: fileGroup.copies.length, size: formatBytes(fileGroup.size) })}</p>
+            {/if}
+            <dl>
+              <dt>{t('Size')}</dt><dd>{formatBytes(pickedFile.size)}</dd>
+              <dt>{t('Owner')}</dt><dd>{pickedFile.owner || '—'}</dd>
+              <dt>{t('Created')}</dt><dd>{pickedFile.created ? formatDate(pickedFile.created) : '—'}</dd>
+              <dt>{t('Last change')}</dt><dd>{pickedFile.modified ? formatDate(pickedFile.modified) : '—'}</dd>
+              <dt>{t('Last access (indicative)')}</dt><dd>{pickedFile.accessed ? formatDate(pickedFile.accessed) : '—'}</dd>
+            </dl>
+            <p class="fx__path"><code data-copy={fileFullPath(pickedFile)}>{fileFullPath(pickedFile)}</code></p>
+            <div class="fx__file-acts">
+              <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={() => pickedFile && void copyText(fileFullPath(pickedFile)).then(() => toast.success(t('Path copied.')))}>
+                <i class="bi bi-clipboard" aria-hidden="true"></i>{t('Copy the path')}</button>
+              {#if fileGroup}<a class="b2s-btn b2s-btn-sm b2s-btn-primary" href={`/five-s/duplicates/${rootId}${current?.path ? `?path=${encodeURIComponent(current.path)}` : ''}`}><i class="bi bi-files" aria-hidden="true"></i>{t('Choose the copy to keep')}</a>{/if}
+            </div>
+            {#if fileGroup}
+              <div class="fx__dup">
+                {#each fileGroup.copies as copy (copy.path)}<div class:is-keep={copy.path === pickedFile.path}><code title={copy.path}>{copy.path}</code><b>{copy.path === pickedFile.path ? t('This one') : t('Copy')}</b></div>{/each}
+              </div>
+            {/if}
+          </section>
+          <section class="fx__card">
+            <h3>{t('Who can open it')}</h3>
+            <p class="fx__hint">{t('A file follows the rights of its folder.')}</p>
+            <AccessPanel {rootId} path={current?.path ?? ''} />
+          </section>
+        {:else if selected}
           <section class="fx__card">
             <header class="fx__card-head">
               <h2>{selected.name || rootName}</h2>
@@ -735,6 +794,14 @@
   items={menu ? menuItems(menu.folder) : []} at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={pickMenu} />
 
 <style>
+  .fx__file-name { display: flex; gap: 8px; align-items: flex-start; word-break: break-word; }
+  .fx__close { margin-left: auto; width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; color: var(--b2s-color-text-muted); cursor: pointer; }
+  .fx__close:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .fx__note { display: grid; gap: 2px; margin: 0; padding: 10px 12px; border-radius: 10px; font-size: var(--b2s-fs-sm); }
+  .fx__note.is-bad { background: #fce6e6; color: #7d1d1d; }
+  .fx__note.is-warn { background: #fdefd9; color: #6b3a00; }
+  .fx__file-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  tr.is-file { cursor: pointer; }
   .fx { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; max-width: 1480px; padding: 26px 28px 80px; }
   .fx__head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }
   .fx__crumbs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 13px; }
@@ -759,15 +826,6 @@
   .fx__filters { display: flex; flex-wrap: wrap; gap: 6px; }
   .fx__filters button { height: 30px; padding: 0 12px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface, #fff); font: inherit; font-size: var(--b2s-fs-sm); cursor: pointer; }
   .fx__filters button.is-on { background: #0E1218; border-color: #0E1218; color: #fff; }
-  .fx__split { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 12px; align-items: start; }
-  .fx__tree { position: sticky; top: 12px; display: grid; gap: 1px; max-height: 70vh; overflow: auto; padding: 8px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
-  .fx__tree button { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 6px 8px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: var(--b2s-fs-sm); text-align: left; cursor: pointer; color: inherit; }
-  .fx__tree button:hover { background: #F5F8FC; }
-  .fx__tree button.is-current { font-weight: 600; background: #EEF2FF; }
-  .fx__tree button.is-sel { background: #F5FBE6; }
-  .fx__tree i { color: #E0A526; }
-  .fx__tree span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .fx__tree small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); white-space: nowrap; }
   .fx__table { overflow-x: auto; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
   .fx__table tr { cursor: default; }
   .fx__table tbody tr:hover td { background: #F5F8FC; }

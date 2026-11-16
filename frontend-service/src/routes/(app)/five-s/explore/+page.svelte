@@ -2,161 +2,242 @@
   import FileSearch from '../FileSearch.svelte';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { apiGetData } from '$lib/api/client';
-  import { fivesEnabled } from '$lib/utils/features';
-  import { formatBytes } from '$lib/utils/format';
+  import { page } from '$app/stores';
+  import { apiGetData, apiPostData } from '$lib/api/client';
+  import { formatBytes, formatDate, timeAgo } from '$lib/utils/format';
+  import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import { t } from '$lib/i18n';
+  import { toast } from '$lib/stores/toast';
+  import { reportUiError } from '$lib/errors';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import Sparkline from '$lib/components/ui/Sparkline.svelte';
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { park, placeOf, toneOf, type ParkFolder } from './explore-state.svelte';
 
   /**
-   * Explorer, entry: the measured folders by zone and server on the left, the folders of the scope on the right.
-   * A folder opens its explorer (tree, files, duplicates, rights). Right click: its actions.
+   * Explorer, entry: the measured folders of the scope chosen in the tree (all, a zone, a server), with their trend,
+   * the room their duplicates take, their sensitive files and their 5S score. A folder opens its content.
    */
-  type Folder = { id: number; name: string; path: string; server: string; zone: string; size_bytes: number | null; score: number | null };
+  let zone = $derived($page.url.searchParams.get('zone'));
+  let server = $derived($page.url.searchParams.get('server'));
+  let isAdmin = $derived(Boolean(($page.data as any)?.me?.is_admin));
 
-  let folders = $state<Folder[]>([]);
-  let loading = $state(true);
-  let error = $state('');
-  let query = $state('');
-  let open = $state<Record<string, boolean>>({});
-  let scope = $state<{ zone?: string; server?: string }>({});
-
-  onMount(async () => {
-    if (!$fivesEnabled) {
-      loading = false;
-      error = t('The 5S module is not active.');
-      return;
-    }
-    try {
-      const data = await apiGetData<{ folders: Folder[] }>(fetch, '/modules/fives/five-s');
-      folders = data?.folders ?? [];
-      const first = folders[0]?.zone;
-      if (first) open = { [`z:${first}`]: true };
-    } catch (failure) {
-      error = failure instanceof Error ? failure.message : t('Unable to load the 5S.');
-    } finally {
-      loading = false;
-    }
+  let trends = $state<Record<string, number[]>>({});
+  onMount(() => {
+    void apiGetData<Record<string, number[]>>(fetch, '/modules/fives/sparklines').then((data) => (trends = data ?? {})).catch(() => null);
   });
 
-  let needle = $derived(query.trim().toLowerCase());
-  let matching = $derived(folders.filter((f) => !needle || `${f.name} ${f.path} ${f.server} ${f.zone}`.toLowerCase().includes(needle)));
-  let zones = $derived([...new Set(matching.map((f) => f.zone || '—'))].sort((a, b) => a.localeCompare(b)));
-  const serversOf = (zone: string) => [...new Set(matching.filter((f) => (f.zone || '—') === zone).map((f) => f.server || '—'))].sort((a, b) => a.localeCompare(b));
-  const foldersOf = (zone: string, server: string) => matching.filter((f) => (f.zone || '—') === zone && (f.server || '—') === server);
-  let shown = $derived(
-    matching
-      .filter((f) => (!scope.zone || (f.zone || '—') === scope.zone) && (!scope.server || (f.server || '—') === scope.server))
-      .slice()
-      .sort((a, b) => (b.size_bytes ?? 0) - (a.size_bytes ?? 0))
-  );
-  let maxSize = $derived(Math.max(1, ...shown.map((f) => f.size_bytes ?? 0)));
-  const tone = (score: number | null) => (score == null ? 'mut' : score >= 80 ? 'ok' : score >= 60 ? 'warn' : 'bad');
+  const DAY = 86_400_000;
+  const measuredAt = (f: ParkFolder) => (f.measured_at ? Date.parse(f.measured_at) : NaN);
+  const trendOf = (f: ParkFolder) => trends[String(f.id)] ?? [];
+  const CHIPS = (): Array<{ key: string; label: string; test: (f: ParkFolder) => boolean }> => [
+    { key: 'low', label: t('Score under 60'), test: (f) => f.score != null && f.score < 60 },
+    { key: 'sensitive', label: t('With sensitive files'), test: (f) => (f.sensitive_files ?? 0) > 0 },
+    { key: 'dups', label: t('With duplicates'), test: (f) => (f.dup_bytes ?? 0) > 0 },
+    { key: 'growing', label: t('Growing'), test: (f) => { const p = trendOf(f); return p.length > 1 && p[p.length - 1] > p[0] * 1.05; } },
+    { key: 'stale', label: t('Not measured for 30 days'), test: (f) => !(Date.now() - measuredAt(f) <= 30 * DAY) }
+  ];
+  let chips = $state<Record<string, boolean>>({});
+
+  type SortKey = 'name' | 'size' | 'dup' | 'sensitive' | 'measured' | 'score';
+  let sortKey = $state<SortKey>('size');
+  let sortDesc = $state(true);
+  const SORTS: Record<SortKey, (f: ParkFolder) => number | string> = {
+    name: (f) => f.name.toLowerCase(), size: (f) => f.size_bytes ?? -1, dup: (f) => f.dup_bytes ?? -1, sensitive: (f) => f.sensitive_files ?? 0,
+    measured: (f) => measuredAt(f) || 0, score: (f) => f.score ?? -1
+  };
+  function sortBy(key: SortKey) {
+    if (sortKey === key) sortDesc = !sortDesc;
+    else { sortKey = key; sortDesc = key !== 'name'; }
+  }
+
+  let inScope = $derived(park.folders.filter((f) => (!zone || placeOf(f.zone) === zone) && (!server || placeOf(f.server) === server)));
+  let shown = $derived.by(() => {
+    const active = CHIPS().filter((chip) => chips[chip.key]);
+    const read = SORTS[sortKey];
+    return inScope.filter((f) => active.every((chip) => chip.test(f))).sort((a, b) => {
+      const x = read(a), y = read(b);
+      return (x < y ? -1 : x > y ? 1 : 0) * (sortDesc ? -1 : 1);
+    });
+  });
+
+  let volume = $derived(inScope.reduce((sum, f) => sum + (f.size_bytes ?? 0), 0));
+  let recoverable = $derived(inScope.reduce((sum, f) => sum + (f.dup_bytes ?? 0), 0));
+  let sensitive = $derived(inScope.reduce((sum, f) => sum + (f.sensitive_files ?? 0), 0));
+  let scored = $derived(inScope.filter((f) => f.score != null));
+  let average = $derived(scored.length ? Math.round(scored.reduce((sum, f) => sum + (f.score ?? 0), 0) / scored.length) : null);
+  let title = $derived(server ?? (zone ? t('Zone {name}', { name: zone }) : t('All the folders')));
+
+  // ---- selection and actions on several folders (administrators) ----
+  let picked = $state(new Set<number>());
+  let pickedRows = $derived(shown.filter((f) => picked.has(f.id)));
+  let allPicked = $derived(shown.length > 0 && shown.every((f) => picked.has(f.id)));
+  function flip(id: number) {
+    const next = new Set(picked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    picked = next;
+  }
+  const flipAll = () => (picked = allPicked ? new Set() : new Set(shown.map((f) => f.id)));
+  let acting = $state(false);
+  async function run(kind: 'measure' | 'sensitivity') {
+    const ids = pickedRows.map((f) => f.id);
+    if (!ids.length || acting) return;
+    acting = true;
+    try {
+      const result = await apiPostData<{ queued?: number[]; failed?: unknown[] }>(fetch, kind === 'measure' ? '/storage-roots/measure' : '/storage-roots/sensitivity-scan', { root_ids: ids });
+      const queued = result?.queued?.length ?? 0;
+      const failed = result?.failed?.length ?? 0;
+      const done = kind === 'measure' ? t('{count} folder(s) queued for a measure.', { count: queued }) : t('{count} folder(s) queued for a sensitivity scan.', { count: queued });
+      if (failed) toast.warning(`${done} ${t('{count} refused: see the folder sheet.', { count: failed })}`);
+      else toast.success(done);
+      picked = new Set();
+    } catch (failure) {
+      reportUiError(failure, t('The action could not be sent.'), `fives.explore.${kind}`);
+    } finally {
+      acting = false;
+    }
+  }
+  const exportRows = () =>
+    downloadCsv(csvFilename('5s-explorer'), [
+      { header: t('Folder'), value: (f: ParkFolder) => f.name },
+      { header: t('Path'), value: (f: ParkFolder) => f.path },
+      { header: t('Server'), value: (f: ParkFolder) => f.server ?? '' },
+      { header: t('Zone'), value: (f: ParkFolder) => f.zone ?? '' },
+      { header: t('Volume'), value: (f: ParkFolder) => f.size_bytes ?? '' },
+      { header: t('Duplicates'), value: (f: ParkFolder) => f.dup_bytes ?? '' },
+      { header: t('Sensitive files'), value: (f: ParkFolder) => f.sensitive_files ?? 0 },
+      { header: t('Last measure'), value: (f: ParkFolder) => f.measured_at ?? '' },
+      { header: '5S', value: (f: ParkFolder) => f.score ?? '' }
+    ], pickedRows.length ? pickedRows : shown);
 
   // ---- right click ----
-  let menu = $state<{ folder: Folder; at: { x: number; y: number } } | null>(null);
-  const menuItems: ContextMenuItem[] = [
+  let menu = $state<{ folder: ParkFolder; at: { x: number; y: number } } | null>(null);
+  const menuItems = (): ContextMenuItem[] => [
     { key: 'explore', label: t('Explore'), icon: 'bi-columns-gap' },
-    { key: 'report', label: t('5S report'), icon: 'bi-file-earmark-bar-graph' },
+    { key: 'workshop', label: t('5S workshop'), icon: 'bi-kanban' },
     { key: 'duplicates', label: t('Duplicates'), icon: 'bi-files' },
+    { key: 'report', label: t('5S report'), icon: 'bi-file-earmark-bar-graph' },
     { key: 'root', label: t('Open the folder sheet'), icon: 'bi-folder2-open', separated: true }
   ];
   function onPick(key: string) {
     const id = menu?.folder.id;
     if (!id) return;
     if (key === 'explore') void goto(`/five-s/explore/${id}`);
-    if (key === 'report') void goto(`/five-s/report/${id}`);
+    if (key === 'workshop') void goto(`/five-s/explore/${id}?view=workshop`);
     if (key === 'duplicates') void goto(`/five-s/duplicates/${id}`);
+    if (key === 'report') void goto(`/five-s/report/${id}`);
     if (key === 'root') void goto(`/storage-roots?selected=${id}`);
   }
-  const openMenu = (folder: Folder) => (event: MouseEvent) => {
+  const openMenu = (folder: ParkFolder) => (event: MouseEvent) => {
     event.preventDefault();
     menu = { folder, at: menuPositionFor(event) };
   };
+  const arrow = (key: SortKey) => (sortKey === key ? (sortDesc ? '▾' : '▴') : '');
+  const ariaSort = (key: SortKey) => (sortKey === key ? (sortDesc ? 'descending' : 'ascending') : 'none');
 </script>
 
 <section class="v2">
   <div class="v2-head">
     <div>
-      <h1>Explorer</h1>
-      <p>{t('The inventoried content of the folders, and what the 5S knows about it. Choose a folder in the tree; right click: its actions.')}</p>
+      <h1>{title}</h1>
+      <p>{t('Each measured folder, its trend and what there is to gain. Choose a folder, here or in the tree, to see its content.')}</p>
     </div>
+    <button type="button" class="b2s-btn b2s-btn-secondary" onclick={exportRows} disabled={!shown.length}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
   </div>
-  {#if !loading && !error}
-    <FileSearch onOpen={(hit) => void goto(`/five-s/explore/${hit.storage_root_id}?open=${encodeURIComponent(hit.path.split('\\').slice(0, -1).join('\\'))}`)} />
-  {/if}
 
-  {#if loading}
+  {#if park.loading && !park.folders.length}
     <LoadingState />
-  {:else if error}
-    <InlineAlert tone="warning">{error}</InlineAlert>
+  {:else if park.error}
+    <InlineAlert tone="warning">{park.error}</InlineAlert>
   {:else}
-    <div class="v2-ws">
-      <aside class="v2-pane" aria-label={t('Folders')}>
-        <h3>{t('Folders')}</h3>
-        <label class="v2-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={query} placeholder={t('Filter the tree…')} aria-label={t('Filter the tree')} /></label>
-        <div>
-          <button type="button" class="v2-trow" class:is-on={!scope.zone} onclick={() => (scope = {})}>
-            <span class="v2-trow__car"></span><span class="v2-trow__l">{t('All the folders')}</span><span class="v2-trow__n">{matching.length}</span>
-          </button>
-          {#each zones as zone (zone)}
-            {@const zOpen = needle !== '' || open[`z:${zone}`]}
-            <button type="button" class="v2-trow" class:is-on={scope.zone === zone && !scope.server} aria-expanded={zOpen}
-              onclick={() => { open = { ...open, [`z:${zone}`]: !(scope.zone === zone && !scope.server && zOpen) }; scope = { zone }; }}>
-              <span class="v2-trow__car">{zOpen ? '▾' : '▸'}</span><span class="v2-trow__l">{zone}</span><span class="v2-trow__n">{matching.filter((f) => (f.zone || '—') === zone).length}</span>
-            </button>
-            {#if zOpen}
-              {#each serversOf(zone) as server (server)}
-                {@const sOpen = needle !== '' || open[`s:${zone}:${server}`]}
-                <button type="button" class="v2-trow" style="padding-left: 22px" class:is-on={scope.server === server && scope.zone === zone} aria-expanded={sOpen}
-                  onclick={() => { open = { ...open, [`s:${zone}:${server}`]: !(scope.server === server && sOpen) }; scope = { zone, server }; }}>
-                  <span class="v2-trow__car">{sOpen ? '▾' : '▸'}</span><span class="v2-trow__l">{server}</span><span class="v2-trow__n">{foldersOf(zone, server).length}</span>
-                </button>
-                {#if sOpen}
-                  {#each foldersOf(zone, server) as folder (folder.id)}
-                    <a class="v2-trow" style="padding-left: 38px" href={`/five-s/explore/${folder.id}`} oncontextmenu={openMenu(folder)}>
-                      <span class={`v2-dw is-${tone(folder.score)}`} aria-hidden="true"></span><span class="v2-trow__l">{folder.name}</span>
-                      <span class="v2-trow__n">{folder.size_bytes != null ? formatBytes(folder.size_bytes) : ''}</span>
-                    </a>
-                  {/each}
-                {/if}
-              {/each}
-            {/if}
-          {/each}
-        </div>
-      </aside>
+    <FileSearch onOpen={(hit) => void goto(`/five-s/explore/${hit.storage_root_id}?open=${encodeURIComponent(hit.path.split('\\').slice(0, -1).join('\\'))}&file=${encodeURIComponent(hit.path)}`)} />
 
-      <div class="v2-main">
-        <div class="v2-tool">
-          <div class="v2-scope">{scope.server ?? scope.zone ?? t('All the folders')}<small>{t('{count} folder(s)', { count: shown.length })}</small></div>
-        </div>
-        <div class="v2-list">
-          <div class="v2-row is-head ex-grid"><span>{t('Folder')}</span><span>{t('Server')}</span><span>{t('Volume')}</span><span>5S</span><span></span></div>
-          {#each shown as folder (folder.id)}
-            <div class="v2-row ex-grid" role="row" tabindex="-1" oncontextmenu={openMenu(folder)}>
-              <div class="v2-nm"><a href={`/five-s/explore/${folder.id}`}>{folder.name}</a><small>{folder.path}</small></div>
-              <div class="v2-nm"><span>{folder.server}</span><span class="v2-sub">{folder.zone}</span></div>
-              <div class="ex-vol"><span>{folder.size_bytes != null ? formatBytes(folder.size_bytes) : '—'}</span>
-                <div class="v2-bar"><i style={`width: ${Math.max(3, Math.round(((folder.size_bytes ?? 0) / maxSize) * 100))}%`}></i></div></div>
-              <span class={`v2-tag is-${tone(folder.score)}`}>{folder.score ?? '—'}</span>
-              <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: folder.name })} onclick={openMenu(folder)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
-            </div>
-          {:else}
-            <div class="v2-empty">{t('No measured folder here yet.')}</div>
-          {/each}
-        </div>
-      </div>
+    <div class="v2-stats">
+      <div class="v2-stat"><span>{t('Measured volume')}</span><b>{formatBytes(volume)}</b><small>{t('{count} folder(s)', { count: inScope.length })}</small></div>
+      <div class="v2-stat"><span>{t('Taken by duplicates')}</span><b>{formatBytes(recoverable)}</b><small>{t('room to win back')}</small></div>
+      <div class="v2-stat"><span>{t('Sensitive files')}</span><b class:ex-bad={sensitive > 0}>{sensitive}</b><small>{sensitive ? t('to review') : t('nothing to report')}</small></div>
+      <div class="v2-stat"><span>{t('Average 5S score')}</span><b>{average ?? '—'}</b><small>{t('{count} folder(s) scored', { count: scored.length })}</small></div>
     </div>
+
+    <div class="ex-chips" role="group" aria-label={t('Filters')}>
+      {#each CHIPS() as chip (chip.key)}
+        <button type="button" class:is-on={chips[chip.key]} aria-pressed={Boolean(chips[chip.key])} onclick={() => (chips = { ...chips, [chip.key]: !chips[chip.key] })}>
+          {chip.label}<small>{inScope.filter(chip.test).length}</small></button>
+      {/each}
+    </div>
+
+    {#if pickedRows.length}
+      <div class="v2-bulk" role="region" aria-label={t('Selection')}>
+        <b>{t('{count} folder(s) chosen', { count: pickedRows.length })}</b>
+        <span>{formatBytes(pickedRows.reduce((sum, f) => sum + (f.size_bytes ?? 0), 0))}</span>
+        <span class="ex-bulk-acts">
+          {#if isAdmin}
+            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={acting} onclick={() => run('measure')}><i class="bi bi-rulers" aria-hidden="true"></i>{t('Measure again')}</button>
+            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={acting} onclick={() => run('sensitivity')}><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('Scan for secrets')}</button>
+          {/if}
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={exportRows}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
+          <button type="button" class="b2s-link-btn" onclick={() => (picked = new Set())}>{t('Clear')}</button>
+        </span>
+      </div>
+    {/if}
+
+    <div class="v2-list ex-list">
+      <div class="v2-row is-head ex-grid" role="row">
+        <label class="ex-check"><input type="checkbox" checked={allPicked} onchange={flipAll} aria-label={t('Select all ({count})', { count: shown.length })} /></label>
+        <span role="columnheader" aria-sort={ariaSort('name')}><button type="button" class="ex-sort" onclick={() => sortBy('name')}>{t('Folder')} {arrow('name')}</button></span>
+        <span>{t('Server')}</span>
+        <span role="columnheader" aria-sort={ariaSort('size')}><button type="button" class="ex-sort" onclick={() => sortBy('size')}>{t('Volume · last measures')} {arrow('size')}</button></span>
+        <span role="columnheader" aria-sort={ariaSort('dup')}><button type="button" class="ex-sort" onclick={() => sortBy('dup')}>{t('Duplicates')} {arrow('dup')}</button></span>
+        <span role="columnheader" aria-sort={ariaSort('sensitive')}><button type="button" class="ex-sort" onclick={() => sortBy('sensitive')}>{t('Sensitive')} {arrow('sensitive')}</button></span>
+        <span role="columnheader" aria-sort={ariaSort('measured')}><button type="button" class="ex-sort" onclick={() => sortBy('measured')}>{t('Last measure')} {arrow('measured')}</button></span>
+        <span role="columnheader" aria-sort={ariaSort('score')}><button type="button" class="ex-sort" onclick={() => sortBy('score')}>5S {arrow('score')}</button></span>
+        <span></span>
+      </div>
+      {#each shown as folder (folder.id)}
+        {@const trend = trendOf(folder)}
+        <div class="v2-row ex-grid" class:is-picked={picked.has(folder.id)} role="row" tabindex="-1" oncontextmenu={openMenu(folder)}>
+          <label class="ex-check"><input type="checkbox" checked={picked.has(folder.id)} onchange={() => flip(folder.id)} aria-label={t('Choose {name}', { name: folder.name })} /></label>
+          <div class="v2-nm"><a href={`/five-s/explore/${folder.id}`}>{folder.name}</a><small title={folder.path}>{folder.path}</small></div>
+          <div class="v2-nm"><span>{folder.server ?? '—'}</span><span class="v2-sub">{folder.zone ?? '—'}</span></div>
+          <div class="ex-vol"><span>{folder.size_bytes != null ? formatBytes(folder.size_bytes) : '—'}</span>
+            {#if trend.length > 1}<Sparkline points={trend} width={88} height={24} title={t('{count} measures: {from} → {to}', { count: trend.length, from: formatBytes(trend[0]), to: formatBytes(trend[trend.length - 1]) })} />{/if}</div>
+          <span class="ex-num">{folder.dup_bytes == null ? '—' : folder.dup_bytes ? formatBytes(folder.dup_bytes) : t('none')}</span>
+          <span>{#if folder.sensitive_files}<span class="v2-tag is-bad">{t('{count} file(s)', { count: folder.sensitive_files })}</span>{:else}<span class="ex-mut">{t('none')}</span>{/if}</span>
+          <span class="ex-when" title={folder.measured_at ? formatDate(folder.measured_at) : ''}>{folder.measured_at ? timeAgo(folder.measured_at) : t('never')}</span>
+          <span class={`v2-tag is-${toneOf(folder.score)}`}>{folder.score ?? '—'}</span>
+          <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: folder.name })} onclick={openMenu(folder)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
+        </div>
+      {:else}
+        <div class="v2-empty">{inScope.length ? t('No folder matches these filters.') : t('No measured folder here yet.')}</div>
+      {/each}
+    </div>
+    <p class="ex-hint">{t('Right click on a folder: its 5S workshop, duplicates, report and sheet.')}</p>
   {/if}
 </section>
 
-<ContextMenu open={menu != null} title={menu?.folder.name ?? ''} subtitle={menu?.folder.path ?? ''} items={menuItems} at={menu?.at}
+<ContextMenu open={menu != null} title={menu?.folder.name ?? ''} subtitle={menu?.folder.path ?? ''} items={menuItems()} at={menu?.at}
   onClose={() => (menu = null)} {onPick} />
 
 <style>
-  .ex-grid { grid-template-columns: minmax(220px, 2fr) minmax(140px, 1fr) 160px 60px 36px; min-width: 760px; }
-  .ex-vol { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 500; }
-  .ex-vol .v2-bar { height: 5px; }
+  .ex-grid { grid-template-columns: 36px minmax(200px, 2fr) minmax(120px, 1fr) 190px 110px 110px 120px 56px 36px; min-width: 1000px; }
+  .ex-list { overflow-x: auto; }
+  .ex-check { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .ex-check input { width: 16px; height: 16px; accent-color: #0e1218; }
+  .ex-sort { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+  .ex-vol { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; }
+  .ex-vol > span { width: 64px; }
+  .ex-num, .ex-when { font-size: 13px; }
+  .ex-mut { color: var(--b2s-color-text-muted); font-size: 13px; }
+  .ex-bad { color: #a32626; }
+  .ex-hint { margin: 0; color: var(--b2s-color-text-muted); font-size: 12px; }
+  .ex-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ex-chips button { display: inline-flex; gap: 6px; align-items: center; height: 32px; padding: 0 12px; border: 1px solid var(--b2s-color-border); border-radius: 999px;
+    background: var(--b2s-color-surface, #fff); font: inherit; font-size: 13px; color: var(--b2s-color-text); cursor: pointer; }
+  .ex-chips button small { color: var(--b2s-color-text-muted); font-size: 12px; }
+  .ex-chips button.is-on { border-color: #0e1218; background: #0e1218; color: #fff; }
+  .ex-chips button.is-on small { color: #b9bfca; }
+  .ex-bulk-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-left: auto; }
+  .is-picked { background: #f1f3f7; }
 </style>
