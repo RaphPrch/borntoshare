@@ -8,7 +8,6 @@
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
-  import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
@@ -315,14 +314,14 @@
 </script>
 
 <div class="obs-jobs">
-  <section class="b2s-kpi-grid" aria-label={t('Jobs summary')}>
-    <KpiCard label={t('Running or queued')} value={counts.active} icon="bi-arrow-repeat" tone="info" />
-    <KpiCard label={t('Stuck')} value={counts.stuck} icon="bi-hourglass-split" tone={counts.stuck ? 'warning' : 'neutral'}
-      hint={counts.stuck ? t('Flush them to free their folder or server') : t('None')} />
-    <KpiCard label={t('Failed (24 h)')} value={counts.failed} icon="bi-x-octagon" tone={counts.failed ? 'danger' : 'neutral'}
-      hint={failureRate == null ? null : t('{rate} % of the finished jobs', { rate: failureRate })} />
-    <KpiCard label={t('Succeeded (24 h)')} value={counts.succeeded} icon="bi-check2-circle" tone="success"
-      hint={medianRun == null ? null : t('Median duration {duration}', { duration: formatSeconds(medianRun) })} />
+  <section class="v2-stats" aria-label={t('Jobs summary')}>
+    <div class="v2-stat"><small>{t('Running or queued')}</small><b>{counts.active}</b></div>
+    <div class="v2-stat"><small>{t('Stuck')}</small><b style={counts.stuck ? 'color:#b45309' : ''}>{counts.stuck}</b>
+      <span>{counts.stuck ? t('Flush them to free their folder or server') : t('None')}</span></div>
+    <div class="v2-stat"><small>{t('Failed (24 h)')}</small><b style={counts.failed ? 'color:#b42318' : ''}>{counts.failed}</b>
+      {#if failureRate != null}<span>{t('{rate} % of the finished jobs', { rate: failureRate })}</span>{/if}</div>
+    <div class="v2-stat"><small>{t('Succeeded (24 h)')}</small><b>{counts.succeeded}</b>
+      {#if medianRun != null}<span>{t('Median duration {duration}', { duration: formatSeconds(medianRun) })}</span>{/if}</div>
   </section>
 
   {#if counts.stuck}

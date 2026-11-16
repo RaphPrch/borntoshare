@@ -242,13 +242,6 @@
   line-height: 1.4;
 }
 
-/* KPI rows (KpiCard.svelte) */
-.b2s-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-}
-
 /* Filter / search toolbars */
 .b2s-toolbar {
   display: flex;

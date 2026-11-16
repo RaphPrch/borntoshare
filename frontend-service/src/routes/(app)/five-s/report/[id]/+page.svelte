@@ -9,6 +9,7 @@
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
+  import FolderHeader from '../../FolderHeader.svelte';
 
   /** Report of the last measure of one folder: duplicates, types, heaviest folders, old files, clutter. */
   type Stats = {
@@ -119,7 +120,7 @@
 </script>
 
 <div class="rp">
-  <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/five-s"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
+  <FolderHeader {rootId} {name} {path} current="report" />
   {#if loading}
     <LoadingState skeleton="page" rows={6} />
   {:else if error}
@@ -128,8 +129,7 @@
     <InlineAlert tone="info">{t('This folder was never measured: measure it from its page, the report appears here afterwards.')}</InlineAlert>
   {:else}
     <header class="rp__head">
-      <h1>{t('Report · {name}', { name })}</h1>
-      <p><code>{path}</code> · {t('measured {when}', { when: formatDateTime(stats.scanned_at) })}{stats.elapsed_ms ? ` · ${Math.round(stats.elapsed_ms / 60000)} min` : ''}
+      <p>{t('measured {when}', { when: formatDateTime(stats.scanned_at) })}{stats.elapsed_ms ? ` · ${Math.round(stats.elapsed_ms / 60000)} min` : ''}
         · <a href={`/storage-roots?selected=${rootId}`}>{t('Open the folder')}</a></p>
     </header>
 
@@ -149,14 +149,14 @@
       </section>
     {/if}
 
-    <section class="rp__kpis">
-      <div><span>{t('Volume')}</span><b>{formatBytes(stats.bytes)}</b></div>
-      <div><span>{t('Files')}</span><b>{Number(stats.files ?? 0).toLocaleString('fr-FR')}</b></div>
-      <div><span>{t('Sub-folders')}</span><b>{Number(stats.folders ?? 0).toLocaleString('fr-FR')}</b></div>
-      <div class:is-warn={(duplicates?.wasted_bytes ?? 0) > 0}><span>{t('Lost to duplicates')}</span><b>{formatBytes(duplicates?.wasted_bytes ?? 0)}</b>
-        <small>{t('{groups} group(s), {files} file(s)', { groups: (duplicates?.groups ?? 0).toLocaleString('fr-FR'), files: (duplicates?.files ?? 0).toLocaleString('fr-FR') })}</small></div>
-      <div><span>{t('Not modified for 1 year')}</span><b>{formatBytes(stats.cold?.['1y']?.bytes ?? 0)}</b><small>{share(stats.cold?.['1y']?.bytes ?? 0, total)} %</small></div>
-      <div><span>{t('Clutter')}</span><b>{formatBytes(stats.junk?.bytes ?? 0)}</b><small>{t('{count} file(s)', { count: stats.junk?.files ?? 0 })}</small></div>
+    <section class="v2-stats">
+      <div class="v2-stat"><small>{t('Volume')}</small><b>{formatBytes(stats.bytes)}</b></div>
+      <div class="v2-stat"><small>{t('Files')}</small><b>{Number(stats.files ?? 0).toLocaleString('fr-FR')}</b></div>
+      <div class="v2-stat"><small>{t('Sub-folders')}</small><b>{Number(stats.folders ?? 0).toLocaleString('fr-FR')}</b></div>
+      <div class="v2-stat"><small>{t('Lost to duplicates')}</small><b class:rp__warn={(duplicates?.wasted_bytes ?? 0) > 0}>{formatBytes(duplicates?.wasted_bytes ?? 0)}</b>
+        <span>{t('{groups} group(s), {files} file(s)', { groups: (duplicates?.groups ?? 0).toLocaleString('fr-FR'), files: (duplicates?.files ?? 0).toLocaleString('fr-FR') })}</span></div>
+      <div class="v2-stat"><small>{t('Not modified for 1 year')}</small><b>{formatBytes(stats.cold?.['1y']?.bytes ?? 0)}</b><span>{share(stats.cold?.['1y']?.bytes ?? 0, total)} %</span></div>
+      <div class="v2-stat"><small>{t('Clutter')}</small><b>{formatBytes(stats.junk?.bytes ?? 0)}</b><span>{t('{count} file(s)', { count: stats.junk?.files ?? 0 })}</span></div>
     </section>
 
     <div class="rp__grid">
@@ -253,13 +253,7 @@
 
 <style>
   .rp { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; padding: var(--b2s-page-padding); }
-  .rp__head h1 { margin: 0 0 4px; font-size: 24px; }
   .rp__head p { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .rp__kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
-  .rp__kpis > div { display: grid; gap: 2px; padding: 14px 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md, 10px); background: var(--b2s-color-surface, #fff); }
-  .rp__kpis span, .rp__kpis small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .rp__kpis b { font-size: 20px; }
-  .rp__kpis .is-warn b { color: var(--b2s-color-warning-strong, #b54708); }
   .rp__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .rp__card { padding: 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md, 10px); background: var(--b2s-color-surface, #fff); min-width: 0; }
   .rp__wide { grid-column: 1 / -1; }
@@ -285,4 +279,5 @@
   .rp__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
   .rp__list li { display: flex; justify-content: space-between; gap: 12px; min-width: 0; font-size: var(--b2s-fs-sm); }
   .rp__list span { white-space: nowrap; color: var(--b2s-color-text-muted); }
+  .rp__warn { color: var(--b2s-color-warning-strong, #b54708); }
 </style>

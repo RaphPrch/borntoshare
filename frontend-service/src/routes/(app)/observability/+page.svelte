@@ -3,7 +3,6 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { t } from '$lib/i18n';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import ObsOverview from '$lib/components/observability/ObsOverview.svelte';
@@ -102,9 +101,9 @@
 </script>
 
 <div class="obs-page">
-  <PageHeader title={t('Monitoring')} subtitle={t('Platform health, alerts, events and jobs in one place.')}>
-    {#snippet actions()}
-      
+  <div class="v2-head">
+    <div><h1>Governance Jobs</h1><p>{t('Platform health, alerts, events and jobs in one place.')}</p></div>
+    <div class="v2-head__act">
         <label class="obs-period">
           <span>{t('Period')}</span>
           <select class="b2s-select" value={period} onchange={(e) => setPeriod(e.currentTarget.value as ObsPeriod)}>
@@ -116,9 +115,8 @@
         <button class="b2s-btn b2s-btn-secondary" type="button" onclick={refresh} disabled={refreshing}>
           <i class={`bi ${refreshing ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} aria-hidden="true"></i>{t('Refresh')}
         </button>
-      
-      {/snippet}
-  </PageHeader>
+    </div>
+  </div>
 
   <Tabs {tabs} activeKey={active} onChange={setTab} ariaLabel={t('Observability')} />
 

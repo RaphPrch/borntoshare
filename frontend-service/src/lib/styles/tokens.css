@@ -33,7 +33,7 @@
   --b2s-fs-xl: 20px;
   --b2s-fs-2xl: 24px;
   --b2s-fs-page-title: 24px; /* forms and wizards (New server, Add folders…) */
-  --b2s-fs-overview-title: 38px; /* overview pages (Requests, Monitoring, Tags, Policies…) */
+  --b2s-fs-overview-title: 30px; /* titles of the pages, the same as the v2 heads (v2-head h1) */
   --b2s-fs-entity-title: 26px; /* name of the selected entity in its identity card */
   --b2s-fs-console-title: 24px;
 

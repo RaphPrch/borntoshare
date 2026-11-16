@@ -6,7 +6,6 @@
   import { resizableColumns } from '$lib/utils/resizable-columns';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { alertMessage, alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
-  import KpiCard from '$lib/components/ui/KpiCard.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
@@ -246,11 +245,11 @@
 </script>
 
 <div class="obs-alerts">
-  <section class="b2s-kpi-grid" aria-label={t('Alerts summary')}>
-    <KpiCard label={t('Critical or high')} value={counts.critical} icon="bi-exclamation-octagon" tone="danger" />
-    <KpiCard label={t('Warnings')} value={counts.warning} icon="bi-exclamation-triangle" tone="warning" />
-    <KpiCard label={t('Acknowledged alerts')} value={counts.acknowledged} icon="bi-eye" tone="info" />
-    <KpiCard label={t('Resolved alerts')} value={counts.resolved} icon="bi-check2-circle" tone="success" />
+  <section class="v2-stats" aria-label={t('Alerts summary')}>
+    <div class="v2-stat"><small>{t('Critical or high')}</small><b style={counts.critical ? 'color:#b42318' : ''}>{counts.critical}</b></div>
+    <div class="v2-stat"><small>{t('Warnings')}</small><b style={counts.warning ? 'color:#b45309' : ''}>{counts.warning}</b></div>
+    <div class="v2-stat"><small>{t('Acknowledged alerts')}</small><b>{counts.acknowledged}</b></div>
+    <div class="v2-stat"><small>{t('Resolved alerts')}</small><b>{counts.resolved}</b></div>
   </section>
 
   <div class="b2s-toolbar">

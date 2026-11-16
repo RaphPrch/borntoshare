@@ -34,11 +34,13 @@ Bases : `b2s_fives` (résultats, décisions, quarantaine, historique des scores)
 
 | Menu Storage Intelligence | Contenu |
 |---|---|
-| Explorer (`/five-s/explore`, puis `/five-s/explore/<dossier>`) | choix du dossier, puis arborescence à gauche, contenu au centre (dates, ancienneté, droits, doublons), fiche du sous-dossier : historique, ACL, chaîne d'héritage, actions ; atelier des 5 piliers avec la tendance des scores. Juste après une première mesure, la page suit le scanner et affiche l'arborescence dès qu'elle arrive |
-| Doublons (`/five-s/duplicates/<dossier>`, depuis Explorer) | groupes de fichiers identiques (empreinte), filtre par sous-dossier, décision par groupe |
-| Inventory (`/five-s/scanner`) | bandeau du scanner, puis trois onglets : **Scans** (file et parcours en cours), **Dossiers** (inventaire par dossier, mesure des jamais mesurés, clic droit : fiche, explorer, mesurer, annuler), **Réglages** (administrateurs : fréquence, parcours complet, scans simultanés par serveur, empreintes par morceau) |
+| Explorer (`/five-s/explore`) | recherche de fichiers dans tous les dossiers mesurés (nom, extension, propriétaire, taille, ancienneté), puis la **fiche d'un dossier** en onglets : Contenu, Atelier 5S, Doublons, Droits à revoir, Rapport |
+| Contenu et Atelier 5S (`/five-s/explore/<dossier>`) | choix du dossier, puis arborescence à gauche, contenu au centre (dates, ancienneté, droits, doublons), fiche du sous-dossier : historique, ACL, chaîne d'héritage, actions ; atelier des 5 piliers avec la tendance des scores. Juste après une première mesure, la page suit le scanner et affiche l'arborescence dès qu'elle arrive |
+| Droits à revoir (`/five-s/access/<dossier>`) | tous les sous-dossiers à regarder : SID orphelin, écriture pour toute l'entreprise, contrôle total, droits posés à la main, héritage rompu ; « qui y a accès et pourquoi » pour celui qu'on choisit |
+| Doublons (`/five-s/duplicates/<dossier>`) | groupes de fichiers identiques (empreinte), filtre par sous-dossier, décision par groupe |
+| Inventory (`/five-s/scanner`) | bandeau du scanner, puis trois onglets : **Scans** (file et parcours en cours), **Dossiers** (inventaire par dossier, mesure des jamais mesurés, clic droit : fiche, explorer, mesurer, annuler), **Quarantaine** (copies et dossiers archivés de tous les dossiers, filtres, restauration, durée de purge), **Réglages** (administrateurs : fréquence, parcours complet, scans simultanés par serveur, empreintes par morceau, propriétaires des fichiers, purge) |
 | Analytics (`/five-s`) | score de chaque dossier sur 100, par pilier, sur tout le parc ou une branche de l'arborescence ; « Quoi faire d'abord » : les actions qui relèvent le plus de dossiers |
-| Rapport (`/five-s/report/<dossier>`, depuis Analytics) | volumes, âges, types, et les trois mesures précédentes, rétablissables |
+| Rapport (`/five-s/report/<dossier>`) | volumes, âges, types, et les trois mesures précédentes, rétablissables |
 
 Dans l'Explorer, chaque fichier montre sa taille, sa création, sa dernière modification, son dernier accès
 (indicatif), son extension, son propriétaire NTFS si l'administrateur l'a demandé (Inventory › Réglages : une

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FileSearch from '../FileSearch.svelte';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { apiGetData } from '$lib/api/client';
@@ -83,6 +84,9 @@
       <p>{t('The inventoried content of the folders, and what the 5S knows about it. Choose a folder in the tree; right click: its actions.')}</p>
     </div>
   </div>
+  {#if !loading && !error}
+    <FileSearch onOpen={(hit) => void goto(`/five-s/explore/${hit.storage_root_id}?open=${encodeURIComponent(hit.path.split('\\').slice(0, -1).join('\\'))}`)} />
+  {/if}
 
   {#if loading}
     <LoadingState />

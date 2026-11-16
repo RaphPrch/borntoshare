@@ -1,7 +1,8 @@
 <script lang="ts">
-  import MeasureCompleteness, { type Completeness } from '$lib/components/storage-roots/MeasureCompleteness.svelte';
+  import MeasureCompleteness, { type Completeness, COMPLETENESS_LABEL } from '$lib/components/storage-roots/MeasureCompleteness.svelte';
+  import QuarantineList, { type Move } from '../QuarantineList.svelte';
   import { fivesEnabled } from '$lib/utils/features';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { apiGetData, apiGetList, apiPostData, apiPutData } from '$lib/api/client';
@@ -34,7 +35,10 @@
   let error = $state('');
   let form = $state<Settings | null>(null);
   let busy = $state(false);
-  let tab = $state<'queue' | 'folders' | 'settings'>('queue');
+  // The tab and the folder may come from the address (« See the quarantine » of a folder)
+  const asked = $page.url.searchParams.get('tab');
+  let tab = $state<'queue' | 'folders' | 'quarantine' | 'settings'>(asked === 'folders' || asked === 'quarantine' || asked === 'settings' ? asked : 'queue');
+  let quarantineRoot = $state<number | null>(Number($page.url.searchParams.get('root')) || null);
   let filter = $state<'active' | 'all'>('active');
   let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -48,12 +52,44 @@
     }
   }
   const loadRoots = async () => (roots = await apiGetList<Root>(fetch, '/storage-roots/context').catch(() => roots));
+  // ---- quarantine and archives of every folder ----
+  type QuarantineData = { moves: Move[]; counts: Record<string, number>; quarantine_bytes: number; purge_days: number };
+  let quarantine = $state<QuarantineData | null>(null);
+  let quarantineStatus = $state<'all' | 'moved' | 'pending' | 'failed' | 'restored'>('all');
+  let quarantineKind = $state<'all' | 'duplicate' | 'archive'>('all');
+  async function loadQuarantine() {
+    const params: Record<string, string> = {};
+    if (quarantineRoot) params.root_id = String(quarantineRoot);
+    if (quarantineKind !== 'all') params.kind = quarantineKind;
+    quarantine = await apiGetData<QuarantineData>(fetch, '/modules/fives/quarantine', params).catch(() => quarantine);
+  }
+  $effect.pre(() => {
+    void [quarantineRoot, quarantineKind];
+    if (tab === 'quarantine' && $fivesEnabled) untrack(() => void loadQuarantine());
+  });
+  let quarantineRows = $derived((quarantine?.moves ?? []).filter((move) => quarantineStatus === 'all'
+    || (quarantineStatus === 'pending' ? move.status.endsWith('pending') : quarantineStatus === 'failed' ? move.status.endsWith('failed') : move.status === quarantineStatus)));
+  async function restoreMove(move: Move) {
+    try {
+      await apiPostData(fetch, `/modules/fives/storage-roots/${move.storage_root_id}/quarantine/${move.id}/restore`, {});
+      toast.success(t('« {name} » goes back to its place.', { name: move.path.split('\\').pop() ?? move.path }));
+      await loadQuarantine();
+    } catch (failure) {
+      reportUiError(failure, t('Unable to restore the copy.'), 'fives.quarantine.restore');
+    }
+  }
+
+  // ---- complete, partial or sampled: the last measure of each folder ----
+  let states = $state<Record<string, { status: Completeness['status']; reasons: string[] }>>({});
+  const loadStates = async () => (states = (await apiGetData<typeof states>(fetch, '/modules/fives/measures/states').catch(() => null)) ?? states);
+
   onMount(() => {
     // Not active (no license, switched off, or not installed): the explanation, no call to the module
     if (!$fivesEnabled) return;
     void load();
     void loadRoots();
-    timer = setInterval(load, 5000);
+    void loadStates();
+    timer = setInterval(() => { void load(); if (tab === 'quarantine' && quarantine?.moves.some((move) => move.status.endsWith('pending'))) void loadQuarantine(); }, 5000);
   });
   onDestroy(() => timer && clearInterval(timer));
 
@@ -119,7 +155,7 @@
   let shown = $derived(showAll ? runs : runs.slice(0, PAGE));
 
   // ---- inventory of the folders ----
-  type FolderFilter = 'all' | 'active' | 'failed' | 'never' | 'done';
+  type FolderFilter = 'all' | 'active' | 'failed' | 'never' | 'done' | 'partial';
   let folderFilter = $state<FolderFilter>('all');
   let folderQuery = $state('');
   let folderShown = $state(50);
@@ -133,11 +169,15 @@
   };
   const FILTERS: Array<{ key: FolderFilter; label: () => string }> = [
     { key: 'all', label: () => t('All') }, { key: 'active', label: () => t('In progress') }, { key: 'failed', label: () => t('Failed') },
-    { key: 'never', label: () => t('Never measured') }, { key: 'done', label: () => t('Measured') }
+    { key: 'never', label: () => t('Never measured') }, { key: 'done', label: () => t('Measured') },
+    { key: 'partial', label: () => t('Partial or sampled') }
   ];
+  const measureState = (row: Root) => states[String(row.storage_root_id)];
+  const inFilter = (row: Root, key: FolderFilter) => key === 'all' || (key === 'partial'
+    ? ['partial', 'sampled'].includes(measureState(row)?.status ?? '') : stateOf(row).key === key);
   let folderNeedle = $derived(folderQuery.trim().toLowerCase());
   let folderRows = $derived(roots
-    .filter((row) => (folderFilter === 'all' || stateOf(row).key === folderFilter) &&
+    .filter((row) => inFilter(row, folderFilter) &&
       (!folderNeedle || `${row.storage_root_name ?? ''} ${row.root_path ?? ''} ${row.storage_endpoint_name ?? ''}`.toLowerCase().includes(folderNeedle)))
     .slice()
     .sort((a, b) => String(b.content_updated_at ?? '').localeCompare(String(a.content_updated_at ?? ''))));
@@ -185,7 +225,7 @@
   {:else if !data}
     <LoadingState block skeleton="rows" rows={5} />
   {:else}
-    <div class="v2-band sc5__band">
+    <div class="sc5__band">
       <div class="sc5__sched" class:is-on={data.in_window && data.settings.schedule_enabled}>
         <small>{t('Schedule')}</small><b>{scheduleText(data.settings)}</b><span>{nextText(data)}</span>
       </div>
@@ -200,6 +240,7 @@
     <div class="v2-tabs" role="tablist" aria-label={t('Inventory')}>
       <button type="button" role="tab" class:is-on={tab === 'queue'} aria-selected={tab === 'queue'} onclick={() => (tab = 'queue')}>{t('Scans')}{#if (data.counts.running ?? 0) + (data.counts.queued ?? 0)}<b>{(data.counts.running ?? 0) + (data.counts.queued ?? 0)}</b>{/if}</button>
       <button type="button" role="tab" class:is-on={tab === 'folders'} aria-selected={tab === 'folders'} onclick={() => (tab = 'folders')}>{t('Folders')}<b>{roots.length}</b></button>
+      <button type="button" role="tab" class:is-on={tab === 'quarantine'} aria-selected={tab === 'quarantine'} onclick={() => (tab = 'quarantine')}>{t('Quarantine')}{#if quarantine?.counts.moved}<b>{quarantine.counts.moved}</b>{/if}</button>
       {#if isAdmin && form}<button type="button" role="tab" class:is-on={tab === 'settings'} aria-selected={tab === 'settings'} onclick={() => (tab = 'settings')}>{t('Settings')}</button>{/if}
     </div>
 
@@ -250,7 +291,7 @@
           <div class="v2-seg" role="group" aria-label={t('Quick filters')}>
             {#each FILTERS as item (item.key)}
               <button type="button" class:is-on={folderFilter === item.key} onclick={() => { folderFilter = item.key; folderShown = 50; }}>
-                {item.label()} <b>{item.key === 'all' ? roots.length : roots.filter((row) => stateOf(row).key === item.key).length}</b></button>
+                {item.label()} <b>{roots.filter((row) => inFilter(row, item.key)).length}</b></button>
             {/each}
           </div>
           <div class="v2-sh__r"><label class="v2-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={folderQuery} placeholder={t('Folder, path, server…')} aria-label={t('Search a folder')} /></label></div>
@@ -266,7 +307,8 @@
               <span>{row.content_files != null ? num(row.content_files).toLocaleString('fr-FR') : '—'}</span>
               <span>{row.content_size_bytes != null ? formatBytes(num(row.content_size_bytes)) : '—'}</span>
               <span class="v2-sub">{#if row.content_updated_at}<RelativeTime value={row.content_updated_at} />{:else}—{/if}</span>
-              <span><span class={`v2-tag is-${state.tone}`}>{state.label}</span></span>
+              <span class="sc5__states"><span class={`v2-tag is-${state.tone}`}>{state.label}</span>
+                {#if measureState(row) && measureState(row).status !== 'complete'}<span class="v2-tag is-warn" title={measureState(row).reasons.join(', ')}>{COMPLETENESS_LABEL()[measureState(row).status]}</span>{/if}</span>
               <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: target.name })} onclick={openMenu(target)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
             </div>
           {:else}
@@ -276,6 +318,29 @@
         {#if folderRows.length > folderShown}
           <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm sc5__more" onclick={() => (folderShown += 50)}>{t('Show {count} more', { count: Math.min(50, folderRows.length - folderShown) })}</button>
         {/if}
+      </div>
+    {:else if tab === 'quarantine'}
+      <div class="v2-sec">
+        <p class="sc5__qinfo"><i class="bi bi-archive" aria-hidden="true"></i>
+          {quarantine ? t('{size} in quarantine.', { size: formatBytes(quarantine.quarantine_bytes) }) : ''}
+          {quarantine?.purge_days ? t('Copies are deleted for good after {days} days in quarantine.', { days: quarantine.purge_days })
+            : t('Nothing is deleted automatically: copies stay until someone restores them (purge set in Settings).')}
+          {t('Archived folders are never purged.')}</p>
+        <div class="v2-sh">
+          <div class="v2-seg" role="group" aria-label={t('State')}>
+            {#each [['all', t('All')], ['moved', t('In quarantine')], ['pending', t('In progress')], ['failed', t('Refused')], ['restored', t('Restored')]] as [key, label] (key)}
+              <button type="button" class:is-on={quarantineStatus === key} onclick={() => (quarantineStatus = key as typeof quarantineStatus)}>{label}</button>
+            {/each}
+          </div>
+          <div class="v2-seg" role="group" aria-label={t('Kind')}>
+            {#each [['all', t('All')], ['duplicate', t('Duplicates')], ['archive', t('Archives')]] as [key, label] (key)}
+              <button type="button" class:is-on={quarantineKind === key} onclick={() => (quarantineKind = key as typeof quarantineKind)}>{label}</button>
+            {/each}
+          </div>
+          {#if quarantineRoot}<div class="v2-sh__r"><span class="v2-tag is-info">{roots.find((row) => Number(row.storage_root_id) === quarantineRoot)?.storage_root_name ?? `#${quarantineRoot}`}
+            <button type="button" class="b2s-link-btn" onclick={() => (quarantineRoot = null)} aria-label={t('All the folders')}>✕</button></span></div>{/if}
+        </div>
+        {#if quarantine}<QuarantineList moves={quarantineRows} showFolder={!quarantineRoot} onRestore={restoreMove} />{:else}<LoadingState block skeleton="rows" rows={4} />{/if}
       </div>
     {:else if tab === 'settings' && isAdmin && form}
       <form class="sc5__form" onsubmit={(event) => { event.preventDefault(); save(); }}>
@@ -320,11 +385,13 @@
 <ContextMenu open={menu != null} title={menu?.target.name ?? ''} items={menuItems} at={menu?.at} onClose={() => (menu = null)} {onPick} />
 
 <style>
-  .sc5__band { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 24px; }
+  .sc5__band { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 18px 22px; border: 1px solid var(--b2s-color-border); border-radius: 16px; background: var(--b2s-color-surface, #fff); }
+  .sc5__states { display: flex; flex-wrap: wrap; gap: 4px; }
+  .sc5__qinfo { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .sc5__sched { display: flex; flex-direction: column; gap: 3px; min-width: 260px; }
-  .sc5__sched small { color: #a6adba; font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; }
-  .sc5__sched b { color: #fff; font-size: 19px; font-weight: 600; }
-  .sc5__sched span { color: #a6adba; font-size: 13px; }
+  .sc5__sched small { color: var(--b2s-color-text-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; }
+  .sc5__sched b { color: var(--b2s-color-text); font-size: 19px; font-weight: 600; }
+  .sc5__sched span { color: var(--b2s-color-text-muted); font-size: 13px; }
   .sc5__sched.is-on b::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; background: var(--b2s-accent); vertical-align: 2px; }
   .sc5__stats { flex: 1 1 440px; margin-left: auto; border: 0; }
   .sc5__stats .v2-stat { padding: 4px 18px 4px 0; }

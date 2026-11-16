@@ -44,7 +44,9 @@ export function buildNav(ctx: NavContext): NavSection[] {
         { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open' },
         ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/exposure'], count: ctx.pending,
             tabs: [{ href: '/access-requests', label: t('Requests') }, ...(ctx.staff ? [{ href: '/exposure', label: t('Exposure') }] : [])] }] : []),
-        ...(ctx.staff ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.admin ? ctx.critical : 0, danger: true }] : [])
+        ...(ctx.staff ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.admin ? ctx.critical : 0, danger: true }] : []),
+        // Automations of the governance (tags, alerts, scans… on a rule): administrators
+        ...(ctx.admin ? [{ href: '/admin/policies', label: 'Policies', icon: 'bi-magic' }] : [])
       ]
     },
     {
@@ -53,13 +55,13 @@ export function buildNav(ctx: NavContext): NavSection[] {
       items: [
         ...(fives && ctx.staff
           ? [
-              { href: '/five-s/explore', label: 'Explorer', icon: 'bi-columns-gap', also: ['/five-s/duplicates'] },
+              // Every page of one folder (content, 5S workshop, duplicates, rights to review, report) belongs to Explorer
+              { href: '/five-s/explore', label: 'Explorer', icon: 'bi-columns-gap', also: ['/five-s/duplicates', '/five-s/access', '/five-s/report'] },
               { href: '/five-s/scanner', label: 'Inventory', icon: 'bi-list-ul' },
-              { href: '/five-s', label: 'Analytics', icon: 'bi-bar-chart', also: ['/five-s/report'] }
+              { href: '/five-s', label: 'Analytics', icon: 'bi-bar-chart' }
             ]
           : []),
-        ...(ctx.staff ? [{ href: '/reports', label: 'Insights & Recommendations', icon: 'bi-lightbulb', also: ctx.admin ? ['/admin/policies'] : [],
-            tabs: [{ href: '/reports', label: t('Reports') }, ...(ctx.admin ? [{ href: '/admin/policies', label: t('Policies') }] : [])] }] : [])
+        ...(ctx.staff ? [{ href: '/reports', label: 'Insights & Recommendations', icon: 'bi-lightbulb' }] : [])
       ]
     },
     {

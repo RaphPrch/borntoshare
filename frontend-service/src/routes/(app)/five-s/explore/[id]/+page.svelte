@@ -1,6 +1,9 @@
 <script lang="ts">
 
   import TagPill from '$lib/components/tags/TagPill.svelte';
+  import FolderHeader from '../../FolderHeader.svelte';
+  import AccessPanel from '../../AccessPanel.svelte';
+  import FileSearch from '../../FileSearch.svelte';
   import { copyText } from '$lib/utils/clipboard';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { page } from '$app/stores';
@@ -52,7 +55,8 @@
   let loading = $state(true);
   let busy = $state(false);
   let error = $state<string | null>(null);
-  let view = $state<'explorer' | 'workshop'>('explorer');
+  // The tab of the sheet: content (explorer) or the 5S workshop, from the address so that the header links it
+  let view = $derived<'explorer' | 'workshop'>($page.url.searchParams.get('view') === 'workshop' ? 'workshop' : 'explorer');
   let filter = $state<'all' | 'dormant' | 'dups' | 'broken'>('all');
 
   let rootId = $derived(Number($page.params.id));
@@ -81,51 +85,6 @@
     const lower = path.toLowerCase();
     return sensitive.find((item) => lower === item.path.toLowerCase() || lower.endsWith(`\\${item.path.toLowerCase()}`));
   };
-
-  // ---- who reaches the folder chosen and why (Permission Intelligence: resolved by the core with its directory) ----
-  type Via = { kind: 'group' | 'direct'; group?: string; account?: string; nested?: boolean; rights: string; deny: boolean; inherited: boolean };
-  type AccessPerson = { username: string | null; display_name: string | null; rights: string | null; denied: boolean; via: Via[] };
-  type Principal = { who: string; kind: string; rights: string; deny: boolean; inherited: boolean; members: number | null };
-  type AccessData = { read: boolean; entries_total?: number; entries_cut?: boolean; inheritance_broken?: boolean | null;
-    analysis?: { principals: Principal[]; people: AccessPerson[]; people_total: number; findings: Array<{ code: string; who: string; rights: string }>; snapshot_at: string | null };
-    drift?: { added: Array<{ who: string; level: string }>; removed: Array<{ who: string; level: string }>; parent_known: boolean } };
-  let access = $state<AccessData | null>(null);
-  let accessFor = $state<string | null>(null);
-  let accessState = $state<'idle' | 'loading' | 'ok' | 'failed'>('idle');
-  let accessAll = $state(false);
-  let accessQuery = $state('');
-  async function loadAccess(path: string) {
-    accessFor = path;
-    accessState = 'loading';
-    accessAll = false;
-    accessQuery = '';
-    try {
-      const data = await apiGetData<AccessData>(fetch, `/modules/fives/storage-roots/${rootId}/folders/access`, path ? { path } : undefined);
-      if (accessFor !== path) return;
-      access = data;
-      accessState = 'ok';
-    } catch {
-      if (accessFor === path) accessState = 'failed';
-    }
-  }
-  $effect.pre(() => {
-    if (selected && selected.path !== accessFor) {
-      const path = selected.path;
-      untrack(() => void loadAccess(path));
-    }
-  });
-  const RIGHTS = (): Record<string, string> => ({ read: t('Read'), modify: t('Modify'), full: t('Full control') });
-  const KIND = (): Record<string, string> => ({ group: t('Group'), user: t('Account'), system: t('System'), broad: t('Everyone'), orphan: t('Orphan SID'), unknown: t('Unknown') });
-  const FINDING = (): Record<string, string> => ({
-    BROAD_WRITE: t('Open to the whole company in writing'), BROAD_READ: t('Readable by the whole company'),
-    USER_ACE: t('Account added by hand (not through a group)'), FULL_CONTROL: t('Full control outside the administrators'),
-    ORPHAN_SID: t('Account deleted from the directory still has rights'), UNKNOWN_ACCOUNT: t('Account unknown to the directory (local or other domain)'),
-    DENY_ENTRY: t('A deny entry: hard to read, check it')
-  });
-  const SEVERE = new Set(['BROAD_WRITE', 'FULL_CONTROL', 'ORPHAN_SID']);
-  let accessPeople = $derived((access?.analysis?.people ?? []).filter((person) => !accessQuery.trim()
-    || `${person.display_name ?? ''} ${person.username ?? ''}`.toLowerCase().includes(accessQuery.trim().toLowerCase())));
-  const viaText = (via: Via) => via.kind === 'direct' ? t('directly') : via.nested ? t('through {group} (nested group)', { group: via.group ?? '' }) : t('through {group}', { group: via.group ?? '' });
 
   // ---- the files of the open folder, as they are now on the file server (read by a worker) ----
   // The inventory of the module only knows the files fingerprinted for the duplicates: it stays as the fallback.
@@ -185,6 +144,9 @@
         trail = [first.node];
         selected = first.node;
       }
+      // Opened on a folder found by the file search of the explorer entry page
+      const wanted = $page.url.searchParams.get('open');
+      if (wanted && first?.node) void openFolder(wanted);
       // No tree yet (first measure) or a measure walking: follow the scanner until the tree is there
       if (!first?.node || scan?.running) watchScanner();
     } catch {
@@ -241,6 +203,34 @@
         level = next;
         trail = [...trail, next.node];
         selected = next.node;
+        filter = 'all';
+      }
+    } finally {
+      busy = false;
+    }
+  }
+  /** Opens a folder anywhere under the root (a file found by the search): each level from the root, as a person would. */
+  async function openFolder(path: string) {
+    const top = trail[0];
+    if (!top || busy) return;
+    const base = (top.path ?? '').replace(/\\+$/, '');
+    const inside = base && path.toLowerCase().startsWith(`${base.toLowerCase()}\\`) ? path.slice(base.length + 1) : base ? '' : path;
+    busy = true;
+    try {
+      const steps = [top];
+      let cursor = base;
+      let last: Level | null = null;
+      for (const part of inside.split('\\').filter(Boolean)) {
+        cursor = cursor ? `${cursor}\\${part}` : part;
+        const next = await load(cursor);
+        if (!next?.node) break;
+        steps.push(next.node);
+        last = next;
+      }
+      if (last?.node) {
+        level = last;
+        trail = steps;
+        selected = last.node;
         filter = 'all';
       }
     } finally {
@@ -397,7 +387,7 @@
   function runCard(card: Card) {
     if (card.act === 'archive' && card.folder) archiving = card.folder;
     else if (card.act === 'inherit' && card.folder) void restoreInheritance(card.folder);
-    else if (card.folder) { selected = card.folder; view = 'explorer'; }
+    else if (card.folder) { selected = card.folder; void goto(`/five-s/explore/${rootId}`, { keepFocus: true, noScroll: true }); }
   }
   let columns = $derived([
     { key: 'seiri', title: t('Sort (Seiri)'), cards: [
@@ -478,14 +468,12 @@
 </script>
 
 <div class="fx">
-  <div class="fx__top">
-    <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/five-s/explore"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the folders')}</a>
-    <span class="fx__links">
-      <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/duplicates/${rootId}`}><i class="bi bi-files" aria-hidden="true"></i>{t('Duplicates')}</a>
-      <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/report/${rootId}`}><i class="bi bi-file-earmark-text" aria-hidden="true"></i>{t('Report')}</a>
+  <FolderHeader {rootId} name={rootName} path={rootPath} current={view === 'workshop' ? 'workshop' : 'content'}
+    counts={{ workshop: decisions, duplicates: groups.length - decided }}>
+    {#snippet actions()}
       <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={exportLevel} disabled={!children.length}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
-    </span>
-  </div>
+    {/snippet}
+  </FolderHeader>
 
   {#if loading}
     <LoadingState skeleton="page" rows={6} />
@@ -505,11 +493,6 @@
           {/each}
           {#if busy}<span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>{/if}
         </nav>
-        <h1>{current.name || rootName}</h1>
-      </div>
-      <div class="fx__tabs" role="tablist" aria-label={t('View')}>
-        <button type="button" role="tab" aria-selected={view === 'explorer'} class:is-on={view === 'explorer'} onclick={() => (view = 'explorer')}>{t('Explorer')}</button>
-        <button type="button" role="tab" aria-selected={view === 'workshop'} class:is-on={view === 'workshop'} onclick={() => (view = 'workshop')}>{t('5S workshop')}{#if decisions}<span>{decisions}</span>{/if}</button>
       </div>
     </header>
 
@@ -548,6 +531,7 @@
     <div class="fx__body">
       <main class="fx__main">
         {#if view === 'explorer'}
+          <FileSearch {rootId} onOpen={(hit) => void openFolder(hit.path.split('\\').slice(0, -1).join('\\'))} />
           <div class="fx__filters" role="radiogroup" aria-label={t('Filter')}>
             {#each FILTERS() as [key, label] (key)}
               <button type="button" class:is-on={filter === key} onclick={() => (filter = key)}>{label}</button>
@@ -712,44 +696,7 @@
 
           <section class="fx__card">
             <h3>{t('Who has access and why')}</h3>
-            {#if accessState === 'loading'}
-              <LoadingState>{t('Resolving the groups with the directory…')}</LoadingState>
-            {:else if accessState === 'failed'}
-              <p class="fx__hint">{t('The rights of this folder could not be analysed now.')}</p>
-            {:else if access && !access.read}
-              <p class="fx__hint">{t('Read at the next full measure of the folder.')}</p>
-            {:else if access?.analysis}
-              {#each access.analysis.findings as finding (finding.code + finding.who)}
-                <p class={`fx__finding ${SEVERE.has(finding.code) ? 'is-bad' : 'is-warn'}`}><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-                  <span><b>{FINDING()[finding.code] ?? finding.code}</b><small>{finding.who} · {RIGHTS()[finding.rights] ?? finding.rights}</small></span></p>
-              {/each}
-              {#if access.drift?.added.length || access.drift?.removed.length}
-                <div class="fx__drift">
-                  <small>{t('Compared with its parent folder')}</small>
-                  {#each access.drift.added as entry (entry.who + entry.level)}<span class="is-add">+ {entry.who} · {levelLabel(entry.level)}</span>{/each}
-                  {#each access.drift.removed as entry (entry.who + entry.level)}<span class="is-del">− {entry.who} · {levelLabel(entry.level)}</span>{/each}
-                </div>
-              {/if}
-              <ul class="fx__princ">
-                {#each access.analysis.principals.filter((p) => p.kind !== 'system') as principal (principal.who + principal.rights + principal.deny)}
-                  <li><span><b>{principal.who}</b><small>{KIND()[principal.kind] ?? principal.kind}{principal.members != null ? ` · ${t('{count} member(s), nested groups included', { count: principal.members })}` : ''}</small></span>
-                    <em>{principal.deny ? `${t('Denied')} · ` : ''}{RIGHTS()[principal.rights] ?? principal.rights}</em></li>
-                {/each}
-              </ul>
-              {#if access.analysis.people_total}
-                <div class="fx__people-head"><b>{t('{count} person(s)', { count: access.analysis.people_total })}</b>
-                  {#if access.analysis.people_total > 8}<input class="b2s-input" placeholder={t('Find a person…')} bind:value={accessQuery} aria-label={t('Find a person')} />{/if}</div>
-                <ul class="fx__people">
-                  {#each accessPeople.slice(0, accessAll || accessQuery ? 200 : 8) as person (person.username ?? person.display_name)}
-                    <li class:is-denied={person.denied}><span><b>{person.display_name}</b><small>{person.via.map(viaText).join(' · ')}</small></span>
-                      <em>{person.denied ? t('Denied') : RIGHTS()[person.rights ?? ''] ?? '—'}</em></li>
-                  {/each}
-                </ul>
-                {#if !accessAll && !accessQuery && accessPeople.length > 8}<button type="button" class="b2s-link-btn" onclick={() => (accessAll = true)}>{t('Show the {count} others', { count: accessPeople.length - 8 })}</button>{/if}
-              {/if}
-              <p class="fx__hint">{t('Rights of the last measure; groups resolved with the directory as of {date}.', { date: access.analysis.snapshot_at ? formatDate(access.analysis.snapshot_at) : '—' })}
-                {#if access.entries_cut} {t('Only part of the entries could be kept.')}{/if}</p>
-            {/if}
+            <AccessPanel {rootId} path={selected.path} />
           </section>
 
           <section class="fx__card">
@@ -789,18 +736,11 @@
 
 <style>
   .fx { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; max-width: 1480px; padding: 26px 28px 80px; }
-  .fx__top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-  .fx__links { display: inline-flex; gap: 8px; flex-wrap: wrap; }
   .fx__head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }
-  .fx__head h1 { margin: 2px 0 0; font-size: 26px; }
   .fx__crumbs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 13px; }
   .fx__crumbs button { border: 0; background: none; padding: 2px 4px; color: var(--b2s-color-primary, #2563eb); cursor: pointer; font: inherit; }
   .fx__crumbs button.is-current { color: inherit; font-weight: 600; cursor: default; }
   .fx__crumbs i { font-size: 11px; color: var(--b2s-color-text-muted); }
-  .fx__tabs { display: inline-flex; padding: 3px; border-radius: 999px; background: #E5E7EB; }
-  .fx__tabs button { display: inline-flex; gap: 6px; align-items: center; height: 34px; padding: 0 16px; border: 0; border-radius: 999px; background: none; font: inherit; font-weight: 600; cursor: pointer; color: #374151; }
-  .fx__tabs button.is-on { background: #0E1218; color: #fff; }
-  .fx__tabs button span { padding: 0 7px; border-radius: 999px; background: #B5F23B; color: #0E1218; font-size: 11px; }
   .fx__scan { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #0E1218; color: #D1D5DB; font-size: 13px; }
   .fx__scan b { color: #fff; font-weight: 600; }
   .fx__scan b.is-warn { color: #FCD34D; }
@@ -901,24 +841,6 @@
   .fx__partial { color: #b45309; font-size: 12px; }
   .fx__pill.is-bad { background: #fde8e8; color: #991b1b; }
   .fx__owner { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .fx__finding { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 6px 10px; border-radius: 8px; font-size: var(--b2s-fs-sm); }
-  .fx__finding span { display: grid; }
-  .fx__finding small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
-  .fx__finding.is-bad { background: #fde8e8; color: #991b1b; }
-  .fx__finding.is-warn { background: #fff4e5; color: #8a4b00; }
-  .fx__drift { display: grid; gap: 2px; font-size: var(--b2s-fs-xs); }
-  .fx__drift small { color: var(--b2s-color-text-muted); }
-  .fx__drift .is-add { color: #9a3412; }
-  .fx__drift .is-del { color: #1d4ed8; }
-  .fx__princ, .fx__people { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
-  .fx__princ li, .fx__people li { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-  .fx__princ li span, .fx__people li span { display: grid; min-width: 0; }
-  .fx__princ b, .fx__people b { font-weight: 500; overflow-wrap: anywhere; }
-  .fx__princ small, .fx__people small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .fx__princ em, .fx__people em { font-style: normal; font-size: var(--b2s-fs-xs); font-weight: 600; white-space: nowrap; }
-  .fx__people li.is-denied b { text-decoration: line-through; }
-  .fx__people-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-  .fx__people-head .b2s-input { width: 160px; height: 30px; }
   .fx__acl em { font-style: normal; font-size: var(--b2s-fs-xs); font-weight: 600; white-space: nowrap; }
   .fx__acl em.is-F { color: #991B1B; }
   .fx__acl em.is-W { color: #1D4ED8; }

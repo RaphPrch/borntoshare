@@ -2,15 +2,10 @@
   import { governanceEnabled } from '$lib/utils/features';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { t } from '$lib/i18n';
-  import KpiCard from '$lib/components/ui/KpiCard.svelte';
-  import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
-  import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
-  import { formatDate, timeAgo } from '$lib/utils/format';
+  import { formatDate } from '$lib/utils/format';
   import { getRequestStatusMeta, requestToneVariant } from '$lib/utils/access-request-status';
   import type { DashboardRequest, UserDashboardMePayload } from '$lib/api/dashboard';
-  import DashboardShell from './DashboardShell.svelte';
 
-  
   interface Props {
     /** Dashboard of a user who is not an administrator; a guardian also sees the requests on their folders. */
     data: UserDashboardMePayload;
@@ -21,121 +16,113 @@
   let guardian = $derived(data.role === 'guardian' ? data.guardian : undefined);
   let mine = $derived(data.mine);
 
+  const todayText = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const today = todayText.charAt(0).toUpperCase() + todayText.slice(1);
   const href = (row: DashboardRequest, status = 'all') => `/access-requests?status=${status}&request=${row.request_id}`;
   const access = (row: DashboardRequest) =>
     String(row.permission ?? '').toLowerCase().includes('write') ? t('Modify') : t('Read');
   const failed = (row: DashboardRequest) => ['FAILED', 'ERROR', 'TIMED_OUT'].includes(String(row.latest_execution_status ?? '').toUpperCase());
-  const tone = (count: number, alarm: 'warning' | 'danger') => (count > 0 ? alarm : 'success');
+  const TONE: Record<string, string> = { success: 'ok', warning: 'warn', error: 'bad', info: 'info', muted: 'mut' };
+  // The sentence of the day: what needs this person first
+  let headline = $derived(
+    guardian && guardian.to_decide ? t('{count} request(s) wait for your decision', { count: guardian.to_decide })
+      : mine.failed ? t('{count} of your requests could not be applied', { count: mine.failed })
+        : mine.pending ? t('{count} of your requests are on their way', { count: mine.pending })
+          : t('Nothing waits for you today')
+  );
 </script>
 
-{#if !$governanceEnabled}
-  <!-- A 5S-only installation: no request; the 5S of the folders is for their guardians and the administrators -->
-  <DashboardShell title={t('Dashboard')} subtitle={t('BornToShare')}>
-    <EmptyStateInline message={t('Nothing to do here: the 5S of the folders is followed by their guardians and the administrators.')} />
-  </DashboardShell>
-{:else}
-<DashboardShell
-  title={t('Dashboard')}
-  subtitle={guardian ? t('Your requests and the folders you guard') : t('Your requests and your accesses')}
->
-  {#snippet actions()}
-    <a  class="b2s-btn b2s-btn-primary" href="/access-requests/new">
-      <i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}
-    </a>
-  {/snippet}
-
-  {#if guardian}
-    <section aria-labelledby="guardian-title">
-      <h2 id="guardian-title">{t('Folders you guard')}</h2>
-      <div class="b2s-kpi-grid">
-        <KpiCard label={t('Requests to decide')} value={guardian.to_decide} icon="bi-inbox" tone={tone(guardian.to_decide, 'warning')} href="/access-requests?status=pending"
-          hint={guardian.overdue ? t('{count} waiting for more than 3 days', { count: guardian.overdue }) : null} />
-        <KpiCard label={t('In error')} value={guardian.failed} icon="bi-exclamation-octagon" tone={tone(guardian.failed, 'danger')} href="/access-requests?status=all"
-          hint={t('Requests the file server or the directory refused')} />
-        <KpiCard label={t('Folders to look at')} value={guardian.folders_with_alerts} icon="bi-folder-x" tone={tone(guardian.folders_with_alerts, 'warning')} href="/storage-roots?filter=review"
-          hint={t('{count} folder(s) guarded', { count: guardian.folders })} />
-        <KpiCard label={t('Ending within 30 days')} value={guardian.ending_30d} icon="bi-calendar-event" tone="info" href="/access-requests?status=applied"
-          hint={t('{count} access(es) in force', { count: guardian.active })} />
+<section class="v2 ud">
+  {#if !$governanceEnabled}
+    <!-- A 5S-only installation: no request; the 5S of the folders is for their guardians and the administrators -->
+    <div class="v2-head"><div><small class="ud__kick">{today}</small><h1>{t('Dashboard')}</h1>
+      <p>{t('Nothing to do here: the 5S of the folders is followed by their guardians and the administrators.')}</p></div></div>
+  {:else}
+    <div class="v2-head">
+      <div>
+        <small class="ud__kick">{today}</small>
+        <h1>{headline}</h1>
+        <p>{guardian ? t('Your requests and the folders you guard') : t('Your requests and your accesses')}</p>
       </div>
-      <div class="b2s-kpi-grid">
-        <KpiCard label={t('Accepted (30 days)')} value={guardian.approved_30d ?? 0} icon="bi-check-circle" tone="success" href="/access-requests?status=applied" />
-        <KpiCard label={t('Refused (30 days)')} value={guardian.refused_30d ?? 0} icon="bi-x-circle" tone="neutral" href="/access-requests?status=closed" />
-        <KpiCard label={t('Revoked (30 days)')} value={guardian.revoked_30d ?? 0} icon="bi-person-dash" tone="neutral" href="/access-requests?status=closed" />
-        <KpiCard label={t('Accesses in force')} value={guardian.active} icon="bi-unlock" tone="info" href="/access-requests?status=applied"
-          hint={t('{count} folder(s) guarded', { count: guardian.folders })} />
-      </div>
-    </section>
-  {/if}
-
-  <section aria-labelledby="mine-title">
-    <h2 id="mine-title">{t('My requests')}</h2>
-    <div class="b2s-kpi-grid">
-      <KpiCard label={t('Pending')} value={mine.pending} icon="bi-hourglass-split" tone="info" href="/access-requests?status=pending" />
-      <KpiCard label={t('Accesses in force')} value={mine.active} icon="bi-unlock" tone="success" href="/storage-roots"
-        hint={mine.ending_30d ? t('{count} ending within 30 days', { count: mine.ending_30d }) : null} />
-      <KpiCard label={t('In error')} value={mine.failed} icon="bi-exclamation-octagon" tone={tone(mine.failed, 'danger')} href="/access-requests?status=all" />
-      <KpiCard label={t('Refused (30 days)')} value={mine.refused_30d} icon="bi-x-circle" tone="neutral" href="/access-requests?status=closed" />
+      <div class="v2-head__act"><a class="b2s-btn b2s-btn-primary" href="/access-requests/new"><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}</a></div>
     </div>
-  </section>
 
-  <div class="columns">
-    <section class="panel">
-      {#if guardian}
-        <header><h2>{t('To decide')}</h2><a href="/access-requests?status=pending">{t('See all')}</a></header>
-        {#each [...(data.guarded_failed ?? []), ...(data.to_decide ?? [])] as row (row.request_id)}
-          <a class="row" href={href(row, failed(row) ? 'all' : 'pending')}>
-            <span class="row__main"><strong>{row.storage_root_name ?? '—'}</strong><small>{t('For {name}', { name: row.requested_for_display ?? '—' })} · {access(row)}</small></span>
-            {#if failed(row)}
-              <StatusBadge variant="error" label={t('In error')} />
+    {#if guardian}
+      <div class="v2-sh"><h2>{t('Folders you guard')}</h2></div>
+      <div class="v2-stats">
+        <a class="v2-stat" href="/access-requests?status=pending"><small>{t('Requests to decide')}</small><b class:ud__warn={guardian.to_decide > 0}>{guardian.to_decide}</b>
+          <span>{guardian.overdue ? t('{count} waiting for more than 3 days', { count: guardian.overdue }) : t('none overdue')}</span></a>
+        <a class="v2-stat" href="/access-requests?status=all"><small>{t('In error')}</small><b class:ud__bad={guardian.failed > 0}>{guardian.failed}</b><span>{t('Requests the file server or the directory refused')}</span></a>
+        <a class="v2-stat" href="/storage-roots?filter=review"><small>{t('Folders to look at')}</small><b class:ud__warn={guardian.folders_with_alerts > 0}>{guardian.folders_with_alerts}</b>
+          <span>{t('{count} folder(s) guarded', { count: guardian.folders })}</span></a>
+        <a class="v2-stat" href="/access-requests?status=applied"><small>{t('Accesses in force')}</small><b>{guardian.active}</b>
+          <span>{t('{count} ending within 30 days', { count: guardian.ending_30d })}</span></a>
+        <a class="v2-stat" href="/access-requests?status=closed"><small>{t('Last 30 days')}</small><b>{guardian.approved_30d ?? 0}</b>
+          <span>{t('accepted · {refused} refused · {revoked} revoked', { refused: guardian.refused_30d ?? 0, revoked: guardian.revoked_30d ?? 0 })}</span></a>
+      </div>
+    {/if}
+
+    <div class="v2-sh"><h2>{t('My requests')}</h2></div>
+    <div class="v2-stats">
+      <a class="v2-stat" href="/access-requests?status=pending"><small>{t('Pending')}</small><b>{mine.pending}</b><span>{t('on their way')}</span></a>
+      <a class="v2-stat" href="/storage-roots"><small>{t('Accesses in force')}</small><b>{mine.active}</b>
+        <span>{mine.ending_30d ? t('{count} ending within 30 days', { count: mine.ending_30d }) : t('none ends within 30 days')}</span></a>
+      <a class="v2-stat" href="/access-requests?status=all"><small>{t('In error')}</small><b class:ud__bad={mine.failed > 0}>{mine.failed}</b><span>{t('to look at')}</span></a>
+      <a class="v2-stat" href="/access-requests?status=closed"><small>{t('Refused (30 days)')}</small><b>{mine.refused_30d}</b><span>{t('last 30 days')}</span></a>
+    </div>
+
+    <div class="v2-cols2">
+      <div class="v2-sec">
+        {#if guardian}
+          <div class="v2-sh"><h2>{t('To decide')}</h2><div class="v2-sh__r"><a href="/access-requests?status=pending">{t('See all')}</a></div></div>
+          <ul class="v2-feed">
+            {#each [...(data.guarded_failed ?? []), ...(data.to_decide ?? [])] as row (row.request_id)}
+              <li><a class="v2-fi" href={href(row, failed(row) ? 'all' : 'pending')}>
+                <div class="v2-fi__t"><b>{row.storage_root_name ?? '—'}</b><small>{t('For {name}', { name: row.requested_for_display ?? '—' })} · {access(row)}</small></div>
+                <span class="v2-fi__r"><span class={`v2-tag is-${failed(row) || row.overdue ? 'bad' : 'warn'}`}>{failed(row) ? t('In error') : row.overdue ? t('Overdue') : t('To decide')}</span>
+                  <small><RelativeTime value={row.created_at} /></small></span>
+              </a></li>
             {:else}
-              <StatusBadge variant={row.overdue ? 'error' : 'warning'} label={row.overdue ? t('Overdue') : t('To decide')} />
-            {/if}
-            <small class="row__when"><RelativeTime value={row.created_at} /></small>
-          </a>
+              <li class="v2-empty">{t('Nothing to decide.')}</li>
+            {/each}
+          </ul>
         {:else}
-          <EmptyStateInline message={t('Nothing to decide.')} />
-        {/each}
-      {:else}
-        <header><h2>{t('My latest requests')}</h2><a href="/access-requests?status=all">{t('See all')}</a></header>
-        {#each data.my_requests as row (row.request_id)}
-          {@const meta = getRequestStatusMeta(row.status)}
-          <a class="row" href={href(row)}>
-            <span class="row__main"><strong>{row.storage_root_name ?? '—'}</strong><small>{row.request_code ?? ''} · {access(row)}</small></span>
-            <StatusBadge variant={failed(row) ? 'error' : requestToneVariant(meta.tone)} label={failed(row) ? t('In error') : meta.label} />
-            <small class="row__when"><RelativeTime value={row.created_at} /></small>
-          </a>
-        {:else}
-          <EmptyStateInline message={t('No request yet.')} actionLabel={t('New access request')} href="/access-requests/new" actionIcon="bi-plus-lg" shortcut="N" />
-        {/each}
-      {/if}
-    </section>
-
-    <section class="panel">
-      <header><h2>{t('My accesses ending soon')}</h2><a href="/storage-roots">{t('My folders')}</a></header>
-      {#each data.my_ending as row (row.request_id)}
-        <a class="row" href={href(row, 'applied')}>
-          <span class="row__main"><strong>{row.storage_root_name ?? '—'}</strong><small>{access(row)}</small></span>
-          <small class="row__when">{t('Ends on {date}', { date: formatDate(row.expires_at) })}</small>
-        </a>
-      {:else}
-        <EmptyStateInline message={t('No access ends within 30 days.')} />
-      {/each}
-    </section>
-  </div>
-</DashboardShell>
-{/if}
+          <div class="v2-sh"><h2>{t('My latest requests')}</h2><div class="v2-sh__r"><a href="/access-requests?status=all">{t('See all')}</a></div></div>
+          <ul class="v2-feed">
+            {#each data.my_requests as row (row.request_id)}
+              {@const meta = getRequestStatusMeta(row.status)}
+              <li><a class="v2-fi" href={href(row)}>
+                <div class="v2-fi__t"><b>{row.storage_root_name ?? '—'}</b><small>{row.request_code ?? ''} · {access(row)}</small></div>
+                <span class="v2-fi__r"><span class={`v2-tag is-${failed(row) ? 'bad' : TONE[requestToneVariant(meta.tone)] ?? 'mut'}`}>{failed(row) ? t('In error') : meta.label}</span>
+                  <small><RelativeTime value={row.created_at} /></small></span>
+              </a></li>
+            {:else}
+              <li class="v2-empty">{t('No request yet.')} <a href="/access-requests/new">{t('New access request')}</a></li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+      <div class="v2-sec">
+        <div class="v2-sh"><h2>{t('My accesses ending soon')}</h2><div class="v2-sh__r"><a href="/storage-roots">{t('My folders')}</a></div></div>
+        <ul class="v2-feed">
+          {#each data.my_ending as row (row.request_id)}
+            <li><a class="v2-fi" href={href(row, 'applied')}>
+              <div class="v2-fi__t"><b>{row.storage_root_name ?? '—'}</b><small>{access(row)}</small></div>
+              <span class="v2-fi__r"><small>{t('Ends on {date}', { date: formatDate(row.expires_at) })}</small></span>
+            </a></li>
+          {:else}
+            <li class="v2-empty">{t('No access ends within 30 days.')}</li>
+          {/each}
+        </ul>
+      </div>
+    </div>
+  {/if}
+</section>
 
 <style>
-  h2 { margin: 8px 0 12px; font-size: var(--b2s-fs-lg); font-weight: 600; color: var(--b2s-color-text); }
-  .columns { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
-  .panel { display: flex; flex-direction: column; padding: 14px 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
-  .panel header { display: flex; align-items: baseline; justify-content: space-between; }
-  .panel header h2 { margin: 0 0 8px; }
-  .panel header a { font-size: var(--b2s-text-sm); }
-  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto 84px; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px solid var(--b2s-color-border); color: inherit; text-decoration: none; }
-  .row:hover strong { text-decoration: underline; }
-  .row__main { display: flex; flex-direction: column; min-width: 0; }
-  .row__main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
-  .row__main small, .row__when { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); }
-  .row__when { text-align: right; }
+  .ud { display: grid; gap: 18px; padding: var(--b2s-page-padding); }
+  .ud__kick { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); font-weight: 600; }
+  .ud h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  .ud__warn { color: #b45309; }
+  .ud__bad { color: #b42318; }
 </style>

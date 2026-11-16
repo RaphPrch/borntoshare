@@ -3,7 +3,7 @@
  * of the storage roots, the permissions of a folder: ACL read × directory × requests). No model, no guess: a few
  * intents read from the words of the question; the answer says how the question was understood.
  */
-import { apiGetList, type FetchLike } from '$lib/api/client';
+import { apiGetData, apiGetList, type FetchLike } from '$lib/api/client';
 import { getStorageRootPermissions, type PermissionPerson } from '$lib/api/storage-root-permissions';
 import { formatBytes, formatDate } from '$lib/utils/format';
 
@@ -43,7 +43,11 @@ export const PILOT_EXAMPLES = [
   'Les 10 plus gros dossiers',
   'Doublons à libérer',
   'Dossiers du serveur FILER01',
-  'Données froides depuis plus d’un an'
+  'Données froides depuis plus d’un an',
+  'Fichiers sensibles ouverts à tous',
+  'Dossiers avec des droits à revoir',
+  'Fichiers du propriétaire CORP\\jane',
+  'Fichiers pdf de plus de 100 Mo'
 ];
 
 /** The folder named in the question: after « dossier », else any folder whose name is in the question (longest first). */
@@ -76,6 +80,10 @@ export async function askPilot(fetchFn: FetchLike, question: string): Promise<Pi
   const roots = await apiGetList<Root>(fetchFn, '/storage-roots/context').catch(() => [] as Root[]);
   const base = { question, ok: true, links: [] as PilotAnswer['links'] };
   const table = (rows: Root[]) => rows.slice(0, 200);
+
+  // ---- 5S module: files of the inventory, sensitive files open to all, rights to review ----
+  const fives = await askFives(fetchFn, question, q, roots, base);
+  if (fives) return fives;
 
   // ---- people of a folder ----
   const wantsPeople = /utilisateur|personne|membre|qui (a|accede)|acces|droit/.test(q) && !/groupe/.test(q);
@@ -165,4 +173,80 @@ export async function askPilot(fetchFn: FetchLike, question: string): Promise<Pi
   }
   return { ...base, ok: false, intent: 'non compris', source: '', columns: [], rows: [], file: null,
     text: 'Je n’ai pas compris. Essayez une des questions proposées : les utilisateurs ou les groupes d’un dossier, les mots de passe, les quotas, les dossiers jamais mesurés, sans gardien, les doublons, les plus gros dossiers…' };
+}
+
+
+type FileHit = { storage_root_id: number; folder_name: string | null; path: string; size: number; modified: string | null; owner: string | null };
+
+/** The questions answered by the 5S module (inventory of the files, rights of the sub-folders); null: not one of them. */
+async function askFives(fetchFn: FetchLike, question: string, q: string, roots: Root[], base: { question: string; ok: boolean; links: PilotAnswer['links'] }): Promise<PilotAnswer | null> {
+  const unavailable = (intent: string): PilotAnswer => ({ ...base, ok: false, intent, source: '', columns: [], rows: [], file: null,
+    text: 'Le module 5S ne répond pas : il n’est pas actif sur cette installation, ou aucun dossier n’a encore été mesuré par son scanner.' });
+
+  // Sensitive files that the whole company can open (sensitivity scan of the core)
+  if (/sensib|mot(s)? de passe|secret/.test(q) && /ouvert|tous|tout le monde|everyone/.test(q)) {
+    const candidates = roots.filter((row) => num(row.sensitive_files) + num(row.password_files) + num(row.key_files) > 0).slice(0, 60);
+    const rows: Array<{ root: Root; path: string; category: string; by: string }> = [];
+    for (const root of candidates) {
+      const data = await apiGetData<{ findings?: Array<{ path: string; category: string; ignored?: boolean; acl?: { broad?: boolean; by?: string[] } }> }>(
+        fetchFn, `/storage-roots/${root.storage_root_id}/sensitivity`).catch(() => null);
+      for (const item of data?.findings ?? []) {
+        if (!item.ignored && item.acl?.broad) rows.push({ root, path: item.path, category: item.category, by: (item.acl.by ?? []).join(', ') });
+      }
+    }
+    return { ...base, intent: 'fichiers sensibles → ouverts à tous', source: 'Analyse de sensibilité', links: [...new Set(rows.map((row) => row.root))].slice(0, 5).map(rootLink),
+      text: rows.length ? `${rows.length} fichier(s) sensible(s) lisible(s) par toute l’entreprise, dans ${new Set(rows.map((row) => row.root)).size} dossier(s).` : 'Aucun fichier sensible ouvert à toute l’entreprise.',
+      columns: ['Dossier', 'Fichier', 'Catégorie', 'Ouvert par'],
+      rows: rows.slice(0, 200).map((row) => [{ text: name(row.root) }, { text: row.path, mono: true }, { text: row.category, tone: 'bad' }, { text: row.by || '—', mono: true }]),
+      file: rows.length ? 'fichiers_sensibles_ouverts.csv' : null };
+  }
+
+  // Rights to review in the sub-folders (orphan SIDs, whole company writing, full control, rights set by hand, broken inheritance)
+  if (/droits? a revoir|orphelin|sid|droits? excessi|controle total|ecriture pour tous/.test(q)) {
+    const wantOrphans = /orphelin|sid/.test(q);
+    const measured = roots.filter((row) => row.content_size_bytes != null).slice(0, 60);
+    const rows: Array<{ root: Root; path: string; codes: string[] }> = [];
+    let answered = 0;
+    for (const root of measured) {
+      const data = await apiGetData<{ folders: Array<{ path: string; codes: string[] }> }>(fetchFn, `/modules/fives/storage-roots/${root.storage_root_id}/rights-review`).catch(() => null);
+      if (!data) continue;
+      answered += 1;
+      for (const folder of data.folders) if (!wantOrphans || folder.codes.includes('ORPHAN_SID')) rows.push({ root, path: folder.path, codes: folder.codes });
+    }
+    if (!answered) return unavailable('droits à revoir');
+    const LABEL: Record<string, string> = { ORPHAN_SID: 'SID orphelin', BROAD_WRITE: 'Écriture pour tous', FULL_CONTROL: 'Contrôle total', EXPLICIT_ENTRY: 'Droits posés à la main', INHERITANCE_BROKEN: 'Héritage rompu' };
+    return { ...base, intent: wantOrphans ? 'dossiers → SID orphelins' : 'dossiers → droits à revoir', source: 'Droits de la dernière mesure 5S',
+      links: [...new Set(rows.map((row) => row.root))].slice(0, 5).map((root) => ({ label: name(root), href: `/five-s/access/${root.storage_root_id}` })),
+      text: rows.length ? `${rows.length} sous-dossier(s) à revoir dans ${new Set(rows.map((row) => row.root)).size} dossier(s) gouverné(s).` : 'Rien à revoir dans les droits des dossiers mesurés.',
+      columns: ['Dossier', 'Sous-dossier', 'À revoir'],
+      rows: rows.slice(0, 200).map((row) => [{ text: name(row.root) }, { text: row.path, mono: true },
+        { text: row.codes.map((code) => LABEL[code] ?? code).join(', '), tone: row.codes.some((code) => code === 'ORPHAN_SID' || code === 'BROAD_WRITE') ? 'bad' : 'warn' }]),
+      file: rows.length ? (wantOrphans ? 'sid_orphelins.csv' : 'droits_a_revoir.csv') : null };
+  }
+
+  // Files of the inventory: by owner, extension, size, age
+  if (/fichiers?/.test(q) && /proprietaire|appartenant|\.\w{2,5}\b|\b(pdf|docx?|xlsx?|pptx?|zip|iso|mp4|mkv|pst|msi|exe|jpe?g|png)\b|plus de \d|\d+\s*(mo|go|ko)/.test(q)) {
+    const params: Record<string, string> = { limit: '200' };
+    const owner = question.match(/(?:propri[ée]taire|appartenant [àa]|de l['’]utilisateur)\s+([\w.\\@-]+)/i);
+    if (owner) params.owner = owner[1];
+    const ext = q.match(/\.(\w{2,5})\b/) ?? q.match(/\b(pdf|docx?|xlsx?|pptx?|zip|iso|mp4|mkv|pst|msi|exe|jpe?g|png)\b/);
+    if (ext) params.ext = ext[1];
+    const big = q.match(/plus de (\d+(?:[.,]\d+)?)\s*(ko|mo|go)/);
+    if (big) params.min_bytes = String(Math.round(Number(big[1].replace(',', '.')) * { ko: 1024, mo: 1024 ** 2, go: 1024 ** 3 }[big[2] as 'ko' | 'mo' | 'go']));
+    const old = q.match(/depuis (?:plus de )?(\d+) ans?/);
+    if (old) params.older_days = String(Number(old[1]) * 365);
+    if (Object.keys(params).length === 1) return null;
+    const data = await apiGetData<{ files: FileHit[]; total: number; bytes: number }>(fetchFn, '/modules/fives/files/search', params).catch(() => null);
+    if (!data) return unavailable('fichiers');
+    const said = [params.ext && `.${params.ext}`, params.owner && `de ${params.owner}`, params.min_bytes && `de plus de ${formatBytes(Number(params.min_bytes))}`,
+      params.older_days && `non modifiés depuis ${Math.round(Number(params.older_days) / 365)} an(s)`].filter(Boolean).join(' ');
+    return { ...base, intent: `fichiers ${said}`, source: 'Inventaire de la dernière mesure 5S',
+      links: [...new Set(data.files.map((file) => file.storage_root_id))].slice(0, 5).map((id) => ({ label: data.files.find((file) => file.storage_root_id === id)?.folder_name ?? `#${id}`, href: `/five-s/explore/${id}` })),
+      text: data.total ? `${data.total} fichier(s) ${said}, ${formatBytes(data.bytes)} au total${data.total > data.files.length ? ` (les ${data.files.length} plus gros listés)` : ''}.` : `Aucun fichier ${said} dans l’inventaire.`,
+      columns: ['Dossier', 'Fichier', 'Taille', 'Modifié', 'Propriétaire'],
+      rows: data.files.map((file) => [{ text: file.folder_name ?? `#${file.storage_root_id}` }, { text: file.path, mono: true }, { text: formatBytes(file.size) },
+        { text: file.modified ? formatDate(file.modified) : '—' }, { text: file.owner ?? '—', mono: true }]),
+      file: data.files.length ? 'fichiers.csv' : null };
+  }
+  return null;
 }

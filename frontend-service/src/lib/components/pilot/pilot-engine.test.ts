@@ -16,9 +16,16 @@ const permissions = {
   ],
   groups: [{ name: 'GG_B2S_FINANCE_RW', level: 'write', dn: null, ace: 'ok', rights_label: null, inherited_scope: true, members_count: 4 }], system: [], gaps: []
 };
+const searched: string[] = [];
 const fetchFn = (async (input: RequestInfo | URL) => {
   const url = String(input);
-  const body = url.includes('/permissions') ? { data: permissions } : { data: roots };
+  const body = url.includes('/permissions') ? { data: permissions }
+    : url.includes('/modules/fives/files/search') ? { data: { files: [{ storage_root_id: 1, folder_name: 'Finance', path: 'Finance\\Bilan.pdf', size: 2e8, modified: null, owner: 'CORP\\jane' }], total: 1, bytes: 2e8 }, search: url }
+    : url.includes('/rights-review') ? { data: { folders: [{ path: 'Finance\\RH', codes: ['ORPHAN_SID', 'EXPLICIT_ENTRY'] }, { path: 'Finance\\Paie', codes: ['INHERITANCE_BROKEN'] }] } }
+    : url.includes('/sensitivity') ? { data: { findings: [{ path: 'Finance\\mdp.txt', category: 'password', acl: { broad: true, by: ['CORP\\Utilisateurs du domaine'] } },
+        { path: 'Finance\\cle.pem', category: 'key', acl: { broad: false } }] } }
+    : { data: roots };
+  if (url.includes('/modules/fives/files/search')) searched.push(url);
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 }) as typeof fetch;
 
@@ -43,3 +50,16 @@ assert.equal((await askPilot(fetchFn, 'Dossiers sans gardien')).rows.length, 1);
 assert.equal((await askPilot(fetchFn, 'Dossiers du serveur FILER01')).rows.length, 1);
 assert.equal((await askPilot(fetchFn, 'bonjour')).ok, false);
 console.log('pilot-engine: ok');
+
+
+// ---- 5S module: files, sensitive files open to all, rights to review ----
+const files = await askPilot(fetchFn, 'Fichiers pdf de plus de 100 Mo du propriétaire CORP\\jane');
+assert.equal(files.rows.length, 1);
+assert.ok(searched[0].includes('ext=pdf') && searched[0].includes('min_bytes=104857600') && searched[0].includes('owner=CORP'));
+const open = await askPilot(fetchFn, 'Fichiers sensibles ouverts à tous');
+assert.equal(open.rows.length, 1);
+assert.equal(open.rows[0][1].text, 'Finance\\mdp.txt');
+const orphans = await askPilot(fetchFn, 'Dossiers avec un SID orphelin');
+assert.equal(orphans.intent, 'dossiers → SID orphelins');
+assert.equal(orphans.rows.length, 1);
+assert.equal((await askPilot(fetchFn, 'Dossiers avec des droits à revoir')).rows.length, 2);

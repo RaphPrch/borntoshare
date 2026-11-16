@@ -1,7 +1,6 @@
 <script lang="ts">
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { t } from '$lib/i18n';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { formatActivityItem } from '$lib/activity/format';
@@ -22,16 +21,15 @@
 <svelte:head><title>{t('Monitoring')} · BornToShare</title></svelte:head>
 
 <section class="b2s-page mine">
-  <PageHeader title={t('Monitoring')} subtitle={t('What happened to your requests, your accesses and the folders you guard.')}>
-    {#snippet actions()}
-      
+  <div class="v2-head">
+    <div><h1>{t('Monitoring')}</h1><p>{t('What happened to your requests, your accesses and the folders you guard.')}</p></div>
+    <div class="v2-head__act">
         <SegmentedFilter ariaLabel={t('Filter the events')} bind:value={filter} options={[
           { key: 'all', label: t('All'), count: data.events.length },
           { key: 'failed', label: t('Failures'), count: failures }
         ]} />
-      
-      {/snippet}
-  </PageHeader>
+    </div>
+  </div>
 
   {#if data.failed}<InlineAlert tone="warning">{t('The activity log cannot be read for now.')}</InlineAlert>{/if}
 

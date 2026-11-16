@@ -1,8 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { page } from '$app/stores';
-
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import AdvancedSidebar, { type NavItem } from '$lib/components/settings/AdvancedSidebar.svelte';
   interface Props {
     children?: import('svelte').Snippet;
@@ -11,26 +9,28 @@
   let { children }: Props = $props();
 
 
+  // Four groups: what the governance applies, security, the platform, and what connects BornToShare to the rest
   const nav: NavItem[] = [
-    { key: 'naming-policies', label: t('Naming policy'), icon: 'bi-input-cursor-text' },
+    { key: 'naming-policies', label: t('Naming policy'), icon: 'bi-input-cursor-text', group: t('General') },
     { key: 'governance', label: t('Governance'), icon: 'bi-shield-check' },
+    { key: 'user-sessions', label: t('User sessions'), icon: 'bi-person-lines-fill', group: t('Security') },
     { key: 'logging', label: t('Logging'), icon: 'bi-journal-text' },
-    { key: 'user-sessions', label: t('User sessions'), icon: 'bi-person-lines-fill' },
-    { key: 'network', label: t('Network and DNS'), icon: 'bi-diagram-2' },
+    { key: 'network', label: t('Network and DNS'), icon: 'bi-diagram-2', group: t('Network and infrastructure') },
     { key: 'infrastructure', label: t('Infrastructure'), icon: 'bi-hdd-network' },
+    { key: 'infrastructure', query: 'tab=workers', label: t('Workers'), icon: 'bi-cpu' },
+    { key: 'features', label: t('License and modules'), icon: 'bi-key', group: t('Integrations and license') },
     { key: 'notifications', label: t('Notifications'), icon: 'bi-envelope' },
-    { key: 'extensions', label: t('Extensions'), icon: 'bi-plug' },
-    { key: 'features', label: t('Features'), icon: 'bi-key' }
+    { key: 'extensions', label: t('Extensions'), icon: 'bi-plug' }
   ];
 
   const defaultHeader = {
-    title: t('Advanced Settings'),
-    subtitle: t('Advanced technical settings.')
+    title: 'Settings',
+    subtitle: t('How BornToShare applies the governance, protects itself and connects to the rest of the company.')
   };
 
   const headersBySection: Record<string, { title: string; subtitle: string }> = {
     features: {
-      title: t('Features'),
+      title: t('License and modules'),
       subtitle: t('Optional modules opened by a license key, switched on or off.')
     },
     infrastructure: {
@@ -48,7 +48,9 @@
 </script>
 
 <div class="b2s-adv">
-  <PageHeader title={header.title} subtitle={header.subtitle} />
+  <div class="v2-head">
+    <div><h1>{header.title}</h1>{#if header.subtitle}<p>{header.subtitle}</p>{/if}</div>
+  </div>
 
   <div class="b2s-adv-grid">
     <AdvancedSidebar {current} items={nav} />

@@ -35,7 +35,7 @@ Frontend:
 - One shared component or class per element (fields `b2s-input`, `SegmentedFilter`, `StatusBadge`, `b2s-stat-tile`, `ShowMore`, `b2s-link-btn`, `EmptyStateInline`): see `frontend-service/docs/ui-conventions.md`. Report failures with `reportUiError`; every audited event needs a wording in `lib/activity/templates.ts`.
 - No glassmorphism.
 - Navigation lives in `lib/components/layout/nav.ts` (sections Workspace, Governance, Storage Intelligence, Administration): a new page joins an existing entry (its `also` prefixes, or one of its `tabs`) rather than adding a menu item. Menu names stay in English in both languages.
-- Page heads of the v2 screens use the classes of `lib/styles/v2.css` (`v2-head`, `v2-stats`, `v2-list`…); older pages keep `PageHeader` or `EntityHeader` until they are reworked. Pages use `padding: var(--b2s-page-padding)`.
+- Page heads use the classes of `lib/styles/v2.css` (`v2-head`, `v2-stats`, `v2-list`…), entity consoles `EntityHeader`; in-page tabs are `Tabs` (drawn as `v2-tabs`, like the menu sections). Pages use `padding: var(--b2s-page-padding)`.
 - Lists offer a right-click menu (`ContextMenu`) with the row's actions, also reachable by a visible button.
 - Typography and radius only from `lib/styles/tokens.css`: system font (`--b2s-font-sans`, `--b2s-font-mono` for paths, DNs and IDs only), sizes `--b2s-fs-xs|sm|md|lg|xl|2xl|page-title|console-title`, radius `--b2s-radius-sm|md|lg|pill`.
 - Keep the BornToShare theme:

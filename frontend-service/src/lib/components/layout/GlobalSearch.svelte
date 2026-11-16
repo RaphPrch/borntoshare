@@ -204,19 +204,22 @@
       select(results[activeIndex]);
     }
   }
-  // Pages are translated when read
+  const MENU_NAMES = new Set(['Dashboard', 'Pilot', 'Storage Roots', 'Access Management', 'Governance Jobs', 'Policies', 'Explorer', 'Inventory', 'Analytics',
+    'Insights & Recommendations', 'Storage Endpoints', 'Identity & Users', 'Settings']);
+  // Pages are translated when read (except the names of the menu)
   let pages = $derived([
     { title: 'Dashboard', href: '/dashboard', icon: 'bi-speedometer2', show: true },
     { title: 'Access requests', href: '/access-requests', icon: 'bi-clipboard-check', show: $governanceEnabled },
     ...searchPages.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots })),
-    { title: 'Observability', href: '/observability', icon: 'bi-activity', show: canSeeObservability },
+    { title: 'Governance Jobs', href: '/observability', icon: 'bi-list-task', show: canSeeObservability },
     { title: 'Alerts', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', show: canSeeObservability },
     { title: 'Events', href: '/observability?tab=events', icon: 'bi-list-ul', show: canSeeObservability },
     { title: 'Jobs', href: '/observability?tab=jobs', icon: 'bi-gear-wide-connected', show: canSeeObservability },
     ...searchPages.admin.map((item) => ({ ...item, show: canSeeAdmin }))
   ]
     .filter((page) => page.show)
-    .map((page): Result => ({ group: t('Pages'), label: t(page.title), detail: '', href: page.href, icon: page.icon ?? 'bi-file-earmark' })));
+    // The names of the menu are product names, the same in both languages; the other pages are translated
+    .map((page): Result => ({ group: t('Pages'), label: MENU_NAMES.has(page.title) ? page.title : t(page.title), detail: '', href: page.href, icon: page.icon ?? 'bi-file-earmark' })));
   // ---- actions: the palette acts, not only navigates ----
   let baseActions = $derived([
     // An installation for the 5S only takes no access request

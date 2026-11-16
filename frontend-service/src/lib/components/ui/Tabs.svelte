@@ -9,7 +9,8 @@
 
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import { slideIndicator } from '$lib/utils/motion';
+
+  /** Tabs inside a page: the same underlined tabs as the sections of the menu (v2-tabs), one look everywhere. */
   interface Props {
     tabs?: TabItem[];
     activeKey?: string;
@@ -25,67 +26,17 @@
   }: Props = $props();
 </script>
 
-<nav class="b2s-tabs" aria-label={ariaLabel} use:slideIndicator={{ selector: 'button.is-active', key: activeKey, axis: 'x' }}>
+<nav class="v2-tabs" aria-label={ariaLabel}>
   {#each tabs as tab (tab.key)}
     <button
       type="button"
-      class:is-active={tab.key === activeKey}
+      class:is-on={tab.key === activeKey}
       aria-current={tab.key === activeKey ? 'page' : undefined}
       onclick={() => onChange?.(tab.key)}
     >
-      {#if tab.icon}
-        <i class={`bi ${tab.icon}`} aria-hidden="true"></i>
-      {/if}
+      {#if tab.icon}<i class={`bi ${tab.icon}`} aria-hidden="true"></i>{/if}
       {tab.label}
-      {#if tab.count !== undefined && tab.count !== null}<span class="b2s-tabs__count">{tab.count}</span>{/if}
+      {#if tab.count !== undefined && tab.count !== null}<b>{tab.count}</b>{/if}
     </button>
   {/each}
 </nav>
-
-<style>
-  .b2s-tabs {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    border-bottom: 1px solid var(--b2s-color-border-soft);
-    overflow-x: auto;
-  }
-
-  .b2s-tabs button {
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 14px;
-    border: none;
-    background: transparent;
-    color: var(--b2s-color-text-muted);
-    font-size: var(--b2s-fs-md);
-    font-weight: 500;
-    white-space: nowrap;
-    cursor: pointer;
-  }
-
-  .b2s-tabs button:hover {
-    color: var(--b2s-color-text);
-  }
-
-  .b2s-tabs button.is-active {
-    color: var(--b2s-color-text);
-    font-weight: 600;
-    box-shadow: inset 0 -2px 0 var(--b2s-topbar-bg);
-  }
-
-  /* The underline follows the active tab (slideIndicator); drawn as the bottom 2px of the indicator box */
-  .b2s-tabs :global(.b2s-indicator) { box-shadow: inset 0 -2px 0 var(--b2s-topbar-bg); }
-  :global(.b2s-tabs.has-indicator) button.is-active { box-shadow: none; }
-
-  .b2s-tabs__count {
-    padding: 0 7px;
-    border-radius: var(--b2s-radius-pill);
-    background: #eef2f7;
-    color: var(--b2s-color-text-soft);
-    font-size: 11px;
-    font-weight: 600;
-  }
-</style>

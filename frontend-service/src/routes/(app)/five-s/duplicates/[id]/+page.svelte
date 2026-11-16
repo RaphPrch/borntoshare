@@ -12,6 +12,7 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { onDestroy } from 'svelte';
+  import FolderHeader from '../../FolderHeader.svelte';
 
   /** The identical files of a folder, group by group: which copy to keep (recorded; nothing is deleted from here). */
   type Copy = { path: string; modified: string | null };
@@ -19,6 +20,7 @@
   type Group = { fingerprint: string; size: number; wasted: number; files?: number; copies: Copy[]; decision: Decision | null };
 
   let rootName = $state('');
+  let rootPath = $state('');
   let groups = $state<Group[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
@@ -31,24 +33,6 @@
   // Quarantine: the copies « to delete » moved to \\share\\_B2S_Quarantaine\\<date>\\… (by the scanner), and back
   type Move = { id: number; kind?: string; path: string; quarantine_path: string; keep_path: string | null; size_bytes: number; status: string;
     error: string | null; requested_by: string | null; requested_at: string; done_at: string | null; restored_by: string | null; content_sha256?: string | null };
-  // Days a copy stays in quarantine before it is deleted for good; 0: never (the default, an administrator changes it)
-  let purgeDays = $state(0);
-  /** Why a copy did not move, in plain words (the code comes first in the error of the scanner) */
-  function moveError(error: string | null): string {
-    const code = String(error ?? '').split(':', 1)[0].trim();
-    const texts: Record<string, string> = {
-      CONTENT_DIFFERS: t('Not a duplicate: its whole content differs from the copy kept. Left in place.'),
-      CHANGED: t('Modified since the measure: left in place. Measure the folder again.'),
-      KEEP_MISSING: t('The copy to keep is no longer there: nothing was moved.'),
-      SOURCE_MISSING: t('The file is no longer there.'),
-      TARGET_EXISTS: t('Something is already at the destination: nothing is overwritten.'),
-      SAME_FILE: t('The copy to move is the copy kept.'),
-      OUTSIDE: t('Path outside the governed folder: refused.'),
-      NOT_A_FILE: t('Not a file: refused.'),
-      CHANGED_IN_QUARANTINE: t('The copy changed while in quarantine.')
-    };
-    return texts[code] ?? String(error ?? '');
-  }
   let moves = $state<Move[]>([]);
   let confirming = $state(false);
   // Above 50 GB the move asks a second, explicit confirmation (the server refuses it otherwise)
@@ -81,25 +65,13 @@
       applying = false;
     }
   }
-  async function restore(move: Move) {
-    try {
-      await apiPostData(fetch, `/modules/fives/storage-roots/${rootId}/quarantine/${move.id}/restore`, {});
-      toast.success(t('« {name} » goes back to its place.', { name: base(move.path) }));
-      await loadMoves();
-    } catch (e: unknown) {
-      reportUiError(e, t('Unable to restore the copy.'), 'fives.quarantine.restore');
-    }
-  }
-  const MOVE_LABEL = (): Record<string, string> => ({ pending: t('Being moved…'), moved: t('In quarantine'), failed: t('Not moved'),
-    restore_pending: t('Being restored…'), restored: t('Restored'), restore_failed: t('Not restored'), purged: t('Deleted (purge)') });
-
   onMount(async () => {
     try {
       const overview = await apiGetData<Record<string, any>>(fetch, `/storage-roots/${rootId}/overview`);
       rootName = String(overview?.storage_root_name ?? `#${rootId}`);
+      rootPath = String(overview?.root_path ?? '');
       groups = (await apiGetData<{ groups: Group[] }>(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups`, folderPath ? { path: folderPath } : undefined))?.groups ?? [];
       await loadMoves();
-      purgeDays = Number((await apiGetData<{ quarantine_purge_days?: number }>(fetch, '/modules/fives/settings').catch(() => null))?.quarantine_purge_days ?? 0);
     } catch {
       error = t('Unable to load the duplicates of this folder.');
     } finally {
@@ -158,26 +130,22 @@
 </script>
 
 <div class="dd">
-  <div class="dd__top">
-    <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/explore/${rootId}`}><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('Explorer')}</a>
-    <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/five-s/report/${rootId}`}><i class="bi bi-file-earmark-text" aria-hidden="true"></i>{t('Report')}</a>
-  </div>
+  <FolderHeader {rootId} name={rootName} path={rootPath} current="duplicates" counts={{ duplicates: groups.length - decided.length }} />
   {#if loading}
     <LoadingState skeleton="page" rows={6} />
   {:else if error}
     <InlineAlert tone="error">{error}</InlineAlert>
   {:else}
     <header class="dd__head">
-      <h1>{t('Duplicates · {name}', { name: rootName })}</h1>
       <p>{t('Probable duplicates: same size and same fingerprint (start and end of the files). Choose the copy to keep; the decision is recorded, nothing moves from here.')}</p>
       <p class="dd__safe"><i class="bi bi-shield-check" aria-hidden="true"></i>{t('Before a copy moves to quarantine, the scanner compares its whole content with the copy kept, on the server: a copy that differs, or that changed since the measure, stays in place.')}</p>
       {#if folderPath}<p class="dd__scope"><i class="bi bi-funnel" aria-hidden="true"></i>{t('Duplicates of « {path} »', { path: folderPath })} · <a href={`/five-s/duplicates/${rootId}`}>{t('see all')}</a></p>{/if}
     </header>
-    <section class="dd__kpis">
-      <div><span>{t('Groups')}</span><b>{groups.length.toLocaleString('fr-FR')}</b></div>
-      <div><span>{t('Space lost')}</span><b>{formatBytes(total)}</b></div>
-      <div><span>{t('Decided')}</span><b>{decided.length.toLocaleString('fr-FR')} / {groups.length.toLocaleString('fr-FR')}</b></div>
-      <div class="is-ok"><span>{t('To free once applied')}</span><b>{formatBytes(freed)}</b></div>
+    <section class="v2-stats">
+      <div class="v2-stat"><small>{t('Groups')}</small><b>{groups.length.toLocaleString('fr-FR')}</b></div>
+      <div class="v2-stat"><small>{t('Space lost')}</small><b>{formatBytes(total)}</b></div>
+      <div class="v2-stat"><small>{t('Decided')}</small><b>{decided.length.toLocaleString('fr-FR')} / {groups.length.toLocaleString('fr-FR')}</b></div>
+      <div class="v2-stat"><small>{t('To free once applied')}</small><b class="dd__ok-figure">{formatBytes(freed)}</b></div>
     </section>
     <div class="dd__tools">
       <div class="dd__seg" role="radiogroup" aria-label={t('Show')}>
@@ -234,26 +202,9 @@
     <p class="dd__hint">{t('The groups come from the inventory of the biggest files (1 MB and more).')}</p>
 
     {#if moves.length}
-      <section class="dd__q">
-        <header><h2><i class="bi bi-archive" aria-hidden="true"></i>{t('Quarantine')}</h2>
-          <small>{purgeDays ? t('The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path: restore them within {days} days, then they are deleted for good.', { days: purgeDays })
-            : t('The copies moved stay in « _B2S_Quarantaine » at the root of the share, with their path, until someone restores them: nothing is deleted automatically.')}</small></header>
-        <table class="b2s-table">
-          <thead><tr><th>{t('Copy')}</th><th class="dd__num">{t('Size')}</th><th>{t('State')}</th><th>{t('By')}</th><th></th></tr></thead>
-          <tbody>
-            {#each moves as move (move.id)}
-              <tr>
-                <td class="dd__mpath"><span>{base(move.path)}</span><code title={move.path} data-copy={move.path}>{folderOf(move.path)}</code>{#if move.error}<small class={move.status === 'restored' ? 'dd__note' : 'dd__err'} title={move.error}>{moveError(move.error)}</small>{/if}
-                  {#if move.content_sha256 && move.status === 'moved'}<small class="dd__ok" title={`SHA-256 ${move.content_sha256}`}><i class="bi bi-shield-check" aria-hidden="true"></i>{t('Verified identical to the copy kept')}</small>{/if}</td>
-                <td class="dd__num">{formatBytes(move.size_bytes)}</td>
-                <td><span class={`dd__state is-${move.status}`}>{move.kind === 'archive' && move.status === 'moved' ? t('Archived') : MOVE_LABEL()[move.status] ?? move.status}</span></td>
-                <td class="dd__by">{move.restored_by && move.status.startsWith('restor') ? move.restored_by : move.requested_by ?? '—'}<small>{formatDateTime(move.done_at ?? move.requested_at)}</small></td>
-                <td>{#if move.status === 'moved' || move.status === 'restore_failed'}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={() => restore(move)}>{t('Restore')}</button>{/if}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </section>
+      <p class="dd__qlink"><i class="bi bi-archive" aria-hidden="true"></i>
+        {t('{count} copy(ies) or folder(s) of this folder in quarantine or archived.', { count: moves.filter((move) => ['pending', 'moved', 'restore_pending'].includes(move.status)).length })}
+        <a href={`/five-s/scanner?tab=quarantine&root=${rootId}`}>{t('See the quarantine')}</a></p>
     {/if}
   {/if}
 </div>
@@ -273,15 +224,7 @@
 
 <style>
   .dd { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; padding: var(--b2s-page-padding); }
-  .dd__top { display: flex; justify-content: space-between; font-size: var(--b2s-fs-sm); }
-  .dd__top a { display: inline-flex; gap: 6px; align-items: center; }
-  .dd__head h1 { margin: 0 0 4px; font-size: 24px; }
   .dd__head p { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .dd__kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-  .dd__kpis > div { display: grid; gap: 2px; padding: 14px 16px; border: 1px solid var(--b2s-color-border); border-radius: 10px; background: var(--b2s-color-surface, #fff); }
-  .dd__kpis span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .dd__kpis b { font-size: 20px; }
-  .dd__kpis .is-ok b { color: var(--b2s-color-success-strong, #1a7f37); }
   .dd__tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .dd__tools .b2s-input { width: 280px; }
   .dd__seg { display: inline-flex; padding: 2px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface, #fff); }
@@ -309,25 +252,11 @@
   .dd__group footer { padding: 8px 14px; border-top: 1px solid var(--b2s-color-border-soft, #eef1f5); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .dd__empty { padding: 24px; color: var(--b2s-color-text-muted); text-align: center; }
   .dd__apply { margin-left: auto; }
-  .dd__q { padding: 16px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
-  .dd__q header { display: grid; gap: 2px; margin-bottom: 10px; }
-  .dd__q h2 { display: flex; gap: 8px; align-items: center; margin: 0; font-size: 16px; }
-  .dd__q header small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .dd__mpath { display: grid; max-width: 560px; }
-  .dd__mpath code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); color: var(--b2s-color-text-muted); }
-  .dd__err { color: #b42318; font-size: var(--b2s-fs-xs); }
-  .dd__note { color: #8a4b00; font-size: var(--b2s-fs-xs); }
-  .dd__ok { display: inline-flex; gap: 4px; align-items: center; color: #1a7f37; font-size: var(--b2s-fs-xs); }
   .dd__safe { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px !important; padding: 8px 12px; border-radius: 10px; background: #effaf2; color: #14532d !important; }
-  .dd__num { text-align: right; white-space: nowrap; }
-  .dd__by { display: grid; font-size: var(--b2s-fs-sm); }
-  .dd__by small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .dd__state { padding: 2px 10px; border-radius: 999px; font-size: var(--b2s-fs-xs); font-weight: 600; background: #eef1f5; }
-  .dd__state.is-moved { background: #fff4e5; color: #b45309; }
-  .dd__state.is-restored { background: #d1f0da; color: #1a7f37; }
-  .dd__state.is-failed, .dd__state.is-restore_failed { background: #fde2e1; color: #b42318; }
   .dd__scope { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px !important; padding: 4px 12px; border-radius: 999px; background: #EEF2FF; color: #3730A3 !important; font-size: var(--b2s-fs-sm); }
   .dd__more { display: block !important; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .dd__large { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-weight: 600; color: #9A3412; }
   .dd__hint { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .dd__ok-figure { color: var(--b2s-color-success-strong, #1a7f37); }
+  .dd__qlink { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
 </style>

@@ -37,11 +37,14 @@ Les noms du menu sont des noms de produit, en anglais dans les deux langues.
 | Governance | Storage Roots (`/storage-roots`) | liste (filtres, tri, actions groupées, aperçu latéral), fiche du dossier en onglets : vue d'ensemble, permissions, stockage · 5S, sensibilité, quota, activité |
 | | Access Management (`/access-requests`) | onglets Demandes et Exposition (`/exposure`) |
 | | Governance Jobs (`/observability`) | vue d'ensemble, alertes, événements, jobs, santé |
-| Storage Intelligence | Explorer, Inventory, Analytics (`/five-s/…`) | module 5S, s'il est installé (voir [docs/module-5s.md](../docs/module-5s.md)) |
-| | Insights & Recommendations (`/reports`) | onglets Rapports et Politiques (`/admin/policies`) |
+| | Policies (`/admin/policies`, administrateurs) | automatismes de gouvernance : tags, alertes, scans sur une règle |
+| Storage Intelligence | Explorer (`/five-s/explore`) | recherche de fichiers dans tous les dossiers, puis la fiche d'un dossier en onglets : Contenu, Atelier 5S, Doublons, Droits à revoir, Rapport (module 5S, voir [docs/module-5s.md](../docs/module-5s.md)) |
+| | Inventory (`/five-s/scanner`) | onglets Scans, Dossiers (état de chaque mesure : complète, partielle, échantillonnée), Quarantaine (copies et archives de tous les dossiers, restauration), Réglages |
+| | Analytics (`/five-s`) | score 5S des dossiers et « Quoi faire d'abord » |
+| | Insights & Recommendations (`/reports`) | rapports |
 | Administration | Storage Endpoints (`/admin/storage-endpoints`) | onglets Serveurs (serveurs de fichiers, espaces DFS) et Zones |
 | | Identity & Users (`/admin/identity`) | onglets Identités, Administrateurs, Annuaires |
-| | Settings (`/admin/advanced-settings`) | onglets Réglages (nommage, gouvernance, journalisation, sessions, réseau et DNS, infrastructure et workers, notifications, extensions, fonctionnalités) et Tags |
+| | Settings (`/admin/advanced-settings`) | onglets Réglages, en quatre groupes : Général (nommage, gouvernance), Sécurité (sessions, journalisation), Réseau et infrastructure (réseau et DNS, infrastructure, workers), Intégrations et licence (licence et modules, notifications, extensions) ; et Tags |
 
 Les listes ont un menu au clic droit (dossiers, jobs, exposition, tags, politiques, identités). `/setup` sert au
 premier démarrage. Interface pour poste de travail uniquement.

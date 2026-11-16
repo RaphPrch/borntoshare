@@ -2,7 +2,6 @@
   import { governanceEnabled } from '$lib/utils/features';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import { formatDate } from '$lib/utils/format';
 
@@ -32,14 +31,13 @@
 <svelte:head><title>{t('My folders')} · BornToShare</title></svelte:head>
 
 <section class="b2s-page mine">
-  <PageHeader title={t('My folders')} subtitle={t('The folders you reach through your requests.')}>
-    {#snippet actions()}
-      
+  <div class="v2-head">
+    <div><h1>{t('My folders')}</h1><p>{t('The folders you reach through your requests.')}</p></div>
+    <div class="v2-head__act">
         <input class="b2s-input" aria-label={t('Search my folders')} placeholder={t('Search a folder…')} bind:value={query} />
         {#if $governanceEnabled}<a class="b2s-btn b2s-btn-primary" href="/access-requests/new"><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Request access')}</a>{/if}
-      
-      {/snippet}
-  </PageHeader>
+    </div>
+  </div>
 
   <section class="panel">
     <h2>{t('Accesses in force')} <span class="count">{inForce.length}</span></h2>
