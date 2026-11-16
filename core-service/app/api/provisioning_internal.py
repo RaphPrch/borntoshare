@@ -357,8 +357,8 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
     except Exception:
         db.rollback()
         logger.warning("SENSITIVITY_NEXT_PASS_NOT_QUEUED", exc_info=True)
-    # The last pass: the policies judge the folder again (sensitive files, sub-folders that hold them), and the
-    # person who asked is told (once)
+    # The last pass: the policies judge the folder again at once (sensitive files, sub-folders that hold them), and
+    # the person who asked is told (once). No tasks from here: a policy that scans would start the scan again
     if not next_pass:
         try:
             from app.services.policies import run_all
@@ -378,15 +378,6 @@ def _persist_sensitivity_result(db: Session, *, job_row: Any, result_json: dict 
     except Exception:
         db.rollback()
         logger.warning("REMEDIATION_AFTER_SCAN_FAILED", exc_info=True)
-    # The policies about sensitivity apply at once to this folder, without waiting for their schedule
-    try:
-        from app.services.policies import run_all
-
-        # No tasks from here: a policy that scans would start the scan again
-        run_all(db, only_root_ids={int(root_id)}, trigger="sensitivity_scan", allow_jobs=False)
-    except Exception:
-        db.rollback()
-        logger.warning("POLICIES_AFTER_SCAN_FAILED", exc_info=True)
 
 
 def _with_requester(metrics: dict | None) -> dict:

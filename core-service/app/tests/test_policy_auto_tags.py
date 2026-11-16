@@ -56,3 +56,29 @@ def test_file_groups_cover_the_new_categories() -> None:
     assert sensitivity.FILE_GROUPS["personal_files"] == ("personal_data",)
     assert sensitivity.FILE_GROUPS["bank_files"] == ("bank_data",)
     assert set(sensitivity.FILE_GROUPS["risky_files"]) == {"backup_database", "mailbox", "executable"}
+
+
+def test_the_policies_judge_a_folder_once_at_the_last_pass_of_its_scan(monkeypatch) -> None:
+    """A folder read in several passes: no verdict on half the files, one run when the scan ends."""
+    from types import SimpleNamespace
+
+    from app.api import provisioning_internal as internal
+    from app.services import remediations
+
+    runs = []
+    monkeypatch.setattr(internal, "_extract_storage_root_id_from_probe", lambda **_kw: 4)
+    monkeypatch.setattr(sensitivity, "record_result", lambda *_a: {})
+    monkeypatch.setattr(sensitivity, "refresh_exposure", lambda *_a: None)
+    monkeypatch.setattr(sensitivity, "flagged_by_root", lambda *_a: {})
+    monkeypatch.setattr(remediations, "after_scan", lambda *_a: None)
+    monkeypatch.setattr(internal, "_tell_sensitivity_end", lambda *_a, **_kw: None)
+    monkeypatch.setattr(policies, "run_all", lambda _db, **kw: runs.append(kw))
+    db = SimpleNamespace(commit=lambda: None, rollback=lambda: None)
+    job = SimpleNamespace(action=sensitivity.ACTION, id=9, payload_json=None)
+
+    monkeypatch.setattr(sensitivity, "continue_if_pending", lambda *_a: 10)  # another pass follows
+    internal._persist_sensitivity_result(db, job_row=job, result_json={})
+    assert runs == []
+    monkeypatch.setattr(sensitivity, "continue_if_pending", lambda *_a: None)  # the last pass
+    internal._persist_sensitivity_result(db, job_row=job, result_json={})
+    assert runs == [{"only_root_ids": {4}, "trigger": "sensitivity_scan", "allow_jobs": False}]
