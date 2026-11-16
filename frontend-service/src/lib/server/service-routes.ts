@@ -111,6 +111,8 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
   if (
     path.startsWith('/access-profiles') ||
     path.startsWith('/access-requests') ||
+    path.startsWith('/access-reviews') ||
+    path.startsWith('/monthly-report') ||
     path.startsWith('/activity') ||
     path.startsWith('/admin/advanced-settings') ||
     path.startsWith('/admin/config') ||

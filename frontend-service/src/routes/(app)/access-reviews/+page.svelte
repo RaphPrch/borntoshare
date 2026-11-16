@@ -42,7 +42,8 @@
 
   async function openForm() {
     opening = true;
-    if (!folders.length) folders = await apiGetList<(typeof folders)[number]>(fetch, '/storage-roots/context').catch(() => []);
+    // The light list (name, path, zone): the whole context of every folder weighed ten times more for a choice
+    if (!folders.length) folders = await apiGetList<(typeof folders)[number]>(fetch, '/storage-roots/requestable').catch(() => []);
   }
   async function create() {
     if (creating || !name.trim() || (scope === 'some' && !chosen.size)) return;
