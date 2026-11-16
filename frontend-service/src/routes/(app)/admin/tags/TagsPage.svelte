@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteSet } from 'svelte/reactivity';
 
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { goto as gotoPage } from '$app/navigation';
@@ -66,7 +67,7 @@
   let saving = $state(false);
   let folders = $state<Folder[] | null>(null);
   let folderQuery = $state('');
-  let picked = $state(new Set<number>());
+  let picked = $state(new SvelteSet<number>());
 
   let effectiveFamily = $derived(addingFamily ? newFamily.trim() : family);
   let shades = $derived(familyShades(effectiveFamily));
@@ -86,7 +87,7 @@
     addingFamily = false;
     newFamily = '';
     color = tag?.color ?? '';
-    picked = new Set();
+    picked = new SvelteSet();
     folderQuery = '';
     formOpen = true;
     if (!tag && folders === null) {
@@ -105,7 +106,6 @@
   function togglePick(id: number) {
     if (picked.has(id)) picked.delete(id);
     else picked.add(id);
-    picked = picked;
   }
 
   async function save() {

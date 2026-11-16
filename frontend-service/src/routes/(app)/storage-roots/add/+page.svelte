@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import { governanceEnabled } from '$lib/utils/features';
 
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
@@ -79,7 +80,8 @@
   let scanning = $state<Record<number, boolean>>({});
   let scanErrors = $state<Record<number, string>>({});
 
-  let selected = $state(new Map<string, Folder>());
+  // Reactive collections: a plain Map or Set in $state does not refresh the view when it changes
+  const selected = new SvelteMap<string, Folder>();
   let anchor: number | null = null;
 
   let serverQuery = $state('');
@@ -112,7 +114,7 @@
 
   // Sub-folders read on demand, under their parent (key of the parent -> its sub-folders)
   let childrenOf = $state<Record<string, Folder[]>>({});
-  let expanded = $state(new Set<string>());
+  const expanded = new SvelteSet<string>();
   let browsing = $state<Record<string, boolean>>({});
   let browseErrors = $state<Record<string, string>>({});
   let governedPaths: Set<string> | null = null;
@@ -122,11 +124,9 @@
     const key = keyOf(folder);
     if (expanded.has(key)) {
       expanded.delete(key);
-      expanded = expanded;
       return;
     }
     expanded.add(key);
-    expanded = expanded;
     const target = browseTarget(folder);
     if (childrenOf[key] || !target) return;
     browsing = { ...browsing, [key]: true };
@@ -289,18 +289,15 @@
       setChecked(folder, checked);
     }
     anchor = index;
-    selected = selected;
   }
 
   function toggleAll() {
     const checked = !allChecked;
     for (const folder of selectable) setChecked(folder, checked);
-    selected = selected;
   }
 
   function removeServer(id: number) {
     for (const [key, folder] of selected) if (folder.storage_endpoint_id === id) selected.delete(key);
-    selected = selected;
   }
 
   async function refreshPreview(folder: Folder | undefined) {
@@ -359,8 +356,7 @@
         }
         failures.push(...answer.failed);
         done += batch.length;
-        selected = selected;
-      }
+          }
     } catch (error) {
       // What was not sent stays selected, so the same button resumes
       failures.push({ name: t('Interrupted'), root_path: '', message: error instanceof Error ? error.message : t('The server did not answer.') });

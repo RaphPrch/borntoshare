@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteSet } from 'svelte/reactivity';
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { copyText } from '$lib/utils/clipboard';
   import { toast } from '$lib/stores/toast';
@@ -51,8 +52,8 @@
     else if (key === 'explore') window.location.assign(`/five-s/explore/${row.id}`);
     else if (await copyText(row.path)) toast.success(t('Path copied.'));
   }
-  let opened = new Set<string>();
-  let calmShown = $state(new Set<string>());
+  let opened = $state(new SvelteSet<string>());
+  let calmShown = $state(new SvelteSet<string>());
 
   const parts = (row: Row) => {
     let list = row.path.split(/[\\/]+/).filter(Boolean);
@@ -93,11 +94,9 @@
   function toggle(share: string) {
     if (opened.has(share)) opened.delete(share);
     else opened.add(share);
-    opened = opened;
   }
   function showCalm(share: string) {
     calmShown.add(share);
-    calmShown = calmShown;
   }
 </script>
 

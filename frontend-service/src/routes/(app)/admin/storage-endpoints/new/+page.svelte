@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteSet } from 'svelte/reactivity';
 
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { tick, untrack } from 'svelte';
@@ -34,7 +35,7 @@
   let dfsChecked = $state(false);
   let asFiler = $state(true);
   let asFilerTouched = $state(false);
-  let picked = $state(new Set<string>());
+  let picked = $state(new SvelteSet<string>());
   let dfsServer = $state('');
   type State = 'idle' | 'running' | 'ok' | 'warn' | 'failed';
   type Found = { address?: string; dialect?: string | null; netbios_name?: string | null; dns_name?: string | null; domain?: string | null };
@@ -74,7 +75,6 @@
   function togglePick(name: string) {
     if (picked.has(name)) picked.delete(name);
     else picked.add(name);
-    picked = picked;
   }
 
   function resetAnalysis() {
@@ -164,7 +164,7 @@
         dfsServer = String(read.result?.details?.server ?? cleanHost);
         namespaces = (read.result?.details?.namespaces ?? []) as Namespace[];
         // Nothing checked: the server is added; its namespaces only when chosen
-        picked = new Set();
+        picked = new SvelteSet();
         return null;
       };
       if (namespacePath) {
@@ -307,7 +307,7 @@
       probeResult = null;
       namespaces = [];
       dfsChecked = false;
-      picked = new Set();
+      picked = new SvelteSet();
     }
   });
   // The shares that are the roots of its namespaces are not folders to govern

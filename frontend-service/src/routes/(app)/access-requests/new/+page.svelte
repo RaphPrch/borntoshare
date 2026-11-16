@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
   import { guardUnsaved } from '$lib/utils/unsaved';
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
@@ -39,13 +40,13 @@
   let query = $state('');
   let zoneFilter = $state('');
   let shown = $state(PAGE);
-  let closed = new Set<string>();
+  let closed = $state(new SvelteSet<string>());
   const GROUP_KEY = 'b2s.newRequest.groupBy';
   let groupBy = $state<GroupBy>('zone');
   let recent = $state<Root[]>([]);
   let express = $state('');
   let expressNote = $state('');
-  let cart = $state(new Map<number, Level>());
+  let cart = $state(new SvelteMap<number, Level>());
   let checks = $state<Record<number, Check>>({});
   let lockedRootId = $state<number | null>(null);
 
@@ -122,7 +123,7 @@
   }
   function setGroupBy(key: string) {
     groupBy = key as GroupBy;
-    closed = new Set();
+    closed = new SvelteSet();
     try {
       localStorage.setItem(GROUP_KEY, groupBy);
     } catch {
@@ -140,24 +141,20 @@
   function toggleGroup(key: string) {
     if (closed.has(key)) closed.delete(key);
     else closed.add(key);
-    closed = closed;
   }
 
   function add(id: number, level: Level = 'READ') {
     cart.set(id, level);
-    cart = cart;
     void check(id);
   }
   function toggle(id: number) {
     if (lockedRootId) return;
     if (cart.has(id)) {
       cart.delete(id);
-      cart = cart;
     } else add(id);
   }
   function setLevel(id: number, level: Level) {
     cart.set(id, level);
-    cart = cart;
     void check(id);
   }
 

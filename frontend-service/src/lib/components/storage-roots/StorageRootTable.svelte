@@ -7,6 +7,7 @@
 </script>
 
 <script lang="ts">
+  import { SvelteSet } from 'svelte/reactivity';
   import { governanceEnabled } from '$lib/utils/features';
   
 
@@ -113,7 +114,7 @@
   let sortKey: SortKey = $state(memory.sort);
   let desc = $state(memory.desc);
   let shown = $state(PAGE);
-  let checked = $state(new Set<number>());
+  let checked = $state(new SvelteSet<number>());
   let menuRow: StorageRootRow | null = $state(null);
   let menuAt = $state({ x: 0, y: 0 });
 
@@ -216,7 +217,6 @@
   function toggle(id: number) {
     if (checked.has(id)) checked.delete(id);
     else checked.add(id);
-    checked = checked;
   }
   function toggleAll() {
     const check = !allVisibleChecked;
@@ -224,7 +224,6 @@
       if (check) checked.add(line.id);
       else checked.delete(line.id);
     }
-    checked = checked;
   }
 
   function openMenu(line: Line, event: MouseEvent) {
@@ -243,7 +242,7 @@
   let peopleOptions: { id: number; label: string; hint?: string }[] = $state([]);
   let peopleLoaded = false;
   let guardianIds: number[] = $state([]);
-  let tagIds = $state(new Set<number>());
+  let tagIds = $state(new SvelteSet<number>());
 
   let bulkStarted = $state(false);
 
@@ -268,7 +267,7 @@
     if (running) return;
     action = null;
     guardianIds = [];
-    tagIds = new Set();
+    tagIds = new SvelteSet();
   }
 
   const nameOf = (id: number) => lines.find((line) => line.id === id)?.name ?? String(id);
@@ -284,7 +283,6 @@
       for (const id of done) checked.delete(id);
       failed.push(...(answer?.failed ?? []).map((row: any) => ({ name: nameOf(Number(row.storage_root_id)), message: t(String(row.message ?? '')) })));
     }
-    checked = checked;
     return { ok, failed };
   }
 
@@ -387,13 +385,13 @@
     if (!bulkStarted && isAdmin && initialBulk === 'select' && visible.length) {
       bulkStarted = true;
       const ids = new Set(String($pageStore.url.searchParams.get('ids') ?? '').split(',').map(Number).filter((id) => id > 0));
-      checked = new Set(visible.map((line) => line.id).filter((id) => ids.has(id)));
+      checked = new SvelteSet(visible.map((line) => line.id).filter((id) => ids.has(id)));
     }
   });
   $effect.pre(() => {
     if (!bulkStarted && isAdmin && initialBulk === 'guardians' && visible.length) {
       bulkStarted = true;
-      checked = new Set(visible.map((line) => line.id));
+      checked = new SvelteSet(visible.map((line) => line.id));
       void openAction('guardians');
     }
   });
@@ -517,7 +515,7 @@
       <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('sensitivity')}>{t('Scan for secrets')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('measure')}>{t('Measure')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" onclick={exportCsv}>{t('Export')}</button>
-      <button type="button" class="b2s-btn b2s-btn-sm tb__clear" onclick={() => (checked = new Set())}>{t('Clear the selection')}</button>
+      <button type="button" class="b2s-btn b2s-btn-sm tb__clear" onclick={() => (checked = new SvelteSet())}>{t('Clear the selection')}</button>
     </div>
   {/if}
 </div>
@@ -538,7 +536,7 @@
         {#each tags as tag (tag.id)}
           <label class="tb__tag">
             <input type="checkbox" checked={tagIds.has(Number(tag.id))}
-              onchange={() => { if (tagIds.has(Number(tag.id))) tagIds.delete(Number(tag.id)); else tagIds.add(Number(tag.id)); tagIds = tagIds; }} />
+              onchange={() => { if (tagIds.has(Number(tag.id))) tagIds.delete(Number(tag.id)); else tagIds.add(Number(tag.id)); }} />
             {tag.label ?? tag.name ?? tag.code}
           </label>
         {/each}

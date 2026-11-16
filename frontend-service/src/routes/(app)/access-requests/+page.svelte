@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
   import { copyText } from '$lib/utils/clipboard';
   import SavedViews from '$lib/components/ui/SavedViews.svelte';
@@ -114,7 +115,7 @@
   let levelEditing = $state(false);
   let levelReason = $state('');
   let levelSaving = $state(false);
-  let checkedIds = $state(new Set<number>());
+  let checkedIds = $state(new SvelteSet<number>());
   let bulkDecisionAsked = $state<'approve' | 'reject' | null>(null);
   let bulkRunning = $state(false);
   let bulkDone = $state(0);
@@ -199,7 +200,6 @@
   function toggleChecked(id: number): void {
     if (checkedIds.has(id)) checkedIds.delete(id);
     else checkedIds.add(id);
-    checkedIds = checkedIds;
   }
 
   function togglePage(): void {
@@ -208,7 +208,6 @@
       if (next) checkedIds.add(accessRequestId(row));
       else checkedIds.delete(accessRequestId(row));
     }
-    checkedIds = checkedIds;
   }
 
   // One at a time: each approval can wait for Active Directory, and the progress stays visible
@@ -244,7 +243,7 @@
       if (stoppedAt >= 0) toast.error(t('Active Directory does not answer: {done} done, {left} left to process.', { done, left: failed.length + untouched.length }));
       else if (failed.length > 0) toast.error(t('{ok} done, {failed} failed: open each failed request to see why.', { ok: done, failed: failed.length }));
       else toast.success(t('{count} requests processed.', { count: ids.length }));
-      checkedIds = new Set([...failed, ...untouched]);
+      checkedIds = new SvelteSet([...failed, ...untouched]);
       await invalidateAll();
     } catch {
       toast.error(bulkDecisionAsked === 'approve' ? t('Approval failed.') : t('Rejection failed.'));
@@ -428,8 +427,8 @@
   // ---- Right click and quick decisions: the decision leaves after QUICK_DELAY, « Undo » until then ----------------
   const QUICK_DELAY = 5000;
   let menu: { row: any; at: { x: number; y: number } } | null = $state(null);
-  let quick = $state(new Map<number, { decision: 'approve' | 'reject'; timer: ReturnType<typeof setTimeout> }>());
-  let justDone = $state(new Set<number>());
+  let quick = $state(new SvelteMap<number, { decision: 'approve' | 'reject'; timer: ReturnType<typeof setTimeout> }>());
+  let justDone = $state(new SvelteSet<number>());
 
   function openMenu(row: any, event: MouseEvent): void {
     event.preventDefault();
@@ -465,7 +464,6 @@
     const name = requesterName(row);
     const timer = setTimeout(() => void sendQuick(row, id, decision), QUICK_DELAY);
     quick.set(id, { decision, timer });
-    quick = quick;
     toast.info(decision === 'approve' ? t('Approval of {name}: sent in 5 s.', { name }) : t('Rejection of {name}: sent in 5 s.', { name }), {
       duration: QUICK_DELAY,
       action: { label: t('Undo'), run: () => undoQuick(id) }
@@ -477,7 +475,6 @@
     if (!pending) return;
     clearTimeout(pending.timer);
     quick.delete(id);
-    quick = quick;
     toast.info(t('Decision cancelled: nothing was sent.'));
   }
 
@@ -495,14 +492,12 @@
       }
       toast.success(decision === 'approve' ? t('Request approved.') : t('Request rejected.'));
       justDone.add(id);
-      justDone = justDone;
-      setTimeout(() => { justDone.delete(id); justDone = justDone; }, 4000);
+      setTimeout(() => { justDone.delete(id); }, 4000);
       await invalidateAll();
     } catch (error: unknown) {
       reportUiError(error, decision === 'approve' ? t('Approval failed.') : t('Rejection failed.'), 'access-requests.quick-decision');
     } finally {
       quick.delete(id);
-      quick = quick;
     }
   }
 
@@ -662,7 +657,7 @@
   $effect.pre(() => {
     if (requests) {
       const live = new Set(requests.filter(isPending).map(accessRequestId));
-      if ([...checkedIds].some((id) => !live.has(id))) checkedIds = new Set([...checkedIds].filter((id) => live.has(id)));
+      if ([...checkedIds].some((id) => !live.has(id))) checkedIds = new SvelteSet([...checkedIds].filter((id) => live.has(id)));
     }
   });
   let allPageChecked = $derived(pageCheckable.length > 0 && pageCheckable.every((row) => checkedIds.has(accessRequestId(row))));
@@ -741,7 +736,7 @@
       <strong>{t('{count} selected', { count: checkedIds.size })}</strong>
       <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" onclick={() => (bulkDecisionAsked = 'approve')}>{t('Approve all')}</button>
       <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => (bulkDecisionAsked = 'reject')}>{t('Reject all')}</button>
-      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => (checkedIds = new Set())}>{t('Clear the selection')}</button>
+      <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={() => (checkedIds = new SvelteSet())}>{t('Clear the selection')}</button>
     </div>
   {/if}
 
