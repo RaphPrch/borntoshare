@@ -56,17 +56,17 @@
       {#each running as task (task.id)}
         {@const pct = percent(task)}
         <div class="rt__row">
-          <span>{jobTypeLabel(task.job_type, task.action)}</span>
+          <a class="rt__name" href={`/observability?tab=jobs&job=${task.id}`}>{jobTypeLabel(task.job_type, task.action)}</a>
           <span class="rt__target">{#if task.target?.href}<a href={task.target.href}>{task.target.label}</a>{:else}{task.target?.label ?? '—'}{/if}</span>
           <span class="rt__state is-run">{#if pct != null}<span class="rt__track"><span style={`width:${pct}%`}></span></span>{pct} %{:else}{task.status === 'QUEUED' ? t('waiting') : t('in progress')}{/if}</span>
-          <span>—</span>
-          <span>—</span>
+          <span class="rt__muted">{t('in progress')}</span>
+          <span title={task.started_at ? formatDateTime(task.started_at) : ''}>{task.started_at ? timeAgo(task.started_at) : t('waiting')}</span>
           <span>{task.run_seconds != null ? formatSeconds(task.run_seconds) : '—'}</span>
         </div>
       {/each}
       {#each finished as job (job.id)}
         <div class="rt__row">
-          <span>{jobTypeLabel(job.job_type, job.action)}</span>
+          <a class="rt__name" href={`/observability?tab=jobs&job=${job.id}`}>{jobTypeLabel(job.job_type, job.action)}</a>
           <span class="rt__target">{#if job.target?.href}<a href={job.target.href}>{job.target.label}</a>{:else}{job.target?.label ?? '—'}{/if}</span>
           <span class={`rt__state is-${tone(job.status)}`} title={job.error_message ?? ''}>{jobStatusLabel(job.status)}</span>
           <span>{job.requested_by ?? jobOriginLabel(job.origin)}</span>
@@ -106,6 +106,9 @@
   .rt__state.is-mut { color: var(--b2s-color-text-muted); }
   .rt__track { width: 60px; height: 5px; border-radius: 999px; background: #eef0f4; overflow: hidden; }
   .rt__track > span { display: block; height: 100%; background: #3b82f6; }
+  .rt__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--b2s-color-text); text-decoration: none; }
+  .rt__name:hover { text-decoration: underline; }
+  .rt__muted { color: var(--b2s-color-text-muted); }
   .rt__empty { margin: 10px 16px; color: var(--b2s-color-text-muted); font-size: 13px; }
   .rt__all { display: inline-block; margin: 8px 16px 0; font-size: 13px; }
 </style>

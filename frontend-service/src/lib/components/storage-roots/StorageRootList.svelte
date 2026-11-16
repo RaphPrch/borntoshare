@@ -35,11 +35,10 @@
     onFolderAction?: ((kind: FolderActionKind, row: StorageRootRow) => void) | null;
     onExtra?: ((key: FolderMenuExtra, row: StorageRootRow) => void) | null;
     onBulkAnalysis?: ((kind: 'sensitivity' | 'measure', rows: StorageRootRow[]) => Promise<void> | void) | null;
-    onAdd?: (() => void) | null;
   }
 
   let { rows = [], query = '', isAdmin = false, onQueryChange = () => {}, onOpenRoot = () => {}, onFolderAction = null, onExtra = null,
-    onBulkAnalysis = null, onAdd = null }: Props = $props();
+    onBulkAnalysis = null }: Props = $props();
 
   type R = Record<string, any>;
   const num = (value: unknown): number | null => (value == null || value === '' || !Number.isFinite(Number(value)) ? null : Number(value));
@@ -197,7 +196,6 @@
       <select class="b2s-input srl__sort" bind:value={sort} aria-label={t('Sort')}>
         {#each SORTS as option (option.key)}<option value={option.key}>{option.label()}</option>{/each}
       </select>
-      {#if onAdd}<button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" onclick={onAdd}><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('Add folders')}</button>{/if}
     </div>
     <div class="v2-seg srl__quick" role="group" aria-label={t('Quick filters')}>
       {#each quicks as q (q.key)}

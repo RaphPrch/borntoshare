@@ -14,11 +14,12 @@
 
   --b2s-accent-orange: #f97316;
 
-  /* Signal: the one accent of the theme (primary action, current selection) */
-  --b2s-accent: #b6f24a;
-  --b2s-accent-soft: #e9fbc6;
-  --b2s-accent-strong: #3c6600;
-  --b2s-on-accent: #10140a;
+  /* Signal: the one accent of the theme (primary action, current selection): the ink of the top bar, a light grey
+     for the selected lines (the lime of the former side menu is gone) */
+  --b2s-accent: #0e1218;
+  --b2s-accent-soft: #eef0f4;
+  --b2s-accent-strong: #0e1218;
+  --b2s-on-accent: #ffffff;
 
   /* ===== Typography ===== */
   --b2s-font-sans: "Geist Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -82,7 +83,6 @@
 
   --b2s-topbar-bg: #0e1218;
   --b2s-topbar-bg-hover: #252b35;
-  --b2s-topbar-accent: #b6f24a;
 
   --b2s-color-primary: var(--b2s-topbar-bg-hover);
   --b2s-color-primary-strong: var(--b2s-topbar-bg);
@@ -135,10 +135,10 @@
   --b2s-btn-font-weight: 600;
   --b2s-btn-disabled-opacity: 0.6;
 
-  --b2s-btn-primary-bg: #b6f24a;
-  --b2s-btn-primary-bg-hover: #abea3c;
-  --b2s-btn-primary-fg: #10140a;
-  --b2s-btn-primary-border: #9ad632;
+  --b2s-btn-primary-bg: #0e1218;
+  --b2s-btn-primary-bg-hover: #252b35;
+  --b2s-btn-primary-fg: #ffffff;
+  --b2s-btn-primary-border: #0e1218;
 
   --b2s-btn-secondary-bg: var(--b2s-color-surface);
   --b2s-btn-secondary-bg-hover: #f6f7f9;

@@ -88,7 +88,7 @@
   .pw { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--b2s-color-page, #f5f6f8); }
   .pw__card { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 16px; padding: 32px; border-radius: 18px; background: var(--b2s-color-surface); box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 12px 32px rgba(14, 18, 24, .08); }
   .pw__brand { display: flex; align-items: center; gap: 10px; }
-  .pw__brand b { width: 36px; height: 36px; border-radius: 10px; background: var(--b2s-accent); color: #10140a; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .pw__brand b { width: 36px; height: 36px; border-radius: 10px; background: var(--b2s-accent); color: var(--b2s-on-accent); display: flex; align-items: center; justify-content: center; font-weight: 700; }
   h1 { margin: 8px 0 0; font-size: 22px; color: var(--b2s-color-heading); }
   .pw__lead { margin: 0; color: var(--b2s-color-text-muted); font-size: 14px; line-height: 1.5; }
   .pw__f { display: flex; flex-direction: column; gap: 6px; font-weight: 500; font-size: 13px; }

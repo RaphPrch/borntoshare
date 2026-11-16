@@ -227,6 +227,9 @@
   onMount(() => {
     void refresh();
     timer = setInterval(() => void refresh(true), POLL_INTERVAL_MS);
+    // ?job=123: opened on that task (a line of the recent tasks, a link)
+    const wanted = Number(new URL(window.location.href).searchParams.get('job') ?? 0);
+    if (wanted > 0) void openDetail(wanted);
   });
   onDestroy(() => {
     if (timer) clearInterval(timer);

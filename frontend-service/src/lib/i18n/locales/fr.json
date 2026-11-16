@@ -5664,5 +5664,7 @@
   "Started by": "Lancée par",
   "Unfold": "Déplier",
   "{count} failure(s) in 24 h": "{count} échec(s) en 24 h",
-  "{count} in progress": "{count} en cours"
+  "{count} in progress": "{count} en cours",
+  "Search a folder, a person, a file, a page…": "Rechercher un dossier, une personne, un fichier, une page…",
+  "Compact display": "Affichage compact"
 }

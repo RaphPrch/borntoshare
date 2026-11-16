@@ -139,7 +139,7 @@
     --lg-line2: #cdd2db;
     --lg-text: #0e1218;
     --lg-muted: #596273;
-    --lg-accent: #b6f24a;
+    --lg-accent: #0e1218;
     --lg-read: #1f5fd0;
     --lg-write: #a85a00;
     --lg-shadow: 0 1px 2px rgba(14, 18, 24, 0.05), 0 8px 24px rgba(14, 18, 24, 0.06);
@@ -181,7 +181,7 @@
     justify-content: center;
     border-radius: 12px;
     background: var(--lg-accent);
-    color: #10140a;
+    color: #fff;
     font-weight: 700;
   }
 
@@ -202,7 +202,7 @@
   .lg__headline mark {
     padding: 0 0.14em;
     border-radius: 0.14em;
-    background: var(--lg-accent);
+    background: #dde1e8;
     color: inherit;
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
@@ -240,8 +240,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 10px;
-    background: #e9fbc6;
-    color: #3c6600;
+    background: #eef0f4;
+    color: #0e1218;
     font-size: 17px;
   }
 
@@ -394,13 +394,13 @@
   }
 
   .lg__submit {
-    border: 1px solid #9ad632;
+    border: 1px solid var(--lg-accent);
     background: var(--lg-accent);
-    color: #10140a;
+    color: #fff;
   }
 
   .lg__submit:hover {
-    background: #abea3c;
+    background: #252b35;
   }
 
   .lg__submit:disabled {

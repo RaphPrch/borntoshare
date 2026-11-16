@@ -942,10 +942,10 @@
   .sp { display: flex; gap: 18px; align-items: flex-start; min-height: 100vh; max-width: 1480px; margin: 0 auto; padding: 24px 28px 36px; }
   .sp-path { flex: 0 0 300px; display: flex; flex-direction: column; gap: 22px; }
   .sp-brand { display: flex; align-items: center; gap: 12px; }
-  .sp-brand b { width: 40px; height: 40px; border-radius: 12px; background: var(--b2s-accent); color: #10140a; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .sp-brand b { width: 40px; height: 40px; border-radius: 12px; background: var(--b2s-accent); color: var(--b2s-on-accent); display: flex; align-items: center; justify-content: center; font-weight: 700; }
   .sp-brand strong { font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
   .sp-path h1 { margin: 0; font-size: 38px; line-height: 1.05; font-weight: 600; letter-spacing: -.03em; }
-  .sp-path h1 mark { background: var(--b2s-accent); color: inherit; padding: 0 .14em; border-radius: .14em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .sp-path h1 mark { background: #dde1e8; color: inherit; padding: 0 .14em; border-radius: .14em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
   .sp-path > p { margin: 0; color: var(--b2s-color-text-muted); font-size: 15px; }
   .sp-mods { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .sp-mod { position: relative; display: flex; gap: 14px; align-items: flex-start; padding: 18px; border: 1px solid var(--b2s-color-border); border-radius: 14px; background: var(--b2s-color-surface); cursor: pointer; transition: border-color .15s, box-shadow .15s; }
@@ -967,7 +967,7 @@
   .sp-step:not(:disabled):hover { background: var(--b2s-color-neutral-soft); }
   .sp-step.cur { background: var(--b2s-color-surface); box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06); }
   .sp-pip { flex: none; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
-  .cur .sp-pip { background: var(--b2s-accent); color: #10140a; }
+  .cur .sp-pip { background: var(--b2s-accent); color: var(--b2s-on-accent); }
   .done .sp-pip { background: var(--b2s-color-success); color: #fff; }
   .skip .sp-step { opacity: .6; }
   .sp-step strong { display: block; font-weight: 500; }
@@ -996,7 +996,7 @@
   .sp-btn { white-space: nowrap; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); color: inherit; font-weight: 500; cursor: pointer; }
   .sp-btn.sm { min-height: 36px; font-size: 13px; }
   .sp-btn:disabled { opacity: .5; cursor: default; }
-  .sp-btn.pri { background: var(--b2s-accent); border-color: #9ad632; color: #10140a; font-weight: 600; }
+  .sp-btn.pri { background: var(--b2s-accent); border-color: var(--b2s-accent); color: var(--b2s-on-accent); font-weight: 600; }
   .sp-test { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
   .sp-checks { align-self: stretch; display: flex; flex-direction: column; border: 1px solid var(--b2s-color-border); border-radius: 14px; overflow: hidden; }
   .sp-checks div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding: 10px 14px; }
@@ -1028,5 +1028,5 @@
   .sp-node strong { display: block; font-weight: 500; overflow-wrap: anywhere; }
   .sp-node.empty { border-style: dashed; color: var(--b2s-color-text-muted); }
   .sp-node.empty strong { font-weight: 400; color: var(--b2s-color-text-muted); }
-  .sp-node.on { background: var(--b2s-accent-soft); border-color: #9ad632; }
+  .sp-node.on { background: var(--b2s-accent-soft); border-color: var(--b2s-accent); }
 </style>

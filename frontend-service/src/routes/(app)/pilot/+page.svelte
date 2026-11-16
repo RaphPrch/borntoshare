@@ -121,7 +121,7 @@
   .pl-hero h1 { margin: 0; font-size: 52px; font-weight: 700; letter-spacing: -0.045em; line-height: 1; }
   .pl-hero p { margin: 0; max-width: 760px; color: var(--b2s-color-text-muted); font-size: 16px; line-height: 1.55; }
   .pl-ask { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 6px 6px 6px 18px; border: 1px solid var(--b2s-color-border-soft); border-radius: 16px; background: #fff; color: var(--b2s-color-text-muted); }
-  .pl-ask:focus-within { border-color: var(--b2s-accent-strong); box-shadow: 0 0 0 3px rgba(182, 242, 74, 0.35); }
+  .pl-ask:focus-within { border-color: var(--b2s-accent-strong); box-shadow: 0 0 0 3px rgba(14, 18, 24, 0.1); }
   .pl-ask input { flex: 1; border: 0; outline: 0; background: transparent; color: var(--b2s-color-text); font: inherit; font-size: 17px; }
   .pl-sugs { display: flex; flex-wrap: wrap; gap: 8px; }
   .pl-sug { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 14px; border: 1px solid var(--b2s-color-border-soft); border-radius: 999px; background: #fff; color: var(--b2s-color-text); font: inherit; font-size: 13px; cursor: pointer; }
@@ -131,7 +131,7 @@
   .pl-ans.is-ko { background: var(--b2s-color-surface-soft); }
   .pl-ans__h { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
   .pl-ans__h b { font-size: 16px; }
-  .pl-int { padding: 3px 9px; border-radius: 7px; background: #0e1218; color: var(--b2s-accent); font-family: var(--b2s-font-mono); font-size: 12px; }
+  .pl-int { padding: 3px 9px; border-radius: 7px; background: #0e1218; color: #fff; font-family: var(--b2s-font-mono); font-size: 12px; }
   .pl-src { margin-left: auto; color: var(--b2s-color-text-muted); font-size: 12.5px; }
   .pl-ans p { margin: 0; color: #3f4755; line-height: 1.55; }
   .pl-table { overflow-x: auto; border: 1px solid var(--b2s-color-border-soft); border-radius: 14px; }

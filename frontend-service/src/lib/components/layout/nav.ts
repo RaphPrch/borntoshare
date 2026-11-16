@@ -16,6 +16,8 @@ export type NavItem = {
   also?: string[];
   count?: number;
   danger?: boolean;
+  /** The main action of the entry: shown at the right of the context bar, at the same place on each of its pages */
+  action?: { href: string; label: string; icon: string };
 };
 export type NavSection = { key: string; label: string; items: NavItem[] };
 
@@ -41,8 +43,10 @@ export function buildNav(ctx: NavContext): NavSection[] {
       key: 'governance',
       label: 'Governance',
       items: [
-        { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open' },
+        { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open',
+          ...(ctx.admin ? { action: { href: '/storage-roots/add', label: t('Add folders'), icon: 'bi-plus-lg' } } : {}) },
         ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/exposure', '/access-reviews'], count: ctx.pending,
+            action: { href: '/access-requests/new', label: t('New request'), icon: 'bi-plus-lg' },
             tabs: [{ href: '/access-requests', label: t('Requests') },
               ...(ctx.staff ? [{ href: '/exposure', label: t('Exposure') }, { href: '/access-reviews', label: t('Reviews') }] : [])] }] : []),
         ...(ctx.staff ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.admin ? ctx.critical : 0, danger: true }] : []),
@@ -71,6 +75,7 @@ export function buildNav(ctx: NavContext): NavSection[] {
       items: ctx.admin
         ? [
             { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack', also: ['/admin/zones'],
+              action: { href: '/admin/storage-endpoints/new', label: t('Add a server'), icon: 'bi-plus-lg' },
               tabs: [{ href: '/admin/storage-endpoints', label: t('Servers') }, { href: '/admin/zones', label: t('Zones') }] },
             { href: '/admin/identity', label: 'Identity & Users', icon: 'bi-people', also: ['/admin/identity-sources'],
               tabs: [{ href: '/admin/identity', label: t('Identities') }, { href: '/admin/identity/admins', label: t('Administrators') }, { href: '/admin/identity-sources', label: t('Directories') }] },

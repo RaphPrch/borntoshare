@@ -19,6 +19,8 @@
   let { currentPath = '', admin = false, staff = false, features = [] }: Props = $props();
   let here = $derived(activeItem(buildNav({ admin, staff, features, pending: $live.pending ?? 0, critical: $live.critical ?? 0 }), currentPath));
   let tabs = $derived(here?.item.tabs ?? []);
+  // Not on the page it leads to (the form of a new request…)
+  let action = $derived(here?.item.action && currentPath !== here.item.action.href ? here.item.action : null);
 </script>
 
 {#if here}
@@ -32,6 +34,7 @@
       {/each}
     </nav>
     {#if tabs.length > 1}<div class="cb__tabs"><SectionTabs {tabs} label={here.item.label} /></div>{/if}
+    {#if action}<a class="b2s-btn b2s-btn-primary b2s-btn-sm cb__action" href={action.href}><i class={`bi ${action.icon}`} aria-hidden="true"></i>{action.label}</a>{/if}
   </div>
 {/if}
 
@@ -43,6 +46,7 @@
   .cb__crumb b { color: var(--b2s-color-text); font-weight: 600; white-space: nowrap; }
   .cb__crumb a { color: inherit; text-decoration: none; white-space: nowrap; }
   .cb__crumb a:hover { color: var(--b2s-color-text); text-decoration: underline; }
+  .cb__action { align-self: center; margin-left: auto; }
   /* The tabs sit on the bottom line of the bar */
   .cb__tabs :global(.v2-tabs) { margin: 0; border-bottom: 0; }
 </style>

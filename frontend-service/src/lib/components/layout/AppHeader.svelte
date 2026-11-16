@@ -51,6 +51,28 @@
     accountOpen = false;
   });
 
+  // ---- compact display (this browser only): more lines in the long lists ----
+  const DENSITY_KEY = 'b2s.density';
+  let compact = $state(false);
+  $effect(() => {
+    try {
+      compact = localStorage.getItem(DENSITY_KEY) === 'compact';
+    } catch {
+      compact = false;
+    }
+  });
+  $effect(() => {
+    document.documentElement.classList.toggle('b2s-compact', compact);
+  });
+  function toggleCompact() {
+    compact = !compact;
+    try {
+      localStorage.setItem(DENSITY_KEY, compact ? 'compact' : 'comfortable');
+    } catch {
+      /* private window: for this visit only */
+    }
+  }
+
   // ---- pages opened lately (this browser only) ----
   const RECENT_KEY = 'b2s.nav.recent';
   let recent = $state<Array<{ href: string; label: string }>>([]);
@@ -102,6 +124,7 @@
         <div class="ah__menu" role="menu">
           <div class="ah__who"><b>{name}</b><small>{role}</small></div>
           <LanguageSwitcher tone="light" />
+          <label class="ah__menu-item ah__toggle"><input type="checkbox" checked={compact} onchange={toggleCompact} />{t('Compact display')}</label>
           <form method="POST" action="/logout"><button type="submit" class="ah__menu-item" role="menuitem"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>{t('Logout')}</button></form>
           <span class="ah__version" title={t('Built on {date}', { date: new Date(__B2S_BUILT_AT__).toLocaleString() })}>{__B2S_VERSION__}</span>
         </div>
@@ -119,7 +142,7 @@
   .ah__burger:hover, .ah__burger.is-on { background: #252b35; }
   .ah__brand { display: flex; align-items: center; gap: 8px; color: #fff; text-decoration: none; white-space: nowrap; }
   .ah__brand b { font-size: 15.5px; letter-spacing: -0.02em; }
-  .ah__logo { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--b2s-accent); color: var(--b2s-on-accent); font-weight: 700; font-size: 14px; }
+  .ah__logo { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #fff; color: #0e1218; font-weight: 700; font-size: 14px; }
   .ah__sep { width: 1px; height: 24px; background: #3f4755; }
   .ah__search { flex: 1 1 auto; max-width: 720px; min-width: 0; }
   /* The search field of the bar, on the dark background (it opens the ⌘K palette) */
@@ -138,7 +161,7 @@
   .ah__me { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; color: #fff; font: inherit; font-size: 13px; cursor: pointer; }
   .ah__me:hover { background: #252b35; }
   .ah__me i { font-size: 10px; color: #8b93a3; }
-  .ah__avatar { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--b2s-accent); color: var(--b2s-on-accent); font-size: 11px; font-weight: 700; }
+  .ah__avatar { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #e0e7ff; color: #1e293b; font-size: 11px; font-weight: 700; }
   .ah__name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ah__catch { position: fixed; inset: 0; z-index: 73; border: 0; background: transparent; cursor: default; }
   .ah__menu { position: absolute; right: 0; top: 44px; z-index: 74; width: 240px; display: grid; gap: 10px; padding: 12px; border: 1px solid var(--b2s-color-border-soft); border-radius: 12px;
@@ -148,5 +171,7 @@
   .ah__menu form { margin: 0; }
   .ah__menu-item { width: 100%; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 13.5px; color: var(--b2s-color-text); cursor: pointer; }
   .ah__menu-item:hover { background: var(--b2s-color-surface-muted, #eef0f4); }
+  .ah__toggle { cursor: pointer; }
+  .ah__toggle input { width: 15px; height: 15px; accent-color: #0e1218; }
   .ah__version { color: var(--b2s-color-text-muted); font-size: 11px; }
 </style>

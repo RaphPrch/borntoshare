@@ -699,10 +699,6 @@
       <i class="bi bi-search" aria-hidden="true"></i>
       <input type="search" aria-label={t('Search access requests')} placeholder={t('Search requester, resource, path…')} bind:value={searchText} />
     </label>
-    <a class="b2s-btn b2s-btn-primary" href="/access-requests/new">
-      <i class="bi bi-plus-lg" aria-hidden="true"></i>
-      {t('New request')}
-    </a>
   </header>
 
   <QuotaRequestsStrip isAdmin={me?.is_admin === true} />

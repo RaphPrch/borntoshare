@@ -1,4 +1,9 @@
 <script lang="ts">
+  // The shortcut as the keyboard shows it: ⌘K on a Mac, Ctrl K elsewhere
+  let shortcutLabel = $state('Ctrl K');
+  $effect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) shortcutLabel = '⌘K';
+  });
   
   import { slideIndicator } from '$lib/utils/motion';
 
@@ -307,7 +312,8 @@
 
 <button type="button" class="global-search-trigger" onclick={show} aria-label={t('Search (Ctrl+K)')} title={t('Search (Ctrl+K)')}>
   <i class="bi bi-search" aria-hidden="true"></i>
-  <span>{t('Search')}</span>
+  <span class="global-search-trigger__text">{t('Search a folder, a person, a file, a page…')}</span>
+  <kbd class="global-search-trigger__key">{shortcutLabel}</kbd>
 </button>
 
 <AppModal {open} onClose={close} size="lg" showClose={false} ariaLabelledby="global-search-label" contentClass="global-search">
@@ -395,6 +401,8 @@
     cursor: pointer;
   }
 
+  .global-search-trigger__text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+  .global-search-trigger__key { flex: none; padding: 1px 6px; border: 1px solid currentColor; border-radius: 5px; font-family: var(--b2s-font-mono, monospace); font-size: 11px; opacity: 0.7; }
   .global-search-trigger i {
     font-size: 14px;
     line-height: 1;

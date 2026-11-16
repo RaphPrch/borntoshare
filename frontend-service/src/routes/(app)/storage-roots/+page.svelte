@@ -1873,7 +1873,6 @@
         onFolderAction={data.user?.is_admin === true ? folderAction : null}
         onExtra={listExtra}
         onBulkAnalysis={data.user?.is_admin === true ? bulkAnalysis : null}
-        onAdd={data.user?.is_admin === true ? openCreateRoot : null}
       />
     {:else}
     <StorageRootDetailView

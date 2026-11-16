@@ -150,7 +150,7 @@
   .ad__path.is-direct { background: var(--b2s-color-warning-soft, #fdefd9); color: var(--b2s-color-warning-strong, #9a5b00); }
   .ad__path.is-group { background: #e6f4f1; color: #0f766e; }
   .ad__role { display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 20px; border-radius: 16px; background: linear-gradient(160deg, #0e1218, #1f2a3a); color: #ffffff; }
-  .ad__role span { color: #b6f24a; font-size: var(--b2s-fs-xs); letter-spacing: 0.05em; text-transform: uppercase; }
+  .ad__role span { color: #b9bfca; font-size: var(--b2s-fs-xs); letter-spacing: 0.05em; text-transform: uppercase; }
   .ad__role b { font-size: 20px; line-height: 1.2; }
   .ad__role strong { font-size: 34px; }
   .ad__role small { color: #c7cfdb; font-size: var(--b2s-fs-sm); }
