@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { copyText } from '$lib/utils/clipboard';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import SearchField from '$lib/components/ui/SearchField.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -100,6 +102,23 @@
     confirmDisconnectOpen = true;
   }
 
+  // ---- right click on a session ----
+  let menu = $state<{ session: any; at: { x: number; y: number } } | null>(null);
+  const sessionItems = (session: any): ContextMenuItem[] => [
+    { key: 'disconnect', label: t('Disconnect'), icon: 'bi-box-arrow-right', danger: true, disabled: session.is_current || isLoading || !!revokingId,
+      hint: session.is_current ? t('This session') : undefined },
+    { key: 'person', label: t('See this person'), icon: 'bi-person', separated: true },
+    { key: 'copy', label: t('Copy the login'), icon: 'bi-clipboard' }
+  ];
+  async function pickSession(key: string) {
+    const session = menu?.session;
+    menu = null;
+    if (!session) return;
+    if (key === 'disconnect') requestRevoke(session.id);
+    else if (key === 'person') window.location.assign(`/admin/identity?q=${encodeURIComponent(String(session.user ?? ''))}`);
+    else if (await copyText(String(session.user ?? ''))) toast.success(t('Login copied.'));
+  }
+
   async function revokeConfirmed() {
     if (revokingId || !pendingSessionId) return;
     const sessionId = pendingSessionId;
@@ -186,7 +205,7 @@
       </thead>
       <tbody>
         {#each sortedSessions as s}
-          <tr>
+          <tr oncontextmenu={(event) => { event.preventDefault(); menu = { session: s, at: menuPositionFor(event) }; }}>
             <td>
               <strong>{s.user}</strong>
               {#if s.is_current}<span class="adv-current-session">{t('This session')}</span>{/if}
@@ -249,6 +268,9 @@
 />
 
 <SignInLimitsCard signIn={data.advanced?.signIn ?? {}} />
+
+<ContextMenu open={Boolean(menu)} title={menu?.session.user ?? ''} items={menu ? sessionItems(menu.session) : []} at={menu?.at ?? { x: 0, y: 0 }}
+  onClose={() => (menu = null)} onPick={(key) => void pickSession(key)} />
 
 <style>
   .adv-current-session {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
+  import { setCrumbs } from '$lib/stores/crumbs';
 
   /**
    * One sheet per scanned folder: its name and place, then its tabs (content, 5S workshop, duplicates, rights to
@@ -23,6 +24,8 @@
     { key: 'access', label: t('Rights to review'), href: `/five-s/access/${rootId}` },
     { key: 'report', label: t('Report'), href: `/five-s/report/${rootId}` }
   ] as Array<{ key: Tab; label: string; href: string }>);
+  // The top bar says where: Explorer › <folder> › <tab>
+  $effect(() => setCrumbs([{ label: name, href: `/five-s/explore/${rootId}` }, { label: tabs.find((tab) => tab.key === current)?.label ?? '' }]));
 </script>
 
 <header class="ffh">

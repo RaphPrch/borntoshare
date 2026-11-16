@@ -9,6 +9,11 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import FolderHeader from '../../FolderHeader.svelte';
   import AccessPanel from '../../AccessPanel.svelte';
+  import { goto } from '$app/navigation';
+  import { toast } from '$lib/stores/toast';
+  import { copyText } from '$lib/utils/clipboard';
+  import { readParam, writeParams } from '$lib/utils/url-state';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
 
   /**
    * Rights to review in the whole tree of a governed folder: every sub-folder with an orphan SID, the whole company
@@ -23,7 +28,8 @@
   let data = $state<Review | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
-  let code = $state<string>('all');
+  let code = $state<string>(readParam<string>('code', 'all'));
+  const askedPath = readParam<string>('path', '');
   let query = $state('');
   let chosen = $state<Row | null>(null);
   let shown = $state(100);
@@ -41,6 +47,7 @@
       name = String(overview?.storage_root_name ?? `#${rootId}`);
       rootPath = String(overview?.root_path ?? '');
       data = await apiGetData<Review>(fetch, `/modules/fives/storage-roots/${rootId}/rights-review`);
+      if (askedPath) chosen = data?.folders.find((row) => row.path.toLowerCase() === askedPath.toLowerCase()) ?? null;
     } catch {
       error = t('Unable to load the rights of this folder.');
     } finally {
@@ -48,6 +55,21 @@
     }
   });
 
+  $effect(() => writeParams({ code: code === 'all' ? null : code, path: chosen?.path ?? null }));
+  let menu = $state<{ row: Row; at: { x: number; y: number } } | null>(null);
+  const menuItems = (): ContextMenuItem[] => [
+    { key: 'why', label: t('Who has access and why'), icon: 'bi-people' },
+    { key: 'explore', label: t('Open in the explorer'), icon: 'bi-columns-gap' },
+    { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', separated: true }
+  ];
+  async function pick(key: string) {
+    const row = menu?.row;
+    menu = null;
+    if (!row) return;
+    if (key === 'why') chosen = row;
+    else if (key === 'explore') await goto(`/five-s/explore/${rootId}?open=${encodeURIComponent(row.path)}`);
+    else if (await copyText(row.path)) toast.success(t('Path copied.'));
+  }
   let rows = $derived((data?.folders ?? []).filter((row) => (code === 'all' || row.codes.includes(code))
     && (!query.trim() || row.path.toLowerCase().includes(query.trim().toLowerCase()))));
   const exportRows = () => downloadCsv(csvFilename(`droits-a-revoir-${name}`), [
@@ -84,7 +106,8 @@
         <div class="v2-sh"><label class="v2-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={query} placeholder={t('Folder, path…')} aria-label={t('Search a folder')} /></label></div>
         <div class="v2-list">
           {#each rows.slice(0, shown) as row (row.path)}
-            <button type="button" class="v2-row ar5__row" class:is-sel={chosen?.path === row.path} onclick={() => (chosen = row)}>
+            <button type="button" class="v2-row ar5__row" class:is-sel={chosen?.path === row.path} onclick={() => (chosen = row)}
+              oncontextmenu={(event) => { event.preventDefault(); menu = { row, at: menuPositionFor(event) }; }}>
               <span class="v2-nm"><span><i class="bi bi-folder" aria-hidden="true"></i> {row.name}</span><code class="v2-sub">{row.path}</code></span>
               <span class="ar5__tags">{#each row.codes as item (item)}<span class={`v2-tag is-${TONE[item] ?? 'mut'}`}>{LABEL()[item] ?? item}</span>{/each}</span>
               <span class="v2-sub">{formatBytes(row.bytes)}</span>
@@ -99,7 +122,7 @@
         {#if chosen}
           <h2>{chosen.name}</h2>
           <AccessPanel {rootId} path={chosen.path} />
-          <a class="b2s-link-btn" href={`/five-s/explore/${rootId}`}>{t('Open the explorer')} ›</a>
+          <a class="b2s-link-btn" href={`/five-s/explore/${rootId}?open=${encodeURIComponent(chosen.path)}`}>{t('Open in the explorer')} ›</a>
         {:else}
           <p class="v2-empty">{t('Choose a folder to see who reaches it and why.')}</p>
         {/if}
@@ -107,6 +130,9 @@
     </div>
   {/if}
 </section>
+
+<ContextMenu open={Boolean(menu)} title={menu?.row.name ?? ''} subtitle={menu?.row.path ?? ''} items={menu ? menuItems() : []}
+  at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={(key) => void pick(key)} />
 
 <style>
   .ar5 { display: grid; gap: 14px; padding: var(--b2s-page-padding); }

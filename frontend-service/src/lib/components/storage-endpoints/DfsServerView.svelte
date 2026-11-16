@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { copyText } from '$lib/utils/clipboard';
   import { goto, invalidateAll } from '$app/navigation';
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
@@ -56,6 +58,20 @@
     loading = false;
   }
   onMount(load);
+
+  // ---- right click on a namespace ----
+  let menu = $state<{ row: any; at: { x: number; y: number } } | null>(null);
+  const nsItems = (row: any): ContextMenuItem[] => [
+    { key: 'open', label: t('Open'), icon: 'bi-box-arrow-up-right' },
+    { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', disabled: !row.info?.path, separated: true }
+  ];
+  async function pickNs(key: string) {
+    const row = menu?.row;
+    menu = null;
+    if (!row) return;
+    if (key === 'open') await goto(`/admin/storage-endpoints/${row.id}`);
+    else if (await copyText(String(row.info?.path ?? ''))) toast.success(t('Path copied.'));
+  }
 
   let totals = $derived(rows.reduce((sum, row) => {
     const counts = dfsCounts(row.info);
@@ -147,7 +163,7 @@
           <tbody>
             {#each rows as row (row.id)}
               {@const counts = dfsCounts(row.info)}
-              <tr>
+              <tr oncontextmenu={(event) => { event.preventDefault(); menu = { row, at: menuPositionFor(event) }; }}>
                 <td><strong>{row.name}</strong></td>
                 <td><code data-copy={row.info?.path ?? ''}>{row.info?.path ?? '—'}</code></td>
                 <td class="dsv__num">{row.info ? counts.all : '—'}</td>
@@ -167,6 +183,9 @@
     {/if}
   </section>
 </div>
+
+<ContextMenu open={Boolean(menu)} title={menu?.row.name ?? ''} items={menu ? nsItems(menu.row) : []} at={menu?.at ?? { x: 0, y: 0 }}
+  onClose={() => (menu = null)} onPick={(key) => void pickNs(key)} />
 
 <ConfirmActionModal
   open={askDelete}

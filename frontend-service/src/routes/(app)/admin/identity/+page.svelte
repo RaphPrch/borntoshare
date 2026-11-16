@@ -51,7 +51,10 @@
     if (browser && items.length && (!selectedKey || !items.some((item) => keyOf(item) === selectedKey))) {
       const wanted = $page.url.searchParams.get('selected');
       const toReview = items.find((item) => !isGroup(item) && (guardians[Number(item.id)]?.folders ?? 0) > 0 && !String(item.email ?? '').trim());
-      const first = items.find((item) => keyOf(item) === wanted) ?? toReview ?? items[0];
+      // ?q=<login>: the person named elsewhere (an access review, a request)
+      const login = String($page.url.searchParams.get('q') ?? '').trim().toLowerCase();
+      const named = login ? items.find((item) => String(item.username ?? '').toLowerCase() === login || String(item.email ?? '').toLowerCase() === login) : undefined;
+      const first = named ?? items.find((item) => keyOf(item) === wanted) ?? toReview ?? items[0];
       selectedKey = keyOf(first);
     }
   });

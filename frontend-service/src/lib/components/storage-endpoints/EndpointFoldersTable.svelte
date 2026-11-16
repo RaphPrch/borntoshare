@@ -1,4 +1,7 @@
 <script lang="ts">
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { copyText } from '$lib/utils/clipboard';
+  import { toast } from '$lib/stores/toast';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
@@ -31,6 +34,23 @@
     noGuardianIds = new Set()
   }: Props = $props();
   let query = $state('');
+  // ---- right click on a folder ----
+  let menu = $state<{ row: Row; at: { x: number; y: number } } | null>(null);
+  const folderItems = (): ContextMenuItem[] => [
+    { key: 'open', label: t('Open the folder sheet'), icon: 'bi-folder2-open' },
+    { key: 'rights', label: t('Who has access'), icon: 'bi-people' },
+    { key: 'explore', label: t('Explore the content'), icon: 'bi-columns-gap' },
+    { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', separated: true }
+  ];
+  async function pickFolder(key: string) {
+    const row = menu?.row;
+    menu = null;
+    if (!row) return;
+    if (key === 'open') window.location.assign(`/storage-roots?selected=${row.id}`);
+    else if (key === 'rights') window.location.assign(`/storage-roots?selected=${row.id}&tab=permissions`);
+    else if (key === 'explore') window.location.assign(`/five-s/explore/${row.id}`);
+    else if (await copyText(row.path)) toast.success(t('Path copied.'));
+  }
   let opened = new Set<string>();
   let calmShown = $state(new Set<string>());
 
@@ -109,7 +129,7 @@
           <div class="row row--head" aria-hidden="true"><span>{t('Folder')}</span><span>{t('Guardians')}</span><span>{t('Requests')}</span><span>{t('State')}</span></div>
           {#each [...group.hot, ...(calmShown.has(group.share) || needle || filter !== 'all' ? group.calm : [])] as row (row.id)}
             {@const s = rowState(row)}
-            <a class="row" href={`/storage-roots?selected=${row.id}`}>
+            <a class="row" href={`/storage-roots?selected=${row.id}`} oncontextmenu={(event) => { event.preventDefault(); menu = { row, at: menuPositionFor(event) }; }}>
               <span class="name"><strong>{row.name}</strong>{#if inside(row)}<small>{inside(row)}</small>{/if}</span>
               <span class="muted">{Number.isFinite(row.guardians) ? row.guardians : '—'}</span>
               <span>{#if (row.pendingCount ?? 0) > 0}<StatusBadge compact variant="warning" label={t('{count} pending', { count: row.pendingCount })} />{:else}<span class="muted">—</span>{/if}</span>
@@ -126,6 +146,9 @@
 {:else}
   <EmptyStateInline message={rows.length ? t('No folder matches this search.') : t('No folder managed on this server yet.')} />
 {/if}
+
+<ContextMenu open={Boolean(menu)} title={menu?.row.name ?? ''} subtitle={menu?.row.path ?? ''} items={menu ? folderItems() : []} at={menu?.at ?? { x: 0, y: 0 }}
+  onClose={() => (menu = null)} onPick={(key) => void pickFolder(key)} />
 
 <style>
   .tools { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }

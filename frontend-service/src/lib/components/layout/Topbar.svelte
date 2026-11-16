@@ -5,6 +5,7 @@
   import GlobalSearch from './GlobalSearch.svelte';
   import NotificationCenter from './NotificationCenter.svelte';
   import { activeItem, buildNav } from './nav';
+  import { crumbs } from '$lib/stores/crumbs';
 
   interface Props {
     /** Sticky bar over every page: where you are (section › page), the ⌘K search, the notifications and who is signed in. */
@@ -25,7 +26,12 @@
 
 <header class="tb">
   <div class="tb__crumb">
-    {#if here}<span>{here.section.label}</span><i class="bi bi-chevron-right" aria-hidden="true"></i><b>{here.item.label}</b>{/if}
+    {#if here}<span>{here.section.label}</span><i class="bi bi-chevron-right" aria-hidden="true"></i>
+      {#if $crumbs.length}<a href={here.item.href}>{here.item.label}</a>{:else}<b>{here.item.label}</b>{/if}{/if}
+    {#each $crumbs as crumb, index (index)}
+      <i class="bi bi-chevron-right" aria-hidden="true"></i>
+      {#if crumb.href && index < $crumbs.length - 1}<a href={crumb.href}>{crumb.label}</a>{:else}<b>{crumb.label}</b>{/if}
+    {/each}
   </div>
   <div class="tb__search">
     <GlobalSearch canSeeAdmin={admin} canSeeStorageRoots={staff} canSeeObservability={admin} />
@@ -52,6 +58,8 @@
   .tb__crumb { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .tb__crumb i { font-size: 10px; }
   .tb__crumb b { color: var(--b2s-color-text); font-weight: 600; white-space: nowrap; }
+  .tb__crumb a { color: inherit; text-decoration: none; white-space: nowrap; }
+  .tb__crumb a:hover { color: var(--b2s-color-text); text-decoration: underline; }
   .tb__search { margin-left: auto; }
 
   .tb__me { width: 36px; height: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%;

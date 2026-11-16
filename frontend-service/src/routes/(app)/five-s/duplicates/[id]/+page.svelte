@@ -13,6 +13,7 @@
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { onDestroy } from 'svelte';
   import FolderHeader from '../../FolderHeader.svelte';
+  import { readParam, writeParams } from '$lib/utils/url-state';
 
   /** The identical files of a folder, group by group: which copy to keep (recorded; nothing is deleted from here). */
   type Copy = { path: string; modified: string | null };
@@ -24,7 +25,8 @@
   let groups = $state<Group[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
-  let filter = $state<'todo' | 'done' | 'all'>('todo');
+  let filter = $state<'todo' | 'done' | 'all'>(readParam('filter', 'todo', ['todo', 'done', 'all'] as const));
+  $effect(() => writeParams({ filter: filter === 'todo' ? null : filter }));
   let query = $state('');
   let shown = $state(30);
   let saving = $state<string | null>(null);
@@ -82,13 +84,15 @@
   const base = (path: string) => path.split('\\').pop() ?? path;
   const folderOf = (path: string) => path.split('\\').slice(0, -1).join('\\') || '\\';
 
-  async function decide(group: Group, keep: string | null) {
+  async function decide(group: Group, keep: string | null, undoable = true) {
+    const before = group.decision?.keep_path ?? null;
     saving = group.fingerprint;
     try {
       await apiPostData(fetch, `/modules/fives/storage-roots/${rootId}/duplicate-groups/decision`, { fingerprint: group.fingerprint, size: group.size, keep_path: keep });
       group.decision = keep ? { keep_path: keep, note: null, decided_by: t('you'), decided_at: new Date().toISOString() } : null;
       groups = groups;
-      if (keep) toast.success(t('« {name} » kept: the other copies are to delete.', { name: base(keep) }));
+      if (keep && undoable) toast.success(t('« {name} » kept: the other copies are to delete.', { name: base(keep) }),
+        { action: { label: t('Undo'), run: () => decide(group, before, false) } });
     } catch (e: unknown) {
       reportUiError(e, t('Unable to record the decision.'), 'fives.duplicates.decide');
     } finally {

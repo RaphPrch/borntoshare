@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { copyText } from '$lib/utils/clipboard';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
@@ -37,6 +39,24 @@
     return null;
   })());
   let draftValid = $derived(!!draft.label.trim() && !!draft.target.trim() && !draftError);
+
+  // ---- right click on a component ----
+  let menu = $state<{ service: InfraService; at: { x: number; y: number } } | null>(null);
+  const serviceItems = (service: InfraService): ContextMenuItem[] => [
+    { key: 'edit', label: t('Edit'), icon: 'bi-pencil' },
+    { key: 'toggle', label: service.is_enabled ? t('Stop monitoring it') : t('Monitor it'), icon: service.is_enabled ? 'bi-pause-circle' : 'bi-play-circle' },
+    { key: 'copy', label: t('Copy the target'), icon: 'bi-clipboard', separated: true },
+    { key: 'remove', label: t('Remove'), icon: 'bi-trash3', danger: true, separated: true, disabled: service.is_builtin, hint: service.is_builtin ? t('Platform') : undefined }
+  ];
+  async function pickService(key: string) {
+    const service = menu?.service;
+    menu = null;
+    if (!service) return;
+    if (key === 'edit') startEdit(service);
+    else if (key === 'toggle') await toggle(service);
+    else if (key === 'remove') removing = service;
+    else if (await copyText(service.target)) toast.success(t('Target copied.'));
+  }
 
   function categoryLabel(key: string) {
     return CATEGORIES.find((c) => c.key === key)?.label() ?? key;
@@ -148,7 +168,7 @@
             </td>
           </tr>
         {:else}
-          <tr class:is-off={!service.is_enabled}>
+          <tr class:is-off={!service.is_enabled} oncontextmenu={(event) => { event.preventDefault(); menu = { service, at: menuPositionFor(event) }; }}>
             <td>
               <strong>{service.label}</strong>
               {#if service.is_builtin}<StatusBadge compact showDot={false} variant="muted" label={t('Platform')} />{/if}
@@ -209,6 +229,9 @@
   onConfirm={confirmRemove}
   onClose={() => (removing = null)}
 />
+
+<ContextMenu open={Boolean(menu)} title={menu?.service.label ?? ''} subtitle={menu?.service.target ?? ''} items={menu ? serviceItems(menu.service) : []}
+  at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={(key) => void pickService(key)} />
 
 <style>
   .toolbar {

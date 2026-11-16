@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Sparkline from '$lib/components/ui/Sparkline.svelte';
   import { recall, remember } from '$lib/utils/remember';
   import { fivesEnabled } from '$lib/utils/features';
   import { onMount } from 'svelte';
@@ -52,7 +53,10 @@
   let scope = $state<{ zone?: string; server?: string; folder?: number }>({});
   let open = $state<Record<string, boolean>>({});
 
+  // The volume of each folder at its last measures
+  let trends = $state<Record<string, number[]>>({});
   onMount(() => {
+    void apiGetData<Record<string, number[]>>(fetch, '/modules/fives/sparklines').then((data) => (trends = data ?? {})).catch(() => null);
     if ($fivesEnabled) void load();
     else disabled = true;
   });
@@ -281,7 +285,7 @@
             </div>
             {#each folders.slice(0, shown) as folder (folder.id)}
               <button type="button" class="v2-row fs__g fs__rowbtn" onclick={() => goto(`/five-s/explore/${folder.id}`)} oncontextmenu={openMenu(folder)}>
-                <span class="v2-nm"><b>{folder.name}</b><small>{folder.server} · {folder.zone}{folder.size_bytes != null ? ` · ${formatBytes(folder.size_bytes)}` : ''}</small></span>
+                <span class="v2-nm"><b>{folder.name} {#if trends[String(folder.id)]}<Sparkline points={trends[String(folder.id)]} title={t('Volume at the last measures')} />{/if}</b><small>{folder.server} · {folder.zone}{folder.size_bytes != null ? ` · ${formatBytes(folder.size_bytes)}` : ''}</small></span>
                 <span><span class={`v2-tag is-${tone(folder.score) === 'none' ? 'mut' : tone(folder.score)}`}>{folder.score ?? '—'}</span></span>
                 {#each PILLARS as pillar (pillar.key)}
                   <span class="fs__c"><span class="fs__dot" style={`--c:${COLOR[tone(folder.pillars[pillar.key])]}`} title={`${pillar.label()} : ${folder.pillars[pillar.key] ?? '—'}`}>{folder.pillars[pillar.key] ?? '—'}</span></span>

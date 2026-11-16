@@ -11,6 +11,10 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import { t } from '$lib/i18n';
   import { formatDateTime } from '$lib/utils/format';
+  import { toast } from '$lib/stores/toast';
+  import { copyText } from '$lib/utils/clipboard';
+  import Drawer from '$lib/components/ui/Drawer.svelte';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import { formatActivityItem } from '$lib/activity/format';
   import { reportUiError } from '$lib/errors';
@@ -132,6 +136,10 @@
       id: String(entry.id ?? ''),
       at: entry.created_at as string,
       module: moduleLabel(action.includes('.') ? action.split('.')[0] : 'platform'),
+      moduleKey: action.includes('.') ? action.split('.')[0] : '',
+      action,
+      actorName: String(entry.actor_display ?? ''),
+      raw: entry,
       title: rendered?.title || action,
       details: rendered?.subtitle1 || '',
       actor: String(entry.actor_display ?? (entry.actor_type === 'system' ? t('System') : '—')),
@@ -141,6 +149,31 @@
   }
 
   let rows = $derived(items.map(row));
+  type Row = (typeof rows)[number];
+
+  // ---- right click on an event, and its detail ----
+  let menu = $state<{ row: Row; at: { x: number; y: number } } | null>(null);
+  let detail = $state<Row | null>(null);
+  const menuItems = (r: Row): ContextMenuItem[] => [
+    { key: 'detail', label: t('See the detail'), icon: 'bi-card-text' },
+    { key: 'actor', label: t('Only this actor'), icon: 'bi-person', separated: true, disabled: !r.actorName },
+    { key: 'module', label: t('Only this kind of event ({name})', { name: r.module }), icon: 'bi-funnel', disabled: !r.moduleKey || !modules.includes(r.moduleKey) },
+    { key: 'target', label: t('Search this target'), icon: 'bi-search', disabled: !r.target },
+    { key: 'copy', label: t('Copy the event'), icon: 'bi-clipboard', separated: true }
+  ];
+  async function pick(key: string) {
+    const r = menu?.row;
+    menu = null;
+    if (!r) return;
+    if (key === 'detail') detail = r;
+    else if (key === 'actor') actor = r.actorName;
+    else if (key === 'module') module = r.moduleKey;
+    else if (key === 'target') query = r.target;
+    else if (key === 'copy') {
+      const text = `${formatDateTime(r.at)} · ${r.title}${r.details ? ` · ${r.details}` : ''} · ${r.actor}${r.target ? ` · ${r.target}` : ''}`;
+      if (await copyText(text)) toast.success(t('Event copied.'));
+    }
+  }
 
   let exporting = $state(false);
   async function exportCsv() {
@@ -216,7 +249,7 @@
           </thead>
           <tbody>
             {#each rows as r (r.id)}
-              <tr>
+              <tr class="obs-row" oncontextmenu={(event) => { event.preventDefault(); menu = { row: r, at: menuPositionFor(event) }; }} ondblclick={() => (detail = r)}>
                 <td class="col-date">
                   <span>{formatDateTime(r.at)}</span>
                   <small>{r.module}</small>
@@ -237,7 +270,28 @@
   </section>
 </div>
 
+<ContextMenu open={Boolean(menu)} title={menu?.row.title ?? ''} subtitle={menu ? formatDateTime(menu.row.at) : ''} items={menu ? menuItems(menu.row) : []}
+  at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={(key) => void pick(key)} />
+
+<Drawer open={Boolean(detail)} title={detail?.title ?? ''} subtitle={detail ? formatDateTime(detail.at) : ''} iconClass="bi-card-text" onClose={() => (detail = null)}>
+  {#if detail}
+    <dl class="obs-detail">
+      <dt>{t('Result')}</dt><dd>{detail.badge.label}</dd>
+      <dt>{t('Actor')}</dt><dd>{detail.actor}</dd>
+      <dt>{t('Target')}</dt><dd>{detail.target || '—'}</dd>
+      <dt>{t('Event')}</dt><dd><code>{detail.action}</code></dd>
+      {#if detail.details}<dt>{t('Detail')}</dt><dd>{detail.details}</dd>{/if}
+    </dl>
+    <pre class="obs-json">{JSON.stringify((detail.raw as any)?.context_json ?? (detail.raw as any)?.metadata ?? {}, null, 2)}</pre>
+  {/if}
+</Drawer>
+
 <style>
+  .obs-row { cursor: context-menu; }
+  .obs-detail { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0 0 12px; font-size: var(--b2s-fs-sm); }
+  .obs-detail dt { color: var(--b2s-color-text-muted); }
+  .obs-detail dd { margin: 0; overflow-wrap: anywhere; }
+  .obs-json { max-height: 360px; overflow: auto; margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--b2s-color-surface-muted, #f6f7f9); font-size: 12px; white-space: pre-wrap; }
   .obs-events {
     display: grid;
     gap: 16px;

@@ -9,6 +9,8 @@
   import { toast } from '$lib/stores/toast';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import AppModal from '$lib/components/ui/AppModal.svelte';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { copyText } from '$lib/utils/clipboard';
 
   /**
    * Access review campaigns: each guardian keeps or removes, person by person, the accesses to their folders; the
@@ -58,6 +60,29 @@
       creating = false;
     }
   }
+  let menu = $state<{ review: Review; at: { x: number; y: number } } | null>(null);
+  const menuItems = (review: Review): ContextMenuItem[] => [
+    { key: 'open', label: t('Open the review'), icon: 'bi-box-arrow-up-right' },
+    { key: 'link', label: t('Copy the link'), icon: 'bi-link-45deg' },
+    ...(isAdmin ? [{ key: 'close', label: t('Close the review'), icon: 'bi-archive', separated: true, disabled: review.status !== 'open',
+      hint: review.status !== 'open' ? t('Already closed') : undefined }] : [])
+  ];
+  async function pick(key: string) {
+    const review = menu?.review;
+    menu = null;
+    if (!review) return;
+    if (key === 'open') await goto(`/access-reviews/${review.id}`);
+    else if (key === 'link') { if (await copyText(`${window.location.origin}/access-reviews/${review.id}`)) toast.success(t('Link copied.')); }
+    else if (key === 'close') {
+      try {
+        await apiPostData(fetch, `/access-reviews/${review.id}/close`, {});
+        toast.success(t('Review closed.'));
+        await load();
+      } catch (failure) {
+        reportUiError(failure, t('Unable to close the review.'), 'access-reviews.close');
+      }
+    }
+  }
   const pct = (review: Review) => (review.total ? Math.round((review.decided / review.total) * 100) : 0);
   let shownFolders = $derived(folders.filter((row) => !folderQuery.trim() || `${row.storage_root_name} ${row.root_path}`.toLowerCase().includes(folderQuery.trim().toLowerCase())));
 </script>
@@ -78,7 +103,7 @@
   {:else}
     <div class="v2-list">
       {#each reviews as review (review.id)}
-        <a class="v2-row rv__row" href={`/access-reviews/${review.id}`}>
+        <a class="v2-row rv__row" href={`/access-reviews/${review.id}`} oncontextmenu={(event) => { event.preventDefault(); menu = { review, at: menuPositionFor(event) }; }}>
           <span class="v2-nm"><b>{review.name}</b>
             <span class="v2-sub">{t('{folders} folder(s) · opened {date} by {who}', { folders: review.folders, date: formatDate(review.created_at), who: review.created_by ?? '—' })}{review.due_at ? ` · ${t('until {date}', { date: formatDate(review.due_at) })}` : ''}</span></span>
           <span class="rv__progress"><span class="v2-bar is-accent"><i style={`width:${pct(review)}%`}></i></span>
@@ -93,6 +118,9 @@
     </div>
   {/if}
 </section>
+
+<ContextMenu open={Boolean(menu)} title={menu?.review.name ?? ''} items={menu ? menuItems(menu.review) : []} at={menu?.at ?? { x: 0, y: 0 }}
+  onClose={() => (menu = null)} onPick={(key) => void pick(key)} />
 
 <AppModal open={opening} onClose={() => (opening = false)} size="md" title={t('New access review')}>
   <form class="rv__form" onsubmit={(event) => { event.preventDefault(); void create(); }}>

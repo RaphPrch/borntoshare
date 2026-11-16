@@ -1,4 +1,7 @@
 <script lang="ts">
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
+  import { copyText } from '$lib/utils/clipboard';
+  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
@@ -31,6 +34,36 @@
     rights?: Array<{ path: string; added: string[]; removed: string[]; inheritance: 'broken' | 'restored' | null }>;
     counts?: { added: number; removed: number; grown: number; shrunk: number; rights: number } };
   let changes = $state<Changes | null>(null);
+
+  // ---- right click: a folder (changes, sub-folders), a group of duplicates, an extension ----
+  type Target = { kind: 'folder'; path: string } | { kind: 'group'; paths: string[] } | { kind: 'ext'; ext: string };
+  let menu = $state<{ target: Target; title: string; at: { x: number; y: number } } | null>(null);
+  const open = (event: MouseEvent, target: Target, title: string) => { event.preventDefault(); menu = { target, title, at: menuPositionFor(event) }; };
+  const menuItems = (target: Target): ContextMenuItem[] => target.kind === 'folder' ? [
+    { key: 'explore', label: t('Open in the explorer'), icon: 'bi-columns-gap' },
+    { key: 'rights', label: t('Who has access and why'), icon: 'bi-people' },
+    { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', separated: true }
+  ] : target.kind === 'group' ? [
+    { key: 'decide', label: t('Choose the copy to keep'), icon: 'bi-files' },
+    { key: 'copy', label: t('Copy the paths'), icon: 'bi-clipboard', separated: true }
+  ] : [
+    { key: 'search', label: t('Find these files'), icon: 'bi-search' }
+  ];
+  async function pick(key: string) {
+    const target = menu?.target;
+    menu = null;
+    if (!target) return;
+    if (target.kind === 'folder') {
+      if (key === 'explore') await goto(`/five-s/explore/${rootId}?open=${encodeURIComponent(target.path)}`);
+      else if (key === 'rights') await goto(`/five-s/access/${rootId}?path=${encodeURIComponent(target.path)}`);
+      else if (await copyText(target.path)) toast.success(t('Path copied.'));
+    } else if (target.kind === 'group') {
+      if (key === 'decide') await goto(`/five-s/duplicates/${rootId}`);
+      else if (await copyText(target.paths.join('\n'))) toast.success(t('Paths copied.'));
+    } else {
+      await goto(`/five-s/explore/${rootId}?q=${encodeURIComponent(`.${target.ext}`)}`);
+    }
+  }
   let changesTab = $state<'growth' | 'added' | 'removed' | 'rights'>('growth');
   const entry = (value: string) => { const [who, level] = value.split('|'); return `${who} · ${({ R: t('Read'), W: t('Modify'), F: t('Full control') } as Record<string, string>)[level?.replace('!', '').toUpperCase()] ?? level}`; };
   let loading = $state(true);
@@ -184,16 +217,16 @@
           <div class="v2-list">
             {#if changesTab === 'growth'}
               {#each changes.growth ?? [] as row (row.path)}
-                <div class="v2-row rp__chg"><code>{row.path}</code><span class:rp__up={(row.delta ?? 0) > 0} class:rp__down={(row.delta ?? 0) < 0}>{(row.delta ?? 0) > 0 ? '+' : '−'}{formatBytes(Math.abs(row.delta ?? 0))}</span>
+                <div class="v2-row rp__chg" role="row" tabindex="-1" oncontextmenu={(event) => open(event, { kind: 'folder', path: row.path }, row.path)}><code>{row.path}</code><span class:rp__up={(row.delta ?? 0) > 0} class:rp__down={(row.delta ?? 0) < 0}>{(row.delta ?? 0) > 0 ? '+' : '−'}{formatBytes(Math.abs(row.delta ?? 0))}</span>
                   <span class="v2-sub">{formatBytes(row.bytes)} · {(row.files_delta ?? 0) >= 0 ? '+' : ''}{row.files_delta ?? 0} {t('file(s)')}</span></div>
               {:else}<p class="v2-empty">{t('No folder changed size.')}</p>{/each}
             {:else if changesTab === 'added' || changesTab === 'removed'}
               {#each (changesTab === 'added' ? changes.added : changes.removed) ?? [] as row (row.path)}
-                <div class="v2-row rp__chg"><code>{row.path}</code><span>{formatBytes(row.bytes)}</span><span class="v2-sub">{t('{count} file(s)', { count: row.files ?? 0 })}</span></div>
+                <div class="v2-row rp__chg" role="row" tabindex="-1" oncontextmenu={(event) => open(event, { kind: 'folder', path: row.path }, row.path)}><code>{row.path}</code><span>{formatBytes(row.bytes)}</span><span class="v2-sub">{t('{count} file(s)', { count: row.files ?? 0 })}</span></div>
               {:else}<p class="v2-empty">{t('None.')}</p>{/each}
             {:else}
               {#each changes.rights ?? [] as row (row.path)}
-                <div class="v2-row rp__chg rp__rights"><code>{row.path}</code>
+                <div class="v2-row rp__chg rp__rights" role="row" tabindex="-1" oncontextmenu={(event) => open(event, { kind: 'folder', path: row.path }, row.path)}><code>{row.path}</code>
                   <span class="rp__acl">{#if row.inheritance}<span class="v2-tag is-warn">{row.inheritance === 'broken' ? t('Inheritance broken') : t('Inheritance restored')}</span>{/if}
                     {#each row.added as value (value)}<span class="rp__plus">+ {entry(value)}</span>{/each}
                     {#each row.removed as value (value)}<span class="rp__minus">− {entry(value)}</span>{/each}</span></div>
@@ -213,7 +246,7 @@
           <thead><tr><th>{t('Size')}</th><th>{t('Copies')}</th><th>{t('Space lost')}</th><th>{t('Where')}</th></tr></thead>
           <tbody>
             {#each allGroups.slice(0, showGroups) as group}
-              <tr><td>{formatBytes(group.size)}</td><td>{group.files}</td><td><b>{formatBytes(group.wasted)}</b></td>
+              <tr oncontextmenu={(event) => open(event, { kind: 'group', paths: group.paths }, formatBytes(group.size))}><td>{formatBytes(group.size)}</td><td>{group.files}</td><td><b>{formatBytes(group.wasted)}</b></td>
                 <td class="rp__paths">{#each group.paths as file}<code title={file}>{file}</code>{/each}{#if group.files > group.paths.length}<small>{t('and {count} more', { count: group.files - group.paths.length })}</small>{/if}</td></tr>
             {:else}<tr><td colspan="4">{t('No duplicate found.')}</td></tr>{/each}
           </tbody>
@@ -226,7 +259,7 @@
         <table class="b2s-table">
           <thead><tr><th>{t('Sub-folder')}</th><th class="rp__num">{t('Volume')}</th><th class="rp__num">{t('Files')}</th></tr></thead>
           <tbody>{#each stats.top ?? [] as item}
-            <tr><td><span class="rp__bar" style={`--w:${share(item.bytes, total)}%`}></span>{item.name}</td><td class="rp__num">{formatBytes(item.bytes)} <small>{share(item.bytes, total)} %</small></td><td class="rp__num">{item.files.toLocaleString('fr-FR')}</td></tr>
+            <tr oncontextmenu={(event) => open(event, { kind: 'folder', path: [path.split('\\').slice(4).join('\\'), item.name].filter(Boolean).join('\\') }, item.name)}><td><span class="rp__bar" style={`--w:${share(item.bytes, total)}%`}></span>{item.name}</td><td class="rp__num">{formatBytes(item.bytes)} <small>{share(item.bytes, total)} %</small></td><td class="rp__num">{item.files.toLocaleString('fr-FR')}</td></tr>
           {/each}</tbody>
         </table>
       </section>
@@ -236,7 +269,7 @@
         <table class="b2s-table">
           <thead><tr><th>{t('Extension')}</th><th class="rp__num">{t('Volume')}</th><th class="rp__num">{t('Files')}</th></tr></thead>
           <tbody>{#each stats.types ?? [] as item}
-            <tr><td><span class="rp__bar" style={`--w:${Math.round(((item.bytes ?? item.files) / maxType) * 100)}%`}></span><code>.{item.ext || '—'}</code></td>
+            <tr oncontextmenu={(event) => open(event, { kind: 'ext', ext: item.ext }, `.${item.ext}`)}><td><span class="rp__bar" style={`--w:${Math.round(((item.bytes ?? item.files) / maxType) * 100)}%`}></span><code>.{item.ext || '—'}</code></td>
               <td class="rp__num">{item.bytes != null ? formatBytes(item.bytes) : '—'}</td><td class="rp__num">{item.files.toLocaleString('fr-FR')}</td></tr>
           {/each}</tbody>
         </table>
@@ -295,6 +328,9 @@
     </div>
   {/if}
 </div>
+
+<ContextMenu open={Boolean(menu)} title={menu?.title ?? ''} items={menu ? menuItems(menu.target) : []} at={menu?.at ?? { x: 0, y: 0 }}
+  onClose={() => (menu = null)} onPick={(key) => void pick(key)} />
 
 <style>
   .rp { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; padding: var(--b2s-page-padding); }

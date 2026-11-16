@@ -7,6 +7,8 @@
 </script>
 
 <script lang="ts">
+  import TagQuickEdit from './TagQuickEdit.svelte';
+  import Sparkline from '$lib/components/ui/Sparkline.svelte';
   import { onMount } from 'svelte';
   import { t } from '$lib/i18n';
   import { apiGetData } from '$lib/api/client';
@@ -45,11 +47,16 @@
 
   // ---- 5S figures (size, score) of the module, when it runs ----
   let fives = $state(new Map<number, { size: number | null; score: number | null }>());
+  let trends = $state<Record<string, number[]>>({});
+  const trendTitle = (points: number[]) => points.length > 1
+    ? t('{count} measures: {from} → {to}', { count: points.length, from: formatBytes(points[0]), to: formatBytes(points[points.length - 1]) }) : '';
   onMount(() => {
     if (!$fivesEnabled) return;
     void apiGetData<{ folders: Array<{ id: number; size_bytes: number | null; score: number | null }> }>(fetch, '/modules/fives/five-s')
       .then((data) => (fives = new Map((data?.folders ?? []).map((f) => [Number(f.id), { size: num(f.size_bytes), score: num(f.score) }]))))
       .catch(() => null);
+    // The volume at the last measures: a trend line next to the volume
+    void apiGetData<Record<string, number[]>>(fetch, '/modules/fives/sparklines').then((data) => (trends = data ?? {})).catch(() => null);
   });
 
   const sizeOf = (row: R): number | null => fives.get(id(row))?.size ?? num(row.content_size_bytes) ?? num(row.estimated_size_bytes) ?? num(row.quota_used_bytes);
@@ -237,7 +244,8 @@
         </div>
         <div class="v2-nm"><span>{row.storage_endpoint_name ?? '—'}</span><span class="v2-sub">{row.zone_name ?? ''}</span></div>
         <div class="srl__vol">
-          <span>{size != null ? formatBytes(size) : '—'}{#if pct != null} <small>· {pct} % {t('of')} {formatBytes(Number(row.quota_limit_bytes ?? 0))}</small>{/if}</span>
+          <span>{#if trends[String(id(row))]}<Sparkline points={trends[String(id(row))]} title={trendTitle(trends[String(id(row))])} />{/if}
+            {size != null ? formatBytes(size) : '—'}{#if pct != null} <small>· {pct} % {t('of')} {formatBytes(Number(row.quota_limit_bytes ?? 0))}</small>{/if}</span>
           <div class="v2-bar" class:is-ok={pct != null && pct < Number(row.quota_warn_percent ?? 85)} class:is-warn={pct != null && pct >= Number(row.quota_warn_percent ?? 85) && pct < 100} class:is-bad={pct != null && pct >= 100}>
             <i style={`width: ${pct != null ? Math.min(100, pct) : Math.max(3, Math.round(((size ?? 0) / maxSize) * 100))}%`}></i>
           </div>
@@ -253,6 +261,7 @@
           {#each tags.slice(0, 2) as tag, index (index)}<span class="srl__tg">{tag.label ?? tag.name ?? tag.tag_name}</span>{/each}
           {#if tags.length > 2}<span class="srl__tg">+{tags.length - 2}</span>{/if}
           {#if Array.isArray(row.subfolder_tags) && row.subfolder_tags.length}<span class="srl__tg is-auto" title={t('Tags of its sub-folders, set by the policies')}>⚡ {row.subfolder_tags.length}</span>{/if}
+          <TagQuickEdit rootId={id(row)} {tags} onChange={(next) => (row.tags = next)} />
         </div>
         <span><span class={`v2-tag is-${state.tone}`}>{state.label}</span></span>
         <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: String(row.storage_root_name ?? '') })} onclick={openMenu(row)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>

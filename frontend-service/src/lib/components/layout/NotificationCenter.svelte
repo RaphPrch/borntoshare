@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { bulkDecision } from '$lib/api/access-requests';
+  import { reportUiError } from '$lib/errors';
   import { goto } from '$app/navigation';
   import { onDestroy } from 'svelte';
   import { t } from '$lib/i18n';
@@ -21,9 +23,9 @@
   let items: Notice[] = $state([]);
   let filter = $state<'all' | 'unread'>('all');
 
-  const ICON: Record<string, string> = { request: 'bi-inbox', decision: 'bi-check2-circle', expiry: 'bi-hourglass-split', alert: 'bi-exclamation-octagon', task: 'bi-check2-all' };
+  const ICON: Record<string, string> = { review: 'bi-clipboard-check', request: 'bi-inbox', decision: 'bi-check2-circle', expiry: 'bi-hourglass-split', alert: 'bi-exclamation-octagon', task: 'bi-check2-all' };
   const kindLabel = (kind: string) =>
-    ({ request: t('Request to decide'), decision: t('Decision'), expiry: t('End of access'), alert: t('Platform'), task: t('Task') })[kind] ?? kind;
+    ({ review: t('Access review'), request: t('Request to decide'), decision: t('Decision'), expiry: t('End of access'), alert: t('Platform'), task: t('Task') })[kind] ?? kind;
 
   async function load() {
     loading = true;
@@ -75,8 +77,38 @@
   });
   onDestroy(stop);
 
+  // ---- act from the notice: approve a request (a refusal needs its reason: the request opens) ----
+  const requestOf = (notice: Notice) => (notice.kind === 'request' ? Number(/focus=(\d+)/.exec(notice.link ?? '')?.[1] ?? 0) || null : null);
+  let deciding = $state<number | null>(null);
+  let decided = $state(new Set<number>());
+  async function approve(notice: Notice) {
+    const id = requestOf(notice);
+    if (!id || deciding) return;
+    deciding = notice.id;
+    try {
+      const result = await bulkDecision(fetch, [id], 'approve');
+      const failed = (result as any)?.failed_ids?.length;
+      if (failed) toast.error(t('The request could not be approved: open it to see why.'), { action: { label: t('Open'), run: () => openNotice(notice) } });
+      else {
+        toast.success(t('Request approved: the access is being applied.'));
+        decided = new Set([...decided, notice.id]);
+        void markRead([notice.id]);
+      }
+    } catch (failure) {
+      reportUiError(failure, t('Unable to approve the request.'), 'notifications.approve');
+    } finally {
+      deciding = null;
+    }
+  }
+
   let unread = $derived($live.unread);
   let shown = $derived(filter === 'unread' ? items.filter((n) => !n.read_at) : items);
+  // Grouped by kind (what to decide first), newest first inside each
+  const ORDER = ['request', 'review', 'alert', 'expiry', 'decision', 'task'];
+  let groups = $derived(Object.entries(shown.reduce((all: Record<string, Notice[]>, notice) => {
+    (all[notice.kind] ??= []).push(notice);
+    return all;
+  }, {})).sort(([a], [b]) => (ORDER.indexOf(a) + 1 || 99) - (ORDER.indexOf(b) + 1 || 99)));
 </script>
 
 <button type="button" class="nc-trigger" class:has-unread={unread > 0} onclick={show}
@@ -100,8 +132,10 @@
   {:else if !shown.length}
     <p class="nc-empty"><i class="bi bi-bell-slash" aria-hidden="true"></i>{filter === 'unread' ? t('Nothing new: you are up to date.') : t('No notification yet. Requests to decide, decisions and ends of access will show here.')}</p>
   {:else}
+    {#each groups as [kind, notices] (kind)}
+    <h3 class="nc-group">{kindLabel(kind)} <small>{notices.length}</small></h3>
     <ul class="nc-list">
-      {#each shown as notice (notice.id)}
+      {#each notices as notice (notice.id)}
         <li class:is-unread={!notice.read_at} class={`is-${notice.severity}`}>
           <button type="button" onclick={() => openNotice(notice)}>
             <span class="nc-icon" aria-hidden="true"><i class={`bi ${ICON[notice.kind] ?? 'bi-bell'}`}></i></span>
@@ -112,13 +146,27 @@
             </span>
             {#if !notice.read_at}<span class="nc-dot" aria-label={t('Unread')}></span>{/if}
           </button>
+          {#if requestOf(notice) && !decided.has(notice.id)}
+            <div class="nc-acts">
+              <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={deciding !== null} onclick={() => approve(notice)}>
+                <i class="bi bi-check2" aria-hidden="true"></i>{deciding === notice.id ? t('Approving…') : t('Approve')}</button>
+              <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={() => openNotice(notice)}>{t('Refuse…')}</button>
+            </div>
+          {:else if decided.has(notice.id)}
+            <p class="nc-done"><i class="bi bi-check2-circle" aria-hidden="true"></i> {t('Approved from here')}</p>
+          {/if}
         </li>
       {/each}
     </ul>
+    {/each}
   {/if}
 </Drawer>
 
 <style>
+  .nc-group { display: flex; gap: 6px; align-items: baseline; margin: 14px 0 6px; color: var(--b2s-color-text-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .nc-group small { font-size: 11px; }
+  .nc-acts { display: flex; gap: 8px; padding: 0 12px 10px 52px; }
+  .nc-done { margin: 0; padding: 0 12px 10px 52px; color: #1a7f37; font-size: var(--b2s-fs-xs); }
   .nc-trigger { position: relative; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; padding: 0;
     border: 1px solid var(--b2s-color-border-soft); border-radius: 11px; background: var(--b2s-color-surface); color: var(--b2s-color-text-muted); font: inherit; cursor: pointer; }
   .nc-trigger:hover { background: var(--b2s-color-surface-muted, #f1f4f9); color: var(--b2s-color-text); }

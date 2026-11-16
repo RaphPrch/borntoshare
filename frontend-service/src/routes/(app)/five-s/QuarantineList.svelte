@@ -29,26 +29,65 @@
 
 <script lang="ts">
   import { formatBytes, formatDateTime } from '$lib/utils/format';
+  import { toast } from '$lib/stores/toast';
+  import { copyText } from '$lib/utils/clipboard';
+  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
 
   /** The moves of the 5S module (quarantine of duplicates, archives) as a list: state, why, who, and the way back. */
   interface Props {
     moves: Move[];
     showFolder?: boolean;
-    onRestore?: (move: Move) => void;
+    /** Restores these moves (one, or a selection) */
+    onRestore?: (moves: Move[]) => void;
   }
 
   let { moves, showFolder = false, onRestore }: Props = $props();
+  const restorable = (move: Move) => move.status === 'moved' || move.status === 'restore_failed';
+  let selected = $state(new Set<number>());
+  let chosen = $derived(moves.filter((move) => selected.has(move.id) && restorable(move)));
+  const toggle = (id: number) => { const next = new Set(selected); if (next.has(id)) next.delete(id); else next.add(id); selected = next; };
+  function restore(list: Move[]) {
+    onRestore?.(list);
+    selected = new Set();
+  }
+
+  // ---- right click on a move ----
+  let menu = $state<{ move: Move; at: { x: number; y: number } } | null>(null);
+  const menuItems = (move: Move): ContextMenuItem[] => [
+    { key: 'restore', label: move.kind === 'archive' ? t('Bring the folder back') : t('Restore the copy'), icon: 'bi-arrow-counterclockwise',
+      disabled: !onRestore || !restorable(move), hint: !restorable(move) ? MOVE_LABEL()[move.status] : undefined },
+    { key: 'open', label: t('Open the governed folder'), icon: 'bi-folder2-open', disabled: !move.storage_root_id },
+    { key: 'path', label: t('Copy the original path'), icon: 'bi-clipboard', separated: true },
+    { key: 'qpath', label: t('Copy the path in quarantine'), icon: 'bi-clipboard' }
+  ];
+  async function pick(key: string) {
+    const move = menu?.move;
+    menu = null;
+    if (!move) return;
+    if (key === 'restore') restore([move]);
+    else if (key === 'open') window.location.assign(`/five-s/explore/${move.storage_root_id}`);
+    else if (await copyText(key === 'path' ? move.path : move.quarantine_path)) toast.success(t('Path copied.'));
+  }
   const base = (path: string) => path.split('\\').pop() ?? path;
   const folderOf = (path: string) => path.split('\\').slice(0, -1).join('\\') || '\\';
   const TONE: Record<string, string> = { pending: 'info', moved: 'warn', failed: 'bad', restore_pending: 'info', restored: 'ok', restore_failed: 'bad', purged: 'mut' };
 </script>
 
+{#if chosen.length}
+  <div class="v2-bulk">
+    <b>{t('{count} selected', { count: chosen.length })}</b>
+    <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={() => restore(chosen)}><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{t('Restore')}</button>
+    <button type="button" class="b2s-link-btn" onclick={() => (selected = new Set())}>{t('Clear the selection')}</button>
+  </div>
+{/if}
 <div class="v2-list">
   <div class="v2-row is-head ql" class:has-folder={showFolder}>
-    <span>{t('Copy or folder')}</span>{#if showFolder}<span>{t('Governed folder')}</span>{/if}<span>{t('Size')}</span><span>{t('State')}</span><span>{t('By')}</span><span></span>
+    <span></span><span>{t('Copy or folder')}</span>{#if showFolder}<span>{t('Governed folder')}</span>{/if}<span>{t('Size')}</span><span>{t('State')}</span><span>{t('By')}</span><span></span>
   </div>
   {#each moves as move (move.id)}
-    <div class="v2-row ql" class:has-folder={showFolder}>
+    <div class="v2-row ql" class:has-folder={showFolder} role="row" tabindex="-1"
+      oncontextmenu={(event) => { event.preventDefault(); menu = { move, at: menuPositionFor(event) }; }}>
+      <span>{#if onRestore && restorable(move)}<input type="checkbox" checked={selected.has(move.id)} onchange={() => toggle(move.id)} aria-label={t('Select')} />{/if}</span>
       <span class="v2-nm">
         <span><i class={`bi ${move.kind === 'archive' ? 'bi-archive' : 'bi-files'}`} aria-hidden="true"></i> {base(move.path)}</span>
         <code class="v2-sub" title={move.path} data-copy={move.path}>{folderOf(move.path)}</code>
@@ -59,16 +98,19 @@
       <span>{move.kind === 'archive' && !move.size_bytes ? '—' : formatBytes(move.size_bytes)}</span>
       <span><span class={`v2-tag is-${TONE[move.status] ?? 'mut'}`}>{move.kind === 'archive' && move.status === 'moved' ? t('Archived') : MOVE_LABEL()[move.status] ?? move.status}</span></span>
       <span class="v2-nm"><span>{move.restored_by && move.status.startsWith('restor') ? move.restored_by : move.requested_by ?? '—'}</span><small class="v2-sub">{formatDateTime(move.done_at ?? move.requested_at)}</small></span>
-      <span>{#if onRestore && (move.status === 'moved' || move.status === 'restore_failed')}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={() => onRestore?.(move)}>{t('Restore')}</button>{/if}</span>
+      <span>{#if onRestore && (move.status === 'moved' || move.status === 'restore_failed')}<button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" onclick={() => restore([move])}>{t('Restore')}</button>{/if}</span>
     </div>
   {:else}
     <p class="v2-empty">{t('Nothing in quarantine or in the archives.')}</p>
   {/each}
 </div>
 
+<ContextMenu open={Boolean(menu)} title={menu ? (menu.move.path.split('\\').pop() ?? '') : ''} items={menu ? menuItems(menu.move) : []}
+  at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={(key) => void pick(key)} />
+
 <style>
-  .ql { grid-template-columns: minmax(240px, 2fr) 110px 150px 170px 110px; align-items: start; }
-  .ql.has-folder { grid-template-columns: minmax(240px, 2fr) minmax(140px, 1fr) 110px 150px 170px 110px; }
+  .ql { grid-template-columns: 24px minmax(240px, 2fr) 110px 150px 170px 110px; align-items: start; }
+  .ql.has-folder { grid-template-columns: 24px minmax(240px, 2fr) minmax(140px, 1fr) 110px 150px 170px 110px; }
   .ql code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ql__err { color: #b42318; font-size: var(--b2s-fs-xs); }
   .ql__note { color: #8a4b00; font-size: var(--b2s-fs-xs); }

@@ -24,7 +24,7 @@
     return out;
   }
   import { goto } from '$app/navigation';
-  import { governanceEnabled } from '$lib/utils/features';
+  import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
   import { tick } from 'svelte';
   import { t } from '$lib/i18n';
   import AppModal from '$lib/components/ui/AppModal.svelte';
@@ -235,6 +235,9 @@
           { group: t('Actions'), label: t('See the open alerts'), detail: '', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', key: 'G A' }
         ]
       : []),
+    ...($governanceEnabled && canSeeStorageRoots
+      ? [{ group: t('Actions'), label: t('Access reviews'), detail: t('Keep or remove the accesses to your folders'), href: '/access-reviews', icon: 'bi-clipboard-check' }]
+      : []),
     { group: t('Actions'), label: t('Notifications'), detail: '', href: '', icon: 'bi-bell', run: () => document.querySelector<HTMLButtonElement>('.nc-trigger')?.click() },
     { group: t('Actions'), label: t('Keyboard shortcuts'), detail: '', href: '', icon: 'bi-keyboard', key: '?', run: () => (helpOpen = true) }
   ] as Result[]);
@@ -244,7 +247,18 @@
   let rootActions = $derived(matchedRoot
     ? ([
         ...($governanceEnabled ? [{ group: t('Actions'), label: t('New access request to {name}', { name: matchedRoot.label }), detail: matchedRoot.detail, href: `/access-requests/new?root=${matchedRoot.rootId}`, icon: 'bi-plus-lg' }] : []),
-        { group: t('Actions'), label: t('Who can open {name}', { name: matchedRoot.label }), detail: '', href: `/storage-roots?selected=${matchedRoot.rootId}&tab=permissions`, icon: 'bi-people' }
+        { group: t('Actions'), label: t('Who can open {name}', { name: matchedRoot.label }), detail: '', href: `/storage-roots?selected=${matchedRoot.rootId}&tab=permissions`, icon: 'bi-people' },
+        ...($fivesEnabled && canSeeStorageRoots ? [
+          { group: t('Actions'), label: t('Explore {name}', { name: matchedRoot.label }), detail: t('Content, 5S workshop, duplicates'), href: `/five-s/explore/${matchedRoot.rootId}`, icon: 'bi-columns-gap' },
+          { group: t('Actions'), label: t('Rights to review in {name}', { name: matchedRoot.label }), detail: '', href: `/five-s/access/${matchedRoot.rootId}`, icon: 'bi-shield-exclamation' }
+        ] : [])
+      ] as Result[])
+    : []);
+  // Any text: a file of that name in the inventory, or the question to Pilot (administrators and guardians)
+  let textActions = $derived(query.trim().length >= 2 && canSeeStorageRoots
+    ? ([
+        ...($fivesEnabled ? [{ group: t('Actions'), label: t('Find the file « {query} »', { query: query.trim() }), detail: t('In every measured folder'), href: `/five-s/explore?q=${encodeURIComponent(query.trim())}`, icon: 'bi-file-earmark-search' }] : []),
+        { group: t('Actions'), label: t('Ask Pilot: « {query} »', { query: query.trim() }), detail: t('An answer as a list, to export'), href: `/pilot?q=${encodeURIComponent(query.trim())}`, icon: 'bi-chat-square-text' }
       ] as Result[])
     : []);
   $effect.pre(() => {
@@ -280,7 +294,7 @@
     : []);
   $effect.pre(() => {
     results = (q
-      ? [...rootActions, ...personResults, ...actionResults, ...[...baseActions, ...pages, ...entities].filter((r) => normalizeText(`${r.label} ${r.detail}`).includes(q))]
+      ? [...rootActions, ...personResults, ...actionResults, ...[...baseActions, ...pages, ...entities].filter((r) => normalizeText(`${r.label} ${r.detail}`).includes(q)), ...textActions]
       : [...baseActions, ...pages]
     ).slice(0, 30);
   });

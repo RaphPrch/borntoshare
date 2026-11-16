@@ -14,6 +14,7 @@
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
   import { formatBytes, formatDateTime } from '$lib/utils/format';
+  import { readParam, writeParams } from '$lib/utils/url-state';
 
   /**
    * Inventory (v2): the scanner of the 5S module (no agent on the file servers) in a dark band — its schedule, what
@@ -69,14 +70,18 @@
   });
   let quarantineRows = $derived((quarantine?.moves ?? []).filter((move) => quarantineStatus === 'all'
     || (quarantineStatus === 'pending' ? move.status.endsWith('pending') : quarantineStatus === 'failed' ? move.status.endsWith('failed') : move.status === quarantineStatus)));
-  async function restoreMove(move: Move) {
-    try {
-      await apiPostData(fetch, `/modules/fives/storage-roots/${move.storage_root_id}/quarantine/${move.id}/restore`, {});
-      toast.success(t('« {name} » goes back to its place.', { name: move.path.split('\\').pop() ?? move.path }));
-      await loadQuarantine();
-    } catch (failure) {
-      reportUiError(failure, t('Unable to restore the copy.'), 'fives.quarantine.restore');
+  async function restoreMoves(moves: Move[]) {
+    let done = 0;
+    for (const move of moves) {
+      try {
+        await apiPostData(fetch, `/modules/fives/storage-roots/${move.storage_root_id}/quarantine/${move.id}/restore`, {});
+        done += 1;
+      } catch (failure) {
+        reportUiError(failure, t('Unable to restore the copy.'), 'fives.quarantine.restore');
+      }
     }
+    if (done) toast.success(t('{count} copy(ies) or folder(s) go back to their place.', { count: done }));
+    await loadQuarantine();
   }
 
   // ---- complete, partial or sampled: the last measure of each folder ----
@@ -156,7 +161,9 @@
 
   // ---- inventory of the folders ----
   type FolderFilter = 'all' | 'active' | 'failed' | 'never' | 'done' | 'partial';
-  let folderFilter = $state<FolderFilter>('all');
+  let folderFilter = $state<FolderFilter>(readParam<FolderFilter>('filter', 'all', ['all', 'active', 'failed', 'never', 'done', 'partial']));
+  // The tab, the filter of the folders and the folder of the quarantine stay in the address
+  $effect(() => writeParams({ tab: tab === 'queue' ? null : tab, filter: folderFilter === 'all' ? null : folderFilter, root: tab === 'quarantine' ? quarantineRoot : null }));
   let folderQuery = $state('');
   let folderShown = $state(50);
   const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
@@ -340,7 +347,7 @@
           {#if quarantineRoot}<div class="v2-sh__r"><span class="v2-tag is-info">{roots.find((row) => Number(row.storage_root_id) === quarantineRoot)?.storage_root_name ?? `#${quarantineRoot}`}
             <button type="button" class="b2s-link-btn" onclick={() => (quarantineRoot = null)} aria-label={t('All the folders')}>✕</button></span></div>{/if}
         </div>
-        {#if quarantine}<QuarantineList moves={quarantineRows} showFolder={!quarantineRoot} onRestore={restoreMove} />{:else}<LoadingState block skeleton="rows" rows={4} />{/if}
+        {#if quarantine}<QuarantineList moves={quarantineRows} showFolder={!quarantineRoot} onRestore={restoreMoves} />{:else}<LoadingState block skeleton="rows" rows={4} />{/if}
       </div>
     {:else if tab === 'settings' && isAdmin && form}
       <form class="sc5__form" onsubmit={(event) => { event.preventDefault(); save(); }}>
