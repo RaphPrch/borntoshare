@@ -69,16 +69,67 @@ def proposed(db: Session) -> list[dict[str, Any]]:
         )
     ).mappings().all()
     out: list[dict[str, Any]] = []
+    resolved = resolve_hosts([str(row["host"]).strip() for row in rows if not _is_ip(str(row["host"]).strip())])
     for row in rows:
         host = str(row["host"]).strip()
         if not _is_ip(host):
-            try:
-                host = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)[0][4][0]
-            except OSError:
+            host = resolved.get(host)
+            if not host:
                 continue
         domain = str(row["domain_name"]).strip().lower().strip(".")
         if domain and not any(entry["domain"] == domain for entry in out):
             out.append({"domain": domain, "servers": [host], "origin": "directory", "source": str(row["name"])})
+    return out
+
+
+# Addresses of the domain controllers: kept a while (5 min found, 2 min not found), looked up together within a
+# budget. A domain whose DNS does not answer no longer holds every page that lists the folders for seconds.
+_FOUND_SECONDS, _MISSING_SECONDS, _BUDGET_SECONDS = 300.0, 120.0, 1.5
+_resolved: dict[str, tuple[str | None, float]] = {}
+_pending: dict[str, Any] = {}
+_executor = None
+
+
+def _lookup(host: str) -> str | None:
+    try:
+        return socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)[0][4][0]
+    except OSError:
+        return None
+
+
+def resolve_hosts(hosts: list[str]) -> dict[str, str | None]:
+    """{host: address or None}. A name not answered within the budget counts as not found for this call; its answer,
+    when it comes, is kept for the next one."""
+    import time
+    from concurrent.futures import ThreadPoolExecutor, wait
+
+    global _executor
+    now = time.monotonic()
+    out: dict[str, str | None] = {}
+    waiting = {}
+    for host in dict.fromkeys(h for h in hosts if h):
+        cached = _resolved.get(host.lower())
+        if cached and cached[1] > now:
+            out[host] = cached[0]
+            continue
+        future = _pending.get(host.lower())
+        if future is None:
+            if _executor is None:
+                _executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="dns")
+            future = _executor.submit(_lookup, host)
+            _pending[host.lower()] = future
+
+            def _keep(done, key=host.lower()):
+                address = done.result() if not done.exception() else None
+                _resolved[key] = (address, time.monotonic() + (_FOUND_SECONDS if address else _MISSING_SECONDS))
+                _pending.pop(key, None)
+
+            future.add_done_callback(_keep)
+        waiting[host] = future
+    if waiting:
+        wait(list(waiting.values()), timeout=_BUDGET_SECONDS)
+        for host, future in waiting.items():
+            out[host] = future.result() if future.done() and not future.exception() else None
     return out
 
 

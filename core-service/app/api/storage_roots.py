@@ -728,6 +728,9 @@ def get_storage_roots_exposure(request: Request, db: Session = Depends(get_db)):
     return ui_data(build_exposure(db, allowed))
 
 
+LIST_HEAVY_FIELDS = frozenset({"discovered_permissions_json", "discovered_permissions", "discovered_tree_json"})
+
+
 @router.get("/context")
 def list_storage_roots_context(
     request: Request,
@@ -758,6 +761,9 @@ def list_storage_roots_context(
         dfs_paths = {}
     if dfs_paths:
         rows = [{**row, "dfs_path": dfs_paths.get(int(row.get("storage_root_id") or row.get("id") or 0))} for row in rows]
+    # The list does not carry the raw measure and ACL of each folder (its sheet reads them through /overview): they
+    # weighed five sixths of the answer, twice over, with thousands of folders. What the list shows is derived from them.
+    rows = [{key: value for key, value in row.items() if key not in LIST_HEAVY_FIELDS} for row in rows]
     return ui_list(
         rows,
         meta={

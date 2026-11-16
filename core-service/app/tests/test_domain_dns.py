@@ -33,3 +33,31 @@ def test_directory_domains_are_only_a_fallback(monkeypatch) -> None:
         ("corp.local", ["10.0.0.1"], False),
         ("example.test", ["10.0.0.2"], True),
     ]
+
+
+def test_a_silent_dns_does_not_hold_the_folders(monkeypatch) -> None:
+    """A domain controller whose name does not answer: the call ends within the budget, the answer is kept."""
+    import threading
+    import time
+
+    release = threading.Event()
+
+    def lookup(host):
+        if host == "dc.slow.invalid":
+            release.wait(5)
+            return "10.0.0.9"
+        return "10.0.0.1"
+
+    monkeypatch.setattr(domain_dns, "_lookup", lookup)
+    monkeypatch.setattr(domain_dns, "_BUDGET_SECONDS", 0.2)
+    monkeypatch.setattr(domain_dns, "_resolved", {})
+    monkeypatch.setattr(domain_dns, "_pending", {})
+    started = time.monotonic()
+    assert domain_dns.resolve_hosts(["dc.fast.local", "dc.slow.invalid"]) == {"dc.fast.local": "10.0.0.1", "dc.slow.invalid": None}
+    assert time.monotonic() - started < 1
+    release.set()
+    for _ in range(50):
+        if "dc.slow.invalid" in domain_dns._resolved:
+            break
+        time.sleep(0.02)
+    assert domain_dns.resolve_hosts(["dc.slow.invalid"]) == {"dc.slow.invalid": "10.0.0.9"}
