@@ -15,7 +15,7 @@ from app.services import features
 
 
 def _issue(private: Ed25519PrivateKey, **payload) -> str:
-    """Same encoding as scripts/license/issue_license.py."""
+    """Same encoding as license/issue_license.py (private b2s-fives-module repository)."""
     body = json.dumps({"lic": "abc123", "cust": "CORP", "feat": ["fives"], "iat": "2026-11-09", "exp": "2027-12-31", "lim": {}, **payload},
                       separators=(",", ":"), sort_keys=True).encode()
     head = struct.pack(">BH", 1, len(body))

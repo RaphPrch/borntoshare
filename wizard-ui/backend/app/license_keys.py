@@ -1,5 +1,5 @@
 """Public keys that sign the BornToShare license keys (Ed25519): the same as core-service/app/core/license_keys.py
-(a test checks it). The private keys stay with the issuer (scripts/license/issue_license.py)."""
+(a test checks it). The private keys stay with the issuer (license/issue_license.py of the private b2s-fives-module repository)."""
 
 PUBLIC_KEYS = [
     """-----BEGIN PUBLIC KEY-----

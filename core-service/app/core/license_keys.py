@@ -1,5 +1,5 @@
 """Public keys that sign the BornToShare license keys (Ed25519). The private keys stay with the issuer
-(scripts/license/issue_license.py), never in the repository nor the application. Several keys: a new one can be
+(license/issue_license.py of the private b2s-fives-module repository), never in the repository nor the application. Several keys: a new one can be
 added before the old one is retired."""
 
 PUBLIC_KEYS = [

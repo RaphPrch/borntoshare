@@ -19,7 +19,7 @@ PASSWORD = "Str0ng!Password"
 
 
 def _key(payload: dict, private: Ed25519PrivateKey) -> str:
-    # The format of scripts/license/issue_license.py
+    # The format of license/issue_license.py (private b2s-fives-module repository)
     body = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     head = struct.pack(">BH", 1, len(body))
     text = base64.b32encode(head + body + private.sign(head + body)).decode().rstrip("=")
