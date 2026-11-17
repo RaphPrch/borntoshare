@@ -23,7 +23,7 @@ if [ -z "$STAGE" ]; then
   NODE=$(command -v node || true)
   [ -n "$NODE" ] || { echo "Node.js introuvable : dnf module install nodejs:22" >&2; exit 1; }
   major=$("$NODE" -p 'process.versions.node.split(".")[0]')
-  [ "$major" -ge 20 ] || { echo "Node.js $major trop ancien : 20 au moins (22 conseillé)" >&2; exit 1; }
+  [ "$major" -ge 22 ] || { echo "Node.js $major trop ancien : 22 au moins (Vite 8, SvelteKit)" >&2; exit 1; }
   command -v httpd >/dev/null || { echo "httpd introuvable : dnf install httpd mod_ssl" >&2; exit 1; }
   [ -e /etc/httpd/conf.modules.d/00-ssl.conf ] || { echo "mod_ssl absent : dnf install mod_ssl" >&2; exit 1; }
   [ -f "$CERT" ] || { echo "Certificat $CERT introuvable sur ce serveur" >&2; exit 1; }
@@ -114,6 +114,10 @@ if systemctl is-active -q firewalld; then
   firewall-cmd -q --reload
 fi
 
+# A new httpd of RHEL/AlmaLinux: ssl.conf names the certificate httpd-init makes at the first start (localhost.crt)
+if [ -f /etc/httpd/conf.d/ssl.conf ] && [ ! -s /etc/pki/tls/certs/localhost.crt ] && [ -x /usr/libexec/httpd-ssl-gencerts ]; then
+  /usr/libexec/httpd-ssl-gencerts
+fi
 httpd -t
 systemctl daemon-reload
 systemctl enable -q b2s-web httpd

@@ -179,7 +179,7 @@ function prereqs() {
     add("Droits root", "le déploiement crée le compte b2s, les unités, /etc/borntoshare", h.sudo === "root" ? "root" : h.sudo === "nopasswd" ? "sudo" : "lancer sudo make deploy", sudo ? "ok" : "warn");
   }
   if (state.mode !== "containers" && !annex()) {
-    add("Node.js 20 ou plus", "l’interface, en service systemd", h.node || "absent : dnf install nodejs", major(h.node) >= 20 ? "ok" : "bad");
+    add("Node.js 22 ou plus", "l’interface, en service systemd", h.node || "absent : dnf install nodejs", major(h.node) >= 22 ? "ok" : "bad");
     add("httpd et mod_ssl", "publication HTTPS", h.httpd ? (h.mod_ssl ? h.httpd : `${h.httpd}, sans mod_ssl`) : "absent : dnf install httpd mod_ssl", h.httpd && h.mod_ssl ? "ok" : "bad");
     add("SELinux : httpd vers l’interface", "booléen httpd_can_network_connect", h.selinux === "Disabled" ? "SELinux inactif" : h.httpd_can_network_connect || "?", h.selinux === "Disabled" || h.httpd_can_network_connect === "on" ? "ok" : "warn");
     add("Port 443", "le vhost de BornToShare", h.port_443 === "free" ? "libre" : "déjà servi par httpd : le vhost s’ajoute", "ok");

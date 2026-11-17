@@ -27,14 +27,14 @@
       <span class="mode__art"><svg width="200" height="110" viewBox="0 0 200 110" fill="none" stroke="#0e1218" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="10" y="80" width="96" height="14" rx="4" fill="#eef0f4"/><rect x="16" y="44" width="40" height="36" rx="4" fill="#fff"/><path d="M26 44v36M36 44v36M46 44v36"/><rect x="60" y="44" width="40" height="36" rx="4" fill="#0e1218"/><path d="M70 44v36M80 44v36M90 44v36" stroke="#fff"/><rect x="38" y="8" width="40" height="36" rx="4" fill="#fff"/><path d="M48 8v36M58 8v36M68 8v36"/><path d="M108 62h20" stroke-dasharray="4 4"/><rect x="132" y="12" width="56" height="84" rx="6" fill="#fff"/><rect x="141" y="24" width="38" height="12" rx="3" fill="#0e1218"/><rect x="141" y="42" width="38" height="12" rx="3"/><rect x="141" y="60" width="38" height="12" rx="3"/><circle cx="160" cy="84" r="3.5"/></svg></span>
       <span class="mode__title"><b>Hybride</b><em class="chip">httpd</em></span>
       <span class="mode__text">Les services en conteneurs ; l’interface en service Node.js publiée par votre Apache httpd, ici ou sur un serveur web annexe.</span>
-      <dl><dt>Ce serveur</dt><dd>Podman : services, Redis</dd><dt>Interface</dt><dd>Node.js + httpd, ici ou en annexe</dd><dt>Demande</dt><dd>podman ; httpd, mod_ssl, Node.js 20+</dd><dt>Mises à jour</dt><dd>make deploy (pousse l’annexe)</dd></dl>
+      <dl><dt>Ce serveur</dt><dd>Podman : services, Redis</dd><dt>Interface</dt><dd>Node.js + httpd, ici ou en annexe</dd><dt>Demande</dt><dd>podman ; httpd, mod_ssl, Node.js 22+</dd><dt>Mises à jour</dt><dd>make deploy (pousse l’annexe)</dd></dl>
       <span class="mode__go">Choisir →</span>
     </button>
     <button type="button" class="mode" data-mode="native">
       <span class="mode__art"><svg width="200" height="110" viewBox="0 0 200 110" fill="none" stroke="#0e1218" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="40" y="8" width="56" height="94" rx="6" fill="#fff"/><rect x="49" y="20" width="38" height="12" rx="3" fill="#0e1218"/><rect x="49" y="38" width="38" height="12" rx="3"/><rect x="49" y="56" width="38" height="12" rx="3"/><rect x="49" y="74" width="38" height="12" rx="3"/><rect x="104" y="8" width="56" height="94" rx="6" fill="#fff"/><rect x="113" y="20" width="38" height="12" rx="3"/><rect x="113" y="38" width="38" height="12" rx="3" fill="#0e1218"/><rect x="113" y="56" width="38" height="12" rx="3"/><rect x="113" y="74" width="38" height="12" rx="3"/></svg></span>
       <span class="mode__title"><b>Sans conteneur</b><em class="chip">systemd</em></span>
       <span class="mode__text">Chaque service en unité systemd avec son environnement Python ; Redis du système ; l’interface publiée par httpd.</span>
-      <dl><dt>Ce serveur</dt><dd>services systemd, Redis système</dd><dt>Interface</dt><dd>Node.js + httpd, ici ou en annexe</dd><dt>Demande</dt><dd>Python 3.12, Node.js 20+, Redis, httpd, root</dd><dt>Mises à jour</dt><dd>sudo make deploy</dd></dl>
+      <dl><dt>Ce serveur</dt><dd>services systemd, Redis système</dd><dt>Interface</dt><dd>Node.js + httpd, ici ou en annexe</dd><dt>Demande</dt><dd>Python 3.12, Node.js 22+, Redis, httpd, root</dd><dt>Mises à jour</dt><dd>sudo make deploy</dd></dl>
       <span class="mode__go">Choisir →</span>
     </button>
   </div>
