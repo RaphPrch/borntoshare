@@ -1089,7 +1089,6 @@ def sync_storage_root_discovery(
         root.last_discovery_at = discovered_at
         root.needs_revalidation = False
         root.revalidation_reason = None
-        previous_payload = dict(root.discovered_permissions_json or {}) if isinstance(root.discovered_permissions_json, dict) else {}
         # Only the rights change: the measure (content_stats, the kept previous measures, 5S figures) stays as it
         # is, and the share listing has no security descriptor flags (the inheritance read by the last ACL scan stays)
         merge_root_payload(root, {"discovered_at": discovered_at.isoformat(),
@@ -1125,7 +1124,6 @@ def sync_storage_root_discovery(
             root.last_probe_message = "root_not_discovered_or_unreachable"
             root.last_discovery_at = discovered_at
             # Unreachable now: its rights are unknown, its last measure stays (never a measure lost to an outage)
-            previous_payload = dict(root.discovered_permissions_json or {}) if isinstance(root.discovered_permissions_json, dict) else {}
             merge_root_payload(root, {"discovered_at": discovered_at.isoformat(),
                 "permissions": [],
                 "probe_error": "root_not_discovered_or_unreachable",

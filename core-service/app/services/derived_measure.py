@@ -101,7 +101,6 @@ def derive(db: Session, root_id: int) -> bool:
         return False
     stats = dict(answer.get("stats") or {})
     measured_at = str(stats.pop("measured_at", "") or datetime.now(timezone.utc).isoformat())
-    current = dict(root.discovered_permissions_json) if isinstance(root.discovered_permissions_json, dict) else {}
     merge_root_payload(root, {"content_stats": stats, "content_size_bytes": int(stats.get("bytes") or 0),
                                         "content_updated_at": measured_at.replace("Z", "+00:00"), "content_interim": False,
                                         "content_derived_from": int(parent.id)})

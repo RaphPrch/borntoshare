@@ -18,7 +18,6 @@ from app.services.identity_source_fields import (
     source_auth_priority,
     source_capabilities,
 )
-from app.data.models.storage_endpoint import StorageEndpoint
 from app.data.repositories.identity_source_purge_repo import purge_identity_source_related_records
 from app.data.repositories.directory_snapshots_repo import DirectorySnapshotsRepo
 from app.data.repositories.identity_sources_views_repo import IdentitySourcesViewsRepo

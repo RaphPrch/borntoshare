@@ -16,7 +16,6 @@ from app.core.db import get_db
 from app.core.internal_auth import require_internal_token
 from app.data.models.identity_sources import IdentitySource
 from app.data.models.storage_endpoint import StorageEndpoint
-from app.data.models.storage_root import StorageRoot
 from app.schemas.storage_endpoint import (
     StorageEndpointCreate,
     StorageEndpointUpdate,

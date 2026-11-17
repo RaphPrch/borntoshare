@@ -12,7 +12,6 @@ from app.api.quotas import _audit, _folder
 from app.core.db import get_db
 from app.services import remediations, scans
 from app.services.authorization import actor_from_request, require_admin
-from app.data.models.storage_root import StorageRoot
 
 router = APIRouter(prefix="/storage-roots", tags=["storage-roots"])
 
