@@ -203,15 +203,16 @@ def test_no_signal_when_the_installation_stops(tmp_path, monkeypatch):
 def test_deploy_status_follows_the_phases_of_deploy(tmp_path, monkeypatch):
     monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
     monkeypatch.setenv("FRONTEND_PUBLIC_ORIGIN", "https://b2s.example")
-    (tmp_path / ".deploy-status").write_text('{"state": "running", "phase": "3/4 build + recreate: core-service"}')
+    (tmp_path / ".deploy-status").write_text('{"state": "running", "phase": "4/6 Services : build + recreate", "phases": ["Secrets", "Paquets SQL", "Point de retour", "Services", "Messagerie et syslog", "Vérification"]}')
     data = client.get("/api/deploy").json()
     assert (data["state"], data["phase_index"], data["app_url"]) == ("running", 3, "https://b2s.example")
+    assert data["phases"][3] == "Services"
     (tmp_path / ".deploy-status").write_text('{"state": "failed", "phase": "Error: build"}')
     (tmp_path / ".deploy.log").write_text("0/4 secrets\nError: build\n")
     data = client.get("/api/deploy").json()
     assert data["state"] == "failed" and data["log"][-1] == "Error: build"
-    (tmp_path / ".deploy-status").write_text('{"state": "done", "phase": "BornToShare est démarré"}')
-    assert client.get("/api/deploy").json()["phase_index"] == 5
+    (tmp_path / ".deploy-status").write_text('{"state": "done", "phase": "BornToShare est démarré", "phases": ["Secrets", "Vérification"]}')
+    assert client.get("/api/deploy").json()["phase_index"] == 2
 
 
 def test_a_5s_only_installation_switches_the_governance_off(issuer, tmp_path, monkeypatch):
@@ -237,3 +238,104 @@ def test_the_first_administrator_changes_its_password_at_the_first_sign_in():
     source = inspect.getsource(admin_logic.create_local_admin_if_needed)
     # Created or synchronised by the wizard: its password is temporary in both cases
     assert source.count("must_change_password") >= 2
+
+
+
+# ---- ways to install, e-mail and syslog ------------------------------------------------------------------------
+
+from backend.app import deploy_plan  # noqa: E402
+
+HYBRID_ANNEX = {"mode": "hybrid", "web": {"location": "annex", "server_name": "b2s.corp.local", "https_port": 443,
+                                          "cert": "/etc/pki/tls/certs/b2s.crt", "key": "/etc/pki/tls/private/b2s.key"},
+                "network": {"web_host": "web01.corp.local", "web_ip": "10.0.0.21", "api_host": "b2s01.corp.local", "auth_port": 8101,
+                            "core_port": 8102, "fives_port": 8105, "push": "ssh", "ssh_user": "b2s-deploy", "ssh_key": "~/.ssh/id_ed25519"}}
+
+
+def test_containers_writes_the_origin_and_the_port():
+    plan = install.validate(_plan(deploy={"mode": "containers", "web": {"origin": "https://b2s.corp.local/", "published_port": 3000}}))
+    assert deploy_plan.env_lines(plan["deploy"]) == [["B2S_DEPLOY_MODE", "containers"], ["FRONTEND_PUBLIC_ORIGIN", "https://b2s.corp.local"],
+                                                     ["FRONTEND_PUBLISHED_PORT", "3000"]]
+
+
+def test_hybrid_on_an_annex_server_writes_the_network_and_no_password():
+    plan = install.validate(_plan(deploy=HYBRID_ANNEX))
+    env = dict(deploy_plan.env_lines(plan["deploy"]))
+    assert env["B2S_DEPLOY_MODE"] == "hybrid" and env["B2S_WEB_LOCATION"] == "annex"
+    assert env["FRONTEND_PUBLIC_ORIGIN"] == "https://b2s.corp.local"
+    assert (env["B2S_WEB_IP"], env["B2S_API_HOST"], env["B2S_WEB_SSH_USER"]) == ("10.0.0.21", "b2s01.corp.local", "b2s-deploy")
+    assert not any("PASSWORD" in name for name in env)
+
+
+def test_native_on_this_server_has_no_network_lines():
+    raw = {**HYBRID_ANNEX, "mode": "native", "web": {**HYBRID_ANNEX["web"], "location": "local", "https_port": 8443}}
+    env = dict(deploy_plan.env_lines(install.validate(_plan(deploy=raw))["deploy"]))
+    assert env["FRONTEND_PUBLIC_ORIGIN"] == "https://b2s.corp.local:8443"
+    assert "B2S_WEB_HOST" not in env and env["B2S_WEB_LOCATION"] == "local"
+
+
+@pytest.mark.parametrize("change, message", [
+    ({"mode": "cloud"}, "Type d'installation"),
+    ({"web": {**HYBRID_ANNEX["web"], "cert": "relative/path.crt"}}, "Certificat"),
+    ({"web": {**HYBRID_ANNEX["web"], "server_name": "bad name;rm"}}, "Nom d'hôte"),
+    ({"network": {**HYBRID_ANNEX["network"], "web_ip": "web01"}}, "Adresse IP"),
+    ({"network": {**HYBRID_ANNEX["network"], "ssh_user": "root"}}, "Compte SSH"),
+    ({"network": {**HYBRID_ANNEX["network"], "core_port": 8101}}, "propre port"),
+])
+def test_deployment_refused(change, message):
+    with pytest.raises(install.InstallError, match=message):
+        install.validate(_plan(deploy={**HYBRID_ANNEX, **change}))
+
+
+def test_smtp_and_syslog_wait_for_the_core_and_the_password_stays_out_of_the_json(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    plan = install.validate(_plan(
+        smtp={"host": "smtp.corp.local", "port": 587, "security": "starttls", "sender": "b2s@corp.local", "username": "b2s", "password": "Smtp-Secret-1"},
+        syslog={"host": "siem.corp.local", "port": 514, "transport": "tcp", "format": "cef", "facility": "local4", "min_severity": "high", "audit": True, "alerts": False}))
+    with patch.object(install, "_databases_and_accounts", return_value=[]), patch.object(install, "run_schema_pack"), \
+         patch.object(install, "run_logging_schema_pack"), patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_check_account"), \
+         patch.object(install, "_switch"):
+        result = install.run(plan)
+    assert result["ok"] and any(step["key"] == "settings" for step in result["steps"])
+    post = json.loads((tmp_path / ".post-install.json").read_text())
+    assert post["smtp"]["host"] == "smtp.corp.local" and "password" not in post["smtp"]
+    assert post["syslog"]["config"]["transport"] == "tcp" and post["syslog"]["routes"]["alerts"] is False
+    secret = tmp_path / ".smtp-password"
+    assert secret.read_text() == "Smtp-Secret-1" and oct(secret.stat().st_mode & 0o777) == "0o600"
+    assert "Smtp-Secret-1" not in json.dumps(result)
+
+
+def test_no_settings_file_without_smtp_nor_syslog(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    with patch.object(install, "_databases_and_accounts", return_value=[]), patch.object(install, "run_schema_pack"), \
+         patch.object(install, "run_logging_schema_pack"), patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_check_account"), \
+         patch.object(install, "_switch"):
+        install.run(install.validate(_plan()))
+    assert not (tmp_path / ".post-install.json").exists()
+
+
+def test_syslog_test_sends_one_line_over_udp():
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as receiver:
+        receiver.bind(("127.0.0.1", 0))
+        receiver.settimeout(3)
+        port = receiver.getsockname()[1]
+        response = client.post("/api/syslog/test", json={"host": "127.0.0.1", "port": port, "transport": "udp"})
+        assert response.status_code == 200
+        line = receiver.recv(2048).decode()
+    assert line.startswith("<166>1 ") and "borntoshare" in line and "install.test" in line
+
+
+def test_smtp_test_refuses_a_bad_recipient():
+    response = client.post("/api/smtp/test", json={"smtp": {"host": "smtp.corp.local", "port": 587, "sender": "b2s@corp.local"}, "to": "nobody"})
+    assert response.status_code == 400 and "destination" in response.json()["detail"]
+
+
+def test_defaults_carry_the_way_of_installing_and_the_host_check(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    monkeypatch.setenv("B2S_DEPLOY_MODE", "hybrid")
+    monkeypatch.setenv("B2S_WEB_LOCATION", "annex")
+    (tmp_path / ".host-check.json").write_text('{"podman": "5.8.2", "node": "22.1.0"}')
+    data = client.get("/api/defaults").json()
+    assert data["deploy"]["mode"] == "hybrid" and data["deploy"]["web"]["location"] == "annex"
+    assert data["host"]["node"] == "22.1.0"

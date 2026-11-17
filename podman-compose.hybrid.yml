@@ -1,0 +1,16 @@
+# ============================================================
+# Hybrid installation (B2S_DEPLOY_MODE=hybrid), added by scripts/deploy.sh: the web interface is not a container
+# (Node.js service + Apache httpd, scripts/web/), it reaches auth, core and 5S on ports of this host.
+#   B2S_API_BIND  127.0.0.1 when the interface is on this host; 0.0.0.0 when it is on an annex web server (then
+#                 scripts/web/firewall.sh opens these ports to that server only)
+# ============================================================
+services:
+  auth-service:
+    ports:
+      - "${B2S_API_BIND:-127.0.0.1}:${B2S_AUTH_PORT:-8101}:8000"
+  core-service:
+    ports:
+      - "${B2S_API_BIND:-127.0.0.1}:${B2S_CORE_PORT:-8102}:8000"
+  fives-service:
+    ports:
+      - "${B2S_API_BIND:-127.0.0.1}:${B2S_FIVES_PORT:-8105}:8000"

@@ -41,3 +41,4 @@ fives-service/
 fives-scanner/
 wizard-ui/backend/app/sql/fives/
 wizard-ui/backend/app/sql/fives_inventory/
+.wizard-venv/

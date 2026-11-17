@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: backup help build up down restart ps logs logs-% wizard wizard-down reset-admin otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
+.PHONY: backup help build up down restart ps logs logs-% wizard wizard-check wizard-down reset-admin otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
 
 help:
 	@echo "make build          build the images"
@@ -15,6 +15,7 @@ help:
 	@echo "make logs           follow all logs   (make logs-auth-service: one service)"
 	@echo "make backup         save the two databases to backups/ (not the key of the secrets)"
 	@echo "make wizard         start the database wizard (http://<host>:\$$WIZARD_PORT)"
+	@echo "make wizard-check   read the prerequisites again (shown by the wizard)"
 	@echo "make wizard-down    stop the wizard"
 	@echo "make reset-admin    lost password of a local account (ACCOUNT=admin): a temporary one, to change at sign-in"
 	@echo "make clean          stop, then remove unused images and the Redis queue"
@@ -52,15 +53,28 @@ logs-%:
 backup: .env
 	./scripts/backup.sh
 
+# What this server offers (podman, Python, Node.js, httpd, SELinux…) is read first: the step « Prérequis » shows it.
+# Without podman, the wizard runs in its own Python environment (installation without container).
+# After the installation, without a command: .env, make deploy, then the stop of the wizard (scripts/after-wizard.sh)
 wizard: .env
 	install -d -m 700 secrets
-	podman-compose --profile wizard -f podman-compose.yml up -d --build wizard-ui
-	@# After the installation, without a command: .env, make deploy, then the stop of the wizard (scripts/after-wizard.sh)
-	@setsid -f scripts/after-wizard.sh >> secrets/.after-wizard.log 2>&1 < /dev/null
+	@scripts/host-check.sh
+	@if command -v podman >/dev/null 2>&1; then \
+		podman-compose --profile wizard -f podman-compose.yml up -d --build wizard-ui && \
+		setsid -f scripts/after-wizard.sh >> secrets/.after-wizard.log 2>&1 < /dev/null; \
+	else \
+		scripts/wizard-native.sh && \
+		B2S_WIZARD_PID="$$(cat secrets/.wizard.pid)" setsid -f scripts/after-wizard.sh >> secrets/.after-wizard.log 2>&1 < /dev/null; \
+	fi
 	@echo "Wizard started. Once the installation is done, the deployment follows by itself."
 
+# Read the prerequisites again (after installing httpd, Node.js…), then « Relire » in the wizard
+wizard-check:
+	@scripts/host-check.sh
+
 wizard-down:
-	podman-compose --profile wizard -f podman-compose.yml stop wizard-ui
+	@if [ -f secrets/.wizard.pid ]; then kill "$$(cat secrets/.wizard.pid)" 2>/dev/null || true; fi
+	-podman-compose --profile wizard -f podman-compose.yml stop wizard-ui 2>/dev/null
 
 # Lost password of a local account (ACCOUNT=admin by default): a temporary one, typed on the server, changed at the next sign-in
 reset-admin: .env

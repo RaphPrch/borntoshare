@@ -24,6 +24,7 @@ import string
 from pathlib import Path
 from typing import Any, Callable
 
+from . import deploy_plan
 from .admin_logic import create_local_admin_if_needed
 from .db import get_connection
 from .license import License, decode, record
@@ -122,6 +123,13 @@ def validate(plan: dict[str, Any]) -> dict[str, Any]:
     names = [out["app"]["db_name"], out["app"]["logging_db_name"]] + ([out["fives"]["db_name"], out["fives"]["inventory_db_name"]] if out["fives"] else [])
     if len({name.lower() for name in names}) != len(names):
         raise InstallError("Chaque base doit avoir son propre nom.")
+    # Where it runs, and the settings recorded by the core at its first start (e-mail, syslog)
+    try:
+        out["deploy"] = deploy_plan.validate_deploy(plan.get("deploy"), fives=bool(out["fives"]))
+        out["smtp"], out["smtp_password"] = deploy_plan.validate_smtp(plan.get("smtp"))
+        out["syslog"] = deploy_plan.validate_syslog(plan.get("syslog"))
+    except deploy_plan.PlanError as exc:
+        raise InstallError(str(exc)) from exc
     return out
 
 
@@ -300,6 +308,21 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
         chosen = (["gouvernance des accès"] if plan["governance"] else []) + (["5S"] if fives else [])
         return " + ".join(chosen)
 
+    def settings() -> str:
+        """For scripts/post-install.sh, once the core runs: it checks and records them (its store needs its key)."""
+        import json
+
+        directory = secrets_dir()
+        post = {"smtp": plan.get("smtp"), "syslog": plan.get("syslog")}
+        _write_secret(".post-install.json", json.dumps(post))
+        if plan.get("smtp_password"):
+            _write_secret(".smtp-password", plan["smtp_password"])
+        else:
+            (directory / ".smtp-password").unlink(missing_ok=True)
+        said = ([f"messagerie {plan['smtp']['host']}:{plan['smtp']['port']}"] if plan.get("smtp") else []) + \
+               ([f"syslog {plan['syslog']['config']['host']}:{plan['syslog']['config']['port']}"] if plan.get("syslog") else [])
+        return ", ".join(said) + " : enregistrés par BornToShare à son premier démarrage"
+
     def accounts() -> str:
         _check_account(server, app["user"], passwords["core"], app_dbs)
         if fives:
@@ -315,6 +338,8 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
     if lic:
         actions.append(("license", "Licence", license_))
     actions.append(("modules", "Modules", modules))
+    if plan.get("smtp") or plan.get("syslog"):
+        actions.append(("settings", "Messagerie et syslog", settings))
     actions.append(("check", "Vérification des droits", accounts))
     ok = all(step(*action) for action in actions)
 
@@ -325,6 +350,7 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
     if fives:
         chosen += [("FIVES_DB_NAME", fives["db_name"]), ("FIVES_INVENTORY_DB_NAME", fives["inventory_db_name"]), ("FIVES_DB_USER", fives["user"])]
     env += [[name, value] for name, value in chosen if value != ENV_DEFAULTS[name]]
+    env += deploy_plan.env_lines(plan.get("deploy"))
     if ok:
         signal_installed(env)
     return {"ok": ok, "steps": steps, "env": env, "secrets": [SECRET_NAMES[key] for key in passwords]}
@@ -340,25 +366,25 @@ def signal_installed(env: list[list[str]]) -> None:
     os.replace(tmp, directory / ".installed")
 
 
-# The phases of scripts/deploy.sh, in order (its « N/4 » lines)
-DEPLOY_PHASES = ["0/4", "1/4", "2/4", "3/4", "4/4"]
-
-
 def deploy_status() -> dict[str, Any]:
-    """Where the automatic deployment is: waiting (no watcher yet), running (its last phase), done or failed."""
+    """Where the automatic deployment is: waiting (no watcher yet), running (its last phase), done or failed. The
+    phases are the ones scripts/deploy.sh announced (they depend on the way of installing)."""
     import json
 
     directory = secrets_dir()
     try:
         status = json.loads((directory / ".deploy-status").read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return {"state": "waiting", "phase": "", "phase_index": -1, "installed": (directory / ".installed").exists()}
+        return {"state": "waiting", "phase": "", "phase_index": -1, "phases": [], "installed": (directory / ".installed").exists()}
     phase = str(status.get("phase") or "")
-    index = next((i for i, prefix in enumerate(DEPLOY_PHASES) if phase.startswith(prefix)), -1)
-    if status.get("state") == "done":
-        index = len(DEPLOY_PHASES)
-    out = {"state": str(status.get("state") or "running"), "phase": phase, "phase_index": index, "installed": True}
-    if out["state"] == "failed":
+    phases = [str(item) for item in status.get("phases") or []]
+    match = re.match(r"^(\d+)/(\d+)\b", phase)
+    index = int(match.group(1)) - 1 if match else -1
+    state = str(status.get("state") or "running")
+    if state == "done":
+        index = len(phases) if phases else 5
+    out = {"state": state, "phase": phase, "phase_index": index, "phases": phases, "installed": True}
+    if state == "failed":
         try:
             out["log"] = (directory / ".deploy.log").read_text(encoding="utf-8").splitlines()[-15:]
         except OSError:

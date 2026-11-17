@@ -245,8 +245,24 @@ services:
       # The generated passwords of the SQL accounts go there (0600), make deploy turns them into podman secrets;
       # the end of the installation too, for scripts/after-wizard.sh (it deploys)
       SECRETS_DIR: /secrets
-      # The link shown once deployed
+      # The link shown once deployed, and the way this installation runs (the steps start from them)
       FRONTEND_PUBLIC_ORIGIN: ${FRONTEND_PUBLIC_ORIGIN:-}
+      FRONTEND_PUBLISHED_PORT: ${FRONTEND_PUBLISHED_PORT:-3000}
+      B2S_DEPLOY_MODE: ${B2S_DEPLOY_MODE:-}
+      B2S_WEB_LOCATION: ${B2S_WEB_LOCATION:-}
+      B2S_WEB_SERVER_NAME: ${B2S_WEB_SERVER_NAME:-}
+      B2S_WEB_HTTPS_PORT: ${B2S_WEB_HTTPS_PORT:-}
+      B2S_WEB_CERT: ${B2S_WEB_CERT:-}
+      B2S_WEB_KEY: ${B2S_WEB_KEY:-}
+      B2S_WEB_HOST: ${B2S_WEB_HOST:-}
+      B2S_WEB_IP: ${B2S_WEB_IP:-}
+      B2S_API_HOST: ${B2S_API_HOST:-}
+      B2S_AUTH_PORT: ${B2S_AUTH_PORT:-}
+      B2S_CORE_PORT: ${B2S_CORE_PORT:-}
+      B2S_FIVES_PORT: ${B2S_FIVES_PORT:-}
+      B2S_WEB_PUSH: ${B2S_WEB_PUSH:-}
+      B2S_WEB_SSH_USER: ${B2S_WEB_SSH_USER:-}
+      B2S_WEB_SSH_KEY: ${B2S_WEB_SSH_KEY:-}
     # root of the container = the owner of the files on the host (rootless podman): secrets/ stays readable by it only
     user: "0:0"
     volumes:

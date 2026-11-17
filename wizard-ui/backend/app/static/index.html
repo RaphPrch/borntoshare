@@ -7,173 +7,265 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-<div class="wz">
-  <aside class="wz__side">
-    <div class="wz__brand"><span class="wz__logo">B</span><span>BornToShare</span></div>
-    <div class="wz__intro">
-      <h1>Installation</h1>
-      <p>Les bases de données, le premier administrateur et la licence. Une seule fois, avant le premier démarrage.</p>
-    </div>
-    <ol class="wz__steps" id="steps">
-      <li data-step="1"><span class="wz__num">1</span><span><b>Serveur MariaDB</b><small>Compte administrateur</small></span></li>
-      <li data-step="2"><span class="wz__num">2</span><span><b>Bases BornToShare</b><small>Données, journaux, comptes</small></span></li>
-      <li data-step="3"><span class="wz__num">3</span><span><b>Administrateur</b><small>Premier compte local</small></span></li>
-      <li data-step="4"><span class="wz__num">4</span><span><b>Modules</b><small>Gouvernance, 5S ou les deux</small></span></li>
-      <li data-step="5"><span class="wz__num">5</span><span><b>Installation</b><small>Récapitulatif</small></span></li>
-    </ol>
-    <p class="wz__note">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 2 3.5v4C2 11 4.6 14 8 15c3.4-1 6-4 6-7.5v-4L8 1Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-      <span>Le mot de passe administrateur MariaDB sert à cette installation seulement. Ceux des comptes SQL sont générés et écrits dans <code>secrets/</code>, jamais affichés.</span>
-    </p>
-  </aside>
 
-  <main class="wz__main">
-    <div class="wz__card">
+<!-- ===================== Launcher: the way to install ===================== -->
+<div class="ln" id="launcher">
+  <div class="ln__top"><span class="logo">B</span><b>BornToShare</b><span class="ln__host" id="ln_host"></span></div>
+  <div class="ln__head">
+    <h1>Comment installer BornToShare ?</h1>
+    <p>Les bases restent sur votre MariaDB dans les trois cas. Ce qui change : où tournent les services, et qui publie l’interface web.</p>
+  </div>
+  <div class="ln__modes">
+    <button type="button" class="mode" data-mode="containers">
+      <span class="mode__art"><svg width="200" height="110" viewBox="0 0 200 110" fill="none" stroke="#0e1218" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="18" y="86" width="164" height="14" rx="4" fill="#eef0f4"/><rect x="28" y="50" width="44" height="36" rx="4" fill="#fff"/><path d="M38 50v36M48 50v36M58 50v36"/><rect x="78" y="50" width="44" height="36" rx="4" fill="#0e1218"/><path d="M88 50v36M98 50v36M108 50v36" stroke="#fff"/><rect x="128" y="50" width="44" height="36" rx="4" fill="#fff"/><path d="M138 50v36M148 50v36M158 50v36"/><rect x="53" y="14" width="44" height="36" rx="4" fill="#fff"/><path d="M63 14v36M73 14v36M83 14v36"/><rect x="103" y="14" width="44" height="36" rx="4" fill="#fff"/><path d="M113 14v36M123 14v36M133 14v36"/></svg></span>
+      <span class="mode__title"><b>Tout en conteneurs</b><em class="chip is-dark">Recommandé</em></span>
+      <span class="mode__text">Tous les services et l’interface dans Podman, sur ce serveur. Une mise à jour remplace les images ; un retour arrière est une commande.</span>
+      <dl><dt>Ce serveur</dt><dd>Podman : services, Redis, interface</dd><dt>Publication</dt><dd>un port, ou votre reverse proxy</dd><dt>Demande</dt><dd>podman, podman-compose</dd><dt>Mises à jour</dt><dd>make deploy</dd></dl>
+      <span class="mode__go">Choisir →</span>
+    </button>
+    <button type="button" class="mode" data-mode="hybrid">
+      <span class="mode__art"><svg width="200" height="110" viewBox="0 0 200 110" fill="none" stroke="#0e1218" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="10" y="80" width="96" height="14" rx="4" fill="#eef0f4"/><rect x="16" y="44" width="40" height="36" rx="4" fill="#fff"/><path d="M26 44v36M36 44v36M46 44v36"/><rect x="60" y="44" width="40" height="36" rx="4" fill="#0e1218"/><path d="M70 44v36M80 44v36M90 44v36" stroke="#fff"/><rect x="38" y="8" width="40" height="36" rx="4" fill="#fff"/><path d="M48 8v36M58 8v36M68 8v36"/><path d="M108 62h20" stroke-dasharray="4 4"/><rect x="132" y="12" width="56" height="84" rx="6" fill="#fff"/><rect x="141" y="24" width="38" height="12" rx="3" fill="#0e1218"/><rect x="141" y="42" width="38" height="12" rx="3"/><rect x="141" y="60" width="38" height="12" rx="3"/><circle cx="160" cy="84" r="3.5"/></svg></span>
+      <span class="mode__title"><b>Hybride</b><em class="chip">httpd</em></span>
+      <span class="mode__text">Les services en conteneurs ; l’interface en service Node.js publiée par votre Apache httpd, ici ou sur un serveur web annexe.</span>
+      <dl><dt>Ce serveur</dt><dd>Podman : services, Redis</dd><dt>Interface</dt><dd>Node.js + httpd, ici ou en annexe</dd><dt>Demande</dt><dd>podman ; httpd, mod_ssl, Node.js 20+</dd><dt>Mises à jour</dt><dd>make deploy (pousse l’annexe)</dd></dl>
+      <span class="mode__go">Choisir →</span>
+    </button>
+    <button type="button" class="mode" data-mode="native">
+      <span class="mode__art"><svg width="200" height="110" viewBox="0 0 200 110" fill="none" stroke="#0e1218" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="40" y="8" width="56" height="94" rx="6" fill="#fff"/><rect x="49" y="20" width="38" height="12" rx="3" fill="#0e1218"/><rect x="49" y="38" width="38" height="12" rx="3"/><rect x="49" y="56" width="38" height="12" rx="3"/><rect x="49" y="74" width="38" height="12" rx="3"/><rect x="104" y="8" width="56" height="94" rx="6" fill="#fff"/><rect x="113" y="20" width="38" height="12" rx="3"/><rect x="113" y="38" width="38" height="12" rx="3" fill="#0e1218"/><rect x="113" y="56" width="38" height="12" rx="3"/><rect x="113" y="74" width="38" height="12" rx="3"/></svg></span>
+      <span class="mode__title"><b>Sans conteneur</b><em class="chip">systemd</em></span>
+      <span class="mode__text">Chaque service en unité systemd avec son environnement Python ; Redis du système ; l’interface publiée par httpd.</span>
+      <dl><dt>Ce serveur</dt><dd>services systemd, Redis système</dd><dt>Interface</dt><dd>Node.js + httpd, ici ou en annexe</dd><dt>Demande</dt><dd>Python 3.12, Node.js 20+, Redis, httpd, root</dd><dt>Mises à jour</dt><dd>sudo make deploy</dd></dl>
+      <span class="mode__go">Choisir →</span>
+    </button>
+  </div>
+</div>
 
-      <!-- 1. Server -->
-      <section class="wz__step" data-step="1">
-        <header><span class="wz__eyebrow">Étape 1 sur 5</span><h2>Serveur MariaDB</h2>
-          <p>Un compte qui peut créer des bases et des comptes (root, en général). Il sert à cette installation seulement.</p></header>
-        <form id="f1" autocomplete="off" novalidate>
-          <div class="wz__grid wz__grid--host">
-            <label>Serveur<input id="s_host" required placeholder="mariadb.example.local" spellcheck="false" /></label>
-            <label>Port<input id="s_port" type="number" min="1" max="65535" value="3306" required /></label>
-          </div>
-          <div class="wz__grid">
-            <label>Compte administrateur<input id="s_user" value="root" required spellcheck="false" /></label>
-            <label>Mot de passe<span class="wz__pw"><input id="s_password" type="password" required autocomplete="off" /><button type="button" class="wz__eye" aria-label="Afficher">👁</button></span></label>
-          </div>
-          <div id="s_result" class="wz__result" hidden></div>
-          <footer>
-            <span></span>
-            <span class="wz__btns">
-              <button type="button" id="s_test" class="wz__btn">Tester la connexion</button>
-              <button type="submit" class="wz__btn wz__btn--primary" id="n1" disabled>Continuer</button>
-            </span>
-          </footer>
-        </form>
-      </section>
+<!-- ===================== The wizard window ===================== -->
+<div class="win-wrap" id="wizard" hidden>
+<div class="win">
+  <div class="win__bar">
+    <span class="logo is-sm">B</span>
+    <b id="w_title">Installateur BornToShare — Étape 1 : Préparer</b>
+    <span class="win__mode" id="w_mode"></span>
+    <span class="win__stages"><span id="w_s1" class="is-on">1 · Préparer</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6b7482" stroke-width="1.6" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg><span id="w_s2">2 · Déployer</span></span>
+  </div>
+  <div class="win__body">
+    <nav class="win__nav" aria-label="Étapes"><span class="win__stage" id="w_stage">Étape 1 · Préparer</span><ol id="steps"></ol></nav>
+    <main class="win__main">
+      <div class="win__content">
 
-      <!-- 2. BornToShare databases -->
-      <section class="wz__step" data-step="2" hidden>
-        <header><span class="wz__eyebrow">Étape 2 sur 5</span><h2>Bases BornToShare</h2>
-          <p>La base des données de l'application et celle de son journal d'audit, sur ce serveur. Chaque usage a son propre compte SQL, avec le minimum de droits ; leurs mots de passe sont générés.</p></header>
-        <form id="f2" autocomplete="off" novalidate>
-          <div class="wz__grid">
-            <label>Base des données<small>DB_NAME</small><input id="a_db" required spellcheck="false" /></label>
-            <label>Base des journaux<small>LOGGING_DB_NAME</small><input id="a_log" required spellcheck="false" /></label>
-          </div>
-          <div id="a_exists" class="wz__callout wz__callout--warn" hidden></div>
-          <div class="wz__grid">
-            <label>Compte de l'application<small>DB_USER</small><input id="a_user" required spellcheck="false" /></label>
-            <label>Compte de migration<small>DB_MIGRATE_USER</small><input id="a_migrate" required spellcheck="false" /></label>
-          </div>
-          <table class="wz__rights">
-            <thead><tr><th>Compte</th><th>Droits</th><th>Utilisé par</th></tr></thead>
-            <tbody>
-              <tr><td><code data-name="a_user"></code></td><td>lecture et écriture sur <code data-name="a_db"></code> ; ajout, lecture et purge sur <code data-name="a_log"></code></td><td>core-service</td></tr>
-              <tr><td><code data-name="a_migrate"></code></td><td>schéma (tables, vues, index) et données, sur toutes les bases</td><td>ce wizard, <code>make deploy</code></td></tr>
-            </tbody>
-          </table>
-          <p class="wz__hint">Un compte qui existe déjà reçoit un nouveau mot de passe et exactement ces droits.</p>
-          <footer>
-            <button type="button" class="wz__btn wz__btn--ghost" data-back>Retour</button>
-            <button type="submit" class="wz__btn wz__btn--primary" id="n2" disabled>Continuer</button>
-          </footer>
-        </form>
-      </section>
+        <!-- Prerequisites -->
+        <section data-id="prereq" hidden>
+          <header><h2>Prérequis</h2><p class="lead">Lus sur ce serveur par <code>make wizard</code> (<span id="p_when"></span>). Un point rouge bloque la suite ; un orange se règle pendant le déploiement.</p></header>
+          <div class="stack-sm" id="p_where"><span class="label">L’interface web sera publiée par httpd</span>
+            <span class="seg" role="group" aria-label="Serveur de l'interface"><button type="button" data-web="local" class="is-on">sur ce serveur</button><button type="button" data-web="annex">sur un serveur web annexe</button></span></div>
+          <div class="list" id="p_list"></div>
+          <div class="inline"><button type="button" class="btn is-sm" id="p_reload">Relire</button><span class="hint">Après une correction sur le serveur : <code>make wizard-check</code>, puis Relire.</span></div>
+        </section>
 
-      <!-- 3. Administrator -->
-      <section class="wz__step" data-step="3" hidden>
-        <header><span class="wz__eyebrow">Étape 3 sur 5</span><h2>Administrateur</h2>
-          <p>Le premier compte local, administrateur de la plateforme. Il ouvre l'assistant de premier lancement (annuaire, serveurs, dossiers). Ce mot de passe est provisoire : il sera à changer à la première connexion.</p></header>
-        <form id="f3" autocomplete="off" novalidate>
-          <div class="wz__grid">
-            <label>Identifiant<input id="u_name" value="admin" required spellcheck="false" autocomplete="off" /></label>
-            <label>E-mail<small>facultatif</small><input id="u_email" type="email" placeholder="admin@example.com" /></label>
-            <label>Mot de passe<span class="wz__pw"><input id="u_password" type="password" required autocomplete="new-password" /><button type="button" class="wz__eye" aria-label="Afficher">👁</button></span></label>
-            <label>Confirmer le mot de passe<input id="u_confirm" type="password" required autocomplete="new-password" /></label>
-          </div>
-          <ul class="wz__rules" data-for="u"></ul>
-          <footer>
-            <button type="button" class="wz__btn wz__btn--ghost" data-back>Retour</button>
-            <button type="submit" class="wz__btn wz__btn--primary" id="n3" disabled>Continuer</button>
-          </footer>
-        </form>
-      </section>
+        <!-- MariaDB -->
+        <section data-id="db" hidden>
+          <header><h2>Serveur MariaDB</h2><p class="lead">Un compte qui peut créer des bases et des comptes (root, en général). Il sert à cette installation seulement, jamais écrit.</p></header>
+          <div class="grid g-host"><label class="fl"><span>Serveur <small>DB_HOST</small></span><input id="s_host" placeholder="mariadb.corp.local" spellcheck="false" /></label>
+            <label class="fl"><span>Port <small>DB_PORT</small></span><input id="s_port" type="number" min="1" max="65535" value="3306" /></label></div>
+          <div class="grid g-2"><label class="fl">Compte administrateur<input id="s_user" value="root" spellcheck="false" /></label>
+            <label class="fl">Mot de passe<span class="pw"><input id="s_password" type="password" autocomplete="off" /><button type="button" class="eye" aria-label="Afficher le mot de passe"></button></span></label></div>
+          <div class="inline"><button type="button" class="btn" id="s_test">Tester la connexion</button><span class="hint">Obligatoire pour continuer.</span></div>
+          <div id="s_result" hidden></div>
+        </section>
 
-      <!-- 4. Modules -->
-      <section class="wz__step" data-step="4" hidden>
-        <header><span class="wz__eyebrow">Étape 4 sur 5</span><h2>Modules</h2>
-          <p>À quoi servira BornToShare : la gouvernance des accès, le 5S, ou les deux. Le module non choisi pourra être ajouté plus tard dans Réglages avancés › Fonctionnalités.</p></header>
-        <form id="f4" autocomplete="off" novalidate>
-          <div class="wz__mods">
-            <label class="wz__mod"><input type="checkbox" id="m_gov" checked />
-              <span><b>Gouvernance des accès</b><small>Demandes d'accès et décisions des gardiens, groupes créés dans l'annuaire, exposition des dossiers.</small>
-                <em class="wz__chip is-ok">Inclus</em></span></label>
-            <label class="wz__mod"><input type="checkbox" id="m_on" />
-              <span><b>5S et hygiène des données</b><small>Score 5S, doublons, âge des données, fichiers parasites, croissance, scanner sans agent, rapport 5S. Ses deux bases et son propre compte SQL.</small>
-                <em class="wz__chip">Licence requise</em></span></label>
+        <!-- Databases and accounts -->
+        <section data-id="bases" hidden>
+          <header><h2>Bases et comptes SQL</h2><p class="lead">Chaque usage a son compte, avec le minimum de droits ; les mots de passe sont générés et ne sont jamais affichés.</p></header>
+          <div class="grid g-2">
+            <label class="fl"><span>Base des données <small>DB_NAME</small></span><input id="a_db" spellcheck="false" /></label>
+            <label class="fl"><span>Base des journaux <small>LOGGING_DB_NAME</small></span><input id="a_log" spellcheck="false" /></label>
+            <label class="fl"><span>Compte de l’application <small>DB_USER</small></span><input id="a_user" spellcheck="false" /></label>
+            <label class="fl"><span>Compte de migration <small>DB_MIGRATE_USER</small></span><input id="a_migrate" spellcheck="false" /></label>
           </div>
-          <p id="m_none" class="wz__callout wz__callout--warn" hidden>Choisir au moins un module.</p>
-          <p id="m_only" class="wz__hint" hidden>5S seul : BornToShare lit l'annuaire et les serveurs, sans rien y créer. Les demandes d'accès et l'exposition restent masquées ; les gardiens d'un dossier y voient son 5S.</p>
+          <div id="a_exists" class="callout is-warn" hidden></div>
+          <div class="table">
+            <div class="tr th"><span>Compte</span><span>Droits</span><span>Son mot de passe</span></div>
+            <div class="tr"><span><code data-name="a_user"></code></span><span>lecture et écriture sur <code data-name="a_db"></code> ; ajout, lecture et purge sur <code data-name="a_log"></code></span><span class="muted" data-secret-where></span></div>
+            <div class="tr"><span><code data-name="a_migrate"></code></span><span>schéma et données, sur toutes les bases (installateur, mises à jour)</span><span class="muted" data-secret-where></span></div>
+          </div>
+          <p class="hint">Une base déjà présente est conservée ; un compte qui existe reçoit un nouveau mot de passe et exactement ces droits.</p>
+        </section>
 
-          <div id="m_fives" hidden>
-            <label>Clé de licence du 5S<textarea id="l_key" rows="3" placeholder="B2S-AAAAA-BBBBB-…" spellcheck="false"></textarea></label>
-            <div class="wz__inline"><button type="button" id="l_check" class="wz__btn">Vérifier la clé</button><span class="wz__hint">Vérifiée ici, sans connexion : rien ne sort de ce serveur.</span></div>
+        <!-- Web interface: containers -->
+        <section data-id="web" hidden>
+          <div data-for-mode="containers">
+            <header><h2>Accès à l’interface</h2><p class="lead">Le conteneur de l’interface est publié sur un port de ce serveur. L’adresse publique est celle que les utilisateurs taperont : elle sert aux liens des e-mails et à la protection des formulaires.</p></header>
+            <div class="grid g-host"><label class="fl"><span>Adresse publique <small>FRONTEND_PUBLIC_ORIGIN</small></span><input id="c_origin" placeholder="https://borntoshare.corp.local" spellcheck="false" /></label>
+              <label class="fl"><span>Port publié <small>FRONTEND_PUBLISHED_PORT</small></span><input id="c_port" type="number" min="1" max="65535" value="3000" /></label></div>
+            <div class="callout">Un reverse proxy de l’entreprise (F5, HAProxy, httpd existant) peut se placer devant ce port : l’adresse publique est alors la sienne. Pour que BornToShare le publie lui-même avec httpd, choisissez le mode Hybride.</div>
+          </div>
+          <div data-for-mode="httpd">
+            <header><h2>Interface web (httpd)</h2><p class="lead">L’interface tourne en service Node.js, sur 127.0.0.1:3000 ; Apache httpd la publie en HTTPS sous votre nom, avec votre certificat.</p></header>
+            <div class="stack-sm"><span class="label">Sur quel serveur ?</span>
+              <span class="seg" role="group" aria-label="Serveur de l'interface"><button type="button" data-web="local" class="is-on">Ce serveur</button><button type="button" data-web="annex">Un serveur web annexe</button></span>
+              <span class="hint" id="w_hint"></span></div>
+            <div class="grid g-2">
+              <label class="fl"><span>Nom d’hôte <small>ServerName</small></span><input id="h_name" placeholder="borntoshare.corp.local" spellcheck="false" /></label>
+              <label class="fl"><span>Port HTTPS <small>Listen</small></span><input id="h_port" type="number" min="1" max="65535" value="443" /></label>
+              <label class="fl"><span>Certificat <span data-on-annex>(sur l’annexe) </span><small>SSLCertificateFile</small></span><input id="h_cert" spellcheck="false" /></label>
+              <label class="fl"><span>Clé privée <span data-on-annex>(sur l’annexe) </span><small>SSLCertificateKeyFile</small></span><input id="h_key" spellcheck="false" /></label>
+            </div>
+            <div class="stack-sm"><span class="label">Écrit dans /etc/httpd/conf.d/borntoshare.conf</span><pre class="code" id="h_vhost"></pre></div>
+          </div>
+        </section>
+
+        <!-- Network (annex) -->
+        <section data-id="network" hidden>
+          <header><h2>Réseau entre les serveurs</h2><p class="lead">L’interface, sur le serveur annexe, appelle l’authentification et le core sur ce serveur. Ces ports sont publiés ici et ouverts à l’adresse du serveur annexe seulement.</p></header>
+          <div class="flow">
+            <div class="node"><b>Navigateurs</b><span>réseau des utilisateurs</span></div><span class="arrow" id="n_https">443 →</span>
+            <div class="node is-strong"><b>Serveur annexe</b><span class="mono" id="n_annex">httpd → node 127.0.0.1:3000</span></div><span class="arrow" id="n_ports"></span>
+            <div class="node"><b>Ce serveur</b><span class="mono" id="n_here"></span></div>
+          </div>
+          <div class="grid g-3">
+            <label class="fl"><span>Serveur annexe <small>B2S_WEB_HOST</small></span><input id="n_host" placeholder="web01.corp.local" spellcheck="false" /></label>
+            <label class="fl"><span>Son adresse IP <small>pare-feu</small></span><input id="n_ip" placeholder="10.0.0.21" spellcheck="false" /></label>
+            <label class="fl"><span>Ce serveur, vu de l’annexe <small>B2S_API_HOST</small></span><input id="n_api" placeholder="b2s01.corp.local" spellcheck="false" /></label>
+            <label class="fl"><span>Port de l’authentification <small>B2S_AUTH_PORT</small></span><input id="n_auth" type="number" value="8101" /></label>
+            <label class="fl"><span>Port du core <small>B2S_CORE_PORT</small></span><input id="n_core" type="number" value="8102" /></label>
+            <label class="fl" data-if-fives><span>Port du module 5S <small>B2S_FIVES_PORT</small></span><input id="n_fives" type="number" value="8105" /></label>
+          </div>
+          <div class="panel">
+            <span class="label">Installer l’interface sur le serveur annexe</span>
+            <span class="seg" role="group" aria-label="Méthode"><button type="button" data-push="ssh" class="is-on">Pousser par SSH</button><button type="button" data-push="bundle">Paquet à copier</button></span>
+            <div data-push-for="ssh" class="grid g-2">
+              <label class="fl"><span>Compte SSH (sudo sans mot de passe) <small>B2S_WEB_SSH_USER</small></span><input id="n_user" value="b2s-deploy" spellcheck="false" /></label>
+              <label class="fl"><span>Clé, sur ce serveur <small>B2S_WEB_SSH_KEY</small></span><input id="n_key" value="~/.ssh/id_ed25519" spellcheck="false" /></label>
+            </div>
+            <span data-push-for="ssh" class="hint">Clé seulement, jamais de mot de passe. Le déploiement copie l’interface, installe son service, le vhost et la règle SELinux sur l’annexe, puis vérifie qu’elle joint ce serveur.</span>
+            <span data-push-for="bundle" class="hint" hidden>Le déploiement prépare <code>dist/borntoshare-web.tar.gz</code> : à copier sur l’annexe, puis <code>sudo borntoshare-web/install-web.sh</code>. Il contient le jeton des services (fichier 0600) : à transférer par un canal sûr, puis à supprimer.</span>
+          </div>
+          <p class="hint" id="n_fw"></p>
+        </section>
+
+        <!-- Modules -->
+        <section data-id="modules" hidden>
+          <header><h2>Modules</h2><p class="lead">Les fonctions de BornToShare, et ce qu’il est utile de régler dès maintenant. Un module laissé de côté se règle plus tard dans Réglages avancés.</p></header>
+          <div class="grid g-2">
+            <button type="button" class="mod" data-mod="gov"><span class="mod__h"><b>Gouvernance des accès</b><span class="check">✓</span></span><span>Demandes et décisions des gardiens, groupes créés dans l’annuaire, revues des accès.</span><span class="mod__f"><em class="chip is-ok">Inclus</em><small>Réglages avancés › Fonctionnalités</small></span></button>
+            <button type="button" class="mod" data-mod="fives"><span class="mod__h"><b>5S et hygiène des données</b><span class="check">✓</span></span><span>Score 5S, doublons, âge des données, scanner sans agent. Deux bases et son compte SQL.</span><span class="mod__f"><em class="chip is-warn">Licence</em><small>en rejouant l’installateur</small></span></button>
+            <button type="button" class="mod" data-mod="smtp"><span class="mod__h"><b>Messagerie (SMTP)</b><span class="check">✓</span></span><span>Les e-mails aux gardiens et aux demandeurs. Sans elle, rien ne part : les tâches restent dans l’application.</span><span class="mod__f"><em class="chip">Une étape</em><small>ou Réglages avancés › Notifications</small></span></button>
+            <button type="button" class="mod" data-mod="syslog"><span class="mod__h"><b>Journal syslog</b><span class="check">✓</span></span><span>L’audit et les alertes vers votre SIEM, en RFC 5424, CEF ou JSON.</span><span class="mod__f"><em class="chip">Une étape</em><small>ou Réglages avancés › Extensions</small></span></button>
+          </div>
+          <p id="m_none" class="callout is-warn" hidden>Choisir au moins la gouvernance ou le 5S.</p>
+          <p id="m_only" class="hint" hidden>5S seul : BornToShare lit l’annuaire et les serveurs, sans rien y créer. Les demandes d’accès restent masquées.</p>
+          <div id="m_fives" class="panel" hidden>
+            <label class="fl">Clé de licence du 5S<textarea id="l_key" rows="2" placeholder="B2S-AAAAA-BBBBB-…" spellcheck="false"></textarea></label>
+            <div class="inline"><button type="button" id="l_check" class="btn is-sm">Vérifier la clé</button><span class="hint">Vérifiée ici, sans connexion : rien ne sort de ce serveur.</span></div>
             <div id="l_result" hidden></div>
-            <div id="m_fields" hidden>
-              <div class="wz__grid">
-                <label>Base du module<small>FIVES_DB_NAME</small><input id="m_db" required spellcheck="false" /></label>
-                <label>Base d'inventaire<small>FIVES_INVENTORY_DB_NAME</small><input id="m_inv" required spellcheck="false" /></label>
-                <label>Compte du module<small>FIVES_DB_USER</small><input id="m_user" required spellcheck="false" /></label>
-              </div>
+            <div id="m_fields" class="grid g-3" hidden>
+              <label class="fl"><span>Base <small>FIVES_DB_NAME</small></span><input id="m_db" spellcheck="false" /></label>
+              <label class="fl"><span>Inventaire <small>FIVES_INVENTORY_DB_NAME</small></span><input id="m_inv" spellcheck="false" /></label>
+              <label class="fl"><span>Compte <small>FIVES_DB_USER</small></span><input id="m_user" spellcheck="false" /></label>
             </div>
           </div>
-          <footer>
-            <button type="button" class="wz__btn wz__btn--ghost" data-back>Retour</button>
-            <button type="submit" class="wz__btn wz__btn--primary" id="n4">Continuer</button>
-          </footer>
-        </form>
-      </section>
+        </section>
 
-      <!-- 5. Summary and installation -->
-      <section class="wz__step" data-step="5" hidden>
-        <header><span class="wz__eyebrow">Étape 5 sur 5</span><h2 id="i_title">Prêt à installer</h2>
-          <p id="i_lead">Vérifier, puis installer. Une base déjà présente est conservée : rien n'est effacé, les paquets SQL s'appliquent à nouveau.</p></header>
-        <dl class="wz__summary" id="i_summary"></dl>
-        <ol class="wz__progress" id="i_progress" hidden></ol>
-        <div id="i_done" hidden>
-          <h3>Déploiement</h3>
-          <p class="wz__hint">Il suit l'installation de lui-même, sur ce serveur : rien à taper.</p>
-          <ol class="wz__progress" id="d_steps">
-            <li data-phase="0"><span class="wz__dot"></span><b>Secrets podman</b><small>les mots de passe des comptes quittent <code>secrets/</code></small></li>
-            <li data-phase="1"><span class="wz__dot"></span><b>Bases</b><small>paquets SQL, avec le compte de migration</small></li>
-            <li data-phase="2"><span class="wz__dot"></span><b>Point de retour</b><small>les images en service sont gardées</small></li>
-            <li data-phase="3"><span class="wz__dot"></span><b>Images et services</b><small>construction, puis démarrage</small></li>
-            <li data-phase="4"><span class="wz__dot"></span><b>Vérification</b><small>chaque service répond</small></li>
-          </ol>
-          <div id="d_waiting" class="wz__callout wz__callout--warn" hidden><b>Le déploiement automatique ne démarre pas</b>
-            Il est lancé par <code>make wizard</code> sur le serveur. Sinon : <code>make deploy</code>.</div>
-          <div id="d_failed" class="wz__result is-error" hidden><div class="wz__result-head"><b>Le déploiement s'est arrêté</b></div>
-            <pre class="wz__env" id="d_log"></pre><p class="wz__hint">Corriger, puis <code>make deploy</code> sur le serveur : il reprend tout, sans rien effacer.</p></div>
-          <div id="d_done" class="wz__result is-ok" hidden><div class="wz__result-head"><b>BornToShare est prêt</b></div>
-            <p class="wz__hint">Se connecter avec le compte <b id="i_admin"></b> et changer son mot de passe provisoire : l'assistant de premier lancement prend ensuite le relais. Ce wizard s'arrête de lui-même dans quelques minutes.</p>
-            <div class="wz__inline"><a id="d_open" class="wz__btn wz__btn--primary" target="_blank" rel="noopener">Ouvrir BornToShare</a></div></div>
-          <details class="wz__details"><summary>Ajouté à <code>.env</code></summary>
-            <p class="wz__hint">L'adresse du serveur, et les noms qui diffèrent de ceux par défaut : aucun mot de passe.</p>
-            <pre class="wz__env" id="i_env"></pre></details>
-        </div>
-        <footer>
-          <button type="button" class="wz__btn wz__btn--ghost" data-back id="i_back">Retour</button>
-          <button type="button" class="wz__btn wz__btn--primary" id="i_run">Installer</button>
-        </footer>
-      </section>
+        <!-- SMTP -->
+        <section data-id="smtp" hidden>
+          <header><h2>Messagerie (SMTP)</h2><p class="lead">Les e-mails de BornToShare : demandes à valider pour les gardiens, décisions, fins d’accès, revues. Repris dans Réglages avancés › Notifications.</p></header>
+          <div class="grid g-3">
+            <label class="fl">Serveur SMTP<input id="e_host" placeholder="smtp.corp.local" spellcheck="false" /></label>
+            <label class="fl">Port<input id="e_port" type="number" value="587" /></label>
+            <label class="fl">Sécurité<select id="e_security"><option value="starttls">STARTTLS</option><option value="tls">TLS</option><option value="none">Aucune</option></select></label>
+            <label class="fl">Expéditeur<input id="e_sender" placeholder="borntoshare@corp.local" spellcheck="false" /></label>
+            <label class="fl"><span>Compte <small>facultatif</small></span><input id="e_user" autocomplete="off" spellcheck="false" /></label>
+            <label class="fl"><span>Mot de passe <small>facultatif</small></span><span class="pw"><input id="e_password" type="password" autocomplete="off" /><button type="button" class="eye" aria-label="Afficher le mot de passe"></button></span></label>
+          </div>
+          <div class="inline is-end"><label class="fl w-320">Envoyer un test à<input id="e_to" type="email" placeholder="vous@corp.local" /></label><button type="button" class="btn" id="e_test">Envoyer le test</button></div>
+          <div id="e_result" hidden></div>
+          <p class="hint">Le mot de passe est chiffré par BornToShare au premier démarrage, avec sa clé ; d’ici là il attend dans <code>secrets/</code> (0600), jamais dans <code>.env</code>.</p>
+        </section>
 
-    </div>
-  </main>
+        <!-- Syslog -->
+        <section data-id="syslog" hidden>
+          <header><h2>Journal syslog</h2><p class="lead">Le journal d’audit et les alertes envoyés à votre collecteur (SIEM). Repris dans Réglages avancés › Extensions › Syslog.</p></header>
+          <div class="grid g-3">
+            <label class="fl">Collecteur<input id="y_host" placeholder="siem.corp.local" spellcheck="false" /></label>
+            <label class="fl">Port<input id="y_port" type="number" value="514" /></label>
+            <label class="fl">Transport<select id="y_transport"><option value="udp">UDP</option><option value="tcp">TCP</option><option value="tls">TLS</option></select></label>
+            <label class="fl">Format<select id="y_format"><option value="rfc5424">RFC 5424</option><option value="cef">CEF</option><option value="json">JSON</option></select></label>
+            <label class="fl">Facility<select id="y_facility"><option>local4</option><option>local0</option><option>local1</option><option>local2</option><option>local3</option><option>local5</option><option>local6</option><option>local7</option><option>auth</option><option>daemon</option><option>user</option></select></label>
+            <label class="fl">Alertes à partir de<select id="y_severity"><option value="high">Élevée</option><option value="warning">Avertissement</option><option value="critical">Critique</option><option value="info">Information</option></select></label>
+          </div>
+          <div class="inline"><label class="cb"><input type="checkbox" id="y_audit" checked />Journal d’audit</label><label class="cb"><input type="checkbox" id="y_alerts" checked />Alertes</label></div>
+          <div class="inline"><button type="button" class="btn" id="y_test">Envoyer un message de test</button><span id="y_result" class="hint"></span></div>
+        </section>
+
+        <!-- Administrator -->
+        <section data-id="admin" hidden>
+          <header><h2>Administrateur</h2><p class="lead">Le premier compte local. Il ouvre l’assistant de premier lancement (annuaire, serveurs, dossiers). Mot de passe provisoire, changé à la première connexion.</p></header>
+          <div class="grid g-2">
+            <label class="fl">Identifiant<input id="u_name" value="admin" spellcheck="false" autocomplete="off" /></label>
+            <label class="fl"><span>E-mail <small id="u_email_hint">facultatif</small></span><input id="u_email" type="email" placeholder="admin@corp.local" /></label>
+            <label class="fl">Mot de passe<span class="pw"><input id="u_password" type="password" autocomplete="new-password" /><button type="button" class="eye" aria-label="Afficher le mot de passe"></button></span></label>
+            <label class="fl">Confirmer<input id="u_confirm" type="password" autocomplete="new-password" /></label>
+          </div>
+          <ul class="rules" id="u_rules"></ul>
+        </section>
+
+        <!-- Summary -->
+        <section data-id="ready" hidden>
+          <header><h2>Ce qui va être installé</h2><p class="lead">Serveur par serveur. L’étape 1 prépare les bases et la configuration ; l’étape 2 démarre tout, d’elle-même. Rien n’est effacé, tout peut être rejoué.</p></header>
+          <div class="grid g-2" id="r_cards"></div>
+        </section>
+
+        <!-- Stage 1 running / result -->
+        <section data-id="p1" hidden>
+          <header><h2 id="p1_title">Préparation</h2><p class="lead" id="p1_lead">Bases, comptes et configuration, depuis l’installateur.</p></header>
+          <ol class="phases" id="p1_list"></ol>
+          <details class="details" id="p1_env" hidden><summary>Ajouté à <code>.env</code></summary><p class="hint">Aucun mot de passe.</p><pre class="code" id="p1_env_text"></pre></details>
+        </section>
+
+        <!-- Stage 1 done -->
+        <section data-id="done1" hidden>
+          <div class="center">
+            <span class="big-check is-ok"><svg width="30" height="30" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8.5 3 3 7-7"/></svg></span>
+            <h2>Étape 1 terminée</h2>
+            <p class="lead">Bases, comptes, administrateur et configuration sont prêts. Le déploiement a démarré <span id="d1_where">sur ce serveur</span>. Fenêtre fermée ? <code>make deploy</code> reprend au même point.</p>
+          </div>
+        </section>
+
+        <!-- Stage 2 -->
+        <section data-id="p2" hidden>
+          <header><h2 id="p2_title">Déploiement</h2><p class="lead" id="p2_lead">Depuis ce serveur, sans commande à taper. En cas d’arrêt : corriger, puis <code>make deploy</code> reprend tout, sans rien effacer.</p></header>
+          <div class="bar"><div class="bar__head"><b id="p2_phase">En attente du déploiement…</b><span class="mono" id="p2_pct">0 %</span></div><div class="bar__track"><div id="p2_fill"></div></div></div>
+          <ol class="phases" id="p2_list"></ol>
+          <div id="p2_waiting" class="callout is-warn" hidden><b>Le déploiement ne démarre pas.</b> Il est lancé par <code>make wizard</code> sur le serveur. Sinon : <code>make deploy</code>.</div>
+          <div id="p2_failed" class="result is-error" hidden><div class="result__head"><b>Le déploiement s’est arrêté</b></div><pre class="code" id="p2_log"></pre><p class="hint">Corriger, puis <code>make deploy</code> sur le serveur : il reprend tout, sans rien effacer.</p></div>
+        </section>
+
+        <!-- Ready -->
+        <section data-id="done2" hidden>
+          <div class="center">
+            <span class="big-check"><svg width="30" height="30" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8.5 3 3 7-7"/></svg></span>
+            <h2>BornToShare est prêt</h2>
+            <p class="lead">Connectez-vous avec <b id="d2_admin">admin</b> et changez son mot de passe provisoire : l’assistant de premier lancement prend le relais. L’installateur s’arrête de lui-même dans 3 minutes.</p>
+            <span class="url" id="d2_url"></span>
+          </div>
+        </section>
+      </div>
+      <footer class="win__foot">
+        <span class="hint" id="f_note"></span>
+        <span class="win__btns">
+          <button type="button" class="btn is-ghost" id="f_skip" hidden>Passer, régler plus tard</button>
+          <button type="button" class="btn is-ghost" id="f_cancel">Changer de type</button>
+          <button type="button" class="btn" id="f_back">Retour</button>
+          <button type="button" class="btn is-primary" id="f_next">Suivant</button>
+          <a class="btn is-primary" id="f_open" target="_blank" rel="noopener" hidden>Ouvrir BornToShare</a>
+        </span>
+      </footer>
+    </main>
+  </div>
 </div>
-<div class="wz__toast" id="toast" role="status" hidden></div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
 <script type="module" src="/static/app.js"></script>
 </body>
 </html>
