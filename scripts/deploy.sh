@@ -141,6 +141,24 @@ else
     done
   fi
   if [ -n "${LAKE:-}" ]; then $COMPOSE up -d --force-recreate --no-deps fives-lake; fi
+  # Podman as root with firewalld: netavark trusts only the networks that are not internal; the DNS of the internal
+  # ones (b2s-jobs, b2s-data), answered by the host on their gateway, falls in the default zone and is refused. Every
+  # name lookup then waits for that server (5 s) before asking the next one: calls between services time out now and
+  # then. Port 53 only, from these networks to this host: nothing else is opened, they stay internal.
+  if [ "$(id -u)" = 0 ] && systemctl is-active -q firewalld 2>/dev/null; then
+    for net in b2s-jobs b2s-data; do
+      subnet=$(podman network inspect "$net" --format '{{range .Subnets}}{{.Subnet}} {{end}}' 2>/dev/null | awk '{print $1}')
+      [ -n "$subnet" ] || continue
+      for proto in udp tcp; do
+        rule="rule family=\"ipv4\" source address=\"$subnet\" port port=\"53\" protocol=\"$proto\" accept"
+        for scope in --permanent ""; do
+          # shellcheck disable=SC2086
+          firewall-cmd -q $scope --query-rich-rule="$rule" || firewall-cmd -q $scope --add-rich-rule="$rule"
+        done
+      done
+    done
+    echo "  firewalld : DNS des réseaux internes de podman autorisé (port 53 seulement)"
+  fi
   # Hybrid: the container of the interface of an earlier installation in containers is stopped (httpd replaces it)
   if [ "$MODE" = hybrid ] && podman container exists frontend-service; then
     podman stop frontend-service >/dev/null && echo "  conteneur frontend-service arrêté : l'interface passe par httpd"
