@@ -15,7 +15,7 @@
  */
 
 import { LOCALE_COOKIE, isLocale, localeFromAcceptLanguage, type Locale } from './lib/i18n';
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, HandleFetch } from '@sveltejs/kit';
 import { redirect } from '@sveltejs/kit';
 import { isPublicPath, shouldSkipHydration } from './lib/server/routing/public-paths';
 import { proxyApi } from './lib/server/bff/proxy';
@@ -63,6 +63,26 @@ function withSecurityHeaders(response: Response): Response {
 }
 
 export const handle: Handle = async (input) => withSecurityHeaders(await handleRequest(input));
+
+/**
+ * The calls of the server to its own routes (the sign-in action calls /api/auth/login, a page load /api/…) carry the
+ * address of the person. Behind httpd, the interface reads that address in X-Forwarded-For (ADDRESS_HEADER): such a
+ * call has none, and getClientAddress() would throw (500 on the sign-in). The address of the original request is set
+ * on it, so that the limits per address of auth-service see the person, not 127.0.0.1.
+ */
+export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
+  if (new URL(request.url).origin !== event.url.origin) return fetch(request);
+  let address: string | null = null;
+  try {
+    address = event.getClientAddress();
+  } catch {
+    address = null;
+  }
+  if (!address) return fetch(request);
+  const headers = new Headers(request.headers);
+  headers.set('x-forwarded-for', address);
+  return fetch(new Request(request, { headers }));
+};
 
 const handleRequest: Handle = async ({ event, resolve }) => {
   const { url } = event;

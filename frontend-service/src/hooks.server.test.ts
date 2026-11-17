@@ -426,6 +426,27 @@ async function testAdminRoutesAreCheckedOnTheRequestedPath() {
   assert(search.status === 200, 'a signed-in user can search people (core-service checks the rest)');
 }
 
+async function testInternalCallsCarryTheAddressOfThePerson() {
+  await createHandleDeps();
+  const { handleFetch } = await import('./hooks.server');
+  const seen: Request[] = [];
+  const fetch = (async (request: Request) => {
+    seen.push(request);
+    return new Response('{}');
+  }) as any;
+  const event = { url: new URL('https://borntoshare.local/login'), getClientAddress: () => '10.1.2.3' } as any;
+  // Behind httpd: the sign-in action calls /api/auth/login on the interface itself
+  await handleFetch({ event, request: new Request('https://borntoshare.local/api/auth/login', { method: 'POST', body: '{}' }), fetch } as any);
+  assert(seen[0].headers.get('x-forwarded-for') === '10.1.2.3', 'an internal call should carry the address of the person');
+  // Another site: nothing added
+  await handleFetch({ event, request: new Request('https://other.example/x'), fetch } as any);
+  assert(seen[1].headers.get('x-forwarded-for') === null, 'a call to another site should not get the address');
+  // No address known: the call goes on, without the header (no failure)
+  const unknown = { url: event.url, getClientAddress: () => { throw new Error('Address header was specified with ADDRESS_HEADER=x-forwarded-for but is absent from request'); } } as any;
+  await handleFetch({ event: unknown, request: new Request('https://borntoshare.local/api/auth/providers'), fetch } as any);
+  assert(seen.length === 3 && seen[2].headers.get('x-forwarded-for') === null, 'without an address the internal call should still go');
+}
+
 async function run() {
   await testValidSnapshotSkipsAuthMe();
   await testAbsentSnapshotFallsBackToAuthMe();
@@ -440,6 +461,7 @@ async function run() {
   await testSignInRoutesStayPublicWithoutTrustedHeaders();
   await testClientHeadersNeverOverrideTheSession();
   await testAdminRoutesAreCheckedOnTheRequestedPath();
+  await testInternalCallsCarryTheAddressOfThePerson();
 }
 
 run().catch((err) => {

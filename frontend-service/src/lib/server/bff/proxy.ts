@@ -207,7 +207,13 @@ export async function proxyApi(event: RequestEvent): Promise<Response> {
 
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', url.protocol.replace(':', ''));
-  headers.set('x-forwarded-for', event.getClientAddress());
+  // The address of the person; none known (a direct call to the interface, behind httpd, without X-Forwarded-For):
+  // nothing forwarded rather than a failure
+  try {
+    headers.set('x-forwarded-for', event.getClientAddress());
+  } catch {
+    headers.delete('x-forwarded-for');
+  }
   headers.set('x-request-id', requestId);
 
   const me = (event.locals as { me?: BffMe | null })?.me ?? null;
