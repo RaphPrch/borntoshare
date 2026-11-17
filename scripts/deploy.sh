@@ -197,7 +197,9 @@ fi
 
 phase check "$MODE"
 wait_healthy
-[ "$MODE" != native ] && { podman image prune -f >/dev/null 2>&1 || true; }
+# Images without a name, after a week only: the build stages (the Kerberos wheels compiled with gcc, minutes) stay in
+# the cache for the next deployments
+[ "$MODE" != native ] && { podman image prune -f --filter until=168h >/dev/null 2>&1 || true; }
 
 if [ "$MODE" = native ]; then
   cat <<ROLLBACK
