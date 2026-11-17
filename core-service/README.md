@@ -41,7 +41,7 @@ et trace ; il ne parle jamais à l'AD ni aux serveurs : il publie des travaux qu
 
 ## Variables
 
-Lues par pydantic-settings (`app/core/config.py`) : `INTERNAL_TOKEN`, `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` (ou `DB_PASSWORD_FILE`, comme pour chaque mot de passe : lu par `app/secret_files.py`) et
+Lues par pydantic-settings (`app/core/config.py`) : `INTERNAL_TOKEN` (ou `INTERNAL_TOKEN_FILE`, le secret podman `b2s_internal_token`), `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` (ou `DB_PASSWORD_FILE`, comme pour chaque mot de passe : lu par `app/secret_files.py`) et
 `CAPSULE_BROKER_URL` sont obligatoires (le service refuse de démarrer sans eux) ; `DB_PORT`, `LOGGING_DB_NAME`
 (la base d'audit reprend le serveur et le compte de `DB_*`), `B2S_SECRET_MASTER_KEY`, `B2S_RUNTIME_DIR` ; autorité privée des agents : `certs/agent-ca.pem`. Toute requête sauf `/health` exige le
 jeton interne. Voir

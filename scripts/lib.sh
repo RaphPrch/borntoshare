@@ -46,3 +46,9 @@ as_root() {
 
 # Installation without container: the secrets are files of /etc/borntoshare/secrets (0400, user b2s)
 NATIVE_SECRETS=/etc/borntoshare/secrets
+
+# The value of a secret, on stdout (for a file or a pipe only, never shown): secret_value NAME
+secret_value() {
+  if [ "$(deploy_mode)" = native ]; then as_root cat "$NATIVE_SECRETS/$1"; return; fi
+  podman secret inspect --showsecret --format '{{.SecretData}}' "$1"
+}

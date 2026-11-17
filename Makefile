@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: backup help build up down restart ps logs logs-% wizard wizard-check wizard-down reset-admin otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
+.PHONY: backup help build up down restart ps logs logs-% wizard wizard-check wizard-down rotate-tokens reset-admin otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
 
 help:
 	@echo "make build          build the images"
@@ -17,6 +17,7 @@ help:
 	@echo "make wizard         start the database wizard (http://<host>:\$$WIZARD_PORT)"
 	@echo "make wizard-check   read the prerequisites again (shown by the wizard)"
 	@echo "make wizard-down    stop the wizard"
+	@echo "make rotate-tokens  new token of the services (WHICH=session|all CONFIRM=oui: new key of the sessions)"
 	@echo "make reset-admin    lost password of a local account (ACCOUNT=admin): a temporary one, to change at sign-in"
 	@echo "make clean          stop, then remove unused images and the Redis queue"
 	@echo "make deploy         database packs, rollback point, build and recreate the services"
@@ -24,8 +25,13 @@ help:
 	@echo "make ad-lab-up      test Active Directory adlab.example.test (end-to-end tests, never in production)"
 	@echo "make ad-lab-down    stop it (data kept)     make ad-lab-reset: stop and delete its domain"
 
+# No .env yet: the example, as it is (no password nor key to type: make deploy generates them as podman secrets)
 .env:
-	@echo "Missing .env: copy .env.example to .env and fill it in." && exit 1
+	@install -m 600 .env.example .env && echo ".env créé depuis .env.example (rien à remplir : les clés sont générées)"
+
+# New token of the services (WHICH=internal), or new key of the sessions (WHICH=session|all CONFIRM=oui: everyone signs in again)
+rotate-tokens: .env
+	@WHICH="$(or $(WHICH),internal)" CONFIRM="$(CONFIRM)" scripts/rotate-tokens.sh
 
 deploy: .env
 	./scripts/deploy.sh

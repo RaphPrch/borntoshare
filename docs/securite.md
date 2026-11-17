@@ -15,9 +15,9 @@
 
 | Élément | Où | Rôle | Protection |
 |---|---|---|---|
-| `INTERNAL_TOKEN` | Tous les services | En-tête `X-Internal-Token` sur chaque appel entre services | Comparaison à temps constant ; refusé si absent ; jamais exposé au navigateur |
+| `INTERNAL_TOKEN` (secret `b2s_internal_token`) | Tous les services | En-tête `X-Internal-Token` sur chaque appel entre services | Généré par `make deploy`, lu depuis un fichier 0400 (jamais dans l'environnement ni dans `.env`) ; comparaison à temps constant ; refusé si absent ; jamais exposé au navigateur ; `make rotate-tokens` |
 | Cookie `b2s_session` | Navigateur ↔ frontend | Session de l'utilisateur, stockée dans Redis (base 1) | `HttpOnly`, `Secure` en HTTPS, `SameSite=Lax` ; durées réglables (Settings › Sessions utilisateur) ; révocable |
-| Cookie `b2s_principal` | Navigateur ↔ frontend | Identité et rôles de l'utilisateur, signés par `PRINCIPAL_SIGNING_KEY` | Signature vérifiée à chaque requête ; durée de 60 s : un changement de droits ou une révocation s'applique en une minute |
+| Cookie `b2s_principal` | Navigateur ↔ frontend | Identité et rôles de l'utilisateur, signés par `PRINCIPAL_SIGNING_KEY` (secret `b2s_principal_key`) | Signature vérifiée à chaque requête ; durée de 60 s : un changement de droits ou une révocation s'applique en une minute |
 | Identité de l'utilisateur | frontend → core | En-têtes `X-Identity-Id`, `X-Roles`, posés par le BFF | core-service exige le jeton interne sur **toutes** ses requêtes (sauf `/health`) : sans lui, ces en-têtes ne sont pas lus (401). Le navigateur ne peut pas les forger |
 | Clé `b2s_master_key` | core-service | Chiffre les mots de passe stockés (AES-256-GCM, la référence du secret comme donnée associée) | Secret podman (fichier 0400 dans core-service seul, ni dans `.env` ni dans l'environnement) ; jamais en base ; à sauvegarder à part |
 | Identifiants d'agent | core → worker | Vérification de la santé du worker | HTTPS avec `certs/agent.crt` et `agent.key` ; autorité privée `certs/agent-ca.pem` |
@@ -106,7 +106,9 @@ Un gardien ne valide pas sa propre demande : un autre gardien ou un administrate
 
 ## À faire en production
 
-- Secrets générés aléatoirement (`PRINCIPAL_SIGNING_KEY` est refusée si c'est la clé par défaut), `.env` en `chmod 600`.
+- Secrets générés aléatoirement par `make deploy` (jeton des services, clé de session, Redis, clé maître), lus depuis
+  des fichiers 0400 ; aucun dans `.env` (`chmod 600`) ni dans `podman inspect`. Une valeur d'exemple de `.env.example`
+  n'est jamais reprise ; la clé de session par défaut est refusée au démarrage. Changement : `make rotate-tokens`.
 - HTTPS devant le port 3000, et `FRONTEND_PUBLIC_ORIGIN` en `https://`.
 - Agent du worker en HTTPS (`capsule-runner/certs/agent.crt` et `agent.key`).
 - `make wizard-down` dès la fin de l'installation.

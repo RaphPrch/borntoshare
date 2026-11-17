@@ -39,3 +39,12 @@ def test_same_loader_in_every_service():
         pytest.skip("the other services are not next to core-service")
     mine = Path(secret_files.__file__).read_text()
     assert [path.read_text() == mine for path in copies] == [True] * len(copies)
+
+
+def test_the_token_of_the_services_and_the_session_key_come_from_their_files(tmp_path):
+    # make deploy generates them as podman secrets: nothing in .env, nothing in the environment of the container
+    (tmp_path / "token").write_text("t" * 48 + "\n")
+    (tmp_path / "key").write_text("k" * 48)
+    env = {"INTERNAL_TOKEN_FILE": str(tmp_path / "token"), "PRINCIPAL_SIGNING_KEY_FILE": str(tmp_path / "key")}
+    secret_files.load(env)
+    assert env["INTERNAL_TOKEN"] == "t" * 48 and env["PRINCIPAL_SIGNING_KEY"] == "k" * 48

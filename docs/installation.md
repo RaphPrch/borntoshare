@@ -17,14 +17,15 @@ Un seul fichier à la racine du dépôt configure toute la pile. Il n'y a pas de
 qu'il lit (`podman-compose.yml`).
 
 ```bash
-cp .env.example .env
+cp .env.example .env     # facultatif : make wizard le fait s'il manque
 chmod 600 .env
 ```
 
+Il n'y a **rien à remplir** pour démarrer : ni mot de passe, ni jeton, ni clé. Le wizard complète les lignes de
+l'installation (serveur MariaDB, façon d'installer, interface) ; les secrets sont générés par `make deploy`.
+
 | Variable | Lue par | Valeur |
 |---|---|---|
-| `INTERNAL_TOKEN` | tous | Jeton partagé entre les services, 32 caractères aléatoires au moins |
-| `PRINCIPAL_SIGNING_KEY` | auth-service, frontend | Clé de signature du cookie de session, 32 caractères aléatoires au moins ; la clé par défaut est refusée |
 | `DB_HOST` | tous | Serveur MariaDB : la seule ligne requise pour la base (`DB_PORT` : 3306 par défaut) |
 | `DB_NAME`, `LOGGING_DB_NAME` | core-service | Facultatifs (`borntoshare`, `borntoshare_logging`) : bases des données et de l'audit, créées par le wizard |
 | `DB_USER` | core-service | Facultatif (`b2s_core`) : compte SQL de l'application, lecture et écriture, créé par le wizard |
@@ -44,8 +45,32 @@ dans `.env` ni dans `podman inspect`. `make deploy` (`scripts/secrets.sh`) les c
 | `b2s_db_core`, `b2s_db_migrate`, `b2s_db_fives` | core ; `make deploy` et `make backup` ; module 5S | Générés par le wizard, écrits dans `secrets/` (0600), importés puis supprimés par `make deploy` |
 | `b2s_redis` | redis, auth, core, worker | Généré par `make deploy` (ou repris de `REDIS_PASSWORD` d'un ancien `.env`) |
 | `b2s_master_key` | core-service | Généré par `make deploy` (ou repris de `B2S_SECRET_MASTER_KEY`) : chiffre les mots de passe stockés. **À sauvegarder à part** |
+| `b2s_internal_token` | tous les services | Jeton partagé entre les services (en-tête `X-Internal-Token`). Généré par `make deploy` (48 caractères) ou repris de `INTERNAL_TOKEN` d'un ancien `.env` |
+| `b2s_principal_key` | auth-service, frontend | Clé de signature du cookie de session. Générée par `make deploy` ou reprise de `PRINCIPAL_SIGNING_KEY` d'un ancien `.env` |
 
-Générer un secret : `openssl rand -base64 48 | tr -d '/+=' | cut -c1-48`.
+Chaque service lit un secret depuis son fichier (`NOM_FILE=/run/secrets/b2s_…`, `app/secret_files.py` pour les
+services Python, `src/lib/server/secret-files.ts` pour l'interface) : la valeur n'est jamais dans l'environnement du
+conteneur. **Mise à niveau** : une ligne `INTERNAL_TOKEN=` ou `PRINCIPAL_SIGNING_KEY=` encore dans `.env` est reprise
+telle quelle dans son secret au `make deploy` suivant (les sessions en cours restent valides), puis retirée ; une
+valeur d'exemple (« change-me… ») n'est jamais reprise : un secret neuf est généré.
+
+Sans conteneur, les mêmes secrets sont des fichiers de `/etc/borntoshare/secrets` (0400, compte `b2s`) ; l'interface
+sous httpd a sa copie des deux siens dans `/etc/borntoshare/web-secrets` (0440, compte `b2s-web`). `/etc/borntoshare`
+lui-même est en 0755 root : chacun de ses contenus garde ses propres droits.
+
+### Changer le jeton et la clé de session
+
+```bash
+make rotate-tokens                              # nouveau jeton des services : personne ne s'en aperçoit
+make rotate-tokens WHICH=session CONFIRM=oui    # nouvelle clé de session : TOUT LE MONDE se reconnecte
+make rotate-tokens WHICH=all CONFIRM=oui        # les deux
+```
+
+Le secret reçoit une valeur neuve, puis les services qui le lisent sont recréés (conteneurs) ou redémarrés
+(systemd) ; l'interface sous httpd reçoit sa copie (même serveur) ou son paquet à nouveau (serveur annexe, par SSH ou
+paquet à copier). À faire après le départ d'un administrateur qui a eu accès au serveur, ou en cas de doute. Un worker
+installé sur un **autre serveur** partage le jeton : lui donner la nouvelle valeur (voir
+[infrastructure.md](infrastructure.md#workers)).
 
 Les certificats ne passent pas par une variable : on les dépose dans `capsule-runner/certs/`, monté en lecture
 seule dans `/etc/b2s/certs` par auth-service, core-service et capsule-runner. Chaque fichier est pris en compte

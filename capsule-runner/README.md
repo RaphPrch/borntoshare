@@ -51,7 +51,7 @@ Les scripts PowerShell restent courts (la ligne de commande de WinRM est limité
 
 ## Variables
 
-`INTERNAL_TOKEN`, `CAPSULE_BROKER_URL`, `RUNNER_MAX_SCOPE` (`read` ou `write`). Certificats de l'agent :
+`INTERNAL_TOKEN` (ou `INTERNAL_TOKEN_FILE` : le secret `b2s_internal_token`, généré par `make deploy`), `CAPSULE_BROKER_URL`, `RUNNER_MAX_SCOPE` (`read` ou `write`). Certificats de l'agent :
 [certs/README.md](certs/README.md).
 
 ## Tests

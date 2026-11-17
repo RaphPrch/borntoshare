@@ -52,11 +52,11 @@ flowchart LR
 
 ## Démarrer
 
-1. Préparer une base MariaDB et un hôte Linux avec Podman : [docs/installation.md](docs/installation.md).
-2. `cp .env.example .env && chmod 600 .env`, puis renseigner chaque valeur.
-3. `make wizard` : le wizard crée les bases, le compte SQL de l'application et le premier administrateur.
-4. `make wizard-down`, puis `make up` : l'application répond sur `FRONTEND_PUBLIC_ORIGIN`.
-5. À la première connexion, l'assistant de premier démarrage (`/setup`) déclare l'annuaire, le premier serveur
+1. Préparer une base MariaDB et un hôte Linux (avec Podman, ou sans conteneur) : [docs/installation.md](docs/installation.md).
+2. `make wizard` (`make wizard WIZARD=native` pour le lancer sans conteneur) : il crée `.env` s'il manque — rien à y
+   remplir, les mots de passe, le jeton des services et la clé de session sont générés —, puis les bases, les comptes
+   SQL et le premier administrateur, et déploie de lui-même la façon d'installer choisie.
+3. À la première connexion, l'assistant de premier démarrage (`/setup`) déclare l'annuaire, le premier serveur
    de fichiers et les premiers dossiers.
 
 Mises à jour : `make deploy` (paquets SQL, point de retour, reconstruction). Voir [docs/installation.md](docs/installation.md).
@@ -87,7 +87,8 @@ Mises à jour : `make deploy` (paquets SQL, point de retour, reconstruction). Vo
 make up | down | restart | ps | logs | logs-<service>
 make deploy            mise à jour : paquets SQL, point de retour, reconstruction (FORCE=1 pendant une mesure 5S)
 make backup            sauvegarde des deux bases dans backups/ (pas la clé des secrets)
-make wizard            wizard d'initialisation ; make wizard-down pour l'arrêter
+make wizard            wizard d'installation (WIZARD=native : sans conteneur) ; make wizard-down pour l'arrêter
+make rotate-tokens     nouveau jeton des services ; WHICH=session|all CONFIRM=oui : nouvelle clé de session (tous se reconnectent)
 make ad-lab-up         AD de test pour les tests de bout en bout (jamais en production)
 make mail-up           serveur de mails de test Mailpit, http://<hôte>:8025 (jamais en production)
 make lint              contrôle du code Python des quatre services (Ruff, règles dans ruff.toml)

@@ -1,4 +1,5 @@
 import type { RequestEvent } from '@sveltejs/kit';
+import { serverSecret } from '../secret-files';
 
 import { normalizeMe, type Me } from '../../types/me';
 import { getServiceBaseUrl } from '../service-routes';
@@ -40,7 +41,7 @@ const DEV_PRINCIPAL_SIGNING_KEY = 'dev-principal-key';
 // The principal cookie carries the user's roles: a publicly known key would let anyone forge an admin.
 // The production server refuses to sign or read it with the built-in key; checked at first use, not at build.
 function principalSigningKey(): string {
-  const key = env.PRINCIPAL_SIGNING_KEY || DEV_PRINCIPAL_SIGNING_KEY;
+  const key = serverSecret('PRINCIPAL_SIGNING_KEY') || DEV_PRINCIPAL_SIGNING_KEY;
   if (key === DEV_PRINCIPAL_SIGNING_KEY && env.NODE_ENV === 'production') {
     throw new Error('PRINCIPAL_SIGNING_KEY must be set');
   }

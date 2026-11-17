@@ -54,7 +54,8 @@ premier démarrage. Interface pour poste de travail uniquement.
 
 ## Variables
 
-`INTERNAL_TOKEN`, `PRINCIPAL_SIGNING_KEY` (obligatoire en production), `ORIGIN` (`FRONTEND_PUBLIC_ORIGIN`), `B2S_AUTH_URL`,
+`INTERNAL_TOKEN`, `PRINCIPAL_SIGNING_KEY` (obligatoire en production) — ou, comme en production, leurs fichiers
+`INTERNAL_TOKEN_FILE` et `PRINCIPAL_SIGNING_KEY_FILE` (`src/lib/server/secret-files.ts`, secrets générés par `make deploy`), `ORIGIN` (`FRONTEND_PUBLIC_ORIGIN`), `B2S_AUTH_URL`,
 `B2S_CORE_URL` ; au build, `B2S_VERSION` (version affichée dans le menu, fournie par `make deploy`).
 
 ## Développement

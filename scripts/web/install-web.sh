@@ -2,8 +2,8 @@
 # Installs the web interface of BornToShare on THIS server, published by Apache httpd (run as root, from the package
 # made by scripts/web/build-web.sh: on the server of BornToShare, or copied to an annex web server).
 #   - /opt/borntoshare/web: the interface (the one it replaces stays in web.previous, the rollback point);
-#   - service b2s-web (Node.js on 127.0.0.1:3000, user b2s-web), its environment in /etc/borntoshare/web.env and
-#     web.secrets (0640 root:b2s-web);
+#   - service b2s-web (Node.js on 127.0.0.1:3000, user b2s-web), its environment in /etc/borntoshare/web.env (0640) and
+#     its two secrets as files in /etc/borntoshare/web-secrets (0440 root:b2s-web);
 #   - /etc/httpd/conf.d/borntoshare.conf: HTTPS with the certificate given, HTTP redirected;
 #   - SELinux (httpd may reach the interface), firewalld (HTTPS and HTTP open);
 #   - checks: the configuration of httpd, then the sign-in page through httpd, then the services behind.
@@ -36,7 +36,8 @@ fi
 WEB="$STAGE/opt/borntoshare/web"
 ETC="$STAGE/etc/borntoshare"
 install -d -m 0755 "$STAGE/opt/borntoshare"
-install -d -m 0750 "$ETC"
+# Crossed by the accounts of the services too (b2s): never given to b2s-web, only web.env and web-secrets are
+install -d -m 0755 "$ETC"
 # The interface: the running one becomes the rollback point
 rm -rf "$WEB.next"
 cp -r app "$WEB.next"
@@ -44,8 +45,13 @@ if [ -d "$WEB" ]; then rm -rf "$WEB.previous"; mv "$WEB" "$WEB.previous"; fi
 mv "$WEB.next" "$WEB"
 chmod -R a+rX,go-w "$WEB"
 install -m 0640 web.env "$ETC/web.env"
-install -m 0640 web.secrets "$ETC/web.secrets"
-if [ -z "$STAGE" ]; then chown root:b2s-web "$ETC" "$ETC/web.env" "$ETC/web.secrets"; fi
+install -d -m 0750 "$ETC/web-secrets"
+install -m 0440 secrets/b2s_internal_token secrets/b2s_principal_key "$ETC/web-secrets/"
+if [ -z "$STAGE" ]; then
+  chmod 0755 "$ETC"
+  chown root:b2s-web "$ETC/web.env" "$ETC/web-secrets" "$ETC/web-secrets/b2s_internal_token" "$ETC/web-secrets/b2s_principal_key"
+  rm -f "$ETC/web.secrets"  # the values in clear of earlier versions
+fi
 
 install -d "$STAGE/etc/systemd/system"
 cat > "$STAGE/etc/systemd/system/b2s-web.service" <<UNIT
@@ -59,7 +65,6 @@ User=b2s-web
 Group=b2s-web
 WorkingDirectory=/opt/borntoshare/web
 EnvironmentFile=/etc/borntoshare/web.env
-EnvironmentFile=/etc/borntoshare/web.secrets
 ExecStart=$NODE build/index.js
 Restart=on-failure
 RestartSec=5

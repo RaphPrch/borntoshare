@@ -9,6 +9,7 @@
     "build": "LC_ALL=C LANG=C node ./node_modules/vite/bin/vite.js build --logLevel error",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "test:auth-snapshot": "npx tsx ./src/lib/server/auth/principal-cookie.test.ts && npx tsx ./src/hooks.server.test.ts",
+    "test:secret-files": "npx tsx ./src/lib/server/secret-files.test.ts",
     "test:identity-sources-mapper": "npx tsx ./src/lib/mappers/identity-sources.mapper.test.ts",
     "test:principal-search": "npx tsx ./src/lib/utils/principal-search.test.ts",
     "test:zone-summary": "npx tsx ./src/lib/components/zones/zone-summary.test.ts",

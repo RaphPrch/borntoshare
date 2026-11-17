@@ -3,7 +3,8 @@
 # idempotent. Never prints a value.
 #   1. imports the files the wizard wrote in secrets/ (passwords of the SQL accounts), then removes them;
 #   2. moves into secrets the passwords still in .env (installations from before), then removes their lines;
-#   3. generates those that do not exist yet (key of the stored passwords, Redis).
+#   3. generates those that do not exist yet (key of the stored passwords, Redis, token of the services, key of the
+#      session cookie): nothing to type, nothing in .env.
 # The key b2s_master_key encrypts the passwords stored by the application: back it up apart from the databases
 #   podman secret inspect --showsecret --format '{{.SecretData}}' b2s_master_key
 set -euo pipefail
@@ -29,6 +30,8 @@ move() {  # secret variable
   local name=$1 var=$2 value
   value="$(env_value "$var")"
   [ -n "$value" ] || return 0
+  # The placeholder of .env.example is not a value: the line goes, the secret is generated below
+  case "$value" in change-me*) sed -i "/^$var=/d" .env; echo ".env: $var (valeur d'exemple) retiré"; return 0 ;; esac
   if ! has_secret "$name"; then
     printf '%s' "$value" | put "$name"
     echo "secret $name: moved from .env ($var)"
@@ -41,6 +44,8 @@ move() {  # secret variable
 }
 move b2s_master_key B2S_SECRET_MASTER_KEY
 move b2s_redis REDIS_PASSWORD
+move b2s_internal_token INTERNAL_TOKEN
+move b2s_principal_key PRINCIPAL_SIGNING_KEY
 # Passwords of the SQL accounts of before: replaced by the accounts of the wizard
 for pair in "b2s_db_core DB_PASSWORD" "b2s_db_fives FIVES_DB_PASSWORD"; do
   set -- $pair
@@ -55,6 +60,12 @@ if ! has_secret b2s_master_key; then
   head -c 32 /dev/urandom | base64 | tr -d '\n' | put b2s_master_key
   echo "secret b2s_master_key: generated (back it up: see the top of scripts/secrets.sh)"
 fi
+for name in b2s_internal_token b2s_principal_key; do
+  if ! has_secret "$name"; then
+    head -c 64 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 48 | put "$name"
+    echo "secret $name: generated"
+  fi
+done
 if ! has_secret b2s_redis; then
   head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40 | put b2s_redis
   echo "secret b2s_redis: generated"

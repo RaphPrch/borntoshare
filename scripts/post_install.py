@@ -2,7 +2,7 @@
 
 Reads on stdin {"core_url", "smtp", "smtp_password", "syslog"}; the core checks each setting as its pages do, and keeps
 the SMTP password in its own store (encrypted with its master key). The token of the services is read from the
-environment (INTERNAL_TOKEN), never from an argument. Prints one line per setting, never a password.
+environment (INTERNAL_TOKEN_FILE, its secret file), never from an argument. Prints one line per setting, never a password.
 Standard library only: it runs in the core container, or with the Python of the host (installation without
 container).
 """
@@ -13,8 +13,17 @@ import urllib.error
 import urllib.request
 
 
+def _token():
+    """The token of the services: INTERNAL_TOKEN_FILE (its secret file, as the services read it), else INTERNAL_TOKEN."""
+    path = os.environ.get("INTERNAL_TOKEN_FILE", "").strip()
+    if path:
+        with open(path, encoding="utf-8") as handle:
+            return handle.read().strip()
+    return os.environ.get("INTERNAL_TOKEN", "").strip()
+
+
 def call(base, method, path, body):
-    token = os.environ.get("INTERNAL_TOKEN", "").strip()
+    token = _token()
     if not token:
         raise SystemExit("INTERNAL_TOKEN absent")
     request = urllib.request.Request(base.rstrip("/") + path, method=method, data=json.dumps(body).encode("utf-8"), headers={

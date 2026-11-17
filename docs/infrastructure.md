@@ -131,7 +131,18 @@ Changer de serveur, de bases ou de comptes : le wizard (`make wizard`), puis `ma
 Un worker (capsule-runner) lit ses tâches dans la file Redis ; il expose en plus un **agent HTTPS** que core-service interroge
 (processus actifs, file joignable, tâches en attente, version, vérification LDAPS).
 
-Le worker a le même `INTERNAL_TOKEN` que core-service. Pour le HTTPS (recommandé), déposer son certificat et sa
+Le worker a le même jeton que core-service (`INTERNAL_TOKEN`, secret `b2s_internal_token`). Sur le serveur de
+BornToShare, rien à faire. Un worker installé sur **un autre serveur** reçoit ce jeton dans un fichier 0400 (jamais
+en variable), lu par `INTERNAL_TOKEN_FILE` :
+
+```bash
+# sur le serveur de BornToShare : la valeur, copiée par un canal sûr (jamais affichée à l'écran partagé)
+podman secret inspect --showsecret --format '{{.SecretData}}' b2s_internal_token > token && chmod 600 token
+# sans conteneur : /etc/borntoshare/secrets/b2s_internal_token
+```
+
+Après `make rotate-tokens`, le refaire pour chaque worker distant : jusque-là il est refusé (« L'agent a refusé ce
+serveur »). Pour le HTTPS (recommandé), déposer son certificat et sa
 clé dans `capsule-runner/certs/` sous les noms `agent.crt` et `agent.key` : l'agent répond alors sur 8443. **Sans
 eux, il répond en HTTP sur le port 8080** (décocher « HTTPS » dans le formulaire), réservé à un réseau interne
 (l'échange n'y est pas chiffré). À ouvrir de core-service vers le worker uniquement. Certificat d'une autorité
@@ -139,11 +150,11 @@ privée : la déposer dans `capsule-runner/certs/agent-ca.pem` (lue par core-ser
 certificat » dans le formulaire.
 
 Dans l'interface : nom, adresse IP ou nom DNS, port de l'agent. Le worker n'est ajouté que si son agent
-répond. core-service se présente à l'agent avec une preuve dérivée de `INTERNAL_TOKEN`, sans compte à stocker.
+répond. core-service se présente à l'agent avec une preuve dérivée du jeton des services, sans compte à stocker.
 
 | Message | Cause |
 |---|---|
-| « L'agent a refusé ce serveur » | `INTERNAL_TOKEN` différent sur le worker |
+| « L'agent a refusé ce serveur » | jeton différent sur le worker (rotation faite sans lui donner la nouvelle valeur) |
 | « Certificat de l'agent refusé » | autorité inconnue : `certs/agent-ca.pem` ou décocher la vérification |
 | « L'agent a fermé la connexion » | HTTPS d'un côté, HTTP de l'autre : aligner la case TLS et la présence de `certs/agent.crt` |
 | « Pas de réponse » | hôte, port ou pare-feu |

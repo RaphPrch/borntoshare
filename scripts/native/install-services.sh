@@ -43,7 +43,9 @@ python_bin() {
 }
 
 do_secrets() {
-  install -d -m 0750 "$ETC"
+  # /etc/borntoshare is crossed by every account of BornToShare (b2s, b2s-web): 0755 root; what is in it keeps its own
+  # rights (secrets 0400 b2s, env files 0640 root:b2s, web-secrets 0440 root:b2s-web)
+  install -d -m 0755 "$ETC"
   install -d -m 0700 "$SECRETS"
   if [ -z "$STAGE" ] && ! id "$USER_NAME" >/dev/null 2>&1; then
     useradd --system --home-dir /var/lib/borntoshare --shell /sbin/nologin "$USER_NAME"
@@ -58,12 +60,29 @@ do_secrets() {
     shred -u "$file" 2>/dev/null || rm -f "$file"
     echo "secret $name : importé de secrets/"
   done
-  # 2. Generated when missing (key of the stored passwords, Redis)
+  # 2. Values of an earlier .env (token of the services, key of the session cookie): moved here, their line removed
   umask 077
+  local var
+  for pair in "b2s_internal_token:INTERNAL_TOKEN" "b2s_principal_key:PRINCIPAL_SIGNING_KEY"; do
+    name=${pair%%:*}; var=${pair##*:}
+    value=$(env_value "$var")
+    if [ -n "$value" ]; then
+      case "$value" in change-me*) ;; *) [ -f "$SECRETS/$name" ] || { printf '%s' "$value" > "$SECRETS/$name"; echo "secret $name : repris de .env ($var)"; } ;; esac
+      [ -n "$STAGE" ] || sed -i "/^$var=/d" .env
+    fi
+  done
+  unset value
+  # 3. Generated when missing (key of the stored passwords, Redis, token of the services, key of the session cookie)
   if [ ! -f "$SECRETS/b2s_master_key" ]; then
     head -c 32 /dev/urandom | base64 | tr -d '\n' > "$SECRETS/b2s_master_key"
     echo "secret b2s_master_key : généré (à sauvegarder à part : /etc/borntoshare/secrets/b2s_master_key)"
   fi
+  for name in b2s_internal_token b2s_principal_key; do
+    if [ ! -f "$SECRETS/$name" ]; then
+      head -c 64 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 48 > "$SECRETS/$name"
+      echo "secret $name : généré"
+    fi
+  done
   if [ ! -f "$SECRETS/b2s_redis" ]; then
     head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40 > "$SECRETS/b2s_redis"
     echo "secret b2s_redis : généré"
@@ -81,7 +100,8 @@ do_secrets() {
     chmod 0400 "$file"
     case "$file" in *.cnf) owner root:root "$file" ;; *) owner "$USER_NAME:$USER_NAME" "$file" ;; esac
   done
-  owner "root:$USER_NAME" "$ETC"
+  owner root:root "$ETC"
+  chmod 0755 "$ETC"
   chmod 0751 "$SECRETS"
 }
 
@@ -182,11 +202,11 @@ do_services() {
   # Environment of each service: what podman-compose.yml gives its container, with the local addresses
   common="TZ=Europe/Paris
 LOG_LEVEL=INFO
-INTERNAL_TOKEN=$(env_value INTERNAL_TOKEN)
+INTERNAL_TOKEN_FILE=/etc/borntoshare/secrets/b2s_internal_token
 PYTHONUNBUFFERED=1"
   env_file auth-service <<ENV
 $common
-PRINCIPAL_SIGNING_KEY=$(env_value PRINCIPAL_SIGNING_KEY)
+PRINCIPAL_SIGNING_KEY_FILE=/etc/borntoshare/secrets/b2s_principal_key
 SESSION_STORE_BACKEND=redis
 REDIS_HOST=127.0.0.1
 REDIS_DB=1

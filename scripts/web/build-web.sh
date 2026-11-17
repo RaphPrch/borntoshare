@@ -3,7 +3,7 @@
 # package that scripts/web/install-web.sh installs on the web server (this host, or the annex web server).
 #   app/           the built interface (SvelteKit adapter-node: build/ + package.json, nothing else to install)
 #   web.env        its environment, without secret (addresses of auth, core and 5S, public origin)
-#   web.secrets    the token of the services and the key of the sessions (0600): the only secret of the package
+#   secrets/       the token of the services and the key of the sessions (files 0600): the only secrets of the package
 #   site.conf      name, HTTPS port, certificate and key for the httpd virtual host
 #   install-web.sh run as root on the web server
 # With podman, the interface is the one of its image (same build as the containers); without, npm builds it here.
@@ -49,8 +49,13 @@ B2S_AUTH_URL=http://$API:$(env_value B2S_AUTH_PORT 8101)
 B2S_CORE_URL=http://$API:$(env_value B2S_CORE_PORT 8102)/api
 B2S_FIVES_URL=$FIVES_URL
 B2S_VERSION=${B2S_VERSION:-}
+INTERNAL_TOKEN_FILE=/etc/borntoshare/web-secrets/b2s_internal_token
+PRINCIPAL_SIGNING_KEY_FILE=/etc/borntoshare/web-secrets/b2s_principal_key
 ENV
-(umask 077; printf 'INTERNAL_TOKEN=%s\nPRINCIPAL_SIGNING_KEY=%s\n' "$(env_value INTERNAL_TOKEN)" "$(env_value PRINCIPAL_SIGNING_KEY)" > "$OUT/web.secrets")
+# The two secrets as files (the interface reads INTERNAL_TOKEN_FILE, PRINCIPAL_SIGNING_KEY_FILE), never in web.env
+install -d -m 0700 "$OUT/secrets"
+(umask 077; secret_value b2s_internal_token > "$OUT/secrets/b2s_internal_token"; secret_value b2s_principal_key > "$OUT/secrets/b2s_principal_key")
+[ -s "$OUT/secrets/b2s_internal_token" ] && [ -s "$OUT/secrets/b2s_principal_key" ] || { echo "Secrets b2s_internal_token / b2s_principal_key absents : make deploy les génère" >&2; exit 1; }
 cat > "$OUT/site.conf" <<CONF
 SERVER_NAME=$(env_value B2S_WEB_SERVER_NAME)
 HTTPS_PORT=$(env_value B2S_WEB_HTTPS_PORT 443)
@@ -61,6 +66,6 @@ install -m 0700 scripts/web/install-web.sh "$OUT/install-web.sh"
 
 if [ "$(env_value B2S_WEB_PUSH ssh)" = bundle ] && [ "$(web_location)" = annex ]; then
   (umask 077; tar -C dist -czf dist/borntoshare-web.tar.gz borntoshare-web)
-  echo "  paquet : $PWD/dist/borntoshare-web.tar.gz (contient web.secrets : à copier par un canal sûr, puis à supprimer)"
+  echo "  paquet : $PWD/dist/borntoshare-web.tar.gz (contient les secrets de l'interface : à copier par un canal sûr, puis à supprimer)"
 fi
 echo "  interface prête : $OUT ($(du -sh "$OUT/app" | cut -f1))"
