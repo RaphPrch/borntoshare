@@ -15,28 +15,32 @@
   import { setCrumbs } from '$lib/stores/crumbs';
 
   /**
-   * One access review: for each folder, every person who reaches it and how (request, AD group, group outside
-   * BornToShare). The guardian keeps or removes each access; « Apply the removals » revokes those a request granted
-   * and marks the others « to remove by hand ». The administrator closes the review: its export is the evidence.
+   * One access review, folder by folder: on the left the folders of the review and what is left to decide in each,
+   * in the middle every person who reaches the chosen folder and how (request, AD group, right set outside
+   * BornToShare), kept or removed with one click. « Summary and application » lists the removals: those a request
+   * granted are revoked (the person leaves the AD group), the others are marked « to remove by hand ». The
+   * administrator closes the review: its export is the evidence.
    */
-  type Via = { kind: string; group?: string | null; code?: string; nested?: boolean };
+  type Via = { kind?: string; group?: string | null; code?: string; nested?: boolean };
   type Item = { id: number; storage_root_id: number; root_name: string; root_path: string; username: string | null; display_name: string | null;
     level: string | null; via: Via[]; revocable: boolean; decision: 'keep' | 'revoke' | null; note: string | null; decided_by: string | null;
     decided_at: string | null; outcome: 'revoked' | 'manual' | 'failed' | null; outcome_detail: string | null };
   type Data = { review: { id: number; name: string; status: 'open' | 'closed'; due_at: string | null; created_at: string; created_by: string | null; closed_at: string | null }; items: Item[] };
+  type Folder = { id: number; name: string; path: string; items: Item[]; left: number };
 
   let reviewId = $derived(Number($page.params.id));
   let isAdmin = $derived(Boolean(($page.data as any)?.me?.is_admin));
+  let me = $derived(String(($page.data as any)?.me?.display_name ?? ($page.data as any)?.me?.username ?? ''));
   let data = $state<Data | null>(null);
   let error = $state('');
-  let filter = $state<'todo' | 'revoke' | 'all'>(readParam('filter', 'todo', ['todo', 'revoke', 'all'] as const));
-  $effect(() => writeParams({ filter: filter === 'todo' ? null : filter }));
-  // Selection (checkboxes, Space) and the row the keyboard is on (↑ ↓)
-  let selected = $state(new Set<number>());
-  let cursor = $state<number | null>(null);
-  let menu = $state<{ item: Item; at: { x: number; y: number } } | null>(null);
+  let view = $state<'decide' | 'summary'>(readParam('view', 'decide', ['decide', 'summary'] as const));
+  let show = $state<'todo' | 'all'>(readParam('show', 'todo', ['todo', 'all'] as const));
+  let folderId = $state<number>(Number(readParam('folder', '0')) || 0);
+  $effect(() => writeParams({ view: view === 'decide' ? null : view, show: show === 'todo' ? null : show, folder: folderId ? String(folderId) : null }));
   $effect(() => setCrumbs([{ label: t('Reviews'), href: '/access-reviews' }, { label: data?.review.name ?? '' }]));
   let query = $state('');
+  let cursor = $state<number | null>(null);
+  let menu = $state<{ item: Item; at: { x: number; y: number } } | null>(null);
   let busy = $state(false);
   let confirmApply = $state(false);
   let confirmClose = $state(false);
@@ -50,19 +54,21 @@
   }
   onMount(load);
 
-  /** Records a decision; the toast offers to undo it (back to what each one was) for a few seconds. */
+  /** Records a decision and changes the lines in place (the whole review is not read again: thousands of lines);
+   * the toast offers to undo it for a few seconds. */
   async function decide(items: Item[], decision: 'keep' | 'revoke' | null, undoable = true) {
     const targets = items.filter((item) => !item.outcome);
-    const ids = targets.map((item) => item.id);
-    if (!ids.length || busy) return;
+    const ids = new Set(targets.map((item) => item.id));
+    if (!ids.size || busy || !data) return;
     const before = new Map(targets.map((item) => [item.id, item.decision]));
     busy = true;
     try {
-      await apiPostData(fetch, `/access-reviews/${reviewId}/decisions`, { item_ids: ids, decision });
-      await load();
-      selected = new Set();
+      await apiPostData(fetch, `/access-reviews/${reviewId}/decisions`, { item_ids: [...ids], decision });
+      const now = new Date().toISOString();
+      data = { ...data, items: data.items.map((item) => (ids.has(item.id) ? { ...item, decision, decided_by: decision ? me || item.decided_by : null, decided_at: decision ? now : null } : item)) };
+      lastBefore = before;
       if (undoable && decision) {
-        const label = decision === 'keep' ? t('{count} access(es) kept.', { count: ids.length }) : t('{count} access(es) to remove.', { count: ids.length });
+        const label = decision === 'keep' ? t('{count} access(es) kept.', { count: ids.size }) : t('{count} access(es) to remove.', { count: ids.size });
         toast.success(label, { action: { label: t('Undo'), run: () => undo(before) } });
       }
     } catch (failure) {
@@ -72,47 +78,84 @@
     }
   }
   async function undo(before: Map<number, Item['decision']>) {
-    // Each one goes back to its own former decision
     for (const decision of ['keep', 'revoke', null] as const) {
       const ids = [...before].filter(([, value]) => value === decision).map(([id]) => id);
       if (ids.length) await decide((data?.items ?? []).filter((item) => ids.includes(item.id)), decision, false);
     }
   }
   let lastBefore: Map<number, Item['decision']> | null = null;
+  const toggleDecision = (item: Item, decision: 'keep' | 'revoke') => decide([item], item.decision === decision ? null : decision, item.decision !== decision);
 
-  // ---- keyboard: ↑ ↓ choose, G keep, R remove, Space select, Z undo the last decision ----
+  // ---- folders of the review (left) and the people of the one chosen ----
+  let open = $derived(data?.review.status === 'open');
+  let needle = $derived(query.trim().toLowerCase());
+  const matches = (item: Item) => !needle || `${item.display_name ?? ''} ${item.username ?? ''} ${item.root_name}`.toLowerCase().includes(needle);
+  let folders = $derived.by(() => {
+    const groups = new Map<number, Folder>();
+    for (const item of data?.items ?? []) {
+      if (!matches(item)) continue;
+      let group = groups.get(item.storage_root_id);
+      if (!group) groups.set(item.storage_root_id, (group = { id: item.storage_root_id, name: item.root_name, path: item.root_path, items: [], left: 0 }));
+      group.items.push(item);
+      if (!item.decision) group.left += 1;
+    }
+    return [...groups.values()].sort((a, b) => Number(b.left > 0) - Number(a.left > 0) || a.name.localeCompare(b.name));
+  });
+  let folder = $derived(folders.find((entry) => entry.id === folderId) ?? folders.find((entry) => entry.left > 0) ?? folders[0] ?? null);
+  let people = $derived((folder?.items ?? []).filter((item) => show === 'all' || !item.decision || item.id === cursor)
+    .sort((a, b) => Number(Boolean(a.decision)) - Number(Boolean(b.decision)) || String(a.display_name ?? '').localeCompare(String(b.display_name ?? ''))));
+  function goFolder(step: 1 | -1) {
+    const index = folders.findIndex((entry) => entry.id === folder?.id);
+    const ahead = step === 1 ? [...folders.slice(index + 1), ...folders.slice(0, index)] : [...folders.slice(0, Math.max(0, index)).reverse()];
+    const next = ahead.find((entry) => entry.left > 0) ?? (step === 1 ? null : ahead[0]);
+    if (next) {
+      folderId = next.id;
+      cursor = null;
+    }
+  }
+
+  // ---- what is said about a person: how the access comes, what to look at ----
+  type Chip = { label: string; tone: 'ok' | 'grey' | 'bad' | 'warn' };
+  const viaChips = (item: Item): Chip[] => item.via.map((via): Chip => via.kind === 'request' ? { label: t('request {code}', { code: via.code ?? '' }), tone: 'ok' }
+    : via.kind === 'outside' ? { label: t('{group} (outside BornToShare)', { group: via.group ?? '' }), tone: 'bad' }
+      : via.kind === 'ad_only' ? { label: t('{group} (added in the directory)', { group: via.group ?? '' }), tone: 'warn' }
+        : { label: `${via.group ?? ''}${via.nested ? ` (${t('nested group')})` : ''}`, tone: 'grey' })
+    .filter((chip, index, all) => chip.label && all.findIndex((other) => other.label === chip.label) === index);
+  const signals = (item: Item): Chip[] => [
+    ...(item.level === 'write' ? [{ label: t('Modify'), tone: 'warn' as const }] : []),
+    ...(!item.username ? [{ label: t('Account unknown in the directory'), tone: 'bad' as const }] : [])
+  ];
+  const hint = (item: Item) => (!item.revocable && !item.decision ? t('Not granted by BornToShare: a removal is done by hand') : '');
+  const initials = (item: Item) => String(item.display_name || item.username || '?').split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase();
+  const OUTCOME = (): Record<string, string> => ({ revoked: t('Removed'), manual: t('To remove by hand'), failed: t('Removal failed') });
+
+  // ---- keyboard: ↑ ↓ choose a person, G keep, R remove, → ← next / previous folder, Z undo ----
   function onKeys(event: KeyboardEvent) {
     const el = event.target as HTMLElement | null;
-    if (!open || menu || confirmApply || confirmClose || event.ctrlKey || event.metaKey || event.altKey
+    if (!open || view !== 'decide' || menu || confirmApply || confirmClose || event.ctrlKey || event.metaKey || event.altKey
       || (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable || el.closest('[role="dialog"]')))) return;
-    const index = flat.findIndex((item) => item.id === cursor);
-    const current = index >= 0 ? flat[index] : null;
+    const index = people.findIndex((item) => item.id === cursor);
+    const current = index >= 0 ? people[index] : null;
     const key = event.key.toLowerCase();
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
-      const next = flat[Math.max(0, Math.min(flat.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)))] ?? flat[0];
+      const next = people[Math.max(0, Math.min(people.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)))] ?? people[0];
       cursor = next?.id ?? null;
-      document.getElementById(`ri-${cursor}`)?.scrollIntoView({ block: 'nearest' });
-    } else if ((key === 'g' || key === 'r') && (selected.size || current)) {
+      document.getElementById(`rv-${cursor}`)?.scrollIntoView({ block: 'nearest' });
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
       event.preventDefault();
-      const targets = selected.size ? flat.filter((item) => selected.has(item.id)) : [current as Item];
-      lastBefore = new Map(targets.map((item) => [item.id, item.decision]));
-      const following = flat[index + 1]?.id ?? null;
-      void decide(targets, key === 'g' ? 'keep' : 'revoke').then(() => { if (!selected.size && filter === 'todo') cursor = following; });
-    } else if (event.key === ' ' && current) {
+      goFolder(event.key === 'ArrowRight' ? 1 : -1);
+    } else if ((key === 'g' || key === 'r') && current) {
       event.preventDefault();
-      toggle(current.id);
+      const following = people[index + 1]?.id ?? null;
+      void decide([current], key === 'g' ? 'keep' : 'revoke').then(() => (cursor = following));
     } else if (key === 'z' && lastBefore) {
       event.preventDefault();
       void undo(lastBefore);
       lastBefore = null;
     }
   }
-  function toggle(id: number) {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    selected = next;
-  }
+
   // ---- right click on a person ----
   function menuItems(item: Item): ContextMenuItem[] {
     const done = Boolean(item.outcome) || !open;
@@ -135,6 +178,28 @@
     else if (key === 'folder') window.location.assign(`/storage-roots?selected=${item.storage_root_id}`);
     else if (key === 'copy') void copyText(item.username ?? '').then((ok) => ok && toast.success(t('Login copied.')));
   }
+
+  // ---- summary and application ----
+  let counts = $derived.by(() => {
+    const items = data?.items ?? [];
+    const revoke = items.filter((item) => item.decision === 'revoke');
+    return {
+      total: items.length, todo: items.filter((item) => !item.decision).length, keep: items.filter((item) => item.decision === 'keep').length, revoke: revoke.length,
+      pending: revoke.filter((item) => !item.outcome).length, auto: revoke.filter((item) => !item.outcome && item.revocable).length,
+      manual: revoke.filter((item) => (!item.outcome && !item.revocable) || item.outcome === 'manual').length,
+      done: revoke.filter((item) => item.outcome === 'revoked').length, failed: revoke.filter((item) => item.outcome === 'failed').length
+    };
+  });
+  let removals = $derived((data?.items ?? []).filter((item) => item.decision === 'revoke'));
+  const how = (item: Item) => item.revocable
+    ? t('Leaves the group {group}', { group: item.via.find((via) => via.group)?.group ?? '—' })
+    : t('By hand: remove the right in the properties of the folder');
+  const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : 0);
+  const due = (iso: string | null) => {
+    if (!iso) return null;
+    const days = Math.ceil((Date.parse(iso) - Date.now()) / 86400000);
+    return days < 0 ? t('{count} day(s) late', { count: -days }) : days === 0 ? t('due today') : t('in {count} day(s)', { count: days });
+  };
 
   async function applyRemovals() {
     confirmApply = false;
@@ -163,139 +228,252 @@
     }
   }
 
-  const viaText = (via: Via[]) => via.map((item) => item.kind === 'request' ? t('request {code}', { code: item.code ?? '' })
-    : item.kind === 'outside' ? t('{group} (outside BornToShare)', { group: item.group ?? '' })
-      : item.kind === 'ad_only' ? t('{group} (added in the directory)', { group: item.group ?? '' }) : `${item.group ?? ''}${item.nested ? ` (${t('nested group')})` : ''}`)
-    .filter((value, index, all) => value && all.indexOf(value) === index).join(' · ');
-  const OUTCOME = (): Record<string, string> => ({ revoked: t('Removed'), manual: t('To remove by hand'), failed: t('Removal failed') });
-
-  let open = $derived(data?.review.status === 'open');
-  let items = $derived((data?.items ?? []).filter((item) => (filter === 'all' || (filter === 'todo' ? !item.decision : item.decision === 'revoke'))
-    && (!query.trim() || `${item.display_name ?? ''} ${item.username ?? ''} ${item.root_name}`.toLowerCase().includes(query.trim().toLowerCase()))));
-  let byFolder = $derived(Object.values(items.reduce((groups: Record<number, { id: number; name: string; path: string; items: Item[] }>, item) => {
-    (groups[item.storage_root_id] ??= { id: item.storage_root_id, name: item.root_name, path: item.root_path, items: [] }).items.push(item);
-    return groups;
-  }, {})));
-  let flat = $derived(byFolder.flatMap((folder) => folder.items));
-  let counts = $derived({ total: data?.items.length ?? 0, todo: data?.items.filter((item) => !item.decision).length ?? 0,
-    keep: data?.items.filter((item) => item.decision === 'keep').length ?? 0, revoke: data?.items.filter((item) => item.decision === 'revoke').length ?? 0,
-    pending: data?.items.filter((item) => item.decision === 'revoke' && !item.outcome).length ?? 0, manual: data?.items.filter((item) => item.outcome === 'manual').length ?? 0 });
-
+  const viaText = (item: Item) => viaChips(item).map((chip) => chip.label).join(' · ');
   const exportEvidence = () => downloadCsv(csvFilename(`revue-acces-${data?.review.name ?? reviewId}`), [
     { header: t('Folder'), value: (row: Item) => row.root_path }, { header: t('Person'), value: (row: Item) => row.display_name ?? '' },
     { header: t('Account'), value: (row: Item) => row.username ?? '' }, { header: t('Access'), value: (row: Item) => row.level ?? '' },
-    { header: t('Through'), value: (row: Item) => viaText(row.via) }, { header: t('Decision'), value: (row: Item) => row.decision ?? '' },
+    { header: t('Through'), value: (row: Item) => viaText(row) }, { header: t('Decision'), value: (row: Item) => row.decision ?? '' },
     { header: t('Decided by'), value: (row: Item) => row.decided_by ?? '' }, { header: t('Date'), value: (row: Item) => row.decided_at ?? '' },
     { header: t('Result'), value: (row: Item) => (row.outcome ? OUTCOME()[row.outcome] : '') + (row.outcome_detail ? ` — ${row.outcome_detail}` : '') }
   ], data?.items ?? []);
 </script>
 
-<section class="v2 rd">
-  <a class="rd__back" href="/access-reviews"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the reviews')}</a>
+<section class="v2 rv">
   {#if error}
     <p class="v2-empty">{error}</p>
   {:else if !data}
-    <LoadingState block skeleton="rows" rows={6} />
+    <LoadingState />
   {:else}
-    <div class="v2-head">
-      <div>
+    <header class="rv__card rv__head">
+      <div class="rv__title">
         <h1>{data.review.name}</h1>
-        <p>{t('Opened {date} by {who}', { date: formatDate(data.review.created_at), who: data.review.created_by ?? '—' })}{data.review.due_at ? ` · ${t('until {date}', { date: formatDate(data.review.due_at) })}` : ''}{data.review.closed_at ? ` · ${t('closed {date}', { date: formatDate(data.review.closed_at) })}` : ''}</p>
+        <p>{t('Opened {date} by {who}', { date: formatDate(data.review.created_at), who: data.review.created_by ?? '—' })}
+          · {t('{count} folder(s)', { count: folders.length })} · {t('{count} access(es)', { count: counts.total })}
+          {#if open && data.review.due_at} · <b class="rv__due">{due(data.review.due_at)}</b>{/if}
+          {#if !open && data.review.closed_at} · {t('closed {date}', { date: formatDate(data.review.closed_at) })}{/if}</p>
       </div>
-      <div class="v2-head__act">
-        <button type="button" class="b2s-btn b2s-btn-secondary" onclick={exportEvidence}><i class="bi bi-download" aria-hidden="true"></i>{t('Export the evidence')}</button>
-        {#if open && counts.pending}<button type="button" class="b2s-btn b2s-btn-primary" disabled={busy} onclick={() => (confirmApply = true)}><i class="bi bi-person-dash" aria-hidden="true"></i>{t('Apply the {count} removal(s)', { count: counts.pending })}</button>{/if}
-        {#if open && isAdmin}<button type="button" class="b2s-btn b2s-btn-secondary" disabled={busy} onclick={() => (confirmClose = true)}>{t('Close the review')}</button>{/if}
+      <div class="rv__acts">
+        <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={exportEvidence}><i class="bi bi-download" aria-hidden="true"></i>{t('Export the evidence')}</button>
       </div>
-    </div>
+      <div class="rv__progress">
+        <div class="rv__bar" role="img" aria-label={t('{pct} % decided', { pct: pct(counts.keep + counts.revoke, counts.total) })}>
+          <i class="is-keep" style={`width:${pct(counts.keep, counts.total)}%`}></i><i class="is-revoke" style={`width:${pct(counts.revoke, counts.total)}%`}></i>
+        </div>
+        <span><b>{pct(counts.keep + counts.revoke, counts.total)} %</b> {t('decided')} · <i class="rv__dot is-keep"></i>{t('{count} kept', { count: counts.keep })}
+          · <i class="rv__dot is-revoke"></i>{t('{count} to remove', { count: counts.revoke })} · <i class="rv__dot"></i>{t('{count} to review', { count: counts.todo })}</span>
+      </div>
+      <nav class="v2-tabs rv__tabs" aria-label={t('Review')}>
+        <button type="button" class:is-on={view === 'decide'} aria-current={view === 'decide' ? 'page' : undefined} onclick={() => (view = 'decide')}>{t('Decide')}{#if counts.todo}<b>{counts.todo}</b>{/if}</button>
+        <button type="button" class:is-on={view === 'summary'} aria-current={view === 'summary' ? 'page' : undefined} onclick={() => (view = 'summary')}>{t('Summary and application')}{#if counts.pending}<b>{counts.pending}</b>{/if}</button>
+      </nav>
+    </header>
 
-    <div class="v2-stats">
-      <div class="v2-stat"><small>{t('To review')}</small><b>{counts.todo}</b><span>{t('of {count} access(es)', { count: counts.total })}</span></div>
-      <div class="v2-stat"><small>{t('Kept')}</small><b>{counts.keep}</b></div>
-      <div class="v2-stat"><small>{t('To remove')}</small><b>{counts.revoke}</b><span>{counts.pending ? t('{count} not applied yet', { count: counts.pending }) : t('all applied')}</span></div>
-      <div class="v2-stat"><small>{t('To remove by hand')}</small><b>{counts.manual}</b><span>{t('accesses that BornToShare did not grant')}</span></div>
-    </div>
-
-    <div class="v2-sh">
-      <div class="v2-seg" role="group" aria-label={t('Show')}>
-        <button type="button" class:is-on={filter === 'todo'} onclick={() => (filter = 'todo')}>{t('To review')} <b>{counts.todo}</b></button>
-        <button type="button" class:is-on={filter === 'revoke'} onclick={() => (filter = 'revoke')}>{t('To remove')} <b>{counts.revoke}</b></button>
-        <button type="button" class:is-on={filter === 'all'} onclick={() => (filter = 'all')}>{t('All')} <b>{counts.total}</b></button>
-      </div>
-      <div class="v2-sh__r"><label class="v2-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={query} placeholder={t('Person, folder…')} aria-label={t('Search')} /></label></div>
-    </div>
-
-    {#if open}
-      <p class="rd__keys"><kbd>↑</kbd><kbd>↓</kbd> {t('choose')} · <kbd>G</kbd> {t('keep')} · <kbd>R</kbd> {t('remove')} · <kbd>{t('Space')}</kbd> {t('select')} · <kbd>Z</kbd> {t('undo')} · {t('right click: every action')}</p>
-    {/if}
-    {#if selected.size}
-      <div class="v2-bulk rd__bulk">
-        <b>{t('{count} selected', { count: selected.size })}</b>
-        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} onclick={() => decide(flat.filter((item) => selected.has(item.id)), 'keep')}><i class="bi bi-check2" aria-hidden="true"></i>{t('Keep')}</button>
-        <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-danger-outline" disabled={busy} onclick={() => decide(flat.filter((item) => selected.has(item.id)), 'revoke')}><i class="bi bi-x-lg" aria-hidden="true"></i>{t('Remove the access')}</button>
-        <button type="button" class="b2s-link-btn" onclick={() => (selected = new Set(flat.filter((item) => !item.outcome).map((item) => item.id)))}>{t('Select all ({count})', { count: flat.filter((item) => !item.outcome).length })}</button>
-        <button type="button" class="b2s-link-btn" onclick={() => (selected = new Set())}>{t('Clear the selection')}</button>
-      </div>
-    {/if}
-    {#each byFolder as folder (folder.id)}
-      <div class="v2-sec rd__folder">
-        <div class="v2-sh"><div><h2>{folder.name}</h2><code class="v2-sub">{folder.path}</code></div>
-          {#if open}<div class="v2-sh__r"><button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy || !folder.items.some((item) => !item.decision)}
-            onclick={() => decide(folder.items.filter((item) => !item.decision), 'keep')}>{t('Keep all the others')}</button></div>{/if}</div>
-        <div class="v2-list">
-          {#each folder.items as item (item.id)}
-            <div class="v2-row rd__row" id={`ri-${item.id}`} class:is-revoke={item.decision === 'revoke'} class:is-cursor={cursor === item.id}
-              role="row" tabindex="-1" onclick={() => (cursor = item.id)} onkeydown={() => null}
-              oncontextmenu={(event) => { event.preventDefault(); cursor = item.id; menu = { item, at: menuPositionFor(event) }; }}>
-              <span>{#if open && !item.outcome}<input type="checkbox" checked={selected.has(item.id)} onchange={() => toggle(item.id)} aria-label={t('Select {name}', { name: item.display_name ?? '' })} />{/if}</span>
-              <span class="v2-nm"><b>{item.display_name ?? item.username}</b><span class="v2-sub">{item.username ?? ''}{item.via.length ? ` · ${viaText(item.via)}` : ''}</span></span>
-              <span><span class={`v2-tag is-${item.level === 'write' ? 'warn' : 'info'}`}>{item.level === 'write' ? t('Modify') : t('Read')}</span></span>
-              <span class="rd__state">
-                {#if item.outcome}<span class={`v2-tag is-${item.outcome === 'revoked' ? 'ok' : item.outcome === 'manual' ? 'warn' : 'bad'}`} title={item.outcome_detail ?? ''}>{OUTCOME()[item.outcome]}</span>
-                  {#if item.outcome_detail}<small>{item.outcome_detail}</small>{/if}
-                {:else if item.decision}<small>{item.decision === 'keep' ? t('Kept') : t('To remove')} · {item.decided_by ?? ''} {item.decided_at ? formatDateTime(item.decided_at) : ''}</small>
-                {:else if !item.revocable}<small>{t('Not granted by BornToShare: a removal is done by hand')}</small>{/if}
-              </span>
-              <span class="rd__acts">
-                {#if open && !item.outcome}
-                  <button type="button" class="b2s-btn b2s-btn-sm" class:b2s-btn-primary={item.decision === 'keep'} class:b2s-btn-secondary={item.decision !== 'keep'} disabled={busy}
-                    onclick={() => decide([item], item.decision === 'keep' ? null : 'keep')}><i class="bi bi-check2" aria-hidden="true"></i>{t('Keep')}</button>
-                  <button type="button" class="b2s-btn b2s-btn-sm" class:b2s-btn-danger={item.decision === 'revoke'} class:b2s-btn-secondary={item.decision !== 'revoke'} disabled={busy}
-                    onclick={() => decide([item], item.decision === 'revoke' ? null : 'revoke')}><i class="bi bi-x-lg" aria-hidden="true"></i>{t('Remove the access')}</button>
-                {/if}
-              </span>
-            </div>
+    {#if view === 'decide'}
+      <div class="rv__work">
+        <aside class="rv__card rv__rail" aria-label={t('Folders of the review')}>
+          <label class="v2-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={query} placeholder={t('Folder or person…')} aria-label={t('Find a folder or a person')} /></label>
+          <span class="rv__railhead">{t('Folders · {count}', { count: folders.length })}</span>
+          {#each folders as entry (entry.id)}
+            {@const done = entry.items.length - entry.left}
+            <button type="button" class="rv__folder" class:is-on={entry.id === folder?.id} aria-current={entry.id === folder?.id ? 'true' : undefined}
+              onclick={() => { folderId = entry.id; cursor = null; }}>
+              <span class="rv__fname"><span>{entry.name}</span><i class="rv__fbar"><i style={`width:${pct(done, entry.items.length)}%`}></i></i></span>
+              {#if entry.left}<b class="rv__left">{entry.left}</b>{:else}<i class="bi bi-check2 rv__ok" aria-label={t('All decided')}></i>{/if}
+            </button>
+          {:else}
+            <p class="rv__none">{t('No folder matches.')}</p>
           {/each}
+        </aside>
+
+        <div class="rv__main">
+          {#if folder}
+            <div class="rv__card rv__fhead">
+              <div class="rv__ftitle"><h2>{folder.name}</h2><code>{folder.path}</code></div>
+              <span class="rv__fsum">{folder.left ? t('{left} access(es) to review out of {count}', { left: folder.left, count: folder.items.length }) : t('Everything is decided here')}</span>
+              <div class="v2-seg" role="group" aria-label={t('Show')}>
+                <button type="button" class:is-on={show === 'todo'} onclick={() => (show = 'todo')}>{t('To review')}</button>
+                <button type="button" class:is-on={show === 'all'} onclick={() => (show = 'all')}>{t('All')}</button>
+              </div>
+              {#if open && folder.left}
+                <button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" disabled={busy} onclick={() => decide(folder?.items.filter((item) => !item.decision) ?? [], 'keep')}>{t('Keep all the others')}</button>
+              {/if}
+              {#if open && !folder.left && folders.some((entry) => entry.left)}
+                <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" onclick={() => goFolder(1)}>{t('Next folder')} <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+              {/if}
+            </div>
+
+            {#each people as item (item.id)}
+              <article id={`rv-${item.id}`} class="rv__card rv__person" class:is-keep={item.decision === 'keep'} class:is-revoke={item.decision === 'revoke'} class:is-cursor={cursor === item.id}
+                oncontextmenu={(event) => { event.preventDefault(); menu = { item, at: menuPositionFor(event) }; }}>
+                <span class="rv__avatar" aria-hidden="true">{initials(item)}</span>
+                <div class="rv__who">
+                  <span class="rv__name"><b>{item.display_name ?? item.username ?? '—'}</b><small>{item.username ?? t('account unknown')}</small></span>
+                  <span class="rv__chips">
+                    <span class={`rv__chip is-${item.level === 'write' ? 'dark' : 'grey'}`}>{item.level === 'write' ? t('Modify') : t('Read')}</span>
+                    {#each viaChips(item) as chip (chip.label)}<span class={`rv__chip is-${chip.tone}`}>{chip.label}</span>{/each}
+                    {#each signals(item).filter((chip) => chip.label !== t('Modify')) as chip (chip.label)}<span class={`rv__chip is-${chip.tone}`}>{chip.label}</span>{/each}
+                  </span>
+                  {#if item.outcome}<small class={`rv__note is-${item.outcome}`}>{OUTCOME()[item.outcome]}{item.outcome_detail ? ` — ${item.outcome_detail}` : ''}</small>
+                  {:else if item.decision}<small class="rv__note">{item.decision === 'keep' ? t('Kept') : t('To remove')} · {item.decided_by ?? ''} {item.decided_at ? formatDateTime(item.decided_at) : ''}</small>
+                  {:else if hint(item)}<small class="rv__note is-warn">{hint(item)}</small>{/if}
+                </div>
+                <div class="rv__choice" role="group" aria-label={t('Decision for {name}', { name: item.display_name ?? item.username ?? '' })}>
+                  <button type="button" class="is-keep" class:is-on={item.decision === 'keep'} aria-pressed={item.decision === 'keep'} disabled={!open || Boolean(item.outcome) || busy}
+                    onclick={() => toggleDecision(item, 'keep')}><i class="bi bi-check2" aria-hidden="true"></i>{t('Keep')}</button>
+                  <button type="button" class="is-revoke" class:is-on={item.decision === 'revoke'} aria-pressed={item.decision === 'revoke'} disabled={!open || Boolean(item.outcome) || busy}
+                    onclick={() => toggleDecision(item, 'revoke')}><i class="bi bi-x-lg" aria-hidden="true"></i>{t('Withdraw')}</button>
+                </div>
+              </article>
+            {:else}
+              <p class="v2-empty">{t('Everything is decided here.')} {#if folders.some((entry) => entry.left)}<button type="button" class="b2s-link-btn" onclick={() => goFolder(1)}>{t('Next folder')}</button>{/if}</p>
+            {/each}
+            {#if open}
+              <p class="rv__keys"><kbd>↑</kbd><kbd>↓</kbd> {t('choose')} · <kbd>G</kbd> {t('keep')} · <kbd>R</kbd> {t('remove')} · <kbd>→</kbd> {t('next folder')} · <kbd>Z</kbd> {t('undo')} · {t('right click: every action')}</p>
+            {/if}
+          {:else}
+            <p class="v2-empty">{t('Nothing to review in this review.')}</p>
+          {/if}
         </div>
       </div>
     {:else}
-      <p class="v2-empty">{filter === 'todo' ? t('Everything is reviewed here.') : t('Nothing here for this filter.')}</p>
-    {/each}
+      <div class="rv__stats">
+        <div class="rv__card rv__stat"><span>{t('Removed automatically')}</span><b>{counts.auto + counts.done}</b><small>{counts.done ? t('{count} already removed', { count: counts.done }) : t('granted by a request: the person leaves the AD group of the folder')}</small></div>
+        <div class="rv__card rv__stat is-warn"><span>{t('To remove by hand')}</span><b>{counts.manual}</b><small>{t('rights set outside BornToShare: the way to do it comes with each one')}</small></div>
+        <div class="rv__card rv__stat"><span>{t('Still to decide')}</span><b>{counts.todo}</b><small>{t('the guardians are reminded by the notifications')}</small></div>
+      </div>
+
+      <section class="rv__card rv__list" aria-label={t('Accesses to remove')}>
+        <div class="rv__lhead">
+          <h2>{t('Accesses to remove')}</h2>
+          <span>{t('{count} decision(s) « remove »', { count: counts.revoke })}</span>
+          {#if open && counts.pending}
+            <button type="button" class="b2s-btn b2s-btn-sm rv__apply" disabled={busy} onclick={() => (confirmApply = true)}>{t('Apply the {count} removal(s)', { count: counts.pending })}</button>
+          {/if}
+        </div>
+        <div class="rv__row is-head"><span>{t('Person')}</span><span>{t('Folder')}</span><span>{t('How')}</span><span>{t('Result')}</span></div>
+        {#each removals as item (item.id)}
+          <div class="rv__row">
+            <span><b>{item.display_name ?? item.username ?? '—'}</b> <small>{item.username ?? ''}</small></span>
+            <span>{item.root_name}</span>
+            <span class="rv__how">{how(item)}</span>
+            <span class={`rv__res is-${item.outcome ?? (item.revocable ? 'pending' : 'manual')}`}>{item.outcome ? OUTCOME()[item.outcome] : item.revocable ? t('waiting') : t('To remove by hand')}</span>
+          </div>
+        {:else}
+          <p class="v2-empty">{t('No access to remove so far.')}</p>
+        {/each}
+      </section>
+
+      {#if open && isAdmin}
+        <section class="rv__card rv__close">
+          <div><h2>{t('Close the review')}</h2><p>{t('The review becomes read only; its export (who decided what, when, and the result) is the evidence for the audit.')}</p></div>
+          <button type="button" class="b2s-btn b2s-btn-secondary" disabled={busy} onclick={() => (confirmClose = true)}>{t('Close the review')}</button>
+        </section>
+      {/if}
+    {/if}
   {/if}
 </section>
 
 <svelte:window onkeydown={onKeys} />
 <ContextMenu open={Boolean(menu)} title={menu?.item.display_name ?? ''} subtitle={menu?.item.root_name ?? ''} items={menu ? menuItems(menu.item) : []}
   at={menu?.at ?? { x: 0, y: 0 }} onClose={() => (menu = null)} onPick={pick} />
-
 <ConfirmActionModal open={confirmApply} title={t('Apply the removals')}
   subtitle={t('{count} access(es) decided « remove »: those granted by a request are revoked now (the person leaves the AD group of the folder); the others are marked « to remove by hand ».', { count: counts.pending })}
   confirmLabel={t('Remove the accesses')} onConfirm={applyRemovals} onClose={() => (confirmApply = false)} />
 <ConfirmActionModal open={confirmClose} title={t('Close the review')}
-  subtitle={counts.todo ? t('{count} access(es) are not reviewed: they stay as they are, and the export will say so.', { count: counts.todo }) : t('Every access is reviewed. The review becomes the evidence of the control.')}
+  subtitle={t('The review becomes read only; its export (who decided what, when, and the result) is the evidence for the audit.')}
   confirmLabel={t('Close the review')} onConfirm={closeReview} onClose={() => (confirmClose = false)} />
 
 <style>
-  .rd { display: grid; gap: 16px; padding: var(--b2s-page-padding); }
-  .rd__back { display: inline-flex; gap: 6px; align-items: center; width: fit-content; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); text-decoration: none; }
-  .rd__folder h2 { margin: 0; font-size: 17px; }
-  .rd__row { grid-template-columns: 24px minmax(220px, 2fr) 110px minmax(200px, 1.5fr) auto; }
-  .rd__row.is-cursor { box-shadow: inset 3px 0 0 var(--b2s-color-text); }
-  .rd__keys { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .rd__keys kbd { margin: 0 2px; padding: 0 5px; border: 1px solid var(--b2s-color-border); border-radius: 5px; font-size: 11px; }
-  .rd__bulk { position: sticky; top: calc(var(--b2s-shell-top) + 4px); z-index: 5; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  .rd__row.is-revoke { background: #fff5f5; }
-  .rd__state { display: grid; gap: 2px; }
-  .rd__state small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .rd__acts { display: flex; gap: 6px; justify-content: flex-end; }
+  .rv { display: grid; gap: 14px; }
+  .rv__card { border: 1px solid var(--b2s-color-border-soft); border-radius: 16px; background: #fff; }
+  .rv__head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 16px; padding: 16px 18px 0; }
+  .rv__title h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+  .rv__title p { margin: 4px 0 0; color: var(--b2s-color-text-muted); font-size: 13px; }
+  .rv__due { color: #8a4b00; }
+  .rv__acts { display: flex; gap: 8px; align-items: flex-start; }
+  .rv__progress { grid-column: 1 / -1; display: grid; gap: 6px; font-size: 12.5px; color: var(--b2s-color-text-soft); }
+  .rv__bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #eef0f4; }
+  .rv__bar i, .rv__fbar i { display: block; height: 100%; }
+  .is-keep.rv__dot, .rv__bar .is-keep { background: #0e1218; }
+  .is-revoke.rv__dot, .rv__bar .is-revoke { background: #c23a3a; }
+  .rv__dot { display: inline-block; width: 9px; height: 9px; margin: 0 4px -1px 2px; border-radius: 3px; background: #dde1e8; }
+  .rv__tabs { grid-column: 1 / -1; margin: 0 -18px; padding: 0 18px; border-bottom: 0; }
+  .rv__tabs button { background: none; font: inherit; font-size: 14px; color: var(--b2s-color-text-muted); cursor: pointer; }
+  .rv__work { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .rv__rail { position: sticky; top: calc(var(--b2s-shell-top) + 12px); display: grid; gap: 4px; max-height: calc(100vh - var(--b2s-shell-top) - 80px); overflow: auto; padding: 10px; }
+  .rv__railhead { padding: 8px 6px 2px; color: var(--b2s-color-text-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .rv__folder { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: none; font: inherit; font-size: 13.5px; color: var(--b2s-color-text); text-align: left; cursor: pointer; }
+  .rv__folder:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .rv__folder.is-on { background: #0e1218; color: #fff; }
+  .rv__fname { flex: 1; min-width: 0; display: grid; gap: 6px; }
+  .rv__fname > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .rv__fbar { display: block; height: 4px; border-radius: 999px; overflow: hidden; background: #eef0f4; }
+  .rv__fbar i { background: #0e1218; }
+  .rv__folder.is-on .rv__fbar { background: #3f4755; }
+  .rv__folder.is-on .rv__fbar i { background: #fff; }
+  .rv__left { flex: none; padding: 1px 8px; border-radius: 999px; background: #eef0f4; color: #3f4755; font-size: 12px; }
+  .rv__folder.is-on .rv__left { background: #fff; color: #0e1218; }
+  .rv__ok { color: #0b7a4b; }
+  .rv__folder.is-on .rv__ok { color: #fff; }
+  .rv__none { margin: 8px; color: var(--b2s-color-text-muted); font-size: 13px; }
+  .rv__main { display: grid; gap: 10px; min-width: 0; }
+  .rv__fhead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px; }
+  .rv__ftitle { flex: 1 1 280px; min-width: 0; display: grid; }
+  .rv__ftitle h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  .rv__ftitle code { color: var(--b2s-color-text-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rv__fsum { color: var(--b2s-color-text-soft); font-size: 13px; }
+  .rv__person { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 16px; }
+  .rv__person.is-keep { border-color: #cdd2db; }
+  .rv__person.is-revoke { border-color: #f3c9c9; background: #fffafa; }
+  .rv__person.is-cursor { box-shadow: inset 3px 0 0 #0e1218; }
+  .rv__avatar { width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #eef0f4; font-size: 13px; font-weight: 700; }
+  .rv__who { flex: 1 1 260px; min-width: 0; display: grid; gap: 6px; }
+  .rv__name { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+  .rv__name b { font-size: 15px; font-weight: 600; }
+  .rv__name small { color: var(--b2s-color-text-muted); font-size: 12.5px; }
+  .rv__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rv__chip { padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .rv__chip.is-dark { background: #0e1218; color: #fff; }
+  .rv__chip.is-grey { background: #eef0f4; color: #3f4755; }
+  .rv__chip.is-ok { background: #ddf5e9; color: #0b7a4b; }
+  .rv__chip.is-warn { background: #fdefd9; color: #8a4b00; }
+  .rv__chip.is-bad { background: #fce6e6; color: #a32626; }
+  .rv__note { color: var(--b2s-color-text-muted); font-size: 12.5px; }
+  .rv__note.is-warn, .rv__note.is-manual { color: #8a4b00; }
+  .rv__note.is-revoked { color: #0b7a4b; }
+  .rv__note.is-failed { color: #a32626; }
+  .rv__choice { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--b2s-color-border-soft); border-radius: 10px; background: #f6f7f9; }
+  .rv__choice button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 13px; font-weight: 600; color: #3f4755; cursor: pointer; }
+  .rv__choice button:disabled { cursor: default; opacity: 0.6; }
+  .rv__choice button.is-keep.is-on { background: #0e1218; color: #fff; opacity: 1; }
+  .rv__choice button.is-revoke.is-on { background: #c23a3a; color: #fff; opacity: 1; }
+  .rv__choice button:not(:disabled):not(.is-on):hover { background: #fff; }
+  .rv__keys { margin: 4px 0 0; color: var(--b2s-color-text-muted); font-size: 12.5px; }
+  .rv__keys kbd { margin: 0 2px; padding: 0 5px; border: 1px solid var(--b2s-color-border); border-radius: 5px; background: #fff; font-size: 11px; }
+  .rv__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .rv__stat { display: grid; gap: 6px; padding: 16px; }
+  .rv__stat span { color: var(--b2s-color-text-muted); font-size: 12px; }
+  .rv__stat b { font-size: 28px; font-weight: 600; }
+  .rv__stat small { color: var(--b2s-color-text-soft); font-size: 13px; }
+  .rv__stat.is-warn { border-color: #f0d3a8; }
+  .rv__stat.is-warn span, .rv__stat.is-warn b { color: #8a4b00; }
+  .rv__list { overflow: hidden; }
+  .rv__lhead { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--b2s-color-border-soft); }
+  .rv__lhead h2 { margin: 0; font-size: 15px; font-weight: 600; }
+  .rv__lhead span { color: var(--b2s-color-text-muted); font-size: 13px; }
+  .rv__apply { margin-left: auto; border: 0; background: #c23a3a; color: #fff; }
+  .rv__apply:hover:not(:disabled) { background: #a32626; color: #fff; }
+  .rv__row { display: grid; grid-template-columns: minmax(200px, 1.2fr) minmax(160px, 1fr) minmax(220px, 1.4fr) 160px; gap: 12px; align-items: center; min-height: 44px; padding: 0 16px;
+    border-bottom: 1px solid #f4f5f7; font-size: 13px; }
+  .rv__row.is-head { min-height: 36px; color: var(--b2s-color-text-muted); font-size: 12px; font-weight: 500; }
+  .rv__row small { color: var(--b2s-color-text-muted); }
+  .rv__how { color: var(--b2s-color-text-soft); }
+  .rv__res { justify-self: start; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #eef0f4; color: #3f4755; }
+  .rv__res.is-revoked { background: #ddf5e9; color: #0b7a4b; }
+  .rv__res.is-manual { background: #fdefd9; color: #8a4b00; }
+  .rv__res.is-failed { background: #fce6e6; color: #a32626; }
+  .rv__close { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px; }
+  .rv__close div { flex: 1 1 360px; }
+  .rv__close h2 { margin: 0; font-size: 15px; font-weight: 600; }
+  .rv__close p { margin: 4px 0 0; color: var(--b2s-color-text-muted); font-size: 13px; }
 </style>

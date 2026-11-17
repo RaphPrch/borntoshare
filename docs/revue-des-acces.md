@@ -19,6 +19,19 @@ accès aux dossiers gouvernés par leurs gardiens ; la revue close est la preuve
 
 Chaque ouverture, décision, application et clôture est dans le journal d'audit chaîné (`access_review.*`).
 
+À l'écran :
+
+- **La liste** : une carte par revue (avancement gardés / à retirer / à revoir, échéance colorée : à moins de 7 jours,
+  en retard), les chiffres des revues en cours (accès à revoir, échéance la plus proche, retraits à appliquer). On ouvre
+  une revue dans un panneau latéral : périmètre (tous les dossiers, ou une sélection par nom, zone ou serveur),
+  échéance en un clic (2 semaines, 3 semaines, 1 mois) ou une date.
+- **Décider** : à gauche les dossiers de la revue et ce qui reste à décider dans chacun ; au centre une carte par
+  personne (niveau, chemin d'accès, accès accordé hors BornToShare), **Garder** / **Retirer** en un clic. Clavier :
+  ↑ ↓ choisir, G garder, R retirer, → ← dossier suivant ou précédent, Z annuler ; clic droit pour toutes les actions.
+  Une décision met la ligne à jour sur place : la revue n'est pas relue en entier.
+- **Bilan et application** : retraits automatiques, retraits à la main, accès encore à décider ; la liste des retraits
+  avec la façon de les faire et leur résultat ; « Appliquer les retraits » ; la clôture (administrateurs).
+
 ## Technique
 
 - Tables `access_reviews` et `access_review_items` (paquet `164_access_reviews.sql`).
