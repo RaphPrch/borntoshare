@@ -33,7 +33,7 @@ if (-not (Test-Path -LiteralPath $local -PathType Container)) { Send-Result @{ e
 $cut = $base.Length + 1
 $now = [DateTime]::UtcNow
 $watch = [Diagnostics.Stopwatch]::StartNew()
-$state = @{ denied = 0; last = [DateTime]::MinValue; listed = 0; pending = 0; aclFailed = 0 }
+$state = @{ denied = 0; last = [DateTime]::MinValue; listed = 0; pending = 0; aclFailed = 0; aclEntries = 0; aclKept = 0; aclCut = 0 }
 # Depth-first walk that goes on when a folder cannot be read (counted in $denied)
 function Walk([string]$root, [scriptblock]$onFile, [scriptblock]$onDir) {
   $stack = New-Object 'System.Collections.Generic.Stack[System.IO.DirectoryInfo]'
@@ -70,11 +70,15 @@ _MEASURE = _COMMON + r"""
 $junk = [regex]::new($p.junk_pattern, 'IgnoreCase')
 $t = @{ bytes = [long]0; files = 0; folders = 0 }
 $top = @{}; $types = @{}; $dirStats = @{}; $dirAcls = @{}
-# Rights of each folder (5S scanner only, with_dirs): its entries « account|R/W/F|inherited » (at most 64, n = how many
-# there are) and whether its inheritance is broken (rules protected); the folder walked first, then each sub-folder
-# met. Read as SIDs and translated one by one: an account deleted from the directory (orphan SID) stays as its SID
-# (u = how many) instead of making the whole list unreadable.
+# Rights of each folder (5S scanner only, with_dirs): its entries « account|R/W/F|inherited » as COLLECTED (at most
+# acl_max, 64 by default: n = how many the folder has, c = how many are kept, t = cut) and whether its inheritance is
+# broken (rules protected); the folder walked first, then each sub-folder met. Read as SIDs and translated one by one:
+# an account deleted from the directory (orphan SID) stays as its SID (u = how many) instead of making the whole list
+# unreadable. R/W/F is a reading of the rights mask, not the effective rights of Windows. With acl_sets, the same list
+# of entries is sent once (s = its number in acl_sets): most folders inherit the same rights.
 $sidNames = @{}
+$aclMax = 64; if ($p.acl_max) { $aclMax = [int]$p.acl_max }
+$aclSets = @{}; $aclSetList = New-Object 'System.Collections.Generic.List[object]'
 $aclOf = {
   param($path)
   try {
@@ -89,14 +93,22 @@ $aclOf = {
         try { $sidNames[$sid] = $rule.IdentityReference.Translate([System.Security.Principal.NTAccount]).Value } catch { $sidNames[$sid] = $null }
       }
       $who = $sidNames[$sid]; if (-not $who) { $who = $sid; $unresolved++ }
-      if ($entries.Count -ge 64) { continue }
+      if ($entries.Count -ge $aclMax) { continue }
       $rights = [string]$rule.FileSystemRights
       $level = if ($rights -match 'FullControl') { 'F' } elseif ($rights -match 'Modify|Write') { 'W' } else { 'R' }
       if ([string]$rule.AccessControlType -eq 'Deny') { $level = '!' + $level }
       $inh = if ($rule.IsInherited) { '1' } else { '0' }
       $entries.Add("$who|$level|$inh")
     }
-    $dirAcls[$relDir] = [pscustomobject]@{ p = $relDir; x = [bool]$sec.AreAccessRulesProtected; e = $entries.ToArray(); n = $total; u = $unresolved }
+    $cutHere = [bool]($total -gt $entries.Count)
+    $state.aclEntries += $total; $state.aclKept += $entries.Count; if ($cutHere) { $state.aclCut++ }
+    if ($p.acl_sets) {
+      $sig = $entries -join "`n"
+      if (-not $aclSets.ContainsKey($sig)) { $aclSets[$sig] = $aclSetList.Count; $aclSetList.Add([pscustomobject]@{ i = $aclSetList.Count; e = $entries.ToArray() }) }
+      $dirAcls[$relDir] = [pscustomobject]@{ p = $relDir; x = [bool]$sec.AreAccessRulesProtected; s = [int]$aclSets[$sig]; n = $total; c = $entries.Count; t = $cutHere; u = $unresolved }
+    } else {
+      $dirAcls[$relDir] = [pscustomobject]@{ p = $relDir; x = [bool]$sec.AreAccessRulesProtected; e = $entries.ToArray(); n = $total; c = $entries.Count; t = $cutHere; u = $unresolved }
+    }
   } catch { $state.aclFailed++ }
 }
 # Every folder met has its line (5S scanner only, with_dirs), files or not: an empty folder shows in the explorer
@@ -225,6 +237,9 @@ if ($p.with_dirs) {
   $r.dirs_total = [int]$dirStats.Count; $r.dirs_truncated = [bool]($dirStats.Count -gt 50000)
   $r.acls_truncated = [bool]($dirAcls.Count -gt 50000); $r.acls_failed = [int]$state.aclFailed
   $r.acls = @($dirAcls.Values | Select-Object -First 50000)
+  if ($p.acl_sets) { $r.acl_sets = @($aclSetList | ForEach-Object { $_ }) }
+  # What was collected, said as such: entries of every folder, those kept, folders whose list was cut
+  $r.acl_summary = [ordered]@{ folders = [int]$dirAcls.Count; entries = [int]$state.aclEntries; kept = [int]$state.aclKept; cut_folders = [int]$state.aclCut; failed = [int]$state.aclFailed; max_per_folder = [int]$aclMax }
   $r.dirs = @($dirStats.GetEnumerator() | Select-Object -First 50000 | ForEach-Object {
     $l = $null; if ($_.Value.l -gt [DateTime]::MinValue) { $l = $_.Value.l.ToString('yyyy-MM-ddTHH:mm:ssZ') }
     $acc = $null; if ($_.Value.a -gt [DateTime]::MinValue) { $acc = $_.Value.a.ToString('yyyy-MM-ddTHH:mm:ssZ') }

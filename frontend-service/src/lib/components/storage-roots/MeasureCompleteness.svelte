@@ -22,6 +22,12 @@
       ACL_UNREADABLE: t('Rights of {count} folder(s) could not be read'),
       DENIED_FOLDERS: t('{count} folder(s) could not be opened (access refused): their content is not counted'),
       UNREADABLE_PIECES: t('{count} part(s) unreadable: their previous measure is kept'),
+      PIECES_UNREADABLE: t('{count} part(s) could not be opened: their previous measure is kept'),
+      PIECES_MISSING: t('{count} part(s) disappeared during the measure: their previous measure is kept until the next one'),
+      PIECES_FAILED: t('{count} part(s) stopped on an error: their previous measure is kept'),
+      INVENTORY_PENDING: t('File list of {count} part(s) not written: the explorer still shows the previous one'),
+      ACL_ENTRIES_CUT: t('Rights of {count} folder(s) have more entries than kept: their list is cut'),
+      FINGERPRINTS_FAILED: t('{count} file(s) could not be fingerprinted: duplicates are an estimate'),
       DUPLICATES_SAMPLED: t('Duplicates searched among part of the same-size files only ({count} part(s))'),
       FINGERPRINTS_PENDING: t('Fingerprints not all computed yet ({count} part(s)): duplicates are provisional')
     };

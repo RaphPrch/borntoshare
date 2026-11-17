@@ -1871,5 +1871,11 @@
   "{count} refused.": "{count} refused.",
   "Put the tag « {tag} » on {count} folder(s)?": "Put the tag « {tag} » on {count} folder(s)?",
   "Take the tag « {tag} » off {count} folder(s)?": "Take the tag « {tag} » off {count} folder(s)?",
-  "Only an administrator can apply this change.": "Only an administrator can apply this change."
+  "Only an administrator can apply this change.": "Only an administrator can apply this change.",
+  "{count} part(s) could not be opened: their previous measure is kept": "{count} part(s) could not be opened: their previous measure is kept",
+  "{count} part(s) disappeared during the measure: their previous measure is kept until the next one": "{count} part(s) disappeared during the measure: their previous measure is kept until the next one",
+  "{count} part(s) stopped on an error: their previous measure is kept": "{count} part(s) stopped on an error: their previous measure is kept",
+  "File list of {count} part(s) not written: the explorer still shows the previous one": "File list of {count} part(s) not written: the explorer still shows the previous one",
+  "Rights of {count} folder(s) have more entries than kept: their list is cut": "Rights of {count} folder(s) have more entries than kept: their list is cut",
+  "{count} file(s) could not be fingerprinted: duplicates are an estimate": "{count} file(s) could not be fingerprinted: duplicates are an estimate"
 }

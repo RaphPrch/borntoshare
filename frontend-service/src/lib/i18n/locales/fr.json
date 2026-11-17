@@ -5746,5 +5746,11 @@
   "{count} refused.": "{count} refusé(s).",
   "Put the tag « {tag} » on {count} folder(s)?": "Poser le tag « {tag} » sur {count} dossier(s) ?",
   "Take the tag « {tag} » off {count} folder(s)?": "Retirer le tag « {tag} » de {count} dossier(s) ?",
-  "Only an administrator can apply this change.": "Seul un administrateur peut appliquer ce changement."
+  "Only an administrator can apply this change.": "Seul un administrateur peut appliquer ce changement.",
+  "{count} part(s) could not be opened: their previous measure is kept": "{count} partie(s) impossible(s) à ouvrir : leur mesure précédente est conservée",
+  "{count} part(s) disappeared during the measure: their previous measure is kept until the next one": "{count} partie(s) disparue(s) pendant la mesure : leur mesure précédente est conservée jusqu'à la suivante",
+  "{count} part(s) stopped on an error: their previous measure is kept": "{count} partie(s) arrêtée(s) sur une erreur : leur mesure précédente est conservée",
+  "File list of {count} part(s) not written: the explorer still shows the previous one": "Liste des fichiers de {count} partie(s) non écrite : l'explorateur montre encore la précédente",
+  "Rights of {count} folder(s) have more entries than kept: their list is cut": "Les droits de {count} dossier(s) ont plus d'entrées que celles conservées : leur liste est tronquée",
+  "{count} file(s) could not be fingerprinted: duplicates are an estimate": "{count} fichier(s) sans empreinte calculable : les doublons sont une estimation"
 }
